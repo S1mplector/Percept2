@@ -60,11 +60,14 @@ public class FxLauncher extends Application {
         // A = Auto-play toggle
         handleToggleAutoPlay();
       } else if (e.getCode() == KeyCode.H) {
-        // H = Hide text box (future)
+        // H = Hide UI
+        handleToggleUI();
       } else if (e.getCode() == KeyCode.F5) {
-        // F5 = Quick save (future)
+        // F5 = Quick save
+        handleQuickSave();
       } else if (e.getCode() == KeyCode.F9) {
-        // F9 = Quick load (future)
+        // F9 = Quick load
+        handleQuickLoad();
       }
     });
 
@@ -134,6 +137,32 @@ public class FxLauncher extends Application {
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof VnScene) {
       ((VnScene) currentScene).toggleAutoPlayMode();
+    }
+  }
+
+  private void handleToggleUI() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene) {
+      ((VnScene) currentScene).getState().toggleUiHidden();
+    }
+  }
+
+  private void handleQuickSave() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene) {
+      boolean success = ((VnScene) currentScene).quickSave();
+      System.out.println(success ? "Quick saved!" : "Quick save failed!");
+    }
+  }
+
+  private void handleQuickLoad() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene) {
+      boolean success = ((VnScene) currentScene).quickLoad();
+      System.out.println(success ? "Quick loaded!" : "Quick load failed!");
     }
   }
 

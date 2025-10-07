@@ -2,6 +2,7 @@ package com.jvn.core.vn;
 
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.scene.Scene;
+import com.jvn.core.vn.save.VnSaveData;
 
 /**
  * Scene implementation for visual novel gameplay
@@ -11,12 +12,14 @@ public class VnScene implements Scene {
   private VnScenario scenario;
   private long textRevealTimer;
   private AudioFacade audioFacade; // Optional audio support
+  private VnQuickSaveManager quickSaveManager;
 
   public VnScene(VnScenario scenario) {
     this.scenario = scenario;
     this.state = new VnState();
     this.state.setScenario(scenario);
     this.textRevealTimer = 0;
+    this.quickSaveManager = new VnQuickSaveManager();
   }
 
   public VnState getState() {
@@ -25,6 +28,10 @@ public class VnScene implements Scene {
 
   public void setAudioFacade(AudioFacade audio) {
     this.audioFacade = audio;
+  }
+
+  public void setQuickSaveManager(VnQuickSaveManager manager) {
+    this.quickSaveManager = manager;
   }
 
   @Override
@@ -261,6 +268,19 @@ public class VnScene implements Scene {
       state.setSkipMode(false); // Can't have both
       state.resetAutoPlayTimer();
     }
+  }
+
+  public boolean quickSave() {
+    return quickSaveManager != null && quickSaveManager.quickSave(state);
+  }
+
+  public boolean quickLoad() {
+    if (quickSaveManager == null) return false;
+    return quickSaveManager.applyQuickLoad(state, scenario);
+  }
+
+  public boolean hasQuickSave() {
+    return quickSaveManager != null && quickSaveManager.hasQuickSave();
   }
 
   public VnScenario getScenario() {

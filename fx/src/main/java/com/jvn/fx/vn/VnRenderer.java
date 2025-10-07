@@ -54,12 +54,17 @@ public class VnRenderer {
       }
     }
 
+    // Apply transition effect if active
+    if (state.getActiveTransition() != null) {
+      renderTransition(state, width, height);
+    }
+
     // Render characters
     renderCharacters(state, scenario, width, height);
 
-    // Render current node content
+    // Render current node content (unless UI is hidden)
     VnNode currentNode = state.getCurrentNode();
-    if (currentNode != null) {
+    if (currentNode != null && !state.isUiHidden()) {
       switch (currentNode.getType()) {
         case DIALOGUE:
           renderDialogue(currentNode.getDialogue(), state, width, height);
@@ -72,6 +77,9 @@ public class VnRenderer {
           break;
       }
     }
+
+    // Render mode indicators (always visible)
+    renderModeIndicators(state, width, height);
   }
 
   /**
@@ -80,9 +88,9 @@ public class VnRenderer {
   public void render(VnState state, VnScenario scenario, double width, double height, double mouseX, double mouseY) {
     render(state, scenario, width, height);
     
-    // Re-render choices with hover effect
+    // Re-render choices with hover effect (if UI not hidden)
     VnNode currentNode = state.getCurrentNode();
-    if (currentNode != null && currentNode.getType() == VnNodeType.CHOICE) {
+    if (currentNode != null && !state.isUiHidden() && currentNode.getType() == VnNodeType.CHOICE) {
       int hoverIndex = getHoveredChoiceIndex(currentNode.getChoices(), width, height, mouseX, mouseY);
       renderChoices(currentNode.getChoices(), width, height, hoverIndex);
     }
@@ -203,6 +211,23 @@ public class VnRenderer {
     gc.fillText(text, width / 2 - 30, height / 2);
   }
 
+  private void renderTransition(VnState state, double width, double height) {
+    float progress = state.getTransitionProgress();
+    
+    // Fade effect: black overlay with opacity based on progress
+    if (state.getActiveTransition().getType() == com.jvn.core.vn.VnTransition.TransitionType.FADE) {
+      double opacity = 1.0 - progress; // Fade out from 1.0 to 0.0
+      gc.setFill(Color.rgb(0, 0, 0, opacity));
+      gc.fillRect(0, 0, width, height);
+    }
+    // Dissolve is similar to fade but could have different timing
+    else if (state.getActiveTransition().getType() == com.jvn.core.vn.VnTransition.TransitionType.DISSOLVE) {
+      double opacity = 1.0 - progress;
+      gc.setFill(Color.rgb(0, 0, 0, opacity * 0.8)); // Slightly lighter
+      gc.fillRect(0, 0, width, height);
+    }
+  }
+
   private void drawWrappedText(String text, double x, double y, double maxWidth, Font font) {
     gc.setFont(font);
     String[] words = text.split(" ");
@@ -277,6 +302,30 @@ public class VnRenderer {
       }
       return null;
     });
+  }
+
+  private void renderModeIndicators(VnState state, double width, double height) {
+    gc.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+    gc.setFill(Color.rgb(255, 255, 255, 0.9));
+    
+    double y = 25;
+    
+    // Skip mode indicator
+    if (state.isSkipMode()) {
+      gc.fillText("⏭ SKIP", width - 100, y);
+      y += 20;
+    }
+    
+    // Auto-play mode indicator
+    if (state.isAutoPlayMode()) {
+      gc.fillText("▶ AUTO", width - 100, y);
+      y += 20;
+    }
+    
+    // UI hidden indicator
+    if (state.isUiHidden()) {
+      gc.fillText("👁 UI OFF", width - 110, y);
+    }
   }
 
   public void clearCache() {

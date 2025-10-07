@@ -24,6 +24,7 @@ public class VnState {
   private final Set<Integer> readNodes; // Track which nodes have been read
   private VnTransition activeTransition;
   private long transitionStartTime;
+  private boolean uiHidden = false; // H key toggle
 
   public VnState() {
     this.currentNodeIndex = 0;
@@ -124,6 +125,10 @@ public class VnState {
     long elapsed = System.currentTimeMillis() - transitionStartTime;
     return Math.min(1.0f, elapsed / (float) activeTransition.getDurationMs());
   }
+
+  public boolean isUiHidden() { return uiHidden; }
+  public void setUiHidden(boolean hidden) { this.uiHidden = hidden; }
+  public void toggleUiHidden() { this.uiHidden = !this.uiHidden; }
 
   public static class CharacterSlot {
     private final String characterId;
