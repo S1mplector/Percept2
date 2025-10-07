@@ -1,6 +1,6 @@
 # JVN - Java Visual Novel Engine
 
-A modular JavaFX-based Visual Novel engine.
+A modular JavaFX based Visual Novel engine.
 
 ## Modules
 - core: engine-agnostic domain/services
