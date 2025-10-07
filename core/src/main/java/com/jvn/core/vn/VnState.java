@@ -1,7 +1,9 @@
 package com.jvn.core.vn;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Manages the current state of a visual novel playthrough
@@ -14,6 +16,14 @@ public class VnState {
   private final Map<String, Object> variables; // For future flag/variable system
   private boolean waitingForInput;
   private int textRevealProgress; // For text animation
+  private final VnHistory history;
+  private final VnSettings settings;
+  private boolean skipMode = false;
+  private boolean autoPlayMode = false;
+  private long autoPlayTimer = 0;
+  private final Set<Integer> readNodes; // Track which nodes have been read
+  private VnTransition activeTransition;
+  private long transitionStartTime;
 
   public VnState() {
     this.currentNodeIndex = 0;
@@ -21,6 +31,9 @@ public class VnState {
     this.variables = new HashMap<>();
     this.waitingForInput = false;
     this.textRevealProgress = 0;
+    this.history = new VnHistory();
+    this.settings = new VnSettings();
+    this.readNodes = new HashSet<>();
   }
 
   public VnScenario getScenario() { return scenario; }
@@ -79,6 +92,37 @@ public class VnState {
     if (scenario == null) return true;
     VnNode node = getCurrentNode();
     return node == null || node.getType() == VnNodeType.END;
+  }
+
+  public VnHistory getHistory() { return history; }
+  public VnSettings getSettings() { return settings; }
+
+  public boolean isSkipMode() { return skipMode; }
+  public void setSkipMode(boolean skip) { this.skipMode = skip; }
+
+  public boolean isAutoPlayMode() { return autoPlayMode; }
+  public void setAutoPlayMode(boolean auto) { this.autoPlayMode = auto; }
+
+  public long getAutoPlayTimer() { return autoPlayTimer; }
+  public void setAutoPlayTimer(long timer) { this.autoPlayTimer = timer; }
+  public void incrementAutoPlayTimer(long delta) { this.autoPlayTimer += delta; }
+  public void resetAutoPlayTimer() { this.autoPlayTimer = 0; }
+
+  public boolean isNodeRead(int nodeIndex) { return readNodes.contains(nodeIndex); }
+  public void markNodeAsRead(int nodeIndex) { readNodes.add(nodeIndex); }
+
+  public VnTransition getActiveTransition() { return activeTransition; }
+  public void setActiveTransition(VnTransition transition) { 
+    this.activeTransition = transition;
+    this.transitionStartTime = System.currentTimeMillis();
+  }
+  public void clearActiveTransition() { this.activeTransition = null; }
+  
+  public long getTransitionStartTime() { return transitionStartTime; }
+  public float getTransitionProgress() {
+    if (activeTransition == null) return 1.0f;
+    long elapsed = System.currentTimeMillis() - transitionStartTime;
+    return Math.min(1.0f, elapsed / (float) activeTransition.getDurationMs());
   }
 
   public static class CharacterSlot {

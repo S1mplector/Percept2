@@ -53,6 +53,18 @@ public class FxLauncher extends Application {
     scene.setOnKeyPressed(e -> {
       if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
         handleAdvance();
+      } else if (e.getCode() == KeyCode.CONTROL || e.getCode() == KeyCode.COMMAND) {
+        // Ctrl/Cmd = Skip mode toggle
+        handleToggleSkip();
+      } else if (e.getCode() == KeyCode.A) {
+        // A = Auto-play toggle
+        handleToggleAutoPlay();
+      } else if (e.getCode() == KeyCode.H) {
+        // H = Hide text box (future)
+      } else if (e.getCode() == KeyCode.F5) {
+        // F5 = Quick save (future)
+      } else if (e.getCode() == KeyCode.F9) {
+        // F9 = Quick load (future)
       }
     });
 
@@ -106,6 +118,22 @@ public class FxLauncher extends Application {
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof VnScene) {
       ((VnScene) currentScene).advance();
+    }
+  }
+
+  private void handleToggleSkip() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene) {
+      ((VnScene) currentScene).toggleSkipMode();
+    }
+  }
+
+  private void handleToggleAutoPlay() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene) {
+      ((VnScene) currentScene).toggleAutoPlayMode();
     }
   }
 

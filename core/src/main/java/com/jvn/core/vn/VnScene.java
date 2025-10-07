@@ -1,5 +1,6 @@
 package com.jvn.core.vn;
 
+import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.scene.Scene;
 
 /**
@@ -9,7 +10,7 @@ public class VnScene implements Scene {
   private final VnState state;
   private VnScenario scenario;
   private long textRevealTimer;
-  private static final long TEXT_REVEAL_SPEED_MS = 30; // milliseconds per character
+  private AudioFacade audioFacade; // Optional audio support
 
   public VnScene(VnScenario scenario) {
     this.scenario = scenario;
@@ -20,6 +21,10 @@ public class VnScene implements Scene {
 
   public VnState getState() {
     return state;
+  }
+
+  public void setAudioFacade(AudioFacade audio) {
+    this.audioFacade = audio;
   }
 
   @Override
@@ -33,23 +38,59 @@ public class VnScene implements Scene {
     VnNode currentNode = state.getCurrentNode();
     if (currentNode == null) return;
 
+    // Update transitions
+    if (state.getActiveTransition() != null) {
+      if (state.getTransitionProgress() >= 1.0f) {
+        state.clearActiveTransition();
+      }
+      return; // Don't process other updates during transitions
+    }
+
     // Handle text reveal animation
     if (currentNode.getType() == VnNodeType.DIALOGUE) {
       DialogueLine dialogue = currentNode.getDialogue();
       if (dialogue != null) {
         int textLength = dialogue.getText().length();
+        
+        // Skip mode: instant text
+        if (state.isSkipMode() && (state.getSettings().isSkipUnreadText() || state.isNodeRead(state.getCurrentNodeIndex()))) {
+          state.setTextRevealProgress(textLength);
+          state.setWaitingForInput(false);
+          // Auto-advance in skip mode
+          state.advance();
+          processCurrentNode();
+          return;
+        }
+        
         if (state.getTextRevealProgress() < textLength) {
           textRevealTimer += deltaMs;
-          if (textRevealTimer >= TEXT_REVEAL_SPEED_MS) {
+          long textSpeed = state.getSettings().getTextSpeed();
+          if (textRevealTimer >= textSpeed) {
             state.incrementTextReveal(1);
             textRevealTimer = 0;
           }
         } else {
           state.setWaitingForInput(true);
+          
+          // Auto-play mode
+          if (state.isAutoPlayMode()) {
+            state.incrementAutoPlayTimer(deltaMs);
+            if (state.getAutoPlayTimer() >= state.getSettings().getAutoPlayDelay()) {
+              state.resetAutoPlayTimer();
+              advance();
+            }
+          }
         }
       }
     } else if (currentNode.getType() == VnNodeType.CHOICE) {
       state.setWaitingForInput(true);
+      // Disable skip/auto-play at choices
+      if (state.isSkipMode() && !state.getSettings().isSkipAfterChoices()) {
+        state.setSkipMode(false);
+      }
+      if (state.isAutoPlayMode()) {
+        state.setAutoPlayMode(false);
+      }
     }
   }
 
@@ -99,6 +140,41 @@ public class VnScene implements Scene {
     state.setWaitingForInput(false);
     state.setTextRevealProgress(0);
     textRevealTimer = 0;
+    state.resetAutoPlayTimer();
+
+    // Mark node as read
+    state.markNodeAsRead(state.getCurrentNodeIndex());
+
+    // Process audio commands
+    if (node.getAudioCommand() != null) {
+      processAudioCommand(node.getAudioCommand());
+    }
+
+    // Process transitions
+    if (node.getTransition() != null) {
+      state.setActiveTransition(node.getTransition());
+      if (node.getTransition().getTargetBackgroundId() != null) {
+        state.setCurrentBackgroundId(node.getTransition().getTargetBackgroundId());
+      }
+    }
+
+    // Process character show/hide
+    if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
+      state.showCharacter(node.getShowPosition(), node.getCharacterToShow(), "neutral");
+    }
+    if (node.getCharacterToHide() != null) {
+      // Find and remove character
+      CharacterPosition posToRemove = null;
+      for (var entry : state.getVisibleCharacters().entrySet()) {
+        if (entry.getValue().getCharacterId().equals(node.getCharacterToHide())) {
+          posToRemove = entry.getKey();
+          break;
+        }
+      }
+      if (posToRemove != null) {
+        state.hideCharacter(posToRemove);
+      }
+    }
 
     switch (node.getType()) {
       case DIALOGUE:
@@ -126,6 +202,9 @@ public class VnScene implements Scene {
     DialogueLine dialogue = node.getDialogue();
     if (dialogue == null) return;
 
+    // Add to history
+    state.getHistory().addEntry(dialogue.getSpeakerName(), dialogue.getText());
+
     // Update character display
     if (dialogue.getCharacterId() != null) {
       state.showCharacter(
@@ -145,6 +224,42 @@ public class VnScene implements Scene {
   private void processJumpNode(VnNode node) {
     if (node.getJumpLabel() != null) {
       state.jumpToLabel(node.getJumpLabel());
+    }
+  }
+
+  private void processAudioCommand(VnAudioCommand cmd) {
+    if (audioFacade == null) return;
+
+    switch (cmd.getType()) {
+      case PLAY_BGM:
+        audioFacade.playBgm(cmd.getTrackId(), cmd.isLoop());
+        break;
+      case STOP_BGM:
+      case FADE_OUT_BGM:
+        audioFacade.stopBgm();
+        break;
+      case PLAY_SFX:
+        audioFacade.playSfx(cmd.getTrackId());
+        break;
+      case PLAY_VOICE:
+        // Could play as SFX or have dedicated voice channel
+        audioFacade.playSfx(cmd.getTrackId());
+        break;
+    }
+  }
+
+  public void toggleSkipMode() {
+    state.setSkipMode(!state.isSkipMode());
+    if (state.isSkipMode()) {
+      state.setAutoPlayMode(false); // Can't have both
+    }
+  }
+
+  public void toggleAutoPlayMode() {
+    state.setAutoPlayMode(!state.isAutoPlayMode());
+    if (state.isAutoPlayMode()) {
+      state.setSkipMode(false); // Can't have both
+      state.resetAutoPlayTimer();
     }
   }
 
