@@ -1,0 +1,44 @@
+# Percept4 Engine - Demo Visual Novel Script
+@scenario demo_story
+
+@character narrator "Narrator"
+@character alice "Alice"
+@character bob "Bob"
+
+@background room game/images/bg_room.png
+@background forest game/images/bg_forest.png
+
+# Start of the story
+[background room]
+
+Narrator: Welcome to Percept4 Engine!
+Narrator: This is a demonstration of the visual novel system.
+
+Alice: Hi there! I'm Alice, and this is my friend Bob.
+Bob: Nice to meet you! We're here to show you what this engine can do.
+
+Alice: The engine supports dialogue, character sprites, backgrounds, and branching choices.
+Bob: You can use simple text scripts to create your stories!
+
+Narrator: Let me ask you something...
+
+> I love it!
+> Tell me more
+> What can it do?
+
+# First choice leads here
+Alice: That's wonderful to hear!
+Bob: We're glad you're interested in Percept4!
+
+@label continue
+
+[background forest]
+Narrator: The scene can change dynamically.
+Narrator: Backgrounds, music, and character positions can all be controlled.
+
+Alice: You can create complex branching narratives with labels and jumps.
+Bob: And save/load functionality is built right in!
+
+Narrator: That's all for this demo. Thanks for trying Percept4 Engine!
+
+[end]

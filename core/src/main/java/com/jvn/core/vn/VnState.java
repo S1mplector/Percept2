@@ -1,0 +1,96 @@
+package com.jvn.core.vn;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Manages the current state of a visual novel playthrough
+ */
+public class VnState {
+  private VnScenario scenario;
+  private int currentNodeIndex;
+  private String currentBackgroundId;
+  private final Map<CharacterPosition, CharacterSlot> visibleCharacters;
+  private final Map<String, Object> variables; // For future flag/variable system
+  private boolean waitingForInput;
+  private int textRevealProgress; // For text animation
+
+  public VnState() {
+    this.currentNodeIndex = 0;
+    this.visibleCharacters = new HashMap<>();
+    this.variables = new HashMap<>();
+    this.waitingForInput = false;
+    this.textRevealProgress = 0;
+  }
+
+  public VnScenario getScenario() { return scenario; }
+  public void setScenario(VnScenario scenario) {
+    this.scenario = scenario;
+    this.currentNodeIndex = 0;
+  }
+
+  public int getCurrentNodeIndex() { return currentNodeIndex; }
+  public void setCurrentNodeIndex(int index) { this.currentNodeIndex = index; }
+  public void advance() { currentNodeIndex++; }
+
+  public VnNode getCurrentNode() {
+    return scenario != null ? scenario.getNode(currentNodeIndex) : null;
+  }
+
+  public String getCurrentBackgroundId() { return currentBackgroundId; }
+  public void setCurrentBackgroundId(String id) { this.currentBackgroundId = id; }
+
+  public Map<CharacterPosition, CharacterSlot> getVisibleCharacters() {
+    return visibleCharacters;
+  }
+
+  public void showCharacter(CharacterPosition position, String characterId, String expression) {
+    visibleCharacters.put(position, new CharacterSlot(characterId, expression));
+  }
+
+  public void hideCharacter(CharacterPosition position) {
+    visibleCharacters.remove(position);
+  }
+
+  public void clearAllCharacters() {
+    visibleCharacters.clear();
+  }
+
+  public boolean isWaitingForInput() { return waitingForInput; }
+  public void setWaitingForInput(boolean waiting) { this.waitingForInput = waiting; }
+
+  public int getTextRevealProgress() { return textRevealProgress; }
+  public void setTextRevealProgress(int progress) { this.textRevealProgress = progress; }
+  public void incrementTextReveal(int amount) { this.textRevealProgress += amount; }
+
+  public void setVariable(String key, Object value) { variables.put(key, value); }
+  public Object getVariable(String key) { return variables.get(key); }
+
+  public void jumpToLabel(String label) {
+    if (scenario != null) {
+      Integer index = scenario.getLabelIndex(label);
+      if (index != null) {
+        currentNodeIndex = index;
+      }
+    }
+  }
+
+  public boolean isScenarioComplete() {
+    if (scenario == null) return true;
+    VnNode node = getCurrentNode();
+    return node == null || node.getType() == VnNodeType.END;
+  }
+
+  public static class CharacterSlot {
+    private final String characterId;
+    private final String expression;
+
+    public CharacterSlot(String characterId, String expression) {
+      this.characterId = characterId;
+      this.expression = expression;
+    }
+
+    public String getCharacterId() { return characterId; }
+    public String getExpression() { return expression; }
+  }
+}

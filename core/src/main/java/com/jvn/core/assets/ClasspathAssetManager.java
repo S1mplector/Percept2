@@ -87,10 +87,11 @@ public class ClasspathAssetManager implements AssetManager {
       JarURLConnection conn = (JarURLConnection) url.openConnection();
       try (JarFile jar = conn.getJarFile()) {
         List<String> names = new ArrayList<>();
-        String prefix = conn.getEntryName();
-        if (prefix == null) prefix = dir; // fallback
-        if (!prefix.endsWith("/")) prefix += "/";
-        int prefixLen = prefix.length();
+        String entryName = conn.getEntryName();
+        if (entryName == null) entryName = dir; // fallback
+        if (!entryName.endsWith("/")) entryName += "/";
+        final String prefix = entryName;
+        final int prefixLen = prefix.length();
         jar.stream()
           .map(JarEntry::getName)
           .filter(n -> n.startsWith(prefix) && !n.equals(prefix))
