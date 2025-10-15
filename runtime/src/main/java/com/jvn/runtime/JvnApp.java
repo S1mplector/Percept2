@@ -3,9 +3,11 @@ package com.jvn.runtime;
 import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 import com.jvn.core.vn.DemoScenario;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.fx.FxLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +17,7 @@ public class JvnApp {
 
   public static void main(String[] args) {
     ApplicationConfig.Builder builder = ApplicationConfig.builder().title("JVN Runtime").width(960).height(540);
+    String scriptName = "demo.vns"; // default script under game/scripts/
 
     for (int i = 0; i < args.length; i++) {
       String a = args[i];
@@ -27,6 +30,9 @@ public class JvnApp {
           break;
         case "--height":
           if (i + 1 < args.length) builder.height(Integer.parseInt(args[++i]));
+          break;
+        case "--script":
+          if (i + 1 < args.length) scriptName = args[++i];
           break;
         default:
           log.warn("Unknown argument: {}", a);
@@ -47,15 +53,31 @@ public class JvnApp {
       log.warn("Unable to list assets: {}", e.toString());
     }
     
-    // Create engine and load demo VN scenario
+    // Create engine and load VN scenario (from script if available)
     Engine engine = new Engine(cfg);
     engine.start();
-    
-    log.info("Loading demo VN scenario...");
-    VnScenario demoScenario = DemoScenario.createMinimalTest();
-    VnScene vnScene = new VnScene(demoScenario);
+
+    VnScenario scenario = null;
+    try {
+      VnScriptParser parser = new VnScriptParser();
+      try (var in = assets.open(AssetType.SCRIPT, scriptName)) {
+        log.info("Loading VN script: {}", scriptName);
+        scenario = parser.parse(in);
+      }
+    } catch (Exception e) {
+      log.warn("Failed to load script '{}': {}. Falling back to built-in demo.", scriptName, e.toString());
+    }
+
+    if (scenario == null) {
+      // Fallback to built-in demo
+      scenario = DemoScenario.createSimpleDemo();
+      log.info("Loaded built-in demo scenario: {}", scenario.getId());
+    } else {
+      log.info("Loaded script scenario: {} (nodes={})", scenario.getId(), scenario.getNodes().size());
+    }
+
+    VnScene vnScene = new VnScene(scenario);
     engine.scenes().push(vnScene);
-    log.info("Demo scenario loaded: {}", demoScenario.getId());
 
     FxLauncher.launch(engine);
   }

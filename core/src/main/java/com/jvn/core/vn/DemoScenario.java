@@ -16,9 +16,9 @@ public class DemoScenario {
     builder.addCharacter("alice", "Alice");
     builder.addCharacter("bob", "Bob");
     
-    // Add backgrounds
-    builder.addBackground("room", "game/images/bg_room.png");
-    builder.addBackground("forest", "game/images/bg_forest.png");
+    // Add backgrounds (use existing placeholder asset)
+    builder.addBackground("room", "game/images/placeholder.png");
+    builder.addBackground("forest", "game/images/placeholder.png");
     
     // Build scenario
     return builder
@@ -57,7 +57,7 @@ public class DemoScenario {
     VnScenarioBuilder builder = new VnScenarioBuilder("minimal");
     
     builder.addCharacter("narrator", "Narrator");
-    builder.addBackground("default", "game/images/bg_default.png");
+    builder.addBackground("default", "game/images/placeholder.png");
     
     return builder
       .background("default")
