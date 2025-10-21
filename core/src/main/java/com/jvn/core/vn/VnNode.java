@@ -18,6 +18,7 @@ public class VnNode {
   private final String characterToShow;
   private final String characterToHide;
   private final CharacterPosition showPosition;
+  private final String showExpression;
 
   private VnNode(Builder builder) {
     this.type = builder.type;
@@ -31,6 +32,7 @@ public class VnNode {
     this.characterToShow = builder.characterToShow;
     this.characterToHide = builder.characterToHide;
     this.showPosition = builder.showPosition;
+    this.showExpression = builder.showExpression;
   }
 
   public VnNodeType getType() { return type; }
@@ -44,6 +46,7 @@ public class VnNode {
   public String getCharacterToShow() { return characterToShow; }
   public String getCharacterToHide() { return characterToHide; }
   public CharacterPosition getShowPosition() { return showPosition; }
+  public String getShowExpression() { return showExpression; }
 
   public static Builder builder(VnNodeType type) { return new Builder(type); }
 
@@ -59,6 +62,7 @@ public class VnNode {
     private String characterToShow;
     private String characterToHide;
     private CharacterPosition showPosition;
+    private String showExpression = "neutral";
 
     private Builder(VnNodeType type) { this.type = type; }
 
@@ -72,6 +76,7 @@ public class VnNode {
     public Builder characterToShow(String id) { this.characterToShow = id; return this; }
     public Builder characterToHide(String id) { this.characterToHide = id; return this; }
     public Builder showPosition(CharacterPosition pos) { this.showPosition = pos; return this; }
+    public Builder showExpression(String expr) { this.showExpression = expr; return this; }
     public VnNode build() { return new VnNode(this); }
   }
 }

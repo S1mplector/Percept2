@@ -25,6 +25,7 @@ public class VnState {
   private VnTransition activeTransition;
   private long transitionStartTime;
   private boolean uiHidden = false; // H key toggle
+  private boolean historyOverlayShown = false; // Backlog toggle
 
   public VnState() {
     this.currentNodeIndex = 0;
@@ -129,6 +130,10 @@ public class VnState {
   public boolean isUiHidden() { return uiHidden; }
   public void setUiHidden(boolean hidden) { this.uiHidden = hidden; }
   public void toggleUiHidden() { this.uiHidden = !this.uiHidden; }
+
+  public boolean isHistoryOverlayShown() { return historyOverlayShown; }
+  public void setHistoryOverlayShown(boolean shown) { this.historyOverlayShown = shown; }
+  public void toggleHistoryOverlay() { this.historyOverlayShown = !this.historyOverlayShown; }
 
   public static class CharacterSlot {
     private final String characterId;

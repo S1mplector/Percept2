@@ -134,4 +134,80 @@ public class VnScenarioBuilder {
   public VnScenario build() {
     return scenarioBuilder.build();
   }
+
+  // --- Enhancements below: actions and timing ---
+
+  public VnScenarioBuilder show(String characterId, String expression, CharacterPosition position) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.JUMP)
+        .characterToShow(characterId)
+        .showExpression(expression)
+        .showPosition(position)
+        .build()
+    );
+    return this;
+  }
+
+  public VnScenarioBuilder hide(String characterId) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.JUMP)
+        .characterToHide(characterId)
+        .build()
+    );
+    return this;
+  }
+
+  public VnScenarioBuilder waitMs(long ms) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.JUMP)
+        .waitMs(ms)
+        .build()
+    );
+    return this;
+  }
+
+  public VnScenarioBuilder playBgm(String trackId, boolean loop) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.JUMP)
+        .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.PLAY_BGM)
+          .trackId(trackId)
+          .loop(loop)
+          .build())
+        .build()
+    );
+    return this;
+  }
+
+  public VnScenarioBuilder stopBgm() {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.JUMP)
+        .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.STOP_BGM).build())
+        .build()
+    );
+    return this;
+  }
+
+  public VnScenarioBuilder playSfx(String trackId) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.JUMP)
+        .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.PLAY_SFX)
+          .trackId(trackId)
+          .loop(false)
+          .build())
+        .build()
+    );
+    return this;
+  }
+
+  public VnScenarioBuilder transition(VnTransition.TransitionType type, long durationMs, String targetBackgroundId) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.JUMP)
+        .transition(VnTransition.builder(type)
+          .durationMs(durationMs)
+          .targetBackgroundId(targetBackgroundId)
+          .build())
+        .build()
+    );
+    return this;
+  }
 }

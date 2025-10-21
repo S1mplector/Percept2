@@ -124,6 +124,51 @@ public class VnScriptParser {
           case "end":
             builder.end();
             break;
+          case "bgm":
+            if (arg != null && !arg.isEmpty()) builder.playBgm(arg, true);
+            break;
+          case "bgm_stop":
+            builder.stopBgm();
+            break;
+          case "sfx":
+            if (arg != null && !arg.isEmpty()) builder.playSfx(arg);
+            break;
+          case "voice":
+            if (arg != null && !arg.isEmpty()) {
+              // Voice handled like SFX for now
+              builder.playSfx(arg);
+            }
+            break;
+          case "wait":
+            if (arg != null) {
+              try { builder.waitMs(Long.parseLong(arg)); } catch (NumberFormatException ignored) {}
+            }
+            break;
+          case "show":
+            if (arg != null) {
+              String[] toks = arg.split("\\s+");
+              if (toks.length >= 2) {
+                String charId = toks[0];
+                CharacterPosition pos = parsePosition(toks[1]);
+                String expr = toks.length >= 3 ? toks[2] : "neutral";
+                builder.show(charId, expr, pos);
+              }
+            }
+            break;
+          case "hide":
+            if (arg != null) builder.hide(arg);
+            break;
+          case "transition":
+            if (arg != null) {
+              String[] toks = arg.split("\\s+");
+              if (toks.length >= 1) {
+                VnTransition.TransitionType type = parseTransitionType(toks[0]);
+                long dur = toks.length >= 2 ? parseLongSafe(toks[1], 500) : 500;
+                String bg = toks.length >= 3 ? toks[2] : null;
+                builder.transition(type, dur, bg);
+              }
+            }
+            break;
         }
         continue;
       }
@@ -156,5 +201,41 @@ public class VnScriptParser {
   
   public VnScenario parseFromString(String script) throws IOException {
     return parse(new java.io.ByteArrayInputStream(script.getBytes()));
+  }
+
+  private CharacterPosition parsePosition(String token) {
+    String t = token.trim().toUpperCase();
+    try {
+      return CharacterPosition.valueOf(t);
+    } catch (IllegalArgumentException e) {
+      if (t.equals("L")) return CharacterPosition.LEFT;
+      if (t.equals("C") || t.equals("CENTER")) return CharacterPosition.CENTER;
+      if (t.equals("R")) return CharacterPosition.RIGHT;
+      if (t.equals("FL")) return CharacterPosition.FAR_LEFT;
+      if (t.equals("FR")) return CharacterPosition.FAR_RIGHT;
+      return CharacterPosition.CENTER;
+    }
+  }
+
+  private VnTransition.TransitionType parseTransitionType(String token) {
+    String t = token.trim().toUpperCase();
+    try {
+      return VnTransition.TransitionType.valueOf(t);
+    } catch (IllegalArgumentException e) {
+      if (t.equals("FADE")) return VnTransition.TransitionType.FADE;
+      if (t.equals("DISSOLVE")) return VnTransition.TransitionType.DISSOLVE;
+      if (t.equals("SLIDE_LEFT")) return VnTransition.TransitionType.SLIDE_LEFT;
+      if (t.equals("SLIDE_RIGHT")) return VnTransition.TransitionType.SLIDE_RIGHT;
+      if (t.equals("WIPE")) return VnTransition.TransitionType.WIPE;
+      return VnTransition.TransitionType.NONE;
+    }
+  }
+
+  private long parseLongSafe(String s, long def) {
+    try {
+      return Long.parseLong(s);
+    } catch (Exception e) {
+      return def;
+    }
   }
 }

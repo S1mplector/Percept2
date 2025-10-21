@@ -2,7 +2,6 @@ package com.jvn.core.vn;
 
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.scene.Scene;
-import com.jvn.core.vn.save.VnSaveData;
 
 /**
  * Scene implementation for visual novel gameplay
@@ -13,6 +12,8 @@ public class VnScene implements Scene {
   private long textRevealTimer;
   private AudioFacade audioFacade; // Optional audio support
   private VnQuickSaveManager quickSaveManager;
+  private boolean waitingNode = false;
+  private long waitRemainingMs = 0;
 
   public VnScene(VnScenario scenario) {
     this.scenario = scenario;
@@ -44,6 +45,17 @@ public class VnScene implements Scene {
   public void update(long deltaMs) {
     VnNode currentNode = state.getCurrentNode();
     if (currentNode == null) return;
+
+    // Handle timed wait nodes
+    if (waitingNode) {
+      waitRemainingMs -= deltaMs;
+      if (waitRemainingMs <= 0) {
+        waitingNode = false;
+        state.advance();
+        processCurrentNode();
+      }
+      return;
+    }
 
     // Update transitions
     if (state.getActiveTransition() != null) {
@@ -130,6 +142,7 @@ public class VnScene implements Scene {
 
     if (choiceIndex >= 0 && choiceIndex < current.getChoices().size()) {
       Choice choice = current.getChoices().get(choiceIndex);
+      if (!choice.isEnabled()) return;
       if (choice.getTargetLabel() != null) {
         state.jumpToLabel(choice.getTargetLabel());
         processCurrentNode();
@@ -167,7 +180,8 @@ public class VnScene implements Scene {
 
     // Process character show/hide
     if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
-      state.showCharacter(node.getShowPosition(), node.getCharacterToShow(), "neutral");
+      String expr = node.getShowExpression() != null ? node.getShowExpression() : "neutral";
+      state.showCharacter(node.getShowPosition(), node.getCharacterToShow(), expr);
     }
     if (node.getCharacterToHide() != null) {
       // Find and remove character
@@ -183,6 +197,13 @@ public class VnScene implements Scene {
       }
     }
 
+    // Process wait (if any) and pause progression until elapsed
+    if (node.getWaitMs() > 0) {
+      waitingNode = true;
+      waitRemainingMs = node.getWaitMs();
+      return;
+    }
+
     switch (node.getType()) {
       case DIALOGUE:
         processDialogueNode(node);
@@ -193,7 +214,11 @@ public class VnScene implements Scene {
         processCurrentNode();
         break;
       case JUMP:
-        processJumpNode(node);
+        if (node.getJumpLabel() != null) {
+          processJumpNode(node);
+        } else {
+          state.advance();
+        }
         processCurrentNode();
         break;
       case CHOICE:
