@@ -7,6 +7,7 @@ import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.vn.VnSettings;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
+import javafx.scene.image.Image;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -42,9 +43,19 @@ public class MenuRenderer {
     if (saves.isEmpty()) {
       drawCenteredText(Localization.t("load.no_saves"), w, h/2, itemFont, Color.GRAY);
     } else {
-      drawMenuList(saves.toArray(new String[0]), scene.getSelected(), w, h);
+      // Left: list
+      drawMenuList(saves.toArray(new String[0]), scene.getSelected(), w * 0.6, h);
+      // Right: preview
+      String previewPath = getSelectedPreviewImagePath(scene);
+      if (previewPath != null) {
+        drawPreview(previewPath, w, h);
+      } else {
+        drawPreviewPlaceholder(w, h);
+      }
     }
-    drawHints(Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc", w, h);
+    drawHints(Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
+        + Localization.t("load.delete") + ": Delete    " + Localization.t("load.rename") + ": R",
+        w, h);
   }
 
   public void renderSettings(SettingsScene scene, double w, double h) {
@@ -110,5 +121,72 @@ public class MenuRenderer {
     javafx.scene.text.Text t = new javafx.scene.text.Text(s);
     t.setFont(f);
     return t.getLayoutBounds().getWidth();
+  }
+
+  public int getHoverIndexForList(int count, double w, double h, double mouseX, double mouseY) {
+    if (count <= 0) return -1;
+    double width = w; // for main/settings; load passes 0.6*w if needed externally
+    double yStart = h * 0.35;
+    double lineH = 40;
+    double totalH = count * lineH;
+    // Compute by vertical slot
+    double relY = mouseY - yStart + (lineH/2);
+    if (relY < 0) return -1;
+    int idx = (int) Math.floor(relY / lineH);
+    if (idx < 0 || idx >= count) return -1;
+    return idx;
+  }
+
+  private String getSelectedPreviewImagePath(LoadMenuScene scene) {
+    try {
+      // Expose via scene method in future; for now derive here
+      String name = scene.getSelectedName();
+      if (name == null) return null;
+      // Use scene helper if present; else return null
+      // We call scene.getSelectedPreviewImagePath() if available; fall back to null
+      try {
+        java.lang.reflect.Method m = scene.getClass().getMethod("getSelectedPreviewImagePath");
+        Object o = m.invoke(scene);
+        return (String) o;
+      } catch (Exception ignored) { }
+      return null;
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private void drawPreview(String path, double w, double h) {
+    try {
+      var url = getClass().getClassLoader().getResource(path);
+      if (url == null) { drawPreviewPlaceholder(w, h); return; }
+      Image img = new Image(url.toExternalForm());
+      double panelX = w * 0.65;
+      double panelY = h * 0.25;
+      double panelW = w * 0.3;
+      double panelH = h * 0.5;
+      gc.setFill(Color.rgb(255,255,255,0.1));
+      gc.fillRoundRect(panelX - 8, panelY - 8, panelW + 16, panelH + 16, 12, 12);
+      // Fit image into panel keeping aspect
+      double scale = Math.min(panelW / img.getWidth(), panelH / img.getHeight());
+      double iw = img.getWidth() * scale;
+      double ih = img.getHeight() * scale;
+      double ix = panelX + (panelW - iw) / 2;
+      double iy = panelY + (panelH - ih) / 2;
+      gc.drawImage(img, ix, iy, iw, ih);
+    } catch (Exception e) {
+      drawPreviewPlaceholder(w, h);
+    }
+  }
+
+  private void drawPreviewPlaceholder(double w, double h) {
+    double panelX = w * 0.65;
+    double panelY = h * 0.25;
+    double panelW = w * 0.3;
+    double panelH = h * 0.5;
+    gc.setFill(Color.rgb(255,255,255,0.1));
+    gc.fillRoundRect(panelX - 8, panelY - 8, panelW + 16, panelH + 16, 12, 12);
+    gc.setFill(Color.GRAY);
+    gc.setFont(itemFont);
+    drawCenteredText(Localization.t("load.no_preview"), panelX + panelW/2, panelY + panelH/2, itemFont, Color.GRAY);
   }
 }

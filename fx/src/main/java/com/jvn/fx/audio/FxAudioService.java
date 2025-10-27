@@ -14,6 +14,9 @@ import java.util.List;
 public class FxAudioService implements AudioFacade {
   private MediaPlayer bgmPlayer;
   private final List<MediaPlayer> sfxPlayers = new ArrayList<>();
+  private float bgmVolume = 0.7f;
+  private float sfxVolume = 0.8f;
+  private float voiceVolume = 1.0f; // currently unused channel
 
   @Override
   public void playBgm(String trackId, boolean loop) {
@@ -24,6 +27,7 @@ public class FxAudioService implements AudioFacade {
       Media media = new Media(url.toExternalForm());
       bgmPlayer = new MediaPlayer(media);
       if (loop) bgmPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+      bgmPlayer.setVolume(clamp(bgmVolume));
       bgmPlayer.play();
     } catch (Exception ignored) {
     }
@@ -48,6 +52,7 @@ public class FxAudioService implements AudioFacade {
       if (url == null) return;
       Media media = new Media(url.toExternalForm());
       MediaPlayer player = new MediaPlayer(media);
+      player.setVolume(clamp(sfxVolume));
       player.setOnEndOfMedia(() -> {
         player.stop();
         player.dispose();
@@ -70,5 +75,33 @@ public class FxAudioService implements AudioFacade {
         it.remove();
       }
     }
+  }
+
+  @Override
+  public void setBgmVolume(float volume) {
+    this.bgmVolume = volume;
+    if (bgmPlayer != null) {
+      try { bgmPlayer.setVolume(clamp(volume)); } catch (Exception ignored) {}
+    }
+  }
+
+  @Override
+  public void setSfxVolume(float volume) {
+    this.sfxVolume = volume;
+    // Apply to any still playing SFX
+    for (MediaPlayer p : new ArrayList<>(sfxPlayers)) {
+      try { p.setVolume(clamp(volume)); } catch (Exception ignored) {}
+    }
+  }
+
+  @Override
+  public void setVoiceVolume(float volume) {
+    this.voiceVolume = volume;
+  }
+
+  private double clamp(float v) {
+    if (v < 0f) return 0.0;
+    if (v > 1f) return 1.0;
+    return v;
   }
 }

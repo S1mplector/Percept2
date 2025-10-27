@@ -35,12 +35,18 @@ public class MainMenuScene implements Scene {
     int count = 4;
     selected = (selected + delta + count) % count;
   }
+  public void setSelected(int idx) {
+    int count = 4;
+    if (idx < 0) idx = 0;
+    if (idx >= count) idx = count - 1;
+    selected = idx;
+  }
 
   public void activateSelected() {
     switch (selected) {
       case 0 -> startNewGame();
       case 1 -> engine.scenes().push(new LoadMenuScene(engine, saveManager, defaultScriptName, settingsModel, audio));
-      case 2 -> engine.scenes().push(new SettingsScene(settingsModel));
+      case 2 -> engine.scenes().push(new SettingsScene(settingsModel, audio));
       case 3 -> engine.stop();
     }
   }
@@ -58,6 +64,11 @@ public class MainMenuScene implements Scene {
     s.setAutoPlayDelay(settingsModel.getAutoPlayDelay());
     s.setSkipUnreadText(settingsModel.isSkipUnreadText());
     s.setSkipAfterChoices(settingsModel.isSkipAfterChoices());
+    if (audio != null) {
+      audio.setBgmVolume(s.getBgmVolume());
+      audio.setSfxVolume(s.getSfxVolume());
+      audio.setVoiceVolume(s.getVoiceVolume());
+    }
     engine.scenes().push(vnScene);
   }
 

@@ -13,6 +13,9 @@ import javafx.application.Application;
 // no direct import of javafx.scene.Scene to avoid name clash; use fully qualified name
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import javafx.scene.canvas.Canvas;
@@ -108,12 +111,36 @@ public class FxLauncher extends Application {
       } else if (e.getCode() == KeyCode.F9) {
         // F9 = Quick load
         handleQuickLoad();
+      } else if (e.getCode() == KeyCode.DELETE) {
+        handleMenuDelete();
+      } else if (e.getCode() == KeyCode.R) {
+        handleMenuRename();
       }
     });
 
     scene.setOnMouseMoved(e -> {
       mouseX = e.getX();
       mouseY = e.getY();
+      // Hover selection for menus
+      if (engine != null) {
+        com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+        if (currentScene instanceof MainMenuScene main) {
+          int idx = menuRenderer.getHoverIndexForList(4, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          if (idx >= 0) main.setSelected(idx);
+        } else if (currentScene instanceof LoadMenuScene load) {
+          int idx = menuRenderer.getHoverIndexForList(load.getSaves().size(), canvas.getWidth() * 0.6, canvas.getHeight(), mouseX, mouseY);
+          if (idx >= 0) {
+            // ensure selection moves to hovered
+            // We don't have setSelected; adjust by computing delta
+            int current = load.getSelected();
+            int delta = idx - current;
+            if (delta != 0) load.moveSelection(delta);
+          }
+        } else if (currentScene instanceof SettingsScene settings) {
+          int idx = menuRenderer.getHoverIndexForList(settings.itemCount(), canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          if (idx >= 0) settings.setSelected(idx);
+        }
+      }
     });
 
     scene.setOnMouseClicked(e -> {
@@ -232,6 +259,30 @@ public class FxLauncher extends Application {
       
       // Otherwise treat as advance
       vnScene.advance();
+    } else if (currentScene instanceof MainMenuScene main) {
+      int idx = menuRenderer.getHoverIndexForList(4, canvas.getWidth(), canvas.getHeight(), x, y);
+      if (idx >= 0) {
+        main.setSelected(idx);
+        main.activateSelected();
+      }
+    } else if (currentScene instanceof LoadMenuScene load) {
+      int idx = menuRenderer.getHoverIndexForList(load.getSaves().size(), canvas.getWidth() * 0.6, canvas.getHeight(), x, y);
+      if (idx >= 0) {
+        int current = load.getSelected();
+        int delta = idx - current;
+        if (delta != 0) load.moveSelection(delta);
+        load.loadSelected();
+      }
+    } else if (currentScene instanceof SettingsScene settings) {
+      int idx = menuRenderer.getHoverIndexForList(settings.itemCount(), canvas.getWidth(), canvas.getHeight(), x, y);
+      if (idx >= 0) {
+        settings.setSelected(idx);
+        if (idx == settings.itemCount() - 1) {
+          settings.toggleCurrent();
+        } else {
+          settings.adjustCurrent(1);
+        }
+      }
     }
   }
 
@@ -278,6 +329,42 @@ public class FxLauncher extends Application {
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof SettingsScene settings) {
       settings.adjustCurrent(delta);
+    }
+  }
+
+  private void handleMenuDelete() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof LoadMenuScene load) {
+      String sel = load.getSelectedName();
+      if (sel == null) return;
+      Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Delete save '" + sel + "'?", ButtonType.YES, ButtonType.NO);
+      alert.setHeaderText(null);
+      alert.setTitle("Confirm Delete");
+      var result = alert.showAndWait();
+      if (result.isPresent() && result.get() == ButtonType.YES) {
+        load.deleteSelected();
+      }
+    }
+  }
+
+  private void handleMenuRename() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof LoadMenuScene load) {
+      String sel = load.getSelectedName();
+      if (sel == null) return;
+      TextInputDialog dlg = new TextInputDialog(sel);
+      dlg.setTitle("Rename Save");
+      dlg.setHeaderText(null);
+      dlg.setContentText("New name:");
+      var result = dlg.showAndWait();
+      if (result.isPresent()) {
+        String newName = result.get().trim();
+        if (!newName.isEmpty()) {
+          load.renameSelected(newName);
+        }
+      }
     }
   }
 

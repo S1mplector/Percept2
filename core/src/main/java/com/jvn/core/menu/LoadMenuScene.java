@@ -46,6 +46,47 @@ public class LoadMenuScene implements Scene {
     selected = (selected + delta + count) % count;
   }
 
+  public String getSaveDirectory() { return saveManager.getSaveDirectory(); }
+  public String getSelectedName() { return (saves.isEmpty() ? null : saves.get(selected)); }
+
+  public boolean deleteSelected() {
+    if (saves.isEmpty()) return false;
+    String name = saves.get(selected);
+    boolean ok = saveManager.deleteSave(name);
+    refresh();
+    return ok;
+  }
+
+  public boolean renameSelected(String newName) {
+    if (saves.isEmpty() || newName == null || newName.isBlank()) return false;
+    String old = saves.get(selected);
+    boolean ok = saveManager.renameSave(old, newName);
+    refresh();
+    return ok;
+  }
+
+  /**
+   * Try to provide a preview image path for the selected save.
+   * Uses the currentBackgroundId from the saved data and maps it via the scenario's backgrounds.
+   * Returns a classpath resource path (e.g., game/images/bg_room.png) or null on failure.
+   */
+  public String getSelectedPreviewImagePath() {
+    String name = getSelectedName();
+    if (name == null) return null;
+    try {
+      VnSaveData data = saveManager.load(name);
+      String bgId = data.getCurrentBackgroundId();
+      if (bgId == null) return null;
+      // Load scenario to resolve background image path
+      VnScenario scen = loadScenario(defaultScriptName);
+      if (scen == null) return null;
+      com.jvn.core.vn.VnBackground bg = scen.getBackground(bgId);
+      return bg != null ? bg.getImagePath() : null;
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
   public void loadSelected() {
     if (saves.isEmpty()) return;
     String name = saves.get(selected);
@@ -55,6 +96,12 @@ public class LoadMenuScene implements Scene {
       VnScene scene = new VnScene(scenario);
       if (audio != null) scene.setAudioFacade(audio);
       saveManager.applyToState(data, scene.getState());
+      if (audio != null) {
+        var s = scene.getState().getSettings();
+        audio.setBgmVolume(s.getBgmVolume());
+        audio.setSfxVolume(s.getSfxVolume());
+        audio.setVoiceVolume(s.getVoiceVolume());
+      }
       engine.scenes().push(scene);
     } catch (Exception ignored) {
     }

@@ -1,6 +1,7 @@
 package com.jvn.fx.vn;
 
 import com.jvn.core.vn.*;
+import com.jvn.core.localization.Localization;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
@@ -364,19 +365,19 @@ public class VnRenderer {
     
     // Skip mode indicator
     if (state.isSkipMode()) {
-      gc.fillText("⏭ SKIP", width - 100, y);
+      gc.fillText(Localization.t("hud.skip"), width - 100, y);
       y += 20;
     }
     
     // Auto-play mode indicator
     if (state.isAutoPlayMode()) {
-      gc.fillText("▶ AUTO", width - 100, y);
+      gc.fillText(Localization.t("hud.auto"), width - 100, y);
       y += 20;
     }
     
     // UI hidden indicator
     if (state.isUiHidden()) {
-      gc.fillText("👁 UI OFF", width - 110, y);
+      gc.fillText(Localization.t("hud.ui_off"), width - 110, y);
     }
   }
 

@@ -301,7 +301,14 @@ public class VnScene implements Scene {
 
   public boolean quickLoad() {
     if (quickSaveManager == null) return false;
-    return quickSaveManager.applyQuickLoad(state, scenario);
+    boolean ok = quickSaveManager.applyQuickLoad(state, scenario);
+    if (ok && audioFacade != null) {
+      VnSettings s = state.getSettings();
+      audioFacade.setBgmVolume(s.getBgmVolume());
+      audioFacade.setSfxVolume(s.getSfxVolume());
+      audioFacade.setVoiceVolume(s.getVoiceVolume());
+    }
+    return ok;
   }
 
   public boolean hasQuickSave() {

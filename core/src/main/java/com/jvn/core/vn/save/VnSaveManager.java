@@ -29,6 +29,10 @@ public class VnSaveManager {
   public VnSaveManager() {
     this(System.getProperty("user.home") + "/.jvn/saves");
   }
+
+  public String getSaveDirectory() {
+    return saveDirectory.toString();
+  }
   
   /**
    * Save the current VN state
@@ -114,6 +118,21 @@ public class VnSaveManager {
     Path saveFile = saveDirectory.resolve(sanitizeFileName(saveName) + ".sav");
     try {
       return Files.deleteIfExists(saveFile);
+    } catch (IOException e) {
+      return false;
+    }
+  }
+  
+  /**
+   * Rename a save file
+   */
+  public boolean renameSave(String oldName, String newName) {
+    Path oldFile = saveDirectory.resolve(sanitizeFileName(oldName) + ".sav");
+    Path newFile = saveDirectory.resolve(sanitizeFileName(newName) + ".sav");
+    try {
+      if (!Files.exists(oldFile)) return false;
+      Files.move(oldFile, newFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      return true;
     } catch (IOException e) {
       return false;
     }
