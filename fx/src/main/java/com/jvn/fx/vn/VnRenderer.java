@@ -38,6 +38,25 @@ public class VnRenderer {
     this.choiceFont = Font.font("Arial", FontWeight.NORMAL, 16);
   }
 
+  private void renderHistoryOverlay(VnState state, double width, double height) {
+    gc.setFill(Color.rgb(0, 0, 0, 0.75));
+    gc.fillRect(0, 0, width, height);
+
+    gc.setFill(Color.WHITE);
+    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+    double y = 40;
+    int shown = 0;
+    java.util.List<VnHistory.HistoryEntry> list = state.getHistory().getEntries();
+    for (int i = list.size() - 1; i >= 0 && shown < 12; i--) {
+      VnHistory.HistoryEntry e = list.get(i);
+      String speaker = e.getSpeaker() != null && !e.getSpeaker().isEmpty() ? e.getSpeaker() + ": " : "";
+      String line = speaker + e.getText();
+      gc.fillText(line, 40, y);
+      y += 28;
+      shown++;
+    }
+  }
+
   /**
    * Render the complete VN scene
    */
@@ -72,6 +91,10 @@ public class VnRenderer {
         case CHOICE:
           renderChoices(currentNode.getChoices(), width, height, -1);
           break;
+        case BACKGROUND:
+          break;
+        case JUMP:
+          break;
         case END:
           renderEnd(width, height);
           break;
@@ -80,6 +103,10 @@ public class VnRenderer {
 
     // Render mode indicators (always visible)
     renderModeIndicators(state, width, height);
+
+    if (state.isHistoryOverlayShown()) {
+      renderHistoryOverlay(state, width, height);
+    }
   }
 
   /**

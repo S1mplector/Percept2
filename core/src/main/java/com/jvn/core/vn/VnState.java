@@ -135,6 +135,18 @@ public class VnState {
   public void setHistoryOverlayShown(boolean shown) { this.historyOverlayShown = shown; }
   public void toggleHistoryOverlay() { this.historyOverlayShown = !this.historyOverlayShown; }
 
+  public Map<String, Object> getVariables() { return variables; }
+  public void setVariables(Map<String, Object> vars) {
+    this.variables.clear();
+    if (vars != null) this.variables.putAll(vars);
+  }
+
+  public Set<Integer> getReadNodes() { return new HashSet<>(readNodes); }
+  public void setReadNodes(Set<Integer> read) {
+    this.readNodes.clear();
+    if (read != null) this.readNodes.addAll(read);
+  }
+
   public static class CharacterSlot {
     private final String characterId;
     private final String expression;

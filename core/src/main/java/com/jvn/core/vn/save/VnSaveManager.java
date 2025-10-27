@@ -1,5 +1,7 @@
 package com.jvn.core.vn.save;
 
+import com.jvn.core.vn.CharacterPosition;
+import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnState;
 
 import java.io.*;
@@ -37,6 +39,32 @@ public class VnSaveManager {
     saveData.setScenarioId(state.getScenario().getId());
     saveData.setCurrentNodeIndex(state.getCurrentNodeIndex());
     saveData.setCurrentBackgroundId(state.getCurrentBackgroundId());
+    saveData.setVariables(new java.util.HashMap<>(state.getVariables()));
+    saveData.setReadNodes(state.getReadNodes());
+
+    java.util.Map<String, String[]> vis = new java.util.HashMap<>();
+    for (var entry : state.getVisibleCharacters().entrySet()) {
+      String pos = entry.getKey().name();
+      VnState.CharacterSlot slot = entry.getValue();
+      vis.put(pos, new String[]{slot.getCharacterId(), slot.getExpression()});
+    }
+    saveData.setVisibleCharacters(vis);
+
+    saveData.setSkipMode(state.isSkipMode());
+    saveData.setAutoPlayMode(state.isAutoPlayMode());
+    saveData.setUiHidden(state.isUiHidden());
+
+    VnSettings s = state.getSettings();
+    VnSaveData.SettingsData sd = new VnSaveData.SettingsData();
+    sd.setTextSpeed(s.getTextSpeed());
+    sd.setBgmVolume(s.getBgmVolume());
+    sd.setSfxVolume(s.getSfxVolume());
+    sd.setVoiceVolume(s.getVoiceVolume());
+    sd.setAutoPlayDelay(s.getAutoPlayDelay());
+    sd.setSkipUnreadText(s.isSkipUnreadText());
+    sd.setSkipAfterChoices(s.isSkipAfterChoices());
+    saveData.setSettings(sd);
+
     saveData.setSaveTimestamp(System.currentTimeMillis());
     
     Path saveFile = saveDirectory.resolve(sanitizeFileName(saveName) + ".sav");
@@ -97,7 +125,36 @@ public class VnSaveManager {
   public void applyToState(VnSaveData saveData, VnState state) {
     state.setCurrentNodeIndex(saveData.getCurrentNodeIndex());
     state.setCurrentBackgroundId(saveData.getCurrentBackgroundId());
-    // Variables and other state can be restored here
+    state.setVariables(saveData.getVariables());
+    state.setReadNodes(saveData.getReadNodes());
+
+    state.clearAllCharacters();
+    for (var entry : saveData.getVisibleCharacters().entrySet()) {
+      String pos = entry.getKey();
+      String[] data = entry.getValue();
+      try {
+        CharacterPosition position = CharacterPosition.valueOf(pos);
+        String charId = data.length > 0 ? data[0] : null;
+        String expr = data.length > 1 ? data[1] : "neutral";
+        if (charId != null) state.showCharacter(position, charId, expr);
+      } catch (IllegalArgumentException ignored) {}
+    }
+
+    state.setSkipMode(saveData.isSkipMode());
+    state.setAutoPlayMode(saveData.isAutoPlayMode());
+    state.setUiHidden(saveData.isUiHidden());
+
+    if (saveData.getSettings() != null) {
+      var sd = saveData.getSettings();
+      VnSettings s = state.getSettings();
+      s.setTextSpeed(sd.getTextSpeed());
+      s.setBgmVolume(sd.getBgmVolume());
+      s.setSfxVolume(sd.getSfxVolume());
+      s.setVoiceVolume(sd.getVoiceVolume());
+      s.setAutoPlayDelay(sd.getAutoPlayDelay());
+      s.setSkipUnreadText(sd.isSkipUnreadText());
+      s.setSkipAfterChoices(sd.isSkipAfterChoices());
+    }
   }
   
   private String sanitizeFileName(String name) {

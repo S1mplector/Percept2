@@ -29,6 +29,26 @@ public class FxLauncher extends Application {
     Application.launch();
   }
 
+  private void handleToggleHistory() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene) {
+      VnScene vnScene = (VnScene) currentScene;
+      vnScene.getState().toggleHistoryOverlay();
+    }
+  }
+
+  private void handleCloseHistory() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene) {
+      VnScene vnScene = (VnScene) currentScene;
+      if (vnScene.getState().isHistoryOverlayShown()) {
+        vnScene.getState().setHistoryOverlayShown(false);
+      }
+    }
+  }
+
   @Override
   public void start(Stage primaryStage) {
     String title = engine != null && engine.getConfig() != null ? engine.getConfig().title() : "JVN";
@@ -62,6 +82,12 @@ public class FxLauncher extends Application {
       } else if (e.getCode() == KeyCode.H) {
         // H = Hide UI
         handleToggleUI();
+      } else if (e.getCode() == KeyCode.B) {
+        // B = Toggle history/backlog overlay
+        handleToggleHistory();
+      } else if (e.getCode() == KeyCode.ESCAPE) {
+        // ESC = Close history overlay if open
+        handleCloseHistory();
       } else if (e.getCode() == KeyCode.F5) {
         // F5 = Quick save
         handleQuickSave();

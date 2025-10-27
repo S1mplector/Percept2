@@ -9,6 +9,7 @@ import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.fx.FxLauncher;
+import com.jvn.fx.audio.FxAudioService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,6 +78,8 @@ public class JvnApp {
     }
 
     VnScene vnScene = new VnScene(scenario);
+    // Wire audio service (JavaFX Media)
+    vnScene.setAudioFacade(new FxAudioService());
     engine.scenes().push(vnScene);
 
     FxLauncher.launch(engine);

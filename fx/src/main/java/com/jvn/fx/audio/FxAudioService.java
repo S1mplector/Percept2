@@ -1,0 +1,74 @@
+package com.jvn.fx.audio;
+
+import com.jvn.core.assets.AssetPaths;
+import com.jvn.core.assets.AssetType;
+import com.jvn.core.audio.AudioFacade;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+public class FxAudioService implements AudioFacade {
+  private MediaPlayer bgmPlayer;
+  private final List<MediaPlayer> sfxPlayers = new ArrayList<>();
+
+  @Override
+  public void playBgm(String trackId, boolean loop) {
+    stopBgm();
+    try {
+      URL url = getClass().getClassLoader().getResource(AssetPaths.build(AssetType.AUDIO, trackId));
+      if (url == null) return;
+      Media media = new Media(url.toExternalForm());
+      bgmPlayer = new MediaPlayer(media);
+      if (loop) bgmPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+      bgmPlayer.play();
+    } catch (Exception ignored) {
+    }
+  }
+
+  @Override
+  public void stopBgm() {
+    if (bgmPlayer != null) {
+      try {
+        bgmPlayer.stop();
+      } finally {
+        bgmPlayer.dispose();
+        bgmPlayer = null;
+      }
+    }
+  }
+
+  @Override
+  public void playSfx(String sfxId) {
+    try {
+      URL url = getClass().getClassLoader().getResource(AssetPaths.build(AssetType.AUDIO, sfxId));
+      if (url == null) return;
+      Media media = new Media(url.toExternalForm());
+      MediaPlayer player = new MediaPlayer(media);
+      player.setOnEndOfMedia(() -> {
+        player.stop();
+        player.dispose();
+        sfxPlayers.remove(player);
+      });
+      sfxPlayers.add(player);
+      cleanupSfx();
+      player.play();
+    } catch (Exception ignored) {
+    }
+  }
+
+  private void cleanupSfx() {
+    Iterator<MediaPlayer> it = sfxPlayers.iterator();
+    while (it.hasNext()) {
+      MediaPlayer p = it.next();
+      MediaPlayer.Status st = p.getStatus();
+      if (st == MediaPlayer.Status.STOPPED || st == MediaPlayer.Status.DISPOSED) {
+        try { p.dispose(); } catch (Exception ignored) {}
+        it.remove();
+      }
+    }
+  }
+}

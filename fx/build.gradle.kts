@@ -20,4 +20,5 @@ dependencies {
   api("org.openjfx:javafx-base:$javafxVersion:$platform")
   api("org.openjfx:javafx-graphics:$javafxVersion:$platform")
   api("org.openjfx:javafx-controls:$javafxVersion:$platform")
+  api("org.openjfx:javafx-media:$javafxVersion:$platform")
 }
