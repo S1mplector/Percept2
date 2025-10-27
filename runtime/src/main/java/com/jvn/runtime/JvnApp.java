@@ -4,10 +4,10 @@ import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
-import com.jvn.core.vn.DemoScenario;
-import com.jvn.core.vn.VnScene;
-import com.jvn.core.vn.VnScenario;
-import com.jvn.core.vn.script.VnScriptParser;
+import com.jvn.core.vn.VnSettings;
+import com.jvn.core.vn.save.VnSaveManager;
+import com.jvn.core.localization.Localization;
+import com.jvn.core.menu.MainMenuScene;
 import com.jvn.fx.FxLauncher;
 import com.jvn.fx.audio.FxAudioService;
 import org.slf4j.Logger;
@@ -19,6 +19,7 @@ public class JvnApp {
   public static void main(String[] args) {
     ApplicationConfig.Builder builder = ApplicationConfig.builder().title("JVN Runtime").width(960).height(540);
     String scriptName = "demo.vns"; // default script under game/scripts/
+    String locale = "en";
 
     for (int i = 0; i < args.length; i++) {
       String a = args[i];
@@ -35,6 +36,9 @@ public class JvnApp {
         case "--script":
           if (i + 1 < args.length) scriptName = args[++i];
           break;
+        case "--locale":
+          if (i + 1 < args.length) locale = args[++i];
+          break;
         default:
           log.warn("Unknown argument: {}", a);
       }
@@ -42,6 +46,9 @@ public class JvnApp {
 
     ApplicationConfig cfg = builder.build();
     
+    // Init localization
+    Localization.init(locale, Thread.currentThread().getContextClassLoader());
+
     // Log asset availability on startup
     AssetCatalog assets = new AssetCatalog();
     try {
@@ -54,33 +61,15 @@ public class JvnApp {
       log.warn("Unable to list assets: {}", e.toString());
     }
     
-    // Create engine and load VN scenario (from script if available)
+    // Create engine and show main menu
     Engine engine = new Engine(cfg);
     engine.start();
 
-    VnScenario scenario = null;
-    try {
-      VnScriptParser parser = new VnScriptParser();
-      try (var in = assets.open(AssetType.SCRIPT, scriptName)) {
-        log.info("Loading VN script: {}", scriptName);
-        scenario = parser.parse(in);
-      }
-    } catch (Exception e) {
-      log.warn("Failed to load script '{}': {}. Falling back to built-in demo.", scriptName, e.toString());
-    }
-
-    if (scenario == null) {
-      // Fallback to built-in demo
-      scenario = DemoScenario.createSimpleDemo();
-      log.info("Loaded built-in demo scenario: {}", scenario.getId());
-    } else {
-      log.info("Loaded script scenario: {} (nodes={})", scenario.getId(), scenario.getNodes().size());
-    }
-
-    VnScene vnScene = new VnScene(scenario);
-    // Wire audio service (JavaFX Media)
-    vnScene.setAudioFacade(new FxAudioService());
-    engine.scenes().push(vnScene);
+    VnSettings settingsModel = new VnSettings();
+    VnSaveManager saveManager = new VnSaveManager();
+    FxAudioService audio = new FxAudioService();
+    MainMenuScene menu = new MainMenuScene(engine, settingsModel, saveManager, scriptName, audio);
+    engine.scenes().push(menu);
 
     FxLauncher.launch(engine);
   }

@@ -127,6 +127,13 @@ public class VnRenderer {
     Image img = loadImage(background.getImagePath());
     if (img != null) {
       gc.drawImage(img, 0, 0, width, height);
+    } else {
+      // Placeholder background
+      gc.setFill(Color.DARKSLATEGRAY);
+      gc.fillRect(0, 0, width, height);
+      gc.setFill(Color.WHITE);
+      gc.setFont(Font.font("Arial", FontWeight.BOLD, 24));
+      gc.fillText("No Background Image", 20, 40);
     }
   }
 
@@ -149,7 +156,25 @@ public class VnRenderer {
 
   private void renderCharacterSprite(String imagePath, CharacterPosition position, double width, double height) {
     Image img = loadImage(imagePath);
-    if (img == null) return;
+    if (img == null) {
+      // Draw placeholder silhouette box
+      double spriteHeight = height * 0.7;
+      double spriteWidth = spriteHeight * 0.5;
+      double x = switch (position) {
+        case FAR_LEFT -> width * 0.05;
+        case LEFT -> width * 0.2;
+        case CENTER -> (width - spriteWidth) / 2;
+        case RIGHT -> width * 0.8 - spriteWidth;
+        case FAR_RIGHT -> width * 0.95 - spriteWidth;
+      };
+      double y = height - spriteHeight - (height * TEXTBOX_HEIGHT_RATIO);
+      gc.setFill(Color.rgb(200, 200, 200, 0.4));
+      gc.fillRoundRect(x, y, spriteWidth, spriteHeight, 20, 20);
+      gc.setStroke(Color.WHITE);
+      gc.setLineWidth(2);
+      gc.strokeRoundRect(x, y, spriteWidth, spriteHeight, 20, 20);
+      return;
+    }
 
     double spriteHeight = height * 0.7; // Characters take up 70% of screen height
     double spriteWidth = img.getWidth() * (spriteHeight / img.getHeight());

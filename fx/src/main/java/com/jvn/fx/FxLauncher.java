@@ -1,12 +1,16 @@
 package com.jvn.fx;
 
 import com.jvn.core.engine.Engine;
+// Note: Avoid importing com.jvn.core.scene.Scene to prevent name clash with javafx.scene.Scene
 import com.jvn.core.vn.VnScene;
+import com.jvn.core.menu.MainMenuScene;
+import com.jvn.core.menu.LoadMenuScene;
+import com.jvn.core.menu.SettingsScene;
 import com.jvn.fx.vn.VnRenderer;
+import com.jvn.fx.menu.MenuRenderer;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.control.Label;
+// no direct import of javafx.scene.Scene to avoid name clash; use fully qualified name
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
@@ -21,6 +25,7 @@ public class FxLauncher extends Application {
   private Canvas canvas;
   private GraphicsContext gc;
   private VnRenderer vnRenderer;
+  private MenuRenderer menuRenderer;
   private double mouseX = 0;
   private double mouseY = 0;
 
@@ -59,20 +64,21 @@ public class FxLauncher extends Application {
     StackPane root = new StackPane();
     this.canvas = new Canvas(width, height);
     root.getChildren().add(this.canvas);
-    Scene scene = new Scene(root, width, height);
+    javafx.scene.Scene scene = new javafx.scene.Scene(root, width, height);
     primaryStage.setScene(scene);
     primaryStage.show();
 
     // Initialize graphics context and resize canvas with scene
     this.gc = this.canvas.getGraphicsContext2D();
     this.vnRenderer = new VnRenderer(gc);
+    this.menuRenderer = new MenuRenderer(gc);
     scene.widthProperty().addListener((obs, ov, nv) -> this.canvas.setWidth(nv.doubleValue()));
     scene.heightProperty().addListener((obs, ov, nv) -> this.canvas.setHeight(nv.doubleValue()));
 
     // Input handling
     scene.setOnKeyPressed(e -> {
       if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
-        handleAdvance();
+        if (!handleMenuEnter()) handleAdvance();
       } else if (e.getCode() == KeyCode.CONTROL || e.getCode() == KeyCode.COMMAND) {
         // Ctrl/Cmd = Skip mode toggle
         handleToggleSkip();
@@ -87,7 +93,15 @@ public class FxLauncher extends Application {
         handleToggleHistory();
       } else if (e.getCode() == KeyCode.ESCAPE) {
         // ESC = Close history overlay if open
-        handleCloseHistory();
+        if (!handleMenuBack()) handleCloseHistory();
+      } else if (e.getCode() == KeyCode.UP) {
+        handleMenuMove(-1);
+      } else if (e.getCode() == KeyCode.DOWN) {
+        handleMenuMove(1);
+      } else if (e.getCode() == KeyCode.LEFT) {
+        handleSettingsAdjust(-1);
+      } else if (e.getCode() == KeyCode.RIGHT) {
+        handleSettingsAdjust(1);
       } else if (e.getCode() == KeyCode.F5) {
         // F5 = Quick save
         handleQuickSave();
@@ -125,16 +139,21 @@ public class FxLauncher extends Application {
           
           // Check if current scene is a VN scene
           com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
-          if (currentScene instanceof VnScene) {
-            VnScene vnScene = (VnScene) currentScene;
+          if (currentScene instanceof VnScene vnScene) {
             vnRenderer.render(vnScene.getState(), vnScene.getScenario(), w, h, mouseX, mouseY);
+          } else if (currentScene instanceof MainMenuScene main) {
+            menuRenderer.renderMainMenu(main, w, h);
+          } else if (currentScene instanceof LoadMenuScene load) {
+            menuRenderer.renderLoadMenu(load, w, h);
+          } else if (currentScene instanceof SettingsScene settings) {
+            menuRenderer.renderSettings(settings, w, h);
           } else {
             // Default render: clear and draw title text
             gc.setFill(Color.BLACK);
             gc.fillRect(0, 0, w, h);
             gc.setFill(Color.WHITE);
             gc.fillText("JVN - Java Visual Novel", 20, 30);
-            gc.fillText("No scene loaded. Push a VnScene to the engine's scene manager.", 20, 60);
+            gc.fillText("No scene loaded. Push a Scene to the engine's scene manager.", 20, 60);
           }
         }
       }
@@ -213,6 +232,52 @@ public class FxLauncher extends Application {
       
       // Otherwise treat as advance
       vnScene.advance();
+    }
+  }
+
+  private boolean handleMenuEnter() {
+    if (engine == null) return false;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof MainMenuScene main) {
+      main.activateSelected();
+      return true;
+    } else if (currentScene instanceof LoadMenuScene load) {
+      load.loadSelected();
+      return true;
+    } else if (currentScene instanceof SettingsScene settings) {
+      settings.toggleCurrent();
+      return true;
+    }
+    return false;
+  }
+
+  private boolean handleMenuBack() {
+    if (engine == null) return false;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof LoadMenuScene || currentScene instanceof SettingsScene) {
+      engine.scenes().pop();
+      return true;
+    }
+    return false;
+  }
+
+  private void handleMenuMove(int delta) {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof MainMenuScene main) {
+      main.moveSelection(delta);
+    } else if (currentScene instanceof LoadMenuScene load) {
+      load.moveSelection(delta);
+    } else if (currentScene instanceof SettingsScene settings) {
+      settings.moveSelection(delta);
+    }
+  }
+
+  private void handleSettingsAdjust(int delta) {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof SettingsScene settings) {
+      settings.adjustCurrent(delta);
     }
   }
 
