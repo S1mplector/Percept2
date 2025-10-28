@@ -35,6 +35,10 @@ public class VnScene implements Scene {
     this.quickSaveManager = manager;
   }
 
+  public VnQuickSaveManager getQuickSaveManager() {
+    return quickSaveManager;
+  }
+
   @Override
   public void onEnter() {
     // Process initial node

@@ -21,6 +21,12 @@ import javafx.stage.Stage;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
+import javafx.embed.swing.SwingFXUtils;
+import javax.imageio.ImageIO;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class FxLauncher extends Application {
   private static Engine engine;
@@ -149,6 +155,12 @@ public class FxLauncher extends Application {
       }
     });
 
+    scene.setOnMouseDragged(e -> {
+      if (e.isPrimaryButtonDown()) {
+        handleMouseDrag(e.getX(), e.getY());
+      }
+    });
+
     timer = new AnimationTimer() {
       private long lastNs = -1L;
 
@@ -224,7 +236,11 @@ public class FxLauncher extends Application {
     if (engine == null) return;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof VnScene) {
-      boolean success = ((VnScene) currentScene).quickSave();
+      VnScene vn = (VnScene) currentScene;
+      boolean success = vn.quickSave();
+      if (success) {
+        try { writeQuickSaveThumbnail(vn); } catch (Exception ignored) {}
+      }
       System.out.println(success ? "Quick saved!" : "Quick save failed!");
     }
   }
@@ -280,8 +296,22 @@ public class FxLauncher extends Application {
         if (idx == settings.itemCount() - 1) {
           settings.toggleCurrent();
         } else {
-          settings.adjustCurrent(1);
+          double val = computeSliderValue01(x);
+          settings.setValueByIndex(idx, val);
         }
+      }
+    }
+  }
+
+  private void handleMouseDrag(double x, double y) {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof SettingsScene settings) {
+      int idx = menuRenderer.getHoverIndexForList(settings.itemCount(), canvas.getWidth(), canvas.getHeight(), x, y);
+      if (idx >= 0 && idx < settings.itemCount() - 1) {
+        settings.setSelected(idx);
+        double val = computeSliderValue01(x);
+        settings.setValueByIndex(idx, val);
       }
     }
   }
@@ -329,6 +359,32 @@ public class FxLauncher extends Application {
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof SettingsScene settings) {
       settings.adjustCurrent(delta);
+    }
+  }
+
+  private double computeSliderValue01(double mouseX) {
+    double w = canvas.getWidth();
+    double sliderW = w * 0.4;
+    double sliderX = (w - sliderW) / 2;
+    double v = (mouseX - sliderX) / sliderW;
+    if (v < 0) v = 0;
+    if (v > 1) v = 1;
+    return v;
+  }
+
+  private void writeQuickSaveThumbnail(VnScene vnScene) {
+    try {
+      var qsm = vnScene.getQuickSaveManager();
+      if (qsm == null) return;
+      String dir = qsm.getSaveDirectory();
+      String name = qsm.getQuickSaveSlotName();
+      if (dir == null || name == null || name.isBlank()) return;
+      Path d = Paths.get(dir);
+      Files.createDirectories(d);
+      File out = d.resolve(name + ".png").toFile();
+      var img = canvas.snapshot(null, null);
+      ImageIO.write(SwingFXUtils.fromFXImage(img, null), "png", out);
+    } catch (Exception ignored) {
     }
   }
 

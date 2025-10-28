@@ -117,7 +117,12 @@ public class VnSaveManager {
   public boolean deleteSave(String saveName) {
     Path saveFile = saveDirectory.resolve(sanitizeFileName(saveName) + ".sav");
     try {
-      return Files.deleteIfExists(saveFile);
+      boolean deleted = Files.deleteIfExists(saveFile);
+      try {
+        Path thumb = saveDirectory.resolve(sanitizeFileName(saveName) + ".png");
+        Files.deleteIfExists(thumb);
+      } catch (Exception ignored) {}
+      return deleted;
     } catch (IOException e) {
       return false;
     }
@@ -132,6 +137,14 @@ public class VnSaveManager {
     try {
       if (!Files.exists(oldFile)) return false;
       Files.move(oldFile, newFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      // Try to rename sidecar thumbnail if present
+      try {
+        Path oldPng = saveDirectory.resolve(sanitizeFileName(oldName) + ".png");
+        Path newPng = saveDirectory.resolve(sanitizeFileName(newName) + ".png");
+        if (Files.exists(oldPng)) {
+          Files.move(oldPng, newPng, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+      } catch (Exception ignored) {}
       return true;
     } catch (IOException e) {
       return false;

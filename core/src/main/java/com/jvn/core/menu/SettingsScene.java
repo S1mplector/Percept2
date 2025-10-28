@@ -60,4 +60,32 @@ public class SettingsScene implements Scene {
 
   @Override
   public void update(long deltaMs) { }
+
+  public void setValueByIndex(int idx, double value01) {
+    double v = Math.max(0.0, Math.min(1.0, value01));
+    switch (idx) {
+      case 0 -> {
+        // text speed 10..120 ms
+        int min = 10, max = 120;
+        int val = (int) Math.round(min + v * (max - min));
+        settings.setTextSpeed(val);
+      }
+      case 1 -> settings.setBgmVolume((float) v);
+      case 2 -> settings.setSfxVolume((float) v);
+      case 3 -> settings.setVoiceVolume((float) v);
+      case 4 -> {
+        long min = 500, max = 5000;
+        long val = Math.round(min + v * (max - min));
+        settings.setAutoPlayDelay(val);
+      }
+      case 5 -> settings.setSkipUnreadText(v >= 0.5);
+      default -> {}
+    }
+    // Live-apply volumes
+    if (audio != null) {
+      audio.setBgmVolume(settings.getBgmVolume());
+      audio.setSfxVolume(settings.getSfxVolume());
+      audio.setVoiceVolume(settings.getVoiceVolume());
+    }
+  }
 }

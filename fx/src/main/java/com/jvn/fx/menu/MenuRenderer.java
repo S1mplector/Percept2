@@ -12,6 +12,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
 import java.util.List;
+import java.io.File;
 
 public class MenuRenderer {
   private final GraphicsContext gc;
@@ -43,14 +44,17 @@ public class MenuRenderer {
     if (saves.isEmpty()) {
       drawCenteredText(Localization.t("load.no_saves"), w, h/2, itemFont, Color.GRAY);
     } else {
-      // Left: list
       drawMenuList(saves.toArray(new String[0]), scene.getSelected(), w * 0.6, h);
-      // Right: preview
-      String previewPath = getSelectedPreviewImagePath(scene);
-      if (previewPath != null) {
-        drawPreview(previewPath, w, h);
+      File thumb = getThumbnailFile(scene);
+      if (thumb != null) {
+        drawPreviewFile(thumb, w, h);
       } else {
-        drawPreviewPlaceholder(w, h);
+        String previewPath = scene.getSelectedPreviewImagePath();
+        if (previewPath != null) {
+          drawPreviewResource(previewPath, w, h);
+        } else {
+          drawPreviewPlaceholder(w, h);
+        }
       }
     }
     drawHints(Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
@@ -73,6 +77,25 @@ public class MenuRenderer {
     };
 
     drawMenuList(items, scene.getSelected(), w, h);
+    double yStart = h * 0.35;
+    double lineH = 40;
+    double sliderW = w * 0.4;
+    double sliderX = (w - sliderW) / 2;
+
+    double textSpeedMin = 10.0, textSpeedMax = 120.0;
+    double autoDelayMin = 500.0, autoDelayMax = 5000.0;
+    double[] values = new double[] {
+      clamp01((s.getTextSpeed() - textSpeedMin) / (textSpeedMax - textSpeedMin)),
+      clamp01(s.getBgmVolume()),
+      clamp01(s.getSfxVolume()),
+      clamp01(s.getVoiceVolume()),
+      clamp01((s.getAutoPlayDelay() - autoDelayMin) / (autoDelayMax - autoDelayMin))
+    };
+
+    for (int i = 0; i < values.length; i++) {
+      double y = yStart + i * lineH + 10;
+      drawSlider(sliderX, y, sliderW, values[i], i == scene.getSelected());
+    }
     drawHints("Up/Down, Left/Right, Enter • " + Localization.t("common.back") + ": Esc", w, h);
   }
 
@@ -125,10 +148,8 @@ public class MenuRenderer {
 
   public int getHoverIndexForList(int count, double w, double h, double mouseX, double mouseY) {
     if (count <= 0) return -1;
-    double width = w; // for main/settings; load passes 0.6*w if needed externally
     double yStart = h * 0.35;
     double lineH = 40;
-    double totalH = count * lineH;
     // Compute by vertical slot
     double relY = mouseY - yStart + (lineH/2);
     if (relY < 0) return -1;
@@ -137,45 +158,47 @@ public class MenuRenderer {
     return idx;
   }
 
-  private String getSelectedPreviewImagePath(LoadMenuScene scene) {
-    try {
-      // Expose via scene method in future; for now derive here
-      String name = scene.getSelectedName();
-      if (name == null) return null;
-      // Use scene helper if present; else return null
-      // We call scene.getSelectedPreviewImagePath() if available; fall back to null
-      try {
-        java.lang.reflect.Method m = scene.getClass().getMethod("getSelectedPreviewImagePath");
-        Object o = m.invoke(scene);
-        return (String) o;
-      } catch (Exception ignored) { }
-      return null;
-    } catch (Exception ignored) {
-      return null;
-    }
+  private File getThumbnailFile(LoadMenuScene scene) {
+    String dir = scene.getSaveDirectory();
+    String name = scene.getSelectedName();
+    if (dir == null || name == null) return null;
+    File f = new File(dir, name + ".png");
+    return f.exists() ? f : null;
   }
 
-  private void drawPreview(String path, double w, double h) {
+  private void drawPreviewResource(String path, double w, double h) {
     try {
       var url = getClass().getClassLoader().getResource(path);
       if (url == null) { drawPreviewPlaceholder(w, h); return; }
       Image img = new Image(url.toExternalForm());
-      double panelX = w * 0.65;
-      double panelY = h * 0.25;
-      double panelW = w * 0.3;
-      double panelH = h * 0.5;
-      gc.setFill(Color.rgb(255,255,255,0.1));
-      gc.fillRoundRect(panelX - 8, panelY - 8, panelW + 16, panelH + 16, 12, 12);
-      // Fit image into panel keeping aspect
-      double scale = Math.min(panelW / img.getWidth(), panelH / img.getHeight());
-      double iw = img.getWidth() * scale;
-      double ih = img.getHeight() * scale;
-      double ix = panelX + (panelW - iw) / 2;
-      double iy = panelY + (panelH - ih) / 2;
-      gc.drawImage(img, ix, iy, iw, ih);
+      drawPreviewImage(img, w, h);
     } catch (Exception e) {
       drawPreviewPlaceholder(w, h);
     }
+  }
+
+  private void drawPreviewFile(File file, double w, double h) {
+    try {
+      Image img = new Image(file.toURI().toString());
+      drawPreviewImage(img, w, h);
+    } catch (Exception e) {
+      drawPreviewPlaceholder(w, h);
+    }
+  }
+
+  private void drawPreviewImage(Image img, double w, double h) {
+    double panelX = w * 0.65;
+    double panelY = h * 0.25;
+    double panelW = w * 0.3;
+    double panelH = h * 0.5;
+    gc.setFill(Color.rgb(255,255,255,0.1));
+    gc.fillRoundRect(panelX - 8, panelY - 8, panelW + 16, panelH + 16, 12, 12);
+    double scale = Math.min(panelW / img.getWidth(), panelH / img.getHeight());
+    double iw = img.getWidth() * scale;
+    double ih = img.getHeight() * scale;
+    double ix = panelX + (panelW - iw) / 2;
+    double iy = panelY + (panelH - ih) / 2;
+    gc.drawImage(img, ix, iy, iw, ih);
   }
 
   private void drawPreviewPlaceholder(double w, double h) {
@@ -188,5 +211,21 @@ public class MenuRenderer {
     gc.setFill(Color.GRAY);
     gc.setFont(itemFont);
     drawCenteredText(Localization.t("load.no_preview"), panelX + panelW/2, panelY + panelH/2, itemFont, Color.GRAY);
+  }
+
+  private void drawSlider(double x, double y, double w, double value01, boolean highlight) {
+    double h = 8;
+    gc.setFill(Color.rgb(255,255,255,0.15));
+    gc.fillRoundRect(x, y, w, h, 6, 6);
+    gc.setFill(highlight ? Color.YELLOW : Color.LIGHTGRAY);
+    double fill = Math.max(0, Math.min(1, value01));
+    gc.fillRoundRect(x, y, w * fill, h, 6, 6);
+    double knobX = x + w * fill - 6;
+    gc.setFill(Color.WHITE);
+    gc.fillOval(knobX, y - 4, 12, 12);
+  }
+
+  private double clamp01(double v) {
+    return v < 0 ? 0 : (v > 1 ? 1 : v);
   }
 }

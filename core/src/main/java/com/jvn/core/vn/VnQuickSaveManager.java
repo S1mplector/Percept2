@@ -68,4 +68,15 @@ public class VnQuickSaveManager {
     saveManager.applyToState(saveData, state);
     return true;
   }
+
+  /**
+   * Directory path where saves are stored.
+   */
+  public String getSaveDirectory() {
+    return saveManager.getSaveDirectory();
+  }
+
+  public String getQuickSaveSlotName() {
+    return QUICK_SAVE_NAME;
+  }
 }
