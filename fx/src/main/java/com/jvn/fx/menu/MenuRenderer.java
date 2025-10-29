@@ -3,6 +3,7 @@ package com.jvn.fx.menu;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
+import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.vn.VnSettings;
 import javafx.scene.canvas.GraphicsContext;
@@ -37,6 +38,29 @@ public class MenuRenderer {
     drawHints(Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc", w, h);
   }
 
+  public void renderSaveMenu(SaveMenuScene scene, double w, double h) {
+    clear(w, h);
+    drawTitle(Localization.t("save.title"), w, 60);
+    List<String> saves = scene.getSaves();
+    String[] items = new String[(saves.size() + 1)];
+    items[0] = Localization.t("save.new");
+    for (int i = 0; i < saves.size(); i++) items[i + 1] = saves.get(i);
+    drawMenuList(items, scene.getSelected(), w * 0.6, h);
+
+    // Preview: prefer thumbnail when selecting existing; when selecting new, try current background
+    if (scene.isNewItemSelected()) {
+      String path = scene.getCurrentBackgroundPreviewPath();
+      if (path != null) drawPreviewResource(path, w, h); else drawPreviewPlaceholder(w, h);
+    } else {
+      File f = new File(scene.getSaveDirectory(), scene.getSelectedName() + ".png");
+      if (f.exists()) drawPreviewFile(f, w, h); else drawPreviewPlaceholder(w, h);
+      drawPreviewMetadata(null, scene.getSelectedTimestamp(), null, w, h);
+    }
+    drawHints(Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
+        + Localization.t("save.delete") + ": Delete    " + Localization.t("save.rename") + ": R",
+        w, h);
+  }
+
   public void renderLoadMenu(LoadMenuScene scene, double w, double h) {
     clear(w, h);
     drawTitle(Localization.t("load.title"), w, 60);
@@ -56,6 +80,12 @@ public class MenuRenderer {
           drawPreviewPlaceholder(w, h);
         }
       }
+      drawPreviewMetadata(
+        scene.getSelectedScenarioId(),
+        scene.getSelectedTimestamp(),
+        scene.getSelectedNodeIndex(),
+        w, h
+      );
     }
     drawHints(Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
         + Localization.t("load.delete") + ": Delete    " + Localization.t("load.rename") + ": R",
@@ -211,6 +241,31 @@ public class MenuRenderer {
     gc.setFill(Color.GRAY);
     gc.setFont(itemFont);
     drawCenteredText(Localization.t("load.no_preview"), panelX + panelW/2, panelY + panelH/2, itemFont, Color.GRAY);
+  }
+
+  private void drawPreviewMetadata(String scenarioId, Long timestampMs, Integer nodeIndex, double w, double h) {
+    double panelX = w * 0.65;
+    double panelY = h * 0.25;
+    double panelH = h * 0.5;
+    double textY = panelY + panelH + 20;
+    gc.setFill(Color.LIGHTGRAY);
+    gc.setFont(hintFont);
+    String ts = timestampMs != null ? formatTimestamp(timestampMs) : "";
+    String line1 = (ts.isEmpty() ? "" : ts);
+    String line2 = (scenarioId != null ? (Localization.t("meta.scenario") + ": " + scenarioId) : "");
+    String line3 = (nodeIndex != null ? (Localization.t("meta.node") + ": " + nodeIndex) : "");
+    double x = panelX;
+    if (!line1.isEmpty()) gc.fillText(line1, x, textY);
+    if (!line2.isEmpty()) gc.fillText(line2, x, textY + 18);
+    if (!line3.isEmpty()) gc.fillText(line3, x, textY + 36);
+  }
+
+  private String formatTimestamp(long millis) {
+    try {
+      java.time.Instant inst = java.time.Instant.ofEpochMilli(millis);
+      java.time.ZonedDateTime z = java.time.ZonedDateTime.ofInstant(inst, java.time.ZoneId.systemDefault());
+      return z.toLocalDate().toString() + " " + z.toLocalTime().withNano(0).toString();
+    } catch (Exception e) { return Long.toString(millis); }
   }
 
   private void drawSlider(double x, double y, double w, double value01, boolean highlight) {

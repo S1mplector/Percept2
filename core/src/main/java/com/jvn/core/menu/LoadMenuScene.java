@@ -32,6 +32,39 @@ public class LoadMenuScene implements Scene {
     refresh();
   }
 
+  public Long getSelectedTimestamp() {
+    String name = getSelectedName();
+    if (name == null) return null;
+    try {
+      VnSaveData data = saveManager.load(name);
+      return data.getSaveTimestamp();
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  public String getSelectedScenarioId() {
+    String name = getSelectedName();
+    if (name == null) return null;
+    try {
+      VnSaveData data = saveManager.load(name);
+      return data.getScenarioId();
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  public Integer getSelectedNodeIndex() {
+    String name = getSelectedName();
+    if (name == null) return null;
+    try {
+      VnSaveData data = saveManager.load(name);
+      return data.getCurrentNodeIndex();
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
   public void refresh() {
     saves.clear();
     saves.addAll(saveManager.listSaves());

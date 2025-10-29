@@ -6,6 +6,7 @@ import com.jvn.core.vn.VnScene;
 import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.SettingsScene;
+import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.fx.vn.VnRenderer;
 import com.jvn.fx.menu.MenuRenderer;
 import javafx.animation.AnimationTimer;
@@ -117,6 +118,12 @@ public class FxLauncher extends Application {
       } else if (e.getCode() == KeyCode.F9) {
         // F9 = Quick load
         handleQuickLoad();
+      } else if (e.getCode() == KeyCode.F6) {
+        // F6 = Save menu (in-game)
+        com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+        if (currentScene instanceof VnScene vn) {
+          engine.scenes().push(new SaveMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), vn));
+        }
       } else if (e.getCode() == KeyCode.DELETE) {
         handleMenuDelete();
       } else if (e.getCode() == KeyCode.R) {
@@ -145,6 +152,9 @@ public class FxLauncher extends Application {
         } else if (currentScene instanceof SettingsScene settings) {
           int idx = menuRenderer.getHoverIndexForList(settings.itemCount(), canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
           if (idx >= 0) settings.setSelected(idx);
+        } else if (currentScene instanceof SaveMenuScene save) {
+          int idx = menuRenderer.getHoverIndexForList(save.getEntriesCount(), canvas.getWidth() * 0.6, canvas.getHeight(), mouseX, mouseY);
+          if (idx >= 0) save.setSelected(idx);
         }
       }
     });
@@ -186,6 +196,8 @@ public class FxLauncher extends Application {
             menuRenderer.renderLoadMenu(load, w, h);
           } else if (currentScene instanceof SettingsScene settings) {
             menuRenderer.renderSettings(settings, w, h);
+          } else if (currentScene instanceof SaveMenuScene save) {
+            menuRenderer.renderSaveMenu(save, w, h);
           } else {
             // Default render: clear and draw title text
             gc.setFill(Color.BLACK);
@@ -328,6 +340,27 @@ public class FxLauncher extends Application {
     } else if (currentScene instanceof SettingsScene settings) {
       settings.toggleCurrent();
       return true;
+    } else if (currentScene instanceof SaveMenuScene save) {
+      if (save.isNewItemSelected()) {
+        TextInputDialog dlg = new TextInputDialog("");
+        dlg.setTitle("New Save");
+        dlg.setHeaderText(null);
+        dlg.setContentText("Save name:");
+        var result = dlg.showAndWait();
+        result.ifPresent(name -> {
+          String trimmed = name.trim();
+          if (!trimmed.isEmpty()) save.saveNew(trimmed);
+        });
+      } else {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Overwrite save '" + save.getSelectedName() + "'?", ButtonType.YES, ButtonType.NO);
+        alert.setHeaderText(null);
+        alert.setTitle("Confirm Overwrite");
+        var result = alert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.YES) {
+          save.saveOverwriteSelected();
+        }
+      }
+      return true;
     }
     return false;
   }
@@ -335,7 +368,7 @@ public class FxLauncher extends Application {
   private boolean handleMenuBack() {
     if (engine == null) return false;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-    if (currentScene instanceof LoadMenuScene || currentScene instanceof SettingsScene) {
+    if (currentScene instanceof LoadMenuScene || currentScene instanceof SettingsScene || currentScene instanceof SaveMenuScene) {
       engine.scenes().pop();
       return true;
     }
@@ -351,6 +384,8 @@ public class FxLauncher extends Application {
       load.moveSelection(delta);
     } else if (currentScene instanceof SettingsScene settings) {
       settings.moveSelection(delta);
+    } else if (currentScene instanceof SaveMenuScene save) {
+      save.moveSelection(delta);
     }
   }
 
@@ -401,6 +436,16 @@ public class FxLauncher extends Application {
       if (result.isPresent() && result.get() == ButtonType.YES) {
         load.deleteSelected();
       }
+    } else if (currentScene instanceof SaveMenuScene save) {
+      String sel = save.getSelectedName();
+      if (sel == null) return;
+      Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Delete save '" + sel + "'?", ButtonType.YES, ButtonType.NO);
+      alert.setHeaderText(null);
+      alert.setTitle("Confirm Delete");
+      var result = alert.showAndWait();
+      if (result.isPresent() && result.get() == ButtonType.YES) {
+        save.deleteSelected();
+      }
     }
   }
 
@@ -419,6 +464,20 @@ public class FxLauncher extends Application {
         String newName = result.get().trim();
         if (!newName.isEmpty()) {
           load.renameSelected(newName);
+        }
+      }
+    } else if (currentScene instanceof SaveMenuScene save) {
+      String sel = save.getSelectedName();
+      if (sel == null) return;
+      TextInputDialog dlg = new TextInputDialog(sel);
+      dlg.setTitle("Rename Save");
+      dlg.setHeaderText(null);
+      dlg.setContentText("New name:");
+      var result = dlg.showAndWait();
+      if (result.isPresent()) {
+        String newName = result.get().trim();
+        if (!newName.isEmpty()) {
+          save.renameSelected(newName);
         }
       }
     }
