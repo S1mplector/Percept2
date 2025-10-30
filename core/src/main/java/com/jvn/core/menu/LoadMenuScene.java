@@ -11,12 +11,21 @@ import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.audio.AudioFacade;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class LoadMenuScene implements Scene {
+  private static final Logger LOG = LoggerFactory.getLogger(LoadMenuScene.class);
   private final Engine engine;
   private final VnSaveManager saveManager;
   private final String defaultScriptName;
@@ -67,7 +76,22 @@ public class LoadMenuScene implements Scene {
 
   public void refresh() {
     saves.clear();
-    saves.addAll(saveManager.listSaves());
+    List<String> names = new ArrayList<>(saveManager.listSaves());
+    try {
+      var times = new HashMap<String, Long>();
+      for (String n : names) {
+        try {
+          VnSaveData d = saveManager.load(n);
+          times.put(n, d.getSaveTimestamp());
+        } catch (Exception e) {
+          times.put(n, 0L);
+        }
+      }
+      names.sort(Comparator.comparing((String n) -> times.getOrDefault(n, 0L)).reversed());
+    } catch (Exception e) {
+      // ignore sort issues, fall back to unsorted
+    }
+    saves.addAll(names);
     if (selected >= saves.size()) selected = Math.max(0, saves.size() - 1);
   }
 
@@ -110,8 +134,9 @@ public class LoadMenuScene implements Scene {
       VnSaveData data = saveManager.load(name);
       String bgId = data.getCurrentBackgroundId();
       if (bgId == null) return null;
-      // Load scenario to resolve background image path
-      VnScenario scen = loadScenario(defaultScriptName);
+      String scenId = data.getScenarioId();
+      String script = scenId != null ? resolveScriptForScenarioId(scenId) : null;
+      VnScenario scen = loadScenario(script != null ? script : defaultScriptName);
       if (scen == null) return null;
       com.jvn.core.vn.VnBackground bg = scen.getBackground(bgId);
       return bg != null ? bg.getImagePath() : null;
@@ -125,7 +150,12 @@ public class LoadMenuScene implements Scene {
     String name = saves.get(selected);
     try {
       VnSaveData data = saveManager.load(name);
-      VnScenario scenario = loadScenario(defaultScriptName);
+      String scenId = data.getScenarioId();
+      String script = scenId != null ? resolveScriptForScenarioId(scenId) : null;
+      if (script == null) {
+        LOG.warn("Could not resolve script for scenarioId={}, falling back to {}", scenId, defaultScriptName);
+      }
+      VnScenario scenario = loadScenario(script != null ? script : defaultScriptName);
       VnScene scene = new VnScene(scenario);
       if (audio != null) scene.setAudioFacade(audio);
       saveManager.applyToState(data, scene.getState());
@@ -152,6 +182,37 @@ public class LoadMenuScene implements Scene {
     }
   }
 
+  private String resolveScriptForScenarioId(String scenarioId) {
+    try {
+      AssetCatalog assets = new AssetCatalog();
+      List<String> scripts = assets.listScripts();
+      Pattern p = Pattern.compile("^@scenario\\s+(.+)$");
+      for (String s : scripts) {
+        try (InputStream in = assets.open(AssetType.SCRIPT, s);
+             BufferedReader br = new BufferedReader(new InputStreamReader(in))) {
+          String line;
+          int lines = 0;
+          while ((line = br.readLine()) != null && lines++ < 50) {
+            line = line.trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            Matcher m = p.matcher(line);
+            if (m.matches()) {
+              String id = m.group(1);
+              if (scenarioId.equals(id)) return s;
+              break;
+            }
+          }
+        } catch (Exception e) {
+          LOG.debug("Failed to inspect script {}: {}", s, e.toString());
+        }
+      }
+    } catch (Exception e) {
+      LOG.warn("Failed to resolve script for scenarioId {}: {}", scenarioId, e.toString());
+    }
+    return null;
+  }
+
   @Override
   public void update(long deltaMs) { }
 }
+

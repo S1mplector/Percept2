@@ -11,10 +11,13 @@ import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.audio.AudioFacade;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 
 public class MainMenuScene implements Scene {
+  private static final Logger LOG = LoggerFactory.getLogger(MainMenuScene.class);
   private final Engine engine;
   private final VnSettings settingsModel;
   private final VnSaveManager saveManager;
@@ -79,7 +82,8 @@ public class MainMenuScene implements Scene {
         VnScriptParser parser = new VnScriptParser();
         return parser.parse(in);
       }
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      LOG.warn("Failed to load script '{}', falling back to DemoScenario: {}", scriptName, e.toString());
       return DemoScenario.createSimpleDemo();
     }
   }
