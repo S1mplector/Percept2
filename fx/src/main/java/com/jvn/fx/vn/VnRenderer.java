@@ -46,16 +46,25 @@ public class VnRenderer {
     gc.setFill(Color.WHITE);
     gc.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
     double y = 40;
-    int shown = 0;
+    int linesPerPage = (int) Math.max(1, (height - 120) / 28);
     java.util.List<VnHistory.HistoryEntry> list = state.getHistory().getEntries();
-    for (int i = list.size() - 1; i >= 0 && shown < 12; i--) {
+    int total = list.size();
+    int offset = Math.max(0, state.getHistoryScroll());
+    int startIdx = Math.max(0, total - 1 - offset);
+    int drawn = 0;
+    for (int i = startIdx; i >= 0 && drawn < linesPerPage; i--) {
       VnHistory.HistoryEntry e = list.get(i);
       String speaker = e.getSpeaker() != null && !e.getSpeaker().isEmpty() ? e.getSpeaker() + ": " : "";
       String line = speaker + e.getText();
       gc.fillText(line, 40, y);
       y += 28;
-      shown++;
+      drawn++;
     }
+    // Hints
+    gc.setFill(Color.rgb(220,220,220,0.9));
+    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+    String hint = "Esc: Close    Up/Down: Scroll    PgUp/PgDn: Faster";
+    gc.fillText(hint, 40, height - 30);
   }
 
   /**
@@ -107,6 +116,21 @@ public class VnRenderer {
 
     if (state.isHistoryOverlayShown()) {
       renderHistoryOverlay(state, width, height);
+    }
+
+    // HUD message (toast)
+    long now = System.currentTimeMillis();
+    if (state.getHudMessage() != null && now < state.getHudMessageExpireAt()) {
+      gc.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+      gc.setFill(Color.rgb(0, 0, 0, 0.6));
+      double boxW = Math.min(width * 0.6, 360);
+      double boxH = 40;
+      double bx = (width - boxW) / 2;
+      double by = height * 0.1;
+      gc.fillRoundRect(bx, by, boxW, boxH, 10, 10);
+      gc.setFill(Color.WHITE);
+      String msg = state.getHudMessage();
+      gc.fillText(msg, bx + 12, by + 25);
     }
   }
 

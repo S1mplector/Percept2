@@ -31,6 +31,10 @@ public class VnScene implements Scene {
     this.audioFacade = audio;
   }
 
+  public AudioFacade getAudioFacade() {
+    return audioFacade;
+  }
+
   public void setQuickSaveManager(VnQuickSaveManager manager) {
     this.quickSaveManager = manager;
   }

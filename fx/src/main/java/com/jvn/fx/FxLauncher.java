@@ -49,7 +49,9 @@ public class FxLauncher extends Application {
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof VnScene) {
       VnScene vnScene = (VnScene) currentScene;
+      boolean wasShown = vnScene.getState().isHistoryOverlayShown();
       vnScene.getState().toggleHistoryOverlay();
+      if (!wasShown) vnScene.getState().clearHistoryScroll();
     }
   }
 
@@ -87,6 +89,35 @@ public class FxLauncher extends Application {
 
     // Input handling
     scene.setOnKeyPressed(e -> {
+      // Intercept when VN history overlay is open
+      com.jvn.core.scene.Scene cur = engine != null ? engine.scenes().peek() : null;
+      if (cur instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
+        if (e.getCode() == KeyCode.ESCAPE || e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.B) {
+          // Close overlay on Esc/Space/Enter/B
+          vn.getState().setHistoryOverlayShown(false);
+          e.consume();
+          return;
+        } else if (e.getCode() == KeyCode.UP) {
+          vn.getState().scrollHistoryByLines(1);
+          e.consume();
+          return;
+        } else if (e.getCode() == KeyCode.DOWN) {
+          vn.getState().scrollHistoryByLines(-1);
+          e.consume();
+          return;
+        } else if (e.getCode() == KeyCode.PAGE_UP) {
+          vn.getState().scrollHistoryByLines(5);
+          e.consume();
+          return;
+        } else if (e.getCode() == KeyCode.PAGE_DOWN) {
+          vn.getState().scrollHistoryByLines(-5);
+          e.consume();
+          return;
+        }
+        // Ignore other keys while overlay is open
+        return;
+      }
+
       if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
         if (!handleMenuEnter()) handleAdvance();
       } else if (e.getCode() == KeyCode.CONTROL || e.getCode() == KeyCode.COMMAND) {
@@ -101,6 +132,12 @@ public class FxLauncher extends Application {
       } else if (e.getCode() == KeyCode.B) {
         // B = Toggle history/backlog overlay
         handleToggleHistory();
+      } else if (e.getCode() == KeyCode.S) {
+        // S = Settings (in-game)
+        com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+        if (currentScene instanceof VnScene vn) {
+          engine.scenes().push(new SettingsScene(vn.getState().getSettings(), vn.getAudioFacade()));
+        }
       } else if (e.getCode() == KeyCode.ESCAPE) {
         // ESC = Close history overlay if open
         if (!handleMenuBack()) handleCloseHistory();
@@ -161,7 +198,25 @@ public class FxLauncher extends Application {
 
     scene.setOnMouseClicked(e -> {
       if (e.getButton() == MouseButton.PRIMARY) {
+        // If history overlay open, close it instead of interacting
+        if (engine != null) {
+          com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+          if (currentScene instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
+            vn.getState().setHistoryOverlayShown(false);
+            return;
+          }
+        }
         handleMouseClick(e.getX(), e.getY());
+      }
+    });
+
+    // Mouse wheel scroll for history overlay
+    scene.setOnScroll(e -> {
+      if (engine == null) return;
+      com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+      if (currentScene instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
+        double dy = e.getDeltaY();
+        if (dy > 0) vn.getState().scrollHistoryByLines(2); else if (dy < 0) vn.getState().scrollHistoryByLines(-2);
       }
     });
 
@@ -253,7 +308,8 @@ public class FxLauncher extends Application {
       if (success) {
         try { writeQuickSaveThumbnail(vn); } catch (Exception ignored) {}
       }
-      System.out.println(success ? "Quick saved!" : "Quick save failed!");
+      // HUD toast
+      vn.getState().showHudMessage(success ? "Quick saved" : "Quick save failed", 1500);
     }
   }
 
@@ -261,8 +317,9 @@ public class FxLauncher extends Application {
     if (engine == null) return;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof VnScene) {
-      boolean success = ((VnScene) currentScene).quickLoad();
-      System.out.println(success ? "Quick loaded!" : "Quick load failed!");
+      VnScene vn = (VnScene) currentScene;
+      boolean success = vn.quickLoad();
+      vn.getState().showHudMessage(success ? "Quick loaded" : "Quick load failed", 1500);
     }
   }
 

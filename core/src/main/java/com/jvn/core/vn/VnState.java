@@ -26,6 +26,9 @@ public class VnState {
   private long transitionStartTime;
   private boolean uiHidden = false; // H key toggle
   private boolean historyOverlayShown = false; // Backlog toggle
+  private int historyScroll = 0; // lines to scroll back from newest (0 = show newest)
+  private String hudMessage;
+  private long hudMessageExpireAt;
 
   public VnState() {
     this.currentNodeIndex = 0;
@@ -134,6 +137,19 @@ public class VnState {
   public boolean isHistoryOverlayShown() { return historyOverlayShown; }
   public void setHistoryOverlayShown(boolean shown) { this.historyOverlayShown = shown; }
   public void toggleHistoryOverlay() { this.historyOverlayShown = !this.historyOverlayShown; }
+
+  public int getHistoryScroll() { return Math.max(0, historyScroll); }
+  public void clearHistoryScroll() { this.historyScroll = 0; }
+  public void scrollHistoryByLines(int delta) {
+    this.historyScroll = Math.max(0, this.historyScroll + delta);
+  }
+
+  public String getHudMessage() { return hudMessage; }
+  public long getHudMessageExpireAt() { return hudMessageExpireAt; }
+  public void showHudMessage(String message, long durationMs) {
+    this.hudMessage = message;
+    this.hudMessageExpireAt = System.currentTimeMillis() + Math.max(0, durationMs);
+  }
 
   public Map<String, Object> getVariables() { return variables; }
   public void setVariables(Map<String, Object> vars) {
