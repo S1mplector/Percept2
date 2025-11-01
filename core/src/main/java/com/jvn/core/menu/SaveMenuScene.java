@@ -17,9 +17,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.HashMap;
 
 /**
  * Save menu for creating/overwriting/deleting/renaming save slots.
@@ -40,9 +40,19 @@ public class SaveMenuScene implements Scene {
   }
 
   public void refresh() {
-    List<String> list = saveManager.listSaves();
-    // Sort by modified time desc
-    Collections.sort(list, Comparator.naturalOrder());
+    List<String> list = new ArrayList<>(saveManager.listSaves());
+    try {
+      var times = new HashMap<String, Long>();
+      for (String n : list) {
+        try {
+          times.put(n, saveManager.load(n).getSaveTimestamp());
+        } catch (Exception e) {
+          times.put(n, 0L);
+        }
+      }
+      list.sort(Comparator.comparing((String n) -> times.getOrDefault(n, 0L)).reversed());
+    } catch (Exception e) {
+    }
     this.saves = list;
     if (selected >= getEntriesCount()) selected = getEntriesCount() - 1;
     if (selected < 0) selected = 0;

@@ -17,7 +17,7 @@ public class SettingsScene implements Scene {
   }
 
   public VnSettings model() { return settings; }
-  public int itemCount() { return 6; }
+  public int itemCount() { return 7; }
 
   public int getSelected() { return selected; }
   public void moveSelection(int delta) {
@@ -48,6 +48,7 @@ public class SettingsScene implements Scene {
       }
       case 4 -> settings.setAutoPlayDelay(settings.getAutoPlayDelay() + delta * 100L);
       case 5 -> settings.setSkipUnreadText(!settings.isSkipUnreadText());
+      case 6 -> settings.setSkipAfterChoices(!settings.isSkipAfterChoices());
       default -> {}
     }
   }
@@ -55,6 +56,8 @@ public class SettingsScene implements Scene {
   public void toggleCurrent() {
     if (selected == 5) {
       settings.setSkipUnreadText(!settings.isSkipUnreadText());
+    } else if (selected == 6) {
+      settings.setSkipAfterChoices(!settings.isSkipAfterChoices());
     }
   }
 
@@ -79,6 +82,7 @@ public class SettingsScene implements Scene {
         settings.setAutoPlayDelay(val);
       }
       case 5 -> settings.setSkipUnreadText(v >= 0.5);
+      case 6 -> settings.setSkipAfterChoices(v >= 0.5);
       default -> {}
     }
     // Live-apply volumes

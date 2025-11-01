@@ -103,7 +103,8 @@ public class MenuRenderer {
       Localization.t("settings.sfx_volume") + ": " + toPct(s.getSfxVolume()),
       Localization.t("settings.voice_volume") + ": " + toPct(s.getVoiceVolume()),
       Localization.t("settings.auto_play_delay") + ": " + s.getAutoPlayDelay() + " ms",
-      Localization.t("settings.skip_unread") + ": " + (s.isSkipUnreadText() ? "ON" : "OFF")
+      Localization.t("settings.skip_unread") + ": " + (s.isSkipUnreadText() ? "ON" : "OFF"),
+      Localization.t("settings.skip_after_choices") + ": " + (s.isSkipAfterChoices() ? "ON" : "OFF")
     };
 
     drawMenuList(items, scene.getSelected(), w, h);

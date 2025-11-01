@@ -60,6 +60,25 @@ public class VnRenderer {
       y += 28;
       drawn++;
     }
+    // Scrollbar indicator
+    int maxOffset = Math.max(0, total - linesPerPage);
+    if (maxOffset > 0) {
+      double trackX = width - 28;
+      double trackY = 30;
+      double trackH = height - 80;
+      double trackW = 8;
+      gc.setFill(Color.rgb(255,255,255,0.15));
+      gc.fillRoundRect(trackX, trackY, trackW, trackH, 6, 6);
+
+      double thumbFrac = Math.max(0.08, Math.min(1.0, (double) linesPerPage / (double) total));
+      double thumbH = trackH * thumbFrac;
+      int effOffset = Math.min(offset, maxOffset);
+      double posFrac = maxOffset == 0 ? 0.0 : (double) effOffset / (double) maxOffset;
+      double thumbY = trackY + (trackH - thumbH) * posFrac;
+      gc.setFill(Color.rgb(255,255,255,0.7));
+      gc.fillRoundRect(trackX, thumbY, trackW, thumbH, 6, 6);
+    }
+
     // Hints
     gc.setFill(Color.rgb(220,220,220,0.9));
     gc.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
