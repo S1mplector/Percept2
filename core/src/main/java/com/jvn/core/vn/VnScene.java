@@ -128,12 +128,11 @@ public class VnScene implements Scene {
     VnNode current = state.getCurrentNode();
     if (current == null) return;
 
-    // If text is still revealing, complete it instantly
+    // If text is still revealing, complete it instantly, then advance
     if (current.getType() == VnNodeType.DIALOGUE) {
       DialogueLine dialogue = current.getDialogue();
       if (dialogue != null && state.getTextRevealProgress() < dialogue.getText().length()) {
         state.setTextRevealProgress(dialogue.getText().length());
-        return;
       }
     }
 
@@ -310,11 +309,15 @@ public class VnScene implements Scene {
   public boolean quickLoad() {
     if (quickSaveManager == null) return false;
     boolean ok = quickSaveManager.applyQuickLoad(state, scenario);
-    if (ok && audioFacade != null) {
-      VnSettings s = state.getSettings();
-      audioFacade.setBgmVolume(s.getBgmVolume());
-      audioFacade.setSfxVolume(s.getSfxVolume());
-      audioFacade.setVoiceVolume(s.getVoiceVolume());
+    if (ok) {
+      if (audioFacade != null) {
+        VnSettings s = state.getSettings();
+        audioFacade.setBgmVolume(s.getBgmVolume());
+        audioFacade.setSfxVolume(s.getSfxVolume());
+        audioFacade.setVoiceVolume(s.getVoiceVolume());
+      }
+      // Normalize node processing after loading state so the scene reflects the saved node immediately
+      processCurrentNode();
     }
     return ok;
   }
