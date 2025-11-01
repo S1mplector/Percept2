@@ -46,6 +46,30 @@ public class FxBlitter2D implements Blitter2D {
   public void setStrokeWidth(double w) { gc.setLineWidth(w); }
 
   @Override
+  public void setGlobalAlpha(double a) { gc.setGlobalAlpha(clamp01(a)); }
+
+  @Override
+  public void setFont(String family, double size, boolean bold) {
+    String fam = (family == null || family.isBlank()) ? "Arial" : family;
+    gc.setFont(Font.font(fam, bold ? FontWeight.BOLD : FontWeight.NORMAL, size));
+  }
+
+  @Override
+  public void push() { gc.save(); }
+
+  @Override
+  public void pop() { gc.restore(); }
+
+  @Override
+  public void translate(double x, double y) { gc.translate(x, y); }
+
+  @Override
+  public void rotateDeg(double degrees) { gc.rotate(degrees); }
+
+  @Override
+  public void scale(double sx, double sy) { gc.scale(sx, sy); }
+
+  @Override
   public void fillRect(double x, double y, double w, double h) { gc.fillRect(x, y, w, h); }
 
   @Override
@@ -71,6 +95,16 @@ public class FxBlitter2D implements Blitter2D {
     if (classpath == null || classpath.isBlank()) return;
     Image img = cache.computeIfAbsent(classpath, this::loadImage);
     if (img != null) gc.drawImage(img, x, y, w, h);
+  }
+
+  @Override
+  public void drawImageRegion(String classpath, double sx, double sy, double sw, double sh,
+                              double dx, double dy, double dw, double dh) {
+    if (classpath == null || classpath.isBlank()) return;
+    Image img = cache.computeIfAbsent(classpath, this::loadImage);
+    if (img != null) {
+      gc.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+    }
   }
 
   @Override

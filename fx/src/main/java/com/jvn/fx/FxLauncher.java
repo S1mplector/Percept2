@@ -11,6 +11,8 @@ import com.jvn.fx.vn.VnRenderer;
 import com.jvn.fx.menu.MenuRenderer;
 import com.jvn.core.scene2d.Scene2D;
 import com.jvn.fx.scene2d.FxBlitter2D;
+import com.jvn.core.scene2d.Scene2DBase;
+import com.jvn.core.graphics.Camera2D;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 // no direct import of javafx.scene.Scene to avoid name clash; use fully qualified name
@@ -177,6 +179,12 @@ public class FxLauncher extends Application {
       }
     });
 
+    scene.setOnScroll(e -> {
+      if (engine != null && engine.input() != null) {
+        engine.input().addScrollDeltaY(e.getDeltaY());
+      }
+    });
+
     scene.setOnKeyReleased(e -> {
       // Feed to engine input system
       if (engine != null && engine.input() != null) {
@@ -278,6 +286,10 @@ public class FxLauncher extends Application {
             vnRenderer.render(vnScene.getState(), vnScene.getScenario(), w, h, mouseX, mouseY);
           } else if (currentScene instanceof Scene2D scene2D) {
             blitter2D.setViewport(w, h);
+            if (currentScene instanceof Scene2DBase s2db) {
+              if (engine != null) s2db.setInput(engine.input());
+              if (s2db.getCamera() == null) s2db.setCamera(new Camera2D());
+            }
             scene2D.render(blitter2D, w, h);
           } else if (currentScene instanceof MainMenuScene main) {
             menuRenderer.renderMainMenu(main, w, h);

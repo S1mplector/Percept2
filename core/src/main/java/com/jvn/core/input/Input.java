@@ -14,6 +14,7 @@ public class Input {
 
   private double mouseX;
   private double mouseY;
+  private double scrollDeltaY;
 
   public void keyDown(String key) {
     if (key == null) return;
@@ -40,11 +41,15 @@ public class Input {
   public double getMouseX() { return mouseX; }
   public double getMouseY() { return mouseY; }
 
+  public void addScrollDeltaY(double dy) { this.scrollDeltaY += dy; }
+  public double getScrollDeltaY() { return scrollDeltaY; }
+
   public void endFrame() {
     pressedKeys.clear();
     releasedKeys.clear();
     pressedButtons.clear();
     releasedButtons.clear();
+    scrollDeltaY = 0;
   }
 
   public void reset() {
@@ -54,5 +59,8 @@ public class Input {
     downButtons.clear();
     pressedButtons.clear();
     releasedButtons.clear();
+    mouseX = 0;
+    mouseY = 0;
+    scrollDeltaY = 0;
   }
 }
