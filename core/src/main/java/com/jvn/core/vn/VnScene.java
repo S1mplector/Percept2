@@ -69,6 +69,7 @@ public class VnScene implements Scene {
     if (state.getActiveTransition() != null) {
       if (state.getTransitionProgress() >= 1.0f) {
         state.clearActiveTransition();
+        state.clearPreviousBackgroundIdDuringTransition();
       }
       return; // Don't process other updates during transitions
     }

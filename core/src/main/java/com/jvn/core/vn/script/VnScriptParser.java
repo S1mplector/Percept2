@@ -224,6 +224,7 @@ public class VnScriptParser {
     } catch (IllegalArgumentException e) {
       if (t.equals("FADE")) return VnTransition.TransitionType.FADE;
       if (t.equals("DISSOLVE")) return VnTransition.TransitionType.DISSOLVE;
+      if (t.equals("CROSSFADE")) return VnTransition.TransitionType.CROSSFADE;
       if (t.equals("SLIDE_LEFT")) return VnTransition.TransitionType.SLIDE_LEFT;
       if (t.equals("SLIDE_RIGHT")) return VnTransition.TransitionType.SLIDE_RIGHT;
       if (t.equals("WIPE")) return VnTransition.TransitionType.WIPE;

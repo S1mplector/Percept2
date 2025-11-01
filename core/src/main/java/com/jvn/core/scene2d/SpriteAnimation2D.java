@@ -1,4 +1,6 @@
 package com.jvn.core.scene2d;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SpriteAnimation2D extends Entity2D {
   private final SpriteSheet sheet;
@@ -9,6 +11,9 @@ public class SpriteAnimation2D extends Entity2D {
   private boolean playing = true;
   private long elapsedMs = 0;
   private int currentFrame = 0;
+  private boolean pingPong = false;
+  private int direction = 1;
+  private final Map<Integer, Runnable> frameEvents = new HashMap<>();
   private double width;
   private double height;
   private double alpha = 1.0;
@@ -25,6 +30,9 @@ public class SpriteAnimation2D extends Entity2D {
   public void setLoop(boolean loop) { this.loop = loop; }
   public void setPlaying(boolean playing) { this.playing = playing; }
   public void setAlpha(double a) { this.alpha = a; }
+  public void setPingPong(boolean pingPong) { this.pingPong = pingPong; }
+  public void onFrame(int localFrameIndex, Runnable cb) { if (localFrameIndex >= 0 && localFrameIndex < frameCount && cb != null) frameEvents.put(localFrameIndex, cb); }
+  public void clearFrameEvents() { frameEvents.clear(); }
 
   @Override
   public void update(long deltaMs) {
@@ -32,10 +40,7 @@ public class SpriteAnimation2D extends Entity2D {
     elapsedMs += deltaMs;
     while (elapsedMs >= frameDurationMs) {
       elapsedMs -= frameDurationMs;
-      currentFrame++;
-      if (currentFrame >= frameCount) {
-        if (loop) currentFrame = 0; else { currentFrame = frameCount - 1; playing = false; }
-      }
+      advanceFrame();
     }
   }
 
@@ -45,5 +50,28 @@ public class SpriteAnimation2D extends Entity2D {
     if (alpha != 1.0) b.setGlobalAlpha(alpha);
     sheet.drawTile(b, startIndex + currentFrame, 0, 0, width, height);
     b.pop();
+  }
+
+  private void advanceFrame() {
+    if (!pingPong) {
+      currentFrame++;
+      if (currentFrame >= frameCount) {
+        if (loop) currentFrame = 0; else { currentFrame = frameCount - 1; playing = false; }
+      }
+    } else {
+      currentFrame += direction;
+      if (currentFrame >= frameCount) {
+        currentFrame = frameCount - 2;
+        direction = -1;
+        if (currentFrame < 0) currentFrame = 0;
+        if (!loop && currentFrame == 0) playing = false;
+      } else if (currentFrame < 0) {
+        currentFrame = 1;
+        direction = 1;
+        if (!loop && currentFrame == frameCount - 1) playing = false;
+      }
+    }
+    Runnable cb = frameEvents.get(currentFrame);
+    if (cb != null) cb.run();
   }
 }
