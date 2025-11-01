@@ -13,6 +13,7 @@ import com.jvn.core.scene2d.Scene2D;
 import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.core.scene2d.Scene2DBase;
 import com.jvn.core.graphics.Camera2D;
+import com.jvn.core.demo.Example2DScene;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 // no direct import of javafx.scene.Scene to avoid name clash; use fully qualified name
@@ -167,6 +168,9 @@ public class FxLauncher extends Application {
         if (currentScene instanceof VnScene vn) {
           engine.scenes().push(new SaveMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), vn));
         }
+      } else if (e.getCode() == KeyCode.F10) {
+        // F10 = Launch 2D demo scene (developer shortcut)
+        if (engine != null) engine.scenes().push(new Example2DScene());
       } else if (e.getCode() == KeyCode.DELETE) {
         handleMenuDelete();
       } else if (e.getCode() == KeyCode.R) {
@@ -179,11 +183,7 @@ public class FxLauncher extends Application {
       }
     });
 
-    scene.setOnScroll(e -> {
-      if (engine != null && engine.input() != null) {
-        engine.input().addScrollDeltaY(e.getDeltaY());
-      }
-    });
+    // (scroll handler consolidated below with history overlay support)
 
     scene.setOnKeyReleased(e -> {
       // Feed to engine input system
@@ -251,11 +251,17 @@ public class FxLauncher extends Application {
 
     // Mouse wheel scroll for history overlay
     scene.setOnScroll(e -> {
-      if (engine == null) return;
-      com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-      if (currentScene instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
-        double dy = e.getDeltaY();
-        if (dy > 0) vn.getState().scrollHistoryByLines(2); else if (dy < 0) vn.getState().scrollHistoryByLines(-2);
+      // Always feed scroll to engine input
+      if (engine != null && engine.input() != null) {
+        engine.input().addScrollDeltaY(e.getDeltaY());
+      }
+      // Additionally, if VN history overlay is open, map scroll to history scroll
+      if (engine != null) {
+        com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+        if (currentScene instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
+          double dy = e.getDeltaY();
+          if (dy > 0) vn.getState().scrollHistoryByLines(2); else if (dy < 0) vn.getState().scrollHistoryByLines(-2);
+        }
       }
     });
 

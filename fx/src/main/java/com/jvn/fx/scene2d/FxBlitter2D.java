@@ -110,7 +110,9 @@ public class FxBlitter2D implements Blitter2D {
   @Override
   public void drawText(String text, double x, double y, double size, boolean bold) {
     if (text == null) return;
-    gc.setFont(Font.font("Arial", bold ? FontWeight.BOLD : FontWeight.NORMAL, size));
+    Font cur = gc.getFont();
+    String fam = (cur != null && cur.getFamily() != null && !cur.getFamily().isBlank()) ? cur.getFamily() : "Arial";
+    gc.setFont(Font.font(fam, bold ? FontWeight.BOLD : FontWeight.NORMAL, size));
     gc.fillText(text, x, y);
   }
 
