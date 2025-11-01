@@ -26,6 +26,7 @@ public class Scene2DBase implements Scene2D {
 
   @Override
   public void update(long deltaMs) {
+    if (camera != null) camera.update(deltaMs);
     for (int i = 0; i < children.size(); i++) {
       children.get(i).update(deltaMs);
     }
@@ -43,6 +44,11 @@ public class Scene2DBase implements Scene2D {
       Entity2D e = children.get(i);
       if (!e.isVisible()) continue;
       b.push();
+      if (camera != null) {
+        double ox = camera.getX() * (1.0 - e.getParallaxX());
+        double oy = camera.getY() * (1.0 - e.getParallaxY());
+        if (ox != 0 || oy != 0) b.translate(ox, oy);
+      }
       b.translate(e.getX(), e.getY());
       if (e.getRotationDeg() != 0) b.rotateDeg(e.getRotationDeg());
       if (e.getScaleX() != 1.0 || e.getScaleY() != 1.0) b.scale(e.getScaleX(), e.getScaleY());
@@ -52,3 +58,4 @@ public class Scene2DBase implements Scene2D {
     b.pop();
   }
 }
+

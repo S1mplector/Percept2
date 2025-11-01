@@ -10,6 +10,15 @@ public class PhysicsWorld2D {
   private double gravityY = 0;
   private Rect bounds; // optional world bounds, null = unbounded
 
+  public static class RaycastHit {
+    public RigidBody2D body;
+    public double x;
+    public double y;
+    public double nx;
+    public double ny;
+    public double distance;
+  }
+
   public void setGravity(double gx, double gy) { this.gravityX = gx; this.gravityY = gy; }
   public void setBounds(Rect bounds) { this.bounds = bounds; }
 

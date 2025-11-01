@@ -183,7 +183,7 @@ public class FxLauncher extends Application {
       }
     });
 
-    // (scroll handler consolidated below with history overlay support)
+    
 
     scene.setOnKeyReleased(e -> {
       // Feed to engine input system
@@ -249,13 +249,11 @@ public class FxLauncher extends Application {
       }
     });
 
-    // Mouse wheel scroll for history overlay
+    
     scene.setOnScroll(e -> {
-      // Always feed scroll to engine input
       if (engine != null && engine.input() != null) {
         engine.input().addScrollDeltaY(e.getDeltaY());
       }
-      // Additionally, if VN history overlay is open, map scroll to history scroll
       if (engine != null) {
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
         if (currentScene instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
