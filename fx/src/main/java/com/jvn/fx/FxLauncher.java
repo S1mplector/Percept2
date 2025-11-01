@@ -9,6 +9,8 @@ import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.fx.vn.VnRenderer;
 import com.jvn.fx.menu.MenuRenderer;
+import com.jvn.core.scene2d.Scene2D;
+import com.jvn.fx.scene2d.FxBlitter2D;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 // no direct import of javafx.scene.Scene to avoid name clash; use fully qualified name
@@ -36,6 +38,7 @@ public class FxLauncher extends Application {
   private GraphicsContext gc;
   private VnRenderer vnRenderer;
   private MenuRenderer menuRenderer;
+  private FxBlitter2D blitter2D;
   private double mouseX = 0;
   private double mouseY = 0;
 
@@ -84,6 +87,7 @@ public class FxLauncher extends Application {
     this.gc = this.canvas.getGraphicsContext2D();
     this.vnRenderer = new VnRenderer(gc);
     this.menuRenderer = new MenuRenderer(gc);
+    this.blitter2D = new FxBlitter2D(gc);
     scene.widthProperty().addListener((obs, ov, nv) -> this.canvas.setWidth(nv.doubleValue()));
     scene.heightProperty().addListener((obs, ov, nv) -> this.canvas.setHeight(nv.doubleValue()));
 
@@ -166,11 +170,24 @@ public class FxLauncher extends Application {
       } else if (e.getCode() == KeyCode.R) {
         handleMenuRename();
       }
+
+      // Feed to engine input system
+      if (engine != null && engine.input() != null) {
+        engine.input().keyDown(e.getCode().getName());
+      }
+    });
+
+    scene.setOnKeyReleased(e -> {
+      // Feed to engine input system
+      if (engine != null && engine.input() != null) {
+        engine.input().keyUp(e.getCode().getName());
+      }
     });
 
     scene.setOnMouseMoved(e -> {
       mouseX = e.getX();
       mouseY = e.getY();
+      if (engine != null && engine.input() != null) engine.input().setMousePosition(mouseX, mouseY);
       // Hover selection for menus
       if (engine != null) {
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
@@ -193,6 +210,20 @@ public class FxLauncher extends Application {
           int idx = menuRenderer.getHoverIndexForList(save.getEntriesCount(), canvas.getWidth() * 0.6, canvas.getHeight(), mouseX, mouseY);
           if (idx >= 0) save.setSelected(idx);
         }
+      }
+    });
+
+    scene.setOnMousePressed(e -> {
+      if (engine != null && engine.input() != null) {
+        int btn = e.getButton() == MouseButton.PRIMARY ? 1 : (e.getButton() == MouseButton.MIDDLE ? 2 : 3);
+        engine.input().mouseDown(btn);
+      }
+    });
+
+    scene.setOnMouseReleased(e -> {
+      if (engine != null && engine.input() != null) {
+        int btn = e.getButton() == MouseButton.PRIMARY ? 1 : (e.getButton() == MouseButton.MIDDLE ? 2 : 3);
+        engine.input().mouseUp(btn);
       }
     });
 
@@ -240,11 +271,14 @@ public class FxLauncher extends Application {
         if (gc != null && canvas != null) {
           double w = canvas.getWidth();
           double h = canvas.getHeight();
-          
+
           // Check if current scene is a VN scene
           com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
           if (currentScene instanceof VnScene vnScene) {
             vnRenderer.render(vnScene.getState(), vnScene.getScenario(), w, h, mouseX, mouseY);
+          } else if (currentScene instanceof Scene2D scene2D) {
+            blitter2D.setViewport(w, h);
+            scene2D.render(blitter2D, w, h);
           } else if (currentScene instanceof MainMenuScene main) {
             menuRenderer.renderMainMenu(main, w, h);
           } else if (currentScene instanceof LoadMenuScene load) {
