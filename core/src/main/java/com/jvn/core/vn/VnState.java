@@ -24,6 +24,7 @@ public class VnState {
   private final Set<Integer> readNodes; // Track which nodes have been read
   private VnTransition activeTransition;
   private long transitionStartTime;
+  private String previousBackgroundIdDuringTransition;
   private boolean uiHidden = false; // H key toggle
   private boolean historyOverlayShown = false; // Backlog toggle
   private int historyScroll = 0; // lines to scroll back from newest (0 = show newest)
@@ -120,6 +121,7 @@ public class VnState {
   public void setActiveTransition(VnTransition transition) { 
     this.activeTransition = transition;
     this.transitionStartTime = System.currentTimeMillis();
+    this.previousBackgroundIdDuringTransition = this.currentBackgroundId;
   }
   public void clearActiveTransition() { this.activeTransition = null; }
   
@@ -129,6 +131,9 @@ public class VnState {
     long elapsed = System.currentTimeMillis() - transitionStartTime;
     return Math.min(1.0f, elapsed / (float) activeTransition.getDurationMs());
   }
+
+  public String getPreviousBackgroundIdDuringTransition() { return previousBackgroundIdDuringTransition; }
+  public void clearPreviousBackgroundIdDuringTransition() { this.previousBackgroundIdDuringTransition = null; }
 
   public boolean isUiHidden() { return uiHidden; }
   public void setUiHidden(boolean hidden) { this.uiHidden = hidden; }

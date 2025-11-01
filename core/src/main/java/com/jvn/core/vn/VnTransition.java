@@ -36,6 +36,7 @@ public class VnTransition {
     NONE,
     FADE,
     DISSOLVE,
+    CROSSFADE,
     SLIDE_LEFT,
     SLIDE_RIGHT,
     WIPE

@@ -94,11 +94,21 @@ public class VnRenderer {
     gc.setFill(Color.BLACK);
     gc.fillRect(0, 0, width, height);
 
-    // Render background
-    if (state.getCurrentBackgroundId() != null) {
-      VnBackground bg = scenario.getBackground(state.getCurrentBackgroundId());
-      if (bg != null) {
-        renderBackground(bg, width, height);
+    boolean didCrossfade = false;
+    if (state.getActiveTransition() != null && state.getActiveTransition().getType() == com.jvn.core.vn.VnTransition.TransitionType.CROSSFADE) {
+      String prevId = state.getPreviousBackgroundIdDuringTransition();
+      String curId = state.getCurrentBackgroundId();
+      if (prevId != null && curId != null) {
+        renderCrossfadeBackground(scenario.getBackground(prevId), scenario.getBackground(curId), state.getTransitionProgress(), width, height);
+        didCrossfade = true;
+      }
+    }
+    if (!didCrossfade) {
+      if (state.getCurrentBackgroundId() != null) {
+        VnBackground bg = scenario.getBackground(state.getCurrentBackgroundId());
+        if (bg != null) {
+          renderBackground(bg, width, height);
+        }
       }
     }
 
@@ -322,6 +332,26 @@ public class VnRenderer {
       gc.setFill(Color.rgb(0, 0, 0, opacity * 0.8)); // Slightly lighter
       gc.fillRect(0, 0, width, height);
     }
+  }
+
+  private void renderCrossfadeBackground(VnBackground prev, VnBackground cur, float progress, double width, double height) {
+    double alphaCur = Math.max(0, Math.min(1, progress));
+    double alphaPrev = 1.0 - alphaCur;
+    if (prev != null) {
+      Image imgPrev = loadImage(prev.getImagePath());
+      if (imgPrev != null) {
+        gc.setGlobalAlpha(alphaPrev);
+        gc.drawImage(imgPrev, 0, 0, width, height);
+      }
+    }
+    if (cur != null) {
+      Image imgCur = loadImage(cur.getImagePath());
+      if (imgCur != null) {
+        gc.setGlobalAlpha(alphaCur);
+        gc.drawImage(imgCur, 0, 0, width, height);
+      }
+    }
+    gc.setGlobalAlpha(1.0);
   }
 
   private void drawWrappedText(String text, double x, double y, double maxWidth, Font font) {

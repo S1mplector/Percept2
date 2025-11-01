@@ -50,4 +50,15 @@ public class TileMap2D extends Entity2D {
       }
     }
   }
+
+  public void buildStaticColliders(com.jvn.core.physics.PhysicsWorld2D world) {
+    if (world == null) return;
+    for (int y = 0; y < rows; y++) {
+      for (int x = 0; x < cols; x++) {
+        if (tiles[y][x] >= 0) {
+          world.addStaticRect(new com.jvn.core.math.Rect(x * tileW, y * tileH, tileW, tileH));
+        }
+      }
+    }
+  }
 }

@@ -116,6 +116,16 @@ public class FxBlitter2D implements Blitter2D {
     gc.fillText(text, x, y);
   }
 
+  @Override
+  public double measureTextWidth(String text, double size, boolean bold) {
+    if (text == null) return 0;
+    Font cur = gc.getFont();
+    String fam = (cur != null && cur.getFamily() != null && !cur.getFamily().isBlank()) ? cur.getFamily() : "Arial";
+    javafx.scene.text.Text t = new javafx.scene.text.Text(text);
+    t.setFont(Font.font(fam, bold ? FontWeight.BOLD : FontWeight.NORMAL, size));
+    return t.getLayoutBounds().getWidth();
+  }
+
   private Image loadImage(String path) {
     try {
       URL u = getClass().getClassLoader().getResource(path);

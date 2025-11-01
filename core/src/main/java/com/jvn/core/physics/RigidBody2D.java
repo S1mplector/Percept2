@@ -15,6 +15,7 @@ public class RigidBody2D {
   private double mass = 1.0;
   private boolean isStatic = false;
   private double restitution = 0.2; // bounciness
+  private boolean sensor = false;
 
   public static RigidBody2D box(double x, double y, double w, double h) {
     RigidBody2D b = new RigidBody2D();
@@ -50,4 +51,8 @@ public class RigidBody2D {
 
   public double getRestitution() { return restitution; }
   public void setRestitution(double restitution) { this.restitution = Math.max(0, Math.min(1, restitution)); }
+
+  public boolean isSensor() { return sensor; }
+  public void setSensor(boolean sensor) { this.sensor = sensor; }
 }
+

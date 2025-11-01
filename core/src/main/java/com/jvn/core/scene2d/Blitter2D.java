@@ -28,4 +28,6 @@ public interface Blitter2D {
                        double dx, double dy, double dw, double dh);
 
   void drawText(String text, double x, double y, double size, boolean bold);
+  double measureTextWidth(String text, double size, boolean bold);
 }
+
