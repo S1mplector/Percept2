@@ -1,17 +1,27 @@
 package com.jvn.fx.vn;
 
-import com.jvn.core.vn.*;
+import java.io.File;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import com.jvn.core.localization.Localization;
+import com.jvn.core.vn.CharacterPosition;
+import com.jvn.core.vn.Choice;
+import com.jvn.core.vn.DialogueLine;
+import com.jvn.core.vn.VnBackground;
+import com.jvn.core.vn.VnCharacter;
+import com.jvn.core.vn.VnHistory;
+import com.jvn.core.vn.VnNode;
+import com.jvn.core.vn.VnNodeType;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnState;
+
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import java.io.File;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Renders visual novel elements using JavaFX Canvas
@@ -224,7 +234,7 @@ public class VnRenderer {
     Image img = loadImage(imagePath);
     if (img == null) {
       // Draw placeholder silhouette box
-      double spriteHeight = height * 0.7;
+      double spriteHeight = height * 0.85;
       double spriteWidth = spriteHeight * 0.5;
       double x = switch (position) {
         case FAR_LEFT -> width * 0.05;
@@ -233,7 +243,8 @@ public class VnRenderer {
         case RIGHT -> width * 0.8 - spriteWidth;
         case FAR_RIGHT -> width * 0.95 - spriteWidth;
       };
-      double y = height - spriteHeight - (height * TEXTBOX_HEIGHT_RATIO);
+      // Position placeholder so feet are at screen bottom
+      double y = height - spriteHeight;
       gc.setFill(Color.rgb(200, 200, 200, 0.4));
       gc.fillRoundRect(x, y, spriteWidth, spriteHeight, 20, 20);
       gc.setStroke(Color.WHITE);
@@ -242,7 +253,7 @@ public class VnRenderer {
       return;
     }
 
-    double spriteHeight = height * 0.7; // Characters take up 70% of screen height
+    double spriteHeight = height * 0.85; // Characters take up 85% of screen height
     double spriteWidth = img.getWidth() * (spriteHeight / img.getHeight());
     
     double x = switch (position) {
@@ -253,7 +264,8 @@ public class VnRenderer {
       case FAR_RIGHT -> width * 0.95 - spriteWidth;
     };
     
-    double y = height - spriteHeight - (height * TEXTBOX_HEIGHT_RATIO);
+    // Position sprite so feet are at screen bottom (textbox overlaps legs)
+    double y = height - spriteHeight;
     gc.drawImage(img, x, y, spriteWidth, spriteHeight);
   }
 

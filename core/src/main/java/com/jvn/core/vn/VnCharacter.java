@@ -39,6 +39,7 @@ public class VnCharacter {
     }
 
     public Builder displayName(String name) { this.displayName = name; return this; }
+    public String getDisplayName() { return displayName; }
     public Builder addExpression(String name, String imagePath) {
       expressions.put(name, imagePath);
       return this;

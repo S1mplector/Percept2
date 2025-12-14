@@ -26,3 +26,7 @@ Thumbs.db
 
 # Local libs
 libs/*.jar
+
+# Local demo-game scaffold
+demo-game/
+

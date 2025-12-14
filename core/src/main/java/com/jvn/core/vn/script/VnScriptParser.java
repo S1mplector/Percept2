@@ -1,7 +1,5 @@
 package com.jvn.core.vn.script;
 
-import com.jvn.core.vn.*;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,6 +8,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.jvn.core.vn.CharacterPosition;
+import com.jvn.core.vn.Choice;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioBuilder;
+import com.jvn.core.vn.VnTransition;
 
 /**
  * Parses text-based VN scripts into VnScenario objects
@@ -29,7 +33,7 @@ import java.util.regex.Pattern;
 public class VnScriptParser {
   
   private static final Pattern SCENARIO_PATTERN = Pattern.compile("^@scenario\\s+(.+)$");
-  private static final Pattern CHARACTER_PATTERN = Pattern.compile("^@character\\s+(\\S+)\\s+\"([^\"]+)\"$");
+  private static final Pattern CHARACTER_PATTERN = Pattern.compile("^@character\\s+(\\S+)\\s+\"([^\"]*)\"$");
   private static final Pattern BACKGROUND_PATTERN = Pattern.compile("^@background\\s+(\\S+)\\s+(.+)$");
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$");
   private static final Pattern LABEL_PATTERN = Pattern.compile("^@label\\s+(.+)$");
@@ -318,9 +322,16 @@ public class VnScriptParser {
       Matcher dialogueMatcher = DIALOGUE_PATTERN.matcher(line);
       if (dialogueMatcher.matches()) {
         flushChoices(builder, pendingChoices);
-        String speaker = dialogueMatcher.group(1).trim();
+        String speakerId = dialogueMatcher.group(1).trim();
         String text = dialogueMatcher.group(2).trim();
-        builder.dialogue(speaker, text);
+        // Look up display name from character definitions
+        String displayName = speakerId;
+        com.jvn.core.vn.VnCharacter.Builder cb = charBuilders.get(speakerId);
+        if (cb != null) {
+          String dn = cb.getDisplayName();
+          if (dn != null) displayName = dn;
+        }
+        builder.dialogue(displayName, text);
         continue;
       }
       
