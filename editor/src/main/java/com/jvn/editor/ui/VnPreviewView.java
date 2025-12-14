@@ -1,19 +1,20 @@
 package com.jvn.editor.ui;
 
-import com.jvn.core.vn.VnNodeType;
-import com.jvn.core.vn.VnScene;
+import java.io.File;
+
 import com.jvn.core.vn.DefaultVnInterop;
+import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
-import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.vn.VnScene;
 import com.jvn.fx.audio.FxAudioService;
 import com.jvn.fx.vn.VnRenderer;
+
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
-import java.io.File;
 
 public class VnPreviewView extends StackPane {
   private final Canvas canvas = new Canvas(1200, 740);
@@ -105,6 +106,7 @@ public class VnPreviewView extends StackPane {
       return;
     }
     scene.update(deltaMs);
+    renderer.updateAnimation(deltaMs);
     renderer.render(scene.getState(), scene.getScenario(), w, h, mouseX, mouseY);
   }
 }

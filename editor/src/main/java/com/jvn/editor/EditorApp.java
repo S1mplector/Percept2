@@ -17,11 +17,14 @@ import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
 import com.jvn.scripting.jes.runtime.JesScene2D;
+import com.sun.management.OperatingSystemMXBean;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
@@ -49,15 +52,12 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import com.sun.management.OperatingSystemMXBean;
 
 public class EditorApp extends Application {
   // UI
@@ -471,7 +471,7 @@ public class EditorApp extends Application {
     btnOpenProject.setTooltip(new Tooltip("Open Project"));
     btnReload.setTooltip(new Tooltip("Reload (Cmd+R)"));
     btnApply.setTooltip(new Tooltip("Apply Code (Cmd+Enter)"));
-    btnFit.setTooltip(new Tooltip("Fit to Content (Cmd+F)"));
+    btnFit.setTooltip(new Tooltip("Fit to Content / Fullscreen VN (Cmd+F)"));
     btnReset.setTooltip(new Tooltip("Reset Camera (Cmd+0)"));
     btnRun.setTooltip(new Tooltip("Run Project"));
     btnSave.setTooltip(new Tooltip("Save (Cmd+S)"));
@@ -1025,7 +1025,71 @@ public class EditorApp extends Application {
 
   private void fitCameraToContent() {
     FileEditorTab ft = getActiveFileTab();
-    if (ft != null) ft.fitToContent();
+    if (ft == null) return;
+    
+    // For VNS files, open fullscreen preview
+    if (ft.getKind() == FileEditorTab.Kind.VNS && ft.getVnPreview() != null) {
+      openFullscreenVnPreview(ft);
+      return;
+    }
+    
+    // For JES files, fit camera to content
+    ft.fitToContent();
+  }
+
+  private void openFullscreenVnPreview(FileEditorTab sourceTab) {
+    // Create a new fullscreen stage with VN preview
+    javafx.stage.Stage fullscreenStage = new javafx.stage.Stage();
+    fullscreenStage.setTitle("VN Preview - " + (sourceTab.getFile() != null ? sourceTab.getFile().getName() : "Untitled"));
+    
+    // Create a new VnPreviewView for fullscreen
+    com.jvn.editor.ui.VnPreviewView fullscreenPreview = new com.jvn.editor.ui.VnPreviewView();
+    if (projectRoot != null) fullscreenPreview.setProjectRoot(projectRoot);
+    
+    // Copy the scenario from the source tab
+    try {
+      String code = null;
+      var editorNode = sourceTab.getEditorNode();
+      if (editorNode instanceof com.jvn.editor.ui.VnsCodeEditor vnsEditor) {
+        code = vnsEditor.getText();
+      }
+      if (code != null && !code.isBlank()) {
+        com.jvn.core.vn.script.VnScriptParser parser = new com.jvn.core.vn.script.VnScriptParser();
+        com.jvn.core.vn.VnScenario scenario = parser.parseFromString(code);
+        fullscreenPreview.setScenario(scenario);
+      }
+    } catch (Exception ex) {
+      status.setText("Failed to load VN for fullscreen: " + ex.getMessage());
+      return;
+    }
+    
+    javafx.scene.layout.StackPane root = new javafx.scene.layout.StackPane(fullscreenPreview);
+    root.setStyle("-fx-background-color: black;");
+    javafx.scene.Scene scene = new javafx.scene.Scene(root, 1280, 720);
+    
+    // Animation timer for rendering
+    javafx.animation.AnimationTimer timer = new javafx.animation.AnimationTimer() {
+      long last = -1;
+      @Override
+      public void handle(long now) {
+        if (last < 0) { last = now; return; }
+        long dt = (now - last) / 1_000_000L;
+        last = now;
+        fullscreenPreview.setSize(scene.getWidth(), scene.getHeight());
+        fullscreenPreview.render(dt);
+      }
+    };
+    
+    fullscreenStage.setScene(scene);
+    fullscreenStage.setFullScreen(true);
+    fullscreenStage.setFullScreenExitHint("Press ESC to exit fullscreen");
+    
+    // Stop timer when window closes
+    fullscreenStage.setOnHidden(e -> timer.stop());
+    
+    timer.start();
+    fullscreenStage.show();
+    fullscreenPreview.requestFocus();
   }
 
   private void selectProjectTab() {

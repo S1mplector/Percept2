@@ -1,22 +1,23 @@
 package com.jvn.editor.ui;
 
-import com.jvn.core.scene2d.Entity2D;
-import com.jvn.core.vn.VnScenario;
-import com.jvn.core.vn.script.VnScriptParser;
-import com.jvn.scripting.jes.JesLoader;
-import com.jvn.scripting.jes.runtime.JesScene2D;
-import javafx.scene.Node;
-import javafx.scene.control.SplitPane;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.nio.file.Files;
 import java.util.Locale;
 import java.util.function.Consumer;
+
+import com.jvn.core.scene2d.Entity2D;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.script.VnScriptParser;
+import com.jvn.scripting.jes.JesLoader;
+import com.jvn.scripting.jes.runtime.JesScene2D;
+
+import javafx.scene.Node;
+import javafx.scene.control.SplitPane;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.BorderPane;
 
 public class FileEditorTab extends BorderPane {
   public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, OTHER }
@@ -267,6 +268,7 @@ public class FileEditorTab extends BorderPane {
 
   public JesScene2D getJesScene() { return jesScene; }
   public ViewportView getViewport() { return viewport; }
+  public VnPreviewView getVnPreview() { return vnPreview; }
   public Node getEditorNode() {
     if (kind == Kind.JES) return jesEditor;
     if (kind == Kind.VNS) return vnsEditor;

@@ -33,6 +33,7 @@ public class VnRenderer {
   private final Font dialogueFont;
   private final Font choiceFont;
   private VnState currentState;
+  private long animationTime = 0;
 
   // UI Layout constants
   private static final double TEXTBOX_HEIGHT_RATIO = 0.25;
@@ -453,12 +454,20 @@ public class VnRenderer {
   }
 
   private void drawContinueIndicator(double x, double y) {
+    // Bounce animation: offset Y by sine wave
+    double bounce = Math.sin(animationTime * 0.005) * 4;
+    double animY = y + bounce;
+    
     gc.setFill(TEXT_COLOR);
     gc.fillPolygon(
       new double[]{x, x + 10, x + 5},
-      new double[]{y, y, y + 10},
+      new double[]{animY, animY, animY + 10},
       3
     );
+  }
+
+  public void updateAnimation(long deltaMs) {
+    animationTime += deltaMs;
   }
 
   public int getHoveredChoiceIndex(List<Choice> choices, double width, double height, double mouseX, double mouseY) {
