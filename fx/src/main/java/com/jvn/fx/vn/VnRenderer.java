@@ -59,50 +59,252 @@ public class VnRenderer {
   public void setProjectRoot(File root) { this.projectRoot = root; }
 
   private void renderHistoryOverlay(VnState state, double width, double height) {
-    gc.setFill(Color.rgb(0, 0, 0, 0.75));
+    // Semi-transparent dark background with gradient effect
+    gc.setFill(Color.rgb(10, 10, 20, 0.92));
     gc.fillRect(0, 0, width, height);
-
+    
+    // Title bar
+    gc.setFill(Color.rgb(40, 40, 60, 0.95));
+    gc.fillRect(0, 0, width, 50);
     gc.setFill(Color.WHITE);
-    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
-    double y = 40;
-    int linesPerPage = (int) Math.max(1, (height - 120) / 28);
+    gc.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+    gc.fillText(Localization.t("history.title"), 30, 33);
+    
+    // Content area with padding
+    double contentX = 30;
+    double contentY = 70;
+    double contentW = width - 80;
+    double contentH = height - 140;
+    
+    // Calculate entries per page based on entry height (speaker + text with wrapping)
+    double entryHeight = 65; // Base height per entry
+    int entriesPerPage = (int) Math.max(1, contentH / entryHeight);
+    
     java.util.List<VnHistory.HistoryEntry> list = state.getHistory().getEntries();
     int total = list.size();
     int offset = Math.max(0, state.getHistoryScroll());
+    
+    // Draw entries from newest (bottom) scrolled by offset
+    double y = contentY;
     int startIdx = Math.max(0, total - 1 - offset);
     int drawn = 0;
-    for (int i = startIdx; i >= 0 && drawn < linesPerPage; i--) {
+    
+    Font speakerFont = Font.font("Arial", FontWeight.BOLD, 15);
+    Font textFont = Font.font("Arial", FontWeight.NORMAL, 14);
+    
+    for (int i = startIdx; i >= 0 && drawn < entriesPerPage; i--) {
       VnHistory.HistoryEntry e = list.get(i);
-      String speaker = e.getSpeaker() != null && !e.getSpeaker().isEmpty() ? e.getSpeaker() + ": " : "";
-      String line = speaker + e.getText();
-      gc.fillText(line, 40, y);
-      y += 28;
+      
+      // Entry background (alternating)
+      if (drawn % 2 == 0) {
+        gc.setFill(Color.rgb(255, 255, 255, 0.03));
+        gc.fillRoundRect(contentX - 10, y - 5, contentW + 20, entryHeight - 5, 8, 8);
+      }
+      
+      // Speaker name (if present)
+      String speaker = e.getSpeaker();
+      if (speaker != null && !speaker.isEmpty()) {
+        gc.setFill(Color.rgb(150, 200, 255, 1.0));
+        gc.setFont(speakerFont);
+        gc.fillText(speaker, contentX, y + 15);
+        
+        // Dialogue text (wrapped)
+        gc.setFill(Color.rgb(240, 240, 240, 0.95));
+        gc.setFont(textFont);
+        drawWrappedTextHistory(e.getText(), contentX + 15, y + 35, contentW - 15, textFont, 2);
+      } else {
+        // Narration (no speaker)
+        gc.setFill(Color.rgb(200, 200, 200, 0.9));
+        gc.setFont(textFont);
+        drawWrappedTextHistory(e.getText(), contentX, y + 15, contentW, textFont, 2);
+      }
+      
+      y += entryHeight;
       drawn++;
     }
-    // Scrollbar indicator
-    int maxOffset = Math.max(0, total - linesPerPage);
+    
+    // Empty state
+    if (total == 0) {
+      gc.setFill(Color.rgb(150, 150, 150, 0.7));
+      gc.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+      gc.fillText(Localization.t("history.empty"), contentX, contentY + 30);
+    }
+    
+    // Scrollbar
+    int maxOffset = Math.max(0, total - entriesPerPage);
+    double trackX = width - 25;
+    double trackY = 60;
+    double trackH = height - 130;
+    double trackW = 6;
+    
+    // Track background
+    gc.setFill(Color.rgb(255, 255, 255, 0.1));
+    gc.fillRoundRect(trackX, trackY, trackW, trackH, 4, 4);
+    
     if (maxOffset > 0) {
-      double trackX = width - 28;
-      double trackY = 30;
-      double trackH = height - 80;
-      double trackW = 8;
-      gc.setFill(Color.rgb(255,255,255,0.15));
-      gc.fillRoundRect(trackX, trackY, trackW, trackH, 6, 6);
-
-      double thumbFrac = Math.max(0.08, Math.min(1.0, (double) linesPerPage / (double) total));
+      double thumbFrac = Math.max(0.1, Math.min(1.0, (double) entriesPerPage / (double) total));
       double thumbH = trackH * thumbFrac;
       int effOffset = Math.min(offset, maxOffset);
-      double posFrac = maxOffset == 0 ? 0.0 : (double) effOffset / (double) maxOffset;
+      double posFrac = (double) effOffset / (double) maxOffset;
       double thumbY = trackY + (trackH - thumbH) * posFrac;
-      gc.setFill(Color.rgb(255,255,255,0.7));
-      gc.fillRoundRect(trackX, thumbY, trackW, thumbH, 6, 6);
+      
+      gc.setFill(Color.rgb(150, 200, 255, 0.8));
+      gc.fillRoundRect(trackX, thumbY, trackW, thumbH, 4, 4);
     }
+    
+    // Bottom hint bar
+    gc.setFill(Color.rgb(40, 40, 60, 0.95));
+    gc.fillRect(0, height - 50, width, 50);
+    
+    gc.setFill(Color.rgb(180, 180, 180, 0.9));
+    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
+    String hint = Localization.t("history.hint");
+    gc.fillText(hint, 30, height - 22);
+    
+    // Entry count indicator
+    String countText = String.format("%d / %d", Math.min(offset + 1, total), total);
+    double countWidth = computeTextWidth(countText, gc.getFont());
+    gc.fillText(countText, width - countWidth - 40, height - 22);
+  }
+  
+  private void drawWrappedTextHistory(String text, double x, double y, double maxWidth, Font font, int maxLines) {
+    gc.setFont(font);
+    String[] words = text.split(" ");
+    StringBuilder line = new StringBuilder();
+    double currentY = y;
+    double lineHeight = 18;
+    int lineCount = 0;
+    
+    for (String word : words) {
+      String testLine = line.length() == 0 ? word : line + " " + word;
+      double testWidth = computeTextWidth(testLine, font);
+      
+      if (testWidth > maxWidth && line.length() > 0) {
+        gc.fillText(line.toString(), x, currentY);
+        line = new StringBuilder(word);
+        currentY += lineHeight;
+        lineCount++;
+        if (lineCount >= maxLines) {
+          gc.fillText("...", x, currentY);
+          return;
+        }
+      } else {
+        line = new StringBuilder(testLine);
+      }
+    }
+    
+    if (line.length() > 0 && lineCount < maxLines) {
+      gc.fillText(line.toString(), x, currentY);
+    }
+  }
 
-    // Hints
-    gc.setFill(Color.rgb(220,220,220,0.9));
-    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
-    String hint = "Esc: Close    Up/Down: Scroll    PgUp/PgDn: Faster";
-    gc.fillText(hint, 40, height - 30);
+  private void renderSaveSlotOverlay(VnState state, double width, double height) {
+    // Semi-transparent backdrop
+    gc.setFill(Color.rgb(0, 0, 0, 0.85));
+    gc.fillRect(0, 0, width, height);
+    
+    // Panel dimensions
+    double panelW = Math.min(600, width * 0.7);
+    double panelH = Math.min(450, height * 0.75);
+    double panelX = (width - panelW) / 2;
+    double panelY = (height - panelH) / 2;
+    
+    // Panel background
+    gc.setFill(Color.rgb(25, 25, 40, 0.98));
+    gc.fillRoundRect(panelX, panelY, panelW, panelH, 16, 16);
+    
+    // Panel border
+    gc.setStroke(Color.rgb(80, 80, 120, 0.8));
+    gc.setLineWidth(2);
+    gc.strokeRoundRect(panelX, panelY, panelW, panelH, 16, 16);
+    
+    // Title
+    boolean isSaveMode = state.isSaveSlotOverlaySaveMode();
+    String title = Localization.t(isSaveMode ? "save_slots.title" : "load_slots.title");
+    gc.setFill(Color.WHITE);
+    gc.setFont(Font.font("Arial", FontWeight.BOLD, 22));
+    double titleWidth = computeTextWidth(title, gc.getFont());
+    gc.fillText(title, panelX + (panelW - titleWidth) / 2, panelY + 35);
+    
+    // Slots grid (2 columns x 5 rows)
+    double slotW = (panelW - 60) / 2;
+    double slotH = 55;
+    double startX = panelX + 20;
+    double startY = panelY + 60;
+    double gapX = 20;
+    double gapY = 12;
+    
+    int selected = state.getSaveSlotSelected();
+    
+    for (int i = 0; i < 10; i++) {
+      int col = i % 2;
+      int row = i / 2;
+      double slotX = startX + col * (slotW + gapX);
+      double slotY = startY + row * (slotH + gapY);
+      
+      boolean isSelected = (i == selected);
+      boolean hasData = hasSaveSlotData(i);
+      
+      // Slot background
+      if (isSelected) {
+        gc.setFill(Color.rgb(60, 80, 140, 0.9));
+      } else {
+        gc.setFill(Color.rgb(40, 40, 60, 0.8));
+      }
+      gc.fillRoundRect(slotX, slotY, slotW, slotH, 8, 8);
+      
+      // Selection border
+      if (isSelected) {
+        gc.setStroke(Color.rgb(150, 200, 255, 1.0));
+        gc.setLineWidth(2);
+        gc.strokeRoundRect(slotX, slotY, slotW, slotH, 8, 8);
+      }
+      
+      // Slot label
+      String slotLabel = i == 0 ? "Quick Save" : (Localization.t("save_slots.slot") + " " + i);
+      gc.setFill(isSelected ? Color.WHITE : Color.rgb(200, 200, 200));
+      gc.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+      gc.fillText(slotLabel, slotX + 12, slotY + 22);
+      
+      // Slot status/timestamp
+      String status = hasData ? getSaveSlotTimestamp(i) : Localization.t("save_slots.empty");
+      gc.setFill(hasData ? Color.rgb(180, 220, 180) : Color.rgb(120, 120, 120));
+      gc.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+      gc.fillText(status, slotX + 12, slotY + 42);
+    }
+    
+    // Hint bar
+    gc.setFill(Color.rgb(40, 40, 60, 0.95));
+    gc.fillRoundRect(panelX, panelY + panelH - 45, panelW, 45, 0, 0);
+    // Round only bottom corners
+    gc.fillRoundRect(panelX, panelY + panelH - 20, panelW, 20, 16, 16);
+    
+    gc.setFill(Color.rgb(180, 180, 180, 0.9));
+    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
+    String hint = Localization.t(isSaveMode ? "save_slots.hint" : "load_slots.hint");
+    gc.fillText(hint, panelX + 20, panelY + panelH - 18);
+  }
+  
+  private boolean hasSaveSlotData(int slot) {
+    String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
+    String saveDir = System.getProperty("user.home") + "/.jvn/saves";
+    java.io.File f = new java.io.File(saveDir, slotName + ".sav");
+    return f.exists();
+  }
+  
+  private String getSaveSlotTimestamp(int slot) {
+    String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
+    String saveDir = System.getProperty("user.home") + "/.jvn/saves";
+    java.io.File f = new java.io.File(saveDir, slotName + ".sav");
+    if (!f.exists()) return Localization.t("save_slots.empty");
+    try {
+      long millis = f.lastModified();
+      java.time.Instant inst = java.time.Instant.ofEpochMilli(millis);
+      java.time.ZonedDateTime z = java.time.ZonedDateTime.ofInstant(inst, java.time.ZoneId.systemDefault());
+      return z.toLocalDate().toString() + " " + z.toLocalTime().withNano(0).toString();
+    } catch (Exception e) {
+      return "Saved";
+    }
   }
 
   /**
@@ -167,6 +369,11 @@ public class VnRenderer {
 
     if (state.isHistoryOverlayShown()) {
       renderHistoryOverlay(state, width, height);
+    }
+
+    // Save slot overlay
+    if (state.isSaveSlotOverlayShown()) {
+      renderSaveSlotOverlay(state, width, height);
     }
 
     // HUD message (toast)
@@ -387,19 +594,62 @@ public class VnRenderer {
 
   private void renderTransition(VnState state, double width, double height) {
     float progress = state.getTransitionProgress();
+    var transitionType = state.getActiveTransition().getType();
     
-    // Fade effect: black overlay with opacity based on progress
-    if (state.getActiveTransition().getType() == com.jvn.core.vn.VnTransition.TransitionType.FADE) {
-      double opacity = 1.0 - progress; // Fade out from 1.0 to 0.0
-      gc.setFill(Color.rgb(0, 0, 0, opacity));
-      gc.fillRect(0, 0, width, height);
+    switch (transitionType) {
+      case FADE -> {
+        // Fade effect: black overlay with opacity based on progress
+        double opacity = 1.0 - progress; // Fade out from 1.0 to 0.0
+        gc.setFill(Color.rgb(0, 0, 0, opacity));
+        gc.fillRect(0, 0, width, height);
+      }
+      case DISSOLVE -> {
+        // Dissolve: smoother fade with easing
+        double eased = easeInOutQuad(progress);
+        double opacity = 1.0 - eased;
+        gc.setFill(Color.rgb(0, 0, 0, opacity * 0.85));
+        gc.fillRect(0, 0, width, height);
+      }
+      case SLIDE_LEFT -> {
+        // Slide from right: black panel slides off to left
+        double eased = easeOutCubic(progress);
+        double panelX = -width * eased;
+        gc.setFill(Color.BLACK);
+        gc.fillRect(panelX, 0, width, height);
+      }
+      case SLIDE_RIGHT -> {
+        // Slide from left: black panel slides off to right
+        double eased = easeOutCubic(progress);
+        double panelX = width * (1.0 - eased) - width;
+        gc.setFill(Color.BLACK);
+        gc.fillRect(width - panelX - width, 0, width, height);
+      }
+      case WIPE -> {
+        // Horizontal wipe: black rectangle shrinks from left to right
+        double eased = easeInOutQuad(progress);
+        double wipeWidth = width * (1.0 - eased);
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, 0, wipeWidth, height);
+      }
+      case CROSSFADE -> {
+        // Crossfade is handled separately in render() for backgrounds
+      }
+      case NONE -> {
+        // No visual effect
+      }
     }
-    // Dissolve is similar to fade but could have different timing
-    else if (state.getActiveTransition().getType() == com.jvn.core.vn.VnTransition.TransitionType.DISSOLVE) {
-      double opacity = 1.0 - progress;
-      gc.setFill(Color.rgb(0, 0, 0, opacity * 0.8)); // Slightly lighter
-      gc.fillRect(0, 0, width, height);
-    }
+  }
+
+  private double easeInOutQuad(double t) {
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
+  private double easeOutCubic(double t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  private double easeInCubic(double t) {
+    return t * t * t;
   }
 
   private void renderCrossfadeBackground(VnBackground prev, VnBackground cur, float progress, double width, double height) {

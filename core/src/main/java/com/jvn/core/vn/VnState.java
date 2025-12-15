@@ -30,6 +30,11 @@ public class VnState {
   private int historyScroll = 0; // lines to scroll back from newest (0 = show newest)
   private String hudMessage;
   private long hudMessageExpireAt;
+  
+  // Save slot overlay state
+  private boolean saveSlotOverlayShown = false;
+  private boolean saveSlotOverlayIsSaveMode = true; // true = save, false = load
+  private int saveSlotSelected = 0; // 0-9 slots (0 = quick save)
   private Object rpgState = new com.jvn.core.rpg.RpgState(); // Optional RPG state payload (serializable)
 
   public VnState() {
@@ -148,6 +153,25 @@ public class VnState {
   public void clearHistoryScroll() { this.historyScroll = 0; }
   public void scrollHistoryByLines(int delta) {
     this.historyScroll = Math.max(0, this.historyScroll + delta);
+  }
+
+  // Save slot overlay
+  public boolean isSaveSlotOverlayShown() { return saveSlotOverlayShown; }
+  public void setSaveSlotOverlayShown(boolean shown) { this.saveSlotOverlayShown = shown; }
+  public void showSaveSlotOverlay(boolean isSaveMode) {
+    this.saveSlotOverlayShown = true;
+    this.saveSlotOverlayIsSaveMode = isSaveMode;
+    this.saveSlotSelected = 0;
+  }
+  public void hideSaveSlotOverlay() { this.saveSlotOverlayShown = false; }
+  public boolean isSaveSlotOverlaySaveMode() { return saveSlotOverlayIsSaveMode; }
+  public int getSaveSlotSelected() { return saveSlotSelected; }
+  public void setSaveSlotSelected(int slot) { this.saveSlotSelected = Math.max(0, Math.min(9, slot)); }
+  public void moveSaveSlotSelection(int delta) {
+    int newSlot = saveSlotSelected + delta;
+    if (newSlot < 0) newSlot = 9;
+    if (newSlot > 9) newSlot = 0;
+    this.saveSlotSelected = newSlot;
   }
 
   public String getHudMessage() { return hudMessage; }

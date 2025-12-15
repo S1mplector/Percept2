@@ -109,8 +109,15 @@ public class FxLauncher extends Application {
 
     // Input handling
     scene.setOnKeyPressed(e -> {
-      // Intercept when VN history overlay is open
+      // Intercept when VN save slot overlay is open
       com.jvn.core.scene.Scene cur = engine != null ? engine.scenes().peek() : null;
+      if (cur instanceof VnScene vn && vn.getState().isSaveSlotOverlayShown()) {
+        handleSaveSlotOverlayInput(vn, e);
+        e.consume();
+        return;
+      }
+      
+      // Intercept when VN history overlay is open
       if (cur instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
         if (e.getCode() == KeyCode.ESCAPE || e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.B) {
           // Close overlay on Esc/Space/Enter/B
@@ -170,11 +177,11 @@ public class FxLauncher extends Application {
       } else if (e.getCode() == KeyCode.RIGHT) {
         handleSettingsAdjust(1);
       } else if (e.getCode() == KeyCode.F5) {
-        // F5 = Quick save
-        handleQuickSave();
+        // F5 = Show save slot overlay
+        handleShowSaveSlotOverlay(true);
       } else if (e.getCode() == KeyCode.F9) {
-        // F9 = Quick load
-        handleQuickLoad();
+        // F9 = Show load slot overlay
+        handleShowSaveSlotOverlay(false);
       } else if (e.getCode() == KeyCode.F6) {
         // F6 = Save menu (in-game)
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
@@ -449,6 +456,90 @@ public class FxLauncher extends Application {
       boolean success = vn.quickLoad();
       vn.getState().showHudMessage(success ? "Quick loaded" : "Quick load failed", 1500);
     }
+  }
+
+  private void handleShowSaveSlotOverlay(boolean isSaveMode) {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene vn) {
+      vn.getState().showSaveSlotOverlay(isSaveMode);
+    }
+  }
+
+  private void handleSaveSlotOverlayInput(VnScene vn, javafx.scene.input.KeyEvent e) {
+    var state = vn.getState();
+    KeyCode code = e.getCode();
+    
+    if (code == KeyCode.ESCAPE) {
+      state.hideSaveSlotOverlay();
+    } else if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
+      // Confirm selection
+      int slot = state.getSaveSlotSelected();
+      boolean isSaveMode = state.isSaveSlotOverlaySaveMode();
+      state.hideSaveSlotOverlay();
+      
+      if (isSaveMode) {
+        performSlotSave(vn, slot);
+      } else {
+        performSlotLoad(vn, slot);
+      }
+    } else if (code == KeyCode.UP) {
+      // Move up (subtract 2 to go to previous row)
+      state.moveSaveSlotSelection(-2);
+    } else if (code == KeyCode.DOWN) {
+      // Move down (add 2 to go to next row)
+      state.moveSaveSlotSelection(2);
+    } else if (code == KeyCode.LEFT) {
+      state.moveSaveSlotSelection(-1);
+    } else if (code == KeyCode.RIGHT) {
+      state.moveSaveSlotSelection(1);
+    } else if (code.isDigitKey()) {
+      // Direct slot selection with number keys
+      String name = code.getName();
+      try {
+        int digit = Integer.parseInt(name);
+        state.setSaveSlotSelected(digit);
+      } catch (NumberFormatException ignored) {}
+    }
+  }
+
+  private void performSlotSave(VnScene vn, int slot) {
+    String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
+    try {
+      var saveManager = new com.jvn.core.vn.save.VnSaveManager();
+      saveManager.save(vn.getState(), slotName);
+      try { writeSaveThumbnail(vn, slotName); } catch (Exception ignored) {}
+      vn.getState().showHudMessage("Saved to " + (slot == 0 ? "Quick Save" : "Slot " + slot), 1500);
+    } catch (Exception e) {
+      vn.getState().showHudMessage("Save failed", 1500);
+    }
+  }
+
+  private void performSlotLoad(VnScene vn, int slot) {
+    String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
+    try {
+      var saveManager = new com.jvn.core.vn.save.VnSaveManager();
+      var saveData = saveManager.load(slotName);
+      if (saveData.getScenarioId().equals(vn.getScenario().getId())) {
+        saveManager.applyToState(saveData, vn.getState());
+        vn.getState().showHudMessage("Loaded from " + (slot == 0 ? "Quick Save" : "Slot " + slot), 1500);
+      } else {
+        vn.getState().showHudMessage("Save is for different scenario", 1500);
+      }
+    } catch (Exception e) {
+      vn.getState().showHudMessage(slot == 0 ? "No quick save found" : "Slot " + slot + " is empty", 1500);
+    }
+  }
+
+  private void writeSaveThumbnail(VnScene vnScene, String slotName) {
+    try {
+      String dir = System.getProperty("user.home") + "/.jvn/saves";
+      Path d = Paths.get(dir);
+      Files.createDirectories(d);
+      File out = d.resolve(slotName + ".png").toFile();
+      var img = canvas.snapshot(null, null);
+      ImageIO.write(SwingFXUtils.fromFXImage(img, null), "png", out);
+    } catch (Exception ignored) {}
   }
 
   private void handleMouseClick(double x, double y) {
