@@ -17,17 +17,30 @@ import java.io.File;
 public class MenuRenderer {
   private final GraphicsContext gc;
   private MenuTheme theme;
+  private final java.util.Map<String, Image> imageCache = new java.util.HashMap<>();
 
   public MenuRenderer(GraphicsContext gc) { this.gc = gc; this.theme = MenuTheme.defaults(); }
   public MenuRenderer(GraphicsContext gc, MenuTheme theme) { this.gc = gc; this.theme = (theme == null ? MenuTheme.defaults() : theme); }
   public void setTheme(MenuTheme t) { this.theme = (t == null ? MenuTheme.defaults() : t); }
+  public MenuTheme getTheme() { return theme; }
 
   public void renderMainMenu(MainMenuScene scene, double w, double h) {
-    clear(w, h);
-    String title = theme.getTitleText();
-    if (title == null || title.isBlank()) title = Localization.t("app.title");
-    double titleY = resolve(theme.getTitleY(), h);
-    drawTitle(title, w, titleY);
+    // Draw background image if configured
+    if (theme.getBackgroundImagePath() != null) {
+      drawBackgroundImage(theme.getBackgroundImagePath(), w, h);
+    } else {
+      clear(w, h);
+    }
+
+    // Draw logo if configured, otherwise draw text title
+    if (theme.getLogoImagePath() != null) {
+      drawLogo(theme.getLogoImagePath(), w, h);
+    } else {
+      String title = theme.getTitleText();
+      if (title == null || title.isBlank()) title = Localization.t("app.title");
+      double titleY = resolve(theme.getTitleY(), h);
+      drawTitle(title, w, titleY);
+    }
 
     String[] items = new String[] {
       (theme.getLabelNewGame() != null ? theme.getLabelNewGame() : Localization.t("menu.new_game")),
@@ -179,6 +192,59 @@ public class MenuRenderer {
   private void clear(double w, double h) {
     gc.setFill(theme.getBackgroundColor());
     gc.fillRect(0, 0, w, h);
+  }
+
+  private void drawBackgroundImage(String path, double w, double h) {
+    Image img = loadImage(path);
+    if (img != null) {
+      // Draw scaled to fill
+      gc.drawImage(img, 0, 0, w, h);
+    } else {
+      clear(w, h);
+    }
+  }
+
+  private void drawLogo(String path, double w, double h) {
+    Image img = loadImage(path);
+    if (img == null) return;
+    
+    double scale = theme.getLogoScale();
+    double logoW = img.getWidth() * scale;
+    double logoH = img.getHeight() * scale;
+    
+    // Calculate position (logoX/logoY are fractions)
+    double x = w * theme.getLogoX() - logoW / 2;
+    double y = h * theme.getLogoY();
+    
+    // Draw shadow if enabled
+    if (theme.isLogoShadow()) {
+      gc.setGlobalAlpha(0.4);
+      gc.drawImage(img, x + 4, y + 4, logoW, logoH);
+      gc.setGlobalAlpha(1.0);
+    }
+    
+    gc.drawImage(img, x, y, logoW, logoH);
+  }
+
+  private Image loadImage(String path) {
+    if (path == null) return null;
+    return imageCache.computeIfAbsent(path, p -> {
+      try {
+        // Try classpath first
+        var url = getClass().getClassLoader().getResource(p);
+        if (url != null) return new Image(url.toExternalForm());
+        // Try filesystem
+        File f = new File(p);
+        if (f.exists()) return new Image(f.toURI().toString());
+      } catch (Exception e) {
+        System.err.println("Failed to load menu image: " + p);
+      }
+      return null;
+    });
+  }
+
+  public void clearImageCache() {
+    imageCache.clear();
   }
 
   private void drawTitle(String text, double w, double y) {

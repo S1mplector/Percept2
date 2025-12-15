@@ -24,6 +24,11 @@ public class MainMenuScene implements Scene {
   private final String defaultScriptName;
   private final AudioFacade audio;
   private int selected = 0;
+  
+  // Title screen configuration
+  private String titleBgmPath = null;
+  private double titleBgmVolume = 0.7;
+  private boolean bgmStarted = false;
 
   public MainMenuScene(Engine engine, VnSettings settingsModel, VnSaveManager saveManager, String defaultScriptName, AudioFacade audio) {
     this.engine = engine;
@@ -32,6 +37,17 @@ public class MainMenuScene implements Scene {
     this.defaultScriptName = defaultScriptName == null ? "demo.vns" : defaultScriptName;
     this.audio = audio;
   }
+
+  /**
+   * Configure title screen BGM
+   */
+  public void setTitleBgm(String path, double volume) {
+    this.titleBgmPath = path;
+    this.titleBgmVolume = Math.max(0, Math.min(1, volume));
+  }
+
+  public String getTitleBgmPath() { return titleBgmPath; }
+  public double getTitleBgmVolume() { return titleBgmVolume; }
 
   public int getSelected() { return selected; }
   public void moveSelection(int delta) {
@@ -104,5 +120,28 @@ public class MainMenuScene implements Scene {
 
   @Override
   public void update(long deltaMs) {
+    // Start title BGM on first update if configured
+    if (!bgmStarted && titleBgmPath != null && audio != null) {
+      audio.setBgmVolume((float) titleBgmVolume);
+      audio.playBgm(titleBgmPath, true);
+      bgmStarted = true;
+    }
+  }
+
+  @Override
+  public void onEnter() {
+    // Resume title BGM if returning to menu
+    if (titleBgmPath != null && audio != null) {
+      if (!bgmStarted) {
+        audio.setBgmVolume((float) titleBgmVolume);
+        audio.playBgm(titleBgmPath, true);
+        bgmStarted = true;
+      }
+    }
+  }
+
+  @Override
+  public void onExit() {
+    // Don't stop BGM when pushing new scene - let child scenes control it
   }
 }

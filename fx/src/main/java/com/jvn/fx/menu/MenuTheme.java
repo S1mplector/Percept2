@@ -52,6 +52,16 @@ public class MenuTheme {
   private String labelSettings = null;
   private String labelQuit = null;
 
+  // Title screen assets
+  private String backgroundImagePath = null; // path to background image
+  private String logoImagePath = null; // path to logo/title image
+  private String bgmPath = null; // path to background music
+  private double logoX = 0.5; // logo X position (fraction of width, 0.5 = centered)
+  private double logoY = 0.15; // logo Y position (fraction of height)
+  private double logoScale = 1.0; // logo scale factor
+  private double bgmVolume = 0.7; // title screen BGM volume
+  private boolean logoShadow = true; // draw shadow behind logo
+
   public static MenuTheme defaults() { return new MenuTheme(); }
 
   public static MenuTheme fromAssets() {
@@ -106,6 +116,24 @@ public class MenuTheme {
     labelLoad = emptyToNull(p.getProperty("label.load"));
     labelSettings = emptyToNull(p.getProperty("label.settings"));
     labelQuit = emptyToNull(p.getProperty("label.quit"));
+
+    // Title screen assets
+    backgroundImagePath = emptyToNull(p.getProperty("backgroundImage"));
+    logoImagePath = emptyToNull(p.getProperty("logoImage"));
+    bgmPath = emptyToNull(p.getProperty("bgm"));
+    logoX = parseDouble(p.getProperty("logoX"), logoX);
+    logoY = parseDouble(p.getProperty("logoY"), logoY);
+    logoScale = parseDouble(p.getProperty("logoScale"), logoScale);
+    bgmVolume = parseDouble(p.getProperty("bgmVolume"), bgmVolume);
+    logoShadow = parseBool(p.getProperty("logoShadow"), logoShadow);
+  }
+
+  private static boolean parseBool(String s, boolean def) {
+    if (s == null || s.isBlank()) return def;
+    String t = s.trim().toLowerCase();
+    if ("true".equals(t) || "yes".equals(t) || "1".equals(t)) return true;
+    if ("false".equals(t) || "no".equals(t) || "0".equals(t)) return false;
+    return def;
   }
 
   private static String emptyToNull(String s) { return (s == null || s.trim().isEmpty()) ? null : s; }
@@ -189,4 +217,14 @@ public class MenuTheme {
   public String getLabelLoad() { return labelLoad; }
   public String getLabelSettings() { return labelSettings; }
   public String getLabelQuit() { return labelQuit; }
+
+  // Title screen asset getters
+  public String getBackgroundImagePath() { return backgroundImagePath; }
+  public String getLogoImagePath() { return logoImagePath; }
+  public String getBgmPath() { return bgmPath; }
+  public double getLogoX() { return logoX; }
+  public double getLogoY() { return logoY; }
+  public double getLogoScale() { return logoScale; }
+  public double getBgmVolume() { return bgmVolume; }
+  public boolean isLogoShadow() { return logoShadow; }
 }

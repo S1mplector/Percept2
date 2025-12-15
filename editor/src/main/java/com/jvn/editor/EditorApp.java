@@ -16,6 +16,7 @@ import com.jvn.editor.ui.SceneGraphView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
+import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
 
@@ -226,107 +227,28 @@ public class EditorApp extends Application {
   }
 
   private void doNewProject(Stage stage) {
-    DirectoryChooser dc = new DirectoryChooser();
-    dc.setTitle("Choose Location for New Project");
-    File base = dc.showDialog(stage);
-    if (base == null) return;
-    javafx.scene.control.TextInputDialog nameDlg = new javafx.scene.control.TextInputDialog("MyProject");
-    nameDlg.setHeaderText(null); nameDlg.setTitle("New Project"); nameDlg.setContentText("Project name:");
-    var nameRes = nameDlg.showAndWait(); if (nameRes.isEmpty()) return; String name = nameRes.get().trim(); if (name.isEmpty()) return;
-    javafx.scene.control.ChoiceDialog<String> typeDlg = new javafx.scene.control.ChoiceDialog<>("vn", java.util.List.of("vn","jes","gradle"));
-    typeDlg.setHeaderText(null); typeDlg.setTitle("Project Type"); typeDlg.setContentText("Type:");
-    var typeRes = typeDlg.showAndWait(); if (typeRes.isEmpty()) return; String type = typeRes.get();
-    File dir = new File(base, name); dir.mkdirs();
-    try {
-      Properties p = new Properties();
-      p.setProperty("name", name);
-      if ("vn".equalsIgnoreCase(type)) {
-        p.setProperty("type", "vn");
-        p.setProperty("entryVns", "scripts/prologue.vns");
-        p.setProperty("entryLabel", "start");
-        p.setProperty("timeline", "story.timeline");
-        // directories
-        new File(dir, "scripts").mkdirs();
-        new File(dir, "assets/characters").mkdirs();
-        new File(dir, "assets/backgrounds").mkdirs();
-        new File(dir, "assets/cg").mkdirs();
-        new File(dir, "assets/ui").mkdirs();
-        new File(dir, "assets/bgm").mkdirs();
-        new File(dir, "assets/sfx").mkdirs();
-        new File(dir, "assets/voices").mkdirs();
-        // sample script
-        try (FileWriter fw = new FileWriter(new File(dir, "scripts/prologue.vns"))) {
-          fw.write("label start\n\n\"Welcome to " + name + "!\"\n\n[choice Begin->start]\n");
-        }
-        // sample timeline (DSL)
-        try (FileWriter fw = new FileWriter(new File(dir, "story.timeline"))) {
-          fw.write("# Timeline for " + name + "\n");
-          fw.write("arc \"Prologue\" script \"scripts/prologue.vns\" entry \"start\" at 40,40\n");
-        }
-        // default settings
-        try (FileOutputStream fos = new FileOutputStream(new File(dir, "vn.settings"))) {
-          Properties sp = new Properties();
-          sp.setProperty("textSpeed", "40");
-          sp.setProperty("bgm", "0.7");
-          sp.setProperty("sfx", "0.7");
-          sp.setProperty("voice", "0.7");
-          sp.setProperty("autoPlayDelay", "1500");
-          sp.setProperty("skipUnread", "false");
-          sp.setProperty("skipAfterChoices", "false");
-          sp.store(fos, "VN Settings");
-        }
-        // default menu theme
-        try (FileOutputStream fos = new FileOutputStream(new File(dir, "scripts/menu.theme"))) {
-          Properties tp = new Properties();
-          tp.setProperty("backgroundColor", "#0A0C12");
-          tp.setProperty("titleColor", "#FFFFFF");
-          tp.setProperty("itemColor", "#D3D3D3");
-          tp.setProperty("itemSelectedColor", "#FFFF00");
-          tp.setProperty("hintColor", "rgba(200,200,200,0.8)");
-          tp.setProperty("accentColor", "#FFFF00");
-          tp.setProperty("titleFontFamily", "Arial");
-          tp.setProperty("titleFontWeight", "BOLD");
-          tp.setProperty("titleFontSize", "32");
-          tp.setProperty("itemFontFamily", "Arial");
-          tp.setProperty("itemFontWeight", "NORMAL");
-          tp.setProperty("itemFontSize", "20");
-          tp.setProperty("hintFontFamily", "Arial");
-          tp.setProperty("hintFontWeight", "NORMAL");
-          tp.setProperty("hintFontSize", "14");
-          // layout defaults
-          tp.setProperty("titleY", "60");
-          tp.setProperty("listYStart", "0.35");
-          tp.setProperty("lineHeight", "40");
-          tp.setProperty("itemPrefix", "  ");
-          tp.setProperty("itemSelectedPrefix", "> ");
-          tp.store(fos, "Menu Theme");
-        }
-      } else if ("jes".equalsIgnoreCase(type)) {
-        p.setProperty("type", "jes");
-        p.setProperty("entry", "scripts/main.jes");
-        new File(dir, "scripts").mkdirs();
-        try (FileWriter fw = new FileWriter(new File(dir, "scripts/main.jes"))) {
-          fw.write("scene \"" + name + "\" {\n  entity \"title\" {\n    component Label2D { text: \"Hello, JVN!\" x: 20 y: 24 size: 18 bold: true color: rgb(1,1,1,1) }\n  }\n  on key \"D\" do toggleDebug\n}\n");
-        }
-      } else {
-        p.setProperty("type", "gradle");
-        javafx.scene.control.TextInputDialog pathDlg = new javafx.scene.control.TextInputDialog(":app");
-        pathDlg.setHeaderText(null); pathDlg.setTitle("Gradle Module Path"); pathDlg.setContentText("Module path (e.g. :billiards-game):");
-        var pathRes = pathDlg.showAndWait(); if (pathRes.isEmpty()) return; String path = pathRes.get().trim();
-        p.setProperty("path", path);
-        p.setProperty("task", "run");
-        p.setProperty("args", "-x test");
-      }
-      try (FileOutputStream fos = new FileOutputStream(new File(dir, "jvn.project"))) { p.store(fos, "JVN Project Manifest"); }
-      this.projectRoot = dir; if (projView != null) projView.setRootDirectory(dir);
-      if (timelineView != null) { timelineView.setProjectRoot(dir); timelineView.setTimelineFile(new File(dir, "story.timeline")); }
-      if (settingsEditor != null) settingsEditor.setProjectRoot(dir);
-      if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(dir);
-      if (mapEditorView != null) mapEditorView.setProjectRoot(dir);
-      status.setText("Created project: " + name);
-    } catch (Exception ex) {
-      status.setText("Create project failed");
+    File projectDir = NewProjectWizard.showAndWait(stage);
+    if (projectDir == null) return;
+    
+    // Set as current project
+    this.projectRoot = projectDir;
+    if (projView != null) projView.setRootDirectory(projectDir);
+    if (timelineView != null) {
+      timelineView.setProjectRoot(projectDir);
+      timelineView.setTimelineFile(new File(projectDir, "story.timeline"));
     }
+    if (settingsEditor != null) settingsEditor.setProjectRoot(projectDir);
+    if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(projectDir);
+    if (mapEditorView != null) mapEditorView.setProjectRoot(projectDir);
+    
+    // Open the entry script
+    File entryScript = new File(projectDir, "scripts/prologue.vns");
+    if (entryScript.exists()) {
+      openFile(entryScript);
+    }
+    
+    selectProjectTab();
+    status.setText("Created project: " + projectDir.getName());
   }
 
   private void openSample(String absolutePath) {

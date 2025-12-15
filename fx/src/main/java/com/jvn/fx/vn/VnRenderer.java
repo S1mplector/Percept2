@@ -16,6 +16,9 @@ import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnState;
+import com.jvn.core.vn.text.TextEffect;
+import com.jvn.core.vn.text.TextParser;
+import com.jvn.core.vn.text.TextSpan;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -497,20 +500,114 @@ public class VnRenderer {
       gc.fillText(dialogue.getSpeakerName(), TEXTBOX_PADDING + 10, textBoxY - 15);
     }
 
-    // Draw dialogue text (with reveal animation)
-    gc.setFill(TEXT_COLOR);
-    gc.setFont(dialogueFont);
+    // Parse and render dialogue text with effects
     String fullText = dialogue.getText();
-    int revealedLength = Math.min(state.getTextRevealProgress(), fullText.length());
-    String visibleText = fullText.substring(0, revealedLength);
+    List<TextSpan> spans = TextParser.parse(fullText);
+    int plainLength = TextParser.plainLength(fullText);
+    int revealedLength = Math.min(state.getTextRevealProgress(), plainLength);
     
-    drawWrappedText(visibleText, TEXTBOX_PADDING, textBoxY + TEXTBOX_PADDING + 20, 
-                    width - TEXTBOX_PADDING * 2, dialogueFont);
+    drawStyledText(spans, revealedLength, TEXTBOX_PADDING, textBoxY + TEXTBOX_PADDING + 20, 
+                   width - TEXTBOX_PADDING * 2);
 
     // Draw continue indicator if text is fully revealed
-    if (revealedLength >= fullText.length() && state.isWaitingForInput()) {
+    if (revealedLength >= plainLength && state.isWaitingForInput()) {
       drawContinueIndicator(width - 30, height - 20);
     }
+  }
+
+  private void drawStyledText(List<TextSpan> spans, int revealedChars, double startX, double startY, double maxWidth) {
+    gc.setFont(dialogueFont);
+    double x = startX;
+    double y = startY;
+    double lineHeight = 22;
+    int charCount = 0;
+
+    for (TextSpan span : spans) {
+      String text = span.getText();
+      int spanLen = text.length();
+      
+      // Calculate how many chars of this span to show
+      int visibleChars = 0;
+      if (charCount < revealedChars) {
+        visibleChars = Math.min(spanLen, revealedChars - charCount);
+      }
+      
+      if (visibleChars > 0) {
+        String visibleText = text.substring(0, visibleChars);
+        
+        // Apply color if specified
+        if (span.hasColor()) {
+          gc.setFill(parseColorHex(span.getColorHex()));
+        } else {
+          gc.setFill(TEXT_COLOR);
+        }
+        
+        // Apply font style for bold/italic
+        Font effectFont = dialogueFont;
+        if (span.getEffect() == TextEffect.BOLD) {
+          effectFont = Font.font(dialogueFont.getFamily(), FontWeight.BOLD, dialogueFont.getSize());
+        } else if (span.getEffect() == TextEffect.ITALIC) {
+          effectFont = Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, dialogueFont.getSize());
+        }
+        gc.setFont(effectFont);
+        
+        // Draw each character with effects
+        for (int i = 0; i < visibleText.length(); i++) {
+          char c = visibleText.charAt(i);
+          double charWidth = computeTextWidth(String.valueOf(c), effectFont);
+          
+          // Check for line wrap
+          if (x + charWidth > startX + maxWidth) {
+            x = startX;
+            y += lineHeight;
+          }
+          
+          // Apply effect offset
+          double offsetX = 0, offsetY = 0;
+          double effectPhase = (animationTime * 0.01) + (charCount + i) * 0.3;
+          
+          switch (span.getEffect()) {
+            case SHAKE -> {
+              offsetX = (Math.random() - 0.5) * 3;
+              offsetY = (Math.random() - 0.5) * 3;
+            }
+            case WAVE -> {
+              offsetY = Math.sin(effectPhase) * 3;
+            }
+            case BOUNCE -> {
+              offsetY = Math.abs(Math.sin(effectPhase * 2)) * -4;
+            }
+            case RAINBOW -> {
+              double hue = (effectPhase * 50) % 360;
+              gc.setFill(Color.hsb(hue, 0.8, 1.0));
+            }
+            default -> {}
+          }
+          
+          gc.fillText(String.valueOf(c), x + offsetX, y + offsetY);
+          x += charWidth;
+        }
+        
+        // Reset font after span
+        gc.setFont(dialogueFont);
+      }
+      
+      charCount += spanLen;
+    }
+  }
+
+  private Color parseColorHex(String hex) {
+    if (hex == null || hex.isEmpty()) return TEXT_COLOR;
+    try {
+      String h = hex.startsWith("#") ? hex.substring(1) : hex;
+      if (h.length() == 6) {
+        int r = Integer.parseInt(h.substring(0, 2), 16);
+        int g = Integer.parseInt(h.substring(2, 4), 16);
+        int b = Integer.parseInt(h.substring(4, 6), 16);
+        return Color.rgb(r, g, b);
+      }
+    } catch (Exception ignored) {}
+    return TEXT_COLOR;
   }
 
   private void renderChoices(List<Choice> choices, double width, double height, int hoverIndex) {
