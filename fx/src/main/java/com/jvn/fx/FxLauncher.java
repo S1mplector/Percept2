@@ -119,25 +119,27 @@ public class FxLauncher extends Application {
       
       // Intercept when VN history overlay is open
       if (cur instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
+        int pageLines = vnRenderer != null ? vnRenderer.getHistoryLinesPerPage(canvas.getHeight()) : 5;
+        int step = e.isShiftDown() ? 5 : 1;
         if (e.getCode() == KeyCode.ESCAPE || e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.B) {
           // Close overlay on Esc/Space/Enter/B
           vn.getState().setHistoryOverlayShown(false);
           e.consume();
           return;
         } else if (e.getCode() == KeyCode.UP) {
-          vn.getState().scrollHistoryByLines(1);
+          vn.getState().scrollHistoryByLines(step);
           e.consume();
           return;
         } else if (e.getCode() == KeyCode.DOWN) {
-          vn.getState().scrollHistoryByLines(-1);
+          vn.getState().scrollHistoryByLines(-step);
           e.consume();
           return;
         } else if (e.getCode() == KeyCode.PAGE_UP) {
-          vn.getState().scrollHistoryByLines(5);
+          vn.getState().scrollHistoryByLines(pageLines);
           e.consume();
           return;
         } else if (e.getCode() == KeyCode.PAGE_DOWN) {
-          vn.getState().scrollHistoryByLines(-5);
+          vn.getState().scrollHistoryByLines(-pageLines);
           e.consume();
           return;
         }
@@ -317,7 +319,8 @@ public class FxLauncher extends Application {
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
         if (currentScene instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
           double dy = e.getDeltaY();
-          if (dy > 0) vn.getState().scrollHistoryByLines(2); else if (dy < 0) vn.getState().scrollHistoryByLines(-2);
+          int step = e.isShiftDown() ? 6 : 2;
+          if (dy > 0) vn.getState().scrollHistoryByLines(step); else if (dy < 0) vn.getState().scrollHistoryByLines(-step);
         }
       }
     });

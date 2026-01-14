@@ -5,6 +5,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import com.jvn.core.tween.Easings;
+
 /**
  * Manages the current state of a visual novel playthrough
  */
@@ -13,6 +15,7 @@ public class VnState {
   private int currentNodeIndex;
   private String currentBackgroundId;
   private final Map<CharacterPosition, CharacterSlot> visibleCharacters;
+  private final Map<CharacterPosition, CharacterVisual> characterVisuals;
   private final Map<String, Object> variables; // For future flag/variable system
   private boolean waitingForInput;
   private int textRevealProgress; // For text animation
@@ -37,9 +40,23 @@ public class VnState {
   private int saveSlotSelected = 0; // 0-9 slots (0 = quick save)
   private Object rpgState = new com.jvn.core.rpg.RpgState(); // Optional RPG state payload (serializable)
 
+  private float screenShakeIntensity = 0f;
+  private long screenShakeDurationMs = 0;
+  private long screenShakeRemainingMs = 0;
+  private float flashR = 1f;
+  private float flashG = 1f;
+  private float flashB = 1f;
+  private float flashStrength = 0f;
+  private long flashDurationMs = 0;
+  private long flashRemainingMs = 0;
+
+  private static final double CHARACTER_TWEEN_OFFSET = 60.0;
+  private static final long CHARACTER_TWEEN_MS = 220;
+
   public VnState() {
     this.currentNodeIndex = 0;
     this.visibleCharacters = new HashMap<>();
+    this.characterVisuals = new HashMap<>();
     this.variables = new HashMap<>();
     this.waitingForInput = false;
     this.textRevealProgress = 0;
@@ -71,14 +88,61 @@ public class VnState {
 
   public void showCharacter(CharacterPosition position, String characterId, String expression) {
     visibleCharacters.put(position, new CharacterSlot(characterId, expression));
+    CharacterVisual visual = ensureCharacterVisual(position);
+    visual.setImmediate(1.0, 0.0, 0.0);
   }
 
   public void hideCharacter(CharacterPosition position) {
     visibleCharacters.remove(position);
+    characterVisuals.remove(position);
   }
 
   public void clearAllCharacters() {
     visibleCharacters.clear();
+    characterVisuals.clear();
+  }
+
+  public void showCharacterAnimated(CharacterPosition position, String characterId, String expression) {
+    visibleCharacters.put(position, new CharacterSlot(characterId, expression));
+    CharacterVisual visual = ensureCharacterVisual(position);
+    double startX = entranceOffsetX(position);
+    visual.startAnimation(0.0, 1.0, startX, 0.0, 0.0, 0.0, CHARACTER_TWEEN_MS, false);
+  }
+
+  public void hideCharacterAnimated(CharacterPosition position) {
+    CharacterVisual visual = ensureCharacterVisual(position);
+    double endX = entranceOffsetX(position);
+    visual.startAnimation(visual.getAlpha(), 0.0, visual.getOffsetX(), endX, visual.getOffsetY(), 0.0, CHARACTER_TWEEN_MS, true);
+  }
+
+  public CharacterVisual getCharacterVisual(CharacterPosition position) {
+    return characterVisuals.get(position);
+  }
+
+  public void updateCharacterAnimations(long deltaMs) {
+    if (characterVisuals.isEmpty()) return;
+    var it = characterVisuals.entrySet().iterator();
+    while (it.hasNext()) {
+      var entry = it.next();
+      CharacterVisual visual = entry.getValue();
+      visual.update(deltaMs);
+      if (visual.isFinished() && visual.isRemoveOnComplete()) {
+        visibleCharacters.remove(entry.getKey());
+        it.remove();
+      }
+    }
+  }
+
+  private CharacterVisual ensureCharacterVisual(CharacterPosition position) {
+    return characterVisuals.computeIfAbsent(position, k -> new CharacterVisual());
+  }
+
+  private double entranceOffsetX(CharacterPosition position) {
+    return switch (position) {
+      case FAR_LEFT, LEFT -> -CHARACTER_TWEEN_OFFSET;
+      case FAR_RIGHT, RIGHT -> CHARACTER_TWEEN_OFFSET;
+      case CENTER -> 0.0;
+    };
   }
 
   public boolean isWaitingForInput() { return waitingForInput; }
@@ -181,6 +245,46 @@ public class VnState {
     this.hudMessageExpireAt = System.currentTimeMillis() + Math.max(0, durationMs);
   }
 
+  public void triggerScreenShake(float intensity, long durationMs) {
+    this.screenShakeIntensity = Math.max(0f, intensity);
+    this.screenShakeDurationMs = Math.max(0L, durationMs);
+    this.screenShakeRemainingMs = this.screenShakeDurationMs;
+  }
+
+  public float getScreenShakeMagnitude() {
+    if (screenShakeRemainingMs <= 0 || screenShakeDurationMs <= 0) return 0f;
+    float t = screenShakeRemainingMs / (float) screenShakeDurationMs;
+    return screenShakeIntensity * t;
+  }
+
+  public void triggerFlash(float r, float g, float b, float strength, long durationMs) {
+    this.flashR = clamp01(r);
+    this.flashG = clamp01(g);
+    this.flashB = clamp01(b);
+    this.flashStrength = Math.max(0f, strength);
+    this.flashDurationMs = Math.max(0L, durationMs);
+    this.flashRemainingMs = this.flashDurationMs;
+  }
+
+  public float getFlashAlpha() {
+    if (flashRemainingMs <= 0 || flashDurationMs <= 0) return 0f;
+    float t = flashRemainingMs / (float) flashDurationMs;
+    return flashStrength * t;
+  }
+
+  public float getFlashR() { return flashR; }
+  public float getFlashG() { return flashG; }
+  public float getFlashB() { return flashB; }
+
+  public void updateScreenEffects(long deltaMs) {
+    if (screenShakeRemainingMs > 0) {
+      screenShakeRemainingMs = Math.max(0L, screenShakeRemainingMs - deltaMs);
+    }
+    if (flashRemainingMs > 0) {
+      flashRemainingMs = Math.max(0L, flashRemainingMs - deltaMs);
+    }
+  }
+
   public Map<String, Object> getVariables() { return variables; }
   public void setVariables(Map<String, Object> vars) {
     this.variables.clear();
@@ -207,5 +311,83 @@ public class VnState {
 
     public String getCharacterId() { return characterId; }
     public String getExpression() { return expression; }
+  }
+
+  public static class CharacterVisual {
+    private double alpha = 1.0;
+    private double offsetX = 0.0;
+    private double offsetY = 0.0;
+    private double startAlpha = 1.0;
+    private double endAlpha = 1.0;
+    private double startOffsetX = 0.0;
+    private double startOffsetY = 0.0;
+    private double endOffsetX = 0.0;
+    private double endOffsetY = 0.0;
+    private long durationMs = 1;
+    private long elapsedMs = 0;
+    private boolean animating = false;
+    private boolean removeOnComplete = false;
+
+    public double getAlpha() { return alpha; }
+    public double getOffsetX() { return offsetX; }
+    public double getOffsetY() { return offsetY; }
+    public boolean isRemoveOnComplete() { return removeOnComplete; }
+    public boolean isFinished() { return !animating; }
+
+    public void setImmediate(double alpha, double offsetX, double offsetY) {
+      this.alpha = alpha;
+      this.offsetX = offsetX;
+      this.offsetY = offsetY;
+      this.animating = false;
+      this.removeOnComplete = false;
+    }
+
+    public void startAnimation(double startAlpha, double endAlpha,
+                               double startOffsetX, double endOffsetX,
+                               double startOffsetY, double endOffsetY,
+                               long durationMs, boolean removeOnComplete) {
+      this.startAlpha = startAlpha;
+      this.endAlpha = endAlpha;
+      this.startOffsetX = startOffsetX;
+      this.endOffsetX = endOffsetX;
+      this.startOffsetY = startOffsetY;
+      this.endOffsetY = endOffsetY;
+      this.durationMs = Math.max(1L, durationMs);
+      this.elapsedMs = 0L;
+      this.animating = true;
+      this.removeOnComplete = removeOnComplete;
+      this.alpha = startAlpha;
+      this.offsetX = startOffsetX;
+      this.offsetY = startOffsetY;
+    }
+
+    public void update(long deltaMs) {
+      if (!animating) return;
+      elapsedMs += deltaMs;
+      if (elapsedMs >= durationMs) {
+        elapsedMs = durationMs;
+      }
+      double t = elapsedMs / (double) durationMs;
+      double k = Easings.easeOutQuad(t);
+      alpha = lerp(startAlpha, endAlpha, k);
+      offsetX = lerp(startOffsetX, endOffsetX, k);
+      offsetY = lerp(startOffsetY, endOffsetY, k);
+      if (elapsedMs >= durationMs) {
+        animating = false;
+        alpha = endAlpha;
+        offsetX = endOffsetX;
+        offsetY = endOffsetY;
+      }
+    }
+
+    private double lerp(double a, double b, double t) {
+      return a + (b - a) * t;
+    }
+  }
+
+  private float clamp01(float v) {
+    if (v < 0f) return 0f;
+    if (v > 1f) return 1f;
+    return v;
   }
 }

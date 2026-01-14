@@ -466,7 +466,7 @@ public class EditorApp extends Application {
       Package pkg = EditorApp.class.getPackage();
       ver = (pkg != null && pkg.getImplementationVersion() != null) ? pkg.getImplementationVersion() : "dev";
     }
-    Label verLabel = new Label("JVN Engine v" + ver);
+    Label verLabel = new Label("v" + ver);
     VBox logoBox = new VBox(2);
     logoBox.setAlignment(Pos.CENTER);
     logoBox.getChildren().addAll(logo, verLabel);

@@ -54,6 +54,9 @@ public class DefaultVnInterop implements VnInterop {
       case "audio":
         handleAudio(payload, scene);
         return VnInteropResult.advance();
+      case "screen":
+        handleScreen(payload, scene);
+        return VnInteropResult.advance();
       default:
         scene.getState().showHudMessage("[call " + provider + "] " + payload, 1200);
         return VnInteropResult.advance();
@@ -284,6 +287,38 @@ public class DefaultVnInterop implements VnInterop {
     }
   }
 
+  private void handleScreen(String payload, VnScene scene) {
+    String[] toks = split(payload);
+    if (toks.length == 0) return;
+    String cmd = toks[0].toLowerCase();
+    switch (cmd) {
+      case "shake": {
+        float intensity = toks.length >= 2 ? parseFloatSafe(toks[1], 8f) : 8f;
+        long ms = toks.length >= 3 ? parseLongSafe(toks[2], 300L) : 300L;
+        scene.getState().triggerScreenShake(intensity, ms);
+        break;
+      }
+      case "flash": {
+        float strength = toks.length >= 2 ? parseFloatSafe(toks[1], 0.7f) : 0.7f;
+        long ms = toks.length >= 3 ? parseLongSafe(toks[2], 180L) : 180L;
+        float r = 1f;
+        float g = 1f;
+        float b = 1f;
+        if (toks.length >= 6) {
+          r = parseFloatSafe(toks[3], 1f);
+          g = parseFloatSafe(toks[4], 1f);
+          b = parseFloatSafe(toks[5], 1f);
+        }
+        scene.getState().triggerFlash(r, g, b, strength, ms);
+        break;
+      }
+      case "clear":
+        scene.getState().triggerScreenShake(0f, 0);
+        scene.getState().triggerFlash(1f, 1f, 1f, 0f, 0);
+        break;
+    }
+  }
+
   private boolean compare(Object lhs, String op, String rhsRaw) {
     Object rhs = parseScalar(rhsRaw);
     if (lhs instanceof Number ln && rhs instanceof Number rn) {
@@ -369,5 +404,15 @@ public class DefaultVnInterop implements VnInterop {
   private static String[] split(String s) {
     String t = safe(s).trim();
     return t.isEmpty() ? new String[0] : t.split("\\s+");
+  }
+
+  private static float parseFloatSafe(String s, float fallback) {
+    try { return Float.parseFloat(s); } catch (Exception ignored) {}
+    return fallback;
+  }
+
+  private static long parseLongSafe(String s, long fallback) {
+    try { return Long.parseLong(s); } catch (Exception ignored) {}
+    return fallback;
   }
 }

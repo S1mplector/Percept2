@@ -49,6 +49,15 @@ public class VnRenderer {
   private static final Color CHOICE_HOVER_COLOR = Color.rgb(70, 70, 100, 0.9);
   private static final Color CHOICE_DISABLED_COLOR = Color.rgb(60, 60, 60, 0.6);
   private static final Color TEXT_COLOR_DISABLED = Color.color(1, 1, 1, 0.5);
+  private static final Color HISTORY_PANEL_COLOR = Color.rgb(12, 12, 18, 0.92);
+  private static final Color HISTORY_BORDER_COLOR = Color.rgb(220, 220, 255, 0.18);
+  private static final Color HISTORY_ENTRY_BG = Color.rgb(24, 24, 34, 0.75);
+  private static final Color HISTORY_ENTRY_ALT_BG = Color.rgb(18, 18, 26, 0.7);
+  private static final Color HISTORY_HINT_COLOR = Color.rgb(210, 210, 220, 0.85);
+  private static final double HISTORY_MARGIN = 30;
+  private static final double HISTORY_HEADER_HEIGHT = 46;
+  private static final double HISTORY_FOOTER_HEIGHT = 44;
+  private static final double HISTORY_LINE_HEIGHT = 28;
 
   public VnRenderer(GraphicsContext gc) {
     this.gc = gc;
@@ -64,6 +73,7 @@ public class VnRenderer {
   private void renderHistoryOverlay(VnState state, double width, double height) {
     // Semi-transparent dark background with gradient effect
     gc.setFill(Color.rgb(10, 10, 20, 0.92));
+    gc.setFill(Color.rgb(0, 0, 0, 0.7));
     gc.fillRect(0, 0, width, height);
     
     // Title bar
@@ -83,6 +93,23 @@ public class VnRenderer {
     double entryHeight = 65; // Base height per entry
     int entriesPerPage = (int) Math.max(1, contentH / entryHeight);
     
+
+    double panelX = HISTORY_MARGIN;
+    double panelY = HISTORY_MARGIN;
+    double panelW = width - HISTORY_MARGIN * 2;
+    double panelH = height - HISTORY_MARGIN * 2;
+    gc.setFill(HISTORY_PANEL_COLOR);
+    gc.fillRoundRect(panelX, panelY, panelW, panelH, 18, 18);
+    gc.setStroke(HISTORY_BORDER_COLOR);
+    gc.setLineWidth(1.2);
+    gc.strokeRoundRect(panelX, panelY, panelW, panelH, 18, 18);
+
+    double contentX = panelX + 24;
+    double contentY = panelY + HISTORY_HEADER_HEIGHT;
+    double contentW = panelW - 48;
+    double contentH = panelH - HISTORY_HEADER_HEIGHT - HISTORY_FOOTER_HEIGHT;
+    int linesPerPage = Math.max(1, (int) Math.floor(contentH / HISTORY_LINE_HEIGHT));
+
     java.util.List<VnHistory.HistoryEntry> list = state.getHistory().getEntries();
     int total = list.size();
     int offset = Math.max(0, state.getHistoryScroll());
@@ -90,12 +117,28 @@ public class VnRenderer {
     // Draw entries from newest (bottom) scrolled by offset
     double y = contentY;
     int startIdx = Math.max(0, total - 1 - offset);
+    int maxOffset = Math.max(0, total - linesPerPage);
+    int effOffset = Math.min(offset, maxOffset);
+    int startIdx = Math.max(0, total - 1 - effOffset);
     int drawn = 0;
     
     Font speakerFont = Font.font("Arial", FontWeight.BOLD, 15);
     Font textFont = Font.font("Arial", FontWeight.NORMAL, 14);
     
     for (int i = startIdx; i >= 0 && drawn < entriesPerPage; i--) {
+
+    gc.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+    gc.setFill(Color.WHITE);
+    gc.fillText("History", panelX + 22, panelY + 30);
+
+    int totalPages = maxOffset == 0 ? 1 : (maxOffset / linesPerPage) + 1;
+    int currentPage = maxOffset == 0 ? 1 : (effOffset / linesPerPage) + 1;
+    String pageText = "Page " + currentPage + " / " + totalPages;
+    double pageTextW = computeTextWidth(pageText, gc.getFont());
+    gc.fillText(pageText, panelX + panelW - 22 - pageTextW, panelY + 30);
+
+    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+    for (int i = startIdx; i >= 0 && drawn < linesPerPage; i--) {
       VnHistory.HistoryEntry e = list.get(i);
       
       // Entry background (alternating)
@@ -123,6 +166,14 @@ public class VnRenderer {
       }
       
       y += entryHeight;
+      String speaker = e.getSpeaker() != null && !e.getSpeaker().isEmpty() ? e.getSpeaker() + ": " : "";
+      String line = speaker + e.getText();
+      String truncated = truncateText(line, contentW - 16, gc.getFont());
+      double y = contentY + drawn * HISTORY_LINE_HEIGHT;
+      gc.setFill((drawn % 2 == 0) ? HISTORY_ENTRY_BG : HISTORY_ENTRY_ALT_BG);
+      gc.fillRoundRect(contentX - 6, y - 18, contentW + 12, 24, 8, 8);
+      gc.setFill(Color.WHITE);
+      gc.fillText(truncated, contentX, y);
       drawn++;
     }
     
@@ -144,11 +195,21 @@ public class VnRenderer {
     gc.setFill(Color.rgb(255, 255, 255, 0.1));
     gc.fillRoundRect(trackX, trackY, trackW, trackH, 4, 4);
     
+
     if (maxOffset > 0) {
       double thumbFrac = Math.max(0.1, Math.min(1.0, (double) entriesPerPage / (double) total));
+      double trackX = panelX + panelW - 18;
+      double trackY = contentY - 10;
+      double trackH = contentH + 12;
+      double trackW = 6;
+      gc.setFill(Color.rgb(255,255,255,0.12));
+      gc.fillRoundRect(trackX, trackY, trackW, trackH, 6, 6);
+
+      double thumbFrac = Math.max(0.08, Math.min(1.0, (double) linesPerPage / (double) total));
       double thumbH = trackH * thumbFrac;
       int effOffset = Math.min(offset, maxOffset);
       double posFrac = (double) effOffset / (double) maxOffset;
+      double posFrac = maxOffset == 0 ? 0.0 : (double) effOffset / (double) maxOffset;
       double thumbY = trackY + (trackH - thumbH) * posFrac;
       
       gc.setFill(Color.rgb(150, 200, 255, 0.8));
@@ -308,6 +369,11 @@ public class VnRenderer {
     } catch (Exception e) {
       return "Saved";
     }
+
+    gc.setFill(HISTORY_HINT_COLOR);
+    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
+    String hint = "Esc/Space/Enter: Close    Up/Down: Scroll    PgUp/PgDn: Page    Shift: Faster";
+    gc.fillText(hint, panelX + 20, panelY + panelH - 16);
   }
 
   /**
@@ -319,16 +385,60 @@ public class VnRenderer {
     gc.setFill(Color.BLACK);
     gc.fillRect(0, 0, width, height);
 
-    boolean didCrossfade = false;
-    if (state.getActiveTransition() != null && state.getActiveTransition().getType() == com.jvn.core.vn.VnTransition.TransitionType.CROSSFADE) {
-      String prevId = state.getPreviousBackgroundIdDuringTransition();
-      String curId = state.getCurrentBackgroundId();
-      if (prevId != null && curId != null) {
-        renderCrossfadeBackground(scenario.getBackground(prevId), scenario.getBackground(curId), state.getTransitionProgress(), width, height);
-        didCrossfade = true;
+    double shakeMagnitude = state.getScreenShakeMagnitude();
+    boolean shaking = shakeMagnitude > 0.01;
+    if (shaking) {
+      double t = System.currentTimeMillis() * 0.02;
+      double shakeX = Math.sin(t * 2.3) * shakeMagnitude;
+      double shakeY = Math.cos(t * 1.7) * shakeMagnitude;
+      gc.save();
+      gc.translate(shakeX, shakeY);
+    }
+
+    boolean handledTransitionBackground = false;
+    var transition = state.getActiveTransition();
+    if (transition != null) {
+      switch (transition.getType()) {
+        case CROSSFADE -> {
+          String prevId = state.getPreviousBackgroundIdDuringTransition();
+          String curId = state.getCurrentBackgroundId();
+          if (prevId != null && curId != null) {
+            renderCrossfadeBackground(scenario.getBackground(prevId), scenario.getBackground(curId), state.getTransitionProgress(), width, height);
+            handledTransitionBackground = true;
+          }
+        }
+        case SLIDE_LEFT -> {
+          renderSlideBackground(
+            scenario.getBackground(state.getPreviousBackgroundIdDuringTransition()),
+            scenario.getBackground(state.getCurrentBackgroundId()),
+            state.getTransitionProgress(),
+            width, height, true
+          );
+          handledTransitionBackground = true;
+        }
+        case SLIDE_RIGHT -> {
+          renderSlideBackground(
+            scenario.getBackground(state.getPreviousBackgroundIdDuringTransition()),
+            scenario.getBackground(state.getCurrentBackgroundId()),
+            state.getTransitionProgress(),
+            width, height, false
+          );
+          handledTransitionBackground = true;
+        }
+        case WIPE -> {
+          renderWipeBackground(
+            scenario.getBackground(state.getPreviousBackgroundIdDuringTransition()),
+            scenario.getBackground(state.getCurrentBackgroundId()),
+            state.getTransitionProgress(),
+            width, height
+          );
+          handledTransitionBackground = true;
+        }
+        default -> {
+        }
       }
     }
-    if (!didCrossfade) {
+    if (!handledTransitionBackground) {
       if (state.getCurrentBackgroundId() != null) {
         VnBackground bg = scenario.getBackground(state.getCurrentBackgroundId());
         if (bg != null) {
@@ -339,7 +449,7 @@ public class VnRenderer {
 
     // Apply transition effect if active
     if (state.getActiveTransition() != null) {
-      renderTransition(state, width, height);
+      renderTransitionOverlay(state, width, height);
     }
 
     // Render characters
@@ -393,6 +503,12 @@ public class VnRenderer {
       String msg = state.getHudMessage();
       gc.fillText(msg, bx + 12, by + 25);
     }
+
+    if (shaking) {
+      gc.restore();
+    }
+
+    renderFlashOverlay(state, width, height);
   }
 
   /**
@@ -430,18 +546,25 @@ public class VnRenderer {
     for (Map.Entry<CharacterPosition, VnState.CharacterSlot> entry : characters.entrySet()) {
       CharacterPosition position = entry.getKey();
       VnState.CharacterSlot slot = entry.getValue();
+      VnState.CharacterVisual visual = state.getCharacterVisual(position);
+      double alpha = visual != null ? visual.getAlpha() : 1.0;
+      double offsetX = visual != null ? visual.getOffsetX() : 0.0;
+      double offsetY = visual != null ? visual.getOffsetY() : 0.0;
       
       VnCharacter character = scenario.getCharacter(slot.getCharacterId());
       if (character != null) {
         String imagePath = character.getExpressionPath(slot.getExpression());
         if (imagePath != null) {
-          renderCharacterSprite(imagePath, position, width, height);
+          gc.save();
+          if (alpha < 0.999) gc.setGlobalAlpha(alpha);
+          renderCharacterSprite(imagePath, position, width, height, offsetX, offsetY);
+          gc.restore();
         }
       }
     }
   }
 
-  private void renderCharacterSprite(String imagePath, CharacterPosition position, double width, double height) {
+  private void renderCharacterSprite(String imagePath, CharacterPosition position, double width, double height, double offsetX, double offsetY) {
     Image img = loadImage(imagePath);
     if (img == null) {
       // Draw placeholder silhouette box
@@ -457,10 +580,10 @@ public class VnRenderer {
       // Position placeholder so feet are at screen bottom
       double y = height - spriteHeight;
       gc.setFill(Color.rgb(200, 200, 200, 0.4));
-      gc.fillRoundRect(x, y, spriteWidth, spriteHeight, 20, 20);
+      gc.fillRoundRect(x + offsetX, y + offsetY, spriteWidth, spriteHeight, 20, 20);
       gc.setStroke(Color.WHITE);
       gc.setLineWidth(2);
-      gc.strokeRoundRect(x, y, spriteWidth, spriteHeight, 20, 20);
+      gc.strokeRoundRect(x + offsetX, y + offsetY, spriteWidth, spriteHeight, 20, 20);
       return;
     }
 
@@ -477,7 +600,7 @@ public class VnRenderer {
     
     // Position sprite so feet are at screen bottom (textbox overlaps legs)
     double y = height - spriteHeight;
-    gc.drawImage(img, x, y, spriteWidth, spriteHeight);
+    gc.drawImage(img, x + offsetX, y + offsetY, spriteWidth, spriteHeight);
   }
 
   private void renderDialogue(DialogueLine dialogue, VnState state, double width, double height) {
@@ -689,7 +812,8 @@ public class VnRenderer {
     gc.fillText(text, width / 2 - 30, height / 2);
   }
 
-  private void renderTransition(VnState state, double width, double height) {
+  private void renderTransitionOverlay(VnState state, double width, double height) {
+    if (state.getActiveTransition() == null) return;
     float progress = state.getTransitionProgress();
     var transitionType = state.getActiveTransition().getType();
     
@@ -749,6 +873,32 @@ public class VnRenderer {
     return t * t * t;
   }
 
+  private void renderSlideBackground(VnBackground prev, VnBackground cur, float progress, double width, double height, boolean left) {
+    double p = Math.max(0, Math.min(1, progress));
+    double offset = width * p;
+    double prevX = left ? -offset : offset;
+    double curX = left ? (width - offset) : (-width + offset);
+    if (prev != null || cur != null) {
+      drawBackgroundAt(prev, prevX, 0, width, height);
+      drawBackgroundAt(cur, curX, 0, width, height);
+    }
+  }
+
+  private void renderWipeBackground(VnBackground prev, VnBackground cur, float progress, double width, double height) {
+    drawBackgroundAt(prev, 0, 0, width, height);
+    if (cur != null) {
+      double p = Math.max(0, Math.min(1, progress));
+      double wipeW = width * p;
+      gc.save();
+      gc.beginPath();
+      gc.rect(0, 0, wipeW, height);
+      gc.closePath();
+      gc.clip();
+      drawBackgroundAt(cur, 0, 0, width, height);
+      gc.restore();
+    }
+  }
+
   private void renderCrossfadeBackground(VnBackground prev, VnBackground cur, float progress, double width, double height) {
     double alphaCur = Math.max(0, Math.min(1, progress));
     double alphaPrev = 1.0 - alphaCur;
@@ -767,6 +917,34 @@ public class VnRenderer {
       }
     }
     gc.setGlobalAlpha(1.0);
+  }
+
+  private void drawBackgroundAt(VnBackground background, double x, double y, double width, double height) {
+    if (background == null) {
+      gc.setFill(Color.DARKSLATEGRAY);
+      gc.fillRect(x, y, width, height);
+      return;
+    }
+    Image img = loadImage(background.getImagePath());
+    if (img != null) {
+      gc.drawImage(img, x, y, width, height);
+    } else {
+      gc.setFill(Color.DARKSLATEGRAY);
+      gc.fillRect(x, y, width, height);
+      gc.setFill(Color.WHITE);
+      gc.setFont(Font.font("Arial", FontWeight.BOLD, 22));
+      gc.fillText("No Background Image", x + 20, y + 40);
+    }
+  }
+
+  private void renderFlashOverlay(VnState state, double width, double height) {
+    float alpha = state.getFlashAlpha();
+    if (alpha <= 0.001f) return;
+    float r = state.getFlashR();
+    float g = state.getFlashG();
+    float b = state.getFlashB();
+    gc.setFill(Color.color(r, g, b, Math.min(1f, alpha)));
+    gc.fillRect(0, 0, width, height);
   }
 
   private void drawWrappedText(String text, double x, double y, double maxWidth, Font font) {
@@ -798,6 +976,28 @@ public class VnRenderer {
     javafx.scene.text.Text helper = new javafx.scene.text.Text(text);
     helper.setFont(font);
     return helper.getLayoutBounds().getWidth();
+  }
+
+  private String truncateText(String text, double maxWidth, Font font) {
+    if (text == null) return "";
+    if (computeTextWidth(text, font) <= maxWidth) return text;
+    String ellipsis = "...";
+    double ellipsisWidth = computeTextWidth(ellipsis, font);
+    int len = text.length();
+    while (len > 0) {
+      String base = text.substring(0, len);
+      if (computeTextWidth(base, font) + ellipsisWidth <= maxWidth) {
+        return base + ellipsis;
+      }
+      len--;
+    }
+    return ellipsis;
+  }
+
+  public int getHistoryLinesPerPage(double height) {
+    double panelH = height - HISTORY_MARGIN * 2;
+    double contentH = panelH - HISTORY_HEADER_HEIGHT - HISTORY_FOOTER_HEIGHT;
+    return Math.max(1, (int) Math.floor(contentH / HISTORY_LINE_HEIGHT));
   }
 
   private void drawContinueIndicator(double x, double y) {

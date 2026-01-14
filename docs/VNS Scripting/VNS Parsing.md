@@ -36,6 +36,8 @@ The parser recognizes the following commands and maps them to builder or externa
   - `[show <charId> <pos> [expression]]`
   - `[hide <charId>]`
   - `[transition <type> [durationMs] [bgId]]`
+  - `[screen shake [intensity] [durationMs]]`
+  - `[screen flash [strength] [durationMs] [r g b]]`
 
 - Timing
   - `[wait <millis>]`

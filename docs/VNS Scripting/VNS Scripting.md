@@ -157,6 +157,15 @@ Notes:
   - Duration defaults to 500ms when omitted.
   - Optional background id can be provided to transition to a new background.
 
+- Screen effects
+```
+[screen shake [intensity] [durationMs]]
+[screen flash [strength] [durationMs] [r g b]]
+```
+  - `intensity` is in pixels; default 8.
+  - `strength` is 0.0–1.0; default 0.7.
+  - `r g b` are 0.0–1.0 (default white).
+
 - External calls / integration
 ```
 [menu <payload>]

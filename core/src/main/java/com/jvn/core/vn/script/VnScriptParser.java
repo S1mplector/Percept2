@@ -219,6 +219,9 @@ public class VnScriptParser {
           case "history":
             builder.external("history", arg == null ? "" : arg);
             break;
+          case "screen":
+            builder.external("screen", arg == null ? "" : arg);
+            break;
           case "jes_push":
             if (arg != null && !arg.isBlank()) builder.external("jes", "push " + arg);
             break;

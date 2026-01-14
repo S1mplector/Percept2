@@ -75,6 +75,9 @@ public class VnScene implements Scene {
       }
     }
 
+    state.updateScreenEffects(deltaMs);
+    state.updateCharacterAnimations(deltaMs);
+
     VnNode currentNode = state.getCurrentNode();
     if (currentNode == null) return;
 
@@ -253,7 +256,7 @@ public class VnScene implements Scene {
     // Process character show/hide
     if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
       String expr = node.getShowExpression() != null ? node.getShowExpression() : "neutral";
-      state.showCharacter(node.getShowPosition(), node.getCharacterToShow(), expr);
+      state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr);
     }
     if (node.getCharacterToHide() != null) {
       // Find and remove character
@@ -265,7 +268,7 @@ public class VnScene implements Scene {
         }
       }
       if (posToRemove != null) {
-        state.hideCharacter(posToRemove);
+        state.hideCharacterAnimated(posToRemove);
       }
     }
 
