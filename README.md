@@ -20,6 +20,13 @@ Prereqs: JDK 17+, Gradle (wrapper included).
 ./gradlew :editor:run
 ```
 
+## Docs
+
+- VNS: `docs/VNS Scripting/VNS Scripting.md`
+- JES: `docs/JES Scripting/JES Scripting.md`
+- Interop: `docs/Interop.md`
+- Performance: `docs/Performance.md`
+
 ## Modules
 
 - `core`: scene graph (`Scene2DBase`, `Entity2D`), components (`Panel2D`, `Label2D`, `Sprite2D`), physics (`RigidBody2D`, `PhysicsWorld2D`)

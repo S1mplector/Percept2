@@ -22,7 +22,7 @@ JES (JVN Engine Script) is a small DSL for scenes, entities, components, input, 
   ```jes
   call "return" { label: "after_game" score: 123 }
   ```
-- See also: `docs/VNS Scripting.md` (calling JES) and `docs/Timeline Scripting.md` (narrative flow).
+- See also: `docs/VNS Scripting/VNS Scripting.md` (calling JES), `docs/Timeline Scripting/Timeline Scripting.md` (narrative flow), and `docs/Interop.md`.
 
 ## Example
 
@@ -105,6 +105,27 @@ call "return" { label: "after_game" score: 12345 }
 ```
 
 See also: docs/VNS Scripting.md → "JES interop from VNS".
+
+## Runtime hooks (Java)
+
+If you load JES from Java, you can register handlers to respond to `call` statements, input events, or triggers.
+
+```java
+JesScene2D scene = JesLoader.load(in);
+
+scene.registerCall("spawnWave", props -> {
+  // Use props like { count: 5, speed: 120 }
+});
+
+scene.setActionHandler((name, props) -> {
+  // Fallback for any call not explicitly registered
+});
+```
+
+Notes:
+- `registerCall` attaches specific handlers by name.
+- `setActionHandler` is a catch-all callback used if no handler matches.
+- Built-in `call` names like `warpMap` or `attack` are handled internally before handlers run.
 
 ## Easing Types
 Optional easing property for timeline actions:

@@ -59,3 +59,6 @@ powershell -ExecutionPolicy Bypass -File native/build.ps1
 - Place the built library in `native/` (or `native/<os>/`) and set `-Djvn.native.path=...` if needed.
 - Use `NativeMathBridge.dotProduct(...)` for a safe fallback when the library is missing.
 - Use `NativeMathBridge.matMul(...)` for matrix multiply (row-major arrays).
+- Use `NativeMathBridge.matVec(...)` for matrix-vector multiply.
+- Use `NativeMathBridge.matMulBlocked(...)` for a cache-friendly tiled multiply.
+- Use `NativeMathBridge.conv2d(...)` for 2D convolution with zero padding (row-major).

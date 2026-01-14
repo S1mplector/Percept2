@@ -13,3 +13,10 @@ Key highlights:
 - Lightweight, pure-Java, JDK 17
 - Swing and JavaFX rendering backends
 - Extendable loader and components
+
+## Docs
+
+- `docs/VNS Scripting/VNS Scripting.md` - visual novel scripting
+- `docs/JES Scripting/JES Scripting.md` - scene DSL and runtime hooks
+- `docs/Interop.md` - VNS/JES/runtime interoperability
+- `docs/Performance.md` - lightweight build tips

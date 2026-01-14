@@ -23,6 +23,7 @@ The parser lives at `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.ja
   ./gradlew :runtime:run --args="--script demo.vns --audio simp3"   # requires audio-engine installed
   ```
 - See also: `docs/JES Scripting/JES Scripting.md` (on JES interop) and `docs/Timeline Scripting/Timeline Scripting.md` (on Timelines).
+- See also: `docs/Interop.md` for a full interop provider map.
 
 ## File structure overview
 
@@ -184,6 +185,33 @@ Notes:
 [jes <payload>]              # shortcut for [call jes <payload>]
 [java <payload>]             # shortcut for [call java <payload>]
 ```
+
+### Interop provider cheat sheet
+
+These are routed through `VnExternalCommand` and handled by `VnInterop` (runtime uses `RuntimeVnInterop` which wraps `DefaultVnInterop`).
+
+- `menu`: open menu scenes
+  - `[menu settings]`, `[menu save]`, `[menu load <defaultScript>]`, `[menu main <script>]`
+- `vns`: load or switch VNS
+  - `[call vns push chapter2.vns label start]`
+  - `[call vns replace prologue.vns]`
+  - `[goto ArcB:label]` (shortcut, handled by `vns goto`)
+- `jes`: bridge to JES scenes
+  - `[jes push game/minigames/pong.jes label after with difficulty=hard]`
+  - `[jes call restart]`
+  - `[jes pop]`
+- `settings`: runtime settings
+  - `[textspeed 25]`, `[autodelay 2000]`, `[volume bgm 0.7]`
+- `mode`: skip/auto toggles
+  - `[skip on]`, `[auto toggle]`
+- `ui` / `history`
+  - `[ui hide]`, `[history show]`, `[history scroll 5]`
+- `audio`: advanced BGM control
+  - `[bgm_pause]`, `[bgm_seek 10]`, `[bgm_crossfade theme 1000]`
+- `screen`: camera effects
+  - `[screen shake 12 300]`, `[screen flash 0.8 150 1 1 1]`
+- `save` / `quickload` / `hud` / `java` / `var` / `cond`
+  - `[save]`, `[quickload]`, `[hud Saved!]`, `[java com.foo.Game#ping]`, `[set flags.met true]`
 
 ## Player settings and modes
 
