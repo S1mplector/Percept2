@@ -5,10 +5,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
 import com.jvn.core.vn.VnScenario;
@@ -40,90 +46,159 @@ public class VnScriptParser {
   private static final Pattern DIALOGUE_PATTERN = Pattern.compile("^([^:]+):\\s*(.+)$");
   private static final Pattern CHOICE_PATTERN = Pattern.compile("^>\\s*(.+?)(?:\\s*->\\s*(.+))?$");
   private static final Pattern COMMAND_PATTERN = Pattern.compile("^\\[([^\\]]+)\\]$");
+  private static final Pattern DEFINE_PATTERN = Pattern.compile("^@define\\s+(\\S+)(?:\\s+(.+))?$");
+  private static final Pattern INCLUDE_PATTERN = Pattern.compile("^@include\\s+(.+)$");
+  private static final Pattern DEFINE_SUB_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+
+  public interface IncludeResolver {
+    InputStream open(String path) throws IOException;
+  }
+
+  private static class ParseState {
+    String scenarioId = "untitled";
+    VnScenarioBuilder builder;
+    List<Choice> pendingChoices = new ArrayList<>();
+    Map<String, com.jvn.core.vn.VnCharacter.Builder> charBuilders = new HashMap<>();
+    Map<String, String> defines = new HashMap<>();
+  }
   
   public VnScenario parse(InputStream input) throws IOException {
+    return parse(input, "<input>", null);
+  }
+
+  public VnScenario parse(InputStream input, String sourceName, IncludeResolver resolver) throws IOException {
+    ParseState state = new ParseState();
+    Deque<String> includeStack = new ArrayDeque<>();
+    String src = normalizeSourceName(sourceName);
+    includeStack.push(src);
+    parseInto(input, src, resolver, state, includeStack);
+    includeStack.pop();
+
+    ensureBuilder(state);
+    flushChoices(state.builder, state.pendingChoices);
+    // Finalize characters with expressions (replaces any earlier simple character entries)
+    for (var e : state.charBuilders.entrySet()) {
+      state.builder.addCharacter(e.getValue().build());
+    }
+    return state.builder.build();
+  }
+
+  public VnScenario parse(String scriptPath) throws IOException {
+    AssetCatalog cat = new AssetCatalog();
+    try (InputStream in = cat.open(AssetType.SCRIPT, scriptPath)) {
+      return parse(in, scriptPath, p -> cat.open(AssetType.SCRIPT, p));
+    }
+  }
+
+  private void parseInto(InputStream input, String sourceName, IncludeResolver resolver,
+                         ParseState state, Deque<String> includeStack) throws IOException {
     BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-    String scenarioId = "untitled";
-    VnScenarioBuilder builder = null;
-    List<Choice> pendingChoices = new ArrayList<>();
-    
     String line;
     int lineNumber = 0;
-    
-    // Accumulate character definitions to allow expression mapping via @charimg
-    java.util.Map<String, com.jvn.core.vn.VnCharacter.Builder> charBuilders = new java.util.HashMap<>();
 
     while ((line = reader.readLine()) != null) {
       lineNumber++;
-      line = line.trim();
-      
+      String rawLine = line;
+      String trimmed = rawLine.trim();
+
       // Skip empty lines and comments
-      if (line.isEmpty() || line.startsWith("#")) {
+      if (trimmed.isEmpty() || trimmed.startsWith("#")) {
         continue;
       }
-      
+
+      Matcher defineMatcher = DEFINE_PATTERN.matcher(trimmed);
+      if (defineMatcher.matches()) {
+        String key = defineMatcher.group(1);
+        String value = defineMatcher.group(2) != null ? defineMatcher.group(2).trim() : "";
+        value = stripQuotes(value);
+        state.defines.put(key, value);
+        continue;
+      }
+
+      Matcher includeMatcher = INCLUDE_PATTERN.matcher(trimmed);
+      if (includeMatcher.matches()) {
+        String includePath = stripQuotes(includeMatcher.group(1).trim());
+        if (includePath.isEmpty()) continue;
+        if (resolver == null) {
+          throw parseError(sourceName, lineNumber, "Include resolver not configured", rawLine);
+        }
+        String resolved = normalizeSourceName(resolveIncludePath(sourceName, includePath));
+        if (includeStack.contains(resolved)) {
+          throw parseError(sourceName, lineNumber, "Include cycle detected for " + resolved, rawLine);
+        }
+        try (InputStream inc = resolver.open(resolved)) {
+          includeStack.push(resolved);
+          parseInto(inc, resolved, resolver, state, includeStack);
+          includeStack.pop();
+        }
+        continue;
+      }
+
+      if (!state.defines.isEmpty()) {
+        rawLine = applyDefines(rawLine, state.defines);
+        trimmed = rawLine.trim();
+      }
+
       // Scenario declaration
-      Matcher scenarioMatcher = SCENARIO_PATTERN.matcher(line);
+      Matcher scenarioMatcher = SCENARIO_PATTERN.matcher(trimmed);
       if (scenarioMatcher.matches()) {
-        scenarioId = scenarioMatcher.group(1);
-        builder = new VnScenarioBuilder(scenarioId);
+        state.scenarioId = scenarioMatcher.group(1);
+        state.builder = new VnScenarioBuilder(state.scenarioId);
         continue;
       }
-      
-      if (builder == null) {
-        builder = new VnScenarioBuilder(scenarioId);
-      }
-      
+
+      ensureBuilder(state);
+
       // Character definition
-      Matcher charMatcher = CHARACTER_PATTERN.matcher(line);
+      Matcher charMatcher = CHARACTER_PATTERN.matcher(trimmed);
       if (charMatcher.matches()) {
         String id = charMatcher.group(1);
         String name = charMatcher.group(2);
         // Track/merge builder so expressions from @charimg can be added later
-        com.jvn.core.vn.VnCharacter.Builder cb = charBuilders.get(id);
-        if (cb == null) { cb = com.jvn.core.vn.VnCharacter.builder(id); charBuilders.put(id, cb); }
+        com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(id);
+        if (cb == null) { cb = com.jvn.core.vn.VnCharacter.builder(id); state.charBuilders.put(id, cb); }
         cb.displayName(name);
         // Keep compatibility by adding a simple character entry now (will be replaced at end if @charimg used)
-        builder.addCharacter(id, name);
+        state.builder.addCharacter(id, name);
         continue;
       }
-      
+
       // Background definition
-      Matcher bgMatcher = BACKGROUND_PATTERN.matcher(line);
+      Matcher bgMatcher = BACKGROUND_PATTERN.matcher(trimmed);
       if (bgMatcher.matches()) {
         String id = bgMatcher.group(1);
         String path = bgMatcher.group(2);
-        builder.addBackground(id, path);
+        state.builder.addBackground(id, path);
         continue;
       }
 
       // Character image mapping: @charimg <charId> <expression> <path>
-      Matcher imgMatcher = CHARIMG_PATTERN.matcher(line);
+      Matcher imgMatcher = CHARIMG_PATTERN.matcher(trimmed);
       if (imgMatcher.matches()) {
         String id = imgMatcher.group(1);
         String expr = imgMatcher.group(2);
         String path = imgMatcher.group(3);
-        com.jvn.core.vn.VnCharacter.Builder cb = charBuilders.get(id);
-        if (cb == null) { cb = com.jvn.core.vn.VnCharacter.builder(id); charBuilders.put(id, cb); }
+        com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(id);
+        if (cb == null) { cb = com.jvn.core.vn.VnCharacter.builder(id); state.charBuilders.put(id, cb); }
         cb.addExpression(expr, path);
         continue;
       }
-      
+
       // Label
-      Matcher labelMatcher = LABEL_PATTERN.matcher(line);
+      Matcher labelMatcher = LABEL_PATTERN.matcher(trimmed);
       if (labelMatcher.matches()) {
-        flushChoices(builder, pendingChoices);
-        builder.label(labelMatcher.group(1));
+        flushChoices(state.builder, state.pendingChoices);
+        state.builder.label(labelMatcher.group(1));
         continue;
       }
-      
+
       // Choice
-      Matcher choiceMatcher = CHOICE_PATTERN.matcher(line);
+      Matcher choiceMatcher = CHOICE_PATTERN.matcher(trimmed);
       if (choiceMatcher.matches()) {
         String text = choiceMatcher.group(1);
         String target = choiceMatcher.groupCount() > 1 ? choiceMatcher.group(2) : null;
         String cond = null;
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(.*)\\[if\\s+([^\\]]+)\\]$").matcher(text);
+        Matcher m = Pattern.compile("^(.*)\\[if\\s+([^\\]]+)\\]$").matcher(text);
         if (m.matches()) {
           text = m.group(1).trim();
           cond = m.group(2).trim();
@@ -133,110 +208,110 @@ public class VnScriptParser {
         if (target != null) {
           choiceBuilder.targetLabel(target);
         }
-        pendingChoices.add(choiceBuilder.build());
+        state.pendingChoices.add(choiceBuilder.build());
         continue;
       }
-      
+
       // Commands
-      Matcher cmdMatcher = COMMAND_PATTERN.matcher(line);
+      Matcher cmdMatcher = COMMAND_PATTERN.matcher(trimmed);
       if (cmdMatcher.matches()) {
-        flushChoices(builder, pendingChoices);
+        flushChoices(state.builder, state.pendingChoices);
         String[] parts = cmdMatcher.group(1).split("\\s+", 2);
         String cmd = parts[0];
         String arg = parts.length > 1 ? parts[1] : null;
-        
+
         switch (cmd.toLowerCase()) {
           case "background":
           case "bg":
-            if (arg != null) builder.background(arg);
+            if (arg != null) state.builder.background(arg);
             break;
           case "jump":
-            if (arg != null) builder.jump(arg);
+            if (arg != null) state.builder.jump(arg);
             break;
           case "end":
-            builder.end();
+            state.builder.end();
             break;
           case "bgm":
-            if (arg != null && !arg.isEmpty()) builder.playBgm(arg, true);
+            if (arg != null && !arg.isEmpty()) state.builder.playBgm(arg, true);
             break;
           case "bgm_stop":
-            builder.stopBgm();
+            state.builder.stopBgm();
             break;
           case "bgm_fadeout":
             if (arg != null && !arg.isEmpty()) {
-              try { builder.fadeOutBgm(Long.parseLong(arg)); } catch (NumberFormatException ignored) { builder.fadeOutBgm(); }
+              try { state.builder.fadeOutBgm(Long.parseLong(arg)); } catch (NumberFormatException ignored) { state.builder.fadeOutBgm(); }
             } else {
-              builder.fadeOutBgm();
+              state.builder.fadeOutBgm();
             }
             break;
           case "bgm_pause":
-            builder.external("audio", "pause");
+            state.builder.external("audio", "pause");
             break;
           case "bgm_resume":
-            builder.external("audio", "resume");
+            state.builder.external("audio", "resume");
             break;
           case "bgm_seek":
-            if (arg != null && !arg.isEmpty()) builder.external("audio", "seek " + arg);
+            if (arg != null && !arg.isEmpty()) state.builder.external("audio", "seek " + arg);
             break;
           case "bgm_crossfade":
-            if (arg != null && !arg.isEmpty()) builder.external("audio", "crossfade " + arg);
+            if (arg != null && !arg.isEmpty()) state.builder.external("audio", "crossfade " + arg);
             break;
           case "sfx":
-            if (arg != null && !arg.isEmpty()) builder.playSfx(arg);
+            if (arg != null && !arg.isEmpty()) state.builder.playSfx(arg);
             break;
           case "voice":
             if (arg != null && !arg.isEmpty()) {
-              builder.playVoice(arg);
+              state.builder.playVoice(arg);
             }
             break;
           case "volume":
-            if (arg != null && !arg.isEmpty()) builder.external("settings", "volume " + arg);
+            if (arg != null && !arg.isEmpty()) state.builder.external("settings", "volume " + arg);
             break;
           case "textspeed":
-            if (arg != null && !arg.isEmpty()) builder.external("settings", "textspeed " + arg);
+            if (arg != null && !arg.isEmpty()) state.builder.external("settings", "textspeed " + arg);
             break;
           case "autodelay":
-            if (arg != null && !arg.isEmpty()) builder.external("settings", "autodelay " + arg);
+            if (arg != null && !arg.isEmpty()) state.builder.external("settings", "autodelay " + arg);
             break;
           case "hud":
-            if (arg != null && !arg.isEmpty()) builder.external("hud", arg);
+            if (arg != null && !arg.isEmpty()) state.builder.external("hud", arg);
             break;
           case "save":
-            builder.external("save", "");
+            state.builder.external("save", "");
             break;
           case "quickload":
-            builder.external("save", "quickload");
+            state.builder.external("save", "quickload");
             break;
           case "skip":
-            builder.external("mode", "skip " + (arg == null ? "" : arg));
+            state.builder.external("mode", "skip " + (arg == null ? "" : arg));
             break;
           case "auto":
-            builder.external("mode", "auto " + (arg == null ? "" : arg));
+            state.builder.external("mode", "auto " + (arg == null ? "" : arg));
             break;
           case "ui":
-            builder.external("ui", arg == null ? "" : arg);
+            state.builder.external("ui", arg == null ? "" : arg);
             break;
           case "history":
-            builder.external("history", arg == null ? "" : arg);
+            state.builder.external("history", arg == null ? "" : arg);
             break;
           case "screen":
-            builder.external("screen", arg == null ? "" : arg);
+            state.builder.external("screen", arg == null ? "" : arg);
             break;
           case "jes_push":
-            if (arg != null && !arg.isBlank()) builder.external("jes", "push " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("jes", "push " + arg);
             break;
           case "jes_replace":
-            if (arg != null && !arg.isBlank()) builder.external("jes", "replace " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("jes", "replace " + arg);
             break;
           case "jes_pop":
-            builder.external("jes", "pop");
+            state.builder.external("jes", "pop");
             break;
           case "jes_call":
-            if (arg != null && !arg.isBlank()) builder.external("jes", "call " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("jes", "call " + arg);
             break;
           case "wait":
             if (arg != null) {
-              try { builder.waitMs(Long.parseLong(arg)); } catch (NumberFormatException ignored) {}
+              try { state.builder.waitMs(Long.parseLong(arg)); } catch (NumberFormatException ignored) {}
             }
             break;
           case "show":
@@ -246,12 +321,12 @@ public class VnScriptParser {
                 String charId = toks[0];
                 CharacterPosition pos = parsePosition(toks[1]);
                 String expr = toks.length >= 3 ? toks[2] : "neutral";
-                builder.show(charId, expr, pos);
+                state.builder.show(charId, expr, pos);
               }
             }
             break;
           case "hide":
-            if (arg != null) builder.hide(arg);
+            if (arg != null) state.builder.hide(arg);
             break;
           case "transition":
             if (arg != null) {
@@ -260,45 +335,45 @@ public class VnScriptParser {
                 VnTransition.TransitionType type = parseTransitionType(toks[0]);
                 long dur = toks.length >= 2 ? parseLongSafe(toks[1], 500) : 500;
                 String bg = toks.length >= 3 ? toks[2] : null;
-                builder.transition(type, dur, bg);
+                state.builder.transition(type, dur, bg);
               }
             }
             break;
           case "menu":
-            builder.external("menu", arg == null ? "" : arg);
+            state.builder.external("menu", arg == null ? "" : arg);
             break;
           case "settings":
-            builder.external("menu", "settings");
+            state.builder.external("menu", "settings");
             break;
           case "mainmenu":
-            builder.external("menu", "main" + (arg == null || arg.isBlank() ? "" : (" " + arg)));
+            state.builder.external("menu", "main" + (arg == null || arg.isBlank() ? "" : (" " + arg)));
             break;
           case "load":
-            if (arg != null && !arg.isBlank()) builder.external("vns", "replace " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("vns", "replace " + arg);
             break;
           case "goto":
-            if (arg != null && !arg.isBlank()) builder.external("vns", "goto " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("vns", "goto " + arg);
             break;
           case "set":
-            if (arg != null && !arg.isBlank()) builder.external("var", "set " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("var", "set " + arg);
             break;
           case "inc":
-            if (arg != null && !arg.isBlank()) builder.external("var", "inc " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("var", "inc " + arg);
             break;
           case "dec":
-            if (arg != null && !arg.isBlank()) builder.external("var", "dec " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("var", "dec " + arg);
             break;
           case "flag":
-            if (arg != null && !arg.isBlank()) builder.external("var", "flag " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("var", "flag " + arg);
             break;
           case "unflag":
-            if (arg != null && !arg.isBlank()) builder.external("var", "unflag " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("var", "unflag " + arg);
             break;
           case "clear":
-            if (arg != null && !arg.isBlank()) builder.external("var", "clear " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("var", "clear " + arg);
             break;
           case "if":
-            if (arg != null && !arg.isBlank()) builder.external("cond", "if " + arg);
+            if (arg != null && !arg.isBlank()) state.builder.external("cond", "if " + arg);
             break;
           case "call":
             // Syntax: [call <provider> <payload...>]
@@ -306,49 +381,40 @@ public class VnScriptParser {
               String[] toks = arg.split("\\s+", 2);
               String provider = toks[0];
               String payload = toks.length > 1 ? toks[1] : "";
-              builder.external(provider, payload);
+              state.builder.external(provider, payload);
             }
             break;
           case "jes":
             // Shortcut for [call jes <payload>]
-            builder.external("jes", arg == null ? "" : arg);
+            state.builder.external("jes", arg == null ? "" : arg);
             break;
           case "java":
             // Shortcut for [call java <payload>]
-            builder.external("java", arg == null ? "" : arg);
+            state.builder.external("java", arg == null ? "" : arg);
             break;
         }
         continue;
       }
-      
+
       // Dialogue
-      Matcher dialogueMatcher = DIALOGUE_PATTERN.matcher(line);
+      Matcher dialogueMatcher = DIALOGUE_PATTERN.matcher(trimmed);
       if (dialogueMatcher.matches()) {
-        flushChoices(builder, pendingChoices);
+        flushChoices(state.builder, state.pendingChoices);
         String speakerId = dialogueMatcher.group(1).trim();
         String text = dialogueMatcher.group(2).trim();
         // Look up display name from character definitions
         String displayName = speakerId;
-        com.jvn.core.vn.VnCharacter.Builder cb = charBuilders.get(speakerId);
+        com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(speakerId);
         if (cb != null) {
           String dn = cb.getDisplayName();
           if (dn != null) displayName = dn;
         }
-        builder.dialogue(displayName, text);
+        state.builder.dialogue(displayName, text);
         continue;
       }
-      
-      throw new IOException("Parse error at line " + lineNumber + ": " + line);
+
+      throw parseError(sourceName, lineNumber, "Unrecognized syntax", rawLine);
     }
-    
-    flushChoices(builder, pendingChoices);
-    // Finalize characters with expressions (replaces any earlier simple character entries)
-    if (charBuilders != null && builder != null) {
-      for (var e : charBuilders.entrySet()) {
-        builder.addCharacter(e.getValue().build());
-      }
-    }
-    return builder.build();
   }
   
   private void flushChoices(VnScenarioBuilder builder, List<Choice> choices) {
@@ -359,7 +425,7 @@ public class VnScriptParser {
   }
   
   public VnScenario parseFromString(String script) throws IOException {
-    return parse(new java.io.ByteArrayInputStream(script.getBytes()));
+    return parse(new java.io.ByteArrayInputStream(script.getBytes()), "<string>", null);
   }
 
   private CharacterPosition parsePosition(String token) {
@@ -397,5 +463,54 @@ public class VnScriptParser {
     } catch (Exception e) {
       return def;
     }
+  }
+
+  private void ensureBuilder(ParseState state) {
+    if (state.builder == null) {
+      state.builder = new VnScenarioBuilder(state.scenarioId);
+    }
+  }
+
+  private IOException parseError(String sourceName, int lineNumber, String message, String line) {
+    String src = (sourceName == null || sourceName.isBlank()) ? "<script>" : sourceName;
+    return new IOException("Parse error in " + src + " at line " + lineNumber + ": " + message + " -> " + line);
+  }
+
+  private String applyDefines(String line, Map<String, String> defines) {
+    Matcher m = DEFINE_SUB_PATTERN.matcher(line);
+    StringBuffer sb = new StringBuffer();
+    while (m.find()) {
+      String key = m.group(1);
+      String val = defines.getOrDefault(key, "");
+      m.appendReplacement(sb, Matcher.quoteReplacement(val));
+    }
+    m.appendTail(sb);
+    return sb.toString();
+  }
+
+  private String resolveIncludePath(String sourceName, String includePath) {
+    if (includePath.startsWith("/") || includePath.contains(":")) return includePath;
+    String src = normalizeSourceName(sourceName);
+    int idx = src.lastIndexOf('/');
+    if (idx < 0) return includePath;
+    return src.substring(0, idx + 1) + includePath;
+  }
+
+  private String normalizeSourceName(String sourceName) {
+    if (sourceName == null || sourceName.isBlank()) return "<script>";
+    return sourceName.replace('\\', '/');
+  }
+
+  private String stripQuotes(String value) {
+    if (value == null) return "";
+    String t = value.trim();
+    if (t.length() >= 2) {
+      char c0 = t.charAt(0);
+      char c1 = t.charAt(t.length() - 1);
+      if ((c0 == '"' && c1 == '"') || (c0 == '\'' && c1 == '\'')) {
+        return t.substring(1, t.length() - 1);
+      }
+    }
+    return t;
   }
 }
