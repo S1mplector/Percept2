@@ -21,7 +21,7 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 
 public class FileEditorTab extends BorderPane {
-  public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, OTHER }
+  public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, MENU_SCREEN, MENU_LAYOUT, DIALOGUE_LAYOUT, OTHER }
 
   private final File file;
   private final Kind kind;
@@ -32,7 +32,13 @@ public class FileEditorTab extends BorderPane {
   private final JavaCodeEditor textEditor;
   private final TimelineCodeEditor timelineEditor;
   private final JavaCodeEditor themeEditor;
+  private final JavaCodeEditor menuScreenEditor;
+  private final JavaCodeEditor menuLayoutEditor;
+  private final JavaCodeEditor dialogueLayoutEditor;
   private final StoryTimelineView timelineView;
+  private final MenuScreenVisualEditor menuScreenVisualEditor;
+  private final MenuLayoutVisualEditor menuLayoutVisualEditor;
+  private final DialogueLayoutEditorView dialogueLayoutVisualEditor;
 
   private final ViewportView viewport; // JES preview
   private JesScene2D jesScene;
@@ -49,11 +55,15 @@ public class FileEditorTab extends BorderPane {
   public FileEditorTab(File file) {
     this.file = file;
     String name = file != null ? file.getName().toLowerCase(Locale.ROOT) : "";
+    String path = file != null ? file.getPath().replace('\\', '/').toLowerCase(Locale.ROOT) : "";
     if (name.endsWith(".jes") || name.endsWith(".txt")) this.kind = Kind.JES;
     else if (name.endsWith(".vns")) this.kind = Kind.VNS;
     else if (name.endsWith(".java")) this.kind = Kind.JAVA;
     else if (name.endsWith(".timeline")) this.kind = Kind.TIMELINE;
     else if (name.endsWith(".theme") || "menu.theme".equals(name)) this.kind = Kind.THEME;
+    else if (name.endsWith(".menu")) this.kind = Kind.MENU_SCREEN;
+    else if (name.endsWith(".layout") && (path.contains("/config/menu/layouts/") || path.contains("/menu/layouts/") || path.contains("/config/menu/"))) this.kind = Kind.MENU_LAYOUT;
+    else if ("dialogue.layout".equals(name) || (name.endsWith(".layout") && (path.contains("/config/ui/") || path.contains("/config/vn/")))) this.kind = Kind.DIALOGUE_LAYOUT;
     else this.kind = Kind.OTHER;
 
     this.jesEditor = (kind == Kind.JES) ? new JesCodeEditor() : null;
@@ -62,7 +72,13 @@ public class FileEditorTab extends BorderPane {
     this.textEditor = (kind == Kind.OTHER) ? new JavaCodeEditor() : null;
     this.timelineEditor = (kind == Kind.TIMELINE) ? new TimelineCodeEditor() : null;
     this.themeEditor = (kind == Kind.THEME) ? new JavaCodeEditor() : null;
+    this.menuScreenEditor = (kind == Kind.MENU_SCREEN) ? new JavaCodeEditor() : null;
+    this.menuLayoutEditor = (kind == Kind.MENU_LAYOUT) ? new JavaCodeEditor() : null;
+    this.dialogueLayoutEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new JavaCodeEditor() : null;
     this.timelineView = (kind == Kind.TIMELINE) ? new StoryTimelineView() : null;
+    this.menuScreenVisualEditor = (kind == Kind.MENU_SCREEN) ? new MenuScreenVisualEditor() : null;
+    this.menuLayoutVisualEditor = (kind == Kind.MENU_LAYOUT) ? new MenuLayoutVisualEditor() : null;
+    this.dialogueLayoutVisualEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new DialogueLayoutEditorView() : null;
 
     this.viewport = (kind == Kind.JES) ? new ViewportView() : null;
     this.vnPreview = (kind == Kind.VNS) ? new VnPreviewView() : null;
@@ -95,6 +111,12 @@ public class FileEditorTab extends BorderPane {
       String text = themeEditor.getText();
       if (text == null) text = "";
       themePreview.setThemeFromText(text);
+    } else if (kind == Kind.MENU_SCREEN) {
+      bindMenuScreenVisualSync();
+    } else if (kind == Kind.MENU_LAYOUT) {
+      bindMenuLayoutVisualSync();
+    } else if (kind == Kind.DIALOGUE_LAYOUT) {
+      bindDialogueLayoutVisualSync();
     }
   }
 
@@ -142,6 +164,24 @@ public class FileEditorTab extends BorderPane {
         themePreview.setThemeFromText(text);
         themeEditor.setOnTextChanged(t -> themePreview.setThemeFromText(t));
       }
+    } else if (kind == Kind.MENU_SCREEN) {
+      SplitPane sp = new SplitPane();
+      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
+      sp.getItems().addAll(menuScreenVisualEditor, menuScreenEditor);
+      sp.setDividerPositions(0.6);
+      setCenter(sp);
+    } else if (kind == Kind.MENU_LAYOUT) {
+      SplitPane sp = new SplitPane();
+      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
+      sp.getItems().addAll(menuLayoutVisualEditor, menuLayoutEditor);
+      sp.setDividerPositions(0.55);
+      setCenter(sp);
+    } else if (kind == Kind.DIALOGUE_LAYOUT) {
+      SplitPane sp = new SplitPane();
+      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
+      sp.getItems().addAll(dialogueLayoutVisualEditor, dialogueLayoutEditor);
+      sp.setDividerPositions(0.55);
+      setCenter(sp);
     } else if (kind == Kind.OTHER) {
       setCenter(textEditor);
     } else {
@@ -161,6 +201,7 @@ public class FileEditorTab extends BorderPane {
     if (timelineEditor != null) timelineEditor.setProjectRoot(root);
     if (timelineView != null) timelineView.setProjectRoot(root);
     if (vnPreview != null) vnPreview.setProjectRoot(root);
+    if (menuScreenVisualEditor != null) menuScreenVisualEditor.setProjectRoot(root);
   }
 
   public void setCommandStack(com.jvn.editor.commands.CommandStack cs) {
@@ -247,6 +288,21 @@ public class FileEditorTab extends BorderPane {
         if (themeEditor != null && themePreview != null) {
           themeEditor.setOnTextChanged(t -> themePreview.setThemeFromText(t));
         }
+      } else if (kind == Kind.MENU_SCREEN) {
+        String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
+        if (menuScreenEditor != null) menuScreenEditor.setText(text);
+        if (menuScreenVisualEditor != null) {
+          menuScreenVisualEditor.setScreenIdHint(screenIdFromFile());
+          menuScreenVisualEditor.setMenuText(text);
+        }
+      } else if (kind == Kind.MENU_LAYOUT) {
+        String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
+        if (menuLayoutEditor != null) menuLayoutEditor.setText(text);
+        if (menuLayoutVisualEditor != null) menuLayoutVisualEditor.setLayoutText(text);
+      } else if (kind == Kind.DIALOGUE_LAYOUT) {
+        String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
+        if (dialogueLayoutEditor != null) dialogueLayoutEditor.setText(text);
+        if (dialogueLayoutVisualEditor != null) dialogueLayoutVisualEditor.setLayoutText(text);
       } else if (kind == Kind.JAVA) {
         String code = Files.readString(file.toPath());
         javaEditor.setText(code);
@@ -274,6 +330,15 @@ public class FileEditorTab extends BorderPane {
         try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
       } else if (kind == Kind.THEME) {
         String content = themeEditor.getText();
+        try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
+      } else if (kind == Kind.MENU_SCREEN && menuScreenEditor != null) {
+        String content = menuScreenEditor.getText();
+        try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
+      } else if (kind == Kind.MENU_LAYOUT && menuLayoutEditor != null) {
+        String content = menuLayoutEditor.getText();
+        try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
+      } else if (kind == Kind.DIALOGUE_LAYOUT && dialogueLayoutEditor != null) {
+        String content = dialogueLayoutEditor.getText();
         try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
       } else if (kind == Kind.JAVA) {
         String content = javaEditor.getText();
@@ -305,6 +370,9 @@ public class FileEditorTab extends BorderPane {
     if (kind == Kind.VNS) return vnsEditor;
     if (kind == Kind.JAVA) return javaEditor;
     if (kind == Kind.TIMELINE) return timelineEditor;
+    if (kind == Kind.MENU_SCREEN) return menuScreenEditor;
+    if (kind == Kind.MENU_LAYOUT) return menuLayoutEditor;
+    if (kind == Kind.DIALOGUE_LAYOUT) return dialogueLayoutEditor;
     if (kind == Kind.OTHER) return textEditor;
     return null;
   }
@@ -313,11 +381,85 @@ public class FileEditorTab extends BorderPane {
   public void fitToContent() { if (viewport != null) viewport.fitToContent(); }
   public void focusEditor() { Node ed = getEditorNode(); if (ed != null) ed.requestFocus(); }
 
+  private void bindMenuScreenVisualSync() {
+    if (menuScreenEditor == null || menuScreenVisualEditor == null) return;
+    menuScreenVisualEditor.setScreenIdHint(screenIdFromFile());
+    final boolean[] syncing = new boolean[] {false};
+    menuScreenEditor.setOnTextChanged(text -> {
+      if (syncing[0]) return;
+      syncing[0] = true;
+      menuScreenVisualEditor.setMenuText(text);
+      syncing[0] = false;
+    });
+    menuScreenVisualEditor.setOnMenuTextChanged(text -> {
+      if (syncing[0]) return;
+      if (Objects.equals(menuScreenEditor.getText(), text)) return;
+      syncing[0] = true;
+      menuScreenEditor.setText(text);
+      syncing[0] = false;
+    });
+    String current = menuScreenEditor.getText();
+    if (current == null) current = "";
+    menuScreenVisualEditor.setMenuText(current);
+  }
+
+  private void bindMenuLayoutVisualSync() {
+    if (menuLayoutEditor == null || menuLayoutVisualEditor == null) return;
+    final boolean[] syncing = new boolean[] {false};
+    menuLayoutEditor.setOnTextChanged(text -> {
+      if (syncing[0]) return;
+      syncing[0] = true;
+      menuLayoutVisualEditor.setLayoutText(text);
+      syncing[0] = false;
+    });
+    menuLayoutVisualEditor.setOnLayoutTextChanged(text -> {
+      if (syncing[0]) return;
+      if (Objects.equals(menuLayoutEditor.getText(), text)) return;
+      syncing[0] = true;
+      menuLayoutEditor.setText(text);
+      syncing[0] = false;
+    });
+    String current = menuLayoutEditor.getText();
+    if (current == null) current = "";
+    menuLayoutVisualEditor.setLayoutText(current);
+  }
+
+  private void bindDialogueLayoutVisualSync() {
+    if (dialogueLayoutEditor == null || dialogueLayoutVisualEditor == null) return;
+    final boolean[] syncing = new boolean[] {false};
+    dialogueLayoutEditor.setOnTextChanged(text -> {
+      if (syncing[0]) return;
+      syncing[0] = true;
+      dialogueLayoutVisualEditor.setLayoutText(text);
+      syncing[0] = false;
+    });
+    dialogueLayoutVisualEditor.setOnLayoutTextChanged(text -> {
+      if (syncing[0]) return;
+      if (Objects.equals(dialogueLayoutEditor.getText(), text)) return;
+      syncing[0] = true;
+      dialogueLayoutEditor.setText(text);
+      syncing[0] = false;
+    });
+    String current = dialogueLayoutEditor.getText();
+    if (current == null) current = "";
+    dialogueLayoutVisualEditor.setLayoutText(current);
+  }
+
+  private String screenIdFromFile() {
+    if (file == null) return "main";
+    String name = file.getName();
+    int dot = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
+  }
+
   private String getCurrentText() {
     if (kind == Kind.JES && jesEditor != null) return jesEditor.getText();
     if (kind == Kind.VNS && vnsEditor != null) return vnsEditor.getText();
     if (kind == Kind.TIMELINE && timelineEditor != null) return timelineEditor.getText();
     if (kind == Kind.THEME && themeEditor != null) return themeEditor.getText();
+    if (kind == Kind.MENU_SCREEN && menuScreenEditor != null) return menuScreenEditor.getText();
+    if (kind == Kind.MENU_LAYOUT && menuLayoutEditor != null) return menuLayoutEditor.getText();
+    if (kind == Kind.DIALOGUE_LAYOUT && dialogueLayoutEditor != null) return dialogueLayoutEditor.getText();
     if (kind == Kind.JAVA && javaEditor != null) return javaEditor.getText();
     if (kind == Kind.OTHER && textEditor != null) return textEditor.getText();
     return "";

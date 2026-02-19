@@ -20,6 +20,8 @@ import com.jvn.core.vn.VnVariableInterpolator;
 import com.jvn.core.vn.text.TextEffect;
 import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
+import com.jvn.core.vn.ui.VnUiLayoutLoader;
+import com.jvn.core.vn.ui.VnUiLayoutSpec;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -38,11 +40,9 @@ public class VnRenderer {
   private final Font choiceFont;
   private VnState currentState;
   private long animationTime = 0;
+  private VnUiLayoutSpec uiLayout;
 
-  // UI Layout constants
-  private static final double TEXTBOX_HEIGHT_RATIO = 0.25;
-  private static final double TEXTBOX_PADDING = 20;
-  private static final double NAME_BOX_HEIGHT = 40;
+  // UI Colors
   private static final Color TEXTBOX_COLOR = Color.rgb(0, 0, 0, 0.8);
   private static final Color NAME_BOX_COLOR = Color.rgb(30, 30, 50, 0.9);
   private static final Color TEXT_COLOR = Color.WHITE;
@@ -65,11 +65,31 @@ public class VnRenderer {
     this.nameFont = Font.font("Arial", FontWeight.BOLD, 18);
     this.dialogueFont = Font.font("Arial", FontWeight.NORMAL, 16);
     this.choiceFont = Font.font("Arial", FontWeight.NORMAL, 16);
+    this.uiLayout = VnUiLayoutLoader.loadFromAssets();
   }
 
   // Optional base directory used to resolve asset paths from filesystem (editor preview)
   private File projectRoot;
-  public void setProjectRoot(File root) { this.projectRoot = root; }
+  public void setProjectRoot(File root) {
+    this.projectRoot = root;
+    reloadUiLayout();
+  }
+
+  public VnUiLayoutSpec getUiLayout() {
+    return uiLayout;
+  }
+
+  public void setUiLayout(VnUiLayoutSpec layout) {
+    this.uiLayout = layout == null ? VnUiLayoutSpec.defaults() : layout;
+  }
+
+  public void reloadUiLayout() {
+    if (projectRoot != null) {
+      this.uiLayout = VnUiLayoutLoader.loadFromProjectRoot(projectRoot);
+    } else {
+      this.uiLayout = VnUiLayoutLoader.loadFromAssets();
+    }
+  }
 
   private void renderHistoryOverlay(VnState state, double width, double height) {
     gc.setFill(Color.rgb(0, 0, 0, 0.7));
@@ -493,22 +513,32 @@ public class VnRenderer {
   private void renderDialogue(DialogueLine dialogue, VnState state, double width, double height) {
     if (dialogue == null) return;
 
-    double textBoxHeight = height * TEXTBOX_HEIGHT_RATIO;
-    double textBoxY = height - textBoxHeight;
+    double textBoxX = clamp(width * uiLayout.textBoxX(), 0, width);
+    double textBoxY = clamp(height * uiLayout.textBoxY(), 0, height);
+    double maxBoxWidth = Math.max(1, width - textBoxX);
+    double maxBoxHeight = Math.max(1, height - textBoxY);
+    double textBoxWidth = clamp(width * uiLayout.textBoxWidth(), 1, maxBoxWidth);
+    double textBoxHeight = clamp(height * uiLayout.textBoxHeight(), 1, maxBoxHeight);
 
     // Draw text box background
     gc.setFill(TEXTBOX_COLOR);
-    gc.fillRect(0, textBoxY, width, textBoxHeight);
+    gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
 
     // Draw name box if speaker exists
     String speakerName = resolveRuntimeText(dialogue.getSpeakerName());
     if (speakerName != null && !speakerName.isEmpty()) {
+      double nameBoxX = textBoxX + uiLayout.nameBoxXOffset();
+      double nameBoxY = textBoxY + uiLayout.nameBoxYOffset();
       gc.setFill(NAME_BOX_COLOR);
-      gc.fillRect(TEXTBOX_PADDING, textBoxY - NAME_BOX_HEIGHT, 200, NAME_BOX_HEIGHT);
-      
+      gc.fillRect(nameBoxX, nameBoxY, uiLayout.nameBoxWidth(), uiLayout.nameBoxHeight());
+
       gc.setFill(TEXT_COLOR);
       gc.setFont(nameFont);
-      gc.fillText(speakerName, TEXTBOX_PADDING + 10, textBoxY - 15);
+      gc.fillText(
+          speakerName,
+          nameBoxX + uiLayout.nameTextXOffset(),
+          nameBoxY + uiLayout.nameTextBaselineOffset()
+      );
     }
 
     // Parse and render dialogue text with effects
@@ -516,13 +546,15 @@ public class VnRenderer {
     List<TextSpan> spans = TextParser.parse(fullText);
     int plainLength = TextParser.plainLength(fullText);
     int revealedLength = Math.min(state.getTextRevealProgress(), plainLength);
-    
-    drawStyledText(spans, revealedLength, TEXTBOX_PADDING, textBoxY + TEXTBOX_PADDING + 20, 
-                   width - TEXTBOX_PADDING * 2);
+
+    double textX = textBoxX + uiLayout.dialogueTextHorizontalPadding();
+    double textY = textBoxY + uiLayout.dialogueTextTopPadding();
+    double textWidth = Math.max(60, textBoxWidth - uiLayout.dialogueTextHorizontalPadding() * 2);
+    drawStyledText(spans, revealedLength, textX, textY, textWidth);
 
     // Draw continue indicator if text is fully revealed
     if (revealedLength >= plainLength && state.isWaitingForInput()) {
-      drawContinueIndicator(width - 30, height - 20);
+      drawContinueIndicator(textBoxX + textBoxWidth - 30, textBoxY + textBoxHeight - 20);
     }
   }
 
@@ -623,31 +655,30 @@ public class VnRenderer {
 
   private void renderChoices(List<Choice> choices, double width, double height, int hoverIndex) {
     if (choices == null || choices.isEmpty()) return;
-
-    double choiceHeight = 50;
-    double choiceWidth = width * 0.6;
-    double choiceX = (width - choiceWidth) / 2;
-    double totalHeight = choices.size() * (choiceHeight + 10);
-    double startY = (height - totalHeight) / 2;
+    ChoiceGeometry geo = computeChoiceGeometry(choices.size(), width, height);
 
     for (int i = 0; i < choices.size(); i++) {
       Choice choice = choices.get(i);
-      double y = startY + i * (choiceHeight + 10);
+      double y = geo.startY() + i * (geo.choiceHeight() + geo.choiceGap());
       boolean enabled = choice.isEnabled() && choiceConditionSatisfied(choice);
       Color bg = !enabled ? CHOICE_DISABLED_COLOR : (i == hoverIndex ? CHOICE_HOVER_COLOR : CHOICE_BG_COLOR);
       // Background
       gc.setFill(bg);
-      gc.fillRoundRect(choiceX, y, choiceWidth, choiceHeight, 10, 10);
+      gc.fillRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), 10, 10);
 
       // Border
       gc.setStroke(TEXT_COLOR);
       gc.setLineWidth(2);
-      gc.strokeRoundRect(choiceX, y, choiceWidth, choiceHeight, 10, 10);
+      gc.strokeRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), 10, 10);
 
       // Text
       gc.setFill(enabled ? TEXT_COLOR : TEXT_COLOR_DISABLED);
       gc.setFont(choiceFont);
-      gc.fillText(resolveRuntimeText(choice.getText()), choiceX + 20, y + choiceHeight / 2 + 5);
+      gc.fillText(
+          resolveRuntimeText(choice.getText()),
+          geo.choiceX() + uiLayout.choiceTextXPadding(),
+          y + geo.choiceHeight() / 2 + 5
+      );
     }
   }
 
@@ -866,6 +897,13 @@ public class VnRenderer {
     return helper.getLayoutBounds().getWidth();
   }
 
+  private double clamp(double value, double min, double max) {
+    if (Double.isNaN(value) || Double.isInfinite(value)) return min;
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+  }
+
   private String truncateText(String text, double maxWidth, Font font) {
     if (text == null) return "";
     if (computeTextWidth(text, font) <= maxWidth) return text;
@@ -913,22 +951,33 @@ public class VnRenderer {
 
   public int getHoveredChoiceIndex(List<Choice> choices, double width, double height, double mouseX, double mouseY) {
     if (choices == null || choices.isEmpty()) return -1;
-
-    double choiceHeight = 50;
-    double choiceWidth = width * 0.6;
-    double choiceX = (width - choiceWidth) / 2;
-    double totalHeight = choices.size() * (choiceHeight + 10);
-    double startY = (height - totalHeight) / 2;
+    ChoiceGeometry geo = computeChoiceGeometry(choices.size(), width, height);
 
     for (int i = 0; i < choices.size(); i++) {
-      double y = startY + i * (choiceHeight + 10);
-      if (mouseX >= choiceX && mouseX <= choiceX + choiceWidth &&
-          mouseY >= y && mouseY <= y + choiceHeight) {
+      double y = geo.startY() + i * (geo.choiceHeight() + geo.choiceGap());
+      if (mouseX >= geo.choiceX() && mouseX <= geo.choiceX() + geo.choiceWidth() &&
+          mouseY >= y && mouseY <= y + geo.choiceHeight()) {
         return i;
       }
     }
     return -1;
   }
+
+  private ChoiceGeometry computeChoiceGeometry(int count, double width, double height) {
+    double choiceHeight = Math.max(12, uiLayout.choiceHeight());
+    double choiceGap = Math.max(0, uiLayout.choiceGap());
+    double choiceWidth = clamp(width * uiLayout.choiceWidthFactor(), 20, width);
+    double choiceX = width * uiLayout.choiceXCenter() - choiceWidth / 2.0;
+    choiceX = clamp(choiceX, 0, Math.max(0, width - choiceWidth));
+    double totalHeight = count * choiceHeight + Math.max(0, count - 1) * choiceGap;
+    double startY = uiLayout.choiceYStart() < 0
+        ? (height - totalHeight) / 2.0
+        : (height * uiLayout.choiceYStart());
+    startY = clamp(startY, 0, Math.max(0, height - totalHeight));
+    return new ChoiceGeometry(choiceX, startY, choiceWidth, choiceHeight, choiceGap);
+  }
+
+  private record ChoiceGeometry(double choiceX, double startY, double choiceWidth, double choiceHeight, double choiceGap) {}
 
   public int getHoveredSaveSlotIndex(double width, double height, double mouseX, double mouseY) {
     double panelW = Math.min(600, width * 0.7);

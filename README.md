@@ -88,6 +88,12 @@ If a script cannot be loaded, runtime falls back to built-in demo content.
 ./gradlew :editor:run
 ```
 
+Editor visual tools now include:
+- `config/ui/dialogue.layout`: drag-and-map textbox, name box, text bounds, and choice bounds
+- `config/menu/menus/*.menu`: visual screen/item/action editing with live list preview
+- `config/menu/layouts/*.layout`: visual menu list/title/hints placement editing
+- Full text file remains editable and stays in sync with the visual panel
+
 ## Useful Development Commands
 
 Compile key app modules:

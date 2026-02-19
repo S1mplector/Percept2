@@ -50,6 +50,7 @@ public class NewProjectWizard extends Stage {
   private static final String ENTRY_SCRIPT_PATH = "scripts/story/prologue.vns";
   private static final String TIMELINE_PATH = "config/timeline/story.timeline";
   private static final String SETTINGS_PATH = "config/settings/vn.settings";
+  private static final String DIALOGUE_LAYOUT_PATH = "config/ui/dialogue.layout";
   private static final String MENU_THEME_PATH = "config/menu/menu.theme";
   private static final String MENU_REGISTRY_PATH = "config/menu/menu.registry";
   private static final String MENU_MAIN_PATH = "config/menu/menus/main.menu";
@@ -407,6 +408,7 @@ public class NewProjectWizard extends Stage {
     new File(dir, "config").mkdirs();
     new File(dir, "config/settings").mkdirs();
     new File(dir, "config/timeline").mkdirs();
+    new File(dir, "config/ui").mkdirs();
     new File(dir, "config/menu").mkdirs();
     new File(dir, "config/menu/assets").mkdirs();
     new File(dir, "config/menu/assets/buttons").mkdirs();
@@ -432,6 +434,7 @@ public class NewProjectWizard extends Stage {
     manifest.setProperty("entryLabel", "start");
     manifest.setProperty("timeline", TIMELINE_PATH);
     manifest.setProperty("settingsFile", SETTINGS_PATH);
+    manifest.setProperty("dialogueLayout", DIALOGUE_LAYOUT_PATH);
     manifest.setProperty("menuTheme", MENU_THEME_PATH);
     manifest.setProperty("width", String.valueOf(width));
     manifest.setProperty("height", String.valueOf(height));
@@ -458,7 +461,8 @@ public class NewProjectWizard extends Stage {
     
     // Settings
     createSettings(dir);
-    
+    createDialogueLayout(dir);
+
     // Menu theme
     createMenuTheme(dir, name);
     createMenuCustomizationScaffold(dir, name);
@@ -545,6 +549,33 @@ public class NewProjectWizard extends Stage {
       sp.setProperty("skipUnread", "false");
       sp.setProperty("skipAfterChoices", "false");
       sp.store(fos, "VN Settings - Edit in Settings panel");
+    }
+  }
+
+  private void createDialogueLayout(File dir) throws Exception {
+    try (FileWriter fw = new FileWriter(new File(dir, DIALOGUE_LAYOUT_PATH))) {
+      fw.write("# Dialogue UI layout\n");
+      fw.write("# Use the editor's visual layout tools to adjust these values.\n");
+      fw.write("# choiceYStart: -1 means auto-center choices\n");
+      fw.write("textBoxX=0\n");
+      fw.write("textBoxY=0.75\n");
+      fw.write("textBoxWidth=1\n");
+      fw.write("textBoxHeight=0.25\n");
+      fw.write("textBoxPadding=20\n");
+      fw.write("nameBoxXOffset=20\n");
+      fw.write("nameBoxYOffset=-40\n");
+      fw.write("nameBoxWidth=200\n");
+      fw.write("nameBoxHeight=40\n");
+      fw.write("nameTextXOffset=10\n");
+      fw.write("nameTextBaselineOffset=25\n");
+      fw.write("dialogueTextHorizontalPadding=20\n");
+      fw.write("dialogueTextTopPadding=40\n");
+      fw.write("choiceXCenter=0.5\n");
+      fw.write("choiceYStart=-1\n");
+      fw.write("choiceWidthFactor=0.6\n");
+      fw.write("choiceHeight=50\n");
+      fw.write("choiceGap=10\n");
+      fw.write("choiceTextXPadding=20\n");
     }
   }
   
@@ -719,6 +750,8 @@ public class NewProjectWizard extends Stage {
       fw.write("│   │   └── vn.settings      # Project-local VN settings\n");
       fw.write("│   ├── timeline/\n");
       fw.write("│   │   └── story.timeline   # Visual story graph\n");
+      fw.write("│   ├── ui/\n");
+      fw.write("│   │   └── dialogue.layout  # VN textbox/name/choice layout bounds\n");
       fw.write("│   └── menu/\n");
       fw.write("│       ├── menu.theme       # Global title/menu visual theme\n");
       fw.write("│       ├── menu.registry    # Declares screens/layouts/styles to load\n");
@@ -752,11 +785,13 @@ public class NewProjectWizard extends Stage {
       fw.write("1. Open this project in the JVN Editor\n");
       fw.write("2. Edit `scripts/story/prologue.vns` to write your story\n");
       fw.write("3. Configure VN settings in `config/settings/vn.settings`\n");
-      fw.write("4. Customize title/menu theme in `config/menu/menu.theme`\n");
-      fw.write("5. Add menu screens in `config/menu/menus/*.menu`\n");
-      fw.write("6. Add character sprites to `assets/characters/`\n");
-      fw.write("7. Add backgrounds to `assets/backgrounds/`\n");
-      fw.write("8. Press **Run Project** to preview\n\n");
+      fw.write("4. Tune dialogue UI in `config/ui/dialogue.layout` (visual editor available)\n");
+      fw.write("5. Customize title/menu theme in `config/menu/menu.theme`\n");
+      fw.write("6. Edit menu screens in `config/menu/menus/*.menu` (visual editor available)\n");
+      fw.write("7. Tune menu placement in `config/menu/layouts/*.layout` (visual editor available)\n");
+      fw.write("8. Add character sprites to `assets/characters/`\n");
+      fw.write("9. Add backgrounds to `assets/backgrounds/`\n");
+      fw.write("10. Press **Run Project** to preview\n\n");
       fw.write("## Documentation\n\n");
       fw.write("- [VNS Scripting Guide](docs/VNS%20Scripting/)\n");
       fw.write("- [Title Screen Configuration](docs/TitleScreen.md)\n");
