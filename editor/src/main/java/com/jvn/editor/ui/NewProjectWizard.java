@@ -456,32 +456,65 @@ public class NewProjectWizard extends Stage {
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
       fw.write("# " + name + " - Prologue\n");
       fw.write("# Created with JVN Engine\n\n");
-      fw.write("label start\n\n");
-      fw.write("# Set the scene\n");
-      fw.write("# [bg classroom]\n\n");
-      fw.write("narrator \"Welcome to {b}" + name + "{/b}.\"\n\n");
-      fw.write("narrator \"This is a sample scene to get you started.\"\n\n");
-      fw.write("narrator \"{color=#4a9eff}Blue text{/color} and {shake}shaky text{/shake} are supported!\"\n\n");
-      fw.write("# Example character dialogue\n");
-      fw.write("# [show hero center]\n");
-      fw.write("hero \"Hello! I'm the protagonist.\"\n\n");
-      fw.write("narrator \"You can edit this script in {b}" + ENTRY_SCRIPT_PATH + "{/b}\"\n\n");
-      fw.write("[choice Continue->next | Exit->ending]\n\n");
-      fw.write("label next\n\n");
-      fw.write("narrator \"Great! You chose to continue.\"\n\n");
-      fw.write("narrator \"Have fun creating your visual novel!\"\n\n");
+      fw.write("@scenario " + sanitizeName(name).toLowerCase() + "_prologue\n");
+      fw.write("@character narrator \"Narrator\"\n");
+      fw.write("@character hero \"Hero\"\n");
+      fw.write("@character guide \"Guide\"\n");
+      fw.write("@background classroom assets/backgrounds/classroom_day.png\n");
+      fw.write("@background sunset assets/backgrounds/sunset_street.png\n\n");
+
+      fw.write("@label start\n");
+      fw.write("[bg classroom]\n");
+      fw.write("[transition fade 400]\n");
+      fw.write("[set playerName Player]\n");
+      fw.write("[set courage 0]\n\n");
+
+      fw.write("Narrator: Welcome to {b}" + name + "{/b}.\n");
+      fw.write("Narrator: This starter scene showcases choices, variables, transitions, and text effects.\n");
+      fw.write("Hero: I'm {color=#4a9eff}${playerName}{/color}. Ready to test the engine?\n");
+      fw.write("[show hero center neutral]\n\n");
+
+      fw.write("> Ask for a quick tour -> tour\n");
+      fw.write("> Skip ahead to the ending -> speedrun\n\n");
+
+      fw.write("@label tour\n");
+      fw.write("[inc courage 1]\n");
+      fw.write("[show guide right smile]\n");
+      fw.write("Guide: Nice! Watch this: {wave}smooth motion{/wave} and {shake}dramatic impact{/shake}.\n");
+      fw.write("[screen flash 0.35 160 1 1 1]\n");
+      fw.write("Narrator: You can branch story flow and track state with variables.\n\n");
+
+      fw.write("> Step forward confidently [if courage >= 1] -> brave\n");
+      fw.write("> Stay cautious -> cautious\n\n");
+
+      fw.write("@label brave\n");
+      fw.write("[transition crossfade 700 sunset]\n");
+      fw.write("Hero: Then let's make a bold first chapter.\n");
+      fw.write("Narrator: Add your own sprites, music, and branching paths in " + ENTRY_SCRIPT_PATH + ".\n");
       fw.write("[jump ending]\n\n");
-      fw.write("label ending\n\n");
-      fw.write("narrator \"{wave}The End{/wave}\"\n\n");
+
+      fw.write("@label cautious\n");
+      fw.write("Hero: Let's keep it simple for now.\n");
+      fw.write("Narrator: Good call. You can build this scene step-by-step in the editor.\n");
+      fw.write("[jump ending]\n\n");
+
+      fw.write("@label speedrun\n");
+      fw.write("Narrator: No problem. Sometimes a short route is the best route.\n");
+      fw.write("[jump ending]\n\n");
+
+      fw.write("@label ending\n");
+      fw.write("Narrator: {wave}The End{/wave} - now make this story your own.\n\n");
       fw.write("[end]\n");
     }
   }
   
   private void createEmptyScript(File dir, String name) throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
-      fw.write("# " + name + " - Prologue\n\n");
-      fw.write("label start\n\n");
-      fw.write("narrator \"" + name + " begins here...\"\n\n");
+      fw.write("# " + name + " - Prologue\n");
+      fw.write("@scenario " + sanitizeName(name).toLowerCase() + "_prologue\n");
+      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@label start\n\n");
+      fw.write("Narrator: " + name + " begins here...\n\n");
       fw.write("[end]\n");
     }
   }

@@ -43,9 +43,11 @@ public class VnScriptParser {
   private static final Pattern BACKGROUND_PATTERN = Pattern.compile("^@background\\s+(\\S+)\\s+(.+)$");
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$");
   private static final Pattern LABEL_PATTERN = Pattern.compile("^@label\\s+(.+)$");
+  private static final Pattern LABEL_LEGACY_PATTERN = Pattern.compile("^label\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern DIALOGUE_PATTERN = Pattern.compile("^([^:]+):\\s*(.+)$");
+  private static final Pattern DIALOGUE_QUOTED_PATTERN = Pattern.compile("^(\\S+)\\s+\"((?:[^\"\\\\]|\\\\.)*)\"$");
   private static final Pattern CHOICE_PATTERN = Pattern.compile("^>\\s*(.+?)(?:\\s*->\\s*(.+))?$");
-  private static final Pattern COMMAND_PATTERN = Pattern.compile("^\\[([^\\]]+)\\]$");
+  private static final Pattern COMMAND_PATTERN = Pattern.compile("^\\[(.+)\\]$");
   private static final Pattern DEFINE_PATTERN = Pattern.compile("^@define\\s+(\\S+)(?:\\s+(.+))?$");
   private static final Pattern INCLUDE_PATTERN = Pattern.compile("^@include\\s+(.+)$");
   private static final Pattern DEFINE_SUB_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
@@ -189,6 +191,12 @@ public class VnScriptParser {
       if (labelMatcher.matches()) {
         flushChoices(state.builder, state.pendingChoices);
         state.builder.label(labelMatcher.group(1));
+        continue;
+      }
+      Matcher legacyLabelMatcher = LABEL_LEGACY_PATTERN.matcher(trimmed);
+      if (legacyLabelMatcher.matches()) {
+        flushChoices(state.builder, state.pendingChoices);
+        state.builder.label(legacyLabelMatcher.group(1));
         continue;
       }
 
@@ -384,6 +392,16 @@ public class VnScriptParser {
               state.builder.external(provider, payload);
             }
             break;
+          case "choice":
+            // Legacy inline choice syntax:
+            // [choice Continue->next | Exit->ending]
+            if (arg != null && !arg.isBlank()) {
+              List<Choice> inlineChoices = parseInlineChoices(arg);
+              if (!inlineChoices.isEmpty()) {
+                state.builder.choiceNodes(inlineChoices);
+              }
+            }
+            break;
           case "jes":
             // Shortcut for [call jes <payload>]
             state.builder.external("jes", arg == null ? "" : arg);
@@ -413,6 +431,22 @@ public class VnScriptParser {
         continue;
       }
 
+      // Legacy quoted dialogue: speaker "text"
+      Matcher quotedDialogueMatcher = DIALOGUE_QUOTED_PATTERN.matcher(trimmed);
+      if (quotedDialogueMatcher.matches()) {
+        flushChoices(state.builder, state.pendingChoices);
+        String speakerId = quotedDialogueMatcher.group(1).trim();
+        String text = unescapeQuoted(quotedDialogueMatcher.group(2));
+        String displayName = speakerId;
+        com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(speakerId);
+        if (cb != null) {
+          String dn = cb.getDisplayName();
+          if (dn != null) displayName = dn;
+        }
+        state.builder.dialogue(displayName, text);
+        continue;
+      }
+
       throw parseError(sourceName, lineNumber, "Unrecognized syntax", rawLine);
     }
   }
@@ -422,6 +456,39 @@ public class VnScriptParser {
       builder.choiceNodes(new java.util.ArrayList<>(choices));
       choices.clear();
     }
+  }
+
+  private List<Choice> parseInlineChoices(String arg) {
+    List<Choice> out = new ArrayList<>();
+    String[] rawChoices = arg.split("\\|");
+    for (String raw : rawChoices) {
+      if (raw == null) continue;
+      String segment = raw.trim();
+      if (segment.isEmpty()) continue;
+
+      String text = segment;
+      String target = null;
+      int arrow = segment.indexOf("->");
+      if (arrow >= 0) {
+        text = segment.substring(0, arrow).trim();
+        target = segment.substring(arrow + 2).trim();
+        if (target != null && target.isEmpty()) target = null;
+      }
+
+      String cond = null;
+      Matcher m = Pattern.compile("^(.*)\\[if\\s+([^\\]]+)\\]$").matcher(text);
+      if (m.matches()) {
+        text = m.group(1).trim();
+        cond = m.group(2).trim();
+      }
+      if (text.isEmpty()) continue;
+
+      Choice.Builder choiceBuilder = Choice.builder().text(text);
+      if (cond != null && !cond.isEmpty()) choiceBuilder.condition(cond);
+      if (target != null) choiceBuilder.targetLabel(target);
+      out.add(choiceBuilder.build());
+    }
+    return out;
   }
   
   public VnScenario parseFromString(String script) throws IOException {
@@ -512,5 +579,31 @@ public class VnScriptParser {
       }
     }
     return t;
+  }
+
+  private String unescapeQuoted(String value) {
+    if (value == null || value.isEmpty()) return "";
+    StringBuilder out = new StringBuilder(value.length());
+    boolean esc = false;
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if (esc) {
+        switch (c) {
+          case 'n' -> out.append('\n');
+          case 't' -> out.append('\t');
+          case 'r' -> out.append('\r');
+          case '"' -> out.append('"');
+          case '\\' -> out.append('\\');
+          default -> out.append(c);
+        }
+        esc = false;
+      } else if (c == '\\') {
+        esc = true;
+      } else {
+        out.append(c);
+      }
+    }
+    if (esc) out.append('\\');
+    return out.toString();
   }
 }
