@@ -51,6 +51,35 @@ public class VnQuickSaveManager {
   public boolean hasQuickSave() {
     return saveManager.listSaves().contains(QUICK_SAVE_NAME);
   }
+
+  /**
+   * Save into rotating autosave slots.
+   */
+  public boolean autoSave(VnState state) {
+    try {
+      saveManager.autosave(state);
+      return true;
+    } catch (IOException e) {
+      System.err.println("Autosave failed: " + e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Load the latest autosave snapshot.
+   */
+  public VnSaveData loadLatestAutoSave() {
+    try {
+      return saveManager.loadLatestAutoSave();
+    } catch (IOException | ClassNotFoundException e) {
+      System.err.println("Autosave load failed: " + e.getMessage());
+      return null;
+    }
+  }
+
+  public boolean hasAutoSave() {
+    return !saveManager.listAutoSaves().isEmpty();
+  }
   
   /**
    * Apply quick load to current state
@@ -65,6 +94,23 @@ public class VnQuickSaveManager {
       return false;
     }
     
+    saveManager.applyToState(saveData, state);
+    return true;
+  }
+
+  /**
+   * Apply the newest autosave to current state.
+   */
+  public boolean applyLatestAutoSave(VnState state, VnScenario scenario) {
+    VnSaveData saveData = loadLatestAutoSave();
+    if (saveData == null) return false;
+
+    // Verify scenario matches.
+    if (scenario == null || saveData.getScenarioId() == null || !saveData.getScenarioId().equals(scenario.getId())) {
+      System.err.println("Autosave is for different scenario");
+      return false;
+    }
+
     saveManager.applyToState(saveData, state);
     return true;
   }

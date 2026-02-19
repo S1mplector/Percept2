@@ -11,7 +11,9 @@ import java.util.Set;
  */
 public class VnSaveData implements Serializable {
   private static final long serialVersionUID = 1L;
+  public static final int CURRENT_SCHEMA_VERSION = 2;
   
+  private int schemaVersion = CURRENT_SCHEMA_VERSION;
   private String scenarioId;
   private int currentNodeIndex;
   private String currentBackgroundId;
@@ -26,12 +28,16 @@ public class VnSaveData implements Serializable {
   private String saveName;
   
   public VnSaveData() {
+    this.schemaVersion = CURRENT_SCHEMA_VERSION;
     this.variables = new HashMap<>();
     this.readNodes = new HashSet<>();
     this.visibleCharacters = new HashMap<>();
     this.settings = new SettingsData();
     this.saveTimestamp = System.currentTimeMillis();
   }
+
+  public int getSchemaVersion() { return schemaVersion; }
+  public void setSchemaVersion(int schemaVersion) { this.schemaVersion = schemaVersion; }
   
   public String getScenarioId() { return scenarioId; }
   public void setScenarioId(String scenarioId) { this.scenarioId = scenarioId; }

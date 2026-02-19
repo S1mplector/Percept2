@@ -5,6 +5,7 @@ import com.jvn.core.scene.Scene;
 
 /**
  * Scene implementation for visual novel gameplay
+ * Handles node processing, state management, and integration with audio and interop systems.
  */
 public class VnScene implements Scene {
   private final VnState state;
@@ -402,6 +403,25 @@ public class VnScene implements Scene {
         audioFacade.setVoiceVolume(s.getVoiceVolume());
       }
       // Normalize node processing after loading state so the scene reflects the saved node immediately
+      processCurrentNode();
+    }
+    return ok;
+  }
+
+  public boolean autoSave() {
+    return quickSaveManager != null && quickSaveManager.autoSave(state);
+  }
+
+  public boolean autoLoadLatest() {
+    if (quickSaveManager == null) return false;
+    boolean ok = quickSaveManager.applyLatestAutoSave(state, scenario);
+    if (ok) {
+      if (audioFacade != null) {
+        VnSettings s = state.getSettings();
+        audioFacade.setBgmVolume(s.getBgmVolume());
+        audioFacade.setSfxVolume(s.getSfxVolume());
+        audioFacade.setVoiceVolume(s.getVoiceVolume());
+      }
       processCurrentNode();
     }
     return ok;
