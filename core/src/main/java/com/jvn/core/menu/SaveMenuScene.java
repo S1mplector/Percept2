@@ -4,7 +4,10 @@ import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.localization.Localization;
+import com.jvn.core.menu.config.MenuActionSpec;
+import com.jvn.core.menu.config.MenuActionType;
 import com.jvn.core.menu.config.MenuLayoutSpec;
+import com.jvn.core.menu.config.MenuItemSpec;
 import com.jvn.core.menu.config.MenuProfile;
 import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
@@ -24,8 +27,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * Save menu for creating/overwriting/deleting/renaming save slots.
@@ -109,6 +112,36 @@ public class SaveMenuScene implements Scene {
   public String getNewSlotLabel() {
     String custom = labelForItemId("new_save", "new_slot", "new");
     return (custom == null || custom.isBlank()) ? Localization.t("save.new") : custom;
+  }
+
+  public MenuActionSpec getSelectedAction() {
+    MenuActionSpec action;
+    if (isNewItemSelected()) {
+      action = actionForItemId("new_save", "new_slot", "new");
+    } else {
+      action = actionForItemId("save_slot", "slot", "entry");
+    }
+    return action != null ? action : new MenuActionSpec(MenuActionType.SAVE_MENU, null);
+  }
+
+  public boolean activateSelectedWithoutPrompt() {
+    MenuActionSpec action = getSelectedAction();
+    return switch (action.type()) {
+      case BACK -> {
+        if (engine != null) {
+          engine.scenes().pop();
+        }
+        yield true;
+      }
+      case QUIT -> {
+        if (engine != null) {
+          engine.stop();
+        }
+        yield true;
+      }
+      case NOOP -> true;
+      default -> false;
+    };
   }
 
   public void moveSelection(int delta) {
@@ -240,7 +273,7 @@ public class SaveMenuScene implements Scene {
     if (ids == null || ids.length == 0) return null;
     for (String id : ids) {
       if (id == null || id.isBlank()) continue;
-      for (var item : menuScreen.items()) {
+      for (MenuItemSpec item : menuScreen.items()) {
         if (item != null && id.equalsIgnoreCase(item.id())) {
           if (item.styleId() != null && !item.styleId().isBlank()) {
             return menuProfile.style(item.styleId());
@@ -255,10 +288,23 @@ public class SaveMenuScene implements Scene {
     if (ids == null || ids.length == 0) return null;
     for (String id : ids) {
       if (id == null || id.isBlank()) continue;
-      for (var item : menuScreen.items()) {
+      for (MenuItemSpec item : menuScreen.items()) {
         if (item != null && id.equalsIgnoreCase(item.id())) {
           String label = resolveDisplayText(item.label());
           if (label != null && !label.isBlank()) return label;
+        }
+      }
+    }
+    return null;
+  }
+
+  private MenuActionSpec actionForItemId(String... ids) {
+    if (ids == null || ids.length == 0) return null;
+    for (String id : ids) {
+      if (id == null || id.isBlank()) continue;
+      for (MenuItemSpec item : menuScreen.items()) {
+        if (item != null && id.equalsIgnoreCase(item.id())) {
+          return item.action();
         }
       }
     }

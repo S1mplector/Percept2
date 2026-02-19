@@ -572,7 +572,7 @@ public class FxLauncher extends Application {
       int idx = menuRenderer.getHoverIndexForLoadMenu(load, canvas.getWidth(), canvas.getHeight(), x, y);
       if (idx >= 0) {
         load.setSelected(idx);
-        load.loadSelected();
+        load.activateSelected();
       }
     } else if (currentScene instanceof SettingsScene settings) {
       int idx = menuRenderer.getHoverIndexForSettings(settings, canvas.getWidth(), canvas.getHeight(), x, y);
@@ -615,13 +615,16 @@ public class FxLauncher extends Application {
       main.activateSelected();
       return true;
     } else if (currentScene instanceof LoadMenuScene load) {
-      load.loadSelected();
+      load.activateSelected();
       return true;
     } else if (currentScene instanceof SettingsScene settings) {
       settings.toggleCurrent();
       if (settings.consumeCloseRequested()) engine.scenes().pop();
       return true;
     } else if (currentScene instanceof SaveMenuScene save) {
+      if (save.activateSelectedWithoutPrompt()) {
+        return true;
+      }
       if (save.isNewItemSelected()) {
         TextInputDialog dlg = new TextInputDialog("");
         dlg.setTitle("New Save");

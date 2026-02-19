@@ -238,12 +238,12 @@ public class PhysicsWorld2D {
 
     CollisionInfo info = new CollisionInfo();
     if (minOverlapX < minOverlapY) {
-      double dir = (overlapX1 < overlapX2) ? -1 : 1; // normal from a to b
+      double dir = (overlapX1 < overlapX2) ? 1 : -1; // normal from a to b
       info.nx = dir;
       info.ny = 0;
       info.penetration = minOverlapX;
     } else {
-      double dir = (overlapY1 < overlapY2) ? -1 : 1;
+      double dir = (overlapY1 < overlapY2) ? 1 : -1;
       info.nx = 0;
       info.ny = dir;
       info.penetration = minOverlapY;
@@ -264,8 +264,8 @@ public class PhysicsWorld2D {
     CollisionInfo info = new CollisionInfo();
     if (dist2 > 1e-9) {
       double dist = Math.sqrt(dist2);
-      double nx = -dx / dist; // from circle toward box
-      double ny = -dy / dist;
+      double nx = dx / dist; // normal from circle (a) toward box (b)
+      double ny = dy / dist;
       info.nx = circleFirst ? nx : -nx;
       info.ny = circleFirst ? ny : -ny;
       info.penetration = radius - dist;
@@ -404,8 +404,8 @@ public class PhysicsWorld2D {
     double nx, ny, penetration;
     if (dist2 > 1e-9) {
       double dist = Math.sqrt(dist2);
-      nx = -dx / dist;
-      ny = -dy / dist;
+      nx = dx / dist;
+      ny = dy / dist;
       penetration = r - dist;
     } else {
       double leftPen = c.x - tile.left();

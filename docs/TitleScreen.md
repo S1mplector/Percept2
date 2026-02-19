@@ -129,6 +129,26 @@ items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,
 item.back.action=back
 ```
 
+`config/menu/menus/load.menu`
+```properties
+titleText=Load
+layout=default
+defaultItemStyle=default
+
+# Optional shared action/style for each save slot row
+item.save_slot.action=load_menu
+```
+
+`config/menu/menus/save.menu`
+```properties
+titleText=Save
+layout=default
+defaultItemStyle=default
+item.new_slot.label=New Save...
+item.new_slot.action=save_menu
+item.save_slot.action=save_menu
+```
+
 `load`, `save`, and `settings` are special screen ids consumed by built-in menu scenes.
 
 You can compose profiles with inheritance:

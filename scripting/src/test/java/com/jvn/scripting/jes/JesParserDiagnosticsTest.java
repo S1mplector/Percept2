@@ -59,7 +59,7 @@ public class JesParserDiagnosticsTest {
 
   @Test
   public void tokenizerReportsUnexpectedCharacter() {
-    JesParseException ex = assertThrows(JesParseException.class, () -> new JesTokenizer("scene \\"X\\" { @ }").tokenize());
+    JesParseException ex = assertThrows(JesParseException.class, () -> new JesTokenizer("scene \"X\" { @ }").tokenize());
     assertEquals(1, ex.getLine());
     assertTrue(ex.getCol() > 0);
     assertTrue(ex.getMessage().contains("@"));

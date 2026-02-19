@@ -2,8 +2,13 @@ package com.jvn.core.menu;
 
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
+import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.engine.Engine;
 import com.jvn.core.localization.Localization;
+import com.jvn.core.menu.config.MenuActionSpec;
+import com.jvn.core.menu.config.MenuActionType;
 import com.jvn.core.menu.config.MenuLayoutSpec;
+import com.jvn.core.menu.config.MenuItemSpec;
 import com.jvn.core.menu.config.MenuProfile;
 import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
@@ -15,8 +20,6 @@ import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.save.VnSaveData;
 import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.core.vn.script.VnScriptParser;
-import com.jvn.core.engine.Engine;
-import com.jvn.core.audio.AudioFacade;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,9 +27,9 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.HashMap;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -121,6 +124,8 @@ public class LoadMenuScene implements Scene {
           : menuScreen.defaultStyleId();
       return menuProfile.style(styleId);
     }
+    MenuStyleSpec slotStyle = styleForItemId("save_slot", "slot", "entry");
+    if (slotStyle != null) return slotStyle;
     return menuProfile.style(menuScreen.defaultStyleId());
   }
 
@@ -153,6 +158,38 @@ public class LoadMenuScene implements Scene {
     int count = saves.size();
     if (count <= 0) { selected = 0; return; }
     selected = Math.max(0, Math.min(idx, count - 1));
+  }
+
+  public MenuActionSpec getSelectedAction() {
+    MenuActionSpec action = actionForItemId("save_slot", "slot", "entry");
+    return action != null ? action : new MenuActionSpec(MenuActionType.LOAD_MENU, null);
+  }
+
+  public boolean activateSelected() {
+    MenuActionSpec action = getSelectedAction();
+    return switch (action.type()) {
+      case LOAD_MENU -> {
+        loadSelected();
+        yield true;
+      }
+      case BACK -> {
+        if (engine != null) {
+          engine.scenes().pop();
+        }
+        yield true;
+      }
+      case QUIT -> {
+        if (engine != null) {
+          engine.stop();
+        }
+        yield true;
+      }
+      case NOOP -> true;
+      default -> {
+        loadSelected();
+        yield true;
+      }
+    };
   }
 
   public String getSaveDirectory() { return saveManager.getSaveDirectory(); }
@@ -287,6 +324,34 @@ public class LoadMenuScene implements Scene {
 
   @Override
   public void update(long deltaMs) { }
+
+  private MenuStyleSpec styleForItemId(String... ids) {
+    if (ids == null || ids.length == 0) return null;
+    for (String id : ids) {
+      if (id == null || id.isBlank()) continue;
+      for (MenuItemSpec item : menuScreen.items()) {
+        if (item != null && id.equalsIgnoreCase(item.id())) {
+          if (item.styleId() != null && !item.styleId().isBlank()) {
+            return menuProfile.style(item.styleId());
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private MenuActionSpec actionForItemId(String... ids) {
+    if (ids == null || ids.length == 0) return null;
+    for (String id : ids) {
+      if (id == null || id.isBlank()) continue;
+      for (MenuItemSpec item : menuScreen.items()) {
+        if (item != null && id.equalsIgnoreCase(item.id())) {
+          return item.action();
+        }
+      }
+    }
+    return null;
+  }
 
   private String resolveDisplayText(String raw) {
     if (raw == null || raw.isBlank()) return null;
