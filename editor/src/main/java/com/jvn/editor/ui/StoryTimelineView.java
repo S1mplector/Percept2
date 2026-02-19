@@ -70,10 +70,10 @@ public class StoryTimelineView extends BorderPane {
       }
     }
     if (sb.length() == 0) {
-      Alert a = new Alert(Alert.AlertType.INFORMATION, "Timeline OK"); a.setHeaderText(null); a.setTitle("Validate"); a.showAndWait();
+      Alert a = new Alert(Alert.AlertType.INFORMATION, "Timeline OK"); EditorTheme.apply(a); a.setHeaderText(null); a.setTitle("Validate"); a.showAndWait();
     } else {
       TextArea ta = new TextArea(sb.toString()); ta.setEditable(false); ta.setWrapText(true);
-      Dialog<Void> dlg = new Dialog<>(); dlg.setTitle("Validation Issues"); dlg.getDialogPane().setContent(ta); dlg.getDialogPane().getButtonTypes().add(ButtonType.OK); dlg.showAndWait();
+      Dialog<Void> dlg = new Dialog<>(); EditorTheme.apply(dlg); dlg.setTitle("Validation Issues"); dlg.getDialogPane().setContent(ta); dlg.getDialogPane().getButtonTypes().add(ButtonType.OK); dlg.showAndWait();
     }
   }
 
@@ -217,6 +217,7 @@ public class StoryTimelineView extends BorderPane {
 
   private void addArc() {
     TextInputDialog dlg = new TextInputDialog("Arc");
+    EditorTheme.apply(dlg);
     dlg.setHeaderText(null); dlg.setTitle("Arc Name"); dlg.setContentText("Name:");
     var res = dlg.showAndWait(); if (res.isEmpty()) return; String name = res.get().trim(); if (name.isEmpty()) return;
     FileChooser fc = new FileChooser();
@@ -225,6 +226,7 @@ public class StoryTimelineView extends BorderPane {
     File f = fc.showOpenDialog(getScene() == null ? null : getScene().getWindow());
     if (f == null) return;
     TextInputDialog ldlg = new TextInputDialog("");
+    EditorTheme.apply(ldlg);
     ldlg.setHeaderText(null); ldlg.setTitle("Entry Label"); ldlg.setContentText("Label (optional):");
     var lres = ldlg.showAndWait(); String label = lres.isEmpty() ? "" : lres.get().trim();
     Arc a = new Arc(); a.name = name; a.script = toRelative(f); a.entryLabel = label;
@@ -244,7 +246,7 @@ public class StoryTimelineView extends BorderPane {
     g.addRow(1, new Label("From Label"), fromLabel);
     g.addRow(2, new Label("To Arc"), toArc);
     g.addRow(3, new Label("To Label"), toLabel);
-    Dialog<ButtonType> dlg = new Dialog<>(); dlg.setTitle("Add Link"); dlg.getDialogPane().setContent(g); dlg.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+    Dialog<ButtonType> dlg = new Dialog<>(); EditorTheme.apply(dlg); dlg.setTitle("Add Link"); dlg.getDialogPane().setContent(g); dlg.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
     var res = dlg.showAndWait(); if (res.isEmpty() || res.get() != ButtonType.OK) return;
     Arc fa = fromArc.getValue(); Arc ta = toArc.getValue(); if (fa == null || ta == null) return;
     Link l = new Link(); l.fromArc = fa.name; l.fromLabel = fromLabel.getText(); l.toArc = ta.name; l.toLabel = toLabel.getText();
@@ -347,9 +349,11 @@ public class StoryTimelineView extends BorderPane {
   private void addArcFromFile(File f) {
     if (f == null) return;
     TextInputDialog dlg = new TextInputDialog(stripExt(f.getName()));
+    EditorTheme.apply(dlg);
     dlg.setHeaderText(null); dlg.setTitle("Arc Name"); dlg.setContentText("Name:");
     var res = dlg.showAndWait(); if (res.isEmpty()) return; String name = res.get().trim(); if (name.isEmpty()) return;
     TextInputDialog ldlg = new TextInputDialog("");
+    EditorTheme.apply(ldlg);
     ldlg.setHeaderText(null); ldlg.setTitle("Entry Label"); ldlg.setContentText("Label (optional):");
     var lres = ldlg.showAndWait(); String label = lres.isEmpty() ? "" : lres.get().trim();
     Arc a = new Arc(); a.name = name; a.script = toRelative(f); a.entryLabel = label;

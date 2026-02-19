@@ -42,10 +42,11 @@ public class NewProjectWizard extends Stage {
   private Label lblPreview;
   
   // Theme colors
-  private static final String BG_DARK = "#1a1a2e";
-  private static final String BG_CARD = "#252540";
+  private static final String BG_DARK = "#0f0f10";
+  private static final String BG_CARD = "#17181a";
+  private static final String BG_FIELD = "#2a2a2a";
   private static final String ACCENT = "#4a9eff";
-  private static final String TEXT_SECONDARY = "#a0a0b0";
+  private static final String TEXT_SECONDARY = "#9aa0a6";
   
   public NewProjectWizard(Stage owner) {
     initOwner(owner);
@@ -74,6 +75,7 @@ public class NewProjectWizard extends Stage {
     root.setBottom(footer);
     
     Scene scene = new Scene(root);
+    EditorTheme.apply(scene);
     setScene(scene);
   }
   
@@ -124,7 +126,7 @@ public class NewProjectWizard extends Stage {
     titleLabel.setTextFill(Color.web(ACCENT));
     
     Separator sep = new Separator();
-    sep.setStyle("-fx-background-color: #3a3a5a;");
+    sep.setStyle("-fx-background-color: #333333;");
     
     section.getChildren().addAll(titleLabel, sep, content);
     return section;
@@ -149,7 +151,7 @@ public class NewProjectWizard extends Stage {
     txtLocation = createTextField(System.getProperty("user.home") + "/JVN Projects");
     txtLocation.setPrefWidth(350);
     Button btnBrowse = new Button("Browse...");
-    btnBrowse.setStyle("-fx-background-color: #3a3a5a; -fx-text-fill: white;");
+    btnBrowse.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
     btnBrowse.setOnAction(e -> browseLocation());
     HBox locationBox = new HBox(8, txtLocation, btnBrowse);
     HBox.setHgrow(txtLocation, Priority.ALWAYS);
@@ -184,7 +186,7 @@ public class NewProjectWizard extends Stage {
       "800x600 (SVGA)"
     );
     cmbResolution.setValue("1280x720 (HD)");
-    cmbResolution.setStyle("-fx-background-color: #3a3a5a; -fx-text-fill: white;");
+    cmbResolution.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
     cmbResolution.setPrefWidth(200);
     
     // Theme
@@ -200,7 +202,7 @@ public class NewProjectWizard extends Stage {
       "Custom"
     );
     cmbTheme.setValue("Dark Elegant");
-    cmbTheme.setStyle("-fx-background-color: #3a3a5a; -fx-text-fill: white;");
+    cmbTheme.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
     cmbTheme.setPrefWidth(200);
     
     // Preview
@@ -280,7 +282,7 @@ public class NewProjectWizard extends Stage {
     txtDescription.setPromptText("A visual novel about...");
     txtDescription.setPrefRowCount(3);
     txtDescription.setWrapText(true);
-    txtDescription.setStyle("-fx-background-color: #3a3a5a; -fx-text-fill: white; -fx-control-inner-background: #3a3a5a;");
+    txtDescription.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white; -fx-control-inner-background: " + BG_FIELD + ";");
     
     box.getChildren().addAll(info, txtDescription);
     return box;
@@ -294,7 +296,7 @@ public class NewProjectWizard extends Stage {
     
     Button btnCancel = new Button("Cancel");
     btnCancel.setPrefWidth(100);
-    btnCancel.setStyle("-fx-background-color: #3a3a5a; -fx-text-fill: white;");
+    btnCancel.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
     btnCancel.setOnAction(e -> close());
     
     Button btnCreate = new Button("Create Project");
@@ -324,7 +326,7 @@ public class NewProjectWizard extends Stage {
   
   private TextField createTextField(String defaultValue) {
     TextField tf = new TextField(defaultValue);
-    tf.setStyle("-fx-background-color: #3a3a5a; -fx-text-fill: white;");
+    tf.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
     tf.setPrefWidth(250);
     return tf;
   }
@@ -617,6 +619,7 @@ public class NewProjectWizard extends Stage {
   
   private void showError(String message) {
     Alert alert = new Alert(Alert.AlertType.ERROR);
+    EditorTheme.apply(alert);
     alert.setTitle("Error");
     alert.setHeaderText(null);
     alert.setContentText(message);

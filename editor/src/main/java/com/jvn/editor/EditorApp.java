@@ -11,6 +11,7 @@ import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.InspectorView;
+import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.SceneGraphView;
 import com.jvn.editor.ui.SettingsEditorView;
@@ -112,6 +113,7 @@ public class EditorApp extends Application {
     } catch (Exception ex) {
       status.setText("Load failed");
       Alert a = new Alert(Alert.AlertType.ERROR, "Failed to load: " + ex.getMessage());
+      EditorTheme.apply(a);
       a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
     }
   }
@@ -208,7 +210,9 @@ public class EditorApp extends Application {
       javafx.scene.control.TextArea ta = new javafx.scene.control.TextArea();
       ta.setEditable(false);
       logStage.setTitle(title);
-      logStage.setScene(new javafx.scene.Scene(new javafx.scene.layout.BorderPane(ta), 800, 500));
+      javafx.scene.Scene logScene = new javafx.scene.Scene(new javafx.scene.layout.BorderPane(ta), 800, 500);
+      EditorTheme.apply(logScene);
+      logStage.setScene(logScene);
       logStage.show();
       Thread t = new Thread(() -> {
         try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
@@ -255,6 +259,7 @@ public class EditorApp extends Application {
     File f = new File(absolutePath);
     if (!f.exists()) {
       Alert a = new Alert(Alert.AlertType.ERROR, "Sample not found: " + absolutePath);
+      EditorTheme.apply(a);
       a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
       return;
     }
@@ -348,7 +353,6 @@ public class EditorApp extends Application {
     perf = new TextFlow(cpuText, gpuText, ramText, fpsText);
     perf.setLineSpacing(2);
     perfGraph = new PerfGraph();
-    btnOpen.setTooltip(new Tooltip("Open JES (Cmd+O)"));
     btnOpen.setTooltip(new Tooltip("Open Project"));
     btnSave.setTooltip(new Tooltip("Save (Cmd+S)"));
     btnUndo.setTooltip(new Tooltip("Undo (Cmd+Z)"));
@@ -530,6 +534,7 @@ public class EditorApp extends Application {
     } catch (Exception ex) {
       status.setText("Load failed");
       Alert a = new Alert(Alert.AlertType.ERROR, "Failed to load: " + ex.getMessage());
+      EditorTheme.apply(a);
       a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
     }
   }
@@ -588,6 +593,7 @@ public class EditorApp extends Application {
     } catch (Exception ex) {
       status.setText("Apply failed");
       Alert a = new Alert(Alert.AlertType.ERROR, "Failed to apply code: " + ex.getMessage());
+      EditorTheme.apply(a);
       a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
     }
   }
@@ -613,6 +619,7 @@ public class EditorApp extends Application {
     } catch (Exception ex) {
       status.setText("Save As failed");
       Alert a = new Alert(Alert.AlertType.ERROR, "Failed to save as: " + ex.getMessage());
+      EditorTheme.apply(a);
       a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
     }
   }

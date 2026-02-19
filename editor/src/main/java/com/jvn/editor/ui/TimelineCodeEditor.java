@@ -231,6 +231,7 @@ public class TimelineCodeEditor extends BorderPane {
     Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
     if (names.isEmpty()) return;
     ChoiceDialog<String> dlg = new ChoiceDialog<>(names.get(0), names);
+    EditorTheme.apply(dlg);
     dlg.setHeaderText(null); dlg.setTitle("Choose Arc"); dlg.setContentText("Arc:");
     var r = dlg.showAndWait();
     if (r.isPresent()) code.replaceText(start, end, r.get());
@@ -242,6 +243,7 @@ public class TimelineCodeEditor extends BorderPane {
     List<String> labs = listLabels(f);
     if (labs.isEmpty()) return;
     ChoiceDialog<String> dlg = new ChoiceDialog<>(labs.get(0), labs);
+    EditorTheme.apply(dlg);
     dlg.setHeaderText(null); dlg.setTitle("Choose Label"); dlg.setContentText("Label:");
     var r = dlg.showAndWait();
     if (r.isPresent()) code.replaceText(is.start, is.end, r.get());

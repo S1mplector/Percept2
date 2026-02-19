@@ -195,3 +195,33 @@
   -fx-border-color: #1a1a1a;
   -fx-border-width: 0 0 1 0;
 }
+
+/* Dialogs */
+.dialog-pane,
+.dialog-pane.jvn-dialog {
+  -fx-background-color: #101010;
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 1;
+}
+
+.dialog-pane:header .header-panel {
+  -fx-background-color: #151515;
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 0 0 1 0;
+}
+
+.dialog-pane:header .header-panel .label,
+.dialog-pane .content.label,
+.dialog-pane .label {
+  -fx-text-fill: #e6e6e6;
+}
+
+.dialog-pane > .content {
+  -fx-background-color: #101010;
+}
+
+.dialog-pane .button-bar .container {
+  -fx-background-color: #151515;
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 1 0 0 0;
+}

@@ -232,6 +232,7 @@ public class StoryGraphPane extends Pane {
       MenuItem miCluster = new MenuItem("Set Cluster...");
       miCluster.setOnAction(e -> {
         javafx.scene.control.TextInputDialog dlg = new javafx.scene.control.TextInputDialog(a.cluster == null ? "" : a.cluster);
+        EditorTheme.apply(dlg);
         dlg.setHeaderText(null); dlg.setTitle("Cluster"); dlg.setContentText("Cluster name:");
         var r = dlg.showAndWait();
         if (r.isPresent()) {
@@ -252,6 +253,7 @@ public class StoryGraphPane extends Pane {
             // Rename arc on double click
             String old = nv.arc.name;
             javafx.scene.control.TextInputDialog dlg = new javafx.scene.control.TextInputDialog(old == null ? "" : old);
+            EditorTheme.apply(dlg);
             dlg.setHeaderText(null); dlg.setTitle("Rename Arc"); dlg.setContentText("Arc name:");
             var res = dlg.showAndWait();
             if (res.isPresent()) {
@@ -418,6 +420,7 @@ public class StoryGraphPane extends Pane {
   private void finishLinking(NodeView target) {
     if (linkingFrom == null || target == null || linkingFrom == target) { cancelLinking(); return; }
     javafx.scene.control.TextInputDialog dlg = new javafx.scene.control.TextInputDialog("");
+    EditorTheme.apply(dlg);
     dlg.setHeaderText(null); dlg.setTitle("Link Label (optional)"); dlg.setContentText("To Label:");
     var res = dlg.showAndWait(); String toLabel = res.isPresent() ? res.get().trim() : "";
     StoryTimelineView.Link l = new StoryTimelineView.Link();
