@@ -208,7 +208,7 @@ public class StoryTimelineView extends BorderPane {
   public void setOnRunArc(Consumer<Arc> c) { this.onRunArc = c; }
   public void setOnRunLink(Consumer<Link> c) { this.onRunLink = c; }
   public void setOnChanged(Runnable r) { this.onChanged = r; }
-  public void setTimelineFile(File f) { this.timelineFile = f; }
+  public void setTimelineFile(File f) { this.timelineFile = f; load(); refreshGraph(); }
   public List<Arc> getArcs() { return new ArrayList<>(arcs.getItems()); }
   public List<Link> getLinks() { return new ArrayList<>(links.getItems()); }
   public Arc findArc(String name) {

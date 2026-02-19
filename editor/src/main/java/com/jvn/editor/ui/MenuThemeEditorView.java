@@ -94,7 +94,11 @@ public class MenuThemeEditorView extends BorderPane {
 
   private File themeFile() {
     if (projectRoot == null) return null;
-    return new File(projectRoot, "scripts/menu.theme");
+    File configured = resolvePathFromManifest("menuTheme", "scripts/menu.theme");
+    if (configured.exists()) return configured;
+    // Compatibility with older projects.
+    File legacy = new File(projectRoot, "scripts/menu.theme");
+    return legacy.exists() ? legacy : configured;
   }
 
   private void setDefaults() {
@@ -181,6 +185,20 @@ public class MenuThemeEditorView extends BorderPane {
       tfLabelQuit.setText(p.getProperty("label.quit", ""));
     } catch (Exception ignored) {
       setDefaults();
+    }
+  }
+
+  private File resolvePathFromManifest(String key, String fallback) {
+    File manifest = new File(projectRoot, "jvn.project");
+    if (!manifest.exists()) return new File(projectRoot, fallback);
+    Properties p = new Properties();
+    try (FileInputStream fis = new FileInputStream(manifest)) {
+      p.load(fis);
+      String rel = p.getProperty(key, fallback).trim();
+      if (rel.isEmpty()) rel = fallback;
+      return new File(projectRoot, rel);
+    } catch (Exception ignored) {
+      return new File(projectRoot, fallback);
     }
   }
 }

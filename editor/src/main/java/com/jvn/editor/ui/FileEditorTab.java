@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.nio.file.Files;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import com.jvn.core.scene2d.Entity2D;
@@ -28,6 +29,7 @@ public class FileEditorTab extends BorderPane {
   private final JesCodeEditor jesEditor;
   private final VnsCodeEditor vnsEditor;
   private final JavaCodeEditor javaEditor;
+  private final JavaCodeEditor textEditor;
   private final TimelineCodeEditor timelineEditor;
   private final JavaCodeEditor themeEditor;
   private final StoryTimelineView timelineView;
@@ -42,6 +44,7 @@ public class FileEditorTab extends BorderPane {
   private Consumer<String> onStatus;
   private com.jvn.editor.commands.CommandStack commands;
   private File projectRoot;
+  private String savedSnapshot = "";
 
   public FileEditorTab(File file) {
     this.file = file;
@@ -56,6 +59,7 @@ public class FileEditorTab extends BorderPane {
     this.jesEditor = (kind == Kind.JES) ? new JesCodeEditor() : null;
     this.vnsEditor = (kind == Kind.VNS) ? new VnsCodeEditor() : null;
     this.javaEditor = (kind == Kind.JAVA) ? new JavaCodeEditor() : null;
+    this.textEditor = (kind == Kind.OTHER) ? new JavaCodeEditor() : null;
     this.timelineEditor = (kind == Kind.TIMELINE) ? new TimelineCodeEditor() : null;
     this.themeEditor = (kind == Kind.THEME) ? new JavaCodeEditor() : null;
     this.timelineView = (kind == Kind.TIMELINE) ? new StoryTimelineView() : null;
@@ -72,6 +76,7 @@ public class FileEditorTab extends BorderPane {
     setupLayout();
 
     if (file != null && file.exists()) reloadFromDisk();
+    else savedSnapshot = getCurrentText();
 
     // Key forwarding for JES viewport camera controls
     addEventFilter(KeyEvent.KEY_PRESSED, e -> {
@@ -137,6 +142,8 @@ public class FileEditorTab extends BorderPane {
         themePreview.setThemeFromText(text);
         themeEditor.setOnTextChanged(t -> themePreview.setThemeFromText(t));
       }
+    } else if (kind == Kind.OTHER) {
+      setCenter(textEditor);
     } else {
       setCenter(new javafx.scene.control.Label("Unsupported file type"));
     }
@@ -235,7 +242,11 @@ public class FileEditorTab extends BorderPane {
       } else if (kind == Kind.JAVA) {
         String code = Files.readString(file.toPath());
         javaEditor.setText(code);
+      } else if (kind == Kind.OTHER && textEditor != null) {
+        String code = Files.readString(file.toPath());
+        textEditor.setText(code);
       }
+      savedSnapshot = getCurrentText();
       if (onStatus != null) onStatus.accept("Reloaded: " + file.getName());
     } catch (Exception ex) {
       if (onStatus != null) onStatus.accept("Reload failed: " + ex.getMessage());
@@ -259,11 +270,23 @@ public class FileEditorTab extends BorderPane {
       } else if (kind == Kind.JAVA) {
         String content = javaEditor.getText();
         try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
+      } else if (kind == Kind.OTHER && textEditor != null) {
+        String content = textEditor.getText();
+        try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
       }
+      savedSnapshot = getCurrentText();
       if (onStatus != null) onStatus.accept("Saved: " + target.getName());
     } catch (Exception ex) {
       if (onStatus != null) onStatus.accept("Save failed");
     }
+  }
+
+  public boolean isDirty() {
+    return !Objects.equals(savedSnapshot, getCurrentText());
+  }
+
+  public String getDisplayName() {
+    return file != null ? file.getName() : "Untitled";
   }
 
   public JesScene2D getJesScene() { return jesScene; }
@@ -274,12 +297,23 @@ public class FileEditorTab extends BorderPane {
     if (kind == Kind.VNS) return vnsEditor;
     if (kind == Kind.JAVA) return javaEditor;
     if (kind == Kind.TIMELINE) return timelineEditor;
+    if (kind == Kind.OTHER) return textEditor;
     return null;
   }
 
   public void setShowGrid(boolean b) { if (viewport != null) viewport.setShowGrid(b); }
   public void fitToContent() { if (viewport != null) viewport.fitToContent(); }
   public void focusEditor() { Node ed = getEditorNode(); if (ed != null) ed.requestFocus(); }
+
+  private String getCurrentText() {
+    if (kind == Kind.JES && jesEditor != null) return jesEditor.getText();
+    if (kind == Kind.VNS && vnsEditor != null) return vnsEditor.getText();
+    if (kind == Kind.TIMELINE && timelineEditor != null) return timelineEditor.getText();
+    if (kind == Kind.THEME && themeEditor != null) return themeEditor.getText();
+    if (kind == Kind.JAVA && javaEditor != null) return javaEditor.getText();
+    if (kind == Kind.OTHER && textEditor != null) return textEditor.getText();
+    return "";
+  }
 
   private static String mapKey(KeyCode code) {
     if (code == null) return "";

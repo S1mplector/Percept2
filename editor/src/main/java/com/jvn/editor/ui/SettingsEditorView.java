@@ -91,7 +91,8 @@ public class SettingsEditorView extends BorderPane {
   }
 
   private void save() {
-    if (projectRoot == null) return;
+    File f = settingsFile();
+    if (f == null) return;
     Properties p = new Properties();
     SettingsModel s = toModel();
     p.setProperty("textSpeed", Integer.toString(s.getTextSpeed()));
@@ -101,14 +102,16 @@ public class SettingsEditorView extends BorderPane {
     p.setProperty("autoPlayDelay", Long.toString(s.getAutoPlayDelay()));
     p.setProperty("skipUnread", Boolean.toString(s.isSkipUnreadText()));
     p.setProperty("skipAfterChoices", Boolean.toString(s.isSkipAfterChoices()));
-    File f = new File(projectRoot, "vn.settings");
-    try (FileOutputStream fos = new FileOutputStream(f)) { p.store(fos, "VN Settings"); } catch (Exception ignored) {}
+    try {
+      File parent = f.getParentFile();
+      if (parent != null) parent.mkdirs();
+      try (FileOutputStream fos = new FileOutputStream(f)) { p.store(fos, "VN Settings"); }
+    } catch (Exception ignored) {}
   }
 
   private void load() {
-    if (projectRoot == null) return;
-    File f = new File(projectRoot, "vn.settings");
-    if (!f.exists()) return;
+    File f = settingsFile();
+    if (f == null || !f.exists()) return;
     Properties p = new Properties();
     try (FileInputStream fis = new FileInputStream(f)) { p.load(fis); } catch (Exception ignored) {}
     SettingsModel s = new SettingsModel();
@@ -120,5 +123,28 @@ public class SettingsEditorView extends BorderPane {
     s.setSkipUnreadText(Boolean.parseBoolean(p.getProperty("skipUnread", "false")));
     s.setSkipAfterChoices(Boolean.parseBoolean(p.getProperty("skipAfterChoices", "false")));
     setFromModel(s);
+  }
+
+  private File settingsFile() {
+    if (projectRoot == null) return null;
+    File configured = resolvePathFromManifest("settingsFile", "vn.settings");
+    if (configured.exists()) return configured;
+    // Compatibility with older projects.
+    File legacy = new File(projectRoot, "vn.settings");
+    return legacy.exists() ? legacy : configured;
+  }
+
+  private File resolvePathFromManifest(String key, String fallback) {
+    File manifest = new File(projectRoot, "jvn.project");
+    if (!manifest.exists()) return new File(projectRoot, fallback);
+    Properties p = new Properties();
+    try (FileInputStream fis = new FileInputStream(manifest)) {
+      p.load(fis);
+      String rel = p.getProperty(key, fallback).trim();
+      if (rel.isEmpty()) rel = fallback;
+      return new File(projectRoot, rel);
+    } catch (Exception ignored) {
+      return new File(projectRoot, fallback);
+    }
   }
 }

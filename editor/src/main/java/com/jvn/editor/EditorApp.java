@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
+import java.util.Optional;
 import java.util.Properties;
 
 import com.jvn.core.scene2d.Entity2D;
@@ -29,6 +31,8 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -97,6 +101,11 @@ public class EditorApp extends Application {
   private static final Color RAM_COLOR = Color.web("#49a5ff");
   private static final Color GRID_BG = Color.color(0.08, 0.08, 0.08, 0.8);
   private static final Color GRID_LINE = Color.color(1, 1, 1, 0.08);
+  private static final String[] EDITABLE_EXTENSIONS = new String[] {
+      ".jes", ".txt", ".vns", ".java", ".timeline", ".theme",
+      ".settings", ".project", ".properties", ".md", ".json",
+      ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml", ".csv", ".tsv"
+  };
 
   public static void main(String[] args) {
     launch(args);
@@ -131,14 +140,21 @@ public class EditorApp extends Application {
       runGradle(root, composeGradleTask(path, task), args == null ? new String[]{} : args.split("\\s+"), "Run Project");
     } else if ("vn".equalsIgnoreCase(type)) {
       // Open entry VNS and start preview from its label
-      String entryVns = mf.getProperty("entryVns", "scripts/prologue.vns");
+      String entryVns = mf.getProperty("entryVns", "scripts/story/prologue.vns");
       String entryLabel = mf.getProperty("entryLabel", "start");
       File f = new File(root, entryVns);
+      if (!f.exists() && "scripts/story/prologue.vns".equals(entryVns)) {
+        f = new File(root, "scripts/prologue.vns");
+      }
       if (f.exists()) {
         // Set project root first so newly opened tabs inherit it
         this.projectRoot = root;
         if (projView != null) projView.setRootDirectory(root);
-        if (timelineView != null) timelineView.setProjectRoot(root);
+        if (timelineView != null) {
+          String tf = mf.getProperty("timeline", "story.timeline");
+          timelineView.setTimelineFile(new File(root, tf));
+          timelineView.setProjectRoot(root);
+        }
         if (settingsEditor != null) settingsEditor.setProjectRoot(root);
         openVnsFile(f);
         applyProjectRootToTabs();
@@ -168,8 +184,13 @@ public class EditorApp extends Application {
       root = dc.showDialog(stage);
       if (root == null) return null;
       this.projectRoot = root;
+      Properties mf = loadManifest(root);
       if (projView != null) projView.setRootDirectory(root);
-      if (timelineView != null) timelineView.setProjectRoot(root);
+      if (timelineView != null) {
+        String tf = mf != null ? mf.getProperty("timeline", "story.timeline") : "story.timeline";
+        timelineView.setTimelineFile(new File(root, tf));
+        timelineView.setProjectRoot(root);
+      }
       if (settingsEditor != null) settingsEditor.setProjectRoot(root);
       if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(root);
       if (mapEditorView != null) mapEditorView.setProjectRoot(root);
@@ -238,15 +259,22 @@ public class EditorApp extends Application {
     this.projectRoot = projectDir;
     if (projView != null) projView.setRootDirectory(projectDir);
     if (timelineView != null) {
+      Properties mf = loadManifest(projectDir);
+      String tf = (mf != null) ? mf.getProperty("timeline", "story.timeline") : "story.timeline";
+      timelineView.setTimelineFile(new File(projectDir, tf));
       timelineView.setProjectRoot(projectDir);
-      timelineView.setTimelineFile(new File(projectDir, "story.timeline"));
     }
     if (settingsEditor != null) settingsEditor.setProjectRoot(projectDir);
     if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(projectDir);
     if (mapEditorView != null) mapEditorView.setProjectRoot(projectDir);
     
     // Open the entry script
-    File entryScript = new File(projectDir, "scripts/prologue.vns");
+    Properties mf = loadManifest(projectDir);
+    String entryRel = (mf != null) ? mf.getProperty("entryVns", "scripts/story/prologue.vns") : "scripts/story/prologue.vns";
+    File entryScript = new File(projectDir, entryRel);
+    if (!entryScript.exists() && "scripts/story/prologue.vns".equals(entryRel)) {
+      entryScript = new File(projectDir, "scripts/prologue.vns");
+    }
     if (entryScript.exists()) {
       openFile(entryScript);
     }
@@ -284,14 +312,19 @@ public class EditorApp extends Application {
     miOpen.setOnAction(e -> doOpen(primaryStage));
     MenuItem miOpenVns = new MenuItem("Open VNS...");
     miOpenVns.setOnAction(e -> doOpenVns(primaryStage));
+    MenuItem miCloseTab = new MenuItem("Close Tab");
+    miCloseTab.setOnAction(e -> closeActiveTab());
     MenuItem miSave = new MenuItem("Save");
     miSave.setOnAction(e -> doSave(primaryStage));
     MenuItem miSaveAs = new MenuItem("Save As...");
     miSaveAs.setOnAction(e -> doSaveAs(primaryStage));
-    miOpen.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN));
+    miOpenProject.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN));
+    miOpen.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+    miOpenVns.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN));
     miSave.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN));
     miSaveAs.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
-    menuFile.getItems().addAll(miNewProject, miOpenProject, new SeparatorMenuItem(), miOpen, miOpenVns, miSave, miSaveAs);
+    miCloseTab.setAccelerator(new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN));
+    menuFile.getItems().addAll(miNewProject, miOpenProject, new SeparatorMenuItem(), miOpen, miOpenVns, miSave, miSaveAs, miCloseTab);
 
     Menu menuCode = new Menu("Code");
     MenuItem miApplyCode = new MenuItem("Apply Code");
@@ -353,7 +386,7 @@ public class EditorApp extends Application {
     perf = new TextFlow(cpuText, gpuText, ramText, fpsText);
     perf.setLineSpacing(2);
     perfGraph = new PerfGraph();
-    btnOpen.setTooltip(new Tooltip("Open Project"));
+    btnOpen.setTooltip(new Tooltip("Open Project (Cmd+O)"));
     btnSave.setTooltip(new Tooltip("Save (Cmd+S)"));
     btnUndo.setTooltip(new Tooltip("Undo (Cmd+Z)"));
     btnRedo.setTooltip(new Tooltip("Redo (Shift+Cmd+Z)"));
@@ -457,8 +490,7 @@ public class EditorApp extends Application {
     projView = new ProjectExplorerView();
     projView.setOnOpenFile(f -> {
       if (f == null) return;
-      String name = f.getName().toLowerCase();
-      if (name.endsWith(".jes") || name.endsWith(".txt") || name.endsWith(".vns") || name.endsWith(".java") || name.endsWith(".timeline") || name.endsWith(".theme") || "menu.theme".equals(name)) {
+      if (isEditableFile(f)) {
         openFile(f);
       } else {
         try { java.awt.Desktop.getDesktop().open(f); } catch (Exception ignored) {}
@@ -483,6 +515,9 @@ public class EditorApp extends Application {
       scene.getStylesheets().add(css);
     } catch (Exception ignore) {}
     primaryStage.setScene(scene);
+    primaryStage.setOnCloseRequest(e -> {
+      if (!confirmCloseAllTabs()) e.consume();
+    });
     primaryStage.show();
     scene.setOnDragOver((DragEvent e) -> {
       Dragboard db = e.getDragboard();
@@ -513,6 +548,7 @@ public class EditorApp extends Application {
           ft.setSize(filesTabs.getWidth(), filesTabs.getHeight());
           ft.render(dt);
         }
+        refreshTabDirtyIndicators();
     if (fps != null) {
       double f = (dt > 0) ? (1000.0 / dt) : 0.0;
       lastFps = f;
@@ -545,8 +581,13 @@ public class EditorApp extends Application {
     File dir = dc.showDialog(stage);
     if (dir == null) return;
     this.projectRoot = dir;
+    Properties mf = loadManifest(dir);
     if (projView != null) projView.setRootDirectory(dir);
-    if (timelineView != null) { timelineView.setProjectRoot(dir); String tf = loadManifest(dir) != null ? loadManifest(dir).getProperty("timeline", "story.timeline") : "story.timeline"; timelineView.setTimelineFile(new File(dir, tf)); }
+    if (timelineView != null) {
+      String tf = mf != null ? mf.getProperty("timeline", "story.timeline") : "story.timeline";
+      timelineView.setTimelineFile(new File(dir, tf));
+      timelineView.setProjectRoot(dir);
+    }
     if (settingsEditor != null) settingsEditor.setProjectRoot(dir);
     if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(dir);
     if (mapEditorView != null) mapEditorView.setProjectRoot(dir);
@@ -609,6 +650,7 @@ public class EditorApp extends Application {
   private void doSaveAs(Stage stage) {
     try {
       FileEditorTab ft = getActiveFileTab(); if (ft == null) return;
+      Tab currentTab = filesTabs != null ? filesTabs.getSelectionModel().getSelectedItem() : null;
       FileChooser fc = new FileChooser();
       fc.setTitle("Save File");
       if (ft.getFile() != null) fc.setInitialFileName(ft.getFile().getName());
@@ -616,6 +658,7 @@ public class EditorApp extends Application {
       if (f == null) return;
       ft.saveTo(f);
       openFile(f);
+      if (currentTab != null && filesTabs != null) filesTabs.getTabs().remove(currentTab);
     } catch (Exception ex) {
       status.setText("Save As failed");
       Alert a = new Alert(Alert.AlertType.ERROR, "Failed to save as: " + ex.getMessage());
@@ -768,6 +811,69 @@ public class EditorApp extends Application {
     return r;
   }
 
+  private boolean isEditableFile(File f) {
+    if (f == null || !f.isFile()) return false;
+    String name = f.getName().toLowerCase();
+    if ("menu.theme".equals(name) || "jvn.project".equals(name) || "vn.settings".equals(name)) return true;
+    for (String ext : EDITABLE_EXTENSIONS) {
+      if (name.endsWith(ext)) return true;
+    }
+    return false;
+  }
+
+  private void closeActiveTab() {
+    if (filesTabs == null) return;
+    Tab active = filesTabs.getSelectionModel().getSelectedItem();
+    if (active == null) return;
+    if (active.getContent() instanceof FileEditorTab ft && !confirmCanCloseFileTab(ft)) return;
+    filesTabs.getTabs().remove(active);
+  }
+
+  private boolean confirmCloseAllTabs() {
+    if (filesTabs == null) return true;
+    for (Tab tab : new ArrayList<>(filesTabs.getTabs())) {
+      if (tab.getContent() instanceof FileEditorTab ft) {
+        if (!confirmCanCloseFileTab(ft)) return false;
+      }
+    }
+    return true;
+  }
+
+  private boolean confirmCanCloseFileTab(FileEditorTab ft) {
+    if (ft == null || !ft.isDirty()) return true;
+    ButtonType save = new ButtonType("Save", ButtonBar.ButtonData.YES);
+    ButtonType discard = new ButtonType("Discard", ButtonBar.ButtonData.NO);
+    Alert a = new Alert(Alert.AlertType.CONFIRMATION);
+    EditorTheme.apply(a);
+    a.setTitle("Unsaved Changes");
+    a.setHeaderText("Save changes to " + ft.getDisplayName() + "?");
+    a.setContentText("Your changes will be lost if you discard.");
+    a.getButtonTypes().setAll(save, discard, ButtonType.CANCEL);
+    Optional<ButtonType> r = a.showAndWait();
+    if (r.isEmpty() || r.get() == ButtonType.CANCEL) return false;
+    if (r.get() == discard) return true;
+    File f = ft.getFile();
+    if (f == null) return false;
+    ft.saveTo(f);
+    refreshTabDirtyIndicators();
+    return !ft.isDirty();
+  }
+
+  private void refreshTabDirtyIndicators() {
+    if (filesTabs == null) return;
+    for (Tab t : filesTabs.getTabs()) {
+      if (t.getContent() instanceof FileEditorTab ft) {
+        updateTabTitle(t, ft);
+      }
+    }
+  }
+
+  private void updateTabTitle(Tab tab, FileEditorTab ft) {
+    if (tab == null || ft == null) return;
+    String base = ft.getDisplayName();
+    tab.setText(ft.isDirty() ? (base + " *") : base);
+  }
+
   private void openFile(File f) {
     if (f == null) return;
     // Find existing tab
@@ -795,10 +901,13 @@ public class EditorApp extends Application {
     });
     editor.setOnStatus(s -> status.setText(s));
     editor.setCommandStack(commands);
-    Tab tab = new Tab(f.getName(), editor);
+    Tab tab = new Tab(editor.getDisplayName(), editor);
     tab.setClosable(true);
     tab.setUserData(f);
-    tab.setOnClosed(e -> { /* nothing special for now */ });
+    updateTabTitle(tab, editor);
+    tab.setOnCloseRequest(e -> {
+      if (!confirmCanCloseFileTab(editor)) e.consume();
+    });
     filesTabs.getTabs().add(tab);
     filesTabs.getSelectionModel().select(tab);
     lastOpened = f;

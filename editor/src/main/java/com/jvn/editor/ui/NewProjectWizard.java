@@ -47,6 +47,10 @@ public class NewProjectWizard extends Stage {
   private static final String BG_FIELD = "#2a2a2a";
   private static final String ACCENT = "#4a9eff";
   private static final String TEXT_SECONDARY = "#9aa0a6";
+  private static final String ENTRY_SCRIPT_PATH = "scripts/story/prologue.vns";
+  private static final String TIMELINE_PATH = "story/story.timeline";
+  private static final String SETTINGS_PATH = "config/vn.settings";
+  private static final String MENU_THEME_PATH = "scripts/menu.theme";
   
   public NewProjectWizard(Stage owner) {
     initOwner(owner);
@@ -393,23 +397,28 @@ public class NewProjectWizard extends Stage {
     int height = Integer.parseInt(resParts[1]);
     
     // Create directories
-    new File(dir, "scripts").mkdirs();
+    new File(dir, "config").mkdirs();
+    new File(dir, "story").mkdirs();
+    new File(dir, "scripts/story").mkdirs();
+    new File(dir, "scripts/system").mkdirs();
     new File(dir, "assets/characters").mkdirs();
     new File(dir, "assets/backgrounds").mkdirs();
     new File(dir, "assets/cg").mkdirs();
     new File(dir, "assets/ui").mkdirs();
-    new File(dir, "assets/bgm").mkdirs();
-    new File(dir, "assets/sfx").mkdirs();
-    new File(dir, "assets/voices").mkdirs();
+    new File(dir, "assets/audio/bgm").mkdirs();
+    new File(dir, "assets/audio/sfx").mkdirs();
+    new File(dir, "assets/audio/voices").mkdirs();
     
     // Project manifest
     Properties manifest = new Properties();
     manifest.setProperty("name", name);
     manifest.setProperty("author", txtAuthor.getText().trim());
     manifest.setProperty("type", "vn");
-    manifest.setProperty("entryVns", "scripts/prologue.vns");
+    manifest.setProperty("entryVns", ENTRY_SCRIPT_PATH);
     manifest.setProperty("entryLabel", "start");
-    manifest.setProperty("timeline", "story.timeline");
+    manifest.setProperty("timeline", TIMELINE_PATH);
+    manifest.setProperty("settingsFile", SETTINGS_PATH);
+    manifest.setProperty("menuTheme", MENU_THEME_PATH);
     manifest.setProperty("width", String.valueOf(width));
     manifest.setProperty("height", String.valueOf(height));
     if (!txtDescription.getText().isBlank()) {
@@ -427,10 +436,10 @@ public class NewProjectWizard extends Stage {
     }
     
     // Timeline
-    try (FileWriter fw = new FileWriter(new File(dir, "story.timeline"))) {
+    try (FileWriter fw = new FileWriter(new File(dir, TIMELINE_PATH))) {
       fw.write("# Story Timeline for " + name + "\n");
       fw.write("# Author: " + txtAuthor.getText().trim() + "\n\n");
-      fw.write("arc \"Prologue\" script \"scripts/prologue.vns\" entry \"start\" at 40,40\n");
+      fw.write("arc \"Prologue\" script \"" + ENTRY_SCRIPT_PATH + "\" entry \"start\" at 40,40\n");
     }
     
     // Settings
@@ -444,7 +453,7 @@ public class NewProjectWizard extends Stage {
   }
   
   private void createSampleScript(File dir, String name) throws Exception {
-    try (FileWriter fw = new FileWriter(new File(dir, "scripts/prologue.vns"))) {
+    try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
       fw.write("# " + name + " - Prologue\n");
       fw.write("# Created with JVN Engine\n\n");
       fw.write("label start\n\n");
@@ -456,7 +465,7 @@ public class NewProjectWizard extends Stage {
       fw.write("# Example character dialogue\n");
       fw.write("# [show hero center]\n");
       fw.write("hero \"Hello! I'm the protagonist.\"\n\n");
-      fw.write("narrator \"You can edit this script in {b}scripts/prologue.vns{/b}\"\n\n");
+      fw.write("narrator \"You can edit this script in {b}" + ENTRY_SCRIPT_PATH + "{/b}\"\n\n");
       fw.write("[choice Continue->next | Exit->ending]\n\n");
       fw.write("label next\n\n");
       fw.write("narrator \"Great! You chose to continue.\"\n\n");
@@ -469,7 +478,7 @@ public class NewProjectWizard extends Stage {
   }
   
   private void createEmptyScript(File dir, String name) throws Exception {
-    try (FileWriter fw = new FileWriter(new File(dir, "scripts/prologue.vns"))) {
+    try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
       fw.write("# " + name + " - Prologue\n\n");
       fw.write("label start\n\n");
       fw.write("narrator \"" + name + " begins here...\"\n\n");
@@ -478,7 +487,7 @@ public class NewProjectWizard extends Stage {
   }
   
   private void createSettings(File dir) throws Exception {
-    try (FileOutputStream fos = new FileOutputStream(new File(dir, "vn.settings"))) {
+    try (FileOutputStream fos = new FileOutputStream(new File(dir, SETTINGS_PATH))) {
       Properties sp = new Properties();
       sp.setProperty("textSpeed", "35");
       sp.setProperty("bgm", "0.7");
@@ -566,7 +575,7 @@ public class NewProjectWizard extends Stage {
     // Title text
     tp.setProperty("titleText", name);
     
-    try (FileOutputStream fos = new FileOutputStream(new File(dir, "scripts/menu.theme"))) {
+    try (FileOutputStream fos = new FileOutputStream(new File(dir, MENU_THEME_PATH))) {
       tp.store(fos, "Menu Theme for " + name + " - " + theme);
     }
   }
@@ -585,24 +594,28 @@ public class NewProjectWizard extends Stage {
       fw.write("## Project Structure\n\n");
       fw.write("```\n");
       fw.write(name + "/\n");
-      fw.write("├── scripts/           # VNS script files\n");
-      fw.write("│   ├── prologue.vns   # Entry point script\n");
-      fw.write("│   └── menu.theme     # Title screen configuration\n");
+      fw.write("├── config/\n");
+      fw.write("│   └── vn.settings    # Project-local VN settings\n");
+      fw.write("├── story/\n");
+      fw.write("│   └── story.timeline # Visual story graph\n");
+      fw.write("├── scripts/\n");
+      fw.write("│   ├── story/\n");
+      fw.write("│   │   └── prologue.vns # Entry point script\n");
+      fw.write("│   └── menu.theme     # Title/menu configuration\n");
       fw.write("├── assets/\n");
       fw.write("│   ├── characters/    # Character sprites\n");
       fw.write("│   ├── backgrounds/   # Background images\n");
       fw.write("│   ├── cg/            # CG/event images\n");
       fw.write("│   ├── ui/            # UI elements\n");
-      fw.write("│   ├── bgm/           # Background music\n");
-      fw.write("│   ├── sfx/           # Sound effects\n");
-      fw.write("│   └── voices/        # Voice clips\n");
-      fw.write("├── story.timeline     # Visual story graph\n");
-      fw.write("├── vn.settings        # Game settings\n");
+      fw.write("│   └── audio/\n");
+      fw.write("│       ├── bgm/       # Background music\n");
+      fw.write("│       ├── sfx/       # Sound effects\n");
+      fw.write("│       └── voices/    # Voice clips\n");
       fw.write("└── jvn.project        # Project manifest\n");
       fw.write("```\n\n");
       fw.write("## Getting Started\n\n");
       fw.write("1. Open this project in the JVN Editor\n");
-      fw.write("2. Edit `scripts/prologue.vns` to write your story\n");
+      fw.write("2. Edit `scripts/story/prologue.vns` to write your story\n");
       fw.write("3. Add character sprites to `assets/characters/`\n");
       fw.write("4. Add backgrounds to `assets/backgrounds/`\n");
       fw.write("5. Press **Run Project** to preview\n\n");
