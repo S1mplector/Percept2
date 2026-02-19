@@ -16,6 +16,7 @@ import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnState;
+import com.jvn.core.vn.VnVariableInterpolator;
 import com.jvn.core.vn.text.TextEffect;
 import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
@@ -500,17 +501,18 @@ public class VnRenderer {
     gc.fillRect(0, textBoxY, width, textBoxHeight);
 
     // Draw name box if speaker exists
-    if (dialogue.getSpeakerName() != null && !dialogue.getSpeakerName().isEmpty()) {
+    String speakerName = resolveRuntimeText(dialogue.getSpeakerName());
+    if (speakerName != null && !speakerName.isEmpty()) {
       gc.setFill(NAME_BOX_COLOR);
       gc.fillRect(TEXTBOX_PADDING, textBoxY - NAME_BOX_HEIGHT, 200, NAME_BOX_HEIGHT);
       
       gc.setFill(TEXT_COLOR);
       gc.setFont(nameFont);
-      gc.fillText(dialogue.getSpeakerName(), TEXTBOX_PADDING + 10, textBoxY - 15);
+      gc.fillText(speakerName, TEXTBOX_PADDING + 10, textBoxY - 15);
     }
 
     // Parse and render dialogue text with effects
-    String fullText = dialogue.getText();
+    String fullText = resolveRuntimeText(dialogue.getText());
     List<TextSpan> spans = TextParser.parse(fullText);
     int plainLength = TextParser.plainLength(fullText);
     int revealedLength = Math.min(state.getTextRevealProgress(), plainLength);
@@ -645,7 +647,7 @@ public class VnRenderer {
       // Text
       gc.setFill(enabled ? TEXT_COLOR : TEXT_COLOR_DISABLED);
       gc.setFont(choiceFont);
-      gc.fillText(choice.getText(), choiceX + 20, y + choiceHeight / 2 + 5);
+      gc.fillText(resolveRuntimeText(choice.getText()), choiceX + 20, y + choiceHeight / 2 + 5);
     }
   }
 
@@ -884,6 +886,12 @@ public class VnRenderer {
     double panelH = height - HISTORY_MARGIN * 2;
     double contentH = panelH - HISTORY_HEADER_HEIGHT - HISTORY_FOOTER_HEIGHT;
     return Math.max(1, (int) Math.floor(contentH / HISTORY_LINE_HEIGHT));
+  }
+
+  private String resolveRuntimeText(String text) {
+    if (text == null) return "";
+    if (currentState == null) return text;
+    return VnVariableInterpolator.interpolate(text, currentState.getVariables());
   }
 
   private void drawContinueIndicator(double x, double y) {

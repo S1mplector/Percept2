@@ -1,50 +1,115 @@
-# Java Vector Nexus Engine
+# Java Vector Nexus (JVN)
 
 <div align="left">
-    <img src="docs/images/jvn_logo.png" width="512">
-    <br><br>
+  <img src="docs/images/jvn_logo.png" width="512" alt="JVN logo">
 </div>
 
-Modern, modular 2D game engine with a lightweight scene graph, simple physics, a custom DSL (JES) for content, and a JavaFX Editor for iteration.
+JVN is a modular Java game engine focused on visual novels and 2D gameplay, with:
+- VN runtime (`.vns` scripts, choices, history, save/load, interop hooks)
+- JES runtime integration (for minigames/overlays)
+- JavaFX and Swing rendering backends
+- JavaFX editor for iterative content authoring
 
-- Modules: `core`, `swing`, `fx`, `scripting`, `runtime`, `editor`
-- Rendering backends: Swing (`swing`) and JavaFX (`fx`)
-- Scene editor: Open a JES file, preview, select entities, tweak properties live
+## Requirements
 
-## Quick Start
+- JDK 21
+- No global Gradle install required (wrapper is included)
 
-Prereqs: JDK 17+, Gradle (wrapper included).
+Toolchains are configured in Gradle and can auto-download matching JDKs, but having local JDK 21 is still recommended.
 
-### Run Editor
+## Build
+
+```bash
+./gradlew build
+```
+
+## Run The Engine (Runtime)
+
+Default runtime launch:
+
+```bash
+./gradlew :runtime:run
+```
+
+Run with explicit script and UI backend:
+
+```bash
+./gradlew :runtime:run --args='--script demo.vns --ui fx'
+```
+
+Run with Swing backend:
+
+```bash
+./gradlew :runtime:run --args='--script demo.vns --ui swing'
+```
+
+Run JES directly:
+
+```bash
+./gradlew :runtime:run --args='--jes <path-to-scene.jes>'
+```
+
+Use external assets from disk (overlaid on classpath assets):
+
+```bash
+./gradlew :runtime:run --args='--assets /absolute/path/to/assets --script chapter1.vns'
+```
+
+Runtime CLI flags (from `com.jvn.runtime.JvnApp`):
+- `--script <name>`: default VNS script (default: `demo.vns`)
+- `--ui <fx|swing>`: renderer backend (default: `fx`)
+- `--jes <path[,path2...]>`: launch JES script(s) directly
+- `--assets <dir>`: external asset root
+- `--locale <code>`: localization code (default: `en`)
+- `--audio <fx|simp3|auto>`: audio backend selection
+- `--title <text>`, `--width <px>`, `--height <px>`
+
+If a script cannot be loaded, runtime falls back to built-in demo content.
+
+## Run The Editor
+
 ```bash
 ./gradlew :editor:run
 ```
 
-## Docs
+## Useful Development Commands
 
-- VNS: `docs/VNS Scripting/VNS Scripting.md`
-- JES: `docs/JES Scripting/JES Scripting.md`
-- Interop: `docs/Interop.md`
-- Performance: `docs/Performance.md`
+Compile key app modules:
 
-## Modules
+```bash
+./gradlew :fx:compileJava :runtime:compileJava :editor:compileJava
+```
 
-- `core`: scene graph (`Scene2DBase`, `Entity2D`), components (`Panel2D`, `Label2D`, `Sprite2D`), physics (`RigidBody2D`, `PhysicsWorld2D`)
-- `swing`: Swing implementation of `Blitter2D`
-- `fx`: JavaFX implementation `FxBlitter2D` and app launcher helpers
-- `scripting`: JES tokenizer, parser, AST, and loader → builds `JesScene2D`
-- `runtime`: command-line runner (loads JES with `--jes`, selects UI via `--ui`)
-- `editor`: JavaFX### Editor
-- JavaFX-based scene preview
-- Entity selection and property inspection
-- Scene Graph panel for named entity navigation
-- Inspector panels for all component types
-  - Label2D: text, size, bold, align, color
-  - Sprite2D: image path, size, alpha, origin
-  - Panel2D: dimensions
-  - PhysicsBody2D: mass, restitution
-- Canvas picking for all entity types
-- Hot reload supportation
+Run unit tests:
+
+```bash
+./gradlew :core:test :scripting:test :swing:test
+```
+
+Create runtime distribution zip:
+
+```bash
+./gradlew :runtime:distZip
+```
+
+## Module Overview
+
+- `core`: engine loop, scene system, VN model/runtime state, 2D primitives, physics
+- `scripting`: JES parser/runtime
+- `fx`: JavaFX renderer + launcher
+- `swing`: Swing renderer + launcher
+- `runtime`: app entrypoint (`JvnApp`) and runtime interop
+- `editor`: JavaFX-based editor tooling
+- `audio-integration`: optional Simp3-backed audio adapter
+
+## Documentation
+
+- `docs/Overview.md`
+- `docs/Architecture/Architecture.md`
+- `docs/VNS Scripting/VNS Scripting.md`
+- `docs/JES Scripting/JES Scripting.md`
+- `docs/Interop.md`
 
 ## License
+
 TBD.

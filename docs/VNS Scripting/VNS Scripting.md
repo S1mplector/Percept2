@@ -255,6 +255,23 @@ These commands adjust runtime behavior while a VN is playing.
 [hud <message>]
 ```
 
+- Variable interpolation
+```
+${variableName}
+```
+  - Supported in dialogue text, choice text, and `[hud ...]` payloads.
+  - Resolved against `VnState` variables set via `[set]`, `[inc]`, `[dec]`, JES return props, etc.
+  - Missing variables resolve to an empty string.
+  - Interpolation is single-pass (resolved values are not recursively expanded).
+  - Use `${...}` (not `{...}`) to avoid conflicts with text-effect tags like `{shake}` / `{color=...}`.
+
+Examples:
+```vns
+Alice: Welcome back, ${playerName}!
+> Spend ${coins} coins -> shop
+[hud Score: ${score}]
+```
+
 Notes:
 - `menu`, `settings`, `mainmenu`, `load`, `goto`, and variable/condition ops are routed as external calls to the runtime. Exact behaviors depend on the runtime integration.
 - `load` replaces the current script (e.g., load another `.vns`).

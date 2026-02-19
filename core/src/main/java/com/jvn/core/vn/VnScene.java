@@ -105,7 +105,7 @@ public class VnScene implements Scene {
     if (currentNode.getType() == VnNodeType.DIALOGUE) {
       DialogueLine dialogue = currentNode.getDialogue();
       if (dialogue != null) {
-        int textLength = dialogue.getText().length();
+        int textLength = resolveInterpolatedText(dialogue.getText()).length();
         
         // Skip mode: instant text
         if (state.isSkipMode() && (state.getSettings().isSkipUnreadText() || state.isNodeRead(state.getCurrentNodeIndex()))) {
@@ -159,8 +159,9 @@ public class VnScene implements Scene {
     // If text is still revealing, complete it instantly, then advance
     if (current.getType() == VnNodeType.DIALOGUE) {
       DialogueLine dialogue = current.getDialogue();
-      if (dialogue != null && state.getTextRevealProgress() < dialogue.getText().length()) {
-        state.setTextRevealProgress(dialogue.getText().length());
+      int textLength = dialogue == null ? 0 : resolveInterpolatedText(dialogue.getText()).length();
+      if (state.getTextRevealProgress() < textLength) {
+        state.setTextRevealProgress(textLength);
       }
     }
 
@@ -313,7 +314,9 @@ public class VnScene implements Scene {
     if (dialogue == null) return;
 
     // Add to history
-    state.getHistory().addEntry(dialogue.getSpeakerName(), dialogue.getText());
+    String speaker = resolveInterpolatedText(dialogue.getSpeakerName());
+    String text = resolveInterpolatedText(dialogue.getText());
+    state.getHistory().addEntry(speaker, text);
 
     // Update character display
     if (dialogue.getCharacterId() != null) {
@@ -329,6 +332,10 @@ public class VnScene implements Scene {
     if (node.getBackgroundId() != null) {
       state.setCurrentBackgroundId(node.getBackgroundId());
     }
+  }
+
+  private String resolveInterpolatedText(String text) {
+    return VnVariableInterpolator.interpolate(text, state.getVariables());
   }
 
   private void processExternalNode(VnNode node) {
