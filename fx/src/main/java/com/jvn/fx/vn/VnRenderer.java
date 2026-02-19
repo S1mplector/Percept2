@@ -71,28 +71,8 @@ public class VnRenderer {
   public void setProjectRoot(File root) { this.projectRoot = root; }
 
   private void renderHistoryOverlay(VnState state, double width, double height) {
-    // Semi-transparent dark background with gradient effect
-    gc.setFill(Color.rgb(10, 10, 20, 0.92));
     gc.setFill(Color.rgb(0, 0, 0, 0.7));
     gc.fillRect(0, 0, width, height);
-    
-    // Title bar
-    gc.setFill(Color.rgb(40, 40, 60, 0.95));
-    gc.fillRect(0, 0, width, 50);
-    gc.setFill(Color.WHITE);
-    gc.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-    gc.fillText(Localization.t("history.title"), 30, 33);
-    
-    // Content area with padding
-    double contentX = 30;
-    double contentY = 70;
-    double contentW = width - 80;
-    double contentH = height - 140;
-    
-    // Calculate entries per page based on entry height (speaker + text with wrapping)
-    double entryHeight = 65; // Base height per entry
-    int entriesPerPage = (int) Math.max(1, contentH / entryHeight);
-    
 
     double panelX = HISTORY_MARGIN;
     double panelY = HISTORY_MARGIN;
@@ -108,66 +88,31 @@ public class VnRenderer {
     double contentY = panelY + HISTORY_HEADER_HEIGHT;
     double contentW = panelW - 48;
     double contentH = panelH - HISTORY_HEADER_HEIGHT - HISTORY_FOOTER_HEIGHT;
-    int linesPerPage = Math.max(1, (int) Math.floor(contentH / HISTORY_LINE_HEIGHT));
+    int linesPerPage = getHistoryLinesPerPage(height);
 
-    java.util.List<VnHistory.HistoryEntry> list = state.getHistory().getEntries();
-    int total = list.size();
-    int offset = Math.max(0, state.getHistoryScroll());
-    
-    // Draw entries from newest (bottom) scrolled by offset
-    double y = contentY;
-    int startIdx = Math.max(0, total - 1 - offset);
+    List<VnHistory.HistoryEntry> entries = state.getHistory().getEntries();
+    int total = entries.size();
     int maxOffset = Math.max(0, total - linesPerPage);
-    int effOffset = Math.min(offset, maxOffset);
-    int startIdx = Math.max(0, total - 1 - effOffset);
-    int drawn = 0;
-    
-    Font speakerFont = Font.font("Arial", FontWeight.BOLD, 15);
-    Font textFont = Font.font("Arial", FontWeight.NORMAL, 14);
-    
-    for (int i = startIdx; i >= 0 && drawn < entriesPerPage; i--) {
+    int requestedOffset = Math.max(0, state.getHistoryScroll());
+    int effectiveOffset = Math.min(requestedOffset, maxOffset);
+    int startIdx = Math.max(0, total - 1 - effectiveOffset);
 
     gc.setFont(Font.font("Arial", FontWeight.BOLD, 18));
     gc.setFill(Color.WHITE);
-    gc.fillText("History", panelX + 22, panelY + 30);
+    gc.fillText(Localization.t("history.title"), panelX + 22, panelY + 30);
 
     int totalPages = maxOffset == 0 ? 1 : (maxOffset / linesPerPage) + 1;
-    int currentPage = maxOffset == 0 ? 1 : (effOffset / linesPerPage) + 1;
+    int currentPage = maxOffset == 0 ? 1 : (effectiveOffset / linesPerPage) + 1;
     String pageText = "Page " + currentPage + " / " + totalPages;
     double pageTextW = computeTextWidth(pageText, gc.getFont());
     gc.fillText(pageText, panelX + panelW - 22 - pageTextW, panelY + 30);
 
     gc.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+    int drawn = 0;
     for (int i = startIdx; i >= 0 && drawn < linesPerPage; i--) {
-      VnHistory.HistoryEntry e = list.get(i);
-      
-      // Entry background (alternating)
-      if (drawn % 2 == 0) {
-        gc.setFill(Color.rgb(255, 255, 255, 0.03));
-        gc.fillRoundRect(contentX - 10, y - 5, contentW + 20, entryHeight - 5, 8, 8);
-      }
-      
-      // Speaker name (if present)
-      String speaker = e.getSpeaker();
-      if (speaker != null && !speaker.isEmpty()) {
-        gc.setFill(Color.rgb(150, 200, 255, 1.0));
-        gc.setFont(speakerFont);
-        gc.fillText(speaker, contentX, y + 15);
-        
-        // Dialogue text (wrapped)
-        gc.setFill(Color.rgb(240, 240, 240, 0.95));
-        gc.setFont(textFont);
-        drawWrappedTextHistory(e.getText(), contentX + 15, y + 35, contentW - 15, textFont, 2);
-      } else {
-        // Narration (no speaker)
-        gc.setFill(Color.rgb(200, 200, 200, 0.9));
-        gc.setFont(textFont);
-        drawWrappedTextHistory(e.getText(), contentX, y + 15, contentW, textFont, 2);
-      }
-      
-      y += entryHeight;
-      String speaker = e.getSpeaker() != null && !e.getSpeaker().isEmpty() ? e.getSpeaker() + ": " : "";
-      String line = speaker + e.getText();
+      VnHistory.HistoryEntry entry = entries.get(i);
+      String speakerPrefix = entry.getSpeaker() != null && !entry.getSpeaker().isEmpty() ? entry.getSpeaker() + ": " : "";
+      String line = speakerPrefix + entry.getText();
       String truncated = truncateText(line, contentW - 16, gc.getFont());
       double y = contentY + drawn * HISTORY_LINE_HEIGHT;
       gc.setFill((drawn % 2 == 0) ? HISTORY_ENTRY_BG : HISTORY_ENTRY_ALT_BG);
@@ -176,90 +121,36 @@ public class VnRenderer {
       gc.fillText(truncated, contentX, y);
       drawn++;
     }
-    
-    // Empty state
+
     if (total == 0) {
       gc.setFill(Color.rgb(150, 150, 150, 0.7));
       gc.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
       gc.fillText(Localization.t("history.empty"), contentX, contentY + 30);
     }
-    
-    // Scrollbar
-    int maxOffset = Math.max(0, total - entriesPerPage);
-    double trackX = width - 25;
-    double trackY = 60;
-    double trackH = height - 130;
-    double trackW = 6;
-    
-    // Track background
-    gc.setFill(Color.rgb(255, 255, 255, 0.1));
-    gc.fillRoundRect(trackX, trackY, trackW, trackH, 4, 4);
-    
 
     if (maxOffset > 0) {
-      double thumbFrac = Math.max(0.1, Math.min(1.0, (double) entriesPerPage / (double) total));
       double trackX = panelX + panelW - 18;
       double trackY = contentY - 10;
       double trackH = contentH + 12;
       double trackW = 6;
-      gc.setFill(Color.rgb(255,255,255,0.12));
+      gc.setFill(Color.rgb(255, 255, 255, 0.12));
       gc.fillRoundRect(trackX, trackY, trackW, trackH, 6, 6);
 
       double thumbFrac = Math.max(0.08, Math.min(1.0, (double) linesPerPage / (double) total));
       double thumbH = trackH * thumbFrac;
-      int effOffset = Math.min(offset, maxOffset);
-      double posFrac = (double) effOffset / (double) maxOffset;
-      double posFrac = maxOffset == 0 ? 0.0 : (double) effOffset / (double) maxOffset;
+      double posFrac = (double) effectiveOffset / (double) maxOffset;
       double thumbY = trackY + (trackH - thumbH) * posFrac;
-      
       gc.setFill(Color.rgb(150, 200, 255, 0.8));
       gc.fillRoundRect(trackX, thumbY, trackW, thumbH, 4, 4);
     }
-    
-    // Bottom hint bar
-    gc.setFill(Color.rgb(40, 40, 60, 0.95));
-    gc.fillRect(0, height - 50, width, 50);
-    
-    gc.setFill(Color.rgb(180, 180, 180, 0.9));
+
+    gc.setFill(HISTORY_HINT_COLOR);
     gc.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
-    String hint = Localization.t("history.hint");
-    gc.fillText(hint, 30, height - 22);
-    
-    // Entry count indicator
-    String countText = String.format("%d / %d", Math.min(offset + 1, total), total);
+    gc.fillText(Localization.t("history.hint"), panelX + 20, panelY + panelH - 16);
+
+    String countText = String.format("%d / %d", Math.min(effectiveOffset + 1, total), total);
     double countWidth = computeTextWidth(countText, gc.getFont());
-    gc.fillText(countText, width - countWidth - 40, height - 22);
-  }
-  
-  private void drawWrappedTextHistory(String text, double x, double y, double maxWidth, Font font, int maxLines) {
-    gc.setFont(font);
-    String[] words = text.split(" ");
-    StringBuilder line = new StringBuilder();
-    double currentY = y;
-    double lineHeight = 18;
-    int lineCount = 0;
-    
-    for (String word : words) {
-      String testLine = line.length() == 0 ? word : line + " " + word;
-      double testWidth = computeTextWidth(testLine, font);
-      
-      if (testWidth > maxWidth && line.length() > 0) {
-        gc.fillText(line.toString(), x, currentY);
-        line = new StringBuilder(word);
-        currentY += lineHeight;
-        lineCount++;
-        if (lineCount >= maxLines) {
-          gc.fillText("...", x, currentY);
-          return;
-        }
-      } else {
-        line = new StringBuilder(testLine);
-      }
-    }
-    
-    if (line.length() > 0 && lineCount < maxLines) {
-      gc.fillText(line.toString(), x, currentY);
-    }
+    gc.fillText(countText, panelX + panelW - countWidth - 20, panelY + panelH - 16);
   }
 
   private void renderSaveSlotOverlay(VnState state, double width, double height) {
@@ -369,11 +260,6 @@ public class VnRenderer {
     } catch (Exception e) {
       return "Saved";
     }
-
-    gc.setFill(HISTORY_HINT_COLOR);
-    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
-    String hint = "Esc/Space/Enter: Close    Up/Down: Scroll    PgUp/PgDn: Page    Shift: Faster";
-    gc.fillText(hint, panelX + 20, panelY + panelH - 16);
   }
 
   /**
