@@ -279,17 +279,14 @@ public class EditorApp extends Application {
     miOpen.setOnAction(e -> doOpen(primaryStage));
     MenuItem miOpenVns = new MenuItem("Open VNS...");
     miOpenVns.setOnAction(e -> doOpenVns(primaryStage));
-    MenuItem miReload = new MenuItem("Reload");
-    miReload.setOnAction(e -> doReload());
     MenuItem miSave = new MenuItem("Save");
     miSave.setOnAction(e -> doSave(primaryStage));
     MenuItem miSaveAs = new MenuItem("Save As...");
     miSaveAs.setOnAction(e -> doSaveAs(primaryStage));
     miOpen.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN));
-    miReload.setAccelerator(new KeyCodeCombination(KeyCode.R, KeyCombination.SHORTCUT_DOWN));
     miSave.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN));
     miSaveAs.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
-    menuFile.getItems().addAll(miNewProject, miOpenProject, new SeparatorMenuItem(), miOpen, miOpenVns, miReload, miSave, miSaveAs);
+    menuFile.getItems().addAll(miNewProject, miOpenProject, new SeparatorMenuItem(), miOpen, miOpenVns, miSave, miSaveAs);
 
     Menu menuCode = new Menu("Code");
     MenuItem miApplyCode = new MenuItem("Apply Code");
@@ -297,19 +294,6 @@ public class EditorApp extends Application {
     miApplyCode.setAccelerator(new KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN));
     menuCode.getItems().addAll(miApplyCode);
 
-    Menu menuView = new Menu("View");
-    MenuItem miFit = new MenuItem("Fit to Content");
-    miFit.setOnAction(e -> fitCameraToContent());
-    miFit.setAccelerator(new KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN));
-    MenuItem miReset = new MenuItem("Reset Camera");
-    miReset.setOnAction(e -> resetCamera());
-    miReset.setAccelerator(new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN));
-    MenuItem miToggleGrid = new MenuItem("Toggle Grid");
-    miToggleGrid.setOnAction(e -> { showGrid = !showGrid; FileEditorTab ft = getActiveFileTab(); if (ft != null) ft.setShowGrid(showGrid); });
-    miToggleGrid.setAccelerator(new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN));
-    menuView.getItems().addAll(miFit, miReset, miToggleGrid);
-
-    Menu menuSamples = new Menu("Samples");
     Menu menuProject = new Menu("Project");
     MenuItem miRun = new MenuItem("Run Project");
     miRun.setOnAction(e -> doRunProject(primaryStage));
@@ -322,41 +306,34 @@ public class EditorApp extends Application {
     miRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
     miRedo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     menuEdit.getItems().addAll(miUndo, miRedo);
-    MenuItem miBilliards = new MenuItem("Open billiards.jes");
-    miBilliards.setOnAction(e -> openSample("/Users/ilgazmehmetoglu/Desktop/Projects/Percept2 Engine/samples/billiards.jes"));
-    MenuItem miShowcase = new MenuItem("Open showcase.jes");
-    miShowcase.setOnAction(e -> openSample("/Users/ilgazmehmetoglu/Desktop/Projects/Percept2 Engine/samples/showcase.jes"));
-    menuSamples.getItems().addAll(miBilliards, miShowcase);
-
-    mb.getMenus().addAll(menuFile, menuEdit, menuCode, menuView, menuProject, menuSamples);
+    mb.getMenus().addAll(menuFile, menuEdit, menuCode, menuProject);
 
     // Toolbar
     osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
     BorderPane toolbar = new BorderPane();
     toolbar.getStyleClass().add("master-toolbar");
-    Button btnOpen = new Button("Open"); btnOpen.setOnAction(e -> doOpen(primaryStage));
-    Button btnOpenProject = new Button("Open Project"); btnOpenProject.setOnAction(e -> doOpenProject(primaryStage));
-    Button btnReload = new Button("Reload"); btnReload.setOnAction(e -> doReload());
+    Button btnOpen = new Button("Open"); btnOpen.setOnAction(e -> doOpenProject(primaryStage));
+    Button btnSave = new Button("Save"); btnSave.setOnAction(e -> doSave(primaryStage));
+    Button btnUndo = new Button("Undo"); btnUndo.setOnAction(e -> { commands.undo(); status.setText("Undo"); inspectorView.setSelection(selected); });
+    Button btnRedo = new Button("Redo"); btnRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
     Button btnApply = new Button("Apply Code"); btnApply.setOnAction(e -> applyCodeFromEditor());
-    Button btnFit = new Button("Fit"); btnFit.setOnAction(e -> fitCameraToContent());
-    Button btnReset = new Button("Reset"); btnReset.setOnAction(e -> resetCamera());
     Button btnRun = new Button("Run"); btnRun.setOnAction(e -> doRunProject(primaryStage));
     // Icons to the right of text
     btnOpen.setGraphic(icon("icon", "icon-open"));
     btnOpen.setContentDisplay(ContentDisplay.RIGHT);
     btnOpen.setGraphicTextGap(6);
-    btnReload.setGraphic(icon("icon", "icon-reload"));
-    btnReload.setContentDisplay(ContentDisplay.RIGHT);
-    btnReload.setGraphicTextGap(6);
+    btnSave.setGraphic(icon("icon", "icon-save"));
+    btnSave.setContentDisplay(ContentDisplay.RIGHT);
+    btnSave.setGraphicTextGap(6);
+    btnUndo.setGraphic(icon("icon", "icon-undo"));
+    btnUndo.setContentDisplay(ContentDisplay.RIGHT);
+    btnUndo.setGraphicTextGap(6);
+    btnRedo.setGraphic(icon("icon", "icon-redo"));
+    btnRedo.setContentDisplay(ContentDisplay.RIGHT);
+    btnRedo.setGraphicTextGap(6);
     btnApply.setGraphic(icon("icon", "icon-apply"));
     btnApply.setContentDisplay(ContentDisplay.RIGHT);
     btnApply.setGraphicTextGap(6);
-    btnFit.setGraphic(icon("icon", "icon-fit"));
-    btnFit.setContentDisplay(ContentDisplay.RIGHT);
-    btnFit.setGraphicTextGap(6);
-    btnReset.setGraphic(icon("icon", "icon-reset"));
-    btnReset.setContentDisplay(ContentDisplay.RIGHT);
-    btnReset.setGraphicTextGap(6);
     btnApply.setOnKeyPressed(e -> { if (e.getCode() == KeyCode.ENTER && e.isShortcutDown()) applyCodeFromEditor(); });
     status = new Label("Ready");
     fps = new Label("");
@@ -371,44 +348,13 @@ public class EditorApp extends Application {
     perf = new TextFlow(cpuText, gpuText, ramText, fpsText);
     perf.setLineSpacing(2);
     perfGraph = new PerfGraph();
-    Button btnSave = new Button("Save");
-    Button btnUndo = new Button("Undo");
-    Button btnRedo = new Button("Redo");
-    Button btnZoomIn = new Button("Zoom In");
-    Button btnZoomOut = new Button("Zoom Out");
-    Button btnZoomReset = new Button("100%");
-    Button btnPlay = new Button("Play");
-    Button btnStop = new Button("Stop");
-    Button btnSettings = new Button("Settings");
-    btnSave.setOnAction(e -> doSave(primaryStage));
-    btnUndo.setOnAction(e -> { commands.undo(); status.setText("Undo"); inspectorView.setSelection(selected); });
-    btnRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
-    btnZoomIn.setOnAction(e -> status.setText("Zoom In"));
-    btnZoomOut.setOnAction(e -> status.setText("Zoom Out"));
-    btnZoomReset.setOnAction(e -> status.setText("Zoom 100%"));
-    btnPlay.setOnAction(e -> doRunProject(primaryStage));
-    btnStop.setOnAction(e -> status.setText("Stop"));
-    btnSettings.setOnAction(e -> status.setText("Settings"));
     btnOpen.setTooltip(new Tooltip("Open JES (Cmd+O)"));
-    btnOpenProject.setTooltip(new Tooltip("Open Project"));
-    btnReload.setTooltip(new Tooltip("Reload (Cmd+R)"));
-    btnApply.setTooltip(new Tooltip("Apply Code (Cmd+Enter)"));
-    btnFit.setTooltip(new Tooltip("Fit to Content / Fullscreen VN (Cmd+F)"));
-    btnReset.setTooltip(new Tooltip("Reset Camera (Cmd+0)"));
-    btnRun.setTooltip(new Tooltip("Run Project"));
+    btnOpen.setTooltip(new Tooltip("Open Project"));
     btnSave.setTooltip(new Tooltip("Save (Cmd+S)"));
     btnUndo.setTooltip(new Tooltip("Undo (Cmd+Z)"));
     btnRedo.setTooltip(new Tooltip("Redo (Shift+Cmd+Z)"));
-    // Icons for second-row controls
-    btnSave.setGraphic(icon("icon", "icon-save"));
-    btnSave.setContentDisplay(ContentDisplay.RIGHT);
-    btnSave.setGraphicTextGap(6);
-    btnUndo.setGraphic(icon("icon", "icon-undo"));
-    btnUndo.setContentDisplay(ContentDisplay.RIGHT);
-    btnUndo.setGraphicTextGap(6);
-    btnRedo.setGraphic(icon("icon", "icon-redo"));
-    btnRedo.setContentDisplay(ContentDisplay.RIGHT);
-    btnRedo.setGraphicTextGap(6);
+    btnApply.setTooltip(new Tooltip("Apply Code (Cmd+Enter)"));
+    btnRun.setTooltip(new Tooltip("Run Project"));
     ImageView logo = new ImageView();
     try {
       // Try several likely filesystem locations relative to working dir
@@ -454,12 +400,9 @@ public class EditorApp extends Application {
     }
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
-    HBox row1 = new HBox(8);
-    HBox row2 = new HBox(8);
-    row1.getChildren().addAll(btnOpen, btnOpenProject, btnReload, btnApply, btnFit, btnReset, btnRun);
-    row2.getChildren().addAll(btnSave, btnUndo, btnRedo, spacer, status);
-    VBox toolRows = new VBox(6);
-    toolRows.getChildren().addAll(row1, row2);
+    HBox row = new HBox(8);
+    row.getChildren().addAll(btnOpen, btnSave, btnUndo, btnRedo, btnApply, btnRun, spacer, status);
+    VBox toolRows = new VBox(6, row);
     HBox.setHgrow(toolRows, Priority.ALWAYS);
     String ver = System.getProperty("jvn.version");
     if (ver == null || ver.isBlank()) {
@@ -500,43 +443,10 @@ public class EditorApp extends Application {
     inspectorView.setPrefWidth(320);
     ScrollPane inspectorScroll = new ScrollPane(inspectorView);
     inspectorScroll.setFitToWidth(true);
-    timelineView = new StoryTimelineView();
-    settingsEditor = new SettingsEditorView();
-    menuThemeEditor = new com.jvn.editor.ui.MenuThemeEditorView();
-    mapEditorView = new TilemapEditorView();
     TabPane rightTabs = new TabPane();
     Tab tabInspectorRight = new Tab("Inspector", inspectorScroll); tabInspectorRight.setClosable(false);
-    Tab tabMapEditor = new Tab("Map Editor", mapEditorView); tabMapEditor.setClosable(false);
-    Tab tabTimeline = new Tab("Timeline", timelineView); tabTimeline.setClosable(false);
-    Tab tabSettings = new Tab("Settings", settingsEditor); tabSettings.setClosable(false);
-    Tab tabMenuTheme = new Tab("Menu Theme", menuThemeEditor); tabMenuTheme.setClosable(false);
-    rightTabs.getTabs().addAll(tabInspectorRight, tabMapEditor, tabTimeline, tabSettings, tabMenuTheme);
+    rightTabs.getTabs().add(tabInspectorRight);
     rightTabs.setPrefWidth(360);
-    timelineView.setOnRunArc(a -> {
-      if (a == null || a.script == null) return;
-      File f = resolveProjectFile(a.script);
-      if (f != null && f.exists()) {
-        openFile(f);
-        FileEditorTab ft = getActiveFileTab();
-        if (ft != null) ft.runFromLabel((a.entryLabel == null || a.entryLabel.isBlank()) ? null : a.entryLabel);
-      } else {
-        status.setText("Arc script not found: " + a.script);
-      }
-    });
-    timelineView.setOnRunLink(l -> {
-      if (l == null) return;
-      StoryTimelineView.Arc ta = timelineView.findArc(l.toArc);
-      if (ta == null) { status.setText("Arc not found: " + l.toArc); return; }
-      File f = resolveProjectFile(ta.script);
-      if (f != null && f.exists()) {
-        openFile(f);
-        FileEditorTab ft = getActiveFileTab();
-        String label = (l.toLabel != null && !l.toLabel.isBlank()) ? l.toLabel : ta.entryLabel;
-        if (ft != null) ft.runFromLabel((label == null || label.isBlank()) ? null : label);
-      } else {
-        status.setText("Arc script not found: " + ta.script);
-      }
-    });
     sgView = new SceneGraphView();
     sgView.setMinWidth(200);
     sgView.setPrefWidth(240);

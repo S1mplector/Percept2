@@ -283,7 +283,8 @@ public class PhysicsWorld2D {
       else ny = -1;
       info.nx = circleFirst ? nx : -nx;
       info.ny = circleFirst ? ny : -ny;
-      info.penetration = minPen;
+      // Distance to clear when center is inside includes the radius.
+      info.penetration = radius + minPen;
     }
     return info;
   }
