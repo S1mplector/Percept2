@@ -103,7 +103,7 @@ hintsText=Enter: Select    Esc: Quit
 `config/menu/menu.registry`
 ```properties
 defaultMenu=main
-menus=main,extras
+menus=main,load,save,settings,extras
 layouts=default
 styles=default,neon
 ```
@@ -119,6 +119,30 @@ item.extras.action=open_menu
 item.extras.target=extras
 item.quit.action=quit
 ```
+
+`config/menu/menus/settings.menu`
+```properties
+titleText=Settings
+layout=default
+defaultItemStyle=default
+items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,skip_after_choices,physics_fixed_step,physics_max_substeps,physics_default_friction,input_profile,back
+item.back.action=back
+```
+
+`load`, `save`, and `settings` are special screen ids consumed by built-in menu scenes.
+
+You can compose profiles with inheritance:
+
+```properties
+# config/menu/styles/neon_soft.style
+extends=neon
+itemSelectedColor=#8cff66
+```
+
+If `menu.registry` is omitted, JVN auto-discovers files under:
+- `config/menu/menus/*.menu`
+- `config/menu/layouts/*.layout`
+- `config/menu/styles/*.style`
 
 ## Programmatic Configuration
 

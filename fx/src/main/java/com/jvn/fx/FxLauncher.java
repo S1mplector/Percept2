@@ -264,19 +264,15 @@ public class FxLauncher extends Application {
           int idx = menuRenderer.getHoverIndexForMainMenu(main, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
           if (idx >= 0) main.setSelected(idx);
         } else if (currentScene instanceof LoadMenuScene load) {
-          int idx = menuRenderer.getHoverIndexForList(load.getSaves().size(), canvas.getWidth() * 0.6, canvas.getHeight(), mouseX, mouseY);
+          int idx = menuRenderer.getHoverIndexForLoadMenu(load, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
           if (idx >= 0) {
-            // ensure selection moves to hovered
-            // We don't have setSelected; adjust by computing delta
-            int current = load.getSelected();
-            int delta = idx - current;
-            if (delta != 0) load.moveSelection(delta);
+            load.setSelected(idx);
           }
         } else if (currentScene instanceof SettingsScene settings) {
-          int idx = menuRenderer.getHoverIndexForList(settings.itemCount(), canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          int idx = menuRenderer.getHoverIndexForSettings(settings, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
           if (idx >= 0) settings.setSelected(idx);
         } else if (currentScene instanceof SaveMenuScene save) {
-          int idx = menuRenderer.getHoverIndexForList(save.getEntriesCount(), canvas.getWidth() * 0.6, canvas.getHeight(), mouseX, mouseY);
+          int idx = menuRenderer.getHoverIndexForSaveMenu(save, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
           if (idx >= 0) save.setSelected(idx);
         }
       }
@@ -573,23 +569,28 @@ public class FxLauncher extends Application {
         main.activateSelected();
       }
     } else if (currentScene instanceof LoadMenuScene load) {
-      int idx = menuRenderer.getHoverIndexForList(load.getSaves().size(), canvas.getWidth() * 0.6, canvas.getHeight(), x, y);
+      int idx = menuRenderer.getHoverIndexForLoadMenu(load, canvas.getWidth(), canvas.getHeight(), x, y);
       if (idx >= 0) {
-        int current = load.getSelected();
-        int delta = idx - current;
-        if (delta != 0) load.moveSelection(delta);
+        load.setSelected(idx);
         load.loadSelected();
       }
     } else if (currentScene instanceof SettingsScene settings) {
-      int idx = menuRenderer.getHoverIndexForList(settings.itemCount(), canvas.getWidth(), canvas.getHeight(), x, y);
+      int idx = menuRenderer.getHoverIndexForSettings(settings, canvas.getWidth(), canvas.getHeight(), x, y);
       if (idx >= 0) {
         settings.setSelected(idx);
-        if (idx == settings.itemCount() - 1) {
+        if (!settings.hasSliderAt(idx)) {
           settings.toggleCurrent();
+          if (settings.consumeCloseRequested()) engine.scenes().pop();
         } else {
           double val = computeSliderValue01(x);
           settings.setValueByIndex(idx, val);
         }
+      }
+    } else if (currentScene instanceof SaveMenuScene save) {
+      int idx = menuRenderer.getHoverIndexForSaveMenu(save, canvas.getWidth(), canvas.getHeight(), x, y);
+      if (idx >= 0) {
+        save.setSelected(idx);
+        handleMenuEnter();
       }
     }
   }
@@ -598,8 +599,8 @@ public class FxLauncher extends Application {
     if (engine == null) return;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof SettingsScene settings) {
-      int idx = menuRenderer.getHoverIndexForList(settings.itemCount(), canvas.getWidth(), canvas.getHeight(), x, y);
-      if (idx >= 0 && idx < settings.itemCount() - 1) {
+      int idx = menuRenderer.getHoverIndexForSettings(settings, canvas.getWidth(), canvas.getHeight(), x, y);
+      if (idx >= 0 && settings.hasSliderAt(idx)) {
         settings.setSelected(idx);
         double val = computeSliderValue01(x);
         settings.setValueByIndex(idx, val);
@@ -618,6 +619,7 @@ public class FxLauncher extends Application {
       return true;
     } else if (currentScene instanceof SettingsScene settings) {
       settings.toggleCurrent();
+      if (settings.consumeCloseRequested()) engine.scenes().pop();
       return true;
     } else if (currentScene instanceof SaveMenuScene save) {
       if (save.isNewItemSelected()) {

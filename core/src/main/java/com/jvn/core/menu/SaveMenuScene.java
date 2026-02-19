@@ -3,6 +3,12 @@ package com.jvn.core.menu;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.engine.Engine;
+import com.jvn.core.localization.Localization;
+import com.jvn.core.menu.config.MenuLayoutSpec;
+import com.jvn.core.menu.config.MenuProfile;
+import com.jvn.core.menu.config.MenuProfileLoader;
+import com.jvn.core.menu.config.MenuScreenSpec;
+import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.VnBackground;
 import com.jvn.core.vn.VnScene;
@@ -29,6 +35,9 @@ public class SaveMenuScene implements Scene {
   private final Engine engine;
   private final VnSaveManager saveManager;
   private final VnScene currentVnScene;
+  private final MenuProfile menuProfile;
+  private final MenuScreenSpec menuScreen;
+  private final MenuLayoutSpec menuLayout;
   private int selected = 0;
   private List<String> saves = new ArrayList<>();
 
@@ -36,6 +45,9 @@ public class SaveMenuScene implements Scene {
     this.engine = engine;
     this.saveManager = saveManager;
     this.currentVnScene = vnScene;
+    this.menuProfile = MenuProfileLoader.loadFromAssets();
+    this.menuScreen = menuProfile.screen("save");
+    this.menuLayout = menuProfile.layout(menuScreen.layoutId());
     refresh();
   }
 
@@ -60,9 +72,52 @@ public class SaveMenuScene implements Scene {
 
   public List<String> getSaves() { return saves; }
   public int getSelected() { return selected; }
+  public MenuLayoutSpec getMenuLayout() { return menuLayout; }
+  public int getItemCount() { return getEntriesCount(); }
+  public boolean wrapsSelection() { return menuScreen.wrapSelection(); }
+
+  public MenuStyleSpec getStyleForIndex(int idx) {
+    String styleId = menuScreen.defaultStyleId();
+    if (idx == 0) {
+      MenuStyleSpec s = styleForItemId("new_save", "new_slot", "new");
+      if (s != null) return s;
+    } else {
+      MenuStyleSpec s = styleForItemId("save_slot", "slot", "entry");
+      if (s != null) return s;
+    }
+    if (idx >= 0 && idx < menuScreen.items().size()) {
+      var item = menuScreen.items().get(idx);
+      if (item != null && item.styleId() != null && !item.styleId().isBlank()) styleId = item.styleId();
+    }
+    return menuProfile.style(styleId);
+  }
+
+  public String getDisplayTitle() {
+    String t = resolveDisplayText(menuScreen.titleText());
+    return (t == null || t.isBlank()) ? Localization.t("save.title") : t;
+  }
+
+  public String getDisplayHints() {
+    String t = resolveDisplayText(menuScreen.hintsText());
+    if (t == null || t.isBlank()) {
+      return Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
+          + Localization.t("save.delete") + ": Delete    " + Localization.t("save.rename") + ": R";
+    }
+    return t;
+  }
+
+  public String getNewSlotLabel() {
+    String custom = labelForItemId("new_save", "new_slot", "new");
+    return (custom == null || custom.isBlank()) ? Localization.t("save.new") : custom;
+  }
+
   public void moveSelection(int delta) {
     int count = getEntriesCount();
-    selected = (selected + delta + count) % count;
+    if (menuScreen.wrapSelection()) {
+      selected = (selected + delta + count) % count;
+    } else {
+      selected = Math.max(0, Math.min(selected + delta, count - 1));
+    }
   }
   public void setSelected(int idx) {
     int count = getEntriesCount();
@@ -180,4 +235,43 @@ public class SaveMenuScene implements Scene {
   @Override public void onEnter() { }
   @Override public void update(long deltaMs) { }
   @Override public void onExit() { }
+
+  private MenuStyleSpec styleForItemId(String... ids) {
+    if (ids == null || ids.length == 0) return null;
+    for (String id : ids) {
+      if (id == null || id.isBlank()) continue;
+      for (var item : menuScreen.items()) {
+        if (item != null && id.equalsIgnoreCase(item.id())) {
+          if (item.styleId() != null && !item.styleId().isBlank()) {
+            return menuProfile.style(item.styleId());
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private String labelForItemId(String... ids) {
+    if (ids == null || ids.length == 0) return null;
+    for (String id : ids) {
+      if (id == null || id.isBlank()) continue;
+      for (var item : menuScreen.items()) {
+        if (item != null && id.equalsIgnoreCase(item.id())) {
+          String label = resolveDisplayText(item.label());
+          if (label != null && !label.isBlank()) return label;
+        }
+      }
+    }
+    return null;
+  }
+
+  private String resolveDisplayText(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    String value = raw.trim();
+    if (value.startsWith("i18n:")) {
+      String key = value.substring("i18n:".length()).trim();
+      if (!key.isEmpty()) return Localization.t(key);
+    }
+    return value;
+  }
 }

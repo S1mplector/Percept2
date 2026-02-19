@@ -130,4 +130,96 @@ class MenuProfileLoaderTest {
 
     assertEquals(MenuActionType.NOOP, profile.screen("main").items().get(0).action().type());
   }
+
+  @Test
+  void autoDiscoversMenusWithoutRegistry() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-autodiscovery-");
+    Files.createDirectories(root.resolve("config/menu/menus"));
+    Files.createDirectories(root.resolve("config/menu/layouts"));
+    Files.createDirectories(root.resolve("config/menu/styles"));
+
+    Files.writeString(root.resolve("config/menu/menus/main.menu"), """
+        titleText=Auto Main
+        items=start,quit
+        item.start.action=new_game
+        item.quit.action=quit
+        """);
+    Files.writeString(root.resolve("config/menu/menus/extras.menu"), """
+        titleText=Extras
+        items=back
+        item.back.action=back
+        """);
+    Files.writeString(root.resolve("config/menu/layouts/compact.layout"), """
+        listYStart=0.3
+        lineHeight=32
+        """);
+    Files.writeString(root.resolve("config/menu/styles/silver.style"), """
+        itemColor=#cccccc
+        itemSelectedColor=#ffffff
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfile profile = MenuProfileLoader.load(assets);
+
+    assertEquals("Auto Main", profile.screen("main").titleText());
+    assertEquals(MenuActionType.BACK, profile.screen("extras").items().get(0).action().type());
+    assertEquals(32.0, profile.layout("compact").lineHeight());
+    assertEquals("#cccccc", profile.style("silver").itemColor());
+  }
+
+  @Test
+  void supportsExtendsForLayoutsStylesAndMenus() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-extends-");
+    Files.createDirectories(root.resolve("config/menu/menus"));
+    Files.createDirectories(root.resolve("config/menu/layouts"));
+    Files.createDirectories(root.resolve("config/menu/styles"));
+    Files.writeString(root.resolve("config/menu/menu.registry"), """
+        defaultMenu=extras
+        menus=main,extras
+        layouts=default,wide
+        styles=default,neon,soft
+        """);
+
+    Files.writeString(root.resolve("config/menu/layouts/wide.layout"), """
+        extends=default
+        listYStart=0.2
+        lineHeight=48
+        """);
+
+    Files.writeString(root.resolve("config/menu/styles/neon.style"), """
+        itemColor=#00ffff
+        itemSelectedColor=#ff00ff
+        itemPrefix=>>
+        """);
+    Files.writeString(root.resolve("config/menu/styles/soft.style"), """
+        extends=neon
+        itemSelectedColor=#8cff66
+        """);
+
+    Files.writeString(root.resolve("config/menu/menus/main.menu"), """
+        titleText=Main
+        items=start,extras
+        item.start.action=new_game
+        item.extras.action=open_menu
+        item.extras.target=extras
+        """);
+    Files.writeString(root.resolve("config/menu/menus/extras.menu"), """
+        extends=main
+        titleText=Extras
+        defaultItemStyle=soft
+        items=gallery,back
+        item.gallery.action=noop
+        item.back.action=back
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfile profile = MenuProfileLoader.load(assets);
+
+    assertEquals("extras", profile.defaultScreenId());
+    assertEquals(48.0, profile.layout("wide").lineHeight());
+    assertEquals("#8cff66", profile.style("soft").itemSelectedColor());
+    assertEquals(">>", profile.style("soft").itemPrefix());
+    assertEquals("soft", profile.screen("extras").defaultStyleId());
+    assertEquals(MenuActionType.BACK, profile.screen("extras").items().get(1).action().type());
+  }
 }

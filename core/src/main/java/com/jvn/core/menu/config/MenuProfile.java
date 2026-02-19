@@ -3,6 +3,7 @@ package com.jvn.core.menu.config;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public record MenuProfile(
     String defaultScreenId,
@@ -26,6 +27,33 @@ public record MenuProfile(
     out = screens.get("main");
     if (out != null) return out;
     return defaultMainScreen();
+  }
+
+  public boolean hasScreen(String id) {
+    String key = normalize(id, null);
+    return key != null && screens.containsKey(key);
+  }
+
+  public boolean hasLayout(String id) {
+    String key = normalize(id, null);
+    return key != null && layouts.containsKey(key);
+  }
+
+  public boolean hasStyle(String id) {
+    String key = normalize(id, null);
+    return key != null && styles.containsKey(key);
+  }
+
+  public Set<String> screenIds() {
+    return screens.keySet();
+  }
+
+  public Set<String> layoutIds() {
+    return layouts.keySet();
+  }
+
+  public Set<String> styleIds() {
+    return styles.keySet();
   }
 
   public MenuLayoutSpec layout(String id) {

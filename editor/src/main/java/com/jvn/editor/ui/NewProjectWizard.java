@@ -53,6 +53,9 @@ public class NewProjectWizard extends Stage {
   private static final String MENU_THEME_PATH = "config/menu/menu.theme";
   private static final String MENU_REGISTRY_PATH = "config/menu/menu.registry";
   private static final String MENU_MAIN_PATH = "config/menu/menus/main.menu";
+  private static final String MENU_LOAD_PATH = "config/menu/menus/load.menu";
+  private static final String MENU_SAVE_PATH = "config/menu/menus/save.menu";
+  private static final String MENU_SETTINGS_PATH = "config/menu/menus/settings.menu";
   private static final String MENU_LAYOUT_DEFAULT_PATH = "config/menu/layouts/default.layout";
   private static final String MENU_STYLE_DEFAULT_PATH = "config/menu/styles/default.style";
   
@@ -629,7 +632,7 @@ public class NewProjectWizard extends Stage {
     try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
       fw.write("# Menu customization registry\n");
       fw.write("defaultMenu=main\n");
-      fw.write("menus=main\n");
+      fw.write("menus=main,load,save,settings\n");
       fw.write("layouts=default\n");
       fw.write("styles=default\n");
     }
@@ -664,6 +667,37 @@ public class NewProjectWizard extends Stage {
       fw.write("item.settings.action=settings_menu\n");
       fw.write("item.quit.action=quit\n");
     }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_LOAD_PATH))) {
+      fw.write("# Load menu presentation profile\n");
+      fw.write("titleText=Load Game\n");
+      fw.write("hintsText=Select: Enter    Back: Esc    Delete: Del    Rename: R\n");
+      fw.write("layout=default\n");
+      fw.write("defaultItemStyle=default\n");
+      fw.write("wrapSelection=true\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_SAVE_PATH))) {
+      fw.write("# Save menu presentation profile\n");
+      fw.write("titleText=Save Game\n");
+      fw.write("hintsText=Select: Enter    Back: Esc    Delete: Del    Rename: R\n");
+      fw.write("layout=default\n");
+      fw.write("defaultItemStyle=default\n");
+      fw.write("wrapSelection=true\n");
+      fw.write("item.new_slot.label=New Save...\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_SETTINGS_PATH))) {
+      fw.write("# Settings menu profile (keys map to engine settings)\n");
+      fw.write("titleText=Settings\n");
+      fw.write("hintsText=Up/Down, Left/Right, Enter    Back: Esc\n");
+      fw.write("layout=default\n");
+      fw.write("defaultItemStyle=default\n");
+      fw.write("wrapSelection=true\n");
+      fw.write("items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,skip_after_choices,physics_fixed_step,physics_max_substeps,physics_default_friction,input_profile,back\n");
+      fw.write("item.back.label=Back\n");
+      fw.write("item.back.action=back\n");
+    }
   }
   
   private void createReadme(File dir, String name) throws Exception {
@@ -689,7 +723,10 @@ public class NewProjectWizard extends Stage {
       fw.write("│       ├── menu.theme       # Global title/menu visual theme\n");
       fw.write("│       ├── menu.registry    # Declares screens/layouts/styles to load\n");
       fw.write("│       ├── menus/\n");
-      fw.write("│       │   └── main.menu    # Menu items/actions/screen text\n");
+      fw.write("│       │   ├── main.menu    # Title menu items/actions\n");
+      fw.write("│       │   ├── load.menu    # Load menu layout/hints/style\n");
+      fw.write("│       │   ├── save.menu    # Save menu layout/hints/style\n");
+      fw.write("│       │   └── settings.menu # Settings rows/actions\n");
       fw.write("│       ├── layouts/\n");
       fw.write("│       │   └── default.layout # Placement/spacing/alignment rules\n");
       fw.write("│       ├── styles/\n");

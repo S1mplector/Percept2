@@ -29,9 +29,9 @@ public final class MenuProfileLoader {
     if (assets == null) return MenuProfile.defaults();
     MenuProfile defaults = MenuProfile.defaults();
 
-    Map<String, MenuLayoutSpec> layouts = new LinkedHashMap<>(defaults.layouts());
-    Map<String, MenuStyleSpec> styles = new LinkedHashMap<>(defaults.styles());
-    Map<String, MenuScreenSpec> screens = new LinkedHashMap<>(defaults.screens());
+    Map<String, MenuLayoutSpec> layouts = new LinkedHashMap<>();
+    Map<String, MenuStyleSpec> styles = new LinkedHashMap<>();
+    Map<String, MenuScreenSpec> screens = new LinkedHashMap<>();
     String defaultScreen = defaults.defaultScreenId();
 
     Properties registry = loadFirstProperties(assets, REGISTRY_PATHS);
@@ -43,37 +43,34 @@ public final class MenuProfileLoader {
     Set<String> layoutIds = new LinkedHashSet<>();
     layoutIds.add("default");
     layoutIds.addAll(parseCsv(registry != null ? registry.getProperty("layouts") : null));
+    layoutIds.addAll(discoverIds(assets, "config/menu/layouts", ".layout", ".properties"));
+    layoutIds.addAll(discoverIds(assets, "config/menu", ".layout", ".properties"));
 
     Set<String> styleIds = new LinkedHashSet<>();
     styleIds.add("default");
     styleIds.addAll(parseCsv(registry != null ? registry.getProperty("styles") : null));
+    styleIds.addAll(discoverIds(assets, "config/menu/styles", ".style", ".properties"));
+    styleIds.addAll(discoverIds(assets, "config/menu", ".style", ".properties"));
 
     Set<String> menuIds = new LinkedHashSet<>();
     menuIds.add("main");
     menuIds.addAll(parseCsv(registry != null ? registry.getProperty("menus") : null));
+    menuIds.addAll(discoverIds(assets, "config/menu/menus", ".menu", ".properties"));
+    menuIds.addAll(discoverIds(assets, "config/menu", ".menu", ".properties"));
 
     for (String id : layoutIds) {
-      Properties p = loadFirstProperties(assets, layoutPaths(id));
-      if (p != null) {
-        MenuLayoutSpec base = layouts.getOrDefault(id, MenuProfile.defaultLayout());
-        layouts.put(id, parseLayout(id, p, base));
-      }
+      MenuLayoutSpec spec = resolveLayout(id, assets, defaults.layouts(), layouts, new LinkedHashSet<>());
+      if (spec != null) layouts.put(id, spec);
     }
 
     for (String id : styleIds) {
-      Properties p = loadFirstProperties(assets, stylePaths(id));
-      if (p != null) {
-        MenuStyleSpec base = styles.getOrDefault(id, MenuProfile.defaultStyle());
-        styles.put(id, parseStyle(id, p, base));
-      }
+      MenuStyleSpec spec = resolveStyle(id, assets, defaults.styles(), styles, new LinkedHashSet<>());
+      if (spec != null) styles.put(id, spec);
     }
 
     for (String id : menuIds) {
-      Properties p = loadFirstProperties(assets, menuPaths(id));
-      if (p != null) {
-        MenuScreenSpec base = screens.getOrDefault(id, "main".equals(id) ? MenuProfile.defaultMainScreen() : null);
-        screens.put(id, parseScreen(id, p, base));
-      }
+      MenuScreenSpec spec = resolveScreen(id, assets, defaults.screens(), screens, new LinkedHashSet<>());
+      if (spec != null) screens.put(id, spec);
     }
 
     if (!screens.containsKey(defaultScreen)) {
@@ -81,6 +78,102 @@ public final class MenuProfileLoader {
     }
 
     return new MenuProfile(defaultScreen, screens, layouts, styles);
+  }
+
+  private static MenuLayoutSpec resolveLayout(
+      String id,
+      AssetCatalog assets,
+      Map<String, MenuLayoutSpec> defaults,
+      Map<String, MenuLayoutSpec> resolved,
+      Set<String> visiting
+  ) {
+    String key = normalize(id, null);
+    if (key == null) return resolved.getOrDefault("default", MenuProfile.defaultLayout());
+    if (resolved.containsKey(key)) return resolved.get(key);
+    if (!visiting.add(key)) return defaults.getOrDefault(key, MenuProfile.defaultLayout());
+
+    MenuLayoutSpec base = defaults.getOrDefault(key, MenuProfile.defaultLayout());
+    Properties p = loadFirstProperties(assets, layoutPaths(key));
+    if (p != null) {
+      String parent = normalize(p.getProperty("extends"), null);
+      if (parent != null && !parent.equalsIgnoreCase(key)) {
+        base = resolveLayout(parent, assets, defaults, resolved, visiting);
+        if (base == null) base = MenuProfile.defaultLayout();
+      }
+      base = parseLayout(key, p, base);
+    }
+
+    visiting.remove(key);
+    resolved.put(key, base);
+    return base;
+  }
+
+  private static MenuStyleSpec resolveStyle(
+      String id,
+      AssetCatalog assets,
+      Map<String, MenuStyleSpec> defaults,
+      Map<String, MenuStyleSpec> resolved,
+      Set<String> visiting
+  ) {
+    String key = normalize(id, null);
+    if (key == null) return resolved.getOrDefault("default", MenuProfile.defaultStyle());
+    if (resolved.containsKey(key)) return resolved.get(key);
+    if (!visiting.add(key)) return defaults.getOrDefault(key, MenuProfile.defaultStyle());
+
+    MenuStyleSpec base = defaults.getOrDefault(key, MenuProfile.defaultStyle());
+    Properties p = loadFirstProperties(assets, stylePaths(key));
+    if (p != null) {
+      String parent = normalize(p.getProperty("extends"), null);
+      if (parent != null && !parent.equalsIgnoreCase(key)) {
+        base = resolveStyle(parent, assets, defaults, resolved, visiting);
+        if (base == null) base = MenuProfile.defaultStyle();
+      }
+      base = parseStyle(key, p, base);
+    }
+
+    visiting.remove(key);
+    resolved.put(key, base);
+    return base;
+  }
+
+  private static MenuScreenSpec resolveScreen(
+      String id,
+      AssetCatalog assets,
+      Map<String, MenuScreenSpec> defaults,
+      Map<String, MenuScreenSpec> resolved,
+      Set<String> visiting
+  ) {
+    String key = normalize(id, null);
+    if (key == null) return resolved.get("main");
+    if (resolved.containsKey(key)) return resolved.get(key);
+    if (!visiting.add(key)) {
+      return defaults.getOrDefault(key, "main".equals(key) ? MenuProfile.defaultMainScreen() : null);
+    }
+
+    MenuScreenSpec base = defaults.get(key);
+    if (base == null && "main".equals(key)) base = MenuProfile.defaultMainScreen();
+
+    Properties p = loadFirstProperties(assets, menuPaths(key));
+    if (p == null && base == null) {
+      visiting.remove(key);
+      return null;
+    }
+
+    if (p != null) {
+      String parent = normalize(p.getProperty("extends"), null);
+      if (parent != null && !parent.equalsIgnoreCase(key)) {
+        MenuScreenSpec parentScreen = resolveScreen(parent, assets, defaults, resolved, visiting);
+        if (parentScreen != null) base = parentScreen;
+      }
+      if (base == null) {
+        base = new MenuScreenSpec(key, null, null, "default", "default", true, List.of());
+      }
+      base = parseScreen(key, p, base);
+    }
+
+    visiting.remove(key);
+    if (base != null) resolved.put(key, base);
+    return base;
   }
 
   private static MenuLayoutSpec parseLayout(String id, Properties p, MenuLayoutSpec base) {
@@ -199,6 +292,28 @@ public final class MenuProfileLoader {
         "config/menu/" + id + ".layout",
         id + ".layout"
     };
+  }
+
+  private static Set<String> discoverIds(AssetCatalog assets, String directory, String... suffixes) {
+    Set<String> ids = new LinkedHashSet<>();
+    if (assets == null || directory == null || directory.isBlank()) return ids;
+    try {
+      List<String> entries = assets.list(directory);
+      if (entries == null) return ids;
+      for (String e : entries) {
+        String name = normalize(e, null);
+        if (name == null) continue;
+        for (String suffix : suffixes) {
+          if (suffix == null || suffix.isBlank()) continue;
+          if (name.endsWith(suffix) && name.length() > suffix.length()) {
+            ids.add(name.substring(0, name.length() - suffix.length()));
+            break;
+          }
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return ids;
   }
 
   private static List<String> parseCsv(String raw) {

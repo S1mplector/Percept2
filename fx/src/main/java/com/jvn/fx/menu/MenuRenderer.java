@@ -7,7 +7,6 @@ import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
-import com.jvn.core.vn.VnSettings;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.image.Image;
@@ -81,13 +80,22 @@ public class MenuRenderer {
   }
 
   public void renderSaveMenu(SaveMenuScene scene, double w, double h) {
+    MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     clear(w, h);
-    drawTitle(Localization.t("save.title"), w, 60);
+    String title = scene != null ? scene.getDisplayTitle() : Localization.t("save.title");
+    double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
+    drawTitle(title, w, titleY);
     List<String> saves = scene.getSaves();
     String[] items = new String[(saves.size() + 1)];
-    items[0] = Localization.t("save.new");
+    items[0] = scene.getNewSlotLabel();
     for (int i = 0; i < saves.size(); i++) items[i + 1] = saves.get(i);
-    drawMenuList(items, scene.getSelected(), w * 0.6, h);
+    boolean[] enabled = new boolean[items.length];
+    MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
+    for (int i = 0; i < items.length; i++) {
+      enabled[i] = true;
+      styles[i] = scene.getStyleForIndex(i);
+    }
+    drawMenuList(items, scene.getSelected(), enabled, styles, layout, w * 0.6, h);
 
     // Preview: prefer thumbnail when selecting existing; when selecting new, try current background
     if (scene.isNewItemSelected()) {
@@ -104,19 +112,32 @@ public class MenuRenderer {
       gc.setFont(theme.getHintFont());
       gc.fillText(rpg, 20, h - 50);
     }
-    drawHints(Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
-        + Localization.t("save.delete") + ": Delete    " + Localization.t("save.rename") + ": R",
-        w, h);
+    String hints = scene != null ? scene.getDisplayHints() : null;
+    if (hints == null || hints.isBlank()) {
+      hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
+          + Localization.t("save.delete") + ": Delete    " + Localization.t("save.rename") + ": R";
+    }
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0);
   }
 
   public void renderLoadMenu(LoadMenuScene scene, double w, double h) {
+    MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     clear(w, h);
-    drawTitle(Localization.t("load.title"), w, 60);
+    String title = scene != null ? scene.getDisplayTitle() : Localization.t("load.title");
+    double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
+    drawTitle(title, w, titleY);
     List<String> saves = scene.getSaves();
     if (saves.isEmpty()) {
       drawCenteredText(Localization.t("load.no_saves"), w, h/2, theme.getItemFont(), Color.GRAY);
     } else {
-      drawMenuList(saves.toArray(new String[0]), scene.getSelected(), w * 0.6, h);
+      String[] items = saves.toArray(new String[0]);
+      boolean[] enabled = new boolean[items.length];
+      MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
+      for (int i = 0; i < items.length; i++) {
+        enabled[i] = true;
+        styles[i] = scene.getStyleForIndex(i);
+      }
+      drawMenuList(items, scene.getSelected(), enabled, styles, layout, w * 0.6, h);
       File thumb = getThumbnailFile(scene);
       if (thumb != null) {
         drawPreviewFile(thumb, w, h);
@@ -141,75 +162,49 @@ public class MenuRenderer {
         gc.fillText(rpg, 20, h - 50);
       }
     }
-    drawHints(Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
-        + Localization.t("load.delete") + ": Delete    " + Localization.t("load.rename") + ": R",
-        w, h);
+    String hints = scene != null ? scene.getDisplayHints() : null;
+    if (hints == null || hints.isBlank()) {
+      hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
+          + Localization.t("load.delete") + ": Delete    " + Localization.t("load.rename") + ": R";
+    }
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0);
   }
 
   public void renderSettings(SettingsScene scene, double w, double h) {
+    MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     clear(w, h);
-    drawTitle(Localization.t("settings.title"), w, 60);
+    String title = scene != null ? scene.getDisplayTitle() : Localization.t("settings.title");
+    double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
+    drawTitle(title, w, titleY);
 
-    VnSettings s = scene.model();
-    String[] items = new String[] {
-      Localization.t("settings.text_speed") + ": " + s.getTextSpeed() + " ms",
-      Localization.t("settings.bgm_volume") + ": " + toPct(s.getBgmVolume()),
-      Localization.t("settings.sfx_volume") + ": " + toPct(s.getSfxVolume()),
-      Localization.t("settings.voice_volume") + ": " + toPct(s.getVoiceVolume()),
-      Localization.t("settings.auto_play_delay") + ": " + s.getAutoPlayDelay() + " ms",
-      Localization.t("settings.skip_unread") + ": " + (s.isSkipUnreadText() ? "ON" : "OFF"),
-      Localization.t("settings.skip_after_choices") + ": " + (s.isSkipAfterChoices() ? "ON" : "OFF"),
-      "Physics: Fixed Step " + s.getPhysicsFixedStepMs() + " ms",
-      "Physics: Max Substeps " + s.getPhysicsMaxSubSteps(),
-      "Physics: Default Friction " + toPct((float) s.getPhysicsDefaultFriction()),
-      "Input: Save/Load (" + s.getInputProfilePath() + ")" + (scene.getBindingStatus().isEmpty() ? "" : " • " + scene.getBindingStatus())
-    };
+    String[] items = scene.getDisplayItems();
+    boolean[] enabled = new boolean[items.length];
+    MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
+    for (int i = 0; i < items.length; i++) {
+      enabled[i] = scene.isItemEnabled(i);
+      styles[i] = scene.getStyleForIndex(i);
+    }
+    drawMenuList(items, scene.getSelected(), enabled, styles, layout, w, h);
 
-    drawMenuList(items, scene.getSelected(), w, h);
-    double yStart = h * 0.35;
-    double lineH = 40;
+    double yStart = (layout != null ? resolve(layout.listYStart(), h) : h * 0.35);
+    double lineH = (layout != null ? layout.lineHeight() : 40.0);
     double sliderW = w * 0.45;
     double sliderX = (w - sliderW) / 2;
 
-    double textSpeedMin = 10.0, textSpeedMax = 120.0;
-    double autoDelayMin = 500.0, autoDelayMax = 5000.0;
-
     int sliderRow = 0;
     for (int i = 0; i < items.length; i++) {
-      double value;
-      boolean hasSlider = switch (i) {
-        case 0 -> true;
-        case 1 -> true;
-        case 2 -> true;
-        case 3 -> true;
-        case 4 -> true;
-        case 7 -> true;
-        case 8 -> true;
-        case 9 -> true;
-        default -> false;
-      };
+      boolean hasSlider = scene.hasSliderAt(i);
       if (!hasSlider) continue;
-      value = switch (i) {
-        case 0 -> clamp01((s.getTextSpeed() - textSpeedMin) / (textSpeedMax - textSpeedMin));
-        case 1 -> clamp01(s.getBgmVolume());
-        case 2 -> clamp01(s.getSfxVolume());
-        case 3 -> clamp01(s.getVoiceVolume());
-        case 4 -> clamp01((s.getAutoPlayDelay() - autoDelayMin) / (autoDelayMax - autoDelayMin));
-        case 7 -> clamp01(s.getPhysicsFixedStepMs() / 50.0);
-        case 8 -> clamp01((s.getPhysicsMaxSubSteps() - 1) / 7.0);
-        case 9 -> clamp01(s.getPhysicsDefaultFriction());
-        default -> 0;
-      };
+      double value = scene.sliderValue01At(i);
       double y = yStart + sliderRow * lineH + 10;
       drawSlider(sliderX, y, sliderW, value, i == scene.getSelected());
       sliderRow++;
     }
-    drawHints("Up/Down, Left/Right, Enter • " + Localization.t("common.back") + ": Esc", w, h);
-  }
-
-  private String toPct(float v) {
-    int pct = Math.round(v * 100f);
-    return pct + "%";
+    String hints = scene != null ? scene.getDisplayHints() : null;
+    if (hints == null || hints.isBlank()) {
+      hints = "Up/Down, Left/Right, Enter • " + Localization.t("common.back") + ": Esc";
+    }
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0);
   }
 
   private void clear(double w, double h) {
@@ -334,31 +329,42 @@ public class MenuRenderer {
 
   public int getHoverIndexForList(int count, double w, double h, double mouseX, double mouseY) {
     if (count <= 0) return -1;
-    double yStart = resolve(theme.getListYStart(), h);
-    double lineH = theme.getLineHeight();
-    // Compute by vertical slot
-    double relY = mouseY - yStart;
-    if (relY < 0) return -1;
-    int idx = (int) Math.floor(relY / lineH);
-    if (idx < 0 || idx >= count) return -1;
-    return idx;
+    return hoverIndex(count, null, 0, w, h, mouseX, mouseY);
   }
 
   public int getHoverIndexForMainMenu(MainMenuScene scene, double w, double h, double mouseX, double mouseY) {
     if (scene == null) return -1;
-    int count = scene.getItemCount();
+    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), 0, w, h, mouseX, mouseY);
+  }
+
+  public int getHoverIndexForLoadMenu(LoadMenuScene scene, double w, double h, double mouseX, double mouseY) {
+    if (scene == null) return -1;
+    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), 0, w * 0.6, h, mouseX, mouseY);
+  }
+
+  public int getHoverIndexForSaveMenu(SaveMenuScene scene, double w, double h, double mouseX, double mouseY) {
+    if (scene == null) return -1;
+    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), 0, w * 0.6, h, mouseX, mouseY);
+  }
+
+  public int getHoverIndexForSettings(SettingsScene scene, double w, double h, double mouseX, double mouseY) {
+    if (scene == null) return -1;
+    return hoverIndex(scene.itemCount(), scene.getMenuLayout(), 0, w, h, mouseX, mouseY);
+  }
+
+  private int hoverIndex(int count, MenuLayoutSpec layout, double areaX, double areaWidth, double h, double mouseX, double mouseY) {
     if (count <= 0) return -1;
-    MenuLayoutSpec layout = scene.getMenuLayout();
     double yStart = layout != null ? resolve(layout.listYStart(), h) : resolve(theme.getListYStart(), h);
     double lineH = layout != null ? layout.lineHeight() : theme.getLineHeight();
-    double listW = layout != null ? w * clamp(layout.listWidthFactor(), 0.1, 1.0) : w;
+    if (lineH <= 0) lineH = theme.getLineHeight();
+    double widthFactor = layout != null ? clamp(layout.listWidthFactor(), 0.1, 1.0) : 1.0;
+    double listW = areaWidth * widthFactor;
     String align = layout != null ? layout.textAlign() : "center";
     double listX = switch (align == null ? "center" : align.toLowerCase()) {
-      case "left" -> 0.0;
-      case "right" -> w - listW;
-      default -> (w - listW) / 2.0;
+      case "left" -> areaX;
+      case "right" -> areaX + areaWidth - listW;
+      default -> areaX + (areaWidth - listW) / 2.0;
     };
-
     if (mouseX < listX - 24 || mouseX > listX + listW + 24) return -1;
     double relY = mouseY - yStart;
     if (relY < 0) return -1;
