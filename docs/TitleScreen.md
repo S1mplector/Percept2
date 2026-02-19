@@ -7,12 +7,13 @@ JVN menu presentation is driven by two complementary systems:
 
 This page covers both.
 
-## Theme File (`config/menu/menu.theme`)
+## Theme File (`config/menu/theme/menu.theme`)
 
 Theme loader class:
 - `fx/src/main/java/com/jvn/fx/menu/MenuTheme.java`
 
 Lookup order:
+- `config/menu/theme/menu.theme`
 - `config/menu/menu.theme`
 - `config/menu.theme`
 - `menu.theme`
@@ -87,7 +88,8 @@ Use this structure:
 
 ```text
 config/menu/
-|-- menu.registry
+|-- registry/menu.registry
+|-- theme/menu.theme
 |-- menus/*.menu
 |-- layouts/*.layout
 `-- styles/*.style

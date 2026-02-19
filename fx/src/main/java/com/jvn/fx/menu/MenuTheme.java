@@ -69,6 +69,7 @@ public class MenuTheme {
     MenuTheme t = new MenuTheme();
     AssetCatalog cat = new AssetCatalog();
     String[] candidates = new String[] {
+        "config/menu/theme/menu.theme",
         "config/menu/menu.theme",
         "config/menu.theme",
         "menu.theme"

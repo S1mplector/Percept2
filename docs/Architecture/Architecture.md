@@ -52,7 +52,7 @@ Entrypoint: `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
 
 Menu config loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
-1. Load `config/menu/menu.registry` if present.
+1. Load `config/menu/registry/menu.registry` (or legacy `config/menu/menu.registry`) if present.
 2. Discover screens/layouts/styles from `config/menu/menus`, `config/menu/layouts`, `config/menu/styles`.
 3. Resolve `extends` chains.
 4. Apply defaults and fallback behavior.

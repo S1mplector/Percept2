@@ -94,9 +94,11 @@ public class MenuThemeEditorView extends BorderPane {
 
   private File themeFile() {
     if (projectRoot == null) return null;
-    File configured = resolvePathFromManifest("menuTheme", "config/menu/menu.theme");
+    File configured = resolvePathFromManifest("menuTheme", "config/menu/theme/menu.theme");
     if (configured.exists()) return configured;
     // Compatibility with older projects.
+    File legacyNested = new File(projectRoot, "config/menu/menu.theme");
+    if (legacyNested.exists()) return legacyNested;
     File legacyConfig = new File(projectRoot, "config/menu.theme");
     if (legacyConfig.exists()) return legacyConfig;
     File legacy = new File(projectRoot, "scripts/menu.theme");

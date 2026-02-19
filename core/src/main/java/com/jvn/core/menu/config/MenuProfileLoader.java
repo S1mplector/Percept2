@@ -14,6 +14,7 @@ import java.util.Set;
 
 public final class MenuProfileLoader {
   private static final String[] REGISTRY_PATHS = new String[] {
+      "config/menu/registry/menu.registry",
       "config/menu/menu.registry",
       "config/menu/registry.properties",
       "menu.registry"

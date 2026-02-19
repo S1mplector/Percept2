@@ -75,8 +75,8 @@ public class NewProjectWizard extends Stage {
   private static final String TIMELINE_PATH = "config/timeline/story.timeline";
   private static final String SETTINGS_PATH = "config/settings/vn.settings";
   private static final String DIALOGUE_LAYOUT_PATH = "config/ui/dialogue.layout";
-  private static final String MENU_THEME_PATH = "config/menu/menu.theme";
-  private static final String MENU_REGISTRY_PATH = "config/menu/menu.registry";
+  private static final String MENU_THEME_PATH = "config/menu/theme/menu.theme";
+  private static final String MENU_REGISTRY_PATH = "config/menu/registry/menu.registry";
   private static final String MENU_MAIN_PATH = "config/menu/menus/main.menu";
   private static final String MENU_LOAD_PATH = "config/menu/menus/load.menu";
   private static final String MENU_SAVE_PATH = "config/menu/menus/save.menu";
@@ -256,7 +256,8 @@ public class NewProjectWizard extends Stage {
     Label entryInfo = new Label(
         "Entry script: " + ENTRY_SCRIPT_PATH + "\n" +
         "Timeline file: " + TIMELINE_PATH + "\n" +
-        "Dialogue layout: " + DIALOGUE_LAYOUT_PATH
+        "Dialogue layout: " + DIALOGUE_LAYOUT_PATH + "\n" +
+        "Menu registry: " + MENU_REGISTRY_PATH
     );
     entryInfo.setTextFill(Color.web(TEXT_MUTED));
     entryInfo.setFont(Font.font("Consolas", 11));
@@ -286,9 +287,17 @@ public class NewProjectWizard extends Stage {
     chkSettingsMenu = createCheckBox("Settings Menu Profile", true);
     chkHistoryBacklog = createCheckBox("History/Backlog Defaults", true);
 
-    for (CheckBox cb : List.of(chkSampleContent, chkTitleScreen, chkSaveSystem, chkSettingsMenu, chkHistoryBacklog)) {
-      cb.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
-    }
+    chkSampleContent.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    chkTitleScreen.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    chkHistoryBacklog.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    chkSaveSystem.selectedProperty().addListener((o, ov, nv) -> {
+      if (nv != null && nv && !chkTitleScreen.isSelected()) chkTitleScreen.setSelected(true);
+      updateDerivedFields();
+    });
+    chkSettingsMenu.selectedProperty().addListener((o, ov, nv) -> {
+      if (nv != null && nv && !chkTitleScreen.isSelected()) chkTitleScreen.setSelected(true);
+      updateDerivedFields();
+    });
 
     GridPane options = new GridPane();
     options.setHgap(28);
@@ -505,8 +514,10 @@ public class NewProjectWizard extends Stage {
     sb.append("|   |   `-- dialogue.layout\n");
     if (includeMenuPack) {
       sb.append("|   `-- menu/\n");
-      sb.append("|       |-- menu.theme\n");
-      sb.append("|       |-- menu.registry\n");
+      sb.append("|       |-- registry/\n");
+      sb.append("|       |   `-- menu.registry\n");
+      sb.append("|       |-- theme/\n");
+      sb.append("|       |   `-- menu.theme\n");
       sb.append("|       |-- menus/\n");
       sb.append("|       |   |-- main.menu\n");
       if (includeSave) {
@@ -594,11 +605,15 @@ public class NewProjectWizard extends Stage {
   }
 
   private void createProjectStructure(File dir, String displayName) throws Exception {
+    boolean includeMenuPack = shouldCreateMenuPack();
+    boolean includeSave = chkSaveSystem.isSelected();
+    boolean includeSettings = chkSettingsMenu.isSelected();
+
     dir.mkdirs();
-    createDirectories(dir);
+    createDirectories(dir, includeMenuPack);
 
     int[] resolution = parseResolution();
-    createManifest(dir, displayName, resolution[0], resolution[1]);
+    createManifest(dir, displayName, resolution[0], resolution[1], includeMenuPack, includeSave, includeSettings);
 
     if (chkSampleContent.isSelected()) createSampleScript(dir, displayName);
     else createEmptyScript(dir, displayName);
@@ -612,10 +627,6 @@ public class NewProjectWizard extends Stage {
     createSettings(dir);
     createDialogueLayout(dir);
 
-    boolean includeMenuPack = shouldCreateMenuPack();
-    boolean includeSave = chkSaveSystem.isSelected();
-    boolean includeSettings = chkSettingsMenu.isSelected();
-
     if (includeMenuPack) {
       createMenuTheme(dir, displayName);
       createMenuCustomizationScaffold(dir, displayName, includeSave, includeSettings);
@@ -624,35 +635,52 @@ public class NewProjectWizard extends Stage {
     createReadme(dir, displayName, includeMenuPack, includeSave, includeSettings);
   }
 
-  private void createDirectories(File dir) {
+  private void createDirectories(File dir, boolean includeMenuPack) throws Exception {
     // Config
-    new File(dir, "config/settings").mkdirs();
-    new File(dir, "config/timeline").mkdirs();
-    new File(dir, "config/ui").mkdirs();
-    new File(dir, "config/menu/menus").mkdirs();
-    new File(dir, "config/menu/layouts").mkdirs();
-    new File(dir, "config/menu/styles").mkdirs();
-    new File(dir, "config/menu/assets/buttons").mkdirs();
-    new File(dir, "config/menu/assets/icons").mkdirs();
+    ensureDirectory(dir, "config/settings");
+    ensureDirectory(dir, "config/timeline");
+    ensureDirectory(dir, "config/ui");
+    if (includeMenuPack) {
+      ensureDirectory(dir, "config/menu/registry");
+      ensureDirectory(dir, "config/menu/theme");
+      ensureDirectory(dir, "config/menu/menus");
+      ensureDirectory(dir, "config/menu/layouts");
+      ensureDirectory(dir, "config/menu/styles");
+      ensureDirectory(dir, "config/menu/assets/buttons");
+      ensureDirectory(dir, "config/menu/assets/icons");
+    }
 
     // Scripts
-    new File(dir, "scripts/story").mkdirs();
-    new File(dir, "scripts/common").mkdirs();
-    new File(dir, "scripts/system").mkdirs();
+    ensureDirectory(dir, "scripts/story");
+    ensureDirectory(dir, "scripts/common");
+    ensureDirectory(dir, "scripts/system");
 
     // Assets
-    new File(dir, "assets/backgrounds").mkdirs();
-    new File(dir, "assets/characters").mkdirs();
-    new File(dir, "assets/portraits").mkdirs();
-    new File(dir, "assets/cg").mkdirs();
-    new File(dir, "assets/ui").mkdirs();
-    new File(dir, "assets/fonts").mkdirs();
-    new File(dir, "assets/audio/bgm").mkdirs();
-    new File(dir, "assets/audio/sfx").mkdirs();
-    new File(dir, "assets/audio/voices").mkdirs();
+    ensureDirectory(dir, "assets/backgrounds");
+    ensureDirectory(dir, "assets/characters");
+    ensureDirectory(dir, "assets/portraits");
+    ensureDirectory(dir, "assets/cg");
+    ensureDirectory(dir, "assets/ui");
+    ensureDirectory(dir, "assets/fonts");
+    ensureDirectory(dir, "assets/audio/bgm");
+    ensureDirectory(dir, "assets/audio/sfx");
+    ensureDirectory(dir, "assets/audio/voices");
 
     // Save location
-    new File(dir, "save").mkdirs();
+    ensureDirectory(dir, "save");
+  }
+
+  private void ensureDirectory(File root, String relativePath) throws Exception {
+    File directory = new File(root, relativePath);
+    if (directory.exists()) {
+      if (!directory.isDirectory()) {
+        throw new Exception("Expected directory but found file: " + directory.getAbsolutePath());
+      }
+      return;
+    }
+    if (!directory.mkdirs()) {
+      throw new Exception("Failed to create directory: " + directory.getAbsolutePath());
+    }
   }
 
   private int[] parseResolution() {
@@ -668,7 +696,13 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private void createManifest(File dir, String displayName, int width, int height) throws Exception {
+  private void createManifest(File dir,
+                              String displayName,
+                              int width,
+                              int height,
+                              boolean includeMenuPack,
+                              boolean includeSave,
+                              boolean includeSettings) throws Exception {
     Properties manifest = new Properties();
     manifest.setProperty("name", displayName);
     manifest.setProperty("author", txtAuthor.getText().trim());
@@ -678,16 +712,19 @@ public class NewProjectWizard extends Stage {
     manifest.setProperty("timeline", TIMELINE_PATH);
     manifest.setProperty("settingsFile", SETTINGS_PATH);
     manifest.setProperty("dialogueLayout", DIALOGUE_LAYOUT_PATH);
-    manifest.setProperty("menuTheme", MENU_THEME_PATH);
-    manifest.setProperty("menuRegistry", MENU_REGISTRY_PATH);
-    manifest.setProperty("menuDefaultLayout", MENU_LAYOUT_DEFAULT_PATH);
-    manifest.setProperty("menuDefaultStyle", MENU_STYLE_DEFAULT_PATH);
+    if (includeMenuPack) {
+      manifest.setProperty("menuTheme", MENU_THEME_PATH);
+      manifest.setProperty("menuRegistry", MENU_REGISTRY_PATH);
+      manifest.setProperty("menuDefaultLayout", MENU_LAYOUT_DEFAULT_PATH);
+      manifest.setProperty("menuDefaultStyle", MENU_STYLE_DEFAULT_PATH);
+    }
     manifest.setProperty("width", String.valueOf(width));
     manifest.setProperty("height", String.valueOf(height));
     manifest.setProperty("feature.sampleContent", Boolean.toString(chkSampleContent.isSelected()));
-    manifest.setProperty("feature.titleScreen", Boolean.toString(chkTitleScreen.isSelected()));
-    manifest.setProperty("feature.saveSystem", Boolean.toString(chkSaveSystem.isSelected()));
-    manifest.setProperty("feature.settingsMenu", Boolean.toString(chkSettingsMenu.isSelected()));
+    manifest.setProperty("feature.titleScreen", Boolean.toString(chkTitleScreen.isSelected() && includeMenuPack));
+    manifest.setProperty("feature.menuProfiles", Boolean.toString(includeMenuPack));
+    manifest.setProperty("feature.saveSystem", Boolean.toString(includeSave));
+    manifest.setProperty("feature.settingsMenu", Boolean.toString(includeSettings));
     manifest.setProperty("feature.historyBacklog", Boolean.toString(chkHistoryBacklog.isSelected()));
     manifest.setProperty("createdBy", "jvn-editor-wizard");
 
@@ -984,6 +1021,10 @@ public class NewProjectWizard extends Stage {
       fw.write("- Timeline: `" + TIMELINE_PATH + "`\n");
       fw.write("- Settings: `" + SETTINGS_PATH + "`\n");
       fw.write("- Dialogue layout: `" + DIALOGUE_LAYOUT_PATH + "`\n\n");
+      if (includeMenuPack) {
+        fw.write("- Menu registry: `" + MENU_REGISTRY_PATH + "`\n");
+        fw.write("- Menu theme: `" + MENU_THEME_PATH + "`\n\n");
+      }
 
       fw.write("## Project Structure\n\n");
       fw.write("```\n");
@@ -991,19 +1032,24 @@ public class NewProjectWizard extends Stage {
       fw.write("```\n\n");
 
       fw.write("## First Steps\n\n");
-      fw.write("1. Open this folder in the JVN Editor.\n");
-      fw.write("2. Edit `" + ENTRY_SCRIPT_PATH + "`.\n");
-      fw.write("3. Tune `" + DIALOGUE_LAYOUT_PATH + "` with the visual layout editor.\n");
+      int step = 1;
+      fw.write(step++ + ". Open this folder in the JVN Editor.\n");
+      fw.write(step++ + ". Edit `" + ENTRY_SCRIPT_PATH + "`.\n");
+      fw.write(step++ + ". Tune `" + DIALOGUE_LAYOUT_PATH + "` with the visual layout editor.\n");
       if (includeMenuPack) {
-        fw.write("4. Edit `config/menu/menus/*.menu` and `config/menu/layouts/*.layout` in visual editors.\n");
+        fw.write(step++ + ". Edit `config/menu/menus/*.menu` and `config/menu/layouts/*.layout` in visual editors.\n");
       }
-      fw.write("5. Add content into `assets/` and run the project.\n");
+      fw.write(step + ". Add content into `assets/` and run the project.\n");
     }
   }
 
   private String sanitizeName(String name) {
     if (name == null) return "";
-    return name.replaceAll("[^a-zA-Z0-9._-]", "_");
+    String s = name.trim().replaceAll("[^a-zA-Z0-9._-]", "_");
+    s = s.replaceAll("_+", "_");
+    s = s.replaceAll("^[._-]+", "");
+    s = s.replaceAll("[._-]+$", "");
+    return s;
   }
 
   private void showError(String message) {

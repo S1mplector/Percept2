@@ -166,8 +166,8 @@ New projects created from the editor wizard are scaffolded in this shape:
 |   |-- timeline/story.timeline
 |   |-- ui/dialogue.layout
 |   `-- menu/
-|       |-- menu.theme
-|       |-- menu.registry
+|       |-- theme/menu.theme
+|       |-- registry/menu.registry
 |       |-- menus/*.menu
 |       |-- layouts/*.layout
 |       |-- styles/*.style

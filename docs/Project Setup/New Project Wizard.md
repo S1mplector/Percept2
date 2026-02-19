@@ -47,8 +47,8 @@ Wizard class:
 |   |-- timeline/story.timeline
 |   |-- ui/dialogue.layout
 |   `-- menu/
-|       |-- menu.theme
-|       |-- menu.registry
+|       |-- theme/menu.theme
+|       |-- registry/menu.registry
 |       |-- menus/
 |       |   |-- main.menu
 |       |   |-- load.menu      (optional)

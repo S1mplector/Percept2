@@ -21,7 +21,8 @@ They separate menu behavior/presentation from code:
 
 ```text
 config/menu/
-|-- menu.registry
+|-- registry/menu.registry
+|-- theme/menu.theme
 |-- menus/
 |   |-- main.menu
 |   |-- load.menu
@@ -43,6 +44,7 @@ config/menu/
 4. fallback defaults from `MenuProfile.defaults()`
 
 Supported registry path candidates include:
+- `config/menu/registry/menu.registry`
 - `config/menu/menu.registry`
 - `config/menu/registry.properties`
 - `menu.registry`
