@@ -223,15 +223,28 @@ public class EditorApp extends Application {
   }
 
   private void runGradle(File root, String task, String[] args, String title) {
-    File gradlew = new File(root, "gradlew");
+    boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+    File gradlew = new File(root, windows ? "gradlew.bat" : "gradlew");
+    File gradleUserHome = new File(root, ".jvn-gradle-user-home");
     try {
+      if (!gradleUserHome.exists()) gradleUserHome.mkdirs();
       java.util.List<String> cmd = new java.util.ArrayList<>();
       if (gradlew.exists()) cmd.add(gradlew.getAbsolutePath()); else cmd.add("gradle");
+      cmd.add("--no-daemon");
+      cmd.add("--console=plain");
+      cmd.add("--gradle-user-home");
+      cmd.add(gradleUserHome.getAbsolutePath());
+      cmd.add("-Dorg.gradle.vfs.watch=false");
       cmd.add(task);
-      if (args != null) java.util.Collections.addAll(cmd, args);
+      if (args != null) {
+        for (String arg : args) {
+          if (arg != null && !arg.isBlank()) cmd.add(arg);
+        }
+      }
       ProcessBuilder pb = new ProcessBuilder(cmd);
       pb.directory(root);
       pb.redirectErrorStream(true);
+      pb.environment().put("GRADLE_USER_HOME", gradleUserHome.getAbsolutePath());
       Process p = pb.start();
       javafx.stage.Stage logStage = new javafx.stage.Stage();
       javafx.scene.control.TextArea ta = new javafx.scene.control.TextArea();
