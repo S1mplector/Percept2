@@ -1,45 +1,23 @@
-# Title Screen System
+# Title Screen and Menu Presentation
 
-The JVN Engine provides a fully customizable title screen system that allows you to create main menus for your visual novels.
+JVN menu presentation is driven by two complementary systems:
 
-## Configuration File
+1. **Theme layer** (`menu.theme`) for shared visual styling.
+2. **Menu profile layer** (`menu.registry`, `*.menu`, `*.layout`, `*.style`) for dynamic screen/content/action structure.
 
-Create a file named `menu.theme` at `config/menu/menu.theme` in your project. This properties file controls all aspects of the title screen (legacy `scripts/menu.theme` is still supported).
+This page covers both.
 
-For richer menu behavior (multiple screens, per-item actions, custom layouts, per-button styles), add:
+## Theme File (`config/menu/menu.theme`)
 
-- `config/menu/menu.registry`
-- `config/menu/menus/*.menu`
-- `config/menu/layouts/*.layout`
-- `config/menu/styles/*.style`
+Theme loader class:
+- `fx/src/main/java/com/jvn/fx/menu/MenuTheme.java`
 
-The engine loads these from `config/menu/` at runtime and falls back to built-in defaults if files are missing.
+Lookup order:
+- `config/menu/menu.theme`
+- `config/menu.theme`
+- `menu.theme`
 
-### Title Screen Assets
-
-```properties
-# Background image (classpath path or absolute filesystem path)
-backgroundImage=game/images/title_bg.png
-
-# Logo/title image (replaces text title when set)
-logoImage=game/images/logo.png
-
-# Logo positioning (fractions of screen size)
-logoX=0.5          # Horizontal position (0.5 = centered)
-logoY=0.15         # Vertical position from top
-logoScale=1.0      # Scale multiplier
-logoShadow=true    # Draw drop shadow behind logo
-
-# Background music (loops automatically)
-bgm=game/audio/title_bgm.ogg
-bgmVolume=0.7      # Volume 0.0-1.0
-```
-
-### Colors
-
-Colors can be specified as:
-- Hex: `#RRGGBB` or `#AARRGGBB`
-- RGB: `rgb(r,g,b)` or `rgba(r,g,b,a)` where values are 0-255 or 0.0-1.0
+### Common visual keys
 
 ```properties
 backgroundColor=#0A0C12
@@ -50,11 +28,11 @@ hintColor=rgba(200,200,200,0.8)
 accentColor=#FFD700
 ```
 
-### Fonts
+### Font keys
 
 ```properties
 titleFontFamily=Arial
-titleFontWeight=BOLD        # NORMAL, BOLD, LIGHT, etc.
+titleFontWeight=BOLD
 titleFontSize=32
 
 itemFontFamily=Arial
@@ -66,41 +44,61 @@ hintFontWeight=NORMAL
 hintFontSize=14
 ```
 
-### Layout
+### Layout/prefix keys
 
 ```properties
-# Title Y position (<=1 = fraction of height, >1 = pixels)
 titleY=60
-
-# Where menu items start (fraction of screen height)
 listYStart=0.35
-
-# Spacing between menu items (pixels)
 lineHeight=40
-
-# Prefixes for menu items
 itemPrefix=  
 itemSelectedPrefix=> 
+hintsText=Select: Enter    Back: Esc
 ```
 
-### Custom Labels
-
-Override the default localized labels:
+### Label override keys
 
 ```properties
 titleText=My Visual Novel
 label.new=New Game
-label.load=Continue
-label.settings=Options
-label.quit=Exit
-
-# Custom hints at bottom
-hintsText=Enter: Select    Esc: Quit
+label.load=Load
+label.settings=Settings
+label.quit=Quit
 ```
 
-### Advanced Menu Profiles
+### Title assets
 
-`config/menu/menu.registry`
+```properties
+backgroundImage=game/images/title_bg.png
+logoImage=game/images/logo.png
+logoX=0.5
+logoY=0.15
+logoScale=1.0
+logoShadow=true
+bgm=game/audio/title_theme.ogg
+bgmVolume=0.7
+```
+
+## Dynamic Menu Profiles (Recommended)
+
+Profile loader:
+- `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+
+Use this structure:
+
+```text
+config/menu/
+|-- menu.registry
+|-- menus/*.menu
+|-- layouts/*.layout
+`-- styles/*.style
+```
+
+If `menu.registry` is missing, JVN auto-discovers menu/layout/style files.
+
+## `menu.registry`
+
+Example:
+
 ```properties
 defaultMenu=main
 menus=main,load,save,settings,extras
@@ -108,114 +106,101 @@ layouts=default
 styles=default,neon
 ```
 
-`config/menu/menus/main.menu`
+## `*.menu` Screen Files
+
+Define menu items and actions.
+
 ```properties
 titleText=My Game
 layout=default
 defaultItemStyle=default
+wrapSelection=true
 items=start,extras,quit
+
 item.start.action=run_script:scripts/story/prologue.vns
 item.extras.action=open_menu
 item.extras.target=extras
 item.quit.action=quit
 ```
 
-`config/menu/menus/settings.menu`
+## `*.layout` Files
+
+Define geometry and alignment for menu list/title/hints.
+
 ```properties
-titleText=Settings
-layout=default
-defaultItemStyle=default
-items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,skip_after_choices,physics_fixed_step,physics_max_substeps,physics_default_friction,input_profile,back
-item.back.action=back
+listYStart=0.35
+lineHeight=40
+listWidthFactor=1.0
+textAlign=center
+hintsBottomMargin=20
+titleY=60
 ```
 
-`config/menu/menus/load.menu`
-```properties
-titleText=Load
-layout=default
-defaultItemStyle=default
+## `*.style` Files
 
-# Optional shared action/style for each save slot row
-item.save_slot.action=load_menu
+Define style overrides and prefixes.
+
+```properties
+itemColor=#cccccc
+itemSelectedColor=#ffd700
+itemDisabledColor=#808080
+itemPrefix=  
+itemSelectedPrefix=> 
+itemDisabledPrefix=- 
 ```
 
-`config/menu/menus/save.menu`
-```properties
-titleText=Save
-layout=default
-defaultItemStyle=default
-item.new_slot.label=New Save...
-item.new_slot.action=save_menu
-item.save_slot.action=save_menu
-```
-
-`load`, `save`, and `settings` are special screen ids consumed by built-in menu scenes.
-
-You can compose profiles with inheritance:
+Style inheritance is supported:
 
 ```properties
-# config/menu/styles/neon_soft.style
-extends=neon
+extends=default
 itemSelectedColor=#8cff66
 ```
 
-If `menu.registry` is omitted, JVN auto-discovers files under:
+## Menu Actions
+
+Action parsing supports aliases and `action:target` shorthand.
+
+Core action types:
+- `new_game`
+- `run_script`
+- `load_menu`
+- `save_menu`
+- `settings_menu`
+- `main_menu`
+- `open_menu`
+- `back`
+- `quit`
+- `noop`
+
+## Built-in Scene IDs
+
+Menu profile screens are consumed by these scenes:
+- `main`
+- `load`
+- `save`
+- `settings`
+
+`load`, `save`, and `settings` now use the same profile system as main menu.
+
+## Editor Support
+
+In editor, these files have dedicated visual tooling:
 - `config/menu/menus/*.menu`
 - `config/menu/layouts/*.layout`
-- `config/menu/styles/*.style`
 
-## Programmatic Configuration
+They remain plain properties files on disk for source control and manual review.
 
-You can also configure the title screen programmatically:
+## Minimal Recommended Setup
 
-```java
-MainMenuScene menu = new MainMenuScene(engine, settings, saveManager, "main.vns", audio);
-menu.setTitleBgm("game/audio/title.ogg", 0.7);
-engine.scenes().push(menu);
-```
+For new projects, start with:
+- one default layout
+- one default style
+- `main`, `load`, `save`, `settings` menu files
 
-## Asset Paths
+Then add custom menus (e.g. `extras`, `gallery`, `credits`) via `open_menu` actions.
 
-Assets can be loaded from:
-1. **Classpath** - Relative to resources root (e.g., `game/images/logo.png`)
-2. **Filesystem** - Absolute paths or relative to working directory
+## Related Docs
 
-## Example Configuration
-
-```properties
-# ===========================================
-# My Visual Novel - Title Screen Theme
-# ===========================================
-
-# Assets
-backgroundImage=game/images/title_bg.png
-logoImage=game/images/logo.png
-logoY=0.12
-logoScale=0.8
-bgm=game/audio/title_theme.ogg
-bgmVolume=0.6
-
-# Dark elegant theme
-backgroundColor=#0D0D14
-titleColor=#E8E8E8
-itemColor=#A0A0A0
-itemSelectedColor=#FFD700
-accentColor=#FFD700
-
-# Modern sans-serif fonts
-titleFontFamily=Segoe UI
-titleFontSize=28
-itemFontFamily=Segoe UI
-itemFontSize=18
-
-# Compact layout
-listYStart=0.45
-lineHeight=36
-itemSelectedPrefix=▸ 
-
-# Custom labels
-label.new=Begin Story
-label.load=Continue
-label.settings=Options
-label.quit=Exit Game
-```
+- `docs/Menu Profiles/Menu Profiles.md`
+- `docs/Editor/Editor.md`
+- `docs/Runtime/Runtime.md`

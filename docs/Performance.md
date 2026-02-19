@@ -1,30 +1,91 @@
-# Lightweight Builds & Performance
+# Performance and Build Footprint
 
-These tips help keep JVN shipped games small and fast.
-Quickly whipped up doc, I'll add more to it later. 
+This guide covers practical optimization for JVN projects and editor/runtime workflows.
 
-## Assets
-- Favor smaller textures; target your runtime resolution to avoid scaling oversized art.
-- Use spritesheets to reduce file count and texture binds.
-- Prefer compressed audio (OGG/MP3) for BGM/SFX; avoid uncompressed WAV for long tracks.
-- Keep optional high-res assets in external packs and load via `--assets`.
+## Build-Level Performance
 
-## VNS
-- Reuse backgrounds and character sprites across scenes.
-- Limit heavy transitions in rapid succession.
-- Avoid excessive HUD messages or screen effects during fast input sequences.
+### Use targeted Gradle tasks during development
 
-## JES / Scene2D
-- Keep entity counts low per scene; reuse pooled entities where possible.
-- Minimize active physics bodies and sensors.
-- Disable debug overlays in production.
-- Prefer simple timeline actions over per-frame scripted logic.
+Instead of full `build` every iteration, prefer focused tasks:
 
-## Runtime
-- Use `ViewportScaler2D.fit` to render at a stable base resolution.
-- Cache assets using `AssetCatalog` and avoid reloading each frame.
-- Use the JavaFX backend only when needed; Swing remains a lighter option.
+```bash
+./gradlew :core:compileJava :scripting:compileJava :editor:compileJava
+./gradlew :core:test :scripting:test
+```
 
-## Native Bridge (Optional)
-- Native math kernels are optional. If the native library is missing, the Java fallback runs.
-- Bundle native libs only when a measurable win is needed on target hardware.
+### Keep optional dependencies optional
+
+Simp3 integration is compile-time optional (`-PuseSimp3=true`).
+Default builds avoid this dependency and remain portable.
+
+### Avoid stale/global Gradle contention
+
+Lock-heavy environments (especially Linux) should:
+- run with VFS watch disabled (`org.gradle.vfs.watch=false`)
+- isolate Gradle user home when running from tools (editor already does this)
+
+## Runtime Performance
+
+### VNS rendering and flow
+
+- Keep dialogue effects focused; animated per-character spans cost more than plain text.
+- Avoid excessive flash/shake spam in rapid loops.
+- Keep history overlay closed during normal play in low-spec targets.
+
+### Menu rendering
+
+- Prefer lightweight style overrides in profile files instead of large dynamic image stacks.
+- Keep menu item counts bounded for keyboard/controller-first flows.
+
+### JES scenes
+
+- Control entity count in active scenes.
+- Minimize dynamic physics body churn where possible.
+- Prefer declarative timeline actions over per-frame custom callback logic.
+- Disable debug overlays in production gameplay.
+
+### Physics
+
+- High body counts with pairwise checks scale poorly.
+- Use static colliders for map geometry instead of many dynamic bodies.
+- Tune fixed-step settings in `VnSettings` to balance stability and CPU cost.
+
+## Asset Strategy
+
+### Images
+
+- Match source resolution to target viewport scale.
+- Use sprite sheets where practical.
+- Avoid oversized transparent textures for small UI elements.
+
+### Audio
+
+- Use compressed formats for long tracks.
+- Keep simultaneous channels intentional.
+- Normalize volumes to avoid heavy runtime gain swings.
+
+### External asset overlays
+
+Using `--assets` is good for iteration, but production packaging should keep required assets deterministic and versioned.
+
+## Save/Load Throughput
+
+- Save writes use temp file + atomic move, which is robust but still disk-bound.
+- Avoid saving every frame; use explicit checkpoints/autosave cadence.
+- Keep large custom payloads in `rpgState` compact and serializable.
+
+## Editor Responsiveness Tips
+
+- Keep huge generated files outside regular script/config editing tabs when possible.
+- For massive markdown docs, use Help Center preview for read-only lookup and open only what you edit.
+- Use project filters in tree and timeline views to reduce noise.
+
+## Quick Diagnostic Checklist
+
+If a build or runtime session feels slow:
+
+1. Confirm Gradle daemon/lock health (`./gradlew --status`, `./gradlew --stop`).
+2. Check whether full build is necessary vs targeted module tasks.
+3. Verify optional dependencies are not accidentally enabled.
+4. Profile scene content density (entities, physics, text effects, timeline activity).
+5. Re-test with simplified asset set to isolate content cost vs engine cost.

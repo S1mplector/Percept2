@@ -1,125 +1,248 @@
 # VNS Scripting
 
-This document describes the Visual Novel Script (VNS) format used by the engine and editor. VNS is a readable, line-based DSL parsed by the engine into runtime scenarios.
+VNS is JVN's line-oriented visual novel scripting DSL.
 
-The parser lives at `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`. All syntax below is based on its implementation.
+Parser source of truth:
+- `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
 
-## Quickstart
+Condition grammar:
+- `core/src/main/java/com/jvn/core/vn/VnConditionEvaluator.java`
 
-- Create a script under `game/scripts/`, e.g. `demo.vns`:
-  ```vns
-  @scenario demo
-  @label start
-  Alice: Hello VNS!
-  [end]
-  ```
-- Run the runtime with your script:
-  ```bash
-  ./gradlew :runtime:run --args="--script demo.vns"
-  ```
-- Optional: select audio backend
-  ```bash
-  ./gradlew :runtime:run --args="--script demo.vns --audio fx"      # default
-  ./gradlew :runtime:run --args="--script demo.vns --audio simp3"   # requires audio-engine installed
-  ```
-- See also: `docs/JES Scripting/JES Scripting.md` (on JES interop) and `docs/Timeline Scripting/Timeline Scripting.md` (on Timelines).
-- See also: `docs/Interop.md` for a full interop provider map.
+## Quick Start
 
-## File structure overview
-
-- Lines are read top-to-bottom.
-- Blank lines and lines starting with `#` are ignored (comments).
-- Scripts typically begin with `@scenario` and resource definitions, then labels, dialogue, choices, and commands.
+Create a script:
 
 ```vns
-# Comment
-@scenario my_story
-@character alice "Alice"
-@character bob   "Bob"
-@background room game/images/bg_room.png
+@scenario demo
+@character narrator "Narrator"
 
 @label start
-[background room]
-Alice: Hello!
-> Nice to meet you -> greet
-> Maybe later
-
-@label greet
-Bob: Welcome.
+Narrator: Hello from VNS.
 [end]
 ```
 
-## Declarations
+Run with runtime:
 
-### Scenario
+```bash
+./gradlew :runtime:run --args='--script demo.vns'
 ```
+
+## Script Structure
+
+VNS is read top-to-bottom.
+
+Ignored lines:
+- blank lines
+- lines starting with `#`
+
+Typical order:
+1. declarations (`@scenario`, `@character`, `@background`, etc.)
+2. labels
+3. dialogue/choices/commands
+
+## Directives
+
+### `@scenario`
+
+```text
 @scenario <id>
 ```
-- Declares or sets the scenario id. If omitted, defaults to `untitled`.
 
-### Characters
-```
+- optional but recommended
+- defaults to `untitled` when omitted
+- must appear before other content if used
+
+### `@character`
+
+```text
 @character <id> "Display Name"
 ```
-- Registers a character id and display name.
 
-### Backgrounds
-```
+Registers display name mapping for speaker ids.
+
+### `@background`
+
+```text
 @background <id> <path>
 ```
-- Registers a background resource by id, with an image path.
 
-### Labels
+Maps background id to image path.
+
+### `@charimg`
+
+```text
+@charimg <characterId> <expressionId> <path>
 ```
+
+Adds expression-specific sprite path for a character.
+
+### `@label`
+
+```text
 @label <name>
 ```
-- Marks a jump target and a logical section of the script.
-- Timelines may link to labels by name.
 
-## Dialogue
+- jump target declaration
+- label name pattern: `^[A-Za-z_][A-Za-z0-9_.:-]*$`
+- duplicate labels are parser errors
+
+Legacy label form is still accepted:
+
+```text
+label start
 ```
-<Speaker>: <text>
+
+### `@var`
+
+```text
+@var key = value
+@var key value
+@var flagOnly
 ```
-- Emission of dialogue attributed to `<Speaker>`.
-- Example:
+
+- emits equivalent variable command at parse time
+- `@var flagOnly` defaults to `true`
+
+### `@define`
+
+```text
+@define PLAYER_NAME "Alice"
+@define DIFF hard
 ```
-Alice: This is a line of dialogue.
+
+Then `${PLAYER_NAME}` tokens in script text are macro-substituted during parse.
+
+### `@include`
+
+```text
+@include common/opening.vns
 ```
+
+- include resolver based
+- include cycles are detected and rejected
+
+## Dialogue Forms
+
+### Colon form
+
+```text
+Speaker: text
+```
+
+### Quoted form
+
+```text
+speaker "quoted text with escapes"
+```
+
+Both resolve display name through registered `@character` where available.
 
 ## Choices
-```
-> <choice text> [-> <targetLabel>]
-```
-- Creates a menu choice. If `-> <targetLabel>` is present, choosing this option jumps to that label.
-- Conditional choices can be written inline with a trailing condition in brackets appended to the choice text:
-```
-> Explore the cave [if flags.cave_open]
-> Open the door -> entry [if stats.strength > 5]
-```
-- The parser recognizes the pattern `... [if <expr>]` at the end of the choice text and treats `<expr>` as a display condition.
 
-## Commands
+### Multi-line choice syntax
 
-Commands are enclosed in square brackets:
+```text
+> Choice text -> targetLabel
+> Another choice
+> Conditional choice [if score >= 10] -> reward
 ```
-[command arg...]
-```
-Supported commands:
 
-- Background scene
+### Inline choice command
+
+```text
+[choice Continue->next | Exit->ending]
 ```
+
+Choice condition suffix is supported in both forms:
+
+```text
+[choice Continue->next [if flags.ready] | Exit->end]
+```
+
+## Command Reference
+
+All commands use `[ ... ]` form.
+
+### Scene/background flow
+
+```text
 [background <bgId>]
 [bg <bgId>]
-```
-
-- Jumps and flow
-```
 [jump <label>]
 [end]
 ```
 
-- Structured branching
+### Audio playback
+
+```text
+[bgm <track>]
+[bgm_stop]
+[bgm_fadeout [ms]]
+[sfx <track>]
+[voice <track>]
 ```
+
+### Advanced audio control
+
+```text
+[bgm_pause]
+[bgm_resume]
+[bgm_seek <seconds>]
+[bgm_crossfade <track> <ms> [loop]]
+```
+
+### Timing and visuals
+
+```text
+[wait <ms>]
+[show <charId> <pos> [expression]]
+[hide <charId>]
+[transition <type> [durationMs] [bgId]]
+[screen shake [intensity] [durationMs]]
+[screen flash [strength] [durationMs] [r g b]]
+```
+
+Character positions:
+- full: `LEFT`, `CENTER`, `RIGHT`, `FAR_LEFT`, `FAR_RIGHT`
+- shortcuts: `L`, `C`, `R`, `FL`, `FR`
+
+Transition types:
+- `FADE`, `DISSOLVE`, `CROSSFADE`, `SLIDE_LEFT`, `SLIDE_RIGHT`, `WIPE`
+
+### Settings and player modes
+
+```text
+[textspeed <msPerChar>]
+[autodelay <msBetweenLines>]
+[volume bgm|sfx|voice <0..1>]
+
+[skip [on|off|toggle]]
+[auto [on|off|toggle]]
+
+[ui [hide|show|toggle]]
+[history [toggle|show|hide]]
+[history scroll <lines>]
+[history clear]
+
+[save]
+[quickload]
+[hud <message>]
+```
+
+### Variable and flow helpers
+
+```text
+[set key value]
+[inc key [delta]]
+[dec key [delta]]
+[flag key]
+[unflag key]
+[clear key]
+```
+
+Conditional forms:
+
+```text
 [if <condition>]
   ...
 [elif <condition>]
@@ -128,355 +251,128 @@ Supported commands:
   ...
 [endif]
 ```
-  - Conditions support logical operators and grouping:
-    - `&&`, `||`, `!` (or `and`, `or`, `not`)
-    - `==`, `!=`, `>`, `<`, `>=`, `<=`
-    - Parentheses, e.g. `(flags.ready && score >= 10) || debug`
-  - Conditional jump form is still supported:
-```
+
+and shortcut jump:
+
+```text
 [if <condition> goto <label>]
 ```
 
-- Audio
-```
-[bgm <path-or-id>]     # plays and loops BGM
-[bgm_stop]             # stops BGM
-[bgm_fadeout [<ms>]]   # fades out BGM over <ms>; if omitted or 0 → stop immediately
-[sfx <path-or-id>]     # plays SFX once
-[voice <path-or-id>]   # plays voice (dedicated voice channel when available; falls back to SFX)
-```
+### Menu and script switching
 
-- Advanced audio controls
-```
-[bgm_pause]                      # pause current BGM
-[bgm_resume]                     # resume paused BGM
-[bgm_seek <seconds>]             # seek current BGM position
-[bgm_crossfade <id> <ms> [loop]] # crossfade from current BGM to <id> over <ms>; optional loop
-```
-Notes:
-- Crossfade requires backend support. The default FX backend swaps instantly; the Simp3 backend enables timed crossfades.
-
-- Timing
-```
-[wait <millis>]
-```
-
-- Character sprites
-```
-[show <charId> <pos> [expression]]
-[hide <charId>]
-```
-  - Positions: `LEFT, CENTER, RIGHT, FAR_LEFT, FAR_RIGHT` and short forms `L, C, R, FL, FR`.
-  - Expression is free-form (e.g., `happy`, `neutral`).
-
-- Scene transitions
-```
-[transition <type> [durationMs] [bgId]]
-```
-  - Types: `NONE, FADE, DISSOLVE, CROSSFADE, SLIDE_LEFT, SLIDE_RIGHT, WIPE` (case-insensitive).
-  - Duration defaults to 500ms when omitted.
-  - Optional background id can be provided to transition to a new background.
-
-- Screen effects
-```
-[screen shake [intensity] [durationMs]]
-[screen flash [strength] [durationMs] [r g b]]
-```
-  - `intensity` is in pixels; default 8.
-  - `strength` is 0.0–1.0; default 0.7.
-  - `r g b` are 0.0–1.0 (default white).
-
-- External calls / integration
-```
+```text
 [menu <payload>]
 [settings]
-[mainmenu [payload]]
-[load <scriptPathOrId>]      # external: vns replace
-[goto <label>]               # external: vns goto
-[set <expr>]                 # external: var set
-[inc <expr>]                 # external: var inc
-[dec <expr>]                 # external: var dec
-[flag <expr>]                # external: var flag
-[unflag <expr>]              # external: var unflag
-[clear <expr>]               # external: var clear
-[if <expr>]                  # external: cond if
+[mainmenu [script]]
+[load <scriptOrId>]
+[goto <labelOrArc:label>]
+```
+
+### Interop commands
+
+```text
 [call <provider> <payload>]
-[jes <payload>]              # shortcut for [call jes <payload>]
-[java <payload>]             # shortcut for [call java <payload>]
+[jes <payload>]
+[java <payload>]
+
+[jes_push <script.jes>]
+[jes_replace <script.jes>]
+[jes_pop]
+[jes_call <name> k=v ...]
 ```
 
-### Interop provider cheat sheet
+## Conditions
 
-These are routed through `VnExternalCommand` and handled by `VnInterop` (runtime uses `RuntimeVnInterop` which wraps `DefaultVnInterop`).
+Condition syntax supports:
 
-- `menu`: open menu scenes
-  - `[menu settings]`, `[menu save]`, `[menu load <defaultScript>]`, `[menu main <script>]`
-- `vns`: load or switch VNS
-  - `[call vns push chapter2.vns label start]`
-  - `[call vns replace prologue.vns]`
-  - `[goto ArcB:label]` (shortcut, handled by `vns goto`)
-- `jes`: bridge to JES scenes
-  - `[jes push game/minigames/pong.jes label after with difficulty=hard]`
-  - `[jes call restart]`
-  - `[jes pop]`
-- `settings`: runtime settings
-  - `[textspeed 25]`, `[autodelay 2000]`, `[volume bgm 0.7]`
-- `mode`: skip/auto toggles
-  - `[skip on]`, `[auto toggle]`
-- `ui` / `history`
-  - `[ui hide]`, `[history show]`, `[history scroll 5]`
-- `audio`: advanced BGM control
-  - `[bgm_pause]`, `[bgm_seek 10]`, `[bgm_crossfade theme 1000]`
-- `screen`: camera effects
-  - `[screen shake 12 300]`, `[screen flash 0.8 150 1 1 1]`
-- `save` / `quickload` / `hud` / `java` / `var` / `cond`
-  - `[save]`, `[quickload]`, `[hud Saved!]`, `[java com.foo.Game#ping]`, `[set flags.met true]`
-
-## Player settings and modes
-
-These commands adjust runtime behavior while a VN is playing.
-
-- Text and auto-play
-```
-[textspeed <msPerChar>]
-[autodelay <msBetweenLines>]
-```
-
-- Volumes (0.0 .. 1.0)
-```
-[volume bgm <v>]    # e.g., [volume bgm 0.6]
-[volume sfx <v>]
-[volume voice <v>]
-```
-
-- Modes
-```
-[skip [on|off|toggle]]   # default: toggle
-[auto [on|off|toggle]]   # default: toggle
-```
-
-- UI and history
-```
-[ui [hide|show|toggle]]           # toggle if omitted
-[history [toggle|show|hide]]
-[history scroll <lines>]          # positive = older, negative = newer
-[history clear]                   # reset scroll offset
-```
-
-- Save/load helpers
-```
-[save]                 # quick save
-[quickload]            # quick load (if available)
-```
-
-- HUD message
-```
-[hud <message>]
-```
-
-- Variable interpolation
-```
-${variableName}
-```
-  - Supported in dialogue text, choice text, and `[hud ...]` payloads.
-  - Resolved against `VnState` variables set via `[set]`, `[inc]`, `[dec]`, JES return props, etc.
-  - Missing variables resolve to an empty string.
-  - Interpolation is single-pass (resolved values are not recursively expanded).
-  - Use `${...}` (not `{...}`) to avoid conflicts with text-effect tags like `{shake}` / `{color=...}`.
+- logical: `&&`, `||`, `!`, `and`, `or`, `not`
+- comparison: `==`, `!=`, `>`, `<`, `>=`, `<=`
+- parentheses
+- literals: numbers, booleans, quoted strings
+- identifiers resolved from VN variable map
 
 Examples:
+
+```text
+flags.ready
+score >= 10 && lives > 0
+not seen_intro
+(playerClass == "mage" and mana >= 20) or debug
+```
+
+## Variable Interpolation in Dialogue/Choice/HUD
+
+Runtime interpolation syntax:
+
+```text
+${variableName}
+```
+
+Example:
+
 ```vns
-Alice: Welcome back, ${playerName}!
+Narrator: Welcome back, ${playerName}.
 > Spend ${coins} coins -> shop
 [hud Score: ${score}]
 ```
 
 Notes:
-- `menu`, `settings`, `mainmenu`, `load`, `goto`, and variable/condition ops are routed as external calls to the runtime. Exact behaviors depend on the runtime integration.
-- `load` replaces the current script (e.g., load another `.vns`).
-- `goto` jumps to a label, often used in cooperation with Timelines.
-- `textspeed`, `autodelay`, and `volume` update the live `VnSettings` during playback.
-- `skip` and `auto` are mutually exclusive; enabling one disables the other.
-- `voice` currently uses the SFX channel under the hood.
+- missing vars resolve to empty string
+- interpolation is single-pass
+- use `${...}` form to avoid collisions with text-effect tags like `{shake}`
 
-## Best practices
+## Parser Strictness and Diagnostics
 
-- Keep label names descriptive and stable so timelines and links remain valid.
-- Organize resources with `@background` and `@character` at the top of the file.
-- Use `wait` and `transition` to pace scenes and add visual polish.
-- Use conditional choices (`[if ...]`) for branching based on game state.
-- The parser is strict: unknown commands, undefined labels, malformed conditions, and unbalanced `if/elif/else/endif` blocks raise parse diagnostics.
+VNS parser is intentionally strict. It throws parse errors for:
 
-## Example
+- unknown commands
+- malformed command args
+- duplicate labels
+- undefined referenced labels (jump/choice/if-goto)
+- invalid condition syntax
+- invalid `if/elif/else/endif` structure
+- unclosed conditional blocks
+- unrecognized non-empty syntax lines
+
+This strictness is also surfaced in editor diagnostics.
+
+## Example: Branching + Conditions + Interop
 
 ```vns
-# Simple example
-@scenario demo
-@character alice "Alice"
-@character bob   "Bob"
-@background room game/images/bg_room.png
+@scenario tutorial
+@character narrator "Narrator"
+@character hero "Hero"
+@background room assets/backgrounds/room.png
 
 @label start
 [bg room]
-Alice: Hey there!
-> Greet Bob -> greet
-> Leave
+[set score 0]
+Narrator: Welcome, ${playerName}.
+Hero: Let's begin.
 
-@label greet
-Bob: Nice to meet you.
-[transition fade 600]
-[end]
-```
+> Play minigame -> minigame
+> Skip ahead [if debug] -> ending
 
-## Interop with Timelines
-
-- Timelines reference VNS scripts and can specify an `entry` label.
-- A timeline `link` to `ArcB` without an explicit `:label` will default to `ArcB`’s `entry` if defined.
-- From within VNS, you can also instruct the runtime to `goto` a timeline arc/label if your game flow requires it:
-```
-[goto ArcB:optionalLabel]
-```
-
-This document reflects the parser’s supported constructs; if you add new commands to `VnScriptParser`, update this guide accordingly.
-
-## JES interop from VNS
-
-You can launch JES scenes (e.g., minigames) mid-VN and return with results.
-
-- Launching a JES scene
-```
-[jes push <script.jes> [label <returnLabel>] [with k=v ...]]
-[jes replace <script.jes> [label <returnLabel>] [with k=v ...]]
-[jes pop]
-[jes call <name> k=v ...]         # calls into the active JES scene
-```
-
-- Convenience shortcuts
-```
-[jes_push <script.jes>]
-[jes_replace <script.jes>]
-[jes_pop]
-[jes_call <name> k=v]
-```
-
-- Returning to VNS from JES
-  - In JES, call `return` (or `vns`) with optional props. Runtime will:
-    - Pop the JES scene.
-    - Copy props into VN variables (except `label`/`goto`).
-    - Jump to `label` (from props) or to the `label` specified in the `[jes push ... label L]` call.
-
-Notes:
-- Prop parsing for `with k=v` and `[jes call <name> k=v ...]` auto-coerces values:
-  - `true/false` → boolean
-  - numbers with `.` → double; integers otherwise
-  - anything else → string
-- Values can be quoted for spaces, e.g. `title="Hello World"`.
-
-### End-to-end example
-
-VNS script:
-```vns
-@label start
-Alice: Let’s play a quick minigame!
-[jes push game/minigames/brickbreaker.jes label after_game with difficulty=hard lives=3]
+@label minigame
+[jes push game/minigames/aim.jes label after_game with stage=1]
 
 @label after_game
-Alice: Welcome back!
-Alice: (The minigame stored your score in a VN variable named "score".)
-> Try again -> start
-> Continue
-```
+Narrator: You returned with score ${score}.
+[if score >= 100 goto good]
+[jump bad]
 
-JES script snippet (inside the game):
-```jes
-// When the game ends
-call "return" { label: "after_game" score: 12345 }
-```
+@label good
+Narrator: Great result.
+[end]
 
-### Diagram
-
-```mermaid
-sequenceDiagram
-  participant VN as VNS Scene
-  participant JES as JES Scene
-  VN->>JES: [jes push brickbreaker.jes label after_game with difficulty=hard]
-  Note over JES: Gameplay...
-  JES-->>VN: call "return" { label: "after_game", score: 12345 }
-  VN->>VN: Pop JES, set var score=12345
-  VN->>VN: jump to @label after_game
-```
-
-## Java interop from VNS
-
-You can invoke public static Java methods directly from VNS via the `java` provider handled by `DefaultVnInterop`.
-
-- **Syntax**
-```
-[java fully.qualified.Class#method arg1 arg2 ...]
-[call java fully.qualified.Class#method arg1 arg2 ...]
-```
-
-- **Argument parsing and coercion**
-- `true/false` → boolean
-- numbers with `.` → double; integers otherwise
-- anything else → string
-- At invocation, arguments are coerced to the target parameter types (`int`, `long`, `double`, `boolean`; else `String`).
-
-- **Resolution rules**
-- Only public static methods are supported.
-- Overload is resolved by name and arity (number of args).
-
-- **Result and errors**
-- Return value (if any) is shown as a temporary HUD message; it is not stored in VN variables.
-- Invalid targets or reflection errors are surfaced as `java: ...` HUD messages.
-
-- **Examples**
-```vns
-[java com.acme.Debug#toggle]
-[java com.acme.Util#sum 2 3]         # calls Util.sum(int,int)
-[call java com.acme.Log#info Started] # same as [java ...]
-[java com.acme.Log#info "Boss battle started"]
-[jes call notify title="Final Battle" subtitle="Round 2"]
-```
-
-- **Limitations**
-- Instance methods are not supported.
-- Prefer small utility entry points that validate inputs if exposing them to scripts.
-
-- **Combining with JES**
-- VNS can sequence both interops:
-```vns
-[java com.acme.Session#begin]
-[jes push game/minigames/brickbreaker.jes label after with difficulty=hard]
-```
-
-## Example project
-
-See `demo-game/src/main/resources/game/scripts/` for `.vns` examples such as `demo.vns`. A minimal layout:
-
-```
-@scenario demo
-@character alice "Alice"
-@background room game/images/bg_room.png
-
-@label start
-[bg room]
-Alice: Welcome!
-> Greet -> greet
-> Leave
-
-@label greet
-Alice: Nice to meet you.
+@label bad
+Narrator: Try again.
 [end]
 ```
 
-## Diagrams
+## Related Docs
 
-Conceptual label flow for the example (requires Mermaid support):
-
-```mermaid
-flowchart TD
-  start[[@label start]] -->|choice: Greet| greet[[@label greet]]
-  start -->|choice: Leave| end1([end])
-  greet --> end2([end])
-```
+- Parsing internals: `docs/VNS Scripting/VNS Parsing.md`
+- Runtime interop: `docs/Interop.md`
+- JES language: `docs/JES Scripting/JES Scripting.md`
+- Timeline integration: `docs/Timeline Scripting/Timeline Scripting.md`

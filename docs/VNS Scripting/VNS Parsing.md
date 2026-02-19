@@ -1,119 +1,127 @@
-# VNS Parsing
+# VNS Parsing Internals
 
-This document explains how VNS text is parsed into an executable scenario.
+This document explains how `VnScriptParser` turns `.vns` text into executable scenario data.
 
-## Pipeline
+Parser file:
+- `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
 
-- Input: plain text `.vns`
-- Parser: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
-- Output: `VnScenario` built via `VnScenarioBuilder`
-- Runtime: `VnScene` executes dialogue, choices, and external commands via an `VnInterop` implementation
+## Parse Pipeline
 
-## Line-oriented grammar (regex based)
+1. Read line-by-line, UTF-8.
+2. Strip comments/blank lines.
+3. Process directives and commands.
+4. Build `VnScenarioBuilder` nodes sequentially.
+5. Validate label references and conditional block integrity.
+6. Build final `VnScenario`.
 
-Patterns in `VnScriptParser`:
-- Scenario: `@scenario <id>`
-- Character: `@character <id> "Display Name"`
-- Background: `@background <id> <path>`
-- Label: `@label <name>`
-- Dialogue: `<Speaker>: <text>`
-- Choice: `> <text> [-> <targetLabel>]`
-  - Conditional suffix recognized by the parser: `... [if <expr>]`
-    - Example: `> Explore [if flags.cave_open]`
-- Command: `[ ... ]` (see below)
+## Core Regex Patterns
 
-Whitespace-only lines and `#` comments are ignored. Order is top-to-bottom. Choices buffer until a non-choice line is seen, then are flushed to the builder.
+Key patterns used by parser include:
 
-## Commands (inside square brackets)
+- directives: `@scenario`, `@character`, `@background`, `@charimg`, `@var`, `@label`, `@define`, `@include`
+- legacy label: `label <name>`
+- dialogue forms:
+  - `Speaker: text`
+  - `speaker "quoted text"`
+- command block: `[ ... ]`
+- choice condition suffix: `... [if <expr>]`
+- `if-goto` shortcut: `<expr> goto <label>`
 
-The parser recognizes the following commands and maps them to builder or external calls:
+## Include and Macro Handling
 
-- Background/flow
-  - `[background <bgId>]`, `[bg <bgId>]`
-  - `[jump <label>]`, `[end]`
+### `@define`
 
-- Characters and transitions
-  - `[show <charId> <pos> [expression]]`
-  - `[hide <charId>]`
-  - `[transition <type> [durationMs] [bgId]]`
-  - `[screen shake [intensity] [durationMs]]`
-  - `[screen flash [strength] [durationMs] [r g b]]`
+- parser stores key/value map
+- substitutes `${KEY}` tokens in subsequent lines
+- substitution is parser-time text replacement
 
-- Timing
-  - `[wait <millis>]`
+### `@include`
 
-- Audio
-  - `[bgm <id>]`, `[bgm_stop]`, `[bgm_fadeout [ms]]`
-  - `[bgm_pause]`, `[bgm_resume]`, `[bgm_seek <seconds>]`, `[bgm_crossfade <id> <ms> [loop]]`
-  - `[sfx <id>]`, `[voice <id>]`
+- requires include resolver
+- resolves relative include paths using current source path
+- detects include cycles using include stack
 
-- Player settings / modes / UI / history
-  - `[textspeed <msPerChar>]`, `[autodelay <msBetweenLines>]`
-  - `[volume bgm|sfx|voice <0..1>]`
-  - `[skip [on|off|toggle]]`, `[auto [on|off|toggle]]`
-  - `[ui [hide|show|toggle]]`
-  - `[history [toggle|show|hide]]`, `[history scroll <lines>]`, `[history clear]`
-  - `[save]`, `[quickload]`
-  - `[hud <message>]`
+## Conditional Block Lowering
 
-- External integration
-  - Generic: `[call <provider> <payload...>]` → creates a `VnExternalCommand`
-  - Shortcuts: `[jes <payload>]`, `[java <payload>]`
-  - Convenience for JES:
-    - `[jes_push <script.jes>]`, `[jes_replace <script.jes>]`, `[jes_pop]`, `[jes_call <name> k=v ...]`
+Structured blocks:
 
-The parser forwards external calls to the active `VnInterop` implementation at runtime (see below).
-
-## Interop at runtime
-
-Two interop implementations are relevant:
-- `DefaultVnInterop`
-  - `hud`: shows a HUD message
-  - `java`: calls a public static Java method using reflection
-  - `var`, `cond`, `settings`, `save`, `mode`, `ui`, `history`, `audio` helpers
-- `RuntimeVnInterop` (extends default behavior)
-  - Adds `jes` and `vns` providers to push/replace/pop JES and VNS scenes
-  - Bridges JES calls back into VN (e.g., `return`, `hud`, `pop`) and invokes `init` with provided props
-
-## Java interop (reflection)
-
-Handled by `DefaultVnInterop`:
-- Syntax: `[java fully.qualified.Class#method arg1 arg2 ...]`
-- Args are parsed as `boolean`, numeric (`int` or `double`), else `String`
-- A public static method with matching arity is looked up; arguments are coerced to parameter types (`int`, `long`, `double`, `boolean`; else `String`)
-- Result is shown as a HUD message; return values are not stored in variables
-
-Example:
-```
-[java com.acme.Util#sum 2 3]     # calls Util.sum(int,int)
-[call java com.acme.Log#info Started]
+```text
+[if cond]
+...
+[elif cond2]
+...
+[else]
+...
+[endif]
 ```
 
-Limitations:
-- Supports double-quoted arguments and backslash escaping for spaces/quotes
-- Only public static methods are supported; overloaded resolution is by name + arity
+are lowered into synthetic labels and jumps.
 
-## JES interop
+Parser internally creates labels like:
+- `__if_then_N`
+- `__if_false_N`
+- `__if_end_N`
 
-Handled by `RuntimeVnInterop`:
-- `[jes push <script.jes> [label <returnLabel>] [with k=v ...]]`
-- `[jes replace ...]`, `[jes pop]`
-- `[jes call <name> k=v ...]` calls a registered handler in the active `JesScene2D`
-- On push/replace, the runtime invokes `call "init" { ... }` on the JES scene with props from `with k=v` if provided
-- `call "return" { label: L ... }` inside JES pops the scene, copies props (excluding `label`/`goto`) into VN variables, and jumps to `L` (or the default label specified on push)
+This keeps runtime execution model linear while preserving block semantics.
 
-## Error handling
+## Label Tracking
 
-- Parser throws `IOException` on malformed lines
-- Unknown commands are ignored by the parser but may be handled by custom interop
+Parser keeps:
+- declared label table (source + line)
+- referenced label list (jump/choice/if-goto)
 
-## Minimal example
+After parsing, unresolved labels produce hard parse errors.
 
-```vns
-@scenario demo
-@label start
-Alice: Hello VNS!
-[bgm theme]
-[java com.acme.Log#info Started]
-[jes push game/minigames/brickbreaker.jes label after_game with difficulty=hard]
+## Command Handling Map
+
+`parseCommand` routes commands into:
+
+- direct builder nodes (`background`, `jump`, `end`, `wait`, `show`, `hide`, `transition`)
+- audio builder nodes (`bgm`, `sfx`, `voice`, `bgm_stop`, `bgm_fadeout`)
+- external interop commands (`settings`, `menu`, `var`, `cond`, `jes`, `java`, etc.)
+
+Unknown commands are rejected with parse error.
+
+## Error Model
+
+Errors are reported as `IOException` with source + line context:
+
+```text
+Parse error in <source> at line <n>: <message> -> <line text>
 ```
+
+Common errors:
+- duplicate scenario declaration
+- invalid/missing command args
+- invalid label names
+- duplicate labels
+- undefined label references
+- unmatched `elif`/`else`/`endif`
+- unclosed `if` blocks
+- invalid condition expression syntax
+
+## Condition Validation
+
+`VnConditionEvaluator.validate(expression)` is called during parse for:
+- `if`/`elif` block conditions
+- choice condition suffixes
+- `if ... goto ...` expressions
+
+So malformed conditions fail before runtime.
+
+## Choice Parsing Details
+
+Multi-line choices (`> ...`) are buffered until a non-choice line appears, then flushed as one choice node list.
+
+Inline choices (`[choice ... | ...]`) are parsed immediately.
+
+Both support optional targets and optional trailing condition suffix.
+
+## Why Strict Parse Matters
+
+Strictness improves:
+- editor diagnostics quality
+- CI confidence for narrative content
+- reduced runtime surprises from script typos
+
+In practice, parser failures should be treated as content compilation failures.

@@ -1,147 +1,116 @@
 # Timeline Scripting
 
-This document describes the Timeline DSL used by the Editor to organize visual-novel arcs (VNS scripts), their entry labels, spatial layout, clusters, and links between arcs.
+JVN timeline DSL describes narrative arcs (script files), entry labels, graph layout positions, and arc-to-arc links.
 
-The timeline is saved as `config/timeline/story.timeline` in your project, and can be edited visually (graph) or as text (Timeline editor).
+Primary editor/runtime bridge class:
+- `editor/src/main/java/com/jvn/editor/ui/StoryTimelineView.java`
 
-## Quickstart
+Default file location:
+- `config/timeline/story.timeline`
 
-- Create a minimal `config/timeline/story.timeline` in your project:
-  ```
-  arc "Intro" script "game/scripts/demo.vns" entry "start" at 40,40
-  arc "Chapter1" script "game/scripts/ch1.vns" at 260,40
-  link Intro -> Chapter1
-  ```
-- Open the Editor and load your project folder (see `docs/Editor.md`).
-  - Switch to the Timeline view to see arcs and links.
-  - Drag nodes to arrange, assign clusters, and add more links.
-- Author the referenced `.vns` files; see `docs/VNS Scripting.md`.
-- If you launch JES scenes from VNS, see `docs/JES Scripting.md`.
+Legacy fallbacks are still recognized:
+- `story/story.timeline`
+- `story.timeline`
 
-## Core concepts
+## Quick Start
 
-- **Arc**
-  - A node representing a VNS script (`.vns`) and an optional entry label inside that script.
-  - Has a position (`at x,y`) for layout and an optional `cluster` name for grouping.
-- **Link**
-  - A directional connection from one arc to another, optionally specifying labels on either side.
-  - If the target label is omitted, the destination arc’s `entry` is used when present.
-- **Cluster**
-  - A named group used to visually group arcs, color them, and support collapse/filter operations in the graph.
+```text
+arc "Intro" script "scripts/story/prologue.vns" entry "start" cluster "Main" at 40,40
+arc "Chapter1" script "scripts/story/ch1.vns" cluster "Main" at 280,40
+arc "SideQuest" script "scripts/story/side.vns" cluster "Optional" at 280,180
 
-## Syntax
-
-### Arc declaration
-
-```
-arc "ArcName" script "path/to/script.vns" entry "optionalLabel" cluster "optionalCluster" at X,Y
+link Intro -> Chapter1
+link Chapter1:branchA -> SideQuest:entry_side
 ```
 
-- `ArcName` is required and must be unique.
-- `script` is recommended (relative to project root or absolute path).
-- `entry` is optional; if present, it should be an existing label in the VNS script.
-- `cluster` is optional; used by the graph for coloring, collapse, and filtering.
-- `at X,Y` persists the node position in the graph. Use integers or decimals.
+## DSL Syntax
 
-Examples:
+## Arc declaration
 
-```
-arc "Intro" script "game/scripts/demo.vns" entry "start" at 40,40
-arc "Chapter1" script "game/scripts/ch1.vns" cluster "Main" at 260,40
-arc "SideQuest" script "game/scripts/side.vns" cluster "Optional" at 260,180
+```text
+arc "ArcName" script "path/to/file.vns" entry "optionalLabel" cluster "optionalCluster" at X,Y
 ```
 
-### Link declaration
+Fields:
+- `ArcName` required
+- `script` optional but strongly recommended
+- `entry` optional
+- `cluster` optional
+- `at X,Y` optional in parser, but editor writes it and uses it for graph layout
 
-```
+## Link declaration
+
+```text
 link FromArc[:FromLabel] -> ToArc[:ToLabel]
 ```
 
-Examples:
+Behavior:
+- explicit `ToLabel` wins
+- if omitted, editor validation falls back to target arc's `entry` label
 
-```
-link Intro -> Chapter1
-link Chapter1:branchA -> SideQuest:entrySide
-```
+## Compatibility Lines
 
-Notes:
-- If `:FromLabel` is omitted, the link originates from the arc’s flow (usually the script position that triggers the transition).
-- If `:ToLabel` is omitted, the destination label defaults to the destination arc’s `entry` (if set).
+Legacy serialized forms are also accepted on load:
+- `ARC|...`
+- `LINK|...`
 
-## Validation
+Editor always writes modern DSL format when saving.
 
-- When validating the timeline:
-  - Every arc with a `script` must point to a file that exists.
-  - `entry` labels must exist in the referenced `.vns` file.
-  - Link targets must reference an existing arc, and the final target label must exist (either explicit `:ToLabel` or the arc’s `entry`).
-- Timeline editor underlines unresolved tokens and offers quick-fixes:
-  - Missing arc in a `link`: Create arc …, or Change to existing…
-  - Missing label: Change to existing label… (labels are read from the referenced `.vns` file)
+## Validation Rules
 
-## Editor features and tips
+Timeline validation checks:
 
-- Drag from a node’s out-handle to another node’s in-handle to create links.
-- Clusters:
-  - Backgrounds are color-coded by cluster name.
-  - Double-click a cluster background or use its menu to collapse/expand.
-  - Use the toolbar Cluster filter to view only one cluster.
-- Search field highlights arcs by name.
-- Auto Layout arranges nodes in a grid. Fit scales the graph to view.
-- Drag-and-drop `.vns` files from Finder onto the graph to create arcs quickly.
+- arc script file exists
+- arc `entry` label exists in target VNS file
+- link target arc exists
+- link target label exists (`ToLabel` or target arc `entry`)
 
-## Persistence
+Validation is powered by parsing referenced VNS scripts through `VnScriptParser`.
 
-- The editor saves the human-readable DSL described above.
-- It also supports legacy lines internally (`ARC|…` and `LINK|…`) for backward compatibility, but new content should use the DSL shown in this document.
+## Editor Features
 
-## Minimal example
+- graph + text dual editing
+- drag nodes to set `at X,Y`
+- cluster backgrounds and filter
+- cluster collapse/expand
+- search highlight for arc names
+- auto layout
+- fit-to-view
+- drag/drop `.vns` files into graph to create arcs
 
-```
-arc "Intro" script "game/scripts/demo.vns" entry "start" cluster "Main" at 40,40
-arc "Chapter1" script "game/scripts/ch1.vns" cluster "Main" at 260,40
-arc "Side" script "game/scripts/side.vns" cluster "Optional" at 260,180
+## Runtime/Flow Connection
 
-link Intro -> Chapter1
-link Chapter1:branchA -> Side:entrySide
-```
+Timeline DSL itself is an authoring model.
+Your game flow still transitions through VNS commands/interops (`jump`, `goto`, etc.).
 
-## Example project
+A common pattern:
 
-You can examine a working setup under `demo-game/`:
+1. design narrative map with timeline arcs
+2. keep arc names aligned with script identities
+3. drive transitions in script with explicit labels
 
-- Scripts: `demo-game/src/main/resources/game/scripts/*.vns`
-- Example timeline file: create `config/timeline/story.timeline` with content like:
+## Team Conventions (Recommended)
 
-```
-arc "Intro"    script "game/scripts/demo.vns" entry "start" cluster "Main"   at 40,40
-arc "Ch1"      script "game/scripts/ch1.vns"   cluster "Main"   at 260,40
-arc "SideQ"    script "game/scripts/side.vns"  cluster "Optional" at 260,180
+- treat arc names as stable IDs once linked from many places
+- keep each arc's `entry` label explicit
+- avoid duplicate arc names
+- keep optional/side clusters separated for readability
+- validate timeline before release branches
 
-link Intro -> Ch1
-link Ch1:branchA -> SideQ:entry
-```
+## Example: Branching Narrative Map
 
-Open the editor, load the project root, and use the Timeline view to see these arcs and links. Drag nodes around, collapse clusters, and filter by cluster using the toolbar.
+```text
+arc "Prologue" script "scripts/story/prologue.vns" entry "start" cluster "Main" at 40,40
+arc "RouteA" script "scripts/story/route_a.vns" entry "start" cluster "Main" at 300,20
+arc "RouteB" script "scripts/story/route_b.vns" entry "start" cluster "Main" at 300,120
+arc "Secret" script "scripts/story/secret.vns" entry "unlock" cluster "Optional" at 560,120
 
-## Diagrams
-
-Below is a conceptual diagram of a small timeline (requires Mermaid support):
-
-```mermaid
-graph LR
-  subgraph Main
-    A[Intro\nentry=start]
-    B[Ch1]
-  end
-  subgraph Optional
-    C[SideQ\nentry=entry]
-  end
-
-  A -- default --> B
-  B -- branchA --> C
+link Prologue:choice_a -> RouteA:start
+link Prologue:choice_b -> RouteB:start
+link RouteB:secret_gate -> Secret:unlock
 ```
 
-Legend:
+## Related Docs
 
-- Default arrow: no explicit `:label` on the right side; uses target arc `entry`.
-- Labeled arrow: `link From:label -> To:label`.
+- Editor workflow: `docs/Editor/Editor.md`
+- VNS language: `docs/VNS Scripting/VNS Scripting.md`

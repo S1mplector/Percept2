@@ -3,8 +3,22 @@ package com.jvn.editor.ui;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -16,17 +30,19 @@ import javafx.stage.StageStyle;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 /**
- * Sophisticated project creation wizard for VN projects.
- * Replaces the simple popup dialogs with a modern multi-section interface.
+ * Project creation wizard for VN projects.
+ * Keeps setup compact and aligned with the current engine/editor workflow.
  */
 public class NewProjectWizard extends Stage {
-  
+
   // Result
   private File createdProjectDir = null;
-  
+
   // Form fields
   private TextField txtProjectName;
   private TextField txtAuthor;
@@ -39,14 +55,22 @@ public class NewProjectWizard extends Stage {
   private CheckBox chkSettingsMenu;
   private CheckBox chkHistoryBacklog;
   private TextArea txtDescription;
+  private TextArea txtStructurePreview;
   private Label lblPreview;
-  
+  private Label lblTargetPath;
+  private Label lblEstimatedSize;
+
   // Theme colors
   private static final String BG_DARK = "#0f0f10";
   private static final String BG_CARD = "#17181a";
-  private static final String BG_FIELD = "#2a2a2a";
+  private static final String BG_FIELD = "#222326";
+  private static final String BG_MONO = "#141518";
   private static final String ACCENT = "#4a9eff";
+  private static final String TEXT_PRIMARY = "#f1f3f4";
   private static final String TEXT_SECONDARY = "#9aa0a6";
+  private static final String TEXT_MUTED = "#7f858b";
+
+  // Project paths
   private static final String ENTRY_SCRIPT_PATH = "scripts/story/prologue.vns";
   private static final String TIMELINE_PATH = "config/timeline/story.timeline";
   private static final String SETTINGS_PATH = "config/settings/vn.settings";
@@ -59,375 +83,594 @@ public class NewProjectWizard extends Stage {
   private static final String MENU_SETTINGS_PATH = "config/menu/menus/settings.menu";
   private static final String MENU_LAYOUT_DEFAULT_PATH = "config/menu/layouts/default.layout";
   private static final String MENU_STYLE_DEFAULT_PATH = "config/menu/styles/default.style";
-  
+
   public NewProjectWizard(Stage owner) {
     initOwner(owner);
     initModality(Modality.APPLICATION_MODAL);
     initStyle(StageStyle.DECORATED);
     setTitle("Create New Visual Novel Project");
-    setWidth(800);
-    setHeight(650);
-    setResizable(false);
-    
+    setWidth(920);
+    setHeight(760);
+    setMinWidth(860);
+    setMinHeight(680);
+    setResizable(true);
+
     BorderPane root = new BorderPane();
     root.setStyle("-fx-background-color: " + BG_DARK + ";");
-    
-    // Header
+
     VBox header = createHeader();
     root.setTop(header);
-    
-    // Main content - scrollable form
+
     ScrollPane scrollPane = new ScrollPane(createMainContent());
     scrollPane.setFitToWidth(true);
     scrollPane.setStyle("-fx-background: " + BG_DARK + "; -fx-background-color: " + BG_DARK + ";");
     root.setCenter(scrollPane);
-    
-    // Footer with buttons
+
     HBox footer = createFooter();
     root.setBottom(footer);
-    
+
     Scene scene = new Scene(root);
     EditorTheme.apply(scene);
     setScene(scene);
+
+    updateDerivedFields();
   }
-  
+
   private VBox createHeader() {
     VBox header = new VBox(8);
-    header.setPadding(new Insets(20, 30, 15, 30));
+    header.setPadding(new Insets(20, 28, 14, 28));
     header.setStyle("-fx-background-color: " + BG_CARD + ";");
-    
+
     Label title = new Label("Create New Visual Novel");
     title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
-    title.setTextFill(Color.WHITE);
-    
-    Label subtitle = new Label("Configure your project settings and choose which features to include.");
+    title.setTextFill(Color.web(TEXT_PRIMARY));
+
+    Label subtitle = new Label("Set up a clean engine-ready project structure with scripts, config, and visual editor files.");
     subtitle.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 13));
     subtitle.setTextFill(Color.web(TEXT_SECONDARY));
-    
-    header.getChildren().addAll(title, subtitle);
+
+    Label hint = new Label("Recommended: start with sample content, then customize layouts visually in the editor.");
+    hint.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 11));
+    hint.setTextFill(Color.web(TEXT_MUTED));
+
+    header.getChildren().addAll(title, subtitle, hint);
     return header;
   }
-  
+
   private VBox createMainContent() {
-    VBox content = new VBox(20);
-    content.setPadding(new Insets(20, 30, 20, 30));
-    
-    // Project Info Section
-    VBox projectInfo = createSection("Project Information", createProjectInfoGrid());
-    
-    // Display Settings Section
-    VBox displaySettings = createSection("Display Settings", createDisplaySettingsGrid());
-    
-    // Features Section
-    VBox features = createSection("Features", createFeaturesGrid());
-    
-    // Description Section
-    VBox description = createSection("Project Description", createDescriptionArea());
-    
-    content.getChildren().addAll(projectInfo, displaySettings, features, description);
+    VBox content = new VBox(16);
+    content.setPadding(new Insets(18, 28, 18, 28));
+
+    content.getChildren().addAll(
+        createSection("Project Basics", "Name, author, target directory, and output path.", createProjectBasicsGrid()),
+        createSection("Engine Profile", "Runtime defaults and entry points for this project.", createEngineProfileGrid()),
+        createSection("Feature Modules", "Choose the base modules to scaffold.", createFeatureModulesPane()),
+        createSection("Generated Layout", "Preview the exact folders/files that will be created.", createGeneratedLayoutPane()),
+        createSection("Project Notes", "Optional description saved to the project manifest and README.", createDescriptionArea())
+    );
+
     return content;
   }
-  
-  private VBox createSection(String title, Region content) {
-    VBox section = new VBox(12);
-    section.setPadding(new Insets(15));
+
+  private VBox createSection(String title, String subtitle, Region content) {
+    VBox section = new VBox(10);
+    section.setPadding(new Insets(14));
     section.setStyle("-fx-background-color: " + BG_CARD + "; -fx-background-radius: 8;");
-    
+
     Label titleLabel = new Label(title);
     titleLabel.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 16));
     titleLabel.setTextFill(Color.web(ACCENT));
-    
+
+    Label subtitleLabel = new Label(subtitle);
+    subtitleLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 12));
+    subtitleLabel.setTextFill(Color.web(TEXT_SECONDARY));
+
     Separator sep = new Separator();
-    sep.setStyle("-fx-background-color: #333333;");
-    
-    section.getChildren().addAll(titleLabel, sep, content);
+
+    section.getChildren().addAll(titleLabel, subtitleLabel, sep, content);
     return section;
   }
-  
-  private GridPane createProjectInfoGrid() {
+
+  private Region createProjectBasicsGrid() {
     GridPane grid = new GridPane();
-    grid.setHgap(15);
-    grid.setVgap(12);
-    
-    // Project Name
-    Label lblName = createLabel("Project Name:");
+    grid.setHgap(14);
+    grid.setVgap(10);
+
     txtProjectName = createTextField("My Visual Novel");
-    txtProjectName.textProperty().addListener((o, ov, nv) -> updatePreview());
-    
-    // Author
-    Label lblAuthor = createLabel("Author:");
     txtAuthor = createTextField("Anonymous");
-    
-    // Location
-    Label lblLocation = createLabel("Location:");
     txtLocation = createTextField(System.getProperty("user.home") + "/JVN Projects");
-    txtLocation.setPrefWidth(350);
+    txtLocation.setPrefWidth(440);
+
+    txtProjectName.textProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    txtLocation.textProperty().addListener((o, ov, nv) -> updateDerivedFields());
+
     Button btnBrowse = new Button("Browse...");
-    btnBrowse.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
     btnBrowse.setOnAction(e -> browseLocation());
-    HBox locationBox = new HBox(8, txtLocation, btnBrowse);
+    btnBrowse.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+
+    HBox locationRow = new HBox(8, txtLocation, btnBrowse);
     HBox.setHgrow(txtLocation, Priority.ALWAYS);
-    
-    grid.add(lblName, 0, 0);
+
+    lblTargetPath = new Label();
+    lblTargetPath.setWrapText(true);
+    lblTargetPath.setTextFill(Color.web(TEXT_SECONDARY));
+    lblTargetPath.setFont(Font.font("Consolas", 11));
+
+    Label slugHint = new Label("Folder name is sanitized automatically for cross-platform safety.");
+    slugHint.setTextFill(Color.web(TEXT_MUTED));
+    slugHint.setFont(Font.font("Segoe UI", 11));
+
+    grid.add(createLabel("Project Name"), 0, 0);
     grid.add(txtProjectName, 1, 0);
-    grid.add(lblAuthor, 0, 1);
+    grid.add(createLabel("Author"), 0, 1);
     grid.add(txtAuthor, 1, 1);
-    grid.add(lblLocation, 0, 2);
-    grid.add(locationBox, 1, 2);
-    
+    grid.add(createLabel("Location"), 0, 2);
+    grid.add(locationRow, 1, 2);
+    grid.add(createLabel("Output Path"), 0, 3);
+    grid.add(lblTargetPath, 1, 3);
+    grid.add(slugHint, 1, 4);
+
     GridPane.setHgrow(txtProjectName, Priority.ALWAYS);
     GridPane.setHgrow(txtAuthor, Priority.ALWAYS);
-    GridPane.setHgrow(locationBox, Priority.ALWAYS);
-    
+    GridPane.setHgrow(locationRow, Priority.ALWAYS);
+
     return grid;
   }
-  
-  private GridPane createDisplaySettingsGrid() {
+
+  private Region createEngineProfileGrid() {
     GridPane grid = new GridPane();
-    grid.setHgap(15);
-    grid.setVgap(12);
-    
-    // Resolution
-    Label lblRes = createLabel("Resolution:");
+    grid.setHgap(14);
+    grid.setVgap(10);
+
     cmbResolution = new ComboBox<>();
     cmbResolution.getItems().addAll(
-      "1920x1080 (Full HD)",
-      "1280x720 (HD)",
-      "1600x900 (HD+)",
-      "960x540 (qHD)",
-      "800x600 (SVGA)"
+        "1920x1080 (Full HD)",
+        "1600x900 (HD+)",
+        "1366x768 (WXGA)",
+        "1280x720 (HD)",
+        "960x540 (qHD)"
     );
     cmbResolution.setValue("1280x720 (HD)");
-    cmbResolution.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
-    cmbResolution.setPrefWidth(200);
-    
-    // Theme
-    Label lblTheme = createLabel("Color Theme:");
+    cmbResolution.setPrefWidth(230);
+    cmbResolution.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+
     cmbTheme = new ComboBox<>();
     cmbTheme.getItems().addAll(
-      "Dark Elegant",
-      "Light Clean",
-      "Retro Game",
-      "Romantic Pink",
-      "Cyberpunk Neon",
-      "Nature Green",
-      "Custom"
+        "Dark Elegant",
+        "Light Clean",
+        "Retro Game",
+        "Nature Green",
+        "Custom"
     );
     cmbTheme.setValue("Dark Elegant");
-    cmbTheme.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
-    cmbTheme.setPrefWidth(200);
-    
-    // Preview
-    lblPreview = new Label("Preview: Dark Elegant theme at 1280x720");
+    cmbTheme.setPrefWidth(230);
+    cmbTheme.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+
+    cmbResolution.setOnAction(e -> updateDerivedFields());
+    cmbTheme.setOnAction(e -> updateDerivedFields());
+
+    lblPreview = new Label();
     lblPreview.setTextFill(Color.web(TEXT_SECONDARY));
-    lblPreview.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 12));
-    
-    cmbResolution.setOnAction(e -> updatePreview());
-    cmbTheme.setOnAction(e -> updatePreview());
-    
-    grid.add(lblRes, 0, 0);
+    lblPreview.setFont(Font.font("Segoe UI", 12));
+
+    Label entryInfo = new Label(
+        "Entry script: " + ENTRY_SCRIPT_PATH + "\n" +
+        "Timeline file: " + TIMELINE_PATH + "\n" +
+        "Dialogue layout: " + DIALOGUE_LAYOUT_PATH
+    );
+    entryInfo.setTextFill(Color.web(TEXT_MUTED));
+    entryInfo.setFont(Font.font("Consolas", 11));
+
+    grid.add(createLabel("Resolution"), 0, 0);
     grid.add(cmbResolution, 1, 0);
-    grid.add(lblTheme, 0, 1);
+    grid.add(createLabel("Menu Theme"), 0, 1);
     grid.add(cmbTheme, 1, 1);
-    grid.add(lblPreview, 0, 2, 2, 1);
-    
+    grid.add(createLabel("Preset"), 0, 2);
+    grid.add(lblPreview, 1, 2);
+    grid.add(new Label(""), 0, 3);
+    grid.add(entryInfo, 1, 3);
+
     return grid;
   }
-  
-  private VBox createFeaturesGrid() {
-    VBox features = new VBox(10);
-    
-    Label info = new Label("Select which features to include in your project:");
-    info.setTextFill(Color.web(TEXT_SECONDARY));
-    info.setFont(Font.font("Segoe UI", 12));
-    
-    // Feature checkboxes in a flow layout
-    FlowPane checkboxes = new FlowPane(15, 10);
-    
-    chkSampleContent = createCheckBox("Sample Scene", true);
-    chkTitleScreen = createCheckBox("Title Screen", true);
-    chkSaveSystem = createCheckBox("Save/Load System", true);
-    chkSettingsMenu = createCheckBox("Settings Menu", true);
-    chkHistoryBacklog = createCheckBox("History Backlog", true);
-    
-    checkboxes.getChildren().addAll(
-      chkSampleContent,
-      chkTitleScreen,
-      chkSaveSystem,
-      chkSettingsMenu,
-      chkHistoryBacklog
+
+  private Region createFeatureModulesPane() {
+    VBox box = new VBox(10);
+
+    Label intro = new Label("These options control both scaffolding and starter content.");
+    intro.setTextFill(Color.web(TEXT_SECONDARY));
+    intro.setFont(Font.font("Segoe UI", 12));
+
+    chkSampleContent = createCheckBox("Sample Prologue Script", true);
+    chkTitleScreen = createCheckBox("Main Menu Profile Pack", true);
+    chkSaveSystem = createCheckBox("Load/Save Menu Profiles", true);
+    chkSettingsMenu = createCheckBox("Settings Menu Profile", true);
+    chkHistoryBacklog = createCheckBox("History/Backlog Defaults", true);
+
+    for (CheckBox cb : List.of(chkSampleContent, chkTitleScreen, chkSaveSystem, chkSettingsMenu, chkHistoryBacklog)) {
+      cb.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    }
+
+    GridPane options = new GridPane();
+    options.setHgap(28);
+    options.setVgap(8);
+    options.add(chkSampleContent, 0, 0);
+    options.add(chkTitleScreen, 1, 0);
+    options.add(chkSaveSystem, 0, 1);
+    options.add(chkSettingsMenu, 1, 1);
+    options.add(chkHistoryBacklog, 0, 2);
+
+    FlowPane details = new FlowPane();
+    details.setVgap(4);
+    details.setHgap(16);
+    details.getChildren().addAll(
+        detailTag("Sample Prologue", "Rich starter VNS with choices and state."),
+        detailTag("Menu Profiles", "Creates config/menu registry, screens, layout and style."),
+        detailTag("Save/Load", "Adds load.menu and save.menu defaults."),
+        detailTag("Settings", "Adds settings.menu profile entries."),
+        detailTag("History Defaults", "Marks backlog defaults in vn.settings.")
     );
-    
-    // Feature descriptions
-    VBox descriptions = new VBox(4);
-    descriptions.setPadding(new Insets(10, 0, 0, 0));
-    
-    Label descTitle = new Label("Feature Details:");
-    descTitle.setTextFill(Color.web(TEXT_SECONDARY));
-    descTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
-    
-    Label desc = new Label(
-      "• Sample Scene: Creates a starter prologue.vns script with example dialogue\n" +
-      "• Title Screen: Configurable main menu with background, logo, and music support\n" +
-      "• Save/Load: Multiple save slots with thumbnails and timestamps\n" +
-      "• Settings Menu: In-game settings for text speed, volume, and more\n" +
-      "• History Backlog: Scrollable dialogue history (press B in-game)"
-    );
-    desc.setTextFill(Color.web(TEXT_SECONDARY));
-    desc.setFont(Font.font("Segoe UI", 11));
-    desc.setWrapText(true);
-    
-    descriptions.getChildren().addAll(descTitle, desc);
-    
-    features.getChildren().addAll(info, checkboxes, descriptions);
-    return features;
+
+    box.getChildren().addAll(intro, options, details);
+    return box;
   }
-  
-  private VBox createDescriptionArea() {
+
+  private Region detailTag(String title, String subtitle) {
+    VBox tag = new VBox(2);
+    tag.setPadding(new Insets(8, 10, 8, 10));
+    tag.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-background-radius: 6;");
+
+    Label t = new Label(title);
+    t.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+    t.setTextFill(Color.web(TEXT_PRIMARY));
+
+    Label s = new Label(subtitle);
+    s.setFont(Font.font("Segoe UI", 10));
+    s.setTextFill(Color.web(TEXT_MUTED));
+
+    tag.getChildren().addAll(t, s);
+    return tag;
+  }
+
+  private Region createGeneratedLayoutPane() {
     VBox box = new VBox(8);
-    
-    Label info = new Label("Optional description for your project (shown in project info):");
+
+    txtStructurePreview = new TextArea();
+    txtStructurePreview.setEditable(false);
+    txtStructurePreview.setWrapText(false);
+    txtStructurePreview.setPrefRowCount(16);
+    txtStructurePreview.setStyle(
+        "-fx-control-inner-background: " + BG_MONO + ";" +
+        "-fx-font-family: 'Consolas';" +
+        "-fx-font-size: 11px;" +
+        "-fx-text-fill: " + TEXT_PRIMARY + ";"
+    );
+
+    Label note = new Label("This preview updates live based on your selected modules.");
+    note.setTextFill(Color.web(TEXT_MUTED));
+    note.setFont(Font.font("Segoe UI", 11));
+
+    box.getChildren().addAll(txtStructurePreview, note);
+    return box;
+  }
+
+  private Region createDescriptionArea() {
+    VBox box = new VBox(8);
+
+    Label info = new Label("Optional project description:");
     info.setTextFill(Color.web(TEXT_SECONDARY));
     info.setFont(Font.font("Segoe UI", 12));
-    
+
     txtDescription = new TextArea();
-    txtDescription.setPromptText("A visual novel about...");
+    txtDescription.setPromptText("Example: A sci-fi mystery told across branching routes.");
     txtDescription.setPrefRowCount(3);
     txtDescription.setWrapText(true);
-    txtDescription.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white; -fx-control-inner-background: " + BG_FIELD + ";");
-    
+    txtDescription.setStyle(
+        "-fx-control-inner-background: " + BG_FIELD + ";" +
+        "-fx-text-fill: " + TEXT_PRIMARY + ";"
+    );
+
     box.getChildren().addAll(info, txtDescription);
     return box;
   }
-  
+
   private HBox createFooter() {
-    HBox footer = new HBox(15);
-    footer.setPadding(new Insets(15, 30, 20, 30));
+    HBox footer = new HBox(12);
+    footer.setPadding(new Insets(14, 28, 18, 28));
     footer.setAlignment(Pos.CENTER_RIGHT);
     footer.setStyle("-fx-background-color: " + BG_CARD + ";");
-    
+
+    lblEstimatedSize = new Label();
+    lblEstimatedSize.setTextFill(Color.web(TEXT_SECONDARY));
+    lblEstimatedSize.setFont(Font.font("Segoe UI", 11));
+
     Button btnCancel = new Button("Cancel");
-    btnCancel.setPrefWidth(100);
-    btnCancel.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
+    btnCancel.setPrefWidth(110);
+    btnCancel.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
     btnCancel.setOnAction(e -> close());
-    
+
     Button btnCreate = new Button("Create Project");
-    btnCreate.setPrefWidth(140);
+    btnCreate.setPrefWidth(150);
     btnCreate.setStyle("-fx-background-color: " + ACCENT + "; -fx-text-fill: white; -fx-font-weight: bold;");
     btnCreate.setOnAction(e -> createProject());
-    
+
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
-    
-    // Project size estimate
-    Label lblSize = new Label("Estimated size: ~50 KB");
-    lblSize.setTextFill(Color.web(TEXT_SECONDARY));
-    lblSize.setFont(Font.font("Segoe UI", 11));
-    
-    footer.getChildren().addAll(lblSize, spacer, btnCancel, btnCreate);
+
+    footer.getChildren().addAll(lblEstimatedSize, spacer, btnCancel, btnCreate);
     return footer;
   }
-  
+
   private Label createLabel(String text) {
-    Label lbl = new Label(text);
-    lbl.setTextFill(Color.WHITE);
-    lbl.setFont(Font.font("Segoe UI", 13));
-    lbl.setMinWidth(100);
-    return lbl;
+    Label label = new Label(text);
+    label.setTextFill(Color.web(TEXT_PRIMARY));
+    label.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+    label.setMinWidth(110);
+    return label;
   }
-  
+
   private TextField createTextField(String defaultValue) {
     TextField tf = new TextField(defaultValue);
-    tf.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: white;");
-    tf.setPrefWidth(250);
+    tf.setPrefWidth(280);
+    tf.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
     return tf;
   }
-  
+
   private CheckBox createCheckBox(String text, boolean selected) {
     CheckBox cb = new CheckBox(text);
     cb.setSelected(selected);
-    cb.setTextFill(Color.WHITE);
-    cb.setFont(Font.font("Segoe UI", 13));
+    cb.setTextFill(Color.web(TEXT_PRIMARY));
+    cb.setFont(Font.font("Segoe UI", 12));
     return cb;
   }
-  
+
   private void browseLocation() {
-    DirectoryChooser dc = new DirectoryChooser();
-    dc.setTitle("Choose Project Location");
-    File initial = new File(txtLocation.getText());
-    if (initial.exists()) dc.setInitialDirectory(initial);
-    File dir = dc.showDialog(this);
-    if (dir != null) txtLocation.setText(dir.getAbsolutePath());
+    DirectoryChooser chooser = new DirectoryChooser();
+    chooser.setTitle("Choose Project Location");
+    File initial = new File(txtLocation.getText().trim());
+    if (initial.exists() && initial.isDirectory()) chooser.setInitialDirectory(initial);
+    File dir = chooser.showDialog(this);
+    if (dir != null) {
+      txtLocation.setText(dir.getAbsolutePath());
+      updateDerivedFields();
+    }
   }
-  
-  private void updatePreview() {
-    String theme = cmbTheme.getValue();
-    String res = cmbResolution.getValue();
-    String name = txtProjectName.getText();
+
+  private void updateDerivedFields() {
+    updatePresetPreview();
+    updateTargetPathLabel();
+    updateStructurePreview();
+    updateEstimatedSize();
+  }
+
+  private void updatePresetPreview() {
+    if (lblPreview == null || cmbTheme == null || cmbResolution == null) return;
+    String name = txtProjectName == null ? "" : txtProjectName.getText().trim();
     if (name.isBlank()) name = "Untitled";
-    lblPreview.setText("Preview: \"" + name + "\" • " + theme + " theme • " + res.split(" ")[0]);
+    String res = cmbResolution.getValue() == null ? "1280x720" : cmbResolution.getValue().split(" ")[0];
+    String theme = cmbTheme.getValue() == null ? "Dark Elegant" : cmbTheme.getValue();
+    lblPreview.setText("\"" + name + "\" • " + res + " • " + theme);
   }
-  
+
+  private void updateTargetPathLabel() {
+    if (lblTargetPath == null) return;
+    String location = txtLocation == null ? "" : txtLocation.getText().trim();
+    String projectName = txtProjectName == null ? "" : txtProjectName.getText().trim();
+    String sanitized = sanitizeName(projectName);
+    if (location.isBlank()) {
+      lblTargetPath.setText("(select a location)");
+      return;
+    }
+    if (sanitized.isBlank()) {
+      lblTargetPath.setText(new File(location).getAbsolutePath());
+      return;
+    }
+    lblTargetPath.setText(new File(location, sanitized).getAbsolutePath());
+  }
+
+  private void updateStructurePreview() {
+    if (txtStructurePreview == null) return;
+    String folderName = sanitizeName(txtProjectName == null ? "" : txtProjectName.getText().trim());
+    if (folderName.isBlank()) folderName = "my_visual_novel";
+    txtStructurePreview.setText(buildStructurePreviewText(folderName));
+  }
+
+  private void updateEstimatedSize() {
+    if (lblEstimatedSize == null) return;
+    lblEstimatedSize.setText("Estimated scaffold size: ~" + estimateProjectSizeKb() + " KB");
+  }
+
+  private long estimateProjectSizeKb() {
+    long kb = 36;
+    if (chkSampleContent != null && chkSampleContent.isSelected()) kb += 8;
+    if (shouldCreateMenuPack()) kb += 8;
+    if (chkSaveSystem != null && chkSaveSystem.isSelected()) kb += 3;
+    if (chkSettingsMenu != null && chkSettingsMenu.isSelected()) kb += 2;
+    if (chkHistoryBacklog != null && chkHistoryBacklog.isSelected()) kb += 1;
+    return kb;
+  }
+
+  private String buildStructurePreviewText(String projectFolderName) {
+    boolean includeMenuPack = shouldCreateMenuPack();
+    boolean includeSave = chkSaveSystem != null && chkSaveSystem.isSelected();
+    boolean includeSettings = chkSettingsMenu != null && chkSettingsMenu.isSelected();
+
+    StringBuilder sb = new StringBuilder();
+    sb.append(projectFolderName).append("/\n");
+    sb.append("|-- config/\n");
+    sb.append("|   |-- settings/\n");
+    sb.append("|   |   `-- vn.settings\n");
+    sb.append("|   |-- timeline/\n");
+    sb.append("|   |   `-- story.timeline\n");
+    sb.append("|   |-- ui/\n");
+    sb.append("|   |   `-- dialogue.layout\n");
+    if (includeMenuPack) {
+      sb.append("|   `-- menu/\n");
+      sb.append("|       |-- menu.theme\n");
+      sb.append("|       |-- menu.registry\n");
+      sb.append("|       |-- menus/\n");
+      sb.append("|       |   |-- main.menu\n");
+      if (includeSave) {
+        sb.append("|       |   |-- load.menu\n");
+        sb.append("|       |   `-- save.menu\n");
+      }
+      if (includeSettings) {
+        sb.append("|       |   `-- settings.menu\n");
+      }
+      sb.append("|       |-- layouts/\n");
+      sb.append("|       |   `-- default.layout\n");
+      sb.append("|       |-- styles/\n");
+      sb.append("|       |   `-- default.style\n");
+      sb.append("|       `-- assets/\n");
+      sb.append("|           |-- buttons/\n");
+      sb.append("|           `-- icons/\n");
+    }
+    sb.append("|-- scripts/\n");
+    sb.append("|   |-- story/\n");
+    sb.append("|   |   `-- prologue.vns\n");
+    sb.append("|   |-- common/\n");
+    sb.append("|   `-- system/\n");
+    sb.append("|-- assets/\n");
+    sb.append("|   |-- backgrounds/\n");
+    sb.append("|   |-- characters/\n");
+    sb.append("|   |-- portraits/\n");
+    sb.append("|   |-- cg/\n");
+    sb.append("|   |-- ui/\n");
+    sb.append("|   |-- fonts/\n");
+    sb.append("|   `-- audio/\n");
+    sb.append("|       |-- bgm/\n");
+    sb.append("|       |-- sfx/\n");
+    sb.append("|       `-- voices/\n");
+    sb.append("|-- save/\n");
+    sb.append("|-- README.md\n");
+    sb.append("`-- jvn.project\n");
+
+    return sb.toString();
+  }
+
+  private boolean shouldCreateMenuPack() {
+    return (chkTitleScreen != null && chkTitleScreen.isSelected())
+        || (chkSaveSystem != null && chkSaveSystem.isSelected())
+        || (chkSettingsMenu != null && chkSettingsMenu.isSelected());
+  }
+
   private void createProject() {
-    String name = txtProjectName.getText().trim();
-    if (name.isEmpty()) {
+    String displayName = txtProjectName.getText().trim();
+    if (displayName.isEmpty()) {
       showError("Please enter a project name.");
       return;
     }
-    
-    File location = new File(txtLocation.getText().trim());
-    if (!location.exists()) {
-      location.mkdirs();
-    }
-    
-    File projectDir = new File(location, sanitizeName(name));
-    if (projectDir.exists()) {
-      showError("A project with this name already exists at the specified location.");
+
+    String folderName = sanitizeName(displayName);
+    if (folderName.isBlank()) {
+      showError("Project name must contain at least one letter or number.");
       return;
     }
-    
+
+    String locationRaw = txtLocation.getText().trim();
+    if (locationRaw.isEmpty()) {
+      showError("Please choose a project location.");
+      return;
+    }
+
+    File location = new File(locationRaw);
+    if (!location.exists() && !location.mkdirs()) {
+      showError("Failed to create base location: " + location.getAbsolutePath());
+      return;
+    }
+
+    File projectDir = new File(location, folderName);
+    if (projectDir.exists()) {
+      showError("A project with this name already exists at the selected location.");
+      return;
+    }
+
     try {
-      createProjectStructure(projectDir, name);
+      createProjectStructure(projectDir, displayName);
       createdProjectDir = projectDir;
       close();
-    } catch (Exception e) {
-      showError("Failed to create project: " + e.getMessage());
+    } catch (Exception ex) {
+      showError("Failed to create project: " + ex.getMessage());
     }
   }
-  
-  private void createProjectStructure(File dir, String name) throws Exception {
+
+  private void createProjectStructure(File dir, String displayName) throws Exception {
     dir.mkdirs();
-    
-    // Parse resolution
-    String resStr = cmbResolution.getValue().split(" ")[0];
-    String[] resParts = resStr.split("x");
-    int width = Integer.parseInt(resParts[0]);
-    int height = Integer.parseInt(resParts[1]);
-    
-    // Create directories
-    new File(dir, "config").mkdirs();
+    createDirectories(dir);
+
+    int[] resolution = parseResolution();
+    createManifest(dir, displayName, resolution[0], resolution[1]);
+
+    if (chkSampleContent.isSelected()) createSampleScript(dir, displayName);
+    else createEmptyScript(dir, displayName);
+
+    try (FileWriter fw = new FileWriter(new File(dir, TIMELINE_PATH))) {
+      fw.write("# Story Timeline for " + displayName + "\n");
+      fw.write("# Author: " + txtAuthor.getText().trim() + "\n\n");
+      fw.write("arc \"Prologue\" script \"" + ENTRY_SCRIPT_PATH + "\" entry \"start\" at 40,40\n");
+    }
+
+    createSettings(dir);
+    createDialogueLayout(dir);
+
+    boolean includeMenuPack = shouldCreateMenuPack();
+    boolean includeSave = chkSaveSystem.isSelected();
+    boolean includeSettings = chkSettingsMenu.isSelected();
+
+    if (includeMenuPack) {
+      createMenuTheme(dir, displayName);
+      createMenuCustomizationScaffold(dir, displayName, includeSave, includeSettings);
+    }
+
+    createReadme(dir, displayName, includeMenuPack, includeSave, includeSettings);
+  }
+
+  private void createDirectories(File dir) {
+    // Config
     new File(dir, "config/settings").mkdirs();
     new File(dir, "config/timeline").mkdirs();
     new File(dir, "config/ui").mkdirs();
-    new File(dir, "config/menu").mkdirs();
-    new File(dir, "config/menu/assets").mkdirs();
-    new File(dir, "config/menu/assets/buttons").mkdirs();
     new File(dir, "config/menu/menus").mkdirs();
     new File(dir, "config/menu/layouts").mkdirs();
     new File(dir, "config/menu/styles").mkdirs();
+    new File(dir, "config/menu/assets/buttons").mkdirs();
+    new File(dir, "config/menu/assets/icons").mkdirs();
+
+    // Scripts
     new File(dir, "scripts/story").mkdirs();
+    new File(dir, "scripts/common").mkdirs();
     new File(dir, "scripts/system").mkdirs();
-    new File(dir, "assets/characters").mkdirs();
+
+    // Assets
     new File(dir, "assets/backgrounds").mkdirs();
+    new File(dir, "assets/characters").mkdirs();
+    new File(dir, "assets/portraits").mkdirs();
     new File(dir, "assets/cg").mkdirs();
     new File(dir, "assets/ui").mkdirs();
+    new File(dir, "assets/fonts").mkdirs();
     new File(dir, "assets/audio/bgm").mkdirs();
     new File(dir, "assets/audio/sfx").mkdirs();
     new File(dir, "assets/audio/voices").mkdirs();
-    
-    // Project manifest
+
+    // Save location
+    new File(dir, "save").mkdirs();
+  }
+
+  private int[] parseResolution() {
+    String raw = cmbResolution.getValue();
+    if (raw == null || raw.isBlank()) return new int[] {1280, 720};
+    String[] first = raw.split(" ");
+    String[] parts = first[0].split("x");
+    if (parts.length != 2) return new int[] {1280, 720};
+    try {
+      return new int[] {Integer.parseInt(parts[0]), Integer.parseInt(parts[1])};
+    } catch (Exception ignored) {
+      return new int[] {1280, 720};
+    }
+  }
+
+  private void createManifest(File dir, String displayName, int width, int height) throws Exception {
     Properties manifest = new Properties();
-    manifest.setProperty("name", name);
+    manifest.setProperty("name", displayName);
     manifest.setProperty("author", txtAuthor.getText().trim());
     manifest.setProperty("type", "vn");
     manifest.setProperty("entryVns", ENTRY_SCRIPT_PATH);
@@ -436,41 +679,27 @@ public class NewProjectWizard extends Stage {
     manifest.setProperty("settingsFile", SETTINGS_PATH);
     manifest.setProperty("dialogueLayout", DIALOGUE_LAYOUT_PATH);
     manifest.setProperty("menuTheme", MENU_THEME_PATH);
+    manifest.setProperty("menuRegistry", MENU_REGISTRY_PATH);
+    manifest.setProperty("menuDefaultLayout", MENU_LAYOUT_DEFAULT_PATH);
+    manifest.setProperty("menuDefaultStyle", MENU_STYLE_DEFAULT_PATH);
     manifest.setProperty("width", String.valueOf(width));
     manifest.setProperty("height", String.valueOf(height));
+    manifest.setProperty("feature.sampleContent", Boolean.toString(chkSampleContent.isSelected()));
+    manifest.setProperty("feature.titleScreen", Boolean.toString(chkTitleScreen.isSelected()));
+    manifest.setProperty("feature.saveSystem", Boolean.toString(chkSaveSystem.isSelected()));
+    manifest.setProperty("feature.settingsMenu", Boolean.toString(chkSettingsMenu.isSelected()));
+    manifest.setProperty("feature.historyBacklog", Boolean.toString(chkHistoryBacklog.isSelected()));
+    manifest.setProperty("createdBy", "jvn-editor-wizard");
+
     if (!txtDescription.getText().isBlank()) {
       manifest.setProperty("description", txtDescription.getText().trim());
     }
+
     try (FileOutputStream fos = new FileOutputStream(new File(dir, "jvn.project"))) {
       manifest.store(fos, "JVN Visual Novel Project");
     }
-    
-    // Sample script
-    if (chkSampleContent.isSelected()) {
-      createSampleScript(dir, name);
-    } else {
-      createEmptyScript(dir, name);
-    }
-    
-    // Timeline
-    try (FileWriter fw = new FileWriter(new File(dir, TIMELINE_PATH))) {
-      fw.write("# Story Timeline for " + name + "\n");
-      fw.write("# Author: " + txtAuthor.getText().trim() + "\n\n");
-      fw.write("arc \"Prologue\" script \"" + ENTRY_SCRIPT_PATH + "\" entry \"start\" at 40,40\n");
-    }
-    
-    // Settings
-    createSettings(dir);
-    createDialogueLayout(dir);
-
-    // Menu theme
-    createMenuTheme(dir, name);
-    createMenuCustomizationScaffold(dir, name);
-    
-    // README
-    createReadme(dir, name);
   }
-  
+
   private void createSampleScript(File dir, String name) throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
       fw.write("# " + name + " - Prologue\n");
@@ -526,7 +755,7 @@ public class NewProjectWizard extends Stage {
       fw.write("[end]\n");
     }
   }
-  
+
   private void createEmptyScript(File dir, String name) throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
       fw.write("# " + name + " - Prologue\n");
@@ -537,7 +766,7 @@ public class NewProjectWizard extends Stage {
       fw.write("[end]\n");
     }
   }
-  
+
   private void createSettings(File dir) throws Exception {
     try (FileOutputStream fos = new FileOutputStream(new File(dir, SETTINGS_PATH))) {
       Properties sp = new Properties();
@@ -548,6 +777,9 @@ public class NewProjectWizard extends Stage {
       sp.setProperty("autoPlayDelay", "2000");
       sp.setProperty("skipUnread", "false");
       sp.setProperty("skipAfterChoices", "false");
+      sp.setProperty("historyBacklogEnabled", Boolean.toString(chkHistoryBacklog.isSelected()));
+      sp.setProperty("saveProfilesEnabled", Boolean.toString(chkSaveSystem.isSelected()));
+      sp.setProperty("settingsProfileEnabled", Boolean.toString(chkSettingsMenu.isSelected()));
       sp.store(fos, "VN Settings - Edit in Settings panel");
     }
   }
@@ -578,20 +810,12 @@ public class NewProjectWizard extends Stage {
       fw.write("choiceTextXPadding=20\n");
     }
   }
-  
+
   private void createMenuTheme(File dir, String name) throws Exception {
     String theme = cmbTheme.getValue();
     Properties tp = new Properties();
-    
-    // Apply theme preset
+
     switch (theme) {
-      case "Dark Elegant" -> {
-        tp.setProperty("backgroundColor", "#0A0C12");
-        tp.setProperty("titleColor", "#FFFFFF");
-        tp.setProperty("itemColor", "#C0C0C0");
-        tp.setProperty("itemSelectedColor", "#FFD700");
-        tp.setProperty("accentColor", "#FFD700");
-      }
       case "Light Clean" -> {
         tp.setProperty("backgroundColor", "#F5F5F5");
         tp.setProperty("titleColor", "#333333");
@@ -605,20 +829,6 @@ public class NewProjectWizard extends Stage {
         tp.setProperty("itemColor", "#00CC00");
         tp.setProperty("itemSelectedColor", "#FFFF00");
         tp.setProperty("accentColor", "#FFFF00");
-      }
-      case "Romantic Pink" -> {
-        tp.setProperty("backgroundColor", "#2D1F2D");
-        tp.setProperty("titleColor", "#FFB6C1");
-        tp.setProperty("itemColor", "#DDA0DD");
-        tp.setProperty("itemSelectedColor", "#FF69B4");
-        tp.setProperty("accentColor", "#FF69B4");
-      }
-      case "Cyberpunk Neon" -> {
-        tp.setProperty("backgroundColor", "#0D0221");
-        tp.setProperty("titleColor", "#00FFFF");
-        tp.setProperty("itemColor", "#FF00FF");
-        tp.setProperty("itemSelectedColor", "#00FF00");
-        tp.setProperty("accentColor", "#FF00FF");
       }
       case "Nature Green" -> {
         tp.setProperty("backgroundColor", "#1A2F1A");
@@ -635,8 +845,7 @@ public class NewProjectWizard extends Stage {
         tp.setProperty("accentColor", "#FFD700");
       }
     }
-    
-    // Common settings
+
     tp.setProperty("titleFontFamily", "Arial");
     tp.setProperty("titleFontWeight", "BOLD");
     tp.setProperty("titleFontSize", "32");
@@ -650,20 +859,30 @@ public class NewProjectWizard extends Stage {
     tp.setProperty("lineHeight", "40");
     tp.setProperty("itemPrefix", "  ");
     tp.setProperty("itemSelectedPrefix", "> ");
-    
-    // Title text
     tp.setProperty("titleText", name);
-    
+
     try (FileOutputStream fos = new FileOutputStream(new File(dir, MENU_THEME_PATH))) {
       tp.store(fos, "Menu Theme for " + name + " - " + theme);
     }
   }
 
-  private void createMenuCustomizationScaffold(File dir, String name) throws Exception {
+  private void createMenuCustomizationScaffold(File dir, String name, boolean includeSave, boolean includeSettings)
+      throws Exception {
+
+    List<String> menus = new ArrayList<>();
+    menus.add("main");
+    if (includeSave) {
+      menus.add("load");
+      menus.add("save");
+    }
+    if (includeSettings) {
+      menus.add("settings");
+    }
+
     try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
       fw.write("# Menu customization registry\n");
       fw.write("defaultMenu=main\n");
-      fw.write("menus=main,load,save,settings\n");
+      fw.write("menus=" + String.join(",", menus) + "\n");
       fw.write("layouts=default\n");
       fw.write("styles=default\n");
     }
@@ -692,117 +911,101 @@ public class NewProjectWizard extends Stage {
       fw.write("layout=default\n");
       fw.write("defaultItemStyle=default\n");
       fw.write("wrapSelection=true\n");
-      fw.write("items=new_game,load,settings,quit\n");
+
+      List<String> items = new ArrayList<>();
+      items.add("new_game");
+      if (includeSave) items.add("load");
+      if (includeSettings) items.add("settings");
+      items.add("quit");
+      fw.write("items=" + String.join(",", items) + "\n");
+
       fw.write("item.new_game.action=new_game\n");
-      fw.write("item.load.action=load_menu\n");
-      fw.write("item.settings.action=settings_menu\n");
+      if (includeSave) fw.write("item.load.action=load_menu\n");
+      if (includeSettings) fw.write("item.settings.action=settings_menu\n");
       fw.write("item.quit.action=quit\n");
     }
 
-    try (FileWriter fw = new FileWriter(new File(dir, MENU_LOAD_PATH))) {
-      fw.write("# Load menu presentation profile\n");
-      fw.write("titleText=Load Game\n");
-      fw.write("hintsText=Select: Enter    Back: Esc    Delete: Del    Rename: R\n");
-      fw.write("layout=default\n");
-      fw.write("defaultItemStyle=default\n");
-      fw.write("wrapSelection=true\n");
+    if (includeSave) {
+      try (FileWriter fw = new FileWriter(new File(dir, MENU_LOAD_PATH))) {
+        fw.write("# Load menu presentation profile\n");
+        fw.write("titleText=Load Game\n");
+        fw.write("hintsText=Select: Enter    Back: Esc    Delete: Del    Rename: R\n");
+        fw.write("layout=default\n");
+        fw.write("defaultItemStyle=default\n");
+        fw.write("wrapSelection=true\n");
+      }
+
+      try (FileWriter fw = new FileWriter(new File(dir, MENU_SAVE_PATH))) {
+        fw.write("# Save menu presentation profile\n");
+        fw.write("titleText=Save Game\n");
+        fw.write("hintsText=Select: Enter    Back: Esc    Delete: Del    Rename: R\n");
+        fw.write("layout=default\n");
+        fw.write("defaultItemStyle=default\n");
+        fw.write("wrapSelection=true\n");
+        fw.write("item.new_slot.label=New Save...\n");
+      }
     }
 
-    try (FileWriter fw = new FileWriter(new File(dir, MENU_SAVE_PATH))) {
-      fw.write("# Save menu presentation profile\n");
-      fw.write("titleText=Save Game\n");
-      fw.write("hintsText=Select: Enter    Back: Esc    Delete: Del    Rename: R\n");
-      fw.write("layout=default\n");
-      fw.write("defaultItemStyle=default\n");
-      fw.write("wrapSelection=true\n");
-      fw.write("item.new_slot.label=New Save...\n");
-    }
-
-    try (FileWriter fw = new FileWriter(new File(dir, MENU_SETTINGS_PATH))) {
-      fw.write("# Settings menu profile (keys map to engine settings)\n");
-      fw.write("titleText=Settings\n");
-      fw.write("hintsText=Up/Down, Left/Right, Enter    Back: Esc\n");
-      fw.write("layout=default\n");
-      fw.write("defaultItemStyle=default\n");
-      fw.write("wrapSelection=true\n");
-      fw.write("items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,skip_after_choices,physics_fixed_step,physics_max_substeps,physics_default_friction,input_profile,back\n");
-      fw.write("item.back.label=Back\n");
-      fw.write("item.back.action=back\n");
+    if (includeSettings) {
+      try (FileWriter fw = new FileWriter(new File(dir, MENU_SETTINGS_PATH))) {
+        fw.write("# Settings menu profile (keys map to engine settings)\n");
+        fw.write("titleText=Settings\n");
+        fw.write("hintsText=Up/Down, Left/Right, Enter    Back: Esc\n");
+        fw.write("layout=default\n");
+        fw.write("defaultItemStyle=default\n");
+        fw.write("wrapSelection=true\n");
+        fw.write("items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,skip_after_choices,physics_fixed_step,physics_max_substeps,physics_default_friction,input_profile,back\n");
+        fw.write("item.back.label=Back\n");
+        fw.write("item.back.action=back\n");
+      }
     }
   }
-  
-  private void createReadme(File dir, String name) throws Exception {
+
+  private void createReadme(File dir, String name, boolean includeMenuPack, boolean includeSave, boolean includeSettings)
+      throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, "README.md"))) {
       fw.write("# " + name + "\n\n");
-      fw.write("A visual novel created with the JVN Engine.\n\n");
-      if (!txtAuthor.getText().isBlank()) {
-        fw.write("**Author:** " + txtAuthor.getText().trim() + "\n\n");
-      }
+      fw.write("A visual novel project scaffolded by the JVN editor wizard.\n\n");
+      if (!txtAuthor.getText().isBlank()) fw.write("**Author:** " + txtAuthor.getText().trim() + "\n\n");
+      fw.write("## Enabled Modules\n\n");
+      fw.write("- Sample prologue: " + (chkSampleContent.isSelected() ? "yes" : "no") + "\n");
+      fw.write("- Menu profile pack: " + (includeMenuPack ? "yes" : "no") + "\n");
+      fw.write("- Save/load profiles: " + (includeSave ? "yes" : "no") + "\n");
+      fw.write("- Settings profile: " + (includeSettings ? "yes" : "no") + "\n");
+      fw.write("- History defaults: " + (chkHistoryBacklog.isSelected() ? "yes" : "no") + "\n\n");
+
       if (!txtDescription.getText().isBlank()) {
         fw.write("## Description\n\n");
         fw.write(txtDescription.getText().trim() + "\n\n");
       }
+
+      fw.write("## Entry Points\n\n");
+      fw.write("- Script: `" + ENTRY_SCRIPT_PATH + "`\n");
+      fw.write("- Timeline: `" + TIMELINE_PATH + "`\n");
+      fw.write("- Settings: `" + SETTINGS_PATH + "`\n");
+      fw.write("- Dialogue layout: `" + DIALOGUE_LAYOUT_PATH + "`\n\n");
+
       fw.write("## Project Structure\n\n");
       fw.write("```\n");
-      fw.write(name + "/\n");
-      fw.write("├── config/\n");
-      fw.write("│   ├── settings/\n");
-      fw.write("│   │   └── vn.settings      # Project-local VN settings\n");
-      fw.write("│   ├── timeline/\n");
-      fw.write("│   │   └── story.timeline   # Visual story graph\n");
-      fw.write("│   ├── ui/\n");
-      fw.write("│   │   └── dialogue.layout  # VN textbox/name/choice layout bounds\n");
-      fw.write("│   └── menu/\n");
-      fw.write("│       ├── menu.theme       # Global title/menu visual theme\n");
-      fw.write("│       ├── menu.registry    # Declares screens/layouts/styles to load\n");
-      fw.write("│       ├── menus/\n");
-      fw.write("│       │   ├── main.menu    # Title menu items/actions\n");
-      fw.write("│       │   ├── load.menu    # Load menu layout/hints/style\n");
-      fw.write("│       │   ├── save.menu    # Save menu layout/hints/style\n");
-      fw.write("│       │   └── settings.menu # Settings rows/actions\n");
-      fw.write("│       ├── layouts/\n");
-      fw.write("│       │   └── default.layout # Placement/spacing/alignment rules\n");
-      fw.write("│       ├── styles/\n");
-      fw.write("│       │   └── default.style # Per-button style overrides\n");
-      fw.write("│       └── assets/\n");
-      fw.write("│           └── buttons/     # Menu button sprites/icons\n");
-      fw.write("├── scripts/\n");
-      fw.write("│   ├── story/\n");
-      fw.write("│   │   └── prologue.vns # Entry point script\n");
-      fw.write("│   └── system/            # Reserved for helper scripts\n");
-      fw.write("├── assets/\n");
-      fw.write("│   ├── characters/    # Character sprites\n");
-      fw.write("│   ├── backgrounds/   # Background images\n");
-      fw.write("│   ├── cg/            # CG/event images\n");
-      fw.write("│   ├── ui/            # UI elements\n");
-      fw.write("│   └── audio/\n");
-      fw.write("│       ├── bgm/       # Background music\n");
-      fw.write("│       ├── sfx/       # Sound effects\n");
-      fw.write("│       └── voices/    # Voice clips\n");
-      fw.write("└── jvn.project        # Project manifest\n");
+      fw.write(buildStructurePreviewText(sanitizeName(name)));
       fw.write("```\n\n");
-      fw.write("## Getting Started\n\n");
-      fw.write("1. Open this project in the JVN Editor\n");
-      fw.write("2. Edit `scripts/story/prologue.vns` to write your story\n");
-      fw.write("3. Configure VN settings in `config/settings/vn.settings`\n");
-      fw.write("4. Tune dialogue UI in `config/ui/dialogue.layout` (visual editor available)\n");
-      fw.write("5. Customize title/menu theme in `config/menu/menu.theme`\n");
-      fw.write("6. Edit menu screens in `config/menu/menus/*.menu` (visual editor available)\n");
-      fw.write("7. Tune menu placement in `config/menu/layouts/*.layout` (visual editor available)\n");
-      fw.write("8. Add character sprites to `assets/characters/`\n");
-      fw.write("9. Add backgrounds to `assets/backgrounds/`\n");
-      fw.write("10. Press **Run Project** to preview\n\n");
-      fw.write("## Documentation\n\n");
-      fw.write("- [VNS Scripting Guide](docs/VNS%20Scripting/)\n");
-      fw.write("- [Title Screen Configuration](docs/TitleScreen.md)\n");
-      fw.write("- [Text Effects](docs/TextEffects.md)\n");
+
+      fw.write("## First Steps\n\n");
+      fw.write("1. Open this folder in the JVN Editor.\n");
+      fw.write("2. Edit `" + ENTRY_SCRIPT_PATH + "`.\n");
+      fw.write("3. Tune `" + DIALOGUE_LAYOUT_PATH + "` with the visual layout editor.\n");
+      if (includeMenuPack) {
+        fw.write("4. Edit `config/menu/menus/*.menu` and `config/menu/layouts/*.layout` in visual editors.\n");
+      }
+      fw.write("5. Add content into `assets/` and run the project.\n");
     }
   }
-  
+
   private String sanitizeName(String name) {
+    if (name == null) return "";
     return name.replaceAll("[^a-zA-Z0-9._-]", "_");
   }
-  
+
   private void showError(String message) {
     Alert alert = new Alert(Alert.AlertType.ERROR);
     EditorTheme.apply(alert);
@@ -811,14 +1014,14 @@ public class NewProjectWizard extends Stage {
     alert.setContentText(message);
     alert.showAndWait();
   }
-  
+
   /**
    * Returns the created project directory, or null if cancelled.
    */
   public File getCreatedProjectDir() {
     return createdProjectDir;
   }
-  
+
   /**
    * Show the wizard and return the created project directory.
    */

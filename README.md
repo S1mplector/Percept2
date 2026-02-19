@@ -4,102 +4,45 @@
   <img src="docs/images/jvn_logo.png" width="512" alt="JVN logo">
 </div>
 
-JVN is a modular Java game engine focused on visual novels and 2D gameplay, with:
-- VN runtime (`.vns` scripts, choices, history, save/load, interop hooks)
-- JES runtime integration (for minigames/overlays)
-- JavaFX and Swing rendering backends
-- JavaFX editor for iterative content authoring
+JVN is a modular Java engine focused on visual novels, menu-driven flows, and JES-powered 2D scenes.
+
+Core capabilities:
+- Visual Novel runtime (`.vns`) with branching flow, variables, conditional blocks, choices, transitions, save/load, history, and interop.
+- JES runtime (`.jes`) for scene/entity/timeline scripting, minigames, and overlays.
+- JavaFX + Swing render backends.
+- JavaFX editor with code editors, visual config editors, timeline graph tools, live previews, and in-editor Help Center.
 
 ## Requirements
 
-- JDK 21
-- No global Gradle install required (wrapper is included)
+- JDK 21 (toolchain auto-download is enabled, but local JDK 21 is still recommended)
+- No global Gradle install required (`./gradlew` is included)
 
-Toolchains are configured in Gradle and can auto-download matching JDKs, but having local JDK 21 is still recommended.
+## Quick Start
 
-## Build
+Build everything:
 
 ```bash
 ./gradlew build
 ```
 
-### Simp3 Backend (Optional)
-
-Default builds work without Simp3.  
-If you want to compile and run with the Simp3 backend enabled, first install Simp3 to your local Maven repo, then build with the Gradle property:
-
-```bash
-mvn -f Simp3/pom.xml install
-./gradlew -PuseSimp3=true build
-```
-
-Then launch runtime with Simp3 audio explicitly:
-
-```bash
-./gradlew :runtime:run --args='--audio simp3'
-```
-
-## Run The Engine (Runtime)
-
-Default runtime launch:
-
-```bash
-./gradlew :runtime:run
-```
-
-Run with explicit script and UI backend:
-
-```bash
-./gradlew :runtime:run --args='--script demo.vns --ui fx'
-```
-
-Run with Swing backend:
-
-```bash
-./gradlew :runtime:run --args='--script demo.vns --ui swing'
-```
-
-Run JES directly:
-
-```bash
-./gradlew :runtime:run --args='--jes <path-to-scene.jes>'
-```
-
-Use external assets from disk (overlaid on classpath assets):
-
-```bash
-./gradlew :runtime:run --args='--assets /absolute/path/to/assets --script chapter1.vns'
-```
-
-Runtime CLI flags (from `com.jvn.runtime.JvnApp`):
-- `--script <name>`: default VNS script (default: `demo.vns`)
-- `--ui <fx|swing>`: renderer backend (default: `fx`)
-- `--jes <path[,path2...]>`: launch JES script(s) directly
-- `--assets <dir>`: external asset root
-- `--locale <code>`: localization code (default: `en`)
-- `--audio <fx|simp3|auto>`: audio backend selection
-- `--title <text>`, `--width <px>`, `--height <px>`
-
-If a script cannot be loaded, runtime falls back to built-in demo content.
-
-## Run The Editor
+Run editor:
 
 ```bash
 ./gradlew :editor:run
 ```
 
-Editor visual tools now include:
-- `config/ui/dialogue.layout`: drag-and-map textbox, name box, text bounds, and choice bounds
-- `config/menu/menus/*.menu`: visual screen/item/action editing with live list preview
-- `config/menu/layouts/*.layout`: visual menu list/title/hints placement editing
-- Full text file remains editable and stays in sync with the visual panel
-
-## Useful Development Commands
-
-Compile key app modules:
+Run runtime:
 
 ```bash
-./gradlew :fx:compileJava :runtime:compileJava :editor:compileJava
+./gradlew :runtime:run
+```
+
+## Build and Test
+
+Compile main app modules:
+
+```bash
+./gradlew :core:compileJava :scripting:compileJava :fx:compileJava :runtime:compileJava :editor:compileJava
 ```
 
 Run unit tests:
@@ -108,30 +51,178 @@ Run unit tests:
 ./gradlew :core:test :scripting:test :swing:test
 ```
 
-Create runtime distribution zip:
+Create runtime distribution:
 
 ```bash
 ./gradlew :runtime:distZip
 ```
 
+## Runtime Usage
+
+Entrypoint: `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
+
+Basic run:
+
+```bash
+./gradlew :runtime:run
+```
+
+Common examples:
+
+```bash
+# Run a specific VNS script with FX renderer
+./gradlew :runtime:run --args='--script demo.vns --ui fx'
+
+# Run with Swing renderer
+./gradlew :runtime:run --args='--script demo.vns --ui swing'
+
+# Load JES directly
+./gradlew :runtime:run --args='--jes game/minigames/brickbreaker.jes'
+
+# Overlay filesystem assets onto classpath assets
+./gradlew :runtime:run --args='--assets /absolute/path/to/project --script story/prologue.vns'
+```
+
+Supported runtime CLI flags:
+- `--title <text>`
+- `--width <px>`
+- `--height <px>`
+- `--script <name>` default: `demo.vns`
+- `--locale <code>` default: `en`
+- `--billiards` (currently logs warning if module entry flow is unavailable)
+- `--ui <fx|swing>` default: `fx`
+- `--jes <path[,path2...]>`
+- `--audio <fx|simp3|auto>` default: `fx`
+- `--assets <dir>`
+
+Notes:
+- Script loading uses `AssetCatalog` script paths (typically relative to `game/scripts/` on classpath).
+- If script loading fails, runtime falls back to built-in demo scenario content.
+
+## Editor
+
+Run:
+
+```bash
+./gradlew :editor:run
+```
+
+Current editor highlights:
+- Project explorer with root-level run button (runs VN projects through runtime).
+- VNS/JES code editors with lint and parser diagnostics.
+- VNS quick-fix context actions (undefined labels, missing assets, unreachable blocks).
+- Visual config editors:
+  - `config/ui/dialogue.layout`
+  - `config/menu/menus/*.menu`
+  - `config/menu/layouts/*.layout`
+- Timeline graph + DSL editor (`config/timeline/story.timeline`).
+- In-editor Help Center (`F1`).
+
+## Optional Simp3 Audio Backend
+
+Default JVN builds do **not** require Simp3.
+
+Simp3 is optional and enabled only when you ask Gradle to compile against it:
+
+```bash
+mvn -f Simp3/pom.xml install
+./gradlew -PuseSimp3=true build
+```
+
+Then run runtime with Simp3 backend:
+
+```bash
+./gradlew :runtime:run --args='--audio simp3'
+```
+
+If Simp3 is not available and `--audio auto` is used, runtime falls back to FX audio.
+
+## Gradle Lock Troubleshooting (Linux-heavy)
+
+If a machine hits Gradle journal lock errors like:
+`Failed to ping owner of lock for journal cache (.../journal-1)`
+
+use this sequence:
+
+```bash
+./gradlew --stop
+rm -f ~/.gradle/caches/journal-1/*.lock
+./gradlew build --no-daemon --no-watch-fs
+```
+
+Project defaults already include:
+- `org.gradle.vfs.watch=false` in `gradle.properties`
+
+Editor-run tasks also isolate Gradle state in `.jvn-gradle-user-home` to avoid global lock contention.
+
+## Wizard-Generated VN Project Layout
+
+New projects created from the editor wizard are scaffolded in this shape:
+
+```text
+<project>/
+|-- config/
+|   |-- settings/vn.settings
+|   |-- timeline/story.timeline
+|   |-- ui/dialogue.layout
+|   `-- menu/
+|       |-- menu.theme
+|       |-- menu.registry
+|       |-- menus/*.menu
+|       |-- layouts/*.layout
+|       |-- styles/*.style
+|       `-- assets/
+|-- scripts/
+|   |-- story/prologue.vns
+|   |-- common/
+|   `-- system/
+|-- assets/
+|   |-- backgrounds/
+|   |-- characters/
+|   |-- portraits/
+|   |-- cg/
+|   |-- ui/
+|   |-- fonts/
+|   `-- audio/{bgm,sfx,voices}
+|-- save/
+|-- README.md
+`-- jvn.project
+```
+
 ## Module Overview
 
-- `core`: engine loop, scene system, VN model/runtime state, 2D primitives, physics
-- `scripting`: JES parser/runtime
-- `fx`: JavaFX renderer + launcher
-- `swing`: Swing renderer + launcher
-- `runtime`: app entrypoint (`JvnApp`) and runtime interop
-- `editor`: JavaFX-based editor tooling
-- `audio-integration`: optional Simp3-backed audio adapter
+- `core`: engine/runtime primitives, VN runtime, menus, save system, 2D/physics.
+- `scripting`: JES tokenizer/parser/AST/loader/runtime scene.
+- `fx`: JavaFX launcher, VN renderer, menu rendering, FX audio backend.
+- `swing`: Swing launcher/backend.
+- `runtime`: CLI app (`JvnApp`), runtime interop bridge, scene wiring.
+- `editor`: JavaFX authoring environment.
+- `audio-integration`: optional Simp3 adapter layer.
+- `testkit`: shared testing dependencies/helpers.
 
-## Documentation
+## Documentation Map
 
 - `docs/Overview.md`
 - `docs/Architecture/Architecture.md`
+- `docs/Architecture/2D-Engine.md`
+- `docs/Runtime/Runtime.md`
+- `docs/Runtime/Save System.md`
+- `docs/Editor/Editor.md`
+- `docs/Editor/Help Center.md`
+- `docs/Project Setup/New Project Wizard.md`
+- `docs/Menu Profiles/Menu Profiles.md`
 - `docs/VNS Scripting/VNS Scripting.md`
+- `docs/VNS Scripting/VNS Parsing.md`
+- `docs/VNS Scripting/Java-JES Cross Development.md`
 - `docs/JES Scripting/JES Scripting.md`
+- `docs/JES Scripting/JES Parsing.md`
+- `docs/JES Scripting/Components.md`
+- `docs/Timeline Scripting/Timeline Scripting.md`
+- `docs/TitleScreen.md`
 - `docs/Interop.md`
+- `docs/TextEffects.md`
+- `docs/Performance.md`
 
 ## License
 
-TBD.
+`LICENSE.md` currently exists as a placeholder and still needs finalized license text.

@@ -1,69 +1,156 @@
 # Interop Guide
 
-This document describes how VNS, JES, and runtime code talk to each other.
+Interop is how VNS scripts, JES scenes, and Java code coordinate behavior at runtime.
 
-## VNS → Runtime
-
-VNS `[command ...]` lines are parsed into `VnExternalCommand` entries. The runtime handles them through `VnInterop`:
-
+Primary classes:
 - `core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
 - `runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
 
-### Default providers (engine-wide)
+## Command Routing Model
 
-- `hud <msg>` → temporary HUD toast.
-- `java <Class#method args...>` → invoke a public static Java method.
-- `var set|inc|dec|flag|unflag|clear ...` → set VN variables.
-- `cond if <expr>` → conditional jump logic (used by choices).
-- `settings` / `mode` / `ui` / `history` → player settings & overlays.
-- `audio pause|resume|seek|crossfade ...`
-- `screen shake|flash ...`
-- `save` (quick save/load helpers).
+When VNS parser sees `[call <provider> <payload>]` (or shorthand forms like `[jes ...]`), it emits a `VnExternalCommand`.
 
-### Runtime providers
+At runtime:
 
-- `jes push|replace|pop|call ...`
-- `vns push|replace|goto ...`
-- `menu settings|save|load|main ...`
+1. `VnScene` reaches that node.
+2. active `VnInterop` receives provider + payload.
+3. interop returns `advance` or `stay` depending on whether control flow already moved.
 
-These are implemented by `RuntimeVnInterop` and only available in the runtime module.
+## Default Providers (`DefaultVnInterop`)
 
-## VNS ↔ JES
+### `hud`
 
-From VNS:
+- shows temporary HUD message
+- example: `[hud Saved!]`
 
-- `[jes push <script.jes> label <returnLabel> with k=v ...]`
-- `[jes replace <script.jes> ...]`
-- `[jes pop]`
-- `[jes call <name> k=v ...]`
+### `java`
 
-From JES:
+- reflection call to public static method
+- syntax: `[java fully.qualified.Class#method arg1 arg2 ...]`
+- coercion supports `int/long/double/boolean` + string fallback
 
-- `call "return" { label: "after_game", score: 123 }`
-  - Pops the JES scene.
-  - Copies props into VN variables (except `label`/`goto`).
-  - Jumps to the return label (prop wins, else VNS `label` argument).
-- `call "vns"` is an alias of `return`.
-- `call "hud" { msg: "Saved!" }` shows a VN toast.
-- `call "pop" {}` pops without jumping.
+### `var`
 
-## JES Call Handlers
+- state variable operations:
+  - `set`, `inc`, `dec`, `flag`, `unflag`, `clear`
+- examples:
+  - `[set score 10]`
+  - `[inc score 5]`
 
-If you load JES from Java, you can attach handlers:
+### `cond`
 
-```java
-JesScene2D scene = JesLoader.load(in);
-scene.registerCall("spawnWave", props -> { /* ... */ });
-scene.setActionHandler((name, props) -> { /* fallback */ });
+- conditional jump logic
+- payload form: `if <expr> goto <label>`
+- uses `VnConditionEvaluator`
+
+### `settings`
+
+- live settings changes (`textspeed`, `autodelay`, `volume`)
+
+### `save`
+
+- quick save/load behavior (`[save]`, `[quickload]`)
+
+### `mode`
+
+- skip/auto mode toggles
+
+### `ui`
+
+- UI visibility controls (`show/hide/toggle`)
+
+### `history`
+
+- history overlay controls (`show/hide/toggle/scroll/clear`)
+
+### `audio`
+
+- `pause`, `resume`, `seek`, `crossfade`
+
+### `screen`
+
+- `shake`, `flash`, `clear` visual effects
+
+## Runtime-Only Providers (`RuntimeVnInterop`)
+
+### `jes`
+
+- `push`, `replace`, `pop`, `call`
+- supports launch props using `with k=v`
+
+Example:
+
+```vns
+[jes push game/minigames/puzzle.jes label after_puzzle with difficulty=hard lives=3]
 ```
 
-Handlers are invoked for `call "name" { ... }` statements or trigger volumes.
+### `menu`
 
-## Data Types
+- opens menu scenes:
+  - `settings`
+  - `save`
+  - `load <defaultScript>`
+  - `main <defaultScript>`
+  - custom menu ids
 
-Interop props are parsed as:
-- `true/false` → boolean
-- numbers with `.` → double, integers otherwise
-- everything else → string
+### `vns`
 
-Avoid spaces in values (`difficulty=hard`, `title=Hello_World`).
+- script flow transitions:
+  - `push <script> [label L]`
+  - `replace <script> [label L]`
+  - `goto <label>` or `goto Arc:label`
+
+## JES <-> VNS Bridge
+
+When runtime loads JES from VNS, it attaches helpers:
+
+- JES -> VN:
+  - `call "return" { label: "after", score: 42 }`
+  - `call "vns" { ... }` (alias)
+  - `call "hud" { msg: "text" }`
+  - `call "pop" {}`
+
+Return behavior:
+- pops JES scene
+- copies props (except `label`/`goto`) into VN variables
+- jumps to return label (explicit prop overrides default label from push call)
+
+- VN -> JES:
+  - `[jes call <name> k=v ...]` invokes registered JES call handlers
+
+## Data Type Conventions
+
+Common token parsing rules:
+- `true` / `false` -> boolean
+- numeric tokens -> integer or double
+- other tokens -> string
+- quoted strings preserve spaces for tokenized providers
+
+## Practical Patterns
+
+### Pattern: launch minigame, return score
+
+```vns
+[jes push game/minigames/aim.jes label after_game with stage=2]
+
+@label after_game
+Narrator: Final score was ${score}.
+```
+
+Inside JES:
+
+```jes
+call "return" { label: "after_game" score: 987 }
+```
+
+### Pattern: central Java utility call
+
+```vns
+[java com.example.GameDebug#logEvent chapter_start]
+```
+
+## Safety Notes
+
+- Java interop is reflection-based and should be treated as trusted-script functionality.
+- Prefer stable wrapper utility methods instead of exposing deep internals directly.
+- Keep provider payload formats explicit in team scripting conventions.

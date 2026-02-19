@@ -1,135 +1,95 @@
-# Text Effects System
+# Text Effects
 
-The JVN Engine supports rich text effects in dialogue through inline markup tags. These effects add visual polish and emphasis to your visual novel text.
+JVN supports inline text markup inside dialogue strings.
 
-## Markup Syntax
+Parser: `core/src/main/java/com/jvn/core/vn/text/TextParser.java`  
+Renderer: `fx/src/main/java/com/jvn/fx/vn/VnRenderer.java`
 
-Text effects use curly brace tags: `{effect}text{/effect}`
+## Syntax
 
-Effects can be nested: `{shake}{color=#FF0000}scary text{/color}{/shake}`
+Markup format:
 
-## Available Effects
+```text
+{tag}text{/tag}
+{tag=value}text{/tag}
+```
 
-### Animation Effects
+Example:
 
-| Tag | Description | Example |
-|-----|-------------|---------|
-| `{shake}` | Text vibrates randomly | `{shake}Earthquake!{/shake}` |
-| `{wave}` | Sine wave up/down motion | `{wave}Flowing water...{/wave}` |
-| `{bounce}` | Bouncing animation | `{bounce}Jump!{/bounce}` |
-| `{rainbow}` | Cycling hue colors | `{rainbow}Magical sparkles{/rainbow}` |
+```text
+Narrator: {color=#4a9eff}{wave}Welcome{/wave}{/color}
+```
 
-### Style Effects
+## Supported Tags
 
-| Tag | Description | Example |
-|-----|-------------|---------|
-| `{b}` or `{bold}` | Bold text | `{b}Important{/b}` |
-| `{i}` or `{italic}` | Italic text | `{i}thoughts{/i}` |
-| `{color=#HEX}` | Custom color | `{color=#FF0000}red{/color}` |
+### Animation tags
 
-### Timing Effects
+- `{shake}...{/shake}`
+- `{wave}...{/wave}`
+- `{bounce}...{/bounce}`
+- `{rainbow}...{/rainbow}`
 
-| Tag | Description | Example |
-|-----|-------------|---------|
-| `{speed=X}` | Speed multiplier (1.0 = normal) | `{speed=0.5}slow...{/speed}` |
-| `{delay=ms}` | Pause before text (milliseconds) | `{delay=500}After pause` |
+### Style tags
+
+- `{b}...{/b}` or `{bold}...{/bold}`
+- `{i}...{/i}` or `{italic}...{/italic}`
+- `{color=#RRGGBB}...{/color}`
+
+### Timing tags
+
+- `{speed=<multiplier>}...{/speed}`
+- `{delay=<milliseconds>}` (applies to next emitted span)
+
+## Important Behavior Notes
+
+TextParser is lightweight and state-based:
+
+- one active animation/style effect channel at a time (`TextEffect` enum)
+- color and speed are tracked separately
+- tags are parsed in a single pass
+
+Practical implication:
+- nested color + effect works well
+- deeply nested multiple animation tags are not a full stack-based rich text system
 
 ## Color Format
 
-Colors are specified as hex values:
-- `#RRGGBB` - e.g., `#FF0000` for red
-- `#RGB` shorthand is NOT supported
+Supported currently by renderer helper:
+- `#RRGGBB`
 
-Common colors:
-- Red: `#FF0000`
-- Green: `#00FF00`
-- Blue: `#0000FF`
-- Yellow: `#FFFF00`
-- Cyan: `#00FFFF`
-- Magenta: `#FF00FF`
-- Orange: `#FF8000`
-- Purple: `#8000FF`
+If color parsing fails, renderer falls back to default dialogue color.
 
-## Speed Values
+## Usage in VNS
 
-The `{speed=X}` tag modifies text reveal speed:
-- `0.5` = Half speed (slower)
-- `1.0` = Normal speed
-- `2.0` = Double speed (faster)
-- `0.25` = Very slow for dramatic effect
-
-## Examples
-
-### Dramatic Reveal
-```
-The door creaked open...{delay=800}{shake}BANG!{/shake}
+```vns
+@label start
+Narrator: {delay=250}The room went silent.
+Hero: {shake}Did you hear that?{/shake}
+Guide: {color=#4a9eff}Stay calm.{/color}
+Narrator: {wave}A strange wind passed by.{/wave}
+[end]
 ```
 
-### Character Emotion
-```
-{color=#FF6666}"I-I'm not scared!"{/color} she said, {shake}trembling{/shake}.
-```
+## Performance Characteristics
 
-### Magical Text
-```
-The wizard chanted: {rainbow}{wave}Abracadabra!{/wave}{/rainbow}
-```
+- Effects are rendered per visible character.
+- `shake` includes randomized offsets each frame.
+- Long fully-animated lines are more expensive than plain text.
 
-### Slow Dramatic Speech
-```
-{speed=0.3}In the beginning...{/speed}{delay=500} there was nothing.
-```
+## Working with History/Plain Text
 
-### Emphasis
-```
-This is {b}very{/b} {color=#FF0000}important{/color}!
-```
-
-### Nested Effects
-```
-{color=#8800FF}{wave}Purple waves{/wave}{/color} crashed against the shore.
-```
-
-## VNS Script Usage
-
-In your `.vns` script files:
-
-```
-label dramatic_scene
-
-narrator "{delay=300}The room fell silent..."
-
-hero "{shake}W-what was that?!{/shake}"
-
-narrator "{speed=0.5}A shadow moved in the corner...{/speed}"
-
-villain "{color=#880000}{b}Hello, hero.{/b}{/color}"
-
-narrator "{rainbow}Magic filled the air.{/rainbow}"
-
-[choice Run->escape | Fight->battle]
-```
-
-## Performance Notes
-
-- Effects are rendered per-character, which may impact performance with very long text
-- The `{shake}` effect uses random values per frame, creating continuous motion
-- The `{wave}` and `{bounce}` effects are synchronized across characters
-- The `{rainbow}` effect cycles smoothly through the color spectrum
-
-## Stripping Tags
-
-To get plain text without markup (useful for history/backlog):
+When you need unstyled text:
 
 ```java
-String plain = TextParser.stripTags(dialogueText);
-int length = TextParser.plainLength(dialogueText);
+String plain = TextParser.stripTags(styledText);
+int len = TextParser.plainLength(styledText);
 ```
 
-## Custom Effects
+## Extending the System
 
-The effect system is extensible. To add new effects:
+To add a new text effect:
 
-1. Add to `TextEffect` enum in `com.jvn.core.vn.text.TextEffect`
-2. Handle parsing in `TextParser.parse()`
-3. Implement rendering in `VnRenderer.drawStyledText()`
+1. Extend `TextEffect` enum.
+2. Parse tag in `TextParser.parse`.
+3. Add visual behavior in `VnRenderer.drawStyledText`.
+4. Document the new tag here and in VNS scripting docs.

@@ -12,6 +12,7 @@ import java.util.Properties;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.FileEditorTab;
+import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.InspectorView;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.ProjectExplorerView;
@@ -85,6 +86,7 @@ public class EditorApp extends Application {
   
   private SceneGraphView sgView;
   private ProjectExplorerView projView;
+  private HelpCenterView helpCenterView;
   private StoryTimelineView timelineView;
   private SettingsEditorView settingsEditor;
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
@@ -92,6 +94,7 @@ public class EditorApp extends Application {
   private final CommandStack commands = new CommandStack();
   private Tab tabProject;
   private Tab tabScene;
+  private Tab tabHelp;
   private File projectRoot;
   private OperatingSystemMXBean osBean;
   private long lastPerfUpdateNs = -1L;
@@ -211,6 +214,7 @@ public class EditorApp extends Application {
     if (settingsEditor != null) settingsEditor.setProjectRoot(root);
     if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(root);
     if (mapEditorView != null) mapEditorView.setProjectRoot(root);
+    if (helpCenterView != null) helpCenterView.setProjectRoot(root);
   }
 
   private String composeGradleTask(String path, String task) {
@@ -406,6 +410,15 @@ public class EditorApp extends Application {
     MenuItem miRun = new MenuItem("Run Project");
     miRun.setOnAction(e -> doRunProject(primaryStage));
     menuProject.getItems().addAll(miRun);
+    Menu menuHelp = new Menu("Help");
+    MenuItem miHelpCenter = new MenuItem("Help Center");
+    miHelpCenter.setOnAction(e -> selectHelpTab());
+    miHelpCenter.setAccelerator(new KeyCodeCombination(KeyCode.F1));
+    MenuItem miRefreshHelp = new MenuItem("Refresh Docs Index");
+    miRefreshHelp.setOnAction(e -> {
+      if (helpCenterView != null) helpCenterView.refresh();
+    });
+    menuHelp.getItems().addAll(miHelpCenter, miRefreshHelp);
     Menu menuEdit = new Menu("Edit");
     MenuItem miUndo = new MenuItem("Undo");
     miUndo.setOnAction(e -> { commands.undo(); status.setText("Undo"); inspectorView.setSelection(selected); });
@@ -414,7 +427,7 @@ public class EditorApp extends Application {
     miRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
     miRedo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     menuEdit.getItems().addAll(miUndo, miRedo);
-    mb.getMenus().addAll(menuFile, menuEdit, menuCode, menuProject);
+    mb.getMenus().addAll(menuFile, menuEdit, menuCode, menuProject, menuHelp);
 
     // Toolbar
     osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
@@ -552,7 +565,12 @@ public class EditorApp extends Application {
     inspectorScroll.setFitToWidth(true);
     TabPane rightTabs = new TabPane();
     Tab tabInspectorRight = new Tab("Inspector", inspectorScroll); tabInspectorRight.setClosable(false);
-    rightTabs.getTabs().add(tabInspectorRight);
+    helpCenterView = new HelpCenterView();
+    helpCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
+    helpCenterView.setProjectRoot(projectRoot);
+    helpCenterView.setOnOpenDoc(this::openFile);
+    tabHelp = new Tab("Help", helpCenterView); tabHelp.setClosable(false);
+    rightTabs.getTabs().addAll(tabInspectorRight, tabHelp);
     rightTabs.setPrefWidth(360);
     sgView = new SceneGraphView();
     sgView.setMinWidth(200);
@@ -997,6 +1015,7 @@ public class EditorApp extends Application {
       }
     }
     if (mapEditorView != null) mapEditorView.setProjectRoot(projectRoot);
+    if (helpCenterView != null) helpCenterView.setProjectRoot(projectRoot);
   }
 
   private FileEditorTab getActiveFileTab() {
@@ -1120,6 +1139,12 @@ public class EditorApp extends Application {
   private void selectSceneTab() {
     if (tabScene != null && tabScene.getTabPane() != null) {
       tabScene.getTabPane().getSelectionModel().select(tabScene);
+    }
+  }
+
+  private void selectHelpTab() {
+    if (tabHelp != null && tabHelp.getTabPane() != null) {
+      tabHelp.getTabPane().getSelectionModel().select(tabHelp);
     }
   }
 }

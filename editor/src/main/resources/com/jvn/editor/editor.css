@@ -251,3 +251,42 @@
   -fx-border-color: #2a2a2a;
   -fx-border-width: 1 0 0 0;
 }
+
+/* Help center */
+.help-center-root {
+  -fx-background-color: #121212;
+}
+
+.help-section-title {
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #cdd6f4;
+}
+
+.help-quick-box {
+  -fx-background-color: #1a1a1a;
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 1;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+}
+
+.help-doc-title {
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #e6e6e6;
+}
+
+.help-doc-subtitle {
+  -fx-font-size: 11px;
+  -fx-text-fill: #8f8f8f;
+}
+
+.help-tip-text {
+  -fx-fill: #8f8f8f;
+}
+
+.help-doc-content {
+  -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+  -fx-font-size: 12px;
+}

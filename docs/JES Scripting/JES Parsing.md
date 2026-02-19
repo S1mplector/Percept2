@@ -1,112 +1,96 @@
-# JES Parsing
+# JES Parsing Internals
 
-This document explains how JES source files are turned into a running scene.
+This page documents parser behavior and strict validation in JES.
 
 ## Pipeline
 
-- Tokenize: `JesTokenizer` → list of `JesToken`
-- Parse: `JesParser` → `JesAst.Program`
-- Load/build: `JesLoader` → `JesScene2D`
-- Run: `JesScene2D` updates input, physics, timeline; renders entities and invokes registered calls
+1. `JesTokenizer` tokenizes source to `JesToken` stream.
+2. `JesParser` builds AST (`JesAst`).
+3. `JesLoader` builds `JesScene2D` from AST.
+4. `JesScene2D` runs input, physics, timeline, and call handlers.
 
-Key files:
-- `scripting/src/main/java/com/jvn/scripting/jes/JesTokenizer.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/ast/JesAst.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+## Tokenization Rules
 
-## Tokenizer
+Tokenizer supports:
+- identifiers, strings, numbers
+- punctuation tokens (`{}`, `:`, `,`, `()`)
+- line comments via `//`
+- line/column metadata for diagnostics
 
-`JesTokenizer` converts text into tokens with line/column info.
-- Identifiers: letters/digits/`_`/`.`
-- Numbers: int and float, optional leading `-`
-- Strings: double-quoted with escapes `\n`, `\t`, `\`x``
-- Symbols: `{ } : , ( )`
-- Comments: `//` to end of line
-- Whitespace and blank lines are skipped
+## Grammar Summary
 
-Produced token types: `IDENT`, `STRING`, `NUMBER`, `LBRACE`, `RBRACE`, `COLON`, `COMMA`, `LPAREN`, `RPAREN`, `EOF`
+Top-level expects one or more scene blocks:
 
-## Grammar (informal)
-
-```
-scene "Name" {
-  // optional scene-level props as key: value pairs (future use)
-  entity "Name" { component Type { key: value ... } }
-  on key "K" do actionName { key: value ... }   // input binding
-  timeline {
-    wait <ms>
-    call "functionName"
-    move   "entity" { x: , y: , dur: , easing: }
-    rotate "entity" { deg: , dur: , easing: }
-    scale  "entity" { sx: , sy: , dur: , easing: }
-  }
-}
+```text
+scene "Name" { ... }
 ```
 
-Values supported by the parser:
-- number: `12`, `-3`, `0.5`
-- string: `"text"`
-- boolean: `true`/`false`
-- colors: `rgb(r,g,b[,a])` or `rgba(r,g,b,a)` where components are 0..1 doubles
-- bare identifiers in value position are treated as strings (e.g., `left`, `circle`, `box`)
+Inside a scene:
+- `tileset "name" { ... }`
+- `item "id" { ... }`
+- `map "name" { ... layer "name" { ... } ... }`
+- `entity "name" { component Type { ... } ... }`
+- `on key "K" do action { ... }`
+- `timeline { ... }`
+- `key: value` (scene prop)
 
-## AST shape
+## Strict Property Validation
 
-See `JesAst`:
-- `Program` → list of `SceneDecl`
-- `SceneDecl` → `name`, `props`, `entities`, `bindings`, `timeline`
-- `EntityDecl` → `name`, list of `ComponentDecl`
-- `ComponentDecl` → `type`, `props`
-- `InputBinding` → `key`, `action`, `props`
-- `TimelineAction` → `type`, optional `target`, `props`
+Parser validates known property keys for:
 
-## Loader: AST → Runtime
+- component types (`Panel2D`, `Sprite2D`, `Label2D`, etc.)
+- timeline action prop blocks (`move`, `cameraMove`, `playAudio`, etc.)
 
-`JesLoader.buildScene(SceneDecl)` materializes a `JesScene2D`:
-- Registers input bindings into `JesScene2D`
-- Sets the timeline actions
-- Builds supported components and registers entities by name
+Unknown key in a known type/action triggers parse error with line/column.
 
-Supported components and props:
-- Panel2D
-  - `x`, `y`, `w`, `h`, `fill: rgb(...)`
-- Sprite2D
-  - `image`, `x`, `y`, `w`, `h`, `alpha`, `originX`, `originY`
-  - Optional region draw: `sx`, `sy`, `sw`, `sh`, `dw`, `dh`
-- Label2D
-  - `text`, `x`, `y`, `size`, `bold`, `color: rgb(...)`, `align`
-- ParticleEmitter2D
-  - `x`, `y`, `emissionRate`, `minLife`, `maxLife`, `minSize`, `maxSize`, `endSizeScale`, `minSpeed`, `maxSpeed`, `minAngle`, `maxAngle`, `gravityY`, `texture`, `additive`, `startColor`, `endColor`
-- PhysicsBody2D (visualized by `PhysicsBodyEntity2D`)
-  - `shape: circle|box`, `x`, `y`, circle: `r`; box: `w`, `h`
-  - `mass`, `restitution`, `static`, `sensor`, `vx`, `vy`
+Notes:
+- unknown component **types** are currently tolerated for extension flexibility
+- `Equipment` and timeline `call` allow free-form props
 
-Entities are registered with `registerEntity(name, entity)` so timeline actions can reference them by name.
+## Timeline Parse Semantics
 
-## Runtime behavior (JesScene2D)
+Timeline actions are parsed into `JesAst.TimelineAction` with:
+- `type`
+- optional `target`
+- `props` map
+- optional `children` for composite actions (`parallel`, `loop`)
 
-- Physics: internal `PhysicsWorld2D` stepped each update
-- Input: for each binding, if key was pressed, built-in actions are handled; others are forwarded to a Java handler if provided via `setActionHandler`
-- Timeline: runs actions in order, supports easing via `Easing.Type`
-- Calls:
-  - `registerCall(name, handler)` to expose functions callable from timeline `call` steps or via runtime interop
-  - `invokeCall(name, props)` executes a registered call or forwards to the scene-level action handler
+`label` actions are indexed by runtime for `jump` resolution.
 
-## Extending JES
+## AST to Runtime Conversion
 
-- New component types: add cases to `JesLoader.buildScene`
-- New timeline actions: extend `JesParser.parseTimelineAction` and add logic in `JesScene2D.updateTimeline`
-- New value types: extend `JesParser.parseValue`
-- Additional built-in input actions: extend `JesScene2D.handleAction`
+`JesLoader` maps AST entities/components into runtime objects and registers them by name.
 
-## Minimal example
+Loader responsibilities include:
+- tileset/map construction
+- tile collision setup
+- trigger layer registration
+- component creation
+- input binding attachment
+- timeline injection
 
-```jes
-scene "Demo" {
-  entity "title" { component Label2D { text: "JES Demo" x: 60 y: 80 size: 24 } }
-  on key "D" do toggleDebug
-  timeline { move "title" { x: 60 y: 60 dur: 500 } wait 300 move "title" { x: 60 y: 80 dur: 500 } }
-}
-```
+## Runtime Action Handling
+
+`JesScene2D` executes timeline actions per update and supports:
+- wait state and call waiting
+- entity tweens
+- camera transitions
+- audio pass-through callbacks
+- branching actions (`label`/`jump`)
+- composite actions (`parallel`/`loop`)
+
+## Parser Error Style
+
+Parser raises `JesParseException` with source position details for malformed structure, unknown action keys, and invalid block usage.
+
+Examples:
+- unknown timeline action
+- unterminated block
+- missing expected tokens (`{`, `:`, etc.)
+- invalid property names for known component/action
+
+## Why This Strictness Matters
+
+- catches content bugs before runtime
+- improves editor lint signal quality
+- keeps script contracts clear in team environments
