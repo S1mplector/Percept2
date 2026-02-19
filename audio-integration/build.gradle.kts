@@ -13,6 +13,11 @@ sourceSets {
 
 dependencies {
   api(project(":core"))
-  // Audio-engine published to mavenLocal via `mvn -f audio-engine/pom.xml install`
-  implementation("com.musicplayer:simp3:1.0.0")
+  // Optional external backend:
+  // - By default this module compiles without Simp3 on classpath (reflection runtime bridge).
+  // - Enable explicit Simp3 linkage with: `-PuseSimp3=true`
+  val useSimp3 = (findProperty("useSimp3") as String?)?.toBoolean() ?: false
+  if (useSimp3) {
+    implementation("com.musicplayer:simp3:1.0.0")
+  }
 }
