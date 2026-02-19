@@ -36,15 +36,25 @@
 
  .punct { -fx-fill: #8ab4f8; }
 
- .error {
+.error {
   -fx-underline: true;
   -fx-fill: #f38ba8; /* red accent */
+}
+
+.warning {
+  -fx-underline: true;
+  -fx-fill: #f0b673;
 }
 
 .error-line {
   -fx-background-color: rgba(243, 139, 168, 0.1);
 }
+
+.warning-line {
+  -fx-background-color: rgba(240, 182, 115, 0.12);
+}
 .lineno-error { -fx-background-color: #311118; }
+.lineno-warning { -fx-background-color: #2f2613; }
 
 .lint-label {
   -fx-padding: 4 8 4 8;

@@ -202,9 +202,13 @@ public class FileEditorTab extends BorderPane {
     } else if (kind == Kind.VNS) {
       String code = vnsEditor.getText();
       if (code == null || code.isBlank()) return;
-      VnScriptParser parser = new VnScriptParser();
-      VnScenario scenario = parser.parseFromString(code);
-      if (vnPreview != null) vnPreview.setScenario(scenario);
+      try {
+        VnScriptParser parser = new VnScriptParser();
+        VnScenario scenario = parser.parseFromString(code);
+        if (vnPreview != null) vnPreview.setScenario(scenario);
+      } catch (Exception ex) {
+        if (onStatus != null) onStatus.accept("VNS error: " + ex.getMessage());
+      }
     }
   }
 
@@ -225,9 +229,13 @@ public class FileEditorTab extends BorderPane {
       } else if (kind == Kind.VNS) {
         String code = Files.readString(file.toPath());
         vnsEditor.setText(code);
-        VnScriptParser parser = new VnScriptParser();
-        VnScenario scenario = parser.parse(new FileInputStream(file));
-        if (vnPreview != null) vnPreview.setScenario(scenario);
+        try (FileInputStream in = new FileInputStream(file)) {
+          VnScriptParser parser = new VnScriptParser();
+          VnScenario scenario = parser.parse(in);
+          if (vnPreview != null) vnPreview.setScenario(scenario);
+        } catch (Exception ex) {
+          if (onStatus != null) onStatus.accept("VNS parse warning: " + ex.getMessage());
+        }
       } else if (kind == Kind.TIMELINE) {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         if (timelineEditor != null) timelineEditor.setText(text);

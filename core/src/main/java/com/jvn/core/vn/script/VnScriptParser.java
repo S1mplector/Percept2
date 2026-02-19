@@ -1,11 +1,21 @@
 package com.jvn.core.vn.script;
 
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
+import com.jvn.core.vn.CharacterPosition;
+import com.jvn.core.vn.Choice;
+import com.jvn.core.vn.VnConditionEvaluator;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioBuilder;
+import com.jvn.core.vn.VnTransition;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -13,44 +23,26 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.AssetType;
-import com.jvn.core.vn.CharacterPosition;
-import com.jvn.core.vn.Choice;
-import com.jvn.core.vn.VnScenario;
-import com.jvn.core.vn.VnScenarioBuilder;
-import com.jvn.core.vn.VnTransition;
-
 /**
- * Parses text-based VN scripts into VnScenario objects
- * 
- * Script format:
- * @scenario id
- * @character id "Display Name"
- * @background id path/to/image.png
- * @label labelName
- * Speaker: Dialogue text
- * > Choice 1 -> label1
- * > Choice 2 -> label2
- * [background bgId]
- * [jump labelName]
- * [end]
+ * Parses text-based VN scripts into {@link VnScenario} objects.
  */
 public class VnScriptParser {
-  
-  private static final Pattern SCENARIO_PATTERN = Pattern.compile("^@scenario\\s+(.+)$");
-  private static final Pattern CHARACTER_PATTERN = Pattern.compile("^@character\\s+(\\S+)\\s+\"([^\"]*)\"$");
-  private static final Pattern BACKGROUND_PATTERN = Pattern.compile("^@background\\s+(\\S+)\\s+(.+)$");
-  private static final Pattern CHARIMG_PATTERN = Pattern.compile("^@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$");
-  private static final Pattern LABEL_PATTERN = Pattern.compile("^@label\\s+(.+)$");
-  private static final Pattern LABEL_LEGACY_PATTERN = Pattern.compile("^label\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern SCENARIO_PATTERN = Pattern.compile("^@scenario\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARACTER_PATTERN = Pattern.compile("^@character\\s+(\\S+)\\s+\"([^\"]*)\"$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern BACKGROUND_PATTERN = Pattern.compile("^@background\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARIMG_PATTERN = Pattern.compile("^@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern VAR_PATTERN = Pattern.compile("^@var\\s+(\\S+)(?:\\s*=\\s*(.+)|\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern LABEL_PATTERN = Pattern.compile("^@label\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern LABEL_LEGACY_PATTERN = Pattern.compile("^label\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern DIALOGUE_PATTERN = Pattern.compile("^([^:]+):\\s*(.+)$");
   private static final Pattern DIALOGUE_QUOTED_PATTERN = Pattern.compile("^(\\S+)\\s+\"((?:[^\"\\\\]|\\\\.)*)\"$");
-  private static final Pattern CHOICE_PATTERN = Pattern.compile("^>\\s*(.+?)(?:\\s*->\\s*(.+))?$");
-  private static final Pattern COMMAND_PATTERN = Pattern.compile("^\\[(.+)\\]$");
-  private static final Pattern DEFINE_PATTERN = Pattern.compile("^@define\\s+(\\S+)(?:\\s+(.+))?$");
-  private static final Pattern INCLUDE_PATTERN = Pattern.compile("^@include\\s+(.+)$");
-  private static final Pattern DEFINE_SUB_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+  private static final Pattern COMMAND_PATTERN = Pattern.compile("^\\[(.+)]$");
+  private static final Pattern DEFINE_PATTERN = Pattern.compile("^@define\\s+(\\S+)(?:\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern INCLUDE_PATTERN = Pattern.compile("^@include\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern DEFINE_SUB_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
+  private static final Pattern CHOICE_CONDITION_SUFFIX_PATTERN = Pattern.compile("^(.*)\\[if\\s+(.+)]\\s*$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern IF_GOTO_PATTERN = Pattern.compile("^(.+?)\\s+goto\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern LABEL_NAME_PATTERN = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.:-]*$");
 
   public interface IncludeResolver {
     InputStream open(String path) throws IOException;
@@ -59,11 +51,90 @@ public class VnScriptParser {
   private static class ParseState {
     String scenarioId = "untitled";
     VnScenarioBuilder builder;
+    boolean scenarioDeclared = false;
+    boolean contentEmitted = false;
     List<Choice> pendingChoices = new ArrayList<>();
     Map<String, com.jvn.core.vn.VnCharacter.Builder> charBuilders = new HashMap<>();
     Map<String, String> defines = new HashMap<>();
+    Map<String, LabelDeclaration> declaredLabels = new HashMap<>();
+    List<LabelReference> labelReferences = new ArrayList<>();
+    Deque<ConditionalBlock> conditionalBlocks = new ArrayDeque<>();
+    int syntheticLabelCounter = 0;
   }
-  
+
+  private static final class LabelDeclaration {
+    final String source;
+    final int line;
+    final boolean synthetic;
+
+    LabelDeclaration(String source, int line, boolean synthetic) {
+      this.source = source;
+      this.line = line;
+      this.synthetic = synthetic;
+    }
+  }
+
+  private static final class LabelReference {
+    final String label;
+    final String source;
+    final int line;
+    final String rawLine;
+    final String kind;
+
+    LabelReference(String label, String source, int line, String rawLine, String kind) {
+      this.label = label;
+      this.source = source;
+      this.line = line;
+      this.rawLine = rawLine;
+      this.kind = kind;
+    }
+  }
+
+  private static final class ConditionalBlock {
+    String falseLabel;
+    final String endLabel;
+    boolean elseSeen;
+    final String source;
+    final int line;
+
+    ConditionalBlock(String falseLabel, String endLabel, String source, int line) {
+      this.falseLabel = falseLabel;
+      this.endLabel = endLabel;
+      this.source = source;
+      this.line = line;
+      this.elseSeen = false;
+    }
+  }
+
+  private static final class ParsedChoice {
+    final String text;
+    final String target;
+    final String condition;
+
+    ParsedChoice(String text, String target, String condition) {
+      this.text = text;
+      this.target = target;
+      this.condition = condition;
+    }
+
+    Choice toChoice() {
+      Choice.Builder b = Choice.builder().text(text);
+      if (condition != null && !condition.isBlank()) b.condition(condition);
+      if (target != null && !target.isBlank()) b.targetLabel(target);
+      return b.build();
+    }
+  }
+
+  private static final class IfGoto {
+    final String expression;
+    final String label;
+
+    IfGoto(String expression, String label) {
+      this.expression = expression;
+      this.label = label;
+    }
+  }
+
   public VnScenario parse(InputStream input) throws IOException {
     return parse(input, "<input>", null);
   }
@@ -73,12 +144,22 @@ public class VnScriptParser {
     Deque<String> includeStack = new ArrayDeque<>();
     String src = normalizeSourceName(sourceName);
     includeStack.push(src);
-    parseInto(input, src, resolver, state, includeStack);
-    includeStack.pop();
+    try {
+      parseInto(input, src, resolver, state, includeStack);
+    } finally {
+      includeStack.pop();
+    }
+
+    if (!state.conditionalBlocks.isEmpty()) {
+      ConditionalBlock open = state.conditionalBlocks.peek();
+      throw parseError(open.source, open.line, "Unclosed [if] block (missing [endif])", "[if ...]");
+    }
 
     ensureBuilder(state);
     flushChoices(state.builder, state.pendingChoices);
-    // Finalize characters with expressions (replaces any earlier simple character entries)
+    validateLabelReferences(state);
+
+    // Finalize characters with expressions (replaces earlier simple character entries).
     for (var e : state.charBuilders.entrySet()) {
       state.builder.addCharacter(e.getValue().build());
     }
@@ -92,9 +173,17 @@ public class VnScriptParser {
     }
   }
 
-  private void parseInto(InputStream input, String sourceName, IncludeResolver resolver,
-                         ParseState state, Deque<String> includeStack) throws IOException {
-    BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+  public VnScenario parseFromString(String script) throws IOException {
+    byte[] bytes = script == null ? new byte[0] : script.getBytes(StandardCharsets.UTF_8);
+    return parse(new java.io.ByteArrayInputStream(bytes), "<string>", null);
+  }
+
+  private void parseInto(InputStream input,
+                         String sourceName,
+                         IncludeResolver resolver,
+                         ParseState state,
+                         Deque<String> includeStack) throws IOException {
+    BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
     String line;
     int lineNumber = 0;
 
@@ -103,7 +192,6 @@ public class VnScriptParser {
       String rawLine = line;
       String trimmed = rawLine.trim();
 
-      // Skip empty lines and comments
       if (trimmed.isEmpty() || trimmed.startsWith("#")) {
         continue;
       }
@@ -112,8 +200,7 @@ public class VnScriptParser {
       if (defineMatcher.matches()) {
         String key = defineMatcher.group(1);
         String value = defineMatcher.group(2) != null ? defineMatcher.group(2).trim() : "";
-        value = stripQuotes(value);
-        state.defines.put(key, value);
+        state.defines.put(key, stripQuotes(value));
         continue;
       }
 
@@ -130,8 +217,11 @@ public class VnScriptParser {
         }
         try (InputStream inc = resolver.open(resolved)) {
           includeStack.push(resolved);
-          parseInto(inc, resolved, resolver, state, includeStack);
-          includeStack.pop();
+          try {
+            parseInto(inc, resolved, resolver, state, includeStack);
+          } finally {
+            includeStack.pop();
+          }
         }
         continue;
       }
@@ -141,308 +231,131 @@ public class VnScriptParser {
         trimmed = rawLine.trim();
       }
 
-      // Scenario declaration
       Matcher scenarioMatcher = SCENARIO_PATTERN.matcher(trimmed);
       if (scenarioMatcher.matches()) {
-        state.scenarioId = scenarioMatcher.group(1);
+        if (state.scenarioDeclared) {
+          throw parseError(sourceName, lineNumber, "Scenario already declared", rawLine);
+        }
+        if (state.contentEmitted) {
+          throw parseError(sourceName, lineNumber, "@scenario must appear before script content", rawLine);
+        }
+        state.scenarioDeclared = true;
+        state.scenarioId = scenarioMatcher.group(1).trim();
         state.builder = new VnScenarioBuilder(state.scenarioId);
         continue;
       }
 
       ensureBuilder(state);
 
-      // Character definition
+      Matcher varMatcher = VAR_PATTERN.matcher(trimmed);
+      if (varMatcher.matches()) {
+        state.contentEmitted = true;
+        String key = varMatcher.group(1).trim();
+        String value = varMatcher.group(2) != null ? varMatcher.group(2) : varMatcher.group(3);
+        if (value == null || value.isBlank()) {
+          value = "true";
+        }
+        state.builder.external("var", "set " + key + " " + value.trim());
+        continue;
+      }
+
       Matcher charMatcher = CHARACTER_PATTERN.matcher(trimmed);
       if (charMatcher.matches()) {
+        state.contentEmitted = true;
         String id = charMatcher.group(1);
         String name = charMatcher.group(2);
-        // Track/merge builder so expressions from @charimg can be added later
         com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(id);
-        if (cb == null) { cb = com.jvn.core.vn.VnCharacter.builder(id); state.charBuilders.put(id, cb); }
+        if (cb == null) {
+          cb = com.jvn.core.vn.VnCharacter.builder(id);
+          state.charBuilders.put(id, cb);
+        }
         cb.displayName(name);
-        // Keep compatibility by adding a simple character entry now (will be replaced at end if @charimg used)
         state.builder.addCharacter(id, name);
         continue;
       }
 
-      // Background definition
       Matcher bgMatcher = BACKGROUND_PATTERN.matcher(trimmed);
       if (bgMatcher.matches()) {
+        state.contentEmitted = true;
         String id = bgMatcher.group(1);
-        String path = bgMatcher.group(2);
+        String path = bgMatcher.group(2).trim();
         state.builder.addBackground(id, path);
         continue;
       }
 
-      // Character image mapping: @charimg <charId> <expression> <path>
       Matcher imgMatcher = CHARIMG_PATTERN.matcher(trimmed);
       if (imgMatcher.matches()) {
+        state.contentEmitted = true;
         String id = imgMatcher.group(1);
         String expr = imgMatcher.group(2);
-        String path = imgMatcher.group(3);
+        String path = imgMatcher.group(3).trim();
         com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(id);
-        if (cb == null) { cb = com.jvn.core.vn.VnCharacter.builder(id); state.charBuilders.put(id, cb); }
+        if (cb == null) {
+          cb = com.jvn.core.vn.VnCharacter.builder(id);
+          state.charBuilders.put(id, cb);
+        }
         cb.addExpression(expr, path);
         continue;
       }
 
-      // Label
       Matcher labelMatcher = LABEL_PATTERN.matcher(trimmed);
       if (labelMatcher.matches()) {
+        state.contentEmitted = true;
         flushChoices(state.builder, state.pendingChoices);
-        state.builder.label(labelMatcher.group(1));
+        String label = labelMatcher.group(1).trim();
+        registerLabel(state, label, sourceName, lineNumber, rawLine, false);
+        state.builder.label(label);
         continue;
       }
+
       Matcher legacyLabelMatcher = LABEL_LEGACY_PATTERN.matcher(trimmed);
       if (legacyLabelMatcher.matches()) {
+        state.contentEmitted = true;
         flushChoices(state.builder, state.pendingChoices);
-        state.builder.label(legacyLabelMatcher.group(1));
+        String label = legacyLabelMatcher.group(1).trim();
+        registerLabel(state, label, sourceName, lineNumber, rawLine, false);
+        state.builder.label(label);
         continue;
       }
 
-      // Choice
-      Matcher choiceMatcher = CHOICE_PATTERN.matcher(trimmed);
-      if (choiceMatcher.matches()) {
-        String text = choiceMatcher.group(1);
-        String target = choiceMatcher.groupCount() > 1 ? choiceMatcher.group(2) : null;
-        String cond = null;
-        Matcher m = Pattern.compile("^(.*)\\[if\\s+([^\\]]+)\\]$").matcher(text);
-        if (m.matches()) {
-          text = m.group(1).trim();
-          cond = m.group(2).trim();
+      if (trimmed.startsWith(">")) {
+        state.contentEmitted = true;
+        ParsedChoice parsedChoice = parseChoiceSegment(trimmed.substring(1).trim(), sourceName, lineNumber, rawLine);
+        if (parsedChoice != null) {
+          if (parsedChoice.target != null) {
+            addLabelReference(state, parsedChoice.target, sourceName, lineNumber, rawLine, "choice");
+          }
+          state.pendingChoices.add(parsedChoice.toChoice());
         }
-        Choice.Builder choiceBuilder = Choice.builder().text(text);
-        if (cond != null) choiceBuilder.condition(cond);
-        if (target != null) {
-          choiceBuilder.targetLabel(target);
-        }
-        state.pendingChoices.add(choiceBuilder.build());
         continue;
       }
 
-      // Commands
       Matcher cmdMatcher = COMMAND_PATTERN.matcher(trimmed);
       if (cmdMatcher.matches()) {
+        state.contentEmitted = true;
         flushChoices(state.builder, state.pendingChoices);
-        String[] parts = cmdMatcher.group(1).split("\\s+", 2);
-        String cmd = parts[0];
-        String arg = parts.length > 1 ? parts[1] : null;
-
-        switch (cmd.toLowerCase()) {
-          case "background":
-          case "bg":
-            if (arg != null) state.builder.background(arg);
-            break;
-          case "jump":
-            if (arg != null) state.builder.jump(arg);
-            break;
-          case "end":
-            state.builder.end();
-            break;
-          case "bgm":
-            if (arg != null && !arg.isEmpty()) state.builder.playBgm(arg, true);
-            break;
-          case "bgm_stop":
-            state.builder.stopBgm();
-            break;
-          case "bgm_fadeout":
-            if (arg != null && !arg.isEmpty()) {
-              try { state.builder.fadeOutBgm(Long.parseLong(arg)); } catch (NumberFormatException ignored) { state.builder.fadeOutBgm(); }
-            } else {
-              state.builder.fadeOutBgm();
-            }
-            break;
-          case "bgm_pause":
-            state.builder.external("audio", "pause");
-            break;
-          case "bgm_resume":
-            state.builder.external("audio", "resume");
-            break;
-          case "bgm_seek":
-            if (arg != null && !arg.isEmpty()) state.builder.external("audio", "seek " + arg);
-            break;
-          case "bgm_crossfade":
-            if (arg != null && !arg.isEmpty()) state.builder.external("audio", "crossfade " + arg);
-            break;
-          case "sfx":
-            if (arg != null && !arg.isEmpty()) state.builder.playSfx(arg);
-            break;
-          case "voice":
-            if (arg != null && !arg.isEmpty()) {
-              state.builder.playVoice(arg);
-            }
-            break;
-          case "volume":
-            if (arg != null && !arg.isEmpty()) state.builder.external("settings", "volume " + arg);
-            break;
-          case "textspeed":
-            if (arg != null && !arg.isEmpty()) state.builder.external("settings", "textspeed " + arg);
-            break;
-          case "autodelay":
-            if (arg != null && !arg.isEmpty()) state.builder.external("settings", "autodelay " + arg);
-            break;
-          case "hud":
-            if (arg != null && !arg.isEmpty()) state.builder.external("hud", arg);
-            break;
-          case "save":
-            state.builder.external("save", "");
-            break;
-          case "quickload":
-            state.builder.external("save", "quickload");
-            break;
-          case "skip":
-            state.builder.external("mode", "skip " + (arg == null ? "" : arg));
-            break;
-          case "auto":
-            state.builder.external("mode", "auto " + (arg == null ? "" : arg));
-            break;
-          case "ui":
-            state.builder.external("ui", arg == null ? "" : arg);
-            break;
-          case "history":
-            state.builder.external("history", arg == null ? "" : arg);
-            break;
-          case "screen":
-            state.builder.external("screen", arg == null ? "" : arg);
-            break;
-          case "jes_push":
-            if (arg != null && !arg.isBlank()) state.builder.external("jes", "push " + arg);
-            break;
-          case "jes_replace":
-            if (arg != null && !arg.isBlank()) state.builder.external("jes", "replace " + arg);
-            break;
-          case "jes_pop":
-            state.builder.external("jes", "pop");
-            break;
-          case "jes_call":
-            if (arg != null && !arg.isBlank()) state.builder.external("jes", "call " + arg);
-            break;
-          case "wait":
-            if (arg != null) {
-              try { state.builder.waitMs(Long.parseLong(arg)); } catch (NumberFormatException ignored) {}
-            }
-            break;
-          case "show":
-            if (arg != null) {
-              String[] toks = arg.split("\\s+");
-              if (toks.length >= 2) {
-                String charId = toks[0];
-                CharacterPosition pos = parsePosition(toks[1]);
-                String expr = toks.length >= 3 ? toks[2] : "neutral";
-                state.builder.show(charId, expr, pos);
-              }
-            }
-            break;
-          case "hide":
-            if (arg != null) state.builder.hide(arg);
-            break;
-          case "transition":
-            if (arg != null) {
-              String[] toks = arg.split("\\s+");
-              if (toks.length >= 1) {
-                VnTransition.TransitionType type = parseTransitionType(toks[0]);
-                long dur = toks.length >= 2 ? parseLongSafe(toks[1], 500) : 500;
-                String bg = toks.length >= 3 ? toks[2] : null;
-                state.builder.transition(type, dur, bg);
-              }
-            }
-            break;
-          case "menu":
-            state.builder.external("menu", arg == null ? "" : arg);
-            break;
-          case "settings":
-            state.builder.external("menu", "settings");
-            break;
-          case "mainmenu":
-            state.builder.external("menu", "main" + (arg == null || arg.isBlank() ? "" : (" " + arg)));
-            break;
-          case "load":
-            if (arg != null && !arg.isBlank()) state.builder.external("vns", "replace " + arg);
-            break;
-          case "goto":
-            if (arg != null && !arg.isBlank()) state.builder.external("vns", "goto " + arg);
-            break;
-          case "set":
-            if (arg != null && !arg.isBlank()) state.builder.external("var", "set " + arg);
-            break;
-          case "inc":
-            if (arg != null && !arg.isBlank()) state.builder.external("var", "inc " + arg);
-            break;
-          case "dec":
-            if (arg != null && !arg.isBlank()) state.builder.external("var", "dec " + arg);
-            break;
-          case "flag":
-            if (arg != null && !arg.isBlank()) state.builder.external("var", "flag " + arg);
-            break;
-          case "unflag":
-            if (arg != null && !arg.isBlank()) state.builder.external("var", "unflag " + arg);
-            break;
-          case "clear":
-            if (arg != null && !arg.isBlank()) state.builder.external("var", "clear " + arg);
-            break;
-          case "if":
-            if (arg != null && !arg.isBlank()) state.builder.external("cond", "if " + arg);
-            break;
-          case "call":
-            // Syntax: [call <provider> <payload...>]
-            if (arg != null && !arg.isBlank()) {
-              String[] toks = arg.split("\\s+", 2);
-              String provider = toks[0];
-              String payload = toks.length > 1 ? toks[1] : "";
-              state.builder.external(provider, payload);
-            }
-            break;
-          case "choice":
-            // Legacy inline choice syntax:
-            // [choice Continue->next | Exit->ending]
-            if (arg != null && !arg.isBlank()) {
-              List<Choice> inlineChoices = parseInlineChoices(arg);
-              if (!inlineChoices.isEmpty()) {
-                state.builder.choiceNodes(inlineChoices);
-              }
-            }
-            break;
-          case "jes":
-            // Shortcut for [call jes <payload>]
-            state.builder.external("jes", arg == null ? "" : arg);
-            break;
-          case "java":
-            // Shortcut for [call java <payload>]
-            state.builder.external("java", arg == null ? "" : arg);
-            break;
-        }
+        parseCommand(cmdMatcher.group(1), sourceName, lineNumber, rawLine, state);
         continue;
       }
 
-      // Dialogue
       Matcher dialogueMatcher = DIALOGUE_PATTERN.matcher(trimmed);
       if (dialogueMatcher.matches()) {
+        state.contentEmitted = true;
         flushChoices(state.builder, state.pendingChoices);
         String speakerId = dialogueMatcher.group(1).trim();
         String text = dialogueMatcher.group(2).trim();
-        // Look up display name from character definitions
-        String displayName = speakerId;
-        com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(speakerId);
-        if (cb != null) {
-          String dn = cb.getDisplayName();
-          if (dn != null) displayName = dn;
-        }
+        String displayName = resolveDisplayName(state, speakerId);
         state.builder.dialogue(displayName, text);
         continue;
       }
 
-      // Legacy quoted dialogue: speaker "text"
       Matcher quotedDialogueMatcher = DIALOGUE_QUOTED_PATTERN.matcher(trimmed);
       if (quotedDialogueMatcher.matches()) {
+        state.contentEmitted = true;
         flushChoices(state.builder, state.pendingChoices);
         String speakerId = quotedDialogueMatcher.group(1).trim();
         String text = unescapeQuoted(quotedDialogueMatcher.group(2));
-        String displayName = speakerId;
-        com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(speakerId);
-        if (cb != null) {
-          String dn = cb.getDisplayName();
-          if (dn != null) displayName = dn;
-        }
+        String displayName = resolveDisplayName(state, speakerId);
         state.builder.dialogue(displayName, text);
         continue;
       }
@@ -450,49 +363,527 @@ public class VnScriptParser {
       throw parseError(sourceName, lineNumber, "Unrecognized syntax", rawLine);
     }
   }
-  
+
+  private void parseCommand(String commandBody,
+                            String sourceName,
+                            int lineNumber,
+                            String rawLine,
+                            ParseState state) throws IOException {
+    String body = commandBody == null ? "" : commandBody.trim();
+    if (body.isEmpty()) {
+      throw parseError(sourceName, lineNumber, "Empty command [] is not allowed", rawLine);
+    }
+
+    String[] parts = body.split("\\s+", 2);
+    String cmd = parts[0].toLowerCase();
+    String arg = parts.length > 1 ? parts[1].trim() : null;
+
+    switch (cmd) {
+      case "background":
+      case "bg": {
+        String bgId = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.background(bgId);
+        return;
+      }
+      case "jump": {
+        String label = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        addLabelReference(state, label, sourceName, lineNumber, rawLine, "jump");
+        state.builder.jump(label);
+        return;
+      }
+      case "end":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.end();
+        return;
+      case "bgm": {
+        String track = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.playBgm(track, true);
+        return;
+      }
+      case "bgm_stop":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.stopBgm();
+        return;
+      case "bgm_fadeout":
+        if (arg != null && !arg.isBlank()) {
+          try {
+            state.builder.fadeOutBgm(Long.parseLong(arg.trim()));
+          } catch (NumberFormatException ex) {
+            throw parseError(sourceName, lineNumber, "[bgm_fadeout] expects an integer duration in ms", rawLine);
+          }
+        } else {
+          state.builder.fadeOutBgm();
+        }
+        return;
+      case "bgm_pause":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", "pause");
+        return;
+      case "bgm_resume":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", "resume");
+        return;
+      case "bgm_seek": {
+        String seconds = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", "seek " + seconds);
+        return;
+      }
+      case "bgm_crossfade": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", "crossfade " + payload);
+        return;
+      }
+      case "sfx": {
+        String track = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.playSfx(track);
+        return;
+      }
+      case "voice": {
+        String track = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.playVoice(track);
+        return;
+      }
+      case "volume": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("settings", "volume " + payload);
+        return;
+      }
+      case "textspeed": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("settings", "textspeed " + payload);
+        return;
+      }
+      case "autodelay": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("settings", "autodelay " + payload);
+        return;
+      }
+      case "hud": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("hud", payload);
+        return;
+      }
+      case "save":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("save", "");
+        return;
+      case "quickload":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("save", "quickload");
+        return;
+      case "skip":
+        state.builder.external("mode", "skip " + (arg == null ? "" : arg));
+        return;
+      case "auto":
+        state.builder.external("mode", "auto " + (arg == null ? "" : arg));
+        return;
+      case "ui":
+        state.builder.external("ui", arg == null ? "" : arg);
+        return;
+      case "history":
+        state.builder.external("history", arg == null ? "" : arg);
+        return;
+      case "screen":
+        state.builder.external("screen", arg == null ? "" : arg);
+        return;
+      case "jes_push": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("jes", "push " + payload);
+        return;
+      }
+      case "jes_replace": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("jes", "replace " + payload);
+        return;
+      }
+      case "jes_pop":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("jes", "pop");
+        return;
+      case "jes_call": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("jes", "call " + payload);
+        return;
+      }
+      case "wait": {
+        String msArg = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        try {
+          state.builder.waitMs(Long.parseLong(msArg));
+        } catch (NumberFormatException ex) {
+          throw parseError(sourceName, lineNumber, "[wait] expects an integer duration in ms", rawLine);
+        }
+        return;
+      }
+      case "show": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = payload.split("\\s+");
+        if (toks.length < 2) {
+          throw parseError(sourceName, lineNumber, "[show] expects: [show <charId> <pos> [expression]]", rawLine);
+        }
+        String charId = toks[0];
+        CharacterPosition pos = parsePosition(toks[1]);
+        String expr = toks.length >= 3 ? toks[2] : "neutral";
+        state.builder.show(charId, expr, pos);
+        return;
+      }
+      case "hide": {
+        String charId = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.hide(charId);
+        return;
+      }
+      case "transition": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = payload.split("\\s+");
+        VnTransition.TransitionType type = parseTransitionType(toks[0]);
+        if (type == null) {
+          throw parseError(sourceName, lineNumber, "Unknown transition type: " + toks[0], rawLine);
+        }
+        long dur = 500;
+        if (toks.length >= 2) {
+          try {
+            dur = Long.parseLong(toks[1]);
+          } catch (NumberFormatException ex) {
+            throw parseError(sourceName, lineNumber, "[transition] duration must be an integer", rawLine);
+          }
+        }
+        String bg = toks.length >= 3 ? toks[2] : null;
+        state.builder.transition(type, dur, bg);
+        return;
+      }
+      case "menu":
+        state.builder.external("menu", arg == null ? "" : arg);
+        return;
+      case "settings":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("menu", "settings");
+        return;
+      case "mainmenu":
+        state.builder.external("menu", "main" + (arg == null || arg.isBlank() ? "" : (" " + arg)));
+        return;
+      case "load": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("vns", "replace " + payload);
+        return;
+      }
+      case "goto": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("vns", "goto " + payload);
+        return;
+      }
+      case "set": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("var", "set " + payload);
+        return;
+      }
+      case "inc": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("var", "inc " + payload);
+        return;
+      }
+      case "dec": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("var", "dec " + payload);
+        return;
+      }
+      case "flag": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("var", "flag " + payload);
+        return;
+      }
+      case "unflag": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("var", "unflag " + payload);
+        return;
+      }
+      case "clear": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("var", "clear " + payload);
+        return;
+      }
+      case "if": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        IfGoto ifGoto = parseIfGoto(payload);
+        if (ifGoto != null) {
+          validateConditionExpression(ifGoto.expression, sourceName, lineNumber, rawLine);
+          addLabelReference(state, ifGoto.label, sourceName, lineNumber, rawLine, "if-goto");
+          state.builder.external("cond", "if " + ifGoto.expression + " goto " + ifGoto.label);
+        } else {
+          startConditionalBlock(state, payload, sourceName, lineNumber, rawLine);
+        }
+        return;
+      }
+      case "elif": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        continueConditionalBlock(state, payload, sourceName, lineNumber, rawLine);
+        return;
+      }
+      case "else":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        enterElseBlock(state, sourceName, lineNumber, rawLine);
+        return;
+      case "endif":
+      case "/if":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        closeConditionalBlock(state, sourceName, lineNumber, rawLine);
+        return;
+      case "call": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = payload.split("\\s+", 2);
+        String provider = toks[0].trim();
+        if (provider.isBlank()) {
+          throw parseError(sourceName, lineNumber, "[call] requires a provider", rawLine);
+        }
+        String providerPayload = toks.length > 1 ? toks[1] : "";
+        state.builder.external(provider, providerPayload);
+        return;
+      }
+      case "choice": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        List<Choice> inlineChoices = parseInlineChoices(payload, sourceName, lineNumber, rawLine, state);
+        if (inlineChoices.isEmpty()) {
+          throw parseError(sourceName, lineNumber, "[choice] must contain at least one option", rawLine);
+        }
+        state.builder.choiceNodes(inlineChoices);
+        return;
+      }
+      case "jes":
+        state.builder.external("jes", arg == null ? "" : arg);
+        return;
+      case "java":
+        state.builder.external("java", arg == null ? "" : arg);
+        return;
+      default:
+        throw parseError(sourceName, lineNumber, "Unknown command [" + cmd + "]", rawLine);
+    }
+  }
+
+  private void startConditionalBlock(ParseState state,
+                                     String expression,
+                                     String sourceName,
+                                     int lineNumber,
+                                     String rawLine) throws IOException {
+    validateConditionExpression(expression, sourceName, lineNumber, rawLine);
+
+    String thenLabel = nextSyntheticLabel(state, "if_then");
+    String falseLabel = nextSyntheticLabel(state, "if_false");
+    String endLabel = nextSyntheticLabel(state, "if_end");
+
+    state.builder.external("cond", "if " + expression + " goto " + thenLabel);
+    state.builder.jump(falseLabel);
+
+    registerLabel(state, thenLabel, sourceName, lineNumber, rawLine, true);
+    state.builder.label(thenLabel);
+
+    state.conditionalBlocks.push(new ConditionalBlock(falseLabel, endLabel, sourceName, lineNumber));
+  }
+
+  private void continueConditionalBlock(ParseState state,
+                                        String expression,
+                                        String sourceName,
+                                        int lineNumber,
+                                        String rawLine) throws IOException {
+    ConditionalBlock block = state.conditionalBlocks.peek();
+    if (block == null) {
+      throw parseError(sourceName, lineNumber, "[elif] used without matching [if]", rawLine);
+    }
+    if (block.elseSeen) {
+      throw parseError(sourceName, lineNumber, "[elif] cannot appear after [else]", rawLine);
+    }
+
+    validateConditionExpression(expression, sourceName, lineNumber, rawLine);
+
+    state.builder.jump(block.endLabel);
+    registerLabel(state, block.falseLabel, sourceName, lineNumber, rawLine, true);
+    state.builder.label(block.falseLabel);
+
+    String thenLabel = nextSyntheticLabel(state, "elif_then");
+    String nextFalseLabel = nextSyntheticLabel(state, "elif_false");
+
+    state.builder.external("cond", "if " + expression + " goto " + thenLabel);
+    state.builder.jump(nextFalseLabel);
+
+    registerLabel(state, thenLabel, sourceName, lineNumber, rawLine, true);
+    state.builder.label(thenLabel);
+
+    block.falseLabel = nextFalseLabel;
+  }
+
+  private void enterElseBlock(ParseState state,
+                              String sourceName,
+                              int lineNumber,
+                              String rawLine) throws IOException {
+    ConditionalBlock block = state.conditionalBlocks.peek();
+    if (block == null) {
+      throw parseError(sourceName, lineNumber, "[else] used without matching [if]", rawLine);
+    }
+    if (block.elseSeen) {
+      throw parseError(sourceName, lineNumber, "Duplicate [else] in the same [if] block", rawLine);
+    }
+
+    state.builder.jump(block.endLabel);
+    registerLabel(state, block.falseLabel, sourceName, lineNumber, rawLine, true);
+    state.builder.label(block.falseLabel);
+    block.falseLabel = null;
+    block.elseSeen = true;
+  }
+
+  private void closeConditionalBlock(ParseState state,
+                                     String sourceName,
+                                     int lineNumber,
+                                     String rawLine) throws IOException {
+    ConditionalBlock block = state.conditionalBlocks.poll();
+    if (block == null) {
+      throw parseError(sourceName, lineNumber, "[endif] used without matching [if]", rawLine);
+    }
+
+    if (!block.elseSeen && block.falseLabel != null) {
+      registerLabel(state, block.falseLabel, sourceName, lineNumber, rawLine, true);
+      state.builder.label(block.falseLabel);
+    }
+
+    registerLabel(state, block.endLabel, sourceName, lineNumber, rawLine, true);
+    state.builder.label(block.endLabel);
+  }
+
+  private List<Choice> parseInlineChoices(String arg,
+                                          String sourceName,
+                                          int lineNumber,
+                                          String rawLine,
+                                          ParseState state) throws IOException {
+    List<Choice> out = new ArrayList<>();
+    String[] rawChoices = arg.split("\\|");
+    for (String raw : rawChoices) {
+      if (raw == null || raw.isBlank()) continue;
+      ParsedChoice parsed = parseChoiceSegment(raw.trim(), sourceName, lineNumber, rawLine);
+      if (parsed == null) continue;
+      if (parsed.target != null) {
+        addLabelReference(state, parsed.target, sourceName, lineNumber, rawLine, "inline-choice");
+      }
+      out.add(parsed.toChoice());
+    }
+    return out;
+  }
+
+  private ParsedChoice parseChoiceSegment(String segment,
+                                          String sourceName,
+                                          int lineNumber,
+                                          String rawLine) throws IOException {
+    if (segment == null) return null;
+    String work = segment.trim();
+    if (work.isEmpty()) return null;
+
+    String condition = null;
+    Matcher condMatcher = CHOICE_CONDITION_SUFFIX_PATTERN.matcher(work);
+    if (condMatcher.matches()) {
+      work = condMatcher.group(1).trim();
+      condition = condMatcher.group(2).trim();
+      validateConditionExpression(condition, sourceName, lineNumber, rawLine);
+    }
+
+    String text = work;
+    String target = null;
+    int arrow = work.indexOf("->");
+    if (arrow >= 0) {
+      text = work.substring(0, arrow).trim();
+      target = work.substring(arrow + 2).trim();
+      if (target.isEmpty()) {
+        throw parseError(sourceName, lineNumber, "Choice target label is empty", rawLine);
+      }
+    }
+
+    if (text.isEmpty()) {
+      throw parseError(sourceName, lineNumber, "Choice text is empty", rawLine);
+    }
+
+    return new ParsedChoice(text, target, condition);
+  }
+
+  private String resolveDisplayName(ParseState state, String speakerId) {
+    String displayName = speakerId;
+    com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(speakerId);
+    if (cb != null) {
+      String dn = cb.getDisplayName();
+      if (dn != null) displayName = dn;
+    }
+    return displayName;
+  }
+
   private void flushChoices(VnScenarioBuilder builder, List<Choice> choices) {
     if (!choices.isEmpty()) {
-      builder.choiceNodes(new java.util.ArrayList<>(choices));
+      builder.choiceNodes(new ArrayList<>(choices));
       choices.clear();
     }
   }
 
-  private List<Choice> parseInlineChoices(String arg) {
-    List<Choice> out = new ArrayList<>();
-    String[] rawChoices = arg.split("\\|");
-    for (String raw : rawChoices) {
-      if (raw == null) continue;
-      String segment = raw.trim();
-      if (segment.isEmpty()) continue;
-
-      String text = segment;
-      String target = null;
-      int arrow = segment.indexOf("->");
-      if (arrow >= 0) {
-        text = segment.substring(0, arrow).trim();
-        target = segment.substring(arrow + 2).trim();
-        if (target != null && target.isEmpty()) target = null;
+  private void validateLabelReferences(ParseState state) throws IOException {
+    for (LabelReference ref : state.labelReferences) {
+      if (ref.label == null || ref.label.isBlank()) continue;
+      if (!state.declaredLabels.containsKey(ref.label)) {
+        throw parseError(
+            ref.source,
+            ref.line,
+            "Undefined label '" + ref.label + "' referenced by " + ref.kind,
+            ref.rawLine
+        );
       }
-
-      String cond = null;
-      Matcher m = Pattern.compile("^(.*)\\[if\\s+([^\\]]+)\\]$").matcher(text);
-      if (m.matches()) {
-        text = m.group(1).trim();
-        cond = m.group(2).trim();
-      }
-      if (text.isEmpty()) continue;
-
-      Choice.Builder choiceBuilder = Choice.builder().text(text);
-      if (cond != null && !cond.isEmpty()) choiceBuilder.condition(cond);
-      if (target != null) choiceBuilder.targetLabel(target);
-      out.add(choiceBuilder.build());
     }
-    return out;
   }
-  
-  public VnScenario parseFromString(String script) throws IOException {
-    return parse(new java.io.ByteArrayInputStream(script.getBytes()), "<string>", null);
+
+  private void registerLabel(ParseState state,
+                             String label,
+                             String sourceName,
+                             int lineNumber,
+                             String rawLine,
+                             boolean synthetic) throws IOException {
+    String normalized = label == null ? "" : label.trim();
+    if (normalized.isEmpty()) {
+      throw parseError(sourceName, lineNumber, "Label name is empty", rawLine);
+    }
+    if (!LABEL_NAME_PATTERN.matcher(normalized).matches()) {
+      throw parseError(sourceName, lineNumber, "Invalid label name '" + normalized + "'", rawLine);
+    }
+
+    LabelDeclaration prev = state.declaredLabels.get(normalized);
+    if (prev != null) {
+      String where = " (previously declared at " + prev.source + ":" + prev.line + ")";
+      throw parseError(sourceName, lineNumber, "Duplicate label '" + normalized + "'" + where, rawLine);
+    }
+    state.declaredLabels.put(normalized, new LabelDeclaration(sourceName, lineNumber, synthetic));
+  }
+
+  private void addLabelReference(ParseState state,
+                                 String label,
+                                 String sourceName,
+                                 int lineNumber,
+                                 String rawLine,
+                                 String kind) {
+    if (label == null || label.isBlank()) return;
+    state.labelReferences.add(new LabelReference(label.trim(), sourceName, lineNumber, rawLine, kind));
+  }
+
+  private String nextSyntheticLabel(ParseState state, String prefix) {
+    state.syntheticLabelCounter++;
+    return "__" + prefix + "_" + state.syntheticLabelCounter;
+  }
+
+  private IfGoto parseIfGoto(String payload) {
+    Matcher m = IF_GOTO_PATTERN.matcher(payload == null ? "" : payload.trim());
+    if (!m.matches()) return null;
+    String expr = m.group(1) == null ? "" : m.group(1).trim();
+    String label = m.group(2) == null ? "" : m.group(2).trim();
+    if (expr.isEmpty() || label.isEmpty()) return null;
+    return new IfGoto(expr, label);
+  }
+
+  private void validateConditionExpression(String expression,
+                                           String sourceName,
+                                           int lineNumber,
+                                           String rawLine) throws IOException {
+    try {
+      VnConditionEvaluator.validate(expression);
+    } catch (IllegalArgumentException ex) {
+      throw parseError(sourceName, lineNumber, "Invalid condition expression: " + ex.getMessage(), rawLine);
+    }
   }
 
   private CharacterPosition parsePosition(String token) {
@@ -520,21 +911,34 @@ public class VnScriptParser {
       if (t.equals("SLIDE_LEFT")) return VnTransition.TransitionType.SLIDE_LEFT;
       if (t.equals("SLIDE_RIGHT")) return VnTransition.TransitionType.SLIDE_RIGHT;
       if (t.equals("WIPE")) return VnTransition.TransitionType.WIPE;
-      return VnTransition.TransitionType.NONE;
-    }
-  }
-
-  private long parseLongSafe(String s, long def) {
-    try {
-      return Long.parseLong(s);
-    } catch (Exception e) {
-      return def;
+      return null;
     }
   }
 
   private void ensureBuilder(ParseState state) {
     if (state.builder == null) {
       state.builder = new VnScenarioBuilder(state.scenarioId);
+    }
+  }
+
+  private String requireArg(String arg,
+                            String cmd,
+                            String sourceName,
+                            int lineNumber,
+                            String rawLine) throws IOException {
+    if (arg == null || arg.isBlank()) {
+      throw parseError(sourceName, lineNumber, "[" + cmd + "] requires arguments", rawLine);
+    }
+    return arg.trim();
+  }
+
+  private void ensureNoArg(String arg,
+                           String cmd,
+                           String sourceName,
+                           int lineNumber,
+                           String rawLine) throws IOException {
+    if (arg != null && !arg.isBlank()) {
+      throw parseError(sourceName, lineNumber, "[" + cmd + "] does not accept arguments", rawLine);
     }
   }
 

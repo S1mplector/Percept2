@@ -99,4 +99,75 @@ public class VnScriptParserTest {
       assertTrue(scen.getNodes().stream().anyMatch(n -> n.getType() == VnNodeType.END));
     }
   }
+
+  @Test
+  public void parsesIfElifElseControlFlowAndExecutesExpectedBranch() throws Exception {
+    String script = """
+      @label start
+      [set courage 1]
+      [if courage >= 2]
+      narrator "High courage"
+      [elif courage >= 1]
+      narrator "Medium courage"
+      [else]
+      narrator "Low courage"
+      [endif]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario;
+    try (var in = new ByteArrayInputStream(script.getBytes(StandardCharsets.UTF_8))) {
+      scenario = parser.parse(in);
+    }
+
+    VnScene scene = new VnScene(scenario);
+    scene.setInterop(new DefaultVnInterop());
+    scene.onEnter();
+
+    assertFalse(scene.getState().getHistory().getEntries().isEmpty());
+    VnHistory.HistoryEntry first = scene.getState().getHistory().getEntries().get(0);
+    assertEquals("narrator", first.getSpeaker());
+    assertEquals("Medium courage", first.getText());
+  }
+
+  @Test
+  public void rejectsUnknownCommandsWithStrictDiagnostics() {
+    String script = """
+      @label start
+      [mystery doSomething]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("Unknown command [mystery]"));
+  }
+
+  @Test
+  public void rejectsUndefinedLabels() {
+    String script = """
+      @label start
+      [jump missing_label]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("Undefined label 'missing_label'"));
+  }
+
+  @Test
+  public void rejectsUnclosedIfBlocks() {
+    String script = """
+      @label start
+      [if score > 0]
+      narrator "still open"
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("Unclosed [if] block"));
+  }
 }

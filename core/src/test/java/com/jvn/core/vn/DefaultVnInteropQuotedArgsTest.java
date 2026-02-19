@@ -31,6 +31,15 @@ class DefaultVnInteropQuotedArgsTest {
     assertFalse(cond.shouldAdvance());
     assertEquals(scenario.getLabelIndex("ok"), scene.getState().getCurrentNodeIndex());
 
+    scene.getState().setCurrentNodeIndex(0);
+    interop.handle(new VnExternalCommand("var", "set hp 12"), scene);
+    VnInteropResult complexCond = interop.handle(
+      new VnExternalCommand("cond", "if (title == \"Final Battle\" && hp >= 10) goto ok"),
+      scene
+    );
+    assertFalse(complexCond.shouldAdvance());
+    assertEquals(scenario.getLabelIndex("ok"), scene.getState().getCurrentNodeIndex());
+
     String payload = Methods.class.getName() + "#join \"hello world\" \"boss fight\"";
     interop.handle(new VnExternalCommand("java", payload), scene);
     assertEquals("java: hello world|boss fight", scene.getState().getHudMessage());

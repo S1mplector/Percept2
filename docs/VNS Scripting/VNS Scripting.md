@@ -118,6 +118,25 @@ Supported commands:
 [end]
 ```
 
+- Structured branching
+```
+[if <condition>]
+  ...
+[elif <condition>]
+  ...
+[else]
+  ...
+[endif]
+```
+  - Conditions support logical operators and grouping:
+    - `&&`, `||`, `!` (or `and`, `or`, `not`)
+    - `==`, `!=`, `>`, `<`, `>=`, `<=`
+    - Parentheses, e.g. `(flags.ready && score >= 10) || debug`
+  - Conditional jump form is still supported:
+```
+[if <condition> goto <label>]
+```
+
 - Audio
 ```
 [bgm <path-or-id>]     # plays and loops BGM
@@ -286,6 +305,7 @@ Notes:
 - Organize resources with `@background` and `@character` at the top of the file.
 - Use `wait` and `transition` to pace scenes and add visual polish.
 - Use conditional choices (`[if ...]`) for branching based on game state.
+- The parser is strict: unknown commands, undefined labels, malformed conditions, and unbalanced `if/elif/else/endif` blocks raise parse diagnostics.
 
 ## Example
 

@@ -2,6 +2,8 @@ package com.jvn.core.vn;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Basic interop implementation.
@@ -13,6 +15,9 @@ import java.util.List;
  *  - jes: placeholder (no-op for now), shows HUD notice
  */
 public class DefaultVnInterop implements VnInterop {
+  private static final Pattern IF_GOTO_PATTERN = Pattern.compile("(?i)^if\\s+(.+?)\\s+goto\\s+(\\S+)\\s*$");
+  private static final Pattern EXPR_GOTO_PATTERN = Pattern.compile("(?i)^(.+?)\\s+goto\\s+(\\S+)\\s*$");
+
   @Override
   public VnInteropResult handle(VnExternalCommand command, VnScene scene) {
     if (command == null || scene == null) return VnInteropResult.advance();
@@ -132,20 +137,22 @@ public class DefaultVnInterop implements VnInterop {
   private boolean isWhole(double d) { return Math.abs(d - Math.rint(d)) < 1e-9; }
 
   private boolean handleCond(String payload, VnScene scene) {
-    if (payload == null) return false;
-    String[] toks = split(payload);
-    if (toks.length < 6) return false;
-    if (!"if".equalsIgnoreCase(toks[0])) return false;
-    String var = toks[1];
-    String op = toks[2];
-    int gotoIdx = indexOfIgnoreCase(toks, "goto", 3);
-    if (gotoIdx < 0 || gotoIdx + 1 >= toks.length) return false;
-    String value = joinRange(toks, 3, gotoIdx);
-    String label = toks[gotoIdx + 1];
-    if (value.isEmpty()) return false;
-    Object lhs = scene.getState().getVariable(var);
-    boolean ok = compare(lhs, op, value);
-    if (ok && label != null) {
+    if (payload == null || scene == null) return false;
+    Matcher m = IF_GOTO_PATTERN.matcher(payload.trim());
+    if (!m.matches()) {
+      m = EXPR_GOTO_PATTERN.matcher(payload.trim());
+      if (!m.matches()) return false;
+    }
+    String expression = m.group(1) == null ? "" : m.group(1).trim();
+    String label = m.group(2) == null ? "" : m.group(2).trim();
+    if (expression.isEmpty() || label.isEmpty()) return false;
+    boolean ok;
+    try {
+      ok = VnConditionEvaluator.evaluate(expression, scene.getState().getVariables());
+    } catch (Exception ignored) {
+      return false;
+    }
+    if (ok) {
       scene.getState().jumpToLabel(label);
       return true;
     }
@@ -316,26 +323,6 @@ public class DefaultVnInterop implements VnInterop {
     }
   }
 
-  private boolean compare(Object lhs, String op, String rhsRaw) {
-    Object rhs = parseScalar(rhsRaw);
-    if (lhs instanceof Number ln && rhs instanceof Number rn) {
-      double a = ln.doubleValue();
-      double b = rn.doubleValue();
-      if ("==".equals(op)) return a == b;
-      if ("!=".equals(op)) return a != b;
-      if (">".equals(op)) return a > b;
-      if ("<".equals(op)) return a < b;
-      if (">=".equals(op)) return a >= b;
-      if ("<=".equals(op)) return a <= b;
-      return false;
-    }
-    String a = lhs == null ? "" : lhs.toString();
-    String b = rhs == null ? "" : rhs.toString();
-    if ("==".equals(op)) return a.equals(b);
-    if ("!=".equals(op)) return !a.equals(b);
-    return false;
-  }
-
   private static Method findStaticMethod(Class<?> cls, String name, int arity) {
     for (Method m : cls.getMethods()) {
       if (!java.lang.reflect.Modifier.isStatic(m.getModifiers())) continue;
@@ -419,14 +406,6 @@ public class DefaultVnInterop implements VnInterop {
       sb.append(tokens[i]);
     }
     return sb.toString();
-  }
-
-  private static int indexOfIgnoreCase(String[] tokens, String target, int start) {
-    if (tokens == null || target == null) return -1;
-    for (int i = Math.max(0, start); i < tokens.length; i++) {
-      if (target.equalsIgnoreCase(tokens[i])) return i;
-    }
-    return -1;
   }
 
   private static float parseFloatSafe(String s, float fallback) {
