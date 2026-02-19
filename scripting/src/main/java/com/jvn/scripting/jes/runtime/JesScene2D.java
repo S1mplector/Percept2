@@ -227,7 +227,6 @@ public class JesScene2D extends Scene2DBase {
   public void setEquipment(String name, Equipment eq) {
     if (name == null || name.isBlank() || eq == null) return;
     equipmentByEntity.put(name, eq);
-    recomputeEquipmentBonuses(name);
   }
   public void addButton(Button2D btn) { if (btn != null) buttons.add(btn); }
   public void addSlider(Slider2D s) { if (s != null) sliders.add(s); }
@@ -329,6 +328,7 @@ public class JesScene2D extends Scene2DBase {
 
     updateAi(deltaMs);
     updateTimeline(deltaMs);
+    updateAsyncActions(deltaMs);
     updateCameraFollow(deltaMs);
   }
 
@@ -583,7 +583,6 @@ public class JesScene2D extends Scene2DBase {
   }
 
   private void updateTimeline(long deltaMs) {
-    updateAsyncActions(deltaMs);
     if (timeline == null || tlIndex >= timeline.size()) return;
     JesAst.TimelineAction a = timeline.get(tlIndex);
     switch (a.type) {
@@ -596,6 +595,7 @@ public class JesScene2D extends Scene2DBase {
         String ev = toStr(a.props.get("name"), null);
         if (ev != null && triggeredEvents.remove(ev)) {
           tlIndex++; tlElapsedMs = 0;
+          if (deltaMs > 0) updateTimeline(deltaMs);
         }
       }
       case "call" -> {
@@ -605,6 +605,7 @@ public class JesScene2D extends Scene2DBase {
         }
         tlIndex++;
         tlElapsedMs = 0;
+        if (deltaMs > 0) updateTimeline(deltaMs);
       }
       case "move" -> {
         Entity2D e = named.get(a.target);
@@ -1892,7 +1893,10 @@ public class JesScene2D extends Scene2DBase {
         Equipment eq = equipmentByEntity.computeIfAbsent(entry.getKey(), k -> new Equipment());
         eq.getSlots().clear();
         eq.getSlots().putAll(slots);
-        recomputeEquipmentBonuses(entry.getKey());
+        // Preserve serialized stat bonuses from snapshot; recompute only if stats were not restored.
+        if (state.stats == null || !state.stats.containsKey(entry.getKey())) {
+          recomputeEquipmentBonuses(entry.getKey());
+        }
       }
     }
     if (state.playerName != null && !state.playerName.isBlank()) {
