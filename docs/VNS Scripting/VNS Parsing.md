@@ -90,7 +90,7 @@ Example:
 ```
 
 Limitations:
-- No quoting; arguments cannot contain spaces (use underscores if needed)
+- Supports double-quoted arguments and backslash escaping for spaces/quotes
 - Only public static methods are supported; overloaded resolution is by name + arity
 
 ## JES interop

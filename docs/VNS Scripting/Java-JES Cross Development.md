@@ -101,7 +101,7 @@ Alice: Welcome back!
 ```
 
 ### Caveats
-- No quoting for arguments; spaces are not supported in `[java]` or `[jes call]` arguments.
+- Arguments support double quotes and backslash escapes in `[java]` and `[jes ...]` payloads.
 - No variable interpolation in command arguments; use simple scalars.
 
 ## Writing JES overlays

@@ -14,7 +14,6 @@ rootProject.name = "JVN"
 
 include(
   ":core",
-  ":core-3d",
   ":fx",
   ":runtime",
   ":scripting",

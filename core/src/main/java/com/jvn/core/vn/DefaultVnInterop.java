@@ -1,7 +1,6 @@
 package com.jvn.core.vn;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -65,9 +64,8 @@ public class DefaultVnInterop implements VnInterop {
 
   private void handleJava(String payload, VnScene scene) {
     try {
-      String[] parts = payload.split("\\s+", 2);
-      String target = parts.length > 0 ? parts[0] : "";
-      String argsStr = parts.length > 1 ? parts[1] : "";
+      String[] tokens = split(payload);
+      String target = tokens.length > 0 ? tokens[0] : "";
       int idx = target.lastIndexOf('#');
       if (idx < 0 || idx == target.length() - 1) {
         scene.getState().showHudMessage("java: invalid target", 1800);
@@ -75,7 +73,7 @@ public class DefaultVnInterop implements VnInterop {
       }
       String clsName = target.substring(0, idx);
       String methodName = target.substring(idx + 1);
-      Object[] args = parseArgs(argsStr);
+      Object[] args = parseArgs(tokens, 1);
 
       Class<?> cls = Class.forName(clsName);
       Method method = findStaticMethod(cls, methodName, args.length);
@@ -92,11 +90,11 @@ public class DefaultVnInterop implements VnInterop {
   }
 
   private void handleVar(String payload, VnScene scene) {
-    String[] parts = (payload == null ? "" : payload.trim()).split("\\s+", 3);
+    String[] parts = split(payload);
     if (parts.length == 0) return;
     String op = parts[0].toLowerCase();
     String key = parts.length >= 2 ? parts[1] : "";
-    String val = parts.length >= 3 ? parts[2] : "";
+    String val = joinTail(parts, 2);
     var vars = scene.getState().getVariables();
     switch (op) {
       case "set":
@@ -135,17 +133,16 @@ public class DefaultVnInterop implements VnInterop {
 
   private boolean handleCond(String payload, VnScene scene) {
     if (payload == null) return false;
-    String[] toks = payload.trim().split("\\s+");
-    if (toks.length < 5) return false;
-    int i = 0;
-    String kw = toks[i++].toLowerCase();
-    if (!"if".equals(kw)) return false;
-    String var = toks[i++];
-    String op = toks[i++];
-    String value = toks[i++];
-    String gotoKw = toks[i++].toLowerCase();
-    if (!"goto".equals(gotoKw)) return false;
-    String label = toks.length > i ? toks[i] : null;
+    String[] toks = split(payload);
+    if (toks.length < 6) return false;
+    if (!"if".equalsIgnoreCase(toks[0])) return false;
+    String var = toks[1];
+    String op = toks[2];
+    int gotoIdx = indexOfIgnoreCase(toks, "goto", 3);
+    if (gotoIdx < 0 || gotoIdx + 1 >= toks.length) return false;
+    String value = joinRange(toks, 3, gotoIdx);
+    String label = toks[gotoIdx + 1];
+    if (value.isEmpty()) return false;
     Object lhs = scene.getState().getVariable(var);
     boolean ok = compare(lhs, op, value);
     if (ok && label != null) {
@@ -349,12 +346,11 @@ public class DefaultVnInterop implements VnInterop {
     return null;
   }
 
-  private static Object[] parseArgs(String argsStr) {
-    argsStr = argsStr == null ? "" : argsStr.trim();
-    if (argsStr.isEmpty()) return new Object[0];
-    List<Object> list = new ArrayList<>();
-    // naive split on whitespace; later we may add quoted args support
-    for (String tok : argsStr.split("\\s+")) {
+  private static Object[] parseArgs(String[] tokens, int start) {
+    if (tokens == null || start >= tokens.length) return new Object[0];
+    List<Object> list = new java.util.ArrayList<>();
+    for (int i = start; i < tokens.length; i++) {
+      String tok = tokens[i];
       list.add(parseScalar(tok));
     }
     return list.toArray();
@@ -363,6 +359,11 @@ public class DefaultVnInterop implements VnInterop {
   private static Object parseScalar(String s) {
     if (s == null) return "";
     String t = s.trim();
+    if (t.length() >= 2) {
+      if ((t.startsWith("\"") && t.endsWith("\"")) || (t.startsWith("'") && t.endsWith("'"))) {
+        t = t.substring(1, t.length() - 1);
+      }
+    }
     if (t.equalsIgnoreCase("true")) return Boolean.TRUE;
     if (t.equalsIgnoreCase("false")) return Boolean.FALSE;
     try { if (t.contains(".")) return Double.parseDouble(t); else return Integer.parseInt(t); }
@@ -402,8 +403,30 @@ public class DefaultVnInterop implements VnInterop {
 
   private static String safe(String s) { return s == null ? "" : s; }
   private static String[] split(String s) {
-    String t = safe(s).trim();
-    return t.isEmpty() ? new String[0] : t.split("\\s+");
+    return VnArgTokenizer.tokenizeToArray(s);
+  }
+
+  private static String joinTail(String[] tokens, int start) {
+    return joinRange(tokens, start, tokens == null ? 0 : tokens.length);
+  }
+
+  private static String joinRange(String[] tokens, int start, int endExclusive) {
+    if (tokens == null || start >= tokens.length || start >= endExclusive) return "";
+    int end = Math.min(tokens.length, endExclusive);
+    StringBuilder sb = new StringBuilder();
+    for (int i = Math.max(0, start); i < end; i++) {
+      if (sb.length() > 0) sb.append(' ');
+      sb.append(tokens[i]);
+    }
+    return sb.toString();
+  }
+
+  private static int indexOfIgnoreCase(String[] tokens, String target, int start) {
+    if (tokens == null || target == null) return -1;
+    for (int i = Math.max(0, start); i < tokens.length; i++) {
+      if (target.equalsIgnoreCase(tokens[i])) return i;
+    }
+    return -1;
   }
 
   private static float parseFloatSafe(String s, float fallback) {

@@ -350,7 +350,7 @@ Notes:
   - `true/false` → boolean
   - numbers with `.` → double; integers otherwise
   - anything else → string
-- Values cannot contain spaces; for multi-word values, encode them (e.g., `title=Hello_World`).
+- Values can be quoted for spaces, e.g. `title="Hello World"`.
 
 ### End-to-end example
 
@@ -415,10 +415,11 @@ You can invoke public static Java methods directly from VNS via the `java` provi
 [java com.acme.Debug#toggle]
 [java com.acme.Util#sum 2 3]         # calls Util.sum(int,int)
 [call java com.acme.Log#info Started] # same as [java ...]
+[java com.acme.Log#info "Boss battle started"]
+[jes call notify title="Final Battle" subtitle="Round 2"]
 ```
 
 - **Limitations**
-- No quoting support; arguments cannot contain spaces.
 - Instance methods are not supported.
 - Prefer small utility entry points that validate inputs if exposing them to scripts.
 

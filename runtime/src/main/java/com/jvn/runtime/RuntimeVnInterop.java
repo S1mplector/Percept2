@@ -267,10 +267,15 @@ public class RuntimeVnInterop implements VnInterop {
   }
 
   private static String safe(String s) { return s == null ? "" : s; }
-  private static String[] split(String s) { return (s == null ? "" : s.trim()).isEmpty() ? new String[0] : s.trim().split("\\s+"); }
+  private static String[] split(String s) { return VnArgTokenizer.tokenizeToArray(s); }
   private static Object parseScalar(String s) {
     if (s == null) return "";
     String t = s.trim();
+    if (t.length() >= 2) {
+      if ((t.startsWith("\"") && t.endsWith("\"")) || (t.startsWith("'") && t.endsWith("'"))) {
+        t = t.substring(1, t.length() - 1);
+      }
+    }
     if (t.equalsIgnoreCase("true")) return Boolean.TRUE;
     if (t.equalsIgnoreCase("false")) return Boolean.FALSE;
     try { if (t.contains(".")) return Double.parseDouble(t); else return Integer.parseInt(t); }
