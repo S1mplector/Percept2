@@ -23,6 +23,22 @@ Toolchains are configured in Gradle and can auto-download matching JDKs, but hav
 ./gradlew build
 ```
 
+### Simp3 Backend (Optional)
+
+Default builds work without Simp3.  
+If you want to compile and run with the Simp3 backend enabled, first install Simp3 to your local Maven repo, then build with the Gradle property:
+
+```bash
+mvn -f Simp3/pom.xml install
+./gradlew -PuseSimp3=true build
+```
+
+Then launch runtime with Simp3 audio explicitly:
+
+```bash
+./gradlew :runtime:run --args='--audio simp3'
+```
+
 ## Run The Engine (Runtime)
 
 Default runtime launch:
