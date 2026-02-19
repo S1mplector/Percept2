@@ -102,10 +102,13 @@ public class EditorApp extends Application {
   private static final Color GRID_BG = Color.color(0.08, 0.08, 0.08, 0.8);
   private static final Color GRID_LINE = Color.color(1, 1, 1, 0.08);
   private static final String[] EDITABLE_EXTENSIONS = new String[] {
-      ".jes", ".txt", ".vns", ".java", ".timeline", ".theme",
+      ".jes", ".txt", ".vns", ".java", ".timeline", ".theme", ".menu", ".layout", ".style", ".registry",
       ".settings", ".project", ".properties", ".md", ".json",
       ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml", ".csv", ".tsv"
   };
+  private static final String DEFAULT_TIMELINE_PATH = "config/timeline/story.timeline";
+  private static final String LEGACY_TIMELINE_PATH = "story/story.timeline";
+  private static final String LEGACY_TIMELINE_ROOT_PATH = "story.timeline";
 
   public static void main(String[] args) {
     launch(args);
@@ -167,15 +170,7 @@ public class EditorApp extends Application {
       if (root == null) return null;
       this.projectRoot = root;
       Properties mf = loadManifest(root);
-      if (projView != null) projView.setRootDirectory(root);
-      if (timelineView != null) {
-        String tf = mf != null ? mf.getProperty("timeline", "story.timeline") : "story.timeline";
-        timelineView.setTimelineFile(new File(root, tf));
-        timelineView.setProjectRoot(root);
-      }
-      if (settingsEditor != null) settingsEditor.setProjectRoot(root);
-      if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(root);
-      if (mapEditorView != null) mapEditorView.setProjectRoot(root);
+      configureProjectContext(root, mf);
       selectProjectTab();
     }
     return root;
@@ -187,6 +182,35 @@ public class EditorApp extends Application {
       p.load(fis);
       return p;
     } catch (Exception ignore) { return null; }
+  }
+
+  private File resolveTimelineFile(File root, Properties mf) {
+    if (root == null) return null;
+    if (mf != null) {
+      String configured = mf.getProperty("timeline");
+      if (configured != null && !configured.isBlank()) {
+        return new File(root, configured.trim());
+      }
+    }
+    File modern = new File(root, DEFAULT_TIMELINE_PATH);
+    if (modern.exists()) return modern;
+    File legacyStoryDir = new File(root, LEGACY_TIMELINE_PATH);
+    if (legacyStoryDir.exists()) return legacyStoryDir;
+    File legacyRoot = new File(root, LEGACY_TIMELINE_ROOT_PATH);
+    if (legacyRoot.exists()) return legacyRoot;
+    return modern;
+  }
+
+  private void configureProjectContext(File root, Properties mf) {
+    if (root == null) return;
+    if (projView != null) projView.setRootDirectory(root);
+    if (timelineView != null) {
+      timelineView.setTimelineFile(resolveTimelineFile(root, mf));
+      timelineView.setProjectRoot(root);
+    }
+    if (settingsEditor != null) settingsEditor.setProjectRoot(root);
+    if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(root);
+    if (mapEditorView != null) mapEditorView.setProjectRoot(root);
   }
 
   private String composeGradleTask(String path, String task) {
@@ -299,19 +323,10 @@ public class EditorApp extends Application {
     
     // Set as current project
     this.projectRoot = projectDir;
-    if (projView != null) projView.setRootDirectory(projectDir);
-    if (timelineView != null) {
-      Properties mf = loadManifest(projectDir);
-      String tf = (mf != null) ? mf.getProperty("timeline", "story.timeline") : "story.timeline";
-      timelineView.setTimelineFile(new File(projectDir, tf));
-      timelineView.setProjectRoot(projectDir);
-    }
-    if (settingsEditor != null) settingsEditor.setProjectRoot(projectDir);
-    if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(projectDir);
-    if (mapEditorView != null) mapEditorView.setProjectRoot(projectDir);
+    Properties mf = loadManifest(projectDir);
+    configureProjectContext(projectDir, mf);
     
     // Open the entry script
-    Properties mf = loadManifest(projectDir);
     String entryRel = (mf != null) ? mf.getProperty("entryVns", "scripts/story/prologue.vns") : "scripts/story/prologue.vns";
     File entryScript = new File(projectDir, entryRel);
     if (!entryScript.exists() && "scripts/story/prologue.vns".equals(entryRel)) {
@@ -541,16 +556,8 @@ public class EditorApp extends Application {
     projView.setOnRunProject(projectDir -> {
       if (projectDir == null) return;
       this.projectRoot = projectDir;
-      if (projView != null) projView.setRootDirectory(projectDir);
       Properties mf = loadManifest(projectDir);
-      if (timelineView != null) {
-        String tf = mf != null ? mf.getProperty("timeline", "story.timeline") : "story.timeline";
-        timelineView.setTimelineFile(new File(projectDir, tf));
-        timelineView.setProjectRoot(projectDir);
-      }
-      if (settingsEditor != null) settingsEditor.setProjectRoot(projectDir);
-      if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(projectDir);
-      if (mapEditorView != null) mapEditorView.setProjectRoot(projectDir);
+      configureProjectContext(projectDir, mf);
       applyProjectRootToTabs();
       selectProjectTab();
       doRunProject(projectDir);
@@ -641,15 +648,7 @@ public class EditorApp extends Application {
     if (dir == null) return;
     this.projectRoot = dir;
     Properties mf = loadManifest(dir);
-    if (projView != null) projView.setRootDirectory(dir);
-    if (timelineView != null) {
-      String tf = mf != null ? mf.getProperty("timeline", "story.timeline") : "story.timeline";
-      timelineView.setTimelineFile(new File(dir, tf));
-      timelineView.setProjectRoot(dir);
-    }
-    if (settingsEditor != null) settingsEditor.setProjectRoot(dir);
-    if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(dir);
-    if (mapEditorView != null) mapEditorView.setProjectRoot(dir);
+    configureProjectContext(dir, mf);
     applyProjectRootToTabs();
     status.setText("Project: " + dir.getName());
     selectProjectTab();

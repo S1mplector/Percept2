@@ -268,7 +268,7 @@ public class StoryTimelineView extends BorderPane {
   }
 
   private void save() {
-    File f = timelineFile != null ? timelineFile : (projectRoot != null ? new File(projectRoot, "story.timeline") : null);
+    File f = timelineFile != null ? timelineFile : defaultTimelineFile();
     if (f == null) return;
     try (PrintWriter pw = new PrintWriter(new FileWriter(f))) {
       pw.print(toDsl());
@@ -276,13 +276,24 @@ public class StoryTimelineView extends BorderPane {
   }
 
   private void load() {
-    File f = timelineFile != null ? timelineFile : (projectRoot != null ? new File(projectRoot, "story.timeline") : null);
+    File f = timelineFile != null ? timelineFile : defaultTimelineFile();
     if (f == null) return;
     if (!f.exists()) return;
     try {
       String text = java.nio.file.Files.readString(f.toPath());
       fromText(text);
     } catch (Exception ignored) {}
+  }
+
+  private File defaultTimelineFile() {
+    if (projectRoot == null) return null;
+    File modern = new File(projectRoot, "config/timeline/story.timeline");
+    if (modern.exists()) return modern;
+    File legacyStoryDir = new File(projectRoot, "story/story.timeline");
+    if (legacyStoryDir.exists()) return legacyStoryDir;
+    File legacyRoot = new File(projectRoot, "story.timeline");
+    if (legacyRoot.exists()) return legacyRoot;
+    return modern;
   }
 
   private static String nn(String s) { return s == null ? "" : s; }

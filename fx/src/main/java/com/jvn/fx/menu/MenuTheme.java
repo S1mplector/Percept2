@@ -11,7 +11,8 @@ import java.util.Properties;
 
 /**
  * Theme configuration for menus (Main, Settings, Load, Save).
- * Values are loaded from game/scripts/menu.theme if present; otherwise defaults are used.
+ * Values are loaded from config/menu/menu.theme when available, with
+ * legacy fallbacks for older projects.
  */
 public class MenuTheme {
   // Colors
@@ -66,16 +67,21 @@ public class MenuTheme {
 
   public static MenuTheme fromAssets() {
     MenuTheme t = new MenuTheme();
-    try {
-      AssetCatalog cat = new AssetCatalog();
-      try (InputStream in = cat.open(AssetType.SCRIPT, "menu.theme")) {
-        if (in != null) {
-          Properties p = new Properties();
-          p.load(in);
-          t.apply(p);
-        }
-      }
-    } catch (Exception ignored) {}
+    AssetCatalog cat = new AssetCatalog();
+    String[] candidates = new String[] {
+        "config/menu/menu.theme",
+        "config/menu.theme",
+        "menu.theme"
+    };
+    for (String candidate : candidates) {
+      try (InputStream in = cat.open(AssetType.SCRIPT, candidate)) {
+        if (in == null) continue;
+        Properties p = new Properties();
+        p.load(in);
+        t.apply(p);
+        break;
+      } catch (Exception ignored) {}
+    }
     return t;
   }
 

@@ -127,9 +127,11 @@ public class SettingsEditorView extends BorderPane {
 
   private File settingsFile() {
     if (projectRoot == null) return null;
-    File configured = resolvePathFromManifest("settingsFile", "vn.settings");
+    File configured = resolvePathFromManifest("settingsFile", "config/settings/vn.settings");
     if (configured.exists()) return configured;
     // Compatibility with older projects.
+    File legacyConfig = new File(projectRoot, "config/vn.settings");
+    if (legacyConfig.exists()) return legacyConfig;
     File legacy = new File(projectRoot, "vn.settings");
     return legacy.exists() ? legacy : configured;
   }

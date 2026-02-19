@@ -2,11 +2,11 @@
 
 This document describes the Timeline DSL used by the Editor to organize visual-novel arcs (VNS scripts), their entry labels, spatial layout, clusters, and links between arcs.
 
-The timeline is saved as `story.timeline` alongside your project, and can be edited visually (graph) or as text (Timeline editor).
+The timeline is saved as `config/timeline/story.timeline` in your project, and can be edited visually (graph) or as text (Timeline editor).
 
 ## Quickstart
 
-- Create a minimal `story.timeline` at your project root:
+- Create a minimal `config/timeline/story.timeline` in your project:
   ```
   arc "Intro" script "game/scripts/demo.vns" entry "start" at 40,40
   arc "Chapter1" script "game/scripts/ch1.vns" at 260,40
@@ -110,7 +110,7 @@ link Chapter1:branchA -> Side:entrySide
 You can examine a working setup under `demo-game/`:
 
 - Scripts: `demo-game/src/main/resources/game/scripts/*.vns`
-- Example timeline file: create `story.timeline` at the project root with content like:
+- Example timeline file: create `config/timeline/story.timeline` with content like:
 
 ```
 arc "Intro"    script "game/scripts/demo.vns" entry "start" cluster "Main"   at 40,40

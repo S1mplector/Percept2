@@ -1,10 +1,19 @@
 # Title Screen System
 
-The JVN Engine provides a fully customizable title screen system that allows you to create professional-looking main menus for your visual novels.
+The JVN Engine provides a fully customizable title screen system that allows you to create main menus for your visual novels.
 
 ## Configuration File
 
-Create a file named `menu.theme` in your project's `scripts/` directory (or `game/scripts/` for runtime). This properties file controls all aspects of the title screen.
+Create a file named `menu.theme` at `config/menu/menu.theme` in your project. This properties file controls all aspects of the title screen (legacy `scripts/menu.theme` is still supported).
+
+For richer menu behavior (multiple screens, per-item actions, custom layouts, per-button styles), add:
+
+- `config/menu/menu.registry`
+- `config/menu/menus/*.menu`
+- `config/menu/layouts/*.layout`
+- `config/menu/styles/*.style`
+
+The engine loads these from `config/menu/` at runtime and falls back to built-in defaults if files are missing.
 
 ### Title Screen Assets
 
@@ -87,6 +96,28 @@ label.quit=Exit
 
 # Custom hints at bottom
 hintsText=Enter: Select    Esc: Quit
+```
+
+### Advanced Menu Profiles
+
+`config/menu/menu.registry`
+```properties
+defaultMenu=main
+menus=main,extras
+layouts=default
+styles=default,neon
+```
+
+`config/menu/menus/main.menu`
+```properties
+titleText=My Game
+layout=default
+defaultItemStyle=default
+items=start,extras,quit
+item.start.action=run_script:scripts/story/prologue.vns
+item.extras.action=open_menu
+item.extras.target=extras
+item.quit.action=quit
 ```
 
 ## Programmatic Configuration

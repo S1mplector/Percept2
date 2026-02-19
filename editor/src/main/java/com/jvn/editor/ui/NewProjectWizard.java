@@ -48,9 +48,13 @@ public class NewProjectWizard extends Stage {
   private static final String ACCENT = "#4a9eff";
   private static final String TEXT_SECONDARY = "#9aa0a6";
   private static final String ENTRY_SCRIPT_PATH = "scripts/story/prologue.vns";
-  private static final String TIMELINE_PATH = "story/story.timeline";
-  private static final String SETTINGS_PATH = "config/vn.settings";
-  private static final String MENU_THEME_PATH = "scripts/menu.theme";
+  private static final String TIMELINE_PATH = "config/timeline/story.timeline";
+  private static final String SETTINGS_PATH = "config/settings/vn.settings";
+  private static final String MENU_THEME_PATH = "config/menu/menu.theme";
+  private static final String MENU_REGISTRY_PATH = "config/menu/menu.registry";
+  private static final String MENU_MAIN_PATH = "config/menu/menus/main.menu";
+  private static final String MENU_LAYOUT_DEFAULT_PATH = "config/menu/layouts/default.layout";
+  private static final String MENU_STYLE_DEFAULT_PATH = "config/menu/styles/default.style";
   
   public NewProjectWizard(Stage owner) {
     initOwner(owner);
@@ -398,7 +402,14 @@ public class NewProjectWizard extends Stage {
     
     // Create directories
     new File(dir, "config").mkdirs();
-    new File(dir, "story").mkdirs();
+    new File(dir, "config/settings").mkdirs();
+    new File(dir, "config/timeline").mkdirs();
+    new File(dir, "config/menu").mkdirs();
+    new File(dir, "config/menu/assets").mkdirs();
+    new File(dir, "config/menu/assets/buttons").mkdirs();
+    new File(dir, "config/menu/menus").mkdirs();
+    new File(dir, "config/menu/layouts").mkdirs();
+    new File(dir, "config/menu/styles").mkdirs();
     new File(dir, "scripts/story").mkdirs();
     new File(dir, "scripts/system").mkdirs();
     new File(dir, "assets/characters").mkdirs();
@@ -447,6 +458,7 @@ public class NewProjectWizard extends Stage {
     
     // Menu theme
     createMenuTheme(dir, name);
+    createMenuCustomizationScaffold(dir, name);
     
     // README
     createReadme(dir, name);
@@ -612,6 +624,47 @@ public class NewProjectWizard extends Stage {
       tp.store(fos, "Menu Theme for " + name + " - " + theme);
     }
   }
+
+  private void createMenuCustomizationScaffold(File dir, String name) throws Exception {
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
+      fw.write("# Menu customization registry\n");
+      fw.write("defaultMenu=main\n");
+      fw.write("menus=main\n");
+      fw.write("layouts=default\n");
+      fw.write("styles=default\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_DEFAULT_PATH))) {
+      fw.write("# Layout for vertical menu lists\n");
+      fw.write("listYStart=0.35\n");
+      fw.write("lineHeight=40\n");
+      fw.write("listWidthFactor=1.0\n");
+      fw.write("textAlign=center\n");
+      fw.write("hintsBottomMargin=20\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_DEFAULT_PATH))) {
+      fw.write("# Optional per-item style overrides (falls back to menu.theme)\n");
+      fw.write("itemPrefix=  \n");
+      fw.write("itemSelectedPrefix=> \n");
+      fw.write("itemDisabledPrefix=- \n");
+      fw.write("itemDisabledColor=#808080\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_MAIN_PATH))) {
+      fw.write("# Main menu screen definition\n");
+      fw.write("titleText=" + name + "\n");
+      fw.write("hintsText=Select: Enter    Back: Esc\n");
+      fw.write("layout=default\n");
+      fw.write("defaultItemStyle=default\n");
+      fw.write("wrapSelection=true\n");
+      fw.write("items=new_game,load,settings,quit\n");
+      fw.write("item.new_game.action=new_game\n");
+      fw.write("item.load.action=load_menu\n");
+      fw.write("item.settings.action=settings_menu\n");
+      fw.write("item.quit.action=quit\n");
+    }
+  }
   
   private void createReadme(File dir, String name) throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, "README.md"))) {
@@ -628,13 +681,25 @@ public class NewProjectWizard extends Stage {
       fw.write("```\n");
       fw.write(name + "/\n");
       fw.write("├── config/\n");
-      fw.write("│   └── vn.settings    # Project-local VN settings\n");
-      fw.write("├── story/\n");
-      fw.write("│   └── story.timeline # Visual story graph\n");
+      fw.write("│   ├── settings/\n");
+      fw.write("│   │   └── vn.settings      # Project-local VN settings\n");
+      fw.write("│   ├── timeline/\n");
+      fw.write("│   │   └── story.timeline   # Visual story graph\n");
+      fw.write("│   └── menu/\n");
+      fw.write("│       ├── menu.theme       # Global title/menu visual theme\n");
+      fw.write("│       ├── menu.registry    # Declares screens/layouts/styles to load\n");
+      fw.write("│       ├── menus/\n");
+      fw.write("│       │   └── main.menu    # Menu items/actions/screen text\n");
+      fw.write("│       ├── layouts/\n");
+      fw.write("│       │   └── default.layout # Placement/spacing/alignment rules\n");
+      fw.write("│       ├── styles/\n");
+      fw.write("│       │   └── default.style # Per-button style overrides\n");
+      fw.write("│       └── assets/\n");
+      fw.write("│           └── buttons/     # Menu button sprites/icons\n");
       fw.write("├── scripts/\n");
       fw.write("│   ├── story/\n");
       fw.write("│   │   └── prologue.vns # Entry point script\n");
-      fw.write("│   └── menu.theme     # Title/menu configuration\n");
+      fw.write("│   └── system/            # Reserved for helper scripts\n");
       fw.write("├── assets/\n");
       fw.write("│   ├── characters/    # Character sprites\n");
       fw.write("│   ├── backgrounds/   # Background images\n");
@@ -649,9 +714,12 @@ public class NewProjectWizard extends Stage {
       fw.write("## Getting Started\n\n");
       fw.write("1. Open this project in the JVN Editor\n");
       fw.write("2. Edit `scripts/story/prologue.vns` to write your story\n");
-      fw.write("3. Add character sprites to `assets/characters/`\n");
-      fw.write("4. Add backgrounds to `assets/backgrounds/`\n");
-      fw.write("5. Press **Run Project** to preview\n\n");
+      fw.write("3. Configure VN settings in `config/settings/vn.settings`\n");
+      fw.write("4. Customize title/menu theme in `config/menu/menu.theme`\n");
+      fw.write("5. Add menu screens in `config/menu/menus/*.menu`\n");
+      fw.write("6. Add character sprites to `assets/characters/`\n");
+      fw.write("7. Add backgrounds to `assets/backgrounds/`\n");
+      fw.write("8. Press **Run Project** to preview\n\n");
       fw.write("## Documentation\n\n");
       fw.write("- [VNS Scripting Guide](docs/VNS%20Scripting/)\n");
       fw.write("- [Title Screen Configuration](docs/TitleScreen.md)\n");

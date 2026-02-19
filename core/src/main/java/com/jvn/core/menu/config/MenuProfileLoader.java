@@ -1,0 +1,255 @@
+package com.jvn.core.menu.config;
+
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
+
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+
+public final class MenuProfileLoader {
+  private static final String[] REGISTRY_PATHS = new String[] {
+      "config/menu/menu.registry",
+      "config/menu/registry.properties",
+      "menu.registry"
+  };
+
+  private MenuProfileLoader() {}
+
+  public static MenuProfile loadFromAssets() {
+    return load(new AssetCatalog());
+  }
+
+  public static MenuProfile load(AssetCatalog assets) {
+    if (assets == null) return MenuProfile.defaults();
+    MenuProfile defaults = MenuProfile.defaults();
+
+    Map<String, MenuLayoutSpec> layouts = new LinkedHashMap<>(defaults.layouts());
+    Map<String, MenuStyleSpec> styles = new LinkedHashMap<>(defaults.styles());
+    Map<String, MenuScreenSpec> screens = new LinkedHashMap<>(defaults.screens());
+    String defaultScreen = defaults.defaultScreenId();
+
+    Properties registry = loadFirstProperties(assets, REGISTRY_PATHS);
+    if (registry != null) {
+      String configuredDefault = normalize(registry.getProperty("defaultMenu", registry.getProperty("defaultScreen")), null);
+      if (configuredDefault != null) defaultScreen = configuredDefault;
+    }
+
+    Set<String> layoutIds = new LinkedHashSet<>();
+    layoutIds.add("default");
+    layoutIds.addAll(parseCsv(registry != null ? registry.getProperty("layouts") : null));
+
+    Set<String> styleIds = new LinkedHashSet<>();
+    styleIds.add("default");
+    styleIds.addAll(parseCsv(registry != null ? registry.getProperty("styles") : null));
+
+    Set<String> menuIds = new LinkedHashSet<>();
+    menuIds.add("main");
+    menuIds.addAll(parseCsv(registry != null ? registry.getProperty("menus") : null));
+
+    for (String id : layoutIds) {
+      Properties p = loadFirstProperties(assets, layoutPaths(id));
+      if (p != null) {
+        MenuLayoutSpec base = layouts.getOrDefault(id, MenuProfile.defaultLayout());
+        layouts.put(id, parseLayout(id, p, base));
+      }
+    }
+
+    for (String id : styleIds) {
+      Properties p = loadFirstProperties(assets, stylePaths(id));
+      if (p != null) {
+        MenuStyleSpec base = styles.getOrDefault(id, MenuProfile.defaultStyle());
+        styles.put(id, parseStyle(id, p, base));
+      }
+    }
+
+    for (String id : menuIds) {
+      Properties p = loadFirstProperties(assets, menuPaths(id));
+      if (p != null) {
+        MenuScreenSpec base = screens.getOrDefault(id, "main".equals(id) ? MenuProfile.defaultMainScreen() : null);
+        screens.put(id, parseScreen(id, p, base));
+      }
+    }
+
+    if (!screens.containsKey(defaultScreen)) {
+      defaultScreen = screens.containsKey("main") ? "main" : screens.keySet().stream().findFirst().orElse("main");
+    }
+
+    return new MenuProfile(defaultScreen, screens, layouts, styles);
+  }
+
+  private static MenuLayoutSpec parseLayout(String id, Properties p, MenuLayoutSpec base) {
+    return new MenuLayoutSpec(
+        id,
+        parseDouble(p.getProperty("listYStart"), base.listYStart()),
+        parseDouble(p.getProperty("lineHeight"), base.lineHeight()),
+        parseDouble(p.getProperty("listWidthFactor", p.getProperty("listWidth")), base.listWidthFactor()),
+        normalize(p.getProperty("textAlign"), base.textAlign()),
+        parseDouble(p.getProperty("hintsBottomMargin"), base.hintsBottomMargin()),
+        parseOptionalDouble(p.getProperty("titleY"), base.titleY())
+    );
+  }
+
+  private static MenuStyleSpec parseStyle(String id, Properties p, MenuStyleSpec base) {
+    return new MenuStyleSpec(
+        id,
+        normalize(p.getProperty("itemColor"), base.itemColor()),
+        normalize(p.getProperty("itemSelectedColor"), base.itemSelectedColor()),
+        normalize(p.getProperty("itemDisabledColor"), base.itemDisabledColor()),
+        normalize(p.getProperty("itemPrefix"), base.itemPrefix()),
+        normalize(p.getProperty("itemSelectedPrefix"), base.itemSelectedPrefix()),
+        normalize(p.getProperty("itemDisabledPrefix"), base.itemDisabledPrefix()),
+        normalize(p.getProperty("itemFontFamily"), base.itemFontFamily()),
+        normalize(p.getProperty("itemFontWeight"), base.itemFontWeight()),
+        parseOptionalInt(p.getProperty("itemFontSize"), base.itemFontSize())
+    );
+  }
+
+  private static MenuScreenSpec parseScreen(String id, Properties p, MenuScreenSpec base) {
+    String titleText = normalize(p.getProperty("titleText"), base == null ? null : base.titleText());
+    String hintsText = normalize(p.getProperty("hintsText"), base == null ? null : base.hintsText());
+    String layoutId = normalize(p.getProperty("layout", p.getProperty("layoutId")), base == null ? "default" : base.layoutId());
+    String defaultStyleId = normalize(p.getProperty("defaultItemStyle"), base == null ? "default" : base.defaultStyleId());
+    boolean wrapSelection = parseBoolean(p.getProperty("wrapSelection"), base == null || base.wrapSelection());
+
+    List<String> itemIds = parseCsv(p.getProperty("items"));
+    if (itemIds.isEmpty()) itemIds = collectItemIdsFromProperties(p);
+    if (itemIds.isEmpty() && base != null && !base.items().isEmpty()) {
+      for (MenuItemSpec i : base.items()) itemIds.add(i.id());
+    }
+
+    Map<String, MenuItemSpec> baseItems = new LinkedHashMap<>();
+    if (base != null) {
+      for (MenuItemSpec i : base.items()) baseItems.put(i.id(), i);
+    }
+
+    List<MenuItemSpec> items = new ArrayList<>();
+    for (String itemId : itemIds) {
+      String idNorm = normalize(itemId, null);
+      if (idNorm == null) continue;
+      MenuItemSpec bi = baseItems.get(idNorm);
+      String label = normalize(p.getProperty("item." + idNorm + ".label"), bi == null ? null : bi.label());
+      String styleId = normalize(p.getProperty("item." + idNorm + ".style"), bi == null ? defaultStyleId : bi.styleId());
+      String icon = normalize(p.getProperty("item." + idNorm + ".icon"), bi == null ? null : bi.iconPath());
+      boolean enabled = parseBoolean(p.getProperty("item." + idNorm + ".enabled"), bi == null || bi.enabled());
+      String actionRaw = normalize(p.getProperty("item." + idNorm + ".action"), bi == null ? null : bi.action().type().name());
+      String targetRaw = normalize(p.getProperty("item." + idNorm + ".target"), bi == null ? null : bi.action().target());
+      MenuActionSpec action = MenuActionSpec.parse(actionRaw, targetRaw);
+      items.add(new MenuItemSpec(idNorm, label, styleId, icon, enabled, action));
+    }
+
+    return new MenuScreenSpec(id, titleText, hintsText, layoutId, defaultStyleId, wrapSelection, items);
+  }
+
+  private static List<String> collectItemIdsFromProperties(Properties p) {
+    Set<String> ids = new LinkedHashSet<>();
+    for (String key : p.stringPropertyNames()) {
+      if (!key.startsWith("item.")) continue;
+      int dot = key.indexOf('.', 5);
+      if (dot <= 5) continue;
+      String id = key.substring(5, dot).trim();
+      if (!id.isEmpty()) ids.add(id);
+    }
+    return new ArrayList<>(ids);
+  }
+
+  private static Properties loadFirstProperties(AssetCatalog assets, String... paths) {
+    if (assets == null || paths == null) return null;
+    for (String path : paths) {
+      if (path == null || path.isBlank()) continue;
+      try (InputStream in = assets.open(AssetType.SCRIPT, path)) {
+        if (in == null) continue;
+        Properties p = new Properties();
+        p.load(in);
+        return p;
+      } catch (Exception ignored) {
+      }
+    }
+    return null;
+  }
+
+  private static String[] menuPaths(String id) {
+    return new String[] {
+        "config/menu/menus/" + id + ".menu",
+        "config/menu/menus/" + id + ".properties",
+        "config/menu/" + id + ".menu",
+        "config/menu/" + id + ".properties",
+        id + ".menu"
+    };
+  }
+
+  private static String[] stylePaths(String id) {
+    return new String[] {
+        "config/menu/styles/" + id + ".style",
+        "config/menu/styles/" + id + ".properties",
+        "config/menu/" + id + ".style",
+        id + ".style"
+    };
+  }
+
+  private static String[] layoutPaths(String id) {
+    return new String[] {
+        "config/menu/layouts/" + id + ".layout",
+        "config/menu/layouts/" + id + ".properties",
+        "config/menu/" + id + ".layout",
+        id + ".layout"
+    };
+  }
+
+  private static List<String> parseCsv(String raw) {
+    if (raw == null || raw.isBlank()) return new ArrayList<>();
+    List<String> out = new ArrayList<>();
+    String[] parts = raw.split(",");
+    for (String part : parts) {
+      String t = part == null ? "" : part.trim();
+      if (!t.isEmpty()) out.add(t);
+    }
+    return out;
+  }
+
+  private static String normalize(String v, String def) {
+    if (v == null) return def;
+    String t = v.trim();
+    return t.isEmpty() ? def : t;
+  }
+
+  private static double parseDouble(String raw, double def) {
+    if (raw == null || raw.isBlank()) return def;
+    try {
+      return Double.parseDouble(raw.trim());
+    } catch (Exception ignored) {
+      return def;
+    }
+  }
+
+  private static Double parseOptionalDouble(String raw, Double def) {
+    if (raw == null || raw.isBlank()) return def;
+    try {
+      return Double.parseDouble(raw.trim());
+    } catch (Exception ignored) {
+      return def;
+    }
+  }
+
+  private static Integer parseOptionalInt(String raw, Integer def) {
+    if (raw == null || raw.isBlank()) return def;
+    try {
+      return Integer.parseInt(raw.trim());
+    } catch (Exception ignored) {
+      return def;
+    }
+  }
+
+  private static boolean parseBoolean(String raw, boolean def) {
+    if (raw == null || raw.isBlank()) return def;
+    String v = raw.trim().toLowerCase();
+    if ("true".equals(v) || "yes".equals(v) || "1".equals(v)) return true;
+    if ("false".equals(v) || "no".equals(v) || "0".equals(v)) return false;
+    return def;
+  }
+}

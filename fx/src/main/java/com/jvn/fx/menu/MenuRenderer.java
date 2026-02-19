@@ -5,11 +5,14 @@ import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
+import com.jvn.core.menu.config.MenuLayoutSpec;
+import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.vn.VnSettings;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.image.Image;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 
 import java.util.List;
 import java.io.File;
@@ -25,6 +28,8 @@ public class MenuRenderer {
   public MenuTheme getTheme() { return theme; }
 
   public void renderMainMenu(MainMenuScene scene, double w, double h) {
+    MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
+
     // Draw background image if configured
     if (theme.getBackgroundImagePath() != null) {
       drawBackgroundImage(theme.getBackgroundImagePath(), w, h);
@@ -36,25 +41,43 @@ public class MenuRenderer {
     if (theme.getLogoImagePath() != null) {
       drawLogo(theme.getLogoImagePath(), w, h);
     } else {
-      String title = theme.getTitleText();
+      String title = scene != null ? scene.getDisplayTitle() : null;
+      if (title == null || title.isBlank()) title = theme.getTitleText();
       if (title == null || title.isBlank()) title = Localization.t("app.title");
-      double titleY = resolve(theme.getTitleY(), h);
+      double titleY = (layout != null && layout.titleY() != null)
+          ? resolve(layout.titleY(), h)
+          : resolve(theme.getTitleY(), h);
       drawTitle(title, w, titleY);
     }
 
-    String[] items = new String[] {
-      (theme.getLabelNewGame() != null ? theme.getLabelNewGame() : Localization.t("menu.new_game")),
-      (theme.getLabelLoad() != null ? theme.getLabelLoad() : Localization.t("menu.load")),
-      (theme.getLabelSettings() != null ? theme.getLabelSettings() : Localization.t("menu.settings")),
-      (theme.getLabelQuit() != null ? theme.getLabelQuit() : Localization.t("menu.quit"))
-    };
+    String[] items;
+    if (scene != null && scene.getItemCount() > 0) {
+      items = scene.getDisplayItems();
+    } else {
+      items = new String[] {
+        (theme.getLabelNewGame() != null ? theme.getLabelNewGame() : Localization.t("menu.new_game")),
+        (theme.getLabelLoad() != null ? theme.getLabelLoad() : Localization.t("menu.load")),
+        (theme.getLabelSettings() != null ? theme.getLabelSettings() : Localization.t("menu.settings")),
+        (theme.getLabelQuit() != null ? theme.getLabelQuit() : Localization.t("menu.quit"))
+      };
+    }
 
-    drawMenuList(items, scene.getSelected(), w, h);
-    String hints = theme.getMainHintsText();
+    boolean[] enabled = new boolean[items.length];
+    MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
+    for (int i = 0; i < items.length; i++) {
+      enabled[i] = scene == null || scene.isItemEnabled(i);
+      styles[i] = scene != null ? scene.getStyleForIndex(i) : null;
+    }
+
+    drawMenuList(items, scene != null ? scene.getSelected() : 0, enabled, styles, layout, w, h);
+
+    String hints = scene != null ? scene.getDisplayHints() : null;
+    if (hints == null || hints.isBlank()) hints = theme.getMainHintsText();
     if (hints == null || hints.isBlank()) {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc";
     }
-    drawHints(hints, w, h);
+    double bottomMargin = layout != null ? layout.hintsBottomMargin() : 20.0;
+    drawHints(hints, w, h, bottomMargin);
   }
 
   public void renderSaveMenu(SaveMenuScene scene, double w, double h) {
@@ -255,21 +278,46 @@ public class MenuRenderer {
   }
 
   private void drawMenuList(String[] items, int selected, double w, double h) {
-    double yStart = resolve(theme.getListYStart(), h);
-    double lineH = theme.getLineHeight();
+    drawMenuList(items, selected, null, null, null, w, h);
+  }
+
+  private void drawMenuList(String[] items, int selected, boolean[] enabled, MenuStyleSpec[] styles, MenuLayoutSpec layout, double w, double h) {
+    double yStart = layout != null ? resolve(layout.listYStart(), h) : resolve(theme.getListYStart(), h);
+    double lineH = layout != null ? layout.lineHeight() : theme.getLineHeight();
+    double listW = layout != null ? w * clamp(layout.listWidthFactor(), 0.1, 1.0) : w;
+    String align = layout != null ? layout.textAlign() : "center";
+    double listX = switch (align == null ? "center" : align.toLowerCase()) {
+      case "left" -> 0.0;
+      case "right" -> w - listW;
+      default -> (w - listW) / 2.0;
+    };
     for (int i = 0; i < items.length; i++) {
+      MenuStyleSpec style = styles != null && i < styles.length ? styles[i] : null;
+      boolean isEnabled = enabled == null || i >= enabled.length || enabled[i];
       boolean sel = i == selected;
-      String label = (sel ? theme.getItemSelectedPrefix() : theme.getItemPrefix()) + items[i];
-      gc.setFill(sel ? theme.getItemSelectedColor() : theme.getItemColor());
-      gc.setFont(theme.getItemFont());
-      gc.fillText(label, (w - measure(label, theme.getItemFont())) / 2, yStart + i * lineH);
+      String label = withPrefix(items[i], style, sel, isEnabled);
+      Color color = resolveItemColor(style, sel, isEnabled);
+      Font font = resolveItemFont(style);
+      gc.setFill(color);
+      gc.setFont(font);
+      double tw = measure(label, font);
+      double x = switch (align == null ? "center" : align.toLowerCase()) {
+        case "left" -> listX;
+        case "right" -> listX + Math.max(0, listW - tw);
+        default -> listX + (listW - tw) / 2.0;
+      };
+      gc.fillText(label, x, yStart + i * lineH);
     }
   }
 
   private void drawHints(String text, double w, double h) {
+    drawHints(text, w, h, 20.0);
+  }
+
+  private void drawHints(String text, double w, double h, double bottomMargin) {
     gc.setFill(theme.getHintColor());
     gc.setFont(theme.getHintFont());
-    gc.fillText(text, (w - measure(text, theme.getHintFont())) / 2, h - 20);
+    gc.fillText(text, (w - measure(text, theme.getHintFont())) / 2, h - Math.max(0, bottomMargin));
   }
 
   private void drawCenteredText(String text, double w, double y, Font font, Color color) {
@@ -289,6 +337,29 @@ public class MenuRenderer {
     double yStart = resolve(theme.getListYStart(), h);
     double lineH = theme.getLineHeight();
     // Compute by vertical slot
+    double relY = mouseY - yStart;
+    if (relY < 0) return -1;
+    int idx = (int) Math.floor(relY / lineH);
+    if (idx < 0 || idx >= count) return -1;
+    return idx;
+  }
+
+  public int getHoverIndexForMainMenu(MainMenuScene scene, double w, double h, double mouseX, double mouseY) {
+    if (scene == null) return -1;
+    int count = scene.getItemCount();
+    if (count <= 0) return -1;
+    MenuLayoutSpec layout = scene.getMenuLayout();
+    double yStart = layout != null ? resolve(layout.listYStart(), h) : resolve(theme.getListYStart(), h);
+    double lineH = layout != null ? layout.lineHeight() : theme.getLineHeight();
+    double listW = layout != null ? w * clamp(layout.listWidthFactor(), 0.1, 1.0) : w;
+    String align = layout != null ? layout.textAlign() : "center";
+    double listX = switch (align == null ? "center" : align.toLowerCase()) {
+      case "left" -> 0.0;
+      case "right" -> w - listW;
+      default -> (w - listW) / 2.0;
+    };
+
+    if (mouseX < listX - 24 || mouseX > listX + listW + 24) return -1;
     double relY = mouseY - yStart;
     if (relY < 0) return -1;
     int idx = (int) Math.floor(relY / lineH);
@@ -390,6 +461,109 @@ public class MenuRenderer {
 
   private double clamp01(double v) {
     return v < 0 ? 0 : (v > 1 ? 1 : v);
+  }
+
+  private double clamp(double v, double min, double max) {
+    if (Double.isNaN(v) || Double.isInfinite(v)) return min;
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
+  }
+
+  private String withPrefix(String label, MenuStyleSpec style, boolean selected, boolean enabled) {
+    String base = label == null ? "" : label;
+    String prefix;
+    if (!enabled) {
+      prefix = firstNonBlank(style != null ? style.itemDisabledPrefix() : null,
+          style != null ? style.itemPrefix() : null,
+          theme.getItemPrefix());
+    } else if (selected) {
+      prefix = firstNonBlank(style != null ? style.itemSelectedPrefix() : null, theme.getItemSelectedPrefix());
+    } else {
+      prefix = firstNonBlank(style != null ? style.itemPrefix() : null, theme.getItemPrefix());
+    }
+    return (prefix == null ? "" : prefix) + base;
+  }
+
+  private Color resolveItemColor(MenuStyleSpec style, boolean selected, boolean enabled) {
+    if (!enabled) {
+      return parseColor(
+          style != null ? style.itemDisabledColor() : null,
+          Color.rgb(160, 160, 160, 0.8)
+      );
+    }
+    if (selected) {
+      return parseColor(style != null ? style.itemSelectedColor() : null, theme.getItemSelectedColor());
+    }
+    return parseColor(style != null ? style.itemColor() : null, theme.getItemColor());
+  }
+
+  private Font resolveItemFont(MenuStyleSpec style) {
+    if (style == null) return theme.getItemFont();
+    String family = firstNonBlank(style.itemFontFamily(), theme.getItemFont().getFamily());
+    double size = style.itemFontSize() != null ? style.itemFontSize() : theme.getItemFont().getSize();
+    String weightRaw = style.itemFontWeight();
+    if (weightRaw == null || weightRaw.isBlank()) {
+      return Font.font(family, size);
+    }
+    FontWeight weight = parseFontWeight(weightRaw, FontWeight.NORMAL);
+    return Font.font(family, weight, size);
+  }
+
+  private FontWeight parseFontWeight(String raw, FontWeight def) {
+    if (raw == null || raw.isBlank()) return def;
+    try {
+      return FontWeight.valueOf(raw.trim().toUpperCase());
+    } catch (Exception ignored) {
+      return def;
+    }
+  }
+
+  private Color parseColor(String raw, Color def) {
+    if (raw == null || raw.isBlank()) return def;
+    String t = raw.trim();
+    try {
+      if (t.startsWith("#")) {
+        String hex = t.substring(1);
+        if (hex.length() == 6) {
+          int r = Integer.parseInt(hex.substring(0, 2), 16);
+          int g = Integer.parseInt(hex.substring(2, 4), 16);
+          int b = Integer.parseInt(hex.substring(4, 6), 16);
+          return Color.rgb(r, g, b);
+        }
+        if (hex.length() == 8) {
+          int a = Integer.parseInt(hex.substring(0, 2), 16);
+          int r = Integer.parseInt(hex.substring(2, 4), 16);
+          int g = Integer.parseInt(hex.substring(4, 6), 16);
+          int b = Integer.parseInt(hex.substring(6, 8), 16);
+          return Color.rgb(r, g, b, a / 255.0);
+        }
+      } else if (t.toLowerCase().startsWith("rgb")) {
+        int lp = t.indexOf('(');
+        int rp = t.indexOf(')');
+        if (lp >= 0 && rp > lp) {
+          String[] parts = t.substring(lp + 1, rp).split(",");
+          double r = Double.parseDouble(parts[0].trim());
+          double g = Double.parseDouble(parts[1].trim());
+          double b = Double.parseDouble(parts[2].trim());
+          double a = parts.length >= 4 ? Double.parseDouble(parts[3].trim()) : 1.0;
+          if (r > 1 || g > 1 || b > 1 || a > 1) {
+            return Color.rgb((int) r, (int) g, (int) b, a > 1 ? (a / 255.0) : a);
+          }
+          return Color.color(r, g, b, a);
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return def;
+  }
+
+  private String firstNonBlank(String... values) {
+    if (values == null) return null;
+    for (String v : values) {
+      if (v != null && !v.isBlank()) return v;
+    }
+    return null;
   }
 
   private double resolve(double v, double total) {

@@ -261,7 +261,7 @@ public class FxLauncher extends Application {
       if (engine != null) {
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
         if (currentScene instanceof MainMenuScene main) {
-          int idx = menuRenderer.getHoverIndexForList(4, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          int idx = menuRenderer.getHoverIndexForMainMenu(main, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
           if (idx >= 0) main.setSelected(idx);
         } else if (currentScene instanceof LoadMenuScene load) {
           int idx = menuRenderer.getHoverIndexForList(load.getSaves().size(), canvas.getWidth() * 0.6, canvas.getHeight(), mouseX, mouseY);
@@ -567,7 +567,7 @@ public class FxLauncher extends Application {
       // Otherwise treat as advance
       vnScene.advance();
     } else if (currentScene instanceof MainMenuScene main) {
-      int idx = menuRenderer.getHoverIndexForList(4, canvas.getWidth(), canvas.getHeight(), x, y);
+      int idx = menuRenderer.getHoverIndexForMainMenu(main, canvas.getWidth(), canvas.getHeight(), x, y);
       if (idx >= 0) {
         main.setSelected(idx);
         main.activateSelected();

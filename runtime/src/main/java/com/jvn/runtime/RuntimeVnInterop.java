@@ -189,6 +189,18 @@ public class RuntimeVnInterop implements VnInterop {
         return VnInteropResult.advance();
       }
       default:
+        // Treat unknown menu kind as a configured custom menu id.
+        // Optional second token can override default script for run_script/new_game actions.
+        String script = toks.length >= 2 ? toks[1] : "demo.vns";
+        MainMenuScene custom = new MainMenuScene(
+            engine,
+            new VnSettings(),
+            new com.jvn.core.vn.save.VnSaveManager(),
+            script,
+            scene.getAudioFacade(),
+            kind
+        );
+        engine.scenes().push(custom);
         return VnInteropResult.advance();
     }
   }
