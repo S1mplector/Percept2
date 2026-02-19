@@ -1,9 +1,12 @@
 package com.jvn.editor.ui;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseButton;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.awt.Desktop;
@@ -24,6 +27,7 @@ public class ProjectExplorerView extends VBox {
   private final TreeView<File> tree = new TreeView<>();
   private File rootDir;
   private Consumer<File> onOpenFile;
+  private Consumer<File> onRunProject;
 
   public ProjectExplorerView() {
     setSpacing(8);
@@ -47,10 +51,45 @@ public class ProjectExplorerView extends VBox {
     tree.setContextMenu(ctx);
 
     tree.setCellFactory(tv -> new TreeCell<>() {
+      private final Label nameLabel = new Label();
+      private final Region spacer = new Region();
+      private final Button runButton = new Button("Run");
+      private final HBox rootRow = new HBox(6, nameLabel, spacer, runButton);
+      {
+        rootRow.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        rootRow.prefWidthProperty().bind(widthProperty().subtract(24));
+        runButton.getStyleClass().add("project-run-button");
+        runButton.setFocusTraversable(false);
+        runButton.setTooltip(new Tooltip("Run this project in JVN Runtime"));
+        runButton.setOnAction(e -> {
+          File current = getItem();
+          if (current == null) return;
+          File project = rootDir != null ? rootDir : current;
+          if (onRunProject != null) onRunProject.accept(project);
+          e.consume();
+        });
+      }
+
       @Override protected void updateItem(File item, boolean empty) {
         super.updateItem(item, empty);
-        if (empty || item == null) { setText(null); setGraphic(null); return; }
-        setText(item.getName().isEmpty() ? item.getAbsolutePath() : item.getName());
+        if (empty || item == null) {
+          setText(null);
+          setGraphic(null);
+          return;
+        }
+
+        String display = item.getName().isEmpty() ? item.getAbsolutePath() : item.getName();
+        TreeItem<File> ti = getTreeItem();
+        boolean isRootNode = ti != null && ti.getParent() == null && sameFile(item, rootDir);
+        if (isRootNode) {
+          setText(null);
+          nameLabel.setText(display);
+          setGraphic(rootRow);
+        } else {
+          setGraphic(null);
+          setText(display);
+        }
       }
     });
 
@@ -82,6 +121,7 @@ public class ProjectExplorerView extends VBox {
   }
 
   public void setOnOpenFile(Consumer<File> c) { this.onOpenFile = c; }
+  public void setOnRunProject(Consumer<File> c) { this.onRunProject = c; }
 
   public File getSelectedFile() {
     TreeItem<File> it = tree.getSelectionModel().getSelectedItem();
@@ -127,6 +167,11 @@ public class ProjectExplorerView extends VBox {
   private void openFile(File f) {
     if (onOpenFile != null) { onOpenFile.accept(f); return; }
     try { Desktop.getDesktop().open(f); } catch (Exception ignored) {}
+  }
+
+  private boolean sameFile(File a, File b) {
+    if (a == null || b == null) return false;
+    return a.getAbsoluteFile().equals(b.getAbsoluteFile());
   }
 
   private void revealSelected() {

@@ -930,6 +930,30 @@ public class VnRenderer {
     return -1;
   }
 
+  public int getHoveredSaveSlotIndex(double width, double height, double mouseX, double mouseY) {
+    double panelW = Math.min(600, width * 0.7);
+    double panelH = Math.min(450, height * 0.75);
+    double panelX = (width - panelW) / 2;
+    double panelY = (height - panelH) / 2;
+    double slotW = (panelW - 60) / 2;
+    double slotH = 55;
+    double startX = panelX + 20;
+    double startY = panelY + 60;
+    double gapX = 20;
+    double gapY = 12;
+
+    for (int i = 0; i < 10; i++) {
+      int col = i % 2;
+      int row = i / 2;
+      double slotX = startX + col * (slotW + gapX);
+      double slotY = startY + row * (slotH + gapY);
+      if (mouseX >= slotX && mouseX <= slotX + slotW && mouseY >= slotY && mouseY <= slotY + slotH) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   private Image loadImage(String path) {
     if (path == null) return null;
     

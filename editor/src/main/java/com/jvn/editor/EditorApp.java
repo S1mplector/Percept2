@@ -130,6 +130,11 @@ public class EditorApp extends Application {
   private void doRunProject(Stage stage) {
     File root = ensureProjectRoot(stage);
     if (root == null) return;
+    doRunProject(root);
+  }
+
+  private void doRunProject(File root) {
+    if (root == null) return;
     Properties mf = loadManifest(root);
     if (mf == null) { status.setText("jvn.project not found"); return; }
     String type = mf.getProperty("type", "gradle").trim();
@@ -139,30 +144,7 @@ public class EditorApp extends Application {
       String args = mf.getProperty("args", "-x test");
       runGradle(root, composeGradleTask(path, task), args == null ? new String[]{} : args.split("\\s+"), "Run Project");
     } else if ("vn".equalsIgnoreCase(type)) {
-      // Open entry VNS and start preview from its label
-      String entryVns = mf.getProperty("entryVns", "scripts/story/prologue.vns");
-      String entryLabel = mf.getProperty("entryLabel", "start");
-      File f = new File(root, entryVns);
-      if (!f.exists() && "scripts/story/prologue.vns".equals(entryVns)) {
-        f = new File(root, "scripts/prologue.vns");
-      }
-      if (f.exists()) {
-        // Set project root first so newly opened tabs inherit it
-        this.projectRoot = root;
-        if (projView != null) projView.setRootDirectory(root);
-        if (timelineView != null) {
-          String tf = mf.getProperty("timeline", "story.timeline");
-          timelineView.setTimelineFile(new File(root, tf));
-          timelineView.setProjectRoot(root);
-        }
-        if (settingsEditor != null) settingsEditor.setProjectRoot(root);
-        openVnsFile(f);
-        applyProjectRootToTabs();
-        javafx.application.Platform.runLater(() -> { FileEditorTab ft = getActiveFileTab(); if (ft != null) ft.runFromLabel(entryLabel); });
-        status.setText("Opened VN project: " + root.getName());
-      } else {
-        status.setText("Entry VNS not found: " + entryVns);
-      }
+      runVnProjectInRuntime(root, mf);
     } else if ("jes".equalsIgnoreCase(type)) {
       // For JES-only projects: open the entry script and set as project
       String entry = mf.getProperty("entry", "scripts/main.jes");
@@ -249,6 +231,66 @@ public class EditorApp extends Application {
     } catch (Exception ex) {
       status.setText("Run failed");
     }
+  }
+
+  private void runVnProjectInRuntime(File root, Properties mf) {
+    String entryVns = mf.getProperty("entryVns", "scripts/story/prologue.vns").trim();
+    String runtimeScript = normalizeRuntimeScriptPath(entryVns);
+    File workspaceRoot = resolveWorkspaceRoot();
+    if (workspaceRoot == null) {
+      status.setText("Cannot locate JVN workspace root");
+      return;
+    }
+
+    StringBuilder runtimeArgs = new StringBuilder();
+    runtimeArgs.append("--assets ").append(quoteCliArg(root.getAbsolutePath()));
+    runtimeArgs.append(" --script ").append(quoteCliArg(runtimeScript));
+
+    String title = mf.getProperty("name", "").trim();
+    if (!title.isBlank()) runtimeArgs.append(" --title ").append(quoteCliArg(title));
+
+    String width = mf.getProperty("width", "").trim();
+    if (!width.isBlank()) runtimeArgs.append(" --width ").append(width);
+    String height = mf.getProperty("height", "").trim();
+    if (!height.isBlank()) runtimeArgs.append(" --height ").append(height);
+
+    runGradle(workspaceRoot, ":runtime:run", new String[] { "--args=" + runtimeArgs }, "JVN Runtime");
+    status.setText("Launching runtime: " + root.getName());
+  }
+
+  private String normalizeRuntimeScriptPath(String entryVns) {
+    if (entryVns == null || entryVns.isBlank()) return "story/prologue.vns";
+    String script = entryVns.trim().replace('\\', '/');
+    if (script.startsWith("./")) script = script.substring(2);
+    if (script.startsWith("game/scripts/")) script = script.substring("game/scripts/".length());
+    if (script.startsWith("scripts/")) script = script.substring("scripts/".length());
+    return script;
+  }
+
+  private String quoteCliArg(String raw) {
+    String v = raw == null ? "" : raw.replace("\\", "\\\\").replace("\"", "\\\"");
+    return "\"" + v + "\"";
+  }
+
+  private File resolveWorkspaceRoot() {
+    File fromCwd = findGradleRoot(new File(System.getProperty("user.dir", ".")));
+    if (fromCwd != null) return fromCwd;
+    return findGradleRoot(new File("."));
+  }
+
+  private File findGradleRoot(File start) {
+    File cur = start;
+    while (cur != null) {
+      File gradlew = new File(cur, "gradlew");
+      File gradlewBat = new File(cur, "gradlew.bat");
+      File settings = new File(cur, "settings.gradle.kts");
+      File settingsGroovy = new File(cur, "settings.gradle");
+      if ((gradlew.exists() || gradlewBat.exists()) && (settings.exists() || settingsGroovy.exists())) {
+        return cur;
+      }
+      cur = cur.getParentFile();
+    }
+    return null;
   }
 
   private void doNewProject(Stage stage) {
@@ -495,6 +537,23 @@ public class EditorApp extends Application {
       } else {
         try { java.awt.Desktop.getDesktop().open(f); } catch (Exception ignored) {}
       }
+    });
+    projView.setOnRunProject(projectDir -> {
+      if (projectDir == null) return;
+      this.projectRoot = projectDir;
+      if (projView != null) projView.setRootDirectory(projectDir);
+      Properties mf = loadManifest(projectDir);
+      if (timelineView != null) {
+        String tf = mf != null ? mf.getProperty("timeline", "story.timeline") : "story.timeline";
+        timelineView.setTimelineFile(new File(projectDir, tf));
+        timelineView.setProjectRoot(projectDir);
+      }
+      if (settingsEditor != null) settingsEditor.setProjectRoot(projectDir);
+      if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(projectDir);
+      if (mapEditorView != null) mapEditorView.setProjectRoot(projectDir);
+      applyProjectRootToTabs();
+      selectProjectTab();
+      doRunProject(projectDir);
     });
     TabPane sideTabs = new TabPane();
     tabProject = new Tab("Project", projView); tabProject.setClosable(false);

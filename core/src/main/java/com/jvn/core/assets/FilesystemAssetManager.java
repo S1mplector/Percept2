@@ -55,7 +55,69 @@ public class FilesystemAssetManager implements AssetManager {
   }
 
   private Path resolve(AssetType type, String name) {
-    String rel = AssetPaths.build(type, name);
-    return root.resolve(rel);
+    String normalized = normalize(name);
+    Path mapped = root.resolve(AssetPaths.build(type, normalized));
+    if (Files.exists(mapped)) return mapped;
+
+    // Allow direct project-relative paths (e.g. scripts/story/prologue.vns, assets/backgrounds/bg.png).
+    if (!normalized.isEmpty()) {
+      Path direct = root.resolve(normalized);
+      if (Files.exists(direct)) return direct;
+    }
+
+    return switch (type) {
+      case SCRIPT -> resolveScriptFallback(normalized, mapped);
+      case IMAGE -> resolveImageFallback(normalized, mapped);
+      case AUDIO -> resolveAudioFallback(normalized, mapped);
+      case FONT -> resolveFontFallback(normalized, mapped);
+      default -> mapped;
+    };
+  }
+
+  private Path resolveScriptFallback(String normalized, Path fallback) {
+    String rel = stripKnownPrefix(normalized, "game/scripts/", "scripts/");
+    Path p = root.resolve("scripts").resolve(rel);
+    return Files.exists(p) ? p : fallback;
+  }
+
+  private Path resolveImageFallback(String normalized, Path fallback) {
+    String rel = stripKnownPrefix(normalized, "game/images/", "images/", "assets/");
+    Path p = root.resolve("assets").resolve(rel);
+    if (Files.exists(p)) return p;
+    Path images = root.resolve("assets/images").resolve(rel);
+    return Files.exists(images) ? images : fallback;
+  }
+
+  private Path resolveAudioFallback(String normalized, Path fallback) {
+    String rel = stripKnownPrefix(normalized, "game/audio/", "audio/", "assets/audio/");
+    Path p = root.resolve("assets/audio").resolve(rel);
+    if (Files.exists(p)) return p;
+    Path audio = root.resolve("audio").resolve(rel);
+    return Files.exists(audio) ? audio : fallback;
+  }
+
+  private Path resolveFontFallback(String normalized, Path fallback) {
+    String rel = stripKnownPrefix(normalized, "game/fonts/", "fonts/", "assets/fonts/");
+    Path p = root.resolve("assets/fonts").resolve(rel);
+    if (Files.exists(p)) return p;
+    Path fonts = root.resolve("fonts").resolve(rel);
+    return Files.exists(fonts) ? fonts : fallback;
+  }
+
+  private String normalize(String name) {
+    if (name == null) return "";
+    String n = name.replace('\\', '/');
+    while (n.startsWith("/")) n = n.substring(1);
+    return n;
+  }
+
+  private String stripKnownPrefix(String value, String... prefixes) {
+    if (value == null || value.isEmpty()) return "";
+    for (String prefix : prefixes) {
+      if (prefix != null && !prefix.isEmpty() && value.startsWith(prefix)) {
+        return value.substring(prefix.length());
+      }
+    }
+    return value;
   }
 }
