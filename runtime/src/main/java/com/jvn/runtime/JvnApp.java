@@ -39,36 +39,83 @@ public class JvnApp {
 
     for (int i = 0; i < args.length; i++) {
       String a = args[i];
+
+      String inlineTitle = inlineOptionValue(a, "--title");
+      if (inlineTitle != null) {
+        builder.title(cleanCliValue(inlineTitle));
+        continue;
+      }
+      String inlineWidth = inlineOptionValue(a, "--width");
+      if (inlineWidth != null) {
+        builder.width(Integer.parseInt(cleanCliValue(inlineWidth)));
+        continue;
+      }
+      String inlineHeight = inlineOptionValue(a, "--height");
+      if (inlineHeight != null) {
+        builder.height(Integer.parseInt(cleanCliValue(inlineHeight)));
+        continue;
+      }
+      String inlineScript = inlineOptionValue(a, "--script");
+      if (inlineScript != null) {
+        scriptName = cleanCliValue(inlineScript);
+        continue;
+      }
+      String inlineLocale = inlineOptionValue(a, "--locale");
+      if (inlineLocale != null) {
+        locale = cleanCliValue(inlineLocale);
+        continue;
+      }
+      String inlineUi = inlineOptionValue(a, "--ui");
+      if (inlineUi != null) {
+        ui = cleanCliValue(inlineUi);
+        continue;
+      }
+      String inlineJes = inlineOptionValue(a, "--jes");
+      if (inlineJes != null) {
+        jesScript = cleanCliValue(inlineJes);
+        continue;
+      }
+      String inlineAudio = inlineOptionValue(a, "--audio");
+      if (inlineAudio != null) {
+        audioBackend = cleanCliValue(inlineAudio);
+        continue;
+      }
+      String inlineAssets = inlineOptionValue(a, "--assets");
+      if (inlineAssets != null) {
+        assetRoot = cleanCliValue(inlineAssets);
+        continue;
+      }
+
       switch (a) {
         case "--title":
-          if (i + 1 < args.length) builder.title(args[++i]);
+          if (i + 1 < args.length) builder.title(cleanCliValue(args[++i]));
           break;
         case "--width":
-          if (i + 1 < args.length) builder.width(Integer.parseInt(args[++i]));
+          if (i + 1 < args.length) builder.width(Integer.parseInt(cleanCliValue(args[++i])));
           break;
         case "--height":
-          if (i + 1 < args.length) builder.height(Integer.parseInt(args[++i]));
+          if (i + 1 < args.length) builder.height(Integer.parseInt(cleanCliValue(args[++i])));
           break;
         case "--script":
-          if (i + 1 < args.length) scriptName = args[++i];
+          if (i + 1 < args.length) scriptName = cleanCliValue(args[++i]);
           break;
         case "--locale":
-          if (i + 1 < args.length) locale = args[++i];
+          if (i + 1 < args.length) locale = cleanCliValue(args[++i]);
           break;
         case "--billiards":
           launchBilliards = true;
           break;
         case "--ui":
-          if (i + 1 < args.length) ui = args[++i];
+          if (i + 1 < args.length) ui = cleanCliValue(args[++i]);
           break;
         case "--jes":
-          if (i + 1 < args.length) jesScript = args[++i];
+          if (i + 1 < args.length) jesScript = cleanCliValue(args[++i]);
           break;
         case "--audio":
-          if (i + 1 < args.length) audioBackend = args[++i];
+          if (i + 1 < args.length) audioBackend = cleanCliValue(args[++i]);
           break;
         case "--assets":
-          if (i + 1 < args.length) assetRoot = args[++i];
+          if (i + 1 < args.length) assetRoot = cleanCliValue(args[++i]);
           break;
         default:
           log.warn("Unknown argument: {}", a);
@@ -142,6 +189,25 @@ public class JvnApp {
     } else {
       FxLauncher.launch(engine);
     }
+  }
+
+  private static String inlineOptionValue(String arg, String option) {
+    if (arg == null || option == null || option.isEmpty()) return null;
+    String prefix = option + "=";
+    if (!arg.startsWith(prefix)) return null;
+    return arg.substring(prefix.length());
+  }
+
+  private static String cleanCliValue(String raw) {
+    if (raw == null) return "";
+    String value = raw.trim();
+    while (value.length() >= 2) {
+      boolean doubleQuoted = value.startsWith("\"") && value.endsWith("\"");
+      boolean singleQuoted = value.startsWith("'") && value.endsWith("'");
+      if (!doubleQuoted && !singleQuoted) break;
+      value = value.substring(1, value.length() - 1).trim();
+    }
+    return value;
   }
 
   private static void loadJes(Engine engine, String jesScript) {

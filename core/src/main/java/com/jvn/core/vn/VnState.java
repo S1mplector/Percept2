@@ -87,6 +87,7 @@ public class VnState {
   }
 
   public void showCharacter(CharacterPosition position, String characterId, String expression) {
+    removeOtherSlotsForCharacter(characterId, position);
     visibleCharacters.put(position, new CharacterSlot(characterId, expression));
     CharacterVisual visual = ensureCharacterVisual(position);
     visual.setImmediate(1.0, 0.0, 0.0);
@@ -103,6 +104,7 @@ public class VnState {
   }
 
   public void showCharacterAnimated(CharacterPosition position, String characterId, String expression) {
+    removeOtherSlotsForCharacter(characterId, position);
     visibleCharacters.put(position, new CharacterSlot(characterId, expression));
     CharacterVisual visual = ensureCharacterVisual(position);
     double startX = entranceOffsetX(position);
@@ -135,6 +137,24 @@ public class VnState {
 
   private CharacterVisual ensureCharacterVisual(CharacterPosition position) {
     return characterVisuals.computeIfAbsent(position, k -> new CharacterVisual());
+  }
+
+  /**
+   * A character should only occupy one slot at a time. If a character is re-shown at a new
+   * position, clear any older slot to avoid duplicate rendering.
+   */
+  private void removeOtherSlotsForCharacter(String characterId, CharacterPosition keepPosition) {
+    if (characterId == null || characterId.isBlank() || visibleCharacters.isEmpty()) return;
+    var it = visibleCharacters.entrySet().iterator();
+    while (it.hasNext()) {
+      var entry = it.next();
+      if (entry.getKey() == keepPosition) continue;
+      CharacterSlot slot = entry.getValue();
+      if (slot != null && characterId.equals(slot.getCharacterId())) {
+        characterVisuals.remove(entry.getKey());
+        it.remove();
+      }
+    }
   }
 
   private double entranceOffsetX(CharacterPosition position) {

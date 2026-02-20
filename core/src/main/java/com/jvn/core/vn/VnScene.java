@@ -233,16 +233,17 @@ public class VnScene implements Scene {
       state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr);
     }
     if (node.getCharacterToHide() != null) {
-      // Find and remove character
-      CharacterPosition posToRemove = null;
+      // Hide every matching slot to recover from stale duplicate state.
+      String characterIdToHide = node.getCharacterToHide();
+      java.util.List<CharacterPosition> positionsToRemove = new java.util.ArrayList<>();
       for (var entry : state.getVisibleCharacters().entrySet()) {
-        if (entry.getValue().getCharacterId().equals(node.getCharacterToHide())) {
-          posToRemove = entry.getKey();
-          break;
+        VnState.CharacterSlot slot = entry.getValue();
+        if (slot != null && characterIdToHide.equals(slot.getCharacterId())) {
+          positionsToRemove.add(entry.getKey());
         }
       }
-      if (posToRemove != null) {
-        state.hideCharacterAnimated(posToRemove);
+      for (CharacterPosition position : positionsToRemove) {
+        state.hideCharacterAnimated(position);
       }
     }
 

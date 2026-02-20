@@ -523,7 +523,6 @@ public class EditorApp extends Application {
     Button btnRedo = new Button("Redo"); btnRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
     Button btnApply = new Button("Apply Code"); btnApply.setOnAction(e -> applyCodeFromEditor());
     Button btnFullscreen = new Button("Fullscreen"); btnFullscreen.setOnAction(e -> toggleActiveEditorFullscreen());
-    Button btnRun = new Button("Run"); btnRun.setOnAction(e -> doRunProject(primaryStage));
     // Icons to the right of text
     btnOpen.setGraphic(icon("icon", "icon-open"));
     btnOpen.setContentDisplay(ContentDisplay.RIGHT);
@@ -563,11 +562,10 @@ public class EditorApp extends Application {
     btnRedo.setTooltip(new Tooltip("Redo (Shift+Cmd+Z)"));
     btnApply.setTooltip(new Tooltip("Apply Code (Cmd+Enter)"));
     btnFullscreen.setTooltip(new Tooltip("Toggle Editor Fullscreen (F11)"));
-    btnRun.setTooltip(new Tooltip("Run Project"));
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
     HBox row = new HBox(8);
-    row.getChildren().addAll(btnOpen, btnSave, btnUndo, btnRedo, btnApply, btnFullscreen, btnRun, spacer);
+    row.getChildren().addAll(btnOpen, btnSave, btnUndo, btnRedo, btnApply, btnFullscreen, spacer);
     VBox toolRows = new VBox(6, row);
     HBox.setHgrow(toolRows, Priority.ALWAYS);
     Label wordmark = new Label("JVN");
