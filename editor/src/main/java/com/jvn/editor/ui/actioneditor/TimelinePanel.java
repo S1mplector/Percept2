@@ -105,11 +105,15 @@ public class TimelinePanel extends VBox {
     }
 
     public void addKeyframeAtPlayhead() {
+        addKeyframeAtTime(project.getPlayheadMs());
+    }
+
+    public void addKeyframeAtTime(double time) {
         if (selectedEntity == null || selectedProperty == null) return;
         EntityTrack track = project.getTrack(selectedEntity);
         if (track == null) return;
 
-        double time = project.getPlayheadMs();
+        time = Math.max(0, time);
         double value = track.getValueAt(selectedProperty, time);
         Keyframe kf = new Keyframe(time, value);
         track.addKeyframe(selectedProperty, kf);
@@ -409,7 +413,10 @@ public class TimelinePanel extends VBox {
         if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2) {
             double y = e.getY();
             if (y > HEADER_HEIGHT) {
-                addKeyframeAtPlayhead();
+                selectTrackAt(y);
+                double time = (e.getX() - LABEL_WIDTH + scrollX) / pixelsPerMs;
+                time = Math.max(0, time);
+                addKeyframeAtTime(time);
             }
         }
     }
