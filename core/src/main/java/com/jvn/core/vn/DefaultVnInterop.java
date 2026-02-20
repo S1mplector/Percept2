@@ -5,6 +5,11 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jvn.core.animation.SceneAccessor;
+import com.jvn.core.animation.TimelineData;
+import com.jvn.core.animation.TimelineRegistry;
+import com.jvn.core.animation.TimelineRunner;
+
 /**
  * Basic interop implementation.
  * Providers:
@@ -17,6 +22,9 @@ import java.util.regex.Pattern;
 public class DefaultVnInterop implements VnInterop {
   private static final Pattern IF_GOTO_PATTERN = Pattern.compile("(?i)^if\\s+(.+?)\\s+goto\\s+(\\S+)\\s*$");
   private static final Pattern EXPR_GOTO_PATTERN = Pattern.compile("(?i)^(.+?)\\s+goto\\s+(\\S+)\\s*$");
+  private SceneAccessor sceneAccessor;
+
+  public void setSceneAccessor(SceneAccessor accessor) { this.sceneAccessor = accessor; }
 
   @Override
   public VnInteropResult handle(VnExternalCommand command, VnScene scene) {
@@ -34,6 +42,8 @@ public class DefaultVnInterop implements VnInterop {
       case "jes":
         scene.getState().showHudMessage("[jes] " + payload, 1500);
         return VnInteropResult.advance();
+      case "jes_timeline":
+        return handleJesTimeline(payload, scene);
       case "var":
         handleVar(payload, scene);
         return VnInteropResult.advance();
