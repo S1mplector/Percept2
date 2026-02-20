@@ -12,7 +12,10 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -98,6 +101,34 @@ public class PuppeteerWindow extends Stage {
             codePreview.setCode(CodeExporter.export(this.project));
         });
 
+        keyframeEditor.setOnDeleteRequested(() -> {
+            Keyframe kf = keyframeEditor.getCurrentKeyframe();
+            PropertyType prop = keyframeEditor.getCurrentProperty();
+            if (kf != null && prop != null && timelinePanel.getSelectedProperty() != null) {
+                String entity = timelinePanel.getSelectedEntity();
+                if (entity != null) {
+                    EntityTrack track = this.project.getTrack(entity);
+                    if (track != null) track.removeKeyframe(prop, kf);
+                }
+            }
+            timelinePanel.refresh();
+            codePreview.setCode(CodeExporter.export(this.project));
+        });
+
+        animationPreview.setOnEntitySelected(name -> {
+            timelinePanel.setSelectedEntity(name);
+            entitySelector.refresh(this.project);
+        });
+
+        animationPreview.setOnEntityMoved((name, pos) -> {
+            EntityTrack track = this.project.getOrCreateTrack(name);
+            double time = this.project.getPlayheadMs();
+            track.addKeyframe(PropertyType.X, new Keyframe(time, pos[0]));
+            track.addKeyframe(PropertyType.Y, new Keyframe(time, pos[1]));
+            timelinePanel.refresh();
+            codePreview.setCode(CodeExporter.export(this.project));
+        });
+
         codePreview.setOnCopy(() -> {
             String code = codePreview.getCode();
             copyToClipboard(code);
@@ -144,12 +175,16 @@ public class PuppeteerWindow extends Stage {
             timelinePanel.refresh();
         });
 
+        MenuButton presetMenu = buildPresetMenu();
+
         HBox toolbar = new HBox(8,
             btnRewind, btnPlay, btnPause, btnStop,
             new Separator(Orientation.VERTICAL),
             new Label("Duration:"), tfDuration, new Label("ms"), btnFitDuration,
             new Separator(Orientation.VERTICAL),
             cbLoop,
+            new Separator(Orientation.VERTICAL),
+            presetMenu,
             new Separator(Orientation.VERTICAL),
             lblTime,
             new Region(),
@@ -330,6 +365,33 @@ public class PuppeteerWindow extends Stage {
                 copyToClipboard(code);
             }
         );
+    }
+
+    private MenuButton buildPresetMenu() {
+        MenuButton mb = new MenuButton("Presets");
+        mb.setTooltip(new Tooltip("Apply animation preset to selected entity"));
+
+        String lastCategory = "";
+        for (AnimationPreset preset : AnimationPreset.ALL) {
+            if (!preset.getCategory().equals(lastCategory)) {
+                if (!lastCategory.isEmpty()) mb.getItems().add(new SeparatorMenuItem());
+                lastCategory = preset.getCategory();
+            }
+            MenuItem mi = new MenuItem(preset.getName() + "  [" + preset.getCategory() + "]");
+            mi.setOnAction(e -> applyPreset(preset));
+            mb.getItems().add(mi);
+        }
+        return mb;
+    }
+
+    private void applyPreset(AnimationPreset preset) {
+        String entity = timelinePanel.getSelectedEntity();
+        if (entity == null) return;
+        EntityTrack track = project.getOrCreateTrack(entity);
+        double startTime = project.getPlayheadMs();
+        preset.applyTo(track, startTime);
+        timelinePanel.refresh();
+        codePreview.setCode(CodeExporter.export(project));
     }
 
     private void copyToClipboard(String text) {

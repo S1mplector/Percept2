@@ -1,7 +1,11 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
 import com.jvn.core.graphics.Camera2D;
 import com.jvn.core.input.Input;
+import com.jvn.core.scene2d.Entity2D;
 import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
@@ -20,6 +24,15 @@ public class AnimationPreview extends VBox {
     private final Camera2D camera;
 
     private JesScene2D scene;
+    private AnimationProject project;
+
+    private Entity2D selectedEntity;
+    private String selectedEntityName;
+    private boolean draggingEntity = false;
+    private double dragEntityStartX, dragEntityStartY;
+
+    private Consumer<String> onEntitySelected;
+    private BiConsumer<String, double[]> onEntityMoved;
 
     public AnimationPreview() {
         canvas = new Canvas(600, 300);
@@ -57,6 +70,10 @@ public class AnimationPreview extends VBox {
         render();
     }
 
+    public void setProject(AnimationProject project) {
+        this.project = project;
+    }
+
     public JesScene2D getJesScene() { return scene; }
     public Camera2D getCamera() { return camera; }
 
@@ -72,9 +89,45 @@ public class AnimationPreview extends VBox {
         blitter.setViewport(w, h);
         if (scene != null) {
             scene.render(blitter, w, h);
+            drawMotionPaths();
+            if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
         } else {
             gc.setFill(Color.web("#6c7086"));
             gc.fillText("No scene loaded", w / 2 - 40, h / 2);
+        }
+    }
+
+    private void drawMotionPaths() {
+        if (project == null) return;
+        double z = camera.getZoom();
+
+        for (EntityTrack track : project.getTracks()) {
+            java.util.List<SplinePath.Point> controlPoints =
+                SplinePath.buildControlPoints(track, project.getTotalDurationMs());
+            if (controlPoints.size() < 2) continue;
+
+            java.util.List<SplinePath.Point> curve = SplinePath.catmullRom(controlPoints, 16);
+
+            gc.setStroke(Color.web("#89b4fa", 0.5));
+            gc.setLineWidth(1.5);
+            gc.setLineDashes(4, 3);
+            gc.beginPath();
+            boolean first = true;
+            for (SplinePath.Point pt : curve) {
+                double sx = (pt.x - camera.getX()) * z;
+                double sy = (pt.y - camera.getY()) * z;
+                if (first) { gc.moveTo(sx, sy); first = false; }
+                else gc.lineTo(sx, sy);
+            }
+            gc.stroke();
+            gc.setLineDashes((double[]) null);
+
+            gc.setFill(Color.web("#89b4fa", 0.8));
+            for (SplinePath.Point pt : controlPoints) {
+                double sx = (pt.x - camera.getX()) * z;
+                double sy = (pt.y - camera.getY()) * z;
+                gc.fillOval(sx - 3, sy - 3, 6, 6);
+            }
         }
     }
 
@@ -97,6 +150,36 @@ public class AnimationPreview extends VBox {
         }
     }
 
+    public void setOnEntitySelected(Consumer<String> callback) { this.onEntitySelected = callback; }
+    public void setOnEntityMoved(BiConsumer<String, double[]> callback) { this.onEntityMoved = callback; }
+
+    public Entity2D getSelectedEntity() { return selectedEntity; }
+
+    private String findEntityNameAt(double screenX, double screenY) {
+        if (scene == null) return null;
+        double z = camera.getZoom();
+        double worldX = camera.getX() + screenX / z;
+        double worldY = camera.getY() + screenY / z;
+
+        String closestName = null;
+        Entity2D closestEntity = null;
+        double closestDist = 40.0 / z;
+        for (var entry : scene.exportNamed().entrySet()) {
+            Entity2D entity = entry.getValue();
+            double dx = worldX - entity.getX();
+            double dy = worldY - entity.getY();
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < closestDist) {
+                closestDist = dist;
+                closestName = entry.getKey();
+                closestEntity = entity;
+            }
+        }
+        selectedEntity = closestEntity;
+        selectedEntityName = closestName;
+        return closestName;
+    }
+
     private void setupMouseControls() {
         canvas.setOnScroll(e -> {
             double factor = Math.pow(1.05, e.getDeltaY() / 40.0);
@@ -117,6 +200,23 @@ public class AnimationPreview extends VBox {
                 panning[0] = true;
                 panStart[0] = e.getX();
                 panStart[1] = e.getY();
+                return;
+            }
+
+            if (e.isPrimaryButtonDown()) {
+                String hitName = findEntityNameAt(e.getX(), e.getY());
+                if (hitName != null) {
+                    draggingEntity = true;
+                    dragEntityStartX = e.getX();
+                    dragEntityStartY = e.getY();
+                    if (onEntitySelected != null) onEntitySelected.accept(hitName);
+                    drawSelectionHighlight(selectedEntity);
+                } else {
+                    selectedEntity = null;
+                    selectedEntityName = null;
+                    draggingEntity = false;
+                }
+                render();
             }
         });
 
@@ -131,19 +231,49 @@ public class AnimationPreview extends VBox {
                     camera.getY() - dy / camera.getZoom()
                 );
                 render();
+            } else if (draggingEntity && selectedEntity != null) {
+                double z = camera.getZoom();
+                double dx = (e.getX() - dragEntityStartX) / z;
+                double dy = (e.getY() - dragEntityStartY) / z;
+                dragEntityStartX = e.getX();
+                dragEntityStartY = e.getY();
+                selectedEntity.setPosition(
+                    selectedEntity.getX() + dx,
+                    selectedEntity.getY() + dy
+                );
+                if (onEntityMoved != null && selectedEntityName != null) {
+                    onEntityMoved.accept(selectedEntityName,
+                        new double[]{selectedEntity.getX(), selectedEntity.getY()});
+                }
+                render();
             }
         });
 
         canvas.setOnMouseReleased(e -> {
             panning[0] = false;
+            draggingEntity = false;
         });
+    }
+
+    private void drawSelectionHighlight(Entity2D entity) {
+        if (entity == null) return;
+        double z = camera.getZoom();
+        double sx = (entity.getX() - camera.getX()) * z;
+        double sy = (entity.getY() - camera.getY()) * z;
+        double size = 30 * z;
+
+        gc.setStroke(Color.web("#f9e2af"));
+        gc.setLineWidth(2);
+        gc.setLineDashes(6, 4);
+        gc.strokeRect(sx - size / 2, sy - size / 2, size, size);
+        gc.setLineDashes((double[]) null);
     }
 
     public void fitToContent() {
         if (scene == null) return;
 
         double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
-        double maxX = Double.MIN_VALUE, maxY = Double.MIN_VALUE;
+        double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
 
         for (var entity : scene.getChildren()) {
             double x = entity.getX();

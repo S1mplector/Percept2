@@ -6,21 +6,29 @@ import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 public class KeyframeEditor extends VBox {
     private final Label lblEntity;
     private final Label lblProperty;
     private final TextField tfTime;
+    private final Slider sliderTime;
     private final TextField tfValue;
+    private final Slider sliderValue;
     private final ComboBox<Easing.Type> cbEasing;
     private final Button btnDelete;
+    private final Button btnResetValue;
 
     private Keyframe currentKeyframe;
     private PropertyType currentProperty;
     private Runnable onKeyframeChanged;
+    private Runnable onDeleteRequested;
 
     public KeyframeEditor() {
         setSpacing(8);
@@ -37,29 +45,45 @@ public class KeyframeEditor extends VBox {
 
         lblEntity = new Label("-");
         lblProperty = new Label("-");
+
         tfTime = new TextField();
-        tfTime.setPrefWidth(80);
+        tfTime.setPrefWidth(70);
+        sliderTime = new Slider(0, 3000, 0);
+        sliderTime.setTooltip(new Tooltip("Drag to adjust keyframe time"));
+        HBox timeRow = new HBox(6, tfTime, sliderTime);
+        HBox.setHgrow(sliderTime, Priority.ALWAYS);
+
         tfValue = new TextField();
-        tfValue.setPrefWidth(80);
+        tfValue.setPrefWidth(70);
+        sliderValue = new Slider(-2000, 2000, 0);
+        sliderValue.setTooltip(new Tooltip("Drag to adjust value"));
+        HBox valueRow = new HBox(6, tfValue, sliderValue);
+        HBox.setHgrow(sliderValue, Priority.ALWAYS);
 
         cbEasing = new ComboBox<>();
         cbEasing.getItems().addAll(Easing.Type.values());
         cbEasing.setValue(Easing.Type.LINEAR);
 
         btnDelete = new Button("Delete");
-        btnDelete.setStyle("-fx-background-color: #f38ba8;");
+        btnDelete.setStyle("-fx-background-color: #f38ba8; -fx-text-fill: #1e1e2e;");
+
+        btnResetValue = new Button("Reset");
+        btnResetValue.setTooltip(new Tooltip("Reset to property default"));
+        btnResetValue.setStyle("-fx-background-color: #585b70; -fx-text-fill: #cdd6f4;");
+
+        HBox actionRow = new HBox(6, btnDelete, btnResetValue);
 
         grid.add(new Label("Entity:"), 0, 0);
         grid.add(lblEntity, 1, 0);
         grid.add(new Label("Property:"), 0, 1);
         grid.add(lblProperty, 1, 1);
         grid.add(new Label("Time (ms):"), 0, 2);
-        grid.add(tfTime, 1, 2);
+        grid.add(timeRow, 1, 2);
         grid.add(new Label("Value:"), 0, 3);
-        grid.add(tfValue, 1, 3);
+        grid.add(valueRow, 1, 3);
         grid.add(new Label("Easing:"), 0, 4);
         grid.add(cbEasing, 1, 4);
-        grid.add(btnDelete, 1, 5);
+        grid.add(actionRow, 1, 5);
 
         for (var node : grid.getChildren()) {
             if (node instanceof Label l) l.setStyle("-fx-text-fill: #a6adc8;");
@@ -70,11 +94,46 @@ public class KeyframeEditor extends VBox {
         tfTime.setOnAction(e -> applyChanges());
         tfValue.setOnAction(e -> applyChanges());
         cbEasing.setOnAction(e -> applyChanges());
-        btnDelete.setOnAction(e -> {
-            if (currentKeyframe != null && onKeyframeChanged != null) {
-                currentKeyframe = null;
-                onKeyframeChanged.run();
+
+        sliderTime.valueProperty().addListener((obs, oldV, newV) -> {
+            if (currentKeyframe == null || !sliderTime.isValueChanging()) return;
+            currentKeyframe.setTimeMs(newV.doubleValue());
+            tfTime.setText(String.format("%.0f", newV.doubleValue()));
+            if (onKeyframeChanged != null) onKeyframeChanged.run();
+        });
+        sliderTime.valueChangingProperty().addListener((obs, wasChanging, isChanging) -> {
+            if (!isChanging && currentKeyframe != null) {
+                if (onKeyframeChanged != null) onKeyframeChanged.run();
             }
+        });
+
+        sliderValue.valueProperty().addListener((obs, oldV, newV) -> {
+            if (currentKeyframe == null || !sliderValue.isValueChanging()) return;
+            currentKeyframe.setValue(newV.doubleValue());
+            tfValue.setText(String.format("%.2f", newV.doubleValue()));
+            if (onKeyframeChanged != null) onKeyframeChanged.run();
+        });
+        sliderValue.valueChangingProperty().addListener((obs, wasChanging, isChanging) -> {
+            if (!isChanging && currentKeyframe != null) {
+                if (onKeyframeChanged != null) onKeyframeChanged.run();
+            }
+        });
+
+        btnResetValue.setOnAction(e -> {
+            if (currentKeyframe != null && currentProperty != null) {
+                currentKeyframe.setValue(currentProperty.getDefaultValue());
+                tfValue.setText(String.format("%.2f", currentProperty.getDefaultValue()));
+                sliderValue.setValue(currentProperty.getDefaultValue());
+                if (onKeyframeChanged != null) onKeyframeChanged.run();
+            }
+        });
+        btnDelete.setOnAction(e -> {
+            if (currentKeyframe != null && onDeleteRequested != null) {
+                onDeleteRequested.run();
+            }
+            currentKeyframe = null;
+            currentProperty = null;
+            setFieldsDisabled(true);
         });
 
         setFieldsDisabled(true);
@@ -96,6 +155,9 @@ public class KeyframeEditor extends VBox {
             tfTime.setText(String.format("%.0f", kf.getTimeMs()));
             tfValue.setText(String.format("%.2f", kf.getValue()));
             cbEasing.setValue(kf.getEasing());
+            sliderTime.setValue(kf.getTimeMs());
+            configureSliderForProperty(property);
+            sliderValue.setValue(kf.getValue());
             setFieldsDisabled(false);
         }
     }
@@ -108,7 +170,12 @@ public class KeyframeEditor extends VBox {
         this.onKeyframeChanged = callback;
     }
 
+    public void setOnDeleteRequested(Runnable callback) {
+        this.onDeleteRequested = callback;
+    }
+
     public Keyframe getCurrentKeyframe() { return currentKeyframe; }
+    public PropertyType getCurrentProperty() { return currentProperty; }
 
     private void applyChanges() {
         if (currentKeyframe == null) return;
@@ -128,10 +195,31 @@ public class KeyframeEditor extends VBox {
         if (onKeyframeChanged != null) onKeyframeChanged.run();
     }
 
+    private void configureSliderForProperty(PropertyType prop) {
+        if (prop == null) return;
+        switch (prop) {
+            case X, Y, CAMERA_X, CAMERA_Y -> {
+                sliderValue.setMin(-2000); sliderValue.setMax(2000);
+            }
+            case ROTATION -> {
+                sliderValue.setMin(-360); sliderValue.setMax(360);
+            }
+            case SCALE_X, SCALE_Y, CAMERA_ZOOM -> {
+                sliderValue.setMin(0.01); sliderValue.setMax(5.0);
+            }
+            case ALPHA -> {
+                sliderValue.setMin(0.0); sliderValue.setMax(1.0);
+            }
+        }
+    }
+
     private void setFieldsDisabled(boolean disabled) {
         tfTime.setDisable(disabled);
+        sliderTime.setDisable(disabled);
         tfValue.setDisable(disabled);
+        sliderValue.setDisable(disabled);
         cbEasing.setDisable(disabled);
         btnDelete.setDisable(disabled);
+        btnResetValue.setDisable(disabled);
     }
 }

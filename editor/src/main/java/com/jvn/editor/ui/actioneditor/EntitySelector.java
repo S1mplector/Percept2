@@ -1,17 +1,24 @@
 package com.jvn.editor.ui.actioneditor;
 
-import javafx.collections.FXCollections;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
 import javafx.geometry.Insets;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.TreeCell;
+import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public class EntitySelector extends VBox {
     private final TextField filterField;
@@ -155,7 +162,7 @@ public class EntitySelector extends VBox {
 
         cm.getItems().addAll(addToGroupMenu, removeFromGroup, new SeparatorMenuItem(), deleteItem);
 
-        cm.setOnShowing(e -> {
+        cm.setOnShowing(e -> { 
             addToGroupMenu.getItems().clear();
             if (project != null) {
                 for (EntityGroup g : project.getGroups()) {
@@ -177,6 +184,19 @@ public class EntitySelector extends VBox {
             if (sel != null && project != null) {
                 String name = sel.getValue().replace("📁 ", "");
                 project.removeEntityFromGroup(name);
+                refresh(project);
+            }
+        });
+
+        deleteItem.setOnAction(e -> {
+            TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
+            if (sel != null && project != null) {
+                String name = sel.getValue().replace("📁 ", "");
+                if (project.getGroup(name) != null) {
+                    project.removeGroup(name);
+                } else {
+                    project.removeTrack(name);
+                }
                 refresh(project);
             }
         });

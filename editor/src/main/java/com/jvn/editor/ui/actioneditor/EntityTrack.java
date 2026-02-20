@@ -81,7 +81,9 @@ public class EntityTrack {
             Keyframe k0 = list.get(i);
             Keyframe k1 = list.get(i + 1);
             if (timeMs >= k0.getTimeMs() && timeMs <= k1.getTimeMs()) {
-                double t = (timeMs - k0.getTimeMs()) / (k1.getTimeMs() - k0.getTimeMs());
+                double span = k1.getTimeMs() - k0.getTimeMs();
+                if (span < 0.001) return k1.getValue();
+                double t = (timeMs - k0.getTimeMs()) / span;
                 double easedT = com.jvn.core.animation.Easing.apply(k1.getEasing(), t);
                 return k0.getValue() + (k1.getValue() - k0.getValue()) * easedT;
             }

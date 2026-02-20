@@ -27,6 +27,7 @@ import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
 import com.jvn.editor.ui.WelcomeCenterView;
+import com.jvn.editor.ui.actioneditor.PuppeteerWindow;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
 
@@ -511,7 +512,7 @@ public class EditorApp extends Application {
     menuEdit.getItems().addAll(miUndo, miRedo);
     
     Menu menuTools = new Menu("Tools");
-    MenuItem miActionEditor = new MenuItem("Action Editor");
+    MenuItem miActionEditor = new MenuItem("Puppeteer");
     miActionEditor.setOnAction(e -> openActionEditor());
     miActionEditor.setAccelerator(new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     menuTools.getItems().addAll(miActionEditor);
@@ -1628,9 +1629,9 @@ public class EditorApp extends Application {
   }
 
   private void openActionEditor() {
-    ActionEditorWindow actionEditor = new ActionEditorWindow();
-    actionEditor.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
-    actionEditor.show();
+    PuppeteerWindow puppeteer = new PuppeteerWindow();
+    puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
+    puppeteer.show();
   }
 
   private String resolveEditorVersion() {

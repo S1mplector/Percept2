@@ -1,6 +1,8 @@
 package com.jvn.editor.ui.actioneditor;
 
-import javafx.geometry.Insets;
+import java.util.List;
+import java.util.function.Consumer;
+
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ScrollPane;
@@ -11,9 +13,6 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-
-import java.util.List;
-import java.util.function.Consumer;
 
 public class TimelinePanel extends VBox {
     private static final double TRACK_HEIGHT = 24;
@@ -88,6 +87,7 @@ public class TimelinePanel extends VBox {
         render();
     }
 
+    public String getSelectedEntity() { return selectedEntity; }
     public PropertyType getSelectedProperty() { return selectedProperty; }
 
     public void setPlayhead(double timeMs) {
@@ -177,7 +177,7 @@ public class TimelinePanel extends VBox {
     }
 
     private void drawTracks(GraphicsContext gc, double width, double height) {
-        double y = HEADER_HEIGHT;
+        double y = HEADER_HEIGHT - scrollY;
 
         for (EntityTrack track : project.getTracks()) {
             String entityName = track.getEntityName();
@@ -342,6 +342,8 @@ public class TimelinePanel extends VBox {
             render();
         } else {
             scrollX = Math.max(0, scrollX - e.getDeltaX());
+            double maxScrollY = Math.max(0, computeRequiredHeight() - canvas.getHeight());
+            scrollY = Math.max(0, Math.min(maxScrollY, scrollY - e.getDeltaY()));
             render();
         }
     }
@@ -355,7 +357,7 @@ public class TimelinePanel extends VBox {
     }
 
     private Keyframe findKeyframeAt(double mx, double my) {
-        double y = HEADER_HEIGHT;
+        double y = HEADER_HEIGHT - scrollY;
 
         for (EntityTrack track : project.getTracks()) {
             y += TRACK_HEIGHT; // entity header
@@ -381,7 +383,7 @@ public class TimelinePanel extends VBox {
     }
 
     private void selectTrackAt(double my) {
-        double y = HEADER_HEIGHT;
+        double y = HEADER_HEIGHT - scrollY;
 
         for (EntityTrack track : project.getTracks()) {
             if (my >= y && my < y + TRACK_HEIGHT) {

@@ -58,6 +58,14 @@ public class EntityGroup {
         copy.expanded = expanded;
         copy.childEntityNames.addAll(childEntityNames);
         copy.childGroupNames.addAll(childGroupNames);
+        for (PropertyType p : PropertyType.values()) {
+            List<Keyframe> src = groupTrack.getKeyframes(p);
+            if (!src.isEmpty()) {
+                List<Keyframe> dst = new ArrayList<>();
+                for (Keyframe kf : src) dst.add(kf.copy());
+                copy.groupTrack.setKeyframes(p, dst);
+            }
+        }
         return copy;
     }
 }

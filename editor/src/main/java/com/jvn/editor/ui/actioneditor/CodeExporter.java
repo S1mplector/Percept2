@@ -1,12 +1,12 @@
 package com.jvn.editor.ui.actioneditor;
 
-import com.jvn.core.animation.Easing;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+
+import com.jvn.core.animation.Easing;
 
 public class CodeExporter {
 
@@ -19,16 +19,31 @@ public class CodeExporter {
         List<TimelineEvent> events = collectEvents(project);
         events.sort(Comparator.comparingDouble(e -> e.startTime));
 
-        double currentTime = 0;
+        Map<Double, List<TimelineEvent>> byTime = new TreeMap<>();
+        for (TimelineEvent e : events) {
+            double rounded = Math.round(e.startTime * 10.0) / 10.0;
+            byTime.computeIfAbsent(rounded, k -> new ArrayList<>()).add(e);
+        }
 
-        for (TimelineEvent event : events) {
-            if (event.startTime > currentTime + 0.5) {
-                double waitMs = event.startTime - currentTime;
-                sb.append("  wait ").append(formatNumber(waitMs)).append("\n");
+        double currentTime = 0;
+        for (Map.Entry<Double, List<TimelineEvent>> entry : byTime.entrySet()) {
+            double time = entry.getKey();
+            List<TimelineEvent> group = entry.getValue();
+
+            if (time > currentTime + 0.5) {
+                sb.append("  wait ").append(formatNumber(time - currentTime)).append("\n");
             }
 
-            sb.append(formatEvent(event));
-            currentTime = event.startTime;
+            if (group.size() == 1) {
+                sb.append(formatEvent(group.get(0)));
+            } else {
+                sb.append("  parallel {\n");
+                for (TimelineEvent ev : group) {
+                    sb.append("  ").append(formatEvent(ev));
+                }
+                sb.append("  }\n");
+            }
+            currentTime = time;
         }
 
         sb.append("}\n");

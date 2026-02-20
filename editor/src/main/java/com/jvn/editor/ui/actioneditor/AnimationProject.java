@@ -18,6 +18,13 @@ public class AnimationProject {
     private final List<String> rootEntityNames = new ArrayList<>();
     private final List<String> rootGroupNames = new ArrayList<>();
 
+    private final List<AudioCue> audioCues = new ArrayList<>();
+
+    private double loopStartMs = -1;
+    private double loopEndMs = -1;
+
+    private Map<String, Map<PropertyType, Double>> initialSnapshot;
+
     public AnimationProject() {}
 
     public String getName() { return name; }
@@ -39,6 +46,42 @@ public class AnimationProject {
     public boolean isLooping() { return looping; }
     public void setLooping(boolean looping) { this.looping = looping; }
 
+    public double getLoopStartMs() { return loopStartMs; }
+    public double getLoopEndMs() { return loopEndMs; }
+    public boolean hasLoopRegion() { return loopStartMs >= 0 && loopEndMs > loopStartMs; }
+    public void setLoopRegion(double startMs, double endMs) {
+        this.loopStartMs = Math.max(0, startMs);
+        this.loopEndMs = Math.max(this.loopStartMs + 1, endMs);
+    }
+    public void clearLoopRegion() {
+        this.loopStartMs = -1;
+        this.loopEndMs = -1;
+    }
+
+    public List<AudioCue> getAudioCues() { return Collections.unmodifiableList(audioCues); }
+    public void addAudioCue(AudioCue cue) {
+        if (cue != null) {
+            audioCues.add(cue);
+            audioCues.sort(AudioCue::compareTo);
+        }
+    }
+    public void removeAudioCue(AudioCue cue) { audioCues.remove(cue); }
+
+    public void captureInitialSnapshot() {
+        initialSnapshot = new LinkedHashMap<>();
+        for (Map.Entry<String, EntityTrack> entry : entityTracks.entrySet()) {
+            Map<PropertyType, Double> props = new LinkedHashMap<>();
+            for (PropertyType p : PropertyType.values()) {
+                props.put(p, entry.getValue().getValueAt(p, 0));
+            }
+            initialSnapshot.put(entry.getKey(), props);
+        }
+    }
+
+    public Map<String, Map<PropertyType, Double>> getInitialSnapshot() {
+        return initialSnapshot;
+    }
+
     public EntityTrack getTrack(String entityName) { return entityTracks.get(entityName); }
 
     public EntityTrack getOrCreateTrack(String entityName) {
@@ -55,8 +98,12 @@ public class AnimationProject {
     }
 
     public void removeTrack(String entityName) {
-        entityTracks.remove(entityName);
+        EntityTrack track = entityTracks.remove(entityName);
         rootEntityNames.remove(entityName);
+        if (track != null && track.hasParent()) {
+            EntityGroup g = groups.get(track.getParentGroupName());
+            if (g != null) g.removeChildEntity(entityName);
+        }
     }
 
     public Iterable<EntityTrack> getTracks() { return entityTracks.values(); }
@@ -83,7 +130,17 @@ public class AnimationProject {
         if (g != null) {
             for (String child : g.getChildEntityNames()) {
                 EntityTrack t = entityTracks.get(child);
-                if (t != null) t.setParentGroupName(null);
+                if (t != null) {
+                    t.setParentGroupName(null);
+                    if (!rootEntityNames.contains(child)) rootEntityNames.add(child);
+                }
+            }
+            for (String childGroup : g.getChildGroupNames()) {
+                EntityGroup cg = groups.get(childGroup);
+                if (cg != null) {
+                    cg.setParentGroupName(null);
+                    if (!rootGroupNames.contains(childGroup)) rootGroupNames.add(childGroup);
+                }
             }
         }
     }
@@ -124,6 +181,8 @@ public class AnimationProject {
         EntityGroup parent = groups.get(parentGroupName);
         if (child == null || parent == null || childGroupName.equals(parentGroupName)) return;
 
+        if (wouldCreateCycle(parentGroupName, childGroupName)) return;
+
         String oldParent = child.getParentGroupName();
         if (oldParent != null) {
             EntityGroup oldGroup = groups.get(oldParent);
@@ -133,6 +192,18 @@ public class AnimationProject {
 
         child.setParentGroupName(parentGroupName);
         parent.addChildGroup(childGroupName);
+    }
+
+    private boolean wouldCreateCycle(String current, String proposedAncestor) {
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        String cursor = current;
+        while (cursor != null) {
+            if (!visited.add(cursor)) return true;
+            if (cursor.equals(proposedAncestor)) return true;
+            EntityGroup g = groups.get(cursor);
+            cursor = (g != null) ? g.getParentGroupName() : null;
+        }
+        return false;
     }
 
     public double computeValueAt(String entityName, PropertyType property, double timeMs) {
@@ -150,13 +221,15 @@ public class AnimationProject {
     }
 
     private double computeGroupValueAt(String groupName, PropertyType property, double timeMs) {
-        EntityGroup group = groups.get(groupName);
-        if (group == null) return 0;
-
-        double value = group.getGroupTrack().getValueAt(property, timeMs);
-
-        if (group.hasParent()) {
-            value += computeGroupValueAt(group.getParentGroupName(), property, timeMs);
+        double value = 0;
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        String cursor = groupName;
+        while (cursor != null) {
+            if (!visited.add(cursor)) break;
+            EntityGroup group = groups.get(cursor);
+            if (group == null) break;
+            value += group.getGroupTrack().getValueAt(property, timeMs);
+            cursor = group.getParentGroupName();
         }
         return value;
     }
