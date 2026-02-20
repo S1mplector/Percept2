@@ -1,10 +1,13 @@
 package com.jvn.core.vn;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.jvn.core.animation.TimelineRunner;
 import com.jvn.core.tween.Easings;
 
 /**
@@ -42,6 +45,8 @@ public class VnState {
   private boolean saveSlotOverlayIsSaveMode = true; // true = save, false = load
   private int saveSlotSelected = 0; // 0-9 slots (0 = quick save)
   private Object rpgState = new com.jvn.core.rpg.RpgState(); // Optional RPG state payload (serializable)
+
+  private final List<TimelineRunner> activeTimelines = new ArrayList<>();
 
   private float screenShakeIntensity = 0f;
   private long screenShakeDurationMs = 0;
@@ -571,6 +576,24 @@ public class VnState {
       remainingMs = Math.max(0L, remainingMs - Math.max(0L, deltaMs));
       return remainingMs <= 0L;
     }
+  }
+
+  // --- Timeline runner management ---
+
+  public void addTimelineRunner(TimelineRunner runner) {
+    if (runner != null) activeTimelines.add(runner);
+  }
+
+  public void updateTimelineRunners(long deltaMs) {
+    activeTimelines.removeIf(r -> { r.update(deltaMs); return r.isFinished(); });
+  }
+
+  public boolean hasActiveTimelines() {
+    return !activeTimelines.isEmpty();
+  }
+
+  public List<TimelineRunner> getActiveTimelines() {
+    return activeTimelines;
   }
 
   private float clamp01(float v) {

@@ -1618,6 +1618,10 @@ public class EditorApp extends Application {
   private void openActionEditor() {
     PuppeteerWindow puppeteer = new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
+    FileEditorTab ft = getActiveFileTab();
+    if (ft != null && ft.getJesScene() != null) {
+      puppeteer.setScene(ft.getJesScene());
+    }
     puppeteer.show();
   }
 

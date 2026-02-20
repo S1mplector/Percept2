@@ -78,6 +78,7 @@ public class VnScene implements Scene {
 
     state.updateScreenEffects(deltaMs);
     state.updateCharacterAnimations(deltaMs);
+    state.updateTimelineRunners(deltaMs);
 
     VnNode currentNode = state.getCurrentNode();
     if (currentNode == null) return;
