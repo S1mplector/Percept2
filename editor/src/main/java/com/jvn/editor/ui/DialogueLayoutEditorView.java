@@ -185,8 +185,10 @@ public class DialogueLayoutEditorView extends BorderPane {
   private enum DragTarget {
     NONE,
     TEXT_BOX,
+    TEXT_BOX_RESIZE,
     NAME_BOX,
     CHOICE_BLOCK,
+    CHOICE_RESIZE,
     TEXTBOX_BUTTON
   }
 
@@ -670,6 +672,54 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding()
         );
+      } else if (dragTarget == DragTarget.TEXT_BOX_RESIZE) {
+        double newWidth = Math.max(0.05, dragStartSpec.textBoxWidth() + (dx / w));
+        double newHeight = Math.max(0.05, dragStartSpec.textBoxHeight() + (dy / h));
+        next = new VnUiLayoutSpec(
+            dragStartSpec.textBoxX(),
+            dragStartSpec.textBoxY(),
+            newWidth,
+            newHeight,
+            dragStartSpec.textBoxPadding(),
+            dragStartSpec.nameBoxXOffset(),
+            dragStartSpec.nameBoxYOffset(),
+            dragStartSpec.nameBoxWidth(),
+            dragStartSpec.nameBoxHeight(),
+            dragStartSpec.nameTextXOffset(),
+            dragStartSpec.nameTextBaselineOffset(),
+            dragStartSpec.dialogueTextHorizontalPadding(),
+            dragStartSpec.dialogueTextTopPadding(),
+            dragStartSpec.choiceXCenter(),
+            dragStartSpec.choiceYStart(),
+            dragStartSpec.choiceWidthFactor(),
+            dragStartSpec.choiceHeight(),
+            dragStartSpec.choiceGap(),
+            dragStartSpec.choiceTextXPadding()
+        );
+      } else if (dragTarget == DragTarget.CHOICE_RESIZE) {
+        double newWidthFactor = Math.max(0.05, dragStartSpec.choiceWidthFactor() + (dx / w));
+        double newChoiceHeight = Math.max(8, dragStartSpec.choiceHeight() + dy);
+        next = new VnUiLayoutSpec(
+            dragStartSpec.textBoxX(),
+            dragStartSpec.textBoxY(),
+            dragStartSpec.textBoxWidth(),
+            dragStartSpec.textBoxHeight(),
+            dragStartSpec.textBoxPadding(),
+            dragStartSpec.nameBoxXOffset(),
+            dragStartSpec.nameBoxYOffset(),
+            dragStartSpec.nameBoxWidth(),
+            dragStartSpec.nameBoxHeight(),
+            dragStartSpec.nameTextXOffset(),
+            dragStartSpec.nameTextBaselineOffset(),
+            dragStartSpec.dialogueTextHorizontalPadding(),
+            dragStartSpec.dialogueTextTopPadding(),
+            dragStartSpec.choiceXCenter(),
+            dragStartSpec.choiceYStart(),
+            newWidthFactor,
+            newChoiceHeight,
+            dragStartSpec.choiceGap(),
+            dragStartSpec.choiceTextXPadding()
+        );
       } else if (dragTarget == DragTarget.TEXTBOX_BUTTON && dragButtonIndex >= 0 && dragButtonIndex < dragStartButtons.size()) {
         TextBoxGeometry textBox = computeTextBoxGeometry(dragStartSpec, w, h);
         VnUiActionButtonSpec baseButton = dragStartButtons.get(dragButtonIndex);
@@ -708,14 +758,25 @@ public class DialogueLayoutEditorView extends BorderPane {
     });
   }
 
+  private static final double HANDLE_SIZE = 10;
+
   private DragTarget hitTest(double x, double y) {
     LayoutRects r = computeRects(spec, preview.getWidth(), preview.getHeight());
+    // Resize handles (bottom-right corners) take priority
+    if (isNearCorner(x, y, r.textBox())) return DragTarget.TEXT_BOX_RESIZE;
+    if (isNearCorner(x, y, r.choiceBlock())) return DragTarget.CHOICE_RESIZE;
     dragButtonIndex = hitTestButtonIndex(x, y, r.textBox());
     if (dragButtonIndex >= 0) return DragTarget.TEXTBOX_BUTTON;
     if (r.nameBox().contains(x, y)) return DragTarget.NAME_BOX;
     if (r.choiceBlock().contains(x, y)) return DragTarget.CHOICE_BLOCK;
     if (r.textBox().contains(x, y)) return DragTarget.TEXT_BOX;
     return DragTarget.NONE;
+  }
+
+  private static boolean isNearCorner(double x, double y, Rect rect) {
+    double cx = rect.x() + rect.w();
+    double cy = rect.y() + rect.h();
+    return Math.abs(x - cx) <= HANDLE_SIZE && Math.abs(y - cy) <= HANDLE_SIZE;
   }
 
   private void redraw() {
