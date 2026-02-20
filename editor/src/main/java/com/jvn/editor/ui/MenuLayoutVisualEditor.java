@@ -1,10 +1,19 @@
 package com.jvn.editor.ui;
 
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.function.Consumer;
+
 import com.jvn.core.menu.config.MenuLayoutSpec;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
@@ -13,17 +22,11 @@ import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-
-import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.function.Consumer;
 
 /**
  * Visual editor for menu layout files (*.layout).
@@ -60,6 +63,11 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private double dragStartX;
   private double dragStartY;
   private MenuLayoutSpec dragStartSpec = MenuLayoutSpecDefaults.DEFAULT;
+  private final UndoManager undoManager = new UndoManager();
+  private Button btnUndo;
+  private Button btnRedo;
+  private String previewTitle = "Menu Title";
+  private List<String> previewItems = List.of("> New Game", "  Load", "  Settings", "  Quit");
 
   private enum DragTarget {
     NONE,
@@ -121,6 +129,12 @@ public class MenuLayoutVisualEditor extends BorderPane {
     return serialize(spec, rawProperties, cbTitleY.isSelected());
   }
 
+  public void setPreviewContent(String title, List<String> items) {
+    this.previewTitle = title != null ? title : "Menu Title";
+    this.previewItems = items != null && !items.isEmpty() ? items : List.of("> New Game", "  Load", "  Settings", "  Quit");
+    redraw();
+  }
+
   private GridPane buildControls() {
     GridPane grid = new GridPane();
     grid.setPadding(new Insets(8));
@@ -151,7 +165,22 @@ public class MenuLayoutVisualEditor extends BorderPane {
     Label hint = new Label("Drag title/list in preview. Drag handle on list edge for width.");
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
-    grid.add(hint, 0, row, 2, 1);
+    grid.add(hint, 0, row++, 2, 1);
+
+    Label historyHeader = new Label("History");
+    historyHeader.setStyle("-fx-font-weight: bold;");
+    grid.add(historyHeader, 0, row++, 2, 1);
+    btnUndo = new Button("Undo");
+    btnRedo = new Button("Redo");
+    btnUndo.setDisable(true);
+    btnRedo.setDisable(true);
+    btnUndo.setOnAction(e -> performUndo());
+    btnRedo.setOnAction(e -> performRedo());
+    undoManager.setOnUndoAvailableChanged(available -> btnUndo.setDisable(!available));
+    undoManager.setOnRedoAvailableChanged(available -> btnRedo.setDisable(!available));
+    HBox historyButtons = new HBox(8, btnUndo, btnRedo);
+    grid.add(historyButtons, 0, row, 2, 1);
+
     return grid;
   }
 
@@ -259,7 +288,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     g.strokeLine(0, r.titleY(), w, r.titleY());
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 24));
-    g.fillText("Menu Title", (w - 120) / 2.0, r.titleY() - 8);
+    g.fillText(previewTitle, (w - 120) / 2.0, r.titleY() - 8);
 
     // List area and sample entries.
     g.setFill(LayoutStudioPalette.PANEL_FILL_SOFT);
@@ -268,12 +297,11 @@ public class MenuLayoutVisualEditor extends BorderPane {
     g.setLineWidth(2);
     g.strokeRect(r.listArea().x(), r.listArea().y() - 26, r.listArea().w(), r.listArea().h() + 34);
 
-    String[] items = new String[] {"> New Game", "  Load", "  Settings", "  Quit"};
     g.setFont(Font.font("Arial", 20));
     g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
-    for (int i = 0; i < items.length; i++) {
+    for (int i = 0; i < previewItems.size(); i++) {
       double y = r.listArea().y() + i * spec.lineHeight();
-      String text = items[i];
+      String text = previewItems.get(i);
       double textWidth = textWidth(g, text);
       double x = switch (spec.textAlign().toLowerCase(Locale.ROOT)) {
         case "left" -> r.listArea().x();
@@ -383,8 +411,27 @@ public class MenuLayoutVisualEditor extends BorderPane {
     String text = serialize(spec, rawProperties, cbTitleY.isSelected());
     String normalized = normalizeText(text);
     if (normalized.equals(lastEmittedText)) return;
+    undoManager.captureState(text);
     lastEmittedText = normalized;
     onLayoutTextChanged.accept(text);
+  }
+
+  private void performUndo() {
+    String previous = undoManager.undo();
+    if (previous == null) return;
+    suppressEvents = true;
+    setLayoutText(previous);
+    suppressEvents = false;
+    if (onLayoutTextChanged != null) onLayoutTextChanged.accept(previous);
+  }
+
+  private void performRedo() {
+    String next = undoManager.redo();
+    if (next == null) return;
+    suppressEvents = true;
+    setLayoutText(next);
+    suppressEvents = false;
+    if (onLayoutTextChanged != null) onLayoutTextChanged.accept(next);
   }
 
   private static MenuLayoutSpec parse(Properties properties) {

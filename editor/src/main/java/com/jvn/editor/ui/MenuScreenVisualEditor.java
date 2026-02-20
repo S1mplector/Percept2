@@ -1,7 +1,20 @@
 package com.jvn.editor.ui;
 
+import java.io.File;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.function.Consumer;
+
 import com.jvn.core.menu.config.MenuActionSpec;
 import com.jvn.core.menu.config.MenuActionType;
+
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -11,9 +24,9 @@ import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.geometry.Orientation;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -40,18 +53,6 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import javafx.util.StringConverter;
-
-import java.io.File;
-import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.function.Consumer;
 
 /**
  * Visual editor for menu screen definitions (*.menu).
@@ -220,6 +221,22 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   public String getMenuText() {
     return serialize();
+  }
+
+  public String getTitleText() {
+    return tfTitle.getText();
+  }
+
+  public List<String> getItemLabels() {
+    List<String> labels = new ArrayList<>();
+    for (MenuItemRow row : rows) {
+      String label = row.getLabel();
+      if (label == null || label.isBlank()) {
+        label = row.getId();
+      }
+      labels.add(label);
+    }
+    return labels;
   }
 
   private void buildTopForm() {

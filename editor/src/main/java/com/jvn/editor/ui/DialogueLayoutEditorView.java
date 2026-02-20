@@ -1,9 +1,23 @@
 package com.jvn.editor.ui;
 
+import java.io.File;
+import java.io.StringReader;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.function.Consumer;
+
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
@@ -29,19 +43,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
-
-import java.io.File;
-import java.io.StringReader;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.function.Consumer;
 
 /**
  * Visual editor for dialogue UI layout (textbox/namebox/text bounds/choice bounds).
@@ -106,6 +107,14 @@ public class DialogueLayoutEditorView extends BorderPane {
   private Image choiceButtonDisabledAssetImage;
   private final Map<String, Image> previewAssetCache = new LinkedHashMap<>();
   private List<VnUiActionButtonSpec> textBoxButtons = new ArrayList<>();
+  private final UndoManager undoManager = new UndoManager();
+  private Button btnUndo;
+  private Button btnRedo;
+
+  private String previewSpeakerName = "Speaker Name";
+  private String previewDialogueLine1 = "Narrator: The GUI editor now controls dialogue bounds.";
+  private String previewDialogueLine2 = "Drag the highlighted blocks or edit numeric fields.";
+  private List<String> previewChoiceLabels = List.of("Choice 1", "Choice 2", "Choice 3");
 
   private final Spinner<Double> spTextBoxX = spinner(0, 1, 0, 0.01);
   private final Spinner<Double> spTextBoxY = spinner(0, 1, 0.75, 0.01);
@@ -253,6 +262,14 @@ public class DialogueLayoutEditorView extends BorderPane {
     return serialize(spec, style, textBoxButtons, rawProperties);
   }
 
+  public void setPreviewContent(String speakerName, String line1, String line2, List<String> choices) {
+    this.previewSpeakerName = speakerName != null ? speakerName : "Speaker Name";
+    this.previewDialogueLine1 = line1 != null ? line1 : "";
+    this.previewDialogueLine2 = line2 != null ? line2 : "";
+    this.previewChoiceLabels = choices != null ? choices : List.of();
+    redraw();
+  }
+
   private GridPane buildControls() {
     GridPane grid = new GridPane();
     grid.setHgap(8);
@@ -377,7 +394,20 @@ public class DialogueLayoutEditorView extends BorderPane {
     Label hint = new Label("Drag blocks in preview to position textbox/name/choices/buttons.");
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
-    grid.add(hint, 0, row, 2, 1);
+    grid.add(hint, 0, row++, 2, 1);
+
+    row = addHeader(grid, row, "History");
+    btnUndo = new Button("Undo");
+    btnRedo = new Button("Redo");
+    btnUndo.setDisable(true);
+    btnRedo.setDisable(true);
+    btnUndo.setOnAction(e -> performUndo());
+    btnRedo.setOnAction(e -> performRedo());
+    undoManager.setOnUndoAvailableChanged(available -> btnUndo.setDisable(!available));
+    undoManager.setOnRedoAvailableChanged(available -> btnRedo.setDisable(!available));
+    HBox historyButtons = new HBox(8, btnUndo, btnRedo);
+    grid.add(historyButtons, 0, row, 2, 1);
+
     return grid;
   }
 
@@ -719,8 +749,9 @@ public class DialogueLayoutEditorView extends BorderPane {
           : (hovered ? choiceStyle.hoverTextColor() : choiceStyle.textColor());
       g.setFill(textColor);
       g.setFont(Font.font("Arial", 14));
+      String choiceLabel = i < previewChoiceLabels.size() ? previewChoiceLabels.get(i) : "Choice " + (i + 1);
       g.fillText(
-          "Choice " + (i + 1),
+          choiceLabel,
           rects.choiceBlock().x() + spec.choiceTextXPadding(),
           y + spec.choiceHeight() / 2 + choiceStyle.textBaselineOffset());
       y += spec.choiceHeight() + spec.choiceGap();
@@ -746,7 +777,7 @@ public class DialogueLayoutEditorView extends BorderPane {
 
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-    g.fillText("Speaker Name", rects.nameBox().x() + spec.nameTextXOffset(), rects.nameBox().y() + spec.nameTextBaselineOffset());
+    g.fillText(previewSpeakerName, rects.nameBox().x() + spec.nameTextXOffset(), rects.nameBox().y() + spec.nameTextBaselineOffset());
 
     // Dialogue text bounds.
     g.setStroke(LayoutStudioPalette.ACCENT_GOLD);
@@ -755,8 +786,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.setLineDashes(0);
     g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
     g.setFont(Font.font("Arial", 13));
-    g.fillText("Narrator: The GUI editor now controls dialogue bounds.", rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 18);
-    g.fillText("Drag the highlighted blocks or edit numeric fields.", rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 36);
+    g.fillText(previewDialogueLine1, rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 18);
+    g.fillText(previewDialogueLine2, rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 36);
 
     drawTextBoxButtonPreview(g, rects.textBox());
 
@@ -1155,8 +1186,27 @@ public class DialogueLayoutEditorView extends BorderPane {
     String text = serialize(spec, style, textBoxButtons, rawProperties);
     String normalized = normalizeText(text);
     if (normalized.equals(lastEmittedText)) return;
+    undoManager.captureState(text);
     lastEmittedText = normalized;
     onLayoutTextChanged.accept(text);
+  }
+
+  private void performUndo() {
+    String previous = undoManager.undo();
+    if (previous == null) return;
+    suppressEvents = true;
+    setLayoutText(previous);
+    suppressEvents = false;
+    if (onLayoutTextChanged != null) onLayoutTextChanged.accept(previous);
+  }
+
+  private void performRedo() {
+    String next = undoManager.redo();
+    if (next == null) return;
+    suppressEvents = true;
+    setLayoutText(next);
+    suppressEvents = false;
+    if (onLayoutTextChanged != null) onLayoutTextChanged.accept(next);
   }
 
   private static String serialize(

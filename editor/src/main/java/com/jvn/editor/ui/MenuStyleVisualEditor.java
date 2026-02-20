@@ -1,12 +1,23 @@
 package com.jvn.editor.ui;
 
+import java.io.File;
+import java.io.StringReader;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.function.Consumer;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
@@ -22,15 +33,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
-
-import java.io.File;
-import java.io.StringReader;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.function.Consumer;
 
 /**
  * Visual editor for menu style files (*.style).
@@ -61,7 +63,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   private final TextField tfItemPrefix = new TextField("  ");
   private final TextField tfItemSelectedPrefix = new TextField("> ");
   private final TextField tfItemDisabledPrefix = new TextField("- ");
-  private final TextField tfItemFontFamily = new TextField("Arial");
+  private final ComboBox<String> cbItemFontFamily = new ComboBox<>();
   private final ChoiceBox<String> cbItemFontWeight = new ChoiceBox<>();
   private final Spinner<Integer> spItemFontSize = intSpinner(8, 96, 20, 1);
 
@@ -81,11 +83,16 @@ public class MenuStyleVisualEditor extends BorderPane {
   private Image buttonAssetImage;
   private Image buttonSelectedAssetImage;
   private Image buttonDisabledAssetImage;
+  private final UndoManager undoManager = new UndoManager();
+  private Button btnUndo;
+  private Button btnRedo;
+  private List<String> previewItems = List.of("> New Game", "  Load", "  Settings", "  Quit");
 
   public MenuStyleVisualEditor() {
     setPadding(new Insets(8));
     cbItemFontWeight.getItems().setAll("NORMAL", "BOLD");
     cbItemFontWeight.setValue("NORMAL");
+    initFontPicker();
 
     preview.setManaged(false);
     StackPane previewPane = new StackPane(preview);
@@ -108,6 +115,38 @@ public class MenuStyleVisualEditor extends BorderPane {
     registerListeners();
     updatePreviewSize(previewPane);
     redrawPreview();
+  }
+
+  private void initFontPicker() {
+    List<String> families = Font.getFamilies();
+    cbItemFontFamily.getItems().setAll(families);
+    cbItemFontFamily.setValue("Arial");
+    cbItemFontFamily.setEditable(true);
+    cbItemFontFamily.setCellFactory(lv -> new ListCell<>() {
+      @Override
+      protected void updateItem(String fontName, boolean empty) {
+        super.updateItem(fontName, empty);
+        if (empty || fontName == null) {
+          setText(null);
+          setStyle("");
+        } else {
+          setText(fontName);
+          setStyle("-fx-font-family: '" + fontName + "';");
+        }
+      }
+    });
+    cbItemFontFamily.setButtonCell(new ListCell<>() {
+      @Override
+      protected void updateItem(String fontName, boolean empty) {
+        super.updateItem(fontName, empty);
+        if (empty || fontName == null) {
+          setText("Arial");
+        } else {
+          setText(fontName);
+          setStyle("-fx-font-family: '" + fontName + "';");
+        }
+      }
+    });
   }
 
   public void setOnStyleTextChanged(Consumer<String> onStyleTextChanged) {
@@ -136,7 +175,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     tfItemPrefix.setText(rawProperties.getProperty("itemPrefix", tfItemPrefix.getText()));
     tfItemSelectedPrefix.setText(rawProperties.getProperty("itemSelectedPrefix", tfItemSelectedPrefix.getText()));
     tfItemDisabledPrefix.setText(rawProperties.getProperty("itemDisabledPrefix", tfItemDisabledPrefix.getText()));
-    tfItemFontFamily.setText(rawProperties.getProperty("itemFontFamily", tfItemFontFamily.getText()));
+    cbItemFontFamily.setValue(rawProperties.getProperty("itemFontFamily", cbItemFontFamily.getValue()));
     cbItemFontWeight.setValue(rawProperties.getProperty("itemFontWeight", cbItemFontWeight.getValue()));
     try {
       spItemFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("itemFontSize", Integer.toString(spItemFontSize.getValue()))));
@@ -160,6 +199,11 @@ public class MenuStyleVisualEditor extends BorderPane {
     return serialize();
   }
 
+  public void setPreviewContent(List<String> items) {
+    this.previewItems = items != null && !items.isEmpty() ? items : List.of("> New Game", "  Load", "  Settings", "  Quit");
+    redrawPreview();
+  }
+
   private GridPane buildControls() {
     GridPane grid = new GridPane();
     grid.setHgap(8);
@@ -174,7 +218,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     row = addRow(grid, row, "Prefix", tfItemPrefix);
     row = addRow(grid, row, "Selected Prefix", tfItemSelectedPrefix);
     row = addRow(grid, row, "Disabled Prefix", tfItemDisabledPrefix);
-    row = addRow(grid, row, "Font Family", tfItemFontFamily);
+    row = addRow(grid, row, "Font Family", cbItemFontFamily);
     row = addRow(grid, row, "Font Weight", cbItemFontWeight);
     row = addRow(grid, row, "Font Size", spItemFontSize);
 
@@ -188,7 +232,20 @@ public class MenuStyleVisualEditor extends BorderPane {
     Label hint = new Label("Values are serialized into .style properties.\nUse this editor for reusable menu button looks.");
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
-    grid.add(hint, 0, row, 2, 1);
+    grid.add(hint, 0, row++, 2, 1);
+
+    row = addHeader(grid, row, "History");
+    btnUndo = new Button("Undo");
+    btnRedo = new Button("Redo");
+    btnUndo.setDisable(true);
+    btnRedo.setDisable(true);
+    btnUndo.setOnAction(e -> performUndo());
+    btnRedo.setOnAction(e -> performRedo());
+    undoManager.setOnUndoAvailableChanged(available -> btnUndo.setDisable(!available));
+    undoManager.setOnRedoAvailableChanged(available -> btnRedo.setDisable(!available));
+    HBox historyButtons = new HBox(8, btnUndo, btnRedo);
+    grid.add(historyButtons, 0, row, 2, 1);
+
     return grid;
   }
 
@@ -226,11 +283,12 @@ public class MenuStyleVisualEditor extends BorderPane {
     List<TextField> textFields = List.of(
         tfItemColor, tfItemSelectedColor, tfItemDisabledColor,
         tfItemPrefix, tfItemSelectedPrefix, tfItemDisabledPrefix,
-        tfItemFontFamily, tfButtonAsset, tfButtonSelectedAsset, tfButtonDisabledAsset
+        tfButtonAsset, tfButtonSelectedAsset, tfButtonDisabledAsset
     );
     for (TextField tf : textFields) {
       tf.textProperty().addListener((o, ov, nv) -> onControlChanged());
     }
+    cbItemFontFamily.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     cbItemFontWeight.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spItemFontSize.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spButtonTextPaddingX.valueProperty().addListener((o, ov, nv) -> onControlChanged());
@@ -249,8 +307,27 @@ public class MenuStyleVisualEditor extends BorderPane {
     String text = serialize();
     String normalized = normalizeText(text);
     if (normalized.equals(lastEmittedText)) return;
+    undoManager.captureState(text);
     lastEmittedText = normalized;
     onStyleTextChanged.accept(text);
+  }
+
+  private void performUndo() {
+    String previous = undoManager.undo();
+    if (previous == null) return;
+    suppressEvents = true;
+    setStyleText(previous);
+    suppressEvents = false;
+    if (onStyleTextChanged != null) onStyleTextChanged.accept(previous);
+  }
+
+  private void performRedo() {
+    String next = undoManager.redo();
+    if (next == null) return;
+    suppressEvents = true;
+    setStyleText(next);
+    suppressEvents = false;
+    if (onStyleTextChanged != null) onStyleTextChanged.accept(next);
   }
 
   private String serialize() {
@@ -263,7 +340,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     merged.setProperty("itemPrefix", normalize(tfItemPrefix.getText(), "  "));
     merged.setProperty("itemSelectedPrefix", normalize(tfItemSelectedPrefix.getText(), "> "));
     merged.setProperty("itemDisabledPrefix", normalize(tfItemDisabledPrefix.getText(), "- "));
-    merged.setProperty("itemFontFamily", normalize(tfItemFontFamily.getText(), "Arial"));
+    merged.setProperty("itemFontFamily", normalize(cbItemFontFamily.getValue(), "Arial"));
     merged.setProperty("itemFontWeight", normalize(cbItemFontWeight.getValue(), "NORMAL"));
     merged.setProperty("itemFontSize", Integer.toString(spItemFontSize.getValue()));
 
@@ -344,7 +421,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   }
 
   private Font resolvePreviewFont() {
-    String family = normalize(tfItemFontFamily.getText(), "Arial");
+    String family = normalize(cbItemFontFamily.getValue(), "Arial");
     FontWeight weight = "BOLD".equalsIgnoreCase(normalize(cbItemFontWeight.getValue(), "NORMAL"))
         ? FontWeight.BOLD : FontWeight.NORMAL;
     return Font.font(family, weight, spItemFontSize.getValue());

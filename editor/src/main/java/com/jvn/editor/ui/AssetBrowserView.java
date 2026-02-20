@@ -1,22 +1,5 @@
 package com.jvn.editor.ui;
 
-import javafx.collections.FXCollections;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextField;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,11 +9,32 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+
 /** Focused VN asset browser for quick discovery and reuse of project assets. */
 public class AssetBrowserView extends BorderPane {
   private final Label titleLabel = new Label("Asset Browser");
   private final Label rootLabel = new Label("No project loaded");
   private final TextField filterField = new TextField();
+  private final ComboBox<String> typeFilter = new ComboBox<>();
   private final ListView<AssetItem> listView = new ListView<>();
 
   private final ImageView previewImage = new ImageView();
@@ -42,6 +46,7 @@ public class AssetBrowserView extends BorderPane {
   private final List<AssetItem> allItems = new ArrayList<>();
   private File projectRoot;
   private Consumer<File> onOpenAsset;
+  private Consumer<String> onAssetSelected;
 
   public AssetBrowserView() {
     titleLabel.setStyle("-fx-font-weight: 700; -fx-font-size: 13px;");
@@ -49,6 +54,11 @@ public class AssetBrowserView extends BorderPane {
 
     filterField.setPromptText("Filter assets...");
     filterField.textProperty().addListener((obs, oldValue, newValue) -> applyFilter());
+
+    typeFilter.getItems().addAll("All Types", "Image", "Audio", "Video", "Font", "Data", "File");
+    typeFilter.setValue("All Types");
+    typeFilter.setMaxWidth(Double.MAX_VALUE);
+    typeFilter.valueProperty().addListener((obs, oldValue, newValue) -> applyFilter());
 
     listView.setCellFactory(lv -> new AssetCell());
     listView.setPlaceholder(new Label("No assets found"));
@@ -58,6 +68,22 @@ public class AssetBrowserView extends BorderPane {
       AssetItem item = listView.getSelectionModel().getSelectedItem();
       if (item == null) return;
       openAsset(item.file());
+    });
+
+    listView.setOnDragDetected(e -> {
+      AssetItem item = listView.getSelectionModel().getSelectedItem();
+      if (item == null) return;
+      Dragboard db = listView.startDragAndDrop(TransferMode.COPY);
+      ClipboardContent content = new ClipboardContent();
+      content.putString(item.relativePath());
+      db.setContent(content);
+      e.consume();
+    });
+
+    listView.getSelectionModel().selectedItemProperty().addListener((obs, oldItem, newItem) -> {
+      if (newItem != null && onAssetSelected != null) {
+        onAssetSelected.accept(newItem.relativePath());
+      }
     });
 
     previewImage.setPreserveRatio(true);
@@ -79,10 +105,22 @@ public class AssetBrowserView extends BorderPane {
       openAsset(item.file());
     });
 
-    VBox header = new VBox(6, titleLabel, rootLabel, filterField);
+    Button useAssetButton = new Button("Use Asset");
+    useAssetButton.setOnAction(e -> {
+      AssetItem item = listView.getSelectionModel().getSelectedItem();
+      if (item != null && onAssetSelected != null) {
+        onAssetSelected.accept(item.relativePath());
+      }
+    });
+
+    HBox filterRow = new HBox(8, filterField, typeFilter);
+    HBox.setHgrow(filterField, Priority.ALWAYS);
+    typeFilter.setPrefWidth(100);
+
+    VBox header = new VBox(6, titleLabel, rootLabel, filterRow);
     header.setPadding(new Insets(10, 10, 8, 10));
 
-    HBox previewActions = new HBox(8, copyPathButton, openButton);
+    HBox previewActions = new HBox(8, copyPathButton, openButton, useAssetButton);
     previewActions.setAlignment(Pos.CENTER_LEFT);
 
     VBox previewBox = new VBox(6, previewImage, previewPath, previewMeta, previewActions);
@@ -100,6 +138,15 @@ public class AssetBrowserView extends BorderPane {
 
   public void setOnOpenAsset(Consumer<File> onOpenAsset) {
     this.onOpenAsset = onOpenAsset;
+  }
+
+  public void setOnAssetSelected(Consumer<String> onAssetSelected) {
+    this.onAssetSelected = onAssetSelected;
+  }
+
+  public String getSelectedAssetPath() {
+    AssetItem item = listView.getSelectionModel().getSelectedItem();
+    return item != null ? item.relativePath() : null;
   }
 
   public void setProjectRoot(File root) {
@@ -148,17 +195,22 @@ public class AssetBrowserView extends BorderPane {
   private void applyFilter() {
     String query = filterField.getText();
     String normalized = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
-    if (normalized.isEmpty()) {
+    String selectedType = typeFilter.getValue();
+    boolean filterByType = selectedType != null && !"All Types".equals(selectedType);
+
+    if (normalized.isEmpty() && !filterByType) {
       listView.setItems(FXCollections.observableArrayList(allItems));
       return;
     }
 
     List<AssetItem> filtered = new ArrayList<>();
     for (AssetItem item : allItems) {
-      String haystack = (item.relativePath() + " " + item.type()).toLowerCase(Locale.ROOT);
-      if (haystack.contains(normalized)) {
-        filtered.add(item);
+      if (filterByType && !selectedType.equals(item.type())) continue;
+      if (!normalized.isEmpty()) {
+        String haystack = (item.relativePath() + " " + item.type()).toLowerCase(Locale.ROOT);
+        if (!haystack.contains(normalized)) continue;
       }
+      filtered.add(item);
     }
     listView.setItems(FXCollections.observableArrayList(filtered));
   }
