@@ -33,11 +33,11 @@ public class KeyframeEditor extends VBox {
     public KeyframeEditor() {
         setSpacing(8);
         setPadding(new Insets(12));
-        setStyle("-fx-background-color: #1e1e2e;");
+        setStyle("-fx-background-color: #1a1a1a;");
         setMinHeight(150);
 
         Label header = new Label("Keyframe Editor");
-        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #cdd6f4;");
+        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
 
         GridPane grid = new GridPane();
         grid.setHgap(8);
@@ -65,11 +65,11 @@ public class KeyframeEditor extends VBox {
         cbEasing.setValue(Easing.Type.LINEAR);
 
         btnDelete = new Button("Delete");
-        btnDelete.setStyle("-fx-background-color: #f38ba8; -fx-text-fill: #1e1e2e;");
+        btnDelete.setStyle("-fx-background-color: #f38ba8; -fx-text-fill: #121212;");
 
         btnResetValue = new Button("Reset");
         btnResetValue.setTooltip(new Tooltip("Reset to property default"));
-        btnResetValue.setStyle("-fx-background-color: #585b70; -fx-text-fill: #cdd6f4;");
+        btnResetValue.setStyle("-fx-background-color: #3a3a3a; -fx-text-fill: #e6e6e6;");
 
         HBox actionRow = new HBox(6, btnDelete, btnResetValue);
 
@@ -86,7 +86,7 @@ public class KeyframeEditor extends VBox {
         grid.add(actionRow, 1, 5);
 
         for (var node : grid.getChildren()) {
-            if (node instanceof Label l) l.setStyle("-fx-text-fill: #a6adc8;");
+            if (node instanceof Label l) l.setStyle("-fx-text-fill: #a0a0a0;");
         }
 
         getChildren().addAll(header, grid);

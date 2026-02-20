@@ -47,7 +47,7 @@ public class AnimationPreview extends VBox {
         VBox.setVgrow(container, Priority.ALWAYS);
 
         getChildren().add(container);
-        setStyle("-fx-background-color: #11111b;");
+        setStyle("-fx-background-color: #121212;");
 
         widthProperty().addListener((obs, oldVal, newVal) -> {
             canvas.setWidth(newVal.doubleValue());
@@ -83,7 +83,7 @@ public class AnimationPreview extends VBox {
         double w = canvas.getWidth();
         double h = canvas.getHeight();
 
-        gc.setFill(Color.web("#1e1e2e"));
+        gc.setFill(Color.web("#121212"));
         gc.fillRect(0, 0, w, h);
 
         drawGrid(w, h);
@@ -95,7 +95,7 @@ public class AnimationPreview extends VBox {
             drawMotionPaths();
             if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
         } else {
-            gc.setFill(Color.web("#6c7086"));
+            gc.setFill(Color.web("#a0a0a0"));
             gc.fillText("No scene loaded", w / 2 - 40, h / 2);
         }
     }
@@ -111,7 +111,7 @@ public class AnimationPreview extends VBox {
 
             java.util.List<SplinePath.Point> curve = SplinePath.catmullRom(controlPoints, 16);
 
-            gc.setStroke(Color.web("#89b4fa", 0.5));
+            gc.setStroke(Color.web("#4da3ff", 0.5));
             gc.setLineWidth(1.5);
             gc.setLineDashes(4, 3);
             gc.beginPath();
@@ -125,7 +125,7 @@ public class AnimationPreview extends VBox {
             gc.stroke();
             gc.setLineDashes((double[]) null);
 
-            gc.setFill(Color.web("#89b4fa", 0.8));
+            gc.setFill(Color.web("#4da3ff", 0.8));
             for (SplinePath.Point pt : controlPoints) {
                 double sx = (pt.x - camera.getX()) * z;
                 double sy = (pt.y - camera.getY()) * z;
@@ -157,7 +157,7 @@ public class AnimationPreview extends VBox {
                 double sy = (y - camera.getY()) * z;
 
                 double alpha = 0.3 * (1.0 - Math.abs(i) / (double)(onionFrames + 1));
-                Color color = i < 0 ? Color.web("#f38ba8", alpha) : Color.web("#a6e3a1", alpha);
+                Color color = i < 0 ? Color.web("#f38ba8", alpha) : Color.web("#58d68d", alpha);
 
                 gc.setStroke(color);
                 gc.setLineWidth(1.5);
@@ -306,7 +306,7 @@ public class AnimationPreview extends VBox {
         double sy = (entity.getY() - camera.getY()) * z;
         double size = 30 * z;
 
-        gc.setStroke(Color.web("#f9e2af"));
+        gc.setStroke(Color.web("#f0b673"));
         gc.setLineWidth(2);
         gc.setLineDashes(6, 4);
         gc.strokeRect(sx - size / 2, sy - size / 2, size, size);

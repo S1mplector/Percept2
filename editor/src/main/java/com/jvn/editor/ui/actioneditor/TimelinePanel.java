@@ -20,12 +20,12 @@ public class TimelinePanel extends VBox {
     private static final double TRACK_HEIGHT = 24;
     private static final double HEADER_HEIGHT = 30;
     private static final double LABEL_WIDTH = 140;
-    private static final Color BG_COLOR = Color.web("#11111b");
-    private static final Color GRID_COLOR = Color.web("#313244");
+    private static final Color BG_COLOR = Color.web("#121212");
+    private static final Color GRID_COLOR = Color.web("#2a2a2a");
     private static final Color PLAYHEAD_COLOR = Color.web("#f38ba8");
-    private static final Color KEYFRAME_COLOR = Color.web("#89b4fa");
-    private static final Color KEYFRAME_SELECTED_COLOR = Color.web("#f9e2af");
-    private static final Color TEXT_COLOR = Color.web("#cdd6f4");
+    private static final Color KEYFRAME_COLOR = Color.web("#4da3ff");
+    private static final Color KEYFRAME_SELECTED_COLOR = Color.web("#f0b673");
+    private static final Color TEXT_COLOR = Color.web("#e6e6e6");
 
     private final AnimationProject project;
     private final Canvas canvas;
@@ -56,11 +56,11 @@ public class TimelinePanel extends VBox {
         scrollPane = new ScrollPane(canvasContainer);
         scrollPane.setFitToWidth(true);
         scrollPane.setFitToHeight(true);
-        scrollPane.setStyle("-fx-background: #11111b; -fx-background-color: #11111b;");
+        scrollPane.setStyle("-fx-background: #121212; -fx-background-color: #121212;");
 
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
         getChildren().add(scrollPane);
-        setStyle("-fx-background-color: #11111b;");
+        setStyle("-fx-background-color: #121212;");
 
         canvas.setOnMousePressed(this::handleMousePressed);
         canvas.setOnMouseDragged(this::handleMouseDragged);
@@ -170,7 +170,7 @@ public class TimelinePanel extends VBox {
     }
 
     private void drawTimeRuler(GraphicsContext gc, double width) {
-        gc.setFill(Color.web("#1e1e2e"));
+        gc.setFill(Color.web("#1a1a1a"));
         gc.fillRect(0, 0, width, HEADER_HEIGHT);
 
         gc.setStroke(GRID_COLOR);
@@ -203,7 +203,7 @@ public class TimelinePanel extends VBox {
             boolean isSelected = entityName.equals(selectedEntity);
 
             // Entity header row
-            gc.setFill(isSelected ? Color.web("#313244") : Color.web("#1e1e2e"));
+            gc.setFill(isSelected ? Color.web("#2a2a2a") : Color.web("#1a1a1a"));
             gc.fillRect(0, y, width, TRACK_HEIGHT);
             gc.setFill(TEXT_COLOR);
             gc.setFont(javafx.scene.text.Font.font(12));
@@ -216,10 +216,10 @@ public class TimelinePanel extends VBox {
                 if (!track.hasKeyframes(prop)) continue;
 
                 boolean propSelected = isSelected && prop == selectedProperty;
-                gc.setFill(propSelected ? Color.web("#45475a") : Color.web("#181825"));
+                gc.setFill(propSelected ? Color.web("#3a3a3a") : Color.web("#151515"));
                 gc.fillRect(0, y, width, TRACK_HEIGHT);
 
-                gc.setFill(Color.web("#a6adc8"));
+                gc.setFill(Color.web("#a0a0a0"));
                 gc.setFont(javafx.scene.text.Font.font(10));
                 gc.fillText("  └ " + prop.getDisplayName(), 12, y + 15);
 
@@ -277,17 +277,17 @@ public class TimelinePanel extends VBox {
         x2 = Math.min(width, x2);
         if (x2 <= x1) return;
 
-        gc.setFill(Color.web("#a6e3a1", 0.08));
+        gc.setFill(Color.web("#58d68d", 0.08));
         gc.fillRect(x1, HEADER_HEIGHT, x2 - x1, height - HEADER_HEIGHT);
 
-        gc.setStroke(Color.web("#a6e3a1", 0.5));
+        gc.setStroke(Color.web("#58d68d", 0.5));
         gc.setLineWidth(1.5);
         gc.setLineDashes(6, 4);
         gc.strokeLine(x1, HEADER_HEIGHT, x1, height);
         gc.strokeLine(x2, HEADER_HEIGHT, x2, height);
         gc.setLineDashes((double[]) null);
 
-        gc.setFill(Color.web("#a6e3a1", 0.7));
+        gc.setFill(Color.web("#58d68d", 0.7));
         gc.setFont(javafx.scene.text.Font.font(9));
         gc.fillText("LOOP", x1 + 4, HEADER_HEIGHT + 10);
     }
@@ -303,14 +303,14 @@ public class TimelinePanel extends VBox {
             double x = LABEL_WIDTH + cue.getTimeMs() * pixelsPerMs - scrollX;
             if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
 
-            gc.setFill(Color.web("#f9e2af", 0.8));
+            gc.setFill(Color.web("#f0b673", 0.8));
             gc.fillOval(x - 4, cueY - 4, 8, 8);
 
-            gc.setStroke(Color.web("#f9e2af", 0.4));
+            gc.setStroke(Color.web("#f0b673", 0.4));
             gc.setLineWidth(1);
             gc.strokeLine(x, HEADER_HEIGHT, x, cueY - 4);
 
-            gc.setFill(Color.web("#f9e2af", 0.7));
+            gc.setFill(Color.web("#f0b673", 0.7));
             String label = cue.getChannel().substring(0, 1).toUpperCase();
             gc.fillText(label, x - 3, cueY + 12);
         }

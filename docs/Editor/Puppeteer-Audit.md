@@ -208,18 +208,18 @@ All P0/P1 fixes applied:
 - `CodeExporter.export` — groups simultaneous events into `parallel {}` blocks
 - `AnimationProject.removeTrack/removeGroup` — cleans up dangling parent/child refs
 
-### Phase 2 — Parity Features ✅ COMPLETE
+### Phase 2 — Parity Features COMPLETE
 - **Property Sliders** (`KeyframeEditor.java`) — Draggable `Slider` widgets alongside text fields for time and value. Auto-configures range per `PropertyType` (e.g. alpha 0–1, rotation -360–360). Live-updates keyframe + preview. Added "Reset" button to restore property default.
 - **Spline Motion Paths** (`SplinePath.java`, `AnimationPreview.java`) — New `SplinePath` utility class with Catmull-Rom interpolation. `buildControlPoints` extracts X/Y keyframes from `EntityTrack`. Preview renders dashed curve + control point dots in blue overlay.
 - **Visual Entity Manipulation** (`AnimationPreview.java`, `PuppeteerWindow.java`) — Click entity in preview to select (yellow dashed highlight). Drag to move — creates X/Y keyframes at playhead. Uses `JesScene2D.exportNamed()` for entity↔name reverse lookup.
 
-### Phase 3 — Workflow Features ✅ COMPLETE
+### Phase 3 — Workflow Features COMPLETE
 - **Animation Presets** (`AnimationPreset.java`, `PuppeteerWindow.java`) — 12 built-in presets across 4 categories: Entrance (Fade In, Slide From Left/Right/Bottom, Bounce In), Exit (Fade Out, Zoom Out), Emphasis (Shake, Pulse, Spin), Loop (Float, Breathe). Applied via toolbar `MenuButton` dropdown at playhead time.
 - **Audio Cue Track** (`AudioCue.java`, `AnimationProject.java`, `TimelinePanel.java`) — `AudioCue` model with time, file, channel (music/sound/voice), volume, fade-in. Rendered on timeline as yellow dots with vertical guide lines. `CodeExporter.exportAudioCues()` generates `play` statements.
 - **Loop Markers** (`AnimationProject.java`, `TimelinePanel.java`) — `setLoopRegion(start, end)` / `clearLoopRegion()` on project. Timeline renders green semi-transparent region with dashed boundary lines and "LOOP" label.
 - **Incremental Export** (`AnimationProject.java`, `CodeExporter.java`) — `captureInitialSnapshot()` records property values at t=0 when Puppeteer opens. `CodeExporter.exportIncremental()` filters events, only emitting those that differ from snapshot. Useful for inserting deltas into existing scripts.
 
-### Phase 4 — Polish ✅ COMPLETE
+### Phase 4 — Polish COMPLETE
 - **Onion Skinning** (`AnimationPreview.java`) — Toggle via `Cmd+O`. Renders ghost outlines at ±N timesteps from playhead. Past frames in red, future in green, with fading alpha. Configurable frame count (1–10).
 - **Multi-select Keyframes** (`TimelinePanel.java`) — `Shift+click` toggles keyframe in/out of selection set. `Delete` removes all selected keyframes at once. Selected keyframes highlighted with accent color.
 - **Undo/Redo** (`PuppeteerCommand.java`, `PuppeteerWindow.java`) — Generic command stack (100 depth). Factory methods for add/remove/move keyframe, change value, apply preset. `Cmd+Z` undo, `Cmd+Shift+Z` redo. Presets are fully reversible.

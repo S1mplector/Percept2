@@ -33,10 +33,10 @@ public class EntitySelector extends VBox {
     public EntitySelector() {
         setSpacing(6);
         setPadding(new Insets(8));
-        setStyle("-fx-background-color: #1e1e2e;");
+        setStyle("-fx-background-color: #1a1a1a;");
 
         Label header = new Label("Entities");
-        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #cdd6f4;");
+        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
 
         filterField = new TextField();
         filterField.setPromptText("Filter...");
@@ -214,9 +214,9 @@ public class EntitySelector extends VBox {
             } else {
                 setText(item);
                 if (item.startsWith("📁")) {
-                    setTextFill(Color.web("#f9e2af"));
+                    setTextFill(Color.web("#f0b673"));
                 } else {
-                    setTextFill(Color.web("#cdd6f4"));
+                    setTextFill(Color.web("#e6e6e6"));
                 }
             }
         }

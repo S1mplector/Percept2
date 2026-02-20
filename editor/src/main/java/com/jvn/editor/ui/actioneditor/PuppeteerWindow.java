@@ -196,7 +196,7 @@ public class PuppeteerWindow extends Stage {
         );
         HBox.setHgrow(toolbar.getChildren().get(toolbar.getChildren().size() - 2), Priority.ALWAYS);
         toolbar.setPadding(new Insets(8));
-        toolbar.setStyle("-fx-background-color: #1e1e2e;");
+        toolbar.setStyle("-fx-background-color: #000000; -fx-border-color: #1a1a1a; -fx-border-width: 0 0 1 0;");
 
         SplitPane leftPane = new SplitPane();
         leftPane.setOrientation(Orientation.VERTICAL);
@@ -216,7 +216,7 @@ public class PuppeteerWindow extends Stage {
         BorderPane root = new BorderPane();
         root.setTop(toolbar);
         root.setCenter(mainSplit);
-        root.setStyle("-fx-background-color: #11111b;");
+        root.setStyle("-fx-background-color: #121212;");
 
         Scene fxScene = new Scene(root);
         EditorTheme.apply(fxScene);

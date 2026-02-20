@@ -584,27 +584,14 @@ public class EditorApp extends Application {
     logoBox.getChildren().addAll(wordmark, verLabel);
     toolbar.setLeft(toolRows);
 
-    Label statusTitle = new Label("Status");
-    statusTitle.getStyleClass().add("toolbar-status-title");
-    status.getStyleClass().add("toolbar-status-value");
-    HBox statusHeader = new HBox(6, icon("icon", "icon-status"), statusTitle);
-    statusHeader.setAlignment(Pos.CENTER_LEFT);
-    VBox statusPanel = new VBox(4, statusHeader, status);
-    statusPanel.getStyleClass().add("toolbar-status-panel");
-    statusPanel.setAlignment(Pos.CENTER_LEFT);
-
     VBox perfBox = new VBox(4, perf, perfGraph.getCanvas());
     perfBox.setAlignment(Pos.CENTER);
     perfBox.setFillWidth(true);
-    HBox perfWrapper = new HBox(10, perfBox, statusPanel);
-    perfWrapper.setAlignment(Pos.CENTER);
-    HBox.setHgrow(perfWrapper, Priority.ALWAYS);
     HBox.setHgrow(perfBox, Priority.ALWAYS);
-    perfWrapper.widthProperty().addListener((o, ov, nv) -> {
-      double available = nv.doubleValue() - statusPanel.getWidth() - 22.0;
-      perfGraph.setWidth(Math.max(180.0, available));
+    perfBox.widthProperty().addListener((o, ov, nv) -> {
+      perfGraph.setWidth(Math.max(180.0, nv.doubleValue() - 22.0));
     });
-    toolbar.setCenter(perfWrapper);
+    toolbar.setCenter(perfBox);
     BorderPane.setAlignment(logoBox, Pos.TOP_RIGHT);
     toolbar.setRight(logoBox);
 
