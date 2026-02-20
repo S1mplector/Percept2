@@ -1,8 +1,5 @@
 package com.jvn.core.menu.config;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.AssetType;
-
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -11,6 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 
 public final class MenuProfileLoader {
   private static final String[] REGISTRY_PATHS = new String[] {
@@ -243,20 +243,45 @@ public final class MenuProfileLoader {
   private static MenuStyleSpec parseStyle(String id, Properties p, MenuStyleSpec base, List<String> diagnostics, String sourcePath) {
     return new MenuStyleSpec(
         id,
+        // Item colors
         normalize(p.getProperty("itemColor"), base.itemColor()),
         normalize(p.getProperty("itemSelectedColor"), base.itemSelectedColor()),
+        normalize(p.getProperty("itemHoverColor"), base.itemHoverColor()),
         normalize(p.getProperty("itemDisabledColor"), base.itemDisabledColor()),
+        // Prefixes
         normalize(p.getProperty("itemPrefix"), base.itemPrefix()),
         normalize(p.getProperty("itemSelectedPrefix"), base.itemSelectedPrefix()),
         normalize(p.getProperty("itemDisabledPrefix"), base.itemDisabledPrefix()),
+        // Font
         normalize(p.getProperty("itemFontFamily"), base.itemFontFamily()),
         normalize(p.getProperty("itemFontWeight"), base.itemFontWeight()),
         parseOptionalInt(p.getProperty("itemFontSize"), base.itemFontSize(), diagnostics, sourcePath, "itemFontSize"),
+        // Text effects
+        normalize(p.getProperty("itemShadowColor"), base.itemShadowColor()),
+        parseOptionalDouble(p.getProperty("itemShadowOffsetX"), base.itemShadowOffsetX(), diagnostics, sourcePath, "itemShadowOffsetX"),
+        parseOptionalDouble(p.getProperty("itemShadowOffsetY"), base.itemShadowOffsetY(), diagnostics, sourcePath, "itemShadowOffsetY"),
+        parseOptionalDouble(p.getProperty("itemOpacity"), base.itemOpacity(), diagnostics, sourcePath, "itemOpacity"),
+        // Button skins
         normalize(p.getProperty("buttonAsset"), base.buttonAssetPath()),
         normalize(p.getProperty("buttonSelectedAsset"), base.buttonSelectedAssetPath()),
+        normalize(p.getProperty("buttonHoverAsset"), base.buttonHoverAssetPath()),
         normalize(p.getProperty("buttonDisabledAsset"), base.buttonDisabledAssetPath()),
         parseOptionalDouble(p.getProperty("buttonTextPaddingX"), base.buttonTextPaddingX(), diagnostics, sourcePath, "buttonTextPaddingX"),
-        parseOptionalDouble(p.getProperty("buttonTextPaddingY"), base.buttonTextPaddingY(), diagnostics, sourcePath, "buttonTextPaddingY")
+        parseOptionalDouble(p.getProperty("buttonTextPaddingY"), base.buttonTextPaddingY(), diagnostics, sourcePath, "buttonTextPaddingY"),
+        // Title styling
+        normalize(p.getProperty("titleColor"), base.titleColor()),
+        normalize(p.getProperty("titleFontFamily"), base.titleFontFamily()),
+        normalize(p.getProperty("titleFontWeight"), base.titleFontWeight()),
+        parseOptionalInt(p.getProperty("titleFontSize"), base.titleFontSize(), diagnostics, sourcePath, "titleFontSize"),
+        normalize(p.getProperty("titleShadowColor"), base.titleShadowColor()),
+        // Hints styling
+        normalize(p.getProperty("hintsColor"), base.hintsColor()),
+        normalize(p.getProperty("hintsFontFamily"), base.hintsFontFamily()),
+        parseOptionalInt(p.getProperty("hintsFontSize"), base.hintsFontSize(), diagnostics, sourcePath, "hintsFontSize"),
+        // Background
+        normalize(p.getProperty("backgroundAsset"), base.backgroundAssetPath()),
+        normalize(p.getProperty("backgroundColor"), base.backgroundColor()),
+        parseOptionalDouble(p.getProperty("backgroundOpacity"), base.backgroundOpacity(), diagnostics, sourcePath, "backgroundOpacity")
     );
   }
 

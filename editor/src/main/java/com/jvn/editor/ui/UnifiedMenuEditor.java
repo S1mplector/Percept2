@@ -1,15 +1,25 @@
 package com.jvn.editor.ui;
 
 import java.io.File;
+import java.io.StringReader;
 import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
 import java.util.function.Consumer;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 
 /**
  * Unified menu editor that combines Layout, Style, and Screen editing
@@ -26,6 +36,7 @@ public class UnifiedMenuEditor extends BorderPane {
   private Consumer<String> onScreenChanged;
 
   private File projectRoot;
+  private final Canvas combinedPreview = new Canvas(640, 400);
 
   public UnifiedMenuEditor() {
     setPadding(new Insets(0));
@@ -39,7 +50,25 @@ public class UnifiedMenuEditor extends BorderPane {
     Tab screenTab = new Tab("Screen", screenEditor);
     screenTab.setClosable(false);
 
-    editorTabs.getTabs().addAll(layoutTab, styleTab, screenTab);
+    combinedPreview.setManaged(false);
+    StackPane previewHost = new StackPane(combinedPreview);
+    StackPane.setAlignment(combinedPreview, Pos.TOP_LEFT);
+    previewHost.setPadding(new Insets(8));
+    previewHost.setStyle("-fx-background-color: #0d0d0d;");
+    previewHost.widthProperty().addListener((o, ov, nv) -> {
+      double pw = Math.max(1, nv.doubleValue() - 16);
+      if (Math.abs(combinedPreview.getWidth() - pw) >= 0.5) combinedPreview.setWidth(pw);
+    });
+    previewHost.heightProperty().addListener((o, ov, nv) -> {
+      double ph = Math.max(1, nv.doubleValue() - 16);
+      if (Math.abs(combinedPreview.getHeight() - ph) >= 0.5) combinedPreview.setHeight(ph);
+    });
+    combinedPreview.widthProperty().addListener((o, ov, nv) -> redrawCombinedPreview());
+    combinedPreview.heightProperty().addListener((o, ov, nv) -> redrawCombinedPreview());
+    Tab previewTab = new Tab("Combined Preview", previewHost);
+    previewTab.setClosable(false);
+
+    editorTabs.getTabs().addAll(layoutTab, styleTab, screenTab, previewTab);
     editorTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
     VBox header = new VBox(4);
@@ -80,6 +109,112 @@ public class UnifiedMenuEditor extends BorderPane {
       layoutEditor.setPreviewContent(title, screenItems);
       styleEditor.setPreviewContent(screenItems);
     }
+    redrawCombinedPreview();
+  }
+
+  private void redrawCombinedPreview() {
+    double w = Math.max(1, combinedPreview.getWidth());
+    double h = Math.max(1, combinedPreview.getHeight());
+    GraphicsContext g = combinedPreview.getGraphicsContext2D();
+
+    g.setFill(Color.web("#111114"));
+    g.fillRect(0, 0, w, h);
+    g.setStroke(Color.web("#222228"));
+    g.setLineWidth(1);
+    for (int i = 1; i < 6; i++) {
+      double yy = (h / 6.0) * i;
+      g.strokeLine(0, yy, w, yy);
+    }
+
+    // Parse current layout
+    Properties layoutProps = new Properties();
+    try { layoutProps.load(new StringReader(layoutEditor.getLayoutText())); } catch (Exception ignored) {}
+    double listYStart = parseDouble(layoutProps.getProperty("listYStart"), 0.35);
+    double lineHeight = parseDouble(layoutProps.getProperty("lineHeight"), 40);
+    double listWidthFactor = parseDouble(layoutProps.getProperty("listWidthFactor"), 1.0);
+    String textAlign = layoutProps.getProperty("textAlign", "center").toLowerCase(Locale.ROOT);
+    double hintsBottomMargin = parseDouble(layoutProps.getProperty("hintsBottomMargin"), 20);
+    String titleYStr = layoutProps.getProperty("titleY");
+    double titleY = titleYStr != null ? parseDouble(titleYStr, 0.12) : 0.12;
+
+    // Parse current style
+    Properties styleProps = new Properties();
+    try { styleProps.load(new StringReader(styleEditor.getStyleText())); } catch (Exception ignored) {}
+    Color itemColor = parseColor(styleProps.getProperty("itemColor"), Color.web("#D3D3D3"));
+    Color selectedColor = parseColor(styleProps.getProperty("itemSelectedColor"), Color.web("#FFFF00"));
+    Color disabledColor = parseColor(styleProps.getProperty("itemDisabledColor"), Color.web("#808080"));
+    String prefix = styleProps.getProperty("itemPrefix", "  ");
+    String selectedPrefix = styleProps.getProperty("itemSelectedPrefix", "> ");
+    String fontFamily = styleProps.getProperty("itemFontFamily", "Arial");
+    String fontWeightStr = styleProps.getProperty("itemFontWeight", "NORMAL");
+    int fontSize = (int) parseDouble(styleProps.getProperty("itemFontSize"), 20);
+    FontWeight fontWeight = "BOLD".equalsIgnoreCase(fontWeightStr) ? FontWeight.BOLD : FontWeight.NORMAL;
+
+    // Screen items
+    List<String> items = screenEditor.getItemLabels();
+    String titleText = screenEditor.getTitleText();
+    if (items == null || items.isEmpty()) items = List.of("New Game", "Load", "Settings", "Quit");
+    if (titleText == null || titleText.isBlank()) titleText = "Menu Title";
+
+    // Resolve layout positions
+    double resolvedTitleY = titleY <= 1.0 ? h * titleY : titleY;
+    double resolvedListY = listYStart <= 1.0 ? h * listYStart : listYStart;
+    double listW = w * Math.max(0.1, Math.min(1.0, listWidthFactor));
+    double listX = switch (textAlign) {
+      case "left" -> 0;
+      case "right" -> w - listW;
+      default -> (w - listW) / 2.0;
+    };
+
+    // Draw title
+    g.setFill(Color.web("#e8eaed"));
+    g.setFont(Font.font(fontFamily, FontWeight.BOLD, 26));
+    javafx.scene.text.Text titleMeasure = new javafx.scene.text.Text(titleText);
+    titleMeasure.setFont(g.getFont());
+    double titleW = titleMeasure.getLayoutBounds().getWidth();
+    g.fillText(titleText, (w - titleW) / 2.0, resolvedTitleY);
+
+    // Draw items
+    g.setFont(Font.font(fontFamily, fontWeight, fontSize));
+    for (int i = 0; i < items.size(); i++) {
+      boolean isSelected = i == 0;
+      String itemPrefix = isSelected ? selectedPrefix : prefix;
+      String label = itemPrefix + items.get(i);
+      g.setFill(isSelected ? selectedColor : itemColor);
+
+      javafx.scene.text.Text m = new javafx.scene.text.Text(label);
+      m.setFont(g.getFont());
+      double textW = m.getLayoutBounds().getWidth();
+
+      double itemY = resolvedListY + i * lineHeight;
+      double itemX = switch (textAlign) {
+        case "left" -> listX;
+        case "right" -> listX + Math.max(0, listW - textW);
+        default -> listX + (listW - textW) / 2.0;
+      };
+      g.fillText(label, itemX, itemY);
+    }
+
+    // Draw hints
+    double hintsY = h - Math.max(0, hintsBottomMargin);
+    g.setFill(Color.web("#888888"));
+    g.setFont(Font.font("Arial", 13));
+    g.fillText("Select: Enter   Back: Esc", (w - 170) / 2.0, hintsY);
+
+    // Labels
+    g.setFill(Color.web("#4da3ff88"));
+    g.setFont(Font.font("Arial", FontWeight.BOLD, 10));
+    g.fillText("COMBINED PREVIEW", 8, 14);
+  }
+
+  private static double parseDouble(String s, double fallback) {
+    if (s == null || s.isBlank()) return fallback;
+    try { return Double.parseDouble(s.trim()); } catch (Exception e) { return fallback; }
+  }
+
+  private static Color parseColor(String s, Color fallback) {
+    if (s == null || s.isBlank()) return fallback;
+    try { return Color.web(s.trim()); } catch (Exception e) { return fallback; }
   }
 
   public void setProjectRoot(File root) {

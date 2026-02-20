@@ -92,20 +92,15 @@ public record MenuProfile(
   public static MenuStyleSpec defaultStyle() {
     return new MenuStyleSpec(
         "default",
-        null,
-        null,
-        "#808080",
-        "  ",
-        "> ",
-        "- ",
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        null, null, null, "#808080",     // item colors (normal, selected, hover, disabled)
+        "  ", "> ", "- ",                 // prefixes
+        null, null, null,                 // font family, weight, size
+        null, null, null, null,           // shadow color, offsetX, offsetY, opacity
+        null, null, null, null,           // button assets (normal, selected, hover, disabled)
+        null, null,                       // button text padding X, Y
+        null, null, null, null, null,     // title color, fontFamily, fontWeight, fontSize, shadowColor
+        null, null, null,                 // hints color, fontFamily, fontSize
+        null, null, null                  // background asset, color, opacity
     );
   }
 

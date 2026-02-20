@@ -5,5 +5,8 @@ public enum AssetType {
   AUDIO,
   SCRIPT,
   FONT,
+  UI,
+  VIDEO,
+  CONFIG,
   OTHER
 }

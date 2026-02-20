@@ -8,6 +8,9 @@ public final class AssetPaths {
   public static final String AUDIO = BASE + "audio/";
   public static final String SCRIPTS = BASE + "scripts/";
   public static final String FONTS = BASE + "fonts/";
+  public static final String UI = BASE + "ui/";
+  public static final String VIDEO = BASE + "video/";
+  public static final String CONFIG = BASE + "config/";
 
   public static String forType(AssetType type) {
     return switch (type) {
@@ -15,6 +18,9 @@ public final class AssetPaths {
       case AUDIO -> AUDIO;
       case SCRIPT -> SCRIPTS;
       case FONT -> FONTS;
+      case UI -> UI;
+      case VIDEO -> VIDEO;
+      case CONFIG -> CONFIG;
       case OTHER -> BASE;
     };
   }
