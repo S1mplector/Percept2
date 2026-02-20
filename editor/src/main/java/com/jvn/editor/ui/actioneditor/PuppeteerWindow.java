@@ -51,6 +51,7 @@ public class PuppeteerWindow extends Stage {
     private AnimationTimer playbackTimer;
     private long lastNanos = 0;
 
+    private final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
     private Consumer<String> onCopyCode;
 
     public PuppeteerWindow() {
@@ -368,6 +369,26 @@ public class PuppeteerWindow extends Stage {
                 copyToClipboard(code);
             }
         );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
+            () -> {
+                commandStack.undo();
+                timelinePanel.refresh();
+                codePreview.setCode(CodeExporter.export(project));
+            }
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+            () -> {
+                commandStack.redo();
+                timelinePanel.refresh();
+                codePreview.setCode(CodeExporter.export(project));
+            }
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN),
+            () -> animationPreview.setOnionSkinning(!animationPreview.isOnionSkinning())
+        );
     }
 
     private MenuButton buildPresetMenu() {
@@ -392,10 +413,12 @@ public class PuppeteerWindow extends Stage {
         if (entity == null) return;
         EntityTrack track = project.getOrCreateTrack(entity);
         double startTime = project.getPlayheadMs();
-        preset.applyTo(track, startTime);
+        commandStack.execute(PuppeteerCommand.applyPreset(track, preset, startTime));
         timelinePanel.refresh();
         codePreview.setCode(CodeExporter.export(project));
     }
+
+    public PuppeteerCommand.Stack getCommandStack() { return commandStack; }
 
     private void copyToClipboard(String text) {
         ClipboardContent content = new ClipboardContent();

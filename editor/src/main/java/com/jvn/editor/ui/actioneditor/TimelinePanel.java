@@ -1,6 +1,8 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import javafx.scene.canvas.Canvas;
@@ -37,6 +39,7 @@ public class TimelinePanel extends VBox {
     private String selectedEntity;
     private PropertyType selectedProperty;
     private Keyframe selectedKeyframe;
+    private final Set<Keyframe> selectedKeyframes = new HashSet<>();
 
     private Consumer<Keyframe> onKeyframeSelected;
     private Consumer<Double> onPlayheadChanged;
@@ -116,15 +119,29 @@ public class TimelinePanel extends VBox {
     }
 
     public void deleteSelectedKeyframe() {
-        if (selectedKeyframe == null || selectedEntity == null || selectedProperty == null) return;
+        if (selectedEntity == null) return;
         EntityTrack track = project.getTrack(selectedEntity);
-        if (track != null) {
+        if (track == null) return;
+
+        if (!selectedKeyframes.isEmpty()) {
+            for (PropertyType prop : PropertyType.values()) {
+                List<Keyframe> kfs = track.getKeyframes(prop);
+                for (Keyframe kf : new java.util.ArrayList<>(kfs)) {
+                    if (selectedKeyframes.contains(kf)) {
+                        track.removeKeyframe(prop, kf);
+                    }
+                }
+            }
+            selectedKeyframes.clear();
+        } else if (selectedKeyframe != null && selectedProperty != null) {
             track.removeKeyframe(selectedProperty, selectedKeyframe);
         }
         selectedKeyframe = null;
         if (onKeyframeSelected != null) onKeyframeSelected.accept(null);
         render();
     }
+
+    public Set<Keyframe> getSelectedKeyframes() { return selectedKeyframes; }
 
     private double computeRequiredHeight() {
         int trackCount = 0;
@@ -237,7 +254,7 @@ public class TimelinePanel extends VBox {
             double x = LABEL_WIDTH + kf.getTimeMs() * pixelsPerMs - scrollX;
             if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
 
-            boolean isSelected = kf == selectedKeyframe;
+            boolean isSelected = kf == selectedKeyframe || selectedKeyframes.contains(kf);
             gc.setFill(isSelected ? KEYFRAME_SELECTED_COLOR : KEYFRAME_COLOR);
 
             // Diamond shape
@@ -344,6 +361,16 @@ public class TimelinePanel extends VBox {
         // Check keyframe click
         Keyframe kf = findKeyframeAt(x, y);
         if (kf != null) {
+            if (e.isShiftDown()) {
+                if (selectedKeyframes.contains(kf)) {
+                    selectedKeyframes.remove(kf);
+                } else {
+                    selectedKeyframes.add(kf);
+                }
+            } else {
+                selectedKeyframes.clear();
+                selectedKeyframes.add(kf);
+            }
             selectedKeyframe = kf;
             draggingKeyframe = true;
             dragStartX = x;
@@ -351,6 +378,7 @@ public class TimelinePanel extends VBox {
             render();
             return;
         }
+        selectedKeyframes.clear();
 
         // Track selection
         selectTrackAt(y);

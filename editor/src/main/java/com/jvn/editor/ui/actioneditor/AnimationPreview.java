@@ -25,6 +25,8 @@ public class AnimationPreview extends VBox {
 
     private JesScene2D scene;
     private AnimationProject project;
+    private boolean onionSkinning = false;
+    private int onionFrames = 3;
 
     private Entity2D selectedEntity;
     private String selectedEntityName;
@@ -88,6 +90,7 @@ public class AnimationPreview extends VBox {
 
         blitter.setViewport(w, h);
         if (scene != null) {
+            if (onionSkinning && project != null) drawOnionSkins();
             scene.render(blitter, w, h);
             drawMotionPaths();
             if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
@@ -131,6 +134,43 @@ public class AnimationPreview extends VBox {
         }
     }
 
+    private void drawOnionSkins() {
+        if (project == null) return;
+        double z = camera.getZoom();
+        double now = project.getPlayheadMs();
+        double dur = project.getTotalDurationMs();
+        double step = dur / 20;
+
+        for (EntityTrack track : project.getTracks()) {
+            java.util.List<Keyframe> xFrames = track.getKeyframes(PropertyType.X);
+            java.util.List<Keyframe> yFrames = track.getKeyframes(PropertyType.Y);
+            if (xFrames.isEmpty() && yFrames.isEmpty()) continue;
+
+            for (int i = -onionFrames; i <= onionFrames; i++) {
+                if (i == 0) continue;
+                double t = now + i * step;
+                if (t < 0 || t > dur) continue;
+
+                double x = track.getValueAt(PropertyType.X, t);
+                double y = track.getValueAt(PropertyType.Y, t);
+                double sx = (x - camera.getX()) * z;
+                double sy = (y - camera.getY()) * z;
+
+                double alpha = 0.3 * (1.0 - Math.abs(i) / (double)(onionFrames + 1));
+                Color color = i < 0 ? Color.web("#f38ba8", alpha) : Color.web("#a6e3a1", alpha);
+
+                gc.setStroke(color);
+                gc.setLineWidth(1.5);
+                double size = 20 * z;
+                gc.strokeRect(sx - size / 2, sy - size / 2, size, size);
+
+                gc.setFill(color);
+                gc.setFont(javafx.scene.text.Font.font(8));
+                gc.fillText(String.format("%.0f", t), sx + size / 2 + 2, sy);
+            }
+        }
+    }
+
     private void drawGrid(double w, double h) {
         double z = Math.max(0.0001, camera.getZoom());
         double step = 50.0 * z;
@@ -154,6 +194,10 @@ public class AnimationPreview extends VBox {
     public void setOnEntityMoved(BiConsumer<String, double[]> callback) { this.onEntityMoved = callback; }
 
     public Entity2D getSelectedEntity() { return selectedEntity; }
+
+    public boolean isOnionSkinning() { return onionSkinning; }
+    public void setOnionSkinning(boolean onionSkinning) { this.onionSkinning = onionSkinning; render(); }
+    public void setOnionFrames(int frames) { this.onionFrames = Math.max(1, Math.min(10, frames)); }
 
     private String findEntityNameAt(double screenX, double screenY) {
         if (scene == null) return null;
