@@ -371,6 +371,20 @@ public class FileEditorTab extends BorderPane {
     return file != null ? file.getName() : "Untitled";
   }
 
+  public void setOnVnsTextChanged(Consumer<String> listener) {
+    if (vnsEditor != null) vnsEditor.setOnTextChanged(listener);
+  }
+
+  public String getCurrentTextSnapshot() {
+    return getCurrentText();
+  }
+
+  public void navigateToLine(int oneBasedLine) {
+    if (kind == Kind.VNS && vnsEditor != null) {
+      vnsEditor.goToLine(oneBasedLine);
+    }
+  }
+
   public JesScene2D getJesScene() { return jesScene; }
   public ViewportView getViewport() { return viewport; }
   public VnPreviewView getVnPreview() { return vnPreview; }

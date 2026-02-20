@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,6 +41,7 @@ public class VnsCodeEditor extends BorderPane {
   private List<Issue> issues = List.of();
   private int highlightedIssueLine = -1;
   private boolean highlightedIssueWarning = false;
+  private Consumer<String> onTextChanged;
 
   private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|label|define|include|var)\\b";
   private static final String BRACKET_PATTERN = "\\[[^\\]]+]";
@@ -70,7 +72,11 @@ public class VnsCodeEditor extends BorderPane {
 
   public VnsCodeEditor() {
     codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel);
-    codeArea.textProperty().addListener((obs, oldText, newText) -> applyAnalysis(newText == null ? "" : newText));
+    codeArea.textProperty().addListener((obs, oldText, newText) -> {
+      String value = newText == null ? "" : newText;
+      applyAnalysis(value);
+      if (onTextChanged != null) onTextChanged.accept(value);
+    });
 
     VirtualizedScrollPane<CodeArea> sp = new VirtualizedScrollPane<>(codeArea);
     lintLabel.getStyleClass().add("lint-label");
@@ -173,6 +179,19 @@ public class VnsCodeEditor extends BorderPane {
 
   public void setText(String s) {
     codeArea.replaceText(s == null ? "" : s);
+  }
+
+  public void setOnTextChanged(Consumer<String> listener) {
+    this.onTextChanged = listener;
+  }
+
+  public void goToLine(int oneBasedLine) {
+    int paragraphCount = codeArea.getParagraphs().size();
+    if (paragraphCount <= 0) return;
+    int target = Math.max(0, Math.min(paragraphCount - 1, oneBasedLine - 1));
+    codeArea.moveTo(target, 0);
+    codeArea.requestFollowCaret();
+    codeArea.requestFocus();
   }
 
   public void setProjectRoot(File root) {

@@ -11,6 +11,7 @@ import java.util.Properties;
 
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
+import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.InspectorView;
@@ -20,11 +21,15 @@ import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
 import com.jvn.editor.ui.NewProjectWizard;
+import com.jvn.editor.ui.VnsDiagnosticsView;
+import com.jvn.editor.ui.VnsFlowMapView;
+import com.jvn.editor.ui.VnsScriptAnalyzer;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -84,13 +89,25 @@ public class EditorApp extends Application {
   private ProjectExplorerView projView;
   private HelpCenterView helpCenterView;
   private StoryTimelineView timelineView;
+  private VnsDiagnosticsView vnsDiagnosticsView;
+  private VnsFlowMapView vnsFlowMapView;
+  private AssetBrowserView assetBrowserView;
   private SettingsEditorView settingsEditor;
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
   private TilemapEditorView mapEditorView;
   private final CommandStack commands = new CommandStack();
+  private TabPane leftTabs;
+  private TabPane rightTabs;
   private Tab tabProject;
   private Tab tabTimeline;
+  private Tab tabInspector;
   private Tab tabHelp;
+  private Tab tabVnsDiagnostics;
+  private Tab tabVnsFlowMap;
+  private Tab tabAssetBrowser;
+  private Tab tabLeftAdd;
+  private Tab tabRightAdd;
+  private ScrollPane inspectorScroll;
   private File projectRoot;
   private OperatingSystemMXBean osBean;
   private long lastPerfUpdateNs = -1L;
@@ -170,7 +187,7 @@ public class EditorApp extends Application {
       this.projectRoot = root;
       Properties mf = loadManifest(root);
       configureProjectContext(root, mf);
-      selectTimelineTab();
+      selectProjectTab();
     }
     return root;
   }
@@ -211,6 +228,7 @@ public class EditorApp extends Application {
     if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(root);
     if (mapEditorView != null) mapEditorView.setProjectRoot(root);
     if (helpCenterView != null) helpCenterView.setProjectRoot(root);
+    if (assetBrowserView != null) assetBrowserView.setProjectRoot(root);
   }
 
   private String composeGradleTask(String path, String task) {
@@ -349,7 +367,7 @@ public class EditorApp extends Application {
       openFile(entryScript);
     }
     
-    selectTimelineTab();
+    selectProjectTab();
     status.setText("Created project: " + projectDir.getName());
   }
 
@@ -543,17 +561,32 @@ public class EditorApp extends Application {
     inspectorView.setCommandStack(commands);
     inspectorView.setMinWidth(280);
     inspectorView.setPrefWidth(320);
-    ScrollPane inspectorScroll = new ScrollPane(inspectorView);
+    inspectorScroll = new ScrollPane(inspectorView);
     inspectorScroll.setFitToWidth(true);
-    TabPane rightTabs = new TabPane();
-    Tab tabInspectorRight = new Tab("Inspector", inspectorScroll); tabInspectorRight.setClosable(false);
+    vnsDiagnosticsView = new VnsDiagnosticsView();
+    vnsDiagnosticsView.setOnOpenLine(this::jumpToActiveVnsLine);
+    vnsFlowMapView = new VnsFlowMapView();
+    vnsFlowMapView.setOnOpenLine(this::jumpToActiveVnsLine);
+    assetBrowserView = new AssetBrowserView();
+    assetBrowserView.setProjectRoot(projectRoot);
+    assetBrowserView.setOnOpenAsset(asset -> {
+      if (asset == null) return;
+      if (isEditableFile(asset)) {
+        openFile(asset);
+      } else {
+        try { java.awt.Desktop.getDesktop().open(asset); } catch (Exception ignored) {}
+      }
+    });
+    rightTabs = new TabPane();
     helpCenterView = new HelpCenterView();
     helpCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
     helpCenterView.setProjectRoot(projectRoot);
     helpCenterView.setOnOpenDoc(this::openFile);
-    tabHelp = new Tab("Help", helpCenterView); tabHelp.setClosable(false);
-    rightTabs.getTabs().addAll(tabInspectorRight, tabHelp);
+    tabRightAdd = new Tab("+", new Region()); tabRightAdd.setClosable(false);
+    rightTabs.getTabs().addAll(tabRightAdd);
+    installAddTabBehavior(rightTabs, tabRightAdd, this::showRightAddMenu);
     rightTabs.setPrefWidth(360);
+    showRightAddMenu();
     timelineView = new StoryTimelineView();
     timelineView.setMinWidth(240);
     timelineView.setPrefWidth(320);
@@ -574,17 +607,18 @@ public class EditorApp extends Application {
       Properties mf = loadManifest(projectDir);
       configureProjectContext(projectDir, mf);
       applyProjectRootToTabs();
-      selectTimelineTab();
+      selectProjectTab();
       doRunProject(projectDir);
     });
-    TabPane sideTabs = new TabPane();
+    leftTabs = new TabPane();
     tabProject = new Tab("Project", projView); tabProject.setClosable(false);
-    tabTimeline = new Tab("Timeline", timelineView); tabTimeline.setClosable(false);
-    sideTabs.getTabs().addAll(tabProject, tabTimeline);
-    sideTabs.getSelectionModel().select(tabTimeline);
-    sideTabs.setPrefWidth(300);
+    tabLeftAdd = new Tab("+", new Region()); tabLeftAdd.setClosable(false);
+    leftTabs.getTabs().addAll(tabProject, tabLeftAdd);
+    installAddTabBehavior(leftTabs, tabLeftAdd, this::showLeftAddMenu);
+    leftTabs.getSelectionModel().select(tabProject);
+    leftTabs.setPrefWidth(300);
     SplitPane centerSplit = new SplitPane();
-    centerSplit.getItems().addAll(sideTabs, filesTabs, rightTabs);
+    centerSplit.getItems().addAll(leftTabs, filesTabs, rightTabs);
     centerSplit.setDividerPositions(0.22, 0.78);
     root.setLeft(null);
     root.setRight(null);
@@ -667,7 +701,7 @@ public class EditorApp extends Application {
     configureProjectContext(dir, mf);
     applyProjectRootToTabs();
     status.setText("Project: " + dir.getName());
-    selectTimelineTab();
+    selectProjectTab();
   }
 
   private void openJesFile(File f) { openFile(f); }
@@ -987,6 +1021,12 @@ public class EditorApp extends Application {
     });
     editor.setOnStatus(s -> status.setText(s));
     editor.setCommandStack(commands);
+    if (editor.getKind() == FileEditorTab.Kind.VNS) {
+      editor.setOnVnsTextChanged(text -> {
+        if (editor != getActiveFileTab()) return;
+        refreshVnsToolPanels(editor, text);
+      });
+    }
     Tab tab = new Tab(editor.getDisplayName(), editor);
     tab.setClosable(true);
     tab.setUserData(f);
@@ -1013,6 +1053,7 @@ public class EditorApp extends Application {
     }
     if (mapEditorView != null) mapEditorView.setProjectRoot(projectRoot);
     if (helpCenterView != null) helpCenterView.setProjectRoot(projectRoot);
+    if (assetBrowserView != null) assetBrowserView.setProjectRoot(projectRoot);
   }
 
   private FileEditorTab getActiveFileTab() {
@@ -1032,6 +1073,33 @@ public class EditorApp extends Application {
         mapEditorView.clearContext();
       }
     }
+    refreshVnsToolPanels(ft, null);
+  }
+
+  private void refreshVnsToolPanels(FileEditorTab fileTab, String currentText) {
+    if (vnsDiagnosticsView == null && vnsFlowMapView == null) return;
+    if (fileTab == null || fileTab.getKind() != FileEditorTab.Kind.VNS) {
+      if (vnsDiagnosticsView != null) vnsDiagnosticsView.clear();
+      if (vnsFlowMapView != null) vnsFlowMapView.clear();
+      return;
+    }
+
+    File scriptFile = fileTab.getFile();
+    String source = currentText != null ? currentText : fileTab.getCurrentTextSnapshot();
+    File analysisRoot = projectRoot;
+    if (analysisRoot == null && scriptFile != null) {
+      analysisRoot = scriptFile.getParentFile();
+    }
+
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, analysisRoot);
+    if (vnsDiagnosticsView != null) vnsDiagnosticsView.setAnalysis(scriptFile, analysis);
+    if (vnsFlowMapView != null) vnsFlowMapView.setAnalysis(scriptFile, analysis);
+  }
+
+  private void jumpToActiveVnsLine(int oneBasedLine) {
+    FileEditorTab ft = getActiveFileTab();
+    if (ft == null || ft.getKind() != FileEditorTab.Kind.VNS) return;
+    ft.navigateToLine(oneBasedLine);
   }
 
   private void fitCameraToEntity(Entity2D e) {
@@ -1118,21 +1186,218 @@ public class EditorApp extends Application {
     fullscreenPreview.requestFocus();
   }
 
+  private void installAddTabBehavior(TabPane pane, Tab addTab, Runnable onAddRequested) {
+    if (pane == null || addTab == null || onAddRequested == null) return;
+    pane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
+      if (newTab != addTab) return;
+      Platform.runLater(() -> {
+        Tab fallback = (oldTab != null && oldTab != addTab && pane.getTabs().contains(oldTab))
+          ? oldTab
+          : firstRegularTab(pane, addTab);
+        if (fallback != null && pane.getTabs().contains(fallback)) {
+          pane.getSelectionModel().select(fallback);
+        }
+        onAddRequested.run();
+      });
+    });
+  }
+
+  private Tab firstRegularTab(TabPane pane, Tab addTab) {
+    if (pane == null) return null;
+    for (Tab t : pane.getTabs()) {
+      if (t != addTab) return t;
+    }
+    return null;
+  }
+
+  private Tab getAddTabForPane(TabPane pane) {
+    if (pane == null) return null;
+    if (pane == leftTabs) return tabLeftAdd;
+    if (pane == rightTabs) return tabRightAdd;
+    return null;
+  }
+
+  private void attachPanelTabToPane(Tab tab, TabPane targetPane) {
+    if (tab == null || targetPane == null) return;
+    TabPane current = tab.getTabPane();
+    if (current == targetPane) return;
+    if (current != null) current.getTabs().remove(tab);
+    Tab addTab = getAddTabForPane(targetPane);
+    int idx = (addTab != null) ? targetPane.getTabs().indexOf(addTab) : -1;
+    if (idx < 0) idx = targetPane.getTabs().size();
+    if (!targetPane.getTabs().contains(tab)) targetPane.getTabs().add(idx, tab);
+  }
+
+  private Tab ensureProjectTab(TabPane targetPane) {
+    if (targetPane == null || projView == null) return null;
+    if (tabProject == null) {
+      tabProject = new Tab("Project", projView);
+      tabProject.setClosable(false);
+    }
+    attachPanelTabToPane(tabProject, targetPane);
+    return tabProject;
+  }
+
+  private Tab ensureTimelineTab(TabPane targetPane) {
+    if (targetPane == null || timelineView == null) return null;
+    if (tabTimeline == null) {
+      tabTimeline = new Tab("Timeline", timelineView);
+      tabTimeline.setClosable(true);
+      tabTimeline.setOnClosed(e -> tabTimeline = null);
+    }
+    attachPanelTabToPane(tabTimeline, targetPane);
+    return tabTimeline;
+  }
+
+  private Tab ensureHelpTab(TabPane targetPane) {
+    if (targetPane == null || helpCenterView == null) return null;
+    if (tabHelp == null) {
+      tabHelp = new Tab("Help", helpCenterView);
+      tabHelp.setClosable(true);
+      tabHelp.setOnClosed(e -> tabHelp = null);
+    }
+    attachPanelTabToPane(tabHelp, targetPane);
+    return tabHelp;
+  }
+
+  private Tab ensureInspectorTab(TabPane targetPane) {
+    if (targetPane == null || inspectorScroll == null) return null;
+    if (tabInspector == null) {
+      tabInspector = new Tab("Inspector", inspectorScroll);
+      tabInspector.setClosable(true);
+      tabInspector.setOnClosed(e -> tabInspector = null);
+    }
+    attachPanelTabToPane(tabInspector, targetPane);
+    return tabInspector;
+  }
+
+  private Tab ensureVnsDiagnosticsTab(TabPane targetPane) {
+    if (targetPane == null || vnsDiagnosticsView == null) return null;
+    if (tabVnsDiagnostics == null) {
+      tabVnsDiagnostics = new Tab("VNS Diagnostics", vnsDiagnosticsView);
+      tabVnsDiagnostics.setClosable(true);
+      tabVnsDiagnostics.setOnClosed(e -> tabVnsDiagnostics = null);
+    }
+    attachPanelTabToPane(tabVnsDiagnostics, targetPane);
+    return tabVnsDiagnostics;
+  }
+
+  private Tab ensureVnsFlowMapTab(TabPane targetPane) {
+    if (targetPane == null || vnsFlowMapView == null) return null;
+    if (tabVnsFlowMap == null) {
+      tabVnsFlowMap = new Tab("Label Flow", vnsFlowMapView);
+      tabVnsFlowMap.setClosable(true);
+      tabVnsFlowMap.setOnClosed(e -> tabVnsFlowMap = null);
+    }
+    attachPanelTabToPane(tabVnsFlowMap, targetPane);
+    return tabVnsFlowMap;
+  }
+
+  private Tab ensureAssetBrowserTab(TabPane targetPane) {
+    if (targetPane == null || assetBrowserView == null) return null;
+    if (tabAssetBrowser == null) {
+      tabAssetBrowser = new Tab("Assets", assetBrowserView);
+      tabAssetBrowser.setClosable(true);
+      tabAssetBrowser.setOnClosed(e -> tabAssetBrowser = null);
+    }
+    attachPanelTabToPane(tabAssetBrowser, targetPane);
+    return tabAssetBrowser;
+  }
+
+  private String panelActionLabel(String panelName, Tab tab, TabPane targetPane) {
+    if (tab != null && tab.getTabPane() == targetPane) return "Open " + panelName;
+    if (tab != null && tab.getTabPane() != null) return "Move " + panelName + " Here";
+    return "Add " + panelName;
+  }
+
+  private void addChooserActionButton(javafx.scene.layout.VBox actions, String text, Runnable action) {
+    if (actions == null || text == null || action == null) return;
+    Button button = new Button(text);
+    button.setMaxWidth(Double.MAX_VALUE);
+    button.setOnAction(e -> action.run());
+    actions.getChildren().add(button);
+  }
+
+  private void openPanelChooserTab(TabPane pane, boolean leftSide) {
+    if (pane == null) return;
+    Tab addTab = leftSide ? tabLeftAdd : tabRightAdd;
+    if (addTab == null) return;
+
+    String title = leftSide ? "Add Left Panel" : "Add Right Panel";
+    String details = leftSide
+      ? "Choose a panel to add on the left. This keeps the workspace focused by default."
+      : "Choose a panel to add on the right. Add only the tools you need for the current workflow.";
+
+    javafx.scene.layout.VBox root = new javafx.scene.layout.VBox(10);
+    root.setPadding(new javafx.geometry.Insets(12));
+    Label heading = new Label(title);
+    heading.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
+    Label info = new Label(details);
+    info.setWrapText(true);
+    javafx.scene.layout.VBox actions = new javafx.scene.layout.VBox(8);
+    addChooserActionButton(actions, panelActionLabel("Project", tabProject, pane), () -> {
+      Tab t = ensureProjectTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+    });
+    addChooserActionButton(actions, panelActionLabel("Timeline", tabTimeline, pane), () -> {
+      Tab t = ensureTimelineTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+    });
+    addChooserActionButton(actions, panelActionLabel("VNS Diagnostics", tabVnsDiagnostics, pane), () -> {
+      Tab t = ensureVnsDiagnosticsTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+    });
+    addChooserActionButton(actions, panelActionLabel("Label Flow", tabVnsFlowMap, pane), () -> {
+      Tab t = ensureVnsFlowMapTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+    });
+    addChooserActionButton(actions, panelActionLabel("Assets", tabAssetBrowser, pane), () -> {
+      Tab t = ensureAssetBrowserTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+    });
+    addChooserActionButton(actions, panelActionLabel("Help", tabHelp, pane), () -> {
+      Tab t = ensureHelpTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+    });
+    addChooserActionButton(actions, panelActionLabel("Inspector", tabInspector, pane), () -> {
+      Tab t = ensureInspectorTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+    });
+
+    root.getChildren().addAll(heading, info, new javafx.scene.control.Separator(), actions);
+    Tab chooser = new Tab("New Panel", root);
+    chooser.setClosable(true);
+    int addIdx = pane.getTabs().indexOf(addTab);
+    if (addIdx < 0) addIdx = pane.getTabs().size();
+    pane.getTabs().add(addIdx, chooser);
+    pane.getSelectionModel().select(chooser);
+  }
+
+  private void showLeftAddMenu() {
+    openPanelChooserTab(leftTabs, true);
+  }
+
+  private void showRightAddMenu() {
+    openPanelChooserTab(rightTabs, false);
+  }
+
   private void selectProjectTab() {
-    if (tabProject != null && tabProject.getTabPane() != null) {
-      tabProject.getTabPane().getSelectionModel().select(tabProject);
+    if (tabProject != null && leftTabs != null && leftTabs.getTabs().contains(tabProject)) {
+      leftTabs.getSelectionModel().select(tabProject);
     }
   }
 
   private void selectTimelineTab() {
-    if (tabTimeline != null && tabTimeline.getTabPane() != null) {
-      tabTimeline.getTabPane().getSelectionModel().select(tabTimeline);
+    Tab t = (tabTimeline != null && tabTimeline.getTabPane() != null) ? tabTimeline : ensureTimelineTab(leftTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
     }
   }
 
   private void selectHelpTab() {
-    if (tabHelp != null && tabHelp.getTabPane() != null) {
-      tabHelp.getTabPane().getSelectionModel().select(tabHelp);
+    Tab t = (tabHelp != null && tabHelp.getTabPane() != null) ? tabHelp : ensureHelpTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
     }
   }
 }
