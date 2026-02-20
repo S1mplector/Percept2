@@ -335,6 +335,13 @@ public class PuppeteerWindow extends Stage {
                     if (img.getWidth() > 0 && img.getHeight() > 0) {
                         w = img.getWidth();
                         h = img.getHeight();
+                        // Scale down to fit within ~60% of scene height (720 * 0.6 = 432)
+                        double maxH = 432;
+                        if (h > maxH) {
+                            double scale = maxH / h;
+                            w *= scale;
+                            h = maxH;
+                        }
                     }
                 } catch (Exception ignored) {}
             }
