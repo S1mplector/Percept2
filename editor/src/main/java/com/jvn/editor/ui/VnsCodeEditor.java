@@ -9,7 +9,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.VBox;
 import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
@@ -79,9 +78,7 @@ public class VnsCodeEditor extends BorderPane {
     });
 
     VirtualizedScrollPane<CodeArea> sp = new VirtualizedScrollPane<>(codeArea);
-    lintLabel.getStyleClass().add("lint-label");
-    VBox wrapper = new VBox(sp, lintLabel);
-    setCenter(wrapper);
+    setCenter(sp);
 
     Button bDialogue = new Button("Dialogue");
     bDialogue.setOnAction(e -> insertSnippet("Speaker: Your line here" + System.lineSeparator()));
