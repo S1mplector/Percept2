@@ -38,6 +38,7 @@ public class LoadMenuScene implements Scene {
   private final Engine engine;
   private final VnSaveManager saveManager;
   private final String defaultScriptName;
+  private final com.jvn.core.vn.VnSettings settingsModel;
   private final AudioFacade audio;
   private final MenuProfile menuProfile;
   private final MenuScreenSpec menuScreen;
@@ -49,6 +50,7 @@ public class LoadMenuScene implements Scene {
     this.engine = engine;
     this.saveManager = saveManager;
     this.defaultScriptName = defaultScriptName == null ? "demo.vns" : defaultScriptName;
+    this.settingsModel = settingsModel == null ? new com.jvn.core.vn.VnSettings() : settingsModel;
     this.audio = audio;
     MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
     this.menuProfile = menuLoad.profile();
@@ -186,6 +188,37 @@ public class LoadMenuScene implements Scene {
         loadSelected();
         yield true;
       }
+      case NEW_GAME -> {
+        startNewGame(defaultScriptName);
+        yield true;
+      }
+      case RUN_SCRIPT -> {
+        startNewGame(normalize(action.target(), defaultScriptName));
+        yield true;
+      }
+      case SETTINGS_MENU -> {
+        com.jvn.core.input.ActionBindingProfile profile =
+            com.jvn.core.input.ActionBindingProfile.deserialize(settingsModel.getInputProfileSerialized());
+        if (engine != null) {
+          engine.scenes().push(new SettingsScene(engine, saveManager, defaultScriptName, settingsModel, audio, profile));
+        }
+        yield true;
+      }
+      case OPEN_MENU -> {
+        openConfiguredMenu(action.target());
+        yield true;
+      }
+      case MAIN_MENU -> {
+        openConfiguredMenu("main");
+        yield true;
+      }
+      case SAVE_MENU -> {
+        com.jvn.core.scene.Scene current = engine != null ? engine.scenes().peek() : null;
+        if (current instanceof VnScene vnScene && engine != null) {
+          engine.scenes().push(new SaveMenuScene(engine, saveManager, vnScene));
+        }
+        yield true;
+      }
       case BACK -> {
         if (engine != null) {
           engine.scenes().pop();
@@ -199,10 +232,7 @@ public class LoadMenuScene implements Scene {
         yield true;
       }
       case NOOP -> true;
-      default -> {
-        loadSelected();
-        yield true;
-      }
+      default -> true;
     };
   }
 
@@ -281,6 +311,48 @@ public class LoadMenuScene implements Scene {
       }
       engine.scenes().push(scene);
     } catch (Exception ignored) {
+    }
+  }
+
+  private void openConfiguredMenu(String targetMenu) {
+    String requested = normalize(targetMenu, null);
+    if (requested == null || engine == null) return;
+    if (!menuProfile.screens().containsKey(requested)) {
+      LOG.debug("Configured menu '{}' not found in profile", requested);
+      return;
+    }
+    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, audio, requested);
+    engine.scenes().push(child);
+  }
+
+  private void startNewGame(String scriptName) {
+    VnScenario scenario = loadScenario(normalize(scriptName, defaultScriptName));
+    VnScene scene = new VnScene(scenario);
+    if (audio != null) scene.setAudioFacade(audio);
+    if (engine != null && engine.getVnInteropFactory() != null) {
+      scene.setInterop(engine.getVnInteropFactory().create(engine));
+    }
+    var s = scene.getState().getSettings();
+    s.setTextSpeed(settingsModel.getTextSpeed());
+    s.setBgmVolume(settingsModel.getBgmVolume());
+    s.setSfxVolume(settingsModel.getSfxVolume());
+    s.setVoiceVolume(settingsModel.getVoiceVolume());
+    s.setAutoPlayDelay(settingsModel.getAutoPlayDelay());
+    s.setSkipUnreadText(settingsModel.isSkipUnreadText());
+    s.setSkipAfterChoices(settingsModel.isSkipAfterChoices());
+    s.setPhysicsFixedStepMs(settingsModel.getPhysicsFixedStepMs());
+    s.setPhysicsMaxSubSteps(settingsModel.getPhysicsMaxSubSteps());
+    s.setPhysicsDefaultFriction(settingsModel.getPhysicsDefaultFriction());
+    s.setInputProfilePath(settingsModel.getInputProfilePath());
+    s.setInputProfileSerialized(settingsModel.getInputProfileSerialized());
+    if (audio != null) {
+      audio.setBgmVolume(s.getBgmVolume());
+      audio.setSfxVolume(s.getSfxVolume());
+      audio.setVoiceVolume(s.getVoiceVolume());
+    }
+    if (engine != null) {
+      engine.setFixedUpdateStepMs(settingsModel.getPhysicsFixedStepMs(), settingsModel.getPhysicsMaxSubSteps());
+      engine.scenes().push(scene);
     }
   }
 
@@ -388,5 +460,11 @@ public class LoadMenuScene implements Scene {
       if (!key.isEmpty()) return Localization.t(key);
     }
     return value;
+  }
+
+  private static String normalize(String v, String def) {
+    if (v == null) return def;
+    String t = v.trim();
+    return t.isEmpty() ? def : t;
   }
 }

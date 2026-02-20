@@ -2,6 +2,13 @@ package com.jvn.fx.menu;
 
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
+import com.jvn.core.menu.config.MenuActionType;
+import com.jvn.core.menu.config.MenuItemSpec;
+import com.jvn.core.menu.config.MenuLayoutSpec;
+import com.jvn.core.menu.config.MenuProfile;
+import com.jvn.core.menu.config.MenuProfileLoader;
+import com.jvn.core.menu.config.MenuScreenSpec;
+import com.jvn.core.menu.config.MenuStyleSpec;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -66,7 +73,7 @@ public class MenuTheme {
   public static MenuTheme defaults() { return new MenuTheme(); }
 
   public static MenuTheme fromAssets() {
-    MenuTheme t = new MenuTheme();
+    MenuTheme t = fromMenuProfile(MenuProfileLoader.loadFromAssets());
     AssetCatalog cat = new AssetCatalog();
     String[] candidates = new String[] {
         "config/menu/theme/menu.theme",
@@ -84,6 +91,48 @@ public class MenuTheme {
       } catch (Exception ignored) {}
     }
     return t;
+  }
+
+  private static MenuTheme fromMenuProfile(MenuProfile profile) {
+    MenuTheme out = new MenuTheme();
+    if (profile == null) return out;
+
+    MenuScreenSpec screen = profile.screen(profile.defaultScreenId());
+    if (screen == null) return out;
+    MenuLayoutSpec layout = profile.layout(screen.layoutId());
+    MenuStyleSpec style = profile.style(screen.defaultStyleId());
+
+    if (layout != null) {
+      out.listYStart = layout.listYStart();
+      out.lineHeight = layout.lineHeight();
+      if (layout.titleY() != null) out.titleY = layout.titleY();
+    }
+
+    if (style != null) {
+      out.itemColor = parseColor(style.itemColor(), out.itemColor);
+      out.itemSelectedColor = parseColor(style.itemSelectedColor(), out.itemSelectedColor);
+      out.itemPrefix = valueOr(style.itemPrefix(), out.itemPrefix);
+      out.itemSelectedPrefix = valueOr(style.itemSelectedPrefix(), out.itemSelectedPrefix);
+      out.itemFontFamily = valueOr(style.itemFontFamily(), out.itemFontFamily);
+      out.itemFontWeight = parseWeight(style.itemFontWeight(), out.itemFontWeight);
+      if (style.itemFontSize() != null && style.itemFontSize() > 0) out.itemFontSize = style.itemFontSize();
+    }
+
+    out.titleText = valueOr(screen.titleText(), out.titleText);
+    out.mainHintsText = valueOr(screen.hintsText(), out.mainHintsText);
+    for (MenuItemSpec item : screen.items()) {
+      if (item == null || item.label() == null || item.label().isBlank()) continue;
+      if (item.action().type() == MenuActionType.NEW_GAME) out.labelNewGame = item.label();
+      if (item.action().type() == MenuActionType.LOAD_MENU) out.labelLoad = item.label();
+      if (item.action().type() == MenuActionType.SETTINGS_MENU) out.labelSettings = item.label();
+      if (item.action().type() == MenuActionType.QUIT) out.labelQuit = item.label();
+    }
+    return out;
+  }
+
+  private static String valueOr(String value, String fallback) {
+    if (value == null || value.isBlank()) return fallback;
+    return value;
   }
 
   public void apply(Properties p) {

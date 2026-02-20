@@ -165,7 +165,13 @@ public class FxLauncher extends Application {
         // S = Settings (in-game)
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
         if (currentScene instanceof VnScene vn) {
-          engine.scenes().push(new SettingsScene(vn.getState().getSettings(), vn.getAudioFacade()));
+          engine.scenes().push(new SettingsScene(
+              engine,
+              new com.jvn.core.vn.save.VnSaveManager(),
+              "demo.vns",
+              vn.getState().getSettings(),
+              vn.getAudioFacade()
+          ));
         }
       } else if (e.getCode() == KeyCode.ESCAPE) {
         // ESC = Close history overlay if open
@@ -222,7 +228,13 @@ public class FxLauncher extends Application {
           if (actionMap.matches(InputActions.SETTINGS, code)) {
             com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
             if (currentScene instanceof VnScene vn) {
-              engine.scenes().push(new SettingsScene(vn.getState().getSettings(), vn.getAudioFacade()));
+              engine.scenes().push(new SettingsScene(
+                  engine,
+                  new com.jvn.core.vn.save.VnSaveManager(),
+                  "demo.vns",
+                  vn.getState().getSettings(),
+                  vn.getAudioFacade()
+              ));
             }
           }
           if (actionMap.matches(InputActions.QUICK_SAVE, code)) handleQuickSave();

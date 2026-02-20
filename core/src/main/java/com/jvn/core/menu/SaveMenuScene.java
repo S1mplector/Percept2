@@ -13,10 +13,13 @@ import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene.Scene;
+import com.jvn.core.vn.DemoScenario;
 import com.jvn.core.vn.VnBackground;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.save.VnSaveManager;
+import com.jvn.core.vn.script.VnScriptParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +44,8 @@ public class SaveMenuScene implements Scene {
   private final Engine engine;
   private final VnSaveManager saveManager;
   private final VnScene currentVnScene;
+  private final String defaultScriptName;
+  private final VnSettings settingsModel;
   private final MenuProfile menuProfile;
   private final MenuScreenSpec menuScreen;
   private final MenuLayoutSpec menuLayout;
@@ -48,9 +53,17 @@ public class SaveMenuScene implements Scene {
   private List<String> saves = new ArrayList<>();
 
   public SaveMenuScene(Engine engine, VnSaveManager saveManager, VnScene vnScene) {
+    this(engine, saveManager, vnScene, null);
+  }
+
+  public SaveMenuScene(Engine engine, VnSaveManager saveManager, VnScene vnScene, String defaultScriptName) {
     this.engine = engine;
-    this.saveManager = saveManager;
+    this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
     this.currentVnScene = vnScene;
+    this.defaultScriptName = normalize(defaultScriptName, "demo.vns");
+    this.settingsModel = (vnScene != null && vnScene.getState() != null && vnScene.getState().getSettings() != null)
+        ? vnScene.getState().getSettings()
+        : new VnSettings();
     MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
     this.menuProfile = menuLoad.profile();
     for (String warning : menuLoad.diagnostics()) {
@@ -149,6 +162,38 @@ public class SaveMenuScene implements Scene {
   public boolean activateSelectedWithoutPrompt() {
     MenuActionSpec action = getSelectedAction();
     return switch (action.type()) {
+      case NEW_GAME -> {
+        startNewGame(defaultScriptName);
+        yield true;
+      }
+      case RUN_SCRIPT -> {
+        startNewGame(normalize(action.target(), defaultScriptName));
+        yield true;
+      }
+      case LOAD_MENU -> {
+        if (engine != null) {
+          String script = normalize(action.target(), defaultScriptName);
+          engine.scenes().push(new LoadMenuScene(engine, saveManager, script, settingsModel, currentAudio()));
+        }
+        yield true;
+      }
+      case SETTINGS_MENU -> {
+        if (engine != null) {
+          com.jvn.core.input.ActionBindingProfile profile =
+              com.jvn.core.input.ActionBindingProfile.deserialize(settingsModel.getInputProfileSerialized());
+          engine.scenes().push(new SettingsScene(engine, saveManager, defaultScriptName, settingsModel, currentAudio(), profile));
+        }
+        yield true;
+      }
+      case OPEN_MENU -> {
+        openConfiguredMenu(action.target());
+        yield true;
+      }
+      case MAIN_MENU -> {
+        openConfiguredMenu("main");
+        yield true;
+      }
+      case SAVE_MENU -> false;
       case BACK -> {
         if (engine != null) {
           engine.scenes().pop();
@@ -162,7 +207,7 @@ public class SaveMenuScene implements Scene {
         yield true;
       }
       case NOOP -> true;
-      default -> false;
+      default -> true;
     };
   }
 
@@ -291,6 +336,65 @@ public class SaveMenuScene implements Scene {
   @Override public void update(long deltaMs) { }
   @Override public void onExit() { }
 
+  private void openConfiguredMenu(String targetMenu) {
+    String requested = normalize(targetMenu, null);
+    if (requested == null || engine == null) return;
+    if (!menuProfile.screens().containsKey(requested)) {
+      LOG.debug("Configured menu '{}' not found in profile", requested);
+      return;
+    }
+    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, currentAudio(), requested);
+    engine.scenes().push(child);
+  }
+
+  private void startNewGame(String scriptName) {
+    VnScenario scenario = loadScenario(normalize(scriptName, defaultScriptName));
+    VnScene scene = new VnScene(scenario);
+    if (currentAudio() != null) scene.setAudioFacade(currentAudio());
+    if (engine != null && engine.getVnInteropFactory() != null) {
+      scene.setInterop(engine.getVnInteropFactory().create(engine));
+    }
+    VnSettings s = scene.getState().getSettings();
+    s.setTextSpeed(settingsModel.getTextSpeed());
+    s.setBgmVolume(settingsModel.getBgmVolume());
+    s.setSfxVolume(settingsModel.getSfxVolume());
+    s.setVoiceVolume(settingsModel.getVoiceVolume());
+    s.setAutoPlayDelay(settingsModel.getAutoPlayDelay());
+    s.setSkipUnreadText(settingsModel.isSkipUnreadText());
+    s.setSkipAfterChoices(settingsModel.isSkipAfterChoices());
+    s.setPhysicsFixedStepMs(settingsModel.getPhysicsFixedStepMs());
+    s.setPhysicsMaxSubSteps(settingsModel.getPhysicsMaxSubSteps());
+    s.setPhysicsDefaultFriction(settingsModel.getPhysicsDefaultFriction());
+    s.setInputProfilePath(settingsModel.getInputProfilePath());
+    s.setInputProfileSerialized(settingsModel.getInputProfileSerialized());
+    if (currentAudio() != null) {
+      currentAudio().setBgmVolume(s.getBgmVolume());
+      currentAudio().setSfxVolume(s.getSfxVolume());
+      currentAudio().setVoiceVolume(s.getVoiceVolume());
+    }
+    if (engine != null) {
+      engine.setFixedUpdateStepMs(settingsModel.getPhysicsFixedStepMs(), settingsModel.getPhysicsMaxSubSteps());
+      engine.scenes().push(scene);
+    }
+  }
+
+  private VnScenario loadScenario(String scriptName) {
+    try {
+      AssetCatalog assets = new AssetCatalog();
+      try (InputStream in = assets.open(AssetType.SCRIPT, scriptName)) {
+        VnScriptParser parser = new VnScriptParser();
+        return parser.parse(in);
+      }
+    } catch (Exception e) {
+      LOG.warn("Failed to load script '{}', falling back to DemoScenario: {}", scriptName, e.toString());
+      return DemoScenario.createSimpleDemo();
+    }
+  }
+
+  private com.jvn.core.audio.AudioFacade currentAudio() {
+    return currentVnScene != null ? currentVnScene.getAudioFacade() : null;
+  }
+
   private MenuStyleSpec styleForItemId(String... ids) {
     if (ids == null || ids.length == 0) return null;
     for (String id : ids) {
@@ -354,5 +458,11 @@ public class SaveMenuScene implements Scene {
       if (!key.isEmpty()) return Localization.t(key);
     }
     return value;
+  }
+
+  private static String normalize(String v, String def) {
+    if (v == null) return def;
+    String t = v.trim();
+    return t.isEmpty() ? def : t;
   }
 }

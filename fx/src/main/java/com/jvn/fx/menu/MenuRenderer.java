@@ -324,15 +324,29 @@ public class MenuRenderer {
         gc.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
       }
 
+      Image iconImage = item != null ? loadImage(item.iconPath()) : null;
+      double iconSize = 0;
+      if (iconImage != null) {
+        iconSize = clamp(rect.h() * 0.56, 12, 36);
+        double iconX = rect.x() + 10;
+        double iconY = rect.y() + (rect.h() - iconSize) / 2.0;
+        double previousAlpha = gc.getGlobalAlpha();
+        gc.setGlobalAlpha(isEnabled ? 0.98 : 0.55);
+        gc.drawImage(iconImage, iconX, iconY, iconSize, iconSize);
+        gc.setGlobalAlpha(previousAlpha);
+      }
+
       gc.setFill(color);
       gc.setFont(font);
       double tw = measure(label, font);
       double textPadX = style != null && style.buttonTextPaddingX() != null ? style.buttonTextPaddingX() : textPadXDefault;
       double textPadY = style != null && style.buttonTextPaddingY() != null ? style.buttonTextPaddingY() : textPadYDefault;
+      double leftInset = rect.x() + Math.max(0, textPadX) + (iconSize > 0 ? iconSize + 8 : 0);
+      double rightInset = rect.x() + Math.max(0, rect.w() - textPadX);
       double x = switch (align == null ? "center" : align.toLowerCase()) {
-        case "left" -> rect.x() + Math.max(0, textPadX);
-        case "right" -> rect.x() + Math.max(0, rect.w() - tw - textPadX);
-        default -> rect.x() + (rect.w() - tw) / 2.0;
+        case "left" -> leftInset;
+        case "right" -> rightInset - tw;
+        default -> leftInset + Math.max(0, (rightInset - leftInset - tw) / 2.0);
       };
       double baseline = rect.y() + rect.h() * 0.55 + textPadY;
       gc.fillText(label, x, baseline);

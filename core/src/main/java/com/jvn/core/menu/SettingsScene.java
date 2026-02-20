@@ -1,6 +1,9 @@
 package com.jvn.core.menu;
 
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.engine.Engine;
 import com.jvn.core.input.ActionBindingProfile;
 import com.jvn.core.input.ActionBindingProfileStore;
 import com.jvn.core.localization.Localization;
@@ -13,11 +16,17 @@ import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene.Scene;
+import com.jvn.core.vn.DemoScenario;
+import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnSettingsStore;
+import com.jvn.core.vn.save.VnSaveManager;
+import com.jvn.core.vn.script.VnScriptParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +47,9 @@ public class SettingsScene implements Scene {
 
   private final VnSettings settings;
   private final AudioFacade audio; // optional, to apply volumes live
+  private final Engine engine;
+  private final VnSaveManager saveManager;
+  private final String defaultScriptName;
   private final MenuProfile menuProfile;
   private final MenuScreenSpec menuScreen;
   private final MenuLayoutSpec menuLayout;
@@ -58,18 +70,50 @@ public class SettingsScene implements Scene {
   ) {}
 
   public SettingsScene(VnSettings settings) {
-    this(settings, null, null, null);
+    this(null, null, null, settings, null, null, null);
   }
 
   public SettingsScene(VnSettings settings, AudioFacade audio) {
-    this(settings, audio, null, null);
+    this(null, null, null, settings, audio, null, null);
   }
 
   public SettingsScene(VnSettings settings, AudioFacade audio, ActionBindingProfile bindings) {
-    this(settings, audio, bindings, null);
+    this(null, null, null, settings, audio, bindings, null);
   }
 
-  SettingsScene(VnSettings settings, AudioFacade audio, ActionBindingProfile bindings, MenuProfile profile) {
+  public SettingsScene(
+      Engine engine,
+      VnSaveManager saveManager,
+      String defaultScriptName,
+      VnSettings settings,
+      AudioFacade audio
+  ) {
+    this(engine, saveManager, defaultScriptName, settings, audio, null, null);
+  }
+
+  public SettingsScene(
+      Engine engine,
+      VnSaveManager saveManager,
+      String defaultScriptName,
+      VnSettings settings,
+      AudioFacade audio,
+      ActionBindingProfile bindings
+  ) {
+    this(engine, saveManager, defaultScriptName, settings, audio, bindings, null);
+  }
+
+  SettingsScene(
+      Engine engine,
+      VnSaveManager saveManager,
+      String defaultScriptName,
+      VnSettings settings,
+      AudioFacade audio,
+      ActionBindingProfile bindings,
+      MenuProfile profile
+  ) {
+    this.engine = engine;
+    this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
+    this.defaultScriptName = normalize(defaultScriptName, "demo.vns");
     this.settings = settings == null ? new VnSettings() : settings;
     this.audio = audio;
     if (bindings != null) {
@@ -373,8 +417,55 @@ public class SettingsScene implements Scene {
     MenuActionSpec action = row.action();
     if (action == null) return false;
     return switch (action.type()) {
-      case BACK, QUIT -> {
+      case BACK -> {
         closeRequested = true;
+        yield true;
+      }
+      case QUIT -> {
+        if (engine != null) engine.stop();
+        else closeRequested = true;
+        yield true;
+      }
+      case NEW_GAME -> {
+        startNewGame(defaultScriptName);
+        yield true;
+      }
+      case RUN_SCRIPT -> {
+        startNewGame(normalize(action.target(), defaultScriptName));
+        yield true;
+      }
+      case LOAD_MENU -> {
+        if (engine != null) {
+          String script = normalize(action.target(), defaultScriptName);
+          engine.scenes().push(new LoadMenuScene(engine, saveManager, script, settings, audio));
+        } else if (confirm) {
+          bindingStatus = "Load menu unavailable in standalone settings";
+        }
+        yield true;
+      }
+      case SAVE_MENU -> {
+        if (engine != null) {
+          com.jvn.core.scene.Scene current = engine.scenes().peek();
+          if (current instanceof VnScene vnScene) {
+            engine.scenes().push(new SaveMenuScene(engine, saveManager, vnScene, defaultScriptName));
+          } else if (confirm) {
+            bindingStatus = "Save menu requires an active VN scene";
+          }
+        } else if (confirm) {
+          bindingStatus = "Save menu unavailable in standalone settings";
+        }
+        yield true;
+      }
+      case OPEN_MENU -> {
+        boolean opened = openConfiguredMenu(action.target());
+        if (!opened && confirm) {
+          bindingStatus = "Menu not found: " + normalize(action.target(), "(empty)");
+        }
+        yield true;
+      }
+      case MAIN_MENU -> {
+        boolean opened = openConfiguredMenu("main");
+        if (!opened && confirm) bindingStatus = "Main menu not found";
         yield true;
       }
       case NOOP -> false;
@@ -386,6 +477,61 @@ public class SettingsScene implements Scene {
         yield true;
       }
     };
+  }
+
+  private boolean openConfiguredMenu(String targetMenu) {
+    String requested = normalize(targetMenu, null);
+    if (requested == null || engine == null) return false;
+    if (!menuProfile.screens().containsKey(requested)) {
+      LOG.debug("Configured menu '{}' not found in profile", requested);
+      return false;
+    }
+    MainMenuScene child = new MainMenuScene(engine, settings, saveManager, defaultScriptName, audio, requested);
+    engine.scenes().push(child);
+    return true;
+  }
+
+  private void startNewGame(String scriptName) {
+    if (engine == null) return;
+    VnScenario scenario = loadScenario(normalize(scriptName, defaultScriptName));
+    VnScene vnScene = new VnScene(scenario);
+    if (audio != null) vnScene.setAudioFacade(audio);
+    if (engine.getVnInteropFactory() != null) {
+      vnScene.setInterop(engine.getVnInteropFactory().create(engine));
+    }
+    VnSettings s = vnScene.getState().getSettings();
+    s.setTextSpeed(settings.getTextSpeed());
+    s.setBgmVolume(settings.getBgmVolume());
+    s.setSfxVolume(settings.getSfxVolume());
+    s.setVoiceVolume(settings.getVoiceVolume());
+    s.setAutoPlayDelay(settings.getAutoPlayDelay());
+    s.setSkipUnreadText(settings.isSkipUnreadText());
+    s.setSkipAfterChoices(settings.isSkipAfterChoices());
+    s.setPhysicsFixedStepMs(settings.getPhysicsFixedStepMs());
+    s.setPhysicsMaxSubSteps(settings.getPhysicsMaxSubSteps());
+    s.setPhysicsDefaultFriction(settings.getPhysicsDefaultFriction());
+    s.setInputProfilePath(settings.getInputProfilePath());
+    s.setInputProfileSerialized(settings.getInputProfileSerialized());
+    if (audio != null) {
+      audio.setBgmVolume(s.getBgmVolume());
+      audio.setSfxVolume(s.getSfxVolume());
+      audio.setVoiceVolume(s.getVoiceVolume());
+    }
+    engine.setFixedUpdateStepMs(settings.getPhysicsFixedStepMs(), settings.getPhysicsMaxSubSteps());
+    engine.scenes().push(vnScene);
+  }
+
+  private VnScenario loadScenario(String scriptName) {
+    try {
+      AssetCatalog assets = new AssetCatalog();
+      try (InputStream in = assets.open(AssetType.SCRIPT, scriptName)) {
+        VnScriptParser parser = new VnScriptParser();
+        return parser.parse(in);
+      }
+    } catch (Exception e) {
+      LOG.warn("Failed to load script '{}', falling back to DemoScenario: {}", scriptName, e.toString());
+      return DemoScenario.createSimpleDemo();
+    }
   }
 
   private int firstSelectableIndex(int fallback) {

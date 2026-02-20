@@ -167,7 +167,13 @@ public class RuntimeVnInterop implements VnInterop {
     switch (kind) {
       case "settings": {
         VnSettings s = scene.getState().getSettings();
-        SettingsScene m = new SettingsScene(s, scene.getAudioFacade());
+        SettingsScene m = new SettingsScene(
+            engine,
+            new com.jvn.core.vn.save.VnSaveManager(),
+            "demo.vns",
+            s,
+            scene.getAudioFacade()
+        );
         engine.scenes().push(m);
         return VnInteropResult.advance();
       }
