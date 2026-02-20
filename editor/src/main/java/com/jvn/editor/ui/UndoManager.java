@@ -100,6 +100,30 @@ public class UndoManager {
   }
 
   /**
+   * Install Ctrl+Z / Ctrl+Y (Cmd on Mac) keyboard shortcuts on a node.
+   * @param node the scene node to attach key handlers to
+   * @param undoAction called when undo shortcut is pressed
+   * @param redoAction called when redo shortcut is pressed
+   */
+  public static void installKeyboardShortcuts(javafx.scene.Node node, Runnable undoAction, Runnable redoAction) {
+    node.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+      if (e.isShortcutDown() && !e.isShiftDown()) {
+        if (e.getCode() == javafx.scene.input.KeyCode.Z) {
+          undoAction.run();
+          e.consume();
+        } else if (e.getCode() == javafx.scene.input.KeyCode.Y) {
+          redoAction.run();
+          e.consume();
+        }
+      }
+      if (e.isShortcutDown() && e.isShiftDown() && e.getCode() == javafx.scene.input.KeyCode.Z) {
+        redoAction.run();
+        e.consume();
+      }
+    });
+  }
+
+  /**
    * Clear all history.
    */
   public void clear() {

@@ -186,6 +186,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
     HBox historyButtons = new HBox(8, btnUndo, btnRedo);
     grid.add(historyButtons, 0, row, 2, 1);
 
+    UndoManager.installKeyboardShortcuts(this, this::performUndo, this::performRedo);
+
     return grid;
   }
 
@@ -293,7 +295,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
     g.strokeLine(0, r.titleY(), w, r.titleY());
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 24));
-    g.fillText(previewTitle, (w - 120) / 2.0, r.titleY() - 8);
+    double titleW = textWidth(g, previewTitle);
+    g.fillText(previewTitle, (w - titleW) / 2.0, r.titleY() - 8);
 
     // List area and sample entries.
     g.setFill(LayoutStudioPalette.PANEL_FILL_SOFT);
@@ -356,7 +359,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
       case "right" -> w - listW;
       default -> (w - listW) / 2.0;
     };
-    double listHeight = Math.max(1, lineHeight * 4);
+    int itemCount = Math.max(1, previewItems.size());
+    double listHeight = Math.max(1, lineHeight * itemCount);
     double titleY = resolve((s.titleY() != null ? s.titleY() : 0.12), h);
     double handleX = listX + listW - 6;
     double handleY = listY + listHeight / 2.0 - 6;

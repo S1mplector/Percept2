@@ -246,6 +246,8 @@ public class MenuStyleVisualEditor extends BorderPane {
     HBox historyButtons = new HBox(8, btnUndo, btnRedo);
     grid.add(historyButtons, 0, row, 2, 1);
 
+    UndoManager.installKeyboardShortcuts(this, this::performUndo, this::performRedo);
+
     return grid;
   }
 

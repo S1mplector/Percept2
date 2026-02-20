@@ -416,6 +416,9 @@ public class DialogueLayoutEditorView extends BorderPane {
         historyButtons, hint
     );
     sections.setPadding(new Insets(4));
+
+    UndoManager.installKeyboardShortcuts(this, this::performUndo, this::performRedo);
+
     return sections;
   }
 
