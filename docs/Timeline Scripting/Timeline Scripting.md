@@ -27,6 +27,14 @@ link Intro:intro_choice -> Chapter1:start
 link Chapter1:offer_side -> SideQuest:entry_side
 ```
 
+`at 40,40` means the arc node position in the timeline editor graph:
+- first number = X coordinate
+- second number = Y coordinate
+
+Important:
+- This affects editor layout/readability only.
+- It does not change runtime branching or story execution.
+
 ## DSL Reference
 
 ### Arc
@@ -40,10 +48,11 @@ Fields:
 - `script` optional in parser, but recommended in production.
 - `entry` optional; if present, validation checks that label in `script`.
 - `cluster` optional; used by editor grouping/filter UI.
-- `at X,Y` optional in parser; editor writes and maintains it.
+- `at X,Y` optional in parser; editor writes and maintains it as graph position.
 
 Notes:
 - `X,Y` may be integer or decimal.
+- `X,Y` are visual coordinates only, not gameplay logic.
 - Keywords are case-insensitive (`arc`, `ARC`, `Arc` all parse).
 
 ### Link
