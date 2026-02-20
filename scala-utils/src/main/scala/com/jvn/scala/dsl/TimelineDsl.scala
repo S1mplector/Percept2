@@ -15,7 +15,7 @@ import scala.collection.mutable.ListBuffer
  *       x(640)
  *       y(468)
  *       dur(340)
- *       easing(Easing.Type.EASE_IN_OUT)
+ *       easing(Easing.Type.EASE_IN_OUT_CUBIC)
  *     }
  *     waitMs(340)
  *     fade("codel") {
