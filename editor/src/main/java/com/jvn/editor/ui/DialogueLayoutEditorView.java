@@ -352,18 +352,18 @@ public class DialogueLayoutEditorView extends BorderPane {
     // --- Section: Choice Colors ---
     GridPane choiceColorGrid = sectionGrid();
     row = 0;
-    row = addRow(choiceColorGrid, row, "Background Color", tfChoiceBgColor);
-    row = addRow(choiceColorGrid, row, "Hover Color", tfChoiceHoverColor);
-    row = addRow(choiceColorGrid, row, "Selected Color", tfChoiceSelectedColor);
-    row = addRow(choiceColorGrid, row, "Disabled Color", tfChoiceDisabledColor);
-    row = addRow(choiceColorGrid, row, "Text Color", tfChoiceTextColor);
-    row = addRow(choiceColorGrid, row, "Hover Text Color", tfChoiceHoverTextColor);
-    row = addRow(choiceColorGrid, row, "Selected Text Color", tfChoiceSelectedTextColor);
-    row = addRow(choiceColorGrid, row, "Disabled Text Color", tfChoiceDisabledTextColor);
-    row = addRow(choiceColorGrid, row, "Border Color", tfChoiceBorderColor);
-    row = addRow(choiceColorGrid, row, "Hover Border", tfChoiceHoverBorderColor);
-    row = addRow(choiceColorGrid, row, "Selected Border", tfChoiceSelectedBorderColor);
-    row = addRow(choiceColorGrid, row, "Disabled Border", tfChoiceDisabledBorderColor);
+    row = addRow(choiceColorGrid, row, "Background Color", ColorFieldHelper.create(tfChoiceBgColor));
+    row = addRow(choiceColorGrid, row, "Hover Color", ColorFieldHelper.create(tfChoiceHoverColor));
+    row = addRow(choiceColorGrid, row, "Selected Color", ColorFieldHelper.create(tfChoiceSelectedColor));
+    row = addRow(choiceColorGrid, row, "Disabled Color", ColorFieldHelper.create(tfChoiceDisabledColor));
+    row = addRow(choiceColorGrid, row, "Text Color", ColorFieldHelper.create(tfChoiceTextColor));
+    row = addRow(choiceColorGrid, row, "Hover Text Color", ColorFieldHelper.create(tfChoiceHoverTextColor));
+    row = addRow(choiceColorGrid, row, "Selected Text Color", ColorFieldHelper.create(tfChoiceSelectedTextColor));
+    row = addRow(choiceColorGrid, row, "Disabled Text Color", ColorFieldHelper.create(tfChoiceDisabledTextColor));
+    row = addRow(choiceColorGrid, row, "Border Color", ColorFieldHelper.create(tfChoiceBorderColor));
+    row = addRow(choiceColorGrid, row, "Hover Border", ColorFieldHelper.create(tfChoiceHoverBorderColor));
+    row = addRow(choiceColorGrid, row, "Selected Border", ColorFieldHelper.create(tfChoiceSelectedBorderColor));
+    row = addRow(choiceColorGrid, row, "Disabled Border", ColorFieldHelper.create(tfChoiceDisabledBorderColor));
     row = addRow(choiceColorGrid, row, "Corner Radius", spChoiceCornerRadius);
     row = addRow(choiceColorGrid, row, "Border Width", spChoiceBorderWidth);
     row = addRow(choiceColorGrid, row, "Text Baseline", spChoiceTextBaselineOffset);
@@ -737,8 +737,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     ChoicePreviewStyle choiceStyle = resolveChoicePreviewStyle();
 
     // Choice block preview.
+    int choiceCount = Math.max(1, previewChoiceLabels.size());
     double y = rects.choiceBlock().y();
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < choiceCount; i++) {
       boolean hovered = i == 0;
       boolean enabled = i != 2;
       Image buttonImage = enabled

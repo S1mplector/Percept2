@@ -321,12 +321,20 @@ public class MenuScreenVisualEditor extends BorderPane {
     preview.widthProperty().addListener((o, ov, nv) -> redrawPreview());
     preview.heightProperty().addListener((o, ov, nv) -> redrawPreview());
     installPreviewInteractions();
-    BorderPane previewPane = new BorderPane(preview);
-    previewPane.getStyleClass().add("layout-studio-preview-host");
-    BorderPane.setMargin(preview, new Insets(8));
+    javafx.scene.layout.StackPane previewHost = new javafx.scene.layout.StackPane(preview);
+    previewHost.getStyleClass().add("layout-studio-preview-host");
+    previewHost.setPadding(new Insets(8));
     preview.setManaged(false);
+    previewHost.widthProperty().addListener((o, ov, nv) -> {
+      double pw = Math.max(1, nv.doubleValue() - 16);
+      if (Math.abs(preview.getWidth() - pw) >= 0.5) preview.setWidth(pw);
+    });
+    previewHost.heightProperty().addListener((o, ov, nv) -> {
+      double ph = Math.max(1, nv.doubleValue() - 16);
+      if (Math.abs(preview.getHeight() - ph) >= 0.5) preview.setHeight(ph);
+    });
 
-    SplitPane split = new SplitPane(tablePane, previewPane);
+    SplitPane split = new SplitPane(tablePane, previewHost);
     split.setDividerPositions(0.58);
     setCenter(split);
   }

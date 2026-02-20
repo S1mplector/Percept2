@@ -212,9 +212,9 @@ public class MenuStyleVisualEditor extends BorderPane {
 
     int row = 0;
     row = addHeader(grid, row, "Text Style");
-    row = addRow(grid, row, "Item Color", tfItemColor);
-    row = addRow(grid, row, "Selected Color", tfItemSelectedColor);
-    row = addRow(grid, row, "Disabled Color", tfItemDisabledColor);
+    row = addRow(grid, row, "Item Color", ColorFieldHelper.create(tfItemColor));
+    row = addRow(grid, row, "Selected Color", ColorFieldHelper.create(tfItemSelectedColor));
+    row = addRow(grid, row, "Disabled Color", ColorFieldHelper.create(tfItemDisabledColor));
     row = addRow(grid, row, "Prefix", tfItemPrefix);
     row = addRow(grid, row, "Selected Prefix", tfItemSelectedPrefix);
     row = addRow(grid, row, "Disabled Prefix", tfItemDisabledPrefix);
