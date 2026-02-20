@@ -252,9 +252,19 @@ public class PuppeteerWindow extends Stage {
         mainSplit.getItems().addAll(leftPane, centerPane, codePreview);
         mainSplit.setDividerPositions(0.17, 0.78);
 
+        // --- Shortcuts status bar ---
+        Label shortcutsBar = new Label(
+            "Space: Play/Pause   Home: Rewind   Ctrl+Z/Y: Undo/Redo   " +
+            "Click timeline: Add keyframe   Drag preview: Move entity   Del: Delete keyframe"
+        );
+        shortcutsBar.setMaxWidth(Double.MAX_VALUE);
+        shortcutsBar.setStyle("-fx-background-color: #0a0a0a; -fx-text-fill: #555; -fx-font-size: 10px; " +
+            "-fx-padding: 4 10; -fx-border-color: #2a2a2a; -fx-border-width: 1 0 0 0;");
+
         BorderPane root = new BorderPane();
         root.setTop(toolbar);
         root.setCenter(mainSplit);
+        root.setBottom(shortcutsBar);
         root.setStyle("-fx-background-color: #121212;");
 
         Scene fxScene = new Scene(root);

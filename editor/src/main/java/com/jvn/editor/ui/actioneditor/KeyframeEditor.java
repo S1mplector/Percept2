@@ -29,6 +29,9 @@ public class KeyframeEditor extends VBox {
         "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
         "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";
 
+    private final Label lblEmptyHint;
+    private final GridPane grid;
+
     private Keyframe currentKeyframe;
     private PropertyType currentProperty;
     private Runnable onKeyframeChanged;
@@ -43,7 +46,11 @@ public class KeyframeEditor extends VBox {
         Label header = new Label("Keyframe Editor");
         header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
 
-        GridPane grid = new GridPane();
+        lblEmptyHint = new Label("Select a keyframe in the timeline\nto edit its properties here.");
+        lblEmptyHint.setStyle("-fx-text-fill: #555; -fx-font-size: 11px; -fx-padding: 12 0 0 0;");
+        lblEmptyHint.setWrapText(true);
+
+        grid = new GridPane();
         grid.setHgap(8);
         grid.setVgap(6);
 
@@ -98,7 +105,9 @@ public class KeyframeEditor extends VBox {
             if (node instanceof Label l && l != header) l.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
         }
 
-        getChildren().addAll(header, grid);
+        grid.setVisible(false);
+        grid.setManaged(false);
+        getChildren().addAll(header, lblEmptyHint, grid);
 
         tfTime.setOnAction(e -> applyChanges());
         tfValue.setOnAction(e -> applyChanges());
@@ -158,8 +167,10 @@ public class KeyframeEditor extends VBox {
             tfTime.setText("");
             tfValue.setText("");
             cbEasing.setValue(Easing.Type.LINEAR);
+            showEmptyState(true);
             setFieldsDisabled(true);
         } else {
+            showEmptyState(false);
             lblProperty.setText(property != null ? property.getDisplayName() : "-");
             tfTime.setText(String.format("%.0f", kf.getTimeMs()));
             tfValue.setText(String.format("%.2f", kf.getValue()));
@@ -220,6 +231,13 @@ public class KeyframeEditor extends VBox {
                 sliderValue.setMin(0.0); sliderValue.setMax(1.0);
             }
         }
+    }
+
+    private void showEmptyState(boolean empty) {
+        lblEmptyHint.setVisible(empty);
+        lblEmptyHint.setManaged(empty);
+        grid.setVisible(!empty);
+        grid.setManaged(!empty);
     }
 
     private void setFieldsDisabled(boolean disabled) {
