@@ -1652,9 +1652,14 @@ public class EditorApp extends Application {
     PuppeteerWindow puppeteer = new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
     FileEditorTab ft = getActiveFileTab();
+
     if (ft != null && ft.getJesScene() != null) {
       puppeteer.setScene(ft.getJesScene());
+    } else if (snapshot != null && !snapshot.characters.isEmpty()) {
+      JesScene2D scene = buildSceneFromSnapshot(snapshot);
+      puppeteer.setScene(scene);
     }
+
     if (snapshot != null) {
       String title = "Puppeteer";
       if (snapshot.currentLabel != null) title += " @ " + snapshot.currentLabel;
@@ -1662,6 +1667,79 @@ public class EditorApp extends Application {
       puppeteer.setTitle(title);
     }
     puppeteer.show();
+  }
+
+  private JesScene2D buildSceneFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
+    JesScene2D scene = new JesScene2D();
+    double sceneW = 1280, sceneH = 720;
+    double charW = 200, charH = 400;
+
+    if (snapshot.backgroundId != null) {
+      String bgPath = resolveAssetPath("backgrounds", snapshot.backgroundId);
+      com.jvn.core.scene2d.Sprite2D bg = new com.jvn.core.scene2d.Sprite2D(bgPath, sceneW, sceneH);
+      bg.setPosition(sceneW / 2, sceneH / 2);
+      bg.setOrigin(0.5, 0.5);
+      scene.add(bg);
+      scene.registerEntity("bg_" + snapshot.backgroundId, bg);
+    }
+
+    for (PuppeteerLauncherPanel.CharacterEntry ch : snapshot.characters) {
+      double x = positionToX(ch.position, sceneW);
+      double y = sceneH * 0.55;
+      String spritePath = resolveCharacterSpritePath(ch.characterId, ch.expression);
+      com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePath, charW, charH);
+      sprite.setPosition(x, y);
+      sprite.setOrigin(0.5, 1.0);
+      scene.add(sprite);
+      scene.registerEntity(ch.characterId, sprite);
+    }
+
+    return scene;
+  }
+
+  private double positionToX(String position, double sceneW) {
+    if (position == null) return sceneW / 2;
+    return switch (position) {
+      case "far_left"  -> sceneW * 0.1;
+      case "left"      -> sceneW * 0.25;
+      case "center"    -> sceneW * 0.5;
+      case "right"     -> sceneW * 0.75;
+      case "far_right" -> sceneW * 0.9;
+      default          -> sceneW * 0.5;
+    };
+  }
+
+  private String resolveAssetPath(String folder, String id) {
+    if (projectRoot == null) return id;
+    java.io.File dir = new java.io.File(projectRoot, folder);
+    if (!dir.isDirectory()) return id;
+    for (String ext : new String[]{ ".png", ".jpg", ".jpeg", ".webp" }) {
+      java.io.File f = new java.io.File(dir, id + ext);
+      if (f.exists()) return f.getAbsolutePath();
+    }
+    return id;
+  }
+
+  private String resolveCharacterSpritePath(String characterId, String expression) {
+    if (projectRoot == null) return characterId;
+    java.io.File charDir = new java.io.File(projectRoot, "characters/" + characterId);
+    if (!charDir.isDirectory()) charDir = new java.io.File(projectRoot, "characters");
+    if (!charDir.isDirectory()) return characterId;
+    if (expression != null && !expression.equals("neutral")) {
+      for (String ext : new String[]{ ".png", ".jpg", ".jpeg", ".webp" }) {
+        java.io.File f = new java.io.File(charDir, characterId + "_" + expression + ext);
+        if (f.exists()) return f.getAbsolutePath();
+        f = new java.io.File(charDir, expression + ext);
+        if (f.exists()) return f.getAbsolutePath();
+      }
+    }
+    for (String ext : new String[]{ ".png", ".jpg", ".jpeg", ".webp" }) {
+      java.io.File f = new java.io.File(charDir, characterId + ext);
+      if (f.exists()) return f.getAbsolutePath();
+      f = new java.io.File(charDir, characterId + "_neutral" + ext);
+      if (f.exists()) return f.getAbsolutePath();
+    }
+    return characterId;
   }
 
   private void openActionEditor() {
