@@ -171,6 +171,194 @@ public class GitVcsService {
     return fetch;
   }
 
+  // --- Conflict detection ---
+
+  public boolean hasConflicts(File root) throws GitVcsException {
+    requireRepository(root);
+    RepositoryStatus status = getRepositoryStatus(root);
+    for (StatusEntry e : status.entries()) {
+      if ("U".equals(e.indexStatus()) || "U".equals(e.workTreeStatus()) ||
+          ("D".equals(e.indexStatus()) && "D".equals(e.workTreeStatus())) ||
+          ("A".equals(e.indexStatus()) && "A".equals(e.workTreeStatus()))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public List<String> getConflictedFiles(File root) throws GitVcsException {
+    requireRepository(root);
+    RepositoryStatus status = getRepositoryStatus(root);
+    List<String> conflicts = new ArrayList<>();
+    for (StatusEntry e : status.entries()) {
+      if ("U".equals(e.indexStatus()) || "U".equals(e.workTreeStatus()) ||
+          ("D".equals(e.indexStatus()) && "D".equals(e.workTreeStatus())) ||
+          ("A".equals(e.indexStatus()) && "A".equals(e.workTreeStatus()))) {
+        conflicts.add(e.path());
+      }
+    }
+    return conflicts;
+  }
+
+  // --- Stash support ---
+
+  public CommandResult stash(File root, String message) throws GitVcsException {
+    requireRepository(root);
+    List<String> cmd = message != null && !message.isBlank()
+        ? List.of("git", "stash", "push", "-m", message.trim())
+        : List.of("git", "stash", "push");
+    CommandResult result = execute(root, cmd, false);
+    ensureSuccess(result, "Failed to stash changes.");
+    return result;
+  }
+
+  public CommandResult stashPop(File root) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "stash", "pop"), false);
+    ensureSuccess(result, "Failed to pop stash.");
+    return result;
+  }
+
+  public List<String> stashList(File root) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "stash", "list"), true);
+    if (!result.success() || result.output().isBlank()) return List.of();
+    return Arrays.asList(result.output().split("\\r?\\n"));
+  }
+
+  // --- Remote validation ---
+
+  public boolean hasRemote(File root) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "remote"), true);
+    return result.success() && !result.output().isBlank();
+  }
+
+  public String getRemoteUrl(File root) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "remote", "get-url", "origin"), true);
+    return result.success() ? result.output().trim() : null;
+  }
+
+  public CommandResult addRemote(File root, String name, String url) throws GitVcsException {
+    requireRepository(root);
+    if (name == null || name.isBlank()) name = "origin";
+    if (url == null || url.isBlank()) throw new GitVcsException("Remote URL cannot be empty.");
+    CommandResult result = execute(root, List.of("git", "remote", "add", name.trim(), url.trim()), false);
+    ensureSuccess(result, "Failed to add remote '" + name + "'.");
+    return result;
+  }
+
+  // --- Diff support ---
+
+  public String diff(File root) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "diff", "--stat"), true);
+    return result.success() ? result.output() : "";
+  }
+
+  public String diffFile(File root, String relativePath) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "diff", "--", relativePath), true);
+    return result.success() ? result.output() : "";
+  }
+
+  public String diffCached(File root) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "diff", "--cached", "--stat"), true);
+    return result.success() ? result.output() : "";
+  }
+
+  // --- Log retrieval ---
+
+  public List<String> log(File root, int count) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "log", "--oneline", "-" + Math.max(1, count)), true);
+    if (!result.success() || result.output().isBlank()) return List.of();
+    return Arrays.asList(result.output().split("\\r?\\n"));
+  }
+
+  // --- Branch operations ---
+
+  public String getCurrentBranch(File root) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "branch", "--show-current"), true);
+    return result.success() ? result.output().trim() : "unknown";
+  }
+
+  public List<String> listBranches(File root) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "branch", "--list", "--no-color"), true);
+    if (!result.success() || result.output().isBlank()) return List.of();
+    List<String> branches = new ArrayList<>();
+    for (String line : result.output().split("\\r?\\n")) {
+      String name = line.trim();
+      if (name.startsWith("* ")) name = name.substring(2).trim();
+      if (!name.isBlank()) branches.add(name);
+    }
+    return branches;
+  }
+
+  public CommandResult switchBranch(File root, String branchName) throws GitVcsException {
+    requireRepository(root);
+    if (branchName == null || branchName.isBlank()) throw new GitVcsException("Branch name cannot be empty.");
+    CommandResult result = execute(root, List.of("git", "switch", branchName.trim()), false);
+    ensureSuccess(result, "Failed to switch to branch '" + branchName + "'.");
+    return result;
+  }
+
+  public CommandResult createBranch(File root, String branchName) throws GitVcsException {
+    requireRepository(root);
+    if (branchName == null || branchName.isBlank()) throw new GitVcsException("Branch name cannot be empty.");
+    CommandResult result = execute(root, List.of("git", "switch", "-c", branchName.trim()), false);
+    ensureSuccess(result, "Failed to create branch '" + branchName + "'.");
+    return result;
+  }
+
+  // --- Stage/unstage individual files ---
+
+  public CommandResult stageFile(File root, String path) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "add", "--", path), false);
+    ensureSuccess(result, "Failed to stage file: " + path);
+    return result;
+  }
+
+  public CommandResult unstageFile(File root, String path) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "restore", "--staged", "--", path), false);
+    ensureSuccess(result, "Failed to unstage file: " + path);
+    return result;
+  }
+
+  public CommandResult discardFile(File root, String path) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "checkout", "--", path), false);
+    ensureSuccess(result, "Failed to discard changes in: " + path);
+    return result;
+  }
+
+  // --- Hardened push with upstream check ---
+
+  public CommandResult pushSafe(File root) throws GitVcsException {
+    requireRepository(root);
+    if (!hasRemote(root)) {
+      throw new GitVcsException("No remote configured. Add a remote before pushing.");
+    }
+    // Check if upstream is set
+    CommandResult tracking = execute(root, List.of("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"), true);
+    if (!tracking.success()) {
+      // No upstream set, push with -u
+      String branch = getCurrentBranch(root);
+      CommandResult push = execute(root, List.of("git", "push", "-u", "origin", branch), false);
+      ensureSuccess(push, "Failed to push (setting upstream).");
+      return push;
+    }
+    CommandResult push = execute(root, List.of("git", "push"), false);
+    ensureSuccess(push, "Failed to push changes.");
+    return push;
+  }
+
   private void requireDirectory(File root) throws GitVcsException {
     if (root == null || !root.exists() || !root.isDirectory()) {
       throw new GitVcsException("Project root is not a valid directory.");

@@ -1,28 +1,35 @@
 package com.jvn.editor.ui;
 
-import com.jvn.editor.vcs.GitVcsService;
-
-import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.geometry.Insets;
-import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.input.KeyCode;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
-
 import java.io.File;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+
+import com.jvn.editor.vcs.GitVcsService;
+
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.Separator;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
+import javafx.scene.input.KeyCode;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 
 /**
  * Team-focused Git + Git LFS control panel for JVN projects.
@@ -41,6 +48,7 @@ public class VersionControlView extends BorderPane {
   private final Label branchLabel = new Label("Branch: --");
   private final Label syncLabel = new Label("Sync: --");
   private final Label summaryLabel = new Label("Status: --");
+  private final Label conflictLabel = new Label();
   private final Label initHintLabel = new Label("Repository is not initialized for this project.");
 
   private final CheckBox chkInitWithLfs = new CheckBox("Enable Git LFS tracking");
@@ -52,6 +60,14 @@ public class VersionControlView extends BorderPane {
   private final Button btnPull = new Button("Pull --rebase");
   private final Button btnPush = new Button("Push");
   private final Button btnCommit = new Button("Commit All");
+  private final Button btnStash = new Button("Stash");
+  private final Button btnStashPop = new Button("Pop Stash");
+  private final Button btnStageSelected = new Button("Stage");
+  private final Button btnUnstageSelected = new Button("Unstage");
+  private final Button btnDiscardSelected = new Button("Discard");
+  private final Button btnDiffSelected = new Button("Diff");
+  private final ComboBox<String> cbBranch = new ComboBox<>();
+  private final Button btnNewBranch = new Button("New Branch");
 
   private final TextField txtCommitMessage = new TextField();
   private final ListView<GitVcsService.StatusEntry> listChanges = new ListView<>();
@@ -62,11 +78,15 @@ public class VersionControlView extends BorderPane {
   private boolean repositoryInitialized;
   private boolean busy;
   private Consumer<String> onOpenRelativePath;
+  private Timeline autoRefreshTimer;
 
   public VersionControlView() {
     titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
     repoLabel.setStyle("-fx-text-fill: #9aa0a6;");
     toolLabel.setStyle("-fx-text-fill: #9aa0a6;");
+    conflictLabel.setStyle("-fx-text-fill: #f38ba8; -fx-font-weight: bold;");
+    conflictLabel.setVisible(false);
+    conflictLabel.setManaged(false);
     initHintLabel.setStyle("-fx-text-fill: #f0b673;");
     initHintLabel.setWrapText(true);
 
@@ -74,6 +94,9 @@ public class VersionControlView extends BorderPane {
     chkInitCommit.setSelected(true);
 
     txtCommitMessage.setPromptText("Commit message...");
+    txtCommitMessage.setOnKeyPressed(e -> {
+      if (e.getCode() == KeyCode.ENTER && !txtCommitMessage.getText().isBlank()) runCommit();
+    });
 
     txtLog.setEditable(false);
     txtLog.setWrapText(true);
@@ -95,33 +118,67 @@ public class VersionControlView extends BorderPane {
     });
 
     btnRefresh.setOnAction(e -> refreshStatus());
+    btnRefresh.setTooltip(new Tooltip("Refresh git status"));
     btnInitialize.setOnAction(e -> initializeRepository());
     btnFetch.setOnAction(e -> runFetch());
+    btnFetch.setTooltip(new Tooltip("Fetch all remotes"));
     btnPull.setOnAction(e -> runPull());
+    btnPull.setTooltip(new Tooltip("Pull with rebase + autostash"));
     btnPush.setOnAction(e -> runPush());
+    btnPush.setTooltip(new Tooltip("Push to remote (auto-sets upstream if needed)"));
     btnCommit.setOnAction(e -> runCommit());
+    btnCommit.setTooltip(new Tooltip("Stage all + commit"));
+    btnStash.setOnAction(e -> runStash());
+    btnStash.setTooltip(new Tooltip("Stash uncommitted changes"));
+    btnStashPop.setOnAction(e -> runStashPop());
+    btnStashPop.setTooltip(new Tooltip("Apply most recent stash"));
+    btnStageSelected.setOnAction(e -> runStageSelected());
+    btnStageSelected.setTooltip(new Tooltip("Stage selected file"));
+    btnUnstageSelected.setOnAction(e -> runUnstageSelected());
+    btnUnstageSelected.setTooltip(new Tooltip("Unstage selected file"));
+    btnDiscardSelected.setOnAction(e -> runDiscardSelected());
+    btnDiscardSelected.setTooltip(new Tooltip("Discard changes in selected file"));
+    btnDiffSelected.setOnAction(e -> runDiffSelected());
+    btnDiffSelected.setTooltip(new Tooltip("Show diff for selected file"));
+    btnNewBranch.setOnAction(e -> runCreateBranch());
+    btnNewBranch.setTooltip(new Tooltip("Create and switch to a new branch"));
+    cbBranch.setEditable(false);
+    cbBranch.setPromptText("Switch branch...");
+    cbBranch.setOnAction(e -> {
+      String selected = cbBranch.getValue();
+      if (selected != null && !selected.isBlank()) runSwitchBranch(selected);
+    });
 
-    HBox actionRow = new HBox(8, btnRefresh, btnFetch, btnPull, btnPush);
+    HBox actionRow = new HBox(6, btnRefresh, btnFetch, btnPull, btnPush, new Separator(javafx.geometry.Orientation.VERTICAL), btnStash, btnStashPop);
+    actionRow.setAlignment(Pos.CENTER_LEFT);
     HBox initOptionsRow = new HBox(16, chkInitWithLfs, chkInitCommit);
     HBox initActionRow = new HBox(8, btnInitialize);
     VBox initBox = new VBox(4, initHintLabel, initOptionsRow, initActionRow);
-    HBox commitRow = new HBox(8, txtCommitMessage, btnCommit);
+    HBox commitRow = new HBox(6, txtCommitMessage, btnCommit);
     HBox.setHgrow(txtCommitMessage, Priority.ALWAYS);
+    HBox branchRow = new HBox(6, branchLabel, cbBranch, btnNewBranch);
+    branchRow.setAlignment(Pos.CENTER_LEFT);
+    HBox fileActionRow = new HBox(6, btnStageSelected, btnUnstageSelected, btnDiscardSelected, btnDiffSelected);
+    fileActionRow.setAlignment(Pos.CENTER_LEFT);
 
     VBox top = new VBox(
         6,
         titleLabel,
         repoLabel,
         toolLabel,
-        new HBox(14, branchLabel, syncLabel),
+        branchRow,
+        syncLabel,
         summaryLabel,
+        conflictLabel,
         initBox,
         actionRow,
         commitRow
     );
     top.setPadding(new Insets(10));
 
-    VBox center = new VBox(8, listChanges, new Label("Command Log"), txtLog);
+    Label changesLabel = new Label("Changed Files");
+    changesLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 11px;");
+    VBox center = new VBox(6, changesLabel, fileActionRow, listChanges, new Label("Command Log"), txtLog);
     center.setPadding(new Insets(0, 10, 10, 10));
     VBox.setVgrow(listChanges, Priority.ALWAYS);
 
@@ -131,6 +188,13 @@ public class VersionControlView extends BorderPane {
     setInitControlsVisible(false, null);
     updateToolAvailabilityLabel(false, false);
     setBusy(false);
+
+    // Auto-refresh every 30 seconds
+    autoRefreshTimer = new Timeline(new KeyFrame(Duration.seconds(30), e -> {
+      if (!busy && projectRoot != null) refreshStatus();
+    }));
+    autoRefreshTimer.setCycleCount(Timeline.INDEFINITE);
+    autoRefreshTimer.play();
   }
 
   public void setOnOpenRelativePath(Consumer<String> onOpenRelativePath) {
@@ -290,9 +354,119 @@ public class VersionControlView extends BorderPane {
         return;
       }
       try {
-        appendCommandResult(vcs.push(projectRoot));
+        appendCommandResult(vcs.pushSafe(projectRoot));
       } catch (Exception ex) {
         appendLog(ex.getMessage());
+      }
+      refreshStatus();
+    });
+  }
+
+  private void runStash() {
+    runAsync("Stash", () -> {
+      if (projectRoot == null) return;
+      try {
+        appendCommandResult(vcs.stash(projectRoot, null));
+      } catch (Exception ex) {
+        appendLog("Stash failed: " + ex.getMessage());
+      }
+      refreshStatus();
+    });
+  }
+
+  private void runStashPop() {
+    runAsync("Stash Pop", () -> {
+      if (projectRoot == null) return;
+      try {
+        appendCommandResult(vcs.stashPop(projectRoot));
+      } catch (Exception ex) {
+        appendLog("Stash pop failed: " + ex.getMessage());
+      }
+      refreshStatus();
+    });
+  }
+
+  private void runStageSelected() {
+    GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
+    if (entry == null) return;
+    runAsync("Stage", () -> {
+      try {
+        vcs.stageFile(projectRoot, entry.path());
+        appendLog("Staged: " + entry.path());
+      } catch (Exception ex) {
+        appendLog("Stage failed: " + ex.getMessage());
+      }
+      refreshStatus();
+    });
+  }
+
+  private void runUnstageSelected() {
+    GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
+    if (entry == null) return;
+    runAsync("Unstage", () -> {
+      try {
+        vcs.unstageFile(projectRoot, entry.path());
+        appendLog("Unstaged: " + entry.path());
+      } catch (Exception ex) {
+        appendLog("Unstage failed: " + ex.getMessage());
+      }
+      refreshStatus();
+    });
+  }
+
+  private void runDiscardSelected() {
+    GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
+    if (entry == null) return;
+    runAsync("Discard", () -> {
+      try {
+        vcs.discardFile(projectRoot, entry.path());
+        appendLog("Discarded: " + entry.path());
+      } catch (Exception ex) {
+        appendLog("Discard failed: " + ex.getMessage());
+      }
+      refreshStatus();
+    });
+  }
+
+  private void runDiffSelected() {
+    GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
+    if (entry == null) return;
+    runAsync("Diff", () -> {
+      try {
+        String diff = vcs.diffFile(projectRoot, entry.path());
+        if (diff.isBlank()) {
+          appendLog("No diff available for: " + entry.path());
+        } else {
+          appendLog("--- diff " + entry.path() + " ---\n" + diff);
+        }
+      } catch (Exception ex) {
+        appendLog("Diff failed: " + ex.getMessage());
+      }
+    });
+  }
+
+  private void runSwitchBranch(String branchName) {
+    runAsync("Switch branch", () -> {
+      try {
+        appendCommandResult(vcs.switchBranch(projectRoot, branchName));
+      } catch (Exception ex) {
+        appendLog("Branch switch failed: " + ex.getMessage());
+      }
+      refreshStatus();
+    });
+  }
+
+  private void runCreateBranch() {
+    String name = cbBranch.getEditor() != null ? cbBranch.getEditor().getText() : null;
+    if (name == null || name.isBlank()) {
+      appendLog("Enter a branch name in the branch selector to create a new branch.");
+      return;
+    }
+    runAsync("Create branch", () -> {
+      try {
+        appendCommandResult(vcs.createBranch(projectRoot, name.trim()));
+      } catch (Exception ex) {
+        appendLog("Create branch failed: " + ex.getMessage());
       }
       refreshStatus();
     });
