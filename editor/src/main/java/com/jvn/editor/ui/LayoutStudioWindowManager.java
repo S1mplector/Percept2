@@ -624,6 +624,9 @@ public class LayoutStudioWindowManager {
         keys.add("choiceButtonHoverAsset");
         keys.add("choiceButtonSelectedAsset");
         keys.add("choiceButtonDisabledAsset");
+        keys.add("textBoxButton.<itemId>.asset");
+        keys.add("textBoxButton.<itemId>.hoverAsset");
+        keys.add("textBoxButton.<itemId>.disabledAsset");
         keys.add("choiceBackgroundColor");
         keys.add("choiceHoverColor");
         keys.add("choiceDisabledColor");
@@ -645,14 +648,22 @@ public class LayoutStudioWindowManager {
         keys.add("item.<itemId>.bgSelectedAsset");
         keys.add("item.<itemId>.bgDisabledAsset");
         keys.add("item.<itemId>.icon");
+        keys.add("item.<itemId>.slotPreviewEnabled");
+        keys.add("item.<itemId>.slotPreviewPlaceholderAsset");
+        keys.add("item.<itemId>.slotPreviewFrameAsset");
+        keys.add("item.<itemId>.slotPreviewX");
+        keys.add("item.<itemId>.slotPreviewY");
+        keys.add("item.<itemId>.slotPreviewWidth");
+        keys.add("item.<itemId>.slotPreviewHeight");
       } else {
         keys.add("# no direct asset key");
       }
 
       assetKeyBox.getItems().setAll(keys);
       if (!keys.isEmpty()) assetKeyBox.getSelectionModel().select(0);
-      assetItemIdField.setManaged(kind == Kind.MENU_SCREEN);
-      assetItemIdField.setVisible(kind == Kind.MENU_SCREEN);
+      boolean usesItemId = kind == Kind.MENU_SCREEN || kind == Kind.DIALOGUE_LAYOUT;
+      assetItemIdField.setManaged(usesItemId);
+      assetItemIdField.setVisible(usesItemId);
     }
 
     private void updateAssetUtilityState() {
@@ -669,9 +680,10 @@ public class LayoutStudioWindowManager {
     private String assetTip() {
       return switch (kind) {
         case DIALOGUE_LAYOUT -> "Import textbox/choice button skins and map them to dialogue layout keys.\n"
-            + "You can also set literal values (for example #E6F0FF colors) for dynamic choice styling.";
+            + "Use textBoxButton.<itemId>.* to map per-textbox action button assets (enter id in the field below).";
         case MENU_STYLE -> "Import button textures and map them to style keys.\nUse Split mode to verify visual + file output together.";
-        case MENU_SCREEN -> "Assign per-item button/icon assets using item.<itemId> keys.\nTip: select a menu item id that exists in this .menu file.";
+        case MENU_SCREEN -> "Assign per-item button/icon assets using item.<itemId> keys.\n"
+            + "For save/load screens, use slotPreview* keys to configure inline save thumbnails and frame skins.";
         case MENU_LAYOUT -> "This file is geometry-focused. Asset tools are still available for copying paths into custom properties.";
       };
     }

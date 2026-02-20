@@ -128,6 +128,10 @@ public class VnPreviewView extends StackPane {
 
     if (handleOverlayMouseClick(clickCount, x, y)) return;
 
+    com.jvn.core.vn.ui.VnUiActionButtonSpec textBoxButton =
+        renderer.getHoveredTextBoxButton(scene.getState(), canvas.getWidth(), canvas.getHeight(), x, y);
+    if (textBoxButton != null && executeTextBoxButtonAction(textBoxButton)) return;
+
     VnNode node = scene.getState().getCurrentNode();
     if (node != null && node.getType() == VnNodeType.CHOICE) {
       int idx = renderer.getHoveredChoiceIndex(node.getChoices(), canvas.getWidth(), canvas.getHeight(), x, y);
@@ -138,6 +142,64 @@ public class VnPreviewView extends StackPane {
     }
 
     scene.advance();
+  }
+
+  private boolean executeTextBoxButtonAction(com.jvn.core.vn.ui.VnUiActionButtonSpec button) {
+    if (scene == null || button == null || !button.enabled()) return false;
+    String action = normalizeButtonAction(button.action());
+    var state = scene.getState();
+    switch (action) {
+      case "advance" -> {
+        scene.advance();
+        return true;
+      }
+      case "quick_save", "save_quick" -> {
+        saveToSlot(0);
+        return true;
+      }
+      case "quick_load", "load_quick" -> {
+        loadFromSlot(0);
+        return true;
+      }
+      case "save_slots", "open_save_slots" -> {
+        state.showSaveSlotOverlay(true);
+        return true;
+      }
+      case "load_slots", "open_load_slots" -> {
+        state.showSaveSlotOverlay(false);
+        return true;
+      }
+      case "toggle_history", "history" -> {
+        boolean wasShown = state.isHistoryOverlayShown();
+        state.toggleHistoryOverlay();
+        if (!wasShown) state.clearHistoryScroll();
+        return true;
+      }
+      case "toggle_skip", "skip" -> {
+        scene.toggleSkipMode();
+        return true;
+      }
+      case "toggle_auto", "auto" -> {
+        scene.toggleAutoPlayMode();
+        return true;
+      }
+      case "toggle_ui", "ui" -> {
+        state.toggleUiHidden();
+        return true;
+      }
+      case "noop", "none" -> {
+        return true;
+      }
+      default -> {
+        state.showHudMessage("Unsupported preview action: " + action, 1400);
+        return true;
+      }
+    }
+  }
+
+  private static String normalizeButtonAction(String raw) {
+    if (raw == null || raw.isBlank()) return "noop";
+    return raw.trim().toLowerCase(java.util.Locale.ROOT).replace('-', '_').replace(' ', '_');
   }
 
   private boolean handleOverlayMouseClick(int clickCount, double x, double y) {

@@ -32,6 +32,9 @@ import javafx.stage.StageStyle;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -88,6 +91,9 @@ public class NewProjectWizard extends Stage {
   private static final String MENU_SETTINGS_PATH = "config/menu/menus/settings.menu";
   private static final String MENU_LAYOUT_DEFAULT_PATH = "config/menu/layouts/default.layout";
   private static final String MENU_STYLE_DEFAULT_PATH = "config/menu/styles/default.style";
+  private static final String BUNDLED_DEMO_ASSETS_DIR = "demo-assets";
+  private static final String BUNDLED_DEMO_BG_DIR = "demo_bg_field";
+  private static final String BUNDLED_DEMO_SPRITE_DIR = "demo_sprite_codel";
 
   public NewProjectWizard(Stage owner) {
     initOwner(owner);
@@ -538,7 +544,7 @@ public class NewProjectWizard extends Stage {
   }
 
   private long estimateProjectSizeKb() {
-    long kb = 36;
+    long kb = 36 + estimateBundledDemoAssetsKb();
     if (chkSampleContent != null && chkSampleContent.isSelected()) kb += 8;
     if (shouldCreateMenuPack()) kb += 8;
     if (chkSaveSystem != null && chkSaveSystem.isSelected()) kb += 3;
@@ -596,6 +602,11 @@ public class NewProjectWizard extends Stage {
     sb.append("|   |-- characters/\n");
     sb.append("|   |-- portraits/\n");
     sb.append("|   |-- cg/\n");
+    sb.append("|   |-- demo/\n");
+    sb.append("|   |   |-- backgrounds/\n");
+    sb.append("|   |   |   `-- field/\n");
+    sb.append("|   |   `-- characters/\n");
+    sb.append("|   |       `-- codel/\n");
     sb.append("|   |-- ui/\n");
     sb.append("|   |-- fonts/\n");
     sb.append("|   `-- audio/\n");
@@ -611,6 +622,30 @@ public class NewProjectWizard extends Stage {
     sb.append("`-- jvn.project\n");
 
     return sb.toString();
+  }
+
+  private long estimateBundledDemoAssetsKb() {
+    File sourceRoot = resolveBundledDemoAssetsRoot();
+    if (sourceRoot == null || !sourceRoot.isDirectory()) {
+      // Fallback for packaged builds where source folders are not directly discoverable.
+      return 20480;
+    }
+    long bytes = computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_BG_DIR))
+        + computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_SPRITE_DIR));
+    if (bytes <= 0) return 20480;
+    return Math.max(1, (bytes + 1023) / 1024);
+  }
+
+  private long computeDirectorySize(File dir) {
+    if (dir == null || !dir.exists()) return 0;
+    if (dir.isFile()) return dir.length();
+    File[] children = dir.listFiles();
+    if (children == null) return 0;
+    long total = 0;
+    for (File child : children) {
+      total += computeDirectorySize(child);
+    }
+    return total;
   }
 
   private boolean shouldCreateMenuPack() {
@@ -678,6 +713,7 @@ public class NewProjectWizard extends Stage {
 
     dir.mkdirs();
     createDirectories(dir, includeMenuPack);
+    copyBundledDemoAssets(dir);
 
     int[] resolution = parseResolution();
     createManifest(
@@ -753,6 +789,8 @@ public class NewProjectWizard extends Stage {
     ensureDirectory(dir, "assets/characters");
     ensureDirectory(dir, "assets/portraits");
     ensureDirectory(dir, "assets/cg");
+    ensureDirectory(dir, "assets/demo/backgrounds");
+    ensureDirectory(dir, "assets/demo/characters");
     ensureDirectory(dir, "assets/ui");
     ensureDirectory(dir, "assets/fonts");
     ensureDirectory(dir, "assets/audio/bgm");
@@ -773,6 +811,58 @@ public class NewProjectWizard extends Stage {
     }
     if (!directory.mkdirs()) {
       throw new Exception("Failed to create directory: " + directory.getAbsolutePath());
+    }
+  }
+
+  private void copyBundledDemoAssets(File projectRoot) throws Exception {
+    File sourceRoot = resolveBundledDemoAssetsRoot();
+    if (sourceRoot == null || !sourceRoot.isDirectory()) return;
+
+    copyDirectoryContents(
+        new File(sourceRoot, BUNDLED_DEMO_BG_DIR),
+        new File(projectRoot, "assets/demo/backgrounds/field")
+    );
+    copyDirectoryContents(
+        new File(sourceRoot, BUNDLED_DEMO_SPRITE_DIR),
+        new File(projectRoot, "assets/demo/characters/codel")
+    );
+  }
+
+  private File resolveBundledDemoAssetsRoot() {
+    File cwd = new File(System.getProperty("user.dir", ".")).getAbsoluteFile();
+    File cursor = cwd;
+    for (int i = 0; i < 6 && cursor != null; i++) {
+      File candidate = new File(cursor, BUNDLED_DEMO_ASSETS_DIR);
+      if (candidate.isDirectory()) return candidate;
+      File legacyBg = new File(cursor, BUNDLED_DEMO_BG_DIR);
+      File legacySprites = new File(cursor, BUNDLED_DEMO_SPRITE_DIR);
+      if (legacyBg.isDirectory() && legacySprites.isDirectory()) return cursor;
+      cursor = cursor.getParentFile();
+    }
+    return null;
+  }
+
+  private void copyDirectoryContents(File source, File destination) throws Exception {
+    if (source == null || !source.exists() || !source.isDirectory()) return;
+    Path sourcePath = source.toPath();
+    try (var stream = Files.walk(sourcePath)) {
+      stream.forEach(path -> {
+        try {
+          Path relative = sourcePath.relativize(path);
+          Path target = destination.toPath().resolve(relative);
+          if (Files.isDirectory(path)) {
+            Files.createDirectories(target);
+          } else {
+            Files.createDirectories(target.getParent());
+            Files.copy(path, target, StandardCopyOption.REPLACE_EXISTING);
+          }
+        } catch (Exception ex) {
+          throw new RuntimeException(ex);
+        }
+      });
+    } catch (RuntimeException ex) {
+      if (ex.getCause() instanceof Exception cause) throw cause;
+      throw ex;
     }
   }
 
@@ -837,58 +927,148 @@ public class NewProjectWizard extends Stage {
   }
 
   private void createSampleScript(File dir, String name) throws Exception {
+    String scenarioId = sanitizeName(name).toLowerCase() + "_prologue";
+    String script = """
+        # %s - Prologue
+        # Created with JVN Engine
+        # Rich VNS showcase: variables, branching, conditions, transitions, screen effects, and utility commands.
+
+        @scenario %s
+        @define cityName Dawnfall
+        @var playerName Player
+        @var trust 0
+        @var courage 0
+        @var hasMap false
+        @var route neutral
+
+        @character narrator "Narrator"
+        @character hero "Codel"
+        @character guide "Guide"
+        @character rival "Rival"
+
+        @charimg hero neutral assets/demo/characters/codel/Codel1.png
+        @charimg hero smile assets/demo/characters/codel/Codel8.png
+        @charimg hero determined assets/demo/characters/codel/Codel11.png
+        @charimg guide smile assets/demo/characters/codel/Codel4.png
+        @charimg guide serious assets/demo/characters/codel/Codel6.png
+        @charimg rival neutral assets/demo/characters/codel/Codel3.png
+        @charimg rival angry assets/demo/characters/codel/Codel12.png
+
+        @background field_day assets/demo/backgrounds/field/field.jpg
+        @background field_evening assets/demo/backgrounds/field/field.jpg
+
+        @label start
+        [bg field_day]
+        [transition fade 500]
+        [textspeed 28]
+        [autodelay 1800]
+        [set route intro]
+
+        Narrator: Welcome to {b}%s{/b}.
+        Narrator: This prologue demonstrates choices, variables, condition blocks, transitions, and screen effects.
+        [show hero center neutral]
+        Hero: Hey ${playerName}, I am Codel. We'll build your first scene in ${cityName}.
+
+        [choice Take the full guided tour->guided_tour | Jump straight to branching demo->branch_hub | Open quick utility demo->utility_demo]
+
+        @label guided_tour
+        [show guide right smile]
+        Guide: The scene is using imported demo assets from assets/demo/.
+        Guide: Let's test visual feedback first.
+        [screen flash 0.35 150 1 1 1]
+        [screen shake 5 220]
+        [hud Welcome to the guided tour!]
+        [inc trust 1]
+        [inc courage 1]
+
+        Narrator: Choices can also be condition-gated.
+        > Ask about variable checks [if trust >= 1] -> variable_talk
+        > Skip to branch hub -> branch_hub
+
+        @label variable_talk
+        Guide: We can also use block conditions.
+        [if courage >= 2]
+        Guide: You're already bold.
+        [elif courage == 1]
+        Guide: Courage is rising.
+        [else]
+        Guide: Courage is still low.
+        [endif]
+        [set route guided]
+        [jump branch_hub]
+
+        @label branch_hub
+        Narrator: Pick a route. Decisions update state.
+        [choice Be brave->route_brave | Be careful->route_careful | Check map inventory gate->route_map_check]
+
+        @label route_brave
+        [set route brave]
+        [inc courage 2]
+        [show hero left determined]
+        Hero: Bold route selected.
+        [transition crossfade 650 field_evening]
+        Narrator: Crossfade transition complete.
+        [jump checkpoint]
+
+        @label route_careful
+        [set route careful]
+        [inc trust 1]
+        [show guide left serious]
+        Guide: Careful route selected.
+        Narrator: Slower pacing can be better for emotional scenes.
+        [jump checkpoint]
+
+        @label route_map_check
+        [if hasMap == true goto route_map_known]
+        Narrator: You don't have a map yet.
+        [flag hasMap]
+        Narrator: Map acquired. Try this branch again to see conditional goto.
+        [jump branch_hub]
+
+        @label route_map_known
+        [set route map_ready]
+        Narrator: Conditional goto succeeded because hasMap is true.
+        [jump checkpoint]
+
+        @label utility_demo
+        Narrator: Utility command demo.
+        [save]
+        [quickload]
+        [history show]
+        [wait 450]
+        [history hide]
+        [ui hide]
+        [wait 220]
+        [ui show]
+        [skip off]
+        [auto off]
+        [set route utility]
+        Narrator: You can also trigger menu actions from script with [menu settings], [menu load], and [menu main].
+        [jump checkpoint]
+
+        @label checkpoint
+        Narrator: Current route: {color=#4a9eff}${route}{/color}, trust=${trust}, courage=${courage}.
+        [if trust >= 2]
+        Hero: Trust unlocked an extra line.
+        [else]
+        Hero: More trust will unlock extra dialogue.
+        [endif]
+
+        > Continue to finale -> finale
+        > Replay branch selection -> branch_hub
+
+        @label finale
+        [show rival right neutral]
+        Rival: Even simple scripts can support strong structure.
+        [show hero center smile]
+        Hero: Edit this file at {b}%s{/b} and make it yours.
+        Narrator: {wave}End of demo prologue.{/wave}
+
+        [end]
+        """.formatted(name, scenarioId, name, ENTRY_SCRIPT_PATH);
+
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
-      fw.write("# " + name + " - Prologue\n");
-      fw.write("# Created with JVN Engine\n\n");
-      fw.write("@scenario " + sanitizeName(name).toLowerCase() + "_prologue\n");
-      fw.write("@character narrator \"Narrator\"\n");
-      fw.write("@character hero \"Hero\"\n");
-      fw.write("@character guide \"Guide\"\n");
-      fw.write("@background classroom assets/backgrounds/classroom_day.png\n");
-      fw.write("@background sunset assets/backgrounds/sunset_street.png\n\n");
-
-      fw.write("@label start\n");
-      fw.write("[bg classroom]\n");
-      fw.write("[transition fade 400]\n");
-      fw.write("[set playerName Player]\n");
-      fw.write("[set courage 0]\n\n");
-
-      fw.write("Narrator: Welcome to {b}" + name + "{/b}.\n");
-      fw.write("Narrator: This starter scene showcases choices, variables, transitions, and text effects.\n");
-      fw.write("Hero: I'm {color=#4a9eff}${playerName}{/color}. Ready to test the engine?\n");
-      fw.write("[show hero center neutral]\n\n");
-
-      fw.write("> Ask for a quick tour -> tour\n");
-      fw.write("> Skip ahead to the ending -> speedrun\n\n");
-
-      fw.write("@label tour\n");
-      fw.write("[inc courage 1]\n");
-      fw.write("[show guide right smile]\n");
-      fw.write("Guide: Nice! Watch this: {wave}smooth motion{/wave} and {shake}dramatic impact{/shake}.\n");
-      fw.write("[screen flash 0.35 160 1 1 1]\n");
-      fw.write("Narrator: You can branch story flow and track state with variables.\n\n");
-
-      fw.write("> Step forward confidently [if courage >= 1] -> brave\n");
-      fw.write("> Stay cautious -> cautious\n\n");
-
-      fw.write("@label brave\n");
-      fw.write("[transition crossfade 700 sunset]\n");
-      fw.write("Hero: Then let's make a bold first chapter.\n");
-      fw.write("Narrator: Add your own sprites, music, and branching paths in " + ENTRY_SCRIPT_PATH + ".\n");
-      fw.write("[jump ending]\n\n");
-
-      fw.write("@label cautious\n");
-      fw.write("Hero: Let's keep it simple for now.\n");
-      fw.write("Narrator: Good call. You can build this scene step-by-step in the editor.\n");
-      fw.write("[jump ending]\n\n");
-
-      fw.write("@label speedrun\n");
-      fw.write("Narrator: No problem. Sometimes a short route is the best route.\n");
-      fw.write("[jump ending]\n\n");
-
-      fw.write("@label ending\n");
-      fw.write("Narrator: {wave}The End{/wave} - now make this story your own.\n\n");
-      fw.write("[end]\n");
+      fw.write(script);
     }
   }
 
@@ -956,6 +1136,22 @@ public class NewProjectWizard extends Stage {
       fw.write("# choiceCornerRadius=10\n");
       fw.write("# choiceBorderWidth=2\n");
       fw.write("# choiceTextBaselineOffset=5\n");
+      fw.write("\n");
+      fw.write("# Optional clickable textbox action buttons:\n");
+      fw.write("# textBoxButton.ids=save,load,settings\n");
+      fw.write("# textBoxButton.save.label=Save\n");
+      fw.write("# textBoxButton.save.action=save_menu\n");
+      fw.write("# textBoxButton.save.x=0.74\n");
+      fw.write("# textBoxButton.save.y=0.08\n");
+      fw.write("# textBoxButton.save.width=0.1\n");
+      fw.write("# textBoxButton.save.height=0.24\n");
+      fw.write("# textBoxButton.save.asset=assets/ui/save_btn.png\n");
+      fw.write("# textBoxButton.load.label=Load\n");
+      fw.write("# textBoxButton.load.action=load_menu\n");
+      fw.write("# textBoxButton.load.x=0.85\n");
+      fw.write("# textBoxButton.load.y=0.08\n");
+      fw.write("# textBoxButton.load.width=0.1\n");
+      fw.write("# textBoxButton.load.height=0.24\n");
     }
   }
 
@@ -1086,6 +1282,15 @@ public class NewProjectWizard extends Stage {
         fw.write("layout=default\n");
         fw.write("defaultItemStyle=default\n");
         fw.write("wrapSelection=true\n");
+        fw.write("item.save_slot.slotPreviewEnabled=true\n");
+        fw.write("# item.save_slot.bgAsset=config/menu/assets/buttons/slot.png\n");
+        fw.write("# item.save_slot.bgSelectedAsset=config/menu/assets/buttons/slot_hover.png\n");
+        fw.write("# item.save_slot.slotPreviewPlaceholderAsset=config/menu/assets/buttons/slot_empty.png\n");
+        fw.write("# item.save_slot.slotPreviewFrameAsset=config/menu/assets/buttons/slot_frame.png\n");
+        fw.write("# item.save_slot.slotPreviewX=0.62\n");
+        fw.write("# item.save_slot.slotPreviewY=0.1\n");
+        fw.write("# item.save_slot.slotPreviewWidth=0.34\n");
+        fw.write("# item.save_slot.slotPreviewHeight=0.8\n");
       }
 
       try (FileWriter fw = new FileWriter(new File(dir, MENU_SAVE_PATH))) {
@@ -1096,6 +1301,13 @@ public class NewProjectWizard extends Stage {
         fw.write("defaultItemStyle=default\n");
         fw.write("wrapSelection=true\n");
         fw.write("item.new_slot.label=New Save...\n");
+        fw.write("item.new_slot.slotPreviewEnabled=true\n");
+        fw.write("item.save_slot.slotPreviewEnabled=true\n");
+        fw.write("# item.new_slot.bgAsset=config/menu/assets/buttons/new_slot.png\n");
+        fw.write("# item.save_slot.bgAsset=config/menu/assets/buttons/slot.png\n");
+        fw.write("# item.save_slot.bgSelectedAsset=config/menu/assets/buttons/slot_hover.png\n");
+        fw.write("# item.save_slot.slotPreviewPlaceholderAsset=config/menu/assets/buttons/slot_empty.png\n");
+        fw.write("# item.save_slot.slotPreviewFrameAsset=config/menu/assets/buttons/slot_frame.png\n");
       }
     }
 
@@ -1129,6 +1341,7 @@ public class NewProjectWizard extends Stage {
       if (!txtAuthor.getText().isBlank()) fw.write("**Author:** " + txtAuthor.getText().trim() + "\n\n");
       fw.write("## Enabled Modules\n\n");
       fw.write("- Sample prologue: " + (chkSampleContent.isSelected() ? "yes" : "no") + "\n");
+      fw.write("- Bundled demo assets: yes (`assets/demo/...`)\n");
       fw.write("- Menu profile pack: " + (includeMenuPack ? "yes" : "no") + "\n");
       fw.write("- Save/load profiles: " + (includeSave ? "yes" : "no") + "\n");
       fw.write("- Settings profile: " + (includeSettings ? "yes" : "no") + "\n");

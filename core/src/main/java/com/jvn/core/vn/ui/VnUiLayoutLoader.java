@@ -7,8 +7,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -30,10 +32,16 @@ public final class VnUiLayoutLoader {
       "dialogue.layout"
   };
 
-  public record LoadResult(VnUiLayoutSpec layout, VnUiStyleSpec style, List<String> diagnostics) {
+  public record LoadResult(
+      VnUiLayoutSpec layout,
+      VnUiStyleSpec style,
+      List<VnUiActionButtonSpec> textBoxButtons,
+      List<String> diagnostics
+  ) {
     public LoadResult {
       layout = layout == null ? VnUiLayoutSpec.defaults() : layout;
       style = style == null ? VnUiStyleSpec.defaults() : style;
+      textBoxButtons = textBoxButtons == null ? List.of() : List.copyOf(textBoxButtons);
       diagnostics = diagnostics == null ? List.of() : List.copyOf(diagnostics);
     }
   }
@@ -64,6 +72,18 @@ public final class VnUiLayoutLoader {
     return loadFromProjectRootWithDiagnostics(projectRoot).style();
   }
 
+  public static List<VnUiActionButtonSpec> loadTextBoxButtonsFromAssets() {
+    return loadFromAssetsWithDiagnostics().textBoxButtons();
+  }
+
+  public static List<VnUiActionButtonSpec> loadTextBoxButtonsFromAssets(AssetCatalog assets) {
+    return loadFromAssetsWithDiagnostics(assets).textBoxButtons();
+  }
+
+  public static List<VnUiActionButtonSpec> loadTextBoxButtonsFromProjectRoot(File projectRoot) {
+    return loadFromProjectRootWithDiagnostics(projectRoot).textBoxButtons();
+  }
+
   public static LoadResult loadFromAssetsWithDiagnostics() {
     return loadFromAssetsWithDiagnostics(new AssetCatalog());
   }
@@ -71,13 +91,13 @@ public final class VnUiLayoutLoader {
   public static LoadResult loadFromAssetsWithDiagnostics(AssetCatalog assets) {
     List<String> diagnostics = new ArrayList<>();
     Properties props = loadPropertiesFromAssetsInternal(assets, diagnostics);
-    return parseWithDiagnostics(props, VnUiLayoutSpec.defaults(), VnUiStyleSpec.defaults(), diagnostics);
+    return parseWithDiagnostics(props, VnUiLayoutSpec.defaults(), VnUiStyleSpec.defaults(), List.of(), diagnostics);
   }
 
   public static LoadResult loadFromProjectRootWithDiagnostics(File projectRoot) {
     List<String> diagnostics = new ArrayList<>();
     Properties props = loadPropertiesFromProjectRootInternal(projectRoot, diagnostics);
-    return parseWithDiagnostics(props, VnUiLayoutSpec.defaults(), VnUiStyleSpec.defaults(), diagnostics);
+    return parseWithDiagnostics(props, VnUiLayoutSpec.defaults(), VnUiStyleSpec.defaults(), List.of(), diagnostics);
   }
 
   public static Properties loadPropertiesFromAssets() {
@@ -105,18 +125,20 @@ public final class VnUiLayoutLoader {
       VnUiLayoutSpec baseLayout,
       VnUiStyleSpec baseStyle
   ) {
-    return parseWithDiagnostics(props, baseLayout, baseStyle, new ArrayList<>());
+    return parseWithDiagnostics(props, baseLayout, baseStyle, List.of(), new ArrayList<>());
   }
 
   private static LoadResult parseWithDiagnostics(
       Properties props,
       VnUiLayoutSpec baseLayout,
       VnUiStyleSpec baseStyle,
+      List<VnUiActionButtonSpec> baseButtons,
       List<String> diagnostics
   ) {
     VnUiLayoutSpec bLayout = baseLayout == null ? VnUiLayoutSpec.defaults() : baseLayout;
     VnUiStyleSpec bStyle = baseStyle == null ? VnUiStyleSpec.defaults() : baseStyle;
-    if (props == null) return new LoadResult(bLayout, bStyle, diagnostics);
+    List<VnUiActionButtonSpec> bButtons = baseButtons == null ? List.of() : baseButtons;
+    if (props == null) return new LoadResult(bLayout, bStyle, bButtons, diagnostics);
 
     VnUiLayoutSpec layout = new VnUiLayoutSpec(
         parseDouble(props.getProperty("textBoxX"), bLayout.textBoxX(), diagnostics, "textBoxX"),
@@ -163,7 +185,8 @@ public final class VnUiLayoutLoader {
         parseDouble(props.getProperty("choiceTextBaselineOffset"), bStyle.choiceTextBaselineOffset(), diagnostics, "choiceTextBaselineOffset")
     );
 
-    return new LoadResult(layout, style, diagnostics);
+    List<VnUiActionButtonSpec> buttons = parseTextBoxButtons(props, bButtons, diagnostics);
+    return new LoadResult(layout, style, buttons, diagnostics);
   }
 
   public static Properties toProperties(VnUiLayoutSpec spec) {
@@ -221,7 +244,45 @@ public final class VnUiLayoutLoader {
     return p;
   }
 
+  public static Properties toButtonProperties(List<VnUiActionButtonSpec> buttons) {
+    Properties p = new Properties();
+    if (buttons == null || buttons.isEmpty()) return p;
+
+    List<String> ids = new ArrayList<>();
+    Map<String, VnUiActionButtonSpec> unique = new LinkedHashMap<>();
+    for (VnUiActionButtonSpec button : buttons) {
+      if (button == null) continue;
+      String id = normalize(button.id(), "");
+      if (id == null || id.isBlank()) continue;
+      if (!unique.containsKey(id)) ids.add(id);
+      unique.put(id, button);
+    }
+    if (ids.isEmpty()) return p;
+    p.setProperty("textBoxButton.ids", String.join(",", ids));
+    for (String id : ids) {
+      VnUiActionButtonSpec b = unique.get(id);
+      if (b == null) continue;
+      String prefix = "textBoxButton." + id + ".";
+      setOptional(p, prefix + "label", b.label());
+      setOptional(p, prefix + "action", b.action());
+      setOptional(p, prefix + "target", b.target());
+      p.setProperty(prefix + "enabled", Boolean.toString(b.enabled()));
+      setOptional(p, prefix + "asset", b.assetPath());
+      setOptional(p, prefix + "hoverAsset", b.hoverAssetPath());
+      setOptional(p, prefix + "disabledAsset", b.disabledAssetPath());
+      p.setProperty(prefix + "x", format(b.x()));
+      p.setProperty(prefix + "y", format(b.y()));
+      p.setProperty(prefix + "width", format(b.width()));
+      p.setProperty(prefix + "height", format(b.height()));
+    }
+    return p;
+  }
+
   public static Properties toProperties(VnUiLayoutSpec layout, VnUiStyleSpec style) {
+    return toProperties(layout, style, List.of());
+  }
+
+  public static Properties toProperties(VnUiLayoutSpec layout, VnUiStyleSpec style, List<VnUiActionButtonSpec> buttons) {
     Properties merged = new Properties();
     Properties lp = toProperties(layout);
     for (String key : lp.stringPropertyNames()) {
@@ -230,6 +291,10 @@ public final class VnUiLayoutLoader {
     Properties sp = toStyleProperties(style);
     for (String key : sp.stringPropertyNames()) {
       merged.setProperty(key, sp.getProperty(key));
+    }
+    Properties bp = toButtonProperties(buttons);
+    for (String key : bp.stringPropertyNames()) {
+      merged.setProperty(key, bp.getProperty(key));
     }
     return merged;
   }
@@ -366,6 +431,93 @@ public final class VnUiLayoutLoader {
       }
       return def;
     }
+  }
+
+  private static boolean parseBoolean(String raw, boolean def, List<String> diagnostics, String key) {
+    if (raw == null || raw.isBlank()) return def;
+    String value = raw.trim().toLowerCase(java.util.Locale.ROOT);
+    if ("true".equals(value) || "1".equals(value) || "yes".equals(value) || "on".equals(value)) return true;
+    if ("false".equals(value) || "0".equals(value) || "no".equals(value) || "off".equals(value)) return false;
+    if (diagnostics != null) {
+      diagnostics.add("Invalid boolean for '" + key + "': '" + raw + "' (using " + def + ")");
+    }
+    return def;
+  }
+
+  private static List<String> parseCsv(String raw) {
+    List<String> out = new ArrayList<>();
+    if (raw == null || raw.isBlank()) return out;
+    String[] parts = raw.split(",");
+    for (String part : parts) {
+      String value = normalize(part, null);
+      if (value != null) out.add(value);
+    }
+    return out;
+  }
+
+  private static List<VnUiActionButtonSpec> parseTextBoxButtons(
+      Properties props,
+      List<VnUiActionButtonSpec> baseButtons,
+      List<String> diagnostics
+  ) {
+    Map<String, VnUiActionButtonSpec> baseById = new LinkedHashMap<>();
+    if (baseButtons != null) {
+      for (VnUiActionButtonSpec button : baseButtons) {
+        if (button == null || button.id() == null || button.id().isBlank()) continue;
+        baseById.put(button.id(), button);
+      }
+    }
+
+    List<String> ids = parseCsv(props.getProperty("textBoxButton.ids"));
+    if (ids.isEmpty()) ids = collectTextBoxButtonIds(props);
+    if (ids.isEmpty() && !baseById.isEmpty()) ids = new ArrayList<>(baseById.keySet());
+
+    List<VnUiActionButtonSpec> result = new ArrayList<>();
+    for (String idRaw : ids) {
+      String id = normalize(idRaw, null);
+      if (id == null) continue;
+      String prefix = "textBoxButton." + id + ".";
+      VnUiActionButtonSpec base = baseById.get(id);
+      if (base == null) base = VnUiActionButtonSpec.defaults(id);
+      String label = normalize(props.getProperty(prefix + "label"), base.label());
+      String action = normalize(props.getProperty(prefix + "action"), base.action());
+      String target = normalize(props.getProperty(prefix + "target"), base.target());
+      boolean enabled = parseBoolean(props.getProperty(prefix + "enabled"), base.enabled(), diagnostics, prefix + "enabled");
+      String asset = normalize(props.getProperty(prefix + "asset"), base.assetPath());
+      String hoverAsset = normalize(props.getProperty(prefix + "hoverAsset"), base.hoverAssetPath());
+      String disabledAsset = normalize(props.getProperty(prefix + "disabledAsset"), base.disabledAssetPath());
+      double x = parseDouble(props.getProperty(prefix + "x"), base.x(), diagnostics, prefix + "x");
+      double y = parseDouble(props.getProperty(prefix + "y"), base.y(), diagnostics, prefix + "y");
+      double width = parseDouble(props.getProperty(prefix + "width"), base.width(), diagnostics, prefix + "width");
+      double height = parseDouble(props.getProperty(prefix + "height"), base.height(), diagnostics, prefix + "height");
+      result.add(new VnUiActionButtonSpec(
+          id,
+          label,
+          action,
+          target,
+          enabled,
+          asset,
+          hoverAsset,
+          disabledAsset,
+          x,
+          y,
+          width,
+          height
+      ));
+    }
+    return result;
+  }
+
+  private static List<String> collectTextBoxButtonIds(Properties props) {
+    Set<String> ids = new LinkedHashSet<>();
+    for (String key : props.stringPropertyNames()) {
+      if (!key.startsWith("textBoxButton.")) continue;
+      int dot = key.indexOf('.', "textBoxButton.".length());
+      if (dot <= "textBoxButton.".length()) continue;
+      String id = key.substring("textBoxButton.".length(), dot).trim();
+      if (!id.isEmpty() && !"ids".equalsIgnoreCase(id)) ids.add(id);
+    }
+    return new ArrayList<>(ids);
   }
 
   private static String normalize(String value, String fallback) {

@@ -13,7 +13,14 @@ public record MenuItemSpec(
     Double boundsX,
     Double boundsY,
     Double boundsWidth,
-    Double boundsHeight
+    Double boundsHeight,
+    boolean slotPreviewEnabled,
+    String slotPreviewPlaceholderAssetPath,
+    String slotPreviewFrameAssetPath,
+    Double slotPreviewX,
+    Double slotPreviewY,
+    Double slotPreviewWidth,
+    Double slotPreviewHeight
 ) {
   public MenuItemSpec {
     id = normalize(id, "item");
@@ -28,6 +35,51 @@ public record MenuItemSpec(
     if (boundsY != null && !Double.isFinite(boundsY)) boundsY = null;
     if (boundsWidth != null && !Double.isFinite(boundsWidth)) boundsWidth = null;
     if (boundsHeight != null && !Double.isFinite(boundsHeight)) boundsHeight = null;
+    slotPreviewPlaceholderAssetPath = normalize(slotPreviewPlaceholderAssetPath, null);
+    slotPreviewFrameAssetPath = normalize(slotPreviewFrameAssetPath, null);
+    if (slotPreviewX != null && !Double.isFinite(slotPreviewX)) slotPreviewX = null;
+    if (slotPreviewY != null && !Double.isFinite(slotPreviewY)) slotPreviewY = null;
+    if (slotPreviewWidth != null && !Double.isFinite(slotPreviewWidth)) slotPreviewWidth = null;
+    if (slotPreviewHeight != null && !Double.isFinite(slotPreviewHeight)) slotPreviewHeight = null;
+  }
+
+  public MenuItemSpec(
+      String id,
+      String label,
+      String styleId,
+      String iconPath,
+      boolean enabled,
+      MenuActionSpec action,
+      String buttonAssetPath,
+      String buttonSelectedAssetPath,
+      String buttonDisabledAssetPath,
+      Double boundsX,
+      Double boundsY,
+      Double boundsWidth,
+      Double boundsHeight
+  ) {
+    this(
+        id,
+        label,
+        styleId,
+        iconPath,
+        enabled,
+        action,
+        buttonAssetPath,
+        buttonSelectedAssetPath,
+        buttonDisabledAssetPath,
+        boundsX,
+        boundsY,
+        boundsWidth,
+        boundsHeight,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    );
   }
 
   private static String normalize(String v, String def) {

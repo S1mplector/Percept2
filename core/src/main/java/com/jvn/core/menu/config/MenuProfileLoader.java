@@ -297,6 +297,49 @@ public final class MenuProfileLoader {
       Double boundsY = parseOptionalDouble(p.getProperty(itemPrefix + "boundsY"), bi == null ? null : bi.boundsY(), diagnostics, sourcePath, itemPrefix + "boundsY");
       Double boundsWidth = parseOptionalDouble(p.getProperty(itemPrefix + "boundsWidth"), bi == null ? null : bi.boundsWidth(), diagnostics, sourcePath, itemPrefix + "boundsWidth");
       Double boundsHeight = parseOptionalDouble(p.getProperty(itemPrefix + "boundsHeight"), bi == null ? null : bi.boundsHeight(), diagnostics, sourcePath, itemPrefix + "boundsHeight");
+      boolean slotPreviewEnabled = parseBoolean(
+          p.getProperty(itemPrefix + "slotPreviewEnabled"),
+          bi != null ? bi.slotPreviewEnabled() : isSlotTemplateItemId(idNorm),
+          diagnostics,
+          sourcePath,
+          itemPrefix + "slotPreviewEnabled"
+      );
+      String slotPreviewPlaceholderAsset = normalize(
+          p.getProperty(itemPrefix + "slotPreviewPlaceholderAsset"),
+          bi == null ? null : bi.slotPreviewPlaceholderAssetPath()
+      );
+      String slotPreviewFrameAsset = normalize(
+          p.getProperty(itemPrefix + "slotPreviewFrameAsset"),
+          bi == null ? null : bi.slotPreviewFrameAssetPath()
+      );
+      Double slotPreviewX = parseOptionalDouble(
+          p.getProperty(itemPrefix + "slotPreviewX"),
+          bi == null ? null : bi.slotPreviewX(),
+          diagnostics,
+          sourcePath,
+          itemPrefix + "slotPreviewX"
+      );
+      Double slotPreviewY = parseOptionalDouble(
+          p.getProperty(itemPrefix + "slotPreviewY"),
+          bi == null ? null : bi.slotPreviewY(),
+          diagnostics,
+          sourcePath,
+          itemPrefix + "slotPreviewY"
+      );
+      Double slotPreviewWidth = parseOptionalDouble(
+          p.getProperty(itemPrefix + "slotPreviewWidth"),
+          bi == null ? null : bi.slotPreviewWidth(),
+          diagnostics,
+          sourcePath,
+          itemPrefix + "slotPreviewWidth"
+      );
+      Double slotPreviewHeight = parseOptionalDouble(
+          p.getProperty(itemPrefix + "slotPreviewHeight"),
+          bi == null ? null : bi.slotPreviewHeight(),
+          diagnostics,
+          sourcePath,
+          itemPrefix + "slotPreviewHeight"
+      );
       MenuActionSpec action = parseActionWithDiagnostics(actionRaw, targetRaw, diagnostics, sourcePath, itemPrefix + "action");
       items.add(new MenuItemSpec(
           idNorm,
@@ -311,7 +354,14 @@ public final class MenuProfileLoader {
           boundsX,
           boundsY,
           boundsWidth,
-          boundsHeight
+          boundsHeight,
+          slotPreviewEnabled,
+          slotPreviewPlaceholderAsset,
+          slotPreviewFrameAsset,
+          slotPreviewX,
+          slotPreviewY,
+          slotPreviewWidth,
+          slotPreviewHeight
       ));
     }
 
@@ -356,6 +406,11 @@ public final class MenuProfileLoader {
       if (!id.isEmpty()) ids.add(id);
     }
     return new ArrayList<>(ids);
+  }
+
+  private static boolean isSlotTemplateItemId(String itemId) {
+    String id = normalize(itemId, "").toLowerCase();
+    return "save_slot".equals(id) || "slot".equals(id) || "entry".equals(id) || "new_slot".equals(id) || "new_save".equals(id) || "new".equals(id);
   }
 
   private static LoadedProperties loadFirstProperties(AssetCatalog assets, List<String> diagnostics, String purpose, String... paths) {

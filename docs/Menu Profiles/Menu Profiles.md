@@ -98,11 +98,24 @@ Supported item fields:
 - `boundsY`
 - `boundsWidth`
 - `boundsHeight`
+- `slotPreviewEnabled`
+- `slotPreviewPlaceholderAsset`
+- `slotPreviewFrameAsset`
+- `slotPreviewX`
+- `slotPreviewY`
+- `slotPreviewWidth`
+- `slotPreviewHeight`
 
 `bounds*` mapping rules:
 - values `<= 1` are treated as normalized fractions (relative to menu draw area)
 - values `> 1` are treated as pixels
 - all four `boundsX/Y/Width/Height` should be set together
+
+`slotPreview*` mapping rules:
+- used by save/load menu rows for inline thumbnail preview
+- values `<= 1` are normalized to the menu row bounds
+- values `> 1` are treated as pixels inside the row
+- set all four `slotPreviewX/Y/Width/Height` together when overriding
 
 ### Action Parsing
 
@@ -195,6 +208,12 @@ For load/save profiles, template item IDs are still important:
 
 Per-item icon rendering:
 - `item.<id>.icon=assets/ui/...` is now rendered by the FX menu renderer in all menu scenes.
+
+Save/load inline preview rendering:
+- `item.save_slot.slotPreviewEnabled=true` enables per-row embedded thumbnails.
+- `item.new_slot.slotPreviewEnabled=true` enables preview on the save menu’s "new save" row.
+- `slotPreviewPlaceholderAsset` is used when no sidecar thumbnail exists.
+- `slotPreviewFrameAsset` overlays a frame skin over the thumbnail region.
 
 ## Action Type Reference
 

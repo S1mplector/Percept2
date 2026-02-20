@@ -20,6 +20,7 @@ import com.jvn.core.vn.VnVariableInterpolator;
 import com.jvn.core.vn.text.TextEffect;
 import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
+import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
@@ -43,6 +44,7 @@ public class VnRenderer {
   private long animationTime = 0;
   private VnUiLayoutSpec uiLayout;
   private VnUiStyleSpec uiStyle = VnUiStyleSpec.defaults();
+  private List<VnUiActionButtonSpec> textBoxButtons = List.of();
 
   // UI Colors
   private static final Color TEXTBOX_COLOR = Color.rgb(0, 0, 0, 0.8);
@@ -116,12 +118,21 @@ public class VnRenderer {
     applyUiStyle(this.uiStyle);
   }
 
+  public List<VnUiActionButtonSpec> getTextBoxButtons() {
+    return textBoxButtons;
+  }
+
+  public void setTextBoxButtons(List<VnUiActionButtonSpec> buttons) {
+    this.textBoxButtons = buttons == null ? List.of() : List.copyOf(buttons);
+  }
+
   public void reloadUiLayout() {
     VnUiLayoutLoader.LoadResult result = projectRoot != null
         ? VnUiLayoutLoader.loadFromProjectRootWithDiagnostics(projectRoot)
         : VnUiLayoutLoader.loadFromAssetsWithDiagnostics();
     this.uiLayout = result.layout();
     this.uiStyle = result.style();
+    this.textBoxButtons = result.textBoxButtons();
     applyUiStyle(this.uiStyle);
   }
 
@@ -401,7 +412,7 @@ public class VnRenderer {
     if (currentNode != null && !state.isUiHidden()) {
       switch (currentNode.getType()) {
         case DIALOGUE:
-          renderDialogue(currentNode.getDialogue(), state, width, height);
+          renderDialogue(currentNode.getDialogue(), state, width, height, -1);
           break;
         case CHOICE:
           renderChoices(currentNode.getChoices(), width, height, -1);
@@ -459,11 +470,16 @@ public class VnRenderer {
     this.currentState = state;
     render(state, scenario, width, height);
     
-    // Re-render choices with hover effect (if UI not hidden)
+    // Re-render choices/buttons with hover effect (if UI not hidden)
     VnNode currentNode = state.getCurrentNode();
-    if (currentNode != null && !state.isUiHidden() && currentNode.getType() == VnNodeType.CHOICE) {
-      int hoverIndex = getHoveredChoiceIndex(currentNode.getChoices(), width, height, mouseX, mouseY);
-      renderChoices(currentNode.getChoices(), width, height, hoverIndex);
+    if (currentNode != null && !state.isUiHidden()) {
+      if (currentNode.getType() == VnNodeType.CHOICE) {
+        int hoverIndex = getHoveredChoiceIndex(currentNode.getChoices(), width, height, mouseX, mouseY);
+        renderChoices(currentNode.getChoices(), width, height, hoverIndex);
+      } else if (currentNode.getType() == VnNodeType.DIALOGUE) {
+        int hoverButton = getHoveredTextBoxButtonIndex(state, width, height, mouseX, mouseY);
+        renderDialogue(currentNode.getDialogue(), state, width, height, hoverButton);
+      }
     }
   }
 
@@ -544,15 +560,14 @@ public class VnRenderer {
     gc.drawImage(img, x + offsetX, y + offsetY, spriteWidth, spriteHeight);
   }
 
-  private void renderDialogue(DialogueLine dialogue, VnState state, double width, double height) {
+  private void renderDialogue(DialogueLine dialogue, VnState state, double width, double height, int hoveredButtonIndex) {
     if (dialogue == null) return;
 
-    double textBoxX = clamp(width * uiLayout.textBoxX(), 0, width);
-    double textBoxY = clamp(height * uiLayout.textBoxY(), 0, height);
-    double maxBoxWidth = Math.max(1, width - textBoxX);
-    double maxBoxHeight = Math.max(1, height - textBoxY);
-    double textBoxWidth = clamp(width * uiLayout.textBoxWidth(), 1, maxBoxWidth);
-    double textBoxHeight = clamp(height * uiLayout.textBoxHeight(), 1, maxBoxHeight);
+    TextBoxGeometry textBox = computeTextBoxGeometry(width, height);
+    double textBoxX = textBox.x();
+    double textBoxY = textBox.y();
+    double textBoxWidth = textBox.width();
+    double textBoxHeight = textBox.height();
 
     // Draw text box background (asset if provided, otherwise default fill).
     if (textBoxImage != null) {
@@ -595,6 +610,51 @@ public class VnRenderer {
     // Draw continue indicator if text is fully revealed
     if (revealedLength >= plainLength && state.isWaitingForInput()) {
       drawContinueIndicator(textBoxX + textBoxWidth - 30, textBoxY + textBoxHeight - 20);
+    }
+
+    renderTextBoxButtons(textBox, hoveredButtonIndex);
+  }
+
+  private void renderTextBoxButtons(TextBoxGeometry textBox, int hoveredButtonIndex) {
+    if (textBoxButtons == null || textBoxButtons.isEmpty()) return;
+    for (int i = 0; i < textBoxButtons.size(); i++) {
+      VnUiActionButtonSpec button = textBoxButtons.get(i);
+      if (button == null) continue;
+      ButtonGeometry geometry = computeButtonGeometry(button, textBox);
+      boolean hovered = i == hoveredButtonIndex;
+      boolean enabled = button.enabled();
+
+      Image asset = firstNonBlank(button.assetPath(), null) != null ? loadImage(button.assetPath()) : null;
+      Image hoverAsset = firstNonBlank(button.hoverAssetPath(), null) != null ? loadImage(button.hoverAssetPath()) : asset;
+      Image disabledAsset = firstNonBlank(button.disabledAssetPath(), null) != null ? loadImage(button.disabledAssetPath()) : asset;
+      Image drawAsset = !enabled
+          ? firstNonNull(disabledAsset, asset)
+          : (hovered ? firstNonNull(hoverAsset, asset) : asset);
+      if (drawAsset != null) {
+        if (!enabled) gc.setGlobalAlpha(0.55);
+        gc.drawImage(drawAsset, geometry.x(), geometry.y(), geometry.width(), geometry.height());
+        gc.setGlobalAlpha(1.0);
+      } else {
+        Color fill = !enabled
+            ? Color.rgb(38, 40, 48, 0.7)
+            : (hovered ? Color.rgb(90, 120, 180, 0.8) : Color.rgb(32, 36, 46, 0.78));
+        gc.setFill(fill);
+        gc.fillRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
+      }
+
+      gc.setStroke(!enabled
+          ? Color.rgb(120, 125, 136, 0.75)
+          : (hovered ? Color.rgb(170, 210, 255, 0.95) : Color.rgb(120, 135, 170, 0.82)));
+      gc.setLineWidth(hovered ? 2.0 : 1.2);
+      gc.strokeRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
+
+      gc.setFill(!enabled ? Color.rgb(172, 176, 188, 0.75) : (hovered ? Color.rgb(245, 252, 255) : Color.rgb(225, 232, 246)));
+      gc.setFont(Font.font("Arial", FontWeight.BOLD, clamp(geometry.height() * 0.42, 10, 18)));
+      String label = button.label() == null || button.label().isBlank() ? button.id() : button.label();
+      double textW = computeTextWidth(label, gc.getFont());
+      double textX = geometry.x() + Math.max(8, (geometry.width() - textW) / 2.0);
+      double textY = geometry.y() + geometry.height() * 0.64;
+      gc.fillText(label, textX, textY);
     }
   }
 
@@ -1068,6 +1128,28 @@ public class VnRenderer {
     return -1;
   }
 
+  public VnUiActionButtonSpec getHoveredTextBoxButton(VnState state, double width, double height, double mouseX, double mouseY) {
+    int idx = getHoveredTextBoxButtonIndex(state, width, height, mouseX, mouseY);
+    if (idx < 0 || idx >= textBoxButtons.size()) return null;
+    return textBoxButtons.get(idx);
+  }
+
+  private int getHoveredTextBoxButtonIndex(VnState state, double width, double height, double mouseX, double mouseY) {
+    if (state == null || state.isUiHidden()) return -1;
+    if (textBoxButtons == null || textBoxButtons.isEmpty()) return -1;
+    VnNode currentNode = state.getCurrentNode();
+    if (currentNode == null || currentNode.getType() != VnNodeType.DIALOGUE) return -1;
+
+    TextBoxGeometry textBox = computeTextBoxGeometry(width, height);
+    for (int i = textBoxButtons.size() - 1; i >= 0; i--) {
+      VnUiActionButtonSpec button = textBoxButtons.get(i);
+      if (button == null || !button.enabled()) continue;
+      ButtonGeometry geometry = computeButtonGeometry(button, textBox);
+      if (geometry.contains(mouseX, mouseY)) return i;
+    }
+    return -1;
+  }
+
   private ChoiceGeometry computeChoiceGeometry(int count, double width, double height) {
     double choiceHeight = Math.max(12, uiLayout.choiceHeight());
     double choiceGap = Math.max(0, uiLayout.choiceGap());
@@ -1082,7 +1164,31 @@ public class VnRenderer {
     return new ChoiceGeometry(choiceX, startY, choiceWidth, choiceHeight, choiceGap);
   }
 
+  private TextBoxGeometry computeTextBoxGeometry(double width, double height) {
+    double textBoxX = clamp(width * uiLayout.textBoxX(), 0, width);
+    double textBoxY = clamp(height * uiLayout.textBoxY(), 0, height);
+    double maxBoxWidth = Math.max(1, width - textBoxX);
+    double maxBoxHeight = Math.max(1, height - textBoxY);
+    double textBoxWidth = clamp(width * uiLayout.textBoxWidth(), 1, maxBoxWidth);
+    double textBoxHeight = clamp(height * uiLayout.textBoxHeight(), 1, maxBoxHeight);
+    return new TextBoxGeometry(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
+  }
+
+  private ButtonGeometry computeButtonGeometry(VnUiActionButtonSpec button, TextBoxGeometry textBox) {
+    double x = textBox.x() + textBox.width() * button.x();
+    double y = textBox.y() + textBox.height() * button.y();
+    double width = Math.max(8, textBox.width() * button.width());
+    double height = Math.max(8, textBox.height() * button.height());
+    return new ButtonGeometry(x, y, width, height);
+  }
+
   private record ChoiceGeometry(double choiceX, double startY, double choiceWidth, double choiceHeight, double choiceGap) {}
+  private record TextBoxGeometry(double x, double y, double width, double height) {}
+  private record ButtonGeometry(double x, double y, double width, double height) {
+    boolean contains(double px, double py) {
+      return px >= x && px <= x + width && py >= y && py <= y + height;
+    }
+  }
 
   public int getHoveredSaveSlotIndex(double width, double height, double mouseX, double mouseY) {
     double panelW = Math.min(600, width * 0.7);

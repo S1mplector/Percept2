@@ -558,6 +558,12 @@ public class FxLauncher extends Application {
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof VnScene) {
       VnScene vnScene = (VnScene) currentScene;
+
+      com.jvn.core.vn.ui.VnUiActionButtonSpec textBoxButton =
+          vnRenderer.getHoveredTextBoxButton(vnScene.getState(), canvas.getWidth(), canvas.getHeight(), x, y);
+      if (textBoxButton != null && executeTextBoxButtonAction(vnScene, textBoxButton)) {
+        return;
+      }
       
       // Check if clicking on a choice
       if (vnScene.getState().getCurrentNode() != null && 
@@ -605,6 +611,116 @@ public class FxLauncher extends Application {
         handleMenuEnter();
       }
     }
+  }
+
+  private boolean executeTextBoxButtonAction(VnScene vnScene, com.jvn.core.vn.ui.VnUiActionButtonSpec button) {
+    if (vnScene == null || button == null || !button.enabled()) return false;
+    String action = normalizeButtonAction(button.action());
+    String target = button.target() == null ? "" : button.target().trim();
+    var state = vnScene.getState();
+
+    switch (action) {
+      case "advance" -> {
+        vnScene.advance();
+        return true;
+      }
+      case "quick_save", "save_quick" -> {
+        handleQuickSave();
+        return true;
+      }
+      case "quick_load", "load_quick" -> {
+        handleQuickLoad();
+        return true;
+      }
+      case "save_slots", "open_save_slots" -> {
+        state.showSaveSlotOverlay(true);
+        return true;
+      }
+      case "load_slots", "open_load_slots" -> {
+        state.showSaveSlotOverlay(false);
+        return true;
+      }
+      case "toggle_history", "history" -> {
+        boolean wasShown = state.isHistoryOverlayShown();
+        state.toggleHistoryOverlay();
+        if (!wasShown) state.clearHistoryScroll();
+        return true;
+      }
+      case "toggle_skip", "skip" -> {
+        vnScene.toggleSkipMode();
+        return true;
+      }
+      case "toggle_auto", "auto" -> {
+        vnScene.toggleAutoPlayMode();
+        return true;
+      }
+      case "toggle_ui", "ui" -> {
+        state.toggleUiHidden();
+        return true;
+      }
+      case "save_menu", "open_save_menu", "menu_save" -> {
+        engine.scenes().push(new SaveMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), vnScene));
+        return true;
+      }
+      case "load_menu", "open_load_menu", "menu_load" -> {
+        String script = target.isBlank() ? "demo.vns" : target;
+        engine.scenes().push(new LoadMenuScene(
+            engine,
+            new com.jvn.core.vn.save.VnSaveManager(),
+            script,
+            vnScene.getState().getSettings(),
+            vnScene.getAudioFacade()
+        ));
+        return true;
+      }
+      case "settings_menu", "open_settings_menu", "menu_settings" -> {
+        engine.scenes().push(new SettingsScene(
+            engine,
+            new com.jvn.core.vn.save.VnSaveManager(),
+            "demo.vns",
+            vnScene.getState().getSettings(),
+            vnScene.getAudioFacade()
+        ));
+        return true;
+      }
+      case "main_menu", "open_main_menu", "menu_main" -> {
+        engine.scenes().push(new MainMenuScene(
+            engine,
+            vnScene.getState().getSettings(),
+            new com.jvn.core.vn.save.VnSaveManager(),
+            "demo.vns",
+            vnScene.getAudioFacade()
+        ));
+        return true;
+      }
+      case "open_menu", "menu_open" -> {
+        if (target.isBlank()) {
+          vnScene.getState().showHudMessage("Button target missing", 1200);
+          return true;
+        }
+        engine.scenes().push(new MainMenuScene(
+            engine,
+            vnScene.getState().getSettings(),
+            new com.jvn.core.vn.save.VnSaveManager(),
+            "demo.vns",
+            vnScene.getAudioFacade(),
+            target
+        ));
+        return true;
+      }
+      case "noop", "none" -> {
+        return true;
+      }
+      default -> {
+        vnScene.getState().showHudMessage("Unknown button action: " + action, 1200);
+        return true;
+      }
+    }
+  }
+
+  private static String normalizeButtonAction(String raw) {
+    if (raw == null || raw.isBlank()) return "noop";
+    return raw.trim().toLowerCase(java.util.Locale.ROOT).replace('-', '_').replace(' ', '_');
   }
 
   private void handleMouseDrag(double x, double y) {

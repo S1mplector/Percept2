@@ -1,11 +1,13 @@
 package com.jvn.core.vn;
 
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
+import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
 import org.junit.jupiter.api.Test;
 
 import java.util.Properties;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -74,5 +76,62 @@ class VnUiLayoutLoaderTest {
 
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("textBoxY")));
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("choiceCornerRadius")));
+  }
+
+  @Test
+  void parsesTextboxButtonSpecs() {
+    Properties p = new Properties();
+    p.setProperty("textBoxButton.ids", "save,load");
+    p.setProperty("textBoxButton.save.label", "Save");
+    p.setProperty("textBoxButton.save.action", "save_menu");
+    p.setProperty("textBoxButton.save.x", "0.72");
+    p.setProperty("textBoxButton.save.y", "0.06");
+    p.setProperty("textBoxButton.save.width", "0.12");
+    p.setProperty("textBoxButton.save.height", "0.24");
+    p.setProperty("textBoxButton.load.label", "Load");
+    p.setProperty("textBoxButton.load.action", "load_menu");
+
+    VnUiLayoutLoader.LoadResult result = VnUiLayoutLoader.parseWithDiagnostics(
+        p,
+        VnUiLayoutSpec.defaults(),
+        VnUiStyleSpec.defaults()
+    );
+
+    assertEquals(2, result.textBoxButtons().size());
+    VnUiActionButtonSpec save = result.textBoxButtons().get(0);
+    assertEquals("save", save.id());
+    assertEquals("Save", save.label());
+    assertEquals("save_menu", save.action());
+    assertEquals(0.72, save.x(), 1e-6);
+    assertEquals(0.24, save.height(), 1e-6);
+  }
+
+  @Test
+  void serializesTextboxButtonSpecs() {
+    VnUiActionButtonSpec save = new VnUiActionButtonSpec(
+        "save",
+        "Save",
+        "save_menu",
+        null,
+        true,
+        "assets/ui/save.png",
+        "assets/ui/save_hover.png",
+        "assets/ui/save_disabled.png",
+        0.74,
+        0.08,
+        0.1,
+        0.24
+    );
+
+    Properties p = VnUiLayoutLoader.toProperties(
+        VnUiLayoutSpec.defaults(),
+        VnUiStyleSpec.defaults(),
+        List.of(save)
+    );
+
+    assertEquals("save", p.getProperty("textBoxButton.ids"));
+    assertEquals("save_menu", p.getProperty("textBoxButton.save.action"));
+    assertEquals("assets/ui/save.png", p.getProperty("textBoxButton.save.asset"));
+    assertEquals("0.74", p.getProperty("textBoxButton.save.x"));
   }
 }

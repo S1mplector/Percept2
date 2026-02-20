@@ -100,7 +100,8 @@ public class MenuRenderer {
       styles[i] = scene.getStyleForIndex(i);
       specs[i] = scene.getMenuItemSpec(i);
     }
-    drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w * 0.6, h);
+    drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w * 0.6, h, true);
+    drawInlineSaveSlotPreviews(scene, layout, specs, 0, w * 0.6, h);
 
     // Preview: prefer thumbnail when selecting existing; when selecting new, try current background
     if (scene.isNewItemSelected()) {
@@ -144,7 +145,8 @@ public class MenuRenderer {
         styles[i] = scene.getStyleForIndex(i);
         specs[i] = scene.getMenuItemSpec(i);
       }
-      drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w * 0.6, h);
+      drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w * 0.6, h, true);
+      drawInlineLoadSlotPreviews(scene, layout, specs, 0, w * 0.6, h);
       File thumb = getThumbnailFile(scene);
       if (thumb != null) {
         drawPreviewFile(thumb, w, h);
@@ -282,7 +284,7 @@ public class MenuRenderer {
   }
 
   private void drawMenuList(String[] items, int selected, double w, double h) {
-    drawMenuList(items, selected, null, null, null, null, 0, w, h);
+    drawMenuList(items, selected, null, null, null, null, 0, w, h, false);
   }
 
   private void drawMenuList(
@@ -296,6 +298,21 @@ public class MenuRenderer {
       double areaWidth,
       double h
   ) {
+    drawMenuList(items, selected, enabled, styles, itemSpecs, layout, areaX, areaWidth, h, false);
+  }
+
+  private void drawMenuList(
+      String[] items,
+      int selected,
+      boolean[] enabled,
+      MenuStyleSpec[] styles,
+      MenuItemSpec[] itemSpecs,
+      MenuLayoutSpec layout,
+      double areaX,
+      double areaWidth,
+      double h,
+      boolean reserveInlineSlotPreviewSpace
+  ) {
     String align = layout != null ? layout.textAlign() : "center";
     double textPadXDefault = 18;
     double textPadYDefault = 0;
@@ -308,6 +325,11 @@ public class MenuRenderer {
       Color color = resolveItemColor(style, sel, isEnabled);
       Font font = resolveItemFont(style);
       Rect rect = resolveItemRect(i, items.length, item, layout, areaX, areaWidth, h);
+      boolean inlinePreviewEnabled = reserveInlineSlotPreviewSpace && isInlineSlotPreviewEnabled(item, true);
+      Rect inlinePreviewRect = inlinePreviewEnabled ? resolveInlineSlotPreviewRect(item, rect) : null;
+      double reservedRightSpace = inlinePreviewRect != null
+          ? Math.max(0, rect.x() + rect.w() - inlinePreviewRect.x() + 8)
+          : 0;
 
       String backgroundAsset = resolveButtonAssetPath(item, style, sel, isEnabled);
       Image buttonBg = loadImage(backgroundAsset);
@@ -342,7 +364,7 @@ public class MenuRenderer {
       double textPadX = style != null && style.buttonTextPaddingX() != null ? style.buttonTextPaddingX() : textPadXDefault;
       double textPadY = style != null && style.buttonTextPaddingY() != null ? style.buttonTextPaddingY() : textPadYDefault;
       double leftInset = rect.x() + Math.max(0, textPadX) + (iconSize > 0 ? iconSize + 8 : 0);
-      double rightInset = rect.x() + Math.max(0, rect.w() - textPadX);
+      double rightInset = rect.x() + Math.max(0, rect.w() - textPadX - reservedRightSpace);
       double x = switch (align == null ? "center" : align.toLowerCase()) {
         case "left" -> leftInset;
         case "right" -> rightInset - tw;
@@ -467,6 +489,37 @@ public class MenuRenderer {
     return new Rect(listX, itemY, Math.max(1, listW), itemH);
   }
 
+  private boolean isInlineSlotPreviewEnabled(MenuItemSpec itemSpec, boolean defaultIfMissingSpec) {
+    if (itemSpec == null) return defaultIfMissingSpec;
+    return itemSpec.slotPreviewEnabled();
+  }
+
+  private Rect resolveInlineSlotPreviewRect(MenuItemSpec itemSpec, Rect itemRect) {
+    if (itemRect == null) return new Rect(0, 0, 1, 1);
+    if (itemSpec != null
+        && itemSpec.slotPreviewX() != null
+        && itemSpec.slotPreviewY() != null
+        && itemSpec.slotPreviewWidth() != null
+        && itemSpec.slotPreviewHeight() != null) {
+      double x = itemRect.x() + resolveCoordinate(itemSpec.slotPreviewX(), itemRect.w());
+      double y = itemRect.y() + resolveCoordinate(itemSpec.slotPreviewY(), itemRect.h());
+      double w = resolveSize(itemSpec.slotPreviewWidth(), itemRect.w());
+      double h = resolveSize(itemSpec.slotPreviewHeight(), itemRect.h());
+      w = clamp(w, 8, Math.max(8, itemRect.w()));
+      h = clamp(h, 8, Math.max(8, itemRect.h()));
+      x = clamp(x, itemRect.x(), itemRect.x() + Math.max(0, itemRect.w() - w));
+      y = clamp(y, itemRect.y(), itemRect.y() + Math.max(0, itemRect.h() - h));
+      return new Rect(x, y, w, h);
+    }
+
+    double margin = 6;
+    double h = clamp(itemRect.h() - margin * 2, 14, Math.max(14, itemRect.h() - margin * 2));
+    double w = clamp(Math.min(itemRect.w() * 0.34, h * 1.6), 24, Math.max(24, itemRect.w() - margin * 2));
+    double x = itemRect.x() + itemRect.w() - w - margin;
+    double y = itemRect.y() + (itemRect.h() - h) / 2.0;
+    return new Rect(x, y, w, h);
+  }
+
   private String resolveButtonAssetPath(MenuItemSpec item, MenuStyleSpec style, boolean selected, boolean enabled) {
     String path = null;
     if (!enabled) {
@@ -506,6 +559,119 @@ public class MenuRenderer {
     if (dir == null || name == null) return null;
     File f = new File(dir, name + ".png");
     return f.exists() ? f : null;
+  }
+
+  private void drawInlineSaveSlotPreviews(
+      SaveMenuScene scene,
+      MenuLayoutSpec layout,
+      MenuItemSpec[] specs,
+      double areaX,
+      double areaWidth,
+      double h
+  ) {
+    if (scene == null) return;
+    List<String> saves = scene.getSaves();
+    int count = scene.getItemCount();
+    for (int i = 0; i < count; i++) {
+      MenuItemSpec spec = specs != null && i < specs.length ? specs[i] : scene.getMenuItemSpec(i);
+      if (!isInlineSlotPreviewEnabled(spec, true)) continue;
+      Rect itemRect = resolveItemRect(i, count, spec, layout, areaX, areaWidth, h);
+      String previewPath = null;
+      if (i == 0) {
+        previewPath = scene.getCurrentBackgroundPreviewPath();
+      } else {
+        int saveIndex = i - 1;
+        if (saveIndex >= 0 && saveIndex < saves.size()) {
+          File thumb = new File(scene.getSaveDirectory(), saves.get(saveIndex) + ".png");
+          if (thumb.exists()) previewPath = thumb.getAbsolutePath();
+        }
+      }
+      drawInlineSlotPreview(itemRect, spec, previewPath, i == scene.getSelected(), i == 0 ? Localization.t("save.new") : Localization.t("load.no_preview"));
+    }
+  }
+
+  private void drawInlineLoadSlotPreviews(
+      LoadMenuScene scene,
+      MenuLayoutSpec layout,
+      MenuItemSpec[] specs,
+      double areaX,
+      double areaWidth,
+      double h
+  ) {
+    if (scene == null) return;
+    List<String> saves = scene.getSaves();
+    int count = scene.getItemCount();
+    for (int i = 0; i < count; i++) {
+      MenuItemSpec spec = specs != null && i < specs.length ? specs[i] : scene.getMenuItemSpec(i);
+      if (!isInlineSlotPreviewEnabled(spec, true)) continue;
+      Rect itemRect = resolveItemRect(i, count, spec, layout, areaX, areaWidth, h);
+      String previewPath = null;
+      if (i >= 0 && i < saves.size()) {
+        File thumb = new File(scene.getSaveDirectory(), saves.get(i) + ".png");
+        if (thumb.exists()) previewPath = thumb.getAbsolutePath();
+      }
+      drawInlineSlotPreview(itemRect, spec, previewPath, i == scene.getSelected(), Localization.t("load.no_preview"));
+    }
+  }
+
+  private void drawInlineSlotPreview(Rect itemRect, MenuItemSpec itemSpec, String previewPath, boolean selected, String fallbackText) {
+    if (itemRect == null) return;
+    Rect previewRect = resolveInlineSlotPreviewRect(itemSpec, itemRect);
+    if (previewRect.w() <= 1 || previewRect.h() <= 1) return;
+
+    gc.setFill(Color.rgb(6, 9, 14, 0.95));
+    gc.fillRoundRect(previewRect.x(), previewRect.y(), previewRect.w(), previewRect.h(), 7, 7);
+
+    Image previewImage = loadImage(previewPath);
+    if (previewImage != null && !previewImage.isError()) {
+      drawImageCover(previewImage, previewRect);
+    } else {
+      Image placeholder = itemSpec != null ? loadImage(itemSpec.slotPreviewPlaceholderAssetPath()) : null;
+      if (placeholder != null && !placeholder.isError()) {
+        drawImageCover(placeholder, previewRect);
+      } else {
+        gc.setFill(Color.rgb(32, 36, 48, 0.95));
+        gc.fillRoundRect(previewRect.x(), previewRect.y(), previewRect.w(), previewRect.h(), 7, 7);
+        gc.setFill(Color.rgb(205, 212, 225, 0.85));
+        gc.setFont(theme.getHintFont());
+        String txt = fallbackText == null || fallbackText.isBlank() ? Localization.t("load.no_preview") : fallbackText;
+        double tw = measure(txt, theme.getHintFont());
+        double tx = previewRect.x() + Math.max(6, (previewRect.w() - tw) / 2.0);
+        double ty = previewRect.y() + previewRect.h() * 0.56;
+        gc.fillText(txt, tx, ty);
+      }
+    }
+
+    Image frame = itemSpec != null ? loadImage(itemSpec.slotPreviewFrameAssetPath()) : null;
+    if (frame != null && !frame.isError()) {
+      gc.drawImage(frame, previewRect.x(), previewRect.y(), previewRect.w(), previewRect.h());
+    } else {
+      gc.setStroke(selected ? Color.rgb(170, 220, 255, 0.95) : Color.rgb(150, 170, 205, 0.7));
+      gc.setLineWidth(selected ? 1.8 : 1.1);
+      gc.strokeRoundRect(previewRect.x(), previewRect.y(), previewRect.w(), previewRect.h(), 7, 7);
+    }
+  }
+
+  private void drawImageCover(Image image, Rect target) {
+    if (image == null || target == null) return;
+    double iw = image.getWidth();
+    double ih = image.getHeight();
+    if (iw <= 0 || ih <= 0) return;
+
+    double targetRatio = target.w() / target.h();
+    double imageRatio = iw / ih;
+    double sx = 0;
+    double sy = 0;
+    double sw = iw;
+    double sh = ih;
+    if (imageRatio > targetRatio) {
+      sw = ih * targetRatio;
+      sx = (iw - sw) / 2.0;
+    } else {
+      sh = iw / targetRatio;
+      sy = (ih - sh) / 2.0;
+    }
+    gc.drawImage(image, sx, sy, sw, sh, target.x(), target.y(), target.w(), target.h());
   }
 
   private void drawPreviewResource(String path, double w, double h) {

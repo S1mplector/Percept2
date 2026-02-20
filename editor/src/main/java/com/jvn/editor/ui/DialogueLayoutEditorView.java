@@ -1,5 +1,6 @@
 package com.jvn.editor.ui;
 
+import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
@@ -8,7 +9,10 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
@@ -31,10 +35,12 @@ import java.io.StringReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -99,6 +105,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private Image choiceButtonHoverAssetImage;
   private Image choiceButtonDisabledAssetImage;
   private final Map<String, Image> previewAssetCache = new LinkedHashMap<>();
+  private List<VnUiActionButtonSpec> textBoxButtons = new ArrayList<>();
 
   private final Spinner<Double> spTextBoxX = spinner(0, 1, 0, 0.01);
   private final Spinner<Double> spTextBoxY = spinner(0, 1, 0.75, 0.01);
@@ -143,16 +150,34 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Spinner<Double> spChoiceBorderWidth = spinner(0, 12, 2, 0.1);
   private final Spinner<Double> spChoiceTextBaselineOffset = spinner(-120, 120, 5, 1);
 
+  private final ListView<String> lvTextBoxButtons = new ListView<>();
+  private final TextField tfButtonId = new TextField();
+  private final TextField tfButtonLabel = new TextField();
+  private final ComboBox<String> cbButtonAction = new ComboBox<>();
+  private final TextField tfButtonTarget = new TextField();
+  private final CheckBox chkButtonEnabled = new CheckBox("Enabled");
+  private final Spinner<Double> spButtonX = spinner(0, 1, 0.75, 0.01);
+  private final Spinner<Double> spButtonY = spinner(0, 1, 0.08, 0.01);
+  private final Spinner<Double> spButtonWidth = spinner(0.01, 1, 0.12, 0.01);
+  private final Spinner<Double> spButtonHeight = spinner(0.01, 1, 0.25, 0.01);
+  private final TextField tfButtonAsset = new TextField();
+  private final TextField tfButtonHoverAsset = new TextField();
+  private final TextField tfButtonDisabledAsset = new TextField();
+
   private DragTarget dragTarget = DragTarget.NONE;
   private double dragStartX;
   private double dragStartY;
   private VnUiLayoutSpec dragStartSpec = VnUiLayoutSpec.defaults();
+  private List<VnUiActionButtonSpec> dragStartButtons = List.of();
+  private int selectedButtonIndex = -1;
+  private int dragButtonIndex = -1;
 
   private enum DragTarget {
     NONE,
     TEXT_BOX,
     NAME_BOX,
-    CHOICE_BLOCK
+    CHOICE_BLOCK,
+    TEXTBOX_BUTTON
   }
 
   public DialogueLayoutEditorView() {
@@ -204,20 +229,28 @@ public class DialogueLayoutEditorView extends BorderPane {
     } catch (Exception ignored) {
       // Keep defaults for invalid input.
     }
-    spec = VnUiLayoutLoader.parse(rawProperties, VnUiLayoutSpec.defaults());
-    style = VnUiLayoutLoader.parseStyle(rawProperties, VnUiStyleSpec.defaults());
+    VnUiLayoutLoader.LoadResult parsed = VnUiLayoutLoader.parseWithDiagnostics(
+        rawProperties,
+        VnUiLayoutSpec.defaults(),
+        VnUiStyleSpec.defaults()
+    );
+    spec = parsed.layout();
+    style = parsed.style();
+    textBoxButtons = new ArrayList<>(parsed.textBoxButtons());
     applySpecToControls(spec);
     applyStyleToControls(style);
+    refreshTextBoxButtonList();
+    setSelectedTextBoxButton(textBoxButtons.isEmpty() ? -1 : 0);
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
     suppressEvents = false;
     redraw();
     lastLoadedText = normalizedInput;
-    lastEmittedText = normalizeText(serialize(spec, style, rawProperties));
+    lastEmittedText = normalizeText(serialize(spec, style, textBoxButtons, rawProperties));
   }
 
   public String getLayoutText() {
-    return serialize(spec, style, rawProperties);
+    return serialize(spec, style, textBoxButtons, rawProperties);
   }
 
   private GridPane buildControls() {
@@ -244,6 +277,32 @@ public class DialogueLayoutEditorView extends BorderPane {
     tfChoiceHoverBorderColor.setPromptText("#c5d3ff");
     tfChoiceSelectedBorderColor.setPromptText("#c5d3ff");
     tfChoiceDisabledBorderColor.setPromptText("#7a8194");
+    tfButtonId.setPromptText("save");
+    tfButtonLabel.setPromptText("Save");
+    tfButtonTarget.setPromptText("optional target");
+    tfButtonAsset.setPromptText("assets/ui/save_btn.png");
+    tfButtonHoverAsset.setPromptText("assets/ui/save_btn_hover.png");
+    tfButtonDisabledAsset.setPromptText("assets/ui/save_btn_disabled.png");
+    cbButtonAction.getItems().setAll(
+        "noop",
+        "advance",
+        "quick_save",
+        "quick_load",
+        "save_slots",
+        "load_slots",
+        "save_menu",
+        "load_menu",
+        "settings_menu",
+        "main_menu",
+        "open_menu",
+        "toggle_history",
+        "toggle_skip",
+        "toggle_auto",
+        "toggle_ui"
+    );
+    cbButtonAction.setEditable(true);
+    cbButtonAction.getSelectionModel().select("noop");
+    lvTextBoxButtons.setPrefHeight(132);
 
     int row = 0;
     row = addHeader(grid, row, "Textbox");
@@ -293,7 +352,29 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(grid, row, "Choice Border Width", spChoiceBorderWidth);
     row = addRow(grid, row, "Choice Text Baseline", spChoiceTextBaselineOffset);
 
-    Label hint = new Label("Drag boxes in preview to position Textbox/Name/Choices.");
+    row = addHeader(grid, row, "Textbox Buttons");
+    HBox buttonToolbar = new HBox(6);
+    Button addButton = new Button("Add");
+    Button removeButton = new Button("Remove");
+    buttonToolbar.getChildren().addAll(addButton, removeButton);
+    row = addRow(grid, row, "Buttons", buttonToolbar);
+    row = addRow(grid, row, "Button List", lvTextBoxButtons);
+    row = addRow(grid, row, "Button Id", tfButtonId);
+    row = addRow(grid, row, "Button Label", tfButtonLabel);
+    row = addRow(grid, row, "Button Action", cbButtonAction);
+    row = addRow(grid, row, "Button Target", tfButtonTarget);
+    row = addRow(grid, row, "Button State", chkButtonEnabled);
+    row = addRow(grid, row, "Button X", spButtonX);
+    row = addRow(grid, row, "Button Y", spButtonY);
+    row = addRow(grid, row, "Button Width", spButtonWidth);
+    row = addRow(grid, row, "Button Height", spButtonHeight);
+    row = addRow(grid, row, "Button Asset", assetFieldRow(tfButtonAsset, "Select Button Asset"));
+    row = addRow(grid, row, "Button Hover Asset", assetFieldRow(tfButtonHoverAsset, "Select Button Hover Asset"));
+    row = addRow(grid, row, "Button Disabled Asset", assetFieldRow(tfButtonDisabledAsset, "Select Button Disabled Asset"));
+    addButton.setOnAction(e -> addTextBoxButton());
+    removeButton.setOnAction(e -> removeSelectedTextBoxButton());
+
+    Label hint = new Label("Drag blocks in preview to position textbox/name/choices/buttons.");
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
     grid.add(hint, 0, row, 2, 1);
@@ -357,6 +438,10 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spChoiceCornerRadius);
     controls.add(spChoiceBorderWidth);
     controls.add(spChoiceTextBaselineOffset);
+    controls.add(spButtonX);
+    controls.add(spButtonY);
+    controls.add(spButtonWidth);
+    controls.add(spButtonHeight);
     for (Spinner<Double> control : controls) {
       control.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     }
@@ -377,17 +462,31 @@ public class DialogueLayoutEditorView extends BorderPane {
         tfChoiceBorderColor,
         tfChoiceHoverBorderColor,
         tfChoiceSelectedBorderColor,
-        tfChoiceDisabledBorderColor
+        tfChoiceDisabledBorderColor,
+        tfButtonId,
+        tfButtonLabel,
+        tfButtonTarget,
+        tfButtonAsset,
+        tfButtonHoverAsset,
+        tfButtonDisabledAsset
     );
     for (TextField field : styleFields) {
       field.textProperty().addListener((o, ov, nv) -> onStyleChanged());
     }
+    chkButtonEnabled.selectedProperty().addListener((o, ov, nv) -> onStyleChanged());
+    cbButtonAction.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
+    lvTextBoxButtons.getSelectionModel().selectedIndexProperty().addListener((o, ov, nv) -> {
+      if (suppressEvents) return;
+      int idx = nv == null ? -1 : nv.intValue();
+      setSelectedTextBoxButton(idx);
+    });
   }
 
   private void onControlChanged() {
     if (suppressEvents) return;
     spec = readSpecFromControls();
     style = readStyleFromControls();
+    syncSelectedTextBoxButtonFromControls();
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
     redraw();
@@ -397,6 +496,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private void onStyleChanged() {
     if (suppressEvents) return;
     style = readStyleFromControls();
+    syncSelectedTextBoxButtonFromControls();
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
     redraw();
@@ -426,9 +526,16 @@ public class DialogueLayoutEditorView extends BorderPane {
       dragStartX = e.getX();
       dragStartY = e.getY();
       dragStartSpec = spec;
+      dragStartButtons = new ArrayList<>(textBoxButtons);
       dragTarget = hitTest(e.getX(), e.getY());
+      if (dragTarget == DragTarget.TEXTBOX_BUTTON && dragButtonIndex >= 0) {
+        setSelectedTextBoxButton(dragButtonIndex);
+      }
     });
-    preview.setOnMouseReleased(e -> dragTarget = DragTarget.NONE);
+    preview.setOnMouseReleased(e -> {
+      dragTarget = DragTarget.NONE;
+      dragButtonIndex = -1;
+    });
     preview.setOnMouseDragged(e -> {
       if (dragTarget == DragTarget.NONE) return;
       double w = Math.max(1, preview.getWidth());
@@ -506,6 +613,33 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding()
         );
+      } else if (dragTarget == DragTarget.TEXTBOX_BUTTON && dragButtonIndex >= 0 && dragButtonIndex < dragStartButtons.size()) {
+        TextBoxGeometry textBox = computeTextBoxGeometry(dragStartSpec, w, h);
+        VnUiActionButtonSpec baseButton = dragStartButtons.get(dragButtonIndex);
+        if (baseButton != null) {
+          double nx = clamp01(baseButton.x() + (dx / Math.max(1, textBox.width())));
+          double ny = clamp01(baseButton.y() + (dy / Math.max(1, textBox.height())));
+          VnUiActionButtonSpec moved = new VnUiActionButtonSpec(
+              baseButton.id(),
+              baseButton.label(),
+              baseButton.action(),
+              baseButton.target(),
+              baseButton.enabled(),
+              baseButton.assetPath(),
+              baseButton.hoverAssetPath(),
+              baseButton.disabledAssetPath(),
+              nx,
+              ny,
+              baseButton.width(),
+              baseButton.height()
+          );
+          textBoxButtons = new ArrayList<>(dragStartButtons);
+          textBoxButtons.set(dragButtonIndex, moved);
+          setSelectedTextBoxButton(dragButtonIndex);
+          redraw();
+          emitText();
+          return;
+        }
       }
 
       spec = next;
@@ -519,6 +653,8 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private DragTarget hitTest(double x, double y) {
     LayoutRects r = computeRects(spec, preview.getWidth(), preview.getHeight());
+    dragButtonIndex = hitTestButtonIndex(x, y, r.textBox());
+    if (dragButtonIndex >= 0) return DragTarget.TEXTBOX_BUTTON;
     if (r.nameBox().contains(x, y)) return DragTarget.NAME_BOX;
     if (r.choiceBlock().contains(x, y)) return DragTarget.CHOICE_BLOCK;
     if (r.textBox().contains(x, y)) return DragTarget.TEXT_BOX;
@@ -622,11 +758,43 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.fillText("Narrator: The GUI editor now controls dialogue bounds.", rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 18);
     g.fillText("Drag the highlighted blocks or edit numeric fields.", rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 36);
 
+    drawTextBoxButtonPreview(g, rects.textBox());
+
     // Labels
     drawTag(g, rects.textBox().x() + 6, rects.textBox().y() + 16, "Textbox");
     drawTag(g, rects.nameBox().x() + 6, rects.nameBox().y() - 4, "Name Box");
     drawTag(g, rects.choiceBlock().x() + 6, rects.choiceBlock().y() - 4, "Choices");
     drawTag(g, rects.dialogueBounds().x() + 6, rects.dialogueBounds().y() - 4, "Text Bounds");
+  }
+
+  private void drawTextBoxButtonPreview(GraphicsContext g, Rect textBoxRect) {
+    if (textBoxButtons == null || textBoxButtons.isEmpty()) return;
+    for (int i = 0; i < textBoxButtons.size(); i++) {
+      VnUiActionButtonSpec button = textBoxButtons.get(i);
+      if (button == null) continue;
+      Rect rect = computeTextBoxButtonRect(button, textBoxRect);
+      boolean selected = i == selectedButtonIndex;
+
+      Image asset = loadImageAsset(button.assetPath());
+      Image hoverAsset = loadImageAsset(button.hoverAssetPath());
+      Image drawAsset = selected ? firstNonNull(hoverAsset, asset) : asset;
+      if (drawAsset != null && drawAsset.getWidth() > 1 && drawAsset.getHeight() > 1) {
+        g.drawImage(drawAsset, rect.x(), rect.y(), rect.w(), rect.h());
+      } else {
+        g.setFill(selected ? Color.rgb(92, 136, 212, 0.72) : Color.rgb(39, 52, 80, 0.72));
+        g.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 8, 8);
+      }
+      g.setStroke(selected ? LayoutStudioPalette.ACCENT_GOLD : LayoutStudioPalette.ACCENT_BLUE);
+      g.setLineWidth(selected ? 2 : 1.2);
+      g.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 8, 8);
+      g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
+      g.setFont(Font.font("Arial", FontWeight.BOLD, clamp(rect.h() * 0.36, 10, 16)));
+      String label = normalizeAssetPath(button.label());
+      if (label.isBlank()) label = button.id();
+      double labelW = computeTextWidth(g, label, g.getFont());
+      g.fillText(label, rect.x() + Math.max(8, (rect.w() - labelW) / 2.0), rect.y() + rect.h() * 0.62);
+      drawTag(g, rect.x() + 4, rect.y() - 4, "Btn: " + button.id());
+    }
   }
 
   private void drawTag(GraphicsContext g, double x, double y, String text) {
@@ -668,6 +836,34 @@ public class DialogueLayoutEditorView extends BorderPane {
         new Rect(textX, textY, textW, textH),
         new Rect(choiceX, choiceStartY, choiceW, totalChoiceH)
     );
+  }
+
+  private TextBoxGeometry computeTextBoxGeometry(VnUiLayoutSpec s, double w, double h) {
+    double tbX = clamp(s.textBoxX() * w, 0, w);
+    double tbY = clamp(s.textBoxY() * h, 0, h);
+    double tbW = clamp(s.textBoxWidth() * w, 1, Math.max(1, w - tbX));
+    double tbH = clamp(s.textBoxHeight() * h, 1, Math.max(1, h - tbY));
+    return new TextBoxGeometry(tbX, tbY, tbW, tbH);
+  }
+
+  private Rect computeTextBoxButtonRect(VnUiActionButtonSpec button, Rect textBoxRect) {
+    if (button == null || textBoxRect == null) return new Rect(0, 0, 1, 1);
+    double x = textBoxRect.x() + textBoxRect.w() * clamp01(button.x());
+    double y = textBoxRect.y() + textBoxRect.h() * clamp01(button.y());
+    double width = Math.max(8, textBoxRect.w() * clamp(button.width(), 0.01, 1.0));
+    double height = Math.max(8, textBoxRect.h() * clamp(button.height(), 0.01, 1.0));
+    return new Rect(x, y, width, height);
+  }
+
+  private int hitTestButtonIndex(double x, double y, Rect textBoxRect) {
+    if (textBoxButtons == null || textBoxButtons.isEmpty()) return -1;
+    for (int i = textBoxButtons.size() - 1; i >= 0; i--) {
+      VnUiActionButtonSpec button = textBoxButtons.get(i);
+      if (button == null || !button.enabled()) continue;
+      Rect rect = computeTextBoxButtonRect(button, textBoxRect);
+      if (rect.contains(x, y)) return i;
+    }
+    return -1;
   }
 
   private double resolveChoiceYStart(VnUiLayoutSpec s, double h, int count) {
@@ -772,21 +968,208 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spChoiceTextBaselineOffset, s.choiceTextBaselineOffset());
   }
 
+  private void addTextBoxButton() {
+    if (suppressEvents) return;
+    String id = nextButtonId();
+    VnUiActionButtonSpec created = new VnUiActionButtonSpec(
+        id,
+        titleizeId(id),
+        "noop",
+        null,
+        true,
+        "",
+        "",
+        "",
+        0.78,
+        0.08,
+        0.12,
+        0.25
+    );
+    textBoxButtons.add(created);
+    refreshTextBoxButtonList();
+    setSelectedTextBoxButton(textBoxButtons.size() - 1);
+    redraw();
+    emitText();
+  }
+
+  private void removeSelectedTextBoxButton() {
+    if (suppressEvents) return;
+    if (selectedButtonIndex < 0 || selectedButtonIndex >= textBoxButtons.size()) return;
+    textBoxButtons.remove(selectedButtonIndex);
+    refreshTextBoxButtonList();
+    if (textBoxButtons.isEmpty()) {
+      setSelectedTextBoxButton(-1);
+    } else {
+      setSelectedTextBoxButton(Math.min(selectedButtonIndex, textBoxButtons.size() - 1));
+    }
+    redraw();
+    emitText();
+  }
+
+  private void setSelectedTextBoxButton(int index) {
+    if (index < 0 || index >= textBoxButtons.size()) {
+      selectedButtonIndex = -1;
+      suppressEvents = true;
+      lvTextBoxButtons.getSelectionModel().clearSelection();
+      tfButtonId.clear();
+      tfButtonLabel.clear();
+      cbButtonAction.setValue("noop");
+      tfButtonTarget.clear();
+      chkButtonEnabled.setSelected(true);
+      tfButtonAsset.clear();
+      tfButtonHoverAsset.clear();
+      tfButtonDisabledAsset.clear();
+      setValue(spButtonX, 0.0);
+      setValue(spButtonY, 0.0);
+      setValue(spButtonWidth, 0.12);
+      setValue(spButtonHeight, 0.25);
+      suppressEvents = false;
+      redraw();
+      return;
+    }
+    selectedButtonIndex = index;
+    VnUiActionButtonSpec button = textBoxButtons.get(index);
+    suppressEvents = true;
+    if (lvTextBoxButtons.getSelectionModel().getSelectedIndex() != index) {
+      lvTextBoxButtons.getSelectionModel().select(index);
+    }
+    tfButtonId.setText(normalizeAssetPath(button.id()));
+    tfButtonLabel.setText(normalizeAssetPath(button.label()));
+    String actionValue = normalizeAssetPath(button.action());
+    cbButtonAction.setValue(actionValue.isBlank() ? "noop" : actionValue);
+    tfButtonTarget.setText(normalizeAssetPath(button.target()));
+    chkButtonEnabled.setSelected(button.enabled());
+    tfButtonAsset.setText(normalizeAssetPath(button.assetPath()));
+    tfButtonHoverAsset.setText(normalizeAssetPath(button.hoverAssetPath()));
+    tfButtonDisabledAsset.setText(normalizeAssetPath(button.disabledAssetPath()));
+    setValue(spButtonX, button.x());
+    setValue(spButtonY, button.y());
+    setValue(spButtonWidth, button.width());
+    setValue(spButtonHeight, button.height());
+    suppressEvents = false;
+    redraw();
+  }
+
+  private void syncSelectedTextBoxButtonFromControls() {
+    if (selectedButtonIndex < 0 || selectedButtonIndex >= textBoxButtons.size()) return;
+    VnUiActionButtonSpec current = textBoxButtons.get(selectedButtonIndex);
+    String id = sanitizeButtonId(tfButtonId.getText(), current.id());
+    String label = normalizeAssetPath(tfButtonLabel.getText());
+    if (label.isBlank()) label = titleizeId(id);
+    String action = normalizeAssetPath(cbButtonAction.getValue());
+    if (action.isBlank()) action = "noop";
+    String target = normalizeAssetPath(tfButtonTarget.getText());
+    if (target.isBlank()) target = null;
+
+    VnUiActionButtonSpec updated = new VnUiActionButtonSpec(
+        id,
+        label,
+        action,
+        target,
+        chkButtonEnabled.isSelected(),
+        normalizeAssetPath(tfButtonAsset.getText()),
+        normalizeAssetPath(tfButtonHoverAsset.getText()),
+        normalizeAssetPath(tfButtonDisabledAsset.getText()),
+        value(spButtonX),
+        value(spButtonY),
+        value(spButtonWidth),
+        value(spButtonHeight)
+    );
+
+    textBoxButtons.set(selectedButtonIndex, updated);
+    refreshTextBoxButtonList();
+    if (selectedButtonIndex >= 0 && selectedButtonIndex < lvTextBoxButtons.getItems().size()) {
+      suppressEvents = true;
+      lvTextBoxButtons.getSelectionModel().select(selectedButtonIndex);
+      suppressEvents = false;
+    }
+  }
+
+  private void refreshTextBoxButtonList() {
+    List<String> labels = new ArrayList<>();
+    for (VnUiActionButtonSpec button : textBoxButtons) {
+      if (button == null) continue;
+      String id = button.id();
+      String action = button.action();
+      String enabled = button.enabled() ? "" : " (disabled)";
+      labels.add(id + " [" + action + "]" + enabled);
+    }
+    suppressEvents = true;
+    lvTextBoxButtons.getItems().setAll(labels);
+    if (selectedButtonIndex >= 0 && selectedButtonIndex < labels.size()) {
+      lvTextBoxButtons.getSelectionModel().select(selectedButtonIndex);
+    }
+    suppressEvents = false;
+  }
+
+  private String nextButtonId() {
+    Set<String> ids = new LinkedHashSet<>();
+    for (VnUiActionButtonSpec button : textBoxButtons) {
+      if (button != null && button.id() != null && !button.id().isBlank()) ids.add(button.id());
+    }
+    int idx = 1;
+    while (true) {
+      String candidate = "button_" + idx;
+      if (!ids.contains(candidate)) return candidate;
+      idx++;
+    }
+  }
+
+  private String sanitizeButtonId(String value, String fallback) {
+    String text = normalizeAssetPath(value).toLowerCase(Locale.ROOT);
+    if (text.isBlank()) return fallback == null || fallback.isBlank() ? "button" : fallback;
+    StringBuilder out = new StringBuilder();
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      if (Character.isLetterOrDigit(c) || c == '_' || c == '-') out.append(c);
+      else if (Character.isWhitespace(c)) out.append('_');
+    }
+    String normalized = out.toString();
+    if (normalized.isBlank()) return fallback == null || fallback.isBlank() ? "button" : fallback;
+    return normalized;
+  }
+
+  private String titleizeId(String id) {
+    String src = normalizeAssetPath(id);
+    if (src.isBlank()) return "Button";
+    src = src.replace('_', ' ').replace('-', ' ');
+    StringBuilder out = new StringBuilder();
+    boolean upper = true;
+    for (int i = 0; i < src.length(); i++) {
+      char c = src.charAt(i);
+      if (Character.isWhitespace(c)) {
+        upper = true;
+        out.append(c);
+      } else if (upper) {
+        out.append(Character.toUpperCase(c));
+        upper = false;
+      } else {
+        out.append(c);
+      }
+    }
+    return out.toString();
+  }
+
   private void emitText() {
     if (onLayoutTextChanged == null) return;
-    String text = serialize(spec, style, rawProperties);
+    String text = serialize(spec, style, textBoxButtons, rawProperties);
     String normalized = normalizeText(text);
     if (normalized.equals(lastEmittedText)) return;
     lastEmittedText = normalized;
     onLayoutTextChanged.accept(text);
   }
 
-  private static String serialize(VnUiLayoutSpec spec, VnUiStyleSpec style, Properties base) {
+  private static String serialize(
+      VnUiLayoutSpec spec,
+      VnUiStyleSpec style,
+      List<VnUiActionButtonSpec> textBoxButtons,
+      Properties base
+  ) {
     Properties merged = new Properties();
     if (base != null) {
       for (String key : base.stringPropertyNames()) merged.setProperty(key, base.getProperty(key));
     }
-    Properties generated = VnUiLayoutLoader.toProperties(spec, style);
+    Properties generated = VnUiLayoutLoader.toProperties(spec, style, textBoxButtons);
     for (String key : generated.stringPropertyNames()) {
       merged.setProperty(key, generated.getProperty(key));
     }
@@ -799,9 +1182,44 @@ public class DialogueLayoutEditorView extends BorderPane {
       if (value == null) continue;
       out.append(key).append("=").append(value).append(System.lineSeparator());
     }
+    if (textBoxButtons != null && !textBoxButtons.isEmpty()) {
+      out.append(System.lineSeparator()).append("# Textbox action buttons").append(System.lineSeparator());
+      List<String> ids = new ArrayList<>();
+      for (VnUiActionButtonSpec button : textBoxButtons) {
+        if (button == null || button.id() == null || button.id().isBlank()) continue;
+        ids.add(button.id());
+      }
+      if (!ids.isEmpty()) {
+        out.append("textBoxButton.ids=").append(String.join(",", ids)).append(System.lineSeparator());
+      }
+      for (VnUiActionButtonSpec button : textBoxButtons) {
+        if (button == null || button.id() == null || button.id().isBlank()) continue;
+        String prefix = "textBoxButton." + button.id() + ".";
+        out.append(prefix).append("label=").append(button.label()).append(System.lineSeparator());
+        out.append(prefix).append("action=").append(button.action()).append(System.lineSeparator());
+        if (button.target() != null && !button.target().isBlank()) {
+          out.append(prefix).append("target=").append(button.target()).append(System.lineSeparator());
+        }
+        out.append(prefix).append("enabled=").append(button.enabled()).append(System.lineSeparator());
+        if (button.assetPath() != null && !button.assetPath().isBlank()) {
+          out.append(prefix).append("asset=").append(button.assetPath()).append(System.lineSeparator());
+        }
+        if (button.hoverAssetPath() != null && !button.hoverAssetPath().isBlank()) {
+          out.append(prefix).append("hoverAsset=").append(button.hoverAssetPath()).append(System.lineSeparator());
+        }
+        if (button.disabledAssetPath() != null && !button.disabledAssetPath().isBlank()) {
+          out.append(prefix).append("disabledAsset=").append(button.disabledAssetPath()).append(System.lineSeparator());
+        }
+        out.append(prefix).append("x=").append(formatDouble(button.x())).append(System.lineSeparator());
+        out.append(prefix).append("y=").append(formatDouble(button.y())).append(System.lineSeparator());
+        out.append(prefix).append("width=").append(formatDouble(button.width())).append(System.lineSeparator());
+        out.append(prefix).append("height=").append(formatDouble(button.height())).append(System.lineSeparator());
+      }
+    }
     List<String> extras = new ArrayList<>();
     for (String key : merged.stringPropertyNames()) {
       if (isKnownKey(key)) continue;
+      if (key.startsWith("textBoxButton.")) continue;
       extras.add(key);
     }
     extras.sort(String::compareTo);
@@ -812,6 +1230,11 @@ public class DialogueLayoutEditorView extends BorderPane {
       }
     }
     return out.toString();
+  }
+
+  private static String formatDouble(double value) {
+    if (Math.rint(value) == value) return Long.toString(Math.round(value));
+    return String.format(Locale.ROOT, "%.4f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
   }
 
   private static boolean isKnownKey(String key) {
@@ -1039,11 +1462,20 @@ public class DialogueLayoutEditorView extends BorderPane {
     return clamp(value, 1.0, 8192.0);
   }
 
+  private double computeTextWidth(GraphicsContext g, String text, Font font) {
+    if (text == null || text.isEmpty()) return 0;
+    javafx.scene.text.Text helper = new javafx.scene.text.Text(text);
+    helper.setFont(font);
+    return helper.getLayoutBounds().getWidth();
+  }
+
   private record Rect(double x, double y, double w, double h) {
     boolean contains(double px, double py) {
       return px >= x && px <= x + w && py >= y && py <= y + h;
     }
   }
+
+  private record TextBoxGeometry(double x, double y, double width, double height) {}
 
   private record ChoicePreviewStyle(
       Color backgroundColor,

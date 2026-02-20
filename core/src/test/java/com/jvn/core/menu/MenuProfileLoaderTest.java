@@ -85,6 +85,13 @@ class MenuProfileLoaderTest {
         item.start.boundsY=0.3
         item.start.boundsWidth=0.6
         item.start.boundsHeight=0.09
+        item.start.slotPreviewEnabled=true
+        item.start.slotPreviewPlaceholderAsset=config/menu/assets/slots/empty.png
+        item.start.slotPreviewFrameAsset=config/menu/assets/slots/frame.png
+        item.start.slotPreviewX=0.58
+        item.start.slotPreviewY=0.1
+        item.start.slotPreviewWidth=0.36
+        item.start.slotPreviewHeight=0.8
         item.extras.label=Extras
         item.extras.action=open_menu
         item.extras.target=extras
@@ -116,6 +123,11 @@ class MenuProfileLoaderTest {
     assertEquals("assets/ui/menu/start_btn.png", main.items().get(0).buttonAssetPath());
     assertEquals(Double.valueOf(0.2), main.items().get(0).boundsX());
     assertEquals(Double.valueOf(0.6), main.items().get(0).boundsWidth());
+    assertTrue(main.items().get(0).slotPreviewEnabled());
+    assertEquals("config/menu/assets/slots/empty.png", main.items().get(0).slotPreviewPlaceholderAssetPath());
+    assertEquals("config/menu/assets/slots/frame.png", main.items().get(0).slotPreviewFrameAssetPath());
+    assertEquals(Double.valueOf(0.58), main.items().get(0).slotPreviewX());
+    assertEquals(Double.valueOf(0.36), main.items().get(0).slotPreviewWidth());
     assertEquals(MenuActionType.OPEN_MENU, main.items().get(1).action().type());
     assertEquals("extras", main.items().get(1).action().target());
 

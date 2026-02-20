@@ -138,10 +138,14 @@ These now open in dedicated external **Studio windows** (not embedded preview ta
 - `config/ui/dialogue.layout` -> `DialogueLayoutEditorView`
   - drag textbox/namebox/choice layout in preview
   - import textbox assets and tune text/name bounds
+  - define clickable textbox action buttons with per-button bounds/actions/targets
+  - map per-button assets (`textBoxButton.<id>.asset/hoverAsset/disabledAsset`) for custom textbox UI chrome
 - `config/menu/menus/*.menu` -> `MenuScreenVisualEditor`
   - edit menu items/actions/styles/targets with table + preview
   - import per-item button assets (`bgAsset`, selected/disabled variants)
   - map per-item click/render bounds (`boundsX/Y/Width/Height`) by table or drag
+  - configure save/load slot inline thumbnails (`slotPreviewEnabled`, placeholder/frame assets)
+  - override slot preview region (`slotPreviewX/Y/Width/Height`) for custom slot skins
 - `config/menu/layouts/*.layout` -> `MenuLayoutVisualEditor`
   - edit list/title/hint geometry with draggable preview guides
 - `config/menu/styles/*.style` -> `MenuStyleVisualEditor`

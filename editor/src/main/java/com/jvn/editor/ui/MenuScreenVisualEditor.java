@@ -34,6 +34,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
@@ -63,7 +64,14 @@ public class MenuScreenVisualEditor extends BorderPane {
   private static final Set<String> ITEM_KEYS = Set.of(
       "label", "style", "icon", "enabled", "action", "target",
       "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
-      "boundsX", "boundsY", "boundsWidth", "boundsHeight"
+      "boundsX", "boundsY", "boundsWidth", "boundsHeight",
+      "slotPreviewEnabled",
+      "slotPreviewPlaceholderAsset",
+      "slotPreviewFrameAsset",
+      "slotPreviewX",
+      "slotPreviewY",
+      "slotPreviewWidth",
+      "slotPreviewHeight"
   );
 
   private final TextField tfTitle = new TextField();
@@ -181,7 +189,14 @@ public class MenuScreenVisualEditor extends BorderPane {
             parseOptionalDouble(p.getProperty(prefix + "boundsX")),
             parseOptionalDouble(p.getProperty(prefix + "boundsY")),
             parseOptionalDouble(p.getProperty(prefix + "boundsWidth")),
-            parseOptionalDouble(p.getProperty(prefix + "boundsHeight"))
+            parseOptionalDouble(p.getProperty(prefix + "boundsHeight")),
+            parseBoolean(p.getProperty(prefix + "slotPreviewEnabled"), isSlotTemplateId(key)),
+            p.getProperty(prefix + "slotPreviewPlaceholderAsset", ""),
+            p.getProperty(prefix + "slotPreviewFrameAsset", ""),
+            parseOptionalDouble(p.getProperty(prefix + "slotPreviewX")),
+            parseOptionalDouble(p.getProperty(prefix + "slotPreviewY")),
+            parseOptionalDouble(p.getProperty(prefix + "slotPreviewWidth")),
+            parseOptionalDouble(p.getProperty(prefix + "slotPreviewHeight"))
         );
         for (String prop : p.stringPropertyNames()) {
           if (!prop.startsWith(prefix)) continue;
@@ -249,8 +264,13 @@ public class MenuScreenVisualEditor extends BorderPane {
     Button bDown = new Button("Down");
     Button bNormalize = new Button("Normalize IDs");
     Button bAssignBg = new Button("Assign BG...");
+    Button bAssignPreviewPlaceholder = new Button("Preview Placeholder...");
+    Button bAssignPreviewFrame = new Button("Preview Frame...");
+    Button bEnableSlotPreview = new Button("Enable Slot Preview");
     Button bClearBounds = new Button("Clear Bounds");
-    List<Button> actionButtons = List.of(bAdd, bRemove, bUp, bDown, bNormalize, bAssignBg, bClearBounds);
+    List<Button> actionButtons = List.of(
+        bAdd, bRemove, bUp, bDown, bNormalize, bAssignBg, bAssignPreviewPlaceholder, bAssignPreviewFrame, bEnableSlotPreview, bClearBounds
+    );
     for (Button actionButton : actionButtons) {
       actionButton.getStyleClass().add("layout-studio-action-button");
       actionButton.setMinWidth(Region.USE_PREF_SIZE);
@@ -263,8 +283,13 @@ public class MenuScreenVisualEditor extends BorderPane {
     bDown.setOnAction(e -> moveSelected(1));
     bNormalize.setOnAction(e -> normalizeIds());
     bAssignBg.setOnAction(e -> assignBgToSelection());
+    bAssignPreviewPlaceholder.setOnAction(e -> assignSlotPreviewPlaceholderToSelection());
+    bAssignPreviewFrame.setOnAction(e -> assignSlotPreviewFrameToSelection());
+    bEnableSlotPreview.setOnAction(e -> enableSlotPreviewForSelection());
     bClearBounds.setOnAction(e -> clearBoundsForSelection());
-    actions.getChildren().addAll(bAdd, bRemove, bUp, bDown, bNormalize, bAssignBg, bClearBounds);
+    actions.getChildren().addAll(
+        bAdd, bRemove, bUp, bDown, bNormalize, bAssignBg, bAssignPreviewPlaceholder, bAssignPreviewFrame, bEnableSlotPreview, bClearBounds
+    );
 
     table.getStyleClass().add("layout-studio-table");
     VBox tablePane = new VBox(6, table, actions);
@@ -347,6 +372,20 @@ public class MenuScreenVisualEditor extends BorderPane {
     bgDisCol.setCellFactory(TextFieldTableCell.forTableColumn());
     bgDisCol.setOnEditCommit(e -> e.getRowValue().setBgDisabledAsset(normalize(e.getNewValue(), "")));
 
+    TableColumn<MenuItemRow, Boolean> slotPreviewEnabledCol = new TableColumn<>("Slot Prev");
+    slotPreviewEnabledCol.setCellValueFactory(v -> v.getValue().slotPreviewEnabledProperty());
+    slotPreviewEnabledCol.setCellFactory(CheckBoxTableCell.forTableColumn(slotPreviewEnabledCol));
+
+    TableColumn<MenuItemRow, String> slotPreviewPlaceholderCol = new TableColumn<>("Preview Placeholder");
+    slotPreviewPlaceholderCol.setCellValueFactory(v -> v.getValue().slotPreviewPlaceholderAssetProperty());
+    slotPreviewPlaceholderCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    slotPreviewPlaceholderCol.setOnEditCommit(e -> e.getRowValue().setSlotPreviewPlaceholderAsset(normalize(e.getNewValue(), "")));
+
+    TableColumn<MenuItemRow, String> slotPreviewFrameCol = new TableColumn<>("Preview Frame");
+    slotPreviewFrameCol.setCellValueFactory(v -> v.getValue().slotPreviewFrameAssetProperty());
+    slotPreviewFrameCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    slotPreviewFrameCol.setOnEditCommit(e -> e.getRowValue().setSlotPreviewFrameAsset(normalize(e.getNewValue(), "")));
+
     StringConverter<Double> doubleStringConverter = new StringConverter<>() {
       @Override
       public String toString(Double object) {
@@ -389,9 +428,32 @@ public class MenuScreenVisualEditor extends BorderPane {
     boundsHCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
     boundsHCol.setOnEditCommit(e -> e.getRowValue().setBoundsH(e.getNewValue()));
 
+    TableColumn<MenuItemRow, Double> slotPreviewXCol = new TableColumn<>("Prev X");
+    slotPreviewXCol.setCellValueFactory(v -> v.getValue().slotPreviewXProperty());
+    slotPreviewXCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
+    slotPreviewXCol.setOnEditCommit(e -> e.getRowValue().setSlotPreviewX(e.getNewValue()));
+
+    TableColumn<MenuItemRow, Double> slotPreviewYCol = new TableColumn<>("Prev Y");
+    slotPreviewYCol.setCellValueFactory(v -> v.getValue().slotPreviewYProperty());
+    slotPreviewYCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
+    slotPreviewYCol.setOnEditCommit(e -> e.getRowValue().setSlotPreviewY(e.getNewValue()));
+
+    TableColumn<MenuItemRow, Double> slotPreviewWCol = new TableColumn<>("Prev W");
+    slotPreviewWCol.setCellValueFactory(v -> v.getValue().slotPreviewWProperty());
+    slotPreviewWCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
+    slotPreviewWCol.setOnEditCommit(e -> e.getRowValue().setSlotPreviewW(e.getNewValue()));
+
+    TableColumn<MenuItemRow, Double> slotPreviewHCol = new TableColumn<>("Prev H");
+    slotPreviewHCol.setCellValueFactory(v -> v.getValue().slotPreviewHProperty());
+    slotPreviewHCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
+    slotPreviewHCol.setOnEditCommit(e -> e.getRowValue().setSlotPreviewH(e.getNewValue()));
+
     table.getColumns().setAll(
         idCol, labelCol, styleCol, enabledCol, actionCol, targetCol,
-        iconCol, bgCol, bgSelCol, bgDisCol, boundsXCol, boundsYCol, boundsWCol, boundsHCol
+        iconCol, bgCol, bgSelCol, bgDisCol,
+        slotPreviewEnabledCol, slotPreviewPlaceholderCol, slotPreviewFrameCol,
+        boundsXCol, boundsYCol, boundsWCol, boundsHCol,
+        slotPreviewXCol, slotPreviewYCol, slotPreviewWCol, slotPreviewHCol
     );
   }
 
@@ -421,7 +483,29 @@ public class MenuScreenVisualEditor extends BorderPane {
   }
 
   private MenuItemRow defaultRow(String id, MenuActionType action, String target) {
-    MenuItemRow row = new MenuItemRow(id, "", "", "", true, action, target, "", "", "", null, null, null, null);
+    MenuItemRow row = new MenuItemRow(
+        id,
+        "",
+        "",
+        "",
+        true,
+        action,
+        target,
+        "",
+        "",
+        "",
+        null,
+        null,
+        null,
+        null,
+        isSlotTemplateId(id),
+        "",
+        "",
+        null,
+        null,
+        null,
+        null
+    );
     attachRowListeners(row);
     return row;
   }
@@ -441,6 +525,13 @@ public class MenuScreenVisualEditor extends BorderPane {
     row.boundsYProperty().addListener((o, ov, nv) -> onUiChanged());
     row.boundsWProperty().addListener((o, ov, nv) -> onUiChanged());
     row.boundsHProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.slotPreviewEnabledProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.slotPreviewPlaceholderAssetProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.slotPreviewFrameAssetProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.slotPreviewXProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.slotPreviewYProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.slotPreviewWProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.slotPreviewHProperty().addListener((o, ov, nv) -> onUiChanged());
   }
 
   private void addRow() {
@@ -545,6 +636,21 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (row.getBoundsH() != null && row.getBoundsH() <= 0) {
         warnings.add("Item '" + id + "': boundsHeight must be > 0");
       }
+
+      int previewBoundsParts = 0;
+      if (row.getSlotPreviewX() != null) previewBoundsParts++;
+      if (row.getSlotPreviewY() != null) previewBoundsParts++;
+      if (row.getSlotPreviewW() != null) previewBoundsParts++;
+      if (row.getSlotPreviewH() != null) previewBoundsParts++;
+      if (previewBoundsParts > 0 && previewBoundsParts < 4) {
+        warnings.add("Item '" + id + "': slot preview bounds require X/Y/W/H together");
+      }
+      if (row.getSlotPreviewW() != null && row.getSlotPreviewW() <= 0) {
+        warnings.add("Item '" + id + "': slotPreviewWidth must be > 0");
+      }
+      if (row.getSlotPreviewH() != null && row.getSlotPreviewH() <= 0) {
+        warnings.add("Item '" + id + "': slotPreviewHeight must be > 0");
+      }
     }
 
     if (warnings.isEmpty()) {
@@ -588,6 +694,11 @@ public class MenuScreenVisualEditor extends BorderPane {
       boolean enabled = row.isEnabled();
       Rect rect = resolvePreviewRect(row, i, w, h, startY, lineHeight);
       previewRects[i] = rect;
+      boolean slotPreviewEnabled = isInlineSlotPreviewEnabled(row);
+      Rect slotPreviewRect = slotPreviewEnabled ? resolveSlotPreviewRect(row, rect) : null;
+      double reservedRightSpace = slotPreviewRect != null
+          ? Math.max(0, rect.x() + rect.w() - slotPreviewRect.x() + 8)
+          : 0;
 
       Image bg = loadPreviewAsset(resolveButtonAsset(row, selected, enabled));
       if (bg != null) {
@@ -606,7 +717,14 @@ public class MenuScreenVisualEditor extends BorderPane {
       g.setFill(enabled ? (selected ? LayoutStudioPalette.ACCENT_GOLD : LayoutStudioPalette.TEXT_SECONDARY) : LayoutStudioPalette.TEXT_DISABLED);
       g.setFont(Font.font("Arial", 18));
       double tw = textWidth(g, text);
-      g.fillText(text, rect.x() + (rect.w() - tw) / 2.0, rect.y() + rect.h() * 0.62);
+      double leftInset = rect.x() + 16;
+      double rightInset = rect.x() + Math.max(16, rect.w() - 16 - reservedRightSpace);
+      double x = leftInset + Math.max(0, (rightInset - leftInset - tw) / 2.0);
+      g.fillText(text, x, rect.y() + rect.h() * 0.62);
+
+      if (slotPreviewRect != null) {
+        drawInlineSlotPreview(g, row, slotPreviewRect, selected);
+      }
 
       if (selected) {
         g.setFill(LayoutStudioPalette.ACCENT_GREEN);
@@ -719,6 +837,84 @@ public class MenuScreenVisualEditor extends BorderPane {
     return new Rect(x, y, defaultW, rh);
   }
 
+  private boolean isInlineSlotPreviewEnabled(MenuItemRow row) {
+    if (row == null) return false;
+    if (row.isSlotPreviewEnabled()) return true;
+    return isSaveOrLoadScreen() && isSlotTemplateId(row.getId());
+  }
+
+  private Rect resolveSlotPreviewRect(MenuItemRow row, Rect itemRect) {
+    if (row == null || itemRect == null) return null;
+    if (row.getSlotPreviewX() != null && row.getSlotPreviewY() != null
+        && row.getSlotPreviewW() != null && row.getSlotPreviewH() != null) {
+      double x = itemRect.x() + resolveCoordinate(row.getSlotPreviewX(), itemRect.w());
+      double y = itemRect.y() + resolveCoordinate(row.getSlotPreviewY(), itemRect.h());
+      double w = resolveSize(row.getSlotPreviewW(), itemRect.w());
+      double h = resolveSize(row.getSlotPreviewH(), itemRect.h());
+      w = clamp(w, 8, Math.max(8, itemRect.w()));
+      h = clamp(h, 8, Math.max(8, itemRect.h()));
+      x = clamp(x, itemRect.x(), itemRect.x() + Math.max(0, itemRect.w() - w));
+      y = clamp(y, itemRect.y(), itemRect.y() + Math.max(0, itemRect.h() - h));
+      return new Rect(x, y, w, h);
+    }
+
+    double margin = 6;
+    double h = clamp(itemRect.h() - margin * 2, 14, Math.max(14, itemRect.h() - margin * 2));
+    double w = clamp(Math.min(itemRect.w() * 0.34, h * 1.6), 24, Math.max(24, itemRect.w() - margin * 2));
+    double x = itemRect.x() + itemRect.w() - w - margin;
+    double y = itemRect.y() + (itemRect.h() - h) / 2.0;
+    return new Rect(x, y, w, h);
+  }
+
+  private void drawInlineSlotPreview(GraphicsContext g, MenuItemRow row, Rect rect, boolean selected) {
+    if (g == null || rect == null || row == null) return;
+    g.setFill(Color.rgb(6, 9, 14, 0.92));
+    g.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 7, 7);
+
+    Image previewAsset = loadPreviewAsset(normalize(row.getSlotPreviewPlaceholderAsset(), ""));
+    if (previewAsset != null) {
+      drawImageCover(g, previewAsset, rect);
+    } else {
+      g.setFill(Color.rgb(36, 40, 52, 0.95));
+      g.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 7, 7);
+      g.setFill(Color.rgb(215, 222, 235, 0.85));
+      g.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
+      String text = "Live Preview";
+      double tw = textWidth(g, text);
+      g.fillText(text, rect.x() + Math.max(6, (rect.w() - tw) / 2.0), rect.y() + rect.h() * 0.56);
+    }
+
+    Image frameAsset = loadPreviewAsset(normalize(row.getSlotPreviewFrameAsset(), ""));
+    if (frameAsset != null) {
+      g.drawImage(frameAsset, rect.x(), rect.y(), rect.w(), rect.h());
+    } else {
+      g.setStroke(selected ? LayoutStudioPalette.ACCENT_BLUE : LayoutStudioPalette.PANEL_BORDER);
+      g.setLineWidth(selected ? 1.8 : 1.0);
+      g.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 7, 7);
+    }
+  }
+
+  private void drawImageCover(GraphicsContext g, Image image, Rect rect) {
+    if (g == null || image == null || rect == null) return;
+    double iw = image.getWidth();
+    double ih = image.getHeight();
+    if (iw <= 0 || ih <= 0) return;
+    double targetRatio = rect.w() / rect.h();
+    double imageRatio = iw / ih;
+    double sx = 0;
+    double sy = 0;
+    double sw = iw;
+    double sh = ih;
+    if (imageRatio > targetRatio) {
+      sw = ih * targetRatio;
+      sx = (iw - sw) / 2.0;
+    } else {
+      sh = iw / targetRatio;
+      sy = (ih - sh) / 2.0;
+    }
+    g.drawImage(image, sx, sy, sw, sh, rect.x(), rect.y(), rect.w(), rect.h());
+  }
+
   private String resolveButtonAsset(MenuItemRow row, boolean selected, boolean enabled) {
     if (row == null) return null;
     if (!enabled) return firstNonBlank(row.getBgDisabledAsset(), row.getBgAsset());
@@ -769,16 +965,49 @@ public class MenuScreenVisualEditor extends BorderPane {
   private void assignBgToSelection() {
     MenuItemRow row = table.getSelectionModel().getSelectedItem();
     if (row == null) return;
+    String asset = chooseImageAsset("Select Menu Button Background");
+    if (asset == null || asset.isBlank()) return;
+    row.setBgAsset(asset);
+    onUiChanged();
+  }
+
+  private void assignSlotPreviewPlaceholderToSelection() {
+    MenuItemRow row = table.getSelectionModel().getSelectedItem();
+    if (row == null) return;
+    String asset = chooseImageAsset("Select Slot Preview Placeholder Asset");
+    if (asset == null || asset.isBlank()) return;
+    row.setSlotPreviewPlaceholderAsset(asset);
+    row.setSlotPreviewEnabled(true);
+    onUiChanged();
+  }
+
+  private void assignSlotPreviewFrameToSelection() {
+    MenuItemRow row = table.getSelectionModel().getSelectedItem();
+    if (row == null) return;
+    String asset = chooseImageAsset("Select Slot Preview Frame Asset");
+    if (asset == null || asset.isBlank()) return;
+    row.setSlotPreviewFrameAsset(asset);
+    row.setSlotPreviewEnabled(true);
+    onUiChanged();
+  }
+
+  private void enableSlotPreviewForSelection() {
+    MenuItemRow row = table.getSelectionModel().getSelectedItem();
+    if (row == null) return;
+    row.setSlotPreviewEnabled(true);
+    onUiChanged();
+  }
+
+  private String chooseImageAsset(String title) {
     FileChooser chooser = new FileChooser();
-    chooser.setTitle("Select Menu Button Background");
+    chooser.setTitle(title);
     chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
-        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"));
+        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp", "*.svg"));
     if (projectRoot != null && projectRoot.exists()) chooser.setInitialDirectory(projectRoot);
     Window owner = getScene() != null ? getScene().getWindow() : null;
     File selected = chooser.showOpenDialog(owner);
-    if (selected == null) return;
-    row.setBgAsset(toProjectRelativePath(selected));
-    onUiChanged();
+    if (selected == null) return null;
+    return toProjectRelativePath(selected);
   }
 
   private void clearBoundsForSelection() {
@@ -842,6 +1071,8 @@ public class MenuScreenVisualEditor extends BorderPane {
       String bgAsset = normalize(row.getBgAsset(), "");
       String bgSelectedAsset = normalize(row.getBgSelectedAsset(), "");
       String bgDisabledAsset = normalize(row.getBgDisabledAsset(), "");
+      String slotPreviewPlaceholderAsset = normalize(row.getSlotPreviewPlaceholderAsset(), "");
+      String slotPreviewFrameAsset = normalize(row.getSlotPreviewFrameAsset(), "");
       String action = canonicalActionName(row.getAction());
       String target = normalize(row.getTarget(), "");
 
@@ -851,6 +1082,16 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (!bgAsset.isBlank()) out.append(prefix).append("bgAsset=").append(escapeValue(bgAsset)).append(System.lineSeparator());
       if (!bgSelectedAsset.isBlank()) out.append(prefix).append("bgSelectedAsset=").append(escapeValue(bgSelectedAsset)).append(System.lineSeparator());
       if (!bgDisabledAsset.isBlank()) out.append(prefix).append("bgDisabledAsset=").append(escapeValue(bgDisabledAsset)).append(System.lineSeparator());
+      if (row.isSlotPreviewEnabled() || isSlotTemplateId(id) || !slotPreviewPlaceholderAsset.isBlank() || !slotPreviewFrameAsset.isBlank()
+          || row.getSlotPreviewX() != null || row.getSlotPreviewY() != null || row.getSlotPreviewW() != null || row.getSlotPreviewH() != null) {
+        out.append(prefix).append("slotPreviewEnabled=").append(row.isSlotPreviewEnabled()).append(System.lineSeparator());
+      }
+      if (!slotPreviewPlaceholderAsset.isBlank()) {
+        out.append(prefix).append("slotPreviewPlaceholderAsset=").append(escapeValue(slotPreviewPlaceholderAsset)).append(System.lineSeparator());
+      }
+      if (!slotPreviewFrameAsset.isBlank()) {
+        out.append(prefix).append("slotPreviewFrameAsset=").append(escapeValue(slotPreviewFrameAsset)).append(System.lineSeparator());
+      }
       out.append(prefix).append("enabled=").append(row.isEnabled()).append(System.lineSeparator());
       out.append(prefix).append("action=").append(escapeValue(action)).append(System.lineSeparator());
       if (!target.isBlank()) out.append(prefix).append("target=").append(escapeValue(target)).append(System.lineSeparator());
@@ -858,6 +1099,10 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (row.getBoundsY() != null) out.append(prefix).append("boundsY=").append(formatDouble(row.getBoundsY())).append(System.lineSeparator());
       if (row.getBoundsW() != null) out.append(prefix).append("boundsWidth=").append(formatDouble(row.getBoundsW())).append(System.lineSeparator());
       if (row.getBoundsH() != null) out.append(prefix).append("boundsHeight=").append(formatDouble(row.getBoundsH())).append(System.lineSeparator());
+      if (row.getSlotPreviewX() != null) out.append(prefix).append("slotPreviewX=").append(formatDouble(row.getSlotPreviewX())).append(System.lineSeparator());
+      if (row.getSlotPreviewY() != null) out.append(prefix).append("slotPreviewY=").append(formatDouble(row.getSlotPreviewY())).append(System.lineSeparator());
+      if (row.getSlotPreviewW() != null) out.append(prefix).append("slotPreviewWidth=").append(formatDouble(row.getSlotPreviewW())).append(System.lineSeparator());
+      if (row.getSlotPreviewH() != null) out.append(prefix).append("slotPreviewHeight=").append(formatDouble(row.getSlotPreviewH())).append(System.lineSeparator());
       if (!row.extras.isEmpty()) {
         List<String> keys = new ArrayList<>(row.extras.keySet());
         keys.sort(String::compareTo);
@@ -950,6 +1195,16 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (!id.isEmpty()) ids.add(id);
     }
     return new ArrayList<>(ids);
+  }
+
+  private boolean isSaveOrLoadScreen() {
+    String id = normalize(screenIdHint, "").toLowerCase(Locale.ROOT);
+    return "save".equals(id) || "load".equals(id);
+  }
+
+  private static boolean isSlotTemplateId(String idRaw) {
+    String id = normalize(idRaw, "").toLowerCase(Locale.ROOT);
+    return "save_slot".equals(id) || "slot".equals(id) || "entry".equals(id) || "new_slot".equals(id) || "new_save".equals(id) || "new".equals(id);
   }
 
   private static List<String> parseCsv(String raw) {
@@ -1156,6 +1411,13 @@ public class MenuScreenVisualEditor extends BorderPane {
     private final ObjectProperty<Double> boundsY = new SimpleObjectProperty<>(null);
     private final ObjectProperty<Double> boundsW = new SimpleObjectProperty<>(null);
     private final ObjectProperty<Double> boundsH = new SimpleObjectProperty<>(null);
+    private final BooleanProperty slotPreviewEnabled = new SimpleBooleanProperty(false);
+    private final StringProperty slotPreviewPlaceholderAsset = new SimpleStringProperty("");
+    private final StringProperty slotPreviewFrameAsset = new SimpleStringProperty("");
+    private final ObjectProperty<Double> slotPreviewX = new SimpleObjectProperty<>(null);
+    private final ObjectProperty<Double> slotPreviewY = new SimpleObjectProperty<>(null);
+    private final ObjectProperty<Double> slotPreviewW = new SimpleObjectProperty<>(null);
+    private final ObjectProperty<Double> slotPreviewH = new SimpleObjectProperty<>(null);
     private final Map<String, String> extras = new LinkedHashMap<>();
 
     private MenuItemRow(
@@ -1172,7 +1434,14 @@ public class MenuScreenVisualEditor extends BorderPane {
         Double boundsX,
         Double boundsY,
         Double boundsW,
-        Double boundsH
+        Double boundsH,
+        boolean slotPreviewEnabled,
+        String slotPreviewPlaceholderAsset,
+        String slotPreviewFrameAsset,
+        Double slotPreviewX,
+        Double slotPreviewY,
+        Double slotPreviewW,
+        Double slotPreviewH
     ) {
       setId(id);
       setLabel(label);
@@ -1188,6 +1457,13 @@ public class MenuScreenVisualEditor extends BorderPane {
       setBoundsY(boundsY);
       setBoundsW(boundsW);
       setBoundsH(boundsH);
+      setSlotPreviewEnabled(slotPreviewEnabled);
+      setSlotPreviewPlaceholderAsset(slotPreviewPlaceholderAsset);
+      setSlotPreviewFrameAsset(slotPreviewFrameAsset);
+      setSlotPreviewX(slotPreviewX);
+      setSlotPreviewY(slotPreviewY);
+      setSlotPreviewW(slotPreviewW);
+      setSlotPreviewH(slotPreviewH);
     }
 
     public String getId() { return id.get(); }
@@ -1245,5 +1521,33 @@ public class MenuScreenVisualEditor extends BorderPane {
     public Double getBoundsH() { return boundsH.get(); }
     public ObjectProperty<Double> boundsHProperty() { return boundsH; }
     public void setBoundsH(Double value) { this.boundsH.set(value); }
+
+    public boolean isSlotPreviewEnabled() { return slotPreviewEnabled.get(); }
+    public BooleanProperty slotPreviewEnabledProperty() { return slotPreviewEnabled; }
+    public void setSlotPreviewEnabled(boolean value) { this.slotPreviewEnabled.set(value); }
+
+    public String getSlotPreviewPlaceholderAsset() { return slotPreviewPlaceholderAsset.get(); }
+    public StringProperty slotPreviewPlaceholderAssetProperty() { return slotPreviewPlaceholderAsset; }
+    public void setSlotPreviewPlaceholderAsset(String value) { this.slotPreviewPlaceholderAsset.set(value == null ? "" : value); }
+
+    public String getSlotPreviewFrameAsset() { return slotPreviewFrameAsset.get(); }
+    public StringProperty slotPreviewFrameAssetProperty() { return slotPreviewFrameAsset; }
+    public void setSlotPreviewFrameAsset(String value) { this.slotPreviewFrameAsset.set(value == null ? "" : value); }
+
+    public Double getSlotPreviewX() { return slotPreviewX.get(); }
+    public ObjectProperty<Double> slotPreviewXProperty() { return slotPreviewX; }
+    public void setSlotPreviewX(Double value) { this.slotPreviewX.set(value); }
+
+    public Double getSlotPreviewY() { return slotPreviewY.get(); }
+    public ObjectProperty<Double> slotPreviewYProperty() { return slotPreviewY; }
+    public void setSlotPreviewY(Double value) { this.slotPreviewY.set(value); }
+
+    public Double getSlotPreviewW() { return slotPreviewW.get(); }
+    public ObjectProperty<Double> slotPreviewWProperty() { return slotPreviewW; }
+    public void setSlotPreviewW(Double value) { this.slotPreviewW.set(value); }
+
+    public Double getSlotPreviewH() { return slotPreviewH.get(); }
+    public ObjectProperty<Double> slotPreviewHProperty() { return slotPreviewH; }
+    public void setSlotPreviewH(Double value) { this.slotPreviewH.set(value); }
   }
 }
