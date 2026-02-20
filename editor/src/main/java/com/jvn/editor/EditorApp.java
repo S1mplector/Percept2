@@ -1675,7 +1675,7 @@ public class EditorApp extends Application {
     double charW = 200, charH = 400;
 
     if (snapshot.backgroundId != null) {
-      String bgPath = resolveAssetPath("backgrounds", snapshot.backgroundId);
+      String bgPath = resolveProjectPath(snapshot.resolveBackgroundPath());
       com.jvn.core.scene2d.Sprite2D bg = new com.jvn.core.scene2d.Sprite2D(bgPath, sceneW, sceneH);
       bg.setPosition(sceneW / 2, sceneH / 2);
       bg.setOrigin(0.5, 0.5);
@@ -1686,7 +1686,7 @@ public class EditorApp extends Application {
     for (PuppeteerLauncherPanel.CharacterEntry ch : snapshot.characters) {
       double x = positionToX(ch.position, sceneW);
       double y = sceneH * 0.55;
-      String spritePath = resolveCharacterSpritePath(ch.characterId, ch.expression);
+      String spritePath = resolveProjectPath(snapshot.resolveCharacterPath(ch.characterId, ch.expression));
       com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePath, charW, charH);
       sprite.setPosition(x, y);
       sprite.setOrigin(0.5, 1.0);
@@ -1709,37 +1709,13 @@ public class EditorApp extends Application {
     };
   }
 
-  private String resolveAssetPath(String folder, String id) {
-    if (projectRoot == null) return id;
-    java.io.File dir = new java.io.File(projectRoot, folder);
-    if (!dir.isDirectory()) return id;
-    for (String ext : new String[]{ ".png", ".jpg", ".jpeg", ".webp" }) {
-      java.io.File f = new java.io.File(dir, id + ext);
+  private String resolveProjectPath(String relativePath) {
+    if (relativePath == null) return "";
+    if (projectRoot != null) {
+      java.io.File f = new java.io.File(projectRoot, relativePath);
       if (f.exists()) return f.getAbsolutePath();
     }
-    return id;
-  }
-
-  private String resolveCharacterSpritePath(String characterId, String expression) {
-    if (projectRoot == null) return characterId;
-    java.io.File charDir = new java.io.File(projectRoot, "characters/" + characterId);
-    if (!charDir.isDirectory()) charDir = new java.io.File(projectRoot, "characters");
-    if (!charDir.isDirectory()) return characterId;
-    if (expression != null && !expression.equals("neutral")) {
-      for (String ext : new String[]{ ".png", ".jpg", ".jpeg", ".webp" }) {
-        java.io.File f = new java.io.File(charDir, characterId + "_" + expression + ext);
-        if (f.exists()) return f.getAbsolutePath();
-        f = new java.io.File(charDir, expression + ext);
-        if (f.exists()) return f.getAbsolutePath();
-      }
-    }
-    for (String ext : new String[]{ ".png", ".jpg", ".jpeg", ".webp" }) {
-      java.io.File f = new java.io.File(charDir, characterId + ext);
-      if (f.exists()) return f.getAbsolutePath();
-      f = new java.io.File(charDir, characterId + "_neutral" + ext);
-      if (f.exists()) return f.getAbsolutePath();
-    }
-    return characterId;
+    return relativePath;
   }
 
   private void openActionEditor() {

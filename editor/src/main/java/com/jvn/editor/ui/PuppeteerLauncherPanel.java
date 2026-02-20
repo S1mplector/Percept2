@@ -23,7 +23,8 @@ public class PuppeteerLauncherPanel extends VBox {
 
   private static final Pattern LABEL_PATTERN = Pattern.compile("^\\s*(?:@label|label)\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern BG_CMD_PATTERN = Pattern.compile("^\\s*\\[(?:bg|background)\\s+(\\S+)]", Pattern.CASE_INSENSITIVE);
-  private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern SHOW_PATTERN = Pattern.compile("^\\s*\\[show\\s+(\\S+)\\s+(\\S+)(?:\\s+(\\S+))?]", Pattern.CASE_INSENSITIVE);
   private static final Pattern HIDE_PATTERN = Pattern.compile("^\\s*\\[hide\\s+(\\S+)]", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_SHOW = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+show\\s+(\\S+)(?:\\s+(\\S+))?", Pattern.CASE_INSENSITIVE);
@@ -179,6 +180,8 @@ public class PuppeteerLauncherPanel extends VBox {
     String currentLabel = null;
     String backgroundId = null;
     Map<String, CharacterEntry> visible = new LinkedHashMap<>();
+    Map<String, String> bgPaths = new LinkedHashMap<>();
+    Map<String, String> charImgPaths = new LinkedHashMap<>();
 
     for (int i = 0; i <= limit; i++) {
       String line = lines[i];
@@ -201,9 +204,19 @@ public class PuppeteerLauncherPanel extends VBox {
         continue;
       }
 
-      // @background declaration (just tracks the id)
+      // @background declaration — capture id → path mapping
       m = BG_DECL_PATTERN.matcher(line);
-      if (m.find()) continue;
+      if (m.find()) {
+        bgPaths.put(m.group(1), m.group(2).trim());
+        continue;
+      }
+
+      // @charimg declaration — capture charId+expression → path mapping
+      m = CHARIMG_PATTERN.matcher(line);
+      if (m.find()) {
+        charImgPaths.put(m.group(1) + "/" + m.group(2), m.group(3).trim());
+        continue;
+      }
 
       // [show charId pos expression?]
       m = SHOW_PATTERN.matcher(line);
@@ -261,7 +274,7 @@ public class PuppeteerLauncherPanel extends VBox {
       }
     }
 
-    return new SceneSnapshot(currentLabel, backgroundId, new ArrayList<>(visible.values()), upToLine);
+    return new SceneSnapshot(currentLabel, backgroundId, new ArrayList<>(visible.values()), upToLine, bgPaths, charImgPaths);
   }
 
   // --- Data classes ---
@@ -283,12 +296,34 @@ public class PuppeteerLauncherPanel extends VBox {
     public final String backgroundId;
     public final List<CharacterEntry> characters;
     public final int atLine;
+    public final Map<String, String> backgroundPaths;
+    public final Map<String, String> characterImagePaths;
 
-    public SceneSnapshot(String currentLabel, String backgroundId, List<CharacterEntry> characters, int atLine) {
+    public SceneSnapshot(String currentLabel, String backgroundId, List<CharacterEntry> characters, int atLine,
+                         Map<String, String> backgroundPaths, Map<String, String> characterImagePaths) {
       this.currentLabel = currentLabel;
       this.backgroundId = backgroundId;
       this.characters = characters;
       this.atLine = atLine;
+      this.backgroundPaths = backgroundPaths;
+      this.characterImagePaths = characterImagePaths;
+    }
+
+    public String resolveBackgroundPath() {
+      return backgroundId != null ? backgroundPaths.getOrDefault(backgroundId, backgroundId) : null;
+    }
+
+    public String resolveCharacterPath(String characterId, String expression) {
+      if (expression != null) {
+        String key = characterId + "/" + expression;
+        if (characterImagePaths.containsKey(key)) return characterImagePaths.get(key);
+      }
+      String neutralKey = characterId + "/neutral";
+      if (characterImagePaths.containsKey(neutralKey)) return characterImagePaths.get(neutralKey);
+      for (Map.Entry<String, String> e : characterImagePaths.entrySet()) {
+        if (e.getKey().startsWith(characterId + "/")) return e.getValue();
+      }
+      return characterId;
     }
   }
 }
