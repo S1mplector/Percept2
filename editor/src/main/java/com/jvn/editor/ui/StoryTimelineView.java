@@ -1,11 +1,14 @@
 package com.jvn.editor.ui;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.FlowPane;
-import javafx.scene.control.TitledPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Label;
@@ -18,10 +21,12 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.input.Dragboard;
+import javafx.scene.input.KeyCode;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -98,6 +103,7 @@ public class StoryTimelineView extends BorderPane {
   private final ListView<Link> links = new ListView<>();
   private final StoryGraphPane graph = new StoryGraphPane();
   private final ScrollPane graphScroll = new ScrollPane(graph);
+  private final Label graphHint = new Label("Add an arc or drag a .vns script here to start your timeline.");
   private Slider zoomSlider;
   private ComboBox<String> clusterFilter;
   private File projectRoot;
@@ -107,6 +113,15 @@ public class StoryTimelineView extends BorderPane {
   private Runnable onChanged;
 
   public StoryTimelineView() {
+    getStyleClass().add("timeline-root");
+    arcs.getStyleClass().add("timeline-list");
+    links.getStyleClass().add("timeline-list");
+    graphHint.getStyleClass().add("timeline-empty-hint");
+    graphHint.setWrapText(true);
+    graphHint.setMaxWidth(440);
+    graphHint.setMouseTransparent(true);
+    StackPane.setAlignment(graphHint, Pos.CENTER);
+
     arcs.setCellFactory(v -> new ListCell<>() {
       @Override protected void updateItem(Arc a, boolean empty) {
         super.updateItem(a, empty);
@@ -119,50 +134,152 @@ public class StoryTimelineView extends BorderPane {
         setText(empty || l == null ? null : l.fromArc + ":" + nn(l.fromLabel) + "  ->  " + l.toArc + ":" + nn(l.toLabel));
       }
     });
+    arcs.setPlaceholder(new Label("No arcs yet."));
+    links.setPlaceholder(new Label("No links yet."));
+    arcs.setOnMouseClicked(e -> {
+      if (e.getClickCount() == 2 && e.getButton() == javafx.scene.input.MouseButton.PRIMARY) openArc();
+    });
+    links.setOnMouseClicked(e -> {
+      if (e.getClickCount() == 2 && e.getButton() == javafx.scene.input.MouseButton.PRIMARY) runSelectedLink();
+    });
+    arcs.setOnKeyPressed(e -> {
+      if (e.getCode() == KeyCode.DELETE || e.getCode() == KeyCode.BACK_SPACE) {
+        deleteSelected();
+      } else if (e.getCode() == KeyCode.ENTER) {
+        openArc();
+      }
+    });
+    links.setOnKeyPressed(e -> {
+      if (e.getCode() == KeyCode.DELETE || e.getCode() == KeyCode.BACK_SPACE) {
+        deleteSelected();
+      } else if (e.getCode() == KeyCode.ENTER) {
+        runSelectedLink();
+      }
+    });
+    ContextMenu arcMenu = new ContextMenu();
+    MenuItem miArcOpen = new MenuItem("Open Script");
+    miArcOpen.setOnAction(e -> openArc());
+    MenuItem miArcEdit = new MenuItem("Edit Arc...");
+    miArcEdit.setOnAction(e -> editArc());
+    MenuItem miArcDelete = new MenuItem("Delete Arc");
+    miArcDelete.setOnAction(e -> deleteSelected());
+    arcMenu.getItems().addAll(miArcOpen, miArcEdit, miArcDelete);
+    arcs.setContextMenu(arcMenu);
+    ContextMenu linkMenu = new ContextMenu();
+    MenuItem miLinkRun = new MenuItem("Open Target Arc");
+    miLinkRun.setOnAction(e -> runSelectedLink());
+    MenuItem miLinkEdit = new MenuItem("Edit Link...");
+    miLinkEdit.setOnAction(e -> editLink());
+    MenuItem miLinkCopy = new MenuItem("Copy Goto");
+    miLinkCopy.setOnAction(e -> copyGoto());
+    MenuItem miLinkDelete = new MenuItem("Delete Link");
+    miLinkDelete.setOnAction(e -> deleteSelected());
+    linkMenu.getItems().addAll(miLinkRun, miLinkEdit, miLinkCopy, miLinkDelete);
+    links.setContextMenu(linkMenu);
 
-    // Graph on top, lists below
-    SplitPane lists = new SplitPane();
-    lists.setOrientation(javafx.geometry.Orientation.VERTICAL);
-    lists.getItems().addAll(new TitledPane("Arcs", arcs), new TitledPane("Links", links));
-    lists.setDividerPositions(0.5);
-    graphScroll.setFitToWidth(true); graphScroll.setFitToHeight(true);
+    // Graph area
+    graphScroll.setFitToWidth(true);
+    graphScroll.setFitToHeight(true);
     graphScroll.setPannable(true);
+    StackPane graphPane = new StackPane(graphScroll, graphHint);
+    graphPane.getStyleClass().add("timeline-graph-pane");
+
+    // Bottom tabs
+    TabPane listTabs = new TabPane();
+    listTabs.getStyleClass().add("timeline-lists-tabs");
+    Tab arcsTab = new Tab("Arcs", arcs);
+    arcsTab.setClosable(false);
+    Tab linksTab = new Tab("Links", links);
+    linksTab.setClosable(false);
+    listTabs.getTabs().addAll(arcsTab, linksTab);
+    listTabs.setMinHeight(170);
+    listTabs.setPrefHeight(220);
+
+    // Split layout
     SplitPane rootSplit = new SplitPane();
     rootSplit.setOrientation(javafx.geometry.Orientation.VERTICAL);
-    rootSplit.getItems().addAll(graphScroll, lists);
-    rootSplit.setDividerPositions(0.55);
+    rootSplit.getItems().addAll(graphPane, listTabs);
+    rootSplit.setDividerPositions(0.76);
     setCenter(rootSplit);
 
-    Button bAddArc = new Button("Add Arc"); bAddArc.setOnAction(e -> addArc());
-    Button bAuto = new Button("Auto Layout"); bAuto.setOnAction(e -> { graph.autoLayout(); save(); });
-    Button bFit = new Button("Fit"); bFit.setOnAction(e -> zoomToFit());
-    Button bValidate = new Button("Validate"); bValidate.setOnAction(e -> validate());
-    TextField tfSearch = new TextField(); tfSearch.setPromptText("Search arcs...");
+    // Toolbar
+    Button bAddArc = new Button("Add Arc");
+    bAddArc.getStyleClass().add("timeline-primary-button");
+    bAddArc.setOnAction(e -> addArc());
+    Button bAddLink = new Button("Add Link");
+    bAddLink.getStyleClass().add("timeline-primary-button");
+    bAddLink.setOnAction(e -> addLink());
+    Button bEdit = new Button("Edit");
+    bEdit.setOnAction(e -> editSelected());
+    Button bOpen = new Button("Open");
+    bOpen.setOnAction(e -> openArc());
+    Button bDelete = new Button("Delete");
+    bDelete.setOnAction(e -> deleteSelected());
+    Button bCopyGoto = new Button("Copy Goto");
+    bCopyGoto.setOnAction(e -> copyGoto());
+    Button bAuto = new Button("Auto Layout");
+    bAuto.setOnAction(e -> { graph.autoLayout(); onGraphChanged(); });
+    Button bFit = new Button("Fit");
+    bFit.setOnAction(e -> zoomToFit());
+    Button bValidate = new Button("Validate");
+    bValidate.setOnAction(e -> validate());
+    TextField tfSearch = new TextField();
+    tfSearch.setPromptText("Find arc...");
+    tfSearch.setPrefWidth(180);
     tfSearch.textProperty().addListener((o, ov, nv) -> graph.highlight(nv));
-    zoomSlider = new Slider(0.6, 2.0, 1.0); zoomSlider.setPrefWidth(120);
+    HBox.setHgrow(tfSearch, Priority.ALWAYS);
+    zoomSlider = new Slider(0.6, 2.0, 1.0);
+    zoomSlider.setPrefWidth(130);
     zoomSlider.valueProperty().addListener((o, ov, nv) -> { double s = nv.doubleValue(); graph.setScaleX(s); graph.setScaleY(s); });
-    FlowPane actions = new FlowPane(6, 6);
-    actions.setPadding(new Insets(6));
+    bAddArc.setTooltip(new Tooltip("Create a story arc from a .vns script"));
+    bAddLink.setTooltip(new Tooltip("Connect two arcs"));
+    bEdit.setTooltip(new Tooltip("Edit selected arc or link"));
+    bOpen.setTooltip(new Tooltip("Open selected arc script"));
+    bDelete.setTooltip(new Tooltip("Delete selected arc or link"));
+    bCopyGoto.setTooltip(new Tooltip("Copy [goto arc:label] snippet"));
+    bAuto.setTooltip(new Tooltip("Auto-arrange arc nodes"));
+    bFit.setTooltip(new Tooltip("Fit graph to viewport"));
+    bValidate.setTooltip(new Tooltip("Validate scripts and entry labels"));
+
     clusterFilter = new ComboBox<>();
-    clusterFilter.setPrefWidth(160);
-    clusterFilter.setPromptText("Cluster: All");
+    clusterFilter.setPrefWidth(170);
+    clusterFilter.setPromptText("All");
     clusterFilter.valueProperty().addListener((o,ov,nv) -> {
       if (nv == null || nv.equals("All")) graph.setFilterCluster(null); else graph.setFilterCluster(nv);
     });
-    actions.getChildren().addAll(bAddArc, tfSearch, clusterFilter, bAuto, bFit, bValidate);
-    // Wrap to new rows instead of squeezing buttons to tiny squares
-    actions.prefWrapLengthProperty().bind(widthProperty().subtract(24));
-    setTop(actions);
+
+    Separator sepA = new Separator(javafx.geometry.Orientation.VERTICAL);
+    Separator sepB = new Separator(javafx.geometry.Orientation.VERTICAL);
+    Separator sepC = new Separator(javafx.geometry.Orientation.VERTICAL);
+    Region rowSpacer = new Region();
+    HBox.setHgrow(rowSpacer, Priority.ALWAYS);
+
+    HBox rowPrimary = new HBox(6,
+      bAddArc, bAddLink, sepA, bEdit, bOpen, bDelete, rowSpacer, new Label("Find"), tfSearch
+    );
+    rowPrimary.setAlignment(Pos.CENTER_LEFT);
+    HBox rowSecondary = new HBox(8,
+      new Label("Cluster"), clusterFilter, sepB, bCopyGoto, bAuto, bFit, bValidate, sepC, new Label("Zoom"), zoomSlider
+    );
+    rowSecondary.setAlignment(Pos.CENTER_LEFT);
+
+    VBox toolbar = new VBox(6, rowPrimary, rowSecondary);
+    toolbar.getStyleClass().add("timeline-toolbar");
+    toolbar.setPadding(new Insets(8, 8, 6, 8));
+    setTop(toolbar);
 
     // Graph actions wiring
     graph.setOnRunArc(a -> { if (onRunArc != null) onRunArc.accept(a); });
     graph.setOnRunLink(l -> { if (onRunLink != null) onRunLink.accept(l); });
     graph.setOnGraphChanged(this::onGraphChanged);
-    graph.setOnLayoutCommitted(this::save);
-    graph.setOnDeleteArc(a -> { if (a != null) { removeArcAndLinks(a.name); refreshGraph(); save(); } });
+    graph.setOnLayoutCommitted(this::onGraphChanged);
+    graph.setOnDeleteArc(a -> { if (a != null) { removeArcAndLinks(a.name); onGraphChanged(); } });
     graph.setSimpleLinkMode(true);
     arcs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
       if (nv != null) graph.highlight(nv.name);
+    });
+    links.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
+      if (nv != null && nv.toArc != null) graph.highlight(nv.toArc);
     });
 
     // Wheel zoom with Ctrl/Cmd
@@ -197,22 +314,134 @@ public class StoryTimelineView extends BorderPane {
       }
       e.setDropCompleted(success); e.consume();
     });
+    updateGraphHint();
   }
 
   public void setProjectRoot(File dir) {
     this.projectRoot = dir;
     load();
     refreshGraph();
+    updateGraphHint();
   }
 
   public void setOnRunArc(Consumer<Arc> c) { this.onRunArc = c; }
   public void setOnRunLink(Consumer<Link> c) { this.onRunLink = c; }
   public void setOnChanged(Runnable r) { this.onChanged = r; }
-  public void setTimelineFile(File f) { this.timelineFile = f; load(); refreshGraph(); }
+  public void setTimelineFile(File f) { this.timelineFile = f; load(); refreshGraph(); updateGraphHint(); }
   public List<Arc> getArcs() { return new ArrayList<>(arcs.getItems()); }
   public List<Link> getLinks() { return new ArrayList<>(links.getItems()); }
   public Arc findArc(String name) {
     for (Arc a : arcs.getItems()) if (a != null && name != null && name.equals(a.name)) return a; return null;
+  }
+
+  private void editSelected() {
+    if (arcs.getSelectionModel().getSelectedItem() != null) {
+      editArc();
+      return;
+    }
+    if (links.getSelectionModel().getSelectedItem() != null) {
+      editLink();
+    }
+  }
+
+  private void editArc() {
+    Arc arc = arcs.getSelectionModel().getSelectedItem();
+    if (arc == null) return;
+    GridPane g = new GridPane();
+    g.setHgap(6); g.setVgap(6); g.setPadding(new Insets(8));
+    TextField tfName = new TextField(nn(arc.name));
+    TextField tfScript = new TextField(nn(arc.script));
+    TextField tfEntry = new TextField(nn(arc.entryLabel));
+    TextField tfCluster = new TextField(nn(arc.cluster));
+    Button bBrowse = new Button("Browse...");
+    bBrowse.setOnAction(e -> {
+      FileChooser fc = new FileChooser();
+      fc.setTitle("Select VNS Script");
+      fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("VNS scripts", "*.vns"));
+      File f = fc.showOpenDialog(getScene() == null ? null : getScene().getWindow());
+      if (f != null) tfScript.setText(toRelative(f));
+    });
+    javafx.scene.layout.HBox scriptRow = new javafx.scene.layout.HBox(6, tfScript, bBrowse);
+    javafx.scene.layout.HBox.setHgrow(tfScript, javafx.scene.layout.Priority.ALWAYS);
+    g.addRow(0, new Label("Name"), tfName);
+    g.addRow(1, new Label("Script"), scriptRow);
+    g.addRow(2, new Label("Entry Label"), tfEntry);
+    g.addRow(3, new Label("Cluster"), tfCluster);
+    Dialog<ButtonType> dlg = new Dialog<>();
+    EditorTheme.apply(dlg);
+    dlg.setTitle("Edit Arc");
+    dlg.getDialogPane().setContent(g);
+    dlg.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+    var res = dlg.showAndWait();
+    if (res.isEmpty() || res.get() != ButtonType.OK) return;
+    String newName = tfName.getText() == null ? "" : tfName.getText().trim();
+    if (newName.isEmpty()) return;
+    String oldName = arc.name;
+    arc.name = newName;
+    arc.script = tfScript.getText() == null ? "" : tfScript.getText().trim();
+    arc.entryLabel = tfEntry.getText() == null ? "" : tfEntry.getText().trim();
+    arc.cluster = tfCluster.getText() == null ? "" : tfCluster.getText().trim();
+    if (oldName != null && !oldName.equals(newName)) renameArcReferences(oldName, newName);
+    onGraphChanged();
+  }
+
+  private void editLink() {
+    Link l = links.getSelectionModel().getSelectedItem();
+    if (l == null || arcs.getItems().isEmpty()) return;
+    GridPane g = new GridPane();
+    g.setHgap(6); g.setVgap(6); g.setPadding(new Insets(8));
+    ComboBox<Arc> fromArc = new ComboBox<>();
+    fromArc.getItems().setAll(arcs.getItems());
+    configureArcCombo(fromArc);
+    TextField fromLabel = new TextField(nn(l.fromLabel));
+    ComboBox<Arc> toArc = new ComboBox<>();
+    toArc.getItems().setAll(arcs.getItems());
+    configureArcCombo(toArc);
+    TextField toLabel = new TextField(nn(l.toLabel));
+    fromArc.setValue(findArc(l.fromArc));
+    toArc.setValue(findArc(l.toArc));
+    g.addRow(0, new Label("From Arc"), fromArc);
+    g.addRow(1, new Label("From Label"), fromLabel);
+    g.addRow(2, new Label("To Arc"), toArc);
+    g.addRow(3, new Label("To Label"), toLabel);
+    Dialog<ButtonType> dlg = new Dialog<>();
+    EditorTheme.apply(dlg);
+    dlg.setTitle("Edit Link");
+    dlg.getDialogPane().setContent(g);
+    dlg.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+    var res = dlg.showAndWait();
+    if (res.isEmpty() || res.get() != ButtonType.OK) return;
+    Arc fa = fromArc.getValue();
+    Arc ta = toArc.getValue();
+    if (fa == null || ta == null) return;
+    l.fromArc = fa.name;
+    l.fromLabel = fromLabel.getText() == null ? "" : fromLabel.getText().trim();
+    l.toArc = ta.name;
+    l.toLabel = toLabel.getText() == null ? "" : toLabel.getText().trim();
+    onGraphChanged();
+  }
+
+  private void configureArcCombo(ComboBox<Arc> combo) {
+    combo.setCellFactory(v -> new ListCell<>() {
+      @Override protected void updateItem(Arc item, boolean empty) {
+        super.updateItem(item, empty);
+        setText(empty || item == null ? null : nn(item.name));
+      }
+    });
+    combo.setButtonCell(new ListCell<>() {
+      @Override protected void updateItem(Arc item, boolean empty) {
+        super.updateItem(item, empty);
+        setText(empty || item == null ? null : nn(item.name));
+      }
+    });
+  }
+
+  private void renameArcReferences(String oldName, String newName) {
+    for (Link li : links.getItems()) {
+      if (li == null) continue;
+      if (oldName.equals(li.fromArc)) li.fromArc = newName;
+      if (oldName.equals(li.toArc)) li.toArc = newName;
+    }
   }
 
   private void addArc() {
@@ -231,17 +460,30 @@ public class StoryTimelineView extends BorderPane {
     var lres = ldlg.showAndWait(); String label = lres.isEmpty() ? "" : lres.get().trim();
     Arc a = new Arc(); a.name = name; a.script = toRelative(f); a.entryLabel = label;
     arcs.getItems().add(a);
-    refreshGraph();
+    arcs.getSelectionModel().select(a);
+    onGraphChanged();
   }
 
   private void addLink() {
     if (arcs.getItems().isEmpty()) return;
     GridPane g = new GridPane();
     g.setHgap(6); g.setVgap(6); g.setPadding(new Insets(8));
-    ComboBox<Arc> fromArc = new ComboBox<>(); fromArc.getItems().setAll(arcs.getItems());
+    ComboBox<Arc> fromArc = new ComboBox<>(); fromArc.getItems().setAll(arcs.getItems()); configureArcCombo(fromArc);
     TextField fromLabel = new TextField();
-    ComboBox<Arc> toArc = new ComboBox<>(); toArc.getItems().setAll(arcs.getItems());
+    ComboBox<Arc> toArc = new ComboBox<>(); toArc.getItems().setAll(arcs.getItems()); configureArcCombo(toArc);
     TextField toLabel = new TextField();
+    Arc selectedArc = arcs.getSelectionModel().getSelectedItem();
+    if (selectedArc != null) {
+      fromArc.setValue(selectedArc);
+      for (Arc a : arcs.getItems()) {
+        if (a != null && a != selectedArc) {
+          toArc.setValue(a);
+          break;
+        }
+      }
+    }
+    if (fromArc.getValue() == null && !arcs.getItems().isEmpty()) fromArc.setValue(arcs.getItems().get(0));
+    if (toArc.getValue() == null && !arcs.getItems().isEmpty()) toArc.setValue(arcs.getItems().get(0));
     g.addRow(0, new Label("From Arc"), fromArc);
     g.addRow(1, new Label("From Label"), fromLabel);
     g.addRow(2, new Label("To Arc"), toArc);
@@ -251,17 +493,58 @@ public class StoryTimelineView extends BorderPane {
     Arc fa = fromArc.getValue(); Arc ta = toArc.getValue(); if (fa == null || ta == null) return;
     Link l = new Link(); l.fromArc = fa.name; l.fromLabel = fromLabel.getText(); l.toArc = ta.name; l.toLabel = toLabel.getText();
     links.getItems().add(l);
-    refreshGraph();
+    links.getSelectionModel().select(l);
+    onGraphChanged();
+  }
+
+  private void deleteSelected() {
+    Link link = links.getSelectionModel().getSelectedItem();
+    if (link != null) {
+      links.getItems().remove(link);
+      onGraphChanged();
+      return;
+    }
+    Arc arc = arcs.getSelectionModel().getSelectedItem();
+    if (arc != null) {
+      removeArcAndLinks(arc.name);
+      onGraphChanged();
+    }
   }
 
   private void openArc() {
-    Arc a = arcs.getSelectionModel().getSelectedItem(); if (a == null) return;
+    Arc a = arcs.getSelectionModel().getSelectedItem();
+    if (a == null) return;
+    if (onRunArc != null) {
+      onRunArc.accept(a);
+      return;
+    }
     try { java.awt.Desktop.getDesktop().open(resolveFile(a.script)); } catch (Exception ignored) {}
   }
 
+  private void runSelectedLink() {
+    Link l = links.getSelectionModel().getSelectedItem();
+    if (l == null) return;
+    if (onRunLink != null) {
+      onRunLink.accept(l);
+      return;
+    }
+    Arc target = findArc(l.toArc);
+    if (target != null) {
+      arcs.getSelectionModel().select(target);
+      openArc();
+    }
+  }
+
   private void copyGoto() {
-    Link l = links.getSelectionModel().getSelectedItem(); if (l == null) return;
-    String snip = "[goto " + l.toArc + ":" + nn(l.toLabel) + "]";
+    String snip = null;
+    Link l = links.getSelectionModel().getSelectedItem();
+    if (l != null) {
+      snip = "[goto " + l.toArc + ":" + nn(l.toLabel) + "]";
+    } else {
+      Arc a = arcs.getSelectionModel().getSelectedItem();
+      if (a != null) snip = "[goto " + nn(a.name) + ":" + nn(a.entryLabel) + "]";
+    }
+    if (snip == null) return;
     javafx.scene.input.ClipboardContent cc = new javafx.scene.input.ClipboardContent();
     cc.putString(snip);
     javafx.scene.input.Clipboard.getSystemClipboard().setContent(cc);
@@ -270,6 +553,8 @@ public class StoryTimelineView extends BorderPane {
   private void save() {
     File f = timelineFile != null ? timelineFile : defaultTimelineFile();
     if (f == null) return;
+    File parent = f.getParentFile();
+    if (parent != null && !parent.exists()) parent.mkdirs();
     try (PrintWriter pw = new PrintWriter(new FileWriter(f))) {
       pw.print(toDsl());
     } catch (Exception ignored) {}
@@ -327,9 +612,17 @@ public class StoryTimelineView extends BorderPane {
     updateClusterFilter();
   }
 
+  private void updateGraphHint() {
+    boolean empty = arcs.getItems().isEmpty();
+    graphHint.setVisible(empty);
+    graphHint.setManaged(empty);
+  }
+
   private void onGraphChanged() {
-    // sync list views with graph model and save
+    // sync list views/graph model and persist
+    refreshGraph();
     arcs.refresh(); links.refresh();
+    updateGraphHint();
     save();
     updateClusterFilter();
     if (onChanged != null) onChanged.run();
@@ -369,7 +662,8 @@ public class StoryTimelineView extends BorderPane {
     var lres = ldlg.showAndWait(); String label = lres.isEmpty() ? "" : lres.get().trim();
     Arc a = new Arc(); a.name = name; a.script = toRelative(f); a.entryLabel = label;
     arcs.getItems().add(a);
-    refreshGraph(); save();
+    arcs.getSelectionModel().select(a);
+    onGraphChanged();
   }
 
   private static String stripExt(String n) {
@@ -450,7 +744,10 @@ public class StoryTimelineView extends BorderPane {
         llist.add(l);
       }
     }
-    arcs.getItems().setAll(alist); links.getItems().setAll(llist); refreshGraph();
+    arcs.getItems().setAll(alist);
+    links.getItems().setAll(llist);
+    refreshGraph();
+    updateGraphHint();
   }
 
   private void zoomToFit() {

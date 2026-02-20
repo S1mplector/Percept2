@@ -222,6 +222,60 @@
   -fx-border-width: 0 0 1 0;
 }
 
+/* Timeline editor panel */
+.timeline-root {
+  -fx-background-color: #101214;
+}
+
+.timeline-toolbar {
+  -fx-background-color: linear-gradient(to bottom, #171a20, #111318);
+  -fx-border-color: #232730;
+  -fx-border-width: 0 0 1 0;
+}
+
+.timeline-toolbar .label {
+  -fx-text-fill: #b9c0cd;
+}
+
+.timeline-toolbar .separator:vertical .line {
+  -fx-border-color: #2c313a;
+  -fx-border-width: 0 1 0 0;
+}
+
+.timeline-primary-button {
+  -fx-background-color: #1f3f72;
+  -fx-text-fill: #eaf2ff;
+}
+
+.timeline-primary-button:hover {
+  -fx-background-color: #29518f;
+}
+
+.timeline-graph-pane {
+  -fx-background-color: #0d1015;
+  -fx-border-color: #222832;
+  -fx-border-width: 1 0 1 0;
+}
+
+.timeline-empty-hint {
+  -fx-text-fill: #a4adbb;
+  -fx-background-color: rgba(20, 24, 31, 0.9);
+  -fx-border-color: #2d3340;
+  -fx-border-width: 1;
+  -fx-padding: 10 14 10 14;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+}
+
+.timeline-lists-tabs .tab-content-area {
+  -fx-background-color: #0f1217;
+}
+
+.timeline-list .placeholder .label {
+  -fx-text-fill: #707784;
+  -fx-font-size: 12px;
+}
+
 /* Dialogs */
 .dialog-pane,
 .dialog-pane.jvn-dialog {

@@ -16,7 +16,6 @@ import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.InspectorView;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.ProjectExplorerView;
-import com.jvn.editor.ui.SceneGraphView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
@@ -84,7 +83,6 @@ public class EditorApp extends Application {
   private TabPane filesTabs;
   private boolean showGrid = true;
   
-  private SceneGraphView sgView;
   private ProjectExplorerView projView;
   private HelpCenterView helpCenterView;
   private StoryTimelineView timelineView;
@@ -93,7 +91,7 @@ public class EditorApp extends Application {
   private TilemapEditorView mapEditorView;
   private final CommandStack commands = new CommandStack();
   private Tab tabProject;
-  private Tab tabScene;
+  private Tab tabTimeline;
   private Tab tabHelp;
   private File projectRoot;
   private OperatingSystemMXBean osBean;
@@ -174,7 +172,7 @@ public class EditorApp extends Application {
       this.projectRoot = root;
       Properties mf = loadManifest(root);
       configureProjectContext(root, mf);
-      selectProjectTab();
+      selectTimelineTab();
     }
     return root;
   }
@@ -353,7 +351,7 @@ public class EditorApp extends Application {
       openFile(entryScript);
     }
     
-    selectProjectTab();
+    selectTimelineTab();
     status.setText("Created project: " + projectDir.getName());
   }
 
@@ -366,6 +364,31 @@ public class EditorApp extends Application {
       return;
     }
     openFile(f);
+  }
+
+  private void openTimelineArc(StoryTimelineView.Arc arc) {
+    if (arc == null || arc.script == null || arc.script.isBlank()) return;
+    File target = resolveProjectFile(arc.script);
+    if (target == null || !target.exists()) {
+      status.setText("Arc script not found: " + arc.script);
+      return;
+    }
+    openFile(target);
+    if (arc.entryLabel != null && !arc.entryLabel.isBlank()) {
+      status.setText("Opened arc " + arc.name + " @ " + arc.entryLabel);
+    } else {
+      status.setText("Opened arc " + arc.name);
+    }
+  }
+
+  private void openTimelineLinkTarget(StoryTimelineView.Link link) {
+    if (link == null || timelineView == null || link.toArc == null || link.toArc.isBlank()) return;
+    StoryTimelineView.Arc target = timelineView.findArc(link.toArc);
+    if (target == null) {
+      status.setText("Unknown target arc: " + link.toArc);
+      return;
+    }
+    openTimelineArc(target);
   }
 
   // legacy helpers removed; ViewportView now owned by per-file tabs
@@ -572,9 +595,11 @@ public class EditorApp extends Application {
     tabHelp = new Tab("Help", helpCenterView); tabHelp.setClosable(false);
     rightTabs.getTabs().addAll(tabInspectorRight, tabHelp);
     rightTabs.setPrefWidth(360);
-    sgView = new SceneGraphView();
-    sgView.setMinWidth(200);
-    sgView.setPrefWidth(240);
+    timelineView = new StoryTimelineView();
+    timelineView.setMinWidth(240);
+    timelineView.setPrefWidth(320);
+    timelineView.setOnRunArc(this::openTimelineArc);
+    timelineView.setOnRunLink(this::openTimelineLinkTarget);
     projView = new ProjectExplorerView();
     projView.setOnOpenFile(f -> {
       if (f == null) return;
@@ -590,14 +615,15 @@ public class EditorApp extends Application {
       Properties mf = loadManifest(projectDir);
       configureProjectContext(projectDir, mf);
       applyProjectRootToTabs();
-      selectProjectTab();
+      selectTimelineTab();
       doRunProject(projectDir);
     });
     TabPane sideTabs = new TabPane();
     tabProject = new Tab("Project", projView); tabProject.setClosable(false);
-    tabScene = new Tab("Scene", sgView); tabScene.setClosable(false);
-    sideTabs.getTabs().addAll(tabProject, tabScene);
-    sideTabs.setPrefWidth(260);
+    tabTimeline = new Tab("Timeline", timelineView); tabTimeline.setClosable(false);
+    sideTabs.getTabs().addAll(tabProject, tabTimeline);
+    sideTabs.getSelectionModel().select(tabTimeline);
+    sideTabs.setPrefWidth(300);
     SplitPane centerSplit = new SplitPane();
     centerSplit.getItems().addAll(sideTabs, filesTabs, rightTabs);
     centerSplit.setDividerPositions(0.22, 0.78);
@@ -682,7 +708,7 @@ public class EditorApp extends Application {
     configureProjectContext(dir, mf);
     applyProjectRootToTabs();
     status.setText("Project: " + dir.getName());
-    selectProjectTab();
+    selectTimelineTab();
   }
 
   private void openJesFile(File f) { openFile(f); }
@@ -1014,8 +1040,8 @@ public class EditorApp extends Application {
     lastOpened = f;
     status.setText("Loaded: " + f.getName());
     updateContextForActiveTab();
-    if (editor.getKind() == FileEditorTab.Kind.JES) {
-      selectSceneTab();
+    if (editor.getKind() == FileEditorTab.Kind.VNS || editor.getKind() == FileEditorTab.Kind.TIMELINE) {
+      selectTimelineTab();
     }
   }
 
@@ -1040,15 +1066,6 @@ public class EditorApp extends Application {
     FileEditorTab ft = getActiveFileTab();
     JesScene2D scene = (ft != null) ? ft.getJesScene() : null;
     if (inspectorView != null) inspectorView.setScene(scene);
-    if (sgView != null && inspectorView != null) {
-      sgView.setContext(
-        scene,
-        ent -> { selected = ent; inspectorView.setSelection(ent); },
-        this::fitCameraToEntity,
-        s -> status.setText(s)
-      );
-      sgView.refresh();
-    }
     if (mapEditorView != null) {
       if (ft != null && ft.getKind() == FileEditorTab.Kind.JES && ft.getFile() != null && projectRoot != null) {
         mapEditorView.setContext(projectRoot, ft.getFile());
@@ -1148,9 +1165,9 @@ public class EditorApp extends Application {
     }
   }
 
-  private void selectSceneTab() {
-    if (tabScene != null && tabScene.getTabPane() != null) {
-      tabScene.getTabPane().getSelectionModel().select(tabScene);
+  private void selectTimelineTab() {
+    if (tabTimeline != null && tabTimeline.getTabPane() != null) {
+      tabTimeline.getTabPane().getSelectionModel().select(tabTimeline);
     }
   }
 
