@@ -1040,11 +1040,20 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private VnUiStyleSpec readStyleFromControls() {
     return new VnUiStyleSpec(
+        // Textbox
         normalizeAssetPath(tfTextBoxAsset.getText()),
+        null, // textBoxColor — not yet exposed in editor
+        null, // textBoxOpacity — not yet exposed in editor
+        // Name box
+        null, null, null, null, null, // nameBox asset, color, textColor, fontFamily, fontSize
+        // Dialogue text
+        null, null, null, // dialogueTextColor, fontFamily, fontSize
+        // Choice button assets
         normalizeAssetPath(tfChoiceButtonAsset.getText()),
         normalizeAssetPath(tfChoiceButtonHoverAsset.getText()),
         normalizeAssetPath(tfChoiceButtonSelectedAsset.getText()),
         normalizeAssetPath(tfChoiceButtonDisabledAsset.getText()),
+        // Choice colors
         normalizeColorValue(tfChoiceBgColor.getText()),
         normalizeColorValue(tfChoiceHoverColor.getText()),
         normalizeColorValue(tfChoiceSelectedColor.getText()),
@@ -1057,9 +1066,12 @@ public class DialogueLayoutEditorView extends BorderPane {
         normalizeColorValue(tfChoiceHoverBorderColor.getText()),
         normalizeColorValue(tfChoiceSelectedBorderColor.getText()),
         normalizeColorValue(tfChoiceDisabledBorderColor.getText()),
+        // Choice geometry
         value(spChoiceCornerRadius),
         value(spChoiceBorderWidth),
-        value(spChoiceTextBaselineOffset)
+        value(spChoiceTextBaselineOffset),
+        // Choice font
+        null, null // choiceFontFamily, choiceFontSize
     );
   }
 

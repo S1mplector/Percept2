@@ -151,23 +151,55 @@ Fields map to `MenuLayoutSpec`:
 Example:
 
 ```properties
+# Item text colors
 itemColor=#cccccc
 itemSelectedColor=#ffd700
+itemHoverColor=#ffe066
 itemDisabledColor=#808080
+
+# Item prefixes
 itemPrefix=  
 itemSelectedPrefix=> 
 itemDisabledPrefix=- 
+
+# Item font
 itemFontFamily=Arial
 itemFontWeight=BOLD
 itemFontSize=20
+
+# Item text effects
+itemShadowColor=#00000088
+itemShadowOffsetX=2
+itemShadowOffsetY=2
+itemOpacity=1.0
+
+# Button skins (all four states)
 buttonAsset=assets/ui/menu/button.png
 buttonSelectedAsset=assets/ui/menu/button_selected.png
+buttonHoverAsset=assets/ui/menu/button_hover.png
 buttonDisabledAsset=assets/ui/menu/button_disabled.png
 buttonTextPaddingX=18
 buttonTextPaddingY=0
+
+# Title styling
+titleColor=#ffffff
+titleFontFamily=Georgia
+titleFontWeight=BOLD
+titleFontSize=36
+titleShadowColor=#000000
+
+# Hints styling
+hintsColor=#aaaaaa
+hintsFontFamily=Arial
+hintsFontSize=14
+
+# Background
+backgroundAsset=assets/ui/menu/bg.png
+backgroundColor=#1a1a2e
+backgroundOpacity=0.9
 ```
 
-Fields map to `MenuStyleSpec`.
+Fields map to `MenuStyleSpec`. All fields are optional and inherit from parent styles via `extends`.
 
 ## Inheritance (`extends`)
 

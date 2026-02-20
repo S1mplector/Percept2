@@ -40,25 +40,21 @@ import javafx.stage.Window;
  */
 public class MenuStyleVisualEditor extends BorderPane {
   private static final String[] KNOWN_KEYS = new String[] {
-      "itemColor",
-      "itemSelectedColor",
-      "itemDisabledColor",
-      "itemPrefix",
-      "itemSelectedPrefix",
-      "itemDisabledPrefix",
-      "itemFontFamily",
-      "itemFontWeight",
-      "itemFontSize",
-      "buttonAsset",
-      "buttonSelectedAsset",
-      "buttonDisabledAsset",
-      "buttonTextPaddingX",
-      "buttonTextPaddingY"
+      "itemColor", "itemSelectedColor", "itemHoverColor", "itemDisabledColor",
+      "itemPrefix", "itemSelectedPrefix", "itemDisabledPrefix",
+      "itemFontFamily", "itemFontWeight", "itemFontSize",
+      "itemShadowColor", "itemShadowOffsetX", "itemShadowOffsetY", "itemOpacity",
+      "buttonAsset", "buttonSelectedAsset", "buttonHoverAsset", "buttonDisabledAsset",
+      "buttonTextPaddingX", "buttonTextPaddingY",
+      "titleColor", "titleFontFamily", "titleFontWeight", "titleFontSize", "titleShadowColor",
+      "hintsColor", "hintsFontFamily", "hintsFontSize",
+      "backgroundAsset", "backgroundColor", "backgroundOpacity"
   };
 
   private final Canvas preview = new Canvas(860, 350);
   private final TextField tfItemColor = new TextField("#D3D3D3");
   private final TextField tfItemSelectedColor = new TextField("#FFFF00");
+  private final TextField tfItemHoverColor = new TextField();
   private final TextField tfItemDisabledColor = new TextField("#808080");
   private final TextField tfItemPrefix = new TextField("  ");
   private final TextField tfItemSelectedPrefix = new TextField("> ");
@@ -66,12 +62,31 @@ public class MenuStyleVisualEditor extends BorderPane {
   private final ComboBox<String> cbItemFontFamily = new ComboBox<>();
   private final ChoiceBox<String> cbItemFontWeight = new ChoiceBox<>();
   private final Spinner<Integer> spItemFontSize = intSpinner(8, 96, 20, 1);
+  private final TextField tfItemShadowColor = new TextField();
+  private final Spinner<Double> spItemShadowOffsetX = doubleSpinner(-20, 20, 0, 0.5);
+  private final Spinner<Double> spItemShadowOffsetY = doubleSpinner(-20, 20, 0, 0.5);
+  private final Spinner<Double> spItemOpacity = doubleSpinner(0, 1, 1, 0.05);
 
   private final TextField tfButtonAsset = new TextField();
   private final TextField tfButtonSelectedAsset = new TextField();
+  private final TextField tfButtonHoverAsset = new TextField();
   private final TextField tfButtonDisabledAsset = new TextField();
   private final Spinner<Double> spButtonTextPaddingX = doubleSpinner(0, 240, 18, 1);
   private final Spinner<Double> spButtonTextPaddingY = doubleSpinner(-120, 120, 0, 1);
+
+  private final TextField tfTitleColor = new TextField();
+  private final ComboBox<String> cbTitleFontFamily = new ComboBox<>();
+  private final ChoiceBox<String> cbTitleFontWeight = new ChoiceBox<>();
+  private final Spinner<Integer> spTitleFontSize = intSpinner(8, 120, 36, 1);
+  private final TextField tfTitleShadowColor = new TextField();
+
+  private final TextField tfHintsColor = new TextField();
+  private final ComboBox<String> cbHintsFontFamily = new ComboBox<>();
+  private final Spinner<Integer> spHintsFontSize = intSpinner(8, 48, 14, 1);
+
+  private final TextField tfBackgroundAsset = new TextField();
+  private final TextField tfBackgroundColor = new TextField();
+  private final Spinner<Double> spBackgroundOpacity = doubleSpinner(0, 1, 1, 0.05);
 
   private final Properties rawProperties = new Properties();
   private Consumer<String> onStyleTextChanged;
@@ -92,7 +107,25 @@ public class MenuStyleVisualEditor extends BorderPane {
     setPadding(new Insets(8));
     cbItemFontWeight.getItems().setAll("NORMAL", "BOLD");
     cbItemFontWeight.setValue("NORMAL");
+    cbTitleFontWeight.getItems().setAll("NORMAL", "BOLD");
+    cbTitleFontWeight.setValue("BOLD");
     initFontPicker();
+    // Init title/hints font pickers with same font list
+    List<String> families = Font.getFamilies();
+    cbTitleFontFamily.getItems().setAll(families);
+    cbTitleFontFamily.setValue("Arial");
+    cbTitleFontFamily.setEditable(true);
+    cbHintsFontFamily.getItems().setAll(families);
+    cbHintsFontFamily.setValue("Arial");
+    cbHintsFontFamily.setEditable(true);
+    tfItemHoverColor.setPromptText("#ffe066");
+    tfItemShadowColor.setPromptText("#00000088");
+    tfTitleColor.setPromptText("#ffffff");
+    tfTitleShadowColor.setPromptText("#000000");
+    tfHintsColor.setPromptText("#aaaaaa");
+    tfBackgroundAsset.setPromptText("assets/ui/menu/bg.png");
+    tfBackgroundColor.setPromptText("#1a1a2e");
+    tfButtonHoverAsset.setPromptText("assets/ui/menu/button_hover.png");
 
     preview.setManaged(false);
     StackPane previewPane = new StackPane(preview);
@@ -214,6 +247,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     row = addHeader(grid, row, "Text Style");
     row = addRow(grid, row, "Item Color", ColorFieldHelper.create(tfItemColor));
     row = addRow(grid, row, "Selected Color", ColorFieldHelper.create(tfItemSelectedColor));
+    row = addRow(grid, row, "Hover Color", ColorFieldHelper.create(tfItemHoverColor));
     row = addRow(grid, row, "Disabled Color", ColorFieldHelper.create(tfItemDisabledColor));
     row = addRow(grid, row, "Prefix", tfItemPrefix);
     row = addRow(grid, row, "Selected Prefix", tfItemSelectedPrefix);
@@ -222,14 +256,38 @@ public class MenuStyleVisualEditor extends BorderPane {
     row = addRow(grid, row, "Font Weight", cbItemFontWeight);
     row = addRow(grid, row, "Font Size", spItemFontSize);
 
+    row = addHeader(grid, row, "Text Effects");
+    row = addRow(grid, row, "Shadow Color", ColorFieldHelper.create(tfItemShadowColor));
+    row = addRow(grid, row, "Shadow Offset X", spItemShadowOffsetX);
+    row = addRow(grid, row, "Shadow Offset Y", spItemShadowOffsetY);
+    row = addRow(grid, row, "Item Opacity", spItemOpacity);
+
     row = addHeader(grid, row, "Button Skins");
     row = addAssetRow(grid, row, "Button Asset", tfButtonAsset);
     row = addAssetRow(grid, row, "Selected Asset", tfButtonSelectedAsset);
+    row = addAssetRow(grid, row, "Hover Asset", tfButtonHoverAsset);
     row = addAssetRow(grid, row, "Disabled Asset", tfButtonDisabledAsset);
     row = addRow(grid, row, "Text Padding X", spButtonTextPaddingX);
     row = addRow(grid, row, "Text Offset Y", spButtonTextPaddingY);
 
-    Label hint = new Label("Values are serialized into .style properties.\nUse this editor for reusable menu button looks.");
+    row = addHeader(grid, row, "Title Styling");
+    row = addRow(grid, row, "Title Color", ColorFieldHelper.create(tfTitleColor));
+    row = addRow(grid, row, "Title Font", cbTitleFontFamily);
+    row = addRow(grid, row, "Title Weight", cbTitleFontWeight);
+    row = addRow(grid, row, "Title Size", spTitleFontSize);
+    row = addRow(grid, row, "Title Shadow", ColorFieldHelper.create(tfTitleShadowColor));
+
+    row = addHeader(grid, row, "Hints Styling");
+    row = addRow(grid, row, "Hints Color", ColorFieldHelper.create(tfHintsColor));
+    row = addRow(grid, row, "Hints Font", cbHintsFontFamily);
+    row = addRow(grid, row, "Hints Size", spHintsFontSize);
+
+    row = addHeader(grid, row, "Background");
+    row = addAssetRow(grid, row, "Background Asset", tfBackgroundAsset);
+    row = addRow(grid, row, "Background Color", ColorFieldHelper.create(tfBackgroundColor));
+    row = addRow(grid, row, "Background Opacity", spBackgroundOpacity);
+
+    Label hint = new Label("All fields serialize into .style properties.\nBackground, title, hints, and text effects enable full visual customization.");
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
     grid.add(hint, 0, row++, 2, 1);

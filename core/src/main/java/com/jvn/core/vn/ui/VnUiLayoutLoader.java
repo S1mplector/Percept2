@@ -1,8 +1,5 @@
 package com.jvn.core.vn.ui;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.AssetType;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -13,6 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 
 /**
  * Loader for dialogue layout configuration.
@@ -163,11 +163,26 @@ public final class VnUiLayoutLoader {
     );
 
     VnUiStyleSpec style = new VnUiStyleSpec(
+        // Textbox
         normalize(props.getProperty("textBoxAsset"), bStyle.textBoxAssetPath()),
+        normalize(props.getProperty("textBoxColor"), bStyle.textBoxColor()),
+        parseOptionalDouble(props.getProperty("textBoxOpacity"), bStyle.textBoxOpacity(), diagnostics, "textBoxOpacity"),
+        // Name box
+        normalize(props.getProperty("nameBoxAsset"), bStyle.nameBoxAssetPath()),
+        normalize(props.getProperty("nameBoxColor"), bStyle.nameBoxColor()),
+        normalize(props.getProperty("nameTextColor"), bStyle.nameTextColor()),
+        normalize(props.getProperty("nameTextFontFamily"), bStyle.nameTextFontFamily()),
+        parseOptionalInt(props.getProperty("nameTextFontSize"), bStyle.nameTextFontSize(), diagnostics, "nameTextFontSize"),
+        // Dialogue text
+        normalize(props.getProperty("dialogueTextColor"), bStyle.dialogueTextColor()),
+        normalize(props.getProperty("dialogueTextFontFamily"), bStyle.dialogueTextFontFamily()),
+        parseOptionalInt(props.getProperty("dialogueTextFontSize"), bStyle.dialogueTextFontSize(), diagnostics, "dialogueTextFontSize"),
+        // Choice button assets
         normalize(props.getProperty("choiceButtonAsset"), bStyle.choiceButtonAssetPath()),
         normalize(props.getProperty("choiceButtonHoverAsset"), bStyle.choiceButtonHoverAssetPath()),
         normalize(props.getProperty("choiceButtonSelectedAsset"), bStyle.choiceButtonSelectedAssetPath()),
         normalize(props.getProperty("choiceButtonDisabledAsset"), bStyle.choiceButtonDisabledAssetPath()),
+        // Choice colors
         normalize(props.getProperty("choiceBackgroundColor"), bStyle.choiceBackgroundColor()),
         normalize(props.getProperty("choiceHoverColor"), bStyle.choiceHoverColor()),
         normalize(props.getProperty("choiceSelectedColor"), bStyle.choiceSelectedColor()),
@@ -180,9 +195,13 @@ public final class VnUiLayoutLoader {
         normalize(props.getProperty("choiceHoverBorderColor"), bStyle.choiceHoverBorderColor()),
         normalize(props.getProperty("choiceSelectedBorderColor"), bStyle.choiceSelectedBorderColor()),
         normalize(props.getProperty("choiceDisabledBorderColor"), bStyle.choiceDisabledBorderColor()),
+        // Choice geometry
         parseDouble(props.getProperty("choiceCornerRadius"), bStyle.choiceCornerRadius(), diagnostics, "choiceCornerRadius"),
         parseDouble(props.getProperty("choiceBorderWidth"), bStyle.choiceBorderWidth(), diagnostics, "choiceBorderWidth"),
-        parseDouble(props.getProperty("choiceTextBaselineOffset"), bStyle.choiceTextBaselineOffset(), diagnostics, "choiceTextBaselineOffset")
+        parseDouble(props.getProperty("choiceTextBaselineOffset"), bStyle.choiceTextBaselineOffset(), diagnostics, "choiceTextBaselineOffset"),
+        // Choice font
+        normalize(props.getProperty("choiceFontFamily"), bStyle.choiceFontFamily()),
+        parseOptionalInt(props.getProperty("choiceFontSize"), bStyle.choiceFontSize(), diagnostics, "choiceFontSize")
     );
 
     List<VnUiActionButtonSpec> buttons = parseTextBoxButtons(props, bButtons, diagnostics);
@@ -418,6 +437,26 @@ public final class VnUiLayoutLoader {
         diagnostics.add("Failed to read jvn.project from assets for dialogueLayout: " + simplify(ex));
       }
       return null;
+    }
+  }
+
+  private static Double parseOptionalDouble(String raw, Double def, List<String> diagnostics, String key) {
+    if (raw == null || raw.isBlank()) return def;
+    try {
+      return Double.parseDouble(raw.trim());
+    } catch (Exception ex) {
+      if (diagnostics != null) diagnostics.add("Invalid number for '" + key + "': '" + raw + "'");
+      return def;
+    }
+  }
+
+  private static Integer parseOptionalInt(String raw, Integer def, List<String> diagnostics, String key) {
+    if (raw == null || raw.isBlank()) return def;
+    try {
+      return Integer.parseInt(raw.trim());
+    } catch (Exception ex) {
+      if (diagnostics != null) diagnostics.add("Invalid integer for '" + key + "': '" + raw + "'");
+      return def;
     }
   }
 

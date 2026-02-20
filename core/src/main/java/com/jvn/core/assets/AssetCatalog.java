@@ -32,6 +32,9 @@ public class AssetCatalog {
   public java.util.List<String> listAudio() { return list(AssetPaths.AUDIO); }
   public java.util.List<String> listScripts() { return list(AssetPaths.SCRIPTS); }
   public java.util.List<String> listFonts() { return list(AssetPaths.FONTS); }
+  public java.util.List<String> listUI() { return list(AssetPaths.UI); }
+  public java.util.List<String> listVideo() { return list(AssetPaths.VIDEO); }
+  public java.util.List<String> listConfig() { return list(AssetPaths.CONFIG); }
 
   public static void setDefaultManager(AssetManager m) {
     if (m != null) defaultManager = m;
