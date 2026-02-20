@@ -437,6 +437,15 @@ public class PuppeteerWindow extends Stage {
 
     public PuppeteerCommand.Stack getCommandStack() { return commandStack; }
 
+    private void registerTimeline() {
+        String name = tfTimelineName.getText().trim();
+        if (name.isEmpty()) return;
+        TimelineData data = project.toTimelineData(name);
+        TimelineRegistry.register(data);
+        codePreview.setCode(CodeExporter.exportNamed(project, name));
+        setTitle("Puppeteer - " + name + " (registered)");
+    }
+
     private void copyToClipboard(String text) {
         ClipboardContent content = new ClipboardContent();
         content.putString(text);
