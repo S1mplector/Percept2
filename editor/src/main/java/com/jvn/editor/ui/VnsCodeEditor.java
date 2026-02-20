@@ -159,6 +159,16 @@ public class VnsCodeEditor extends BorderPane {
     this.onTextChanged = listener;
   }
 
+  public int getCurrentLine() {
+    return codeArea.getCurrentParagraph();
+  }
+
+  public void setOnCaretLineChanged(Consumer<Integer> listener) {
+    codeArea.currentParagraphProperty().addListener((obs, oldVal, newVal) -> {
+      if (listener != null && newVal != null) listener.accept(newVal.intValue());
+    });
+  }
+
   public void goToLine(int oneBasedLine) {
     int paragraphCount = codeArea.getParagraphs().size();
     if (paragraphCount <= 0) return;

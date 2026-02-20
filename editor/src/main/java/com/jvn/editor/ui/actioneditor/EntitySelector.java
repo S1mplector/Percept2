@@ -31,15 +31,17 @@ public class EntitySelector extends VBox {
     private BiConsumer<String, String> onAddToGroup;
 
     public EntitySelector() {
-        setSpacing(6);
-        setPadding(new Insets(8));
+        setSpacing(4);
+        setPadding(new Insets(6, 8, 6, 8));
         setStyle("-fx-background-color: #1a1a1a;");
 
         Label header = new Label("Entities");
-        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
+        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
 
         filterField = new TextField();
-        filterField.setPromptText("Filter...");
+        filterField.setPromptText("Filter entities...");
+        filterField.setStyle("-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
+            "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px; -fx-prompt-text-fill: #555;");
         filterField.setOnKeyReleased(e -> applyFilter());
 
         rootItem = new TreeItem<>("Scene");
@@ -57,6 +59,8 @@ public class EntitySelector extends VBox {
         VBox.setVgrow(treeView, Priority.ALWAYS);
 
         Button btnNewGroup = new Button("+ Group");
+        btnNewGroup.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #a0a0a0; -fx-background-radius: 3; " +
+            "-fx-border-color: #3a3a3a; -fx-border-radius: 3; -fx-padding: 2 8; -fx-font-size: 10px; -fx-cursor: hand;");
         btnNewGroup.setOnAction(e -> {
             TextInputDialog dialog = new TextInputDialog("NewGroup");
             dialog.setTitle("Create Group");

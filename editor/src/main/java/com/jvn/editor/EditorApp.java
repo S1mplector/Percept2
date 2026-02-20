@@ -19,6 +19,7 @@ import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.ProjectExplorerView;
+import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
@@ -103,6 +104,8 @@ public class EditorApp extends Application {
   private SettingsEditorView settingsEditor;
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
   private TilemapEditorView mapEditorView;
+  private PuppeteerLauncherPanel puppeteerLauncherPanel;
+  private Tab tabPuppeteerLauncher;
   private final CommandStack commands = new CommandStack();
   private TabPane leftTabs;
   private TabPane rightTabs;
@@ -633,6 +636,8 @@ public class EditorApp extends Application {
     vnsDiagnosticsView.setOnOpenLine(this::jumpToActiveVnsLine);
     vnsFlowMapView = new VnsFlowMapView();
     vnsFlowMapView.setOnOpenLine(this::jumpToActiveVnsLine);
+    puppeteerLauncherPanel = new PuppeteerLauncherPanel();
+    puppeteerLauncherPanel.setOnLaunch(snapshot -> launchPuppeteerFromSnapshot(snapshot));
     assetBrowserView = new AssetBrowserView();
     assetBrowserView.setProjectRoot(projectRoot);
     assetBrowserView.setOnOpenAsset(asset -> {
@@ -1140,6 +1145,11 @@ public class EditorApp extends Application {
       editor.setOnVnsTextChanged(text -> {
         if (editor != getActiveFileTab()) return;
         refreshVnsToolPanels(editor, text);
+        if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setSource(text);
+      });
+      editor.setOnVnsCaretLineChanged(line -> {
+        if (editor != getActiveFileTab()) return;
+        if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setCaretLine(line);
       });
     }
     Tab tab = new Tab(editor.getDisplayName(), editor);
@@ -1205,6 +1215,14 @@ public class EditorApp extends Application {
       }
     }
     refreshVnsToolPanels(ft, null);
+    if (puppeteerLauncherPanel != null) {
+      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+        puppeteerLauncherPanel.setSource(ft.getCurrentTextSnapshot());
+        puppeteerLauncherPanel.setCaretLine(ft.getVnsCaretLine());
+      } else {
+        puppeteerLauncherPanel.clear();
+      }
+    }
   }
 
   private void refreshVnsToolPanels(FileEditorTab fileTab, String currentText) {
@@ -1548,6 +1566,10 @@ public class EditorApp extends Application {
       Tab t = ensureInspectorTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
+    addChooserActionButton(actions, panelActionLabel("Puppeteer", tabPuppeteerLauncher, pane), "icon-panel-puppeteer", () -> {
+      Tab t = ensurePuppeteerLauncherTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+    });
 
     root.getChildren().addAll(heading, info, new javafx.scene.control.Separator(), actions);
     Tab chooser = new Tab("New Panel", root);
@@ -1613,6 +1635,33 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
+  }
+
+  private Tab ensurePuppeteerLauncherTab(TabPane targetPane) {
+    if (targetPane == null || puppeteerLauncherPanel == null) return null;
+    if (tabPuppeteerLauncher == null) {
+      tabPuppeteerLauncher = new Tab("Puppeteer", puppeteerLauncherPanel);
+      tabPuppeteerLauncher.setClosable(true);
+      tabPuppeteerLauncher.setOnClosed(e -> tabPuppeteerLauncher = null);
+    }
+    attachPanelTabToPane(tabPuppeteerLauncher, targetPane);
+    return tabPuppeteerLauncher;
+  }
+
+  private void launchPuppeteerFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
+    PuppeteerWindow puppeteer = new PuppeteerWindow();
+    puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
+    FileEditorTab ft = getActiveFileTab();
+    if (ft != null && ft.getJesScene() != null) {
+      puppeteer.setScene(ft.getJesScene());
+    }
+    if (snapshot != null) {
+      String title = "Puppeteer";
+      if (snapshot.currentLabel != null) title += " @ " + snapshot.currentLabel;
+      title += " (line " + (snapshot.atLine + 1) + ")";
+      puppeteer.setTitle(title);
+    }
+    puppeteer.show();
   }
 
   private void openActionEditor() {

@@ -142,21 +142,27 @@ public class PuppeteerWindow extends Stage {
             if (onCopyCode != null) onCopyCode.accept(code);
         });
 
-        btnPlay = new Button("▶");
-        btnPause = new Button("⏸");
-        btnStop = new Button("⏹");
-        btnRewind = new Button("⏮");
-        tfDuration = new TextField(String.valueOf((int) this.project.getTotalDurationMs()));
-        tfDuration.setPrefWidth(70);
-        cbLoop = new CheckBox("Loop");
-        cbLoop.setSelected(this.project.isLooping());
-        lblTime = new Label("0 ms");
+        // --- Transport controls ---
+        btnRewind = makeToolbarButton("⏮", "Rewind (Home)", STYLE_BTN_DARK);
+        btnPlay = makeToolbarButton("▶", "Play (Space)", STYLE_BTN_ACCENT);
+        btnPause = makeToolbarButton("⏸", "Pause (Space)", STYLE_BTN_DARK);
+        btnStop = makeToolbarButton("⏹", "Stop", STYLE_BTN_DARK);
 
         btnPlay.setOnAction(e -> play());
         btnPause.setOnAction(e -> pause());
         btnStop.setOnAction(e -> stop());
         btnRewind.setOnAction(e -> rewind());
 
+        lblTime = new Label("0 ms");
+        lblTime.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 72; -fx-alignment: center;");
+
+        HBox transportBox = new HBox(4, btnRewind, btnPlay, btnPause, btnStop, makeSpacer(6), lblTime);
+        transportBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+        // --- Duration controls ---
+        tfDuration = new TextField(String.valueOf((int) this.project.getTotalDurationMs()));
+        tfDuration.setPrefWidth(64);
+        tfDuration.setStyle(STYLE_TEXT_FIELD);
         tfDuration.setOnAction(e -> {
             try {
                 double dur = Double.parseDouble(tfDuration.getText());
@@ -165,18 +171,44 @@ public class PuppeteerWindow extends Stage {
             } catch (NumberFormatException ignored) {}
         });
 
+        Button btnFitDuration = makeToolbarButton("Fit", "Fit duration to content", STYLE_BTN_DARK);
+        btnFitDuration.setOnAction(e -> {
+            this.project.fitDurationToContent();
+            tfDuration.setText(String.valueOf((int) this.project.getTotalDurationMs()));
+            timelinePanel.refresh();
+        });
+
+        cbLoop = new CheckBox("Loop");
+        cbLoop.setSelected(this.project.isLooping());
+        cbLoop.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
         cbLoop.setOnAction(e -> this.project.setLooping(cbLoop.isSelected()));
 
+        Label durLabel = makeToolbarLabel("Duration");
+        Label msLabel = makeToolbarLabel("ms");
+        HBox durationBox = new HBox(4, durLabel, tfDuration, msLabel, btnFitDuration, makeSpacer(4), cbLoop);
+        durationBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+        // --- Presets ---
+        MenuButton presetMenu = buildPresetMenu();
+        presetMenu.setStyle(STYLE_BTN_DARK);
+        presetMenu.setTooltip(new Tooltip("Apply animation preset to selected entity"));
+
+        // --- Timeline name + Register ---
         tfTimelineName = new TextField("my_animation");
-        tfTimelineName.setPrefWidth(120);
-        tfTimelineName.setPromptText("Timeline name");
+        tfTimelineName.setPrefWidth(110);
+        tfTimelineName.setPromptText("timeline_name");
+        tfTimelineName.setStyle(STYLE_TEXT_FIELD);
         tfTimelineName.setTooltip(new Tooltip("Name for @external jes_timeline"));
 
-        Button btnRegister = new Button("Register");
-        btnRegister.setTooltip(new Tooltip("Register timeline for VNS @external jes_timeline"));
+        Button btnRegister = makeToolbarButton("Register", "Register timeline for VNS interop", STYLE_BTN_GREEN);
         btnRegister.setOnAction(e -> registerTimeline());
 
-        Button btnCopyCode = new Button("Copy Code");
+        Label nameLabel = makeToolbarLabel("Name");
+        HBox nameBox = new HBox(4, nameLabel, tfTimelineName, btnRegister);
+        nameBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+        // --- Copy Code ---
+        Button btnCopyCode = makeToolbarButton("Copy Code", "Copy generated code to clipboard (Cmd+C)", STYLE_BTN_ACCENT);
         btnCopyCode.setOnAction(e -> {
             String name = tfTimelineName.getText().trim();
             String code = name.isEmpty()
@@ -186,49 +218,39 @@ public class PuppeteerWindow extends Stage {
             if (onCopyCode != null) onCopyCode.accept(code);
         });
 
-        Button btnFitDuration = new Button("Fit");
-        btnFitDuration.setTooltip(new Tooltip("Fit duration to content"));
-        btnFitDuration.setOnAction(e -> {
-            this.project.fitDurationToContent();
-            tfDuration.setText(String.valueOf((int) this.project.getTotalDurationMs()));
-            timelinePanel.refresh();
-        });
+        // --- Assemble toolbar ---
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        MenuButton presetMenu = buildPresetMenu();
-
-        HBox toolbar = new HBox(8,
-            btnRewind, btnPlay, btnPause, btnStop,
-            new Separator(Orientation.VERTICAL),
-            new Label("Duration:"), tfDuration, new Label("ms"), btnFitDuration,
-            new Separator(Orientation.VERTICAL),
-            cbLoop,
-            new Separator(Orientation.VERTICAL),
+        HBox toolbar = new HBox(6,
+            transportBox,
+            makeVSep(),
+            durationBox,
+            makeVSep(),
             presetMenu,
-            new Separator(Orientation.VERTICAL),
-            lblTime,
-            new Separator(Orientation.VERTICAL),
-            new Label("Name:"), tfTimelineName, btnRegister,
-            new Region(),
+            makeVSep(),
+            nameBox,
+            spacer,
             btnCopyCode
         );
-        HBox.setHgrow(toolbar.getChildren().get(toolbar.getChildren().size() - 2), Priority.ALWAYS);
-        toolbar.setPadding(new Insets(8));
-        toolbar.setStyle("-fx-background-color: #000000; -fx-border-color: #1a1a1a; -fx-border-width: 0 0 1 0;");
+        toolbar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        toolbar.setPadding(new Insets(6, 10, 6, 10));
+        toolbar.setStyle("-fx-background-color: #0a0a0a; -fx-border-color: #2a2a2a; -fx-border-width: 0 0 1 0;");
 
         SplitPane leftPane = new SplitPane();
         leftPane.setOrientation(Orientation.VERTICAL);
         leftPane.getItems().addAll(entitySelector, keyframeEditor);
-        leftPane.setDividerPositions(0.7);
+        leftPane.setDividerPositions(0.65);
 
         SplitPane centerPane = new SplitPane();
         centerPane.setOrientation(Orientation.VERTICAL);
         centerPane.getItems().addAll(animationPreview, timelinePanel);
-        centerPane.setDividerPositions(0.45);
+        centerPane.setDividerPositions(0.4);
 
         SplitPane mainSplit = new SplitPane();
         mainSplit.setOrientation(Orientation.HORIZONTAL);
         mainSplit.getItems().addAll(leftPane, centerPane, codePreview);
-        mainSplit.setDividerPositions(0.18, 0.75);
+        mainSplit.setDividerPositions(0.17, 0.78);
 
         BorderPane root = new BorderPane();
         root.setTop(toolbar);
@@ -266,14 +288,18 @@ public class PuppeteerWindow extends Stage {
         project.setPlaying(true);
         lastNanos = System.nanoTime();
         playbackTimer.start();
+        btnPlay.setStyle(STYLE_BTN_DARK + "-fx-opacity: 0.5;");
         btnPlay.setDisable(true);
+        btnPause.setStyle(STYLE_BTN_ACCENT);
         btnPause.setDisable(false);
     }
 
     private void pause() {
         project.setPlaying(false);
         playbackTimer.stop();
+        btnPlay.setStyle(STYLE_BTN_ACCENT);
         btnPlay.setDisable(false);
+        btnPause.setStyle(STYLE_BTN_DARK + "-fx-opacity: 0.5;");
         btnPause.setDisable(true);
     }
 
@@ -436,6 +462,50 @@ public class PuppeteerWindow extends Stage {
     }
 
     public PuppeteerCommand.Stack getCommandStack() { return commandStack; }
+
+    // --- Toolbar styling helpers ---
+
+    private static final String STYLE_BTN_DARK =
+        "-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 4; " +
+        "-fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-padding: 4 10; -fx-font-size: 11px; -fx-cursor: hand;";
+    private static final String STYLE_BTN_ACCENT =
+        "-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
+        "-fx-border-color: #5bb3ff; -fx-border-radius: 4; -fx-padding: 4 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
+    private static final String STYLE_BTN_GREEN =
+        "-fx-background-color: #58d68d; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
+        "-fx-border-color: #68e69d; -fx-border-radius: 4; -fx-padding: 4 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
+    private static final String STYLE_TEXT_FIELD =
+        "-fx-background-color: #1a1a1a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
+        "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";
+
+    private static Button makeToolbarButton(String text, String tooltip, String style) {
+        Button btn = new Button(text);
+        btn.setStyle(style);
+        btn.setTooltip(new Tooltip(tooltip));
+        final String baseStyle = style;
+        btn.setOnMouseEntered(e -> btn.setStyle(baseStyle + "-fx-opacity: 0.85;"));
+        btn.setOnMouseExited(e -> btn.setStyle(baseStyle));
+        return btn;
+    }
+
+    private static Label makeToolbarLabel(String text) {
+        Label lbl = new Label(text);
+        lbl.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+        return lbl;
+    }
+
+    private static Region makeSpacer(double width) {
+        Region r = new Region();
+        r.setMinWidth(width);
+        r.setPrefWidth(width);
+        return r;
+    }
+
+    private static Separator makeVSep() {
+        Separator sep = new Separator(Orientation.VERTICAL);
+        sep.setStyle("-fx-padding: 0 2;");
+        return sep;
+    }
 
     private void registerTimeline() {
         String name = tfTimelineName.getText().trim();

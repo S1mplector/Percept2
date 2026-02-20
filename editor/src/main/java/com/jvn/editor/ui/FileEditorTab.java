@@ -23,7 +23,6 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 
 public class FileEditorTab extends BorderPane {
   public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, MENU_SCREEN, MENU_LAYOUT, MENU_STYLE, DIALOGUE_LAYOUT, OTHER }
@@ -370,6 +369,14 @@ public class FileEditorTab extends BorderPane {
 
   public void setOnVnsTextChanged(Consumer<String> listener) {
     if (vnsEditor != null) vnsEditor.setOnTextChanged(listener);
+  }
+
+  public void setOnVnsCaretLineChanged(Consumer<Integer> listener) {
+    if (vnsEditor != null) vnsEditor.setOnCaretLineChanged(listener);
+  }
+
+  public int getVnsCaretLine() {
+    return vnsEditor != null ? vnsEditor.getCurrentLine() : -1;
   }
 
   public String getCurrentTextSnapshot() {

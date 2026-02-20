@@ -25,19 +25,23 @@ public class KeyframeEditor extends VBox {
     private final Button btnDelete;
     private final Button btnResetValue;
 
+    private static final String FIELD_STYLE =
+        "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
+        "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";
+
     private Keyframe currentKeyframe;
     private PropertyType currentProperty;
     private Runnable onKeyframeChanged;
     private Runnable onDeleteRequested;
 
     public KeyframeEditor() {
-        setSpacing(8);
-        setPadding(new Insets(12));
+        setSpacing(6);
+        setPadding(new Insets(8));
         setStyle("-fx-background-color: #1a1a1a;");
-        setMinHeight(150);
+        setMinHeight(140);
 
         Label header = new Label("Keyframe Editor");
-        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
+        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
 
         GridPane grid = new GridPane();
         grid.setHgap(8);
@@ -47,14 +51,16 @@ public class KeyframeEditor extends VBox {
         lblProperty = new Label("-");
 
         tfTime = new TextField();
-        tfTime.setPrefWidth(70);
+        tfTime.setPrefWidth(60);
+        tfTime.setStyle(FIELD_STYLE);
         sliderTime = new Slider(0, 3000, 0);
         sliderTime.setTooltip(new Tooltip("Drag to adjust keyframe time"));
         HBox timeRow = new HBox(6, tfTime, sliderTime);
         HBox.setHgrow(sliderTime, Priority.ALWAYS);
 
         tfValue = new TextField();
-        tfValue.setPrefWidth(70);
+        tfValue.setPrefWidth(60);
+        tfValue.setStyle(FIELD_STYLE);
         sliderValue = new Slider(-2000, 2000, 0);
         sliderValue.setTooltip(new Tooltip("Drag to adjust value"));
         HBox valueRow = new HBox(6, tfValue, sliderValue);
@@ -65,11 +71,14 @@ public class KeyframeEditor extends VBox {
         cbEasing.setValue(Easing.Type.LINEAR);
 
         btnDelete = new Button("Delete");
-        btnDelete.setStyle("-fx-background-color: #f38ba8; -fx-text-fill: #121212;");
+        btnDelete.setStyle("-fx-background-color: #e05577; -fx-text-fill: #0a0a0a; -fx-background-radius: 3; " +
+            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnDelete.setTooltip(new Tooltip("Delete this keyframe (Del)"));
 
         btnResetValue = new Button("Reset");
         btnResetValue.setTooltip(new Tooltip("Reset to property default"));
-        btnResetValue.setStyle("-fx-background-color: #3a3a3a; -fx-text-fill: #e6e6e6;");
+        btnResetValue.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 3; " +
+            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
 
         HBox actionRow = new HBox(6, btnDelete, btnResetValue);
 
@@ -86,7 +95,7 @@ public class KeyframeEditor extends VBox {
         grid.add(actionRow, 1, 5);
 
         for (var node : grid.getChildren()) {
-            if (node instanceof Label l) l.setStyle("-fx-text-fill: #a0a0a0;");
+            if (node instanceof Label l && l != header) l.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
         }
 
         getChildren().addAll(header, grid);

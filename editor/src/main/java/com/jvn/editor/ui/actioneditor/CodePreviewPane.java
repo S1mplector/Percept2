@@ -13,13 +13,13 @@ public class CodePreviewPane extends VBox {
     private Runnable onCopy;
 
     public CodePreviewPane() {
-        setSpacing(8);
-        setPadding(new Insets(8));
+        setSpacing(6);
+        setPadding(new Insets(6, 8, 6, 8));
         setStyle("-fx-background-color: #1a1a1a;");
-        setMinWidth(280);
+        setMinWidth(260);
 
         Label header = new Label("Generated Code");
-        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
+        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
 
         codeArea = new TextArea();
         codeArea.setEditable(false);
@@ -32,9 +32,14 @@ public class CodePreviewPane extends VBox {
         );
         VBox.setVgrow(codeArea, Priority.ALWAYS);
 
-        btnCopy = new Button("📋 Copy to Clipboard");
+        btnCopy = new Button("Copy to Clipboard");
         btnCopy.setMaxWidth(Double.MAX_VALUE);
-        btnCopy.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #121212;");
+        btnCopy.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
+            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnCopy.setOnMouseEntered(e -> btnCopy.setStyle("-fx-background-color: #5bb3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
+            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"));
+        btnCopy.setOnMouseExited(e -> btnCopy.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
+            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"));
         btnCopy.setOnAction(e -> {
             if (onCopy != null) onCopy.run();
         });
