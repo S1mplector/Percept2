@@ -931,15 +931,19 @@ public class NewProjectWizard extends Stage {
     String script = """
         # %s - Prologue
         # Created with JVN Engine
-        # Rich VNS showcase: variables, branching, conditions, transitions, screen effects, and utility commands.
+        # Formal narrative showcase for VNS:
+        # variables, branching, conditions, transitions, screen effects, and utility commands.
 
         @scenario %s
         @define cityName Dawnfall
         @var playerName Player
         @var trust 0
         @var courage 0
+        @var discipline 0
         @var hasMap false
         @var route neutral
+        @var audit 0
+        @var dayPhase morning
 
         @character narrator "Narrator"
         @character hero "Codel"
@@ -956,6 +960,7 @@ public class NewProjectWizard extends Stage {
 
         @background field_day assets/demo/backgrounds/field/field.jpg
         @background field_evening assets/demo/backgrounds/field/field.jpg
+        @background field_night assets/demo/backgrounds/field/field.jpg
 
         @label start
         [bg field_day]
@@ -963,106 +968,203 @@ public class NewProjectWizard extends Stage {
         [textspeed 28]
         [autodelay 1800]
         [set route intro]
+        [set dayPhase morning]
+        [set audit 0]
 
         Narrator: Welcome to {b}%s{/b}.
-        Narrator: This prologue demonstrates choices, variables, condition blocks, transitions, and screen effects.
+        Narrator: This sample is structured as a small, formal training scenario for your team.
+        Narrator: It demonstrates long-form flow design, variable-driven routes, and reproducible pacing.
         [show hero center neutral]
-        Hero: Hey ${playerName}, I am Codel. We'll build your first scene in ${cityName}.
+        [wait 240]
+        Hero: Good day, ${playerName}. I am Codel, your lead reviewer for the ${cityName} orientation.
+        Hero: For clarity, each of my scene entrances includes a visible fade-in beat.
+        [inc audit 1]
 
-        [choice Take the full guided tour->guided_tour | Jump straight to branching demo->branch_hub | Open quick utility demo->utility_demo]
+        [choice Begin orientation briefing->orientation | Enter tactical simulation->simulation_hub | Open runtime systems laboratory->systems_demo]
 
-        @label guided_tour
+        @label orientation
         [show guide right smile]
-        Guide: The scene is using imported demo assets from assets/demo/.
-        Guide: Let's test visual feedback first.
-        [screen flash 0.35 150 1 1 1]
-        [screen shake 5 220]
-        [hud Welcome to the guided tour!]
+        [wait 180]
+        Guide: The project has loaded bundled assets from assets/demo/.
+        Guide: We will proceed in controlled modules.
         [inc trust 1]
-        [inc courage 1]
+        [inc discipline 1]
+        [inc audit 1]
 
-        Narrator: Choices can also be condition-gated.
-        > Ask about variable checks [if trust >= 1] -> variable_talk
-        > Skip to branch hub -> branch_hub
+        > Review dialogue style and text effects -> orientation_dialogue
+        > Review condition and branching logic -> orientation_conditions
+        > Proceed to tactical simulation -> simulation_hub
 
-        @label variable_talk
-        Guide: We can also use block conditions.
-        [if courage >= 2]
-        Guide: You're already bold.
-        [elif courage == 1]
-        Guide: Courage is rising.
+        @label orientation_dialogue
+        Guide: Formal dialogue can still leverage emphasis such as {b}priority{/b}, {color=#4a9eff}state readouts{/color}, and {wave}low-intensity motion{/wave}.
+        [show hero center smile]
+        [wait 220]
+        Hero: Correct. Use effects with restraint to preserve readability across long scenes.
+        [inc trust 1]
+        [inc audit 1]
+        [jump orientation]
+
+        @label orientation_conditions
+        Guide: Condition blocks can branch both text and progression.
+        [if trust >= 2]
+        Guide: Trust threshold met: ${trust}.
         [else]
-        Guide: Courage is still low.
+        Guide: Trust threshold not yet met.
         [endif]
-        [set route guided]
-        [jump branch_hub]
+        [if courage >= 2]
+        Guide: Courage threshold met: ${courage}.
+        [else]
+        Guide: Courage remains conservative at ${courage}.
+        [endif]
+        [inc audit 1]
+        [jump orientation]
 
-        @label branch_hub
-        Narrator: Pick a route. Decisions update state.
-        [choice Be brave->route_brave | Be careful->route_careful | Check map inventory gate->route_map_check]
+        @label simulation_hub
+        [set route simulation_hub]
+        Narrator: Tactical simulation hub.
+        Narrator: Current state => trust=${trust}, courage=${courage}, discipline=${discipline}, hasMap=${hasMap}.
+        [choice Execute direct approach->simulation_direct | Execute diplomatic approach->simulation_diplomatic | Validate logistics gate->simulation_logistics]
 
-        @label route_brave
-        [set route brave]
+        @label simulation_direct
+        [set route direct]
         [inc courage 2]
+        [inc discipline 1]
         [show hero left determined]
-        Hero: Bold route selected.
+        [wait 220]
+        Hero: Direct approach authorized. Decisive action has strategic value.
+        [screen shake 4 180]
         [transition crossfade 650 field_evening]
-        Narrator: Crossfade transition complete.
-        [jump checkpoint]
+        [set dayPhase evening]
+        [inc audit 1]
+        [jump evaluation]
 
-        @label route_careful
-        [set route careful]
-        [inc trust 1]
+        @label simulation_diplomatic
+        [set route diplomatic]
+        [inc trust 2]
+        [inc discipline 1]
         [show guide left serious]
-        Guide: Careful route selected.
-        Narrator: Slower pacing can be better for emotional scenes.
-        [jump checkpoint]
+        [wait 170]
+        Guide: Diplomatic approach selected. Stability favored over speed.
+        [show hero center smile]
+        [wait 220]
+        Hero: Consensus accepted. We proceed with reduced volatility.
+        [inc audit 1]
+        [jump evaluation]
 
-        @label route_map_check
-        [if hasMap == true goto route_map_known]
-        Narrator: You don't have a map yet.
+        @label simulation_logistics
+        [if hasMap == true goto simulation_logistics_ready]
+        Narrator: Logistics check failed. Navigation schema not yet available.
         [flag hasMap]
-        Narrator: Map acquired. Try this branch again to see conditional goto.
-        [jump branch_hub]
+        [inc trust 1]
+        [inc discipline 1]
+        [inc audit 1]
+        Narrator: Map credential issued. Re-enter this route to validate conditional goto flow.
+        [jump simulation_hub]
 
-        @label route_map_known
-        [set route map_ready]
-        Narrator: Conditional goto succeeded because hasMap is true.
-        [jump checkpoint]
+        @label simulation_logistics_ready
+        [set route logistics_ready]
+        [inc courage 1]
+        [inc trust 1]
+        [inc discipline 1]
+        [show hero center determined]
+        [wait 220]
+        Hero: Logistics route validated. Conditional routing operated as expected.
+        [inc audit 1]
+        [jump evaluation]
 
-        @label utility_demo
-        Narrator: Utility command demo.
+        @label systems_demo
+        [set route systems_demo]
+        Narrator: Runtime systems laboratory.
+        Narrator: The following commands are included for operational verification.
         [save]
         [quickload]
         [history show]
-        [wait 450]
+        [wait 420]
         [history hide]
         [ui hide]
         [wait 220]
         [ui show]
         [skip off]
         [auto off]
-        [set route utility]
-        Narrator: You can also trigger menu actions from script with [menu settings], [menu load], and [menu main].
-        [jump checkpoint]
+        [screen flash 0.35 150 1 1 1]
+        [hud Systems laboratory completed]
+        [inc audit 1]
+        Narrator: Menu actions are available via script commands such as [menu settings], [menu load], and [menu main].
+        > Continue to evaluation -> evaluation
+        > Return to tactical simulation -> simulation_hub
 
-        @label checkpoint
-        Narrator: Current route: {color=#4a9eff}${route}{/color}, trust=${trust}, courage=${courage}.
+        @label evaluation
+        Narrator: Evaluation checkpoint.
+        Narrator: route=${route}, trust=${trust}, courage=${courage}, discipline=${discipline}, audit=${audit}, dayPhase=${dayPhase}.
         [if trust >= 2]
-        Hero: Trust unlocked an extra line.
+        Hero: Trust threshold reached. Cooperative outcomes are now available.
         [else]
-        Hero: More trust will unlock extra dialogue.
+        Hero: Trust threshold not reached. Cooperative outcomes remain limited.
         [endif]
+        [if courage >= 3]
+        Narrator: Courage threshold reached.
+        [endif]
+        [if hasMap == true]
+        Narrator: Logistics credential present.
+        [endif]
+        [choice Run final assessment->ending_gate | Re-open tactical hub->simulation_hub | Re-open systems laboratory->systems_demo]
 
-        > Continue to finale -> finale
-        > Replay branch selection -> branch_hub
+        @label ending_gate
+        [show rival right neutral]
+        [wait 170]
+        Rival: Final assessment begins. Outcomes will now branch by accumulated state.
+        [if courage >= 3 && trust >= 3 && discipline >= 2 goto ending_exemplar]
+        [if courage >= 3 goto ending_resolute]
+        [if trust >= 3 goto ending_diplomatic]
+        [jump ending_standard]
+
+        @label ending_exemplar
+        [set route exemplar]
+        [show hero center smile]
+        [wait 240]
+        Hero: Exemplar outcome confirmed. Balance across leadership metrics achieved.
+        [transition fade 500]
+        [bg field_night]
+        [set dayPhase night]
+        [hud Exemplar route unlocked]
+        [inc audit 1]
+        [jump finale]
+
+        @label ending_resolute
+        [set route resolute]
+        [show hero center determined]
+        [wait 230]
+        Hero: Resolute outcome confirmed. Decisive force dominated this run.
+        [inc audit 1]
+        [jump finale]
+
+        @label ending_diplomatic
+        [set route diplomatic_end]
+        [show hero center smile]
+        [wait 230]
+        Hero: Diplomatic outcome confirmed. Trust-driven leadership prevailed.
+        [inc audit 1]
+        [jump finale]
+
+        @label ending_standard
+        [set route standard]
+        [show hero center neutral]
+        [wait 220]
+        Hero: Standard outcome confirmed. Baseline path remains valid.
+        [jump finale]
 
         @label finale
-        [show rival right neutral]
-        Rival: Even simple scripts can support strong structure.
+        Narrator: Final report => route={color=#4a9eff}${route}{/color}, trust=${trust}, courage=${courage}, discipline=${discipline}, audit=${audit}.
+        [if audit >= 6]
+        Narrator: Coverage score is high. Most core systems were exercised in this run.
+        [else]
+        Narrator: Coverage score is partial. Additional branches remain available for review.
+        [endif]
         [show hero center smile]
+        [wait 240]
         Hero: Edit this file at {b}%s{/b} and make it yours.
-        Narrator: {wave}End of demo prologue.{/wave}
+        Narrator: Replace this formal scaffold with your own cast, assets, and progression rules.
+        Narrator: {wave}End of extended demo prologue.{/wave}
 
         [end]
         """.formatted(name, scenarioId, name, ENTRY_SCRIPT_PATH);
