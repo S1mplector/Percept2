@@ -39,7 +39,7 @@ final class LayoutStudioPalette {
   static final Color TAG_BORDER = Color.rgb(110, 140, 200, 0.8);
   static final Color TAG_TEXT = Color.rgb(225, 235, 255, 0.95);
 
-  static final Color DIALOGUE_OVERLAY = Color.rgb(0, 0, 0, 0.78);
+  static final Color DIALOGUE_OVERLAY = Color.rgb(0, 0, 0, 0.62);
   static final Color DIALOGUE_ASSET_OVERLAY = Color.rgb(0, 0, 0, 0.30);
   static final Color DIALOGUE_NAME_FILL = Color.rgb(42, 47, 68, 0.95);
 

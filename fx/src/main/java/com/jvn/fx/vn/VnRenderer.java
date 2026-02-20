@@ -47,7 +47,7 @@ public class VnRenderer {
   private List<VnUiActionButtonSpec> textBoxButtons = List.of();
 
   // UI Colors
-  private static final Color TEXTBOX_COLOR = Color.rgb(0, 0, 0, 0.8);
+  private static final Color TEXTBOX_COLOR = Color.rgb(0, 0, 0, 0.62);
   private static final Color NAME_BOX_COLOR = Color.rgb(30, 30, 50, 0.9);
   private static final Color TEXT_COLOR = Color.WHITE;
   private static final Color CHOICE_BG_COLOR = Color.rgb(50, 50, 70, 0.9);
