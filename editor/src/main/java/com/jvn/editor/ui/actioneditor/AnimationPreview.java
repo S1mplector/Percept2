@@ -209,23 +209,45 @@ public class AnimationPreview extends VBox {
         double worldX = camera.getX() + screenX / z;
         double worldY = camera.getY() + screenY / z;
 
-        String closestName = null;
-        Entity2D closestEntity = null;
-        double closestDist = 40.0 / z;
-        for (var entry : scene.exportNamed().entrySet()) {
-            Entity2D entity = entry.getValue();
-            double dx = worldX - entity.getX();
-            double dy = worldY - entity.getY();
-            double dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < closestDist) {
-                closestDist = dist;
-                closestName = entry.getKey();
-                closestEntity = entity;
+        // Iterate in reverse render order so topmost entity wins
+        String bestName = null;
+        Entity2D bestEntity = null;
+        var named = scene.exportNamed();
+        var children = scene.getChildren();
+        for (int i = children.size() - 1; i >= 0; i--) {
+            Entity2D entity = children.get(i);
+            double[] bounds = getEntityBounds(entity);
+            if (worldX >= bounds[0] && worldX <= bounds[0] + bounds[2]
+                    && worldY >= bounds[1] && worldY <= bounds[1] + bounds[3]) {
+                // Find its name
+                for (var entry : named.entrySet()) {
+                    if (entry.getValue() == entity) {
+                        bestName = entry.getKey();
+                        bestEntity = entity;
+                        break;
+                    }
+                }
+                if (bestName != null) break;
             }
         }
-        selectedEntity = closestEntity;
-        selectedEntityName = closestName;
-        return closestName;
+        selectedEntity = bestEntity;
+        selectedEntityName = bestName;
+        return bestName;
+    }
+
+    private double[] getEntityBounds(Entity2D entity) {
+        double x = entity.getX();
+        double y = entity.getY();
+        double w = 40, h = 40; // default fallback size
+        double ox = 0.5, oy = 0.5; // default origin
+
+        if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+            w = sprite.getWidth();
+            h = sprite.getHeight();
+            ox = sprite.getOriginX();
+            oy = sprite.getOriginY();
+        }
+        return new double[]{ x - ox * w, y - oy * h, w, h };
     }
 
     private void setupMouseControls() {
@@ -306,15 +328,23 @@ public class AnimationPreview extends VBox {
     private void drawSelectionHighlight(Entity2D entity) {
         if (entity == null) return;
         double z = camera.getZoom();
-        double sx = (entity.getX() - camera.getX()) * z;
-        double sy = (entity.getY() - camera.getY()) * z;
-        double size = 30 * z;
+        double[] bounds = getEntityBounds(entity);
+        double sx = (bounds[0] - camera.getX()) * z;
+        double sy = (bounds[1] - camera.getY()) * z;
+        double sw = bounds[2] * z;
+        double sh = bounds[3] * z;
 
         gc.setStroke(Color.web("#f0b673"));
         gc.setLineWidth(2);
         gc.setLineDashes(6, 4);
-        gc.strokeRect(sx - size / 2, sy - size / 2, size, size);
+        gc.strokeRect(sx - 2, sy - 2, sw + 4, sh + 4);
         gc.setLineDashes((double[]) null);
+
+        if (selectedEntityName != null) {
+            gc.setFill(Color.web("#f0b673"));
+            gc.setFont(javafx.scene.text.Font.font("Arial", 10));
+            gc.fillText(selectedEntityName, sx, sy - 6);
+        }
     }
 
     public void fitToContent() {
