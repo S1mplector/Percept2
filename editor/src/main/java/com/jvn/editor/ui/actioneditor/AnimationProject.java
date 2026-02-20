@@ -6,6 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.jvn.core.animation.TimelineData;
+
 public class AnimationProject {
     private String name = "Untitled Animation";
     private double totalDurationMs = 3000;
@@ -266,5 +268,52 @@ public class AnimationProject {
         copy.rootEntityNames.addAll(rootEntityNames);
         copy.rootGroupNames.addAll(rootGroupNames);
         return copy;
+    }
+
+    /**
+     * Convert this editor-side AnimationProject to a lightweight runtime
+     * {@link TimelineData} suitable for registration in
+     * {@link com.jvn.core.animation.TimelineRegistry}.
+     */
+    public TimelineData toTimelineData(String timelineName) {
+        TimelineData data = new TimelineData(
+            timelineName != null ? timelineName : name,
+            totalDurationMs
+        );
+        data.setLooping(looping);
+
+        for (EntityTrack et : entityTracks.values()) {
+            TimelineData.Track track = new TimelineData.Track(et.getEntityName());
+            boolean hasData = false;
+
+            for (PropertyType prop : PropertyType.values()) {
+                List<Keyframe> keyframes = et.getKeyframes(prop);
+                if (keyframes.isEmpty()) continue;
+                hasData = true;
+
+                TimelineData.Property runtimeProp = mapProperty(prop);
+                if (runtimeProp == null) continue;
+
+                for (Keyframe kf : keyframes) {
+                    track.addKeyframe(runtimeProp,
+                        new TimelineData.Keyframe(kf.getTimeMs(), kf.getValue(), kf.getEasing()));
+                }
+            }
+
+            if (hasData) data.addTrack(track);
+        }
+        return data;
+    }
+
+    private static TimelineData.Property mapProperty(PropertyType p) {
+        return switch (p) {
+            case X -> TimelineData.Property.X;
+            case Y -> TimelineData.Property.Y;
+            case ROTATION -> TimelineData.Property.ROTATION;
+            case SCALE_X -> TimelineData.Property.SCALE_X;
+            case SCALE_Y -> TimelineData.Property.SCALE_Y;
+            case ALPHA -> TimelineData.Property.ALPHA;
+            case CAMERA_X, CAMERA_Y, CAMERA_ZOOM -> null;
+        };
     }
 }

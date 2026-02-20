@@ -2,6 +2,8 @@ package com.jvn.editor.ui.actioneditor;
 
 import java.util.function.Consumer;
 
+import com.jvn.core.animation.TimelineData;
+import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
@@ -53,6 +55,7 @@ public class PuppeteerWindow extends Stage {
 
     private final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
     private Consumer<String> onCopyCode;
+    private final TextField tfTimelineName;
 
     public PuppeteerWindow() {
         this(new AnimationProject());
@@ -164,9 +167,21 @@ public class PuppeteerWindow extends Stage {
 
         cbLoop.setOnAction(e -> this.project.setLooping(cbLoop.isSelected()));
 
+        tfTimelineName = new TextField("my_animation");
+        tfTimelineName.setPrefWidth(120);
+        tfTimelineName.setPromptText("Timeline name");
+        tfTimelineName.setTooltip(new Tooltip("Name for @external jes_timeline"));
+
+        Button btnRegister = new Button("Register");
+        btnRegister.setTooltip(new Tooltip("Register timeline for VNS @external jes_timeline"));
+        btnRegister.setOnAction(e -> registerTimeline());
+
         Button btnCopyCode = new Button("Copy Code");
         btnCopyCode.setOnAction(e -> {
-            String code = CodeExporter.export(this.project);
+            String name = tfTimelineName.getText().trim();
+            String code = name.isEmpty()
+                ? CodeExporter.export(this.project)
+                : CodeExporter.exportNamed(this.project, name);
             copyToClipboard(code);
             if (onCopyCode != null) onCopyCode.accept(code);
         });
@@ -191,6 +206,8 @@ public class PuppeteerWindow extends Stage {
             presetMenu,
             new Separator(Orientation.VERTICAL),
             lblTime,
+            new Separator(Orientation.VERTICAL),
+            new Label("Name:"), tfTimelineName, btnRegister,
             new Region(),
             btnCopyCode
         );

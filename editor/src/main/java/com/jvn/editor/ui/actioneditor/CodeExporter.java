@@ -10,6 +10,15 @@ import com.jvn.core.animation.Easing;
 
 public class CodeExporter {
 
+    public static String exportNamed(AnimationProject project, String name) {
+        String body = export(project);
+        StringBuilder sb = new StringBuilder();
+        sb.append("// Timeline: ").append(name).append("\n");
+        sb.append("// Usage in VNS: @external jes_timeline ").append(name).append("\n\n");
+        sb.append(body);
+        return sb.toString();
+    }
+
     public static String export(AnimationProject project) {
         if (project == null) return "timeline {\n}\n";
 

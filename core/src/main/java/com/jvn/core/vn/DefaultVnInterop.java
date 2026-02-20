@@ -107,6 +107,26 @@ public class DefaultVnInterop implements VnInterop {
     }
   }
 
+  private VnInteropResult handleJesTimeline(String payload, VnScene scene) {
+    String name = payload.trim();
+    if (name.isEmpty()) {
+      scene.getState().showHudMessage("jes_timeline: no name specified", 1500);
+      return VnInteropResult.advance();
+    }
+    TimelineData data = TimelineRegistry.get(name);
+    if (data == null) {
+      scene.getState().showHudMessage("jes_timeline: not found: " + name, 1500);
+      return VnInteropResult.advance();
+    }
+    if (sceneAccessor == null) {
+      scene.getState().showHudMessage("jes_timeline: no scene accessor", 1500);
+      return VnInteropResult.advance();
+    }
+    TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
+    scene.getState().addTimelineRunner(runner);
+    return VnInteropResult.advance();
+  }
+
   private void handleVar(String payload, VnScene scene) {
     String[] parts = split(payload);
     if (parts.length == 0) return;
