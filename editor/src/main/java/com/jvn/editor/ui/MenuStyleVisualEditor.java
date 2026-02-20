@@ -341,9 +341,13 @@ public class MenuStyleVisualEditor extends BorderPane {
 
   private void registerListeners() {
     List<TextField> textFields = List.of(
-        tfItemColor, tfItemSelectedColor, tfItemDisabledColor,
+        tfItemColor, tfItemSelectedColor, tfItemHoverColor, tfItemDisabledColor,
         tfItemPrefix, tfItemSelectedPrefix, tfItemDisabledPrefix,
-        tfButtonAsset, tfButtonSelectedAsset, tfButtonDisabledAsset
+        tfItemShadowColor,
+        tfButtonAsset, tfButtonSelectedAsset, tfButtonHoverAsset, tfButtonDisabledAsset,
+        tfTitleColor, tfTitleShadowColor,
+        tfHintsColor,
+        tfBackgroundAsset, tfBackgroundColor
     );
     for (TextField tf : textFields) {
       tf.textProperty().addListener((o, ov, nv) -> onControlChanged());
@@ -351,8 +355,17 @@ public class MenuStyleVisualEditor extends BorderPane {
     cbItemFontFamily.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     cbItemFontWeight.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spItemFontSize.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spItemShadowOffsetX.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spItemShadowOffsetY.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spItemOpacity.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spButtonTextPaddingX.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spButtonTextPaddingY.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    cbTitleFontFamily.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    cbTitleFontWeight.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spTitleFontSize.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    cbHintsFontFamily.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spHintsFontSize.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spBackgroundOpacity.valueProperty().addListener((o, ov, nv) -> onControlChanged());
   }
 
   private void onControlChanged() {
@@ -404,11 +417,32 @@ public class MenuStyleVisualEditor extends BorderPane {
     merged.setProperty("itemFontWeight", normalize(cbItemFontWeight.getValue(), "NORMAL"));
     merged.setProperty("itemFontSize", Integer.toString(spItemFontSize.getValue()));
 
+    setOptionalProperty(merged, "itemHoverColor", tfItemHoverColor.getText());
+    setOptionalProperty(merged, "itemShadowColor", tfItemShadowColor.getText());
+    setOptionalProperty(merged, "itemShadowOffsetX", formatDouble(spItemShadowOffsetX.getValue()));
+    setOptionalProperty(merged, "itemShadowOffsetY", formatDouble(spItemShadowOffsetY.getValue()));
+    if (spItemOpacity.getValue() < 1.0) merged.setProperty("itemOpacity", formatDouble(spItemOpacity.getValue()));
+
     setOptionalProperty(merged, "buttonAsset", tfButtonAsset.getText());
     setOptionalProperty(merged, "buttonSelectedAsset", tfButtonSelectedAsset.getText());
+    setOptionalProperty(merged, "buttonHoverAsset", tfButtonHoverAsset.getText());
     setOptionalProperty(merged, "buttonDisabledAsset", tfButtonDisabledAsset.getText());
     merged.setProperty("buttonTextPaddingX", formatDouble(spButtonTextPaddingX.getValue()));
     merged.setProperty("buttonTextPaddingY", formatDouble(spButtonTextPaddingY.getValue()));
+
+    setOptionalProperty(merged, "titleColor", tfTitleColor.getText());
+    setOptionalProperty(merged, "titleFontFamily", cbTitleFontFamily.getValue());
+    setOptionalProperty(merged, "titleFontWeight", cbTitleFontWeight.getValue());
+    merged.setProperty("titleFontSize", Integer.toString(spTitleFontSize.getValue()));
+    setOptionalProperty(merged, "titleShadowColor", tfTitleShadowColor.getText());
+
+    setOptionalProperty(merged, "hintsColor", tfHintsColor.getText());
+    setOptionalProperty(merged, "hintsFontFamily", cbHintsFontFamily.getValue());
+    merged.setProperty("hintsFontSize", Integer.toString(spHintsFontSize.getValue()));
+
+    setOptionalProperty(merged, "backgroundAsset", tfBackgroundAsset.getText());
+    setOptionalProperty(merged, "backgroundColor", tfBackgroundColor.getText());
+    if (spBackgroundOpacity.getValue() < 1.0) merged.setProperty("backgroundOpacity", formatDouble(spBackgroundOpacity.getValue()));
 
     StringBuilder out = new StringBuilder();
     out.append("# Menu style").append(System.lineSeparator());
