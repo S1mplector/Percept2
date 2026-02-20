@@ -19,7 +19,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.io.File;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,12 +41,14 @@ public class VersionControlView extends BorderPane {
   private final Label branchLabel = new Label("Branch: --");
   private final Label syncLabel = new Label("Sync: --");
   private final Label summaryLabel = new Label("Status: --");
+  private final Label initHintLabel = new Label("Repository is not initialized for this project.");
 
   private final CheckBox chkInitWithLfs = new CheckBox("Enable Git LFS tracking");
   private final CheckBox chkInitCommit = new CheckBox("Create initial commit");
 
   private final Button btnRefresh = new Button("Refresh");
-  private final Button btnInit = new Button("Init Repo");
+  private final Button btnInitialize = new Button("Initialize Repository");
+  private final Button btnFetch = new Button("Fetch");
   private final Button btnPull = new Button("Pull --rebase");
   private final Button btnPush = new Button("Push");
   private final Button btnCommit = new Button("Commit All");
@@ -57,6 +58,8 @@ public class VersionControlView extends BorderPane {
   private final TextArea txtLog = new TextArea();
 
   private File projectRoot;
+  private boolean gitAvailable;
+  private boolean repositoryInitialized;
   private boolean busy;
   private Consumer<String> onOpenRelativePath;
 
@@ -64,6 +67,8 @@ public class VersionControlView extends BorderPane {
     titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
     repoLabel.setStyle("-fx-text-fill: #9aa0a6;");
     toolLabel.setStyle("-fx-text-fill: #9aa0a6;");
+    initHintLabel.setStyle("-fx-text-fill: #f0b673;");
+    initHintLabel.setWrapText(true);
 
     chkInitWithLfs.setSelected(true);
     chkInitCommit.setSelected(true);
@@ -90,12 +95,16 @@ public class VersionControlView extends BorderPane {
     });
 
     btnRefresh.setOnAction(e -> refreshStatus());
-    btnInit.setOnAction(e -> initializeRepository());
+    btnInitialize.setOnAction(e -> initializeRepository());
+    btnFetch.setOnAction(e -> runFetch());
     btnPull.setOnAction(e -> runPull());
     btnPush.setOnAction(e -> runPush());
     btnCommit.setOnAction(e -> runCommit());
 
-    HBox actionRow = new HBox(8, btnRefresh, btnInit, btnPull, btnPush);
+    HBox actionRow = new HBox(8, btnRefresh, btnFetch, btnPull, btnPush);
+    HBox initOptionsRow = new HBox(16, chkInitWithLfs, chkInitCommit);
+    HBox initActionRow = new HBox(8, btnInitialize);
+    VBox initBox = new VBox(4, initHintLabel, initOptionsRow, initActionRow);
     HBox commitRow = new HBox(8, txtCommitMessage, btnCommit);
     HBox.setHgrow(txtCommitMessage, Priority.ALWAYS);
 
@@ -106,7 +115,7 @@ public class VersionControlView extends BorderPane {
         toolLabel,
         new HBox(14, branchLabel, syncLabel),
         summaryLabel,
-        new HBox(16, chkInitWithLfs, chkInitCommit),
+        initBox,
         actionRow,
         commitRow
     );
@@ -119,7 +128,8 @@ public class VersionControlView extends BorderPane {
     setTop(top);
     setCenter(center);
 
-    updateToolAvailabilityLabel();
+    setInitControlsVisible(false, null);
+    updateToolAvailabilityLabel(false, false);
     setBusy(false);
   }
 
@@ -135,41 +145,57 @@ public class VersionControlView extends BorderPane {
 
   public void refreshStatus() {
     runAsync("Refresh status", () -> {
-      updateToolAvailabilityLabel();
+      boolean git = vcs.isGitAvailable();
+      boolean lfs = vcs.isGitLfsAvailable();
+      Platform.runLater(() -> {
+        gitAvailable = git;
+        updateToolAvailabilityLabel(git, lfs);
+      });
+
       if (projectRoot == null) {
         Platform.runLater(() -> {
+          repositoryInitialized = false;
           branchLabel.setText("Branch: --");
           syncLabel.setText("Sync: --");
           summaryLabel.setText("Status: no project selected");
           listChanges.getItems().clear();
+          setInitControlsVisible(false, null);
+          updateControlsForState();
         });
         return;
       }
 
-      if (!vcs.isGitAvailable()) {
+      if (!git) {
         Platform.runLater(() -> {
+          repositoryInitialized = false;
           branchLabel.setText("Branch: --");
           syncLabel.setText("Sync: --");
           summaryLabel.setText("Status: Git unavailable");
           listChanges.getItems().clear();
+          setInitControlsVisible(false, null);
+          updateControlsForState();
         });
         return;
       }
 
       if (!vcs.isRepository(projectRoot)) {
         Platform.runLater(() -> {
+          repositoryInitialized = false;
           branchLabel.setText("Branch: (not initialized)");
           syncLabel.setText("Sync: --");
           summaryLabel.setText("Status: repository not initialized");
           listChanges.getItems().clear();
+          setInitControlsVisible(true, "This project is not a repository yet. Initialize it to enable commit/pull/push.");
+          updateControlsForState();
         });
-        appendLog("Repository is not initialized. Use Init Repo.");
+        appendLog("Repository is not initialized. Use Initialize Repository.");
         return;
       }
 
       try {
         GitVcsService.RepositoryStatus status = vcs.getRepositoryStatus(projectRoot);
         Platform.runLater(() -> {
+          repositoryInitialized = true;
           branchLabel.setText("Branch: " + safe(status.branch()));
           String upstream = status.upstream() == null || status.upstream().isBlank() ? "(no upstream)" : status.upstream();
           syncLabel.setText("Sync: " + upstream + "  [ahead " + status.ahead() + ", behind " + status.behind() + "]");
@@ -179,6 +205,8 @@ public class VersionControlView extends BorderPane {
             summaryLabel.setText("Status: " + status.entries().size() + " changed files");
           }
           listChanges.setItems(FXCollections.observableArrayList(status.entries()));
+          setInitControlsVisible(false, null);
+          updateControlsForState();
         });
       } catch (Exception ex) {
         appendLog(ex.getMessage());
@@ -197,6 +225,21 @@ public class VersionControlView extends BorderPane {
         boolean initialCommit = chkInitCommit.isSelected();
         vcs.bootstrapRepository(projectRoot, useLfs, initialCommit, "Initialize JVN project scaffold");
         appendLog("Repository initialized" + (useLfs ? " with Git LFS defaults." : "."));
+      } catch (Exception ex) {
+        appendLog(ex.getMessage());
+      }
+      refreshStatus();
+    });
+  }
+
+  private void runFetch() {
+    runAsync("Fetch", () -> {
+      if (projectRoot == null) {
+        appendLog("Select a project before fetching.");
+        return;
+      }
+      try {
+        appendCommandResult(vcs.fetch(projectRoot));
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
@@ -276,10 +319,8 @@ public class VersionControlView extends BorderPane {
     onOpenRelativePath.accept(relative);
   }
 
-  private void updateToolAvailabilityLabel() {
-    boolean git = vcs.isGitAvailable();
-    boolean lfs = vcs.isGitLfsAvailable();
-    Platform.runLater(() -> toolLabel.setText("Git: " + (git ? "ok" : "missing") + "   Git LFS: " + (lfs ? "ok" : "missing")));
+  private void updateToolAvailabilityLabel(boolean git, boolean lfs) {
+    toolLabel.setText("Git: " + (git ? "ok" : "missing") + "   Git LFS: " + (lfs ? "ok" : "missing"));
   }
 
   private void runAsync(String actionName, Runnable action) {
@@ -298,13 +339,37 @@ public class VersionControlView extends BorderPane {
 
   private void setBusy(boolean busy) {
     this.busy = busy;
+    updateControlsForState();
+  }
+
+  private void updateControlsForState() {
+    boolean hasProject = projectRoot != null;
+    boolean repoReady = hasProject && gitAvailable && repositoryInitialized;
+
     btnRefresh.setDisable(busy);
-    btnInit.setDisable(busy);
-    btnPull.setDisable(busy);
-    btnPush.setDisable(busy);
-    btnCommit.setDisable(busy);
-    chkInitWithLfs.setDisable(busy);
-    chkInitCommit.setDisable(busy);
+    btnInitialize.setDisable(busy || !hasProject || !gitAvailable || repositoryInitialized);
+    btnFetch.setDisable(busy || !repoReady);
+    btnPull.setDisable(busy || !repoReady);
+    btnPush.setDisable(busy || !repoReady);
+    btnCommit.setDisable(busy || !repoReady);
+    txtCommitMessage.setDisable(busy || !repoReady);
+    listChanges.setDisable(!repoReady);
+    chkInitWithLfs.setDisable(busy || !hasProject || repositoryInitialized);
+    chkInitCommit.setDisable(busy || !hasProject || repositoryInitialized);
+  }
+
+  private void setInitControlsVisible(boolean visible, String hintText) {
+    initHintLabel.setText((hintText == null || hintText.isBlank())
+        ? "Repository is not initialized for this project."
+        : hintText);
+    initHintLabel.setVisible(visible);
+    initHintLabel.setManaged(visible);
+    chkInitWithLfs.setVisible(visible);
+    chkInitWithLfs.setManaged(visible);
+    chkInitCommit.setVisible(visible);
+    chkInitCommit.setManaged(visible);
+    btnInitialize.setVisible(visible);
+    btnInitialize.setManaged(visible);
   }
 
   private void appendLog(String message) {
