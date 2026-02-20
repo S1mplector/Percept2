@@ -13,6 +13,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MenuProfileLoaderTest {
 
@@ -236,5 +237,29 @@ class MenuProfileLoaderTest {
     assertEquals(">>", profile.style("soft").itemPrefix());
     assertEquals("soft", profile.screen("extras").defaultStyleId());
     assertEquals(MenuActionType.BACK, profile.screen("extras").items().get(1).action().type());
+  }
+
+  @Test
+  void emitsDiagnosticsForInvalidValuesAndUnknownAction() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-diagnostics-");
+    Files.createDirectories(root.resolve("config/menu/menus"));
+    Files.createDirectories(root.resolve("config/menu/layouts"));
+    Files.writeString(root.resolve("config/menu/menu.registry"), "menus=main\nlayouts=default\n");
+    Files.writeString(root.resolve("config/menu/layouts/default.layout"), """
+        lineHeight=nan-value
+        """);
+    Files.writeString(root.resolve("config/menu/menus/main.menu"), """
+        wrapSelection=not_bool
+        items=bad
+        item.bad.action=unknown_custom_action
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfileLoader.LoadResult result = MenuProfileLoader.loadWithDiagnostics(assets);
+
+    assertEquals(MenuActionType.NOOP, result.profile().screen("main").items().get(0).action().type());
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("lineHeight")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("wrapSelection")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("unknown_custom_action")));
   }
 }

@@ -2,6 +2,7 @@ package com.jvn.core.vn;
 
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
+import com.jvn.core.vn.ui.VnUiStyleSpec;
 import org.junit.jupiter.api.Test;
 
 import java.util.Properties;
@@ -39,5 +40,39 @@ class VnUiLayoutLoaderTest {
     assertTrue(p.containsKey("dialogueTextHorizontalPadding"));
     assertTrue(p.containsKey("choiceYStart"));
     assertEquals("0.75", p.getProperty("textBoxY"));
+  }
+
+  @Test
+  void parsesStyleOverrides() {
+    Properties p = new Properties();
+    p.setProperty("textBoxAsset", "assets/ui/textbox.png");
+    p.setProperty("choiceButtonAsset", "assets/ui/choice.png");
+    p.setProperty("choiceHoverColor", "#4466aa");
+    p.setProperty("choiceBorderWidth", "3");
+    p.setProperty("choiceTextBaselineOffset", "7");
+
+    VnUiStyleSpec style = VnUiLayoutLoader.parseStyle(p, VnUiStyleSpec.defaults());
+
+    assertEquals("assets/ui/textbox.png", style.textBoxAssetPath());
+    assertEquals("assets/ui/choice.png", style.choiceButtonAssetPath());
+    assertEquals("#4466aa", style.choiceHoverColor());
+    assertEquals(3.0, style.choiceBorderWidth(), 1e-6);
+    assertEquals(7.0, style.choiceTextBaselineOffset(), 1e-6);
+  }
+
+  @Test
+  void reportsDiagnosticsForInvalidNumbers() {
+    Properties p = new Properties();
+    p.setProperty("textBoxY", "oops");
+    p.setProperty("choiceCornerRadius", "not-a-number");
+
+    VnUiLayoutLoader.LoadResult result = VnUiLayoutLoader.parseWithDiagnostics(
+        p,
+        VnUiLayoutSpec.defaults(),
+        VnUiStyleSpec.defaults()
+    );
+
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("textBoxY")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("choiceCornerRadius")));
   }
 }

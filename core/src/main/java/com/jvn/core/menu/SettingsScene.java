@@ -15,11 +15,14 @@ import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnSettingsStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class SettingsScene implements Scene {
+  private static final Logger LOG = LoggerFactory.getLogger(SettingsScene.class);
   private static final String KEY_TEXT_SPEED = "text_speed";
   private static final String KEY_BGM_VOLUME = "bgm_volume";
   private static final String KEY_SFX_VOLUME = "sfx_volume";
@@ -76,7 +79,15 @@ public class SettingsScene implements Scene {
     } else {
       this.bindings = new ActionBindingProfile();
     }
-    this.menuProfile = (profile == null) ? MenuProfileLoader.loadFromAssets() : profile;
+    if (profile == null) {
+      MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
+      this.menuProfile = menuLoad.profile();
+      for (String warning : menuLoad.diagnostics()) {
+        LOG.warn("Menu profile: {}", warning);
+      }
+    } else {
+      this.menuProfile = profile;
+    }
     this.menuScreen = menuProfile.screen("settings");
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());
     this.rows = buildRows();

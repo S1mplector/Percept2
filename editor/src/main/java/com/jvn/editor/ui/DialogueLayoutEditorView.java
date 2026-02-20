@@ -2,6 +2,7 @@ package com.jvn.editor.ui;
 
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
+import com.jvn.core.vn.ui.VnUiStyleSpec;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
@@ -33,7 +34,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Consumer;
 
@@ -88,15 +88,12 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Canvas preview = new Canvas(920, 430);
   private final Properties rawProperties = new Properties();
   private VnUiLayoutSpec spec = VnUiLayoutSpec.defaults();
+  private VnUiStyleSpec style = VnUiStyleSpec.defaults();
   private Consumer<String> onLayoutTextChanged;
   private boolean suppressEvents = false;
   private String lastLoadedText = "";
   private String lastEmittedText = "";
   private File projectRoot;
-  private String textBoxAssetPath = "";
-  private String choiceButtonAssetPath = "";
-  private String choiceButtonHoverAssetPath = "";
-  private String choiceButtonDisabledAssetPath = "";
   private Image textBoxAssetImage;
   private Image choiceButtonAssetImage;
   private Image choiceButtonHoverAssetImage;
@@ -109,6 +106,10 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Spinner<Double> spTextBoxHeight = spinner(0.05, 1, 0.25, 0.01);
   private final Spinner<Double> spTextBoxPadding = spinner(0, 200, 20, 1);
   private final TextField tfTextBoxAsset = new TextField();
+  private final TextField tfChoiceButtonAsset = new TextField();
+  private final TextField tfChoiceButtonHoverAsset = new TextField();
+  private final TextField tfChoiceButtonSelectedAsset = new TextField();
+  private final TextField tfChoiceButtonDisabledAsset = new TextField();
 
   private final Spinner<Double> spNameBoxXOffset = spinner(-500, 500, 20, 1);
   private final Spinner<Double> spNameBoxYOffset = spinner(-500, 500, -40, 1);
@@ -126,6 +127,21 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Spinner<Double> spChoiceHeight = spinner(14, 200, 50, 1);
   private final Spinner<Double> spChoiceGap = spinner(0, 120, 10, 1);
   private final Spinner<Double> spChoiceTextXPadding = spinner(0, 300, 20, 1);
+  private final TextField tfChoiceBgColor = new TextField();
+  private final TextField tfChoiceHoverColor = new TextField();
+  private final TextField tfChoiceSelectedColor = new TextField();
+  private final TextField tfChoiceDisabledColor = new TextField();
+  private final TextField tfChoiceTextColor = new TextField();
+  private final TextField tfChoiceHoverTextColor = new TextField();
+  private final TextField tfChoiceSelectedTextColor = new TextField();
+  private final TextField tfChoiceDisabledTextColor = new TextField();
+  private final TextField tfChoiceBorderColor = new TextField();
+  private final TextField tfChoiceHoverBorderColor = new TextField();
+  private final TextField tfChoiceSelectedBorderColor = new TextField();
+  private final TextField tfChoiceDisabledBorderColor = new TextField();
+  private final Spinner<Double> spChoiceCornerRadius = spinner(0, 96, 10, 1);
+  private final Spinner<Double> spChoiceBorderWidth = spinner(0, 12, 2, 0.1);
+  private final Spinner<Double> spChoiceTextBaselineOffset = spinner(-120, 120, 5, 1);
 
   private DragTarget dragTarget = DragTarget.NONE;
   private double dragStartX;
@@ -189,38 +205,19 @@ public class DialogueLayoutEditorView extends BorderPane {
       // Keep defaults for invalid input.
     }
     spec = VnUiLayoutLoader.parse(rawProperties, VnUiLayoutSpec.defaults());
-    textBoxAssetPath = normalizeAssetPath(rawProperties.getProperty("textBoxAsset"));
-    choiceButtonAssetPath = normalizeAssetPath(rawProperties.getProperty("choiceButtonAsset"));
-    choiceButtonHoverAssetPath = normalizeAssetPath(firstNonBlank(
-        rawProperties.getProperty("choiceButtonHoverAsset"),
-        rawProperties.getProperty("choiceButtonSelectedAsset")));
-    choiceButtonDisabledAssetPath = normalizeAssetPath(rawProperties.getProperty("choiceButtonDisabledAsset"));
+    style = VnUiLayoutLoader.parseStyle(rawProperties, VnUiStyleSpec.defaults());
     applySpecToControls(spec);
-    tfTextBoxAsset.setText(textBoxAssetPath);
+    applyStyleToControls(style);
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
     suppressEvents = false;
     redraw();
     lastLoadedText = normalizedInput;
-    lastEmittedText = normalizeText(serialize(
-        spec,
-        rawProperties,
-        textBoxAssetPath,
-        choiceButtonAssetPath,
-        choiceButtonHoverAssetPath,
-        choiceButtonDisabledAssetPath
-    ));
+    lastEmittedText = normalizeText(serialize(spec, style, rawProperties));
   }
 
   public String getLayoutText() {
-    return serialize(
-        spec,
-        rawProperties,
-        textBoxAssetPath,
-        choiceButtonAssetPath,
-        choiceButtonHoverAssetPath,
-        choiceButtonDisabledAssetPath
-    );
+    return serialize(spec, style, rawProperties);
   }
 
   private GridPane buildControls() {
@@ -230,12 +227,23 @@ public class DialogueLayoutEditorView extends BorderPane {
     grid.setPadding(new Insets(8));
 
     tfTextBoxAsset.setPromptText("assets/ui/textbox.png");
-    Button btnBrowseAsset = new Button("Browse...");
-    Button btnClearAsset = new Button("Clear");
-    btnBrowseAsset.setOnAction(e -> browseTextBoxAsset());
-    btnClearAsset.setOnAction(e -> clearTextBoxAsset());
-    HBox assetRow = new HBox(6, tfTextBoxAsset, btnBrowseAsset, btnClearAsset);
-    HBox.setHgrow(tfTextBoxAsset, Priority.ALWAYS);
+    tfChoiceButtonAsset.setPromptText("assets/ui/choice.png");
+    tfChoiceButtonHoverAsset.setPromptText("assets/ui/choice_hover.png");
+    tfChoiceButtonSelectedAsset.setPromptText("assets/ui/choice_selected.png");
+    tfChoiceButtonDisabledAsset.setPromptText("assets/ui/choice_disabled.png");
+
+    tfChoiceBgColor.setPromptText("#3a3f54");
+    tfChoiceHoverColor.setPromptText("#4a5570");
+    tfChoiceSelectedColor.setPromptText("#4a5570");
+    tfChoiceDisabledColor.setPromptText("#3c3f4a");
+    tfChoiceTextColor.setPromptText("#ffffff");
+    tfChoiceHoverTextColor.setPromptText("#ffffff");
+    tfChoiceSelectedTextColor.setPromptText("#ffffff");
+    tfChoiceDisabledTextColor.setPromptText("#8b90a0");
+    tfChoiceBorderColor.setPromptText("#b2c5ff");
+    tfChoiceHoverBorderColor.setPromptText("#c5d3ff");
+    tfChoiceSelectedBorderColor.setPromptText("#c5d3ff");
+    tfChoiceDisabledBorderColor.setPromptText("#7a8194");
 
     int row = 0;
     row = addHeader(grid, row, "Textbox");
@@ -244,7 +252,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(grid, row, "TextBox Width", spTextBoxWidth);
     row = addRow(grid, row, "TextBox Height", spTextBoxHeight);
     row = addRow(grid, row, "TextBox Padding", spTextBoxPadding);
-    row = addRow(grid, row, "TextBox Asset", assetRow);
+    row = addRow(grid, row, "TextBox Asset", assetFieldRow(tfTextBoxAsset, "Select Textbox Asset"));
 
     row = addHeader(grid, row, "Name Box");
     row = addRow(grid, row, "Name X Offset", spNameBoxXOffset);
@@ -265,12 +273,41 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(grid, row, "Choice Height", spChoiceHeight);
     row = addRow(grid, row, "Choice Gap", spChoiceGap);
     row = addRow(grid, row, "Choice Text Padding", spChoiceTextXPadding);
+    row = addRow(grid, row, "Choice Button Asset", assetFieldRow(tfChoiceButtonAsset, "Select Choice Button Asset"));
+    row = addRow(grid, row, "Choice Hover Asset", assetFieldRow(tfChoiceButtonHoverAsset, "Select Choice Hover Asset"));
+    row = addRow(grid, row, "Choice Selected Asset", assetFieldRow(tfChoiceButtonSelectedAsset, "Select Choice Selected Asset"));
+    row = addRow(grid, row, "Choice Disabled Asset", assetFieldRow(tfChoiceButtonDisabledAsset, "Select Choice Disabled Asset"));
+    row = addRow(grid, row, "Choice Background Color", tfChoiceBgColor);
+    row = addRow(grid, row, "Choice Hover Color", tfChoiceHoverColor);
+    row = addRow(grid, row, "Choice Selected Color", tfChoiceSelectedColor);
+    row = addRow(grid, row, "Choice Disabled Color", tfChoiceDisabledColor);
+    row = addRow(grid, row, "Choice Text Color", tfChoiceTextColor);
+    row = addRow(grid, row, "Choice Hover Text Color", tfChoiceHoverTextColor);
+    row = addRow(grid, row, "Choice Selected Text Color", tfChoiceSelectedTextColor);
+    row = addRow(grid, row, "Choice Disabled Text Color", tfChoiceDisabledTextColor);
+    row = addRow(grid, row, "Choice Border Color", tfChoiceBorderColor);
+    row = addRow(grid, row, "Choice Hover Border Color", tfChoiceHoverBorderColor);
+    row = addRow(grid, row, "Choice Selected Border Color", tfChoiceSelectedBorderColor);
+    row = addRow(grid, row, "Choice Disabled Border Color", tfChoiceDisabledBorderColor);
+    row = addRow(grid, row, "Choice Corner Radius", spChoiceCornerRadius);
+    row = addRow(grid, row, "Choice Border Width", spChoiceBorderWidth);
+    row = addRow(grid, row, "Choice Text Baseline", spChoiceTextBaselineOffset);
 
     Label hint = new Label("Drag boxes in preview to position Textbox/Name/Choices.");
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
     grid.add(hint, 0, row, 2, 1);
     return grid;
+  }
+
+  private HBox assetFieldRow(TextField field, String dialogTitle) {
+    Button browse = new Button("Browse...");
+    browse.setOnAction(e -> browseAsset(field, dialogTitle));
+    Button clear = new Button("Clear");
+    clear.setOnAction(e -> field.setText(""));
+    HBox row = new HBox(6, field, browse, clear);
+    HBox.setHgrow(field, Priority.ALWAYS);
+    return row;
   }
 
   private int addHeader(GridPane grid, int row, String title) {
@@ -317,31 +354,58 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spChoiceHeight);
     controls.add(spChoiceGap);
     controls.add(spChoiceTextXPadding);
+    controls.add(spChoiceCornerRadius);
+    controls.add(spChoiceBorderWidth);
+    controls.add(spChoiceTextBaselineOffset);
     for (Spinner<Double> control : controls) {
       control.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     }
-    tfTextBoxAsset.textProperty().addListener((o, ov, nv) -> onTextBoxAssetChanged(nv));
+    List<TextField> styleFields = List.of(
+        tfTextBoxAsset,
+        tfChoiceButtonAsset,
+        tfChoiceButtonHoverAsset,
+        tfChoiceButtonSelectedAsset,
+        tfChoiceButtonDisabledAsset,
+        tfChoiceBgColor,
+        tfChoiceHoverColor,
+        tfChoiceSelectedColor,
+        tfChoiceDisabledColor,
+        tfChoiceTextColor,
+        tfChoiceHoverTextColor,
+        tfChoiceSelectedTextColor,
+        tfChoiceDisabledTextColor,
+        tfChoiceBorderColor,
+        tfChoiceHoverBorderColor,
+        tfChoiceSelectedBorderColor,
+        tfChoiceDisabledBorderColor
+    );
+    for (TextField field : styleFields) {
+      field.textProperty().addListener((o, ov, nv) -> onStyleChanged());
+    }
   }
 
   private void onControlChanged() {
     if (suppressEvents) return;
     spec = readSpecFromControls();
-    redraw();
-    emitText();
-  }
-
-  private void onTextBoxAssetChanged(String value) {
-    String normalized = normalizeAssetPath(value);
-    textBoxAssetPath = normalized;
+    style = readStyleFromControls();
     loadTextBoxAssetImage();
-    if (suppressEvents) return;
+    loadChoiceAssetImages();
     redraw();
     emitText();
   }
 
-  private void browseTextBoxAsset() {
+  private void onStyleChanged() {
+    if (suppressEvents) return;
+    style = readStyleFromControls();
+    loadTextBoxAssetImage();
+    loadChoiceAssetImages();
+    redraw();
+    emitText();
+  }
+
+  private void browseAsset(TextField target, String dialogTitle) {
     FileChooser chooser = new FileChooser();
-    chooser.setTitle("Select Textbox Asset");
+    chooser.setTitle(dialogTitle == null || dialogTitle.isBlank() ? "Select Asset" : dialogTitle);
     chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
         "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"));
 
@@ -354,11 +418,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     File picked = chooser.showOpenDialog(owner);
     if (picked == null) return;
     String relative = toProjectRelativePath(picked);
-    tfTextBoxAsset.setText(relative);
-  }
-
-  private void clearTextBoxAsset() {
-    tfTextBoxAsset.setText("");
+    target.setText(relative);
   }
 
   private void registerPreviewDrag() {
@@ -662,45 +722,74 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spChoiceTextXPadding, s.choiceTextXPadding());
   }
 
+  private VnUiStyleSpec readStyleFromControls() {
+    return new VnUiStyleSpec(
+        normalizeAssetPath(tfTextBoxAsset.getText()),
+        normalizeAssetPath(tfChoiceButtonAsset.getText()),
+        normalizeAssetPath(tfChoiceButtonHoverAsset.getText()),
+        normalizeAssetPath(tfChoiceButtonSelectedAsset.getText()),
+        normalizeAssetPath(tfChoiceButtonDisabledAsset.getText()),
+        normalizeColorValue(tfChoiceBgColor.getText()),
+        normalizeColorValue(tfChoiceHoverColor.getText()),
+        normalizeColorValue(tfChoiceSelectedColor.getText()),
+        normalizeColorValue(tfChoiceDisabledColor.getText()),
+        normalizeColorValue(tfChoiceTextColor.getText()),
+        normalizeColorValue(tfChoiceHoverTextColor.getText()),
+        normalizeColorValue(tfChoiceSelectedTextColor.getText()),
+        normalizeColorValue(tfChoiceDisabledTextColor.getText()),
+        normalizeColorValue(tfChoiceBorderColor.getText()),
+        normalizeColorValue(tfChoiceHoverBorderColor.getText()),
+        normalizeColorValue(tfChoiceSelectedBorderColor.getText()),
+        normalizeColorValue(tfChoiceDisabledBorderColor.getText()),
+        value(spChoiceCornerRadius),
+        value(spChoiceBorderWidth),
+        value(spChoiceTextBaselineOffset)
+    );
+  }
+
+  private void applyStyleToControls(VnUiStyleSpec s) {
+    tfTextBoxAsset.setText(normalizeAssetPath(s.textBoxAssetPath()));
+    tfChoiceButtonAsset.setText(normalizeAssetPath(s.choiceButtonAssetPath()));
+    tfChoiceButtonHoverAsset.setText(normalizeAssetPath(s.choiceButtonHoverAssetPath()));
+    tfChoiceButtonSelectedAsset.setText(normalizeAssetPath(s.choiceButtonSelectedAssetPath()));
+    tfChoiceButtonDisabledAsset.setText(normalizeAssetPath(s.choiceButtonDisabledAssetPath()));
+
+    tfChoiceBgColor.setText(normalizeColorValue(s.choiceBackgroundColor()));
+    tfChoiceHoverColor.setText(normalizeColorValue(s.choiceHoverColor()));
+    tfChoiceSelectedColor.setText(normalizeColorValue(s.choiceSelectedColor()));
+    tfChoiceDisabledColor.setText(normalizeColorValue(s.choiceDisabledColor()));
+    tfChoiceTextColor.setText(normalizeColorValue(s.choiceTextColor()));
+    tfChoiceHoverTextColor.setText(normalizeColorValue(s.choiceHoverTextColor()));
+    tfChoiceSelectedTextColor.setText(normalizeColorValue(s.choiceSelectedTextColor()));
+    tfChoiceDisabledTextColor.setText(normalizeColorValue(s.choiceDisabledTextColor()));
+    tfChoiceBorderColor.setText(normalizeColorValue(s.choiceBorderColor()));
+    tfChoiceHoverBorderColor.setText(normalizeColorValue(s.choiceHoverBorderColor()));
+    tfChoiceSelectedBorderColor.setText(normalizeColorValue(s.choiceSelectedBorderColor()));
+    tfChoiceDisabledBorderColor.setText(normalizeColorValue(s.choiceDisabledBorderColor()));
+
+    setValue(spChoiceCornerRadius, s.choiceCornerRadius());
+    setValue(spChoiceBorderWidth, s.choiceBorderWidth());
+    setValue(spChoiceTextBaselineOffset, s.choiceTextBaselineOffset());
+  }
+
   private void emitText() {
     if (onLayoutTextChanged == null) return;
-    String text = serialize(
-        spec,
-        rawProperties,
-        textBoxAssetPath,
-        choiceButtonAssetPath,
-        choiceButtonHoverAssetPath,
-        choiceButtonDisabledAssetPath
-    );
+    String text = serialize(spec, style, rawProperties);
     String normalized = normalizeText(text);
     if (normalized.equals(lastEmittedText)) return;
     lastEmittedText = normalized;
     onLayoutTextChanged.accept(text);
   }
 
-  private static String serialize(VnUiLayoutSpec spec,
-                                  Properties base,
-                                  String textBoxAssetPath,
-                                  String choiceButtonAssetPath,
-                                  String choiceButtonHoverAssetPath,
-                                  String choiceButtonDisabledAssetPath) {
+  private static String serialize(VnUiLayoutSpec spec, VnUiStyleSpec style, Properties base) {
     Properties merged = new Properties();
     if (base != null) {
       for (String key : base.stringPropertyNames()) merged.setProperty(key, base.getProperty(key));
     }
-    Properties generated = VnUiLayoutLoader.toProperties(spec);
+    Properties generated = VnUiLayoutLoader.toProperties(spec, style);
     for (String key : generated.stringPropertyNames()) {
       merged.setProperty(key, generated.getProperty(key));
     }
-    String normalizedAsset = normalizeAssetPath(textBoxAssetPath);
-    if (normalizedAsset.isBlank()) {
-      merged.remove("textBoxAsset");
-    } else {
-      merged.setProperty("textBoxAsset", normalizedAsset);
-    }
-    setOptionalProperty(merged, "choiceButtonAsset", choiceButtonAssetPath);
-    setOptionalProperty(merged, "choiceButtonHoverAsset", choiceButtonHoverAssetPath);
-    setOptionalProperty(merged, "choiceButtonDisabledAsset", choiceButtonDisabledAssetPath);
 
     StringBuilder out = new StringBuilder();
     out.append("# Dialogue UI layout").append(System.lineSeparator());
@@ -787,27 +876,27 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private ChoicePreviewStyle resolveChoicePreviewStyle() {
-    Color bg = parseColorProperty("choiceBackgroundColor", LayoutStudioPalette.PANEL_FILL);
-    Color hoverBg = parseColorProperty(
-        firstNonBlank(rawProperties.getProperty("choiceHoverColor"), rawProperties.getProperty("choiceSelectedColor")),
+    Color bg = parseColorValue(style.choiceBackgroundColor(), LayoutStudioPalette.PANEL_FILL);
+    Color hoverBg = parseColorValue(
+        firstNonBlank(style.choiceHoverColor(), style.choiceSelectedColor()),
         LayoutStudioPalette.PANEL_FILL_SELECTED);
-    Color disabledBg = parseColorProperty("choiceDisabledColor", LayoutStudioPalette.PANEL_FILL_DISABLED);
+    Color disabledBg = parseColorValue(style.choiceDisabledColor(), LayoutStudioPalette.PANEL_FILL_DISABLED);
 
-    Color text = parseColorProperty("choiceTextColor", LayoutStudioPalette.TEXT_PRIMARY);
-    Color hoverText = parseColorProperty(
-        firstNonBlank(rawProperties.getProperty("choiceHoverTextColor"), rawProperties.getProperty("choiceSelectedTextColor")),
+    Color text = parseColorValue(style.choiceTextColor(), LayoutStudioPalette.TEXT_PRIMARY);
+    Color hoverText = parseColorValue(
+        firstNonBlank(style.choiceHoverTextColor(), style.choiceSelectedTextColor()),
         text);
-    Color disabledText = parseColorProperty("choiceDisabledTextColor", LayoutStudioPalette.TEXT_DISABLED);
+    Color disabledText = parseColorValue(style.choiceDisabledTextColor(), LayoutStudioPalette.TEXT_DISABLED);
 
-    Color border = parseColorProperty("choiceBorderColor", LayoutStudioPalette.PANEL_BORDER_LIGHT);
-    Color hoverBorder = parseColorProperty(
-        firstNonBlank(rawProperties.getProperty("choiceHoverBorderColor"), rawProperties.getProperty("choiceSelectedBorderColor")),
+    Color border = parseColorValue(style.choiceBorderColor(), LayoutStudioPalette.PANEL_BORDER_LIGHT);
+    Color hoverBorder = parseColorValue(
+        firstNonBlank(style.choiceHoverBorderColor(), style.choiceSelectedBorderColor()),
         border);
-    Color disabledBorder = parseColorProperty("choiceDisabledBorderColor", LayoutStudioPalette.PANEL_BORDER);
+    Color disabledBorder = parseColorValue(style.choiceDisabledBorderColor(), LayoutStudioPalette.PANEL_BORDER);
 
-    double cornerRadius = clamp(parseDoubleProperty("choiceCornerRadius", 8.0), 0.0, 96.0);
-    double borderWidth = clamp(parseDoubleProperty("choiceBorderWidth", 1.6), 0.0, 12.0);
-    double textBaselineOffset = clamp(parseDoubleProperty("choiceTextBaselineOffset", 4.0), -120.0, 120.0);
+    double cornerRadius = clamp(style.choiceCornerRadius(), 0.0, 96.0);
+    double borderWidth = clamp(style.choiceBorderWidth(), 0.0, 12.0);
+    double textBaselineOffset = clamp(style.choiceTextBaselineOffset(), -120.0, 120.0);
 
     return new ChoicePreviewStyle(
         bg,
@@ -825,25 +914,10 @@ public class DialogueLayoutEditorView extends BorderPane {
     );
   }
 
-  private Color parseColorProperty(String key, Color fallback) {
-    return parseColorValue(rawProperties.getProperty(key), fallback);
-  }
-
   private Color parseColorValue(String raw, Color fallback) {
     if (raw == null || raw.isBlank()) return fallback;
     try {
       return Color.web(raw.trim());
-    } catch (Exception ignored) {
-      return fallback;
-    }
-  }
-
-  private double parseDoubleProperty(String key, double fallback) {
-    String raw = rawProperties.getProperty(key);
-    if (raw == null || raw.isBlank()) return fallback;
-    try {
-      double parsed = Double.parseDouble(raw.trim());
-      return Double.isFinite(parsed) ? parsed : fallback;
     } catch (Exception ignored) {
       return fallback;
     }
@@ -854,13 +928,14 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private void loadTextBoxAssetImage() {
-    textBoxAssetImage = loadImageAsset(textBoxAssetPath);
+    textBoxAssetImage = loadImageAsset(style.textBoxAssetPath());
   }
 
   private void loadChoiceAssetImages() {
-    choiceButtonAssetImage = loadImageAsset(choiceButtonAssetPath);
-    choiceButtonHoverAssetImage = loadImageAsset(choiceButtonHoverAssetPath);
-    choiceButtonDisabledAssetImage = loadImageAsset(choiceButtonDisabledAssetPath);
+    choiceButtonAssetImage = loadImageAsset(style.choiceButtonAssetPath());
+    choiceButtonHoverAssetImage = loadImageAsset(
+        firstNonBlank(style.choiceButtonHoverAssetPath(), style.choiceButtonSelectedAssetPath()));
+    choiceButtonDisabledAssetImage = loadImageAsset(style.choiceButtonDisabledAssetPath());
   }
 
   private Image loadImageAsset(String assetPath) {
@@ -928,12 +1003,6 @@ public class DialogueLayoutEditorView extends BorderPane {
     return file.getAbsolutePath().replace('\\', '/');
   }
 
-  private static void setOptionalProperty(Properties properties, String key, String value) {
-    String normalized = normalizeAssetPath(value);
-    if (normalized.isBlank()) properties.remove(key);
-    else properties.setProperty(key, normalized);
-  }
-
   private static String firstNonBlank(String first, String second) {
     if (first != null && !first.isBlank()) return first;
     if (second != null && !second.isBlank()) return second;
@@ -943,6 +1012,11 @@ public class DialogueLayoutEditorView extends BorderPane {
   private static String normalizeAssetPath(String value) {
     if (value == null) return "";
     return value.trim().replace('\\', '/');
+  }
+
+  private static String normalizeColorValue(String value) {
+    if (value == null) return "";
+    return value.trim();
   }
 
   private static String normalizeText(String text) {

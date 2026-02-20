@@ -17,6 +17,8 @@ import com.jvn.core.vn.VnBackground;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.save.VnSaveManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -35,6 +37,7 @@ import java.util.List;
  * Requires an active VnScene to save state.
  */
 public class SaveMenuScene implements Scene {
+  private static final Logger LOG = LoggerFactory.getLogger(SaveMenuScene.class);
   private final Engine engine;
   private final VnSaveManager saveManager;
   private final VnScene currentVnScene;
@@ -48,7 +51,11 @@ public class SaveMenuScene implements Scene {
     this.engine = engine;
     this.saveManager = saveManager;
     this.currentVnScene = vnScene;
-    this.menuProfile = MenuProfileLoader.loadFromAssets();
+    MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
+    this.menuProfile = menuLoad.profile();
+    for (String warning : menuLoad.diagnostics()) {
+      LOG.warn("Menu profile: {}", warning);
+    }
     this.menuScreen = menuProfile.screen("save");
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());
     refresh();

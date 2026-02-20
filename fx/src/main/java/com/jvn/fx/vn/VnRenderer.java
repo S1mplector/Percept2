@@ -4,7 +4,6 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 import com.jvn.core.localization.Localization;
 import com.jvn.core.vn.CharacterPosition;
@@ -23,6 +22,7 @@ import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
+import com.jvn.core.vn.ui.VnUiStyleSpec;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -42,6 +42,7 @@ public class VnRenderer {
   private VnState currentState;
   private long animationTime = 0;
   private VnUiLayoutSpec uiLayout;
+  private VnUiStyleSpec uiStyle = VnUiStyleSpec.defaults();
 
   // UI Colors
   private static final Color TEXTBOX_COLOR = Color.rgb(0, 0, 0, 0.8);
@@ -52,25 +53,6 @@ public class VnRenderer {
   private static final Color CHOICE_DISABLED_COLOR = Color.rgb(60, 60, 60, 0.6);
   private static final Color TEXT_COLOR_DISABLED = Color.color(1, 1, 1, 0.5);
   private static final Color CHOICE_DISABLED_BORDER_COLOR = Color.color(1, 1, 1, 0.55);
-  private static final String KEY_CHOICE_BUTTON_ASSET = "choiceButtonAsset";
-  private static final String KEY_CHOICE_BUTTON_HOVER_ASSET = "choiceButtonHoverAsset";
-  private static final String KEY_CHOICE_BUTTON_SELECTED_ASSET = "choiceButtonSelectedAsset";
-  private static final String KEY_CHOICE_BUTTON_DISABLED_ASSET = "choiceButtonDisabledAsset";
-  private static final String KEY_CHOICE_BG_COLOR = "choiceBackgroundColor";
-  private static final String KEY_CHOICE_HOVER_COLOR = "choiceHoverColor";
-  private static final String KEY_CHOICE_SELECTED_COLOR = "choiceSelectedColor";
-  private static final String KEY_CHOICE_DISABLED_COLOR = "choiceDisabledColor";
-  private static final String KEY_CHOICE_TEXT_COLOR = "choiceTextColor";
-  private static final String KEY_CHOICE_HOVER_TEXT_COLOR = "choiceHoverTextColor";
-  private static final String KEY_CHOICE_SELECTED_TEXT_COLOR = "choiceSelectedTextColor";
-  private static final String KEY_CHOICE_DISABLED_TEXT_COLOR = "choiceDisabledTextColor";
-  private static final String KEY_CHOICE_BORDER_COLOR = "choiceBorderColor";
-  private static final String KEY_CHOICE_HOVER_BORDER_COLOR = "choiceHoverBorderColor";
-  private static final String KEY_CHOICE_SELECTED_BORDER_COLOR = "choiceSelectedBorderColor";
-  private static final String KEY_CHOICE_DISABLED_BORDER_COLOR = "choiceDisabledBorderColor";
-  private static final String KEY_CHOICE_BORDER_WIDTH = "choiceBorderWidth";
-  private static final String KEY_CHOICE_CORNER_RADIUS = "choiceCornerRadius";
-  private static final String KEY_CHOICE_TEXT_BASELINE_OFFSET = "choiceTextBaselineOffset";
   private static final Color HISTORY_PANEL_COLOR = Color.rgb(12, 12, 18, 0.92);
   private static final Color HISTORY_BORDER_COLOR = Color.rgb(220, 220, 255, 0.18);
   private static final Color HISTORY_ENTRY_BG = Color.rgb(24, 24, 34, 0.75);
@@ -87,6 +69,7 @@ public class VnRenderer {
   private Image choiceButtonImage;
   private Image choiceButtonHoverImage;
   private Image choiceButtonDisabledImage;
+  private Image textBoxImage;
   private Color choiceBgColor = CHOICE_BG_COLOR;
   private Color choiceHoverColor = CHOICE_HOVER_COLOR;
   private Color choiceDisabledColor = CHOICE_DISABLED_COLOR;
@@ -121,17 +104,25 @@ public class VnRenderer {
 
   public void setUiLayout(VnUiLayoutSpec layout) {
     this.uiLayout = layout == null ? VnUiLayoutSpec.defaults() : layout;
+    applyUiStyle(uiStyle);
+  }
+
+  public VnUiStyleSpec getUiStyle() {
+    return uiStyle;
+  }
+
+  public void setUiStyle(VnUiStyleSpec style) {
+    this.uiStyle = style == null ? VnUiStyleSpec.defaults() : style;
+    applyUiStyle(this.uiStyle);
   }
 
   public void reloadUiLayout() {
-    Properties props;
-    if (projectRoot != null) {
-      props = VnUiLayoutLoader.loadPropertiesFromProjectRoot(projectRoot);
-    } else {
-      props = VnUiLayoutLoader.loadPropertiesFromAssets();
-    }
-    this.uiLayout = VnUiLayoutLoader.parse(props, VnUiLayoutSpec.defaults());
-    applyChoiceStyleFromProperties(props);
+    VnUiLayoutLoader.LoadResult result = projectRoot != null
+        ? VnUiLayoutLoader.loadFromProjectRootWithDiagnostics(projectRoot)
+        : VnUiLayoutLoader.loadFromAssetsWithDiagnostics();
+    this.uiLayout = result.layout();
+    this.uiStyle = result.style();
+    applyUiStyle(this.uiStyle);
   }
 
   private void renderHistoryOverlay(VnState state, double width, double height) {
@@ -563,9 +554,15 @@ public class VnRenderer {
     double textBoxWidth = clamp(width * uiLayout.textBoxWidth(), 1, maxBoxWidth);
     double textBoxHeight = clamp(height * uiLayout.textBoxHeight(), 1, maxBoxHeight);
 
-    // Draw text box background
-    gc.setFill(TEXTBOX_COLOR);
-    gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
+    // Draw text box background (asset if provided, otherwise default fill).
+    if (textBoxImage != null) {
+      gc.drawImage(textBoxImage, textBoxX, textBoxY, textBoxWidth, textBoxHeight);
+      gc.setFill(Color.color(0, 0, 0, 0.28));
+      gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
+    } else {
+      gc.setFill(TEXTBOX_COLOR);
+      gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
+    }
 
     // Draw name box if speaker exists
     String speakerName = resolveRuntimeText(dialogue.getSpeakerName());
@@ -696,49 +693,43 @@ public class VnRenderer {
     return TEXT_COLOR;
   }
 
-  private void applyChoiceStyleFromProperties(Properties props) {
-    choiceButtonImage = loadImage(optionalProperty(props, KEY_CHOICE_BUTTON_ASSET));
+  private void applyUiStyle(VnUiStyleSpec style) {
+    VnUiStyleSpec resolved = style == null ? VnUiStyleSpec.defaults() : style;
+    textBoxImage = loadImage(resolved.textBoxAssetPath());
+    choiceButtonImage = loadImage(resolved.choiceButtonAssetPath());
     choiceButtonHoverImage = loadImage(firstNonBlank(
-        optionalProperty(props, KEY_CHOICE_BUTTON_HOVER_ASSET),
-        optionalProperty(props, KEY_CHOICE_BUTTON_SELECTED_ASSET)));
-    choiceButtonDisabledImage = loadImage(optionalProperty(props, KEY_CHOICE_BUTTON_DISABLED_ASSET));
+        resolved.choiceButtonHoverAssetPath(),
+        resolved.choiceButtonSelectedAssetPath()));
+    choiceButtonDisabledImage = loadImage(resolved.choiceButtonDisabledAssetPath());
 
-    choiceBgColor = parseColorProperty(props, KEY_CHOICE_BG_COLOR, CHOICE_BG_COLOR);
-    choiceHoverColor = parseColorProperty(
-        props,
-        KEY_CHOICE_HOVER_COLOR,
-        parseColorProperty(props, KEY_CHOICE_SELECTED_COLOR, CHOICE_HOVER_COLOR)
+    choiceBgColor = parseColor(resolved.choiceBackgroundColor(), CHOICE_BG_COLOR);
+    choiceHoverColor = parseColor(
+        firstNonBlank(resolved.choiceHoverColor(), resolved.choiceSelectedColor()),
+        CHOICE_HOVER_COLOR
     );
-    choiceDisabledColor = parseColorProperty(props, KEY_CHOICE_DISABLED_COLOR, CHOICE_DISABLED_COLOR);
+    choiceDisabledColor = parseColor(resolved.choiceDisabledColor(), CHOICE_DISABLED_COLOR);
 
-    choiceTextColor = parseColorProperty(props, KEY_CHOICE_TEXT_COLOR, TEXT_COLOR);
-    choiceHoverTextColor = parseColorProperty(
-        props,
-        KEY_CHOICE_HOVER_TEXT_COLOR,
-        parseColorProperty(props, KEY_CHOICE_SELECTED_TEXT_COLOR, TEXT_COLOR)
+    choiceTextColor = parseColor(resolved.choiceTextColor(), TEXT_COLOR);
+    choiceHoverTextColor = parseColor(
+        firstNonBlank(resolved.choiceHoverTextColor(), resolved.choiceSelectedTextColor()),
+        choiceTextColor
     );
-    choiceDisabledTextColor = parseColorProperty(props, KEY_CHOICE_DISABLED_TEXT_COLOR, TEXT_COLOR_DISABLED);
+    choiceDisabledTextColor = parseColor(resolved.choiceDisabledTextColor(), TEXT_COLOR_DISABLED);
 
-    choiceBorderColor = parseColorProperty(props, KEY_CHOICE_BORDER_COLOR, TEXT_COLOR);
-    choiceHoverBorderColor = parseColorProperty(
-        props,
-        KEY_CHOICE_HOVER_BORDER_COLOR,
-        parseColorProperty(props, KEY_CHOICE_SELECTED_BORDER_COLOR, choiceBorderColor)
+    choiceBorderColor = parseColor(resolved.choiceBorderColor(), TEXT_COLOR);
+    choiceHoverBorderColor = parseColor(
+        firstNonBlank(resolved.choiceHoverBorderColor(), resolved.choiceSelectedBorderColor()),
+        choiceBorderColor
     );
-    choiceDisabledBorderColor = parseColorProperty(props, KEY_CHOICE_DISABLED_BORDER_COLOR, CHOICE_DISABLED_BORDER_COLOR);
+    choiceDisabledBorderColor = parseColor(resolved.choiceDisabledBorderColor(), CHOICE_DISABLED_BORDER_COLOR);
 
-    choiceBorderWidth = clamp(parseDoubleProperty(props, KEY_CHOICE_BORDER_WIDTH, DEFAULT_CHOICE_BORDER_WIDTH), 0.0, 12.0);
-    choiceCornerRadius = clamp(parseDoubleProperty(props, KEY_CHOICE_CORNER_RADIUS, DEFAULT_CHOICE_RADIUS), 0.0, 96.0);
-    choiceTextBaselineOffset = clamp(
-        parseDoubleProperty(props, KEY_CHOICE_TEXT_BASELINE_OFFSET, DEFAULT_CHOICE_TEXT_BASELINE_OFFSET),
-        -120.0,
-        120.0
-    );
+    choiceBorderWidth = clamp(resolved.choiceBorderWidth(), 0.0, 12.0);
+    choiceCornerRadius = clamp(resolved.choiceCornerRadius(), 0.0, 96.0);
+    choiceTextBaselineOffset = clamp(resolved.choiceTextBaselineOffset(), -120.0, 120.0);
   }
 
-  private Color parseColorProperty(Properties props, String key, Color fallback) {
-    String raw = optionalProperty(props, key);
-    if (raw == null) return fallback;
+  private Color parseColor(String raw, Color fallback) {
+    if (raw == null || raw.isBlank()) return fallback;
     try {
       return Color.web(raw.trim());
     } catch (Exception ignored) {
@@ -746,29 +737,10 @@ public class VnRenderer {
     }
   }
 
-  private static String optionalProperty(Properties props, String key) {
-    if (props == null || key == null) return null;
-    String raw = props.getProperty(key);
-    if (raw == null) return null;
-    String trimmed = raw.trim();
-    return trimmed.isEmpty() ? null : trimmed;
-  }
-
-  private static String firstNonBlank(String a, String b) {
-    if (a != null && !a.isBlank()) return a;
-    if (b != null && !b.isBlank()) return b;
+  private static String firstNonBlank(String first, String second) {
+    if (first != null && !first.isBlank()) return first;
+    if (second != null && !second.isBlank()) return second;
     return null;
-  }
-
-  private double parseDoubleProperty(Properties props, String key, double fallback) {
-    String raw = optionalProperty(props, key);
-    if (raw == null) return fallback;
-    try {
-      double parsed = Double.parseDouble(raw);
-      if (Double.isFinite(parsed)) return parsed;
-    } catch (Exception ignored) {
-    }
-    return fallback;
   }
 
   private static Image firstNonNull(Image primary, Image fallback) {

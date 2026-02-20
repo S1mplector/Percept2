@@ -55,7 +55,11 @@ public class MainMenuScene implements Scene {
     this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
     this.defaultScriptName = defaultScriptName == null || defaultScriptName.isBlank() ? "demo.vns" : defaultScriptName;
     this.audio = audio;
-    this.menuProfile = MenuProfileLoader.loadFromAssets();
+    MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
+    this.menuProfile = menuLoad.profile();
+    for (String warning : menuLoad.diagnostics()) {
+      LOG.warn("Menu profile: {}", warning);
+    }
     this.menuId = normalize(menuId, menuProfile.defaultScreenId());
     this.menuScreen = menuProfile.screen(this.menuId);
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());

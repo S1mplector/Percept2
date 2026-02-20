@@ -50,7 +50,11 @@ public class LoadMenuScene implements Scene {
     this.saveManager = saveManager;
     this.defaultScriptName = defaultScriptName == null ? "demo.vns" : defaultScriptName;
     this.audio = audio;
-    this.menuProfile = MenuProfileLoader.loadFromAssets();
+    MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
+    this.menuProfile = menuLoad.profile();
+    for (String warning : menuLoad.diagnostics()) {
+      LOG.warn("Menu profile: {}", warning);
+    }
     this.menuScreen = menuProfile.screen("load");
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());
     refresh();
