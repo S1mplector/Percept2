@@ -145,6 +145,10 @@ public class PuppeteerWindow extends Stage {
             if (onCopyCode != null) onCopyCode.accept(code);
         });
 
+        codePreview.setOnRegenerate(() -> {
+            codePreview.setCode(CodeExporter.export(project));
+        });
+
         // --- Transport controls ---
         btnRewind = makeToolbarButton("⏮", "Rewind (Home)", STYLE_BTN_DARK);
         btnPlay = makeToolbarButton("▶", "Play (Space)", STYLE_BTN_ACCENT);
@@ -309,6 +313,7 @@ public class PuppeteerWindow extends Stage {
         this.projectRoot = root;
         animationPreview.setProjectRoot(root);
         assetPicker.setProjectRoot(root);
+        codePreview.setProjectRoot(root);
     }
 
     private void addAssetToScene(String relativePath, String suggestedName) {

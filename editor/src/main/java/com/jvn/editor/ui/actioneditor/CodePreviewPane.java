@@ -1,16 +1,30 @@
 package com.jvn.editor.ui.actioneditor;
 
+import com.jvn.editor.ui.JesCodeEditor;
+
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.TextArea;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 public class CodePreviewPane extends VBox {
-    private final TextArea codeArea;
+    private final JesCodeEditor jesEditor;
     private final Button btnCopy;
+    private final Button btnRegenerate;
+    private final Label lblStatus;
     private Runnable onCopy;
+    private Runnable onRegenerate;
+    private boolean manuallyEdited = false;
+
+    private static final String STYLE_BTN_ACCENT =
+        "-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
+        "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
+    private static final String STYLE_BTN_DARK =
+        "-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 4; " +
+        "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-cursor: hand;";
 
     public CodePreviewPane() {
         setSpacing(6);
@@ -18,45 +32,70 @@ public class CodePreviewPane extends VBox {
         setStyle("-fx-background-color: #1a1a1a;");
         setMinWidth(260);
 
-        Label header = new Label("Generated Code");
+        Label header = new Label("Timeline Code");
         header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
 
-        codeArea = new TextArea();
-        codeArea.setEditable(false);
-        codeArea.setWrapText(false);
-        codeArea.setStyle(
-            "-fx-control-inner-background: #121212; " +
-            "-fx-text-fill: #e6e6e6; " +
-            "-fx-font-family: 'JetBrains Mono', 'Fira Code', monospace; " +
-            "-fx-font-size: 12px;"
-        );
-        VBox.setVgrow(codeArea, Priority.ALWAYS);
+        lblStatus = new Label("Auto-generated");
+        lblStatus.setStyle("-fx-text-fill: #555; -fx-font-size: 9px;");
+
+        jesEditor = new JesCodeEditor();
+        VBox.setVgrow(jesEditor, Priority.ALWAYS);
 
         btnCopy = new Button("Copy to Clipboard");
         btnCopy.setMaxWidth(Double.MAX_VALUE);
-        btnCopy.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
-            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
-        btnCopy.setOnMouseEntered(e -> btnCopy.setStyle("-fx-background-color: #5bb3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
-            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"));
-        btnCopy.setOnMouseExited(e -> btnCopy.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
-            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"));
+        btnCopy.setStyle(STYLE_BTN_ACCENT);
+        btnCopy.setTooltip(new Tooltip("Copy the code to clipboard"));
         btnCopy.setOnAction(e -> {
             if (onCopy != null) onCopy.run();
         });
 
-        getChildren().addAll(header, codeArea, btnCopy);
+        btnRegenerate = new Button("Regenerate");
+        btnRegenerate.setStyle(STYLE_BTN_DARK);
+        btnRegenerate.setTooltip(new Tooltip("Discard manual edits and regenerate from the timeline"));
+        btnRegenerate.setOnAction(e -> {
+            manuallyEdited = false;
+            lblStatus.setText("Auto-generated");
+            lblStatus.setStyle("-fx-text-fill: #555; -fx-font-size: 9px;");
+            if (onRegenerate != null) onRegenerate.run();
+        });
+
+        HBox buttonRow = new HBox(6, btnCopy, btnRegenerate);
+        HBox.setHgrow(btnCopy, Priority.ALWAYS);
+        btnCopy.setMaxWidth(Double.MAX_VALUE);
+
+        getChildren().addAll(header, lblStatus, jesEditor, buttonRow);
     }
 
     public void setCode(String code) {
-        codeArea.setText(code != null ? code : "");
-        codeArea.positionCaret(0);
+        if (manuallyEdited) return;
+        jesEditor.setText(code != null ? code : "");
     }
 
     public String getCode() {
-        return codeArea.getText();
+        return jesEditor.getText();
     }
 
     public void setOnCopy(Runnable callback) {
         this.onCopy = callback;
+    }
+
+    public void setOnRegenerate(Runnable callback) {
+        this.onRegenerate = callback;
+    }
+
+    public void setProjectRoot(java.io.File root) {
+        jesEditor.setProjectRoot(root);
+    }
+
+    public void markManuallyEdited() {
+        if (!manuallyEdited) {
+            manuallyEdited = true;
+            lblStatus.setText("Manually edited \u2014 click Regenerate to sync");
+            lblStatus.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 9px;");
+        }
+    }
+
+    public boolean isManuallyEdited() {
+        return manuallyEdited;
     }
 }
