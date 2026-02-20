@@ -19,6 +19,8 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
@@ -37,6 +39,7 @@ public class PuppeteerWindow extends Stage {
     private JesScene2D scene;
 
     private final EntitySelector entitySelector;
+    private final AssetPickerPanel assetPicker;
     private final TimelinePanel timelinePanel;
     private final KeyframeEditor keyframeEditor;
     private final AnimationPreview animationPreview;
@@ -237,9 +240,20 @@ public class PuppeteerWindow extends Stage {
         toolbar.setPadding(new Insets(6, 10, 6, 10));
         toolbar.setStyle("-fx-background-color: #0a0a0a; -fx-border-color: #2a2a2a; -fx-border-width: 0 0 1 0;");
 
+        assetPicker = new AssetPickerPanel();
+        assetPicker.setOnAddToScene((path, name) -> addAssetToScene(path, name));
+
+        Tab entitiesTab = new Tab("Entities", entitySelector);
+        entitiesTab.setClosable(false);
+        Tab assetsTab = new Tab("Assets", assetPicker);
+        assetsTab.setClosable(false);
+        TabPane leftTabs = new TabPane(entitiesTab, assetsTab);
+        leftTabs.setTabMinWidth(60);
+        leftTabs.setStyle("-fx-background-color: #1a1a1a;");
+
         SplitPane leftPane = new SplitPane();
         leftPane.setOrientation(Orientation.VERTICAL);
-        leftPane.getItems().addAll(entitySelector, keyframeEditor);
+        leftPane.getItems().addAll(leftTabs, keyframeEditor);
         leftPane.setDividerPositions(0.65);
 
         SplitPane centerPane = new SplitPane();
@@ -289,8 +303,55 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
+    private java.io.File projectRoot;
+
     public void setProjectRoot(java.io.File root) {
+        this.projectRoot = root;
         animationPreview.setProjectRoot(root);
+        assetPicker.setProjectRoot(root);
+    }
+
+    private void addAssetToScene(String relativePath, String suggestedName) {
+        if (scene == null) {
+            scene = new JesScene2D();
+            animationPreview.setScene(scene);
+        }
+
+        // Deduplicate name
+        String entityName = suggestedName;
+        int suffix = 2;
+        while (scene.find(entityName) != null) {
+            entityName = suggestedName + "_" + suffix++;
+        }
+
+        // Load image to get dimensions
+        double w = 200, h = 200;
+        if (projectRoot != null) {
+            java.io.File imgFile = new java.io.File(projectRoot, relativePath);
+            if (imgFile.exists()) {
+                try {
+                    javafx.scene.image.Image img = new javafx.scene.image.Image(
+                        imgFile.toURI().toString(), 0, 0, true, false);
+                    if (img.getWidth() > 0 && img.getHeight() > 0) {
+                        w = img.getWidth();
+                        h = img.getHeight();
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(relativePath, w, h);
+        sprite.setOrigin(0.5, 0.5);
+        sprite.setPosition(640, 360);
+
+        scene.add(sprite);
+        scene.registerEntity(entityName, sprite);
+
+        project.getOrCreateTrack(entityName);
+        entitySelector.refresh(project);
+        timelinePanel.refresh();
+        animationPreview.render();
+        codePreview.setCode(CodeExporter.export(project));
     }
 
     public AnimationProject getProject() { return project; }

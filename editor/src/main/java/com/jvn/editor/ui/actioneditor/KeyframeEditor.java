@@ -24,6 +24,7 @@ public class KeyframeEditor extends VBox {
     private final ComboBox<Easing.Type> cbEasing;
     private final Button btnDelete;
     private final Button btnResetValue;
+    private final EasingCurveEditor curveEditor;
 
     private static final String FIELD_STYLE =
         "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
@@ -97,9 +98,12 @@ public class KeyframeEditor extends VBox {
         grid.add(timeRow, 1, 2);
         grid.add(new Label("Value:"), 0, 3);
         grid.add(valueRow, 1, 3);
+        curveEditor = new EasingCurveEditor();
+
         grid.add(new Label("Easing:"), 0, 4);
         grid.add(cbEasing, 1, 4);
-        grid.add(actionRow, 1, 5);
+        grid.add(curveEditor, 0, 5, 2, 1);
+        grid.add(actionRow, 1, 6);
 
         for (var node : grid.getChildren()) {
             if (node instanceof Label l && l != header) l.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
@@ -111,7 +115,10 @@ public class KeyframeEditor extends VBox {
 
         tfTime.setOnAction(e -> applyChanges());
         tfValue.setOnAction(e -> applyChanges());
-        cbEasing.setOnAction(e -> applyChanges());
+        cbEasing.setOnAction(e -> {
+            applyChanges();
+            curveEditor.setEasingType(cbEasing.getValue());
+        });
 
         sliderTime.valueProperty().addListener((obs, oldV, newV) -> {
             if (currentKeyframe == null || !sliderTime.isValueChanging()) return;
@@ -175,6 +182,7 @@ public class KeyframeEditor extends VBox {
             tfTime.setText(String.format("%.0f", kf.getTimeMs()));
             tfValue.setText(String.format("%.2f", kf.getValue()));
             cbEasing.setValue(kf.getEasing());
+            curveEditor.setEasingType(kf.getEasing());
             sliderTime.setValue(kf.getTimeMs());
             configureSliderForProperty(property);
             sliderValue.setValue(kf.getValue());

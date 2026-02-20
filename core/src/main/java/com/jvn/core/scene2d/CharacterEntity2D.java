@@ -26,6 +26,11 @@ public class CharacterEntity2D extends Entity2D {
     this.drawH = drawH;
   }
 
+  public double getDrawWidth() { return drawW; }
+  public double getDrawHeight() { return drawH; }
+  public double getOriginX() { return originX; }
+  public double getOriginY() { return originY; }
+
   public void setOrigin(double ox, double oy) {
     this.originX = ox;
     this.originY = oy;

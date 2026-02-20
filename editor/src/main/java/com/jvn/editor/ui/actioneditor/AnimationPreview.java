@@ -246,6 +246,11 @@ public class AnimationPreview extends VBox {
             h = sprite.getHeight();
             ox = sprite.getOriginX();
             oy = sprite.getOriginY();
+        } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D charEnt) {
+            w = charEnt.getDrawWidth();
+            h = charEnt.getDrawHeight();
+            ox = charEnt.getOriginX();
+            oy = charEnt.getOriginY();
         }
         return new double[]{ x - ox * w, y - oy * h, w, h };
     }
