@@ -30,7 +30,6 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.stage.Stage;
 
@@ -214,21 +213,7 @@ public class PuppeteerWindow extends Stage {
         HBox nameBox = new HBox(4, nameLabel, tfTimelineName, btnRegister);
         nameBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
-        // --- Copy Code ---
-        Button btnCopyCode = makeToolbarButton("Copy Code", "Copy generated code to clipboard (Cmd+C)", STYLE_BTN_ACCENT);
-        btnCopyCode.setOnAction(e -> {
-            String name = tfTimelineName.getText().trim();
-            String code = name.isEmpty()
-                ? CodeExporter.export(this.project)
-                : CodeExporter.exportNamed(this.project, name);
-            copyToClipboard(code);
-            if (onCopyCode != null) onCopyCode.accept(code);
-        });
-
         // --- Assemble toolbar ---
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
         HBox toolbar = new HBox(6,
             transportBox,
             makeVSep(),
@@ -236,9 +221,7 @@ public class PuppeteerWindow extends Stage {
             makeVSep(),
             presetMenu,
             makeVSep(),
-            nameBox,
-            spacer,
-            btnCopyCode
+            nameBox
         );
         toolbar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         toolbar.setPadding(new Insets(6, 10, 6, 10));
