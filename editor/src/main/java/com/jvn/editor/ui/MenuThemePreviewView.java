@@ -45,8 +45,10 @@ public class MenuThemePreviewView extends StackPane {
   }
 
   public void setSize(double w, double h) {
-    canvas.setWidth(Math.max(1, w));
-    canvas.setHeight(Math.max(1, h));
+    double sw = sanitizeCanvasDimension(w);
+    double sh = sanitizeCanvasDimension(h);
+    if (Math.abs(canvas.getWidth() - sw) >= 0.5) canvas.setWidth(sw);
+    if (Math.abs(canvas.getHeight() - sh) >= 0.5) canvas.setHeight(sh);
   }
 
   public void render(long deltaMs) {
@@ -71,5 +73,10 @@ public class MenuThemePreviewView extends StackPane {
       previewScene.moveSelection(1);
       e.consume();
     }
+  }
+
+  private static double sanitizeCanvasDimension(double value) {
+    if (!Double.isFinite(value)) return 1.0;
+    return Math.max(1.0, Math.min(8192.0, value));
   }
 }

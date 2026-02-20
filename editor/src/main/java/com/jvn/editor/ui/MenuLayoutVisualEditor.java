@@ -2,6 +2,7 @@ package com.jvn.editor.ui;
 
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.CheckBox;
@@ -30,6 +31,7 @@ import java.util.function.Consumer;
  * Syncs with plain properties text via callback.
  */
 public class MenuLayoutVisualEditor extends BorderPane {
+  private static final double PREVIEW_PADDING = 8.0;
   private static final String[] KNOWN_KEYS = new String[] {
       "listYStart",
       "lineHeight",
@@ -44,6 +46,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private MenuLayoutSpec spec = MenuLayoutSpecDefaults.DEFAULT;
   private Consumer<String> onLayoutTextChanged;
   private boolean suppressEvents = false;
+  private String lastLoadedText = "";
+  private String lastEmittedText = "";
 
   private final Spinner<Double> spListYStart = spinner(0, 600, 0.35, 0.01);
   private final Spinner<Double> spLineHeight = spinner(10, 260, 40, 1);
@@ -68,9 +72,11 @@ public class MenuLayoutVisualEditor extends BorderPane {
   public MenuLayoutVisualEditor() {
     setPadding(new Insets(8));
 
+    preview.setManaged(false);
     StackPane previewPane = new StackPane(preview);
+    StackPane.setAlignment(preview, Pos.TOP_LEFT);
     previewPane.setStyle("-fx-background-color: linear-gradient(to bottom, #0f141d, #080b10); -fx-border-color: #2a2f3a;");
-    previewPane.setPadding(new Insets(8));
+    previewPane.setPadding(new Insets(PREVIEW_PADDING));
     setCenter(previewPane);
 
     ScrollPane controls = new ScrollPane(buildControls());
@@ -78,13 +84,14 @@ public class MenuLayoutVisualEditor extends BorderPane {
     controls.setPrefWidth(320);
     setRight(controls);
 
-    preview.widthProperty().bind(previewPane.widthProperty().subtract(16));
-    preview.heightProperty().bind(previewPane.heightProperty().subtract(16));
+    previewPane.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
+    previewPane.heightProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
     preview.widthProperty().addListener((o, ov, nv) -> redraw());
     preview.heightProperty().addListener((o, ov, nv) -> redraw());
 
     registerPreviewDrag();
     registerListeners();
+    updatePreviewSize(previewPane);
     redraw();
   }
 
@@ -93,6 +100,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
   }
 
   public void setLayoutText(String text) {
+    String normalizedInput = normalizeText(text);
+    if (normalizedInput.equals(lastLoadedText)) return;
     suppressEvents = true;
     rawProperties.clear();
     try {
@@ -104,6 +113,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
     applySpecToControls(spec);
     suppressEvents = false;
     redraw();
+    lastLoadedText = normalizedInput;
+    lastEmittedText = normalizeText(serialize(spec, rawProperties, cbTitleY.isSelected()));
   }
 
   public String getLayoutText() {
@@ -369,7 +380,11 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
   private void emitText() {
     if (onLayoutTextChanged == null) return;
-    onLayoutTextChanged.accept(serialize(spec, rawProperties, cbTitleY.isSelected()));
+    String text = serialize(spec, rawProperties, cbTitleY.isSelected());
+    String normalized = normalizeText(text);
+    if (normalized.equals(lastEmittedText)) return;
+    lastEmittedText = normalized;
+    onLayoutTextChanged.accept(text);
   }
 
   private static MenuLayoutSpec parse(Properties properties) {
@@ -499,6 +514,26 @@ public class MenuLayoutVisualEditor extends BorderPane {
     return String.format(Locale.ROOT, "%.4f", value)
         .replaceAll("0+$", "")
         .replaceAll("\\.$", "");
+  }
+
+  private static String normalizeText(String text) {
+    if (text == null) return "";
+    return text.replace("\r\n", "\n").replace('\r', '\n');
+  }
+
+  private void updatePreviewSize(StackPane previewPane) {
+    if (previewPane == null) return;
+    double w = sanitizeCanvasDimension(previewPane.getWidth() - PREVIEW_PADDING * 2.0);
+    double h = sanitizeCanvasDimension(previewPane.getHeight() - PREVIEW_PADDING * 2.0);
+    if (Math.abs(preview.getWidth() - w) >= 0.5) preview.setWidth(w);
+    if (Math.abs(preview.getHeight() - h) >= 0.5) preview.setHeight(h);
+    if (Math.abs(preview.getLayoutX() - PREVIEW_PADDING) >= 0.5) preview.setLayoutX(PREVIEW_PADDING);
+    if (Math.abs(preview.getLayoutY() - PREVIEW_PADDING) >= 0.5) preview.setLayoutY(PREVIEW_PADDING);
+  }
+
+  private static double sanitizeCanvasDimension(double value) {
+    if (!Double.isFinite(value)) return 1.0;
+    return clamp(value, 1.0, 8192.0);
   }
 
   private static double resolve(double value, double total) {

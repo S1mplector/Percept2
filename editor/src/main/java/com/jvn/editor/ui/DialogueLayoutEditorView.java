@@ -3,25 +3,35 @@ package com.jvn.editor.ui;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 
+import java.io.File;
 import java.io.StringReader;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Consumer;
 
@@ -30,12 +40,14 @@ import java.util.function.Consumer;
  * The view emits full properties text that can be synced with a code editor.
  */
 public class DialogueLayoutEditorView extends BorderPane {
+  private static final double PREVIEW_PADDING = 8.0;
   private static final String[] KNOWN_KEYS = new String[] {
       "textBoxX",
       "textBoxY",
       "textBoxWidth",
       "textBoxHeight",
       "textBoxPadding",
+      "textBoxAsset",
       "nameBoxXOffset",
       "nameBoxYOffset",
       "nameBoxWidth",
@@ -57,12 +69,18 @@ public class DialogueLayoutEditorView extends BorderPane {
   private VnUiLayoutSpec spec = VnUiLayoutSpec.defaults();
   private Consumer<String> onLayoutTextChanged;
   private boolean suppressEvents = false;
+  private String lastLoadedText = "";
+  private String lastEmittedText = "";
+  private File projectRoot;
+  private String textBoxAssetPath = "";
+  private Image textBoxAssetImage;
 
   private final Spinner<Double> spTextBoxX = spinner(0, 1, 0, 0.01);
   private final Spinner<Double> spTextBoxY = spinner(0, 1, 0.75, 0.01);
   private final Spinner<Double> spTextBoxWidth = spinner(0.05, 1, 1, 0.01);
   private final Spinner<Double> spTextBoxHeight = spinner(0.05, 1, 0.25, 0.01);
   private final Spinner<Double> spTextBoxPadding = spinner(0, 200, 20, 1);
+  private final TextField tfTextBoxAsset = new TextField();
 
   private final Spinner<Double> spNameBoxXOffset = spinner(-500, 500, 20, 1);
   private final Spinner<Double> spNameBoxYOffset = spinner(-500, 500, -40, 1);
@@ -96,9 +114,11 @@ public class DialogueLayoutEditorView extends BorderPane {
   public DialogueLayoutEditorView() {
     setPadding(new Insets(8));
 
+    preview.setManaged(false);
     StackPane previewPane = new StackPane(preview);
+    StackPane.setAlignment(preview, Pos.TOP_LEFT);
     previewPane.setStyle("-fx-background-color: linear-gradient(to bottom, #11131b, #08090d); -fx-border-color: #2a2f3a;");
-    previewPane.setPadding(new Insets(8));
+    previewPane.setPadding(new Insets(PREVIEW_PADDING));
     setCenter(previewPane);
 
     ScrollPane controls = new ScrollPane(buildControls());
@@ -106,13 +126,14 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.setPrefWidth(350);
     setRight(controls);
 
-    preview.widthProperty().bind(previewPane.widthProperty().subtract(16));
-    preview.heightProperty().bind(previewPane.heightProperty().subtract(16));
+    previewPane.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
+    previewPane.heightProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
     preview.widthProperty().addListener((o, ov, nv) -> redraw());
     preview.heightProperty().addListener((o, ov, nv) -> redraw());
 
     registerPreviewDrag();
     registerControlListeners();
+    updatePreviewSize(previewPane);
     redraw();
   }
 
@@ -120,7 +141,15 @@ public class DialogueLayoutEditorView extends BorderPane {
     this.onLayoutTextChanged = onLayoutTextChanged;
   }
 
+  public void setProjectRoot(File root) {
+    this.projectRoot = root;
+    loadTextBoxAssetImage();
+    redraw();
+  }
+
   public void setLayoutText(String text) {
+    String normalizedInput = normalizeText(text);
+    if (normalizedInput.equals(lastLoadedText)) return;
     suppressEvents = true;
     rawProperties.clear();
     try {
@@ -129,13 +158,18 @@ public class DialogueLayoutEditorView extends BorderPane {
       // Keep defaults for invalid input.
     }
     spec = VnUiLayoutLoader.parse(rawProperties, VnUiLayoutSpec.defaults());
+    textBoxAssetPath = normalizeAssetPath(rawProperties.getProperty("textBoxAsset"));
     applySpecToControls(spec);
+    tfTextBoxAsset.setText(textBoxAssetPath);
+    loadTextBoxAssetImage();
     suppressEvents = false;
     redraw();
+    lastLoadedText = normalizedInput;
+    lastEmittedText = normalizeText(serialize(spec, rawProperties, textBoxAssetPath));
   }
 
   public String getLayoutText() {
-    return serialize(spec, rawProperties);
+    return serialize(spec, rawProperties, textBoxAssetPath);
   }
 
   private GridPane buildControls() {
@@ -144,6 +178,14 @@ public class DialogueLayoutEditorView extends BorderPane {
     grid.setVgap(8);
     grid.setPadding(new Insets(8));
 
+    tfTextBoxAsset.setPromptText("assets/ui/textbox.png");
+    Button btnBrowseAsset = new Button("Browse...");
+    Button btnClearAsset = new Button("Clear");
+    btnBrowseAsset.setOnAction(e -> browseTextBoxAsset());
+    btnClearAsset.setOnAction(e -> clearTextBoxAsset());
+    HBox assetRow = new HBox(6, tfTextBoxAsset, btnBrowseAsset, btnClearAsset);
+    HBox.setHgrow(tfTextBoxAsset, Priority.ALWAYS);
+
     int row = 0;
     row = addHeader(grid, row, "Textbox");
     row = addRow(grid, row, "TextBox X", spTextBoxX);
@@ -151,6 +193,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(grid, row, "TextBox Width", spTextBoxWidth);
     row = addRow(grid, row, "TextBox Height", spTextBoxHeight);
     row = addRow(grid, row, "TextBox Padding", spTextBoxPadding);
+    row = addRow(grid, row, "TextBox Asset", assetRow);
 
     row = addHeader(grid, row, "Name Box");
     row = addRow(grid, row, "Name X Offset", spNameBoxXOffset);
@@ -188,11 +231,17 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private int addRow(GridPane grid, int row, String label, Spinner<Double> spinner) {
+    return addRow(grid, row, label, (javafx.scene.Node) spinner);
+  }
+
+  private int addRow(GridPane grid, int row, String label, javafx.scene.Node control) {
     Label l = new Label(label);
-    spinner.setMaxWidth(Double.MAX_VALUE);
-    GridPane.setHgrow(spinner, Priority.ALWAYS);
+    GridPane.setHgrow(control, Priority.ALWAYS);
+    if (control instanceof Spinner<?> spinner) spinner.setMaxWidth(Double.MAX_VALUE);
+    if (control instanceof HBox box) box.setMaxWidth(Double.MAX_VALUE);
+    if (control instanceof TextField textField) textField.setMaxWidth(Double.MAX_VALUE);
     grid.add(l, 0, row);
-    grid.add(spinner, 1, row);
+    grid.add(control, 1, row);
     return row + 1;
   }
 
@@ -220,6 +269,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     for (Spinner<Double> control : controls) {
       control.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     }
+    tfTextBoxAsset.textProperty().addListener((o, ov, nv) -> onTextBoxAssetChanged(nv));
   }
 
   private void onControlChanged() {
@@ -227,6 +277,37 @@ public class DialogueLayoutEditorView extends BorderPane {
     spec = readSpecFromControls();
     redraw();
     emitText();
+  }
+
+  private void onTextBoxAssetChanged(String value) {
+    String normalized = normalizeAssetPath(value);
+    textBoxAssetPath = normalized;
+    loadTextBoxAssetImage();
+    if (suppressEvents) return;
+    redraw();
+    emitText();
+  }
+
+  private void browseTextBoxAsset() {
+    FileChooser chooser = new FileChooser();
+    chooser.setTitle("Select Textbox Asset");
+    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"));
+
+    File initialDir = resolveInitialAssetDirectory();
+    if (initialDir != null && initialDir.isDirectory()) {
+      chooser.setInitialDirectory(initialDir);
+    }
+
+    Window owner = getScene() != null ? getScene().getWindow() : null;
+    File picked = chooser.showOpenDialog(owner);
+    if (picked == null) return;
+    String relative = toProjectRelativePath(picked);
+    tfTextBoxAsset.setText(relative);
+  }
+
+  private void clearTextBoxAsset() {
+    tfTextBoxAsset.setText("");
   }
 
   private void registerPreviewDrag() {
@@ -364,8 +445,14 @@ public class DialogueLayoutEditorView extends BorderPane {
     }
 
     // Textbox and name box overlay.
-    g.setFill(Color.rgb(0, 0, 0, 0.78));
-    g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+    if (textBoxAssetImage != null && textBoxAssetImage.getWidth() > 1 && textBoxAssetImage.getHeight() > 1) {
+      g.drawImage(textBoxAssetImage, rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+      g.setFill(Color.rgb(0, 0, 0, 0.30));
+      g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+    } else {
+      g.setFill(Color.rgb(0, 0, 0, 0.78));
+      g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+    }
     g.setStroke(Color.rgb(96, 170, 255, 0.9));
     g.setLineWidth(2);
     g.strokeRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
@@ -491,10 +578,14 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private void emitText() {
     if (onLayoutTextChanged == null) return;
-    onLayoutTextChanged.accept(serialize(spec, rawProperties));
+    String text = serialize(spec, rawProperties, textBoxAssetPath);
+    String normalized = normalizeText(text);
+    if (normalized.equals(lastEmittedText)) return;
+    lastEmittedText = normalized;
+    onLayoutTextChanged.accept(text);
   }
 
-  private static String serialize(VnUiLayoutSpec spec, Properties base) {
+  private static String serialize(VnUiLayoutSpec spec, Properties base, String textBoxAssetPath) {
     Properties merged = new Properties();
     if (base != null) {
       for (String key : base.stringPropertyNames()) merged.setProperty(key, base.getProperty(key));
@@ -502,6 +593,12 @@ public class DialogueLayoutEditorView extends BorderPane {
     Properties generated = VnUiLayoutLoader.toProperties(spec);
     for (String key : generated.stringPropertyNames()) {
       merged.setProperty(key, generated.getProperty(key));
+    }
+    String normalizedAsset = normalizeAssetPath(textBoxAssetPath);
+    if (normalizedAsset.isBlank()) {
+      merged.remove("textBoxAsset");
+    } else {
+      merged.setProperty("textBoxAsset", normalizedAsset);
     }
 
     StringBuilder out = new StringBuilder();
@@ -586,6 +683,90 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private static double clamp01(double v) {
     return clamp(v, 0, 1);
+  }
+
+  private void loadTextBoxAssetImage() {
+    File assetFile = resolveAssetFile(textBoxAssetPath);
+    if (assetFile == null || !assetFile.exists() || !assetFile.isFile()) {
+      textBoxAssetImage = null;
+      return;
+    }
+    try {
+      String url = assetFile.toURI().toURL().toExternalForm();
+      Image image = new Image(url, false);
+      if (image.isError()) {
+        textBoxAssetImage = null;
+      } else {
+        textBoxAssetImage = image;
+      }
+    } catch (Exception ignored) {
+      textBoxAssetImage = null;
+    }
+  }
+
+  private File resolveInitialAssetDirectory() {
+    if (projectRoot != null) {
+      File uiDir = new File(projectRoot, "assets/ui");
+      if (uiDir.exists() && uiDir.isDirectory()) return uiDir;
+      if (projectRoot.exists() && projectRoot.isDirectory()) return projectRoot;
+    }
+    return new File(System.getProperty("user.home", "."));
+  }
+
+  private File resolveAssetFile(String path) {
+    String normalized = normalizeAssetPath(path);
+    if (normalized.isBlank()) return null;
+
+    File direct = new File(normalized);
+    if (direct.isAbsolute()) return direct;
+
+    if (projectRoot != null) {
+      File fromRoot = new File(projectRoot, normalized);
+      if (fromRoot.exists()) return fromRoot;
+    }
+    return direct;
+  }
+
+  private String toProjectRelativePath(File file) {
+    if (file == null) return "";
+    if (projectRoot == null) {
+      return file.getAbsolutePath().replace('\\', '/');
+    }
+    try {
+      Path root = projectRoot.toPath().toAbsolutePath().normalize();
+      Path abs = file.toPath().toAbsolutePath().normalize();
+      if (abs.startsWith(root)) {
+        return root.relativize(abs).toString().replace('\\', '/');
+      }
+    } catch (Exception ignored) {
+      // Fall through to absolute path.
+    }
+    return file.getAbsolutePath().replace('\\', '/');
+  }
+
+  private static String normalizeAssetPath(String value) {
+    if (value == null) return "";
+    return value.trim().replace('\\', '/');
+  }
+
+  private static String normalizeText(String text) {
+    if (text == null) return "";
+    return text.replace("\r\n", "\n").replace('\r', '\n');
+  }
+
+  private void updatePreviewSize(StackPane previewPane) {
+    if (previewPane == null) return;
+    double w = sanitizeCanvasDimension(previewPane.getWidth() - PREVIEW_PADDING * 2.0);
+    double h = sanitizeCanvasDimension(previewPane.getHeight() - PREVIEW_PADDING * 2.0);
+    if (Math.abs(preview.getWidth() - w) >= 0.5) preview.setWidth(w);
+    if (Math.abs(preview.getHeight() - h) >= 0.5) preview.setHeight(h);
+    if (Math.abs(preview.getLayoutX() - PREVIEW_PADDING) >= 0.5) preview.setLayoutX(PREVIEW_PADDING);
+    if (Math.abs(preview.getLayoutY() - PREVIEW_PADDING) >= 0.5) preview.setLayoutY(PREVIEW_PADDING);
+  }
+
+  private static double sanitizeCanvasDimension(double value) {
+    if (!Double.isFinite(value)) return 1.0;
+    return clamp(value, 1.0, 8192.0);
   }
 
   private record Rect(double x, double y, double w, double h) {

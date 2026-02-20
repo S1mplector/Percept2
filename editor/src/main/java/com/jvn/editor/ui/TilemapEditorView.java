@@ -462,8 +462,8 @@ public class TilemapEditorView extends BorderPane {
   private void redraw() {
     GraphicsContext g = canvas.getGraphicsContext2D();
     if (tiles == null) {
-      canvas.setWidth(400);
-      canvas.setHeight(300);
+      canvas.setWidth(sanitizeCanvasDimension(400));
+      canvas.setHeight(sanitizeCanvasDimension(300));
       g.setFill(Color.color(0.1, 0.1, 0.12));
       g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
       g.setFill(Color.color(0.8, 0.8, 0.8));
@@ -471,8 +471,8 @@ public class TilemapEditorView extends BorderPane {
       return;
     }
     double step = cellSize * gridScale;
-    canvas.setWidth(cols * step);
-    canvas.setHeight(rows * step);
+    canvas.setWidth(sanitizeCanvasDimension(cols * step));
+    canvas.setHeight(sanitizeCanvasDimension(rows * step));
     g.setFill(Color.color(0.06, 0.06, 0.08));
     g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
     for (int y = 0; y < rows; y++) {
@@ -504,8 +504,8 @@ public class TilemapEditorView extends BorderPane {
   private void redrawTileset() {
     GraphicsContext g = tilesetCanvas.getGraphicsContext2D();
     if (tilesetImage == null || tilesetTileW <= 0 || tilesetTileH <= 0) {
-      tilesetCanvas.setWidth(300);
-      tilesetCanvas.setHeight(80);
+      tilesetCanvas.setWidth(sanitizeCanvasDimension(300));
+      tilesetCanvas.setHeight(sanitizeCanvasDimension(80));
       g.setFill(Color.color(0.1, 0.1, 0.12));
       g.fillRect(0, 0, tilesetCanvas.getWidth(), tilesetCanvas.getHeight());
       g.setFill(Color.color(0.8, 0.8, 0.8));
@@ -516,8 +516,10 @@ public class TilemapEditorView extends BorderPane {
     double srcH = tilesetImage.getHeight();
     double cw = srcW * tilesetScale;
     double ch = srcH * tilesetScale;
-    tilesetCanvas.setWidth(cw);
-    tilesetCanvas.setHeight(ch);
+    tilesetCanvas.setWidth(sanitizeCanvasDimension(cw));
+    tilesetCanvas.setHeight(sanitizeCanvasDimension(ch));
+    cw = tilesetCanvas.getWidth();
+    ch = tilesetCanvas.getHeight();
     g.setFill(Color.color(0.06, 0.06, 0.08));
     g.fillRect(0, 0, cw, ch);
     g.drawImage(tilesetImage, 0, 0, cw, ch);
@@ -542,5 +544,12 @@ public class TilemapEditorView extends BorderPane {
     if (tilesetScale < 0.5) tilesetScale = 0.5;
     if (tilesetScale > 8.0) tilesetScale = 8.0;
     redrawTileset();
+  }
+
+  private static double sanitizeCanvasDimension(double value) {
+    if (!Double.isFinite(value)) return 1.0;
+    if (value < 1.0) return 1.0;
+    if (value > 8192.0) return 8192.0;
+    return value;
   }
 }

@@ -811,7 +811,10 @@ public class EditorApp extends Application {
     private boolean filled = false;
 
     public Canvas getCanvas() { return canvas; }
-    public void setWidth(double w) { canvas.setWidth(Math.max(160, w)); redraw(); }
+    public void setWidth(double w) {
+      canvas.setWidth(sanitizeCanvasDimension(w, 160.0));
+      redraw();
+    }
 
     public void pushSample(double cpu01, double ram01, double gpu01) {
       int i = idx % cpu.length;
@@ -827,6 +830,7 @@ public class EditorApp extends Application {
       GraphicsContext g = canvas.getGraphicsContext2D();
       double w = canvas.getWidth();
       double h = canvas.getHeight();
+      if (!Double.isFinite(w) || !Double.isFinite(h) || w <= 0 || h <= 0) return;
       g.setFill(GRID_BG);
       g.fillRect(0, 0, w, h);
 
@@ -891,6 +895,14 @@ public class EditorApp extends Application {
       if (v < 0) return 0;
       if (v > 1) return 1;
       return v;
+    }
+
+    private static double sanitizeCanvasDimension(double value, double minimum) {
+      if (!Double.isFinite(value)) return minimum;
+      double min = Math.max(1.0, minimum);
+      if (value < min) return min;
+      if (value > 8192.0) return 8192.0;
+      return value;
     }
   }
 

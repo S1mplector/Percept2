@@ -73,6 +73,8 @@ public class MenuScreenVisualEditor extends BorderPane {
   private final Properties topLevelExtras = new Properties();
   private Consumer<String> onMenuTextChanged;
   private boolean suppressEvents = false;
+  private String lastLoadedText = "";
+  private String lastEmittedText = "";
   private File projectRoot;
   private String screenIdHint = "main";
   private int previewSelected = 0;
@@ -101,6 +103,8 @@ public class MenuScreenVisualEditor extends BorderPane {
   }
 
   public void setMenuText(String text) {
+    String normalizedInput = normalizeLineEndings(text);
+    if (normalizedInput.equals(lastLoadedText)) return;
     suppressEvents = true;
     Properties p = new Properties();
     try {
@@ -167,6 +171,8 @@ public class MenuScreenVisualEditor extends BorderPane {
     suppressEvents = false;
     validateState();
     redrawPreview();
+    lastLoadedText = normalizedInput;
+    lastEmittedText = normalizeLineEndings(serialize());
   }
 
   public String getMenuText() {
@@ -475,7 +481,11 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void emitText() {
     if (onMenuTextChanged == null) return;
-    onMenuTextChanged.accept(serialize());
+    String text = serialize();
+    String normalized = normalizeLineEndings(text);
+    if (normalized.equals(lastEmittedText)) return;
+    lastEmittedText = normalized;
+    onMenuTextChanged.accept(text);
   }
 
   private String serialize() {
@@ -667,6 +677,11 @@ public class MenuScreenVisualEditor extends BorderPane {
     if (value == null) return fallback;
     String t = value.trim();
     return t.isEmpty() ? fallback : t;
+  }
+
+  private static String normalizeLineEndings(String text) {
+    if (text == null) return "";
+    return text.replace("\r\n", "\n").replace('\r', '\n');
   }
 
   private static String sanitizeId(String value) {

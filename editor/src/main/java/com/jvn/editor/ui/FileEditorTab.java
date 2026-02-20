@@ -51,6 +51,8 @@ public class FileEditorTab extends BorderPane {
   private com.jvn.editor.commands.CommandStack commands;
   private File projectRoot;
   private String savedSnapshot = "";
+  private double lastSizedWidth = -1;
+  private double lastSizedHeight = -1;
 
   public FileEditorTab(File file) {
     this.file = file;
@@ -202,6 +204,7 @@ public class FileEditorTab extends BorderPane {
     if (timelineView != null) timelineView.setProjectRoot(root);
     if (vnPreview != null) vnPreview.setProjectRoot(root);
     if (menuScreenVisualEditor != null) menuScreenVisualEditor.setProjectRoot(root);
+    if (dialogueLayoutVisualEditor != null) dialogueLayoutVisualEditor.setProjectRoot(root);
   }
 
   public void setCommandStack(com.jvn.editor.commands.CommandStack cs) {
@@ -220,9 +223,15 @@ public class FileEditorTab extends BorderPane {
   }
 
   public void setSize(double w, double h) {
-    if (viewport != null) viewport.setSize(w, h * 0.6);
-    if (vnPreview != null) vnPreview.setSize(w, h * 0.6);
-    if (themePreview != null) themePreview.setSize(w, h * 0.6);
+    double safeW = sanitizeDimension(w);
+    double safeH = sanitizeDimension(h);
+    if (Math.abs(lastSizedWidth - safeW) < 0.5 && Math.abs(lastSizedHeight - safeH) < 0.5) return;
+    lastSizedWidth = safeW;
+    lastSizedHeight = safeH;
+    double previewH = sanitizeDimension(safeH * 0.6);
+    if (viewport != null) viewport.setSize(safeW, previewH);
+    if (vnPreview != null) vnPreview.setSize(safeW, previewH);
+    if (themePreview != null) themePreview.setSize(safeW, previewH);
   }
 
   public void apply() throws Exception {
@@ -393,9 +402,9 @@ public class FileEditorTab extends BorderPane {
     });
     menuScreenVisualEditor.setOnMenuTextChanged(text -> {
       if (syncing[0]) return;
-      if (Objects.equals(menuScreenEditor.getText(), text)) return;
+      if (Objects.equals(normalizeLineEndings(menuScreenEditor.getText()), normalizeLineEndings(text))) return;
       syncing[0] = true;
-      menuScreenEditor.setText(text);
+      menuScreenEditor.setTextNoEvent(text);
       syncing[0] = false;
     });
     String current = menuScreenEditor.getText();
@@ -414,9 +423,9 @@ public class FileEditorTab extends BorderPane {
     });
     menuLayoutVisualEditor.setOnLayoutTextChanged(text -> {
       if (syncing[0]) return;
-      if (Objects.equals(menuLayoutEditor.getText(), text)) return;
+      if (Objects.equals(normalizeLineEndings(menuLayoutEditor.getText()), normalizeLineEndings(text))) return;
       syncing[0] = true;
-      menuLayoutEditor.setText(text);
+      menuLayoutEditor.setTextNoEvent(text);
       syncing[0] = false;
     });
     String current = menuLayoutEditor.getText();
@@ -435,9 +444,9 @@ public class FileEditorTab extends BorderPane {
     });
     dialogueLayoutVisualEditor.setOnLayoutTextChanged(text -> {
       if (syncing[0]) return;
-      if (Objects.equals(dialogueLayoutEditor.getText(), text)) return;
+      if (Objects.equals(normalizeLineEndings(dialogueLayoutEditor.getText()), normalizeLineEndings(text))) return;
       syncing[0] = true;
-      dialogueLayoutEditor.setText(text);
+      dialogueLayoutEditor.setTextNoEvent(text);
       syncing[0] = false;
     });
     String current = dialogueLayoutEditor.getText();
@@ -470,5 +479,15 @@ public class FileEditorTab extends BorderPane {
     String name = code.getName();
     if (name == null || name.isBlank()) name = code.toString();
     return name.toUpperCase();
+  }
+
+  private static String normalizeLineEndings(String text) {
+    if (text == null) return "";
+    return text.replace("\r\n", "\n").replace('\r', '\n');
+  }
+
+  private static double sanitizeDimension(double value) {
+    if (!Double.isFinite(value)) return 1.0;
+    return Math.max(1.0, Math.min(8192.0, value));
   }
 }

@@ -134,7 +134,12 @@ public class ViewportView extends StackPane {
   public Camera2D getCamera() { return camera; }
 
   public void setShowGrid(boolean b) { this.showGrid = b; }
-  public void setSize(double w, double h) { canvas.setWidth(Math.max(1,w)); canvas.setHeight(Math.max(1,h)); }
+  public void setSize(double w, double h) {
+    double sw = sanitizeCanvasDimension(w);
+    double sh = sanitizeCanvasDimension(h);
+    if (Math.abs(canvas.getWidth() - sw) >= 0.5) canvas.setWidth(sw);
+    if (Math.abs(canvas.getHeight() - sh) >= 0.5) canvas.setHeight(sh);
+  }
 
   public void render(long deltaMs) {
     double w = canvas.getWidth();
@@ -270,6 +275,11 @@ public class ViewportView extends StackPane {
     if (b == MouseButton.MIDDLE) return 2;
     if (b == MouseButton.SECONDARY) return 3;
     return 0;
+  }
+
+  private static double sanitizeCanvasDimension(double value) {
+    if (!Double.isFinite(value)) return 1.0;
+    return Math.max(1.0, Math.min(8192.0, value));
   }
 
   private static class Rect { double x,y,w,h; Rect(double x,double y,double w,double h){this.x=x;this.y=y;this.w=w;this.h=h;} }
