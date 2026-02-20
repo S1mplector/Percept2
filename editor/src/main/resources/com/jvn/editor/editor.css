@@ -260,6 +260,71 @@
   -fx-text-fill: linear-gradient(to bottom, #ffffff 0%, #dedede 42%, #9a9a9a 100%);
 }
 
+/* External layout studio windows */
+.layout-studio-root {
+  -fx-background-color: #0f1218;
+}
+
+.layout-studio-toolbar {
+  -fx-background-color: linear-gradient(to bottom, #1a1f29, #141922);
+  -fx-border-color: #2a3240;
+  -fx-border-width: 0 0 1 0;
+}
+
+.layout-studio-title {
+  -fx-font-size: 14px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #e6ebf4;
+}
+
+.layout-studio-center {
+  -fx-background-color: #0f1218;
+}
+
+.layout-studio-design-host {
+  -fx-background-color: #0f1218;
+  -fx-border-color: #232a36;
+}
+
+.layout-studio-utils {
+  -fx-background-color: #141922;
+  -fx-border-color: #2a3240;
+  -fx-border-width: 0 0 0 1;
+}
+
+.layout-studio-section-title {
+  -fx-font-size: 13px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #dbe4f0;
+}
+
+.layout-studio-status-bar {
+  -fx-background-color: #121721;
+  -fx-border-color: #2a3240;
+  -fx-border-width: 1 0 0 0;
+}
+
+.layout-studio-status {
+  -fx-text-fill: #a6d9ff;
+}
+
+.layout-studio-dirty {
+  -fx-padding: 2 8 2 8;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-background-radius: 10;
+}
+
+.layout-studio-dirty-saved {
+  -fx-background-color: rgba(94, 189, 115, 0.16);
+  -fx-text-fill: #8ce89f;
+}
+
+.layout-studio-dirty-unsaved {
+  -fx-background-color: rgba(240, 182, 115, 0.18);
+  -fx-text-fill: #f3c787;
+}
+
 .jvn-wordmark-version {
   -fx-font-size: 11px;
   -fx-text-fill: #aeb4bf;

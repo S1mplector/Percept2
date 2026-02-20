@@ -1,0 +1,776 @@
+package com.jvn.editor.ui;
+
+import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
+
+import java.awt.Desktop;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Opens specialized layout/menu visual editors in external Studio windows.
+ * This keeps the main editor focused while providing larger purpose-built workspaces.
+ */
+public class LayoutStudioWindowManager {
+  public enum Kind {
+    MENU_SCREEN,
+    MENU_LAYOUT,
+    MENU_STYLE,
+    DIALOGUE_LAYOUT
+  }
+
+  private final Stage owner;
+  private final Map<String, LayoutStudioWindow> windows = new LinkedHashMap<>();
+
+  public LayoutStudioWindowManager(Stage owner) {
+    this.owner = owner;
+  }
+
+  public boolean supports(File file) {
+    return detectKind(file) != null;
+  }
+
+  public void open(File file, File projectRoot, Consumer<String> statusSink) {
+    if (file == null) return;
+    Kind kind = detectKind(file);
+    if (kind == null) return;
+
+    String key = canonicalPath(file);
+    LayoutStudioWindow existing = windows.get(key);
+    if (existing != null) {
+      existing.setProjectRoot(projectRoot);
+      existing.focus();
+      if (statusSink != null) statusSink.accept("Focused Studio: " + file.getName());
+      return;
+    }
+
+    LayoutStudioWindow window = new LayoutStudioWindow(owner, file, kind, projectRoot, statusSink, () -> windows.remove(key));
+    windows.put(key, window);
+    window.show();
+    if (statusSink != null) statusSink.accept("Opened in Studio: " + file.getName());
+  }
+
+  public boolean requestCloseAll() {
+    List<LayoutStudioWindow> copy = new ArrayList<>(windows.values());
+    for (LayoutStudioWindow window : copy) {
+      if (window == null) continue;
+      if (!window.requestClose()) return false;
+    }
+    return true;
+  }
+
+  private static Kind detectKind(File file) {
+    if (file == null) return null;
+    String name = file.getName().toLowerCase(Locale.ROOT);
+    String path = file.getPath().replace('\\', '/').toLowerCase(Locale.ROOT);
+
+    if (name.endsWith(".menu")) return Kind.MENU_SCREEN;
+    if (name.endsWith(".layout") && (path.contains("/config/menu/layouts/") || path.contains("/menu/layouts/") || path.contains("/config/menu/"))) {
+      return Kind.MENU_LAYOUT;
+    }
+    if (name.endsWith(".style") || path.contains("/config/menu/styles/")) return Kind.MENU_STYLE;
+    if ("dialogue.layout".equals(name) || (name.endsWith(".layout") && (path.contains("/config/ui/") || path.contains("/config/vn/")))) {
+      return Kind.DIALOGUE_LAYOUT;
+    }
+    return null;
+  }
+
+  private static String canonicalPath(File file) {
+    if (file == null) return "";
+    try {
+      return file.getCanonicalPath();
+    } catch (Exception ignored) {
+      return file.getAbsolutePath();
+    }
+  }
+
+  private static String normalizeLineEndings(String text) {
+    if (text == null) return "";
+    return text.replace("\r\n", "\n").replace('\r', '\n');
+  }
+
+  private static String normalize(String value, String fallback) {
+    if (value == null) return fallback;
+    String t = value.trim();
+    return t.isBlank() ? fallback : t;
+  }
+
+  private static String sanitizeId(String raw) {
+    if (raw == null) return "";
+    String t = raw.trim().toLowerCase(Locale.ROOT);
+    if (t.isBlank()) return "";
+    t = t.replace('-', '_').replace(' ', '_');
+    t = t.replaceAll("[^a-z0-9_]", "");
+    t = t.replaceAll("_+", "_");
+    if (t.startsWith("_")) t = t.substring(1);
+    if (t.endsWith("_")) t = t.substring(0, t.length() - 1);
+    return t;
+  }
+
+  private static final class LayoutStudioWindow {
+    private final Stage stage;
+    private final File file;
+    private final Kind kind;
+    private final Consumer<String> externalStatus;
+    private final Runnable onClosed;
+
+    private File projectRoot;
+    private boolean syncing;
+    private boolean dirty;
+    private String savedSnapshot = "";
+
+    private final JavaCodeEditor codeEditor = new JavaCodeEditor();
+    private final Label status = new Label("Ready.");
+    private final Label fileLabel = new Label();
+    private final Label dirtyBadge = new Label();
+
+    private final ToggleButton bDesign = new ToggleButton("Design");
+    private final ToggleButton bCode = new ToggleButton("Code");
+    private final ToggleButton bSplit = new ToggleButton("Split");
+
+    private final BorderPane centerHost = new BorderPane();
+    private final SplitPane split = new SplitPane();
+
+    private final TextField assetPathField = new TextField();
+    private final ComboBox<String> assetKeyBox = new ComboBox<>();
+    private final TextField assetItemIdField = new TextField();
+
+    private final Button saveButton = new Button("Save");
+    private final Button reloadButton = new Button("Reload");
+    private final Button revealButton = new Button("Reveal");
+
+    private final Button browseAssetButton = new Button("Browse Asset");
+    private final Button importAssetButton = new Button("Import Asset");
+    private final Button copyPathButton = new Button("Copy Path");
+    private final Button applyPathButton = new Button("Apply to File");
+
+    private final MenuScreenVisualEditor menuScreenVisualEditor;
+    private final MenuLayoutVisualEditor menuLayoutVisualEditor;
+    private final MenuStyleVisualEditor menuStyleVisualEditor;
+    private final DialogueLayoutEditorView dialogueLayoutVisualEditor;
+    private final Node designNode;
+
+    LayoutStudioWindow(Stage owner,
+                       File file,
+                       Kind kind,
+                       File projectRoot,
+                       Consumer<String> statusSink,
+                       Runnable onClosed) {
+      this.file = file;
+      this.kind = kind;
+      this.projectRoot = projectRoot;
+      this.externalStatus = statusSink;
+      this.onClosed = onClosed;
+
+      this.menuScreenVisualEditor = (kind == Kind.MENU_SCREEN) ? new MenuScreenVisualEditor() : null;
+      this.menuLayoutVisualEditor = (kind == Kind.MENU_LAYOUT) ? new MenuLayoutVisualEditor() : null;
+      this.menuStyleVisualEditor = (kind == Kind.MENU_STYLE) ? new MenuStyleVisualEditor() : null;
+      this.dialogueLayoutVisualEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new DialogueLayoutEditorView() : null;
+      this.designNode = resolveDesignNode();
+
+      this.stage = new Stage();
+      if (owner != null) stage.initOwner(owner);
+      stage.setMinWidth(1200);
+      stage.setMinHeight(760);
+
+      BorderPane root = new BorderPane();
+      root.getStyleClass().add("layout-studio-root");
+      root.setTop(buildToolbar());
+      root.setCenter(buildContent());
+      root.setRight(buildUtilitiesPane());
+      root.setBottom(buildStatusBar());
+
+      Scene scene = new Scene(root, 1460, 900);
+      EditorTheme.apply(scene);
+      stage.setScene(scene);
+
+      configureVisualEditors();
+      bindSync();
+      bindButtons();
+      applyMode(Mode.SPLIT);
+      loadFromDisk();
+
+      stage.setOnCloseRequest(e -> {
+        if (!confirmCloseIfDirty()) {
+          e.consume();
+        }
+      });
+      stage.setOnHidden(e -> {
+        if (onClosed != null) onClosed.run();
+      });
+    }
+
+    void show() {
+      stage.show();
+      Platform.runLater(() -> {
+        stage.toFront();
+        codeEditor.requestFocus();
+      });
+    }
+
+    void focus() {
+      if (!stage.isShowing()) {
+        stage.show();
+      }
+      stage.toFront();
+      stage.requestFocus();
+    }
+
+    boolean requestClose() {
+      if (!confirmCloseIfDirty()) return false;
+      stage.hide();
+      return true;
+    }
+
+    void setProjectRoot(File projectRoot) {
+      this.projectRoot = projectRoot;
+      configureVisualEditors();
+      updateFileLabel();
+      updateAssetUtilityState();
+    }
+
+    private Node resolveDesignNode() {
+      if (kind == Kind.MENU_SCREEN && menuScreenVisualEditor != null) return menuScreenVisualEditor;
+      if (kind == Kind.MENU_LAYOUT && menuLayoutVisualEditor != null) return menuLayoutVisualEditor;
+      if (kind == Kind.MENU_STYLE && menuStyleVisualEditor != null) return menuStyleVisualEditor;
+      if (kind == Kind.DIALOGUE_LAYOUT && dialogueLayoutVisualEditor != null) return dialogueLayoutVisualEditor;
+      return new Label("Unsupported studio file type");
+    }
+
+    private Node buildToolbar() {
+      Label title = new Label(studioTitle());
+      title.getStyleClass().add("layout-studio-title");
+
+      dirtyBadge.getStyleClass().add("layout-studio-dirty");
+
+      ToggleGroup modeGroup = new ToggleGroup();
+      bDesign.setToggleGroup(modeGroup);
+      bCode.setToggleGroup(modeGroup);
+      bSplit.setToggleGroup(modeGroup);
+      bSplit.setSelected(true);
+
+      bDesign.setOnAction(e -> applyMode(Mode.DESIGN));
+      bCode.setOnAction(e -> applyMode(Mode.CODE));
+      bSplit.setOnAction(e -> applyMode(Mode.SPLIT));
+
+      Region spacer = new Region();
+      HBox.setHgrow(spacer, Priority.ALWAYS);
+
+      HBox row = new HBox(8,
+          title,
+          dirtyBadge,
+          spacer,
+          bDesign,
+          bCode,
+          bSplit,
+          saveButton,
+          reloadButton,
+          revealButton
+      );
+      row.getStyleClass().add("layout-studio-toolbar");
+      row.setAlignment(Pos.CENTER_LEFT);
+      row.setPadding(new Insets(8));
+      return row;
+    }
+
+    private Node buildContent() {
+      split.setOrientation(Orientation.HORIZONTAL);
+      split.getItems().setAll(wrapDesignNode(), codeEditor);
+      split.setDividerPositions(0.62);
+      centerHost.setCenter(split);
+      centerHost.getStyleClass().add("layout-studio-center");
+      return centerHost;
+    }
+
+    private Node wrapDesignNode() {
+      BorderPane pane = new BorderPane(designNode);
+      pane.getStyleClass().add("layout-studio-design-host");
+      return pane;
+    }
+
+    private Node buildUtilitiesPane() {
+      Label utilTitle = new Label("Asset Utilities");
+      utilTitle.getStyleClass().add("layout-studio-section-title");
+
+      assetPathField.setPromptText("assets/ui/button.png");
+      assetPathField.textProperty().addListener((o, ov, nv) -> updateAssetUtilityState());
+
+      assetItemIdField.setPromptText("menu item id");
+      assetItemIdField.textProperty().addListener((o, ov, nv) -> updateAssetUtilityState());
+
+      configureAssetKeys();
+
+      VBox form = new VBox(6,
+          new Label("Asset Path"),
+          assetPathField,
+          new Label("Apply Key"),
+          assetKeyBox
+      );
+      form.getChildren().add(assetItemIdField);
+
+      Label tip = new Label(assetTip());
+      tip.setWrapText(true);
+      tip.getStyleClass().add("muted");
+
+      VBox buttons = new VBox(6,
+          browseAssetButton,
+          importAssetButton,
+          copyPathButton,
+          applyPathButton
+      );
+      for (Node node : buttons.getChildren()) {
+        if (node instanceof Button b) {
+          b.setMaxWidth(Double.MAX_VALUE);
+        }
+      }
+
+      VBox panel = new VBox(10, utilTitle, form, buttons, new Separator(), tip);
+      panel.getStyleClass().add("layout-studio-utils");
+      panel.setPadding(new Insets(10));
+      panel.setPrefWidth(320);
+      panel.setMinWidth(280);
+      updateAssetUtilityState();
+      return panel;
+    }
+
+    private Node buildStatusBar() {
+      fileLabel.getStyleClass().add("muted");
+      status.getStyleClass().add("layout-studio-status");
+
+      VBox box = new VBox(3, fileLabel, status);
+      box.setPadding(new Insets(6, 10, 8, 10));
+      box.getStyleClass().add("layout-studio-status-bar");
+      updateFileLabel();
+      return box;
+    }
+
+    private void configureVisualEditors() {
+      if (menuScreenVisualEditor != null) {
+        menuScreenVisualEditor.setProjectRoot(projectRoot);
+        menuScreenVisualEditor.setScreenIdHint(screenIdFromFile(file));
+      }
+      if (menuStyleVisualEditor != null) menuStyleVisualEditor.setProjectRoot(projectRoot);
+      if (dialogueLayoutVisualEditor != null) dialogueLayoutVisualEditor.setProjectRoot(projectRoot);
+    }
+
+    private void bindSync() {
+      codeEditor.setOnTextChanged(text -> {
+        if (syncing) return;
+        syncing = true;
+        applyCodeToDesign(text);
+        syncing = false;
+        updateDirtyState();
+      });
+
+      if (menuScreenVisualEditor != null) {
+        menuScreenVisualEditor.setOnMenuTextChanged(text -> pushDesignTextToCode(text));
+      }
+      if (menuLayoutVisualEditor != null) {
+        menuLayoutVisualEditor.setOnLayoutTextChanged(text -> pushDesignTextToCode(text));
+      }
+      if (menuStyleVisualEditor != null) {
+        menuStyleVisualEditor.setOnStyleTextChanged(text -> pushDesignTextToCode(text));
+      }
+      if (dialogueLayoutVisualEditor != null) {
+        dialogueLayoutVisualEditor.setOnLayoutTextChanged(text -> pushDesignTextToCode(text));
+      }
+    }
+
+    private void pushDesignTextToCode(String text) {
+      if (syncing) return;
+      String current = normalizeLineEndings(codeEditor.getText());
+      String incoming = normalizeLineEndings(text);
+      if (Objects.equals(current, incoming)) return;
+      syncing = true;
+      codeEditor.setTextNoEvent(text);
+      syncing = false;
+      updateDirtyState();
+    }
+
+    private void applyCodeToDesign(String text) {
+      if (menuScreenVisualEditor != null) {
+        menuScreenVisualEditor.setMenuText(text);
+      } else if (menuLayoutVisualEditor != null) {
+        menuLayoutVisualEditor.setLayoutText(text);
+      } else if (menuStyleVisualEditor != null) {
+        menuStyleVisualEditor.setStyleText(text);
+      } else if (dialogueLayoutVisualEditor != null) {
+        dialogueLayoutVisualEditor.setLayoutText(text);
+      }
+    }
+
+    private void bindButtons() {
+      saveButton.setOnAction(e -> save());
+      reloadButton.setOnAction(e -> reload());
+      revealButton.setOnAction(e -> revealInFinder());
+
+      browseAssetButton.setOnAction(e -> browseExistingAsset());
+      importAssetButton.setOnAction(e -> importExternalAsset());
+      copyPathButton.setOnAction(e -> copyAssetPath());
+      applyPathButton.setOnAction(e -> applyAssetPathToCode());
+    }
+
+    private void loadFromDisk() {
+      try {
+        String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
+        syncing = true;
+        codeEditor.setTextNoEvent(text);
+        applyCodeToDesign(text);
+        syncing = false;
+
+        savedSnapshot = normalizeLineEndings(text);
+        dirty = false;
+        updateWindowTitle();
+        setStatus("Loaded: " + file.getName());
+      } catch (Exception ex) {
+        syncing = false;
+        setStatus("Load failed: " + ex.getMessage());
+      }
+    }
+
+    private void save() {
+      try {
+        File parent = file.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+
+        String content = codeEditor.getText();
+        if (content == null) content = "";
+        Files.writeString(file.toPath(), content);
+
+        savedSnapshot = normalizeLineEndings(content);
+        dirty = false;
+        updateWindowTitle();
+        setStatus("Saved: " + file.getName());
+      } catch (Exception ex) {
+        setStatus("Save failed: " + ex.getMessage());
+      }
+    }
+
+    private void reload() {
+      if (dirty && !confirmDiscard("Reload from disk")) return;
+      loadFromDisk();
+    }
+
+    private void revealInFinder() {
+      try {
+        File parent = file.getParentFile();
+        if (parent == null || !parent.exists()) return;
+        if (Desktop.isDesktopSupported()) Desktop.getDesktop().open(parent);
+        setStatus("Opened: " + toRelativePath(parent));
+      } catch (Exception ex) {
+        setStatus("Reveal failed: " + ex.getMessage());
+      }
+    }
+
+    private void browseExistingAsset() {
+      FileChooser chooser = new FileChooser();
+      chooser.setTitle("Select Project Asset");
+      File init = preferredAssetDirectory();
+      if (init != null && init.exists() && init.isDirectory()) chooser.setInitialDirectory(init);
+      File selected = chooser.showOpenDialog(stage);
+      if (selected == null) return;
+      assetPathField.setText(toRelativePath(selected));
+      setStatus("Asset selected: " + toRelativePath(selected));
+    }
+
+    private void importExternalAsset() {
+      FileChooser chooser = new FileChooser();
+      chooser.setTitle("Import External Asset");
+      File selected = chooser.showOpenDialog(stage);
+      if (selected == null) return;
+
+      try {
+        File destinationDir = preferredAssetDirectory();
+        if (destinationDir == null) {
+          assetPathField.setText(selected.getAbsolutePath().replace('\\', '/'));
+          setStatus("Asset selected outside project.");
+          return;
+        }
+
+        if (!destinationDir.exists()) destinationDir.mkdirs();
+
+        File destination = uniqueDestination(destinationDir, selected.getName());
+        Files.copy(selected.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+        String rel = toRelativePath(destination);
+        assetPathField.setText(rel);
+        setStatus("Imported asset: " + rel);
+      } catch (Exception ex) {
+        setStatus("Import failed: " + ex.getMessage());
+      }
+    }
+
+    private void copyAssetPath() {
+      String path = normalize(assetPathField.getText(), "");
+      if (path.isBlank()) {
+        setStatus("Asset path is empty.");
+        return;
+      }
+      ClipboardContent content = new ClipboardContent();
+      content.putString(path);
+      Clipboard.getSystemClipboard().setContent(content);
+      setStatus("Copied: " + path);
+    }
+
+    private void applyAssetPathToCode() {
+      String path = normalize(assetPathField.getText(), "");
+      if (path.isBlank()) {
+        setStatus("Asset path is empty.");
+        return;
+      }
+
+      String keyTemplate = normalize(assetKeyBox.getValue(), "");
+      if (keyTemplate.isBlank()) {
+        setStatus("No key selected.");
+        return;
+      }
+
+      String effectiveKey = keyTemplate;
+      if (effectiveKey.contains("<itemId>")) {
+        String itemId = sanitizeId(assetItemIdField.getText());
+        if (itemId.isBlank()) {
+          setStatus("Enter a menu item id for this key.");
+          return;
+        }
+        effectiveKey = effectiveKey.replace("<itemId>", itemId);
+      }
+
+      String before = codeEditor.getText();
+      String after = upsertProperty(before, effectiveKey, path);
+      if (!Objects.equals(before, after)) {
+        codeEditor.setText(after);
+        setStatus("Applied asset to: " + effectiveKey);
+      } else {
+        setStatus("No change for key: " + effectiveKey);
+      }
+    }
+
+    private void configureAssetKeys() {
+      List<String> keys = new ArrayList<>();
+      if (kind == Kind.DIALOGUE_LAYOUT) {
+        keys.add("textBoxAsset");
+      } else if (kind == Kind.MENU_STYLE) {
+        keys.add("buttonAsset");
+        keys.add("buttonSelectedAsset");
+        keys.add("buttonDisabledAsset");
+      } else if (kind == Kind.MENU_SCREEN) {
+        keys.add("item.<itemId>.bgAsset");
+        keys.add("item.<itemId>.bgSelectedAsset");
+        keys.add("item.<itemId>.bgDisabledAsset");
+        keys.add("item.<itemId>.icon");
+      } else {
+        keys.add("# no direct asset key");
+      }
+
+      assetKeyBox.getItems().setAll(keys);
+      if (!keys.isEmpty()) assetKeyBox.getSelectionModel().select(0);
+      assetItemIdField.setManaged(kind == Kind.MENU_SCREEN);
+      assetItemIdField.setVisible(kind == Kind.MENU_SCREEN);
+    }
+
+    private void updateAssetUtilityState() {
+      String key = normalize(assetKeyBox.getValue(), "");
+      boolean canApply = !key.isBlank() && !key.startsWith("#");
+      applyPathButton.setDisable(!canApply);
+    }
+
+    private String assetTip() {
+      return switch (kind) {
+        case DIALOGUE_LAYOUT -> "Import a textbox frame and apply it to textBoxAsset.\nThe design canvas will refresh immediately.";
+        case MENU_STYLE -> "Import button textures and map them to style keys.\nUse Split mode to verify visual + file output together.";
+        case MENU_SCREEN -> "Assign per-item button/icon assets using item.<itemId> keys.\nTip: select a menu item id that exists in this .menu file.";
+        case MENU_LAYOUT -> "This file is geometry-focused. Asset tools are still available for copying paths into custom properties.";
+      };
+    }
+
+    private File preferredAssetDirectory() {
+      if (projectRoot == null || !projectRoot.isDirectory()) return null;
+      return switch (kind) {
+        case DIALOGUE_LAYOUT -> new File(projectRoot, "assets/ui");
+        case MENU_STYLE -> new File(projectRoot, "config/menu/assets/buttons");
+        case MENU_SCREEN -> new File(projectRoot, "config/menu/assets/buttons");
+        case MENU_LAYOUT -> new File(projectRoot, "config/menu/assets");
+      };
+    }
+
+    private File uniqueDestination(File dir, String name) {
+      String safeName = normalize(name, "asset.bin");
+      File out = new File(dir, safeName);
+      if (!out.exists()) return out;
+
+      String base = safeName;
+      String ext = "";
+      int dot = safeName.lastIndexOf('.');
+      if (dot > 0) {
+        base = safeName.substring(0, dot);
+        ext = safeName.substring(dot);
+      }
+      int i = 2;
+      while (true) {
+        File candidate = new File(dir, base + "_" + i + ext);
+        if (!candidate.exists()) return candidate;
+        i++;
+      }
+    }
+
+    private String toRelativePath(File pathFile) {
+      if (pathFile == null) return "";
+      if (projectRoot == null) return pathFile.getAbsolutePath().replace('\\', '/');
+      try {
+        Path root = projectRoot.toPath().toAbsolutePath().normalize();
+        Path abs = pathFile.toPath().toAbsolutePath().normalize();
+        if (abs.startsWith(root)) {
+          return root.relativize(abs).toString().replace('\\', '/');
+        }
+      } catch (Exception ignored) {
+      }
+      return pathFile.getAbsolutePath().replace('\\', '/');
+    }
+
+    private void updateDirtyState() {
+      String current = normalizeLineEndings(codeEditor.getText());
+      dirty = !Objects.equals(savedSnapshot, current);
+      updateWindowTitle();
+    }
+
+    private void updateWindowTitle() {
+      String title = "JVN " + studioTitle() + " - " + file.getName();
+      if (dirty) title += " *";
+      stage.setTitle(title);
+      dirtyBadge.setText(dirty ? "Unsaved" : "Saved");
+      dirtyBadge.getStyleClass().removeAll("layout-studio-dirty-saved", "layout-studio-dirty-unsaved");
+      dirtyBadge.getStyleClass().add(dirty ? "layout-studio-dirty-unsaved" : "layout-studio-dirty-saved");
+      updateFileLabel();
+    }
+
+    private void updateFileLabel() {
+      fileLabel.setText("File: " + toRelativePath(file));
+    }
+
+    private String studioTitle() {
+      return switch (kind) {
+        case MENU_SCREEN -> "Menu Screen Studio";
+        case MENU_LAYOUT -> "Menu Layout Studio";
+        case MENU_STYLE -> "Menu Style Studio";
+        case DIALOGUE_LAYOUT -> "Dialogue Layout Studio";
+      };
+    }
+
+    private void setStatus(String message) {
+      String msg = normalize(message, "Ready.");
+      status.setText(msg);
+      if (externalStatus != null) externalStatus.accept(msg);
+    }
+
+    private boolean confirmDiscard(String operation) {
+      Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+      EditorTheme.apply(alert);
+      alert.setHeaderText(operation + "? Unsaved changes will be lost.");
+      alert.setTitle("Unsaved Changes");
+      alert.setContentText("Continue without saving?");
+      ButtonType continueBtn = new ButtonType("Continue", ButtonBar.ButtonData.OK_DONE);
+      alert.getButtonTypes().setAll(continueBtn, ButtonType.CANCEL);
+      Optional<ButtonType> result = alert.showAndWait();
+      return result.isPresent() && result.get() == continueBtn;
+    }
+
+    private boolean confirmCloseIfDirty() {
+      if (!dirty) return true;
+
+      Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+      EditorTheme.apply(alert);
+      alert.setTitle("Unsaved Changes");
+      alert.setHeaderText("Save changes to " + file.getName() + " before closing?");
+      alert.setContentText("Choose Save to keep changes, Discard to close without saving.");
+
+      ButtonType save = new ButtonType("Save", ButtonBar.ButtonData.YES);
+      ButtonType discard = new ButtonType("Discard", ButtonBar.ButtonData.NO);
+      alert.getButtonTypes().setAll(save, discard, ButtonType.CANCEL);
+      Optional<ButtonType> result = alert.showAndWait();
+      if (result.isEmpty() || result.get() == ButtonType.CANCEL) return false;
+      if (result.get() == discard) return true;
+      save();
+      return !dirty;
+    }
+
+    private enum Mode { DESIGN, CODE, SPLIT }
+
+    private void applyMode(Mode mode) {
+      if (mode == null) mode = Mode.SPLIT;
+      if (mode == Mode.DESIGN) {
+        centerHost.setCenter(wrapDesignNode());
+      } else if (mode == Mode.CODE) {
+        centerHost.setCenter(codeEditor);
+      } else {
+        centerHost.setCenter(split);
+      }
+
+      bDesign.setSelected(mode == Mode.DESIGN);
+      bCode.setSelected(mode == Mode.CODE);
+      bSplit.setSelected(mode == Mode.SPLIT);
+    }
+
+    private static String upsertProperty(String originalText, String key, String value) {
+      String text = originalText == null ? "" : originalText;
+      String k = normalize(key, "");
+      if (k.isBlank()) return text;
+      String v = value == null ? "" : value;
+
+      String line = k + "=" + v;
+      Pattern pattern = Pattern.compile("(?m)^\\s*" + Pattern.quote(k) + "\\s*=.*$");
+      Matcher matcher = pattern.matcher(text);
+      if (matcher.find()) {
+        return matcher.replaceFirst(Matcher.quoteReplacement(line));
+      }
+
+      StringBuilder sb = new StringBuilder(text);
+      if (!text.isEmpty() && !text.endsWith("\n")) sb.append('\n');
+      sb.append(line).append('\n');
+      return sb.toString();
+    }
+
+    private static String screenIdFromFile(File file) {
+      if (file == null) return "main";
+      String name = file.getName();
+      int dot = name.lastIndexOf('.');
+      return dot > 0 ? name.substring(0, dot) : name;
+    }
+  }
+}

@@ -128,6 +128,13 @@ This design avoids shared global lock issues and makes editor-run more consisten
 
 ### Visual config editors
 
+These now open in dedicated external **Studio windows** (not embedded preview tabs), with:
+
+- Design / Code / Split modes
+- direct Save / Reload
+- asset utilities (browse/import/copy/apply path helpers)
+- larger canvas-focused workspace for VN UI tuning
+
 - `config/ui/dialogue.layout` -> `DialogueLayoutEditorView`
   - drag textbox/namebox/choice layout in preview
   - import textbox assets and tune text/name bounds

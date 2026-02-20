@@ -160,7 +160,7 @@ public class LayoutEditorLauncherView extends BorderPane {
     detail.getStyleClass().add("muted");
     detail.setStyle("-fx-font-size: 11px;");
 
-    Button openButton = new Button("Open");
+    Button openButton = new Button("Open Studio");
     openButton.setOnAction(e -> openItem(item));
 
     HBox head = new HBox(8, title, status);

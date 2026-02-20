@@ -17,6 +17,7 @@ import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.InspectorView;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
+import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.SettingsEditorView;
@@ -98,6 +99,7 @@ public class EditorApp extends Application {
   private AssetBrowserView assetBrowserView;
   private VersionControlView versionControlView;
   private LayoutEditorLauncherView layoutEditorLauncherView;
+  private LayoutStudioWindowManager layoutStudioWindowManager;
   private MenuFlowEditorView menuFlowEditorView;
   private SettingsEditorView settingsEditor;
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
@@ -435,6 +437,7 @@ public class EditorApp extends Application {
   @Override
   public void start(Stage primaryStage) {
     primaryStage.setTitle("JVN Editor");
+    layoutStudioWindowManager = new LayoutStudioWindowManager(primaryStage);
     BorderPane root = new BorderPane();
     String editorVersion = resolveEditorVersion();
 
@@ -729,7 +732,13 @@ public class EditorApp extends Application {
     } catch (Exception ignore) {}
     primaryStage.setScene(scene);
     primaryStage.setOnCloseRequest(e -> {
-      if (!confirmCloseAllTabs()) e.consume();
+      if (!confirmCloseAllTabs()) {
+        e.consume();
+        return;
+      }
+      if (layoutStudioWindowManager != null && !layoutStudioWindowManager.requestCloseAll()) {
+        e.consume();
+      }
     });
     primaryStage.show();
     scene.setOnDragOver((DragEvent e) -> {
@@ -1102,6 +1111,15 @@ public class EditorApp extends Application {
 
   private void openFile(File f) {
     if (f == null) return;
+
+    if (layoutStudioWindowManager != null && layoutStudioWindowManager.supports(f)) {
+      if (!closeFileTabIfOpen(f)) return;
+      layoutStudioWindowManager.open(f, projectRoot, s -> {
+        if (status != null && s != null && !s.isBlank()) status.setText(s);
+      });
+      return;
+    }
+
     // Find existing tab
     for (Tab t : filesTabs.getTabs()) {
       if (t.getUserData() instanceof File ff && ff.equals(f)) {
@@ -1148,6 +1166,18 @@ public class EditorApp extends Application {
     if (editor.getKind() == FileEditorTab.Kind.VNS || editor.getKind() == FileEditorTab.Kind.TIMELINE) {
       selectTimelineTab();
     }
+  }
+
+  private boolean closeFileTabIfOpen(File file) {
+    if (filesTabs == null || file == null) return true;
+    for (Tab tab : new ArrayList<>(filesTabs.getTabs())) {
+      if (!(tab.getUserData() instanceof File openFile) || !openFile.equals(file)) continue;
+      if (tab.getContent() instanceof FileEditorTab ft && !confirmCanCloseFileTab(ft)) {
+        return false;
+      }
+      filesTabs.getTabs().remove(tab);
+    }
+    return true;
   }
 
   private void applyProjectRootToTabs() {
