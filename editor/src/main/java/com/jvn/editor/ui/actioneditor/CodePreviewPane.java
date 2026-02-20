@@ -27,10 +27,10 @@ public class CodePreviewPane extends VBox {
         "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-cursor: hand;";
 
     public CodePreviewPane() {
-        setSpacing(6);
-        setPadding(new Insets(6, 8, 6, 8));
+        setSpacing(10);
+        setPadding(new Insets(12, 14, 12, 14));
         setStyle("-fx-background-color: #1a1a1a;");
-        setMinWidth(260);
+        setMinWidth(300);
 
         Label header = new Label("Timeline Code");
         header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
@@ -59,7 +59,7 @@ public class CodePreviewPane extends VBox {
             if (onRegenerate != null) onRegenerate.run();
         });
 
-        HBox buttonRow = new HBox(6, btnCopy, btnRegenerate);
+        HBox buttonRow = new HBox(10, btnCopy, btnRegenerate);
         HBox.setHgrow(btnCopy, Priority.ALWAYS);
         btnCopy.setMaxWidth(Double.MAX_VALUE);
 
