@@ -211,8 +211,24 @@
   -fx-background-color: #9aa0a6;
 }
 
-/* Neutralize old trapezoid logo style; now using image */
+/* Neutralize legacy vector logo style */
 .jvn-logo { -fx-background-color: transparent; -fx-shape: null; }
+
+/* Top-right text wordmark */
+.jvn-wordmark-box {
+  -fx-padding: 0 8 0 4;
+}
+
+.jvn-wordmark {
+  -fx-font-size: 34px;
+  -fx-font-weight: 900;
+  -fx-text-fill: linear-gradient(to bottom, #ffffff 0%, #dedede 42%, #9a9a9a 100%);
+}
+
+.jvn-wordmark-version {
+  -fx-font-size: 11px;
+  -fx-text-fill: #aeb4bf;
+}
 
 /* Master top toolbar: pure black */
 .master-toolbar {

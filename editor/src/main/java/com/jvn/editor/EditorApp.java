@@ -44,8 +44,6 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.Tooltip;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
@@ -498,49 +496,6 @@ public class EditorApp extends Application {
     btnRedo.setTooltip(new Tooltip("Redo (Shift+Cmd+Z)"));
     btnApply.setTooltip(new Tooltip("Apply Code (Cmd+Enter)"));
     btnRun.setTooltip(new Tooltip("Run Project"));
-    ImageView logo = new ImageView();
-    try {
-      // Try several likely filesystem locations relative to working dir
-      String[] rels = new String[] {
-        "docs/images/jvn_logo.png",
-        "../docs/images/jvn_logo.png",
-        "../../docs/images/jvn_logo.png",
-        "../../../docs/images/jvn_logo.png"
-      };
-      Image found = null;
-      for (String rp : rels) {
-        java.io.File f = new java.io.File(rp);
-        if (f.exists()) { found = new Image(f.toURI().toString()); break; }
-      }
-      if (found == null && projectRoot != null) {
-        // If a project root is known, search upward from it
-        java.io.File cur = projectRoot;
-        for (int i = 0; i < 4 && cur != null; i++) {
-          java.io.File candidate = new java.io.File(cur, "docs/images/jvn_logo.png");
-          if (candidate.exists()) { found = new Image(candidate.toURI().toString()); break; }
-          cur = cur.getParentFile();
-        }
-      }
-      if (found == null) {
-        var url = EditorApp.class.getResource("/docs/images/jvn_logo.png");
-        if (url != null) found = new Image(url.toExternalForm());
-      }
-      if (found != null) {
-        logo.setImage(found);
-        logo.setFitHeight(80);
-        logo.setPreserveRatio(true);
-        logo.setSmooth(true);
-        // Subtle light glow so it remains visible on black background
-        logo.setEffect(null);
-        HBox.setMargin(logo, new javafx.geometry.Insets(0, 10, 0, 0));
-      } else {
-        logo.setManaged(false);
-        logo.setVisible(false);
-      }
-    } catch (Exception ignored) {
-      logo.setManaged(false);
-      logo.setVisible(false);
-    }
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
     HBox row = new HBox(8);
@@ -552,10 +507,14 @@ public class EditorApp extends Application {
       Package pkg = EditorApp.class.getPackage();
       ver = (pkg != null && pkg.getImplementationVersion() != null) ? pkg.getImplementationVersion() : "dev";
     }
+    Label wordmark = new Label("JVN");
+    wordmark.getStyleClass().add("jvn-wordmark");
     Label verLabel = new Label("v" + ver);
+    verLabel.getStyleClass().add("jvn-wordmark-version");
     VBox logoBox = new VBox(2);
-    logoBox.setAlignment(Pos.CENTER);
-    logoBox.getChildren().addAll(logo, verLabel);
+    logoBox.setAlignment(Pos.CENTER_RIGHT);
+    logoBox.getStyleClass().add("jvn-wordmark-box");
+    logoBox.getChildren().addAll(wordmark, verLabel);
     toolbar.setLeft(toolRows);
     VBox perfBox = new VBox(4, perf, perfGraph.getCanvas());
     perfBox.setAlignment(Pos.CENTER);
