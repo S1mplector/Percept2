@@ -59,6 +59,7 @@ Files open into typed tabs via `FileEditorTab` dispatch:
   - `VNS Diagnostics`
   - `Label Flow`
   - `Assets`
+  - `Menu Flow`
   - `Version Control`
   - `Help`
   - `Inspector`
@@ -108,6 +109,22 @@ This design avoids shared global lock issues and makes editor-run more consisten
 - arc/link validation against script existence and labels
 - drag-and-drop `.vns` files to create arcs quickly
 - cluster filtering/collapse and auto layout
+
+### Menu flow editor
+
+- dedicated graph for menu-to-menu navigation wiring across `config/menu/menus/*.menu`
+- visual wiring support for:
+  - `OPEN_MENU` (click source item, then click target menu node)
+  - `MAIN_MENU`
+  - `BACK`
+- inline item action/target editing per selected menu screen
+- validation for:
+  - missing `OPEN_MENU` targets
+  - unknown menu targets
+  - missing standard targets (`main`, `load`, `save`, `settings`) when referenced
+  - duplicate/empty item ids
+  - unreachable menus from `main`
+- save one screen or save all modified screens
 
 ### Visual config editors
 

@@ -17,6 +17,7 @@ import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.InspectorView;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
+import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
@@ -97,6 +98,7 @@ public class EditorApp extends Application {
   private AssetBrowserView assetBrowserView;
   private VersionControlView versionControlView;
   private LayoutEditorLauncherView layoutEditorLauncherView;
+  private MenuFlowEditorView menuFlowEditorView;
   private SettingsEditorView settingsEditor;
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
   private TilemapEditorView mapEditorView;
@@ -114,6 +116,7 @@ public class EditorApp extends Application {
   private Tab tabAssetBrowser;
   private Tab tabVersionControl;
   private Tab tabLayoutLauncher;
+  private Tab tabMenuFlow;
   private Tab tabLeftAdd;
   private Tab tabRightAdd;
   private ScrollPane inspectorScroll;
@@ -250,6 +253,7 @@ public class EditorApp extends Application {
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(root);
     if (versionControlView != null) versionControlView.setProjectRoot(root);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(root);
+    if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(root);
   }
 
   private String composeGradleTask(String path, String task) {
@@ -471,7 +475,9 @@ public class EditorApp extends Application {
     Menu menuProject = new Menu("Project");
     MenuItem miRun = new MenuItem("Run Project");
     miRun.setOnAction(e -> doRunProject(primaryStage));
-    menuProject.getItems().addAll(miRun);
+    MenuItem miMenuFlow = new MenuItem("Menu Flow Editor");
+    miMenuFlow.setOnAction(e -> selectMenuFlowTab());
+    menuProject.getItems().addAll(miRun, miMenuFlow);
     Menu menuVcs = new Menu("Version Control");
     MenuItem miOpenVcs = new MenuItem("Open Version Control");
     miOpenVcs.setOnAction(e -> selectVersionControlTab());
@@ -654,6 +660,16 @@ public class EditorApp extends Application {
     layoutEditorLauncherView = new LayoutEditorLauncherView();
     layoutEditorLauncherView.setProjectRoot(projectRoot);
     layoutEditorLauncherView.setOnOpenFile(target -> {
+      if (target == null) return;
+      if (isEditableFile(target)) {
+        openFile(target);
+      } else {
+        try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
+      }
+    });
+    menuFlowEditorView = new MenuFlowEditorView();
+    menuFlowEditorView.setProjectRoot(projectRoot);
+    menuFlowEditorView.setOnOpenFile(target -> {
       if (target == null) return;
       if (isEditableFile(target)) {
         openFile(target);
@@ -1146,6 +1162,7 @@ public class EditorApp extends Application {
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(projectRoot);
     if (versionControlView != null) versionControlView.setProjectRoot(projectRoot);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(projectRoot);
+    if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(projectRoot);
     if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
   }
 
@@ -1419,6 +1436,17 @@ public class EditorApp extends Application {
     return tabLayoutLauncher;
   }
 
+  private Tab ensureMenuFlowTab(TabPane targetPane) {
+    if (targetPane == null || menuFlowEditorView == null) return null;
+    if (tabMenuFlow == null) {
+      tabMenuFlow = new Tab("Menu Flow", menuFlowEditorView);
+      tabMenuFlow.setClosable(true);
+      tabMenuFlow.setOnClosed(e -> tabMenuFlow = null);
+    }
+    attachPanelTabToPane(tabMenuFlow, targetPane);
+    return tabMenuFlow;
+  }
+
   private String panelActionLabel(String panelName, Tab tab, TabPane targetPane) {
     if (tab != null && tab.getTabPane() == targetPane) return "Open " + panelName;
     if (tab != null && tab.getTabPane() != null) return "Move " + panelName + " Here";
@@ -1480,6 +1508,11 @@ public class EditorApp extends Application {
       Tab t = ensureLayoutLauncherTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
       if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
+    });
+    addChooserActionButton(actions, panelActionLabel("Menu Flow", tabMenuFlow, pane), "icon-panel-menuflow", () -> {
+      Tab t = ensureMenuFlowTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
     });
     addChooserActionButton(actions, panelActionLabel("Version Control", tabVersionControl, pane), "icon-panel-vcs", () -> {
       Tab t = ensureVersionControlTab(pane);
@@ -1549,6 +1582,16 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (versionControlView != null) versionControlView.refreshStatus();
+  }
+
+  private void selectMenuFlowTab() {
+    Tab t = (tabMenuFlow != null && tabMenuFlow.getTabPane() != null)
+        ? tabMenuFlow
+        : ensureMenuFlowTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+    if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
   }
 
   private String resolveEditorVersion() {
