@@ -222,6 +222,107 @@ public class CodeExporter {
         return String.format("%.2f", v).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
+    public static String exportIncremental(AnimationProject project) {
+        if (project == null) return "timeline {\n}\n";
+
+        Map<String, Map<PropertyType, Double>> snapshot = project.getInitialSnapshot();
+        if (snapshot == null) return export(project);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("timeline {\n");
+
+        List<TimelineEvent> events = collectEvents(project);
+        events.sort(Comparator.comparingDouble(e -> e.startTime));
+
+        List<TimelineEvent> filtered = new ArrayList<>();
+        for (TimelineEvent ev : events) {
+            boolean changed = false;
+            Map<PropertyType, Double> initial = snapshot.get(ev.target);
+            if (initial == null) { changed = true; }
+            else {
+                for (Map.Entry<String, Double> prop : ev.props.entrySet()) {
+                    PropertyType pt = findPropertyByCode(prop.getKey());
+                    if (pt != null) {
+                        Double initVal = initial.get(pt);
+                        if (initVal == null || Math.abs(initVal - prop.getValue()) > 0.001) {
+                            changed = true;
+                            break;
+                        }
+                    } else {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            if (changed) filtered.add(ev);
+        }
+
+        Map<Double, List<TimelineEvent>> byTime = new TreeMap<>();
+        for (TimelineEvent e : filtered) {
+            double rounded = Math.round(e.startTime * 10.0) / 10.0;
+            byTime.computeIfAbsent(rounded, k -> new ArrayList<>()).add(e);
+        }
+
+        double currentTime = 0;
+        for (Map.Entry<Double, List<TimelineEvent>> entry : byTime.entrySet()) {
+            double time = entry.getKey();
+            List<TimelineEvent> group = entry.getValue();
+
+            if (time > currentTime + 0.5) {
+                sb.append("  wait ").append(formatNumber(time - currentTime)).append("\n");
+            }
+
+            if (group.size() == 1) {
+                sb.append(formatEvent(group.get(0)));
+            } else {
+                sb.append("  parallel {\n");
+                for (TimelineEvent ev : group) {
+                    sb.append("  ").append(formatEvent(ev));
+                }
+                sb.append("  }\n");
+            }
+            currentTime = time;
+        }
+
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    public static String exportAudioCues(AnimationProject project) {
+        if (project == null) return "";
+        List<AudioCue> cues = project.getAudioCues();
+        if (cues.isEmpty()) return "";
+
+        StringBuilder sb = new StringBuilder();
+        for (AudioCue cue : cues) {
+            sb.append("at ").append(formatNumber(cue.getTimeMs())).append("ms: ");
+            sb.append("play ").append(cue.getChannel()).append(" \"").append(cue.getAudioFile()).append("\"");
+            if (cue.getVolume() < 1.0) {
+                sb.append(" volume ").append(formatNumber(cue.getVolume()));
+            }
+            if (cue.isFadeIn() && cue.getFadeDurationMs() > 0) {
+                sb.append(" fadein ").append(formatNumber(cue.getFadeDurationMs()));
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
+    private static PropertyType findPropertyByCode(String code) {
+        for (PropertyType p : PropertyType.values()) {
+            if (p.getCode().equals(code)) return p;
+        }
+        switch (code) {
+            case "x": return PropertyType.X;
+            case "y": return PropertyType.Y;
+            case "deg": return PropertyType.ROTATION;
+            case "sx": return PropertyType.SCALE_X;
+            case "sy": return PropertyType.SCALE_Y;
+            case "alpha": return PropertyType.ALPHA;
+            default: return null;
+        }
+    }
+
     private static class TimelineEvent {
         String actionType;
         String target;

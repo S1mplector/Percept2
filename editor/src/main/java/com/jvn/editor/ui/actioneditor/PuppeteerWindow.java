@@ -64,10 +64,13 @@ public class PuppeteerWindow extends Stage {
         setWidth(1400);
         setHeight(900);
 
+        this.project.captureInitialSnapshot();
+
         entitySelector = new EntitySelector();
         timelinePanel = new TimelinePanel(this.project);
         keyframeEditor = new KeyframeEditor();
         animationPreview = new AnimationPreview();
+        animationPreview.setProject(this.project);
         codePreview = new CodePreviewPane();
 
         entitySelector.setOnEntitySelected(name -> {

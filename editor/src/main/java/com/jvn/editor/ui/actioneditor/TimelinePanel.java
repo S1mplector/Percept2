@@ -146,7 +146,9 @@ public class TimelinePanel extends VBox {
         gc.fillRect(0, 0, w, h);
 
         drawTimeRuler(gc, w);
+        drawLoopRegion(gc, w, h);
         drawTracks(gc, w, h);
+        drawAudioCues(gc, w, h);
         drawPlayhead(gc, h);
     }
 
@@ -245,6 +247,55 @@ public class TimelinePanel extends VBox {
                 new double[]{cy - size, cy, cy + size, cy},
                 4
             );
+        }
+    }
+
+    private void drawLoopRegion(GraphicsContext gc, double width, double height) {
+        if (!project.hasLoopRegion()) return;
+
+        double x1 = LABEL_WIDTH + project.getLoopStartMs() * pixelsPerMs - scrollX;
+        double x2 = LABEL_WIDTH + project.getLoopEndMs() * pixelsPerMs - scrollX;
+
+        x1 = Math.max(LABEL_WIDTH, x1);
+        x2 = Math.min(width, x2);
+        if (x2 <= x1) return;
+
+        gc.setFill(Color.web("#a6e3a1", 0.08));
+        gc.fillRect(x1, HEADER_HEIGHT, x2 - x1, height - HEADER_HEIGHT);
+
+        gc.setStroke(Color.web("#a6e3a1", 0.5));
+        gc.setLineWidth(1.5);
+        gc.setLineDashes(6, 4);
+        gc.strokeLine(x1, HEADER_HEIGHT, x1, height);
+        gc.strokeLine(x2, HEADER_HEIGHT, x2, height);
+        gc.setLineDashes((double[]) null);
+
+        gc.setFill(Color.web("#a6e3a1", 0.7));
+        gc.setFont(javafx.scene.text.Font.font(9));
+        gc.fillText("LOOP", x1 + 4, HEADER_HEIGHT + 10);
+    }
+
+    private void drawAudioCues(GraphicsContext gc, double width, double height) {
+        List<AudioCue> cues = project.getAudioCues();
+        if (cues.isEmpty()) return;
+
+        double cueY = height - 20;
+        gc.setFont(javafx.scene.text.Font.font(9));
+
+        for (AudioCue cue : cues) {
+            double x = LABEL_WIDTH + cue.getTimeMs() * pixelsPerMs - scrollX;
+            if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
+
+            gc.setFill(Color.web("#f9e2af", 0.8));
+            gc.fillOval(x - 4, cueY - 4, 8, 8);
+
+            gc.setStroke(Color.web("#f9e2af", 0.4));
+            gc.setLineWidth(1);
+            gc.strokeLine(x, HEADER_HEIGHT, x, cueY - 4);
+
+            gc.setFill(Color.web("#f9e2af", 0.7));
+            String label = cue.getChannel().substring(0, 1).toUpperCase();
+            gc.fillText(label, x - 3, cueY + 12);
         }
     }
 
