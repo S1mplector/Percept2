@@ -174,12 +174,18 @@ public class CodeExporter {
                              (p2 != null && Math.abs(endVal2 - startVal2) > 0.001);
             if (!changed) continue;
 
+            Keyframe endKf = findKeyframeAt(list1, endTime);
+            if (endKf == null && list2 != null) endKf = findKeyframeAt(list2, endTime);
+
             TimelineEvent ev = new TimelineEvent();
             ev.actionType = actionType;
             ev.target = target;
             ev.startTime = startTime;
             ev.duration = duration;
             ev.easing = easing;
+            if (easing == Easing.Type.CUSTOM && endKf != null) {
+                ev.bezierParams = endKf.getBezierParams();
+            }
 
             switch (actionType) {
                 case "move" -> {
@@ -205,6 +211,13 @@ public class CodeExporter {
         return null;
     }
 
+    private static Keyframe findKeyframeAt(List<Keyframe> list, double time) {
+        for (Keyframe kf : list) {
+            if (Math.abs(kf.getTimeMs() - time) < 0.5) return kf;
+        }
+        return null;
+    }
+
     private static String formatEvent(TimelineEvent ev) {
         StringBuilder sb = new StringBuilder();
         sb.append("  ").append(ev.actionType).append(" \"").append(ev.target).append("\" {\n");
@@ -216,7 +229,10 @@ public class CodeExporter {
 
         sb.append("    dur: ").append(formatNumber(ev.duration)).append("\n");
 
-        if (ev.easing != Easing.Type.LINEAR) {
+        if (ev.easing == Easing.Type.CUSTOM && ev.bezierParams != null) {
+            sb.append(String.format("    easing: cubic_bezier(%.2f, %.2f, %.2f, %.2f)\n",
+                ev.bezierParams[0], ev.bezierParams[1], ev.bezierParams[2], ev.bezierParams[3]));
+        } else if (ev.easing != Easing.Type.LINEAR) {
             sb.append("    easing: ").append(ev.easing.name().toLowerCase()).append("\n");
         }
 
@@ -338,6 +354,7 @@ public class CodeExporter {
         double startTime;
         double duration;
         Easing.Type easing;
+        double[] bezierParams; // cx1,cy1,cx2,cy2 — only used when easing==CUSTOM
         Map<String, Double> props = new java.util.LinkedHashMap<>();
     }
 }

@@ -452,5 +452,4 @@ The curve updates live when the easing type is changed.
 
 - **Single-scene scope** — Puppeteer operates on one scene at a time; cross-scene transitions must be authored separately
 - **Snapshot is static** — the VNS snapshot at launch time captures the state up to the cursor line; it does not update if the VNS script changes while Puppeteer is open
-- **No custom Bezier handles** — the curve editor visualizes built-in easing types but does not yet support user-defined Bezier control points
 - **No drag-from-asset-picker** — assets are added via button click; drag-and-drop onto the preview is not yet implemented

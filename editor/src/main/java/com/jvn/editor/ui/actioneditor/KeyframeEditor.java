@@ -99,6 +99,12 @@ public class KeyframeEditor extends VBox {
         grid.add(new Label("Value:"), 0, 3);
         grid.add(valueRow, 1, 3);
         curveEditor = new EasingCurveEditor();
+        curveEditor.setOnBezierChanged(params -> {
+            if (currentKeyframe != null && currentKeyframe.getEasing() == Easing.Type.CUSTOM) {
+                currentKeyframe.setBezierParams(params[0], params[1], params[2], params[3]);
+                if (onKeyframeChanged != null) onKeyframeChanged.run();
+            }
+        });
 
         grid.add(new Label("Easing:"), 0, 4);
         grid.add(cbEasing, 1, 4);
@@ -117,7 +123,13 @@ public class KeyframeEditor extends VBox {
         tfValue.setOnAction(e -> applyChanges());
         cbEasing.setOnAction(e -> {
             applyChanges();
-            curveEditor.setEasingType(cbEasing.getValue());
+            Easing.Type sel = cbEasing.getValue();
+            curveEditor.setEasingType(sel);
+            if (sel == Easing.Type.CUSTOM && currentKeyframe != null) {
+                curveEditor.setBezierParams(
+                    currentKeyframe.getCx1(), currentKeyframe.getCy1(),
+                    currentKeyframe.getCx2(), currentKeyframe.getCy2());
+            }
         });
 
         sliderTime.valueProperty().addListener((obs, oldV, newV) -> {
@@ -183,6 +195,9 @@ public class KeyframeEditor extends VBox {
             tfValue.setText(String.format("%.2f", kf.getValue()));
             cbEasing.setValue(kf.getEasing());
             curveEditor.setEasingType(kf.getEasing());
+            if (kf.getEasing() == Easing.Type.CUSTOM) {
+                curveEditor.setBezierParams(kf.getCx1(), kf.getCy1(), kf.getCx2(), kf.getCy2());
+            }
             sliderTime.setValue(kf.getTimeMs());
             configureSliderForProperty(property);
             sliderValue.setValue(kf.getValue());

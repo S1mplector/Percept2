@@ -11,7 +11,8 @@ public class Easing {
     EASE_IN_SINE, EASE_OUT_SINE, EASE_IN_OUT_SINE,
     EASE_IN_ELASTIC, EASE_OUT_ELASTIC, EASE_IN_OUT_ELASTIC,
     EASE_IN_BACK, EASE_OUT_BACK, EASE_IN_OUT_BACK,
-    EASE_IN_BOUNCE, EASE_OUT_BOUNCE, EASE_IN_OUT_BOUNCE
+    EASE_IN_BOUNCE, EASE_OUT_BOUNCE, EASE_IN_OUT_BOUNCE,
+    CUSTOM
   }
   
   public static double apply(Type type, double t) {
@@ -102,6 +103,7 @@ public class Easing {
       case EASE_IN_OUT_BOUNCE -> t < 0.5 
         ? (1 - apply(Type.EASE_OUT_BOUNCE, 1 - 2 * t)) / 2
         : (1 + apply(Type.EASE_OUT_BOUNCE, 2 * t - 1)) / 2;
+      case CUSTOM -> t; // fallback linear; use cubicBezier() with params instead
     };
   }
   
@@ -109,6 +111,41 @@ public class Easing {
     return a + (b - a) * t;
   }
   
+  /**
+   * Evaluate a cubic Bezier curve defined by control points (cx1,cy1) and (cx2,cy2).
+   * The curve goes from (0,0) to (1,1). This matches the CSS cubic-bezier() function.
+   * Uses Newton-Raphson iteration to find t for a given input x, then evaluates y.
+   */
+  public static double cubicBezier(double cx1, double cy1, double cx2, double cy2, double x) {
+    x = Math.max(0, Math.min(1, x));
+    if (x == 0) return 0;
+    if (x == 1) return 1;
+
+    // Find parameter t where bezierX(t) = x using Newton-Raphson
+    double t = x; // initial guess
+    for (int i = 0; i < 8; i++) {
+      double bx = bezierComponent(t, cx1, cx2) - x;
+      double dx = bezierComponentDeriv(t, cx1, cx2);
+      if (Math.abs(bx) < 1e-7) break;
+      if (Math.abs(dx) < 1e-7) break;
+      t -= bx / dx;
+    }
+    t = Math.max(0, Math.min(1, t));
+    return bezierComponent(t, cy1, cy2);
+  }
+
+  private static double bezierComponent(double t, double c1, double c2) {
+    // B(t) = 3(1-t)^2*t*c1 + 3(1-t)*t^2*c2 + t^3
+    double u = 1 - t;
+    return 3 * u * u * t * c1 + 3 * u * t * t * c2 + t * t * t;
+  }
+
+  private static double bezierComponentDeriv(double t, double c1, double c2) {
+    // B'(t) = 3(1-t)^2*c1 + 6(1-t)*t*(c2-c1) + 3*t^2*(1-c2)
+    double u = 1 - t;
+    return 3 * u * u * c1 + 6 * u * t * (c2 - c1) + 3 * t * t * (1 - c2);
+  }
+
   public static double smoothstep(double edge0, double edge1, double x) {
     double t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
