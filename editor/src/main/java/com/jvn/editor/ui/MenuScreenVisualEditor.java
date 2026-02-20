@@ -280,13 +280,18 @@ public class MenuScreenVisualEditor extends BorderPane {
     Button bUp = new Button("Up");
     Button bDown = new Button("Down");
     Button bNormalize = new Button("Normalize IDs");
+    Button bToggleAdvanced = new Button("Show Advanced");
+    bToggleAdvanced.setOnAction(e -> {
+      toggleAdvancedColumns();
+      bToggleAdvanced.setText(advancedColumnsVisible ? "Hide Advanced" : "Show Advanced");
+    });
     Button bAssignBg = new Button("Assign BG...");
     Button bAssignPreviewPlaceholder = new Button("Preview Placeholder...");
     Button bAssignPreviewFrame = new Button("Preview Frame...");
     Button bEnableSlotPreview = new Button("Enable Slot Preview");
     Button bClearBounds = new Button("Clear Bounds");
     List<Button> actionButtons = List.of(
-        bAdd, bRemove, bUp, bDown, bNormalize, bAssignBg, bAssignPreviewPlaceholder, bAssignPreviewFrame, bEnableSlotPreview, bClearBounds
+        bAdd, bRemove, bUp, bDown, bNormalize, bToggleAdvanced, bAssignBg, bAssignPreviewPlaceholder, bAssignPreviewFrame, bEnableSlotPreview, bClearBounds
     );
     for (Button actionButton : actionButtons) {
       actionButton.getStyleClass().add("layout-studio-action-button");
@@ -305,7 +310,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     bEnableSlotPreview.setOnAction(e -> enableSlotPreviewForSelection());
     bClearBounds.setOnAction(e -> clearBoundsForSelection());
     actions.getChildren().addAll(
-        bAdd, bRemove, bUp, bDown, bNormalize, bAssignBg, bAssignPreviewPlaceholder, bAssignPreviewFrame, bEnableSlotPreview, bClearBounds
+        bAdd, bRemove, bUp, bDown, bNormalize, bToggleAdvanced, bAssignBg, bAssignPreviewPlaceholder, bAssignPreviewFrame, bEnableSlotPreview, bClearBounds
     );
 
     table.getStyleClass().add("layout-studio-table");
@@ -319,8 +324,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     BorderPane previewPane = new BorderPane(preview);
     previewPane.getStyleClass().add("layout-studio-preview-host");
     BorderPane.setMargin(preview, new Insets(8));
-    preview.setWidth(520);
-    preview.setHeight(320);
+    preview.setManaged(false);
 
     SplitPane split = new SplitPane(tablePane, previewPane);
     split.setDividerPositions(0.58);
@@ -465,13 +469,36 @@ public class MenuScreenVisualEditor extends BorderPane {
     slotPreviewHCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
     slotPreviewHCol.setOnEditCommit(e -> e.getRowValue().setSlotPreviewH(e.getNewValue()));
 
+    // Core columns always visible
     table.getColumns().setAll(
-        idCol, labelCol, styleCol, enabledCol, actionCol, targetCol,
+        idCol, labelCol, styleCol, enabledCol, actionCol, targetCol
+    );
+
+    // Advanced columns hidden by default
+    advancedColumns = List.of(
         iconCol, bgCol, bgSelCol, bgDisCol,
         slotPreviewEnabledCol, slotPreviewPlaceholderCol, slotPreviewFrameCol,
         boundsXCol, boundsYCol, boundsWCol, boundsHCol,
         slotPreviewXCol, slotPreviewYCol, slotPreviewWCol, slotPreviewHCol
     );
+  }
+
+  @SuppressWarnings("rawtypes")
+  private List<TableColumn> advancedColumns = List.of();
+  private boolean advancedColumnsVisible = false;
+
+  private void toggleAdvancedColumns() {
+    advancedColumnsVisible = !advancedColumnsVisible;
+    if (advancedColumnsVisible) {
+      for (var col : advancedColumns) {
+        if (!table.getColumns().contains(col)) {
+          @SuppressWarnings("unchecked") var c = (TableColumn<MenuItemRow, ?>) col;
+          table.getColumns().add(c);
+        }
+      }
+    } else {
+      table.getColumns().removeAll(advancedColumns);
+    }
   }
 
   private void registerTopListeners() {

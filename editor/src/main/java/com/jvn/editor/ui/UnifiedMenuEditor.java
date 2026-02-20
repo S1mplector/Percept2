@@ -84,6 +84,7 @@ public class UnifiedMenuEditor extends BorderPane {
 
   public void setProjectRoot(File root) {
     this.projectRoot = root;
+    layoutEditor.setProjectRoot(root);
     styleEditor.setProjectRoot(root);
     screenEditor.setProjectRoot(root);
   }

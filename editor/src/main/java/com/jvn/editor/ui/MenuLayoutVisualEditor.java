@@ -103,6 +103,11 @@ public class MenuLayoutVisualEditor extends BorderPane {
     redraw();
   }
 
+  public void setProjectRoot(java.io.File root) {
+    // Layout editor doesn't currently load assets, but kept for API consistency
+    // and future expansion (e.g., background image preview).
+  }
+
   public void setOnLayoutTextChanged(Consumer<String> onLayoutTextChanged) {
     this.onLayoutTextChanged = onLayoutTextChanged;
   }

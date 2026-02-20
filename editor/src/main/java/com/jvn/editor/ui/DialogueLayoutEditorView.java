@@ -32,6 +32,7 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
 import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -270,18 +271,12 @@ public class DialogueLayoutEditorView extends BorderPane {
     redraw();
   }
 
-  private GridPane buildControls() {
-    GridPane grid = new GridPane();
-    grid.setHgap(8);
-    grid.setVgap(8);
-    grid.setPadding(new Insets(8));
-
+  private javafx.scene.Node buildControls() {
     tfTextBoxAsset.setPromptText("assets/ui/textbox.png");
     tfChoiceButtonAsset.setPromptText("assets/ui/choice.png");
     tfChoiceButtonHoverAsset.setPromptText("assets/ui/choice_hover.png");
     tfChoiceButtonSelectedAsset.setPromptText("assets/ui/choice_selected.png");
     tfChoiceButtonDisabledAsset.setPromptText("assets/ui/choice_disabled.png");
-
     tfChoiceBgColor.setPromptText("#3a3f54");
     tfChoiceHoverColor.setPromptText("#4a5570");
     tfChoiceSelectedColor.setPromptText("#4a5570");
@@ -301,102 +296,105 @@ public class DialogueLayoutEditorView extends BorderPane {
     tfButtonHoverAsset.setPromptText("assets/ui/save_btn_hover.png");
     tfButtonDisabledAsset.setPromptText("assets/ui/save_btn_disabled.png");
     cbButtonAction.getItems().setAll(
-        "noop",
-        "advance",
-        "quick_save",
-        "quick_load",
-        "save_slots",
-        "load_slots",
-        "save_menu",
-        "load_menu",
-        "settings_menu",
-        "main_menu",
-        "open_menu",
-        "toggle_history",
-        "toggle_skip",
-        "toggle_auto",
-        "toggle_ui"
+        "noop", "advance", "quick_save", "quick_load",
+        "save_slots", "load_slots", "save_menu", "load_menu",
+        "settings_menu", "main_menu", "open_menu",
+        "toggle_history", "toggle_skip", "toggle_auto", "toggle_ui"
     );
     cbButtonAction.setEditable(true);
     cbButtonAction.getSelectionModel().select("noop");
     lvTextBoxButtons.setPrefHeight(132);
 
+    // --- Section: Textbox ---
+    GridPane textboxGrid = sectionGrid();
     int row = 0;
-    row = addHeader(grid, row, "Textbox");
-    row = addRow(grid, row, "TextBox X", spTextBoxX);
-    row = addRow(grid, row, "TextBox Y", spTextBoxY);
-    row = addRow(grid, row, "TextBox Width", spTextBoxWidth);
-    row = addRow(grid, row, "TextBox Height", spTextBoxHeight);
-    row = addRow(grid, row, "TextBox Padding", spTextBoxPadding);
-    row = addRow(grid, row, "TextBox Asset", assetFieldRow(tfTextBoxAsset, "Select Textbox Asset"));
+    row = addRow(textboxGrid, row, "TextBox X", spTextBoxX);
+    row = addRow(textboxGrid, row, "TextBox Y", spTextBoxY);
+    row = addRow(textboxGrid, row, "TextBox Width", spTextBoxWidth);
+    row = addRow(textboxGrid, row, "TextBox Height", spTextBoxHeight);
+    row = addRow(textboxGrid, row, "TextBox Padding", spTextBoxPadding);
+    row = addRow(textboxGrid, row, "TextBox Asset", assetFieldRow(tfTextBoxAsset, "Select Textbox Asset"));
+    TitledPane tpTextbox = collapsibleSection("Textbox", textboxGrid, true);
 
-    row = addHeader(grid, row, "Name Box");
-    row = addRow(grid, row, "Name X Offset", spNameBoxXOffset);
-    row = addRow(grid, row, "Name Y Offset", spNameBoxYOffset);
-    row = addRow(grid, row, "Name Width", spNameBoxWidth);
-    row = addRow(grid, row, "Name Height", spNameBoxHeight);
-    row = addRow(grid, row, "Name Text X Offset", spNameTextXOffset);
-    row = addRow(grid, row, "Name Text Baseline", spNameTextBaselineOffset);
+    // --- Section: Name Box ---
+    GridPane nameGrid = sectionGrid();
+    row = 0;
+    row = addRow(nameGrid, row, "Name X Offset", spNameBoxXOffset);
+    row = addRow(nameGrid, row, "Name Y Offset", spNameBoxYOffset);
+    row = addRow(nameGrid, row, "Name Width", spNameBoxWidth);
+    row = addRow(nameGrid, row, "Name Height", spNameBoxHeight);
+    row = addRow(nameGrid, row, "Name Text X Offset", spNameTextXOffset);
+    row = addRow(nameGrid, row, "Name Text Baseline", spNameTextBaselineOffset);
+    TitledPane tpName = collapsibleSection("Name Box", nameGrid, false);
 
-    row = addHeader(grid, row, "Dialogue Text Bounds");
-    row = addRow(grid, row, "Text Horizontal Padding", spDialoguePaddingX);
-    row = addRow(grid, row, "Text Top Padding", spDialoguePaddingTop);
+    // --- Section: Dialogue Text Bounds ---
+    GridPane textBoundsGrid = sectionGrid();
+    row = 0;
+    row = addRow(textBoundsGrid, row, "Text Horizontal Padding", spDialoguePaddingX);
+    row = addRow(textBoundsGrid, row, "Text Top Padding", spDialoguePaddingTop);
+    TitledPane tpTextBounds = collapsibleSection("Dialogue Text Bounds", textBoundsGrid, false);
 
-    row = addHeader(grid, row, "Choices");
-    row = addRow(grid, row, "Choice X Center", spChoiceXCenter);
-    row = addRow(grid, row, "Choice Y Start", spChoiceYStart);
-    row = addRow(grid, row, "Choice Width Factor", spChoiceWidthFactor);
-    row = addRow(grid, row, "Choice Height", spChoiceHeight);
-    row = addRow(grid, row, "Choice Gap", spChoiceGap);
-    row = addRow(grid, row, "Choice Text Padding", spChoiceTextXPadding);
-    row = addRow(grid, row, "Choice Button Asset", assetFieldRow(tfChoiceButtonAsset, "Select Choice Button Asset"));
-    row = addRow(grid, row, "Choice Hover Asset", assetFieldRow(tfChoiceButtonHoverAsset, "Select Choice Hover Asset"));
-    row = addRow(grid, row, "Choice Selected Asset", assetFieldRow(tfChoiceButtonSelectedAsset, "Select Choice Selected Asset"));
-    row = addRow(grid, row, "Choice Disabled Asset", assetFieldRow(tfChoiceButtonDisabledAsset, "Select Choice Disabled Asset"));
-    row = addRow(grid, row, "Choice Background Color", tfChoiceBgColor);
-    row = addRow(grid, row, "Choice Hover Color", tfChoiceHoverColor);
-    row = addRow(grid, row, "Choice Selected Color", tfChoiceSelectedColor);
-    row = addRow(grid, row, "Choice Disabled Color", tfChoiceDisabledColor);
-    row = addRow(grid, row, "Choice Text Color", tfChoiceTextColor);
-    row = addRow(grid, row, "Choice Hover Text Color", tfChoiceHoverTextColor);
-    row = addRow(grid, row, "Choice Selected Text Color", tfChoiceSelectedTextColor);
-    row = addRow(grid, row, "Choice Disabled Text Color", tfChoiceDisabledTextColor);
-    row = addRow(grid, row, "Choice Border Color", tfChoiceBorderColor);
-    row = addRow(grid, row, "Choice Hover Border Color", tfChoiceHoverBorderColor);
-    row = addRow(grid, row, "Choice Selected Border Color", tfChoiceSelectedBorderColor);
-    row = addRow(grid, row, "Choice Disabled Border Color", tfChoiceDisabledBorderColor);
-    row = addRow(grid, row, "Choice Corner Radius", spChoiceCornerRadius);
-    row = addRow(grid, row, "Choice Border Width", spChoiceBorderWidth);
-    row = addRow(grid, row, "Choice Text Baseline", spChoiceTextBaselineOffset);
+    // --- Section: Choice Layout ---
+    GridPane choiceLayoutGrid = sectionGrid();
+    row = 0;
+    row = addRow(choiceLayoutGrid, row, "Choice X Center", spChoiceXCenter);
+    row = addRow(choiceLayoutGrid, row, "Choice Y Start", spChoiceYStart);
+    row = addRow(choiceLayoutGrid, row, "Choice Width Factor", spChoiceWidthFactor);
+    row = addRow(choiceLayoutGrid, row, "Choice Height", spChoiceHeight);
+    row = addRow(choiceLayoutGrid, row, "Choice Gap", spChoiceGap);
+    row = addRow(choiceLayoutGrid, row, "Choice Text Padding", spChoiceTextXPadding);
+    row = addRow(choiceLayoutGrid, row, "Button Asset", assetFieldRow(tfChoiceButtonAsset, "Select Choice Button Asset"));
+    row = addRow(choiceLayoutGrid, row, "Hover Asset", assetFieldRow(tfChoiceButtonHoverAsset, "Select Choice Hover Asset"));
+    row = addRow(choiceLayoutGrid, row, "Selected Asset", assetFieldRow(tfChoiceButtonSelectedAsset, "Select Choice Selected Asset"));
+    row = addRow(choiceLayoutGrid, row, "Disabled Asset", assetFieldRow(tfChoiceButtonDisabledAsset, "Select Choice Disabled Asset"));
+    TitledPane tpChoiceLayout = collapsibleSection("Choice Layout & Assets", choiceLayoutGrid, true);
 
-    row = addHeader(grid, row, "Textbox Buttons");
+    // --- Section: Choice Colors ---
+    GridPane choiceColorGrid = sectionGrid();
+    row = 0;
+    row = addRow(choiceColorGrid, row, "Background Color", tfChoiceBgColor);
+    row = addRow(choiceColorGrid, row, "Hover Color", tfChoiceHoverColor);
+    row = addRow(choiceColorGrid, row, "Selected Color", tfChoiceSelectedColor);
+    row = addRow(choiceColorGrid, row, "Disabled Color", tfChoiceDisabledColor);
+    row = addRow(choiceColorGrid, row, "Text Color", tfChoiceTextColor);
+    row = addRow(choiceColorGrid, row, "Hover Text Color", tfChoiceHoverTextColor);
+    row = addRow(choiceColorGrid, row, "Selected Text Color", tfChoiceSelectedTextColor);
+    row = addRow(choiceColorGrid, row, "Disabled Text Color", tfChoiceDisabledTextColor);
+    row = addRow(choiceColorGrid, row, "Border Color", tfChoiceBorderColor);
+    row = addRow(choiceColorGrid, row, "Hover Border", tfChoiceHoverBorderColor);
+    row = addRow(choiceColorGrid, row, "Selected Border", tfChoiceSelectedBorderColor);
+    row = addRow(choiceColorGrid, row, "Disabled Border", tfChoiceDisabledBorderColor);
+    row = addRow(choiceColorGrid, row, "Corner Radius", spChoiceCornerRadius);
+    row = addRow(choiceColorGrid, row, "Border Width", spChoiceBorderWidth);
+    row = addRow(choiceColorGrid, row, "Text Baseline", spChoiceTextBaselineOffset);
+    TitledPane tpChoiceColors = collapsibleSection("Choice Colors & Borders", choiceColorGrid, false);
+
+    // --- Section: Textbox Buttons ---
+    GridPane btnGrid = sectionGrid();
+    row = 0;
     HBox buttonToolbar = new HBox(6);
     Button addButton = new Button("Add");
     Button removeButton = new Button("Remove");
     buttonToolbar.getChildren().addAll(addButton, removeButton);
-    row = addRow(grid, row, "Buttons", buttonToolbar);
-    row = addRow(grid, row, "Button List", lvTextBoxButtons);
-    row = addRow(grid, row, "Button Id", tfButtonId);
-    row = addRow(grid, row, "Button Label", tfButtonLabel);
-    row = addRow(grid, row, "Button Action", cbButtonAction);
-    row = addRow(grid, row, "Button Target", tfButtonTarget);
-    row = addRow(grid, row, "Button State", chkButtonEnabled);
-    row = addRow(grid, row, "Button X", spButtonX);
-    row = addRow(grid, row, "Button Y", spButtonY);
-    row = addRow(grid, row, "Button Width", spButtonWidth);
-    row = addRow(grid, row, "Button Height", spButtonHeight);
-    row = addRow(grid, row, "Button Asset", assetFieldRow(tfButtonAsset, "Select Button Asset"));
-    row = addRow(grid, row, "Button Hover Asset", assetFieldRow(tfButtonHoverAsset, "Select Button Hover Asset"));
-    row = addRow(grid, row, "Button Disabled Asset", assetFieldRow(tfButtonDisabledAsset, "Select Button Disabled Asset"));
+    row = addRow(btnGrid, row, "Buttons", buttonToolbar);
+    row = addRow(btnGrid, row, "Button List", lvTextBoxButtons);
+    row = addRow(btnGrid, row, "Button Id", tfButtonId);
+    row = addRow(btnGrid, row, "Button Label", tfButtonLabel);
+    row = addRow(btnGrid, row, "Button Action", cbButtonAction);
+    row = addRow(btnGrid, row, "Button Target", tfButtonTarget);
+    row = addRow(btnGrid, row, "Button State", chkButtonEnabled);
+    row = addRow(btnGrid, row, "Button X", spButtonX);
+    row = addRow(btnGrid, row, "Button Y", spButtonY);
+    row = addRow(btnGrid, row, "Button Width", spButtonWidth);
+    row = addRow(btnGrid, row, "Button Height", spButtonHeight);
+    row = addRow(btnGrid, row, "Button Asset", assetFieldRow(tfButtonAsset, "Select Button Asset"));
+    row = addRow(btnGrid, row, "Button Hover Asset", assetFieldRow(tfButtonHoverAsset, "Select Button Hover Asset"));
+    row = addRow(btnGrid, row, "Button Disabled Asset", assetFieldRow(tfButtonDisabledAsset, "Select Button Disabled Asset"));
     addButton.setOnAction(e -> addTextBoxButton());
     removeButton.setOnAction(e -> removeSelectedTextBoxButton());
+    TitledPane tpButtons = collapsibleSection("Textbox Buttons", btnGrid, false);
 
-    Label hint = new Label("Drag blocks in preview to position textbox/name/choices/buttons.");
-    hint.getStyleClass().add("muted");
-    hint.setWrapText(true);
-    grid.add(hint, 0, row++, 2, 1);
-
-    row = addHeader(grid, row, "History");
+    // --- History + hint ---
     btnUndo = new Button("Undo");
     btnRedo = new Button("Redo");
     btnUndo.setDisable(true);
@@ -406,9 +404,35 @@ public class DialogueLayoutEditorView extends BorderPane {
     undoManager.setOnUndoAvailableChanged(available -> btnUndo.setDisable(!available));
     undoManager.setOnRedoAvailableChanged(available -> btnRedo.setDisable(!available));
     HBox historyButtons = new HBox(8, btnUndo, btnRedo);
-    grid.add(historyButtons, 0, row, 2, 1);
+    historyButtons.setPadding(new Insets(4, 8, 4, 8));
 
-    return grid;
+    Label hint = new Label("Drag blocks in preview to position textbox/name/choices/buttons.");
+    hint.getStyleClass().add("muted");
+    hint.setWrapText(true);
+    hint.setPadding(new Insets(4, 8, 8, 8));
+
+    javafx.scene.layout.VBox sections = new javafx.scene.layout.VBox(2,
+        tpTextbox, tpName, tpTextBounds, tpChoiceLayout, tpChoiceColors, tpButtons,
+        historyButtons, hint
+    );
+    sections.setPadding(new Insets(4));
+    return sections;
+  }
+
+  private static GridPane sectionGrid() {
+    GridPane g = new GridPane();
+    g.setHgap(8);
+    g.setVgap(6);
+    g.setPadding(new Insets(4, 4, 4, 4));
+    return g;
+  }
+
+  private static TitledPane collapsibleSection(String title, javafx.scene.Node content, boolean expanded) {
+    TitledPane tp = new TitledPane(title, content);
+    tp.setExpanded(expanded);
+    tp.setAnimated(false);
+    tp.setStyle("-fx-font-weight: bold; -fx-font-size: 11px;");
+    return tp;
   }
 
   private HBox assetFieldRow(TextField field, String dialogTitle) {
