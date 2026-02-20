@@ -22,5 +22,7 @@ include(
   ":demo-game",
   ":billiards-game",
   ":swing",
-  ":testkit"
+  ":testkit",
+  ":scala-utils",
+  ":clojure-utils"
 )
