@@ -222,6 +222,28 @@
   -fx-background-color: #9aa0a6;
 }
 
+/* Fullscreen (corners) */
+.icon-fullscreen {
+  -fx-shape: "M2,2 L7,2 L7,3 L3,3 L3,7 L2,7 Z M14,2 L9,2 L9,3 L13,3 L13,7 L14,7 Z M2,14 L7,14 L7,13 L3,13 L3,9 L2,9 Z M14,14 L9,14 L9,13 L13,13 L13,9 L14,9 Z";
+  -fx-background-color: #9aa0a6;
+}
+
+/* Status dot */
+.icon-status {
+  -fx-shape: "M8,2 A6,6 0 1,1 8,14 A6,6 0 1,1 8,2 Z";
+  -fx-background-color: #58d68d;
+}
+
+/* Panel chooser icons */
+.icon-panel-project { -fx-shape: "M1,5 L1,13 L15,13 L15,6 L9,6 L7,4 L1,4 Z"; -fx-background-color: #8ab4f8; }
+.icon-panel-timeline { -fx-shape: "M2,12 L5,8 L8,10 L11,5 L14,7 L14,9 L11,7 L8,12 L5,10 L2,14 Z"; -fx-background-color: #9ecbff; }
+.icon-panel-diagnostics { -fx-shape: "M8,2 L15,14 L1,14 Z M8,6 L8,10 M8,12 L8,12"; -fx-background-color: #f0b673; }
+.icon-panel-flow { -fx-shape: "M3,3 L7,3 L7,7 L3,7 Z M9,9 L13,9 L13,13 L9,13 Z M3,9 L7,9 L7,13 L3,13 Z M7,5 L10,5 L10,9 L9,9 L9,6 L7,6 Z"; -fx-background-color: #8bd17c; }
+.icon-panel-assets { -fx-shape: "M2,4 L8,2 L14,4 L14,12 L8,14 L2,12 Z M8,3 L8,13"; -fx-background-color: #c3b1ff; }
+.icon-panel-vcs { -fx-shape: "M5,2 A2,2 0 1,1 5,6 A2,2 0 1,1 5,2 Z M11,10 A2,2 0 1,1 11,14 A2,2 0 1,1 11,10 Z M5,6 L5,8 L9,8 L9,10"; -fx-background-color: #7de0b8; }
+.icon-panel-help { -fx-shape: "M8,1 A7,7 0 1,1 8,15 A7,7 0 1,1 8,1 Z M6,6 A2,2 0 0,1 10,6 C10,8 7,8 7,10 M8,12 L8,13"; -fx-background-color: #ffd166; }
+.icon-panel-inspector { -fx-shape: "M2,4 L14,4 L14,6 L2,6 Z M2,9 L14,9 L14,11 L2,11 Z M5,3 L7,3 L7,7 L5,7 Z M9,8 L11,8 L11,12 L9,12 Z"; -fx-background-color: #bdbec7; }
+
 /* Neutralize legacy vector logo style */
 .jvn-logo { -fx-background-color: transparent; -fx-shape: null; }
 
@@ -247,6 +269,28 @@
   -fx-padding: 6 10 6 10;
   -fx-border-color: #1a1a1a;
   -fx-border-width: 0 0 1 0;
+}
+
+.toolbar-status-panel {
+  -fx-background-color: #111318;
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 1;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-padding: 6 10 6 10;
+  -fx-min-width: 150;
+}
+
+.toolbar-status-title {
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #8f97a3;
+}
+
+.toolbar-status-value {
+  -fx-font-size: 14px;
+  -fx-font-weight: 600;
+  -fx-text-fill: #e6e6e6;
 }
 
 /* Timeline editor panel */

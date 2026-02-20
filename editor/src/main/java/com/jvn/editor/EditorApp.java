@@ -509,6 +509,7 @@ public class EditorApp extends Application {
     Button btnUndo = new Button("Undo"); btnUndo.setOnAction(e -> { commands.undo(); status.setText("Undo"); inspectorView.setSelection(selected); });
     Button btnRedo = new Button("Redo"); btnRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
     Button btnApply = new Button("Apply Code"); btnApply.setOnAction(e -> applyCodeFromEditor());
+    Button btnFullscreen = new Button("Fullscreen"); btnFullscreen.setOnAction(e -> toggleActiveEditorFullscreen());
     Button btnRun = new Button("Run"); btnRun.setOnAction(e -> doRunProject(primaryStage));
     // Icons to the right of text
     btnOpen.setGraphic(icon("icon", "icon-open"));
@@ -526,6 +527,9 @@ public class EditorApp extends Application {
     btnApply.setGraphic(icon("icon", "icon-apply"));
     btnApply.setContentDisplay(ContentDisplay.RIGHT);
     btnApply.setGraphicTextGap(6);
+    btnFullscreen.setGraphic(icon("icon", "icon-fullscreen"));
+    btnFullscreen.setContentDisplay(ContentDisplay.RIGHT);
+    btnFullscreen.setGraphicTextGap(6);
     btnApply.setOnKeyPressed(e -> { if (e.getCode() == KeyCode.ENTER && e.isShortcutDown()) applyCodeFromEditor(); });
     status = new Label("Ready");
     fps = new Label("");
@@ -545,11 +549,12 @@ public class EditorApp extends Application {
     btnUndo.setTooltip(new Tooltip("Undo (Cmd+Z)"));
     btnRedo.setTooltip(new Tooltip("Redo (Shift+Cmd+Z)"));
     btnApply.setTooltip(new Tooltip("Apply Code (Cmd+Enter)"));
+    btnFullscreen.setTooltip(new Tooltip("Toggle Editor Fullscreen (F11)"));
     btnRun.setTooltip(new Tooltip("Run Project"));
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
     HBox row = new HBox(8);
-    row.getChildren().addAll(btnOpen, btnSave, btnUndo, btnRedo, btnApply, btnRun, spacer, status);
+    row.getChildren().addAll(btnOpen, btnSave, btnUndo, btnRedo, btnApply, btnFullscreen, btnRun, spacer);
     VBox toolRows = new VBox(6, row);
     HBox.setHgrow(toolRows, Priority.ALWAYS);
     Label wordmark = new Label("JVN");
@@ -561,13 +566,27 @@ public class EditorApp extends Application {
     logoBox.getStyleClass().add("jvn-wordmark-box");
     logoBox.getChildren().addAll(wordmark, verLabel);
     toolbar.setLeft(toolRows);
+
+    Label statusTitle = new Label("Status");
+    statusTitle.getStyleClass().add("toolbar-status-title");
+    status.getStyleClass().add("toolbar-status-value");
+    HBox statusHeader = new HBox(6, icon("icon", "icon-status"), statusTitle);
+    statusHeader.setAlignment(Pos.CENTER_LEFT);
+    VBox statusPanel = new VBox(4, statusHeader, status);
+    statusPanel.getStyleClass().add("toolbar-status-panel");
+    statusPanel.setAlignment(Pos.CENTER_LEFT);
+
     VBox perfBox = new VBox(4, perf, perfGraph.getCanvas());
     perfBox.setAlignment(Pos.CENTER);
     perfBox.setFillWidth(true);
-    HBox perfWrapper = new HBox(perfBox);
+    HBox perfWrapper = new HBox(10, perfBox, statusPanel);
     perfWrapper.setAlignment(Pos.CENTER);
     HBox.setHgrow(perfWrapper, Priority.ALWAYS);
-    perfBox.widthProperty().addListener((o, ov, nv) -> perfGraph.setWidth(nv.doubleValue()));
+    HBox.setHgrow(perfBox, Priority.ALWAYS);
+    perfWrapper.widthProperty().addListener((o, ov, nv) -> {
+      double available = nv.doubleValue() - statusPanel.getWidth() - 22.0;
+      perfGraph.setWidth(Math.max(180.0, available));
+    });
     toolbar.setCenter(perfWrapper);
     BorderPane.setAlignment(logoBox, Pos.TOP_RIGHT);
     toolbar.setRight(logoBox);
@@ -1380,10 +1399,16 @@ public class EditorApp extends Application {
     return "Add " + panelName;
   }
 
-  private void addChooserActionButton(javafx.scene.layout.VBox actions, String text, Runnable action) {
+  private void addChooserActionButton(javafx.scene.layout.VBox actions, String text, String iconClass, Runnable action) {
     if (actions == null || text == null || action == null) return;
     Button button = new Button(text);
     button.setMaxWidth(Double.MAX_VALUE);
+    button.setAlignment(Pos.CENTER_LEFT);
+    if (iconClass != null && !iconClass.isBlank()) {
+      button.setGraphic(icon("icon", iconClass));
+      button.setContentDisplay(ContentDisplay.LEFT);
+      button.setGraphicTextGap(8);
+    }
     button.setOnAction(e -> action.run());
     actions.getChildren().add(button);
   }
@@ -1405,36 +1430,36 @@ public class EditorApp extends Application {
     Label info = new Label(details);
     info.setWrapText(true);
     javafx.scene.layout.VBox actions = new javafx.scene.layout.VBox(8);
-    addChooserActionButton(actions, panelActionLabel("Project", tabProject, pane), () -> {
+    addChooserActionButton(actions, panelActionLabel("Project", tabProject, pane), "icon-panel-project", () -> {
       Tab t = ensureProjectTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
-    addChooserActionButton(actions, panelActionLabel("Timeline", tabTimeline, pane), () -> {
+    addChooserActionButton(actions, panelActionLabel("Timeline", tabTimeline, pane), "icon-panel-timeline", () -> {
       Tab t = ensureTimelineTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
-    addChooserActionButton(actions, panelActionLabel("VNS Diagnostics", tabVnsDiagnostics, pane), () -> {
+    addChooserActionButton(actions, panelActionLabel("VNS Diagnostics", tabVnsDiagnostics, pane), "icon-panel-diagnostics", () -> {
       Tab t = ensureVnsDiagnosticsTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
-    addChooserActionButton(actions, panelActionLabel("Label Flow", tabVnsFlowMap, pane), () -> {
+    addChooserActionButton(actions, panelActionLabel("Label Flow", tabVnsFlowMap, pane), "icon-panel-flow", () -> {
       Tab t = ensureVnsFlowMapTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
-    addChooserActionButton(actions, panelActionLabel("Assets", tabAssetBrowser, pane), () -> {
+    addChooserActionButton(actions, panelActionLabel("Assets", tabAssetBrowser, pane), "icon-panel-assets", () -> {
       Tab t = ensureAssetBrowserTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
-    addChooserActionButton(actions, panelActionLabel("Version Control", tabVersionControl, pane), () -> {
+    addChooserActionButton(actions, panelActionLabel("Version Control", tabVersionControl, pane), "icon-panel-vcs", () -> {
       Tab t = ensureVersionControlTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
       if (versionControlView != null) versionControlView.refreshStatus();
     });
-    addChooserActionButton(actions, panelActionLabel("Help", tabHelp, pane), () -> {
+    addChooserActionButton(actions, panelActionLabel("Help", tabHelp, pane), "icon-panel-help", () -> {
       Tab t = ensureHelpTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
-    addChooserActionButton(actions, panelActionLabel("Inspector", tabInspector, pane), () -> {
+    addChooserActionButton(actions, panelActionLabel("Inspector", tabInspector, pane), "icon-panel-inspector", () -> {
       Tab t = ensureInspectorTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
