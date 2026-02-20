@@ -1566,7 +1566,7 @@ public class EditorApp extends Application {
       Tab t = ensureInspectorTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
-    addChooserActionButton(actions, panelActionLabel("Puppeteer", tabPuppeteerLauncher, pane), "icon-panel-puppeteer", () -> {
+    addChooserActionButton(actions, panelActionLabel("Puppeteer Launcher", tabPuppeteerLauncher, pane), "icon-panel-puppeteer", () -> {
       Tab t = ensurePuppeteerLauncherTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
@@ -1640,7 +1640,7 @@ public class EditorApp extends Application {
   private Tab ensurePuppeteerLauncherTab(TabPane targetPane) {
     if (targetPane == null || puppeteerLauncherPanel == null) return null;
     if (tabPuppeteerLauncher == null) {
-      tabPuppeteerLauncher = new Tab("Puppeteer", puppeteerLauncherPanel);
+      tabPuppeteerLauncher = new Tab("Puppeteer Launcher", puppeteerLauncherPanel);
       tabPuppeteerLauncher.setClosable(true);
       tabPuppeteerLauncher.setOnClosed(e -> tabPuppeteerLauncher = null);
     }
