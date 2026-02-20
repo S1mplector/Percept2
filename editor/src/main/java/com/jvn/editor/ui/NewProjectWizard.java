@@ -1038,6 +1038,11 @@ public class NewProjectWizard extends Stage {
       fw.write("itemSelectedPrefix=> \n");
       fw.write("itemDisabledPrefix=- \n");
       fw.write("itemDisabledColor=#808080\n");
+      fw.write("# buttonAsset=assets/ui/menu/button.png\n");
+      fw.write("# buttonSelectedAsset=assets/ui/menu/button_selected.png\n");
+      fw.write("# buttonDisabledAsset=assets/ui/menu/button_disabled.png\n");
+      fw.write("buttonTextPaddingX=18\n");
+      fw.write("buttonTextPaddingY=0\n");
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_MAIN_PATH))) {

@@ -124,6 +124,21 @@ public class SaveMenuScene implements Scene {
     return action != null ? action : new MenuActionSpec(MenuActionType.SAVE_MENU, null);
   }
 
+  public MenuItemSpec getMenuItemSpec(int idx) {
+    if (idx < 0) return null;
+    if (idx == 0) {
+      MenuItemSpec newSlot = itemForItemId("new_save", "new_slot", "new");
+      if (newSlot != null) return newSlot;
+    } else {
+      MenuItemSpec saveSlot = itemForItemId("save_slot", "slot", "entry");
+      if (saveSlot != null) return saveSlot;
+    }
+    if (idx < menuScreen.items().size()) {
+      return menuScreen.items().get(idx);
+    }
+    return null;
+  }
+
   public boolean activateSelectedWithoutPrompt() {
     MenuActionSpec action = getSelectedAction();
     return switch (action.type()) {
@@ -305,6 +320,19 @@ public class SaveMenuScene implements Scene {
       for (MenuItemSpec item : menuScreen.items()) {
         if (item != null && id.equalsIgnoreCase(item.id())) {
           return item.action();
+        }
+      }
+    }
+    return null;
+  }
+
+  private MenuItemSpec itemForItemId(String... ids) {
+    if (ids == null || ids.length == 0) return null;
+    for (String id : ids) {
+      if (id == null || id.isBlank()) continue;
+      for (MenuItemSpec item : menuScreen.items()) {
+        if (item != null && id.equalsIgnoreCase(item.id())) {
+          return item;
         }
       }
     }

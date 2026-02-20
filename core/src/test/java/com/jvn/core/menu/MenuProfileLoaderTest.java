@@ -64,6 +64,11 @@ class MenuProfileLoaderTest {
         itemFontFamily=Monaco
         itemFontWeight=BOLD
         itemFontSize=22
+        buttonAsset=assets/ui/menu/btn.png
+        buttonSelectedAsset=assets/ui/menu/btn_sel.png
+        buttonDisabledAsset=assets/ui/menu/btn_dis.png
+        buttonTextPaddingX=24
+        buttonTextPaddingY=2
         """);
 
     Files.writeString(root.resolve("config/menu/menus/main.menu"), """
@@ -74,6 +79,11 @@ class MenuProfileLoaderTest {
         items=start,extras,quit
         item.start.label=Start Story
         item.start.action=run_script:scripts/story/prologue.vns
+        item.start.bgAsset=assets/ui/menu/start_btn.png
+        item.start.boundsX=0.2
+        item.start.boundsY=0.3
+        item.start.boundsWidth=0.6
+        item.start.boundsHeight=0.09
         item.extras.label=Extras
         item.extras.action=open_menu
         item.extras.target=extras
@@ -102,6 +112,9 @@ class MenuProfileLoaderTest {
     assertEquals(3, main.items().size());
     assertEquals(MenuActionType.RUN_SCRIPT, main.items().get(0).action().type());
     assertEquals("scripts/story/prologue.vns", main.items().get(0).action().target());
+    assertEquals("assets/ui/menu/start_btn.png", main.items().get(0).buttonAssetPath());
+    assertEquals(Double.valueOf(0.2), main.items().get(0).boundsX());
+    assertEquals(Double.valueOf(0.6), main.items().get(0).boundsWidth());
     assertEquals(MenuActionType.OPEN_MENU, main.items().get(1).action().type());
     assertEquals("extras", main.items().get(1).action().target());
 
@@ -113,6 +126,8 @@ class MenuProfileLoaderTest {
     assertEquals("left", profile.layout("wide").textAlign());
     assertEquals("#00ffff", profile.style("neon").itemSelectedColor());
     assertEquals(Integer.valueOf(22), profile.style("neon").itemFontSize());
+    assertEquals("assets/ui/menu/btn.png", profile.style("neon").buttonAssetPath());
+    assertEquals(Double.valueOf(24), profile.style("neon").buttonTextPaddingX());
   }
 
   @Test

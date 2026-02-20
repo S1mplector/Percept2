@@ -100,6 +100,11 @@ public record MenuProfile(
         "- ",
         null,
         null,
+        null,
+        null,
+        null,
+        null,
+        null,
         null
     );
   }
@@ -113,10 +118,10 @@ public record MenuProfile(
         "default",
         true,
         List.of(
-            new MenuItemSpec("new_game", null, null, null, true, new MenuActionSpec(MenuActionType.NEW_GAME, null)),
-            new MenuItemSpec("load", null, null, null, true, new MenuActionSpec(MenuActionType.LOAD_MENU, null)),
-            new MenuItemSpec("settings", null, null, null, true, new MenuActionSpec(MenuActionType.SETTINGS_MENU, null)),
-            new MenuItemSpec("quit", null, null, null, true, new MenuActionSpec(MenuActionType.QUIT, null))
+            new MenuItemSpec("new_game", null, null, null, true, new MenuActionSpec(MenuActionType.NEW_GAME, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("load", null, null, null, true, new MenuActionSpec(MenuActionType.LOAD_MENU, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("settings", null, null, null, true, new MenuActionSpec(MenuActionType.SETTINGS_MENU, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("quit", null, null, null, true, new MenuActionSpec(MenuActionType.QUIT, null), null, null, null, null, null, null, null)
         )
     );
   }

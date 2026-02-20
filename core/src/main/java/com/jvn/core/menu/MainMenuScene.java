@@ -89,6 +89,10 @@ public class MainMenuScene implements Scene {
     return menuScreen.items().get(idx);
   }
 
+  public MenuItemSpec getMenuItemSpec(int idx) {
+    return getItem(idx);
+  }
+
   public MenuStyleSpec getStyleForIndex(int idx) {
     MenuItemSpec item = getItem(idx);
     String styleId = item != null ? normalize(item.styleId(), menuScreen.defaultStyleId()) : menuScreen.defaultStyleId();

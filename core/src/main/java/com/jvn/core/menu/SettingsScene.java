@@ -94,6 +94,17 @@ public class SettingsScene implements Scene {
     return r.style();
   }
 
+  public MenuItemSpec getMenuItemSpec(int idx) {
+    Row row = rowAt(idx);
+    if (row == null) return null;
+    for (MenuItemSpec item : menuScreen.items()) {
+      if (item != null && item.id().equalsIgnoreCase(row.id())) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   public boolean isItemEnabled(int idx) {
     Row r = rowAt(idx);
     return r != null && r.enabled();

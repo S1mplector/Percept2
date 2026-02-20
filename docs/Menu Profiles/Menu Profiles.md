@@ -91,6 +91,18 @@ Supported item fields:
 - `enabled`
 - `action`
 - `target`
+- `bgAsset`
+- `bgSelectedAsset`
+- `bgDisabledAsset`
+- `boundsX`
+- `boundsY`
+- `boundsWidth`
+- `boundsHeight`
+
+`bounds*` mapping rules:
+- values `<= 1` are treated as normalized fractions (relative to menu draw area)
+- values `> 1` are treated as pixels
+- all four `boundsX/Y/Width/Height` should be set together
 
 ### Action Parsing
 
@@ -135,6 +147,11 @@ itemDisabledPrefix=-
 itemFontFamily=Arial
 itemFontWeight=BOLD
 itemFontSize=20
+buttonAsset=assets/ui/menu/button.png
+buttonSelectedAsset=assets/ui/menu/button_selected.png
+buttonDisabledAsset=assets/ui/menu/button_disabled.png
+buttonTextPaddingX=18
+buttonTextPaddingY=0
 ```
 
 Fields map to `MenuStyleSpec`.
@@ -189,6 +206,7 @@ Use `MenuProfileValidator.validate(profile)` to detect:
 JVN editor has dedicated visual editors for:
 - `config/menu/menus/*.menu`
 - `config/menu/layouts/*.layout`
+- `config/menu/styles/*.style`
 
 These editors sync to properties text and preserve extra keys where possible.
 

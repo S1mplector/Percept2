@@ -6,7 +6,14 @@ public record MenuItemSpec(
     String styleId,
     String iconPath,
     boolean enabled,
-    MenuActionSpec action
+    MenuActionSpec action,
+    String buttonAssetPath,
+    String buttonSelectedAssetPath,
+    String buttonDisabledAssetPath,
+    Double boundsX,
+    Double boundsY,
+    Double boundsWidth,
+    Double boundsHeight
 ) {
   public MenuItemSpec {
     id = normalize(id, "item");
@@ -14,6 +21,13 @@ public record MenuItemSpec(
     styleId = normalize(styleId, null);
     iconPath = normalize(iconPath, null);
     action = action == null ? MenuActionSpec.noop() : action;
+    buttonAssetPath = normalize(buttonAssetPath, null);
+    buttonSelectedAssetPath = normalize(buttonSelectedAssetPath, null);
+    buttonDisabledAssetPath = normalize(buttonDisabledAssetPath, null);
+    if (boundsX != null && !Double.isFinite(boundsX)) boundsX = null;
+    if (boundsY != null && !Double.isFinite(boundsY)) boundsY = null;
+    if (boundsWidth != null && !Double.isFinite(boundsWidth)) boundsWidth = null;
+    if (boundsHeight != null && !Double.isFinite(boundsHeight)) boundsHeight = null;
   }
 
   private static String normalize(String v, String def) {

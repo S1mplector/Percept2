@@ -200,7 +200,12 @@ public final class MenuProfileLoader {
         normalize(p.getProperty("itemDisabledPrefix"), base.itemDisabledPrefix()),
         normalize(p.getProperty("itemFontFamily"), base.itemFontFamily()),
         normalize(p.getProperty("itemFontWeight"), base.itemFontWeight()),
-        parseOptionalInt(p.getProperty("itemFontSize"), base.itemFontSize())
+        parseOptionalInt(p.getProperty("itemFontSize"), base.itemFontSize()),
+        normalize(p.getProperty("buttonAsset"), base.buttonAssetPath()),
+        normalize(p.getProperty("buttonSelectedAsset"), base.buttonSelectedAssetPath()),
+        normalize(p.getProperty("buttonDisabledAsset"), base.buttonDisabledAssetPath()),
+        parseOptionalDouble(p.getProperty("buttonTextPaddingX"), base.buttonTextPaddingX()),
+        parseOptionalDouble(p.getProperty("buttonTextPaddingY"), base.buttonTextPaddingY())
     );
   }
 
@@ -233,8 +238,29 @@ public final class MenuProfileLoader {
       boolean enabled = parseBoolean(p.getProperty("item." + idNorm + ".enabled"), bi == null || bi.enabled());
       String actionRaw = normalize(p.getProperty("item." + idNorm + ".action"), bi == null ? null : bi.action().type().name());
       String targetRaw = normalize(p.getProperty("item." + idNorm + ".target"), bi == null ? null : bi.action().target());
+      String buttonAsset = normalize(p.getProperty("item." + idNorm + ".bgAsset"), bi == null ? null : bi.buttonAssetPath());
+      String buttonSelectedAsset = normalize(p.getProperty("item." + idNorm + ".bgSelectedAsset"), bi == null ? null : bi.buttonSelectedAssetPath());
+      String buttonDisabledAsset = normalize(p.getProperty("item." + idNorm + ".bgDisabledAsset"), bi == null ? null : bi.buttonDisabledAssetPath());
+      Double boundsX = parseOptionalDouble(p.getProperty("item." + idNorm + ".boundsX"), bi == null ? null : bi.boundsX());
+      Double boundsY = parseOptionalDouble(p.getProperty("item." + idNorm + ".boundsY"), bi == null ? null : bi.boundsY());
+      Double boundsWidth = parseOptionalDouble(p.getProperty("item." + idNorm + ".boundsWidth"), bi == null ? null : bi.boundsWidth());
+      Double boundsHeight = parseOptionalDouble(p.getProperty("item." + idNorm + ".boundsHeight"), bi == null ? null : bi.boundsHeight());
       MenuActionSpec action = MenuActionSpec.parse(actionRaw, targetRaw);
-      items.add(new MenuItemSpec(idNorm, label, styleId, icon, enabled, action));
+      items.add(new MenuItemSpec(
+          idNorm,
+          label,
+          styleId,
+          icon,
+          enabled,
+          action,
+          buttonAsset,
+          buttonSelectedAsset,
+          buttonDisabledAsset,
+          boundsX,
+          boundsY,
+          boundsWidth,
+          boundsHeight
+      ));
     }
 
     return new MenuScreenSpec(id, titleText, hintsText, layoutId, defaultStyleId, wrapSelection, items);

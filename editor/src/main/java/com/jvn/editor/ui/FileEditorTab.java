@@ -15,13 +15,18 @@ import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.scene.Node;
+import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 
 public class FileEditorTab extends BorderPane {
-  public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, MENU_SCREEN, MENU_LAYOUT, DIALOGUE_LAYOUT, OTHER }
+  public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, MENU_SCREEN, MENU_LAYOUT, MENU_STYLE, DIALOGUE_LAYOUT, OTHER }
 
   private final File file;
   private final Kind kind;
@@ -34,10 +39,12 @@ public class FileEditorTab extends BorderPane {
   private final JavaCodeEditor themeEditor;
   private final JavaCodeEditor menuScreenEditor;
   private final JavaCodeEditor menuLayoutEditor;
+  private final JavaCodeEditor menuStyleEditor;
   private final JavaCodeEditor dialogueLayoutEditor;
   private final StoryTimelineView timelineView;
   private final MenuScreenVisualEditor menuScreenVisualEditor;
   private final MenuLayoutVisualEditor menuLayoutVisualEditor;
+  private final MenuStyleVisualEditor menuStyleVisualEditor;
   private final DialogueLayoutEditorView dialogueLayoutVisualEditor;
 
   private final ViewportView viewport; // JES preview
@@ -68,6 +75,7 @@ public class FileEditorTab extends BorderPane {
     else if (name.endsWith(".theme") || "menu.theme".equals(name)) this.kind = Kind.THEME;
     else if (name.endsWith(".menu")) this.kind = Kind.MENU_SCREEN;
     else if (name.endsWith(".layout") && (path.contains("/config/menu/layouts/") || path.contains("/menu/layouts/") || path.contains("/config/menu/"))) this.kind = Kind.MENU_LAYOUT;
+    else if (name.endsWith(".style") || path.contains("/config/menu/styles/")) this.kind = Kind.MENU_STYLE;
     else if ("dialogue.layout".equals(name) || (name.endsWith(".layout") && (path.contains("/config/ui/") || path.contains("/config/vn/")))) this.kind = Kind.DIALOGUE_LAYOUT;
     else this.kind = Kind.OTHER;
 
@@ -79,10 +87,12 @@ public class FileEditorTab extends BorderPane {
     this.themeEditor = (kind == Kind.THEME) ? new JavaCodeEditor() : null;
     this.menuScreenEditor = (kind == Kind.MENU_SCREEN) ? new JavaCodeEditor() : null;
     this.menuLayoutEditor = (kind == Kind.MENU_LAYOUT) ? new JavaCodeEditor() : null;
+    this.menuStyleEditor = (kind == Kind.MENU_STYLE) ? new JavaCodeEditor() : null;
     this.dialogueLayoutEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new JavaCodeEditor() : null;
     this.timelineView = (kind == Kind.TIMELINE) ? new StoryTimelineView() : null;
     this.menuScreenVisualEditor = (kind == Kind.MENU_SCREEN) ? new MenuScreenVisualEditor() : null;
     this.menuLayoutVisualEditor = (kind == Kind.MENU_LAYOUT) ? new MenuLayoutVisualEditor() : null;
+    this.menuStyleVisualEditor = (kind == Kind.MENU_STYLE) ? new MenuStyleVisualEditor() : null;
     this.dialogueLayoutVisualEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new DialogueLayoutEditorView() : null;
 
     this.viewport = (kind == Kind.JES) ? new ViewportView() : null;
@@ -120,6 +130,8 @@ public class FileEditorTab extends BorderPane {
       bindMenuScreenVisualSync();
     } else if (kind == Kind.MENU_LAYOUT) {
       bindMenuLayoutVisualSync();
+    } else if (kind == Kind.MENU_STYLE) {
+      bindMenuStyleVisualSync();
     } else if (kind == Kind.DIALOGUE_LAYOUT) {
       bindDialogueLayoutVisualSync();
     }
@@ -154,11 +166,13 @@ public class FileEditorTab extends BorderPane {
         themeEditor.setOnTextChanged(t -> themePreview.setThemeFromText(t));
       }
     } else if (kind == Kind.MENU_SCREEN) {
-      setCenter(createVerticalSplit(menuScreenVisualEditor, menuScreenEditor, 0.6));
+      setCenter(createStudioWorkspace("Menu Screen Studio", menuScreenVisualEditor, menuScreenEditor, 0.62));
     } else if (kind == Kind.MENU_LAYOUT) {
-      setCenter(createVerticalSplit(menuLayoutVisualEditor, menuLayoutEditor, 0.55));
+      setCenter(createStudioWorkspace("Menu Layout Studio", menuLayoutVisualEditor, menuLayoutEditor, 0.58));
+    } else if (kind == Kind.MENU_STYLE) {
+      setCenter(createStudioWorkspace("Menu Style Studio", menuStyleVisualEditor, menuStyleEditor, 0.58));
     } else if (kind == Kind.DIALOGUE_LAYOUT) {
-      setCenter(createVerticalSplit(dialogueLayoutVisualEditor, dialogueLayoutEditor, 0.55));
+      setCenter(createStudioWorkspace("Dialogue Layout Studio", dialogueLayoutVisualEditor, dialogueLayoutEditor, 0.58));
     } else if (kind == Kind.OTHER) {
       setCenter(textEditor);
     } else {
@@ -179,6 +193,7 @@ public class FileEditorTab extends BorderPane {
     if (timelineView != null) timelineView.setProjectRoot(root);
     if (vnPreview != null) vnPreview.setProjectRoot(root);
     if (menuScreenVisualEditor != null) menuScreenVisualEditor.setProjectRoot(root);
+    if (menuStyleVisualEditor != null) menuStyleVisualEditor.setProjectRoot(root);
     if (dialogueLayoutVisualEditor != null) dialogueLayoutVisualEditor.setProjectRoot(root);
   }
 
@@ -283,6 +298,10 @@ public class FileEditorTab extends BorderPane {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         if (menuLayoutEditor != null) menuLayoutEditor.setText(text);
         if (menuLayoutVisualEditor != null) menuLayoutVisualEditor.setLayoutText(text);
+      } else if (kind == Kind.MENU_STYLE) {
+        String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
+        if (menuStyleEditor != null) menuStyleEditor.setText(text);
+        if (menuStyleVisualEditor != null) menuStyleVisualEditor.setStyleText(text);
       } else if (kind == Kind.DIALOGUE_LAYOUT) {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         if (dialogueLayoutEditor != null) dialogueLayoutEditor.setText(text);
@@ -320,6 +339,9 @@ public class FileEditorTab extends BorderPane {
         try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
       } else if (kind == Kind.MENU_LAYOUT && menuLayoutEditor != null) {
         String content = menuLayoutEditor.getText();
+        try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
+      } else if (kind == Kind.MENU_STYLE && menuStyleEditor != null) {
+        String content = menuStyleEditor.getText();
         try (FileWriter fw = new FileWriter(target)) { fw.write(content); }
       } else if (kind == Kind.DIALOGUE_LAYOUT && dialogueLayoutEditor != null) {
         String content = dialogueLayoutEditor.getText();
@@ -370,6 +392,7 @@ public class FileEditorTab extends BorderPane {
     if (kind == Kind.TIMELINE) return timelineEditor;
     if (kind == Kind.MENU_SCREEN) return menuScreenEditor;
     if (kind == Kind.MENU_LAYOUT) return menuLayoutEditor;
+    if (kind == Kind.MENU_STYLE) return menuStyleEditor;
     if (kind == Kind.DIALOGUE_LAYOUT) return dialogueLayoutEditor;
     if (kind == Kind.OTHER) return textEditor;
     return null;
@@ -404,6 +427,52 @@ public class FileEditorTab extends BorderPane {
     restoreDividerPosition = divider;
     editorFullscreen = false;
     return sp;
+  }
+
+  private Node createStudioWorkspace(String title, Node designNode, Node codeNode, double divider) {
+    BorderPane root = new BorderPane();
+    BorderPane content = new BorderPane();
+
+    ToggleButton bDesign = new ToggleButton("Design");
+    ToggleButton bCode = new ToggleButton("Code");
+    ToggleButton bSplit = new ToggleButton("Split");
+    ToggleGroup group = new ToggleGroup();
+    bDesign.setToggleGroup(group);
+    bCode.setToggleGroup(group);
+    bSplit.setToggleGroup(group);
+    bDesign.setSelected(true);
+
+    Label titleLabel = new Label(title == null ? "Studio" : title);
+    titleLabel.getStyleClass().add("muted");
+
+    HBox toolbar = new HBox(8, titleLabel, bDesign, bCode, bSplit);
+    toolbar.setPadding(new javafx.geometry.Insets(6, 6, 6, 6));
+    toolbar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+    root.setTop(toolbar);
+    root.setCenter(content);
+
+    Runnable applyMode = () -> {
+      if (bSplit.isSelected()) {
+        content.setCenter(createVerticalSplit(designNode, codeNode, divider));
+      } else if (bCode.isSelected()) {
+        content.setCenter(codeNode);
+        primarySplit = null;
+        editorFullscreen = false;
+      } else {
+        content.setCenter(designNode);
+        primarySplit = null;
+        editorFullscreen = false;
+      }
+    };
+
+    group.selectedToggleProperty().addListener((o, ov, nv) -> {
+      if (nv == null) {
+        bDesign.setSelected(true);
+      }
+      applyMode.run();
+    });
+    applyMode.run();
+    return root;
   }
 
   private double currentDividerPosition() {
@@ -455,6 +524,27 @@ public class FileEditorTab extends BorderPane {
     menuLayoutVisualEditor.setLayoutText(current);
   }
 
+  private void bindMenuStyleVisualSync() {
+    if (menuStyleEditor == null || menuStyleVisualEditor == null) return;
+    final boolean[] syncing = new boolean[] {false};
+    menuStyleEditor.setOnTextChanged(text -> {
+      if (syncing[0]) return;
+      syncing[0] = true;
+      menuStyleVisualEditor.setStyleText(text);
+      syncing[0] = false;
+    });
+    menuStyleVisualEditor.setOnStyleTextChanged(text -> {
+      if (syncing[0]) return;
+      if (Objects.equals(normalizeLineEndings(menuStyleEditor.getText()), normalizeLineEndings(text))) return;
+      syncing[0] = true;
+      menuStyleEditor.setTextNoEvent(text);
+      syncing[0] = false;
+    });
+    String current = menuStyleEditor.getText();
+    if (current == null) current = "";
+    menuStyleVisualEditor.setStyleText(current);
+  }
+
   private void bindDialogueLayoutVisualSync() {
     if (dialogueLayoutEditor == null || dialogueLayoutVisualEditor == null) return;
     final boolean[] syncing = new boolean[] {false};
@@ -490,6 +580,7 @@ public class FileEditorTab extends BorderPane {
     if (kind == Kind.THEME && themeEditor != null) return themeEditor.getText();
     if (kind == Kind.MENU_SCREEN && menuScreenEditor != null) return menuScreenEditor.getText();
     if (kind == Kind.MENU_LAYOUT && menuLayoutEditor != null) return menuLayoutEditor.getText();
+    if (kind == Kind.MENU_STYLE && menuStyleEditor != null) return menuStyleEditor.getText();
     if (kind == Kind.DIALOGUE_LAYOUT && dialogueLayoutEditor != null) return dialogueLayoutEditor.getText();
     if (kind == Kind.JAVA && javaEditor != null) return javaEditor.getText();
     if (kind == Kind.OTHER && textEditor != null) return textEditor.getText();

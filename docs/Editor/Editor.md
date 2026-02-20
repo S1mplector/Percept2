@@ -46,7 +46,7 @@ Files open into typed tabs via `FileEditorTab` dispatch:
 - VNS (`.vns`) -> VNS code editor + VN preview
 - JES (`.jes`) -> JES code editor + viewport preview
 - Timeline (`.timeline`) -> timeline graph + timeline code editor
-- Menu/theme/layout config -> text + visual editor split (where supported)
+- Menu/theme/layout config -> dedicated studio editors (Design / Code / Split modes)
 - General text/code formats -> text editor
 
 ### Side panels (+ chooser system)
@@ -113,10 +113,16 @@ This design avoids shared global lock issues and makes editor-run more consisten
 
 - `config/ui/dialogue.layout` -> `DialogueLayoutEditorView`
   - drag textbox/namebox/choice layout in preview
+  - import textbox assets and tune text/name bounds
 - `config/menu/menus/*.menu` -> `MenuScreenVisualEditor`
   - edit menu items/actions/styles/targets with table + preview
+  - import per-item button assets (`bgAsset`, selected/disabled variants)
+  - map per-item click/render bounds (`boundsX/Y/Width/Height`) by table or drag
 - `config/menu/layouts/*.layout` -> `MenuLayoutVisualEditor`
   - edit list/title/hint geometry with draggable preview guides
+- `config/menu/styles/*.style` -> `MenuStyleVisualEditor`
+  - edit reusable item typography/colors/prefixes
+  - define shared button skins + text padding offsets
 
 All visual editors sync back to plain text properties content, preserving source-control-friendly files.
 

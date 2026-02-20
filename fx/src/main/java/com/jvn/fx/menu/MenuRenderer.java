@@ -5,6 +5,7 @@ import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
+import com.jvn.core.menu.config.MenuItemSpec;
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import javafx.scene.canvas.GraphicsContext;
@@ -63,12 +64,14 @@ public class MenuRenderer {
 
     boolean[] enabled = new boolean[items.length];
     MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
+    MenuItemSpec[] specs = new MenuItemSpec[items.length];
     for (int i = 0; i < items.length; i++) {
       enabled[i] = scene == null || scene.isItemEnabled(i);
       styles[i] = scene != null ? scene.getStyleForIndex(i) : null;
+      specs[i] = scene != null ? scene.getMenuItemSpec(i) : null;
     }
 
-    drawMenuList(items, scene != null ? scene.getSelected() : 0, enabled, styles, layout, w, h);
+    drawMenuList(items, scene != null ? scene.getSelected() : 0, enabled, styles, specs, layout, 0, w, h);
 
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) hints = theme.getMainHintsText();
@@ -91,11 +94,13 @@ public class MenuRenderer {
     for (int i = 0; i < saves.size(); i++) items[i + 1] = saves.get(i);
     boolean[] enabled = new boolean[items.length];
     MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
+    MenuItemSpec[] specs = new MenuItemSpec[items.length];
     for (int i = 0; i < items.length; i++) {
       enabled[i] = true;
       styles[i] = scene.getStyleForIndex(i);
+      specs[i] = scene.getMenuItemSpec(i);
     }
-    drawMenuList(items, scene.getSelected(), enabled, styles, layout, w * 0.6, h);
+    drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w * 0.6, h);
 
     // Preview: prefer thumbnail when selecting existing; when selecting new, try current background
     if (scene.isNewItemSelected()) {
@@ -133,11 +138,13 @@ public class MenuRenderer {
       String[] items = saves.toArray(new String[0]);
       boolean[] enabled = new boolean[items.length];
       MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
+      MenuItemSpec[] specs = new MenuItemSpec[items.length];
       for (int i = 0; i < items.length; i++) {
         enabled[i] = true;
         styles[i] = scene.getStyleForIndex(i);
+        specs[i] = scene.getMenuItemSpec(i);
       }
-      drawMenuList(items, scene.getSelected(), enabled, styles, layout, w * 0.6, h);
+      drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w * 0.6, h);
       File thumb = getThumbnailFile(scene);
       if (thumb != null) {
         drawPreviewFile(thumb, w, h);
@@ -180,11 +187,13 @@ public class MenuRenderer {
     String[] items = scene.getDisplayItems();
     boolean[] enabled = new boolean[items.length];
     MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
+    MenuItemSpec[] specs = new MenuItemSpec[items.length];
     for (int i = 0; i < items.length; i++) {
       enabled[i] = scene.isItemEnabled(i);
       styles[i] = scene.getStyleForIndex(i);
+      specs[i] = scene.getMenuItemSpec(i);
     }
-    drawMenuList(items, scene.getSelected(), enabled, styles, layout, w, h);
+    drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w, h);
 
     double yStart = (layout != null ? resolve(layout.listYStart(), h) : h * 0.35);
     double lineH = (layout != null ? layout.lineHeight() : 40.0);
@@ -273,35 +282,60 @@ public class MenuRenderer {
   }
 
   private void drawMenuList(String[] items, int selected, double w, double h) {
-    drawMenuList(items, selected, null, null, null, w, h);
+    drawMenuList(items, selected, null, null, null, null, 0, w, h);
   }
 
-  private void drawMenuList(String[] items, int selected, boolean[] enabled, MenuStyleSpec[] styles, MenuLayoutSpec layout, double w, double h) {
-    double yStart = layout != null ? resolve(layout.listYStart(), h) : resolve(theme.getListYStart(), h);
-    double lineH = layout != null ? layout.lineHeight() : theme.getLineHeight();
-    double listW = layout != null ? w * clamp(layout.listWidthFactor(), 0.1, 1.0) : w;
+  private void drawMenuList(
+      String[] items,
+      int selected,
+      boolean[] enabled,
+      MenuStyleSpec[] styles,
+      MenuItemSpec[] itemSpecs,
+      MenuLayoutSpec layout,
+      double areaX,
+      double areaWidth,
+      double h
+  ) {
     String align = layout != null ? layout.textAlign() : "center";
-    double listX = switch (align == null ? "center" : align.toLowerCase()) {
-      case "left" -> 0.0;
-      case "right" -> w - listW;
-      default -> (w - listW) / 2.0;
-    };
+    double textPadXDefault = 18;
+    double textPadYDefault = 0;
     for (int i = 0; i < items.length; i++) {
       MenuStyleSpec style = styles != null && i < styles.length ? styles[i] : null;
+      MenuItemSpec item = itemSpecs != null && i < itemSpecs.length ? itemSpecs[i] : null;
       boolean isEnabled = enabled == null || i >= enabled.length || enabled[i];
       boolean sel = i == selected;
       String label = withPrefix(items[i], style, sel, isEnabled);
       Color color = resolveItemColor(style, sel, isEnabled);
       Font font = resolveItemFont(style);
+      Rect rect = resolveItemRect(i, items.length, item, layout, areaX, areaWidth, h);
+
+      String backgroundAsset = resolveButtonAssetPath(item, style, sel, isEnabled);
+      Image buttonBg = loadImage(backgroundAsset);
+      if (buttonBg != null) {
+        gc.drawImage(buttonBg, rect.x(), rect.y(), rect.w(), rect.h());
+      } else {
+        Color bgFill = !isEnabled
+            ? Color.rgb(80, 80, 90, 0.45)
+            : (sel ? Color.rgb(90, 120, 180, 0.5) : Color.rgb(32, 36, 46, 0.55));
+        gc.setFill(bgFill);
+        gc.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
+        gc.setStroke(sel ? Color.rgb(170, 210, 255, 0.9) : Color.rgb(110, 130, 160, 0.55));
+        gc.setLineWidth(sel ? 2.0 : 1.1);
+        gc.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
+      }
+
       gc.setFill(color);
       gc.setFont(font);
       double tw = measure(label, font);
+      double textPadX = style != null && style.buttonTextPaddingX() != null ? style.buttonTextPaddingX() : textPadXDefault;
+      double textPadY = style != null && style.buttonTextPaddingY() != null ? style.buttonTextPaddingY() : textPadYDefault;
       double x = switch (align == null ? "center" : align.toLowerCase()) {
-        case "left" -> listX;
-        case "right" -> listX + Math.max(0, listW - tw);
-        default -> listX + (listW - tw) / 2.0;
+        case "left" -> rect.x() + Math.max(0, textPadX);
+        case "right" -> rect.x() + Math.max(0, rect.w() - tw - textPadX);
+        default -> rect.x() + (rect.w() - tw) / 2.0;
       };
-      gc.fillText(label, x, yStart + i * lineH);
+      double baseline = rect.y() + rect.h() * 0.55 + textPadY;
+      gc.fillText(label, x, baseline);
     }
   }
 
@@ -329,31 +363,65 @@ public class MenuRenderer {
 
   public int getHoverIndexForList(int count, double w, double h, double mouseX, double mouseY) {
     if (count <= 0) return -1;
-    return hoverIndex(count, null, 0, w, h, mouseX, mouseY);
+    return hoverIndex(count, null, null, 0, w, h, mouseX, mouseY);
   }
 
   public int getHoverIndexForMainMenu(MainMenuScene scene, double w, double h, double mouseX, double mouseY) {
     if (scene == null) return -1;
-    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), 0, w, h, mouseX, mouseY);
+    MenuItemSpec[] specs = new MenuItemSpec[scene.getItemCount()];
+    for (int i = 0; i < specs.length; i++) specs[i] = scene.getMenuItemSpec(i);
+    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), specs, 0, w, h, mouseX, mouseY);
   }
 
   public int getHoverIndexForLoadMenu(LoadMenuScene scene, double w, double h, double mouseX, double mouseY) {
     if (scene == null) return -1;
-    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), 0, w * 0.6, h, mouseX, mouseY);
+    MenuItemSpec[] specs = new MenuItemSpec[scene.getItemCount()];
+    for (int i = 0; i < specs.length; i++) specs[i] = scene.getMenuItemSpec(i);
+    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), specs, 0, w * 0.6, h, mouseX, mouseY);
   }
 
   public int getHoverIndexForSaveMenu(SaveMenuScene scene, double w, double h, double mouseX, double mouseY) {
     if (scene == null) return -1;
-    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), 0, w * 0.6, h, mouseX, mouseY);
+    MenuItemSpec[] specs = new MenuItemSpec[scene.getItemCount()];
+    for (int i = 0; i < specs.length; i++) specs[i] = scene.getMenuItemSpec(i);
+    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), specs, 0, w * 0.6, h, mouseX, mouseY);
   }
 
   public int getHoverIndexForSettings(SettingsScene scene, double w, double h, double mouseX, double mouseY) {
     if (scene == null) return -1;
-    return hoverIndex(scene.itemCount(), scene.getMenuLayout(), 0, w, h, mouseX, mouseY);
+    MenuItemSpec[] specs = new MenuItemSpec[scene.itemCount()];
+    for (int i = 0; i < specs.length; i++) specs[i] = scene.getMenuItemSpec(i);
+    return hoverIndex(scene.itemCount(), scene.getMenuLayout(), specs, 0, w, h, mouseX, mouseY);
   }
 
-  private int hoverIndex(int count, MenuLayoutSpec layout, double areaX, double areaWidth, double h, double mouseX, double mouseY) {
+  private int hoverIndex(
+      int count,
+      MenuLayoutSpec layout,
+      MenuItemSpec[] itemSpecs,
+      double areaX,
+      double areaWidth,
+      double h,
+      double mouseX,
+      double mouseY
+  ) {
     if (count <= 0) return -1;
+    for (int i = 0; i < count; i++) {
+      MenuItemSpec item = itemSpecs != null && i < itemSpecs.length ? itemSpecs[i] : null;
+      Rect rect = resolveItemRect(i, count, item, layout, areaX, areaWidth, h);
+      if (rect.contains(mouseX, mouseY)) return i;
+    }
+    return -1;
+  }
+
+  private Rect resolveItemRect(
+      int index,
+      int count,
+      MenuItemSpec itemSpec,
+      MenuLayoutSpec layout,
+      double areaX,
+      double areaWidth,
+      double h
+  ) {
     double yStart = layout != null ? resolve(layout.listYStart(), h) : resolve(theme.getListYStart(), h);
     double lineH = layout != null ? layout.lineHeight() : theme.getLineHeight();
     if (lineH <= 0) lineH = theme.getLineHeight();
@@ -365,12 +433,57 @@ public class MenuRenderer {
       case "right" -> areaX + areaWidth - listW;
       default -> areaX + (areaWidth - listW) / 2.0;
     };
-    if (mouseX < listX - 24 || mouseX > listX + listW + 24) return -1;
-    double relY = mouseY - yStart;
-    if (relY < 0) return -1;
-    int idx = (int) Math.floor(relY / lineH);
-    if (idx < 0 || idx >= count) return -1;
-    return idx;
+
+    if (itemSpec != null && itemSpec.boundsX() != null && itemSpec.boundsY() != null
+        && itemSpec.boundsWidth() != null && itemSpec.boundsHeight() != null) {
+      double x = resolveCoordinate(itemSpec.boundsX(), areaWidth) + areaX;
+      double y = resolveCoordinate(itemSpec.boundsY(), h);
+      double w = resolveSize(itemSpec.boundsWidth(), areaWidth);
+      double hh = resolveSize(itemSpec.boundsHeight(), h);
+      w = clamp(w, 8, Math.max(8, areaWidth));
+      hh = clamp(hh, 8, Math.max(8, h));
+      x = clamp(x, areaX, areaX + Math.max(0, areaWidth - w));
+      y = clamp(y, 0, Math.max(0, h - hh));
+      return new Rect(x, y, w, hh);
+    }
+
+    double baseline = yStart + index * lineH;
+    double itemH = Math.max(24, lineH * 0.92);
+    double itemY = baseline - itemH * 0.76;
+    return new Rect(listX, itemY, Math.max(1, listW), itemH);
+  }
+
+  private String resolveButtonAssetPath(MenuItemSpec item, MenuStyleSpec style, boolean selected, boolean enabled) {
+    String path = null;
+    if (!enabled) {
+      path = firstNonBlank(
+          item != null ? item.buttonDisabledAssetPath() : null,
+          item != null ? item.buttonAssetPath() : null,
+          style != null ? style.buttonDisabledAssetPath() : null,
+          style != null ? style.buttonAssetPath() : null
+      );
+    } else if (selected) {
+      path = firstNonBlank(
+          item != null ? item.buttonSelectedAssetPath() : null,
+          item != null ? item.buttonAssetPath() : null,
+          style != null ? style.buttonSelectedAssetPath() : null,
+          style != null ? style.buttonAssetPath() : null
+      );
+    } else {
+      path = firstNonBlank(
+          item != null ? item.buttonAssetPath() : null,
+          style != null ? style.buttonAssetPath() : null
+      );
+    }
+    return path;
+  }
+
+  private double resolveCoordinate(double value, double total) {
+    return value <= 1.0 ? total * value : value;
+  }
+
+  private double resolveSize(double value, double total) {
+    return value <= 1.0 ? total * Math.max(0, value) : value;
   }
 
   private File getThumbnailFile(LoadMenuScene scene) {
@@ -575,5 +688,11 @@ public class MenuRenderer {
   private double resolve(double v, double total) {
     // if v <= 1, treat as fraction of total; otherwise pixels
     return v <= 1.0 ? (total * v) : v;
+  }
+
+  private record Rect(double x, double y, double w, double h) {
+    boolean contains(double px, double py) {
+      return px >= x && px <= x + w && py >= y && py <= y + h;
+    }
   }
 }

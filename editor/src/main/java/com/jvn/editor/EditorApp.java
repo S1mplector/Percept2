@@ -16,6 +16,7 @@ import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.InspectorView;
 import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
@@ -95,6 +96,7 @@ public class EditorApp extends Application {
   private VnsFlowMapView vnsFlowMapView;
   private AssetBrowserView assetBrowserView;
   private VersionControlView versionControlView;
+  private LayoutEditorLauncherView layoutEditorLauncherView;
   private SettingsEditorView settingsEditor;
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
   private TilemapEditorView mapEditorView;
@@ -111,6 +113,7 @@ public class EditorApp extends Application {
   private Tab tabVnsFlowMap;
   private Tab tabAssetBrowser;
   private Tab tabVersionControl;
+  private Tab tabLayoutLauncher;
   private Tab tabLeftAdd;
   private Tab tabRightAdd;
   private ScrollPane inspectorScroll;
@@ -246,6 +249,7 @@ public class EditorApp extends Application {
     if (helpCenterView != null) helpCenterView.setProjectRoot(root);
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(root);
     if (versionControlView != null) versionControlView.setProjectRoot(root);
+    if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(root);
   }
 
   private String composeGradleTask(String path, String task) {
@@ -646,6 +650,16 @@ public class EditorApp extends Application {
       File target = new File(projectRoot, relativePath);
       if (!target.exists()) return;
       if (isEditableFile(target)) openFile(target);
+    });
+    layoutEditorLauncherView = new LayoutEditorLauncherView();
+    layoutEditorLauncherView.setProjectRoot(projectRoot);
+    layoutEditorLauncherView.setOnOpenFile(target -> {
+      if (target == null) return;
+      if (isEditableFile(target)) {
+        openFile(target);
+      } else {
+        try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
+      }
     });
     rightTabs = new TabPane();
     helpCenterView = new HelpCenterView();
@@ -1131,6 +1145,7 @@ public class EditorApp extends Application {
     if (helpCenterView != null) helpCenterView.setProjectRoot(projectRoot);
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(projectRoot);
     if (versionControlView != null) versionControlView.setProjectRoot(projectRoot);
+    if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(projectRoot);
     if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
   }
 
@@ -1393,6 +1408,17 @@ public class EditorApp extends Application {
     return tabVersionControl;
   }
 
+  private Tab ensureLayoutLauncherTab(TabPane targetPane) {
+    if (targetPane == null || layoutEditorLauncherView == null) return null;
+    if (tabLayoutLauncher == null) {
+      tabLayoutLauncher = new Tab("Layout Launcher", layoutEditorLauncherView);
+      tabLayoutLauncher.setClosable(true);
+      tabLayoutLauncher.setOnClosed(e -> tabLayoutLauncher = null);
+    }
+    attachPanelTabToPane(tabLayoutLauncher, targetPane);
+    return tabLayoutLauncher;
+  }
+
   private String panelActionLabel(String panelName, Tab tab, TabPane targetPane) {
     if (tab != null && tab.getTabPane() == targetPane) return "Open " + panelName;
     if (tab != null && tab.getTabPane() != null) return "Move " + panelName + " Here";
@@ -1449,6 +1475,11 @@ public class EditorApp extends Application {
     addChooserActionButton(actions, panelActionLabel("Assets", tabAssetBrowser, pane), "icon-panel-assets", () -> {
       Tab t = ensureAssetBrowserTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
+    });
+    addChooserActionButton(actions, panelActionLabel("Layout Launcher", tabLayoutLauncher, pane), "icon-panel-layouts", () -> {
+      Tab t = ensureLayoutLauncherTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
     });
     addChooserActionButton(actions, panelActionLabel("Version Control", tabVersionControl, pane), "icon-panel-vcs", () -> {
       Tab t = ensureVersionControlTab(pane);

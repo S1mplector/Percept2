@@ -25,6 +25,8 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.control.cell.TextFieldTableCell;
+import javafx.scene.image.Image;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -33,6 +35,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 import javafx.util.StringConverter;
 
 import java.io.File;
@@ -56,7 +60,9 @@ public class MenuScreenVisualEditor extends BorderPane {
       "titleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items"
   );
   private static final Set<String> ITEM_KEYS = Set.of(
-      "label", "style", "icon", "enabled", "action", "target"
+      "label", "style", "icon", "enabled", "action", "target",
+      "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
+      "boundsX", "boundsY", "boundsWidth", "boundsHeight"
   );
 
   private final TextField tfTitle = new TextField();
@@ -69,6 +75,7 @@ public class MenuScreenVisualEditor extends BorderPane {
   private final TableView<MenuItemRow> table = new TableView<>();
   private final ObservableList<MenuItemRow> rows = FXCollections.observableArrayList();
   private final Canvas preview = new Canvas(520, 320);
+  private final java.util.Map<String, Image> imageCache = new LinkedHashMap<>();
 
   private final Properties topLevelExtras = new Properties();
   private Consumer<String> onMenuTextChanged;
@@ -78,6 +85,17 @@ public class MenuScreenVisualEditor extends BorderPane {
   private File projectRoot;
   private String screenIdHint = "main";
   private int previewSelected = 0;
+  private Rect[] previewRects = new Rect[0];
+  private int dragRowIndex = -1;
+  private DragMode dragMode = DragMode.NONE;
+  private double dragStartMouseX;
+  private double dragStartMouseY;
+  private Double dragStartX;
+  private Double dragStartY;
+  private Double dragStartW;
+  private Double dragStartH;
+
+  private enum DragMode { NONE, MOVE, RESIZE }
 
   public MenuScreenVisualEditor() {
     setPadding(new Insets(8));
@@ -94,8 +112,10 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   public void setProjectRoot(File root) {
     this.projectRoot = root;
+    imageCache.clear();
     refreshSuggestions();
     validateState();
+    redrawPreview();
   }
 
   public void setScreenIdHint(String id) {
@@ -153,7 +173,14 @@ public class MenuScreenVisualEditor extends BorderPane {
             p.getProperty(prefix + "icon", ""),
             parseBoolean(p.getProperty(prefix + "enabled"), true),
             action.type(),
-            action.target()
+            action.target(),
+            p.getProperty(prefix + "bgAsset", ""),
+            p.getProperty(prefix + "bgSelectedAsset", ""),
+            p.getProperty(prefix + "bgDisabledAsset", ""),
+            parseOptionalDouble(p.getProperty(prefix + "boundsX")),
+            parseOptionalDouble(p.getProperty(prefix + "boundsY")),
+            parseOptionalDouble(p.getProperty(prefix + "boundsWidth")),
+            parseOptionalDouble(p.getProperty(prefix + "boundsHeight"))
         );
         for (String prop : p.stringPropertyNames()) {
           if (!prop.startsWith(prefix)) continue;
@@ -203,7 +230,7 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void buildCenter() {
     table.setEditable(true);
-    table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+    table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
     buildColumns();
     table.setItems(rows);
     table.getSelectionModel().selectedIndexProperty().addListener((o, ov, nv) -> {
@@ -217,24 +244,23 @@ public class MenuScreenVisualEditor extends BorderPane {
     Button bUp = new Button("Up");
     Button bDown = new Button("Down");
     Button bNormalize = new Button("Normalize IDs");
+    Button bAssignBg = new Button("Assign BG...");
+    Button bClearBounds = new Button("Clear Bounds");
     bAdd.setOnAction(e -> addRow());
     bRemove.setOnAction(e -> removeRow());
     bUp.setOnAction(e -> moveSelected(-1));
     bDown.setOnAction(e -> moveSelected(1));
     bNormalize.setOnAction(e -> normalizeIds());
-    actions.getChildren().addAll(bAdd, bRemove, bUp, bDown, bNormalize);
+    bAssignBg.setOnAction(e -> assignBgToSelection());
+    bClearBounds.setOnAction(e -> clearBoundsForSelection());
+    actions.getChildren().addAll(bAdd, bRemove, bUp, bDown, bNormalize, bAssignBg, bClearBounds);
 
     VBox tablePane = new VBox(6, table, actions);
     VBox.setVgrow(table, Priority.ALWAYS);
 
     preview.widthProperty().addListener((o, ov, nv) -> redrawPreview());
     preview.heightProperty().addListener((o, ov, nv) -> redrawPreview());
-    preview.setOnMouseClicked(e -> {
-      int idx = hitTestPreviewIndex(e.getX(), e.getY());
-      if (idx >= 0 && idx < rows.size()) {
-        table.getSelectionModel().select(idx);
-      }
-    });
+    installPreviewInteractions();
     BorderPane previewPane = new BorderPane(preview);
     previewPane.setStyle("-fx-background-color: linear-gradient(to bottom, #0f141d, #080b10); -fx-border-color: #2a2f3a;");
     BorderPane.setMargin(preview, new Insets(8));
@@ -288,7 +314,72 @@ public class MenuScreenVisualEditor extends BorderPane {
     targetCol.setCellFactory(TextFieldTableCell.forTableColumn());
     targetCol.setOnEditCommit(e -> e.getRowValue().setTarget(normalize(e.getNewValue(), "")));
 
-    table.getColumns().setAll(idCol, labelCol, styleCol, enabledCol, actionCol, targetCol);
+    TableColumn<MenuItemRow, String> iconCol = new TableColumn<>("Icon");
+    iconCol.setCellValueFactory(v -> v.getValue().iconProperty());
+    iconCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    iconCol.setOnEditCommit(e -> e.getRowValue().setIcon(normalize(e.getNewValue(), "")));
+
+    TableColumn<MenuItemRow, String> bgCol = new TableColumn<>("BG");
+    bgCol.setCellValueFactory(v -> v.getValue().bgAssetProperty());
+    bgCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    bgCol.setOnEditCommit(e -> e.getRowValue().setBgAsset(normalize(e.getNewValue(), "")));
+
+    TableColumn<MenuItemRow, String> bgSelCol = new TableColumn<>("BG Selected");
+    bgSelCol.setCellValueFactory(v -> v.getValue().bgSelectedAssetProperty());
+    bgSelCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    bgSelCol.setOnEditCommit(e -> e.getRowValue().setBgSelectedAsset(normalize(e.getNewValue(), "")));
+
+    TableColumn<MenuItemRow, String> bgDisCol = new TableColumn<>("BG Disabled");
+    bgDisCol.setCellValueFactory(v -> v.getValue().bgDisabledAssetProperty());
+    bgDisCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    bgDisCol.setOnEditCommit(e -> e.getRowValue().setBgDisabledAsset(normalize(e.getNewValue(), "")));
+
+    StringConverter<Double> doubleStringConverter = new StringConverter<>() {
+      @Override
+      public String toString(Double object) {
+        if (object == null) return "";
+        if (!Double.isFinite(object)) return "";
+        if (Math.rint(object) == object) return Long.toString(Math.round(object));
+        return String.format(Locale.ROOT, "%.4f", object)
+            .replaceAll("0+$", "")
+            .replaceAll("\\.$", "");
+      }
+
+      @Override
+      public Double fromString(String string) {
+        if (string == null || string.isBlank()) return null;
+        try {
+          return Double.parseDouble(string.trim());
+        } catch (Exception ignored) {
+          return null;
+        }
+      }
+    };
+
+    TableColumn<MenuItemRow, Double> boundsXCol = new TableColumn<>("X");
+    boundsXCol.setCellValueFactory(v -> v.getValue().boundsXProperty());
+    boundsXCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
+    boundsXCol.setOnEditCommit(e -> e.getRowValue().setBoundsX(e.getNewValue()));
+
+    TableColumn<MenuItemRow, Double> boundsYCol = new TableColumn<>("Y");
+    boundsYCol.setCellValueFactory(v -> v.getValue().boundsYProperty());
+    boundsYCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
+    boundsYCol.setOnEditCommit(e -> e.getRowValue().setBoundsY(e.getNewValue()));
+
+    TableColumn<MenuItemRow, Double> boundsWCol = new TableColumn<>("W");
+    boundsWCol.setCellValueFactory(v -> v.getValue().boundsWProperty());
+    boundsWCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
+    boundsWCol.setOnEditCommit(e -> e.getRowValue().setBoundsW(e.getNewValue()));
+
+    TableColumn<MenuItemRow, Double> boundsHCol = new TableColumn<>("H");
+    boundsHCol.setCellValueFactory(v -> v.getValue().boundsHProperty());
+    boundsHCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
+    boundsHCol.setOnEditCommit(e -> e.getRowValue().setBoundsH(e.getNewValue()));
+
+    table.getColumns().setAll(
+        idCol, labelCol, styleCol, enabledCol, actionCol, targetCol,
+        iconCol, bgCol, bgSelCol, bgDisCol, boundsXCol, boundsYCol, boundsWCol, boundsHCol
+    );
   }
 
   private void registerTopListeners() {
@@ -317,7 +408,7 @@ public class MenuScreenVisualEditor extends BorderPane {
   }
 
   private MenuItemRow defaultRow(String id, MenuActionType action, String target) {
-    MenuItemRow row = new MenuItemRow(id, "", "", "", true, action, target);
+    MenuItemRow row = new MenuItemRow(id, "", "", "", true, action, target, "", "", "", null, null, null, null);
     attachRowListeners(row);
     return row;
   }
@@ -327,9 +418,16 @@ public class MenuScreenVisualEditor extends BorderPane {
     row.labelProperty().addListener((o, ov, nv) -> onUiChanged());
     row.styleProperty().addListener((o, ov, nv) -> onUiChanged());
     row.iconProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.bgAssetProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.bgSelectedAssetProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.bgDisabledAssetProperty().addListener((o, ov, nv) -> onUiChanged());
     row.enabledProperty().addListener((o, ov, nv) -> onUiChanged());
     row.actionProperty().addListener((o, ov, nv) -> onUiChanged());
     row.targetProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.boundsXProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.boundsYProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.boundsWProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.boundsHProperty().addListener((o, ov, nv) -> onUiChanged());
   }
 
   private void addRow() {
@@ -384,6 +482,11 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void onUiChanged() {
     if (suppressEvents) return;
+    if (!rows.isEmpty()) {
+      previewSelected = Math.max(0, Math.min(previewSelected, rows.size() - 1));
+    } else {
+      previewSelected = 0;
+    }
     validateState();
     redrawPreview();
     emitText();
@@ -413,6 +516,21 @@ public class MenuScreenVisualEditor extends BorderPane {
       }
       if (action == MenuActionType.RUN_SCRIPT && normalize(row.getTarget(), "").isBlank()) {
         warnings.add("Item '" + id + "': RUN_SCRIPT requires script target");
+      }
+
+      int boundsParts = 0;
+      if (row.getBoundsX() != null) boundsParts++;
+      if (row.getBoundsY() != null) boundsParts++;
+      if (row.getBoundsW() != null) boundsParts++;
+      if (row.getBoundsH() != null) boundsParts++;
+      if (boundsParts > 0 && boundsParts < 4) {
+        warnings.add("Item '" + id + "': bounds require X/Y/W/H together");
+      }
+      if (row.getBoundsW() != null && row.getBoundsW() <= 0) {
+        warnings.add("Item '" + id + "': boundsWidth must be > 0");
+      }
+      if (row.getBoundsH() != null && row.getBoundsH() <= 0) {
+        warnings.add("Item '" + id + "': boundsHeight must be > 0");
       }
     }
 
@@ -447,36 +565,217 @@ public class MenuScreenVisualEditor extends BorderPane {
     double titleW = textWidth(g, title);
     g.fillText(title, (w - titleW) / 2.0, 52);
 
-    double lineHeight = 34;
+    double lineHeight = 38;
     double startY = 130;
+    previewRects = new Rect[rows.size()];
     for (int i = 0; i < rows.size(); i++) {
       MenuItemRow row = rows.get(i);
       String text = displayLabel(row);
       boolean selected = (i == previewSelected);
       boolean enabled = row.isEnabled();
+      Rect rect = resolvePreviewRect(row, i, w, h, startY, lineHeight);
+      previewRects[i] = rect;
+
+      Image bg = loadPreviewAsset(resolveButtonAsset(row, selected, enabled));
+      if (bg != null) {
+        g.drawImage(bg, rect.x(), rect.y(), rect.w(), rect.h());
+      } else {
+        g.setFill(enabled ? (selected ? Color.rgb(78, 102, 148, 0.8) : Color.rgb(50, 56, 74, 0.78)) : Color.rgb(58, 58, 66, 0.55));
+        g.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
+        g.setStroke(selected ? Color.rgb(188, 220, 255, 0.95) : Color.rgb(126, 146, 188, 0.7));
+        g.setLineWidth(selected ? 2.0 : 1.1);
+        g.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
+      }
+
       String prefix = selected ? "> " : "  ";
       if (!enabled) prefix = "- ";
       text = prefix + text;
-
-      Color color = enabled ? (selected ? Color.web("#ffe680") : Color.web("#d6d6d6")) : Color.web("#7d7d7d");
-      g.setFill(color);
-      g.setFont(Font.font("Arial", 20));
+      g.setFill(enabled ? (selected ? Color.web("#ffe680") : Color.web("#e2e6ee")) : Color.web("#9599a4"));
+      g.setFont(Font.font("Arial", 18));
       double tw = textWidth(g, text);
-      g.fillText(text, (w - tw) / 2.0, startY + i * lineHeight);
+      g.fillText(text, rect.x() + (rect.w() - tw) / 2.0, rect.y() + rect.h() * 0.62);
+
+      if (selected) {
+        g.setFill(Color.rgb(82, 214, 139, 0.95));
+        g.fillOval(rect.x() + rect.w() - 10, rect.y() + rect.h() - 10, 10, 10);
+      }
     }
 
     g.setFill(Color.web("#cfd3db"));
     g.setFont(Font.font("Arial", 14));
     double hintsW = textWidth(g, hints);
     g.fillText(hints, (w - hintsW) / 2.0, h - 18);
+
+    if (previewSelected >= 0 && previewSelected < previewRects.length) {
+      Rect sel = previewRects[previewSelected];
+      drawBoundsTag(g, sel.x() + 8, sel.y() - 8, "Drag to move, handle to resize");
+    }
   }
 
   private int hitTestPreviewIndex(double x, double y) {
-    double lineHeight = 34;
-    double startY = 130;
-    int idx = (int) Math.floor((y - startY + 18) / lineHeight);
-    if (idx < 0 || idx >= rows.size()) return -1;
-    return idx;
+    for (int i = previewRects.length - 1; i >= 0; i--) {
+      Rect r = previewRects[i];
+      if (r != null && r.contains(x, y)) return i;
+    }
+    return -1;
+  }
+
+  private void installPreviewInteractions() {
+    preview.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> {
+      int idx = hitTestPreviewIndex(e.getX(), e.getY());
+      dragRowIndex = idx;
+      dragMode = DragMode.NONE;
+      if (idx < 0 || idx >= rows.size()) return;
+
+      table.getSelectionModel().select(idx);
+      previewSelected = idx;
+      Rect rect = idx < previewRects.length ? previewRects[idx] : null;
+      if (rect == null) return;
+
+      dragStartMouseX = e.getX();
+      dragStartMouseY = e.getY();
+      MenuItemRow row = rows.get(idx);
+      ensureBoundsInitialized(row, rect, preview.getWidth(), preview.getHeight());
+      dragStartX = row.getBoundsX();
+      dragStartY = row.getBoundsY();
+      dragStartW = row.getBoundsW();
+      dragStartH = row.getBoundsH();
+
+      dragMode = inResizeHandle(rect, e.getX(), e.getY()) ? DragMode.RESIZE : DragMode.MOVE;
+      e.consume();
+    });
+
+    preview.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
+      if (dragRowIndex < 0 || dragRowIndex >= rows.size()) return;
+      if (dragMode == DragMode.NONE) return;
+      MenuItemRow row = rows.get(dragRowIndex);
+      double w = Math.max(1, preview.getWidth());
+      double h = Math.max(1, preview.getHeight());
+      double dxNorm = (e.getX() - dragStartMouseX) / w;
+      double dyNorm = (e.getY() - dragStartMouseY) / h;
+
+      suppressEvents = true;
+      if (dragMode == DragMode.MOVE) {
+        row.setBoundsX(clamp01((dragStartX == null ? 0 : dragStartX) + dxNorm));
+        row.setBoundsY(clamp01((dragStartY == null ? 0 : dragStartY) + dyNorm));
+      } else if (dragMode == DragMode.RESIZE) {
+        row.setBoundsW(clamp((dragStartW == null ? 0.2 : dragStartW) + dxNorm, 0.05, 1.0));
+        row.setBoundsH(clamp((dragStartH == null ? 0.1 : dragStartH) + dyNorm, 0.04, 1.0));
+      }
+      suppressEvents = false;
+      onUiChanged();
+      e.consume();
+    });
+
+    preview.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> {
+      dragRowIndex = -1;
+      dragMode = DragMode.NONE;
+    });
+
+    preview.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
+      int idx = hitTestPreviewIndex(e.getX(), e.getY());
+      if (idx >= 0 && idx < rows.size()) {
+        table.getSelectionModel().select(idx);
+        previewSelected = idx;
+        redrawPreview();
+      }
+    });
+  }
+
+  private void ensureBoundsInitialized(MenuItemRow row, Rect rect, double w, double h) {
+    if (row.getBoundsX() != null && row.getBoundsY() != null && row.getBoundsW() != null && row.getBoundsH() != null) return;
+    row.setBoundsX(clamp01(rect.x() / Math.max(1, w)));
+    row.setBoundsY(clamp01(rect.y() / Math.max(1, h)));
+    row.setBoundsW(clamp(rect.w() / Math.max(1, w), 0.05, 1));
+    row.setBoundsH(clamp(rect.h() / Math.max(1, h), 0.04, 1));
+  }
+
+  private Rect resolvePreviewRect(MenuItemRow row, int index, double w, double h, double startY, double lineHeight) {
+    if (row != null && row.getBoundsX() != null && row.getBoundsY() != null && row.getBoundsW() != null && row.getBoundsH() != null) {
+      double x = clamp(resolveCoordinate(row.getBoundsX(), w), 0, w - 10);
+      double y = clamp(resolveCoordinate(row.getBoundsY(), h), 0, h - 10);
+      double rw = clamp(resolveSize(row.getBoundsW(), w), 40, Math.max(40, w - x));
+      double rh = clamp(resolveSize(row.getBoundsH(), h), 20, Math.max(20, h - y));
+      return new Rect(x, y, rw, rh);
+    }
+    double defaultW = w * 0.62;
+    double x = (w - defaultW) / 2.0;
+    double baseline = startY + index * lineHeight;
+    double rh = Math.max(30, lineHeight * 0.9);
+    double y = baseline - rh * 0.72;
+    return new Rect(x, y, defaultW, rh);
+  }
+
+  private String resolveButtonAsset(MenuItemRow row, boolean selected, boolean enabled) {
+    if (row == null) return null;
+    if (!enabled) return firstNonBlank(row.getBgDisabledAsset(), row.getBgAsset());
+    if (selected) return firstNonBlank(row.getBgSelectedAsset(), row.getBgAsset());
+    return row.getBgAsset();
+  }
+
+  private Image loadPreviewAsset(String path) {
+    String p = normalize(path, "");
+    if (p.isBlank()) return null;
+    Image cached = imageCache.get(p);
+    if (cached != null) return cached;
+    try {
+      File f = resolveAssetFile(p);
+      Image image = null;
+      if (f != null && f.exists()) {
+        image = new Image(f.toURI().toString(), false);
+      } else {
+        var url = getClass().getClassLoader().getResource(p);
+        if (url != null) image = new Image(url.toExternalForm(), false);
+      }
+      if (image != null && !image.isError()) {
+        imageCache.put(p, image);
+        return image;
+      }
+    } catch (Exception ignored) {
+    }
+    return null;
+  }
+
+  private void drawBoundsTag(GraphicsContext g, double x, double y, String text) {
+    double w = Math.max(120, text.length() * 6.2 + 12);
+    g.setFill(Color.rgb(8, 10, 16, 0.92));
+    g.fillRoundRect(x, y - 12, w, 16, 6, 6);
+    g.setStroke(Color.rgb(120, 140, 190, 0.7));
+    g.strokeRoundRect(x, y - 12, w, 16, 6, 6);
+    g.setFill(Color.rgb(228, 233, 246, 0.95));
+    g.setFont(Font.font("Arial", FontWeight.BOLD, 10));
+    g.fillText(text, x + 6, y);
+  }
+
+  private boolean inResizeHandle(Rect rect, double x, double y) {
+    double hx = rect.x() + rect.w() - 14;
+    double hy = rect.y() + rect.h() - 14;
+    return x >= hx && x <= hx + 14 && y >= hy && y <= hy + 14;
+  }
+
+  private void assignBgToSelection() {
+    MenuItemRow row = table.getSelectionModel().getSelectedItem();
+    if (row == null) return;
+    FileChooser chooser = new FileChooser();
+    chooser.setTitle("Select Menu Button Background");
+    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"));
+    if (projectRoot != null && projectRoot.exists()) chooser.setInitialDirectory(projectRoot);
+    Window owner = getScene() != null ? getScene().getWindow() : null;
+    File selected = chooser.showOpenDialog(owner);
+    if (selected == null) return;
+    row.setBgAsset(toProjectRelativePath(selected));
+    onUiChanged();
+  }
+
+  private void clearBoundsForSelection() {
+    MenuItemRow row = table.getSelectionModel().getSelectedItem();
+    if (row == null) return;
+    row.setBoundsX(null);
+    row.setBoundsY(null);
+    row.setBoundsW(null);
+    row.setBoundsH(null);
+    onUiChanged();
   }
 
   private void emitText() {
@@ -527,15 +826,25 @@ public class MenuScreenVisualEditor extends BorderPane {
       String label = normalize(row.getLabel(), "");
       String style = normalize(row.getStyle(), "");
       String icon = normalize(row.getIcon(), "");
+      String bgAsset = normalize(row.getBgAsset(), "");
+      String bgSelectedAsset = normalize(row.getBgSelectedAsset(), "");
+      String bgDisabledAsset = normalize(row.getBgDisabledAsset(), "");
       String action = canonicalActionName(row.getAction());
       String target = normalize(row.getTarget(), "");
 
       if (!label.isBlank()) out.append(prefix).append("label=").append(escapeValue(label)).append(System.lineSeparator());
       if (!style.isBlank()) out.append(prefix).append("style=").append(escapeValue(style)).append(System.lineSeparator());
       if (!icon.isBlank()) out.append(prefix).append("icon=").append(escapeValue(icon)).append(System.lineSeparator());
+      if (!bgAsset.isBlank()) out.append(prefix).append("bgAsset=").append(escapeValue(bgAsset)).append(System.lineSeparator());
+      if (!bgSelectedAsset.isBlank()) out.append(prefix).append("bgSelectedAsset=").append(escapeValue(bgSelectedAsset)).append(System.lineSeparator());
+      if (!bgDisabledAsset.isBlank()) out.append(prefix).append("bgDisabledAsset=").append(escapeValue(bgDisabledAsset)).append(System.lineSeparator());
       out.append(prefix).append("enabled=").append(row.isEnabled()).append(System.lineSeparator());
       out.append(prefix).append("action=").append(escapeValue(action)).append(System.lineSeparator());
       if (!target.isBlank()) out.append(prefix).append("target=").append(escapeValue(target)).append(System.lineSeparator());
+      if (row.getBoundsX() != null) out.append(prefix).append("boundsX=").append(formatDouble(row.getBoundsX())).append(System.lineSeparator());
+      if (row.getBoundsY() != null) out.append(prefix).append("boundsY=").append(formatDouble(row.getBoundsY())).append(System.lineSeparator());
+      if (row.getBoundsW() != null) out.append(prefix).append("boundsWidth=").append(formatDouble(row.getBoundsW())).append(System.lineSeparator());
+      if (row.getBoundsH() != null) out.append(prefix).append("boundsHeight=").append(formatDouble(row.getBoundsH())).append(System.lineSeparator());
       if (!row.extras.isEmpty()) {
         List<String> keys = new ArrayList<>(row.extras.keySet());
         keys.sort(String::compareTo);
@@ -640,6 +949,60 @@ public class MenuScreenVisualEditor extends BorderPane {
     return out;
   }
 
+  private static Double parseOptionalDouble(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      return Double.parseDouble(raw.trim());
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private static String formatDouble(double value) {
+    if (Math.rint(value) == value) return Long.toString(Math.round(value));
+    return String.format(Locale.ROOT, "%.4f", value)
+        .replaceAll("0+$", "")
+        .replaceAll("\\.$", "");
+  }
+
+  private static String firstNonBlank(String... values) {
+    if (values == null) return null;
+    for (String value : values) {
+      if (value != null && !value.isBlank()) return value;
+    }
+    return null;
+  }
+
+  private static double resolveCoordinate(double value, double total) {
+    return value <= 1.0 ? total * value : value;
+  }
+
+  private static double resolveSize(double value, double total) {
+    return value <= 1.0 ? Math.max(0, value) * total : value;
+  }
+
+  private File resolveAssetFile(String path) {
+    if (path == null || path.isBlank()) return null;
+    File direct = new File(path);
+    if (direct.isAbsolute()) return direct;
+    if (projectRoot != null) return new File(projectRoot, path);
+    return direct;
+  }
+
+  private String toProjectRelativePath(File file) {
+    if (file == null) return "";
+    if (projectRoot == null) return file.getAbsolutePath().replace('\\', '/');
+    try {
+      java.nio.file.Path root = projectRoot.toPath().toAbsolutePath().normalize();
+      java.nio.file.Path abs = file.toPath().toAbsolutePath().normalize();
+      if (abs.startsWith(root)) {
+        return root.relativize(abs).toString().replace('\\', '/');
+      }
+    } catch (Exception ignored) {
+    }
+    return file.getAbsolutePath().replace('\\', '/');
+  }
+
   private String displayLabel(MenuItemRow row) {
     String explicit = normalize(row.getLabel(), "");
     if (!explicit.isBlank()) return explicit;
@@ -695,6 +1058,17 @@ public class MenuScreenVisualEditor extends BorderPane {
     return s;
   }
 
+  private static double clamp(double value, double min, double max) {
+    if (!Double.isFinite(value)) return min;
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+  }
+
+  private static double clamp01(double value) {
+    return clamp(value, 0, 1);
+  }
+
   private static boolean parseBoolean(String raw, boolean fallback) {
     if (raw == null || raw.isBlank()) return fallback;
     String v = raw.trim().toLowerCase(Locale.ROOT);
@@ -748,24 +1122,59 @@ public class MenuScreenVisualEditor extends BorderPane {
     return helper.getLayoutBounds().getWidth();
   }
 
+  private record Rect(double x, double y, double w, double h) {
+    boolean contains(double px, double py) {
+      return px >= x && px <= x + w && py >= y && py <= y + h;
+    }
+  }
+
   private static final class MenuItemRow {
     private final StringProperty id = new SimpleStringProperty("");
     private final StringProperty label = new SimpleStringProperty("");
     private final StringProperty style = new SimpleStringProperty("");
     private final StringProperty icon = new SimpleStringProperty("");
+    private final StringProperty bgAsset = new SimpleStringProperty("");
+    private final StringProperty bgSelectedAsset = new SimpleStringProperty("");
+    private final StringProperty bgDisabledAsset = new SimpleStringProperty("");
     private final BooleanProperty enabled = new SimpleBooleanProperty(true);
     private final ObjectProperty<MenuActionType> action = new SimpleObjectProperty<>(MenuActionType.NOOP);
     private final StringProperty target = new SimpleStringProperty("");
+    private final ObjectProperty<Double> boundsX = new SimpleObjectProperty<>(null);
+    private final ObjectProperty<Double> boundsY = new SimpleObjectProperty<>(null);
+    private final ObjectProperty<Double> boundsW = new SimpleObjectProperty<>(null);
+    private final ObjectProperty<Double> boundsH = new SimpleObjectProperty<>(null);
     private final Map<String, String> extras = new LinkedHashMap<>();
 
-    private MenuItemRow(String id, String label, String style, String icon, boolean enabled, MenuActionType action, String target) {
+    private MenuItemRow(
+        String id,
+        String label,
+        String style,
+        String icon,
+        boolean enabled,
+        MenuActionType action,
+        String target,
+        String bgAsset,
+        String bgSelectedAsset,
+        String bgDisabledAsset,
+        Double boundsX,
+        Double boundsY,
+        Double boundsW,
+        Double boundsH
+    ) {
       setId(id);
       setLabel(label);
       setStyle(style);
       setIcon(icon);
+      setBgAsset(bgAsset);
+      setBgSelectedAsset(bgSelectedAsset);
+      setBgDisabledAsset(bgDisabledAsset);
       setEnabled(enabled);
       setAction(action == null ? MenuActionType.NOOP : action);
       setTarget(target);
+      setBoundsX(boundsX);
+      setBoundsY(boundsY);
+      setBoundsW(boundsW);
+      setBoundsH(boundsH);
     }
 
     public String getId() { return id.get(); }
@@ -784,6 +1193,18 @@ public class MenuScreenVisualEditor extends BorderPane {
     public StringProperty iconProperty() { return icon; }
     public void setIcon(String icon) { this.icon.set(icon == null ? "" : icon); }
 
+    public String getBgAsset() { return bgAsset.get(); }
+    public StringProperty bgAssetProperty() { return bgAsset; }
+    public void setBgAsset(String value) { this.bgAsset.set(value == null ? "" : value); }
+
+    public String getBgSelectedAsset() { return bgSelectedAsset.get(); }
+    public StringProperty bgSelectedAssetProperty() { return bgSelectedAsset; }
+    public void setBgSelectedAsset(String value) { this.bgSelectedAsset.set(value == null ? "" : value); }
+
+    public String getBgDisabledAsset() { return bgDisabledAsset.get(); }
+    public StringProperty bgDisabledAssetProperty() { return bgDisabledAsset; }
+    public void setBgDisabledAsset(String value) { this.bgDisabledAsset.set(value == null ? "" : value); }
+
     public boolean isEnabled() { return enabled.get(); }
     public BooleanProperty enabledProperty() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled.set(enabled); }
@@ -795,5 +1216,21 @@ public class MenuScreenVisualEditor extends BorderPane {
     public String getTarget() { return target.get(); }
     public StringProperty targetProperty() { return target; }
     public void setTarget(String target) { this.target.set(target == null ? "" : target); }
+
+    public Double getBoundsX() { return boundsX.get(); }
+    public ObjectProperty<Double> boundsXProperty() { return boundsX; }
+    public void setBoundsX(Double value) { this.boundsX.set(value); }
+
+    public Double getBoundsY() { return boundsY.get(); }
+    public ObjectProperty<Double> boundsYProperty() { return boundsY; }
+    public void setBoundsY(Double value) { this.boundsY.set(value); }
+
+    public Double getBoundsW() { return boundsW.get(); }
+    public ObjectProperty<Double> boundsWProperty() { return boundsW; }
+    public void setBoundsW(Double value) { this.boundsW.set(value); }
+
+    public Double getBoundsH() { return boundsH.get(); }
+    public ObjectProperty<Double> boundsHProperty() { return boundsH; }
+    public void setBoundsH(Double value) { this.boundsH.set(value); }
   }
 }

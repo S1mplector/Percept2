@@ -165,6 +165,16 @@ public class LoadMenuScene implements Scene {
     return action != null ? action : new MenuActionSpec(MenuActionType.LOAD_MENU, null);
   }
 
+  public MenuItemSpec getMenuItemSpec(int idx) {
+    if (idx < 0) return null;
+    if (idx < menuScreen.items().size()) {
+      return menuScreen.items().get(idx);
+    }
+    MenuItemSpec template = itemForItemId("save_slot", "slot", "entry");
+    if (template != null) return template;
+    return null;
+  }
+
   public boolean activateSelected() {
     MenuActionSpec action = getSelectedAction();
     return switch (action.type()) {
@@ -347,6 +357,19 @@ public class LoadMenuScene implements Scene {
       for (MenuItemSpec item : menuScreen.items()) {
         if (item != null && id.equalsIgnoreCase(item.id())) {
           return item.action();
+        }
+      }
+    }
+    return null;
+  }
+
+  private MenuItemSpec itemForItemId(String... ids) {
+    if (ids == null || ids.length == 0) return null;
+    for (String id : ids) {
+      if (id == null || id.isBlank()) continue;
+      for (MenuItemSpec item : menuScreen.items()) {
+        if (item != null && id.equalsIgnoreCase(item.id())) {
+          return item;
         }
       }
     }
