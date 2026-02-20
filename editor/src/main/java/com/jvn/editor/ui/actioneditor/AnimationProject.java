@@ -87,7 +87,14 @@ public class AnimationProject {
     public EntityTrack getTrack(String entityName) { return entityTracks.get(entityName); }
 
     public EntityTrack getOrCreateTrack(String entityName) {
-        return entityTracks.computeIfAbsent(entityName, EntityTrack::new);
+        EntityTrack existing = entityTracks.get(entityName);
+        if (existing != null) return existing;
+        EntityTrack track = new EntityTrack(entityName);
+        entityTracks.put(entityName, track);
+        if (!rootEntityNames.contains(entityName)) {
+            rootEntityNames.add(entityName);
+        }
+        return track;
     }
 
     public void addTrack(EntityTrack track) {
