@@ -1,14 +1,5 @@
 package com.jvn.core.vn.script;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.AssetType;
-import com.jvn.core.vn.CharacterPosition;
-import com.jvn.core.vn.Choice;
-import com.jvn.core.vn.VnConditionEvaluator;
-import com.jvn.core.vn.VnScenario;
-import com.jvn.core.vn.VnScenarioBuilder;
-import com.jvn.core.vn.VnTransition;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +13,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
+import com.jvn.core.vn.CharacterPosition;
+import com.jvn.core.vn.Choice;
+import com.jvn.core.vn.VnConditionEvaluator;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioBuilder;
+import com.jvn.core.vn.VnTransition;
 
 /**
  * Parses text-based VN scripts into {@link VnScenario} objects.
@@ -327,6 +327,48 @@ public class VnScriptParser {
           }
           state.pendingChoices.add(parsedChoice.toChoice());
         }
+        continue;
+      }
+
+      // Inline timeline { ... } block
+      if (trimmed.startsWith("timeline") && (trimmed.endsWith("{") || trimmed.equals("timeline"))) {
+        state.contentEmitted = true;
+        flushChoices(state.builder, state.pendingChoices);
+        ensureBuilder(state);
+        StringBuilder block = new StringBuilder();
+        int braceDepth = 0;
+        // Count opening braces on the first line
+        for (char c : trimmed.toCharArray()) { if (c == '{') braceDepth++; }
+        if (braceDepth == 0) {
+          // Opening brace on next line
+          String nextLine;
+          while ((nextLine = reader.readLine()) != null) {
+            lineNumber++;
+            String nt = nextLine.trim();
+            if (nt.isEmpty() || nt.startsWith("#")) continue;
+            if (nt.equals("{")) { braceDepth = 1; break; }
+            throw parseError(sourceName, lineNumber, "Expected '{' after timeline", nextLine);
+          }
+        }
+        while (braceDepth > 0 && (line = reader.readLine()) != null) {
+          lineNumber++;
+          String lt = line.trim();
+          for (char c : lt.toCharArray()) {
+            if (c == '{') braceDepth++;
+            else if (c == '}') braceDepth--;
+          }
+          if (braceDepth > 0) block.append(lt).append('\n');
+          else {
+            // Remove trailing } from the line content if there's anything before it
+            int lastBrace = lt.lastIndexOf('}');
+            if (lastBrace > 0) block.append(lt, 0, lastBrace).append('\n');
+          }
+        }
+        if (braceDepth != 0) {
+          throw parseError(sourceName, lineNumber, "Unterminated inline timeline block", rawLine);
+        }
+        String inlineCode = block.toString();
+        state.builder.external("jes_timeline_inline", inlineCode);
         continue;
       }
 

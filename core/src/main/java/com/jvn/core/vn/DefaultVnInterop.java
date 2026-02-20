@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 
 import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.animation.TimelineData;
+import com.jvn.core.animation.TimelineDataParser;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.core.animation.TimelineRunner;
 
@@ -44,6 +45,8 @@ public class DefaultVnInterop implements VnInterop {
         return VnInteropResult.advance();
       case "jes_timeline":
         return handleJesTimeline(payload, scene);
+      case "jes_timeline_inline":
+        return handleJesTimelineInline(payload, scene);
       case "var":
         handleVar(payload, scene);
         return VnInteropResult.advance();
@@ -105,6 +108,28 @@ public class DefaultVnInterop implements VnInterop {
     } catch (Throwable t) {
       scene.getState().showHudMessage("java: " + t.getClass().getSimpleName(), 2000);
     }
+  }
+
+  private static int inlineTimelineCounter = 0;
+
+  private VnInteropResult handleJesTimelineInline(String payload, VnScene scene) {
+    if (payload == null || payload.isBlank()) {
+      scene.getState().showHudMessage("inline timeline: empty block", 1500);
+      return VnInteropResult.advance();
+    }
+    if (sceneAccessor == null) {
+      scene.getState().showHudMessage("inline timeline: no scene accessor", 1500);
+      return VnInteropResult.advance();
+    }
+    try {
+      String name = "_inline_timeline_" + (++inlineTimelineCounter);
+      TimelineData data = TimelineDataParser.parse(name, payload);
+      TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
+      scene.getState().addTimelineRunner(runner);
+    } catch (Exception ex) {
+      scene.getState().showHudMessage("inline timeline error: " + ex.getMessage(), 2000);
+    }
+    return VnInteropResult.advance();
   }
 
   private VnInteropResult handleJesTimeline(String payload, VnScene scene) {

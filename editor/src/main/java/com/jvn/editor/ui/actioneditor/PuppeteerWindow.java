@@ -1,5 +1,8 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.function.Consumer;
 
 import com.jvn.core.animation.TimelineData;
@@ -582,8 +585,22 @@ public class PuppeteerWindow extends Stage {
         if (name.isEmpty()) return;
         TimelineData data = project.toTimelineData(name);
         TimelineRegistry.register(data);
-        codePreview.setCode(CodeExporter.exportNamed(project, name));
-        setTitle("Puppeteer - " + name + " (registered)");
+        String code = CodeExporter.exportNamed(project, name);
+        codePreview.setCode(code);
+        saveTimelineFile(name, code);
+        setTitle("Puppeteer - " + name + " (saved & registered)");
+    }
+
+    private void saveTimelineFile(String name, String jesCode) {
+        if (projectRoot == null) return;
+        try {
+            Path dir = projectRoot.toPath().resolve("scripts").resolve("timelines");
+            Files.createDirectories(dir);
+            Path file = dir.resolve(name + ".jes");
+            Files.writeString(file, jesCode);
+        } catch (IOException ex) {
+            System.err.println("Failed to save timeline " + name + ": " + ex.getMessage());
+        }
     }
 
     private void copyToClipboard(String text) {
