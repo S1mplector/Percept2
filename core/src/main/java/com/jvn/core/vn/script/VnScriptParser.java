@@ -637,6 +637,12 @@ public class VnScriptParser {
         state.builder.external(provider, providerPayload);
         return;
       }
+      case "char":
+      case "character": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("char", payload);
+        return;
+      }
       case "choice": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         List<Choice> inlineChoices = parseInlineChoices(payload, sourceName, lineNumber, rawLine, state);

@@ -61,6 +61,9 @@ public class DefaultVnInterop implements VnInterop {
       case "screen":
         handleScreen(payload, scene);
         return VnInteropResult.advance();
+      case "char":
+        handleCharacter(payload, scene);
+        return VnInteropResult.advance();
       default:
         scene.getState().showHudMessage("[call " + provider + "] " + payload, 1200);
         return VnInteropResult.advance();
@@ -320,6 +323,94 @@ public class DefaultVnInterop implements VnInterop {
         scene.getState().triggerScreenShake(0f, 0);
         scene.getState().triggerFlash(1f, 1f, 1f, 0f, 0);
         break;
+    }
+  }
+
+  private void handleCharacter(String payload, VnScene scene) {
+    String[] toks = split(payload);
+    if (toks.length < 2) return;
+
+    String characterId = toks[0].trim();
+    String cmd = toks[1].toLowerCase();
+    VnState state = scene.getState();
+    if (characterId.isEmpty() || state == null) return;
+
+    switch (cmd) {
+      case "global":
+      case "global_position": {
+        if (toks.length < 3) return;
+        state.setCharacterGlobalPositionEnabled(characterId, parseBoolean(toks[2]));
+        break;
+      }
+      case "position":
+      case "pos":
+      case "at": {
+        if (toks.length < 3) return;
+        CharacterPosition position = parsePositionToken(toks[2]);
+        if (position == null) return;
+        state.setCharacterDefinedPosition(characterId, position);
+        if (state.isCharacterGlobalPositionEnabled(characterId)) {
+          String expression = state.getCharacterExpression(characterId);
+          state.showCharacterAnimated(position, characterId, expression == null ? "neutral" : expression);
+        }
+        break;
+      }
+      case "move": {
+        if (toks.length < 3) return;
+        CharacterPosition position = parsePositionToken(toks[2]);
+        if (position == null) return;
+        String expression = toks.length >= 4 ? toks[3] : state.getCharacterExpression(characterId);
+        state.showCharacterAnimated(position, characterId, expression == null ? "neutral" : expression);
+        break;
+      }
+      case "show": {
+        if (toks.length < 3) return;
+        CharacterPosition position = parsePositionToken(toks[2]);
+        if (position == null) return;
+        String expression = toks.length >= 4 ? toks[3] : "neutral";
+        state.showCharacterAnimated(position, characterId, expression);
+        break;
+      }
+      case "expression":
+      case "expr": {
+        if (toks.length < 3) return;
+        String expression = toks[2];
+        CharacterPosition position = state.getCharacterPosition(characterId);
+        if (position == null) position = state.getCharacterDefinedPosition(characterId);
+        if (position == null) position = CharacterPosition.CENTER;
+        state.showCharacterAnimated(position, characterId, expression);
+        break;
+      }
+      case "hide": {
+        CharacterPosition position = state.getCharacterPosition(characterId);
+        if (position != null) state.hideCharacterAnimated(position);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  private boolean parseBoolean(String token) {
+    if (token == null) return false;
+    String t = token.trim().toLowerCase();
+    return "on".equals(t) || "true".equals(t) || "1".equals(t) || "yes".equals(t);
+  }
+
+  private CharacterPosition parsePositionToken(String token) {
+    if (token == null || token.isBlank()) return null;
+    String t = token.trim().toUpperCase();
+    try {
+      return CharacterPosition.valueOf(t);
+    } catch (Exception ignored) {
+      return switch (t) {
+        case "L", "LEFT" -> CharacterPosition.LEFT;
+        case "C", "CENTER", "CENTRE" -> CharacterPosition.CENTER;
+        case "R", "RIGHT" -> CharacterPosition.RIGHT;
+        case "FL", "FARLEFT", "FAR_LEFT" -> CharacterPosition.FAR_LEFT;
+        case "FR", "FARRIGHT", "FAR_RIGHT" -> CharacterPosition.FAR_RIGHT;
+        default -> null;
+      };
     }
   }
 

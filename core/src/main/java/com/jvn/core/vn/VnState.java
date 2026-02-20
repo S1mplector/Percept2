@@ -16,6 +16,9 @@ public class VnState {
   private String currentBackgroundId;
   private final Map<CharacterPosition, CharacterSlot> visibleCharacters;
   private final Map<CharacterPosition, CharacterVisual> characterVisuals;
+  private final Map<CharacterPosition, PendingExpressionSwitch> pendingExpressionSwitches;
+  private final Set<String> globalPositionCharacters;
+  private final Map<String, CharacterPosition> characterDefinedPositions;
   private final Map<String, Object> variables; // For future flag/variable system
   private boolean waitingForInput;
   private int textRevealProgress; // For text animation
@@ -52,11 +55,17 @@ public class VnState {
 
   private static final double CHARACTER_TWEEN_OFFSET = 60.0;
   private static final long CHARACTER_TWEEN_MS = 220;
+  private static final double CHARACTER_MOVE_STEP_OFFSET = 220.0;
+  private static final long CHARACTER_MOVE_MS = 320;
+  private static final long CHARACTER_EXPRESSION_FADE_MS = 180;
 
   public VnState() {
     this.currentNodeIndex = 0;
     this.visibleCharacters = new HashMap<>();
     this.characterVisuals = new HashMap<>();
+    this.pendingExpressionSwitches = new HashMap<>();
+    this.globalPositionCharacters = new HashSet<>();
+    this.characterDefinedPositions = new HashMap<>();
     this.variables = new HashMap<>();
     this.waitingForInput = false;
     this.textRevealProgress = 0;
@@ -87,31 +96,64 @@ public class VnState {
   }
 
   public void showCharacter(CharacterPosition position, String characterId, String expression) {
-    removeOtherSlotsForCharacter(characterId, position);
-    visibleCharacters.put(position, new CharacterSlot(characterId, expression));
-    CharacterVisual visual = ensureCharacterVisual(position);
+    CharacterPosition target = fallbackPositionFor(characterId, position);
+    String resolvedExpression = normalizeExpression(expression, "neutral");
+    removeOtherSlotsForCharacter(characterId, target);
+    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression));
+    pendingExpressionSwitches.remove(target);
+    CharacterVisual visual = ensureCharacterVisual(target);
     visual.setImmediate(1.0, 0.0, 0.0);
+    if (isCharacterGlobalPositionEnabled(characterId)) {
+      characterDefinedPositions.put(characterId, target);
+    }
   }
 
   public void hideCharacter(CharacterPosition position) {
-    visibleCharacters.remove(position);
-    characterVisuals.remove(position);
+    removeSlot(position);
   }
 
   public void clearAllCharacters() {
     visibleCharacters.clear();
     characterVisuals.clear();
+    pendingExpressionSwitches.clear();
   }
 
   public void showCharacterAnimated(CharacterPosition position, String characterId, String expression) {
-    removeOtherSlotsForCharacter(characterId, position);
-    visibleCharacters.put(position, new CharacterSlot(characterId, expression));
-    CharacterVisual visual = ensureCharacterVisual(position);
-    double startX = entranceOffsetX(position);
+    CharacterPosition target = fallbackPositionFor(characterId, position);
+    CharacterPosition existingPos = findCharacterPosition(characterId);
+    CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
+    String fallbackExpression = existingSlot != null ? existingSlot.getExpression() : "neutral";
+    String resolvedExpression = normalizeExpression(expression, fallbackExpression);
+
+    if (isCharacterGlobalPositionEnabled(characterId) && existingPos != null && existingPos != target) {
+      // Move the same sprite between slots, then fade expression if needed.
+      String movingExpression = normalizeExpression(existingSlot.getExpression(), resolvedExpression);
+      removeSlot(existingPos);
+      visibleCharacters.put(target, new CharacterSlot(characterId, movingExpression));
+      CharacterVisual visual = ensureCharacterVisual(target);
+      double startOffset = positionDeltaOffset(existingPos, target);
+      visual.startAnimation(1.0, 1.0, startOffset, 0.0, 0.0, 0.0, CHARACTER_MOVE_MS, false);
+      pendingExpressionSwitches.remove(target);
+      if (!resolvedExpression.equals(movingExpression)) {
+        pendingExpressionSwitches.put(target, new PendingExpressionSwitch(characterId, resolvedExpression, CHARACTER_MOVE_MS));
+      }
+      characterDefinedPositions.put(characterId, target);
+      return;
+    }
+
+    removeOtherSlotsForCharacter(characterId, target);
+    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression));
+    pendingExpressionSwitches.remove(target);
+    CharacterVisual visual = ensureCharacterVisual(target);
+    double startX = entranceOffsetX(target);
     visual.startAnimation(0.0, 1.0, startX, 0.0, 0.0, 0.0, CHARACTER_TWEEN_MS, false);
+    if (isCharacterGlobalPositionEnabled(characterId)) {
+      characterDefinedPositions.put(characterId, target);
+    }
   }
 
   public void hideCharacterAnimated(CharacterPosition position) {
+    if (position == null || !visibleCharacters.containsKey(position)) return;
     CharacterVisual visual = ensureCharacterVisual(position);
     double endX = entranceOffsetX(position);
     visual.startAnimation(visual.getAlpha(), 0.0, visual.getOffsetX(), endX, visual.getOffsetY(), 0.0, CHARACTER_TWEEN_MS, true);
@@ -122,21 +164,89 @@ public class VnState {
   }
 
   public void updateCharacterAnimations(long deltaMs) {
-    if (characterVisuals.isEmpty()) return;
-    var it = characterVisuals.entrySet().iterator();
-    while (it.hasNext()) {
-      var entry = it.next();
-      CharacterVisual visual = entry.getValue();
-      visual.update(deltaMs);
-      if (visual.isFinished() && visual.isRemoveOnComplete()) {
-        visibleCharacters.remove(entry.getKey());
+    if (!characterVisuals.isEmpty()) {
+      var it = characterVisuals.entrySet().iterator();
+      while (it.hasNext()) {
+        var entry = it.next();
+        CharacterVisual visual = entry.getValue();
+        visual.update(deltaMs);
+        if (visual.isFinished() && visual.isRemoveOnComplete()) {
+          visibleCharacters.remove(entry.getKey());
+          pendingExpressionSwitches.remove(entry.getKey());
+          it.remove();
+        }
+      }
+    }
+
+    if (!pendingExpressionSwitches.isEmpty()) {
+      var it = pendingExpressionSwitches.entrySet().iterator();
+      while (it.hasNext()) {
+        var entry = it.next();
+        CharacterPosition position = entry.getKey();
+        PendingExpressionSwitch pending = entry.getValue();
+        if (!pending.tick(deltaMs)) continue;
+
+        CharacterSlot slot = visibleCharacters.get(position);
+        if (slot == null || !pending.characterId.equals(slot.getCharacterId())) {
+          it.remove();
+          continue;
+        }
+        visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), pending.expression));
+        CharacterVisual visual = ensureCharacterVisual(position);
+        visual.startAnimation(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, CHARACTER_EXPRESSION_FADE_MS, false);
         it.remove();
       }
     }
   }
 
+  public void setCharacterGlobalPositionEnabled(String characterId, boolean enabled) {
+    if (characterId == null || characterId.isBlank()) return;
+    String id = characterId.trim();
+    if (enabled) {
+      globalPositionCharacters.add(id);
+      CharacterPosition current = findCharacterPosition(id);
+      if (current != null) characterDefinedPositions.put(id, current);
+    } else {
+      globalPositionCharacters.remove(id);
+      characterDefinedPositions.remove(id);
+    }
+  }
+
+  public boolean isCharacterGlobalPositionEnabled(String characterId) {
+    if (characterId == null || characterId.isBlank()) return false;
+    return globalPositionCharacters.contains(characterId.trim());
+  }
+
+  public void setCharacterDefinedPosition(String characterId, CharacterPosition position) {
+    if (characterId == null || characterId.isBlank() || position == null) return;
+    characterDefinedPositions.put(characterId.trim(), position);
+  }
+
+  public CharacterPosition getCharacterDefinedPosition(String characterId) {
+    if (characterId == null || characterId.isBlank()) return null;
+    return characterDefinedPositions.get(characterId.trim());
+  }
+
+  public CharacterPosition getCharacterPosition(String characterId) {
+    return findCharacterPosition(characterId);
+  }
+
+  public String getCharacterExpression(String characterId) {
+    CharacterPosition position = findCharacterPosition(characterId);
+    if (position == null) return null;
+    CharacterSlot slot = visibleCharacters.get(position);
+    return slot == null ? null : slot.getExpression();
+  }
+
   private CharacterVisual ensureCharacterVisual(CharacterPosition position) {
     return characterVisuals.computeIfAbsent(position, k -> new CharacterVisual());
+  }
+
+  private void removeSlot(CharacterPosition position) {
+    if (position == null) return;
+    visibleCharacters.remove(position);
+    characterVisuals.remove(position);
+    pendingExpressionSwitches.remove(position);
   }
 
   /**
@@ -152,9 +262,50 @@ public class VnState {
       CharacterSlot slot = entry.getValue();
       if (slot != null && characterId.equals(slot.getCharacterId())) {
         characterVisuals.remove(entry.getKey());
+        pendingExpressionSwitches.remove(entry.getKey());
         it.remove();
       }
     }
+  }
+
+  private CharacterPosition fallbackPositionFor(String characterId, CharacterPosition requested) {
+    if (requested != null) return requested;
+    CharacterPosition defined = getCharacterDefinedPosition(characterId);
+    return defined != null ? defined : CharacterPosition.CENTER;
+  }
+
+  private CharacterPosition findCharacterPosition(String characterId) {
+    if (characterId == null || characterId.isBlank()) return null;
+    String id = characterId.trim();
+    for (var entry : visibleCharacters.entrySet()) {
+      CharacterSlot slot = entry.getValue();
+      if (slot != null && id.equals(slot.getCharacterId())) {
+        return entry.getKey();
+      }
+    }
+    return null;
+  }
+
+  private String normalizeExpression(String expression, String fallback) {
+    if (expression == null || expression.isBlank()) return fallback == null ? "neutral" : fallback;
+    return expression.trim();
+  }
+
+  private double positionDeltaOffset(CharacterPosition from, CharacterPosition to) {
+    int fromOrd = positionOrdinal(from);
+    int toOrd = positionOrdinal(to);
+    return (fromOrd - toOrd) * CHARACTER_MOVE_STEP_OFFSET;
+  }
+
+  private int positionOrdinal(CharacterPosition position) {
+    if (position == null) return 0;
+    return switch (position) {
+      case FAR_LEFT -> -2;
+      case LEFT -> -1;
+      case CENTER -> 0;
+      case RIGHT -> 1;
+      case FAR_RIGHT -> 2;
+    };
   }
 
   private double entranceOffsetX(CharacterPosition position) {
@@ -402,6 +553,23 @@ public class VnState {
 
     private double lerp(double a, double b, double t) {
       return a + (b - a) * t;
+    }
+  }
+
+  private static class PendingExpressionSwitch {
+    private final String characterId;
+    private final String expression;
+    private long remainingMs;
+
+    private PendingExpressionSwitch(String characterId, String expression, long delayMs) {
+      this.characterId = characterId;
+      this.expression = expression == null || expression.isBlank() ? "neutral" : expression.trim();
+      this.remainingMs = Math.max(1L, delayMs);
+    }
+
+    private boolean tick(long deltaMs) {
+      remainingMs = Math.max(0L, remainingMs - Math.max(0L, deltaMs));
+      return remainingMs <= 0L;
     }
   }
 

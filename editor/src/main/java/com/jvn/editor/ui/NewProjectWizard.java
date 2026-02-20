@@ -1,5 +1,15 @@
 package com.jvn.editor.ui;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+
 import com.jvn.editor.vcs.GitVcsService;
 
 import javafx.geometry.Insets;
@@ -28,16 +38,6 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
 
 /**
  * Project creation wizard for VN projects.
@@ -930,33 +930,37 @@ public class NewProjectWizard extends Stage {
     String scenarioId = sanitizeName(name).toLowerCase() + "_prologue";
     String script = """
         # %s - Prologue
-        # Created with JVN Engine
-        # Formal narrative showcase for VNS:
-        # variables, branching, conditions, transitions, screen effects, and utility commands.
+        # Demo game created with JVN Engine
+        # Tutorial-style showcase inspired by classic onboarding flows:
+        # A friendly tutorial that teaches the basics of JVN scripting.
 
         @scenario %s
-        @define cityName Dawnfall
         @var playerName Player
-        @var trust 0
-        @var courage 0
-        @var discipline 0
-        @var hasMap false
-        @var route neutral
-        @var audit 0
-        @var dayPhase morning
+        @var tutorials_first_time true
+        @var quickstartCount 0
+        @var completion 0
+        @var inDepthUnlocked false
+        @var q_player_done false
+        @var q_create_done false
+        @var q_dialogue_done false
+        @var q_images_done false
+        @var q_positions_done false
+        @var q_transitions_done false
+        @var q_audio_done false
+        @var q_menus_done false
+        @var q_input_done false
+        @var i_text_done false
+        @var i_character_done false
+        @var i_animation_done false
+        @var i_gui_done false
+        @var i_translations_done false
 
-        @character narrator "Narrator"
-        @character hero "Codel"
-        @character guide "Guide"
-        @character rival "Rival"
+        @character codel "Codel"
 
-        @charimg hero neutral assets/demo/characters/codel/Codel1.png
-        @charimg hero smile assets/demo/characters/codel/Codel8.png
-        @charimg hero determined assets/demo/characters/codel/Codel11.png
-        @charimg guide smile assets/demo/characters/codel/Codel4.png
-        @charimg guide serious assets/demo/characters/codel/Codel6.png
-        @charimg rival neutral assets/demo/characters/codel/Codel3.png
-        @charimg rival angry assets/demo/characters/codel/Codel12.png
+        @charimg codel neutral assets/demo/characters/codel/Codel1.png
+        @charimg codel happy assets/demo/characters/codel/Codel8.png
+        @charimg codel excited assets/demo/characters/codel/Codel4.png
+        @charimg codel thinking assets/demo/characters/codel/Codel6.png
 
         @background field_day assets/demo/backgrounds/field/field.jpg
         @background field_evening assets/demo/backgrounds/field/field.jpg
@@ -967,206 +971,312 @@ public class NewProjectWizard extends Stage {
         [transition fade 500]
         [textspeed 28]
         [autodelay 1800]
-        [set route intro]
-        [set dayPhase morning]
-        [set audit 0]
 
-        Narrator: Welcome to {b}%s{/b}.
-        Narrator: This sample is structured as a small, formal training scenario for your team.
-        Narrator: It demonstrates long-form flow design, variable-driven routes, and reproducible pacing.
-        [show hero center neutral]
+        [show codel center happy]
         [wait 240]
-        Hero: Good day, ${playerName}. I am Codel, your lead reviewer for the ${cityName} orientation.
-        Hero: For clarity, each of my scene entrances includes a visible fade-in beat.
-        [inc audit 1]
 
-        [choice Begin orientation briefing->orientation | Enter tactical simulation->simulation_hub | Open runtime systems laboratory->systems_demo]
+        Codel: Hi! My name is Codel, and I'd like to welcome you to the JVN tutorial.
+        Codel: In this tutorial, we'll teach you the basics of JVN, so you can make visual novels of your own.
+        [show codel center excited]
+        Codel: We'll also demonstrate many features, so you can see what JVN is capable of.
+        [show codel center neutral]
+        Codel: This is {b}%s{/b}, by the way. Feel free to poke around the scripts when we're done!
+        [jump tutorials_hub]
 
-        @label orientation
-        [show guide right smile]
-        [wait 180]
-        Guide: The project has loaded bundled assets from assets/demo/.
-        Guide: We will proceed in controlled modules.
-        [inc trust 1]
-        [inc discipline 1]
-        [inc audit 1]
-
-        > Review dialogue style and text effects -> orientation_dialogue
-        > Review condition and branching logic -> orientation_conditions
-        > Proceed to tactical simulation -> simulation_hub
-
-        @label orientation_dialogue
-        Guide: Formal dialogue can still leverage emphasis such as {b}priority{/b}, {color=#4a9eff}state readouts{/color}, and {wave}low-intensity motion{/wave}.
-        [show hero center smile]
-        [wait 220]
-        Hero: Correct. Use effects with restraint to preserve readability across long scenes.
-        [inc trust 1]
-        [inc audit 1]
-        [jump orientation]
-
-        @label orientation_conditions
-        Guide: Condition blocks can branch both text and progression.
-        [if trust >= 2]
-        Guide: Trust threshold met: ${trust}.
+        @label tutorials_hub
+        [show codel left happy]
+        [wait 170]
+        [if tutorials_first_time == true]
+        Codel: What would you like to see?
+        [set tutorials_first_time false]
         [else]
-        Guide: Trust threshold not yet met.
+        Codel: Is there anything else you'd like to see?
         [endif]
-        [if courage >= 2]
-        Guide: Courage threshold met: ${courage}.
-        [else]
-        Guide: Courage remains conservative at ${courage}.
+
+        [if quickstartCount >= 9]
+        [set inDepthUnlocked true]
         [endif]
-        [inc audit 1]
-        [jump orientation]
 
-        @label simulation_hub
-        [set route simulation_hub]
-        Narrator: Tactical simulation hub.
-        Narrator: Current state => trust=${trust}, courage=${courage}, discipline=${discipline}, hasMap=${hasMap}.
-        [choice Execute direct approach->simulation_direct | Execute diplomatic approach->simulation_diplomatic | Validate logistics gate->simulation_logistics]
+        > Player Experience [if q_player_done == false] -> tutorial_player
+        > Creating a New Project [if q_create_done == false] -> tutorial_create
+        > Writing Dialogue [if q_dialogue_done == false] -> tutorial_dialogue
+        > Adding Images [if q_images_done == false] -> tutorial_images
+        > Positioning Characters [if q_positions_done == false] -> tutorial_positions
+        > Transitions [if q_transitions_done == false] -> tutorial_transitions
+        > Music and Sound [if q_audio_done == false] -> tutorial_audio
+        > Choices and Variables [if q_menus_done == false] -> tutorial_menus
+        > Input and Interpolation [if q_input_done == false] -> tutorial_input
+        > Go to In-Depth Topics [if inDepthUnlocked == true] -> in_depth_hub
+        > That's enough for now -> end_early
 
-        @label simulation_direct
-        [set route direct]
-        [inc courage 2]
-        [inc discipline 1]
-        [show hero left determined]
+        @label tutorial_player
+        [show codel center neutral]
         [wait 220]
-        Hero: Direct approach authorized. Decisive action has strategic value.
-        [screen shake 4 180]
+        Codel: When a player starts your game, the first thing they'll see is the main menu.
+        Codel: From there, they can start a new game, load a saved game, or adjust settings.
+        [show codel center happy]
+        Codel: During gameplay, they can click to advance text, save their progress, or use auto-play.
+        Codel: Making sure all these feel smooth is key to a good player experience!
+        [if q_player_done == false]
+        [set q_player_done true]
+        [inc quickstartCount 1]
+        [inc completion 1]
+        [endif]
+        [jump tutorials_hub]
+
+        @label tutorial_create
+        [show codel center happy]
+        [wait 220]
+        Codel: Creating a new JVN project is easy! Just use the New Project wizard in the editor.
+        Codel: You'll get a project folder with scripts, config files, and some starter assets.
+        [show codel center neutral]
+        Codel: Your story goes in the script files. Layout and settings go in config. Nice and organized!
+        [if q_create_done == false]
+        [set q_create_done true]
+        [inc quickstartCount 1]
+        [inc completion 1]
+        [endif]
+        [jump tutorials_hub]
+
+        @label tutorial_dialogue
+        [show codel center excited]
+        [wait 200]
+        Codel: Writing dialogue is the heart of any visual novel!
+        Codel: You can use tags like {b}bold{/b}, {i}italic{/i}, and {color=#4a9eff}color{/color} to style your text.
+        [show codel center happy]
+        Codel: There's even {wave}wavy text{/wave} for when things get dramatic!
+        Codel: Just remember - a little formatting goes a long way.
+        [if q_dialogue_done == false]
+        [set q_dialogue_done true]
+        [inc quickstartCount 1]
+        [inc completion 1]
+        [endif]
+        [jump tutorials_hub]
+
+        @label tutorial_images
+        [show codel center neutral]
+        [wait 170]
+        Codel: Images bring your story to life! You'll mainly work with two types.
+        Codel: Character sprites - that's me! - and backgrounds, like this field behind us.
+        [show codel center happy]
+        Codel: You define them once with @charimg and @background, then use them by name.
+        Codel: That way, if you swap out an image file later, your scripts still work!
+        [if q_images_done == false]
+        [set q_images_done true]
+        [inc quickstartCount 1]
+        [inc completion 1]
+        [endif]
+        [jump tutorials_hub]
+
+        @label tutorial_positions
+        [show codel center neutral]
+        [wait 220]
+        Codel: Characters can appear in different spots on screen.
+        [show codel right happy]
+        [wait 320]
+        Codel: See? I just moved to the right!
+        [show codel left neutral]
+        [wait 260]
+        Codel: And now I'm on the left. You can position characters anywhere you need them.
+        [show codel center happy]
+        Codel: This is great for conversations between multiple characters.
+        [if q_positions_done == false]
+        [set q_positions_done true]
+        [inc quickstartCount 1]
+        [inc completion 1]
+        [endif]
+        [jump tutorials_hub]
+
+        @label tutorial_transitions
+        [show codel center neutral]
+        Codel: Transitions make scene changes feel smooth and polished.
         [transition crossfade 650 field_evening]
-        [set dayPhase evening]
-        [inc audit 1]
-        [jump evaluation]
+        Codel: Like that crossfade! The background just changed to evening.
+        [show codel center excited]
+        [screen flash 0.28 140 1 1 1]
+        Codel: And effects like screen flashes add dramatic impact.
+        [transition fade 450 field_day]
+        [show codel center happy]
+        Codel: Back to daytime! Transitions help set the mood of each scene.
+        [if q_transitions_done == false]
+        [set q_transitions_done true]
+        [inc quickstartCount 1]
+        [inc completion 1]
+        [endif]
+        [jump tutorials_hub]
 
-        @label simulation_diplomatic
-        [set route diplomatic]
-        [inc trust 2]
-        [inc discipline 1]
-        [show guide left serious]
+        @label tutorial_audio
+        [show codel center happy]
         [wait 170]
-        Guide: Diplomatic approach selected. Stability favored over speed.
-        [show hero center smile]
-        [wait 220]
-        Hero: Consensus accepted. We proceed with reduced volatility.
-        [inc audit 1]
-        [jump evaluation]
-
-        @label simulation_logistics
-        [if hasMap == true goto simulation_logistics_ready]
-        Narrator: Logistics check failed. Navigation schema not yet available.
-        [flag hasMap]
-        [inc trust 1]
-        [inc discipline 1]
-        [inc audit 1]
-        Narrator: Map credential issued. Re-enter this route to validate conditional goto flow.
-        [jump simulation_hub]
-
-        @label simulation_logistics_ready
-        [set route logistics_ready]
-        [inc courage 1]
-        [inc trust 1]
-        [inc discipline 1]
-        [show hero center determined]
-        [wait 220]
-        Hero: Logistics route validated. Conditional routing operated as expected.
-        [inc audit 1]
-        [jump evaluation]
-
-        @label systems_demo
-        [set route systems_demo]
-        Narrator: Runtime systems laboratory.
-        Narrator: The following commands are included for operational verification.
-        [save]
-        [quickload]
-        [history show]
-        [wait 420]
-        [history hide]
-        [ui hide]
-        [wait 220]
-        [ui show]
-        [skip off]
-        [auto off]
-        [screen flash 0.35 150 1 1 1]
-        [hud Systems laboratory completed]
-        [inc audit 1]
-        Narrator: Menu actions are available via script commands such as [menu settings], [menu load], and [menu main].
-        > Continue to evaluation -> evaluation
-        > Return to tactical simulation -> simulation_hub
-
-        @label evaluation
-        Narrator: Evaluation checkpoint.
-        Narrator: route=${route}, trust=${trust}, courage=${courage}, discipline=${discipline}, audit=${audit}, dayPhase=${dayPhase}.
-        [if trust >= 2]
-        Hero: Trust threshold reached. Cooperative outcomes are now available.
-        [else]
-        Hero: Trust threshold not reached. Cooperative outcomes remain limited.
+        Codel: Music and sound effects really bring a visual novel to life!
+        Codel: You can play background music that loops, or one-shot sound effects.
+        [show codel center neutral]
+        Codel: Try to match your music to the mood - upbeat for happy scenes, soft for emotional moments.
+        Codel: Players can adjust the volume in settings, so don't worry about being too loud.
+        [if q_audio_done == false]
+        [set q_audio_done true]
+        [inc quickstartCount 1]
+        [inc completion 1]
         [endif]
-        [if courage >= 3]
-        Narrator: Courage threshold reached.
-        [endif]
-        [if hasMap == true]
-        Narrator: Logistics credential present.
-        [endif]
-        [choice Run final assessment->ending_gate | Re-open tactical hub->simulation_hub | Re-open systems laboratory->systems_demo]
+        [jump tutorials_hub]
 
-        @label ending_gate
-        [show rival right neutral]
+        @label tutorial_menus
+        [show codel center excited]
+        [wait 220]
+        Codel: Choices let players shape the story! Let me show you.
+        Codel: Quick - pick your favorite season!
+        > Spring -> choice_spring
+        > Summer -> choice_summer
+        > Autumn -> choice_autumn
+        > Winter -> choice_winter
+
+        @label choice_spring
+        [show codel center happy]
+        Codel: Spring! New beginnings and cherry blossoms. Nice choice!
+        [jump menus_done]
+
+        @label choice_summer
+        [show codel center happy]
+        Codel: Summer! Beach episodes and festivals. Classic!
+        [jump menus_done]
+
+        @label choice_autumn
+        [show codel center happy]
+        Codel: Autumn! Cozy vibes and falling leaves. I like your style!
+        [jump menus_done]
+
+        @label choice_winter
+        [show codel center happy]
+        Codel: Winter! Hot cocoa and snow scenes. Very atmospheric!
+        [jump menus_done]
+
+        @label menus_done
+        [show codel center neutral]
+        Codel: See how that worked? Each choice can lead to different dialogue or even different story paths.
+        Codel: You can also use variables to remember what players chose for later.
+        [if q_menus_done == false]
+        [set q_menus_done true]
+        [inc quickstartCount 1]
+        [inc completion 1]
+        [endif]
+        [jump tutorials_hub]
+
+        @label tutorial_input
+        [show codel center happy]
+        [wait 200]
+        Codel: Variables let you personalize the story!
+        [set playerName Friend]
+        Codel: For example, I just set your name to "${playerName}".
+        [show codel center excited]
+        Codel: Now I can say: "Nice to meet you, ${playerName}!"
+        Codel: You can use this for player names, relationship points, inventory... anything!
+        [show codel center neutral]
+        Codel: You've completed ${completion} topics so far, by the way.
+        [if q_input_done == false]
+        [set q_input_done true]
+        [inc quickstartCount 1]
+        [inc completion 1]
+        [endif]
+        [jump tutorials_hub]
+
+        @label in_depth_hub
+        [show codel left excited]
         [wait 170]
-        Rival: Final assessment begins. Outcomes will now branch by accumulated state.
-        [if courage >= 3 && trust >= 3 && discipline >= 2 goto ending_exemplar]
-        [if courage >= 3 goto ending_resolute]
-        [if trust >= 3 goto ending_diplomatic]
-        [jump ending_standard]
+        Codel: Ready for some advanced topics? Let's dive deeper!
+        > Text Tags and Escapes [if i_text_done == false] -> indepth_text
+        > Character Positioning [if i_character_done == false] -> indepth_character
+        > Animation [if i_animation_done == false] -> indepth_animation
+        > GUI Customization [if i_gui_done == false] -> indepth_gui
+        > Translations [if i_translations_done == false] -> indepth_translations
+        > Back to Basics -> tutorials_hub
+        > That's enough for now -> end_early
 
-        @label ending_exemplar
-        [set route exemplar]
-        [show hero center smile]
-        [wait 240]
-        Hero: Exemplar outcome confirmed. Balance across leadership metrics achieved.
-        [transition fade 500]
-        [bg field_night]
-        [set dayPhase night]
-        [hud Exemplar route unlocked]
-        [inc audit 1]
-        [jump finale]
-
-        @label ending_resolute
-        [set route resolute]
-        [show hero center determined]
-        [wait 230]
-        Hero: Resolute outcome confirmed. Decisive force dominated this run.
-        [inc audit 1]
-        [jump finale]
-
-        @label ending_diplomatic
-        [set route diplomatic_end]
-        [show hero center smile]
-        [wait 230]
-        Hero: Diplomatic outcome confirmed. Trust-driven leadership prevailed.
-        [inc audit 1]
-        [jump finale]
-
-        @label ending_standard
-        [set route standard]
-        [show hero center neutral]
-        [wait 220]
-        Hero: Standard outcome confirmed. Baseline path remains valid.
-        [jump finale]
-
-        @label finale
-        Narrator: Final report => route={color=#4a9eff}${route}{/color}, trust=${trust}, courage=${courage}, discipline=${discipline}, audit=${audit}.
-        [if audit >= 6]
-        Narrator: Coverage score is high. Most core systems were exercised in this run.
-        [else]
-        Narrator: Coverage score is partial. Additional branches remain available for review.
+        @label indepth_text
+        [show codel center happy]
+        [wait 200]
+        Codel: Let's talk more about text formatting!
+        Codel: Beyond basics, you can combine tags: {b}{i}bold italic{/i}{/b}, or nest colors.
+        Codel: Need a literal brace in your text? Just escape it!
+        [show codel center neutral]
+        Codel: The key is consistency. Pick a style and stick with it throughout your game.
+        [if i_text_done == false]
+        [set i_text_done true]
+        [inc completion 1]
         [endif]
-        [show hero center smile]
-        [wait 240]
-        Hero: Edit this file at {b}%s{/b} and make it yours.
-        Narrator: Replace this formal scaffold with your own cast, assets, and progression rules.
-        Narrator: {wave}End of extended demo prologue.{/wave}
+        [jump in_depth_hub]
 
+        @label indepth_character
+        [show codel center neutral]
+        [wait 220]
+        Codel: Characters can do more than just stand around!
+        [show codel right happy]
+        [wait 300]
+        Codel: You can smoothly move them while changing expressions.
+        [show codel center thinking]
+        Codel: This makes conversations feel natural and dynamic.
+        [show codel center happy]
+        Codel: Experiment with timing to find what feels right for your scenes.
+        [if i_character_done == false]
+        [set i_character_done true]
+        [inc completion 1]
+        [endif]
+        [jump in_depth_hub]
+
+        @label indepth_animation
+        [show codel center excited]
+        [wait 170]
+        Codel: Animation adds polish to your visual novel!
+        [show codel right happy]
+        [wait 220]
+        Codel: Character entrances, screen shakes, fades - they all help tell your story.
+        [show codel center neutral]
+        Codel: But remember: animation should support your narrative, not distract from it.
+        Codel: A well-timed pause can be more powerful than flashy effects!
+        [if i_animation_done == false]
+        [set i_animation_done true]
+        [inc completion 1]
+        [endif]
+        [jump in_depth_hub]
+
+        @label indepth_gui
+        [show codel center happy]
+        [wait 170]
+        Codel: The GUI is how players interact with your game!
+        Codel: Text boxes, menus, buttons - you can customize all of it.
+        [show codel center neutral]
+        Codel: Layout settings live in config files, separate from your story scripts.
+        Codel: That means you can tweak the look without touching your dialogue!
+        [if i_gui_done == false]
+        [set i_gui_done true]
+        [inc completion 1]
+        [endif]
+        [jump in_depth_hub]
+
+        @label indepth_translations
+        [show codel center happy]
+        [wait 200]
+        Codel: Want players around the world to enjoy your game?
+        Codel: JVN supports translations! Keep your text organized and it's much easier.
+        [show codel center neutral]
+        Codel: Avoid putting text directly in logic - use variables and string IDs instead.
+        Codel: Your future self (and translators) will thank you!
+        [if i_translations_done == false]
+        [set i_translations_done true]
+        [inc completion 1]
+        [endif]
+        [jump in_depth_hub]
+
+        @label end_early
+        [show codel center happy]
+        [wait 200]
+        Codel: Thank you for checking out this tutorial!
+        [show codel center excited]
+        Codel: If you'd like to see how this demo works, take a look at {b}%s{/b}.
+        Codel: You can edit it, break it, rebuild it - that's how you learn!
+        [show codel center happy]
+        Codel: We look forward to seeing what you create with JVN. Have fun!
         [end]
+
         """.formatted(name, scenarioId, name, ENTRY_SCRIPT_PATH);
 
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {

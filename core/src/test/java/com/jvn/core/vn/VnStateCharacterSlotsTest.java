@@ -55,4 +55,23 @@ class VnStateCharacterSlotsTest {
     assertEquals("guide", state.getVisibleCharacters().get(CharacterPosition.RIGHT).getCharacterId());
     assertEquals("codel", state.getVisibleCharacters().get(CharacterPosition.CENTER).getCharacterId());
   }
+
+  @Test
+  void globalPositionModeMovesAndThenFadesExpression() {
+    VnState state = new VnState();
+    state.setCharacterGlobalPositionEnabled("codel", true);
+
+    state.showCharacterAnimated(CharacterPosition.CENTER, "codel", "neutral");
+    state.showCharacterAnimated(CharacterPosition.RIGHT, "codel", "smile");
+
+    assertEquals(1, state.getVisibleCharacters().size());
+    assertFalse(state.getVisibleCharacters().containsKey(CharacterPosition.CENTER));
+    assertTrue(state.getVisibleCharacters().containsKey(CharacterPosition.RIGHT));
+    // During movement we keep previous expression, then switch with fade.
+    assertEquals("neutral", state.getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
+
+    state.updateCharacterAnimations(400);
+    assertEquals("smile", state.getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
+    assertEquals(CharacterPosition.RIGHT, state.getCharacterDefinedPosition("codel"));
+  }
 }

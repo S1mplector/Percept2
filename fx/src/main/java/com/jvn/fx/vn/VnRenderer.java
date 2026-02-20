@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
@@ -1219,6 +1221,12 @@ public class VnRenderer {
     
     return imageCache.computeIfAbsent(path, p -> {
       try {
+        // Prefer configured asset manager (runtime/editor project overlay support).
+        var assetUrl = new AssetCatalog().url(AssetType.IMAGE, p);
+        if (assetUrl != null) {
+          return new Image(assetUrl.toExternalForm());
+        }
+
         // Try to load from classpath
         var url = getClass().getClassLoader().getResource(p);
         if (url != null) {

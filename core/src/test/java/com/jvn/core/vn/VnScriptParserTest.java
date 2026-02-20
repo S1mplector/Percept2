@@ -170,4 +170,33 @@ public class VnScriptParserTest {
     IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
     assertTrue(ex.getMessage().contains("Unclosed [if] block"));
   }
+
+  @Test
+  public void supportsCharacterGlobalPositionCommands() throws Exception {
+    String script = """
+      @label start
+      [char hero global on]
+      [show hero center neutral]
+      [char hero move right smile]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario;
+    try (var in = new ByteArrayInputStream(script.getBytes(StandardCharsets.UTF_8))) {
+      scenario = parser.parse(in);
+    }
+
+    VnScene scene = new VnScene(scenario);
+    scene.setInterop(new DefaultVnInterop());
+    scene.onEnter();
+
+    assertTrue(scene.getState().getVisibleCharacters().containsKey(CharacterPosition.RIGHT));
+    assertEquals("hero", scene.getState().getVisibleCharacters().get(CharacterPosition.RIGHT).getCharacterId());
+    assertEquals("neutral", scene.getState().getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
+
+    scene.update(400);
+    assertEquals("smile", scene.getState().getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
+    assertEquals(CharacterPosition.RIGHT, scene.getState().getCharacterDefinedPosition("hero"));
+  }
 }
