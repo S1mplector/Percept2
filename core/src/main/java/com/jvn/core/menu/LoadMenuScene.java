@@ -47,15 +47,30 @@ public class LoadMenuScene implements Scene {
   private int selected = 0;
 
   public LoadMenuScene(Engine engine, VnSaveManager saveManager, String defaultScriptName, com.jvn.core.vn.VnSettings settingsModel, AudioFacade audio) {
+    this(engine, saveManager, defaultScriptName, settingsModel, audio, null);
+  }
+
+  LoadMenuScene(
+      Engine engine,
+      VnSaveManager saveManager,
+      String defaultScriptName,
+      com.jvn.core.vn.VnSettings settingsModel,
+      AudioFacade audio,
+      MenuProfile profile
+  ) {
     this.engine = engine;
     this.saveManager = saveManager;
     this.defaultScriptName = defaultScriptName == null ? "demo.vns" : defaultScriptName;
     this.settingsModel = settingsModel == null ? new com.jvn.core.vn.VnSettings() : settingsModel;
     this.audio = audio;
-    MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
-    this.menuProfile = menuLoad.profile();
-    for (String warning : menuLoad.diagnostics()) {
-      LOG.warn("Menu profile: {}", warning);
+    if (profile == null) {
+      MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
+      this.menuProfile = menuLoad.profile();
+      for (String warning : menuLoad.diagnostics()) {
+        LOG.warn("Menu profile: {}", warning);
+      }
+    } else {
+      this.menuProfile = profile;
     }
     this.menuScreen = menuProfile.screen("load");
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());

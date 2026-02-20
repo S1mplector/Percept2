@@ -53,10 +53,20 @@ public class SaveMenuScene implements Scene {
   private List<String> saves = new ArrayList<>();
 
   public SaveMenuScene(Engine engine, VnSaveManager saveManager, VnScene vnScene) {
-    this(engine, saveManager, vnScene, null);
+    this(engine, saveManager, vnScene, null, null);
   }
 
   public SaveMenuScene(Engine engine, VnSaveManager saveManager, VnScene vnScene, String defaultScriptName) {
+    this(engine, saveManager, vnScene, defaultScriptName, null);
+  }
+
+  SaveMenuScene(
+      Engine engine,
+      VnSaveManager saveManager,
+      VnScene vnScene,
+      String defaultScriptName,
+      MenuProfile profile
+  ) {
     this.engine = engine;
     this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
     this.currentVnScene = vnScene;
@@ -64,10 +74,14 @@ public class SaveMenuScene implements Scene {
     this.settingsModel = (vnScene != null && vnScene.getState() != null && vnScene.getState().getSettings() != null)
         ? vnScene.getState().getSettings()
         : new VnSettings();
-    MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
-    this.menuProfile = menuLoad.profile();
-    for (String warning : menuLoad.diagnostics()) {
-      LOG.warn("Menu profile: {}", warning);
+    if (profile == null) {
+      MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
+      this.menuProfile = menuLoad.profile();
+      for (String warning : menuLoad.diagnostics()) {
+        LOG.warn("Menu profile: {}", warning);
+      }
+    } else {
+      this.menuProfile = profile;
     }
     this.menuScreen = menuProfile.screen("save");
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());

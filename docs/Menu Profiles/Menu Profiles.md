@@ -178,6 +178,24 @@ Menu profile data is consumed by:
 
 This means all major menu scenes now share one config model.
 
+## Runtime Action Parity Notes
+
+Action handling is now consistent across `main`, `load`, `save`, and `settings` contexts:
+
+- `OPEN_MENU` and `MAIN_MENU` push configured menu screens through `MainMenuScene`.
+- `RUN_SCRIPT` and `NEW_GAME` start VN runtime scenes with current settings propagated.
+- `LOAD_MENU` and `SETTINGS_MENU` can be triggered from non-main screens.
+- `SAVE_MENU` can be triggered when an active `VnScene` exists (otherwise it is ignored safely).
+- `QUIT` and `BACK` work in all menu contexts.
+
+For load/save profiles, template item IDs are still important:
+- load slot template action: `item.save_slot.*` (aliases: `slot`, `entry`)
+- save slot template action: `item.new_slot.*` for the top "new save" row
+- existing save rows use `item.save_slot.*` (aliases: `slot`, `entry`)
+
+Per-item icon rendering:
+- `item.<id>.icon=assets/ui/...` is now rendered by the FX menu renderer in all menu scenes.
+
 ## Action Type Reference
 
 `MenuActionType` values:
