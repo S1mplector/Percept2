@@ -286,6 +286,44 @@ editor/src/main/java/com/jvn/editor/ui/actioneditor/
 └── TimelinePanel.java
 ```
 
+## Hierarchical Entity Groups
+
+The Action Editor supports **parent-child entity relationships** for layered animation:
+
+```
+character_group/          ← Group track: animating this moves all children
+  ├── body_sprite         ← Child entity: has local offset animations
+  └── head_sprite         ← Child entity: can nod/turn independently
+```
+
+### How It Works
+
+1. **EntityGroup** contains child entities and child groups (nested hierarchy)
+2. **Local transforms** - each entity's keyframes define position relative to parent
+3. **World transforms** - computed by summing parent chain transforms
+4. **Timeline UI** - collapsible tree showing group → children structure
+
+### Creating Groups
+
+1. Select entities in EntitySelector
+2. Click "+ Group" button
+3. Drag entities into the group
+4. Animate the group track to move all children together
+5. Animate individual children for local motion (head turning, etc.)
+
+### Code Export
+
+Groups export as separate timeline actions that play in parallel:
+
+```jes
+timeline {
+  parallel {
+    move "character_group" { x: 100, y: 0, dur: 500 }
+    move "head_sprite" { x: 5, y: -3, dur: 200, easing: ease_out_quad }
+  }
+}
+```
+
 ## Future Enhancements
 
 - **Curve editor** - visual bezier curve editing for custom easing

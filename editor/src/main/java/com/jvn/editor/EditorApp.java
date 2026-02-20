@@ -2,8 +2,6 @@ package com.jvn.editor;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -12,23 +10,23 @@ import java.util.Properties;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
+import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.InspectorView;
-import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
+import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
-import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.VersionControlView;
-import com.jvn.editor.ui.WelcomeCenterView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
+import com.jvn.editor.ui.WelcomeCenterView;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
 
@@ -511,7 +509,14 @@ public class EditorApp extends Application {
     miRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
     miRedo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     menuEdit.getItems().addAll(miUndo, miRedo);
-    mb.getMenus().addAll(menuFile, menuEdit, menuCode, menuProject, menuVcs, menuHelp);
+    
+    Menu menuTools = new Menu("Tools");
+    MenuItem miActionEditor = new MenuItem("Action Editor");
+    miActionEditor.setOnAction(e -> openActionEditor());
+    miActionEditor.setAccelerator(new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+    menuTools.getItems().addAll(miActionEditor);
+    
+    mb.getMenus().addAll(menuFile, menuEdit, menuCode, menuProject, menuTools, menuVcs, menuHelp);
 
     // Toolbar
     osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
@@ -1620,6 +1625,12 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
+  }
+
+  private void openActionEditor() {
+    ActionEditorWindow actionEditor = new ActionEditorWindow();
+    actionEditor.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
+    actionEditor.show();
   }
 
   private String resolveEditorVersion() {
