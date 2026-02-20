@@ -10,9 +10,21 @@ Launch command:
 
 ## Layout Overview
 
+### Startup welcome dashboard
+
+- The center area opens with a `Welcome` tab by default.
+- Shows:
+  - JVN logo + editor version
+  - recent projects (with one-click open)
+  - workspace/project health checks (Java, Gradle wrapper, Git/Git LFS, optional artifacts, missing project files)
+- Quick actions:
+  - `New Project`
+  - `Open Project`
+  - `Refresh Health`
+
 ### Top bar
 
-- Menus: `File`, `Edit`, `Code`, `Project`, `Help`
+- Menus: `File`, `Edit`, `Code`, `Project`, `Version Control`, `Help`
 - Main actions: `Open`, `Save`, `Undo`, `Redo`, `Apply Code`, `Run`
 - Status + performance strip (CPU/GPU/RAM/FPS)
 
@@ -37,10 +49,19 @@ Files open into typed tabs via `FileEditorTab` dispatch:
 - Menu/theme/layout config -> text + visual editor split (where supported)
 - General text/code formats -> text editor
 
-### Right panel
+### Side panels (+ chooser system)
 
-- `Inspector` for selected scene entities
-- `Help` tab with searchable docs (`HelpCenterView`)
+- Left defaults to `Project` tab.
+- Right starts empty; use `+` to open a panel chooser.
+- Available addable panels on **both** sides:
+  - `Project`
+  - `Timeline`
+  - `VNS Diagnostics`
+  - `Label Flow`
+  - `Assets`
+  - `Version Control`
+  - `Help`
+  - `Inspector`
 
 ## Project Run Behavior
 
@@ -71,6 +92,9 @@ This design avoids shared global lock issues and makes editor-run more consisten
   - replace label with existing one
   - replace missing asset path from discovered assets
   - remove unreachable block
+- side-panel integrations:
+  - `VNS Diagnostics` panel with filter + click-to-jump lines
+  - `Label Flow` graph panel for label/jump/choice flow
 
 ### JES editor
 
@@ -104,6 +128,7 @@ The wizard creates a layered VN project scaffold with:
 - `scripts/story`, `scripts/common`, `scripts/system`
 - structured `assets/` subfolders for backgrounds/characters/audio/ui/fonts
 - `jvn.project` manifest with entry script and config paths
+- optional Git repository + Git LFS defaults + initial commit
 
 See full wizard documentation:
 - `docs/Project Setup/New Project Wizard.md`
@@ -120,6 +145,8 @@ See full wizard documentation:
 - `Cmd/Ctrl+Z` -> Undo
 - `Cmd/Ctrl+Shift+Z` -> Redo
 - `F1` -> Open/select Help Center
+- `Cmd/Ctrl+Shift+G` -> Open/select Version Control
+- `Cmd/Ctrl+Shift+H` -> Open/select Welcome tab
 
 ## Recommended Team Workflow
 
@@ -127,4 +154,5 @@ See full wizard documentation:
 2. Keep UI tuning in config files edited through visual tools when practical.
 3. Use timeline graph for arc-level narrative structure.
 4. Run from project tree root button frequently for full end-to-end checks.
-5. Use Help Center (`F1`) for quick docs lookup without leaving editor.
+5. Keep source control clean with the Version Control panel (`Cmd/Ctrl+Shift+G`).
+6. Use Help Center (`F1`) for quick docs lookup without leaving editor.

@@ -1,5 +1,7 @@
 package com.jvn.editor.ui;
 
+import com.jvn.editor.vcs.GitVcsService;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -54,6 +56,9 @@ public class NewProjectWizard extends Stage {
   private CheckBox chkSaveSystem;
   private CheckBox chkSettingsMenu;
   private CheckBox chkHistoryBacklog;
+  private CheckBox chkGitInit;
+  private CheckBox chkGitLfs;
+  private CheckBox chkInitialCommit;
   private TextArea txtDescription;
   private TextArea txtStructurePreview;
   private Label lblPreview;
@@ -145,6 +150,7 @@ public class NewProjectWizard extends Stage {
         createSection("Project Basics", "Name, author, target directory, and output path.", createProjectBasicsGrid()),
         createSection("Engine Profile", "Runtime defaults and entry points for this project.", createEngineProfileGrid()),
         createSection("Feature Modules", "Choose the base modules to scaffold.", createFeatureModulesPane()),
+        createSection("Version Control", "Initialize Git/Git LFS so multi-person collaboration works from day one.", createVersionControlPane()),
         createSection("Generated Layout", "Preview the exact folders/files that will be created.", createGeneratedLayoutPane()),
         createSection("Project Notes", "Optional description saved to the project manifest and README.", createDescriptionArea())
     );
@@ -340,6 +346,49 @@ public class NewProjectWizard extends Stage {
     return tag;
   }
 
+  private Region createVersionControlPane() {
+    VBox box = new VBox(10);
+
+    Label intro = new Label(
+        "Prerequisite: `git` and `git lfs` installed/configured on the machine. " +
+        "Wizard will scaffold `.gitignore` and `.gitattributes` defaults."
+    );
+    intro.setWrapText(true);
+    intro.setTextFill(Color.web(TEXT_SECONDARY));
+    intro.setFont(Font.font("Segoe UI", 12));
+
+    chkGitInit = createCheckBox("Initialize Git repository", true);
+    chkGitLfs = createCheckBox("Enable Git LFS tracking for binary assets", true);
+    chkInitialCommit = createCheckBox("Create initial commit", true);
+
+    chkGitInit.selectedProperty().addListener((o, ov, nv) -> {
+      boolean enabled = nv != null && nv;
+      chkGitLfs.setDisable(!enabled);
+      chkInitialCommit.setDisable(!enabled);
+      if (!enabled) {
+        chkGitLfs.setSelected(false);
+        chkInitialCommit.setSelected(false);
+      } else {
+        if (!chkGitLfs.isSelected()) chkGitLfs.setSelected(true);
+        if (!chkInitialCommit.isSelected()) chkInitialCommit.setSelected(true);
+      }
+      updateDerivedFields();
+    });
+
+    chkGitLfs.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    chkInitialCommit.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+
+    Label note = new Label(
+        "Default LFS patterns include common image/audio/video/font formats used by VN teams."
+    );
+    note.setWrapText(true);
+    note.setTextFill(Color.web(TEXT_MUTED));
+    note.setFont(Font.font("Segoe UI", 11));
+
+    box.getChildren().addAll(intro, chkGitInit, chkGitLfs, chkInitialCommit, note);
+    return box;
+  }
+
   private Region createGeneratedLayoutPane() {
     VBox box = new VBox(8);
 
@@ -495,6 +544,8 @@ public class NewProjectWizard extends Stage {
     if (chkSaveSystem != null && chkSaveSystem.isSelected()) kb += 3;
     if (chkSettingsMenu != null && chkSettingsMenu.isSelected()) kb += 2;
     if (chkHistoryBacklog != null && chkHistoryBacklog.isSelected()) kb += 1;
+    if (shouldSetupGit()) kb += 1;
+    if (shouldSetupGitLfs()) kb += 1;
     return kb;
   }
 
@@ -552,6 +603,10 @@ public class NewProjectWizard extends Stage {
     sb.append("|       |-- sfx/\n");
     sb.append("|       `-- voices/\n");
     sb.append("|-- save/\n");
+    if (shouldSetupGit()) {
+      sb.append("|-- .gitignore\n");
+      if (shouldSetupGitLfs()) sb.append("|-- .gitattributes\n");
+    }
     sb.append("|-- README.md\n");
     sb.append("`-- jvn.project\n");
 
@@ -562,6 +617,18 @@ public class NewProjectWizard extends Stage {
     return (chkTitleScreen != null && chkTitleScreen.isSelected())
         || (chkSaveSystem != null && chkSaveSystem.isSelected())
         || (chkSettingsMenu != null && chkSettingsMenu.isSelected());
+  }
+
+  private boolean shouldSetupGit() {
+    return chkGitInit != null && chkGitInit.isSelected();
+  }
+
+  private boolean shouldSetupGitLfs() {
+    return shouldSetupGit() && chkGitLfs != null && chkGitLfs.isSelected();
+  }
+
+  private boolean shouldCreateInitialCommit() {
+    return shouldSetupGit() && chkInitialCommit != null && chkInitialCommit.isSelected();
   }
 
   private void createProject() {
@@ -613,7 +680,18 @@ public class NewProjectWizard extends Stage {
     createDirectories(dir, includeMenuPack);
 
     int[] resolution = parseResolution();
-    createManifest(dir, displayName, resolution[0], resolution[1], includeMenuPack, includeSave, includeSettings);
+    createManifest(
+        dir,
+        displayName,
+        resolution[0],
+        resolution[1],
+        includeMenuPack,
+        includeSave,
+        includeSettings,
+        shouldSetupGit(),
+        shouldSetupGitLfs(),
+        shouldCreateInitialCommit()
+    );
 
     if (chkSampleContent.isSelected()) createSampleScript(dir, displayName);
     else createEmptyScript(dir, displayName);
@@ -632,7 +710,22 @@ public class NewProjectWizard extends Stage {
       createMenuCustomizationScaffold(dir, displayName, includeSave, includeSettings);
     }
 
-    createReadme(dir, displayName, includeMenuPack, includeSave, includeSettings);
+    createReadme(
+        dir,
+        displayName,
+        includeMenuPack,
+        includeSave,
+        includeSettings,
+        shouldSetupGit(),
+        shouldSetupGitLfs(),
+        shouldCreateInitialCommit()
+    );
+
+    if (shouldSetupGit()) {
+      GitVcsService vcs = new GitVcsService();
+      vcs.bootstrapRepository(dir, shouldSetupGitLfs(), shouldCreateInitialCommit(),
+          "Initialize " + displayName + " project scaffold");
+    }
   }
 
   private void createDirectories(File dir, boolean includeMenuPack) throws Exception {
@@ -702,7 +795,10 @@ public class NewProjectWizard extends Stage {
                               int height,
                               boolean includeMenuPack,
                               boolean includeSave,
-                              boolean includeSettings) throws Exception {
+                              boolean includeSettings,
+                              boolean gitEnabled,
+                              boolean gitLfsEnabled,
+                              boolean gitInitialCommit) throws Exception {
     Properties manifest = new Properties();
     manifest.setProperty("name", displayName);
     manifest.setProperty("author", txtAuthor.getText().trim());
@@ -726,6 +822,9 @@ public class NewProjectWizard extends Stage {
     manifest.setProperty("feature.saveSystem", Boolean.toString(includeSave));
     manifest.setProperty("feature.settingsMenu", Boolean.toString(includeSettings));
     manifest.setProperty("feature.historyBacklog", Boolean.toString(chkHistoryBacklog.isSelected()));
+    manifest.setProperty("vcs.git.enabled", Boolean.toString(gitEnabled));
+    manifest.setProperty("vcs.gitLfs.enabled", Boolean.toString(gitLfsEnabled));
+    manifest.setProperty("vcs.git.initialCommit", Boolean.toString(gitInitialCommit));
     manifest.setProperty("createdBy", "jvn-editor-wizard");
 
     if (!txtDescription.getText().isBlank()) {
@@ -998,7 +1097,14 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private void createReadme(File dir, String name, boolean includeMenuPack, boolean includeSave, boolean includeSettings)
+  private void createReadme(File dir,
+                            String name,
+                            boolean includeMenuPack,
+                            boolean includeSave,
+                            boolean includeSettings,
+                            boolean gitEnabled,
+                            boolean gitLfsEnabled,
+                            boolean gitInitialCommit)
       throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, "README.md"))) {
       fw.write("# " + name + "\n\n");
@@ -1010,6 +1116,9 @@ public class NewProjectWizard extends Stage {
       fw.write("- Save/load profiles: " + (includeSave ? "yes" : "no") + "\n");
       fw.write("- Settings profile: " + (includeSettings ? "yes" : "no") + "\n");
       fw.write("- History defaults: " + (chkHistoryBacklog.isSelected() ? "yes" : "no") + "\n\n");
+      fw.write("- Git repository: " + (gitEnabled ? "yes" : "no") + "\n");
+      fw.write("- Git LFS defaults: " + (gitLfsEnabled ? "yes" : "no") + "\n");
+      fw.write("- Initial commit: " + (gitInitialCommit ? "yes" : "no") + "\n\n");
 
       if (!txtDescription.getText().isBlank()) {
         fw.write("## Description\n\n");
@@ -1024,6 +1133,13 @@ public class NewProjectWizard extends Stage {
       if (includeMenuPack) {
         fw.write("- Menu registry: `" + MENU_REGISTRY_PATH + "`\n");
         fw.write("- Menu theme: `" + MENU_THEME_PATH + "`\n\n");
+      }
+
+      if (gitEnabled) {
+        fw.write("## Version Control\n\n");
+        fw.write("- Repo initialized with Git.\n");
+        if (gitLfsEnabled) fw.write("- Git LFS tracking defaults added via `.gitattributes`.\n");
+        fw.write("- Default ignore rules added via `.gitignore`.\n\n");
       }
 
       fw.write("## Project Structure\n\n");

@@ -21,6 +21,8 @@ import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
 import com.jvn.editor.ui.NewProjectWizard;
+import com.jvn.editor.ui.VersionControlView;
+import com.jvn.editor.ui.WelcomeCenterView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
@@ -92,12 +94,15 @@ public class EditorApp extends Application {
   private VnsDiagnosticsView vnsDiagnosticsView;
   private VnsFlowMapView vnsFlowMapView;
   private AssetBrowserView assetBrowserView;
+  private VersionControlView versionControlView;
   private SettingsEditorView settingsEditor;
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
   private TilemapEditorView mapEditorView;
   private final CommandStack commands = new CommandStack();
   private TabPane leftTabs;
   private TabPane rightTabs;
+  private WelcomeCenterView welcomeView;
+  private Tab tabWelcome;
   private Tab tabProject;
   private Tab tabTimeline;
   private Tab tabInspector;
@@ -105,6 +110,7 @@ public class EditorApp extends Application {
   private Tab tabVnsDiagnostics;
   private Tab tabVnsFlowMap;
   private Tab tabAssetBrowser;
+  private Tab tabVersionControl;
   private Tab tabLeftAdd;
   private Tab tabRightAdd;
   private ScrollPane inspectorScroll;
@@ -184,12 +190,22 @@ public class EditorApp extends Application {
       dc.setTitle("Select Project Root");
       root = dc.showDialog(stage);
       if (root == null) return null;
-      this.projectRoot = root;
-      Properties mf = loadManifest(root);
-      configureProjectContext(root, mf);
+      openProjectDirectory(root);
       selectProjectTab();
     }
     return root;
+  }
+
+  private void openProjectDirectory(File dir) {
+    if (dir == null || !dir.exists() || !dir.isDirectory()) return;
+    this.projectRoot = dir;
+    Properties mf = loadManifest(dir);
+    configureProjectContext(dir, mf);
+    applyProjectRootToTabs();
+    if (welcomeView != null) {
+      welcomeView.setCurrentProject(dir);
+      welcomeView.markProjectVisited(dir);
+    }
   }
 
   private Properties loadManifest(File dir) {
@@ -229,6 +245,7 @@ public class EditorApp extends Application {
     if (mapEditorView != null) mapEditorView.setProjectRoot(root);
     if (helpCenterView != null) helpCenterView.setProjectRoot(root);
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(root);
+    if (versionControlView != null) versionControlView.setProjectRoot(root);
   }
 
   private String composeGradleTask(String path, String task) {
@@ -351,11 +368,9 @@ public class EditorApp extends Application {
   private void doNewProject(Stage stage) {
     File projectDir = NewProjectWizard.showAndWait(stage);
     if (projectDir == null) return;
-    
-    // Set as current project
-    this.projectRoot = projectDir;
+
+    openProjectDirectory(projectDir);
     Properties mf = loadManifest(projectDir);
-    configureProjectContext(projectDir, mf);
     
     // Open the entry script
     String entryRel = (mf != null) ? mf.getProperty("entryVns", "scripts/story/prologue.vns") : "scripts/story/prologue.vns";
@@ -413,6 +428,7 @@ public class EditorApp extends Application {
   public void start(Stage primaryStage) {
     primaryStage.setTitle("JVN Editor");
     BorderPane root = new BorderPane();
+    String editorVersion = resolveEditorVersion();
 
     // Menu
     MenuBar mb = new MenuBar();
@@ -449,7 +465,20 @@ public class EditorApp extends Application {
     MenuItem miRun = new MenuItem("Run Project");
     miRun.setOnAction(e -> doRunProject(primaryStage));
     menuProject.getItems().addAll(miRun);
+    Menu menuVcs = new Menu("Version Control");
+    MenuItem miOpenVcs = new MenuItem("Open Version Control");
+    miOpenVcs.setOnAction(e -> selectVersionControlTab());
+    miOpenVcs.setAccelerator(new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+    MenuItem miRefreshVcs = new MenuItem("Refresh Status");
+    miRefreshVcs.setOnAction(e -> {
+      if (versionControlView != null) versionControlView.refreshStatus();
+      selectVersionControlTab();
+    });
+    menuVcs.getItems().addAll(miOpenVcs, miRefreshVcs);
     Menu menuHelp = new Menu("Help");
+    MenuItem miWelcome = new MenuItem("Welcome");
+    miWelcome.setOnAction(e -> selectWelcomeTab());
+    miWelcome.setAccelerator(new KeyCodeCombination(KeyCode.H, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     MenuItem miHelpCenter = new MenuItem("Help Center");
     miHelpCenter.setOnAction(e -> selectHelpTab());
     miHelpCenter.setAccelerator(new KeyCodeCombination(KeyCode.F1));
@@ -457,7 +486,7 @@ public class EditorApp extends Application {
     miRefreshHelp.setOnAction(e -> {
       if (helpCenterView != null) helpCenterView.refresh();
     });
-    menuHelp.getItems().addAll(miHelpCenter, miRefreshHelp);
+    menuHelp.getItems().addAll(miWelcome, miHelpCenter, miRefreshHelp);
     Menu menuEdit = new Menu("Edit");
     MenuItem miUndo = new MenuItem("Undo");
     miUndo.setOnAction(e -> { commands.undo(); status.setText("Undo"); inspectorView.setSelection(selected); });
@@ -466,7 +495,7 @@ public class EditorApp extends Application {
     miRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
     miRedo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     menuEdit.getItems().addAll(miUndo, miRedo);
-    mb.getMenus().addAll(menuFile, menuEdit, menuCode, menuProject, menuHelp);
+    mb.getMenus().addAll(menuFile, menuEdit, menuCode, menuProject, menuVcs, menuHelp);
 
     // Toolbar
     osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
@@ -520,14 +549,9 @@ public class EditorApp extends Application {
     row.getChildren().addAll(btnOpen, btnSave, btnUndo, btnRedo, btnApply, btnRun, spacer, status);
     VBox toolRows = new VBox(6, row);
     HBox.setHgrow(toolRows, Priority.ALWAYS);
-    String ver = System.getProperty("jvn.version");
-    if (ver == null || ver.isBlank()) {
-      Package pkg = EditorApp.class.getPackage();
-      ver = (pkg != null && pkg.getImplementationVersion() != null) ? pkg.getImplementationVersion() : "dev";
-    }
     Label wordmark = new Label("JVN");
     wordmark.getStyleClass().add("jvn-wordmark");
-    Label verLabel = new Label("v" + ver);
+    Label verLabel = new Label("v" + editorVersion);
     verLabel.getStyleClass().add("jvn-wordmark-version");
     VBox logoBox = new VBox(2);
     logoBox.setAlignment(Pos.CENTER_RIGHT);
@@ -556,6 +580,22 @@ public class EditorApp extends Application {
     filesTabs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
       updateContextForActiveTab();
     });
+    welcomeView = new WelcomeCenterView();
+    welcomeView.setEditorVersion(editorVersion);
+    welcomeView.setWorkspaceRoot(resolveWorkspaceRoot());
+    welcomeView.setCurrentProject(projectRoot);
+    welcomeView.setOnCreateProject(() -> doNewProject(primaryStage));
+    welcomeView.setOnOpenProjectDialog(() -> doOpenProject(primaryStage));
+    welcomeView.setOnOpenRecentProject(projectDir -> {
+      if (projectDir == null || !projectDir.isDirectory()) return;
+      openProjectDirectory(projectDir);
+      status.setText("Project: " + projectDir.getName());
+      selectProjectTab();
+    });
+    tabWelcome = new Tab("Welcome", welcomeView);
+    tabWelcome.setClosable(false);
+    filesTabs.getTabs().add(tabWelcome);
+    filesTabs.getSelectionModel().select(tabWelcome);
     root.setCenter(filesTabs);
     inspectorView = new InspectorView(s -> status.setText(s));
     inspectorView.setCommandStack(commands);
@@ -576,6 +616,14 @@ public class EditorApp extends Application {
       } else {
         try { java.awt.Desktop.getDesktop().open(asset); } catch (Exception ignored) {}
       }
+    });
+    versionControlView = new VersionControlView();
+    versionControlView.setProjectRoot(projectRoot);
+    versionControlView.setOnOpenRelativePath(relativePath -> {
+      if (projectRoot == null || relativePath == null || relativePath.isBlank()) return;
+      File target = new File(projectRoot, relativePath);
+      if (!target.exists()) return;
+      if (isEditableFile(target)) openFile(target);
     });
     rightTabs = new TabPane();
     helpCenterView = new HelpCenterView();
@@ -603,10 +651,7 @@ public class EditorApp extends Application {
     });
     projView.setOnRunProject(projectDir -> {
       if (projectDir == null) return;
-      this.projectRoot = projectDir;
-      Properties mf = loadManifest(projectDir);
-      configureProjectContext(projectDir, mf);
-      applyProjectRootToTabs();
+      openProjectDirectory(projectDir);
       selectProjectTab();
       doRunProject(projectDir);
     });
@@ -696,10 +741,7 @@ public class EditorApp extends Application {
     dc.setTitle("Open Project Directory");
     File dir = dc.showDialog(stage);
     if (dir == null) return;
-    this.projectRoot = dir;
-    Properties mf = loadManifest(dir);
-    configureProjectContext(dir, mf);
-    applyProjectRootToTabs();
+    openProjectDirectory(dir);
     status.setText("Project: " + dir.getName());
     selectProjectTab();
   }
@@ -945,6 +987,7 @@ public class EditorApp extends Application {
     if (filesTabs == null) return;
     Tab active = filesTabs.getSelectionModel().getSelectedItem();
     if (active == null) return;
+    if (!active.isClosable()) return;
     if (active.getContent() instanceof FileEditorTab ft && !confirmCanCloseFileTab(ft)) return;
     filesTabs.getTabs().remove(active);
   }
@@ -1054,6 +1097,8 @@ public class EditorApp extends Application {
     if (mapEditorView != null) mapEditorView.setProjectRoot(projectRoot);
     if (helpCenterView != null) helpCenterView.setProjectRoot(projectRoot);
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(projectRoot);
+    if (versionControlView != null) versionControlView.setProjectRoot(projectRoot);
+    if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
   }
 
   private FileEditorTab getActiveFileTab() {
@@ -1304,6 +1349,17 @@ public class EditorApp extends Application {
     return tabAssetBrowser;
   }
 
+  private Tab ensureVersionControlTab(TabPane targetPane) {
+    if (targetPane == null || versionControlView == null) return null;
+    if (tabVersionControl == null) {
+      tabVersionControl = new Tab("Version Control", versionControlView);
+      tabVersionControl.setClosable(true);
+      tabVersionControl.setOnClosed(e -> tabVersionControl = null);
+    }
+    attachPanelTabToPane(tabVersionControl, targetPane);
+    return tabVersionControl;
+  }
+
   private String panelActionLabel(String panelName, Tab tab, TabPane targetPane) {
     if (tab != null && tab.getTabPane() == targetPane) return "Open " + panelName;
     if (tab != null && tab.getTabPane() != null) return "Move " + panelName + " Here";
@@ -1355,6 +1411,11 @@ public class EditorApp extends Application {
       Tab t = ensureAssetBrowserTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
     });
+    addChooserActionButton(actions, panelActionLabel("Version Control", tabVersionControl, pane), () -> {
+      Tab t = ensureVersionControlTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (versionControlView != null) versionControlView.refreshStatus();
+    });
     addChooserActionButton(actions, panelActionLabel("Help", tabHelp, pane), () -> {
       Tab t = ensureHelpTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
@@ -1387,6 +1448,15 @@ public class EditorApp extends Application {
     }
   }
 
+  private void selectWelcomeTab() {
+    if (filesTabs == null || tabWelcome == null) return;
+    if (!filesTabs.getTabs().contains(tabWelcome)) {
+      filesTabs.getTabs().add(0, tabWelcome);
+    }
+    filesTabs.getSelectionModel().select(tabWelcome);
+    if (welcomeView != null) welcomeView.refresh();
+  }
+
   private void selectTimelineTab() {
     Tab t = (tabTimeline != null && tabTimeline.getTabPane() != null) ? tabTimeline : ensureTimelineTab(leftTabs);
     if (t != null && t.getTabPane() != null) {
@@ -1399,5 +1469,26 @@ public class EditorApp extends Application {
     if (t != null && t.getTabPane() != null) {
       t.getTabPane().getSelectionModel().select(t);
     }
+  }
+
+  private void selectVersionControlTab() {
+    Tab t = (tabVersionControl != null && tabVersionControl.getTabPane() != null)
+        ? tabVersionControl
+        : ensureVersionControlTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+    if (versionControlView != null) versionControlView.refreshStatus();
+  }
+
+  private String resolveEditorVersion() {
+    String version = System.getProperty("jvn.version");
+    if (version == null || version.isBlank()) {
+      Package pkg = EditorApp.class.getPackage();
+      version = (pkg != null && pkg.getImplementationVersion() != null)
+          ? pkg.getImplementationVersion()
+          : "dev";
+    }
+    return version;
   }
 }

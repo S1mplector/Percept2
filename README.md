@@ -16,6 +16,7 @@ Core capabilities:
 
 - JDK 21 (toolchain auto-download is enabled, but local JDK 21 is still recommended)
 - No global Gradle install required (`./gradlew` is included)
+- For team version-control workflows in editor: `git` and `git lfs` installed/configured
 
 ## Quick Start
 
@@ -108,9 +109,11 @@ Run:
 ```
 
 Current editor highlights:
+- Startup Welcome dashboard with recent projects + environment health checks.
 - Project explorer with root-level run button (runs VN projects through runtime).
 - VNS/JES code editors with lint and parser diagnostics.
 - VNS quick-fix context actions (undefined labels, missing assets, unreachable blocks).
+- Built-in Version Control panel (Git + Git LFS): init repo, status, commit, pull-rebase, push.
 - Visual config editors:
   - `config/ui/dialogue.layout`
   - `config/menu/menus/*.menu`
@@ -185,9 +188,28 @@ New projects created from the editor wizard are scaffolded in this shape:
 |   |-- fonts/
 |   `-- audio/{bgm,sfx,voices}
 |-- save/
+|-- .gitignore                  (if Git init enabled)
+|-- .gitattributes              (if Git LFS defaults enabled)
 |-- README.md
 `-- jvn.project
 ```
+
+## Team Version Control (Git + Git LFS)
+
+JVN now ships first-party Git/Git-LFS project tooling:
+
+- **Wizard integration**:
+  - initialize Git repository
+  - add managed `.gitignore` defaults
+  - add managed `.gitattributes` LFS defaults
+  - optional initial commit
+- **Editor integration**:
+  - `Version Control` menu + addable side panel
+  - refresh status, initialize repo, commit all, pull (rebase+autostash), push
+  - changed-file list with quick open support
+
+Default LFS tracking patterns include common VN binary assets (`png/jpg/webp/gif`, audio/video formats, and fonts).
+Only prerequisites are `git` and `git lfs` on PATH.
 
 ## Module Overview
 
@@ -210,6 +232,7 @@ New projects created from the editor wizard are scaffolded in this shape:
 - `docs/Editor/Editor.md`
 - `docs/Editor/Help Center.md`
 - `docs/Project Setup/New Project Wizard.md`
+- `docs/Project Setup/Version Control.md`
 - `docs/Menu Profiles/Menu Profiles.md`
 - `docs/VNS Scripting/VNS Scripting.md`
 - `docs/VNS Scripting/VNS Parsing.md`

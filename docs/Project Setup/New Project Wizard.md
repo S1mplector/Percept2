@@ -32,10 +32,15 @@ Wizard class:
    - settings profile
    - history/backlog defaults
 
-4. **Generated Layout Preview**
+4. **Version Control**
+   - initialize Git repository
+   - enable Git LFS defaults
+   - optional initial commit
+
+5. **Generated Layout Preview**
    - live tree preview before create
 
-5. **Project Notes**
+6. **Project Notes**
    - optional description for manifest + README
 
 ## Generated Directory Structure
@@ -70,6 +75,8 @@ Wizard class:
 |   |-- fonts/
 |   `-- audio/{bgm,sfx,voices}
 |-- save/
+|-- .gitignore      (if Git init is enabled)
+|-- .gitattributes  (if Git LFS defaults are enabled)
 |-- README.md
 `-- jvn.project
 ```
@@ -82,6 +89,7 @@ Wizard writes key runtime/editor metadata such as:
 - config references (`settingsFile`, `dialogueLayout`, menu paths)
 - resolution (`width`, `height`)
 - selected module booleans
+- VCS toggles (`vcs.git.*`)
 
 This manifest is used by editor project-run workflow.
 
@@ -133,3 +141,5 @@ When enabled, creates:
 - Wizard output is intentionally plain text and source-control friendly.
 - Keep `jvn.project` committed; it defines entry/config linkage.
 - Use module toggles consistently across team templates to avoid layout drift.
+- If Git is enabled, the wizard writes managed blocks into `.gitignore` and `.gitattributes`.
+- Re-running Git/LFS setup from editor is safe; managed blocks are replaced in place.

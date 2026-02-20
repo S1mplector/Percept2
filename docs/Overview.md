@@ -46,6 +46,7 @@ This page is the high-level map. Use the linked docs for deeper implementation d
 - Visual editors for dialogue layout and menu configs
 - VNS lint + quick fixes (undefined labels, missing assets, unreachable blocks)
 - Timeline graph with validation and drag/drop script arc creation
+- Git + Git LFS version-control panel for team workflows
 - In-editor Help Center (`F1`) for docs search and preview
 
 ## Project Requirements
