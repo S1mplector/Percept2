@@ -53,6 +53,9 @@ public class FileEditorTab extends BorderPane {
   private String savedSnapshot = "";
   private double lastSizedWidth = -1;
   private double lastSizedHeight = -1;
+  private SplitPane primarySplit;
+  private boolean editorFullscreen;
+  private double restoreDividerPosition = 0.6;
 
   public FileEditorTab(File file) {
     this.file = file;
@@ -136,54 +139,26 @@ public class FileEditorTab extends BorderPane {
 
   private void setupLayout() {
     if (kind == Kind.JES) {
-      SplitPane sp = new SplitPane();
-      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
-      sp.getItems().addAll(viewport, jesEditor);
-      sp.setDividerPositions(0.6);
-      setCenter(sp);
+      setCenter(createVerticalSplit(viewport, jesEditor, 0.6));
     } else if (kind == Kind.VNS) {
-      SplitPane sp = new SplitPane();
-      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
-      sp.getItems().addAll(vnPreview, vnsEditor);
-      sp.setDividerPositions(0.6);
-      setCenter(sp);
+      setCenter(createVerticalSplit(vnPreview, vnsEditor, 0.6));
     } else if (kind == Kind.JAVA) {
       setCenter(javaEditor);
     } else if (kind == Kind.TIMELINE) {
-      SplitPane sp = new SplitPane();
-      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
-      sp.getItems().addAll(timelineView, timelineEditor);
-      sp.setDividerPositions(0.6);
-      setCenter(sp);
+      setCenter(createVerticalSplit(timelineView, timelineEditor, 0.6));
     } else if (kind == Kind.THEME) {
-      SplitPane sp = new SplitPane();
-      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
-      sp.getItems().addAll(themePreview, themeEditor);
-      sp.setDividerPositions(0.6);
-      setCenter(sp);
+      setCenter(createVerticalSplit(themePreview, themeEditor, 0.6));
       if (themeEditor != null && themePreview != null) {
         String text = themeEditor.getText(); if (text == null) text = "";
         themePreview.setThemeFromText(text);
         themeEditor.setOnTextChanged(t -> themePreview.setThemeFromText(t));
       }
     } else if (kind == Kind.MENU_SCREEN) {
-      SplitPane sp = new SplitPane();
-      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
-      sp.getItems().addAll(menuScreenVisualEditor, menuScreenEditor);
-      sp.setDividerPositions(0.6);
-      setCenter(sp);
+      setCenter(createVerticalSplit(menuScreenVisualEditor, menuScreenEditor, 0.6));
     } else if (kind == Kind.MENU_LAYOUT) {
-      SplitPane sp = new SplitPane();
-      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
-      sp.getItems().addAll(menuLayoutVisualEditor, menuLayoutEditor);
-      sp.setDividerPositions(0.55);
-      setCenter(sp);
+      setCenter(createVerticalSplit(menuLayoutVisualEditor, menuLayoutEditor, 0.55));
     } else if (kind == Kind.DIALOGUE_LAYOUT) {
-      SplitPane sp = new SplitPane();
-      sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
-      sp.getItems().addAll(dialogueLayoutVisualEditor, dialogueLayoutEditor);
-      sp.setDividerPositions(0.55);
-      setCenter(sp);
+      setCenter(createVerticalSplit(dialogueLayoutVisualEditor, dialogueLayoutEditor, 0.55));
     } else if (kind == Kind.OTHER) {
       setCenter(textEditor);
     } else {
@@ -403,6 +378,39 @@ public class FileEditorTab extends BorderPane {
   public void setShowGrid(boolean b) { if (viewport != null) viewport.setShowGrid(b); }
   public void fitToContent() { if (viewport != null) viewport.fitToContent(); }
   public void focusEditor() { Node ed = getEditorNode(); if (ed != null) ed.requestFocus(); }
+  public boolean supportsEditorFullscreenToggle() { return primarySplit != null; }
+  public boolean isEditorFullscreen() { return editorFullscreen; }
+
+  public void toggleEditorFullscreen() {
+    if (!supportsEditorFullscreenToggle()) return;
+    if (!editorFullscreen) {
+      double pos = currentDividerPosition();
+      restoreDividerPosition = (pos > 0.02 && pos < 0.98) ? pos : restoreDividerPosition;
+      primarySplit.setDividerPositions(0.0);
+      editorFullscreen = true;
+    } else {
+      double restore = Math.max(0.05, Math.min(0.95, restoreDividerPosition));
+      primarySplit.setDividerPositions(restore);
+      editorFullscreen = false;
+    }
+  }
+
+  private SplitPane createVerticalSplit(Node top, Node bottom, double divider) {
+    SplitPane sp = new SplitPane();
+    sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
+    sp.getItems().addAll(top, bottom);
+    sp.setDividerPositions(divider);
+    primarySplit = sp;
+    restoreDividerPosition = divider;
+    editorFullscreen = false;
+    return sp;
+  }
+
+  private double currentDividerPosition() {
+    if (primarySplit == null) return restoreDividerPosition;
+    if (primarySplit.getDividers().isEmpty()) return restoreDividerPosition;
+    return primarySplit.getDividers().get(0).getPosition();
+  }
 
   private void bindMenuScreenVisualSync() {
     if (menuScreenEditor == null || menuScreenVisualEditor == null) return;

@@ -22,9 +22,20 @@
    -fx-highlight-fill: #2a2a2a;          /* selection background */
    -fx-highlight-text-fill: #e6e6e6;      /* selection text */
    -rtfx-caret-color: #e6e6e6;            /* caret color */
+   -fx-caret-blink-rate: 700ms;
    caret-color: #e6e6e6;                  /* compatibility hint */
  }
  .code-area .text { -fx-fill: #e6e6e6; }
+
+ /* Typography polish: clearer insertion caret + active line */
+ .code-area .caret {
+   -fx-stroke: #f7f7f7;
+   -fx-stroke-width: 1.25;
+ }
+
+ .code-area .paragraph-box:has-caret {
+   -fx-background-color: rgba(77, 163, 255, 0.10);
+ }
 
  .keyword { -fx-fill: #4da3ff; -fx-font-weight: bold; }
 

@@ -142,6 +142,7 @@ See full wizard documentation:
 - `Cmd/Ctrl+Shift+S` -> Save As
 - `Cmd/Ctrl+W` -> Close Tab
 - `Cmd/Ctrl+Enter` -> Apply Code
+- `F11` -> Toggle editor fullscreen (for split preview+editor tabs)
 - `Cmd/Ctrl+Z` -> Undo
 - `Cmd/Ctrl+Shift+Z` -> Redo
 - `F1` -> Open/select Help Center

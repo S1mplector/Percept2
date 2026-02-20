@@ -459,7 +459,10 @@ public class EditorApp extends Application {
     MenuItem miApplyCode = new MenuItem("Apply Code");
     miApplyCode.setOnAction(e -> applyCodeFromEditor());
     miApplyCode.setAccelerator(new KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN));
-    menuCode.getItems().addAll(miApplyCode);
+    MenuItem miToggleEditorFullscreen = new MenuItem("Toggle Editor Fullscreen");
+    miToggleEditorFullscreen.setOnAction(e -> toggleActiveEditorFullscreen());
+    miToggleEditorFullscreen.setAccelerator(new KeyCodeCombination(KeyCode.F11));
+    menuCode.getItems().addAll(miApplyCode, miToggleEditorFullscreen);
 
     Menu menuProject = new Menu("Project");
     MenuItem miRun = new MenuItem("Run Project");
@@ -787,6 +790,17 @@ public class EditorApp extends Application {
       EditorTheme.apply(a);
       a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
     }
+  }
+
+  private void toggleActiveEditorFullscreen() {
+    FileEditorTab ft = getActiveFileTab();
+    if (ft == null) return;
+    if (!ft.supportsEditorFullscreenToggle()) {
+      status.setText("Editor already uses full area");
+      return;
+    }
+    ft.toggleEditorFullscreen();
+    status.setText(ft.isEditorFullscreen() ? "Editor fullscreen enabled" : "Editor split layout restored");
   }
 
   private void doSave(Stage stage) {
