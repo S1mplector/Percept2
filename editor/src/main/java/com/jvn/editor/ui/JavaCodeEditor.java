@@ -1,22 +1,27 @@
 package com.jvn.editor.ui;
 
-import javafx.scene.layout.BorderPane;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
-import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.function.Consumer;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.BorderPane;
 
 public class JavaCodeEditor extends BorderPane {
   private final CodeArea codeArea = new CodeArea();
   private Consumer<String> onTextChanged;
   private boolean suppressEvent = false;
+  private EditorSearchBar searchBar;
+  private boolean searchBarVisible = false;
 
   private static final String[] KEYWORDS = new String[] {
     "abstract","assert","boolean","break","byte","case","catch","char","class","const","continue",
@@ -59,6 +64,50 @@ public class JavaCodeEditor extends BorderPane {
     if (css != null) {
       getStylesheets().add(css.toExternalForm());
       codeArea.getStylesheets().add(css.toExternalForm());
+    }
+
+    setupSearchBar();
+  }
+
+  private void setupSearchBar() {
+    searchBar = new EditorSearchBar();
+    searchBar.setCodeArea(codeArea);
+    searchBar.setOnClose(this::hideSearchBar);
+    searchBar.setVisible(false);
+    searchBar.setManaged(false);
+
+    addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+      if ((e.isMetaDown() || e.isControlDown()) && e.getCode() == KeyCode.F) {
+        showSearchBar();
+        e.consume();
+      } else if (e.getCode() == KeyCode.ESCAPE && searchBarVisible) {
+        hideSearchBar();
+        e.consume();
+      }
+    });
+  }
+
+  public void showSearchBar() {
+    if (!searchBarVisible) {
+      setTop(searchBar);
+      searchBar.setVisible(true);
+      searchBar.setManaged(true);
+      searchBarVisible = true;
+    }
+    String selected = codeArea.getSelectedText();
+    if (selected != null && !selected.isEmpty() && !selected.contains("\n")) {
+      searchBar.setSearchText(selected);
+    }
+    searchBar.focus();
+  }
+
+  public void hideSearchBar() {
+    if (searchBarVisible) {
+      setTop(null);
+      searchBar.setVisible(false);
+      searchBar.setManaged(false);
+      searchBarVisible = false;
+      codeArea.requestFocus();
     }
   }
 

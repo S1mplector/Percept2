@@ -1,20 +1,5 @@
 package com.jvn.editor.ui;
 
-import com.jvn.core.vn.script.VnScriptParser;
-import javafx.application.Platform;
-import javafx.scene.control.Button;
-import javafx.scene.control.ChoiceDialog;
-import javafx.scene.control.ContextMenu;
-import javafx.scene.control.Label;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.ToolBar;
-import javafx.scene.layout.BorderPane;
-import org.fxmisc.flowless.VirtualizedScrollPane;
-import org.fxmisc.richtext.CodeArea;
-import org.fxmisc.richtext.LineNumberFactory;
-import org.fxmisc.richtext.model.StyleSpans;
-import org.fxmisc.richtext.model.StyleSpansBuilder;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,6 +17,22 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.fxmisc.flowless.VirtualizedScrollPane;
+import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.richtext.model.StyleSpans;
+import org.fxmisc.richtext.model.StyleSpansBuilder;
+
+import com.jvn.core.vn.script.VnScriptParser;
+
+import javafx.application.Platform;
+import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.BorderPane;
+
 public class VnsCodeEditor extends BorderPane {
   private final CodeArea codeArea = new CodeArea();
   private final Label lintLabel = new Label("No issues");
@@ -41,6 +42,8 @@ public class VnsCodeEditor extends BorderPane {
   private int highlightedIssueLine = -1;
   private boolean highlightedIssueWarning = false;
   private Consumer<String> onTextChanged;
+  private EditorSearchBar searchBar;
+  private boolean searchBarVisible = false;
 
   private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|label|define|include|var)\\b";
   private static final String BRACKET_PATTERN = "\\[[^\\]]+]";
@@ -80,76 +83,6 @@ public class VnsCodeEditor extends BorderPane {
     VirtualizedScrollPane<CodeArea> sp = new VirtualizedScrollPane<>(codeArea);
     setCenter(sp);
 
-    Button bDialogue = new Button("Dialogue");
-    bDialogue.setOnAction(e -> insertSnippet("Speaker: Your line here" + System.lineSeparator()));
-
-    Button bChoice = new Button("Choice");
-    bChoice.setOnAction(e -> insertSnippet("> Choice text -> targetLabel" + System.lineSeparator()));
-
-    Button bBackground = new Button("Background");
-    bBackground.setOnAction(e -> insertSnippet("[background bgId]" + System.lineSeparator()));
-
-    Button bJump = new Button("Jump");
-    bJump.setOnAction(e -> insertSnippet("[jump labelName]" + System.lineSeparator()));
-
-    Button bSet = new Button("Set Var");
-    bSet.setOnAction(e -> insertSnippet("[set varName value]" + System.lineSeparator()));
-
-    Button bIf = new Button("If/Else");
-    bIf.setOnAction(e -> insertSnippet(
-        "[if score >= 10]" + System.lineSeparator() +
-        "narrator \"Condition met.\"" + System.lineSeparator() +
-        "[else]" + System.lineSeparator() +
-        "narrator \"Condition not met.\"" + System.lineSeparator() +
-        "[endif]" + System.lineSeparator()
-    ));
-
-    Button bHud = new Button("HUD");
-    bHud.setOnAction(e -> insertSnippet("[call hud Hello]" + System.lineSeparator()));
-
-    Button bJava = new Button("Java");
-    bJava.setOnAction(e -> insertSnippet("[java com.example.Class#method arg1 arg2]" + System.lineSeparator()));
-
-    Button bSettings = new Button("Settings");
-    bSettings.setOnAction(e -> insertSnippet("[settings]" + System.lineSeparator()));
-
-    Button bMainMenu = new Button("MainMenu");
-    bMainMenu.setOnAction(e -> insertSnippet("[mainmenu demo.vns]" + System.lineSeparator()));
-
-    Button bMenuSave = new Button("MenuSave");
-    bMenuSave.setOnAction(e -> insertSnippet("[menu save]" + System.lineSeparator()));
-
-    Button bMenuLoad = new Button("MenuLoad");
-    bMenuLoad.setOnAction(e -> insertSnippet("[menu load demo.vns]" + System.lineSeparator()));
-
-    Button bLoad = new Button("Load");
-    bLoad.setOnAction(e -> insertSnippet("[load arc2.vns label start]" + System.lineSeparator()));
-
-    Button bGotoArc = new Button("GotoArc");
-    bGotoArc.setOnAction(e -> insertSnippet("[goto arcName:labelName]" + System.lineSeparator()));
-
-    Button bJesCall = new Button("JES Call");
-    bJesCall.setOnAction(e -> insertSnippet("[jes call flash color=#ff0 dur=300]" + System.lineSeparator()));
-
-    ToolBar bar = new ToolBar(
-        bDialogue,
-        bChoice,
-        bBackground,
-        bJump,
-        bSet,
-        bIf,
-        bHud,
-        bJava,
-        bSettings,
-        bMainMenu,
-        bMenuSave,
-        bMenuLoad,
-        bLoad,
-        bGotoArc,
-        bJesCall
-    );
-    setTop(bar);
-
     var css = VnsCodeEditor.class.getResource("/com/jvn/editor/editor.css");
     if (css != null) {
       getStylesheets().add(css.toExternalForm());
@@ -157,6 +90,8 @@ public class VnsCodeEditor extends BorderPane {
     }
 
     completer = new CodeAutoCompleter(codeArea, this::provideSuggestions);
+
+    setupSearchBar();
 
     codeArea.setOnContextMenuRequested(e -> {
       Issue issue = issueAt(codeArea.getCaretPosition());
@@ -168,6 +103,48 @@ public class VnsCodeEditor extends BorderPane {
     });
 
     applyAnalysis("");
+  }
+
+  private void setupSearchBar() {
+    searchBar = new EditorSearchBar();
+    searchBar.setCodeArea(codeArea);
+    searchBar.setOnClose(this::hideSearchBar);
+    searchBar.setVisible(false);
+    searchBar.setManaged(false);
+
+    addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+      if ((e.isMetaDown() || e.isControlDown()) && e.getCode() == KeyCode.F) {
+        showSearchBar();
+        e.consume();
+      } else if (e.getCode() == KeyCode.ESCAPE && searchBarVisible) {
+        hideSearchBar();
+        e.consume();
+      }
+    });
+  }
+
+  public void showSearchBar() {
+    if (!searchBarVisible) {
+      setTop(searchBar);
+      searchBar.setVisible(true);
+      searchBar.setManaged(true);
+      searchBarVisible = true;
+    }
+    String selected = codeArea.getSelectedText();
+    if (selected != null && !selected.isEmpty() && !selected.contains("\n")) {
+      searchBar.setSearchText(selected);
+    }
+    searchBar.focus();
+  }
+
+  public void hideSearchBar() {
+    if (searchBarVisible) {
+      setTop(null);
+      searchBar.setVisible(false);
+      searchBar.setManaged(false);
+      searchBarVisible = false;
+      codeArea.requestFocus();
+    }
   }
 
   public String getText() {
