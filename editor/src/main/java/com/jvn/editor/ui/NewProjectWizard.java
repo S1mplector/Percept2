@@ -94,6 +94,7 @@ public class NewProjectWizard extends Stage {
   private static final String BUNDLED_DEMO_ASSETS_DIR = "demo-assets";
   private static final String BUNDLED_DEMO_BG_DIR = "demo_bg_field";
   private static final String BUNDLED_DEMO_SPRITE_DIR = "demo_sprite_codel";
+  private static final String BUNDLED_DEMO_BGM_DIR = "demo_bgm";
 
   public NewProjectWizard(Stage owner) {
     initOwner(owner);
@@ -826,6 +827,10 @@ public class NewProjectWizard extends Stage {
         new File(sourceRoot, BUNDLED_DEMO_SPRITE_DIR),
         new File(projectRoot, "assets/demo/characters/codel")
     );
+    copyDirectoryContents(
+        new File(sourceRoot, BUNDLED_DEMO_BGM_DIR),
+        new File(projectRoot, "assets/demo/audio")
+    );
   }
 
   private File resolveBundledDemoAssetsRoot() {
@@ -957,10 +962,8 @@ public class NewProjectWizard extends Stage {
 
         @character codel "Codel"
 
-        @charimg codel neutral assets/demo/characters/codel/Codel1.png
-        @charimg codel happy assets/demo/characters/codel/Codel8.png
-        @charimg codel excited assets/demo/characters/codel/Codel4.png
-        @charimg codel thinking assets/demo/characters/codel/Codel6.png
+        @charimg codel talking assets/demo/characters/codel/Codel1.png
+        @charimg codel idle assets/demo/characters/codel/Codel2.png
 
         @background field_day assets/demo/backgrounds/field/field.jpg
         @background field_evening assets/demo/backgrounds/field/field.jpg
@@ -971,20 +974,19 @@ public class NewProjectWizard extends Stage {
         [transition fade 500]
         [textspeed 28]
         [autodelay 1800]
+        [bgm assets/demo/audio/softbreeze.mp3]
 
-        [show codel center happy]
+        [show codel center talking]
         [wait 240]
 
         Codel: Hi! My name is Codel, and I'd like to welcome you to the JVN tutorial.
         Codel: In this tutorial, we'll teach you the basics of JVN, so you can make visual novels of your own.
-        [show codel center excited]
         Codel: We'll also demonstrate many features, so you can see what JVN is capable of.
-        [show codel center neutral]
         Codel: This is {b}%s{/b}, by the way. Feel free to poke around the scripts when we're done!
         [jump tutorials_hub]
 
         @label tutorials_hub
-        [show codel left happy]
+        [show codel left talking]
         [wait 170]
         [if tutorials_first_time == true]
         Codel: What would you like to see?
@@ -1010,11 +1012,10 @@ public class NewProjectWizard extends Stage {
         > That's enough for now -> end_early
 
         @label tutorial_player
-        [show codel center neutral]
+        [show codel center talking]
         [wait 220]
         Codel: When a player starts your game, the first thing they'll see is the main menu.
         Codel: From there, they can start a new game, load a saved game, or adjust settings.
-        [show codel center happy]
         Codel: During gameplay, they can click to advance text, save their progress, or use auto-play.
         Codel: Making sure all these feel smooth is key to a good player experience!
         [if q_player_done == false]
@@ -1025,11 +1026,10 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorial_create
-        [show codel center happy]
+        [show codel center talking]
         [wait 220]
         Codel: Creating a new JVN project is easy! Just use the New Project wizard in the editor.
         Codel: You'll get a project folder with scripts, config files, and some starter assets.
-        [show codel center neutral]
         Codel: Your story goes in the script files. Layout and settings go in config. Nice and organized!
         [if q_create_done == false]
         [set q_create_done true]
@@ -1039,11 +1039,10 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorial_dialogue
-        [show codel center excited]
+        [show codel center talking]
         [wait 200]
         Codel: Writing dialogue is the heart of any visual novel!
         Codel: You can use tags like {b}bold{/b}, {i}italic{/i}, and {color=#4a9eff}color{/color} to style your text.
-        [show codel center happy]
         Codel: There's even {wave}wavy text{/wave} for when things get dramatic!
         Codel: Just remember - a little formatting goes a long way.
         [if q_dialogue_done == false]
@@ -1054,11 +1053,10 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorial_images
-        [show codel center neutral]
+        [show codel center talking]
         [wait 170]
         Codel: Images bring your story to life! You'll mainly work with two types.
         Codel: Character sprites - that's me! - and backgrounds, like this field behind us.
-        [show codel center happy]
         Codel: You define them once with @charimg and @background, then use them by name.
         Codel: That way, if you swap out an image file later, your scripts still work!
         [if q_images_done == false]
@@ -1069,16 +1067,16 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorial_positions
-        [show codel center neutral]
+        [show codel center talking]
         [wait 220]
         Codel: Characters can appear in different spots on screen.
-        [show codel right happy]
+        [show codel right talking]
         [wait 320]
         Codel: See? I just moved to the right!
-        [show codel left neutral]
+        [show codel left talking]
         [wait 260]
         Codel: And now I'm on the left. You can position characters anywhere you need them.
-        [show codel center happy]
+        [show codel center talking]
         Codel: This is great for conversations between multiple characters.
         [if q_positions_done == false]
         [set q_positions_done true]
@@ -1088,15 +1086,13 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorial_transitions
-        [show codel center neutral]
+        [show codel center talking]
         Codel: Transitions make scene changes feel smooth and polished.
         [transition crossfade 650 field_evening]
         Codel: Like that crossfade! The background just changed to evening.
-        [show codel center excited]
         [screen flash 0.28 140 1 1 1]
         Codel: And effects like screen flashes add dramatic impact.
         [transition fade 450 field_day]
-        [show codel center happy]
         Codel: Back to daytime! Transitions help set the mood of each scene.
         [if q_transitions_done == false]
         [set q_transitions_done true]
@@ -1106,11 +1102,10 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorial_audio
-        [show codel center happy]
+        [show codel center talking]
         [wait 170]
         Codel: Music and sound effects really bring a visual novel to life!
         Codel: You can play background music that loops, or one-shot sound effects.
-        [show codel center neutral]
         Codel: Try to match your music to the mood - upbeat for happy scenes, soft for emotional moments.
         Codel: Players can adjust the volume in settings, so don't worry about being too loud.
         [if q_audio_done == false]
@@ -1121,7 +1116,7 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorial_menus
-        [show codel center excited]
+        [show codel center talking]
         [wait 220]
         Codel: Choices let players shape the story! Let me show you.
         Codel: Quick - pick your favorite season!
@@ -1131,27 +1126,22 @@ public class NewProjectWizard extends Stage {
         > Winter -> choice_winter
 
         @label choice_spring
-        [show codel center happy]
         Codel: Spring! New beginnings and cherry blossoms. Nice choice!
         [jump menus_done]
 
         @label choice_summer
-        [show codel center happy]
         Codel: Summer! Beach episodes and festivals. Classic!
         [jump menus_done]
 
         @label choice_autumn
-        [show codel center happy]
         Codel: Autumn! Cozy vibes and falling leaves. I like your style!
         [jump menus_done]
 
         @label choice_winter
-        [show codel center happy]
         Codel: Winter! Hot cocoa and snow scenes. Very atmospheric!
         [jump menus_done]
 
         @label menus_done
-        [show codel center neutral]
         Codel: See how that worked? Each choice can lead to different dialogue or even different story paths.
         Codel: You can also use variables to remember what players chose for later.
         [if q_menus_done == false]
@@ -1162,15 +1152,13 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorial_input
-        [show codel center happy]
+        [show codel center talking]
         [wait 200]
         Codel: Variables let you personalize the story!
         [set playerName Friend]
         Codel: For example, I just set your name to "${playerName}".
-        [show codel center excited]
         Codel: Now I can say: "Nice to meet you, ${playerName}!"
         Codel: You can use this for player names, relationship points, inventory... anything!
-        [show codel center neutral]
         Codel: You've completed ${completion} topics so far, by the way.
         [if q_input_done == false]
         [set q_input_done true]
@@ -1180,7 +1168,7 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label in_depth_hub
-        [show codel left excited]
+        [show codel left talking]
         [wait 170]
         Codel: Ready for some advanced topics? Let's dive deeper!
         > Text Tags and Escapes [if i_text_done == false] -> indepth_text
@@ -1192,12 +1180,11 @@ public class NewProjectWizard extends Stage {
         > That's enough for now -> end_early
 
         @label indepth_text
-        [show codel center happy]
+        [show codel center talking]
         [wait 200]
         Codel: Let's talk more about text formatting!
         Codel: Beyond basics, you can combine tags: {b}{i}bold italic{/i}{/b}, or nest colors.
         Codel: Need a literal brace in your text? Just escape it!
-        [show codel center neutral]
         Codel: The key is consistency. Pick a style and stick with it throughout your game.
         [if i_text_done == false]
         [set i_text_done true]
@@ -1206,15 +1193,14 @@ public class NewProjectWizard extends Stage {
         [jump in_depth_hub]
 
         @label indepth_character
-        [show codel center neutral]
+        [show codel center talking]
         [wait 220]
         Codel: Characters can do more than just stand around!
-        [show codel right happy]
+        [show codel right talking]
         [wait 300]
         Codel: You can smoothly move them while changing expressions.
-        [show codel center thinking]
+        [show codel center talking]
         Codel: This makes conversations feel natural and dynamic.
-        [show codel center happy]
         Codel: Experiment with timing to find what feels right for your scenes.
         [if i_character_done == false]
         [set i_character_done true]
@@ -1223,13 +1209,12 @@ public class NewProjectWizard extends Stage {
         [jump in_depth_hub]
 
         @label indepth_animation
-        [show codel center excited]
+        [show codel center talking]
         [wait 170]
         Codel: Animation adds polish to your visual novel!
-        [show codel right happy]
+        [show codel right talking]
         [wait 220]
         Codel: Character entrances, screen shakes, fades - they all help tell your story.
-        [show codel center neutral]
         Codel: But remember: animation should support your narrative, not distract from it.
         Codel: A well-timed pause can be more powerful than flashy effects!
         [if i_animation_done == false]
@@ -1239,11 +1224,10 @@ public class NewProjectWizard extends Stage {
         [jump in_depth_hub]
 
         @label indepth_gui
-        [show codel center happy]
+        [show codel center talking]
         [wait 170]
         Codel: The GUI is how players interact with your game!
         Codel: Text boxes, menus, buttons - you can customize all of it.
-        [show codel center neutral]
         Codel: Layout settings live in config files, separate from your story scripts.
         Codel: That means you can tweak the look without touching your dialogue!
         [if i_gui_done == false]
@@ -1253,11 +1237,10 @@ public class NewProjectWizard extends Stage {
         [jump in_depth_hub]
 
         @label indepth_translations
-        [show codel center happy]
+        [show codel center talking]
         [wait 200]
         Codel: Want players around the world to enjoy your game?
         Codel: JVN supports translations! Keep your text organized and it's much easier.
-        [show codel center neutral]
         Codel: Avoid putting text directly in logic - use variables and string IDs instead.
         Codel: Your future self (and translators) will thank you!
         [if i_translations_done == false]
@@ -1267,13 +1250,11 @@ public class NewProjectWizard extends Stage {
         [jump in_depth_hub]
 
         @label end_early
-        [show codel center happy]
+        [show codel center talking]
         [wait 200]
         Codel: Thank you for checking out this tutorial!
-        [show codel center excited]
         Codel: If you'd like to see how this demo works, take a look at {b}%s{/b}.
         Codel: You can edit it, break it, rebuild it - that's how you learn!
-        [show codel center happy]
         Codel: We look forward to seeing what you create with JVN. Have fun!
         [end]
 
