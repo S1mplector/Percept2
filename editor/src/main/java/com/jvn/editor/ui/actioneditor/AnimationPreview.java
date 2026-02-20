@@ -36,6 +36,10 @@ public class AnimationPreview extends VBox {
     private Consumer<String> onEntitySelected;
     private BiConsumer<String, double[]> onEntityMoved;
 
+    public void setProjectRoot(java.io.File root) {
+        blitter.setProjectRoot(root);
+    }
+
     public AnimationPreview() {
         canvas = new Canvas(600, 300);
         gc = canvas.getGraphicsContext2D();

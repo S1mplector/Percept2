@@ -1,20 +1,21 @@
 package com.jvn.fx.scene2d;
 
+import java.net.URL;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
 import com.jvn.core.scene2d.Blitter2D;
+
+import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.effect.BlendMode;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import javafx.scene.effect.BlendMode;
-import javafx.geometry.VPos;
 import javafx.scene.text.TextAlignment;
-
-import java.net.URL;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.HashSet;
-import java.util.Set;
 
 public class FxBlitter2D implements Blitter2D {
   private final GraphicsContext gc;
@@ -194,11 +195,27 @@ public class FxBlitter2D implements Blitter2D {
 
   private Image loadImage(String path) {
     try {
+      // 1. Classpath lookup
       URL u = getClass().getClassLoader().getResource(path);
-      if (u == null) return null;
-      return new Image(u.toExternalForm());
-    } catch (Exception e) { return null; }
+      if (u != null) return new Image(u.toExternalForm());
+
+      // 2. Absolute filesystem path
+      java.io.File f = new java.io.File(path);
+      if (f.isAbsolute() && f.exists()) {
+        return new Image(f.toURI().toString());
+      }
+
+      // 3. Relative to project root (if set)
+      if (projectRoot != null) {
+        java.io.File pf = new java.io.File(projectRoot, path);
+        if (pf.exists()) return new Image(pf.toURI().toString());
+      }
+    } catch (Exception e) { /* fall through */ }
+    return null;
   }
+
+  private java.io.File projectRoot;
+  public void setProjectRoot(java.io.File root) { this.projectRoot = root; }
 
   private double clamp01(double v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
 

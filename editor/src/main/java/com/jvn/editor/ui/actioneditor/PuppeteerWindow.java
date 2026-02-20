@@ -279,6 +279,10 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
+    public void setProjectRoot(java.io.File root) {
+        animationPreview.setProjectRoot(root);
+    }
+
     public AnimationProject getProject() { return project; }
 
     public void setOnCopyCode(Consumer<String> callback) { this.onCopyCode = callback; }

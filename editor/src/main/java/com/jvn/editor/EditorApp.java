@@ -1656,6 +1656,7 @@ public class EditorApp extends Application {
     if (ft != null && ft.getJesScene() != null) {
       puppeteer.setScene(ft.getJesScene());
     } else if (snapshot != null && !snapshot.characters.isEmpty()) {
+      if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
       JesScene2D scene = buildSceneFromSnapshot(snapshot);
       puppeteer.setScene(scene);
     }
