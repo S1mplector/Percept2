@@ -1010,31 +1010,24 @@ public class NewProjectWizard extends Stage {
         @label tutorial_menus
         [show codel center talking]
         [wait 220]
-        Codel: Choices let players shape the story! Let me show you.
-        Codel: Quick - pick your favorite season!
-        > Spring -> choice_spring
-        > Summer -> choice_summer
-        > Autumn -> choice_autumn
-        > Winter -> choice_winter
+        Codel: Choices let players shape the story! Each option can branch to different paths.
+        Codel: JVN also has built-in menu integration. Want to try the save system?
+        > Yes, open save menu -> menus_save
+        > No, tell me about it -> menus_explain
 
-        @label choice_spring
-        Codel: Spring! New beginnings and cherry blossoms. Nice choice!
+        @label menus_save
+        Codel: Opening the save menu now!
+        [save]
+        Codel: That was the [save] command. Players can save their progress anytime.
         [jump menus_done]
 
-        @label choice_summer
-        Codel: Summer! Beach episodes and festivals. Classic!
-        [jump menus_done]
-
-        @label choice_autumn
-        Codel: Autumn! Cozy vibes and falling leaves. I like your style!
-        [jump menus_done]
-
-        @label choice_winter
-        Codel: Winter! Hot cocoa and snow scenes. Very atmospheric!
+        @label menus_explain
+        Codel: No problem! The [save] command opens the save menu.
+        Codel: There's also [mainmenu] to return to the title screen.
         [jump menus_done]
 
         @label menus_done
-        Codel: See how that worked? Each choice can lead to different dialogue or even different story paths.
+        Codel: You can trigger menus from scripts or let players use keyboard shortcuts.
         [jump tutorials_hub]
 
         @label end_early
