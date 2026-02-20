@@ -291,6 +291,29 @@ public class LayoutEditorLauncherView extends BorderPane {
     boolean changed = !actual.equals(VnUiLayoutSpec.defaults());
     String textBoxAsset = normalize(p.getProperty("textBoxAsset"), "");
     if (!textBoxAsset.isBlank()) changed = true;
+    if (hasAnyNonBlank(
+        p,
+        "choiceButtonAsset",
+        "choiceButtonHoverAsset",
+        "choiceButtonSelectedAsset",
+        "choiceButtonDisabledAsset",
+        "choiceBackgroundColor",
+        "choiceHoverColor",
+        "choiceSelectedColor",
+        "choiceDisabledColor",
+        "choiceTextColor",
+        "choiceHoverTextColor",
+        "choiceSelectedTextColor",
+        "choiceDisabledTextColor",
+        "choiceBorderColor",
+        "choiceHoverBorderColor",
+        "choiceSelectedBorderColor",
+        "choiceDisabledBorderColor",
+        "choiceCornerRadius",
+        "choiceBorderWidth",
+        "choiceTextBaselineOffset")) {
+      changed = true;
+    }
     return new LayoutItem(
         "Dialogue Layout",
         relPath,
@@ -528,6 +551,14 @@ public class LayoutEditorLauncherView extends BorderPane {
     String first = normalize(a, "");
     if (!first.isBlank()) return first;
     return normalize(b, "");
+  }
+
+  private static boolean hasAnyNonBlank(Properties p, String... keys) {
+    if (p == null || keys == null) return false;
+    for (String key : keys) {
+      if (!normalize(p.getProperty(key), "").isBlank()) return true;
+    }
+    return false;
   }
 
   private static String formatDouble(double value) {

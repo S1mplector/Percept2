@@ -37,28 +37,40 @@ public final class VnUiLayoutLoader {
   }
 
   public static VnUiLayoutSpec loadFromAssets(AssetCatalog assets) {
-    if (assets == null) return VnUiLayoutSpec.defaults();
+    return parse(loadPropertiesFromAssets(assets), VnUiLayoutSpec.defaults());
+  }
+
+  public static VnUiLayoutSpec loadFromProjectRoot(File projectRoot) {
+    return parse(loadPropertiesFromProjectRoot(projectRoot), VnUiLayoutSpec.defaults());
+  }
+
+  public static Properties loadPropertiesFromAssets() {
+    return loadPropertiesFromAssets(new AssetCatalog());
+  }
+
+  public static Properties loadPropertiesFromAssets(AssetCatalog assets) {
+    if (assets == null) return new Properties();
     List<String> candidates = new ArrayList<>();
     String configured = readManifestLayoutPath(assets);
     if (configured != null) candidates.add(configured);
     for (String path : DEFAULT_LAYOUT_PATHS) candidates.add(path);
     for (String path : candidates) {
       Properties p = loadFromAssets(assets, path);
-      if (p != null) return parse(p, VnUiLayoutSpec.defaults());
+      if (p != null) return p;
     }
-    return VnUiLayoutSpec.defaults();
+    return new Properties();
   }
 
-  public static VnUiLayoutSpec loadFromProjectRoot(File projectRoot) {
-    if (projectRoot == null) return VnUiLayoutSpec.defaults();
+  public static Properties loadPropertiesFromProjectRoot(File projectRoot) {
+    if (projectRoot == null) return new Properties();
     List<String> candidates = candidatePaths(projectRoot);
     for (String rel : candidates) {
       File f = new File(projectRoot, rel);
       if (!f.exists() || !f.isFile()) continue;
       Properties p = loadFromFile(f);
-      if (p != null) return parse(p, VnUiLayoutSpec.defaults());
+      if (p != null) return p;
     }
-    return VnUiLayoutSpec.defaults();
+    return new Properties();
   }
 
   public static VnUiLayoutSpec parse(Properties props, VnUiLayoutSpec base) {

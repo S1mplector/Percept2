@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import com.jvn.core.localization.Localization;
 import com.jvn.core.vn.CharacterPosition;
@@ -50,6 +51,26 @@ public class VnRenderer {
   private static final Color CHOICE_HOVER_COLOR = Color.rgb(70, 70, 100, 0.9);
   private static final Color CHOICE_DISABLED_COLOR = Color.rgb(60, 60, 60, 0.6);
   private static final Color TEXT_COLOR_DISABLED = Color.color(1, 1, 1, 0.5);
+  private static final Color CHOICE_DISABLED_BORDER_COLOR = Color.color(1, 1, 1, 0.55);
+  private static final String KEY_CHOICE_BUTTON_ASSET = "choiceButtonAsset";
+  private static final String KEY_CHOICE_BUTTON_HOVER_ASSET = "choiceButtonHoverAsset";
+  private static final String KEY_CHOICE_BUTTON_SELECTED_ASSET = "choiceButtonSelectedAsset";
+  private static final String KEY_CHOICE_BUTTON_DISABLED_ASSET = "choiceButtonDisabledAsset";
+  private static final String KEY_CHOICE_BG_COLOR = "choiceBackgroundColor";
+  private static final String KEY_CHOICE_HOVER_COLOR = "choiceHoverColor";
+  private static final String KEY_CHOICE_SELECTED_COLOR = "choiceSelectedColor";
+  private static final String KEY_CHOICE_DISABLED_COLOR = "choiceDisabledColor";
+  private static final String KEY_CHOICE_TEXT_COLOR = "choiceTextColor";
+  private static final String KEY_CHOICE_HOVER_TEXT_COLOR = "choiceHoverTextColor";
+  private static final String KEY_CHOICE_SELECTED_TEXT_COLOR = "choiceSelectedTextColor";
+  private static final String KEY_CHOICE_DISABLED_TEXT_COLOR = "choiceDisabledTextColor";
+  private static final String KEY_CHOICE_BORDER_COLOR = "choiceBorderColor";
+  private static final String KEY_CHOICE_HOVER_BORDER_COLOR = "choiceHoverBorderColor";
+  private static final String KEY_CHOICE_SELECTED_BORDER_COLOR = "choiceSelectedBorderColor";
+  private static final String KEY_CHOICE_DISABLED_BORDER_COLOR = "choiceDisabledBorderColor";
+  private static final String KEY_CHOICE_BORDER_WIDTH = "choiceBorderWidth";
+  private static final String KEY_CHOICE_CORNER_RADIUS = "choiceCornerRadius";
+  private static final String KEY_CHOICE_TEXT_BASELINE_OFFSET = "choiceTextBaselineOffset";
   private static final Color HISTORY_PANEL_COLOR = Color.rgb(12, 12, 18, 0.92);
   private static final Color HISTORY_BORDER_COLOR = Color.rgb(220, 220, 255, 0.18);
   private static final Color HISTORY_ENTRY_BG = Color.rgb(24, 24, 34, 0.75);
@@ -59,13 +80,32 @@ public class VnRenderer {
   private static final double HISTORY_HEADER_HEIGHT = 46;
   private static final double HISTORY_FOOTER_HEIGHT = 44;
   private static final double HISTORY_LINE_HEIGHT = 28;
+  private static final double DEFAULT_CHOICE_RADIUS = 10.0;
+  private static final double DEFAULT_CHOICE_BORDER_WIDTH = 2.0;
+  private static final double DEFAULT_CHOICE_TEXT_BASELINE_OFFSET = 5.0;
+
+  private Image choiceButtonImage;
+  private Image choiceButtonHoverImage;
+  private Image choiceButtonDisabledImage;
+  private Color choiceBgColor = CHOICE_BG_COLOR;
+  private Color choiceHoverColor = CHOICE_HOVER_COLOR;
+  private Color choiceDisabledColor = CHOICE_DISABLED_COLOR;
+  private Color choiceTextColor = TEXT_COLOR;
+  private Color choiceHoverTextColor = TEXT_COLOR;
+  private Color choiceDisabledTextColor = TEXT_COLOR_DISABLED;
+  private Color choiceBorderColor = TEXT_COLOR;
+  private Color choiceHoverBorderColor = TEXT_COLOR;
+  private Color choiceDisabledBorderColor = CHOICE_DISABLED_BORDER_COLOR;
+  private double choiceCornerRadius = DEFAULT_CHOICE_RADIUS;
+  private double choiceBorderWidth = DEFAULT_CHOICE_BORDER_WIDTH;
+  private double choiceTextBaselineOffset = DEFAULT_CHOICE_TEXT_BASELINE_OFFSET;
 
   public VnRenderer(GraphicsContext gc) {
     this.gc = gc;
     this.nameFont = Font.font("Arial", FontWeight.BOLD, 18);
     this.dialogueFont = Font.font("Arial", FontWeight.NORMAL, 16);
     this.choiceFont = Font.font("Arial", FontWeight.NORMAL, 16);
-    this.uiLayout = VnUiLayoutLoader.loadFromAssets();
+    reloadUiLayout();
   }
 
   // Optional base directory used to resolve asset paths from filesystem (editor preview)
@@ -84,11 +124,14 @@ public class VnRenderer {
   }
 
   public void reloadUiLayout() {
+    Properties props;
     if (projectRoot != null) {
-      this.uiLayout = VnUiLayoutLoader.loadFromProjectRoot(projectRoot);
+      props = VnUiLayoutLoader.loadPropertiesFromProjectRoot(projectRoot);
     } else {
-      this.uiLayout = VnUiLayoutLoader.loadFromAssets();
+      props = VnUiLayoutLoader.loadPropertiesFromAssets();
     }
+    this.uiLayout = VnUiLayoutLoader.parse(props, VnUiLayoutSpec.defaults());
+    applyChoiceStyleFromProperties(props);
   }
 
   private void renderHistoryOverlay(VnState state, double width, double height) {
@@ -653,6 +696,85 @@ public class VnRenderer {
     return TEXT_COLOR;
   }
 
+  private void applyChoiceStyleFromProperties(Properties props) {
+    choiceButtonImage = loadImage(optionalProperty(props, KEY_CHOICE_BUTTON_ASSET));
+    choiceButtonHoverImage = loadImage(firstNonBlank(
+        optionalProperty(props, KEY_CHOICE_BUTTON_HOVER_ASSET),
+        optionalProperty(props, KEY_CHOICE_BUTTON_SELECTED_ASSET)));
+    choiceButtonDisabledImage = loadImage(optionalProperty(props, KEY_CHOICE_BUTTON_DISABLED_ASSET));
+
+    choiceBgColor = parseColorProperty(props, KEY_CHOICE_BG_COLOR, CHOICE_BG_COLOR);
+    choiceHoverColor = parseColorProperty(
+        props,
+        KEY_CHOICE_HOVER_COLOR,
+        parseColorProperty(props, KEY_CHOICE_SELECTED_COLOR, CHOICE_HOVER_COLOR)
+    );
+    choiceDisabledColor = parseColorProperty(props, KEY_CHOICE_DISABLED_COLOR, CHOICE_DISABLED_COLOR);
+
+    choiceTextColor = parseColorProperty(props, KEY_CHOICE_TEXT_COLOR, TEXT_COLOR);
+    choiceHoverTextColor = parseColorProperty(
+        props,
+        KEY_CHOICE_HOVER_TEXT_COLOR,
+        parseColorProperty(props, KEY_CHOICE_SELECTED_TEXT_COLOR, TEXT_COLOR)
+    );
+    choiceDisabledTextColor = parseColorProperty(props, KEY_CHOICE_DISABLED_TEXT_COLOR, TEXT_COLOR_DISABLED);
+
+    choiceBorderColor = parseColorProperty(props, KEY_CHOICE_BORDER_COLOR, TEXT_COLOR);
+    choiceHoverBorderColor = parseColorProperty(
+        props,
+        KEY_CHOICE_HOVER_BORDER_COLOR,
+        parseColorProperty(props, KEY_CHOICE_SELECTED_BORDER_COLOR, choiceBorderColor)
+    );
+    choiceDisabledBorderColor = parseColorProperty(props, KEY_CHOICE_DISABLED_BORDER_COLOR, CHOICE_DISABLED_BORDER_COLOR);
+
+    choiceBorderWidth = clamp(parseDoubleProperty(props, KEY_CHOICE_BORDER_WIDTH, DEFAULT_CHOICE_BORDER_WIDTH), 0.0, 12.0);
+    choiceCornerRadius = clamp(parseDoubleProperty(props, KEY_CHOICE_CORNER_RADIUS, DEFAULT_CHOICE_RADIUS), 0.0, 96.0);
+    choiceTextBaselineOffset = clamp(
+        parseDoubleProperty(props, KEY_CHOICE_TEXT_BASELINE_OFFSET, DEFAULT_CHOICE_TEXT_BASELINE_OFFSET),
+        -120.0,
+        120.0
+    );
+  }
+
+  private Color parseColorProperty(Properties props, String key, Color fallback) {
+    String raw = optionalProperty(props, key);
+    if (raw == null) return fallback;
+    try {
+      return Color.web(raw.trim());
+    } catch (Exception ignored) {
+      return fallback;
+    }
+  }
+
+  private static String optionalProperty(Properties props, String key) {
+    if (props == null || key == null) return null;
+    String raw = props.getProperty(key);
+    if (raw == null) return null;
+    String trimmed = raw.trim();
+    return trimmed.isEmpty() ? null : trimmed;
+  }
+
+  private static String firstNonBlank(String a, String b) {
+    if (a != null && !a.isBlank()) return a;
+    if (b != null && !b.isBlank()) return b;
+    return null;
+  }
+
+  private double parseDoubleProperty(Properties props, String key, double fallback) {
+    String raw = optionalProperty(props, key);
+    if (raw == null) return fallback;
+    try {
+      double parsed = Double.parseDouble(raw);
+      if (Double.isFinite(parsed)) return parsed;
+    } catch (Exception ignored) {
+    }
+    return fallback;
+  }
+
+  private static Image firstNonNull(Image primary, Image fallback) {
+    return primary != null ? primary : fallback;
+  }
+
   private void renderChoices(List<Choice> choices, double width, double height, int hoverIndex) {
     if (choices == null || choices.isEmpty()) return;
     ChoiceGeometry geo = computeChoiceGeometry(choices.size(), width, height);
@@ -661,23 +783,34 @@ public class VnRenderer {
       Choice choice = choices.get(i);
       double y = geo.startY() + i * (geo.choiceHeight() + geo.choiceGap());
       boolean enabled = choice.isEnabled() && choiceConditionSatisfied(choice);
-      Color bg = !enabled ? CHOICE_DISABLED_COLOR : (i == hoverIndex ? CHOICE_HOVER_COLOR : CHOICE_BG_COLOR);
-      // Background
-      gc.setFill(bg);
-      gc.fillRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), 10, 10);
+      boolean hovered = i == hoverIndex;
+
+      Image buttonImage = !enabled
+          ? firstNonNull(choiceButtonDisabledImage, choiceButtonImage)
+          : (hovered ? firstNonNull(choiceButtonHoverImage, choiceButtonImage) : choiceButtonImage);
+      double radius = choiceCornerRadius;
+      if (buttonImage != null) {
+        gc.drawImage(buttonImage, geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight());
+      } else {
+        Color bg = !enabled ? choiceDisabledColor : (hovered ? choiceHoverColor : choiceBgColor);
+        gc.setFill(bg);
+        gc.fillRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), radius, radius);
+      }
 
       // Border
-      gc.setStroke(TEXT_COLOR);
-      gc.setLineWidth(2);
-      gc.strokeRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), 10, 10);
+      Color borderColor = !enabled ? choiceDisabledBorderColor : (hovered ? choiceHoverBorderColor : choiceBorderColor);
+      gc.setStroke(borderColor);
+      gc.setLineWidth(choiceBorderWidth);
+      gc.strokeRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), radius, radius);
 
       // Text
-      gc.setFill(enabled ? TEXT_COLOR : TEXT_COLOR_DISABLED);
+      Color textColor = !enabled ? choiceDisabledTextColor : (hovered ? choiceHoverTextColor : choiceTextColor);
+      gc.setFill(textColor);
       gc.setFont(choiceFont);
       gc.fillText(
           resolveRuntimeText(choice.getText()),
           geo.choiceX() + uiLayout.choiceTextXPadding(),
-          y + geo.choiceHeight() / 2 + 5
+          y + geo.choiceHeight() / 2 + choiceTextBaselineOffset
       );
     }
   }

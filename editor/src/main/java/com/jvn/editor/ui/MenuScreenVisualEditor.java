@@ -13,26 +13,27 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.geometry.Orientation;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
@@ -238,7 +239,10 @@ public class MenuScreenVisualEditor extends BorderPane {
       redrawPreview();
     });
 
-    HBox actions = new HBox(6);
+    FlowPane actions = new FlowPane(Orientation.HORIZONTAL, 6, 6);
+    actions.getStyleClass().add("layout-studio-action-bar");
+    actions.setPrefWrapLength(560);
+
     Button bAdd = new Button("Add Item");
     Button bRemove = new Button("Remove");
     Button bUp = new Button("Up");
@@ -246,6 +250,13 @@ public class MenuScreenVisualEditor extends BorderPane {
     Button bNormalize = new Button("Normalize IDs");
     Button bAssignBg = new Button("Assign BG...");
     Button bClearBounds = new Button("Clear Bounds");
+    List<Button> actionButtons = List.of(bAdd, bRemove, bUp, bDown, bNormalize, bAssignBg, bClearBounds);
+    for (Button actionButton : actionButtons) {
+      actionButton.getStyleClass().add("layout-studio-action-button");
+      actionButton.setMinWidth(Region.USE_PREF_SIZE);
+      actionButton.setTooltip(new Tooltip(actionButton.getText()));
+    }
+
     bAdd.setOnAction(e -> addRow());
     bRemove.setOnAction(e -> removeRow());
     bUp.setOnAction(e -> moveSelected(-1));
@@ -255,14 +266,16 @@ public class MenuScreenVisualEditor extends BorderPane {
     bClearBounds.setOnAction(e -> clearBoundsForSelection());
     actions.getChildren().addAll(bAdd, bRemove, bUp, bDown, bNormalize, bAssignBg, bClearBounds);
 
+    table.getStyleClass().add("layout-studio-table");
     VBox tablePane = new VBox(6, table, actions);
+    actions.prefWrapLengthProperty().bind(tablePane.widthProperty().subtract(12));
     VBox.setVgrow(table, Priority.ALWAYS);
 
     preview.widthProperty().addListener((o, ov, nv) -> redrawPreview());
     preview.heightProperty().addListener((o, ov, nv) -> redrawPreview());
     installPreviewInteractions();
     BorderPane previewPane = new BorderPane(preview);
-    previewPane.setStyle("-fx-background-color: linear-gradient(to bottom, #0f141d, #080b10); -fx-border-color: #2a2f3a;");
+    previewPane.getStyleClass().add("layout-studio-preview-host");
     BorderPane.setMargin(preview, new Insets(8));
     preview.setWidth(520);
     preview.setHeight(320);
@@ -536,11 +549,11 @@ public class MenuScreenVisualEditor extends BorderPane {
 
     if (warnings.isEmpty()) {
       validation.setText("No issues detected.");
-      validation.setTextFill(Color.web("#8bcf98"));
+      validation.setTextFill(LayoutStudioPalette.TEXT_SUCCESS);
     } else {
       String joined = String.join(" | ", warnings);
       validation.setText(joined);
-      validation.setTextFill(Color.web("#f2b26f"));
+      validation.setTextFill(LayoutStudioPalette.TEXT_WARNING);
     }
   }
 
@@ -548,10 +561,10 @@ public class MenuScreenVisualEditor extends BorderPane {
     GraphicsContext g = preview.getGraphicsContext2D();
     double w = preview.getWidth();
     double h = preview.getHeight();
-    g.setFill(Color.web("#0c1118"));
+    g.setFill(LayoutStudioPalette.CANVAS_BACKGROUND);
     g.fillRect(0, 0, w, h);
 
-    g.setStroke(Color.rgb(255, 255, 255, 0.06));
+    g.setStroke(LayoutStudioPalette.GRID_LINE);
     for (int i = 1; i < 6; i++) {
       double y = h * i / 6.0;
       g.strokeLine(0, y, w, y);
@@ -560,7 +573,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     String title = normalize(tfTitle.getText(), "").isBlank() ? titleize(screenIdHint) : tfTitle.getText().trim();
     String hints = normalize(tfHints.getText(), "").isBlank() ? "Select: Enter    Back: Esc" : tfHints.getText().trim();
 
-    g.setFill(Color.WHITE);
+    g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 28));
     double titleW = textWidth(g, title);
     g.fillText(title, (w - titleW) / 2.0, 52);
@@ -580,9 +593,9 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (bg != null) {
         g.drawImage(bg, rect.x(), rect.y(), rect.w(), rect.h());
       } else {
-        g.setFill(enabled ? (selected ? Color.rgb(78, 102, 148, 0.8) : Color.rgb(50, 56, 74, 0.78)) : Color.rgb(58, 58, 66, 0.55));
+        g.setFill(enabled ? (selected ? LayoutStudioPalette.PANEL_FILL_SELECTED : LayoutStudioPalette.PANEL_FILL) : LayoutStudioPalette.PANEL_FILL_DISABLED);
         g.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
-        g.setStroke(selected ? Color.rgb(188, 220, 255, 0.95) : Color.rgb(126, 146, 188, 0.7));
+        g.setStroke(selected ? LayoutStudioPalette.PANEL_BORDER_SELECTED : LayoutStudioPalette.PANEL_BORDER);
         g.setLineWidth(selected ? 2.0 : 1.1);
         g.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
       }
@@ -590,18 +603,18 @@ public class MenuScreenVisualEditor extends BorderPane {
       String prefix = selected ? "> " : "  ";
       if (!enabled) prefix = "- ";
       text = prefix + text;
-      g.setFill(enabled ? (selected ? Color.web("#ffe680") : Color.web("#e2e6ee")) : Color.web("#9599a4"));
+      g.setFill(enabled ? (selected ? LayoutStudioPalette.ACCENT_GOLD : LayoutStudioPalette.TEXT_SECONDARY) : LayoutStudioPalette.TEXT_DISABLED);
       g.setFont(Font.font("Arial", 18));
       double tw = textWidth(g, text);
       g.fillText(text, rect.x() + (rect.w() - tw) / 2.0, rect.y() + rect.h() * 0.62);
 
       if (selected) {
-        g.setFill(Color.rgb(82, 214, 139, 0.95));
+        g.setFill(LayoutStudioPalette.ACCENT_GREEN);
         g.fillOval(rect.x() + rect.w() - 10, rect.y() + rect.h() - 10, 10, 10);
       }
     }
 
-    g.setFill(Color.web("#cfd3db"));
+    g.setFill(LayoutStudioPalette.TEXT_MUTED);
     g.setFont(Font.font("Arial", 14));
     double hintsW = textWidth(g, hints);
     g.fillText(hints, (w - hintsW) / 2.0, h - 18);
@@ -738,11 +751,11 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void drawBoundsTag(GraphicsContext g, double x, double y, String text) {
     double w = Math.max(120, text.length() * 6.2 + 12);
-    g.setFill(Color.rgb(8, 10, 16, 0.92));
+    g.setFill(LayoutStudioPalette.TAG_BG);
     g.fillRoundRect(x, y - 12, w, 16, 6, 6);
-    g.setStroke(Color.rgb(120, 140, 190, 0.7));
+    g.setStroke(LayoutStudioPalette.TAG_BORDER);
     g.strokeRoundRect(x, y - 12, w, 16, 6, 6);
-    g.setFill(Color.rgb(228, 233, 246, 0.95));
+    g.setFill(LayoutStudioPalette.TAG_TEXT);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 10));
     g.fillText(text, x + 6, y);
   }

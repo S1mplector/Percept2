@@ -15,7 +15,6 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
-import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -75,13 +74,14 @@ public class MenuLayoutVisualEditor extends BorderPane {
     preview.setManaged(false);
     StackPane previewPane = new StackPane(preview);
     StackPane.setAlignment(preview, Pos.TOP_LEFT);
-    previewPane.setStyle("-fx-background-color: linear-gradient(to bottom, #0f141d, #080b10); -fx-border-color: #2a2f3a;");
+    previewPane.getStyleClass().add("layout-studio-preview-host");
     previewPane.setPadding(new Insets(PREVIEW_PADDING));
     setCenter(previewPane);
 
     ScrollPane controls = new ScrollPane(buildControls());
     controls.setFitToWidth(true);
     controls.setPrefWidth(320);
+    controls.getStyleClass().add("layout-studio-controls-pane");
     setRight(controls);
 
     previewPane.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
@@ -241,10 +241,10 @@ public class MenuLayoutVisualEditor extends BorderPane {
     double w = Math.max(1, preview.getWidth());
     double h = Math.max(1, preview.getHeight());
     GraphicsContext g = preview.getGraphicsContext2D();
-    g.setFill(Color.web("#0d1219"));
+    g.setFill(LayoutStudioPalette.CANVAS_BACKGROUND);
     g.fillRect(0, 0, w, h);
 
-    g.setStroke(Color.rgb(255, 255, 255, 0.07));
+    g.setStroke(LayoutStudioPalette.GRID_LINE);
     g.setLineWidth(1);
     for (int i = 1; i < 6; i++) {
       double yy = (h / 6.0) * i;
@@ -254,23 +254,23 @@ public class MenuLayoutVisualEditor extends BorderPane {
     PreviewRects r = computePreviewRects(spec, w, h);
 
     // Title guide.
-    g.setStroke(Color.rgb(180, 210, 255, 0.9));
+    g.setStroke(LayoutStudioPalette.ACCENT_BLUE_LIGHT);
     g.setLineWidth(1.5);
     g.strokeLine(0, r.titleY(), w, r.titleY());
-    g.setFill(Color.WHITE);
+    g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 24));
     g.fillText("Menu Title", (w - 120) / 2.0, r.titleY() - 8);
 
     // List area and sample entries.
-    g.setFill(Color.rgb(34, 40, 52, 0.25));
+    g.setFill(LayoutStudioPalette.PANEL_FILL_SOFT);
     g.fillRect(r.listArea().x(), r.listArea().y() - 26, r.listArea().w(), r.listArea().h() + 34);
-    g.setStroke(Color.rgb(110, 170, 255, 0.92));
+    g.setStroke(LayoutStudioPalette.ACCENT_BLUE);
     g.setLineWidth(2);
     g.strokeRect(r.listArea().x(), r.listArea().y() - 26, r.listArea().w(), r.listArea().h() + 34);
 
     String[] items = new String[] {"> New Game", "  Load", "  Settings", "  Quit"};
     g.setFont(Font.font("Arial", 20));
-    g.setFill(Color.rgb(240, 240, 240, 0.98));
+    g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
     for (int i = 0; i < items.length; i++) {
       double y = r.listArea().y() + i * spec.lineHeight();
       String text = items[i];
@@ -284,16 +284,16 @@ public class MenuLayoutVisualEditor extends BorderPane {
     }
 
     // Width handle.
-    g.setFill(Color.rgb(84, 210, 136, 0.95));
+    g.setFill(LayoutStudioPalette.ACCENT_GREEN);
     g.fillOval(r.widthHandle().x(), r.widthHandle().y(), r.widthHandle().w(), r.widthHandle().h());
-    g.setStroke(Color.rgb(10, 30, 18, 0.9));
+    g.setStroke(LayoutStudioPalette.ACCENT_GREEN_DARK);
     g.strokeOval(r.widthHandle().x(), r.widthHandle().y(), r.widthHandle().w(), r.widthHandle().h());
 
     // Hints.
     double hintsY = h - Math.max(0, spec.hintsBottomMargin());
-    g.setStroke(Color.rgb(255, 198, 110, 0.9));
+    g.setStroke(LayoutStudioPalette.ACCENT_GOLD);
     g.strokeLine(0, hintsY, w, hintsY);
-    g.setFill(Color.rgb(220, 220, 230, 0.95));
+    g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
     g.setFont(Font.font("Arial", 14));
     g.fillText("Select: Enter   Back: Esc", (w - 170) / 2.0, hintsY - 6);
 
@@ -304,11 +304,11 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
   private void drawTag(GraphicsContext g, double x, double y, String text) {
     double w = Math.max(44, text.length() * 7.2 + 12);
-    g.setFill(Color.rgb(12, 16, 22, 0.9));
+    g.setFill(LayoutStudioPalette.TAG_BG);
     g.fillRoundRect(x, y - 12, w, 16, 6, 6);
-    g.setStroke(Color.rgb(100, 130, 180, 0.85));
+    g.setStroke(LayoutStudioPalette.TAG_BORDER);
     g.strokeRoundRect(x, y - 12, w, 16, 6, 6);
-    g.setFill(Color.rgb(225, 235, 255, 0.95));
+    g.setFill(LayoutStudioPalette.TAG_TEXT);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 11));
     g.fillText(text, x + 6, y);
   }

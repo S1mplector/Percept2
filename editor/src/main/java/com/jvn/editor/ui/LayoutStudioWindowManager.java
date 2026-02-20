@@ -29,6 +29,8 @@ import javafx.stage.Stage;
 
 import java.awt.Desktop;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -307,6 +309,14 @@ public class LayoutStudioWindowManager {
       row.getStyleClass().add("layout-studio-toolbar");
       row.setAlignment(Pos.CENTER_LEFT);
       row.setPadding(new Insets(8));
+
+      bDesign.getStyleClass().add("layout-studio-toolbar-toggle");
+      bCode.getStyleClass().add("layout-studio-toolbar-toggle");
+      bSplit.getStyleClass().add("layout-studio-toolbar-toggle");
+      saveButton.getStyleClass().add("layout-studio-toolbar-button");
+      reloadButton.getStyleClass().add("layout-studio-toolbar-button");
+      revealButton.getStyleClass().add("layout-studio-toolbar-button");
+
       return row;
     }
 
@@ -336,9 +346,10 @@ public class LayoutStudioWindowManager {
       assetItemIdField.textProperty().addListener((o, ov, nv) -> updateAssetUtilityState());
 
       configureAssetKeys();
+      assetKeyBox.valueProperty().addListener((o, ov, nv) -> updateAssetUtilityState());
 
       VBox form = new VBox(6,
-          new Label("Asset Path"),
+          new Label("Value (Asset Path or Literal)"),
           assetPathField,
           new Label("Apply Key"),
           assetKeyBox
@@ -358,6 +369,7 @@ public class LayoutStudioWindowManager {
       for (Node node : buttons.getChildren()) {
         if (node instanceof Button b) {
           b.setMaxWidth(Double.MAX_VALUE);
+          b.getStyleClass().add("layout-studio-utility-button");
         }
       }
 
@@ -394,7 +406,11 @@ public class LayoutStudioWindowManager {
       codeEditor.setOnTextChanged(text -> {
         if (syncing) return;
         syncing = true;
-        applyCodeToDesign(text);
+        try {
+          applyCodeToDesign(text);
+        } catch (Exception ex) {
+          setStatus("Design sync warning: " + normalize(ex.getMessage(), "Invalid content"));
+        }
         syncing = false;
         updateDirtyState();
       });
@@ -452,7 +468,11 @@ public class LayoutStudioWindowManager {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         syncing = true;
         codeEditor.setTextNoEvent(text);
-        applyCodeToDesign(text);
+        try {
+          applyCodeToDesign(text);
+        } catch (Exception ex) {
+          setStatus("Loaded with design warnings: " + normalize(ex.getMessage(), "invalid content"));
+        }
         syncing = false;
 
         savedSnapshot = normalizeLineEndings(text);
@@ -467,12 +487,13 @@ public class LayoutStudioWindowManager {
 
     private void save() {
       try {
-        File parent = file.getParentFile();
-        if (parent != null && !parent.exists()) parent.mkdirs();
+        Path target = file.toPath();
+        Path parent = target.getParent();
+        if (parent != null && !Files.exists(parent)) Files.createDirectories(parent);
 
         String content = codeEditor.getText();
         if (content == null) content = "";
-        Files.writeString(file.toPath(), content);
+        writeAtomically(target, content);
 
         savedSnapshot = normalizeLineEndings(content);
         dirty = false;
@@ -502,6 +523,8 @@ public class LayoutStudioWindowManager {
     private void browseExistingAsset() {
       FileChooser chooser = new FileChooser();
       chooser.setTitle("Select Project Asset");
+      chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+          "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp", "*.svg"));
       File init = preferredAssetDirectory();
       if (init != null && init.exists() && init.isDirectory()) chooser.setInitialDirectory(init);
       File selected = chooser.showOpenDialog(stage);
@@ -513,6 +536,8 @@ public class LayoutStudioWindowManager {
     private void importExternalAsset() {
       FileChooser chooser = new FileChooser();
       chooser.setTitle("Import External Asset");
+      chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+          "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp", "*.svg"));
       File selected = chooser.showOpenDialog(stage);
       if (selected == null) return;
 
@@ -527,7 +552,16 @@ public class LayoutStudioWindowManager {
         if (!destinationDir.exists()) destinationDir.mkdirs();
 
         File destination = uniqueDestination(destinationDir, selected.getName());
-        Files.copy(selected.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        Path source = selected.toPath().toAbsolutePath().normalize();
+        Path destinationPath = destination.toPath().toAbsolutePath().normalize();
+        if (source.equals(destinationPath)) {
+          String relExisting = toRelativePath(destination);
+          assetPathField.setText(relExisting);
+          setStatus("Asset already in project: " + relExisting);
+          return;
+        }
+
+        Files.copy(source, destinationPath, StandardCopyOption.REPLACE_EXISTING);
 
         String rel = toRelativePath(destination);
         assetPathField.setText(rel);
@@ -540,7 +574,7 @@ public class LayoutStudioWindowManager {
     private void copyAssetPath() {
       String path = normalize(assetPathField.getText(), "");
       if (path.isBlank()) {
-        setStatus("Asset path is empty.");
+        setStatus("Value is empty.");
         return;
       }
       ClipboardContent content = new ClipboardContent();
@@ -552,7 +586,7 @@ public class LayoutStudioWindowManager {
     private void applyAssetPathToCode() {
       String path = normalize(assetPathField.getText(), "");
       if (path.isBlank()) {
-        setStatus("Asset path is empty.");
+        setStatus("Value is empty.");
         return;
       }
 
@@ -586,6 +620,22 @@ public class LayoutStudioWindowManager {
       List<String> keys = new ArrayList<>();
       if (kind == Kind.DIALOGUE_LAYOUT) {
         keys.add("textBoxAsset");
+        keys.add("choiceButtonAsset");
+        keys.add("choiceButtonHoverAsset");
+        keys.add("choiceButtonSelectedAsset");
+        keys.add("choiceButtonDisabledAsset");
+        keys.add("choiceBackgroundColor");
+        keys.add("choiceHoverColor");
+        keys.add("choiceDisabledColor");
+        keys.add("choiceTextColor");
+        keys.add("choiceHoverTextColor");
+        keys.add("choiceDisabledTextColor");
+        keys.add("choiceBorderColor");
+        keys.add("choiceHoverBorderColor");
+        keys.add("choiceDisabledBorderColor");
+        keys.add("choiceCornerRadius");
+        keys.add("choiceBorderWidth");
+        keys.add("choiceTextBaselineOffset");
       } else if (kind == Kind.MENU_STYLE) {
         keys.add("buttonAsset");
         keys.add("buttonSelectedAsset");
@@ -607,13 +657,19 @@ public class LayoutStudioWindowManager {
 
     private void updateAssetUtilityState() {
       String key = normalize(assetKeyBox.getValue(), "");
-      boolean canApply = !key.isBlank() && !key.startsWith("#");
+      String path = normalize(assetPathField.getText(), "");
+      String itemId = sanitizeId(assetItemIdField.getText());
+      boolean requiresItemId = key.contains("<itemId>");
+      boolean hasItemId = !requiresItemId || !itemId.isBlank();
+      boolean canApply = !path.isBlank() && !key.isBlank() && !key.startsWith("#") && hasItemId;
       applyPathButton.setDisable(!canApply);
+      copyPathButton.setDisable(path.isBlank());
     }
 
     private String assetTip() {
       return switch (kind) {
-        case DIALOGUE_LAYOUT -> "Import a textbox frame and apply it to textBoxAsset.\nThe design canvas will refresh immediately.";
+        case DIALOGUE_LAYOUT -> "Import textbox/choice button skins and map them to dialogue layout keys.\n"
+            + "You can also set literal values (for example #E6F0FF colors) for dynamic choice styling.";
         case MENU_STYLE -> "Import button textures and map them to style keys.\nUse Split mode to verify visual + file output together.";
         case MENU_SCREEN -> "Assign per-item button/icon assets using item.<itemId> keys.\nTip: select a menu item id that exists in this .menu file.";
         case MENU_LAYOUT -> "This file is geometry-focused. Asset tools are still available for copying paths into custom properties.";
@@ -764,6 +820,29 @@ public class LayoutStudioWindowManager {
       if (!text.isEmpty() && !text.endsWith("\n")) sb.append('\n');
       sb.append(line).append('\n');
       return sb.toString();
+    }
+
+    private static void writeAtomically(Path target, String content) throws Exception {
+      Path parent = target.getParent();
+      if (parent == null) {
+        Files.writeString(target, content, StandardCharsets.UTF_8);
+        return;
+      }
+
+      Path temp = Files.createTempFile(parent, target.getFileName().toString(), ".tmp");
+      try {
+        Files.writeString(temp, content, StandardCharsets.UTF_8);
+        try {
+          Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException ignored) {
+          Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+      } finally {
+        try {
+          Files.deleteIfExists(temp);
+        } catch (Exception ignored) {
+        }
+      }
     }
 
     private static String screenIdFromFile(File file) {

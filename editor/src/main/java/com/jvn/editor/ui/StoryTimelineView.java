@@ -1,5 +1,6 @@
 package com.jvn.editor.ui;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -10,7 +11,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Slider;
 import javafx.scene.control.Label;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -104,13 +104,18 @@ public class StoryTimelineView extends BorderPane {
   private final StoryGraphPane graph = new StoryGraphPane();
   private final ScrollPane graphScroll = new ScrollPane(graph);
   private final Label graphHint = new Label("Add an arc or drag a .vns script here to start your timeline.");
-  private Slider zoomSlider;
+  private final List<Button> toolbarIconButtons = new ArrayList<>();
+  private static final double MIN_ZOOM = 0.6;
+  private static final double MAX_ZOOM = 2.0;
+  private double zoomLevel = 1.0;
   private ComboBox<String> clusterFilter;
   private File projectRoot;
   private File timelineFile;
   private Consumer<Arc> onRunArc;
   private Consumer<Link> onRunLink;
   private Runnable onChanged;
+  private boolean toolbarIconOnly = false;
+  private double toolbarTextModeMinWidth = -1;
 
   public StoryTimelineView() {
     getStyleClass().add("timeline-root");
@@ -203,34 +208,22 @@ public class StoryTimelineView extends BorderPane {
     setCenter(rootSplit);
 
     // Toolbar
-    Button bAddArc = new Button("Add Arc");
+    Button bAddArc = iconButton("Add Arc", "icon-timeline-add-arc", e -> addArc());
     bAddArc.getStyleClass().add("timeline-primary-button");
-    bAddArc.setOnAction(e -> addArc());
-    Button bAddLink = new Button("Add Link");
+    Button bAddLink = iconButton("Add Link", "icon-timeline-add-link", e -> addLink());
     bAddLink.getStyleClass().add("timeline-primary-button");
-    bAddLink.setOnAction(e -> addLink());
-    Button bEdit = new Button("Edit");
-    bEdit.setOnAction(e -> editSelected());
-    Button bOpen = new Button("Open");
-    bOpen.setOnAction(e -> openArc());
-    Button bDelete = new Button("Delete");
-    bDelete.setOnAction(e -> deleteSelected());
-    Button bCopyGoto = new Button("Copy Goto");
-    bCopyGoto.setOnAction(e -> copyGoto());
-    Button bAuto = new Button("Auto Layout");
-    bAuto.setOnAction(e -> { graph.autoLayout(); onGraphChanged(); });
-    Button bFit = new Button("Fit");
-    bFit.setOnAction(e -> zoomToFit());
-    Button bValidate = new Button("Validate");
-    bValidate.setOnAction(e -> validate());
+    Button bEdit = iconButton("Edit Selected", "icon-timeline-edit", e -> editSelected());
+    Button bOpen = iconButton("Open", "icon-timeline-open", e -> openArc());
+    Button bDelete = iconButton("Delete Selected", "icon-timeline-delete", e -> deleteSelected());
+    Button bCopyGoto = iconButton("Copy Goto", "icon-timeline-copy", e -> copyGoto());
+    Button bAuto = iconButton("Auto Layout", "icon-timeline-auto", e -> { graph.autoLayout(); onGraphChanged(); });
+    Button bFit = iconButton("Fit", "icon-timeline-fit", e -> zoomToFit());
+    Button bValidate = iconButton("Validate", "icon-timeline-validate", e -> validate());
     TextField tfSearch = new TextField();
     tfSearch.setPromptText("Find arc...");
     tfSearch.setPrefWidth(180);
     tfSearch.textProperty().addListener((o, ov, nv) -> graph.highlight(nv));
     HBox.setHgrow(tfSearch, Priority.ALWAYS);
-    zoomSlider = new Slider(0.6, 2.0, 1.0);
-    zoomSlider.setPrefWidth(130);
-    zoomSlider.valueProperty().addListener((o, ov, nv) -> { double s = nv.doubleValue(); graph.setScaleX(s); graph.setScaleY(s); });
     bAddArc.setTooltip(new Tooltip("Create a story arc from a .vns script"));
     bAddLink.setTooltip(new Tooltip("Connect two arcs"));
     bEdit.setTooltip(new Tooltip("Edit selected arc or link"));
@@ -250,7 +243,6 @@ public class StoryTimelineView extends BorderPane {
 
     Separator sepA = new Separator(javafx.geometry.Orientation.VERTICAL);
     Separator sepB = new Separator(javafx.geometry.Orientation.VERTICAL);
-    Separator sepC = new Separator(javafx.geometry.Orientation.VERTICAL);
     Region rowSpacer = new Region();
     HBox.setHgrow(rowSpacer, Priority.ALWAYS);
 
@@ -259,7 +251,7 @@ public class StoryTimelineView extends BorderPane {
     );
     rowPrimary.setAlignment(Pos.CENTER_LEFT);
     HBox rowSecondary = new HBox(8,
-      new Label("Cluster"), clusterFilter, sepB, bCopyGoto, bAuto, bFit, bValidate, sepC, new Label("Zoom"), zoomSlider
+      new Label("Cluster"), clusterFilter, sepB, bCopyGoto, bAuto, bFit, bValidate
     );
     rowSecondary.setAlignment(Pos.CENTER_LEFT);
 
@@ -267,6 +259,8 @@ public class StoryTimelineView extends BorderPane {
     toolbar.getStyleClass().add("timeline-toolbar");
     toolbar.setPadding(new Insets(8, 8, 6, 8));
     setTop(toolbar);
+    setupResponsiveToolbar(toolbar, rowPrimary, rowSecondary);
+    setGraphZoom(1.0);
 
     // Graph actions wiring
     graph.setOnRunArc(a -> { if (onRunArc != null) onRunArc.accept(a); });
@@ -285,10 +279,8 @@ public class StoryTimelineView extends BorderPane {
     // Wheel zoom with Ctrl/Cmd
     graphScroll.addEventFilter(ScrollEvent.SCROLL, e -> {
       if (e.isControlDown() || e.isShortcutDown()) {
-        double v = zoomSlider.getValue();
         double step = (e.getDeltaY() > 0) ? 0.1 : -0.1;
-        v = Math.max(zoomSlider.getMin(), Math.min(zoomSlider.getMax(), v + step));
-        zoomSlider.setValue(v);
+        setGraphZoom(zoomLevel + step);
         e.consume();
       }
     });
@@ -315,6 +307,62 @@ public class StoryTimelineView extends BorderPane {
       e.setDropCompleted(success); e.consume();
     });
     updateGraphHint();
+  }
+
+  private Button iconButton(String text,
+                            String iconClass,
+                            javafx.event.EventHandler<javafx.event.ActionEvent> onAction) {
+    Button button = new Button(text);
+    button.getStyleClass().add("timeline-toolbar-button");
+    button.getProperties().put("fullText", text);
+    button.setContentDisplay(ContentDisplay.LEFT);
+    button.setGraphicTextGap(6);
+    button.setOnAction(onAction);
+
+    Label icon = new Label();
+    icon.getStyleClass().addAll("icon", iconClass);
+    icon.setMouseTransparent(true);
+    button.setGraphic(icon);
+
+    toolbarIconButtons.add(button);
+    return button;
+  }
+
+  private void setupResponsiveToolbar(VBox toolbar, HBox rowPrimary, HBox rowSecondary) {
+    Runnable refresh = () -> {
+      double width = toolbar.getWidth();
+      if (width <= 0) return;
+      if (toolbarTextModeMinWidth <= 0) {
+        toolbarTextModeMinWidth = Math.max(rowPrimary.prefWidth(-1), rowSecondary.prefWidth(-1));
+      }
+      // Keep a small breathing room so the switch happens before clipping.
+      boolean iconOnly = width < (toolbarTextModeMinWidth + 24);
+      applyToolbarIconMode(iconOnly);
+    };
+
+    toolbar.widthProperty().addListener((o, ov, nv) -> refresh.run());
+    rowPrimary.widthProperty().addListener((o, ov, nv) -> refresh.run());
+    rowSecondary.widthProperty().addListener((o, ov, nv) -> refresh.run());
+    Platform.runLater(refresh);
+  }
+
+  private void applyToolbarIconMode(boolean iconOnly) {
+    if (toolbarIconOnly == iconOnly) return;
+    toolbarIconOnly = iconOnly;
+    for (Button button : toolbarIconButtons) {
+      if (button == null) continue;
+      Object full = button.getProperties().get("fullText");
+      String fullText = full == null ? "" : full.toString();
+      if (iconOnly) {
+        button.getStyleClass().add("icon-only");
+        button.setText(null);
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+      } else {
+        button.getStyleClass().remove("icon-only");
+        button.setText(fullText);
+        button.setContentDisplay(ContentDisplay.LEFT);
+      }
+    }
   }
 
   public void setProjectRoot(File dir) {
@@ -767,8 +815,7 @@ public class StoryTimelineView extends BorderPane {
     double vh = graphScroll.getViewportBounds().getHeight();
     if (vw <= 0 || vh <= 0) return;
     double s = Math.min(vw / widthNeeded, vh / heightNeeded);
-    s = Math.max(zoomSlider.getMin(), Math.min(zoomSlider.getMax(), s));
-    zoomSlider.setValue(s);
+    setGraphZoom(s);
     double contentW = Math.max(widthNeeded * s, vw);
     double contentH = Math.max(heightNeeded * s, vh);
     double centerX = (minX + maxX) / 2 * s;
@@ -777,5 +824,11 @@ public class StoryTimelineView extends BorderPane {
     double vy = (centerY - vh / 2) / Math.max(1, (contentH - vh));
     graphScroll.setHvalue(Math.max(0, Math.min(1, hx)));
     graphScroll.setVvalue(Math.max(0, Math.min(1, vy)));
+  }
+
+  private void setGraphZoom(double zoom) {
+    zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
+    graph.setScaleX(zoomLevel);
+    graph.setScaleY(zoomLevel);
   }
 }

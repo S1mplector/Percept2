@@ -944,6 +944,18 @@ public class NewProjectWizard extends Stage {
       fw.write("choiceHeight=50\n");
       fw.write("choiceGap=10\n");
       fw.write("choiceTextXPadding=20\n");
+      fw.write("\n");
+      fw.write("# Optional choice button skin/style keys:\n");
+      fw.write("# choiceButtonAsset=assets/ui/choice_button.png\n");
+      fw.write("# choiceButtonHoverAsset=assets/ui/choice_button_hover.png\n");
+      fw.write("# choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png\n");
+      fw.write("# choiceBackgroundColor=#323246E6\n");
+      fw.write("# choiceHoverColor=#464664E6\n");
+      fw.write("# choiceTextColor=#FFFFFFFF\n");
+      fw.write("# choiceBorderColor=#FFFFFFFF\n");
+      fw.write("# choiceCornerRadius=10\n");
+      fw.write("# choiceBorderWidth=2\n");
+      fw.write("# choiceTextBaselineOffset=5\n");
     }
   }
 

@@ -29,8 +29,10 @@ import java.io.File;
 import java.io.StringReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Consumer;
@@ -48,6 +50,25 @@ public class DialogueLayoutEditorView extends BorderPane {
       "textBoxHeight",
       "textBoxPadding",
       "textBoxAsset",
+      "choiceButtonAsset",
+      "choiceButtonHoverAsset",
+      "choiceButtonSelectedAsset",
+      "choiceButtonDisabledAsset",
+      "choiceBackgroundColor",
+      "choiceHoverColor",
+      "choiceSelectedColor",
+      "choiceDisabledColor",
+      "choiceTextColor",
+      "choiceHoverTextColor",
+      "choiceSelectedTextColor",
+      "choiceDisabledTextColor",
+      "choiceBorderColor",
+      "choiceHoverBorderColor",
+      "choiceSelectedBorderColor",
+      "choiceDisabledBorderColor",
+      "choiceCornerRadius",
+      "choiceBorderWidth",
+      "choiceTextBaselineOffset",
       "nameBoxXOffset",
       "nameBoxYOffset",
       "nameBoxWidth",
@@ -73,7 +94,14 @@ public class DialogueLayoutEditorView extends BorderPane {
   private String lastEmittedText = "";
   private File projectRoot;
   private String textBoxAssetPath = "";
+  private String choiceButtonAssetPath = "";
+  private String choiceButtonHoverAssetPath = "";
+  private String choiceButtonDisabledAssetPath = "";
   private Image textBoxAssetImage;
+  private Image choiceButtonAssetImage;
+  private Image choiceButtonHoverAssetImage;
+  private Image choiceButtonDisabledAssetImage;
+  private final Map<String, Image> previewAssetCache = new LinkedHashMap<>();
 
   private final Spinner<Double> spTextBoxX = spinner(0, 1, 0, 0.01);
   private final Spinner<Double> spTextBoxY = spinner(0, 1, 0.75, 0.01);
@@ -117,13 +145,14 @@ public class DialogueLayoutEditorView extends BorderPane {
     preview.setManaged(false);
     StackPane previewPane = new StackPane(preview);
     StackPane.setAlignment(preview, Pos.TOP_LEFT);
-    previewPane.setStyle("-fx-background-color: linear-gradient(to bottom, #11131b, #08090d); -fx-border-color: #2a2f3a;");
+    previewPane.getStyleClass().add("layout-studio-preview-host");
     previewPane.setPadding(new Insets(PREVIEW_PADDING));
     setCenter(previewPane);
 
     ScrollPane controls = new ScrollPane(buildControls());
     controls.setFitToWidth(true);
     controls.setPrefWidth(350);
+    controls.getStyleClass().add("layout-studio-controls-pane");
     setRight(controls);
 
     previewPane.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
@@ -143,7 +172,9 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   public void setProjectRoot(File root) {
     this.projectRoot = root;
+    previewAssetCache.clear();
     loadTextBoxAssetImage();
+    loadChoiceAssetImages();
     redraw();
   }
 
@@ -159,17 +190,37 @@ public class DialogueLayoutEditorView extends BorderPane {
     }
     spec = VnUiLayoutLoader.parse(rawProperties, VnUiLayoutSpec.defaults());
     textBoxAssetPath = normalizeAssetPath(rawProperties.getProperty("textBoxAsset"));
+    choiceButtonAssetPath = normalizeAssetPath(rawProperties.getProperty("choiceButtonAsset"));
+    choiceButtonHoverAssetPath = normalizeAssetPath(firstNonBlank(
+        rawProperties.getProperty("choiceButtonHoverAsset"),
+        rawProperties.getProperty("choiceButtonSelectedAsset")));
+    choiceButtonDisabledAssetPath = normalizeAssetPath(rawProperties.getProperty("choiceButtonDisabledAsset"));
     applySpecToControls(spec);
     tfTextBoxAsset.setText(textBoxAssetPath);
     loadTextBoxAssetImage();
+    loadChoiceAssetImages();
     suppressEvents = false;
     redraw();
     lastLoadedText = normalizedInput;
-    lastEmittedText = normalizeText(serialize(spec, rawProperties, textBoxAssetPath));
+    lastEmittedText = normalizeText(serialize(
+        spec,
+        rawProperties,
+        textBoxAssetPath,
+        choiceButtonAssetPath,
+        choiceButtonHoverAssetPath,
+        choiceButtonDisabledAssetPath
+    ));
   }
 
   public String getLayoutText() {
-    return serialize(spec, rawProperties, textBoxAssetPath);
+    return serialize(
+        spec,
+        rawProperties,
+        textBoxAssetPath,
+        choiceButtonAssetPath,
+        choiceButtonHoverAssetPath,
+        choiceButtonDisabledAssetPath
+    );
   }
 
   private GridPane buildControls() {
@@ -419,10 +470,10 @@ public class DialogueLayoutEditorView extends BorderPane {
     double h = Math.max(1, preview.getHeight());
     GraphicsContext g = preview.getGraphicsContext2D();
 
-    g.setFill(Color.web("#10131a"));
+    g.setFill(LayoutStudioPalette.CANVAS_BACKGROUND_ALT);
     g.fillRect(0, 0, w, h);
 
-    g.setStroke(Color.rgb(255, 255, 255, 0.06));
+    g.setStroke(LayoutStudioPalette.GRID_LINE);
     g.setLineWidth(1);
     for (int i = 1; i < 6; i++) {
       double yy = (h / 6.0) * i;
@@ -430,48 +481,83 @@ public class DialogueLayoutEditorView extends BorderPane {
     }
 
     LayoutRects rects = computeRects(spec, w, h);
+    ChoicePreviewStyle choiceStyle = resolveChoicePreviewStyle();
 
     // Choice block preview.
     double y = rects.choiceBlock().y();
     for (int i = 0; i < 3; i++) {
-      g.setFill(Color.rgb(65, 72, 94, 0.85));
-      g.fillRoundRect(rects.choiceBlock().x(), y, rects.choiceBlock().w(), spec.choiceHeight(), 8, 8);
-      g.setStroke(Color.rgb(160, 170, 210, 0.95));
-      g.strokeRoundRect(rects.choiceBlock().x(), y, rects.choiceBlock().w(), spec.choiceHeight(), 8, 8);
-      g.setFill(Color.WHITE);
+      boolean hovered = i == 0;
+      boolean enabled = i != 2;
+      Image buttonImage = enabled
+          ? (hovered ? firstNonNull(choiceButtonHoverAssetImage, choiceButtonAssetImage) : choiceButtonAssetImage)
+          : firstNonNull(choiceButtonDisabledAssetImage, choiceButtonAssetImage);
+      if (buttonImage != null && buttonImage.getWidth() > 1 && buttonImage.getHeight() > 1) {
+        g.drawImage(buttonImage, rects.choiceBlock().x(), y, rects.choiceBlock().w(), spec.choiceHeight());
+      } else {
+        Color fill = !enabled
+            ? choiceStyle.disabledBackgroundColor()
+            : (hovered ? choiceStyle.hoverBackgroundColor() : choiceStyle.backgroundColor());
+        g.setFill(fill);
+        g.fillRoundRect(
+            rects.choiceBlock().x(),
+            y,
+            rects.choiceBlock().w(),
+            spec.choiceHeight(),
+            choiceStyle.cornerRadius(),
+            choiceStyle.cornerRadius());
+      }
+      Color border = !enabled
+          ? choiceStyle.disabledBorderColor()
+          : (hovered ? choiceStyle.hoverBorderColor() : choiceStyle.borderColor());
+      g.setStroke(border);
+      g.setLineWidth(choiceStyle.borderWidth());
+      g.strokeRoundRect(
+          rects.choiceBlock().x(),
+          y,
+          rects.choiceBlock().w(),
+          spec.choiceHeight(),
+          choiceStyle.cornerRadius(),
+          choiceStyle.cornerRadius());
+      Color textColor = !enabled
+          ? choiceStyle.disabledTextColor()
+          : (hovered ? choiceStyle.hoverTextColor() : choiceStyle.textColor());
+      g.setFill(textColor);
       g.setFont(Font.font("Arial", 14));
-      g.fillText("Choice " + (i + 1), rects.choiceBlock().x() + spec.choiceTextXPadding(), y + spec.choiceHeight() / 2 + 4);
+      g.fillText(
+          "Choice " + (i + 1),
+          rects.choiceBlock().x() + spec.choiceTextXPadding(),
+          y + spec.choiceHeight() / 2 + choiceStyle.textBaselineOffset());
       y += spec.choiceHeight() + spec.choiceGap();
     }
 
     // Textbox and name box overlay.
     if (textBoxAssetImage != null && textBoxAssetImage.getWidth() > 1 && textBoxAssetImage.getHeight() > 1) {
       g.drawImage(textBoxAssetImage, rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
-      g.setFill(Color.rgb(0, 0, 0, 0.30));
+      g.setFill(LayoutStudioPalette.DIALOGUE_ASSET_OVERLAY);
       g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
     } else {
-      g.setFill(Color.rgb(0, 0, 0, 0.78));
+      g.setFill(LayoutStudioPalette.DIALOGUE_OVERLAY);
       g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
     }
-    g.setStroke(Color.rgb(96, 170, 255, 0.9));
+    g.setStroke(LayoutStudioPalette.ACCENT_BLUE);
     g.setLineWidth(2);
     g.strokeRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
 
-    g.setFill(Color.rgb(42, 47, 68, 0.95));
+    g.setFill(LayoutStudioPalette.DIALOGUE_NAME_FILL);
     g.fillRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
-    g.setStroke(Color.rgb(156, 196, 255, 0.95));
+    g.setStroke(LayoutStudioPalette.PANEL_BORDER_LIGHT);
     g.strokeRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
 
-    g.setFill(Color.WHITE);
+    g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 14));
     g.fillText("Speaker Name", rects.nameBox().x() + spec.nameTextXOffset(), rects.nameBox().y() + spec.nameTextBaselineOffset());
 
     // Dialogue text bounds.
-    g.setStroke(Color.rgb(255, 230, 140, 0.9));
+    g.setStroke(LayoutStudioPalette.ACCENT_GOLD);
     g.setLineDashes(6);
     g.strokeRect(rects.dialogueBounds().x(), rects.dialogueBounds().y(), rects.dialogueBounds().w(), rects.dialogueBounds().h());
     g.setLineDashes(0);
-    g.setFill(Color.rgb(240, 240, 240, 0.9));
+    g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
     g.setFont(Font.font("Arial", 13));
     g.fillText("Narrator: The GUI editor now controls dialogue bounds.", rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 18);
     g.fillText("Drag the highlighted blocks or edit numeric fields.", rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 36);
@@ -485,11 +571,11 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private void drawTag(GraphicsContext g, double x, double y, String text) {
     double w = Math.max(54, text.length() * 7.2 + 12);
-    g.setFill(Color.rgb(12, 16, 25, 0.88));
+    g.setFill(LayoutStudioPalette.TAG_BG);
     g.fillRoundRect(x, y - 12, w, 16, 6, 6);
-    g.setStroke(Color.rgb(110, 140, 200, 0.8));
+    g.setStroke(LayoutStudioPalette.TAG_BORDER);
     g.strokeRoundRect(x, y - 12, w, 16, 6, 6);
-    g.setFill(Color.rgb(225, 235, 255, 0.95));
+    g.setFill(LayoutStudioPalette.TAG_TEXT);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 11));
     g.fillText(text, x + 6, y);
   }
@@ -578,14 +664,26 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private void emitText() {
     if (onLayoutTextChanged == null) return;
-    String text = serialize(spec, rawProperties, textBoxAssetPath);
+    String text = serialize(
+        spec,
+        rawProperties,
+        textBoxAssetPath,
+        choiceButtonAssetPath,
+        choiceButtonHoverAssetPath,
+        choiceButtonDisabledAssetPath
+    );
     String normalized = normalizeText(text);
     if (normalized.equals(lastEmittedText)) return;
     lastEmittedText = normalized;
     onLayoutTextChanged.accept(text);
   }
 
-  private static String serialize(VnUiLayoutSpec spec, Properties base, String textBoxAssetPath) {
+  private static String serialize(VnUiLayoutSpec spec,
+                                  Properties base,
+                                  String textBoxAssetPath,
+                                  String choiceButtonAssetPath,
+                                  String choiceButtonHoverAssetPath,
+                                  String choiceButtonDisabledAssetPath) {
     Properties merged = new Properties();
     if (base != null) {
       for (String key : base.stringPropertyNames()) merged.setProperty(key, base.getProperty(key));
@@ -600,6 +698,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     } else {
       merged.setProperty("textBoxAsset", normalizedAsset);
     }
+    setOptionalProperty(merged, "choiceButtonAsset", choiceButtonAssetPath);
+    setOptionalProperty(merged, "choiceButtonHoverAsset", choiceButtonHoverAssetPath);
+    setOptionalProperty(merged, "choiceButtonDisabledAsset", choiceButtonDisabledAssetPath);
 
     StringBuilder out = new StringBuilder();
     out.append("# Dialogue UI layout").append(System.lineSeparator());
@@ -685,22 +786,105 @@ public class DialogueLayoutEditorView extends BorderPane {
     return clamp(v, 0, 1);
   }
 
+  private ChoicePreviewStyle resolveChoicePreviewStyle() {
+    Color bg = parseColorProperty("choiceBackgroundColor", LayoutStudioPalette.PANEL_FILL);
+    Color hoverBg = parseColorProperty(
+        firstNonBlank(rawProperties.getProperty("choiceHoverColor"), rawProperties.getProperty("choiceSelectedColor")),
+        LayoutStudioPalette.PANEL_FILL_SELECTED);
+    Color disabledBg = parseColorProperty("choiceDisabledColor", LayoutStudioPalette.PANEL_FILL_DISABLED);
+
+    Color text = parseColorProperty("choiceTextColor", LayoutStudioPalette.TEXT_PRIMARY);
+    Color hoverText = parseColorProperty(
+        firstNonBlank(rawProperties.getProperty("choiceHoverTextColor"), rawProperties.getProperty("choiceSelectedTextColor")),
+        text);
+    Color disabledText = parseColorProperty("choiceDisabledTextColor", LayoutStudioPalette.TEXT_DISABLED);
+
+    Color border = parseColorProperty("choiceBorderColor", LayoutStudioPalette.PANEL_BORDER_LIGHT);
+    Color hoverBorder = parseColorProperty(
+        firstNonBlank(rawProperties.getProperty("choiceHoverBorderColor"), rawProperties.getProperty("choiceSelectedBorderColor")),
+        border);
+    Color disabledBorder = parseColorProperty("choiceDisabledBorderColor", LayoutStudioPalette.PANEL_BORDER);
+
+    double cornerRadius = clamp(parseDoubleProperty("choiceCornerRadius", 8.0), 0.0, 96.0);
+    double borderWidth = clamp(parseDoubleProperty("choiceBorderWidth", 1.6), 0.0, 12.0);
+    double textBaselineOffset = clamp(parseDoubleProperty("choiceTextBaselineOffset", 4.0), -120.0, 120.0);
+
+    return new ChoicePreviewStyle(
+        bg,
+        hoverBg,
+        disabledBg,
+        text,
+        hoverText,
+        disabledText,
+        border,
+        hoverBorder,
+        disabledBorder,
+        cornerRadius,
+        borderWidth,
+        textBaselineOffset
+    );
+  }
+
+  private Color parseColorProperty(String key, Color fallback) {
+    return parseColorValue(rawProperties.getProperty(key), fallback);
+  }
+
+  private Color parseColorValue(String raw, Color fallback) {
+    if (raw == null || raw.isBlank()) return fallback;
+    try {
+      return Color.web(raw.trim());
+    } catch (Exception ignored) {
+      return fallback;
+    }
+  }
+
+  private double parseDoubleProperty(String key, double fallback) {
+    String raw = rawProperties.getProperty(key);
+    if (raw == null || raw.isBlank()) return fallback;
+    try {
+      double parsed = Double.parseDouble(raw.trim());
+      return Double.isFinite(parsed) ? parsed : fallback;
+    } catch (Exception ignored) {
+      return fallback;
+    }
+  }
+
+  private static <T> T firstNonNull(T first, T second) {
+    return first != null ? first : second;
+  }
+
   private void loadTextBoxAssetImage() {
-    File assetFile = resolveAssetFile(textBoxAssetPath);
+    textBoxAssetImage = loadImageAsset(textBoxAssetPath);
+  }
+
+  private void loadChoiceAssetImages() {
+    choiceButtonAssetImage = loadImageAsset(choiceButtonAssetPath);
+    choiceButtonHoverAssetImage = loadImageAsset(choiceButtonHoverAssetPath);
+    choiceButtonDisabledAssetImage = loadImageAsset(choiceButtonDisabledAssetPath);
+  }
+
+  private Image loadImageAsset(String assetPath) {
+    String normalized = normalizeAssetPath(assetPath);
+    if (normalized.isBlank()) return null;
+    Image cached = previewAssetCache.get(normalized);
+    if (cached != null) return cached;
+    File assetFile = resolveAssetFile(normalized);
     if (assetFile == null || !assetFile.exists() || !assetFile.isFile()) {
-      textBoxAssetImage = null;
-      return;
+      previewAssetCache.remove(normalized);
+      return null;
     }
     try {
       String url = assetFile.toURI().toURL().toExternalForm();
       Image image = new Image(url, false);
       if (image.isError()) {
-        textBoxAssetImage = null;
-      } else {
-        textBoxAssetImage = image;
+        previewAssetCache.remove(normalized);
+        return null;
       }
+      previewAssetCache.put(normalized, image);
+      return image;
     } catch (Exception ignored) {
-      textBoxAssetImage = null;
+      previewAssetCache.remove(normalized);
+      return null;
     }
   }
 
@@ -744,6 +928,18 @@ public class DialogueLayoutEditorView extends BorderPane {
     return file.getAbsolutePath().replace('\\', '/');
   }
 
+  private static void setOptionalProperty(Properties properties, String key, String value) {
+    String normalized = normalizeAssetPath(value);
+    if (normalized.isBlank()) properties.remove(key);
+    else properties.setProperty(key, normalized);
+  }
+
+  private static String firstNonBlank(String first, String second) {
+    if (first != null && !first.isBlank()) return first;
+    if (second != null && !second.isBlank()) return second;
+    return "";
+  }
+
   private static String normalizeAssetPath(String value) {
     if (value == null) return "";
     return value.trim().replace('\\', '/');
@@ -774,6 +970,21 @@ public class DialogueLayoutEditorView extends BorderPane {
       return px >= x && px <= x + w && py >= y && py <= y + h;
     }
   }
+
+  private record ChoicePreviewStyle(
+      Color backgroundColor,
+      Color hoverBackgroundColor,
+      Color disabledBackgroundColor,
+      Color textColor,
+      Color hoverTextColor,
+      Color disabledTextColor,
+      Color borderColor,
+      Color hoverBorderColor,
+      Color disabledBorderColor,
+      double cornerRadius,
+      double borderWidth,
+      double textBaselineOffset
+  ) {}
 
   private record LayoutRects(Rect textBox, Rect nameBox, Rect dialogueBounds, Rect choiceBlock) {}
 }

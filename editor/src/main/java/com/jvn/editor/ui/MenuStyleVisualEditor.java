@@ -90,13 +90,14 @@ public class MenuStyleVisualEditor extends BorderPane {
     preview.setManaged(false);
     StackPane previewPane = new StackPane(preview);
     StackPane.setAlignment(preview, Pos.TOP_LEFT);
-    previewPane.setStyle("-fx-background-color: linear-gradient(to bottom, #0e131a, #090c11); -fx-border-color: #2a2f3a;");
+    previewPane.getStyleClass().add("layout-studio-preview-host");
     previewPane.setPadding(new Insets(8));
     setCenter(previewPane);
 
     ScrollPane controls = new ScrollPane(buildControls());
     controls.setFitToWidth(true);
     controls.setPrefWidth(360);
+    controls.getStyleClass().add("layout-studio-controls-pane");
     setRight(controls);
 
     previewPane.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
@@ -214,7 +215,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   }
 
   private int addAssetRow(GridPane grid, int row, String label, TextField field) {
-    Button browse = new Button("...");
+    Button browse = new Button("Browse...");
     browse.setOnAction(e -> browseAsset(field));
     HBox box = new HBox(6, field, browse);
     HBox.setHgrow(field, Priority.ALWAYS);
@@ -299,10 +300,10 @@ public class MenuStyleVisualEditor extends BorderPane {
     GraphicsContext g = preview.getGraphicsContext2D();
     double w = Math.max(1, preview.getWidth());
     double h = Math.max(1, preview.getHeight());
-    g.setFill(Color.web("#0f141c"));
+    g.setFill(LayoutStudioPalette.CANVAS_BACKGROUND);
     g.fillRect(0, 0, w, h);
 
-    g.setFill(Color.WHITE);
+    g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font("Arial", FontWeight.BOLD, 20));
     g.fillText("Menu Style Preview", 20, 34);
 
@@ -320,17 +321,17 @@ public class MenuStyleVisualEditor extends BorderPane {
     if (bg != null && !bg.isError()) {
       g.drawImage(bg, x, y, w, h);
     } else {
-      Color fill = disabled ? Color.rgb(66, 66, 72, 0.6) : (selected ? Color.rgb(84, 104, 152, 0.8) : Color.rgb(46, 52, 68, 0.8));
+      Color fill = disabled ? LayoutStudioPalette.PANEL_FILL_DISABLED : (selected ? LayoutStudioPalette.PANEL_FILL_SELECTED : LayoutStudioPalette.PANEL_FILL);
       g.setFill(fill);
       g.fillRoundRect(x, y, w, h, 10, 10);
-      g.setStroke(selected ? Color.rgb(176, 212, 255, 0.95) : Color.rgb(120, 132, 160, 0.7));
+      g.setStroke(selected ? LayoutStudioPalette.PANEL_BORDER_SELECTED : LayoutStudioPalette.PANEL_BORDER);
       g.setLineWidth(selected ? 2.0 : 1.0);
       g.strokeRoundRect(x, y, w, h, 10, 10);
     }
 
     Color textColor = disabled
-        ? parseColor(tfItemDisabledColor.getText(), Color.web("#808080"))
-        : (selected ? parseColor(tfItemSelectedColor.getText(), Color.web("#FFFF00")) : parseColor(tfItemColor.getText(), Color.web("#D3D3D3")));
+        ? parseColor(tfItemDisabledColor.getText(), LayoutStudioPalette.ITEM_COLOR_DISABLED)
+        : (selected ? parseColor(tfItemSelectedColor.getText(), LayoutStudioPalette.ITEM_COLOR_SELECTED) : parseColor(tfItemColor.getText(), LayoutStudioPalette.ITEM_COLOR_DEFAULT));
     Font font = resolvePreviewFont();
     g.setFill(textColor);
     g.setFont(font);
