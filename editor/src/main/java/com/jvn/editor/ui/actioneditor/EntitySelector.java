@@ -25,6 +25,8 @@ public class EntitySelector extends VBox {
     private final TreeView<String> treeView;
     private final TreeItem<String> rootItem;
 
+    private final Label lblEmptyHint;
+
     private AnimationProject project;
     private Consumer<String> onEntitySelected;
     private Consumer<String> onCreateGroup;
@@ -47,8 +49,13 @@ public class EntitySelector extends VBox {
         rootItem = new TreeItem<>("Scene");
         rootItem.setExpanded(true);
 
+        lblEmptyHint = new Label("No entities in scene.\nLoad a scene or add entities\nvia the timeline.");
+        lblEmptyHint.setStyle("-fx-text-fill: #555; -fx-font-size: 11px; -fx-padding: 8 0 0 0;");
+        lblEmptyHint.setWrapText(true);
+
         treeView = new TreeView<>(rootItem);
         treeView.setShowRoot(false);
+        treeView.setStyle("-fx-background-color: #1a1a1a; -fx-control-inner-background: #1a1a1a;");
         treeView.setCellFactory(tv -> new EntityTreeCell());
         treeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && onEntitySelected != null) {
@@ -76,7 +83,8 @@ public class EntitySelector extends VBox {
         HBox toolbar = new HBox(6, btnNewGroup);
         toolbar.setPadding(new Insets(4, 0, 0, 0));
 
-        getChildren().addAll(header, filterField, treeView, toolbar);
+        getChildren().addAll(header, filterField, lblEmptyHint, treeView, toolbar);
+        updateEmptyState();
 
         setupContextMenu();
     }
@@ -101,6 +109,15 @@ public class EntitySelector extends VBox {
         }
 
         applyFilter();
+        updateEmptyState();
+    }
+
+    private void updateEmptyState() {
+        boolean empty = rootItem.getChildren().isEmpty();
+        lblEmptyHint.setVisible(empty);
+        lblEmptyHint.setManaged(empty);
+        treeView.setVisible(!empty);
+        treeView.setManaged(!empty);
     }
 
     private TreeItem<String> buildGroupItem(String groupName) {

@@ -636,3 +636,136 @@
   -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
   -fx-font-size: 12px;
 }
+
+/* === Puppeteer dark-theme overrides for JavaFX controls === */
+
+/* TreeView */
+.tree-view { -fx-background-color: #1a1a1a; }
+.tree-view .tree-cell {
+  -fx-background-color: transparent;
+  -fx-text-fill: #e6e6e6;
+  -fx-font-size: 11px;
+  -fx-padding: 3 4;
+}
+.tree-view .tree-cell:selected {
+  -fx-background-color: #2a3a5a;
+  -fx-text-fill: #e6e6e6;
+}
+.tree-view .tree-cell:hover:filled {
+  -fx-background-color: #222;
+}
+.tree-view .tree-cell:selected:hover {
+  -fx-background-color: #2e4570;
+}
+.tree-view .tree-cell:empty {
+  -fx-background-color: transparent;
+}
+
+/* ComboBox */
+.combo-box {
+  -fx-background-color: #1a1a1a;
+  -fx-border-color: #3a3a3a;
+  -fx-border-radius: 3;
+  -fx-background-radius: 3;
+}
+.combo-box .list-cell {
+  -fx-text-fill: #e6e6e6;
+  -fx-font-size: 11px;
+  -fx-background-color: #1a1a1a;
+}
+.combo-box-popup .list-view {
+  -fx-background-color: #1a1a1a;
+  -fx-border-color: #3a3a3a;
+}
+.combo-box-popup .list-cell {
+  -fx-text-fill: #e6e6e6;
+  -fx-background-color: #1a1a1a;
+  -fx-font-size: 11px;
+}
+.combo-box-popup .list-cell:hover {
+  -fx-background-color: #2a3a5a;
+}
+.combo-box-popup .list-cell:selected {
+  -fx-background-color: #2a3a5a;
+}
+
+/* ScrollBar (dark theme) */
+.scroll-bar {
+  -fx-background-color: #1a1a1a;
+}
+.scroll-bar .thumb {
+  -fx-background-color: #3a3a3a;
+  -fx-background-radius: 4;
+}
+.scroll-bar .thumb:hover {
+  -fx-background-color: #555;
+}
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+  -fx-shape: "";
+  -fx-padding: 0;
+}
+
+/* SplitPane divider */
+.split-pane > .split-pane-divider {
+  -fx-background-color: #2a2a2a;
+  -fx-padding: 0 1 0 1;
+}
+
+/* Slider */
+.slider .track {
+  -fx-background-color: #2a2a2a;
+  -fx-background-radius: 4;
+}
+.slider .thumb {
+  -fx-background-color: #4da3ff;
+  -fx-background-radius: 8;
+}
+.slider .thumb:hover {
+  -fx-background-color: #5bb3ff;
+}
+.slider:disabled .thumb {
+  -fx-background-color: #3a3a3a;
+}
+.slider:disabled .track {
+  -fx-background-color: #1a1a1a;
+}
+
+/* Tooltip */
+.tooltip {
+  -fx-background-color: #222;
+  -fx-text-fill: #e6e6e6;
+  -fx-border-color: #3a3a3a;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
+  -fx-font-size: 11px;
+  -fx-padding: 4 8;
+}
+
+/* MenuButton */
+.menu-button .label {
+  -fx-text-fill: #a0a0a0;
+}
+.context-menu {
+  -fx-background-color: #1e1e1e;
+  -fx-border-color: #3a3a3a;
+}
+.context-menu .menu-item {
+  -fx-background-color: transparent;
+}
+.context-menu .menu-item .label {
+  -fx-text-fill: #e6e6e6;
+  -fx-font-size: 11px;
+}
+.context-menu .menu-item:hover,
+.context-menu .menu-item:focused {
+  -fx-background-color: #2a3a5a;
+}
+.context-menu .separator .line {
+  -fx-border-color: #2a2a2a;
+}
