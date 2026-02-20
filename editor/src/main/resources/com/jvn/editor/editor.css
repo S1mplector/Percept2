@@ -769,3 +769,33 @@
 .context-menu .separator .line {
   -fx-border-color: #2a2a2a;
 }
+
+/* TitledPane dark theme for layout studio collapsible sections */
+.titled-pane {
+  -fx-text-fill: #e6e6e6;
+}
+.titled-pane > .title {
+  -fx-background-color: #1a1a1a;
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 0 0 1 0;
+}
+.titled-pane > .title > .arrow-button .arrow {
+  -fx-background-color: #a0a0a0;
+}
+.titled-pane > .title:hover {
+  -fx-background-color: #222222;
+}
+.titled-pane > *.content {
+  -fx-background-color: #121212;
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 0 0 1 0;
+}
+
+/* ColorPicker dark theme */
+.color-picker {
+  -fx-background-color: #2a2a2a;
+  -fx-border-color: #3a3a3a;
+}
+.color-picker > .label {
+  -fx-text-fill: #e6e6e6;
+}

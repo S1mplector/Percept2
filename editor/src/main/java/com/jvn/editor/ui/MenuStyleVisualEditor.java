@@ -215,11 +215,38 @@ public class MenuStyleVisualEditor extends BorderPane {
     } catch (Exception ignored) {
     }
 
+    // Hover color
+    tfItemHoverColor.setText(rawProperties.getProperty("itemHoverColor", ""));
+    // Shadow / opacity
+    tfItemShadowColor.setText(rawProperties.getProperty("itemShadowColor", ""));
+    setSpinnerValue(spItemShadowOffsetX, parseDouble(rawProperties.getProperty("itemShadowOffsetX"), 0));
+    setSpinnerValue(spItemShadowOffsetY, parseDouble(rawProperties.getProperty("itemShadowOffsetY"), 0));
+    setSpinnerValue(spItemOpacity, parseDouble(rawProperties.getProperty("itemOpacity"), 1.0));
+
+    // Button skins
     tfButtonAsset.setText(rawProperties.getProperty("buttonAsset", ""));
     tfButtonSelectedAsset.setText(rawProperties.getProperty("buttonSelectedAsset", ""));
+    tfButtonHoverAsset.setText(rawProperties.getProperty("buttonHoverAsset", ""));
     tfButtonDisabledAsset.setText(rawProperties.getProperty("buttonDisabledAsset", ""));
     setSpinnerValue(spButtonTextPaddingX, parseDouble(rawProperties.getProperty("buttonTextPaddingX"), spButtonTextPaddingX.getValue()));
     setSpinnerValue(spButtonTextPaddingY, parseDouble(rawProperties.getProperty("buttonTextPaddingY"), spButtonTextPaddingY.getValue()));
+
+    // Title styling
+    tfTitleColor.setText(rawProperties.getProperty("titleColor", ""));
+    cbTitleFontFamily.setValue(rawProperties.getProperty("titleFontFamily", cbTitleFontFamily.getValue()));
+    cbTitleFontWeight.setValue(rawProperties.getProperty("titleFontWeight", cbTitleFontWeight.getValue()));
+    try { spTitleFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("titleFontSize", Integer.toString(spTitleFontSize.getValue())))); } catch (Exception ignored) {}
+    tfTitleShadowColor.setText(rawProperties.getProperty("titleShadowColor", ""));
+
+    // Hints styling
+    tfHintsColor.setText(rawProperties.getProperty("hintsColor", ""));
+    cbHintsFontFamily.setValue(rawProperties.getProperty("hintsFontFamily", cbHintsFontFamily.getValue()));
+    try { spHintsFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("hintsFontSize", Integer.toString(spHintsFontSize.getValue())))); } catch (Exception ignored) {}
+
+    // Background
+    tfBackgroundAsset.setText(rawProperties.getProperty("backgroundAsset", ""));
+    tfBackgroundColor.setText(rawProperties.getProperty("backgroundColor", ""));
+    setSpinnerValue(spBackgroundOpacity, parseDouble(rawProperties.getProperty("backgroundOpacity"), 1.0));
 
     suppressEvents = false;
     loadButtonAssets();

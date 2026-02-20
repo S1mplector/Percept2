@@ -54,7 +54,7 @@ public class UnifiedMenuEditor extends BorderPane {
     StackPane previewHost = new StackPane(combinedPreview);
     StackPane.setAlignment(combinedPreview, Pos.TOP_LEFT);
     previewHost.setPadding(new Insets(8));
-    previewHost.setStyle("-fx-background-color: #0d0d0d;");
+    previewHost.setStyle("-fx-background-color: #121212;");
     previewHost.widthProperty().addListener((o, ov, nv) -> {
       double pw = Math.max(1, nv.doubleValue() - 16);
       if (Math.abs(combinedPreview.getWidth() - pw) >= 0.5) combinedPreview.setWidth(pw);
@@ -73,11 +73,11 @@ public class UnifiedMenuEditor extends BorderPane {
 
     VBox header = new VBox(4);
     header.setPadding(new Insets(8, 12, 8, 12));
-    header.setStyle("-fx-background-color: #1a1c1e;");
+    header.setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #2a2a2a; -fx-border-width: 0 0 1 0;");
     Label title = new Label("Unified Menu Editor");
-    title.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e8eaed;");
+    title.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
     Label hint = new Label("Edit layout, style, and screen content in one place. Changes sync automatically.");
-    hint.setStyle("-fx-text-fill: #9aa0a6; -fx-font-size: 11px;");
+    hint.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
     header.getChildren().addAll(title, hint);
 
     setTop(header);
@@ -117,9 +117,9 @@ public class UnifiedMenuEditor extends BorderPane {
     double h = Math.max(1, combinedPreview.getHeight());
     GraphicsContext g = combinedPreview.getGraphicsContext2D();
 
-    g.setFill(Color.web("#111114"));
+    g.setFill(Color.web("#121212"));
     g.fillRect(0, 0, w, h);
-    g.setStroke(Color.web("#222228"));
+    g.setStroke(Color.web("#2a2a2a"));
     g.setLineWidth(1);
     for (int i = 1; i < 6; i++) {
       double yy = (h / 6.0) * i;

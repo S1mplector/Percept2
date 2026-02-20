@@ -61,10 +61,8 @@ object SceneDsl:
       builder.dialogue("", text)
 
     def choice(options: (String, String)*): Unit =
-      val choices = new java.util.ArrayList[Choice]()
-      for (label, target) <- options do
-        choices.add(Choice.builder().text(label).targetLabel(target).build())
-      builder.choices(choices)
+      val choiceData = options.map { case (text, target) => Array(text, target) }.toArray
+      builder.choiceWithTargets(choiceData)
 
     def label(name: String): Unit =
       builder.label(name)

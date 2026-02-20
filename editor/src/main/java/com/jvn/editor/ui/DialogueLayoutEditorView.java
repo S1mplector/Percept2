@@ -436,7 +436,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     TitledPane tp = new TitledPane(title, content);
     tp.setExpanded(expanded);
     tp.setAnimated(false);
-    tp.setStyle("-fx-font-weight: bold; -fx-font-size: 11px;");
+    tp.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #e6e6e6;");
     return tp;
   }
 
