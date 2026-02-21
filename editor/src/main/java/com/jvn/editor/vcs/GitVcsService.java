@@ -240,6 +240,25 @@ public class GitVcsService {
     return result.success() ? result.output().trim() : null;
   }
 
+  public boolean isGhCliAvailable() {
+    CommandResult result = execute(null, List.of("gh", "--version"), true);
+    return result.success();
+  }
+
+  public boolean isGhCliAuthenticated() {
+    CommandResult result = execute(null, List.of("gh", "auth", "status"), true);
+    return result.success();
+  }
+
+  public CommandResult createGitHubRepo(File root, String repoName, boolean isPrivate) throws GitVcsException {
+    requireRepository(root);
+    if (repoName == null || repoName.isBlank()) throw new GitVcsException("Repository name cannot be empty.");
+    String visibility = isPrivate ? "--private" : "--public";
+    CommandResult result = execute(root, List.of("gh", "repo", "create", repoName.trim(), visibility, "--source=.", "--remote=origin", "--push"), false);
+    ensureSuccess(result, "Failed to create GitHub repository.");
+    return result;
+  }
+
   public CommandResult addRemote(File root, String name, String url) throws GitVcsException {
     requireRepository(root);
     if (name == null || name.isBlank()) name = "origin";

@@ -50,7 +50,11 @@ public class VersionControlView extends BorderPane {
   private final Label conflictLabel = new Label();
   private final Label remoteLabel = new Label("Remote: not configured");
   private final Button btnConfigureRemote = new Button("Add Remote");
+  private final Label initTitleLabel = new Label("\u26a0 Repository Not Initialized");
   private final Label initHintLabel = new Label("Repository is not initialized for this project.");
+  private final VBox initBox = new VBox(6);
+
+  private final VBox setupBox = new VBox(8);
 
   private final CheckBox chkInitWithLfs = new CheckBox("Enable Git LFS tracking");
   private final CheckBox chkInitCommit = new CheckBox("Create initial commit");
@@ -101,7 +105,7 @@ public class VersionControlView extends BorderPane {
     remoteLabel.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px;");
     btnConfigureRemote.setStyle("-fx-font-size: 10px; -fx-padding: 2 8 2 8;");
     btnConfigureRemote.setOnAction(e -> showAddRemoteDialog());
-    initHintLabel.setStyle("-fx-text-fill: #f0b673;");
+    initHintLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 11px;");
     initHintLabel.setWrapText(true);
 
     chkInitWithLfs.setSelected(true);
@@ -168,10 +172,56 @@ public class VersionControlView extends BorderPane {
     toolbar.setAlignment(Pos.CENTER_LEFT);
     toolbar.setPadding(new Insets(4, 0, 4, 0));
 
-    // Init controls
+    // Init controls - styled as prominent warning banner
     HBox initOptionsRow = new HBox(12, chkInitWithLfs, chkInitCommit);
     HBox initActionRow = new HBox(6, btnInitialize);
-    VBox initBox = new VBox(4, initHintLabel, initOptionsRow, initActionRow);
+    initTitleLabel.setStyle("-fx-text-fill: #f0b673; -fx-font-weight: bold; -fx-font-size: 12px;");
+    initBox.getChildren().addAll(initTitleLabel, initHintLabel, initOptionsRow, initActionRow);
+    initBox.setStyle("-fx-background-color: rgba(240, 182, 115, 0.12); -fx-padding: 10; -fx-background-radius: 6; -fx-border-color: #f0b673; -fx-border-radius: 6; -fx-border-width: 1;");
+
+    // Setup guide banner - shown when repo exists but no remote configured
+    Label setupTitle = new Label("\u2699 Setup Required");
+    setupTitle.setStyle("-fx-text-fill: #4da3ff; -fx-font-weight: bold; -fx-font-size: 12px;");
+    Label setupDesc = new Label("Your project needs a remote repository to push, pull, and collaborate.");
+    setupDesc.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    setupDesc.setWrapText(true);
+
+    // Option A: Create GitHub repo directly (if gh CLI available)
+    Label optionALabel = new Label("Option A — Create a new GitHub repository:");
+    optionALabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
+    ComboBox<String> cbVisibility = new ComboBox<>(FXCollections.observableArrayList("Private", "Public"));
+    cbVisibility.setValue("Private");
+    cbVisibility.setStyle("-fx-font-size: 11px;");
+    cbVisibility.setMaxWidth(100);
+    Button btnCreateGitHub = new Button("Create GitHub Repository");
+    btnCreateGitHub.setStyle("-fx-background-color: #238636; -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-padding: 6 16 6 16; -fx-background-radius: 4;");
+    btnCreateGitHub.setOnAction(e -> {
+      boolean isPrivate = "Private".equals(cbVisibility.getValue());
+      showCreateGitHubRepoDialog(isPrivate);
+    });
+    HBox ghRow = new HBox(8, cbVisibility, btnCreateGitHub);
+    ghRow.setAlignment(Pos.CENTER_LEFT);
+    Label ghHint = new Label("Requires GitHub CLI (gh). Installs remote + pushes in one step.");
+    ghHint.setStyle("-fx-text-fill: #666666; -fx-font-size: 10px;");
+    VBox optionA = new VBox(4, optionALabel, ghRow, ghHint);
+
+    // Option B: Manually connect existing repo
+    Label optionBLabel = new Label("Option B — Connect an existing remote repository:");
+    optionBLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
+    Button btnSetupRemote = new Button("Connect to Remote Repository");
+    btnSetupRemote.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-padding: 6 16 6 16; -fx-background-radius: 4;");
+    btnSetupRemote.setOnAction(e -> showAddRemoteDialog());
+    Label manualHint = new Label("Already created a repo on GitHub/GitLab/Bitbucket? Paste its URL.");
+    manualHint.setStyle("-fx-text-fill: #666666; -fx-font-size: 10px;");
+    VBox optionB = new VBox(4, optionBLabel, btnSetupRemote, manualHint);
+
+    Label setupSkip = new Label("You can also work offline and add a remote later.");
+    setupSkip.setStyle("-fx-text-fill: #555555; -fx-font-size: 10px;");
+
+    setupBox.getChildren().addAll(setupTitle, setupDesc, optionA, optionB, setupSkip);
+    setupBox.setStyle("-fx-background-color: rgba(77, 163, 255, 0.10); -fx-padding: 12; -fx-background-radius: 6; -fx-border-color: #4da3ff; -fx-border-radius: 6; -fx-border-width: 1;");
+    setupBox.setVisible(false);
+    setupBox.setManaged(false);
 
     // Commit row
     HBox commitRow = new HBox(4, txtCommitMessage, btnCommit);
@@ -201,6 +251,7 @@ public class VersionControlView extends BorderPane {
         toolLabel,
         statusBox,
         initBox,
+        setupBox,
         toolbar,
         branchRow,
         commitRow
@@ -303,15 +354,19 @@ public class VersionControlView extends BorderPane {
           } else {
             summaryLabel.setText("Status: " + status.entries().size() + " changed files");
           }
-          // Update remote status
+          // Update remote status and setup guide
           if (hasRemote && remoteUrl != null) {
             remoteLabel.setText("Remote: " + remoteUrl);
             remoteLabel.setStyle("-fx-text-fill: #9aa0a6; -fx-font-size: 11px;");
             btnConfigureRemote.setText("Change");
+            setupBox.setVisible(false);
+            setupBox.setManaged(false);
           } else {
             remoteLabel.setText("Remote: not configured");
             remoteLabel.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px;");
             btnConfigureRemote.setText("Add Remote");
+            setupBox.setVisible(true);
+            setupBox.setManaged(true);
           }
           listChanges.setItems(FXCollections.observableArrayList(status.entries()));
           setInitControlsVisible(false, null);
@@ -562,12 +617,22 @@ public class VersionControlView extends BorderPane {
     Label urlHint = new Label("Example: https://github.com/YourName/YourProject.git");
     urlHint.setStyle("-fx-text-fill: #4da3ff; -fx-font-size: 10px;");
 
+    // Note about public/private
+    Label privacyNote = new Label(
+        "\uD83D\uDD12 Public vs Private: Create your repository on GitHub/GitLab first, then paste the URL here.\n" +
+        "The repository's visibility (public/private) is set on the hosting service, not in Git.");
+    privacyNote.setStyle("-fx-text-fill: #9aa0a6; -fx-font-size: 10px;");
+    privacyNote.setWrapText(true);
+    privacyNote.setMaxWidth(380);
+
     content.getChildren().addAll(
         titleLabel,
         instructionLabel,
         new javafx.scene.control.Separator(),
         nameLabel, nameField, nameHint,
-        urlLabel, urlField, urlHint
+        urlLabel, urlField, urlHint,
+        new javafx.scene.control.Separator(),
+        privacyNote
     );
 
     pane.setContent(content);
@@ -585,6 +650,101 @@ public class VersionControlView extends BorderPane {
       if (parts.length == 2 && !parts[1].isBlank()) {
         runAddRemote(parts[0], parts[1]);
       }
+    });
+  }
+
+  private void showCreateGitHubRepoDialog(boolean isPrivate) {
+    // First check gh CLI availability
+    if (!vcs.isGhCliAvailable()) {
+      javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
+      alert.setTitle("GitHub CLI Not Found");
+      alert.setHeaderText("GitHub CLI (gh) is not installed");
+      alert.setContentText(
+          "To create repositories directly, install the GitHub CLI:\n\n" +
+          "  macOS:   brew install gh\n" +
+          "  Windows: winget install GitHub.cli\n" +
+          "  Linux:   https://github.com/cli/cli#installation\n\n" +
+          "After installing, run:  gh auth login\n\n" +
+          "Alternatively, create a repository on github.com and use\n\"Connect to Remote Repository\" to paste the URL.");
+      alert.getDialogPane().setStyle("-fx-background-color: #1a1a1a;");
+      alert.showAndWait();
+      return;
+    }
+
+    if (!vcs.isGhCliAuthenticated()) {
+      javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
+      alert.setTitle("GitHub CLI Not Authenticated");
+      alert.setHeaderText("You need to log in to GitHub first");
+      alert.setContentText("Run this command in your terminal:\n\n  gh auth login\n\nThen try again.");
+      alert.getDialogPane().setStyle("-fx-background-color: #1a1a1a;");
+      alert.showAndWait();
+      return;
+    }
+
+    // Show repo name dialog
+    javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
+    dialog.setTitle("Create GitHub Repository");
+
+    javafx.scene.control.ButtonType createBtn = new javafx.scene.control.ButtonType(
+        isPrivate ? "Create Private Repo" : "Create Public Repo",
+        javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+    dialog.getDialogPane().getButtonTypes().addAll(createBtn, javafx.scene.control.ButtonType.CANCEL);
+
+    javafx.scene.control.DialogPane pane = dialog.getDialogPane();
+    pane.setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #3a3a3a;");
+
+    VBox content = new VBox(10);
+    content.setPadding(new Insets(16));
+    content.setStyle("-fx-background-color: #1a1a1a;");
+
+    Label dlgTitle = new Label("Create a " + (isPrivate ? "Private" : "Public") + " GitHub Repository");
+    dlgTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
+
+    Label dlgDesc = new Label("This will create a new repository on your GitHub account, set it as the remote, and push your code.");
+    dlgDesc.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    dlgDesc.setWrapText(true);
+    dlgDesc.setMaxWidth(350);
+
+    Label nameLabel = new Label("Repository Name");
+    nameLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px;");
+    String defaultName = projectRoot != null ? projectRoot.getName() : "my-project";
+    TextField repoNameField = new TextField(defaultName);
+    repoNameField.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-background-radius: 4;");
+    repoNameField.setPrefWidth(350);
+
+    Label visLabel = new Label(isPrivate
+        ? "\uD83D\uDD12 This repository will be private — only you and collaborators can see it."
+        : "\uD83C\uDF10 This repository will be public — anyone can see it.");
+    visLabel.setStyle("-fx-text-fill: " + (isPrivate ? "#8bcf98" : "#f0b673") + "; -fx-font-size: 10px;");
+    visLabel.setWrapText(true);
+    visLabel.setMaxWidth(350);
+
+    content.getChildren().addAll(dlgTitle, dlgDesc, nameLabel, repoNameField, visLabel);
+    pane.setContent(content);
+    Platform.runLater(repoNameField::requestFocus);
+
+    dialog.setResultConverter(dialogButton -> {
+      if (dialogButton == createBtn) return repoNameField.getText().trim();
+      return null;
+    });
+
+    dialog.showAndWait().ifPresent(repoName -> {
+      if (!repoName.isBlank()) {
+        runCreateGitHubRepo(repoName, isPrivate);
+      }
+    });
+  }
+
+  private void runCreateGitHubRepo(String repoName, boolean isPrivate) {
+    runAsync("Create GitHub repo", () -> {
+      try {
+        appendLog("Creating " + (isPrivate ? "private" : "public") + " GitHub repository: " + repoName + "...");
+        appendCommandResult(vcs.createGitHubRepo(projectRoot, repoName, isPrivate));
+        appendLog("GitHub repository created and code pushed successfully!");
+      } catch (Exception ex) {
+        appendLog("Create GitHub repo failed: " + ex.getMessage());
+      }
+      refreshStatus();
     });
   }
 
@@ -670,16 +830,11 @@ public class VersionControlView extends BorderPane {
 
   private void setInitControlsVisible(boolean visible, String hintText) {
     initHintLabel.setText((hintText == null || hintText.isBlank())
-        ? "Repository is not initialized for this project."
+        ? "This project has no Git repository. Click Initialize to enable version control."
         : hintText);
-    initHintLabel.setVisible(visible);
-    initHintLabel.setManaged(visible);
-    chkInitWithLfs.setVisible(visible);
-    chkInitWithLfs.setManaged(visible);
-    chkInitCommit.setVisible(visible);
-    chkInitCommit.setManaged(visible);
-    btnInitialize.setVisible(visible);
-    btnInitialize.setManaged(visible);
+    // Control entire initBox visibility
+    initBox.setVisible(visible);
+    initBox.setManaged(visible);
   }
 
   private void appendLog(String message) {
