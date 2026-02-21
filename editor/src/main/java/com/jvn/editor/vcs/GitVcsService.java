@@ -254,8 +254,29 @@ public class GitVcsService {
     requireRepository(root);
     if (repoName == null || repoName.isBlank()) throw new GitVcsException("Repository name cannot be empty.");
     String visibility = isPrivate ? "--private" : "--public";
-    CommandResult result = execute(root, List.of("gh", "repo", "create", repoName.trim(), visibility, "--source=.", "--remote=origin", "--push"), false);
+    // Create repo and set remote, but don't push yet (to avoid LFS quota issues)
+    CommandResult result = execute(root, List.of("gh", "repo", "create", repoName.trim(), visibility, "--source=.", "--remote=origin"), false);
     ensureSuccess(result, "Failed to create GitHub repository.");
+    return result;
+  }
+
+  public CommandResult pushWithLfsCheck(File root) throws GitVcsException {
+    requireRepository(root);
+    // Try to push
+    CommandResult result = execute(root, List.of("git", "push", "-u", "origin", "main"), false);
+    // If push fails and output mentions LFS, provide helpful error
+    if (!result.success() && result.output().toLowerCase().contains("lfs")) {
+      throw new GitVcsException(
+          "Push failed due to Git LFS quota limits.\n\n" +
+          "Your GitHub account has exceeded its LFS storage quota.\n" +
+          "To fix this:\n" +
+          "  1. Go to your GitHub account settings\n" +
+          "  2. Increase LFS data pack quota, or\n" +
+          "  3. Remove large files from this project and use regular Git\n\n" +
+          "The repository was created successfully at GitHub.\n" +
+          "You can push manually later after resolving LFS issues.");
+    }
+    ensureSuccess(result, "Failed to push to remote.");
     return result;
   }
 

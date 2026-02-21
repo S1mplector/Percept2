@@ -740,7 +740,20 @@ public class VersionControlView extends BorderPane {
       try {
         appendLog("Creating " + (isPrivate ? "private" : "public") + " GitHub repository: " + repoName + "...");
         appendCommandResult(vcs.createGitHubRepo(projectRoot, repoName, isPrivate));
-        appendLog("GitHub repository created and code pushed successfully!");
+        appendLog("Repository created successfully on GitHub!");
+        appendLog("Setting up remote 'origin'...");
+        
+        // Now try to push with LFS check
+        appendLog("Pushing code to GitHub...");
+        try {
+          appendCommandResult(vcs.pushWithLfsCheck(projectRoot));
+          appendLog("Code pushed successfully! Your project is now on GitHub.");
+        } catch (Exception pushEx) {
+          // LFS or other push error - repo is created but push failed
+          appendLog("⚠ " + pushEx.getMessage());
+          appendLog("\nRepository was created but initial push failed.");
+          appendLog("You can push manually later using the Push button.");
+        }
       } catch (Exception ex) {
         appendLog("Create GitHub repo failed: " + ex.getMessage());
       }
