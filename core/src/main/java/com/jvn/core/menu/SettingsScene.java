@@ -1,14 +1,17 @@
 package com.jvn.core.menu;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.AssetType;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.input.ActionBindingProfile;
 import com.jvn.core.input.ActionBindingProfileStore;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.config.MenuActionSpec;
-import com.jvn.core.menu.config.MenuActionType;
 import com.jvn.core.menu.config.MenuItemSpec;
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import com.jvn.core.menu.config.MenuProfile;
@@ -17,18 +20,12 @@ import com.jvn.core.menu.config.MenuScreenSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.DemoScenario;
-import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioLoader;
+import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnSettingsStore;
 import com.jvn.core.vn.save.VnSaveManager;
-import com.jvn.core.vn.script.VnScriptParser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 
 public class SettingsScene implements Scene {
   private static final Logger LOG = LoggerFactory.getLogger(SettingsScene.class);
@@ -53,6 +50,7 @@ public class SettingsScene implements Scene {
   private final MenuProfile menuProfile;
   private final MenuScreenSpec menuScreen;
   private final MenuLayoutSpec menuLayout;
+  private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
   private final List<Row> rows;
 
   private int selected = 0;
@@ -523,11 +521,7 @@ public class SettingsScene implements Scene {
 
   private VnScenario loadScenario(String scriptName) {
     try {
-      AssetCatalog assets = new AssetCatalog();
-      try (InputStream in = assets.open(AssetType.SCRIPT, scriptName)) {
-        VnScriptParser parser = new VnScriptParser();
-        return parser.parse(in);
-      }
+      return scenarioLoader.load(scriptName);
     } catch (Exception e) {
       LOG.warn("Failed to load script '{}', falling back to DemoScenario: {}", scriptName, e.toString());
       return DemoScenario.createSimpleDemo();

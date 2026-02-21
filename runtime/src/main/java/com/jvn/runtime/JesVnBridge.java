@@ -1,21 +1,14 @@
 package com.jvn.runtime;
 
-import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.AssetType;
 import com.jvn.core.engine.Engine;
-import com.jvn.core.localization.Localization;
-import com.jvn.core.localization.LocalizedScriptLoader;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnState;
-import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 /**
@@ -23,7 +16,7 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
  */
 public class JesVnBridge {
   private final Engine engine;
-  private static final String SCRIPTS_BASE = "game/scripts/";
+  private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
 
   public JesVnBridge(Engine engine) {
     this.engine = engine;
@@ -78,48 +71,16 @@ public class JesVnBridge {
 
   private VnScene loadVnScene(String script, VnScene current) throws Exception {
     if (script == null || script.isBlank()) return null;
-    AssetCatalog assets = new AssetCatalog();
-    try (InputStream in = openLocalizedScript(assets, script)) {
-      if (in == null) return null;
-      VnScenario sc = new VnScriptParser().parse(in);
-      BridgedVnScene vn = new BridgedVnScene(sc);
-      vn.setInterop(new RuntimeVnInterop(engine));
-      VnSettings settings = new VnSettings();
-      if (current != null) copySettings(current.getState(), settings);
-      copySettingsIntoState(settings, vn.getState());
-      if (current != null && current.getAudioFacade() != null) {
-        vn.setAudioFacade(current.getAudioFacade());
-      }
-      return vn;
+    VnScenario sc = scenarioLoader.load(script);
+    BridgedVnScene vn = new BridgedVnScene(sc);
+    vn.setInterop(new RuntimeVnInterop(engine));
+    VnSettings settings = new VnSettings();
+    if (current != null) copySettings(current.getState(), settings);
+    copySettingsIntoState(settings, vn.getState());
+    if (current != null && current.getAudioFacade() != null) {
+      vn.setAudioFacade(current.getAudioFacade());
     }
-  }
-
-  private InputStream openLocalizedScript(AssetCatalog assets, String script) {
-    for (String candidate : localizedScriptCandidates(script)) {
-      try {
-        InputStream in = assets.open(AssetType.SCRIPT, candidate);
-        if (in != null) return in;
-      } catch (Exception ignored) {
-      }
-    }
-    return null;
-  }
-
-  private List<String> localizedScriptCandidates(String script) {
-    java.util.LinkedHashSet<String> candidates = new java.util.LinkedHashSet<>();
-    if (script == null || script.isBlank()) return List.of();
-
-    String locale = Localization.locale();
-    LocalizedScriptLoader loader = new LocalizedScriptLoader(Thread.currentThread().getContextClassLoader(), SCRIPTS_BASE);
-    for (String path : loader.getCandidatePaths(script, locale)) {
-      if (path == null || path.isBlank()) continue;
-      candidates.add(path);
-      if (path.startsWith(SCRIPTS_BASE)) {
-        candidates.add(path.substring(SCRIPTS_BASE.length()));
-      }
-    }
-    candidates.add(script);
-    return new ArrayList<>(candidates);
+    return vn;
   }
 
   private VnScene topVn() {

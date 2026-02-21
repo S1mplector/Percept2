@@ -17,9 +17,9 @@ import com.jvn.core.vn.DemoScenario;
 import com.jvn.core.vn.VnBackground;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.save.VnSaveManager;
-import com.jvn.core.vn.script.VnScriptParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +49,7 @@ public class SaveMenuScene implements Scene {
   private final MenuProfile menuProfile;
   private final MenuScreenSpec menuScreen;
   private final MenuLayoutSpec menuLayout;
+  private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
   private int selected = 0;
   private List<String> saves = new ArrayList<>();
 
@@ -394,11 +395,7 @@ public class SaveMenuScene implements Scene {
 
   private VnScenario loadScenario(String scriptName) {
     try {
-      AssetCatalog assets = new AssetCatalog();
-      try (InputStream in = assets.open(AssetType.SCRIPT, scriptName)) {
-        VnScriptParser parser = new VnScriptParser();
-        return parser.parse(in);
-      }
+      return scenarioLoader.load(scriptName);
     } catch (Exception e) {
       LOG.warn("Failed to load script '{}', falling back to DemoScenario: {}", scriptName, e.toString());
       return DemoScenario.createSimpleDemo();
