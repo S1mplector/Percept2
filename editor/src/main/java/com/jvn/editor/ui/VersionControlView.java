@@ -526,6 +526,14 @@ public class VersionControlView extends BorderPane {
     btnPull.setDisable(busy || !repoReady);
     btnPush.setDisable(busy || !repoReady);
     btnCommit.setDisable(busy || !repoReady);
+    btnStash.setDisable(busy || !repoReady);
+    btnStashPop.setDisable(busy || !repoReady);
+    btnStageSelected.setDisable(busy || !repoReady);
+    btnUnstageSelected.setDisable(busy || !repoReady);
+    btnDiscardSelected.setDisable(busy || !repoReady);
+    btnDiffSelected.setDisable(busy || !repoReady);
+    cbBranch.setDisable(busy || !repoReady);
+    btnNewBranch.setDisable(busy || !repoReady);
     txtCommitMessage.setDisable(busy || !repoReady);
     listChanges.setDisable(!repoReady);
     chkInitWithLfs.setDisable(busy || !hasProject || repositoryInitialized);
