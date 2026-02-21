@@ -157,7 +157,7 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder show(String characterId, String expression, CharacterPosition position) {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.SHOW)
         .characterToShow(characterId)
         .showExpression(expression)
         .showPosition(position)
@@ -168,7 +168,7 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder hide(String characterId) {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.HIDE)
         .characterToHide(characterId)
         .build()
     );
@@ -177,7 +177,7 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder waitMs(long ms) {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.WAIT)
         .waitMs(ms)
         .build()
     );
@@ -186,7 +186,7 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder playBgm(String trackId, boolean loop) {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.AUDIO)
         .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.PLAY_BGM)
           .trackId(trackId)
           .loop(loop)
@@ -198,7 +198,7 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder stopBgm() {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.AUDIO)
         .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.STOP_BGM).build())
         .build()
     );
@@ -207,7 +207,7 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder fadeOutBgm() {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.AUDIO)
         .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.FADE_OUT_BGM).build())
         .build()
     );
@@ -216,7 +216,7 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder fadeOutBgm(long durationMs) {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.AUDIO)
         .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.FADE_OUT_BGM)
           .durationMs(Math.max(0, durationMs))
           .build())
@@ -227,7 +227,7 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder playSfx(String trackId) {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.AUDIO)
         .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.PLAY_SFX)
           .trackId(trackId)
           .loop(false)
@@ -239,7 +239,7 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder playVoice(String trackId) {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.AUDIO)
         .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.PLAY_VOICE)
           .trackId(trackId)
           .loop(false)
@@ -251,11 +251,30 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder transition(VnTransition.TransitionType type, long durationMs, String targetBackgroundId) {
     scenarioBuilder.addNode(
-      VnNode.builder(VnNodeType.JUMP)
+      VnNode.builder(VnNodeType.TRANSITION)
         .transition(VnTransition.builder(type)
           .durationMs(durationMs)
           .targetBackgroundId(targetBackgroundId)
           .build())
+        .build()
+    );
+    return this;
+  }
+
+  // --- Subroutine support ---
+
+  public VnScenarioBuilder call(String labelName) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.CALL)
+        .jumpLabel(labelName)
+        .build()
+    );
+    return this;
+  }
+
+  public VnScenarioBuilder returnFromCall() {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.RETURN)
         .build()
     );
     return this;

@@ -679,6 +679,18 @@ public class VnScriptParser {
         state.builder.external(provider, providerPayload);
         return;
       }
+      case "gosub": {
+        // Subroutine call - pushes return address and jumps to label
+        String label = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        addLabelReference(state, label, sourceName, lineNumber, rawLine, "gosub");
+        state.builder.call(label);
+        return;
+      }
+      case "return":
+        // Return from subroutine - pops return address from call stack
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.returnFromCall();
+        return;
       case "char":
       case "character": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);

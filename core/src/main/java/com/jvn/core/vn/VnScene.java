@@ -2,16 +2,22 @@ package com.jvn.core.vn;
 
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.scene.Scene;
+import com.jvn.core.vn.rollback.VnRollbackEntry;
 
 /**
- * Scene implementation for visual novel gameplay
- * Handles node processing, state management, and integration with audio and interop systems.
+ * Scene implementation for visual novel gameplay.
+ * Uses an iterative command loop for node processing with support for:
+ * - Rollback/forward navigation
+ * - CALL/RETURN subroutine execution
+ * - Explicit node types (SHOW, HIDE, WAIT, AUDIO, TRANSITION)
  */
 public class VnScene implements Scene {
+  private static final int MAX_INSTANT_CHAIN = 1000; // Safety limit for instant node chains
+
   private final VnState state;
   private VnScenario scenario;
   private long textRevealTimer;
-  private AudioFacade audioFacade; // Optional audio support
+  private AudioFacade audioFacade;
   private VnQuickSaveManager quickSaveManager;
   private boolean waitingNode = false;
   private long waitRemainingMs = 0;
@@ -21,6 +27,9 @@ public class VnScene implements Scene {
   private long bgmFadeRemainingMs = 0;
   private long bgmFadeDurationMs = 0;
   private float bgmFadeStartVol = 1.0f;
+  // Transition blocking state
+  private boolean transitionBlocking = false;
+  private long transitionRemainingMs = 0;
 
   public VnScene(VnScenario scenario) {
     this.scenario = scenario;
@@ -94,7 +103,17 @@ public class VnScene implements Scene {
       return;
     }
 
-    // Update transitions
+    // Update transition blocking
+    if (transitionBlocking) {
+      transitionRemainingMs -= deltaMs;
+      if (transitionRemainingMs <= 0) {
+        transitionBlocking = false;
+        state.advance();
+        processCurrentNode();
+      }
+    }
+
+    // Update transitions (visual)
     if (state.getActiveTransition() != null) {
       if (state.getTransitionProgress() >= 1.0f) {
         state.clearActiveTransition();
@@ -203,85 +222,116 @@ public class VnScene implements Scene {
     }
   }
 
+  /**
+   * Iterative command loop - processes nodes until reaching an interactive or blocking node.
+   * Replaces recursive processCurrentNode() for safer execution on long action chains.
+   */
   private void processCurrentNode() {
-    VnNode node = state.getCurrentNode();
-    if (node == null) return;
+    int instantCount = 0;
 
-    state.setWaitingForInput(false);
-    state.setTextRevealProgress(0);
-    textRevealTimer = 0;
-    state.resetAutoPlayTimer();
+    while (instantCount < MAX_INSTANT_CHAIN) {
+      VnNode node = state.getCurrentNode();
+      if (node == null) return;
 
-    // Mark node as read
-    state.markNodeAsRead(state.getCurrentNodeIndex());
+      state.setWaitingForInput(false);
+      state.setTextRevealProgress(0);
+      textRevealTimer = 0;
+      state.resetAutoPlayTimer();
 
-    // Process audio commands
-    if (node.getAudioCommand() != null) {
-      processAudioCommand(node.getAudioCommand());
-    }
+      // Mark node as read
+      state.markNodeAsRead(state.getCurrentNodeIndex());
 
-    // Process transitions
-    if (node.getTransition() != null) {
-      state.setActiveTransition(node.getTransition());
-      if (node.getTransition().getTargetBackgroundId() != null) {
-        state.setCurrentBackgroundId(node.getTransition().getTargetBackgroundId());
-      }
-    }
+      VnNodeType type = node.getType();
 
-    // Process character show/hide
-    if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
-      String expr = node.getShowExpression() != null ? node.getShowExpression() : "neutral";
-      state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr);
-    }
-    if (node.getCharacterToHide() != null) {
-      // Hide every matching slot to recover from stale duplicate state.
-      String characterIdToHide = node.getCharacterToHide();
-      java.util.List<CharacterPosition> positionsToRemove = new java.util.ArrayList<>();
-      for (var entry : state.getVisibleCharacters().entrySet()) {
-        VnState.CharacterSlot slot = entry.getValue();
-        if (slot != null && characterIdToHide.equals(slot.getCharacterId())) {
-          positionsToRemove.add(entry.getKey());
-        }
-      }
-      for (CharacterPosition position : positionsToRemove) {
-        state.hideCharacterAnimated(position);
-      }
-    }
+      // Handle each node type explicitly
+      switch (type) {
+        case DIALOGUE:
+          processDialogueNode(node);
+          return; // Interactive - stop loop
 
-    // Process wait (if any) and pause progression until elapsed
-    if (node.getWaitMs() > 0) {
-      waitingNode = true;
-      waitRemainingMs = node.getWaitMs();
-      return;
-    }
+        case CHOICE:
+          // Disable skip/auto-play at choices
+          if (state.isSkipMode() && !state.getSettings().isSkipAfterChoices()) {
+            state.setSkipMode(false);
+          }
+          if (state.isAutoPlayMode()) {
+            state.setAutoPlayMode(false);
+          }
+          state.setWaitingForInput(true);
+          return; // Interactive - stop loop
 
-    switch (node.getType()) {
-      case DIALOGUE:
-        processDialogueNode(node);
-        break;
-      case BACKGROUND:
-        processBackgroundNode(node);
-        state.advance();
-        processCurrentNode();
-        break;
-      case JUMP:
-        if (node.getJumpLabel() != null) {
-          processJumpNode(node);
-        } else {
+        case BACKGROUND:
+          processBackgroundNode(node);
           state.advance();
-        }
-        processCurrentNode();
-        break;
-      case EXTERNAL:
-        processExternalNode(node);
-        break;
-      case CHOICE:
-        // Choices wait for player input
-        break;
-      case END:
-        // Scenario complete
-        break;
+          instantCount++;
+          break; // Continue loop
+
+        case TRANSITION:
+          processTransitionNode(node);
+          if (transitionBlocking) {
+            return; // Blocking - stop loop
+          }
+          state.advance();
+          instantCount++;
+          break;
+
+        case SHOW:
+          processShowNode(node);
+          state.advance();
+          instantCount++;
+          break;
+
+        case HIDE:
+          processHideNode(node);
+          state.advance();
+          instantCount++;
+          break;
+
+        case WAIT:
+          processWaitNode(node);
+          if (waitingNode) {
+            return; // Blocking - stop loop
+          }
+          state.advance();
+          instantCount++;
+          break;
+
+        case AUDIO:
+          processAudioNode(node);
+          state.advance();
+          instantCount++;
+          break;
+
+        case JUMP:
+          processJumpNode(node);
+          instantCount++;
+          break; // Continue loop (jump already updated index)
+
+        case CALL:
+          processCallNode(node);
+          instantCount++;
+          break; // Continue loop
+
+        case RETURN:
+          processReturnNode();
+          instantCount++;
+          break; // Continue loop
+
+        case EXTERNAL:
+          boolean shouldContinue = processExternalNode(node);
+          if (!shouldContinue) {
+            return; // External requested stop
+          }
+          instantCount++;
+          break;
+
+        case END:
+          return; // Terminal - stop loop
+      }
     }
+
+    // Safety: if we hit MAX_INSTANT_CHAIN, log warning but don't crash
+    System.err.println("[VnScene] Warning: Hit max instant chain limit (" + MAX_INSTANT_CHAIN + "). Possible infinite loop in script.");
   }
 
   private void processDialogueNode(VnNode node) {
@@ -292,6 +342,9 @@ public class VnScene implements Scene {
     String speaker = resolveInterpolatedText(dialogue.getSpeakerName());
     String text = resolveInterpolatedText(dialogue.getText());
     state.getHistory().addEntry(speaker, text);
+
+    // Capture rollback state before displaying dialogue
+    state.captureRollbackState(speaker, text);
 
     // Update character display
     if (dialogue.getCharacterId() != null) {
@@ -313,7 +366,10 @@ public class VnScene implements Scene {
     return VnVariableInterpolator.interpolate(text, state.getVariables());
   }
 
-  private void processExternalNode(VnNode node) {
+  /**
+   * Process EXTERNAL node. Returns true if the command loop should continue.
+   */
+  private boolean processExternalNode(VnNode node) {
     VnExternalCommand cmd = node.getExternalCommand();
     VnInteropResult res = null;
     if (cmd != null && interop != null) {
@@ -325,13 +381,88 @@ public class VnScene implements Scene {
     }
     if (res == null || res.shouldAdvance()) {
       state.advance();
+      return true;
     }
-    processCurrentNode();
+    return false;
   }
 
   private void processJumpNode(VnNode node) {
     if (node.getJumpLabel() != null) {
       state.jumpToLabel(node.getJumpLabel());
+    } else {
+      state.advance();
+    }
+  }
+
+  private void processCallNode(VnNode node) {
+    String targetLabel = node.getJumpLabel();
+    if (targetLabel != null) {
+      // Push return address (next node after this CALL)
+      state.pushCallStack(state.getCurrentNodeIndex() + 1);
+      state.jumpToLabel(targetLabel);
+    } else {
+      state.advance();
+    }
+  }
+
+  private void processReturnNode() {
+    int returnIndex = state.popCallStack();
+    if (returnIndex >= 0) {
+      state.setCurrentNodeIndex(returnIndex);
+    } else {
+      // No call stack - treat as advance (or could be error)
+      state.advance();
+    }
+  }
+
+  private void processShowNode(VnNode node) {
+    if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
+      String expr = node.getShowExpression() != null ? node.getShowExpression() : "neutral";
+      state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr);
+    }
+  }
+
+  private void processHideNode(VnNode node) {
+    String characterIdToHide = node.getCharacterToHide();
+    if (characterIdToHide == null) return;
+
+    java.util.List<CharacterPosition> positionsToRemove = new java.util.ArrayList<>();
+    for (var entry : state.getVisibleCharacters().entrySet()) {
+      VnState.CharacterSlot slot = entry.getValue();
+      if (slot != null && characterIdToHide.equals(slot.getCharacterId())) {
+        positionsToRemove.add(entry.getKey());
+      }
+    }
+    for (CharacterPosition position : positionsToRemove) {
+      state.hideCharacterAnimated(position);
+    }
+  }
+
+  private void processWaitNode(VnNode node) {
+    long waitMs = node.getWaitMs();
+    if (waitMs > 0) {
+      waitingNode = true;
+      waitRemainingMs = waitMs;
+    }
+  }
+
+  private void processAudioNode(VnNode node) {
+    VnAudioCommand cmd = node.getAudioCommand();
+    if (cmd != null) {
+      processAudioCommand(cmd);
+    }
+  }
+
+  private void processTransitionNode(VnNode node) {
+    VnTransition transition = node.getTransition();
+    if (transition != null) {
+      state.setActiveTransition(transition);
+      if (transition.getTargetBackgroundId() != null) {
+        state.setCurrentBackgroundId(transition.getTargetBackgroundId());
+      }
+      // Block until transition completes
+      transitionBlocking = true;
+      transitionRemainingMs = transition.getDurationMs();
     }
   }
 
@@ -435,5 +566,89 @@ public class VnScene implements Scene {
 
   public VnScenario getScenario() {
     return scenario;
+  }
+
+  // --- Rollback support ---
+
+  /**
+   * Roll back to the previous dialogue state.
+   * @return true if rollback was successful
+   */
+  public boolean rollback() {
+    if (!state.canRollback()) return false;
+
+    // Capture current state for potential roll-forward
+    VnNode current = state.getCurrentNode();
+    String speaker = null;
+    String text = null;
+    if (current != null && current.getType() == VnNodeType.DIALOGUE) {
+      DialogueLine dl = current.getDialogue();
+      if (dl != null) {
+        speaker = resolveInterpolatedText(dl.getSpeakerName());
+        text = resolveInterpolatedText(dl.getText());
+      }
+    }
+    VnRollbackEntry currentEntry = VnRollbackEntry.capture(state, speaker, text);
+
+    // Get previous state and apply
+    VnRollbackEntry previous = state.getRollbackStack().rollback(currentEntry);
+    if (previous != null) {
+      previous.applyTo(state);
+      // Reset blocking states
+      waitingNode = false;
+      waitRemainingMs = 0;
+      transitionBlocking = false;
+      transitionRemainingMs = 0;
+      // Cancel any audio fades
+      if (bgmFadeActive && audioFacade != null) {
+        bgmFadeActive = false;
+        audioFacade.setBgmVolume(state.getSettings().getBgmVolume());
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Roll forward (redo) to the next state after a rollback.
+   * @return true if roll-forward was successful
+   */
+  public boolean rollforward() {
+    if (!state.canRollforward()) return false;
+
+    // Capture current state
+    VnNode current = state.getCurrentNode();
+    String speaker = null;
+    String text = null;
+    if (current != null && current.getType() == VnNodeType.DIALOGUE) {
+      DialogueLine dl = current.getDialogue();
+      if (dl != null) {
+        speaker = resolveInterpolatedText(dl.getSpeakerName());
+        text = resolveInterpolatedText(dl.getText());
+      }
+    }
+    VnRollbackEntry currentEntry = VnRollbackEntry.capture(state, speaker, text);
+
+    // Get next state and apply
+    VnRollbackEntry next = state.getRollbackStack().rollforward(currentEntry);
+    if (next != null) {
+      next.applyTo(state);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Check if rollback is available.
+   */
+  public boolean canRollback() {
+    return state.canRollback();
+  }
+
+  /**
+   * Check if roll-forward is available.
+   */
+  public boolean canRollforward() {
+    return state.canRollforward();
   }
 }

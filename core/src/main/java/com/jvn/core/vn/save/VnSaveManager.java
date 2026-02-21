@@ -1,18 +1,11 @@
 package com.jvn.core.vn.save;
 
-import com.jvn.core.vn.CharacterPosition;
-import com.jvn.core.vn.VnSettings;
-import com.jvn.core.vn.VnState;
-
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,11 +14,16 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.jvn.core.vn.CharacterPosition;
+import com.jvn.core.vn.VnSettings;
+import com.jvn.core.vn.VnState;
+
 /**
  * Manages saving and loading VN game state.
  */
 public class VnSaveManager {
-  private static final String SAVE_EXTENSION = ".sav";
+  private static final String SAVE_EXTENSION = ".json";
+  private static final String LEGACY_EXTENSION = ".sav";
   private static final String TEMP_SUFFIX = ".tmp";
   private static final String AUTOSAVE_PREFIX = "_autosave_";
   private static final int AUTOSAVE_SLOT_COUNT = 3;
@@ -146,29 +144,43 @@ public class VnSaveManager {
 
   /**
    * Load a saved game state by name.
+   * Supports both new JSON format and legacy .sav format for backward compatibility.
    */
   public VnSaveData load(String saveName) throws IOException, ClassNotFoundException {
     String slot = sanitizeFileName(saveName);
-    Path saveFile = saveDirectory.resolve(slot + SAVE_EXTENSION);
-    if (!Files.exists(saveFile)) {
-      throw new FileNotFoundException("Save file not found: " + saveName);
-    }
+    Path jsonFile = saveDirectory.resolve(slot + SAVE_EXTENSION);
+    Path legacyFile = saveDirectory.resolve(slot + LEGACY_EXTENSION);
 
     VnSaveData data;
-    try (ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(new FileInputStream(saveFile.toFile())))) {
-      Object obj = ois.readObject();
-      if (!(obj instanceof VnSaveData parsed)) {
-        throw new IOException("Unsupported save payload in " + saveName);
+
+    // Try JSON format first
+    if (Files.exists(jsonFile)) {
+      data = VnSaveSerializer.readFromFile(jsonFile);
+    } else if (Files.exists(legacyFile)) {
+      // Fall back to legacy Java serialization
+      try (ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(new FileInputStream(legacyFile.toFile())))) {
+        Object obj = ois.readObject();
+        if (!(obj instanceof VnSaveData parsed)) {
+          throw new IOException("Unsupported save payload in " + saveName);
+        }
+        data = parsed;
       }
-      data = parsed;
+      // Migrate legacy save to JSON format
+      try {
+        writeAtomically(jsonFile, data);
+        Files.deleteIfExists(legacyFile); // Clean up legacy file after successful migration
+      } catch (IOException e) {
+        System.err.println("Warning: could not migrate legacy save to JSON: " + e.getMessage());
+      }
+    } else {
+      throw new FileNotFoundException("Save file not found: " + saveName);
     }
 
     boolean migrated = VnSaveMigration.migrateInPlace(data, slot);
     if (migrated) {
       try {
-        writeAtomically(saveFile, data);
+        writeAtomically(jsonFile, data);
       } catch (IOException e) {
-        // Do not fail load because migration write-back failed.
         System.err.println("Warning: migrated save could not be written back: " + e.getMessage());
       }
     }
@@ -205,13 +217,28 @@ public class VnSaveManager {
    */
   public List<String> listSaves() {
     List<String> saves = new ArrayList<>();
+    java.util.Set<String> seen = new java.util.HashSet<>();
     File dir = saveDirectory.toFile();
     if (dir.exists() && dir.isDirectory()) {
-      File[] files = dir.listFiles((d, name) -> name.endsWith(SAVE_EXTENSION));
-      if (files != null) {
-        for (File file : files) {
+      // List JSON saves
+      File[] jsonFiles = dir.listFiles((d, name) -> name.endsWith(SAVE_EXTENSION));
+      if (jsonFiles != null) {
+        for (File file : jsonFiles) {
           String name = file.getName();
-          saves.add(name.substring(0, name.length() - SAVE_EXTENSION.length()));
+          String slot = name.substring(0, name.length() - SAVE_EXTENSION.length());
+          saves.add(slot);
+          seen.add(slot);
+        }
+      }
+      // Also list legacy .sav files not yet migrated
+      File[] legacyFiles = dir.listFiles((d, name) -> name.endsWith(LEGACY_EXTENSION));
+      if (legacyFiles != null) {
+        for (File file : legacyFiles) {
+          String name = file.getName();
+          String slot = name.substring(0, name.length() - LEGACY_EXTENSION.length());
+          if (!seen.contains(slot)) {
+            saves.add(slot);
+          }
         }
       }
     }
@@ -235,15 +262,18 @@ public class VnSaveManager {
    * Delete a save file.
    */
   public boolean deleteSave(String saveName) {
-    Path saveFile = saveDirectory.resolve(sanitizeFileName(saveName) + SAVE_EXTENSION);
+    String slot = sanitizeFileName(saveName);
+    Path jsonFile = saveDirectory.resolve(slot + SAVE_EXTENSION);
+    Path legacyFile = saveDirectory.resolve(slot + LEGACY_EXTENSION);
     try {
-      boolean deleted = Files.deleteIfExists(saveFile);
+      boolean deletedJson = Files.deleteIfExists(jsonFile);
+      boolean deletedLegacy = Files.deleteIfExists(legacyFile);
       try {
-        Path thumb = saveDirectory.resolve(sanitizeFileName(saveName) + ".png");
+        Path thumb = saveDirectory.resolve(slot + ".png");
         Files.deleteIfExists(thumb);
       } catch (Exception ignored) {
       }
-      return deleted;
+      return deletedJson || deletedLegacy;
     } catch (IOException e) {
       return false;
     }
@@ -358,14 +388,8 @@ public class VnSaveManager {
     } catch (Exception ignored) {
     }
 
-    try (FileOutputStream fos = new FileOutputStream(tempPath.toFile());
-         BufferedOutputStream bos = new BufferedOutputStream(fos);
-         ObjectOutputStream oos = new ObjectOutputStream(bos)) {
-      oos.writeObject(saveData);
-      oos.flush();
-      bos.flush();
-      fos.getFD().sync();
-    }
+    // Write as JSON
+    VnSaveSerializer.writeToFile(saveData, tempPath);
 
     try {
       Files.move(tempPath, finalPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);

@@ -13,6 +13,8 @@ public final class InputActions {
   public static final String QUICK_SAVE = "quick_save";
   public static final String QUICK_LOAD = "quick_load";
   public static final String SAVE_MENU = "save_menu";
+  public static final String ROLLBACK = "rollback";
+  public static final String ROLLFORWARD = "rollforward";
 
   public static final String MENU_UP = "menu_up";
   public static final String MENU_DOWN = "menu_down";
@@ -40,6 +42,9 @@ public final class InputActions {
     p.add(QUICK_SAVE, InputCode.key("F5"));
     p.add(QUICK_LOAD, InputCode.key("F9"));
     p.add(SAVE_MENU, InputCode.key("F6"));
+    p.add(ROLLBACK, InputCode.key("PAGE_UP"))
+        .add(ROLLBACK, InputCode.key("BACK_QUOTE")); // ` key
+    p.add(ROLLFORWARD, InputCode.key("PAGE_DOWN"));
 
     // Menus
     p.add(MENU_UP, InputCode.key("UP")).add(MENU_UP, InputCode.key("W"));

@@ -9,6 +9,7 @@ import java.util.Set;
 
 import com.jvn.core.animation.TimelineRunner;
 import com.jvn.core.tween.Easings;
+import com.jvn.core.vn.rollback.VnRollbackStack;
 
 /**
  * Manages the current state of a visual novel playthrough
@@ -18,6 +19,8 @@ public class VnState {
   private int currentNodeIndex;
   private String currentBackgroundId;
   private final Map<CharacterPosition, CharacterSlot> visibleCharacters;
+  private final List<Integer> callStack; // For CALL/RETURN subroutine support
+  private final VnRollbackStack rollbackStack;
   private final Map<CharacterPosition, CharacterVisual> characterVisuals;
   private final Map<CharacterPosition, PendingExpressionSwitch> pendingExpressionSwitches;
   private final Set<String> globalPositionCharacters;
@@ -77,6 +80,8 @@ public class VnState {
     this.history = new VnHistory();
     this.settings = new VnSettings();
     this.readNodes = new HashSet<>();
+    this.callStack = new ArrayList<>();
+    this.rollbackStack = new VnRollbackStack();
   }
 
   public VnScenario getScenario() { return scenario; }
@@ -474,6 +479,56 @@ public class VnState {
   public void setReadNodes(Set<Integer> read) {
     this.readNodes.clear();
     if (read != null) this.readNodes.addAll(read);
+  }
+
+  // --- Call stack for CALL/RETURN subroutine support ---
+
+  public void pushCallStack(int returnIndex) {
+    callStack.add(returnIndex);
+  }
+
+  public int popCallStack() {
+    if (callStack.isEmpty()) return -1;
+    return callStack.remove(callStack.size() - 1);
+  }
+
+  public boolean hasCallStack() {
+    return !callStack.isEmpty();
+  }
+
+  public int getCallStackDepth() {
+    return callStack.size();
+  }
+
+  public void clearCallStack() {
+    callStack.clear();
+  }
+
+  public List<Integer> getCallStackSnapshot() {
+    return new ArrayList<>(callStack);
+  }
+
+  public void setCallStack(List<Integer> stack) {
+    callStack.clear();
+    if (stack != null) callStack.addAll(stack);
+  }
+
+  // --- Rollback system ---
+
+  public VnRollbackStack getRollbackStack() {
+    return rollbackStack;
+  }
+
+  public void captureRollbackState(String speaker, String text) {
+    rollbackStack.capture(this, speaker, text);
+  }
+
+  public boolean canRollback() {
+    return rollbackStack.canRollback();
+  }
+
+  public boolean canRollforward() {
+    return rollbackStack.canRollforward();
   }
 
   public static class CharacterSlot {

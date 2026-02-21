@@ -1,47 +1,45 @@
 package com.jvn.fx;
 
-import com.jvn.core.engine.Engine;
-// Note: Avoid importing com.jvn.core.scene.Scene to prevent name clash with javafx.scene.Scene
-import com.jvn.core.vn.VnScene;
-import com.jvn.core.menu.MainMenuScene;
-import com.jvn.core.menu.LoadMenuScene;
-import com.jvn.core.menu.SettingsScene;
-import com.jvn.core.menu.SaveMenuScene;
-import com.jvn.fx.vn.VnRenderer;
-import com.jvn.fx.menu.MenuRenderer;
-import com.jvn.fx.menu.MenuTheme;
-import com.jvn.core.scene2d.Scene2D;
-import com.jvn.fx.scene2d.FxBlitter2D;
-import com.jvn.core.scene2d.Scene2DBase;
-import com.jvn.fx.render.FxSceneRendererRegistry;
-import com.jvn.core.graphics.Camera2D;
-import com.jvn.core.graphics.ViewportScaler2D;
-import com.jvn.core.demo.Example2DScene;
-import com.jvn.core.input.ActionBindingProfile;
-import com.jvn.core.input.ActionBindingProfileStore;
-import com.jvn.core.input.ActionMap;
-import com.jvn.core.input.InputActions;
-import com.jvn.core.input.InputCode;
-import com.jvn.core.vn.VnSettingsStore;
-import javafx.animation.AnimationTimer;
-import javafx.application.Application;
-// no direct import of javafx.scene.Scene to avoid name clash; use fully qualified name
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.MouseButton;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.TextInputDialog;
-import javafx.scene.layout.StackPane;
-import javafx.stage.Stage;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
-import javafx.embed.swing.SwingFXUtils;
-import javax.imageio.ImageIO;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import javax.imageio.ImageIO;
+
+import com.jvn.core.demo.Example2DScene;
+import com.jvn.core.engine.Engine;
+import com.jvn.core.graphics.Camera2D;
+import com.jvn.core.graphics.ViewportScaler2D;
+import com.jvn.core.input.ActionMap;
+import com.jvn.core.input.InputActions;
+import com.jvn.core.input.InputCode;
+import com.jvn.core.menu.LoadMenuScene;
+import com.jvn.core.menu.MainMenuScene;
+import com.jvn.core.menu.SaveMenuScene;
+import com.jvn.core.menu.SettingsScene;
+import com.jvn.core.scene2d.Scene2D;
+import com.jvn.core.scene2d.Scene2DBase;
+import com.jvn.core.vn.VnScene;
+import com.jvn.fx.menu.MenuRenderer;
+import com.jvn.fx.menu.MenuTheme;
+import com.jvn.fx.render.FxSceneRendererRegistry;
+import com.jvn.fx.scene2d.FxBlitter2D;
+import com.jvn.fx.vn.VnRenderer;
+
+import javafx.animation.AnimationTimer;
+import javafx.application.Application;
+import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.stage.Stage;
 
 public class FxLauncher extends Application {
   private static Engine engine;
@@ -239,6 +237,8 @@ public class FxLauncher extends Application {
           }
           if (actionMap.matches(InputActions.QUICK_SAVE, code)) handleQuickSave();
           if (actionMap.matches(InputActions.QUICK_LOAD, code)) handleQuickLoad();
+          if (actionMap.matches(InputActions.ROLLBACK, code)) handleRollback();
+          if (actionMap.matches(InputActions.ROLLFORWARD, code)) handleRollforward();
           if (actionMap.matches(InputActions.SAVE_MENU, code)) {
             com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
             if (currentScene instanceof VnScene vn) {
@@ -466,6 +466,28 @@ public class FxLauncher extends Application {
       VnScene vn = (VnScene) currentScene;
       boolean success = vn.quickLoad();
       vn.getState().showHudMessage(success ? "Quick loaded" : "Quick load failed", 1500);
+    }
+  }
+
+  private void handleRollback() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene vn) {
+      boolean success = vn.rollback();
+      if (success) {
+        vn.getState().showHudMessage("Rolled back", 800);
+      }
+    }
+  }
+
+  private void handleRollforward() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene vn) {
+      boolean success = vn.rollforward();
+      if (success) {
+        vn.getState().showHudMessage("Rolled forward", 800);
+      }
     }
   }
 
