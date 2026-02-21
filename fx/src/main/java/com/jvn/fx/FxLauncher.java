@@ -536,31 +536,40 @@ public class FxLauncher extends Application {
     }
   }
 
+  // Centralized save slot service
+  private final com.jvn.core.vn.save.VnSaveSlotService saveSlotService = new com.jvn.core.vn.save.VnSaveSlotService();
+
   private void performSlotSave(VnScene vn, int slot) {
-    String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
+    String slotName = saveSlotService.getSlotName(slot);
+    var slotInfo = saveSlotService.getSlotInfo(slot);
     try {
       var saveManager = new com.jvn.core.vn.save.VnSaveManager();
       saveManager.save(vn.getState(), slotName);
       try { writeSaveThumbnail(vn, slotName); } catch (Exception ignored) {}
-      vn.getState().showHudMessage("Saved to " + (slot == 0 ? "Quick Save" : "Slot " + slot), 1500);
+      vn.getState().showHudMessage("Saved to " + slotInfo.displayName(), 1500);
     } catch (Exception e) {
       vn.getState().showHudMessage("Save failed", 1500);
     }
   }
 
   private void performSlotLoad(VnScene vn, int slot) {
-    String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
+    String slotName = saveSlotService.getSlotName(slot);
+    var slotInfo = saveSlotService.getSlotInfo(slot);
+    if (!slotInfo.hasData()) {
+      vn.getState().showHudMessage(slotInfo.displayName() + " is empty", 1500);
+      return;
+    }
     try {
       var saveManager = new com.jvn.core.vn.save.VnSaveManager();
       var saveData = saveManager.load(slotName);
       if (saveData.getScenarioId().equals(vn.getScenario().getId())) {
         saveManager.applyToState(saveData, vn.getState());
-        vn.getState().showHudMessage("Loaded from " + (slot == 0 ? "Quick Save" : "Slot " + slot), 1500);
+        vn.getState().showHudMessage("Loaded from " + slotInfo.displayName(), 1500);
       } else {
         vn.getState().showHudMessage("Save is for different scenario", 1500);
       }
     } catch (Exception e) {
-      vn.getState().showHudMessage(slot == 0 ? "No quick save found" : "Slot " + slot + " is empty", 1500);
+      vn.getState().showHudMessage("Load failed: " + e.getMessage(), 1500);
     }
   }
 

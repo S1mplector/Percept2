@@ -39,9 +39,15 @@ import javafx.scene.text.FontWeight;
 public class VnRenderer {
   private final GraphicsContext gc;
   private final Map<String, Image> imageCache = new HashMap<>();
-  private final Font nameFont;
-  private final Font dialogueFont;
-  private final Font choiceFont;
+  private Font nameFont;
+  private Font dialogueFont;
+  private Font choiceFont;
+
+  // Default font settings
+  private static final String DEFAULT_FONT_FAMILY = "Arial";
+  private static final int DEFAULT_NAME_FONT_SIZE = 18;
+  private static final int DEFAULT_DIALOGUE_FONT_SIZE = 16;
+  private static final int DEFAULT_CHOICE_FONT_SIZE = 16;
   private VnState currentState;
   private long animationTime = 0;
   private VnUiLayoutSpec uiLayout;
@@ -89,9 +95,9 @@ public class VnRenderer {
 
   public VnRenderer(GraphicsContext gc) {
     this.gc = gc;
-    this.nameFont = Font.font("Arial", FontWeight.BOLD, 18);
-    this.dialogueFont = Font.font("Arial", FontWeight.NORMAL, 16);
-    this.choiceFont = Font.font("Arial", FontWeight.NORMAL, 16);
+    this.nameFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE);
+    this.dialogueFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE);
+    this.choiceFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_CHOICE_FONT_SIZE);
     reloadUiLayout();
   }
 
@@ -308,26 +314,16 @@ public class VnRenderer {
     gc.fillText(hint, panelX + 20, panelY + panelH - 18);
   }
   
+  // Centralized save slot service
+  private final com.jvn.core.vn.save.VnSaveSlotService saveSlotService = new com.jvn.core.vn.save.VnSaveSlotService();
+
   private boolean hasSaveSlotData(int slot) {
-    String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
-    String saveDir = System.getProperty("user.home") + "/.jvn/saves";
-    java.io.File f = new java.io.File(saveDir, slotName + ".sav");
-    return f.exists();
+    return saveSlotService.hasData(slot);
   }
   
   private String getSaveSlotTimestamp(int slot) {
-    String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
-    String saveDir = System.getProperty("user.home") + "/.jvn/saves";
-    java.io.File f = new java.io.File(saveDir, slotName + ".sav");
-    if (!f.exists()) return Localization.t("save_slots.empty");
-    try {
-      long millis = f.lastModified();
-      java.time.Instant inst = java.time.Instant.ofEpochMilli(millis);
-      java.time.ZonedDateTime z = java.time.ZonedDateTime.ofInstant(inst, java.time.ZoneId.systemDefault());
-      return z.toLocalDate().toString() + " " + z.toLocalTime().withNano(0).toString();
-    } catch (Exception e) {
-      return "Saved";
-    }
+    if (!saveSlotService.hasData(slot)) return Localization.t("save_slots.empty");
+    return saveSlotService.getFormattedTimestamp(slot);
   }
 
   /**
@@ -788,6 +784,19 @@ public class VnRenderer {
     choiceBorderWidth = clamp(resolved.choiceBorderWidth(), 0.0, 12.0);
     choiceCornerRadius = clamp(resolved.choiceCornerRadius(), 0.0, 96.0);
     choiceTextBaselineOffset = clamp(resolved.choiceTextBaselineOffset(), -120.0, 120.0);
+
+    // Apply font settings from style spec
+    String nameFontFamily = resolved.nameTextFontFamily() != null ? resolved.nameTextFontFamily() : DEFAULT_FONT_FAMILY;
+    int nameFontSize = resolved.nameTextFontSize() != null ? resolved.nameTextFontSize() : DEFAULT_NAME_FONT_SIZE;
+    this.nameFont = Font.font(nameFontFamily, FontWeight.BOLD, nameFontSize);
+
+    String dialogueFontFamily = resolved.dialogueTextFontFamily() != null ? resolved.dialogueTextFontFamily() : DEFAULT_FONT_FAMILY;
+    int dialogueFontSize = resolved.dialogueTextFontSize() != null ? resolved.dialogueTextFontSize() : DEFAULT_DIALOGUE_FONT_SIZE;
+    this.dialogueFont = Font.font(dialogueFontFamily, FontWeight.NORMAL, dialogueFontSize);
+
+    String choiceFontFamily = resolved.choiceFontFamily() != null ? resolved.choiceFontFamily() : DEFAULT_FONT_FAMILY;
+    int choiceFontSize = resolved.choiceFontSize() != null ? resolved.choiceFontSize() : DEFAULT_CHOICE_FONT_SIZE;
+    this.choiceFont = Font.font(choiceFontFamily, FontWeight.NORMAL, choiceFontSize);
   }
 
   private Color parseColor(String raw, Color fallback) {

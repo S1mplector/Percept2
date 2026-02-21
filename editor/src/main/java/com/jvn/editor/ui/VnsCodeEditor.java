@@ -22,8 +22,6 @@ import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
-import com.jvn.core.vn.script.VnScriptParser;
-
 import javafx.application.Platform;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ContextMenu;
@@ -290,138 +288,39 @@ public class VnsCodeEditor extends BorderPane {
     Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
   }
 
+  /**
+   * Delegates to VnsScriptAnalyzer.analyze() to avoid duplicated lint logic.
+   * Converts VnsScriptAnalyzer.Diagnostic to local Issue type for UI integration.
+   */
   private List<Issue> computeIssues(String text) {
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(text, projectRoot);
     List<Issue> out = new ArrayList<>();
-    String source = text == null ? "" : text;
 
-    // Strict parser diagnostics first.
-    try {
-      new VnScriptParser().parseFromString(source);
-    } catch (Exception ex) {
-      int line = parseLineFromMessage(ex.getMessage()) - 1;
-      int start = 0;
-      int end = Math.max(0, source.length());
-      if (line >= 0) {
-        int[] bounds = lineBounds(source, line);
-        start = bounds[0];
-        end = bounds[1];
-      }
-      out.add(Issue.error("parse_error", ex.getMessage(), start, end, Math.max(line, 0), null, null, -1));
-    }
-
-    List<LineInfo> lines = splitLines(source);
-    Map<String, LabelDef> labels = new HashMap<>();
-    List<LabelRef> refs = new ArrayList<>();
-    Map<String, String> backgrounds = new HashMap<>();
-
-    for (LineInfo line : lines) {
-      String trimmed = line.trimmed();
-      if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
-
-      Matcher labelMatcher = LABEL_PATTERN.matcher(line.text);
-      if (labelMatcher.matches()) {
-        String name = labelMatcher.group(1);
-        int tokenStart = line.start + safeIndexOf(line.text, name, 0);
-        int tokenEnd = tokenStart + name.length();
-        if (!labels.containsKey(name)) {
-          labels.put(name, new LabelDef(name, line.index, tokenStart, tokenEnd));
-        }
-      }
-
-      Matcher bgMatcher = BG_DECL_PATTERN.matcher(line.text);
-      if (bgMatcher.matches()) {
-        String bgId = bgMatcher.group(1).trim();
-        String path = bgMatcher.group(2).trim();
-        backgrounds.put(bgId, path);
-
-        if (!assetExists(path)) {
-          int pathStart = line.start + safeIndexOf(line.text, path, 0);
-          out.add(Issue.error(
-              "missing_asset",
-              "Missing background asset: " + path,
-              pathStart,
-              pathStart + path.length(),
-              line.index,
-              null,
-              path,
-              -1
-          ));
-        }
-      }
-
-      if (trimmed.startsWith(">")) {
-        addChoiceReference(line, trimmed.substring(1).trim(), refs);
-        continue;
-      }
-
-      Matcher cmdMatcher = COMMAND_PATTERN.matcher(trimmed);
-      if (!cmdMatcher.matches()) continue;
-
-      String body = cmdMatcher.group(1).trim();
-      if (body.isEmpty()) continue;
-      String[] parts = body.split("\\s+", 2);
-      String cmd = parts[0].toLowerCase(Locale.ROOT);
-      String arg = parts.length > 1 ? parts[1].trim() : "";
-
-      if ("jump".equals(cmd) && !arg.isBlank()) {
-        String target = firstToken(arg);
-        int st = line.start + safeIndexOf(line.text, target, 0);
-        refs.add(new LabelRef(target, st, st + target.length(), line.index));
-      } else if ("if".equals(cmd) && !arg.isBlank()) {
-        Matcher m = IF_GOTO_PATTERN.matcher(arg);
-        if (m.matches()) {
-          String target = m.group(2).trim();
-          int st = line.start + safeIndexOf(line.text, target, 0);
-          refs.add(new LabelRef(target, st, st + target.length(), line.index));
-        }
-      } else if ("choice".equals(cmd) && !arg.isBlank()) {
-        String[] segs = arg.split("\\|");
-        for (String seg : segs) {
-          addChoiceReference(line, seg == null ? "" : seg.trim(), refs);
-        }
-      } else if (("bg".equals(cmd) || "background".equals(cmd)) && !arg.isBlank()) {
-        String bgId = firstToken(arg);
-        if (!backgrounds.containsKey(bgId)) {
-          int st = line.start + safeIndexOf(line.text, bgId, 0);
-          out.add(Issue.error(
-              "missing_asset",
-              "Unknown background id: " + bgId,
-              st,
-              st + bgId.length(),
-              line.index,
-              null,
-              null,
-              -1
-          ));
-        }
-      }
-    }
-
-    for (LabelRef ref : refs) {
-      if (!labels.containsKey(ref.label)) {
+    for (VnsScriptAnalyzer.Diagnostic diag : analysis.diagnostics()) {
+      if (diag.warning()) {
+        out.add(Issue.warning(
+            diag.kind(),
+            diag.message(),
+            diag.start(),
+            diag.end(),
+            diag.line(),
+            diag.label(),
+            diag.assetPath(),
+            diag.blockEnd()
+        ));
+      } else {
         out.add(Issue.error(
-            "undefined_label",
-            "Undefined label: " + ref.label,
-            ref.start,
-            ref.end,
-            ref.line,
-            ref.label,
-            null,
-            -1
+            diag.kind(),
+            diag.message(),
+            diag.start(),
+            diag.end(),
+            diag.line(),
+            diag.label(),
+            diag.assetPath(),
+            diag.blockEnd()
         ));
       }
     }
-
-    out.addAll(computeUnreachableLabelIssues(source, labels, refs, lines));
-
-    // Stable ordering: errors/warnings by position.
-    out.sort((a, b) -> {
-      int sa = a.start;
-      int sb = b.start;
-      if (sa != sb) return Integer.compare(sa, sb);
-      if (a.warning != b.warning) return a.warning ? 1 : -1;
-      return a.kind.compareTo(b.kind);
-    });
 
     return out;
   }

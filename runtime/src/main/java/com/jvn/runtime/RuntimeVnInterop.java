@@ -1,27 +1,49 @@
 package com.jvn.runtime;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.AssetType;
-import com.jvn.core.engine.Engine;
-import com.jvn.core.menu.MainMenuScene;
-import com.jvn.core.menu.SettingsScene;
-import com.jvn.core.menu.SaveMenuScene;
-import com.jvn.core.menu.LoadMenuScene;
-import com.jvn.core.scene.Scene;
-import com.jvn.core.vn.*;
-import com.jvn.core.vn.script.VnScriptParser;
-import com.jvn.scripting.jes.JesLoader;
-import com.jvn.scripting.jes.runtime.JesScene2D;
-
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
+import com.jvn.core.engine.Engine;
+import com.jvn.core.menu.LoadMenuScene;
+import com.jvn.core.menu.MainMenuScene;
+import com.jvn.core.menu.SaveMenuScene;
+import com.jvn.core.menu.SettingsScene;
+import com.jvn.core.scene.Scene;
+import com.jvn.core.vn.DefaultVnInterop;
+import com.jvn.core.vn.VnArgTokenizer;
+import com.jvn.core.vn.VnExternalCommand;
+import com.jvn.core.vn.VnInterop;
+import com.jvn.core.vn.VnInteropResult;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.VnSettings;
+import com.jvn.core.vn.script.VnScriptParser;
+import com.jvn.scripting.jes.JesLoader;
+import com.jvn.scripting.jes.runtime.JesScene2D;
 
 public class RuntimeVnInterop implements VnInterop {
   private final Engine engine;
   private final DefaultVnInterop base = new DefaultVnInterop();
 
   public RuntimeVnInterop(Engine engine) { this.engine = engine; }
+
+  /**
+   * Wire a SceneAccessor for timeline execution support.
+   * This must be called by the runtime to enable jes_timeline commands.
+   */
+  public void setSceneAccessor(com.jvn.core.animation.SceneAccessor accessor) {
+    base.setSceneAccessor(accessor);
+  }
+
+  /**
+   * Get the underlying DefaultVnInterop for direct access.
+   */
+  public DefaultVnInterop getBase() {
+    return base;
+  }
 
   @Override
   public VnInteropResult handle(VnExternalCommand command, VnScene scene) {
