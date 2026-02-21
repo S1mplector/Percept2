@@ -60,7 +60,6 @@ public class NewProjectWizard extends Stage {
   private CheckBox chkSettingsMenu;
   private CheckBox chkHistoryBacklog;
   private CheckBox chkGitInit;
-  private CheckBox chkGitLfs;
   private CheckBox chkInitialCommit;
   private TextArea txtDescription;
   private TextArea txtStructurePreview;
@@ -157,7 +156,7 @@ public class NewProjectWizard extends Stage {
         createSection("Project Basics", "Name, author, target directory, and output path.", createProjectBasicsGrid()),
         createSection("Engine Profile", "Runtime defaults and entry points for this project.", createEngineProfileGrid()),
         createSection("Feature Modules", "Choose the base modules to scaffold.", createFeatureModulesPane()),
-        createSection("Version Control", "Initialize Git/Git LFS so multi-person collaboration works from day one.", createVersionControlPane()),
+        createSection("Version Control", "Initialize Git so multi-person collaboration works from day one.", createVersionControlPane()),
         createSection("Generated Layout", "Preview the exact folders/files that will be created.", createGeneratedLayoutPane()),
         createSection("Project Notes", "Optional description saved to the project manifest and README.", createDescriptionArea())
     );
@@ -357,42 +356,37 @@ public class NewProjectWizard extends Stage {
     VBox box = new VBox(10);
 
     Label intro = new Label(
-        "Prerequisite: `git` and `git lfs` installed/configured on the machine. " +
-        "Wizard will scaffold `.gitignore` and `.gitattributes` defaults."
+        "Prerequisite: `git` installed/configured on the machine. " +
+        "Wizard will scaffold `.gitignore` defaults."
     );
     intro.setWrapText(true);
     intro.setTextFill(Color.web(TEXT_SECONDARY));
     intro.setFont(Font.font("Segoe UI", 12));
 
     chkGitInit = createCheckBox("Initialize Git repository", true);
-    chkGitLfs = createCheckBox("Enable Git LFS tracking for binary assets", true);
     chkInitialCommit = createCheckBox("Create initial commit", true);
 
     chkGitInit.selectedProperty().addListener((o, ov, nv) -> {
       boolean enabled = nv != null && nv;
-      chkGitLfs.setDisable(!enabled);
       chkInitialCommit.setDisable(!enabled);
       if (!enabled) {
-        chkGitLfs.setSelected(false);
         chkInitialCommit.setSelected(false);
       } else {
-        if (!chkGitLfs.isSelected()) chkGitLfs.setSelected(true);
         if (!chkInitialCommit.isSelected()) chkInitialCommit.setSelected(true);
       }
       updateDerivedFields();
     });
 
-    chkGitLfs.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkInitialCommit.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
 
     Label note = new Label(
-        "Default LFS patterns include common image/audio/video/font formats used by VN teams."
+        "Default ignore patterns are optimized for JVN projects and generated runtime files."
     );
     note.setWrapText(true);
     note.setTextFill(Color.web(TEXT_MUTED));
     note.setFont(Font.font("Segoe UI", 11));
 
-    box.getChildren().addAll(intro, chkGitInit, chkGitLfs, chkInitialCommit, note);
+    box.getChildren().addAll(intro, chkGitInit, chkInitialCommit, note);
     return box;
   }
 
@@ -552,7 +546,6 @@ public class NewProjectWizard extends Stage {
     if (chkSettingsMenu != null && chkSettingsMenu.isSelected()) kb += 2;
     if (chkHistoryBacklog != null && chkHistoryBacklog.isSelected()) kb += 1;
     if (shouldSetupGit()) kb += 1;
-    if (shouldSetupGitLfs()) kb += 1;
     return kb;
   }
 
@@ -617,7 +610,6 @@ public class NewProjectWizard extends Stage {
     sb.append("|-- save/\n");
     if (shouldSetupGit()) {
       sb.append("|-- .gitignore\n");
-      if (shouldSetupGitLfs()) sb.append("|-- .gitattributes\n");
     }
     sb.append("|-- README.md\n");
     sb.append("`-- jvn.project\n");
@@ -657,10 +649,6 @@ public class NewProjectWizard extends Stage {
 
   private boolean shouldSetupGit() {
     return chkGitInit != null && chkGitInit.isSelected();
-  }
-
-  private boolean shouldSetupGitLfs() {
-    return shouldSetupGit() && chkGitLfs != null && chkGitLfs.isSelected();
   }
 
   private boolean shouldCreateInitialCommit() {
@@ -726,7 +714,6 @@ public class NewProjectWizard extends Stage {
         includeSave,
         includeSettings,
         shouldSetupGit(),
-        shouldSetupGitLfs(),
         shouldCreateInitialCommit()
     );
 
@@ -754,13 +741,12 @@ public class NewProjectWizard extends Stage {
         includeSave,
         includeSettings,
         shouldSetupGit(),
-        shouldSetupGitLfs(),
         shouldCreateInitialCommit()
     );
 
     if (shouldSetupGit()) {
       GitVcsService vcs = new GitVcsService();
-      vcs.bootstrapRepository(dir, shouldSetupGitLfs(), shouldCreateInitialCommit(),
+      vcs.bootstrapRepository(dir, shouldCreateInitialCommit(),
           "Initialize " + displayName + " project scaffold");
     }
   }
@@ -892,7 +878,6 @@ public class NewProjectWizard extends Stage {
                               boolean includeSave,
                               boolean includeSettings,
                               boolean gitEnabled,
-                              boolean gitLfsEnabled,
                               boolean gitInitialCommit) throws Exception {
     Properties manifest = new Properties();
     manifest.setProperty("name", displayName);
@@ -918,7 +903,6 @@ public class NewProjectWizard extends Stage {
     manifest.setProperty("feature.settingsMenu", Boolean.toString(includeSettings));
     manifest.setProperty("feature.historyBacklog", Boolean.toString(chkHistoryBacklog.isSelected()));
     manifest.setProperty("vcs.git.enabled", Boolean.toString(gitEnabled));
-    manifest.setProperty("vcs.gitLfs.enabled", Boolean.toString(gitLfsEnabled));
     manifest.setProperty("vcs.git.initialCommit", Boolean.toString(gitInitialCommit));
     manifest.setProperty("createdBy", "jvn-editor-wizard");
 
@@ -1306,7 +1290,6 @@ public class NewProjectWizard extends Stage {
                             boolean includeSave,
                             boolean includeSettings,
                             boolean gitEnabled,
-                            boolean gitLfsEnabled,
                             boolean gitInitialCommit)
       throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, "README.md"))) {
@@ -1321,7 +1304,6 @@ public class NewProjectWizard extends Stage {
       fw.write("- Settings profile: " + (includeSettings ? "yes" : "no") + "\n");
       fw.write("- History defaults: " + (chkHistoryBacklog.isSelected() ? "yes" : "no") + "\n\n");
       fw.write("- Git repository: " + (gitEnabled ? "yes" : "no") + "\n");
-      fw.write("- Git LFS defaults: " + (gitLfsEnabled ? "yes" : "no") + "\n");
       fw.write("- Initial commit: " + (gitInitialCommit ? "yes" : "no") + "\n\n");
 
       if (!txtDescription.getText().isBlank()) {
@@ -1342,7 +1324,6 @@ public class NewProjectWizard extends Stage {
       if (gitEnabled) {
         fw.write("## Version Control\n\n");
         fw.write("- Repo initialized with Git.\n");
-        if (gitLfsEnabled) fw.write("- Git LFS tracking defaults added via `.gitattributes`.\n");
         fw.write("- Default ignore rules added via `.gitignore`.\n\n");
       }
 

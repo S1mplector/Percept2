@@ -12,20 +12,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Local Git/Git-LFS integration service for editor workflows.
+ * Local Git integration service for editor workflows.
  */
 public class GitVcsService {
   private static final String GITIGNORE_BLOCK_START = "# --- JVN Git Defaults (managed) BEGIN ---";
   private static final String GITIGNORE_BLOCK_END = "# --- JVN Git Defaults (managed) END ---";
-  private static final String GITATTR_BLOCK_START = "# --- JVN Git LFS Defaults (managed) BEGIN ---";
-  private static final String GITATTR_BLOCK_END = "# --- JVN Git LFS Defaults (managed) END ---";
-
-  private static final List<String> DEFAULT_LFS_PATTERNS = List.of(
-      "*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif", "*.bmp", "*.psd",
-      "*.ogg", "*.wav", "*.mp3", "*.flac", "*.m4a", "*.aac",
-      "*.mp4", "*.webm", "*.mov",
-      "*.ttf", "*.otf"
-  );
 
   private static final String DEFAULT_GITIGNORE_BLOCK = String.join("\n",
       "# OS/editor",
@@ -63,11 +54,6 @@ public class GitVcsService {
     return result.success();
   }
 
-  public boolean isGitLfsAvailable() {
-    CommandResult result = execute(null, List.of("git", "lfs", "version"), true);
-    return result.success();
-  }
-
   public boolean isRepository(File root) {
     if (root == null || !root.isDirectory()) return false;
     CommandResult result = execute(root, List.of("git", "rev-parse", "--is-inside-work-tree"), true);
@@ -75,20 +61,13 @@ public class GitVcsService {
   }
 
   public void bootstrapRepository(File root,
-                                  boolean enableLfs,
                                   boolean createInitialCommit,
                                   String initialCommitMessage) throws GitVcsException {
     requireDirectory(root);
     requireGitAvailable();
-    if (enableLfs) requireGitLfsAvailable();
 
     initRepositoryIfNeeded(root);
-    installDefaultTrackingFiles(root, enableLfs);
-
-    if (enableLfs) {
-      ensureSuccess(execute(root, List.of("git", "lfs", "install", "--local"), false),
-          "Failed to install git-lfs hooks in repository.");
-    }
+    installDefaultTrackingFiles(root);
 
     if (createInitialCommit) {
       String message = (initialCommitMessage == null || initialCommitMessage.isBlank())
@@ -98,7 +77,7 @@ public class GitVcsService {
     }
   }
 
-  public void installDefaultTrackingFiles(File root, boolean includeLfsDefaults) throws GitVcsException {
+  public void installDefaultTrackingFiles(File root) throws GitVcsException {
     requireDirectory(root);
 
     try {
@@ -108,15 +87,6 @@ public class GitVcsService {
           GITIGNORE_BLOCK_END,
           DEFAULT_GITIGNORE_BLOCK
       );
-
-      if (includeLfsDefaults) {
-        writeManagedBlock(
-            root.toPath().resolve(".gitattributes"),
-            GITATTR_BLOCK_START,
-            GITATTR_BLOCK_END,
-            buildDefaultGitattributesBlock()
-        );
-      }
     } catch (IOException ex) {
       throw new GitVcsException("Failed to write Git tracking files: " + ex.getMessage());
     }
@@ -254,29 +224,9 @@ public class GitVcsService {
     requireRepository(root);
     if (repoName == null || repoName.isBlank()) throw new GitVcsException("Repository name cannot be empty.");
     String visibility = isPrivate ? "--private" : "--public";
-    // Create repo and set remote, but don't push yet (to avoid LFS quota issues)
+    // Create repo and set remote, but don't push yet.
     CommandResult result = execute(root, List.of("gh", "repo", "create", repoName.trim(), visibility, "--source=.", "--remote=origin"), false);
     ensureSuccess(result, "Failed to create GitHub repository.");
-    return result;
-  }
-
-  public CommandResult pushWithLfsCheck(File root) throws GitVcsException {
-    requireRepository(root);
-    // Try to push
-    CommandResult result = execute(root, List.of("git", "push", "-u", "origin", "main"), false);
-    // If push fails and output mentions LFS, provide helpful error
-    if (!result.success() && result.output().toLowerCase().contains("lfs")) {
-      throw new GitVcsException(
-          "Push failed due to Git LFS quota limits.\n\n" +
-          "Your GitHub account has exceeded its LFS storage quota.\n" +
-          "To fix this:\n" +
-          "  1. Go to your GitHub account settings\n" +
-          "  2. Increase LFS data pack quota, or\n" +
-          "  3. Remove large files from this project and use regular Git\n\n" +
-          "The repository was created successfully at GitHub.\n" +
-          "You can push manually later after resolving LFS issues.");
-    }
-    ensureSuccess(result, "Failed to push to remote.");
     return result;
   }
 
@@ -419,12 +369,6 @@ public class GitVcsService {
     }
   }
 
-  private void requireGitLfsAvailable() throws GitVcsException {
-    if (!isGitLfsAvailable()) {
-      throw new GitVcsException("Git LFS is not available. Install Git LFS and ensure it is on PATH.");
-    }
-  }
-
   private void initRepositoryIfNeeded(File root) throws GitVcsException {
     if (isRepository(root)) return;
 
@@ -433,19 +377,6 @@ public class GitVcsService {
       ensureSuccess(execute(root, List.of("git", "init"), false), "Failed to initialize git repository.");
       execute(root, List.of("git", "symbolic-ref", "HEAD", "refs/heads/main"), true);
     }
-  }
-
-  private String buildDefaultGitattributesBlock() {
-    StringBuilder sb = new StringBuilder();
-    for (String pattern : DEFAULT_LFS_PATTERNS) {
-      sb.append(pattern).append(" filter=lfs diff=lfs merge=lfs -text\n");
-    }
-    sb.append("*.vns text eol=lf\n");
-    sb.append("*.jes text eol=lf\n");
-    sb.append("*.menu text eol=lf\n");
-    sb.append("*.layout text eol=lf\n");
-    sb.append("*.style text eol=lf\n");
-    return sb.toString().trim();
   }
 
   private void writeManagedBlock(Path file,

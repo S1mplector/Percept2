@@ -1,24 +1,5 @@
 package com.jvn.editor.ui;
 
-import com.jvn.editor.vcs.GitVcsService;
-import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.SplitPane;
-import javafx.scene.input.KeyCode;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +19,26 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+
+import com.jvn.editor.vcs.GitVcsService;
+
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SplitPane;
+import javafx.scene.input.KeyCode;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 
 /**
  * Startup workspace dashboard for editor users.
@@ -337,27 +338,18 @@ public class WelcomeCenterView extends BorderPane {
 
   private HealthRow checkGitHealth() {
     boolean gitAvailable = vcs.isGitAvailable();
-    boolean lfsAvailable = vcs.isGitLfsAvailable();
     if (!gitAvailable) {
       return new HealthRow(
           Severity.ERROR,
-          "Git / Git LFS",
+          "Git",
           "Git is not available on PATH",
           "Install Git to enable team workflows and repository operations."
       );
     }
-    if (!lfsAvailable) {
-      return new HealthRow(
-          Severity.WARN,
-          "Git / Git LFS",
-          "Git is available, Git LFS is missing",
-          "Install Git LFS if your project tracks binary VN assets with LFS."
-      );
-    }
     return new HealthRow(
         Severity.OK,
-        "Git / Git LFS",
-        "Both Git and Git LFS are available",
+        "Git",
+        "Git is available",
         "Version-control prerequisites are satisfied."
     );
   }
@@ -432,12 +424,8 @@ public class WelcomeCenterView extends BorderPane {
     if (menuTheme != null && !menuTheme.isBlank()) requireProjectFile(project, menuTheme, missing);
 
     boolean gitEnabled = Boolean.parseBoolean(manifest.getProperty("vcs.git.enabled", "false"));
-    boolean lfsEnabled = Boolean.parseBoolean(manifest.getProperty("vcs.gitLfs.enabled", "false"));
     if (gitEnabled && !Files.isDirectory(project.resolve(".git"))) {
       missing.add(".git (repository requested by manifest)");
-    }
-    if (lfsEnabled && !Files.isRegularFile(project.resolve(".gitattributes"))) {
-      missing.add(".gitattributes (LFS requested by manifest)");
     }
 
     if (missing.isEmpty()) {

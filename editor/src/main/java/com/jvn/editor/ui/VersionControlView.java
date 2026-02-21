@@ -31,7 +31,7 @@ import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
 /**
- * Team-focused Git + Git LFS control panel for JVN projects.
+ * Team-focused Git control panel for JVN projects.
  */
 public class VersionControlView extends BorderPane {
   private final GitVcsService vcs = new GitVcsService();
@@ -43,7 +43,7 @@ public class VersionControlView extends BorderPane {
 
   private final Label titleLabel = new Label("Version Control");
   private final Label repoLabel = new Label("No project loaded");
-  private final Label toolLabel = new Label("Git: --   Git LFS: --");
+  private final Label toolLabel = new Label("Git: --");
   private final Label branchLabel = new Label("Branch: --");
   private final Label syncLabel = new Label("Sync: --");
   private final Label summaryLabel = new Label("Status: --");
@@ -56,7 +56,6 @@ public class VersionControlView extends BorderPane {
 
   private final VBox setupBox = new VBox(8);
 
-  private final CheckBox chkInitWithLfs = new CheckBox("Enable Git LFS tracking");
   private final CheckBox chkInitCommit = new CheckBox("Create initial commit");
 
   private final Button btnRefresh = iconButton("vcs-icon-refresh", "Refresh status");
@@ -108,7 +107,6 @@ public class VersionControlView extends BorderPane {
     initHintLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 11px;");
     initHintLabel.setWrapText(true);
 
-    chkInitWithLfs.setSelected(true);
     chkInitCommit.setSelected(true);
 
     txtCommitMessage.setPromptText("Commit message...");
@@ -173,7 +171,7 @@ public class VersionControlView extends BorderPane {
     toolbar.setPadding(new Insets(4, 0, 4, 0));
 
     // Init controls - styled as prominent warning banner
-    HBox initOptionsRow = new HBox(12, chkInitWithLfs, chkInitCommit);
+    HBox initOptionsRow = new HBox(12, chkInitCommit);
     HBox initActionRow = new HBox(6, btnInitialize);
     initTitleLabel.setStyle("-fx-text-fill: #f0b673; -fx-font-weight: bold; -fx-font-size: 12px;");
     initBox.getChildren().addAll(initTitleLabel, initHintLabel, initOptionsRow, initActionRow);
@@ -270,7 +268,7 @@ public class VersionControlView extends BorderPane {
     setCenter(center);
 
     setInitControlsVisible(false, null);
-    updateToolAvailabilityLabel(false, false);
+    updateToolAvailabilityLabel(false);
     setBusy(false);
 
     // Auto-refresh every 30 seconds
@@ -294,10 +292,9 @@ public class VersionControlView extends BorderPane {
   public void refreshStatus() {
     runAsync("Refresh status", () -> {
       boolean git = vcs.isGitAvailable();
-      boolean lfs = vcs.isGitLfsAvailable();
       Platform.runLater(() -> {
         gitAvailable = git;
-        updateToolAvailabilityLabel(git, lfs);
+        updateToolAvailabilityLabel(git);
       });
 
       if (projectRoot == null) {
@@ -385,10 +382,9 @@ public class VersionControlView extends BorderPane {
         return;
       }
       try {
-        boolean useLfs = chkInitWithLfs.isSelected();
         boolean initialCommit = chkInitCommit.isSelected();
-        vcs.bootstrapRepository(projectRoot, useLfs, initialCommit, "Initialize JVN project scaffold");
-        appendLog("Repository initialized" + (useLfs ? " with Git LFS defaults." : "."));
+        vcs.bootstrapRepository(projectRoot, initialCommit, "Initialize JVN project scaffold");
+        appendLog("Repository initialized.");
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
@@ -743,13 +739,11 @@ public class VersionControlView extends BorderPane {
         appendLog("Repository created successfully on GitHub!");
         appendLog("Setting up remote 'origin'...");
         
-        // Now try to push with LFS check
         appendLog("Pushing code to GitHub...");
         try {
-          appendCommandResult(vcs.pushWithLfsCheck(projectRoot));
+          appendCommandResult(vcs.pushSafe(projectRoot));
           appendLog("Code pushed successfully! Your project is now on GitHub.");
         } catch (Exception pushEx) {
-          // LFS or other push error - repo is created but push failed
           appendLog("⚠ " + pushEx.getMessage());
           appendLog("\nRepository was created but initial push failed.");
           appendLog("You can push manually later using the Push button.");
@@ -794,8 +788,8 @@ public class VersionControlView extends BorderPane {
     onOpenRelativePath.accept(relative);
   }
 
-  private void updateToolAvailabilityLabel(boolean git, boolean lfs) {
-    toolLabel.setText("Git: " + (git ? "ok" : "missing") + "   Git LFS: " + (lfs ? "ok" : "missing"));
+  private void updateToolAvailabilityLabel(boolean git) {
+    toolLabel.setText("Git: " + (git ? "ok" : "missing"));
   }
 
   private void runAsync(String actionName, Runnable action) {
@@ -837,7 +831,6 @@ public class VersionControlView extends BorderPane {
     btnNewBranch.setDisable(busy || !repoReady);
     txtCommitMessage.setDisable(busy || !repoReady);
     listChanges.setDisable(!repoReady);
-    chkInitWithLfs.setDisable(busy || !hasProject || repositoryInitialized);
     chkInitCommit.setDisable(busy || !hasProject || repositoryInitialized);
   }
 
