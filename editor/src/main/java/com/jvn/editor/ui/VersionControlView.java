@@ -20,7 +20,6 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
-import javafx.scene.control.Separator;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -49,25 +48,37 @@ public class VersionControlView extends BorderPane {
   private final Label syncLabel = new Label("Sync: --");
   private final Label summaryLabel = new Label("Status: --");
   private final Label conflictLabel = new Label();
+  private final Label remoteLabel = new Label("Remote: not configured");
+  private final Button btnConfigureRemote = new Button("Add Remote");
   private final Label initHintLabel = new Label("Repository is not initialized for this project.");
 
   private final CheckBox chkInitWithLfs = new CheckBox("Enable Git LFS tracking");
   private final CheckBox chkInitCommit = new CheckBox("Create initial commit");
 
-  private final Button btnRefresh = new Button("Refresh");
-  private final Button btnInitialize = new Button("Initialize Repository");
-  private final Button btnFetch = new Button("Fetch");
-  private final Button btnPull = new Button("Pull --rebase");
-  private final Button btnPush = new Button("Push");
-  private final Button btnCommit = new Button("Commit All");
-  private final Button btnStash = new Button("Stash");
-  private final Button btnStashPop = new Button("Pop Stash");
-  private final Button btnStageSelected = new Button("Stage");
-  private final Button btnUnstageSelected = new Button("Unstage");
-  private final Button btnDiscardSelected = new Button("Discard");
-  private final Button btnDiffSelected = new Button("Diff");
+  private final Button btnRefresh = iconButton("vcs-icon-refresh", "Refresh status");
+  private final Button btnInitialize = new Button("Initialize");
+  private final Button btnFetch = iconButton("vcs-icon-fetch", "Fetch all remotes");
+  private final Button btnPull = iconButton("vcs-icon-pull", "Pull with rebase");
+  private final Button btnPush = iconButton("vcs-icon-push", "Push to remote");
+  private final Button btnCommit = iconButton("vcs-icon-commit", "Commit all changes");
+  private final Button btnStash = iconButton("vcs-icon-stash", "Stash changes");
+  private final Button btnStashPop = iconButton("vcs-icon-stash-pop", "Pop stash");
+  private final Button btnStageSelected = iconButton("vcs-icon-stage", "Stage selected");
+  private final Button btnUnstageSelected = iconButton("vcs-icon-unstage", "Unstage selected");
+  private final Button btnDiscardSelected = iconButton("vcs-icon-discard", "Discard changes");
+  private final Button btnDiffSelected = iconButton("vcs-icon-diff", "Show diff");
   private final ComboBox<String> cbBranch = new ComboBox<>();
-  private final Button btnNewBranch = new Button("New Branch");
+  private final Button btnNewBranch = iconButton("vcs-icon-new-branch", "Create branch");
+
+  private static Button iconButton(String iconClass, String tooltip) {
+    Button btn = new Button();
+    btn.getStyleClass().add("vcs-icon-btn");
+    javafx.scene.layout.Region icon = new javafx.scene.layout.Region();
+    icon.getStyleClass().addAll("vcs-icon", iconClass);
+    btn.setGraphic(icon);
+    btn.setTooltip(new Tooltip(tooltip));
+    return btn;
+  }
 
   private final TextField txtCommitMessage = new TextField();
   private final ListView<GitVcsService.StatusEntry> listChanges = new ListView<>();
@@ -87,6 +98,9 @@ public class VersionControlView extends BorderPane {
     conflictLabel.setStyle("-fx-text-fill: #f38ba8; -fx-font-weight: bold;");
     conflictLabel.setVisible(false);
     conflictLabel.setManaged(false);
+    remoteLabel.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px;");
+    btnConfigureRemote.setStyle("-fx-font-size: 10px; -fx-padding: 2 8 2 8;");
+    btnConfigureRemote.setOnAction(e -> showAddRemoteDialog());
     initHintLabel.setStyle("-fx-text-fill: #f0b673;");
     initHintLabel.setWrapText(true);
 
@@ -118,30 +132,22 @@ public class VersionControlView extends BorderPane {
     });
 
     btnRefresh.setOnAction(e -> refreshStatus());
-    btnRefresh.setTooltip(new Tooltip("Refresh git status"));
     btnInitialize.setOnAction(e -> initializeRepository());
+    btnInitialize.getStyleClass().add("vcs-icon-btn");
+    javafx.scene.layout.Region initIcon = new javafx.scene.layout.Region();
+    initIcon.getStyleClass().addAll("vcs-icon", "vcs-icon-init");
+    btnInitialize.setGraphic(initIcon);
     btnFetch.setOnAction(e -> runFetch());
-    btnFetch.setTooltip(new Tooltip("Fetch all remotes"));
     btnPull.setOnAction(e -> runPull());
-    btnPull.setTooltip(new Tooltip("Pull with rebase + autostash"));
     btnPush.setOnAction(e -> runPush());
-    btnPush.setTooltip(new Tooltip("Push to remote (auto-sets upstream if needed)"));
     btnCommit.setOnAction(e -> runCommit());
-    btnCommit.setTooltip(new Tooltip("Stage all + commit"));
     btnStash.setOnAction(e -> runStash());
-    btnStash.setTooltip(new Tooltip("Stash uncommitted changes"));
     btnStashPop.setOnAction(e -> runStashPop());
-    btnStashPop.setTooltip(new Tooltip("Apply most recent stash"));
     btnStageSelected.setOnAction(e -> runStageSelected());
-    btnStageSelected.setTooltip(new Tooltip("Stage selected file"));
     btnUnstageSelected.setOnAction(e -> runUnstageSelected());
-    btnUnstageSelected.setTooltip(new Tooltip("Unstage selected file"));
     btnDiscardSelected.setOnAction(e -> runDiscardSelected());
-    btnDiscardSelected.setTooltip(new Tooltip("Discard changes in selected file"));
     btnDiffSelected.setOnAction(e -> runDiffSelected());
-    btnDiffSelected.setTooltip(new Tooltip("Show diff for selected file"));
     btnNewBranch.setOnAction(e -> runCreateBranch());
-    btnNewBranch.setTooltip(new Tooltip("Create and switch to a new branch"));
     cbBranch.setEditable(false);
     cbBranch.setPromptText("Switch branch...");
     cbBranch.setOnAction(e -> {
@@ -149,36 +155,63 @@ public class VersionControlView extends BorderPane {
       if (selected != null && !selected.isBlank()) runSwitchBranch(selected);
     });
 
-    HBox actionRow = new HBox(6, btnRefresh, btnFetch, btnPull, btnPush, new Separator(javafx.geometry.Orientation.VERTICAL), btnStash, btnStashPop);
-    actionRow.setAlignment(Pos.CENTER_LEFT);
-    HBox initOptionsRow = new HBox(16, chkInitWithLfs, chkInitCommit);
-    HBox initActionRow = new HBox(8, btnInitialize);
+    // Sync toolbar: refresh, fetch, pull, push
+    HBox syncRow = new HBox(4, btnRefresh, btnFetch, btnPull, btnPush);
+    syncRow.setAlignment(Pos.CENTER_LEFT);
+
+    // Stash toolbar
+    HBox stashRow = new HBox(4, btnStash, btnStashPop);
+    stashRow.setAlignment(Pos.CENTER_LEFT);
+
+    // Combined toolbar
+    HBox toolbar = new HBox(12, syncRow, stashRow);
+    toolbar.setAlignment(Pos.CENTER_LEFT);
+    toolbar.setPadding(new Insets(4, 0, 4, 0));
+
+    // Init controls
+    HBox initOptionsRow = new HBox(12, chkInitWithLfs, chkInitCommit);
+    HBox initActionRow = new HBox(6, btnInitialize);
     VBox initBox = new VBox(4, initHintLabel, initOptionsRow, initActionRow);
-    HBox commitRow = new HBox(6, txtCommitMessage, btnCommit);
+
+    // Commit row
+    HBox commitRow = new HBox(4, txtCommitMessage, btnCommit);
     HBox.setHgrow(txtCommitMessage, Priority.ALWAYS);
-    HBox branchRow = new HBox(6, branchLabel, cbBranch, btnNewBranch);
+    commitRow.setAlignment(Pos.CENTER_LEFT);
+
+    // Branch row
+    cbBranch.setMaxWidth(120);
+    HBox branchRow = new HBox(4, cbBranch, btnNewBranch);
     branchRow.setAlignment(Pos.CENTER_LEFT);
-    HBox fileActionRow = new HBox(6, btnStageSelected, btnUnstageSelected, btnDiscardSelected, btnDiffSelected);
+
+    // File action toolbar
+    HBox fileActionRow = new HBox(4, btnStageSelected, btnUnstageSelected, btnDiscardSelected, btnDiffSelected);
     fileActionRow.setAlignment(Pos.CENTER_LEFT);
+
+    // Remote row
+    HBox remoteRow = new HBox(6, remoteLabel, btnConfigureRemote);
+    remoteRow.setAlignment(Pos.CENTER_LEFT);
+
+    // Header section
+    VBox statusBox = new VBox(2, branchLabel, remoteRow, syncLabel, summaryLabel, conflictLabel);
 
     VBox top = new VBox(
         6,
         titleLabel,
         repoLabel,
         toolLabel,
-        branchRow,
-        syncLabel,
-        summaryLabel,
-        conflictLabel,
+        statusBox,
         initBox,
-        actionRow,
+        toolbar,
+        branchRow,
         commitRow
     );
-    top.setPadding(new Insets(10));
+    top.setPadding(new Insets(8));
 
-    Label changesLabel = new Label("Changed Files");
-    changesLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 11px;");
-    VBox center = new VBox(6, changesLabel, fileActionRow, listChanges, new Label("Command Log"), txtLog);
+    Label changesLabel = new Label("Changes");
+    changesLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #e6e6e6;");
+    Label logLabel = new Label("Log");
+    logLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #e6e6e6;");
+    VBox center = new VBox(4, changesLabel, fileActionRow, listChanges, logLabel, txtLog);
     center.setPadding(new Insets(0, 10, 10, 10));
     VBox.setVgrow(listChanges, Priority.ALWAYS);
 
@@ -258,6 +291,8 @@ public class VersionControlView extends BorderPane {
 
       try {
         GitVcsService.RepositoryStatus status = vcs.getRepositoryStatus(projectRoot);
+        boolean hasRemote = vcs.hasRemote(projectRoot);
+        String remoteUrl = hasRemote ? vcs.getRemoteUrl(projectRoot) : null;
         Platform.runLater(() -> {
           repositoryInitialized = true;
           branchLabel.setText("Branch: " + safe(status.branch()));
@@ -267,6 +302,16 @@ public class VersionControlView extends BorderPane {
             summaryLabel.setText("Status: clean working tree");
           } else {
             summaryLabel.setText("Status: " + status.entries().size() + " changed files");
+          }
+          // Update remote status
+          if (hasRemote && remoteUrl != null) {
+            remoteLabel.setText("Remote: " + remoteUrl);
+            remoteLabel.setStyle("-fx-text-fill: #9aa0a6; -fx-font-size: 11px;");
+            btnConfigureRemote.setText("Change");
+          } else {
+            remoteLabel.setText("Remote: not configured");
+            remoteLabel.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px;");
+            btnConfigureRemote.setText("Add Remote");
           }
           listChanges.setItems(FXCollections.observableArrayList(status.entries()));
           setInitControlsVisible(false, null);
@@ -467,6 +512,89 @@ public class VersionControlView extends BorderPane {
         appendCommandResult(vcs.createBranch(projectRoot, name.trim()));
       } catch (Exception ex) {
         appendLog("Create branch failed: " + ex.getMessage());
+      }
+      refreshStatus();
+    });
+  }
+
+  private void showAddRemoteDialog() {
+    javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
+    dialog.setTitle("Add Git Remote");
+
+    javafx.scene.control.ButtonType addBtn = new javafx.scene.control.ButtonType("Add Remote", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+    dialog.getDialogPane().getButtonTypes().addAll(addBtn, javafx.scene.control.ButtonType.CANCEL);
+
+    // Dark theme styling
+    javafx.scene.control.DialogPane pane = dialog.getDialogPane();
+    pane.setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #3a3a3a;");
+
+    VBox content = new VBox(12);
+    content.setPadding(new Insets(16));
+    content.setStyle("-fx-background-color: #1a1a1a;");
+
+    // Instructions
+    Label titleLabel = new Label("Connect to a Remote Repository");
+    titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
+
+    Label instructionLabel = new Label(
+        "Paste the URL of your Git repository from GitHub, GitLab, Bitbucket, or any Git hosting service.\n" +
+        "You can find this URL on your repository page — look for the \"Clone\" or \"Code\" button.");
+    instructionLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    instructionLabel.setWrapText(true);
+    instructionLabel.setMaxWidth(380);
+
+    // Name field
+    Label nameLabel = new Label("Remote Name");
+    nameLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px;");
+    TextField nameField = new TextField("origin");
+    nameField.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-background-radius: 4;");
+    nameField.setPromptText("origin");
+    Label nameHint = new Label("Usually \"origin\" — only change if you know what you're doing");
+    nameHint.setStyle("-fx-text-fill: #666666; -fx-font-size: 10px;");
+
+    // URL field
+    Label urlLabel = new Label("Repository URL");
+    urlLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px;");
+    TextField urlField = new TextField();
+    urlField.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-background-radius: 4;");
+    urlField.setPromptText("https://github.com/username/repository.git");
+    urlField.setPrefWidth(380);
+    Label urlHint = new Label("Example: https://github.com/YourName/YourProject.git");
+    urlHint.setStyle("-fx-text-fill: #4da3ff; -fx-font-size: 10px;");
+
+    content.getChildren().addAll(
+        titleLabel,
+        instructionLabel,
+        new javafx.scene.control.Separator(),
+        nameLabel, nameField, nameHint,
+        urlLabel, urlField, urlHint
+    );
+
+    pane.setContent(content);
+    Platform.runLater(urlField::requestFocus);
+
+    dialog.setResultConverter(dialogButton -> {
+      if (dialogButton == addBtn) {
+        return nameField.getText().trim() + "|" + urlField.getText().trim();
+      }
+      return null;
+    });
+
+    dialog.showAndWait().ifPresent(result -> {
+      String[] parts = result.split("\\|", 2);
+      if (parts.length == 2 && !parts[1].isBlank()) {
+        runAddRemote(parts[0], parts[1]);
+      }
+    });
+  }
+
+  private void runAddRemote(String name, String url) {
+    runAsync("Add remote", () -> {
+      try {
+        appendCommandResult(vcs.addRemote(projectRoot, name, url));
+        appendLog("Remote '" + name + "' added: " + url);
+      } catch (Exception ex) {
+        appendLog("Add remote failed: " + ex.getMessage());
       }
       refreshStatus();
     });
