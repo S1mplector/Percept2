@@ -1,8 +1,16 @@
 package com.jvn.runtime;
 
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.engine.Engine;
+import com.jvn.core.localization.Localization;
+import com.jvn.core.localization.LocalizedScriptLoader;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
@@ -10,15 +18,12 @@ import com.jvn.core.vn.VnState;
 import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
-import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Bridges JES scenes to VNS scenes: allows JES to start VN segments and resumes on exit.
  */
 public class JesVnBridge {
   private final Engine engine;
+  private static final String SCRIPTS_BASE = "game/scripts/";
 
   public JesVnBridge(Engine engine) {
     this.engine = engine;
@@ -74,7 +79,8 @@ public class JesVnBridge {
   private VnScene loadVnScene(String script, VnScene current) throws Exception {
     if (script == null || script.isBlank()) return null;
     AssetCatalog assets = new AssetCatalog();
-    try (InputStream in = assets.open(AssetType.SCRIPT, script)) {
+    try (InputStream in = openLocalizedScript(assets, script)) {
+      if (in == null) return null;
       VnScenario sc = new VnScriptParser().parse(in);
       BridgedVnScene vn = new BridgedVnScene(sc);
       vn.setInterop(new RuntimeVnInterop(engine));
@@ -86,6 +92,34 @@ public class JesVnBridge {
       }
       return vn;
     }
+  }
+
+  private InputStream openLocalizedScript(AssetCatalog assets, String script) {
+    for (String candidate : localizedScriptCandidates(script)) {
+      try {
+        InputStream in = assets.open(AssetType.SCRIPT, candidate);
+        if (in != null) return in;
+      } catch (Exception ignored) {
+      }
+    }
+    return null;
+  }
+
+  private List<String> localizedScriptCandidates(String script) {
+    java.util.LinkedHashSet<String> candidates = new java.util.LinkedHashSet<>();
+    if (script == null || script.isBlank()) return List.of();
+
+    String locale = Localization.locale();
+    LocalizedScriptLoader loader = new LocalizedScriptLoader(Thread.currentThread().getContextClassLoader(), SCRIPTS_BASE);
+    for (String path : loader.getCandidatePaths(script, locale)) {
+      if (path == null || path.isBlank()) continue;
+      candidates.add(path);
+      if (path.startsWith(SCRIPTS_BASE)) {
+        candidates.add(path.substring(SCRIPTS_BASE.length()));
+      }
+    }
+    candidates.add(script);
+    return new ArrayList<>(candidates);
   }
 
   private VnScene topVn() {

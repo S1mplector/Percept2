@@ -171,7 +171,7 @@ public class VnRenderer {
     int effectiveOffset = Math.min(requestedOffset, maxOffset);
     int startIdx = Math.max(0, total - 1 - effectiveOffset);
 
-    gc.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+    gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 18));
     gc.setFill(Color.WHITE);
     gc.fillText(Localization.t("history.title"), panelX + 22, panelY + 30);
 
@@ -181,7 +181,7 @@ public class VnRenderer {
     double pageTextW = computeTextWidth(pageText, gc.getFont());
     gc.fillText(pageText, panelX + panelW - 22 - pageTextW, panelY + 30);
 
-    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+    gc.setFont(Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, 16));
     int drawn = 0;
     for (int i = startIdx; i >= 0 && drawn < linesPerPage; i--) {
       VnHistory.HistoryEntry entry = entries.get(i);
@@ -198,7 +198,7 @@ public class VnRenderer {
 
     if (total == 0) {
       gc.setFill(Color.rgb(150, 150, 150, 0.7));
-      gc.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+      gc.setFont(Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, 16));
       gc.fillText(Localization.t("history.empty"), contentX, contentY + 30);
     }
 
@@ -219,7 +219,7 @@ public class VnRenderer {
     }
 
     gc.setFill(HISTORY_HINT_COLOR);
-    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
+    gc.setFont(Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, 13));
     gc.fillText(Localization.t("history.hint"), panelX + 20, panelY + panelH - 16);
 
     String countText = String.format("%d / %d", Math.min(effectiveOffset + 1, total), total);
@@ -251,7 +251,7 @@ public class VnRenderer {
     boolean isSaveMode = state.isSaveSlotOverlaySaveMode();
     String title = Localization.t(isSaveMode ? "save_slots.title" : "load_slots.title");
     gc.setFill(Color.WHITE);
-    gc.setFont(Font.font("Arial", FontWeight.BOLD, 22));
+    gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 22));
     double titleWidth = computeTextWidth(title, gc.getFont());
     gc.fillText(title, panelX + (panelW - titleWidth) / 2, panelY + 35);
     
@@ -292,13 +292,13 @@ public class VnRenderer {
       // Slot label
       String slotLabel = i == 0 ? "Quick Save" : (Localization.t("save_slots.slot") + " " + i);
       gc.setFill(isSelected ? Color.WHITE : Color.rgb(200, 200, 200));
-      gc.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+      gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 14));
       gc.fillText(slotLabel, slotX + 12, slotY + 22);
       
       // Slot status/timestamp
       String status = hasData ? getSaveSlotTimestamp(i) : Localization.t("save_slots.empty");
       gc.setFill(hasData ? Color.rgb(180, 220, 180) : Color.rgb(120, 120, 120));
-      gc.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+      gc.setFont(Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, 12));
       gc.fillText(status, slotX + 12, slotY + 42);
     }
     
@@ -309,7 +309,7 @@ public class VnRenderer {
     gc.fillRoundRect(panelX, panelY + panelH - 20, panelW, 20, 16, 16);
     
     gc.setFill(Color.rgb(180, 180, 180, 0.9));
-    gc.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
+    gc.setFont(Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, 13));
     String hint = Localization.t(isSaveMode ? "save_slots.hint" : "load_slots.hint");
     gc.fillText(hint, panelX + 20, panelY + panelH - 18);
   }
@@ -416,9 +416,14 @@ public class VnRenderer {
           renderChoices(currentNode.getChoices(), width, height, -1);
           break;
         case BACKGROUND:
-          break;
+        case TRANSITION:
+        case SHOW:
+        case HIDE:
+        case WAIT:
+        case AUDIO:
         case JUMP:
-          break;
+        case CALL:
+        case RETURN:
         case EXTERNAL:
           break;
         case END:
@@ -442,7 +447,7 @@ public class VnRenderer {
     // HUD message (toast)
     long now = System.currentTimeMillis();
     if (state.getHudMessage() != null && now < state.getHudMessageExpireAt()) {
-      gc.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+      gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 16));
       gc.setFill(Color.rgb(0, 0, 0, 0.6));
       double boxW = Math.min(width * 0.6, 360);
       double boxH = 40;
@@ -490,7 +495,7 @@ public class VnRenderer {
       gc.setFill(Color.DARKSLATEGRAY);
       gc.fillRect(0, 0, width, height);
       gc.setFill(Color.WHITE);
-      gc.setFont(Font.font("Arial", FontWeight.BOLD, 24));
+      gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 24));
       gc.fillText("No Background Image", 20, 40);
     }
   }
@@ -647,7 +652,7 @@ public class VnRenderer {
       gc.strokeRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
 
       gc.setFill(!enabled ? Color.rgb(172, 176, 188, 0.75) : (hovered ? Color.rgb(245, 252, 255) : Color.rgb(225, 232, 246)));
-      gc.setFont(Font.font("Arial", FontWeight.BOLD, clamp(geometry.height() * 0.42, 10, 18)));
+      gc.setFont(Font.font(choiceFont.getFamily(), FontWeight.BOLD, clamp(geometry.height() * 0.42, 10, 18)));
       String label = button.label() == null || button.label().isBlank() ? button.id() : button.label();
       double textW = computeTextWidth(label, gc.getFont());
       double textX = geometry.x() + Math.max(8, (geometry.width() - textW) / 2.0);
@@ -902,7 +907,7 @@ public class VnRenderer {
 
   private void renderEnd(double width, double height) {
     gc.setFill(TEXT_COLOR);
-    gc.setFont(Font.font("Arial", FontWeight.BOLD, 32));
+    gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 32));
     String text = "End";
     gc.fillText(text, width / 2 - 30, height / 2);
   }
@@ -1027,7 +1032,7 @@ public class VnRenderer {
       gc.setFill(Color.DARKSLATEGRAY);
       gc.fillRect(x, y, width, height);
       gc.setFill(Color.WHITE);
-      gc.setFont(Font.font("Arial", FontWeight.BOLD, 22));
+      gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 22));
       gc.fillText("No Background Image", x + 20, y + 40);
     }
   }
@@ -1268,7 +1273,7 @@ public class VnRenderer {
   }
 
   private void renderModeIndicators(VnState state, double width, double height) {
-    gc.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+    gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 14));
     gc.setFill(Color.rgb(255, 255, 255, 0.9));
     
     double y = 25;

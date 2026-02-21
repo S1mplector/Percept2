@@ -7,6 +7,8 @@ import java.util.List;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.engine.Engine;
+import com.jvn.core.localization.Localization;
+import com.jvn.core.localization.LocalizedScriptLoader;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
@@ -27,15 +29,35 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 public class RuntimeVnInterop implements VnInterop {
   private final Engine engine;
   private final DefaultVnInterop base = new DefaultVnInterop();
+  private static final String SCRIPTS_BASE = "game/scripts/";
 
-  public RuntimeVnInterop(Engine engine) { this.engine = engine; }
+  public RuntimeVnInterop(Engine engine) {
+    this.engine = engine;
+    configureDefaultSceneAccessor();
+  }
+
+  private void configureDefaultSceneAccessor() {
+    base.setSceneAccessor(name -> {
+      if (name == null || name.isBlank()) return null;
+      if (engine == null || engine.scenes() == null) return null;
+      Scene top = engine.scenes().peek();
+      if (top instanceof JesScene2D jes) {
+        return jes.find(name);
+      }
+      return null;
+    });
+  }
 
   /**
    * Wire a SceneAccessor for timeline execution support.
    * This must be called by the runtime to enable jes_timeline commands.
    */
   public void setSceneAccessor(com.jvn.core.animation.SceneAccessor accessor) {
-    base.setSceneAccessor(accessor);
+    if (accessor == null) {
+      configureDefaultSceneAccessor();
+    } else {
+      base.setSceneAccessor(accessor);
+    }
   }
 
   /**
@@ -284,7 +306,8 @@ public class RuntimeVnInterop implements VnInterop {
 
   private VnScene loadVnScene(String script, VnScene current) throws Exception {
     AssetCatalog assets = new AssetCatalog();
-    try (InputStream in = assets.open(AssetType.SCRIPT, script)) {
+    try (InputStream in = openLocalizedScript(assets, script)) {
+      if (in == null) return null;
       VnScenario sc = new VnScriptParser().parse(in);
       VnScene vn = new VnScene(sc);
       if (current.getAudioFacade() != null) vn.setAudioFacade(current.getAudioFacade());
@@ -293,6 +316,39 @@ public class RuntimeVnInterop implements VnInterop {
       vn.setInterop(this);
       return vn;
     }
+  }
+
+  private InputStream openLocalizedScript(AssetCatalog assets, String script) {
+    for (String candidate : localizedScriptCandidates(script)) {
+      try {
+        InputStream in = assets.open(AssetType.SCRIPT, candidate);
+        if (in != null) return in;
+      } catch (Exception ignored) {
+      }
+    }
+    return null;
+  }
+
+  private List<String> localizedScriptCandidates(String script) {
+    java.util.LinkedHashSet<String> candidates = new java.util.LinkedHashSet<>();
+    if (script == null || script.isBlank()) return List.of();
+
+    String locale = Localization.locale();
+    LocalizedScriptLoader loader = new LocalizedScriptLoader(Thread.currentThread().getContextClassLoader(), SCRIPTS_BASE);
+
+    // Candidate paths from localization loader (prefixed), then normalize to AssetCatalog script keys.
+    for (String path : loader.getCandidatePaths(script, locale)) {
+      if (path == null || path.isBlank()) continue;
+      candidates.add(path);
+      if (path.startsWith(SCRIPTS_BASE)) {
+        candidates.add(path.substring(SCRIPTS_BASE.length()));
+      }
+    }
+
+    // Direct fallback candidates in case script key is already unprefixed.
+    candidates.add(script);
+
+    return new ArrayList<>(candidates);
   }
 
   private void copySettings(VnSettings src, VnSettings dst) {

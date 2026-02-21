@@ -363,7 +363,7 @@ public class VnScene implements Scene {
   }
 
   private String resolveInterpolatedText(String text) {
-    return VnVariableInterpolator.interpolate(text, state.getVariables());
+    return VnTextFormatter.format(text, state.getVariables());
   }
 
   /**

@@ -422,7 +422,7 @@ public class VnState {
   public String getHudMessage() { return hudMessage; }
   public long getHudMessageExpireAt() { return hudMessageExpireAt; }
   public void showHudMessage(String message, long durationMs) {
-    this.hudMessage = VnVariableInterpolator.interpolate(message, variables);
+    this.hudMessage = VnTextFormatter.format(message, variables);
     this.hudMessageExpireAt = System.currentTimeMillis() + Math.max(0, durationMs);
   }
 
