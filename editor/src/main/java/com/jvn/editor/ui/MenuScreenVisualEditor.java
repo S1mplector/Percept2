@@ -24,13 +24,13 @@ import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
-import javafx.geometry.Orientation;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -42,8 +42,8 @@ import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
@@ -108,6 +108,34 @@ public class MenuScreenVisualEditor extends BorderPane {
   private Double dragStartH;
 
   private enum DragMode { NONE, MOVE, RESIZE }
+
+  // ── Item Inspector fields ──
+  private final VBox inspectorBox = new VBox(6);
+  private final ScrollPane inspectorScroll = new ScrollPane(inspectorBox);
+  private final Label inspHeader = new Label("No item selected");
+  private boolean suppressInspector = false;
+
+  private final TextField inspLabel = new TextField();
+  private final TextField inspStyle = new TextField();
+  private final TextField inspIcon = new TextField();
+  private final CheckBox inspEnabled = new CheckBox("Enabled");
+  private final ComboBox<MenuActionType> inspAction = new ComboBox<>();
+  private final TextField inspActionKey = new TextField();
+  private final TextField inspTarget = new TextField();
+  private final TextField inspBgAsset = new TextField();
+  private final TextField inspBgSelected = new TextField();
+  private final TextField inspBgDisabled = new TextField();
+  private final TextField inspBoundsX = new TextField();
+  private final TextField inspBoundsY = new TextField();
+  private final TextField inspBoundsW = new TextField();
+  private final TextField inspBoundsH = new TextField();
+  private final CheckBox inspSlotEnabled = new CheckBox("Slot Preview");
+  private final TextField inspSlotPlaceholder = new TextField();
+  private final TextField inspSlotFrame = new TextField();
+  private final TextField inspSlotX = new TextField();
+  private final TextField inspSlotY = new TextField();
+  private final TextField inspSlotW = new TextField();
+  private final TextField inspSlotH = new TextField();
 
   public MenuScreenVisualEditor() {
     setPadding(new Insets(8));
@@ -266,41 +294,36 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void buildCenter() {
     table.setEditable(true);
-    table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+    table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
     buildColumns();
     table.setItems(rows);
     table.getSelectionModel().selectedIndexProperty().addListener((o, ov, nv) -> {
       previewSelected = Math.max(0, nv == null ? 0 : nv.intValue());
+      populateInspector();
       syncExtrasFromSelectedRow();
       redrawPreview();
     });
 
-    FlowPane actions = new FlowPane(Orientation.HORIZONTAL, 6, 6);
+    // Simplified action buttons — asset/bounds editing moved to inspector
+    HBox actions = new HBox(6);
     actions.getStyleClass().add("layout-studio-action-bar");
-    actions.setPrefWrapLength(560);
 
-    Button bAdd = new Button("Add Item");
+    Button bAdd = new Button("Add");
+    bAdd.setGraphic(CssIcon.plus("#8cd48c"));
     Button bRemove = new Button("Remove");
-    Button bUp = new Button("Up");
-    Button bDown = new Button("Down");
+    bRemove.setGraphic(CssIcon.minus("#e07070"));
+    Button bUp = new Button();
+    bUp.setGraphic(CssIcon.arrowUp());
+    bUp.setTooltip(new Tooltip("Move Up"));
+    Button bDown = new Button();
+    bDown.setGraphic(CssIcon.arrowDown());
+    bDown.setTooltip(new Tooltip("Move Down"));
     Button bNormalize = new Button("Normalize IDs");
-    Button bToggleAdvanced = new Button("Show Advanced");
-    bToggleAdvanced.setOnAction(e -> {
-      toggleAdvancedColumns();
-      bToggleAdvanced.setText(advancedColumnsVisible ? "Hide Advanced" : "Show Advanced");
-    });
-    Button bAssignBg = new Button("Assign BG...");
-    Button bAssignPreviewPlaceholder = new Button("Preview Placeholder...");
-    Button bAssignPreviewFrame = new Button("Preview Frame...");
-    Button bEnableSlotPreview = new Button("Enable Slot Preview");
-    Button bClearBounds = new Button("Clear Bounds");
-    List<Button> actionButtons = List.of(
-        bAdd, bRemove, bUp, bDown, bNormalize, bToggleAdvanced, bAssignBg, bAssignPreviewPlaceholder, bAssignPreviewFrame, bEnableSlotPreview, bClearBounds
-    );
-    for (Button actionButton : actionButtons) {
-      actionButton.getStyleClass().add("layout-studio-action-button");
-      actionButton.setMinWidth(Region.USE_PREF_SIZE);
-      actionButton.setTooltip(new Tooltip(actionButton.getText()));
+    bNormalize.setGraphic(CssIcon.sort());
+
+    for (Button b : List.of(bAdd, bRemove, bUp, bDown, bNormalize)) {
+      b.getStyleClass().add("layout-studio-action-button");
+      b.setMinWidth(Region.USE_PREF_SIZE);
     }
 
     bAdd.setOnAction(e -> addRow());
@@ -308,19 +331,10 @@ public class MenuScreenVisualEditor extends BorderPane {
     bUp.setOnAction(e -> moveSelected(-1));
     bDown.setOnAction(e -> moveSelected(1));
     bNormalize.setOnAction(e -> normalizeIds());
-    bAssignBg.setOnAction(e -> assignBgToSelection());
-    bAssignPreviewPlaceholder.setOnAction(e -> assignSlotPreviewPlaceholderToSelection());
-    bAssignPreviewFrame.setOnAction(e -> assignSlotPreviewFrameToSelection());
-    bEnableSlotPreview.setOnAction(e -> enableSlotPreviewForSelection());
-    bClearBounds.setOnAction(e -> clearBoundsForSelection());
-    actions.getChildren().addAll(
-        bAdd, bRemove, bUp, bDown, bNormalize, bToggleAdvanced, bAssignBg, bAssignPreviewPlaceholder, bAssignPreviewFrame, bEnableSlotPreview, bClearBounds
-    );
+    actions.getChildren().addAll(bAdd, bRemove, bUp, bDown, bNormalize);
 
     table.getStyleClass().add("layout-studio-table");
-    VBox extrasPanel = buildExtrasPanel();
-    VBox tablePane = new VBox(6, table, actions, extrasPanel);
-    actions.prefWrapLengthProperty().bind(tablePane.widthProperty().subtract(12));
+    VBox tablePane = new VBox(6, table, actions);
     VBox.setVgrow(table, Priority.ALWAYS);
 
     preview.widthProperty().addListener((o, ov, nv) -> redrawPreview());
@@ -339,8 +353,11 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (Math.abs(preview.getHeight() - ph) >= 0.5) preview.setHeight(ph);
     });
 
-    SplitPane split = new SplitPane(tablePane, previewHost);
-    split.setDividerPositions(0.58);
+    ScrollPane inspPane = buildItemInspector();
+
+    SplitPane split = new SplitPane(tablePane, previewHost, inspPane);
+    split.setDividerPositions(0.30, 0.65);
+    SplitPane.setResizableWithParent(inspPane, false);
     setCenter(split);
   }
 
@@ -506,31 +523,6 @@ public class MenuScreenVisualEditor extends BorderPane {
         idCol, labelCol, styleCol, enabledCol, actionCol, actionKeyCol, targetCol
     );
 
-    // Advanced columns hidden by default
-    advancedColumns = List.of(
-        iconCol, bgCol, bgSelCol, bgDisCol,
-        slotPreviewEnabledCol, slotPreviewPlaceholderCol, slotPreviewFrameCol,
-        boundsXCol, boundsYCol, boundsWCol, boundsHCol,
-        slotPreviewXCol, slotPreviewYCol, slotPreviewWCol, slotPreviewHCol
-    );
-  }
-
-  @SuppressWarnings("rawtypes")
-  private List<TableColumn> advancedColumns = List.of();
-  private boolean advancedColumnsVisible = false;
-
-  private void toggleAdvancedColumns() {
-    advancedColumnsVisible = !advancedColumnsVisible;
-    if (advancedColumnsVisible) {
-      for (var col : advancedColumns) {
-        if (!table.getColumns().contains(col)) {
-          @SuppressWarnings("unchecked") var c = (TableColumn<MenuItemRow, ?>) col;
-          table.getColumns().add(c);
-        }
-      }
-    } else {
-      table.getColumns().removeAll(advancedColumns);
-    }
   }
 
   private void registerTopListeners() {
@@ -611,6 +603,234 @@ public class MenuScreenVisualEditor extends BorderPane {
     row.slotPreviewHProperty().addListener((o, ov, nv) -> onUiChanged());
   }
 
+  // ── Item Inspector ──
+
+  private ScrollPane buildItemInspector() {
+    inspectorBox.setPadding(new Insets(8));
+    inspectorBox.setStyle("-fx-background-color: #13161d;");
+
+    inspHeader.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
+
+    // Identity section
+    inspLabel.setPromptText("Display label");
+    inspStyle.setPromptText("Style override");
+    inspIcon.setPromptText("assets/ui/icon.png");
+    inspEnabled.setSelected(true);
+    VBox identitySection = inspectorSection("Identity",
+        inspectorRow("Label", inspLabel),
+        inspectorRow("Style", inspStyle),
+        inspectorAssetRow("Icon", inspIcon),
+        inspEnabled
+    );
+
+    // Action section
+    inspAction.getItems().setAll(MenuActionType.values());
+    inspAction.setValue(MenuActionType.NOOP);
+    inspActionKey.setPromptText("action key");
+    inspTarget.setPromptText("target menu / script");
+    VBox actionSection = inspectorSection("Action",
+        inspectorRow("Type", inspAction),
+        inspectorRow("Action Key", inspActionKey),
+        inspectorRow("Target", inspTarget)
+    );
+
+    // Background Assets section
+    inspBgAsset.setPromptText("assets/ui/button.png");
+    inspBgSelected.setPromptText("assets/ui/button_sel.png");
+    inspBgDisabled.setPromptText("assets/ui/button_dis.png");
+    VBox bgSection = inspectorSection("Background Assets",
+        inspectorAssetRow("Normal", inspBgAsset),
+        inspectorAssetRow("Selected", inspBgSelected),
+        inspectorAssetRow("Disabled", inspBgDisabled)
+    );
+
+    // Bounds section
+    inspBoundsX.setPromptText("X"); inspBoundsY.setPromptText("Y");
+    inspBoundsW.setPromptText("Width"); inspBoundsH.setPromptText("Height");
+    GridPane boundsGrid = new GridPane();
+    boundsGrid.setHgap(4); boundsGrid.setVgap(4);
+    boundsGrid.add(new Label("X"), 0, 0); boundsGrid.add(inspBoundsX, 1, 0);
+    boundsGrid.add(new Label("Y"), 2, 0); boundsGrid.add(inspBoundsY, 3, 0);
+    boundsGrid.add(new Label("W"), 0, 1); boundsGrid.add(inspBoundsW, 1, 1);
+    boundsGrid.add(new Label("H"), 2, 1); boundsGrid.add(inspBoundsH, 3, 1);
+    inspBoundsX.setPrefWidth(70); inspBoundsY.setPrefWidth(70);
+    inspBoundsW.setPrefWidth(70); inspBoundsH.setPrefWidth(70);
+    Button clearBoundsBtn = new Button("Clear");
+    clearBoundsBtn.setGraphic(CssIcon.clearX("#e07070"));
+    clearBoundsBtn.setOnAction(e -> clearBoundsForSelection());
+    VBox boundsSection = inspectorSection("Item Bounds", boundsGrid, clearBoundsBtn);
+
+    // Slot Preview section
+    inspSlotPlaceholder.setPromptText("placeholder asset");
+    inspSlotFrame.setPromptText("frame asset");
+    inspSlotX.setPromptText("X"); inspSlotY.setPromptText("Y");
+    inspSlotW.setPromptText("Width"); inspSlotH.setPromptText("Height");
+    GridPane slotBoundsGrid = new GridPane();
+    slotBoundsGrid.setHgap(4); slotBoundsGrid.setVgap(4);
+    slotBoundsGrid.add(new Label("X"), 0, 0); slotBoundsGrid.add(inspSlotX, 1, 0);
+    slotBoundsGrid.add(new Label("Y"), 2, 0); slotBoundsGrid.add(inspSlotY, 3, 0);
+    slotBoundsGrid.add(new Label("W"), 0, 1); slotBoundsGrid.add(inspSlotW, 1, 1);
+    slotBoundsGrid.add(new Label("H"), 2, 1); slotBoundsGrid.add(inspSlotH, 3, 1);
+    inspSlotX.setPrefWidth(70); inspSlotY.setPrefWidth(70);
+    inspSlotW.setPrefWidth(70); inspSlotH.setPrefWidth(70);
+    VBox slotSection = inspectorSection("Slot Preview",
+        inspSlotEnabled,
+        inspectorAssetRow("Placeholder", inspSlotPlaceholder),
+        inspectorAssetRow("Frame", inspSlotFrame),
+        slotBoundsGrid
+    );
+
+    // Extras section (per-item custom properties)
+    VBox extrasSection = buildExtrasPanel();
+
+    inspectorBox.getChildren().setAll(
+        inspHeader,
+        identitySection, actionSection, bgSection,
+        boundsSection, slotSection, extrasSection
+    );
+
+    inspectorScroll.setContent(inspectorBox);
+    inspectorScroll.setFitToWidth(true);
+    inspectorScroll.setStyle("-fx-background-color: #13161d;");
+    inspectorScroll.setPrefWidth(300);
+
+    registerInspectorListeners();
+    return inspectorScroll;
+  }
+
+  private VBox inspectorSection(String title, javafx.scene.Node... children) {
+    Label header = new Label(title);
+    header.setStyle("-fx-font-weight: bold; -fx-text-fill: #a8b0c0; -fx-font-size: 11px;");
+    VBox section = new VBox(4);
+    section.getChildren().add(header);
+    section.getChildren().addAll(children);
+    section.setPadding(new Insets(4, 0, 4, 0));
+    section.setStyle("-fx-border-color: #2a2f3a; -fx-border-width: 0 0 1 0;");
+    return section;
+  }
+
+  private HBox inspectorRow(String label, javafx.scene.Node field) {
+    Label l = new Label(label);
+    l.setMinWidth(70);
+    l.setStyle("-fx-text-fill: #c0c0c0; -fx-font-size: 11px;");
+    HBox row = new HBox(6, l, field);
+    row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+    if (field instanceof TextField tf) { HBox.setHgrow(tf, Priority.ALWAYS); tf.setMaxWidth(Double.MAX_VALUE); }
+    if (field instanceof ComboBox<?> cb) { HBox.setHgrow(cb, Priority.ALWAYS); cb.setMaxWidth(Double.MAX_VALUE); }
+    return row;
+  }
+
+  private HBox inspectorAssetRow(String label, TextField field) {
+    Label l = new Label(label);
+    l.setMinWidth(70);
+    l.setStyle("-fx-text-fill: #c0c0c0; -fx-font-size: 11px;");
+    Button browse = new Button();
+    browse.setGraphic(CssIcon.folder("#b0b8c8"));
+    browse.setMinWidth(28);
+    browse.setOnAction(e -> {
+      String asset = chooseImageAsset("Select " + label);
+      if (asset != null && !asset.isBlank()) {
+        field.setText(asset);
+      }
+    });
+    HBox.setHgrow(field, Priority.ALWAYS);
+    field.setMaxWidth(Double.MAX_VALUE);
+    HBox row = new HBox(4, l, field, browse);
+    row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+    return row;
+  }
+
+  private void populateInspector() {
+    int idx = table.getSelectionModel().getSelectedIndex();
+    if (idx < 0 || idx >= rows.size()) {
+      inspHeader.setText("No item selected");
+      inspectorBox.setDisable(true);
+      return;
+    }
+    inspectorBox.setDisable(false);
+    MenuItemRow row = rows.get(idx);
+    suppressInspector = true;
+
+    inspHeader.setText("Item: " + row.getId());
+    inspLabel.setText(row.getLabel());
+    inspStyle.setText(row.getStyle());
+    inspIcon.setText(row.getIcon());
+    inspEnabled.setSelected(row.isEnabled());
+    inspAction.setValue(row.getAction());
+    inspActionKey.setText(row.getActionKey());
+    inspTarget.setText(row.getTarget());
+    inspBgAsset.setText(row.getBgAsset());
+    inspBgSelected.setText(row.getBgSelectedAsset());
+    inspBgDisabled.setText(row.getBgDisabledAsset());
+    inspBoundsX.setText(row.getBoundsX() != null ? formatDouble(row.getBoundsX()) : "");
+    inspBoundsY.setText(row.getBoundsY() != null ? formatDouble(row.getBoundsY()) : "");
+    inspBoundsW.setText(row.getBoundsW() != null ? formatDouble(row.getBoundsW()) : "");
+    inspBoundsH.setText(row.getBoundsH() != null ? formatDouble(row.getBoundsH()) : "");
+    inspSlotEnabled.setSelected(row.isSlotPreviewEnabled());
+    inspSlotPlaceholder.setText(row.getSlotPreviewPlaceholderAsset());
+    inspSlotFrame.setText(row.getSlotPreviewFrameAsset());
+    inspSlotX.setText(row.getSlotPreviewX() != null ? formatDouble(row.getSlotPreviewX()) : "");
+    inspSlotY.setText(row.getSlotPreviewY() != null ? formatDouble(row.getSlotPreviewY()) : "");
+    inspSlotW.setText(row.getSlotPreviewW() != null ? formatDouble(row.getSlotPreviewW()) : "");
+    inspSlotH.setText(row.getSlotPreviewH() != null ? formatDouble(row.getSlotPreviewH()) : "");
+
+    suppressInspector = false;
+  }
+
+  private void pushInspectorToRow() {
+    if (suppressInspector) return;
+    int idx = table.getSelectionModel().getSelectedIndex();
+    if (idx < 0 || idx >= rows.size()) return;
+    MenuItemRow row = rows.get(idx);
+
+    row.setLabel(inspLabel.getText());
+    row.setStyle(inspStyle.getText());
+    row.setIcon(inspIcon.getText());
+    row.setEnabled(inspEnabled.isSelected());
+    row.setAction(inspAction.getValue());
+    row.setActionKey(inspActionKey.getText());
+    row.setTarget(inspTarget.getText());
+    row.setBgAsset(inspBgAsset.getText());
+    row.setBgSelectedAsset(inspBgSelected.getText());
+    row.setBgDisabledAsset(inspBgDisabled.getText());
+    row.setBoundsX(parseOptionalDouble(inspBoundsX.getText()));
+    row.setBoundsY(parseOptionalDouble(inspBoundsY.getText()));
+    row.setBoundsW(parseOptionalDouble(inspBoundsW.getText()));
+    row.setBoundsH(parseOptionalDouble(inspBoundsH.getText()));
+    row.setSlotPreviewEnabled(inspSlotEnabled.isSelected());
+    row.setSlotPreviewPlaceholderAsset(inspSlotPlaceholder.getText());
+    row.setSlotPreviewFrameAsset(inspSlotFrame.getText());
+    row.setSlotPreviewX(parseOptionalDouble(inspSlotX.getText()));
+    row.setSlotPreviewY(parseOptionalDouble(inspSlotY.getText()));
+    row.setSlotPreviewW(parseOptionalDouble(inspSlotW.getText()));
+    row.setSlotPreviewH(parseOptionalDouble(inspSlotH.getText()));
+  }
+
+  private void registerInspectorListeners() {
+    Runnable push = this::pushInspectorToRow;
+    inspLabel.textProperty().addListener((o, ov, nv) -> push.run());
+    inspStyle.textProperty().addListener((o, ov, nv) -> push.run());
+    inspIcon.textProperty().addListener((o, ov, nv) -> push.run());
+    inspEnabled.selectedProperty().addListener((o, ov, nv) -> push.run());
+    inspAction.valueProperty().addListener((o, ov, nv) -> push.run());
+    inspActionKey.textProperty().addListener((o, ov, nv) -> push.run());
+    inspTarget.textProperty().addListener((o, ov, nv) -> push.run());
+    inspBgAsset.textProperty().addListener((o, ov, nv) -> push.run());
+    inspBgSelected.textProperty().addListener((o, ov, nv) -> push.run());
+    inspBgDisabled.textProperty().addListener((o, ov, nv) -> push.run());
+    inspBoundsX.textProperty().addListener((o, ov, nv) -> push.run());
+    inspBoundsY.textProperty().addListener((o, ov, nv) -> push.run());
+    inspBoundsW.textProperty().addListener((o, ov, nv) -> push.run());
+    inspBoundsH.textProperty().addListener((o, ov, nv) -> push.run());
+    inspSlotEnabled.selectedProperty().addListener((o, ov, nv) -> push.run());
+    inspSlotPlaceholder.textProperty().addListener((o, ov, nv) -> push.run());
+    inspSlotFrame.textProperty().addListener((o, ov, nv) -> push.run());
+    inspSlotX.textProperty().addListener((o, ov, nv) -> push.run());
+    inspSlotY.textProperty().addListener((o, ov, nv) -> push.run());
+    inspSlotW.textProperty().addListener((o, ov, nv) -> push.run());
+    inspSlotH.textProperty().addListener((o, ov, nv) -> push.run());
+  }
+
   @SuppressWarnings("unchecked")
   private VBox buildExtrasPanel() {
     Label header = new Label("Per-Item Custom Properties");
@@ -640,11 +860,13 @@ public class MenuScreenVisualEditor extends BorderPane {
     extrasTable.getColumns().setAll(keyCol, valCol);
 
     Button addBtn = new Button("Add");
+    addBtn.setGraphic(CssIcon.plus("#8cd48c"));
     addBtn.setOnAction(e -> {
       extrasRows.add(new ExtrasEntry("custom_key", ""));
       syncExtrasToSelectedRow();
     });
     Button removeBtn = new Button("Remove");
+    removeBtn.setGraphic(CssIcon.minus("#e07070"));
     removeBtn.setOnAction(e -> {
       int idx = extrasTable.getSelectionModel().getSelectedIndex();
       if (idx >= 0 && idx < extrasRows.size()) {
@@ -953,6 +1175,7 @@ public class MenuScreenVisualEditor extends BorderPane {
         row.setBoundsH(clamp((dragStartH == null ? 0.1 : dragStartH) + dyNorm, 0.04, 1.0));
       }
       suppressEvents = false;
+      populateInspector();
       onUiChanged();
       e.consume();
     });
@@ -1119,42 +1342,6 @@ public class MenuScreenVisualEditor extends BorderPane {
     double hx = rect.x() + rect.w() - 14;
     double hy = rect.y() + rect.h() - 14;
     return x >= hx && x <= hx + 14 && y >= hy && y <= hy + 14;
-  }
-
-  private void assignBgToSelection() {
-    MenuItemRow row = table.getSelectionModel().getSelectedItem();
-    if (row == null) return;
-    String asset = chooseImageAsset("Select Menu Button Background");
-    if (asset == null || asset.isBlank()) return;
-    row.setBgAsset(asset);
-    onUiChanged();
-  }
-
-  private void assignSlotPreviewPlaceholderToSelection() {
-    MenuItemRow row = table.getSelectionModel().getSelectedItem();
-    if (row == null) return;
-    String asset = chooseImageAsset("Select Slot Preview Placeholder Asset");
-    if (asset == null || asset.isBlank()) return;
-    row.setSlotPreviewPlaceholderAsset(asset);
-    row.setSlotPreviewEnabled(true);
-    onUiChanged();
-  }
-
-  private void assignSlotPreviewFrameToSelection() {
-    MenuItemRow row = table.getSelectionModel().getSelectedItem();
-    if (row == null) return;
-    String asset = chooseImageAsset("Select Slot Preview Frame Asset");
-    if (asset == null || asset.isBlank()) return;
-    row.setSlotPreviewFrameAsset(asset);
-    row.setSlotPreviewEnabled(true);
-    onUiChanged();
-  }
-
-  private void enableSlotPreviewForSelection() {
-    MenuItemRow row = table.getSelectionModel().getSelectedItem();
-    if (row == null) return;
-    row.setSlotPreviewEnabled(true);
-    onUiChanged();
   }
 
   private String chooseImageAsset(String title) {

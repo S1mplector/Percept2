@@ -191,7 +191,9 @@ public class MenuLayoutVisualEditor extends BorderPane {
     historyHeader.setStyle("-fx-font-weight: bold;");
     grid.add(historyHeader, 0, row++, 2, 1);
     btnUndo = new Button("Undo");
+    btnUndo.setGraphic(CssIcon.undo());
     btnRedo = new Button("Redo");
+    btnRedo.setGraphic(CssIcon.redo());
     btnUndo.setDisable(true);
     btnRedo.setDisable(true);
     btnUndo.setOnAction(e -> performUndo());
@@ -239,11 +241,13 @@ public class MenuLayoutVisualEditor extends BorderPane {
     customPropsTable.getColumns().setAll(keyCol, valCol);
 
     Button addBtn = new Button("Add");
+    addBtn.setGraphic(CssIcon.plus("#8cd48c"));
     addBtn.setOnAction(e -> {
       customProps.add(new CustomProperty("custom_key", ""));
       onControlChanged();
     });
     Button removeBtn = new Button("Remove");
+    removeBtn.setGraphic(CssIcon.minus("#e07070"));
     removeBtn.setOnAction(e -> {
       int idx = customPropsTable.getSelectionModel().getSelectedIndex();
       if (idx >= 0 && idx < customProps.size()) {

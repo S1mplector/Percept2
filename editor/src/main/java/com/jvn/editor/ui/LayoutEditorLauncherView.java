@@ -1,22 +1,5 @@
 package com.jvn.editor.ui;
 
-import com.jvn.core.menu.config.MenuLayoutSpec;
-import com.jvn.core.menu.config.MenuProfile;
-import com.jvn.core.menu.config.MenuStyleSpec;
-import com.jvn.core.vn.ui.VnUiLayoutLoader;
-import com.jvn.core.vn.ui.VnUiLayoutSpec;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -30,6 +13,24 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+
+import com.jvn.core.menu.config.MenuLayoutSpec;
+import com.jvn.core.menu.config.MenuProfile;
+import com.jvn.core.menu.config.MenuStyleSpec;
+import com.jvn.core.vn.ui.VnUiLayoutLoader;
+import com.jvn.core.vn.ui.VnUiLayoutSpec;
+
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 
 /**
  * Sidebar utility that launches layout-related editors and reports whether
@@ -140,9 +141,27 @@ public class LayoutEditorLauncherView extends BorderPane {
           .collect(Collectors.toList());
     }
 
-    for (LayoutItem item : visible) {
+    // Group by type with section headers (CSS icons)
+    renderSection(visible, ItemType.DIALOGUE_LAYOUT, CssIcon.speech("#7ec8e3"), "Dialogue Layout");
+    renderSection(visible, ItemType.MENU_SCREEN,     CssIcon.list("#a8d8a8"),   "Menu Screens");
+    renderSection(visible, ItemType.MENU_LAYOUT,     CssIcon.grid("#d4a8e8"),   "Menu Layouts");
+    renderSection(visible, ItemType.MENU_STYLE,      CssIcon.palette("#e8c8a8"),"Menu Styles");
+  }
+
+  private void renderSection(List<LayoutItem> visible, ItemType type, javafx.scene.layout.Region icon, String sectionTitle) {
+    List<LayoutItem> group = visible.stream()
+        .filter(it -> it.type() == type)
+        .collect(Collectors.toList());
+    if (group.isEmpty()) return;
+
+    HBox header = CssIcon.iconLabel(icon, sectionTitle + "  (" + group.size() + ")",
+        "-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #a8b0c0;");
+    header.setPadding(new Insets(8, 0, 4, 0));
+    itemList.getChildren().add(header);
+    for (LayoutItem item : group) {
       itemList.getChildren().add(createItemRow(item));
     }
+    itemList.getChildren().add(new Separator());
   }
 
   private VBox createItemRow(LayoutItem item) {

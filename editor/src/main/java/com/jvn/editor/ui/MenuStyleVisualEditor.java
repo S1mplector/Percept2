@@ -337,7 +337,9 @@ public class MenuStyleVisualEditor extends BorderPane {
 
     row = addHeader(grid, row, "History");
     btnUndo = new Button("Undo");
+    btnUndo.setGraphic(CssIcon.undo());
     btnRedo = new Button("Redo");
+    btnRedo.setGraphic(CssIcon.redo());
     btnUndo.setDisable(true);
     btnRedo.setDisable(true);
     btnUndo.setOnAction(e -> performUndo());
@@ -381,11 +383,13 @@ public class MenuStyleVisualEditor extends BorderPane {
     customPropsTable.getColumns().setAll(keyCol, valCol);
 
     Button addBtn = new Button("Add");
+    addBtn.setGraphic(CssIcon.plus("#8cd48c"));
     addBtn.setOnAction(e -> {
       customProps.add(new CustomProperty("custom_key", ""));
       onControlChanged();
     });
     Button removeBtn = new Button("Remove");
+    removeBtn.setGraphic(CssIcon.minus("#e07070"));
     removeBtn.setOnAction(e -> {
       int idx = customPropsTable.getSelectionModel().getSelectedIndex();
       if (idx >= 0 && idx < customProps.size()) {
@@ -423,7 +427,8 @@ public class MenuStyleVisualEditor extends BorderPane {
   }
 
   private int addAssetRow(GridPane grid, int row, String label, TextField field) {
-    Button browse = new Button("Browse...");
+    Button browse = new Button();
+    browse.setGraphic(CssIcon.folder());
     browse.setOnAction(e -> browseAsset(field));
     HBox box = new HBox(6, field, browse);
     HBox.setHgrow(field, Priority.ALWAYS);
