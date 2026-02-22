@@ -365,7 +365,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     g.setLineWidth(1.5);
     g.strokeLine(0, r.titleY(), w, r.titleY());
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
-    g.setFont(Font.font("Arial", FontWeight.BOLD, 24));
+    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 24));
     double titleW = textWidth(g, previewTitle);
     g.fillText(previewTitle, (w - titleW) / 2.0, r.titleY() - 8);
 
@@ -376,7 +376,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     g.setLineWidth(2);
     g.strokeRect(r.listArea().x(), r.listArea().y() - 26, r.listArea().w(), r.listArea().h() + 34);
 
-    g.setFont(Font.font("Arial", 20));
+    g.setFont(Font.font(Font.getDefault().getFamily(), 20));
     g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
     for (int i = 0; i < previewItems.size(); i++) {
       double y = r.listArea().y() + i * spec.lineHeight();
@@ -401,8 +401,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     g.setStroke(LayoutStudioPalette.ACCENT_GOLD);
     g.strokeLine(0, hintsY, w, hintsY);
     g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
-    g.setFont(Font.font("Arial", 14));
-    g.fillText("Select: Enter   Back: Esc", (w - 170) / 2.0, hintsY - 6);
+    g.setFont(Font.font(Font.getDefault().getFamily(), 14));
 
     drawTag(g, r.listArea().x() + 6, r.listArea().y() - 30, "List");
     drawTag(g, 8, r.titleY() - 4, "Title Y");
@@ -416,7 +415,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     g.setStroke(LayoutStudioPalette.TAG_BORDER);
     g.strokeRoundRect(x, y - 12, w, 16, 6, 6);
     g.setFill(LayoutStudioPalette.TAG_TEXT);
-    g.setFont(Font.font("Arial", FontWeight.BOLD, 11));
+    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 11));
     g.fillText(text, x + 6, y);
   }
 

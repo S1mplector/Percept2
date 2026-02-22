@@ -240,16 +240,8 @@ public class LayoutEditorLauncherView extends BorderPane {
         try (FileWriter fw = new FileWriter(file)) {
           fw.write("# Menu screen definition" + System.lineSeparator());
           fw.write("titleText=" + titleize(screenId) + System.lineSeparator());
-          fw.write("layout=default" + System.lineSeparator());
-          fw.write("defaultItemStyle=default" + System.lineSeparator());
           fw.write("wrapSelection=true" + System.lineSeparator());
-          if ("main".equalsIgnoreCase(screenId)) {
-            fw.write("items=new_game,load,settings,quit" + System.lineSeparator());
-            fw.write("item.new_game.action=new_game" + System.lineSeparator());
-            fw.write("item.load.action=load_menu" + System.lineSeparator());
-            fw.write("item.settings.action=settings_menu" + System.lineSeparator());
-            fw.write("item.quit.action=quit" + System.lineSeparator());
-          }
+          fw.write("items=" + System.lineSeparator());
         }
       }
     } catch (Exception ignored) {

@@ -378,7 +378,7 @@ public class AnimationPreview extends VBox {
 
         if (selectedEntityName != null) {
             gc.setFill(Color.web("#f0b673"));
-            gc.setFont(javafx.scene.text.Font.font("Arial", 10));
+            gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), 10));
             gc.fillText(selectedEntityName, sx, sy - 6);
         }
     }

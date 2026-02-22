@@ -837,7 +837,7 @@ public class DialogueLayoutEditorView extends BorderPane {
           ? choiceStyle.disabledTextColor()
           : (hovered ? choiceStyle.hoverTextColor() : choiceStyle.textColor());
       g.setFill(textColor);
-      g.setFont(Font.font("Arial", 14));
+      g.setFont(Font.font(Font.getDefault().getFamily(), 14));
       String choiceLabel = i < previewChoiceLabels.size() ? previewChoiceLabels.get(i) : "Choice " + (i + 1);
       g.fillText(
           choiceLabel,
@@ -865,7 +865,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.strokeRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
 
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
-    g.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 14));
     g.fillText(previewSpeakerName, rects.nameBox().x() + spec.nameTextXOffset(), rects.nameBox().y() + spec.nameTextBaselineOffset());
 
     // Dialogue text bounds.
@@ -874,7 +874,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.strokeRect(rects.dialogueBounds().x(), rects.dialogueBounds().y(), rects.dialogueBounds().w(), rects.dialogueBounds().h());
     g.setLineDashes(0);
     g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
-    g.setFont(Font.font("Arial", 13));
+    g.setFont(Font.font(Font.getDefault().getFamily(), 13));
     g.fillText(previewDialogueLine1, rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 18);
     g.fillText(previewDialogueLine2, rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 36);
 
@@ -908,7 +908,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       g.setLineWidth(selected ? 2 : 1.2);
       g.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 8, 8);
       g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
-      g.setFont(Font.font("Arial", FontWeight.BOLD, clamp(rect.h() * 0.36, 10, 16)));
+      g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, clamp(rect.h() * 0.36, 10, 16)));
       String label = normalizeAssetPath(button.label());
       if (label.isBlank()) label = button.id();
       double labelW = computeTextWidth(g, label, g.getFont());
@@ -924,7 +924,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.setStroke(LayoutStudioPalette.TAG_BORDER);
     g.strokeRoundRect(x, y - 12, w, 16, 6, 6);
     g.setFill(LayoutStudioPalette.TAG_TEXT);
-    g.setFont(Font.font("Arial", FontWeight.BOLD, 11));
+    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 11));
     g.fillText(text, x + 6, y);
   }
 

@@ -580,7 +580,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     g.fillRect(0, 0, w, h);
 
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
-    g.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 20));
     g.fillText("Menu Style Preview", 20, 34);
 
     double buttonW = Math.min(560, w - 80);

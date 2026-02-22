@@ -198,12 +198,11 @@ public class UnifiedMenuEditor extends BorderPane {
     // Draw hints
     double hintsY = h - Math.max(0, hintsBottomMargin);
     g.setFill(Color.web("#888888"));
-    g.setFont(Font.font("Arial", 13));
-    g.fillText("Select: Enter   Back: Esc", (w - 170) / 2.0, hintsY);
+    g.setFont(Font.font(Font.getDefault().getFamily(), 13));
 
     // Labels
     g.setFill(Color.web("#4da3ff88"));
-    g.setFont(Font.font("Arial", FontWeight.BOLD, 10));
+    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 10));
     g.fillText("COMBINED PREVIEW", 8, 14);
   }
 

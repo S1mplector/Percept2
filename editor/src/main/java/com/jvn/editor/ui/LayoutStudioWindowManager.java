@@ -177,9 +177,10 @@ public class LayoutStudioWindowManager {
     private final Button saveButton = new Button("Save");
     private final Button reloadButton = new Button("Reload");
     private final Button revealButton = new Button("Reveal");
+    private final Button maximizeButton = new Button();
 
-    private final Button browseAssetButton = new Button("Browse Asset");
-    private final Button importAssetButton = new Button("Import Asset");
+    private final Button browseAssetButton = new Button("Browse");
+    private final Button importAssetButton = new Button("Import");
     private final Button copyPathButton = new Button("Copy Path");
     private final Button applyPathButton = new Button("Apply to File");
 
@@ -208,7 +209,7 @@ public class LayoutStudioWindowManager {
       this.designNode = resolveDesignNode();
 
       this.stage = new Stage();
-      if (owner != null) stage.initOwner(owner);
+      stage.setResizable(true);
       stage.setMinWidth(1200);
       stage.setMinHeight(760);
 
@@ -220,6 +221,10 @@ public class LayoutStudioWindowManager {
       root.setBottom(buildStatusBar());
 
       Scene scene = new Scene(root, 1460, 900);
+      scene.getAccelerators().put(
+          new javafx.scene.input.KeyCodeCombination(javafx.scene.input.KeyCode.S, javafx.scene.input.KeyCombination.SHORTCUT_DOWN),
+          this::save
+      );
       EditorTheme.apply(scene);
       stage.setScene(scene);
 
@@ -295,6 +300,13 @@ public class LayoutStudioWindowManager {
       Region spacer = new Region();
       HBox.setHgrow(spacer, Priority.ALWAYS);
 
+      saveButton.setGraphic(CssIcon.icon("M17 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z", "#8cd48c", 14));
+      reloadButton.setGraphic(CssIcon.redo("#7ec8e3"));
+      revealButton.setGraphic(CssIcon.folder("#d4a8e8"));
+      maximizeButton.setGraphic(CssIcon.icon("M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z", "#b0b8c8", 14));
+      maximizeButton.setTooltip(new javafx.scene.control.Tooltip("Maximize / Restore"));
+      maximizeButton.setOnAction(e -> stage.setMaximized(!stage.isMaximized()));
+
       HBox row = new HBox(8,
           title,
           dirtyBadge,
@@ -304,7 +316,8 @@ public class LayoutStudioWindowManager {
           bSplit,
           saveButton,
           reloadButton,
-          revealButton
+          revealButton,
+          maximizeButton
       );
       row.getStyleClass().add("layout-studio-toolbar");
       row.setAlignment(Pos.CENTER_LEFT);
@@ -690,12 +703,14 @@ public class LayoutStudioWindowManager {
 
     private File preferredAssetDirectory() {
       if (projectRoot == null || !projectRoot.isDirectory()) return null;
-      return switch (kind) {
+      // Try kind-specific directories first, fall back to project root
+      File candidate = switch (kind) {
         case DIALOGUE_LAYOUT -> new File(projectRoot, "assets/ui");
-        case MENU_STYLE -> new File(projectRoot, "config/menu/assets/buttons");
-        case MENU_SCREEN -> new File(projectRoot, "config/menu/assets/buttons");
-        case MENU_LAYOUT -> new File(projectRoot, "config/menu/assets");
+        case MENU_STYLE -> new File(projectRoot, "assets/ui");
+        case MENU_SCREEN -> new File(projectRoot, "assets/ui");
+        case MENU_LAYOUT -> new File(projectRoot, "assets");
       };
+      return (candidate.exists() && candidate.isDirectory()) ? candidate : projectRoot;
     }
 
     private File uniqueDestination(File dir, String name) {

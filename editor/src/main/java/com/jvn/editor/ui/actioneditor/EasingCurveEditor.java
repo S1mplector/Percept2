@@ -224,20 +224,20 @@ public class EasingCurveEditor extends Pane {
 
             // Bezier param label
             gc.setFill(Color.web("#aaa"));
-            gc.setFont(Font.font("Arial", 9));
+            gc.setFont(Font.font(Font.getDefault().getFamily(), 9));
             gc.fillText(String.format("cubic-bezier(%.2f, %.2f, %.2f, %.2f)", cx1, cy1, cx2, cy2),
                 plotX + 2, plotY + plotH - 4);
         } else {
             // Easing name label
             gc.setFill(Color.web("#888"));
-            gc.setFont(Font.font("Arial", 9));
+            gc.setFont(Font.font(Font.getDefault().getFamily(), 9));
             String label = easingType.name().replace("EASE_", "").replace("_", " ");
             gc.fillText(label, plotX + 4, plotY + plotH - 4);
         }
 
         // Axis labels
         gc.setFill(LABEL_COLOR);
-        gc.setFont(Font.font("Arial", 9));
+        gc.setFont(Font.font(Font.getDefault().getFamily(), 9));
         gc.fillText("0", plotX - 2, plotY + plotH + 12);
         gc.fillText("1", plotX + plotW - 4, plotY + plotH + 12);
         gc.fillText("1", plotX - 12, plotY + 4);

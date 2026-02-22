@@ -183,21 +183,16 @@ public class MenuScreenVisualEditor extends BorderPane {
     tfTitle.setText(p.getProperty("titleText", ""));
     tfHints.setText(p.getProperty("hintsText", ""));
     cbLayout.setEditable(true);
-    cbLayout.getEditor().setText(normalize(p.getProperty("layout", p.getProperty("layoutId")), "default"));
+    cbLayout.getEditor().setText(normalize(p.getProperty("layout", p.getProperty("layoutId")), ""));
     cbDefaultStyle.setEditable(true);
-    cbDefaultStyle.getEditor().setText(normalize(p.getProperty("defaultItemStyle"), "default"));
+    cbDefaultStyle.getEditor().setText(normalize(p.getProperty("defaultItemStyle"), ""));
     cbWrap.setSelected(parseBoolean(p.getProperty("wrapSelection"), true));
 
     List<String> ids = parseCsv(p.getProperty("items"));
     if (ids.isEmpty()) ids = collectItemIdsFromProperties(p);
 
     rows.clear();
-    if (ids.isEmpty()) {
-      rows.add(defaultRow("new_game", MenuActionType.NEW_GAME, null));
-      rows.add(defaultRow("load", MenuActionType.LOAD_MENU, null));
-      rows.add(defaultRow("settings", MenuActionType.SETTINGS_MENU, null));
-      rows.add(defaultRow("quit", MenuActionType.QUIT, null));
-    } else {
+    if (!ids.isEmpty()) {
       for (String id : ids) {
         String key = normalize(id, "");
         if (key.isEmpty()) continue;
@@ -537,16 +532,11 @@ public class MenuScreenVisualEditor extends BorderPane {
     tfTitle.setText("");
     tfHints.setText("Select: Enter    Back: Esc");
     cbLayout.setEditable(true);
-    cbLayout.getEditor().setText("default");
+    cbLayout.getEditor().setText("");
     cbDefaultStyle.setEditable(true);
-    cbDefaultStyle.getEditor().setText("default");
+    cbDefaultStyle.getEditor().setText("");
     cbWrap.setSelected(true);
     rows.clear();
-    MenuItemRow r1 = defaultRow("new_game", MenuActionType.NEW_GAME, null);
-    MenuItemRow r2 = defaultRow("load", MenuActionType.LOAD_MENU, null);
-    MenuItemRow r3 = defaultRow("settings", MenuActionType.SETTINGS_MENU, null);
-    MenuItemRow r4 = defaultRow("quit", MenuActionType.QUIT, null);
-    rows.addAll(r1, r2, r3, r4);
     table.setItems(rows);
   }
 
@@ -1058,10 +1048,10 @@ public class MenuScreenVisualEditor extends BorderPane {
     }
 
     String title = normalize(tfTitle.getText(), "").isBlank() ? titleize(screenIdHint) : tfTitle.getText().trim();
-    String hints = normalize(tfHints.getText(), "").isBlank() ? "Select: Enter    Back: Esc" : tfHints.getText().trim();
+    String hints = normalize(tfHints.getText(), "");
 
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
-    g.setFont(Font.font("Arial", FontWeight.BOLD, 28));
+    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 28));
     double titleW = textWidth(g, title);
     g.fillText(title, (w - titleW) / 2.0, 52);
 
@@ -1096,7 +1086,7 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (!enabled) prefix = "- ";
       text = prefix + text;
       g.setFill(enabled ? (selected ? LayoutStudioPalette.ACCENT_GOLD : LayoutStudioPalette.TEXT_SECONDARY) : LayoutStudioPalette.TEXT_DISABLED);
-      g.setFont(Font.font("Arial", 18));
+      g.setFont(Font.font(Font.getDefault().getFamily(), 18));
       double tw = textWidth(g, text);
       double leftInset = rect.x() + 16;
       double rightInset = rect.x() + Math.max(16, rect.w() - 16 - reservedRightSpace);
@@ -1114,7 +1104,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     }
 
     g.setFill(LayoutStudioPalette.TEXT_MUTED);
-    g.setFont(Font.font("Arial", 14));
+    g.setFont(Font.font(Font.getDefault().getFamily(), 14));
     double hintsW = textWidth(g, hints);
     g.fillText(hints, (w - hintsW) / 2.0, h - 18);
 
@@ -1260,7 +1250,7 @@ public class MenuScreenVisualEditor extends BorderPane {
       g.setFill(Color.rgb(36, 40, 52, 0.95));
       g.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 7, 7);
       g.setFill(Color.rgb(215, 222, 235, 0.85));
-      g.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
+      g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 11));
       String text = "Live Preview";
       double tw = textWidth(g, text);
       g.fillText(text, rect.x() + Math.max(6, (rect.w() - tw) / 2.0), rect.y() + rect.h() * 0.56);
@@ -1334,7 +1324,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     g.setStroke(LayoutStudioPalette.TAG_BORDER);
     g.strokeRoundRect(x, y - 12, w, 16, 6, 6);
     g.setFill(LayoutStudioPalette.TAG_TEXT);
-    g.setFont(Font.font("Arial", FontWeight.BOLD, 10));
+    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 10));
     g.fillText(text, x + 6, y);
   }
 

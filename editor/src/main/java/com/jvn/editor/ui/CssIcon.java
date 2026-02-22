@@ -85,7 +85,7 @@ public final class CssIcon {
 
   // ── Core builder ──
 
-  private static Region icon(String svgPath, String color, double size) {
+  public static Region icon(String svgPath, String color, double size) {
     Region r = new Region();
     r.setMinSize(size, size);
     r.setMaxSize(size, size);
