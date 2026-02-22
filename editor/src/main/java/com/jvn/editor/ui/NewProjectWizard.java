@@ -135,15 +135,15 @@ public class NewProjectWizard extends Stage {
     header.setStyle("-fx-background-color: " + BG_CARD + ";");
 
     Label title = new Label("Create New Visual Novel");
-    title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
+    title.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 24));
     title.setTextFill(Color.web(TEXT_PRIMARY));
 
     Label subtitle = new Label("Set up a clean engine-ready project structure with scripts, config, and visual editor files.");
-    subtitle.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 13));
+    subtitle.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 13));
     subtitle.setTextFill(Color.web(TEXT_SECONDARY));
 
     Label hint = new Label("Recommended: start with sample content, then customize layouts visually in the editor.");
-    hint.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 11));
+    hint.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 11));
     hint.setTextFill(Color.web(TEXT_MUTED));
 
     header.getChildren().addAll(title, subtitle, hint);
@@ -172,11 +172,11 @@ public class NewProjectWizard extends Stage {
     section.setStyle("-fx-background-color: " + BG_CARD + "; -fx-background-radius: 8;");
 
     Label titleLabel = new Label(title);
-    titleLabel.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 16));
+    titleLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.SEMI_BOLD, 16));
     titleLabel.setTextFill(Color.web(ACCENT));
 
     Label subtitleLabel = new Label(subtitle);
-    subtitleLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 12));
+    subtitleLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 12));
     subtitleLabel.setTextFill(Color.web(TEXT_SECONDARY));
 
     Separator sep = new Separator();
@@ -212,7 +212,7 @@ public class NewProjectWizard extends Stage {
 
     Label slugHint = new Label("Folder name is sanitized automatically for cross-platform safety.");
     slugHint.setTextFill(Color.web(TEXT_MUTED));
-    slugHint.setFont(Font.font("Segoe UI", 11));
+    slugHint.setFont(Font.font(Font.getDefault().getFamily(), 11));
 
     grid.add(createLabel("Project Name"), 0, 0);
     grid.add(txtProjectName, 1, 0);
@@ -265,7 +265,7 @@ public class NewProjectWizard extends Stage {
 
     lblPreview = new Label();
     lblPreview.setTextFill(Color.web(TEXT_SECONDARY));
-    lblPreview.setFont(Font.font("Segoe UI", 12));
+    lblPreview.setFont(Font.font(Font.getDefault().getFamily(), 12));
 
     Label entryInfo = new Label(
         "Entry script: " + ENTRY_SCRIPT_PATH + "\n" +
@@ -293,7 +293,7 @@ public class NewProjectWizard extends Stage {
 
     Label intro = new Label("These options control both scaffolding and starter content.");
     intro.setTextFill(Color.web(TEXT_SECONDARY));
-    intro.setFont(Font.font("Segoe UI", 12));
+    intro.setFont(Font.font(Font.getDefault().getFamily(), 12));
 
     chkSampleContent = createCheckBox("Sample Prologue Script", true);
     chkTitleScreen = createCheckBox("Main Menu Profile Pack", true);
@@ -315,7 +315,7 @@ public class NewProjectWizard extends Stage {
     );
     lblBlankMenuWarning.setWrapText(true);
     lblBlankMenuWarning.setTextFill(Color.web("#e8a840"));
-    lblBlankMenuWarning.setFont(Font.font("Segoe UI", 11));
+    lblBlankMenuWarning.setFont(Font.font(Font.getDefault().getFamily(), 11));
     lblBlankMenuWarning.setPadding(new Insets(8, 12, 8, 12));
     lblBlankMenuWarning.setStyle("-fx-background-color: #2a2210; -fx-background-radius: 6; -fx-border-color: #5c4a1a; -fx-border-radius: 6;");
     lblBlankMenuWarning.setVisible(false);
@@ -379,11 +379,11 @@ public class NewProjectWizard extends Stage {
     tag.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-background-radius: 6;");
 
     Label t = new Label(title);
-    t.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+    t.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.SEMI_BOLD, 11));
     t.setTextFill(Color.web(TEXT_PRIMARY));
 
     Label s = new Label(subtitle);
-    s.setFont(Font.font("Segoe UI", 10));
+    s.setFont(Font.font(Font.getDefault().getFamily(), 10));
     s.setTextFill(Color.web(TEXT_MUTED));
 
     tag.getChildren().addAll(t, s);
@@ -399,7 +399,7 @@ public class NewProjectWizard extends Stage {
     );
     intro.setWrapText(true);
     intro.setTextFill(Color.web(TEXT_SECONDARY));
-    intro.setFont(Font.font("Segoe UI", 12));
+    intro.setFont(Font.font(Font.getDefault().getFamily(), 12));
 
     chkGitInit = createCheckBox("Initialize Git repository", true);
     chkInitialCommit = createCheckBox("Create initial commit", true);
@@ -422,7 +422,7 @@ public class NewProjectWizard extends Stage {
     );
     note.setWrapText(true);
     note.setTextFill(Color.web(TEXT_MUTED));
-    note.setFont(Font.font("Segoe UI", 11));
+    note.setFont(Font.font(Font.getDefault().getFamily(), 11));
 
     box.getChildren().addAll(intro, chkGitInit, chkInitialCommit, note);
     return box;
@@ -444,7 +444,7 @@ public class NewProjectWizard extends Stage {
 
     Label note = new Label("This preview updates live based on your selected modules.");
     note.setTextFill(Color.web(TEXT_MUTED));
-    note.setFont(Font.font("Segoe UI", 11));
+    note.setFont(Font.font(Font.getDefault().getFamily(), 11));
 
     box.getChildren().addAll(txtStructurePreview, note);
     return box;
@@ -455,7 +455,7 @@ public class NewProjectWizard extends Stage {
 
     Label info = new Label("Optional project description:");
     info.setTextFill(Color.web(TEXT_SECONDARY));
-    info.setFont(Font.font("Segoe UI", 12));
+    info.setFont(Font.font(Font.getDefault().getFamily(), 12));
 
     txtDescription = new TextArea();
     txtDescription.setPromptText("Example: A sci-fi mystery told across branching routes.");
@@ -478,7 +478,7 @@ public class NewProjectWizard extends Stage {
 
     lblEstimatedSize = new Label();
     lblEstimatedSize.setTextFill(Color.web(TEXT_SECONDARY));
-    lblEstimatedSize.setFont(Font.font("Segoe UI", 11));
+    lblEstimatedSize.setFont(Font.font(Font.getDefault().getFamily(), 11));
 
     Button btnCancel = new Button("Cancel");
     btnCancel.setPrefWidth(110);
@@ -500,7 +500,7 @@ public class NewProjectWizard extends Stage {
   private Label createLabel(String text) {
     Label label = new Label(text);
     label.setTextFill(Color.web(TEXT_PRIMARY));
-    label.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+    label.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.SEMI_BOLD, 12));
     label.setMinWidth(110);
     return label;
   }
@@ -516,7 +516,7 @@ public class NewProjectWizard extends Stage {
     CheckBox cb = new CheckBox(text);
     cb.setSelected(selected);
     cb.setTextFill(Color.web(TEXT_PRIMARY));
-    cb.setFont(Font.font("Segoe UI", 12));
+    cb.setFont(Font.font(Font.getDefault().getFamily(), 12));
     return cb;
   }
 
@@ -1221,13 +1221,14 @@ public class NewProjectWizard extends Stage {
       }
     }
 
-    tp.setProperty("titleFontFamily", "Arial");
+    String systemFont = Font.getDefault().getFamily();
+    tp.setProperty("titleFontFamily", systemFont);
     tp.setProperty("titleFontWeight", "BOLD");
     tp.setProperty("titleFontSize", "32");
-    tp.setProperty("itemFontFamily", "Arial");
+    tp.setProperty("itemFontFamily", systemFont);
     tp.setProperty("itemFontWeight", "NORMAL");
     tp.setProperty("itemFontSize", "20");
-    tp.setProperty("hintFontFamily", "Arial");
+    tp.setProperty("hintFontFamily", systemFont);
     tp.setProperty("hintFontSize", "14");
     tp.setProperty("titleY", "60");
     tp.setProperty("listYStart", "0.35");

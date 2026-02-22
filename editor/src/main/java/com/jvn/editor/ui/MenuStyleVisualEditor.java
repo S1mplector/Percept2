@@ -123,10 +123,10 @@ public class MenuStyleVisualEditor extends BorderPane {
     // Init title/hints font pickers with same font list
     List<String> families = Font.getFamilies();
     cbTitleFontFamily.getItems().setAll(families);
-    cbTitleFontFamily.setValue("Arial");
+    cbTitleFontFamily.setValue(Font.getDefault().getFamily());
     cbTitleFontFamily.setEditable(true);
     cbHintsFontFamily.getItems().setAll(families);
-    cbHintsFontFamily.setValue("Arial");
+    cbHintsFontFamily.setValue(Font.getDefault().getFamily());
     cbHintsFontFamily.setEditable(true);
     tfItemHoverColor.setPromptText("#ffe066");
     tfItemShadowColor.setPromptText("#00000088");
@@ -164,7 +164,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   private void initFontPicker() {
     List<String> families = Font.getFamilies();
     cbItemFontFamily.getItems().setAll(families);
-    cbItemFontFamily.setValue("Arial");
+    cbItemFontFamily.setValue(Font.getDefault().getFamily());
     cbItemFontFamily.setEditable(true);
     cbItemFontFamily.setCellFactory(lv -> new ListCell<>() {
       @Override
@@ -184,7 +184,7 @@ public class MenuStyleVisualEditor extends BorderPane {
       protected void updateItem(String fontName, boolean empty) {
         super.updateItem(fontName, empty);
         if (empty || fontName == null) {
-          setText("Arial");
+          setText(Font.getDefault().getFamily());
         } else {
           setText(fontName);
           setStyle("-fx-font-family: '" + fontName + "';");
@@ -509,7 +509,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     merged.setProperty("itemPrefix", normalize(tfItemPrefix.getText(), "  "));
     merged.setProperty("itemSelectedPrefix", normalize(tfItemSelectedPrefix.getText(), "> "));
     merged.setProperty("itemDisabledPrefix", normalize(tfItemDisabledPrefix.getText(), "- "));
-    merged.setProperty("itemFontFamily", normalize(cbItemFontFamily.getValue(), "Arial"));
+    merged.setProperty("itemFontFamily", normalize(cbItemFontFamily.getValue(), Font.getDefault().getFamily()));
     merged.setProperty("itemFontWeight", normalize(cbItemFontWeight.getValue(), "NORMAL"));
     merged.setProperty("itemFontSize", Integer.toString(spItemFontSize.getValue()));
 
@@ -620,7 +620,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   }
 
   private Font resolvePreviewFont() {
-    String family = normalize(cbItemFontFamily.getValue(), "Arial");
+    String family = normalize(cbItemFontFamily.getValue(), Font.getDefault().getFamily());
     FontWeight weight = "BOLD".equalsIgnoreCase(normalize(cbItemFontWeight.getValue(), "NORMAL"))
         ? FontWeight.BOLD : FontWeight.NORMAL;
     return Font.font(family, weight, spItemFontSize.getValue());

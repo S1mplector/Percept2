@@ -716,6 +716,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     l.setStyle("-fx-text-fill: #c0c0c0; -fx-font-size: 11px;");
     Button browse = new Button();
     browse.setGraphic(CssIcon.folder("#b0b8c8"));
+    browse.setTooltip(new Tooltip("Browse project assets"));
     browse.setMinWidth(28);
     browse.setOnAction(e -> {
       String asset = chooseImageAsset("Select " + label);
@@ -723,9 +724,19 @@ public class MenuScreenVisualEditor extends BorderPane {
         field.setText(asset);
       }
     });
+    Button importBtn = new Button();
+    importBtn.setGraphic(CssIcon.download("#8cd48c"));
+    importBtn.setTooltip(new Tooltip("Import external file into project"));
+    importBtn.setMinWidth(28);
+    importBtn.setOnAction(e -> {
+      String asset = importImageAsset("Import " + label);
+      if (asset != null && !asset.isBlank()) {
+        field.setText(asset);
+      }
+    });
     HBox.setHgrow(field, Priority.ALWAYS);
     field.setMaxWidth(Double.MAX_VALUE);
-    HBox row = new HBox(4, l, field, browse);
+    HBox row = new HBox(4, l, field, browse, importBtn);
     row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
     return row;
   }
@@ -1344,6 +1355,37 @@ public class MenuScreenVisualEditor extends BorderPane {
     File selected = chooser.showOpenDialog(owner);
     if (selected == null) return null;
     return toProjectRelativePath(selected);
+  }
+
+  private String importImageAsset(String title) {
+    FileChooser chooser = new FileChooser();
+    chooser.setTitle(title);
+    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp", "*.svg"));
+    Window owner = getScene() != null ? getScene().getWindow() : null;
+    File selected = chooser.showOpenDialog(owner);
+    if (selected == null || projectRoot == null) return null;
+    try {
+      File destDir = new File(projectRoot, "config/menu/assets");
+      if (!destDir.exists()) destDir.mkdirs();
+      File dest = new File(destDir, selected.getName());
+      // Avoid overwriting — generate unique name if needed
+      if (dest.exists()) {
+        String stem = selected.getName();
+        String ext = "";
+        int dot = stem.lastIndexOf('.');
+        if (dot > 0) { ext = stem.substring(dot); stem = stem.substring(0, dot); }
+        int counter = 1;
+        while (dest.exists()) {
+          dest = new File(destDir, stem + "_" + counter + ext);
+          counter++;
+        }
+      }
+      java.nio.file.Files.copy(selected.toPath(), dest.toPath());
+      return toProjectRelativePath(dest);
+    } catch (Exception ex) {
+      return null;
+    }
   }
 
   private void clearBoundsForSelection() {

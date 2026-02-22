@@ -38,6 +38,12 @@ public final class CssIcon {
       "M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z";
   private static final String PATH_GRID =
       "M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z";
+  private static final String PATH_DOWNLOAD =
+      "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
+  private static final String PATH_SAVE =
+      "M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z";
+  private static final String PATH_EXPAND =
+      "M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z";
   private static final String PATH_PALETTE =
       "M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10a2.5 2.5 0 0 0 2.5-2.5c0-.61-.23-1.2-.63-1.63-.37-.4-.58-.92-.58-1.51 0-1.31 1.07-2.36 2.37-2.36H17c2.76 0 5-2.24 5-5 0-4.42-4.03-8-10-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z";
 
@@ -56,6 +62,9 @@ public final class CssIcon {
   public static Region list(String color)     { return icon(PATH_LIST, color, 14); }
   public static Region grid(String color)     { return icon(PATH_GRID, color, 14); }
   public static Region palette(String color)  { return icon(PATH_PALETTE, color, 14); }
+  public static Region download(String color)  { return icon(PATH_DOWNLOAD, color, 14); }
+  public static Region save(String color)      { return icon(PATH_SAVE, color, 14); }
+  public static Region expand(String color)    { return icon(PATH_EXPAND, color, 14); }
 
   /** Convenience: icon at default muted color. */
   public static Region plus()     { return plus("#b0b8c8"); }
@@ -71,6 +80,9 @@ public final class CssIcon {
   public static Region list()     { return list("#b0b8c8"); }
   public static Region grid()     { return grid("#b0b8c8"); }
   public static Region palette()  { return palette("#b0b8c8"); }
+  public static Region download() { return download("#b0b8c8"); }
+  public static Region save()     { return save("#b0b8c8"); }
+  public static Region expand()   { return expand("#b0b8c8"); }
 
   /**
    * Creates a section header label with a leading CSS icon.

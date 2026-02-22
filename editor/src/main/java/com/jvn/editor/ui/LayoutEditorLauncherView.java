@@ -27,9 +27,11 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 /**
@@ -81,6 +83,7 @@ public class LayoutEditorLauncherView extends BorderPane {
     filterField.textProperty().addListener((o, ov, nv) -> renderItemList());
 
     Button refreshButton = new Button("Refresh");
+    refreshButton.setGraphic(CssIcon.redo("#7ec8e3"));
     refreshButton.setOnAction(e -> refreshStatus());
 
     HBox topActions = new HBox(8, filterField, refreshButton);
@@ -131,7 +134,13 @@ public class LayoutEditorLauncherView extends BorderPane {
 
   private void renderItemList() {
     itemList.getChildren().clear();
-    if (cachedItems.isEmpty()) return;
+
+    boolean blankMode = isBlankMenuProject();
+    if (blankMode) {
+      itemList.getChildren().add(buildOnboardingPanel());
+    }
+
+    if (cachedItems.isEmpty() && !blankMode) return;
 
     String filter = filterField.getText() == null ? "" : filterField.getText().trim().toLowerCase(Locale.ROOT);
     List<LayoutItem> visible = cachedItems;
@@ -146,9 +155,14 @@ public class LayoutEditorLauncherView extends BorderPane {
     renderSection(visible, ItemType.MENU_SCREEN,     CssIcon.list("#a8d8a8"),   "Menu Screens");
     renderSection(visible, ItemType.MENU_LAYOUT,     CssIcon.grid("#d4a8e8"),   "Menu Layouts");
     renderSection(visible, ItemType.MENU_STYLE,      CssIcon.palette("#e8c8a8"),"Menu Styles");
+
+    // Always show Create New buttons when in blank mode or when project has menu dirs
+    if (projectRoot != null && projectRoot.isDirectory()) {
+      itemList.getChildren().add(buildCreateNewPanel());
+    }
   }
 
-  private void renderSection(List<LayoutItem> visible, ItemType type, javafx.scene.layout.Region icon, String sectionTitle) {
+  private void renderSection(List<LayoutItem> visible, ItemType type, Region icon, String sectionTitle) {
     List<LayoutItem> group = visible.stream()
         .filter(it -> it.type() == type)
         .collect(Collectors.toList());
@@ -248,21 +262,31 @@ public class LayoutEditorLauncherView extends BorderPane {
     }
   }
 
+  private boolean isBlankMenuProject() {
+    if (projectRoot == null) return false;
+    Properties manifest = loadManifest(projectRoot);
+    return "true".equalsIgnoreCase(normalize(manifest.getProperty("feature.blankMenus"), "false"));
+  }
+
   private List<LayoutItem> collectItems(File root) {
     List<LayoutItem> items = new ArrayList<>();
     Properties manifest = loadManifest(root);
+    boolean blankMenus = "true".equalsIgnoreCase(normalize(manifest.getProperty("feature.blankMenus"), "false"));
 
     String dialoguePath = manifestPath(manifest, "dialogueLayout", DEFAULT_DIALOGUE_LAYOUT_PATH);
-    String defaultMenuLayoutPath = manifestPath(manifest, "menuDefaultLayout", DEFAULT_MENU_LAYOUT_PATH);
-    String defaultMenuStylePath = manifestPath(manifest, "menuDefaultStyle", DEFAULT_MENU_STYLE_PATH);
     String menuRegistryPath = manifestPath(manifest, "menuRegistry", DEFAULT_MENU_REGISTRY_PATH);
 
     Set<String> layoutPaths = new LinkedHashSet<>();
     Set<String> stylePaths = new LinkedHashSet<>();
     Set<String> screenPaths = new LinkedHashSet<>();
 
-    layoutPaths.add(defaultMenuLayoutPath);
-    stylePaths.add(defaultMenuStylePath);
+    // Only inject default layout/style paths if not a blank-menu project
+    if (!blankMenus) {
+      String defaultMenuLayoutPath = manifestPath(manifest, "menuDefaultLayout", DEFAULT_MENU_LAYOUT_PATH);
+      String defaultMenuStylePath = manifestPath(manifest, "menuDefaultStyle", DEFAULT_MENU_STYLE_PATH);
+      layoutPaths.add(defaultMenuLayoutPath);
+      stylePaths.add(defaultMenuStylePath);
+    }
 
     layoutPaths.addAll(scanPaths(root, "config/menu/layouts", ".layout"));
     layoutPaths.addAll(scanPaths(root, "config/menu", ".layout"));
@@ -275,7 +299,8 @@ public class LayoutEditorLauncherView extends BorderPane {
     for (String menuId : registryMenus) {
       screenPaths.add("config/menu/menus/" + menuId + ".menu");
     }
-    if (screenPaths.isEmpty()) {
+    // Only inject main.menu fallback if NOT blank-menu project
+    if (!blankMenus && screenPaths.isEmpty()) {
       screenPaths.add("config/menu/menus/main.menu");
     }
 
@@ -589,6 +614,154 @@ public class LayoutEditorLauncherView extends BorderPane {
   private static String valueOrDefault(String value, String fallback) {
     String normalized = normalize(value, "");
     return normalized.isBlank() ? fallback : normalized;
+  }
+
+  // ── Onboarding guidance for blank-menu projects ──
+
+  private VBox buildOnboardingPanel() {
+    VBox panel = new VBox(6);
+    panel.setPadding(new Insets(10, 12, 10, 12));
+    panel.setStyle("-fx-background-color: #1c2230; -fx-background-radius: 8; -fx-border-color: #2a3a5a; -fx-border-radius: 8;");
+
+    Label heading = new Label("Custom Menu Project");
+    heading.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #7ec8e3;");
+
+    boolean hasLayouts = cachedItems.stream().anyMatch(it -> it.type() == ItemType.MENU_LAYOUT);
+    boolean hasStyles = cachedItems.stream().anyMatch(it -> it.type() == ItemType.MENU_STYLE);
+    boolean hasScreens = cachedItems.stream().anyMatch(it -> it.type() == ItemType.MENU_SCREEN);
+
+    StringBuilder guide = new StringBuilder();
+    guide.append("This project uses custom menus (Start from Zero).\n");
+    guide.append("Follow these steps to wire your menu system:\n\n");
+
+    int step = 1;
+    guide.append(step++).append(". ");
+    if (hasLayouts) guide.append("\u2713 ");
+    guide.append("Create a Menu Layout (.layout) - defines list position, spacing, alignment\n");
+
+    guide.append(step++).append(". ");
+    if (hasStyles) guide.append("\u2713 ");
+    guide.append("Create a Menu Style (.style) - defines button skins, fonts, colors\n");
+
+    guide.append(step++).append(". ");
+    if (hasScreens) guide.append("\u2713 ");
+    guide.append("Create Menu Screens (.menu) - main, load, save, settings, etc.\n");
+
+    guide.append(step++).append(". Wire screens in the registry (config/menu/registry/menu.registry)\n");
+    guide.append("   Set: defaultMenu=main  menus=main,load,save  layouts=<name>  styles=<name>\n\n");
+
+    guide.append("Until wired: save/load, rollback, settings, pause overlay are unavailable in-game.\n");
+    guide.append("Use VNS file preview to test game progress in the meantime.");
+
+    Label body = new Label(guide.toString());
+    body.setWrapText(true);
+    body.setStyle("-fx-font-size: 11px; -fx-text-fill: #b0b8c8;");
+
+    panel.getChildren().addAll(heading, body);
+    return panel;
+  }
+
+  private VBox buildCreateNewPanel() {
+    VBox panel = new VBox(6);
+    panel.setPadding(new Insets(8, 0, 4, 0));
+
+    HBox header = CssIcon.iconLabel(CssIcon.plus("#8cd48c"), "Create New File",
+        "-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #a8b0c0;");
+    header.setPadding(new Insets(4, 0, 4, 0));
+
+    Button newScreen = new Button("New Menu Screen");
+    newScreen.setGraphic(CssIcon.list("#a8d8a8"));
+    newScreen.setMaxWidth(Double.MAX_VALUE);
+    newScreen.setOnAction(e -> promptCreateFile("Menu Screen", "config/menu/menus", ".menu", ItemType.MENU_SCREEN));
+
+    Button newLayout = new Button("New Menu Layout");
+    newLayout.setGraphic(CssIcon.grid("#d4a8e8"));
+    newLayout.setMaxWidth(Double.MAX_VALUE);
+    newLayout.setOnAction(e -> promptCreateFile("Menu Layout", "config/menu/layouts", ".layout", ItemType.MENU_LAYOUT));
+
+    Button newStyle = new Button("New Menu Style");
+    newStyle.setGraphic(CssIcon.palette("#e8c8a8"));
+    newStyle.setMaxWidth(Double.MAX_VALUE);
+    newStyle.setOnAction(e -> promptCreateFile("Menu Style", "config/menu/styles", ".style", ItemType.MENU_STYLE));
+
+    panel.getChildren().addAll(header, newScreen, newLayout, newStyle);
+    return panel;
+  }
+
+  private void promptCreateFile(String label, String relDir, String extension, ItemType type) {
+    if (projectRoot == null) return;
+    TextInputDialog dialog = new TextInputDialog();
+    dialog.setTitle("New " + label);
+    dialog.setHeaderText("Enter a name for the new " + label.toLowerCase(Locale.ROOT) + ":");
+    dialog.setContentText("Name (no extension):");
+    EditorTheme.apply(dialog);
+    dialog.showAndWait().ifPresent(rawName -> {
+      String name = sanitizeFileName(rawName);
+      if (name.isBlank()) return;
+      File dir = new File(projectRoot, relDir);
+      if (!dir.exists()) dir.mkdirs();
+      File file = new File(dir, name + extension);
+      if (file.exists()) {
+        // Already exists - just open it
+        if (onOpenFile != null) onOpenFile.accept(file);
+        return;
+      }
+      createMissingTemplate(file, type);
+      updateRegistryForNewFile(name, type);
+      refreshStatus();
+      if (onOpenFile != null) onOpenFile.accept(file);
+    });
+  }
+
+  private void updateRegistryForNewFile(String name, ItemType type) {
+    if (projectRoot == null) return;
+    if (type == ItemType.DIALOGUE_LAYOUT) return;
+    File registryFile = new File(projectRoot, DEFAULT_MENU_REGISTRY_PATH);
+    Properties registry = loadProperties(registryFile);
+
+    String key = switch (type) {
+      case MENU_SCREEN -> "menus";
+      case MENU_LAYOUT -> "layouts";
+      case MENU_STYLE  -> "styles";
+      default -> null;
+    };
+    if (key == null) return;
+
+    String existing = normalize(registry.getProperty(key), "");
+    Set<String> ids = new LinkedHashSet<>();
+    if (!existing.isBlank()) {
+      for (String part : existing.split(",")) {
+        String id = part.trim();
+        if (!id.isBlank()) ids.add(id);
+      }
+    }
+    if (ids.contains(name)) return;
+    ids.add(name);
+    registry.setProperty(key, String.join(",", ids));
+
+    if (type == ItemType.MENU_SCREEN && !registry.containsKey("defaultMenu")) {
+      registry.setProperty("defaultMenu", name);
+    }
+
+    try {
+      File parent = registryFile.getParentFile();
+      if (parent != null && !parent.exists()) parent.mkdirs();
+      try (java.io.FileOutputStream fos = new java.io.FileOutputStream(registryFile)) {
+        registry.store(fos, "Menu registry - auto-updated by Layout Editor");
+      }
+    } catch (Exception ignored) {
+    }
+  }
+
+  private static String sanitizeFileName(String raw) {
+    if (raw == null) return "";
+    String s = raw.trim().toLowerCase(Locale.ROOT);
+    s = s.replace(' ', '_').replace('-', '_');
+    s = s.replaceAll("[^a-z0-9_]", "");
+    s = s.replaceAll("_+", "_");
+    if (s.startsWith("_")) s = s.substring(1);
+    if (s.endsWith("_")) s = s.substring(0, s.length() - 1);
+    return s;
   }
 
   private static String titleize(String raw) {
