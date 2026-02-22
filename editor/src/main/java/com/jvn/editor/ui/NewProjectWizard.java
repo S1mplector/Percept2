@@ -59,8 +59,10 @@ public class NewProjectWizard extends Stage {
   private CheckBox chkSaveSystem;
   private CheckBox chkSettingsMenu;
   private CheckBox chkHistoryBacklog;
+  private CheckBox chkBlankMenus;
   private CheckBox chkGitInit;
   private CheckBox chkInitialCommit;
+  private Label lblBlankMenuWarning;
   private TextArea txtDescription;
   private TextArea txtStructurePreview;
   private Label lblPreview;
@@ -298,6 +300,26 @@ public class NewProjectWizard extends Stage {
     chkSaveSystem = createCheckBox("Load/Save Menu Profiles", true);
     chkSettingsMenu = createCheckBox("Settings Menu Profile", true);
     chkHistoryBacklog = createCheckBox("History/Backlog Defaults", true);
+    chkBlankMenus = createCheckBox("Start from Zero (Custom Menus)", false);
+
+    lblBlankMenuWarning = new Label(
+        "Recommended for projects with extensive custom menu plans or assets.\n"
+        + "Until menu layouts are configured and wired in the registry, the following\n"
+        + "in-game GUI features will be unavailable:\n"
+        + "  \u2022 Save Game / Load Game menus\n"
+        + "  \u2022 Rollback / state restore from menus\n"
+        + "  \u2022 Settings menu\n"
+        + "  \u2022 Main menu / title screen navigation\n"
+        + "  \u2022 In-game pause overlay\n"
+        + "Game progress can only be viewed through VNS file preview until menus are set up."
+    );
+    lblBlankMenuWarning.setWrapText(true);
+    lblBlankMenuWarning.setTextFill(Color.web("#e8a840"));
+    lblBlankMenuWarning.setFont(Font.font("Segoe UI", 11));
+    lblBlankMenuWarning.setPadding(new Insets(8, 12, 8, 12));
+    lblBlankMenuWarning.setStyle("-fx-background-color: #2a2210; -fx-background-radius: 6; -fx-border-color: #5c4a1a; -fx-border-radius: 6;");
+    lblBlankMenuWarning.setVisible(false);
+    lblBlankMenuWarning.setManaged(false);
 
     chkSampleContent.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkTitleScreen.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
@@ -310,6 +332,20 @@ public class NewProjectWizard extends Stage {
       if (nv != null && nv && !chkTitleScreen.isSelected()) chkTitleScreen.setSelected(true);
       updateDerivedFields();
     });
+    chkBlankMenus.selectedProperty().addListener((o, ov, nv) -> {
+      boolean blank = nv != null && nv;
+      chkTitleScreen.setDisable(blank);
+      chkSaveSystem.setDisable(blank);
+      chkSettingsMenu.setDisable(blank);
+      if (blank) {
+        chkTitleScreen.setSelected(false);
+        chkSaveSystem.setSelected(false);
+        chkSettingsMenu.setSelected(false);
+      }
+      lblBlankMenuWarning.setVisible(blank);
+      lblBlankMenuWarning.setManaged(blank);
+      updateDerivedFields();
+    });
 
     GridPane options = new GridPane();
     options.setHgap(28);
@@ -319,6 +355,7 @@ public class NewProjectWizard extends Stage {
     options.add(chkSaveSystem, 0, 1);
     options.add(chkSettingsMenu, 1, 1);
     options.add(chkHistoryBacklog, 0, 2);
+    options.add(chkBlankMenus, 1, 2);
 
     FlowPane details = new FlowPane();
     details.setVgap(4);
@@ -328,10 +365,11 @@ public class NewProjectWizard extends Stage {
         detailTag("Menu Profiles", "Creates config/menu registry, screens, layout and style."),
         detailTag("Save/Load", "Adds load.menu and save.menu defaults."),
         detailTag("Settings", "Adds settings.menu profile entries."),
-        detailTag("History Defaults", "Marks backlog defaults in vn.settings.")
+        detailTag("History Defaults", "Marks backlog defaults in vn.settings."),
+        detailTag("Blank Menus", "No default menus. Build everything from scratch.")
     );
 
-    box.getChildren().addAll(intro, options, details);
+    box.getChildren().addAll(intro, options, lblBlankMenuWarning, details);
     return box;
   }
 
@@ -563,6 +601,7 @@ public class NewProjectWizard extends Stage {
     sb.append("|   |   `-- story.timeline\n");
     sb.append("|   |-- ui/\n");
     sb.append("|   |   `-- dialogue.layout\n");
+    boolean blankMenus = shouldStartBlankMenus();
     if (includeMenuPack) {
       sb.append("|   `-- menu/\n");
       sb.append("|       |-- registry/\n");
@@ -582,6 +621,16 @@ public class NewProjectWizard extends Stage {
       sb.append("|       |   `-- default.layout\n");
       sb.append("|       |-- styles/\n");
       sb.append("|       |   `-- default.style\n");
+      sb.append("|       `-- assets/\n");
+      sb.append("|           |-- buttons/\n");
+      sb.append("|           `-- icons/\n");
+    } else if (blankMenus) {
+      sb.append("|   `-- menu/                    (blank - build from scratch)\n");
+      sb.append("|       |-- registry/\n");
+      sb.append("|       |   `-- menu.registry    (empty)\n");
+      sb.append("|       |-- menus/               (add .menu files here)\n");
+      sb.append("|       |-- layouts/             (add .layout files here)\n");
+      sb.append("|       |-- styles/              (add .style files here)\n");
       sb.append("|       `-- assets/\n");
       sb.append("|           |-- buttons/\n");
       sb.append("|           `-- icons/\n");
@@ -641,7 +690,12 @@ public class NewProjectWizard extends Stage {
     return total;
   }
 
+  private boolean shouldStartBlankMenus() {
+    return chkBlankMenus != null && chkBlankMenus.isSelected();
+  }
+
   private boolean shouldCreateMenuPack() {
+    if (shouldStartBlankMenus()) return false;
     return (chkTitleScreen != null && chkTitleScreen.isSelected())
         || (chkSaveSystem != null && chkSaveSystem.isSelected())
         || (chkSettingsMenu != null && chkSettingsMenu.isSelected());
@@ -732,6 +786,8 @@ public class NewProjectWizard extends Stage {
     if (includeMenuPack) {
       createMenuTheme(dir, displayName);
       createMenuCustomizationScaffold(dir, displayName, includeSave, includeSettings);
+    } else if (shouldStartBlankMenus()) {
+      createBlankMenuScaffold(dir);
     }
 
     createReadme(
@@ -756,14 +812,16 @@ public class NewProjectWizard extends Stage {
     ensureDirectory(dir, "config/settings");
     ensureDirectory(dir, "config/timeline");
     ensureDirectory(dir, "config/ui");
-    if (includeMenuPack) {
+    if (includeMenuPack || shouldStartBlankMenus()) {
       ensureDirectory(dir, "config/menu/registry");
-      ensureDirectory(dir, "config/menu/theme");
       ensureDirectory(dir, "config/menu/menus");
       ensureDirectory(dir, "config/menu/layouts");
       ensureDirectory(dir, "config/menu/styles");
       ensureDirectory(dir, "config/menu/assets/buttons");
       ensureDirectory(dir, "config/menu/assets/icons");
+    }
+    if (includeMenuPack) {
+      ensureDirectory(dir, "config/menu/theme");
     }
 
     // Scripts
@@ -786,6 +844,18 @@ public class NewProjectWizard extends Stage {
 
     // Save location
     ensureDirectory(dir, "save");
+  }
+
+  private void createBlankMenuScaffold(File dir) throws Exception {
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
+      fw.write("# Menu registry - blank project\n");
+      fw.write("# Add menu IDs here once you create .menu files in config/menu/menus/\n");
+      fw.write("# Example:\n");
+      fw.write("# defaultMenu=main\n");
+      fw.write("# menus=main,load,save,settings\n");
+      fw.write("# layouts=default\n");
+      fw.write("# styles=default\n");
+    }
   }
 
   private void ensureDirectory(File root, String relativePath) throws Exception {
@@ -893,7 +963,10 @@ public class NewProjectWizard extends Stage {
       manifest.setProperty("menuRegistry", MENU_REGISTRY_PATH);
       manifest.setProperty("menuDefaultLayout", MENU_LAYOUT_DEFAULT_PATH);
       manifest.setProperty("menuDefaultStyle", MENU_STYLE_DEFAULT_PATH);
+    } else if (shouldStartBlankMenus()) {
+      manifest.setProperty("menuRegistry", MENU_REGISTRY_PATH);
     }
+    manifest.setProperty("feature.blankMenus", Boolean.toString(shouldStartBlankMenus()));
     manifest.setProperty("width", String.valueOf(width));
     manifest.setProperty("height", String.valueOf(height));
     manifest.setProperty("feature.sampleContent", Boolean.toString(chkSampleContent.isSelected()));
@@ -1300,6 +1373,7 @@ public class NewProjectWizard extends Stage {
       fw.write("- Sample prologue: " + (chkSampleContent.isSelected() ? "yes" : "no") + "\n");
       fw.write("- Bundled demo assets: yes (`assets/demo/...`)\n");
       fw.write("- Menu profile pack: " + (includeMenuPack ? "yes" : "no") + "\n");
+      fw.write("- Blank menus (custom): " + (shouldStartBlankMenus() ? "yes" : "no") + "\n");
       fw.write("- Save/load profiles: " + (includeSave ? "yes" : "no") + "\n");
       fw.write("- Settings profile: " + (includeSettings ? "yes" : "no") + "\n");
       fw.write("- History defaults: " + (chkHistoryBacklog.isSelected() ? "yes" : "no") + "\n\n");
@@ -1339,6 +1413,10 @@ public class NewProjectWizard extends Stage {
       fw.write(step++ + ". Tune `" + DIALOGUE_LAYOUT_PATH + "` with the visual layout editor.\n");
       if (includeMenuPack) {
         fw.write(step++ + ". Edit `config/menu/menus/*.menu` and `config/menu/layouts/*.layout` in visual editors.\n");
+      }
+      if (shouldStartBlankMenus()) {
+        fw.write(step++ + ". Create menu screens, layouts, and styles in `config/menu/` using the Layout Studio.\n");
+        fw.write(step++ + ". Wire them in `config/menu/registry/menu.registry` to enable in-game save/load/settings.\n");
       }
       fw.write(step + ". Add content into `assets/` and run the project.\n");
     }
