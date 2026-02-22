@@ -414,6 +414,9 @@ public class SettingsScene implements Scene {
   private boolean handleAction(Row row, int delta, boolean confirm) {
     MenuActionSpec action = row.action();
     if (action == null) return false;
+    if (handleCustomMenuAction(action, row.id(), confirm)) {
+      return true;
+    }
     return switch (action.type()) {
       case BACK -> {
         closeRequested = true;
@@ -475,6 +478,27 @@ public class SettingsScene implements Scene {
         yield true;
       }
     };
+  }
+
+  private boolean handleCustomMenuAction(MenuActionSpec action, String itemId, boolean confirm) {
+    if (action == null || !action.isCustomAction() || engine == null) return false;
+    var handler = engine.getMenuActionHandler();
+    if (handler == null) return false;
+    try {
+      return handler.handle(new MenuActionContext(
+          engine,
+          "settings",
+          normalize(itemId, ""),
+          defaultScriptName,
+          action
+      ));
+    } catch (Exception ex) {
+      LOG.warn("Custom menu action '{}' failed in settings menu", action.actionKey(), ex);
+      if (confirm) {
+        bindingStatus = "Custom action failed: " + action.actionKey();
+      }
+      return false;
+    }
   }
 
   private boolean openConfiguredMenu(String targetMenu) {

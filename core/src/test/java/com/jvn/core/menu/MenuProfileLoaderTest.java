@@ -1,19 +1,19 @@
 package com.jvn.core.menu;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.FilesystemAssetManager;
-import com.jvn.core.menu.config.MenuActionType;
-import com.jvn.core.menu.config.MenuProfile;
-import com.jvn.core.menu.config.MenuProfileLoader;
-import com.jvn.core.menu.config.MenuScreenSpec;
-import org.junit.jupiter.api.Test;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.FilesystemAssetManager;
+import com.jvn.core.menu.config.MenuActionType;
+import com.jvn.core.menu.config.MenuProfile;
+import com.jvn.core.menu.config.MenuProfileLoader;
+import com.jvn.core.menu.config.MenuScreenSpec;
 
 class MenuProfileLoaderTest {
 
@@ -157,6 +157,7 @@ class MenuProfileLoaderTest {
     MenuProfile profile = MenuProfileLoader.load(assets);
 
     assertEquals(MenuActionType.NOOP, profile.screen("main").items().get(0).action().type());
+    assertEquals("totally_custom_action", profile.screen("main").items().get(0).action().actionKey());
   }
 
   @Test
@@ -270,6 +271,7 @@ class MenuProfileLoaderTest {
     MenuProfileLoader.LoadResult result = MenuProfileLoader.loadWithDiagnostics(assets);
 
     assertEquals(MenuActionType.NOOP, result.profile().screen("main").items().get(0).action().type());
+    assertEquals("unknown_custom_action", result.profile().screen("main").items().get(0).action().actionKey());
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("lineHeight")));
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("wrapSelection")));
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("unknown_custom_action")));

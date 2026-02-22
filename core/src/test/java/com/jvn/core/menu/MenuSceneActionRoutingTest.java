@@ -1,5 +1,16 @@
 package com.jvn.core.menu;
 
+import java.nio.file.Files;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
 import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.menu.config.MenuActionSpec;
@@ -14,16 +25,6 @@ import com.jvn.core.vn.DemoScenario;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.save.VnSaveManager;
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.Files;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MenuSceneActionRoutingTest {
 
@@ -46,6 +47,86 @@ class MenuSceneActionRoutingTest {
     Scene top = engine.scenes().peek();
     MainMenuScene main = assertInstanceOf(MainMenuScene.class, top);
     assertEquals("extras", main.getMenuId());
+  }
+
+  @Test
+  void settingsCustomActionDelegatesToEngineHandler() throws Exception {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    AtomicReference<MenuActionContext> captured = new AtomicReference<>();
+    engine.setMenuActionHandler(ctx -> {
+      captured.set(ctx);
+      return true;
+    });
+
+    VnSaveManager saveManager = new VnSaveManager(Files.createTempDirectory("jvn-settings-custom-action").toString());
+    VnSettings settings = new VnSettings();
+    MenuProfile profile = profileWith(
+        settingsScreenWith(new MenuActionSpec(MenuActionType.NOOP, "gallery", "mod_open_gallery")),
+        loadScreenWith(new MenuActionSpec(MenuActionType.LOAD_MENU, null)),
+        saveScreenWith(new MenuActionSpec(MenuActionType.SAVE_MENU, null))
+    );
+
+    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", settings, null, null, profile);
+    scene.toggleCurrent();
+
+    MenuActionContext ctx = captured.get();
+    assertEquals("settings", ctx.sourceMenuId());
+    assertEquals("custom_settings_action", ctx.sourceItemId());
+    assertEquals("mod_open_gallery", ctx.action().actionKey());
+    assertEquals("gallery", ctx.action().target());
+  }
+
+  @Test
+  void loadCustomActionDelegatesToEngineHandler() throws Exception {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    AtomicReference<MenuActionContext> captured = new AtomicReference<>();
+    engine.setMenuActionHandler(ctx -> {
+      captured.set(ctx);
+      return true;
+    });
+
+    VnSaveManager saveManager = new VnSaveManager(Files.createTempDirectory("jvn-load-custom-action").toString());
+    MenuProfile profile = profileWith(
+        settingsScreenWith(new MenuActionSpec(MenuActionType.BACK, null)),
+        loadScreenWith(new MenuActionSpec(MenuActionType.NOOP, "cloud_load", "mod_load_cloud")),
+        saveScreenWith(new MenuActionSpec(MenuActionType.SAVE_MENU, null))
+    );
+
+    LoadMenuScene scene = new LoadMenuScene(engine, saveManager, "demo.vns", new VnSettings(), null, profile);
+    assertTrue(scene.activateSelected());
+
+    MenuActionContext ctx = captured.get();
+    assertEquals("load", ctx.sourceMenuId());
+    assertEquals("save_slot", ctx.sourceItemId());
+    assertEquals("mod_load_cloud", ctx.action().actionKey());
+    assertEquals("cloud_load", ctx.action().target());
+  }
+
+  @Test
+  void saveCustomActionDelegatesToEngineHandler() throws Exception {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    AtomicReference<MenuActionContext> captured = new AtomicReference<>();
+    engine.setMenuActionHandler(ctx -> {
+      captured.set(ctx);
+      return true;
+    });
+
+    VnSaveManager saveManager = new VnSaveManager(Files.createTempDirectory("jvn-save-custom-action").toString());
+    VnScene vnScene = new VnScene(DemoScenario.createSimpleDemo());
+    MenuProfile profile = profileWith(
+        settingsScreenWith(new MenuActionSpec(MenuActionType.BACK, null)),
+        loadScreenWith(new MenuActionSpec(MenuActionType.LOAD_MENU, null)),
+        saveScreenWith(new MenuActionSpec(MenuActionType.NOOP, "cloud_save", "mod_save_cloud"))
+    );
+
+    SaveMenuScene scene = new SaveMenuScene(engine, saveManager, vnScene, "demo.vns", profile);
+    assertTrue(scene.activateSelectedWithoutPrompt());
+
+    MenuActionContext ctx = captured.get();
+    assertEquals("save", ctx.sourceMenuId());
+    assertEquals("new_slot", ctx.sourceItemId());
+    assertEquals("mod_save_cloud", ctx.action().actionKey());
+    assertEquals("cloud_save", ctx.action().target());
   }
 
   @Test

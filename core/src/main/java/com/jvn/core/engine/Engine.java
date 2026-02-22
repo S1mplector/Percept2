@@ -4,6 +4,7 @@ import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.scene.SceneManager;
 import com.jvn.core.input.Input;
+import com.jvn.core.menu.MenuActionHandler;
 import com.jvn.core.tween.TweenRunner;
 import com.jvn.core.vn.VnInteropFactory;
 
@@ -14,6 +15,7 @@ public class Engine {
   private final Input input = new Input();
   private final TweenRunner tweens = new TweenRunner();
   private VnInteropFactory vnInteropFactory;
+  private MenuActionHandler menuActionHandler;
   private long maxDeltaMs = 75; // clamp to avoid huge simulation jumps
   private double deltaSmoothing = 0.1; // exponential smoothing factor [0..1]; 0 disables smoothing
   private double smoothedDeltaMs = -1.0;
@@ -119,4 +121,7 @@ public class Engine {
 
   public void setVnInteropFactory(VnInteropFactory f) { this.vnInteropFactory = f; }
   public VnInteropFactory getVnInteropFactory() { return vnInteropFactory; }
+
+  public void setMenuActionHandler(MenuActionHandler handler) { this.menuActionHandler = handler; }
+  public MenuActionHandler getMenuActionHandler() { return menuActionHandler; }
 }

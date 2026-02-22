@@ -88,6 +88,8 @@ public class MenuScreenVisualEditor extends BorderPane {
   private final java.util.Map<String, Image> imageCache = new LinkedHashMap<>();
 
   private final Properties topLevelExtras = new Properties();
+  private final TableView<ExtrasEntry> extrasTable = new TableView<>();
+  private final ObservableList<ExtrasEntry> extrasRows = FXCollections.observableArrayList();
   private Consumer<String> onMenuTextChanged;
   private boolean suppressEvents = false;
   private String lastLoadedText = "";
@@ -183,6 +185,7 @@ public class MenuScreenVisualEditor extends BorderPane {
             p.getProperty(prefix + "icon", ""),
             parseBoolean(p.getProperty(prefix + "enabled"), true),
             action.type(),
+            action.actionKey(),
             action.target(),
             p.getProperty(prefix + "bgAsset", ""),
             p.getProperty(prefix + "bgSelectedAsset", ""),
@@ -268,6 +271,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     table.setItems(rows);
     table.getSelectionModel().selectedIndexProperty().addListener((o, ov, nv) -> {
       previewSelected = Math.max(0, nv == null ? 0 : nv.intValue());
+      syncExtrasFromSelectedRow();
       redrawPreview();
     });
 
@@ -314,7 +318,8 @@ public class MenuScreenVisualEditor extends BorderPane {
     );
 
     table.getStyleClass().add("layout-studio-table");
-    VBox tablePane = new VBox(6, table, actions);
+    VBox extrasPanel = buildExtrasPanel();
+    VBox tablePane = new VBox(6, table, actions, extrasPanel);
     actions.prefWrapLengthProperty().bind(tablePane.widthProperty().subtract(12));
     VBox.setVgrow(table, Priority.ALWAYS);
 
@@ -374,7 +379,26 @@ public class MenuScreenVisualEditor extends BorderPane {
         return MenuActionType.parse(string);
       }
     }, actionValues));
-    actionCol.setOnEditCommit(e -> e.getRowValue().setAction(e.getNewValue()));
+    actionCol.setOnEditCommit(e -> {
+      MenuItemRow row = e.getRowValue();
+      if (row == null) return;
+      row.setAction(e.getNewValue());
+      if (!usesTarget(row.getAction()) && !row.isCustomAction()) {
+        row.setTarget("");
+      }
+    });
+
+    TableColumn<MenuItemRow, String> actionKeyCol = new TableColumn<>("Action Key");
+    actionKeyCol.setCellValueFactory(v -> v.getValue().actionKeyProperty());
+    actionKeyCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    actionKeyCol.setOnEditCommit(e -> {
+      MenuItemRow row = e.getRowValue();
+      if (row == null) return;
+      row.setActionKey(normalize(e.getNewValue(), "noop"));
+      if (!usesTarget(row.getAction()) && !row.isCustomAction()) {
+        row.setTarget("");
+      }
+    });
 
     TableColumn<MenuItemRow, String> targetCol = new TableColumn<>("Target");
     targetCol.setCellValueFactory(v -> v.getValue().targetProperty());
@@ -479,7 +503,7 @@ public class MenuScreenVisualEditor extends BorderPane {
 
     // Core columns always visible
     table.getColumns().setAll(
-        idCol, labelCol, styleCol, enabledCol, actionCol, targetCol
+        idCol, labelCol, styleCol, enabledCol, actionCol, actionKeyCol, targetCol
     );
 
     // Advanced columns hidden by default
@@ -542,6 +566,7 @@ public class MenuScreenVisualEditor extends BorderPane {
         "",
         true,
         action,
+        canonicalActionName(action),
         target,
         "",
         "",
@@ -584,6 +609,78 @@ public class MenuScreenVisualEditor extends BorderPane {
     row.slotPreviewYProperty().addListener((o, ov, nv) -> onUiChanged());
     row.slotPreviewWProperty().addListener((o, ov, nv) -> onUiChanged());
     row.slotPreviewHProperty().addListener((o, ov, nv) -> onUiChanged());
+  }
+
+  @SuppressWarnings("unchecked")
+  private VBox buildExtrasPanel() {
+    Label header = new Label("Per-Item Custom Properties");
+    header.setStyle("-fx-font-weight: bold;");
+
+    extrasTable.setEditable(true);
+    extrasTable.setItems(extrasRows);
+    extrasTable.setPrefHeight(120);
+    extrasTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+
+    TableColumn<ExtrasEntry, String> keyCol = new TableColumn<>("Key");
+    keyCol.setCellValueFactory(v -> v.getValue().keyProperty());
+    keyCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    keyCol.setOnEditCommit(e -> {
+      e.getRowValue().setKey(e.getNewValue() != null ? e.getNewValue().trim() : "");
+      syncExtrasToSelectedRow();
+    });
+
+    TableColumn<ExtrasEntry, String> valCol = new TableColumn<>("Value");
+    valCol.setCellValueFactory(v -> v.getValue().valueProperty());
+    valCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    valCol.setOnEditCommit(e -> {
+      e.getRowValue().setValue(e.getNewValue() != null ? e.getNewValue().trim() : "");
+      syncExtrasToSelectedRow();
+    });
+
+    extrasTable.getColumns().setAll(keyCol, valCol);
+
+    Button addBtn = new Button("Add");
+    addBtn.setOnAction(e -> {
+      extrasRows.add(new ExtrasEntry("custom_key", ""));
+      syncExtrasToSelectedRow();
+    });
+    Button removeBtn = new Button("Remove");
+    removeBtn.setOnAction(e -> {
+      int idx = extrasTable.getSelectionModel().getSelectedIndex();
+      if (idx >= 0 && idx < extrasRows.size()) {
+        extrasRows.remove(idx);
+        syncExtrasToSelectedRow();
+      }
+    });
+    javafx.scene.layout.HBox buttons = new javafx.scene.layout.HBox(8, addBtn, removeBtn);
+
+    VBox panel = new VBox(4, header, extrasTable, buttons);
+    panel.setPadding(new Insets(4, 0, 0, 0));
+    return panel;
+  }
+
+  private void syncExtrasFromSelectedRow() {
+    extrasRows.clear();
+    int idx = table.getSelectionModel().getSelectedIndex();
+    if (idx < 0 || idx >= rows.size()) return;
+    MenuItemRow row = rows.get(idx);
+    for (Map.Entry<String, String> entry : row.extras.entrySet()) {
+      extrasRows.add(new ExtrasEntry(entry.getKey(), entry.getValue()));
+    }
+  }
+
+  private void syncExtrasToSelectedRow() {
+    int idx = table.getSelectionModel().getSelectedIndex();
+    if (idx < 0 || idx >= rows.size()) return;
+    MenuItemRow row = rows.get(idx);
+    row.extras.clear();
+    for (ExtrasEntry entry : extrasRows) {
+      String k = entry.getKey();
+      if (k != null && !k.isBlank()) {
+        row.extras.put(k, entry.getValue());
+      }
+    }
+    onUiChanged();
   }
 
   private void addRow() {
@@ -662,16 +759,18 @@ public class MenuScreenVisualEditor extends BorderPane {
       }
 
       MenuActionType action = row.getAction();
-      if (action == MenuActionType.OPEN_MENU) {
-        String target = normalize(row.getTarget(), "");
-        if (target.isBlank()) {
-          warnings.add("Item '" + id + "': OPEN_MENU requires target");
-        } else if (!knownMenus.isEmpty() && !knownMenus.contains(target)) {
-          warnings.add("Item '" + id + "': target menu '" + target + "' not found");
+      if (!row.isCustomAction()) {
+        if (action == MenuActionType.OPEN_MENU) {
+          String target = normalize(row.getTarget(), "");
+          if (target.isBlank()) {
+            warnings.add("Item '" + id + "': OPEN_MENU requires target");
+          } else if (!knownMenus.isEmpty() && !knownMenus.contains(target)) {
+            warnings.add("Item '" + id + "': target menu '" + target + "' not found");
+          }
         }
-      }
-      if (action == MenuActionType.RUN_SCRIPT && normalize(row.getTarget(), "").isBlank()) {
-        warnings.add("Item '" + id + "': RUN_SCRIPT requires script target");
+        if (action == MenuActionType.RUN_SCRIPT && normalize(row.getTarget(), "").isBlank()) {
+          warnings.add("Item '" + id + "': RUN_SCRIPT requires script target");
+        }
       }
 
       int boundsParts = 0;
@@ -702,6 +801,14 @@ public class MenuScreenVisualEditor extends BorderPane {
       }
       if (row.getSlotPreviewH() != null && row.getSlotPreviewH() <= 0) {
         warnings.add("Item '" + id + "': slotPreviewHeight must be > 0");
+      }
+
+      if (projectRoot != null) {
+        warnMissingAsset(warnings, id, "bgAsset", row.getBgAsset());
+        warnMissingAsset(warnings, id, "bgSelectedAsset", row.getBgSelectedAsset());
+        warnMissingAsset(warnings, id, "bgDisabledAsset", row.getBgDisabledAsset());
+        warnMissingAsset(warnings, id, "slotPreviewPlaceholderAsset", row.getSlotPreviewPlaceholderAsset());
+        warnMissingAsset(warnings, id, "slotPreviewFrameAsset", row.getSlotPreviewFrameAsset());
       }
     }
 
@@ -1125,7 +1232,7 @@ public class MenuScreenVisualEditor extends BorderPane {
       String bgDisabledAsset = normalize(row.getBgDisabledAsset(), "");
       String slotPreviewPlaceholderAsset = normalize(row.getSlotPreviewPlaceholderAsset(), "");
       String slotPreviewFrameAsset = normalize(row.getSlotPreviewFrameAsset(), "");
-      String action = canonicalActionName(row.getAction());
+      String action = normalize(row.getActionKey(), canonicalActionName(row.getAction()));
       String target = normalize(row.getTarget(), "");
 
       if (!label.isBlank()) out.append(prefix).append("label=").append(escapeValue(label)).append(System.lineSeparator());
@@ -1146,7 +1253,9 @@ public class MenuScreenVisualEditor extends BorderPane {
       }
       out.append(prefix).append("enabled=").append(row.isEnabled()).append(System.lineSeparator());
       out.append(prefix).append("action=").append(escapeValue(action)).append(System.lineSeparator());
-      if (!target.isBlank()) out.append(prefix).append("target=").append(escapeValue(target)).append(System.lineSeparator());
+      if (!target.isBlank() && (usesTarget(row.getAction()) || row.isCustomAction())) {
+        out.append(prefix).append("target=").append(escapeValue(target)).append(System.lineSeparator());
+      }
       if (row.getBoundsX() != null) out.append(prefix).append("boundsX=").append(formatDouble(row.getBoundsX())).append(System.lineSeparator());
       if (row.getBoundsY() != null) out.append(prefix).append("boundsY=").append(formatDouble(row.getBoundsY())).append(System.lineSeparator());
       if (row.getBoundsW() != null) out.append(prefix).append("boundsWidth=").append(formatDouble(row.getBoundsW())).append(System.lineSeparator());
@@ -1285,6 +1394,14 @@ public class MenuScreenVisualEditor extends BorderPane {
         .replaceAll("\\.$", "");
   }
 
+  private void warnMissingAsset(List<String> warnings, String itemId, String field, String path) {
+    if (path == null || path.isBlank()) return;
+    File resolved = new File(projectRoot, path.trim());
+    if (!resolved.exists()) {
+      warnings.add("Item '" + itemId + "': " + field + " not found: " + path.trim());
+    }
+  }
+
   private static String firstNonBlank(String... values) {
     if (values == null) return null;
     for (String value : values) {
@@ -1354,6 +1471,10 @@ public class MenuScreenVisualEditor extends BorderPane {
       case QUIT -> "quit";
       case NOOP -> "noop";
     };
+  }
+
+  private static boolean usesTarget(MenuActionType action) {
+    return action == MenuActionType.OPEN_MENU || action == MenuActionType.RUN_SCRIPT;
   }
 
   private static String normalize(String value, String fallback) {
@@ -1458,6 +1579,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     private final StringProperty bgDisabledAsset = new SimpleStringProperty("");
     private final BooleanProperty enabled = new SimpleBooleanProperty(true);
     private final ObjectProperty<MenuActionType> action = new SimpleObjectProperty<>(MenuActionType.NOOP);
+    private final StringProperty actionKey = new SimpleStringProperty("noop");
     private final StringProperty target = new SimpleStringProperty("");
     private final ObjectProperty<Double> boundsX = new SimpleObjectProperty<>(null);
     private final ObjectProperty<Double> boundsY = new SimpleObjectProperty<>(null);
@@ -1479,6 +1601,7 @@ public class MenuScreenVisualEditor extends BorderPane {
         String icon,
         boolean enabled,
         MenuActionType action,
+        String actionKey,
         String target,
         String bgAsset,
         String bgSelectedAsset,
@@ -1503,7 +1626,7 @@ public class MenuScreenVisualEditor extends BorderPane {
       setBgSelectedAsset(bgSelectedAsset);
       setBgDisabledAsset(bgDisabledAsset);
       setEnabled(enabled);
-      setAction(action == null ? MenuActionType.NOOP : action);
+      setActionKey(actionKey == null ? canonicalActionName(action) : actionKey);
       setTarget(target);
       setBoundsX(boundsX);
       setBoundsY(boundsY);
@@ -1552,7 +1675,27 @@ public class MenuScreenVisualEditor extends BorderPane {
 
     public MenuActionType getAction() { return action.get(); }
     public ObjectProperty<MenuActionType> actionProperty() { return action; }
-    public void setAction(MenuActionType action) { this.action.set(action == null ? MenuActionType.NOOP : action); }
+    public void setAction(MenuActionType action) {
+      MenuActionType normalizedAction = action == null ? MenuActionType.NOOP : action;
+      this.action.set(normalizedAction);
+      this.actionKey.set(canonicalActionName(normalizedAction));
+    }
+
+    public String getActionKey() { return actionKey.get(); }
+    public StringProperty actionKeyProperty() { return actionKey; }
+    public void setActionKey(String actionKey) {
+      String normalizedActionKey = normalize(actionKey, "noop");
+      this.actionKey.set(normalizedActionKey);
+      this.action.set(MenuActionType.parse(normalizedActionKey));
+    }
+
+    public boolean isCustomAction() {
+      String key = normalize(getActionKey(), "noop").toLowerCase(Locale.ROOT).replace('-', '_');
+      return getAction() == MenuActionType.NOOP
+          && !"noop".equals(key)
+          && !"no_op".equals(key)
+          && !"none".equals(key);
+    }
 
     public String getTarget() { return target.get(); }
     public StringProperty targetProperty() { return target; }
@@ -1601,5 +1744,23 @@ public class MenuScreenVisualEditor extends BorderPane {
     public Double getSlotPreviewH() { return slotPreviewH.get(); }
     public ObjectProperty<Double> slotPreviewHProperty() { return slotPreviewH; }
     public void setSlotPreviewH(Double value) { this.slotPreviewH.set(value); }
+  }
+
+  static final class ExtrasEntry {
+    private final StringProperty key = new SimpleStringProperty("");
+    private final StringProperty value = new SimpleStringProperty("");
+
+    ExtrasEntry(String key, String value) {
+      setKey(key);
+      setValue(value);
+    }
+
+    String getKey() { return key.get(); }
+    void setKey(String v) { key.set(v == null ? "" : v.trim()); }
+    StringProperty keyProperty() { return key; }
+
+    String getValue() { return value.get(); }
+    void setValue(String v) { value.set(v == null ? "" : v.trim()); }
+    StringProperty valueProperty() { return value; }
   }
 }

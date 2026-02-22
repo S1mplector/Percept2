@@ -21,6 +21,9 @@ out/
 .DS_Store
 Thumbs.db
 
+# Compiled class files
+*.class
+
 # Logs
 *.log
 

@@ -9,6 +9,10 @@ import java.util.function.Consumer;
 
 import com.jvn.core.menu.config.MenuLayoutSpec;
 
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
@@ -20,11 +24,15 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -66,6 +74,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private final UndoManager undoManager = new UndoManager();
   private Button btnUndo;
   private Button btnRedo;
+  private final TableView<CustomProperty> customPropsTable = new TableView<>();
+  private final ObservableList<CustomProperty> customProps = FXCollections.observableArrayList();
   private String previewTitle = "Menu Title";
   private List<String> previewItems = List.of("> New Game", "  Load", "  Settings", "  Quit");
 
@@ -124,14 +134,19 @@ public class MenuLayoutVisualEditor extends BorderPane {
     }
     spec = parse(rawProperties);
     applySpecToControls(spec);
+    customProps.clear();
+    for (String key : rawProperties.stringPropertyNames()) {
+      if (isKnownKey(key)) continue;
+      customProps.add(new CustomProperty(key, rawProperties.getProperty(key, "")));
+    }
     suppressEvents = false;
     redraw();
     lastLoadedText = normalizedInput;
-    lastEmittedText = normalizeText(serialize(spec, rawProperties, cbTitleY.isSelected()));
+    lastEmittedText = normalizeText(serialize(spec, rawProperties, cbTitleY.isSelected(), customProps));
   }
 
   public String getLayoutText() {
-    return serialize(spec, rawProperties, cbTitleY.isSelected());
+    return serialize(spec, rawProperties, cbTitleY.isSelected(), customProps);
   }
 
   public void setPreviewContent(String title, List<String> items) {
@@ -140,7 +155,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     redraw();
   }
 
-  private GridPane buildControls() {
+  private VBox buildControls() {
     GridPane grid = new GridPane();
     grid.setPadding(new Insets(8));
     grid.setHgap(8);
@@ -188,7 +203,59 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
     UndoManager.installKeyboardShortcuts(this, this::performUndo, this::performRedo);
 
-    return grid;
+    VBox customSection = buildCustomPropertiesSection();
+
+    VBox wrapper = new VBox(8, grid, customSection);
+    wrapper.setPadding(new Insets(0));
+    return wrapper;
+  }
+
+  @SuppressWarnings("unchecked")
+  private VBox buildCustomPropertiesSection() {
+    Label header = new Label("Custom Properties");
+    header.setStyle("-fx-font-weight: bold;");
+
+    customPropsTable.setEditable(true);
+    customPropsTable.setItems(customProps);
+    customPropsTable.setPrefHeight(160);
+    customPropsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+
+    TableColumn<CustomProperty, String> keyCol = new TableColumn<>("Key");
+    keyCol.setCellValueFactory(v -> v.getValue().keyProperty());
+    keyCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    keyCol.setOnEditCommit(e -> {
+      e.getRowValue().setKey(e.getNewValue() != null ? e.getNewValue().trim() : "");
+      onControlChanged();
+    });
+
+    TableColumn<CustomProperty, String> valCol = new TableColumn<>("Value");
+    valCol.setCellValueFactory(v -> v.getValue().valueProperty());
+    valCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    valCol.setOnEditCommit(e -> {
+      e.getRowValue().setValue(e.getNewValue() != null ? e.getNewValue().trim() : "");
+      onControlChanged();
+    });
+
+    customPropsTable.getColumns().setAll(keyCol, valCol);
+
+    Button addBtn = new Button("Add");
+    addBtn.setOnAction(e -> {
+      customProps.add(new CustomProperty("custom_key", ""));
+      onControlChanged();
+    });
+    Button removeBtn = new Button("Remove");
+    removeBtn.setOnAction(e -> {
+      int idx = customPropsTable.getSelectionModel().getSelectedIndex();
+      if (idx >= 0 && idx < customProps.size()) {
+        customProps.remove(idx);
+        onControlChanged();
+      }
+    });
+    HBox buttons = new HBox(8, addBtn, removeBtn);
+
+    VBox section = new VBox(4, header, customPropsTable, buttons);
+    section.setPadding(new Insets(8));
+    return section;
   }
 
   private int addRow(GridPane grid, int row, String label, javafx.scene.Node control) {
@@ -417,7 +484,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
   private void emitText() {
     if (onLayoutTextChanged == null) return;
-    String text = serialize(spec, rawProperties, cbTitleY.isSelected());
+    String text = serialize(spec, rawProperties, cbTitleY.isSelected(), customProps);
     String normalized = normalizeText(text);
     if (normalized.equals(lastEmittedText)) return;
     undoManager.captureState(text);
@@ -462,7 +529,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     );
   }
 
-  private static String serialize(MenuLayoutSpec spec, Properties base, boolean includeTitleY) {
+  private static String serialize(MenuLayoutSpec spec, Properties base, boolean includeTitleY, List<CustomProperty> customPropsList) {
     Properties merged = new Properties();
     if (base != null) {
       for (String key : base.stringPropertyNames()) merged.setProperty(key, base.getProperty(key));
@@ -476,6 +543,17 @@ public class MenuLayoutVisualEditor extends BorderPane {
       merged.setProperty("titleY", format(spec.titleY()));
     } else {
       merged.remove("titleY");
+    }
+    for (String key : new ArrayList<>(merged.stringPropertyNames())) {
+      if (!isKnownKey(key)) merged.remove(key);
+    }
+    if (customPropsList != null) {
+      for (CustomProperty cp : customPropsList) {
+        String k = cp.getKey();
+        if (k != null && !k.isBlank() && !isKnownKey(k)) {
+          merged.setProperty(k, cp.getValue());
+        }
+      }
     }
 
     StringBuilder out = new StringBuilder();
@@ -628,5 +706,23 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
   private static final class MenuLayoutSpecDefaults {
     private static final MenuLayoutSpec DEFAULT = new MenuLayoutSpec("default", 0.35, 40.0, 1.0, "center", 20.0, null);
+  }
+
+  static final class CustomProperty {
+    private final StringProperty key = new SimpleStringProperty("");
+    private final StringProperty value = new SimpleStringProperty("");
+
+    CustomProperty(String key, String value) {
+      setKey(key);
+      setValue(value);
+    }
+
+    String getKey() { return key.get(); }
+    void setKey(String v) { key.set(v == null ? "" : v.trim()); }
+    StringProperty keyProperty() { return key; }
+
+    String getValue() { return value.get(); }
+    void setValue(String v) { value.set(v == null ? "" : v.trim()); }
+    StringProperty valueProperty() { return value; }
   }
 }

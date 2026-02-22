@@ -219,7 +219,18 @@ public class MenuFlowEditorView extends BorderPane {
       MenuItemModel row = e.getRowValue();
       if (row == null) return;
       row.setAction(e.getNewValue() == null ? MenuActionType.NOOP : e.getNewValue());
-      if (!usesTarget(row.getAction())) row.setTarget("");
+      if (!usesTarget(row.getAction()) && !row.isCustomAction()) row.setTarget("");
+      onCurrentScreenMutated();
+    });
+
+    TableColumn<MenuItemModel, String> actionKeyCol = new TableColumn<>("Action Key");
+    actionKeyCol.setCellValueFactory(v -> v.getValue().actionKeyProperty());
+    actionKeyCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    actionKeyCol.setOnEditCommit(e -> {
+      MenuItemModel row = e.getRowValue();
+      if (row == null) return;
+      row.setActionKey(normalize(e.getNewValue(), "noop"));
+      if (!usesTarget(row.getAction()) && !row.isCustomAction()) row.setTarget("");
       onCurrentScreenMutated();
     });
 
@@ -234,10 +245,11 @@ public class MenuFlowEditorView extends BorderPane {
     });
 
     idCol.setPrefWidth(120);
-    actionCol.setPrefWidth(150);
+    actionCol.setPrefWidth(140);
+    actionKeyCol.setPrefWidth(160);
     targetCol.setPrefWidth(130);
 
-    itemTable.getColumns().setAll(idCol, actionCol, targetCol);
+    itemTable.getColumns().setAll(idCol, actionCol, actionKeyCol, targetCol);
     itemTable.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> updateUiState());
   }
 
@@ -340,7 +352,7 @@ public class MenuFlowEditorView extends BorderPane {
           screen.properties.getProperty(prefix + "action"),
           screen.properties.getProperty(prefix + "target")
       );
-      MenuItemModel row = new MenuItemModel(key, action.type(), normalize(action.target(), ""));
+      MenuItemModel row = new MenuItemModel(key, action.actionKey(), normalize(action.target(), ""));
       attachRowListeners(screen, row);
       screen.items.add(row);
     }
@@ -361,7 +373,11 @@ public class MenuFlowEditorView extends BorderPane {
     row.actionProperty().addListener((o, ov, nv) -> {
       if (suppressRowEvents) return;
       if (nv == null) row.setAction(MenuActionType.NOOP);
-      if (!usesTarget(row.getAction())) row.setTarget("");
+      if (!usesTarget(row.getAction()) && !row.isCustomAction()) row.setTarget("");
+      markDirty(screen);
+    });
+    row.actionKeyProperty().addListener((o, ov, nv) -> {
+      if (suppressRowEvents) return;
       markDirty(screen);
     });
     row.targetProperty().addListener((o, ov, nv) -> {
@@ -804,9 +820,9 @@ public class MenuFlowEditorView extends BorderPane {
         if (id.isBlank()) continue;
         String prefix = "item." + id + ".";
         MenuActionType action = row.getAction() == null ? MenuActionType.NOOP : row.getAction();
-        out.setProperty(prefix + "action", canonicalActionName(action));
+        out.setProperty(prefix + "action", normalize(row.getActionKey(), canonicalActionName(action)));
         String target = normalize(row.getTarget(), "");
-        if (usesTarget(action) && !target.isBlank()) out.setProperty(prefix + "target", target);
+        if ((usesTarget(action) || row.isCustomAction()) && !target.isBlank()) out.setProperty(prefix + "target", target);
         else out.remove(prefix + "target");
       }
 
@@ -878,6 +894,9 @@ public class MenuFlowEditorView extends BorderPane {
 
         MenuActionType action = row.getAction() == null ? MenuActionType.NOOP : row.getAction();
         String target = normalize(row.getTarget(), "");
+        if (row.isCustomAction()) {
+          continue;
+        }
         if (action == MenuActionType.OPEN_MENU) {
           if (target.isBlank()) {
             issues.add("[ERROR] menu '" + screen.id + "' item '" + itemId + "' OPEN_MENU missing target");
@@ -1247,11 +1266,16 @@ public class MenuFlowEditorView extends BorderPane {
   private static final class MenuItemModel {
     private final StringProperty id = new SimpleStringProperty("");
     private final ObjectProperty<MenuActionType> action = new SimpleObjectProperty<>(MenuActionType.NOOP);
+    private final StringProperty actionKey = new SimpleStringProperty("noop");
     private final StringProperty target = new SimpleStringProperty("");
 
     MenuItemModel(String id, MenuActionType action, String target) {
+      this(id, canonicalActionName(action), target);
+    }
+
+    MenuItemModel(String id, String actionKey, String target) {
       setId(id);
-      setAction(action);
+      setActionKey(actionKey);
       setTarget(target);
     }
 
@@ -1260,8 +1284,25 @@ public class MenuFlowEditorView extends BorderPane {
     StringProperty idProperty() { return id; }
 
     MenuActionType getAction() { return action.get(); }
-    void setAction(MenuActionType value) { action.set(value == null ? MenuActionType.NOOP : value); }
+    void setAction(MenuActionType value) {
+      MenuActionType normalized = value == null ? MenuActionType.NOOP : value;
+      action.set(normalized);
+      actionKey.set(canonicalActionName(normalized));
+    }
     ObjectProperty<MenuActionType> actionProperty() { return action; }
+
+    String getActionKey() { return actionKey.get(); }
+    void setActionKey(String value) {
+      String key = normalize(value, "noop");
+      actionKey.set(key);
+      action.set(MenuActionType.parse(key));
+    }
+    StringProperty actionKeyProperty() { return actionKey; }
+
+    boolean isCustomAction() {
+      String key = normalize(getActionKey(), "noop").toLowerCase(Locale.ROOT).replace('-', '_');
+      return getAction() == MenuActionType.NOOP && !"noop".equals(key) && !"no_op".equals(key) && !"none".equals(key);
+    }
 
     String getTarget() { return target.get(); }
     void setTarget(String value) { target.set(normalize(value, "")); }

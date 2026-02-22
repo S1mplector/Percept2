@@ -224,4 +224,240 @@ public class VnScriptParserTest {
         .orElseThrow();
     assertEquals(Integer.valueOf(25), show.getShowLayerOrder());
   }
+
+  // ── Audio DSL tests ───────────────────────────────────────────────────
+
+  @Test
+  public void parsesBgmBasic() throws Exception {
+    String script = """
+      @label start
+      [bgm theme_main]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode audio = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.AUDIO).findFirst().orElseThrow();
+    assertEquals("theme_main", audio.getAudioCommand().getTrackId());
+    assertTrue(audio.getAudioCommand().isLoop());
+  }
+
+  @Test
+  public void parsesBgmLoopFalse() throws Exception {
+    String script = """
+      @label start
+      [bgm theme_main loop=false]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode audio = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.AUDIO).findFirst().orElseThrow();
+    assertEquals("theme_main", audio.getAudioCommand().getTrackId());
+    assertFalse(audio.getAudioCommand().isLoop());
+  }
+
+  @Test
+  public void parsesBgmWithVolume() throws Exception {
+    String script = """
+      @label start
+      [bgm theme_main vol=0.6]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    // volume emits an EXTERNAL node after the AUDIO node
+    VnNode audio = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.AUDIO).findFirst().orElseThrow();
+    assertEquals("theme_main", audio.getAudioCommand().getTrackId());
+    assertTrue(audio.getAudioCommand().isLoop());
+
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && n.getExternalCommand().getProvider().equals("settings"))
+        .findFirst().orElseThrow();
+    assertTrue(ext.getExternalCommand().getPayload().startsWith("volume bgm "));
+  }
+
+  @Test
+  public void parsesBgmLoopAndVolumeCombined() throws Exception {
+    String script = """
+      @label start
+      [bgm theme_main loop=off vol=0.8]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode audio = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.AUDIO).findFirst().orElseThrow();
+    assertFalse(audio.getAudioCommand().isLoop());
+
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && n.getExternalCommand().getProvider().equals("settings"))
+        .findFirst().orElseThrow();
+    assertTrue(ext.getExternalCommand().getPayload().contains("volume bgm"));
+  }
+
+  @Test
+  public void parsesBgmShorthandLoopFalse() throws Exception {
+    String script = """
+      @label start
+      [bgm theme_main false]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode audio = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.AUDIO).findFirst().orElseThrow();
+    assertFalse(audio.getAudioCommand().isLoop());
+  }
+
+  @Test
+  public void rejectsBgmUnknownOption() {
+    String script = """
+      @label start
+      [bgm theme_main foo=bar]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("[bgm] unknown option"));
+  }
+
+  @Test
+  public void rejectsBgmInvalidVolume() {
+    String script = """
+      @label start
+      [bgm theme_main vol=1.5]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("volume must be between 0 and 1"));
+  }
+
+  // ── bgm_seek tests ───────────────────────────────────────────────────
+
+  @Test
+  public void parsesBgmSeekValid() throws Exception {
+    String script = """
+      @label start
+      [bgm_seek 3.5]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && n.getExternalCommand().getProvider().equals("audio"))
+        .findFirst().orElseThrow();
+    assertEquals("seek 3.5", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void rejectsBgmSeekNonNumeric() {
+    String script = """
+      @label start
+      [bgm_seek abc]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("[bgm_seek] expects a numeric"));
+  }
+
+  @Test
+  public void rejectsBgmSeekNegative() {
+    String script = """
+      @label start
+      [bgm_seek -5]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("[bgm_seek] seconds must be >= 0"));
+  }
+
+  // ── bgm_crossfade tests ──────────────────────────────────────────────
+
+  @Test
+  public void parsesBgmCrossfadeValid() throws Exception {
+    String script = """
+      @label start
+      [bgm_crossfade new_track 2000]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && n.getExternalCommand().getProvider().equals("audio"))
+        .findFirst().orElseThrow();
+    assertEquals("crossfade new_track 2000", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void parsesBgmCrossfadeWithLoop() throws Exception {
+    String script = """
+      @label start
+      [bgm_crossfade new_track 2000 loop=false]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && n.getExternalCommand().getProvider().equals("audio"))
+        .findFirst().orElseThrow();
+    assertEquals("crossfade new_track 2000 false", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void rejectsBgmCrossfadeMissingDuration() {
+    String script = """
+      @label start
+      [bgm_crossfade new_track]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("[bgm_crossfade] expects"));
+  }
+
+  @Test
+  public void rejectsBgmCrossfadeNonNumericDuration() {
+    String script = """
+      @label start
+      [bgm_crossfade new_track abc]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("[bgm_crossfade] duration must be an integer"));
+  }
+
+  @Test
+  public void rejectsBgmCrossfadeTooManyArgs() {
+    String script = """
+      @label start
+      [bgm_crossfade new_track 2000 true extra]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("[bgm_crossfade] too many arguments"));
+  }
+
+  @Test
+  public void rejectsBgmCrossfadeNegativeDuration() {
+    String script = """
+      @label start
+      [bgm_crossfade new_track -500]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("[bgm_crossfade] duration must be >= 0"));
+  }
 }

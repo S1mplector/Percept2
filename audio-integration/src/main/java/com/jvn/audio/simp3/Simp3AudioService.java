@@ -1,11 +1,5 @@
 package com.jvn.audio.simp3;
 
-import com.jvn.core.assets.AssetPaths;
-import com.jvn.core.assets.AssetType;
-import com.jvn.core.audio.AudioFacade;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -14,11 +8,21 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.jvn.core.assets.AssetPaths;
+import com.jvn.core.assets.AssetType;
+import com.jvn.core.audio.AudioFacade;
 
 public class Simp3AudioService implements AudioFacade {
   private static final Logger log = LoggerFactory.getLogger(Simp3AudioService.class);
@@ -30,8 +34,9 @@ public class Simp3AudioService implements AudioFacade {
   private volatile double bgmVolume = 0.7;
   private volatile double voiceVolume = 1.0;
   private volatile double sfxVolume = 0.8;
-  private volatile File bgmTempFile = null;
+  private volatile ScheduledFuture<?> crossfadeTask = null;
   private BgmTrack bgmTrack = null;
+  private final Map<String, File> extractedAudioCache = new HashMap<>();
 
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
     Thread t = new Thread(r, "simp3-audio-fader");
@@ -55,6 +60,7 @@ public class Simp3AudioService implements AudioFacade {
   @Override
   public synchronized void playBgm(String trackId, boolean loop) {
     try {
+      cancelCrossfadeTaskLocked();
       File audioFile = resolveToFile(AssetType.AUDIO, trackId);
       if (audioFile == null || !audioFile.exists()) {
         log.warn("BGM file not found for trackId={}", trackId);
@@ -71,8 +77,12 @@ public class Simp3AudioService implements AudioFacade {
       this.loopBgm = loop;
       this.bgmTrack = new BgmTrack(trackId, audioFile.getAbsolutePath());
       Object song = BRIDGE.newSong(this.bgmTrack);
+      if (song == null) {
+        log.warn("Failed to construct BGM song model for trackId={} file={}", trackId, audioFile.getAbsolutePath());
+        return;
+      }
       if (song == null || !BRIDGE.loadSong(bgmEngine, song)) {
-        log.warn("Failed to load BGM: {}", trackId);
+        log.warn("Failed to load BGM trackId={} file={}", trackId, audioFile.getAbsolutePath());
         return;
       }
       BRIDGE.setOnSongEnded(bgmEngine, createLoopCallback(bgmEngine));
@@ -86,6 +96,7 @@ public class Simp3AudioService implements AudioFacade {
   @Override
   public synchronized void stopBgm() {
     try {
+      cancelCrossfadeTaskLocked();
       safeStop(crossEngine);
       crossEngine = null;
       safeStop(bgmEngine);
@@ -191,14 +202,28 @@ public class Simp3AudioService implements AudioFacade {
   @Override
   public synchronized void crossfadeBgm(String trackId, long ms, boolean loop) {
     try {
+      cancelCrossfadeTaskLocked();
       File audioFile = resolveToFile(AssetType.AUDIO, trackId);
-      if (audioFile == null || !audioFile.exists()) return;
+      if (audioFile == null || !audioFile.exists()) {
+        log.warn("Crossfade target BGM file not found for trackId={}", trackId);
+        return;
+      }
 
       Object next = BRIDGE.newEngine();
-      if (next == null) return;
+      if (next == null) {
+        log.warn("Crossfade failed to create target engine for trackId={}", trackId);
+        return;
+      }
       BgmTrack nextTrack = new BgmTrack(trackId, audioFile.getAbsolutePath());
       Object song = BRIDGE.newSong(nextTrack);
-      if (song == null || !BRIDGE.loadSong(next, song)) return;
+      if (song == null) {
+        log.warn("Crossfade failed to construct song model for trackId={} file={}", trackId, audioFile.getAbsolutePath());
+        return;
+      }
+      if (!BRIDGE.loadSong(next, song)) {
+        log.warn("Crossfade failed to load target trackId={} file={}", trackId, audioFile.getAbsolutePath());
+        return;
+      }
 
       BRIDGE.setVolume(next, 0.0);
       BRIDGE.play(next);
@@ -221,7 +246,8 @@ public class Simp3AudioService implements AudioFacade {
       }
 
       this.crossEngine = next;
-      scheduler.scheduleAtFixedRate(() -> {
+      final ScheduledFuture<?>[] taskRef = new ScheduledFuture<?>[1];
+      Runnable tick = () -> {
         try {
           long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
           double p = Math.min(1.0, Math.max(0.0, elapsedMs / (double) duration));
@@ -234,18 +260,36 @@ public class Simp3AudioService implements AudioFacade {
             synchronized (Simp3AudioService.this) {
               bgmEngine = next;
               crossEngine = null;
+              if (crossfadeTask == taskRef[0]) {
+                crossfadeTask = null;
+              }
             }
             BRIDGE.setOnSongEnded(next, createLoopCallback(next));
-            throw new StopIteration();
+            if (taskRef[0] != null) {
+              taskRef[0].cancel(false);
+            }
+            return;
           }
-        } catch (StopIteration done) {
-          throw done;
         } catch (Throwable t) {
-          log.debug("crossfade tick error", t);
+          log.warn("crossfade tick error for trackId={}", trackId, t);
+          safeStop(next);
+          synchronized (Simp3AudioService.this) {
+            if (crossEngine == next) {
+              crossEngine = null;
+            }
+            if (crossfadeTask == taskRef[0]) {
+              crossfadeTask = null;
+            }
+          }
+          if (taskRef[0] != null) {
+            taskRef[0].cancel(false);
+          }
         }
-      }, 0, 33, TimeUnit.MILLISECONDS);
+      };
+      taskRef[0] = scheduler.scheduleAtFixedRate(tick, 0, 33, TimeUnit.MILLISECONDS);
+      this.crossfadeTask = taskRef[0];
     } catch (Exception e) {
-      log.debug("crossfadeBgm error", e);
+      log.warn("crossfadeBgm error for trackId={}", trackId, e);
     }
   }
 
@@ -256,16 +300,30 @@ public class Simp3AudioService implements AudioFacade {
         BRIDGE.seek(engine, 0.0);
         BRIDGE.play(engine);
       } catch (Exception e) {
-        log.debug("Loop seek/play failed; trying reload", e);
+        log.warn("Loop seek/play failed for trackId={}; trying reload", bgmTrack.id, e);
         try {
           Object song = BRIDGE.newSong(bgmTrack);
           if (song != null && BRIDGE.loadSong(engine, song)) {
             BRIDGE.play(engine);
+          } else {
+            log.warn("Loop reload failed for trackId={} file={}", bgmTrack.id, bgmTrack.absolutePath);
           }
-        } catch (Exception ignored) {
+        } catch (Exception reloadEx) {
+          log.warn("Loop reload threw for trackId={} file={}", bgmTrack.id, bgmTrack.absolutePath, reloadEx);
         }
       }
     };
+  }
+
+  private void cancelCrossfadeTaskLocked() {
+    if (crossfadeTask != null) {
+      crossfadeTask.cancel(false);
+      crossfadeTask = null;
+    }
+    if (crossEngine != null) {
+      safeStop(crossEngine);
+      crossEngine = null;
+    }
   }
 
   private void cleanupEngines(List<Object> list) {
@@ -288,23 +346,36 @@ public class Simp3AudioService implements AudioFacade {
   private File resolveToFile(AssetType type, String id) {
     try {
       String built = AssetPaths.build(type, id);
+
+      File cached = extractedAudioCache.get(built);
+      if (cached != null && cached.exists()) {
+        return cached;
+      }
+
       URL url = getClass().getClassLoader().getResource(built);
       if (url != null && "file".equalsIgnoreCase(url.getProtocol())) {
         return new File(url.toURI());
       }
       try (InputStream in = getClass().getClassLoader().getResourceAsStream(built)) {
-        if (in == null) return null;
-        if (bgmTempFile == null || !bgmTempFile.exists()) {
-          bgmTempFile = Files.createTempFile("jvn_bgm_", "_audio").toFile();
-          bgmTempFile.deleteOnExit();
+        if (in == null) {
+          log.warn("Audio resource not found in classpath for asset path={} (id={})", built, id);
+          return null;
         }
-        try (FileOutputStream out = new FileOutputStream(bgmTempFile, false)) {
+        String ext = ".audio";
+        int dot = built.lastIndexOf('.');
+        if (dot >= 0 && dot < built.length() - 1) {
+          ext = built.substring(dot);
+        }
+        File extracted = Files.createTempFile("jvn_audio_", ext).toFile();
+        extracted.deleteOnExit();
+        try (FileOutputStream out = new FileOutputStream(extracted, false)) {
           in.transferTo(out);
         }
-        return bgmTempFile;
+        extractedAudioCache.put(built, extracted);
+        return extracted;
       }
     } catch (Exception e) {
-      log.debug("resolveToFile error", e);
+      log.warn("resolveToFile error for assetType={} id={}", type, id, e);
       return null;
     }
   }
@@ -314,8 +385,6 @@ public class Simp3AudioService implements AudioFacade {
     if (v > 1) return 1;
     return v;
   }
-
-  private static final class StopIteration extends RuntimeException { }
 
   private static final class BgmTrack {
     final String id;

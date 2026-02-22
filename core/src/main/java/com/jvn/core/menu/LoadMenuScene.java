@@ -199,6 +199,9 @@ public class LoadMenuScene implements Scene {
 
   public boolean activateSelected() {
     MenuActionSpec action = getSelectedAction();
+    if (handleCustomMenuAction(action)) {
+      return true;
+    }
     return switch (action.type()) {
       case LOAD_MENU -> {
         loadSelected();
@@ -250,6 +253,27 @@ public class LoadMenuScene implements Scene {
       case NOOP -> true;
       default -> true;
     };
+  }
+
+  private boolean handleCustomMenuAction(MenuActionSpec action) {
+    if (action == null || !action.isCustomAction() || engine == null) return false;
+    var handler = engine.getMenuActionHandler();
+    if (handler == null) return false;
+
+    MenuItemSpec selectedItem = getMenuItemSpec(selected);
+    String sourceItemId = selectedItem != null ? normalize(selectedItem.id(), "") : "";
+    try {
+      return handler.handle(new MenuActionContext(
+          engine,
+          "load",
+          sourceItemId,
+          defaultScriptName,
+          action
+      ));
+    } catch (Exception ex) {
+      LOG.warn("Custom menu action '{}' failed in load menu", action.actionKey(), ex);
+      return false;
+    }
   }
 
   public String getSaveDirectory() { return saveManager.getSaveDirectory(); }

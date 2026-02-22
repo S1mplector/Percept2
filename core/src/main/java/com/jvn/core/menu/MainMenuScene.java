@@ -148,6 +148,9 @@ public class MainMenuScene implements Scene {
     MenuItemSpec item = getItem(selected);
     if (item == null || !item.enabled()) return;
     MenuActionSpec action = item.action();
+    if (handleCustomMenuAction(action, item.id())) {
+      return;
+    }
     switch (action.type()) {
       case NEW_GAME -> startNewGame(defaultScriptName);
       case RUN_SCRIPT -> startNewGame(normalize(action.target(), defaultScriptName));
@@ -171,6 +174,24 @@ public class MainMenuScene implements Scene {
       case SAVE_MENU -> LOG.debug("Ignoring save menu action in title context");
       case NOOP -> {
       }
+    }
+  }
+
+  private boolean handleCustomMenuAction(MenuActionSpec action, String itemId) {
+    if (action == null || !action.isCustomAction() || engine == null) return false;
+    var handler = engine.getMenuActionHandler();
+    if (handler == null) return false;
+    try {
+      return handler.handle(new MenuActionContext(
+          engine,
+          menuId,
+          normalize(itemId, ""),
+          defaultScriptName,
+          action
+      ));
+    } catch (Exception ex) {
+      LOG.warn("Custom menu action '{}' failed in menu '{}'", action.actionKey(), menuId, ex);
+      return false;
     }
   }
 

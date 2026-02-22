@@ -58,6 +58,45 @@ public class VnScriptParser {
     return true;
   }
 
+  private boolean isBooleanToken(String token) {
+    if (token == null || token.isBlank()) return false;
+    String t = token.trim().toLowerCase();
+    return "true".equals(t) || "false".equals(t)
+        || "on".equals(t) || "off".equals(t)
+        || "1".equals(t) || "0".equals(t)
+        || "yes".equals(t) || "no".equals(t);
+  }
+
+  private boolean parseBooleanToken(String token) {
+    String t = token.trim().toLowerCase();
+    return "true".equals(t) || "on".equals(t) || "1".equals(t) || "yes".equals(t);
+  }
+
+  private float parseVolumeToken(String token,
+                                 String sourceName,
+                                 int lineNumber,
+                                 String rawLine,
+                                 String commandName) throws IOException {
+    final float volume;
+    try {
+      volume = Float.parseFloat(token);
+    } catch (NumberFormatException ex) {
+      throw parseError(sourceName, lineNumber, commandName + " volume must be numeric", rawLine);
+    }
+    if (volume < 0f || volume > 1f) {
+      throw parseError(sourceName, lineNumber, commandName + " volume must be between 0 and 1", rawLine);
+    }
+    return volume;
+  }
+
+  private String formatNumber(double value) {
+    if (Math.abs(value - Math.rint(value)) < 1e-9) {
+      return Long.toString((long) Math.rint(value));
+    }
+    String s = String.format(java.util.Locale.ROOT, "%.4f", value);
+    return s.replaceAll("0+$", "").replaceAll("\\.$", "");
+  }
+
   private static class ParseState {
     String scenarioId = "untitled";
     VnScenarioBuilder builder;
@@ -448,8 +487,51 @@ public class VnScriptParser {
         state.builder.end();
         return;
       case "bgm": {
-        String track = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.playBgm(track, true);
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = payload.split("\\s+");
+        if (toks.length == 0 || toks[0].isBlank()) {
+          throw parseError(sourceName, lineNumber, "[bgm] requires a track id", rawLine);
+        }
+
+        String track = toks[0];
+        boolean loop = true;
+        Float volume = null;
+
+        for (int i = 1; i < toks.length; i++) {
+          String option = toks[i].trim();
+          if (option.isEmpty()) continue;
+
+          int eq = option.indexOf('=');
+          if (eq > 0) {
+            String key = option.substring(0, eq).trim().toLowerCase();
+            String value = option.substring(eq + 1).trim();
+            if (key.isEmpty() || value.isEmpty()) {
+              throw parseError(sourceName, lineNumber, "[bgm] malformed option: " + option, rawLine);
+            }
+            switch (key) {
+              case "loop" -> {
+                if (!isBooleanToken(value)) {
+                  throw parseError(sourceName, lineNumber, "[bgm] loop must be true/false/on/off/1/0", rawLine);
+                }
+                loop = parseBooleanToken(value);
+              }
+              case "vol", "volume" -> {
+                volume = parseVolumeToken(value, sourceName, lineNumber, rawLine, "[bgm]");
+              }
+              default -> throw parseError(sourceName, lineNumber, "[bgm] unknown option: " + key, rawLine);
+            }
+          } else if (i == 1 && isBooleanToken(option)) {
+            // Backward-friendly shorthand: [bgm track false]
+            loop = parseBooleanToken(option);
+          } else {
+            throw parseError(sourceName, lineNumber, "[bgm] unrecognized token: " + option, rawLine);
+          }
+        }
+
+        state.builder.playBgm(track, loop);
+        if (volume != null) {
+          state.builder.external("settings", "volume bgm " + formatNumber(volume));
+        }
         return;
       }
       case "bgm_stop":
@@ -476,13 +558,59 @@ public class VnScriptParser {
         state.builder.external("audio", "resume");
         return;
       case "bgm_seek": {
-        String seconds = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.external("audio", "seek " + seconds);
+        String secondsArg = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        double seconds;
+        try {
+          seconds = Double.parseDouble(secondsArg);
+        } catch (NumberFormatException ex) {
+          throw parseError(sourceName, lineNumber, "[bgm_seek] expects a numeric seconds value", rawLine);
+        }
+        if (seconds < 0) {
+          throw parseError(sourceName, lineNumber, "[bgm_seek] seconds must be >= 0", rawLine);
+        }
+        state.builder.external("audio", "seek " + formatNumber(seconds));
         return;
       }
       case "bgm_crossfade": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.external("audio", "crossfade " + payload);
+        String[] toks = payload.split("\\s+");
+        if (toks.length < 2 || toks[0].isBlank()) {
+          throw parseError(sourceName, lineNumber, "[bgm_crossfade] expects: [bgm_crossfade <trackId> <ms> [loop]]", rawLine);
+        }
+
+        String track = toks[0];
+        long durationMs;
+        try {
+          durationMs = Long.parseLong(toks[1]);
+        } catch (NumberFormatException ex) {
+          throw parseError(sourceName, lineNumber, "[bgm_crossfade] duration must be an integer in ms", rawLine);
+        }
+        if (durationMs < 0) {
+          throw parseError(sourceName, lineNumber, "[bgm_crossfade] duration must be >= 0", rawLine);
+        }
+
+        String normalized = "crossfade " + track + " " + durationMs;
+        if (toks.length >= 3) {
+          String loopToken = toks[2];
+          String loopValue = loopToken;
+          int eq = loopToken.indexOf('=');
+          if (eq > 0) {
+            String key = loopToken.substring(0, eq).trim().toLowerCase();
+            if (!"loop".equals(key)) {
+              throw parseError(sourceName, lineNumber, "[bgm_crossfade] unknown option: " + key, rawLine);
+            }
+            loopValue = loopToken.substring(eq + 1).trim();
+          }
+          if (!isBooleanToken(loopValue)) {
+            throw parseError(sourceName, lineNumber, "[bgm_crossfade] loop must be true/false/on/off/1/0", rawLine);
+          }
+          normalized += " " + parseBooleanToken(loopValue);
+        }
+        if (toks.length > 3) {
+          throw parseError(sourceName, lineNumber, "[bgm_crossfade] too many arguments", rawLine);
+        }
+
+        state.builder.external("audio", normalized);
         return;
       }
       case "sfx": {

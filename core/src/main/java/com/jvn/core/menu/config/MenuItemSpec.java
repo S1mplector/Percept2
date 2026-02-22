@@ -1,5 +1,9 @@
 package com.jvn.core.menu.config;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 public record MenuItemSpec(
     String id,
     String label,
@@ -20,7 +24,8 @@ public record MenuItemSpec(
     Double slotPreviewX,
     Double slotPreviewY,
     Double slotPreviewWidth,
-    Double slotPreviewHeight
+    Double slotPreviewHeight,
+    Map<String, String> extras
 ) {
   public MenuItemSpec {
     id = normalize(id, "item");
@@ -41,6 +46,8 @@ public record MenuItemSpec(
     if (slotPreviewY != null && !Double.isFinite(slotPreviewY)) slotPreviewY = null;
     if (slotPreviewWidth != null && !Double.isFinite(slotPreviewWidth)) slotPreviewWidth = null;
     if (slotPreviewHeight != null && !Double.isFinite(slotPreviewHeight)) slotPreviewHeight = null;
+    extras = extras == null ? Collections.emptyMap()
+        : Collections.unmodifiableMap(new LinkedHashMap<>(extras));
   }
 
   public MenuItemSpec(
@@ -73,6 +80,7 @@ public record MenuItemSpec(
         boundsWidth,
         boundsHeight,
         false,
+        null,
         null,
         null,
         null,

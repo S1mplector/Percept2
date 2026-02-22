@@ -176,6 +176,9 @@ public class SaveMenuScene implements Scene {
 
   public boolean activateSelectedWithoutPrompt() {
     MenuActionSpec action = getSelectedAction();
+    if (handleCustomMenuAction(action)) {
+      return true;
+    }
     return switch (action.type()) {
       case NEW_GAME -> {
         startNewGame(defaultScriptName);
@@ -224,6 +227,27 @@ public class SaveMenuScene implements Scene {
       case NOOP -> true;
       default -> true;
     };
+  }
+
+  private boolean handleCustomMenuAction(MenuActionSpec action) {
+    if (action == null || !action.isCustomAction() || engine == null) return false;
+    var handler = engine.getMenuActionHandler();
+    if (handler == null) return false;
+
+    MenuItemSpec selectedItem = getMenuItemSpec(selected);
+    String sourceItemId = selectedItem != null ? normalize(selectedItem.id(), "") : "";
+    try {
+      return handler.handle(new MenuActionContext(
+          engine,
+          "save",
+          sourceItemId,
+          defaultScriptName,
+          action
+      ));
+    } catch (Exception ex) {
+      LOG.warn("Custom menu action '{}' failed in save menu", action.actionKey(), ex);
+      return false;
+    }
   }
 
   public void moveSelection(int delta) {

@@ -366,6 +366,7 @@ public final class MenuProfileLoader {
           itemPrefix + "slotPreviewHeight"
       );
       MenuActionSpec action = parseActionWithDiagnostics(actionRaw, targetRaw, diagnostics, sourcePath, itemPrefix + "action");
+      Map<String, String> extras = collectItemExtras(p, itemPrefix, bi);
       items.add(new MenuItemSpec(
           idNorm,
           label,
@@ -386,7 +387,8 @@ public final class MenuProfileLoader {
           slotPreviewX,
           slotPreviewY,
           slotPreviewWidth,
-          slotPreviewHeight
+          slotPreviewHeight,
+          extras
       ));
     }
 
@@ -413,12 +415,37 @@ public final class MenuProfileLoader {
     if (type == MenuActionType.NOOP && !action.isBlank() && !isNoopAction(action)) {
       diagnostics.add("Unknown menu action '" + action + "' in " + sourcePath + " (" + property + "); falling back to noop");
     }
-    return new MenuActionSpec(type, target);
+    return new MenuActionSpec(type, target, action);
   }
 
   private static boolean isNoopAction(String raw) {
     String value = raw.trim().toLowerCase().replace('-', '_');
     return "noop".equals(value) || "no_op".equals(value) || "none".equals(value);
+  }
+
+  private static final Set<String> KNOWN_ITEM_FIELDS = Set.of(
+      "label", "style", "icon", "enabled", "action", "target",
+      "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
+      "boundsX", "boundsY", "boundsWidth", "boundsHeight",
+      "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
+      "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight"
+  );
+
+  private static Map<String, String> collectItemExtras(Properties p, String itemPrefix, MenuItemSpec base) {
+    Map<String, String> extras = new LinkedHashMap<>();
+    if (base != null && base.extras() != null) {
+      extras.putAll(base.extras());
+    }
+    for (String key : p.stringPropertyNames()) {
+      if (!key.startsWith(itemPrefix)) continue;
+      String field = key.substring(itemPrefix.length());
+      if (KNOWN_ITEM_FIELDS.contains(field)) continue;
+      String value = p.getProperty(key);
+      if (value != null && !value.isBlank()) {
+        extras.put(field, value.trim());
+      }
+    }
+    return extras.isEmpty() ? null : extras;
   }
 
   private static List<String> collectItemIdsFromProperties(Properties p) {
