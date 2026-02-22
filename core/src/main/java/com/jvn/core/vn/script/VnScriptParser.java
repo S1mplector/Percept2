@@ -48,6 +48,16 @@ public class VnScriptParser {
     InputStream open(String path) throws IOException;
   }
 
+  private boolean isIntegerToken(String token) {
+    if (token == null || token.isBlank()) return false;
+    int start = (token.charAt(0) == '-') ? 1 : 0;
+    if (start >= token.length()) return false;
+    for (int i = start; i < token.length(); i++) {
+      if (!Character.isDigit(token.charAt(i))) return false;
+    }
+    return true;
+  }
+
   private static class ParseState {
     String scenarioId = "untitled";
     VnScenarioBuilder builder;
@@ -560,12 +570,26 @@ public class VnScriptParser {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = payload.split("\\s+");
         if (toks.length < 2) {
-          throw parseError(sourceName, lineNumber, "[show] expects: [show <charId> <pos> [expression]]", rawLine);
+          throw parseError(sourceName, lineNumber, "[show] expects: [show <charId> <pos> [expression] [layer]]", rawLine);
         }
         String charId = toks[0];
         CharacterPosition pos = parsePosition(toks[1]);
-        String expr = toks.length >= 3 ? toks[2] : "neutral";
-        state.builder.show(charId, expr, pos);
+        String expr = "neutral";
+        Integer layerOrder = null;
+        if (toks.length >= 3) {
+          if (toks.length == 3 && isIntegerToken(toks[2])) {
+            layerOrder = Integer.parseInt(toks[2]);
+          } else {
+            expr = toks[2];
+            if (toks.length >= 4) {
+              if (!isIntegerToken(toks[3])) {
+                throw parseError(sourceName, lineNumber, "[show] layer must be an integer", rawLine);
+              }
+              layerOrder = Integer.parseInt(toks[3]);
+            }
+          }
+        }
+        state.builder.show(charId, expr, pos, layerOrder);
         return;
       }
       case "hide": {

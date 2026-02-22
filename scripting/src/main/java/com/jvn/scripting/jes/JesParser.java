@@ -38,6 +38,7 @@ public class JesParser {
 
   private static final Map<String, Set<String>> TIMELINE_PROPS = Map.ofEntries(
     Map.entry("move", Set.of("x", "y", "dur", "easing")),
+    Map.entry("pivot", Set.of("ox", "oy", "dur", "easing")),
     Map.entry("walkToTile", Set.of("tx", "ty", "x", "y", "dur", "easing")),
     Map.entry("rotate", Set.of("deg", "dur", "easing")),
     Map.entry("scale", Set.of("sx", "sy", "dur", "easing")),
@@ -218,7 +219,7 @@ public class JesParser {
           }
         }
       }
-      case "move", "rotate", "scale", "fade", "visible", "walkToTile", "damage", "heal" -> {
+      case "move", "pivot", "rotate", "scale", "fade", "visible", "walkToTile", "damage", "heal" -> {
         String target = expect(STRING, "entity name").lexeme;
         a.target = target;
         expect(LBRACE, "'{'" );

@@ -1,14 +1,18 @@
 package com.jvn.core.vn;
 
-import com.jvn.core.vn.script.VnScriptParser;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.jvn.core.vn.script.VnScriptParser;
 
 public class VnScriptParserTest {
   @Test
@@ -198,5 +202,26 @@ public class VnScriptParserTest {
     scene.update(400);
     assertEquals("smile", scene.getState().getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
     assertEquals(CharacterPosition.RIGHT, scene.getState().getCharacterDefinedPosition("hero"));
+  }
+
+  @Test
+  public void parsesShowCommandWithLayerOrder() throws Exception {
+    String script = """
+      @label start
+      [show hero center neutral 25]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario;
+    try (var in = new ByteArrayInputStream(script.getBytes(StandardCharsets.UTF_8))) {
+      scenario = parser.parse(in);
+    }
+
+    VnNode show = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW)
+        .findFirst()
+        .orElseThrow();
+    assertEquals(Integer.valueOf(25), show.getShowLayerOrder());
   }
 }

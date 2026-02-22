@@ -229,6 +229,29 @@ public class AnimationProject {
         return localValue;
     }
 
+    public int computeEffectiveLayerOrder(String entityName) {
+        EntityTrack track = entityTracks.get(entityName);
+        if (track == null) return 0;
+
+        int local = track.getLayerOrder();
+        if (!track.hasParent()) return local;
+        return local + computeGroupLayerOrder(track.getParentGroupName());
+    }
+
+    private int computeGroupLayerOrder(String groupName) {
+        int total = 0;
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        String cursor = groupName;
+        while (cursor != null) {
+            if (!visited.add(cursor)) break;
+            EntityGroup group = groups.get(cursor);
+            if (group == null) break;
+            total += group.getLayerOrder();
+            cursor = group.getParentGroupName();
+        }
+        return total;
+    }
+
     private double computeGroupValueAt(String groupName, PropertyType property, double timeMs) {
         double value = 0;
         java.util.Set<String> visited = new java.util.HashSet<>();
@@ -307,6 +330,13 @@ public class AnimationProject {
                 }
             }
 
+            int layerOrder = computeEffectiveLayerOrder(et.getEntityName());
+            if (layerOrder != 0) {
+                hasData = true;
+                track.addKeyframe(TimelineData.Property.Z,
+                    new TimelineData.Keyframe(0, layerOrder, com.jvn.core.animation.Easing.Type.LINEAR));
+            }
+
             if (hasData) data.addTrack(track);
         }
         return data;
@@ -316,6 +346,8 @@ public class AnimationProject {
         return switch (p) {
             case X -> TimelineData.Property.X;
             case Y -> TimelineData.Property.Y;
+            case PIVOT_X -> TimelineData.Property.PIVOT_X;
+            case PIVOT_Y -> TimelineData.Property.PIVOT_Y;
             case ROTATION -> TimelineData.Property.ROTATION;
             case SCALE_X -> TimelineData.Property.SCALE_X;
             case SCALE_Y -> TimelineData.Property.SCALE_Y;

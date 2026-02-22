@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 
 /**
  * Lightweight parser that converts inline JES timeline blocks into {@link TimelineData}.
- * Supports: move, wait, rotate, scale, fade, visible.
+ * Supports: move, pivot, wait, rotate, scale, fade, visible.
  *
  * <pre>
  * timeline {
@@ -27,6 +27,8 @@ public class TimelineDataParser {
 
     private static final Pattern MOVE_PATTERN = Pattern.compile(
         "move\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PIVOT_PATTERN = Pattern.compile(
+        "pivot\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern ROTATE_PATTERN = Pattern.compile(
         "rotate\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern SCALE_PATTERN = Pattern.compile(
@@ -104,6 +106,31 @@ public class TimelineDataParser {
                 if (ab.has("y")) {
                     track.addKeyframe(TimelineData.Property.Y,
                         new TimelineData.Keyframe(endTime, ab.getDouble("y", 0), easing));
+                }
+                if (endTime > maxTime) maxTime = endTime;
+                continue;
+            }
+
+            // pivot "entity" { ... }
+            Matcher pivotM = PIVOT_PATTERN.matcher(trimmed);
+            if (pivotM.find()) {
+                String entity = pivotM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                Easing.Type easing = parseEasing(ab.getString("easing", "linear"));
+                double endTime = cursor + dur;
+                TimelineData.Track track = getOrCreateTrack(data, entity);
+
+                if (ab.has("ox")) {
+                    track.addKeyframe(TimelineData.Property.PIVOT_X,
+                        new TimelineData.Keyframe(endTime, ab.getDouble("ox", 0), easing));
+                }
+                if (ab.has("oy")) {
+                    track.addKeyframe(TimelineData.Property.PIVOT_Y,
+                        new TimelineData.Keyframe(endTime, ab.getDouble("oy", 0), easing));
                 }
                 if (endTime > maxTime) maxTime = endTime;
                 continue;

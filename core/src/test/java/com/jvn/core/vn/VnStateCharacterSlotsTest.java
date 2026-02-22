@@ -1,12 +1,11 @@
 package com.jvn.core.vn;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class VnStateCharacterSlotsTest {
 
@@ -73,5 +72,25 @@ class VnStateCharacterSlotsTest {
     state.updateCharacterAnimations(400);
     assertEquals("smile", state.getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
     assertEquals(CharacterPosition.RIGHT, state.getCharacterDefinedPosition("codel"));
+  }
+
+  @Test
+  void showCharacterSupportsExplicitLayerOrder() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.LEFT, "codel", "neutral", 42);
+
+    assertEquals(42, state.getVisibleCharacters().get(CharacterPosition.LEFT).getLayerOrder());
+  }
+
+  @Test
+  void showCharacterUsesPositionBasedDefaultLayerOrderWhenNotProvided() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.LEFT, "a", "neutral");
+    state.showCharacter(CharacterPosition.RIGHT, "b", "neutral");
+
+    assertEquals(-10, state.getVisibleCharacters().get(CharacterPosition.LEFT).getLayerOrder());
+    assertEquals(10, state.getVisibleCharacters().get(CharacterPosition.RIGHT).getLayerOrder());
   }
 }

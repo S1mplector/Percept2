@@ -76,7 +76,11 @@ public class VnSaveManager {
     for (var entry : state.getVisibleCharacters().entrySet()) {
       String pos = entry.getKey().name();
       VnState.CharacterSlot slot = entry.getValue();
-      vis.put(pos, new String[] { slot.getCharacterId(), slot.getExpression() });
+      vis.put(pos, new String[] {
+          slot.getCharacterId(),
+          slot.getExpression(),
+          Integer.toString(slot.getLayerOrder())
+      });
     }
     saveData.setVisibleCharacters(vis);
 
@@ -324,7 +328,14 @@ public class VnSaveManager {
         CharacterPosition position = CharacterPosition.valueOf(pos);
         String charId = data.length > 0 ? data[0] : null;
         String expr = data.length > 1 ? data[1] : "neutral";
-        if (charId != null) state.showCharacter(position, charId, expr);
+        Integer layer = null;
+        if (data.length > 2) {
+          try {
+            layer = Integer.parseInt(data[2]);
+          } catch (NumberFormatException ignored) {
+          }
+        }
+        if (charId != null) state.showCharacter(position, charId, expr, layer);
       } catch (IllegalArgumentException ignored) {
       }
     }

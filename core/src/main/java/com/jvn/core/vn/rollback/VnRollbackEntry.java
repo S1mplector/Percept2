@@ -1,12 +1,12 @@
 package com.jvn.core.vn.rollback;
 
-import com.jvn.core.vn.CharacterPosition;
-import com.jvn.core.vn.VnState;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import com.jvn.core.vn.CharacterPosition;
+import com.jvn.core.vn.VnState;
 
 /**
  * Immutable snapshot of VN state at a specific point for rollback.
@@ -60,7 +60,7 @@ public final class VnRollbackEntry {
         for (var entry : state.getVisibleCharacters().entrySet()) {
             VnState.CharacterSlot slot = entry.getValue();
             if (slot != null) {
-                chars.put(entry.getKey(), new CharacterSnapshot(slot.getCharacterId(), slot.getExpression()));
+                chars.put(entry.getKey(), new CharacterSnapshot(slot.getCharacterId(), slot.getExpression(), slot.getLayerOrder()));
             }
         }
         builder.visibleCharacters(chars);
@@ -81,7 +81,7 @@ public final class VnRollbackEntry {
         state.clearAllCharacters();
         for (var entry : visibleCharacters.entrySet()) {
             CharacterSnapshot snap = entry.getValue();
-            state.showCharacter(entry.getKey(), snap.characterId(), snap.expression());
+            state.showCharacter(entry.getKey(), snap.characterId(), snap.expression(), snap.layerOrder());
         }
 
         // Reset UI state for clean replay
@@ -122,5 +122,5 @@ public final class VnRollbackEntry {
     /**
      * Snapshot of a character's state at a position.
      */
-    public record CharacterSnapshot(String characterId, String expression) {}
+    public record CharacterSnapshot(String characterId, String expression, int layerOrder) {}
 }

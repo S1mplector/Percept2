@@ -95,6 +95,24 @@ public class PuppeteerWindow extends Stage {
             this.project.addEntityToGroup(entityName, groupName);
             entitySelector.refresh(this.project);
             timelinePanel.refresh();
+            updatePreview();
+            codePreview.setCode(CodeExporter.export(this.project));
+        });
+
+        entitySelector.setOnEntityLayerDelta((entityName, delta) -> {
+            EntityTrack track = this.project.getTrack(entityName);
+            if (track == null) return;
+            track.setLayerOrder(track.getLayerOrder() + delta);
+            updatePreview();
+            codePreview.setCode(CodeExporter.export(this.project));
+        });
+
+        entitySelector.setOnGroupLayerDelta((groupName, delta) -> {
+            EntityGroup group = this.project.getGroup(groupName);
+            if (group == null) return;
+            group.setLayerOrder(group.getLayerOrder() + delta);
+            updatePreview();
+            codePreview.setCode(CodeExporter.export(this.project));
         });
 
         timelinePanel.setOnKeyframeSelected(kf -> {
@@ -137,6 +155,15 @@ public class PuppeteerWindow extends Stage {
             double time = this.project.getPlayheadMs();
             track.addKeyframe(PropertyType.X, new Keyframe(time, pos[0]));
             track.addKeyframe(PropertyType.Y, new Keyframe(time, pos[1]));
+            timelinePanel.refresh();
+            codePreview.setCode(CodeExporter.export(this.project));
+        });
+
+        animationPreview.setOnEntityPivotChanged((name, pivot) -> {
+            EntityTrack track = this.project.getOrCreateTrack(name);
+            double time = this.project.getPlayheadMs();
+            track.addKeyframe(PropertyType.PIVOT_X, new Keyframe(time, pivot[0]));
+            track.addKeyframe(PropertyType.PIVOT_Y, new Keyframe(time, pivot[1]));
             timelinePanel.refresh();
             codePreview.setCode(CodeExporter.export(this.project));
         });
@@ -286,10 +313,16 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setScene(scene);
         if (scene != null) {
             for (String name : scene.names()) {
-                project.getOrCreateTrack(name);
+                EntityTrack track = project.getOrCreateTrack(name);
+                var entity = scene.find(name);
+                if (entity != null) {
+                    track.setLayerOrder((int) Math.round(entity.getZ()));
+                }
             }
             entitySelector.refresh(project);
             timelinePanel.refresh();
+            updatePreview();
+            codePreview.setCode(CodeExporter.export(this.project));
         }
     }
 
@@ -345,7 +378,8 @@ public class PuppeteerWindow extends Stage {
         scene.add(sprite);
         scene.registerEntity(entityName, sprite);
 
-        project.getOrCreateTrack(entityName);
+        EntityTrack track = project.getOrCreateTrack(entityName);
+        track.setLayerOrder((int) Math.round(sprite.getZ()));
         entitySelector.refresh(project);
         timelinePanel.refresh();
         animationPreview.render();
@@ -442,10 +476,21 @@ public class PuppeteerWindow extends Stage {
             var entity = scene.find(track.getEntityName());
             if (entity == null) continue;
 
+            entity.setZ(project.computeEffectiveLayerOrder(track.getEntityName()));
+
             if (track.hasKeyframes(PropertyType.X) || track.hasKeyframes(PropertyType.Y)) {
                 double x = project.computeValueAt(track.getEntityName(), PropertyType.X, time);
                 double y = project.computeValueAt(track.getEntityName(), PropertyType.Y, time);
                 entity.setPosition(x, y);
+            }
+            if (track.hasKeyframes(PropertyType.PIVOT_X) || track.hasKeyframes(PropertyType.PIVOT_Y)) {
+                double pivotX = track.hasKeyframes(PropertyType.PIVOT_X)
+                    ? project.computeValueAt(track.getEntityName(), PropertyType.PIVOT_X, time)
+                    : getEntityPivotX(entity);
+                double pivotY = track.hasKeyframes(PropertyType.PIVOT_Y)
+                    ? project.computeValueAt(track.getEntityName(), PropertyType.PIVOT_Y, time)
+                    : getEntityPivotY(entity);
+                setEntityPivot(entity, pivotX, pivotY);
             }
             if (track.hasKeyframes(PropertyType.ROTATION)) {
                 double rot = project.computeValueAt(track.getEntityName(), PropertyType.ROTATION, time);
@@ -472,6 +517,26 @@ public class PuppeteerWindow extends Stage {
             l.setColor(l.getColorR(), l.getColorG(), l.getColorB(), alpha);
         else if (entity instanceof com.jvn.core.scene2d.Panel2D p)
             p.setFill(p.getFillR(), p.getFillG(), p.getFillB(), alpha);
+    }
+
+    private static double getEntityPivotX(com.jvn.core.scene2d.Entity2D entity) {
+        if (entity instanceof com.jvn.core.scene2d.Sprite2D s) return s.getOriginX();
+        if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D c) return c.getOriginX();
+        return 0.0;
+    }
+
+    private static double getEntityPivotY(com.jvn.core.scene2d.Entity2D entity) {
+        if (entity instanceof com.jvn.core.scene2d.Sprite2D s) return s.getOriginY();
+        if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D c) return c.getOriginY();
+        return 0.0;
+    }
+
+    private static void setEntityPivot(com.jvn.core.scene2d.Entity2D entity, double pivotX, double pivotY) {
+        if (entity instanceof com.jvn.core.scene2d.Sprite2D s) {
+            s.setOrigin(pivotX, pivotY);
+        } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D c) {
+            c.setOrigin(pivotX, pivotY);
+        }
     }
 
     private void setupKeyboardShortcuts(Scene scene) {

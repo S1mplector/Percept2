@@ -31,10 +31,12 @@ public class AnimationPreview extends VBox {
     private Entity2D selectedEntity;
     private String selectedEntityName;
     private boolean draggingEntity = false;
+    private boolean draggingPivot = false;
     private double dragEntityStartX, dragEntityStartY;
 
     private Consumer<String> onEntitySelected;
     private BiConsumer<String, double[]> onEntityMoved;
+    private BiConsumer<String, double[]> onEntityPivotChanged;
 
     public void setProjectRoot(java.io.File root) {
         blitter.setProjectRoot(root);
@@ -196,6 +198,7 @@ public class AnimationPreview extends VBox {
 
     public void setOnEntitySelected(Consumer<String> callback) { this.onEntitySelected = callback; }
     public void setOnEntityMoved(BiConsumer<String, double[]> callback) { this.onEntityMoved = callback; }
+    public void setOnEntityPivotChanged(BiConsumer<String, double[]> callback) { this.onEntityPivotChanged = callback; }
 
     public Entity2D getSelectedEntity() { return selectedEntity; }
 
@@ -279,6 +282,11 @@ public class AnimationPreview extends VBox {
             }
 
             if (e.isPrimaryButtonDown()) {
+                if (selectedEntity != null && supportsPivotEntity(selectedEntity) && isNearPivotHandle(e.getX(), e.getY())) {
+                    draggingPivot = true;
+                    return;
+                }
+
                 String hitName = findEntityNameAt(e.getX(), e.getY());
                 if (hitName != null) {
                     draggingEntity = true;
@@ -306,6 +314,24 @@ public class AnimationPreview extends VBox {
                     camera.getY() - dy / camera.getZoom()
                 );
                 render();
+            } else if (draggingPivot && selectedEntity != null) {
+                double z = camera.getZoom();
+                if (z <= 0) return;
+
+                double worldX = camera.getX() + e.getX() / z;
+                double worldY = camera.getY() + e.getY() / z;
+                double[] bounds = getEntityBounds(selectedEntity);
+                double bw = Math.max(1e-6, bounds[2]);
+                double bh = Math.max(1e-6, bounds[3]);
+
+                double pivotX = clampPivot((worldX - bounds[0]) / bw);
+                double pivotY = clampPivot((worldY - bounds[1]) / bh);
+                setEntityPivot(selectedEntity, pivotX, pivotY);
+
+                if (onEntityPivotChanged != null && selectedEntityName != null) {
+                    onEntityPivotChanged.accept(selectedEntityName, new double[]{pivotX, pivotY});
+                }
+                render();
             } else if (draggingEntity && selectedEntity != null) {
                 double z = camera.getZoom();
                 double dx = (e.getX() - dragEntityStartX) / z;
@@ -327,6 +353,7 @@ public class AnimationPreview extends VBox {
         canvas.setOnMouseReleased(e -> {
             panning[0] = false;
             draggingEntity = false;
+            draggingPivot = false;
         });
     }
 
@@ -345,11 +372,57 @@ public class AnimationPreview extends VBox {
         gc.strokeRect(sx - 2, sy - 2, sw + 4, sh + 4);
         gc.setLineDashes((double[]) null);
 
+        if (supportsPivotEntity(entity)) {
+            drawPivotHandle(entity);
+        }
+
         if (selectedEntityName != null) {
             gc.setFill(Color.web("#f0b673"));
             gc.setFont(javafx.scene.text.Font.font("Arial", 10));
             gc.fillText(selectedEntityName, sx, sy - 6);
         }
+    }
+
+    private boolean supportsPivotEntity(Entity2D entity) {
+        return entity instanceof com.jvn.core.scene2d.Sprite2D ||
+               entity instanceof com.jvn.core.scene2d.CharacterEntity2D;
+    }
+
+    private boolean isNearPivotHandle(double screenX, double screenY) {
+        if (selectedEntity == null) return false;
+        double z = camera.getZoom();
+        if (z <= 0) return false;
+        double px = (selectedEntity.getX() - camera.getX()) * z;
+        double py = (selectedEntity.getY() - camera.getY()) * z;
+        double dx = screenX - px;
+        double dy = screenY - py;
+        return dx * dx + dy * dy <= 100;
+    }
+
+    private void drawPivotHandle(Entity2D entity) {
+        double z = camera.getZoom();
+        if (z <= 0) return;
+        double px = (entity.getX() - camera.getX()) * z;
+        double py = (entity.getY() - camera.getY()) * z;
+
+        gc.setStroke(Color.web("#f7d07a"));
+        gc.setLineWidth(1.5);
+        gc.strokeLine(px - 7, py, px + 7, py);
+        gc.strokeLine(px, py - 7, px, py + 7);
+        gc.setFill(Color.web("#f7d07a", 0.8));
+        gc.fillOval(px - 3, py - 3, 6, 6);
+    }
+
+    private void setEntityPivot(Entity2D entity, double pivotX, double pivotY) {
+        if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+            sprite.setOrigin(pivotX, pivotY);
+        } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D character) {
+            character.setOrigin(pivotX, pivotY);
+        }
+    }
+
+    private static double clampPivot(double v) {
+        return Math.max(-1.0, Math.min(2.0, v));
     }
 
     public void fitToContent() {

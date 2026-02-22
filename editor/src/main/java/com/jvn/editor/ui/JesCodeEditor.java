@@ -140,7 +140,7 @@ public class JesCodeEditor extends BorderPane {
     for (String comp : List.of("Panel2D","Sprite2D","Label2D","ParticleEmitter2D","PhysicsBody2D","Character2D","Stats","Inventory","Equipment","Ai2D","Button2D","Slider2D")) {
       if (comp.toLowerCase().startsWith(pl)) out.add(new CodeAutoCompleter.Suggestion(comp));
     }
-    for (String act : List.of("move","rotate","scale","fade","visible","walkToTile","cameraMove","cameraZoom","cameraShake","damage","heal","call","loop","parallel","waitForCall","emitParticles","cameraFollow","setParallax","playAudio","stopAudio","label","jump")) {
+    for (String act : List.of("move","pivot","rotate","scale","fade","visible","walkToTile","cameraMove","cameraZoom","cameraShake","damage","heal","call","loop","parallel","waitForCall","emitParticles","cameraFollow","setParallax","playAudio","stopAudio","label","jump")) {
       if (act.startsWith(pl)) out.add(new CodeAutoCompleter.Suggestion(act));
     }
     for (String builtAction : List.of("toggleDebug","spawnCircle","spawnBox","moveHero","interact","attack")) {

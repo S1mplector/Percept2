@@ -1,5 +1,6 @@
 package com.jvn.core.animation;
 
+import com.jvn.core.scene2d.CharacterEntity2D;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.Label2D;
 import com.jvn.core.scene2d.Panel2D;
@@ -60,6 +61,19 @@ public class TimelineRunner {
                 double y = track.getValueAt(TimelineData.Property.Y, timeMs);
                 entity.setPosition(x, y);
             }
+            if (track.hasKeyframes(TimelineData.Property.Z)) {
+                double z = track.getValueAt(TimelineData.Property.Z, timeMs);
+                entity.setZ(z);
+            }
+            if (track.hasKeyframes(TimelineData.Property.PIVOT_X) || track.hasKeyframes(TimelineData.Property.PIVOT_Y)) {
+                double pivotX = track.hasKeyframes(TimelineData.Property.PIVOT_X)
+                    ? track.getValueAt(TimelineData.Property.PIVOT_X, timeMs)
+                    : getPivotX(entity);
+                double pivotY = track.hasKeyframes(TimelineData.Property.PIVOT_Y)
+                    ? track.getValueAt(TimelineData.Property.PIVOT_Y, timeMs)
+                    : getPivotY(entity);
+                setPivot(entity, pivotX, pivotY);
+            }
             if (track.hasKeyframes(TimelineData.Property.ROTATION)) {
                 double rot = track.getValueAt(TimelineData.Property.ROTATION, timeMs);
                 entity.setRotationDeg(rot);
@@ -83,6 +97,26 @@ public class TimelineRunner {
             l.setColor(l.getColorR(), l.getColorG(), l.getColorB(), alpha);
         } else if (entity instanceof Panel2D p) {
             p.setFill(p.getFillR(), p.getFillG(), p.getFillB(), alpha);
+        }
+    }
+
+    private static double getPivotX(Entity2D entity) {
+        if (entity instanceof Sprite2D s) return s.getOriginX();
+        if (entity instanceof CharacterEntity2D c) return c.getOriginX();
+        return 0.0;
+    }
+
+    private static double getPivotY(Entity2D entity) {
+        if (entity instanceof Sprite2D s) return s.getOriginY();
+        if (entity instanceof CharacterEntity2D c) return c.getOriginY();
+        return 0.0;
+    }
+
+    private static void setPivot(Entity2D entity, double pivotX, double pivotY) {
+        if (entity instanceof Sprite2D s) {
+            s.setOrigin(pivotX, pivotY);
+        } else if (entity instanceof CharacterEntity2D c) {
+            c.setOrigin(pivotX, pivotY);
         }
     }
 }

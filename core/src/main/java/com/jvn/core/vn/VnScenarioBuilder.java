@@ -156,11 +156,16 @@ public class VnScenarioBuilder {
   // --- Enhancements below: actions and timing ---
 
   public VnScenarioBuilder show(String characterId, String expression, CharacterPosition position) {
+    return show(characterId, expression, position, null);
+  }
+
+  public VnScenarioBuilder show(String characterId, String expression, CharacterPosition position, Integer layerOrder) {
     scenarioBuilder.addNode(
       VnNode.builder(VnNodeType.SHOW)
         .characterToShow(characterId)
         .showExpression(expression)
         .showPosition(position)
+        .showLayerOrder(layerOrder)
         .build()
     );
     return this;

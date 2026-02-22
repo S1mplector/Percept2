@@ -1,14 +1,14 @@
 package com.jvn.core.vn;
 
-import com.jvn.core.vn.save.VnSaveData;
-import com.jvn.core.vn.save.VnSaveManager;
-import org.junit.jupiter.api.Test;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.jvn.core.vn.save.VnSaveData;
+import com.jvn.core.vn.save.VnSaveManager;
 
 public class VnSavePersistenceTest {
   @Test
@@ -30,7 +30,7 @@ public class VnSavePersistenceTest {
     state.setVariable("flag", true);
     state.markNodeAsRead(0);
     state.markNodeAsRead(1);
-    state.showCharacter(CharacterPosition.LEFT, "alice", "neutral");
+    state.showCharacter(CharacterPosition.LEFT, "alice", "neutral", 15);
     state.setSkipMode(true);
     state.setAutoPlayMode(false);
     state.setUiHidden(true);
@@ -75,5 +75,6 @@ public class VnSavePersistenceTest {
     // Visible characters
     assertTrue(loaded.getVisibleCharacters().containsKey(CharacterPosition.LEFT));
     assertEquals("alice", loaded.getVisibleCharacters().get(CharacterPosition.LEFT).getCharacterId());
+    assertEquals(15, loaded.getVisibleCharacters().get(CharacterPosition.LEFT).getLayerOrder());
   }
 }

@@ -2,7 +2,6 @@ package com.jvn.scripting.jes.runtime;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -399,6 +398,25 @@ public class JesScene2D extends Scene2DBase {
         e.setPosition(st.sx + (tx - st.sx) * ep, st.sy + (ty - st.sy) * ep);
         return p >= 1.0;
       }
+      case "pivot" -> {
+        Entity2D e = named.get(a.target);
+        if (e == null) return true;
+        double tox = toNum(a.props.get("ox"), getPivotX(e));
+        double toy = toNum(a.props.get("oy"), getPivotY(e));
+        double dur = toNum(a.props.get("dur"), 0);
+        if (!st.started) {
+          st.started = true;
+          st.sx = getPivotX(e);
+          st.sy = getPivotY(e);
+          String easingStr = toStr(a.props.get("easing"), "LINEAR");
+          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+        }
+        st.elapsed += deltaMs;
+        double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
+        double ep = Easing.apply(st.easing, p);
+        setPivot(e, st.sx + (tox - st.sx) * ep, st.sy + (toy - st.sy) * ep);
+        return p >= 1.0;
+      }
       case "rotate" -> {
         Entity2D e = named.get(a.target);
         if (e == null) return true;
@@ -625,6 +643,26 @@ public class JesScene2D extends Scene2DBase {
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
         double ep = Easing.apply(st.easing, p);
         e.setPosition(st.sx + (tx - st.sx) * ep, st.sy + (ty - st.sy) * ep);
+        if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
+      }
+      case "pivot" -> {
+        Entity2D e = named.get(a.target);
+        if (e == null) { tlIndex++; tlElapsedMs = 0; return; }
+        double tox = toNum(a.props.get("ox"), getPivotX(e));
+        double toy = toNum(a.props.get("oy"), getPivotY(e));
+        double dur = toNum(a.props.get("dur"), 0);
+        ActionRuntime st = actionState.computeIfAbsent(tlIndex, k -> new ActionRuntime());
+        if (!st.started) {
+          st.started = true;
+          st.sx = getPivotX(e);
+          st.sy = getPivotY(e);
+          String easingStr = toStr(a.props.get("easing"), "LINEAR");
+          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+        }
+        tlElapsedMs += deltaMs;
+        double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
+        double ep = Easing.apply(st.easing, p);
+        setPivot(e, st.sx + (tox - st.sx) * ep, st.sy + (toy - st.sy) * ep);
         if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
       }
       case "walkToTile" -> {
@@ -1797,6 +1835,23 @@ public class JesScene2D extends Scene2DBase {
     if (e instanceof com.jvn.core.scene2d.Sprite2D s) s.setAlpha(aa);
     else if (e instanceof com.jvn.core.scene2d.Label2D l) l.setColor(l.getColorR(), l.getColorG(), l.getColorB(), aa);
     else if (e instanceof com.jvn.core.scene2d.Panel2D p) p.setFill(p.getFillR(), p.getFillG(), p.getFillB(), aa);
+  }
+
+  private static double getPivotX(Entity2D e) {
+    if (e instanceof com.jvn.core.scene2d.Sprite2D s) return s.getOriginX();
+    if (e instanceof com.jvn.core.scene2d.CharacterEntity2D c) return c.getOriginX();
+    return 0.0;
+  }
+
+  private static double getPivotY(Entity2D e) {
+    if (e instanceof com.jvn.core.scene2d.Sprite2D s) return s.getOriginY();
+    if (e instanceof com.jvn.core.scene2d.CharacterEntity2D c) return c.getOriginY();
+    return 0.0;
+  }
+
+  private static void setPivot(Entity2D e, double ox, double oy) {
+    if (e instanceof com.jvn.core.scene2d.Sprite2D s) s.setOrigin(ox, oy);
+    else if (e instanceof com.jvn.core.scene2d.CharacterEntity2D c) c.setOrigin(ox, oy);
   }
 
   // --- State save/load helpers ---

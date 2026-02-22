@@ -418,7 +418,7 @@ public class VnScene implements Scene {
   private void processShowNode(VnNode node) {
     if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
       String expr = node.getShowExpression() != null ? node.getShowExpression() : "neutral";
-      state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr);
+      state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr, node.getShowLayerOrder());
     }
   }
 

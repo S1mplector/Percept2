@@ -12,6 +12,7 @@ public class EntityTrack {
     private final Map<PropertyType, List<Keyframe>> keyframes;
     private boolean expanded = true;
     private boolean visible = true;
+    private int layerOrder = 0;
 
     public EntityTrack(String entityName) {
         this.entityName = entityName;
@@ -29,6 +30,9 @@ public class EntityTrack {
 
     public boolean isVisible() { return visible; }
     public void setVisible(boolean visible) { this.visible = visible; }
+
+    public int getLayerOrder() { return layerOrder; }
+    public void setLayerOrder(int layerOrder) { this.layerOrder = layerOrder; }
 
     public List<Keyframe> getKeyframes(PropertyType property) {
         return keyframes.getOrDefault(property, Collections.emptyList());
@@ -112,6 +116,7 @@ public class EntityTrack {
         copy.parentGroupName = parentGroupName;
         copy.expanded = expanded;
         copy.visible = visible;
+        copy.layerOrder = layerOrder;
         for (Map.Entry<PropertyType, List<Keyframe>> entry : keyframes.entrySet()) {
             List<Keyframe> copyList = new ArrayList<>();
             for (Keyframe kf : entry.getValue()) copyList.add(kf.copy());

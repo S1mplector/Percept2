@@ -106,10 +106,17 @@ public class VnState {
   }
 
   public void showCharacter(CharacterPosition position, String characterId, String expression) {
+    showCharacter(position, characterId, expression, null);
+  }
+
+  public void showCharacter(CharacterPosition position, String characterId, String expression, Integer layerOrder) {
     CharacterPosition target = fallbackPositionFor(characterId, position);
     String resolvedExpression = normalizeExpression(expression, "neutral");
+    CharacterPosition existingPos = findCharacterPosition(characterId);
+    CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
+    int resolvedLayerOrder = resolveLayerOrder(target, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
     removeOtherSlotsForCharacter(characterId, target);
-    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression));
+    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
     pendingExpressionSwitches.remove(target);
     CharacterVisual visual = ensureCharacterVisual(target);
     visual.setImmediate(1.0, 0.0, 0.0);
@@ -129,17 +136,22 @@ public class VnState {
   }
 
   public void showCharacterAnimated(CharacterPosition position, String characterId, String expression) {
+    showCharacterAnimated(position, characterId, expression, null);
+  }
+
+  public void showCharacterAnimated(CharacterPosition position, String characterId, String expression, Integer layerOrder) {
     CharacterPosition target = fallbackPositionFor(characterId, position);
     CharacterPosition existingPos = findCharacterPosition(characterId);
     CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
     String fallbackExpression = existingSlot != null ? existingSlot.getExpression() : "neutral";
     String resolvedExpression = normalizeExpression(expression, fallbackExpression);
+    int resolvedLayerOrder = resolveLayerOrder(target, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
 
-    if (isCharacterGlobalPositionEnabled(characterId) && existingPos != null && existingPos != target) {
+    if (isCharacterGlobalPositionEnabled(characterId) && existingPos != null && existingSlot != null && existingPos != target) {
       // Move the same sprite between slots, then fade expression if needed.
       String movingExpression = normalizeExpression(existingSlot.getExpression(), resolvedExpression);
       removeSlot(existingPos);
-      visibleCharacters.put(target, new CharacterSlot(characterId, movingExpression));
+      visibleCharacters.put(target, new CharacterSlot(characterId, movingExpression, resolvedLayerOrder));
       CharacterVisual visual = ensureCharacterVisual(target);
       double startOffset = positionDeltaOffset(existingPos, target);
       visual.startAnimation(1.0, 1.0, startOffset, 0.0, 0.0, 0.0, CHARACTER_MOVE_MS, false);
@@ -152,7 +164,7 @@ public class VnState {
     }
 
     removeOtherSlotsForCharacter(characterId, target);
-    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression));
+    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
     pendingExpressionSwitches.remove(target);
     CharacterVisual visual = ensureCharacterVisual(target);
     double startX = entranceOffsetX(target);
@@ -201,7 +213,7 @@ public class VnState {
           it.remove();
           continue;
         }
-        visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), pending.expression));
+        visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), pending.expression, slot.getLayerOrder()));
         CharacterVisual visual = ensureCharacterVisual(position);
         visual.startAnimation(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, CHARACTER_EXPRESSION_FADE_MS, false);
         it.remove();
@@ -323,6 +335,23 @@ public class VnState {
       case FAR_LEFT, LEFT -> -CHARACTER_TWEEN_OFFSET;
       case FAR_RIGHT, RIGHT -> CHARACTER_TWEEN_OFFSET;
       case CENTER -> 0.0;
+    };
+  }
+
+  private int resolveLayerOrder(CharacterPosition position, Integer requestedLayerOrder, Integer fallbackLayerOrder) {
+    if (requestedLayerOrder != null) return requestedLayerOrder;
+    if (fallbackLayerOrder != null) return fallbackLayerOrder;
+    return defaultLayerOrderForPosition(position);
+  }
+
+  private int defaultLayerOrderForPosition(CharacterPosition position) {
+    if (position == null) return 0;
+    return switch (position) {
+      case FAR_LEFT -> -20;
+      case LEFT -> -10;
+      case CENTER -> 0;
+      case RIGHT -> 10;
+      case FAR_RIGHT -> 20;
     };
   }
 
@@ -534,14 +563,21 @@ public class VnState {
   public static class CharacterSlot {
     private final String characterId;
     private final String expression;
+    private final int layerOrder;
 
     public CharacterSlot(String characterId, String expression) {
+      this(characterId, expression, 0);
+    }
+
+    public CharacterSlot(String characterId, String expression, int layerOrder) {
       this.characterId = characterId;
       this.expression = expression;
+      this.layerOrder = layerOrder;
     }
 
     public String getCharacterId() { return characterId; }
     public String getExpression() { return expression; }
+    public int getLayerOrder() { return layerOrder; }
   }
 
   public static class CharacterVisual {

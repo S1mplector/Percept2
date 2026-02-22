@@ -33,6 +33,8 @@ public class EntitySelector extends VBox {
     private Consumer<String> onEntitySelected;
     private Consumer<String> onCreateGroup;
     private BiConsumer<String, String> onAddToGroup;
+    private BiConsumer<String, Integer> onEntityLayerDelta;
+    private BiConsumer<String, Integer> onGroupLayerDelta;
 
     public EntitySelector() {
         setSpacing(4);
@@ -94,6 +96,8 @@ public class EntitySelector extends VBox {
     public void setOnEntitySelected(Consumer<String> callback) { this.onEntitySelected = callback; }
     public void setOnCreateGroup(Consumer<String> callback) { this.onCreateGroup = callback; }
     public void setOnAddToGroup(BiConsumer<String, String> callback) { this.onAddToGroup = callback; }
+    public void setOnEntityLayerDelta(BiConsumer<String, Integer> callback) { this.onEntityLayerDelta = callback; }
+    public void setOnGroupLayerDelta(BiConsumer<String, Integer> callback) { this.onGroupLayerDelta = callback; }
 
     public void refresh(AnimationProject project) {
         this.project = project;
@@ -181,9 +185,13 @@ public class EntitySelector extends VBox {
 
         Menu addToGroupMenu = new Menu("Add to Group");
         MenuItem removeFromGroup = new MenuItem("Remove from Group");
+        Menu layerMenu = new Menu("Layer Order");
+        MenuItem layerUp = new MenuItem("Raise (+10)");
+        MenuItem layerDown = new MenuItem("Lower (-10)");
         MenuItem deleteItem = new MenuItem("Delete");
+        layerMenu.getItems().addAll(layerUp, layerDown);
 
-        cm.getItems().addAll(addToGroupMenu, removeFromGroup, new SeparatorMenuItem(), deleteItem);
+        cm.getItems().addAll(addToGroupMenu, removeFromGroup, layerMenu, new SeparatorMenuItem(), deleteItem);
 
         cm.setOnShowing(e -> { 
             addToGroupMenu.getItems().clear();
@@ -210,6 +218,9 @@ public class EntitySelector extends VBox {
                 refresh(project);
             }
         });
+
+        layerUp.setOnAction(e -> adjustLayerOrder(+10));
+        layerDown.setOnAction(e -> adjustLayerOrder(-10));
 
         deleteItem.setOnAction(e -> {
             TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
@@ -243,6 +254,19 @@ public class EntitySelector extends VBox {
 
     private static String toDisplayValue(String value) {
         return decodeTreeValue(value);
+    }
+
+    private void adjustLayerOrder(int delta) {
+        TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
+        if (sel == null || project == null || delta == 0) return;
+
+        String encoded = sel.getValue();
+        String name = decodeTreeValue(encoded);
+        if (isEncodedGroupValue(encoded)) {
+            if (onGroupLayerDelta != null) onGroupLayerDelta.accept(name, delta);
+        } else {
+            if (onEntityLayerDelta != null) onEntityLayerDelta.accept(name, delta);
+        }
     }
 
     private class EntityTreeCell extends TreeCell<String> {

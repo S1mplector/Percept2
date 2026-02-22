@@ -137,6 +137,7 @@ public class CodeExporter {
             String entity = track.getEntityName();
 
             collectPropertyEvents(events, entity, track, PropertyType.X, PropertyType.Y, "move");
+            collectPropertyEvents(events, entity, track, PropertyType.PIVOT_X, PropertyType.PIVOT_Y, "pivot");
             collectPropertyEvents(events, entity, track, PropertyType.ROTATION, null, "rotate");
             collectPropertyEvents(events, entity, track, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale");
             collectPropertyEvents(events, entity, track, PropertyType.ALPHA, null, "fade");
@@ -198,6 +199,10 @@ public class CodeExporter {
                 case "move" -> {
                     ev.props.put("x", endVal1);
                     if (p2 != null) ev.props.put("y", endVal2);
+                }
+                case "pivot" -> {
+                    ev.props.put("ox", endVal1);
+                    if (p2 != null) ev.props.put("oy", endVal2);
                 }
                 case "rotate" -> ev.props.put("deg", endVal1);
                 case "scale" -> {
@@ -347,6 +352,8 @@ public class CodeExporter {
         switch (code) {
             case "x": return PropertyType.X;
             case "y": return PropertyType.Y;
+            case "ox": return PropertyType.PIVOT_X;
+            case "oy": return PropertyType.PIVOT_Y;
             case "deg": return PropertyType.ROTATION;
             case "sx": return PropertyType.SCALE_X;
             case "sy": return PropertyType.SCALE_Y;

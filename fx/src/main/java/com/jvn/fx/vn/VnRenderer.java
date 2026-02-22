@@ -486,6 +486,17 @@ public class VnRenderer {
     }
   }
 
+  private int positionOrdinal(CharacterPosition position) {
+    if (position == null) return 0;
+    return switch (position) {
+      case FAR_LEFT -> -2;
+      case LEFT -> -1;
+      case CENTER -> 0;
+      case RIGHT -> 1;
+      case FAR_RIGHT -> 2;
+    };
+  }
+
   private void renderBackground(VnBackground background, double width, double height) {
     Image img = loadImage(background.getImagePath());
     if (img != null) {
@@ -502,10 +513,19 @@ public class VnRenderer {
 
   private void renderCharacters(VnState state, VnScenario scenario, double width, double height) {
     Map<CharacterPosition, VnState.CharacterSlot> characters = state.getVisibleCharacters();
-    
-    for (Map.Entry<CharacterPosition, VnState.CharacterSlot> entry : characters.entrySet()) {
+
+    java.util.List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> ordered = new java.util.ArrayList<>(characters.entrySet());
+    ordered.sort(
+        java.util.Comparator
+            .comparingInt((Map.Entry<CharacterPosition, VnState.CharacterSlot> e) ->
+                e.getValue() != null ? e.getValue().getLayerOrder() : 0)
+            .thenComparingInt(e -> positionOrdinal(e.getKey()))
+    );
+
+    for (Map.Entry<CharacterPosition, VnState.CharacterSlot> entry : ordered) {
       CharacterPosition position = entry.getKey();
       VnState.CharacterSlot slot = entry.getValue();
+      if (slot == null) continue;
       VnState.CharacterVisual visual = state.getCharacterVisual(position);
       double alpha = visual != null ? visual.getAlpha() : 1.0;
       double offsetX = visual != null ? visual.getOffsetX() : 0.0;

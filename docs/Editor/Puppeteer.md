@@ -12,7 +12,7 @@ JVN has two scripting systems that operate at different abstraction levels. Unde
 
 ### JES — The Low-Level Engine Layer
 
-**JES (JVN Engine Script)** is a scene-description DSL. It directly controls 2D entities, their properties, physics, input bindings, and timelines. A JES file describes *what exists* in a scene and *how it behaves* frame-by-frame.
+**JES (JVN Engine Script)** is a scene-description DSL (Domain Specific Language). It directly controls 2D entities, their properties, physics, input bindings, and timelines. A JES file describes *what exists* in a scene and *how it behaves* frame-by-frame.
 
 ```jes
 scene "BattleIntro" {
@@ -89,16 +89,16 @@ The relationship is hierarchical:
 
 ```
 ┌─────────────────────────────────────────┐
-│                  VNS                     │
-│  (story flow, dialogue, character        │
-│   placement, choices, transitions)       │
-│                                          │
-│  Delegates animation to:                 │
-│  ┌─────────────────────────────────┐     │
-│  │              JES                │     │
-│  │  (entity properties, timelines, │     │
-│  │   keyframes, easing, physics)   │     │
-│  └─────────────────────────────────┘     │
+│                  VNS                    │
+│  (story flow, dialogue, character       │
+│   placement, choices, transitions)      │
+│                                         │
+│  Delegates animation to:                │
+│  ┌─────────────────────────────────┐    │
+│  │              JES                │    │
+│  │  (entity properties, timelines, │    │
+│  │   keyframes, easing, physics)   │    │
+│  └─────────────────────────────────┘    │
 └─────────────────────────────────────────┘
 ```
 

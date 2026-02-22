@@ -1,10 +1,16 @@
 package com.jvn.core.vn.save;
 
-import java.io.*;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * JSON-based serializer for VN save data.
@@ -76,6 +82,10 @@ public final class VnSaveSerializer {
         return sb.toString();
     }
 
+    private static String toNullableString(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
     /**
      * Deserialize save data from JSON string.
      */
@@ -118,9 +128,16 @@ public final class VnSaveSerializer {
             if (charsMap != null) {
                 for (Map.Entry<String, Object> entry : charsMap.entrySet()) {
                     @SuppressWarnings("unchecked")
-                    List<String> arr = (List<String>) entry.getValue();
+                    List<Object> arr = (List<Object>) entry.getValue();
                     if (arr != null && arr.size() >= 2) {
-                        visibleCharacters.put(entry.getKey(), new String[]{arr.get(0), arr.get(1)});
+                        String charId = toNullableString(arr.get(0));
+                        String expression = toNullableString(arr.get(1));
+                        String layer = arr.size() >= 3 ? toNullableString(arr.get(2)) : null;
+                        if (layer != null && !layer.isBlank()) {
+                            visibleCharacters.put(entry.getKey(), new String[]{charId, expression, layer});
+                        } else {
+                            visibleCharacters.put(entry.getKey(), new String[]{charId, expression});
+                        }
                     }
                 }
             }
@@ -243,6 +260,10 @@ public final class VnSaveSerializer {
                 if (arr != null && arr.length >= 2) {
                     sb.append("\"").append(escapeJson(arr[0])).append("\", ");
                     sb.append("\"").append(escapeJson(arr[1])).append("\"");
+                    if (arr.length >= 3 && arr[2] != null) {
+                        sb.append(", ");
+                        sb.append("\"").append(escapeJson(arr[2])).append("\"");
+                    }
                 }
                 sb.append("]");
                 if (i < characters.size() - 1) sb.append(",");

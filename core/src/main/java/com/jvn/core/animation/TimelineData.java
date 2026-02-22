@@ -15,7 +15,7 @@ import java.util.Map;
 public class TimelineData {
 
     public enum Property {
-        X, Y, ROTATION, SCALE_X, SCALE_Y, ALPHA
+        X, Y, Z, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, ALPHA
     }
 
     public static class Keyframe {

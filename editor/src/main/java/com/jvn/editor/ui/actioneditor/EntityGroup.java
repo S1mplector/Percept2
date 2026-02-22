@@ -11,6 +11,7 @@ public class EntityGroup {
     private final List<String> childGroupNames = new ArrayList<>();
     private final EntityTrack groupTrack;
     private boolean expanded = true;
+    private int layerOrder = 0;
 
     public EntityGroup(String name) {
         this.name = name;
@@ -25,6 +26,9 @@ public class EntityGroup {
 
     public boolean isExpanded() { return expanded; }
     public void setExpanded(boolean expanded) { this.expanded = expanded; }
+
+    public int getLayerOrder() { return layerOrder; }
+    public void setLayerOrder(int layerOrder) { this.layerOrder = layerOrder; }
 
     public EntityTrack getGroupTrack() { return groupTrack; }
 
@@ -56,6 +60,7 @@ public class EntityGroup {
         EntityGroup copy = new EntityGroup(name);
         copy.parentGroupName = parentGroupName;
         copy.expanded = expanded;
+        copy.layerOrder = layerOrder;
         copy.childEntityNames.addAll(childEntityNames);
         copy.childGroupNames.addAll(childGroupNames);
         for (PropertyType p : PropertyType.values()) {
