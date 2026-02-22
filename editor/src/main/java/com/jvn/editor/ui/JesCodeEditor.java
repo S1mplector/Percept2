@@ -1,27 +1,28 @@
 package com.jvn.editor.ui;
 
-import javafx.scene.layout.BorderPane;
-import org.fxmisc.richtext.CodeArea;
-import org.fxmisc.richtext.LineNumberFactory;
-import org.fxmisc.flowless.VirtualizedScrollPane;
-import org.fxmisc.richtext.model.StyleSpans;
-import org.fxmisc.richtext.model.StyleSpansBuilder;
-
+import java.io.File;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.ArrayList;
-import java.util.List;
-import java.io.File;
-import javafx.application.Platform;
-import javafx.scene.control.Label;
-import javafx.scene.layout.VBox;
+
+import org.fxmisc.flowless.VirtualizedScrollPane;
+import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.richtext.model.StyleSpans;
+import org.fxmisc.richtext.model.StyleSpansBuilder;
 
 import com.jvn.scripting.jes.JesParseException;
 import com.jvn.scripting.jes.JesParser;
 import com.jvn.scripting.jes.JesToken;
 import com.jvn.scripting.jes.JesTokenizer;
+
+import javafx.application.Platform;
+import javafx.scene.control.Label;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.VBox;
 
 public class JesCodeEditor extends BorderPane {
   private final CodeArea codeArea = new CodeArea();
@@ -31,6 +32,8 @@ public class JesCodeEditor extends BorderPane {
   private int lastErrorLine = -1;
   private final List<String> cachedEntities = new ArrayList<>();
   private final List<String> cachedLabels = new ArrayList<>();
+  private Consumer<String> onTextChanged;
+  private boolean suppressTextChanged = false;
 
   private static final String[] KEYWORDS = new String[] {
     "scene","entity","component","on","key","do","timeline",
@@ -67,6 +70,9 @@ public class JesCodeEditor extends BorderPane {
       applyHighlighting(newText);
       lint(newText);
       cacheNames(newText);
+      if (!suppressTextChanged && onTextChanged != null) {
+        onTextChanged.accept(newText);
+      }
     });
     applyHighlighting("");
     lint("");
@@ -89,7 +95,15 @@ public class JesCodeEditor extends BorderPane {
   public String getText() { return codeArea.getText(); }
   public void setText(String s) { codeArea.replaceText(s == null ? "" : s); }
   public void setProjectRoot(File root) { this.projectRoot = root; if (completer != null) completer.setProjectRoot(root); }
-  public void setTextNoEvent(String s) { codeArea.replaceText(s == null ? "" : s); }
+  public void setTextNoEvent(String s) {
+    try {
+      suppressTextChanged = true;
+      codeArea.replaceText(s == null ? "" : s);
+    } finally {
+      suppressTextChanged = false;
+    }
+  }
+  public void setOnTextChanged(Consumer<String> listener) { this.onTextChanged = listener; }
 
   private void applyHighlighting(String text) {
     codeArea.setStyleSpans(0, computeHighlighting(text == null ? "" : text));

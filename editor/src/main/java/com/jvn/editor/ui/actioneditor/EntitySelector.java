@@ -21,6 +21,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
 public class EntitySelector extends VBox {
+    private static final String GROUP_PREFIX = "__group__:";
+
     private final TextField filterField;
     private final TreeView<String> treeView;
     private final TreeItem<String> rootItem;
@@ -59,7 +61,7 @@ public class EntitySelector extends VBox {
         treeView.setCellFactory(tv -> new EntityTreeCell());
         treeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && onEntitySelected != null) {
-                onEntitySelected.accept(newVal.getValue());
+                onEntitySelected.accept(decodeTreeValue(newVal.getValue()));
             }
         });
 
@@ -122,7 +124,7 @@ public class EntitySelector extends VBox {
 
     private TreeItem<String> buildGroupItem(String groupName) {
         EntityGroup group = project.getGroup(groupName);
-        TreeItem<String> item = new TreeItem<>("📁 " + groupName);
+        TreeItem<String> item = new TreeItem<>(encodeGroupValue(groupName));
         item.setExpanded(group != null && group.isExpanded());
 
         if (group != null) {
@@ -156,7 +158,7 @@ public class EntitySelector extends VBox {
     }
 
     private boolean matchesFilter(TreeItem<String> item, String query) {
-        if (item.getValue().toLowerCase().contains(query)) return true;
+        if (toDisplayValue(item.getValue()).toLowerCase().contains(query)) return true;
         for (TreeItem<String> child : item.getChildren()) {
             if (matchesFilter(child, query)) return true;
         }
@@ -191,7 +193,7 @@ public class EntitySelector extends VBox {
                     mi.setOnAction(ev -> {
                         TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
                         if (sel != null && onAddToGroup != null) {
-                            String name = sel.getValue().replace("📁 ", "");
+                            String name = decodeTreeValue(sel.getValue());
                             onAddToGroup.accept(name, g.getName());
                         }
                     });
@@ -203,7 +205,7 @@ public class EntitySelector extends VBox {
         removeFromGroup.setOnAction(e -> {
             TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
             if (sel != null && project != null) {
-                String name = sel.getValue().replace("📁 ", "");
+                String name = decodeTreeValue(sel.getValue());
                 project.removeEntityFromGroup(name);
                 refresh(project);
             }
@@ -212,8 +214,9 @@ public class EntitySelector extends VBox {
         deleteItem.setOnAction(e -> {
             TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
             if (sel != null && project != null) {
-                String name = sel.getValue().replace("📁 ", "");
-                if (project.getGroup(name) != null) {
+                String encoded = sel.getValue();
+                String name = decodeTreeValue(encoded);
+                if (isEncodedGroupValue(encoded)) {
                     project.removeGroup(name);
                 } else {
                     project.removeTrack(name);
@@ -225,6 +228,23 @@ public class EntitySelector extends VBox {
         treeView.setContextMenu(cm);
     }
 
+    private static String encodeGroupValue(String name) {
+        return GROUP_PREFIX + name;
+    }
+
+    private static boolean isEncodedGroupValue(String value) {
+        return value != null && value.startsWith(GROUP_PREFIX);
+    }
+
+    private static String decodeTreeValue(String value) {
+        if (value == null) return "";
+        return isEncodedGroupValue(value) ? value.substring(GROUP_PREFIX.length()) : value;
+    }
+
+    private static String toDisplayValue(String value) {
+        return decodeTreeValue(value);
+    }
+
     private class EntityTreeCell extends TreeCell<String> {
         @Override
         protected void updateItem(String item, boolean empty) {
@@ -233,8 +253,8 @@ public class EntitySelector extends VBox {
                 setText(null);
                 setGraphic(null);
             } else {
-                setText(item);
-                if (item.startsWith("📁")) {
+                setText(isEncodedGroupValue(item) ? "📁 " + toDisplayValue(item) : toDisplayValue(item));
+                if (isEncodedGroupValue(item)) {
                     setTextFill(Color.web("#f0b673"));
                 } else {
                     setTextFill(Color.web("#e6e6e6"));

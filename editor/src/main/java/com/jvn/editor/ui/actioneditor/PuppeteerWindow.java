@@ -426,7 +426,19 @@ public class PuppeteerWindow extends Stage {
         if (scene == null) return;
 
         double time = project.getPlayheadMs();
+        boolean cameraApplied = false;
         for (EntityTrack track : project.getTracks()) {
+            if (!cameraApplied && (track.hasKeyframes(PropertyType.CAMERA_X)
+                    || track.hasKeyframes(PropertyType.CAMERA_Y)
+                    || track.hasKeyframes(PropertyType.CAMERA_ZOOM))) {
+                double cx = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_X, time);
+                double cy = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_Y, time);
+                double zoom = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_ZOOM, time);
+                animationPreview.getCamera().setPosition(cx, cy);
+                animationPreview.getCamera().setZoom(zoom);
+                cameraApplied = true;
+            }
+
             var entity = scene.find(track.getEntityName());
             if (entity == null) continue;
 
@@ -455,6 +467,7 @@ public class PuppeteerWindow extends Stage {
 
     private void setEntityAlpha(com.jvn.core.scene2d.Entity2D entity, double alpha) {
         if (entity instanceof com.jvn.core.scene2d.Sprite2D s) s.setAlpha(alpha);
+        else if (entity instanceof com.jvn.core.scene2d.SpriteAnimation2D a) a.setAlpha(alpha);
         else if (entity instanceof com.jvn.core.scene2d.Label2D l) 
             l.setColor(l.getColorR(), l.getColorG(), l.getColorB(), alpha);
         else if (entity instanceof com.jvn.core.scene2d.Panel2D p)

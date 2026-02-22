@@ -9,6 +9,7 @@ import java.util.TreeMap;
 import com.jvn.core.animation.Easing;
 
 public class CodeExporter {
+    private static final double TIME_QUANTIZATION_FACTOR = 1000.0; // 0.001ms
 
     public static String exportNamed(AnimationProject project, String name) {
         String body = export(project);
@@ -17,6 +18,21 @@ public class CodeExporter {
         sb.append("// Usage in VNS: @external jes_timeline ").append(name).append("\n\n");
         sb.append(body);
         return sb.toString();
+    }
+
+    private static List<Double> collectUniqueTimes(List<Keyframe> list1, List<Keyframe> list2) {
+        Map<Long, Double> timeMap = new TreeMap<>();
+        for (Keyframe kf : list1) {
+            long key = Math.round(kf.getTimeMs() * TIME_QUANTIZATION_FACTOR);
+            timeMap.putIfAbsent(key, kf.getTimeMs());
+        }
+        if (list2 != null) {
+            for (Keyframe kf : list2) {
+                long key = Math.round(kf.getTimeMs() * TIME_QUANTIZATION_FACTOR);
+                timeMap.putIfAbsent(key, kf.getTimeMs());
+            }
+        }
+        return new ArrayList<>(timeMap.values());
     }
 
     public static String export(AnimationProject project) {
@@ -145,16 +161,7 @@ public class CodeExporter {
 
         if (list1.isEmpty() && (list2 == null || list2.isEmpty())) return;
 
-        List<Double> times = new ArrayList<>();
-        for (Keyframe kf : list1) {
-            if (!times.contains(kf.getTimeMs())) times.add(kf.getTimeMs());
-        }
-        if (list2 != null) {
-            for (Keyframe kf : list2) {
-                if (!times.contains(kf.getTimeMs())) times.add(kf.getTimeMs());
-            }
-        }
-        times.sort(Double::compare);
+        List<Double> times = collectUniqueTimes(list1, list2);
 
         for (int i = 0; i < times.size() - 1; i++) {
             double startTime = times.get(i);

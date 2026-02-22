@@ -110,8 +110,7 @@ public class TimelinePanel extends VBox {
 
     public void addKeyframeAtTime(double time) {
         if (selectedEntity == null || selectedProperty == null) return;
-        EntityTrack track = project.getTrack(selectedEntity);
-        if (track == null) return;
+        EntityTrack track = project.getOrCreateTrack(selectedEntity);
 
         time = Math.max(0, time);
         double value = track.getValueAt(selectedProperty, time);
@@ -168,7 +167,7 @@ public class TimelinePanel extends VBox {
 
         drawTimeRuler(gc, w);
         drawLoopRegion(gc, w, h);
-        drawTracks(gc, w, h);
+        drawTracks(gc, w);
         drawAudioCues(gc, w, h);
         drawPlayhead(gc, h);
     }
@@ -199,7 +198,7 @@ public class TimelinePanel extends VBox {
         gc.strokeLine(LABEL_WIDTH, HEADER_HEIGHT, width, HEADER_HEIGHT);
     }
 
-    private void drawTracks(GraphicsContext gc, double width, double height) {
+    private void drawTracks(GraphicsContext gc, double width) {
         double y = HEADER_HEIGHT - scrollY;
 
         for (EntityTrack track : project.getTracks()) {
@@ -401,6 +400,7 @@ public class TimelinePanel extends VBox {
     }
 
     private void handleMouseReleased(MouseEvent e) {
+        e.consume();
         if (draggingKeyframe && selectedEntity != null && selectedProperty != null) {
             EntityTrack track = project.getTrack(selectedEntity);
             if (track != null) track.sortKeyframes(selectedProperty);

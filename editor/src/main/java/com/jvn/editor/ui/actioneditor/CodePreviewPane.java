@@ -18,6 +18,7 @@ public class CodePreviewPane extends VBox {
     private Runnable onCopy;
     private Runnable onRegenerate;
     private boolean manuallyEdited = false;
+    private boolean suppressManualEditTracking = false;
 
     private static final String STYLE_BTN_ACCENT =
         "-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
@@ -39,6 +40,11 @@ public class CodePreviewPane extends VBox {
         lblStatus.setStyle("-fx-text-fill: #555; -fx-font-size: 9px;");
 
         jesEditor = new JesCodeEditor();
+        jesEditor.setOnTextChanged(text -> {
+            if (!suppressManualEditTracking) {
+                markManuallyEdited();
+            }
+        });
         VBox.setVgrow(jesEditor, Priority.ALWAYS);
 
         btnCopy = new Button("Copy to Clipboard");
@@ -68,7 +74,12 @@ public class CodePreviewPane extends VBox {
 
     public void setCode(String code) {
         if (manuallyEdited) return;
-        jesEditor.setText(code != null ? code : "");
+        try {
+            suppressManualEditTracking = true;
+            jesEditor.setTextNoEvent(code != null ? code : "");
+        } finally {
+            suppressManualEditTracking = false;
+        }
     }
 
     public String getCode() {

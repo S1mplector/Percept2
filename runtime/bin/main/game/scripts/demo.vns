@@ -1,0 +1,51 @@
+# JVN Runtime Demo Prologue
+
+@scenario runtime_demo_prologue
+@character narrator "Narrator"
+@character hero "Hero"
+@character guide "Guide"
+@background classroom game/images/backgrounds/classroom_day.png
+@background sunset game/images/backgrounds/sunset_street.png
+
+@label start
+[bg classroom]
+[transition fade 400]
+[set playerName Player]
+[set courage 0]
+
+Narrator: Welcome to {b}JVN Runtime{/b}.
+Narrator: This short prologue showcases branching, variables, transitions, and text effects.
+Hero: I'm {color=#4a9eff}${playerName}{/color}. Want a quick tour?
+[show hero center neutral]
+
+> Show me around -> tour
+> Skip to ending -> speedrun
+
+@label tour
+[inc courage 1]
+[show guide right smile]
+Guide: Great. Here's {wave}smooth motion{/wave} plus a {shake}dramatic hit{/shake}.
+[screen flash 0.35 160 1 1 1]
+Narrator: Choice conditions can depend on variables.
+
+> Step forward confidently [if courage >= 1] -> brave
+> Stay cautious -> cautious
+
+@label brave
+[transition crossfade 700 sunset]
+Hero: Nice. This is where your own chapter can begin.
+Narrator: Replace this script with your story and your assets.
+[jump ending]
+
+@label cautious
+Hero: Let's keep it simple and move on.
+Narrator: You can expand this scene in the editor at any time.
+[jump ending]
+
+@label speedrun
+Narrator: Speedrun accepted.
+[jump ending]
+
+@label ending
+Narrator: {wave}The End{/wave} - now build your VN.
+[end]

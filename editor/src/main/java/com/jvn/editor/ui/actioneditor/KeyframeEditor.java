@@ -29,6 +29,9 @@ public class KeyframeEditor extends VBox {
     private static final String FIELD_STYLE =
         "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
         "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";
+    private static final String FIELD_STYLE_ERROR =
+        "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #e05577; " +
+        "-fx-border-width: 1.5; -fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";
 
     private final Label lblEmptyHint;
     private final GridPane grid;
@@ -223,19 +226,34 @@ public class KeyframeEditor extends VBox {
     private void applyChanges() {
         if (currentKeyframe == null) return;
 
+        boolean hasError = false;
         try {
             double time = Double.parseDouble(tfTime.getText());
             currentKeyframe.setTimeMs(time);
-        } catch (NumberFormatException ignored) {}
+            setFieldError(tfTime, false);
+        } catch (NumberFormatException ignored) {
+            setFieldError(tfTime, true);
+            hasError = true;
+        }
 
         try {
             double value = Double.parseDouble(tfValue.getText());
             currentKeyframe.setValue(value);
-        } catch (NumberFormatException ignored) {}
+            setFieldError(tfValue, false);
+        } catch (NumberFormatException ignored) {
+            setFieldError(tfValue, true);
+            hasError = true;
+        }
+
+        if (hasError) return;
 
         currentKeyframe.setEasing(cbEasing.getValue());
 
         if (onKeyframeChanged != null) onKeyframeChanged.run();
+    }
+
+    private void setFieldError(TextField field, boolean error) {
+        field.setStyle(error ? FIELD_STYLE_ERROR : FIELD_STYLE);
     }
 
     private void configureSliderForProperty(PropertyType prop) {
