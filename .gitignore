@@ -8,6 +8,7 @@ build/
 .idea/
 *.iml
 out/
+**/bin/
 
 # Eclipse
 .project
