@@ -40,6 +40,7 @@ public class VnsCodeEditor extends BorderPane {
   private int highlightedIssueLine = -1;
   private boolean highlightedIssueWarning = false;
   private Consumer<String> onTextChanged;
+  private Consumer<String> onLaunchFromHere;
   private EditorSearchBar searchBar;
   private boolean searchBarVisible = false;
 
@@ -113,12 +114,36 @@ public class VnsCodeEditor extends BorderPane {
     setupSearchBar();
 
     codeArea.setOnContextMenuRequested(e -> {
+      ContextMenu menu = new ContextMenu();
+      // Launch from here
+      MenuItem launchItem = new MenuItem("Launch from here (F5)");
+      launchItem.setOnAction(a -> launchFromHere());
+      menu.getItems().add(launchItem);
+      MenuItem launchStartItem = new MenuItem("Launch from start (Shift+F5)");
+      launchStartItem.setOnAction(a -> { if (onLaunchFromHere != null) onLaunchFromHere.accept(null); });
+      menu.getItems().add(launchStartItem);
+      // Quick-fix items
       Issue issue = issueAt(codeArea.getCaretPosition());
-      if (issue == null) return;
-      ContextMenu menu = buildQuickFixMenu(issue);
-      if (menu.getItems().isEmpty()) return;
+      if (issue != null) {
+        ContextMenu fixMenu = buildQuickFixMenu(issue);
+        if (!fixMenu.getItems().isEmpty()) {
+          menu.getItems().add(new javafx.scene.control.SeparatorMenuItem());
+          menu.getItems().addAll(fixMenu.getItems());
+        }
+      }
       menu.show(codeArea, e.getScreenX(), e.getScreenY());
       e.consume();
+    });
+
+    addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+      if (e.getCode() == KeyCode.F5 && !e.isControlDown() && !e.isMetaDown()) {
+        if (e.isShiftDown()) {
+          if (onLaunchFromHere != null) onLaunchFromHere.accept(null);
+        } else {
+          launchFromHere();
+        }
+        e.consume();
+      }
     });
 
     applyAnalysis("");
@@ -176,6 +201,28 @@ public class VnsCodeEditor extends BorderPane {
 
   public void setOnTextChanged(Consumer<String> listener) {
     this.onTextChanged = listener;
+  }
+
+  public void setOnLaunchFromHere(Consumer<String> listener) {
+    this.onLaunchFromHere = listener;
+  }
+
+  private static final Pattern LABEL_SCAN_PATTERN = Pattern.compile("^\\s*@label\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
+
+  private void launchFromHere() {
+    if (onLaunchFromHere == null) return;
+    int cursorLine = codeArea.getCurrentParagraph(); // 0-based
+    String text = codeArea.getText();
+    if (text == null || text.isEmpty()) { onLaunchFromHere.accept(null); return; }
+    String[] lines = text.split("\\n", -1);
+    for (int i = Math.min(cursorLine, lines.length - 1); i >= 0; i--) {
+      Matcher m = LABEL_SCAN_PATTERN.matcher(lines[i]);
+      if (m.find()) {
+        onLaunchFromHere.accept(m.group(1));
+        return;
+      }
+    }
+    onLaunchFromHere.accept(null);
   }
 
   public int getCurrentLine() {

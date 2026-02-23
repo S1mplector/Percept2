@@ -21,6 +21,7 @@ public class VnNode {
   private final String showExpression;
   private final Integer showLayerOrder;
   private final VnExternalCommand externalCommand;
+  private final int sourceLine;
 
   private VnNode(Builder builder) {
     this.type = builder.type;
@@ -37,6 +38,7 @@ public class VnNode {
     this.showExpression = builder.showExpression;
     this.showLayerOrder = builder.showLayerOrder;
     this.externalCommand = builder.externalCommand;
+    this.sourceLine = builder.sourceLine;
   }
 
   public VnNodeType getType() { return type; }
@@ -53,6 +55,7 @@ public class VnNode {
   public String getShowExpression() { return showExpression; }
   public Integer getShowLayerOrder() { return showLayerOrder; }
   public VnExternalCommand getExternalCommand() { return externalCommand; }
+  public int getSourceLine() { return sourceLine; }
 
   public static Builder builder(VnNodeType type) { return new Builder(type); }
 
@@ -71,6 +74,7 @@ public class VnNode {
     private String showExpression = "neutral";
     private Integer showLayerOrder;
     private VnExternalCommand externalCommand;
+    private int sourceLine;
 
     private Builder(VnNodeType type) { this.type = type; }
 
@@ -87,6 +91,7 @@ public class VnNode {
     public Builder showExpression(String expr) { this.showExpression = expr; return this; }
     public Builder showLayerOrder(Integer layerOrder) { this.showLayerOrder = layerOrder; return this; }
     public Builder external(VnExternalCommand cmd) { this.externalCommand = cmd; return this; }
+    public Builder sourceLine(int line) { this.sourceLine = line; return this; }
     public VnNode build() { return new VnNode(this); }
   }
 }

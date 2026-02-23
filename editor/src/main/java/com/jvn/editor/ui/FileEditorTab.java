@@ -103,6 +103,10 @@ public class FileEditorTab extends BorderPane {
       viewport.setOnStatus(s -> { if (onStatus != null) onStatus.accept(s); });
     }
     
+    if (vnsEditor != null) {
+      vnsEditor.setOnLaunchFromHere(this::runFromLabel);
+    }
+
     setupLayout();
 
     if (file != null && file.exists()) reloadFromDisk();
