@@ -340,14 +340,14 @@ public class WelcomeCenterView extends BorderPane {
     boolean gitAvailable = vcs.isGitAvailable();
     if (!gitAvailable) {
       return new HealthRow(
-          Severity.ERROR,
+          Severity.INFO,
           "Git",
           "Git is not available on PATH",
-          "Install Git to enable team workflows and repository operations."
+          "Optional feature: install Git only if you plan to use version-control workflows."
       );
     }
     return new HealthRow(
-        Severity.OK,
+      Severity.OK,
         "Git",
         "Git is available",
         "Version-control prerequisites are satisfied."
@@ -424,16 +424,23 @@ public class WelcomeCenterView extends BorderPane {
     if (menuTheme != null && !menuTheme.isBlank()) requireProjectFile(project, menuTheme, missing);
 
     boolean gitEnabled = Boolean.parseBoolean(manifest.getProperty("vcs.git.enabled", "false"));
-    if (gitEnabled && !Files.isDirectory(project.resolve(".git"))) {
-      missing.add(".git (repository requested by manifest)");
-    }
+    boolean gitRepoMissing = gitEnabled && !Files.isDirectory(project.resolve(".git"));
 
-    if (missing.isEmpty()) {
+    if (missing.isEmpty() && !gitRepoMissing) {
       return new HealthRow(
           Severity.OK,
           "Project Artifacts",
           "All referenced project artifacts are present",
           "Manifest paths and generated config/script files resolve correctly."
+      );
+    }
+
+    if (missing.isEmpty()) {
+      return new HealthRow(
+          Severity.WARN,
+          "Project Artifacts",
+          "Core project files are present; Git repository not initialized",
+          "Version-control metadata is optional. Initialize Git from the Version Control panel if needed."
       );
     }
 

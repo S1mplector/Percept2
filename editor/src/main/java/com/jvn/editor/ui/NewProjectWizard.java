@@ -47,7 +47,7 @@ public class NewProjectWizard extends Stage {
 
   // Result
   private File createdProjectDir = null;
-  private String postCreateWarning = null;
+  private final boolean gitAvailable;
 
   // Form fields
   private TextField txtProjectName;
@@ -108,6 +108,7 @@ public class NewProjectWizard extends Stage {
     setMinWidth(860);
     setMinHeight(680);
     setResizable(true);
+    gitAvailable = new GitVcsService().isGitAvailable();
 
     BorderPane root = new BorderPane();
     root.setStyle("-fx-background-color: " + BG_DARK + ";");
@@ -395,15 +396,22 @@ public class NewProjectWizard extends Stage {
     VBox box = new VBox(10);
 
     Label intro = new Label(
-        "Prerequisite: `git` installed/configured on the machine. " +
-        "Wizard will scaffold `.gitignore` defaults."
+        "Optional: enable Git initialization for team workflows. " +
+        "If disabled (or unavailable), project creation is unaffected."
     );
     intro.setWrapText(true);
     intro.setTextFill(Color.web(TEXT_SECONDARY));
     intro.setFont(Font.font(Font.getDefault().getFamily(), 12));
 
-    chkGitInit = createCheckBox("Initialize Git repository", true);
-    chkInitialCommit = createCheckBox("Create initial commit", true);
+    chkGitInit = createCheckBox("Initialize Git repository", false);
+    chkInitialCommit = createCheckBox("Create initial commit", false);
+
+    if (!gitAvailable) {
+      chkGitInit.setSelected(false);
+      chkInitialCommit.setSelected(false);
+      chkGitInit.setDisable(true);
+      chkInitialCommit.setDisable(true);
+    }
 
     chkGitInit.selectedProperty().addListener((o, ov, nv) -> {
       boolean enabled = nv != null && nv;
@@ -419,7 +427,9 @@ public class NewProjectWizard extends Stage {
     chkInitialCommit.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
 
     Label note = new Label(
-        "Default ignore patterns are optimized for JVN projects and generated runtime files."
+        gitAvailable
+            ? "Default ignore patterns are optimized for JVN projects and generated runtime files."
+            : "Git is not detected on PATH. You can still create and run projects normally."
     );
     note.setWrapText(true);
     note.setTextFill(Color.web(TEXT_MUTED));
@@ -703,7 +713,7 @@ public class NewProjectWizard extends Stage {
   }
 
   private boolean shouldSetupGit() {
-    return chkGitInit != null && chkGitInit.isSelected();
+    return gitAvailable && chkGitInit != null && chkGitInit.isSelected();
   }
 
   private boolean shouldCreateInitialCommit() {
@@ -742,12 +752,8 @@ public class NewProjectWizard extends Stage {
     }
 
     try {
-      postCreateWarning = null;
       createProjectStructure(projectDir, displayName);
       createdProjectDir = projectDir;
-      if (postCreateWarning != null && !postCreateWarning.isBlank()) {
-        showWarning(postCreateWarning);
-      }
       close();
     } catch (Exception ex) {
       showError("Failed to create project: " + ex.getMessage());
@@ -800,24 +806,9 @@ public class NewProjectWizard extends Stage {
             vcs.bootstrapRepository(dir, false, commitMessage);
             gitEnabled = true;
             gitInitialCommit = false;
-            appendPostCreateWarning(
-                "Project was created, but the Git initial commit was skipped.\n"
-                    + "Configure identity and commit manually:\n"
-                    + "git config --global user.name \"Your Name\"\n"
-                    + "git config --global user.email \"you@example.com\"\n\n"
-                    + "Git detail: " + summarizeGitFailure(ex)
-            );
-          } catch (GitVcsService.GitVcsException fallbackEx) {
-            appendPostCreateWarning(
-                "Project was created, but Git setup was skipped.\n\n"
-                    + "Git detail: " + summarizeGitFailure(fallbackEx)
-            );
+          } catch (GitVcsService.GitVcsException ignored) {
+            // Non-fatal: project creation should never fail due to Git state.
           }
-        } else {
-          appendPostCreateWarning(
-              "Project was created, but Git setup was skipped.\n\n"
-                  + "Git detail: " + summarizeGitFailure(ex)
-          );
         }
       }
     }
@@ -1478,32 +1469,6 @@ public class NewProjectWizard extends Stage {
     alert.setHeaderText(null);
     alert.setContentText(message);
     alert.showAndWait();
-  }
-
-  private void showWarning(String message) {
-    Alert alert = new Alert(Alert.AlertType.WARNING);
-    EditorTheme.apply(alert);
-    alert.setTitle("Project Created with Warnings");
-    alert.setHeaderText("Project was created successfully");
-    alert.setContentText(message);
-    alert.showAndWait();
-  }
-
-  private void appendPostCreateWarning(String warning) {
-    if (warning == null || warning.isBlank()) return;
-    if (postCreateWarning == null || postCreateWarning.isBlank()) {
-      postCreateWarning = warning.trim();
-    } else {
-      postCreateWarning = postCreateWarning + "\n\n" + warning.trim();
-    }
-  }
-
-  private String summarizeGitFailure(GitVcsService.GitVcsException ex) {
-    if (ex == null) return "Unknown git error.";
-    String message = ex.getMessage();
-    if (message == null || message.isBlank()) return "Unknown git error.";
-    String[] lines = message.split("\\R");
-    return lines.length == 0 ? message.trim() : lines[0].trim();
   }
 
   /**
