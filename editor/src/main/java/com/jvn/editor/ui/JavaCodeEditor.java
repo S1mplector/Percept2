@@ -22,6 +22,7 @@ public class JavaCodeEditor extends BorderPane {
   private boolean suppressEvent = false;
   private EditorSearchBar searchBar;
   private boolean searchBarVisible = false;
+  private boolean dslMode = false;
 
   private static final String[] KEYWORDS = new String[] {
     "abstract","assert","boolean","break","byte","case","catch","char","class","const","continue",
@@ -123,8 +124,22 @@ public class JavaCodeEditor extends BorderPane {
   }
   public void setOnTextChanged(Consumer<String> c) { this.onTextChanged = c; }
 
+  /**
+   * Switch this editor to DSL properties-based syntax highlighting
+   * instead of Java keyword highlighting. Call once after construction.
+   */
+  public void useDslHighlighting() {
+    dslMode = true;
+    applyHighlighting(codeArea.getText());
+  }
+
   private void applyHighlighting(String text) {
-    codeArea.setStyleSpans(0, computeHighlighting(text == null ? "" : text));
+    String safe = text == null ? "" : text;
+    if (dslMode) {
+      codeArea.setStyleSpans(0, DslSyntaxHighlighter.properties().computeHighlighting(safe));
+    } else {
+      codeArea.setStyleSpans(0, computeHighlighting(safe));
+    }
   }
 
   private static StyleSpans<Collection<String>> computeHighlighting(String text) {

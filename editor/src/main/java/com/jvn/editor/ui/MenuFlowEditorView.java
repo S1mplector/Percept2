@@ -75,20 +75,20 @@ public class MenuFlowEditorView extends BorderPane {
   private final Label selectedFileLabel = new Label("File: -");
   private final Label wireModeLabel = new Label("Wire mode: Off");
 
-  private final Button refreshButton = new Button("Refresh");
-  private final Button validateButton = new Button("Validate");
-  private final Button saveSelectedButton = new Button("Save Screen");
-  private final Button saveAllButton = new Button("Save All");
-  private final Button autoLayoutButton = new Button("Auto Layout");
-  private final Button openButton = new Button("Open Screen");
-  private final Button addScreenButton = new Button("Add Screen");
+  private final Button refreshButton = iconBtn("Refresh", CssIcon.redo("#7ec8e3"));
+  private final Button validateButton = iconBtn("Validate", CssIcon.check("#8cd48c"));
+  private final Button saveSelectedButton = iconBtn("Save Screen", CssIcon.save("#a8d0f0"));
+  private final Button saveAllButton = iconBtn("Save All", CssIcon.save("#d4a8e8"));
+  private final Button autoLayoutButton = iconBtn("Auto Layout", CssIcon.grid("#e8c8a8"));
+  private final Button openButton = iconBtn("Open Screen", CssIcon.expand("#7ec8e3"));
+  private final Button addScreenButton = iconBtn("Add Screen", CssIcon.plus("#8cd48c"));
 
-  private final Button wireOpenButton = new Button("Wire OPEN_MENU");
-  private final Button setMainButton = new Button("Set MAIN_MENU");
-  private final Button setBackButton = new Button("Set BACK");
-  private final Button clearTargetButton = new Button("Clear Target");
-  private final Button addItemButton = new Button("Add Item");
-  private final Button removeItemButton = new Button("Remove Item");
+  private final Button wireOpenButton = iconBtn("Wire OPEN_MENU", CssIcon.link("#e8c8a8"));
+  private final Button setMainButton = iconBtn("Set MAIN_MENU", CssIcon.home("#a8d0f0"));
+  private final Button setBackButton = iconBtn("Set BACK", CssIcon.undo("#d4a8e8"));
+  private final Button clearTargetButton = iconBtn("Clear Target", CssIcon.clearX("#f0a080"));
+  private final Button addItemButton = iconBtn("Add Item", CssIcon.plus("#8cd48c"));
+  private final Button removeItemButton = iconBtn("Remove Item", CssIcon.minus("#f0a080"));
 
   private final TableView<MenuItemModel> itemTable = new TableView<>();
   private final TextArea diagnosticsArea = new TextArea();
@@ -1307,5 +1307,11 @@ public class MenuFlowEditorView extends BorderPane {
     String getTarget() { return target.get(); }
     void setTarget(String value) { target.set(normalize(value, "")); }
     StringProperty targetProperty() { return target; }
+  }
+
+  private static Button iconBtn(String text, Region icon) {
+    Button btn = new Button(text);
+    btn.setGraphic(icon);
+    return btn;
   }
 }

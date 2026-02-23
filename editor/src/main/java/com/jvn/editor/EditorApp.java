@@ -109,6 +109,9 @@ public class EditorApp extends Application {
   private final CommandStack commands = new CommandStack();
   private TabPane leftTabs;
   private TabPane rightTabs;
+  private SplitPane centerSplit;
+  private boolean editorFullscreen;
+  private double[] savedCenterDividers;
   private WelcomeCenterView welcomeView;
   private Tab tabWelcome;
   private Tab tabProject;
@@ -713,9 +716,10 @@ public class EditorApp extends Application {
     installAddTabBehavior(leftTabs, tabLeftAdd, this::showLeftAddMenu);
     leftTabs.getSelectionModel().select(tabProject);
     leftTabs.setPrefWidth(300);
-    SplitPane centerSplit = new SplitPane();
+    centerSplit = new SplitPane();
     centerSplit.getItems().addAll(leftTabs, filesTabs, rightTabs);
     centerSplit.setDividerPositions(0.22, 0.78);
+    savedCenterDividers = new double[]{0.22, 0.78};
     root.setLeft(null);
     root.setRight(null);
     root.setCenter(centerSplit);
@@ -847,14 +851,21 @@ public class EditorApp extends Application {
   }
 
   private void toggleActiveEditorFullscreen() {
-    FileEditorTab ft = getActiveFileTab();
-    if (ft == null) return;
-    if (!ft.supportsEditorFullscreenToggle()) {
-      status.setText("Editor already uses full area");
-      return;
+    if (centerSplit == null) return;
+    if (!editorFullscreen) {
+      // Save current divider positions and collapse sidebars
+      savedCenterDividers = centerSplit.getDividerPositions().clone();
+      centerSplit.setDividerPositions(0.0, 1.0);
+      editorFullscreen = true;
+      status.setText("Editor fullscreen — press F11 or Fullscreen to restore");
+    } else {
+      // Restore saved divider positions
+      double left = savedCenterDividers != null && savedCenterDividers.length >= 2 ? savedCenterDividers[0] : 0.22;
+      double right = savedCenterDividers != null && savedCenterDividers.length >= 2 ? savedCenterDividers[1] : 0.78;
+      centerSplit.setDividerPositions(Math.max(0.05, left), Math.min(0.95, right));
+      editorFullscreen = false;
+      status.setText("Editor layout restored");
     }
-    ft.toggleEditorFullscreen();
-    status.setText(ft.isEditorFullscreen() ? "Editor fullscreen enabled" : "Editor split layout restored");
   }
 
   private void doSave(Stage stage) {

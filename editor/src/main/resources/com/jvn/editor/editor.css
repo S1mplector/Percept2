@@ -90,22 +90,28 @@
    -fx-background-color: rgba(77, 163, 255, 0.10);
  }
 
- .keyword { -fx-fill: #4da3ff; -fx-font-weight: bold; }
+ .code-area .keyword { -fx-fill: #4da3ff; -fx-font-weight: bold; }
 
- .string { -fx-fill: #9ed67a; }
+ .code-area .string { -fx-fill: #9ed67a; }
 
- .number { -fx-fill: #f0b673; }
+ .code-area .number { -fx-fill: #f0b673; }
 
- .comment { -fx-fill: #777777; }
+ .code-area .comment { -fx-fill: #777777; }
 
- .punct { -fx-fill: #8ab4f8; }
+ .code-area .punct { -fx-fill: #8ab4f8; }
 
-.error {
+ .code-area .prop-key { -fx-fill: #c792ea; }
+
+ .code-area .directive { -fx-fill: #89ddff; -fx-font-weight: bold; }
+
+ .code-area .value { -fx-fill: #c3e88d; }
+
+.code-area .error {
   -fx-underline: true;
   -fx-fill: #f38ba8; /* red accent */
 }
 
-.warning {
+.code-area .warning {
   -fx-underline: true;
   -fx-fill: #f0b673;
 }

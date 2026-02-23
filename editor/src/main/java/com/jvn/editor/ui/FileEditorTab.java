@@ -83,11 +83,11 @@ public class FileEditorTab extends BorderPane {
     this.javaEditor = (kind == Kind.JAVA) ? new JavaCodeEditor() : null;
     this.textEditor = (kind == Kind.OTHER) ? new JavaCodeEditor() : null;
     this.timelineEditor = (kind == Kind.TIMELINE) ? new TimelineCodeEditor() : null;
-    this.themeEditor = (kind == Kind.THEME) ? new JavaCodeEditor() : null;
-    this.menuScreenEditor = (kind == Kind.MENU_SCREEN) ? new JavaCodeEditor() : null;
-    this.menuLayoutEditor = (kind == Kind.MENU_LAYOUT) ? new JavaCodeEditor() : null;
-    this.menuStyleEditor = (kind == Kind.MENU_STYLE) ? new JavaCodeEditor() : null;
-    this.dialogueLayoutEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new JavaCodeEditor() : null;
+    this.themeEditor = (kind == Kind.THEME) ? newDslEditor() : null;
+    this.menuScreenEditor = (kind == Kind.MENU_SCREEN) ? newDslEditor() : null;
+    this.menuLayoutEditor = (kind == Kind.MENU_LAYOUT) ? newDslEditor() : null;
+    this.menuStyleEditor = (kind == Kind.MENU_STYLE) ? newDslEditor() : null;
+    this.dialogueLayoutEditor = (kind == Kind.DIALOGUE_LAYOUT) ? newDslEditor() : null;
     this.timelineView = (kind == Kind.TIMELINE) ? new StoryTimelineView() : null;
     this.menuScreenVisualEditor = (kind == Kind.MENU_SCREEN) ? new MenuScreenVisualEditor() : null;
     this.menuLayoutVisualEditor = (kind == Kind.MENU_LAYOUT) ? new MenuLayoutVisualEditor() : null;
@@ -609,5 +609,11 @@ public class FileEditorTab extends BorderPane {
   private static double sanitizeDimension(double value) {
     if (!Double.isFinite(value)) return 1.0;
     return Math.max(1.0, Math.min(8192.0, value));
+  }
+
+  private static JavaCodeEditor newDslEditor() {
+    JavaCodeEditor editor = new JavaCodeEditor();
+    editor.useDslHighlighting();
+    return editor;
   }
 }
