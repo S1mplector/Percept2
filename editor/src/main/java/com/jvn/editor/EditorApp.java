@@ -525,13 +525,29 @@ public class EditorApp extends Application {
     miResetCamera.setOnAction(e -> resetCamera());
     MenuItem miFitContent = new MenuItem("Fit to Content / Fullscreen Preview");
     miFitContent.setOnAction(e -> fitCameraToContent());
-    MenuItem miShowTimeline = new MenuItem("Story Timeline");
-    miShowTimeline.setOnAction(e -> selectTimelineTab());
+
+    Menu menuPanels = new Menu("Panels");
     MenuItem miShowProject = new MenuItem("Project Explorer");
     miShowProject.setOnAction(e -> selectProjectTab());
+    MenuItem miShowTimeline = new MenuItem("Story Timeline");
+    miShowTimeline.setOnAction(e -> selectTimelineTab());
+    MenuItem miShowInspector = new MenuItem("Inspector");
+    miShowInspector.setOnAction(e -> selectInspectorTab());
+    MenuItem miShowAssets = new MenuItem("Asset Browser");
+    miShowAssets.setOnAction(e -> selectAssetBrowserTab());
+    MenuItem miShowDiagnostics = new MenuItem("VNS Diagnostics");
+    miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
+    MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
+    miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
+    MenuItem miShowPuppeteerLauncher = new MenuItem("Puppeteer Launcher");
+    miShowPuppeteerLauncher.setOnAction(e -> selectPuppeteerLauncherTab());
+    menuPanels.getItems().addAll(miShowProject, miShowTimeline, miShowInspector,
+        miShowAssets, new SeparatorMenuItem(),
+        miShowDiagnostics, miShowFlowMap, miShowPuppeteerLauncher);
+
     menuView.getItems().addAll(miToggleEditorFullscreen, new SeparatorMenuItem(),
         miResetCamera, miFitContent, new SeparatorMenuItem(),
-        miShowProject, miShowTimeline);
+        menuPanels);
 
     // ── Run ──
     Menu menuRun = new Menu("Run");
@@ -566,12 +582,33 @@ public class EditorApp extends Application {
 
     // ── Tools ──
     Menu menuTools = new Menu("Tools");
-    MenuItem miActionEditor = new MenuItem("Puppeteer");
+    MenuItem miActionEditor = new MenuItem("Puppeteer (Window)");
     miActionEditor.setOnAction(e -> openActionEditor());
     miActionEditor.setAccelerator(new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+    MenuItem miPuppeteerPanel = new MenuItem("Puppeteer Launcher");
+    miPuppeteerPanel.setOnAction(e -> selectPuppeteerLauncherTab());
+
     MenuItem miMenuFlow = new MenuItem("Menu Flow Editor");
     miMenuFlow.setOnAction(e -> selectMenuFlowTab());
-    menuTools.getItems().addAll(miActionEditor, miMenuFlow);
+    MenuItem miLayoutLauncher = new MenuItem("Layout Launcher");
+    miLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
+
+    Menu menuVnsTools = new Menu("VNS Analysis");
+    MenuItem miToolDiagnostics = new MenuItem("VNS Diagnostics");
+    miToolDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
+    MenuItem miToolFlowMap = new MenuItem("Label Flow Map");
+    miToolFlowMap.setOnAction(e -> selectVnsFlowMapTab());
+    menuVnsTools.getItems().addAll(miToolDiagnostics, miToolFlowMap);
+
+    MenuItem miToolAssets = new MenuItem("Asset Browser");
+    miToolAssets.setOnAction(e -> selectAssetBrowserTab());
+    MenuItem miToolInspector = new MenuItem("Inspector");
+    miToolInspector.setOnAction(e -> selectInspectorTab());
+
+    menuTools.getItems().addAll(miActionEditor, miPuppeteerPanel, new SeparatorMenuItem(),
+        miMenuFlow, miLayoutLauncher, new SeparatorMenuItem(),
+        menuVnsTools, new SeparatorMenuItem(),
+        miToolAssets, miToolInspector);
 
     // ── Version Control ──
     Menu menuVcs = new Menu("Version Control");
@@ -1731,6 +1768,61 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
+  }
+
+  private void selectVnsDiagnosticsTab() {
+    Tab t = (tabVnsDiagnostics != null && tabVnsDiagnostics.getTabPane() != null)
+        ? tabVnsDiagnostics
+        : ensureVnsDiagnosticsTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+  }
+
+  private void selectVnsFlowMapTab() {
+    Tab t = (tabVnsFlowMap != null && tabVnsFlowMap.getTabPane() != null)
+        ? tabVnsFlowMap
+        : ensureVnsFlowMapTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+  }
+
+  private void selectAssetBrowserTab() {
+    Tab t = (tabAssetBrowser != null && tabAssetBrowser.getTabPane() != null)
+        ? tabAssetBrowser
+        : ensureAssetBrowserTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+  }
+
+  private void selectLayoutLauncherTab() {
+    Tab t = (tabLayoutLauncher != null && tabLayoutLauncher.getTabPane() != null)
+        ? tabLayoutLauncher
+        : ensureLayoutLauncherTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+    if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
+  }
+
+  private void selectInspectorTab() {
+    Tab t = (tabInspector != null && tabInspector.getTabPane() != null)
+        ? tabInspector
+        : ensureInspectorTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+  }
+
+  private void selectPuppeteerLauncherTab() {
+    Tab t = (tabPuppeteerLauncher != null && tabPuppeteerLauncher.getTabPane() != null)
+        ? tabPuppeteerLauncher
+        : ensurePuppeteerLauncherTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
   }
 
   private Tab ensurePuppeteerLauncherTab(TabPane targetPane) {
