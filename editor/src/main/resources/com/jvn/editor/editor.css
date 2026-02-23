@@ -90,21 +90,28 @@
    -fx-background-color: rgba(77, 163, 255, 0.10);
  }
 
+ /* ── Shared token classes ── */
  .code-area .keyword { -fx-fill: #4da3ff; -fx-font-weight: bold; }
+ .code-area .string { -fx-fill: #c3e88d; }
+ .code-area .number { -fx-fill: #f78c6c; }
+ .code-area .comment { -fx-fill: #676e95; -fx-font-style: italic; }
+ .code-area .punct { -fx-fill: #89ddff; }
 
- .code-area .string { -fx-fill: #9ed67a; }
+ /* ── VNS script token classes ── */
+ .code-area .vns-directive { -fx-fill: #c792ea; -fx-font-weight: bold; }
+ .code-area .vns-command { -fx-fill: #82aaff; }
+ .code-area .vns-speaker { -fx-fill: #ffcb6b; }
+ .code-area .vns-choice { -fx-fill: #c3e88d; -fx-font-weight: bold; }
+ .code-area .vns-arrow { -fx-fill: #f78c6c; -fx-font-weight: bold; }
+ .code-area .vns-format { -fx-fill: #89ddff; }
+ .code-area .vns-value { -fx-fill: #f78c6c; }
 
- .code-area .number { -fx-fill: #f0b673; }
-
- .code-area .comment { -fx-fill: #777777; }
-
- .code-area .punct { -fx-fill: #8ab4f8; }
-
+ /* ── DSL properties token classes ── */
  .code-area .prop-key { -fx-fill: #c792ea; }
-
- .code-area .directive { -fx-fill: #89ddff; -fx-font-weight: bold; }
-
- .code-area .value { -fx-fill: #c3e88d; }
+ .code-area .dsl-bool { -fx-fill: #f78c6c; }
+ .code-area .dsl-action { -fx-fill: #82aaff; }
+ .code-area .dsl-color { -fx-fill: #89ddff; }
+ .code-area .dsl-section { -fx-fill: #ffcb6b; }
 
 .code-area .error {
   -fx-underline: true;

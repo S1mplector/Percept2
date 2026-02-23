@@ -52,12 +52,16 @@ public final class DslSyntaxHighlighter {
     StyleSpansBuilder<Collection<String>> builder = new StyleSpansBuilder<>();
     while (matcher.find()) {
       String styleClass =
-          matcher.group("COMMENT")   != null ? "comment"  :
-          matcher.group("STRING")    != null ? "string"   :
-          matcher.group("NUMBER")    != null ? "number"   :
-          matcher.group("KEYWORD")   != null ? "keyword"  :
-          matcher.group("PROPKEY")   != null ? "prop-key" :
-          matcher.group("PUNCT")     != null ? "punct"    : null;
+          matcher.group("COMMENT")   != null ? "comment"    :
+          matcher.group("STRING")    != null ? "string"     :
+          matcher.group("PROPKEY")   != null ? "prop-key"   :
+          matcher.group("SECTION")   != null ? "dsl-section" :
+          matcher.group("COLOR")     != null ? "dsl-color"  :
+          matcher.group("BOOL")      != null ? "dsl-bool"   :
+          matcher.group("ACTION")    != null ? "dsl-action" :
+          matcher.group("NUMBER")    != null ? "number"     :
+          matcher.group("KEYWORD")   != null ? "keyword"    :
+          matcher.group("PUNCT")     != null ? "punct"      : null;
       if (styleClass == null) continue;
       builder.add(Collections.emptyList(), matcher.start() - lastEnd);
       builder.add(Collections.singleton(styleClass), matcher.end() - matcher.start());
@@ -69,57 +73,46 @@ public final class DslSyntaxHighlighter {
 
   // ── Factory: Properties DSL (menu/layout/style/dialogue/registry) ──
 
-  private static final String[] PROP_KEYWORDS = {
-      // Menu screen keys
-      "layout", "layoutId", "defaultItemStyle", "wrapSelection", "title", "hints",
-      // Item sub-keys
-      "label", "action", "target", "enabled", "style", "iconPath",
-      // Bounds
-      "boundsX", "boundsY", "boundsWidth", "boundsHeight",
-      // Button assets
-      "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
-      "buttonAsset", "buttonSelectedAsset", "buttonDisabledAsset",
-      // Slot preview
-      "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
-      "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight",
-      // Layout spec keys
-      "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin", "titleY",
-      // Style spec keys
-      "itemColor", "itemSelectedColor", "itemDisabledColor",
-      "prefixColor", "prefixSelectedColor", "prefixDisabledColor",
-      "fontFamily", "fontWeight", "fontSize",
-      "buttonTextPaddingX", "buttonTextPaddingY",
-      // Dialogue layout keys
-      "textBoxAsset", "textBoxX", "textBoxY", "textBoxWidth", "textBoxHeight", "textBoxPadding",
-      "nameBoxOffsetX", "nameBoxOffsetY", "nameBoxWidth", "nameBoxHeight",
-      "dialoguePaddingLeft", "dialoguePaddingRight", "dialoguePaddingTop", "dialoguePaddingBottom",
-      "choiceCenterX", "choiceYStart", "choiceWidthFactor", "choiceHeight", "choiceGap", "choiceTextPadding",
-      // Button layout keys
-      "menuId", "resolution", "menuType", "button\\.ids",
-      "hoverAsset", "disabledAsset", "asset", "tag",
-      // Registry keys
-      "defaultMenu", "defaultScreen", "menus", "layouts", "styles",
-      // Action types
-      "new_game", "load_menu", "save_menu", "settings_menu", "quit",
-      "back", "main_menu", "open_menu", "run_script", "noop",
-      // General
-      "true", "false", "default", "left", "center", "right"
-  };
+  // Boolean values
+  private static final String BOOL_PAT = "\\b(?:true|false)\\b";
 
-  private static final String PROP_KEYWORD_PAT = "\\b(" + String.join("|", PROP_KEYWORDS) + ")\\b";
-  private static final String COMMENT_PAT      = "(?m)#[^\\n]*";
-  private static final String STRING_PAT       = "\"([^\\\\\"]|\\\\.)*\"";
-  private static final String NUMBER_PAT       = "(?<![\\w.])\\d+(?:\\.\\d+)?(?![\\w.])";
-  private static final String PROPKEY_PAT      = "(?m)^[ \\t]*[\\w](?:[\\w.\\-])*(?=\\s*=)";
-  private static final String PUNCT_PAT        = "[=,.:;]";
+  // Menu action types
+  private static final String[] ACTION_KEYWORDS = {
+      "new_game", "load_menu", "save_menu", "settings_menu", "quit",
+      "back", "main_menu", "open_menu", "run_script", "noop", "none", "no_op"
+  };
+  private static final String ACTION_PAT = "\\b(?:" + String.join("|", ACTION_KEYWORDS) + ")\\b";
+
+  // Recognized DSL value keywords (alignment, weight, etc.)
+  private static final String[] VALUE_KEYWORDS = {
+      "default", "left", "center", "right", "normal", "bold", "italic"
+  };
+  private static final String KEYWORD_PAT = "\\b(?:" + String.join("|", VALUE_KEYWORDS) + ")\\b";
+
+  // Section prefixes: item.<id>., button.<id>., textBoxButton.<id>.
+  private static final String SECTION_PAT =
+      "(?:item|button|textBoxButton)\\.[\\w]+\\.";
+
+  // Hex colour literals (#rgb, #rrggbb, #rrggbbaa)
+  private static final String COLOR_PAT = "#[0-9a-fA-F]{3,8}\\b";
+
+  private static final String COMMENT_PAT  = "(?m)#(?![0-9a-fA-F]{3,8}\\b)[^\\n]*";
+  private static final String STRING_PAT   = "\"([^\\\\\"]|\\\\.)*\"";
+  private static final String NUMBER_PAT   = "(?<![\\w.])\\d+(?:\\.\\d+)?(?![\\w.])";
+  private static final String PROPKEY_PAT  = "(?m)^[ \\t]*[\\w](?:[\\w.\\-])*(?=\\s*=)";
+  private static final String PUNCT_PAT    = "[=,.:;]";
 
   private static final Pattern PROPERTIES_PATTERN = Pattern.compile(
-      "(?<COMMENT>"  + COMMENT_PAT     + ")"
-    + "|(?<STRING>"  + STRING_PAT      + ")"
-    + "|(?<PROPKEY>" + PROPKEY_PAT     + ")"
-    + "|(?<NUMBER>"  + NUMBER_PAT      + ")"
-    + "|(?<KEYWORD>" + PROP_KEYWORD_PAT + ")"
-    + "|(?<PUNCT>"   + PUNCT_PAT       + ")"
+      "(?<COMMENT>"  + COMMENT_PAT  + ")"
+    + "|(?<STRING>"  + STRING_PAT   + ")"
+    + "|(?<PROPKEY>" + PROPKEY_PAT  + ")"
+    + "|(?<SECTION>" + SECTION_PAT  + ")"
+    + "|(?<COLOR>"   + COLOR_PAT    + ")"
+    + "|(?<BOOL>"    + BOOL_PAT     + ")"
+    + "|(?<ACTION>"  + ACTION_PAT   + ")"
+    + "|(?<NUMBER>"  + NUMBER_PAT   + ")"
+    + "|(?<KEYWORD>" + KEYWORD_PAT  + ")"
+    + "|(?<PUNCT>"   + PUNCT_PAT    + ")"
   );
 
   private static final DslSyntaxHighlighter PROPERTIES_INSTANCE = new DslSyntaxHighlighter(PROPERTIES_PATTERN);

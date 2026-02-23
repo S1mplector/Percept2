@@ -43,24 +43,45 @@ public class VnsCodeEditor extends BorderPane {
   private EditorSearchBar searchBar;
   private boolean searchBarVisible = false;
 
-  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|label|define|include|var)\\b";
-  private static final String BRACKET_PATTERN = "\\[[^\\]]+]";
-  private static final String SPEAKER_PATTERN = "(?m)^(?:[^\\s:][^:]{0,30}):";
-  private static final String CHOICE_PATTERN = "(?m)^>.*$";
-  private static final String STRING_PATTERN = "\"([^\\\"]|\\\\.)*\"";
-  private static final String NUMBER_PATTERN = "-?\\b\\d+(?:\\.\\d+)?\\b";
   private static final String COMMENT_PATTERN = "(?m)#.*$";
-  private static final String PUNCT_PATTERN = "[\\[\\]()>: ,]";
+  private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
+  private static final String FORMAT_PATTERN = "\\{/?[bius]\\}|\\{color=[^}]*\\}|\\{/color\\}";
+  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|label|define|include|var)\\b";
+  private static final String CMD_OPEN_PATTERN =
+      "\\[(?:show|hide|jump|end|wait|bg|background"
+    + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
+    + "|sfx|voice|volume|textspeed|autodelay"
+    + "|hud|save|quickload|skip|auto|ui|history|screen"
+    + "|jes_push|jes_replace|jes_pop|jes_call|jes|java"
+    + "|transition|menu|settings|mainmenu|load|goto"
+    + "|set|inc|dec|flag|unflag|clear"
+    + "|if|elif|else|endif|/if"
+    + "|call|gosub|return|character|char|choice)\\b";
+  private static final String ARROW_PATTERN = "->";
+  private static final String SPEAKER_PATTERN = "(?m)^(?:[^\\s#:][^:]{0,30}):";
+  private static final String CHOICE_MARK_PATTERN = "(?m)^\\s*>";
+  private static final String TIMELINE_PATTERN = "(?m)^\\s*timeline\\b";
+  private static final String VALUE_PATTERN =
+      "\\b(?:left|right|center|far_left|far_right"
+    + "|fade|dissolve|crossfade|slide_left|slide_right|wipe"
+    + "|true|false|on|off|yes|no"
+    + "|goto|loop|neutral)\\b";
+  private static final String NUMBER_PATTERN = "-?\\b\\d+(?:\\.\\d+)?\\b";
+  private static final String PUNCT_PATTERN = "[\\[\\]()>:,=]";
 
   private static final Pattern TOKEN_PATTERN = Pattern.compile(
-      "(?<COMMENT>" + COMMENT_PATTERN + ")"
-    + "|(?<STRING>" + STRING_PATTERN + ")"
-    + "|(?<NUMBER>" + NUMBER_PATTERN + ")"
-    + "|(?<DIRECTIVE>" + DIRECTIVE_PATTERN + ")"
-    + "|(?<BRACKET>" + BRACKET_PATTERN + ")"
-    + "|(?<SPEAKER>" + SPEAKER_PATTERN + ")"
-    + "|(?<CHOICE>" + CHOICE_PATTERN + ")"
-    + "|(?<PUNCT>" + PUNCT_PATTERN + ")"
+      "(?<COMMENT>"    + COMMENT_PATTERN    + ")"
+    + "|(?<STRING>"    + STRING_PATTERN     + ")"
+    + "|(?<FORMAT>"    + FORMAT_PATTERN     + ")"
+    + "|(?<DIRECTIVE>" + DIRECTIVE_PATTERN  + ")"
+    + "|(?<CMDOPEN>"   + CMD_OPEN_PATTERN   + ")"
+    + "|(?<ARROW>"     + ARROW_PATTERN      + ")"
+    + "|(?<SPEAKER>"   + SPEAKER_PATTERN    + ")"
+    + "|(?<CHOICEMK>"  + CHOICE_MARK_PATTERN + ")"
+    + "|(?<TIMELINE>"  + TIMELINE_PATTERN   + ")"
+    + "|(?<VALUEKW>"   + VALUE_PATTERN      + ")"
+    + "|(?<NUMBER>"    + NUMBER_PATTERN     + ")"
+    + "|(?<PUNCT>"     + PUNCT_PATTERN      + ")"
   );
 
   private static final Pattern LABEL_PATTERN = Pattern.compile("^\\s*(?:@label|label)\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
@@ -208,14 +229,18 @@ public class VnsCodeEditor extends BorderPane {
     int last = 0;
     while (matcher.find()) {
       String styleClass =
-          matcher.group("COMMENT") != null ? "comment" :
-          matcher.group("STRING") != null ? "string" :
-          matcher.group("NUMBER") != null ? "number" :
-          matcher.group("DIRECTIVE") != null ? "keyword" :
-          matcher.group("BRACKET") != null ? "keyword" :
-          matcher.group("SPEAKER") != null ? "keyword" :
-          matcher.group("CHOICE") != null ? "keyword" :
-          matcher.group("PUNCT") != null ? "punct" : null;
+          matcher.group("COMMENT")   != null ? "comment"       :
+          matcher.group("STRING")    != null ? "string"        :
+          matcher.group("FORMAT")    != null ? "vns-format"    :
+          matcher.group("DIRECTIVE") != null ? "vns-directive" :
+          matcher.group("CMDOPEN")   != null ? "vns-command"   :
+          matcher.group("ARROW")     != null ? "vns-arrow"     :
+          matcher.group("SPEAKER")   != null ? "vns-speaker"   :
+          matcher.group("CHOICEMK")  != null ? "vns-choice"    :
+          matcher.group("TIMELINE")  != null ? "vns-command"   :
+          matcher.group("VALUEKW")   != null ? "vns-value"     :
+          matcher.group("NUMBER")    != null ? "number"        :
+          matcher.group("PUNCT")     != null ? "punct"         : null;
       spans.add(new Span(last, matcher.start(), Collections.emptyList()));
       spans.add(new Span(matcher.start(), matcher.end(), Collections.singletonList(styleClass)));
       last = matcher.end();
