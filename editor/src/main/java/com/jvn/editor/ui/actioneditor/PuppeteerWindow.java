@@ -11,6 +11,7 @@ import com.jvn.editor.ui.EditorTheme;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.scene.Scene;
@@ -35,6 +36,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.stage.Stage;
+import java.util.Locale;
 
 public class PuppeteerWindow extends Stage {
     private final AnimationProject project;
@@ -301,11 +303,26 @@ public class PuppeteerWindow extends Stage {
         Scene fxScene = new Scene(root);
         EditorTheme.apply(fxScene);
         setScene(fxScene);
+        applyLinuxDefaultWindowState();
 
         setupKeyboardShortcuts(fxScene);
         setupPlaybackTimer();
 
         codePreview.setCode(CodeExporter.export(this.project));
+    }
+
+    private void applyLinuxDefaultWindowState() {
+        if (!isLinux()) return;
+        setIconified(false);
+        setMaximized(true);
+        Platform.runLater(() -> {
+            setIconified(false);
+            setMaximized(true);
+        });
+    }
+
+    private static boolean isLinux() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
     }
 
     public void setScene(JesScene2D scene) {

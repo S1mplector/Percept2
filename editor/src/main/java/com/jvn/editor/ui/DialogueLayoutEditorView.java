@@ -32,6 +32,7 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.TitledPane;
 import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
@@ -380,13 +381,13 @@ public class DialogueLayoutEditorView extends BorderPane {
     GridPane btnGrid = sectionGrid();
     row = 0;
     HBox buttonToolbar = new HBox(6);
-    Button addButton = new Button("Add");
-    Button duplicateButton = new Button("Duplicate");
-    Button removeButton = new Button("Remove");
-    Button moveUpButton = new Button("Up");
-    Button moveDownButton = new Button("Down");
-    Button boundsStudioBtn = new Button("Bounds Studio");
-    boundsStudioBtn.setStyle("-fx-font-size: 11px;");
+    buttonToolbar.setAlignment(Pos.CENTER_LEFT);
+    Button addButton = iconButton(CssIcon.plus("#8cd48c"), "Add textbox button");
+    Button duplicateButton = iconButton(CssIcon.copy("#9cc7ff"), "Duplicate selected button");
+    Button removeButton = iconButton(CssIcon.minus("#e07070"), "Remove selected button");
+    Button moveUpButton = iconButton(CssIcon.arrowUp(), "Move selected button up");
+    Button moveDownButton = iconButton(CssIcon.arrowDown(), "Move selected button down");
+    Button boundsStudioBtn = iconButton(CssIcon.grid("#7ec8e3"), "Open textbox button bounds studio");
     boundsStudioBtn.setOnAction(e -> openTextBoxButtonBoundsStudio());
     buttonToolbar.getChildren().addAll(addButton, duplicateButton, removeButton, moveUpButton, moveDownButton, boundsStudioBtn);
     row = addRow(btnGrid, row, "Buttons", buttonToolbar);
@@ -411,8 +412,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     TitledPane tpButtons = collapsibleSection("Textbox Buttons", btnGrid, false);
 
     // --- History + hint ---
-    btnUndo = new Button("Undo");
-    btnRedo = new Button("Redo");
+    btnUndo = iconButton(CssIcon.undo(), "Undo");
+    btnRedo = iconButton(CssIcon.redo(), "Redo");
     btnUndo.setDisable(true);
     btnRedo.setDisable(true);
     btnUndo.setOnAction(e -> performUndo());
@@ -459,20 +460,29 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private HBox assetFieldRow(TextField field, String dialogTitle) {
-    Button browse = new Button("Browse...");
+    Button browse = iconButton(CssIcon.folder(), "Browse project assets");
     browse.setOnAction(e -> browseAsset(field, dialogTitle));
-    Button importBtn = new Button("Import...");
+    Button importBtn = iconButton(CssIcon.download("#8cd48c"), "Import external asset");
     importBtn.setOnAction(e -> {
       String imported = importAsset(field, dialogTitle);
       if (imported != null && !imported.isBlank()) {
         field.setText(imported);
       }
     });
-    Button clear = new Button("Clear");
+    Button clear = iconButton(CssIcon.clearX("#e07070"), "Clear asset path");
     clear.setOnAction(e -> field.setText(""));
     HBox row = new HBox(6, field, browse, importBtn, clear);
     HBox.setHgrow(field, Priority.ALWAYS);
     return row;
+  }
+
+  private static Button iconButton(javafx.scene.Node icon, String tooltip) {
+    Button button = new Button();
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltip));
+    button.setMinWidth(30);
+    button.setPrefWidth(30);
+    return button;
   }
 
   private int addHeader(GridPane grid, int row, String title) {
@@ -1350,6 +1360,10 @@ public class DialogueLayoutEditorView extends BorderPane {
       emitText();
     });
 
+    if (isLinux()) {
+      dialog.setIconified(false);
+      dialog.setMaximized(true);
+    }
     dialog.show();
   }
 
@@ -1871,6 +1885,10 @@ public class DialogueLayoutEditorView extends BorderPane {
   private static String normalizeText(String text) {
     if (text == null) return "";
     return text.replace("\r\n", "\n").replace('\r', '\n');
+  }
+
+  private static boolean isLinux() {
+    return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
   }
 
   private void updatePreviewSize(StackPane previewPane) {

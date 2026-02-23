@@ -28,6 +28,7 @@ import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
@@ -336,10 +337,8 @@ public class MenuStyleVisualEditor extends BorderPane {
     grid.add(hint, 0, row++, 2, 1);
 
     row = addHeader(grid, row, "History");
-    btnUndo = new Button("Undo");
-    btnUndo.setGraphic(CssIcon.undo());
-    btnRedo = new Button("Redo");
-    btnRedo.setGraphic(CssIcon.redo());
+    btnUndo = iconButton(CssIcon.undo(), "Undo");
+    btnRedo = iconButton(CssIcon.redo(), "Redo");
     btnUndo.setDisable(true);
     btnRedo.setDisable(true);
     btnUndo.setOnAction(e -> performUndo());
@@ -382,14 +381,12 @@ public class MenuStyleVisualEditor extends BorderPane {
 
     customPropsTable.getColumns().setAll(keyCol, valCol);
 
-    Button addBtn = new Button("Add");
-    addBtn.setGraphic(CssIcon.plus("#8cd48c"));
+    Button addBtn = iconButton(CssIcon.plus("#8cd48c"), "Add custom property");
     addBtn.setOnAction(e -> {
       customProps.add(new CustomProperty("custom_key", ""));
       onControlChanged();
     });
-    Button removeBtn = new Button("Remove");
-    removeBtn.setGraphic(CssIcon.minus("#e07070"));
+    Button removeBtn = iconButton(CssIcon.minus("#e07070"), "Remove selected property");
     removeBtn.setOnAction(e -> {
       int idx = customPropsTable.getSelectionModel().getSelectedIndex();
       if (idx >= 0 && idx < customProps.size()) {
@@ -427,12 +424,20 @@ public class MenuStyleVisualEditor extends BorderPane {
   }
 
   private int addAssetRow(GridPane grid, int row, String label, TextField field) {
-    Button browse = new Button();
-    browse.setGraphic(CssIcon.folder());
+    Button browse = iconButton(CssIcon.folder(), "Browse assets");
     browse.setOnAction(e -> browseAsset(field));
     HBox box = new HBox(6, field, browse);
     HBox.setHgrow(field, Priority.ALWAYS);
     return addRow(grid, row, label, box);
+  }
+
+  private static Button iconButton(javafx.scene.Node icon, String tooltip) {
+    Button button = new Button();
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltip));
+    button.setMinWidth(30);
+    button.setPrefWidth(30);
+    return button;
   }
 
   private void registerListeners() {

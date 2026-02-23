@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -306,6 +307,7 @@ public class EditorApp extends Application {
       javafx.scene.Scene logScene = new javafx.scene.Scene(console, 800, 500);
       EditorTheme.apply(logScene);
       logStage.setScene(logScene);
+      applyLinuxDefaultWindowState(logStage);
       logStage.show();
 
       Thread reader = new Thread(() -> {
@@ -822,6 +824,7 @@ public class EditorApp extends Application {
         e.consume();
       }
     });
+    applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();
     scene.setOnDragOver((DragEvent e) -> {
       Dragboard db = e.getDragboard();
@@ -1820,6 +1823,20 @@ public class EditorApp extends Application {
       puppeteer.setScene(ft.getJesScene());
     }
     puppeteer.show();
+  }
+
+  private static void applyLinuxDefaultWindowState(Stage stage) {
+    if (stage == null || !isLinux()) return;
+    stage.setIconified(false);
+    stage.setMaximized(true);
+    Platform.runLater(() -> {
+      stage.setIconified(false);
+      stage.setMaximized(true);
+    });
+  }
+
+  private static boolean isLinux() {
+    return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
   }
 
   private String resolveEditorVersion() {

@@ -17,6 +17,7 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
@@ -123,6 +124,20 @@ public class LayoutStudioWindowManager {
     }
   }
 
+  private static void applyLinuxDefaultWindowState(Stage stage) {
+    if (stage == null || !isLinux()) return;
+    stage.setIconified(false);
+    stage.setMaximized(true);
+    Platform.runLater(() -> {
+      stage.setIconified(false);
+      stage.setMaximized(true);
+    });
+  }
+
+  private static boolean isLinux() {
+    return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
+  }
+
   private static String normalizeLineEndings(String text) {
     if (text == null) return "";
     return text.replace("\r\n", "\n").replace('\r', '\n');
@@ -163,9 +178,9 @@ public class LayoutStudioWindowManager {
     private final Label fileLabel = new Label();
     private final Label dirtyBadge = new Label();
 
-    private final ToggleButton bDesign = new ToggleButton("Design");
-    private final ToggleButton bCode = new ToggleButton("Code");
-    private final ToggleButton bSplit = new ToggleButton("Split");
+    private final ToggleButton bDesign = new ToggleButton();
+    private final ToggleButton bCode = new ToggleButton();
+    private final ToggleButton bSplit = new ToggleButton();
 
     private final BorderPane centerHost = new BorderPane();
     private final SplitPane split = new SplitPane();
@@ -174,15 +189,15 @@ public class LayoutStudioWindowManager {
     private final ComboBox<String> assetKeyBox = new ComboBox<>();
     private final TextField assetItemIdField = new TextField();
 
-    private final Button saveButton = new Button("Save");
-    private final Button reloadButton = new Button("Reload");
-    private final Button revealButton = new Button("Reveal");
+    private final Button saveButton = new Button();
+    private final Button reloadButton = new Button();
+    private final Button revealButton = new Button();
     private final Button maximizeButton = new Button();
 
-    private final Button browseAssetButton = new Button("Browse");
-    private final Button importAssetButton = new Button("Import");
-    private final Button copyPathButton = new Button("Copy Path");
-    private final Button applyPathButton = new Button("Apply to File");
+    private final Button browseAssetButton = new Button();
+    private final Button importAssetButton = new Button();
+    private final Button copyPathButton = new Button();
+    private final Button applyPathButton = new Button();
 
     private final MenuScreenVisualEditor menuScreenVisualEditor;
     private final MenuLayoutVisualEditor menuLayoutVisualEditor;
@@ -227,6 +242,7 @@ public class LayoutStudioWindowManager {
       );
       EditorTheme.apply(scene);
       stage.setScene(scene);
+      applyLinuxDefaultWindowState(stage);
 
       configureVisualEditors();
       bindSync();
@@ -246,6 +262,7 @@ public class LayoutStudioWindowManager {
 
     void show() {
       stage.show();
+      applyLinuxDefaultWindowState(stage);
       Platform.runLater(() -> {
         stage.toFront();
         codeEditor.requestFocus();
@@ -300,11 +317,13 @@ public class LayoutStudioWindowManager {
       Region spacer = new Region();
       HBox.setHgrow(spacer, Priority.ALWAYS);
 
-      saveButton.setGraphic(CssIcon.icon("M17 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z", "#8cd48c", 14));
-      reloadButton.setGraphic(CssIcon.redo("#7ec8e3"));
-      revealButton.setGraphic(CssIcon.folder("#d4a8e8"));
-      maximizeButton.setGraphic(CssIcon.icon("M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z", "#b0b8c8", 14));
-      maximizeButton.setTooltip(new javafx.scene.control.Tooltip("Maximize / Restore"));
+      configureIconToggle(bDesign, CssIcon.palette("#b0b8c8"), "Design Mode");
+      configureIconToggle(bCode, CssIcon.list("#b0b8c8"), "Code Mode");
+      configureIconToggle(bSplit, CssIcon.grid("#b0b8c8"), "Split Mode");
+      configureIconButton(saveButton, CssIcon.save("#8cd48c"), "Save");
+      configureIconButton(reloadButton, CssIcon.redo("#7ec8e3"), "Reload");
+      configureIconButton(revealButton, CssIcon.folder("#d4a8e8"), "Reveal File");
+      configureIconButton(maximizeButton, CssIcon.expand("#b0b8c8"), "Maximize / Restore");
       maximizeButton.setOnAction(e -> stage.setMaximized(!stage.isMaximized()));
 
       HBox row = new HBox(8,
@@ -379,9 +398,13 @@ public class LayoutStudioWindowManager {
           copyPathButton,
           applyPathButton
       );
+      configureIconButton(browseAssetButton, CssIcon.folder("#b0b8c8"), "Browse Asset");
+      configureIconButton(importAssetButton, CssIcon.download("#8cd48c"), "Import Asset");
+      configureIconButton(copyPathButton, CssIcon.copy("#9cc7ff"), "Copy Path");
+      configureIconButton(applyPathButton, CssIcon.check("#8cd48c"), "Apply to File");
       for (Node node : buttons.getChildren()) {
         if (node instanceof Button b) {
-          b.setMaxWidth(Double.MAX_VALUE);
+          b.setMaxWidth(Region.USE_PREF_SIZE);
           b.getStyleClass().add("layout-studio-utility-button");
         }
       }
@@ -780,6 +803,22 @@ public class LayoutStudioWindowManager {
       String msg = normalize(message, "Ready.");
       status.setText(msg);
       if (externalStatus != null) externalStatus.accept(msg);
+    }
+
+    private static void configureIconButton(Button button, Node icon, String tooltipText) {
+      button.setText("");
+      button.setGraphic(icon);
+      button.setTooltip(new Tooltip(tooltipText));
+      button.setMinWidth(30);
+      button.setPrefWidth(30);
+    }
+
+    private static void configureIconToggle(ToggleButton button, Node icon, String tooltipText) {
+      button.setText("");
+      button.setGraphic(icon);
+      button.setTooltip(new Tooltip(tooltipText));
+      button.setMinWidth(30);
+      button.setPrefWidth(30);
     }
 
     private boolean confirmDiscard(String operation) {

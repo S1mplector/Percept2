@@ -26,6 +26,7 @@ import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -190,10 +191,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
     Label historyHeader = new Label("History");
     historyHeader.setStyle("-fx-font-weight: bold;");
     grid.add(historyHeader, 0, row++, 2, 1);
-    btnUndo = new Button("Undo");
-    btnUndo.setGraphic(CssIcon.undo());
-    btnRedo = new Button("Redo");
-    btnRedo.setGraphic(CssIcon.redo());
+    btnUndo = iconButton(CssIcon.undo(), "Undo");
+    btnRedo = iconButton(CssIcon.redo(), "Redo");
     btnUndo.setDisable(true);
     btnRedo.setDisable(true);
     btnUndo.setOnAction(e -> performUndo());
@@ -240,14 +239,12 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
     customPropsTable.getColumns().setAll(keyCol, valCol);
 
-    Button addBtn = new Button("Add");
-    addBtn.setGraphic(CssIcon.plus("#8cd48c"));
+    Button addBtn = iconButton(CssIcon.plus("#8cd48c"), "Add custom property");
     addBtn.setOnAction(e -> {
       customProps.add(new CustomProperty("custom_key", ""));
       onControlChanged();
     });
-    Button removeBtn = new Button("Remove");
-    removeBtn.setGraphic(CssIcon.minus("#e07070"));
+    Button removeBtn = iconButton(CssIcon.minus("#e07070"), "Remove selected property");
     removeBtn.setOnAction(e -> {
       int idx = customPropsTable.getSelectionModel().getSelectedIndex();
       if (idx >= 0 && idx < customProps.size()) {
@@ -269,6 +266,15 @@ public class MenuLayoutVisualEditor extends BorderPane {
     grid.add(l, 0, row);
     grid.add(control, 1, row);
     return row + 1;
+  }
+
+  private static Button iconButton(javafx.scene.Node icon, String tooltip) {
+    Button button = new Button();
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltip));
+    button.setMinWidth(30);
+    button.setPrefWidth(30);
+    return button;
   }
 
   private void registerListeners() {

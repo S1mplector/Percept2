@@ -29,6 +29,7 @@ import com.jvn.fx.vn.VnRenderer;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -40,6 +41,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import java.util.Locale;
 
 public class FxLauncher extends Application {
   private static Engine engine;
@@ -93,6 +95,7 @@ public class FxLauncher extends Application {
     root.getChildren().add(this.canvas);
     javafx.scene.Scene scene = new javafx.scene.Scene(root, width, height);
     primaryStage.setScene(scene);
+    applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();
 
     // Initialize graphics context and resize canvas with scene
@@ -932,5 +935,19 @@ public class FxLauncher extends Application {
     if (engine != null && engine.isStarted()) {
       engine.stop();
     }
+  }
+
+  private static void applyLinuxDefaultWindowState(Stage stage) {
+    if (stage == null || !isLinux()) return;
+    stage.setIconified(false);
+    stage.setMaximized(true);
+    Platform.runLater(() -> {
+      stage.setIconified(false);
+      stage.setMaximized(true);
+    });
+  }
+
+  private static boolean isLinux() {
+    return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
   }
 }

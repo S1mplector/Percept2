@@ -11,6 +11,7 @@ import com.jvn.core.scene.Scene;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.Locale;
 
 public class SwingLauncher {
   public static void launch(Engine engine) {
@@ -74,6 +75,7 @@ public class SwingLauncher {
     frame.setContentPane(panel);
     frame.setSize(w, h);
     frame.setLocationRelativeTo(null);
+    applyLinuxDefaultWindowState(frame);
     frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
     frame.setVisible(true);
 
@@ -119,5 +121,14 @@ public class SwingLauncher {
       bl.pop();
     });
     return reg;
+  }
+
+  private static void applyLinuxDefaultWindowState(JFrame frame) {
+    if (frame == null || !isLinux()) return;
+    frame.setExtendedState(frame.getExtendedState() | Frame.MAXIMIZED_BOTH);
+  }
+
+  private static boolean isLinux() {
+    return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
   }
 }

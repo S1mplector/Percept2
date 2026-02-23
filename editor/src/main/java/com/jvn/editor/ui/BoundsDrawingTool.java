@@ -120,9 +120,9 @@ public class BoundsDrawingTool extends BorderPane {
   private final TextField hField = new TextField();
   private final Label coordsLabel = new Label("—");
   private final ToggleGroup modeGroup = new ToggleGroup();
-  private final ToggleButton selectBtn = new ToggleButton("Select");
-  private final ToggleButton rectBtn = new ToggleButton("Rectangle");
-  private final ToggleButton pointBtn = new ToggleButton("Point-Nail");
+  private final ToggleButton selectBtn = new ToggleButton();
+  private final ToggleButton rectBtn = new ToggleButton();
+  private final ToggleButton pointBtn = new ToggleButton();
 
   // ── State ──
   private Mode mode = Mode.SELECT;
@@ -156,10 +156,10 @@ public class BoundsDrawingTool extends BorderPane {
     selectBtn.setToggleGroup(modeGroup);
     rectBtn.setToggleGroup(modeGroup);
     pointBtn.setToggleGroup(modeGroup);
+    iconToggleButton(selectBtn, CssIcon.check("#b0b8c8"), "Select, move, and resize existing bounds");
+    iconToggleButton(rectBtn, CssIcon.expand("#b0b8c8"), "Click-drag to draw a new rectangular bound");
+    iconToggleButton(pointBtn, CssIcon.link("#b0b8c8"), "Click to place corner points, then generate bounding rect");
     selectBtn.setSelected(true);
-    selectBtn.setTooltip(new Tooltip("Select, move, and resize existing bounds"));
-    rectBtn.setTooltip(new Tooltip("Click-drag to draw a new rectangular bound"));
-    pointBtn.setTooltip(new Tooltip("Click to place corner points, then generate bounding rect"));
 
     modeGroup.selectedToggleProperty().addListener((o, ov, nv) -> {
       if (nv == selectBtn) mode = Mode.SELECT;
@@ -171,18 +171,15 @@ public class BoundsDrawingTool extends BorderPane {
       redraw();
     });
 
-    Button clearNails = new Button("Generate Bounds");
-    clearNails.setTooltip(new Tooltip("Create a bounding rect from placed points (Point-Nail mode)"));
+    Button clearNails = iconButton(CssIcon.grid("#8cd48c"), "Create a bounding rect from placed points (Point-Nail mode)");
     clearNails.setOnAction(e -> generateBoundsFromNails());
 
-    Button deleteBtn = new Button("Delete");
-    deleteBtn.setTooltip(new Tooltip("Remove the selected bound"));
+    Button deleteBtn = iconButton(CssIcon.minus("#e07070"), "Remove the selected bound");
     deleteBtn.setOnAction(e -> deleteSelected());
-    Button duplicateBtn = new Button("Duplicate");
-    duplicateBtn.setTooltip(new Tooltip("Duplicate selected bound"));
+    Button duplicateBtn = iconButton(CssIcon.copy("#9cc7ff"), "Duplicate selected bound");
     duplicateBtn.setOnAction(e -> duplicateSelected());
 
-    Button clearAllBtn = new Button("Clear All");
+    Button clearAllBtn = iconButton(CssIcon.clearX("#e07070"), "Clear all bounds");
     clearAllBtn.setOnAction(e -> {
       bounds.clear();
       selectedIndex = -1;
@@ -915,6 +912,23 @@ public class BoundsDrawingTool extends BorderPane {
     javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
     return spacer;
+  }
+
+  private static Button iconButton(javafx.scene.Node icon, String tooltipText) {
+    Button button = new Button();
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltipText));
+    button.setMinWidth(30);
+    button.setPrefWidth(30);
+    return button;
+  }
+
+  private static void iconToggleButton(ToggleButton button, javafx.scene.Node icon, String tooltipText) {
+    button.setText("");
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltipText));
+    button.setMinWidth(30);
+    button.setPrefWidth(30);
   }
 
   private boolean containsId(String id) {
