@@ -13,6 +13,46 @@
 /* Folder (Open) */
 .icon-open { -fx-shape: "M1,5 L1,13 L15,13 L15,6 L9,6 L7,4 L1,4 Z"; -fx-background-color: #8ab4f8; }
 
+/* Runtime console icon buttons */
+.run-console-icon-btn {
+  -fx-min-width: 30px;
+  -fx-min-height: 30px;
+  -fx-pref-width: 30px;
+  -fx-pref-height: 30px;
+  -fx-padding: 0;
+  -fx-background-color: #2a2a2a;
+  -fx-background-radius: 6;
+  -fx-border-color: #3a3a3a;
+  -fx-border-radius: 6;
+}
+
+.run-console-icon-btn:hover {
+  -fx-background-color: #353a46;
+}
+
+.run-console-icon-btn:pressed {
+  -fx-background-color: #404b5f;
+}
+
+.run-console-icon-btn:disabled {
+  -fx-opacity: 0.45;
+}
+
+.icon-runtime-run {
+  -fx-shape: "M3,2 L13,8 L3,14 Z";
+  -fx-background-color: #64d98a;
+}
+
+.icon-runtime-stop {
+  -fx-shape: "M3,3 L13,3 L13,13 L3,13 Z";
+  -fx-background-color: #f06a6a;
+}
+
+.icon-runtime-clear {
+  -fx-shape: "M2,3 L3,2 L7,6 L11,2 L12,3 L8,7 L12,11 L11,12 L7,8 L3,12 L2,11 L6,7 Z";
+  -fx-background-color: #d3dcf0;
+}
+
 /* VCS Icon Buttons */
 .vcs-icon-btn {
   -fx-min-width: 28px;

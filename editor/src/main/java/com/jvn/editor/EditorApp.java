@@ -294,14 +294,15 @@ public class EditorApp extends Application {
           if (arg != null && !arg.isBlank()) cmd.add(arg);
         }
       }
-      ProcessBuilder pb = new ProcessBuilder(cmd);
-      pb.directory(root);
-      pb.redirectErrorStream(true);
-      pb.environment().put("GRADLE_USER_HOME", gradleUserHome.getAbsolutePath());
-      Process p = pb.start();
-
       RunConsoleView console = new RunConsoleView(title);
-      console.setProcess(p);
+      RunConsoleView.ProcessStarter starter = () -> {
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.directory(root);
+        pb.redirectErrorStream(true);
+        pb.environment().put("GRADLE_USER_HOME", gradleUserHome.getAbsolutePath());
+        return pb.start();
+      };
+      console.setProcessStarter(starter);
 
       javafx.stage.Stage logStage = new javafx.stage.Stage();
       logStage.setTitle(title);
@@ -310,23 +311,7 @@ public class EditorApp extends Application {
       logStage.setScene(logScene);
       applyLinuxDefaultWindowState(logStage);
       logStage.show();
-
-      Thread reader = new Thread(() -> {
-        try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
-          String line;
-          while ((line = r.readLine()) != null) {
-            console.appendLine(line);
-          }
-        } catch (Exception ignored) {}
-        try {
-          int exitCode = p.waitFor();
-          console.onProcessExit(exitCode);
-        } catch (InterruptedException ignored) {
-          console.onProcessExit(-1);
-        }
-      });
-      reader.setDaemon(true);
-      reader.start();
+      console.startProcess(starter.start());
     } catch (Exception ex) {
       status.setText("Run failed");
     }

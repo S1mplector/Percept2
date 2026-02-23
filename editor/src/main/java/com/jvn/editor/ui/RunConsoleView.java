@@ -1,5 +1,7 @@
 package com.jvn.editor.ui;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.regex.Pattern;
 
 import javafx.application.Platform;
@@ -9,9 +11,11 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 
@@ -23,16 +27,23 @@ public class RunConsoleView extends BorderPane {
 
     public enum EngineState { BUILDING, STARTING, RUNNING, STOPPED, FAILED }
 
+    @FunctionalInterface
+    public interface ProcessStarter {
+        Process start() throws Exception;
+    }
+
     private final TextFlow outputFlow = new TextFlow();
     private final ScrollPane scrollPane = new ScrollPane(outputFlow);
     private final Label stateLabel = new Label();
     private final Label elapsedLabel = new Label();
     private final CheckBox showAllToggle = new CheckBox("Show build output");
-    private final Button clearBtn = new Button("Clear");
-    private final Button stopBtn = new Button("Stop");
+    private final Button runBtn = iconButton("icon-runtime-run", "Run current build again");
+    private final Button clearBtn = iconButton("icon-runtime-clear", "Clear output");
+    private final Button stopBtn = iconButton("icon-runtime-stop", "Stop current build");
 
     private EngineState engineState = EngineState.BUILDING;
     private Process runningProcess;
+    private ProcessStarter processStarter;
     private long startTime = System.currentTimeMillis();
     private int lineCount = 0;
 
@@ -70,9 +81,8 @@ public class RunConsoleView extends BorderPane {
         showAllToggle.setSelected(false);
         showAllToggle.setOnAction(e -> rebuildOutput());
 
-        clearBtn.setStyle("-fx-font-size: 11px;");
+        runBtn.setOnAction(e -> rerunProcess());
         clearBtn.setOnAction(e -> clearOutput());
-        stopBtn.setStyle("-fx-font-size: 11px;");
         stopBtn.setOnAction(e -> stopProcess());
 
         Label titleLabel = new Label(title);
@@ -80,7 +90,7 @@ public class RunConsoleView extends BorderPane {
 
         HBox leftHeader = new HBox(8, titleLabel, stateLabel, elapsedLabel);
         leftHeader.setAlignment(Pos.CENTER_LEFT);
-        HBox rightHeader = new HBox(8, showAllToggle, clearBtn, stopBtn);
+        HBox rightHeader = new HBox(8, showAllToggle, runBtn, stopBtn, clearBtn);
         rightHeader.setAlignment(Pos.CENTER_RIGHT);
         HBox.setHgrow(leftHeader, Priority.ALWAYS);
 
@@ -104,8 +114,51 @@ public class RunConsoleView extends BorderPane {
         setState(EngineState.BUILDING);
     }
 
-    public void setProcess(Process process) {
+    private static Button iconButton(String iconClass, String tooltipText) {
+        Button btn = new Button();
+        btn.getStyleClass().add("run-console-icon-btn");
+        Region icon = new Region();
+        icon.getStyleClass().addAll("icon", iconClass);
+        btn.setGraphic(icon);
+        btn.setTooltip(new Tooltip(tooltipText));
+        btn.setFocusTraversable(false);
+        return btn;
+    }
+
+    public void setProcessStarter(ProcessStarter processStarter) {
+        this.processStarter = processStarter;
+        runBtn.setDisable(processStarter == null || !(engineState == EngineState.STOPPED || engineState == EngineState.FAILED));
+    }
+
+    public void startProcess(Process process) {
+        attachProcess(process);
+    }
+
+    private void attachProcess(Process process) {
         this.runningProcess = process;
+        startTime = System.currentTimeMillis();
+        lineCount = 0;
+        setState(EngineState.BUILDING);
+
+        Thread reader = new Thread(() -> {
+            Process active = process;
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(active.getInputStream()))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    appendLine(line);
+                }
+            } catch (Exception ignored) {}
+
+            int exitCode = -1;
+            try {
+                exitCode = active.waitFor();
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            onProcessExit(exitCode);
+        }, "jvn-run-console-reader");
+        reader.setDaemon(true);
+        reader.start();
     }
 
     public void setState(EngineState state) {
@@ -124,6 +177,7 @@ public class RunConsoleView extends BorderPane {
             stateLabel.setText(emoji + " " + state.name());
             stateLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: " + color + ";");
             stopBtn.setDisable(state == EngineState.STOPPED || state == EngineState.FAILED);
+            runBtn.setDisable(processStarter == null || !(state == EngineState.STOPPED || state == EngineState.FAILED));
         });
     }
 
@@ -212,9 +266,25 @@ public class RunConsoleView extends BorderPane {
 
     private void stopProcess() {
         if (runningProcess != null && runningProcess.isAlive()) {
+            appendInfoMessage("Stopping process...");
+            stopBtn.setDisable(true);
             runningProcess.destroyForcibly();
-            setState(EngineState.STOPPED);
-            appendInfoMessage("Process stopped by user.");
+        }
+    }
+
+    private void rerunProcess() {
+        if (processStarter == null) return;
+        if (runningProcess != null && runningProcess.isAlive()) {
+            appendInfoMessage("Process is still running.");
+            return;
+        }
+        try {
+            appendInfoMessage("Re-running build...");
+            Process process = processStarter.start();
+            attachProcess(process);
+        } catch (Exception ex) {
+            setState(EngineState.FAILED);
+            appendInfoMessage("Failed to start process: " + ex.getMessage());
         }
     }
 
