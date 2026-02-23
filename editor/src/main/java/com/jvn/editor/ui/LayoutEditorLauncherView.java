@@ -47,10 +47,22 @@ public class LayoutEditorLauncherView extends BorderPane {
   private final TextField filterField = new TextField();
   private final Label summaryLabel = new Label("No project loaded.");
   private final VBox itemList = new VBox(6);
+  private final VBox registryPanel = new VBox(6);
 
   private File projectRoot;
   private Consumer<File> onOpenFile;
   private final List<LayoutItem> cachedItems = new ArrayList<>();
+
+  // Known IDs for validation and quick-assign
+  private final Set<String> knownLayoutIds = new LinkedHashSet<>();
+  private final Set<String> knownStyleIds = new LinkedHashSet<>();
+  private final Set<String> knownScreenIds = new LinkedHashSet<>();
+
+  // Registry state
+  private String registryDefaultMenu = "";
+  private final Set<String> registryMenus = new LinkedHashSet<>();
+  private final Set<String> registryLayouts = new LinkedHashSet<>();
+  private final Set<String> registryStyles = new LinkedHashSet<>();
 
   private enum ItemType {
     DIALOGUE_LAYOUT,
@@ -70,8 +82,16 @@ public class LayoutEditorLauncherView extends BorderPane {
       String relativePath,
       ItemType type,
       StatusKind status,
-      String detail
-  ) {}
+      String detail,
+      String layoutRef,
+      String styleRef,
+      List<String> actionTargets,
+      List<String> warnings
+  ) {
+    LayoutItem(String title, String relativePath, ItemType type, StatusKind status, String detail) {
+      this(title, relativePath, type, status, detail, null, null, List.of(), List.of());
+    }
+  }
 
   public LayoutEditorLauncherView() {
     setPadding(new Insets(8));
@@ -109,6 +129,13 @@ public class LayoutEditorLauncherView extends BorderPane {
 
   public void refreshStatus() {
     cachedItems.clear();
+    knownLayoutIds.clear();
+    knownStyleIds.clear();
+    knownScreenIds.clear();
+    registryMenus.clear();
+    registryLayouts.clear();
+    registryStyles.clear();
+    registryDefaultMenu = "";
     if (projectRoot == null || !projectRoot.isDirectory()) {
       summaryLabel.setText("Open a project to inspect layout customization status.");
       itemList.getChildren().clear();
@@ -124,12 +151,16 @@ public class LayoutEditorLauncherView extends BorderPane {
     int customized = 0;
     int defaults = 0;
     int missing = 0;
+    int warnings = 0;
     for (LayoutItem item : cachedItems) {
       if (item.status() == StatusKind.CUSTOMIZED) customized++;
       else if (item.status() == StatusKind.DEFAULT) defaults++;
       else missing++;
+      warnings += item.warnings().size();
     }
-    summaryLabel.setText("Customized: " + customized + "  |  Defaults: " + defaults + "  |  Missing: " + missing);
+    String text = "Customized: " + customized + "  |  Defaults: " + defaults + "  |  Missing: " + missing;
+    if (warnings > 0) text += "  |  Warnings: " + warnings;
+    summaryLabel.setText(text);
   }
 
   private void renderItemList() {
@@ -138,6 +169,12 @@ public class LayoutEditorLauncherView extends BorderPane {
     boolean blankMode = isBlankMenuProject();
     if (blankMode) {
       itemList.getChildren().add(buildOnboardingPanel());
+    }
+
+    // Registry editor panel (always shown when project is loaded)
+    if (projectRoot != null && projectRoot.isDirectory()) {
+      itemList.getChildren().add(buildRegistryEditorPanel());
+      itemList.getChildren().add(new Separator());
     }
 
     if (cachedItems.isEmpty() && !blankMode) return;
@@ -196,13 +233,106 @@ public class LayoutEditorLauncherView extends BorderPane {
     Button openButton = new Button("Open Studio");
     openButton.setOnAction(e -> openItem(item));
 
+    Button cloneButton = new Button("Clone");
+    cloneButton.setGraphic(CssIcon.plus("#7ec8e3"));
+    cloneButton.setStyle("-fx-font-size: 10px;");
+    cloneButton.setOnAction(e -> cloneItem(item));
+
     HBox head = new HBox(8, title, status);
     head.setAlignment(Pos.CENTER_LEFT);
-    HBox actions = new HBox(8, openButton);
+    HBox actions = new HBox(6, openButton, cloneButton);
     actions.setAlignment(Pos.CENTER_LEFT);
-    VBox box = new VBox(4, head, path, detail, actions);
+
+    VBox box = new VBox(4, head, path, detail);
+
+    // Wiring info for menu screens
+    if (item.type() == ItemType.MENU_SCREEN) {
+      VBox wiringBox = new VBox(4);
+      wiringBox.setPadding(new Insets(4, 0, 2, 0));
+
+      // Quick-assign layout ComboBox
+      javafx.scene.control.ComboBox<String> layoutCombo = new javafx.scene.control.ComboBox<>();
+      layoutCombo.setEditable(true);
+      layoutCombo.getItems().add("default");
+      layoutCombo.getItems().addAll(knownLayoutIds);
+      layoutCombo.setValue(item.layoutRef() != null ? item.layoutRef() : "default");
+      layoutCombo.setMaxWidth(Double.MAX_VALUE);
+      layoutCombo.setStyle("-fx-font-size: 11px;");
+      boolean layoutValid = item.layoutRef() == null || "default".equals(item.layoutRef()) || knownLayoutIds.contains(item.layoutRef());
+      if (!layoutValid) {
+        layoutCombo.setStyle("-fx-font-size: 11px; -fx-border-color: #f0a060;");
+      }
+      layoutCombo.valueProperty().addListener((o, ov, nv) -> {
+        if (nv != null && !nv.equals(ov)) {
+          quickAssignScreenProperty(item.relativePath(), "layout", nv);
+        }
+      });
+      Label layoutLbl = new Label("Layout");
+      layoutLbl.setMinWidth(42);
+      layoutLbl.setStyle("-fx-text-fill: #90a0b0; -fx-font-size: 10px;");
+      HBox.setHgrow(layoutCombo, Priority.ALWAYS);
+      HBox layoutRow = new HBox(4, layoutLbl, layoutCombo);
+      layoutRow.setAlignment(Pos.CENTER_LEFT);
+      wiringBox.getChildren().add(layoutRow);
+
+      // Quick-assign style ComboBox
+      javafx.scene.control.ComboBox<String> styleCombo = new javafx.scene.control.ComboBox<>();
+      styleCombo.setEditable(true);
+      styleCombo.getItems().add("default");
+      styleCombo.getItems().addAll(knownStyleIds);
+      styleCombo.setValue(item.styleRef() != null ? item.styleRef() : "default");
+      styleCombo.setMaxWidth(Double.MAX_VALUE);
+      styleCombo.setStyle("-fx-font-size: 11px;");
+      boolean styleValid = item.styleRef() == null || "default".equals(item.styleRef()) || knownStyleIds.contains(item.styleRef());
+      if (!styleValid) {
+        styleCombo.setStyle("-fx-font-size: 11px; -fx-border-color: #f0a060;");
+      }
+      styleCombo.valueProperty().addListener((o, ov, nv) -> {
+        if (nv != null && !nv.equals(ov)) {
+          quickAssignScreenProperty(item.relativePath(), "defaultItemStyle", nv);
+        }
+      });
+      Label styleLbl = new Label("Style");
+      styleLbl.setMinWidth(42);
+      styleLbl.setStyle("-fx-text-fill: #90a0b0; -fx-font-size: 10px;");
+      HBox.setHgrow(styleCombo, Priority.ALWAYS);
+      HBox styleRow = new HBox(4, styleLbl, styleCombo);
+      styleRow.setAlignment(Pos.CENTER_LEFT);
+      wiringBox.getChildren().add(styleRow);
+
+      // Navigation flow
+      if (!item.actionTargets().isEmpty()) {
+        StringBuilder flowText = new StringBuilder("Navigates to: ");
+        for (int i = 0; i < item.actionTargets().size(); i++) {
+          if (i > 0) flowText.append(", ");
+          String target = item.actionTargets().get(i);
+          boolean valid = knownScreenIds.contains(target);
+          flowText.append(target);
+          if (!valid) flowText.append(" [?]");
+        }
+        Label flowLabel = new Label(flowText.toString());
+        flowLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #c8c8a8;");
+        flowLabel.setWrapText(true);
+        wiringBox.getChildren().add(flowLabel);
+      }
+
+      box.getChildren().add(wiringBox);
+    }
+
+    // Validation warnings
+    if (!item.warnings().isEmpty()) {
+      for (String warn : item.warnings()) {
+        Label warnLabel = new Label(warn);
+        warnLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #f0a060; -fx-font-weight: bold;");
+        warnLabel.setWrapText(true);
+        box.getChildren().add(warnLabel);
+      }
+    }
+
+    box.getChildren().add(actions);
     box.setPadding(new Insets(8));
-    box.setStyle("-fx-background-color: #1a1c22; -fx-background-radius: 8; -fx-border-color: #2a2f3a; -fx-border-radius: 8;");
+    String borderColor = item.warnings().isEmpty() ? "#2a2f3a" : "#6a4a2a";
+    box.setStyle("-fx-background-color: #1a1c22; -fx-background-radius: 8; -fx-border-color: " + borderColor + "; -fx-border-radius: 8;");
     return box;
   }
 
@@ -295,7 +425,8 @@ public class LayoutEditorLauncherView extends BorderPane {
     screenPaths.addAll(scanPaths(root, "config/menu/menus", ".menu"));
     screenPaths.addAll(scanPaths(root, "config/menu", ".menu"));
 
-    Set<String> registryMenus = parseRegistryMenus(root, menuRegistryPath);
+    // Load registry state for validation and inline editing
+    loadRegistryState(root, menuRegistryPath);
     for (String menuId : registryMenus) {
       screenPaths.add("config/menu/menus/" + menuId + ".menu");
     }
@@ -303,6 +434,11 @@ public class LayoutEditorLauncherView extends BorderPane {
     if (!blankMenus && screenPaths.isEmpty()) {
       screenPaths.add("config/menu/menus/main.menu");
     }
+
+    // Populate known IDs for cross-reference validation
+    for (String rel : layoutPaths) knownLayoutIds.add(fileStem(rel));
+    for (String rel : stylePaths) knownStyleIds.add(fileStem(rel));
+    for (String rel : screenPaths) knownScreenIds.add(fileStem(rel));
 
     items.add(buildDialogueItem(root, dialoguePath));
     for (String rel : sortPaths(layoutPaths)) {
@@ -315,6 +451,30 @@ public class LayoutEditorLauncherView extends BorderPane {
       items.add(buildMenuScreenItem(root, rel));
     }
     return items;
+  }
+
+  private void loadRegistryState(File root, String registryRelativePath) {
+    registryMenus.clear();
+    registryLayouts.clear();
+    registryStyles.clear();
+    registryDefaultMenu = "";
+    File registry = new File(root, registryRelativePath);
+    if (!registry.exists()) return;
+    Properties p = loadProperties(registry);
+    registryDefaultMenu = normalize(p.getProperty("defaultMenu", p.getProperty("defaultScreen")), "");
+    for (String part : parseCsv(p.getProperty("menus"))) registryMenus.add(part);
+    for (String part : parseCsv(p.getProperty("layouts"))) registryLayouts.add(part);
+    for (String part : parseCsv(p.getProperty("styles"))) registryStyles.add(part);
+  }
+
+  private static List<String> parseCsv(String value) {
+    List<String> result = new ArrayList<>();
+    if (value == null || value.isBlank()) return result;
+    for (String part : value.split(",")) {
+      String trimmed = part.trim();
+      if (!trimmed.isEmpty()) result.add(trimmed);
+    }
+    return result;
   }
 
   private LayoutItem buildDialogueItem(File root, String relPath) {
@@ -433,9 +593,15 @@ public class LayoutEditorLauncherView extends BorderPane {
 
   private LayoutItem buildMenuScreenItem(File root, String relPath) {
     String name = "Menu Screen: " + fileStem(relPath);
+    String screenId = fileStem(relPath);
     File file = new File(root, relPath);
     if (!file.exists()) {
-      return new LayoutItem(name, relPath, ItemType.MENU_SCREEN, StatusKind.MISSING, "Screen file not created yet.");
+      List<String> warnings = new ArrayList<>();
+      if (registryMenus.contains(screenId)) {
+        warnings.add("\u26A0 Registered in menu.registry but file does not exist.");
+      }
+      return new LayoutItem(name, relPath, ItemType.MENU_SCREEN, StatusKind.MISSING,
+          "Screen file not created yet.", null, null, List.of(), warnings);
     }
     Properties p = loadProperties(file);
     boolean customized = false;
@@ -444,7 +610,13 @@ public class LayoutEditorLauncherView extends BorderPane {
     if (!"default".equalsIgnoreCase(layoutId)) customized = true;
     if (!"default".equalsIgnoreCase(styleId)) customized = true;
 
+    // Collect action targets (navigate_to, open_menu targets)
+    List<String> actionTargets = new ArrayList<>();
     for (String key : p.stringPropertyNames()) {
+      if (key.startsWith("item.") && key.endsWith(".target")) {
+        String target = normalize(p.getProperty(key), "");
+        if (!target.isBlank()) actionTargets.add(target);
+      }
       if (key.startsWith("item.") && (
           key.endsWith(".bgAsset")
               || key.endsWith(".bgSelectedAsset")
@@ -462,31 +634,33 @@ public class LayoutEditorLauncherView extends BorderPane {
               || key.endsWith(".boundsHeight")
       )) {
         customized = true;
-        break;
       }
     }
 
-    return new LayoutItem(
-        name,
-        relPath,
-        ItemType.MENU_SCREEN,
-        customized ? StatusKind.CUSTOMIZED : StatusKind.DEFAULT,
-        customized ? "Custom item bounds/skins or non-default style/layout." : "Default menu wiring."
-    );
-  }
+    // Deduplicate action targets
+    List<String> uniqueTargets = new ArrayList<>(new LinkedHashSet<>(actionTargets));
 
-  private Set<String> parseRegistryMenus(File root, String registryRelativePath) {
-    Set<String> ids = new LinkedHashSet<>();
-    File registry = new File(root, registryRelativePath);
-    if (!registry.exists()) return ids;
-    Properties p = loadProperties(registry);
-    String menus = p.getProperty("menus");
-    if (menus == null || menus.isBlank()) return ids;
-    for (String part : menus.split(",")) {
-      String id = normalize(part, "");
-      if (!id.isBlank()) ids.add(id);
+    // Validation warnings
+    List<String> warnings = new ArrayList<>();
+    if (!"default".equals(layoutId) && !knownLayoutIds.contains(layoutId)) {
+      warnings.add("\u26A0 Layout '" + layoutId + "' not found in project.");
     }
-    return ids;
+    if (!"default".equals(styleId) && !knownStyleIds.contains(styleId)) {
+      warnings.add("\u26A0 Style '" + styleId + "' not found in project.");
+    }
+    for (String target : uniqueTargets) {
+      if (!knownScreenIds.contains(target)) {
+        warnings.add("\u26A0 Navigation target '" + target + "' not found.");
+      }
+    }
+    if (!registryMenus.contains(screenId) && !screenId.equals("main")) {
+      warnings.add("\u26A0 Not registered in menu.registry — won't be discovered at runtime.");
+    }
+
+    String detail = customized ? "Custom item bounds/skins or non-default style/layout." : "Default menu wiring.";
+    return new LayoutItem(name, relPath, ItemType.MENU_SCREEN,
+        customized ? StatusKind.CUSTOMIZED : StatusKind.DEFAULT,
+        detail, layoutId, styleId, uniqueTargets, warnings);
   }
 
   private List<String> scanPaths(File root, String directory, String extension) {
@@ -614,6 +788,166 @@ public class LayoutEditorLauncherView extends BorderPane {
   private static String valueOrDefault(String value, String fallback) {
     String normalized = normalize(value, "");
     return normalized.isBlank() ? fallback : normalized;
+  }
+
+  // ── Registry inline editor ──
+
+  private VBox buildRegistryEditorPanel() {
+    VBox panel = new VBox(6);
+    panel.setPadding(new Insets(10, 12, 10, 12));
+    panel.setStyle("-fx-background-color: #1a2030; -fx-background-radius: 8; -fx-border-color: #2a3a5a; -fx-border-radius: 8;");
+
+    Label heading = new Label("Menu Registry");
+    heading.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #a8c8f0;");
+
+    Label hint = new Label("config/menu/registry/menu.registry");
+    hint.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 10px; -fx-text-fill: #70788a;");
+
+    // Default menu field
+    TextField tfDefaultMenu = new TextField(registryDefaultMenu);
+    tfDefaultMenu.setPromptText("main");
+    tfDefaultMenu.setPrefWidth(160);
+    HBox defaultRow = labeledField("Default Menu", tfDefaultMenu);
+
+    // Menus field
+    TextField tfMenus = new TextField(String.join(", ", registryMenus));
+    tfMenus.setPromptText("main, load, save, settings");
+    HBox menusRow = labeledField("Menus", tfMenus);
+
+    // Layouts field
+    TextField tfLayouts = new TextField(String.join(", ", registryLayouts));
+    tfLayouts.setPromptText("default, compact");
+    HBox layoutsRow = labeledField("Layouts", tfLayouts);
+
+    // Styles field
+    TextField tfStyles = new TextField(String.join(", ", registryStyles));
+    tfStyles.setPromptText("default, neon");
+    HBox stylesRow = labeledField("Styles", tfStyles);
+
+    Button saveRegistry = new Button("Save Registry");
+    saveRegistry.setGraphic(CssIcon.save("#8cd48c"));
+    saveRegistry.setOnAction(e -> {
+      if (projectRoot == null) return;
+      File registryFile = new File(projectRoot, DEFAULT_MENU_REGISTRY_PATH);
+      Properties p = new Properties();
+      String dm = normalize(tfDefaultMenu.getText(), "");
+      if (!dm.isBlank()) p.setProperty("defaultMenu", dm);
+      String menus = normalize(tfMenus.getText(), "");
+      if (!menus.isBlank()) p.setProperty("menus", menus.replace(" ", ""));
+      String layouts = normalize(tfLayouts.getText(), "");
+      if (!layouts.isBlank()) p.setProperty("layouts", layouts.replace(" ", ""));
+      String styles = normalize(tfStyles.getText(), "");
+      if (!styles.isBlank()) p.setProperty("styles", styles.replace(" ", ""));
+      try {
+        File parent = registryFile.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(registryFile)) {
+          p.store(fos, "Menu registry - edited via Layout Editor");
+        }
+      } catch (Exception ignored) {
+      }
+      refreshStatus();
+    });
+
+    Button openRegistryFile = new Button("Open File");
+    openRegistryFile.setGraphic(CssIcon.expand("#7ec8e3"));
+    openRegistryFile.setOnAction(e -> {
+      if (projectRoot == null || onOpenFile == null) return;
+      File registryFile = new File(projectRoot, DEFAULT_MENU_REGISTRY_PATH);
+      if (!registryFile.exists()) {
+        try {
+          File parent = registryFile.getParentFile();
+          if (parent != null && !parent.exists()) parent.mkdirs();
+          try (FileWriter fw = new FileWriter(registryFile)) {
+            fw.write("# Menu registry\ndefaultMenu=main\nmenus=main\n");
+          }
+        } catch (Exception ignored) {
+        }
+      }
+      onOpenFile.accept(registryFile);
+    });
+
+    HBox registryActions = new HBox(6, saveRegistry, openRegistryFile);
+    registryActions.setAlignment(Pos.CENTER_LEFT);
+
+    panel.getChildren().addAll(heading, hint, defaultRow, menusRow, layoutsRow, stylesRow, registryActions);
+    return panel;
+  }
+
+  private HBox labeledField(String label, TextField field) {
+    Label l = new Label(label);
+    l.setMinWidth(80);
+    l.setStyle("-fx-text-fill: #b0b8c8; -fx-font-size: 11px;");
+    HBox.setHgrow(field, Priority.ALWAYS);
+    field.setMaxWidth(Double.MAX_VALUE);
+    field.setStyle("-fx-font-size: 11px;");
+    HBox row = new HBox(6, l, field);
+    row.setAlignment(Pos.CENTER_LEFT);
+    return row;
+  }
+
+  // ── Clone ──
+
+  private void cloneItem(LayoutItem item) {
+    if (projectRoot == null || item == null) return;
+    File source = new File(projectRoot, item.relativePath());
+    if (!source.exists()) return;
+
+    String extension = switch (item.type()) {
+      case MENU_SCREEN -> ".menu";
+      case MENU_LAYOUT -> ".layout";
+      case MENU_STYLE -> ".style";
+      case DIALOGUE_LAYOUT -> ".layout";
+    };
+    String label = switch (item.type()) {
+      case MENU_SCREEN -> "Menu Screen";
+      case MENU_LAYOUT -> "Menu Layout";
+      case MENU_STYLE -> "Menu Style";
+      case DIALOGUE_LAYOUT -> "Dialogue Layout";
+    };
+
+    TextInputDialog dialog = new TextInputDialog(fileStem(item.relativePath()) + "_copy");
+    dialog.setTitle("Clone " + label);
+    dialog.setHeaderText("Enter a name for the cloned " + label.toLowerCase(Locale.ROOT) + ":");
+    dialog.setContentText("Name (no extension):");
+    EditorTheme.apply(dialog);
+    dialog.showAndWait().ifPresent(rawName -> {
+      String name = sanitizeFileName(rawName);
+      if (name.isBlank()) return;
+      File destDir = source.getParentFile();
+      File dest = new File(destDir, name + extension);
+      if (dest.exists()) {
+        if (onOpenFile != null) onOpenFile.accept(dest);
+        return;
+      }
+      try {
+        Files.copy(source.toPath(), dest.toPath());
+      } catch (Exception ignored) {
+        return;
+      }
+      updateRegistryForNewFile(name, item.type());
+      refreshStatus();
+      if (onOpenFile != null) onOpenFile.accept(dest);
+    });
+  }
+
+  // ── Quick-assign ──
+
+  private void quickAssignScreenProperty(String relativePath, String key, String value) {
+    if (projectRoot == null) return;
+    File file = new File(projectRoot, relativePath);
+    if (!file.exists()) return;
+    Properties p = loadProperties(file);
+    if (value == null || value.isBlank() || "default".equalsIgnoreCase(value)) {
+      p.remove(key);
+    } else {
+      p.setProperty(key, value);
+    }
+    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(file)) {
+      p.store(fos, "Menu screen - quick-assign via Layout Editor");
+    } catch (Exception ignored) {
+    }
+    // Don't full-refresh to avoid losing focus, but update the cached data
   }
 
   // ── Onboarding guidance for blank-menu projects ──

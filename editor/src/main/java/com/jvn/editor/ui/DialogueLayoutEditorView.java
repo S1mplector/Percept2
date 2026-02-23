@@ -377,7 +377,10 @@ public class DialogueLayoutEditorView extends BorderPane {
     HBox buttonToolbar = new HBox(6);
     Button addButton = new Button("Add");
     Button removeButton = new Button("Remove");
-    buttonToolbar.getChildren().addAll(addButton, removeButton);
+    Button boundsStudioBtn = new Button("Bounds Studio");
+    boundsStudioBtn.setStyle("-fx-font-size: 11px;");
+    boundsStudioBtn.setOnAction(e -> openTextBoxButtonBoundsStudio());
+    buttonToolbar.getChildren().addAll(addButton, removeButton, boundsStudioBtn);
     row = addRow(btnGrid, row, "Buttons", buttonToolbar);
     row = addRow(btnGrid, row, "Button List", lvTextBoxButtons);
     row = addRow(btnGrid, row, "Button Id", tfButtonId);
@@ -1136,6 +1139,71 @@ public class DialogueLayoutEditorView extends BorderPane {
     }
     redraw();
     emitText();
+  }
+
+  private void openTextBoxButtonBoundsStudio() {
+    BoundsDrawingTool tool = new BoundsDrawingTool();
+
+    // Use textbox asset as background if available
+    if (textBoxAssetImage != null && textBoxAssetImage.getWidth() > 1) {
+      tool.setBackgroundImage(textBoxAssetImage);
+    }
+
+    // Pre-populate with existing textbox button bounds (relative to textbox)
+    List<BoundsDrawingTool.BoundEntry> entries = new ArrayList<>();
+    for (VnUiActionButtonSpec btn : textBoxButtons) {
+      entries.add(new BoundsDrawingTool.BoundEntry(
+          btn.id(), btn.label(), btn.x(), btn.y(), btn.width(), btn.height()
+      ));
+    }
+    tool.setBounds(entries);
+
+    javafx.scene.Scene dialogScene = new javafx.scene.Scene(tool, 960, 620);
+    EditorTheme.apply(dialogScene);
+    javafx.stage.Stage dialog = new javafx.stage.Stage();
+    dialog.setTitle("Textbox Button Bounds Studio");
+    dialog.setScene(dialogScene);
+    dialog.initOwner(getScene() != null ? getScene().getWindow() : null);
+    dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
+
+    dialog.setOnHidden(ev -> {
+      List<BoundsDrawingTool.BoundEntry> result = tool.getBounds();
+      // Rebuild textbox buttons list from drawn bounds
+      Map<String, BoundsDrawingTool.BoundEntry> byId = new java.util.LinkedHashMap<>();
+      for (BoundsDrawingTool.BoundEntry be : result) byId.put(be.getId(), be);
+
+      suppressEvents = true;
+      // Update existing buttons
+      for (int i = 0; i < textBoxButtons.size(); i++) {
+        VnUiActionButtonSpec existing = textBoxButtons.get(i);
+        BoundsDrawingTool.BoundEntry match = byId.remove(existing.id());
+        if (match != null && match.getW() > 0.005 && match.getH() > 0.005) {
+          textBoxButtons.set(i, new VnUiActionButtonSpec(
+              existing.id(), existing.label(), existing.action(), existing.target(),
+              existing.enabled(), existing.assetPath(), existing.hoverAssetPath(),
+              existing.disabledAssetPath(),
+              match.getX(), match.getY(), match.getW(), match.getH()
+          ));
+        }
+      }
+      // Add new entries from bounds studio
+      for (BoundsDrawingTool.BoundEntry extra : byId.values()) {
+        if (extra.getW() < 0.005 || extra.getH() < 0.005) continue;
+        textBoxButtons.add(new VnUiActionButtonSpec(
+            extra.getId(),
+            extra.getLabel() != null ? extra.getLabel() : titleizeId(extra.getId()),
+            "noop", null, true, "", "", "",
+            extra.getX(), extra.getY(), extra.getW(), extra.getH()
+        ));
+      }
+      suppressEvents = false;
+      refreshTextBoxButtonList();
+      setSelectedTextBoxButton(textBoxButtons.isEmpty() ? -1 : 0);
+      redraw();
+      emitText();
+    });
+
+    dialog.show();
   }
 
   private void setSelectedTextBoxButton(int index) {

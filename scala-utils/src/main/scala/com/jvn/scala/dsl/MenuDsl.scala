@@ -1,6 +1,8 @@
 package com.jvn.scala.dsl
 
-import com.jvn.core.menu.config.{MenuStyleSpec, MenuLayoutSpec}
+import com.jvn.core.menu.config.{MenuStyleSpec, MenuLayoutSpec, MenuButtonLayoutSpec}
+import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters.*
 
 /**
  * Type-safe Scala DSL for building JVN menu styles and layouts.
@@ -162,5 +164,94 @@ object MenuDsl:
 
   def menuLayout(id: String)(configure: LayoutBuilder ?=> Unit): MenuLayoutSpec =
     val builder = LayoutBuilder(id)
+    configure(using builder)
+    builder.build()
+
+  // --- Button layout builder ---
+
+  /**
+   * Builder for individual button bounds within a button layout.
+   */
+  class ButtonBoundsBuilder(val id: String):
+    private var _label: String = null
+    private var _tag: String = null
+    private var _boundsX: java.lang.Double = null
+    private var _boundsY: java.lang.Double = null
+    private var _boundsW: java.lang.Double = null
+    private var _boundsH: java.lang.Double = null
+    private var _asset: String = null
+    private var _hoverAsset: String = null
+    private var _disabledAsset: String = null
+    private val _extras = scala.collection.mutable.LinkedHashMap[String, String]()
+
+    def label(v: String): Unit = _label = v
+    def tag(v: String): Unit = _tag = v
+
+    def bounds(x: Double, y: Double, w: Double, h: Double): Unit =
+      _boundsX = x; _boundsY = y; _boundsW = w; _boundsH = h
+
+    def boundsX(v: Double): Unit = _boundsX = v
+    def boundsY(v: Double): Unit = _boundsY = v
+    def boundsW(v: Double): Unit = _boundsW = v
+    def boundsH(v: Double): Unit = _boundsH = v
+
+    def asset(normal: String, hover: String = null, disabled: String = null): Unit =
+      _asset = normal
+      if hover != null then _hoverAsset = hover
+      if disabled != null then _disabledAsset = disabled
+
+    def extra(key: String, value: String): Unit = _extras(key) = value
+
+    def build(): MenuButtonLayoutSpec.ButtonBounds =
+      new MenuButtonLayoutSpec.ButtonBounds(
+        id, _label, _tag,
+        _boundsX, _boundsY, _boundsW, _boundsH,
+        _asset, _hoverAsset, _disabledAsset,
+        _extras.asJava
+      )
+
+  /**
+   * Builder for a complete button layout spec.
+   *
+   * Usage:
+   * {{{
+   *   val layout = buttonLayout("main", resolution = "1920x1080", menuType = "main") {
+   *     button("new_game") {
+   *       label("New Game")
+   *       tag("primary")
+   *       bounds(0.25, 0.30, 0.50, 0.08)
+   *       asset("assets/ui/btn.png", hover = "assets/ui/btn_hover.png")
+   *     }
+   *     button("load") {
+   *       label("Load Game")
+   *       bounds(0.25, 0.40, 0.50, 0.08)
+   *     }
+   *   }
+   * }}}
+   */
+  class ButtonLayoutBuilder(val menuId: String, val resolution: String, val menuType: String):
+    private val _buttons = ListBuffer[MenuButtonLayoutSpec.ButtonBounds]()
+    private val _extras = scala.collection.mutable.LinkedHashMap[String, String]()
+
+    def button(id: String)(configure: ButtonBoundsBuilder ?=> Unit): Unit =
+      val builder = ButtonBoundsBuilder(id)
+      configure(using builder)
+      _buttons += builder.build()
+
+    def extra(key: String, value: String): Unit = _extras(key) = value
+
+    def build(): MenuButtonLayoutSpec =
+      new MenuButtonLayoutSpec(
+        menuId, resolution, menuType,
+        _buttons.toList.asJava,
+        _extras.asJava
+      )
+
+  def buttonLayout(
+      menuId: String,
+      resolution: String = "default",
+      menuType: String = null
+  )(configure: ButtonLayoutBuilder ?=> Unit): MenuButtonLayoutSpec =
+    val builder = ButtonLayoutBuilder(menuId, resolution, menuType)
     configure(using builder)
     builder.build()

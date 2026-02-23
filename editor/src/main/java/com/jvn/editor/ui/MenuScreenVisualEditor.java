@@ -648,7 +648,13 @@ public class MenuScreenVisualEditor extends BorderPane {
     Button clearBoundsBtn = new Button("Clear");
     clearBoundsBtn.setGraphic(CssIcon.clearX("#e07070"));
     clearBoundsBtn.setOnAction(e -> clearBoundsForSelection());
-    VBox boundsSection = inspectorSection("Item Bounds", boundsGrid, clearBoundsBtn);
+    Button openBoundsStudioBtn = new Button("Bounds Studio");
+    openBoundsStudioBtn.setGraphic(CssIcon.grid("#7ec8e3"));
+    openBoundsStudioBtn.setTooltip(new Tooltip("Open visual bounds drawing tool (rect-draw, point-nail)"));
+    openBoundsStudioBtn.setOnAction(e -> openBoundsStudio());
+    HBox boundsActions = new HBox(6, clearBoundsBtn, openBoundsStudioBtn);
+    boundsActions.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+    VBox boundsSection = inspectorSection("Item Bounds", boundsGrid, boundsActions);
 
     // Slot Preview section
     inspSlotPlaceholder.setPromptText("placeholder asset");
@@ -1396,6 +1402,85 @@ public class MenuScreenVisualEditor extends BorderPane {
     row.setBoundsW(null);
     row.setBoundsH(null);
     onUiChanged();
+  }
+
+  private void openBoundsStudio() {
+    BoundsDrawingTool tool = new BoundsDrawingTool();
+
+    // Load background asset from the first item that has a bgAsset, or the screen bg
+    if (projectRoot != null) {
+      for (MenuItemRow row : rows) {
+        String asset = normalize(row.getBgAsset(), "");
+        if (!asset.isBlank()) {
+          File f = resolveAssetFile(asset);
+          if (f != null && f.exists()) {
+            tool.setBackgroundImage(f);
+            break;
+          }
+        }
+      }
+    }
+
+    // Pre-populate with existing item bounds
+    List<BoundsDrawingTool.BoundEntry> entries = new ArrayList<>();
+    for (MenuItemRow row : rows) {
+      String id = normalize(row.getId(), "item");
+      String label = normalize(row.getLabel(), null);
+      double bx = row.getBoundsX() != null ? row.getBoundsX() : 0;
+      double by = row.getBoundsY() != null ? row.getBoundsY() : 0;
+      double bw = row.getBoundsW() != null ? row.getBoundsW() : 0;
+      double bh = row.getBoundsH() != null ? row.getBoundsH() : 0;
+      entries.add(new BoundsDrawingTool.BoundEntry(id, label, bx, by, bw, bh));
+    }
+    tool.setBounds(entries);
+
+    // Show in a dialog
+    javafx.scene.Scene dialogScene = new javafx.scene.Scene(tool, 960, 620);
+    EditorTheme.apply(dialogScene);
+    javafx.stage.Stage dialog = new javafx.stage.Stage();
+    dialog.setTitle("Bounds Studio — " + screenIdHint);
+    dialog.setScene(dialogScene);
+    dialog.initOwner(getScene() != null ? getScene().getWindow() : null);
+    dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
+
+    // On close, sync bounds back to menu items
+    dialog.setOnHidden(ev -> {
+      List<BoundsDrawingTool.BoundEntry> result = tool.getBounds();
+      // Match by id — update existing rows, create new entries for unmatched
+      java.util.Map<String, BoundsDrawingTool.BoundEntry> byId = new LinkedHashMap<>();
+      for (BoundsDrawingTool.BoundEntry be : result) byId.put(be.getId(), be);
+
+      suppressEvents = true;
+      for (MenuItemRow row : rows) {
+        BoundsDrawingTool.BoundEntry match = byId.remove(normalize(row.getId(), ""));
+        if (match != null && (match.getW() > 0.005 && match.getH() > 0.005)) {
+          row.setBoundsX(match.getX());
+          row.setBoundsY(match.getY());
+          row.setBoundsW(match.getW());
+          row.setBoundsH(match.getH());
+        }
+      }
+      // Any unmatched entries become new rows
+      for (BoundsDrawingTool.BoundEntry extra : byId.values()) {
+        if (extra.getW() < 0.005 || extra.getH() < 0.005) continue;
+        MenuItemRow newRow = new MenuItemRow(
+            extra.getId(),
+            extra.getLabel() != null ? extra.getLabel() : "",
+            "", "", true,
+            MenuActionType.NOOP, "", "",
+            "", "", "",
+            extra.getX(), extra.getY(), extra.getW(), extra.getH(),
+            false, "", "", null, null, null, null
+        );
+        attachRowListeners(newRow);
+        rows.add(newRow);
+      }
+      suppressEvents = false;
+      populateInspector();
+      onUiChanged();
+    });
+
+    dialog.show();
   }
 
   private void emitText() {
