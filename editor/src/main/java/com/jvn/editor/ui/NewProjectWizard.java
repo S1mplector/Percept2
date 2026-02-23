@@ -47,6 +47,7 @@ public class NewProjectWizard extends Stage {
 
   // Result
   private File createdProjectDir = null;
+  private String postCreateWarning = null;
 
   // Form fields
   private TextField txtProjectName;
@@ -741,8 +742,12 @@ public class NewProjectWizard extends Stage {
     }
 
     try {
+      postCreateWarning = null;
       createProjectStructure(projectDir, displayName);
       createdProjectDir = projectDir;
+      if (postCreateWarning != null && !postCreateWarning.isBlank()) {
+        showWarning(postCreateWarning);
+      }
       close();
     } catch (Exception ex) {
       showError("Failed to create project: " + ex.getMessage());
@@ -753,23 +758,14 @@ public class NewProjectWizard extends Stage {
     boolean includeMenuPack = shouldCreateMenuPack();
     boolean includeSave = chkSaveSystem.isSelected();
     boolean includeSettings = chkSettingsMenu.isSelected();
+    boolean gitRequested = shouldSetupGit();
+    boolean gitCommitRequested = shouldCreateInitialCommit();
+    boolean gitEnabled = false;
+    boolean gitInitialCommit = false;
 
     dir.mkdirs();
     createDirectories(dir, includeMenuPack);
     copyBundledDemoAssets(dir);
-
-    int[] resolution = parseResolution();
-    createManifest(
-        dir,
-        displayName,
-        resolution[0],
-        resolution[1],
-        includeMenuPack,
-        includeSave,
-        includeSettings,
-        shouldSetupGit(),
-        shouldCreateInitialCommit()
-    );
 
     if (chkSampleContent.isSelected()) createSampleScript(dir, displayName);
     else createEmptyScript(dir, displayName);
@@ -790,21 +786,64 @@ public class NewProjectWizard extends Stage {
       createBlankMenuScaffold(dir);
     }
 
+    if (gitRequested) {
+      GitVcsService vcs = new GitVcsService();
+      String commitMessage = "Initialize " + displayName + " project scaffold";
+      try {
+        vcs.bootstrapRepository(dir, gitCommitRequested, commitMessage);
+        gitEnabled = true;
+        gitInitialCommit = gitCommitRequested;
+      } catch (GitVcsService.GitVcsException ex) {
+        if (gitCommitRequested) {
+          try {
+            // Fallback: keep repo init even if commit fails due to missing user identity.
+            vcs.bootstrapRepository(dir, false, commitMessage);
+            gitEnabled = true;
+            gitInitialCommit = false;
+            appendPostCreateWarning(
+                "Project was created, but the Git initial commit was skipped.\n"
+                    + "Configure identity and commit manually:\n"
+                    + "git config --global user.name \"Your Name\"\n"
+                    + "git config --global user.email \"you@example.com\"\n\n"
+                    + "Git detail: " + summarizeGitFailure(ex)
+            );
+          } catch (GitVcsService.GitVcsException fallbackEx) {
+            appendPostCreateWarning(
+                "Project was created, but Git setup was skipped.\n\n"
+                    + "Git detail: " + summarizeGitFailure(fallbackEx)
+            );
+          }
+        } else {
+          appendPostCreateWarning(
+              "Project was created, but Git setup was skipped.\n\n"
+                  + "Git detail: " + summarizeGitFailure(ex)
+          );
+        }
+      }
+    }
+
+    int[] resolution = parseResolution();
+    createManifest(
+        dir,
+        displayName,
+        resolution[0],
+        resolution[1],
+        includeMenuPack,
+        includeSave,
+        includeSettings,
+        gitEnabled,
+        gitInitialCommit
+    );
+
     createReadme(
         dir,
         displayName,
         includeMenuPack,
         includeSave,
         includeSettings,
-        shouldSetupGit(),
-        shouldCreateInitialCommit()
+        gitEnabled,
+        gitInitialCommit
     );
-
-    if (shouldSetupGit()) {
-      GitVcsService vcs = new GitVcsService();
-      vcs.bootstrapRepository(dir, shouldCreateInitialCommit(),
-          "Initialize " + displayName + " project scaffold");
-    }
   }
 
   private void createDirectories(File dir, boolean includeMenuPack) throws Exception {
@@ -1439,6 +1478,32 @@ public class NewProjectWizard extends Stage {
     alert.setHeaderText(null);
     alert.setContentText(message);
     alert.showAndWait();
+  }
+
+  private void showWarning(String message) {
+    Alert alert = new Alert(Alert.AlertType.WARNING);
+    EditorTheme.apply(alert);
+    alert.setTitle("Project Created with Warnings");
+    alert.setHeaderText("Project was created successfully");
+    alert.setContentText(message);
+    alert.showAndWait();
+  }
+
+  private void appendPostCreateWarning(String warning) {
+    if (warning == null || warning.isBlank()) return;
+    if (postCreateWarning == null || postCreateWarning.isBlank()) {
+      postCreateWarning = warning.trim();
+    } else {
+      postCreateWarning = postCreateWarning + "\n\n" + warning.trim();
+    }
+  }
+
+  private String summarizeGitFailure(GitVcsService.GitVcsException ex) {
+    if (ex == null) return "Unknown git error.";
+    String message = ex.getMessage();
+    if (message == null || message.isBlank()) return "Unknown git error.";
+    String[] lines = message.split("\\R");
+    return lines.length == 0 ? message.trim() : lines[0].trim();
   }
 
   /**
