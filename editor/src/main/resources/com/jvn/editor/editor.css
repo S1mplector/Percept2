@@ -113,6 +113,23 @@
  .code-area .dsl-color { -fx-fill: #89ddff; }
  .code-area .dsl-section { -fx-fill: #ffcb6b; }
 
+ /* ── JES scripting token classes ── */
+ .code-area .jes-struct { -fx-fill: #c792ea; -fx-font-weight: bold; }
+ .code-area .jes-comptype { -fx-fill: #ffcb6b; }
+ .code-area .jes-action { -fx-fill: #82aaff; }
+ .code-area .jes-builtin { -fx-fill: #89ddff; }
+ .code-area .jes-bool { -fx-fill: #f78c6c; }
+ .code-area .jes-prop { -fx-fill: #a9b7c6; }
+
+ /* ── Timeline DSL token classes ── */
+ .code-area .tl-keyword { -fx-fill: #c792ea; -fx-font-weight: bold; }
+ .code-area .tl-arrow { -fx-fill: #f78c6c; -fx-font-weight: bold; }
+
+ /* ── Java token classes ── */
+ .code-area .annotation { -fx-fill: #bbb529; }
+ .code-area .type { -fx-fill: #ffcb6b; }
+ .code-area .constant { -fx-fill: #f78c6c; }
+
 .code-area .error {
   -fx-underline: true;
   -fx-fill: #f38ba8; /* red accent */

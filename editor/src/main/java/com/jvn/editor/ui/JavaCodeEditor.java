@@ -25,29 +25,38 @@ public class JavaCodeEditor extends BorderPane {
   private boolean dslMode = false;
 
   private static final String[] KEYWORDS = new String[] {
-    "abstract","assert","boolean","break","byte","case","catch","char","class","const","continue",
-    "default","do","double","else","enum","extends","final","finally","float","for","goto","if",
-    "implements","import","instanceof","int","interface","long","native","new","package","private",
-    "protected","public","return","short","static","strictfp","super","switch","synchronized","this",
-    "throw","throws","transient","try","void","volatile","while"
+    "abstract","assert","break","case","catch","class","const","continue",
+    "default","do","else","enum","extends","final","finally","for","goto","if",
+    "implements","import","instanceof","interface","native","new","package","private",
+    "protected","public","return","static","strictfp","super","switch","synchronized","this",
+    "throw","throws","transient","try","volatile","while"
   };
 
   private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KEYWORDS) + ")\\b";
-  private static final String PAREN_PATTERN = "[(){}]";
+  private static final String ANNOTATION_PATTERN = "@[A-Za-z_]\\w*";
+  private static final String TYPE_PATTERN = "\\b(?:boolean|byte|char|short|int|long|float|double|void"
+    + "|String|Object|List|Map|Set|Optional|File|Path|var)\\b";
+  private static final String CONSTANT_PATTERN = "\\b(?:true|false|null)\\b";
+  private static final String PAREN_PATTERN = "[(){}\\[\\]]";
   private static final String COLON_COMMA_PATTERN = "[;.,]";
-  private static final String STRING_PATTERN = "\"([^\\\"]|\\\\.)*\"";
-  private static final String NUMBER_PATTERN = "-?\\b\\d+(?:\\.\\d+)?\\b";
+  private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
+  private static final String CHAR_PATTERN = "'([^\\\\']|\\\\.)'";
+  private static final String NUMBER_PATTERN = "-?\\b\\d+(?:\\.\\d+)?[fFdDlL]?\\b";
   private static final String SL_COMMENT_PATTERN = "//[^\\n]*";
   private static final String ML_COMMENT_PATTERN = "/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*/";
 
   private static final Pattern PATTERN = Pattern.compile(
-      "(?<MLCOMMENT>" + ML_COMMENT_PATTERN + ")"
-    + "|(?<SLCOMMENT>" + SL_COMMENT_PATTERN + ")"
-    + "|(?<STRING>" + STRING_PATTERN + ")"
-    + "|(?<NUMBER>" + NUMBER_PATTERN + ")"
-    + "|(?<KEYWORD>" + KEYWORD_PATTERN + ")"
-    + "|(?<PAREN>" + PAREN_PATTERN + ")"
-    + "|(?<PUNCT>" + COLON_COMMA_PATTERN + ")"
+      "(?<MLCOMMENT>"   + ML_COMMENT_PATTERN   + ")"
+    + "|(?<SLCOMMENT>"  + SL_COMMENT_PATTERN   + ")"
+    + "|(?<STRING>"     + STRING_PATTERN        + ")"
+    + "|(?<CHARLITERAL>"+ CHAR_PATTERN          + ")"
+    + "|(?<ANNOTATION>" + ANNOTATION_PATTERN    + ")"
+    + "|(?<CONSTANT>"   + CONSTANT_PATTERN      + ")"
+    + "|(?<TYPE>"       + TYPE_PATTERN          + ")"
+    + "|(?<KEYWORD>"    + KEYWORD_PATTERN       + ")"
+    + "|(?<NUMBER>"     + NUMBER_PATTERN        + ")"
+    + "|(?<PAREN>"      + PAREN_PATTERN         + ")"
+    + "|(?<PUNCT>"      + COLON_COMMA_PATTERN   + ")"
   );
 
   public JavaCodeEditor() {
@@ -148,13 +157,17 @@ public class JavaCodeEditor extends BorderPane {
     StyleSpansBuilder<Collection<String>> spansBuilder = new StyleSpansBuilder<>();
     while (matcher.find()) {
       String styleClass =
-        matcher.group("MLCOMMENT") != null ? "comment" :
-        matcher.group("SLCOMMENT") != null ? "comment" :
-        matcher.group("STRING") != null ? "string" :
-        matcher.group("NUMBER") != null ? "number" :
-        matcher.group("KEYWORD") != null ? "keyword" :
-        matcher.group("PAREN") != null ? "punct" :
-        matcher.group("PUNCT") != null ? "punct" : null;
+        matcher.group("MLCOMMENT")   != null ? "comment"    :
+        matcher.group("SLCOMMENT")   != null ? "comment"    :
+        matcher.group("STRING")      != null ? "string"     :
+        matcher.group("CHARLITERAL") != null ? "string"     :
+        matcher.group("ANNOTATION")  != null ? "annotation" :
+        matcher.group("CONSTANT")    != null ? "constant"   :
+        matcher.group("TYPE")        != null ? "type"       :
+        matcher.group("KEYWORD")     != null ? "keyword"    :
+        matcher.group("NUMBER")      != null ? "number"     :
+        matcher.group("PAREN")       != null ? "punct"      :
+        matcher.group("PUNCT")       != null ? "punct"      : null;
       assert styleClass != null;
       spansBuilder.add(Collections.emptyList(), matcher.start() - lastKwEnd);
       spansBuilder.add(Collections.singleton(styleClass), matcher.end() - matcher.start());

@@ -1,26 +1,27 @@
 package com.jvn.editor.ui;
 
-import javafx.scene.layout.BorderPane;
-import javafx.scene.control.ContextMenu;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.ChoiceDialog;
+import java.io.File;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
-import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.function.Consumer;
+import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
+import javafx.scene.layout.BorderPane;
 
 public class TimelineCodeEditor extends BorderPane {
   private final CodeArea code = new CodeArea();
@@ -31,6 +32,7 @@ public class TimelineCodeEditor extends BorderPane {
 
   private static final String[] KW = new String[] { "arc", "script", "entry", "at", "link", "cluster" };
   private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KW) + ")\\b";
+  private static final String BOOL_PATTERN = "\\b(?:true|false)\\b";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
   private static final String NUMBER_PATTERN = "-?\\b\\d+(?:\\.\\d+)?\\b";
   private static final String ARROW_PATTERN = "->";
@@ -40,8 +42,9 @@ public class TimelineCodeEditor extends BorderPane {
   private static final Pattern PATTERN = Pattern.compile(
       "(?<COMMENT>" + COMMENT_PATTERN + ")"
     + "|(?<STRING>" + STRING_PATTERN + ")"
-    + "|(?<NUMBER>" + NUMBER_PATTERN + ")"
+    + "|(?<BOOL>" + BOOL_PATTERN + ")"
     + "|(?<KEYWORD>" + KEYWORD_PATTERN + ")"
+    + "|(?<NUMBER>" + NUMBER_PATTERN + ")"
     + "|(?<ARROW>" + ARROW_PATTERN + ")"
     + "|(?<PUNCT>" + PUNCT_PATTERN + ")"
   );
@@ -95,9 +98,10 @@ public class TimelineCodeEditor extends BorderPane {
     while (matcher.find()) {
       String sc = matcher.group("COMMENT") != null ? "comment" :
         matcher.group("STRING") != null ? "string" :
+        matcher.group("BOOL") != null ? "jes-bool" :
+        matcher.group("KEYWORD") != null ? "tl-keyword" :
         matcher.group("NUMBER") != null ? "number" :
-        matcher.group("KEYWORD") != null ? "keyword" :
-        matcher.group("ARROW") != null ? "punct" :
+        matcher.group("ARROW") != null ? "tl-arrow" :
         matcher.group("PUNCT") != null ? "punct" : null;
       spans.add(new Span(last, matcher.start(), Collections.emptyList()));
       spans.add(new Span(matcher.start(), matcher.end(), Collections.singletonList(sc)));
