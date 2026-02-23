@@ -20,6 +20,7 @@ import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
+import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
@@ -296,25 +297,33 @@ public class EditorApp extends Application {
       pb.redirectErrorStream(true);
       pb.environment().put("GRADLE_USER_HOME", gradleUserHome.getAbsolutePath());
       Process p = pb.start();
+
+      RunConsoleView console = new RunConsoleView(title);
+      console.setProcess(p);
+
       javafx.stage.Stage logStage = new javafx.stage.Stage();
-      javafx.scene.control.TextArea ta = new javafx.scene.control.TextArea();
-      ta.setEditable(false);
       logStage.setTitle(title);
-      javafx.scene.Scene logScene = new javafx.scene.Scene(new javafx.scene.layout.BorderPane(ta), 800, 500);
+      javafx.scene.Scene logScene = new javafx.scene.Scene(console, 800, 500);
       EditorTheme.apply(logScene);
       logStage.setScene(logScene);
       logStage.show();
-      Thread t = new Thread(() -> {
+
+      Thread reader = new Thread(() -> {
         try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
           String line;
           while ((line = r.readLine()) != null) {
-            String ln = line;
-            javafx.application.Platform.runLater(() -> ta.appendText(ln + "\n"));
+            console.appendLine(line);
           }
         } catch (Exception ignored) {}
+        try {
+          int exitCode = p.waitFor();
+          console.onProcessExit(exitCode);
+        } catch (InterruptedException ignored) {
+          console.onProcessExit(-1);
+        }
       });
-      t.setDaemon(true);
-      t.start();
+      reader.setDaemon(true);
+      reader.start();
     } catch (Exception ex) {
       status.setText("Run failed");
     }
