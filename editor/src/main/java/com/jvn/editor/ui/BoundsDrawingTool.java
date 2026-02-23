@@ -22,6 +22,8 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
@@ -112,6 +114,10 @@ public class BoundsDrawingTool extends BorderPane {
   private final ObservableList<BoundEntry> bounds = FXCollections.observableArrayList();
   private final TextField idField = new TextField();
   private final TextField labelField = new TextField();
+  private final TextField xField = new TextField();
+  private final TextField yField = new TextField();
+  private final TextField wField = new TextField();
+  private final TextField hField = new TextField();
   private final Label coordsLabel = new Label("—");
   private final ToggleGroup modeGroup = new ToggleGroup();
   private final ToggleButton selectBtn = new ToggleButton("Select");
@@ -138,6 +144,7 @@ public class BoundsDrawingTool extends BorderPane {
 
   // Point-nail state
   private final List<double[]> nailPoints = new ArrayList<>();
+  private boolean suppressFieldEvents = false;
 
   private enum DragAction { NONE, MOVE, RESIZE }
 
@@ -171,6 +178,9 @@ public class BoundsDrawingTool extends BorderPane {
     Button deleteBtn = new Button("Delete");
     deleteBtn.setTooltip(new Tooltip("Remove the selected bound"));
     deleteBtn.setOnAction(e -> deleteSelected());
+    Button duplicateBtn = new Button("Duplicate");
+    duplicateBtn.setTooltip(new Tooltip("Duplicate selected bound"));
+    duplicateBtn.setOnAction(e -> duplicateSelected());
 
     Button clearAllBtn = new Button("Clear All");
     clearAllBtn.setOnAction(e -> {
@@ -183,7 +193,7 @@ public class BoundsDrawingTool extends BorderPane {
     });
 
     HBox toolbar = new HBox(6, selectBtn, rectBtn, pointBtn,
-        createSpacer(), clearNails, deleteBtn, clearAllBtn);
+        createSpacer(), clearNails, duplicateBtn, deleteBtn, clearAllBtn);
     toolbar.setAlignment(Pos.CENTER_LEFT);
     toolbar.setPadding(new Insets(0, 0, 6, 0));
 
@@ -196,8 +206,10 @@ public class BoundsDrawingTool extends BorderPane {
     canvasHost.heightProperty().addListener((o, ov, nv) -> resizeCanvas());
     canvas.widthProperty().addListener((o, ov, nv) -> redraw());
     canvas.heightProperty().addListener((o, ov, nv) -> redraw());
+    canvas.setFocusTraversable(true);
 
     installCanvasInteractions();
+    addEventHandler(KeyEvent.KEY_PRESSED, this::onKeyPressed);
 
     // Sidebar: bounds list + property fields
     boundsList.setItems(bounds);
@@ -227,12 +239,29 @@ public class BoundsDrawingTool extends BorderPane {
         emitChange();
       }
     });
+    xField.setPromptText("x");
+    yField.setPromptText("y");
+    wField.setPromptText("w");
+    hField.setPromptText("h");
+    xField.textProperty().addListener((o, ov, nv) -> applyNumericFieldEdits());
+    yField.textProperty().addListener((o, ov, nv) -> applyNumericFieldEdits());
+    wField.textProperty().addListener((o, ov, nv) -> applyNumericFieldEdits());
+    hField.textProperty().addListener((o, ov, nv) -> applyNumericFieldEdits());
 
     coordsLabel.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px; -fx-text-fill: #a0b0c8;");
+
+    HBox xyRow = new HBox(4, new Label("x"), xField, new Label("y"), yField);
+    HBox whRow = new HBox(4, new Label("w"), wField, new Label("h"), hField);
+    HBox.setHgrow(xField, Priority.ALWAYS);
+    HBox.setHgrow(yField, Priority.ALWAYS);
+    HBox.setHgrow(wField, Priority.ALWAYS);
+    HBox.setHgrow(hField, Priority.ALWAYS);
 
     VBox sideFields = new VBox(4,
         new Label("ID:"), idField,
         new Label("Label:"), labelField,
+        xyRow,
+        whRow,
         coordsLabel
     );
     sideFields.setPadding(new Insets(6));
@@ -314,6 +343,7 @@ public class BoundsDrawingTool extends BorderPane {
   }
 
   private void onMousePressed(MouseEvent e) {
+    canvas.requestFocus();
     double mx = e.getX();
     double my = e.getY();
     double cw = canvasW();
@@ -464,6 +494,49 @@ public class BoundsDrawingTool extends BorderPane {
     } else if (mode == Mode.POINT_NAIL) {
       canvas.setCursor(Cursor.CROSSHAIR);
     }
+  }
+
+  private void onKeyPressed(KeyEvent e) {
+    if (e == null) return;
+    KeyCode code = e.getCode();
+    if (code == null) return;
+    if (code == KeyCode.DELETE || code == KeyCode.BACK_SPACE) {
+      deleteSelected();
+      e.consume();
+      return;
+    }
+    if (e.isControlDown() && code == KeyCode.D) {
+      duplicateSelected();
+      e.consume();
+      return;
+    }
+    if (!(code == KeyCode.LEFT || code == KeyCode.RIGHT || code == KeyCode.UP || code == KeyCode.DOWN)) return;
+    if (selectedIndex < 0 || selectedIndex >= bounds.size()) return;
+    BoundEntry b = bounds.get(selectedIndex);
+    double step = e.isShiftDown() ? 0.01 : 0.0025;
+    boolean resize = e.isAltDown();
+    if (resize) {
+      switch (code) {
+        case LEFT -> b.setW(clamp(b.getW() - step, 0.01, 1.0));
+        case RIGHT -> b.setW(clamp(b.getW() + step, 0.01, 1.0));
+        case UP -> b.setH(clamp(b.getH() - step, 0.01, 1.0));
+        case DOWN -> b.setH(clamp(b.getH() + step, 0.01, 1.0));
+        default -> { return; }
+      }
+    } else {
+      switch (code) {
+        case LEFT -> b.setX(clamp01(b.getX() - step));
+        case RIGHT -> b.setX(clamp01(b.getX() + step));
+        case UP -> b.setY(clamp01(b.getY() - step));
+        case DOWN -> b.setY(clamp01(b.getY() + step));
+        default -> { return; }
+      }
+    }
+    populateFields();
+    refreshListDisplay();
+    redraw();
+    emitChange();
+    e.consume();
   }
 
   // ── Hit testing ──
@@ -727,19 +800,47 @@ public class BoundsDrawingTool extends BorderPane {
 
   // ── Sidebar helpers ──
 
+  private void applyNumericFieldEdits() {
+    if (suppressFieldEvents) return;
+    if (selectedIndex < 0 || selectedIndex >= bounds.size()) return;
+    BoundEntry b = bounds.get(selectedIndex);
+    Double nx = parseDouble(xField.getText());
+    Double ny = parseDouble(yField.getText());
+    Double nw = parseDouble(wField.getText());
+    Double nh = parseDouble(hField.getText());
+    if (nx == null || ny == null || nw == null || nh == null) return;
+    b.setX(clamp01(nx));
+    b.setY(clamp01(ny));
+    b.setW(clamp(nw, 0.01, 1.0));
+    b.setH(clamp(nh, 0.01, 1.0));
+    refreshListDisplay();
+    redraw();
+    emitChange();
+  }
+
   private void populateFields() {
+    suppressFieldEvents = true;
     if (selectedIndex >= 0 && selectedIndex < bounds.size()) {
       BoundEntry b = bounds.get(selectedIndex);
       idField.setText(b.getId());
       labelField.setText(b.getLabel() != null ? b.getLabel() : "");
+      xField.setText(formatDouble(b.getX()));
+      yField.setText(formatDouble(b.getY()));
+      wField.setText(formatDouble(b.getW()));
+      hField.setText(formatDouble(b.getH()));
       coordsLabel.setText(String.format(Locale.ROOT,
           "x: %.4f  y: %.4f  w: %.4f  h: %.4f",
           b.getX(), b.getY(), b.getW(), b.getH()));
     } else {
       idField.setText("");
       labelField.setText("");
+      xField.setText("");
+      yField.setText("");
+      wField.setText("");
+      hField.setText("");
       coordsLabel.setText("—");
     }
+    suppressFieldEvents = false;
   }
 
   private void refreshListDisplay() {
@@ -757,6 +858,33 @@ public class BoundsDrawingTool extends BorderPane {
       redraw();
       emitChange();
     }
+  }
+
+  private void duplicateSelected() {
+    if (selectedIndex < 0 || selectedIndex >= bounds.size()) return;
+    BoundEntry source = bounds.get(selectedIndex);
+    if (source == null) return;
+    String baseId = (source.getId() == null || source.getId().isBlank()) ? "button" : source.getId();
+    String next = baseId + "_copy";
+    int index = 2;
+    while (containsId(next)) {
+      next = baseId + "_copy_" + index++;
+    }
+    BoundEntry duplicate = new BoundEntry(
+        next,
+        source.getLabel(),
+        clamp01(source.getX() + 0.015),
+        clamp01(source.getY() + 0.015),
+        source.getW(),
+        source.getH()
+    );
+    bounds.add(selectedIndex + 1, duplicate);
+    selectedIndex = selectedIndex + 1;
+    boundsList.getSelectionModel().select(selectedIndex);
+    populateFields();
+    refreshListDisplay();
+    redraw();
+    emitChange();
   }
 
   // ── Canvas sizing ──
@@ -787,6 +915,31 @@ public class BoundsDrawingTool extends BorderPane {
     javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
     return spacer;
+  }
+
+  private boolean containsId(String id) {
+    if (id == null || id.isBlank()) return false;
+    for (BoundEntry entry : bounds) {
+      if (entry == null) continue;
+      if (id.equals(entry.getId())) return true;
+    }
+    return false;
+  }
+
+  private static Double parseDouble(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      return Double.parseDouble(raw.trim());
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private static String formatDouble(double value) {
+    if (Math.rint(value) == value) return Long.toString(Math.round(value));
+    return String.format(Locale.ROOT, "%.4f", value)
+        .replaceAll("0+$", "")
+        .replaceAll("\\.$", "");
   }
 
   private static double clamp01(double v) { return clamp(v, 0, 1); }

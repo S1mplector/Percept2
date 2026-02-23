@@ -40,6 +40,8 @@ import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.image.Image;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -106,6 +108,8 @@ public class MenuScreenVisualEditor extends BorderPane {
   private Double dragStartY;
   private Double dragStartW;
   private Double dragStartH;
+  private final CheckBox cbSnapBounds = new CheckBox("Snap");
+  private static final double SNAP_STEP = 0.02;
 
   private enum DragMode { NONE, MOVE, RESIZE }
 
@@ -305,6 +309,8 @@ public class MenuScreenVisualEditor extends BorderPane {
 
     Button bAdd = new Button("Add");
     bAdd.setGraphic(CssIcon.plus("#8cd48c"));
+    Button bDuplicate = new Button("Duplicate");
+    bDuplicate.setGraphic(CssIcon.list("#9cc7ff"));
     Button bRemove = new Button("Remove");
     bRemove.setGraphic(CssIcon.minus("#e07070"));
     Button bUp = new Button();
@@ -316,17 +322,20 @@ public class MenuScreenVisualEditor extends BorderPane {
     Button bNormalize = new Button("Normalize IDs");
     bNormalize.setGraphic(CssIcon.sort());
 
-    for (Button b : List.of(bAdd, bRemove, bUp, bDown, bNormalize)) {
+    for (Button b : List.of(bAdd, bDuplicate, bRemove, bUp, bDown, bNormalize)) {
       b.getStyleClass().add("layout-studio-action-button");
       b.setMinWidth(Region.USE_PREF_SIZE);
     }
 
     bAdd.setOnAction(e -> addRow());
+    bDuplicate.setOnAction(e -> duplicateSelectedRow());
     bRemove.setOnAction(e -> removeRow());
     bUp.setOnAction(e -> moveSelected(-1));
     bDown.setOnAction(e -> moveSelected(1));
     bNormalize.setOnAction(e -> normalizeIds());
-    actions.getChildren().addAll(bAdd, bRemove, bUp, bDown, bNormalize);
+    cbSnapBounds.setSelected(true);
+    cbSnapBounds.setTooltip(new Tooltip("Snap dragged bounds to a 2% grid. Hold Ctrl while dragging to bypass."));
+    actions.getChildren().addAll(bAdd, bDuplicate, bRemove, bUp, bDown, bNormalize, cbSnapBounds);
 
     table.getStyleClass().add("layout-studio-table");
     VBox tablePane = new VBox(6, table, actions);
@@ -334,6 +343,7 @@ public class MenuScreenVisualEditor extends BorderPane {
 
     preview.widthProperty().addListener((o, ov, nv) -> redrawPreview());
     preview.heightProperty().addListener((o, ov, nv) -> redrawPreview());
+    preview.setFocusTraversable(true);
     installPreviewInteractions();
     javafx.scene.layout.StackPane previewHost = new javafx.scene.layout.StackPane(preview);
     previewHost.getStyleClass().add("layout-studio-preview-host");
@@ -926,6 +936,49 @@ public class MenuScreenVisualEditor extends BorderPane {
     onUiChanged();
   }
 
+  private void duplicateSelectedRow() {
+    int idx = table.getSelectionModel().getSelectedIndex();
+    if (idx < 0 || idx >= rows.size()) return;
+    MenuItemRow source = rows.get(idx);
+    String baseId = sanitizeId(source.getId());
+    if (baseId.isBlank()) baseId = "item";
+    String id = baseId + "_copy";
+    int n = 2;
+    while (hasId(id)) {
+      id = baseId + "_copy_" + n++;
+    }
+    MenuItemRow copy = new MenuItemRow(
+        id,
+        source.getLabel(),
+        source.getStyle(),
+        source.getIcon(),
+        source.isEnabled(),
+        source.getAction(),
+        source.getActionKey(),
+        source.getTarget(),
+        source.getBgAsset(),
+        source.getBgSelectedAsset(),
+        source.getBgDisabledAsset(),
+        source.getBoundsX(),
+        source.getBoundsY(),
+        source.getBoundsW(),
+        source.getBoundsH(),
+        source.isSlotPreviewEnabled(),
+        source.getSlotPreviewPlaceholderAsset(),
+        source.getSlotPreviewFrameAsset(),
+        source.getSlotPreviewX(),
+        source.getSlotPreviewY(),
+        source.getSlotPreviewW(),
+        source.getSlotPreviewH()
+    );
+    copy.extras.putAll(source.extras);
+    attachRowListeners(copy);
+    int insertIndex = Math.min(idx + 1, rows.size());
+    rows.add(insertIndex, copy);
+    table.getSelectionModel().select(insertIndex);
+    onUiChanged();
+  }
+
   private void removeRow() {
     int idx = table.getSelectionModel().getSelectedIndex();
     if (idx < 0 || idx >= rows.size()) return;
@@ -1127,7 +1180,7 @@ public class MenuScreenVisualEditor extends BorderPane {
 
     if (previewSelected >= 0 && previewSelected < previewRects.length) {
       Rect sel = previewRects[previewSelected];
-      drawBoundsTag(g, sel.x() + 8, sel.y() - 8, "Drag to move, handle to resize");
+      drawBoundsTag(g, sel.x() + 8, sel.y() - 8, "Drag move/resize | Arrows nudge | Alt+Arrows resize");
     }
   }
 
@@ -1141,6 +1194,7 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void installPreviewInteractions() {
     preview.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> {
+      preview.requestFocus();
       int idx = hitTestPreviewIndex(e.getX(), e.getY());
       dragRowIndex = idx;
       dragMode = DragMode.NONE;
@@ -1172,14 +1226,15 @@ public class MenuScreenVisualEditor extends BorderPane {
       double h = Math.max(1, preview.getHeight());
       double dxNorm = (e.getX() - dragStartMouseX) / w;
       double dyNorm = (e.getY() - dragStartMouseY) / h;
+      boolean snapEnabled = cbSnapBounds.isSelected() && !e.isControlDown();
 
       suppressEvents = true;
       if (dragMode == DragMode.MOVE) {
-        row.setBoundsX(clamp01((dragStartX == null ? 0 : dragStartX) + dxNorm));
-        row.setBoundsY(clamp01((dragStartY == null ? 0 : dragStartY) + dyNorm));
+        row.setBoundsX(snapNormalized(clamp01((dragStartX == null ? 0 : dragStartX) + dxNorm), snapEnabled));
+        row.setBoundsY(snapNormalized(clamp01((dragStartY == null ? 0 : dragStartY) + dyNorm), snapEnabled));
       } else if (dragMode == DragMode.RESIZE) {
-        row.setBoundsW(clamp((dragStartW == null ? 0.2 : dragStartW) + dxNorm, 0.05, 1.0));
-        row.setBoundsH(clamp((dragStartH == null ? 0.1 : dragStartH) + dyNorm, 0.04, 1.0));
+        row.setBoundsW(snapNormalized(clamp((dragStartW == null ? 0.2 : dragStartW) + dxNorm, 0.05, 1.0), snapEnabled));
+        row.setBoundsH(snapNormalized(clamp((dragStartH == null ? 0.1 : dragStartH) + dyNorm, 0.04, 1.0), snapEnabled));
       }
       suppressEvents = false;
       populateInspector();
@@ -1195,11 +1250,73 @@ public class MenuScreenVisualEditor extends BorderPane {
     preview.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
       int idx = hitTestPreviewIndex(e.getX(), e.getY());
       if (idx >= 0 && idx < rows.size()) {
+        preview.requestFocus();
         table.getSelectionModel().select(idx);
         previewSelected = idx;
         redrawPreview();
       }
     });
+
+    preview.addEventHandler(KeyEvent.KEY_PRESSED, this::handlePreviewKeyPressed);
+  }
+
+  private void handlePreviewKeyPressed(KeyEvent event) {
+    if (event == null) return;
+    KeyCode code = event.getCode();
+    if (code == null) return;
+    if (!(code == KeyCode.LEFT || code == KeyCode.RIGHT || code == KeyCode.UP || code == KeyCode.DOWN)) return;
+    int idx = table.getSelectionModel().getSelectedIndex();
+    if (idx < 0 || idx >= rows.size()) return;
+
+    MenuItemRow row = rows.get(idx);
+    Rect rect = idx < previewRects.length ? previewRects[idx] : null;
+    if (rect == null) rect = resolvePreviewRect(row, idx, preview.getWidth(), preview.getHeight(), 130, 38);
+    ensureBoundsInitialized(row, rect, preview.getWidth(), preview.getHeight());
+
+    double step = event.isShiftDown() ? 0.002 : 0.01;
+    boolean resize = event.isAltDown();
+    boolean snapEnabled = cbSnapBounds.isSelected() && !event.isControlDown();
+
+    Double x = row.getBoundsX();
+    Double y = row.getBoundsY();
+    Double bw = row.getBoundsW();
+    Double bh = row.getBoundsH();
+    if (x == null) x = 0.0;
+    if (y == null) y = 0.0;
+    if (bw == null) bw = 0.2;
+    if (bh == null) bh = 0.1;
+
+    suppressEvents = true;
+    switch (code) {
+      case LEFT -> {
+        if (resize) bw = clamp(bw - step, 0.05, 1.0);
+        else x = clamp01(x - step);
+      }
+      case RIGHT -> {
+        if (resize) bw = clamp(bw + step, 0.05, 1.0);
+        else x = clamp01(x + step);
+      }
+      case UP -> {
+        if (resize) bh = clamp(bh - step, 0.04, 1.0);
+        else y = clamp01(y - step);
+      }
+      case DOWN -> {
+        if (resize) bh = clamp(bh + step, 0.04, 1.0);
+        else y = clamp01(y + step);
+      }
+      default -> {
+        suppressEvents = false;
+        return;
+      }
+    }
+    row.setBoundsX(snapNormalized(x, snapEnabled));
+    row.setBoundsY(snapNormalized(y, snapEnabled));
+    row.setBoundsW(snapNormalized(bw, snapEnabled));
+    row.setBoundsH(snapNormalized(bh, snapEnabled));
+    suppressEvents = false;
+    populateInspector();
+    onUiChanged();
+    event.consume();
   }
 
   private void ensureBoundsInitialized(MenuItemRow row, Rect rect, double w, double h) {
@@ -1808,6 +1925,12 @@ public class MenuScreenVisualEditor extends BorderPane {
     if (value < min) return min;
     if (value > max) return max;
     return value;
+  }
+
+  private static double snapNormalized(double value, boolean enabled) {
+    if (!enabled) return value;
+    double snapped = Math.round(value / SNAP_STEP) * SNAP_STEP;
+    return clamp01(snapped);
   }
 
   private static double clamp01(double value) {

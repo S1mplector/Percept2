@@ -111,6 +111,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final UndoManager undoManager = new UndoManager();
   private Button btnUndo;
   private Button btnRedo;
+  private final Label validation = new Label("No issues detected.");
 
   private String previewSpeakerName = "Speaker Name";
   private String previewDialogueLine1 = "Narrator: The GUI editor now controls dialogue bounds.";
@@ -189,7 +190,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     NAME_BOX,
     CHOICE_BLOCK,
     CHOICE_RESIZE,
-    TEXTBOX_BUTTON
+    TEXTBOX_BUTTON,
+    TEXTBOX_BUTTON_RESIZE
   }
 
   public DialogueLayoutEditorView() {
@@ -216,6 +218,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     registerPreviewDrag();
     registerControlListeners();
     updatePreviewSize(previewPane);
+    validateState();
     redraw();
   }
 
@@ -228,6 +231,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     previewAssetCache.clear();
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
+    validateState();
     redraw();
   }
 
@@ -256,6 +260,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
     suppressEvents = false;
+    validateState();
     redraw();
     lastLoadedText = normalizedInput;
     lastEmittedText = normalizeText(serialize(spec, style, textBoxButtons, rawProperties));
@@ -376,11 +381,14 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = 0;
     HBox buttonToolbar = new HBox(6);
     Button addButton = new Button("Add");
+    Button duplicateButton = new Button("Duplicate");
     Button removeButton = new Button("Remove");
+    Button moveUpButton = new Button("Up");
+    Button moveDownButton = new Button("Down");
     Button boundsStudioBtn = new Button("Bounds Studio");
     boundsStudioBtn.setStyle("-fx-font-size: 11px;");
     boundsStudioBtn.setOnAction(e -> openTextBoxButtonBoundsStudio());
-    buttonToolbar.getChildren().addAll(addButton, removeButton, boundsStudioBtn);
+    buttonToolbar.getChildren().addAll(addButton, duplicateButton, removeButton, moveUpButton, moveDownButton, boundsStudioBtn);
     row = addRow(btnGrid, row, "Buttons", buttonToolbar);
     row = addRow(btnGrid, row, "Button List", lvTextBoxButtons);
     row = addRow(btnGrid, row, "Button Id", tfButtonId);
@@ -396,7 +404,10 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(btnGrid, row, "Button Hover Asset", assetFieldRow(tfButtonHoverAsset, "Select Button Hover Asset"));
     row = addRow(btnGrid, row, "Button Disabled Asset", assetFieldRow(tfButtonDisabledAsset, "Select Button Disabled Asset"));
     addButton.setOnAction(e -> addTextBoxButton());
+    duplicateButton.setOnAction(e -> duplicateSelectedTextBoxButton());
     removeButton.setOnAction(e -> removeSelectedTextBoxButton());
+    moveUpButton.setOnAction(e -> moveSelectedTextBoxButton(-1));
+    moveDownButton.setOnAction(e -> moveSelectedTextBoxButton(1));
     TitledPane tpButtons = collapsibleSection("Textbox Buttons", btnGrid, false);
 
     // --- History + hint ---
@@ -411,14 +422,18 @@ public class DialogueLayoutEditorView extends BorderPane {
     HBox historyButtons = new HBox(8, btnUndo, btnRedo);
     historyButtons.setPadding(new Insets(4, 8, 4, 8));
 
-    Label hint = new Label("Drag blocks in preview to position textbox/name/choices/buttons.");
+    Label hint = new Label("Drag blocks in preview to position or resize textbox/name/choices/buttons. Hold Shift for finer spinner edits.");
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
     hint.setPadding(new Insets(4, 8, 8, 8));
 
+    validation.getStyleClass().add("muted");
+    validation.setWrapText(true);
+    validation.setPadding(new Insets(2, 8, 8, 8));
+
     javafx.scene.layout.VBox sections = new javafx.scene.layout.VBox(2,
         tpTextbox, tpName, tpTextBounds, tpChoiceLayout, tpChoiceColors, tpButtons,
-        historyButtons, hint
+        historyButtons, hint, validation
     );
     sections.setPadding(new Insets(4));
 
@@ -446,9 +461,16 @@ public class DialogueLayoutEditorView extends BorderPane {
   private HBox assetFieldRow(TextField field, String dialogTitle) {
     Button browse = new Button("Browse...");
     browse.setOnAction(e -> browseAsset(field, dialogTitle));
+    Button importBtn = new Button("Import...");
+    importBtn.setOnAction(e -> {
+      String imported = importAsset(field, dialogTitle);
+      if (imported != null && !imported.isBlank()) {
+        field.setText(imported);
+      }
+    });
     Button clear = new Button("Clear");
     clear.setOnAction(e -> field.setText(""));
-    HBox row = new HBox(6, field, browse, clear);
+    HBox row = new HBox(6, field, browse, importBtn, clear);
     HBox.setHgrow(field, Priority.ALWAYS);
     return row;
   }
@@ -551,6 +573,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     syncSelectedTextBoxButtonFromControls();
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
+    validateState();
     redraw();
     emitText();
   }
@@ -561,6 +584,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     syncSelectedTextBoxButtonFromControls();
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
+    validateState();
     redraw();
     emitText();
   }
@@ -583,6 +607,48 @@ public class DialogueLayoutEditorView extends BorderPane {
     target.setText(relative);
   }
 
+  private String importAsset(TextField target, String dialogTitle) {
+    FileChooser chooser = new FileChooser();
+    chooser.setTitle((dialogTitle == null || dialogTitle.isBlank()) ? "Import Asset" : dialogTitle.replace("Select", "Import"));
+    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"));
+    File initialDir = resolveInitialAssetDirectory();
+    if (initialDir != null && initialDir.isDirectory()) {
+      chooser.setInitialDirectory(initialDir);
+    }
+    Window owner = getScene() != null ? getScene().getWindow() : null;
+    File picked = chooser.showOpenDialog(owner);
+    if (picked == null) return null;
+    if (projectRoot == null) return toProjectRelativePath(picked);
+    try {
+      File targetDir = new File(projectRoot, "assets/ui");
+      if (!targetDir.exists()) targetDir.mkdirs();
+      File destination = new File(targetDir, picked.getName());
+      if (destination.exists()) {
+        String name = picked.getName();
+        String stem = name;
+        String ext = "";
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) {
+          stem = name.substring(0, dot);
+          ext = name.substring(dot);
+        }
+        int idx = 1;
+        while (destination.exists()) {
+          destination = new File(targetDir, stem + "_" + idx + ext);
+          idx++;
+        }
+      }
+      java.nio.file.Files.copy(
+          picked.toPath(),
+          destination.toPath(),
+          java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      return toProjectRelativePath(destination);
+    } catch (Exception ignored) {
+      return target != null ? normalizeAssetPath(target.getText()) : null;
+    }
+  }
+
   private void registerPreviewDrag() {
     preview.setOnMousePressed(e -> {
       dragStartX = e.getX();
@@ -590,7 +656,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       dragStartSpec = spec;
       dragStartButtons = new ArrayList<>(textBoxButtons);
       dragTarget = hitTest(e.getX(), e.getY());
-      if (dragTarget == DragTarget.TEXTBOX_BUTTON && dragButtonIndex >= 0) {
+      if ((dragTarget == DragTarget.TEXTBOX_BUTTON || dragTarget == DragTarget.TEXTBOX_BUTTON_RESIZE) && dragButtonIndex >= 0) {
         setSelectedTextBoxButton(dragButtonIndex);
       }
     });
@@ -723,12 +789,22 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding()
         );
-      } else if (dragTarget == DragTarget.TEXTBOX_BUTTON && dragButtonIndex >= 0 && dragButtonIndex < dragStartButtons.size()) {
+      } else if ((dragTarget == DragTarget.TEXTBOX_BUTTON || dragTarget == DragTarget.TEXTBOX_BUTTON_RESIZE)
+          && dragButtonIndex >= 0 && dragButtonIndex < dragStartButtons.size()) {
         TextBoxGeometry textBox = computeTextBoxGeometry(dragStartSpec, w, h);
         VnUiActionButtonSpec baseButton = dragStartButtons.get(dragButtonIndex);
         if (baseButton != null) {
-          double nx = clamp01(baseButton.x() + (dx / Math.max(1, textBox.width())));
-          double ny = clamp01(baseButton.y() + (dy / Math.max(1, textBox.height())));
+          double nx = baseButton.x();
+          double ny = baseButton.y();
+          double nw = baseButton.width();
+          double nh = baseButton.height();
+          if (dragTarget == DragTarget.TEXTBOX_BUTTON) {
+            nx = clamp01(baseButton.x() + (dx / Math.max(1, textBox.width())));
+            ny = clamp01(baseButton.y() + (dy / Math.max(1, textBox.height())));
+          } else {
+            nw = clamp(baseButton.width() + (dx / Math.max(1, textBox.width())), 0.01, 1.0);
+            nh = clamp(baseButton.height() + (dy / Math.max(1, textBox.height())), 0.01, 1.0);
+          }
           VnUiActionButtonSpec moved = new VnUiActionButtonSpec(
               baseButton.id(),
               baseButton.label(),
@@ -740,12 +816,13 @@ public class DialogueLayoutEditorView extends BorderPane {
               baseButton.disabledAssetPath(),
               nx,
               ny,
-              baseButton.width(),
-              baseButton.height()
+              nw,
+              nh
           );
           textBoxButtons = new ArrayList<>(dragStartButtons);
           textBoxButtons.set(dragButtonIndex, moved);
           setSelectedTextBoxButton(dragButtonIndex);
+          validateState();
           redraw();
           emitText();
           return;
@@ -756,6 +833,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       suppressEvents = true;
       applySpecToControls(spec);
       suppressEvents = false;
+      validateState();
       redraw();
       emitText();
     });
@@ -768,6 +846,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     // Resize handles (bottom-right corners) take priority
     if (isNearCorner(x, y, r.textBox())) return DragTarget.TEXT_BOX_RESIZE;
     if (isNearCorner(x, y, r.choiceBlock())) return DragTarget.CHOICE_RESIZE;
+    dragButtonIndex = hitTestButtonResizeIndex(x, y, r.textBox());
+    if (dragButtonIndex >= 0) return DragTarget.TEXTBOX_BUTTON_RESIZE;
     dragButtonIndex = hitTestButtonIndex(x, y, r.textBox());
     if (dragButtonIndex >= 0) return DragTarget.TEXTBOX_BUTTON;
     if (r.nameBox().contains(x, y)) return DragTarget.NAME_BOX;
@@ -910,13 +990,23 @@ public class DialogueLayoutEditorView extends BorderPane {
       g.setStroke(selected ? LayoutStudioPalette.ACCENT_GOLD : LayoutStudioPalette.ACCENT_BLUE);
       g.setLineWidth(selected ? 2 : 1.2);
       g.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 8, 8);
+      if (selected) {
+        double handle = 8;
+        double hx = rect.x() + rect.w() - handle;
+        double hy = rect.y() + rect.h() - handle;
+        g.setFill(LayoutStudioPalette.ACCENT_GOLD);
+        g.fillRect(hx, hy, handle, handle);
+        g.setStroke(LayoutStudioPalette.PANEL_BORDER);
+        g.setLineWidth(1);
+        g.strokeRect(hx, hy, handle, handle);
+      }
       g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
       g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, clamp(rect.h() * 0.36, 10, 16)));
       String label = normalizeAssetPath(button.label());
       if (label.isBlank()) label = button.id();
       double labelW = computeTextWidth(g, label, g.getFont());
       g.fillText(label, rect.x() + Math.max(8, (rect.w() - labelW) / 2.0), rect.y() + rect.h() * 0.62);
-      drawTag(g, rect.x() + 4, rect.y() - 4, "Btn: " + button.id());
+      drawTag(g, rect.x() + 4, rect.y() - 4, selected ? "Btn: " + button.id() + " (drag/resize)" : "Btn: " + button.id());
     }
   }
 
@@ -985,6 +1075,17 @@ public class DialogueLayoutEditorView extends BorderPane {
       if (button == null || !button.enabled()) continue;
       Rect rect = computeTextBoxButtonRect(button, textBoxRect);
       if (rect.contains(x, y)) return i;
+    }
+    return -1;
+  }
+
+  private int hitTestButtonResizeIndex(double x, double y, Rect textBoxRect) {
+    if (textBoxButtons == null || textBoxButtons.isEmpty()) return -1;
+    for (int i = textBoxButtons.size() - 1; i >= 0; i--) {
+      VnUiActionButtonSpec button = textBoxButtons.get(i);
+      if (button == null || !button.enabled()) continue;
+      Rect rect = computeTextBoxButtonRect(button, textBoxRect);
+      if (isNearCorner(x, y, rect)) return i;
     }
     return -1;
   }
@@ -1123,6 +1224,36 @@ public class DialogueLayoutEditorView extends BorderPane {
     textBoxButtons.add(created);
     refreshTextBoxButtonList();
     setSelectedTextBoxButton(textBoxButtons.size() - 1);
+    validateState();
+    redraw();
+    emitText();
+  }
+
+  private void duplicateSelectedTextBoxButton() {
+    if (suppressEvents) return;
+    if (selectedButtonIndex < 0 || selectedButtonIndex >= textBoxButtons.size()) return;
+    VnUiActionButtonSpec source = textBoxButtons.get(selectedButtonIndex);
+    if (source == null) return;
+    String newId = nextButtonId();
+    VnUiActionButtonSpec duplicate = new VnUiActionButtonSpec(
+        newId,
+        source.label(),
+        source.action(),
+        source.target(),
+        source.enabled(),
+        source.assetPath(),
+        source.hoverAssetPath(),
+        source.disabledAssetPath(),
+        clamp01(source.x() + 0.02),
+        clamp01(source.y() + 0.02),
+        source.width(),
+        source.height()
+    );
+    int insertIndex = Math.min(selectedButtonIndex + 1, textBoxButtons.size());
+    textBoxButtons.add(insertIndex, duplicate);
+    refreshTextBoxButtonList();
+    setSelectedTextBoxButton(insertIndex);
+    validateState();
     redraw();
     emitText();
   }
@@ -1137,6 +1268,21 @@ public class DialogueLayoutEditorView extends BorderPane {
     } else {
       setSelectedTextBoxButton(Math.min(selectedButtonIndex, textBoxButtons.size() - 1));
     }
+    validateState();
+    redraw();
+    emitText();
+  }
+
+  private void moveSelectedTextBoxButton(int delta) {
+    if (suppressEvents) return;
+    if (selectedButtonIndex < 0 || selectedButtonIndex >= textBoxButtons.size()) return;
+    int next = selectedButtonIndex + delta;
+    if (next < 0 || next >= textBoxButtons.size()) return;
+    VnUiActionButtonSpec current = textBoxButtons.remove(selectedButtonIndex);
+    textBoxButtons.add(next, current);
+    refreshTextBoxButtonList();
+    setSelectedTextBoxButton(next);
+    validateState();
     redraw();
     emitText();
   }
@@ -1199,6 +1345,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       suppressEvents = false;
       refreshTextBoxButtonList();
       setSelectedTextBoxButton(textBoxButtons.isEmpty() ? -1 : 0);
+      validateState();
       redraw();
       emitText();
     });
@@ -1224,6 +1371,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       setValue(spButtonWidth, 0.12);
       setValue(spButtonHeight, 0.25);
       suppressEvents = false;
+      validateState();
       redraw();
       return;
     }
@@ -1247,6 +1395,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spButtonWidth, button.width());
     setValue(spButtonHeight, button.height());
     suppressEvents = false;
+    validateState();
     redraw();
   }
 
@@ -1283,6 +1432,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       lvTextBoxButtons.getSelectionModel().select(selectedButtonIndex);
       suppressEvents = false;
     }
+    validateState();
   }
 
   private void refreshTextBoxButtonList() {
@@ -1376,6 +1526,63 @@ public class DialogueLayoutEditorView extends BorderPane {
     setLayoutText(next);
     suppressEvents = false;
     if (onLayoutTextChanged != null) onLayoutTextChanged.accept(next);
+  }
+
+  private void validateState() {
+    List<String> warnings = new ArrayList<>();
+    Set<String> ids = new LinkedHashSet<>();
+
+    if (spec.textBoxWidth() <= 0.0 || spec.textBoxHeight() <= 0.0) {
+      warnings.add("Textbox width/height must be > 0.");
+    }
+    if (spec.choiceWidthFactor() <= 0.0 || spec.choiceHeight() <= 0.0) {
+      warnings.add("Choice block width/height must be > 0.");
+    }
+
+    for (VnUiActionButtonSpec button : textBoxButtons) {
+      if (button == null) continue;
+      String id = normalizeAssetPath(button.id());
+      if (id.isBlank()) {
+        warnings.add("Textbox button id is empty.");
+      } else if (!ids.add(id)) {
+        warnings.add("Duplicate textbox button id: " + id);
+      }
+      if (button.width() <= 0.0 || button.height() <= 0.0) {
+        warnings.add("Textbox button '" + id + "' has non-positive width/height.");
+      }
+      String action = normalizeAssetPath(button.action()).toLowerCase(Locale.ROOT);
+      if ("open_menu".equals(action) && normalizeAssetPath(button.target()).isBlank()) {
+        warnings.add("Textbox button '" + id + "': open_menu requires target.");
+      }
+
+      warnMissingAsset(warnings, "textBoxButton." + id + ".asset", button.assetPath());
+      warnMissingAsset(warnings, "textBoxButton." + id + ".hoverAsset", button.hoverAssetPath());
+      warnMissingAsset(warnings, "textBoxButton." + id + ".disabledAsset", button.disabledAssetPath());
+    }
+
+    warnMissingAsset(warnings, "textBoxAsset", style.textBoxAssetPath());
+    warnMissingAsset(warnings, "choiceButtonAsset", style.choiceButtonAssetPath());
+    warnMissingAsset(warnings, "choiceButtonHoverAsset", style.choiceButtonHoverAssetPath());
+    warnMissingAsset(warnings, "choiceButtonSelectedAsset", style.choiceButtonSelectedAssetPath());
+    warnMissingAsset(warnings, "choiceButtonDisabledAsset", style.choiceButtonDisabledAssetPath());
+
+    if (warnings.isEmpty()) {
+      validation.setText("No issues detected.");
+      validation.setTextFill(LayoutStudioPalette.TEXT_SUCCESS);
+    } else {
+      validation.setText(String.join(" | ", warnings));
+      validation.setTextFill(LayoutStudioPalette.TEXT_WARNING);
+    }
+  }
+
+  private void warnMissingAsset(List<String> warnings, String field, String assetPath) {
+    if (projectRoot == null) return;
+    String normalized = normalizeAssetPath(assetPath);
+    if (normalized.isBlank()) return;
+    File file = resolveAssetFile(normalized);
+    if (file == null || !file.exists()) {
+      warnings.add(field + " not found: " + normalized);
+    }
   }
 
   private static String serialize(
