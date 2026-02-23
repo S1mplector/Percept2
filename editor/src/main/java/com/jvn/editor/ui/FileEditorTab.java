@@ -417,6 +417,13 @@ public class FileEditorTab extends BorderPane {
   public JesScene2D getJesScene() { return jesScene; }
   public ViewportView getViewport() { return viewport; }
   public VnPreviewView getVnPreview() { return vnPreview; }
+  public void stopPreviewAudio() {
+    if (vnPreview != null) vnPreview.stopAudio();
+  }
+  public void dispose() {
+    stopPreviewAudio();
+    if (vnPreview != null) vnPreview.dispose();
+  }
   public Node getEditorNode() {
     if (kind == Kind.JES) return jesEditor;
     if (kind == Kind.VNS) return vnsEditor;

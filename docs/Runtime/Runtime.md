@@ -59,8 +59,9 @@ Use project assets from disk:
 
 ## Audio Backend Behavior
 
-- Default mode uses FX audio backend.
-- `--audio simp3` attempts Simp3 backend (requires optional dependency build path).
+- Default mode is `auto`.
+- `--audio simp3` forces Simp3 backend.
+- `--audio fx` forces JavaFX backend.
 - `--audio auto` tries Simp3 first, falls back to FX automatically.
 
 ## Scene Entry Behavior
@@ -121,11 +122,5 @@ Typical fixes:
 
 ### Simp3 backend unavailable
 
-If `--audio simp3` is selected but Simp3 is not on classpath, runtime should fall back to FX in `auto` mode.
-
-To enable explicit Simp3 linkage:
-
-```bash
-mvn -f Simp3/pom.xml install
-./gradlew -PuseSimp3=true build
-```
+If `--audio simp3` is explicitly selected and Simp3 cannot initialize, switch to `--audio auto` or `--audio fx`.
+In `auto`, runtime falls back to FX automatically.

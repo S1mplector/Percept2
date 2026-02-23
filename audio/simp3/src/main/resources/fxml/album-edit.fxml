@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.image.*?>
+
+<DialogPane fx:controller="com.musicplayer.ui.controllers.AlbumEditController" 
+            xmlns:fx="http://javafx.com/fxml/1"
+            prefWidth="400" prefHeight="300">
+    
+    <header>
+        <Label text="Edit Album" style="-fx-font-size: 18px; -fx-font-weight: bold;">
+            <padding>
+                <Insets top="10" bottom="10" left="10" right="10"/>
+            </padding>
+        </Label>
+    </header>
+    
+    <content>
+        <VBox spacing="20">
+            <padding>
+                <Insets top="10" left="20" right="20" bottom="10"/>
+            </padding>
+            
+            <!-- Album Name Section -->
+            <VBox spacing="10">
+                <Label text="Album Name" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                <TextField fx:id="albumNameField" promptText="Enter album name"/>
+            </VBox>
+            
+            <!-- Album Art Section -->
+            <VBox spacing="10">
+                <Label text="Album Art" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                
+                <HBox spacing="15" alignment="CENTER_LEFT">
+                    <!-- Current Album Art Preview -->
+                    <VBox spacing="5" alignment="CENTER">
+                        <Label text="Current:" style="-fx-font-size: 12px;"/>
+                        <ImageView fx:id="currentAlbumArt" fitWidth="80" fitHeight="80" preserveRatio="true" 
+                                   style="-fx-background-color: #333333; -fx-background-radius: 5;"/>
+                    </VBox>
+                    
+                    <!-- Buttons -->
+                    <VBox spacing="10">
+                        <Button fx:id="selectImageButton" text="Select New Image..." onAction="#onSelectImage"/>
+                        <Button fx:id="resetImageButton" text="Reset to Default" onAction="#onResetImage"/>
+                    </VBox>
+                </HBox>
+                
+                <!-- Selected file info -->
+                <Label fx:id="selectedFileLabel" text="" style="-fx-font-size: 11px; -fx-text-fill: #666666;"/>
+            </VBox>
+            
+            <!-- Custom button bar -->
+            <Separator/>
+            <HBox fx:id="buttonBar" alignment="CENTER_RIGHT" spacing="10">
+                <padding>
+                    <Insets top="10" left="0" right="0" bottom="0"/>
+                </padding>
+            </HBox>
+        </VBox>
+    </content>
+    
+</DialogPane>

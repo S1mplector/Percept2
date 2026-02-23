@@ -3,6 +3,8 @@ package com.jvn.editor.ui;
 import java.io.File;
 import java.util.Objects;
 
+import com.jvn.audio.simp3.Simp3AudioService;
+import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.vn.DefaultVnInterop;
 import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
@@ -37,7 +39,7 @@ public class VnPreviewView extends StackPane {
   private final Tooltip previewTooltip = new Tooltip(PREVIEW_HINT);
   private VnScene scene;
   private double mouseX, mouseY;
-  private FxAudioService audio;
+  private AudioFacade audio;
   private File projectRoot;
 
   public VnPreviewView() {
@@ -68,13 +70,15 @@ public class VnPreviewView extends StackPane {
   }
 
   public void setProjectRoot(File root) {
+    if (!Objects.equals(this.projectRoot, root)) {
+      stopAudio();
+    }
     this.projectRoot = root;
     renderer.setProjectRoot(root);
-    if (audio != null) audio.setProjectRoot(root);
+    bindProjectRoot(audio, root);
     if (scene != null) {
       if (audio == null) {
-        audio = new FxAudioService();
-        if (root != null) audio.setProjectRoot(root);
+        audio = createAudioFacade(root);
       }
       scene.setAudioFacade(audio);
     }
@@ -104,17 +108,19 @@ public class VnPreviewView extends StackPane {
 
   private void initializeScenario(VnScenario scenario, String startLabel) {
     if (scenario == null) {
+      stopAudio();
       this.scene = null;
       return;
     }
+    stopAudio();
     VnScene nextScene = new VnScene(scenario);
     DefaultVnInterop interop = new DefaultVnInterop();
     com.jvn.core.vn.VnCharacterSceneAccessor accessor = new com.jvn.core.vn.VnCharacterSceneAccessor();
     interop.setSceneAccessor(accessor);
     renderer.setTimelineAccessor(accessor);
     nextScene.setInterop(interop);
-    if (audio == null) audio = new FxAudioService();
-    if (projectRoot != null) audio.setProjectRoot(projectRoot);
+    if (audio == null) audio = createAudioFacade(projectRoot);
+    bindProjectRoot(audio, projectRoot);
     nextScene.setAudioFacade(audio);
     if (startLabel != null && !startLabel.isBlank()) {
       nextScene.getState().jumpToLabel(startLabel);
@@ -442,5 +448,41 @@ public class VnPreviewView extends StackPane {
   private static double sanitizeCanvasDimension(double value) {
     if (!Double.isFinite(value)) return 1.0;
     return Math.max(1.0, Math.min(8192.0, value));
+  }
+
+  public void stopAudio() {
+    if (audio != null) {
+      try {
+        audio.stopAllAudio();
+      } catch (Exception ignored) {
+      }
+    }
+  }
+
+  public void dispose() {
+    stopAudio();
+    scene = null;
+  }
+
+  private AudioFacade createAudioFacade(File root) {
+    AudioFacade facade;
+    try {
+      Simp3AudioService simp3 = new Simp3AudioService();
+      simp3.setProjectRoot(root);
+      facade = simp3;
+    } catch (Throwable t) {
+      FxAudioService fx = new FxAudioService();
+      fx.setProjectRoot(root);
+      facade = fx;
+    }
+    return facade;
+  }
+
+  private void bindProjectRoot(AudioFacade facade, File root) {
+    if (facade instanceof FxAudioService fx) {
+      fx.setProjectRoot(root);
+    } else if (facade instanceof Simp3AudioService simp3) {
+      simp3.setProjectRoot(root);
+    }
   }
 }

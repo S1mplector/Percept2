@@ -17,7 +17,7 @@ include(
   ":fx",
   ":runtime",
   ":scripting",
-  ":audio-integration",
+  ":audio",
   ":editor",
   ":demo-game",
   ":billiards-game",

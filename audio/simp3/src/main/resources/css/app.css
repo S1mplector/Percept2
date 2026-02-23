@@ -1,0 +1,244 @@
+/* Set the global focus color to light transparent green */
+.root {
+    -fx-focus-color: #32cd3266;
+    -fx-accent: #32cd3246;
+    -fx-selection-bar: #32cd3246;
+    -fx-selection-bar-non-focused: #32cd3246;
+}
+
+.album-card:hover {
+    -fx-background-color: #32cd3246;
+}
+
+.list-cell:hover {
+    -fx-background-color: #32cd3246;
+}
+
+.sidebar-header {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #444444;
+}
+
+.table-row-cell {
+    -fx-cell-size: 30px; /* increased row height */
+}
+
+.table-cell {
+    -fx-alignment: CENTER_LEFT;
+}
+
+/* Audio Visualizer Enhancement */
+.bottom-control-area {
+    -fx-background-color: linear-gradient(to bottom, #f5f5f5, #e0e0e0);
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* Slider styling for volume and time */
+.slider .track {
+    -fx-background-color: #d0d0d0;
+    -fx-background-radius: 3;
+}
+
+.slider .thumb {
+    -fx-background-color: #32cd32;
+    -fx-background-radius: 50%;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 3, 0, 0, 1);
+}
+
+.slider .thumb:hover {
+    -fx-background-color: #45d945;
+    -fx-effect: dropshadow(gaussian, rgba(50,205,50,0.5), 5, 0, 0, 1);
+}
+
+/* Button hover effects - consistent green hover like mini player */
+.button {
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+}
+
+.button:hover {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(76, 175, 80, 0.15),
+        rgba(76, 175, 80, 0.1));
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.3), 10, 0, 0, 2);
+}
+
+.button:pressed {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(76, 175, 80, 0.25),
+        rgba(76, 175, 80, 0.2));
+}
+
+/* Special styling for icon-only buttons (transparent background) */
+.button[style*="transparent"] {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+}
+
+.button[style*="transparent"]:hover {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(76, 175, 80, 0.15),
+        rgba(76, 175, 80, 0.1));
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.3), 10, 0, 0, 2);
+}
+
+.button[style*="transparent"]:pressed {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(76, 175, 80, 0.25),
+        rgba(76, 175, 80, 0.2));
+}
+
+/* Update Dialog Styles */
+.update-dialog {
+    -fx-background-color: #f5f5f5;
+}
+
+.update-dialog .content {
+    -fx-padding: 20;
+}
+
+.update-dialog .header-panel {
+    -fx-background-color: #4CAF50;
+    -fx-padding: 15;
+}
+
+.update-dialog .header-panel .label {
+    -fx-text-fill: white;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.update-dialog .version-label {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #333333;
+}
+
+.update-dialog .release-notes {
+    -fx-background-color: white;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+    -fx-padding: 10;
+}
+
+.update-dialog .progress-bar {
+    -fx-accent: #4CAF50;
+}
+
+.update-dialog .progress-bar .track {
+    -fx-background-color: #e0e0e0;
+    -fx-background-radius: 4;
+}
+
+.update-dialog .progress-bar .bar {
+    -fx-background-color: #4CAF50;
+    -fx-background-radius: 4;
+}
+
+.update-dialog .primary-button {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 8 16 8 16;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+
+.update-dialog .primary-button:hover {
+    -fx-background-color: #45a049;
+}
+
+.update-dialog .primary-button:pressed {
+    -fx-background-color: #3d8b40;
+}
+
+.update-dialog .primary-button:disabled {
+    -fx-background-color: #cccccc;
+    -fx-text-fill: #666666;
+}
+
+.update-dialog .secondary-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #666666;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1;
+    -fx-padding: 8 16 8 16;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+
+.update-dialog .secondary-button:hover {
+    -fx-background-color: #f0f0f0;
+}
+
+.update-dialog .secondary-button:pressed {
+    -fx-background-color: #e0e0e0;
+}
+
+/* Icon button styles for dialogs */
+
+/* Refined icon-button base to match subtle sizing of regular buttons */
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 2;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    -fx-min-width: 24;
+    -fx-min-height: 24;
+    -fx-pref-width: 24;
+    -fx-pref-height: 24;
+}
+
+/* Harmonize icon-button hover with standard button for subtle effect */
+.icon-button:hover {
+    /* No additional background – match subtlety of main control icons */
+    -fx-background-color: transparent;
+    -fx-effect: null;
+}
+
+.icon-button:pressed {
+    -fx-background-color: transparent;
+}
+
+.icon-button:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+/* Add subtle animation to icon buttons */
+.icon-button {
+    -fx-transition: all 0.2s ease;
+}
+
+.icon-button .image-view {
+    -fx-transition: all 0.2s ease;
+}
+
+.icon-button:hover .image-view {
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.6), 8, 0, 0, 0);
+}
+
+/* Rating column styles */
+.rating-cell {
+    -fx-alignment: CENTER_LEFT;
+}
+.rating-cell .star {
+    -fx-text-fill: #aaaaaa;
+    -fx-opacity: 0.4;
+    -fx-font-size: 14px;
+}
+.rating-cell .star-filled {
+    -fx-text-fill: #FFD54F; /* amber */
+    -fx-opacity: 1.0;
+}
+.rating-cell .star:hover {
+    -fx-opacity: 0.8;
+}

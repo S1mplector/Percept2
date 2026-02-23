@@ -213,6 +213,7 @@ public class EditorApp extends Application {
 
   private void openProjectDirectory(File dir) {
     if (dir == null || !dir.exists() || !dir.isDirectory()) return;
+    stopAllPreviewAudio();
     this.projectRoot = dir;
     Properties mf = loadManifest(dir);
     configureProjectContext(dir, mf);
@@ -859,7 +860,9 @@ public class EditorApp extends Application {
       }
       if (layoutStudioWindowManager != null && !layoutStudioWindowManager.requestCloseAll()) {
         e.consume();
+        return;
       }
+      disposeAllFileTabs();
     });
     applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();
@@ -1009,7 +1012,7 @@ public class EditorApp extends Application {
       if (f == null) return;
       ft.saveTo(f);
       openFile(f);
-      if (currentTab != null && filesTabs != null) filesTabs.getTabs().remove(currentTab);
+      if (currentTab != null && filesTabs != null) closeAndDisposeTab(currentTab);
     } catch (Exception ex) {
       status.setText("Save As failed");
       Alert a = new Alert(Alert.AlertType.ERROR, "Failed to save as: " + ex.getMessage());
@@ -1190,7 +1193,7 @@ public class EditorApp extends Application {
     if (active == null) return;
     if (!active.isClosable()) return;
     if (active.getContent() instanceof FileEditorTab ft && !confirmCanCloseFileTab(ft)) return;
-    filesTabs.getTabs().remove(active);
+    closeAndDisposeTab(active);
   }
 
   private boolean confirmCloseAllTabs() {
@@ -1309,7 +1312,7 @@ public class EditorApp extends Application {
       if (tab.getContent() instanceof FileEditorTab ft && !confirmCanCloseFileTab(ft)) {
         return false;
       }
-      filesTabs.getTabs().remove(tab);
+      closeAndDisposeTab(tab);
     }
     return true;
   }
@@ -1338,6 +1341,7 @@ public class EditorApp extends Application {
 
   private void updateContextForActiveTab() {
     FileEditorTab ft = getActiveFileTab();
+    stopPreviewAudioInInactiveTabs(ft);
     JesScene2D scene = (ft != null) ? ft.getJesScene() : null;
     if (inspectorView != null) inspectorView.setScene(scene);
     if (mapEditorView != null) {
@@ -1354,6 +1358,52 @@ public class EditorApp extends Application {
         puppeteerLauncherPanel.setCaretLine(ft.getVnsCaretLine());
       } else {
         puppeteerLauncherPanel.clear();
+      }
+    }
+  }
+
+  private void closeAndDisposeTab(Tab tab) {
+    if (filesTabs == null || tab == null) return;
+    if (tab.getContent() instanceof FileEditorTab ft) {
+      try {
+        ft.dispose();
+      } catch (Exception ignored) {
+      }
+    }
+    filesTabs.getTabs().remove(tab);
+  }
+
+  private void stopPreviewAudioInInactiveTabs(FileEditorTab active) {
+    if (filesTabs == null) return;
+    for (Tab tab : filesTabs.getTabs()) {
+      if (!(tab.getContent() instanceof FileEditorTab ft)) continue;
+      if (ft == active) continue;
+      try {
+        ft.stopPreviewAudio();
+      } catch (Exception ignored) {
+      }
+    }
+  }
+
+  private void stopAllPreviewAudio() {
+    if (filesTabs == null) return;
+    for (Tab tab : filesTabs.getTabs()) {
+      if (!(tab.getContent() instanceof FileEditorTab ft)) continue;
+      try {
+        ft.stopPreviewAudio();
+      } catch (Exception ignored) {
+      }
+    }
+  }
+
+  private void disposeAllFileTabs() {
+    if (filesTabs == null) return;
+    for (Tab tab : new ArrayList<>(filesTabs.getTabs())) {
+      if (tab.getContent() instanceof FileEditorTab ft) {
+        try {
+          ft.dispose();
+        } catch (Exception ignored) {
+        }
       }
     }
   }

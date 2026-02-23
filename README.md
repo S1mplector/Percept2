@@ -93,7 +93,7 @@ Supported runtime CLI flags:
 - `--billiards` (currently logs warning if module entry flow is unavailable)
 - `--ui <fx|swing>` default: `fx`
 - `--jes <path[,path2...]>`
-- `--audio <fx|simp3|auto>` default: `fx`
+- `--audio <fx|simp3|auto>` default: `auto`
 - `--assets <dir>`
 
 Notes:
@@ -121,24 +121,20 @@ Current editor highlights:
 - Timeline graph + DSL editor (`config/timeline/story.timeline`).
 - In-editor Help Center (`F1`).
 
-## Optional Simp3 Audio Backend
+## Simp3 Backend (Default)
 
-Default JVN builds do **not** require Simp3.
+JVN now ships with an embedded Simp3-compatible backend by default in `audio`.
+No extra Maven install step or `-PuseSimp3` flag is required.
 
-Simp3 is optional and enabled only when you ask Gradle to compile against it:
-
-```bash
-mvn -f Simp3/pom.xml install
-./gradlew -PuseSimp3=true build
-```
-
-Then run runtime with Simp3 backend:
+Runtime audio selection:
 
 ```bash
+./gradlew :runtime:run --args='--audio auto'
 ./gradlew :runtime:run --args='--audio simp3'
+./gradlew :runtime:run --args='--audio fx'
 ```
 
-If Simp3 is not available and `--audio auto` is used, runtime falls back to FX audio.
+`auto` prefers Simp3 and falls back to FX if needed.
 
 ## Gradle Lock Troubleshooting (Linux-heavy)
 
@@ -219,7 +215,7 @@ Only prerequisites are `git` and `git lfs` on PATH.
 - `swing`: Swing launcher/backend.
 - `runtime`: CLI app (`JvnApp`), runtime interop bridge, scene wiring.
 - `editor`: JavaFX authoring environment.
-- `audio-integration`: optional Simp3 adapter layer.
+- `audio`: bundled Simp3-compatible audio integration layer.
 - `testkit`: shared testing dependencies/helpers.
 
 ## Documentation Map

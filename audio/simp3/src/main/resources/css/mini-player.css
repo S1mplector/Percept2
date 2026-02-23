@@ -1,0 +1,439 @@
+/* Mini Player Styles - Enhanced Visual Design */
+
+.root {
+    -fx-font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* Main container with modern gradient background */
+.mini-player-root {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%,
+        rgba(255, 255, 255, 0.98) 0%,
+        rgba(248, 249, 250, 0.95) 50%,
+        rgba(241, 243, 245, 0.92) 100%);
+    -fx-border-color: linear-gradient(to bottom,
+        rgba(200, 200, 200, 0.6),
+        rgba(180, 180, 180, 0.4));
+    -fx-border-width: 1px;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.25), 20, 0.3, 0, 4);
+}
+
+/* Control buttons with smooth animations */
+.control-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 5;
+    -fx-cursor: hand;
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+    -fx-transition: all 0.2s ease;
+}
+
+.control-button:hover {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(76, 175, 80, 0.15),
+        rgba(76, 175, 80, 0.1));
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.3), 10, 0, 0, 2);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.control-button:pressed {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(76, 175, 80, 0.25),
+        rgba(76, 175, 80, 0.2));
+    -fx-scale-x: 0.95;
+    -fx-scale-y: 0.95;
+}
+
+/* Window control buttons */
+.window-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 2;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+    -fx-transition: all 0.2s ease;
+}
+
+.window-button:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.08);
+    -fx-scale-x: 1.1;
+    -fx-scale-y: 1.1;
+}
+
+.window-button:pressed {
+    -fx-scale-x: 0.95;
+    -fx-scale-y: 0.95;
+}
+
+/* Pin button styling with state indicators */
+.pin-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 2;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+    -fx-transition: all 0.2s ease;
+}
+
+.pin-button:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.08);
+    -fx-scale-x: 1.1;
+    -fx-scale-y: 1.1;
+}
+
+.pin-button:pressed {
+    -fx-scale-x: 0.95;
+    -fx-scale-y: 0.95;
+}
+
+/* Pin button pinned state - green glow effect */
+.pin-button-pinned {
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.8), 10, 0, 0, 0);
+}
+
+.pin-button-pinned .image-view {
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 1.0), 8, 0, 0, 0);
+}
+
+/* Apply green tint to pinned state */
+.pin-button-pinned {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(76, 175, 80, 0.2),
+        rgba(76, 175, 80, 0.15));
+    -fx-background-radius: 4;
+}
+
+/* Pin button unpinned state - reduced opacity */
+.pin-button-unpinned {
+    -fx-opacity: 0.6;
+}
+
+.pin-button-unpinned:hover {
+    -fx-opacity: 0.8;
+    -fx-background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Mode buttons (shuffle/repeat) with state indicators */
+.mode-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 3;
+    -fx-cursor: hand;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-transition: all 0.2s ease;
+}
+
+.mode-button:hover {
+    -fx-background-color: rgba(76, 175, 80, 0.2);
+    -fx-scale-x: 1.1;
+    -fx-scale-y: 1.1;
+}
+
+.mode-button:pressed {
+    -fx-scale-x: 0.95;
+    -fx-scale-y: 0.95;
+}
+
+.mode-button-active {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(76, 175, 80, 0.35),
+        rgba(76, 175, 80, 0.25));
+    -fx-border-color: rgba(76, 175, 80, 0.6);
+    -fx-border-width: 1.5px;
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.4), 6, 0, 0, 1);
+}
+
+.mode-button-inactive {
+    -fx-opacity: 0.5;
+}
+
+.mode-button-repeat-one {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(255, 152, 0, 0.35),
+        rgba(255, 152, 0, 0.25));
+    -fx-border-color: rgba(255, 152, 0, 0.6);
+    -fx-effect: dropshadow(gaussian, rgba(255, 152, 0, 0.4), 6, 0, 0, 1);
+}
+
+/* Progress Slider Styling with gradient */
+.slider {
+    -fx-pref-height: 5px;
+    -fx-background-color: transparent;
+}
+
+.slider .track {
+    -fx-background-color: linear-gradient(to right,
+        rgba(224, 224, 224, 0.8),
+        rgba(208, 208, 208, 0.6));
+    -fx-background-radius: 3px;
+    -fx-pref-height: 6px;
+    -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.1), 2, 0, 0, 1);
+}
+
+.slider .thumb {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #66bb6a, #4caf50);
+    -fx-background-radius: 50%;
+    -fx-pref-width: 14px;
+    -fx-pref-height: 14px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.5), 8, 0, 0, 2);
+    -fx-transition: all 0.2s ease;
+}
+
+.slider:hover .thumb {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #81c784, #66bb6a);
+    -fx-pref-width: 16px;
+    -fx-pref-height: 16px;
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.7), 12, 0, 0, 3);
+}
+
+/* Volume Slider - Smaller with gradient */
+.volume-slider {
+    -fx-pref-width: 60px;
+    -fx-pref-height: 5px;
+}
+
+.volume-slider .track {
+    -fx-background-color: linear-gradient(to right, #d0d0d0, #c0c0c0);
+    -fx-pref-height: 4px;
+}
+
+.volume-slider .thumb {
+    -fx-pref-width: 10px;
+    -fx-pref-height: 10px;
+}
+
+/* Label styles with subtle text shadows */
+.label {
+    -fx-text-overrun: ellipsis;
+    -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.8), 1, 0, 0, 1);
+}
+
+/* Context Menu and More Options Menu Styling */
+.context-menu, .more-options-menu {
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.98),
+        rgba(250, 250, 250, 0.95));
+    -fx-background-radius: 10;
+    -fx-padding: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 20, 0.3, 0, 4);
+    -fx-border-color: linear-gradient(to bottom,
+        rgba(200, 200, 200, 0.4),
+        rgba(180, 180, 180, 0.3));
+    -fx-border-width: 1px;
+    -fx-border-radius: 10;
+}
+
+.context-menu .menu-item, .more-options-menu .menu-item {
+    -fx-padding: 10 24 10 24;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-transition: all 0.15s ease;
+}
+
+.context-menu .menu-item:hover, .more-options-menu .menu-item:hover {
+    -fx-background-color: linear-gradient(to right,
+        rgba(76, 175, 80, 0.15),
+        rgba(76, 175, 80, 0.1));
+    -fx-translate-x: 2;
+}
+
+.context-menu .menu-item:focused, .more-options-menu .menu-item:focused {
+    -fx-background-color: linear-gradient(to right,
+        rgba(76, 175, 80, 0.2),
+        rgba(76, 175, 80, 0.15));
+}
+
+.context-menu .separator .line, .more-options-menu .separator .line {
+    -fx-border-color: rgba(200, 200, 200, 0.5);
+    -fx-border-width: 0.5px 0 0 0;
+    -fx-padding: 4 0 4 0;
+}
+
+/* Submenu styling */
+.context-menu .menu:hover > .label, .more-options-menu .menu:hover > .label {
+    -fx-text-fill: #4CAF50;
+}
+
+.context-menu .menu .menu-item, .more-options-menu .menu .menu-item {
+    -fx-padding: 6 15 6 15;
+}
+
+/* Tooltip styling with glass effect */
+.tooltip {
+    -fx-background-color: linear-gradient(to bottom, rgba(50, 50, 50, 0.95), rgba(40, 40, 40, 0.95));
+    -fx-text-fill: white;
+    -fx-background-radius: 4;
+    -fx-padding: 6 10 6 10;
+    -fx-font-size: 11px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 8, 0, 0, 2);
+}
+
+/* Album art container with enhanced shadow */
+.album-art-container {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 12, 0.2, 2, 3);
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+/* Time label styling */
+.time-label {
+    -fx-font-size: 10px;
+    -fx-text-fill: #666666;
+    -fx-font-weight: normal;
+}
+
+/* Song info labels */
+.song-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-text-fill: #333333;
+}
+
+.song-artist {
+    -fx-font-size: 11px;
+    -fx-text-fill: #666666;
+}
+
+/* Queue panel styles */
+.queue-panel {
+    -fx-background-color: linear-gradient(to bottom, rgba(245, 245, 245, 0.98), rgba(240, 240, 240, 0.98));
+    -fx-border-color: rgba(200, 200, 200, 0.5);
+    -fx-border-width: 1 0 0 0;
+}
+
+.queue-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #333333;
+    -fx-padding: 0 0 5 0;
+}
+
+.queue-list {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.queue-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-padding: 5 10;
+    -fx-border-color: transparent;
+}
+
+.queue-list .list-cell:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.05);
+    -fx-background-radius: 4;
+}
+
+.queue-list .list-cell:selected {
+    -fx-background-color: rgba(76, 175, 80, 0.2);
+    -fx-background-radius: 4;
+}
+
+.queue-number {
+    -fx-text-fill: #888888;
+    -fx-font-size: 11px;
+}
+
+.queue-song-title {
+    -fx-font-size: 12px;
+    -fx-font-weight: 500;
+    -fx-text-fill: #333333;
+}
+
+.queue-song-artist {
+    -fx-font-size: 11px;
+    -fx-text-fill: #666666;
+}
+
+.queue-song-duration {
+    -fx-font-size: 11px;
+    -fx-text-fill: #888888;
+}
+
+/* Scrollbar styling for queue */
+.queue-list .scroll-bar:vertical {
+    -fx-pref-width: 8;
+}
+
+.queue-list .scroll-bar:vertical .track {
+    -fx-background-color: rgba(0, 0, 0, 0.05);
+    -fx-background-radius: 4;
+}
+
+.queue-list .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(0, 0, 0, 0.2);
+    -fx-background-radius: 4;
+}
+
+.queue-list .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Sleep timer label styling */
+.sleep-timer-label {
+    -fx-font-size: 10px;
+    -fx-text-fill: #ff9800;
+    -fx-font-weight: bold;
+    -fx-padding: 2 0 2 0;
+    -fx-effect: dropshadow(gaussian, rgba(255, 152, 0, 0.3), 4, 0, 0, 1);
+}
+
+/* Enhanced hover effects for all buttons */
+.button {
+    -fx-transition: all 0.2s ease;
+}
+
+.button:hover {
+    -fx-cursor: hand;
+}
+
+/* Focus indicators */
+.button:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+/* Custom scrollbar for menus */
+.context-menu .scroll-bar:vertical .track,
+.more-options-menu .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+
+.context-menu .scroll-bar:vertical .thumb,
+.more-options-menu .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(0, 0, 0, 0.2);
+    -fx-background-radius: 4;
+}
+
+.context-menu .scroll-bar:vertical .thumb:hover,
+.more-options-menu .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Audio Visualizer Styles */
+.visualizer-pane {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.visualizer-pane .canvas {
+    -fx-background-color: transparent;
+}
+
+/* Visualizer glow effect */
+.visualizer-active {
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.4), 15, 0.3, 0, 0);
+}
+
+/* Smooth transitions for visualizer toggle */
+.album-art-container > * {
+    -fx-transition: opacity 0.3s ease;
+}

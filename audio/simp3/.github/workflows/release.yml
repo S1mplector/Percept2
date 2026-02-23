@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+    
+    - name: Build with Maven
+      run: mvn clean package
+    
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      shell: bash
+    
+    - name: Create installer
+      run: |
+        # This would typically use a tool like jpackage or Inno Setup
+        # For now, we'll just rename the JAR
+        cp target/simp3-*.jar SiMP3-${{ steps.get_version.outputs.VERSION }}.jar
+      shell: bash
+    
+    - name: Calculate SHA-256
+      id: calculate_sha
+      run: |
+        $hash = (Get-FileHash -Path "SiMP3-${{ steps.get_version.outputs.VERSION }}.jar" -Algorithm SHA256).Hash
+        echo "SHA256=$hash" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: SiMP3 ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## What's New
+          
+          <!-- Add release notes here -->
+          
+          ## Installation
+          
+          Download the JAR file below and run with:
+          ```bash
+          java -jar SiMP3-${{ steps.get_version.outputs.VERSION }}.jar
+          ```
+          
+          ## Checksums
+          
+          SHA-256: `${{ steps.calculate_sha.outputs.SHA256 }}`
+        draft: true
+        prerelease: false
+    
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./SiMP3-${{ steps.get_version.outputs.VERSION }}.jar
+        asset_name: SiMP3-${{ steps.get_version.outputs.VERSION }}.jar
+        asset_content_type: application/java-archive

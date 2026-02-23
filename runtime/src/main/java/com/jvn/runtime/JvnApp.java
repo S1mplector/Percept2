@@ -33,7 +33,7 @@ public class JvnApp {
     String locale = "en";
     boolean launchBilliards = false;
     String ui = "fx"; // fx | swing
-    String audioBackend = "fx"; // fx | simp3 | auto
+    String audioBackend = "auto"; // fx | simp3 | auto
     String jesScript = null;
     String assetRoot = null;
 

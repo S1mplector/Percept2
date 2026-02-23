@@ -13,10 +13,10 @@ Instead of full `build` every iteration, prefer focused tasks:
 ./gradlew :core:test :scripting:test
 ```
 
-### Keep optional dependencies optional
+### Keep build graph deterministic
 
-Simp3 integration is compile-time optional (`-PuseSimp3=true`).
-Default builds avoid this dependency and remain portable.
+Simp3-compatible audio is bundled in `audio` and built by default.
+No extra `-PuseSimp3` toggles are needed.
 
 ### Avoid stale/global Gradle contention
 
@@ -86,6 +86,6 @@ If a build or runtime session feels slow:
 
 1. Confirm Gradle daemon/lock health (`./gradlew --status`, `./gradlew --stop`).
 2. Check whether full build is necessary vs targeted module tasks.
-3. Verify optional dependencies are not accidentally enabled.
+3. Verify environment/toolchain consistency (Java version, Gradle wrapper health).
 4. Profile scene content density (entities, physics, text effects, timeline activity).
 5. Re-test with simplified asset set to isolate content cost vs engine cost.

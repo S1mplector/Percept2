@@ -618,9 +618,34 @@ public class VnScriptParser {
         state.builder.playSfx(track);
         return;
       }
+      case "sfx_stop":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", "sfx_stop");
+        return;
       case "voice": {
         String track = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         state.builder.playVoice(track);
+        return;
+      }
+      case "voice_stop":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", "voice_stop");
+        return;
+      case "audio_stop_all":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", "stop_all");
+        return;
+      case "audio_pause_all":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", "pause_all");
+        return;
+      case "audio_resume_all":
+        ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", "resume_all");
+        return;
+      case "audio": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("audio", payload);
         return;
       }
       case "volume": {

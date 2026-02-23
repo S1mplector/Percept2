@@ -460,4 +460,59 @@ public class VnScriptParserTest {
     IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
     assertTrue(ex.getMessage().contains("[bgm_crossfade] duration must be >= 0"));
   }
+
+  @Test
+  public void parsesChannelStopCommands() throws Exception {
+    String script = """
+      @label start
+      [sfx_stop]
+      [voice_stop]
+      [audio_stop_all]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    var audioPayloads = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL)
+        .map(n -> n.getExternalCommand().getProvider() + ":" + n.getExternalCommand().getPayload())
+        .toList();
+    assertTrue(audioPayloads.contains("audio:sfx_stop"));
+    assertTrue(audioPayloads.contains("audio:voice_stop"));
+    assertTrue(audioPayloads.contains("audio:stop_all"));
+  }
+
+  @Test
+  public void parsesAudioPauseResumeAllCommands() throws Exception {
+    String script = """
+      @label start
+      [audio_pause_all]
+      [audio_resume_all]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    var payloads = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "audio".equals(n.getExternalCommand().getProvider()))
+        .map(n -> n.getExternalCommand().getPayload())
+        .toList();
+    assertTrue(payloads.contains("pause_all"));
+    assertTrue(payloads.contains("resume_all"));
+  }
+
+  @Test
+  public void parsesGenericAudioCommand() throws Exception {
+    String script = """
+      @label start
+      [audio crossfade theme2 1500 true]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "audio".equals(n.getExternalCommand().getProvider()))
+        .findFirst().orElseThrow();
+    assertEquals("crossfade theme2 1500 true", ext.getExternalCommand().getPayload());
+  }
 }

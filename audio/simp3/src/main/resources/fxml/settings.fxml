@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.text.Font?>
+
+<DialogPane fx:controller="com.musicplayer.ui.controllers.SettingsController" 
+            xmlns:fx="http://javafx.com/fxml/1"
+            prefWidth="500" prefHeight="400">
+    
+    <header>
+        <Label text="Settings" style="-fx-font-size: 18px; -fx-font-weight: bold;">
+            <padding>
+                <Insets top="10" bottom="10" left="10" right="10"/>
+            </padding>
+        </Label>
+    </header>
+    
+    <content>
+        <VBox spacing="0">
+            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" VBox.vgrow="ALWAYS">
+                <content>
+                    <VBox spacing="20">
+                        <padding>
+                            <Insets top="10" left="20" right="20" bottom="10"/>
+                        </padding>
+                        
+                        <!-- Visuals Section -->
+                        <VBox spacing="10">
+                            <Label text="Visuals" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                                                        <Separator/>
+                            <Label text="Audio Visualizer" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                            <!-- Visualizer Enabled -->
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <CheckBox fx:id="visualizerEnabledCheckBox" text="Enable Audio Visualizer"/>
+                            </HBox>
+                            
+                            <!-- Color Mode -->
+                            <VBox spacing="5" fx:id="colorModeSection">
+                                <Label text="Color Mode:"/>
+                                <HBox spacing="10">
+                                    <RadioButton fx:id="gradientCyclingRadio" text="Gradient Cycling">
+                                        <toggleGroup>
+                                            <ToggleGroup fx:id="colorModeGroup"/>
+                                        </toggleGroup>
+                                    </RadioButton>
+                                    <RadioButton fx:id="solidColorRadio" text="Solid Color" toggleGroup="$colorModeGroup"/>
+                                </HBox>
+                            </VBox>
+                            
+                            <!-- Color Picker -->
+                        <HBox alignment="CENTER_LEFT" spacing="10" fx:id="colorPickerSection">
+                            <Label text="Solid Color:"/>
+                            <ColorPicker fx:id="solidColorPicker" prefWidth="100"/>
+                        </HBox>
+
+                        <!-- Application Theme -->
+                        <Separator/>
+                        <Label text="Application Theme" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label text="Theme:"/>
+                            <ChoiceBox fx:id="themeChoiceBox" prefWidth="120" />
+                        </HBox>
+                            
+                        </VBox>
+                        
+                        <!-- Library Section -->
+                        <VBox spacing="10">
+                            <Label text="Library" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                            <Separator/>
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <Label text="Music folder:"/>
+                                <TextField fx:id="musicRootPathField" promptText="Select music folder" prefWidth="280" editable="false"/>
+                                <Button fx:id="browseMusicFolderButton" text="Browse..."/>
+                            </HBox>
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <CheckBox fx:id="libraryWatcherEnabledCheckBox" text="Automatically detect new files and changes"/>
+                            </HBox>
+                        </VBox>
+                        
+                        <!-- Updates Section -->
+                        <VBox spacing="10">
+                            <Label text="Updates" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                            <Separator/>
+                            
+                            <!-- Auto-check for updates -->
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <CheckBox fx:id="autoCheckUpdatesCheckBox" text="Automatically check for updates"/>
+                            </HBox>
+                            
+                            <!-- Update check interval -->
+                            <HBox alignment="CENTER_LEFT" spacing="10" fx:id="updateIntervalSection">
+                                <Label text="Check for updates every:"/>
+                                <Spinner fx:id="updateIntervalSpinner" prefWidth="80">
+                                    <valueFactory>
+                                        <SpinnerValueFactory.IntegerSpinnerValueFactory min="1" max="168" initialValue="24"/>
+                                    </valueFactory>
+                                </Spinner>
+                                <Label text="hours"/>
+                            </HBox>
+                            
+                            <!-- Show pre-release versions -->
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <CheckBox fx:id="showPreReleaseCheckBox" text="Show pre-release versions"/>
+                            </HBox>
+                            
+                            <!-- Download in background -->
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <CheckBox fx:id="downloadInBackgroundCheckBox" text="Download updates in background"/>
+                            </HBox>
+                            
+                            <!-- Distribution type preference -->
+                            <VBox spacing="5">
+                                <Label text="Preferred update type:"/>
+                                <HBox spacing="10">
+                                    <RadioButton fx:id="installerRadio" text="Installer (.exe/.msi)">
+                                        <toggleGroup>
+                                            <ToggleGroup fx:id="distributionTypeGroup"/>
+                                        </toggleGroup>
+                                    </RadioButton>
+                                    <RadioButton fx:id="releaseRadio" text="Release executable (.exe)" toggleGroup="$distributionTypeGroup"/>
+                                    <RadioButton fx:id="portableRadio" text="Portable (.zip)" toggleGroup="$distributionTypeGroup"/>
+                                </HBox>
+                                <Label text="• Installer: Installs to Program Files and creates shortcuts"
+                                       style="-fx-text-fill: #666666; -fx-font-size: 11px;"/>
+                                <Label text="• Release: Replaces current executable for seamless updates"
+                                       style="-fx-text-fill: #666666; -fx-font-size: 11px;"/>
+                                <Label text="• Portable: Contains runtime, extract and run anywhere"
+                                       style="-fx-text-fill: #666666; -fx-font-size: 11px;"/>
+                            </VBox>
+                            
+                            <!-- Last update check info -->
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <Label text="Last checked:"/>
+                                <Label fx:id="lastUpdateCheckLabel" text="Never" style="-fx-text-fill: #666666;"/>
+                            </HBox>
+                            
+                            <!-- Check now button -->
+                            <HBox alignment="CENTER_LEFT" spacing="10">
+                                <Button fx:id="checkNowButton" text="Check for Updates Now" onAction="#onCheckForUpdates"/>
+                            </HBox>
+                            
+                        </VBox>
+                        
+                    </VBox>
+                </content>
+            </ScrollPane>
+            
+            <!-- Custom button bar with icon buttons -->
+            <Separator/>
+            <HBox fx:id="buttonBar" alignment="CENTER_RIGHT" spacing="10">
+                <padding>
+                    <Insets top="10" left="20" right="20" bottom="10"/>
+                </padding>
+            </HBox>
+        </VBox>
+    </content>
+    
+</DialogPane> 

@@ -1,0 +1,45 @@
+/* Ultra-compact Mini Player Styles */
+
+.compact-mini-root {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%,
+        rgba(255, 255, 255, 0.98) 0%,
+        rgba(248, 249, 250, 0.96) 50%,
+        rgba(241, 243, 245, 0.94) 100%);
+    -fx-border-color: rgba(200, 200, 200, 0.6);
+    -fx-border-width: 1px;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.25), 18, 0.3, 0, 3);
+}
+
+/* Buttons */
+.compact-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 4;
+    -fx-background-radius: 8;
+}
+
+.compact-btn:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Progress bar at top */
+.compact-progress {
+    -fx-background-color: transparent;
+}
+
+.compact-progress .track {
+    -fx-background-color: linear-gradient(to right,
+        rgba(224, 224, 224, 0.9), rgba(208, 208, 208, 0.7));
+    -fx-background-radius: 3;
+    -fx-pref-height: 4px;
+}
+
+.compact-progress .thumb {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #66bb6a, #4caf50);
+    -fx-background-radius: 50%;
+    -fx-pref-width: 10px;
+    -fx-pref-height: 10px;
+    -fx-effect: dropshadow(gaussian, rgba(76, 175, 80, 0.5), 6, 0, 0, 1);
+}

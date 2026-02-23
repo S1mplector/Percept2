@@ -247,7 +247,6 @@ public class WelcomeCenterView extends BorderPane {
     rows.add(checkJavaHealth());
     rows.add(checkGradleHealth());
     rows.add(checkGitHealth());
-    rows.add(checkOptionalArtifacts());
     rows.add(checkProjectArtifactHealth());
     return rows;
   }
@@ -351,31 +350,6 @@ public class WelcomeCenterView extends BorderPane {
         "Git",
         "Git is available",
         "Version-control prerequisites are satisfied."
-    );
-  }
-
-  private HealthRow checkOptionalArtifacts() {
-    Path workspace = workspaceRoot == null ? null : workspaceRoot.toPath();
-    boolean simp3Source = workspace != null && Files.isRegularFile(workspace.resolve("Simp3/pom.xml"));
-    boolean simp3Installed = Files.isRegularFile(Path.of(
-        System.getProperty("user.home", "."),
-        ".m2", "repository", "com", "musicplayer", "simp3", "1.0.0", "simp3-1.0.0.jar"
-    ));
-
-    if (simp3Source || simp3Installed) {
-      String source = simp3Installed ? "local Maven artifact installed" : "Simp3 source clone detected";
-      return new HealthRow(
-          Severity.OK,
-          "Optional Artifacts",
-          "Simp3 backend available",
-          source + ". Optional audio backend can be enabled with `-PuseSimp3=true`."
-      );
-    }
-    return new HealthRow(
-        Severity.WARN,
-        "Optional Artifacts",
-        "Simp3 backend not found",
-        "Optional audio backend is missing. Build with `-PuseSimp3=true` will fail until installed."
     );
   }
 

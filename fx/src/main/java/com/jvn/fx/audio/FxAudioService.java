@@ -15,9 +15,10 @@ import java.util.List;
 public class FxAudioService implements AudioFacade {
   private MediaPlayer bgmPlayer;
   private final List<MediaPlayer> sfxPlayers = new ArrayList<>();
+  private final List<MediaPlayer> voicePlayers = new ArrayList<>();
   private float bgmVolume = 0.7f;
   private float sfxVolume = 0.8f;
-  private float voiceVolume = 1.0f; // currently unused channel
+  private float voiceVolume = 1.0f;
   private File projectRoot;
 
   public void setProjectRoot(File root) { this.projectRoot = root; }
@@ -49,6 +50,15 @@ public class FxAudioService implements AudioFacade {
     }
   }
 
+  /**
+   * Stops and disposes all active channels (BGM + SFX).
+   */
+  public void stopAllAudio() {
+    stopBgm();
+    stopSfx();
+    stopVoice();
+  }
+
   @Override
   public void playSfx(String sfxId) {
     try {
@@ -69,8 +79,70 @@ public class FxAudioService implements AudioFacade {
     }
   }
 
+  @Override
+  public void playVoice(String voiceId) {
+    try {
+      String urlStr = resolveMediaUrl(voiceId);
+      if (urlStr == null) return;
+      Media media = new Media(urlStr);
+      MediaPlayer player = new MediaPlayer(media);
+      player.setVolume(clamp(voiceVolume));
+      player.setOnEndOfMedia(() -> {
+        player.stop();
+        player.dispose();
+        voicePlayers.remove(player);
+      });
+      voicePlayers.add(player);
+      cleanupVoices();
+      player.play();
+    } catch (Exception ignored) {
+    }
+  }
+
+  @Override
+  public void stopSfx() {
+    for (MediaPlayer player : new ArrayList<>(sfxPlayers)) {
+      try {
+        player.stop();
+      } catch (Exception ignored) {
+      }
+      try {
+        player.dispose();
+      } catch (Exception ignored) {
+      }
+    }
+    sfxPlayers.clear();
+  }
+
+  @Override
+  public void stopVoice() {
+    for (MediaPlayer player : new ArrayList<>(voicePlayers)) {
+      try {
+        player.stop();
+      } catch (Exception ignored) {
+      }
+      try {
+        player.dispose();
+      } catch (Exception ignored) {
+      }
+    }
+    voicePlayers.clear();
+  }
+
   private void cleanupSfx() {
     Iterator<MediaPlayer> it = sfxPlayers.iterator();
+    while (it.hasNext()) {
+      MediaPlayer p = it.next();
+      MediaPlayer.Status st = p.getStatus();
+      if (st == MediaPlayer.Status.STOPPED || st == MediaPlayer.Status.DISPOSED) {
+        try { p.dispose(); } catch (Exception ignored) {}
+        it.remove();
+      }
+    }
+  }
+
+  private void cleanupVoices() {
+    Iterator<MediaPlayer> it = voicePlayers.iterator();
     while (it.hasNext()) {
       MediaPlayer p = it.next();
       MediaPlayer.Status st = p.getStatus();
@@ -101,6 +173,9 @@ public class FxAudioService implements AudioFacade {
   @Override
   public void setVoiceVolume(float volume) {
     this.voiceVolume = volume;
+    for (MediaPlayer p : new ArrayList<>(voicePlayers)) {
+      try { p.setVolume(clamp(volume)); } catch (Exception ignored) {}
+    }
   }
 
   @Override
@@ -111,6 +186,28 @@ public class FxAudioService implements AudioFacade {
   @Override
   public void resumeBgm() {
     try { if (bgmPlayer != null) { bgmPlayer.setVolume(clamp(bgmVolume)); bgmPlayer.play(); } } catch (Exception ignored) {}
+  }
+
+  @Override
+  public void pauseAllAudio() {
+    pauseBgm();
+    for (MediaPlayer p : new ArrayList<>(sfxPlayers)) {
+      try { p.pause(); } catch (Exception ignored) {}
+    }
+    for (MediaPlayer p : new ArrayList<>(voicePlayers)) {
+      try { p.pause(); } catch (Exception ignored) {}
+    }
+  }
+
+  @Override
+  public void resumeAllAudio() {
+    resumeBgm();
+    for (MediaPlayer p : new ArrayList<>(sfxPlayers)) {
+      try { p.play(); } catch (Exception ignored) {}
+    }
+    for (MediaPlayer p : new ArrayList<>(voicePlayers)) {
+      try { p.play(); } catch (Exception ignored) {}
+    }
   }
 
   @Override

@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Properties;
 
@@ -740,9 +741,13 @@ public class NewProjectWizard extends Stage {
     }
 
     File location = new File(locationRaw);
-    if (!location.exists() && !location.mkdirs()) {
-      showError("Failed to create base location: " + location.getAbsolutePath());
-      return;
+    boolean createdBaseLocation = false;
+    if (!location.exists()) {
+      if (!location.mkdirs()) {
+        showError("Failed to create base location: " + location.getAbsolutePath());
+        return;
+      }
+      createdBaseLocation = true;
     }
 
     File projectDir = new File(location, folderName);
@@ -756,6 +761,7 @@ public class NewProjectWizard extends Stage {
       createdProjectDir = projectDir;
       close();
     } catch (Exception ex) {
+      cleanupFailedProjectCreation(projectDir, location, createdBaseLocation);
       showError("Failed to create project: " + ex.getMessage());
     }
   }
@@ -769,7 +775,12 @@ public class NewProjectWizard extends Stage {
     boolean gitEnabled = false;
     boolean gitInitialCommit = false;
 
-    dir.mkdirs();
+    if (!dir.exists() && !dir.mkdirs()) {
+      throw new Exception("Failed to create project directory: " + dir.getAbsolutePath());
+    }
+    if (!dir.isDirectory()) {
+      throw new Exception("Project path is not a directory: " + dir.getAbsolutePath());
+    }
     createDirectories(dir, includeMenuPack);
     copyBundledDemoAssets(dir);
 
@@ -835,6 +846,44 @@ public class NewProjectWizard extends Stage {
         gitEnabled,
         gitInitialCommit
     );
+  }
+
+  private void cleanupFailedProjectCreation(File projectDir, File baseLocation, boolean createdBaseLocation) {
+    if (projectDir != null && projectDir.exists()) {
+      try {
+        deleteDirectoryRecursively(projectDir.toPath());
+      } catch (Exception ignored) {
+        // Best-effort rollback. The original creation exception is shown to the user.
+      }
+    }
+    if (createdBaseLocation && baseLocation != null) {
+      try {
+        if (baseLocation.isDirectory()) {
+          String[] children = baseLocation.list();
+          if (children != null && children.length == 0) {
+            baseLocation.delete();
+          }
+        }
+      } catch (Exception ignored) {
+        // Non-fatal cleanup path.
+      }
+    }
+  }
+
+  private void deleteDirectoryRecursively(Path root) throws Exception {
+    if (root == null || !Files.exists(root)) return;
+    try (var walk = Files.walk(root)) {
+      walk.sorted(Comparator.reverseOrder()).forEach(path -> {
+        try {
+          Files.deleteIfExists(path);
+        } catch (Exception ex) {
+          throw new RuntimeException(ex);
+        }
+      });
+    } catch (RuntimeException ex) {
+      if (ex.getCause() instanceof Exception cause) throw cause;
+      throw ex;
+    }
   }
 
   private void createDirectories(File dir, boolean includeMenuPack) throws Exception {

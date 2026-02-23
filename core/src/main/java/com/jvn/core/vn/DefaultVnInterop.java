@@ -331,6 +331,31 @@ public class DefaultVnInterop implements VnInterop {
       case "resume":
         a.resumeBgm();
         break;
+      case "pause_all":
+      case "pauseall":
+        a.pauseAllAudio();
+        break;
+      case "resume_all":
+      case "resumeall":
+        a.resumeAllAudio();
+        break;
+      case "bgm_stop":
+      case "stop_bgm":
+        a.stopBgm();
+        break;
+      case "sfx_stop":
+      case "stop_sfx":
+        a.stopSfx();
+        break;
+      case "voice_stop":
+      case "stop_voice":
+        a.stopVoice();
+        break;
+      case "stop_all":
+      case "all_stop":
+      case "audio_stop_all":
+        a.stopAllAudio();
+        break;
       case "seek":
         if (toks.length >= 2) {
           try { a.seekBgmSeconds(Double.parseDouble(toks[1])); } catch (Exception ignored) {}
@@ -341,7 +366,7 @@ public class DefaultVnInterop implements VnInterop {
           String track = toks[1];
           try {
             long ms = Long.parseLong(toks[2]);
-            boolean loop = toks.length >= 4 && ("true".equalsIgnoreCase(toks[3]) || "on".equalsIgnoreCase(toks[3]) || "1".equals(toks[3]));
+            boolean loop = toks.length < 4 || ("true".equalsIgnoreCase(toks[3]) || "on".equalsIgnoreCase(toks[3]) || "1".equals(toks[3]));
             a.crossfadeBgm(track, ms, loop);
           } catch (Exception ignored) {}
         }

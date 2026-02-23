@@ -37,7 +37,7 @@ subprojects {
       substitute(module("com.jvn:core")).using(project(":core"))
       substitute(module("com.jvn:fx")).using(project(":fx"))
       substitute(module("com.jvn:scripting")).using(project(":scripting"))
-      substitute(module("com.jvn:audio-integration")).using(project(":audio-integration"))
+      substitute(module("com.jvn:audio")).using(project(":audio"))
     }
     // Force consistent logback to avoid mixed versions at runtime
     resolutionStrategy.force(

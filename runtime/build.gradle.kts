@@ -6,11 +6,7 @@ dependencies {
   implementation(project(":core"))
   implementation(project(":fx"))
   implementation(project(":scripting"))
-  // Keep the adapter module available, but avoid pulling Simp3 fat jar onto the default runtime classpath.
-  // The Simp3 jar bundles its own old slf4j/logback classes, which conflicts with runtime logging.
-  implementation(project(":audio-integration")) {
-    exclude(group = "com.musicplayer", module = "simp3")
-  }
+  implementation(project(":audio"))
   // Include demo game so its resources (e.g., scripts, images) are on the runtime classpath
   implementation(project(":demo-game"))
   // Include billiards game module

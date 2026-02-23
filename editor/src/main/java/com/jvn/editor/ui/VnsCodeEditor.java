@@ -51,7 +51,7 @@ public class VnsCodeEditor extends BorderPane {
   private static final String CMD_OPEN_PATTERN =
       "\\[(?:show|hide|jump|end|wait|bg|background"
     + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
-    + "|sfx|voice|volume|textspeed|autodelay"
+    + "|audio_resume_all|audio_pause_all|audio_stop_all|audio|sfx_stop|sfx|voice_stop|voice|volume|textspeed|autodelay"
     + "|hud|save|quickload|skip|auto|ui|history|screen"
     + "|jes_push|jes_replace|jes_pop|jes_call|jes|java"
     + "|transition|menu|settings|mainmenu|load|goto"
@@ -692,6 +692,20 @@ public class VnsCodeEditor extends BorderPane {
     if (pl.startsWith("[")) {
       out.add(new CodeAutoCompleter.Suggestion("[background "));
       out.add(new CodeAutoCompleter.Suggestion("[jump "));
+      out.add(new CodeAutoCompleter.Suggestion("[bgm "));
+      out.add(new CodeAutoCompleter.Suggestion("[bgm_crossfade "));
+      out.add(new CodeAutoCompleter.Suggestion("[bgm_pause]"));
+      out.add(new CodeAutoCompleter.Suggestion("[bgm_resume]"));
+      out.add(new CodeAutoCompleter.Suggestion("[bgm_seek "));
+      out.add(new CodeAutoCompleter.Suggestion("[bgm_stop]"));
+      out.add(new CodeAutoCompleter.Suggestion("[sfx "));
+      out.add(new CodeAutoCompleter.Suggestion("[sfx_stop]"));
+      out.add(new CodeAutoCompleter.Suggestion("[voice "));
+      out.add(new CodeAutoCompleter.Suggestion("[voice_stop]"));
+      out.add(new CodeAutoCompleter.Suggestion("[audio_stop_all]"));
+      out.add(new CodeAutoCompleter.Suggestion("[audio_pause_all]"));
+      out.add(new CodeAutoCompleter.Suggestion("[audio_resume_all]"));
+      out.add(new CodeAutoCompleter.Suggestion("[audio "));
       out.add(new CodeAutoCompleter.Suggestion("[set "));
       out.add(new CodeAutoCompleter.Suggestion("[if "));
       out.add(new CodeAutoCompleter.Suggestion("[elif "));

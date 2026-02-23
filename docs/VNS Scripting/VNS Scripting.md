@@ -179,7 +179,10 @@ All commands use `[ ... ]` form.
 [bgm_stop]
 [bgm_fadeout [ms]]
 [sfx <track>]
+[sfx_stop]
 [voice <track>]
+[voice_stop]
+[audio_stop_all]
 ```
 
 ### Advanced audio control
@@ -189,7 +192,12 @@ All commands use `[ ... ]` form.
 [bgm_resume]
 [bgm_seek <seconds>]
 [bgm_crossfade <track> <ms> [loop]]
+[audio_pause_all]
+[audio_resume_all]
+[audio <payload>]
 ```
+
+`[audio <payload>]` forwards directly to the audio interop provider for advanced backend control.
 
 ### Timing and visuals
 

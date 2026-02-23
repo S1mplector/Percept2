@@ -66,6 +66,8 @@ At runtime:
 ### `audio`
 
 - `pause`, `resume`, `seek`, `crossfade`
+- `sfx_stop`, `voice_stop`, `stop_all`
+- `pause_all`, `resume_all`
 
 ### `screen`
 

@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.SeparatorMenuItem?>
+<?import javafx.scene.control.CheckMenuItem?>
+<?import javafx.scene.control.RadioMenuItem?>
+<?import javafx.scene.control.ToggleGroup?>
+<?import javafx.scene.control.Slider?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.Region?>
+
+<BorderPane fx:id="rootPane" prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.musicplayer.ui.controllers.MainController" stylesheets="@../css/app.css">
+    <top>
+        <MenuBar BorderPane.alignment="CENTER">
+            <fx:define>
+                <ToggleGroup fx:id="themeToggleGroup" />
+            </fx:define>
+            <menus>
+                <Menu mnemonicParsing="false" text="File">
+                    <items>
+                        <MenuItem mnemonicParsing="false" text="New Playlist..." onAction="#handleAddPlaylist" accelerator="Ctrl+N" />
+                        <MenuItem mnemonicParsing="false" text="Import Playlist..." onAction="#handleImportPlaylist" accelerator="Ctrl+I" />
+                        <MenuItem mnemonicParsing="false" text="Export Playlist..." onAction="#handleExportPlaylist" accelerator="Ctrl+E" />
+                        <MenuItem mnemonicParsing="false" text="Add Folder to Library..." onAction="#handleSelectMusicFolder" accelerator="Ctrl+O" />
+                        <MenuItem mnemonicParsing="false" text="Show Root Music Folder" onAction="#handleShowRootMusicFolder" />
+                        <MenuItem mnemonicParsing="false" text="Settings..." onAction="#handleSettings" accelerator="Ctrl+COMMA" />
+                        <SeparatorMenuItem />
+                        <MenuItem mnemonicParsing="false" text="Exit" onAction="#handleExit" accelerator="Ctrl+Q" />
+                    </items>
+                </Menu>
+                <Menu mnemonicParsing="false" text="View">
+                    <items>
+                        <MenuItem mnemonicParsing="false" text="Toggle Mini Player" onAction="#handleMiniPlayer" accelerator="Ctrl+M" />
+                        <CheckMenuItem fx:id="toggleVisualizerMenuItem" mnemonicParsing="false" text="Toggle Visualizer" onAction="#handleToggleVisualizer" accelerator="Ctrl+V" />
+                        <SeparatorMenuItem />
+                        <Menu mnemonicParsing="false" text="Theme">
+                            <items>
+                                <RadioMenuItem fx:id="themeLightMenuItem" mnemonicParsing="false" text="Light" onAction="#handleThemeLight" toggleGroup="$themeToggleGroup" />
+                                <RadioMenuItem fx:id="themeDarkMenuItem" mnemonicParsing="false" text="Dark" onAction="#handleThemeDark" toggleGroup="$themeToggleGroup" />
+                                
+                            </items>
+                        </Menu>
+                        <CheckMenuItem fx:id="showStatusBarMenuItem" mnemonicParsing="false" text="Show Status Bar" onAction="#handleShowStatusBar" selected="true" />
+                        
+                    </items>
+                </Menu>
+                <Menu mnemonicParsing="false" text="Tools">
+                    <items>
+                        <MenuItem fx:id="audioConversionMenuItem" mnemonicParsing="false" text="Audio Conversion..." onAction="#handleAudioConversion" />
+                        <MenuItem fx:id="youtubeDownloadMenuItem" mnemonicParsing="false" text="Download from YouTube..." onAction="#handleYouTubeDownload" />
+                    </items>
+                </Menu>
+                <Menu mnemonicParsing="false" text="Help">
+                    <items>
+                        <MenuItem fx:id="checkForUpdatesMenuItem" mnemonicParsing="false" text="Check for Updates..." onAction="#handleCheckForUpdates" />
+                        <MenuItem mnemonicParsing="false" text="About" />
+                    </items>
+                </Menu>
+            </menus>
+        </MenuBar>
+    </top>
+    <center>
+        <SplitPane dividerPositions="0.25" prefHeight="160.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+            <items>
+                <VBox spacing="10.0">
+                    <children>
+                        <HBox alignment="CENTER_LEFT" spacing="5.0">
+                            <children>
+                                <Label text="Library" styleClass="sidebar-header" />
+                                <Button fx:id="selectMusicFolderButton" mnemonicParsing="false" onAction="#handleSelectMusicFolder" prefHeight="28.0" prefWidth="28.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                                    <graphic>
+                                        <ImageView fitHeight="20.0" fitWidth="20.0" pickOnBounds="true" preserveRatio="true">
+                                            <image>
+                                                <Image url="@../images/icons/folder.png" />
+                                            </image>
+                                        </ImageView>
+                                    </graphic>
+                                </Button>
+                            </children>
+                        </HBox>
+                        <ListView fx:id="libraryListView" />
+                        <HBox alignment="CENTER" spacing="5.0">
+                            <children>
+                                <Label text="Playlists" styleClass="sidebar-header" />
+                                <TextField fx:id="playlistSearchField" promptText="Search" prefWidth="120.0" />
+                                <Button fx:id="playlistSearchButton" mnemonicParsing="false" prefHeight="28.0" prefWidth="28.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                                    <graphic>
+                                        <ImageView fitHeight="20.0" fitWidth="20.0" pickOnBounds="true" preserveRatio="true">
+                                            <image>
+                                                <Image url="@../images/icons/search.png" />
+                                            </image>
+                                        </ImageView>
+                                    </graphic>
+                                </Button>
+                                <Button fx:id="addPlaylistButton" mnemonicParsing="false" onAction="#handleAddPlaylist" prefHeight="28.0" prefWidth="28.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                                    <graphic>
+                                        <ImageView fitHeight="20.0" fitWidth="20.0" pickOnBounds="true" preserveRatio="true">
+                                            <image>
+                                                <Image url="@../images/icons/add.png" />
+                                            </image>
+                                        </ImageView>
+                                    </graphic>
+                                </Button>
+                            </children>
+                        </HBox>
+                        <ListView fx:id="playlistsListView" />
+                    </children>
+                    <padding>
+                        <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                    </padding>
+                </VBox>
+                <VBox spacing="5.0">
+                    <children>
+                        <HBox alignment="CENTER_LEFT" spacing="5.0">
+                            <children>
+                                <Button fx:id="songSearchButton" mnemonicParsing="false" prefHeight="28.0" prefWidth="28.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                                    <graphic>
+                                        <ImageView fitHeight="20.0" fitWidth="20.0" pickOnBounds="true" preserveRatio="true">
+                                            <image>
+                                                <Image url="@../images/icons/search.png" />
+                                            </image>
+                                        </ImageView>
+                                    </graphic>
+                                </Button>
+                                <TextField fx:id="songSearchField" promptText="Search songs..." prefWidth="200.0" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button fx:id="addToPlaylistButton" mnemonicParsing="false" onAction="#handleAddSongToPlaylist" prefHeight="28.0" prefWidth="28.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                                    <graphic>
+                                        <ImageView fitHeight="20.0" fitWidth="20.0" pickOnBounds="true" preserveRatio="true">
+                                            <image>
+                                                <Image url="@../images/icons/add.png" />
+                                            </image>
+                                        </ImageView>
+                                    </graphic>
+                                </Button>
+                                <Button fx:id="miniPlayerButton" mnemonicParsing="false" onAction="#handleMiniPlayer" prefHeight="28.0" prefWidth="28.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                                    <tooltip>
+                                        <Tooltip text="Mini Player (Ctrl+M)" />
+                                    </tooltip>
+                                    <graphic>
+                                        <ImageView fitHeight="20.0" fitWidth="20.0" pickOnBounds="true" preserveRatio="true">
+                                            <image>
+                                                <Image url="@../images/icons/miniplayer.png" />
+                                            </image>
+                                        </ImageView>
+                                    </graphic>
+                                </Button>
+                                <Button fx:id="settingsButton" mnemonicParsing="false" onAction="#handleSettings" prefHeight="28.0" prefWidth="28.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                                    <graphic>
+                                        <ImageView fitHeight="20.0" fitWidth="20.0" pickOnBounds="true" preserveRatio="true">
+                                            <image>
+                                                <Image url="@../images/icons/settings.png" />
+                                            </image>
+                                        </ImageView>
+                                    </graphic>
+                                </Button>
+                            </children>
+                        </HBox>
+                        <TableView fx:id="songsTableView" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="favoriteColumn" prefWidth="50.0" text=" " />
+                                <TableColumn fx:id="titleColumn" prefWidth="200.0" text="Title" />
+                                <TableColumn fx:id="artistColumn" prefWidth="150.0" text="Artist" />
+                                <TableColumn fx:id="albumColumn" prefWidth="150.0" text="Album" />
+                                <TableColumn fx:id="durationColumn" prefWidth="75.0" text="Duration" />
+                                <TableColumn fx:id="ratingColumn" prefWidth="110.0" text="Rating" />
+                                <TableColumn fx:id="reorderColumn" prefWidth="60.0" text=" " />
+                            </columns>
+                        </TableView>
+                    </children>
+                </VBox>
+            </items>
+        </SplitPane>
+    </center>
+    <bottom>
+        <VBox alignment="CENTER" spacing="5.0" BorderPane.alignment="CENTER">
+            <children>
+                <HBox alignment="CENTER" spacing="10.0" fx:id="controlBar">
+                    <children>
+                        <Button fx:id="previousButton" mnemonicParsing="false" onAction="#handlePrevious" prefHeight="40.0" prefWidth="40.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                            <graphic>
+                                <ImageView fitHeight="32.0" fitWidth="32.0" pickOnBounds="true" preserveRatio="true">
+                                    <image>
+                                        <Image url="@../images/icons/previous.png" />
+                                    </image>
+                                </ImageView>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="playPauseButton" mnemonicParsing="false" onAction="#handlePlayPause" prefHeight="40.0" prefWidth="40.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                            <graphic>
+                                <ImageView fitHeight="32.0" fitWidth="32.0" pickOnBounds="true" preserveRatio="true">
+                                    <image>
+                                        <Image url="@../images/icons/play.png" />
+                                    </image>
+                                </ImageView>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="nextButton" mnemonicParsing="false" onAction="#handleNext" prefHeight="40.0" prefWidth="40.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;">
+                            <graphic>
+                                <ImageView fitHeight="32.0" fitWidth="32.0" pickOnBounds="true" preserveRatio="true">
+                                    <image>
+                                        <Image url="@../images/icons/next.png" />
+                                    </image>
+                                </ImageView>
+                            </graphic>
+                        </Button>
+                    </children>
+                </HBox>
+                <HBox fx:id="statusBar" alignment="CENTER" spacing="10.0">
+                    <children>
+                        <Label fx:id="currentTimeLabel" text="0:00" />
+                        <Slider fx:id="timeSlider" HBox.hgrow="ALWAYS" />
+                        <Label fx:id="totalTimeLabel" text="0:00" />
+                        <ImageView fx:id="volumeIcon" fitHeight="20.0" fitWidth="20.0" pickOnBounds="true" preserveRatio="true">
+                            <image>
+                                <Image url="@../images/icons/vol.png" />
+                            </image>
+                        </ImageView>
+                        <Label fx:id="volumePercentageLabel" text="50%" />
+                        <Slider fx:id="volumeSlider" value="50.0" />
+                    </children>
+                    <padding>
+                        <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                    </padding>
+                </HBox>
+            </children>
+        </VBox>
+    </bottom>
+</BorderPane>
