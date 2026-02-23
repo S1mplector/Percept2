@@ -1,7 +1,7 @@
 package com.jvn.scala.dsl
 
 import com.jvn.core.animation.{TimelineData, Easing}
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
 
 /**
  * Type-safe Scala DSL for building JVN animation timelines.
@@ -35,13 +35,6 @@ import scala.collection.mutable.ListBuffer
  * }}}
  */
 object TimelineDsl:
-
-  sealed trait Action
-  case class MoveAction(entity: String, x: Option[Double], y: Option[Double], dur: Double, easing: Easing.Type) extends Action
-  case class FadeAction(entity: String, alpha: Double, dur: Double, easing: Easing.Type) extends Action
-  case class ScaleAction(entity: String, sx: Option[Double], sy: Option[Double], dur: Double, easing: Easing.Type) extends Action
-  case class RotateAction(entity: String, angle: Double, dur: Double, easing: Easing.Type) extends Action
-  case class WaitAction(ms: Double) extends Action
 
   // --- Action builders ---
 
@@ -88,64 +81,80 @@ object TimelineDsl:
   // --- Timeline builder ---
 
   class TimelineBuilder(val name: String, val durationMs: Double):
-    private val actions = ListBuffer[Action]()
+    private val data = new TimelineData(name, durationMs)
+    private val trackCache = mutable.HashMap.empty[String, TimelineData.Track]
     private var cursor: Double = 0
 
     def move(entity: String)(configure: MoveBuilder ?=> Unit): Unit =
       val b = MoveBuilder(entity)
       configure(using b)
-      actions += b.build()
+      val action = b.build()
+      val endTime = cursor + action.dur
+      val track = getOrCreateTrack(action.entity)
+      action.x.foreach(v =>
+        track.addKeyframe(
+          TimelineData.Property.X,
+          new TimelineData.Keyframe(endTime, v, action.easing)
+        )
+      )
+      action.y.foreach(v =>
+        track.addKeyframe(
+          TimelineData.Property.Y,
+          new TimelineData.Keyframe(endTime, v, action.easing)
+        )
+      )
 
     def fade(entity: String)(configure: FadeBuilder ?=> Unit): Unit =
       val b = FadeBuilder(entity)
       configure(using b)
-      actions += b.build()
+      val action = b.build()
+      val track = getOrCreateTrack(action.entity)
+      track.addKeyframe(
+        TimelineData.Property.ALPHA,
+        new TimelineData.Keyframe(cursor + action.dur, action.alpha, action.easing)
+      )
 
     def scale(entity: String)(configure: ScaleBuilder ?=> Unit): Unit =
       val b = ScaleBuilder(entity)
       configure(using b)
-      actions += b.build()
+      val action = b.build()
+      val endTime = cursor + action.dur
+      val track = getOrCreateTrack(action.entity)
+      action.sx.foreach(v =>
+        track.addKeyframe(
+          TimelineData.Property.SCALE_X,
+          new TimelineData.Keyframe(endTime, v, action.easing)
+        )
+      )
+      action.sy.foreach(v =>
+        track.addKeyframe(
+          TimelineData.Property.SCALE_Y,
+          new TimelineData.Keyframe(endTime, v, action.easing)
+        )
+      )
 
     def rotate(entity: String)(configure: RotateBuilder ?=> Unit): Unit =
       val b = RotateBuilder(entity)
       configure(using b)
-      actions += b.build()
+      val action = b.build()
+      val track = getOrCreateTrack(action.entity)
+      track.addKeyframe(
+        TimelineData.Property.ROTATION,
+        new TimelineData.Keyframe(cursor + action.dur, action.angle, action.easing)
+      )
 
     def waitMs(ms: Double): Unit =
-      actions += WaitAction(ms)
+      cursor += ms
 
-    def build(): TimelineData =
-      val data = new TimelineData(name, durationMs)
-      var time = 0.0
-      for action <- actions do
-        action match
-          case WaitAction(ms) =>
-            time += ms
-          case MoveAction(entity, x, y, dur, easing) =>
-            val track = getOrCreateTrack(data, entity)
-            val endTime = time + dur
-            x.foreach(v => track.addKeyframe(TimelineData.Property.X, new TimelineData.Keyframe(endTime, v, easing)))
-            y.foreach(v => track.addKeyframe(TimelineData.Property.Y, new TimelineData.Keyframe(endTime, v, easing)))
-          case FadeAction(entity, alpha, dur, easing) =>
-            val track = getOrCreateTrack(data, entity)
-            track.addKeyframe(TimelineData.Property.ALPHA, new TimelineData.Keyframe(time + dur, alpha, easing))
-          case ScaleAction(entity, sx, sy, dur, easing) =>
-            val track = getOrCreateTrack(data, entity)
-            val endTime = time + dur
-            sx.foreach(v => track.addKeyframe(TimelineData.Property.SCALE_X, new TimelineData.Keyframe(endTime, v, easing)))
-            sy.foreach(v => track.addKeyframe(TimelineData.Property.SCALE_Y, new TimelineData.Keyframe(endTime, v, easing)))
-          case RotateAction(entity, angle, dur, easing) =>
-            val track = getOrCreateTrack(data, entity)
-            track.addKeyframe(TimelineData.Property.ROTATION, new TimelineData.Keyframe(time + dur, angle, easing))
-      data
+    def build(): TimelineData = data
 
-    private def getOrCreateTrack(data: TimelineData, entity: String): TimelineData.Track =
-      val existing = data.getTrack(entity)
-      if existing != null then existing
-      else
+    private def getOrCreateTrack(entity: String): TimelineData.Track =
+      trackCache.getOrElseUpdate(
+        entity,
         val track = new TimelineData.Track(entity)
         data.addTrack(track)
         track
+      )
 
   def timeline(name: String, durationMs: Double = 0)(configure: TimelineBuilder ?=> Unit): TimelineData =
     val builder = TimelineBuilder(name, durationMs)

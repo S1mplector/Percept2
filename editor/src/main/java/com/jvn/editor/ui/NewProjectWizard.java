@@ -23,6 +23,8 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
@@ -56,7 +58,26 @@ public class NewProjectWizard extends Stage {
   private TextField txtLocation;
   private ComboBox<String> cmbResolution;
   private ComboBox<String> cmbTheme;
+  private CheckBox chkCustomResolution;
+  private TextField txtCustomWidth;
+  private TextField txtCustomHeight;
+  private Label lblAspectRatio;
+  private ComboBox<String> cmbRuntimeUi;
+  private ComboBox<String> cmbAudioBackend;
+  private ComboBox<String> cmbLocale;
+  private Spinner<Integer> spTextSpeed;
+  private Spinner<Double> spBgmVolume;
+  private Spinner<Double> spSfxVolume;
+  private Spinner<Double> spVoiceVolume;
+  private Spinner<Integer> spAutoDelay;
+  private CheckBox chkSkipUnreadDefault;
+  private CheckBox chkSkipAfterChoicesDefault;
+  private Spinner<Integer> spPhysicsFixedStep;
+  private Spinner<Integer> spPhysicsMaxSubsteps;
+  private Spinner<Double> spPhysicsFriction;
+  private TextField txtInputProfilePath;
   private CheckBox chkSampleContent;
+  private CheckBox chkBundledDemoAssets;
   private CheckBox chkTitleScreen;
   private CheckBox chkSaveSystem;
   private CheckBox chkSettingsMenu;
@@ -160,6 +181,7 @@ public class NewProjectWizard extends Stage {
     content.getChildren().addAll(
         createSection("Project Basics", "Name, author, target directory, and output path.", createProjectBasicsGrid()),
         createSection("Engine Profile", "Runtime defaults and entry points for this project.", createEngineProfileGrid()),
+        createSection("Playback Defaults", "Initial text/audio/physics/input settings for this project profile.", createPlaybackDefaultsPane()),
         createSection("Feature Modules", "Choose the base modules to scaffold.", createFeatureModulesPane()),
         createSection("Version Control", "Initialize Git so multi-person collaboration works from day one.", createVersionControlPane()),
         createSection("Generated Layout", "Preview the exact folders/files that will be created.", createGeneratedLayoutPane()),
@@ -241,15 +263,38 @@ public class NewProjectWizard extends Stage {
 
     cmbResolution = new ComboBox<>();
     cmbResolution.getItems().addAll(
+        "7680x4320 (8K UHD)",
+        "5120x2880 (5K)",
+        "5120x1440 (Super UltraWide)",
+        "3840x2160 (4K UHD)",
+        "3440x1440 (UltraWide QHD)",
+        "2560x1440 (QHD)",
+        "2560x1080 (UltraWide FHD)",
         "1920x1080 (Full HD)",
         "1600x900 (HD+)",
         "1366x768 (WXGA)",
         "1280x720 (HD)",
         "960x540 (qHD)"
     );
-    cmbResolution.setValue("1280x720 (HD)");
+    cmbResolution.setValue("1920x1080 (Full HD)");
     cmbResolution.setPrefWidth(230);
     cmbResolution.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+
+    chkCustomResolution = createCheckBox("Custom Resolution", false);
+    txtCustomWidth = createTextField("2560");
+    txtCustomWidth.setPrefWidth(90);
+    txtCustomHeight = createTextField("1440");
+    txtCustomHeight.setPrefWidth(90);
+    txtCustomWidth.setDisable(true);
+    txtCustomHeight.setDisable(true);
+    Label resolutionSeparator = new Label("x");
+    resolutionSeparator.setTextFill(Color.web(TEXT_SECONDARY));
+    HBox customRow = new HBox(8, chkCustomResolution, txtCustomWidth, resolutionSeparator, txtCustomHeight);
+    customRow.setAlignment(Pos.CENTER_LEFT);
+
+    lblAspectRatio = new Label();
+    lblAspectRatio.setTextFill(Color.web(TEXT_MUTED));
+    lblAspectRatio.setFont(Font.font(Font.getDefault().getFamily(), 11));
 
     cmbTheme = new ComboBox<>();
     cmbTheme.getItems().addAll(
@@ -263,8 +308,38 @@ public class NewProjectWizard extends Stage {
     cmbTheme.setPrefWidth(230);
     cmbTheme.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
 
+    cmbRuntimeUi = new ComboBox<>();
+    cmbRuntimeUi.getItems().addAll("fx", "swing");
+    cmbRuntimeUi.setValue("fx");
+    cmbRuntimeUi.setPrefWidth(230);
+    cmbRuntimeUi.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+
+    cmbAudioBackend = new ComboBox<>();
+    cmbAudioBackend.getItems().addAll("auto", "simp3", "fx");
+    cmbAudioBackend.setValue("auto");
+    cmbAudioBackend.setPrefWidth(230);
+    cmbAudioBackend.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+
+    cmbLocale = new ComboBox<>();
+    cmbLocale.getItems().addAll("en", "de", "es", "fr", "it", "ja", "ko", "pt-BR", "tr", "zh-CN");
+    cmbLocale.setValue("en");
+    cmbLocale.setPrefWidth(230);
+    cmbLocale.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+
     cmbResolution.setOnAction(e -> updateDerivedFields());
     cmbTheme.setOnAction(e -> updateDerivedFields());
+    cmbRuntimeUi.setOnAction(e -> updateDerivedFields());
+    cmbAudioBackend.setOnAction(e -> updateDerivedFields());
+    cmbLocale.setOnAction(e -> updateDerivedFields());
+    chkCustomResolution.selectedProperty().addListener((o, ov, nv) -> {
+      boolean custom = nv != null && nv;
+      txtCustomWidth.setDisable(!custom);
+      txtCustomHeight.setDisable(!custom);
+      cmbResolution.setDisable(custom);
+      updateDerivedFields();
+    });
+    txtCustomWidth.textProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    txtCustomHeight.textProperty().addListener((o, ov, nv) -> updateDerivedFields());
 
     lblPreview = new Label();
     lblPreview.setTextFill(Color.web(TEXT_SECONDARY));
@@ -281,13 +356,75 @@ public class NewProjectWizard extends Stage {
 
     grid.add(createLabel("Resolution"), 0, 0);
     grid.add(cmbResolution, 1, 0);
-    grid.add(createLabel("Menu Theme"), 0, 1);
-    grid.add(cmbTheme, 1, 1);
-    grid.add(createLabel("Preset"), 0, 2);
-    grid.add(lblPreview, 1, 2);
-    grid.add(new Label(""), 0, 3);
-    grid.add(entryInfo, 1, 3);
+    grid.add(createLabel("Custom"), 0, 1);
+    grid.add(customRow, 1, 1);
+    grid.add(createLabel("Aspect"), 0, 2);
+    grid.add(lblAspectRatio, 1, 2);
+    grid.add(createLabel("Menu Theme"), 0, 3);
+    grid.add(cmbTheme, 1, 3);
+    grid.add(createLabel("Runtime UI"), 0, 4);
+    grid.add(cmbRuntimeUi, 1, 4);
+    grid.add(createLabel("Audio Backend"), 0, 5);
+    grid.add(cmbAudioBackend, 1, 5);
+    grid.add(createLabel("Locale"), 0, 6);
+    grid.add(cmbLocale, 1, 6);
+    grid.add(createLabel("Preset"), 0, 7);
+    grid.add(lblPreview, 1, 7);
+    grid.add(new Label(""), 0, 8);
+    grid.add(entryInfo, 1, 8);
 
+    return grid;
+  }
+
+  private Region createPlaybackDefaultsPane() {
+    GridPane grid = new GridPane();
+    grid.setHgap(14);
+    grid.setVgap(10);
+
+    spTextSpeed = createIntSpinner(10, 120, 35, 1);
+    spAutoDelay = createIntSpinner(500, 5000, 2000, 100);
+    spBgmVolume = createDoubleSpinner(0.0, 1.0, 0.70, 0.05);
+    spSfxVolume = createDoubleSpinner(0.0, 1.0, 0.80, 0.05);
+    spVoiceVolume = createDoubleSpinner(0.0, 1.0, 1.00, 0.05);
+    chkSkipUnreadDefault = createCheckBox("Skip unread text by default", false);
+    chkSkipAfterChoicesDefault = createCheckBox("Skip after choices by default", false);
+    spPhysicsFixedStep = createIntSpinner(0, 50, 0, 5);
+    spPhysicsMaxSubsteps = createIntSpinner(1, 8, 4, 1);
+    spPhysicsFriction = createDoubleSpinner(0.0, 1.0, 0.20, 0.05);
+    txtInputProfilePath = createTextField(System.getProperty("user.home") + "/.jvn/input-bindings.properties");
+
+    Label note = new Label(
+        "These defaults are written to config/settings/vn.settings and can be changed later in Settings Editor.\n"
+        + "Physics fixed step: 0 means variable timestep."
+    );
+    note.setWrapText(true);
+    note.setTextFill(Color.web(TEXT_MUTED));
+    note.setFont(Font.font(Font.getDefault().getFamily(), 11));
+
+    grid.add(createLabel("Text Speed"), 0, 0);
+    grid.add(spTextSpeed, 1, 0);
+    grid.add(createLabel("Auto Delay"), 0, 1);
+    grid.add(spAutoDelay, 1, 1);
+    grid.add(createLabel("BGM Volume"), 0, 2);
+    grid.add(spBgmVolume, 1, 2);
+    grid.add(createLabel("SFX Volume"), 0, 3);
+    grid.add(spSfxVolume, 1, 3);
+    grid.add(createLabel("Voice Volume"), 0, 4);
+    grid.add(spVoiceVolume, 1, 4);
+    grid.add(createLabel("Skip Defaults"), 0, 5);
+    grid.add(new VBox(6, chkSkipUnreadDefault, chkSkipAfterChoicesDefault), 1, 5);
+    grid.add(createLabel("Physics Step"), 0, 6);
+    grid.add(spPhysicsFixedStep, 1, 6);
+    grid.add(createLabel("Physics Substeps"), 0, 7);
+    grid.add(spPhysicsMaxSubsteps, 1, 7);
+    grid.add(createLabel("Default Friction"), 0, 8);
+    grid.add(spPhysicsFriction, 1, 8);
+    grid.add(createLabel("Input Profile"), 0, 9);
+    grid.add(txtInputProfilePath, 1, 9);
+    grid.add(new Label(""), 0, 10);
+    grid.add(note, 1, 10);
+
+    GridPane.setHgrow(txtInputProfilePath, Priority.ALWAYS);
     return grid;
   }
 
@@ -299,6 +436,7 @@ public class NewProjectWizard extends Stage {
     intro.setFont(Font.font(Font.getDefault().getFamily(), 12));
 
     chkSampleContent = createCheckBox("Sample Prologue Script", true);
+    chkBundledDemoAssets = createCheckBox("Bundled Demo Assets (Codel/Field/BGM)", true);
     chkTitleScreen = createCheckBox("Main Menu Profile Pack", true);
     chkSaveSystem = createCheckBox("Load/Save Menu Profiles", true);
     chkSettingsMenu = createCheckBox("Settings Menu Profile", true);
@@ -324,7 +462,18 @@ public class NewProjectWizard extends Stage {
     lblBlankMenuWarning.setVisible(false);
     lblBlankMenuWarning.setManaged(false);
 
-    chkSampleContent.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    chkSampleContent.selectedProperty().addListener((o, ov, nv) -> {
+      if (nv != null && nv && chkBundledDemoAssets != null && !chkBundledDemoAssets.isSelected()) {
+        chkBundledDemoAssets.setSelected(true);
+      }
+      updateDerivedFields();
+    });
+    chkBundledDemoAssets.selectedProperty().addListener((o, ov, nv) -> {
+      if (nv != null && !nv && chkSampleContent != null && chkSampleContent.isSelected()) {
+        chkSampleContent.setSelected(false);
+      }
+      updateDerivedFields();
+    });
     chkTitleScreen.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkHistoryBacklog.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkSaveSystem.selectedProperty().addListener((o, ov, nv) -> {
@@ -354,17 +503,19 @@ public class NewProjectWizard extends Stage {
     options.setHgap(28);
     options.setVgap(8);
     options.add(chkSampleContent, 0, 0);
-    options.add(chkTitleScreen, 1, 0);
-    options.add(chkSaveSystem, 0, 1);
-    options.add(chkSettingsMenu, 1, 1);
-    options.add(chkHistoryBacklog, 0, 2);
-    options.add(chkBlankMenus, 1, 2);
+    options.add(chkBundledDemoAssets, 1, 0);
+    options.add(chkTitleScreen, 0, 1);
+    options.add(chkSaveSystem, 1, 1);
+    options.add(chkSettingsMenu, 0, 2);
+    options.add(chkHistoryBacklog, 1, 2);
+    options.add(chkBlankMenus, 0, 3);
 
     FlowPane details = new FlowPane();
     details.setVgap(4);
     details.setHgap(16);
     details.getChildren().addAll(
         detailTag("Sample Prologue", "Rich starter VNS with choices and state."),
+        detailTag("Demo Assets", "Copies bundled field/codel/audio starter assets."),
         detailTag("Menu Profiles", "Creates config/menu registry, screens, layout and style."),
         detailTag("Save/Load", "Adds load.menu and save.menu defaults."),
         detailTag("Settings", "Adds settings.menu profile entries."),
@@ -555,9 +706,19 @@ public class NewProjectWizard extends Stage {
     if (lblPreview == null || cmbTheme == null || cmbResolution == null) return;
     String name = txtProjectName == null ? "" : txtProjectName.getText().trim();
     if (name.isBlank()) name = "Untitled";
-    String res = cmbResolution.getValue() == null ? "1280x720" : cmbResolution.getValue().split(" ")[0];
+    int[] resolution = parseResolution();
+    String res = resolution[0] + "x" + resolution[1];
+    String ratio = formatAspectRatio(resolution[0], resolution[1]);
     String theme = cmbTheme.getValue() == null ? "Dark Elegant" : cmbTheme.getValue();
-    lblPreview.setText("\"" + name + "\" • " + res + " • " + theme);
+    String runtimeUi = cmbRuntimeUi == null || cmbRuntimeUi.getValue() == null ? "fx" : cmbRuntimeUi.getValue();
+    String audioBackend = cmbAudioBackend == null || cmbAudioBackend.getValue() == null ? "auto" : cmbAudioBackend.getValue();
+    String locale = cmbLocale == null || cmbLocale.getValue() == null ? "en" : cmbLocale.getValue();
+    String source = chkCustomResolution != null && chkCustomResolution.isSelected() ? "custom" : "preset";
+    if (lblAspectRatio != null) {
+      lblAspectRatio.setText(ratio + " (" + source + ")");
+    }
+    lblPreview.setText("\"" + name + "\" • " + res + " • " + ratio + " • " + theme
+        + " • " + runtimeUi + "/" + audioBackend + " • " + locale);
   }
 
   private void updateTargetPathLabel() {
@@ -589,7 +750,10 @@ public class NewProjectWizard extends Stage {
   }
 
   private long estimateProjectSizeKb() {
-    long kb = 36 + estimateBundledDemoAssetsKb();
+    long kb = 36;
+    if (chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected()) {
+      kb += estimateBundledDemoAssetsKb();
+    }
     if (chkSampleContent != null && chkSampleContent.isSelected()) kb += 8;
     if (shouldCreateMenuPack()) kb += 8;
     if (chkSaveSystem != null && chkSaveSystem.isSelected()) kb += 3;
@@ -603,6 +767,7 @@ public class NewProjectWizard extends Stage {
     boolean includeMenuPack = shouldCreateMenuPack();
     boolean includeSave = chkSaveSystem != null && chkSaveSystem.isSelected();
     boolean includeSettings = chkSettingsMenu != null && chkSettingsMenu.isSelected();
+    boolean includeDemoAssets = chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected();
 
     StringBuilder sb = new StringBuilder();
     sb.append(projectFolderName).append("/\n");
@@ -657,11 +822,14 @@ public class NewProjectWizard extends Stage {
     sb.append("|   |-- characters/\n");
     sb.append("|   |-- portraits/\n");
     sb.append("|   |-- cg/\n");
-    sb.append("|   |-- demo/\n");
-    sb.append("|   |   |-- backgrounds/\n");
-    sb.append("|   |   |   `-- field/\n");
-    sb.append("|   |   `-- characters/\n");
-    sb.append("|   |       `-- codel/\n");
+    if (includeDemoAssets) {
+      sb.append("|   |-- demo/\n");
+      sb.append("|   |   |-- backgrounds/\n");
+      sb.append("|   |   |   `-- field/\n");
+      sb.append("|   |   |-- characters/\n");
+      sb.append("|   |   |   `-- codel/\n");
+      sb.append("|   |   `-- audio/\n");
+    }
     sb.append("|   |-- ui/\n");
     sb.append("|   |-- fonts/\n");
     sb.append("|   `-- audio/\n");
@@ -685,7 +853,8 @@ public class NewProjectWizard extends Stage {
       return 20480;
     }
     long bytes = computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_BG_DIR))
-        + computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_SPRITE_DIR));
+        + computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_SPRITE_DIR))
+        + computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_BGM_DIR));
     if (bytes <= 0) return 20480;
     return Math.max(1, (bytes + 1023) / 1024);
   }
@@ -770,6 +939,7 @@ public class NewProjectWizard extends Stage {
     boolean includeMenuPack = shouldCreateMenuPack();
     boolean includeSave = chkSaveSystem.isSelected();
     boolean includeSettings = chkSettingsMenu.isSelected();
+    boolean includeDemoAssets = chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected();
     boolean gitRequested = shouldSetupGit();
     boolean gitCommitRequested = shouldCreateInitialCommit();
     boolean gitEnabled = false;
@@ -781,10 +951,10 @@ public class NewProjectWizard extends Stage {
     if (!dir.isDirectory()) {
       throw new Exception("Project path is not a directory: " + dir.getAbsolutePath());
     }
-    createDirectories(dir, includeMenuPack);
-    copyBundledDemoAssets(dir);
+    createDirectories(dir, includeMenuPack, includeDemoAssets);
+    if (includeDemoAssets) copyBundledDemoAssets(dir);
 
-    if (chkSampleContent.isSelected()) createSampleScript(dir, displayName);
+    if (chkSampleContent.isSelected() && includeDemoAssets) createSampleScript(dir, displayName);
     else createEmptyScript(dir, displayName);
 
     try (FileWriter fw = new FileWriter(new File(dir, TIMELINE_PATH))) {
@@ -843,6 +1013,7 @@ public class NewProjectWizard extends Stage {
         includeMenuPack,
         includeSave,
         includeSettings,
+        includeDemoAssets,
         gitEnabled,
         gitInitialCommit
     );
@@ -886,7 +1057,7 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private void createDirectories(File dir, boolean includeMenuPack) throws Exception {
+  private void createDirectories(File dir, boolean includeMenuPack, boolean includeDemoAssets) throws Exception {
     // Config
     ensureDirectory(dir, "config/settings");
     ensureDirectory(dir, "config/timeline");
@@ -913,8 +1084,11 @@ public class NewProjectWizard extends Stage {
     ensureDirectory(dir, "assets/characters");
     ensureDirectory(dir, "assets/portraits");
     ensureDirectory(dir, "assets/cg");
-    ensureDirectory(dir, "assets/demo/backgrounds");
-    ensureDirectory(dir, "assets/demo/characters");
+    if (includeDemoAssets) {
+      ensureDirectory(dir, "assets/demo/backgrounds");
+      ensureDirectory(dir, "assets/demo/characters");
+      ensureDirectory(dir, "assets/demo/audio");
+    }
     ensureDirectory(dir, "assets/ui");
     ensureDirectory(dir, "assets/fonts");
     ensureDirectory(dir, "assets/audio/bgm");
@@ -1007,16 +1181,48 @@ public class NewProjectWizard extends Stage {
   }
 
   private int[] parseResolution() {
-    String raw = cmbResolution.getValue();
-    if (raw == null || raw.isBlank()) return new int[] {1280, 720};
+    if (chkCustomResolution != null && chkCustomResolution.isSelected()) {
+      int width = parseDimension(txtCustomWidth == null ? null : txtCustomWidth.getText(), 2560, "width");
+      int height = parseDimension(txtCustomHeight == null ? null : txtCustomHeight.getText(), 1440, "height");
+      return new int[] {width, height};
+    }
+    String raw = cmbResolution == null ? null : cmbResolution.getValue();
+    if (raw == null || raw.isBlank()) return new int[] {1920, 1080};
     String[] first = raw.split(" ");
     String[] parts = first[0].split("x");
-    if (parts.length != 2) return new int[] {1280, 720};
+    if (parts.length != 2) return new int[] {1920, 1080};
+    int width = parseDimension(parts[0], 1920, "width");
+    int height = parseDimension(parts[1], 1080, "height");
+    return new int[] {width, height};
+  }
+
+  private int parseDimension(String raw, int fallback, String axis) {
+    if (raw == null || raw.isBlank()) return fallback;
     try {
-      return new int[] {Integer.parseInt(parts[0]), Integer.parseInt(parts[1])};
-    } catch (Exception ignored) {
-      return new int[] {1280, 720};
+      int value = Integer.parseInt(raw.trim());
+      if (value < 320) return 320;
+      if (value > 8192) return 8192;
+      return value;
+    } catch (NumberFormatException ignored) {
+      return fallback;
     }
+  }
+
+  private String formatAspectRatio(int width, int height) {
+    if (width <= 0 || height <= 0) return "unknown";
+    int gcd = greatestCommonDivisor(width, height);
+    return (width / gcd) + ":" + (height / gcd);
+  }
+
+  private int greatestCommonDivisor(int a, int b) {
+    int x = Math.abs(a);
+    int y = Math.abs(b);
+    while (y != 0) {
+      int tmp = x % y;
+      x = y;
+      y = tmp;
+    }
+    return x == 0 ? 1 : x;
   }
 
   private void createManifest(File dir,
@@ -1048,7 +1254,13 @@ public class NewProjectWizard extends Stage {
     manifest.setProperty("feature.blankMenus", Boolean.toString(shouldStartBlankMenus()));
     manifest.setProperty("width", String.valueOf(width));
     manifest.setProperty("height", String.valueOf(height));
+    manifest.setProperty("display.customResolution", Boolean.toString(chkCustomResolution != null && chkCustomResolution.isSelected()));
+    manifest.setProperty("theme", cmbTheme == null || cmbTheme.getValue() == null ? "Dark Elegant" : cmbTheme.getValue());
+    manifest.setProperty("runtime.ui", cmbRuntimeUi == null || cmbRuntimeUi.getValue() == null ? "fx" : cmbRuntimeUi.getValue());
+    manifest.setProperty("runtime.audio", cmbAudioBackend == null || cmbAudioBackend.getValue() == null ? "auto" : cmbAudioBackend.getValue());
+    manifest.setProperty("runtime.locale", cmbLocale == null || cmbLocale.getValue() == null ? "en" : cmbLocale.getValue());
     manifest.setProperty("feature.sampleContent", Boolean.toString(chkSampleContent.isSelected()));
+    manifest.setProperty("feature.demoAssets", Boolean.toString(chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected()));
     manifest.setProperty("feature.titleScreen", Boolean.toString(chkTitleScreen.isSelected() && includeMenuPack));
     manifest.setProperty("feature.menuProfiles", Boolean.toString(includeMenuPack));
     manifest.setProperty("feature.saveSystem", Boolean.toString(includeSave));
@@ -1196,13 +1408,43 @@ public class NewProjectWizard extends Stage {
   private void createSettings(File dir) throws Exception {
     try (FileOutputStream fos = new FileOutputStream(new File(dir, SETTINGS_PATH))) {
       Properties sp = new Properties();
-      sp.setProperty("textSpeed", "35");
-      sp.setProperty("bgm", "0.7");
-      sp.setProperty("sfx", "0.8");
-      sp.setProperty("voice", "1.0");
-      sp.setProperty("autoPlayDelay", "2000");
-      sp.setProperty("skipUnread", "false");
-      sp.setProperty("skipAfterChoices", "false");
+      int textSpeed = spTextSpeed == null ? 35 : spTextSpeed.getValue();
+      int autoDelay = spAutoDelay == null ? 2000 : spAutoDelay.getValue();
+      double bgm = spBgmVolume == null ? 0.7 : spBgmVolume.getValue();
+      double sfx = spSfxVolume == null ? 0.8 : spSfxVolume.getValue();
+      double voice = spVoiceVolume == null ? 1.0 : spVoiceVolume.getValue();
+      boolean skipUnread = chkSkipUnreadDefault != null && chkSkipUnreadDefault.isSelected();
+      boolean skipAfterChoices = chkSkipAfterChoicesDefault != null && chkSkipAfterChoicesDefault.isSelected();
+      int physicsStep = spPhysicsFixedStep == null ? 0 : spPhysicsFixedStep.getValue();
+      int physicsSubsteps = spPhysicsMaxSubsteps == null ? 4 : spPhysicsMaxSubsteps.getValue();
+      double physicsFriction = spPhysicsFriction == null ? 0.2 : spPhysicsFriction.getValue();
+      String inputProfile = txtInputProfilePath == null || txtInputProfilePath.getText().isBlank()
+          ? System.getProperty("user.home") + "/.jvn/input-bindings.properties"
+          : txtInputProfilePath.getText().trim();
+
+      // Legacy project settings keys used by the current settings editor.
+      sp.setProperty("textSpeed", Integer.toString(textSpeed));
+      sp.setProperty("bgm", Double.toString(bgm));
+      sp.setProperty("sfx", Double.toString(sfx));
+      sp.setProperty("voice", Double.toString(voice));
+      sp.setProperty("autoPlayDelay", Integer.toString(autoDelay));
+      sp.setProperty("skipUnread", Boolean.toString(skipUnread));
+      sp.setProperty("skipAfterChoices", Boolean.toString(skipAfterChoices));
+
+      // Runtime settings keys used by VnSettingsStore.
+      sp.setProperty("text_speed", Integer.toString(textSpeed));
+      sp.setProperty("bgm_volume", Double.toString(bgm));
+      sp.setProperty("sfx_volume", Double.toString(sfx));
+      sp.setProperty("voice_volume", Double.toString(voice));
+      sp.setProperty("auto_play_delay", Integer.toString(autoDelay));
+      sp.setProperty("skip_unread_text", Boolean.toString(skipUnread));
+      sp.setProperty("skip_after_choices", Boolean.toString(skipAfterChoices));
+      sp.setProperty("physics_fixed_step_ms", Integer.toString(physicsStep));
+      sp.setProperty("physics_max_substeps", Integer.toString(physicsSubsteps));
+      sp.setProperty("physics_default_friction", Double.toString(physicsFriction));
+      sp.setProperty("input_profile_path", inputProfile);
+
+      // Project module hints.
       sp.setProperty("historyBacklogEnabled", Boolean.toString(chkHistoryBacklog.isSelected()));
       sp.setProperty("saveProfilesEnabled", Boolean.toString(chkSaveSystem.isSelected()));
       sp.setProperty("settingsProfileEnabled", Boolean.toString(chkSettingsMenu.isSelected()));
@@ -1442,6 +1684,7 @@ public class NewProjectWizard extends Stage {
                             boolean includeMenuPack,
                             boolean includeSave,
                             boolean includeSettings,
+                            boolean includeDemoAssets,
                             boolean gitEnabled,
                             boolean gitInitialCommit)
       throws Exception {
@@ -1451,7 +1694,7 @@ public class NewProjectWizard extends Stage {
       if (!txtAuthor.getText().isBlank()) fw.write("**Author:** " + txtAuthor.getText().trim() + "\n\n");
       fw.write("## Enabled Modules\n\n");
       fw.write("- Sample prologue: " + (chkSampleContent.isSelected() ? "yes" : "no") + "\n");
-      fw.write("- Bundled demo assets: yes (`assets/demo/...`)\n");
+      fw.write("- Bundled demo assets: " + (includeDemoAssets ? "yes (`assets/demo/...`)" : "no") + "\n");
       fw.write("- Menu profile pack: " + (includeMenuPack ? "yes" : "no") + "\n");
       fw.write("- Blank menus (custom): " + (shouldStartBlankMenus() ? "yes" : "no") + "\n");
       fw.write("- Save/load profiles: " + (includeSave ? "yes" : "no") + "\n");
@@ -1459,6 +1702,20 @@ public class NewProjectWizard extends Stage {
       fw.write("- History defaults: " + (chkHistoryBacklog.isSelected() ? "yes" : "no") + "\n\n");
       fw.write("- Git repository: " + (gitEnabled ? "yes" : "no") + "\n");
       fw.write("- Initial commit: " + (gitInitialCommit ? "yes" : "no") + "\n\n");
+
+      fw.write("## Runtime Profile\n\n");
+      int[] resolution = parseResolution();
+      fw.write("- Resolution: " + resolution[0] + "x" + resolution[1] + " (" + formatAspectRatio(resolution[0], resolution[1]) + ")\n");
+      fw.write("- Theme preset: " + (cmbTheme.getValue() == null ? "Dark Elegant" : cmbTheme.getValue()) + "\n");
+      fw.write("- UI backend: " + (cmbRuntimeUi.getValue() == null ? "fx" : cmbRuntimeUi.getValue()) + "\n");
+      fw.write("- Audio backend: " + (cmbAudioBackend.getValue() == null ? "auto" : cmbAudioBackend.getValue()) + "\n");
+      fw.write("- Locale: " + (cmbLocale.getValue() == null ? "en" : cmbLocale.getValue()) + "\n");
+      fw.write("- Text speed: " + (spTextSpeed == null ? 35 : spTextSpeed.getValue()) + "\n");
+      fw.write("- Auto delay: " + (spAutoDelay == null ? 2000 : spAutoDelay.getValue()) + " ms\n");
+      fw.write("- Volumes (bgm/sfx/voice): "
+          + (spBgmVolume == null ? 0.7 : spBgmVolume.getValue()) + "/"
+          + (spSfxVolume == null ? 0.8 : spSfxVolume.getValue()) + "/"
+          + (spVoiceVolume == null ? 1.0 : spVoiceVolume.getValue()) + "\n\n");
 
       if (!txtDescription.getText().isBlank()) {
         fw.write("## Description\n\n");
@@ -1509,6 +1766,24 @@ public class NewProjectWizard extends Stage {
     s = s.replaceAll("^[._-]+", "");
     s = s.replaceAll("[._-]+$", "");
     return s;
+  }
+
+  private Spinner<Integer> createIntSpinner(int min, int max, int initial, int step) {
+    Spinner<Integer> spinner = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(min, max, initial, step));
+    spinner.setEditable(true);
+    spinner.setPrefWidth(160);
+    spinner.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    spinner.valueProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    return spinner;
+  }
+
+  private Spinner<Double> createDoubleSpinner(double min, double max, double initial, double step) {
+    Spinner<Double> spinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(min, max, initial, step));
+    spinner.setEditable(true);
+    spinner.setPrefWidth(160);
+    spinner.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    spinner.valueProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    return spinner;
   }
 
   private void showError(String message) {

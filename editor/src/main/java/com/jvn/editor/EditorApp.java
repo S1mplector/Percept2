@@ -353,6 +353,13 @@ public class EditorApp extends Application {
     String height = mf.getProperty("height", "").trim();
     if (!height.isBlank()) runtimeArgs.append(" --height ").append(height);
 
+    String runtimeUi = mf.getProperty("runtime.ui", "").trim();
+    if (!runtimeUi.isBlank()) runtimeArgs.append(" --ui ").append(quoteCliArg(runtimeUi));
+    String runtimeAudio = mf.getProperty("runtime.audio", "").trim();
+    if (!runtimeAudio.isBlank()) runtimeArgs.append(" --audio ").append(quoteCliArg(runtimeAudio));
+    String runtimeLocale = mf.getProperty("runtime.locale", "").trim();
+    if (!runtimeLocale.isBlank()) runtimeArgs.append(" --locale ").append(quoteCliArg(runtimeLocale));
+
     runGradle(workspaceRoot, ":runtime:run", new String[] { "--args=" + runtimeArgs }, "JVN Runtime");
     status.setText("Launching runtime: " + root.getName());
   }

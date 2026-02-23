@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
   application
 }
@@ -26,8 +28,21 @@ tasks.named<org.gradle.api.tasks.JavaExec>("run") {
     "javafx.swing"
   )
   doFirst {
+    val runtimeFiles = classpath.files
+    val javafxFiles = runtimeFiles.filter { file ->
+      file.name.startsWith("javafx-") && file.name.endsWith(".jar")
+    }
+    val nonJavafxFiles = runtimeFiles.filterNot { file ->
+      file.name.startsWith("javafx-") && file.name.endsWith(".jar")
+    }
+
+    // Keep non-JavaFX dependencies on the classpath to avoid JPMS split-package
+    // issues (e.g. vorbisspi/mp3spi both exporting javazoom.spi).
+    classpath = files(nonJavafxFiles)
+
+    val modulePath = javafxFiles.joinToString(File.pathSeparator) { it.absolutePath }
     jvmArgs(
-      "--module-path", configurations.runtimeClasspath.get().asPath,
+      "--module-path", modulePath,
       "--add-modules", fxModules.joinToString(",")
     )
   }
