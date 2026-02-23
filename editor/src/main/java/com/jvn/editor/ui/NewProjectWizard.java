@@ -166,7 +166,7 @@ public class NewProjectWizard extends Stage {
     subtitle.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 13));
     subtitle.setTextFill(Color.web(TEXT_SECONDARY));
 
-    Label hint = new Label("Recommended: start with sample content, then customize layouts visually in the editor.");
+    Label hint = new Label("All settings can be changed later in the editor.");
     hint.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 11));
     hint.setTextFill(Color.web(TEXT_MUTED));
 
