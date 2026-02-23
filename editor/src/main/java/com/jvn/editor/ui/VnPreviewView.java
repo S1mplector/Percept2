@@ -118,6 +118,7 @@ public class VnPreviewView extends StackPane {
     nextScene.setAudioFacade(audio);
     if (startLabel != null && !startLabel.isBlank()) {
       nextScene.getState().jumpToLabel(startLabel);
+      nextScene.preflightState(nextScene.getState().getCurrentNodeIndex());
     }
     nextScene.onEnter();
     this.scene = nextScene;

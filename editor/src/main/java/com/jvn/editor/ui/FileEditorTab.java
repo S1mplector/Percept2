@@ -140,6 +140,27 @@ public class FileEditorTab extends BorderPane {
     }
   }
 
+  public void showSearchBar() {
+    if (vnsEditor != null) vnsEditor.showSearchBar();
+    else if (javaEditor != null) javaEditor.showSearchBar();
+    else if (themeEditor != null) themeEditor.showSearchBar();
+    else if (menuScreenEditor != null) menuScreenEditor.showSearchBar();
+    else if (menuLayoutEditor != null) menuLayoutEditor.showSearchBar();
+    else if (menuStyleEditor != null) menuStyleEditor.showSearchBar();
+    else if (dialogueLayoutEditor != null) dialogueLayoutEditor.showSearchBar();
+    else if (textEditor != null) textEditor.showSearchBar();
+  }
+
+  public void launchFromHere() {
+    if (kind != Kind.VNS || vnsEditor == null) return;
+    vnsEditor.setOnLaunchFromHere(this::runFromLabel);
+    // Trigger the VNS editor's built-in launch-from-here logic
+    javafx.scene.input.KeyEvent fakeF5 = new javafx.scene.input.KeyEvent(
+        javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", javafx.scene.input.KeyCode.F5,
+        false, false, false, false);
+    vnsEditor.fireEvent(fakeF5);
+  }
+
   public void runFromLabel(String label) {
     try {
       if (kind != Kind.VNS || vnsEditor == null || vnPreview == null) return;

@@ -471,21 +471,98 @@ public class EditorApp extends Application {
     miCloseTab.setAccelerator(new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN));
     menuFile.getItems().addAll(miNewProject, miOpenProject, new SeparatorMenuItem(), miOpen, miOpenVns, miSave, miSaveAs, miCloseTab);
 
-    Menu menuCode = new Menu("Code");
-    MenuItem miApplyCode = new MenuItem("Apply Code");
-    miApplyCode.setOnAction(e -> applyCodeFromEditor());
-    miApplyCode.setAccelerator(new KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN));
+    // ── Edit ──
+    Menu menuEdit = new Menu("Edit");
+    MenuItem miUndo = new MenuItem("Undo");
+    miUndo.setOnAction(e -> { commands.undo(); status.setText("Undo"); inspectorView.setSelection(selected); });
+    miUndo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN));
+    MenuItem miRedo = new MenuItem("Redo");
+    miRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
+    miRedo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+    MenuItem miFind = new MenuItem("Find / Replace");
+    miFind.setAccelerator(new KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN));
+    miFind.setOnAction(e -> {
+      FileEditorTab ft = getActiveFileTab();
+      if (ft != null) ft.showSearchBar();
+    });
+    MenuItem miGoToLine = new MenuItem("Go to Line...");
+    miGoToLine.setAccelerator(new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN));
+    miGoToLine.setOnAction(e -> {
+      javafx.scene.control.TextInputDialog dlg = new javafx.scene.control.TextInputDialog();
+      dlg.setTitle("Go to Line");
+      dlg.setHeaderText(null);
+      dlg.setContentText("Line number:");
+      dlg.showAndWait().ifPresent(text -> {
+        try {
+          int line = Integer.parseInt(text.trim());
+          FileEditorTab ft = getActiveFileTab();
+          if (ft != null) ft.navigateToLine(line);
+        } catch (NumberFormatException ignored) {}
+      });
+    });
+    MenuItem miReload = new MenuItem("Reload from Disk");
+    miReload.setOnAction(e -> doReload());
+    menuEdit.getItems().addAll(miUndo, miRedo, new SeparatorMenuItem(),
+        miFind, miGoToLine, new SeparatorMenuItem(), miReload);
+
+    // ── View ──
+    Menu menuView = new Menu("View");
     MenuItem miToggleEditorFullscreen = new MenuItem("Toggle Editor Fullscreen");
     miToggleEditorFullscreen.setOnAction(e -> toggleActiveEditorFullscreen());
     miToggleEditorFullscreen.setAccelerator(new KeyCodeCombination(KeyCode.F11));
-    menuCode.getItems().addAll(miApplyCode, miToggleEditorFullscreen);
+    MenuItem miResetCamera = new MenuItem("Reset Camera");
+    miResetCamera.setOnAction(e -> resetCamera());
+    MenuItem miFitContent = new MenuItem("Fit to Content / Fullscreen Preview");
+    miFitContent.setOnAction(e -> fitCameraToContent());
+    MenuItem miShowTimeline = new MenuItem("Story Timeline");
+    miShowTimeline.setOnAction(e -> selectTimelineTab());
+    MenuItem miShowProject = new MenuItem("Project Explorer");
+    miShowProject.setOnAction(e -> selectProjectTab());
+    menuView.getItems().addAll(miToggleEditorFullscreen, new SeparatorMenuItem(),
+        miResetCamera, miFitContent, new SeparatorMenuItem(),
+        miShowProject, miShowTimeline);
 
-    Menu menuProject = new Menu("Project");
-    MenuItem miRun = new MenuItem("Run Project");
-    miRun.setOnAction(e -> doRunProject(primaryStage));
+    // ── Run ──
+    Menu menuRun = new Menu("Run");
+    MenuItem miApplyCode = new MenuItem("Apply Code");
+    miApplyCode.setOnAction(e -> applyCodeFromEditor());
+    miApplyCode.setAccelerator(new KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN));
+    MenuItem miRunProject = new MenuItem("Run Project");
+    miRunProject.setOnAction(e -> doRunProject(primaryStage));
+    MenuItem miLaunchHere = new MenuItem("Launch from Here");
+    miLaunchHere.setAccelerator(new KeyCodeCombination(KeyCode.F5));
+    miLaunchHere.setOnAction(e -> {
+      FileEditorTab ft = getActiveFileTab();
+      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+        ft.launchFromHere();
+      } else {
+        status.setText("Launch from Here is only available for VNS files");
+      }
+    });
+    MenuItem miLaunchStart = new MenuItem("Launch from Start");
+    miLaunchStart.setAccelerator(new KeyCodeCombination(KeyCode.F5, KeyCombination.SHIFT_DOWN));
+    miLaunchStart.setOnAction(e -> {
+      FileEditorTab ft = getActiveFileTab();
+      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+        ft.runFromLabel(null);
+      } else {
+        status.setText("Launch from Start is only available for VNS files");
+      }
+    });
+    menuRun.getItems().addAll(miApplyCode, new SeparatorMenuItem(),
+        miRunProject, new SeparatorMenuItem(),
+        miLaunchHere, miLaunchStart);
+
+    // ── Tools ──
+    Menu menuTools = new Menu("Tools");
+    MenuItem miActionEditor = new MenuItem("Puppeteer");
+    miActionEditor.setOnAction(e -> openActionEditor());
+    miActionEditor.setAccelerator(new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     MenuItem miMenuFlow = new MenuItem("Menu Flow Editor");
     miMenuFlow.setOnAction(e -> selectMenuFlowTab());
-    menuProject.getItems().addAll(miRun, miMenuFlow);
+    menuTools.getItems().addAll(miActionEditor, miMenuFlow);
+
+    // ── Version Control ──
     Menu menuVcs = new Menu("Version Control");
     MenuItem miOpenVcs = new MenuItem("Open Version Control");
     miOpenVcs.setOnAction(e -> selectVersionControlTab());
@@ -496,6 +573,8 @@ public class EditorApp extends Application {
       selectVersionControlTab();
     });
     menuVcs.getItems().addAll(miOpenVcs, miRefreshVcs);
+
+    // ── Help ──
     Menu menuHelp = new Menu("Help");
     MenuItem miWelcome = new MenuItem("Welcome");
     miWelcome.setOnAction(e -> selectWelcomeTab());
@@ -507,23 +586,17 @@ public class EditorApp extends Application {
     miRefreshHelp.setOnAction(e -> {
       if (helpCenterView != null) helpCenterView.refresh();
     });
-    menuHelp.getItems().addAll(miWelcome, miHelpCenter, miRefreshHelp);
-    Menu menuEdit = new Menu("Edit");
-    MenuItem miUndo = new MenuItem("Undo");
-    miUndo.setOnAction(e -> { commands.undo(); status.setText("Undo"); inspectorView.setSelection(selected); });
-    miUndo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN));
-    MenuItem miRedo = new MenuItem("Redo");
-    miRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
-    miRedo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
-    menuEdit.getItems().addAll(miUndo, miRedo);
-    
-    Menu menuTools = new Menu("Tools");
-    MenuItem miActionEditor = new MenuItem("Puppeteer");
-    miActionEditor.setOnAction(e -> openActionEditor());
-    miActionEditor.setAccelerator(new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
-    menuTools.getItems().addAll(miActionEditor);
-    
-    mb.getMenus().addAll(menuFile, menuEdit, menuCode, menuProject, menuTools, menuVcs, menuHelp);
+    MenuItem miAbout = new MenuItem("About JVN Editor");
+    miAbout.setOnAction(e -> {
+      javafx.scene.control.Alert about = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
+      about.setTitle("About JVN Editor");
+      about.setHeaderText("JVN Editor " + editorVersion);
+      about.setContentText("Java Vector Nexus — Visual Novel & 2D Game Toolkit");
+      about.showAndWait();
+    });
+    menuHelp.getItems().addAll(miWelcome, miHelpCenter, miRefreshHelp, new SeparatorMenuItem(), miAbout);
+
+    mb.getMenus().addAll(menuFile, menuEdit, menuView, menuRun, menuTools, menuVcs, menuHelp);
 
     // Toolbar
     osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);

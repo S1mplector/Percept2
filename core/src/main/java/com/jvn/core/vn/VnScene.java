@@ -68,6 +68,60 @@ public class VnScene implements Scene {
     processCurrentNode();
   }
 
+  /**
+   * Fast-forward state from node 0 to {@code targetIndex - 1}, applying only
+   * non-interactive, non-blocking effects: backgrounds, shows, hides, transitions
+   * (for their target background), and external var/character commands.
+   * Call this <em>before</em> {@link #onEnter()} when jumping to a label so
+   * backgrounds and characters are visible.
+   */
+  public void preflightState(int targetIndex) {
+    if (scenario == null || targetIndex <= 0) return;
+    int limit = Math.min(targetIndex, scenario.getNodes().size());
+    for (int i = 0; i < limit; i++) {
+      VnNode node = scenario.getNode(i);
+      if (node == null) continue;
+      switch (node.getType()) {
+        case BACKGROUND:
+          if (node.getBackgroundId() != null) {
+            state.setCurrentBackgroundId(node.getBackgroundId());
+          }
+          break;
+        case SHOW:
+          if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
+            String expr = node.getShowExpression() != null ? node.getShowExpression() : "neutral";
+            state.showCharacter(node.getShowPosition(), node.getCharacterToShow(), expr, node.getShowLayerOrder());
+          }
+          break;
+        case HIDE:
+          if (node.getCharacterToHide() != null) {
+            for (var entry : new java.util.ArrayList<>(state.getVisibleCharacters().entrySet())) {
+              VnState.CharacterSlot slot = entry.getValue();
+              if (slot != null && node.getCharacterToHide().equals(slot.getCharacterId())) {
+                state.getVisibleCharacters().remove(entry.getKey());
+              }
+            }
+          }
+          break;
+        case TRANSITION:
+          if (node.getTransition() != null && node.getTransition().getTargetBackgroundId() != null) {
+            state.setCurrentBackgroundId(node.getTransition().getTargetBackgroundId());
+          }
+          break;
+        case EXTERNAL:
+          if (node.getExternalCommand() != null) {
+            String prov = node.getExternalCommand().getProvider();
+            if ("var".equals(prov) && interop != null) {
+              try { interop.handle(node.getExternalCommand(), this); } catch (Exception ignored) {}
+            }
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
   @Override
   public void update(long deltaMs) {
     // Update any active BGM fade regardless of node processing
