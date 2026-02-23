@@ -13,6 +13,7 @@ import com.jvn.core.vn.Choice;
 import com.jvn.core.vn.DialogueLine;
 import com.jvn.core.vn.VnBackground;
 import com.jvn.core.vn.VnCharacter;
+import com.jvn.core.vn.VnCharacterSceneAccessor;
 import com.jvn.core.vn.VnHistory;
 import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
@@ -53,6 +54,9 @@ public class VnRenderer {
   private VnUiLayoutSpec uiLayout;
   private VnUiStyleSpec uiStyle = VnUiStyleSpec.defaults();
   private List<VnUiActionButtonSpec> textBoxButtons = List.of();
+  private VnCharacterSceneAccessor timelineAccessor;
+
+  public void setTimelineAccessor(VnCharacterSceneAccessor accessor) { this.timelineAccessor = accessor; }
 
   // UI Colors
   private static final Color TEXTBOX_COLOR = Color.rgb(0, 0, 0, 0.62);
@@ -537,14 +541,32 @@ public class VnRenderer {
         if (imagePath != null) {
           gc.save();
           if (alpha < 0.999) gc.setGlobalAlpha(alpha);
-          renderCharacterSprite(imagePath, position, width, height, offsetX, offsetY);
+          renderCharacterSprite(imagePath, position, width, height, offsetX, offsetY, slot.getCharacterId());
           gc.restore();
         }
       }
     }
   }
 
-  private void renderCharacterSprite(String imagePath, CharacterPosition position, double width, double height, double offsetX, double offsetY) {
+  private void renderCharacterSprite(String imagePath, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId) {
+    // If a timeline proxy drives this character, use its absolute position
+    if (timelineAccessor != null && characterId != null) {
+      com.jvn.core.scene2d.Entity2D proxy = timelineAccessor.getProxy(characterId);
+      if (proxy != null && (proxy.getX() != 0 || proxy.getY() != 0)) {
+        Image img = loadImage(imagePath);
+        double spriteHeight = height * 0.85;
+        double spriteWidth = img != null ? img.getWidth() * (spriteHeight / img.getHeight()) : spriteHeight * 0.5;
+        double px = proxy.getX();
+        double py = proxy.getY();
+        if (img != null) {
+          gc.drawImage(img, px, py, spriteWidth, spriteHeight);
+        } else {
+          gc.setFill(Color.rgb(200, 200, 200, 0.4));
+          gc.fillRoundRect(px, py, spriteWidth, spriteHeight, 20, 20);
+        }
+        return;
+      }
+    }
     Image img = loadImage(imagePath);
     if (img == null) {
       // Draw placeholder silhouette box

@@ -108,7 +108,11 @@ public class VnPreviewView extends StackPane {
       return;
     }
     VnScene nextScene = new VnScene(scenario);
-    nextScene.setInterop(new DefaultVnInterop());
+    DefaultVnInterop interop = new DefaultVnInterop();
+    com.jvn.core.vn.VnCharacterSceneAccessor accessor = new com.jvn.core.vn.VnCharacterSceneAccessor();
+    interop.setSceneAccessor(accessor);
+    renderer.setTimelineAccessor(accessor);
+    nextScene.setInterop(interop);
     if (audio == null) audio = new FxAudioService();
     if (projectRoot != null) audio.setProjectRoot(projectRoot);
     nextScene.setAudioFacade(audio);
