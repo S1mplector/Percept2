@@ -97,12 +97,22 @@ If load-time migration changes the payload, manager writes migrated JSON back to
 
 `VnSaveManager` uses failure-safe writes:
 
-1. write JSON to `<slot>.json.tmp`
-2. move temp -> final with `ATOMIC_MOVE` when available
-3. fallback to replace move when atomic move is unsupported
-4. cleanup temp residue
+1. prefer native atomic write via `NativeIoBridge` (`simjot_atomic_write`) when native bridge is available
+2. otherwise write JSON to `<slot>.json.tmp`
+3. move temp -> final with `ATOMIC_MOVE` when available
+4. fallback to replace move when atomic move is unsupported
+5. cleanup temp residue
 
 This avoids partially-written save files on interruptions/crashes.
+
+Native prerequisites (optional):
+- `cmake`
+- platform C/C++ toolchain
+- build `native-math` with one of:
+  - `./native-math/build.sh`
+  - `./native-math/build_mac.sh`
+  - `./native-math/build_linux.sh`
+  - `native-math\build_windows.bat`
 
 ## Autosave
 
@@ -157,4 +167,3 @@ When adding save fields:
 4. Update serializer read/write in `VnSaveSerializer`.
 5. Update manager apply/save paths if needed.
 6. Add/extend tests (`VnSavePersistenceTest`, robustness tests).
-

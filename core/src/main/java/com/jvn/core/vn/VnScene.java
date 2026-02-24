@@ -455,9 +455,10 @@ public class VnScene implements Scene {
     }
     if (res == null || res.shouldAdvance()) {
       state.advance();
-      return true;
     }
-    return false;
+    // Non-advancing external commands (for example cond jumps) still keep
+    // the command loop running from the current node index.
+    return true;
   }
 
   private void processJumpNode(VnNode node) {

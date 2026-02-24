@@ -11,9 +11,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.jvn.core.nativebridge.NativeIoBridge;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnState;
@@ -413,7 +415,15 @@ public class VnSaveManager {
   }
 
   private void writeAtomically(Path finalPath, VnSaveData saveData) throws IOException {
-    Files.createDirectories(finalPath.getParent());
+    Path parent = finalPath.getParent();
+    if (parent != null) Files.createDirectories(parent);
+
+    byte[] payload = VnSaveSerializer.toJson(saveData).getBytes(StandardCharsets.UTF_8);
+
+    // Prefer native atomic write when available; Java path remains fallback.
+    if (NativeIoBridge.atomicWrite(finalPath, payload, true, true)) {
+      return;
+    }
 
     String fileName = finalPath.getFileName().toString();
     Path tempPath = finalPath.resolveSibling(fileName + TEMP_SUFFIX);
@@ -424,8 +434,7 @@ public class VnSaveManager {
     } catch (Exception ignored) {
     }
 
-    // Write as JSON
-    VnSaveSerializer.writeToFile(saveData, tempPath);
+    Files.write(tempPath, payload);
 
     try {
       Files.move(tempPath, finalPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);

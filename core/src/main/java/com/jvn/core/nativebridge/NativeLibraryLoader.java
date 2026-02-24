@@ -1,5 +1,7 @@
 package com.jvn.core.nativebridge;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,13 +21,22 @@ public final class NativeLibraryLoader {
     }
 
     String mapped = System.mapLibraryName(baseName);
-    Path local = Paths.get("native", mapped);
-    if (Files.exists(local) && tryLoad(local.toAbsolutePath().toString())) return true;
-
     String os = System.getProperty("os.name", "").toLowerCase();
     String osDir = os.contains("mac") ? "mac" : (os.contains("win") ? "windows" : "linux");
-    Path platform = Paths.get("native", osDir, mapped);
-    if (Files.exists(platform) && tryLoad(platform.toAbsolutePath().toString())) return true;
+
+    List<Path> candidates = new ArrayList<>();
+    candidates.add(Paths.get("native", mapped));
+    candidates.add(Paths.get("native", osDir, mapped));
+    candidates.add(Paths.get("native-math", "build", mapped));
+    candidates.add(Paths.get("native-math", "build", "Release", mapped));
+    candidates.add(Paths.get("native-math", "build", "Debug", mapped));
+    candidates.add(Paths.get("native-math", "build", osDir, mapped));
+    candidates.add(Paths.get("native-math", "build", osDir, "Release", mapped));
+    candidates.add(Paths.get("native-math", "build", osDir, "Debug", mapped));
+
+    for (Path candidate : candidates) {
+      if (Files.exists(candidate) && tryLoad(candidate.toAbsolutePath().toString())) return true;
+    }
 
     return false;
   }

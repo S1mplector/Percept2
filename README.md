@@ -17,6 +17,7 @@ Core capabilities:
 - JDK 21 (toolchain auto-download is enabled, but local JDK 21 is still recommended)
 - No global Gradle install required (`./gradlew` is included)
 - For team version-control workflows in editor: `git` and `git lfs` installed/configured
+- For native acceleration builds: `cmake` + C/C++ compiler toolchain (`clang`/`gcc`/MSVC)
 
 ## Quick Start
 
@@ -24,6 +25,13 @@ Build everything:
 
 ```bash
 ./gradlew build
+```
+
+`./gradlew build` now auto-attempts a `native-math` CMake build when required native outputs are missing.
+If you need to bypass this on a machine without CMake/toolchain:
+
+```bash
+./gradlew -PskipNativeMathBuild=true build
 ```
 
 Run editor:
@@ -57,6 +65,41 @@ Create runtime distribution:
 ```bash
 ./gradlew :runtime:distZip
 ```
+
+## Native-Math Build (Optional)
+
+JVN now includes a vendored native utility library in `native-math/`.
+
+This is optional; Java fallbacks remain active when native libraries are missing.
+
+Build commands:
+
+```bash
+# macOS/Linux
+./native-math/build.sh
+
+# macOS-only helper
+./native-math/build_mac.sh
+
+# Linux-only helper
+./native-math/build_linux.sh
+```
+
+On Windows:
+
+```bat
+native-math\build_windows.bat
+```
+
+Or:
+
+```powershell
+.\native-math\build.ps1
+```
+
+Current runtime usage:
+- `core` save pipeline attempts native atomic writes through `NativeIoBridge`.
+- If unavailable, JVN automatically falls back to Java temp-file + atomic move flow.
 
 ## Runtime Usage
 
@@ -223,6 +266,7 @@ Only prerequisites are `git` and `git lfs` on PATH.
 - `docs/Architecture/Overview.md`
 - `docs/Architecture/Architecture.md`
 - `docs/Architecture/2D-Engine.md`
+- `docs/Architecture/Native Library Audit.md`
 - `docs/Runtime/Runtime.md`
 - `docs/Runtime/Save System.md`
 - `docs/Runtime/Interop.md`

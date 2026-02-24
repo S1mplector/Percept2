@@ -37,6 +37,35 @@ import scala.collection.mutable
 object TimelineDsl:
 
   // --- Action builders ---
+  final case class MoveAction(
+      entity: String,
+      x: Option[Double],
+      y: Option[Double],
+      dur: Double,
+      easing: Easing.Type
+  )
+
+  final case class FadeAction(
+      entity: String,
+      alpha: Double,
+      dur: Double,
+      easing: Easing.Type
+  )
+
+  final case class ScaleAction(
+      entity: String,
+      sx: Option[Double],
+      sy: Option[Double],
+      dur: Double,
+      easing: Easing.Type
+  )
+
+  final case class RotateAction(
+      entity: String,
+      angle: Double,
+      dur: Double,
+      easing: Easing.Type
+  )
 
   class MoveBuilder(val entity: String):
     private var _x: Option[Double] = None
@@ -47,7 +76,7 @@ object TimelineDsl:
     def y(v: Double): Unit = _y = Some(v)
     def dur(v: Double): Unit = _dur = v
     def easing(e: Easing.Type): Unit = _easing = e
-    def build(): MoveAction = MoveAction(entity, _x, _y, _dur, _easing)
+    private[dsl] def build(): MoveAction = MoveAction(entity, _x, _y, _dur, _easing)
 
   class FadeBuilder(val entity: String):
     private var _alpha: Double = 1.0
@@ -56,7 +85,7 @@ object TimelineDsl:
     def alpha(v: Double): Unit = _alpha = v
     def dur(v: Double): Unit = _dur = v
     def easing(e: Easing.Type): Unit = _easing = e
-    def build(): FadeAction = FadeAction(entity, _alpha, _dur, _easing)
+    private[dsl] def build(): FadeAction = FadeAction(entity, _alpha, _dur, _easing)
 
   class ScaleBuilder(val entity: String):
     private var _sx: Option[Double] = None
@@ -67,7 +96,7 @@ object TimelineDsl:
     def scaleY(v: Double): Unit = _sy = Some(v)
     def dur(v: Double): Unit = _dur = v
     def easing(e: Easing.Type): Unit = _easing = e
-    def build(): ScaleAction = ScaleAction(entity, _sx, _sy, _dur, _easing)
+    private[dsl] def build(): ScaleAction = ScaleAction(entity, _sx, _sy, _dur, _easing)
 
   class RotateBuilder(val entity: String):
     private var _angle: Double = 0
@@ -76,7 +105,7 @@ object TimelineDsl:
     def angle(v: Double): Unit = _angle = v
     def dur(v: Double): Unit = _dur = v
     def easing(e: Easing.Type): Unit = _easing = e
-    def build(): RotateAction = RotateAction(entity, _angle, _dur, _easing)
+    private[dsl] def build(): RotateAction = RotateAction(entity, _angle, _dur, _easing)
 
   // --- Timeline builder ---
 
@@ -149,12 +178,11 @@ object TimelineDsl:
     def build(): TimelineData = data
 
     private def getOrCreateTrack(entity: String): TimelineData.Track =
-      trackCache.getOrElseUpdate(
-        entity,
+      trackCache.getOrElseUpdate(entity, {
         val track = new TimelineData.Track(entity)
         data.addTrack(track)
         track
-      )
+      })
 
   def timeline(name: String, durationMs: Double = 0)(configure: TimelineBuilder ?=> Unit): TimelineData =
     val builder = TimelineBuilder(name, durationMs)

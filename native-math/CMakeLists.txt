@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(simjot_native C CXX)
 
 option(SIMJOT_NATIVE_BUILD_TESTS "Build native test CLI" ON)
+option(JVN_BUILD_JNI_BRIDGE "Build JNI bridge library for JVN" ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -46,6 +47,27 @@ if(APPLE)
     endif()
 elseif(WIN32)
     target_link_libraries(simjot_native PRIVATE Shcore)
+endif()
+
+if (JVN_BUILD_JNI_BRIDGE)
+    find_package(JNI QUIET)
+    if (JNI_FOUND)
+        add_library(jvn_native_bridge SHARED jni/jvn_native_bridge.cpp)
+        set_target_properties(jvn_native_bridge PROPERTIES OUTPUT_NAME "jvn_native_bridge")
+        target_include_directories(jvn_native_bridge PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+            ${JNI_INCLUDE_DIRS}
+        )
+        target_link_libraries(jvn_native_bridge PRIVATE simjot_native ${JNI_LIBRARIES})
+
+        if (APPLE)
+            set_target_properties(jvn_native_bridge PROPERTIES BUILD_RPATH "@loader_path" INSTALL_RPATH "@loader_path")
+        elseif(UNIX)
+            set_target_properties(jvn_native_bridge PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
+        endif()
+    else()
+        message(WARNING "JNI not found, skipping jvn_native_bridge build")
+    endif()
 endif()
 
 if (SIMJOT_NATIVE_BUILD_TESTS)
