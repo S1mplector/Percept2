@@ -1,7 +1,7 @@
 package com.jvn.core.nativebridge;
 
 public final class NativeMathBridge {
-  private static final String LIB_NAME = "jvn_math";
+  private static final String LIB_NAME = "jvn_native_bridge";
   private static final boolean LOADED = NativeLibraryLoader.load(LIB_NAME);
 
   private NativeMathBridge() {}
