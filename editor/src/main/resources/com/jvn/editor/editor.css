@@ -557,6 +557,21 @@
   -fx-padding: 5 10 5 10;
 }
 
+.layout-studio-icon-button {
+  -fx-content-display: graphic-only;
+  -fx-graphic-text-gap: 0;
+  -fx-alignment: center;
+  -fx-padding: 4 6 4 6;
+  -fx-min-width: 30;
+  -fx-pref-width: 30;
+  -fx-max-width: 30;
+  -fx-min-height: 28;
+}
+
+.layout-studio-icon-button:disabled {
+  -fx-opacity: 0.45;
+}
+
 .layout-studio-table {
   -fx-background-color: #121722;
   -fx-table-cell-border-color: #2b3240;

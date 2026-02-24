@@ -2,9 +2,11 @@ package com.jvn.editor.ui;
 
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import com.jvn.core.menu.config.MenuLayoutSpec;
@@ -75,6 +77,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private final UndoManager undoManager = new UndoManager();
   private Button btnUndo;
   private Button btnRedo;
+  private final Label validation = new Label("No issues detected.");
   private final TableView<CustomProperty> customPropsTable = new TableView<>();
   private final ObservableList<CustomProperty> customProps = FXCollections.observableArrayList();
   private String previewTitle = "Menu Title";
@@ -111,6 +114,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     registerPreviewDrag();
     registerListeners();
     updatePreviewSize(previewPane);
+    refreshValidation();
     redraw();
   }
 
@@ -141,6 +145,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
       customProps.add(new CustomProperty(key, rawProperties.getProperty(key, "")));
     }
     suppressEvents = false;
+    refreshValidation();
     redraw();
     lastLoadedText = normalizedInput;
     lastEmittedText = normalizeText(serialize(spec, rawProperties, cbTitleY.isSelected(), customProps));
@@ -187,6 +192,9 @@ public class MenuLayoutVisualEditor extends BorderPane {
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
     grid.add(hint, 0, row++, 2, 1);
+    validation.getStyleClass().add("muted");
+    validation.setWrapText(true);
+    grid.add(validation, 0, row++, 2, 1);
 
     Label historyHeader = new Label("History");
     historyHeader.setStyle("-fx-font-weight: bold;");
@@ -272,8 +280,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     Button button = new Button();
     button.setGraphic(icon);
     button.setTooltip(new Tooltip(tooltip));
-    button.setMinWidth(30);
-    button.setPrefWidth(30);
+    button.getStyleClass().addAll("layout-studio-action-button", "layout-studio-icon-button");
     return button;
   }
 
@@ -289,8 +296,51 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private void onControlChanged() {
     if (suppressEvents) return;
     spec = readSpecFromControls();
+    refreshValidation();
     redraw();
     emitText();
+  }
+
+  private void refreshValidation() {
+    List<String> warnings = new ArrayList<>();
+    if (!Double.isFinite(spec.listYStart()) || spec.listYStart() < 0) {
+      warnings.add("List Y start must be a finite value >= 0.");
+    }
+    if (!Double.isFinite(spec.lineHeight()) || spec.lineHeight() <= 0) {
+      warnings.add("Line height must be > 0.");
+    }
+    if (!Double.isFinite(spec.listWidthFactor()) || spec.listWidthFactor() <= 0) {
+      warnings.add("List width factor must be > 0.");
+    }
+    if (!Double.isFinite(spec.hintsBottomMargin()) || spec.hintsBottomMargin() < 0) {
+      warnings.add("Hints bottom margin must be >= 0.");
+    }
+    String align = spec.textAlign() == null ? "" : spec.textAlign().trim().toLowerCase(Locale.ROOT);
+    if (!Set.of("left", "center", "right").contains(align)) {
+      warnings.add("Text align should be left, center, or right.");
+    }
+    Set<String> seen = new LinkedHashSet<>();
+    for (CustomProperty prop : customProps) {
+      String key = prop.getKey();
+      if (key == null || key.isBlank()) {
+        warnings.add("Custom property key cannot be empty.");
+        continue;
+      }
+      if (isKnownKey(key)) {
+        warnings.add("Custom property key conflicts with built-in key: " + key);
+        continue;
+      }
+      if (!seen.add(key)) {
+        warnings.add("Duplicate custom property key: " + key);
+      }
+    }
+    if (warnings.isEmpty()) {
+      validation.setText("No issues detected.");
+      validation.setTextFill(LayoutStudioPalette.TEXT_SUCCESS);
+    } else {
+      validation.setText(String.join(" | ", warnings));
+      validation.setTextFill(LayoutStudioPalette.TEXT_WARNING);
+    }
   }
 
   private void registerPreviewDrag() {

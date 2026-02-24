@@ -4,9 +4,11 @@ import java.io.File;
 import java.io.StringReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import javafx.beans.property.SimpleStringProperty;
@@ -110,6 +112,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   private final UndoManager undoManager = new UndoManager();
   private Button btnUndo;
   private Button btnRedo;
+  private final Label validation = new Label("No issues detected.");
   private final TableView<CustomProperty> customPropsTable = new TableView<>();
   private final ObservableList<CustomProperty> customProps = FXCollections.observableArrayList();
   private List<String> previewItems = List.of("> New Game", "  Load", "  Settings", "  Quit");
@@ -159,6 +162,7 @@ public class MenuStyleVisualEditor extends BorderPane {
 
     registerListeners();
     updatePreviewSize(previewPane);
+    refreshValidation();
     redrawPreview();
   }
 
@@ -201,6 +205,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   public void setProjectRoot(File projectRoot) {
     this.projectRoot = projectRoot;
     loadButtonAssets();
+    refreshValidation();
     redrawPreview();
   }
 
@@ -267,6 +272,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     }
     suppressEvents = false;
     loadButtonAssets();
+    refreshValidation();
     redrawPreview();
     lastLoadedText = normalized;
     lastEmittedText = normalizeText(serialize());
@@ -335,6 +341,9 @@ public class MenuStyleVisualEditor extends BorderPane {
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
     grid.add(hint, 0, row++, 2, 1);
+    validation.getStyleClass().add("muted");
+    validation.setWrapText(true);
+    grid.add(validation, 0, row++, 2, 1);
 
     row = addHeader(grid, row, "History");
     btnUndo = iconButton(CssIcon.undo(), "Undo");
@@ -435,8 +444,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     Button button = new Button();
     button.setGraphic(icon);
     button.setTooltip(new Tooltip(tooltip));
-    button.setMinWidth(30);
-    button.setPrefWidth(30);
+    button.getStyleClass().addAll("layout-studio-action-button", "layout-studio-icon-button");
     return button;
   }
 
@@ -472,8 +480,73 @@ public class MenuStyleVisualEditor extends BorderPane {
   private void onControlChanged() {
     if (suppressEvents) return;
     loadButtonAssets();
+    refreshValidation();
     redrawPreview();
     emitText();
+  }
+
+  private void refreshValidation() {
+    List<String> warnings = new ArrayList<>();
+    validateColor(warnings, "itemColor", tfItemColor.getText(), true);
+    validateColor(warnings, "itemSelectedColor", tfItemSelectedColor.getText(), true);
+    validateColor(warnings, "itemDisabledColor", tfItemDisabledColor.getText(), true);
+    validateColor(warnings, "itemHoverColor", tfItemHoverColor.getText(), false);
+    validateColor(warnings, "itemShadowColor", tfItemShadowColor.getText(), false);
+    validateColor(warnings, "titleColor", tfTitleColor.getText(), false);
+    validateColor(warnings, "titleShadowColor", tfTitleShadowColor.getText(), false);
+    validateColor(warnings, "hintsColor", tfHintsColor.getText(), false);
+    validateColor(warnings, "backgroundColor", tfBackgroundColor.getText(), false);
+    validateAssetPath(warnings, "buttonAsset", tfButtonAsset.getText());
+    validateAssetPath(warnings, "buttonSelectedAsset", tfButtonSelectedAsset.getText());
+    validateAssetPath(warnings, "buttonHoverAsset", tfButtonHoverAsset.getText());
+    validateAssetPath(warnings, "buttonDisabledAsset", tfButtonDisabledAsset.getText());
+    validateAssetPath(warnings, "backgroundAsset", tfBackgroundAsset.getText());
+    Set<String> seen = new LinkedHashSet<>();
+    for (CustomProperty prop : customProps) {
+      String key = prop.getKey();
+      if (key == null || key.isBlank()) {
+        warnings.add("Custom property key cannot be empty.");
+        continue;
+      }
+      if (isKnownKey(key)) {
+        warnings.add("Custom property key conflicts with built-in key: " + key);
+        continue;
+      }
+      if (!seen.add(key)) {
+        warnings.add("Duplicate custom property key: " + key);
+      }
+    }
+    if (warnings.isEmpty()) {
+      validation.setText("No issues detected.");
+      validation.setTextFill(LayoutStudioPalette.TEXT_SUCCESS);
+    } else {
+      validation.setText(String.join(" | ", warnings));
+      validation.setTextFill(LayoutStudioPalette.TEXT_WARNING);
+    }
+  }
+
+  private void validateColor(List<String> warnings, String key, String value, boolean required) {
+    String normalized = normalize(value, "");
+    if (normalized.isBlank()) {
+      if (required) {
+        warnings.add(key + " is required.");
+      }
+      return;
+    }
+    try {
+      Color.web(normalized);
+    } catch (Exception ignored) {
+      warnings.add(key + " is not a valid color: " + normalized);
+    }
+  }
+
+  private void validateAssetPath(List<String> warnings, String key, String path) {
+    String normalized = normalize(path, "");
+    if (normalized.isBlank()) return;
+    File file = resolveAssetFile(normalized);
+    if (file == null || !file.exists() || !file.isFile()) {
+      warnings.add(key + " not found: " + normalized);
+    }
   }
 
   private void emitText() {

@@ -307,27 +307,14 @@ public class MenuScreenVisualEditor extends BorderPane {
     HBox actions = new HBox(6);
     actions.getStyleClass().add("layout-studio-action-bar");
 
-    Button bAdd = new Button();
-    bAdd.setGraphic(CssIcon.plus("#8cd48c"));
-    bAdd.setTooltip(new Tooltip("Add item"));
-    Button bDuplicate = new Button();
-    bDuplicate.setGraphic(CssIcon.copy("#9cc7ff"));
-    bDuplicate.setTooltip(new Tooltip("Duplicate selected item"));
-    Button bRemove = new Button();
-    bRemove.setGraphic(CssIcon.minus("#e07070"));
-    bRemove.setTooltip(new Tooltip("Remove selected item"));
-    Button bUp = new Button();
-    bUp.setGraphic(CssIcon.arrowUp());
-    bUp.setTooltip(new Tooltip("Move Up"));
-    Button bDown = new Button();
-    bDown.setGraphic(CssIcon.arrowDown());
-    bDown.setTooltip(new Tooltip("Move Down"));
-    Button bNormalize = new Button();
-    bNormalize.setGraphic(CssIcon.sort());
-    bNormalize.setTooltip(new Tooltip("Normalize IDs"));
+    Button bAdd = iconActionButton(CssIcon.plus("#8cd48c"), "Add item");
+    Button bDuplicate = iconActionButton(CssIcon.copy("#9cc7ff"), "Duplicate selected item");
+    Button bRemove = iconActionButton(CssIcon.minus("#e07070"), "Remove selected item");
+    Button bUp = iconActionButton(CssIcon.arrowUp(), "Move Up");
+    Button bDown = iconActionButton(CssIcon.arrowDown(), "Move Down");
+    Button bNormalize = iconActionButton(CssIcon.sort(), "Normalize IDs");
 
     for (Button b : List.of(bAdd, bDuplicate, bRemove, bUp, bDown, bNormalize)) {
-      b.getStyleClass().add("layout-studio-action-button");
       b.setMinWidth(Region.USE_PREF_SIZE);
     }
 
@@ -659,13 +646,9 @@ public class MenuScreenVisualEditor extends BorderPane {
     boundsGrid.add(new Label("H"), 2, 1); boundsGrid.add(inspBoundsH, 3, 1);
     inspBoundsX.setPrefWidth(70); inspBoundsY.setPrefWidth(70);
     inspBoundsW.setPrefWidth(70); inspBoundsH.setPrefWidth(70);
-    Button clearBoundsBtn = new Button();
-    clearBoundsBtn.setGraphic(CssIcon.clearX("#e07070"));
-    clearBoundsBtn.setTooltip(new Tooltip("Clear bounds"));
+    Button clearBoundsBtn = iconActionButton(CssIcon.clearX("#e07070"), "Clear bounds");
     clearBoundsBtn.setOnAction(e -> clearBoundsForSelection());
-    Button openBoundsStudioBtn = new Button();
-    openBoundsStudioBtn.setGraphic(CssIcon.grid("#7ec8e3"));
-    openBoundsStudioBtn.setTooltip(new Tooltip("Open visual bounds drawing tool (rect-draw, point-nail)"));
+    Button openBoundsStudioBtn = iconActionButton(CssIcon.grid("#7ec8e3"), "Open visual bounds drawing tool (rect-draw, point-nail)");
     openBoundsStudioBtn.setOnAction(e -> openBoundsStudio());
     HBox boundsActions = new HBox(6, clearBoundsBtn, openBoundsStudioBtn);
     boundsActions.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
@@ -731,24 +714,28 @@ public class MenuScreenVisualEditor extends BorderPane {
     return row;
   }
 
+  private Button iconActionButton(javafx.scene.Node icon, String tooltip) {
+    Button button = new Button();
+    button.setGraphic(icon);
+    if (tooltip != null && !tooltip.isBlank()) {
+      button.setTooltip(new Tooltip(tooltip));
+    }
+    button.getStyleClass().addAll("layout-studio-action-button", "layout-studio-icon-button");
+    return button;
+  }
+
   private HBox inspectorAssetRow(String label, TextField field) {
     Label l = new Label(label);
     l.setMinWidth(70);
     l.setStyle("-fx-text-fill: #c0c0c0; -fx-font-size: 11px;");
-    Button browse = new Button();
-    browse.setGraphic(CssIcon.folder("#b0b8c8"));
-    browse.setTooltip(new Tooltip("Browse project assets"));
-    browse.setMinWidth(28);
+    Button browse = iconActionButton(CssIcon.folder("#b0b8c8"), "Browse project assets");
     browse.setOnAction(e -> {
       String asset = chooseImageAsset("Select " + label);
       if (asset != null && !asset.isBlank()) {
         field.setText(asset);
       }
     });
-    Button importBtn = new Button();
-    importBtn.setGraphic(CssIcon.download("#8cd48c"));
-    importBtn.setTooltip(new Tooltip("Import external file into project"));
-    importBtn.setMinWidth(28);
+    Button importBtn = iconActionButton(CssIcon.download("#8cd48c"), "Import external file into project");
     importBtn.setOnAction(e -> {
       String asset = importImageAsset("Import " + label);
       if (asset != null && !asset.isBlank()) {
@@ -881,16 +868,12 @@ public class MenuScreenVisualEditor extends BorderPane {
 
     extrasTable.getColumns().setAll(keyCol, valCol);
 
-    Button addBtn = new Button();
-    addBtn.setGraphic(CssIcon.plus("#8cd48c"));
-    addBtn.setTooltip(new Tooltip("Add custom property"));
+    Button addBtn = iconActionButton(CssIcon.plus("#8cd48c"), "Add custom property");
     addBtn.setOnAction(e -> {
       extrasRows.add(new ExtrasEntry("custom_key", ""));
       syncExtrasToSelectedRow();
     });
-    Button removeBtn = new Button();
-    removeBtn.setGraphic(CssIcon.minus("#e07070"));
-    removeBtn.setTooltip(new Tooltip("Remove selected custom property"));
+    Button removeBtn = iconActionButton(CssIcon.minus("#e07070"), "Remove selected custom property");
     removeBtn.setOnAction(e -> {
       int idx = extrasTable.getSelectionModel().getSelectedIndex();
       if (idx >= 0 && idx < extrasRows.size()) {

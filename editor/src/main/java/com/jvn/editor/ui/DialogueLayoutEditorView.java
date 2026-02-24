@@ -480,8 +480,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     Button button = new Button();
     button.setGraphic(icon);
     button.setTooltip(new Tooltip(tooltip));
-    button.setMinWidth(30);
-    button.setPrefWidth(30);
+    button.getStyleClass().addAll("layout-studio-action-button", "layout-studio-icon-button");
     return button;
   }
 
