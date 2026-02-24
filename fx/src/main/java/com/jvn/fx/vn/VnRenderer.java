@@ -23,6 +23,7 @@ import com.jvn.core.vn.VnVariableInterpolator;
 import com.jvn.core.vn.text.TextEffect;
 import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
+import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
@@ -1203,9 +1204,29 @@ public class VnRenderer {
       VnUiActionButtonSpec button = textBoxButtons.get(i);
       if (button == null || !button.enabled()) continue;
       ButtonGeometry geometry = computeButtonGeometry(button, textBox);
-      if (geometry.contains(mouseX, mouseY)) return i;
+      if (buttonContainsPoint(button, geometry, mouseX, mouseY)) return i;
     }
     return -1;
+  }
+
+  private boolean buttonContainsPoint(VnUiActionButtonSpec button, ButtonGeometry geometry, double mouseX, double mouseY) {
+    if (button == null || geometry == null) return false;
+    String raw = button.boundsPoints();
+    if (raw != null && !raw.isBlank()) {
+      List<BoundsPointCodec.Point> points = BoundsPointCodec.parse(raw);
+      if (points.size() >= 3) {
+        return BoundsPointCodec.containsInRect(
+            points,
+            geometry.x(),
+            geometry.y(),
+            geometry.width(),
+            geometry.height(),
+            mouseX,
+            mouseY
+        );
+      }
+    }
+    return geometry.contains(mouseX, mouseY);
   }
 
   private ChoiceGeometry computeChoiceGeometry(int count, double width, double height) {

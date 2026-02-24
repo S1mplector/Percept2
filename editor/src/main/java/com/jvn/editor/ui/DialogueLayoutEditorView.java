@@ -13,6 +13,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
@@ -460,6 +461,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private HBox assetFieldRow(TextField field, String dialogTitle) {
+    AssetPickerSupport.installAssetDrop(field, this::toProjectRelativePath);
     Button browse = iconButton(CssIcon.folder(), "Browse project assets");
     browse.setOnAction(e -> browseAsset(field, dialogTitle));
     Button importBtn = iconButton(CssIcon.download("#8cd48c"), "Import external asset");
@@ -469,9 +471,11 @@ public class DialogueLayoutEditorView extends BorderPane {
         field.setText(imported);
       }
     });
+    Button reveal = iconButton(CssIcon.link("#9cc7ff"), "Reveal in file manager");
+    reveal.setOnAction(e -> revealAsset(field.getText()));
     Button clear = iconButton(CssIcon.clearX("#e07070"), "Clear asset path");
     clear.setOnAction(e -> field.setText(""));
-    HBox row = new HBox(6, field, browse, importBtn, clear);
+    HBox row = new HBox(6, field, browse, importBtn, reveal, clear);
     HBox.setHgrow(field, Priority.ALWAYS);
     return row;
   }
@@ -601,8 +605,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private void browseAsset(TextField target, String dialogTitle) {
     FileChooser chooser = new FileChooser();
     chooser.setTitle(dialogTitle == null || dialogTitle.isBlank() ? "Select Asset" : dialogTitle);
-    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
-        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"));
+    AssetPickerSupport.addAssetFilters(chooser);
 
     File initialDir = resolveInitialAssetDirectory();
     if (initialDir != null && initialDir.isDirectory()) {
@@ -619,8 +622,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private String importAsset(TextField target, String dialogTitle) {
     FileChooser chooser = new FileChooser();
     chooser.setTitle((dialogTitle == null || dialogTitle.isBlank()) ? "Import Asset" : dialogTitle.replace("Select", "Import"));
-    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
-        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"));
+    AssetPickerSupport.addAssetFilters(chooser);
     File initialDir = resolveInitialAssetDirectory();
     if (initialDir != null && initialDir.isDirectory()) {
       chooser.setInitialDirectory(initialDir);
@@ -656,6 +658,11 @@ public class DialogueLayoutEditorView extends BorderPane {
     } catch (Exception ignored) {
       return target != null ? normalizeAssetPath(target.getText()) : null;
     }
+  }
+
+  private void revealAsset(String path) {
+    File file = resolveAssetFile(path);
+    AssetPickerSupport.revealFile(file);
   }
 
   private void registerPreviewDrag() {
@@ -823,6 +830,7 @@ public class DialogueLayoutEditorView extends BorderPane {
               baseButton.assetPath(),
               baseButton.hoverAssetPath(),
               baseButton.disabledAssetPath(),
+              baseButton.boundsPoints(),
               nx,
               ny,
               nw,
@@ -1225,6 +1233,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         "",
         "",
         "",
+        null,
         0.78,
         0.08,
         0.12,
@@ -1253,6 +1262,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         source.assetPath(),
         source.hoverAssetPath(),
         source.disabledAssetPath(),
+        source.boundsPoints(),
         clamp01(source.x() + 0.02),
         clamp01(source.y() + 0.02),
         source.width(),
@@ -1308,7 +1318,13 @@ public class DialogueLayoutEditorView extends BorderPane {
     List<BoundsDrawingTool.BoundEntry> entries = new ArrayList<>();
     for (VnUiActionButtonSpec btn : textBoxButtons) {
       entries.add(new BoundsDrawingTool.BoundEntry(
-          btn.id(), btn.label(), btn.x(), btn.y(), btn.width(), btn.height()
+          btn.id(),
+          btn.label(),
+          btn.x(),
+          btn.y(),
+          btn.width(),
+          btn.height(),
+          BoundsPointCodec.parse(btn.boundsPoints())
       ));
     }
     tool.setBounds(entries);
@@ -1333,10 +1349,13 @@ public class DialogueLayoutEditorView extends BorderPane {
         VnUiActionButtonSpec existing = textBoxButtons.get(i);
         BoundsDrawingTool.BoundEntry match = byId.remove(existing.id());
         if (match != null && match.getW() > 0.005 && match.getH() > 0.005) {
+          String boundsPoints = match.getLocalPoints() != null && match.getLocalPoints().size() >= 3
+              ? BoundsPointCodec.encode(match.getLocalPoints())
+              : null;
           textBoxButtons.set(i, new VnUiActionButtonSpec(
               existing.id(), existing.label(), existing.action(), existing.target(),
               existing.enabled(), existing.assetPath(), existing.hoverAssetPath(),
-              existing.disabledAssetPath(),
+              existing.disabledAssetPath(), boundsPoints,
               match.getX(), match.getY(), match.getW(), match.getH()
           ));
         }
@@ -1344,10 +1363,13 @@ public class DialogueLayoutEditorView extends BorderPane {
       // Add new entries from bounds studio
       for (BoundsDrawingTool.BoundEntry extra : byId.values()) {
         if (extra.getW() < 0.005 || extra.getH() < 0.005) continue;
+        String boundsPoints = extra.getLocalPoints() != null && extra.getLocalPoints().size() >= 3
+            ? BoundsPointCodec.encode(extra.getLocalPoints())
+            : null;
         textBoxButtons.add(new VnUiActionButtonSpec(
             extra.getId(),
             extra.getLabel() != null ? extra.getLabel() : titleizeId(extra.getId()),
-            "noop", null, true, "", "", "",
+            "noop", null, true, "", "", "", boundsPoints,
             extra.getX(), extra.getY(), extra.getW(), extra.getH()
         ));
       }
@@ -1432,6 +1454,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         normalizeAssetPath(tfButtonAsset.getText()),
         normalizeAssetPath(tfButtonHoverAsset.getText()),
         normalizeAssetPath(tfButtonDisabledAsset.getText()),
+        current.boundsPoints(),
         value(spButtonX),
         value(spButtonY),
         value(spButtonWidth),
@@ -1648,6 +1671,9 @@ public class DialogueLayoutEditorView extends BorderPane {
         }
         if (button.disabledAssetPath() != null && !button.disabledAssetPath().isBlank()) {
           out.append(prefix).append("disabledAsset=").append(button.disabledAssetPath()).append(System.lineSeparator());
+        }
+        if (button.boundsPoints() != null && !button.boundsPoints().isBlank()) {
+          out.append(prefix).append("boundsPoints=").append(button.boundsPoints()).append(System.lineSeparator());
         }
         out.append(prefix).append("x=").append(formatDouble(button.x())).append(System.lineSeparator());
         out.append(prefix).append("y=").append(formatDouble(button.y())).append(System.lineSeparator());

@@ -289,6 +289,7 @@ public final class VnUiLayoutLoader {
       setOptional(p, prefix + "asset", b.assetPath());
       setOptional(p, prefix + "hoverAsset", b.hoverAssetPath());
       setOptional(p, prefix + "disabledAsset", b.disabledAssetPath());
+      setOptional(p, prefix + "boundsPoints", b.boundsPoints());
       p.setProperty(prefix + "x", format(b.x()));
       p.setProperty(prefix + "y", format(b.y()));
       p.setProperty(prefix + "width", format(b.width()));
@@ -525,6 +526,7 @@ public final class VnUiLayoutLoader {
       String asset = normalize(props.getProperty(prefix + "asset"), base.assetPath());
       String hoverAsset = normalize(props.getProperty(prefix + "hoverAsset"), base.hoverAssetPath());
       String disabledAsset = normalize(props.getProperty(prefix + "disabledAsset"), base.disabledAssetPath());
+      String boundsPoints = normalize(props.getProperty(prefix + "boundsPoints"), base.boundsPoints());
       double x = parseDouble(props.getProperty(prefix + "x"), base.x(), diagnostics, prefix + "x");
       double y = parseDouble(props.getProperty(prefix + "y"), base.y(), diagnostics, prefix + "y");
       double width = parseDouble(props.getProperty(prefix + "width"), base.width(), diagnostics, prefix + "width");
@@ -538,6 +540,7 @@ public final class VnUiLayoutLoader {
           asset,
           hoverAsset,
           disabledAsset,
+          boundsPoints,
           x,
           y,
           width,

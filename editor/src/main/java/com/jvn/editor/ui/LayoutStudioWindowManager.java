@@ -196,6 +196,8 @@ public class LayoutStudioWindowManager {
 
     private final Button browseAssetButton = new Button();
     private final Button importAssetButton = new Button();
+    private final Button revealAssetButton = new Button();
+    private final Button clearAssetButton = new Button();
     private final Button copyPathButton = new Button();
     private final Button applyPathButton = new Button();
 
@@ -372,6 +374,7 @@ public class LayoutStudioWindowManager {
       utilTitle.getStyleClass().add("layout-studio-section-title");
 
       assetPathField.setPromptText("assets/ui/button.png");
+      AssetPickerSupport.installAssetDrop(assetPathField, this::toRelativePath);
       assetPathField.textProperty().addListener((o, ov, nv) -> updateAssetUtilityState());
 
       assetItemIdField.setPromptText("menu item id");
@@ -395,11 +398,15 @@ public class LayoutStudioWindowManager {
       VBox buttons = new VBox(6,
           browseAssetButton,
           importAssetButton,
+          revealAssetButton,
+          clearAssetButton,
           copyPathButton,
           applyPathButton
       );
       configureIconButton(browseAssetButton, CssIcon.folder("#b0b8c8"), "Browse Asset");
       configureIconButton(importAssetButton, CssIcon.download("#8cd48c"), "Import Asset");
+      configureIconButton(revealAssetButton, CssIcon.link("#9cc7ff"), "Reveal Asset");
+      configureIconButton(clearAssetButton, CssIcon.clearX("#e07070"), "Clear");
       configureIconButton(copyPathButton, CssIcon.copy("#9cc7ff"), "Copy Path");
       configureIconButton(applyPathButton, CssIcon.check("#8cd48c"), "Apply to File");
       for (Node node : buttons.getChildren()) {
@@ -495,6 +502,11 @@ public class LayoutStudioWindowManager {
 
       browseAssetButton.setOnAction(e -> browseExistingAsset());
       importAssetButton.setOnAction(e -> importExternalAsset());
+      revealAssetButton.setOnAction(e -> revealSelectedAsset());
+      clearAssetButton.setOnAction(e -> {
+        assetPathField.clear();
+        setStatus("Asset value cleared.");
+      });
       copyPathButton.setOnAction(e -> copyAssetPath());
       applyPathButton.setOnAction(e -> applyAssetPathToCode());
     }
@@ -559,8 +571,7 @@ public class LayoutStudioWindowManager {
     private void browseExistingAsset() {
       FileChooser chooser = new FileChooser();
       chooser.setTitle("Select Project Asset");
-      chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
-          "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp", "*.svg"));
+      AssetPickerSupport.addAssetFilters(chooser);
       File init = preferredAssetDirectory();
       if (init != null && init.exists() && init.isDirectory()) chooser.setInitialDirectory(init);
       File selected = chooser.showOpenDialog(stage);
@@ -572,8 +583,7 @@ public class LayoutStudioWindowManager {
     private void importExternalAsset() {
       FileChooser chooser = new FileChooser();
       chooser.setTitle("Import External Asset");
-      chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
-          "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp", "*.svg"));
+      AssetPickerSupport.addAssetFilters(chooser);
       File selected = chooser.showOpenDialog(stage);
       if (selected == null) return;
 
@@ -604,6 +614,23 @@ public class LayoutStudioWindowManager {
         setStatus("Imported asset: " + rel);
       } catch (Exception ex) {
         setStatus("Import failed: " + ex.getMessage());
+      }
+    }
+
+    private void revealSelectedAsset() {
+      String path = normalize(assetPathField.getText(), "");
+      if (path.isBlank()) {
+        setStatus("Value is empty.");
+        return;
+      }
+      File file = new File(path);
+      if (!file.isAbsolute() && projectRoot != null) {
+        file = new File(projectRoot, path);
+      }
+      if (AssetPickerSupport.revealFile(file)) {
+        setStatus("Revealed: " + path);
+      } else {
+        setStatus("Could not reveal: " + path);
       }
     }
 
@@ -711,6 +738,8 @@ public class LayoutStudioWindowManager {
       boolean canApply = !path.isBlank() && !key.isBlank() && !key.startsWith("#") && hasItemId;
       applyPathButton.setDisable(!canApply);
       copyPathButton.setDisable(path.isBlank());
+      revealAssetButton.setDisable(path.isBlank());
+      clearAssetButton.setDisable(path.isBlank());
     }
 
     private String assetTip() {

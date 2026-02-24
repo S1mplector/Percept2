@@ -14,6 +14,7 @@ public record VnUiActionButtonSpec(
     String assetPath,
     String hoverAssetPath,
     String disabledAssetPath,
+    String boundsPoints,
     double x,
     double y,
     double width,
@@ -27,6 +28,7 @@ public record VnUiActionButtonSpec(
     assetPath = normalize(assetPath, null);
     hoverAssetPath = normalize(hoverAssetPath, null);
     disabledAssetPath = normalize(disabledAssetPath, null);
+    boundsPoints = normalize(boundsPoints, null);
     x = clamp01(sane(x, 0.0));
     y = clamp01(sane(y, 0.0));
     width = clamp(sane(width, 0.12), 0.01, 1.0);
@@ -43,6 +45,7 @@ public record VnUiActionButtonSpec(
         "noop",
         null,
         true,
+        null,
         null,
         null,
         null,

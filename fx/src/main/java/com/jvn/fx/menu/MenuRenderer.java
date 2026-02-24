@@ -10,6 +10,7 @@ import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.menu.config.MenuItemSpec;
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
+import com.jvn.core.ui.BoundsPointCodec;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.image.Image;
@@ -544,9 +545,26 @@ public class MenuRenderer {
     for (int i = 0; i < count; i++) {
       MenuItemSpec item = itemSpecs != null && i < itemSpecs.length ? itemSpecs[i] : null;
       Rect rect = resolveItemRect(i, count, item, layout, areaX, areaWidth, h);
-      if (rect.contains(mouseX, mouseY)) return i;
+      if (itemContainsPoint(item, rect, mouseX, mouseY)) return i;
     }
     return -1;
+  }
+
+  private boolean itemContainsPoint(MenuItemSpec itemSpec, Rect rect, double mouseX, double mouseY) {
+    if (rect == null) return false;
+    if (itemSpec != null && itemSpec.extras() != null) {
+      String raw = itemSpec.extras().get("boundsPoints");
+      if (raw != null && !raw.isBlank()) {
+        List<BoundsPointCodec.Point> points = BoundsPointCodec.parse(raw);
+        if (points.size() >= 3) {
+          if (BoundsPointCodec.containsInRect(points, rect.x(), rect.y(), rect.w(), rect.h(), mouseX, mouseY)) {
+            return true;
+          }
+          return false;
+        }
+      }
+    }
+    return rect.contains(mouseX, mouseY);
   }
 
   private Rect resolveItemRect(

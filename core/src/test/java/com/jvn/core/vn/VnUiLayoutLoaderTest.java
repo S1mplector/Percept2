@@ -88,6 +88,7 @@ class VnUiLayoutLoaderTest {
     p.setProperty("textBoxButton.save.y", "0.06");
     p.setProperty("textBoxButton.save.width", "0.12");
     p.setProperty("textBoxButton.save.height", "0.24");
+    p.setProperty("textBoxButton.save.boundsPoints", "0,0;1,0;0.8,1;0.2,1");
     p.setProperty("textBoxButton.load.label", "Load");
     p.setProperty("textBoxButton.load.action", "load_menu");
 
@@ -102,6 +103,7 @@ class VnUiLayoutLoaderTest {
     assertEquals("save", save.id());
     assertEquals("Save", save.label());
     assertEquals("save_menu", save.action());
+    assertEquals("0,0;1,0;0.8,1;0.2,1", save.boundsPoints());
     assertEquals(0.72, save.x(), 1e-6);
     assertEquals(0.24, save.height(), 1e-6);
   }
@@ -117,6 +119,7 @@ class VnUiLayoutLoaderTest {
         "assets/ui/save.png",
         "assets/ui/save_hover.png",
         "assets/ui/save_disabled.png",
+        "0,0;1,0;1,1;0,1",
         0.74,
         0.08,
         0.1,
@@ -132,6 +135,7 @@ class VnUiLayoutLoaderTest {
     assertEquals("save", p.getProperty("textBoxButton.ids"));
     assertEquals("save_menu", p.getProperty("textBoxButton.save.action"));
     assertEquals("assets/ui/save.png", p.getProperty("textBoxButton.save.asset"));
+    assertEquals("0,0;1,0;1,1;0,1", p.getProperty("textBoxButton.save.boundsPoints"));
     assertEquals("0.74", p.getProperty("textBoxButton.save.x"));
   }
 }

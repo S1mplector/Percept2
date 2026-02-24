@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+import com.jvn.core.ui.BoundsPointCodec;
+
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -36,16 +38,17 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
 /**
- * Reusable visual tool for drawing, editing, and managing rectangular bounds
+ * Reusable visual tool for drawing, editing, and managing bounds
  * on top of an asset image. Supports three interaction modes:
  *
  * <ul>
  *   <li><b>Select</b> – click to select an existing bound, drag to move, corner handles to resize</li>
  *   <li><b>Rectangle</b> – click-drag on the canvas to draw a new rectangular bound</li>
- *   <li><b>Point-nail</b> – click to place corner points, then generate a bounding rectangle</li>
+ *   <li><b>Point-nail</b> – click to place corner points, then generate polygon or rectangle bounds</li>
  * </ul>
  *
  * Bounds are emitted as normalized coordinates (0..1 relative to the canvas/viewport).
+ * Optional polygon points are stored normalized relative to each bound's rectangle.
  */
 public class BoundsDrawingTool extends BorderPane {
 
@@ -57,14 +60,20 @@ public class BoundsDrawingTool extends BorderPane {
     private String id;
     private String label;
     private double x, y, w, h; // normalized 0..1
+    private List<BoundsPointCodec.Point> localPoints; // normalized relative to this bound
 
     public BoundEntry(String id, String label, double x, double y, double w, double h) {
+      this(id, label, x, y, w, h, null);
+    }
+
+    public BoundEntry(String id, String label, double x, double y, double w, double h, List<BoundsPointCodec.Point> localPoints) {
       this.id = id;
       this.label = label;
       this.x = x;
       this.y = y;
       this.w = w;
       this.h = h;
+      setLocalPoints(localPoints);
     }
 
     public String getId() { return id; }
@@ -79,11 +88,25 @@ public class BoundsDrawingTool extends BorderPane {
     public void setW(double w) { this.w = w; }
     public double getH() { return h; }
     public void setH(double h) { this.h = h; }
+    public List<BoundsPointCodec.Point> getLocalPoints() {
+      return localPoints == null ? List.of() : List.copyOf(localPoints);
+    }
+    public void setLocalPoints(List<BoundsPointCodec.Point> localPoints) {
+      if (localPoints == null || localPoints.isEmpty()) {
+        this.localPoints = List.of();
+      } else {
+        this.localPoints = List.copyOf(localPoints);
+      }
+    }
+    public boolean hasCustomPolygon() {
+      return localPoints != null && localPoints.size() >= 3;
+    }
 
     @Override
     public String toString() {
       String display = (label != null && !label.isBlank()) ? label : id;
-      return display + "  [" + fmt(x) + ", " + fmt(y) + ", " + fmt(w) + ", " + fmt(h) + "]";
+      String suffix = hasCustomPolygon() ? " poly(" + localPoints.size() + ")" : "";
+      return display + "  [" + fmt(x) + ", " + fmt(y) + ", " + fmt(w) + ", " + fmt(h) + "]" + suffix;
     }
 
     private static String fmt(double v) {
@@ -158,7 +181,7 @@ public class BoundsDrawingTool extends BorderPane {
     pointBtn.setToggleGroup(modeGroup);
     iconToggleButton(selectBtn, CssIcon.check("#b0b8c8"), "Select, move, and resize existing bounds");
     iconToggleButton(rectBtn, CssIcon.expand("#b0b8c8"), "Click-drag to draw a new rectangular bound");
-    iconToggleButton(pointBtn, CssIcon.link("#b0b8c8"), "Click to place corner points, then generate bounding rect");
+    iconToggleButton(pointBtn, CssIcon.link("#b0b8c8"), "Click to place corner points, then generate polygon/rectangle bounds");
     selectBtn.setSelected(true);
 
     modeGroup.selectedToggleProperty().addListener((o, ov, nv) -> {
@@ -171,8 +194,10 @@ public class BoundsDrawingTool extends BorderPane {
       redraw();
     });
 
-    Button clearNails = iconButton(CssIcon.grid("#8cd48c"), "Create a bounding rect from placed points (Point-Nail mode)");
-    clearNails.setOnAction(e -> generateBoundsFromNails());
+    Button makeRectFromNails = iconButton(CssIcon.grid("#8cd48c"), "Create rectangular bound from points");
+    makeRectFromNails.setOnAction(e -> generateRectFromNails());
+    Button makePolyFromNails = iconButton(CssIcon.check("#8cd48c"), "Create polygon bound from points");
+    makePolyFromNails.setOnAction(e -> generatePolygonFromNails());
 
     Button deleteBtn = iconButton(CssIcon.minus("#e07070"), "Remove the selected bound");
     deleteBtn.setOnAction(e -> deleteSelected());
@@ -190,7 +215,7 @@ public class BoundsDrawingTool extends BorderPane {
     });
 
     HBox toolbar = new HBox(6, selectBtn, rectBtn, pointBtn,
-        createSpacer(), clearNails, duplicateBtn, deleteBtn, clearAllBtn);
+        createSpacer(), makeRectFromNails, makePolyFromNails, duplicateBtn, deleteBtn, clearAllBtn);
     toolbar.setAlignment(Pos.CENTER_LEFT);
     toolbar.setPadding(new Insets(0, 0, 6, 0));
 
@@ -401,6 +426,11 @@ public class BoundsDrawingTool extends BorderPane {
 
     } else if (mode == Mode.POINT_NAIL) {
       if (e.getButton() == MouseButton.PRIMARY) {
+        if (nailPoints.size() >= 3 && isNearFirstNail(mx, my, cw, ch)) {
+          generatePolygonFromNails();
+          e.consume();
+          return;
+        }
         nailPoints.add(new double[]{mx / cw, my / ch});
         redraw();
       } else if (e.getButton() == MouseButton.SECONDARY) {
@@ -539,6 +569,11 @@ public class BoundsDrawingTool extends BorderPane {
   // ── Hit testing ──
 
   private boolean hitBound(BoundEntry b, double mx, double my, double cw, double ch) {
+    if (b != null && b.hasCustomPolygon()) {
+      if (BoundsPointCodec.containsInRect(b.getLocalPoints(), b.getX() * cw, b.getY() * ch, b.getW() * cw, b.getH() * ch, mx, my)) {
+        return true;
+      }
+    }
     double bx = b.getX() * cw;
     double by = b.getY() * ch;
     double bw = b.getW() * cw;
@@ -602,7 +637,7 @@ public class BoundsDrawingTool extends BorderPane {
 
   // ── Point-nail → bounds generation ──
 
-  private void generateBoundsFromNails() {
+  private void generateRectFromNails() {
     if (nailPoints.size() < 2) return;
     double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
     double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
@@ -620,6 +655,45 @@ public class BoundsDrawingTool extends BorderPane {
     }
     nailPoints.clear();
     redraw();
+  }
+
+  private void generatePolygonFromNails() {
+    if (nailPoints.size() < 3) return;
+    double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
+    double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
+    for (double[] pt : nailPoints) {
+      if (pt[0] < minX) minX = pt[0];
+      if (pt[1] < minY) minY = pt[1];
+      if (pt[0] > maxX) maxX = pt[0];
+      if (pt[1] > maxY) maxY = pt[1];
+    }
+    double w = maxX - minX;
+    double h = maxY - minY;
+    if (w <= 0.005 || h <= 0.005) {
+      nailPoints.clear();
+      redraw();
+      return;
+    }
+    List<BoundsPointCodec.Point> local = new ArrayList<>();
+    for (double[] pt : nailPoints) {
+      double lx = clamp01((pt[0] - minX) / w);
+      double ly = clamp01((pt[1] - minY) / h);
+      local.add(new BoundsPointCodec.Point(lx, ly));
+    }
+    String id = "button_" + (nextId++);
+    addBound(new BoundEntry(id, null, clamp01(minX), clamp01(minY), clamp(w, 0.01, 1.0), clamp(h, 0.01, 1.0), local));
+    nailPoints.clear();
+    redraw();
+  }
+
+  private boolean isNearFirstNail(double mx, double my, double cw, double ch) {
+    if (nailPoints.isEmpty()) return false;
+    double[] first = nailPoints.get(0);
+    double fx = first[0] * cw;
+    double fy = first[1] * ch;
+    double dx = mx - fx;
+    double dy = my - fy;
+    return (dx * dx + dy * dy) <= (SNAP_THRESHOLD * SNAP_THRESHOLD);
   }
 
   // ── Drawing ──
@@ -692,6 +766,26 @@ public class BoundsDrawingTool extends BorderPane {
       g.setFill(POINT_NAIL_COLOR);
       g.setStroke(Color.WHITE);
       g.setLineWidth(1.5);
+      g.setLineDashes(0);
+
+      // Connect nails for visual polygon path.
+      if (nailPoints.size() >= 2) {
+        g.setStroke(Color.rgb(255, 120, 120, 0.85));
+        g.setLineWidth(1.2);
+        for (int i = 0; i < nailPoints.size() - 1; i++) {
+          double[] a = nailPoints.get(i);
+          double[] b = nailPoints.get(i + 1);
+          g.strokeLine(a[0] * cw, a[1] * ch, b[0] * cw, b[1] * ch);
+        }
+        if (nailPoints.size() >= 3) {
+          double[] first = nailPoints.get(0);
+          double[] last = nailPoints.get(nailPoints.size() - 1);
+          g.setLineDashes(4, 3);
+          g.strokeLine(last[0] * cw, last[1] * ch, first[0] * cw, first[1] * ch);
+          g.setLineDashes(0);
+        }
+      }
+
       for (double[] pt : nailPoints) {
         double px = pt[0] * cw;
         double py = pt[1] * ch;
@@ -721,7 +815,10 @@ public class BoundsDrawingTool extends BorderPane {
       }
 
       // Nail count label
-      drawTag(g, 8, ch - 8, nailPoints.size() + " point(s) placed");
+      String helper = nailPoints.size() >= 3
+          ? nailPoints.size() + " point(s) • click first point to close polygon"
+          : nailPoints.size() + " point(s) placed";
+      drawTag(g, 8, ch - 8, helper);
     }
 
     // Mode indicator tag
@@ -752,6 +849,26 @@ public class BoundsDrawingTool extends BorderPane {
     g.setStroke(selected ? Color.WHITE : color);
     g.setLineWidth(selected ? 2.5 : 1.5);
     g.strokeRect(bx, by, bw, bh);
+
+    if (b.hasCustomPolygon()) {
+      List<BoundsPointCodec.Point> pts = b.getLocalPoints();
+      if (pts.size() >= 3) {
+        double[] xs = new double[pts.size()];
+        double[] ys = new double[pts.size()];
+        for (int i = 0; i < pts.size(); i++) {
+          BoundsPointCodec.Point p = pts.get(i);
+          xs[i] = bx + bw * p.x();
+          ys[i] = by + bh * p.y();
+        }
+        g.setStroke(selected ? Color.rgb(255, 240, 140, 0.95) : Color.rgb(255, 140, 140, 0.9));
+        g.setLineWidth(selected ? 2.0 : 1.4);
+        g.strokePolygon(xs, ys, pts.size());
+        g.setFill(Color.rgb(255, 120, 120, selected ? 0.6 : 0.45));
+        for (int i = 0; i < pts.size(); i++) {
+          g.fillOval(xs[i] - 3, ys[i] - 3, 6, 6);
+        }
+      }
+    }
 
     // Corner handles (in select mode for selected bound)
     if (selected && mode == Mode.SELECT) {
@@ -873,7 +990,8 @@ public class BoundsDrawingTool extends BorderPane {
         clamp01(source.getX() + 0.015),
         clamp01(source.getY() + 0.015),
         source.getW(),
-        source.getH()
+        source.getH(),
+        source.getLocalPoints()
     );
     bounds.add(selectedIndex + 1, duplicate);
     selectedIndex = selectedIndex + 1;

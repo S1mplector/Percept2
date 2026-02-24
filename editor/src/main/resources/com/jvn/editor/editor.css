@@ -572,6 +572,12 @@
   -fx-opacity: 0.45;
 }
 
+.asset-drop-active {
+  -fx-border-color: #7ec8e3;
+  -fx-border-width: 1;
+  -fx-background-color: rgba(40, 74, 110, 0.35);
+}
+
 .layout-studio-table {
   -fx-background-color: #121722;
   -fx-table-cell-border-color: #2b3240;

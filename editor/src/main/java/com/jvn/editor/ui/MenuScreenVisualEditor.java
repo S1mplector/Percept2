@@ -14,6 +14,7 @@ import java.util.function.Consumer;
 
 import com.jvn.core.menu.config.MenuActionSpec;
 import com.jvn.core.menu.config.MenuActionType;
+import com.jvn.core.ui.BoundsPointCodec;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
@@ -728,6 +729,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     Label l = new Label(label);
     l.setMinWidth(70);
     l.setStyle("-fx-text-fill: #c0c0c0; -fx-font-size: 11px;");
+    AssetPickerSupport.installAssetDrop(field, this::toProjectRelativePath);
     Button browse = iconActionButton(CssIcon.folder("#b0b8c8"), "Browse project assets");
     browse.setOnAction(e -> {
       String asset = chooseImageAsset("Select " + label);
@@ -742,9 +744,13 @@ public class MenuScreenVisualEditor extends BorderPane {
         field.setText(asset);
       }
     });
+    Button revealBtn = iconActionButton(CssIcon.link("#9cc7ff"), "Reveal in file manager");
+    revealBtn.setOnAction(e -> revealAsset(field.getText()));
+    Button clearBtn = iconActionButton(CssIcon.clearX("#e07070"), "Clear asset path");
+    clearBtn.setOnAction(e -> field.clear());
     HBox.setHgrow(field, Priority.ALWAYS);
     field.setMaxWidth(Double.MAX_VALUE);
-    HBox row = new HBox(4, l, field, browse, importBtn);
+    HBox row = new HBox(4, l, field, browse, importBtn, revealBtn, clearBtn);
     row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
     return row;
   }
@@ -1059,6 +1065,13 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (row.getBoundsH() != null && row.getBoundsH() <= 0) {
         warnings.add("Item '" + id + "': boundsHeight must be > 0");
       }
+      String boundsPointsRaw = normalize(row.extras.get("boundsPoints"), "");
+      if (!boundsPointsRaw.isBlank()) {
+        List<BoundsPointCodec.Point> points = parseBoundsPoints(boundsPointsRaw);
+        if (points.size() < 3) {
+          warnings.add("Item '" + id + "': boundsPoints requires at least 3 valid points");
+        }
+      }
 
       int previewBoundsParts = 0;
       if (row.getSlotPreviewX() != null) previewBoundsParts++;
@@ -1157,6 +1170,8 @@ public class MenuScreenVisualEditor extends BorderPane {
         drawInlineSlotPreview(g, row, slotPreviewRect, selected);
       }
 
+      drawCustomBoundsOverlay(g, row, rect, selected);
+
       if (selected) {
         g.setFill(LayoutStudioPalette.ACCENT_GREEN);
         g.fillOval(rect.x() + rect.w() - 10, rect.y() + rect.h() - 10, 10, 10);
@@ -1177,9 +1192,22 @@ public class MenuScreenVisualEditor extends BorderPane {
   private int hitTestPreviewIndex(double x, double y) {
     for (int i = previewRects.length - 1; i >= 0; i--) {
       Rect r = previewRects[i];
-      if (r != null && r.contains(x, y)) return i;
+      if (r == null) continue;
+      MenuItemRow row = i >= 0 && i < rows.size() ? rows.get(i) : null;
+      if (containsInCustomBounds(row, r, x, y) || r.contains(x, y)) return i;
     }
     return -1;
+  }
+
+  private boolean containsInCustomBounds(MenuItemRow row, Rect rect, double x, double y) {
+    if (row == null || rect == null) return false;
+    List<BoundsPointCodec.Point> points = parseBoundsPoints(row.extras.get("boundsPoints"));
+    if (points.size() < 3) return false;
+    return BoundsPointCodec.containsInRect(points, rect.x(), rect.y(), rect.w(), rect.h(), x, y);
+  }
+
+  private List<BoundsPointCodec.Point> parseBoundsPoints(String raw) {
+    return BoundsPointCodec.parse(normalize(raw, ""));
   }
 
   private void installPreviewInteractions() {
@@ -1452,6 +1480,26 @@ public class MenuScreenVisualEditor extends BorderPane {
     g.fillText(text, x + 6, y);
   }
 
+  private void drawCustomBoundsOverlay(GraphicsContext g, MenuItemRow row, Rect rect, boolean selected) {
+    if (g == null || row == null || rect == null) return;
+    List<BoundsPointCodec.Point> points = parseBoundsPoints(row.extras.get("boundsPoints"));
+    if (points.size() < 3) return;
+    double[] xs = new double[points.size()];
+    double[] ys = new double[points.size()];
+    for (int i = 0; i < points.size(); i++) {
+      BoundsPointCodec.Point p = points.get(i);
+      xs[i] = rect.x() + rect.w() * p.x();
+      ys[i] = rect.y() + rect.h() * p.y();
+    }
+    g.setStroke(selected ? LayoutStudioPalette.ACCENT_GOLD : LayoutStudioPalette.ACCENT_BLUE_LIGHT);
+    g.setLineWidth(selected ? 1.8 : 1.2);
+    g.strokePolygon(xs, ys, points.size());
+    g.setFill(selected ? Color.rgb(255, 210, 90, 0.6) : Color.rgb(120, 190, 255, 0.55));
+    for (int i = 0; i < points.size(); i++) {
+      g.fillOval(xs[i] - 2.5, ys[i] - 2.5, 5, 5);
+    }
+  }
+
   private boolean inResizeHandle(Rect rect, double x, double y) {
     double hx = rect.x() + rect.w() - 14;
     double hy = rect.y() + rect.h() - 14;
@@ -1461,8 +1509,7 @@ public class MenuScreenVisualEditor extends BorderPane {
   private String chooseImageAsset(String title) {
     FileChooser chooser = new FileChooser();
     chooser.setTitle(title);
-    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
-        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp", "*.svg"));
+    AssetPickerSupport.addAssetFilters(chooser);
     if (projectRoot != null && projectRoot.exists()) chooser.setInitialDirectory(projectRoot);
     Window owner = getScene() != null ? getScene().getWindow() : null;
     File selected = chooser.showOpenDialog(owner);
@@ -1473,11 +1520,11 @@ public class MenuScreenVisualEditor extends BorderPane {
   private String importImageAsset(String title) {
     FileChooser chooser = new FileChooser();
     chooser.setTitle(title);
-    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
-        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp", "*.svg"));
+    AssetPickerSupport.addAssetFilters(chooser);
     Window owner = getScene() != null ? getScene().getWindow() : null;
     File selected = chooser.showOpenDialog(owner);
-    if (selected == null || projectRoot == null) return null;
+    if (selected == null) return null;
+    if (projectRoot == null) return toProjectRelativePath(selected);
     try {
       File destDir = new File(projectRoot, "config/menu/assets");
       if (!destDir.exists()) destDir.mkdirs();
@@ -1499,6 +1546,11 @@ public class MenuScreenVisualEditor extends BorderPane {
     } catch (Exception ex) {
       return null;
     }
+  }
+
+  private void revealAsset(String path) {
+    File file = resolveAssetFile(path);
+    AssetPickerSupport.revealFile(file);
   }
 
   private void clearBoundsForSelection() {
@@ -1537,7 +1589,15 @@ public class MenuScreenVisualEditor extends BorderPane {
       double by = row.getBoundsY() != null ? row.getBoundsY() : 0;
       double bw = row.getBoundsW() != null ? row.getBoundsW() : 0;
       double bh = row.getBoundsH() != null ? row.getBoundsH() : 0;
-      entries.add(new BoundsDrawingTool.BoundEntry(id, label, bx, by, bw, bh));
+      entries.add(new BoundsDrawingTool.BoundEntry(
+          id,
+          label,
+          bx,
+          by,
+          bw,
+          bh,
+          parseBoundsPoints(row.extras.get("boundsPoints"))
+      ));
     }
     tool.setBounds(entries);
 
@@ -1565,6 +1625,12 @@ public class MenuScreenVisualEditor extends BorderPane {
           row.setBoundsY(match.getY());
           row.setBoundsW(match.getW());
           row.setBoundsH(match.getH());
+          List<BoundsPointCodec.Point> points = match.getLocalPoints();
+          if (points != null && points.size() >= 3) {
+            row.extras.put("boundsPoints", BoundsPointCodec.encode(points));
+          } else {
+            row.extras.remove("boundsPoints");
+          }
         }
       }
       // Any unmatched entries become new rows
@@ -1579,6 +1645,10 @@ public class MenuScreenVisualEditor extends BorderPane {
             extra.getX(), extra.getY(), extra.getW(), extra.getH(),
             false, "", "", null, null, null, null
         );
+        List<BoundsPointCodec.Point> points = extra.getLocalPoints();
+        if (points != null && points.size() >= 3) {
+          newRow.extras.put("boundsPoints", BoundsPointCodec.encode(points));
+        }
         attachRowListeners(newRow);
         rows.add(newRow);
       }

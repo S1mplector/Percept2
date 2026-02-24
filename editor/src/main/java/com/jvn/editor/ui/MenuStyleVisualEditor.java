@@ -433,9 +433,21 @@ public class MenuStyleVisualEditor extends BorderPane {
   }
 
   private int addAssetRow(GridPane grid, int row, String label, TextField field) {
+    AssetPickerSupport.installAssetDrop(field, this::toProjectRelativePath);
     Button browse = iconButton(CssIcon.folder(), "Browse assets");
     browse.setOnAction(e -> browseAsset(field));
-    HBox box = new HBox(6, field, browse);
+    Button importBtn = iconButton(CssIcon.download("#8cd48c"), "Import external asset");
+    importBtn.setOnAction(e -> {
+      String imported = importAsset(field);
+      if (imported != null && !imported.isBlank()) {
+        field.setText(imported);
+      }
+    });
+    Button reveal = iconButton(CssIcon.link("#9cc7ff"), "Reveal in file manager");
+    reveal.setOnAction(e -> revealAsset(field.getText()));
+    Button clear = iconButton(CssIcon.clearX("#e07070"), "Clear asset path");
+    clear.setOnAction(e -> field.setText(""));
+    HBox box = new HBox(6, field, browse, importBtn, reveal, clear);
     HBox.setHgrow(field, Priority.ALWAYS);
     return addRow(grid, row, label, box);
   }
@@ -707,14 +719,53 @@ public class MenuStyleVisualEditor extends BorderPane {
   private void browseAsset(TextField targetField) {
     FileChooser chooser = new FileChooser();
     chooser.setTitle("Select Asset");
-    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
-        "Image Files", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"));
+    AssetPickerSupport.addAssetFilters(chooser);
     File initial = resolveInitialAssetDirectory();
     if (initial != null && initial.exists() && initial.isDirectory()) chooser.setInitialDirectory(initial);
     Window owner = getScene() != null ? getScene().getWindow() : null;
     File selected = chooser.showOpenDialog(owner);
     if (selected == null) return;
     targetField.setText(toProjectRelativePath(selected));
+  }
+
+  private String importAsset(TextField targetField) {
+    FileChooser chooser = new FileChooser();
+    chooser.setTitle("Import Asset");
+    AssetPickerSupport.addAssetFilters(chooser);
+    File initial = resolveInitialAssetDirectory();
+    if (initial != null && initial.exists() && initial.isDirectory()) chooser.setInitialDirectory(initial);
+    Window owner = getScene() != null ? getScene().getWindow() : null;
+    File selected = chooser.showOpenDialog(owner);
+    if (selected == null) return null;
+    if (projectRoot == null) return toProjectRelativePath(selected);
+    try {
+      File targetDir = new File(projectRoot, "assets/ui");
+      if (!targetDir.exists()) targetDir.mkdirs();
+      File dest = new File(targetDir, selected.getName());
+      if (dest.exists()) {
+        String stem = selected.getName();
+        String ext = "";
+        int dot = stem.lastIndexOf('.');
+        if (dot > 0) {
+          ext = stem.substring(dot);
+          stem = stem.substring(0, dot);
+        }
+        int idx = 1;
+        while (dest.exists()) {
+          dest = new File(targetDir, stem + "_" + idx + ext);
+          idx++;
+        }
+      }
+      java.nio.file.Files.copy(selected.toPath(), dest.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      return toProjectRelativePath(dest);
+    } catch (Exception ignored) {
+      return targetField != null ? normalize(targetField.getText(), "") : null;
+    }
+  }
+
+  private void revealAsset(String path) {
+    File asset = resolveAssetFile(path);
+    AssetPickerSupport.revealFile(asset);
   }
 
   private void loadButtonAssets() {
