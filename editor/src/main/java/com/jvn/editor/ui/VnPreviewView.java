@@ -462,6 +462,9 @@ public class VnPreviewView extends StackPane {
   public void dispose() {
     stopAudio();
     scene = null;
+    projectRoot = null;
+    audio = null;
+    renderer.setProjectRoot(null);
   }
 
   private AudioFacade createAudioFacade(File root) {

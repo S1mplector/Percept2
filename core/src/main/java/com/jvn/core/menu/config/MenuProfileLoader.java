@@ -1,6 +1,8 @@
 package com.jvn.core.menu.config;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -65,19 +67,19 @@ public final class MenuProfileLoader {
     }
 
     Set<String> layoutIds = new LinkedHashSet<>();
-    layoutIds.add("default");
+    layoutIds.addAll(defaults.layouts().keySet());
     layoutIds.addAll(parseCsv(registry != null ? registry.getProperty("layouts") : null));
     layoutIds.addAll(discoverIds(assets, diagnostics, "config/menu/layouts", ".layout", ".properties"));
     layoutIds.addAll(discoverIds(assets, diagnostics, "config/menu", ".layout", ".properties"));
 
     Set<String> styleIds = new LinkedHashSet<>();
-    styleIds.add("default");
+    styleIds.addAll(defaults.styles().keySet());
     styleIds.addAll(parseCsv(registry != null ? registry.getProperty("styles") : null));
     styleIds.addAll(discoverIds(assets, diagnostics, "config/menu/styles", ".style", ".properties"));
     styleIds.addAll(discoverIds(assets, diagnostics, "config/menu", ".style", ".properties"));
 
     Set<String> menuIds = new LinkedHashSet<>();
-    menuIds.add("main");
+    menuIds.addAll(defaults.screens().keySet());
     menuIds.addAll(parseCsv(registry != null ? registry.getProperty("menus") : null));
     menuIds.addAll(discoverIds(assets, diagnostics, "config/menu/menus", ".menu", ".properties"));
     menuIds.addAll(discoverIds(assets, diagnostics, "config/menu", ".menu", ".properties"));
@@ -472,7 +474,7 @@ public final class MenuProfileLoader {
       try (InputStream in = assets.open(AssetType.SCRIPT, path)) {
         if (in == null) continue;
         Properties p = new Properties();
-        p.load(in);
+        p.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         return new LoadedProperties(path, p);
       } catch (Exception ex) {
         diagnostics.add("Failed to parse " + purpose + " at '" + path + "': " + simplify(ex));

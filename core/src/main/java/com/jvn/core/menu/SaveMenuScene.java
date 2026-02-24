@@ -111,6 +111,7 @@ public class SaveMenuScene implements Scene {
   public List<String> getSaves() { return saves; }
   public int getSelected() { return selected; }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
+  public MenuStyleSpec getDefaultMenuStyle() { return menuProfile.style(menuScreen.defaultStyleId()); }
   public int getItemCount() { return getEntriesCount(); }
   public boolean wrapsSelection() { return menuScreen.wrapSelection(); }
 

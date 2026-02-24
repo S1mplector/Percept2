@@ -140,6 +140,7 @@ public class SettingsScene implements Scene {
   public int itemCount() { return rows.size(); }
   public int getSelected() { return selected; }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
+  public MenuStyleSpec getDefaultMenuStyle() { return menuProfile.style(menuScreen.defaultStyleId()); }
 
   public MenuStyleSpec getStyleForIndex(int idx) {
     Row r = rowAt(idx);

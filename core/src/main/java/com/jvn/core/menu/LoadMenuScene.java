@@ -136,6 +136,7 @@ public class LoadMenuScene implements Scene {
   public int getSelected() { return selected; }
   public int getItemCount() { return saves.size(); }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
+  public MenuStyleSpec getDefaultMenuStyle() { return menuProfile.style(menuScreen.defaultStyleId()); }
 
   public MenuStyleSpec getStyleForIndex(int idx) {
     if (idx < 0) return menuProfile.style(menuScreen.defaultStyleId());

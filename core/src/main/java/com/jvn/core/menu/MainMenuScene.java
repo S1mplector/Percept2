@@ -78,6 +78,7 @@ public class MainMenuScene implements Scene {
   public MenuProfile getMenuProfile() { return menuProfile; }
   public MenuScreenSpec getMenuScreen() { return menuScreen; }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
+  public MenuStyleSpec getDefaultMenuStyle() { return menuProfile.style(menuScreen.defaultStyleId()); }
   public int getItemCount() { return menuScreen.items().size(); }
   public int getSelected() { return selected; }
 

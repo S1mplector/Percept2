@@ -1,5 +1,7 @@
 package com.jvn.fx.menu;
 
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
@@ -14,8 +16,9 @@ import javafx.scene.image.Image;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
-import java.util.List;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MenuRenderer {
   private final GraphicsContext gc;
@@ -29,13 +32,8 @@ public class MenuRenderer {
 
   public void renderMainMenu(MainMenuScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
-
-    // Draw background image if configured
-    if (theme.getBackgroundImagePath() != null) {
-      drawBackgroundImage(theme.getBackgroundImagePath(), w, h);
-    } else {
-      clear(w, h);
-    }
+    MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
+    drawScreenBackground(w, h, screenStyle, true);
 
     // Draw logo if configured, otherwise draw text title
     if (theme.getLogoImagePath() != null) {
@@ -47,7 +45,7 @@ public class MenuRenderer {
       double titleY = (layout != null && layout.titleY() != null)
           ? resolve(layout.titleY(), h)
           : resolve(theme.getTitleY(), h);
-      drawTitle(title, w, titleY);
+      drawTitle(title, w, titleY, screenStyle);
     }
 
     String[] items;
@@ -79,15 +77,16 @@ public class MenuRenderer {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc";
     }
     double bottomMargin = layout != null ? layout.hintsBottomMargin() : 20.0;
-    drawHints(hints, w, h, bottomMargin);
+    drawHints(hints, w, h, bottomMargin, screenStyle);
   }
 
   public void renderSaveMenu(SaveMenuScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
-    clear(w, h);
+    MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
+    drawScreenBackground(w, h, screenStyle, false);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("save.title");
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
-    drawTitle(title, w, titleY);
+    drawTitle(title, w, titleY, screenStyle);
     List<String> saves = scene.getSaves();
     String[] items = new String[(saves.size() + 1)];
     items[0] = scene.getNewSlotLabel();
@@ -123,15 +122,16 @@ public class MenuRenderer {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
           + Localization.t("save.delete") + ": Delete    " + Localization.t("save.rename") + ": R";
     }
-    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0);
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle);
   }
 
   public void renderLoadMenu(LoadMenuScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
-    clear(w, h);
+    MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
+    drawScreenBackground(w, h, screenStyle, false);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("load.title");
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
-    drawTitle(title, w, titleY);
+    drawTitle(title, w, titleY, screenStyle);
     List<String> saves = scene.getSaves();
     if (saves.isEmpty()) {
       drawCenteredText(Localization.t("load.no_saves"), w, h/2, theme.getItemFont(), Color.GRAY);
@@ -176,15 +176,16 @@ public class MenuRenderer {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
           + Localization.t("load.delete") + ": Delete    " + Localization.t("load.rename") + ": R";
     }
-    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0);
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle);
   }
 
   public void renderSettings(SettingsScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
-    clear(w, h);
+    MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
+    drawScreenBackground(w, h, screenStyle, false);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("settings.title");
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
-    drawTitle(title, w, titleY);
+    drawTitle(title, w, titleY, screenStyle);
 
     String[] items = scene.getDisplayItems();
     boolean[] enabled = new boolean[items.length];
@@ -197,30 +198,58 @@ public class MenuRenderer {
     }
     drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w, h);
 
-    double yStart = (layout != null ? resolve(layout.listYStart(), h) : h * 0.35);
-    double lineH = (layout != null ? layout.lineHeight() : 40.0);
-    double sliderW = w * 0.45;
-    double sliderX = (w - sliderW) / 2;
-
-    int sliderRow = 0;
     for (int i = 0; i < items.length; i++) {
       boolean hasSlider = scene.hasSliderAt(i);
       if (!hasSlider) continue;
       double value = scene.sliderValue01At(i);
-      double y = yStart + sliderRow * lineH + 10;
-      drawSlider(sliderX, y, sliderW, value, i == scene.getSelected());
-      sliderRow++;
+      MenuItemSpec item = specs[i];
+      Rect rowRect = resolveItemRect(i, items.length, item, layout, 0, w, h);
+      double padX = Math.max(20, rowRect.w() * 0.16);
+      double sliderX = rowRect.x() + padX;
+      double sliderW = Math.max(140, rowRect.w() - (padX * 2));
+      double sliderY = rowRect.y() + (rowRect.h() - 8.0) / 2.0;
+      drawSlider(sliderX, sliderY, sliderW, value, i == scene.getSelected());
     }
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) {
       hints = "Up/Down, Left/Right, Enter • " + Localization.t("common.back") + ": Esc";
     }
-    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0);
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle);
   }
 
   private void clear(double w, double h) {
     gc.setFill(theme.getBackgroundColor());
     gc.fillRect(0, 0, w, h);
+  }
+
+  private void drawScreenBackground(double w, double h, MenuStyleSpec style, boolean allowThemeImageFallback) {
+    String styleAsset = style != null ? style.backgroundAssetPath() : null;
+    if (styleAsset != null && !styleAsset.isBlank()) {
+      Image styleImage = loadImage(styleAsset);
+      if (styleImage != null) {
+        double alpha = style != null && style.backgroundOpacity() != null ? clamp01(style.backgroundOpacity()) : 1.0;
+        double prevAlpha = gc.getGlobalAlpha();
+        gc.setGlobalAlpha(alpha);
+        gc.drawImage(styleImage, 0, 0, w, h);
+        gc.setGlobalAlpha(prevAlpha);
+        return;
+      }
+    }
+
+    String styleColorRaw = style != null ? style.backgroundColor() : null;
+    if (styleColorRaw != null && !styleColorRaw.isBlank()) {
+      Color color = parseColor(styleColorRaw, theme.getBackgroundColor());
+      double opacity = style != null && style.backgroundOpacity() != null ? clamp01(style.backgroundOpacity()) : color.getOpacity();
+      gc.setFill(Color.color(color.getRed(), color.getGreen(), color.getBlue(), opacity));
+      gc.fillRect(0, 0, w, h);
+      return;
+    }
+
+    if (allowThemeImageFallback && theme.getBackgroundImagePath() != null) {
+      drawBackgroundImage(theme.getBackgroundImagePath(), w, h);
+      return;
+    }
+    clear(w, h);
   }
 
   private void drawBackgroundImage(String path, double w, double h) {
@@ -256,20 +285,79 @@ public class MenuRenderer {
   }
 
   private Image loadImage(String path) {
-    if (path == null) return null;
-    return imageCache.computeIfAbsent(path, p -> {
-      try {
-        // Try classpath first
-        var url = getClass().getClassLoader().getResource(p);
-        if (url != null) return new Image(url.toExternalForm());
-        // Try filesystem
-        File f = new File(p);
-        if (f.exists()) return new Image(f.toURI().toString());
-      } catch (Exception e) {
-        System.err.println("Failed to load menu image: " + p);
+    if (path == null || path.isBlank()) return null;
+    Image cached = imageCache.get(path);
+    if (cached != null) return cached;
+
+    List<String> candidates = new ArrayList<>();
+    candidates.add(path);
+    candidates.addAll(buildFallbackImageCandidates(path));
+
+    for (String candidate : candidates) {
+      Image img = loadImageDirect(candidate);
+      if (img != null) {
+        imageCache.put(path, img);
+        imageCache.put(candidate, img);
+        return img;
       }
-      return null;
-    });
+    }
+    return null;
+  }
+
+  private Image loadImageDirect(String path) {
+    if (path == null || path.isBlank()) return null;
+    try {
+      // Resolve via active asset manager first (supports --assets and project roots).
+      try {
+        AssetCatalog catalog = new AssetCatalog();
+        var resolved = catalog.url(AssetType.IMAGE, path);
+        if (resolved != null) {
+          Image img = new Image(resolved.toExternalForm());
+          if (!img.isError() && img.getWidth() > 0 && img.getHeight() > 0) return img;
+        }
+      } catch (Exception ignored) {
+      }
+
+      // Try classpath first
+      var url = getClass().getClassLoader().getResource(path);
+      if (url != null) {
+        Image img = new Image(url.toExternalForm());
+        if (!img.isError() && img.getWidth() > 0 && img.getHeight() > 0) return img;
+      }
+      // Then filesystem
+      File f = new File(path);
+      if (f.exists()) {
+        Image img = new Image(f.toURI().toString());
+        if (!img.isError() && img.getWidth() > 0 && img.getHeight() > 0) return img;
+      }
+    } catch (Exception e) {
+      System.err.println("Failed to load menu image: " + path);
+    }
+    return null;
+  }
+
+  private List<String> buildFallbackImageCandidates(String originalPath) {
+    List<String> out = new ArrayList<>();
+    String lower = originalPath.toLowerCase();
+    int dot = originalPath.lastIndexOf('.');
+    String base = dot > 0 ? originalPath.substring(0, dot) : originalPath;
+    if (dot > 0) {
+      out.add(base + ".png");
+      out.add(base + ".jpg");
+      out.add(base + ".jpeg");
+      out.add(base + ".webp");
+      out.add(base + ".bmp");
+      out.add(base + ".gif");
+    }
+
+    // Generic sibling fallbacks for old projects that may not have the same filename set.
+    int slash = originalPath.lastIndexOf('/');
+    if (slash > 0) {
+      String parent = originalPath.substring(0, slash + 1);
+      out.add(parent + "field.jpg");
+      out.add(parent + "field.png");
+    }
+    return out;
   }
 
   public void clearImageCache() {
@@ -277,10 +365,16 @@ public class MenuRenderer {
   }
 
   private void drawTitle(String text, double w, double y) {
+    drawTitle(text, w, y, null);
+  }
+
+  private void drawTitle(String text, double w, double y, MenuStyleSpec style) {
     if (text == null || text.isBlank()) text = "JVN";
-    gc.setFill(theme.getTitleColor());
-    gc.setFont(theme.getTitleFont());
-    gc.fillText(text, (w - measure(text, theme.getTitleFont())) / 2, y);
+    Color titleColor = parseColor(style != null ? style.titleColor() : null, theme.getTitleColor());
+    Font titleFont = resolveTitleFont(style);
+    gc.setFill(titleColor);
+    gc.setFont(titleFont);
+    gc.fillText(text, (w - measure(text, titleFont)) / 2, y);
   }
 
   private void drawMenuList(String[] items, int selected, double w, double h) {
@@ -380,9 +474,15 @@ public class MenuRenderer {
   }
 
   private void drawHints(String text, double w, double h, double bottomMargin) {
-    gc.setFill(theme.getHintColor());
-    gc.setFont(theme.getHintFont());
-    gc.fillText(text, (w - measure(text, theme.getHintFont())) / 2, h - Math.max(0, bottomMargin));
+    drawHints(text, w, h, bottomMargin, null);
+  }
+
+  private void drawHints(String text, double w, double h, double bottomMargin, MenuStyleSpec style) {
+    Font hintFont = resolveHintFont(style);
+    Color hintColor = parseColor(style != null ? style.hintsColor() : null, theme.getHintColor());
+    gc.setFill(hintColor);
+    gc.setFont(hintFont);
+    gc.fillText(text, (w - measure(text, hintFont)) / 2, h - Math.max(0, bottomMargin));
   }
 
   private void drawCenteredText(String text, double w, double y, Font font, Color color) {
@@ -807,6 +907,21 @@ public class MenuRenderer {
     }
     FontWeight weight = parseFontWeight(weightRaw, FontWeight.NORMAL);
     return Font.font(family, weight, size);
+  }
+
+  private Font resolveTitleFont(MenuStyleSpec style) {
+    if (style == null) return theme.getTitleFont();
+    String family = firstNonBlank(style.titleFontFamily(), theme.getTitleFont().getFamily());
+    double size = style.titleFontSize() != null ? style.titleFontSize() : theme.getTitleFont().getSize();
+    FontWeight weight = parseFontWeight(style.titleFontWeight(), FontWeight.BOLD);
+    return Font.font(family, weight, size);
+  }
+
+  private Font resolveHintFont(MenuStyleSpec style) {
+    if (style == null) return theme.getHintFont();
+    String family = firstNonBlank(style.hintsFontFamily(), theme.getHintFont().getFamily());
+    double size = style.hintsFontSize() != null ? style.hintsFontSize() : theme.getHintFont().getSize();
+    return Font.font(family, FontWeight.NORMAL, size);
   }
 
   private FontWeight parseFontWeight(String raw, FontWeight def) {

@@ -1456,6 +1456,13 @@ public class EditorApp extends Application {
   }
 
   private void openFullscreenVnPreview(FileEditorTab sourceTab) {
+    if (sourceTab == null) return;
+    // Prevent the embedded tab preview from leaking BGM while fullscreen preview is open.
+    try {
+      sourceTab.stopPreviewAudio();
+    } catch (Exception ignored) {
+    }
+
     // Create a new fullscreen stage with VN preview
     javafx.stage.Stage fullscreenStage = new javafx.stage.Stage();
     fullscreenStage.setTitle("VN Preview - " + (sourceTab.getFile() != null ? sourceTab.getFile().getName() : "Untitled"));
@@ -1501,9 +1508,31 @@ public class EditorApp extends Application {
     fullscreenStage.setScene(scene);
     fullscreenStage.setFullScreen(true);
     fullscreenStage.setFullScreenExitHint("Press ESC to exit fullscreen");
-    
-    // Stop timer when window closes
-    fullscreenStage.setOnHidden(e -> timer.stop());
+
+    // Ensure fullscreen preview never leaks audio/timers after close.
+    final boolean[] cleaned = new boolean[] {false};
+    Runnable cleanup = () -> {
+      if (cleaned[0]) return;
+      cleaned[0] = true;
+      try {
+        timer.stop();
+      } catch (Exception ignored) {
+      }
+      try {
+        fullscreenPreview.stopAudio();
+      } catch (Exception ignored) {
+      }
+      try {
+        fullscreenPreview.dispose();
+      } catch (Exception ignored) {
+      }
+      try {
+        sourceTab.stopPreviewAudio();
+      } catch (Exception ignored) {
+      }
+    };
+    fullscreenStage.setOnCloseRequest(e -> cleanup.run());
+    fullscreenStage.setOnHidden(e -> cleanup.run());
     
     timer.start();
     fullscreenStage.show();

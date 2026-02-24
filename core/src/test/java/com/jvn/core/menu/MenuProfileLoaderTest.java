@@ -26,11 +26,14 @@ class MenuProfileLoaderTest {
     MenuScreenSpec main = profile.screen("main");
 
     assertNotNull(main);
-    assertEquals(4, main.items().size());
+    assertEquals(5, main.items().size());
     assertEquals(MenuActionType.NEW_GAME, main.items().get(0).action().type());
     assertEquals(MenuActionType.LOAD_MENU, main.items().get(1).action().type());
     assertEquals(MenuActionType.SETTINGS_MENU, main.items().get(2).action().type());
-    assertEquals(MenuActionType.QUIT, main.items().get(3).action().type());
+    assertEquals(MenuActionType.OPEN_MENU, main.items().get(3).action().type());
+    assertEquals("extras", main.items().get(3).action().target());
+    assertEquals(MenuActionType.OPEN_MENU, main.items().get(4).action().type());
+    assertEquals("confirm_exit", main.items().get(4).action().target());
   }
 
   @Test

@@ -14,6 +14,8 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
 /**
@@ -85,7 +87,7 @@ public class MenuTheme {
       try (InputStream in = cat.open(AssetType.SCRIPT, candidate)) {
         if (in == null) continue;
         Properties p = new Properties();
-        p.load(in);
+        p.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         t.apply(p);
         break;
       } catch (Exception ignored) {}

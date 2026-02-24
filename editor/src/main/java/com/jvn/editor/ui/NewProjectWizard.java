@@ -9,6 +9,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 
 import com.jvn.editor.vcs.GitVcsService;
@@ -110,11 +111,19 @@ public class NewProjectWizard extends Stage {
   private static final String MENU_THEME_PATH = "config/menu/theme/menu.theme";
   private static final String MENU_REGISTRY_PATH = "config/menu/registry/menu.registry";
   private static final String MENU_MAIN_PATH = "config/menu/menus/main.menu";
+  private static final String MENU_EXTRAS_PATH = "config/menu/menus/extras.menu";
+  private static final String MENU_CREDITS_PATH = "config/menu/menus/credits.menu";
+  private static final String MENU_CONFIRM_EXIT_PATH = "config/menu/menus/confirm_exit.menu";
   private static final String MENU_LOAD_PATH = "config/menu/menus/load.menu";
   private static final String MENU_SAVE_PATH = "config/menu/menus/save.menu";
   private static final String MENU_SETTINGS_PATH = "config/menu/menus/settings.menu";
   private static final String MENU_LAYOUT_DEFAULT_PATH = "config/menu/layouts/default.layout";
+  private static final String MENU_LAYOUT_SUBMENU_PATH = "config/menu/layouts/submenu.layout";
+  private static final String MENU_LAYOUT_SLOTS_PATH = "config/menu/layouts/slots.layout";
   private static final String MENU_STYLE_DEFAULT_PATH = "config/menu/styles/default.style";
+  private static final String MENU_STYLE_SUBMENU_PATH = "config/menu/styles/submenu.style";
+  private static final String MENU_STYLE_SLOT_PATH = "config/menu/styles/slot.style";
+  private static final String DEFAULT_MENU_BG_ASSET_PATH = "assets/demo/backgrounds/field/glorious_ricefield_day.png";
   private static final String BUNDLED_DEMO_ASSETS_DIR = "demo-assets";
   private static final String BUNDLED_DEMO_BG_DIR = "demo_bg_field";
   private static final String BUNDLED_DEMO_SPRITE_DIR = "demo_sprite_codel";
@@ -787,6 +796,9 @@ public class NewProjectWizard extends Stage {
       sb.append("|       |   `-- menu.theme\n");
       sb.append("|       |-- menus/\n");
       sb.append("|       |   |-- main.menu\n");
+      sb.append("|       |   |-- extras.menu\n");
+      sb.append("|       |   |-- credits.menu\n");
+      sb.append("|       |   |-- confirm_exit.menu\n");
       if (includeSave) {
         sb.append("|       |   |-- load.menu\n");
         sb.append("|       |   `-- save.menu\n");
@@ -795,9 +807,13 @@ public class NewProjectWizard extends Stage {
         sb.append("|       |   `-- settings.menu\n");
       }
       sb.append("|       |-- layouts/\n");
-      sb.append("|       |   `-- default.layout\n");
+      sb.append("|       |   |-- default.layout\n");
+      sb.append("|       |   |-- submenu.layout\n");
+      sb.append("|       |   `-- slots.layout\n");
       sb.append("|       |-- styles/\n");
-      sb.append("|       |   `-- default.style\n");
+      sb.append("|       |   |-- default.style\n");
+      sb.append("|       |   |-- submenu.style\n");
+      sb.append("|       |   `-- slot.style\n");
       sb.append("|       `-- assets/\n");
       sb.append("|           |-- buttons/\n");
       sb.append("|           `-- icons/\n");
@@ -1513,50 +1529,56 @@ public class NewProjectWizard extends Stage {
 
     switch (theme) {
       case "Light Clean" -> {
-        tp.setProperty("backgroundColor", "#F5F5F5");
-        tp.setProperty("titleColor", "#333333");
-        tp.setProperty("itemColor", "#666666");
-        tp.setProperty("itemSelectedColor", "#0066CC");
-        tp.setProperty("accentColor", "#0066CC");
+        tp.setProperty("backgroundColor", "#F4F7FB");
+        tp.setProperty("titleColor", "#142033");
+        tp.setProperty("itemColor", "#3C4A63");
+        tp.setProperty("itemSelectedColor", "#1D5CFF");
+        tp.setProperty("hintColor", "#5D6A86");
+        tp.setProperty("accentColor", "#1D5CFF");
       }
       case "Retro Game" -> {
-        tp.setProperty("backgroundColor", "#000000");
-        tp.setProperty("titleColor", "#00FF00");
-        tp.setProperty("itemColor", "#00CC00");
-        tp.setProperty("itemSelectedColor", "#FFFF00");
-        tp.setProperty("accentColor", "#FFFF00");
+        tp.setProperty("backgroundColor", "#070707");
+        tp.setProperty("titleColor", "#7CFF64");
+        tp.setProperty("itemColor", "#65DB56");
+        tp.setProperty("itemSelectedColor", "#FFE36B");
+        tp.setProperty("hintColor", "#8FCA7E");
+        tp.setProperty("accentColor", "#FFE36B");
       }
       case "Nature Green" -> {
-        tp.setProperty("backgroundColor", "#1A2F1A");
-        tp.setProperty("titleColor", "#90EE90");
-        tp.setProperty("itemColor", "#8FBC8F");
-        tp.setProperty("itemSelectedColor", "#32CD32");
-        tp.setProperty("accentColor", "#32CD32");
+        tp.setProperty("backgroundColor", "#122616");
+        tp.setProperty("titleColor", "#D2F7DA");
+        tp.setProperty("itemColor", "#A9DDB1");
+        tp.setProperty("itemSelectedColor", "#5CE385");
+        tp.setProperty("hintColor", "#88C995");
+        tp.setProperty("accentColor", "#5CE385");
       }
       default -> {
-        tp.setProperty("backgroundColor", "#0A0C12");
-        tp.setProperty("titleColor", "#FFFFFF");
-        tp.setProperty("itemColor", "#C0C0C0");
-        tp.setProperty("itemSelectedColor", "#FFD700");
-        tp.setProperty("accentColor", "#FFD700");
+        tp.setProperty("backgroundColor", "#050B16");
+        tp.setProperty("titleColor", "#F3F8FF");
+        tp.setProperty("itemColor", "#D9E3F5");
+        tp.setProperty("itemSelectedColor", "#FFE18A");
+        tp.setProperty("hintColor", "#A8B6D2");
+        tp.setProperty("accentColor", "#7CC4FF");
       }
     }
 
     String systemFont = Font.getDefault().getFamily();
     tp.setProperty("titleFontFamily", systemFont);
     tp.setProperty("titleFontWeight", "BOLD");
-    tp.setProperty("titleFontSize", "32");
+    tp.setProperty("titleFontSize", "50");
     tp.setProperty("itemFontFamily", systemFont);
-    tp.setProperty("itemFontWeight", "NORMAL");
-    tp.setProperty("itemFontSize", "20");
+    tp.setProperty("itemFontWeight", "SEMI_BOLD");
+    tp.setProperty("itemFontSize", "28");
     tp.setProperty("hintFontFamily", systemFont);
-    tp.setProperty("hintFontSize", "14");
-    tp.setProperty("titleY", "60");
-    tp.setProperty("listYStart", "0.35");
-    tp.setProperty("lineHeight", "40");
-    tp.setProperty("itemPrefix", "  ");
-    tp.setProperty("itemSelectedPrefix", "> ");
+    tp.setProperty("hintFontSize", "16");
+    tp.setProperty("titleY", "0.12");
+    tp.setProperty("listYStart", "0.33");
+    tp.setProperty("lineHeight", "66");
+    tp.setProperty("itemPrefix", "");
+    tp.setProperty("itemSelectedPrefix", "▶ ");
+    tp.setProperty("hintsText", "Enter/Click: Select    Esc: Back");
     tp.setProperty("titleText", name);
+    tp.setProperty("backgroundImage", DEFAULT_MENU_BG_ASSET_PATH);
 
     try (FileOutputStream fos = new FileOutputStream(new File(dir, MENU_THEME_PATH))) {
       tp.store(fos, "Menu Theme for " + name + " - " + theme);
@@ -1568,6 +1590,9 @@ public class NewProjectWizard extends Stage {
 
     List<String> menus = new ArrayList<>();
     menus.add("main");
+    menus.add("extras");
+    menus.add("credits");
+    menus.add("confirm_exit");
     if (includeSave) {
       menus.add("load");
       menus.add("save");
@@ -1580,82 +1605,260 @@ public class NewProjectWizard extends Stage {
       fw.write("# Menu customization registry\n");
       fw.write("defaultMenu=main\n");
       fw.write("menus=" + String.join(",", menus) + "\n");
-      fw.write("layouts=default\n");
-      fw.write("styles=default\n");
+      fw.write("layouts=default,submenu,slots\n");
+      fw.write("styles=default,submenu,slot\n");
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_DEFAULT_PATH))) {
-      fw.write("# Layout for vertical menu lists\n");
-      fw.write("listYStart=0.35\n");
-      fw.write("lineHeight=40\n");
-      fw.write("listWidthFactor=1.0\n");
+      fw.write("# Main menu layout\n");
+      fw.write("listYStart=0.34\n");
+      fw.write("lineHeight=68\n");
+      fw.write("listWidthFactor=0.44\n");
       fw.write("textAlign=center\n");
-      fw.write("hintsBottomMargin=20\n");
+      fw.write("hintsBottomMargin=36\n");
+      fw.write("titleY=0.14\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SUBMENU_PATH))) {
+      fw.write("# Submenu layout (extras/settings/credits)\n");
+      fw.write("listYStart=0.24\n");
+      fw.write("lineHeight=62\n");
+      fw.write("listWidthFactor=0.64\n");
+      fw.write("textAlign=left\n");
+      fw.write("hintsBottomMargin=30\n");
+      fw.write("titleY=0.11\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SLOTS_PATH))) {
+      fw.write("# Save/Load slot layout\n");
+      fw.write("listYStart=0.20\n");
+      fw.write("lineHeight=74\n");
+      fw.write("listWidthFactor=0.58\n");
+      fw.write("textAlign=left\n");
+      fw.write("hintsBottomMargin=30\n");
+      fw.write("titleY=0.10\n");
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_DEFAULT_PATH))) {
-      fw.write("# Optional per-item style overrides (falls back to menu.theme)\n");
-      fw.write("itemPrefix=  \n");
-      fw.write("itemSelectedPrefix=> \n");
-      fw.write("itemDisabledPrefix=- \n");
-      fw.write("itemDisabledColor=#808080\n");
+      fw.write("# Main menu visual style\n");
+      fw.write("itemColor=#DCE6F8\n");
+      fw.write("itemSelectedColor=#FFE8A3\n");
+      fw.write("itemHoverColor=#F4F8FF\n");
+      fw.write("itemDisabledColor=#7D8CA8\n");
+      fw.write("itemPrefix=\n");
+      fw.write("itemSelectedPrefix=▶ \n");
+      fw.write("itemDisabledPrefix=• \n");
+      fw.write("itemFontFamily=Segoe UI\n");
+      fw.write("itemFontWeight=SEMI_BOLD\n");
+      fw.write("itemFontSize=28\n");
+      fw.write("itemShadowColor=#000000AA\n");
+      fw.write("itemShadowOffsetX=1\n");
+      fw.write("itemShadowOffsetY=1\n");
+      fw.write("titleColor=#F2F7FF\n");
+      fw.write("titleFontFamily=Segoe UI\n");
+      fw.write("titleFontWeight=BOLD\n");
+      fw.write("titleFontSize=56\n");
+      fw.write("titleShadowColor=#000000A8\n");
+      fw.write("hintsColor=#A8B6D2\n");
+      fw.write("hintsFontFamily=Segoe UI\n");
+      fw.write("hintsFontSize=18\n");
+      fw.write("backgroundAsset=" + DEFAULT_MENU_BG_ASSET_PATH + "\n");
+      fw.write("backgroundColor=#050B16\n");
+      fw.write("backgroundOpacity=1.0\n");
       fw.write("# buttonAsset=assets/ui/menu/button.png\n");
       fw.write("# buttonSelectedAsset=assets/ui/menu/button_selected.png\n");
+      fw.write("# buttonHoverAsset=assets/ui/menu/button_hover.png\n");
       fw.write("# buttonDisabledAsset=assets/ui/menu/button_disabled.png\n");
-      fw.write("buttonTextPaddingX=18\n");
+      fw.write("buttonTextPaddingX=28\n");
+      fw.write("buttonTextPaddingY=2\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SUBMENU_PATH))) {
+      fw.write("# Submenu style\n");
+      fw.write("itemColor=#D6E0F4\n");
+      fw.write("itemSelectedColor=#B8EAFF\n");
+      fw.write("itemHoverColor=#EAF4FF\n");
+      fw.write("itemDisabledColor=#7387AA\n");
+      fw.write("itemPrefix=  \n");
+      fw.write("itemSelectedPrefix=▸ \n");
+      fw.write("itemDisabledPrefix=  \n");
+      fw.write("itemFontFamily=Segoe UI\n");
+      fw.write("itemFontWeight=NORMAL\n");
+      fw.write("itemFontSize=24\n");
+      fw.write("titleColor=#EAF2FF\n");
+      fw.write("titleFontFamily=Segoe UI\n");
+      fw.write("titleFontWeight=BOLD\n");
+      fw.write("titleFontSize=42\n");
+      fw.write("hintsColor=#97AACE\n");
+      fw.write("hintsFontFamily=Segoe UI\n");
+      fw.write("hintsFontSize=16\n");
+      fw.write("backgroundColor=#091222\n");
+      fw.write("backgroundOpacity=1.0\n");
+      fw.write("buttonTextPaddingX=24\n");
+      fw.write("buttonTextPaddingY=1\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SLOT_PATH))) {
+      fw.write("# Save/load slot row style\n");
+      fw.write("itemColor=#E4EDF8\n");
+      fw.write("itemSelectedColor=#FFF1B5\n");
+      fw.write("itemHoverColor=#F0F7FF\n");
+      fw.write("itemDisabledColor=#7B87A0\n");
+      fw.write("itemPrefix=\n");
+      fw.write("itemSelectedPrefix=▶ \n");
+      fw.write("itemFontFamily=Segoe UI\n");
+      fw.write("itemFontWeight=SEMI_BOLD\n");
+      fw.write("itemFontSize=22\n");
+      fw.write("backgroundColor=#060F1D\n");
+      fw.write("backgroundOpacity=1.0\n");
+      fw.write("buttonTextPaddingX=22\n");
       fw.write("buttonTextPaddingY=0\n");
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_MAIN_PATH))) {
-      fw.write("# Main menu screen definition\n");
+      fw.write("# Main menu screen definition (redesigned)\n");
       fw.write("titleText=" + name + "\n");
-      fw.write("hintsText=Select: Enter    Back: Esc\n");
+      fw.write("hintsText=Enter/Click: Select    Esc: Back\n");
       fw.write("layout=default\n");
       fw.write("defaultItemStyle=default\n");
       fw.write("wrapSelection=true\n");
 
       List<String> items = new ArrayList<>();
       items.add("new_game");
-      if (includeSave) items.add("load");
+      if (includeSave) items.add("continue");
       if (includeSettings) items.add("settings");
+      items.add("extras");
       items.add("quit");
       fw.write("items=" + String.join(",", items) + "\n");
 
+      fw.write("item.new_game.label=Start New Game\n");
       fw.write("item.new_game.action=new_game\n");
-      if (includeSave) fw.write("item.load.action=load_menu\n");
-      if (includeSettings) fw.write("item.settings.action=settings_menu\n");
-      fw.write("item.quit.action=quit\n");
+      if (includeSave) {
+        fw.write("item.continue.label=Continue\n");
+        fw.write("item.continue.action=load_menu\n");
+      }
+      if (includeSettings) {
+        fw.write("item.settings.label=Settings\n");
+        fw.write("item.settings.action=settings_menu\n");
+      }
+      fw.write("item.extras.label=Extras\n");
+      fw.write("item.extras.action=open_menu\n");
+      fw.write("item.extras.target=extras\n");
+      fw.write("item.quit.label=Quit\n");
+      fw.write("item.quit.action=open_menu\n");
+      fw.write("item.quit.target=confirm_exit\n");
+
+      double y = 0.34;
+      for (String itemId : items) {
+        writeCardBounds(fw, itemId, 0.28, y, 0.44, 0.072);
+        y += 0.082;
+      }
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_EXTRAS_PATH))) {
+      fw.write("# Extras submenu\n");
+      fw.write("titleText=Extras\n");
+      fw.write("hintsText=Enter/Click: Select    Esc: Back\n");
+      fw.write("layout=submenu\n");
+      fw.write("defaultItemStyle=submenu\n");
+      fw.write("wrapSelection=true\n");
+      fw.write("items=music_room,credits,back\n");
+      fw.write("item.music_room.label=Music Room (Soon)\n");
+      fw.write("item.music_room.enabled=false\n");
+      fw.write("item.music_room.action=noop\n");
+      fw.write("item.credits.label=Credits\n");
+      fw.write("item.credits.action=open_menu\n");
+      fw.write("item.credits.target=credits\n");
+      fw.write("item.back.label=Return to Main Menu\n");
+      fw.write("item.back.action=main_menu\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_CREDITS_PATH))) {
+      fw.write("# Credits submenu\n");
+      fw.write("titleText=Credits\n");
+      fw.write("hintsText=Esc: Back\n");
+      fw.write("layout=submenu\n");
+      fw.write("defaultItemStyle=submenu\n");
+      fw.write("wrapSelection=true\n");
+      fw.write("items=line_engine,line_editor,line_thanks,back\n");
+      fw.write("item.line_engine.label=JVN Engine Team\n");
+      fw.write("item.line_engine.enabled=false\n");
+      fw.write("item.line_engine.action=noop\n");
+      fw.write("item.line_editor.label=Runtime, Editor, and VNS by JVN contributors\n");
+      fw.write("item.line_editor.enabled=false\n");
+      fw.write("item.line_editor.action=noop\n");
+      fw.write("item.line_thanks.label=Thanks for building with JVN.\n");
+      fw.write("item.line_thanks.enabled=false\n");
+      fw.write("item.line_thanks.action=noop\n");
+      fw.write("item.back.label=Back\n");
+      fw.write("item.back.style=slot\n");
+      fw.write("item.back.action=open_menu\n");
+      fw.write("item.back.target=extras\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_CONFIRM_EXIT_PATH))) {
+      fw.write("# Quit confirmation submenu\n");
+      fw.write("titleText=Exit Game\n");
+      fw.write("hintsText=Enter: Confirm    Esc: Cancel\n");
+      fw.write("layout=submenu\n");
+      fw.write("defaultItemStyle=submenu\n");
+      fw.write("wrapSelection=true\n");
+      fw.write("items=prompt,quit_yes,quit_no\n");
+      fw.write("item.prompt.label=Leave this session?\n");
+      fw.write("item.prompt.enabled=false\n");
+      fw.write("item.prompt.action=noop\n");
+      fw.write("item.quit_yes.label=Yes, Quit\n");
+      fw.write("item.quit_yes.style=slot\n");
+      fw.write("item.quit_yes.action=quit\n");
+      fw.write("item.quit_no.label=No, Return\n");
+      fw.write("item.quit_no.action=main_menu\n");
     }
 
     if (includeSave) {
       try (FileWriter fw = new FileWriter(new File(dir, MENU_LOAD_PATH))) {
-        fw.write("# Load menu presentation profile\n");
-        fw.write("titleText=Load Game\n");
-        fw.write("hintsText=Select: Enter    Back: Esc    Delete: Del    Rename: R\n");
-        fw.write("layout=default\n");
-        fw.write("defaultItemStyle=default\n");
+        fw.write("# Load menu presentation profile (slot template)\n");
+        fw.write("titleText=Load Journey\n");
+        fw.write("hintsText=Enter: Load    Esc: Back    Del: Delete    R: Rename\n");
+        fw.write("layout=slots\n");
+        fw.write("defaultItemStyle=slot\n");
         fw.write("wrapSelection=true\n");
+        fw.write("items=save_slot\n");
+        fw.write("item.save_slot.style=slot\n");
+        fw.write("item.save_slot.action=load_menu\n");
         fw.write("item.save_slot.slotPreviewEnabled=true\n");
+        fw.write("item.save_slot.slotPreviewX=0.63\n");
+        fw.write("item.save_slot.slotPreviewY=0.10\n");
+        fw.write("item.save_slot.slotPreviewWidth=0.33\n");
+        fw.write("item.save_slot.slotPreviewHeight=0.80\n");
         fw.write("# item.save_slot.bgAsset=config/menu/assets/buttons/slot.png\n");
         fw.write("# item.save_slot.bgSelectedAsset=config/menu/assets/buttons/slot_hover.png\n");
         fw.write("# item.save_slot.slotPreviewPlaceholderAsset=config/menu/assets/buttons/slot_empty.png\n");
         fw.write("# item.save_slot.slotPreviewFrameAsset=config/menu/assets/buttons/slot_frame.png\n");
-        fw.write("# item.save_slot.slotPreviewX=0.62\n");
-        fw.write("# item.save_slot.slotPreviewY=0.1\n");
-        fw.write("# item.save_slot.slotPreviewWidth=0.34\n");
-        fw.write("# item.save_slot.slotPreviewHeight=0.8\n");
       }
 
       try (FileWriter fw = new FileWriter(new File(dir, MENU_SAVE_PATH))) {
-        fw.write("# Save menu presentation profile\n");
-        fw.write("titleText=Save Game\n");
-        fw.write("hintsText=Select: Enter    Back: Esc    Delete: Del    Rename: R\n");
-        fw.write("layout=default\n");
-        fw.write("defaultItemStyle=default\n");
+        fw.write("# Save menu presentation profile (new slot + slot template)\n");
+        fw.write("titleText=Save Journey\n");
+        fw.write("hintsText=Enter: Save    Esc: Back    Del: Delete    R: Rename\n");
+        fw.write("layout=slots\n");
+        fw.write("defaultItemStyle=slot\n");
         fw.write("wrapSelection=true\n");
-        fw.write("item.new_slot.label=New Save...\n");
+        fw.write("items=new_slot,save_slot\n");
+        fw.write("item.new_slot.label=Create New Save\n");
+        fw.write("item.new_slot.style=submenu\n");
+        fw.write("item.new_slot.action=save_menu\n");
         fw.write("item.new_slot.slotPreviewEnabled=true\n");
+        fw.write("item.new_slot.slotPreviewX=0.63\n");
+        fw.write("item.new_slot.slotPreviewY=0.10\n");
+        fw.write("item.new_slot.slotPreviewWidth=0.33\n");
+        fw.write("item.new_slot.slotPreviewHeight=0.80\n");
+        fw.write("item.save_slot.style=slot\n");
+        fw.write("item.save_slot.action=save_menu\n");
         fw.write("item.save_slot.slotPreviewEnabled=true\n");
+        fw.write("item.save_slot.slotPreviewX=0.63\n");
+        fw.write("item.save_slot.slotPreviewY=0.10\n");
+        fw.write("item.save_slot.slotPreviewWidth=0.33\n");
+        fw.write("item.save_slot.slotPreviewHeight=0.80\n");
         fw.write("# item.new_slot.bgAsset=config/menu/assets/buttons/new_slot.png\n");
         fw.write("# item.save_slot.bgAsset=config/menu/assets/buttons/slot.png\n");
         fw.write("# item.save_slot.bgSelectedAsset=config/menu/assets/buttons/slot_hover.png\n");
@@ -1668,15 +1871,35 @@ public class NewProjectWizard extends Stage {
       try (FileWriter fw = new FileWriter(new File(dir, MENU_SETTINGS_PATH))) {
         fw.write("# Settings menu profile (keys map to engine settings)\n");
         fw.write("titleText=Settings\n");
-        fw.write("hintsText=Up/Down, Left/Right, Enter    Back: Esc\n");
-        fw.write("layout=default\n");
-        fw.write("defaultItemStyle=default\n");
+        fw.write("hintsText=Up/Down: Select    Left/Right: Adjust    Esc: Back\n");
+        fw.write("layout=submenu\n");
+        fw.write("defaultItemStyle=submenu\n");
         fw.write("wrapSelection=true\n");
         fw.write("items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,skip_after_choices,physics_fixed_step,physics_max_substeps,physics_default_friction,input_profile,back\n");
+        fw.write("item.text_speed.label=Text Speed: {value}\n");
+        fw.write("item.bgm_volume.label=BGM Volume: {value}\n");
+        fw.write("item.sfx_volume.label=SFX Volume: {value}\n");
+        fw.write("item.voice_volume.label=Voice Volume: {value}\n");
+        fw.write("item.auto_play_delay.label=Auto Advance Delay: {value}\n");
+        fw.write("item.skip_unread.label=Skip Unread Text: {value}\n");
+        fw.write("item.skip_after_choices.label=Skip After Choices: {value}\n");
+        fw.write("item.physics_fixed_step.label=Physics Fixed Step: {value}\n");
+        fw.write("item.physics_max_substeps.label=Physics Max Substeps: {value}\n");
+        fw.write("item.physics_default_friction.label=Physics Friction: {value}\n");
+        fw.write("item.input_profile.label=Input Profile: {value}\n");
         fw.write("item.back.label=Back\n");
         fw.write("item.back.action=back\n");
+        fw.write("item.back.style=slot\n");
       }
     }
+  }
+
+  private void writeCardBounds(FileWriter fw, String itemId, double x, double y, double width, double height)
+      throws Exception {
+    fw.write("item." + itemId + ".boundsX=" + String.format(Locale.US, "%.4f", x) + "\n");
+    fw.write("item." + itemId + ".boundsY=" + String.format(Locale.US, "%.4f", y) + "\n");
+    fw.write("item." + itemId + ".boundsWidth=" + String.format(Locale.US, "%.4f", width) + "\n");
+    fw.write("item." + itemId + ".boundsHeight=" + String.format(Locale.US, "%.4f", height) + "\n");
   }
 
   private void createReadme(File dir,
