@@ -35,6 +35,8 @@ public class TimelinePanel extends VBox {
     private double pixelsPerMs = 0.2;
     private double scrollX = 0;
     private double scrollY = 0;
+    private boolean snapEnabled = true;
+    private double snapStepMs = 50;
 
     private String selectedEntity;
     private PropertyType selectedProperty;
@@ -43,6 +45,7 @@ public class TimelinePanel extends VBox {
 
     private Consumer<Keyframe> onKeyframeSelected;
     private Consumer<Double> onPlayheadChanged;
+    private Runnable onEdited;
 
     private boolean draggingPlayhead = false;
     private boolean draggingKeyframe = false;
@@ -84,14 +87,30 @@ public class TimelinePanel extends VBox {
 
     public void setOnKeyframeSelected(Consumer<Keyframe> callback) { this.onKeyframeSelected = callback; }
     public void setOnPlayheadChanged(Consumer<Double> callback) { this.onPlayheadChanged = callback; }
+    public void setOnEdited(Runnable callback) { this.onEdited = callback; }
 
     public void setSelectedEntity(String name) {
         this.selectedEntity = name;
+        if (this.selectedEntity != null && this.selectedProperty == null) {
+            this.selectedProperty = PropertyType.X;
+        }
         render();
     }
 
     public String getSelectedEntity() { return selectedEntity; }
     public PropertyType getSelectedProperty() { return selectedProperty; }
+    public void setSelectedProperty(PropertyType property) {
+        this.selectedProperty = property;
+        render();
+    }
+
+    public boolean isSnapEnabled() { return snapEnabled; }
+    public void setSnapEnabled(boolean enabled) { this.snapEnabled = enabled; render(); }
+    public double getSnapStepMs() { return snapStepMs; }
+    public void setSnapStepMs(double stepMs) {
+        this.snapStepMs = Math.max(1.0, stepMs);
+        render();
+    }
 
     public void setPlayhead(double timeMs) {
         project.setPlayheadMs(timeMs);
@@ -112,12 +131,13 @@ public class TimelinePanel extends VBox {
         if (selectedEntity == null || selectedProperty == null) return;
         EntityTrack track = project.getOrCreateTrack(selectedEntity);
 
-        time = Math.max(0, time);
+        time = clampToTimeline(snapTime(Math.max(0, time)));
         double value = track.getValueAt(selectedProperty, time);
         Keyframe kf = new Keyframe(time, value);
         track.addKeyframe(selectedProperty, kf);
         selectedKeyframe = kf;
         if (onKeyframeSelected != null) onKeyframeSelected.accept(kf);
+        notifyEdited();
         render();
     }
 
@@ -141,10 +161,34 @@ public class TimelinePanel extends VBox {
         }
         selectedKeyframe = null;
         if (onKeyframeSelected != null) onKeyframeSelected.accept(null);
+        notifyEdited();
         render();
     }
 
     public Set<Keyframe> getSelectedKeyframes() { return selectedKeyframes; }
+
+    public void nudgeSelectedKeyframes(double deltaMs) {
+        if (selectedEntity == null) return;
+        EntityTrack track = project.getTrack(selectedEntity);
+        if (track == null) return;
+
+        if (!selectedKeyframes.isEmpty()) {
+            for (PropertyType prop : PropertyType.values()) {
+                for (Keyframe kf : track.getKeyframes(prop)) {
+                    if (!selectedKeyframes.contains(kf)) continue;
+                    double next = clampToTimeline(snapTime(kf.getTimeMs() + deltaMs));
+                    kf.setTimeMs(next);
+                }
+                track.sortKeyframes(prop);
+            }
+        } else if (selectedKeyframe != null && selectedProperty != null) {
+            double next = clampToTimeline(snapTime(selectedKeyframe.getTimeMs() + deltaMs));
+            selectedKeyframe.setTimeMs(next);
+            track.sortKeyframes(selectedProperty);
+        }
+        notifyEdited();
+        render();
+    }
 
     private double computeRequiredHeight() {
         int trackCount = 0;
@@ -216,7 +260,8 @@ public class TimelinePanel extends VBox {
 
             // Property tracks
             for (PropertyType prop : PropertyType.values()) {
-                if (!track.hasKeyframes(prop)) continue;
+                boolean showTrack = track.hasKeyframes(prop) || (isSelected && prop == selectedProperty);
+                if (!showTrack) continue;
 
                 boolean propSelected = isSelected && prop == selectedProperty;
                 gc.setFill(propSelected ? Color.web("#3a3a3a") : Color.web("#151515"));
@@ -393,7 +438,8 @@ public class TimelinePanel extends VBox {
         } else if (draggingKeyframe && selectedKeyframe != null) {
             double dx = e.getX() - dragStartX;
             double dt = dx / pixelsPerMs;
-            selectedKeyframe.setTimeMs(Math.max(0, selectedKeyframe.getTimeMs() + dt));
+            double next = clampToTimeline(snapTime(selectedKeyframe.getTimeMs() + dt));
+            selectedKeyframe.setTimeMs(next);
             dragStartX = e.getX();
             render();
         }
@@ -404,6 +450,7 @@ public class TimelinePanel extends VBox {
         if (draggingKeyframe && selectedEntity != null && selectedProperty != null) {
             EntityTrack track = project.getTrack(selectedEntity);
             if (track != null) track.sortKeyframes(selectedProperty);
+            notifyEdited();
         }
         draggingPlayhead = false;
         draggingKeyframe = false;
@@ -435,8 +482,7 @@ public class TimelinePanel extends VBox {
     }
 
     private void updatePlayheadFromX(double x) {
-        double time = (x - LABEL_WIDTH + scrollX) / pixelsPerMs;
-        time = Math.max(0, Math.min(project.getTotalDurationMs(), time));
+        double time = clampToTimeline(snapTime((x - LABEL_WIDTH + scrollX) / pixelsPerMs));
         project.setPlayheadMs(time);
         if (onPlayheadChanged != null) onPlayheadChanged.accept(time);
         render();
@@ -492,5 +538,18 @@ public class TimelinePanel extends VBox {
                 y += TRACK_HEIGHT;
             }
         }
+    }
+
+    private double snapTime(double timeMs) {
+        if (!snapEnabled || snapStepMs <= 0) return timeMs;
+        return Math.round(timeMs / snapStepMs) * snapStepMs;
+    }
+
+    private double clampToTimeline(double timeMs) {
+        return Math.max(0.0, Math.min(project.getTotalDurationMs(), timeMs));
+    }
+
+    private void notifyEdited() {
+        if (onEdited != null) onEdited.run();
     }
 }

@@ -5,6 +5,9 @@ import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.Label2D;
 import com.jvn.core.scene2d.Panel2D;
 import com.jvn.core.scene2d.Sprite2D;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Applies a {@link TimelineData} to a live scene via {@link SceneAccessor}.
@@ -12,15 +15,19 @@ import com.jvn.core.scene2d.Sprite2D;
  * Query {@link #isFinished()} to know when the animation is complete.
  */
 public class TimelineRunner {
+    private static final double EPS = 1e-6;
 
     private final TimelineData timeline;
     private final SceneAccessor scene;
+    private final List<TimelineData.AudioCue> sortedAudioCues;
     private double elapsedMs = 0;
     private boolean finished = false;
 
     public TimelineRunner(TimelineData timeline, SceneAccessor scene) {
         this.timeline = timeline;
         this.scene = scene;
+        this.sortedAudioCues = new ArrayList<>(timeline.getAudioCues());
+        this.sortedAudioCues.sort(Comparator.comparingDouble(TimelineData.AudioCue::getTimeMs));
     }
 
     public TimelineData getTimeline() { return timeline; }
@@ -34,17 +41,32 @@ public class TimelineRunner {
     public void update(long deltaMs) {
         if (finished) return;
 
-        elapsedMs += deltaMs;
+        double duration = Math.max(0.0, timeline.getDurationMs());
+        double safeDelta = Math.max(0L, deltaMs);
+        if (safeDelta <= 0.0) {
+            applyFrame(elapsedMs);
+            return;
+        }
+        double prevElapsed = elapsedMs;
+        double nextElapsed = prevElapsed + safeDelta;
 
-        if (elapsedMs >= timeline.getDurationMs()) {
-            if (timeline.isLooping()) {
-                elapsedMs = elapsedMs % timeline.getDurationMs();
-            } else {
-                elapsedMs = timeline.getDurationMs();
-                finished = true;
-            }
+        if (duration <= EPS) {
+            triggerAudioInterval(prevElapsed, nextElapsed, 1.0, timeline.isLooping());
+            elapsedMs = 0.0;
+            if (!timeline.isLooping()) finished = true;
+            applyFrame(elapsedMs);
+            return;
         }
 
+        if (timeline.isLooping()) {
+            triggerAudioInterval(prevElapsed, nextElapsed, duration, true);
+            elapsedMs = nextElapsed % duration;
+        } else {
+            double clampedNext = Math.min(nextElapsed, duration);
+            triggerAudioInterval(prevElapsed, clampedNext, duration, false);
+            elapsedMs = clampedNext;
+            if (nextElapsed >= duration - EPS) finished = true;
+        }
         applyFrame(elapsedMs);
     }
 
@@ -53,6 +75,16 @@ public class TimelineRunner {
      */
     public void applyFrame(double timeMs) {
         for (TimelineData.Track track : timeline.getTracks()) {
+            if (track.hasKeyframes(TimelineData.Property.CAMERA_X)) {
+                scene.setCameraX(track.getValueAt(TimelineData.Property.CAMERA_X, timeMs));
+            }
+            if (track.hasKeyframes(TimelineData.Property.CAMERA_Y)) {
+                scene.setCameraY(track.getValueAt(TimelineData.Property.CAMERA_Y, timeMs));
+            }
+            if (track.hasKeyframes(TimelineData.Property.CAMERA_ZOOM)) {
+                scene.setCameraZoom(track.getValueAt(TimelineData.Property.CAMERA_ZOOM, timeMs));
+            }
+
             Entity2D entity = scene.findEntity(track.getEntityName());
             if (entity == null) continue;
 
@@ -87,6 +119,42 @@ public class TimelineRunner {
                 double alpha = track.getValueAt(TimelineData.Property.ALPHA, timeMs);
                 applyAlpha(entity, alpha);
             }
+        }
+    }
+
+    private void triggerAudioInterval(double startAbs, double endAbs, double duration, boolean looping) {
+        if (sortedAudioCues.isEmpty() || endAbs + EPS < startAbs) return;
+
+        if (!looping) {
+            triggerAudioWindow(startAbs, endAbs, startAbs <= EPS);
+            return;
+        }
+
+        long startCycle = (long) Math.floor(startAbs / duration);
+        long endCycle = (long) Math.floor(endAbs / duration);
+        for (long cycle = startCycle; cycle <= endCycle; cycle++) {
+            double cycleBase = cycle * duration;
+            double localStart = (cycle == startCycle) ? (startAbs - cycleBase) : 0.0;
+            double localEnd = (cycle == endCycle) ? (endAbs - cycleBase) : duration;
+            triggerAudioWindow(localStart, localEnd, localStart <= EPS);
+        }
+    }
+
+    private void triggerAudioWindow(double localStart, double localEnd, boolean includeStart) {
+        for (TimelineData.AudioCue cue : sortedAudioCues) {
+            if (cue == null || cue.getTrackPath().isBlank()) continue;
+            double t = cue.getTimeMs();
+            boolean inWindow = includeStart
+                ? (t + EPS >= localStart && t <= localEnd + EPS)
+                : (t > localStart + EPS && t <= localEnd + EPS);
+            if (!inWindow) continue;
+            scene.playAudioCue(
+                cue.getTrackPath(),
+                cue.getChannel(),
+                cue.getVolume(),
+                cue.isLoop(),
+                cue.getFadeInMs()
+            );
         }
     }
 

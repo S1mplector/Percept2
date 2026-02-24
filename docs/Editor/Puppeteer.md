@@ -173,8 +173,8 @@ EditorApp.buildSceneFromSnapshot()
                 │
                 ▼
         VNS: @external jes_timeline <name>
-        (TimelineRunner applies keyframes
-         to VnState entities via SceneAccessor)
+        (TimelineRunner applies entity/camera
+         keyframes + audio cues via SceneAccessor)
 ```
 
 ### Key Classes
@@ -304,8 +304,11 @@ There are two ways to open Puppeteer:
    - Time (ms) — when this keyframe occurs
    - Value — the property value at this time
    - Easing — interpolation curve (LINEAR, EASE_IN, EASE_OUT, EASE_IN_OUT, BOUNCE, ELASTIC)
+   - Property Target — choose the active property track from the toolbar (X/Y/rotation/scale/alpha/camera)
 5. **Drag entities** — click and drag in the viewport to reposition; this auto-creates X/Y keyframes at the playhead
 6. **Apply presets** — use the Presets dropdown for common animations (Fade In, Slide From Left, Shake, etc.)
+7. **Snap timing** — enable **Snap** and set step in milliseconds for deterministic keyframe timing
+8. **Add audio cues** — use **+ Cue** to place `playAudio` events at the current playhead
 
 ### Keyboard Shortcuts
 
@@ -320,6 +323,8 @@ There are two ways to open Puppeteer:
 | `Cmd+Z` | Undo |
 | `Cmd+Shift+Z` | Redo |
 | `Cmd+O` | Toggle onion skinning |
+| `Alt+Left` | Nudge selected keyframe(s) backward by snap step |
+| `Alt+Right` | Nudge selected keyframe(s) forward by snap step |
 | Middle-drag / Right-drag | Pan viewport |
 | Scroll wheel | Zoom viewport |
 
@@ -336,6 +341,10 @@ After creating an animation in Puppeteer:
 ```
 
 Alternatively, click **Copy Code** to get the raw JES timeline code for embedding directly in a `.jes` file.
+
+Note:
+- Camera keyframes and audio cues are exported to `scripts/timelines/<name>.jes`.
+- Runtime registry playback (`@external jes_timeline`) now applies entity transforms, camera keyframes, and timeline audio cues.
 
 ### Understanding the Generated Code
 

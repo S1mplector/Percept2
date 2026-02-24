@@ -15,8 +15,13 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
@@ -56,6 +61,9 @@ public class PuppeteerWindow extends Stage {
     private final TextField tfDuration;
     private final CheckBox cbLoop;
     private final Label lblTime;
+    private ComboBox<PropertyType> cbProperty;
+    private CheckBox cbSnap;
+    private TextField tfSnapMs;
 
     private AnimationTimer playbackTimer;
     private long lastNanos = 0;
@@ -63,6 +71,7 @@ public class PuppeteerWindow extends Stage {
     private final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
     private Consumer<String> onCopyCode;
     private final TextField tfTimelineName;
+    private boolean dirty = false;
 
     public PuppeteerWindow() {
         this(new AnimationProject());
@@ -86,6 +95,7 @@ public class PuppeteerWindow extends Stage {
 
         entitySelector.setOnEntitySelected(name -> {
             timelinePanel.setSelectedEntity(name);
+            keyframeEditor.setEntityName(name);
         });
 
         entitySelector.setOnCreateGroup(groupName -> {
@@ -98,7 +108,7 @@ public class PuppeteerWindow extends Stage {
             entitySelector.refresh(this.project);
             timelinePanel.refresh();
             updatePreview();
-            codePreview.setCode(CodeExporter.export(this.project));
+            refreshExportPreviewAndMarkDirty();
         });
 
         entitySelector.setOnEntityLayerDelta((entityName, delta) -> {
@@ -106,7 +116,7 @@ public class PuppeteerWindow extends Stage {
             if (track == null) return;
             track.setLayerOrder(track.getLayerOrder() + delta);
             updatePreview();
-            codePreview.setCode(CodeExporter.export(this.project));
+            refreshExportPreviewAndMarkDirty();
         });
 
         entitySelector.setOnGroupLayerDelta((groupName, delta) -> {
@@ -114,23 +124,28 @@ public class PuppeteerWindow extends Stage {
             if (group == null) return;
             group.setLayerOrder(group.getLayerOrder() + delta);
             updatePreview();
-            codePreview.setCode(CodeExporter.export(this.project));
+            refreshExportPreviewAndMarkDirty();
         });
 
         timelinePanel.setOnKeyframeSelected(kf -> {
             keyframeEditor.setKeyframe(kf, timelinePanel.getSelectedProperty());
+            keyframeEditor.setEntityName(timelinePanel.getSelectedEntity());
+            PropertyType selectedProp = timelinePanel.getSelectedProperty();
+            if (selectedProp != null && cbProperty.getValue() != selectedProp) {
+                cbProperty.setValue(selectedProp);
+            }
         });
 
         timelinePanel.setOnPlayheadChanged(time -> {
             this.project.setPlayheadMs(time);
             updateTimeLabel();
             updatePreview();
-            codePreview.setCode(CodeExporter.export(this.project));
         });
+        timelinePanel.setOnEdited(this::refreshExportPreviewAndMarkDirty);
 
         keyframeEditor.setOnKeyframeChanged(() -> {
             timelinePanel.refresh();
-            codePreview.setCode(CodeExporter.export(this.project));
+            refreshExportPreviewAndMarkDirty();
         });
 
         keyframeEditor.setOnDeleteRequested(() -> {
@@ -144,11 +159,12 @@ public class PuppeteerWindow extends Stage {
                 }
             }
             timelinePanel.refresh();
-            codePreview.setCode(CodeExporter.export(this.project));
+            refreshExportPreviewAndMarkDirty();
         });
 
         animationPreview.setOnEntitySelected(name -> {
             timelinePanel.setSelectedEntity(name);
+            keyframeEditor.setEntityName(name);
             entitySelector.refresh(this.project);
         });
 
@@ -158,7 +174,7 @@ public class PuppeteerWindow extends Stage {
             track.addKeyframe(PropertyType.X, new Keyframe(time, pos[0]));
             track.addKeyframe(PropertyType.Y, new Keyframe(time, pos[1]));
             timelinePanel.refresh();
-            codePreview.setCode(CodeExporter.export(this.project));
+            refreshExportPreviewAndMarkDirty();
         });
 
         animationPreview.setOnEntityPivotChanged((name, pivot) -> {
@@ -167,7 +183,7 @@ public class PuppeteerWindow extends Stage {
             track.addKeyframe(PropertyType.PIVOT_X, new Keyframe(time, pivot[0]));
             track.addKeyframe(PropertyType.PIVOT_Y, new Keyframe(time, pivot[1]));
             timelinePanel.refresh();
-            codePreview.setCode(CodeExporter.export(this.project));
+            refreshExportPreviewAndMarkDirty();
         });
 
         codePreview.setOnCopy(() -> {
@@ -177,7 +193,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         codePreview.setOnRegenerate(() -> {
-            codePreview.setCode(CodeExporter.export(project));
+            refreshExportPreview();
         });
 
         // --- Transport controls ---
@@ -206,6 +222,7 @@ public class PuppeteerWindow extends Stage {
                 double dur = Double.parseDouble(tfDuration.getText());
                 this.project.setTotalDurationMs(dur);
                 timelinePanel.refresh();
+                refreshExportPreviewAndMarkDirty();
             } catch (NumberFormatException ignored) {}
         });
 
@@ -214,12 +231,16 @@ public class PuppeteerWindow extends Stage {
             this.project.fitDurationToContent();
             tfDuration.setText(String.valueOf((int) this.project.getTotalDurationMs()));
             timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
         });
 
         cbLoop = new CheckBox("Loop");
         cbLoop.setSelected(this.project.isLooping());
         cbLoop.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
-        cbLoop.setOnAction(e -> this.project.setLooping(cbLoop.isSelected()));
+        cbLoop.setOnAction(e -> {
+            this.project.setLooping(cbLoop.isSelected());
+            refreshExportPreviewAndMarkDirty();
+        });
 
         Label durLabel = makeToolbarLabel("Duration");
         Label msLabel = makeToolbarLabel("ms");
@@ -230,6 +251,60 @@ public class PuppeteerWindow extends Stage {
         MenuButton presetMenu = buildPresetMenu();
         presetMenu.setStyle(STYLE_BTN_DARK);
         presetMenu.setTooltip(new Tooltip("Apply animation preset to selected entity"));
+
+        // --- Property target + snapping ---
+        cbProperty = new ComboBox<>();
+        cbProperty.getItems().addAll(PropertyType.values());
+        cbProperty.setValue(PropertyType.X);
+        cbProperty.setStyle(STYLE_TEXT_FIELD);
+        cbProperty.setPrefWidth(130);
+        cbProperty.setTooltip(new Tooltip("Active property track for add-keyframe and keyboard nudging"));
+        cbProperty.setOnAction(e -> timelinePanel.setSelectedProperty(cbProperty.getValue()));
+        timelinePanel.setSelectedProperty(PropertyType.X);
+
+        Label propertyLabel = makeToolbarLabel("Property");
+        HBox propertyBox = new HBox(4, propertyLabel, cbProperty);
+        propertyBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+        cbSnap = new CheckBox("Snap");
+        cbSnap.setSelected(timelinePanel.isSnapEnabled());
+        cbSnap.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+        cbSnap.setOnAction(e -> timelinePanel.setSnapEnabled(cbSnap.isSelected()));
+
+        tfSnapMs = new TextField("50");
+        tfSnapMs.setPrefWidth(56);
+        tfSnapMs.setStyle(STYLE_TEXT_FIELD);
+        tfSnapMs.setTooltip(new Tooltip("Snap step in milliseconds"));
+        tfSnapMs.setOnAction(e -> applySnapStepFromField());
+        tfSnapMs.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) applySnapStepFromField();
+        });
+
+        Label snapMsLabel = makeToolbarLabel("ms");
+        HBox snapBox = new HBox(4, cbSnap, tfSnapMs, snapMsLabel);
+        snapBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+        // --- Audio cues ---
+        Button btnAddCue = makeToolbarButton("+ Cue", "Add audio cue at playhead", STYLE_BTN_DARK);
+        btnAddCue.setOnAction(e -> showAddAudioCueDialog());
+        Button btnClearCues = makeToolbarButton("Clear Cues", "Remove all timeline audio cues", STYLE_BTN_DARK);
+        btnClearCues.setOnAction(e -> {
+            if (project.getAudioCues().isEmpty()) return;
+            Alert a = new Alert(Alert.AlertType.CONFIRMATION);
+            EditorTheme.apply(a);
+            a.setTitle("Clear Audio Cues");
+            a.setHeaderText("Remove all audio cues from this animation?");
+            a.setContentText("This cannot be undone from the cue panel.");
+            a.showAndWait().ifPresent(bt -> {
+                if (bt == ButtonType.OK) {
+                    project.clearAudioCues();
+                    timelinePanel.refresh();
+                    refreshExportPreviewAndMarkDirty();
+                }
+            });
+        });
+        HBox cueBox = new HBox(4, btnAddCue, btnClearCues);
+        cueBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         // --- Timeline name + Register ---
         tfTimelineName = new TextField("my_animation");
@@ -252,6 +327,12 @@ public class PuppeteerWindow extends Stage {
             durationBox,
             makeVSep(),
             presetMenu,
+            makeVSep(),
+            propertyBox,
+            makeVSep(),
+            snapBox,
+            makeVSep(),
+            cueBox,
             makeVSep(),
             nameBox
         );
@@ -307,8 +388,17 @@ public class PuppeteerWindow extends Stage {
 
         setupKeyboardShortcuts(fxScene);
         setupPlaybackTimer();
+        tfTimelineName.textProperty().addListener((obs, ov, nv) -> setDirty(dirty));
+        setDirty(false);
+        setOnCloseRequest(e -> {
+            if (!confirmCloseIfDirty()) {
+                e.consume();
+                return;
+            }
+            if (playbackTimer != null) playbackTimer.stop();
+        });
 
-        codePreview.setCode(CodeExporter.export(this.project));
+        refreshExportPreview();
     }
 
     private void applyLinuxDefaultWindowState() {
@@ -339,7 +429,7 @@ public class PuppeteerWindow extends Stage {
             entitySelector.refresh(project);
             timelinePanel.refresh();
             updatePreview();
-            codePreview.setCode(CodeExporter.export(this.project));
+            refreshExportPreview();
         }
     }
 
@@ -400,7 +490,7 @@ public class PuppeteerWindow extends Stage {
         entitySelector.refresh(project);
         timelinePanel.refresh();
         animationPreview.render();
-        codePreview.setCode(CodeExporter.export(project));
+        refreshExportPreviewAndMarkDirty();
     }
 
     public AnimationProject getProject() { return project; }
@@ -567,11 +657,17 @@ public class PuppeteerWindow extends Stage {
         );
         scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.K),
-            () -> timelinePanel.addKeyframeAtPlayhead()
+            () -> {
+                timelinePanel.addKeyframeAtPlayhead();
+                refreshExportPreviewAndMarkDirty();
+            }
         );
         scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.DELETE),
-            () -> timelinePanel.deleteSelectedKeyframe()
+            () -> {
+                timelinePanel.deleteSelectedKeyframe();
+                refreshExportPreviewAndMarkDirty();
+            }
         );
         scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN),
@@ -585,7 +681,7 @@ public class PuppeteerWindow extends Stage {
             () -> {
                 commandStack.undo();
                 timelinePanel.refresh();
-                codePreview.setCode(CodeExporter.export(project));
+                refreshExportPreviewAndMarkDirty();
             }
         );
         scene.getAccelerators().put(
@@ -593,12 +689,26 @@ public class PuppeteerWindow extends Stage {
             () -> {
                 commandStack.redo();
                 timelinePanel.refresh();
-                codePreview.setCode(CodeExporter.export(project));
+                refreshExportPreviewAndMarkDirty();
             }
         );
         scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN),
             () -> animationPreview.setOnionSkinning(!animationPreview.isOnionSkinning())
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.LEFT, KeyCombination.ALT_DOWN),
+            () -> {
+                timelinePanel.nudgeSelectedKeyframes(-timelinePanel.getSnapStepMs());
+                refreshExportPreviewAndMarkDirty();
+            }
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.ALT_DOWN),
+            () -> {
+                timelinePanel.nudgeSelectedKeyframes(timelinePanel.getSnapStepMs());
+                refreshExportPreviewAndMarkDirty();
+            }
         );
     }
 
@@ -626,7 +736,106 @@ public class PuppeteerWindow extends Stage {
         double startTime = project.getPlayheadMs();
         commandStack.execute(PuppeteerCommand.applyPreset(track, preset, startTime));
         timelinePanel.refresh();
+        refreshExportPreviewAndMarkDirty();
+    }
+
+    private void refreshExportPreview() {
         codePreview.setCode(CodeExporter.export(project));
+    }
+
+    private void refreshExportPreviewAndMarkDirty() {
+        refreshExportPreview();
+        setDirty(true);
+    }
+
+    private void setDirty(boolean value) {
+        dirty = value;
+        String timelineName = tfTimelineName != null ? tfTimelineName.getText().trim() : "";
+        if (timelineName.isBlank()) timelineName = project.getName();
+        if (timelineName == null || timelineName.isBlank()) timelineName = "Untitled Animation";
+        setTitle("Puppeteer - " + timelineName + (dirty ? " *" : ""));
+    }
+
+    private void applySnapStepFromField() {
+        try {
+            double step = Double.parseDouble(tfSnapMs.getText().trim());
+            timelinePanel.setSnapStepMs(step);
+            tfSnapMs.setText(String.format("%.0f", timelinePanel.getSnapStepMs()));
+        } catch (Exception ex) {
+            tfSnapMs.setText(String.format("%.0f", timelinePanel.getSnapStepMs()));
+        }
+    }
+
+    private void showAddAudioCueDialog() {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        EditorTheme.apply(dialog);
+        dialog.setTitle("Add Audio Cue");
+        dialog.setHeaderText("Create an audio trigger at playhead " + String.format("%.0fms", project.getPlayheadMs()));
+
+        ButtonType addType = new ButtonType("Add Cue", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().setAll(addType, ButtonType.CANCEL);
+
+        TextField tfPath = new TextField();
+        tfPath.setPromptText("assets/audio/music/softbreeze.mp3");
+        tfPath.setStyle(STYLE_TEXT_FIELD);
+
+        ComboBox<String> cbChannel = new ComboBox<>();
+        cbChannel.getItems().addAll("music", "sound", "voice");
+        cbChannel.setValue("music");
+        cbChannel.setStyle(STYLE_TEXT_FIELD);
+
+        javafx.scene.control.Slider volume = new javafx.scene.control.Slider(0.0, 1.0, 1.0);
+        volume.setBlockIncrement(0.05);
+        volume.setMajorTickUnit(0.25);
+        volume.setMinorTickCount(4);
+        volume.setShowTickMarks(false);
+        volume.setShowTickLabels(false);
+
+        Label volumeLabel = new Label("1.00");
+        volumeLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+        volume.valueProperty().addListener((obs, ov, nv) -> volumeLabel.setText(String.format("%.2f", nv.doubleValue())));
+
+        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+        grid.setHgap(8);
+        grid.setVgap(8);
+        grid.setPadding(new Insets(8, 8, 4, 8));
+        Label lPath = makeToolbarLabel("Path");
+        Label lChannel = makeToolbarLabel("Channel");
+        Label lVolume = makeToolbarLabel("Volume");
+        grid.add(lPath, 0, 0);
+        grid.add(tfPath, 1, 0);
+        grid.add(lChannel, 0, 1);
+        grid.add(cbChannel, 1, 1);
+        grid.add(lVolume, 0, 2);
+        grid.add(new HBox(8, volume, volumeLabel), 1, 2);
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.showAndWait().ifPresent(bt -> {
+            if (bt != addType) return;
+            String path = tfPath.getText() != null ? tfPath.getText().trim() : "";
+            if (path.isBlank()) return;
+            AudioCue cue = new AudioCue(project.getPlayheadMs(), path, cbChannel.getValue());
+            cue.setVolume(volume.getValue());
+            project.addAudioCue(cue);
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
+        });
+    }
+
+    private boolean confirmCloseIfDirty() {
+        if (!dirty) return true;
+        ButtonType save = new ButtonType("Save & Register", ButtonBar.ButtonData.YES);
+        ButtonType discard = new ButtonType("Discard", ButtonBar.ButtonData.NO);
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        EditorTheme.apply(alert);
+        alert.setTitle("Unsaved Animation");
+        alert.setHeaderText("Save animation changes before closing Puppeteer?");
+        alert.setContentText("Choose Save & Register to persist and register this timeline for runtime use.");
+        alert.getButtonTypes().setAll(save, discard, ButtonType.CANCEL);
+        var result = alert.showAndWait();
+        if (result.isEmpty() || result.get() == ButtonType.CANCEL) return false;
+        if (result.get() == discard) return true;
+        return registerTimeline();
     }
 
     public PuppeteerCommand.Stack getCommandStack() { return commandStack; }
@@ -675,15 +884,17 @@ public class PuppeteerWindow extends Stage {
         return sep;
     }
 
-    private void registerTimeline() {
+    private boolean registerTimeline() {
         String name = tfTimelineName.getText().trim();
-        if (name.isEmpty()) return;
+        if (name.isEmpty()) return false;
         TimelineData data = project.toTimelineData(name);
         TimelineRegistry.register(data);
         String code = CodeExporter.exportNamed(project, name);
         codePreview.setCode(code);
         saveTimelineFile(name, code);
+        setDirty(false);
         setTitle("Puppeteer - " + name + " (saved & registered)");
+        return true;
     }
 
     private void saveTimelineFile(String name, String jesCode) {

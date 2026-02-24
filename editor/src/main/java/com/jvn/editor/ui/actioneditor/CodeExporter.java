@@ -132,6 +132,7 @@ public class CodeExporter {
 
     private static List<TimelineEvent> collectEvents(AnimationProject project) {
         List<TimelineEvent> events = new ArrayList<>();
+        EntityTrack cameraTrack = null;
 
         for (EntityTrack track : project.getTracks()) {
             String entity = track.getEntityName();
@@ -141,6 +142,13 @@ public class CodeExporter {
             collectPropertyEvents(events, entity, track, PropertyType.ROTATION, null, "rotate");
             collectPropertyEvents(events, entity, track, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale");
             collectPropertyEvents(events, entity, track, PropertyType.ALPHA, null, "fade");
+
+            if (cameraTrack == null &&
+                (track.hasKeyframes(PropertyType.CAMERA_X)
+                    || track.hasKeyframes(PropertyType.CAMERA_Y)
+                    || track.hasKeyframes(PropertyType.CAMERA_ZOOM))) {
+                cameraTrack = track;
+            }
         }
 
         for (EntityGroup group : project.getGroups()) {
@@ -151,6 +159,25 @@ public class CodeExporter {
             collectPropertyEvents(events, groupName, gt, PropertyType.ROTATION, null, "rotate");
         }
 
+        if (cameraTrack != null) {
+            collectPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_X, PropertyType.CAMERA_Y, "cameraMove");
+            collectPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_ZOOM, null, "cameraZoom");
+        }
+
+        for (AudioCue cue : project.getAudioCues()) {
+            if (cue == null || cue.getAudioFile() == null || cue.getAudioFile().isBlank()) continue;
+            TimelineEvent ev = new TimelineEvent();
+            ev.actionType = "playAudio";
+            ev.target = cue.getAudioFile().trim();
+            ev.startTime = Math.max(0, cue.getTimeMs());
+            ev.duration = 0;
+            ev.props.put("volume", cue.getVolume());
+            boolean isMusic = "music".equalsIgnoreCase(cue.getChannel());
+            ev.props.put("loop", isMusic);
+            ev.props.put("bgm", isMusic);
+            events.add(ev);
+        }
+
         return events;
     }
 
@@ -159,8 +186,10 @@ public class CodeExporter {
                                                String actionType) {
         List<Keyframe> list1 = track.getKeyframes(p1);
         List<Keyframe> list2 = p2 != null ? track.getKeyframes(p2) : null;
+        boolean hasP1 = !list1.isEmpty();
+        boolean hasP2 = p2 != null && list2 != null && !list2.isEmpty();
 
-        if (list1.isEmpty() && (list2 == null || list2.isEmpty())) return;
+        if (!hasP1 && !hasP2) return;
 
         List<Double> times = collectUniqueTimes(list1, list2);
 
@@ -178,8 +207,8 @@ public class CodeExporter {
             if (easing == null && list2 != null) easing = findEasingAt(list2, endTime);
             if (easing == null) easing = Easing.Type.LINEAR;
 
-            boolean changed = Math.abs(endVal1 - startVal1) > 0.001 ||
-                             (p2 != null && Math.abs(endVal2 - startVal2) > 0.001);
+            boolean changed = (hasP1 && Math.abs(endVal1 - startVal1) > 0.001) ||
+                             (hasP2 && Math.abs(endVal2 - startVal2) > 0.001);
             if (!changed) continue;
 
             Keyframe endKf = findKeyframeAt(list1, endTime);
@@ -197,19 +226,30 @@ public class CodeExporter {
 
             switch (actionType) {
                 case "move" -> {
-                    ev.props.put("x", endVal1);
-                    if (p2 != null) ev.props.put("y", endVal2);
+                    if (hasP1) ev.props.put("x", endVal1);
+                    if (hasP2) ev.props.put("y", endVal2);
                 }
                 case "pivot" -> {
-                    ev.props.put("ox", endVal1);
-                    if (p2 != null) ev.props.put("oy", endVal2);
+                    if (hasP1) ev.props.put("ox", endVal1);
+                    if (hasP2) ev.props.put("oy", endVal2);
                 }
-                case "rotate" -> ev.props.put("deg", endVal1);
+                case "rotate" -> {
+                    if (hasP1) ev.props.put("deg", endVal1);
+                }
                 case "scale" -> {
-                    ev.props.put("sx", endVal1);
-                    if (p2 != null) ev.props.put("sy", endVal2);
+                    if (hasP1) ev.props.put("sx", endVal1);
+                    if (hasP2) ev.props.put("sy", endVal2);
                 }
-                case "fade" -> ev.props.put("alpha", endVal1);
+                case "fade" -> {
+                    if (hasP1) ev.props.put("alpha", endVal1);
+                }
+                case "cameraMove" -> {
+                    if (hasP1) ev.props.put("x", endVal1);
+                    if (hasP2) ev.props.put("y", endVal2);
+                }
+                case "cameraZoom" -> {
+                    if (hasP1) ev.props.put("zoom", endVal1);
+                }
             }
 
             events.add(ev);
@@ -232,14 +272,20 @@ public class CodeExporter {
 
     private static String formatEvent(TimelineEvent ev) {
         StringBuilder sb = new StringBuilder();
-        sb.append("  ").append(ev.actionType).append(" \"").append(ev.target).append("\" {\n");
-
-        for (Map.Entry<String, Double> entry : ev.props.entrySet()) {
-            sb.append("    ").append(entry.getKey()).append(": ")
-              .append(formatNumber(entry.getValue())).append("\n");
+        if ("cameraMove".equals(ev.actionType) || "cameraZoom".equals(ev.actionType)) {
+            sb.append("  ").append(ev.actionType).append(" {\n");
+        } else {
+            sb.append("  ").append(ev.actionType).append(" \"").append(ev.target).append("\" {\n");
         }
 
-        sb.append("    dur: ").append(formatNumber(ev.duration)).append("\n");
+        for (Map.Entry<String, Object> entry : ev.props.entrySet()) {
+            sb.append("    ").append(entry.getKey()).append(": ")
+              .append(formatPropValue(entry.getValue())).append("\n");
+        }
+
+        if (ev.duration > 0.0 && !"playAudio".equals(ev.actionType)) {
+            sb.append("    dur: ").append(formatNumber(ev.duration)).append("\n");
+        }
 
         if (ev.easing == Easing.Type.CUSTOM && ev.bezierParams != null) {
             sb.append(String.format("    easing: cubic_bezier(%.2f, %.2f, %.2f, %.2f)\n",
@@ -257,6 +303,14 @@ public class CodeExporter {
             return Long.toString(Math.round(v));
         }
         return String.format("%.2f", v).replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
+    private static String formatPropValue(Object value) {
+        if (value instanceof Number n) return formatNumber(n.doubleValue());
+        if (value instanceof Boolean b) return b ? "true" : "false";
+        if (value == null) return "\"\"";
+        String text = value.toString().replace("\\", "\\\\").replace("\"", "\\\"");
+        return "\"" + text + "\"";
     }
 
     public static String exportIncremental(AnimationProject project) {
@@ -277,11 +331,11 @@ public class CodeExporter {
             Map<PropertyType, Double> initial = snapshot.get(ev.target);
             if (initial == null) { changed = true; }
             else {
-                for (Map.Entry<String, Double> prop : ev.props.entrySet()) {
+                for (Map.Entry<String, Object> prop : ev.props.entrySet()) {
                     PropertyType pt = findPropertyByCode(prop.getKey());
-                    if (pt != null) {
+                    if (pt != null && prop.getValue() instanceof Number n) {
                         Double initVal = initial.get(pt);
-                        if (initVal == null || Math.abs(initVal - prop.getValue()) > 0.001) {
+                        if (initVal == null || Math.abs(initVal - n.doubleValue()) > 0.001) {
                             changed = true;
                             break;
                         }
@@ -369,6 +423,6 @@ public class CodeExporter {
         double duration;
         Easing.Type easing;
         double[] bezierParams; // cx1,cy1,cx2,cy2 — only used when easing==CUSTOM
-        Map<String, Double> props = new java.util.LinkedHashMap<>();
+        Map<String, Object> props = new java.util.LinkedHashMap<>();
     }
 }

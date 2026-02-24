@@ -68,6 +68,7 @@ public class AnimationProject {
         }
     }
     public void removeAudioCue(AudioCue cue) { audioCues.remove(cue); }
+    public void clearAudioCues() { audioCues.clear(); }
 
     public void captureInitialSnapshot() {
         initialSnapshot = new LinkedHashMap<>();
@@ -295,6 +296,9 @@ public class AnimationProject {
         for (EntityGroup g : groups.values()) {
             copy.groups.put(g.getName(), g.copy());
         }
+        for (AudioCue cue : audioCues) {
+            copy.audioCues.add(cue.copy());
+        }
         copy.rootEntityNames.addAll(rootEntityNames);
         copy.rootGroupNames.addAll(rootGroupNames);
         return copy;
@@ -339,6 +343,17 @@ public class AnimationProject {
 
             if (hasData) data.addTrack(track);
         }
+        for (AudioCue cue : audioCues) {
+            if (cue == null || cue.getAudioFile() == null || cue.getAudioFile().isBlank()) continue;
+            data.addAudioCue(new TimelineData.AudioCue(
+                cue.getTimeMs(),
+                cue.getAudioFile(),
+                cue.getChannel(),
+                cue.getVolume(),
+                "music".equalsIgnoreCase(cue.getChannel()),
+                cue.isFadeIn() ? cue.getFadeDurationMs() : 0.0
+            ));
+        }
         return data;
     }
 
@@ -352,7 +367,9 @@ public class AnimationProject {
             case SCALE_X -> TimelineData.Property.SCALE_X;
             case SCALE_Y -> TimelineData.Property.SCALE_Y;
             case ALPHA -> TimelineData.Property.ALPHA;
-            case CAMERA_X, CAMERA_Y, CAMERA_ZOOM -> null;
+            case CAMERA_X -> TimelineData.Property.CAMERA_X;
+            case CAMERA_Y -> TimelineData.Property.CAMERA_Y;
+            case CAMERA_ZOOM -> TimelineData.Property.CAMERA_ZOOM;
         };
     }
 }

@@ -15,7 +15,46 @@ import java.util.Map;
 public class TimelineData {
 
     public enum Property {
-        X, Y, Z, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, ALPHA
+        X, Y, Z, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, ALPHA,
+        CAMERA_X, CAMERA_Y, CAMERA_ZOOM
+    }
+
+    public static class AudioCue {
+        private final double timeMs;
+        private final String trackPath;
+        private final String channel;
+        private final double volume;
+        private final boolean loop;
+        private final double fadeInMs;
+
+        public AudioCue(
+            double timeMs,
+            String trackPath,
+            String channel,
+            double volume,
+            boolean loop,
+            double fadeInMs
+        ) {
+            this.timeMs = Math.max(0.0, timeMs);
+            this.trackPath = trackPath == null ? "" : trackPath.trim();
+            this.channel = channel == null ? "sound" : channel.trim();
+            this.volume = clamp01(volume);
+            this.loop = loop;
+            this.fadeInMs = Math.max(0.0, fadeInMs);
+        }
+
+        public double getTimeMs() { return timeMs; }
+        public String getTrackPath() { return trackPath; }
+        public String getChannel() { return channel; }
+        public double getVolume() { return volume; }
+        public boolean isLoop() { return loop; }
+        public double getFadeInMs() { return fadeInMs; }
+
+        private static double clamp01(double v) {
+            if (v < 0.0) return 0.0;
+            if (v > 1.0) return 1.0;
+            return v;
+        }
     }
 
     public static class Keyframe {
@@ -92,7 +131,7 @@ public class TimelineData {
 
         private static double getDefaultValue(Property prop) {
             return switch (prop) {
-                case SCALE_X, SCALE_Y -> 1.0;
+                case SCALE_X, SCALE_Y, CAMERA_ZOOM -> 1.0;
                 case ALPHA -> 1.0;
                 default -> 0.0;
             };
@@ -102,6 +141,7 @@ public class TimelineData {
     private final String name;
     private final double durationMs;
     private final List<Track> tracks = new ArrayList<>();
+    private final List<AudioCue> audioCues = new ArrayList<>();
     private boolean looping = false;
 
     public TimelineData(String name, double durationMs) {
@@ -119,6 +159,14 @@ public class TimelineData {
     }
 
     public List<Track> getTracks() { return Collections.unmodifiableList(tracks); }
+
+    public void addAudioCue(AudioCue cue) {
+        if (cue != null && !cue.getTrackPath().isBlank()) audioCues.add(cue);
+    }
+
+    public List<AudioCue> getAudioCues() {
+        return Collections.unmodifiableList(audioCues);
+    }
 
     public Track getTrack(String entityName) {
         for (Track t : tracks) {

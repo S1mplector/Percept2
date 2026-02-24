@@ -4,9 +4,12 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
+import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.engine.Engine;
+import com.jvn.core.graphics.Camera2D;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
@@ -35,14 +38,91 @@ public class RuntimeVnInterop implements VnInterop {
   }
 
   private void configureDefaultSceneAccessor() {
-    base.setSceneAccessor(name -> {
-      if (name == null || name.isBlank()) return null;
-      if (engine == null || engine.scenes() == null) return null;
-      Scene top = engine.scenes().peek();
-      if (top instanceof JesScene2D jes) {
-        return jes.find(name);
+    base.setSceneAccessor(new SceneAccessor() {
+      @Override
+      public com.jvn.core.scene2d.Entity2D findEntity(String name) {
+        if (name == null || name.isBlank()) return null;
+        JesScene2D jes = topJesScene();
+        return jes != null ? jes.find(name) : null;
       }
-      return null;
+
+      @Override
+      public void setCameraX(double x) {
+        Camera2D cam = activeCamera();
+        if (cam == null) return;
+        cam.setPosition(x, cam.getY());
+      }
+
+      @Override
+      public void setCameraY(double y) {
+        Camera2D cam = activeCamera();
+        if (cam == null) return;
+        cam.setPosition(cam.getX(), y);
+      }
+
+      @Override
+      public void setCameraZoom(double zoom) {
+        Camera2D cam = activeCamera();
+        if (cam == null) return;
+        cam.setZoom(zoom);
+      }
+
+      @Override
+      public void playAudioCue(String trackPath, String channel, double volume, boolean loop, double fadeInMs) {
+        if (trackPath == null || trackPath.isBlank()) return;
+        VnScene vn = topVnScene();
+        if (vn == null) return;
+        AudioFacade audio = vn.getAudioFacade();
+        if (audio == null) return;
+
+        float vol = (float) clamp01(volume);
+        String normalized = channel == null ? "sound" : channel.trim().toLowerCase();
+        switch (normalized) {
+          case "music":
+          case "bgm":
+            audio.setBgmVolume(vol);
+            if (fadeInMs > 0.0) {
+              audio.crossfadeBgm(trackPath, Math.max(0L, Math.round(fadeInMs)), loop);
+            } else {
+              audio.playBgm(trackPath, loop);
+            }
+            break;
+          case "voice":
+            audio.setVoiceVolume(vol);
+            audio.playVoice(trackPath);
+            break;
+          default:
+            audio.setSfxVolume(vol);
+            audio.playSfx(trackPath);
+            break;
+        }
+      }
+
+      @Override
+      public void stopAudio(String channel) {
+        VnScene vn = topVnScene();
+        if (vn == null) return;
+        AudioFacade audio = vn.getAudioFacade();
+        if (audio == null) return;
+
+        String normalized = channel == null ? "all" : channel.trim().toLowerCase();
+        switch (normalized) {
+          case "music":
+          case "bgm":
+            audio.stopBgm();
+            break;
+          case "voice":
+            audio.stopVoice();
+            break;
+          case "sfx":
+          case "sound":
+            audio.stopSfx();
+            break;
+          default:
+            audio.stopAllAudio();
+            break;
+        }
+      }
     });
   }
 
@@ -50,12 +130,38 @@ public class RuntimeVnInterop implements VnInterop {
    * Wire a SceneAccessor for timeline execution support.
    * This must be called by the runtime to enable jes_timeline commands.
    */
-  public void setSceneAccessor(com.jvn.core.animation.SceneAccessor accessor) {
+  public void setSceneAccessor(SceneAccessor accessor) {
     if (accessor == null) {
       configureDefaultSceneAccessor();
     } else {
       base.setSceneAccessor(accessor);
     }
+  }
+
+  private Scene topScene() {
+    if (engine == null || engine.scenes() == null) return null;
+    return engine.scenes().peek();
+  }
+
+  private JesScene2D topJesScene() {
+    Scene top = topScene();
+    return top instanceof JesScene2D jes ? jes : null;
+  }
+
+  private VnScene topVnScene() {
+    Scene top = topScene();
+    return top instanceof VnScene vn ? vn : null;
+  }
+
+  private Camera2D activeCamera() {
+    JesScene2D jes = topJesScene();
+    return jes == null ? null : jes.getCamera();
+  }
+
+  private static double clamp01(double value) {
+    if (value < 0.0) return 0.0;
+    if (value > 1.0) return 1.0;
+    return value;
   }
 
   /**

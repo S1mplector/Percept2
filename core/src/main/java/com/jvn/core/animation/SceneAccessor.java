@@ -14,4 +14,29 @@ public interface SceneAccessor {
      * @return the entity, or null if not found
      */
     Entity2D findEntity(String name);
+
+    /**
+     * Optional camera hook used by timeline playback.
+     */
+    default void setCameraX(double x) {}
+
+    /**
+     * Optional camera hook used by timeline playback.
+     */
+    default void setCameraY(double y) {}
+
+    /**
+     * Optional camera hook used by timeline playback.
+     */
+    default void setCameraZoom(double zoom) {}
+
+    /**
+     * Optional audio hook used by timeline playback.
+     */
+    default void playAudioCue(String trackPath, String channel, double volume, boolean loop, double fadeInMs) {}
+
+    /**
+     * Optional audio stop hook used by timeline playback.
+     */
+    default void stopAudio(String channel) {}
 }
