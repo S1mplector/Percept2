@@ -345,6 +345,7 @@ Alternatively, click **Copy Code** to get the raw JES timeline code for embeddin
 Note:
 - Camera keyframes and audio cues are exported to `scripts/timelines/<name>.jes`.
 - Runtime registry playback (`@external jes_timeline`) now applies entity transforms, camera keyframes, and timeline audio cues.
+- Inline VNS `timeline { ... }` blocks (`@external jes_timeline_inline`) now parse and execute Puppeteer-exported `cameraMove`, `cameraZoom`, and `playAudio` actions with matching runtime behavior.
 
 ### Understanding the Generated Code
 

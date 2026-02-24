@@ -167,7 +167,7 @@ public class RunConsoleView extends BorderPane {
             String emoji;
             String color;
             switch (state) {
-                case BUILDING:  emoji = "⚙"; color = "#f0c040"; break;
+                case BUILDING:  emoji = ""; color = "#f0c040"; break;
                 case STARTING:  emoji = "▶"; color = "#60c0ff"; break;
                 case RUNNING:   emoji = "●"; color = "#40e060"; break;
                 case STOPPED:   emoji = "■"; color = "#888"; break;

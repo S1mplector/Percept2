@@ -5,7 +5,8 @@ import java.util.regex.Pattern;
 
 /**
  * Lightweight parser that converts inline JES timeline blocks into {@link TimelineData}.
- * Supports: move, pivot, wait, rotate, scale, fade, visible.
+ * Supports: move, pivot, wait, rotate, scale, fade, visible, cameraMove,
+ * cameraZoom, playAudio.
  *
  * <pre>
  * timeline {
@@ -24,6 +25,7 @@ import java.util.regex.Pattern;
  * </pre>
  */
 public class TimelineDataParser {
+    private static final String CAMERA_TRACK = "__camera__";
 
     private static final Pattern MOVE_PATTERN = Pattern.compile(
         "move\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
@@ -35,6 +37,12 @@ public class TimelineDataParser {
         "scale\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern FADE_PATTERN = Pattern.compile(
         "fade\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CAMERA_MOVE_PATTERN = Pattern.compile(
+        "cameraMove\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CAMERA_ZOOM_PATTERN = Pattern.compile(
+        "cameraZoom\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PLAY_AUDIO_PATTERN = Pattern.compile(
+        "playAudio\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern WAIT_PATTERN = Pattern.compile(
         "wait\\s+(\\d+(?:\\.\\d+)?)", Pattern.CASE_INSENSITIVE);
     private static final Pattern PROP_PATTERN = Pattern.compile(
@@ -206,6 +214,82 @@ public class TimelineDataParser {
                 continue;
             }
 
+            // cameraMove { ... }
+            Matcher cameraMoveM = CAMERA_MOVE_PATTERN.matcher(trimmed);
+            if (cameraMoveM.find()) {
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                Easing.Type easing = parseEasing(ab.getString("easing", "linear"));
+                double endTime = cursor + dur;
+                TimelineData.Track track = getOrCreateTrack(data, CAMERA_TRACK);
+
+                if (ab.has("x")) {
+                    track.addKeyframe(TimelineData.Property.CAMERA_X,
+                        new TimelineData.Keyframe(endTime, ab.getDouble("x", 0), easing));
+                }
+                if (ab.has("y")) {
+                    track.addKeyframe(TimelineData.Property.CAMERA_Y,
+                        new TimelineData.Keyframe(endTime, ab.getDouble("y", 0), easing));
+                }
+                if (endTime > maxTime) maxTime = endTime;
+                continue;
+            }
+
+            // cameraZoom { ... }
+            Matcher cameraZoomM = CAMERA_ZOOM_PATTERN.matcher(trimmed);
+            if (cameraZoomM.find()) {
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                Easing.Type easing = parseEasing(ab.getString("easing", "linear"));
+                double endTime = cursor + dur;
+                TimelineData.Track track = getOrCreateTrack(data, CAMERA_TRACK);
+
+                if (ab.has("zoom")) {
+                    track.addKeyframe(TimelineData.Property.CAMERA_ZOOM,
+                        new TimelineData.Keyframe(endTime, ab.getDouble("zoom", 1), easing));
+                }
+                if (endTime > maxTime) maxTime = endTime;
+                continue;
+            }
+
+            // playAudio "path" { ... }
+            Matcher playAudioM = PLAY_AUDIO_PATTERN.matcher(trimmed);
+            if (playAudioM.find()) {
+                String path = playAudioM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                boolean bgm = ab.getBoolean("bgm", false);
+                String channel = ab.getString("channel", "");
+                if (channel == null || channel.isBlank()) {
+                    channel = bgm ? "music" : "sound";
+                }
+                double volume = ab.getDouble("volume", 1.0);
+                boolean loop = ab.getBoolean("loop", bgm);
+                double fadeInMs = ab.getDouble("fadeinms",
+                    ab.getDouble("fadein_ms",
+                        ab.getDouble("fadein",
+                            ab.getDouble("fade_in", 0))));
+
+                data.addAudioCue(new TimelineData.AudioCue(
+                    cursor,
+                    path,
+                    channel,
+                    volume,
+                    loop,
+                    fadeInMs
+                ));
+                if (cursor > maxTime) maxTime = cursor;
+                continue;
+            }
+
             // Unknown line — skip
             i++;
         }
@@ -213,6 +297,7 @@ public class TimelineDataParser {
         // Patch duration
         return new TimelineData(name, maxTime) {{
             for (TimelineData.Track t : data.getTracks()) addTrack(t);
+            for (TimelineData.AudioCue cue : data.getAudioCues()) addAudioCue(cue);
         }};
     }
 
@@ -264,6 +349,15 @@ public class TimelineDataParser {
         void put(String key, String value) { props.put(key, value); }
         boolean has(String key) { return props.containsKey(key); }
         String getString(String key, String def) { return props.getOrDefault(key, def); }
+
+        boolean getBoolean(String key, boolean def) {
+            String v = props.get(key);
+            if (v == null) return def;
+            String t = v.trim();
+            if ("true".equalsIgnoreCase(t) || "1".equals(t) || "yes".equalsIgnoreCase(t)) return true;
+            if ("false".equalsIgnoreCase(t) || "0".equals(t) || "no".equalsIgnoreCase(t)) return false;
+            return def;
+        }
 
         double getDouble(String key, double def) {
             String v = props.get(key);
