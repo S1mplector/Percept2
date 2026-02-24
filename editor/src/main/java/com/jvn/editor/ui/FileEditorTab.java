@@ -62,6 +62,7 @@ public class FileEditorTab extends BorderPane {
   private SplitPane primarySplit;
   private boolean editorFullscreen;
   private double restoreDividerPosition = 0.6;
+  private boolean disposed;
 
   public FileEditorTab(File file) {
     this.file = file;
@@ -421,6 +422,8 @@ public class FileEditorTab extends BorderPane {
     if (vnPreview != null) vnPreview.stopAudio();
   }
   public void dispose() {
+    if (disposed) return;
+    disposed = true;
     stopPreviewAudio();
     if (vnPreview != null) vnPreview.dispose();
   }

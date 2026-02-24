@@ -1287,6 +1287,12 @@ public class EditorApp extends Application {
     tab.setOnCloseRequest(e -> {
       if (!confirmCanCloseFileTab(editor)) e.consume();
     });
+    tab.setOnClosed(e -> {
+      try {
+        editor.dispose();
+      } catch (Exception ignored) {
+      }
+    });
     filesTabs.getTabs().add(tab);
     filesTabs.getSelectionModel().select(tab);
     lastOpened = f;
