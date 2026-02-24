@@ -11,7 +11,7 @@ import java.util.Set;
  */
 public class VnSaveData implements Serializable {
   private static final long serialVersionUID = 1L;
-  public static final int CURRENT_SCHEMA_VERSION = 3;
+  public static final int CURRENT_SCHEMA_VERSION = 4;
   
   private int schemaVersion = CURRENT_SCHEMA_VERSION;
   private String scenarioId;
@@ -25,6 +25,7 @@ public class VnSaveData implements Serializable {
   private Map<String, String> characterDefinedPositions; // characterId -> CharacterPosition enum name
   private boolean skipMode;
   private boolean autoPlayMode;
+  private long autoPlayTimer;
   private boolean uiHidden;
   private SettingsData settings;
   private Object rpgState;
@@ -82,6 +83,9 @@ public class VnSaveData implements Serializable {
 
   public boolean isAutoPlayMode() { return autoPlayMode; }
   public void setAutoPlayMode(boolean autoPlayMode) { this.autoPlayMode = autoPlayMode; }
+
+  public long getAutoPlayTimer() { return autoPlayTimer; }
+  public void setAutoPlayTimer(long autoPlayTimer) { this.autoPlayTimer = autoPlayTimer; }
 
   public boolean isUiHidden() { return uiHidden; }
   public void setUiHidden(boolean uiHidden) { this.uiHidden = uiHidden; }

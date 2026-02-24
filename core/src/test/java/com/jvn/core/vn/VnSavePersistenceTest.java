@@ -36,7 +36,8 @@ public class VnSavePersistenceTest {
     state.setCharacterGlobalPositionEnabled("alice", true);
     state.setCharacterDefinedPosition("alice", CharacterPosition.CENTER);
     state.setSkipMode(true);
-    state.setAutoPlayMode(false);
+    state.setAutoPlayMode(true);
+    state.setAutoPlayTimer(4321L);
     state.setUiHidden(true);
     state.setRpgState("rpg-snapshot");
 
@@ -70,6 +71,7 @@ public class VnSavePersistenceTest {
     assertEquals(state.getCurrentBackgroundId(), loaded.getCurrentBackgroundId());
     assertEquals(state.isSkipMode(), loaded.isSkipMode());
     assertEquals(state.isAutoPlayMode(), loaded.isAutoPlayMode());
+    assertEquals(state.getAutoPlayTimer(), loaded.getAutoPlayTimer());
     assertEquals(state.isUiHidden(), loaded.isUiHidden());
 
     assertEquals(state.getVariables().get("flag"), loaded.getVariables().get("flag"));

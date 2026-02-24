@@ -94,6 +94,7 @@ public class VnSaveManager {
 
     saveData.setSkipMode(state.isSkipMode());
     saveData.setAutoPlayMode(state.isAutoPlayMode());
+    saveData.setAutoPlayTimer(state.getAutoPlayTimer());
     saveData.setUiHidden(state.isUiHidden());
 
     VnSettings s = state.getSettings();
@@ -364,6 +365,7 @@ public class VnSaveManager {
 
     state.setSkipMode(saveData.isSkipMode());
     state.setAutoPlayMode(saveData.isAutoPlayMode());
+    state.setAutoPlayTimer(saveData.getAutoPlayTimer());
     state.setUiHidden(saveData.isUiHidden());
 
     if (saveData.getSettings() != null) {

@@ -32,6 +32,7 @@ public final class VnSaveSerializer {
     private static final String KEY_VISIBLE_CHARACTERS = "visibleCharacters";
     private static final String KEY_SKIP_MODE = "skipMode";
     private static final String KEY_AUTO_PLAY_MODE = "autoPlayMode";
+    private static final String KEY_AUTO_PLAY_TIMER = "autoPlayTimer";
     private static final String KEY_UI_HIDDEN = "uiHidden";
     private static final String KEY_SETTINGS = "settings";
     private static final String KEY_SAVE_TIMESTAMP = "saveTimestamp";
@@ -87,6 +88,7 @@ public final class VnSaveSerializer {
         // Modes
         appendField(sb, KEY_SKIP_MODE, data.isSkipMode(), false);
         appendField(sb, KEY_AUTO_PLAY_MODE, data.isAutoPlayMode(), false);
+        appendField(sb, KEY_AUTO_PLAY_TIMER, data.getAutoPlayTimer(), false);
         appendField(sb, KEY_UI_HIDDEN, data.isUiHidden(), false);
         
         // Settings
@@ -214,6 +216,9 @@ public final class VnSaveSerializer {
         }
         if (map.containsKey(KEY_AUTO_PLAY_MODE)) {
             data.setAutoPlayMode(Boolean.TRUE.equals(map.get(KEY_AUTO_PLAY_MODE)));
+        }
+        if (map.containsKey(KEY_AUTO_PLAY_TIMER)) {
+            data.setAutoPlayTimer(((Number) map.get(KEY_AUTO_PLAY_TIMER)).longValue());
         }
         if (map.containsKey(KEY_UI_HIDDEN)) {
             data.setUiHidden(Boolean.TRUE.equals(map.get(KEY_UI_HIDDEN)));

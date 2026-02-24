@@ -59,6 +59,13 @@ public final class VnSaveMigration {
       changed = true;
     }
 
+    // v3 -> v4
+    if (version < 4) {
+      data.setSchemaVersion(4);
+      version = 4;
+      changed = true;
+    }
+
     // Normalize common nullable fields across all schema versions.
     if (data.getVariables() == null) {
       data.setVariables(new HashMap<>());
