@@ -195,4 +195,4 @@ scene "CombatPreview" {
 
 - Parser internals: `docs/JES Scripting/JES Parsing.md`
 - Component property reference: `docs/JES Scripting/Components.md`
-- Runtime interop details: `docs/Interop.md`
+- Runtime interop details: `docs/Runtime/Interop.md`

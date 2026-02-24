@@ -73,6 +73,30 @@ At runtime:
 
 - `shake`, `flash`, `clear` visual effects
 
+### `char`
+
+- character choreography helper provider
+- commands:
+  - `global on|off`
+  - `at <position>`
+  - `move <position> [expression]`
+  - `expression <expr>`
+  - `hide`
+
+Example:
+
+```vns
+[char codel global on]
+[char codel at center]
+[char codel move right smile]
+```
+
+### `jes_timeline` / `jes_timeline_inline`
+
+- `jes_timeline`: plays named timeline from `TimelineRegistry`
+- `jes_timeline_inline`: plays inline timeline payload generated from VNS `timeline { ... }` blocks
+- supports entity transform keyframes, camera keyframes, and timeline audio cues
+
 ## Runtime-Only Providers (`RuntimeVnInterop`)
 
 ### `jes`
@@ -149,6 +173,22 @@ call "return" { label: "after_game" score: 987 }
 
 ```vns
 [java com.example.GameDebug#logEvent chapter_start]
+```
+
+### Pattern: reusable Puppeteer timeline from VNS
+
+```vns
+[call jes_timeline hero_intro_pan]
+```
+
+### Pattern: one-off inline timeline near story text
+
+```vns
+timeline {
+  cameraMove 0ms 0 0 1.0
+  cameraMove 400ms 0 0 0.92
+  playAudio "assets/audio/sfx/whoosh.ogg"
+}
 ```
 
 ## Safety Notes

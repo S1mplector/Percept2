@@ -1,107 +1,160 @@
 # Save System
 
-JVN save/load is versioned, migration-aware, and uses failure-safe write semantics.
+JVN save/load is schema-versioned, migration-aware, and write-failure-safe.
 
-Core classes:
-- data model: `core/src/main/java/com/jvn/core/vn/save/VnSaveData.java`
-- migration: `core/src/main/java/com/jvn/core/vn/save/VnSaveMigration.java`
-- manager: `core/src/main/java/com/jvn/core/vn/save/VnSaveManager.java`
+Primary classes:
+- `core/src/main/java/com/jvn/core/vn/save/VnSaveData.java`
+- `core/src/main/java/com/jvn/core/vn/save/VnSaveMigration.java`
+- `core/src/main/java/com/jvn/core/vn/save/VnSaveManager.java`
+- `core/src/main/java/com/jvn/core/vn/save/VnSaveSerializer.java`
 
-## Save Payload Model
+## Storage Format
 
-`VnSaveData` stores:
-- schema version
-- scenario id
-- current node index
-- current background id
-- variables map
-- read nodes set
-- visible character slots
-- skip/auto/UI flags
-- settings snapshot
-- timestamp and slot name
-- optional `rpgState` payload
+Save slots are stored as JSON files:
 
-Current schema:
-- `CURRENT_SCHEMA_VERSION = 2`
+- `<slot>.json`
+- temp write path: `<slot>.json.tmp`
 
-## Migration Layer
+Legacy `.sav` files are still readable and are migrated forward to JSON on load.
 
-`VnSaveMigration.migrateInPlace(...)` handles:
-- legacy/default schema normalization
-- v1 -> v2 updates
-- null/empty field normalization
-- save name/timestamp recovery
-- schema bump to current
-
-Migration can occur during both save and load paths.
-
-## Write Reliability
-
-`VnSaveManager` writes are failure-safe:
-
-1. serialize to `<slot>.sav.tmp`
-2. fsync output
-3. move temp -> final with `ATOMIC_MOVE` when supported
-4. fallback to replace move if atomic not supported
-5. cleanup stale temp files
-
-This reduces risk of corrupted half-written saves.
-
-## Autosave System
-
-Autosave behavior:
-- prefix: `_autosave_`
-- slot count: `3`
-- rotation strategy: overwrite oldest slot (or unreadable slot first)
-
-APIs include:
-- `autosave(state)`
-- `autosave(state, index)`
-- `listAutoSaves()`
-- `loadLatestAutoSave()`
-
-## Slot Management
-
-Manager supports:
-- list saves
-- delete save
-- rename save
-- apply save data onto current `VnState`
-
-Sidecar thumbnails (`.png`) are cleaned/renamed alongside save slot operations where applicable.
-
-## Menu Integration
-
-Save/load scenes use this manager directly:
-- `LoadMenuScene`
-- `SaveMenuScene`
-
-Load scene sorts by timestamp (newest first) and can preview metadata.
-Save scene supports new slot creation and overwrite flows.
-
-## Default Save Location
-
-Default manager directory:
+Default save directory:
 
 ```text
 ~/.jvn/saves
 ```
 
-Custom directory can be provided in `VnSaveManager(String saveDir)`.
+You can override it with `new VnSaveManager("/custom/path")`.
 
-## Best Practices for Game Teams
+## Current Schema
 
-- keep custom `rpgState` serializable and compact
-- avoid very high-frequency save calls
-- use autosaves strategically (scene boundaries/checkpoints)
-- maintain backward compatibility through migration updates when schema changes
+Current schema version:
+- `CURRENT_SCHEMA_VERSION = 4`
 
-## Extending Schema Safely
+`VnSaveData` persists:
+- identity: `schemaVersion`, `scenarioId`, `saveName`, `saveTimestamp`
+- progression: `currentNodeIndex`, `readNodes`
+- scene state: `currentBackgroundId`, `visibleCharacters`
+- state variables: `variables`
+- call/return flow: `callStack`
+- character-global-position metadata:
+  - `globalPositionCharacters`
+  - `characterDefinedPositions`
+- UX modes:
+  - `skipMode`
+  - `autoPlayMode`
+  - `autoPlayTimer`
+  - `uiHidden`
+- settings snapshot:
+  - text/audio/autoplay flags
+  - physics defaults (`physicsFixedStepMs`, `physicsMaxSubSteps`, `physicsDefaultFriction`)
+  - input profile fields (`inputProfilePath`, `inputProfileSerialized`)
+- optional RPG payload: `rpgState` (serialized to base64 when serializable)
 
-When adding fields:
+## Example Save Payload (Abbreviated)
 
-1. bump `CURRENT_SCHEMA_VERSION`
-2. add migration logic in `VnSaveMigration`
-3. keep defaults sensible for missing/old values
-4. test load of old save fixtures
+```json
+{
+  "schemaVersion": 4,
+  "scenarioId": "prologue",
+  "nodeIndex": 42,
+  "backgroundId": "field_day",
+  "callStack": [13, 27],
+  "globalPositionCharacters": ["codel"],
+  "characterDefinedPositions": {
+    "codel": "RIGHT"
+  },
+  "skipMode": false,
+  "autoPlayMode": true,
+  "autoPlayTimer": 834,
+  "uiHidden": false,
+  "settings": {
+    "textSpeed": 28,
+    "bgmVolume": 0.7,
+    "clickRevealBeforeAdvance": true
+  },
+  "rpgStateSerialized": "..."
+}
+```
+
+## Migration Behavior
+
+`VnSaveMigration.migrateInPlace(...)` handles:
+- legacy/null schema normalization
+- `v1 -> v2`
+- `v2 -> v3`
+- `v3 -> v4`
+- null collection/object normalization
+- save-name and timestamp recovery
+- schema bump to current
+
+Migration is run on:
+- save write path (normalization before writing)
+- load path (normalization after reading)
+
+If load-time migration changes the payload, manager writes migrated JSON back to disk.
+
+## Write Reliability
+
+`VnSaveManager` uses failure-safe writes:
+
+1. write JSON to `<slot>.json.tmp`
+2. move temp -> final with `ATOMIC_MOVE` when available
+3. fallback to replace move when atomic move is unsupported
+4. cleanup temp residue
+
+This avoids partially-written save files on interruptions/crashes.
+
+## Autosave
+
+Autosave defaults:
+- prefix: `_autosave_`
+- slots: `3`
+- policy: overwrite oldest slot (or unreadable slot first)
+
+Main APIs:
+- `autosave(state)`
+- `autosave(state, slotIndex)`
+- `listAutoSaves()`
+- `loadLatestAutoSave()`
+
+## Applying Save Data Back to Runtime
+
+`VnSaveManager.applyToState(...)` restores:
+- node index/background/variables/read nodes
+- call stack
+- visible characters (+ their layer orders)
+- global character position model
+- skip/auto/ui mode values (including autoplay timer)
+- full settings snapshot
+- optional RPG state
+
+Important detail:
+- global character position metadata is applied after visible characters are restored, so authored character anchors are retained.
+
+## Rollback vs Save/Load
+
+Rollback (`VnRollbackEntry`) and save/load both restore state, but they are for different scopes:
+
+- rollback: short-lived in-session history stack (undo/redo style)
+- save/load: persistent disk snapshots across sessions
+
+Both now preserve key continuity fields like call stack and character-global-position metadata.
+
+## Operational Best Practices
+
+- Keep custom `rpgState` compact and serializable.
+- Use autosave at chapter/label checkpoints instead of every line.
+- Keep save slot naming stable and machine-safe (manager sanitizes names).
+- Add migration tests whenever schema is bumped.
+
+## Schema Evolution Checklist
+
+When adding save fields:
+
+1. Update `VnSaveData`.
+2. Bump `CURRENT_SCHEMA_VERSION`.
+3. Add migration step in `VnSaveMigration`.
+4. Update serializer read/write in `VnSaveSerializer`.
+5. Update manager apply/save paths if needed.
+6. Add/extend tests (`VnSavePersistenceTest`, robustness tests).
+

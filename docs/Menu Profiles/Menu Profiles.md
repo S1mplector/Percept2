@@ -98,6 +98,7 @@ Supported item fields:
 - `boundsY`
 - `boundsWidth`
 - `boundsHeight`
+- `boundsPoints`
 - `slotPreviewEnabled`
 - `slotPreviewPlaceholderAsset`
 - `slotPreviewFrameAsset`
@@ -110,6 +111,24 @@ Supported item fields:
 - values `<= 1` are treated as normalized fractions (relative to menu draw area)
 - values `> 1` are treated as pixels
 - all four `boundsX/Y/Width/Height` should be set together
+
+`boundsPoints` rules:
+- optional polygon hit-test points inside the same item bounds rectangle
+- encoded format: `x1,y1;x2,y2;x3,y3;...`
+- point coordinates are normalized local values (`0..1`) relative to that item's rectangle
+- requires at least 3 valid points
+
+Example:
+
+```properties
+item.start.boundsX=0.18
+item.start.boundsY=0.40
+item.start.boundsWidth=0.52
+item.start.boundsHeight=0.10
+item.start.boundsPoints=0.00,0.30;0.08,0.00;0.92,0.00;1.00,0.30;1.00,1.00;0.00,1.00
+```
+
+This is useful when button artwork has a non-rectangular clickable shape.
 
 `slotPreview*` mapping rules:
 - used by save/load menu rows for inline thumbnail preview
@@ -278,6 +297,7 @@ JVN editor has dedicated visual editors for:
 - `config/menu/styles/*.style`
 
 These editors sync to properties text and preserve extra keys where possible.
+`MenuScreenVisualEditor` supports point-nail bounds authoring and writes `boundsPoints` automatically.
 
 ## Recommended Authoring Pattern
 

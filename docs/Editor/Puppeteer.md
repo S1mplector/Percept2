@@ -102,10 +102,10 @@ The relationship is hierarchical:
 └─────────────────────────────────────────┘
 ```
 
-**VNS can invoke JES** for complex animations that go beyond simple show/hide/move:
+**VNS can invoke JES timelines** for complex animations that go beyond simple show/hide/move:
 
 ```vns
-@external jes_timeline hero_entrance
+[call jes_timeline hero_entrance]
 ```
 
 This loads a named JES timeline from the `TimelineRegistry` and runs it against the current VN scene's entities using `TimelineRunner` and `SceneAccessor`.
@@ -172,7 +172,7 @@ EditorApp.buildSceneFromSnapshot()
          to TimelineRegistry)
                 │
                 ▼
-        VNS: @external jes_timeline <name>
+        VNS: [call jes_timeline <name>]
         (TimelineRunner applies entity/camera
          keyframes + audio cues via SceneAccessor)
 ```
@@ -225,7 +225,7 @@ Sprite2D.render(blitter)
 | `[bg <id>]` / `[background <id>]` | Active background ID |
 | `[show <charId> <position> <expr?>]` | Visible character with slot + expression |
 | `[hide <charId>]` | Character removal |
-| `@external character <id> show/hide/move/expr` | External character commands |
+| `[char <id> show/hide/move/expr ...]` | External character commands |
 
 The result is a `SceneSnapshot` containing:
 - `backgroundId` — which background is currently active
@@ -265,7 +265,7 @@ The `TimelineRegistry` is the bridge between the editor (Puppeteer) and the runt
 
 ### Consumption Flow
 
-1. VNS script contains: `@external jes_timeline hero_entrance`
+1. VNS script contains: `[call jes_timeline hero_entrance]`
 2. `DefaultVnInterop` handles this command
 3. Looks up `TimelineRegistry.get("hero_entrance")`
 4. Creates a `TimelineRunner` with the `TimelineData`
@@ -337,15 +337,15 @@ After creating an animation in Puppeteer:
 3. In your VNS script, add:
 
 ```vns
-@external jes_timeline codel_wave
+[call jes_timeline codel_wave]
 ```
 
 Alternatively, click **Copy Code** to get the raw JES timeline code for embedding directly in a `.jes` file.
 
 Note:
 - Camera keyframes and audio cues are exported to `scripts/timelines/<name>.jes`.
-- Runtime registry playback (`@external jes_timeline`) now applies entity transforms, camera keyframes, and timeline audio cues.
-- Inline VNS `timeline { ... }` blocks (`@external jes_timeline_inline`) now parse and execute Puppeteer-exported `cameraMove`, `cameraZoom`, and `playAudio` actions with matching runtime behavior.
+- Runtime registry playback (`[call jes_timeline <name>]`) now applies entity transforms, camera keyframes, and timeline audio cues.
+- Inline VNS `timeline { ... }` blocks (`jes_timeline_inline` under the hood) now parse and execute Puppeteer-exported `cameraMove`, `cameraZoom`, and `playAudio` actions with matching runtime behavior.
 
 ### Understanding the Generated Code
 

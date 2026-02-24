@@ -44,6 +44,12 @@ Use project assets from disk:
 ./gradlew :runtime:run --args='--assets /absolute/path/to/project --script story/prologue.vns'
 ```
 
+Run exactly like editor project-run (typical VN project):
+
+```bash
+./gradlew :runtime:run --args='--assets /absolute/path/to/project --script scripts/story/prologue.vns --ui fx --audio auto'
+```
+
 ## CLI Options
 
 - `--title <text>`: window title override
@@ -87,6 +93,12 @@ Runtime uses `AssetCatalog` and selected manager chain:
 
 This is why project-run from editor passes `--assets <projectRoot>` and a normalized script path.
 
+Recommended path conventions for reliable loading:
+- scripts: `scripts/story/prologue.vns`
+- backgrounds: `assets/backgrounds/...` or `assets/demo/backgrounds/...`
+- character sprites: `assets/characters/...` or `assets/demo/characters/...`
+- audio: `assets/audio/{bgm,sfx,voices}/...`
+
 ## Runtime Interop Notes
 
 Runtime extends default interop with providers:
@@ -95,7 +107,7 @@ Runtime extends default interop with providers:
 - `menu`: open menu scenes (main/settings/save/load/custom)
 - `vns`: push/replace/goto VNS scenes/labels
 
-See `docs/Interop.md` for provider details.
+See `docs/Runtime/Interop.md` for provider details.
 
 ## Troubleshooting
 
@@ -119,6 +131,24 @@ Typical fixes:
 - confirm script is reachable from configured asset root
 - verify path relative to script asset namespace used by runtime
 - test with `--assets <projectRoot>` for local project runs
+
+### Assets load count shows zero
+
+If runtime logs something like:
+
+```text
+Assets -> images=0, audio=0, scripts=...
+```
+
+check:
+1. `--assets` points to the project root (the directory that contains `assets/` and `scripts/`).
+2. Script path is project-relative (`scripts/story/prologue.vns`), not classpath-only shortcut.
+3. Asset paths in VNS/menu files use project-relative paths that actually exist on disk.
+
+### Audio continues after closing previews in editor
+
+Runtime itself stops with process exit, but in-editor previews can outlive tab focus if not stopped explicitly.
+If this is observed, close the preview and verify the editor teardown path calls scene/audio stop before disposing the preview stage.
 
 ### Simp3 backend unavailable
 

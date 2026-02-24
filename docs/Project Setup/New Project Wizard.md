@@ -22,6 +22,8 @@ Wizard class:
 
 2. **Engine Profile**
    - resolution preset
+   - high-resolution presets up to 4K (`3840x2160`)
+   - custom width/height override for non-standard targets (ultrawide, handheld, kiosk)
    - menu theme preset
    - entry script/timeline/dialogue layout preview
 
@@ -107,6 +109,15 @@ By default, wizard creates a richer sample prologue demonstrating:
 Path:
 - `scripts/story/prologue.vns`
 
+### Bundled demo assets
+
+Wizard also copies demo-ready starter assets so first run is visually complete:
+- character sprites: `assets/demo/characters/codel/*`
+- background images: `assets/demo/backgrounds/field/*`
+- sample BGM/SFX used by starter script and menu defaults
+
+Default main-menu style points to the bundled background asset so new projects do not boot into an empty-color title screen.
+
 ### Timeline starter
 
 Creates initial arc:
@@ -133,7 +144,7 @@ When enabled, creates:
 2. Edit `scripts/story/prologue.vns`.
 3. Tune `config/ui/dialogue.layout` in visual dialogue editor.
 4. Customize `config/menu/menus/*.menu` and `config/menu/layouts/*.layout`.
-5. Add assets under `assets/`.
+5. Add/replace assets under `assets/` (you can keep or remove `assets/demo`).
 6. Run from project explorer root `Run` button.
 
 ## Team Usage Notes

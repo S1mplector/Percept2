@@ -64,6 +64,12 @@ Menu config loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoad
 - Migration: `VnSaveMigration`
 - I/O manager: `VnSaveManager`
 
+Current persisted runtime continuity includes:
+- call stack (`CALL`/`RETURN` safe reload)
+- character-global-position state
+- autoplay timer and UX mode flags
+- optional serialized RPG payload
+
 Reliability behaviors:
 - schema normalization during load/save
 - temp file + atomic move writes
@@ -72,9 +78,10 @@ Reliability behaviors:
 
 ## Editor Architecture
 
-- `EditorApp` composes project tree, tabbed file editors, inspector/help panels.
+- `EditorApp` composes project tree, tabbed file editors, and addable side panels via chooser tabs (`+`).
 - `FileEditorTab` routes file types to matching editor widgets.
 - Visual editors keep properties text synchronized for source-control-friendly config files.
+- Layout studios can run as dedicated external windows for canvas-heavy menu/dialogue editing workflows.
 - Project run action executes runtime through Gradle with isolated Gradle user home.
 
 ## Cross-System Integration Points

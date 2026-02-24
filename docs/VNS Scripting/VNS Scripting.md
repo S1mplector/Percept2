@@ -289,6 +289,63 @@ and shortcut jump:
 [jes_call <name> k=v ...]
 ```
 
+## Character Motion and Global Position Workflows
+
+For character choreography beyond plain `[show]`, use the `char` provider commands:
+
+```text
+[char <characterId> global on|off]
+[char <characterId> at <position>]
+[char <characterId> move <position> [expression]]
+[char <characterId> expression <expression>]
+[char <characterId> hide]
+```
+
+Example:
+
+```vns
+@label intro
+[show codel center neutral]
+[char codel global on]
+
+Codel: I will keep my own anchor slot.
+[char codel at center]
+[char codel move right smile]
+Codel: Now I moved to the right and switched expression.
+```
+
+Recommended usage pattern:
+1. Enable global mode once for a character.
+2. Set/adjust anchor via `at`.
+3. Use `move` for in-scene motion.
+4. Use `expression` for facial changes without changing slot.
+
+This avoids duplicate sprite slots and keeps long scenes visually stable.
+
+## Inline Timeline Blocks (Puppeteer-Compatible)
+
+VNS supports inline JES timeline blocks with `timeline { ... }` syntax.
+The parser converts these blocks to runtime `jes_timeline_inline` interop.
+
+```vns
+timeline {
+  entity "codel" {
+    0ms { x: 640, y: 396 }
+    300ms { x: 780, y: 396, easing: ease_out }
+  }
+  cameraMove 300ms 0 0 0.92
+  playAudio "assets/audio/sfx/whoosh.ogg"
+}
+```
+
+Use named registry timelines when you want reusable animation clips:
+
+```vns
+[call jes_timeline codel_entrance]
+```
+
+Use inline blocks when you want one-off animation close to story text.
+
 ## Conditions
 
 Condition syntax supports:
@@ -381,6 +438,6 @@ Narrator: Try again.
 ## Related Docs
 
 - Parsing internals: `docs/VNS Scripting/VNS Parsing.md`
-- Runtime interop: `docs/Interop.md`
+- Runtime interop: `docs/Runtime/Interop.md`
 - JES language: `docs/JES Scripting/JES Scripting.md`
 - Timeline integration: `docs/Timeline Scripting/Timeline Scripting.md`

@@ -25,7 +25,7 @@ Launch command:
 ### Top bar
 
 - Menus: `File`, `Edit`, `Code`, `Project`, `Version Control`, `Help`
-- Main actions: `Open`, `Save`, `Undo`, `Redo`, `Apply Code`, `Run`
+- Main actions: `Open`, `Save`, `Undo`, `Redo`, `Apply Code`, `Fullscreen`
 - Status + performance strip (CPU/GPU/RAM/FPS)
 
 ### Left panel: Project Explorer
@@ -48,6 +48,8 @@ Files open into typed tabs via `FileEditorTab` dispatch:
 - Timeline (`.timeline`) -> timeline graph + timeline code editor
 - Menu/theme/layout config -> dedicated studio editors (Design / Code / Split modes)
 - General text/code formats -> text editor
+
+For VNS tabs, diagnostics are routed to the side diagnostics panel to preserve vertical editor space.
 
 ### Side panels (+ chooser system)
 
@@ -139,11 +141,12 @@ These now open in dedicated external **Studio windows** (not embedded preview ta
   - drag textbox/namebox/choice layout in preview
   - import textbox assets and tune text/name bounds
   - define clickable textbox action buttons with per-button bounds/actions/targets
+  - author custom button hit areas with polygon-point editing (point-nail mode) or rectangle bounds
   - map per-button assets (`textBoxButton.<id>.asset/hoverAsset/disabledAsset`) for custom textbox UI chrome
 - `config/menu/menus/*.menu` -> `MenuScreenVisualEditor`
   - edit menu items/actions/styles/targets with table + preview
   - import per-item button assets (`bgAsset`, selected/disabled variants)
-  - map per-item click/render bounds (`boundsX/Y/Width/Height`) by table or drag
+  - map per-item click/render bounds by table, drag, or polygon-point editing for irregular hit areas
   - configure save/load slot inline thumbnails (`slotPreviewEnabled`, placeholder/frame assets)
   - override slot preview region (`slotPreviewX/Y/Width/Height`) for custom slot skins
 - `config/menu/layouts/*.layout` -> `MenuLayoutVisualEditor`

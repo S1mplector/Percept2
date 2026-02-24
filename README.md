@@ -220,15 +220,19 @@ Only prerequisites are `git` and `git lfs` on PATH.
 
 ## Documentation Map
 
-- `docs/Overview.md`
+- `docs/Architecture/Overview.md`
 - `docs/Architecture/Architecture.md`
 - `docs/Architecture/2D-Engine.md`
 - `docs/Runtime/Runtime.md`
 - `docs/Runtime/Save System.md`
+- `docs/Runtime/Interop.md`
 - `docs/Editor/Editor.md`
 - `docs/Editor/Help Center.md`
+- `docs/Editor/Puppeteer.md`
 - `docs/Project Setup/New Project Wizard.md`
 - `docs/Project Setup/Version Control.md`
+- `docs/Project Setup/TitleScreen.md`
+- `docs/Project Setup/TextEffects.md`
 - `docs/Menu Profiles/Menu Profiles.md`
 - `docs/VNS Scripting/VNS Scripting.md`
 - `docs/VNS Scripting/VNS Parsing.md`
@@ -237,9 +241,6 @@ Only prerequisites are `git` and `git lfs` on PATH.
 - `docs/JES Scripting/JES Parsing.md`
 - `docs/JES Scripting/Components.md`
 - `docs/Timeline Scripting/Timeline Scripting.md`
-- `docs/TitleScreen.md`
-- `docs/Interop.md`
-- `docs/TextEffects.md`
 - `docs/Performance.md`
 
 ## License
