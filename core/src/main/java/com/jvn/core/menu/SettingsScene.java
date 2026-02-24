@@ -36,6 +36,7 @@ public class SettingsScene implements Scene {
   private static final String KEY_AUTO_PLAY_DELAY = "auto_play_delay";
   private static final String KEY_SKIP_UNREAD = "skip_unread";
   private static final String KEY_SKIP_AFTER_CHOICES = "skip_after_choices";
+  private static final String KEY_CLICK_REVEAL_BEFORE_ADVANCE = "click_reveal_before_advance";
   private static final String KEY_PHYSICS_FIXED_STEP = "physics_fixed_step";
   private static final String KEY_PHYSICS_MAX_SUBSTEPS = "physics_max_substeps";
   private static final String KEY_PHYSICS_DEFAULT_FRICTION = "physics_default_friction";
@@ -266,6 +267,7 @@ public class SettingsScene implements Scene {
       case KEY_AUTO_PLAY_DELAY -> settings.setAutoPlayDelay(settings.getAutoPlayDelay() + delta * 100L);
       case KEY_SKIP_UNREAD -> settings.setSkipUnreadText(!settings.isSkipUnreadText());
       case KEY_SKIP_AFTER_CHOICES -> settings.setSkipAfterChoices(!settings.isSkipAfterChoices());
+      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.setClickRevealBeforeAdvance(!settings.isClickRevealBeforeAdvance());
       case KEY_PHYSICS_FIXED_STEP -> settings.setPhysicsFixedStepMs(Math.max(0, settings.getPhysicsFixedStepMs() + delta * 5));
       case KEY_PHYSICS_MAX_SUBSTEPS -> settings.setPhysicsMaxSubSteps(Math.max(1, settings.getPhysicsMaxSubSteps() + delta));
       case KEY_PHYSICS_DEFAULT_FRICTION -> settings.setPhysicsDefaultFriction(settings.getPhysicsDefaultFriction() + delta * 0.05);
@@ -291,6 +293,7 @@ public class SettingsScene implements Scene {
     switch (row.key()) {
       case KEY_SKIP_UNREAD -> settings.setSkipUnreadText(!settings.isSkipUnreadText());
       case KEY_SKIP_AFTER_CHOICES -> settings.setSkipAfterChoices(!settings.isSkipAfterChoices());
+      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.setClickRevealBeforeAdvance(!settings.isClickRevealBeforeAdvance());
       case KEY_INPUT_PROFILE -> loadBindingsFromDisk();
       case KEY_BACK -> closeRequested = true;
       default -> {
@@ -325,6 +328,7 @@ public class SettingsScene implements Scene {
       }
       case KEY_SKIP_UNREAD -> settings.setSkipUnreadText(v >= 0.5);
       case KEY_SKIP_AFTER_CHOICES -> settings.setSkipAfterChoices(v >= 0.5);
+      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.setClickRevealBeforeAdvance(v >= 0.5);
       case KEY_PHYSICS_FIXED_STEP -> settings.setPhysicsFixedStepMs(Math.round(v * 50));
       case KEY_PHYSICS_MAX_SUBSTEPS -> settings.setPhysicsMaxSubSteps(1 + (int) Math.round(v * 7));
       case KEY_PHYSICS_DEFAULT_FRICTION -> settings.setPhysicsDefaultFriction(v);
@@ -391,7 +395,10 @@ public class SettingsScene implements Scene {
         out.add(new Row(id, key, label, item.enabled(), style, action));
       }
     }
-    if (!out.isEmpty()) return out;
+    if (!out.isEmpty()) {
+      ensureBuiltInSettingVisible(out, KEY_CLICK_REVEAL_BEFORE_ADVANCE, menuProfile.style(menuScreen.defaultStyleId()));
+      return out;
+    }
 
     MenuStyleSpec style = menuProfile.style(menuScreen.defaultStyleId());
     out.add(defaultRow(KEY_TEXT_SPEED, style));
@@ -401,6 +408,7 @@ public class SettingsScene implements Scene {
     out.add(defaultRow(KEY_AUTO_PLAY_DELAY, style));
     out.add(defaultRow(KEY_SKIP_UNREAD, style));
     out.add(defaultRow(KEY_SKIP_AFTER_CHOICES, style));
+    out.add(defaultRow(KEY_CLICK_REVEAL_BEFORE_ADVANCE, style));
     out.add(defaultRow(KEY_PHYSICS_FIXED_STEP, style));
     out.add(defaultRow(KEY_PHYSICS_MAX_SUBSTEPS, style));
     out.add(defaultRow(KEY_PHYSICS_DEFAULT_FRICTION, style));
@@ -410,6 +418,20 @@ public class SettingsScene implements Scene {
 
   private Row defaultRow(String key, MenuStyleSpec style) {
     return new Row(key, key, null, true, style, MenuActionSpec.noop());
+  }
+
+  private void ensureBuiltInSettingVisible(List<Row> rows, String key, MenuStyleSpec style) {
+    for (Row row : rows) {
+      if (row != null && key.equals(row.key())) return;
+    }
+    for (int i = 0; i < rows.size(); i++) {
+      Row row = rows.get(i);
+      if (row != null && KEY_BACK.equals(row.key())) {
+        rows.add(i, defaultRow(key, style));
+        return;
+      }
+    }
+    rows.add(defaultRow(key, style));
   }
 
   private boolean handleAction(Row row, int delta, boolean confirm) {
@@ -530,6 +552,7 @@ public class SettingsScene implements Scene {
     s.setAutoPlayDelay(settings.getAutoPlayDelay());
     s.setSkipUnreadText(settings.isSkipUnreadText());
     s.setSkipAfterChoices(settings.isSkipAfterChoices());
+    s.setClickRevealBeforeAdvance(settings.isClickRevealBeforeAdvance());
     s.setPhysicsFixedStepMs(settings.getPhysicsFixedStepMs());
     s.setPhysicsMaxSubSteps(settings.getPhysicsMaxSubSteps());
     s.setPhysicsDefaultFriction(settings.getPhysicsDefaultFriction());
@@ -607,6 +630,7 @@ public class SettingsScene implements Scene {
       case KEY_AUTO_PLAY_DELAY -> Localization.t("settings.auto_play_delay");
       case KEY_SKIP_UNREAD -> Localization.t("settings.skip_unread");
       case KEY_SKIP_AFTER_CHOICES -> Localization.t("settings.skip_after_choices");
+      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> Localization.t("settings.click_reveal_before_advance");
       case KEY_PHYSICS_FIXED_STEP -> "Physics: Fixed Step";
       case KEY_PHYSICS_MAX_SUBSTEPS -> "Physics: Max Substeps";
       case KEY_PHYSICS_DEFAULT_FRICTION -> "Physics: Default Friction";
@@ -625,6 +649,7 @@ public class SettingsScene implements Scene {
       case KEY_AUTO_PLAY_DELAY -> settings.getAutoPlayDelay() + " ms";
       case KEY_SKIP_UNREAD -> settings.isSkipUnreadText() ? "ON" : "OFF";
       case KEY_SKIP_AFTER_CHOICES -> settings.isSkipAfterChoices() ? "ON" : "OFF";
+      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.isClickRevealBeforeAdvance() ? "ON" : "OFF";
       case KEY_PHYSICS_FIXED_STEP -> settings.getPhysicsFixedStepMs() + " ms";
       case KEY_PHYSICS_MAX_SUBSTEPS -> Integer.toString(settings.getPhysicsMaxSubSteps());
       case KEY_PHYSICS_DEFAULT_FRICTION -> toPct((float) settings.getPhysicsDefaultFriction());
@@ -662,6 +687,7 @@ public class SettingsScene implements Scene {
       case "autodelay", "auto_delay", "autoplay_delay", "auto_play_delay" -> KEY_AUTO_PLAY_DELAY;
       case "skipunread", "skip_unread" -> KEY_SKIP_UNREAD;
       case "skip_after_choices", "skipchoices", "skip_choices" -> KEY_SKIP_AFTER_CHOICES;
+      case "click_reveal_before_advance", "click_reveal_first", "reveal_before_advance", "click_reveal" -> KEY_CLICK_REVEAL_BEFORE_ADVANCE;
       case "physics_fixed_step", "fixed_step", "fixed_step_ms" -> KEY_PHYSICS_FIXED_STEP;
       case "physics_max_substeps", "max_substeps", "max_steps" -> KEY_PHYSICS_MAX_SUBSTEPS;
       case "physics_default_friction", "physics_friction", "default_friction", "friction" -> KEY_PHYSICS_DEFAULT_FRICTION;

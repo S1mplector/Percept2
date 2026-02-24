@@ -97,6 +97,7 @@ public class VnSaveManager {
     sd.setAutoPlayDelay(s.getAutoPlayDelay());
     sd.setSkipUnreadText(s.isSkipUnreadText());
     sd.setSkipAfterChoices(s.isSkipAfterChoices());
+    sd.setClickRevealBeforeAdvance(s.isClickRevealBeforeAdvance());
     sd.setPhysicsFixedStepMs(s.getPhysicsFixedStepMs());
     sd.setPhysicsMaxSubSteps(s.getPhysicsMaxSubSteps());
     sd.setPhysicsDefaultFriction(s.getPhysicsDefaultFriction());
@@ -354,6 +355,7 @@ public class VnSaveManager {
       s.setAutoPlayDelay(sd.getAutoPlayDelay());
       s.setSkipUnreadText(sd.isSkipUnreadText());
       s.setSkipAfterChoices(sd.isSkipAfterChoices());
+      s.setClickRevealBeforeAdvance(sd.isClickRevealBeforeAdvance());
       s.setPhysicsFixedStepMs(sd.getPhysicsFixedStepMs());
       s.setPhysicsMaxSubSteps(sd.getPhysicsMaxSubSteps());
       s.setPhysicsDefaultFriction(sd.getPhysicsDefaultFriction());

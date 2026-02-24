@@ -11,6 +11,7 @@ public class VnSettings {
   private long autoPlayDelay = 2000; // ms to wait before auto-advancing
   private boolean skipUnreadText = false;
   private boolean skipAfterChoices = false;
+  private boolean clickRevealBeforeAdvance = true;
   private long physicsFixedStepMs = 0; // 0 = variable
   private int physicsMaxSubSteps = 4;
   private double physicsDefaultFriction = 0.2;
@@ -37,6 +38,9 @@ public class VnSettings {
 
   public boolean isSkipAfterChoices() { return skipAfterChoices; }
   public void setSkipAfterChoices(boolean skip) { this.skipAfterChoices = skip; }
+
+  public boolean isClickRevealBeforeAdvance() { return clickRevealBeforeAdvance; }
+  public void setClickRevealBeforeAdvance(boolean enabled) { this.clickRevealBeforeAdvance = enabled; }
 
   public long getPhysicsFixedStepMs() { return physicsFixedStepMs; }
   public void setPhysicsFixedStepMs(long ms) { this.physicsFixedStepMs = Math.max(0, ms); }
@@ -69,6 +73,7 @@ public class VnSettings {
     copy.autoPlayDelay = this.autoPlayDelay;
     copy.skipUnreadText = this.skipUnreadText;
     copy.skipAfterChoices = this.skipAfterChoices;
+    copy.clickRevealBeforeAdvance = this.clickRevealBeforeAdvance;
     copy.physicsFixedStepMs = this.physicsFixedStepMs;
     copy.physicsMaxSubSteps = this.physicsMaxSubSteps;
     copy.physicsDefaultFriction = this.physicsDefaultFriction;

@@ -1446,6 +1446,7 @@ public class NewProjectWizard extends Stage {
       sp.setProperty("autoPlayDelay", Integer.toString(autoDelay));
       sp.setProperty("skipUnread", Boolean.toString(skipUnread));
       sp.setProperty("skipAfterChoices", Boolean.toString(skipAfterChoices));
+      sp.setProperty("clickRevealBeforeAdvance", Boolean.toString(true));
 
       // Runtime settings keys used by VnSettingsStore.
       sp.setProperty("text_speed", Integer.toString(textSpeed));
@@ -1455,6 +1456,7 @@ public class NewProjectWizard extends Stage {
       sp.setProperty("auto_play_delay", Integer.toString(autoDelay));
       sp.setProperty("skip_unread_text", Boolean.toString(skipUnread));
       sp.setProperty("skip_after_choices", Boolean.toString(skipAfterChoices));
+      sp.setProperty("click_reveal_before_advance", Boolean.toString(true));
       sp.setProperty("physics_fixed_step_ms", Integer.toString(physicsStep));
       sp.setProperty("physics_max_substeps", Integer.toString(physicsSubsteps));
       sp.setProperty("physics_default_friction", Double.toString(physicsFriction));
@@ -1875,7 +1877,7 @@ public class NewProjectWizard extends Stage {
         fw.write("layout=submenu\n");
         fw.write("defaultItemStyle=submenu\n");
         fw.write("wrapSelection=true\n");
-        fw.write("items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,skip_after_choices,physics_fixed_step,physics_max_substeps,physics_default_friction,input_profile,back\n");
+        fw.write("items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,skip_after_choices,click_reveal_before_advance,physics_fixed_step,physics_max_substeps,physics_default_friction,input_profile,back\n");
         fw.write("item.text_speed.label=Text Speed: {value}\n");
         fw.write("item.bgm_volume.label=BGM Volume: {value}\n");
         fw.write("item.sfx_volume.label=SFX Volume: {value}\n");
@@ -1883,6 +1885,7 @@ public class NewProjectWizard extends Stage {
         fw.write("item.auto_play_delay.label=Auto Advance Delay: {value}\n");
         fw.write("item.skip_unread.label=Skip Unread Text: {value}\n");
         fw.write("item.skip_after_choices.label=Skip After Choices: {value}\n");
+        fw.write("item.click_reveal_before_advance.label=Click Reveals Before Advance: {value}\n");
         fw.write("item.physics_fixed_step.label=Physics Fixed Step: {value}\n");
         fw.write("item.physics_max_substeps.label=Physics Max Substeps: {value}\n");
         fw.write("item.physics_default_friction.label=Physics Friction: {value}\n");

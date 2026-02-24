@@ -613,7 +613,7 @@ public class FxLauncher extends Application {
       }
       
       // Otherwise treat as advance
-      vnScene.advance();
+      vnScene.advanceFromClick();
     } else if (currentScene instanceof MainMenuScene main) {
       int idx = menuRenderer.getHoverIndexForMainMenu(main, canvas.getWidth(), canvas.getHeight(), x, y);
       if (idx >= 0) {
@@ -655,7 +655,7 @@ public class FxLauncher extends Application {
 
     switch (action) {
       case "advance" -> {
-        vnScene.advance();
+        vnScene.advanceFromClick();
         return true;
       }
       case "quick_save", "save_quick" -> {

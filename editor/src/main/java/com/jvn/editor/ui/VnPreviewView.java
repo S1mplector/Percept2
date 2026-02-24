@@ -152,7 +152,7 @@ public class VnPreviewView extends StackPane {
       return;
     }
 
-    scene.advance();
+    scene.advanceFromClick();
   }
 
   private boolean executeTextBoxButtonAction(com.jvn.core.vn.ui.VnUiActionButtonSpec button) {
@@ -161,7 +161,7 @@ public class VnPreviewView extends StackPane {
     var state = scene.getState();
     switch (action) {
       case "advance" -> {
-        scene.advance();
+        scene.advanceFromClick();
         return true;
       }
       case "quick_save", "save_quick" -> {

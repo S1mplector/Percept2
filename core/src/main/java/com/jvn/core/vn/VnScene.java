@@ -225,7 +225,7 @@ public class VnScene implements Scene {
   }
 
   /**
-   * Advance to the next node (called when player clicks/presses space)
+   * Advance to the next node.
    */
   public void advance() {
     VnNode current = state.getCurrentNode();
@@ -242,6 +242,26 @@ public class VnScene implements Scene {
 
     state.advance();
     processCurrentNode();
+  }
+
+  /**
+   * Mouse/touch advance path.
+   * If enabled in settings, a click first reveals the full current dialogue line,
+   * and only a subsequent click advances.
+   */
+  public void advanceFromClick() {
+    VnNode current = state.getCurrentNode();
+    if (current == null) return;
+    if (current.getType() == VnNodeType.DIALOGUE
+        && state.getSettings().isClickRevealBeforeAdvance()) {
+      DialogueLine dialogue = current.getDialogue();
+      int textLength = dialogue == null ? 0 : resolveInterpolatedText(dialogue.getText()).length();
+      if (state.getTextRevealProgress() < textLength) {
+        state.setTextRevealProgress(textLength);
+        return;
+      }
+    }
+    advance();
   }
 
   /**

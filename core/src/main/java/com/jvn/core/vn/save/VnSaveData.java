@@ -84,6 +84,7 @@ public class VnSaveData implements Serializable {
     private long autoPlayDelay = 2000L;
     private boolean skipUnreadText = false;
     private boolean skipAfterChoices = false;
+    private boolean clickRevealBeforeAdvance = true;
     private long physicsFixedStepMs = 0;
     private int physicsMaxSubSteps = 4;
     private double physicsDefaultFriction = 0.2;
@@ -104,6 +105,8 @@ public class VnSaveData implements Serializable {
     public void setSkipUnreadText(boolean skipUnreadText) { this.skipUnreadText = skipUnreadText; }
     public boolean isSkipAfterChoices() { return skipAfterChoices; }
     public void setSkipAfterChoices(boolean skipAfterChoices) { this.skipAfterChoices = skipAfterChoices; }
+    public boolean isClickRevealBeforeAdvance() { return clickRevealBeforeAdvance; }
+    public void setClickRevealBeforeAdvance(boolean clickRevealBeforeAdvance) { this.clickRevealBeforeAdvance = clickRevealBeforeAdvance; }
     public long getPhysicsFixedStepMs() { return physicsFixedStepMs; }
     public void setPhysicsFixedStepMs(long physicsFixedStepMs) { this.physicsFixedStepMs = physicsFixedStepMs; }
     public int getPhysicsMaxSubSteps() { return physicsMaxSubSteps; }

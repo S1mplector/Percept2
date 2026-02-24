@@ -264,6 +264,7 @@ public record MenuProfile(
             new MenuItemSpec("auto_play_delay", "Auto Advance Delay: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
             new MenuItemSpec("skip_unread", "Skip Unread Text: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
             new MenuItemSpec("skip_after_choices", "Skip After Choices: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("click_reveal_before_advance", "Click Reveals Before Advance: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
             new MenuItemSpec("physics_fixed_step", "Physics Fixed Step: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
             new MenuItemSpec("physics_max_substeps", "Physics Max Substeps: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
             new MenuItemSpec("physics_default_friction", "Physics Friction: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),

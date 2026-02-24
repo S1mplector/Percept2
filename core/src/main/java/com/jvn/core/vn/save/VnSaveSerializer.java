@@ -284,7 +284,8 @@ public final class VnSaveSerializer {
             sb.append("    \"voiceVolume\": ").append(settings.getVoiceVolume()).append(",\n");
             sb.append("    \"autoPlayDelay\": ").append(settings.getAutoPlayDelay()).append(",\n");
             sb.append("    \"skipUnreadText\": ").append(settings.isSkipUnreadText()).append(",\n");
-            sb.append("    \"skipAfterChoices\": ").append(settings.isSkipAfterChoices()).append("\n");
+            sb.append("    \"skipAfterChoices\": ").append(settings.isSkipAfterChoices()).append(",\n");
+            sb.append("    \"clickRevealBeforeAdvance\": ").append(settings.isClickRevealBeforeAdvance()).append("\n");
         }
         sb.append("  }");
     }
@@ -313,6 +314,9 @@ public final class VnSaveSerializer {
         }
         if (map.containsKey("skipAfterChoices")) {
             settings.setSkipAfterChoices(Boolean.TRUE.equals(map.get("skipAfterChoices")));
+        }
+        if (map.containsKey("clickRevealBeforeAdvance")) {
+            settings.setClickRevealBeforeAdvance(Boolean.TRUE.equals(map.get("clickRevealBeforeAdvance")));
         }
         return settings;
     }
