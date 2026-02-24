@@ -71,6 +71,14 @@ public class VnSaveManager {
     saveData.setCurrentBackgroundId(state.getCurrentBackgroundId());
     saveData.setVariables(new java.util.HashMap<>(state.getVariables()));
     saveData.setReadNodes(state.getReadNodes());
+    saveData.setCallStack(state.getCallStackSnapshot());
+    saveData.setGlobalPositionCharacters(state.getGlobalPositionCharactersSnapshot());
+    java.util.Map<String, String> definedPositions = new java.util.HashMap<>();
+    for (var entry : state.getCharacterDefinedPositionsSnapshot().entrySet()) {
+      if (entry.getKey() == null || entry.getValue() == null) continue;
+      definedPositions.put(entry.getKey(), entry.getValue().name());
+    }
+    saveData.setCharacterDefinedPositions(definedPositions);
 
     java.util.Map<String, String[]> vis = new java.util.HashMap<>();
     for (var entry : state.getVisibleCharacters().entrySet()) {
@@ -320,6 +328,18 @@ public class VnSaveManager {
     state.setCurrentBackgroundId(saveData.getCurrentBackgroundId());
     state.setVariables(saveData.getVariables());
     state.setReadNodes(saveData.getReadNodes());
+    state.setCallStack(saveData.getCallStack());
+
+    java.util.Map<String, CharacterPosition> definedPositions = new java.util.HashMap<>();
+    for (var entry : saveData.getCharacterDefinedPositions().entrySet()) {
+      String characterId = entry.getKey();
+      String positionName = entry.getValue();
+      if (characterId == null || characterId.isBlank() || positionName == null || positionName.isBlank()) continue;
+      try {
+        definedPositions.put(characterId, CharacterPosition.valueOf(positionName));
+      } catch (IllegalArgumentException ignored) {
+      }
+    }
 
     state.clearAllCharacters();
     for (var entry : saveData.getVisibleCharacters().entrySet()) {
@@ -340,6 +360,7 @@ public class VnSaveManager {
       } catch (IllegalArgumentException ignored) {
       }
     }
+    state.setGlobalPositionState(saveData.getGlobalPositionCharacters(), definedPositions);
 
     state.setSkipMode(saveData.isSkipMode());
     state.setAutoPlayMode(saveData.isAutoPlayMode());

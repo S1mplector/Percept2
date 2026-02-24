@@ -1,5 +1,6 @@
 package com.jvn.core.vn.save;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -29,7 +30,7 @@ public final class VnSaveMigration {
       changed = true;
     }
 
-    // v1 -> v2
+  // v1 -> v2
     if (version < 2) {
       if (data.getSaveTimestamp() <= 0) {
         data.setSaveTimestamp(System.currentTimeMillis());
@@ -39,6 +40,22 @@ public final class VnSaveMigration {
       }
       data.setSchemaVersion(2);
       version = 2;
+      changed = true;
+    }
+
+    // v2 -> v3
+    if (version < 3) {
+      if (data.getCallStack() == null) {
+        data.setCallStack(new ArrayList<>());
+      }
+      if (data.getGlobalPositionCharacters() == null) {
+        data.setGlobalPositionCharacters(new HashSet<>());
+      }
+      if (data.getCharacterDefinedPositions() == null) {
+        data.setCharacterDefinedPositions(new HashMap<>());
+      }
+      data.setSchemaVersion(3);
+      version = 3;
       changed = true;
     }
 
@@ -53,6 +70,18 @@ public final class VnSaveMigration {
     }
     if (data.getVisibleCharacters() == null) {
       data.setVisibleCharacters(new HashMap<>());
+      changed = true;
+    }
+    if (data.getCallStack() == null) {
+      data.setCallStack(new ArrayList<>());
+      changed = true;
+    }
+    if (data.getGlobalPositionCharacters() == null) {
+      data.setGlobalPositionCharacters(new HashSet<>());
+      changed = true;
+    }
+    if (data.getCharacterDefinedPositions() == null) {
+      data.setCharacterDefinedPositions(new HashMap<>());
       changed = true;
     }
     if (data.getSettings() == null) {

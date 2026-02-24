@@ -11,7 +11,7 @@ import java.util.Set;
  */
 public class VnSaveData implements Serializable {
   private static final long serialVersionUID = 1L;
-  public static final int CURRENT_SCHEMA_VERSION = 2;
+  public static final int CURRENT_SCHEMA_VERSION = 3;
   
   private int schemaVersion = CURRENT_SCHEMA_VERSION;
   private String scenarioId;
@@ -20,10 +20,14 @@ public class VnSaveData implements Serializable {
   private Map<String, Object> variables;
   private Set<Integer> readNodes;
   private Map<String, String[]> visibleCharacters; // position -> [characterId, expression]
+  private java.util.List<Integer> callStack;
+  private Set<String> globalPositionCharacters;
+  private Map<String, String> characterDefinedPositions; // characterId -> CharacterPosition enum name
   private boolean skipMode;
   private boolean autoPlayMode;
   private boolean uiHidden;
   private SettingsData settings;
+  private Object rpgState;
   private long saveTimestamp;
   private String saveName;
   
@@ -32,6 +36,9 @@ public class VnSaveData implements Serializable {
     this.variables = new HashMap<>();
     this.readNodes = new HashSet<>();
     this.visibleCharacters = new HashMap<>();
+    this.callStack = new java.util.ArrayList<>();
+    this.globalPositionCharacters = new HashSet<>();
+    this.characterDefinedPositions = new HashMap<>();
     this.settings = new SettingsData();
     this.saveTimestamp = System.currentTimeMillis();
   }
@@ -57,6 +64,19 @@ public class VnSaveData implements Serializable {
   public Map<String, String[]> getVisibleCharacters() { return visibleCharacters; }
   public void setVisibleCharacters(Map<String, String[]> visibleCharacters) { this.visibleCharacters = visibleCharacters != null ? visibleCharacters : new HashMap<>(); }
 
+  public java.util.List<Integer> getCallStack() { return callStack; }
+  public void setCallStack(java.util.List<Integer> callStack) { this.callStack = callStack != null ? callStack : new java.util.ArrayList<>(); }
+
+  public Set<String> getGlobalPositionCharacters() { return globalPositionCharacters; }
+  public void setGlobalPositionCharacters(Set<String> globalPositionCharacters) {
+    this.globalPositionCharacters = globalPositionCharacters != null ? globalPositionCharacters : new HashSet<>();
+  }
+
+  public Map<String, String> getCharacterDefinedPositions() { return characterDefinedPositions; }
+  public void setCharacterDefinedPositions(Map<String, String> characterDefinedPositions) {
+    this.characterDefinedPositions = characterDefinedPositions != null ? characterDefinedPositions : new HashMap<>();
+  }
+
   public boolean isSkipMode() { return skipMode; }
   public void setSkipMode(boolean skipMode) { this.skipMode = skipMode; }
 
@@ -74,6 +94,9 @@ public class VnSaveData implements Serializable {
   
   public String getSaveName() { return saveName; }
   public void setSaveName(String name) { this.saveName = name; }
+
+  public Object getRpgState() { return rpgState; }
+  public void setRpgState(Object rpgState) { this.rpgState = rpgState; }
 
   public static class SettingsData implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -119,9 +142,4 @@ public class VnSaveData implements Serializable {
     public void setInputProfileSerialized(String inputProfileSerialized) { this.inputProfileSerialized = inputProfileSerialized; }
   }
 
-  // Optional RPG state snapshot
-  private Object rpgState;
-
-  public Object getRpgState() { return rpgState; }
-  public void setRpgState(Object rpgState) { this.rpgState = rpgState; }
 }

@@ -417,9 +417,6 @@ public class VnScene implements Scene {
     String text = resolveInterpolatedText(dialogue.getText());
     state.getHistory().addEntry(speaker, text);
 
-    // Capture rollback state before displaying dialogue
-    state.captureRollbackState(speaker, text);
-
     // Update character display
     if (dialogue.getCharacterId() != null) {
       state.showCharacter(
@@ -428,6 +425,9 @@ public class VnScene implements Scene {
         dialogue.getExpression()
       );
     }
+
+    // Capture rollback state after dialogue visuals are applied.
+    state.captureRollbackState(speaker, text);
   }
 
   private void processBackgroundNode(VnNode node) {
@@ -707,6 +707,14 @@ public class VnScene implements Scene {
     VnRollbackEntry next = state.getRollbackStack().rollforward(currentEntry);
     if (next != null) {
       next.applyTo(state);
+      waitingNode = false;
+      waitRemainingMs = 0;
+      transitionBlocking = false;
+      transitionRemainingMs = 0;
+      if (bgmFadeActive && audioFacade != null) {
+        bgmFadeActive = false;
+        audioFacade.setBgmVolume(state.getSettings().getBgmVolume());
+      }
       return true;
     }
     return false;

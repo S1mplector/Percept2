@@ -1,10 +1,16 @@
 package com.jvn.core.vn.save;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -31,6 +37,9 @@ public final class VnSaveSerializer {
     private static final String KEY_SAVE_TIMESTAMP = "saveTimestamp";
     private static final String KEY_SAVE_NAME = "saveName";
     private static final String KEY_CALL_STACK = "callStack";
+    private static final String KEY_GLOBAL_POSITION_CHARACTERS = "globalPositionCharacters";
+    private static final String KEY_CHARACTER_DEFINED_POSITIONS = "characterDefinedPositions";
+    private static final String KEY_RPG_STATE_SERIALIZED = "rpgStateSerialized";
 
     private VnSaveSerializer() {}
 
@@ -63,6 +72,17 @@ public final class VnSaveSerializer {
         sb.append("  \"").append(KEY_VISIBLE_CHARACTERS).append("\": ");
         appendCharactersObject(sb, data.getVisibleCharacters());
         sb.append(",\n");
+
+        // CALL/RETURN stack and character global-position metadata
+        sb.append("  \"").append(KEY_CALL_STACK).append("\": ");
+        appendIntegerList(sb, data.getCallStack());
+        sb.append(",\n");
+        sb.append("  \"").append(KEY_GLOBAL_POSITION_CHARACTERS).append("\": ");
+        appendStringArray(sb, data.getGlobalPositionCharacters());
+        sb.append(",\n");
+        sb.append("  \"").append(KEY_CHARACTER_DEFINED_POSITIONS).append("\": ");
+        appendStringObject(sb, data.getCharacterDefinedPositions());
+        sb.append(",\n");
         
         // Modes
         appendField(sb, KEY_SKIP_MODE, data.isSkipMode(), false);
@@ -76,7 +96,8 @@ public final class VnSaveSerializer {
         
         // Metadata
         appendField(sb, KEY_SAVE_TIMESTAMP, data.getSaveTimestamp(), false);
-        appendStringField(sb, KEY_SAVE_NAME, data.getSaveName(), true);
+        appendStringField(sb, KEY_SAVE_NAME, data.getSaveName());
+        appendStringField(sb, KEY_RPG_STATE_SERIALIZED, serializeToBase64(data.getRpgState()), true);
         
         sb.append("}");
         return sb.toString();
@@ -143,6 +164,51 @@ public final class VnSaveSerializer {
             }
             data.setVisibleCharacters(visibleCharacters);
         }
+        if (map.containsKey(KEY_CALL_STACK)) {
+            @SuppressWarnings("unchecked")
+            List<Object> callList = (List<Object>) map.get(KEY_CALL_STACK);
+            List<Integer> callStack = new ArrayList<>();
+            if (callList != null) {
+                for (Object value : callList) {
+                    if (value instanceof Number number) {
+                        callStack.add(number.intValue());
+                    } else if (value != null) {
+                        try {
+                            callStack.add(Integer.parseInt(String.valueOf(value)));
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                }
+            }
+            data.setCallStack(callStack);
+        }
+        if (map.containsKey(KEY_GLOBAL_POSITION_CHARACTERS)) {
+            @SuppressWarnings("unchecked")
+            List<Object> globalCharsRaw = (List<Object>) map.get(KEY_GLOBAL_POSITION_CHARACTERS);
+            Set<String> globalChars = new HashSet<>();
+            if (globalCharsRaw != null) {
+                for (Object value : globalCharsRaw) {
+                    String id = toNullableString(value);
+                    if (id != null && !id.isBlank()) globalChars.add(id);
+                }
+            }
+            data.setGlobalPositionCharacters(globalChars);
+        }
+        if (map.containsKey(KEY_CHARACTER_DEFINED_POSITIONS)) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> raw = (Map<String, Object>) map.get(KEY_CHARACTER_DEFINED_POSITIONS);
+            Map<String, String> defined = new HashMap<>();
+            if (raw != null) {
+                for (Map.Entry<String, Object> entry : raw.entrySet()) {
+                    if (entry.getKey() == null || entry.getKey().isBlank()) continue;
+                    String value = toNullableString(entry.getValue());
+                    if (value != null && !value.isBlank()) {
+                        defined.put(entry.getKey(), value);
+                    }
+                }
+            }
+            data.setCharacterDefinedPositions(defined);
+        }
         if (map.containsKey(KEY_SKIP_MODE)) {
             data.setSkipMode(Boolean.TRUE.equals(map.get(KEY_SKIP_MODE)));
         }
@@ -162,6 +228,9 @@ public final class VnSaveSerializer {
         }
         if (map.containsKey(KEY_SAVE_NAME)) {
             data.setSaveName((String) map.get(KEY_SAVE_NAME));
+        }
+        if (map.containsKey(KEY_RPG_STATE_SERIALIZED)) {
+            data.setRpgState(deserializeFromBase64((String) map.get(KEY_RPG_STATE_SERIALIZED)));
         }
         
         return data;
@@ -249,6 +318,55 @@ public final class VnSaveSerializer {
         sb.append("]");
     }
 
+    private static void appendIntegerList(StringBuilder sb, List<Integer> values) {
+        sb.append("[");
+        if (values != null && !values.isEmpty()) {
+            for (int i = 0; i < values.size(); i++) {
+                sb.append(values.get(i));
+                if (i < values.size() - 1) sb.append(", ");
+            }
+        }
+        sb.append("]");
+    }
+
+    private static void appendStringArray(StringBuilder sb, Set<String> values) {
+        sb.append("[");
+        if (values != null && !values.isEmpty()) {
+            int i = 0;
+            for (String value : values) {
+                if (value == null) {
+                    sb.append("null");
+                } else {
+                    sb.append("\"").append(escapeJson(value)).append("\"");
+                }
+                if (i < values.size() - 1) sb.append(", ");
+                i++;
+            }
+        }
+        sb.append("]");
+    }
+
+    private static void appendStringObject(StringBuilder sb, Map<String, String> values) {
+        sb.append("{");
+        if (values != null && !values.isEmpty()) {
+            sb.append("\n");
+            int i = 0;
+            for (Map.Entry<String, String> entry : values.entrySet()) {
+                sb.append("    \"").append(escapeJson(entry.getKey())).append("\": ");
+                if (entry.getValue() == null) {
+                    sb.append("null");
+                } else {
+                    sb.append("\"").append(escapeJson(entry.getValue())).append("\"");
+                }
+                if (i < values.size() - 1) sb.append(",");
+                sb.append("\n");
+                i++;
+            }
+            sb.append("  ");
+        }
+        sb.append("}");
+    }
+
     private static void appendCharactersObject(StringBuilder sb, Map<String, String[]> characters) {
         sb.append("{");
         if (characters != null && !characters.isEmpty()) {
@@ -285,7 +403,22 @@ public final class VnSaveSerializer {
             sb.append("    \"autoPlayDelay\": ").append(settings.getAutoPlayDelay()).append(",\n");
             sb.append("    \"skipUnreadText\": ").append(settings.isSkipUnreadText()).append(",\n");
             sb.append("    \"skipAfterChoices\": ").append(settings.isSkipAfterChoices()).append(",\n");
-            sb.append("    \"clickRevealBeforeAdvance\": ").append(settings.isClickRevealBeforeAdvance()).append("\n");
+            sb.append("    \"clickRevealBeforeAdvance\": ").append(settings.isClickRevealBeforeAdvance()).append(",\n");
+            sb.append("    \"physicsFixedStepMs\": ").append(settings.getPhysicsFixedStepMs()).append(",\n");
+            sb.append("    \"physicsMaxSubSteps\": ").append(settings.getPhysicsMaxSubSteps()).append(",\n");
+            sb.append("    \"physicsDefaultFriction\": ").append(settings.getPhysicsDefaultFriction()).append(",\n");
+            sb.append("    \"inputProfilePath\": ");
+            if (settings.getInputProfilePath() == null) {
+                sb.append("null,\n");
+            } else {
+                sb.append("\"").append(escapeJson(settings.getInputProfilePath())).append("\",\n");
+            }
+            sb.append("    \"inputProfileSerialized\": ");
+            if (settings.getInputProfileSerialized() == null) {
+                sb.append("null\n");
+            } else {
+                sb.append("\"").append(escapeJson(settings.getInputProfileSerialized())).append("\"\n");
+            }
         }
         sb.append("  }");
     }
@@ -318,7 +451,49 @@ public final class VnSaveSerializer {
         if (map.containsKey("clickRevealBeforeAdvance")) {
             settings.setClickRevealBeforeAdvance(Boolean.TRUE.equals(map.get("clickRevealBeforeAdvance")));
         }
+        if (map.containsKey("physicsFixedStepMs")) {
+            settings.setPhysicsFixedStepMs(((Number) map.get("physicsFixedStepMs")).longValue());
+        }
+        if (map.containsKey("physicsMaxSubSteps")) {
+            settings.setPhysicsMaxSubSteps(((Number) map.get("physicsMaxSubSteps")).intValue());
+        }
+        if (map.containsKey("physicsDefaultFriction")) {
+            settings.setPhysicsDefaultFriction(((Number) map.get("physicsDefaultFriction")).doubleValue());
+        }
+        if (map.containsKey("inputProfilePath")) {
+            settings.setInputProfilePath((String) map.get("inputProfilePath"));
+        }
+        if (map.containsKey("inputProfileSerialized")) {
+            settings.setInputProfileSerialized((String) map.get("inputProfileSerialized"));
+        }
         return settings;
+    }
+
+    private static String serializeToBase64(Object value) {
+        if (!(value instanceof Serializable serializableValue)) {
+            return null;
+        }
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+                oos.writeObject(serializableValue);
+            }
+            return Base64.getEncoder().encodeToString(baos.toByteArray());
+        } catch (IOException ignored) {
+            return null;
+        }
+    }
+
+    private static Object deserializeFromBase64(String encoded) {
+        if (encoded == null || encoded.isBlank()) return null;
+        try {
+            byte[] bytes = Base64.getDecoder().decode(encoded);
+            try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(bytes))) {
+                return ois.readObject();
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private static String escapeJson(String s) {

@@ -239,6 +239,36 @@ public class VnState {
     return globalPositionCharacters.contains(characterId.trim());
   }
 
+  public Set<String> getGlobalPositionCharactersSnapshot() {
+    return new HashSet<>(globalPositionCharacters);
+  }
+
+  public Map<String, CharacterPosition> getCharacterDefinedPositionsSnapshot() {
+    return new HashMap<>(characterDefinedPositions);
+  }
+
+  public void setGlobalPositionState(Set<String> globalCharacters, Map<String, CharacterPosition> definedPositions) {
+    globalPositionCharacters.clear();
+    characterDefinedPositions.clear();
+
+    if (globalCharacters != null) {
+      for (String id : globalCharacters) {
+        if (id != null && !id.isBlank()) {
+          globalPositionCharacters.add(id.trim());
+        }
+      }
+    }
+
+    if (definedPositions != null) {
+      for (var entry : definedPositions.entrySet()) {
+        String id = entry.getKey();
+        CharacterPosition position = entry.getValue();
+        if (id == null || id.isBlank() || position == null) continue;
+        characterDefinedPositions.put(id.trim(), position);
+      }
+    }
+  }
+
   public void setCharacterDefinedPosition(String characterId, CharacterPosition position) {
     if (characterId == null || characterId.isBlank() || position == null) return;
     characterDefinedPositions.put(characterId.trim(), position);

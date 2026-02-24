@@ -55,7 +55,7 @@ class VnSaveManagerRobustnessTest {
     state.setVariable("tick", 1);
     mgr.save(state, "slot_a"); // overwrite existing file
 
-    Path savePath = dir.resolve("slot_a.sav");
+    Path savePath = dir.resolve("slot_a.json");
     assertTrue(Files.exists(savePath));
     assertTrue(Files.size(savePath) > 0);
 

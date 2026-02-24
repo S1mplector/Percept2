@@ -31,9 +31,14 @@ public class VnSavePersistenceTest {
     state.markNodeAsRead(0);
     state.markNodeAsRead(1);
     state.showCharacter(CharacterPosition.LEFT, "alice", "neutral", 15);
+    state.pushCallStack(4);
+    state.pushCallStack(7);
+    state.setCharacterGlobalPositionEnabled("alice", true);
+    state.setCharacterDefinedPosition("alice", CharacterPosition.CENTER);
     state.setSkipMode(true);
     state.setAutoPlayMode(false);
     state.setUiHidden(true);
+    state.setRpgState("rpg-snapshot");
 
     VnSettings s = state.getSettings();
     s.setTextSpeed(40);
@@ -43,6 +48,12 @@ public class VnSavePersistenceTest {
     s.setAutoPlayDelay(2500);
     s.setSkipUnreadText(true);
     s.setSkipAfterChoices(false);
+    s.setClickRevealBeforeAdvance(false);
+    s.setPhysicsFixedStepMs(16);
+    s.setPhysicsMaxSubSteps(8);
+    s.setPhysicsDefaultFriction(0.33);
+    s.setInputProfilePath("config/input/default.input");
+    s.setInputProfileSerialized("move_up=W,move_down=S");
 
     // Use temp dir for saves
     Path tmp = Files.createTempDirectory("vn_saves_test");
@@ -63,6 +74,10 @@ public class VnSavePersistenceTest {
 
     assertEquals(state.getVariables().get("flag"), loaded.getVariables().get("flag"));
     assertEquals(state.getReadNodes(), loaded.getReadNodes());
+    assertEquals(state.getCallStackSnapshot(), loaded.getCallStackSnapshot());
+    assertTrue(loaded.isCharacterGlobalPositionEnabled("alice"));
+    assertEquals(CharacterPosition.CENTER, loaded.getCharacterDefinedPosition("alice"));
+    assertEquals("rpg-snapshot", loaded.getRpgState());
 
     assertEquals(s.getTextSpeed(), loaded.getSettings().getTextSpeed());
     assertEquals(s.getBgmVolume(), loaded.getSettings().getBgmVolume(), 0.001);
@@ -71,6 +86,12 @@ public class VnSavePersistenceTest {
     assertEquals(s.getAutoPlayDelay(), loaded.getSettings().getAutoPlayDelay());
     assertEquals(s.isSkipUnreadText(), loaded.getSettings().isSkipUnreadText());
     assertEquals(s.isSkipAfterChoices(), loaded.getSettings().isSkipAfterChoices());
+    assertEquals(s.isClickRevealBeforeAdvance(), loaded.getSettings().isClickRevealBeforeAdvance());
+    assertEquals(s.getPhysicsFixedStepMs(), loaded.getSettings().getPhysicsFixedStepMs());
+    assertEquals(s.getPhysicsMaxSubSteps(), loaded.getSettings().getPhysicsMaxSubSteps());
+    assertEquals(s.getPhysicsDefaultFriction(), loaded.getSettings().getPhysicsDefaultFriction(), 0.0001);
+    assertEquals(s.getInputProfilePath(), loaded.getSettings().getInputProfilePath());
+    assertEquals(s.getInputProfileSerialized(), loaded.getSettings().getInputProfileSerialized());
 
     // Visible characters
     assertTrue(loaded.getVisibleCharacters().containsKey(CharacterPosition.LEFT));
