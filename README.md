@@ -4,7 +4,7 @@
   <img src="docs/images/jvn_logo.png" width="512" alt="JVN logo">
 </div>
 
-JVN is a modular Visual Novel engine written in Java.
+JVN is a modular Visual Novel engine written primarily in Java.
 
 Core capabilities:
 - Visual Novel runtime (`.vns`) with branching flow, variables, conditional blocks, choices, transitions, save/load, history, and interop.
