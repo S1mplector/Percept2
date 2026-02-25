@@ -289,4 +289,4 @@ Only prerequisites are `git` and `git lfs` on PATH.
 
 ## License
 
-`LICENSE.md` currently exists as a placeholder and still needs finalized license text.
+This repository is licensed under the MIT License. See `LICENSE.md`.
