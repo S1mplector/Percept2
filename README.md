@@ -68,9 +68,7 @@ Create runtime distribution:
 
 ## Native-Math Build (Optional)
 
-JVN now includes a vendored native utility library in `native-math/`.
-
-This is optional; Java fallbacks remain active when native libraries are missing.
+This is optional; Java fallbacks remain active when native libraries are missing, but using the native library nonetheless is recommended. 
 
 Build commands:
 
