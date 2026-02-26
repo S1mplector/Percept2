@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 public class EntityTrack {
+    private static final double KEYFRAME_TIME_EPSILON_MS = 0.001;
+
     private final String entityName;
     private String parentGroupName;
     private final Map<PropertyType, List<Keyframe>> keyframes;
@@ -39,8 +41,24 @@ public class EntityTrack {
     }
 
     public void addKeyframe(PropertyType property, Keyframe kf) {
-        keyframes.computeIfAbsent(property, k -> new ArrayList<>()).add(kf);
+        upsertKeyframe(property, kf);
+    }
+
+    public Keyframe upsertKeyframe(PropertyType property, Keyframe kf) {
+        if (property == null || kf == null) return null;
+        List<Keyframe> list = keyframes.computeIfAbsent(property, k -> new ArrayList<>());
+        for (Keyframe existing : list) {
+            if (Math.abs(existing.getTimeMs() - kf.getTimeMs()) <= KEYFRAME_TIME_EPSILON_MS) {
+                // Keep easing shape on existing keyframe; only replace value/time.
+                existing.setTimeMs(kf.getTimeMs());
+                existing.setValue(kf.getValue());
+                sortKeyframes(property);
+                return existing;
+            }
+        }
+        list.add(kf);
         sortKeyframes(property);
+        return kf;
     }
 
     public void removeKeyframe(PropertyType property, Keyframe kf) {

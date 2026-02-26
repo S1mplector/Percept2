@@ -44,8 +44,6 @@ import javafx.stage.Stage;
 import java.util.Locale;
 
 public class PuppeteerWindow extends Stage {
-    private static final double KEYFRAME_TIME_EPSILON_MS = 0.001;
-
     private final AnimationProject project;
     private JesScene2D scene;
 
@@ -931,14 +929,7 @@ public class PuppeteerWindow extends Stage {
 
     private static void upsertKeyframeAtTime(EntityTrack track, PropertyType property, double timeMs, double value) {
         if (track == null || property == null) return;
-        for (Keyframe keyframe : track.getKeyframes(property)) {
-            if (Math.abs(keyframe.getTimeMs() - timeMs) <= KEYFRAME_TIME_EPSILON_MS) {
-                keyframe.setValue(value);
-                track.sortKeyframes(property);
-                return;
-            }
-        }
-        track.addKeyframe(property, new Keyframe(timeMs, value));
+        track.upsertKeyframe(property, new Keyframe(timeMs, value));
     }
 
     @Override

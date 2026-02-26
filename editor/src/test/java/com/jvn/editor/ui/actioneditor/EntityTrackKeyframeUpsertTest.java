@@ -1,0 +1,55 @@
+package com.jvn.editor.ui.actioneditor;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+
+import com.jvn.core.animation.Easing;
+
+class EntityTrackKeyframeUpsertTest {
+
+  @Test
+  void addKeyframeUpsertsAtNearlyIdenticalTimestamp() {
+    EntityTrack track = new EntityTrack("hero");
+
+    track.addKeyframe(PropertyType.X, new Keyframe(100.0, 10.0));
+    track.addKeyframe(PropertyType.X, new Keyframe(100.0005, 42.0));
+
+    List<Keyframe> keyframes = track.getKeyframes(PropertyType.X);
+    assertEquals(1, keyframes.size());
+    assertEquals(100.0005, keyframes.get(0).getTimeMs(), 0.0000001);
+    assertEquals(42.0, keyframes.get(0).getValue(), 0.0000001);
+  }
+
+  @Test
+  void upsertPreservesExistingEasingCurve() {
+    EntityTrack track = new EntityTrack("hero");
+    Keyframe existing = new Keyframe(250.0, 5.0, Easing.Type.CUSTOM);
+    existing.setBezierParams(0.1, 0.2, 0.7, 0.8);
+    track.addKeyframe(PropertyType.X, existing);
+
+    Keyframe replaced = track.upsertKeyframe(PropertyType.X, new Keyframe(250.0, 9.0, Easing.Type.LINEAR));
+
+    assertSame(existing, replaced);
+    assertEquals(1, track.getKeyframes(PropertyType.X).size());
+    assertEquals(Easing.Type.CUSTOM, replaced.getEasing());
+    assertEquals(9.0, replaced.getValue(), 0.0000001);
+    assertEquals(0.1, replaced.getCx1(), 0.0000001);
+    assertEquals(0.2, replaced.getCy1(), 0.0000001);
+    assertEquals(0.7, replaced.getCx2(), 0.0000001);
+    assertEquals(0.8, replaced.getCy2(), 0.0000001);
+  }
+
+  @Test
+  void upsertAddsKeyframeWhenTimestampIsDistinct() {
+    EntityTrack track = new EntityTrack("hero");
+
+    track.upsertKeyframe(PropertyType.X, new Keyframe(100.0, 1.0));
+    track.upsertKeyframe(PropertyType.X, new Keyframe(101.5, 2.0));
+
+    assertEquals(2, track.getKeyframes(PropertyType.X).size());
+  }
+}
