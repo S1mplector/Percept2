@@ -89,10 +89,77 @@ class LayeredImageVisualizerViewTest {
   }
 
   @Test
+  void inferFolderBasedGroupHandlesBaseEyesMouthSubfolders() {
+    assertEquals(
+        "base",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "demo-assets/Lavender_test_sprite/base/lavender_test_sprite_base.png"));
+    assertEquals(
+        "eyes",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "demo-assets/Lavender_test_sprite/eyes/lavender_test_sprite_eyes_half_closed.png"));
+    assertEquals(
+        "mouth",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "demo-assets/Lavender_test_sprite/mouth/lavender_test_sprite_mouth_smile.png"));
+  }
+
+  @Test
+  void inferLabelFromFilenameFallsBackToTailTokenWhenGroupTokenMissing() {
+    assertEquals(
+        "base",
+        LayeredImageVisualizerView.inferLabelFromFilenameForGroup("lavender_test_sprite_base", "base"));
+    assertEquals(
+        "smile",
+        LayeredImageVisualizerView.inferLabelFromFilenameForGroup("lavender_test_sprite_mouth_smile", "mouth"));
+    assertEquals(
+        "angry",
+        LayeredImageVisualizerView.inferLabelFromFilenameForGroup("lavender_test_sprite_angry", "eyes"));
+  }
+
+  @Test
+  void chooseSetSelectionKeepsPreferredLayeredSetWhenItIsAlreadyBest() {
+    List<String> visible = List.of("demo-assets/demo_bg_field", "demo-assets/Lavender_test_sprite");
+    Map<String, Integer> groups = Map.of(
+        "demo-assets/demo_bg_field", 1,
+        "demo-assets/Lavender_test_sprite", 3
+    );
+    assertEquals(
+        "demo-assets/Lavender_test_sprite",
+        LayeredImageVisualizerView.chooseSetSelection(null, "demo-assets/Lavender_test_sprite", visible, groups));
+  }
+
+  @Test
   void defaultOptionScorePrefersNeutralThenDefaultThenBase() {
     assertEquals(0, LayeredImageVisualizerView.defaultOptionScore("neutral"));
     assertEquals(1, LayeredImageVisualizerView.defaultOptionScore("default"));
     assertEquals(2, LayeredImageVisualizerView.defaultOptionScore("base"));
     assertEquals(10, LayeredImageVisualizerView.defaultOptionScore("angry"));
+  }
+
+  @Test
+  void backgroundGroupDetectionRecognizesCommonNames() {
+    assertEquals(true, LayeredImageVisualizerView.isLikelyBackgroundGroupName("field"));
+    assertEquals(true, LayeredImageVisualizerView.isLikelyBackgroundGroupName("mainmenu"));
+    assertEquals(true, LayeredImageVisualizerView.isLikelyBackgroundGroupName("background"));
+    assertEquals(false, LayeredImageVisualizerView.isLikelyBackgroundGroupName("eyes"));
+    assertEquals(false, LayeredImageVisualizerView.isLikelyBackgroundGroupName("mouth"));
+    assertEquals(false, LayeredImageVisualizerView.isLikelyBackgroundGroupName("codel"));
+  }
+
+  @Test
+  void backgroundSuppressionTriggersOnlyWhenMixedWithForeground() {
+    assertEquals(
+        true,
+        LayeredImageVisualizerView.shouldSuppressBackgroundGroups(List.of("codel", "field")));
+    assertEquals(
+        false,
+        LayeredImageVisualizerView.shouldSuppressBackgroundGroups(List.of("field", "background")));
+    assertEquals(
+        false,
+        LayeredImageVisualizerView.shouldSuppressBackgroundGroups(List.of("eyes", "mouth", "base")));
+    assertEquals(
+        false,
+        LayeredImageVisualizerView.shouldSuppressBackgroundGroups(List.of("mainmenu")));
   }
 }

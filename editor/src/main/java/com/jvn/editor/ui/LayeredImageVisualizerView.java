@@ -890,11 +890,21 @@ public class LayeredImageVisualizerView extends BorderPane {
   }
 
   private List<LayerOption> selectedLayers() {
+    List<String> selectedGroupNames = new ArrayList<>();
+    for (String group : groupOrder) {
+      ComboBox<LayerOption> combo = selectors.get(group);
+      LayerOption option = combo != null ? combo.getValue() : null;
+      if (option == null || option.isNone()) continue;
+      selectedGroupNames.add(group);
+    }
+    boolean suppressBackground = shouldSuppressBackgroundGroups(selectedGroupNames);
+
     List<LayerOption> out = new ArrayList<>();
     for (String group : groupOrder) {
       ComboBox<LayerOption> combo = selectors.get(group);
       LayerOption option = combo != null ? combo.getValue() : null;
       if (option == null || option.isNone()) continue;
+      if (suppressBackground && isLikelyBackgroundGroupName(group)) continue;
       out.add(option);
     }
     return out;
@@ -928,6 +938,36 @@ public class LayeredImageVisualizerView extends BorderPane {
     if (key.contains("default")) return 4;
     if (key.contains("base")) return 5;
     return 10;
+  }
+
+  static boolean isLikelyBackgroundGroupName(String groupName) {
+    String g = sanitizeId(groupName);
+    if (g.isBlank()) return false;
+    return g.equals("bg")
+        || g.contains("background")
+        || g.equals("field")
+        || g.equals("scene")
+        || g.equals("location")
+        || g.equals("room")
+        || g.equals("environment")
+        || g.equals("menu")
+        || g.equals("mainmenu")
+        || g.equals("title")
+        || g.equals("backdrop");
+  }
+
+  static boolean shouldSuppressBackgroundGroups(List<String> selectedGroupNames) {
+    if (selectedGroupNames == null || selectedGroupNames.isEmpty()) return false;
+    boolean hasBackground = false;
+    boolean hasForeground = false;
+    for (String groupName : selectedGroupNames) {
+      if (isLikelyBackgroundGroupName(groupName)) {
+        hasBackground = true;
+      } else {
+        hasForeground = true;
+      }
+    }
+    return hasBackground && hasForeground;
   }
 
   private Image loadImage(LayerOption option) {
