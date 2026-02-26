@@ -113,6 +113,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final UndoManager undoManager = new UndoManager();
   private Button btnUndo;
   private Button btnRedo;
+  private boolean applyingHistory = false;
   private final Label validation = new Label("No issues detected.");
 
   private String previewSpeakerName = "Speaker Name";
@@ -265,7 +266,11 @@ public class DialogueLayoutEditorView extends BorderPane {
     validateState();
     redraw();
     lastLoadedText = normalizedInput;
-    lastEmittedText = normalizeText(serialize(spec, style, textBoxButtons, rawProperties));
+    String serialized = serialize(spec, style, textBoxButtons, rawProperties);
+    lastEmittedText = normalizeText(serialized);
+    if (!applyingHistory) {
+      undoManager.setInitialState(serialized);
+    }
   }
 
   public String getLayoutText() {
@@ -677,8 +682,10 @@ public class DialogueLayoutEditorView extends BorderPane {
       }
     });
     preview.setOnMouseReleased(e -> {
+      boolean wasDragging = dragTarget != DragTarget.NONE;
       dragTarget = DragTarget.NONE;
       dragButtonIndex = -1;
+      if (wasDragging) emitText();
     });
     preview.setOnMouseDragged(e -> {
       if (dragTarget == DragTarget.NONE) return;
@@ -841,7 +848,6 @@ public class DialogueLayoutEditorView extends BorderPane {
           setSelectedTextBoxButton(dragButtonIndex);
           validateState();
           redraw();
-          emitText();
           return;
         }
       }
@@ -852,7 +858,6 @@ public class DialogueLayoutEditorView extends BorderPane {
       suppressEvents = false;
       validateState();
       redraw();
-      emitText();
     });
   }
 
@@ -1549,18 +1554,28 @@ public class DialogueLayoutEditorView extends BorderPane {
   private void performUndo() {
     String previous = undoManager.undo();
     if (previous == null) return;
+    applyingHistory = true;
     suppressEvents = true;
-    setLayoutText(previous);
-    suppressEvents = false;
+    try {
+      setLayoutText(previous);
+    } finally {
+      suppressEvents = false;
+      applyingHistory = false;
+    }
     if (onLayoutTextChanged != null) onLayoutTextChanged.accept(previous);
   }
 
   private void performRedo() {
     String next = undoManager.redo();
     if (next == null) return;
+    applyingHistory = true;
     suppressEvents = true;
-    setLayoutText(next);
-    suppressEvents = false;
+    try {
+      setLayoutText(next);
+    } finally {
+      suppressEvents = false;
+      applyingHistory = false;
+    }
     if (onLayoutTextChanged != null) onLayoutTextChanged.accept(next);
   }
 

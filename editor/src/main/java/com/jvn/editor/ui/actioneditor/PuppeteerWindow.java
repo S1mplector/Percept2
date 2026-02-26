@@ -86,8 +86,6 @@ public class PuppeteerWindow extends Stage {
         setWidth(1400);
         setHeight(900);
 
-        this.project.captureInitialSnapshot();
-
         entitySelector = new EntitySelector();
         timelinePanel = new TimelinePanel(this.project);
         keyframeEditor = new KeyframeEditor();
@@ -436,6 +434,7 @@ public class PuppeteerWindow extends Stage {
                     track.setLayerOrder((int) Math.round(entity.getZ()));
                 }
             }
+            captureProjectSnapshotBaseline();
             entitySelector.refresh(project);
             timelinePanel.refresh();
             updatePreview();
@@ -497,6 +496,7 @@ public class PuppeteerWindow extends Stage {
 
         EntityTrack track = project.getOrCreateTrack(entityName);
         track.setLayerOrder((int) Math.round(sprite.getZ()));
+        captureProjectSnapshotBaseline();
         entitySelector.refresh(project);
         timelinePanel.refresh();
         animationPreview.render();
@@ -923,6 +923,10 @@ public class PuppeteerWindow extends Stage {
         ClipboardContent content = new ClipboardContent();
         content.putString(text);
         Clipboard.getSystemClipboard().setContent(content);
+    }
+
+    private void captureProjectSnapshotBaseline() {
+        project.captureInitialSnapshot();
     }
 
     private static void upsertKeyframeAtTime(EntityTrack track, PropertyType property, double timeMs, double value) {

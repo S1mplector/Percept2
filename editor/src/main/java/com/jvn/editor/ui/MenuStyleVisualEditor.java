@@ -108,10 +108,12 @@ public class MenuStyleVisualEditor extends BorderPane {
 
   private Image buttonAssetImage;
   private Image buttonSelectedAssetImage;
+  private Image buttonHoverAssetImage;
   private Image buttonDisabledAssetImage;
   private final UndoManager undoManager = new UndoManager();
   private Button btnUndo;
   private Button btnRedo;
+  private boolean applyingHistory = false;
   private final Label validation = new Label("No issues detected.");
   private final TableView<CustomProperty> customPropsTable = new TableView<>();
   private final ObservableList<CustomProperty> customProps = FXCollections.observableArrayList();
@@ -275,7 +277,11 @@ public class MenuStyleVisualEditor extends BorderPane {
     refreshValidation();
     redrawPreview();
     lastLoadedText = normalized;
-    lastEmittedText = normalizeText(serialize());
+    String serialized = serialize();
+    lastEmittedText = normalizeText(serialized);
+    if (!applyingHistory) {
+      undoManager.setInitialState(serialized);
+    }
   }
 
   public String getStyleText() {
@@ -574,18 +580,28 @@ public class MenuStyleVisualEditor extends BorderPane {
   private void performUndo() {
     String previous = undoManager.undo();
     if (previous == null) return;
+    applyingHistory = true;
     suppressEvents = true;
-    setStyleText(previous);
-    suppressEvents = false;
+    try {
+      setStyleText(previous);
+    } finally {
+      suppressEvents = false;
+      applyingHistory = false;
+    }
     if (onStyleTextChanged != null) onStyleTextChanged.accept(previous);
   }
 
   private void performRedo() {
     String next = undoManager.redo();
     if (next == null) return;
+    applyingHistory = true;
     suppressEvents = true;
-    setStyleText(next);
-    suppressEvents = false;
+    try {
+      setStyleText(next);
+    } finally {
+      suppressEvents = false;
+      applyingHistory = false;
+    }
     if (onStyleTextChanged != null) onStyleTextChanged.accept(next);
   }
 
@@ -677,17 +693,38 @@ public class MenuStyleVisualEditor extends BorderPane {
     double buttonH = 58;
     double x = (w - buttonW) / 2.0;
     double y = 80;
-    drawPreviewButton(g, x, y, buttonW, buttonH, "  New Game", false, false);
-    drawPreviewButton(g, x, y + 78, buttonW, buttonH, "> Continue", true, false);
-    drawPreviewButton(g, x, y + 156, buttonW, buttonH, "- Locked Option", false, true);
+    drawPreviewButton(g, x, y, buttonW, buttonH, "  Hovered Option", false, false, true);
+    drawPreviewButton(g, x, y + 78, buttonW, buttonH, "> Selected Option", true, false, false);
+    drawPreviewButton(g, x, y + 156, buttonW, buttonH, "- Locked Option", false, true, false);
   }
 
-  private void drawPreviewButton(GraphicsContext g, double x, double y, double w, double h, String text, boolean selected, boolean disabled) {
-    Image bg = disabled ? buttonDisabledAssetImage : (selected ? buttonSelectedAssetImage : buttonAssetImage);
+  private void drawPreviewButton(GraphicsContext g,
+                                 double x,
+                                 double y,
+                                 double w,
+                                 double h,
+                                 String text,
+                                 boolean selected,
+                                 boolean disabled,
+                                 boolean hovered) {
+    Image bg;
+    if (disabled) {
+      bg = buttonDisabledAssetImage;
+    } else if (selected) {
+      bg = buttonSelectedAssetImage;
+    } else if (hovered) {
+      bg = buttonHoverAssetImage != null ? buttonHoverAssetImage : buttonAssetImage;
+    } else {
+      bg = buttonAssetImage;
+    }
     if (bg != null && !bg.isError()) {
       g.drawImage(bg, x, y, w, h);
     } else {
-      Color fill = disabled ? LayoutStudioPalette.PANEL_FILL_DISABLED : (selected ? LayoutStudioPalette.PANEL_FILL_SELECTED : LayoutStudioPalette.PANEL_FILL);
+      Color fill = disabled
+          ? LayoutStudioPalette.PANEL_FILL_DISABLED
+          : (selected
+              ? LayoutStudioPalette.PANEL_FILL_SELECTED
+              : (hovered ? LayoutStudioPalette.PANEL_FILL_SELECTED : LayoutStudioPalette.PANEL_FILL));
       g.setFill(fill);
       g.fillRoundRect(x, y, w, h, 10, 10);
       g.setStroke(selected ? LayoutStudioPalette.PANEL_BORDER_SELECTED : LayoutStudioPalette.PANEL_BORDER);
@@ -695,9 +732,16 @@ public class MenuStyleVisualEditor extends BorderPane {
       g.strokeRoundRect(x, y, w, h, 10, 10);
     }
 
-    Color textColor = disabled
-        ? parseColor(tfItemDisabledColor.getText(), LayoutStudioPalette.ITEM_COLOR_DISABLED)
-        : (selected ? parseColor(tfItemSelectedColor.getText(), LayoutStudioPalette.ITEM_COLOR_SELECTED) : parseColor(tfItemColor.getText(), LayoutStudioPalette.ITEM_COLOR_DEFAULT));
+    Color textColor;
+    if (disabled) {
+      textColor = parseColor(tfItemDisabledColor.getText(), LayoutStudioPalette.ITEM_COLOR_DISABLED);
+    } else if (selected) {
+      textColor = parseColor(tfItemSelectedColor.getText(), LayoutStudioPalette.ITEM_COLOR_SELECTED);
+    } else if (hovered) {
+      textColor = parseColor(tfItemHoverColor.getText(), LayoutStudioPalette.ITEM_COLOR_SELECTED);
+    } else {
+      textColor = parseColor(tfItemColor.getText(), LayoutStudioPalette.ITEM_COLOR_DEFAULT);
+    }
     Font font = resolvePreviewFont();
     g.setFill(textColor);
     g.setFont(font);
@@ -771,6 +815,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   private void loadButtonAssets() {
     buttonAssetImage = loadImage(tfButtonAsset.getText());
     buttonSelectedAssetImage = loadImage(tfButtonSelectedAsset.getText());
+    buttonHoverAssetImage = loadImage(tfButtonHoverAsset.getText());
     buttonDisabledAssetImage = loadImage(tfButtonDisabledAsset.getText());
   }
 
