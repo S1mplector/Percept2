@@ -225,6 +225,23 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesVisualizerCommandWithBarsOption() throws Exception {
+    String script = """
+      @label start
+      [visualizer on bars=48]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "ui".equals(n.getExternalCommand().getProvider()))
+        .findFirst().orElseThrow();
+    assertEquals("visualizer on bars=48", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
   public void rejectsUndefinedLabels() {
     String script = """
       @label start

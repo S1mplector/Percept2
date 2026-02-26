@@ -266,7 +266,7 @@ Transition types:
 [auto [on|off|toggle]]
 
 [ui [hide|show|toggle]]
-[visualizer [on|off|toggle]]
+[visualizer [on|off|toggle] [bars=<count>]]
 [history [toggle|show|hide]]
 [history scroll <lines>]
 [history clear]
@@ -277,6 +277,7 @@ Transition types:
 ```
 
 `[visualizer ...]` controls the in-scene audio visualizer layer (off by default).
+Examples: `[visualizer on]`, `[visualizer on bars=48]`, `[visualizer off]`.
 
 ### Variable and flow helpers
 

@@ -81,6 +81,14 @@ class DefaultVnInteropQuotedArgsTest {
     Object value = scene.getState().getVariable("ui.audioVisualizer");
     assertTrue(value instanceof Boolean);
     assertTrue((Boolean) value);
+
+    interop.handle(new VnExternalCommand("ui", "visualizer on bars=48"), scene);
+    assertEquals(Boolean.TRUE, scene.getState().getVariable("ui.audioVisualizer"));
+    assertEquals(48, scene.getState().getVariable("ui.audioVisualizerBars"));
+
+    interop.handle(new VnExternalCommand("ui", "visualizer off bars 24"), scene);
+    assertEquals(Boolean.FALSE, scene.getState().getVariable("ui.audioVisualizer"));
+    assertEquals(24, scene.getState().getVariable("ui.audioVisualizerBars"));
   }
 
   public static class Methods {

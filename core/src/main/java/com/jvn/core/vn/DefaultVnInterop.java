@@ -25,6 +25,8 @@ public class DefaultVnInterop implements VnInterop {
   private static final Pattern EXPR_GOTO_PATTERN = Pattern.compile("(?i)^(.+?)\\s+goto\\s+(\\S+)\\s*$");
   private static final String[] ALLOWED_JAVA_CLASS_PREFIXES = {"com.jvn."};
   private static final String VAR_AUDIO_VISUALIZER_ENABLED = "ui.audioVisualizer";
+  private static final String VAR_AUDIO_VISUALIZER_BARS = "ui.audioVisualizerBars";
+  private static final int VISUALIZER_MIN_BARS = 8;
   private SceneAccessor sceneAccessor;
 
   public void setSceneAccessor(SceneAccessor accessor) { this.sceneAccessor = accessor; }
@@ -304,7 +306,18 @@ public class DefaultVnInterop implements VnInterop {
     String arg = (payload == null ? "" : payload.trim().toLowerCase());
     String[] toks = split(arg);
     if (toks.length > 0 && ("visualizer".equals(toks[0]) || "viz".equals(toks[0]))) {
-      String mode = toks.length >= 2 ? toks[1] : "toggle";
+      int optStart = 1;
+      String mode = "toggle";
+      if (toks.length >= 2) {
+        String candidate = toks[1];
+        if ("on".equals(candidate) || "show".equals(candidate) || "true".equals(candidate) || "1".equals(candidate)
+            || "yes".equals(candidate) || "off".equals(candidate) || "hide".equals(candidate)
+            || "false".equals(candidate) || "0".equals(candidate) || "no".equals(candidate)
+            || "toggle".equals(candidate)) {
+          mode = candidate;
+          optStart = 2;
+        }
+      }
       Object cur = scene.getState().getVariables().get(VAR_AUDIO_VISUALIZER_ENABLED);
       boolean current = false;
       if (cur instanceof Boolean b) current = b;
@@ -319,11 +332,49 @@ public class DefaultVnInterop implements VnInterop {
         default -> !current;
       };
       scene.getState().setVariable(VAR_AUDIO_VISUALIZER_ENABLED, next);
+      Integer bars = parseVisualizerBarsOption(toks, optStart);
+      if (bars != null) {
+        scene.getState().setVariable(VAR_AUDIO_VISUALIZER_BARS, bars);
+      }
       return;
     }
     if (arg.isEmpty() || "toggle".equals(arg)) { scene.getState().toggleUiHidden(); return; }
     if ("hide".equals(arg) || "on".equals(arg)) { scene.getState().setUiHidden(true); return; }
     if ("show".equals(arg) || "off".equals(arg)) { scene.getState().setUiHidden(false); }
+  }
+
+  private Integer parseVisualizerBarsOption(String[] toks, int start) {
+    if (toks == null || start >= toks.length) return null;
+    for (int i = start; i < toks.length; i++) {
+      String token = toks[i] == null ? "" : toks[i].trim();
+      if (token.isEmpty()) continue;
+      String lower = token.toLowerCase();
+      if (lower.startsWith("bars=")) {
+        Integer parsed = parseVisualizerBarsValue(token.substring(5).trim());
+        if (parsed != null) return parsed;
+      } else if ("bars".equals(lower)) {
+        if (i + 1 < toks.length) {
+          Integer parsed = parseVisualizerBarsValue(toks[i + 1]);
+          if (parsed != null) return parsed;
+          i++;
+        }
+      } else if (token.chars().allMatch(Character::isDigit)) {
+        Integer parsed = parseVisualizerBarsValue(token);
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  private Integer parseVisualizerBarsValue(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      int value = Integer.parseInt(raw.trim());
+      if (value <= 0) return null;
+      return Math.max(VISUALIZER_MIN_BARS, value);
+    } catch (Exception ignored) {
+      return null;
+    }
   }
 
   private void handleHistory(String payload, VnScene scene) {

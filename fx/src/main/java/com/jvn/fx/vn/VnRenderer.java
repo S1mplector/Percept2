@@ -96,6 +96,7 @@ public class VnRenderer {
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
   private static final String VAR_AUDIO_VISUALIZER_ENABLED = "ui.audioVisualizer";
+  private static final String VAR_AUDIO_VISUALIZER_BARS = "ui.audioVisualizerBars";
 
   private Image choiceButtonImage;
   private Image choiceButtonHoverImage;
@@ -667,6 +668,11 @@ public class VnRenderer {
       decayVisualizer(0.86);
       return;
     }
+    int activeBars = resolveAudioVisualizerBarCount();
+    if (activeBars <= 0) {
+      decayVisualizer(0.86);
+      return;
+    }
     if (audioFacade == null) {
       decayVisualizer(0.86);
       return;
@@ -680,17 +686,22 @@ public class VnRenderer {
         && (updatedAt <= 0L || (nowNs - updatedAt) <= VISUALIZER_STALE_NS);
 
     if (hasFreshData) {
-      mapSpectrumToTargets(magnitudes, visualizerTargets);
-      for (int i = 0; i < visualizerLevels.length; i++) {
+      mapSpectrumToTargets(magnitudes, visualizerTargets, activeBars);
+      for (int i = 0; i < activeBars; i++) {
         double eased = visualizerLevels[i] * 0.62 + visualizerTargets[i] * 0.38;
         visualizerLevels[i] = clamp(eased, 0.0, 1.0);
+      }
+      for (int i = activeBars; i < visualizerLevels.length; i++) {
+        visualizerLevels[i] = 0.0;
+        visualizerTargets[i] = 0.0;
       }
     } else {
       decayVisualizer(0.9);
     }
 
     double maxLevel = 0.0;
-    for (double level : visualizerLevels) {
+    for (int i = 0; i < activeBars; i++) {
+      double level = visualizerLevels[i];
       if (level > maxLevel) maxLevel = level;
     }
     if (maxLevel < 0.015) return;
@@ -705,7 +716,7 @@ public class VnRenderer {
     double sidePadding = 0.0;
     double regionWidth = Math.max(1.0, width);
     double gap = 1.0;
-    double barWidth = (regionWidth - gap * (visualizerLevels.length - 1)) / visualizerLevels.length;
+    double barWidth = (regionWidth - gap * (activeBars - 1)) / activeBars;
     if (barWidth < 1.0) return;
 
     gc.save();
@@ -714,7 +725,7 @@ public class VnRenderer {
     gc.setLineWidth(1.0);
     gc.strokeLine(sidePadding, regionBottom + 0.5, sidePadding + regionWidth, regionBottom + 0.5);
 
-    for (int i = 0; i < visualizerLevels.length; i++) {
+    for (int i = 0; i < activeBars; i++) {
       double level = visualizerLevels[i];
       if (level <= 0.002) continue;
       double normalized = Math.pow(level, 0.78);
@@ -735,12 +746,12 @@ public class VnRenderer {
     }
   }
 
-  private void mapSpectrumToTargets(float[] magnitudes, double[] out) {
+  private void mapSpectrumToTargets(float[] magnitudes, double[] out, int activeBars) {
     Arrays.fill(out, 0.0);
-    if (magnitudes == null || magnitudes.length == 0 || out.length == 0) return;
-    double bandsPerBar = magnitudes.length / (double) out.length;
+    if (magnitudes == null || magnitudes.length == 0 || out.length == 0 || activeBars <= 0) return;
+    double bandsPerBar = magnitudes.length / (double) activeBars;
 
-    for (int i = 0; i < out.length; i++) {
+    for (int i = 0; i < activeBars; i++) {
       int start = (int) Math.floor(i * bandsPerBar);
       int end = (int) Math.ceil((i + 1) * bandsPerBar);
       if (end <= start) end = start + 1;
@@ -758,7 +769,7 @@ public class VnRenderer {
         count++;
       }
       double avg = count == 0 ? 0.0 : (sum / count);
-      double freqWeight = 1.0 - (i / (double) out.length) * 0.35;
+      double freqWeight = 1.0 - (i / (double) activeBars) * 0.35;
       out[i] = clamp(avg * freqWeight, 0.0, 1.0);
     }
   }
@@ -1062,6 +1073,12 @@ public class VnRenderer {
       return "1".equals(t) || "true".equals(t) || "on".equals(t) || "yes".equals(t);
     }
     return false;
+  }
+
+  private int resolveAudioVisualizerBarCount() {
+    Double override = readDoubleVariable(currentState, VAR_AUDIO_VISUALIZER_BARS);
+    if (override == null) return VISUALIZER_BAR_COUNT;
+    return (int) Math.round(clamp(override, 8.0, VISUALIZER_BAR_COUNT));
   }
 
   private Color parseColor(String raw, Color fallback) {
