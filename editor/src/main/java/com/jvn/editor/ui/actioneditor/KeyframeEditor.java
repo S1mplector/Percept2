@@ -35,6 +35,7 @@ public class KeyframeEditor extends VBox {
 
     private final Label lblEmptyHint;
     private final GridPane grid;
+    private double timelineDurationMs = 3000.0;
 
     private Keyframe currentKeyframe;
     private PropertyType currentProperty;
@@ -124,6 +125,12 @@ public class KeyframeEditor extends VBox {
 
         tfTime.setOnAction(e -> applyChanges());
         tfValue.setOnAction(e -> applyChanges());
+        tfTime.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) applyChanges();
+        });
+        tfValue.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) applyChanges();
+        });
         cbEasing.setOnAction(e -> {
             applyChanges();
             Easing.Type sel = cbEasing.getValue();
@@ -179,6 +186,11 @@ public class KeyframeEditor extends VBox {
         setFieldsDisabled(true);
     }
 
+    public void setTimelineDurationMs(double durationMs) {
+        timelineDurationMs = Math.max(100.0, durationMs);
+        syncTimeSliderBounds(currentKeyframe != null ? currentKeyframe.getTimeMs() : 0.0);
+    }
+
     public void setKeyframe(Keyframe kf, PropertyType property) {
         this.currentKeyframe = kf;
         this.currentProperty = property;
@@ -189,6 +201,7 @@ public class KeyframeEditor extends VBox {
             tfTime.setText("");
             tfValue.setText("");
             cbEasing.setValue(Easing.Type.LINEAR);
+            syncTimeSliderBounds(0.0);
             showEmptyState(true);
             setFieldsDisabled(true);
         } else {
@@ -201,6 +214,7 @@ public class KeyframeEditor extends VBox {
             if (kf.getEasing() == Easing.Type.CUSTOM) {
                 curveEditor.setBezierParams(kf.getCx1(), kf.getCy1(), kf.getCx2(), kf.getCy2());
             }
+            syncTimeSliderBounds(kf.getTimeMs());
             sliderTime.setValue(kf.getTimeMs());
             configureSliderForProperty(property);
             sliderValue.setValue(kf.getValue());
@@ -228,8 +242,11 @@ public class KeyframeEditor extends VBox {
 
         boolean hasError = false;
         try {
-            double time = Double.parseDouble(tfTime.getText());
+            double time = Math.max(0.0, Double.parseDouble(tfTime.getText().trim()));
             currentKeyframe.setTimeMs(time);
+            syncTimeSliderBounds(time);
+            sliderTime.setValue(time);
+            tfTime.setText(String.format("%.0f", time));
             setFieldError(tfTime, false);
         } catch (NumberFormatException ignored) {
             setFieldError(tfTime, true);
@@ -237,8 +254,10 @@ public class KeyframeEditor extends VBox {
         }
 
         try {
-            double value = Double.parseDouble(tfValue.getText());
+            double value = Double.parseDouble(tfValue.getText().trim());
             currentKeyframe.setValue(value);
+            sliderValue.setValue(value);
+            tfValue.setText(String.format("%.2f", value));
             setFieldError(tfValue, false);
         } catch (NumberFormatException ignored) {
             setFieldError(tfValue, true);
@@ -250,6 +269,12 @@ public class KeyframeEditor extends VBox {
         currentKeyframe.setEasing(cbEasing.getValue());
 
         if (onKeyframeChanged != null) onKeyframeChanged.run();
+    }
+
+    private void syncTimeSliderBounds(double timeMs) {
+        double max = Math.max(timelineDurationMs, Math.max(0.0, timeMs));
+        sliderTime.setMin(0.0);
+        sliderTime.setMax(Math.max(100.0, max));
     }
 
     private void setFieldError(TextField field, boolean error) {

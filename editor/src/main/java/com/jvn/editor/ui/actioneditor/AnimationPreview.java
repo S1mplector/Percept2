@@ -2,6 +2,7 @@ package com.jvn.editor.ui.actioneditor;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -87,9 +88,13 @@ public class AnimationPreview extends VBox {
             scene.setCamera(camera);
             Set<String> names = new HashSet<>(scene.names());
             orbitAnchors.keySet().removeIf(name -> !names.contains(name));
-            if (selectedEntityName != null && !names.contains(selectedEntityName)) {
-                selectedEntity = null;
-                selectedEntityName = null;
+            if (selectedEntityName != null) {
+                if (!names.contains(selectedEntityName)) {
+                    selectedEntity = null;
+                    selectedEntityName = null;
+                } else {
+                    selectedEntity = scene.find(selectedEntityName);
+                }
             }
         } else {
             selectedEntity = null;
@@ -223,6 +228,30 @@ public class AnimationPreview extends VBox {
     public void setOnEntityRotationChanged(BiConsumer<String, Double> callback) { this.onEntityRotationChanged = callback; }
 
     public Entity2D getSelectedEntity() { return selectedEntity; }
+    public String getSelectedEntityName() { return selectedEntityName; }
+
+    public void selectEntity(String entityName) {
+        if (entityName == null || entityName.isBlank() || scene == null) {
+            clearSelection();
+            return;
+        }
+        Entity2D entity = scene.find(entityName);
+        if (entity == null) {
+            clearSelection();
+            return;
+        }
+        boolean changed = entity != selectedEntity || !entityName.equals(selectedEntityName);
+        selectedEntity = entity;
+        selectedEntityName = entityName;
+        if (changed) render();
+    }
+
+    public void clearSelection() {
+        boolean changed = selectedEntity != null || selectedEntityName != null;
+        selectedEntity = null;
+        selectedEntityName = null;
+        if (changed) render();
+    }
 
     public boolean isOnionSkinning() { return onionSkinning; }
     public void setOnionSkinning(boolean onionSkinning) { this.onionSkinning = onionSkinning; render(); }
@@ -240,35 +269,45 @@ public class AnimationPreview extends VBox {
         render();
     }
 
-    private String findEntityNameAt(double screenX, double screenY) {
+    private String findEntityNameAt(double screenX, double screenY, boolean updateSelection) {
         if (scene == null) return null;
-        double z = camera.getZoom();
+        double z = Math.max(0.0001, camera.getZoom());
         double worldX = camera.getX() + screenX / z;
         double worldY = camera.getY() + screenY / z;
 
-        // Iterate in reverse render order so topmost entity wins
         String bestName = null;
         Entity2D bestEntity = null;
+        int bestLayer = Integer.MIN_VALUE;
+        int bestRenderOrder = Integer.MIN_VALUE;
         var named = scene.exportNamed();
         var children = scene.getChildren();
-        for (int i = children.size() - 1; i >= 0; i--) {
-            Entity2D entity = children.get(i);
+        Map<Entity2D, Integer> renderOrder = new IdentityHashMap<>();
+        for (int i = 0; i < children.size(); i++) {
+            renderOrder.put(children.get(i), i);
+        }
+        for (var entry : named.entrySet()) {
+            String name = entry.getKey();
+            Entity2D entity = entry.getValue();
+            if (entity == null) continue;
             double[] bounds = getEntityBounds(entity);
             if (worldX >= bounds[0] && worldX <= bounds[0] + bounds[2]
                     && worldY >= bounds[1] && worldY <= bounds[1] + bounds[3]) {
-                // Find its name
-                for (var entry : named.entrySet()) {
-                    if (entry.getValue() == entity) {
-                        bestName = entry.getKey();
-                        bestEntity = entity;
-                        break;
-                    }
+                int layer = project != null
+                    ? project.computeEffectiveLayerOrder(name)
+                    : (int) Math.round(entity.getZ());
+                int order = renderOrder.getOrDefault(entity, Integer.MIN_VALUE);
+                if (bestEntity == null || layer > bestLayer || (layer == bestLayer && order > bestRenderOrder)) {
+                    bestName = name;
+                    bestEntity = entity;
+                    bestLayer = layer;
+                    bestRenderOrder = order;
                 }
-                if (bestName != null) break;
             }
         }
-        selectedEntity = bestEntity;
-        selectedEntityName = bestName;
+        if (updateSelection) {
+            selectedEntity = bestEntity;
+            selectedEntityName = bestName;
+        }
         return bestName;
     }
 
@@ -347,10 +386,24 @@ public class AnimationPreview extends VBox {
             }
 
             if (e.isPrimaryButtonDown()) {
+                if (orbitToolEnabled && e.isShiftDown() && e.isAltDown()) {
+                    if (selectedEntityName != null && !selectedEntityName.isBlank()) {
+                        String anchorSource = findEntityNameAt(e.getX(), e.getY(), false);
+                        if (anchorSource != null && !anchorSource.equals(selectedEntityName)) {
+                            Entity2D sourceEntity = scene != null ? scene.find(anchorSource) : null;
+                            if (sourceEntity != null) {
+                                setOrbitAnchor(selectedEntityName, sourceEntity.getX(), sourceEntity.getY());
+                                render();
+                                return;
+                            }
+                        }
+                    }
+                }
+
                 if (orbitToolEnabled && e.isShiftDown()) {
                     String target = selectedEntityName;
                     if (target == null || target.isBlank()) {
-                        target = findEntityNameAt(e.getX(), e.getY());
+                        target = findEntityNameAt(e.getX(), e.getY(), true);
                         if (target != null && onEntitySelected != null) {
                             onEntitySelected.accept(target);
                         }
@@ -373,7 +426,7 @@ public class AnimationPreview extends VBox {
                     return;
                 }
 
-                String hitName = findEntityNameAt(e.getX(), e.getY());
+                String hitName = findEntityNameAt(e.getX(), e.getY(), true);
                 if (hitName != null) {
                     if (orbitToolEnabled && hasOrbitAnchor(hitName)) {
                         double[] anchor = getOrbitAnchor(hitName);

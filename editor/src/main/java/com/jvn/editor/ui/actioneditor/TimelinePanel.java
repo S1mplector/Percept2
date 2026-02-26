@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import javafx.scene.canvas.Canvas;
@@ -49,6 +50,7 @@ public class TimelinePanel extends VBox {
 
     private Consumer<Keyframe> onKeyframeSelected;
     private Consumer<Double> onPlayheadChanged;
+    private BiConsumer<String, Boolean> onTargetSelectionChanged;
     private Runnable onEdited;
 
     private boolean draggingPlayhead = false;
@@ -92,6 +94,7 @@ public class TimelinePanel extends VBox {
 
     public void setOnKeyframeSelected(Consumer<Keyframe> callback) { this.onKeyframeSelected = callback; }
     public void setOnPlayheadChanged(Consumer<Double> callback) { this.onPlayheadChanged = callback; }
+    public void setOnTargetSelectionChanged(BiConsumer<String, Boolean> callback) { this.onTargetSelectionChanged = callback; }
     public void setOnEdited(Runnable callback) { this.onEdited = callback; }
 
     public void setSelectedEntity(String name) {
@@ -114,6 +117,9 @@ public class TimelinePanel extends VBox {
         }
         if (this.selectedProperty != null && !isPropertySupportedForSelection(this.selectedProperty)) {
             this.selectedProperty = defaultPropertyForSelection();
+        }
+        if (changed) {
+            notifyTargetSelectionChanged();
         }
         render();
     }
@@ -480,6 +486,7 @@ public class TimelinePanel extends VBox {
             draggingKeyframe = selectedKeyframe != null;
             dragAnchorX = x;
             captureDragStartTimes();
+            notifyTargetSelectionChanged();
             if (onKeyframeSelected != null) onKeyframeSelected.accept(selectedKeyframe);
             render();
             return;
@@ -617,6 +624,7 @@ public class TimelinePanel extends VBox {
         if (selectedGroup && selectedEntity != null && groupTrack != null) {
             if (my >= y && my < y + TRACK_HEIGHT) {
                 selectedProperty = null;
+                notifyTargetSelectionChanged();
                 render();
                 return;
             }
@@ -627,6 +635,7 @@ public class TimelinePanel extends VBox {
                 if (!showTrack) continue;
                 if (my >= y && my < y + TRACK_HEIGHT) {
                     selectedProperty = prop;
+                    notifyTargetSelectionChanged();
                     render();
                     return;
                 }
@@ -639,6 +648,7 @@ public class TimelinePanel extends VBox {
                 selectedEntity = track.getEntityName();
                 selectedGroup = false;
                 selectedProperty = null;
+                notifyTargetSelectionChanged();
                 render();
                 return;
             }
@@ -653,6 +663,7 @@ public class TimelinePanel extends VBox {
                     selectedEntity = track.getEntityName();
                     selectedGroup = false;
                     selectedProperty = prop;
+                    notifyTargetSelectionChanged();
                     render();
                     return;
                 }
@@ -739,5 +750,11 @@ public class TimelinePanel extends VBox {
 
     private void notifyEdited() {
         if (onEdited != null) onEdited.run();
+    }
+
+    private void notifyTargetSelectionChanged() {
+        if (onTargetSelectionChanged != null) {
+            onTargetSelectionChanged.accept(selectedEntity, selectedGroup);
+        }
     }
 }

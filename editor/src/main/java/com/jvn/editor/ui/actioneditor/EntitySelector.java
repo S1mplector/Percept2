@@ -116,9 +116,13 @@ public class EntitySelector extends VBox {
     }
 
     public void refresh(AnimationProject project) {
+        String previousSelection = selectedEncodedValue();
         this.project = project;
         rootItem.getChildren().clear();
-        if (project == null) return;
+        if (project == null) {
+            updateEmptyState();
+            return;
+        }
 
         for (String groupName : project.getRootGroupNames()) {
             TreeItem<String> groupItem = buildGroupItem(groupName);
@@ -131,7 +135,16 @@ public class EntitySelector extends VBox {
         }
 
         applyFilter();
+        reselectByEncodedValue(previousSelection);
         updateEmptyState();
+    }
+
+    public void selectEntity(String name) {
+        selectByName(name, false);
+    }
+
+    public void selectGroup(String name) {
+        selectByName(name, true);
     }
 
     private void updateEmptyState() {
@@ -159,9 +172,11 @@ public class EntitySelector extends VBox {
     }
 
     private void applyFilter() {
+        String selected = selectedEncodedValue();
         String query = filterField.getText();
         if (query == null || query.isBlank()) {
             treeView.setRoot(rootItem);
+            reselectByEncodedValue(selected);
             return;
         }
 
@@ -175,6 +190,7 @@ public class EntitySelector extends VBox {
             }
         }
         treeView.setRoot(filtered);
+        reselectByEncodedValue(selected);
     }
 
     private boolean matchesFilter(TreeItem<String> item, String query) {
@@ -284,6 +300,47 @@ public class EntitySelector extends VBox {
 
     private static String toDisplayValue(String value) {
         return decodeTreeValue(value);
+    }
+
+    private String selectedEncodedValue() {
+        TreeItem<String> selected = treeView.getSelectionModel().getSelectedItem();
+        return selected != null ? selected.getValue() : null;
+    }
+
+    private void selectByName(String name, boolean group) {
+        if (name == null || name.isBlank()) {
+            treeView.getSelectionModel().clearSelection();
+            return;
+        }
+        String encoded = group ? encodeGroupValue(name) : name;
+        reselectByEncodedValue(encoded);
+    }
+
+    private void reselectByEncodedValue(String encodedValue) {
+        if (encodedValue == null || encodedValue.isBlank()) return;
+        TreeItem<String> root = treeView.getRoot();
+        TreeItem<String> match = findTreeItem(root, encodedValue);
+        if (match == null) return;
+        expandTreePath(match);
+        treeView.getSelectionModel().select(match);
+    }
+
+    private static TreeItem<String> findTreeItem(TreeItem<String> root, String value) {
+        if (root == null || value == null) return null;
+        if (value.equals(root.getValue())) return root;
+        for (TreeItem<String> child : root.getChildren()) {
+            TreeItem<String> found = findTreeItem(child, value);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static void expandTreePath(TreeItem<String> item) {
+        TreeItem<String> cursor = item.getParent();
+        while (cursor != null) {
+            cursor.setExpanded(true);
+            cursor = cursor.getParent();
+        }
     }
 
     private void adjustLayerOrder(int delta) {

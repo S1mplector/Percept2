@@ -89,17 +89,28 @@ public class PuppeteerWindow extends Stage {
         entitySelector = new EntitySelector();
         timelinePanel = new TimelinePanel(this.project);
         keyframeEditor = new KeyframeEditor();
+        keyframeEditor.setTimelineDurationMs(this.project.getTotalDurationMs());
         animationPreview = new AnimationPreview();
         animationPreview.setProject(this.project);
         codePreview = new CodePreviewPane();
 
-        entitySelector.setOnSelectionChanged((name, isGroup) -> {
-            timelinePanel.setSelectedTarget(name, isGroup);
+        timelinePanel.setOnTargetSelectionChanged((name, isGroup) -> {
             keyframeEditor.setEntityName(selectionLabel(name, isGroup));
+            if (isGroup) {
+                entitySelector.selectGroup(name);
+                animationPreview.clearSelection();
+            } else {
+                entitySelector.selectEntity(name);
+                animationPreview.selectEntity(name);
+            }
             PropertyType selectedProp = timelinePanel.getSelectedProperty();
             if (selectedProp != null && cbProperty != null && cbProperty.getValue() != selectedProp) {
                 cbProperty.setValue(selectedProp);
             }
+        });
+
+        entitySelector.setOnSelectionChanged((name, isGroup) -> {
+            timelinePanel.setSelectedTarget(name, isGroup);
         });
 
         entitySelector.setOnCreateGroup(groupName -> {
@@ -139,7 +150,6 @@ public class PuppeteerWindow extends Stage {
 
         timelinePanel.setOnKeyframeSelected(kf -> {
             keyframeEditor.setKeyframe(kf, timelinePanel.getSelectedProperty());
-            keyframeEditor.setEntityName(selectionLabel(timelinePanel.getSelectedEntity(), timelinePanel.isSelectedGroup()));
             PropertyType selectedProp = timelinePanel.getSelectedProperty();
             if (selectedProp != null && cbProperty.getValue() != selectedProp) {
                 cbProperty.setValue(selectedProp);
@@ -176,8 +186,6 @@ public class PuppeteerWindow extends Stage {
 
         animationPreview.setOnEntitySelected(name -> {
             timelinePanel.setSelectedTarget(name, false);
-            keyframeEditor.setEntityName(selectionLabel(name, false));
-            entitySelector.refresh(this.project);
         });
 
         animationPreview.setOnEntityMoved((name, pos) -> {
@@ -241,6 +249,7 @@ public class PuppeteerWindow extends Stage {
             try {
                 double dur = Double.parseDouble(tfDuration.getText());
                 this.project.setTotalDurationMs(dur);
+                keyframeEditor.setTimelineDurationMs(this.project.getTotalDurationMs());
                 timelinePanel.refresh();
                 refreshExportPreviewAndMarkDirty();
             } catch (NumberFormatException ignored) {}
@@ -250,6 +259,7 @@ public class PuppeteerWindow extends Stage {
         btnFitDuration.setOnAction(e -> {
             this.project.fitDurationToContent();
             tfDuration.setText(String.valueOf((int) this.project.getTotalDurationMs()));
+            keyframeEditor.setTimelineDurationMs(this.project.getTotalDurationMs());
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -313,7 +323,7 @@ public class PuppeteerWindow extends Stage {
         cbOrbitTool = new CheckBox("Orbit");
         cbOrbitTool.setSelected(animationPreview.isOrbitToolEnabled());
         cbOrbitTool.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
-        cbOrbitTool.setTooltip(new Tooltip("Enable orbit-anchor tool. Shift+click preview to place anchor."));
+        cbOrbitTool.setTooltip(new Tooltip("Enable orbit-anchor tool. Shift+click preview to place anchor, Alt+Shift+click another entity to anchor to it."));
         cbOrbitTool.setOnAction(e -> animationPreview.setOrbitToolEnabled(cbOrbitTool.isSelected()));
 
         cbOrbitAlign = new CheckBox("Align Rot");
@@ -418,7 +428,7 @@ public class PuppeteerWindow extends Stage {
         // --- Shortcuts status bar ---
         Label shortcutsBar = new Label(
             "Space: Play/Pause   Home: Rewind   Ctrl+Z/Y: Undo/Redo   " +
-            "A: Toggle orbit   Shift+A: Clear anchor   Shift+Click preview: Set orbit anchor   Del: Delete keyframe"
+            "A: Toggle orbit   Shift+A: Clear anchor   Shift+Click preview: Set orbit anchor   Alt+Shift+Click: Anchor to clicked entity   Del: Delete keyframe"
         );
         shortcutsBar.setMaxWidth(Double.MAX_VALUE);
         shortcutsBar.setStyle("-fx-background-color: #0a0a0a; -fx-text-fill: #555; -fx-font-size: 10px; " +
@@ -737,6 +747,14 @@ public class PuppeteerWindow extends Stage {
         );
         scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+            () -> {
+                commandStack.redo();
+                timelinePanel.refresh();
+                refreshExportPreviewAndMarkDirty();
+            }
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN),
             () -> {
                 commandStack.redo();
                 timelinePanel.refresh();
