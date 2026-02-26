@@ -52,6 +52,8 @@ class VnUiLayoutLoaderTest {
     p.setProperty("choiceHoverColor", "#4466aa");
     p.setProperty("choiceBorderWidth", "3");
     p.setProperty("choiceTextBaselineOffset", "7");
+    p.setProperty("characterHeightFactor", "1.2");
+    p.setProperty("characterBaselineY", "0.95");
 
     VnUiStyleSpec style = VnUiLayoutLoader.parseStyle(p, VnUiStyleSpec.defaults());
 
@@ -60,6 +62,29 @@ class VnUiLayoutLoaderTest {
     assertEquals("#4466aa", style.choiceHoverColor());
     assertEquals(3.0, style.choiceBorderWidth(), 1e-6);
     assertEquals(7.0, style.choiceTextBaselineOffset(), 1e-6);
+    assertEquals(1.2, style.characterHeightFactor(), 1e-6);
+    assertEquals(0.95, style.characterBaselineY(), 1e-6);
+  }
+
+  @Test
+  void serializesCharacterFramingStyleKeys() {
+    VnUiStyleSpec style = new VnUiStyleSpec(
+        null, null, null,
+        null, null, null, null, null,
+        null, null, null,
+        null, null, null, null,
+        null, null, null, null,
+        null, null, null, null,
+        null, null, null, null,
+        10.0, 2.0, 5.0,
+        null, null,
+        1.15, 0.9
+    );
+
+    Properties p = VnUiLayoutLoader.toStyleProperties(style);
+
+    assertEquals("1.15", p.getProperty("characterHeightFactor"));
+    assertEquals("0.9", p.getProperty("characterBaselineY"));
   }
 
   @Test

@@ -1197,7 +1197,8 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spChoiceBorderWidth),
         value(spChoiceTextBaselineOffset),
         // Choice font
-        null, null // choiceFontFamily, choiceFontSize
+        null, null, // choiceFontFamily, choiceFontSize
+        null, null // characterHeightFactor, characterBaselineY
     );
   }
 

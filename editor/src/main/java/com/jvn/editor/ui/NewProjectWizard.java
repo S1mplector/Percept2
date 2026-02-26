@@ -1506,6 +1506,8 @@ public class NewProjectWizard extends Stage {
       fw.write("# choiceCornerRadius=10\n");
       fw.write("# choiceBorderWidth=2\n");
       fw.write("# choiceTextBaselineOffset=5\n");
+      fw.write("# characterHeightFactor=0.85\n");
+      fw.write("# characterBaselineY=1.0\n");
       fw.write("\n");
       fw.write("# Optional clickable textbox action buttons:\n");
       fw.write("# textBoxButton.ids=save,load,settings\n");

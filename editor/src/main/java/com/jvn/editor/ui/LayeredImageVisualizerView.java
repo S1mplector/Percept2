@@ -24,6 +24,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import com.jvn.core.vn.ui.VnUiLayoutLoader;
+import com.jvn.core.vn.ui.VnUiStyleSpec;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -42,13 +45,16 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.Stage;
 import javafx.util.StringConverter;
 
 /**
@@ -64,6 +70,8 @@ public class LayeredImageVisualizerView extends BorderPane {
   private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d+)");
   private static final String NONE_LABEL = "(none)";
   private static final String STATE_FILE = ".jvn/layered-image-visualizer.properties";
+  private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
+  private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
 
   private static final String SNIPPET_COMBINED = "@charimg + [show]";
   private static final String SNIPPET_CHARIMG = "@charimg only";
@@ -85,6 +93,7 @@ public class LayeredImageVisualizerView extends BorderPane {
 
   private final ComboBox<String> snippetFormatBox = new ComboBox<>();
   private final CheckBox randomizeActiveOnly = new CheckBox("Randomize active groups only");
+  private final CheckBox matchGameFraming = new CheckBox("Match game framing");
 
   private final Canvas previewCanvas = new Canvas(320, 250);
   private final Slider focusXSlider = slider(0, 100, 50);
@@ -109,6 +118,10 @@ public class LayeredImageVisualizerView extends BorderPane {
   private String currentSetId;
   private String preferredSetId;
   private boolean applyingState;
+  private Stage fullscreenStage;
+  private Canvas fullscreenCanvas;
+  private double gameCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
+  private double gameCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
 
   public LayeredImageVisualizerView() {
     setPadding(new Insets(8));
@@ -133,9 +146,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     });
     setBox.setOnAction(e -> onSetSelectionChanged());
 
-    Button refreshButton = new Button("Refresh");
-    refreshButton.setGraphic(CssIcon.redo("#7ec8e3"));
-    refreshButton.setOnAction(e -> refreshCatalog());
+    Button refreshButton = iconButton(CssIcon.redo("#7ec8e3"), "Refresh set scan", this::refreshCatalog);
 
     HBox setRow = new HBox(8, new Label("Set"), setBox, refreshButton);
     setRow.setAlignment(Pos.CENTER_LEFT);
@@ -149,17 +160,14 @@ public class LayeredImageVisualizerView extends BorderPane {
     presetBox.setPromptText("Preset");
     HBox.setHgrow(presetBox, Priority.ALWAYS);
 
-    Button loadPresetButton = new Button("Load");
-    loadPresetButton.setOnAction(e -> loadSelectedPreset());
-    Button deletePresetButton = new Button("Delete");
-    deletePresetButton.setOnAction(e -> deleteSelectedPreset());
+    Button loadPresetButton = iconButton(CssIcon.download("#8ab4f8"), "Load selected preset", this::loadSelectedPreset);
+    Button deletePresetButton = iconButton(CssIcon.clearX("#f38ba8"), "Delete selected preset", this::deleteSelectedPreset);
     HBox presetLoadRow = new HBox(6, new Label("Preset"), presetBox, loadPresetButton, deletePresetButton);
     presetLoadRow.setAlignment(Pos.CENTER_LEFT);
 
     presetNameField.setPromptText("Preset name");
     HBox.setHgrow(presetNameField, Priority.ALWAYS);
-    Button savePresetButton = new Button("Save");
-    savePresetButton.setOnAction(e -> savePreset());
+    Button savePresetButton = iconButton(CssIcon.save("#9ed67a"), "Save preset", this::savePreset);
     HBox presetSaveRow = new HBox(6, new Label("Name"), presetNameField, savePresetButton);
     presetSaveRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -196,6 +204,13 @@ public class LayeredImageVisualizerView extends BorderPane {
       if (!applyingState) persistCurrentSetState();
     });
 
+    matchGameFraming.setTooltip(new Tooltip("Use runtime VN character framing (characterHeightFactor / characterBaselineY)"));
+    matchGameFraming.selectedProperty().addListener((o, ov, nv) -> {
+      updateViewportControlState();
+      redrawPreview();
+      if (!applyingState) persistCurrentSetState();
+    });
+
     characterIdField.setPromptText("Character id");
     expressionField.setPromptText("Expression id");
     characterIdField.textProperty().addListener((o, ov, nv) -> {
@@ -215,31 +230,17 @@ public class LayeredImageVisualizerView extends BorderPane {
     snippetFormatBox.getSelectionModel().select(SNIPPET_COMBINED);
     HBox.setHgrow(snippetFormatBox, Priority.ALWAYS);
 
-    Button copySnippetButton = new Button("Copy Snippet");
-    copySnippetButton.setGraphic(CssIcon.copy("#9ad19c"));
-    copySnippetButton.setOnAction(e -> copySnippet());
-
-    Button copyRecipeButton = new Button("Copy Layer Recipe");
-    copyRecipeButton.setGraphic(CssIcon.copy("#d6b4ff"));
-    copyRecipeButton.setOnAction(e -> copyLayerRecipe());
+    Button copySnippetButton = iconButton(CssIcon.copy("#9ad19c"), "Copy selected snippet format", this::copySnippet);
+    Button copyRecipeButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy detailed layer recipe comments", this::copyLayerRecipe);
 
     HBox snippetRow = new HBox(8, new Label("Export"), snippetFormatBox, copySnippetButton, copyRecipeButton);
     snippetRow.setAlignment(Pos.CENTER_LEFT);
 
     // Action row
-    Button randomizeButton = new Button("Randomize");
-    randomizeButton.setGraphic(CssIcon.sort("#f0b673"));
-    randomizeButton.setOnAction(e -> randomizeSelection());
-
-    Button defaultsButton = new Button("Defaults");
-    defaultsButton.setOnAction(e -> applyDefaultSelection());
-
-    Button noneButton = new Button("Clear");
-    noneButton.setOnAction(e -> applyNoneSelection());
-
-    Button resetViewButton = new Button("Reset View");
-    resetViewButton.setGraphic(CssIcon.expand("#8ab4f8"));
-    resetViewButton.setOnAction(e -> {
+    Button randomizeButton = iconButton(CssIcon.sort("#f0b673"), "Randomize layer choices", this::randomizeSelection);
+    Button defaultsButton = iconButton(CssIcon.home("#9ed67a"), "Restore default first option per group", this::applyDefaultSelection);
+    Button noneButton = iconButton(CssIcon.clearX("#f38ba8"), "Clear all selected layers", this::applyNoneSelection);
+    Button resetViewButton = iconButton(CssIcon.expand("#8ab4f8"), "Reset preview focus and zoom", () -> {
       applyingState = true;
       focusXSlider.setValue(50);
       focusYSlider.setValue(50);
@@ -249,9 +250,12 @@ public class LayeredImageVisualizerView extends BorderPane {
       redrawPreview();
       persistCurrentSetState();
     });
+    Button fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Open fullscreen preview", this::openFullscreenPreview);
 
-    HBox toolRow = new HBox(8, randomizeButton, defaultsButton, noneButton, resetViewButton, randomizeActiveOnly);
+    HBox toolRow = new HBox(8, randomizeButton, defaultsButton, noneButton, resetViewButton, fullscreenButton, randomizeActiveOnly);
     toolRow.setAlignment(Pos.CENTER_LEFT);
+    HBox framingRow = new HBox(8, matchGameFraming);
+    framingRow.setAlignment(Pos.CENTER_LEFT);
 
     VBox controls = new VBox(
         6,
@@ -268,6 +272,7 @@ public class LayeredImageVisualizerView extends BorderPane {
         idRow,
         autoExpression,
         toolRow,
+        framingRow,
         snippetRow,
         statusLabel);
     previewSection.setPadding(new Insets(0, 0, 4, 0));
@@ -275,10 +280,8 @@ public class LayeredImageVisualizerView extends BorderPane {
     Label groupsLabel = new Label("Layer Groups (up/down changes render order)");
     groupsLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: 700;");
 
-    Button activeAllButton = new Button("Activate All");
-    activeAllButton.setOnAction(e -> setAllGroupsActive(true));
-    Button activeNoneButton = new Button("Deactivate All");
-    activeNoneButton.setOnAction(e -> setAllGroupsActive(false));
+    Button activeAllButton = iconButton(CssIcon.check("#9ed67a"), "Mark all groups active for randomization", () -> setAllGroupsActive(true));
+    Button activeNoneButton = iconButton(CssIcon.minus("#f0b673"), "Mark all groups inactive for randomization", () -> setAllGroupsActive(false));
     HBox groupTools = new HBox(6, activeAllButton, activeNoneButton);
     groupTools.setAlignment(Pos.CENTER_LEFT);
 
@@ -292,6 +295,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     split.setDividerPositions(0.58);
 
     setCenter(split);
+    updateViewportControlState();
     redrawPreview();
   }
 
@@ -308,6 +312,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     persistGlobalState();
 
     loadPersistentState();
+    reloadGameFramingSettings();
     preferredSetId = persisted.getProperty("global.selectedSet", "");
 
     applyingState = true;
@@ -453,9 +458,7 @@ public class LayeredImageVisualizerView extends BorderPane {
         persistCurrentSetState();
       });
 
-      Button nextButton = new Button("Next");
-      nextButton.setTooltip(new Tooltip("Cycle this group"));
-      nextButton.setOnAction(e -> {
+      Button nextButton = iconButton(CssIcon.redo("#8ab4f8"), "Cycle this group", () -> {
         int idx = combo.getSelectionModel().getSelectedIndex();
         if (idx < 1) idx = 0;
         int next = idx + 1;
@@ -463,16 +466,11 @@ public class LayeredImageVisualizerView extends BorderPane {
         combo.getSelectionModel().select(next);
       });
 
-      Button openButton = new Button();
-      openButton.setGraphic(CssIcon.folder("#7ec8e3"));
-      openButton.setTooltip(new Tooltip("Open selected image in OS viewer"));
-      openButton.setOnAction(e -> openSelectedImage(combo.getValue()));
+      Button openButton = iconButton(CssIcon.folder("#7ec8e3"), "Open selected image in OS viewer", () -> openSelectedImage(combo.getValue()));
 
-      Button upButton = new Button("Up");
-      upButton.setOnAction(e -> moveGroup(groupName, -1));
+      Button upButton = iconButton(CssIcon.arrowUp("#b0b8c8"), "Move this group up in render order", () -> moveGroup(groupName, -1));
 
-      Button downButton = new Button("Down");
-      downButton.setOnAction(e -> moveGroup(groupName, 1));
+      Button downButton = iconButton(CssIcon.arrowDown("#b0b8c8"), "Move this group down in render order", () -> moveGroup(groupName, 1));
 
       combo.valueProperty().addListener((o, ov, nv) -> {
         if (applyingState) {
@@ -585,16 +583,24 @@ public class LayeredImageVisualizerView extends BorderPane {
   }
 
   private void redrawPreview() {
-    double w = previewCanvas.getWidth();
-    double h = previewCanvas.getHeight();
-    GraphicsContext g = previewCanvas.getGraphicsContext2D();
+    renderPreviewToCanvas(previewCanvas, true);
+    if (fullscreenCanvas != null) {
+      renderPreviewToCanvas(fullscreenCanvas, false);
+    }
+  }
+
+  private void renderPreviewToCanvas(Canvas canvas, boolean updateInfoLabel) {
+    if (canvas == null) return;
+    double w = Math.max(1, canvas.getWidth());
+    double h = Math.max(1, canvas.getHeight());
+    GraphicsContext g = canvas.getGraphicsContext2D();
 
     drawCheckerBackground(g, w, h);
 
     List<LayerOption> active = selectedLayers();
     if (active.isEmpty()) {
       drawCenteredText(g, w, h, "Select layer options to preview");
-      previewInfoLabel.setText("No layers selected.");
+      if (updateInfoLabel) previewInfoLabel.setText("No layers selected.");
       return;
     }
 
@@ -610,10 +616,52 @@ public class LayeredImageVisualizerView extends BorderPane {
     }
     if (layers.isEmpty()) {
       drawCenteredText(g, w, h, "Selected images failed to load");
-      previewInfoLabel.setText("Selected images could not be decoded.");
+      if (updateInfoLabel) previewInfoLabel.setText("Selected images could not be decoded.");
       return;
     }
 
+    if (matchGameFraming.isSelected()) {
+      renderGameFramedPreview(g, layers, w, h, maxW, maxH);
+      if (updateInfoLabel) {
+        previewInfoLabel.setText(
+            "Layers: " + active.size()
+                + "  |  Active groups: " + activeGroupCount()
+                + "  |  Virtual size: " + (int) maxW + "x" + (int) maxH
+                + "  |  Game framing: h=" + formatDouble(gameCharacterHeightFactor)
+                + ", baseline=" + formatDouble(gameCharacterBaselineY));
+      }
+      return;
+    }
+
+    renderViewportPreview(g, layers, w, h, maxW, maxH);
+    if (updateInfoLabel) {
+      previewInfoLabel.setText(
+          "Layers: " + active.size()
+              + "  |  Active groups: " + activeGroupCount()
+              + "  |  Virtual size: " + (int) maxW + "x" + (int) maxH);
+    }
+  }
+
+  private void renderGameFramedPreview(GraphicsContext g, List<Image> layers, double canvasWidth, double canvasHeight, double maxW, double maxH) {
+    double referenceAspect = maxH > 0 ? (maxW / maxH) : 0.5;
+    if (!(referenceAspect > 0)) referenceAspect = 0.5;
+
+    double spriteHeight = canvasHeight * gameCharacterHeightFactor;
+    double spriteWidth = spriteHeight * referenceAspect;
+    double x = (canvasWidth - spriteWidth) * 0.5;
+    double y = (canvasHeight * gameCharacterBaselineY) - spriteHeight;
+
+    for (Image img : layers) {
+      g.drawImage(img, x, y, spriteWidth, spriteHeight);
+    }
+
+    g.setStroke(Color.color(1, 1, 1, 0.22));
+    g.strokeRect(x + 0.5, y + 0.5, spriteWidth - 1, spriteHeight - 1);
+    g.strokeLine(canvasWidth / 2.0, y, canvasWidth / 2.0, y + spriteHeight);
+    g.strokeLine(x, canvasHeight / 2.0, x + spriteWidth, canvasHeight / 2.0);
+  }
+
+  private void renderViewportPreview(GraphicsContext g, List<Image> layers, double canvasWidth, double canvasHeight, double maxW, double maxH) {
     double focusX = focusXSlider.getValue() / 100.0;
     double focusY = focusYSlider.getValue() / 100.0;
     double crop = cropSlider.getValue() / 100.0;
@@ -629,11 +677,11 @@ public class LayeredImageVisualizerView extends BorderPane {
     double srcX = clamp(centerX - srcW * 0.5, 0, maxW - srcW);
     double srcY = clamp(centerY - srcH * 0.5, 0, maxH - srcH);
 
-    double fit = Math.min(w / srcW, h / srcH);
+    double fit = Math.min(canvasWidth / srcW, canvasHeight / srcH);
     double destW = srcW * fit;
     double destH = srcH * fit;
-    double destX = (w - destW) * 0.5;
-    double destY = (h - destH) * 0.5;
+    double destX = (canvasWidth - destW) * 0.5;
+    double destY = (canvasHeight - destH) * 0.5;
 
     for (Image img : layers) {
       double sx = srcX * img.getWidth() / maxW;
@@ -645,13 +693,8 @@ public class LayeredImageVisualizerView extends BorderPane {
 
     g.setStroke(Color.color(1, 1, 1, 0.22));
     g.strokeRect(destX + 0.5, destY + 0.5, destW - 1, destH - 1);
-    g.strokeLine(w / 2, destY, w / 2, destY + destH);
-    g.strokeLine(destX, h / 2, destX + destW, h / 2);
-
-    previewInfoLabel.setText(
-        "Layers: " + active.size()
-            + "  |  Active groups: " + activeGroupCount()
-            + "  |  Virtual size: " + (int) maxW + "x" + (int) maxH);
+    g.strokeLine(canvasWidth / 2.0, destY, canvasWidth / 2.0, destY + destH);
+    g.strokeLine(destX, canvasHeight / 2.0, destX + destW, canvasHeight / 2.0);
   }
 
   private int activeGroupCount() {
@@ -670,6 +713,86 @@ public class LayeredImageVisualizerView extends BorderPane {
     slider.valueChangingProperty().addListener((o, ov, nv) -> {
       if (!nv && !applyingState) persistCurrentSetState();
     });
+  }
+
+  private void updateViewportControlState() {
+    boolean gameFraming = matchGameFraming.isSelected();
+    focusXSlider.setDisable(gameFraming);
+    focusYSlider.setDisable(gameFraming);
+    cropSlider.setDisable(gameFraming);
+    zoomSlider.setDisable(gameFraming);
+  }
+
+  private Button iconButton(Region icon, String tooltip, Runnable action) {
+    Button button = new Button();
+    button.setGraphic(icon);
+    button.setMinSize(28, 28);
+    button.setPrefSize(28, 28);
+    button.setMaxSize(28, 28);
+    button.setFocusTraversable(false);
+    if (tooltip != null && !tooltip.isBlank()) {
+      button.setTooltip(new Tooltip(tooltip));
+    }
+    button.setOnAction(e -> {
+      if (action != null) action.run();
+    });
+    return button;
+  }
+
+  private void openFullscreenPreview() {
+    if (fullscreenStage != null && fullscreenStage.isShowing()) {
+      fullscreenStage.toFront();
+      return;
+    }
+
+    fullscreenCanvas = new Canvas(1280, 720);
+    StackPane previewHost = new StackPane(fullscreenCanvas);
+    previewHost.setStyle("-fx-background-color: #0f141d;");
+
+    BorderPane root = new BorderPane(previewHost);
+    HBox topBar = new HBox();
+    topBar.setPadding(new Insets(8));
+    topBar.setAlignment(Pos.CENTER_RIGHT);
+    Button closeButton = iconButton(CssIcon.clearX("#f38ba8"), "Close fullscreen preview", () -> {
+      if (fullscreenStage != null) fullscreenStage.close();
+    });
+    topBar.getChildren().add(closeButton);
+    root.setTop(topBar);
+
+    javafx.scene.Scene scene = new javafx.scene.Scene(root, 1280, 720);
+    scene.setOnKeyPressed(e -> {
+      if (e.getCode() == KeyCode.ESCAPE && fullscreenStage != null) {
+        fullscreenStage.close();
+      }
+    });
+
+    fullscreenStage = new Stage();
+    fullscreenStage.setTitle("Layered Image Preview");
+    fullscreenStage.setScene(scene);
+    fullscreenStage.setFullScreenExitHint("Press ESC to exit fullscreen");
+    fullscreenStage.setOnHidden(e -> {
+      fullscreenCanvas = null;
+      fullscreenStage = null;
+      redrawPreview();
+    });
+
+    scene.widthProperty().addListener((o, ov, nv) -> {
+      if (fullscreenCanvas != null) {
+        fullscreenCanvas.setWidth(Math.max(1, nv.doubleValue()));
+        redrawPreview();
+      }
+    });
+    scene.heightProperty().addListener((o, ov, nv) -> {
+      if (fullscreenCanvas != null) {
+        double top = topBar.getHeight() + topBar.getPadding().getTop() + topBar.getPadding().getBottom();
+        fullscreenCanvas.setHeight(Math.max(1, nv.doubleValue() - top));
+        redrawPreview();
+      }
+    });
+
+    fullscreenStage.show();
+    fullscreenStage.setFullScreen(true);
+    redrawPreview();
   }
 
   private void copySnippet() {
@@ -946,6 +1069,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     persisted.setProperty(prefix + "expr", sanitizeId(expressionField.getText()));
     persisted.setProperty(prefix + "autoExpr", Boolean.toString(autoExpression.isSelected()));
     persisted.setProperty(prefix + "randomActiveOnly", Boolean.toString(randomizeActiveOnly.isSelected()));
+    persisted.setProperty(prefix + "matchGameFraming", Boolean.toString(matchGameFraming.isSelected()));
     persisted.setProperty(prefix + "focusX", formatDouble(focusXSlider.getValue()));
     persisted.setProperty(prefix + "focusY", formatDouble(focusYSlider.getValue()));
     persisted.setProperty(prefix + "crop", formatDouble(cropSlider.getValue()));
@@ -975,6 +1099,7 @@ public class LayeredImageVisualizerView extends BorderPane {
       expressionField.setText(expr);
       autoExpression.setSelected(parseBoolean(persisted.getProperty(prefix + "autoExpr"), true));
       randomizeActiveOnly.setSelected(parseBoolean(persisted.getProperty(prefix + "randomActiveOnly"), true));
+      matchGameFraming.setSelected(parseBoolean(persisted.getProperty(prefix + "matchGameFraming"), false));
 
       focusXSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusX"), focusXSlider.getValue()));
       focusYSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusY"), focusYSlider.getValue()));
@@ -1035,6 +1160,27 @@ public class LayeredImageVisualizerView extends BorderPane {
     if (file == null || !Files.exists(file)) return;
     try (InputStream in = Files.newInputStream(file)) {
       persisted.load(in);
+    } catch (Exception ignored) {
+    }
+  }
+
+  private void reloadGameFramingSettings() {
+    gameCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
+    gameCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
+    if (projectRoot == null || !projectRoot.isDirectory()) return;
+    try {
+      VnUiStyleSpec style = VnUiLayoutLoader.loadFromProjectRootWithDiagnostics(projectRoot).style();
+      if (style == null) return;
+      gameCharacterHeightFactor = clamp(
+          style.characterHeightFactor() == null ? DEFAULT_CHARACTER_HEIGHT_FACTOR : style.characterHeightFactor(),
+          0.1,
+          3.0
+      );
+      gameCharacterBaselineY = clamp(
+          style.characterBaselineY() == null ? DEFAULT_CHARACTER_BASELINE_Y : style.characterBaselineY(),
+          -0.5,
+          2.0
+      );
     } catch (Exception ignored) {
     }
   }

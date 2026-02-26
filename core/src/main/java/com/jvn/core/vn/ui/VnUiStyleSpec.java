@@ -45,7 +45,10 @@ public record VnUiStyleSpec(
     double choiceTextBaselineOffset,
     // --- Choice font ---
     String choiceFontFamily,
-    Integer choiceFontSize
+    Integer choiceFontSize,
+    // --- Character framing ---
+    Double characterHeightFactor,
+    Double characterBaselineY
 ) {
   public VnUiStyleSpec {
     textBoxAssetPath = normalize(textBoxAssetPath);
@@ -85,6 +88,12 @@ public record VnUiStyleSpec(
     choiceTextBaselineOffset = clamp(sane(choiceTextBaselineOffset, 5.0), -120.0, 120.0);
     choiceFontFamily = normalize(choiceFontFamily);
     if (choiceFontSize != null && choiceFontSize <= 0) choiceFontSize = null;
+    if (characterHeightFactor != null) {
+      characterHeightFactor = clamp(characterHeightFactor, 0.1, 3.0);
+    }
+    if (characterBaselineY != null) {
+      characterBaselineY = clamp(characterBaselineY, -0.5, 2.0);
+    }
   }
 
   public static VnUiStyleSpec defaults() {
@@ -97,7 +106,8 @@ public record VnUiStyleSpec(
         null, null, null, null,       // choice text colors
         null, null, null, null,       // choice border colors
         10.0, 2.0, 5.0,              // corner radius, border width, text baseline
-        null, null                    // choice font family, size
+        null, null,                   // choice font family, size
+        null, null                    // character height factor, baseline Y
     );
   }
 

@@ -201,7 +201,10 @@ public final class VnUiLayoutLoader {
         parseDouble(props.getProperty("choiceTextBaselineOffset"), bStyle.choiceTextBaselineOffset(), diagnostics, "choiceTextBaselineOffset"),
         // Choice font
         normalize(props.getProperty("choiceFontFamily"), bStyle.choiceFontFamily()),
-        parseOptionalInt(props.getProperty("choiceFontSize"), bStyle.choiceFontSize(), diagnostics, "choiceFontSize")
+        parseOptionalInt(props.getProperty("choiceFontSize"), bStyle.choiceFontSize(), diagnostics, "choiceFontSize"),
+        // Character framing
+        parseOptionalDouble(props.getProperty("characterHeightFactor"), bStyle.characterHeightFactor(), diagnostics, "characterHeightFactor"),
+        parseOptionalDouble(props.getProperty("characterBaselineY"), bStyle.characterBaselineY(), diagnostics, "characterBaselineY")
     );
 
     List<VnUiActionButtonSpec> buttons = parseTextBoxButtons(props, bButtons, diagnostics);
@@ -260,6 +263,8 @@ public final class VnUiLayoutLoader {
     p.setProperty("choiceCornerRadius", format(s.choiceCornerRadius()));
     p.setProperty("choiceBorderWidth", format(s.choiceBorderWidth()));
     p.setProperty("choiceTextBaselineOffset", format(s.choiceTextBaselineOffset()));
+    setOptional(p, "characterHeightFactor", s.characterHeightFactor() == null ? null : format(s.characterHeightFactor()));
+    setOptional(p, "characterBaselineY", s.characterBaselineY() == null ? null : format(s.characterBaselineY()));
     return p;
   }
 

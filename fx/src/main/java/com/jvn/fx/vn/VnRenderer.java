@@ -57,6 +57,8 @@ public class VnRenderer {
   private VnUiStyleSpec uiStyle = VnUiStyleSpec.defaults();
   private List<VnUiActionButtonSpec> textBoxButtons = List.of();
   private VnCharacterSceneAccessor timelineAccessor;
+  private double characterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
+  private double characterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
 
   public void setTimelineAccessor(VnCharacterSceneAccessor accessor) { this.timelineAccessor = accessor; }
 
@@ -81,6 +83,8 @@ public class VnRenderer {
   private static final double DEFAULT_CHOICE_RADIUS = 10.0;
   private static final double DEFAULT_CHOICE_BORDER_WIDTH = 2.0;
   private static final double DEFAULT_CHOICE_TEXT_BASELINE_OFFSET = 5.0;
+  private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
+  private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
 
   private Image choiceButtonImage;
   private Image choiceButtonHoverImage;
@@ -558,7 +562,7 @@ public class VnRenderer {
     if (timelineAccessor != null && characterId != null) {
       com.jvn.core.scene2d.Entity2D proxy = timelineAccessor.getProxy(characterId);
       if (proxy != null && (proxy.getX() != 0 || proxy.getY() != 0)) {
-        double spriteHeight = height * 0.85;
+        double spriteHeight = height * characterHeightFactor;
         double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
         double px = proxy.getX();
         double py = proxy.getY();
@@ -573,7 +577,7 @@ public class VnRenderer {
     }
     if (reference == null) {
       // Draw placeholder silhouette box
-      double spriteHeight = height * 0.85;
+      double spriteHeight = height * characterHeightFactor;
       double spriteWidth = spriteHeight * 0.5;
       double x = switch (position) {
         case FAR_LEFT -> width * 0.05;
@@ -583,7 +587,7 @@ public class VnRenderer {
         case FAR_RIGHT -> width * 0.95 - spriteWidth;
       };
       // Position placeholder so feet are at screen bottom
-      double y = height - spriteHeight;
+      double y = (height * characterBaselineY) - spriteHeight;
       gc.setFill(Color.rgb(200, 200, 200, 0.4));
       gc.fillRoundRect(x + offsetX, y + offsetY, spriteWidth, spriteHeight, 20, 20);
       gc.setStroke(Color.WHITE);
@@ -592,7 +596,7 @@ public class VnRenderer {
       return;
     }
 
-    double spriteHeight = height * 0.85; // Characters take up 85% of screen height
+    double spriteHeight = height * characterHeightFactor;
     double spriteWidth = reference.getWidth() * (spriteHeight / reference.getHeight());
     
     double x = switch (position) {
@@ -604,7 +608,7 @@ public class VnRenderer {
     };
     
     // Position sprite so feet are at screen bottom (textbox overlaps legs)
-    double y = height - spriteHeight;
+    double y = (height * characterBaselineY) - spriteHeight;
     drawLayerStack(layerPaths, x + offsetX, y + offsetY, spriteWidth, spriteHeight);
   }
 
@@ -880,6 +884,16 @@ public class VnRenderer {
     String choiceFontFamily = resolved.choiceFontFamily() != null ? resolved.choiceFontFamily() : DEFAULT_FONT_FAMILY;
     int choiceFontSize = resolved.choiceFontSize() != null ? resolved.choiceFontSize() : DEFAULT_CHOICE_FONT_SIZE;
     this.choiceFont = Font.font(choiceFontFamily, FontWeight.NORMAL, choiceFontSize);
+
+    // Character framing: lets projects opt into waist-up portraits.
+    this.characterHeightFactor = clamp(
+        resolved.characterHeightFactor() == null ? DEFAULT_CHARACTER_HEIGHT_FACTOR : resolved.characterHeightFactor(),
+        0.1, 3.0
+    );
+    this.characterBaselineY = clamp(
+        resolved.characterBaselineY() == null ? DEFAULT_CHARACTER_BASELINE_Y : resolved.characterBaselineY(),
+        -0.5, 2.0
+    );
   }
 
   private Color parseColor(String raw, Color fallback) {
