@@ -24,6 +24,7 @@ public class DefaultVnInterop implements VnInterop {
   private static final Pattern IF_GOTO_PATTERN = Pattern.compile("(?i)^if\\s+(.+?)\\s+goto\\s+(\\S+)\\s*$");
   private static final Pattern EXPR_GOTO_PATTERN = Pattern.compile("(?i)^(.+?)\\s+goto\\s+(\\S+)\\s*$");
   private static final String[] ALLOWED_JAVA_CLASS_PREFIXES = {"com.jvn."};
+  private static final String VAR_AUDIO_VISUALIZER_ENABLED = "ui.audioVisualizer";
   private SceneAccessor sceneAccessor;
 
   public void setSceneAccessor(SceneAccessor accessor) { this.sceneAccessor = accessor; }
@@ -301,6 +302,25 @@ public class DefaultVnInterop implements VnInterop {
 
   private void handleUi(String payload, VnScene scene) {
     String arg = (payload == null ? "" : payload.trim().toLowerCase());
+    String[] toks = split(arg);
+    if (toks.length > 0 && ("visualizer".equals(toks[0]) || "viz".equals(toks[0]))) {
+      String mode = toks.length >= 2 ? toks[1] : "toggle";
+      Object cur = scene.getState().getVariables().get(VAR_AUDIO_VISUALIZER_ENABLED);
+      boolean current = false;
+      if (cur instanceof Boolean b) current = b;
+      else if (cur instanceof Number n) current = n.doubleValue() != 0.0;
+      else if (cur instanceof String s) {
+        String t = s.trim().toLowerCase();
+        current = "1".equals(t) || "true".equals(t) || "on".equals(t) || "yes".equals(t);
+      }
+      boolean next = switch (mode) {
+        case "on", "show", "true", "1", "yes" -> true;
+        case "off", "hide", "false", "0", "no" -> false;
+        default -> !current;
+      };
+      scene.getState().setVariable(VAR_AUDIO_VISUALIZER_ENABLED, next);
+      return;
+    }
     if (arg.isEmpty() || "toggle".equals(arg)) { scene.getState().toggleUiHidden(); return; }
     if ("hide".equals(arg) || "on".equals(arg)) { scene.getState().setUiHidden(true); return; }
     if ("show".equals(arg) || "off".equals(arg)) { scene.getState().setUiHidden(false); }

@@ -748,6 +748,12 @@ public class VnScriptParser {
       case "ui":
         state.builder.external("ui", arg == null ? "" : arg);
         return;
+      case "visualizer":
+      case "viz": {
+        String payload = (arg == null || arg.isBlank()) ? "toggle" : arg.trim();
+        state.builder.external("ui", "visualizer " + payload);
+        return;
+      }
       case "history":
         state.builder.external("history", arg == null ? "" : arg);
         return;

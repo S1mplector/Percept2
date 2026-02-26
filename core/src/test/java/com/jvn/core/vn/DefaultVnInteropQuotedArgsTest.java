@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultVnInteropQuotedArgsTest {
   @Test
@@ -58,6 +59,28 @@ class DefaultVnInteropQuotedArgsTest {
     interop.handle(new VnExternalCommand("java", "java.lang.Math#max 1 2"), scene);
 
     assertEquals("java: class not allowed", scene.getState().getHudMessage());
+  }
+
+  @Test
+  void togglesVisualizerFlagViaUiInterop() {
+    VnScenario scenario = new VnScenarioBuilder("ui_visualizer")
+      .label("start")
+      .dialogue("Narrator", "Start")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand("ui", "visualizer on"), scene);
+    assertEquals(Boolean.TRUE, scene.getState().getVariable("ui.audioVisualizer"));
+
+    interop.handle(new VnExternalCommand("ui", "visualizer off"), scene);
+    assertEquals(Boolean.FALSE, scene.getState().getVariable("ui.audioVisualizer"));
+
+    interop.handle(new VnExternalCommand("ui", "visualizer toggle"), scene);
+    Object value = scene.getState().getVariable("ui.audioVisualizer");
+    assertTrue(value instanceof Boolean);
+    assertTrue((Boolean) value);
   }
 
   public static class Methods {

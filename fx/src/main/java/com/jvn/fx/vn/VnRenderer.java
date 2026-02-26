@@ -95,6 +95,7 @@ public class VnRenderer {
   private static final long VISUALIZER_STALE_NS = 700_000_000L;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
+  private static final String VAR_AUDIO_VISUALIZER_ENABLED = "ui.audioVisualizer";
 
   private Image choiceButtonImage;
   private Image choiceButtonHoverImage;
@@ -662,6 +663,10 @@ public class VnRenderer {
   }
 
   private void renderAudioVisualizer(double width, double height) {
+    if (!isAudioVisualizerEnabled()) {
+      decayVisualizer(0.86);
+      return;
+    }
     if (audioFacade == null) {
       decayVisualizer(0.86);
       return;
@@ -1044,6 +1049,19 @@ public class VnRenderer {
       }
     }
     return null;
+  }
+
+  private boolean isAudioVisualizerEnabled() {
+    if (currentState == null) return false;
+    Object value = currentState.getVariables().get(VAR_AUDIO_VISUALIZER_ENABLED);
+    if (value == null) return false;
+    if (value instanceof Boolean b) return b;
+    if (value instanceof Number n) return n.doubleValue() != 0.0;
+    if (value instanceof String s) {
+      String t = s.trim().toLowerCase();
+      return "1".equals(t) || "true".equals(t) || "on".equals(t) || "yes".equals(t);
+    }
+    return false;
   }
 
   private Color parseColor(String raw, Color fallback) {

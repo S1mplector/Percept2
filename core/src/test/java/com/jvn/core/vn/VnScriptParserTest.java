@@ -191,6 +191,40 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesVisualizerCommandIntoUiInteropPayload() throws Exception {
+    String script = """
+      @label start
+      [visualizer on]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "ui".equals(n.getExternalCommand().getProvider()))
+        .findFirst().orElseThrow();
+    assertEquals("visualizer on", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void parsesVisualizerCommandWithoutArgAsToggle() throws Exception {
+    String script = """
+      @label start
+      [visualizer]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "ui".equals(n.getExternalCommand().getProvider()))
+        .findFirst().orElseThrow();
+    assertEquals("visualizer toggle", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
   public void rejectsUndefinedLabels() {
     String script = """
       @label start

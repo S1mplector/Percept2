@@ -1375,7 +1375,7 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorials_hub
-        [show codel left talking]
+        [show codel far_left talking]
         [wait 170]
         Codel: What would you like to see?
         > Writing Dialogue -> tutorial_dialogue
@@ -1417,7 +1417,7 @@ public class NewProjectWizard extends Stage {
         [jump tutorials_hub]
 
         @label tutorial_menus
-        [show codel center talking]
+        [show codel far_left talking]
         [wait 220]
         Codel: Choices let players shape the story! Each option can branch to different paths.
         Codel: JVN also has built-in menu integration. Want to try the save system?
@@ -1538,7 +1538,7 @@ public class NewProjectWizard extends Stage {
       fw.write("nameTextBaselineOffset=25\n");
       fw.write("dialogueTextHorizontalPadding=20\n");
       fw.write("dialogueTextTopPadding=40\n");
-      fw.write("choiceXCenter=0.5\n");
+      fw.write("choiceXCenter=0.58\n");
       fw.write("choiceYStart=-1\n");
       fw.write("choiceWidthFactor=0.6\n");
       fw.write("choiceHeight=50\n");
