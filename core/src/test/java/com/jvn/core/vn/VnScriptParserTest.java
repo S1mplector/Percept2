@@ -225,6 +225,66 @@ public class VnScriptParserTest {
     assertEquals(Integer.valueOf(25), show.getShowLayerOrder());
   }
 
+  @Test
+  public void rejectsShowCommandWithUnknownPosition() {
+    String script = """
+      @label start
+      [show hero middle neutral]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("Unknown character position: middle"));
+  }
+
+  @Test
+  public void rejectsTransitionWithNegativeDuration() {
+    String script = """
+      @label start
+      [transition fade -10]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("[transition] duration must be >= 0"));
+  }
+
+  @Test
+  public void rejectsInlineTimelineWithoutOpeningBrace() {
+    String script = """
+      @label start
+      timeline
+      [show hero center neutral]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("Expected '{' after timeline"));
+  }
+
+  @Test
+  public void preservesInlineTimelineLineIndentation() throws Exception {
+    String script = """
+      @label start
+      timeline {
+          actor hero x 10
+      }
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode inline = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "jes_timeline_inline".equals(n.getExternalCommand().getProvider()))
+        .findFirst()
+        .orElseThrow();
+    assertTrue(inline.getExternalCommand().getPayload().contains("    actor hero x 10"));
+  }
+
   // ── Audio DSL tests ───────────────────────────────────────────────────
 
   @Test

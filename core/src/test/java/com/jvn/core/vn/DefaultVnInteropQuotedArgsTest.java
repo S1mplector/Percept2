@@ -45,6 +45,21 @@ class DefaultVnInteropQuotedArgsTest {
     assertEquals("java: hello world|boss fight", scene.getState().getHudMessage());
   }
 
+  @Test
+  void blocksJavaInteropOutsideAllowedClassPrefixes() {
+    VnScenario scenario = new VnScenarioBuilder("quoted_interop")
+      .label("start")
+      .dialogue("Narrator", "Start")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand("java", "java.lang.Math#max 1 2"), scene);
+
+    assertEquals("java: class not allowed", scene.getState().getHudMessage());
+  }
+
   public static class Methods {
     public static String join(String a, String b) {
       return a + "|" + b;

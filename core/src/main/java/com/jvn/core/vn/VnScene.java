@@ -1,5 +1,8 @@
 package com.jvn.core.vn;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.rollback.VnRollbackEntry;
@@ -13,6 +16,7 @@ import com.jvn.core.vn.rollback.VnRollbackEntry;
  */
 public class VnScene implements Scene {
   private static final int MAX_INSTANT_CHAIN = 1000; // Safety limit for instant node chains
+  private static final Logger LOGGER = Logger.getLogger(VnScene.class.getName());
 
   private final VnState state;
   private VnScenario scenario;
@@ -112,7 +116,11 @@ public class VnScene implements Scene {
           if (node.getExternalCommand() != null) {
             String prov = node.getExternalCommand().getProvider();
             if ("var".equals(prov) && interop != null) {
-              try { interop.handle(node.getExternalCommand(), this); } catch (Exception ignored) {}
+              try {
+                interop.handle(node.getExternalCommand(), this);
+              } catch (Exception ex) {
+                reportInteropException("preflight", node.getExternalCommand(), ex);
+              }
             }
           }
           break;
@@ -449,8 +457,8 @@ public class VnScene implements Scene {
     if (cmd != null && interop != null) {
       try {
         res = interop.handle(cmd, this);
-      } catch (Exception ignored) {
-        // keep VN progressing even if interop fails
+      } catch (Exception ex) {
+        reportInteropException("external", cmd, ex);
       }
     }
     if (res == null || res.shouldAdvance()) {
@@ -459,6 +467,19 @@ public class VnScene implements Scene {
     // Non-advancing external commands (for example cond jumps) still keep
     // the command loop running from the current node index.
     return true;
+  }
+
+  private void reportInteropException(String context, VnExternalCommand cmd, Exception ex) {
+    String provider = "unknown";
+    if (cmd != null && cmd.getProvider() != null && !cmd.getProvider().isBlank()) {
+      provider = cmd.getProvider();
+    }
+    String detail = ex == null ? "unknown error" : ex.getClass().getSimpleName();
+    if (ex != null && ex.getMessage() != null && !ex.getMessage().isBlank()) {
+      detail += ": " + ex.getMessage();
+    }
+    LOGGER.log(Level.WARNING, "VN " + context + " interop failed for provider '" + provider + "'", ex);
+    state.showHudMessage("VN " + context + " [" + provider + "] failed: " + detail, 2200);
   }
 
   private void processJumpNode(VnNode node) {

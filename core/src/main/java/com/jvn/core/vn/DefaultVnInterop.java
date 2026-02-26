@@ -23,6 +23,7 @@ import com.jvn.core.animation.TimelineRunner;
 public class DefaultVnInterop implements VnInterop {
   private static final Pattern IF_GOTO_PATTERN = Pattern.compile("(?i)^if\\s+(.+?)\\s+goto\\s+(\\S+)\\s*$");
   private static final Pattern EXPR_GOTO_PATTERN = Pattern.compile("(?i)^(.+?)\\s+goto\\s+(\\S+)\\s*$");
+  private static final String[] ALLOWED_JAVA_CLASS_PREFIXES = {"com.jvn."};
   private SceneAccessor sceneAccessor;
 
   public void setSceneAccessor(SceneAccessor accessor) { this.sceneAccessor = accessor; }
@@ -94,6 +95,10 @@ public class DefaultVnInterop implements VnInterop {
       }
       String clsName = target.substring(0, idx);
       String methodName = target.substring(idx + 1);
+      if (!isJavaClassAllowed(clsName)) {
+        scene.getState().showHudMessage("java: class not allowed", 1800);
+        return;
+      }
       Object[] args = parseArgs(tokens, 1);
 
       Class<?> cls = Class.forName(clsName);
@@ -557,6 +562,14 @@ public class DefaultVnInterop implements VnInterop {
       return Boolean.parseBoolean(v.toString());
     }
     return v.toString();
+  }
+
+  private static boolean isJavaClassAllowed(String clsName) {
+    if (clsName == null || clsName.isBlank()) return false;
+    for (String prefix : ALLOWED_JAVA_CLASS_PREFIXES) {
+      if (clsName.startsWith(prefix)) return true;
+    }
+    return false;
   }
 
   private static String safe(String s) { return s == null ? "" : s; }

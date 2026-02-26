@@ -391,26 +391,33 @@ public class VnScriptParser {
         if (braceDepth == 0) {
           // Opening brace on next line
           String nextLine;
+          boolean foundOpeningBrace = false;
           while ((nextLine = reader.readLine()) != null) {
             lineNumber++;
             String nt = nextLine.trim();
             if (nt.isEmpty() || nt.startsWith("#")) continue;
-            if (nt.equals("{")) { braceDepth = 1; break; }
+            if (nt.equals("{")) {
+              braceDepth = 1;
+              foundOpeningBrace = true;
+              break;
+            }
             throw parseError(sourceName, lineNumber, "Expected '{' after timeline", nextLine);
+          }
+          if (!foundOpeningBrace) {
+            throw parseError(sourceName, lineNumber, "Expected '{' after timeline", rawLine);
           }
         }
         while (braceDepth > 0 && (line = reader.readLine()) != null) {
           lineNumber++;
-          String lt = line.trim();
-          for (char c : lt.toCharArray()) {
+          for (char c : line.toCharArray()) {
             if (c == '{') braceDepth++;
             else if (c == '}') braceDepth--;
           }
-          if (braceDepth > 0) block.append(lt).append('\n');
+          if (braceDepth > 0) block.append(line).append('\n');
           else {
             // Remove trailing } from the line content if there's anything before it
-            int lastBrace = lt.lastIndexOf('}');
-            if (lastBrace > 0) block.append(lt, 0, lastBrace).append('\n');
+            int lastBrace = line.lastIndexOf('}');
+            if (lastBrace > 0) block.append(line, 0, lastBrace).append('\n');
           }
         }
         if (braceDepth != 0) {
@@ -726,7 +733,7 @@ public class VnScriptParser {
           throw parseError(sourceName, lineNumber, "[show] expects: [show <charId> <pos> [expression] [layer]]", rawLine);
         }
         String charId = toks[0];
-        CharacterPosition pos = parsePosition(toks[1]);
+        CharacterPosition pos = parsePosition(toks[1], sourceName, lineNumber, rawLine);
         String expr = "neutral";
         Integer layerOrder = null;
         if (toks.length >= 3) {
@@ -763,6 +770,9 @@ public class VnScriptParser {
             dur = Long.parseLong(toks[1]);
           } catch (NumberFormatException ex) {
             throw parseError(sourceName, lineNumber, "[transition] duration must be an integer", rawLine);
+          }
+          if (dur < 0) {
+            throw parseError(sourceName, lineNumber, "[transition] duration must be >= 0", rawLine);
           }
         }
         String bg = toks.length >= 3 ? toks[2] : null;
@@ -1123,7 +1133,10 @@ public class VnScriptParser {
     }
   }
 
-  private CharacterPosition parsePosition(String token) {
+  private CharacterPosition parsePosition(String token,
+                                          String sourceName,
+                                          int lineNumber,
+                                          String rawLine) throws IOException {
     String t = token.trim().toUpperCase();
     try {
       return CharacterPosition.valueOf(t);
@@ -1133,7 +1146,7 @@ public class VnScriptParser {
       if (t.equals("R")) return CharacterPosition.RIGHT;
       if (t.equals("FL")) return CharacterPosition.FAR_LEFT;
       if (t.equals("FR")) return CharacterPosition.FAR_RIGHT;
-      return CharacterPosition.CENTER;
+      throw parseError(sourceName, lineNumber, "Unknown character position: " + token, rawLine);
     }
   }
 
