@@ -1,6 +1,7 @@
 package com.jvn.fx.vn;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -550,17 +551,19 @@ public class VnRenderer {
   }
 
   private void renderCharacterSprite(String imagePath, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId) {
+    List<String> layerPaths = parseLayerPaths(imagePath);
+    Image reference = firstAvailableImage(layerPaths);
+
     // If a timeline proxy drives this character, use its absolute position
     if (timelineAccessor != null && characterId != null) {
       com.jvn.core.scene2d.Entity2D proxy = timelineAccessor.getProxy(characterId);
       if (proxy != null && (proxy.getX() != 0 || proxy.getY() != 0)) {
-        Image img = loadImage(imagePath);
         double spriteHeight = height * 0.85;
-        double spriteWidth = img != null ? img.getWidth() * (spriteHeight / img.getHeight()) : spriteHeight * 0.5;
+        double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
         double px = proxy.getX();
         double py = proxy.getY();
-        if (img != null) {
-          gc.drawImage(img, px, py, spriteWidth, spriteHeight);
+        if (reference != null) {
+          drawLayerStack(layerPaths, px, py, spriteWidth, spriteHeight);
         } else {
           gc.setFill(Color.rgb(200, 200, 200, 0.4));
           gc.fillRoundRect(px, py, spriteWidth, spriteHeight, 20, 20);
@@ -568,8 +571,7 @@ public class VnRenderer {
         return;
       }
     }
-    Image img = loadImage(imagePath);
-    if (img == null) {
+    if (reference == null) {
       // Draw placeholder silhouette box
       double spriteHeight = height * 0.85;
       double spriteWidth = spriteHeight * 0.5;
@@ -591,7 +593,7 @@ public class VnRenderer {
     }
 
     double spriteHeight = height * 0.85; // Characters take up 85% of screen height
-    double spriteWidth = img.getWidth() * (spriteHeight / img.getHeight());
+    double spriteWidth = reference.getWidth() * (spriteHeight / reference.getHeight());
     
     double x = switch (position) {
       case FAR_LEFT -> width * 0.05;
@@ -603,7 +605,40 @@ public class VnRenderer {
     
     // Position sprite so feet are at screen bottom (textbox overlaps legs)
     double y = height - spriteHeight;
-    gc.drawImage(img, x + offsetX, y + offsetY, spriteWidth, spriteHeight);
+    drawLayerStack(layerPaths, x + offsetX, y + offsetY, spriteWidth, spriteHeight);
+  }
+
+  private List<String> parseLayerPaths(String imagePathSpec) {
+    List<String> layers = new ArrayList<>();
+    if (imagePathSpec == null) return layers;
+    for (String part : imagePathSpec.split("\\|")) {
+      String path = part == null ? "" : part.trim();
+      if (!path.isEmpty()) layers.add(path);
+    }
+    if (layers.isEmpty()) {
+      String single = imagePathSpec.trim();
+      if (!single.isEmpty()) layers.add(single);
+    }
+    return layers;
+  }
+
+  private Image firstAvailableImage(List<String> layerPaths) {
+    if (layerPaths == null) return null;
+    for (String path : layerPaths) {
+      Image img = loadImage(path);
+      if (img != null) return img;
+    }
+    return null;
+  }
+
+  private void drawLayerStack(List<String> layerPaths, double x, double y, double width, double height) {
+    if (layerPaths == null) return;
+    for (String path : layerPaths) {
+      Image img = loadImage(path);
+      if (img != null) {
+        gc.drawImage(img, x, y, width, height);
+      }
+    }
   }
 
   private void renderDialogue(DialogueLine dialogue, VnState state, double width, double height, int hoveredButtonIndex) {

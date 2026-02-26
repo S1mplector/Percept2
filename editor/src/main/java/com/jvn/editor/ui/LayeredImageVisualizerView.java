@@ -1,10 +1,16 @@
 package com.jvn.editor.ui;
 
+import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -12,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,6 +38,8 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
+import javafx.scene.image.Image;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
@@ -40,39 +49,66 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
-import javafx.scene.image.Image;
 import javafx.util.StringConverter;
 
 /**
- * Sidebar utility that helps build and preview layered character images.
- * This is intended as JVN's first pass of a "Layered Image Visualizer" workflow.
+ * Sidebar utility for layered sprite exploration and snippet generation.
+ *
+ * Hardening goals:
+ * - per-set persistence (selected layers, crop/focus/zoom, ids)
+ * - save/load/delete presets
+ * - active-group randomization and manual render-order controls
+ * - multiple snippet export formats
  */
 public class LayeredImageVisualizerView extends BorderPane {
   private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d+)");
   private static final String NONE_LABEL = "(none)";
+  private static final String STATE_FILE = ".jvn/layered-image-visualizer.properties";
+
+  private static final String SNIPPET_COMBINED = "@charimg + [show]";
+  private static final String SNIPPET_CHARIMG = "@charimg only";
+  private static final String SNIPPET_SHOW = "[show] only";
+  private static final String SNIPPET_RECIPE = "Recipe comments";
 
   private final Label summaryLabel = new Label("Open a project to inspect layered image sets.");
   private final Label statusLabel = new Label("");
+  private final Label previewInfoLabel = new Label("No layers selected.");
+
   private final TextField filterField = new TextField();
   private final ComboBox<String> setBox = new ComboBox<>();
   private final TextField characterIdField = new TextField();
   private final TextField expressionField = new TextField();
   private final CheckBox autoExpression = new CheckBox("Auto expression from selected layers");
 
+  private final ComboBox<String> presetBox = new ComboBox<>();
+  private final TextField presetNameField = new TextField();
+
+  private final ComboBox<String> snippetFormatBox = new ComboBox<>();
+  private final CheckBox randomizeActiveOnly = new CheckBox("Randomize active groups only");
+
   private final Canvas previewCanvas = new Canvas(320, 250);
-  private final Label previewInfoLabel = new Label("No layers selected.");
   private final Slider focusXSlider = slider(0, 100, 50);
   private final Slider focusYSlider = slider(0, 100, 50);
   private final Slider cropSlider = slider(20, 100, 100);
   private final Slider zoomSlider = slider(50, 300, 100);
 
   private final VBox groupBox = new VBox(8);
+
   private final Map<String, ComboBox<LayerOption>> selectors = new LinkedHashMap<>();
+  private final Map<String, CheckBox> activeGroupChecks = new LinkedHashMap<>();
+  private final Map<String, HBox> groupRows = new LinkedHashMap<>();
+  private final List<String> groupOrder = new ArrayList<>();
   private final Map<String, LayeredSet> sets = new LinkedHashMap<>();
   private final Map<String, Image> imageCache = new HashMap<>();
+  private final Map<String, String> presetNameToKey = new LinkedHashMap<>();
+
+  private final Properties persisted = new Properties();
   private final Random random = new Random();
 
   private File projectRoot;
+  private String currentSetId;
+  private String preferredSetId;
+  private boolean applyingState;
 
   public LayeredImageVisualizerView() {
     setPadding(new Insets(8));
@@ -81,7 +117,15 @@ public class LayeredImageVisualizerView extends BorderPane {
     title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
 
     filterField.setPromptText("Filter sets...");
-    filterField.textProperty().addListener((o, ov, nv) -> refreshSetOptions());
+    filterField.textProperty().addListener((o, ov, nv) -> {
+      if (applyingState) return;
+      refreshSetOptions();
+    });
+    filterField.setOnAction(e -> persistGlobalState());
+    filterField.focusedProperty().addListener((o, ov, nv) -> {
+      if (!nv) persistGlobalState();
+    });
+
     setBox.setPromptText("Select layered set");
     setBox.setConverter(new StringConverter<>() {
       @Override public String toString(String object) { return object == null ? "" : object; }
@@ -101,9 +145,28 @@ public class LayeredImageVisualizerView extends BorderPane {
     filterRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
-    VBox top = new VBox(8, title, summaryLabel, filterRow, setRow, new Separator());
+    // Presets toolbar
+    presetBox.setPromptText("Preset");
+    HBox.setHgrow(presetBox, Priority.ALWAYS);
+
+    Button loadPresetButton = new Button("Load");
+    loadPresetButton.setOnAction(e -> loadSelectedPreset());
+    Button deletePresetButton = new Button("Delete");
+    deletePresetButton.setOnAction(e -> deleteSelectedPreset());
+    HBox presetLoadRow = new HBox(6, new Label("Preset"), presetBox, loadPresetButton, deletePresetButton);
+    presetLoadRow.setAlignment(Pos.CENTER_LEFT);
+
+    presetNameField.setPromptText("Preset name");
+    HBox.setHgrow(presetNameField, Priority.ALWAYS);
+    Button savePresetButton = new Button("Save");
+    savePresetButton.setOnAction(e -> savePreset());
+    HBox presetSaveRow = new HBox(6, new Label("Name"), presetNameField, savePresetButton);
+    presetSaveRow.setAlignment(Pos.CENTER_LEFT);
+
+    VBox top = new VBox(8, title, summaryLabel, filterRow, setRow, presetLoadRow, presetSaveRow, new Separator());
     setTop(top);
 
+    // Preview pane
     StackPane previewPane = new StackPane(previewCanvas);
     previewPane.setMinHeight(180);
     previewPane.setPrefHeight(260);
@@ -117,16 +180,29 @@ public class LayeredImageVisualizerView extends BorderPane {
       redrawPreview();
     });
 
-    focusXSlider.valueProperty().addListener((o, ov, nv) -> redrawPreview());
-    focusYSlider.valueProperty().addListener((o, ov, nv) -> redrawPreview());
-    cropSlider.valueProperty().addListener((o, ov, nv) -> redrawPreview());
-    zoomSlider.valueProperty().addListener((o, ov, nv) -> redrawPreview());
+    installSlider(focusXSlider);
+    installSlider(focusYSlider);
+    installSlider(cropSlider);
+    installSlider(zoomSlider);
 
     autoExpression.setSelected(true);
-    characterIdField.setPromptText("Character/tag id");
-    expressionField.setPromptText("Expression id");
     autoExpression.selectedProperty().addListener((o, ov, nv) -> {
       if (Boolean.TRUE.equals(nv)) updateExpressionFromSelection();
+      if (!applyingState) persistCurrentSetState();
+    });
+
+    randomizeActiveOnly.setSelected(true);
+    randomizeActiveOnly.selectedProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) persistCurrentSetState();
+    });
+
+    characterIdField.setPromptText("Character id");
+    expressionField.setPromptText("Expression id");
+    characterIdField.textProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) persistCurrentSetState();
+    });
+    expressionField.textProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) persistCurrentSetState();
     });
 
     HBox idRow = new HBox(8, new Label("Char"), characterIdField, new Label("Expr"), expressionField);
@@ -134,29 +210,47 @@ public class LayeredImageVisualizerView extends BorderPane {
     HBox.setHgrow(characterIdField, Priority.ALWAYS);
     HBox.setHgrow(expressionField, Priority.ALWAYS);
 
-    Button randomizeButton = new Button("Randomize");
-    randomizeButton.setGraphic(CssIcon.sort("#f0b673"));
-    randomizeButton.setOnAction(e -> randomizeSelection());
+    // Snippet export
+    snippetFormatBox.getItems().setAll(SNIPPET_COMBINED, SNIPPET_CHARIMG, SNIPPET_SHOW, SNIPPET_RECIPE);
+    snippetFormatBox.getSelectionModel().select(SNIPPET_COMBINED);
+    HBox.setHgrow(snippetFormatBox, Priority.ALWAYS);
 
-    Button resetViewButton = new Button("Reset View");
-    resetViewButton.setGraphic(CssIcon.expand("#8ab4f8"));
-    resetViewButton.setOnAction(e -> {
-      focusXSlider.setValue(50);
-      focusYSlider.setValue(50);
-      cropSlider.setValue(100);
-      zoomSlider.setValue(100);
-      redrawPreview();
-    });
-
-    Button copyShowButton = new Button("Copy [show]");
-    copyShowButton.setGraphic(CssIcon.copy("#9ad19c"));
-    copyShowButton.setOnAction(e -> copyShowCommand());
+    Button copySnippetButton = new Button("Copy Snippet");
+    copySnippetButton.setGraphic(CssIcon.copy("#9ad19c"));
+    copySnippetButton.setOnAction(e -> copySnippet());
 
     Button copyRecipeButton = new Button("Copy Layer Recipe");
     copyRecipeButton.setGraphic(CssIcon.copy("#d6b4ff"));
     copyRecipeButton.setOnAction(e -> copyLayerRecipe());
 
-    HBox toolRow = new HBox(8, randomizeButton, resetViewButton, copyShowButton, copyRecipeButton);
+    HBox snippetRow = new HBox(8, new Label("Export"), snippetFormatBox, copySnippetButton, copyRecipeButton);
+    snippetRow.setAlignment(Pos.CENTER_LEFT);
+
+    // Action row
+    Button randomizeButton = new Button("Randomize");
+    randomizeButton.setGraphic(CssIcon.sort("#f0b673"));
+    randomizeButton.setOnAction(e -> randomizeSelection());
+
+    Button defaultsButton = new Button("Defaults");
+    defaultsButton.setOnAction(e -> applyDefaultSelection());
+
+    Button noneButton = new Button("Clear");
+    noneButton.setOnAction(e -> applyNoneSelection());
+
+    Button resetViewButton = new Button("Reset View");
+    resetViewButton.setGraphic(CssIcon.expand("#8ab4f8"));
+    resetViewButton.setOnAction(e -> {
+      applyingState = true;
+      focusXSlider.setValue(50);
+      focusYSlider.setValue(50);
+      cropSlider.setValue(100);
+      zoomSlider.setValue(100);
+      applyingState = false;
+      redrawPreview();
+      persistCurrentSetState();
+    });
+
+    HBox toolRow = new HBox(8, randomizeButton, defaultsButton, noneButton, resetViewButton, randomizeActiveOnly);
     toolRow.setAlignment(Pos.CENTER_LEFT);
 
     VBox controls = new VBox(
@@ -174,12 +268,21 @@ public class LayeredImageVisualizerView extends BorderPane {
         idRow,
         autoExpression,
         toolRow,
+        snippetRow,
         statusLabel);
     previewSection.setPadding(new Insets(0, 0, 4, 0));
 
-    Label groupsLabel = new Label("Layer Groups");
+    Label groupsLabel = new Label("Layer Groups (up/down changes render order)");
     groupsLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: 700;");
-    VBox groupsRoot = new VBox(8, groupsLabel, groupBox);
+
+    Button activeAllButton = new Button("Activate All");
+    activeAllButton.setOnAction(e -> setAllGroupsActive(true));
+    Button activeNoneButton = new Button("Deactivate All");
+    activeNoneButton.setOnAction(e -> setAllGroupsActive(false));
+    HBox groupTools = new HBox(6, activeAllButton, activeNoneButton);
+    groupTools.setAlignment(Pos.CENTER_LEFT);
+
+    VBox groupsRoot = new VBox(8, groupsLabel, groupTools, groupBox);
     groupsRoot.setPadding(new Insets(2));
     ScrollPane groupsScroll = new ScrollPane(groupsRoot);
     groupsScroll.setFitToWidth(true);
@@ -193,17 +296,36 @@ public class LayeredImageVisualizerView extends BorderPane {
   }
 
   public void setProjectRoot(File projectRoot) {
+    if (Objects.equals(this.projectRoot, projectRoot)) return;
+    persistCurrentSetState();
+    persistGlobalState();
     this.projectRoot = projectRoot;
     refreshCatalog();
   }
 
   public void refreshCatalog() {
+    persistCurrentSetState();
+    persistGlobalState();
+
+    loadPersistentState();
+    preferredSetId = persisted.getProperty("global.selectedSet", "");
+
+    applyingState = true;
+    filterField.setText(persisted.getProperty("global.filter", ""));
+    applyingState = false;
+
     sets.clear();
     selectors.clear();
+    activeGroupChecks.clear();
+    groupRows.clear();
+    groupOrder.clear();
     groupBox.getChildren().clear();
     imageCache.clear();
+    presetNameToKey.clear();
+    presetBox.getItems().clear();
 
     if (projectRoot == null || !projectRoot.isDirectory()) {
+      currentSetId = null;
       summaryLabel.setText("Open a project to inspect layered image sets.");
       setBox.getItems().clear();
       redrawPreview();
@@ -228,46 +350,73 @@ public class LayeredImageVisualizerView extends BorderPane {
         imageCount++;
       }
     } catch (IOException ex) {
+      currentSetId = null;
       summaryLabel.setText("Failed to scan project assets: " + ex.getMessage());
       setBox.getItems().clear();
       redrawPreview();
       return;
     }
 
-    int setCount = sets.size();
-    summaryLabel.setText("Layer sets: " + setCount + "  |  Images: " + imageCount);
+    summaryLabel.setText("Layer sets: " + sets.size() + "  |  Images: " + imageCount);
     refreshSetOptions();
   }
 
   private void refreshSetOptions() {
     String filter = filterField.getText() == null ? "" : filterField.getText().trim().toLowerCase(Locale.ROOT);
     String previous = setBox.getValue();
+
     List<String> visible = new ArrayList<>();
     for (LayeredSet set : sets.values()) {
       if (filter.isEmpty() || set.id.toLowerCase(Locale.ROOT).contains(filter)) {
         visible.add(set.id);
       }
     }
+
     setBox.getItems().setAll(visible);
-    if (previous != null && visible.contains(previous)) {
-      setBox.getSelectionModel().select(previous);
+
+    String target = null;
+    if (previous != null && !previous.isBlank() && visible.contains(previous)) {
+      target = previous;
+    } else if (preferredSetId != null && !preferredSetId.isBlank() && visible.contains(preferredSetId)) {
+      target = preferredSetId;
     } else if (!visible.isEmpty()) {
-      setBox.getSelectionModel().select(0);
+      target = visible.get(0);
+    }
+
+    if (target != null) {
+      applyingState = true;
+      setBox.getSelectionModel().select(target);
+      applyingState = false;
+      onSetSelectionChanged();
     } else {
+      currentSetId = null;
       selectors.clear();
+      activeGroupChecks.clear();
+      groupRows.clear();
+      groupOrder.clear();
       groupBox.getChildren().clear();
+      presetNameToKey.clear();
+      presetBox.getItems().clear();
       redrawPreview();
     }
   }
 
   private void onSetSelectionChanged() {
-    selectors.clear();
-    groupBox.getChildren().clear();
     String selectedSet = setBox.getValue();
-    if (selectedSet == null || selectedSet.isBlank()) {
-      redrawPreview();
-      return;
+    if (selectedSet == null || selectedSet.isBlank()) return;
+
+    if (currentSetId != null && !currentSetId.equals(selectedSet)) {
+      persistCurrentSetState();
     }
+
+    currentSetId = selectedSet;
+
+    selectors.clear();
+    activeGroupChecks.clear();
+    groupRows.clear();
+    groupOrder.clear();
+    groupBox.getChildren().clear();
+
     LayeredSet set = sets.get(selectedSet);
     if (set == null || set.groups.isEmpty()) {
       redrawPreview();
@@ -295,13 +444,17 @@ public class LayeredImageVisualizerView extends BorderPane {
       combo.getItems().addAll(options);
       combo.getSelectionModel().select(options.isEmpty() ? 0 : 1);
       combo.setMaxWidth(Double.MAX_VALUE);
-      combo.valueProperty().addListener((o, ov, nv) -> {
-        updateExpressionFromSelection();
-        redrawPreview();
+
+      CheckBox activeCheck = new CheckBox();
+      activeCheck.setSelected(true);
+      activeCheck.setTooltip(new Tooltip("Include this group when randomizing with active-only mode"));
+      activeCheck.selectedProperty().addListener((o, ov, nv) -> {
+        if (applyingState) return;
+        persistCurrentSetState();
       });
 
-      Button nextButton = new Button("↻");
-      nextButton.setTooltip(new javafx.scene.control.Tooltip("Cycle this group"));
+      Button nextButton = new Button("Next");
+      nextButton.setTooltip(new Tooltip("Cycle this group"));
       nextButton.setOnAction(e -> {
         int idx = combo.getSelectionModel().getSelectedIndex();
         if (idx < 1) idx = 0;
@@ -310,42 +463,133 @@ public class LayeredImageVisualizerView extends BorderPane {
         combo.getSelectionModel().select(next);
       });
 
+      Button openButton = new Button();
+      openButton.setGraphic(CssIcon.folder("#7ec8e3"));
+      openButton.setTooltip(new Tooltip("Open selected image in OS viewer"));
+      openButton.setOnAction(e -> openSelectedImage(combo.getValue()));
+
+      Button upButton = new Button("Up");
+      upButton.setOnAction(e -> moveGroup(groupName, -1));
+
+      Button downButton = new Button("Down");
+      downButton.setOnAction(e -> moveGroup(groupName, 1));
+
+      combo.valueProperty().addListener((o, ov, nv) -> {
+        if (applyingState) {
+          redrawPreview();
+          return;
+        }
+        updateExpressionFromSelection();
+        redrawPreview();
+        persistCurrentSetState();
+      });
+
       Label groupLabel = new Label(groupName);
       groupLabel.setMinWidth(110);
       groupLabel.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px;");
 
-      HBox row = new HBox(8, groupLabel, combo, nextButton);
+      HBox row = new HBox(6, activeCheck, groupLabel, combo, nextButton, openButton, upButton, downButton);
       row.setAlignment(Pos.CENTER_LEFT);
       HBox.setHgrow(combo, Priority.ALWAYS);
-      groupBox.getChildren().add(row);
+
       selectors.put(groupName, combo);
+      activeGroupChecks.put(groupName, activeCheck);
+      groupRows.put(groupName, row);
+      groupOrder.add(groupName);
     }
 
     if (characterIdField.getText() == null || characterIdField.getText().isBlank()) {
       characterIdField.setText(sanitizeId(takeLastPathToken(selectedSet)));
     }
-    updateExpressionFromSelection();
+
+    applyStateFromPrefix(statePrefix(selectedSet));
+    refreshPresetList();
+
+    persistGlobalState();
+    persistCurrentSetState();
     redrawPreview();
   }
 
-  private void randomizeSelection() {
+  private void refreshGroupRows() {
+    groupBox.getChildren().clear();
+    for (String groupName : groupOrder) {
+      HBox row = groupRows.get(groupName);
+      if (row != null) groupBox.getChildren().add(row);
+    }
+  }
+
+  private void moveGroup(String groupName, int delta) {
+    int idx = groupOrder.indexOf(groupName);
+    if (idx < 0) return;
+    int next = idx + delta;
+    if (next < 0 || next >= groupOrder.size()) return;
+    Collections.swap(groupOrder, idx, next);
+    refreshGroupRows();
+    redrawPreview();
+    persistCurrentSetState();
+  }
+
+  private void setAllGroupsActive(boolean active) {
+    for (CheckBox check : activeGroupChecks.values()) {
+      check.setSelected(active);
+    }
+    persistCurrentSetState();
+  }
+
+  private void applyDefaultSelection() {
+    applyingState = true;
     for (ComboBox<LayerOption> combo : selectors.values()) {
+      combo.getSelectionModel().select(combo.getItems().size() > 1 ? 1 : 0);
+    }
+    applyingState = false;
+    updateExpressionFromSelection();
+    redrawPreview();
+    persistCurrentSetState();
+    status("Restored default layer picks.");
+  }
+
+  private void applyNoneSelection() {
+    applyingState = true;
+    for (ComboBox<LayerOption> combo : selectors.values()) {
+      combo.getSelectionModel().select(0);
+    }
+    applyingState = false;
+    updateExpressionFromSelection();
+    redrawPreview();
+    persistCurrentSetState();
+    status("Cleared all layer picks.");
+  }
+
+  private void randomizeSelection() {
+    if (selectors.isEmpty()) return;
+    int changed = 0;
+    applyingState = true;
+    for (String group : groupOrder) {
+      if (randomizeActiveOnly.isSelected()) {
+        CheckBox check = activeGroupChecks.get(group);
+        if (check != null && !check.isSelected()) continue;
+      }
+      ComboBox<LayerOption> combo = selectors.get(group);
+      if (combo == null) continue;
       int size = combo.getItems().size();
       if (size <= 1) continue;
       int idx = 1 + random.nextInt(size - 1);
       combo.getSelectionModel().select(idx);
+      changed++;
     }
+    applyingState = false;
     updateExpressionFromSelection();
     redrawPreview();
-    status("Randomized selected layers.");
+    persistCurrentSetState();
+    status("Randomized " + changed + " groups.");
   }
 
   private void redrawPreview() {
     double w = previewCanvas.getWidth();
     double h = previewCanvas.getHeight();
     GraphicsContext g = previewCanvas.getGraphicsContext2D();
-    g.setFill(Color.web("#121720"));
-    g.fillRect(0, 0, w, h);
+
+    drawCheckerBackground(g, w, h);
 
     List<LayerOption> active = selectedLayers();
     if (active.isEmpty()) {
@@ -399,66 +643,112 @@ public class LayeredImageVisualizerView extends BorderPane {
       g.drawImage(img, sx, sy, sw, sh, destX, destY, destW, destH);
     }
 
-    g.setStroke(Color.color(1, 1, 1, 0.2));
+    g.setStroke(Color.color(1, 1, 1, 0.22));
     g.strokeRect(destX + 0.5, destY + 0.5, destW - 1, destH - 1);
     g.strokeLine(w / 2, destY, w / 2, destY + destH);
     g.strokeLine(destX, h / 2, destX + destW, h / 2);
 
-    previewInfoLabel.setText("Layers: " + active.size() + "  |  Virtual size: " + (int) maxW + "x" + (int) maxH);
+    previewInfoLabel.setText(
+        "Layers: " + active.size()
+            + "  |  Active groups: " + activeGroupCount()
+            + "  |  Virtual size: " + (int) maxW + "x" + (int) maxH);
   }
 
-  private void copyShowCommand() {
-    String characterId = sanitizeId(characterIdField.getText());
-    String expression = sanitizeId(expressionField.getText());
-    if (characterId.isBlank()) {
-      status("Set a character id first.");
-      return;
+  private int activeGroupCount() {
+    int count = 0;
+    for (CheckBox check : activeGroupChecks.values()) {
+      if (check.isSelected()) count++;
     }
-    if (expression.isBlank()) expression = "neutral";
-    copy("[show " + characterId + " center " + expression + "]");
-    status("Copied [show] command.");
+    return count;
   }
 
-  private void copyLayerRecipe() {
+  private void installSlider(Slider slider) {
+    slider.valueProperty().addListener((o, ov, nv) -> {
+      redrawPreview();
+      if (!slider.isValueChanging() && !applyingState) persistCurrentSetState();
+    });
+    slider.valueChangingProperty().addListener((o, ov, nv) -> {
+      if (!nv && !applyingState) persistCurrentSetState();
+    });
+  }
+
+  private void copySnippet() {
+    String format = snippetFormatBox.getValue();
+    if (format == null || format.isBlank()) format = SNIPPET_COMBINED;
+    String snippet = buildSnippet(format);
+    copy(snippet);
+    status("Copied snippet: " + format + ".");
+  }
+
+  private String buildSnippet(String format) {
     String characterId = sanitizeId(characterIdField.getText());
     String expression = sanitizeId(expressionField.getText());
     if (characterId.isBlank()) characterId = "character_id";
     if (expression.isBlank()) expression = "neutral";
 
-    String compositePath = "assets/characters/" + characterId + "/" + expression + ".png";
-    StringBuilder out = new StringBuilder();
-    out.append("# Layer recipe generated by JVN Layered Image Visualizer\n");
-    String selectedSet = setBox.getValue();
-    if (selectedSet != null && !selectedSet.isBlank()) {
-      out.append("# Source set: ").append(selectedSet).append('\n');
+    String layerSpec = buildLayerPathSpec();
+    String fallbackPath = "assets/characters/" + characterId + "/" + expression + ".png";
+    String imageSpec = layerSpec.isBlank() ? fallbackPath : layerSpec;
+    String charimg = "@charimg " + characterId + " " + expression + " " + imageSpec;
+    String show = "[show " + characterId + " center " + expression + "]";
+
+    if (SNIPPET_CHARIMG.equals(format)) return charimg + "\n";
+    if (SNIPPET_SHOW.equals(format)) return show + "\n";
+    if (SNIPPET_RECIPE.equals(format)) {
+      StringBuilder out = new StringBuilder();
+      out.append("# Layer recipe generated by JVN Layered Image Visualizer\n");
+      out.append("# Multi-layer @charimg is supported via: pathA | pathB | pathC\n");
+      if (currentSetId != null && !currentSetId.isBlank()) {
+        out.append("# Source set: ").append(currentSetId).append('\n');
+      }
+      for (String group : groupOrder) {
+        ComboBox<LayerOption> combo = selectors.get(group);
+        LayerOption option = combo != null ? combo.getValue() : null;
+        if (option == null || option.isNone()) continue;
+        out.append("# ").append(group).append(" -> ").append(option.relativePath).append('\n');
+      }
+      out.append(charimg).append('\n').append(show).append('\n');
+      return out.toString();
     }
-    for (Map.Entry<String, ComboBox<LayerOption>> entry : selectors.entrySet()) {
-      LayerOption option = entry.getValue().getValue();
-      if (option == null || option.isNone()) continue;
-      out.append("# ").append(entry.getKey()).append(" -> ").append(option.relativePath).append('\n');
+
+    return charimg + "\n" + show + "\n";
+  }
+
+  private String buildLayerPathSpec() {
+    StringBuilder spec = new StringBuilder();
+    for (LayerOption option : selectedLayers()) {
+      if (option == null || option.isNone() || option.relativePath == null || option.relativePath.isBlank()) continue;
+      if (spec.length() > 0) spec.append(" | ");
+      spec.append(option.relativePath.trim());
     }
-    out.append("@charimg ").append(characterId).append(' ').append(expression).append(' ').append(compositePath).append('\n');
-    out.append("[show ").append(characterId).append(" center ").append(expression).append("]\n");
-    copy(out.toString());
-    status("Copied layer recipe snippet.");
+    return spec.toString();
+  }
+
+  private void copyLayerRecipe() {
+    copy(buildSnippet(SNIPPET_RECIPE));
+    status("Copied detailed layer recipe.");
   }
 
   private void updateExpressionFromSelection() {
     if (!autoExpression.isSelected()) return;
     List<String> names = new ArrayList<>();
-    for (Map.Entry<String, ComboBox<LayerOption>> entry : selectors.entrySet()) {
-      LayerOption option = entry.getValue().getValue();
+    for (String group : groupOrder) {
+      ComboBox<LayerOption> combo = selectors.get(group);
+      LayerOption option = combo != null ? combo.getValue() : null;
       if (option == null || option.isNone()) continue;
       names.add(sanitizeId(option.label));
     }
     String expr = names.isEmpty() ? "neutral" : String.join("_", names);
+    applyingState = true;
     expressionField.setText(expr);
+    applyingState = false;
   }
 
   private List<LayerOption> selectedLayers() {
     List<LayerOption> out = new ArrayList<>();
-    for (ComboBox<LayerOption> combo : selectors.values()) {
-      LayerOption option = combo.getValue();
+    for (String group : groupOrder) {
+      ComboBox<LayerOption> combo = selectors.get(group);
+      LayerOption option = combo != null ? combo.getValue() : null;
       if (option == null || option.isNone()) continue;
       out.add(option);
     }
@@ -473,6 +763,372 @@ public class LayeredImageVisualizerView extends BorderPane {
     Image img = new Image(option.file.toURI().toString(), false);
     if (!img.isError()) imageCache.put(key, img);
     return img;
+  }
+
+  private void openSelectedImage(LayerOption option) {
+    if (option == null || option.file == null) return;
+    try {
+      if (!Desktop.isDesktopSupported()) {
+        status("Desktop open is not supported on this platform.");
+        return;
+      }
+      Desktop.getDesktop().open(option.file);
+      status("Opened " + option.file.getName());
+    } catch (Exception ex) {
+      status("Failed to open image: " + ex.getMessage());
+    }
+  }
+
+  private void refreshPresetList() {
+    presetNameToKey.clear();
+    presetBox.getItems().clear();
+    if (currentSetId == null || currentSetId.isBlank()) return;
+
+    String prefix = "preset." + encodeKey(currentSetId) + ".";
+    Map<String, String> namesToKeys = new HashMap<>();
+
+    for (String key : persisted.stringPropertyNames()) {
+      if (!key.startsWith(prefix) || !key.endsWith(".name")) continue;
+      String presetKey = key.substring(prefix.length(), key.length() - ".name".length());
+      String name = persisted.getProperty(key, "").trim();
+      if (name.isBlank()) continue;
+      String uniqueName = name;
+      int counter = 2;
+      while (namesToKeys.containsKey(uniqueName)) {
+        uniqueName = name + " (" + counter + ")";
+        counter++;
+      }
+      namesToKeys.put(uniqueName, presetKey);
+    }
+
+    List<String> names = new ArrayList<>(namesToKeys.keySet());
+    names.sort(String.CASE_INSENSITIVE_ORDER);
+    presetBox.getItems().setAll(names);
+    for (String name : names) {
+      presetNameToKey.put(name, namesToKeys.get(name));
+    }
+
+    String lastPreset = persisted.getProperty(statePrefix(currentSetId) + "lastPreset", "");
+    if (!lastPreset.isBlank()) {
+      for (Map.Entry<String, String> e : presetNameToKey.entrySet()) {
+        if (lastPreset.equals(e.getValue())) {
+          presetBox.getSelectionModel().select(e.getKey());
+          presetNameField.setText(e.getKey());
+          return;
+        }
+      }
+    }
+
+    if (!names.isEmpty()) {
+      presetBox.getSelectionModel().select(0);
+      presetNameField.setText(names.get(0));
+    } else {
+      presetNameField.clear();
+    }
+  }
+
+  private void savePreset() {
+    if (currentSetId == null || currentSetId.isBlank()) {
+      status("Select a set before saving presets.");
+      return;
+    }
+
+    String name = presetNameField.getText() == null ? "" : presetNameField.getText().trim();
+    if (name.isBlank()) {
+      String expr = sanitizeId(expressionField.getText());
+      name = expr.isBlank() ? "preset" : expr;
+    }
+
+    String existing = presetNameToKey.get(name);
+    String presetKey = existing != null ? existing : uniquePresetKey(currentSetId, name);
+    String prefix = presetPrefix(currentSetId, presetKey);
+
+    captureStateToPrefix(prefix);
+    persisted.setProperty(prefix + "name", name);
+    persisted.setProperty(statePrefix(currentSetId) + "lastPreset", presetKey);
+
+    savePersistentState();
+    refreshPresetList();
+    presetBox.getSelectionModel().select(name);
+    status("Saved preset: " + name);
+  }
+
+  private void loadSelectedPreset() {
+    if (currentSetId == null || currentSetId.isBlank()) {
+      status("Select a set before loading presets.");
+      return;
+    }
+
+    String name = presetBox.getValue();
+    if (name == null || name.isBlank()) {
+      status("Select a preset first.");
+      return;
+    }
+
+    String presetKey = presetNameToKey.get(name);
+    if (presetKey == null || presetKey.isBlank()) {
+      status("Preset key not found.");
+      return;
+    }
+
+    applyStateFromPrefix(presetPrefix(currentSetId, presetKey));
+    persisted.setProperty(statePrefix(currentSetId) + "lastPreset", presetKey);
+    savePersistentState();
+    status("Loaded preset: " + name);
+  }
+
+  private void deleteSelectedPreset() {
+    if (currentSetId == null || currentSetId.isBlank()) {
+      status("Select a set before deleting presets.");
+      return;
+    }
+
+    String name = presetBox.getValue();
+    if (name == null || name.isBlank()) {
+      status("Select a preset first.");
+      return;
+    }
+
+    String presetKey = presetNameToKey.get(name);
+    if (presetKey == null || presetKey.isBlank()) {
+      status("Preset key not found.");
+      return;
+    }
+
+    clearPrefix(presetPrefix(currentSetId, presetKey));
+    String stateKey = statePrefix(currentSetId) + "lastPreset";
+    if (presetKey.equals(persisted.getProperty(stateKey, ""))) {
+      persisted.remove(stateKey);
+    }
+
+    savePersistentState();
+    refreshPresetList();
+    status("Deleted preset: " + name);
+  }
+
+  private String uniquePresetKey(String setId, String baseName) {
+    String seed = sanitizeId(baseName);
+    if (seed.isBlank()) seed = "preset";
+
+    String key = seed;
+    int idx = 2;
+    while (persisted.containsKey(presetPrefix(setId, key) + "name")) {
+      key = seed + "_" + idx;
+      idx++;
+    }
+    return key;
+  }
+
+  private void persistGlobalState() {
+    if (projectRoot == null) return;
+    persisted.setProperty("global.filter", filterField.getText() == null ? "" : filterField.getText().trim());
+    String selectedSet = setBox.getValue();
+    if (selectedSet != null && !selectedSet.isBlank()) {
+      persisted.setProperty("global.selectedSet", selectedSet);
+    }
+    savePersistentState();
+  }
+
+  private void persistCurrentSetState() {
+    if (projectRoot == null) return;
+    if (currentSetId == null || currentSetId.isBlank()) return;
+    captureStateToPrefix(statePrefix(currentSetId));
+    savePersistentState();
+  }
+
+  private void captureStateToPrefix(String prefix) {
+    if (prefix == null || prefix.isBlank()) return;
+
+    clearPrefix(prefix + "sel.");
+    clearPrefix(prefix + "active.");
+
+    persisted.setProperty(prefix + "charId", sanitizeId(characterIdField.getText()));
+    persisted.setProperty(prefix + "expr", sanitizeId(expressionField.getText()));
+    persisted.setProperty(prefix + "autoExpr", Boolean.toString(autoExpression.isSelected()));
+    persisted.setProperty(prefix + "randomActiveOnly", Boolean.toString(randomizeActiveOnly.isSelected()));
+    persisted.setProperty(prefix + "focusX", formatDouble(focusXSlider.getValue()));
+    persisted.setProperty(prefix + "focusY", formatDouble(focusYSlider.getValue()));
+    persisted.setProperty(prefix + "crop", formatDouble(cropSlider.getValue()));
+    persisted.setProperty(prefix + "zoom", formatDouble(zoomSlider.getValue()));
+    persisted.setProperty(prefix + "groupOrder", encodeCsv(groupOrder));
+
+    for (Map.Entry<String, ComboBox<LayerOption>> entry : selectors.entrySet()) {
+      String group = entry.getKey();
+      String groupKey = encodeKey(group);
+      LayerOption option = entry.getValue().getValue();
+      if (option != null && !option.isNone()) {
+        persisted.setProperty(prefix + "sel." + groupKey, option.relativePath);
+      }
+      CheckBox active = activeGroupChecks.get(group);
+      persisted.setProperty(prefix + "active." + groupKey, Boolean.toString(active == null || active.isSelected()));
+    }
+  }
+
+  private void applyStateFromPrefix(String prefix) {
+    applyingState = true;
+    try {
+      String fallbackChar = sanitizeId(takeLastPathToken(currentSetId));
+      String charId = persisted.getProperty(prefix + "charId", fallbackChar);
+      String expr = persisted.getProperty(prefix + "expr", "");
+
+      characterIdField.setText(charId);
+      expressionField.setText(expr);
+      autoExpression.setSelected(parseBoolean(persisted.getProperty(prefix + "autoExpr"), true));
+      randomizeActiveOnly.setSelected(parseBoolean(persisted.getProperty(prefix + "randomActiveOnly"), true));
+
+      focusXSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusX"), focusXSlider.getValue()));
+      focusYSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusY"), focusYSlider.getValue()));
+      cropSlider.setValue(parseDouble(persisted.getProperty(prefix + "crop"), cropSlider.getValue()));
+      zoomSlider.setValue(parseDouble(persisted.getProperty(prefix + "zoom"), zoomSlider.getValue()));
+
+      List<String> restoredOrder = decodeCsv(persisted.getProperty(prefix + "groupOrder", ""));
+      if (!restoredOrder.isEmpty()) {
+        List<String> normalized = new ArrayList<>();
+        for (String group : restoredOrder) {
+          if (selectors.containsKey(group) && !normalized.contains(group)) normalized.add(group);
+        }
+        for (String group : selectors.keySet()) {
+          if (!normalized.contains(group)) normalized.add(group);
+        }
+        groupOrder.clear();
+        groupOrder.addAll(normalized);
+      }
+
+      for (String group : selectors.keySet()) {
+        ComboBox<LayerOption> combo = selectors.get(group);
+        String groupKey = encodeKey(group);
+        String selectedPath = persisted.getProperty(prefix + "sel." + groupKey, "");
+        if (!selectedPath.isBlank()) {
+          LayerOption selected = findByRelativePath(combo, selectedPath);
+          if (selected != null) combo.getSelectionModel().select(selected);
+        }
+        CheckBox active = activeGroupChecks.get(group);
+        if (active != null) {
+          active.setSelected(parseBoolean(persisted.getProperty(prefix + "active." + groupKey), true));
+        }
+      }
+
+      refreshGroupRows();
+
+      if (autoExpression.isSelected() && (expressionField.getText() == null || expressionField.getText().isBlank())) {
+        updateExpressionFromSelection();
+      }
+    } finally {
+      applyingState = false;
+    }
+    redrawPreview();
+  }
+
+  private LayerOption findByRelativePath(ComboBox<LayerOption> combo, String relativePath) {
+    if (combo == null || relativePath == null || relativePath.isBlank()) return null;
+    for (LayerOption option : combo.getItems()) {
+      if (option != null && !option.isNone() && relativePath.equals(option.relativePath)) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  private void loadPersistentState() {
+    persisted.clear();
+    Path file = statePath();
+    if (file == null || !Files.exists(file)) return;
+    try (InputStream in = Files.newInputStream(file)) {
+      persisted.load(in);
+    } catch (Exception ignored) {
+    }
+  }
+
+  private void savePersistentState() {
+    Path file = statePath();
+    if (file == null) return;
+    try {
+      Path parent = file.getParent();
+      if (parent != null && !Files.exists(parent)) Files.createDirectories(parent);
+      try (OutputStream out = Files.newOutputStream(file)) {
+        persisted.store(out, "JVN Layered Image Visualizer State");
+      }
+    } catch (Exception ignored) {
+    }
+  }
+
+  private Path statePath() {
+    if (projectRoot == null || !projectRoot.isDirectory()) return null;
+    return projectRoot.toPath().resolve(STATE_FILE);
+  }
+
+  private void clearPrefix(String prefix) {
+    if (prefix == null || prefix.isBlank()) return;
+    List<String> keys = new ArrayList<>(persisted.stringPropertyNames());
+    for (String key : keys) {
+      if (key.startsWith(prefix)) persisted.remove(key);
+    }
+  }
+
+  private static String statePrefix(String setId) {
+    return "state." + encodeKey(setId) + ".";
+  }
+
+  private static String presetPrefix(String setId, String presetKey) {
+    return "preset." + encodeKey(setId) + "." + presetKey + ".";
+  }
+
+  private static String encodeKey(String raw) {
+    if (raw == null || raw.isBlank()) return "_";
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static String formatDouble(double value) {
+    return String.format(Locale.ROOT, "%.3f", value);
+  }
+
+  private static String encodeCsv(List<String> values) {
+    if (values == null || values.isEmpty()) return "";
+    StringBuilder out = new StringBuilder();
+    for (String value : values) {
+      if (value == null || value.isBlank()) continue;
+      if (out.length() > 0) out.append(',');
+      out.append(encodeKey(value));
+    }
+    return out.toString();
+  }
+
+  private static List<String> decodeCsv(String csv) {
+    List<String> out = new ArrayList<>();
+    if (csv == null || csv.isBlank()) return out;
+    String[] parts = csv.split(",");
+    for (String part : parts) {
+      String decoded = decodeKey(part.trim());
+      if (!decoded.isBlank() && !out.contains(decoded)) out.add(decoded);
+    }
+    return out;
+  }
+
+  private static String decodeKey(String encoded) {
+    if (encoded == null || encoded.isBlank() || "_".equals(encoded)) return "";
+    try {
+      byte[] bytes = Base64.getUrlDecoder().decode(encoded);
+      return new String(bytes, StandardCharsets.UTF_8);
+    } catch (Exception ex) {
+      return "";
+    }
+  }
+
+  private static boolean parseBoolean(String raw, boolean fallback) {
+    if (raw == null) return fallback;
+    String v = raw.trim().toLowerCase(Locale.ROOT);
+    if ("true".equals(v) || "1".equals(v) || "yes".equals(v) || "y".equals(v)) return true;
+    if ("false".equals(v) || "0".equals(v) || "no".equals(v) || "n".equals(v)) return false;
+    return fallback;
+  }
+
+  private static double parseDouble(String raw, double fallback) {
+    if (raw == null || raw.isBlank()) return fallback;
+    try {
+      return Double.parseDouble(raw.trim());
+    } catch (NumberFormatException ex) {
+      return fallback;
+    }
   }
 
   private void copy(String text) {
@@ -500,7 +1156,8 @@ public class LayeredImageVisualizerView extends BorderPane {
         || path.startsWith(".gradle/")
         || path.contains("/build/")
         || path.startsWith("out/")
-        || path.contains("/out/");
+        || path.contains("/out/")
+        || path.startsWith(".jvn/");
   }
 
   private LayerOption parseOption(String relative, File file) {
@@ -536,6 +1193,10 @@ public class LayeredImageVisualizerView extends BorderPane {
   }
 
   private String deriveSetId(String relative) {
+    return deriveSetIdFromRelative(relative);
+  }
+
+  static String deriveSetIdFromRelative(String relative) {
     String path = relative == null ? "" : relative.replace('\\', '/');
     String parent = parentPath(path);
     if (parent.isBlank()) return "(root)";
@@ -572,14 +1233,14 @@ public class LayeredImageVisualizerView extends BorderPane {
     return row;
   }
 
-  private static String sanitizeId(String raw) {
+  static String sanitizeId(String raw) {
     if (raw == null) return "";
     String s = raw.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]+", "_");
     s = s.replaceAll("^_+", "").replaceAll("_+$", "");
     return s;
   }
 
-  private static String sanitizeLabel(String raw) {
+  static String sanitizeLabel(String raw) {
     if (raw == null) return "";
     String s = raw.trim().replaceAll("[\\s]+", "_");
     s = s.replaceAll("[^a-zA-Z0-9_]+", "_");
@@ -587,13 +1248,13 @@ public class LayeredImageVisualizerView extends BorderPane {
     return s;
   }
 
-  private static String parentPath(String path) {
+  static String parentPath(String path) {
     if (path == null || path.isBlank()) return "";
     int slash = path.lastIndexOf('/');
     return slash <= 0 ? "" : path.substring(0, slash);
   }
 
-  private static String takeLastPathToken(String path) {
+  static String takeLastPathToken(String path) {
     if (path == null || path.isBlank()) return "";
     int slash = path.lastIndexOf('/');
     return slash < 0 ? path : path.substring(slash + 1);
@@ -601,6 +1262,19 @@ public class LayeredImageVisualizerView extends BorderPane {
 
   private static double clamp(double v, double min, double max) {
     return Math.max(min, Math.min(max, v));
+  }
+
+  private static void drawCheckerBackground(GraphicsContext g, double w, double h) {
+    double size = 18.0;
+    Color c1 = Color.web("#171d28");
+    Color c2 = Color.web("#20293a");
+    for (int y = 0; y <= h / size + 1; y++) {
+      for (int x = 0; x <= w / size + 1; x++) {
+        boolean odd = ((x + y) & 1) == 1;
+        g.setFill(odd ? c1 : c2);
+        g.fillRect(x * size, y * size, size, size);
+      }
+    }
   }
 
   private static void drawCenteredText(GraphicsContext g, double w, double h, String text) {

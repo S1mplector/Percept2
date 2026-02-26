@@ -76,6 +76,14 @@ Maps background id to image path.
 
 Adds expression-specific sprite path for a character.
 
+You can also provide multiple layered image paths for one expression by separating them with `|`:
+
+```text
+@charimg nora battle assets/characters/nora/body_base.png | assets/characters/nora/head_smile.png | assets/characters/nora/accessory_glasses.png
+```
+
+The renderer draws those layers in order on the same character slot.
+
 ### `@label`
 
 ```text

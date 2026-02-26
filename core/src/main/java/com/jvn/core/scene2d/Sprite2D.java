@@ -42,8 +42,19 @@ public class Sprite2D extends Entity2D {
     if (alpha != 1.0) b.setGlobalAlpha(alpha);
     double dx = -originX * width;
     double dy = -originY * height;
-    if (useRegion) b.drawImageRegion(imagePath, sx, sy, sw, sh, dx, dy, width, height);
-    else b.drawImage(imagePath, dx, dy, width, height);
+    if (useRegion) {
+      b.drawImageRegion(imagePath, sx, sy, sw, sh, dx, dy, width, height);
+    } else if (imagePath.indexOf('|') >= 0) {
+      // Layer syntax: pathA | pathB | pathC (all rendered at the same transform).
+      for (String layer : imagePath.split("\\|")) {
+        String path = layer == null ? "" : layer.trim();
+        if (!path.isEmpty()) {
+          b.drawImage(path, dx, dy, width, height);
+        }
+      }
+    } else {
+      b.drawImage(imagePath, dx, dy, width, height);
+    }
     b.pop();
   }
 }
