@@ -91,7 +91,7 @@ public class VnRenderer {
   private static final double DEFAULT_CHOICE_TEXT_BASELINE_OFFSET = 5.0;
   private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
-  private static final int VISUALIZER_BAR_COUNT = 28;
+  private static final int VISUALIZER_BAR_COUNT = 96;
   private static final long VISUALIZER_STALE_NS = 700_000_000L;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
@@ -691,20 +691,21 @@ public class VnRenderer {
     if (maxLevel < 0.015) return;
 
     TextBoxGeometry textBox = computeTextBoxGeometry(width, height);
-    double regionBottom = Math.min(height - 8, textBox.y() - 10);
-    double regionTop = Math.max(height * 0.52, regionBottom - Math.min(height * 0.24, 180));
+    // Fill the entire area above the textbox.
+    double regionBottom = Math.min(height, textBox.y() - 2.0);
+    double regionTop = 0.0;
     if (regionBottom <= regionTop + 8) return;
 
     double regionHeight = regionBottom - regionTop;
-    double sidePadding = Math.max(24, width * 0.15);
-    double regionWidth = Math.max(120, width - sidePadding * 2);
-    double gap = Math.max(1.5, regionWidth / (visualizerLevels.length * 7.8));
+    double sidePadding = 0.0;
+    double regionWidth = Math.max(1.0, width);
+    double gap = 1.0;
     double barWidth = (regionWidth - gap * (visualizerLevels.length - 1)) / visualizerLevels.length;
     if (barWidth < 1.0) return;
 
     gc.save();
-    gc.setGlobalAlpha(0.9);
-    gc.setStroke(Color.rgb(220, 235, 255, 0.12));
+    gc.setGlobalAlpha(1.0);
+    gc.setStroke(Color.WHITE);
     gc.setLineWidth(1.0);
     gc.strokeLine(sidePadding, regionBottom + 0.5, sidePadding + regionWidth, regionBottom + 0.5);
 
@@ -716,16 +717,8 @@ public class VnRenderer {
       double x = sidePadding + i * (barWidth + gap);
       double y = regionBottom - barHeight;
 
-      double hue = 188 + (i * 3.1) + (animationTime * 0.012);
-      while (hue >= 360) hue -= 360;
-      Color fill = Color.hsb(hue, 0.62, 0.98, 0.18 + normalized * 0.34);
-      gc.setFill(fill);
+      gc.setFill(Color.WHITE);
       gc.fillRoundRect(x, y, barWidth, barHeight, 3.0, 3.0);
-
-      if (normalized > 0.68) {
-        gc.setFill(Color.hsb(hue, 0.38, 1.0, 0.22));
-        gc.fillRoundRect(x, y, barWidth, Math.min(3.0, barHeight), 2.0, 2.0);
-      }
     }
     gc.restore();
   }
