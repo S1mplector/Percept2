@@ -31,8 +31,10 @@ public class EntitySelector extends VBox {
 
     private AnimationProject project;
     private Consumer<String> onEntitySelected;
+    private BiConsumer<String, Boolean> onSelectionChanged;
     private Consumer<String> onCreateGroup;
     private BiConsumer<String, String> onAddToGroup;
+    private AddToGroupRequest onAddSelectionToGroup;
     private BiConsumer<String, Integer> onEntityLayerDelta;
     private BiConsumer<String, Integer> onGroupLayerDelta;
 
@@ -62,8 +64,15 @@ public class EntitySelector extends VBox {
         treeView.setStyle("-fx-background-color: #1a1a1a; -fx-control-inner-background: #1a1a1a;");
         treeView.setCellFactory(tv -> new EntityTreeCell());
         treeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null && onEntitySelected != null) {
-                onEntitySelected.accept(decodeTreeValue(newVal.getValue()));
+            if (newVal != null) {
+                String encoded = newVal.getValue();
+                String name = decodeTreeValue(encoded);
+                boolean group = isEncodedGroupValue(encoded);
+                if (onSelectionChanged != null) {
+                    onSelectionChanged.accept(name, group);
+                } else if (onEntitySelected != null) {
+                    onEntitySelected.accept(name);
+                }
             }
         });
 
@@ -94,10 +103,17 @@ public class EntitySelector extends VBox {
     }
 
     public void setOnEntitySelected(Consumer<String> callback) { this.onEntitySelected = callback; }
+    public void setOnSelectionChanged(BiConsumer<String, Boolean> callback) { this.onSelectionChanged = callback; }
     public void setOnCreateGroup(Consumer<String> callback) { this.onCreateGroup = callback; }
     public void setOnAddToGroup(BiConsumer<String, String> callback) { this.onAddToGroup = callback; }
+    public void setOnAddSelectionToGroup(AddToGroupRequest callback) { this.onAddSelectionToGroup = callback; }
     public void setOnEntityLayerDelta(BiConsumer<String, Integer> callback) { this.onEntityLayerDelta = callback; }
     public void setOnGroupLayerDelta(BiConsumer<String, Integer> callback) { this.onGroupLayerDelta = callback; }
+
+    public boolean isGroupSelected() {
+        TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
+        return sel != null && isEncodedGroupValue(sel.getValue());
+    }
 
     public void refresh(AnimationProject project) {
         this.project = project;
@@ -196,13 +212,22 @@ public class EntitySelector extends VBox {
         cm.setOnShowing(e -> { 
             addToGroupMenu.getItems().clear();
             if (project != null) {
+                TreeItem<String> selected = treeView.getSelectionModel().getSelectedItem();
+                String selectedName = selected == null ? null : decodeTreeValue(selected.getValue());
                 for (EntityGroup g : project.getGroups()) {
+                    if (selectedName != null && selectedName.equals(g.getName())) continue;
                     MenuItem mi = new MenuItem(g.getName());
                     mi.setOnAction(ev -> {
                         TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
-                        if (sel != null && onAddToGroup != null) {
-                            String name = decodeTreeValue(sel.getValue());
-                            onAddToGroup.accept(name, g.getName());
+                        if (sel != null) {
+                            String encoded = sel.getValue();
+                            String name = decodeTreeValue(encoded);
+                            boolean selectedIsGroup = isEncodedGroupValue(encoded);
+                            if (onAddSelectionToGroup != null) {
+                                onAddSelectionToGroup.accept(name, selectedIsGroup, g.getName());
+                            } else if (onAddToGroup != null) {
+                                onAddToGroup.accept(name, g.getName());
+                            }
                         }
                     });
                     addToGroupMenu.getItems().add(mi);
@@ -213,8 +238,13 @@ public class EntitySelector extends VBox {
         removeFromGroup.setOnAction(e -> {
             TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
             if (sel != null && project != null) {
-                String name = decodeTreeValue(sel.getValue());
-                project.removeEntityFromGroup(name);
+                String encoded = sel.getValue();
+                String name = decodeTreeValue(encoded);
+                if (isEncodedGroupValue(encoded)) {
+                    project.removeGroupFromParent(name);
+                } else {
+                    project.removeEntityFromGroup(name);
+                }
                 refresh(project);
             }
         });
@@ -285,5 +315,10 @@ public class EntitySelector extends VBox {
                 }
             }
         }
+    }
+
+    @FunctionalInterface
+    public interface AddToGroupRequest {
+        void accept(String selectionName, boolean selectionIsGroup, String targetGroupName);
     }
 }

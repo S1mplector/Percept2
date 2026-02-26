@@ -198,6 +198,20 @@ public class AnimationProject {
         if (!rootEntityNames.contains(entityName)) rootEntityNames.add(entityName);
     }
 
+    public void removeGroupFromParent(String groupName) {
+        EntityGroup group = groups.get(groupName);
+        if (group == null || !group.hasParent()) return;
+
+        EntityGroup parent = groups.get(group.getParentGroupName());
+        if (parent != null) {
+            parent.removeChildGroup(groupName);
+        }
+        group.setParentGroupName(null);
+        if (!rootGroupNames.contains(groupName)) {
+            rootGroupNames.add(groupName);
+        }
+    }
+
     public void addGroupToGroup(String childGroupName, String parentGroupName) {
         EntityGroup child = groups.get(childGroupName);
         EntityGroup parent = groups.get(parentGroupName);
