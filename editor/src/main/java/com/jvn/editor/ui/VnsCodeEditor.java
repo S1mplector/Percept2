@@ -47,7 +47,7 @@ public class VnsCodeEditor extends BorderPane {
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
   private static final String FORMAT_PATTERN = "\\{/?[bius]\\}|\\{color=[^}]*\\}|\\{/color\\}";
-  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|label|define|include|var)\\b";
+  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|charlayer|charpreset|label|define|include|var)\\b";
   private static final String CMD_OPEN_PATTERN =
       "\\[(?:show|hide|jump|end|wait|bg|background"
     + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
@@ -683,6 +683,8 @@ public class VnsCodeEditor extends BorderPane {
       out.add(new CodeAutoCompleter.Suggestion("@character "));
       out.add(new CodeAutoCompleter.Suggestion("@background "));
       out.add(new CodeAutoCompleter.Suggestion("@charimg "));
+      out.add(new CodeAutoCompleter.Suggestion("@charlayer "));
+      out.add(new CodeAutoCompleter.Suggestion("@charpreset "));
       out.add(new CodeAutoCompleter.Suggestion("@label "));
       out.add(new CodeAutoCompleter.Suggestion("@var "));
       out.add(new CodeAutoCompleter.Suggestion("@define "));

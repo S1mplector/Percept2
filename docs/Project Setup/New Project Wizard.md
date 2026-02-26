@@ -112,7 +112,7 @@ Path:
 ### Bundled demo assets
 
 Wizard also copies demo-ready starter assets so first run is visually complete:
-- character sprites: `assets/demo/characters/codel/*`
+- layered character sprites: `assets/demo/characters/lavender/*`
 - background images: `assets/demo/backgrounds/field/*`
 - sample BGM/SFX used by starter script and menu defaults
 

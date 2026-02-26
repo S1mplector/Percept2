@@ -31,6 +31,8 @@ public class VnScriptParser {
   private static final Pattern CHARACTER_PATTERN = Pattern.compile("^@character\\s+(\\S+)\\s+\"([^\"]*)\"$", Pattern.CASE_INSENSITIVE);
   private static final Pattern BACKGROUND_PATTERN = Pattern.compile("^@background\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern VAR_PATTERN = Pattern.compile("^@var\\s+(\\S+)(?:\\s*=\\s*(.+)|\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
   private static final Pattern LABEL_PATTERN = Pattern.compile("^@label\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern LABEL_LEGACY_PATTERN = Pattern.compile("^label\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
@@ -104,6 +106,7 @@ public class VnScriptParser {
     boolean contentEmitted = false;
     List<Choice> pendingChoices = new ArrayList<>();
     Map<String, com.jvn.core.vn.VnCharacter.Builder> charBuilders = new HashMap<>();
+    Map<String, Map<String, String>> charLayers = new HashMap<>();
     Map<String, String> defines = new HashMap<>();
     Map<String, LabelDeclaration> declaredLabels = new HashMap<>();
     List<LabelReference> labelReferences = new ArrayList<>();
@@ -183,6 +186,8 @@ public class VnScriptParser {
       this.label = label;
     }
   }
+
+  private record LayerReference(String characterId, String layerId) {}
 
   public VnScenario parse(InputStream input) throws IOException {
     return parse(input, "<input>", null);
@@ -344,6 +349,38 @@ public class VnScriptParser {
           state.charBuilders.put(id, cb);
         }
         cb.addExpression(expr, path);
+        continue;
+      }
+
+      Matcher charLayerMatcher = CHARLAYER_PATTERN.matcher(trimmed);
+      if (charLayerMatcher.matches()) {
+        state.contentEmitted = true;
+        String id = charLayerMatcher.group(1);
+        String layerId = charLayerMatcher.group(2);
+        String path = charLayerMatcher.group(3).trim();
+        if (path.isEmpty()) {
+          throw parseError(sourceName, lineNumber, "@charlayer path cannot be empty", rawLine);
+        }
+        state.charLayers.computeIfAbsent(id, k -> new HashMap<>()).put(layerId, path);
+        continue;
+      }
+
+      Matcher charPresetMatcher = CHARPRESET_PATTERN.matcher(trimmed);
+      if (charPresetMatcher.matches()) {
+        state.contentEmitted = true;
+        String id = charPresetMatcher.group(1);
+        String expr = charPresetMatcher.group(2);
+        String spec = charPresetMatcher.group(3).trim();
+        if (spec.isEmpty()) {
+          throw parseError(sourceName, lineNumber, "@charpreset layer spec cannot be empty", rawLine);
+        }
+        String resolvedSpec = resolveLayerPresetSpec(state, id, spec, sourceName, lineNumber, rawLine);
+        com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(id);
+        if (cb == null) {
+          cb = com.jvn.core.vn.VnCharacter.builder(id);
+          state.charBuilders.put(id, cb);
+        }
+        cb.addExpression(expr, resolvedSpec);
         continue;
       }
 
@@ -1060,6 +1097,73 @@ public class VnScriptParser {
       builder.choiceNodes(new ArrayList<>(choices));
       choices.clear();
     }
+  }
+
+  private String resolveLayerPresetSpec(ParseState state,
+                                        String characterId,
+                                        String spec,
+                                        String sourceName,
+                                        int lineNumber,
+                                        String rawLine) throws IOException {
+    String[] tokens = spec.split("\\|");
+    List<String> resolved = new ArrayList<>();
+    for (String token : tokens) {
+      if (token == null) continue;
+      String part = token.trim();
+      if (part.isEmpty()) continue;
+      if (part.startsWith("$")) {
+        String ref = part.substring(1).trim();
+        if (ref.isEmpty()) {
+          throw parseError(sourceName, lineNumber, "@charpreset contains empty $layer reference", rawLine);
+        }
+        LayerReference layerRef = parseLayerReference(ref, characterId, sourceName, lineNumber, rawLine);
+        Map<String, String> byLayer = state.charLayers.get(layerRef.characterId());
+        String path = byLayer == null ? null : byLayer.get(layerRef.layerId());
+        if (path == null || path.isBlank()) {
+          throw parseError(
+              sourceName,
+              lineNumber,
+              "Unknown @charlayer reference '$" + ref + "' for character '" + layerRef.characterId() + "'",
+              rawLine
+          );
+        }
+        resolved.add(path.trim());
+      } else {
+        resolved.add(part);
+      }
+    }
+    if (resolved.isEmpty()) {
+      throw parseError(sourceName, lineNumber, "@charpreset produced no layers", rawLine);
+    }
+    return String.join(" | ", resolved);
+  }
+
+  private LayerReference parseLayerReference(String rawRef,
+                                             String defaultCharacterId,
+                                             String sourceName,
+                                             int lineNumber,
+                                             String rawLine) throws IOException {
+    String ref = rawRef == null ? "" : rawRef.trim();
+    if (ref.isEmpty()) {
+      throw parseError(sourceName, lineNumber, "Layer reference cannot be empty", rawLine);
+    }
+    String characterId = defaultCharacterId;
+    String layerId = ref;
+
+    int colon = ref.indexOf(':');
+    int dot = ref.indexOf('.');
+    int sep = colon >= 0 ? colon : dot;
+    if (colon >= 0 && dot >= 0) {
+      sep = Math.min(colon, dot);
+    }
+    if (sep > 0) {
+      characterId = ref.substring(0, sep).trim();
+      layerId = ref.substring(sep + 1).trim();
+    }
+    if (characterId == null || characterId.isBlank() || layerId.isBlank()) {
+      throw parseError(sourceName, lineNumber, "Malformed layer reference '$" + rawRef + "'", rawLine);
+    }
+    return new LayerReference(characterId, layerId);
   }
 
   private void validateLabelReferences(ParseState state) throws IOException {

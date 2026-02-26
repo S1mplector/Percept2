@@ -84,6 +84,36 @@ You can also provide multiple layered image paths for one expression by separati
 
 The renderer draws those layers in order on the same character slot.
 
+### `@charlayer`
+
+```text
+@charlayer <characterId> <layerId> <path>
+```
+
+Registers a named layer path for reuse in expression presets.
+
+### `@charpreset`
+
+```text
+@charpreset <characterId> <expressionId> <layerSpec>
+```
+
+Builds an expression from layer references and/or literal paths.
+
+- Layer references start with `$`.
+- `$layerId` resolves from the same character.
+- `$otherChar.layerId` or `$otherChar:layerId` resolves from another character.
+- `layerSpec` can mix references and direct paths separated by `|`.
+
+Example:
+
+```text
+@charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+@charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
+@charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+@charpreset lavender talking $base | $eyes_neutral | $mouth_smile
+```
+
 ### `@label`
 
 ```text

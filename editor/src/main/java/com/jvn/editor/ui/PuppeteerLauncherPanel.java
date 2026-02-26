@@ -25,6 +25,8 @@ public class PuppeteerLauncherPanel extends VBox {
   private static final Pattern BG_CMD_PATTERN = Pattern.compile("^\\s*\\[(?:bg|background)\\s+(\\S+)]", Pattern.CASE_INSENSITIVE);
   private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern SHOW_PATTERN = Pattern.compile("^\\s*\\[show\\s+(\\S+)\\s+(\\S+)(?:\\s+(\\S+))?]", Pattern.CASE_INSENSITIVE);
   private static final Pattern HIDE_PATTERN = Pattern.compile("^\\s*\\[hide\\s+(\\S+)]", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_SHOW = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+show\\s+(\\S+)(?:\\s+(\\S+))?", Pattern.CASE_INSENSITIVE);
@@ -182,6 +184,7 @@ public class PuppeteerLauncherPanel extends VBox {
     Map<String, CharacterEntry> visible = new LinkedHashMap<>();
     Map<String, String> bgPaths = new LinkedHashMap<>();
     Map<String, String> charImgPaths = new LinkedHashMap<>();
+    Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
 
     for (int i = 0; i <= limit; i++) {
       String line = lines[i];
@@ -215,6 +218,29 @@ public class PuppeteerLauncherPanel extends VBox {
       m = CHARIMG_PATTERN.matcher(line);
       if (m.find()) {
         charImgPaths.put(m.group(1) + "/" + m.group(2), m.group(3).trim());
+        continue;
+      }
+
+      // @charlayer declaration — capture charId/layerId -> path mapping
+      m = CHARLAYER_PATTERN.matcher(line);
+      if (m.find()) {
+        String charId = m.group(1);
+        String layerId = m.group(2);
+        String path = m.group(3).trim();
+        charLayerPaths.computeIfAbsent(charId, k -> new LinkedHashMap<>()).put(layerId, path);
+        continue;
+      }
+
+      // @charpreset declaration — resolve $layer references into an @charimg-style mapping
+      m = CHARPRESET_PATTERN.matcher(line);
+      if (m.find()) {
+        String charId = m.group(1);
+        String expr = m.group(2);
+        String spec = m.group(3).trim();
+        String resolved = resolvePresetSpec(charLayerPaths, charId, spec);
+        if (!resolved.isBlank()) {
+          charImgPaths.put(charId + "/" + expr, resolved);
+        }
         continue;
       }
 
@@ -277,6 +303,49 @@ public class PuppeteerLauncherPanel extends VBox {
     return new SceneSnapshot(currentLabel, backgroundId, new ArrayList<>(visible.values()), upToLine, bgPaths, charImgPaths);
   }
 
+  private static String resolvePresetSpec(Map<String, Map<String, String>> layersByCharacter,
+                                          String characterId,
+                                          String spec) {
+    if (spec == null || spec.isBlank()) return "";
+    String[] tokens = spec.split("\\|");
+    List<String> resolved = new ArrayList<>();
+    for (String token : tokens) {
+      if (token == null) continue;
+      String part = token.trim();
+      if (part.isEmpty()) continue;
+      if (part.startsWith("$")) {
+        LayerRef ref = parseLayerRef(part.substring(1).trim(), characterId);
+        Map<String, String> layerMap = layersByCharacter.get(ref.characterId);
+        if (layerMap == null) continue;
+        String path = layerMap.get(ref.layerId);
+        if (path == null || path.isBlank()) continue;
+        resolved.add(path.trim());
+      } else {
+        resolved.add(part);
+      }
+    }
+    return String.join(" | ", resolved);
+  }
+
+  private static LayerRef parseLayerRef(String rawRef, String defaultCharacterId) {
+    String ref = rawRef == null ? "" : rawRef.trim();
+    if (ref.isEmpty()) return new LayerRef(defaultCharacterId, "");
+    String characterId = defaultCharacterId;
+    String layerId = ref;
+
+    int colon = ref.indexOf(':');
+    int dot = ref.indexOf('.');
+    int sep = colon >= 0 ? colon : dot;
+    if (colon >= 0 && dot >= 0) {
+      sep = Math.min(colon, dot);
+    }
+    if (sep > 0) {
+      characterId = ref.substring(0, sep).trim();
+      layerId = ref.substring(sep + 1).trim();
+    }
+    return new LayerRef(characterId, layerId);
+  }
+
   // --- Data classes ---
 
   public static class CharacterEntry {
@@ -326,4 +395,6 @@ public class PuppeteerLauncherPanel extends VBox {
       return characterId;
     }
   }
+
+  private record LayerRef(String characterId, String layerId) {}
 }

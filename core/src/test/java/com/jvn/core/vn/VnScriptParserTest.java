@@ -45,6 +45,48 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesCharacterLayerPresetsIntoLayeredCharimgExpressions() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character lavender "Lavender"
+      @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+      @charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
+      @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+      @charpreset lavender talking $base | $eyes_neutral | $mouth_smile
+
+      @label start
+      [show lavender center talking]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+
+    VnCharacter lavender = scen.getCharacter("lavender");
+    assertNotNull(lavender);
+    assertEquals(
+        "assets/demo/characters/lavender/base/lavender_test_sprite_base.png"
+            + " | assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png"
+            + " | assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png",
+        lavender.getExpressionPath("talking"));
+  }
+
+  @Test
+  public void rejectsCharacterPresetWithUnknownLayerReference() {
+    String script = """
+      @scenario layered_demo
+      @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+      @charpreset lavender broken $base | $eyes_neutral
+      @label start
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("Unknown @charlayer reference '$eyes_neutral'"));
+  }
+
+  @Test
   public void parsesIncludesAndDefines() throws Exception {
     String script = """
       @scenario test_story

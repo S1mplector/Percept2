@@ -18,7 +18,7 @@ Parser file:
 
 Key patterns used by parser include:
 
-- directives: `@scenario`, `@character`, `@background`, `@charimg`, `@var`, `@label`, `@define`, `@include`
+- directives: `@scenario`, `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@var`, `@label`, `@define`, `@include`
 - legacy label: `label <name>`
 - dialogue forms:
   - `Speaker: text`

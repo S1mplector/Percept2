@@ -126,7 +126,8 @@ public class NewProjectWizard extends Stage {
   private static final String DEFAULT_MENU_BG_ASSET_PATH = "assets/demo/backgrounds/field/glorious_ricefield_day.png";
   private static final String BUNDLED_DEMO_ASSETS_DIR = "demo-assets";
   private static final String BUNDLED_DEMO_BG_DIR = "demo_bg_field";
-  private static final String BUNDLED_DEMO_SPRITE_DIR = "demo_sprite_codel";
+  private static final String BUNDLED_DEMO_SPRITE_LAYERED_DIR = "Lavender_test_sprite";
+  private static final String BUNDLED_DEMO_SPRITE_LEGACY_DIR = "demo_sprite_codel";
   private static final String BUNDLED_DEMO_BGM_DIR = "demo_bgm";
 
   public NewProjectWizard(Stage owner) {
@@ -445,7 +446,7 @@ public class NewProjectWizard extends Stage {
     intro.setFont(Font.font(Font.getDefault().getFamily(), 12));
 
     chkSampleContent = createCheckBox("Sample Prologue Script", true);
-    chkBundledDemoAssets = createCheckBox("Bundled Demo Assets (Codel/Field/BGM)", true);
+    chkBundledDemoAssets = createCheckBox("Bundled Demo Assets (Lavender/Field/BGM)", true);
     chkTitleScreen = createCheckBox("Main Menu Profile Pack", true);
     chkSaveSystem = createCheckBox("Load/Save Menu Profiles", true);
     chkSettingsMenu = createCheckBox("Settings Menu Profile", true);
@@ -524,7 +525,7 @@ public class NewProjectWizard extends Stage {
     details.setHgap(16);
     details.getChildren().addAll(
         detailTag("Sample Prologue", "Rich starter VNS with choices and state."),
-        detailTag("Demo Assets", "Copies bundled field/codel/audio starter assets."),
+        detailTag("Demo Assets", "Copies bundled field/lavender/audio starter assets."),
         detailTag("Menu Profiles", "Creates config/menu registry, screens, layout and style."),
         detailTag("Save/Load", "Adds load.menu and save.menu defaults."),
         detailTag("Settings", "Adds settings.menu profile entries."),
@@ -843,7 +844,7 @@ public class NewProjectWizard extends Stage {
       sb.append("|   |   |-- backgrounds/\n");
       sb.append("|   |   |   `-- field/\n");
       sb.append("|   |   |-- characters/\n");
-      sb.append("|   |   |   `-- codel/\n");
+      sb.append("|   |   |   `-- lavender/\n");
       sb.append("|   |   `-- audio/\n");
     }
     sb.append("|   |-- ui/\n");
@@ -869,7 +870,8 @@ public class NewProjectWizard extends Stage {
       return 20480;
     }
     long bytes = computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_BG_DIR))
-        + computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_SPRITE_DIR))
+        + computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_SPRITE_LAYERED_DIR))
+        + computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_SPRITE_LEGACY_DIR))
         + computeDirectorySize(new File(sourceRoot, BUNDLED_DEMO_BGM_DIR));
     if (bytes <= 0) return 20480;
     return Math.max(1, (bytes + 1023) / 1024);
@@ -968,9 +970,12 @@ public class NewProjectWizard extends Stage {
       throw new Exception("Project path is not a directory: " + dir.getAbsolutePath());
     }
     createDirectories(dir, includeMenuPack, includeDemoAssets);
-    if (includeDemoAssets) copyBundledDemoAssets(dir);
+    boolean useLayeredLavenderDemo = false;
+    if (includeDemoAssets) {
+      useLayeredLavenderDemo = copyBundledDemoAssets(dir);
+    }
 
-    if (chkSampleContent.isSelected() && includeDemoAssets) createSampleScript(dir, displayName);
+    if (chkSampleContent.isSelected() && includeDemoAssets) createSampleScript(dir, displayName, useLayeredLavenderDemo);
     else createEmptyScript(dir, displayName);
 
     try (FileWriter fw = new FileWriter(new File(dir, TIMELINE_PATH))) {
@@ -1140,22 +1145,29 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private void copyBundledDemoAssets(File projectRoot) throws Exception {
+  private boolean copyBundledDemoAssets(File projectRoot) throws Exception {
     File sourceRoot = resolveBundledDemoAssetsRoot();
-    if (sourceRoot == null || !sourceRoot.isDirectory()) return;
+    if (sourceRoot == null || !sourceRoot.isDirectory()) return false;
 
     copyDirectoryContents(
         new File(sourceRoot, BUNDLED_DEMO_BG_DIR),
         new File(projectRoot, "assets/demo/backgrounds/field")
     );
+    boolean copiedLayeredLavender = false;
+    File layeredSource = new File(sourceRoot, BUNDLED_DEMO_SPRITE_LAYERED_DIR);
+    if (layeredSource.isDirectory()) {
+      copyDirectoryContents(layeredSource, new File(projectRoot, "assets/demo/characters/lavender"));
+      copiedLayeredLavender = true;
+    }
     copyDirectoryContents(
-        new File(sourceRoot, BUNDLED_DEMO_SPRITE_DIR),
+        new File(sourceRoot, BUNDLED_DEMO_SPRITE_LEGACY_DIR),
         new File(projectRoot, "assets/demo/characters/codel")
     );
     copyDirectoryContents(
         new File(sourceRoot, BUNDLED_DEMO_BGM_DIR),
         new File(projectRoot, "assets/demo/audio")
     );
+    return copiedLayeredLavender;
   }
 
   private File resolveBundledDemoAssetsRoot() {
@@ -1165,8 +1177,9 @@ public class NewProjectWizard extends Stage {
       File candidate = new File(cursor, BUNDLED_DEMO_ASSETS_DIR);
       if (candidate.isDirectory()) return candidate;
       File legacyBg = new File(cursor, BUNDLED_DEMO_BG_DIR);
-      File legacySprites = new File(cursor, BUNDLED_DEMO_SPRITE_DIR);
-      if (legacyBg.isDirectory() && legacySprites.isDirectory()) return cursor;
+      File layeredSprites = new File(cursor, BUNDLED_DEMO_SPRITE_LAYERED_DIR);
+      File legacySprites = new File(cursor, BUNDLED_DEMO_SPRITE_LEGACY_DIR);
+      if (legacyBg.isDirectory() && (layeredSprites.isDirectory() || legacySprites.isDirectory())) return cursor;
       cursor = cursor.getParentFile();
     }
     return null;
@@ -1295,8 +1308,34 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private void createSampleScript(File dir, String name) throws Exception {
+  private void createSampleScript(File dir, String name, boolean useLayeredLavenderDemo) throws Exception {
     String scenarioId = sanitizeName(name).toLowerCase() + "_prologue";
+    String characterId = useLayeredLavenderDemo ? "lavender" : "codel";
+    String characterName = useLayeredLavenderDemo ? "Lavender" : "Codel";
+    String characterDecls = useLayeredLavenderDemo
+        ? """
+        @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+        @charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
+        @charlayer lavender eyes_half_closed assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png
+        @charlayer lavender eyes_angry assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_angry.png
+        @charlayer lavender mouth_neutral assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_neutral.png
+        @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+        @charlayer lavender mouth_happy assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_happy.png
+        @charlayer lavender mouth_o assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_o.png
+        
+        @charpreset lavender idle $base | $eyes_neutral | $mouth_neutral
+        @charpreset lavender talking $base | $eyes_half_closed | $mouth_smile
+        @charpreset lavender happy $base | $eyes_neutral | $mouth_happy
+        @charpreset lavender emphasis $base | $eyes_angry | $mouth_o
+        """
+        : """
+        @charimg codel talking assets/demo/characters/codel/Codel1.png
+        @charimg codel idle assets/demo/characters/codel/Codel2.png
+        """;
+    String imageDslLine = useLayeredLavenderDemo
+        ? "Codel: You can build layered expressions with @charlayer + @charpreset, then show them like normal expressions."
+        : "Codel: You define images once with @charimg and @background, then use them by name.";
+
     String script = """
         # %s - Prologue
         # Demo game created with JVN Engine
@@ -1307,8 +1346,7 @@ public class NewProjectWizard extends Stage {
 
         @character codel "Codel"
 
-        @charimg codel talking assets/demo/characters/codel/Codel1.png
-        @charimg codel idle assets/demo/characters/codel/Codel2.png
+        __CHAR_DECLS__
 
         @background field_day assets/demo/backgrounds/field/field.jpg
         @background field_evening assets/demo/backgrounds/field/field.jpg
@@ -1357,7 +1395,7 @@ public class NewProjectWizard extends Stage {
         [wait 320]
         Codel: Characters can appear in different spots on screen. See? I just moved!
         [show codel center talking]
-        Codel: You define images once with @charimg and @background, then use them by name.
+        __IMAGE_DSL_LINE__
         [jump tutorials_hub]
 
         @label tutorial_transitions
@@ -1403,7 +1441,11 @@ public class NewProjectWizard extends Stage {
         Codel: We look forward to seeing what you create with JVN. Have fun!
         [end]
 
-        """.formatted(name, scenarioId, name, ENTRY_SCRIPT_PATH);
+        """.formatted(name, scenarioId, name, ENTRY_SCRIPT_PATH)
+        .replace("__CHAR_DECLS__", characterDecls.stripTrailing())
+        .replace("__IMAGE_DSL_LINE__", imageDslLine)
+        .replace("codel", characterId)
+        .replace("Codel", characterName);
 
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
       fw.write(script);
