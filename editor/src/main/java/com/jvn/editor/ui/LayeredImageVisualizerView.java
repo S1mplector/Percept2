@@ -73,6 +73,25 @@ public class LayeredImageVisualizerView extends BorderPane {
   private static final String STATE_FILE = ".jvn/layered-image-visualizer.properties";
   private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
+  private static final Map<String, String> GROUP_TOKEN_ALIASES = Map.ofEntries(
+      Map.entry("eye", "eyes"),
+      Map.entry("eyes", "eyes"),
+      Map.entry("mouth", "mouth"),
+      Map.entry("lip", "mouth"),
+      Map.entry("lips", "mouth"),
+      Map.entry("brow", "brow"),
+      Map.entry("eyebrow", "brow"),
+      Map.entry("eyebrows", "brow"),
+      Map.entry("base", "base"),
+      Map.entry("body", "body"),
+      Map.entry("hair", "hair"),
+      Map.entry("face", "face"),
+      Map.entry("outfit", "outfit"),
+      Map.entry("clothes", "outfit"),
+      Map.entry("accessory", "accessory"),
+      Map.entry("accessories", "accessory"),
+      Map.entry("acc", "accessory")
+  );
 
   private static final String SNIPPET_COMBINED = "@charimg + [show]";
   private static final String SNIPPET_CHARIMG = "@charimg only";
@@ -384,7 +403,12 @@ public class LayeredImageVisualizerView extends BorderPane {
 
     setBox.getItems().setAll(visible);
 
-    String target = chooseSetSelection(previous, preferredSetId, visible);
+    Map<String, Integer> groupCounts = new HashMap<>();
+    for (String setId : visible) {
+      LayeredSet set = sets.get(setId);
+      groupCounts.put(setId, set == null ? 0 : set.groups.size());
+    }
+    String target = chooseSetSelection(previous, preferredSetId, visible, groupCounts);
 
     if (target != null) {
       applyingState = true;
@@ -445,7 +469,7 @@ public class LayeredImageVisualizerView extends BorderPane {
 
       combo.getItems().add(LayerOption.none());
       combo.getItems().addAll(options);
-      combo.getSelectionModel().select(options.isEmpty() ? 0 : 1);
+      selectPreferredLayerOption(combo);
       combo.setMaxWidth(Double.MAX_VALUE);
 
       CheckBox activeCheck = new CheckBox();
@@ -535,7 +559,7 @@ public class LayeredImageVisualizerView extends BorderPane {
   private void applyDefaultSelection() {
     applyingState = true;
     for (ComboBox<LayerOption> combo : selectors.values()) {
-      combo.getSelectionModel().select(combo.getItems().size() > 1 ? 1 : 0);
+      selectPreferredLayerOption(combo);
     }
     applyingState = false;
     updateExpressionFromSelection();
@@ -874,6 +898,36 @@ public class LayeredImageVisualizerView extends BorderPane {
       out.add(option);
     }
     return out;
+  }
+
+  private void selectPreferredLayerOption(ComboBox<LayerOption> combo) {
+    if (combo == null || combo.getItems().isEmpty()) return;
+    if (combo.getItems().size() == 1) {
+      combo.getSelectionModel().select(0);
+      return;
+    }
+    int preferredIdx = 1;
+    int preferredScore = Integer.MAX_VALUE;
+    for (int i = 1; i < combo.getItems().size(); i++) {
+      LayerOption option = combo.getItems().get(i);
+      int score = defaultOptionScore(option == null ? null : option.label);
+      if (score < preferredScore) {
+        preferredScore = score;
+        preferredIdx = i;
+      }
+    }
+    combo.getSelectionModel().select(preferredIdx);
+  }
+
+  static int defaultOptionScore(String label) {
+    String key = sanitizeId(label);
+    if ("neutral".equals(key)) return 0;
+    if ("default".equals(key)) return 1;
+    if ("base".equals(key)) return 2;
+    if (key.contains("neutral")) return 3;
+    if (key.contains("default")) return 4;
+    if (key.contains("base")) return 5;
+    return 10;
   }
 
   private Image loadImage(LayerOption option) {
@@ -1306,21 +1360,23 @@ public class LayeredImageVisualizerView extends BorderPane {
 
   private LayerOption parseOption(String relative, File file) {
     if (relative == null || file == null) return null;
+    String normalizedRelative = relative.replace('\\', '/');
     String fileName = file.getName();
     int dot = fileName.lastIndexOf('.');
     String base = dot > 0 ? fileName.substring(0, dot) : fileName;
     if (base.isBlank()) return null;
 
-    String[] parts = base.split("[\\s._-]+");
-    String group;
+    String group = inferGroupFromSetSubfolder(normalizedRelative);
     String label;
-    if (parts.length >= 2) {
-      group = sanitizeId(parts[0]);
-      label = sanitizeLabel(String.join("_", java.util.Arrays.copyOfRange(parts, 1, parts.length)));
+    if (!group.isBlank()) {
+      label = inferLabelFromFilenameForGroup(base, group);
     } else {
-      group = sanitizeId(takeLastPathToken(parentPath(relative)));
-      if (group.isBlank()) group = "layer";
-      label = sanitizeLabel(base);
+      InferredGroupLabel inferred = inferGroupAndLabelFromFilename(base);
+      group = inferred.group();
+      label = inferred.label();
+    }
+    if (group.isBlank()) {
+      group = sanitizeId(takeLastPathToken(parentPath(normalizedRelative)));
     }
     if (group.isBlank()) group = "layer";
     if (label.isBlank()) label = "default";
@@ -1333,7 +1389,7 @@ public class LayeredImageVisualizerView extends BorderPane {
       } catch (NumberFormatException ignore) {
       }
     }
-    return new LayerOption(label, group, relative, file, sortKey);
+    return new LayerOption(label, group, normalizedRelative, file, sortKey);
   }
 
   private String deriveSetId(String relative) {
@@ -1359,6 +1415,10 @@ public class LayeredImageVisualizerView extends BorderPane {
   }
 
   static String chooseSetSelection(String previous, String preferred, List<String> visibleSetIds) {
+    return chooseSetSelection(previous, preferred, visibleSetIds, Map.of());
+  }
+
+  static String chooseSetSelection(String previous, String preferred, List<String> visibleSetIds, Map<String, Integer> groupCounts) {
     if (visibleSetIds == null || visibleSetIds.isEmpty()) return null;
 
     if (previous != null && !previous.isBlank() && visibleSetIds.contains(previous)) {
@@ -1366,15 +1426,21 @@ public class LayeredImageVisualizerView extends BorderPane {
     }
 
     String firstCharacterSet = findFirstCharacterSet(visibleSetIds);
+    String layeredDefault = findLayeredDefaultSet(visibleSetIds, groupCounts);
     if (preferred != null && !preferred.isBlank() && visibleSetIds.contains(preferred)) {
       if (isCharacterSetId(preferred) || firstCharacterSet == null) {
-        return preferred;
+        if (isCharacterSetId(preferred)) return preferred;
+        if (layeredSetSize(preferred, groupCounts) > 1) return preferred;
+        return layeredDefault == null ? preferred : layeredDefault;
       }
       return firstCharacterSet;
     }
 
     if (firstCharacterSet != null) {
       return firstCharacterSet;
+    }
+    if (layeredDefault != null) {
+      return layeredDefault;
     }
     return visibleSetIds.get(0);
   }
@@ -1389,6 +1455,99 @@ public class LayeredImageVisualizerView extends BorderPane {
       if (isCharacterSetId(id)) return id;
     }
     return null;
+  }
+
+  private static String findLayeredDefaultSet(List<String> visibleSetIds, Map<String, Integer> groupCounts) {
+    if (visibleSetIds == null || visibleSetIds.isEmpty()) return null;
+    int bestGroups = 1;
+    String best = null;
+    for (String id : visibleSetIds) {
+      int groups = layeredSetSize(id, groupCounts);
+      if (groups > bestGroups) {
+        bestGroups = groups;
+        best = id;
+      }
+    }
+    return best;
+  }
+
+  private static int layeredSetSize(String setId, Map<String, Integer> groupCounts) {
+    if (setId == null || groupCounts == null) return 0;
+    Integer size = groupCounts.get(setId);
+    return size == null ? 0 : Math.max(0, size);
+  }
+
+  static String inferGroupFromSetSubfolder(String relativePath) {
+    if (relativePath == null || relativePath.isBlank()) return "";
+    String normalized = relativePath.replace('\\', '/');
+    String parent = parentPath(normalized);
+    if (parent.isBlank()) return "";
+    String setId = deriveSetIdFromRelative(normalized);
+    if (setId == null || setId.isBlank() || "(root)".equals(setId)) return "";
+    String prefix = setId + "/";
+    if (!parent.startsWith(prefix)) return "";
+    String remainder = parent.substring(prefix.length());
+    if (remainder.isBlank()) return "";
+    return sanitizeId(takeLastPathToken(remainder));
+  }
+
+  static String inferLabelFromFilenameForGroup(String baseName, String group) {
+    String[] tokens = splitTokens(baseName);
+    if (tokens.length == 0) return "";
+    String normalizedGroup = sanitizeId(group);
+    int match = -1;
+    for (int i = 0; i < tokens.length; i++) {
+      String tokenGroup = normalizeGroupToken(tokens[i]);
+      if (!tokenGroup.isBlank() && tokenGroup.equals(normalizedGroup)) {
+        match = i;
+      }
+    }
+    if (match >= 0 && match + 1 < tokens.length) {
+      return sanitizeLabel(String.join("_", java.util.Arrays.copyOfRange(tokens, match + 1, tokens.length)));
+    }
+    if (match >= 0) {
+      return sanitizeLabel(tokens[match]);
+    }
+    return sanitizeLabel(tokens[tokens.length - 1]);
+  }
+
+  private static InferredGroupLabel inferGroupAndLabelFromFilename(String baseName) {
+    String[] tokens = splitTokens(baseName);
+    if (tokens.length == 0) {
+      return new InferredGroupLabel("", "");
+    }
+
+    int groupTokenIndex = -1;
+    String normalizedGroup = "";
+    for (int i = 0; i < tokens.length; i++) {
+      String mapped = normalizeGroupToken(tokens[i]);
+      if (!mapped.isBlank()) {
+        groupTokenIndex = i;
+        normalizedGroup = mapped;
+      }
+    }
+    if (groupTokenIndex >= 0) {
+      return new InferredGroupLabel(normalizedGroup, inferLabelFromFilenameForGroup(baseName, normalizedGroup));
+    }
+
+    if (tokens.length >= 2) {
+      String group = sanitizeId(tokens[0]);
+      String label = sanitizeLabel(String.join("_", java.util.Arrays.copyOfRange(tokens, 1, tokens.length)));
+      return new InferredGroupLabel(group, label);
+    }
+
+    return new InferredGroupLabel("", sanitizeLabel(tokens[0]));
+  }
+
+  private static String[] splitTokens(String raw) {
+    if (raw == null || raw.isBlank()) return new String[0];
+    return raw.split("[\\s._-]+");
+  }
+
+  private static String normalizeGroupToken(String rawToken) {
+    String token = sanitizeId(rawToken);
+    if (token.isBlank()) return "";
+    return GROUP_TOKEN_ALIASES.getOrDefault(token, "");
   }
 
   private static Slider slider(double min, double max, double value) {
@@ -1497,4 +1656,6 @@ public class LayeredImageVisualizerView extends BorderPane {
       return file == null;
     }
   }
+
+  private record InferredGroupLabel(String group, String label) {}
 }
