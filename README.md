@@ -6,7 +6,7 @@
 
 JVN is a modular Visual Novel engine written primarily in Java, C and C++.
 
-## Optimization and Architecture
+## Architecture
 
 JVN is designed to be lightweight and predictable under load:
 - Modular separation of runtime, scripting, renderer backends, editor tooling, and optional native acceleration.
