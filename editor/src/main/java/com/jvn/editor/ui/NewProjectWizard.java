@@ -1332,6 +1332,12 @@ public class NewProjectWizard extends Stage {
         @charimg codel talking assets/demo/characters/codel/Codel1.png
         @charimg codel idle assets/demo/characters/codel/Codel2.png
         """;
+    String framingCommands = useLayeredLavenderDemo
+        ? """
+        [set ui.characterHeightFactor 1.28]
+        [set ui.characterBaselineY 1.42]
+        """
+        : "";
     String imageDslLine = useLayeredLavenderDemo
         ? "Codel: You can build layered expressions with @charlayer + @charpreset, then show them like normal expressions."
         : "Codel: You define images once with @charimg and @background, then use them by name.";
@@ -1356,6 +1362,7 @@ public class NewProjectWizard extends Stage {
         [transition fade 500]
         [textspeed 28]
         [autodelay 1800]
+        __FRAMING_COMMANDS__
         [bgm assets/demo/audio/softbreeze.mp3]
 
         [show codel center talking]
@@ -1443,6 +1450,7 @@ public class NewProjectWizard extends Stage {
 
         """.formatted(name, scenarioId, name, ENTRY_SCRIPT_PATH)
         .replace("__CHAR_DECLS__", characterDecls.stripTrailing())
+        .replace("__FRAMING_COMMANDS__", framingCommands.stripTrailing())
         .replace("__IMAGE_DSL_LINE__", imageDslLine)
         .replace("codel", characterId)
         .replace("Codel", characterName);

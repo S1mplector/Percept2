@@ -57,6 +57,8 @@ public class VnRenderer {
   private VnUiStyleSpec uiStyle = VnUiStyleSpec.defaults();
   private List<VnUiActionButtonSpec> textBoxButtons = List.of();
   private VnCharacterSceneAccessor timelineAccessor;
+  private double styleCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
+  private double styleCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
   private double characterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
   private double characterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
 
@@ -85,6 +87,8 @@ public class VnRenderer {
   private static final double DEFAULT_CHOICE_TEXT_BASELINE_OFFSET = 5.0;
   private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
+  private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
+  private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
 
   private Image choiceButtonImage;
   private Image choiceButtonHoverImage;
@@ -341,6 +345,7 @@ public class VnRenderer {
    */
   public void render(VnState state, VnScenario scenario, double width, double height) {
     this.currentState = state;
+    applyRuntimeCharacterFramingOverrides(state);
     // Clear screen
     gc.setFill(Color.BLACK);
     gc.fillRect(0, 0, width, height);
@@ -886,14 +891,51 @@ public class VnRenderer {
     this.choiceFont = Font.font(choiceFontFamily, FontWeight.NORMAL, choiceFontSize);
 
     // Character framing: lets projects opt into waist-up portraits.
-    this.characterHeightFactor = clamp(
+    this.styleCharacterHeightFactor = clamp(
         resolved.characterHeightFactor() == null ? DEFAULT_CHARACTER_HEIGHT_FACTOR : resolved.characterHeightFactor(),
         0.1, 3.0
     );
-    this.characterBaselineY = clamp(
+    this.styleCharacterBaselineY = clamp(
         resolved.characterBaselineY() == null ? DEFAULT_CHARACTER_BASELINE_Y : resolved.characterBaselineY(),
         -0.5, 2.0
     );
+    this.characterHeightFactor = styleCharacterHeightFactor;
+    this.characterBaselineY = styleCharacterBaselineY;
+  }
+
+  private void applyRuntimeCharacterFramingOverrides(VnState state) {
+    if (state == null) {
+      characterHeightFactor = styleCharacterHeightFactor;
+      characterBaselineY = styleCharacterBaselineY;
+      return;
+    }
+    Double heightOverride = readDoubleVariable(state, VAR_CHARACTER_HEIGHT_FACTOR);
+    Double baselineOverride = readDoubleVariable(state, VAR_CHARACTER_BASELINE_Y);
+    characterHeightFactor = clamp(
+        heightOverride == null ? styleCharacterHeightFactor : heightOverride,
+        0.1,
+        3.0
+    );
+    characterBaselineY = clamp(
+        baselineOverride == null ? styleCharacterBaselineY : baselineOverride,
+        -0.5,
+        2.0
+    );
+  }
+
+  private Double readDoubleVariable(VnState state, String key) {
+    if (state == null || key == null || key.isBlank()) return null;
+    Object value = state.getVariables().get(key);
+    if (value == null) return null;
+    if (value instanceof Number n) return n.doubleValue();
+    if (value instanceof String s) {
+      try {
+        return Double.parseDouble(s.trim());
+      } catch (Exception ignored) {
+        return null;
+      }
+    }
+    return null;
   }
 
   private Color parseColor(String raw, Color fallback) {

@@ -286,6 +286,15 @@ Transition types:
 [clear key]
 ```
 
+Character framing can be adjusted at runtime with variables:
+
+```text
+[set ui.characterHeightFactor 1.28]
+[set ui.characterBaselineY 1.42]
+```
+
+These override `characterHeightFactor` / `characterBaselineY` from `dialogue.layout` while the scene runs.
+
 Conditional forms:
 
 ```text
