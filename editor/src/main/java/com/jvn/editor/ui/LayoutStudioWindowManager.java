@@ -184,6 +184,7 @@ public class LayoutStudioWindowManager {
 
     private final BorderPane centerHost = new BorderPane();
     private final SplitPane split = new SplitPane();
+    private final BorderPane designHost;
 
     private final TextField assetPathField = new TextField();
     private final ComboBox<String> assetKeyBox = new ComboBox<>();
@@ -224,6 +225,7 @@ public class LayoutStudioWindowManager {
       this.menuStyleVisualEditor = (kind == Kind.MENU_STYLE) ? new MenuStyleVisualEditor() : null;
       this.dialogueLayoutVisualEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new DialogueLayoutEditorView() : null;
       this.designNode = resolveDesignNode();
+      this.designHost = buildDesignHost();
 
       this.stage = new Stage();
       stage.setResizable(true);
@@ -356,17 +358,30 @@ public class LayoutStudioWindowManager {
 
     private Node buildContent() {
       split.setOrientation(Orientation.HORIZONTAL);
-      split.getItems().setAll(wrapDesignNode(), codeEditor);
+      ensureSplitContent();
       split.setDividerPositions(0.62);
       centerHost.setCenter(split);
       centerHost.getStyleClass().add("layout-studio-center");
       return centerHost;
     }
 
-    private Node wrapDesignNode() {
+    private BorderPane buildDesignHost() {
       BorderPane pane = new BorderPane(designNode);
       pane.getStyleClass().add("layout-studio-design-host");
       return pane;
+    }
+
+    private void ensureSplitContent() {
+      double divider = 0.62;
+      if (!split.getDividers().isEmpty()) {
+        divider = split.getDividers().get(0).getPosition();
+      }
+      if (split.getItems().size() != 2
+          || split.getItems().get(0) != designHost
+          || split.getItems().get(1) != codeEditor) {
+        split.getItems().setAll(designHost, codeEditor);
+        split.setDividerPositions(Math.max(0.2, Math.min(0.8, divider)));
+      }
     }
 
     private Node buildUtilitiesPane() {
@@ -886,10 +901,11 @@ public class LayoutStudioWindowManager {
     private void applyMode(Mode mode) {
       if (mode == null) mode = Mode.SPLIT;
       if (mode == Mode.DESIGN) {
-        centerHost.setCenter(wrapDesignNode());
+        centerHost.setCenter(designHost);
       } else if (mode == Mode.CODE) {
         centerHost.setCenter(codeEditor);
       } else {
+        ensureSplitContent();
         centerHost.setCenter(split);
       }
 
