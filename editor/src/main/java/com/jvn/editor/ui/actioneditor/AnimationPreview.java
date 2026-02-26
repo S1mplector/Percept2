@@ -1,7 +1,9 @@
 package com.jvn.editor.ui.actioneditor;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -83,6 +85,16 @@ public class AnimationPreview extends VBox {
         if (scene != null) {
             scene.setInput(input);
             scene.setCamera(camera);
+            Set<String> names = new HashSet<>(scene.names());
+            orbitAnchors.keySet().removeIf(name -> !names.contains(name));
+            if (selectedEntityName != null && !names.contains(selectedEntityName)) {
+                selectedEntity = null;
+                selectedEntityName = null;
+            }
+        } else {
+            selectedEntity = null;
+            selectedEntityName = null;
+            orbitAnchors.clear();
         }
         render();
     }

@@ -418,7 +418,7 @@ public class PuppeteerWindow extends Stage {
         // --- Shortcuts status bar ---
         Label shortcutsBar = new Label(
             "Space: Play/Pause   Home: Rewind   Ctrl+Z/Y: Undo/Redo   " +
-            "Click timeline: Add keyframe   Drag preview: Move entity   Shift+Click preview: Set orbit anchor   Del: Delete keyframe"
+            "A: Toggle orbit   Shift+A: Clear anchor   Shift+Click preview: Set orbit anchor   Del: Delete keyframe"
         );
         shortcutsBar.setMaxWidth(Double.MAX_VALUE);
         shortcutsBar.setStyle("-fx-background-color: #0a0a0a; -fx-text-fill: #555; -fx-font-size: 10px; " +
@@ -759,6 +759,21 @@ public class PuppeteerWindow extends Stage {
             () -> {
                 timelinePanel.nudgeSelectedKeyframes(timelinePanel.getSnapStepMs());
                 refreshExportPreviewAndMarkDirty();
+            }
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.A),
+            () -> {
+                if (cbOrbitTool == null) return;
+                cbOrbitTool.setSelected(!cbOrbitTool.isSelected());
+                animationPreview.setOrbitToolEnabled(cbOrbitTool.isSelected());
+            }
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.A, KeyCombination.SHIFT_DOWN),
+            () -> {
+                animationPreview.clearOrbitAnchorForSelectedEntity();
+                updatePreview();
             }
         );
     }
