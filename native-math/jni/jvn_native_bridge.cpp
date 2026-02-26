@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <cstdint>
 #include <limits>
+#include <algorithm>
 #include <vector>
 
 #include "simjot_native.h"
@@ -124,6 +125,132 @@ Java_com_jvn_core_nativebridge_NativeMathBridge_matMulNative(
     jdoubleArray result = env->NewDoubleArray(static_cast<jsize>(out.size()));
     if (!result) return nullptr;
     env->SetDoubleArrayRegion(result, 0, static_cast<jsize>(out.size()), out.data());
+    return result;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_jvn_core_nativebridge_NativeSearchBridge_findCaseInsensitiveNative(
+    JNIEnv* env,
+    jclass,
+    jstring haystack,
+    jstring needle
+) {
+    if (!env || !haystack || !needle) return -1;
+
+    const char* h = env->GetStringUTFChars(haystack, nullptr);
+    const char* n = env->GetStringUTFChars(needle, nullptr);
+    if (!h || !n) {
+        if (h) env->ReleaseStringUTFChars(haystack, h);
+        if (n) env->ReleaseStringUTFChars(needle, n);
+        return -1;
+    }
+
+    const jsize hlen = env->GetStringUTFLength(haystack);
+    const jsize nlen = env->GetStringUTFLength(needle);
+    int64_t pos = -1;
+    if (hlen > 0 && nlen > 0 && nlen <= hlen) {
+        pos = simjot_search_find_ci(h, static_cast<int64_t>(hlen), n, static_cast<int64_t>(nlen));
+    }
+
+    env->ReleaseStringUTFChars(haystack, h);
+    env->ReleaseStringUTFChars(needle, n);
+    if (pos < 0 || pos > static_cast<int64_t>(std::numeric_limits<jint>::max())) return -1;
+    return static_cast<jint>(pos);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_jvn_core_nativebridge_NativeSearchBridge_countCaseInsensitiveNative(
+    JNIEnv* env,
+    jclass,
+    jstring haystack,
+    jstring needle
+) {
+    if (!env || !haystack || !needle) return 0;
+
+    const char* h = env->GetStringUTFChars(haystack, nullptr);
+    const char* n = env->GetStringUTFChars(needle, nullptr);
+    if (!h || !n) {
+        if (h) env->ReleaseStringUTFChars(haystack, h);
+        if (n) env->ReleaseStringUTFChars(needle, n);
+        return 0;
+    }
+
+    const jsize hlen = env->GetStringUTFLength(haystack);
+    const jsize nlen = env->GetStringUTFLength(needle);
+    int32_t count = 0;
+    if (hlen > 0 && nlen > 0 && nlen <= hlen) {
+        count = simjot_search_count_ci(h, static_cast<int64_t>(hlen), n, static_cast<int64_t>(nlen));
+    }
+
+    env->ReleaseStringUTFChars(haystack, h);
+    env->ReleaseStringUTFChars(needle, n);
+    return static_cast<jint>(count);
+}
+
+extern "C" JNIEXPORT jintArray JNICALL
+Java_com_jvn_core_nativebridge_NativeSearchBridge_findAllCaseInsensitiveNative(
+    JNIEnv* env,
+    jclass,
+    jstring haystack,
+    jstring needle,
+    jint maxResults
+) {
+    if (!env || !haystack || !needle || maxResults <= 0) {
+        return env ? env->NewIntArray(0) : nullptr;
+    }
+
+    const char* h = env->GetStringUTFChars(haystack, nullptr);
+    const char* n = env->GetStringUTFChars(needle, nullptr);
+    if (!h || !n) {
+        if (h) env->ReleaseStringUTFChars(haystack, h);
+        if (n) env->ReleaseStringUTFChars(needle, n);
+        return env->NewIntArray(0);
+    }
+
+    const jsize hlen = env->GetStringUTFLength(haystack);
+    const jsize nlen = env->GetStringUTFLength(needle);
+    if (hlen <= 0 || nlen <= 0 || nlen > hlen) {
+        env->ReleaseStringUTFChars(haystack, h);
+        env->ReleaseStringUTFChars(needle, n);
+        return env->NewIntArray(0);
+    }
+
+    int32_t safeMax = std::min<int32_t>(maxResults, static_cast<int32_t>(hlen));
+    safeMax = std::max<int32_t>(safeMax, 0);
+    if (safeMax <= 0) {
+        env->ReleaseStringUTFChars(haystack, h);
+        env->ReleaseStringUTFChars(needle, n);
+        return env->NewIntArray(0);
+    }
+
+    std::vector<int64_t> nativePositions(static_cast<size_t>(safeMax), -1);
+    int32_t found = simjot_search_find_all_ci(
+        h,
+        static_cast<int64_t>(hlen),
+        n,
+        static_cast<int64_t>(nlen),
+        nativePositions.data(),
+        safeMax
+    );
+
+    env->ReleaseStringUTFChars(haystack, h);
+    env->ReleaseStringUTFChars(needle, n);
+
+    if (found <= 0) {
+        return env->NewIntArray(0);
+    }
+
+    std::vector<jint> out(static_cast<size_t>(found), 0);
+    for (int32_t i = 0; i < found; i++) {
+        int64_t pos = nativePositions[static_cast<size_t>(i)];
+        out[static_cast<size_t>(i)] = (pos >= 0 && pos <= std::numeric_limits<jint>::max())
+            ? static_cast<jint>(pos)
+            : static_cast<jint>(-1);
+    }
+
+    jintArray result = env->NewIntArray(static_cast<jsize>(out.size()));
+    if (!result) return nullptr;
+    env->SetIntArrayRegion(result, 0, static_cast<jsize>(out.size()), out.data());
     return result;
 }
 

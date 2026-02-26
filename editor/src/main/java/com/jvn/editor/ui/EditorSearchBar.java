@@ -1,5 +1,7 @@
 package com.jvn.editor.ui;
 
+import com.jvn.core.nativebridge.NativeSearchBridge;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -13,8 +15,6 @@ import org.fxmisc.richtext.CodeArea;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Reusable search bar for code editors.
@@ -114,13 +114,14 @@ public class EditorSearchBar extends HBox {
       return;
     }
 
-    try {
-      Pattern pattern = Pattern.compile(Pattern.quote(query), Pattern.CASE_INSENSITIVE);
-      Matcher matcher = pattern.matcher(text);
-      while (matcher.find()) {
-        matches.add(new int[]{matcher.start(), matcher.end()});
+    int[] found = NativeSearchBridge.findAllCaseInsensitive(text, query, text.length());
+    int queryLen = query.length();
+    for (int start : found) {
+      if (start < 0) continue;
+      int end = start + queryLen;
+      if (end <= text.length()) {
+        matches.add(new int[]{start, end});
       }
-    } catch (Exception ignored) {
     }
 
     if (!matches.isEmpty()) {

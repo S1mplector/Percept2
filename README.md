@@ -4,13 +4,7 @@
   <img src="docs/images/jvn_logo.png" width="512" alt="JVN logo">
 </div>
 
-JVN is a modular Visual Novel engine written primarily in Java.
-
-Core capabilities:
-- Visual Novel runtime (`.vns`) with branching flow, variables, conditional blocks, choices, transitions, save/load, history, and interop.
-- JES runtime (`.jes`) for scene/entity/timeline scripting, minigames, and overlays.
-- JavaFX + Swing render backends.
-- JavaFX editor with code editors, visual config editors, timeline graph tools, live previews, and in-editor Help Center.
+JVN is a modular Visual Novel engine written primarily in Java, C and C++. 
 
 ## Requirements
 
@@ -27,7 +21,7 @@ Build everything:
 ./gradlew build
 ```
 
-`./gradlew build` now auto-attempts a `native-math` CMake build when required native outputs are missing.
+`./gradlew build` also auto-attempts a `native-math` CMake build when required native outputs are missing.
 If you need to bypass this on a machine without CMake/toolchain:
 
 ```bash
@@ -149,7 +143,7 @@ Run:
 ./gradlew :editor:run
 ```
 
-Current editor highlights:
+Editor currently features:
 - Startup Welcome dashboard with recent projects + environment health checks.
 - Project explorer with root-level run button (runs VN projects through runtime).
 - VNS/JES code editors with lint and parser diagnostics.
