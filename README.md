@@ -4,7 +4,17 @@
   <img src="docs/images/jvn_logo.png" width="512" alt="JVN logo">
 </div>
 
-JVN is a modular Visual Novel engine written primarily in Java, C and C++. 
+JVN is a modular Visual Novel engine written primarily in Java, C and C++.
+
+## Optimization and Architecture
+
+JVN is designed to be lightweight and predictable under load:
+- Modular separation of runtime, scripting, renderer backends, editor tooling, and optional native acceleration.
+- Performance-critical paths are accelerated in `native-math` (SIMD text search, pooled batch scanning, math kernels, and atomic save-path I/O).
+- Native bridges are isolated in `core/nativebridge` with automatic Java fallbacks, so behavior stays stable even when native binaries are unavailable.
+- Hot paths are data-oriented where possible (compact buffers, reduced allocation churn, pooled native buffers for batch workflows).
+
+Typical memory footprint for the core runtime together with the full editor is around **30-60 MB RAM** in normal desktop usage (project/content dependent).
 
 ## Requirements
 
