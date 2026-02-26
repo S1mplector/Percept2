@@ -429,6 +429,7 @@
 .icon-panel-flow { -fx-shape: "M3,3 L7,3 L7,7 L3,7 Z M9,9 L13,9 L13,13 L9,13 Z M3,9 L7,9 L7,13 L3,13 Z M7,5 L10,5 L10,9 L9,9 L9,6 L7,6 Z"; -fx-background-color: #8bd17c; }
 .icon-panel-assets { -fx-shape: "M2,4 L8,2 L14,4 L14,12 L8,14 L2,12 Z M8,3 L8,13"; -fx-background-color: #c3b1ff; }
 .icon-panel-layouts { -fx-shape: "M2,3 L14,3 L14,6 L2,6 Z M2,8 L8,8 L8,13 L2,13 Z M10,8 L14,8 L14,13 L10,13 Z"; -fx-background-color: #89d7ff; }
+.icon-panel-layered { -fx-shape: "M8,1 L14,5 L11,7 L15,10 L8,15 L1,10 L5,7 L2,5 Z M5,9 L8,11 L11,9 L8,7 Z"; -fx-background-color: #f5b971; }
 .icon-panel-menuflow { -fx-shape: "M3,4 L7,4 L7,8 L3,8 Z M9,2 L13,2 L13,6 L9,6 Z M9,10 L13,10 L13,14 L9,14 Z M7,6 L10,4 L10,12 L7,10 Z"; -fx-background-color: #7dd6b7; }
 .icon-panel-vcs { -fx-shape: "M5,2 A2,2 0 1,1 5,6 A2,2 0 1,1 5,2 Z M11,10 A2,2 0 1,1 11,14 A2,2 0 1,1 11,10 Z M5,6 L5,8 L9,8 L9,10"; -fx-background-color: #7de0b8; }
 .icon-panel-help { -fx-shape: "M8,1 A7,7 0 1,1 8,15 A7,7 0 1,1 8,1 Z M6,6 A2,2 0 0,1 10,6 C10,8 7,8 7,10 M8,12 L8,13"; -fx-background-color: #ffd166; }

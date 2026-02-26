@@ -15,6 +15,7 @@ import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.InspectorView;
+import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
@@ -101,6 +102,7 @@ public class EditorApp extends Application {
   private AssetBrowserView assetBrowserView;
   private VersionControlView versionControlView;
   private LayoutEditorLauncherView layoutEditorLauncherView;
+  private LayeredImageVisualizerView layeredImageVisualizerView;
   private LayoutStudioWindowManager layoutStudioWindowManager;
   private MenuFlowEditorView menuFlowEditorView;
   private SettingsEditorView settingsEditor;
@@ -125,6 +127,7 @@ public class EditorApp extends Application {
   private Tab tabAssetBrowser;
   private Tab tabVersionControl;
   private Tab tabLayoutLauncher;
+  private Tab tabLayeredImageVisualizer;
   private Tab tabMenuFlow;
   private Tab tabLeftAdd;
   private Tab tabRightAdd;
@@ -263,6 +266,7 @@ public class EditorApp extends Application {
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(root);
     if (versionControlView != null) versionControlView.setProjectRoot(root);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(root);
+    if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(root);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(root);
   }
 
@@ -532,11 +536,13 @@ public class EditorApp extends Application {
     miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
     miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
+    MenuItem miShowLayeredVisualizer = new MenuItem("Layered Image Visualizer");
+    miShowLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miShowPuppeteerLauncher = new MenuItem("Puppeteer Launcher");
     miShowPuppeteerLauncher.setOnAction(e -> selectPuppeteerLauncherTab());
     menuPanels.getItems().addAll(miShowProject, miShowTimeline, miShowInspector,
         miShowAssets, new SeparatorMenuItem(),
-        miShowDiagnostics, miShowFlowMap, miShowPuppeteerLauncher);
+        miShowDiagnostics, miShowFlowMap, miShowLayeredVisualizer, miShowPuppeteerLauncher);
 
     menuView.getItems().addAll(miToggleEditorFullscreen, new SeparatorMenuItem(),
         miResetCamera, miFitContent, new SeparatorMenuItem(),
@@ -585,6 +591,8 @@ public class EditorApp extends Application {
     miMenuFlow.setOnAction(e -> selectMenuFlowTab());
     MenuItem miLayoutLauncher = new MenuItem("Layout Launcher");
     miLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
+    MenuItem miLayeredVisualizer = new MenuItem("Layered Image Visualizer");
+    miLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
 
     Menu menuVnsTools = new Menu("VNS Analysis");
     MenuItem miToolDiagnostics = new MenuItem("VNS Diagnostics");
@@ -599,7 +607,7 @@ public class EditorApp extends Application {
     miToolInspector.setOnAction(e -> selectInspectorTab());
 
     menuTools.getItems().addAll(miActionEditor, miPuppeteerPanel, new SeparatorMenuItem(),
-        miMenuFlow, miLayoutLauncher, new SeparatorMenuItem(),
+        miMenuFlow, miLayoutLauncher, miLayeredVisualizer, new SeparatorMenuItem(),
         menuVnsTools, new SeparatorMenuItem(),
         miToolAssets, miToolInspector);
 
@@ -783,6 +791,8 @@ public class EditorApp extends Application {
         try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
       }
     });
+    layeredImageVisualizerView = new LayeredImageVisualizerView();
+    layeredImageVisualizerView.setProjectRoot(projectRoot);
     menuFlowEditorView = new MenuFlowEditorView();
     menuFlowEditorView.setProjectRoot(projectRoot);
     menuFlowEditorView.setOnOpenFile(target -> {
@@ -1327,6 +1337,7 @@ public class EditorApp extends Application {
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(projectRoot);
     if (versionControlView != null) versionControlView.setProjectRoot(projectRoot);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(projectRoot);
+    if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(projectRoot);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(projectRoot);
     if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
   }
@@ -1685,6 +1696,17 @@ public class EditorApp extends Application {
     return tabLayoutLauncher;
   }
 
+  private Tab ensureLayeredImageVisualizerTab(TabPane targetPane) {
+    if (targetPane == null || layeredImageVisualizerView == null) return null;
+    if (tabLayeredImageVisualizer == null) {
+      tabLayeredImageVisualizer = new Tab("Layered Images", layeredImageVisualizerView);
+      tabLayeredImageVisualizer.setClosable(true);
+      tabLayeredImageVisualizer.setOnClosed(e -> tabLayeredImageVisualizer = null);
+    }
+    attachPanelTabToPane(tabLayeredImageVisualizer, targetPane);
+    return tabLayeredImageVisualizer;
+  }
+
   private Tab ensureMenuFlowTab(TabPane targetPane) {
     if (targetPane == null || menuFlowEditorView == null) return null;
     if (tabMenuFlow == null) {
@@ -1757,6 +1779,11 @@ public class EditorApp extends Application {
       Tab t = ensureLayoutLauncherTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
       if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
+    });
+    addChooserActionButton(actions, panelActionLabel("Layered Image Visualizer", tabLayeredImageVisualizer, pane), "icon-panel-layered", () -> {
+      Tab t = ensureLayeredImageVisualizerTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
     });
     addChooserActionButton(actions, panelActionLabel("Menu Flow", tabMenuFlow, pane), "icon-panel-menuflow", () -> {
       Tab t = ensureMenuFlowTab(pane);
@@ -1882,6 +1909,16 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
+  }
+
+  private void selectLayeredImageVisualizerTab() {
+    Tab t = (tabLayeredImageVisualizer != null && tabLayeredImageVisualizer.getTabPane() != null)
+        ? tabLayeredImageVisualizer
+        : ensureLayeredImageVisualizerTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+    if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
   }
 
   private void selectInspectorTab() {
