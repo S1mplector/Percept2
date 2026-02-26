@@ -44,6 +44,8 @@ import javafx.stage.Stage;
 import java.util.Locale;
 
 public class PuppeteerWindow extends Stage {
+    private static final double KEYFRAME_TIME_EPSILON_MS = 0.001;
+
     private final AnimationProject project;
     private JesScene2D scene;
 
@@ -101,6 +103,8 @@ public class PuppeteerWindow extends Stage {
         entitySelector.setOnCreateGroup(groupName -> {
             this.project.getOrCreateGroup(groupName);
             entitySelector.refresh(this.project);
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
         });
 
         entitySelector.setOnAddToGroup((entityName, groupName) -> {
@@ -144,6 +148,12 @@ public class PuppeteerWindow extends Stage {
         timelinePanel.setOnEdited(this::refreshExportPreviewAndMarkDirty);
 
         keyframeEditor.setOnKeyframeChanged(() -> {
+            String entity = timelinePanel.getSelectedEntity();
+            PropertyType property = keyframeEditor.getCurrentProperty();
+            if (entity != null && property != null) {
+                EntityTrack track = this.project.getTrack(entity);
+                if (track != null) track.sortKeyframes(property);
+            }
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -171,8 +181,8 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setOnEntityMoved((name, pos) -> {
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
-            track.addKeyframe(PropertyType.X, new Keyframe(time, pos[0]));
-            track.addKeyframe(PropertyType.Y, new Keyframe(time, pos[1]));
+            upsertKeyframeAtTime(track, PropertyType.X, time, pos[0]);
+            upsertKeyframeAtTime(track, PropertyType.Y, time, pos[1]);
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -180,8 +190,8 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setOnEntityPivotChanged((name, pivot) -> {
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
-            track.addKeyframe(PropertyType.PIVOT_X, new Keyframe(time, pivot[0]));
-            track.addKeyframe(PropertyType.PIVOT_Y, new Keyframe(time, pivot[1]));
+            upsertKeyframeAtTime(track, PropertyType.PIVOT_X, time, pivot[0]);
+            upsertKeyframeAtTime(track, PropertyType.PIVOT_Y, time, pivot[1]);
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -913,6 +923,18 @@ public class PuppeteerWindow extends Stage {
         ClipboardContent content = new ClipboardContent();
         content.putString(text);
         Clipboard.getSystemClipboard().setContent(content);
+    }
+
+    private static void upsertKeyframeAtTime(EntityTrack track, PropertyType property, double timeMs, double value) {
+        if (track == null || property == null) return;
+        for (Keyframe keyframe : track.getKeyframes(property)) {
+            if (Math.abs(keyframe.getTimeMs() - timeMs) <= KEYFRAME_TIME_EPSILON_MS) {
+                keyframe.setValue(value);
+                track.sortKeyframes(property);
+                return;
+            }
+        }
+        track.addKeyframe(property, new Keyframe(timeMs, value));
     }
 
     @Override

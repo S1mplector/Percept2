@@ -122,7 +122,15 @@ public class AnimationProject {
     public EntityGroup getGroup(String name) { return groups.get(name); }
 
     public EntityGroup getOrCreateGroup(String name) {
-        return groups.computeIfAbsent(name, EntityGroup::new);
+        EntityGroup existing = groups.get(name);
+        if (existing != null) return existing;
+
+        EntityGroup group = new EntityGroup(name);
+        groups.put(name, group);
+        if (!group.hasParent() && !rootGroupNames.contains(group.getName())) {
+            rootGroupNames.add(group.getName());
+        }
+        return group;
     }
 
     public void addGroup(EntityGroup group) {
@@ -138,6 +146,10 @@ public class AnimationProject {
         EntityGroup g = groups.remove(name);
         rootGroupNames.remove(name);
         if (g != null) {
+            if (g.hasParent()) {
+                EntityGroup parent = groups.get(g.getParentGroupName());
+                if (parent != null) parent.removeChildGroup(name);
+            }
             for (String child : g.getChildEntityNames()) {
                 EntityTrack t = entityTracks.get(child);
                 if (t != null) {
