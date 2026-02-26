@@ -905,7 +905,9 @@ int32_t simjot_vocab_top_words(const char* text, int32_t n, char* out_words, int
 int64_t simjot_search_find(const char* haystack, int64_t haystack_len, const char* needle, int64_t needle_len);
 int64_t simjot_search_find_ci(const char* haystack, int64_t haystack_len, const char* needle, int64_t needle_len);
 int32_t simjot_search_count(const char* haystack, int64_t haystack_len, const char* needle, int64_t needle_len);
+int32_t simjot_search_count_ci(const char* haystack, int64_t haystack_len, const char* needle, int64_t needle_len);
 int32_t simjot_search_find_all(const char* haystack, int64_t haystack_len, const char* needle, int64_t needle_len, int64_t* out_positions, int32_t max_results);
+int32_t simjot_search_find_all_ci(const char* haystack, int64_t haystack_len, const char* needle, int64_t needle_len, int64_t* out_positions, int32_t max_results);
 
 /* Multi-pattern search (Aho-Corasick) */
 void* simjot_search_ac_build(const char* patterns, int32_t pattern_count);

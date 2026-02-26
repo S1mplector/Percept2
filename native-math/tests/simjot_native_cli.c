@@ -146,6 +146,21 @@ int main(void) {
     expect_int("simjot_sum_array", simjot_sum_array(nums, 10), 55);
     expect_int("simjot_fib", simjot_fib(20), 6765);
 
+    const char* search_text = "Hello hello heLLo world";
+    expect_int("simjot_search_find", simjot_search_find(search_text, (int64_t)strlen(search_text), "hello", 5), 6);
+    expect_int("simjot_search_find_ci", simjot_search_find_ci(search_text, (int64_t)strlen(search_text), "HELLO", 5), 0);
+    expect_int("simjot_search_count_ci", simjot_search_count_ci(search_text, (int64_t)strlen(search_text), "hello", 5), 3);
+
+    int64_t ci_positions[4] = {0};
+    int32_t ci_found = simjot_search_find_all_ci(search_text, (int64_t)strlen(search_text), "hello", 5, ci_positions, 4);
+    expect_int("simjot_search_find_all_ci count", ci_found, 3);
+    if (ci_found >= 3) {
+        expect_int("simjot_search_find_all_ci[0]", ci_positions[0], 0);
+        expect_int("simjot_search_find_all_ci[1]", ci_positions[1], 6);
+        expect_int("simjot_search_find_all_ci[2]", ci_positions[2], 12);
+    }
+    expect_int("simjot_search_count_ci overlap", simjot_search_count_ci("aaaa", 4, "aa", 2), 3);
+
     expect_int("simjot_count_syllables(hello)", simjot_count_syllables("hello"), 2);
     expect_int("simjot_count_syllables(poetry)", simjot_count_syllables("poetry"), 3);
     expect_int("simjot_count_syllables(wanted)", simjot_count_syllables("wanted"), 2);
@@ -371,6 +386,53 @@ int main(void) {
     }
 #else
     printf("[SKIP] simjot_list_dir (Windows stub)\n");
+#endif
+
+#ifndef _WIN32
+    char batch_dir[64];
+    if (make_temp_dir(batch_dir, sizeof(batch_dir))) {
+        char note1[96], note2[96];
+        snprintf(note1, sizeof(note1), "%s/%s", batch_dir, "entry1.note");
+        snprintf(note2, sizeof(note2), "%s/%s", batch_dir, "entry2.txt");
+
+        int wrote1 = write_file(note1, "{\"title\":\"Magic Entry\",\"mood\":4,\"savedAt\":123}\nmagic token appears once");
+        int wrote2 = write_file(note2, "plain file without keyword");
+        if (!wrote1 || !wrote2) {
+            fprintf(stderr, "[FAIL] simjot_search_batch: fixture write failed\n");
+            failures++;
+        } else {
+            int32_t out_size = simjot_search_batch_buffer_size(8);
+            uint8_t* out = (uint8_t*)malloc((size_t)out_size);
+            if (!out) {
+                fprintf(stderr, "[FAIL] simjot_search_batch: alloc failed\n");
+                failures++;
+            } else {
+                int32_t found = simjot_search_batch("magic", batch_dir, ".note,.txt", 8, out, out_size);
+                if (found >= 1) {
+                    int32_t encoded = 0;
+                    memcpy(&encoded, out, sizeof(int32_t));
+                    if (encoded == found) {
+                        printf("[OK] simjot_search_batch\n");
+                    } else {
+                        fprintf(stderr, "[FAIL] simjot_search_batch: encoded count mismatch (%d != %d)\n", encoded, found);
+                        failures++;
+                    }
+                } else {
+                    fprintf(stderr, "[FAIL] simjot_search_batch: expected at least one result, got %d\n", found);
+                    failures++;
+                }
+                free(out);
+            }
+        }
+        remove(note1);
+        remove(note2);
+        rmdir(batch_dir);
+    } else {
+        fprintf(stderr, "[FAIL] mkdtemp failed for batch search test\n");
+        failures++;
+    }
+#else
+    printf("[SKIP] simjot_search_batch (Windows path)\n");
 #endif
 
 #ifndef _WIN32

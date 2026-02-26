@@ -26,6 +26,11 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <pthread.h>
+#ifndef _WIN32
+#include <strings.h>
+#else
+#define strncasecmp _strnicmp
+#endif
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * SEARCH RESULT STRUCTURES
@@ -39,6 +44,8 @@
 #define MAX_RESULTS 1000
 #define MAX_DIRS 100
 #define READ_BUFFER_SIZE (256 * 1024)  /* 256KB per file max */
+#define FILE_POOL_BLOCKS 24
+#define SEARCH_PROFILER_COMPONENT "search_batch"
 
 typedef struct SearchResult {
     char file_path[MAX_PATH_LEN];
@@ -69,85 +76,48 @@ typedef struct SearchContext {
  * STRING UTILITIES
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static inline int to_lower(int c) {
-    return (c >= 'A' && c <= 'Z') ? c + 32 : c;
-}
-
 static int str_contains_ci(const char* haystack, const char* needle, int needle_len) {
     if (!haystack || !needle || needle_len <= 0) return 0;
-    
-    for (const char* p = haystack; *p; p++) {
-        const char* h = p;
-        const char* n = needle;
-        int matched = 1;
-        
-        for (int i = 0; i < needle_len && *h; i++, h++, n++) {
-            if (to_lower(*h) != to_lower(*n)) {
-                matched = 0;
-                break;
-            }
-        }
-        
-        if (matched && n == needle + needle_len) return 1;
-    }
-    return 0;
+    int64_t pos = simjot_search_find_ci(haystack, (int64_t)strlen(haystack), needle, needle_len);
+    return pos >= 0 ? 1 : 0;
 }
 
 static int str_find_ci(const char* haystack, const char* needle, int needle_len) {
     if (!haystack || !needle || needle_len <= 0) return -1;
-    
-    int pos = 0;
-    for (const char* p = haystack; *p; p++, pos++) {
-        const char* h = p;
-        const char* n = needle;
-        int matched = 1;
-        
-        for (int i = 0; i < needle_len && *h; i++, h++, n++) {
-            if (to_lower(*h) != to_lower(*n)) {
-                matched = 0;
-                break;
-            }
-        }
-        
-        if (matched && n == needle + needle_len) return pos;
-    }
-    return -1;
+    int64_t pos = simjot_search_find_ci(haystack, (int64_t)strlen(haystack), needle, needle_len);
+    return (pos >= 0 && pos <= INT32_MAX) ? (int)pos : -1;
 }
 
 static int count_matches_ci(const char* text, const char* needle, int needle_len) {
     if (!text || !needle || needle_len <= 0) return 0;
-    
-    int count = 0;
-    const char* p = text;
-    
-    while (*p) {
-        int idx = str_find_ci(p, needle, needle_len);
-        if (idx < 0) break;
-        count++;
-        p += idx + needle_len;
-    }
-    
-    return count;
+    return simjot_search_count_ci(text, (int64_t)strlen(text), needle, needle_len);
 }
 
 static int has_extension(const char* filename, const char* extensions) {
-    if (!filename || !extensions) return 1;  /* No filter = match all */
-    
+    if (!filename) return 0;
+    if (!extensions || !*extensions) return 1;  /* No filter = match all */
+
     const char* dot = strrchr(filename, '.');
     if (!dot) return 0;
-    
-    /* Parse comma-separated extensions */
-    char ext_buf[512];
-    strncpy(ext_buf, extensions, sizeof(ext_buf) - 1);
-    ext_buf[sizeof(ext_buf) - 1] = '\0';
-    
-    char* token = strtok(ext_buf, ",");
-    while (token) {
-        while (*token == ' ') token++;
-        if (strcasecmp(dot, token) == 0) return 1;
-        token = strtok(NULL, ",");
+
+    size_t dot_len = strlen(dot);
+    const char* cursor = extensions;
+    while (*cursor) {
+        while (*cursor == ' ' || *cursor == ',') cursor++;
+        if (!*cursor) break;
+
+        const char* token_start = cursor;
+        while (*cursor && *cursor != ',') cursor++;
+        const char* token_end = cursor;
+
+        while (token_end > token_start && token_end[-1] == ' ') token_end--;
+        size_t token_len = (size_t)(token_end - token_start);
+
+        if (token_len == dot_len && strncasecmp(dot, token_start, token_len) == 0) {
+            return 1;
+        }
     }
-    
+
     return 0;
 }
 
@@ -326,7 +296,38 @@ static void build_snippet(const char* text, const char* query, int query_len,
  * BATCH SEARCH IMPLEMENTATION
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void search_file(SearchContext* ctx, const char* dir_path, const char* filename) {
+static char* acquire_file_buffer(void* file_pool, size_t required, int* from_pool) {
+    if (from_pool) *from_pool = 0;
+    if (required == 0 || required > (size_t)READ_BUFFER_SIZE + 1) {
+        return NULL;
+    }
+
+    if (file_pool) {
+        char* pooled = (char*)simjot_pool_alloc_ex(file_pool);
+        if (pooled) {
+            if (from_pool) *from_pool = 1;
+            return pooled;
+        }
+    }
+
+    char* heap = (char*)malloc(required);
+    if (heap) {
+        simjot_profiler_track_alloc(SEARCH_PROFILER_COMPONENT, (int64_t)required);
+    }
+    return heap;
+}
+
+static void release_file_buffer(void* file_pool, char* buffer, size_t size, int from_pool) {
+    if (!buffer) return;
+    if (from_pool) {
+        simjot_pool_free_ex(file_pool, buffer);
+    } else {
+        free(buffer);
+        simjot_profiler_track_free(SEARCH_PROFILER_COMPONENT, (int64_t)size);
+    }
+}
+
+static void search_file(SearchContext* ctx, const char* dir_path, const char* filename, void* file_pool) {
     /* Build full path */
     char path[MAX_PATH_LEN];
     snprintf(path, sizeof(path), "%s/%s", dir_path, filename);
@@ -343,8 +344,9 @@ static void search_file(SearchContext* ctx, const char* dir_path, const char* fi
         fclose(f);
         return;
     }
-    
-    char* content = (char*)malloc(size + 1);
+
+    int from_pool = 0;
+    char* content = acquire_file_buffer(file_pool, (size_t)size + 1, &from_pool);
     if (!content) {
         fclose(f);
         return;
@@ -366,7 +368,7 @@ static void search_file(SearchContext* ctx, const char* dir_path, const char* fi
     int content_match = str_contains_ci(content, ctx->query, ctx->query_len);
     
     if (!title_match && !content_match) {
-        free(content);
+        release_file_buffer(file_pool, content, (size_t)size + 1, from_pool);
         return;
     }
     
@@ -399,10 +401,10 @@ static void search_file(SearchContext* ctx, const char* dir_path, const char* fi
     
     pthread_mutex_unlock(&ctx->mutex);
     
-    free(content);
+    release_file_buffer(file_pool, content, (size_t)size + 1, from_pool);
 }
 
-static void search_directory(SearchContext* ctx, const char* dir_path) {
+static void search_directory(SearchContext* ctx, const char* dir_path, void* file_pool) {
     DIR* dir = opendir(dir_path);
     if (!dir) return;
     
@@ -430,7 +432,7 @@ static void search_directory(SearchContext* ctx, const char* dir_path) {
         }
         
         /* Search file */
-        search_file(ctx, dir_path, entry->d_name);
+        search_file(ctx, dir_path, entry->d_name, file_pool);
         
         /* Check if we've hit max results */
         if (ctx->result_count >= ctx->max_results) break;
@@ -443,11 +445,12 @@ static void search_directory(SearchContext* ctx, const char* dir_path) {
 typedef struct ThreadWork {
     SearchContext* ctx;
     const char* dir_path;
+    void* file_pool;
 } ThreadWork;
 
 static void* search_thread_func(void* arg) {
     ThreadWork* work = (ThreadWork*)arg;
-    search_directory(work->ctx, work->dir_path);
+    search_directory(work->ctx, work->dir_path, work->file_pool);
     return NULL;
 }
 
@@ -506,6 +509,8 @@ int32_t simjot_search_batch(const char* query, const char* dirs, const char* ext
     }
     
     if (dir_count == 0) return 0;
+
+    simjot_profiler_register_component(SEARCH_PROFILER_COMPONENT);
     
     /* Initialize context */
     SearchContext ctx;
@@ -521,6 +526,7 @@ int32_t simjot_search_batch(const char* query, const char* dirs, const char* ext
     ctx.results = (SearchResult*)calloc(max_results, sizeof(SearchResult));
     
     if (!ctx.results) return -1;
+    simjot_profiler_track_alloc(SEARCH_PROFILER_COMPONENT, (int64_t)max_results * (int64_t)sizeof(SearchResult));
     
     pthread_mutex_init(&ctx.mutex, NULL);
     
@@ -532,27 +538,32 @@ int32_t simjot_search_batch(const char* query, const char* dirs, const char* ext
         int thread_count = 0;
         
         for (int i = 0; i < dir_count && i < 8; i++) {
-            work[i].ctx = &ctx;
-            work[i].dir_path = dir_list[i];
-            
-            if (pthread_create(&threads[i], NULL, search_thread_func, &work[i]) == 0) {
+            work[thread_count].ctx = &ctx;
+            work[thread_count].dir_path = dir_list[i];
+            work[thread_count].file_pool = simjot_pool_create_ex(READ_BUFFER_SIZE + 1, FILE_POOL_BLOCKS);
+
+            if (pthread_create(&threads[thread_count], NULL, search_thread_func, &work[thread_count]) == 0) {
                 thread_count++;
             } else {
                 /* Fallback to sequential if thread creation fails */
-                search_directory(&ctx, dir_list[i]);
+                search_directory(&ctx, dir_list[i], work[thread_count].file_pool);
+                simjot_pool_destroy_ex(work[thread_count].file_pool);
             }
         }
         
         /* Wait for threads */
         for (int i = 0; i < thread_count; i++) {
             pthread_join(threads[i], NULL);
+            simjot_pool_destroy_ex(work[i].file_pool);
         }
     } else {
         /* Sequential search */
+        void* file_pool = simjot_pool_create_ex(READ_BUFFER_SIZE + 1, FILE_POOL_BLOCKS);
         for (int i = 0; i < dir_count; i++) {
-            search_directory(&ctx, dir_list[i]);
+            search_directory(&ctx, dir_list[i], file_pool);
             if (ctx.result_count >= max_results) break;
         }
+        simjot_pool_destroy_ex(file_pool);
     }
     
     pthread_mutex_destroy(&ctx.mutex);
@@ -563,6 +574,7 @@ int32_t simjot_search_batch(const char* query, const char* dirs, const char* ext
     
     /* Write result count */
     if (ptr + 4 > end) {
+        simjot_profiler_track_free(SEARCH_PROFILER_COMPONENT, (int64_t)max_results * (int64_t)sizeof(SearchResult));
         free(ctx.results);
         return -1;
     }
@@ -615,6 +627,7 @@ int32_t simjot_search_batch(const char* query, const char* dirs, const char* ext
     }
     
     int32_t result_count = ctx.result_count;
+    simjot_profiler_track_free(SEARCH_PROFILER_COMPONENT, (int64_t)max_results * (int64_t)sizeof(SearchResult));
     free(ctx.results);
     
     return result_count;

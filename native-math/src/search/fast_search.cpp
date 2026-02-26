@@ -16,6 +16,7 @@
 #include <cstring>
 #include <cctype>
 #include <algorithm>
+#include <array>
 #include <vector>
 
 #ifdef __SSE2__
@@ -161,35 +162,34 @@ int64_t simjot_search_find_ci(const char* haystack, int64_t haystack_len,
                               const char* needle, int64_t needle_len) {
     if (!haystack || !needle || haystack_len <= 0 || needle_len <= 0) return -1;
     if (needle_len > haystack_len) return -1;
-    
-    // Create lowercase needle
-    char* lower_needle = (char*)malloc(needle_len + 1);
-    if (!lower_needle) return -1;
-    
-    for (int64_t i = 0; i < needle_len; i++) {
-        lower_needle[i] = (char)tolower((unsigned char)needle[i]);
+
+    std::array<unsigned char, 256> needle_buf{};
+    std::vector<unsigned char> needle_vec;
+    unsigned char* lower_needle = needle_buf.data();
+    if (needle_len > (int64_t)needle_buf.size()) {
+        needle_vec.resize((size_t)needle_len);
+        lower_needle = needle_vec.data();
     }
-    lower_needle[needle_len] = '\0';
-    
-    char first_lower = lower_needle[0];
-    char first_upper = (char)toupper((unsigned char)needle[0]);
+
+    for (int64_t i = 0; i < needle_len; i++) {
+        lower_needle[i] = (unsigned char)std::tolower((unsigned char)needle[i]);
+    }
+
+    unsigned char first_lower = lower_needle[0];
+    unsigned char first_upper = (unsigned char)std::toupper((unsigned char)needle[0]);
     
     for (int64_t i = 0; i <= haystack_len - needle_len; i++) {
-        char c = haystack[i];
+        unsigned char c = (unsigned char)haystack[i];
         if (c == first_lower || c == first_upper) {
             bool match = true;
             for (int64_t j = 1; j < needle_len && match; j++) {
-                char h = (char)tolower((unsigned char)haystack[i + j]);
+                unsigned char h = (unsigned char)std::tolower((unsigned char)haystack[i + j]);
                 if (h != lower_needle[j]) match = false;
             }
-            if (match) {
-                free(lower_needle);
-                return i;
-            }
+            if (match) return i;
         }
     }
-    
-    free(lower_needle);
+
     return -1;
 }
 
@@ -216,6 +216,28 @@ int32_t simjot_search_count(const char* haystack, int64_t haystack_len,
 }
 
 /**
+ * Count case-insensitive occurrences of substring.
+ */
+int32_t simjot_search_count_ci(const char* haystack, int64_t haystack_len,
+                               const char* needle, int64_t needle_len) {
+    if (!haystack || !needle || haystack_len <= 0 || needle_len <= 0) return 0;
+
+    int32_t count = 0;
+    int64_t pos = 0;
+
+    while (pos <= haystack_len - needle_len) {
+        int64_t found = simjot_search_find_ci(haystack + pos, haystack_len - pos,
+                                              needle, needle_len);
+        if (found < 0) break;
+
+        count++;
+        pos += found + 1;
+    }
+
+    return count;
+}
+
+/**
  * Find all occurrences.
  * @param out_positions Output array for positions
  * @param max_results Maximum results to return
@@ -238,6 +260,32 @@ int32_t simjot_search_find_all(const char* haystack, int64_t haystack_len,
         pos += found + 1;
     }
     
+    return count;
+}
+
+/**
+ * Find all case-insensitive occurrences.
+ * @param out_positions Output array for positions
+ * @param max_results Maximum results to return
+ * @return Number of matches found
+ */
+int32_t simjot_search_find_all_ci(const char* haystack, int64_t haystack_len,
+                                  const char* needle, int64_t needle_len,
+                                  int64_t* out_positions, int32_t max_results) {
+    if (!haystack || !needle || !out_positions || max_results <= 0) return 0;
+
+    int32_t count = 0;
+    int64_t pos = 0;
+
+    while (pos <= haystack_len - needle_len && count < max_results) {
+        int64_t found = simjot_search_find_ci(haystack + pos, haystack_len - pos,
+                                              needle, needle_len);
+        if (found < 0) break;
+
+        out_positions[count++] = pos + found;
+        pos += found + 1;
+    }
+
     return count;
 }
 
