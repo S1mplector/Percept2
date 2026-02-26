@@ -1363,7 +1363,7 @@ public class NewProjectWizard extends Stage {
         [textspeed 28]
         [autodelay 1800]
         __FRAMING_COMMANDS__
-        [bgm assets/demo/audio/softbreeze.mp3]
+        [bgm "assets/demo/audio/03 - Definitely Our Town.mp3"]
 
         [show codel center talking]
         [wait 240]

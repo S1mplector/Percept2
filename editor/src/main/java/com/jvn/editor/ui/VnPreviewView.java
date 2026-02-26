@@ -103,6 +103,7 @@ public class VnPreviewView extends StackPane {
     }
     scene.update(deltaMs);
     renderer.updateAnimation(deltaMs);
+    renderer.setAudioFacade(scene.getAudioFacade());
     renderer.render(scene.getState(), scene.getScenario(), w, h, mouseX, mouseY);
   }
 
@@ -110,6 +111,7 @@ public class VnPreviewView extends StackPane {
     if (scenario == null) {
       stopAudio();
       this.scene = null;
+      renderer.setAudioFacade(null);
       return;
     }
     stopAudio();
@@ -128,6 +130,7 @@ public class VnPreviewView extends StackPane {
     }
     nextScene.onEnter();
     this.scene = nextScene;
+    renderer.setAudioFacade(audio);
     requestFocus();
   }
 
@@ -464,6 +467,7 @@ public class VnPreviewView extends StackPane {
     scene = null;
     projectRoot = null;
     audio = null;
+    renderer.setAudioFacade(null);
     renderer.setProjectRoot(null);
   }
 

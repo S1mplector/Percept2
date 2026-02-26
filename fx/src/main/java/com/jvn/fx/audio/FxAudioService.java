@@ -3,6 +3,7 @@ package com.jvn.fx.audio;
 import com.jvn.core.assets.AssetPaths;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
+import javafx.scene.media.AudioSpectrumListener;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 
@@ -20,6 +21,15 @@ public class FxAudioService implements AudioFacade {
   private float sfxVolume = 0.8f;
   private float voiceVolume = 1.0f;
   private File projectRoot;
+  private volatile float[] latestBgmSpectrum;
+  private volatile long latestBgmSpectrumUpdatedAtNanos;
+  private final AudioSpectrumListener bgmSpectrumListener = (timestamp, duration, magnitudes, phases) -> {
+    if (magnitudes == null || magnitudes.length == 0) return;
+    float[] copy = new float[magnitudes.length];
+    System.arraycopy(magnitudes, 0, copy, 0, magnitudes.length);
+    latestBgmSpectrum = copy;
+    latestBgmSpectrumUpdatedAtNanos = System.nanoTime();
+  };
 
   public void setProjectRoot(File root) { this.projectRoot = root; }
 
@@ -31,6 +41,7 @@ public class FxAudioService implements AudioFacade {
       if (urlStr == null) return;
       Media media = new Media(urlStr);
       bgmPlayer = new MediaPlayer(media);
+      configureSpectrumListener(bgmPlayer);
       if (loop) bgmPlayer.setCycleCount(MediaPlayer.INDEFINITE);
       bgmPlayer.setVolume(clamp(bgmVolume));
       bgmPlayer.play();
@@ -48,6 +59,8 @@ public class FxAudioService implements AudioFacade {
         bgmPlayer = null;
       }
     }
+    latestBgmSpectrum = null;
+    latestBgmSpectrumUpdatedAtNanos = 0L;
   }
 
   /**
@@ -222,6 +235,7 @@ public class FxAudioService implements AudioFacade {
       if (urlStr == null) { playBgm(trackId, loop); return; }
       final MediaPlayer oldPlayer = this.bgmPlayer;
       final MediaPlayer newPlayer = new MediaPlayer(new Media(urlStr));
+      configureSpectrumListener(newPlayer);
       if (loop) newPlayer.setCycleCount(MediaPlayer.INDEFINITE);
       newPlayer.setVolume(0.0);
       newPlayer.play();
@@ -297,5 +311,28 @@ public class FxAudioService implements AudioFacade {
     } catch (Exception ignored) {
     }
     return null;
+  }
+
+  @Override
+  public float[] getBgmSpectrumMagnitudes() {
+    float[] data = latestBgmSpectrum;
+    if (data == null || data.length == 0) return null;
+    return data.clone();
+  }
+
+  @Override
+  public long getBgmSpectrumUpdatedAtNanos() {
+    return latestBgmSpectrumUpdatedAtNanos;
+  }
+
+  private void configureSpectrumListener(MediaPlayer player) {
+    if (player == null) return;
+    try {
+      player.setAudioSpectrumNumBands(64);
+      player.setAudioSpectrumInterval(0.033); // ~30 FPS
+      player.setAudioSpectrumThreshold(-60);
+      player.setAudioSpectrumListener(bgmSpectrumListener);
+    } catch (Exception ignored) {
+    }
   }
 }

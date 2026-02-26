@@ -6,6 +6,7 @@ import com.jvn.core.audio.AudioFacade;
 import com.musicplayer.core.audio.AudioEngine;
 import com.musicplayer.core.audio.HybridAudioEngine;
 import com.musicplayer.data.models.Song;
+import javafx.scene.media.AudioSpectrumListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +42,15 @@ public class Simp3AudioService implements AudioFacade {
   private volatile ScheduledFuture<?> crossfadeTask = null;
   private BgmTrack bgmTrack = null;
   private final Map<String, File> extractedAudioCache = new HashMap<>();
+  private volatile float[] latestBgmSpectrum;
+  private volatile long latestBgmSpectrumUpdatedAtNanos;
+  private final AudioSpectrumListener bgmSpectrumListener = (timestamp, duration, magnitudes, phases) -> {
+    if (magnitudes == null || magnitudes.length == 0) return;
+    float[] copy = new float[magnitudes.length];
+    System.arraycopy(magnitudes, 0, copy, 0, magnitudes.length);
+    latestBgmSpectrum = copy;
+    latestBgmSpectrumUpdatedAtNanos = System.nanoTime();
+  };
   private File projectRoot;
 
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -54,6 +64,7 @@ public class Simp3AudioService implements AudioFacade {
 
   public Simp3AudioService() {
     this.bgmEngine = newEngine();
+    attachBgmSpectrumListener(this.bgmEngine);
     this.bgmEngine.setVolume(bgmVolume);
   }
 
@@ -96,7 +107,10 @@ public class Simp3AudioService implements AudioFacade {
       crossEngine = null;
       safeStop(bgmEngine);
       bgmEngine = newEngine();
+      attachBgmSpectrumListener(bgmEngine);
       bgmEngine.setVolume(bgmVolume);
+      latestBgmSpectrum = null;
+      latestBgmSpectrumUpdatedAtNanos = 0L;
     } catch (Exception e) {
       log.debug("stopBgm error", e);
     }
@@ -260,6 +274,7 @@ public class Simp3AudioService implements AudioFacade {
       }
 
       AudioEngine next = newEngine();
+      attachBgmSpectrumListener(next);
       BgmTrack nextTrack = new BgmTrack(trackId, audioFile.getAbsolutePath());
       if (!next.loadSong(toSong(nextTrack))) {
         log.warn("Crossfade failed to load target trackId={} file={}", trackId, audioFile.getAbsolutePath());
@@ -332,6 +347,7 @@ public class Simp3AudioService implements AudioFacade {
   private AudioEngine ensureBgmEngine() {
     if (bgmEngine == null) {
       bgmEngine = newEngine();
+      attachBgmSpectrumListener(bgmEngine);
       bgmEngine.setVolume(bgmVolume);
     }
     return bgmEngine;
@@ -339,6 +355,14 @@ public class Simp3AudioService implements AudioFacade {
 
   private AudioEngine newEngine() {
     return new HybridAudioEngine();
+  }
+
+  private void attachBgmSpectrumListener(AudioEngine engine) {
+    if (engine == null) return;
+    try {
+      engine.setAudioSpectrumListener(bgmSpectrumListener);
+    } catch (Exception ignored) {
+    }
   }
 
   private Song toSong(BgmTrack track) {
@@ -537,5 +561,17 @@ public class Simp3AudioService implements AudioFacade {
       this.id = id;
       this.absolutePath = absolutePath;
     }
+  }
+
+  @Override
+  public float[] getBgmSpectrumMagnitudes() {
+    float[] data = latestBgmSpectrum;
+    if (data == null || data.length == 0) return null;
+    return data.clone();
+  }
+
+  @Override
+  public long getBgmSpectrumUpdatedAtNanos() {
+    return latestBgmSpectrumUpdatedAtNanos;
   }
 }

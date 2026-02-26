@@ -376,8 +376,10 @@ public class FxLauncher extends Application {
 
   private FxSceneRendererRegistry createRendererRegistry() {
     FxSceneRendererRegistry reg = new FxSceneRendererRegistry();
-    reg.register(VnScene.class, (vn, ctx) ->
-        vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY));
+    reg.register(VnScene.class, (vn, ctx) -> {
+      vnRenderer.setAudioFacade(vn.getAudioFacade());
+      vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
+    });
 
     reg.register(MainMenuScene.class, (scene, ctx) -> menuRenderer.renderMainMenu(scene, ctx.width(), ctx.height()));
     reg.register(LoadMenuScene.class, (scene, ctx) -> menuRenderer.renderLoadMenu(scene, ctx.width(), ctx.height()));

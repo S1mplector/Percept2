@@ -19,6 +19,7 @@ import com.jvn.core.assets.AssetType;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
 import com.jvn.core.vn.VnConditionEvaluator;
+import com.jvn.core.vn.VnArgTokenizer;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioBuilder;
 import com.jvn.core.vn.VnTransition;
@@ -72,6 +73,16 @@ public class VnScriptParser {
   private boolean parseBooleanToken(String token) {
     String t = token.trim().toLowerCase();
     return "true".equals(t) || "on".equals(t) || "1".equals(t) || "yes".equals(t);
+  }
+
+  private String quoteTokenIfNeeded(String token) {
+    if (token == null) return "\"\"";
+    boolean needsQuotes = token.isBlank()
+        || token.chars().anyMatch(Character::isWhitespace)
+        || token.indexOf('"') >= 0
+        || token.indexOf('\\') >= 0;
+    if (!needsQuotes) return token;
+    return "\"" + token.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
   }
 
   private float parseVolumeToken(String token,
@@ -532,7 +543,7 @@ public class VnScriptParser {
         return;
       case "bgm": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        String[] toks = payload.split("\\s+");
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
         if (toks.length == 0 || toks[0].isBlank()) {
           throw parseError(sourceName, lineNumber, "[bgm] requires a track id", rawLine);
         }
@@ -617,7 +628,7 @@ public class VnScriptParser {
       }
       case "bgm_crossfade": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        String[] toks = payload.split("\\s+");
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
         if (toks.length < 2 || toks[0].isBlank()) {
           throw parseError(sourceName, lineNumber, "[bgm_crossfade] expects: [bgm_crossfade <trackId> <ms> [loop]]", rawLine);
         }
@@ -633,7 +644,7 @@ public class VnScriptParser {
           throw parseError(sourceName, lineNumber, "[bgm_crossfade] duration must be >= 0", rawLine);
         }
 
-        String normalized = "crossfade " + track + " " + durationMs;
+        String normalized = "crossfade " + quoteTokenIfNeeded(track) + " " + durationMs;
         if (toks.length >= 3) {
           String loopToken = toks[2];
           String loopValue = loopToken;
@@ -658,8 +669,12 @@ public class VnScriptParser {
         return;
       }
       case "sfx": {
-        String track = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.playSfx(track);
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        if (toks.length == 0 || toks[0].isBlank()) {
+          throw parseError(sourceName, lineNumber, "[sfx] requires a track id", rawLine);
+        }
+        state.builder.playSfx(toks[0]);
         return;
       }
       case "sfx_stop":
@@ -667,8 +682,12 @@ public class VnScriptParser {
         state.builder.external("audio", "sfx_stop");
         return;
       case "voice": {
-        String track = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.playVoice(track);
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        if (toks.length == 0 || toks[0].isBlank()) {
+          throw parseError(sourceName, lineNumber, "[voice] requires a track id", rawLine);
+        }
+        state.builder.playVoice(toks[0]);
         return;
       }
       case "voice_stop":

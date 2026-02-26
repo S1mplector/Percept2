@@ -345,6 +345,21 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesBgmQuotedTrackPathWithSpaces() throws Exception {
+    String script = """
+      @label start
+      [bgm "assets/demo/audio/03 - Definitely Our Town.mp3"]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode audio = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.AUDIO).findFirst().orElseThrow();
+    assertEquals("assets/demo/audio/03 - Definitely Our Town.mp3", audio.getAudioCommand().getTrackId());
+    assertTrue(audio.getAudioCommand().isLoop());
+  }
+
+  @Test
   public void parsesBgmLoopFalse() throws Exception {
     String script = """
       @label start
@@ -513,6 +528,36 @@ public class VnScriptParserTest {
             && n.getExternalCommand().getProvider().equals("audio"))
         .findFirst().orElseThrow();
     assertEquals("crossfade new_track 2000 false", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void parsesBgmCrossfadeQuotedTrackPathWithSpaces() throws Exception {
+    String script = """
+      @label start
+      [bgm_crossfade "assets/demo/audio/03 - Definitely Our Town.mp3" 1200 loop=true]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && n.getExternalCommand().getProvider().equals("audio"))
+        .findFirst().orElseThrow();
+    assertEquals("crossfade \"assets/demo/audio/03 - Definitely Our Town.mp3\" 1200 true", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void parsesSfxQuotedTrackPathWithSpaces() throws Exception {
+    String script = """
+      @label start
+      [sfx "assets/demo/audio/03 - Definitely Our Town.mp3"]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode audio = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.AUDIO).findFirst().orElseThrow();
+    assertEquals("assets/demo/audio/03 - Definitely Our Town.mp3", audio.getAudioCommand().getTrackId());
   }
 
   @Test

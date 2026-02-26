@@ -22,4 +22,16 @@ public interface AudioFacade {
   default void resumeAllAudio() { resumeBgm(); }
   default void seekBgmSeconds(double seconds) {}
   default void crossfadeBgm(String trackId, long ms, boolean loop) {}
+
+  /**
+   * Optional real-time BGM spectrum magnitudes in dB (typically around -60..0).
+   * Returns null when unsupported or unavailable.
+   */
+  default float[] getBgmSpectrumMagnitudes() { return null; }
+
+  /**
+   * Optional timestamp for latest spectrum sample in System.nanoTime() units.
+   * Returns 0 when unsupported.
+   */
+  default long getBgmSpectrumUpdatedAtNanos() { return 0L; }
 }

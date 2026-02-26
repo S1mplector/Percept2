@@ -2,12 +2,14 @@ package com.jvn.fx.vn;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
+import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
@@ -53,6 +55,7 @@ public class VnRenderer {
   private static final int DEFAULT_CHOICE_FONT_SIZE = 16;
   private VnState currentState;
   private long animationTime = 0;
+  private AudioFacade audioFacade;
   private VnUiLayoutSpec uiLayout;
   private VnUiStyleSpec uiStyle = VnUiStyleSpec.defaults();
   private List<VnUiActionButtonSpec> textBoxButtons = List.of();
@@ -63,6 +66,7 @@ public class VnRenderer {
   private double characterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
 
   public void setTimelineAccessor(VnCharacterSceneAccessor accessor) { this.timelineAccessor = accessor; }
+  public void setAudioFacade(AudioFacade facade) { this.audioFacade = facade; }
 
   // UI Colors
   private static final Color TEXTBOX_COLOR = Color.rgb(0, 0, 0, 0.62);
@@ -87,6 +91,8 @@ public class VnRenderer {
   private static final double DEFAULT_CHOICE_TEXT_BASELINE_OFFSET = 5.0;
   private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
+  private static final int VISUALIZER_BAR_COUNT = 28;
+  private static final long VISUALIZER_STALE_NS = 700_000_000L;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
 
@@ -106,6 +112,8 @@ public class VnRenderer {
   private double choiceCornerRadius = DEFAULT_CHOICE_RADIUS;
   private double choiceBorderWidth = DEFAULT_CHOICE_BORDER_WIDTH;
   private double choiceTextBaselineOffset = DEFAULT_CHOICE_TEXT_BASELINE_OFFSET;
+  private final double[] visualizerLevels = new double[VISUALIZER_BAR_COUNT];
+  private final double[] visualizerTargets = new double[VISUALIZER_BAR_COUNT];
 
   public VnRenderer(GraphicsContext gc) {
     this.gc = gc;
@@ -417,6 +425,9 @@ public class VnRenderer {
       renderTransitionOverlay(state, width, height);
     }
 
+    // Audio-reactive layer between background and sprites/UI.
+    renderAudioVisualizer(width, height);
+
     // Render characters
     renderCharacters(state, scenario, width, height);
 
@@ -647,6 +658,110 @@ public class VnRenderer {
       if (img != null) {
         gc.drawImage(img, x, y, width, height);
       }
+    }
+  }
+
+  private void renderAudioVisualizer(double width, double height) {
+    if (audioFacade == null) {
+      decayVisualizer(0.86);
+      return;
+    }
+
+    float[] magnitudes = audioFacade.getBgmSpectrumMagnitudes();
+    long updatedAt = audioFacade.getBgmSpectrumUpdatedAtNanos();
+    long nowNs = System.nanoTime();
+    boolean hasFreshData = magnitudes != null
+        && magnitudes.length > 0
+        && (updatedAt <= 0L || (nowNs - updatedAt) <= VISUALIZER_STALE_NS);
+
+    if (hasFreshData) {
+      mapSpectrumToTargets(magnitudes, visualizerTargets);
+      for (int i = 0; i < visualizerLevels.length; i++) {
+        double eased = visualizerLevels[i] * 0.62 + visualizerTargets[i] * 0.38;
+        visualizerLevels[i] = clamp(eased, 0.0, 1.0);
+      }
+    } else {
+      decayVisualizer(0.9);
+    }
+
+    double maxLevel = 0.0;
+    for (double level : visualizerLevels) {
+      if (level > maxLevel) maxLevel = level;
+    }
+    if (maxLevel < 0.015) return;
+
+    TextBoxGeometry textBox = computeTextBoxGeometry(width, height);
+    double regionBottom = Math.min(height - 8, textBox.y() - 10);
+    double regionTop = Math.max(height * 0.52, regionBottom - Math.min(height * 0.24, 180));
+    if (regionBottom <= regionTop + 8) return;
+
+    double regionHeight = regionBottom - regionTop;
+    double sidePadding = Math.max(24, width * 0.15);
+    double regionWidth = Math.max(120, width - sidePadding * 2);
+    double gap = Math.max(1.5, regionWidth / (visualizerLevels.length * 7.8));
+    double barWidth = (regionWidth - gap * (visualizerLevels.length - 1)) / visualizerLevels.length;
+    if (barWidth < 1.0) return;
+
+    gc.save();
+    gc.setGlobalAlpha(0.9);
+    gc.setStroke(Color.rgb(220, 235, 255, 0.12));
+    gc.setLineWidth(1.0);
+    gc.strokeLine(sidePadding, regionBottom + 0.5, sidePadding + regionWidth, regionBottom + 0.5);
+
+    for (int i = 0; i < visualizerLevels.length; i++) {
+      double level = visualizerLevels[i];
+      if (level <= 0.002) continue;
+      double normalized = Math.pow(level, 0.78);
+      double barHeight = Math.max(2.0, normalized * regionHeight);
+      double x = sidePadding + i * (barWidth + gap);
+      double y = regionBottom - barHeight;
+
+      double hue = 188 + (i * 3.1) + (animationTime * 0.012);
+      while (hue >= 360) hue -= 360;
+      Color fill = Color.hsb(hue, 0.62, 0.98, 0.18 + normalized * 0.34);
+      gc.setFill(fill);
+      gc.fillRoundRect(x, y, barWidth, barHeight, 3.0, 3.0);
+
+      if (normalized > 0.68) {
+        gc.setFill(Color.hsb(hue, 0.38, 1.0, 0.22));
+        gc.fillRoundRect(x, y, barWidth, Math.min(3.0, barHeight), 2.0, 2.0);
+      }
+    }
+    gc.restore();
+  }
+
+  private void decayVisualizer(double factor) {
+    for (int i = 0; i < visualizerLevels.length; i++) {
+      visualizerLevels[i] *= factor;
+      if (visualizerLevels[i] < 0.0001) visualizerLevels[i] = 0.0;
+    }
+  }
+
+  private void mapSpectrumToTargets(float[] magnitudes, double[] out) {
+    Arrays.fill(out, 0.0);
+    if (magnitudes == null || magnitudes.length == 0 || out.length == 0) return;
+    double bandsPerBar = magnitudes.length / (double) out.length;
+
+    for (int i = 0; i < out.length; i++) {
+      int start = (int) Math.floor(i * bandsPerBar);
+      int end = (int) Math.ceil((i + 1) * bandsPerBar);
+      if (end <= start) end = start + 1;
+      start = Math.max(0, Math.min(start, magnitudes.length - 1));
+      end = Math.max(start + 1, Math.min(end, magnitudes.length));
+
+      double sum = 0.0;
+      int count = 0;
+      for (int j = start; j < end; j++) {
+        double db = magnitudes[j];
+        double normalized = (db + 60.0) / 60.0;
+        normalized = clamp(normalized, 0.0, 1.0);
+        normalized = Math.pow(normalized, 0.72);
+        sum += normalized;
+        count++;
+      }
+      double avg = count == 0 ? 0.0 : (sum / count);
+      double freqWeight = 1.0 - (i / (double) out.length) * 0.35;
+      out[i] = clamp(avg * freqWeight, 0.0, 1.0);
     }
   }
 
