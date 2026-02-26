@@ -1,6 +1,9 @@
 package com.jvn.editor.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -33,5 +36,29 @@ class LayeredImageVisualizerViewTest {
     assertEquals("assets/ui", LayeredImageVisualizerView.deriveSetIdFromRelative("assets/ui/icons/play.png"));
     assertEquals("demo-assets/demo_sprite_codel", LayeredImageVisualizerView.deriveSetIdFromRelative("demo-assets/demo_sprite_codel/Codel1.png"));
     assertEquals("(root)", LayeredImageVisualizerView.deriveSetIdFromRelative("root_image.png"));
+  }
+
+  @Test
+  void chooseSetSelectionPrefersCharacterSetsByDefault() {
+    List<String> visible = List.of("assets/bg", "assets/ui", "assets/characters/nora", "assets/characters/ryan");
+    assertEquals(
+        "assets/characters/nora",
+        LayeredImageVisualizerView.chooseSetSelection(null, "assets/ui", visible));
+  }
+
+  @Test
+  void chooseSetSelectionKeepsPreviousWhenStillVisible() {
+    List<String> visible = List.of("assets/bg", "assets/ui", "assets/characters/nora");
+    assertEquals(
+        "assets/ui",
+        LayeredImageVisualizerView.chooseSetSelection("assets/ui", "assets/characters/nora", visible));
+  }
+
+  @Test
+  void chooseSetSelectionFallsBackCleanlyWithoutCharacterSets() {
+    List<String> visible = List.of("assets/bg", "assets/ui");
+    assertEquals("assets/ui", LayeredImageVisualizerView.chooseSetSelection(null, "assets/ui", visible));
+    assertEquals("assets/bg", LayeredImageVisualizerView.chooseSetSelection(null, null, visible));
+    assertNull(LayeredImageVisualizerView.chooseSetSelection(null, null, List.of()));
   }
 }

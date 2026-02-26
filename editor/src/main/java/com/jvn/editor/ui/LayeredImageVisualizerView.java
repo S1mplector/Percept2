@@ -41,6 +41,7 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.input.Clipboard;
@@ -263,12 +264,16 @@ public class LayeredImageVisualizerView extends BorderPane {
         sliderRow("Focus Y", focusYSlider),
         sliderRow("Crop", cropSlider),
         sliderRow("Zoom", zoomSlider));
+    TitledPane viewControlsPane = new TitledPane("View controls", controls);
+    viewControlsPane.setExpanded(false);
+    viewControlsPane.setAnimated(false);
+    viewControlsPane.setCollapsible(true);
 
     VBox previewSection = new VBox(
         8,
         previewPane,
         previewInfoLabel,
-        controls,
+        viewControlsPane,
         idRow,
         autoExpression,
         toolRow,
@@ -379,14 +384,7 @@ public class LayeredImageVisualizerView extends BorderPane {
 
     setBox.getItems().setAll(visible);
 
-    String target = null;
-    if (previous != null && !previous.isBlank() && visible.contains(previous)) {
-      target = previous;
-    } else if (preferredSetId != null && !preferredSetId.isBlank() && visible.contains(preferredSetId)) {
-      target = preferredSetId;
-    } else if (!visible.isEmpty()) {
-      target = visible.get(0);
-    }
+    String target = chooseSetSelection(previous, preferredSetId, visible);
 
     if (target != null) {
       applyingState = true;
@@ -1358,6 +1356,39 @@ public class LayeredImageVisualizerView extends BorderPane {
       return parts[0] + "/" + parts[1];
     }
     return parent;
+  }
+
+  static String chooseSetSelection(String previous, String preferred, List<String> visibleSetIds) {
+    if (visibleSetIds == null || visibleSetIds.isEmpty()) return null;
+
+    if (previous != null && !previous.isBlank() && visibleSetIds.contains(previous)) {
+      return previous;
+    }
+
+    String firstCharacterSet = findFirstCharacterSet(visibleSetIds);
+    if (preferred != null && !preferred.isBlank() && visibleSetIds.contains(preferred)) {
+      if (isCharacterSetId(preferred) || firstCharacterSet == null) {
+        return preferred;
+      }
+      return firstCharacterSet;
+    }
+
+    if (firstCharacterSet != null) {
+      return firstCharacterSet;
+    }
+    return visibleSetIds.get(0);
+  }
+
+  static boolean isCharacterSetId(String setId) {
+    return setId != null && setId.startsWith("assets/characters/");
+  }
+
+  private static String findFirstCharacterSet(List<String> visibleSetIds) {
+    if (visibleSetIds == null) return null;
+    for (String id : visibleSetIds) {
+      if (isCharacterSetId(id)) return id;
+    }
+    return null;
   }
 
   private static Slider slider(double min, double max, double value) {
