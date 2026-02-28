@@ -1,5 +1,6 @@
 package com.jvn.core.vn;
 
+import java.util.Locale;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -74,10 +75,11 @@ public class VnScene implements Scene {
 
   /**
    * Fast-forward state from node 0 to {@code targetIndex - 1}, applying only
-   * non-interactive, non-blocking effects: backgrounds, shows, hides, transitions
-   * (for their target background), and external var/character commands.
+   * non-interactive, non-blocking effects: backgrounds, character visibility,
+   * transitions (for their target background), audio commands, and a safe subset
+   * of external state commands (var/ui/audio/char/settings/mode/screen/history).
    * Call this <em>before</em> {@link #onEnter()} when jumping to a label so
-   * backgrounds and characters are visible.
+   * visuals and ambient state are already in sync.
    */
   public void preflightState(int targetIndex) {
     if (scenario == null || targetIndex <= 0) return;
@@ -112,10 +114,15 @@ public class VnScene implements Scene {
             state.setCurrentBackgroundId(node.getTransition().getTargetBackgroundId());
           }
           break;
+        case AUDIO:
+          if (node.getAudioCommand() != null) {
+            processAudioCommand(node.getAudioCommand());
+          }
+          break;
         case EXTERNAL:
           if (node.getExternalCommand() != null) {
             String prov = node.getExternalCommand().getProvider();
-            if ("var".equals(prov) && interop != null) {
+            if (isPreflightInteropProvider(prov) && interop != null) {
               try {
                 interop.handle(node.getExternalCommand(), this);
               } catch (Exception ex) {
@@ -128,6 +135,14 @@ public class VnScene implements Scene {
           break;
       }
     }
+  }
+
+  private boolean isPreflightInteropProvider(String provider) {
+    if (provider == null || provider.isBlank()) return false;
+    return switch (provider.trim().toLowerCase(Locale.ROOT)) {
+      case "var", "ui", "audio", "char", "settings", "mode", "screen", "history" -> true;
+      default -> false;
+    };
   }
 
   @Override

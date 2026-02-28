@@ -210,4 +210,33 @@ class LayeredImageVisualizerViewTest {
         LayeredImageVisualizerView.zoomFromScroll(2.8, 400.0, 0.5, 3.0),
         0.0001);
   }
+
+  @Test
+  void parseAttributeAssignmentsSupportsCommonForms() {
+    Map<String, String> parsed = LayeredImageVisualizerView.parseAttributeAssignments(
+        "eyes=angry mouth:smile hair_long invalidtoken");
+    assertEquals(
+        Map.of(
+            "eyes", "angry",
+            "mouth", "smile",
+            "hair", "long"),
+        parsed);
+  }
+
+  @Test
+  void parseAttributeShortformsIgnoresCommentsAndBlankLines() {
+    String text = """
+        # comment
+        happy = eyes=neutral mouth=happy
+
+        serious=eyes=cross_closed mouth=neutral
+        invalid line
+        """;
+    Map<String, String> parsed = LayeredImageVisualizerView.parseAttributeShortforms(text);
+    assertEquals(
+        Map.of(
+            "happy", "eyes=neutral mouth=happy",
+            "serious", "eyes=cross_closed mouth=neutral"),
+        parsed);
+  }
 }

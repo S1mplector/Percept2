@@ -41,13 +41,15 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
-import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -57,7 +59,6 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
-import javafx.stage.Stage;
 import javafx.util.StringConverter;
 
 /**
@@ -99,6 +100,20 @@ public class LayeredImageVisualizerView extends BorderPane {
   private static final String SNIPPET_CHARIMG = "@charimg only";
   private static final String SNIPPET_SHOW = "[show] only";
   private static final String SNIPPET_RECIPE = "Recipe comments";
+  private static final String DEFAULT_SHORTFORMS = String.join("\n",
+      "# Example:",
+      "# happy = eyes=neutral mouth=happy",
+      "# serious = eyes=cross_closed mouth=neutral");
+  private static final String TUTORIAL_TEXT = String.join("\n",
+      "Image Attributes Tool (JVN)",
+      "",
+      "1) Pick a layer set and image tag.",
+      "2) In Attributes, each row is a conflict group; one option per group.",
+      "3) Use filter to find attributes quickly.",
+      "4) Mark swap groups and use swap buttons for rapid eye/mouth cycling.",
+      "5) Type attributes in Typed tab (examples: eyes=angry mouth=smile, eyes_angry).",
+      "6) Define shortforms in Shortforms tab (name = attributes...), then apply instantly.",
+      "7) Copy export strings with show+tag+attributes or attributes-only.");
 
   private final Label summaryLabel = new Label("Open a project to inspect layered image sets.");
   private final Label statusLabel = new Label("");
@@ -116,6 +131,12 @@ public class LayeredImageVisualizerView extends BorderPane {
   private final ComboBox<String> snippetFormatBox = new ComboBox<>();
   private final CheckBox randomizeActiveOnly = new CheckBox("Randomize active groups only");
   private final CheckBox matchGameFraming = new CheckBox("Match game framing");
+  private final TextField attributeFilterField = new TextField();
+  private final TextField typedAttributesField = new TextField();
+  private final CheckBox typedRealtime = new CheckBox("Realtime preview");
+  private final TextArea shortformsArea = new TextArea(DEFAULT_SHORTFORMS);
+  private final ComboBox<String> shortformBox = new ComboBox<>();
+  private final TextArea tutorialArea = new TextArea(TUTORIAL_TEXT);
 
   private final Canvas previewCanvas = new Canvas(320, 250);
   private final Slider focusXSlider = slider(0, 100, 50);
@@ -127,7 +148,9 @@ public class LayeredImageVisualizerView extends BorderPane {
 
   private final Map<String, ComboBox<LayerOption>> selectors = new LinkedHashMap<>();
   private final Map<String, CheckBox> activeGroupChecks = new LinkedHashMap<>();
+  private final Map<String, CheckBox> swapGroupChecks = new LinkedHashMap<>();
   private final Map<String, HBox> groupRows = new LinkedHashMap<>();
+  private final Map<String, String> shortforms = new LinkedHashMap<>();
   private final List<String> groupOrder = new ArrayList<>();
   private final Map<String, LayeredSet> sets = new LinkedHashMap<>();
   private final Map<String, Image> imageCache = new HashMap<>();
@@ -141,8 +164,9 @@ public class LayeredImageVisualizerView extends BorderPane {
   private String currentSetId;
   private String preferredSetId;
   private boolean applyingState;
-  private Stage fullscreenStage;
-  private Canvas fullscreenCanvas;
+  private Button fullscreenButton;
+  private Runnable fullscreenToggleHandler;
+  private boolean fullscreenActive;
   private Canvas dragCanvas;
   private double dragLastX;
   private double dragLastY;
@@ -153,7 +177,7 @@ public class LayeredImageVisualizerView extends BorderPane {
   public LayeredImageVisualizerView() {
     setPadding(new Insets(8));
 
-    Label title = new Label("Layered Image Visualizer");
+    Label title = new Label("Image Attributes Tool");
     title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
 
     filterField.setPromptText("Filter sets...");
@@ -239,19 +263,28 @@ public class LayeredImageVisualizerView extends BorderPane {
       if (!applyingState) persistCurrentSetState();
     });
 
-    characterIdField.setPromptText("Character id");
+    characterIdField.setPromptText("Image tag");
     expressionField.setPromptText("Expression id");
     characterIdField.textProperty().addListener((o, ov, nv) -> {
       if (!applyingState) persistCurrentSetState();
+    });
+    characterIdField.setOnAction(e -> syncSetFromImageTag());
+    characterIdField.focusedProperty().addListener((o, ov, focused) -> {
+      if (!focused && !applyingState) syncSetFromImageTag();
     });
     expressionField.textProperty().addListener((o, ov, nv) -> {
       if (!applyingState) persistCurrentSetState();
     });
 
-    HBox idRow = new HBox(8, new Label("Char"), characterIdField, new Label("Expr"), expressionField);
+    HBox idRow = new HBox(8, new Label("Tag"), characterIdField, new Label("Expr"), expressionField);
     idRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(characterIdField, Priority.ALWAYS);
     HBox.setHgrow(expressionField, Priority.ALWAYS);
+
+    Button copyShowAttrsButton = iconButton(CssIcon.copy("#9ad19c"), "Copy: show <tag> <attributes>", () -> copyTagAttributes(true, true));
+    Button copyAttrsOnlyButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy: <attributes> only", () -> copyTagAttributes(false, false));
+    HBox attrCopyRow = new HBox(8, new Label("Attrs"), copyShowAttrsButton, copyAttrsOnlyButton);
+    attrCopyRow.setAlignment(Pos.CENTER_LEFT);
 
     // Snippet export
     snippetFormatBox.getItems().setAll(SNIPPET_COMBINED, SNIPPET_CHARIMG, SNIPPET_SHOW, SNIPPET_RECIPE);
@@ -268,6 +301,8 @@ public class LayeredImageVisualizerView extends BorderPane {
     Button randomizeButton = iconButton(CssIcon.sort("#f0b673"), "Randomize layer choices", this::randomizeSelection);
     Button defaultsButton = iconButton(CssIcon.home("#9ed67a"), "Restore default first option per group", this::applyDefaultSelection);
     Button noneButton = iconButton(CssIcon.clearX("#f38ba8"), "Clear all selected layers", this::applyNoneSelection);
+    Button swapPrevButton = iconButton(CssIcon.undo("#8ab4f8"), "Swap previous on marked groups", () -> swapMarkedGroups(-1));
+    Button swapNextButton = iconButton(CssIcon.redo("#8ab4f8"), "Swap next on marked groups", () -> swapMarkedGroups(1));
     Button resetViewButton = iconButton(CssIcon.expand("#8ab4f8"), "Reset preview focus and zoom", () -> {
       applyingState = true;
       focusXSlider.setValue(50);
@@ -278,9 +313,19 @@ public class LayeredImageVisualizerView extends BorderPane {
       redrawPreview();
       persistCurrentSetState();
     });
-    Button fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Open fullscreen preview", this::openFullscreenPreview);
+    fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen this panel in the current editor window", this::requestFullscreenToggle);
+    updateFullscreenButtonUi();
 
-    HBox toolRow = new HBox(8, randomizeButton, defaultsButton, noneButton, resetViewButton, fullscreenButton, randomizeActiveOnly);
+    HBox toolRow = new HBox(
+        8,
+        randomizeButton,
+        defaultsButton,
+        noneButton,
+        swapPrevButton,
+        swapNextButton,
+        resetViewButton,
+        fullscreenButton,
+        randomizeActiveOnly);
     toolRow.setAlignment(Pos.CENTER_LEFT);
     HBox framingRow = new HBox(8, matchGameFraming);
     framingRow.setAlignment(Pos.CENTER_LEFT);
@@ -305,6 +350,7 @@ public class LayeredImageVisualizerView extends BorderPane {
         autoExpression,
         toolRow,
         framingRow,
+        attrCopyRow,
         snippetRow,
         statusLabel);
     previewSection.setPadding(new Insets(0, 0, 4, 0));
@@ -314,20 +360,78 @@ public class LayeredImageVisualizerView extends BorderPane {
 
     Button activeAllButton = iconButton(CssIcon.check("#9ed67a"), "Mark all groups active for randomization", () -> setAllGroupsActive(true));
     Button activeNoneButton = iconButton(CssIcon.minus("#f0b673"), "Mark all groups inactive for randomization", () -> setAllGroupsActive(false));
-    HBox groupTools = new HBox(6, activeAllButton, activeNoneButton);
+    Button swapAllButton = iconButton(CssIcon.check("#8ab4f8"), "Mark all groups for swap", () -> setAllSwapGroups(true));
+    Button swapNoneButton = iconButton(CssIcon.minus("#8ab4f8"), "Clear swap marks", () -> setAllSwapGroups(false));
+    HBox groupTools = new HBox(6, activeAllButton, activeNoneButton, swapAllButton, swapNoneButton);
     groupTools.setAlignment(Pos.CENTER_LEFT);
 
-    VBox groupsRoot = new VBox(8, groupsLabel, groupTools, groupBox);
+    attributeFilterField.setPromptText("Filter attributes/groups...");
+    attributeFilterField.textProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) {
+        refreshGroupRows();
+        persistCurrentSetState();
+      }
+    });
+    HBox filterRowAttrs = new HBox(8, new Label("Filter"), attributeFilterField);
+    filterRowAttrs.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(attributeFilterField, Priority.ALWAYS);
+
+    VBox groupsRoot = new VBox(8, filterRowAttrs, groupsLabel, groupTools, groupBox);
     groupsRoot.setPadding(new Insets(2));
     ScrollPane groupsScroll = new ScrollPane(groupsRoot);
     groupsScroll.setFitToWidth(true);
 
-    SplitPane split = new SplitPane(previewSection, groupsScroll);
+    typedAttributesField.setPromptText("eyes=angry mouth=smile or eyes_angry mouth_smile");
+    typedAttributesField.textProperty().addListener((o, ov, nv) -> {
+      if (applyingState || !typedRealtime.isSelected()) return;
+      applyTypedAttributes(false);
+    });
+    typedRealtime.setSelected(true);
+    typedRealtime.selectedProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) persistCurrentSetState();
+    });
+    Button applyTypedButton = iconButton(CssIcon.check("#9ed67a"), "Apply typed attributes", () -> applyTypedAttributes(true));
+    HBox typedHeader = new HBox(8, typedRealtime, applyTypedButton);
+    typedHeader.setAlignment(Pos.CENTER_LEFT);
+    VBox typedRoot = new VBox(8, new Label("Type attributes to preview"), typedAttributesField, typedHeader);
+    typedRoot.setPadding(new Insets(8));
+
+    shortformsArea.setPrefRowCount(8);
+    shortformsArea.setWrapText(false);
+    shortformsArea.textProperty().addListener((o, ov, nv) -> {
+      refreshShortforms();
+      if (!applyingState) persistCurrentSetState();
+    });
+    shortformBox.setPromptText("Shortform");
+    HBox.setHgrow(shortformBox, Priority.ALWAYS);
+    Button applyShortformButton = iconButton(CssIcon.check("#9ed67a"), "Apply selected shortform", this::applySelectedShortform);
+    Button copyShortformButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy selected shortform expression", this::copySelectedShortform);
+    HBox shortformRow = new HBox(8, shortformBox, applyShortformButton, copyShortformButton);
+    shortformRow.setAlignment(Pos.CENTER_LEFT);
+    VBox shortformsRoot = new VBox(8, new Label("Format: name = attribute expression"), shortformsArea, shortformRow);
+    shortformsRoot.setPadding(new Insets(8));
+
+    tutorialArea.setEditable(false);
+    tutorialArea.setWrapText(true);
+    tutorialArea.setPrefRowCount(10);
+    VBox tutorialRoot = new VBox(8, tutorialArea);
+    tutorialRoot.setPadding(new Insets(8));
+
+    TabPane groupsTabs = new TabPane();
+    groupsTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+    Tab attributesTab = new Tab("Attributes", groupsScroll);
+    Tab typedTab = new Tab("Typed", typedRoot);
+    Tab shortformsTab = new Tab("Shortforms", shortformsRoot);
+    Tab tutorialTab = new Tab("Tutorial", tutorialRoot);
+    groupsTabs.getTabs().addAll(attributesTab, typedTab, shortformsTab, tutorialTab);
+
+    SplitPane split = new SplitPane(previewSection, groupsTabs);
     split.setOrientation(Orientation.VERTICAL);
     split.setDividerPositions(0.58);
 
     setCenter(split);
     updateViewportControlState();
+    refreshShortforms();
     redrawPreview();
   }
 
@@ -337,6 +441,16 @@ public class LayeredImageVisualizerView extends BorderPane {
     persistGlobalState();
     this.projectRoot = projectRoot;
     refreshCatalog();
+  }
+
+  public void setOnToggleFullscreen(Runnable handler) {
+    fullscreenToggleHandler = handler;
+  }
+
+  public void setFullscreenActive(boolean active) {
+    if (fullscreenActive == active) return;
+    fullscreenActive = active;
+    updateFullscreenButtonUi();
   }
 
   public void refreshCatalog() {
@@ -354,6 +468,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     sets.clear();
     selectors.clear();
     activeGroupChecks.clear();
+    swapGroupChecks.clear();
     groupRows.clear();
     groupOrder.clear();
     groupBox.getChildren().clear();
@@ -428,6 +543,7 @@ public class LayeredImageVisualizerView extends BorderPane {
       currentSetId = null;
       selectors.clear();
       activeGroupChecks.clear();
+      swapGroupChecks.clear();
       groupRows.clear();
       groupOrder.clear();
       groupBox.getChildren().clear();
@@ -449,6 +565,7 @@ public class LayeredImageVisualizerView extends BorderPane {
 
     selectors.clear();
     activeGroupChecks.clear();
+    swapGroupChecks.clear();
     groupRows.clear();
     groupOrder.clear();
     groupBox.getChildren().clear();
@@ -489,6 +606,14 @@ public class LayeredImageVisualizerView extends BorderPane {
         persistCurrentSetState();
       });
 
+      CheckBox swapCheck = new CheckBox();
+      swapCheck.setSelected(false);
+      swapCheck.setTooltip(new Tooltip("Mark this group for quick swapping"));
+      swapCheck.selectedProperty().addListener((o, ov, nv) -> {
+        if (applyingState) return;
+        persistCurrentSetState();
+      });
+
       Button nextButton = iconButton(CssIcon.redo("#8ab4f8"), "Cycle this group", () -> {
         int idx = combo.getSelectionModel().getSelectedIndex();
         if (idx < 1) idx = 0;
@@ -517,12 +642,13 @@ public class LayeredImageVisualizerView extends BorderPane {
       groupLabel.setMinWidth(110);
       groupLabel.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px;");
 
-      HBox row = new HBox(6, activeCheck, groupLabel, combo, nextButton, openButton, upButton, downButton);
+      HBox row = new HBox(6, activeCheck, swapCheck, groupLabel, combo, nextButton, openButton, upButton, downButton);
       row.setAlignment(Pos.CENTER_LEFT);
       HBox.setHgrow(combo, Priority.ALWAYS);
 
       selectors.put(groupName, combo);
       activeGroupChecks.put(groupName, activeCheck);
+      swapGroupChecks.put(groupName, swapCheck);
       groupRows.put(groupName, row);
       groupOrder.add(groupName);
     }
@@ -541,9 +667,16 @@ public class LayeredImageVisualizerView extends BorderPane {
 
   private void refreshGroupRows() {
     groupBox.getChildren().clear();
+    String filter = sanitizeId(attributeFilterField.getText());
     for (String groupName : groupOrder) {
+      if (!matchesAttributeFilter(groupName, filter)) continue;
       HBox row = groupRows.get(groupName);
       if (row != null) groupBox.getChildren().add(row);
+    }
+    if (groupBox.getChildren().isEmpty()) {
+      Label empty = new Label("No attributes match the current filter.");
+      empty.setStyle("-fx-text-fill: rgba(255,255,255,0.7);");
+      groupBox.getChildren().add(empty);
     }
   }
 
@@ -563,6 +696,220 @@ public class LayeredImageVisualizerView extends BorderPane {
       check.setSelected(active);
     }
     persistCurrentSetState();
+  }
+
+  private void setAllSwapGroups(boolean active) {
+    for (CheckBox check : swapGroupChecks.values()) {
+      check.setSelected(active);
+    }
+    persistCurrentSetState();
+  }
+
+  private void swapMarkedGroups(int direction) {
+    int swapped = 0;
+    applyingState = true;
+    for (String group : groupOrder) {
+      CheckBox mark = swapGroupChecks.get(group);
+      if (mark == null || !mark.isSelected()) continue;
+      ComboBox<LayerOption> combo = selectors.get(group);
+      if (combo == null || combo.getItems().size() <= 1) continue;
+      int idx = combo.getSelectionModel().getSelectedIndex();
+      if (idx < 1) idx = 1;
+      int next = idx + (direction < 0 ? -1 : 1);
+      if (next < 1) next = combo.getItems().size() - 1;
+      if (next >= combo.getItems().size()) next = 1;
+      combo.getSelectionModel().select(next);
+      swapped++;
+    }
+    applyingState = false;
+    if (swapped > 0) {
+      updateExpressionFromSelection();
+      redrawPreview();
+      persistCurrentSetState();
+      status("Swapped " + swapped + " marked groups.");
+    } else {
+      status("No marked groups available for swapping.");
+    }
+  }
+
+  private boolean matchesAttributeFilter(String groupName, String normalizedFilter) {
+    if (normalizedFilter == null || normalizedFilter.isBlank()) return true;
+    String groupKey = sanitizeId(groupName);
+    if (groupKey.contains(normalizedFilter)) return true;
+    ComboBox<LayerOption> combo = selectors.get(groupName);
+    if (combo == null) return false;
+    for (LayerOption option : combo.getItems()) {
+      if (option == null || option.isNone()) continue;
+      if (sanitizeId(option.label).contains(normalizedFilter)) return true;
+    }
+    return false;
+  }
+
+  private void syncSetFromImageTag() {
+    if (applyingState || sets.isEmpty()) return;
+    String tag = sanitizeId(characterIdField.getText());
+    if (tag.isBlank()) return;
+    String selected = setBox.getValue();
+    if (selected != null && sanitizeId(takeLastPathToken(selected)).equals(tag)) return;
+    String preferred = null;
+    for (String setId : setBox.getItems()) {
+      String token = sanitizeId(takeLastPathToken(setId));
+      if (token.equals(tag)) {
+        preferred = setId;
+        break;
+      }
+      if (preferred == null && token.contains(tag)) preferred = setId;
+    }
+    if (preferred == null) return;
+    applyingState = true;
+    try {
+      setBox.getSelectionModel().select(preferred);
+    } finally {
+      applyingState = false;
+    }
+    onSetSelectionChanged();
+  }
+
+  private void refreshShortforms() {
+    Map<String, String> parsed = parseAttributeShortforms(shortformsArea.getText());
+    shortforms.clear();
+    shortforms.putAll(parsed);
+    String keep = shortformBox.getValue();
+    shortformBox.getItems().setAll(shortforms.keySet());
+    if (keep != null && shortforms.containsKey(keep)) {
+      shortformBox.getSelectionModel().select(keep);
+    } else if (!shortforms.isEmpty()) {
+      shortformBox.getSelectionModel().select(0);
+    }
+  }
+
+  private void applySelectedShortform() {
+    String key = shortformBox.getValue();
+    if (key == null || key.isBlank()) {
+      status("Select a shortform first.");
+      return;
+    }
+    String expression = shortforms.get(key);
+    if (expression == null || expression.isBlank()) {
+      status("Shortform is empty.");
+      return;
+    }
+    typedAttributesField.setText(expression);
+    applyTypedAttributes(true);
+    status("Applied shortform: " + key);
+  }
+
+  private void copySelectedShortform() {
+    String key = shortformBox.getValue();
+    if (key == null || key.isBlank()) {
+      status("Select a shortform first.");
+      return;
+    }
+    String expression = shortforms.get(key);
+    if (expression == null || expression.isBlank()) {
+      status("Shortform is empty.");
+      return;
+    }
+    copy(expression);
+    status("Copied shortform: " + key);
+  }
+
+  private void applyTypedAttributes(boolean persist) {
+    Map<String, String> assignments = parseAttributeAssignments(typedAttributesField.getText());
+    if (assignments.isEmpty()) {
+      if (persist) status("No valid attributes found in typed input.");
+      return;
+    }
+    int applied = applyAttributeAssignments(assignments);
+    if (applied > 0) {
+      updateExpressionFromSelection();
+      redrawPreview();
+      if (persist) persistCurrentSetState();
+      status("Applied " + applied + " typed attributes.");
+    } else if (persist) {
+      status("Typed attributes did not match current groups.");
+    }
+  }
+
+  private int applyAttributeAssignments(Map<String, String> assignments) {
+    if (assignments == null || assignments.isEmpty()) return 0;
+    int applied = 0;
+    applyingState = true;
+    try {
+      for (Map.Entry<String, String> entry : assignments.entrySet()) {
+        String group = resolveGroupName(entry.getKey());
+        if (group == null || group.isBlank()) continue;
+        ComboBox<LayerOption> combo = selectors.get(group);
+        if (combo == null) continue;
+        LayerOption target = findOptionByValue(combo, entry.getValue());
+        if (target == null) continue;
+        combo.getSelectionModel().select(target);
+        applied++;
+      }
+    } finally {
+      applyingState = false;
+    }
+    return applied;
+  }
+
+  private String resolveGroupName(String rawGroup) {
+    String key = sanitizeId(rawGroup);
+    if (key.isBlank()) return null;
+    String alias = GROUP_TOKEN_ALIASES.getOrDefault(key, key);
+    for (String group : selectors.keySet()) {
+      if (sanitizeId(group).equals(alias)) return group;
+    }
+    for (String group : selectors.keySet()) {
+      if (sanitizeId(group).contains(alias) || alias.contains(sanitizeId(group))) return group;
+    }
+    return null;
+  }
+
+  private LayerOption findOptionByValue(ComboBox<LayerOption> combo, String rawValue) {
+    if (combo == null) return null;
+    String value = sanitizeId(rawValue);
+    if (value.isBlank()) return null;
+    if ("none".equals(value) || "off".equals(value) || "clear".equals(value) || "-".equals(value)) {
+      return combo.getItems().isEmpty() ? null : combo.getItems().get(0);
+    }
+    for (LayerOption option : combo.getItems()) {
+      if (option == null || option.isNone()) continue;
+      if (sanitizeId(option.label).equals(value)) return option;
+    }
+    for (LayerOption option : combo.getItems()) {
+      if (option == null || option.isNone()) continue;
+      if (sanitizeId(option.label).contains(value) || value.contains(sanitizeId(option.label))) return option;
+    }
+    return null;
+  }
+
+  private void copyTagAttributes(boolean includeShowKeyword, boolean includeTag) {
+    String attrs = String.join(" ", buildAttributeTokens());
+    String tag = sanitizeId(characterIdField.getText());
+    if (tag.isBlank()) tag = "character";
+    StringBuilder out = new StringBuilder();
+    if (includeShowKeyword) out.append("show ");
+    if (includeTag) {
+      out.append(tag);
+      if (!attrs.isBlank()) out.append(' ');
+    }
+    out.append(attrs);
+    copy(out.toString().trim());
+    status("Copied attribute string.");
+  }
+
+  private List<String> buildAttributeTokens() {
+    List<String> tokens = new ArrayList<>();
+    for (String group : groupOrder) {
+      ComboBox<LayerOption> combo = selectors.get(group);
+      LayerOption option = combo == null ? null : combo.getValue();
+      if (option == null || option.isNone()) continue;
+      String groupToken = sanitizeId(group);
+      String optionToken = sanitizeId(option.label);
+      if (groupToken.isBlank() || optionToken.isBlank()) continue;
+      tokens.add(groupToken + "_" + optionToken);
+    }
+    return tokens;
   }
 
   private void applyDefaultSelection() {
@@ -615,9 +962,6 @@ public class LayeredImageVisualizerView extends BorderPane {
 
   private void redrawPreview() {
     renderPreviewToCanvas(previewCanvas, true);
-    if (fullscreenCanvas != null) {
-      renderPreviewToCanvas(fullscreenCanvas, false);
-    }
   }
 
   private void renderPreviewToCanvas(Canvas canvas, boolean updateInfoLabel) {
@@ -910,66 +1254,23 @@ public class LayeredImageVisualizerView extends BorderPane {
     return button;
   }
 
-  private void openFullscreenPreview() {
-    if (fullscreenStage != null && fullscreenStage.isShowing()) {
-      fullscreenStage.toFront();
+  private void requestFullscreenToggle() {
+    if (fullscreenToggleHandler != null) {
+      fullscreenToggleHandler.run();
       return;
     }
+    status("Fullscreen toggle is unavailable in this host.");
+  }
 
-    fullscreenCanvas = new Canvas(1280, 720);
-    installViewportInteractions(fullscreenCanvas);
-    StackPane previewHost = new StackPane(fullscreenCanvas);
-    previewHost.setStyle("-fx-background-color: #0f141d;");
-
-    BorderPane root = new BorderPane(previewHost);
-    HBox topBar = new HBox();
-    topBar.setPadding(new Insets(8));
-    topBar.setAlignment(Pos.CENTER_RIGHT);
-    Button closeButton = iconButton(CssIcon.clearX("#f38ba8"), "Close fullscreen preview", () -> {
-      if (fullscreenStage != null) fullscreenStage.close();
-    });
-    topBar.getChildren().add(closeButton);
-    root.setTop(topBar);
-
-    javafx.scene.Scene scene = new javafx.scene.Scene(root, 1280, 720);
-    scene.setOnKeyPressed(e -> {
-      if (e.getCode() == KeyCode.ESCAPE && fullscreenStage != null) {
-        fullscreenStage.close();
-      }
-    });
-
-    fullscreenStage = new Stage();
-    fullscreenStage.setTitle("Layered Image Preview");
-    fullscreenStage.setScene(scene);
-    fullscreenStage.setFullScreenExitHint("Press ESC to exit fullscreen");
-    fullscreenStage.setOnHidden(e -> {
-      if (dragCanvas == fullscreenCanvas) {
-        dragCanvas = null;
-        dragDirty = false;
-      }
-      viewportFrames.remove(fullscreenCanvas);
-      fullscreenCanvas = null;
-      fullscreenStage = null;
-      redrawPreview();
-    });
-
-    scene.widthProperty().addListener((o, ov, nv) -> {
-      if (fullscreenCanvas != null) {
-        fullscreenCanvas.setWidth(Math.max(1, nv.doubleValue()));
-        redrawPreview();
-      }
-    });
-    scene.heightProperty().addListener((o, ov, nv) -> {
-      if (fullscreenCanvas != null) {
-        double top = topBar.getHeight() + topBar.getPadding().getTop() + topBar.getPadding().getBottom();
-        fullscreenCanvas.setHeight(Math.max(1, nv.doubleValue() - top));
-        redrawPreview();
-      }
-    });
-
-    fullscreenStage.show();
-    fullscreenStage.setFullScreen(true);
-    redrawPreview();
+  private void updateFullscreenButtonUi() {
+    if (fullscreenButton == null) return;
+    if (fullscreenActive) {
+      fullscreenButton.setGraphic(CssIcon.clearX("#f38ba8"));
+      fullscreenButton.setTooltip(new Tooltip("Exit panel fullscreen"));
+    } else {
+      fullscreenButton.setGraphic(CssIcon.expand("#f5c46b"));
+      fullscreenButton.setTooltip(new Tooltip("Fullscreen this panel in the current editor window"));
+    }
   }
 
   private void copySnippet() {
@@ -1311,12 +1612,17 @@ public class LayeredImageVisualizerView extends BorderPane {
 
     clearPrefix(prefix + "sel.");
     clearPrefix(prefix + "active.");
+    clearPrefix(prefix + "swap.");
 
     persisted.setProperty(prefix + "charId", sanitizeId(characterIdField.getText()));
     persisted.setProperty(prefix + "expr", sanitizeId(expressionField.getText()));
     persisted.setProperty(prefix + "autoExpr", Boolean.toString(autoExpression.isSelected()));
     persisted.setProperty(prefix + "randomActiveOnly", Boolean.toString(randomizeActiveOnly.isSelected()));
     persisted.setProperty(prefix + "matchGameFraming", Boolean.toString(matchGameFraming.isSelected()));
+    persisted.setProperty(prefix + "attributeFilter", attributeFilterField.getText() == null ? "" : attributeFilterField.getText().trim());
+    persisted.setProperty(prefix + "typedAttributes", typedAttributesField.getText() == null ? "" : typedAttributesField.getText().trim());
+    persisted.setProperty(prefix + "typedRealtime", Boolean.toString(typedRealtime.isSelected()));
+    persisted.setProperty(prefix + "shortforms", shortformsArea.getText() == null ? "" : shortformsArea.getText());
     persisted.setProperty(prefix + "focusX", formatDouble(focusXSlider.getValue()));
     persisted.setProperty(prefix + "focusY", formatDouble(focusYSlider.getValue()));
     persisted.setProperty(prefix + "crop", formatDouble(cropSlider.getValue()));
@@ -1332,6 +1638,8 @@ public class LayeredImageVisualizerView extends BorderPane {
       }
       CheckBox active = activeGroupChecks.get(group);
       persisted.setProperty(prefix + "active." + groupKey, Boolean.toString(active == null || active.isSelected()));
+      CheckBox swap = swapGroupChecks.get(group);
+      persisted.setProperty(prefix + "swap." + groupKey, Boolean.toString(swap != null && swap.isSelected()));
     }
   }
 
@@ -1347,6 +1655,11 @@ public class LayeredImageVisualizerView extends BorderPane {
       autoExpression.setSelected(parseBoolean(persisted.getProperty(prefix + "autoExpr"), true));
       randomizeActiveOnly.setSelected(parseBoolean(persisted.getProperty(prefix + "randomActiveOnly"), true));
       matchGameFraming.setSelected(parseBoolean(persisted.getProperty(prefix + "matchGameFraming"), false));
+      attributeFilterField.setText(persisted.getProperty(prefix + "attributeFilter", ""));
+      typedAttributesField.setText(persisted.getProperty(prefix + "typedAttributes", ""));
+      typedRealtime.setSelected(parseBoolean(persisted.getProperty(prefix + "typedRealtime"), true));
+      shortformsArea.setText(persisted.getProperty(prefix + "shortforms", DEFAULT_SHORTFORMS));
+      refreshShortforms();
 
       focusXSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusX"), focusXSlider.getValue()));
       focusYSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusY"), focusYSlider.getValue()));
@@ -1377,6 +1690,10 @@ public class LayeredImageVisualizerView extends BorderPane {
         CheckBox active = activeGroupChecks.get(group);
         if (active != null) {
           active.setSelected(parseBoolean(persisted.getProperty(prefix + "active." + groupKey), true));
+        }
+        CheckBox swap = swapGroupChecks.get(group);
+        if (swap != null) {
+          swap.setSelected(parseBoolean(persisted.getProperty(prefix + "swap." + groupKey), false));
         }
       }
 
@@ -1743,6 +2060,51 @@ public class LayeredImageVisualizerView extends BorderPane {
     String token = sanitizeId(rawToken);
     if (token.isBlank()) return "";
     return GROUP_TOKEN_ALIASES.getOrDefault(token, "");
+  }
+
+  static Map<String, String> parseAttributeAssignments(String raw) {
+    Map<String, String> out = new LinkedHashMap<>();
+    if (raw == null || raw.isBlank()) return out;
+    String[] tokens = raw.split("[,\\s]+");
+    for (String token : tokens) {
+      if (token == null) continue;
+      String part = token.trim();
+      if (part.isEmpty()) continue;
+      String[] kv;
+      if (part.contains("=")) {
+        kv = part.split("=", 2);
+      } else if (part.contains(":")) {
+        kv = part.split(":", 2);
+      } else if (part.contains("_")) {
+        kv = part.split("_", 2);
+      } else {
+        continue;
+      }
+      if (kv.length != 2) continue;
+      String group = sanitizeId(kv[0]);
+      String value = sanitizeId(kv[1]);
+      if (group.isBlank() || value.isBlank()) continue;
+      out.put(group, value);
+    }
+    return out;
+  }
+
+  static Map<String, String> parseAttributeShortforms(String raw) {
+    Map<String, String> out = new LinkedHashMap<>();
+    if (raw == null || raw.isBlank()) return out;
+    String[] lines = raw.split("\\R");
+    for (String line : lines) {
+      if (line == null) continue;
+      String work = line.trim();
+      if (work.isBlank() || work.startsWith("#")) continue;
+      int eq = work.indexOf('=');
+      if (eq <= 0) continue;
+      String key = sanitizeId(work.substring(0, eq));
+      String value = work.substring(eq + 1).trim();
+      if (key.isBlank() || value.isBlank()) continue;
+      out.put(key, value);
+    }
+    return out;
   }
 
   private static Slider slider(double min, double max, double value) {

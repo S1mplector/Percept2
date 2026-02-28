@@ -116,6 +116,8 @@ public class EditorApp extends Application {
   private SplitPane centerSplit;
   private boolean editorFullscreen;
   private double[] savedCenterDividers;
+  private boolean layeredVisualizerFullscreen;
+  private double[] savedLayeredVisualizerDividers;
   private WelcomeCenterView welcomeView;
   private Tab tabWelcome;
   private Tab tabProject;
@@ -536,7 +538,7 @@ public class EditorApp extends Application {
     miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
     miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
-    MenuItem miShowLayeredVisualizer = new MenuItem("Layered Image Visualizer");
+    MenuItem miShowLayeredVisualizer = new MenuItem("Image Attributes Tool");
     miShowLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miShowPuppeteerLauncher = new MenuItem("Puppeteer Launcher");
     miShowPuppeteerLauncher.setOnAction(e -> selectPuppeteerLauncherTab());
@@ -591,7 +593,7 @@ public class EditorApp extends Application {
     miMenuFlow.setOnAction(e -> selectMenuFlowTab());
     MenuItem miLayoutLauncher = new MenuItem("Layout Launcher");
     miLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
-    MenuItem miLayeredVisualizer = new MenuItem("Layered Image Visualizer");
+    MenuItem miLayeredVisualizer = new MenuItem("Image Attributes Tool");
     miLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
 
     Menu menuVnsTools = new Menu("VNS Analysis");
@@ -793,6 +795,8 @@ public class EditorApp extends Application {
     });
     layeredImageVisualizerView = new LayeredImageVisualizerView();
     layeredImageVisualizerView.setProjectRoot(projectRoot);
+    layeredImageVisualizerView.setOnToggleFullscreen(this::toggleLayeredImageVisualizerFullscreen);
+    layeredImageVisualizerView.setFullscreenActive(false);
     menuFlowEditorView = new MenuFlowEditorView();
     menuFlowEditorView.setProjectRoot(projectRoot);
     menuFlowEditorView.setOnOpenFile(target -> {
@@ -979,6 +983,10 @@ public class EditorApp extends Application {
 
   private void toggleActiveEditorFullscreen() {
     if (centerSplit == null) return;
+    if (layeredVisualizerFullscreen) {
+      restoreLayeredImageVisualizerLayout(true);
+      return;
+    }
     if (!editorFullscreen) {
       // Save current divider positions and collapse sidebars
       savedCenterDividers = centerSplit.getDividerPositions().clone();
@@ -992,6 +1000,45 @@ public class EditorApp extends Application {
       centerSplit.setDividerPositions(Math.max(0.05, left), Math.min(0.95, right));
       editorFullscreen = false;
       status.setText("Editor layout restored");
+    }
+  }
+
+  private void toggleLayeredImageVisualizerFullscreen() {
+    if (centerSplit == null || rightTabs == null) return;
+    if (layeredVisualizerFullscreen) {
+      restoreLayeredImageVisualizerLayout(true);
+      return;
+    }
+    if (editorFullscreen) {
+      toggleActiveEditorFullscreen();
+    }
+    Tab layeredTab = ensureLayeredImageVisualizerTab(rightTabs);
+    if (layeredTab == null || layeredTab.getTabPane() == null) return;
+    layeredTab.getTabPane().getSelectionModel().select(layeredTab);
+    savedLayeredVisualizerDividers = centerSplit.getDividerPositions().clone();
+    centerSplit.setDividerPositions(0.0, 0.0);
+    layeredVisualizerFullscreen = true;
+    if (layeredImageVisualizerView != null) {
+      layeredImageVisualizerView.setFullscreenActive(true);
+    }
+    status.setText("Layered visualizer fullscreen — use the fullscreen button again to restore");
+  }
+
+  private void restoreLayeredImageVisualizerLayout(boolean announce) {
+    double left = savedLayeredVisualizerDividers != null && savedLayeredVisualizerDividers.length >= 2
+        ? savedLayeredVisualizerDividers[0]
+        : 0.22;
+    double right = savedLayeredVisualizerDividers != null && savedLayeredVisualizerDividers.length >= 2
+        ? savedLayeredVisualizerDividers[1]
+        : 0.78;
+    centerSplit.setDividerPositions(Math.max(0.05, left), Math.min(0.95, right));
+    savedLayeredVisualizerDividers = null;
+    layeredVisualizerFullscreen = false;
+    if (layeredImageVisualizerView != null) {
+      layeredImageVisualizerView.setFullscreenActive(false);
+    }
+    if (announce) {
+      status.setText("Layered visualizer layout restored");
     }
   }
 
@@ -1699,9 +1746,14 @@ public class EditorApp extends Application {
   private Tab ensureLayeredImageVisualizerTab(TabPane targetPane) {
     if (targetPane == null || layeredImageVisualizerView == null) return null;
     if (tabLayeredImageVisualizer == null) {
-      tabLayeredImageVisualizer = new Tab("Layered Images", layeredImageVisualizerView);
+      tabLayeredImageVisualizer = new Tab("Image Tools", layeredImageVisualizerView);
       tabLayeredImageVisualizer.setClosable(true);
-      tabLayeredImageVisualizer.setOnClosed(e -> tabLayeredImageVisualizer = null);
+      tabLayeredImageVisualizer.setOnClosed(e -> {
+        if (layeredVisualizerFullscreen) {
+          restoreLayeredImageVisualizerLayout(false);
+        }
+        tabLayeredImageVisualizer = null;
+      });
     }
     attachPanelTabToPane(tabLayeredImageVisualizer, targetPane);
     return tabLayeredImageVisualizer;
@@ -1780,7 +1832,7 @@ public class EditorApp extends Application {
       if (t != null && pane != null) pane.getSelectionModel().select(t);
       if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
     });
-    addChooserActionButton(actions, panelActionLabel("Layered Image Visualizer", tabLayeredImageVisualizer, pane), "icon-panel-layered", () -> {
+    addChooserActionButton(actions, panelActionLabel("Image Attributes Tool", tabLayeredImageVisualizer, pane), "icon-panel-layered", () -> {
       Tab t = ensureLayeredImageVisualizerTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
       if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();

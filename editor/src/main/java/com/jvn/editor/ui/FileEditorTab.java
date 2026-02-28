@@ -14,7 +14,13 @@ import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
+import javafx.animation.AnimationTimer;
+import javafx.geometry.Orientation;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.ToggleButton;
@@ -23,9 +29,14 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
+import javafx.stage.Stage;
 
 public class FileEditorTab extends BorderPane {
   public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, MENU_SCREEN, MENU_LAYOUT, MENU_STYLE, DIALOGUE_LAYOUT, OTHER }
+  private enum PreviewDockPosition { TOP, BOTTOM, LEFT, RIGHT, WINDOW }
+  private enum PreviewLayoutMode { PREVIEW, CODE, SPLIT }
 
   private final File file;
   private final Kind kind;
@@ -60,8 +71,24 @@ public class FileEditorTab extends BorderPane {
   private double lastSizedWidth = -1;
   private double lastSizedHeight = -1;
   private SplitPane primarySplit;
+  private int primarySplitCodeIndex = 1;
   private boolean editorFullscreen;
   private double restoreDividerPosition = 0.6;
+  private BorderPane previewWorkspaceContent;
+  private Node dockPreviewNode;
+  private Node dockEditorNode;
+  private ToggleButton previewModePreviewButton;
+  private ToggleButton previewModeCodeButton;
+  private ToggleButton previewModeSplitButton;
+  private MenuButton previewDockMenu;
+  private PreviewDockPosition previewDockPosition = PreviewDockPosition.TOP;
+  private PreviewDockPosition lastEmbeddedPreviewDock = PreviewDockPosition.TOP;
+  private Stage detachedPreviewStage;
+  private AnimationTimer detachedPreviewTimer;
+  private long detachedPreviewLastNs = -1L;
+  private double verticalDockDivider = 0.6;
+  private double horizontalDockDivider = 0.5;
+  private PreviewLayoutMode previewModeBeforeDetach = PreviewLayoutMode.SPLIT;
   private boolean disposed;
 
   public FileEditorTab(File file) {
@@ -176,15 +203,15 @@ public class FileEditorTab extends BorderPane {
 
   private void setupLayout() {
     if (kind == Kind.JES) {
-      setCenter(createVerticalSplit(viewport, jesEditor, 0.6));
+      setCenter(createPreviewWorkspace("JES Preview", viewport, jesEditor, 0.6));
     } else if (kind == Kind.VNS) {
-      setCenter(createVerticalSplit(vnPreview, vnsEditor, 0.6));
+      setCenter(createPreviewWorkspace("VNS Preview", vnPreview, vnsEditor, 0.6));
     } else if (kind == Kind.JAVA) {
       setCenter(javaEditor);
     } else if (kind == Kind.TIMELINE) {
-      setCenter(createVerticalSplit(timelineView, timelineEditor, 0.6));
+      setCenter(createPreviewWorkspace("Timeline Preview", timelineView, timelineEditor, 0.6));
     } else if (kind == Kind.THEME) {
-      setCenter(createVerticalSplit(themePreview, themeEditor, 0.6));
+      setCenter(createPreviewWorkspace("Theme Preview", themePreview, themeEditor, 0.6));
       if (themeEditor != null && themePreview != null) {
         String text = themeEditor.getText(); if (text == null) text = "";
         themePreview.setThemeFromText(text);
@@ -228,6 +255,7 @@ public class FileEditorTab extends BorderPane {
   }
 
   public void render(long dt) {
+    if (isDetachedPreviewVisible()) return;
     if (kind == Kind.JES && viewport != null) {
       viewport.render(dt);
     } else if (kind == Kind.VNS && vnPreview != null) {
@@ -243,10 +271,7 @@ public class FileEditorTab extends BorderPane {
     if (Math.abs(lastSizedWidth - safeW) < 0.5 && Math.abs(lastSizedHeight - safeH) < 0.5) return;
     lastSizedWidth = safeW;
     lastSizedHeight = safeH;
-    double previewH = sanitizeDimension(safeH * 0.6);
-    if (viewport != null) viewport.setSize(safeW, previewH);
-    if (vnPreview != null) vnPreview.setSize(safeW, previewH);
-    if (themePreview != null) themePreview.setSize(safeW, previewH);
+    applyPreviewSizing(safeW, safeH);
   }
 
   public void apply() throws Exception {
@@ -424,6 +449,7 @@ public class FileEditorTab extends BorderPane {
   public void dispose() {
     if (disposed) return;
     disposed = true;
+    closeDetachedPreviewWindow(true);
     stopPreviewAudio();
     if (vnPreview != null) vnPreview.dispose();
   }
@@ -451,7 +477,8 @@ public class FileEditorTab extends BorderPane {
     if (!editorFullscreen) {
       double pos = currentDividerPosition();
       restoreDividerPosition = (pos > 0.02 && pos < 0.98) ? pos : restoreDividerPosition;
-      primarySplit.setDividerPositions(0.0);
+      double codeOnly = primarySplitCodeIndex <= 0 ? 1.0 : 0.0;
+      primarySplit.setDividerPositions(codeOnly);
       editorFullscreen = true;
     } else {
       double restore = Math.max(0.05, Math.min(0.95, restoreDividerPosition));
@@ -461,14 +488,296 @@ public class FileEditorTab extends BorderPane {
   }
 
   private SplitPane createVerticalSplit(Node top, Node bottom, double divider) {
+    return createSplit(top, bottom, Orientation.VERTICAL, divider, 1);
+  }
+
+  private SplitPane createSplit(Node first, Node second, Orientation orientation, double divider, int codeIndex) {
+    detachFromParent(first);
+    detachFromParent(second);
     SplitPane sp = new SplitPane();
-    sp.setOrientation(javafx.geometry.Orientation.VERTICAL);
-    sp.getItems().addAll(top, bottom);
+    sp.setOrientation(orientation);
+    sp.getItems().addAll(first, second);
     sp.setDividerPositions(divider);
     primarySplit = sp;
+    primarySplitCodeIndex = codeIndex <= 0 ? 0 : 1;
     restoreDividerPosition = divider;
     editorFullscreen = false;
     return sp;
+  }
+
+  private Node createPreviewWorkspace(String title, Node previewNode, Node editorNode, double divider) {
+    BorderPane root = new BorderPane();
+    previewWorkspaceContent = new BorderPane();
+    dockPreviewNode = previewNode;
+    dockEditorNode = editorNode;
+    previewDockPosition = PreviewDockPosition.TOP;
+    lastEmbeddedPreviewDock = PreviewDockPosition.TOP;
+    verticalDockDivider = clampDivider(divider);
+    horizontalDockDivider = 0.5;
+
+    previewModePreviewButton = new ToggleButton("Preview");
+    previewModeCodeButton = new ToggleButton("Code");
+    previewModeSplitButton = new ToggleButton("Split");
+    ToggleGroup modeGroup = new ToggleGroup();
+    previewModePreviewButton.setToggleGroup(modeGroup);
+    previewModeCodeButton.setToggleGroup(modeGroup);
+    previewModeSplitButton.setToggleGroup(modeGroup);
+    previewModeSplitButton.setSelected(true);
+
+    MenuItem dockTop = new MenuItem("Snap Top");
+    dockTop.setOnAction(e -> setPreviewDockPosition(PreviewDockPosition.TOP));
+    MenuItem dockBottom = new MenuItem("Snap Bottom");
+    dockBottom.setOnAction(e -> setPreviewDockPosition(PreviewDockPosition.BOTTOM));
+    MenuItem dockLeft = new MenuItem("Snap Left");
+    dockLeft.setOnAction(e -> setPreviewDockPosition(PreviewDockPosition.LEFT));
+    MenuItem dockRight = new MenuItem("Snap Right");
+    dockRight.setOnAction(e -> setPreviewDockPosition(PreviewDockPosition.RIGHT));
+    MenuItem dockWindow = new MenuItem("Open Separate Window");
+    dockWindow.setOnAction(e -> setPreviewDockPosition(PreviewDockPosition.WINDOW));
+    MenuItem dockBack = new MenuItem("Re-dock from Window");
+    dockBack.setOnAction(e -> closeDetachedPreviewWindow(false));
+
+    previewDockMenu = new MenuButton("Snap");
+    previewDockMenu.getItems().addAll(dockTop, dockBottom, dockLeft, dockRight, dockWindow, dockBack);
+
+    Label titleLabel = new Label(title == null ? "Preview" : title);
+    titleLabel.getStyleClass().add("muted");
+
+    HBox toolbar = new HBox(8, titleLabel, previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu);
+    toolbar.setPadding(new javafx.geometry.Insets(6, 6, 6, 6));
+    toolbar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+    root.setTop(toolbar);
+    root.setCenter(previewWorkspaceContent);
+
+    modeGroup.selectedToggleProperty().addListener((o, ov, nv) -> {
+      if (nv == null) previewModeSplitButton.setSelected(true);
+      applyPreviewWorkspaceMode();
+    });
+
+    applyPreviewWorkspaceMode();
+    return root;
+  }
+
+  private void setPreviewDockPosition(PreviewDockPosition position) {
+    if (position == null || dockPreviewNode == null || dockEditorNode == null) return;
+    if (position == PreviewDockPosition.WINDOW) {
+      openDetachedPreviewWindow();
+      return;
+    }
+    lastEmbeddedPreviewDock = position;
+    previewDockPosition = position;
+    closeDetachedPreviewWindow(false);
+    applyPreviewWorkspaceMode();
+  }
+
+  private PreviewLayoutMode currentPreviewLayoutMode() {
+    if (previewModePreviewButton != null && previewModePreviewButton.isSelected()) return PreviewLayoutMode.PREVIEW;
+    if (previewModeCodeButton != null && previewModeCodeButton.isSelected()) return PreviewLayoutMode.CODE;
+    return PreviewLayoutMode.SPLIT;
+  }
+
+  private void restorePreviewLayoutMode() {
+    if (previewModeBeforeDetach == PreviewLayoutMode.PREVIEW && previewModePreviewButton != null) {
+      previewModePreviewButton.setSelected(true);
+      return;
+    }
+    if (previewModeBeforeDetach == PreviewLayoutMode.SPLIT && previewModeSplitButton != null) {
+      previewModeSplitButton.setSelected(true);
+      return;
+    }
+    if (previewModeCodeButton != null) {
+      previewModeCodeButton.setSelected(true);
+      return;
+    }
+    applyPreviewWorkspaceMode();
+  }
+
+  private void applyPreviewWorkspaceMode() {
+    if (previewWorkspaceContent == null || dockEditorNode == null) return;
+    PreviewLayoutMode mode = currentPreviewLayoutMode();
+    boolean detached = isDetachedPreviewVisible();
+
+    if (!detached && mode == PreviewLayoutMode.SPLIT && dockPreviewNode != null) {
+      PreviewDockPosition dock = previewDockPosition == PreviewDockPosition.WINDOW ? lastEmbeddedPreviewDock : previewDockPosition;
+      previewWorkspaceContent.setCenter(buildDockedPreviewSplit(dock));
+    } else if (!detached && mode == PreviewLayoutMode.PREVIEW && dockPreviewNode != null) {
+      detachFromParent(dockPreviewNode);
+      previewWorkspaceContent.setCenter(dockPreviewNode);
+      primarySplit = null;
+      editorFullscreen = false;
+    } else {
+      detachFromParent(dockEditorNode);
+      previewWorkspaceContent.setCenter(dockEditorNode);
+      primarySplit = null;
+      editorFullscreen = false;
+    }
+    updatePreviewDockMenuText();
+    refreshPreviewSizeFromLast();
+  }
+
+  private SplitPane buildDockedPreviewSplit(PreviewDockPosition dock) {
+    if (dockPreviewNode == null || dockEditorNode == null) return createVerticalSplit(new Label("No preview"), dockEditorNode, 0.6);
+    PreviewDockPosition resolved = dock == null ? PreviewDockPosition.TOP : dock;
+    SplitPane split;
+    if (resolved == PreviewDockPosition.BOTTOM) {
+      split = createSplit(dockEditorNode, dockPreviewNode, Orientation.VERTICAL, verticalDockDivider, 0);
+    } else if (resolved == PreviewDockPosition.LEFT) {
+      split = createSplit(dockPreviewNode, dockEditorNode, Orientation.HORIZONTAL, horizontalDockDivider, 1);
+    } else if (resolved == PreviewDockPosition.RIGHT) {
+      split = createSplit(dockEditorNode, dockPreviewNode, Orientation.HORIZONTAL, horizontalDockDivider, 0);
+    } else {
+      split = createSplit(dockPreviewNode, dockEditorNode, Orientation.VERTICAL, verticalDockDivider, 1);
+    }
+    if (!split.getDividers().isEmpty()) {
+      split.getDividers().get(0).positionProperty().addListener((o, ov, nv) -> {
+        if (split.getOrientation() == Orientation.VERTICAL) {
+          verticalDockDivider = clampDivider(nv.doubleValue());
+        } else {
+          horizontalDockDivider = clampDivider(nv.doubleValue());
+        }
+      });
+    }
+    return split;
+  }
+
+  private void openDetachedPreviewWindow() {
+    if (dockPreviewNode == null) return;
+    if (detachedPreviewStage != null && detachedPreviewStage.isShowing()) {
+      detachedPreviewStage.toFront();
+      return;
+    }
+    previewModeBeforeDetach = currentPreviewLayoutMode();
+    if (previewDockPosition != PreviewDockPosition.WINDOW) {
+      lastEmbeddedPreviewDock = previewDockPosition;
+    }
+    previewDockPosition = PreviewDockPosition.WINDOW;
+
+    detachFromParent(dockPreviewNode);
+    StackPane host = new StackPane(dockPreviewNode);
+    Scene scene = new Scene(host, Math.max(640.0, lastSizedWidth * 0.75), Math.max(360.0, lastSizedHeight * 0.65));
+    scene.widthProperty().addListener((o, ov, nv) -> refreshPreviewSizeFromLast());
+    scene.heightProperty().addListener((o, ov, nv) -> refreshPreviewSizeFromLast());
+
+    Stage stage = new Stage();
+    stage.setTitle((file != null ? file.getName() : "Preview") + " - Detached Preview");
+    stage.setScene(scene);
+    stage.setOnHidden(e -> {
+      if (detachedPreviewStage != stage) return;
+      detachedPreviewStage = null;
+      stopDetachedPreviewTimer();
+      previewDockPosition = lastEmbeddedPreviewDock;
+      restorePreviewLayoutMode();
+    });
+    detachedPreviewStage = stage;
+    stage.show();
+    if (previewModeBeforeDetach != PreviewLayoutMode.CODE && previewModeCodeButton != null) {
+      previewModeCodeButton.setSelected(true);
+    }
+    startDetachedPreviewTimer();
+    applyPreviewWorkspaceMode();
+  }
+
+  private void closeDetachedPreviewWindow(boolean disposing) {
+    if (detachedPreviewStage == null) return;
+    Stage stage = detachedPreviewStage;
+    detachedPreviewStage = null;
+    stopDetachedPreviewTimer();
+    Parent parent = dockPreviewNode == null ? null : dockPreviewNode.getParent();
+    if (parent instanceof Pane pane) {
+      pane.getChildren().remove(dockPreviewNode);
+    }
+    if (stage.isShowing()) stage.hide();
+    if (disposing) return;
+    previewDockPosition = lastEmbeddedPreviewDock;
+    restorePreviewLayoutMode();
+  }
+
+  private boolean isDetachedPreviewVisible() {
+    return detachedPreviewStage != null && detachedPreviewStage.isShowing();
+  }
+
+  private void startDetachedPreviewTimer() {
+    if (detachedPreviewTimer != null) return;
+    detachedPreviewLastNs = -1L;
+    detachedPreviewTimer = new AnimationTimer() {
+      @Override
+      public void handle(long now) {
+        if (!isDetachedPreviewVisible()) return;
+        if (detachedPreviewLastNs < 0L) {
+          detachedPreviewLastNs = now;
+          return;
+        }
+        long dt = (now - detachedPreviewLastNs) / 1_000_000L;
+        detachedPreviewLastNs = now;
+        if (kind == Kind.JES && viewport != null) {
+          viewport.render(dt);
+        } else if (kind == Kind.VNS && vnPreview != null) {
+          vnPreview.render(dt);
+        } else if (kind == Kind.THEME && themePreview != null) {
+          themePreview.render(dt);
+        }
+      }
+    };
+    detachedPreviewTimer.start();
+  }
+
+  private void stopDetachedPreviewTimer() {
+    if (detachedPreviewTimer == null) return;
+    detachedPreviewTimer.stop();
+    detachedPreviewTimer = null;
+    detachedPreviewLastNs = -1L;
+  }
+
+  private void updatePreviewDockMenuText() {
+    if (previewDockMenu == null) return;
+    String label;
+    if (isDetachedPreviewVisible()) {
+      label = "Window";
+    } else {
+      PreviewDockPosition dock = previewDockPosition == PreviewDockPosition.WINDOW ? lastEmbeddedPreviewDock : previewDockPosition;
+      label = switch (dock) {
+        case LEFT -> "Left";
+        case RIGHT -> "Right";
+        case BOTTOM -> "Bottom";
+        case WINDOW -> "Window";
+        case TOP -> "Top";
+      };
+    }
+    previewDockMenu.setText("Snap: " + label);
+  }
+
+  private void refreshPreviewSizeFromLast() {
+    if (lastSizedWidth <= 0 || lastSizedHeight <= 0) return;
+    applyPreviewSizing(lastSizedWidth, lastSizedHeight);
+  }
+
+  private void applyPreviewSizing(double safeW, double safeH) {
+    double previewW = safeW;
+    double previewH = sanitizeDimension(safeH * 0.6);
+
+    if (isDetachedPreviewVisible() && detachedPreviewStage != null && detachedPreviewStage.getScene() != null) {
+      previewW = sanitizeDimension(detachedPreviewStage.getScene().getWidth());
+      previewH = sanitizeDimension(detachedPreviewStage.getScene().getHeight());
+    } else if (previewModePreviewButton != null && previewModePreviewButton.isSelected()) {
+      previewW = safeW;
+      previewH = safeH;
+    } else if (previewModeSplitButton != null && previewModeSplitButton.isSelected() && primarySplit != null) {
+      double pos = currentDividerPosition();
+      double ratio = primarySplitCodeIndex == 1 ? pos : (1.0 - pos);
+      ratio = clampDivider(ratio);
+      if (primarySplit.getOrientation() == Orientation.HORIZONTAL) {
+        previewW = sanitizeDimension(safeW * ratio);
+        previewH = safeH;
+      } else {
+        previewW = safeW;
+        previewH = sanitizeDimension(safeH * ratio);
+      }
+    }
+
+    if (viewport != null) viewport.setSize(previewW, previewH);
+    if (vnPreview != null) vnPreview.setSize(previewW, previewH);
+    if (themePreview != null) themePreview.setSize(previewW, previewH);
   }
 
   private Node createStudioWorkspace(String title, Node designNode, Node codeNode, double divider) {
@@ -497,12 +806,16 @@ public class FileEditorTab extends BorderPane {
       if (bSplit.isSelected()) {
         content.setCenter(createVerticalSplit(designNode, codeNode, divider));
       } else if (bCode.isSelected()) {
+        detachFromParent(codeNode);
         content.setCenter(codeNode);
         primarySplit = null;
+        primarySplitCodeIndex = 1;
         editorFullscreen = false;
       } else {
+        detachFromParent(designNode);
         content.setCenter(designNode);
         primarySplit = null;
+        primarySplitCodeIndex = 1;
         editorFullscreen = false;
       }
     };
@@ -627,6 +940,32 @@ public class FileEditorTab extends BorderPane {
     if (kind == Kind.JAVA && javaEditor != null) return javaEditor.getText();
     if (kind == Kind.OTHER && textEditor != null) return textEditor.getText();
     return "";
+  }
+
+  private static void detachFromParent(Node node) {
+    if (node == null) return;
+    Parent parent = node.getParent();
+    if (parent == null) return;
+    if (parent instanceof SplitPane split) {
+      split.getItems().remove(node);
+      return;
+    }
+    if (parent instanceof BorderPane border) {
+      if (border.getCenter() == node) border.setCenter(null);
+      else if (border.getTop() == node) border.setTop(null);
+      else if (border.getBottom() == node) border.setBottom(null);
+      else if (border.getLeft() == node) border.setLeft(null);
+      else if (border.getRight() == node) border.setRight(null);
+      return;
+    }
+    if (parent instanceof Pane pane) {
+      pane.getChildren().remove(node);
+    }
+  }
+
+  private static double clampDivider(double value) {
+    if (!Double.isFinite(value)) return 0.5;
+    return Math.max(0.05, Math.min(0.95, value));
   }
 
   private static String mapKey(KeyCode code) {

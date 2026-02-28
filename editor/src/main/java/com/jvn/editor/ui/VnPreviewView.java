@@ -1,7 +1,11 @@
 package com.jvn.editor.ui;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Properties;
 
 import com.jvn.audio.simp3.Simp3AudioService;
 import com.jvn.core.audio.AudioFacade;
@@ -41,6 +45,7 @@ public class VnPreviewView extends StackPane {
   private double mouseX, mouseY;
   private AudioFacade audio;
   private File projectRoot;
+  private String audioBackend = "auto";
 
   public VnPreviewView() {
     getChildren().add(canvas);
@@ -70,15 +75,20 @@ public class VnPreviewView extends StackPane {
   }
 
   public void setProjectRoot(File root) {
-    if (!Objects.equals(this.projectRoot, root)) {
+    String nextBackend = readAudioBackendFromManifest(root);
+    boolean rootChanged = !Objects.equals(this.projectRoot, root);
+    boolean backendChanged = !Objects.equals(this.audioBackend, nextBackend);
+    if (rootChanged || backendChanged) {
       stopAudio();
+      audio = null;
     }
+    this.audioBackend = nextBackend;
     this.projectRoot = root;
     renderer.setProjectRoot(root);
     bindProjectRoot(audio, root);
     if (scene != null) {
       if (audio == null) {
-        audio = createAudioFacade(root);
+        audio = createAudioFacade(root, audioBackend);
       }
       scene.setAudioFacade(audio);
     }
@@ -121,7 +131,7 @@ public class VnPreviewView extends StackPane {
     interop.setSceneAccessor(accessor);
     renderer.setTimelineAccessor(accessor);
     nextScene.setInterop(interop);
-    if (audio == null) audio = createAudioFacade(projectRoot);
+    if (audio == null) audio = createAudioFacade(projectRoot, audioBackend);
     bindProjectRoot(audio, projectRoot);
     nextScene.setAudioFacade(audio);
     if (startLabel != null && !startLabel.isBlank()) {
@@ -471,8 +481,40 @@ public class VnPreviewView extends StackPane {
     renderer.setProjectRoot(null);
   }
 
-  private AudioFacade createAudioFacade(File root) {
+  static String normalizeAudioBackendValue(String raw) {
+    if (raw == null || raw.isBlank()) return "auto";
+    String key = raw.trim().toLowerCase(Locale.ROOT);
+    if ("fx".equals(key) || "javafx".equals(key)) return "fx";
+    if ("simp3".equals(key) || "simp".equals(key)) return "simp3";
+    return "auto";
+  }
+
+  static String resolveAudioBackend(Properties manifest) {
+    if (manifest == null) return "auto";
+    return normalizeAudioBackendValue(manifest.getProperty("runtime.audio", "auto"));
+  }
+
+  private static String readAudioBackendFromManifest(File root) {
+    if (root == null || !root.isDirectory()) return "auto";
+    File manifest = new File(root, "jvn.project");
+    if (!manifest.isFile()) return "auto";
+    Properties props = new Properties();
+    try (InputStream in = new FileInputStream(manifest)) {
+      props.load(in);
+      return resolveAudioBackend(props);
+    } catch (Exception ignored) {
+      return "auto";
+    }
+  }
+
+  private AudioFacade createAudioFacade(File root, String backend) {
+    String selected = normalizeAudioBackendValue(backend);
     AudioFacade facade;
+    if ("fx".equals(selected)) {
+      FxAudioService fx = new FxAudioService();
+      fx.setProjectRoot(root);
+      return fx;
+    }
     try {
       Simp3AudioService simp3 = new Simp3AudioService();
       simp3.setProjectRoot(root);
