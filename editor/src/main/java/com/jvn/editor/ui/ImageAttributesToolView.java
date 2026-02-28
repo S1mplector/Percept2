@@ -99,17 +99,6 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
       "# happy = eyes_neutral mouth_smile",
       "# upset = eyes_angry mouth_open");
 
-  private static final String TUTORIAL_TEXT = String.join("\n",
-      "Image Attributes Tool (JVN)",
-      "",
-      "1) Pick an image tag (character set) from Tag.",
-      "2) In Attributes, each row is a conflict group (one value at a time).",
-      "3) Mark swap groups, then use prev/next or randomize for fast expression iteration.",
-      "4) Use Typed to enter attributes directly (eyes=angry mouth=smile or eyes_angry).",
-      "5) Store reusable shorthand macros in Shortforms.",
-      "6) Export as show/tag/attrs or JVN @charimg + [show].",
-      "7) Drag the preview to pan and mouse wheel to zoom.");
-
   private final Label summaryLabel = new Label("Open a project to scan image tags.");
   private final Label statusLabel = new Label("");
   private final Label previewInfoLabel = new Label("No active attributes.");
@@ -130,7 +119,6 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   private final CheckBox typedRealtime = new CheckBox("Realtime preview");
   private final TextArea shortformsArea = new TextArea(DEFAULT_SHORTFORMS);
   private final ComboBox<String> shortformBox = new ComboBox<>();
-  private final TextArea tutorialArea = new TextArea(TUTORIAL_TEXT);
 
   private final CheckBox randomizeMarkedOnly = new CheckBox("Randomize marked only");
 
@@ -358,22 +346,14 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
         shortformRow);
     shortformsRoot.setPadding(new Insets(8));
 
-    tutorialArea.setEditable(false);
-    tutorialArea.setWrapText(true);
-    tutorialArea.setPrefRowCount(9);
-    VBox tutorialRoot = new VBox(tutorialArea);
-    tutorialRoot.setPadding(new Insets(8));
-
     TabPane tabs = new TabPane();
     Tab attributesTab = new Tab("Attributes", attributesRoot);
     Tab typedTab = new Tab("Typed", typedRoot);
     Tab shortformsTab = new Tab("Shortforms", shortformsRoot);
-    Tab tutorialTab = new Tab("Tutorial", tutorialRoot);
     attributesTab.setClosable(false);
     typedTab.setClosable(false);
     shortformsTab.setClosable(false);
-    tutorialTab.setClosable(false);
-    tabs.getTabs().addAll(attributesTab, typedTab, shortformsTab, tutorialTab);
+    tabs.getTabs().addAll(attributesTab, typedTab, shortformsTab);
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
     VBox exportRoot = new VBox(8, expressionRow, exportRow);

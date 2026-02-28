@@ -16,6 +16,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import javafx.geometry.Insets;
@@ -27,7 +29,6 @@ import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
@@ -41,6 +42,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -53,16 +55,9 @@ import javafx.scene.text.TextAlignment;
 public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private static final String STATE_FILE = ".jvn/image-tint-tool.properties";
   private static final String TOOL_TITLE = "Image Tint Tool";
-  private static final String TUTORIAL_TEXT = String.join("\n",
-      "Image Tint Tool (JVN)",
-      "",
-      "1) Choose a character image tag and optional background tag.",
-      "2) Drag the character in preview with left-click and drag.",
-      "3) Zoom with mouse wheel.",
-      "4) Use tint color + strength + saturation + contrast sliders.",
-      "5) Save setups for quick recall.",
-      "6) Tint values are auto-restored per background tag.",
-      "7) Copy tint recipe to clipboard for scripting/reference.");
+  private static final String PRESET_TAG_PREFIX = "preset:";
+  private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
 
   private static final String DEFAULT_EXPORT_PROFILE = "Tint Profile";
   private static final String DEFAULT_EXPORT_SETUP = "Full Setup";
@@ -82,13 +77,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Slider tintStrengthSlider = slider(0, 100, 30);
   private final Slider saturationSlider = slider(-100, 100, 0);
   private final Slider contrastSlider = slider(-100, 100, 0);
+  private final Region tintColorSwatch = new Region();
 
   private final Canvas previewCanvas = new Canvas(320, 240);
-  private final TextArea tutorialArea = new TextArea(TUTORIAL_TEXT);
   private final VBox controlsSection = new VBox(8);
   private TitledPane controlsPane;
 
   private final Map<String, File> imageByTag = new LinkedHashMap<>();
+  private final Map<String, PresetTagEntry> presetByTag = new LinkedHashMap<>();
   private final Map<String, String> setupNameToKey = new LinkedHashMap<>();
   private final Map<String, Image> imageCache = new HashMap<>();
   private final Properties persisted = new Properties();
@@ -198,8 +194,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     saturationSlider.valueProperty().addListener((o, ov, nv) -> onTintChanged(true));
     contrastSlider.valueProperty().addListener((o, ov, nv) -> onTintChanged(true));
 
+    updateTintColorSwatch(tintColorPicker.getValue());
     controlsSection.getChildren().setAll(
-        tintRow("Tint color", tintColorPicker),
+        tintPickerRow("Tint color"),
         sliderRow("Tint strength", tintStrengthSlider),
         sliderRow("Saturation", saturationSlider),
         sliderRow("Contrast", contrastSlider));
@@ -211,15 +208,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       if (!applyingState) persistGlobalState();
     });
 
-    TitledPane tutorialPane = new TitledPane("Tutorial", tutorialArea);
-    tutorialPane.setExpanded(false);
-    tutorialPane.setAnimated(false);
-    tutorialPane.setCollapsible(true);
-    tutorialArea.setEditable(false);
-    tutorialArea.setWrapText(true);
-    tutorialArea.setPrefRowCount(8);
-
-    VBox center = new VBox(8, previewPane, previewInfoLabel, interactionHintLabel, actionRow, controlsPane, tutorialPane, statusLabel);
+    VBox center = new VBox(8, previewPane, previewInfoLabel, interactionHintLabel, actionRow, controlsPane, statusLabel);
     center.setPadding(new Insets(8, 0, 0, 0));
     setCenter(center);
 
@@ -252,6 +241,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void onTintChanged(boolean redraw) {
+    updateTintColorSwatch(tintColorPicker.getValue());
     tintedImageTag = null;
     tintedImageKey = null;
     tintedImage = null;
@@ -286,6 +276,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persistGlobalState();
     loadPersistentState();
     imageByTag.clear();
+    presetByTag.clear();
     imageCache.clear();
     tintedImageTag = null;
     tintedImageKey = null;
@@ -309,13 +300,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
           .filter(relative -> !isIgnoredPath(relative))
           .sorted(Comparator.naturalOrder())
           .forEach(relative -> imageByTag.put(relative, root.resolve(relative).toFile()));
+      scanScriptCharpresets(root);
     } catch (Exception ex) {
       summaryLabel.setText("Image scan failed: " + ex.getMessage());
       redrawPreview();
       return;
     }
 
-    summaryLabel.setText("Images: " + imageByTag.size());
+    summaryLabel.setText("Images: " + imageByTag.size() + " | Charpresets: " + presetByTag.size());
     refreshTagLists();
     applyPersistedSelections();
     ensureDefaultSelections();
@@ -326,15 +318,15 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void refreshTagLists() {
     String keepChar = selectedCharacterTag();
     String keepBg = selectedBackgroundTag();
-    String filter = normalize(filterField.getText());
-    List<String> all = new ArrayList<>(imageByTag.keySet());
+    String filter = normalize(filterField.getText()).toLowerCase(Locale.ROOT);
+    List<String> characterTags = buildCharacterTagList();
+    List<String> bgs = new ArrayList<>(imageByTag.keySet());
     if (!filter.isBlank()) {
-      all.removeIf(tag -> !tag.toLowerCase(Locale.ROOT).contains(filter));
+      characterTags.removeIf(tag -> !tag.toLowerCase(Locale.ROOT).contains(filter));
+      bgs.removeIf(tag -> !tag.toLowerCase(Locale.ROOT).contains(filter));
     }
+    characterTagBox.getItems().setAll(characterTags);
 
-    characterTagBox.getItems().setAll(all);
-
-    List<String> bgs = new ArrayList<>(all);
     bgs.sort(Comparator.comparingInt(tag -> isLikelyBackgroundTag(tag) ? 0 : 1));
     backgroundTagBox.getItems().setAll(bgs);
 
@@ -385,8 +377,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     applyingState = true;
     try {
       String currentCharacter = selectedCharacterTag();
-      if (currentCharacter.isBlank() || !imageByTag.containsKey(currentCharacter)) {
-        String fallbackCharacter = pickDefaultCharacterTag(new ArrayList<>(imageByTag.keySet()));
+      if (currentCharacter.isBlank() || !isKnownCharacterTag(currentCharacter)) {
+        String fallbackCharacter = pickDefaultCharacterTag(buildCharacterTagList());
         if (!fallbackCharacter.isBlank()) {
           characterTagBox.getSelectionModel().select(fallbackCharacter);
           characterTagBox.getEditor().setText(fallbackCharacter);
@@ -773,6 +765,15 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     Image cached = imageCache.get(normalized);
     if (cached != null) return cached;
 
+    PresetTagEntry preset = presetByTag.get(normalized);
+    if (preset != null) {
+      Image composed = composePresetImage(preset);
+      if (composed != null) {
+        imageCache.put(normalized, composed);
+      }
+      return composed;
+    }
+
     File file = imageByTag.get(normalized);
     if (file == null && projectRoot != null) {
       file = projectRoot.toPath().resolve(normalized).toFile();
@@ -786,6 +787,31 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     } catch (Exception ignored) {
       return null;
     }
+  }
+
+  private Image composePresetImage(PresetTagEntry preset) {
+    if (preset == null || preset.layerTags().isEmpty()) return null;
+    List<Image> layers = new ArrayList<>();
+    int width = 1;
+    int height = 1;
+    for (String layerTag : preset.layerTags()) {
+      String normalizedLayerTag = normalize(layerTag);
+      if (normalizedLayerTag.isBlank() || normalizedLayerTag.equals(preset.tag())) continue;
+      Image layer = loadImage(normalizedLayerTag);
+      if (layer == null) continue;
+      layers.add(layer);
+      width = Math.max(width, (int) Math.round(layer.getWidth()));
+      height = Math.max(height, (int) Math.round(layer.getHeight()));
+    }
+    if (layers.isEmpty()) return null;
+    Canvas canvas = new Canvas(width, height);
+    GraphicsContext gc = canvas.getGraphicsContext2D();
+    for (Image layer : layers) {
+      gc.drawImage(layer, 0, 0);
+    }
+    WritableImage out = new WritableImage(width, height);
+    canvas.snapshot(null, out);
+    return out;
   }
 
   private void drawCover(GraphicsContext g, Image image, double w, double h) {
@@ -918,6 +944,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         || n.startsWith("out/");
   }
 
+  private static boolean isVnsFile(Path path) {
+    String n = path == null || path.getFileName() == null ? "" : path.getFileName().toString().toLowerCase(Locale.ROOT);
+    return n.endsWith(".vns");
+  }
+
   private static boolean isLikelyBackgroundTag(String tag) {
     String n = normalize(tag);
     return n.contains("/background")
@@ -969,6 +1000,139 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     return "..." + value.substring(value.length() - 45);
   }
 
+  private List<String> buildCharacterTagList() {
+    List<String> tags = new ArrayList<>(imageByTag.keySet());
+    tags.addAll(presetByTag.keySet());
+    tags.sort(String.CASE_INSENSITIVE_ORDER);
+    return tags;
+  }
+
+  private boolean isKnownCharacterTag(String tag) {
+    String n = normalize(tag);
+    return imageByTag.containsKey(n) || presetByTag.containsKey(n);
+  }
+
+  private void scanScriptCharpresets(Path root) {
+    Map<String, Map<String, String>> layersByCharacter = new LinkedHashMap<>();
+    List<PresetDecl> declarations = new ArrayList<>();
+    try (Stream<Path> stream = Files.walk(root, 10)) {
+      stream
+          .filter(Files::isRegularFile)
+          .filter(ImageTintToolView::isVnsFile)
+          .map(path -> root.relativize(path).toString().replace('\\', '/'))
+          .filter(relative -> !isIgnoredPath(relative))
+          .sorted(Comparator.naturalOrder())
+          .forEach(relative -> parsePresetDeclarations(root.resolve(relative), layersByCharacter, declarations));
+    } catch (Exception ignored) {
+      return;
+    }
+
+    for (PresetDecl declaration : declarations) {
+      List<String> layers = resolvePresetLayerTags(layersByCharacter, declaration.characterId(), declaration.spec());
+      if (layers.isEmpty()) continue;
+      String tag = buildPresetTag(declaration.characterId(), declaration.expressionId());
+      presetByTag.put(tag, new PresetTagEntry(tag, layers));
+    }
+  }
+
+  private void parsePresetDeclarations(Path scriptFile,
+                                       Map<String, Map<String, String>> layersByCharacter,
+                                       List<PresetDecl> declarations) {
+    if (scriptFile == null) return;
+    List<String> lines;
+    try {
+      lines = Files.readAllLines(scriptFile, StandardCharsets.UTF_8);
+    } catch (Exception ignored) {
+      return;
+    }
+    for (String rawLine : lines) {
+      if (rawLine == null) continue;
+      String line = rawLine.trim();
+      if (line.isEmpty() || line.startsWith("#")) continue;
+
+      Matcher layerMatcher = CHARLAYER_PATTERN.matcher(rawLine);
+      if (layerMatcher.find()) {
+        String characterId = normalize(layerMatcher.group(1));
+        String layerId = normalize(layerMatcher.group(2));
+        String path = normalize(unquote(layerMatcher.group(3)));
+        if (characterId.isBlank() || layerId.isBlank() || path.isBlank()) continue;
+        layersByCharacter.computeIfAbsent(characterId, k -> new LinkedHashMap<>()).put(layerId, path);
+        continue;
+      }
+
+      Matcher presetMatcher = CHARPRESET_PATTERN.matcher(rawLine);
+      if (presetMatcher.find()) {
+        String characterId = normalize(presetMatcher.group(1));
+        String expressionId = normalize(presetMatcher.group(2));
+        String spec = normalize(presetMatcher.group(3));
+        if (characterId.isBlank() || expressionId.isBlank() || spec.isBlank()) continue;
+        declarations.add(new PresetDecl(characterId, expressionId, spec));
+      }
+    }
+  }
+
+  static String buildPresetTag(String characterId, String expressionId) {
+    String character = normalize(characterId);
+    String expression = normalize(expressionId);
+    if (character.isBlank() || expression.isBlank()) return "";
+    return PRESET_TAG_PREFIX + character + "/" + expression;
+  }
+
+  static List<String> resolvePresetLayerTags(Map<String, Map<String, String>> layersByCharacter,
+                                             String defaultCharacterId,
+                                             String spec) {
+    List<String> resolved = new ArrayList<>();
+    if (layersByCharacter == null) return resolved;
+    String rawSpec = normalize(spec);
+    if (rawSpec.isBlank()) return resolved;
+
+    String[] tokens = rawSpec.split("\\|");
+    for (String token : tokens) {
+      String part = normalize(unquote(token));
+      if (part.isBlank()) continue;
+      if (part.startsWith("$")) {
+        LayerRef layerRef = parseLayerRef(part.substring(1), defaultCharacterId);
+        if (layerRef.characterId().isBlank() || layerRef.layerId().isBlank()) continue;
+        Map<String, String> characterLayers = layersByCharacter.get(layerRef.characterId());
+        if (characterLayers == null) continue;
+        String path = normalize(characterLayers.get(layerRef.layerId()));
+        if (path.isBlank()) continue;
+        resolved.add(path);
+      } else {
+        resolved.add(part);
+      }
+    }
+    return resolved;
+  }
+
+  private static LayerRef parseLayerRef(String rawRef, String defaultCharacterId) {
+    String ref = normalize(rawRef);
+    if (ref.isBlank()) return new LayerRef(normalize(defaultCharacterId), "");
+    String characterId = normalize(defaultCharacterId);
+    String layerId = ref;
+
+    int colon = ref.indexOf(':');
+    int dot = ref.indexOf('.');
+    int sep = colon >= 0 ? colon : dot;
+    if (colon >= 0 && dot >= 0) sep = Math.min(colon, dot);
+    if (sep > 0 && sep < ref.length() - 1) {
+      characterId = normalize(ref.substring(0, sep));
+      layerId = normalize(ref.substring(sep + 1));
+    }
+    return new LayerRef(characterId, layerId);
+  }
+
+  private static String unquote(String raw) {
+    String value = normalize(raw);
+    if (value.length() < 2) return value;
+    char first = value.charAt(0);
+    char last = value.charAt(value.length() - 1);
+    if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+      return value.substring(1, value.length() - 1).trim();
+    }
+    return value;
+  }
+
   private static Slider slider(double min, double max, double value) {
     Slider slider = new Slider(min, max, value);
     slider.setShowTickMarks(false);
@@ -994,12 +1158,46 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     return row;
   }
 
-  private static HBox tintRow(String label, ColorPicker picker) {
+  private HBox tintPickerRow(String label) {
     Label l = new Label(label);
     l.setMinWidth(90);
-    HBox row = new HBox(8, l, picker);
+
+    tintColorSwatch.setMinSize(26, 26);
+    tintColorSwatch.setPrefSize(26, 26);
+    tintColorSwatch.setMaxSize(26, 26);
+    tintColorSwatch.setMouseTransparent(true);
+
+    tintColorPicker.setMinSize(26, 26);
+    tintColorPicker.setPrefSize(26, 26);
+    tintColorPicker.setMaxSize(26, 26);
+    tintColorPicker.setStyle(
+        "-fx-color-label-visible: false;"
+            + " -fx-background-radius: 999;"
+            + " -fx-border-radius: 999;");
+    tintColorPicker.setOpacity(0.001);
+
+    StackPane pickerHost = new StackPane(tintColorSwatch, tintColorPicker);
+    pickerHost.setMinSize(26, 26);
+    pickerHost.setPrefSize(26, 26);
+    pickerHost.setMaxSize(26, 26);
+
+    HBox row = new HBox(8, l, pickerHost);
     row.setAlignment(Pos.CENTER_LEFT);
     return row;
+  }
+
+  private void updateTintColorSwatch(Color color) {
+    Color c = color == null ? Color.WHITE : color;
+    int r = (int) Math.round(clamp(c.getRed(), 0.0, 1.0) * 255.0);
+    int g = (int) Math.round(clamp(c.getGreen(), 0.0, 1.0) * 255.0);
+    int b = (int) Math.round(clamp(c.getBlue(), 0.0, 1.0) * 255.0);
+    String hex = String.format(Locale.ROOT, "#%02X%02X%02X", r, g, b);
+    tintColorSwatch.setStyle(
+        "-fx-background-color: " + hex + ";"
+            + " -fx-background-radius: 999;"
+            + " -fx-border-color: rgba(255,255,255,0.40);"
+            + " -fx-border-radius: 999;"
+            + " -fx-border-width: 1;");
   }
 
   private Button iconButton(javafx.scene.layout.Region icon, String tooltip, Runnable action) {
@@ -1085,4 +1283,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void status(String message) {
     statusLabel.setText(message == null ? "" : message);
   }
+
+  private record PresetDecl(String characterId, String expressionId, String spec) {}
+
+  private record PresetTagEntry(String tag, List<String> layerTags) {}
+
+  private record LayerRef(String characterId, String layerId) {}
 }
