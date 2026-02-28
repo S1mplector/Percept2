@@ -20,10 +20,12 @@ import javafx.geometry.Orientation;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyCode;
@@ -541,8 +543,22 @@ public class FileEditorTab extends BorderPane {
     previewDockMenu = new MenuButton("Snap");
     previewDockMenu.getItems().addAll(dockTop, dockBottom, dockLeft, dockRight, dockWindow, dockBack);
 
+    previewModePreviewButton.getStyleClass().add("layout-studio-toolbar-toggle");
+    previewModeCodeButton.getStyleClass().add("layout-studio-toolbar-toggle");
+    previewModeSplitButton.getStyleClass().add("layout-studio-toolbar-toggle");
+    previewDockMenu.getStyleClass().add("layout-studio-toolbar-button");
+
     Label titleLabel = new Label(title == null ? "Preview" : title);
     titleLabel.getStyleClass().add("muted");
+
+    if (isVnsPreviewWorkspace()) {
+      configureIconToggle(previewModePreviewButton, CssIcon.speech("#b0b8c8"), "Preview mode");
+      configureIconToggle(previewModeCodeButton, CssIcon.list("#b0b8c8"), "Code mode");
+      configureIconToggle(previewModeSplitButton, CssIcon.grid("#b0b8c8"), "Split mode");
+      configureIconMenuButton(previewDockMenu, CssIcon.sort("#b0b8c8"), "Snap preview");
+      previewDockMenu.getStyleClass().add("preview-toolbar-icon-menu");
+      titleLabel.setText("VNS");
+    }
 
     HBox toolbar = new HBox(8, titleLabel, previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu);
     toolbar.setPadding(new javafx.geometry.Insets(6, 6, 6, 6));
@@ -637,6 +653,7 @@ public class FileEditorTab extends BorderPane {
         } else {
           horizontalDockDivider = clampDivider(nv.doubleValue());
         }
+        refreshPreviewSizeFromLast();
       });
     }
     return split;
@@ -763,6 +780,12 @@ public class FileEditorTab extends BorderPane {
         case WINDOW -> "Window";
         case TOP -> "Top";
       };
+    }
+    if (isVnsPreviewWorkspace()) {
+      previewDockMenu.setText("");
+      previewDockMenu.setTooltip(new Tooltip("Snap: " + label));
+      previewDockMenu.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+      return;
     }
     previewDockMenu.setText("Snap: " + label);
   }
@@ -1003,6 +1026,38 @@ public class FileEditorTab extends BorderPane {
   private static double sanitizeDimension(double value) {
     if (!Double.isFinite(value)) return 1.0;
     return Math.max(1.0, Math.min(8192.0, value));
+  }
+
+  private boolean isVnsPreviewWorkspace() {
+    return kind == Kind.VNS;
+  }
+
+  private static void configureIconToggle(ToggleButton button, Node icon, String tooltipText) {
+    if (button == null) return;
+    button.setText("");
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltipText));
+    button.setMinWidth(30);
+    button.setPrefWidth(30);
+    button.setMaxWidth(30);
+    button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    if (!button.getStyleClass().contains("layout-studio-icon-button")) {
+      button.getStyleClass().add("layout-studio-icon-button");
+    }
+  }
+
+  private static void configureIconMenuButton(MenuButton button, Node icon, String tooltipText) {
+    if (button == null) return;
+    button.setText("");
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltipText));
+    button.setMinWidth(34);
+    button.setPrefWidth(34);
+    button.setMaxWidth(34);
+    button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    if (!button.getStyleClass().contains("layout-studio-icon-button")) {
+      button.getStyleClass().add("layout-studio-icon-button");
+    }
   }
 
   private static JavaCodeEditor newDslEditor() {

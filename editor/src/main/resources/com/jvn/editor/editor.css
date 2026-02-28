@@ -896,6 +896,16 @@
 .menu-button .label {
   -fx-text-fill: #a0a0a0;
 }
+.preview-toolbar-icon-menu > .label {
+  -fx-padding: 0;
+}
+.preview-toolbar-icon-menu > .arrow-button {
+  -fx-padding: 0;
+  -fx-background-color: transparent;
+}
+.preview-toolbar-icon-menu > .arrow-button > .arrow {
+  -fx-background-color: transparent;
+}
 .context-menu {
   -fx-background-color: #1e1e1e;
   -fx-border-color: #3a3a3a;
