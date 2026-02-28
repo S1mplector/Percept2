@@ -11,9 +11,11 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Group;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
@@ -21,6 +23,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -28,8 +31,11 @@ import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.control.cell.TextFieldTableCell;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
@@ -73,7 +79,9 @@ public class MenuFlowEditorView extends BorderPane {
   private final Label statusLabel = new Label("Open a project to begin.");
   private final Label selectedMenuLabel = new Label("Menu: (none)");
   private final Label selectedFileLabel = new Label("File: -");
+  private final Label selectedItemLabel = new Label("Item: (none)");
   private final Label wireModeLabel = new Label("Wire mode: Off");
+  private final Label wireHintLabel = new Label("Select an item, then wire on canvas or use quick target.");
 
   private final Button refreshButton = iconBtn("Refresh", CssIcon.redo("#7ec8e3"));
   private final Button validateButton = iconBtn("Validate", CssIcon.check("#8cd48c"));
@@ -83,11 +91,16 @@ public class MenuFlowEditorView extends BorderPane {
   private final Button openButton = iconBtn("Open Screen", CssIcon.expand("#7ec8e3"));
   private final Button addScreenButton = iconBtn("Add Screen", CssIcon.plus("#8cd48c"));
 
-  private final Button wireOpenButton = iconBtn("Wire OPEN_MENU", CssIcon.link("#e8c8a8"));
+  private final Button wireOpenButton = iconBtn("Wire on Graph", CssIcon.link("#e8c8a8"));
+  private final Button cancelWireButton = iconBtn("Cancel Wire", CssIcon.clearX("#f0a080"));
   private final Button setMainButton = iconBtn("Set MAIN_MENU", CssIcon.home("#a8d0f0"));
   private final Button setBackButton = iconBtn("Set BACK", CssIcon.undo("#d4a8e8"));
   private final Button clearTargetButton = iconBtn("Clear Target", CssIcon.clearX("#f0a080"));
+  private final ComboBox<String> quickTargetCombo = new ComboBox<>();
+  private final Button applyQuickTargetButton = iconBtn("Set OPEN_MENU", CssIcon.check("#8cd48c"));
+  private final TextField quickAddItemField = new TextField();
   private final Button addItemButton = iconBtn("Add Item", CssIcon.plus("#8cd48c"));
+  private final Button duplicateItemButton = iconBtn("Duplicate", CssIcon.copy("#a8d0f0"));
   private final Button removeItemButton = iconBtn("Remove Item", CssIcon.minus("#f0a080"));
 
   private final TableView<MenuItemModel> itemTable = new TableView<>();
@@ -162,24 +175,71 @@ public class MenuFlowEditorView extends BorderPane {
     diagnosticsArea.setPrefRowCount(8);
     diagnosticsArea.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px;");
 
-    HBox wireButtons = new HBox(6, wireOpenButton, setMainButton, setBackButton, clearTargetButton);
+    wireHintLabel.setWrapText(true);
+    wireHintLabel.setStyle("-fx-text-fill: #a6adba; -fx-font-size: 11px;");
+
+    quickTargetCombo.setEditable(true);
+    quickTargetCombo.setPromptText("target menu id");
+    quickTargetCombo.setMaxWidth(Double.MAX_VALUE);
+    quickTargetCombo.valueProperty().addListener((o, ov, nv) -> updateUiState());
+    quickTargetCombo.getEditor().textProperty().addListener((o, ov, nv) -> updateUiState());
+
+    quickAddItemField.setPromptText("new_item_id");
+
+    for (Button b : List.of(
+        wireOpenButton, cancelWireButton, setMainButton, setBackButton, clearTargetButton,
+        applyQuickTargetButton, addItemButton, duplicateItemButton, removeItemButton)) {
+      b.setStyle("-fx-font-size: 11px;");
+    }
+
+    wireOpenButton.setTooltip(new Tooltip("Select an item, then click a target node in the graph."));
+    cancelWireButton.setTooltip(new Tooltip("Exit wiring mode (Esc also works)."));
+    applyQuickTargetButton.setTooltip(new Tooltip("Set selected item to OPEN_MENU and assign the chosen target."));
+    addItemButton.setTooltip(new Tooltip("Add item from the field (or open prompt when empty)."));
+    duplicateItemButton.setTooltip(new Tooltip("Duplicate the selected item."));
+
+    FlowPane wireButtons = new FlowPane(6, 6, wireOpenButton, cancelWireButton, setMainButton, setBackButton, clearTargetButton);
     wireButtons.setAlignment(Pos.CENTER_LEFT);
 
-    HBox itemButtons = new HBox(6, addItemButton, removeItemButton);
+    HBox targetRow = new HBox(6, quickTargetCombo, applyQuickTargetButton);
+    targetRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(quickTargetCombo, Priority.ALWAYS);
+
+    HBox quickAddRow = new HBox(6, quickAddItemField, addItemButton);
+    quickAddRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(quickAddItemField, Priority.ALWAYS);
+
+    FlowPane itemButtons = new FlowPane(6, 6, duplicateItemButton, removeItemButton);
     itemButtons.setAlignment(Pos.CENTER_LEFT);
 
+    Label selectionHeader = sectionLabel("Selection");
+    Label wiringHeader = sectionLabel("Wiring Utilities");
+    Label itemsHeader = sectionLabel("Items");
+    Label validationHeader = sectionLabel("Validation");
+
     VBox detail = new VBox(8,
+        selectionHeader,
         selectedMenuLabel,
         selectedFileLabel,
+        selectedItemLabel,
+        new Separator(),
+        wiringHeader,
         wireModeLabel,
+        wireHintLabel,
         wireButtons,
+        targetRow,
+        new Separator(),
+        itemsHeader,
+        quickAddRow,
         itemButtons,
         itemTable,
-        new Label("Validation"),
+        validationHeader,
         diagnosticsArea
     );
     detail.setPadding(new Insets(8));
     detail.setStyle("-fx-background-color: #13161d; -fx-border-color: #2a2f3a;");
+    detail.setMinWidth(360);
+    detail.setPrefWidth(420);
     VBox.setVgrow(itemTable, Priority.ALWAYS);
     VBox.setVgrow(diagnosticsArea, Priority.ALWAYS);
 
@@ -250,7 +310,35 @@ public class MenuFlowEditorView extends BorderPane {
     targetCol.setPrefWidth(130);
 
     itemTable.getColumns().setAll(idCol, actionCol, actionKeyCol, targetCol);
-    itemTable.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> updateUiState());
+    itemTable.setPlaceholder(new Label("No items. Add one from the field above."));
+    itemTable.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
+      if (nv != null && usesTarget(nv.getAction())) {
+        quickTargetCombo.getEditor().setText(normalize(nv.getTarget(), ""));
+      }
+      updateUiState();
+    });
+    itemTable.setRowFactory(tv -> {
+      TableRow<MenuItemModel> row = new TableRow<>();
+      ContextMenu menu = new ContextMenu();
+      MenuItem wire = new MenuItem("Wire OPEN_MENU on Graph");
+      wire.setOnAction(e -> {
+        itemTable.getSelectionModel().select(row.getItem());
+        beginOpenWireMode();
+      });
+      MenuItem duplicate = new MenuItem("Duplicate Item");
+      duplicate.setOnAction(e -> {
+        itemTable.getSelectionModel().select(row.getItem());
+        duplicateSelectedItem();
+      });
+      MenuItem remove = new MenuItem("Remove Item");
+      remove.setOnAction(e -> {
+        itemTable.getSelectionModel().select(row.getItem());
+        removeSelectedItem();
+      });
+      menu.getItems().addAll(wire, duplicate, remove);
+      row.emptyProperty().addListener((o, ov, nv) -> row.setContextMenu(nv ? null : menu));
+      return row;
+    });
   }
 
   private void bindActions() {
@@ -281,7 +369,14 @@ public class MenuFlowEditorView extends BorderPane {
       rebuildGraph();
     });
 
-    wireOpenButton.setOnAction(e -> beginOpenWireMode());
+    wireOpenButton.setOnAction(e -> {
+      if (wireMode == WireMode.OPEN_MENU) {
+        cancelWireMode("Wire mode canceled.");
+      } else {
+        beginOpenWireMode();
+      }
+    });
+    cancelWireButton.setOnAction(e -> cancelWireMode("Wire mode canceled."));
     setMainButton.setOnAction(e -> applyActionToSelectedItem(MenuActionType.MAIN_MENU, ""));
     setBackButton.setOnAction(e -> applyActionToSelectedItem(MenuActionType.BACK, ""));
     clearTargetButton.setOnAction(e -> {
@@ -290,15 +385,36 @@ public class MenuFlowEditorView extends BorderPane {
       row.setTarget("");
       onCurrentScreenMutated();
     });
+    applyQuickTargetButton.setOnAction(e -> applyQuickOpenTarget());
 
-    addItemButton.setOnAction(e -> addItemToSelectedScreen());
+    addItemButton.setOnAction(e -> addItemFromSidebarInput());
+    quickAddItemField.setOnAction(e -> addItemFromSidebarInput());
+    duplicateItemButton.setOnAction(e -> duplicateSelectedItem());
     removeItemButton.setOnAction(e -> removeSelectedItem());
+
+    itemTable.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+      if (e.getCode() == KeyCode.DELETE || e.getCode() == KeyCode.BACK_SPACE) {
+        removeSelectedItem();
+        e.consume();
+        return;
+      }
+      if (e.isShortcutDown() && e.getCode() == KeyCode.D) {
+        duplicateSelectedItem();
+        e.consume();
+      }
+    });
+
+    addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+      if (e.getCode() == KeyCode.ESCAPE && wireMode != WireMode.NONE) {
+        cancelWireMode("Wire mode canceled.");
+        e.consume();
+      }
+    });
 
     graphPane.setOnMouseClicked(e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
       if (wireMode != WireMode.NONE) {
-        wireMode = WireMode.NONE;
-        updateUiState();
+        cancelWireMode("Wire mode canceled.");
       }
     });
   }
@@ -312,6 +428,7 @@ public class MenuFlowEditorView extends BorderPane {
       projectLabel.setText("No project loaded.");
       statusLabel.setText("Open a project to inspect menu flow.");
       itemTable.setItems(FXCollections.observableArrayList());
+      refreshQuickTargetOptions();
       rebuildGraph();
       refreshDiagnostics();
       updateUiState();
@@ -335,6 +452,7 @@ public class MenuFlowEditorView extends BorderPane {
     autoLayoutScreensIfMissing();
     selectedScreen = screensById.values().stream().findFirst().orElse(null);
     itemTable.setItems(selectedScreen == null ? FXCollections.observableArrayList() : selectedScreen.items);
+    refreshQuickTargetOptions();
     rebuildGraph();
     refreshDiagnostics();
     updateUiState();
@@ -560,6 +678,8 @@ public class MenuFlowEditorView extends BorderPane {
           selectedItem.setTarget(screen.id);
           markDirty(selectedScreen);
           wireMode = WireMode.NONE;
+          quickTargetCombo.getEditor().setText(screen.id);
+          statusLabel.setText("Wired '" + selectedItem.getId() + "' to '" + screen.id + "'.");
           updateUiState();
           e.consume();
           return;
@@ -615,6 +735,7 @@ public class MenuFlowEditorView extends BorderPane {
   }
 
   private void refreshNodeStyles() {
+    boolean wireCandidates = wireMode == WireMode.OPEN_MENU && selectedScreen != null && getSelectedItem() != null;
     for (NodeView node : nodeViews.values()) {
       if (node.kind == NodeKind.SCREEN && node.screen != null) {
         boolean selected = selectedScreen != null && selectedScreen.id.equals(node.screen.id);
@@ -631,6 +752,14 @@ public class MenuFlowEditorView extends BorderPane {
           node.box.setFill(Color.web("#242833"));
           node.box.setStrokeWidth(1.4);
         }
+        if (!selected && wireCandidates) {
+          node.box.setStroke(Color.web("#78d0ff"));
+          node.box.setFill(Color.web("#213247"));
+          node.box.setStrokeWidth(1.9);
+        }
+        node.setCursor(wireCandidates ? Cursor.CROSSHAIR : Cursor.HAND);
+      } else {
+        node.setCursor(Cursor.DEFAULT);
       }
     }
   }
@@ -641,6 +770,12 @@ public class MenuFlowEditorView extends BorderPane {
     itemTable.setItems(screen.items);
     if (!screen.items.isEmpty()) itemTable.getSelectionModel().select(0);
     wireMode = WireMode.NONE;
+    MenuItemModel item = getSelectedItem();
+    if (item != null && usesTarget(item.getAction())) {
+      quickTargetCombo.getEditor().setText(normalize(item.getTarget(), ""));
+    } else if (item == null) {
+      quickTargetCombo.getEditor().clear();
+    }
     refreshNodeStyles();
     refreshDiagnostics();
     updateUiState();
@@ -653,7 +788,8 @@ public class MenuFlowEditorView extends BorderPane {
       return;
     }
     wireMode = WireMode.OPEN_MENU;
-    statusLabel.setText("Click a target menu node to wire OPEN_MENU from item '" + item.getId() + "'.");
+    statusLabel.setText("Wiring '" + item.getId() + "': click a target menu node (Esc to cancel).");
+    graphPane.requestFocus();
     updateUiState();
   }
 
@@ -667,6 +803,9 @@ public class MenuFlowEditorView extends BorderPane {
     item.setTarget(normalize(target, ""));
     markDirty(selectedScreen);
     wireMode = WireMode.NONE;
+    if (usesTarget(item.getAction())) {
+      quickTargetCombo.getEditor().setText(normalize(item.getTarget(), ""));
+    }
     updateUiState();
   }
 
@@ -711,10 +850,26 @@ public class MenuFlowEditorView extends BorderPane {
     screen.dirty = true;
 
     screensById.put(id, screen);
+    refreshQuickTargetOptions();
     autoLayoutScreensIfMissing();
     selectScreen(screen);
     rebuildGraph();
     statusLabel.setText("Added screen '" + id + "'. Save to create file.");
+  }
+
+  private void addItemFromSidebarInput() {
+    if (selectedScreen == null) {
+      statusLabel.setText("Select a screen first.");
+      return;
+    }
+    String typed = normalize(quickAddItemField.getText(), "");
+    if (typed.isBlank()) {
+      addItemToSelectedScreen();
+      return;
+    }
+    if (addItemToSelectedScreen(typed)) {
+      quickAddItemField.clear();
+    }
   }
 
   private void addItemToSelectedScreen() {
@@ -730,17 +885,22 @@ public class MenuFlowEditorView extends BorderPane {
     dialog.setContentText("Item id:");
     var result = dialog.showAndWait();
     if (result.isEmpty()) return;
+    addItemToSelectedScreen(result.get());
+  }
 
-    String id = sanitizeId(result.get());
+  private boolean addItemToSelectedScreen(String rawId) {
+    if (selectedScreen == null) return false;
+
+    String id = sanitizeId(rawId);
     if (id.isBlank()) {
       statusLabel.setText("Item id cannot be empty.");
-      return;
+      return false;
     }
 
     for (MenuItemModel row : selectedScreen.items) {
       if (id.equalsIgnoreCase(row.getId())) {
         statusLabel.setText("Item '" + id + "' already exists in " + selectedScreen.id + ".");
-        return;
+        return false;
       }
     }
 
@@ -750,15 +910,45 @@ public class MenuFlowEditorView extends BorderPane {
     selectedScreen.dirty = true;
     itemTable.getSelectionModel().select(row);
     onCurrentScreenMutated();
+    statusLabel.setText("Added item '" + id + "' to menu '" + selectedScreen.id + "'.");
+    return true;
   }
 
   private void removeSelectedItem() {
     if (selectedScreen == null) return;
     MenuItemModel row = getSelectedItem();
     if (row == null) return;
+    String id = normalize(row.getId(), "(unnamed)");
     selectedScreen.items.remove(row);
     selectedScreen.dirty = true;
     onCurrentScreenMutated();
+    statusLabel.setText("Removed item '" + id + "'.");
+  }
+
+  private void duplicateSelectedItem() {
+    if (selectedScreen == null) return;
+    MenuItemModel source = getSelectedItem();
+    if (source == null) {
+      statusLabel.setText("Select an item to duplicate.");
+      return;
+    }
+
+    String base = sanitizeId(source.getId());
+    if (base.isBlank()) base = "item";
+    String copyId = nextAvailableItemId(base + "_copy");
+
+    MenuItemModel copy = new MenuItemModel(copyId, source.getActionKey(), source.getTarget());
+    attachRowListeners(selectedScreen, copy);
+    int idx = selectedScreen.items.indexOf(source);
+    if (idx < 0 || idx + 1 >= selectedScreen.items.size()) {
+      selectedScreen.items.add(copy);
+    } else {
+      selectedScreen.items.add(idx + 1, copy);
+    }
+    selectedScreen.dirty = true;
+    itemTable.getSelectionModel().select(copy);
+    onCurrentScreenMutated();
+    statusLabel.setText("Duplicated item '" + source.getId() + "' as '" + copyId + "'.");
   }
 
   private void openSelectedScreen() {
@@ -954,10 +1144,69 @@ public class MenuFlowEditorView extends BorderPane {
     return visited;
   }
 
+  private void applyQuickOpenTarget() {
+    MenuItemModel item = getSelectedItem();
+    if (selectedScreen == null || item == null) {
+      statusLabel.setText("Select a menu screen item first.");
+      return;
+    }
+    String target = quickTargetInput();
+    if (target.isBlank()) {
+      statusLabel.setText("Choose or type a target menu id first.");
+      return;
+    }
+    item.setAction(MenuActionType.OPEN_MENU);
+    item.setTarget(target);
+    markDirty(selectedScreen);
+    wireMode = WireMode.NONE;
+    quickTargetCombo.getEditor().setText(target);
+    statusLabel.setText("Set '" + item.getId() + "' -> OPEN_MENU(" + target + ").");
+    updateUiState();
+  }
+
+  private void cancelWireMode(String message) {
+    if (wireMode == WireMode.NONE) return;
+    wireMode = WireMode.NONE;
+    if (message != null && !message.isBlank()) statusLabel.setText(message);
+    updateUiState();
+  }
+
+  private void refreshQuickTargetOptions() {
+    String current = quickTargetInput();
+    quickTargetCombo.getItems().setAll(screensById.keySet());
+    if (screensById.isEmpty()) {
+      quickTargetCombo.getEditor().clear();
+      quickTargetCombo.setValue(null);
+    } else if (!current.isBlank()) quickTargetCombo.getEditor().setText(current);
+  }
+
+  private String quickTargetInput() {
+    String value = quickTargetCombo.isEditable()
+        ? normalize(quickTargetCombo.getEditor().getText(), normalize(quickTargetCombo.getValue(), ""))
+        : normalize(quickTargetCombo.getValue(), "");
+    return sanitizeId(value);
+  }
+
+  private String nextAvailableItemId(String base) {
+    String normalizedBase = sanitizeId(base);
+    if (normalizedBase.isBlank()) normalizedBase = "item";
+    Set<String> ids = new HashSet<>();
+    if (selectedScreen != null) {
+      for (MenuItemModel row : selectedScreen.items) {
+        ids.add(sanitizeId(row.getId()));
+      }
+    }
+    if (!ids.contains(normalizedBase)) return normalizedBase;
+    int suffix = 2;
+    while (ids.contains(normalizedBase + "_" + suffix)) suffix++;
+    return normalizedBase + "_" + suffix;
+  }
+
   private void updateUiState() {
     boolean hasProject = projectRoot != null && projectRoot.isDirectory();
     boolean hasSelection = selectedScreen != null;
-    boolean hasItem = getSelectedItem() != null;
+    MenuItemModel selectedItem = getSelectedItem();
+    boolean hasItem = selectedItem != null;
 
     saveSelectedButton.setDisable(!hasSelection);
     saveAllButton.setDisable(!hasProject);
@@ -967,10 +1216,16 @@ public class MenuFlowEditorView extends BorderPane {
     addScreenButton.setDisable(!hasProject);
 
     wireOpenButton.setDisable(!(hasSelection && hasItem));
+    cancelWireButton.setDisable(wireMode == WireMode.NONE);
     setMainButton.setDisable(!(hasSelection && hasItem));
     setBackButton.setDisable(!(hasSelection && hasItem));
     clearTargetButton.setDisable(!(hasSelection && hasItem));
+    applyQuickTargetButton.setDisable(!(hasSelection && hasItem) || quickTargetInput().isBlank());
+    quickTargetCombo.setDisable(!(hasSelection && hasItem));
+
+    quickAddItemField.setDisable(!hasSelection);
     addItemButton.setDisable(!hasSelection);
+    duplicateItemButton.setDisable(!(hasSelection && hasItem));
     removeItemButton.setDisable(!(hasSelection && hasItem));
 
     if (selectedScreen == null) {
@@ -981,9 +1236,33 @@ public class MenuFlowEditorView extends BorderPane {
       selectedFileLabel.setText("File: " + toRelativeProjectPath(selectedScreen.file));
     }
 
-    wireModeLabel.setText(wireMode == WireMode.OPEN_MENU
-        ? "Wire mode: OPEN_MENU (click target node)"
-        : "Wire mode: Off");
+    if (selectedItem == null) {
+      selectedItemLabel.setText("Item: (none)");
+    } else {
+      String target = normalize(selectedItem.getTarget(), "");
+      String tail = target.isBlank() ? "" : " -> " + target;
+      selectedItemLabel.setText("Item: " + selectedItem.getId() + " [" + canonicalActionName(selectedItem.getAction()) + "]" + tail);
+    }
+
+    if (wireMode == WireMode.OPEN_MENU) {
+      wireModeLabel.setText("Wire mode: OPEN_MENU (click target node)");
+      wireModeLabel.setStyle("-fx-text-fill: #78d0ff; -fx-font-weight: 700;");
+      wireHintLabel.setText("Canvas wiring active for the selected item. Click a menu node or press Esc.");
+      wireOpenButton.setText("Wiring Active");
+    } else {
+      wireModeLabel.setText("Wire mode: Off");
+      wireModeLabel.setStyle("-fx-text-fill: #b8beca;");
+      wireOpenButton.setText("Wire on Graph");
+      if (!hasSelection) {
+        wireHintLabel.setText("Select a menu and item to wire.");
+      } else if (!hasItem) {
+        wireHintLabel.setText("Select an item in the table, then wire on graph or set quick target.");
+      } else {
+        wireHintLabel.setText("Use graph wiring, presets, or quick target for OPEN_MENU.");
+      }
+    }
+
+    refreshNodeStyles();
   }
 
   private Set<String> discoverMenuIds(File root, Properties manifest) {
@@ -1180,6 +1459,12 @@ public class MenuFlowEditorView extends BorderPane {
       }
     }
     return out.toString();
+  }
+
+  private static Label sectionLabel(String text) {
+    Label label = new Label(text);
+    label.setStyle("-fx-font-size: 11px; -fx-text-fill: #8c96a8; -fx-font-weight: 700;");
+    return label;
   }
 
   private enum NodeKind { SCREEN, SPECIAL, MISSING }
