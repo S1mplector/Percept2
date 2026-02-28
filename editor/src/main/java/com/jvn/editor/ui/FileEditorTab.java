@@ -15,6 +15,7 @@ import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
+import javafx.application.Platform;
 import javafx.geometry.Orientation;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -662,13 +663,7 @@ public class FileEditorTab extends BorderPane {
     Stage stage = new Stage();
     stage.setTitle((file != null ? file.getName() : "Preview") + " - Detached Preview");
     stage.setScene(scene);
-    stage.setOnHidden(e -> {
-      if (detachedPreviewStage != stage) return;
-      detachedPreviewStage = null;
-      stopDetachedPreviewTimer();
-      previewDockPosition = lastEmbeddedPreviewDock;
-      restorePreviewLayoutMode();
-    });
+    stage.setOnHidden(e -> handleDetachedPreviewStageHidden(stage));
     detachedPreviewStage = stage;
     stage.show();
     if (previewModeBeforeDetach != PreviewLayoutMode.CODE && previewModeCodeButton != null) {
@@ -683,10 +678,7 @@ public class FileEditorTab extends BorderPane {
     Stage stage = detachedPreviewStage;
     detachedPreviewStage = null;
     stopDetachedPreviewTimer();
-    Parent parent = dockPreviewNode == null ? null : dockPreviewNode.getParent();
-    if (parent instanceof Pane pane) {
-      pane.getChildren().remove(dockPreviewNode);
-    }
+    removeDockPreviewFromParent();
     if (stage.isShowing()) stage.hide();
     if (disposing) return;
     previewDockPosition = lastEmbeddedPreviewDock;
@@ -710,16 +702,44 @@ public class FileEditorTab extends BorderPane {
         }
         long dt = (now - detachedPreviewLastNs) / 1_000_000L;
         detachedPreviewLastNs = now;
-        if (kind == Kind.JES && viewport != null) {
-          viewport.render(dt);
-        } else if (kind == Kind.VNS && vnPreview != null) {
-          vnPreview.render(dt);
-        } else if (kind == Kind.THEME && themePreview != null) {
-          themePreview.render(dt);
+        try {
+          if (kind == Kind.JES && viewport != null) {
+            viewport.render(dt);
+          } else if (kind == Kind.VNS && vnPreview != null) {
+            vnPreview.render(dt);
+          } else if (kind == Kind.THEME && themePreview != null) {
+            themePreview.render(dt);
+          }
+        } catch (Exception ex) {
+          stopDetachedPreviewTimer();
+          if (onStatus != null) onStatus.accept("Detached preview stopped: " + ex.getMessage());
         }
       }
     };
     detachedPreviewTimer.start();
+  }
+
+  private void handleDetachedPreviewStageHidden(Stage stage) {
+    if (stage == null || detachedPreviewStage != stage) return;
+    detachedPreviewStage = null;
+    stopDetachedPreviewTimer();
+    removeDockPreviewFromParent();
+    if (disposed) return;
+
+    Platform.runLater(() -> {
+      if (disposed || detachedPreviewStage != null) return;
+      previewDockPosition = lastEmbeddedPreviewDock;
+      restorePreviewLayoutMode();
+    });
+  }
+
+  private void removeDockPreviewFromParent() {
+    Parent parent = dockPreviewNode == null ? null : dockPreviewNode.getParent();
+    if (parent instanceof Pane pane) {
+      pane.getChildren().remove(dockPreviewNode);
+    } else if (parent instanceof BorderPane border && border.getCenter() == dockPreviewNode) {
+      border.setCenter(null);
+    }
   }
 
   private void stopDetachedPreviewTimer() {

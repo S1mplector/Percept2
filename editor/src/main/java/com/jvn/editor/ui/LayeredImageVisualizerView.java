@@ -73,7 +73,9 @@ import javafx.util.StringConverter;
 public class LayeredImageVisualizerView extends BorderPane {
   private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d+)");
   private static final String NONE_LABEL = "(none)";
-  private static final String STATE_FILE = ".jvn/layered-image-visualizer.properties";
+  private static final String DEFAULT_STATE_FILE = ".jvn/layered-image-visualizer.properties";
+  private static final String DEFAULT_TOOL_TITLE = "Layered Image Visualizer";
+  private static final String DEFAULT_TUTORIAL_TITLE = "Layered Image Visualizer (JVN)";
   private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
   private static final Map<String, String> GROUP_TOKEN_ALIASES = Map.ofEntries(
@@ -104,9 +106,7 @@ public class LayeredImageVisualizerView extends BorderPane {
       "# Example:",
       "# happy = eyes=neutral mouth=happy",
       "# serious = eyes=cross_closed mouth=neutral");
-  private static final String TUTORIAL_TEXT = String.join("\n",
-      "Image Attributes Tool (JVN)",
-      "",
+  private static final String TUTORIAL_BODY = String.join("\n",
       "1) Pick a layer set and image tag.",
       "2) In Attributes, each row is a conflict group; one option per group.",
       "3) Use filter to find attributes quickly.",
@@ -136,7 +136,7 @@ public class LayeredImageVisualizerView extends BorderPane {
   private final CheckBox typedRealtime = new CheckBox("Realtime preview");
   private final TextArea shortformsArea = new TextArea(DEFAULT_SHORTFORMS);
   private final ComboBox<String> shortformBox = new ComboBox<>();
-  private final TextArea tutorialArea = new TextArea(TUTORIAL_TEXT);
+  private final TextArea tutorialArea = new TextArea();
 
   private final Canvas previewCanvas = new Canvas(320, 250);
   private final Slider focusXSlider = slider(0, 100, 50);
@@ -159,6 +159,8 @@ public class LayeredImageVisualizerView extends BorderPane {
 
   private final Properties persisted = new Properties();
   private final Random random = new Random();
+  private final String toolTitle;
+  private final String stateFile;
 
   private File projectRoot;
   private String currentSetId;
@@ -175,9 +177,18 @@ public class LayeredImageVisualizerView extends BorderPane {
   private double gameCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
 
   public LayeredImageVisualizerView() {
+    this(DEFAULT_TOOL_TITLE, DEFAULT_STATE_FILE, DEFAULT_TUTORIAL_TITLE);
+  }
+
+  protected LayeredImageVisualizerView(String toolTitle, String stateFile, String tutorialTitle) {
+    this.toolTitle = toolTitle == null || toolTitle.isBlank() ? DEFAULT_TOOL_TITLE : toolTitle.trim();
+    this.stateFile = stateFile == null || stateFile.isBlank() ? DEFAULT_STATE_FILE : stateFile.trim();
+    String resolvedTutorialTitle = tutorialTitle == null || tutorialTitle.isBlank() ? DEFAULT_TUTORIAL_TITLE : tutorialTitle.trim();
+    tutorialArea.setText(resolvedTutorialTitle + "\n\n" + TUTORIAL_BODY);
+
     setPadding(new Insets(8));
 
-    Label title = new Label("Image Attributes Tool");
+    Label title = new Label(this.toolTitle);
     title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
 
     filterField.setPromptText("Filter sets...");
@@ -1756,7 +1767,7 @@ public class LayeredImageVisualizerView extends BorderPane {
       Path parent = file.getParent();
       if (parent != null && !Files.exists(parent)) Files.createDirectories(parent);
       try (OutputStream out = Files.newOutputStream(file)) {
-        persisted.store(out, "JVN Layered Image Visualizer State");
+        persisted.store(out, "JVN " + toolTitle + " State");
       }
     } catch (Exception ignored) {
     }
@@ -1764,7 +1775,7 @@ public class LayeredImageVisualizerView extends BorderPane {
 
   private Path statePath() {
     if (projectRoot == null || !projectRoot.isDirectory()) return null;
-    return projectRoot.toPath().resolve(STATE_FILE);
+    return projectRoot.toPath().resolve(stateFile);
   }
 
   private void clearPrefix(String prefix) {

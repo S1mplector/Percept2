@@ -14,6 +14,7 @@ import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
+import com.jvn.editor.ui.ImageAttributesToolView;
 import com.jvn.editor.ui.InspectorView;
 import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
@@ -103,6 +104,7 @@ public class EditorApp extends Application {
   private VersionControlView versionControlView;
   private LayoutEditorLauncherView layoutEditorLauncherView;
   private LayeredImageVisualizerView layeredImageVisualizerView;
+  private ImageAttributesToolView imageAttributesToolView;
   private LayoutStudioWindowManager layoutStudioWindowManager;
   private MenuFlowEditorView menuFlowEditorView;
   private SettingsEditorView settingsEditor;
@@ -118,6 +120,7 @@ public class EditorApp extends Application {
   private double[] savedCenterDividers;
   private boolean layeredVisualizerFullscreen;
   private double[] savedLayeredVisualizerDividers;
+  private LayeredImageVisualizerView fullscreenImageToolView;
   private WelcomeCenterView welcomeView;
   private Tab tabWelcome;
   private Tab tabProject;
@@ -130,6 +133,7 @@ public class EditorApp extends Application {
   private Tab tabVersionControl;
   private Tab tabLayoutLauncher;
   private Tab tabLayeredImageVisualizer;
+  private Tab tabImageAttributesTool;
   private Tab tabMenuFlow;
   private Tab tabLeftAdd;
   private Tab tabRightAdd;
@@ -269,6 +273,7 @@ public class EditorApp extends Application {
     if (versionControlView != null) versionControlView.setProjectRoot(root);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(root);
     if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(root);
+    if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(root);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(root);
   }
 
@@ -538,13 +543,15 @@ public class EditorApp extends Application {
     miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
     miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
-    MenuItem miShowLayeredVisualizer = new MenuItem("Image Attributes Tool");
+    MenuItem miShowLayeredVisualizer = new MenuItem("Layered Image Visualizer");
     miShowLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
+    MenuItem miShowImageAttributes = new MenuItem("Image Attributes Tool");
+    miShowImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
     MenuItem miShowPuppeteerLauncher = new MenuItem("Puppeteer Launcher");
     miShowPuppeteerLauncher.setOnAction(e -> selectPuppeteerLauncherTab());
     menuPanels.getItems().addAll(miShowProject, miShowTimeline, miShowInspector,
         miShowAssets, new SeparatorMenuItem(),
-        miShowDiagnostics, miShowFlowMap, miShowLayeredVisualizer, miShowPuppeteerLauncher);
+        miShowDiagnostics, miShowFlowMap, miShowLayeredVisualizer, miShowImageAttributes, miShowPuppeteerLauncher);
 
     menuView.getItems().addAll(miToggleEditorFullscreen, new SeparatorMenuItem(),
         miResetCamera, miFitContent, new SeparatorMenuItem(),
@@ -593,8 +600,10 @@ public class EditorApp extends Application {
     miMenuFlow.setOnAction(e -> selectMenuFlowTab());
     MenuItem miLayoutLauncher = new MenuItem("Layout Launcher");
     miLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
-    MenuItem miLayeredVisualizer = new MenuItem("Image Attributes Tool");
+    MenuItem miLayeredVisualizer = new MenuItem("Layered Image Visualizer");
     miLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
+    MenuItem miImageAttributes = new MenuItem("Image Attributes Tool");
+    miImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
 
     Menu menuVnsTools = new Menu("VNS Analysis");
     MenuItem miToolDiagnostics = new MenuItem("VNS Diagnostics");
@@ -609,7 +618,7 @@ public class EditorApp extends Application {
     miToolInspector.setOnAction(e -> selectInspectorTab());
 
     menuTools.getItems().addAll(miActionEditor, miPuppeteerPanel, new SeparatorMenuItem(),
-        miMenuFlow, miLayoutLauncher, miLayeredVisualizer, new SeparatorMenuItem(),
+        miMenuFlow, miLayoutLauncher, miLayeredVisualizer, miImageAttributes, new SeparatorMenuItem(),
         menuVnsTools, new SeparatorMenuItem(),
         miToolAssets, miToolInspector);
 
@@ -795,8 +804,12 @@ public class EditorApp extends Application {
     });
     layeredImageVisualizerView = new LayeredImageVisualizerView();
     layeredImageVisualizerView.setProjectRoot(projectRoot);
-    layeredImageVisualizerView.setOnToggleFullscreen(this::toggleLayeredImageVisualizerFullscreen);
+    layeredImageVisualizerView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(true));
     layeredImageVisualizerView.setFullscreenActive(false);
+    imageAttributesToolView = new ImageAttributesToolView();
+    imageAttributesToolView.setProjectRoot(projectRoot);
+    imageAttributesToolView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(false));
+    imageAttributesToolView.setFullscreenActive(false);
     menuFlowEditorView = new MenuFlowEditorView();
     menuFlowEditorView.setProjectRoot(projectRoot);
     menuFlowEditorView.setOnOpenFile(target -> {
@@ -1004,6 +1017,10 @@ public class EditorApp extends Application {
   }
 
   private void toggleLayeredImageVisualizerFullscreen() {
+    toggleImageToolFullscreen(true);
+  }
+
+  private void toggleImageToolFullscreen(boolean layeredTool) {
     if (centerSplit == null || rightTabs == null) return;
     if (layeredVisualizerFullscreen) {
       restoreLayeredImageVisualizerLayout(true);
@@ -1012,16 +1029,18 @@ public class EditorApp extends Application {
     if (editorFullscreen) {
       toggleActiveEditorFullscreen();
     }
-    Tab layeredTab = ensureLayeredImageVisualizerTab(rightTabs);
-    if (layeredTab == null || layeredTab.getTabPane() == null) return;
-    layeredTab.getTabPane().getSelectionModel().select(layeredTab);
+    Tab imageToolTab = layeredTool ? ensureLayeredImageVisualizerTab(rightTabs) : ensureImageAttributesToolTab(rightTabs);
+    LayeredImageVisualizerView imageToolView = layeredTool ? layeredImageVisualizerView : imageAttributesToolView;
+    if (imageToolTab == null || imageToolTab.getTabPane() == null || imageToolView == null) return;
+    imageToolTab.getTabPane().getSelectionModel().select(imageToolTab);
     savedLayeredVisualizerDividers = centerSplit.getDividerPositions().clone();
     centerSplit.setDividerPositions(0.0, 0.0);
     layeredVisualizerFullscreen = true;
-    if (layeredImageVisualizerView != null) {
-      layeredImageVisualizerView.setFullscreenActive(true);
-    }
-    status.setText("Layered visualizer fullscreen — use the fullscreen button again to restore");
+    fullscreenImageToolView = imageToolView;
+    if (layeredImageVisualizerView != null) layeredImageVisualizerView.setFullscreenActive(layeredTool);
+    if (imageAttributesToolView != null) imageAttributesToolView.setFullscreenActive(!layeredTool);
+    status.setText((layeredTool ? "Layered visualizer" : "Image attributes tool")
+        + " fullscreen — use the fullscreen button again to restore");
   }
 
   private void restoreLayeredImageVisualizerLayout(boolean announce) {
@@ -1034,11 +1053,11 @@ public class EditorApp extends Application {
     centerSplit.setDividerPositions(Math.max(0.05, left), Math.min(0.95, right));
     savedLayeredVisualizerDividers = null;
     layeredVisualizerFullscreen = false;
-    if (layeredImageVisualizerView != null) {
-      layeredImageVisualizerView.setFullscreenActive(false);
-    }
+    fullscreenImageToolView = null;
+    if (layeredImageVisualizerView != null) layeredImageVisualizerView.setFullscreenActive(false);
+    if (imageAttributesToolView != null) imageAttributesToolView.setFullscreenActive(false);
     if (announce) {
-      status.setText("Layered visualizer layout restored");
+      status.setText("Image tool layout restored");
     }
   }
 
@@ -1385,6 +1404,7 @@ public class EditorApp extends Application {
     if (versionControlView != null) versionControlView.setProjectRoot(projectRoot);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(projectRoot);
     if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(projectRoot);
+    if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(projectRoot);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(projectRoot);
     if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
   }
@@ -1746,10 +1766,10 @@ public class EditorApp extends Application {
   private Tab ensureLayeredImageVisualizerTab(TabPane targetPane) {
     if (targetPane == null || layeredImageVisualizerView == null) return null;
     if (tabLayeredImageVisualizer == null) {
-      tabLayeredImageVisualizer = new Tab("Image Tools", layeredImageVisualizerView);
+      tabLayeredImageVisualizer = new Tab("Layered Images", layeredImageVisualizerView);
       tabLayeredImageVisualizer.setClosable(true);
       tabLayeredImageVisualizer.setOnClosed(e -> {
-        if (layeredVisualizerFullscreen) {
+        if (layeredVisualizerFullscreen && fullscreenImageToolView == layeredImageVisualizerView) {
           restoreLayeredImageVisualizerLayout(false);
         }
         tabLayeredImageVisualizer = null;
@@ -1757,6 +1777,22 @@ public class EditorApp extends Application {
     }
     attachPanelTabToPane(tabLayeredImageVisualizer, targetPane);
     return tabLayeredImageVisualizer;
+  }
+
+  private Tab ensureImageAttributesToolTab(TabPane targetPane) {
+    if (targetPane == null || imageAttributesToolView == null) return null;
+    if (tabImageAttributesTool == null) {
+      tabImageAttributesTool = new Tab("Image Attributes", imageAttributesToolView);
+      tabImageAttributesTool.setClosable(true);
+      tabImageAttributesTool.setOnClosed(e -> {
+        if (layeredVisualizerFullscreen && fullscreenImageToolView == imageAttributesToolView) {
+          restoreLayeredImageVisualizerLayout(false);
+        }
+        tabImageAttributesTool = null;
+      });
+    }
+    attachPanelTabToPane(tabImageAttributesTool, targetPane);
+    return tabImageAttributesTool;
   }
 
   private Tab ensureMenuFlowTab(TabPane targetPane) {
@@ -1832,10 +1868,15 @@ public class EditorApp extends Application {
       if (t != null && pane != null) pane.getSelectionModel().select(t);
       if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
     });
-    addChooserActionButton(actions, panelActionLabel("Image Attributes Tool", tabLayeredImageVisualizer, pane), "icon-panel-layered", () -> {
+    addChooserActionButton(actions, panelActionLabel("Layered Image Visualizer", tabLayeredImageVisualizer, pane), "icon-panel-layered", () -> {
       Tab t = ensureLayeredImageVisualizerTab(pane);
       if (t != null && pane != null) pane.getSelectionModel().select(t);
       if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
+    });
+    addChooserActionButton(actions, panelActionLabel("Image Attributes Tool", tabImageAttributesTool, pane), "icon-panel-layered", () -> {
+      Tab t = ensureImageAttributesToolTab(pane);
+      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (imageAttributesToolView != null) imageAttributesToolView.refreshCatalog();
     });
     addChooserActionButton(actions, panelActionLabel("Menu Flow", tabMenuFlow, pane), "icon-panel-menuflow", () -> {
       Tab t = ensureMenuFlowTab(pane);
@@ -1971,6 +2012,16 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
+  }
+
+  private void selectImageAttributesToolTab() {
+    Tab t = (tabImageAttributesTool != null && tabImageAttributesTool.getTabPane() != null)
+        ? tabImageAttributesTool
+        : ensureImageAttributesToolTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+    if (imageAttributesToolView != null) imageAttributesToolView.refreshCatalog();
   }
 
   private void selectInspectorTab() {
