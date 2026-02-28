@@ -38,6 +38,7 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.input.Clipboard;
@@ -112,6 +113,7 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   private final Label summaryLabel = new Label("Open a project to scan image tags.");
   private final Label statusLabel = new Label("");
   private final Label previewInfoLabel = new Label("No active attributes.");
+  private final Label interactionHintLabel = new Label("Drag preview to pan, scroll to zoom, double-click to reset.");
 
   private final TextField tagFilterField = new TextField();
   private final ComboBox<String> tagBox = new ComboBox<>();
@@ -172,6 +174,8 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   private void buildUi() {
     Label title = new Label(TOOL_TITLE);
     title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
+    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 11px;");
+    interactionHintLabel.setWrapText(true);
 
     tagFilterField.setPromptText("Filter tags...");
     tagFilterField.textProperty().addListener((o, ov, nv) -> {
@@ -220,6 +224,7 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
     });
 
     typedAttributesField.setPromptText("eyes=angry mouth=smile or eyes_angry mouth_smile");
+    typedAttributesField.setOnAction(e -> applyTypedAttributes(true));
     typedAttributesField.textProperty().addListener((o, ov, nv) -> {
       if (applyingState || !typedRealtime.isSelected()) return;
       applyTypedAttributes(false);
@@ -371,7 +376,14 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
     tabs.getTabs().addAll(attributesTab, typedTab, shortformsTab, tutorialTab);
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-    VBox center = new VBox(8, previewPane, previewInfoLabel, expressionRow, exportRow, tabs, statusLabel);
+    VBox exportRoot = new VBox(8, expressionRow, exportRow);
+    exportRoot.setPadding(new Insets(4, 0, 0, 0));
+    TitledPane exportPane = new TitledPane("Export controls", exportRoot);
+    exportPane.setExpanded(false);
+    exportPane.setAnimated(false);
+    exportPane.setCollapsible(true);
+
+    VBox center = new VBox(8, previewPane, previewInfoLabel, interactionHintLabel, exportPane, tabs, statusLabel);
     center.setPadding(new Insets(8, 0, 0, 0));
     setCenter(center);
 
@@ -470,6 +482,7 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
         visible.add(id);
       }
     }
+    summaryLabel.setText("Tags: " + tags.size() + "  |  Visible: " + visible.size());
 
     tagBox.getItems().setAll(visible);
     String preferred = normalize(persisted.getProperty("global.selectedTag", ""));
@@ -1089,6 +1102,13 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   }
 
   private void installPreviewInteractions() {
+    previewCanvas.setOnMouseClicked(e -> {
+      if (e.getButton() != MouseButton.PRIMARY) return;
+      if (e.getClickCount() < 2) return;
+      resetView();
+      e.consume();
+    });
+
     previewCanvas.setOnMousePressed(e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
       dragging = true;
@@ -1627,7 +1647,8 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
     String value = normalize(raw);
     if (value.isBlank()) return fallback;
     try {
-      return Double.parseDouble(value);
+      double parsed = Double.parseDouble(value);
+      return Double.isFinite(parsed) ? parsed : fallback;
     } catch (Exception ignored) {
       return fallback;
     }

@@ -120,6 +120,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private final Label summaryLabel = new Label("Open a project to inspect layered image sets.");
   private final Label statusLabel = new Label("");
   private final Label previewInfoLabel = new Label("No layers selected.");
+  private final Label interactionHintLabel = new Label("Drag preview to pan, scroll to zoom, double-click to reset view.");
 
   private final TextField filterField = new TextField();
   private final ComboBox<String> setBox = new ComboBox<>();
@@ -198,6 +199,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     Label title = new Label(this.toolTitle);
     title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
+    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 11px;");
+    interactionHintLabel.setWrapText(true);
 
     filterField.setPromptText("Filter sets...");
     filterField.textProperty().addListener((o, ov, nv) -> {
@@ -332,14 +335,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Button swapPrevButton = iconButton(CssIcon.undo("#8ab4f8"), "Swap previous on marked groups", () -> swapMarkedGroups(-1));
     Button swapNextButton = iconButton(CssIcon.redo("#8ab4f8"), "Swap next on marked groups", () -> swapMarkedGroups(1));
     Button resetViewButton = iconButton(CssIcon.expand("#8ab4f8"), "Reset preview focus and zoom", () -> {
-      applyingState = true;
-      focusXSlider.setValue(50);
-      focusYSlider.setValue(50);
-      cropSlider.setValue(100);
-      zoomSlider.setValue(100);
-      applyingState = false;
-      redrawPreview();
-      persistCurrentSetState();
+      resetViewportControls(true);
     });
     fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen this panel in the current editor window", this::requestFullscreenToggle);
     updateFullscreenButtonUi();
@@ -369,17 +365,22 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     viewControlsPane.setAnimated(false);
     viewControlsPane.setCollapsible(true);
 
+    VBox scriptRoot = new VBox(8, idRow, autoExpression, attrCopyRow, snippetRow);
+    scriptRoot.setPadding(new Insets(4, 0, 0, 0));
+    TitledPane scriptPane = new TitledPane("Script controls", scriptRoot);
+    scriptPane.setExpanded(false);
+    scriptPane.setAnimated(false);
+    scriptPane.setCollapsible(true);
+
     VBox previewSection = new VBox(
         8,
         previewPane,
         previewInfoLabel,
+        interactionHintLabel,
         viewControlsPane,
-        idRow,
-        autoExpression,
         toolRow,
         framingRow,
-        attrCopyRow,
-        snippetRow,
+        scriptPane,
         statusLabel);
     previewSection.setPadding(new Insets(0, 0, 4, 0));
 
@@ -1125,6 +1126,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private void installViewportInteractions(Canvas canvas) {
     if (canvas == null) return;
 
+    canvas.setOnMouseClicked(e -> {
+      if (e.getButton() != MouseButton.PRIMARY) return;
+      if (e.getClickCount() < 2) return;
+      resetViewportControls(true);
+      e.consume();
+    });
+
     canvas.setOnMousePressed(e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
       if (matchGameFraming.isSelected()) return;
@@ -1236,6 +1244,20 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     if (changed) redrawPreview();
     return changed;
+  }
+
+  private void resetViewportControls(boolean persist) {
+    applyingState = true;
+    try {
+      focusXSlider.setValue(50);
+      focusYSlider.setValue(50);
+      cropSlider.setValue(100);
+      zoomSlider.setValue(100);
+    } finally {
+      applyingState = false;
+    }
+    redrawPreview();
+    if (persist) persistCurrentSetState();
   }
 
   static double draggedFocus(double currentFocus, double deltaPixels, double srcSpan, double destSpan, double maxSpan) {
@@ -1943,7 +1965,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private static double parseDouble(String raw, double fallback) {
     if (raw == null || raw.isBlank()) return fallback;
     try {
-      return Double.parseDouble(raw.trim());
+      double parsed = Double.parseDouble(raw.trim());
+      return Double.isFinite(parsed) ? parsed : fallback;
     } catch (NumberFormatException ex) {
       return fallback;
     }

@@ -23,7 +23,6 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -71,6 +70,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Label summaryLabel = new Label("Open a project to scan image tags.");
   private final Label statusLabel = new Label("");
   private final Label previewInfoLabel = new Label("No character image selected.");
+  private final Label interactionHintLabel = new Label("Drag preview to pan, scroll to zoom, double-click to reset.");
 
   private final TextField filterField = new TextField();
   private final ComboBox<String> characterTagBox = new ComboBox<>();
@@ -82,11 +82,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Slider tintStrengthSlider = slider(0, 100, 30);
   private final Slider saturationSlider = slider(-100, 100, 0);
   private final Slider contrastSlider = slider(-100, 100, 0);
-  private final CheckBox hideControlsCheck = new CheckBox("Hide controls");
 
   private final Canvas previewCanvas = new Canvas(320, 240);
   private final TextArea tutorialArea = new TextArea(TUTORIAL_TEXT);
   private final VBox controlsSection = new VBox(8);
+  private TitledPane controlsPane;
 
   private final Map<String, File> imageByTag = new LinkedHashMap<>();
   private final Map<String, String> setupNameToKey = new LinkedHashMap<>();
@@ -119,6 +119,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void buildUi() {
     Label title = new Label(TOOL_TITLE);
     title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
+    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 11px;");
+    interactionHintLabel.setWrapText(true);
 
     filterField.setPromptText("Filter tags...");
     filterField.textProperty().addListener((o, ov, nv) -> {
@@ -136,6 +138,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     setupNameField.setPromptText("Setup name");
     exportFormatBox.getItems().setAll(DEFAULT_EXPORT_PROFILE, DEFAULT_EXPORT_SETUP);
     exportFormatBox.getSelectionModel().select(DEFAULT_EXPORT_PROFILE);
+    exportFormatBox.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) persistGlobalState();
+    });
 
     Button refreshButton = iconButton(CssIcon.redo("#7ec8e3"), "Rescan project images", this::refreshCatalog);
     HBox filterRow = new HBox(8, new Label("Filter"), filterField, refreshButton);
@@ -180,11 +185,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     installPreviewInteractions();
 
     Button resetViewButton = iconButton(CssIcon.expand("#8ab4f8"), "Reset position and zoom", this::resetView);
+    Button resetTintButton = iconButton(CssIcon.palette("#f5b971"), "Reset tint controls", this::resetTintControls);
     fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen this panel in the current editor window", this::requestFullscreenToggle);
     updateFullscreenButtonUi();
-    Button copyTintButton = iconButton(CssIcon.copy("#9ad19c"), "Copy tint profile", this::copyTintProfile);
-    Button copySetupButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy full setup", this::copyFullSetup);
-    HBox actionRow = new HBox(8, resetViewButton, fullscreenButton, hideControlsCheck, new Label("Export"), exportFormatBox, copyTintButton, copySetupButton);
+    Button copyExportButton = iconButton(CssIcon.copy("#9ad19c"), "Copy selected export format", this::copySelectedExport);
+    HBox actionRow = new HBox(8, resetViewButton, resetTintButton, fullscreenButton, new Label("Export"), exportFormatBox, copyExportButton);
     actionRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportFormatBox, Priority.ALWAYS);
 
@@ -198,6 +203,13 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         sliderRow("Tint strength", tintStrengthSlider),
         sliderRow("Saturation", saturationSlider),
         sliderRow("Contrast", contrastSlider));
+    controlsPane = new TitledPane("Tint controls", controlsSection);
+    controlsPane.setExpanded(true);
+    controlsPane.setAnimated(false);
+    controlsPane.setCollapsible(true);
+    controlsPane.expandedProperty().addListener((o, ov, expanded) -> {
+      if (!applyingState) persistGlobalState();
+    });
 
     TitledPane tutorialPane = new TitledPane("Tutorial", tutorialArea);
     tutorialPane.setExpanded(false);
@@ -207,13 +219,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     tutorialArea.setWrapText(true);
     tutorialArea.setPrefRowCount(8);
 
-    hideControlsCheck.selectedProperty().addListener((o, ov, hidden) -> {
-      controlsSection.setManaged(!hidden);
-      controlsSection.setVisible(!hidden);
-      if (!applyingState) persistGlobalState();
-    });
-
-    VBox center = new VBox(8, previewPane, previewInfoLabel, actionRow, controlsSection, tutorialPane, statusLabel);
+    VBox center = new VBox(8, previewPane, previewInfoLabel, interactionHintLabel, actionRow, controlsPane, tutorialPane, statusLabel);
     center.setPadding(new Insets(8, 0, 0, 0));
     setCenter(center);
 
@@ -312,11 +318,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     summaryLabel.setText("Images: " + imageByTag.size());
     refreshTagLists();
     applyPersistedSelections();
+    ensureDefaultSelections();
     refreshSetupOptions();
     redrawPreview();
   }
 
   private void refreshTagLists() {
+    String keepChar = selectedCharacterTag();
+    String keepBg = selectedBackgroundTag();
     String filter = normalize(filterField.getText());
     List<String> all = new ArrayList<>(imageByTag.keySet());
     if (!filter.isBlank()) {
@@ -328,15 +337,25 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     List<String> bgs = new ArrayList<>(all);
     bgs.sort(Comparator.comparingInt(tag -> isLikelyBackgroundTag(tag) ? 0 : 1));
     backgroundTagBox.getItems().setAll(bgs);
+
+    boolean previousApplying = applyingState;
+    applyingState = true;
+    try {
+      restoreComboSelection(characterTagBox, keepChar);
+      restoreComboSelection(backgroundTagBox, keepBg);
+    } finally {
+      applyingState = previousApplying;
+    }
   }
 
   private void applyPersistedSelections() {
     applyingState = true;
     try {
       filterField.setText(persisted.getProperty("global.filter", ""));
-      hideControlsCheck.setSelected(parseBoolean(persisted.getProperty("global.hideControls"), false));
-      controlsSection.setManaged(!hideControlsCheck.isSelected());
-      controlsSection.setVisible(!hideControlsCheck.isSelected());
+      if (controlsPane != null) {
+        boolean hide = parseBoolean(persisted.getProperty("global.hideControls"), false);
+        controlsPane.setExpanded(!hide);
+      }
 
       String savedChar = persisted.getProperty("global.characterTag", "");
       String savedBg = persisted.getProperty("global.backgroundTag", "");
@@ -344,6 +363,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       characterTagBox.getEditor().setText(savedChar);
       backgroundTagBox.getSelectionModel().select(savedBg);
       backgroundTagBox.getEditor().setText(savedBg);
+      String exportFormat = persisted.getProperty("global.exportFormat", DEFAULT_EXPORT_PROFILE);
+      if (!exportFormatBox.getItems().contains(exportFormat)) exportFormat = DEFAULT_EXPORT_PROFILE;
+      exportFormatBox.getSelectionModel().select(exportFormat);
 
       tintColorPicker.setValue(parseColor(persisted.getProperty("global.tintColor"), Color.WHITE));
       tintStrengthSlider.setValue(parseDouble(persisted.getProperty("global.tintStrength"), 30.0));
@@ -356,6 +378,51 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       applyingState = false;
     }
     applyBackgroundTintIfPresent(selectedBackgroundTag());
+  }
+
+  private void ensureDefaultSelections() {
+    boolean changed = false;
+    applyingState = true;
+    try {
+      String currentCharacter = selectedCharacterTag();
+      if (currentCharacter.isBlank() || !imageByTag.containsKey(currentCharacter)) {
+        String fallbackCharacter = pickDefaultCharacterTag(new ArrayList<>(imageByTag.keySet()));
+        if (!fallbackCharacter.isBlank()) {
+          characterTagBox.getSelectionModel().select(fallbackCharacter);
+          characterTagBox.getEditor().setText(fallbackCharacter);
+          changed = true;
+        }
+      }
+
+      String currentBackground = selectedBackgroundTag();
+      if (currentBackground.isBlank() || !imageByTag.containsKey(currentBackground)) {
+        String fallbackBackground = pickDefaultBackgroundTag(new ArrayList<>(imageByTag.keySet()));
+        if (!fallbackBackground.isBlank()) {
+          backgroundTagBox.getSelectionModel().select(fallbackBackground);
+          backgroundTagBox.getEditor().setText(fallbackBackground);
+          changed = true;
+        }
+      }
+    } finally {
+      applyingState = false;
+    }
+
+    if (changed) {
+      applyBackgroundTintIfPresent(selectedBackgroundTag());
+      persistGlobalState();
+    }
+  }
+
+  private void restoreComboSelection(ComboBox<String> box, String value) {
+    if (box == null) return;
+    String normalized = normalize(value);
+    if (normalized.isBlank()) return;
+    if (box.getItems().contains(normalized)) {
+      box.getSelectionModel().select(normalized);
+    }
+    if (box.getEditor() != null) {
+      box.getEditor().setText(normalized);
+    }
   }
 
   private void refreshSetupOptions() {
@@ -466,6 +533,21 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     offsetY = 0.0;
     persistGlobalState();
     redrawPreview();
+    status("Reset view.");
+  }
+
+  private void resetTintControls() {
+    applyingState = true;
+    try {
+      tintColorPicker.setValue(Color.WHITE);
+      tintStrengthSlider.setValue(30.0);
+      saturationSlider.setValue(0.0);
+      contrastSlider.setValue(0.0);
+    } finally {
+      applyingState = false;
+    }
+    onTintChanged(true);
+    status("Reset tint controls.");
   }
 
   private void requestFullscreenToggle() {
@@ -512,7 +594,23 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     status("Copied full setup.");
   }
 
+  private void copySelectedExport() {
+    String format = exportFormatBox.getValue();
+    if (DEFAULT_EXPORT_SETUP.equals(format)) {
+      copyFullSetup();
+      return;
+    }
+    copyTintProfile();
+  }
+
   private void installPreviewInteractions() {
+    previewCanvas.setOnMouseClicked(e -> {
+      if (e.getButton() != MouseButton.PRIMARY) return;
+      if (e.getClickCount() < 2) return;
+      resetView();
+      e.consume();
+    });
+
     previewCanvas.setOnMousePressed(e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
       dragging = true;
@@ -755,6 +853,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persisted.setProperty("global.filter", normalize(filterField.getText()));
     persisted.setProperty("global.characterTag", selectedCharacterTag());
     persisted.setProperty("global.backgroundTag", selectedBackgroundTag());
+    persisted.setProperty("global.exportFormat", normalize(exportFormatBox.getValue()));
     persisted.setProperty("global.tintColor", colorToHex(tintColorPicker.getValue()));
     persisted.setProperty("global.tintStrength", formatDouble(tintStrengthSlider.getValue()));
     persisted.setProperty("global.saturation", formatDouble(saturationSlider.getValue()));
@@ -762,7 +861,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persisted.setProperty("global.zoom", formatDouble(zoom));
     persisted.setProperty("global.offsetX", formatDouble(offsetX));
     persisted.setProperty("global.offsetY", formatDouble(offsetY));
-    persisted.setProperty("global.hideControls", Boolean.toString(hideControlsCheck.isSelected()));
+    boolean hideControls = controlsPane != null && !controlsPane.isExpanded();
+    persisted.setProperty("global.hideControls", Boolean.toString(hideControls));
     savePersistentState();
   }
 
@@ -829,6 +929,22 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         || n.contains("background_")
         || n.contains("field")
         || n.contains("mainmenu");
+  }
+
+  static String pickDefaultCharacterTag(List<String> tags) {
+    if (tags == null || tags.isEmpty()) return "";
+    for (String tag : tags) {
+      if (!isLikelyBackgroundTag(tag)) return normalize(tag);
+    }
+    return normalize(tags.get(0));
+  }
+
+  static String pickDefaultBackgroundTag(List<String> tags) {
+    if (tags == null || tags.isEmpty()) return "";
+    for (String tag : tags) {
+      if (isLikelyBackgroundTag(tag)) return normalize(tag);
+    }
+    return "";
   }
 
   private String selectedCharacterTag() {
@@ -941,7 +1057,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     String n = normalize(raw);
     if (n.isBlank()) return fallback;
     try {
-      return Double.parseDouble(n);
+      double parsed = Double.parseDouble(n);
+      return Double.isFinite(parsed) ? parsed : fallback;
     } catch (Exception ignored) {
       return fallback;
     }
