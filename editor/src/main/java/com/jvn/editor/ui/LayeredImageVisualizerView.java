@@ -70,7 +70,7 @@ import javafx.util.StringConverter;
  * - active-group randomization and manual render-order controls
  * - multiple snippet export formats
  */
-public class LayeredImageVisualizerView extends BorderPane {
+public class LayeredImageVisualizerView extends BorderPane implements ImageToolPanel {
   private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d+)");
   private static final String NONE_LABEL = "(none)";
   private static final String DEFAULT_STATE_FILE = ".jvn/layered-image-visualizer.properties";
@@ -163,6 +163,7 @@ public class LayeredImageVisualizerView extends BorderPane {
   private final Random random = new Random();
   private final String toolTitle;
   private final String stateFile;
+  private final boolean presetControlsEnabled;
 
   private File projectRoot;
   private String currentSetId;
@@ -179,12 +180,17 @@ public class LayeredImageVisualizerView extends BorderPane {
   private double gameCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
 
   public LayeredImageVisualizerView() {
-    this(DEFAULT_TOOL_TITLE, DEFAULT_STATE_FILE, DEFAULT_TUTORIAL_TITLE);
+    this(DEFAULT_TOOL_TITLE, DEFAULT_STATE_FILE, DEFAULT_TUTORIAL_TITLE, false);
   }
 
   protected LayeredImageVisualizerView(String toolTitle, String stateFile, String tutorialTitle) {
+    this(toolTitle, stateFile, tutorialTitle, true);
+  }
+
+  protected LayeredImageVisualizerView(String toolTitle, String stateFile, String tutorialTitle, boolean presetControlsEnabled) {
     this.toolTitle = toolTitle == null || toolTitle.isBlank() ? DEFAULT_TOOL_TITLE : toolTitle.trim();
     this.stateFile = stateFile == null || stateFile.isBlank() ? DEFAULT_STATE_FILE : stateFile.trim();
+    this.presetControlsEnabled = presetControlsEnabled;
     String resolvedTutorialTitle = tutorialTitle == null || tutorialTitle.isBlank() ? DEFAULT_TUTORIAL_TITLE : tutorialTitle.trim();
     tutorialArea.setText(resolvedTutorialTitle + "\n\n" + TUTORIAL_BODY);
 
@@ -220,22 +226,25 @@ public class LayeredImageVisualizerView extends BorderPane {
     filterRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
-    // Presets toolbar
-    presetBox.setPromptText("Preset");
-    HBox.setHgrow(presetBox, Priority.ALWAYS);
+    VBox top = new VBox(8, title, summaryLabel, filterRow, setRow);
+    if (presetControlsEnabled) {
+      presetBox.setPromptText("Preset");
+      HBox.setHgrow(presetBox, Priority.ALWAYS);
 
-    Button loadPresetButton = iconButton(CssIcon.download("#8ab4f8"), "Load selected preset", this::loadSelectedPreset);
-    Button deletePresetButton = iconButton(CssIcon.clearX("#f38ba8"), "Delete selected preset", this::deleteSelectedPreset);
-    HBox presetLoadRow = new HBox(6, new Label("Preset"), presetBox, loadPresetButton, deletePresetButton);
-    presetLoadRow.setAlignment(Pos.CENTER_LEFT);
+      Button loadPresetButton = iconButton(CssIcon.download("#8ab4f8"), "Load selected preset", this::loadSelectedPreset);
+      Button deletePresetButton = iconButton(CssIcon.clearX("#f38ba8"), "Delete selected preset", this::deleteSelectedPreset);
+      HBox presetLoadRow = new HBox(6, new Label("Preset"), presetBox, loadPresetButton, deletePresetButton);
+      presetLoadRow.setAlignment(Pos.CENTER_LEFT);
 
-    presetNameField.setPromptText("Preset name");
-    HBox.setHgrow(presetNameField, Priority.ALWAYS);
-    Button savePresetButton = iconButton(CssIcon.save("#9ed67a"), "Save preset", this::savePreset);
-    HBox presetSaveRow = new HBox(6, new Label("Name"), presetNameField, savePresetButton);
-    presetSaveRow.setAlignment(Pos.CENTER_LEFT);
+      presetNameField.setPromptText("Preset name");
+      HBox.setHgrow(presetNameField, Priority.ALWAYS);
+      Button savePresetButton = iconButton(CssIcon.save("#9ed67a"), "Save preset", this::savePreset);
+      HBox presetSaveRow = new HBox(6, new Label("Name"), presetNameField, savePresetButton);
+      presetSaveRow.setAlignment(Pos.CENTER_LEFT);
 
-    VBox top = new VBox(8, title, summaryLabel, filterRow, setRow, presetLoadRow, presetSaveRow, new Separator());
+      top.getChildren().addAll(presetLoadRow, presetSaveRow);
+    }
+    top.getChildren().add(new Separator());
     setTop(top);
 
     // Preview pane
@@ -1310,18 +1319,20 @@ public class LayeredImageVisualizerView extends BorderPane {
     String fallbackPath = "assets/characters/" + characterId + "/" + expression + ".png";
     String imageSpec = layerSpec.isBlank() ? fallbackPath : layerSpec;
     String charimg = "@charimg " + characterId + " " + expression + " " + imageSpec;
-    String charpreset = "@charpreset " + characterId + " " + expression + " " + imageSpec;
+    CharpresetSnippet charpreset = buildCharpresetSnippet(characterId, expression, fallbackPath);
     String show = "[show " + characterId + " center " + expression + "]";
 
     if (SNIPPET_CHARIMG.equals(format)) return charimg + "\n";
-    if (SNIPPET_CHARPRESET.equals(format)) return charpreset + "\n";
-    if (SNIPPET_CHARPRESET_COMBINED.equals(format)) return charpreset + "\n" + show + "\n";
+    if (SNIPPET_CHARPRESET.equals(format)) return charpreset.declarations() + charpreset.presetLine() + "\n";
+    if (SNIPPET_CHARPRESET_COMBINED.equals(format)) {
+      return charpreset.declarations() + charpreset.presetLine() + "\n" + show + "\n";
+    }
     if (SNIPPET_SHOW.equals(format)) return show + "\n";
     if (SNIPPET_RECIPE.equals(format)) {
       StringBuilder out = new StringBuilder();
       out.append("# Layer recipe generated by JVN Layered Image Visualizer\n");
       out.append("# Multi-layer @charimg is supported via: pathA | pathB | pathC\n");
-      out.append("# @charpreset can be used with the same layerSpec and [show]\n");
+      out.append("# @charpreset export below uses @charlayer + $layer references\n");
       if (currentSetId != null && !currentSetId.isBlank()) {
         out.append("# Source set: ").append(currentSetId).append('\n');
       }
@@ -1331,11 +1342,77 @@ public class LayeredImageVisualizerView extends BorderPane {
         if (option == null || option.isNone()) continue;
         out.append("# ").append(group).append(" -> ").append(option.relativePath).append('\n');
       }
+      out.append('\n');
+      out.append("# Charpreset form\n");
+      out.append(charpreset.declarations());
+      out.append(charpreset.presetLine()).append('\n');
+      out.append(show).append('\n');
+      out.append('\n');
+      out.append("# Direct charimg form\n");
       out.append(charimg).append('\n').append(show).append('\n');
       return out.toString();
     }
 
     return charimg + "\n" + show + "\n";
+  }
+
+  private CharpresetSnippet buildCharpresetSnippet(String characterId, String expression, String fallbackPath) {
+    List<LayerSelection> selected = selectedLayerEntries();
+    Map<String, Integer> layerIdCounts = new HashMap<>();
+    StringBuilder declarations = new StringBuilder();
+    StringBuilder presetSpec = new StringBuilder();
+
+    if (selected.isEmpty()) {
+      String layerId = nextLayerId(layerIdCounts, "base");
+      declarations.append("@charlayer ")
+          .append(characterId).append(' ')
+          .append(layerId).append(' ')
+          .append(fallbackPath)
+          .append('\n');
+      presetSpec.append('$').append(layerId);
+    } else {
+      for (LayerSelection selection : selected) {
+        LayerOption option = selection.option();
+        if (option == null) continue;
+        String relativePath = option.relativePath == null ? "" : option.relativePath.trim();
+        if (relativePath.isBlank()) continue;
+
+        String groupId = sanitizeId(selection.group());
+        String labelId = sanitizeId(option.label);
+        String baseLayerId = sanitizeId((groupId.isBlank() ? "layer" : groupId) + "_" + (labelId.isBlank() ? "variant" : labelId));
+        if (baseLayerId.isBlank()) baseLayerId = "layer";
+        String layerId = nextLayerId(layerIdCounts, baseLayerId);
+
+        declarations.append("@charlayer ")
+            .append(characterId).append(' ')
+            .append(layerId).append(' ')
+            .append(relativePath)
+            .append('\n');
+        if (presetSpec.length() > 0) presetSpec.append(" | ");
+        presetSpec.append('$').append(layerId);
+      }
+    }
+
+    if (presetSpec.length() == 0) {
+      String layerId = nextLayerId(layerIdCounts, "base");
+      declarations.append("@charlayer ")
+          .append(characterId).append(' ')
+          .append(layerId).append(' ')
+          .append(fallbackPath)
+          .append('\n');
+      presetSpec.append('$').append(layerId);
+    }
+
+    String presetLine = "@charpreset " + characterId + " " + expression + " " + presetSpec;
+    return new CharpresetSnippet(declarations.toString(), presetLine);
+  }
+
+  private static String nextLayerId(Map<String, Integer> counts, String base) {
+    String normalizedBase = sanitizeId(base);
+    if (normalizedBase.isBlank()) normalizedBase = "layer";
+    int next = counts.getOrDefault(normalizedBase, 0) + 1;
+    counts.put(normalizedBase, next);
+    return next <= 1 ? normalizedBase : (normalizedBase + "_" + next);
   }
 
   private String buildLayerPathSpec() {
@@ -1369,6 +1446,14 @@ public class LayeredImageVisualizerView extends BorderPane {
   }
 
   private List<LayerOption> selectedLayers() {
+    List<LayerOption> out = new ArrayList<>();
+    for (LayerSelection selection : selectedLayerEntries()) {
+      out.add(selection.option());
+    }
+    return out;
+  }
+
+  private List<LayerSelection> selectedLayerEntries() {
     List<String> selectedGroupNames = new ArrayList<>();
     for (String group : groupOrder) {
       ComboBox<LayerOption> combo = selectors.get(group);
@@ -1378,13 +1463,13 @@ public class LayeredImageVisualizerView extends BorderPane {
     }
     boolean suppressBackground = shouldSuppressBackgroundGroups(selectedGroupNames);
 
-    List<LayerOption> out = new ArrayList<>();
+    List<LayerSelection> out = new ArrayList<>();
     for (String group : groupOrder) {
       ComboBox<LayerOption> combo = selectors.get(group);
       LayerOption option = combo != null ? combo.getValue() : null;
       if (option == null || option.isNone()) continue;
       if (suppressBackground && isLikelyBackgroundGroupName(group)) continue;
-      out.add(option);
+      out.add(new LayerSelection(group, option));
     }
     return out;
   }
@@ -2252,6 +2337,10 @@ public class LayeredImageVisualizerView extends BorderPane {
       return file == null;
     }
   }
+
+  private record LayerSelection(String group, LayerOption option) {}
+
+  private record CharpresetSnippet(String declarations, String presetLine) {}
 
   private record InferredGroupLabel(String group, String label) {}
 }
