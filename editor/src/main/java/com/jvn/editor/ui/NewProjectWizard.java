@@ -1538,6 +1538,8 @@ public class NewProjectWizard extends Stage {
       fw.write("nameTextBaselineOffset=25\n");
       fw.write("dialogueTextHorizontalPadding=20\n");
       fw.write("dialogueTextTopPadding=40\n");
+      fw.write("dialogueTextRightPadding=20\n");
+      fw.write("dialogueTextBottomPadding=10\n");
       fw.write("choiceXCenter=0.58\n");
       fw.write("choiceYStart=-1\n");
       fw.write("choiceWidthFactor=0.6\n");

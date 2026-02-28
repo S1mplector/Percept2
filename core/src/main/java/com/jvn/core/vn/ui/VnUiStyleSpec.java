@@ -11,21 +11,25 @@ public record VnUiStyleSpec(
     String textBoxAssetPath,
     String textBoxColor,
     Double textBoxOpacity,
+    String textBoxBoundsPoints,
     // --- Name box ---
     String nameBoxAssetPath,
     String nameBoxColor,
     String nameTextColor,
     String nameTextFontFamily,
     Integer nameTextFontSize,
+    String nameBoxBoundsPoints,
     // --- Dialogue text ---
     String dialogueTextColor,
     String dialogueTextFontFamily,
     Integer dialogueTextFontSize,
+    String dialogueTextBoundsPoints,
     // --- Choice button assets ---
     String choiceButtonAssetPath,
     String choiceButtonHoverAssetPath,
     String choiceButtonSelectedAssetPath,
     String choiceButtonDisabledAssetPath,
+    String choiceButtonBoundsPoints,
     // --- Choice colors ---
     String choiceBackgroundColor,
     String choiceHoverColor,
@@ -54,19 +58,23 @@ public record VnUiStyleSpec(
     textBoxAssetPath = normalize(textBoxAssetPath);
     textBoxColor = normalize(textBoxColor);
     if (textBoxOpacity != null) textBoxOpacity = clamp(textBoxOpacity, 0.0, 1.0);
+    textBoxBoundsPoints = normalize(textBoxBoundsPoints);
     nameBoxAssetPath = normalize(nameBoxAssetPath);
     nameBoxColor = normalize(nameBoxColor);
     nameTextColor = normalize(nameTextColor);
     nameTextFontFamily = normalize(nameTextFontFamily);
     if (nameTextFontSize != null && nameTextFontSize <= 0) nameTextFontSize = null;
+    nameBoxBoundsPoints = normalize(nameBoxBoundsPoints);
     dialogueTextColor = normalize(dialogueTextColor);
     dialogueTextFontFamily = normalize(dialogueTextFontFamily);
     if (dialogueTextFontSize != null && dialogueTextFontSize <= 0) dialogueTextFontSize = null;
+    dialogueTextBoundsPoints = normalize(dialogueTextBoundsPoints);
 
     choiceButtonAssetPath = normalize(choiceButtonAssetPath);
     choiceButtonHoverAssetPath = normalize(choiceButtonHoverAssetPath);
     choiceButtonSelectedAssetPath = normalize(choiceButtonSelectedAssetPath);
     choiceButtonDisabledAssetPath = normalize(choiceButtonDisabledAssetPath);
+    choiceButtonBoundsPoints = normalize(choiceButtonBoundsPoints);
 
     choiceBackgroundColor = normalize(choiceBackgroundColor);
     choiceHoverColor = normalize(choiceHoverColor);
@@ -98,10 +106,10 @@ public record VnUiStyleSpec(
 
   public static VnUiStyleSpec defaults() {
     return new VnUiStyleSpec(
-        null, null, null,             // textbox asset, color, opacity
-        null, null, null, null, null, // name box asset, color, text color, font, size
-        null, null, null,             // dialogue text color, font, size
-        null, null, null, null,       // choice button assets
+        null, null, null, null,       // textbox asset, color, opacity, bounds points
+        null, null, null, null, null, null, // name box asset, color, text color, font, size, bounds points
+        null, null, null, null,       // dialogue text color, font, size, bounds points
+        null, null, null, null, null, // choice button assets + bounds points
         null, null, null, null,       // choice bg colors
         null, null, null, null,       // choice text colors
         null, null, null, null,       // choice border colors

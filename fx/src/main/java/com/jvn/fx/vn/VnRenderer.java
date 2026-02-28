@@ -102,6 +102,8 @@ public class VnRenderer {
   private Image choiceButtonHoverImage;
   private Image choiceButtonDisabledImage;
   private Image textBoxImage;
+  private Color textBoxFillColor = TEXTBOX_COLOR;
+  private double textBoxAssetOverlayOpacity = 0.28;
   private Color choiceBgColor = CHOICE_BG_COLOR;
   private Color choiceHoverColor = CHOICE_HOVER_COLOR;
   private Color choiceDisabledColor = CHOICE_DISABLED_COLOR;
@@ -114,6 +116,10 @@ public class VnRenderer {
   private double choiceCornerRadius = DEFAULT_CHOICE_RADIUS;
   private double choiceBorderWidth = DEFAULT_CHOICE_BORDER_WIDTH;
   private double choiceTextBaselineOffset = DEFAULT_CHOICE_TEXT_BASELINE_OFFSET;
+  private List<BoundsPointCodec.Point> textBoxBoundsPolygon = List.of();
+  private List<BoundsPointCodec.Point> nameBoxBoundsPolygon = List.of();
+  private List<BoundsPointCodec.Point> dialogueTextBoundsPolygon = List.of();
+  private List<BoundsPointCodec.Point> choiceButtonBoundsPolygon = List.of();
   private final double[] visualizerLevels = new double[VISUALIZER_BAR_COUNT];
   private final double[] visualizerTargets = new double[VISUALIZER_BAR_COUNT];
 
@@ -784,22 +790,38 @@ public class VnRenderer {
     double textBoxHeight = textBox.height();
 
     // Draw text box background (asset if provided, otherwise default fill).
+    boolean clipTextBox = hasPolygon(textBoxBoundsPolygon);
+    if (clipTextBox) {
+      gc.save();
+      clipToLocalPolygon(textBoxBoundsPolygon, textBoxX, textBoxY, textBoxWidth, textBoxHeight);
+    }
     if (textBoxImage != null) {
       gc.drawImage(textBoxImage, textBoxX, textBoxY, textBoxWidth, textBoxHeight);
-      gc.setFill(Color.color(0, 0, 0, 0.28));
-      gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
+      if (textBoxAssetOverlayOpacity > 0.001) {
+        gc.setFill(withOpacity(textBoxFillColor, textBoxAssetOverlayOpacity));
+        gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
+      }
     } else {
-      gc.setFill(TEXTBOX_COLOR);
+      gc.setFill(textBoxFillColor);
       gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
     }
+    if (clipTextBox) gc.restore();
 
     // Draw name box if speaker exists
-    String speakerName = resolveRuntimeText(dialogue.getSpeakerName());
+      String speakerName = resolveRuntimeText(dialogue.getSpeakerName());
     if (speakerName != null && !speakerName.isEmpty()) {
       double nameBoxX = textBoxX + uiLayout.nameBoxXOffset();
       double nameBoxY = textBoxY + uiLayout.nameBoxYOffset();
+      double nameBoxW = uiLayout.nameBoxWidth();
+      double nameBoxH = uiLayout.nameBoxHeight();
+      boolean clipNameBox = hasPolygon(nameBoxBoundsPolygon);
+      if (clipNameBox) {
+        gc.save();
+        clipToLocalPolygon(nameBoxBoundsPolygon, nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+      }
       gc.setFill(NAME_BOX_COLOR);
-      gc.fillRect(nameBoxX, nameBoxY, uiLayout.nameBoxWidth(), uiLayout.nameBoxHeight());
+      gc.fillRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+      if (clipNameBox) gc.restore();
 
       gc.setFill(TEXT_COLOR);
       gc.setFont(nameFont);
@@ -818,8 +840,23 @@ public class VnRenderer {
 
     double textX = textBoxX + uiLayout.dialogueTextHorizontalPadding();
     double textY = textBoxY + uiLayout.dialogueTextTopPadding();
-    double textWidth = Math.max(60, textBoxWidth - uiLayout.dialogueTextHorizontalPadding() * 2);
+    double textWidth = Math.max(
+        60,
+        textBoxWidth - uiLayout.dialogueTextHorizontalPadding() - uiLayout.dialogueTextRightPadding());
+    double textHeight = Math.max(
+        20,
+        textBoxHeight - uiLayout.dialogueTextTopPadding() - uiLayout.dialogueTextBottomPadding());
+    gc.save();
+    if (hasPolygon(dialogueTextBoundsPolygon)) {
+      clipToLocalPolygon(dialogueTextBoundsPolygon, textX, textY, textWidth, textHeight);
+    } else {
+      gc.beginPath();
+      gc.rect(textX, textY - dialogueFont.getSize(), textWidth, textHeight + dialogueFont.getSize());
+      gc.closePath();
+      gc.clip();
+    }
     drawStyledText(spans, revealedLength, textX, textY, textWidth);
+    gc.restore();
 
     // Draw continue indicator if text is fully revealed
     if (revealedLength >= plainLength && state.isWaitingForInput()) {
@@ -844,23 +881,42 @@ public class VnRenderer {
       Image drawAsset = !enabled
           ? firstNonNull(disabledAsset, asset)
           : (hovered ? firstNonNull(hoverAsset, asset) : asset);
+      List<BoundsPointCodec.Point> buttonPolygon = parseBoundsPoints(button.boundsPoints());
+      boolean clipButton = hasPolygon(buttonPolygon);
       if (drawAsset != null) {
+        if (clipButton) {
+          gc.save();
+          clipToLocalPolygon(buttonPolygon, geometry.x(), geometry.y(), geometry.width(), geometry.height());
+        }
         if (!enabled) gc.setGlobalAlpha(0.55);
         gc.drawImage(drawAsset, geometry.x(), geometry.y(), geometry.width(), geometry.height());
         gc.setGlobalAlpha(1.0);
+        if (clipButton) gc.restore();
       } else {
         Color fill = !enabled
             ? Color.rgb(38, 40, 48, 0.7)
             : (hovered ? Color.rgb(90, 120, 180, 0.8) : Color.rgb(32, 36, 46, 0.78));
-        gc.setFill(fill);
-        gc.fillRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
+        if (clipButton) {
+          gc.save();
+          clipToLocalPolygon(buttonPolygon, geometry.x(), geometry.y(), geometry.width(), geometry.height());
+          gc.setFill(fill);
+          gc.fillRect(geometry.x(), geometry.y(), geometry.width(), geometry.height());
+          gc.restore();
+        } else {
+          gc.setFill(fill);
+          gc.fillRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
+        }
       }
 
       gc.setStroke(!enabled
           ? Color.rgb(120, 125, 136, 0.75)
           : (hovered ? Color.rgb(170, 210, 255, 0.95) : Color.rgb(120, 135, 170, 0.82)));
       gc.setLineWidth(hovered ? 2.0 : 1.2);
-      gc.strokeRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
+      if (clipButton) {
+        strokeLocalPolygon(buttonPolygon, geometry.x(), geometry.y(), geometry.width(), geometry.height());
+      } else {
+        gc.strokeRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
+      }
 
       gc.setFill(!enabled ? Color.rgb(172, 176, 188, 0.75) : (hovered ? Color.rgb(245, 252, 255) : Color.rgb(225, 232, 246)));
       gc.setFont(Font.font(choiceFont.getFamily(), FontWeight.BOLD, clamp(geometry.height() * 0.42, 10, 18)));
@@ -970,11 +1026,21 @@ public class VnRenderer {
   private void applyUiStyle(VnUiStyleSpec style) {
     VnUiStyleSpec resolved = style == null ? VnUiStyleSpec.defaults() : style;
     textBoxImage = loadImage(resolved.textBoxAssetPath());
+    textBoxFillColor = parseColor(resolved.textBoxColor(), TEXTBOX_COLOR);
+    textBoxAssetOverlayOpacity = clamp(
+        resolved.textBoxOpacity() == null ? 0.28 : resolved.textBoxOpacity(),
+        0.0,
+        1.0
+    );
+    textBoxBoundsPolygon = parseBoundsPoints(resolved.textBoxBoundsPoints());
+    nameBoxBoundsPolygon = parseBoundsPoints(resolved.nameBoxBoundsPoints());
+    dialogueTextBoundsPolygon = parseBoundsPoints(resolved.dialogueTextBoundsPoints());
     choiceButtonImage = loadImage(resolved.choiceButtonAssetPath());
     choiceButtonHoverImage = loadImage(firstNonBlank(
         resolved.choiceButtonHoverAssetPath(),
         resolved.choiceButtonSelectedAssetPath()));
     choiceButtonDisabledImage = loadImage(resolved.choiceButtonDisabledAssetPath());
+    choiceButtonBoundsPolygon = parseBoundsPoints(resolved.choiceButtonBoundsPoints());
 
     choiceBgColor = parseColor(resolved.choiceBackgroundColor(), CHOICE_BG_COLOR);
     choiceHoverColor = parseColor(
@@ -1090,6 +1156,43 @@ public class VnRenderer {
     }
   }
 
+  private List<BoundsPointCodec.Point> parseBoundsPoints(String raw) {
+    List<BoundsPointCodec.Point> parsed = BoundsPointCodec.parse(raw);
+    return parsed.size() >= 3 ? parsed : List.of();
+  }
+
+  private boolean hasPolygon(List<BoundsPointCodec.Point> points) {
+    return points != null && points.size() >= 3;
+  }
+
+  private void clipToLocalPolygon(List<BoundsPointCodec.Point> localPoints, double rectX, double rectY, double rectW, double rectH) {
+    if (!hasPolygon(localPoints)) return;
+    gc.beginPath();
+    for (int i = 0; i < localPoints.size(); i++) {
+      BoundsPointCodec.Point point = localPoints.get(i);
+      double x = rectX + rectW * point.x();
+      double y = rectY + rectH * point.y();
+      if (i == 0) gc.moveTo(x, y);
+      else gc.lineTo(x, y);
+    }
+    gc.closePath();
+    gc.clip();
+  }
+
+  private void strokeLocalPolygon(List<BoundsPointCodec.Point> localPoints, double rectX, double rectY, double rectW, double rectH) {
+    if (!hasPolygon(localPoints)) return;
+    gc.beginPath();
+    for (int i = 0; i < localPoints.size(); i++) {
+      BoundsPointCodec.Point point = localPoints.get(i);
+      double x = rectX + rectW * point.x();
+      double y = rectY + rectH * point.y();
+      if (i == 0) gc.moveTo(x, y);
+      else gc.lineTo(x, y);
+    }
+    gc.closePath();
+    gc.stroke();
+  }
+
   private static String firstNonBlank(String first, String second) {
     if (first != null && !first.isBlank()) return first;
     if (second != null && !second.isBlank()) return second;
@@ -1098,6 +1201,15 @@ public class VnRenderer {
 
   private static Image firstNonNull(Image primary, Image fallback) {
     return primary != null ? primary : fallback;
+  }
+
+  private static Color withOpacity(Color base, double opacity) {
+    if (base == null) base = Color.BLACK;
+    double clamped = opacity;
+    if (Double.isNaN(clamped) || Double.isInfinite(clamped)) clamped = 0.0;
+    if (clamped < 0.0) clamped = 0.0;
+    if (clamped > 1.0) clamped = 1.0;
+    return Color.color(base.getRed(), base.getGreen(), base.getBlue(), clamped);
   }
 
   private void renderChoices(List<Choice> choices, double width, double height, int hoverIndex) {
@@ -1114,19 +1226,39 @@ public class VnRenderer {
           ? firstNonNull(choiceButtonDisabledImage, choiceButtonImage)
           : (hovered ? firstNonNull(choiceButtonHoverImage, choiceButtonImage) : choiceButtonImage);
       double radius = choiceCornerRadius;
+      boolean clipChoiceButton = hasPolygon(choiceButtonBoundsPolygon);
       if (buttonImage != null) {
-        gc.drawImage(buttonImage, geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight());
+        if (clipChoiceButton) {
+          gc.save();
+          clipToLocalPolygon(choiceButtonBoundsPolygon, geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight());
+          gc.drawImage(buttonImage, geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight());
+          gc.restore();
+        } else {
+          gc.drawImage(buttonImage, geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight());
+        }
       } else {
         Color bg = !enabled ? choiceDisabledColor : (hovered ? choiceHoverColor : choiceBgColor);
-        gc.setFill(bg);
-        gc.fillRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), radius, radius);
+        if (clipChoiceButton) {
+          gc.save();
+          clipToLocalPolygon(choiceButtonBoundsPolygon, geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight());
+          gc.setFill(bg);
+          gc.fillRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight());
+          gc.restore();
+        } else {
+          gc.setFill(bg);
+          gc.fillRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), radius, radius);
+        }
       }
 
       // Border
       Color borderColor = !enabled ? choiceDisabledBorderColor : (hovered ? choiceHoverBorderColor : choiceBorderColor);
       gc.setStroke(borderColor);
       gc.setLineWidth(choiceBorderWidth);
-      gc.strokeRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), radius, radius);
+      if (clipChoiceButton) {
+        strokeLocalPolygon(choiceButtonBoundsPolygon, geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight());
+      } else {
+        gc.strokeRoundRect(geo.choiceX(), y, geo.choiceWidth(), geo.choiceHeight(), radius, radius);
+      }
 
       // Text
       Color textColor = !enabled ? choiceDisabledTextColor : (hovered ? choiceHoverTextColor : choiceTextColor);
@@ -1413,8 +1545,18 @@ public class VnRenderer {
 
     for (int i = 0; i < choices.size(); i++) {
       double y = geo.startY() + i * (geo.choiceHeight() + geo.choiceGap());
-      if (mouseX >= geo.choiceX() && mouseX <= geo.choiceX() + geo.choiceWidth() &&
-          mouseY >= y && mouseY <= y + geo.choiceHeight()) {
+      if (hasPolygon(choiceButtonBoundsPolygon)) {
+        if (BoundsPointCodec.containsInRect(
+            choiceButtonBoundsPolygon,
+            geo.choiceX(),
+            y,
+            geo.choiceWidth(),
+            geo.choiceHeight(),
+            mouseX,
+            mouseY
+        )) return i;
+      } else if (mouseX >= geo.choiceX() && mouseX <= geo.choiceX() + geo.choiceWidth()
+          && mouseY >= y && mouseY <= y + geo.choiceHeight()) {
         return i;
       }
     }

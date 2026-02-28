@@ -48,7 +48,9 @@ class VnUiLayoutLoaderTest {
   void parsesStyleOverrides() {
     Properties p = new Properties();
     p.setProperty("textBoxAsset", "assets/ui/textbox.png");
+    p.setProperty("textBoxBoundsPoints", "0,0;1,0;1,1;0,1");
     p.setProperty("choiceButtonAsset", "assets/ui/choice.png");
+    p.setProperty("choiceButtonBoundsPoints", "0,0;1,0;0.9,1;0.1,1");
     p.setProperty("choiceHoverColor", "#4466aa");
     p.setProperty("choiceBorderWidth", "3");
     p.setProperty("choiceTextBaselineOffset", "7");
@@ -58,7 +60,9 @@ class VnUiLayoutLoaderTest {
     VnUiStyleSpec style = VnUiLayoutLoader.parseStyle(p, VnUiStyleSpec.defaults());
 
     assertEquals("assets/ui/textbox.png", style.textBoxAssetPath());
+    assertEquals("0,0;1,0;1,1;0,1", style.textBoxBoundsPoints());
     assertEquals("assets/ui/choice.png", style.choiceButtonAssetPath());
+    assertEquals("0,0;1,0;0.9,1;0.1,1", style.choiceButtonBoundsPoints());
     assertEquals("#4466aa", style.choiceHoverColor());
     assertEquals(3.0, style.choiceBorderWidth(), 1e-6);
     assertEquals(7.0, style.choiceTextBaselineOffset(), 1e-6);
@@ -69,10 +73,10 @@ class VnUiLayoutLoaderTest {
   @Test
   void serializesCharacterFramingStyleKeys() {
     VnUiStyleSpec style = new VnUiStyleSpec(
-        null, null, null,
-        null, null, null, null, null,
-        null, null, null,
         null, null, null, null,
+        null, null, null, null, null, null,
+        null, null, null, null,
+        null, null, null, null, null,
         null, null, null, null,
         null, null, null, null,
         null, null, null, null,
@@ -85,6 +89,29 @@ class VnUiLayoutLoaderTest {
 
     assertEquals("1.15", p.getProperty("characterHeightFactor"));
     assertEquals("0.9", p.getProperty("characterBaselineY"));
+  }
+
+  @Test
+  void serializesStyleBoundsPointKeys() {
+    VnUiStyleSpec style = new VnUiStyleSpec(
+        null, null, null, "0,0;1,0;1,1;0,1",
+        null, null, null, null, null, "0,0;1,0;0.85,1;0.15,1",
+        null, null, null, "0.05,0.05;0.95,0.05;0.95,0.95;0.05,0.95",
+        null, null, null, null, "0,0;1,0;0.9,1;0.1,1",
+        null, null, null, null,
+        null, null, null, null,
+        null, null, null, null,
+        10.0, 2.0, 5.0,
+        null, null,
+        null, null
+    );
+
+    Properties p = VnUiLayoutLoader.toStyleProperties(style);
+
+    assertEquals("0,0;1,0;1,1;0,1", p.getProperty("textBoxBoundsPoints"));
+    assertEquals("0,0;1,0;0.85,1;0.15,1", p.getProperty("nameBoxBoundsPoints"));
+    assertEquals("0.05,0.05;0.95,0.05;0.95,0.95;0.05,0.95", p.getProperty("dialogueTextBoundsPoints"));
+    assertEquals("0,0;1,0;0.9,1;0.1,1", p.getProperty("choiceButtonBoundsPoints"));
   }
 
   @Test

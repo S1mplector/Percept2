@@ -140,26 +140,66 @@ public final class VnUiLayoutLoader {
     List<VnUiActionButtonSpec> bButtons = baseButtons == null ? List.of() : baseButtons;
     if (props == null) return new LoadResult(bLayout, bStyle, bButtons, diagnostics);
 
+    double textBoxX = parseDouble(props.getProperty("textBoxX"), bLayout.textBoxX(), diagnostics, "textBoxX");
+    double textBoxY = parseDouble(props.getProperty("textBoxY"), bLayout.textBoxY(), diagnostics, "textBoxY");
+    double textBoxWidth = parseDouble(props.getProperty("textBoxWidth"), bLayout.textBoxWidth(), diagnostics, "textBoxWidth");
+    double textBoxHeight = parseDouble(props.getProperty("textBoxHeight"), bLayout.textBoxHeight(), diagnostics, "textBoxHeight");
+    double textBoxPadding = parseDouble(props.getProperty("textBoxPadding"), bLayout.textBoxPadding(), diagnostics, "textBoxPadding");
+    double nameBoxXOffset = parseDouble(props.getProperty("nameBoxXOffset"), bLayout.nameBoxXOffset(), diagnostics, "nameBoxXOffset");
+    double nameBoxYOffset = parseDouble(props.getProperty("nameBoxYOffset"), bLayout.nameBoxYOffset(), diagnostics, "nameBoxYOffset");
+    double nameBoxWidth = parseDouble(props.getProperty("nameBoxWidth"), bLayout.nameBoxWidth(), diagnostics, "nameBoxWidth");
+    double nameBoxHeight = parseDouble(props.getProperty("nameBoxHeight"), bLayout.nameBoxHeight(), diagnostics, "nameBoxHeight");
+    double nameTextXOffset = parseDouble(props.getProperty("nameTextXOffset"), bLayout.nameTextXOffset(), diagnostics, "nameTextXOffset");
+    double nameTextBaselineOffset = parseDouble(props.getProperty("nameTextBaselineOffset"), bLayout.nameTextBaselineOffset(), diagnostics, "nameTextBaselineOffset");
+    double dialogueTextHorizontalPadding = parseDouble(
+        props.getProperty("dialogueTextHorizontalPadding"),
+        bLayout.dialogueTextHorizontalPadding(),
+        diagnostics,
+        "dialogueTextHorizontalPadding");
+    double dialogueTextTopPadding = parseDouble(
+        props.getProperty("dialogueTextTopPadding"),
+        bLayout.dialogueTextTopPadding(),
+        diagnostics,
+        "dialogueTextTopPadding");
+    double dialogueTextRightPadding = parseDouble(
+        props.getProperty("dialogueTextRightPadding"),
+        dialogueTextHorizontalPadding,
+        diagnostics,
+        "dialogueTextRightPadding");
+    double dialogueTextBottomPadding = parseDouble(
+        props.getProperty("dialogueTextBottomPadding"),
+        bLayout.dialogueTextBottomPadding(),
+        diagnostics,
+        "dialogueTextBottomPadding");
+    double choiceXCenter = parseDouble(props.getProperty("choiceXCenter"), bLayout.choiceXCenter(), diagnostics, "choiceXCenter");
+    double choiceYStart = parseDouble(props.getProperty("choiceYStart"), bLayout.choiceYStart(), diagnostics, "choiceYStart");
+    double choiceWidthFactor = parseDouble(props.getProperty("choiceWidthFactor"), bLayout.choiceWidthFactor(), diagnostics, "choiceWidthFactor");
+    double choiceHeight = parseDouble(props.getProperty("choiceHeight"), bLayout.choiceHeight(), diagnostics, "choiceHeight");
+    double choiceGap = parseDouble(props.getProperty("choiceGap"), bLayout.choiceGap(), diagnostics, "choiceGap");
+    double choiceTextXPadding = parseDouble(props.getProperty("choiceTextXPadding"), bLayout.choiceTextXPadding(), diagnostics, "choiceTextXPadding");
+
     VnUiLayoutSpec layout = new VnUiLayoutSpec(
-        parseDouble(props.getProperty("textBoxX"), bLayout.textBoxX(), diagnostics, "textBoxX"),
-        parseDouble(props.getProperty("textBoxY"), bLayout.textBoxY(), diagnostics, "textBoxY"),
-        parseDouble(props.getProperty("textBoxWidth"), bLayout.textBoxWidth(), diagnostics, "textBoxWidth"),
-        parseDouble(props.getProperty("textBoxHeight"), bLayout.textBoxHeight(), diagnostics, "textBoxHeight"),
-        parseDouble(props.getProperty("textBoxPadding"), bLayout.textBoxPadding(), diagnostics, "textBoxPadding"),
-        parseDouble(props.getProperty("nameBoxXOffset"), bLayout.nameBoxXOffset(), diagnostics, "nameBoxXOffset"),
-        parseDouble(props.getProperty("nameBoxYOffset"), bLayout.nameBoxYOffset(), diagnostics, "nameBoxYOffset"),
-        parseDouble(props.getProperty("nameBoxWidth"), bLayout.nameBoxWidth(), diagnostics, "nameBoxWidth"),
-        parseDouble(props.getProperty("nameBoxHeight"), bLayout.nameBoxHeight(), diagnostics, "nameBoxHeight"),
-        parseDouble(props.getProperty("nameTextXOffset"), bLayout.nameTextXOffset(), diagnostics, "nameTextXOffset"),
-        parseDouble(props.getProperty("nameTextBaselineOffset"), bLayout.nameTextBaselineOffset(), diagnostics, "nameTextBaselineOffset"),
-        parseDouble(props.getProperty("dialogueTextHorizontalPadding"), bLayout.dialogueTextHorizontalPadding(), diagnostics, "dialogueTextHorizontalPadding"),
-        parseDouble(props.getProperty("dialogueTextTopPadding"), bLayout.dialogueTextTopPadding(), diagnostics, "dialogueTextTopPadding"),
-        parseDouble(props.getProperty("choiceXCenter"), bLayout.choiceXCenter(), diagnostics, "choiceXCenter"),
-        parseDouble(props.getProperty("choiceYStart"), bLayout.choiceYStart(), diagnostics, "choiceYStart"),
-        parseDouble(props.getProperty("choiceWidthFactor"), bLayout.choiceWidthFactor(), diagnostics, "choiceWidthFactor"),
-        parseDouble(props.getProperty("choiceHeight"), bLayout.choiceHeight(), diagnostics, "choiceHeight"),
-        parseDouble(props.getProperty("choiceGap"), bLayout.choiceGap(), diagnostics, "choiceGap"),
-        parseDouble(props.getProperty("choiceTextXPadding"), bLayout.choiceTextXPadding(), diagnostics, "choiceTextXPadding")
+        textBoxX,
+        textBoxY,
+        textBoxWidth,
+        textBoxHeight,
+        textBoxPadding,
+        nameBoxXOffset,
+        nameBoxYOffset,
+        nameBoxWidth,
+        nameBoxHeight,
+        nameTextXOffset,
+        nameTextBaselineOffset,
+        dialogueTextHorizontalPadding,
+        dialogueTextTopPadding,
+        dialogueTextRightPadding,
+        dialogueTextBottomPadding,
+        choiceXCenter,
+        choiceYStart,
+        choiceWidthFactor,
+        choiceHeight,
+        choiceGap,
+        choiceTextXPadding
     );
 
     VnUiStyleSpec style = new VnUiStyleSpec(
@@ -167,21 +207,25 @@ public final class VnUiLayoutLoader {
         normalize(props.getProperty("textBoxAsset"), bStyle.textBoxAssetPath()),
         normalize(props.getProperty("textBoxColor"), bStyle.textBoxColor()),
         parseOptionalDouble(props.getProperty("textBoxOpacity"), bStyle.textBoxOpacity(), diagnostics, "textBoxOpacity"),
+        normalize(props.getProperty("textBoxBoundsPoints"), bStyle.textBoxBoundsPoints()),
         // Name box
         normalize(props.getProperty("nameBoxAsset"), bStyle.nameBoxAssetPath()),
         normalize(props.getProperty("nameBoxColor"), bStyle.nameBoxColor()),
         normalize(props.getProperty("nameTextColor"), bStyle.nameTextColor()),
         normalize(props.getProperty("nameTextFontFamily"), bStyle.nameTextFontFamily()),
         parseOptionalInt(props.getProperty("nameTextFontSize"), bStyle.nameTextFontSize(), diagnostics, "nameTextFontSize"),
+        normalize(props.getProperty("nameBoxBoundsPoints"), bStyle.nameBoxBoundsPoints()),
         // Dialogue text
         normalize(props.getProperty("dialogueTextColor"), bStyle.dialogueTextColor()),
         normalize(props.getProperty("dialogueTextFontFamily"), bStyle.dialogueTextFontFamily()),
         parseOptionalInt(props.getProperty("dialogueTextFontSize"), bStyle.dialogueTextFontSize(), diagnostics, "dialogueTextFontSize"),
+        normalize(props.getProperty("dialogueTextBoundsPoints"), bStyle.dialogueTextBoundsPoints()),
         // Choice button assets
         normalize(props.getProperty("choiceButtonAsset"), bStyle.choiceButtonAssetPath()),
         normalize(props.getProperty("choiceButtonHoverAsset"), bStyle.choiceButtonHoverAssetPath()),
         normalize(props.getProperty("choiceButtonSelectedAsset"), bStyle.choiceButtonSelectedAssetPath()),
         normalize(props.getProperty("choiceButtonDisabledAsset"), bStyle.choiceButtonDisabledAssetPath()),
+        normalize(props.getProperty("choiceButtonBoundsPoints"), bStyle.choiceButtonBoundsPoints()),
         // Choice colors
         normalize(props.getProperty("choiceBackgroundColor"), bStyle.choiceBackgroundColor()),
         normalize(props.getProperty("choiceHoverColor"), bStyle.choiceHoverColor()),
@@ -227,6 +271,8 @@ public final class VnUiLayoutLoader {
     p.setProperty("nameTextBaselineOffset", format(s.nameTextBaselineOffset()));
     p.setProperty("dialogueTextHorizontalPadding", format(s.dialogueTextHorizontalPadding()));
     p.setProperty("dialogueTextTopPadding", format(s.dialogueTextTopPadding()));
+    p.setProperty("dialogueTextRightPadding", format(s.dialogueTextRightPadding()));
+    p.setProperty("dialogueTextBottomPadding", format(s.dialogueTextBottomPadding()));
     p.setProperty("choiceXCenter", format(s.choiceXCenter()));
     p.setProperty("choiceYStart", format(s.choiceYStart()));
     p.setProperty("choiceWidthFactor", format(s.choiceWidthFactor()));
@@ -240,10 +286,27 @@ public final class VnUiLayoutLoader {
     VnUiStyleSpec s = style == null ? VnUiStyleSpec.defaults() : style;
     Properties p = new Properties();
     setOptional(p, "textBoxAsset", s.textBoxAssetPath());
+    setOptional(p, "textBoxColor", s.textBoxColor());
+    setOptional(p, "textBoxOpacity", s.textBoxOpacity() == null ? null : format(s.textBoxOpacity()));
+    setOptional(p, "textBoxBoundsPoints", s.textBoxBoundsPoints());
+
+    setOptional(p, "nameBoxAsset", s.nameBoxAssetPath());
+    setOptional(p, "nameBoxColor", s.nameBoxColor());
+    setOptional(p, "nameTextColor", s.nameTextColor());
+    setOptional(p, "nameTextFontFamily", s.nameTextFontFamily());
+    setOptional(p, "nameTextFontSize", s.nameTextFontSize() == null ? null : Integer.toString(s.nameTextFontSize()));
+    setOptional(p, "nameBoxBoundsPoints", s.nameBoxBoundsPoints());
+
+    setOptional(p, "dialogueTextColor", s.dialogueTextColor());
+    setOptional(p, "dialogueTextFontFamily", s.dialogueTextFontFamily());
+    setOptional(p, "dialogueTextFontSize", s.dialogueTextFontSize() == null ? null : Integer.toString(s.dialogueTextFontSize()));
+    setOptional(p, "dialogueTextBoundsPoints", s.dialogueTextBoundsPoints());
+
     setOptional(p, "choiceButtonAsset", s.choiceButtonAssetPath());
     setOptional(p, "choiceButtonHoverAsset", s.choiceButtonHoverAssetPath());
     setOptional(p, "choiceButtonSelectedAsset", s.choiceButtonSelectedAssetPath());
     setOptional(p, "choiceButtonDisabledAsset", s.choiceButtonDisabledAssetPath());
+    setOptional(p, "choiceButtonBoundsPoints", s.choiceButtonBoundsPoints());
 
     setOptional(p, "choiceBackgroundColor", s.choiceBackgroundColor());
     setOptional(p, "choiceHoverColor", s.choiceHoverColor());
@@ -263,6 +326,8 @@ public final class VnUiLayoutLoader {
     p.setProperty("choiceCornerRadius", format(s.choiceCornerRadius()));
     p.setProperty("choiceBorderWidth", format(s.choiceBorderWidth()));
     p.setProperty("choiceTextBaselineOffset", format(s.choiceTextBaselineOffset()));
+    setOptional(p, "choiceFontFamily", s.choiceFontFamily());
+    setOptional(p, "choiceFontSize", s.choiceFontSize() == null ? null : Integer.toString(s.choiceFontSize()));
     setOptional(p, "characterHeightFactor", s.characterHeightFactor() == null ? null : format(s.characterHeightFactor()));
     setOptional(p, "characterBaselineY", s.characterBaselineY() == null ? null : format(s.characterBaselineY()));
     return p;

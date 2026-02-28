@@ -21,6 +21,7 @@ import com.jvn.core.vn.ui.VnUiStyleSpec;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -60,10 +61,16 @@ public class DialogueLayoutEditorView extends BorderPane {
       "textBoxHeight",
       "textBoxPadding",
       "textBoxAsset",
+      "textBoxColor",
+      "textBoxOpacity",
+      "textBoxBoundsPoints",
+      "nameBoxBoundsPoints",
+      "dialogueTextBoundsPoints",
       "choiceButtonAsset",
       "choiceButtonHoverAsset",
       "choiceButtonSelectedAsset",
       "choiceButtonDisabledAsset",
+      "choiceButtonBoundsPoints",
       "choiceBackgroundColor",
       "choiceHoverColor",
       "choiceSelectedColor",
@@ -87,6 +94,8 @@ public class DialogueLayoutEditorView extends BorderPane {
       "nameTextBaselineOffset",
       "dialogueTextHorizontalPadding",
       "dialogueTextTopPadding",
+      "dialogueTextRightPadding",
+      "dialogueTextBottomPadding",
       "choiceXCenter",
       "choiceYStart",
       "choiceWidthFactor",
@@ -126,7 +135,10 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Spinner<Double> spTextBoxWidth = spinner(0.05, 1, 1, 0.01);
   private final Spinner<Double> spTextBoxHeight = spinner(0.05, 1, 0.25, 0.01);
   private final Spinner<Double> spTextBoxPadding = spinner(0, 200, 20, 1);
+  private final Spinner<Double> spTextBoxOverlayOpacity = spinner(0, 1, 0.28, 0.01);
+  private final CheckBox chkTextBoxOverlayEnabled = new CheckBox("Enable overlay tint");
   private final TextField tfTextBoxAsset = new TextField();
+  private final TextField tfTextBoxColor = new TextField();
   private final TextField tfChoiceButtonAsset = new TextField();
   private final TextField tfChoiceButtonHoverAsset = new TextField();
   private final TextField tfChoiceButtonSelectedAsset = new TextField();
@@ -141,6 +153,8 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private final Spinner<Double> spDialoguePaddingX = spinner(0, 300, 20, 1);
   private final Spinner<Double> spDialoguePaddingTop = spinner(-300, 300, 40, 1);
+  private final Spinner<Double> spDialoguePaddingRight = spinner(0, 300, 20, 1);
+  private final Spinner<Double> spDialoguePaddingBottom = spinner(0, 300, 10, 1);
 
   private final Spinner<Double> spChoiceXCenter = spinner(0, 1, 0.5, 0.01);
   private final Spinner<Double> spChoiceYStart = spinner(-1, 1, -1, 0.01);
@@ -193,6 +207,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     NAME_BOX,
     CHOICE_BLOCK,
     CHOICE_RESIZE,
+    DIALOGUE_BOUNDS,
+    DIALOGUE_BOUNDS_RESIZE,
     TEXTBOX_BUTTON,
     TEXTBOX_BUTTON_RESIZE
   }
@@ -287,6 +303,7 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private javafx.scene.Node buildControls() {
     tfTextBoxAsset.setPromptText("assets/ui/textbox.png");
+    tfTextBoxColor.setPromptText("#000000");
     tfChoiceButtonAsset.setPromptText("assets/ui/choice.png");
     tfChoiceButtonHoverAsset.setPromptText("assets/ui/choice_hover.png");
     tfChoiceButtonSelectedAsset.setPromptText("assets/ui/choice_selected.png");
@@ -328,6 +345,16 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(textboxGrid, row, "TextBox Height", spTextBoxHeight);
     row = addRow(textboxGrid, row, "TextBox Padding", spTextBoxPadding);
     row = addRow(textboxGrid, row, "TextBox Asset", assetFieldRow(tfTextBoxAsset, "Select Textbox Asset"));
+    row = addRow(textboxGrid, row, "TextBox Tint", ColorFieldHelper.create(tfTextBoxColor));
+    chkTextBoxOverlayEnabled.setSelected(true);
+    spTextBoxOverlayOpacity.setDisable(false);
+    chkTextBoxOverlayEnabled.selectedProperty().addListener((o, ov, nv) -> spTextBoxOverlayOpacity.setDisable(!Boolean.TRUE.equals(nv)));
+    HBox overlayRow = new HBox(8, chkTextBoxOverlayEnabled, spTextBoxOverlayOpacity);
+    overlayRow.setAlignment(Pos.CENTER_LEFT);
+    row = addRow(textboxGrid, row, "Asset Overlay", overlayRow);
+    Button textBoxBoundsStudioBtn = iconButton(CssIcon.grid("#7ec8e3"), "Open textbox bounds studio");
+    textBoxBoundsStudioBtn.setOnAction(e -> openTextBoxBoundsStudio());
+    row = addRow(textboxGrid, row, "Bounds Studio", textBoxBoundsStudioBtn);
     TitledPane tpTextbox = collapsibleSection("Textbox", textboxGrid, true);
 
     // --- Section: Name Box ---
@@ -339,13 +366,21 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(nameGrid, row, "Name Height", spNameBoxHeight);
     row = addRow(nameGrid, row, "Name Text X Offset", spNameTextXOffset);
     row = addRow(nameGrid, row, "Name Text Baseline", spNameTextBaselineOffset);
+    Button nameBoundsStudioBtn = iconButton(CssIcon.grid("#7ec8e3"), "Open name box bounds studio");
+    nameBoundsStudioBtn.setOnAction(e -> openNameBoxBoundsStudio());
+    row = addRow(nameGrid, row, "Bounds Studio", nameBoundsStudioBtn);
     TitledPane tpName = collapsibleSection("Name Box", nameGrid, false);
 
     // --- Section: Dialogue Text Bounds ---
     GridPane textBoundsGrid = sectionGrid();
     row = 0;
-    row = addRow(textBoundsGrid, row, "Text Horizontal Padding", spDialoguePaddingX);
+    row = addRow(textBoundsGrid, row, "Text Left Padding", spDialoguePaddingX);
     row = addRow(textBoundsGrid, row, "Text Top Padding", spDialoguePaddingTop);
+    row = addRow(textBoundsGrid, row, "Text Right Padding", spDialoguePaddingRight);
+    row = addRow(textBoundsGrid, row, "Text Bottom Padding", spDialoguePaddingBottom);
+    Button dialogueBoundsStudioBtn = iconButton(CssIcon.grid("#7ec8e3"), "Open dialogue text bounds studio");
+    dialogueBoundsStudioBtn.setOnAction(e -> openDialogueTextBoundsStudio());
+    row = addRow(textBoundsGrid, row, "Bounds Studio", dialogueBoundsStudioBtn);
     TitledPane tpTextBounds = collapsibleSection("Dialogue Text Bounds", textBoundsGrid, false);
 
     // --- Section: Choice Layout ---
@@ -361,6 +396,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(choiceLayoutGrid, row, "Hover Asset", assetFieldRow(tfChoiceButtonHoverAsset, "Select Choice Hover Asset"));
     row = addRow(choiceLayoutGrid, row, "Selected Asset", assetFieldRow(tfChoiceButtonSelectedAsset, "Select Choice Selected Asset"));
     row = addRow(choiceLayoutGrid, row, "Disabled Asset", assetFieldRow(tfChoiceButtonDisabledAsset, "Select Choice Disabled Asset"));
+    Button choiceBoundsStudioBtn = iconButton(CssIcon.grid("#7ec8e3"), "Open choice button bounds studio");
+    choiceBoundsStudioBtn.setOnAction(e -> openChoiceButtonBoundsStudio());
+    row = addRow(choiceLayoutGrid, row, "Bounds Studio", choiceBoundsStudioBtn);
     TitledPane tpChoiceLayout = collapsibleSection("Choice Layout & Assets", choiceLayoutGrid, true);
 
     // --- Section: Choice Colors ---
@@ -429,7 +467,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     HBox historyButtons = new HBox(8, btnUndo, btnRedo);
     historyButtons.setPadding(new Insets(4, 8, 4, 8));
 
-    Label hint = new Label("Drag blocks in preview to position or resize textbox/name/choices/buttons. Hold Shift for finer spinner edits.");
+    Label hint = new Label("Drag blocks in preview to position or resize textbox/name/choices/text bounds/buttons. Right and bottom text paddings allow exact text area sizing.");
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
     hint.setPadding(new Insets(4, 8, 8, 8));
@@ -531,6 +569,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spNameTextBaselineOffset);
     controls.add(spDialoguePaddingX);
     controls.add(spDialoguePaddingTop);
+    controls.add(spDialoguePaddingRight);
+    controls.add(spDialoguePaddingBottom);
     controls.add(spChoiceXCenter);
     controls.add(spChoiceYStart);
     controls.add(spChoiceWidthFactor);
@@ -540,6 +580,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spChoiceCornerRadius);
     controls.add(spChoiceBorderWidth);
     controls.add(spChoiceTextBaselineOffset);
+    controls.add(spTextBoxOverlayOpacity);
     controls.add(spButtonX);
     controls.add(spButtonY);
     controls.add(spButtonWidth);
@@ -549,6 +590,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     }
     List<TextField> styleFields = List.of(
         tfTextBoxAsset,
+        tfTextBoxColor,
         tfChoiceButtonAsset,
         tfChoiceButtonHoverAsset,
         tfChoiceButtonSelectedAsset,
@@ -575,6 +617,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     for (TextField field : styleFields) {
       field.textProperty().addListener((o, ov, nv) -> onStyleChanged());
     }
+    chkTextBoxOverlayEnabled.selectedProperty().addListener((o, ov, nv) -> onStyleChanged());
     chkButtonEnabled.selectedProperty().addListener((o, ov, nv) -> onStyleChanged());
     cbButtonAction.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
     lvTextBoxButtons.getSelectionModel().selectedIndexProperty().addListener((o, ov, nv) -> {
@@ -671,6 +714,8 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private void registerPreviewDrag() {
+    preview.setOnMouseMoved(e -> preview.setCursor(cursorForDragTarget(hitTest(e.getX(), e.getY()))));
+    preview.setOnMouseExited(e -> preview.setCursor(Cursor.DEFAULT));
     preview.setOnMousePressed(e -> {
       dragStartX = e.getX();
       dragStartY = e.getY();
@@ -685,6 +730,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       boolean wasDragging = dragTarget != DragTarget.NONE;
       dragTarget = DragTarget.NONE;
       dragButtonIndex = -1;
+      preview.setCursor(cursorForDragTarget(hitTest(e.getX(), e.getY())));
       if (wasDragging) emitText();
     });
     preview.setOnMouseDragged(e -> {
@@ -710,6 +756,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameTextBaselineOffset(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
+            dragStartSpec.dialogueTextRightPadding(),
+            dragStartSpec.dialogueTextBottomPadding(),
             dragStartSpec.choiceXCenter(),
             dragStartSpec.choiceYStart(),
             dragStartSpec.choiceWidthFactor(),
@@ -732,6 +780,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameTextBaselineOffset(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
+            dragStartSpec.dialogueTextRightPadding(),
+            dragStartSpec.dialogueTextBottomPadding(),
             dragStartSpec.choiceXCenter(),
             dragStartSpec.choiceYStart(),
             dragStartSpec.choiceWidthFactor(),
@@ -757,6 +807,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameTextBaselineOffset(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
+            dragStartSpec.dialogueTextRightPadding(),
+            dragStartSpec.dialogueTextBottomPadding(),
             dragStartSpec.choiceXCenter() + (dx / w),
             nextYStartNorm,
             dragStartSpec.choiceWidthFactor(),
@@ -781,6 +833,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameTextBaselineOffset(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
+            dragStartSpec.dialogueTextRightPadding(),
+            dragStartSpec.dialogueTextBottomPadding(),
             dragStartSpec.choiceXCenter(),
             dragStartSpec.choiceYStart(),
             dragStartSpec.choiceWidthFactor(),
@@ -805,10 +859,67 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameTextBaselineOffset(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
+            dragStartSpec.dialogueTextRightPadding(),
+            dragStartSpec.dialogueTextBottomPadding(),
             dragStartSpec.choiceXCenter(),
             dragStartSpec.choiceYStart(),
             newWidthFactor,
             newChoiceHeight,
+            dragStartSpec.choiceGap(),
+            dragStartSpec.choiceTextXPadding()
+        );
+      } else if (dragTarget == DragTarget.DIALOGUE_BOUNDS || dragTarget == DragTarget.DIALOGUE_BOUNDS_RESIZE) {
+        TextBoxGeometry textBox = computeTextBoxGeometry(dragStartSpec, w, h);
+        double boxW = Math.max(1, textBox.width());
+        double boxH = Math.max(1, textBox.height());
+        double minTextW = 40;
+        double minTextH = 20;
+
+        double left0 = clamp(dragStartSpec.dialogueTextHorizontalPadding(), 0, Math.max(0, boxW - minTextW));
+        double top0 = clamp(dragStartSpec.dialogueTextTopPadding(), 0, Math.max(0, boxH - minTextH));
+        double right0 = clamp(dragStartSpec.dialogueTextRightPadding(), 0, Math.max(0, boxW - left0 - minTextW));
+        double bottom0 = clamp(dragStartSpec.dialogueTextBottomPadding(), 0, Math.max(0, boxH - top0 - minTextH));
+
+        double width0 = Math.max(minTextW, boxW - left0 - right0);
+        double height0 = Math.max(minTextH, boxH - top0 - bottom0);
+
+        double left = left0;
+        double top = top0;
+        double right = right0;
+        double bottom = bottom0;
+
+        if (dragTarget == DragTarget.DIALOGUE_BOUNDS) {
+          left = clamp(left0 + dx, 0, Math.max(0, boxW - width0));
+          top = clamp(top0 + dy, 0, Math.max(0, boxH - height0));
+          right = Math.max(0, boxW - left - width0);
+          bottom = Math.max(0, boxH - top - height0);
+        } else {
+          double newTextW = clamp(width0 + dx, minTextW, Math.max(minTextW, boxW - left0));
+          double newTextH = clamp(height0 + dy, minTextH, Math.max(minTextH, boxH - top0));
+          right = Math.max(0, boxW - left0 - newTextW);
+          bottom = Math.max(0, boxH - top0 - newTextH);
+        }
+
+        next = new VnUiLayoutSpec(
+            dragStartSpec.textBoxX(),
+            dragStartSpec.textBoxY(),
+            dragStartSpec.textBoxWidth(),
+            dragStartSpec.textBoxHeight(),
+            dragStartSpec.textBoxPadding(),
+            dragStartSpec.nameBoxXOffset(),
+            dragStartSpec.nameBoxYOffset(),
+            dragStartSpec.nameBoxWidth(),
+            dragStartSpec.nameBoxHeight(),
+            dragStartSpec.nameTextXOffset(),
+            dragStartSpec.nameTextBaselineOffset(),
+            left,
+            top,
+            right,
+            bottom,
+            dragStartSpec.choiceXCenter(),
+            dragStartSpec.choiceYStart(),
+            dragStartSpec.choiceWidthFactor(),
+            dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding()
         );
@@ -868,10 +979,12 @@ public class DialogueLayoutEditorView extends BorderPane {
     // Resize handles (bottom-right corners) take priority
     if (isNearCorner(x, y, r.textBox())) return DragTarget.TEXT_BOX_RESIZE;
     if (isNearCorner(x, y, r.choiceBlock())) return DragTarget.CHOICE_RESIZE;
+    if (isNearCorner(x, y, r.dialogueBounds())) return DragTarget.DIALOGUE_BOUNDS_RESIZE;
     dragButtonIndex = hitTestButtonResizeIndex(x, y, r.textBox());
     if (dragButtonIndex >= 0) return DragTarget.TEXTBOX_BUTTON_RESIZE;
     dragButtonIndex = hitTestButtonIndex(x, y, r.textBox());
     if (dragButtonIndex >= 0) return DragTarget.TEXTBOX_BUTTON;
+    if (isNearBorder(x, y, r.dialogueBounds(), 6.0)) return DragTarget.DIALOGUE_BOUNDS;
     if (r.nameBox().contains(x, y)) return DragTarget.NAME_BOX;
     if (r.choiceBlock().contains(x, y)) return DragTarget.CHOICE_BLOCK;
     if (r.textBox().contains(x, y)) return DragTarget.TEXT_BOX;
@@ -882,6 +995,25 @@ public class DialogueLayoutEditorView extends BorderPane {
     double cx = rect.x() + rect.w();
     double cy = rect.y() + rect.h();
     return Math.abs(x - cx) <= HANDLE_SIZE && Math.abs(y - cy) <= HANDLE_SIZE;
+  }
+
+  private static boolean isNearBorder(double x, double y, Rect rect, double thickness) {
+    if (!rect.contains(x, y)) return false;
+    double right = rect.x() + rect.w();
+    double bottom = rect.y() + rect.h();
+    return Math.abs(x - rect.x()) <= thickness
+        || Math.abs(x - right) <= thickness
+        || Math.abs(y - rect.y()) <= thickness
+        || Math.abs(y - bottom) <= thickness;
+  }
+
+  private static Cursor cursorForDragTarget(DragTarget target) {
+    if (target == null) return Cursor.DEFAULT;
+    return switch (target) {
+      case TEXT_BOX, NAME_BOX, CHOICE_BLOCK, DIALOGUE_BOUNDS, TEXTBOX_BUTTON -> Cursor.MOVE;
+      case TEXT_BOX_RESIZE, CHOICE_RESIZE, DIALOGUE_BOUNDS_RESIZE, TEXTBOX_BUTTON_RESIZE -> Cursor.SE_RESIZE;
+      default -> Cursor.DEFAULT;
+    };
   }
 
   private void redraw() {
@@ -952,12 +1084,16 @@ public class DialogueLayoutEditorView extends BorderPane {
     }
 
     // Textbox and name box overlay.
+    Color textBoxTint = parseColorValue(style.textBoxColor(), Color.BLACK);
+    double overlayOpacity = style.textBoxOpacity() == null ? 0.28 : clamp(style.textBoxOpacity(), 0.0, 1.0);
     if (textBoxAssetImage != null && textBoxAssetImage.getWidth() > 1 && textBoxAssetImage.getHeight() > 1) {
       g.drawImage(textBoxAssetImage, rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
-      g.setFill(LayoutStudioPalette.DIALOGUE_ASSET_OVERLAY);
-      g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+      if (overlayOpacity > 0.001) {
+        g.setFill(withOpacity(textBoxTint, overlayOpacity));
+        g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+      }
     } else {
-      g.setFill(LayoutStudioPalette.DIALOGUE_OVERLAY);
+      g.setFill(withOpacity(textBoxTint, clamp(Math.max(overlayOpacity, 0.62), 0.0, 1.0)));
       g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
     }
     g.setStroke(LayoutStudioPalette.ACCENT_BLUE);
@@ -978,6 +1114,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.setLineDashes(6);
     g.strokeRect(rects.dialogueBounds().x(), rects.dialogueBounds().y(), rects.dialogueBounds().w(), rects.dialogueBounds().h());
     g.setLineDashes(0);
+    drawResizeHandle(g, rects.dialogueBounds(), LayoutStudioPalette.ACCENT_GOLD);
     g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
     g.setFont(Font.font(Font.getDefault().getFamily(), 13));
     g.fillText(previewDialogueLine1, rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 18);
@@ -1043,6 +1180,18 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.fillText(text, x + 6, y);
   }
 
+  private void drawResizeHandle(GraphicsContext g, Rect rect, Color color) {
+    if (g == null || rect == null) return;
+    double size = 8;
+    double hx = rect.x() + rect.w() - size;
+    double hy = rect.y() + rect.h() - size;
+    g.setFill(color == null ? LayoutStudioPalette.ACCENT_GOLD : color);
+    g.fillRect(hx, hy, size, size);
+    g.setStroke(LayoutStudioPalette.PANEL_BORDER);
+    g.setLineWidth(1);
+    g.strokeRect(hx, hy, size, size);
+  }
+
   private LayoutRects computeRects(VnUiLayoutSpec s, double w, double h) {
     double tbX = clamp(s.textBoxX() * w, 0, w);
     double tbY = clamp(s.textBoxY() * h, 0, h);
@@ -1054,10 +1203,14 @@ public class DialogueLayoutEditorView extends BorderPane {
     double nbW = s.nameBoxWidth();
     double nbH = s.nameBoxHeight();
 
-    double textX = tbX + s.dialogueTextHorizontalPadding();
-    double textY = tbY + s.dialogueTextTopPadding();
-    double textW = Math.max(40, tbW - s.dialogueTextHorizontalPadding() * 2);
-    double textH = Math.max(20, tbH - s.dialogueTextTopPadding() - 10);
+    double leftPad = s.dialogueTextHorizontalPadding();
+    double topPad = s.dialogueTextTopPadding();
+    double rightPad = s.dialogueTextRightPadding();
+    double bottomPad = s.dialogueTextBottomPadding();
+    double textX = tbX + leftPad;
+    double textY = tbY + topPad;
+    double textW = Math.max(40, tbW - leftPad - rightPad);
+    double textH = Math.max(20, tbH - topPad - bottomPad);
 
     double choiceW = clamp(w * s.choiceWidthFactor(), 20, w);
     double choiceX = clamp(w * s.choiceXCenter() - choiceW / 2, 0, Math.max(0, w - choiceW));
@@ -1133,6 +1286,8 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spNameTextBaselineOffset),
         value(spDialoguePaddingX),
         value(spDialoguePaddingTop),
+        value(spDialoguePaddingRight),
+        value(spDialoguePaddingBottom),
         value(spChoiceXCenter),
         value(spChoiceYStart),
         value(spChoiceWidthFactor),
@@ -1156,6 +1311,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spNameTextBaselineOffset, s.nameTextBaselineOffset());
     setValue(spDialoguePaddingX, s.dialogueTextHorizontalPadding());
     setValue(spDialoguePaddingTop, s.dialogueTextTopPadding());
+    setValue(spDialoguePaddingRight, s.dialogueTextRightPadding());
+    setValue(spDialoguePaddingBottom, s.dialogueTextBottomPadding());
     setValue(spChoiceXCenter, s.choiceXCenter());
     setValue(spChoiceYStart, s.choiceYStart());
     setValue(spChoiceWidthFactor, s.choiceWidthFactor());
@@ -1165,20 +1322,31 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private VnUiStyleSpec readStyleFromControls() {
+    VnUiStyleSpec base = style == null ? VnUiStyleSpec.defaults() : style;
     return new VnUiStyleSpec(
         // Textbox
         normalizeAssetPath(tfTextBoxAsset.getText()),
-        null, // textBoxColor — not yet exposed in editor
-        null, // textBoxOpacity — not yet exposed in editor
+        normalizeColorValue(tfTextBoxColor.getText()),
+        chkTextBoxOverlayEnabled.isSelected() ? value(spTextBoxOverlayOpacity) : 0.0,
+        base.textBoxBoundsPoints(),
         // Name box
-        null, null, null, null, null, // nameBox asset, color, textColor, fontFamily, fontSize
+        base.nameBoxAssetPath(),
+        base.nameBoxColor(),
+        base.nameTextColor(),
+        base.nameTextFontFamily(),
+        base.nameTextFontSize(),
+        base.nameBoxBoundsPoints(),
         // Dialogue text
-        null, null, null, // dialogueTextColor, fontFamily, fontSize
+        base.dialogueTextColor(),
+        base.dialogueTextFontFamily(),
+        base.dialogueTextFontSize(),
+        base.dialogueTextBoundsPoints(),
         // Choice button assets
         normalizeAssetPath(tfChoiceButtonAsset.getText()),
         normalizeAssetPath(tfChoiceButtonHoverAsset.getText()),
         normalizeAssetPath(tfChoiceButtonSelectedAsset.getText()),
         normalizeAssetPath(tfChoiceButtonDisabledAsset.getText()),
+        base.choiceButtonBoundsPoints(),
         // Choice colors
         normalizeColorValue(tfChoiceBgColor.getText()),
         normalizeColorValue(tfChoiceHoverColor.getText()),
@@ -1197,13 +1365,19 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spChoiceBorderWidth),
         value(spChoiceTextBaselineOffset),
         // Choice font
-        null, null, // choiceFontFamily, choiceFontSize
-        null, null // characterHeightFactor, characterBaselineY
+        base.choiceFontFamily(),
+        base.choiceFontSize(),
+        base.characterHeightFactor(),
+        base.characterBaselineY()
     );
   }
 
   private void applyStyleToControls(VnUiStyleSpec s) {
     tfTextBoxAsset.setText(normalizeAssetPath(s.textBoxAssetPath()));
+    tfTextBoxColor.setText(normalizeColorValue(s.textBoxColor()));
+    double overlayOpacity = s.textBoxOpacity() == null ? 0.28 : clamp(s.textBoxOpacity(), 0.0, 1.0);
+    setValue(spTextBoxOverlayOpacity, overlayOpacity);
+    chkTextBoxOverlayEnabled.setSelected(overlayOpacity > 0.001);
     tfChoiceButtonAsset.setText(normalizeAssetPath(s.choiceButtonAssetPath()));
     tfChoiceButtonHoverAsset.setText(normalizeAssetPath(s.choiceButtonHoverAssetPath()));
     tfChoiceButtonSelectedAsset.setText(normalizeAssetPath(s.choiceButtonSelectedAssetPath()));
@@ -1310,6 +1484,365 @@ public class DialogueLayoutEditorView extends BorderPane {
     validateState();
     redraw();
     emitText();
+  }
+
+  private void openTextBoxBoundsStudio() {
+    double canvasW = Math.max(1.0, preview.getWidth());
+    double canvasH = Math.max(1.0, preview.getHeight());
+    Rect textBox = computeRects(spec, canvasW, canvasH).textBox();
+    openSingleBoundsStudio(
+        "Textbox Bounds Studio",
+        "textbox",
+        "Textbox",
+        textBox,
+        style.textBoxBoundsPoints(),
+        textBoxAssetImage,
+        entry -> {
+          if (entry == null) {
+            style = withBoundsPoints(null, style.nameBoxBoundsPoints(), style.dialogueTextBoundsPoints(), style.choiceButtonBoundsPoints());
+            return;
+          }
+          double nextX = clamp01(entry.getX());
+          double nextY = clamp01(entry.getY());
+          double nextW = clamp(entry.getW(), 0.05, 1.0);
+          double nextH = clamp(entry.getH(), 0.05, 1.0);
+          if (nextX + nextW > 1.0) nextW = Math.max(0.05, 1.0 - nextX);
+          if (nextY + nextH > 1.0) nextH = Math.max(0.05, 1.0 - nextY);
+
+          spec = new VnUiLayoutSpec(
+              nextX,
+              nextY,
+              nextW,
+              nextH,
+              spec.textBoxPadding(),
+              spec.nameBoxXOffset(),
+              spec.nameBoxYOffset(),
+              spec.nameBoxWidth(),
+              spec.nameBoxHeight(),
+              spec.nameTextXOffset(),
+              spec.nameTextBaselineOffset(),
+              spec.dialogueTextHorizontalPadding(),
+              spec.dialogueTextTopPadding(),
+              spec.dialogueTextRightPadding(),
+              spec.dialogueTextBottomPadding(),
+              spec.choiceXCenter(),
+              spec.choiceYStart(),
+              spec.choiceWidthFactor(),
+              spec.choiceHeight(),
+              spec.choiceGap(),
+              spec.choiceTextXPadding()
+          );
+          style = withBoundsPoints(
+              encodeLocalPoints(entry.getLocalPoints()),
+              style.nameBoxBoundsPoints(),
+              style.dialogueTextBoundsPoints(),
+              style.choiceButtonBoundsPoints()
+          );
+        }
+    );
+  }
+
+  private void openNameBoxBoundsStudio() {
+    double canvasW = Math.max(1.0, preview.getWidth());
+    double canvasH = Math.max(1.0, preview.getHeight());
+    Rect nameBox = computeRects(spec, canvasW, canvasH).nameBox();
+    openSingleBoundsStudio(
+        "Name Box Bounds Studio",
+        "namebox",
+        "Name Box",
+        nameBox,
+        style.nameBoxBoundsPoints(),
+        textBoxAssetImage,
+        entry -> {
+          if (entry == null) {
+            style = withBoundsPoints(style.textBoxBoundsPoints(), null, style.dialogueTextBoundsPoints(), style.choiceButtonBoundsPoints());
+            return;
+          }
+          double tbX = spec.textBoxX() * canvasW;
+          double tbY = spec.textBoxY() * canvasH;
+          double nextOffsetX = (entry.getX() * canvasW) - tbX;
+          double nextOffsetY = (entry.getY() * canvasH) - tbY;
+          double nextW = Math.max(20.0, entry.getW() * canvasW);
+          double nextH = Math.max(12.0, entry.getH() * canvasH);
+
+          spec = new VnUiLayoutSpec(
+              spec.textBoxX(),
+              spec.textBoxY(),
+              spec.textBoxWidth(),
+              spec.textBoxHeight(),
+              spec.textBoxPadding(),
+              nextOffsetX,
+              nextOffsetY,
+              nextW,
+              nextH,
+              spec.nameTextXOffset(),
+              spec.nameTextBaselineOffset(),
+              spec.dialogueTextHorizontalPadding(),
+              spec.dialogueTextTopPadding(),
+              spec.dialogueTextRightPadding(),
+              spec.dialogueTextBottomPadding(),
+              spec.choiceXCenter(),
+              spec.choiceYStart(),
+              spec.choiceWidthFactor(),
+              spec.choiceHeight(),
+              spec.choiceGap(),
+              spec.choiceTextXPadding()
+          );
+          style = withBoundsPoints(
+              style.textBoxBoundsPoints(),
+              encodeLocalPoints(entry.getLocalPoints()),
+              style.dialogueTextBoundsPoints(),
+              style.choiceButtonBoundsPoints()
+          );
+        }
+    );
+  }
+
+  private void openDialogueTextBoundsStudio() {
+    double canvasW = Math.max(1.0, preview.getWidth());
+    double canvasH = Math.max(1.0, preview.getHeight());
+    Rect textBounds = computeRects(spec, canvasW, canvasH).dialogueBounds();
+    openSingleBoundsStudio(
+        "Dialogue Text Bounds Studio",
+        "dialogue_text",
+        "Dialogue Text",
+        textBounds,
+        style.dialogueTextBoundsPoints(),
+        textBoxAssetImage,
+        entry -> {
+          if (entry == null) {
+            style = withBoundsPoints(style.textBoxBoundsPoints(), style.nameBoxBoundsPoints(), null, style.choiceButtonBoundsPoints());
+            return;
+          }
+          double tbX = spec.textBoxX() * canvasW;
+          double tbY = spec.textBoxY() * canvasH;
+          double tbW = spec.textBoxWidth() * canvasW;
+          double tbH = spec.textBoxHeight() * canvasH;
+          double minTextW = 40.0;
+          double minTextH = 20.0;
+
+          double left = clamp((entry.getX() * canvasW) - tbX, 0.0, Math.max(0.0, tbW - minTextW));
+          double top = clamp((entry.getY() * canvasH) - tbY, 0.0, Math.max(0.0, tbH - minTextH));
+          double textW = clamp(entry.getW() * canvasW, minTextW, Math.max(minTextW, tbW - left));
+          double textH = clamp(entry.getH() * canvasH, minTextH, Math.max(minTextH, tbH - top));
+          double right = Math.max(0.0, tbW - left - textW);
+          double bottom = Math.max(0.0, tbH - top - textH);
+
+          spec = new VnUiLayoutSpec(
+              spec.textBoxX(),
+              spec.textBoxY(),
+              spec.textBoxWidth(),
+              spec.textBoxHeight(),
+              spec.textBoxPadding(),
+              spec.nameBoxXOffset(),
+              spec.nameBoxYOffset(),
+              spec.nameBoxWidth(),
+              spec.nameBoxHeight(),
+              spec.nameTextXOffset(),
+              spec.nameTextBaselineOffset(),
+              left,
+              top,
+              right,
+              bottom,
+              spec.choiceXCenter(),
+              spec.choiceYStart(),
+              spec.choiceWidthFactor(),
+              spec.choiceHeight(),
+              spec.choiceGap(),
+              spec.choiceTextXPadding()
+          );
+          style = withBoundsPoints(
+              style.textBoxBoundsPoints(),
+              style.nameBoxBoundsPoints(),
+              encodeLocalPoints(entry.getLocalPoints()),
+              style.choiceButtonBoundsPoints()
+          );
+        }
+    );
+  }
+
+  private void openChoiceButtonBoundsStudio() {
+    double canvasW = Math.max(1.0, preview.getWidth());
+    double canvasH = Math.max(1.0, preview.getHeight());
+    LayoutRects rects = computeRects(spec, canvasW, canvasH);
+    Rect choiceRect = new Rect(
+        rects.choiceBlock().x(),
+        rects.choiceBlock().y(),
+        rects.choiceBlock().w(),
+        Math.max(8.0, spec.choiceHeight())
+    );
+    openSingleBoundsStudio(
+        "Choice Button Bounds Studio",
+        "choice_button",
+        "Choice Button",
+        choiceRect,
+        style.choiceButtonBoundsPoints(),
+        firstNonNull(choiceButtonAssetImage, choiceButtonHoverAssetImage),
+        entry -> {
+          if (entry == null) {
+            style = withBoundsPoints(style.textBoxBoundsPoints(), style.nameBoxBoundsPoints(), style.dialogueTextBoundsPoints(), null);
+            return;
+          }
+          double nextCenter = clamp(entry.getX() + entry.getW() * 0.5, 0.0, 1.0);
+          double nextWidthFactor = clamp(entry.getW(), 0.1, 1.0);
+          double nextY = clamp01(entry.getY());
+          double nextHeight = Math.max(8.0, entry.getH() * canvasH);
+
+          spec = new VnUiLayoutSpec(
+              spec.textBoxX(),
+              spec.textBoxY(),
+              spec.textBoxWidth(),
+              spec.textBoxHeight(),
+              spec.textBoxPadding(),
+              spec.nameBoxXOffset(),
+              spec.nameBoxYOffset(),
+              spec.nameBoxWidth(),
+              spec.nameBoxHeight(),
+              spec.nameTextXOffset(),
+              spec.nameTextBaselineOffset(),
+              spec.dialogueTextHorizontalPadding(),
+              spec.dialogueTextTopPadding(),
+              spec.dialogueTextRightPadding(),
+              spec.dialogueTextBottomPadding(),
+              nextCenter,
+              nextY,
+              nextWidthFactor,
+              nextHeight,
+              spec.choiceGap(),
+              spec.choiceTextXPadding()
+          );
+          style = withBoundsPoints(
+              style.textBoxBoundsPoints(),
+              style.nameBoxBoundsPoints(),
+              style.dialogueTextBoundsPoints(),
+              encodeLocalPoints(entry.getLocalPoints())
+          );
+        }
+    );
+  }
+
+  private void openSingleBoundsStudio(
+      String title,
+      String id,
+      String label,
+      Rect initialRect,
+      String boundsPoints,
+      Image background,
+      Consumer<BoundsDrawingTool.BoundEntry> onApply
+  ) {
+    BoundsDrawingTool tool = new BoundsDrawingTool();
+    if (background != null && background.getWidth() > 1) tool.setBackgroundImage(background);
+
+    double canvasW = Math.max(1.0, preview.getWidth());
+    double canvasH = Math.max(1.0, preview.getHeight());
+    Rect rect = initialRect == null ? new Rect(0.2, 0.2, 0.2, 0.2) : initialRect;
+    tool.setBounds(List.of(new BoundsDrawingTool.BoundEntry(
+        id,
+        label,
+        clamp01(rect.x() / canvasW),
+        clamp01(rect.y() / canvasH),
+        clamp(rect.w() / canvasW, 0.01, 1.0),
+        clamp(rect.h() / canvasH, 0.01, 1.0),
+        BoundsPointCodec.parse(boundsPoints)
+    )));
+
+    javafx.scene.Scene dialogScene = new javafx.scene.Scene(tool, 960, 620);
+    EditorTheme.apply(dialogScene);
+    javafx.stage.Stage dialog = new javafx.stage.Stage();
+    dialog.setTitle(title);
+    dialog.setScene(dialogScene);
+    dialog.initOwner(getScene() != null ? getScene().getWindow() : null);
+    dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
+
+    dialog.setOnHidden(ev -> {
+      List<BoundsDrawingTool.BoundEntry> result = tool.getBounds();
+      BoundsDrawingTool.BoundEntry selected = null;
+      for (BoundsDrawingTool.BoundEntry candidate : result) {
+        if (candidate == null) continue;
+        if (id.equals(candidate.getId())) {
+          selected = candidate;
+          break;
+        }
+        if (selected == null) selected = candidate;
+      }
+      if (selected != null && (selected.getW() < 0.005 || selected.getH() < 0.005)) {
+        selected = null;
+      }
+      suppressEvents = true;
+      try {
+        if (onApply != null) onApply.accept(selected);
+        applySpecToControls(spec);
+        applyStyleToControls(style);
+      } finally {
+        suppressEvents = false;
+      }
+      loadTextBoxAssetImage();
+      loadChoiceAssetImages();
+      validateState();
+      redraw();
+      emitText();
+    });
+
+    if (isLinux()) {
+      dialog.setIconified(false);
+      dialog.setMaximized(true);
+    }
+    dialog.show();
+  }
+
+  private String encodeLocalPoints(List<BoundsPointCodec.Point> points) {
+    if (points == null || points.size() < 3) return null;
+    String encoded = BoundsPointCodec.encode(points);
+    return encoded == null || encoded.isBlank() ? null : encoded;
+  }
+
+  private VnUiStyleSpec withBoundsPoints(
+      String textBoxBoundsPoints,
+      String nameBoxBoundsPoints,
+      String dialogueTextBoundsPoints,
+      String choiceButtonBoundsPoints
+  ) {
+    VnUiStyleSpec base = style == null ? VnUiStyleSpec.defaults() : style;
+    return new VnUiStyleSpec(
+        base.textBoxAssetPath(),
+        base.textBoxColor(),
+        base.textBoxOpacity(),
+        textBoxBoundsPoints,
+        base.nameBoxAssetPath(),
+        base.nameBoxColor(),
+        base.nameTextColor(),
+        base.nameTextFontFamily(),
+        base.nameTextFontSize(),
+        nameBoxBoundsPoints,
+        base.dialogueTextColor(),
+        base.dialogueTextFontFamily(),
+        base.dialogueTextFontSize(),
+        dialogueTextBoundsPoints,
+        base.choiceButtonAssetPath(),
+        base.choiceButtonHoverAssetPath(),
+        base.choiceButtonSelectedAssetPath(),
+        base.choiceButtonDisabledAssetPath(),
+        choiceButtonBoundsPoints,
+        base.choiceBackgroundColor(),
+        base.choiceHoverColor(),
+        base.choiceSelectedColor(),
+        base.choiceDisabledColor(),
+        base.choiceTextColor(),
+        base.choiceHoverTextColor(),
+        base.choiceSelectedTextColor(),
+        base.choiceDisabledTextColor(),
+        base.choiceBorderColor(),
+        base.choiceHoverBorderColor(),
+        base.choiceSelectedBorderColor(),
+        base.choiceDisabledBorderColor(),
+        base.choiceCornerRadius(),
+        base.choiceBorderWidth(),
+        base.choiceTextBaselineOffset(),
+        base.choiceFontFamily(),
+        base.choiceFontSize(),
+        base.characterHeightFactor(),
+        base.characterBaselineY()
+    );
   }
 
   private void openTextBoxButtonBoundsStudio() {
@@ -1825,6 +2358,15 @@ public class DialogueLayoutEditorView extends BorderPane {
     } catch (Exception ignored) {
       return fallback;
     }
+  }
+
+  private static Color withOpacity(Color color, double opacity) {
+    Color base = color == null ? Color.BLACK : color;
+    double a = opacity;
+    if (Double.isNaN(a) || Double.isInfinite(a)) a = 0.0;
+    if (a < 0.0) a = 0.0;
+    if (a > 1.0) a = 1.0;
+    return Color.color(base.getRed(), base.getGreen(), base.getBlue(), a);
   }
 
   private static <T> T firstNonNull(T first, T second) {

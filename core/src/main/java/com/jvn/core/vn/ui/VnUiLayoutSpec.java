@@ -20,6 +20,8 @@ public record VnUiLayoutSpec(
     double nameTextBaselineOffset,
     double dialogueTextHorizontalPadding,
     double dialogueTextTopPadding,
+    double dialogueTextRightPadding,
+    double dialogueTextBottomPadding,
     double choiceXCenter,
     double choiceYStart,
     double choiceWidthFactor,
@@ -44,6 +46,8 @@ public record VnUiLayoutSpec(
     nameTextBaselineOffset = sane(nameTextBaselineOffset, 25.0);
     dialogueTextHorizontalPadding = max(sane(dialogueTextHorizontalPadding, 20.0), 0.0);
     dialogueTextTopPadding = sane(dialogueTextTopPadding, 40.0);
+    dialogueTextRightPadding = max(sane(dialogueTextRightPadding, dialogueTextHorizontalPadding), 0.0);
+    dialogueTextBottomPadding = max(sane(dialogueTextBottomPadding, 10.0), 0.0);
 
     choiceXCenter = clamp(sane(choiceXCenter, 0.5), 0.0, 1.0);
     choiceYStart = sane(choiceYStart, -1.0);
@@ -70,6 +74,8 @@ public record VnUiLayoutSpec(
         25.0,
         20.0,
         40.0,
+        20.0,
+        10.0,
         0.5,
         -1.0,
         0.6,
