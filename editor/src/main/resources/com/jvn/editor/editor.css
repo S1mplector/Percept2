@@ -944,3 +944,144 @@
 .color-picker > .label {
   -fx-text-fill: #e6e6e6;
 }
+
+/* Welcome center */
+.welcome-center-root {
+  -fx-background-color: linear-gradient(to bottom, #101218 0%, #0d0f14 100%);
+}
+
+.welcome-hero-card {
+  -fx-background-color: linear-gradient(to bottom right, #1a1d27, #151821);
+  -fx-border-color: #2a3040;
+  -fx-border-width: 1;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+}
+
+.welcome-heading {
+  -fx-font-size: 22px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #f0f3f8;
+}
+
+.welcome-subheading {
+  -fx-text-fill: #b8c0d0;
+}
+
+.welcome-meta-text {
+  -fx-text-fill: #9fa7b8;
+}
+
+.welcome-shortcuts-text {
+  -fx-text-fill: #8b96aa;
+  -fx-font-size: 11px;
+}
+
+.welcome-status-text {
+  -fx-text-fill: #7f8797;
+}
+
+.welcome-action-button {
+  -fx-background-color: #2b3140;
+  -fx-text-fill: #e9eef8;
+  -fx-border-color: #3b4357;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+  -fx-padding: 0;
+  -fx-alignment: center;
+}
+
+.welcome-action-button:hover {
+  -fx-background-color: #364057;
+}
+
+.welcome-section-card {
+  -fx-background-color: #131722;
+  -fx-border-color: #242b3b;
+  -fx-border-width: 1;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+}
+
+.welcome-section-title {
+  -fx-font-size: 13px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #e6ecf8;
+}
+
+.welcome-section-meta {
+  -fx-text-fill: #8d97a9;
+  -fx-font-size: 11px;
+}
+
+.welcome-filter-field {
+  -fx-background-color: #1a1f2c;
+  -fx-text-fill: #dce4f3;
+  -fx-prompt-text-fill: #727d92;
+  -fx-border-color: #2d3549;
+}
+
+.welcome-project-list {
+  -fx-background-color: #10141e;
+  -fx-control-inner-background: #10141e;
+}
+
+.welcome-project-list .list-cell {
+  -fx-background-color: transparent;
+}
+
+.welcome-project-list .list-cell:filled:hover {
+  -fx-background-color: #1a2233;
+}
+
+.welcome-project-list .list-cell:filled:selected {
+  -fx-background-color: #25324b;
+}
+
+.welcome-project-name {
+  -fx-font-weight: 700;
+  -fx-text-fill: #e9eef8;
+}
+
+.welcome-project-path {
+  -fx-text-fill: #98a3b9;
+}
+
+.welcome-project-time {
+  -fx-text-fill: #778297;
+}
+
+.welcome-open-button {
+  -fx-background-color: #243148;
+  -fx-text-fill: #dce7fb;
+  -fx-border-color: #334563;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+  -fx-padding: 0;
+  -fx-alignment: center;
+}
+
+.welcome-open-button:hover {
+  -fx-background-color: #2f4060;
+}
+
+.welcome-health-scroll,
+.welcome-health-scroll > .viewport {
+  -fx-background-color: transparent;
+}
+
+.welcome-health-card {
+  -fx-background-color: #171d2a;
+  -fx-border-color: #2a3143;
+  -fx-border-width: 1;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.welcome-health-title {
+  -fx-font-weight: 700;
+}
+
+.welcome-health-detail {
+  -fx-text-fill: #aeb8cb;
+}

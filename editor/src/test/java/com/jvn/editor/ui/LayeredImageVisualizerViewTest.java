@@ -162,4 +162,52 @@ class LayeredImageVisualizerViewTest {
         false,
         LayeredImageVisualizerView.shouldSuppressBackgroundGroups(List.of("mainmenu")));
   }
+
+  @Test
+  void draggedFocusMovesViewportOppositeToPointerMotion() {
+    assertEquals(
+        0.40,
+        LayeredImageVisualizerView.draggedFocus(0.50, 100.0, 500.0, 500.0, 1000.0),
+        0.0001);
+    assertEquals(
+        0.60,
+        LayeredImageVisualizerView.draggedFocus(0.50, -100.0, 500.0, 500.0, 1000.0),
+        0.0001);
+    assertEquals(
+        0.0,
+        LayeredImageVisualizerView.draggedFocus(0.05, 500.0, 500.0, 500.0, 1000.0),
+        0.0001);
+  }
+
+  @Test
+  void anchoredFocusKeepsZoomTargetWithinBounds() {
+    assertEquals(
+        0.50,
+        LayeredImageVisualizerView.anchoredFocus(500.0, 0.5, 300.0, 1000.0),
+        0.0001);
+    assertEquals(
+        0.15,
+        LayeredImageVisualizerView.anchoredFocus(10.0, 0.5, 300.0, 1000.0),
+        0.0001);
+    assertEquals(
+        0.85,
+        LayeredImageVisualizerView.anchoredFocus(990.0, 0.5, 300.0, 1000.0),
+        0.0001);
+  }
+
+  @Test
+  void zoomFromScrollScalesAndClamps() {
+    assertEquals(
+        1.12,
+        LayeredImageVisualizerView.zoomFromScroll(1.0, 40.0, 0.5, 3.0),
+        0.0001);
+    assertEquals(
+        0.5,
+        LayeredImageVisualizerView.zoomFromScroll(0.6, -400.0, 0.5, 3.0),
+        0.0001);
+    assertEquals(
+        3.0,
+        LayeredImageVisualizerView.zoomFromScroll(2.8, 400.0, 0.5, 3.0),
+        0.0001);
+  }
 }

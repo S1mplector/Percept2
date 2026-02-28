@@ -33,6 +33,8 @@ import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -57,19 +59,26 @@ public class WelcomeCenterView extends BorderPane {
   });
 
   private final Label headingLabel = new Label("Welcome back to JVN");
+  private final Label subheadingLabel = new Label("Open a project, create a new VN, or run a quick environment check.");
   private final Label versionLabel = new Label("Version: --");
   private final Label workspaceLabel = new Label("Workspace: --");
   private final Label projectLabel = new Label("Project: none");
+  private final Label shortcutsLabel = new Label("Shortcuts: Ctrl/Cmd+N new project • Ctrl/Cmd+O open project • Ctrl/Cmd+Shift+H welcome");
   private final Label statusLabel = new Label("Ready");
+  private final Label recentMetaLabel = new Label("0 projects");
+  private final Label healthMetaLabel = new Label("0 checks");
 
-  private final Button btnNewProject = new Button("New Project");
-  private final Button btnOpenProject = new Button("Open Project");
-  private final Button btnRefresh = new Button("Refresh Health");
+  private final Button btnNewProject = new Button();
+  private final Button btnOpenProject = new Button();
+  private final Button btnOpenLast = new Button();
+  private final Button btnRefresh = new Button();
 
   private final ObservableList<ProjectEntry> recentProjects = FXCollections.observableArrayList();
   private final ListView<ProjectEntry> recentList = new ListView<>(recentProjects);
+  private final TextField recentFilterField = new TextField();
 
   private final VBox healthContainer = new VBox(8);
+  private List<ProjectEntry> allRecentProjects = List.of();
 
   private File workspaceRoot;
   private File projectRoot;
@@ -127,8 +136,10 @@ public class WelcomeCenterView extends BorderPane {
       List<ProjectEntry> projects = collectRecentProjects();
       List<HealthRow> healthRows = collectHealthRows();
       Platform.runLater(() -> {
-        recentProjects.setAll(projects);
+        allRecentProjects = projects == null ? List.of() : projects;
+        applyRecentFilter();
         renderHealthRows(healthRows);
+        healthMetaLabel.setText(buildHealthSummary(healthRows));
         statusLabel.setText("Last refreshed: " + formatTimestamp(System.currentTimeMillis()));
         setBusy(false);
       });
@@ -141,11 +152,19 @@ public class WelcomeCenterView extends BorderPane {
 
     Label logoLabel = new Label("JVN");
     logoLabel.getStyleClass().add("jvn-wordmark");
-    headingLabel.setStyle("-fx-font-size: 21px; -fx-font-weight: 700;");
-    versionLabel.setStyle("-fx-text-fill: #aeb4bf;");
-    workspaceLabel.setStyle("-fx-text-fill: #9aa0a6;");
-    projectLabel.setStyle("-fx-text-fill: #9aa0a6;");
-    statusLabel.setStyle("-fx-text-fill: #7f858b;");
+    headingLabel.getStyleClass().add("welcome-heading");
+    subheadingLabel.getStyleClass().add("welcome-subheading");
+    subheadingLabel.setWrapText(true);
+    versionLabel.getStyleClass().add("welcome-meta-text");
+    workspaceLabel.getStyleClass().add("welcome-meta-text");
+    workspaceLabel.setWrapText(true);
+    projectLabel.getStyleClass().add("welcome-meta-text");
+    projectLabel.setWrapText(true);
+    shortcutsLabel.getStyleClass().add("welcome-shortcuts-text");
+    shortcutsLabel.setWrapText(true);
+    statusLabel.getStyleClass().add("welcome-status-text");
+    recentMetaLabel.getStyleClass().add("welcome-section-meta");
+    healthMetaLabel.getStyleClass().add("welcome-section-meta");
 
     btnNewProject.setOnAction(e -> {
       if (onCreateProject != null) onCreateProject.run();
@@ -153,18 +172,30 @@ public class WelcomeCenterView extends BorderPane {
     btnOpenProject.setOnAction(e -> {
       if (onOpenProjectDialog != null) onOpenProjectDialog.run();
     });
+    btnOpenLast.setOnAction(e -> {
+      ProjectEntry first = recentProjects.isEmpty() ? null : recentProjects.get(0);
+      if (first != null) openRecentProject(first);
+    });
     btnRefresh.setOnAction(e -> refresh());
+    configureIconButton(btnNewProject, CssIcon.plus("#9ed67a"), "New Project", "welcome-action-button", 30);
+    configureIconButton(btnOpenProject, CssIcon.folder("#8ab4f8"), "Open Project", "welcome-action-button", 30);
+    configureIconButton(btnOpenLast, CssIcon.link("#f5c46b"), "Open Most Recent Project", "welcome-action-button", 30);
+    configureIconButton(btnRefresh, CssIcon.redo("#7ec8e3"), "Refresh Health", "welcome-action-button", 30);
 
-    HBox actions = new HBox(8, btnNewProject, btnOpenProject, btnRefresh);
+    HBox actions = new HBox(8, btnNewProject, btnOpenProject, btnOpenLast, btnRefresh);
     actions.setAlignment(Pos.CENTER_LEFT);
 
-    VBox hero = new VBox(6, logoLabel, headingLabel, versionLabel, workspaceLabel, projectLabel, actions, statusLabel);
+    VBox hero = new VBox(7, logoLabel, headingLabel, subheadingLabel, versionLabel, workspaceLabel, projectLabel, actions, shortcutsLabel, statusLabel);
     hero.setPadding(new Insets(12));
-    hero.setStyle("-fx-background-color: #17181a; -fx-background-radius: 8;");
+    hero.getStyleClass().add("welcome-hero-card");
 
     Label recentHeader = new Label("Recent Projects");
-    recentHeader.setStyle("-fx-font-size: 13px; -fx-font-weight: 700;");
+    recentHeader.getStyleClass().add("welcome-section-title");
+    recentFilterField.setPromptText("Filter by project name or path...");
+    recentFilterField.getStyleClass().add("welcome-filter-field");
+    recentFilterField.textProperty().addListener((obs, oldValue, newValue) -> applyRecentFilter());
     recentList.setPlaceholder(new Label("No projects found yet. Create one with New Project."));
+    recentList.getStyleClass().add("welcome-project-list");
     recentList.setCellFactory(list -> new ProjectCell());
     recentList.setOnMouseClicked(e -> {
       if (e.getClickCount() < 2) return;
@@ -177,36 +208,118 @@ public class WelcomeCenterView extends BorderPane {
       if (selected != null) openRecentProject(selected);
     });
 
-    VBox left = new VBox(8, recentHeader, recentList);
+    Region recentSpacer = new Region();
+    HBox.setHgrow(recentSpacer, Priority.ALWAYS);
+    HBox recentHeaderRow = new HBox(8, recentHeader, recentSpacer, recentMetaLabel);
+    recentHeaderRow.setAlignment(Pos.CENTER_LEFT);
+
+    VBox left = new VBox(8, recentHeaderRow, recentFilterField, recentList);
     left.setPadding(new Insets(10));
-    left.setStyle("-fx-background-color: #141518; -fx-background-radius: 8;");
+    left.getStyleClass().add("welcome-section-card");
     VBox.setVgrow(recentList, Priority.ALWAYS);
 
     Label healthHeader = new Label("Environment Health");
-    healthHeader.setStyle("-fx-font-size: 13px; -fx-font-weight: 700;");
+    healthHeader.getStyleClass().add("welcome-section-title");
+    Region healthSpacer = new Region();
+    HBox.setHgrow(healthSpacer, Priority.ALWAYS);
+    HBox healthHeaderRow = new HBox(8, healthHeader, healthSpacer, healthMetaLabel);
+    healthHeaderRow.setAlignment(Pos.CENTER_LEFT);
     healthContainer.setPadding(new Insets(4, 0, 0, 0));
     ScrollPane healthScroll = new ScrollPane(healthContainer);
     healthScroll.setFitToWidth(true);
     healthScroll.setFitToHeight(true);
-    VBox right = new VBox(8, healthHeader, healthScroll);
+    rightPanelStyling(healthScroll);
+    VBox right = new VBox(8, healthHeaderRow, healthScroll);
     right.setPadding(new Insets(10));
-    right.setStyle("-fx-background-color: #141518; -fx-background-radius: 8;");
+    right.getStyleClass().add("welcome-section-card");
     VBox.setVgrow(healthScroll, Priority.ALWAYS);
 
     SplitPane split = new SplitPane(left, right);
-    split.setDividerPositions(0.44);
+    split.setDividerPositions(0.47);
     VBox.setVgrow(split, Priority.ALWAYS);
 
     VBox center = new VBox(10, hero, split);
     VBox.setVgrow(split, Priority.ALWAYS);
     setCenter(center);
+    applyRecentFilter();
   }
 
   private void setBusy(boolean busy) {
     this.busy = busy;
     btnNewProject.setDisable(busy);
     btnOpenProject.setDisable(busy);
+    btnOpenLast.setDisable(busy || recentProjects.isEmpty());
     btnRefresh.setDisable(busy);
+    recentFilterField.setDisable(busy);
+  }
+
+  private void applyRecentFilter() {
+    String query = recentFilterField.getText();
+    String needle = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+    if (allRecentProjects == null || allRecentProjects.isEmpty()) {
+      recentProjects.setAll(List.of());
+      recentMetaLabel.setText("0 projects");
+      btnOpenLast.setDisable(true);
+      return;
+    }
+    if (needle.isEmpty()) {
+      recentProjects.setAll(allRecentProjects);
+    } else {
+      List<ProjectEntry> filtered = new ArrayList<>();
+      for (ProjectEntry entry : allRecentProjects) {
+        File dir = entry.projectDir();
+        if (dir == null) continue;
+        String name = dir.getName() == null ? "" : dir.getName().toLowerCase(Locale.ROOT);
+        String path = dir.getAbsolutePath() == null ? "" : dir.getAbsolutePath().toLowerCase(Locale.ROOT);
+        if (name.contains(needle) || path.contains(needle)) filtered.add(entry);
+      }
+      recentProjects.setAll(filtered);
+    }
+    int shown = recentProjects.size();
+    int total = allRecentProjects.size();
+    recentMetaLabel.setText(needle.isEmpty() ? (shown + " projects") : (shown + " / " + total + " shown"));
+    btnOpenLast.setDisable(busy || recentProjects.isEmpty());
+  }
+
+  private void rightPanelStyling(ScrollPane scroll) {
+    if (scroll == null) return;
+    scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    scroll.getStyleClass().add("welcome-health-scroll");
+  }
+
+  private static void configureIconButton(Button button, Region icon, String tooltipText, String styleClass, double size) {
+    if (button == null) return;
+    button.setText(null);
+    button.setGraphic(icon);
+    button.setMinSize(size, size);
+    button.setPrefSize(size, size);
+    button.setMaxSize(size, size);
+    button.setFocusTraversable(false);
+    if (styleClass != null && !styleClass.isBlank()) {
+      button.getStyleClass().add(styleClass);
+    }
+    if (tooltipText != null && !tooltipText.isBlank()) {
+      button.setTooltip(new Tooltip(tooltipText));
+      button.setAccessibleText(tooltipText);
+    }
+  }
+
+  private String buildHealthSummary(List<HealthRow> rows) {
+    if (rows == null || rows.isEmpty()) return "0 checks";
+    int ok = 0;
+    int warn = 0;
+    int error = 0;
+    int info = 0;
+    for (HealthRow row : rows) {
+      if (row == null || row.severity() == null) continue;
+      switch (row.severity()) {
+        case OK -> ok++;
+        case WARN -> warn++;
+        case ERROR -> error++;
+        case INFO -> info++;
+      }
+    }
+    return rows.size() + " checks  •  " + ok + " ok  •  " + warn + " warn  •  " + error + " error  •  " + info + " info";
   }
 
   private void openRecentProject(ProjectEntry entry) {
@@ -443,13 +556,14 @@ public class WelcomeCenterView extends BorderPane {
   private VBox buildHealthCard(HealthRow row) {
     VBox box = new VBox(3);
     box.setPadding(new Insets(8));
-    box.setStyle("-fx-background-color: #17181a; -fx-background-radius: 6;");
+    box.getStyleClass().add("welcome-health-card");
 
     Label title = new Label(row.title() + "  •  " + row.summary());
-    title.setStyle("-fx-font-weight: 700; -fx-text-fill: " + severityColor(row.severity()) + ";");
+    title.getStyleClass().add("welcome-health-title");
+    title.setStyle("-fx-text-fill: " + severityColor(row.severity()) + ";");
     Label detail = new Label(row.detail());
     detail.setWrapText(true);
-    detail.setStyle("-fx-text-fill: #aeb4bf;");
+    detail.getStyleClass().add("welcome-health-detail");
 
     box.getChildren().addAll(title, detail);
     return box;
@@ -676,21 +790,23 @@ public class WelcomeCenterView extends BorderPane {
     private final Label nameLabel = new Label();
     private final Label pathLabel = new Label();
     private final Label timeLabel = new Label();
-    private final Button openButton = new Button("Open");
+    private final Button openButton = new Button();
     private final Region spacer = new Region();
     private final HBox footerRow = new HBox(8, timeLabel, spacer, openButton);
     private final VBox content = new VBox(2, nameLabel, pathLabel, footerRow);
 
     private ProjectCell() {
       HBox.setHgrow(spacer, Priority.ALWAYS);
+      content.getStyleClass().add("welcome-project-cell");
+      configureIconButton(openButton, CssIcon.folder("#8ab4f8"), "Open Project", "welcome-open-button", 26);
       openButton.setOnAction(e -> {
         ProjectEntry item = getItem();
         if (item != null) openRecentProject(item);
         e.consume();
       });
-      nameLabel.setStyle("-fx-font-weight: 700;");
-      pathLabel.setStyle("-fx-text-fill: #9aa0a6;");
-      timeLabel.setStyle("-fx-text-fill: #7f858b;");
+      nameLabel.getStyleClass().add("welcome-project-name");
+      pathLabel.getStyleClass().add("welcome-project-path");
+      timeLabel.getStyleClass().add("welcome-project-time");
     }
 
     @Override
@@ -702,9 +818,12 @@ public class WelcomeCenterView extends BorderPane {
         return;
       }
       File dir = item.projectDir();
-      nameLabel.setText(dir.getName().isBlank() ? dir.getAbsolutePath() : dir.getName());
+      boolean exists = dir.isDirectory();
+      String baseName = dir.getName().isBlank() ? dir.getAbsolutePath() : dir.getName();
+      nameLabel.setText(exists ? baseName : (baseName + " (missing)"));
       pathLabel.setText(dir.getAbsolutePath());
       timeLabel.setText("Updated: " + formatTimestamp(item.modifiedMillis()));
+      openButton.setDisable(!exists);
       setText(null);
       setGraphic(content);
     }

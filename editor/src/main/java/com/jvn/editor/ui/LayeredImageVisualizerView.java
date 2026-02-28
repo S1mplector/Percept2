@@ -13,6 +13,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +48,7 @@ import javafx.scene.image.Image;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -130,6 +132,7 @@ public class LayeredImageVisualizerView extends BorderPane {
   private final Map<String, LayeredSet> sets = new LinkedHashMap<>();
   private final Map<String, Image> imageCache = new HashMap<>();
   private final Map<String, String> presetNameToKey = new LinkedHashMap<>();
+  private final Map<Canvas, ViewportFrame> viewportFrames = new IdentityHashMap<>();
 
   private final Properties persisted = new Properties();
   private final Random random = new Random();
@@ -140,6 +143,10 @@ public class LayeredImageVisualizerView extends BorderPane {
   private boolean applyingState;
   private Stage fullscreenStage;
   private Canvas fullscreenCanvas;
+  private Canvas dragCanvas;
+  private double dragLastX;
+  private double dragLastY;
+  private boolean dragDirty;
   private double gameCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
   private double gameCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
 
@@ -212,6 +219,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     installSlider(focusYSlider);
     installSlider(cropSlider);
     installSlider(zoomSlider);
+    installViewportInteractions(previewCanvas);
 
     autoExpression.setSelected(true);
     autoExpression.selectedProperty().addListener((o, ov, nv) -> {
@@ -350,6 +358,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     groupOrder.clear();
     groupBox.getChildren().clear();
     imageCache.clear();
+    viewportFrames.clear();
     presetNameToKey.clear();
     presetBox.getItems().clear();
 
@@ -621,6 +630,7 @@ public class LayeredImageVisualizerView extends BorderPane {
 
     List<LayerOption> active = selectedLayers();
     if (active.isEmpty()) {
+      viewportFrames.remove(canvas);
       drawCenteredText(g, w, h, "Select layer options to preview");
       if (updateInfoLabel) previewInfoLabel.setText("No layers selected.");
       return;
@@ -637,12 +647,14 @@ public class LayeredImageVisualizerView extends BorderPane {
       if (img.getHeight() > maxH) maxH = img.getHeight();
     }
     if (layers.isEmpty()) {
+      viewportFrames.remove(canvas);
       drawCenteredText(g, w, h, "Selected images failed to load");
       if (updateInfoLabel) previewInfoLabel.setText("Selected images could not be decoded.");
       return;
     }
 
     if (matchGameFraming.isSelected()) {
+      viewportFrames.remove(canvas);
       renderGameFramedPreview(g, layers, w, h, maxW, maxH);
       if (updateInfoLabel) {
         previewInfoLabel.setText(
@@ -655,7 +667,7 @@ public class LayeredImageVisualizerView extends BorderPane {
       return;
     }
 
-    renderViewportPreview(g, layers, w, h, maxW, maxH);
+    viewportFrames.put(canvas, renderViewportPreview(g, layers, w, h, maxW, maxH));
     if (updateInfoLabel) {
       previewInfoLabel.setText(
           "Layers: " + active.size()
@@ -683,7 +695,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     g.strokeLine(x, canvasHeight / 2.0, x + spriteWidth, canvasHeight / 2.0);
   }
 
-  private void renderViewportPreview(GraphicsContext g, List<Image> layers, double canvasWidth, double canvasHeight, double maxW, double maxH) {
+  private ViewportFrame renderViewportPreview(GraphicsContext g, List<Image> layers, double canvasWidth, double canvasHeight, double maxW, double maxH) {
     double focusX = focusXSlider.getValue() / 100.0;
     double focusY = focusYSlider.getValue() / 100.0;
     double crop = cropSlider.getValue() / 100.0;
@@ -717,6 +729,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     g.strokeRect(destX + 0.5, destY + 0.5, destW - 1, destH - 1);
     g.strokeLine(canvasWidth / 2.0, destY, canvasWidth / 2.0, destY + destH);
     g.strokeLine(destX, canvasHeight / 2.0, destX + destW, canvasHeight / 2.0);
+    return new ViewportFrame(maxW, maxH, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
   }
 
   private int activeGroupCount() {
@@ -735,6 +748,142 @@ public class LayeredImageVisualizerView extends BorderPane {
     slider.valueChangingProperty().addListener((o, ov, nv) -> {
       if (!nv && !applyingState) persistCurrentSetState();
     });
+  }
+
+  private void installViewportInteractions(Canvas canvas) {
+    if (canvas == null) return;
+
+    canvas.setOnMousePressed(e -> {
+      if (e.getButton() != MouseButton.PRIMARY) return;
+      if (matchGameFraming.isSelected()) return;
+      if (!viewportFrames.containsKey(canvas)) return;
+      dragCanvas = canvas;
+      dragLastX = e.getX();
+      dragLastY = e.getY();
+      dragDirty = false;
+      e.consume();
+    });
+
+    canvas.setOnMouseDragged(e -> {
+      if (dragCanvas != canvas || !e.isPrimaryButtonDown()) return;
+      double dx = e.getX() - dragLastX;
+      double dy = e.getY() - dragLastY;
+      dragLastX = e.getX();
+      dragLastY = e.getY();
+      if (Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) return;
+      if (panViewportByPixels(canvas, dx, dy)) {
+        dragDirty = true;
+      }
+      e.consume();
+    });
+
+    canvas.setOnMouseReleased(e -> {
+      if (e.getButton() != MouseButton.PRIMARY) return;
+      if (dragCanvas != canvas) return;
+      dragCanvas = null;
+      if (dragDirty) {
+        dragDirty = false;
+        persistCurrentSetState();
+      }
+      e.consume();
+    });
+
+    canvas.setOnScroll(e -> {
+      if (Math.abs(e.getDeltaY()) < 0.0001) return;
+      if (zoomViewportAt(canvas, e.getX(), e.getY(), e.getDeltaY())) {
+        persistCurrentSetState();
+        e.consume();
+      }
+    });
+  }
+
+  private boolean panViewportByPixels(Canvas canvas, double dx, double dy) {
+    if (canvas == null || matchGameFraming.isSelected()) return false;
+    ViewportFrame frame = viewportFrames.get(canvas);
+    if (frame == null || !frame.valid()) return false;
+
+    double focusX = focusXSlider.getValue() / 100.0;
+    double focusY = focusYSlider.getValue() / 100.0;
+    double nextFocusX = draggedFocus(focusX, dx, frame.srcW(), frame.destW(), frame.maxW());
+    double nextFocusY = draggedFocus(focusY, dy, frame.srcH(), frame.destH(), frame.maxH());
+    return setViewportState(nextFocusX, nextFocusY, null);
+  }
+
+  private boolean zoomViewportAt(Canvas canvas, double canvasX, double canvasY, double deltaY) {
+    if (canvas == null || matchGameFraming.isSelected()) return false;
+    ViewportFrame frame = viewportFrames.get(canvas);
+    if (frame == null || !frame.valid()) return false;
+
+    double minZoom = zoomSlider.getMin() / 100.0;
+    double maxZoom = zoomSlider.getMax() / 100.0;
+    double currentZoom = clamp(zoomSlider.getValue() / 100.0, minZoom, maxZoom);
+    double nextZoom = zoomFromScroll(currentZoom, deltaY, minZoom, maxZoom);
+    if (Math.abs(nextZoom - currentZoom) < 0.000001) return false;
+
+    double px = clamp(canvasX, frame.destX(), frame.destX() + frame.destW());
+    double py = clamp(canvasY, frame.destY(), frame.destY() + frame.destH());
+    double ratioX = frame.destW() <= 0 ? 0.5 : (px - frame.destX()) / frame.destW();
+    double ratioY = frame.destH() <= 0 ? 0.5 : (py - frame.destY()) / frame.destH();
+
+    double anchorX = frame.srcX() + ratioX * frame.srcW();
+    double anchorY = frame.srcY() + ratioY * frame.srcH();
+    double crop = clamp(cropSlider.getValue() / 100.0, 0.2, 1.0);
+    double newSrcW = clamp((frame.maxW() * crop) / nextZoom, 1.0, frame.maxW());
+    double newSrcH = clamp((frame.maxH() * crop) / nextZoom, 1.0, frame.maxH());
+
+    double nextFocusX = anchoredFocus(anchorX, ratioX, newSrcW, frame.maxW());
+    double nextFocusY = anchoredFocus(anchorY, ratioY, newSrcH, frame.maxH());
+    return setViewportState(nextFocusX, nextFocusY, nextZoom * 100.0);
+  }
+
+  private boolean setViewportState(double focusX, double focusY, Double zoomPercent) {
+    double clampedFocusX = clamp(focusX, 0.0, 1.0) * 100.0;
+    double clampedFocusY = clamp(focusY, 0.0, 1.0) * 100.0;
+    double clampedZoom = zoomPercent == null
+        ? zoomSlider.getValue()
+        : clamp(zoomPercent, zoomSlider.getMin(), zoomSlider.getMax());
+
+    boolean changed = false;
+    applyingState = true;
+    try {
+      if (Math.abs(focusXSlider.getValue() - clampedFocusX) >= 0.0001) {
+        focusXSlider.setValue(clampedFocusX);
+        changed = true;
+      }
+      if (Math.abs(focusYSlider.getValue() - clampedFocusY) >= 0.0001) {
+        focusYSlider.setValue(clampedFocusY);
+        changed = true;
+      }
+      if (zoomPercent != null && Math.abs(zoomSlider.getValue() - clampedZoom) >= 0.0001) {
+        zoomSlider.setValue(clampedZoom);
+        changed = true;
+      }
+    } finally {
+      applyingState = false;
+    }
+
+    if (changed) redrawPreview();
+    return changed;
+  }
+
+  static double draggedFocus(double currentFocus, double deltaPixels, double srcSpan, double destSpan, double maxSpan) {
+    if (!(destSpan > 0) || !(maxSpan > 0)) return clamp(currentFocus, 0.0, 1.0);
+    double sourceDelta = deltaPixels * (srcSpan / destSpan);
+    return clamp(currentFocus - (sourceDelta / maxSpan), 0.0, 1.0);
+  }
+
+  static double anchoredFocus(double anchorSource, double anchorRatio, double srcSpan, double maxSpan) {
+    if (!(maxSpan > 0)) return 0.5;
+    double ratio = clamp(anchorRatio, 0.0, 1.0);
+    double span = clamp(srcSpan, 1.0, maxSpan);
+    double start = clamp(anchorSource - ratio * span, 0.0, Math.max(0.0, maxSpan - span));
+    return clamp((start + span * 0.5) / maxSpan, 0.0, 1.0);
+  }
+
+  static double zoomFromScroll(double currentZoom, double deltaY, double minZoom, double maxZoom) {
+    double base = currentZoom > 0 ? currentZoom : minZoom;
+    double scaled = base * Math.pow(1.12, deltaY / 40.0);
+    return clamp(scaled, minZoom, maxZoom);
   }
 
   private void updateViewportControlState() {
@@ -768,6 +917,7 @@ public class LayeredImageVisualizerView extends BorderPane {
     }
 
     fullscreenCanvas = new Canvas(1280, 720);
+    installViewportInteractions(fullscreenCanvas);
     StackPane previewHost = new StackPane(fullscreenCanvas);
     previewHost.setStyle("-fx-background-color: #0f141d;");
 
@@ -793,6 +943,11 @@ public class LayeredImageVisualizerView extends BorderPane {
     fullscreenStage.setScene(scene);
     fullscreenStage.setFullScreenExitHint("Press ESC to exit fullscreen");
     fullscreenStage.setOnHidden(e -> {
+      if (dragCanvas == fullscreenCanvas) {
+        dragCanvas = null;
+        dragDirty = false;
+      }
+      viewportFrames.remove(fullscreenCanvas);
       fullscreenCanvas = null;
       fullscreenStage = null;
       redrawPreview();
@@ -1657,6 +1812,22 @@ public class LayeredImageVisualizerView extends BorderPane {
     g.setFill(Color.color(1, 1, 1, 0.65));
     g.setTextAlign(TextAlignment.CENTER);
     g.fillText(text, w / 2.0, h / 2.0);
+  }
+
+  private record ViewportFrame(
+      double maxW,
+      double maxH,
+      double srcX,
+      double srcY,
+      double srcW,
+      double srcH,
+      double destX,
+      double destY,
+      double destW,
+      double destH) {
+    boolean valid() {
+      return maxW > 0 && maxH > 0 && srcW > 0 && srcH > 0 && destW > 0 && destH > 0;
+    }
   }
 
   private static final class LayeredSet {
