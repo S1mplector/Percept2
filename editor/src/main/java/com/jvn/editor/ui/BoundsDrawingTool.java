@@ -708,15 +708,8 @@ public class BoundsDrawingTool extends BorderPane {
     g.fillRect(0, 0, cw, ch);
 
     if (backgroundImage != null && backgroundImage.getWidth() > 1 && backgroundImage.getHeight() > 1) {
-      // Draw image covering the canvas (aspect-fill)
-      double iw = backgroundImage.getWidth();
-      double ih = backgroundImage.getHeight();
-      double scale = Math.max(cw / iw, ch / ih);
-      double dw = iw * scale;
-      double dh = ih * scale;
-      double dx = (cw - dw) / 2.0;
-      double dy = (ch - dh) / 2.0;
-      g.drawImage(backgroundImage, dx, dy, dw, dh);
+      // Stretch to full canvas so normalized bounds map directly to visible pixels.
+      g.drawImage(backgroundImage, 0, 0, cw, ch);
       // Slight dim overlay so bounds are readable
       g.setFill(Color.rgb(0, 0, 0, 0.25));
       g.fillRect(0, 0, cw, ch);

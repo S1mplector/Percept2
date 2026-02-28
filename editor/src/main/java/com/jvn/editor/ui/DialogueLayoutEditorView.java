@@ -1487,262 +1487,88 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private void openTextBoxBoundsStudio() {
-    double canvasW = Math.max(1.0, preview.getWidth());
-    double canvasH = Math.max(1.0, preview.getHeight());
-    Rect textBox = computeRects(spec, canvasW, canvasH).textBox();
-    openSingleBoundsStudio(
+    openStyleBoundsStudio(
         "Textbox Bounds Studio",
         "textbox",
         "Textbox",
-        textBox,
         style.textBoxBoundsPoints(),
         textBoxAssetImage,
-        entry -> {
-          if (entry == null) {
-            style = withBoundsPoints(null, style.nameBoxBoundsPoints(), style.dialogueTextBoundsPoints(), style.choiceButtonBoundsPoints());
-            return;
-          }
-          double nextX = clamp01(entry.getX());
-          double nextY = clamp01(entry.getY());
-          double nextW = clamp(entry.getW(), 0.05, 1.0);
-          double nextH = clamp(entry.getH(), 0.05, 1.0);
-          if (nextX + nextW > 1.0) nextW = Math.max(0.05, 1.0 - nextX);
-          if (nextY + nextH > 1.0) nextH = Math.max(0.05, 1.0 - nextY);
-
-          spec = new VnUiLayoutSpec(
-              nextX,
-              nextY,
-              nextW,
-              nextH,
-              spec.textBoxPadding(),
-              spec.nameBoxXOffset(),
-              spec.nameBoxYOffset(),
-              spec.nameBoxWidth(),
-              spec.nameBoxHeight(),
-              spec.nameTextXOffset(),
-              spec.nameTextBaselineOffset(),
-              spec.dialogueTextHorizontalPadding(),
-              spec.dialogueTextTopPadding(),
-              spec.dialogueTextRightPadding(),
-              spec.dialogueTextBottomPadding(),
-              spec.choiceXCenter(),
-              spec.choiceYStart(),
-              spec.choiceWidthFactor(),
-              spec.choiceHeight(),
-              spec.choiceGap(),
-              spec.choiceTextXPadding()
-          );
-          style = withBoundsPoints(
-              encodeLocalPoints(entry.getLocalPoints()),
-              style.nameBoxBoundsPoints(),
-              style.dialogueTextBoundsPoints(),
-              style.choiceButtonBoundsPoints()
-          );
-        }
+        encodedPoints -> style = withBoundsPoints(
+            encodedPoints,
+            style.nameBoxBoundsPoints(),
+            style.dialogueTextBoundsPoints(),
+            style.choiceButtonBoundsPoints()
+        )
     );
   }
 
   private void openNameBoxBoundsStudio() {
-    double canvasW = Math.max(1.0, preview.getWidth());
-    double canvasH = Math.max(1.0, preview.getHeight());
-    Rect nameBox = computeRects(spec, canvasW, canvasH).nameBox();
-    openSingleBoundsStudio(
+    Image nameBoxAsset = loadImageAsset(style.nameBoxAssetPath());
+    openStyleBoundsStudio(
         "Name Box Bounds Studio",
         "namebox",
         "Name Box",
-        nameBox,
         style.nameBoxBoundsPoints(),
-        textBoxAssetImage,
-        entry -> {
-          if (entry == null) {
-            style = withBoundsPoints(style.textBoxBoundsPoints(), null, style.dialogueTextBoundsPoints(), style.choiceButtonBoundsPoints());
-            return;
-          }
-          double tbX = spec.textBoxX() * canvasW;
-          double tbY = spec.textBoxY() * canvasH;
-          double nextOffsetX = (entry.getX() * canvasW) - tbX;
-          double nextOffsetY = (entry.getY() * canvasH) - tbY;
-          double nextW = Math.max(20.0, entry.getW() * canvasW);
-          double nextH = Math.max(12.0, entry.getH() * canvasH);
-
-          spec = new VnUiLayoutSpec(
-              spec.textBoxX(),
-              spec.textBoxY(),
-              spec.textBoxWidth(),
-              spec.textBoxHeight(),
-              spec.textBoxPadding(),
-              nextOffsetX,
-              nextOffsetY,
-              nextW,
-              nextH,
-              spec.nameTextXOffset(),
-              spec.nameTextBaselineOffset(),
-              spec.dialogueTextHorizontalPadding(),
-              spec.dialogueTextTopPadding(),
-              spec.dialogueTextRightPadding(),
-              spec.dialogueTextBottomPadding(),
-              spec.choiceXCenter(),
-              spec.choiceYStart(),
-              spec.choiceWidthFactor(),
-              spec.choiceHeight(),
-              spec.choiceGap(),
-              spec.choiceTextXPadding()
-          );
-          style = withBoundsPoints(
-              style.textBoxBoundsPoints(),
-              encodeLocalPoints(entry.getLocalPoints()),
-              style.dialogueTextBoundsPoints(),
-              style.choiceButtonBoundsPoints()
-          );
-        }
+        firstNonNull(nameBoxAsset, textBoxAssetImage),
+        encodedPoints -> style = withBoundsPoints(
+            style.textBoxBoundsPoints(),
+            encodedPoints,
+            style.dialogueTextBoundsPoints(),
+            style.choiceButtonBoundsPoints()
+        )
     );
   }
 
   private void openDialogueTextBoundsStudio() {
-    double canvasW = Math.max(1.0, preview.getWidth());
-    double canvasH = Math.max(1.0, preview.getHeight());
-    Rect textBounds = computeRects(spec, canvasW, canvasH).dialogueBounds();
-    openSingleBoundsStudio(
+    openStyleBoundsStudio(
         "Dialogue Text Bounds Studio",
         "dialogue_text",
         "Dialogue Text",
-        textBounds,
         style.dialogueTextBoundsPoints(),
         textBoxAssetImage,
-        entry -> {
-          if (entry == null) {
-            style = withBoundsPoints(style.textBoxBoundsPoints(), style.nameBoxBoundsPoints(), null, style.choiceButtonBoundsPoints());
-            return;
-          }
-          double tbX = spec.textBoxX() * canvasW;
-          double tbY = spec.textBoxY() * canvasH;
-          double tbW = spec.textBoxWidth() * canvasW;
-          double tbH = spec.textBoxHeight() * canvasH;
-          double minTextW = 40.0;
-          double minTextH = 20.0;
-
-          double left = clamp((entry.getX() * canvasW) - tbX, 0.0, Math.max(0.0, tbW - minTextW));
-          double top = clamp((entry.getY() * canvasH) - tbY, 0.0, Math.max(0.0, tbH - minTextH));
-          double textW = clamp(entry.getW() * canvasW, minTextW, Math.max(minTextW, tbW - left));
-          double textH = clamp(entry.getH() * canvasH, minTextH, Math.max(minTextH, tbH - top));
-          double right = Math.max(0.0, tbW - left - textW);
-          double bottom = Math.max(0.0, tbH - top - textH);
-
-          spec = new VnUiLayoutSpec(
-              spec.textBoxX(),
-              spec.textBoxY(),
-              spec.textBoxWidth(),
-              spec.textBoxHeight(),
-              spec.textBoxPadding(),
-              spec.nameBoxXOffset(),
-              spec.nameBoxYOffset(),
-              spec.nameBoxWidth(),
-              spec.nameBoxHeight(),
-              spec.nameTextXOffset(),
-              spec.nameTextBaselineOffset(),
-              left,
-              top,
-              right,
-              bottom,
-              spec.choiceXCenter(),
-              spec.choiceYStart(),
-              spec.choiceWidthFactor(),
-              spec.choiceHeight(),
-              spec.choiceGap(),
-              spec.choiceTextXPadding()
-          );
-          style = withBoundsPoints(
-              style.textBoxBoundsPoints(),
-              style.nameBoxBoundsPoints(),
-              encodeLocalPoints(entry.getLocalPoints()),
-              style.choiceButtonBoundsPoints()
-          );
-        }
+        encodedPoints -> style = withBoundsPoints(
+            style.textBoxBoundsPoints(),
+            style.nameBoxBoundsPoints(),
+            encodedPoints,
+            style.choiceButtonBoundsPoints()
+        )
     );
   }
 
   private void openChoiceButtonBoundsStudio() {
-    double canvasW = Math.max(1.0, preview.getWidth());
-    double canvasH = Math.max(1.0, preview.getHeight());
-    LayoutRects rects = computeRects(spec, canvasW, canvasH);
-    Rect choiceRect = new Rect(
-        rects.choiceBlock().x(),
-        rects.choiceBlock().y(),
-        rects.choiceBlock().w(),
-        Math.max(8.0, spec.choiceHeight())
-    );
-    openSingleBoundsStudio(
+    openStyleBoundsStudio(
         "Choice Button Bounds Studio",
         "choice_button",
         "Choice Button",
-        choiceRect,
         style.choiceButtonBoundsPoints(),
         firstNonNull(choiceButtonAssetImage, choiceButtonHoverAssetImage),
-        entry -> {
-          if (entry == null) {
-            style = withBoundsPoints(style.textBoxBoundsPoints(), style.nameBoxBoundsPoints(), style.dialogueTextBoundsPoints(), null);
-            return;
-          }
-          double nextCenter = clamp(entry.getX() + entry.getW() * 0.5, 0.0, 1.0);
-          double nextWidthFactor = clamp(entry.getW(), 0.1, 1.0);
-          double nextY = clamp01(entry.getY());
-          double nextHeight = Math.max(8.0, entry.getH() * canvasH);
-
-          spec = new VnUiLayoutSpec(
-              spec.textBoxX(),
-              spec.textBoxY(),
-              spec.textBoxWidth(),
-              spec.textBoxHeight(),
-              spec.textBoxPadding(),
-              spec.nameBoxXOffset(),
-              spec.nameBoxYOffset(),
-              spec.nameBoxWidth(),
-              spec.nameBoxHeight(),
-              spec.nameTextXOffset(),
-              spec.nameTextBaselineOffset(),
-              spec.dialogueTextHorizontalPadding(),
-              spec.dialogueTextTopPadding(),
-              spec.dialogueTextRightPadding(),
-              spec.dialogueTextBottomPadding(),
-              nextCenter,
-              nextY,
-              nextWidthFactor,
-              nextHeight,
-              spec.choiceGap(),
-              spec.choiceTextXPadding()
-          );
-          style = withBoundsPoints(
-              style.textBoxBoundsPoints(),
-              style.nameBoxBoundsPoints(),
-              style.dialogueTextBoundsPoints(),
-              encodeLocalPoints(entry.getLocalPoints())
-          );
-        }
+        encodedPoints -> style = withBoundsPoints(
+            style.textBoxBoundsPoints(),
+            style.nameBoxBoundsPoints(),
+            style.dialogueTextBoundsPoints(),
+            encodedPoints
+        )
     );
   }
 
-  private void openSingleBoundsStudio(
+  private void openStyleBoundsStudio(
       String title,
       String id,
       String label,
-      Rect initialRect,
       String boundsPoints,
       Image background,
-      Consumer<BoundsDrawingTool.BoundEntry> onApply
+      Consumer<String> onApply
   ) {
     BoundsDrawingTool tool = new BoundsDrawingTool();
     if (background != null && background.getWidth() > 1) tool.setBackgroundImage(background);
 
-    double canvasW = Math.max(1.0, preview.getWidth());
-    double canvasH = Math.max(1.0, preview.getHeight());
-    Rect rect = initialRect == null ? new Rect(0.2, 0.2, 0.2, 0.2) : initialRect;
     tool.setBounds(List.of(new BoundsDrawingTool.BoundEntry(
         id,
         label,
-        clamp01(rect.x() / canvasW),
-        clamp01(rect.y() / canvasH),
-        clamp(rect.w() / canvasW, 0.01, 1.0),
-        clamp(rect.h() / canvasH, 0.01, 1.0),
+        0.0,
+        0.0,
+        1.0,
+        1.0,
         BoundsPointCodec.parse(boundsPoints)
     )));
 
@@ -1768,10 +1594,10 @@ public class DialogueLayoutEditorView extends BorderPane {
       if (selected != null && (selected.getW() < 0.005 || selected.getH() < 0.005)) {
         selected = null;
       }
+      String encoded = selected == null ? null : encodeLocalPoints(selected.getLocalPoints());
       suppressEvents = true;
       try {
-        if (onApply != null) onApply.accept(selected);
-        applySpecToControls(spec);
+        if (onApply != null) onApply.accept(encoded);
         applyStyleToControls(style);
       } finally {
         suppressEvents = false;
