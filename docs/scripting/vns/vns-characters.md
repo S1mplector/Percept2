@@ -1,0 +1,337 @@
+# VNS Characters & Sprites
+
+Complete reference for the VNS character system: declarations, layered sprites, expression presets, positioning, animation, and global position mode.
+
+---
+
+## Character Declarations
+
+### Basic character registration
+
+```vns
+@character <id> "Display Name"
+```
+
+The `id` is used in commands and dialogue. The display name is shown to the player.
+
+```vns
+@character hero "Aria"
+@character mentor "Professor Vale"
+@character villain "Shadow King"
+```
+
+### Expression sprites
+
+Each character can have multiple named expressions:
+
+```vns
+@charimg hero neutral assets/characters/aria/neutral.png
+@charimg hero happy assets/characters/aria/happy.png
+@charimg hero angry assets/characters/aria/angry.png
+@charimg hero surprised assets/characters/aria/surprised.png
+@charimg hero sad assets/characters/aria/sad.png
+@charimg hero thinking assets/characters/aria/thinking.png
+```
+
+If no expression is specified in a `[show]` command, `neutral` is used as default.
+
+---
+
+## Layered Sprite System
+
+For characters composed of separate body parts (body, eyes, mouth, accessories), use the layer system.
+
+### Step 1: Define layers
+
+```vns
+@charlayer <characterId> <layerId> <path>
+```
+
+```vns
+@charlayer aria base assets/characters/aria/layers/body.png
+@charlayer aria eyes_neutral assets/characters/aria/layers/eyes_neutral.png
+@charlayer aria eyes_happy assets/characters/aria/layers/eyes_happy.png
+@charlayer aria eyes_angry assets/characters/aria/layers/eyes_angry.png
+@charlayer aria eyes_surprised assets/characters/aria/layers/eyes_wide.png
+@charlayer aria mouth_neutral assets/characters/aria/layers/mouth_neutral.png
+@charlayer aria mouth_smile assets/characters/aria/layers/mouth_smile.png
+@charlayer aria mouth_frown assets/characters/aria/layers/mouth_frown.png
+@charlayer aria mouth_open assets/characters/aria/layers/mouth_open.png
+@charlayer aria accessory_glasses assets/characters/aria/layers/glasses.png
+@charlayer aria accessory_hat assets/characters/aria/layers/hat.png
+```
+
+### Step 2: Build expression presets
+
+```vns
+@charpreset <characterId> <expressionId> <layerSpec>
+```
+
+Layer references use `$layerId` syntax. Separate layers with `|`.
+
+```vns
+@charpreset aria neutral $base | $eyes_neutral | $mouth_neutral
+@charpreset aria happy $base | $eyes_happy | $mouth_smile
+@charpreset aria angry $base | $eyes_angry | $mouth_frown
+@charpreset aria surprised $base | $eyes_surprised | $mouth_open
+@charpreset aria thinking $base | $eyes_neutral | $mouth_neutral | $accessory_glasses
+@charpreset aria formal $base | $eyes_neutral | $mouth_smile | $accessory_glasses | $accessory_hat
+```
+
+### Cross-character layer references
+
+You can reference layers from other characters:
+
+```vns
+@charlayer shared_accessories bow assets/characters/shared/bow.png
+
+# Reference from another character using $charId.layerId or $charId:layerId
+@charpreset aria festive $base | $eyes_happy | $mouth_smile | $shared_accessories.bow
+@charpreset aria festive2 $base | $eyes_happy | $mouth_smile | $shared_accessories:bow
+```
+
+### Multi-layer `@charimg` (shortcut)
+
+If you don't need the full layer/preset system, you can specify layered images directly:
+
+```vns
+@charimg aria battle assets/characters/aria/body.png | assets/characters/aria/battle_eyes.png | assets/characters/aria/battle_mouth.png
+```
+
+Layers are drawn bottom-to-top (left-to-right in the declaration).
+
+---
+
+## Showing and Hiding Characters
+
+### Basic show
+
+```vns
+[show hero center]           # default expression (neutral)
+[show hero center happy]     # specific expression
+[show hero left angry]       # different position
+```
+
+### Positions
+
+| Full Name | Shortcut | Typical Screen X |
+|-----------|----------|-----------------|
+| `FAR_LEFT` | `FL` | ~10% |
+| `LEFT` | `L` | ~25% |
+| `CENTER` | `C` | ~50% |
+| `RIGHT` | `R` | ~75% |
+| `FAR_RIGHT` | `FR` | ~90% |
+
+### Layer ordering
+
+The optional fourth argument controls z-depth (higher = drawn in front):
+
+```vns
+# villain behind hero
+[show villain center neutral 0]
+[show hero center determined 10]
+
+# crowd member far back
+[show crowd_npc far_left neutral -30]
+```
+
+Default layer orders by position:
+- `FAR_LEFT` → -20
+- `LEFT` → -10
+- `CENTER` → 0
+- `RIGHT` → 10
+- `FAR_RIGHT` → 20
+
+If a character already has a layer order and you show them again without specifying one, the existing layer order is preserved.
+
+### Hiding characters
+
+```vns
+[hide hero]
+[hide villain]
+```
+
+The hide command triggers an exit animation (slide + fade out).
+
+### Changing expressions
+
+Simply show the character again at the same position with the new expression:
+
+```vns
+[show hero center neutral]
+hero: I'm not sure about this...
+
+[show hero center angry]
+hero: Wait, what did you just say?!
+
+[show hero center surprised]
+hero: Oh... I didn't expect that.
+```
+
+---
+
+## Character Motion System
+
+For advanced choreography beyond basic show/hide, use the `[char]` provider commands.
+
+### Enabling global position mode
+
+```vns
+[char hero global on]
+```
+
+When global mode is enabled, the character maintains a persistent anchor position. Without it, each `[show]` creates an independent slot.
+
+### Setting anchor position
+
+```vns
+[char hero at center]
+[char hero at left]
+```
+
+### Animated movement
+
+```vns
+[char hero move right]              # move to right, keep current expression
+[char hero move right smile]        # move to right, switch to smile
+[char hero move far_left neutral]   # move to far left
+```
+
+Movement is animated with a slide tween. If an expression is specified, it fades in after the move completes.
+
+### Expression-only change
+
+```vns
+[char hero expression angry]
+[char hero expr surprised]          # shorthand
+```
+
+Changes expression without moving position.
+
+### Hiding via char command
+
+```vns
+[char hero hide]
+```
+
+### Full choreography example
+
+```vns
+@scenario choreography_demo
+@character hero "Aria"
+@character villain "Shadow"
+@charimg hero neutral assets/characters/aria/neutral.png
+@charimg hero angry assets/characters/aria/angry.png
+@charimg hero determined assets/characters/aria/determined.png
+@charimg villain neutral assets/characters/villain/neutral.png
+@charimg villain smug assets/characters/villain/smug.png
+@charimg villain defeated assets/characters/villain/defeated.png
+
+@label start
+[bg throne_room]
+
+# Enter from sides
+[show hero left neutral]
+[show villain right smug]
+
+# Enable global positioning for both
+[char hero global on]
+[char villain global on]
+
+hero: So we meet at last.
+
+# Hero steps forward
+[char hero move center determined]
+[wait 300]
+
+villain: You're braver than I expected.
+
+# Villain steps forward too — face-off at center
+[char villain move center smug]
+[wait 200]
+
+[screen shake 6 300]
+[sfx assets/audio/sfx/clash.ogg]
+
+# Both pushed back
+[char hero move left angry]
+[char villain move right neutral]
+
+hero: I won't back down!
+
+# Final charge
+[char hero move center determined]
+[wait 500]
+[screen flash 0.8 200]
+
+[char villain expression defeated]
+villain: Impossible...
+
+[char villain hide]
+[char hero move center neutral]
+hero: It's over.
+
+[end]
+```
+
+### Recommended usage pattern
+
+1. Enable global mode once per character at the start of a scene.
+2. Set initial anchor via `at`.
+3. Use `move` for spatial transitions.
+4. Use `expression` for facial changes without position changes.
+5. This avoids duplicate sprite slots and keeps long scenes visually stable.
+
+---
+
+## Character Framing Overrides
+
+At runtime, you can adjust how characters are rendered by setting special UI variables:
+
+```vns
+# Make characters taller
+[set ui.characterHeightFactor 1.28]
+
+# Adjust vertical baseline
+[set ui.characterBaselineY 1.42]
+```
+
+These override the values from `dialogue.layout` while the scene runs. Useful for scenes with different camera framing (close-ups, wide shots).
+
+---
+
+## Character State in Save/Load
+
+When a game is saved, the following character state is persisted:
+
+- Visible characters and their positions
+- Current expressions
+- Layer orders
+- Global position mode flags
+- Defined positions for global-mode characters
+
+When a save is loaded, characters are restored to their saved positions and expressions, including global position metadata.
+
+---
+
+## Character Animation Details
+
+Characters have smooth entrance/exit/movement animations:
+
+| Animation | Duration | Effect |
+|-----------|----------|--------|
+| Show (entrance) | 220ms | Slide in + fade in |
+| Hide (exit) | 220ms | Slide out + fade out |
+| Move (reposition) | 320ms | Slide between positions |
+| Expression change | 180ms | Crossfade to new expression |
+
+These durations are engine defaults and provide a polished feel without explicit timing commands.
+
+---
+
+## Related Docs
+
+- [VNS Overview](vns-scripting.md)
+- [Directives & Declarations](vns-directives.md) — `@character`, `@charimg`, `@charlayer`, `@charpreset`
+- [Commands Reference](vns-commands.md) — `[show]`, `[hide]`, `[char]`
+- [Transitions & Screen Effects](vns-transitions.md) — visual effects that pair with character scenes

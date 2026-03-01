@@ -265,29 +265,63 @@ Only prerequisites are `git` and `git lfs` on PATH.
 
 ## Documentation Map
 
-- `docs/Architecture/Overview.md`
-- `docs/Architecture/Architecture.md`
-- `docs/Architecture/2D-Engine.md`
-- `docs/Architecture/Native Library Audit.md`
-- `docs/Runtime/Runtime.md`
-- `docs/Runtime/Save System.md`
-- `docs/Runtime/Interop.md`
-- `docs/Editor/Editor.md`
-- `docs/Editor/Help Center.md`
-- `docs/Editor/Puppeteer.md`
-- `docs/Project Setup/New Project Wizard.md`
-- `docs/Project Setup/Version Control.md`
-- `docs/Project Setup/TitleScreen.md`
-- `docs/Project Setup/TextEffects.md`
-- `docs/Menu Profiles/Menu Profiles.md`
-- `docs/VNS Scripting/VNS Scripting.md`
-- `docs/VNS Scripting/VNS Parsing.md`
-- `docs/VNS Scripting/Java-JES Cross Development.md`
-- `docs/JES Scripting/JES Scripting.md`
-- `docs/JES Scripting/JES Parsing.md`
-- `docs/JES Scripting/Components.md`
-- `docs/Timeline Scripting/Timeline Scripting.md`
-- `docs/Performance.md`
+Full documentation index: **`docs/INDEX.md`**
+
+### Start Here
+- `docs/getting-started.md` — first-time setup, build, and run
+- `docs/cookbook.md` — practical recipes and end-to-end examples
+
+### Architecture
+- `docs/architecture/overview.md`
+- `docs/architecture/system-architecture.md`
+- `docs/architecture/2d-engine.md`
+- `docs/architecture/performance.md`
+- `docs/architecture/native-library-audit.md`
+
+### VNS Scripting (11 sub-documents)
+- `docs/scripting/vns/vns-scripting.md` — overview and quick reference
+- `docs/scripting/vns/vns-directives.md` — @scenario, @character, @background, @charimg, @charlayer, @charpreset, @label, @var, @define, @include
+- `docs/scripting/vns/vns-dialogue.md` — dialogue forms, text effects, typewriter
+- `docs/scripting/vns/vns-choices.md` — choices, branching patterns
+- `docs/scripting/vns/vns-commands.md` — complete command catalog
+- `docs/scripting/vns/vns-audio.md` — BGM, SFX, voice, crossfade
+- `docs/scripting/vns/vns-characters.md` — character system, layered sprites, motion
+- `docs/scripting/vns/vns-variables.md` — variables, conditions, if/elif/else
+- `docs/scripting/vns/vns-transitions.md` — transitions, shake, flash, UI control
+- `docs/scripting/vns/vns-flow-control.md` — labels, jumps, call/return, script switching
+- `docs/scripting/vns/vns-interop.md` — JES/Java integration, inline timelines
+- `docs/scripting/vns/vns-text-formatting.md` — ICU plurals, select, number formatting
+- `docs/scripting/vns/vns-parsing.md` — parser internals
+- `docs/scripting/vns/java-jes-cross-development.md` — hybrid architecture
+
+### JES Scripting
+- `docs/scripting/jes/jes-scripting.md`
+- `docs/scripting/jes/jes-parsing.md`
+- `docs/scripting/jes/components.md`
+
+### Timeline
+- `docs/scripting/timeline/timeline-scripting.md`
+
+### Runtime
+- `docs/runtime/runtime.md`
+- `docs/runtime/interop.md`
+- `docs/runtime/save-system.md`
+
+### Menu System
+- `docs/menu-profiles/menu-profiles.md`
+
+### Editor
+- `docs/editor/editor.md`
+- `docs/editor/puppeteer.md`
+- `docs/editor/action-editor-design.md`
+- `docs/editor/puppeteer-audit.md`
+- `docs/editor/help-center.md`
+
+### Project Setup
+- `docs/project-setup/new-project-wizard.md`
+- `docs/project-setup/title-screen.md`
+- `docs/project-setup/text-effects.md`
+- `docs/project-setup/version-control.md`
 
 ## License
 
