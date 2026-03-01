@@ -1088,6 +1088,11 @@ public class DialogueLayoutEditorView extends BorderPane {
     // Textbox and name box overlay.
     Color textBoxTint = parseColorValue(style.textBoxColor(), Color.BLACK);
     double overlayOpacity = style.textBoxOpacity() == null ? 0.28 : clamp(style.textBoxOpacity(), 0.0, 1.0);
+    List<BoundsPointCodec.Point> textBoxBounds = parseBoundsPoints(style.textBoxBoundsPoints());
+    List<BoundsPointCodec.Point> nameBoxBounds = parseBoundsPoints(style.nameBoxBoundsPoints());
+    List<BoundsPointCodec.Point> dialogueBounds = parseBoundsPoints(style.dialogueTextBoundsPoints());
+    if (hasPolygon(textBoxBounds)) g.save();
+    if (hasPolygon(textBoxBounds)) clipToLocalPolygon(g, textBoxBounds, rects.textBox());
     if (textBoxAssetImage != null && textBoxAssetImage.getWidth() > 1 && textBoxAssetImage.getHeight() > 1) {
       g.drawImage(textBoxAssetImage, rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
       if (overlayOpacity > 0.001) {
@@ -1098,29 +1103,47 @@ public class DialogueLayoutEditorView extends BorderPane {
       g.setFill(withOpacity(textBoxTint, clamp(Math.max(overlayOpacity, 0.62), 0.0, 1.0)));
       g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
     }
+    if (hasPolygon(textBoxBounds)) g.restore();
     g.setStroke(LayoutStudioPalette.ACCENT_BLUE);
     g.setLineWidth(2);
-    g.strokeRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+    if (hasPolygon(textBoxBounds)) {
+      strokeLocalPolygon(g, textBoxBounds, rects.textBox());
+    } else {
+      g.strokeRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+    }
 
+    if (hasPolygon(nameBoxBounds)) g.save();
+    if (hasPolygon(nameBoxBounds)) clipToLocalPolygon(g, nameBoxBounds, rects.nameBox());
     g.setFill(LayoutStudioPalette.DIALOGUE_NAME_FILL);
     g.fillRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
-    g.setStroke(LayoutStudioPalette.PANEL_BORDER_LIGHT);
-    g.strokeRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
-
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 14));
     g.fillText(previewSpeakerName, rects.nameBox().x() + spec.nameTextXOffset(), rects.nameBox().y() + spec.nameTextBaselineOffset());
+    if (hasPolygon(nameBoxBounds)) g.restore();
+    g.setStroke(LayoutStudioPalette.PANEL_BORDER_LIGHT);
+    if (hasPolygon(nameBoxBounds)) {
+      strokeLocalPolygon(g, nameBoxBounds, rects.nameBox());
+    } else {
+      g.strokeRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
+    }
 
     // Dialogue text bounds.
     g.setStroke(LayoutStudioPalette.ACCENT_GOLD);
     g.setLineDashes(6);
-    g.strokeRect(rects.dialogueBounds().x(), rects.dialogueBounds().y(), rects.dialogueBounds().w(), rects.dialogueBounds().h());
+    if (hasPolygon(dialogueBounds)) {
+      strokeLocalPolygon(g, dialogueBounds, rects.dialogueBounds());
+    } else {
+      g.strokeRect(rects.dialogueBounds().x(), rects.dialogueBounds().y(), rects.dialogueBounds().w(), rects.dialogueBounds().h());
+    }
     g.setLineDashes(0);
     drawResizeHandle(g, rects.dialogueBounds(), LayoutStudioPalette.ACCENT_GOLD);
+    if (hasPolygon(dialogueBounds)) g.save();
+    if (hasPolygon(dialogueBounds)) clipToLocalPolygon(g, dialogueBounds, rects.dialogueBounds());
     g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
     g.setFont(Font.font(Font.getDefault().getFamily(), 13));
     g.fillText(previewDialogueLine1, rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 18);
     g.fillText(previewDialogueLine2, rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 36);
+    if (hasPolygon(dialogueBounds)) g.restore();
 
     drawTextBoxButtonPreview(g, rects.textBox());
 
@@ -1192,6 +1215,43 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.setStroke(LayoutStudioPalette.PANEL_BORDER);
     g.setLineWidth(1);
     g.strokeRect(hx, hy, size, size);
+  }
+
+  private static List<BoundsPointCodec.Point> parseBoundsPoints(String raw) {
+    List<BoundsPointCodec.Point> parsed = BoundsPointCodec.parse(raw);
+    return parsed != null && parsed.size() >= 3 ? parsed : List.of();
+  }
+
+  private static boolean hasPolygon(List<BoundsPointCodec.Point> points) {
+    return points != null && points.size() >= 3;
+  }
+
+  private static void clipToLocalPolygon(GraphicsContext g, List<BoundsPointCodec.Point> points, Rect rect) {
+    if (g == null || rect == null || !hasPolygon(points)) return;
+    g.beginPath();
+    for (int i = 0; i < points.size(); i++) {
+      BoundsPointCodec.Point point = points.get(i);
+      double x = rect.x() + rect.w() * clamp01(point.x());
+      double y = rect.y() + rect.h() * clamp01(point.y());
+      if (i == 0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    }
+    g.closePath();
+    g.clip();
+  }
+
+  private static void strokeLocalPolygon(GraphicsContext g, List<BoundsPointCodec.Point> points, Rect rect) {
+    if (g == null || rect == null || !hasPolygon(points)) return;
+    g.beginPath();
+    for (int i = 0; i < points.size(); i++) {
+      BoundsPointCodec.Point point = points.get(i);
+      double x = rect.x() + rect.w() * clamp01(point.x());
+      double y = rect.y() + rect.h() * clamp01(point.y());
+      if (i == 0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    }
+    g.closePath();
+    g.stroke();
   }
 
   private LayoutRects computeRects(VnUiLayoutSpec s, double w, double h) {
@@ -1606,7 +1666,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       if (selected != null && (selected.getW() < 0.005 || selected.getH() < 0.005)) {
         selected = null;
       }
-      String encoded = selected == null ? null : encodeLocalPoints(selected.getLocalPoints());
+      String encoded = selected == null ? null : encodeStyleBounds(selected);
       suppressEvents = true;
       try {
         if (onApply != null) onApply.accept(encoded);
@@ -1667,9 +1727,32 @@ public class DialogueLayoutEditorView extends BorderPane {
     return safeAspect(choiceW / choiceH, viewport.aspect());
   }
 
-  private String encodeLocalPoints(List<BoundsPointCodec.Point> points) {
-    if (points == null || points.size() < 3) return null;
-    String encoded = BoundsPointCodec.encode(points);
+  private String encodeStyleBounds(BoundsDrawingTool.BoundEntry entry) {
+    if (entry == null) return null;
+
+    double x = clamp01(entry.getX());
+    double y = clamp01(entry.getY());
+    double w = clamp(entry.getW(), 0.0, Math.max(0.0, 1.0 - x));
+    double h = clamp(entry.getH(), 0.0, Math.max(0.0, 1.0 - y));
+    if (w < 0.005 || h < 0.005) return null;
+
+    List<BoundsPointCodec.Point> source = entry.getLocalPoints();
+    List<BoundsPointCodec.Point> absolute = new ArrayList<>();
+    if (source != null && source.size() >= 3) {
+      for (BoundsPointCodec.Point point : source) {
+        if (point == null) continue;
+        double px = x + clamp01(point.x()) * w;
+        double py = y + clamp01(point.y()) * h;
+        absolute.add(new BoundsPointCodec.Point(clamp01(px), clamp01(py)));
+      }
+    } else {
+      absolute.add(new BoundsPointCodec.Point(x, y));
+      absolute.add(new BoundsPointCodec.Point(clamp01(x + w), y));
+      absolute.add(new BoundsPointCodec.Point(clamp01(x + w), clamp01(y + h)));
+      absolute.add(new BoundsPointCodec.Point(x, clamp01(y + h)));
+    }
+    if (absolute.size() < 3) return null;
+    String encoded = BoundsPointCodec.encode(absolute);
     return encoded == null || encoded.isBlank() ? null : encoded;
   }
 
