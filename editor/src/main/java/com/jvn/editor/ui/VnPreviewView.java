@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Locale;
+import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -14,6 +15,9 @@ import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.ui.VnUiActionButtonSpec;
+import com.jvn.core.vn.ui.VnUiLayoutSpec;
+import com.jvn.core.vn.ui.VnUiStyleSpec;
 import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.fx.audio.FxAudioService;
 import com.jvn.fx.vn.VnRenderer;
@@ -46,6 +50,9 @@ public class VnPreviewView extends StackPane {
   private AudioFacade audio;
   private File projectRoot;
   private String audioBackend = "auto";
+  private VnUiLayoutSpec uiLayoutOverride;
+  private VnUiStyleSpec uiStyleOverride;
+  private List<VnUiActionButtonSpec> textBoxButtonsOverride = List.of();
 
   public VnPreviewView() {
     getChildren().add(canvas);
@@ -85,6 +92,7 @@ public class VnPreviewView extends StackPane {
     this.audioBackend = nextBackend;
     this.projectRoot = root;
     renderer.setProjectRoot(root);
+    applyUiOverrides();
     bindProjectRoot(audio, root);
     if (scene != null) {
       if (audio == null) {
@@ -114,7 +122,27 @@ public class VnPreviewView extends StackPane {
     scene.update(deltaMs);
     renderer.updateAnimation(deltaMs);
     renderer.setAudioFacade(scene.getAudioFacade());
+    applyUiOverrides();
     renderer.render(scene.getState(), scene.getScenario(), w, h, mouseX, mouseY);
+  }
+
+  public void setUiOverrides(VnUiLayoutSpec layout, VnUiStyleSpec style, List<VnUiActionButtonSpec> textBoxButtons) {
+    uiLayoutOverride = layout;
+    uiStyleOverride = style;
+    textBoxButtonsOverride = textBoxButtons == null ? List.of() : List.copyOf(textBoxButtons);
+    applyUiOverrides();
+  }
+
+  public void clearUiOverrides() {
+    uiLayoutOverride = null;
+    uiStyleOverride = null;
+    textBoxButtonsOverride = List.of();
+  }
+
+  private void applyUiOverrides() {
+    if (uiLayoutOverride != null) renderer.setUiLayout(uiLayoutOverride);
+    if (uiStyleOverride != null) renderer.setUiStyle(uiStyleOverride);
+    renderer.setTextBoxButtons(textBoxButtonsOverride == null ? List.of() : textBoxButtonsOverride);
   }
 
   private void initializeScenario(VnScenario scenario, String startLabel) {

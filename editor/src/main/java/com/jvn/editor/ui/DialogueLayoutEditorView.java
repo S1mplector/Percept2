@@ -18,10 +18,13 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioBuilder;
 import com.jvn.core.vn.text.TextEffect;
 import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
 
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -49,6 +52,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import javafx.stage.Window;
 
 /**
@@ -215,6 +219,10 @@ public class DialogueLayoutEditorView extends BorderPane {
   private List<VnUiActionButtonSpec> dragStartButtons = List.of();
   private int selectedButtonIndex = -1;
   private int dragButtonIndex = -1;
+  private Stage runtimePreviewStage;
+  private VnPreviewView runtimePreviewView;
+  private AnimationTimer runtimePreviewTimer;
+  private long runtimePreviewLastNs = -1L;
 
   private enum DragTarget {
     NONE,
@@ -481,7 +489,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     btnRedo.setOnAction(e -> performRedo());
     undoManager.setOnUndoAvailableChanged(available -> btnUndo.setDisable(!available));
     undoManager.setOnRedoAvailableChanged(available -> btnRedo.setDisable(!available));
-    HBox historyButtons = new HBox(8, btnUndo, btnRedo);
+    Button btnRuntimePreview = iconButton(CssIcon.speech("#8cd48c"), "Run runtime VN preview with current layout/style");
+    btnRuntimePreview.setOnAction(e -> openRuntimeScriptPreview());
+    HBox historyButtons = new HBox(8, btnUndo, btnRedo, btnRuntimePreview);
     historyButtons.setPadding(new Insets(4, 8, 4, 8));
 
     Label hint = new Label("Drag blocks in preview to position or resize textbox/name/choices/text bounds/buttons. Right and bottom text paddings allow exact text area sizing.");
@@ -2151,6 +2161,118 @@ public class DialogueLayoutEditorView extends BorderPane {
       dialog.setMaximized(true);
     }
     dialog.show();
+  }
+
+  private void openRuntimeScriptPreview() {
+    if (runtimePreviewView == null) {
+      runtimePreviewView = new VnPreviewView();
+    }
+
+    runtimePreviewView.setProjectRoot(projectRoot);
+    runtimePreviewView.setUiOverrides(spec, style, textBoxButtons);
+    runtimePreviewView.runScenario(buildRuntimePreviewScenario(), null);
+
+    if (runtimePreviewStage == null) {
+      StackPane host = new StackPane(runtimePreviewView);
+      host.setStyle("-fx-background-color: #05070c;");
+      javafx.scene.Scene scene = new javafx.scene.Scene(host, 980, 620);
+      EditorTheme.apply(scene);
+
+      Stage stage = new Stage();
+      stage.setTitle("Dialogue Runtime Preview");
+      stage.setScene(scene);
+      stage.initOwner(getScene() != null ? getScene().getWindow() : null);
+      stage.setOnHidden(ev -> disposeRuntimePreviewWindow());
+      scene.widthProperty().addListener((o, ov, nv) -> updateRuntimePreviewSize(scene));
+      scene.heightProperty().addListener((o, ov, nv) -> updateRuntimePreviewSize(scene));
+      runtimePreviewStage = stage;
+    }
+
+    updateRuntimePreviewSize(runtimePreviewStage.getScene());
+    if (!runtimePreviewStage.isShowing()) runtimePreviewStage.show();
+    runtimePreviewStage.toFront();
+    runtimePreviewView.requestFocus();
+    startRuntimePreviewTimer();
+  }
+
+  private VnScenario buildRuntimePreviewScenario() {
+    String backgroundPath = resolveDefaultPreviewBackgroundAsset();
+    VnScenarioBuilder builder = new VnScenarioBuilder("dialogue_layout_runtime_preview");
+    if (!backgroundPath.isBlank()) {
+      builder.addBackground("field", backgroundPath);
+      builder.background("field");
+    }
+    builder.dialogue(
+        "Lavender",
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
+    builder.dialogue(
+        "Lavender",
+        "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.");
+    builder.end();
+    return builder.build();
+  }
+
+  private String resolveDefaultPreviewBackgroundAsset() {
+    String[] candidates = new String[] {
+        "assets/demo/backgrounds/field/field.jpg",
+        "assets/backgrounds/field/field.jpg",
+        "assets/demo/backgrounds/field/field.png",
+        "assets/backgrounds/field/field.png",
+        "game/images/backgrounds/classroom_day.png"
+    };
+    for (String candidate : candidates) {
+      if (loadImageAsset(candidate) != null) return candidate;
+    }
+    return "";
+  }
+
+  private void startRuntimePreviewTimer() {
+    if (runtimePreviewTimer != null) return;
+    runtimePreviewLastNs = -1L;
+    runtimePreviewTimer = new AnimationTimer() {
+      @Override
+      public void handle(long now) {
+        if (runtimePreviewStage == null || !runtimePreviewStage.isShowing() || runtimePreviewView == null) return;
+        if (runtimePreviewLastNs < 0L) {
+          runtimePreviewLastNs = now;
+          return;
+        }
+        long dt = Math.max(1L, (now - runtimePreviewLastNs) / 1_000_000L);
+        runtimePreviewLastNs = now;
+        runtimePreviewView.render(dt);
+      }
+    };
+    runtimePreviewTimer.start();
+  }
+
+  private void stopRuntimePreviewTimer() {
+    if (runtimePreviewTimer == null) return;
+    runtimePreviewTimer.stop();
+    runtimePreviewTimer = null;
+    runtimePreviewLastNs = -1L;
+  }
+
+  private void disposeRuntimePreviewWindow() {
+    stopRuntimePreviewTimer();
+    if (runtimePreviewView != null) {
+      runtimePreviewView.dispose();
+    }
+    runtimePreviewView = null;
+    runtimePreviewStage = null;
+  }
+
+  private void updateRuntimePreviewSize(javafx.scene.Scene scene) {
+    if (scene == null || runtimePreviewView == null) return;
+    double availableW = sanitizeCanvasDimension(scene.getWidth());
+    double availableH = sanitizeCanvasDimension(scene.getHeight());
+    double aspect = ProjectViewportSpec.resolve(projectRoot).aspect();
+    double w = availableW;
+    double h = w / Math.max(0.0001, aspect);
+    if (h > availableH) {
+      h = availableH;
+      w = h * aspect;
+    }
+    runtimePreviewView.setSize(w, h);
   }
 
   private void setSelectedTextBoxButton(int index) {
