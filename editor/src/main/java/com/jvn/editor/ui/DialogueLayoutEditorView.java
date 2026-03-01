@@ -18,6 +18,9 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
+import com.jvn.core.vn.text.TextEffect;
+import com.jvn.core.vn.text.TextParser;
+import com.jvn.core.vn.text.TextSpan;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -54,6 +57,18 @@ import javafx.stage.Window;
  */
 public class DialogueLayoutEditorView extends BorderPane {
   private static final double PREVIEW_PADDING = 8.0;
+  private static final String DEFAULT_FONT_FAMILY = "Arial";
+  private static final int DEFAULT_NAME_FONT_SIZE = 18;
+  private static final int DEFAULT_DIALOGUE_FONT_SIZE = 16;
+  private static final int DEFAULT_CHOICE_FONT_SIZE = 16;
+  private static final Color RUNTIME_TEXTBOX_COLOR = Color.rgb(0, 0, 0, 0.62);
+  private static final Color RUNTIME_NAME_BOX_COLOR = Color.rgb(30, 30, 50, 0.9);
+  private static final Color RUNTIME_TEXT_COLOR = Color.WHITE;
+  private static final Color RUNTIME_CHOICE_BG_COLOR = Color.rgb(50, 50, 70, 0.9);
+  private static final Color RUNTIME_CHOICE_HOVER_COLOR = Color.rgb(70, 70, 100, 0.9);
+  private static final Color RUNTIME_CHOICE_DISABLED_COLOR = Color.rgb(60, 60, 60, 0.6);
+  private static final Color RUNTIME_TEXT_COLOR_DISABLED = Color.color(1, 1, 1, 0.5);
+  private static final Color RUNTIME_CHOICE_DISABLED_BORDER_COLOR = Color.color(1, 1, 1, 0.55);
   private static final String[] KNOWN_KEYS = new String[] {
       "textBoxX",
       "textBoxY",
@@ -977,7 +992,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private static final double HANDLE_SIZE = 10;
 
   private DragTarget hitTest(double x, double y) {
-    LayoutRects r = computeRects(spec, preview.getWidth(), preview.getHeight());
+    LayoutRects r = computeRects(spec, preview.getWidth(), preview.getHeight(), previewChoiceCount());
     // Resize handles (bottom-right corners) take priority
     if (isNearCorner(x, y, r.textBox())) return DragTarget.TEXT_BOX_RESIZE;
     if (isNearCorner(x, y, r.choiceBlock())) return DragTarget.CHOICE_RESIZE;
@@ -1033,11 +1048,20 @@ public class DialogueLayoutEditorView extends BorderPane {
       g.strokeLine(0, yy, w, yy);
     }
 
-    LayoutRects rects = computeRects(spec, w, h);
+    int choiceCount = previewChoiceCount();
+    LayoutRects rects = computeRects(spec, w, h, choiceCount);
     ChoicePreviewStyle choiceStyle = resolveChoicePreviewStyle();
+    Font nameFont = resolveNamePreviewFont();
+    Font dialogueFont = resolveDialoguePreviewFont();
+    Font choiceFont = resolveChoicePreviewFont();
+    List<BoundsPointCodec.Point> textBoxBounds = parseBoundsPoints(style.textBoxBoundsPoints());
+    List<BoundsPointCodec.Point> nameBoxBounds = parseBoundsPoints(style.nameBoxBoundsPoints());
+    List<BoundsPointCodec.Point> dialogueBounds = parseBoundsPoints(style.dialogueTextBoundsPoints());
+    List<BoundsPointCodec.Point> choiceButtonBounds = parseBoundsPoints(style.choiceButtonBoundsPoints());
 
-    // Choice block preview.
-    int choiceCount = Math.max(1, previewChoiceLabels.size());
+    // Choice block preview (runtime-like).
+    double choiceHeight = Math.max(12, spec.choiceHeight());
+    double choiceGap = Math.max(0, spec.choiceGap());
     double y = rects.choiceBlock().y();
     for (int i = 0; i < choiceCount; i++) {
       boolean hovered = i == 0;
@@ -1045,54 +1069,74 @@ public class DialogueLayoutEditorView extends BorderPane {
       Image buttonImage = enabled
           ? (hovered ? firstNonNull(choiceButtonHoverAssetImage, choiceButtonAssetImage) : choiceButtonAssetImage)
           : firstNonNull(choiceButtonDisabledAssetImage, choiceButtonAssetImage);
+      boolean clipChoiceButton = hasPolygon(choiceButtonBounds);
       if (buttonImage != null && buttonImage.getWidth() > 1 && buttonImage.getHeight() > 1) {
-        g.drawImage(buttonImage, rects.choiceBlock().x(), y, rects.choiceBlock().w(), spec.choiceHeight());
+        if (clipChoiceButton) {
+          g.save();
+          clipToLocalPolygon(g, choiceButtonBounds, new Rect(rects.choiceBlock().x(), y, rects.choiceBlock().w(), choiceHeight));
+          g.drawImage(buttonImage, rects.choiceBlock().x(), y, rects.choiceBlock().w(), choiceHeight);
+          g.restore();
+        } else {
+          g.drawImage(buttonImage, rects.choiceBlock().x(), y, rects.choiceBlock().w(), choiceHeight);
+        }
       } else {
         Color fill = !enabled
             ? choiceStyle.disabledBackgroundColor()
             : (hovered ? choiceStyle.hoverBackgroundColor() : choiceStyle.backgroundColor());
-        g.setFill(fill);
-        g.fillRoundRect(
-            rects.choiceBlock().x(),
-            y,
-            rects.choiceBlock().w(),
-            spec.choiceHeight(),
-            choiceStyle.cornerRadius(),
-            choiceStyle.cornerRadius());
+        if (clipChoiceButton) {
+          g.save();
+          clipToLocalPolygon(g, choiceButtonBounds, new Rect(rects.choiceBlock().x(), y, rects.choiceBlock().w(), choiceHeight));
+          g.setFill(fill);
+          g.fillRect(rects.choiceBlock().x(), y, rects.choiceBlock().w(), choiceHeight);
+          g.restore();
+        } else {
+          g.setFill(fill);
+          g.fillRoundRect(
+              rects.choiceBlock().x(),
+              y,
+              rects.choiceBlock().w(),
+              choiceHeight,
+              choiceStyle.cornerRadius(),
+              choiceStyle.cornerRadius());
+        }
       }
       Color border = !enabled
           ? choiceStyle.disabledBorderColor()
           : (hovered ? choiceStyle.hoverBorderColor() : choiceStyle.borderColor());
       g.setStroke(border);
       g.setLineWidth(choiceStyle.borderWidth());
-      g.strokeRoundRect(
-          rects.choiceBlock().x(),
-          y,
-          rects.choiceBlock().w(),
-          spec.choiceHeight(),
-          choiceStyle.cornerRadius(),
-          choiceStyle.cornerRadius());
+      if (clipChoiceButton) {
+        strokeLocalPolygon(g, choiceButtonBounds, new Rect(rects.choiceBlock().x(), y, rects.choiceBlock().w(), choiceHeight));
+      } else {
+        g.strokeRoundRect(
+            rects.choiceBlock().x(),
+            y,
+            rects.choiceBlock().w(),
+            choiceHeight,
+            choiceStyle.cornerRadius(),
+            choiceStyle.cornerRadius());
+      }
       Color textColor = !enabled
           ? choiceStyle.disabledTextColor()
           : (hovered ? choiceStyle.hoverTextColor() : choiceStyle.textColor());
       g.setFill(textColor);
-      g.setFont(Font.font(Font.getDefault().getFamily(), 14));
+      g.setFont(choiceFont);
       String choiceLabel = i < previewChoiceLabels.size() ? previewChoiceLabels.get(i) : "Choice " + (i + 1);
       g.fillText(
           choiceLabel,
           rects.choiceBlock().x() + spec.choiceTextXPadding(),
-          y + spec.choiceHeight() / 2 + choiceStyle.textBaselineOffset());
-      y += spec.choiceHeight() + spec.choiceGap();
+          y + choiceHeight / 2 + choiceStyle.textBaselineOffset());
+      y += choiceHeight + choiceGap;
     }
 
-    // Textbox and name box overlay.
-    Color textBoxTint = parseColorValue(style.textBoxColor(), Color.BLACK);
+    // Textbox and name box overlay (runtime-like).
+    Color textBoxTint = parseColorValue(style.textBoxColor(), RUNTIME_TEXTBOX_COLOR);
     double overlayOpacity = style.textBoxOpacity() == null ? 0.28 : clamp(style.textBoxOpacity(), 0.0, 1.0);
-    List<BoundsPointCodec.Point> textBoxBounds = parseBoundsPoints(style.textBoxBoundsPoints());
-    List<BoundsPointCodec.Point> nameBoxBounds = parseBoundsPoints(style.nameBoxBoundsPoints());
-    List<BoundsPointCodec.Point> dialogueBounds = parseBoundsPoints(style.dialogueTextBoundsPoints());
-    if (hasPolygon(textBoxBounds)) g.save();
-    if (hasPolygon(textBoxBounds)) clipToLocalPolygon(g, textBoxBounds, rects.textBox());
+    boolean clipTextBox = hasPolygon(textBoxBounds);
+    if (clipTextBox) {
+      g.save();
+      clipToLocalPolygon(g, textBoxBounds, rects.textBox());
+    }
     if (textBoxAssetImage != null && textBoxAssetImage.getWidth() > 1 && textBoxAssetImage.getHeight() > 1) {
       g.drawImage(textBoxAssetImage, rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
       if (overlayOpacity > 0.001) {
@@ -1100,56 +1144,74 @@ public class DialogueLayoutEditorView extends BorderPane {
         g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
       }
     } else {
-      g.setFill(withOpacity(textBoxTint, clamp(Math.max(overlayOpacity, 0.62), 0.0, 1.0)));
+      g.setFill(textBoxTint);
       g.fillRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
     }
-    if (hasPolygon(textBoxBounds)) g.restore();
-    g.setStroke(LayoutStudioPalette.ACCENT_BLUE);
-    g.setLineWidth(2);
-    if (hasPolygon(textBoxBounds)) {
-      strokeLocalPolygon(g, textBoxBounds, rects.textBox());
-    } else {
-      g.strokeRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+    if (clipTextBox) {
+      g.restore();
     }
 
-    if (hasPolygon(nameBoxBounds)) g.save();
-    if (hasPolygon(nameBoxBounds)) clipToLocalPolygon(g, nameBoxBounds, rects.nameBox());
-    g.setFill(LayoutStudioPalette.DIALOGUE_NAME_FILL);
-    g.fillRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
-    g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
-    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 14));
-    g.fillText(previewSpeakerName, rects.nameBox().x() + spec.nameTextXOffset(), rects.nameBox().y() + spec.nameTextBaselineOffset());
-    if (hasPolygon(nameBoxBounds)) g.restore();
-    g.setStroke(LayoutStudioPalette.PANEL_BORDER_LIGHT);
-    if (hasPolygon(nameBoxBounds)) {
-      strokeLocalPolygon(g, nameBoxBounds, rects.nameBox());
-    } else {
-      g.strokeRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
+    if (!previewSpeakerName.isBlank()) {
+      boolean clipNameBox = hasPolygon(nameBoxBounds);
+      if (clipNameBox) {
+        g.save();
+        clipToLocalPolygon(g, nameBoxBounds, rects.nameBox());
+      }
+      g.setFill(RUNTIME_NAME_BOX_COLOR);
+      g.fillRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
+      if (clipNameBox) g.restore();
+
+      g.setFill(RUNTIME_TEXT_COLOR);
+      g.setFont(nameFont);
+      g.fillText(previewSpeakerName, rects.nameBox().x() + spec.nameTextXOffset(), rects.nameBox().y() + spec.nameTextBaselineOffset());
     }
 
-    // Dialogue text bounds.
-    g.setStroke(LayoutStudioPalette.ACCENT_GOLD);
-    g.setLineDashes(6);
+    String fullText = previewDialogueText();
+    List<TextSpan> spans = TextParser.parse(fullText);
+    int revealedLength = TextParser.plainLength(fullText);
+    g.save();
     if (hasPolygon(dialogueBounds)) {
-      strokeLocalPolygon(g, dialogueBounds, rects.dialogueBounds());
+      clipToLocalPolygon(g, dialogueBounds, rects.dialogueBounds());
     } else {
-      g.strokeRect(rects.dialogueBounds().x(), rects.dialogueBounds().y(), rects.dialogueBounds().w(), rects.dialogueBounds().h());
+      g.beginPath();
+      g.rect(
+          rects.dialogueBounds().x(),
+          rects.dialogueBounds().y() - dialogueFont.getSize(),
+          rects.dialogueBounds().w(),
+          rects.dialogueBounds().h() + dialogueFont.getSize()
+      );
+      g.closePath();
+      g.clip();
     }
-    g.setLineDashes(0);
-    drawResizeHandle(g, rects.dialogueBounds(), LayoutStudioPalette.ACCENT_GOLD);
-    if (hasPolygon(dialogueBounds)) g.save();
-    if (hasPolygon(dialogueBounds)) clipToLocalPolygon(g, dialogueBounds, rects.dialogueBounds());
-    g.setFill(LayoutStudioPalette.TEXT_SECONDARY);
-    g.setFont(Font.font(Font.getDefault().getFamily(), 13));
-    g.fillText(previewDialogueLine1, rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 18);
-    g.fillText(previewDialogueLine2, rects.dialogueBounds().x() + 8, rects.dialogueBounds().y() + 36);
-    if (hasPolygon(dialogueBounds)) g.restore();
+    drawStyledPreviewText(g, spans, revealedLength, rects.dialogueBounds().x(), rects.dialogueBounds().y(), rects.dialogueBounds().w(), dialogueFont);
+    g.restore();
 
+    // Runtime-like textbox action buttons.
     drawTextBoxButtonPreview(g, rects.textBox());
 
-    // Labels
+    // Editor overlays.
+    g.setStroke(LayoutStudioPalette.ACCENT_BLUE);
+    g.setLineWidth(2);
+    if (hasPolygon(textBoxBounds)) strokeLocalPolygon(g, textBoxBounds, rects.textBox());
+    else g.strokeRect(rects.textBox().x(), rects.textBox().y(), rects.textBox().w(), rects.textBox().h());
+    drawResizeHandle(g, rects.textBox(), LayoutStudioPalette.ACCENT_BLUE);
+
+    g.setStroke(LayoutStudioPalette.PANEL_BORDER_LIGHT);
+    if (hasPolygon(nameBoxBounds)) strokeLocalPolygon(g, nameBoxBounds, rects.nameBox());
+    else g.strokeRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
+
+    g.setStroke(LayoutStudioPalette.ACCENT_GOLD);
+    g.setLineDashes(6);
+    if (hasPolygon(dialogueBounds)) strokeLocalPolygon(g, dialogueBounds, rects.dialogueBounds());
+    else g.strokeRect(rects.dialogueBounds().x(), rects.dialogueBounds().y(), rects.dialogueBounds().w(), rects.dialogueBounds().h());
+    g.setLineDashes(0);
+    drawResizeHandle(g, rects.dialogueBounds(), LayoutStudioPalette.ACCENT_GOLD);
+    drawResizeHandle(g, rects.choiceBlock(), LayoutStudioPalette.ACCENT_GOLD);
+
     drawTag(g, rects.textBox().x() + 6, rects.textBox().y() + 16, "Textbox");
-    drawTag(g, rects.nameBox().x() + 6, rects.nameBox().y() - 4, "Name Box");
+    if (!previewSpeakerName.isBlank()) {
+      drawTag(g, rects.nameBox().x() + 6, rects.nameBox().y() - 4, "Name Box");
+    }
     drawTag(g, rects.choiceBlock().x() + 6, rects.choiceBlock().y() - 4, "Choices");
     drawTag(g, rects.dialogueBounds().x() + 6, rects.dialogueBounds().y() - 4, "Text Bounds");
   }
@@ -1160,21 +1222,50 @@ public class DialogueLayoutEditorView extends BorderPane {
       VnUiActionButtonSpec button = textBoxButtons.get(i);
       if (button == null) continue;
       Rect rect = computeTextBoxButtonRect(button, textBoxRect);
-      boolean selected = i == selectedButtonIndex;
-
+      boolean hovered = i == selectedButtonIndex;
+      boolean enabled = button.enabled();
       Image asset = loadImageAsset(button.assetPath());
       Image hoverAsset = loadImageAsset(button.hoverAssetPath());
-      Image drawAsset = selected ? firstNonNull(hoverAsset, asset) : asset;
+      Image disabledAsset = loadImageAsset(button.disabledAssetPath());
+      Image drawAsset = !enabled
+          ? firstNonNull(disabledAsset, asset)
+          : (hovered ? firstNonNull(hoverAsset, asset) : asset);
+      List<BoundsPointCodec.Point> polygon = parseBoundsPoints(button.boundsPoints());
+      boolean clipButton = hasPolygon(polygon);
       if (drawAsset != null && drawAsset.getWidth() > 1 && drawAsset.getHeight() > 1) {
+        if (clipButton) {
+          g.save();
+          clipToLocalPolygon(g, polygon, rect);
+        }
+        if (!enabled) g.setGlobalAlpha(0.55);
         g.drawImage(drawAsset, rect.x(), rect.y(), rect.w(), rect.h());
+        g.setGlobalAlpha(1.0);
+        if (clipButton) g.restore();
       } else {
-        g.setFill(selected ? Color.rgb(92, 136, 212, 0.72) : Color.rgb(39, 52, 80, 0.72));
-        g.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 8, 8);
+        Color fill = !enabled
+            ? Color.rgb(38, 40, 48, 0.7)
+            : (hovered ? Color.rgb(90, 120, 180, 0.8) : Color.rgb(32, 36, 46, 0.78));
+        if (clipButton) {
+          g.save();
+          clipToLocalPolygon(g, polygon, rect);
+          g.setFill(fill);
+          g.fillRect(rect.x(), rect.y(), rect.w(), rect.h());
+          g.restore();
+        } else {
+          g.setFill(fill);
+          g.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 8, 8);
+        }
       }
-      g.setStroke(selected ? LayoutStudioPalette.ACCENT_GOLD : LayoutStudioPalette.ACCENT_BLUE);
-      g.setLineWidth(selected ? 2 : 1.2);
-      g.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 8, 8);
-      if (selected) {
+      g.setStroke(!enabled
+          ? Color.rgb(120, 125, 136, 0.75)
+          : (hovered ? Color.rgb(170, 210, 255, 0.95) : Color.rgb(120, 135, 170, 0.82)));
+      g.setLineWidth(hovered ? 2.0 : 1.2);
+      if (clipButton) {
+        strokeLocalPolygon(g, polygon, rect);
+      } else {
+        g.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 8, 8);
+      }
+      if (i == selectedButtonIndex) {
         double handle = 8;
         double hx = rect.x() + rect.w() - handle;
         double hy = rect.y() + rect.h() - handle;
@@ -1184,13 +1275,14 @@ public class DialogueLayoutEditorView extends BorderPane {
         g.setLineWidth(1);
         g.strokeRect(hx, hy, handle, handle);
       }
-      g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
-      g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, clamp(rect.h() * 0.36, 10, 16)));
+      g.setFill(!enabled ? Color.rgb(172, 176, 188, 0.75) : (hovered ? Color.rgb(245, 252, 255) : Color.rgb(225, 232, 246)));
+      Font choiceFont = resolveChoicePreviewFont();
+      g.setFont(Font.font(choiceFont.getFamily(), FontWeight.BOLD, clamp(rect.h() * 0.42, 10, 18)));
       String label = normalizeAssetPath(button.label());
       if (label.isBlank()) label = button.id();
       double labelW = computeTextWidth(g, label, g.getFont());
-      g.fillText(label, rect.x() + Math.max(8, (rect.w() - labelW) / 2.0), rect.y() + rect.h() * 0.62);
-      drawTag(g, rect.x() + 4, rect.y() - 4, selected ? "Btn: " + button.id() + " (drag/resize)" : "Btn: " + button.id());
+      g.fillText(label, rect.x() + Math.max(8, (rect.w() - labelW) / 2.0), rect.y() + rect.h() * 0.64);
+      drawTag(g, rect.x() + 4, rect.y() - 4, i == selectedButtonIndex ? "Btn: " + button.id() + " (drag/resize)" : "Btn: " + button.id());
     }
   }
 
@@ -1217,6 +1309,134 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.strokeRect(hx, hy, size, size);
   }
 
+  private Font resolveNamePreviewFont() {
+    String family = normalizeFontFamily(style.nameTextFontFamily(), DEFAULT_FONT_FAMILY);
+    double size = clamp(style.nameTextFontSize() == null ? DEFAULT_NAME_FONT_SIZE : style.nameTextFontSize(), 6, 220);
+    return Font.font(family, FontWeight.BOLD, size);
+  }
+
+  private Font resolveDialoguePreviewFont() {
+    String family = normalizeFontFamily(style.dialogueTextFontFamily(), DEFAULT_FONT_FAMILY);
+    double size = clamp(style.dialogueTextFontSize() == null ? DEFAULT_DIALOGUE_FONT_SIZE : style.dialogueTextFontSize(), 6, 220);
+    return Font.font(family, FontWeight.NORMAL, size);
+  }
+
+  private Font resolveChoicePreviewFont() {
+    String family = normalizeFontFamily(style.choiceFontFamily(), DEFAULT_FONT_FAMILY);
+    double size = clamp(style.choiceFontSize() == null ? DEFAULT_CHOICE_FONT_SIZE : style.choiceFontSize(), 6, 220);
+    return Font.font(family, FontWeight.NORMAL, size);
+  }
+
+  private static String normalizeFontFamily(String raw, String fallback) {
+    if (raw == null || raw.isBlank()) return fallback;
+    return raw.trim();
+  }
+
+  private String previewDialogueText() {
+    String line1 = previewDialogueLine1 == null ? "" : previewDialogueLine1.trim();
+    String line2 = previewDialogueLine2 == null ? "" : previewDialogueLine2.trim();
+    if (line1.isEmpty()) return line2;
+    if (line2.isEmpty()) return line1;
+    return line1 + " " + line2;
+  }
+
+  private void drawStyledPreviewText(
+      GraphicsContext g,
+      List<TextSpan> spans,
+      int revealedChars,
+      double startX,
+      double startY,
+      double maxWidth,
+      Font baseFont
+  ) {
+    if (g == null || spans == null || baseFont == null) return;
+    g.setFont(baseFont);
+    double x = startX;
+    double y = startY;
+    double lineHeight = 22;
+    int charCount = 0;
+    long animationTime = System.currentTimeMillis();
+
+    for (TextSpan span : spans) {
+      if (span == null) continue;
+      String text = span.getText();
+      if (text == null || text.isEmpty()) continue;
+      int spanLen = text.length();
+
+      int visibleChars = 0;
+      if (charCount < revealedChars) {
+        visibleChars = Math.min(spanLen, revealedChars - charCount);
+      }
+
+      if (visibleChars > 0) {
+        String visibleText = text.substring(0, visibleChars);
+
+        if (span.hasColor()) g.setFill(parseColorHex(span.getColorHex()));
+        else g.setFill(RUNTIME_TEXT_COLOR);
+
+        Font effectFont = baseFont;
+        if (span.getEffect() == TextEffect.BOLD) {
+          effectFont = Font.font(baseFont.getFamily(), FontWeight.BOLD, baseFont.getSize());
+        } else if (span.getEffect() == TextEffect.ITALIC) {
+          effectFont = Font.font(baseFont.getFamily(), FontWeight.NORMAL, baseFont.getSize());
+        }
+        g.setFont(effectFont);
+
+        for (int i = 0; i < visibleText.length(); i++) {
+          char c = visibleText.charAt(i);
+          double charWidth = computeTextWidth(g, String.valueOf(c), effectFont);
+          if (x + charWidth > startX + maxWidth) {
+            x = startX;
+            y += lineHeight;
+          }
+
+          double offsetX = 0;
+          double offsetY = 0;
+          double effectPhase = (animationTime * 0.01) + (charCount + i) * 0.3;
+          switch (span.getEffect()) {
+            case SHAKE -> {
+              offsetX = (Math.random() - 0.5) * 3;
+              offsetY = (Math.random() - 0.5) * 3;
+            }
+            case WAVE -> offsetY = Math.sin(effectPhase) * 3;
+            case BOUNCE -> offsetY = Math.abs(Math.sin(effectPhase * 2)) * -4;
+            case RAINBOW -> {
+              double hue = (effectPhase * 50) % 360;
+              g.setFill(Color.hsb(hue, 0.8, 1.0));
+            }
+            default -> {
+            }
+          }
+
+          g.fillText(String.valueOf(c), x + offsetX, y + offsetY);
+          x += charWidth;
+        }
+        g.setFont(baseFont);
+      }
+      charCount += spanLen;
+    }
+  }
+
+  private Color parseColorHex(String hex) {
+    if (hex == null || hex.isEmpty()) return RUNTIME_TEXT_COLOR;
+    try {
+      String raw = hex.startsWith("#") ? hex.substring(1) : hex;
+      if (raw.length() == 6) {
+        int r = Integer.parseInt(raw.substring(0, 2), 16);
+        int g = Integer.parseInt(raw.substring(2, 4), 16);
+        int b = Integer.parseInt(raw.substring(4, 6), 16);
+        return Color.rgb(r, g, b);
+      }
+    } catch (Exception ignored) {
+      return RUNTIME_TEXT_COLOR;
+    }
+    return RUNTIME_TEXT_COLOR;
+  }
+
+  private int previewChoiceCount() {
+    return Math.max(1, previewChoiceLabels == null ? 0 : previewChoiceLabels.size());
+  }
+
   private static List<BoundsPointCodec.Point> parseBoundsPoints(String raw) {
     List<BoundsPointCodec.Point> parsed = BoundsPointCodec.parse(raw);
     return parsed != null && parsed.size() >= 3 ? parsed : List.of();
@@ -1231,8 +1451,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.beginPath();
     for (int i = 0; i < points.size(); i++) {
       BoundsPointCodec.Point point = points.get(i);
-      double x = rect.x() + rect.w() * clamp01(point.x());
-      double y = rect.y() + rect.h() * clamp01(point.y());
+      double x = rect.x() + rect.w() * point.x();
+      double y = rect.y() + rect.h() * point.y();
       if (i == 0) g.moveTo(x, y);
       else g.lineTo(x, y);
     }
@@ -1245,8 +1465,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.beginPath();
     for (int i = 0; i < points.size(); i++) {
       BoundsPointCodec.Point point = points.get(i);
-      double x = rect.x() + rect.w() * clamp01(point.x());
-      double y = rect.y() + rect.h() * clamp01(point.y());
+      double x = rect.x() + rect.w() * point.x();
+      double y = rect.y() + rect.h() * point.y();
       if (i == 0) g.moveTo(x, y);
       else g.lineTo(x, y);
     }
@@ -1254,7 +1474,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.stroke();
   }
 
-  private LayoutRects computeRects(VnUiLayoutSpec s, double w, double h) {
+  private LayoutRects computeRects(VnUiLayoutSpec s, double w, double h, int choiceCount) {
     double tbX = clamp(s.textBoxX() * w, 0, w);
     double tbY = clamp(s.textBoxY() * h, 0, h);
     double tbW = clamp(s.textBoxWidth() * w, 1, Math.max(1, w - tbX));
@@ -1271,13 +1491,16 @@ public class DialogueLayoutEditorView extends BorderPane {
     double bottomPad = s.dialogueTextBottomPadding();
     double textX = tbX + leftPad;
     double textY = tbY + topPad;
-    double textW = Math.max(40, tbW - leftPad - rightPad);
+    double textW = Math.max(60, tbW - leftPad - rightPad);
     double textH = Math.max(20, tbH - topPad - bottomPad);
 
     double choiceW = clamp(w * s.choiceWidthFactor(), 20, w);
     double choiceX = clamp(w * s.choiceXCenter() - choiceW / 2, 0, Math.max(0, w - choiceW));
-    double totalChoiceH = 3 * s.choiceHeight() + 2 * s.choiceGap();
-    double choiceStartY = resolveChoiceYStart(s, h, 3);
+    int count = Math.max(1, choiceCount);
+    double choiceH = Math.max(12, s.choiceHeight());
+    double choiceGap = Math.max(0, s.choiceGap());
+    double totalChoiceH = count * choiceH + Math.max(0, count - 1) * choiceGap;
+    double choiceStartY = resolveChoiceYStart(s, h, count);
     choiceStartY = clamp(choiceStartY, 0, Math.max(0, h - totalChoiceH));
 
     return new LayoutRects(
@@ -1298,10 +1521,10 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private Rect computeTextBoxButtonRect(VnUiActionButtonSpec button, Rect textBoxRect) {
     if (button == null || textBoxRect == null) return new Rect(0, 0, 1, 1);
-    double x = textBoxRect.x() + textBoxRect.w() * clamp01(button.x());
-    double y = textBoxRect.y() + textBoxRect.h() * clamp01(button.y());
-    double width = Math.max(8, textBoxRect.w() * clamp(button.width(), 0.01, 1.0));
-    double height = Math.max(8, textBoxRect.h() * clamp(button.height(), 0.01, 1.0));
+    double x = textBoxRect.x() + textBoxRect.w() * button.x();
+    double y = textBoxRect.y() + textBoxRect.h() * button.y();
+    double width = Math.max(8, textBoxRect.w() * button.width());
+    double height = Math.max(8, textBoxRect.h() * button.height());
     return new Rect(x, y, width, height);
   }
 
@@ -1311,7 +1534,12 @@ public class DialogueLayoutEditorView extends BorderPane {
       VnUiActionButtonSpec button = textBoxButtons.get(i);
       if (button == null || !button.enabled()) continue;
       Rect rect = computeTextBoxButtonRect(button, textBoxRect);
-      if (rect.contains(x, y)) return i;
+      List<BoundsPointCodec.Point> points = parseBoundsPoints(button.boundsPoints());
+      if (hasPolygon(points)) {
+        if (BoundsPointCodec.containsInRect(points, rect.x(), rect.y(), rect.w(), rect.h(), x, y)) return i;
+      } else if (rect.contains(x, y)) {
+        return i;
+      }
     }
     return -1;
   }
@@ -2311,23 +2539,23 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private ChoicePreviewStyle resolveChoicePreviewStyle() {
-    Color bg = parseColorValue(style.choiceBackgroundColor(), LayoutStudioPalette.PANEL_FILL);
+    Color bg = parseColorValue(style.choiceBackgroundColor(), RUNTIME_CHOICE_BG_COLOR);
     Color hoverBg = parseColorValue(
         firstNonBlank(style.choiceHoverColor(), style.choiceSelectedColor()),
-        LayoutStudioPalette.PANEL_FILL_SELECTED);
-    Color disabledBg = parseColorValue(style.choiceDisabledColor(), LayoutStudioPalette.PANEL_FILL_DISABLED);
+        RUNTIME_CHOICE_HOVER_COLOR);
+    Color disabledBg = parseColorValue(style.choiceDisabledColor(), RUNTIME_CHOICE_DISABLED_COLOR);
 
-    Color text = parseColorValue(style.choiceTextColor(), LayoutStudioPalette.TEXT_PRIMARY);
+    Color text = parseColorValue(style.choiceTextColor(), RUNTIME_TEXT_COLOR);
     Color hoverText = parseColorValue(
         firstNonBlank(style.choiceHoverTextColor(), style.choiceSelectedTextColor()),
         text);
-    Color disabledText = parseColorValue(style.choiceDisabledTextColor(), LayoutStudioPalette.TEXT_DISABLED);
+    Color disabledText = parseColorValue(style.choiceDisabledTextColor(), RUNTIME_TEXT_COLOR_DISABLED);
 
-    Color border = parseColorValue(style.choiceBorderColor(), LayoutStudioPalette.PANEL_BORDER_LIGHT);
+    Color border = parseColorValue(style.choiceBorderColor(), RUNTIME_TEXT_COLOR);
     Color hoverBorder = parseColorValue(
         firstNonBlank(style.choiceHoverBorderColor(), style.choiceSelectedBorderColor()),
         border);
-    Color disabledBorder = parseColorValue(style.choiceDisabledBorderColor(), LayoutStudioPalette.PANEL_BORDER);
+    Color disabledBorder = parseColorValue(style.choiceDisabledBorderColor(), RUNTIME_CHOICE_DISABLED_BORDER_COLOR);
 
     double cornerRadius = clamp(style.choiceCornerRadius(), 0.0, 96.0);
     double borderWidth = clamp(style.choiceBorderWidth(), 0.0, 12.0);
