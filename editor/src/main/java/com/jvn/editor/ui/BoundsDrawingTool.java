@@ -168,6 +168,7 @@ public class BoundsDrawingTool extends BorderPane {
   private Integer redrawTargetIndex;
   private double zoom = 1.0;
   private Consumer<List<BoundEntry>> onBoundsChanged;
+  private Runnable onSaveRequested;
   private int nextId = 1;
 
   // Drag state (SELECT mode)
@@ -244,9 +245,12 @@ public class BoundsDrawingTool extends BorderPane {
     zoomLabel.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px; -fx-text-fill: #a0b0c8;");
     updateZoomLabel();
 
+    Button saveBtn = iconButton(CssIcon.save("#8cd48c"), "Save bounds");
+    saveBtn.setOnAction(e -> triggerSaveRequested());
+
     HBox toolbar = new HBox(6, selectBtn, rectBtn, pointBtn,
         zoomOutBtn, zoomInBtn, zoomResetBtn, zoomLabel,
-        createSpacer(), makeRectFromNails, makePolyFromNails, duplicateBtn, deleteBtn, clearAllBtn);
+        createSpacer(), saveBtn, makeRectFromNails, makePolyFromNails, duplicateBtn, deleteBtn, clearAllBtn);
     toolbar.setAlignment(Pos.CENTER_LEFT);
     toolbar.setPadding(new Insets(0, 0, 6, 0));
 
@@ -371,6 +375,10 @@ public class BoundsDrawingTool extends BorderPane {
 
   public void setOnBoundsChanged(Consumer<List<BoundEntry>> callback) {
     this.onBoundsChanged = callback;
+  }
+
+  public void setOnSaveRequested(Runnable callback) {
+    this.onSaveRequested = callback;
   }
 
   /**
@@ -595,6 +603,11 @@ public class BoundsDrawingTool extends BorderPane {
       return;
     }
     if (e.isControlDown() || e.isMetaDown()) {
+      if (code == KeyCode.S) {
+        triggerSaveRequested();
+        e.consume();
+        return;
+      }
       if (code == KeyCode.EQUALS || code == KeyCode.PLUS) {
         adjustZoom(ZOOM_STEP);
         e.consume();
@@ -1257,6 +1270,12 @@ public class BoundsDrawingTool extends BorderPane {
   private void updateZoomLabel() {
     int pct = (int) Math.round(zoom * 100.0);
     zoomLabel.setText("Zoom " + pct + "%");
+  }
+
+  private void triggerSaveRequested() {
+    if (onSaveRequested != null) {
+      onSaveRequested.run();
+    }
   }
 
   // ── Canvas sizing ──

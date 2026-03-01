@@ -1627,8 +1627,8 @@ public class MenuScreenVisualEditor extends BorderPane {
     dialog.initOwner(getScene() != null ? getScene().getWindow() : null);
     dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
 
-    // On close, sync bounds back to menu items
-    dialog.setOnHidden(ev -> {
+    // Sync bounds back to menu items.
+    Runnable applyBounds = () -> {
       List<BoundsDrawingTool.BoundEntry> result = tool.getBounds();
       // Match by id — update existing rows, create new entries for unmatched
       java.util.Map<String, BoundsDrawingTool.BoundEntry> byId = new LinkedHashMap<>();
@@ -1672,7 +1672,9 @@ public class MenuScreenVisualEditor extends BorderPane {
       suppressEvents = false;
       populateInspector();
       onUiChanged();
-    });
+    };
+    tool.setOnSaveRequested(applyBounds);
+    dialog.setOnHidden(ev -> applyBounds.run());
 
     if (isLinux()) {
       dialog.setIconified(false);

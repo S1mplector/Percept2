@@ -1592,7 +1592,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     dialog.initOwner(getScene() != null ? getScene().getWindow() : null);
     dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
 
-    dialog.setOnHidden(ev -> {
+    Runnable applyBounds = () -> {
       List<BoundsDrawingTool.BoundEntry> result = tool.getBounds();
       BoundsDrawingTool.BoundEntry selected = null;
       for (BoundsDrawingTool.BoundEntry candidate : result) {
@@ -1619,7 +1619,9 @@ public class DialogueLayoutEditorView extends BorderPane {
       validateState();
       redraw();
       emitText();
-    });
+    };
+    tool.setOnSaveRequested(applyBounds);
+    dialog.setOnHidden(ev -> applyBounds.run());
 
     if (isLinux()) {
       dialog.setIconified(false);
@@ -1753,7 +1755,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     dialog.initOwner(getScene() != null ? getScene().getWindow() : null);
     dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
 
-    dialog.setOnHidden(ev -> {
+    Runnable applyBounds = () -> {
       List<BoundsDrawingTool.BoundEntry> result = tool.getBounds();
       // Rebuild textbox buttons list from drawn bounds
       Map<String, BoundsDrawingTool.BoundEntry> byId = new java.util.LinkedHashMap<>();
@@ -1795,7 +1797,9 @@ public class DialogueLayoutEditorView extends BorderPane {
       validateState();
       redraw();
       emitText();
-    });
+    };
+    tool.setOnSaveRequested(applyBounds);
+    dialog.setOnHidden(ev -> applyBounds.run());
 
     if (isLinux()) {
       dialog.setIconified(false);
