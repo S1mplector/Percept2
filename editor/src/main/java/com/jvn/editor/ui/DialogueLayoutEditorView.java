@@ -1634,15 +1634,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     tool.setWorkspaceAspect(workspaceAspect);
     if (background != null && background.getWidth() > 1) tool.setBackgroundImage(background);
 
-    tool.setBounds(List.of(new BoundsDrawingTool.BoundEntry(
-        id,
-        label,
-        0.0,
-        0.0,
-        1.0,
-        1.0,
-        BoundsPointCodec.parse(boundsPoints)
-    )));
+    tool.setBounds(List.of(decodeStyleBoundsEntry(id, label, boundsPoints)));
 
     javafx.scene.Scene dialogScene = new javafx.scene.Scene(tool, 960, 620);
     EditorTheme.apply(dialogScene);
@@ -1754,6 +1746,48 @@ public class DialogueLayoutEditorView extends BorderPane {
     if (absolute.size() < 3) return null;
     String encoded = BoundsPointCodec.encode(absolute);
     return encoded == null || encoded.isBlank() ? null : encoded;
+  }
+
+  private static BoundsDrawingTool.BoundEntry decodeStyleBoundsEntry(String id, String label, String rawPoints) {
+    List<BoundsPointCodec.Point> parsed = parseBoundsPoints(rawPoints);
+    if (!hasPolygon(parsed)) {
+      return new BoundsDrawingTool.BoundEntry(id, label, 0.0, 0.0, 1.0, 1.0, List.of());
+    }
+
+    List<BoundsPointCodec.Point> clamped = new ArrayList<>(parsed.size());
+    double minX = Double.MAX_VALUE;
+    double minY = Double.MAX_VALUE;
+    double maxX = -Double.MAX_VALUE;
+    double maxY = -Double.MAX_VALUE;
+    for (BoundsPointCodec.Point point : parsed) {
+      if (point == null) continue;
+      double px = clamp01(point.x());
+      double py = clamp01(point.y());
+      clamped.add(new BoundsPointCodec.Point(px, py));
+      minX = Math.min(minX, px);
+      minY = Math.min(minY, py);
+      maxX = Math.max(maxX, px);
+      maxY = Math.max(maxY, py);
+    }
+    if (!hasPolygon(clamped)) {
+      return new BoundsDrawingTool.BoundEntry(id, label, 0.0, 0.0, 1.0, 1.0, List.of());
+    }
+
+    double x = clamp01(minX);
+    double y = clamp01(minY);
+    double w = clamp(maxX - minX, 0.0, 1.0 - x);
+    double h = clamp(maxY - minY, 0.0, 1.0 - y);
+    if (w < 0.005 || h < 0.005) {
+      return new BoundsDrawingTool.BoundEntry(id, label, 0.0, 0.0, 1.0, 1.0, clamped);
+    }
+
+    List<BoundsPointCodec.Point> local = new ArrayList<>(clamped.size());
+    for (BoundsPointCodec.Point point : clamped) {
+      double lx = clamp01((point.x() - x) / w);
+      double ly = clamp01((point.y() - y) / h);
+      local.add(new BoundsPointCodec.Point(lx, ly));
+    }
+    return new BoundsDrawingTool.BoundEntry(id, label, x, y, w, h, local);
   }
 
   private VnUiStyleSpec withBoundsPoints(
