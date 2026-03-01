@@ -10,6 +10,7 @@ This document covers the system architecture, the JES/VNS relationship, the data
 
 - **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, entity management, keyframe editing, all 12 presets, 26 easing types, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
 - **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, `playAudio`, `wait`, `parallel`, easing values, custom cubic Bézier, export modes, VNS/JES integration examples
+- **[Sidebar Utilities](sidebar-utilities.md)** — all 14 editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
 - **[Puppeteer Audit & Roadmap](puppeteer-audit.md)** — hardening audit and expansion roadmap
 
 ---

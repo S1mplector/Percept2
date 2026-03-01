@@ -31,6 +31,7 @@ Complete documentation for the Java Vector Nexus engine.
 - [Commands Reference](scripting/vns/vns-commands.md) — complete command catalog with examples
 - [Audio Commands](scripting/vns/vns-audio.md) — BGM, SFX, voice, crossfade, advanced audio control
 - [Characters & Sprites](scripting/vns/vns-characters.md) — character system, layered sprites, presets, motion, global positioning
+- [Layered Character Presets](scripting/vns/vns-layered-charpresets.md) — practical guide: `@charlayer` + `@charpreset` pipeline, asset organization, cross-character refs, editor tooling
 - [Variables & Conditions](scripting/vns/vns-variables.md) — set/inc/dec/flag, conditions, if/elif/else/endif, interpolation, ICU formatting
 - [Transitions & Screen Effects](scripting/vns/vns-transitions.md) — transitions, screen shake, flash, UI control
 - [Subroutines & Flow Control](scripting/vns/vns-flow-control.md) — labels, jumps, gosub/return, script switching
@@ -98,6 +99,21 @@ Complete documentation for the Java Vector Nexus engine.
 - [Puppeteer Overview & Architecture](editor/puppeteer.md) — data pipeline, JES/VNS relationship, snapshot resolution, registry bridge
 - [Puppeteer Editor Guide](editor/puppeteer-editor-guide.md) — complete usage: launching, UI panels, keyframes, 12 presets, 26 easing types, audio cues, camera, groups, layer ordering, orbit tool, onion skinning, shortcuts
 - [Puppeteer JES DSL Reference](editor/puppeteer-jes-dsl.md) — exported timeline syntax: move, rotate, scale, fade, pivot, cameraMove, cameraZoom, playAudio, wait, parallel, easing values, export modes, VNS/JES integration
+- [Sidebar Utilities Overview](editor/sidebar-utilities.md) — landing page for all 14 sidebar panels
+  - [Project Explorer](editor/sidebar-project-explorer.md) — file tree, create/rename/delete, run project
+  - [Story Timeline](editor/sidebar-story-timeline.md) — multi-arc story graph, arcs, links, clusters, validation
+  - [Inspector](editor/sidebar-inspector.md) — entity property editing for Sprite2D, Label2D, Panel2D, physics, particles
+  - [Puppeteer Launcher](editor/sidebar-puppeteer-launcher.md) — live VNS scene snapshot, 12 command patterns, one-click launch
+  - [VNS Diagnostics](editor/sidebar-vns-diagnostics.md) — live error/warning list, click-to-jump
+  - [Label Flow Map](editor/sidebar-label-flow-map.md) — visual label-to-label directed graph
+  - [Asset Browser](editor/sidebar-asset-browser.md) — asset discovery, preview, drag-and-drop, type filter
+  - [Layout Launcher](editor/sidebar-layout-launcher.md) — status dashboard and launch for layout/style/screen editors
+  - [Menu Flow Editor](editor/sidebar-menu-flow-editor.md) — visual menu-to-menu navigation wiring, wire mode
+  - [Layered Image Visualizer](editor/sidebar-layered-image-visualizer.md) — layered sprite exploration, 6 export formats, presets
+  - [Image Attributes Tool](editor/sidebar-image-attributes-tool.md) — attribute-based character image assembly, profiles
+  - [Image Tint Tool](editor/sidebar-image-tint-tool.md) — color tinting/grading with tint, saturation, contrast
+  - [Version Control](editor/sidebar-version-control.md) — Git panel: init, commit, push, pull, branch, stash, remote setup
+  - [Help Center](editor/sidebar-help-center.md) — in-app Markdown documentation browser, quick access, F1 shortcut
 - [Action Editor Design](editor/action-editor-design.md) — architecture and component breakdown
 - [Puppeteer Audit](editor/puppeteer-audit.md) — hardening audit and expansion roadmap
 - [Help Center](editor/help-center.md) — in-app documentation browser

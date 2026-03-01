@@ -1,0 +1,170 @@
+# Sidebar — Asset Browser
+
+Focused discovery, preview, and reuse tool for project assets such as images, audio, video, fonts, and data files.
+
+Source: `editor/src/main/java/com/jvn/editor/ui/AssetBrowserView.java`
+
+---
+
+## Overview
+
+The Asset Browser scans project directories for assets, presents them in a filterable list with type categorization, and offers a live image preview pane. Assets can be opened, copied by path, dragged into other panels, or selected for use by other tools.
+
+- **Default side:** Right
+- **Tab name:** Assets
+- **Scan directories:** `assets/` and `game/images/` (recursive, up to 8 levels deep)
+
+---
+
+## UI Layout
+
+```text
+┌──────────────────────────────┐
+│  Asset Browser               │
+│  my-project                  │
+│  Filter: [________] [▼ Type] │
+├──────────────────────────────┤
+│  assets/bg/park.png          │
+│  assets/bg/sunset.png        │
+│  assets/char/hero_neutral.png│
+│  assets/music/battle.ogg     │
+│  ...                         │
+├──────────────────────────────┤
+│  ┌────────────────────┐      │
+│  │   (image preview)  │      │
+│  └────────────────────┘      │
+│  assets/bg/park.png          │
+│  PNG 1920×1080 · 2.4 MB     │
+│  [Copy Path] [Open] [Use]   │
+└──────────────────────────────┘
+```
+
+---
+
+## Panel Elements
+
+| Element | Description |
+|---------|-------------|
+| **Title** | "Asset Browser" |
+| **Root label** | Project directory name, or "No project loaded" |
+| **Filter field** | Real-time text search across relative paths and file names |
+| **Type filter** | ComboBox: All Types, Image, Audio, Video, Font, Data, File |
+| **Asset list** | Scrollable `ListView` of discovered assets |
+| **Preview image** | Thumbnail of selected image asset (max 260×150, aspect-preserved) |
+| **Path label** | Project-relative path of the selected asset |
+| **Metadata label** | File type and size information |
+| **Action buttons** | Copy Path, Open, Use Asset |
+
+---
+
+## Asset Type Classification
+
+Files are categorized by extension:
+
+| Type | Extensions |
+|------|-----------|
+| **Image** | png, jpg, jpeg, gif, bmp, webp, svg, tiff |
+| **Audio** | mp3, ogg, wav, flac, aac |
+| **Video** | mp4, webm, avi, mkv |
+| **Font** | ttf, otf |
+| **Data** | json, xml, properties, csv, yaml, yml |
+| **File** | Everything else |
+
+---
+
+## Filtering
+
+### Text Filter
+
+The text field performs case-insensitive substring matching against the asset's project-relative path. Matching is real-time (updates as you type).
+
+Examples:
+- `hero` → shows `assets/char/hero_neutral.png`, `assets/char/hero_happy.png`
+- `ogg` → shows all `.ogg` audio files
+- `bg/` → shows all files in the `bg` directory
+
+### Type Filter
+
+The ComboBox restricts the list to a single asset type. Combined with the text filter, this provides precise asset discovery:
+- Set type to "Audio" and type `battle` → finds `assets/music/battle.ogg`
+
+---
+
+## Interactions
+
+| Action | Result |
+|--------|--------|
+| **Click** an asset | Shows preview (image only), path, and metadata |
+| **Double-click** an asset | Opens the asset in the editor or system default app |
+| **Drag** from the list | Starts a drag-and-drop with the asset's relative path as string payload |
+| **Copy Path** button | Copies the project-relative path to the system clipboard |
+| **Open** button | Opens the asset (editable files in editor, others via system) |
+| **Use Asset** button | Fires the `onAssetSelected` callback with the relative path |
+
+### Drag-and-Drop
+
+Assets can be dragged from the list into:
+- **Text editors** — drops the relative path as text
+- **Other panels** — panels that accept string drops can receive the asset path
+- **Story Timeline graph** — `.vns` files can be dropped to create arcs
+
+The drag transfer mode is `COPY` with the relative path as string content.
+
+---
+
+## Preview Pane
+
+When an image asset is selected, the preview pane shows:
+- **Thumbnail** — scaled to fit 260×150 while preserving aspect ratio, with smooth interpolation
+- **Relative path** — full project-relative path (wraps if long)
+- **Metadata** — file type and details
+
+For non-image assets, the preview area shows the path and metadata without a thumbnail.
+
+---
+
+## Asset Scanning
+
+When a project is loaded (or the panel refreshes), it scans:
+
+1. `<projectRoot>/assets/` — the primary asset directory
+2. `<projectRoot>/game/images/` — legacy/alternative image directory
+
+Scanning is recursive up to 8 directory levels deep. Files are collected with:
+- Absolute file reference
+- Project-relative path (using `/` separators)
+- Detected asset type
+
+Results are sorted alphabetically by relative path (case-insensitive).
+
+---
+
+## Callbacks
+
+| Callback | Set By | Purpose |
+|----------|--------|---------|
+| `onOpenAsset` | `EditorApp` | Opens the asset file in the editor or system app |
+| `onAssetSelected` | Other tools | Receives the selected asset's relative path for integration |
+
+The `onAssetSelected` callback fires both when clicking "Use Asset" and when the list selection changes, enabling real-time asset picking for other tools.
+
+---
+
+## API
+
+| Method | Description |
+|--------|-------------|
+| `setProjectRoot(File)` | Sets the project root and triggers a full rescan |
+| `refresh()` | Rescans the asset directories and reapplies filters |
+| `getSelectedAssetPath()` | Returns the relative path of the currently selected asset, or `null` |
+| `setOnOpenAsset(Consumer<File>)` | Sets the file-open callback |
+| `setOnAssetSelected(Consumer<String>)` | Sets the asset-selected callback |
+
+---
+
+## Related Docs
+
+- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
+- [Project Explorer](sidebar-project-explorer.md) — full file tree navigation
+- [Layered Image Visualizer](sidebar-layered-image-visualizer.md) — layered sprite exploration
+- [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-based image assembly

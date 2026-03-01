@@ -26,16 +26,67 @@ Puppeteer is JVN's visual keyframe animation editor. It lets you:
 
 1. Open a `.vns` file in the editor
 2. Place the cursor on a line where characters are visible (after `[show]` commands)
-3. Open the **Puppeteer Launcher** panel in the right sidebar
+3. Open the **Puppeteer Launcher** panel in the right sidebar (click the **+** tab → "Puppeteer Launcher")
 4. Review the snapshot preview — it shows the background and visible characters at the cursor position
 5. Click **Launch Puppeteer Here**
 
-The launcher parses VNS source up to the cursor line, extracting:
-- Active background from `[bg]` commands
-- Visible characters from `[show]` / `[hide]` commands
-- Asset paths from `@background` and `@charimg` declarations
+### Puppeteer Launcher Panel — In Detail
 
-This creates a `JesScene2D` with entities pre-positioned at VN slot locations.
+Source: `editor/src/main/java/com/jvn/editor/ui/PuppeteerLauncherPanel.java`
+
+The Puppeteer Launcher is a sidebar panel that provides live VNS scene state tracking and one-click Puppeteer launch. It updates automatically as you move the cursor within a `.vns` file.
+
+#### Panel Display
+
+| Element | Description |
+|---------|-------------|
+| **Line indicator** | Current cursor line number and trimmed line text (max 80 chars) |
+| **Scene Snapshot at Cursor** | Section header |
+| **Label** | The most recent `@label` / `label` before the cursor |
+| **Background** | The active background from the most recent `[bg]` / `[background]` command |
+| **Visible Characters** | List of character entries: `charId @ position [expression]` |
+| **Launch Puppeteer Here** | Blue button — disabled until a VNS file is active |
+
+#### Scene Snapshot Resolution
+
+The launcher parses every line from line 1 through the cursor position, tracking cumulative scene state. It recognizes these VNS commands:
+
+| Command | Pattern | What It Captures |
+|---------|---------|-----------------|
+| **Label** | `@label start` / `label start` | Sets current label name |
+| **Background command** | `[bg park]` / `[background park]` | Sets active background ID |
+| **Background declaration** | `@background park assets/bg/park.png` | Maps background ID → asset path |
+| **Character image** | `@charimg hero neutral assets/char/hero_neutral.png` | Maps `charId/expression` → asset path |
+| **Character layer** | `@charlayer hero eyes assets/char/hero_eyes.png` | Maps `charId/layerId` → asset path |
+| **Character preset** | `@charpreset hero happy $eyes=happy $mouth=smile` | Resolves layer references into a composite asset path |
+| **Show character** | `[show hero center happy]` | Adds character with position and expression |
+| **Hide character** | `[hide hero]` | Removes character from visible set |
+| **External show** | `@external character hero show center happy` | Adds character via external command |
+| **External hide** | `@external character hero hide` | Removes character |
+| **External move** | `@external character hero move left` | Updates character position (preserves expression) |
+| **External expression** | `@external character hero expr angry` | Updates character expression (preserves position) |
+
+#### Scene Snapshot Data Model
+
+The snapshot passed to Puppeteer contains:
+
+```java
+SceneSnapshot {
+    String currentLabel;              // e.g., "battle_start"
+    String backgroundId;              // e.g., "park"
+    List<CharacterEntry> characters;  // each: characterId, position, expression
+    Map<String, String> bgPaths;      // background ID → asset path
+    Map<String, String> charImgPaths; // "charId/expression" → asset path
+    Map<String, Map<String, String>> charLayerPaths; // charId → (layerId → path)
+}
+```
+
+Puppeteer uses this to construct a `JesScene2D` with:
+- Background entity from the resolved `bgPaths` mapping
+- Character `Sprite2D` entities positioned at VN slot locations (left, center, right, etc.)
+- Correct expression images resolved from `charImgPaths` or composite `charLayerPaths`
+
+This means the Puppeteer animation viewport matches exactly what the player would see at that point in the script.
 
 ### From a JES File
 

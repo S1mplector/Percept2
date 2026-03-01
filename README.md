@@ -278,7 +278,7 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/architecture/performance.md`
 - `docs/architecture/native-library-audit.md`
 
-### VNS Scripting (19 sub-documents)
+### VNS Scripting (20 sub-documents)
 - `docs/scripting/vns/vns-scripting.md` — overview and quick reference
 - `docs/scripting/vns/vns-directives.md` — @scenario, @character, @background, @charimg, @charlayer, @charpreset, @label, @var, @define, @include
 - `docs/scripting/vns/vns-dialogue.md` — dialogue forms, text effects, typewriter
@@ -286,6 +286,7 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/scripting/vns/vns-commands.md` — complete command catalog
 - `docs/scripting/vns/vns-audio.md` — BGM, SFX, voice, crossfade
 - `docs/scripting/vns/vns-characters.md` — character system, layered sprites, motion
+- `docs/scripting/vns/vns-layered-charpresets.md` — practical guide: @charlayer + @charpreset pipeline, asset organization, cross-character refs, editor tooling
 - `docs/scripting/vns/vns-variables.md` — variables, conditions, if/elif/else
 - `docs/scripting/vns/vns-transitions.md` — transitions, shake, flash, UI control
 - `docs/scripting/vns/vns-flow-control.md` — labels, jumps, call/return, script switching
@@ -332,11 +333,26 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/menu-profiles/menu-button-layouts.md` — per-button positional layouts, Bounds Studio
 - `docs/menu-profiles/dialogue-layout.md` — textbox geometry, name box, choices, action buttons
 
-### Editor (7 sub-documents)
+### Editor (22 sub-documents)
 - `docs/editor/editor.md` — layout, editing modes, keyboard shortcuts
 - `docs/editor/puppeteer.md` — Puppeteer overview, architecture, data pipeline, JES/VNS relationship
 - `docs/editor/puppeteer-editor-guide.md` — complete usage guide: UI panels, keyframes, 12 presets, 26 easing types, audio cues, camera, groups, layers
 - `docs/editor/puppeteer-jes-dsl.md` — exported timeline DSL: move, rotate, scale, fade, pivot, camera, audio, wait, parallel, easing values
+- `docs/editor/sidebar-utilities.md` — landing page for all 14 sidebar panels
+- `docs/editor/sidebar-project-explorer.md` — file tree, create/rename/delete, run project
+- `docs/editor/sidebar-story-timeline.md` — multi-arc story graph, arcs, links, clusters, validation
+- `docs/editor/sidebar-inspector.md` — entity property editing for Sprite2D, Label2D, Panel2D, physics, particles
+- `docs/editor/sidebar-puppeteer-launcher.md` — live VNS scene snapshot, 12 command patterns, one-click launch
+- `docs/editor/sidebar-vns-diagnostics.md` — live error/warning list, click-to-jump
+- `docs/editor/sidebar-label-flow-map.md` — visual label-to-label directed graph
+- `docs/editor/sidebar-asset-browser.md` — asset discovery, preview, drag-and-drop, type filter
+- `docs/editor/sidebar-layout-launcher.md` — status dashboard and launch for layout/style/screen editors
+- `docs/editor/sidebar-menu-flow-editor.md` — visual menu-to-menu navigation wiring, wire mode
+- `docs/editor/sidebar-layered-image-visualizer.md` — layered sprite exploration, 6 export formats, presets
+- `docs/editor/sidebar-image-attributes-tool.md` — attribute-based character image assembly, profiles
+- `docs/editor/sidebar-image-tint-tool.md` — color tinting/grading with tint, saturation, contrast
+- `docs/editor/sidebar-version-control.md` — Git panel: init, commit, push, pull, branch, stash, remote setup
+- `docs/editor/sidebar-help-center.md` — in-app Markdown documentation browser, quick access, F1 shortcut
 - `docs/editor/action-editor-design.md` — architecture and component breakdown
 - `docs/editor/puppeteer-audit.md` — hardening audit and expansion roadmap
 - `docs/editor/help-center.md` — in-app documentation browser
