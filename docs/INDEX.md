@@ -36,6 +36,11 @@ Complete documentation for the Java Vector Nexus engine.
 - [Subroutines & Flow Control](scripting/vns/vns-flow-control.md) — labels, jumps, gosub/return, script switching
 - [Interop & Integration](scripting/vns/vns-interop.md) — JES interop, Java calls, inline timelines, menu commands
 - [Text Formatting & ICU](scripting/vns/vns-text-formatting.md) — variable interpolation, plurals, select, number formatting
+- [Scene Lifecycle & State](scripting/vns/vns-scene-lifecycle.md) — VnScene node loop, VnState, node types, preflight, character visuals, screen effects, HUD
+- [Save System](scripting/vns/vns-save-system.md) — named slots, autosave, quick save/load, schema migration, JSON format, atomic writes, thumbnails
+- [Rollback & History](scripting/vns/vns-rollback-history.md) — rollback stack, forward/backward, dialogue backlog, capture/restore
+- [Settings & Playback Modes](scripting/vns/vns-settings-modes.md) — text speed, volumes, skip mode, auto-play, UI hidden, click-reveal, key bindings
+- [Localization](scripting/vns/vns-localization.md) — locale-aware script loading, UI string localization, multi-language structure
 - [Parsing Internals](scripting/vns/vns-parsing.md) — parser pipeline, regex, error model
 - [Java + JES Cross Development](scripting/vns/java-jes-cross-development.md) — hybrid architecture patterns
 
@@ -90,7 +95,9 @@ Complete documentation for the Java Vector Nexus engine.
 ## Editor
 
 - [Editor Guide](editor/editor.md) — layout, editing modes, keyboard shortcuts
-- [Puppeteer Animation Editor](editor/puppeteer.md) — keyframe animation, timeline registry, VNS integration
+- [Puppeteer Overview & Architecture](editor/puppeteer.md) — data pipeline, JES/VNS relationship, snapshot resolution, registry bridge
+- [Puppeteer Editor Guide](editor/puppeteer-editor-guide.md) — complete usage: launching, UI panels, keyframes, 12 presets, 26 easing types, audio cues, camera, groups, layer ordering, orbit tool, onion skinning, shortcuts
+- [Puppeteer JES DSL Reference](editor/puppeteer-jes-dsl.md) — exported timeline syntax: move, rotate, scale, fade, pivot, cameraMove, cameraZoom, playAudio, wait, parallel, easing values, export modes, VNS/JES integration
 - [Action Editor Design](editor/action-editor-design.md) — architecture and component breakdown
 - [Puppeteer Audit](editor/puppeteer-audit.md) — hardening audit and expansion roadmap
 - [Help Center](editor/help-center.md) — in-app documentation browser

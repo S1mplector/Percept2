@@ -6,6 +6,14 @@ This document covers the system architecture, the JES/VNS relationship, the data
 
 ---
 
+## Sub-Document Reference
+
+- **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, entity management, keyframe editing, all 12 presets, 26 easing types, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
+- **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, `playAudio`, `wait`, `parallel`, easing values, custom cubic Bézier, export modes, VNS/JES integration examples
+- **[Puppeteer Audit & Roadmap](puppeteer-audit.md)** — hardening audit and expansion roadmap
+
+---
+
 ## 1. JES and VNS — The Two Scripting Layers
 
 JVN has two scripting systems that operate at different abstraction levels. Understanding their relationship is essential to understanding how Puppeteer fits in.

@@ -1,0 +1,618 @@
+# Puppeteer — JES Timeline DSL Reference
+
+Complete reference for the JES timeline code that Puppeteer generates and exports. Covers the `timeline { }` block syntax, all action types, property keys, easing values, parallel blocks, wait commands, audio cues, camera actions, and how to use exported code in VNS scripts and JES scenes.
+
+Exporter: `editor/src/main/java/com/jvn/editor/ui/actioneditor/CodeExporter.java`
+Runtime: `core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
+
+---
+
+## Overview
+
+Puppeteer exports animations as JES **timeline blocks** — a structured DSL that describes keyframe-interpolated property changes over time. The exported code can be:
+
+1. **Copied** to clipboard and pasted into `.jes` scene files
+2. **Registered** to the `TimelineRegistry` for VNS interop via `[call jes_timeline <name>]`
+3. **Embedded inline** in VNS scripts via `timeline { ... }` blocks
+
+---
+
+## Top-Level Structure
+
+Every Puppeteer export wraps actions in a `timeline` block:
+
+```jes
+timeline {
+  <action or control statement>
+  <action or control statement>
+  ...
+}
+```
+
+Actions are emitted in chronological order. When multiple actions start at the same time, they are wrapped in a `parallel` block.
+
+### Named Export
+
+When using `exportNamed()`, a header comment is prepended:
+
+```jes
+// Timeline: hero_entrance
+// Usage in VNS: @external jes_timeline hero_entrance
+
+timeline {
+  ...
+}
+```
+
+---
+
+## Action Types
+
+### `move` — Position Animation
+
+Animates an entity's X and/or Y position.
+
+```jes
+move "hero" {
+  x: 320.00
+  y: 396.00
+  dur: 500
+  easing: ease_out_cubic
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `x` | number | Target X position (pixels) |
+| `y` | number | Target Y position (pixels) |
+| `dur` | number | Duration in milliseconds |
+| `easing` | string | Easing curve name (see [Easing Reference](#easing-reference)) |
+
+Either `x` or `y` or both may be present. The entity interpolates from its current position to the target over the specified duration.
+
+### `rotate` — Rotation Animation
+
+Animates an entity's rotation in degrees.
+
+```jes
+rotate "logo" {
+  deg: 360
+  dur: 600
+  easing: ease_in_out_cubic
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `deg` | number | Target rotation in degrees |
+| `dur` | number | Duration in milliseconds |
+| `easing` | string | Easing curve name |
+
+### `scale` — Scale Animation
+
+Animates an entity's X and/or Y scale factors.
+
+```jes
+scale "button" {
+  sx: 1.15
+  sy: 1.15
+  dur: 250
+  easing: ease_in_out_quad
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `sx` | number | Target horizontal scale (1.0 = normal) |
+| `sy` | number | Target vertical scale (1.0 = normal) |
+| `dur` | number | Duration in milliseconds |
+| `easing` | string | Easing curve name |
+
+### `fade` — Opacity Animation
+
+Animates an entity's alpha (transparency).
+
+```jes
+fade "ghost" {
+  alpha: 0
+  dur: 500
+  easing: ease_in_quad
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `alpha` | number | Target opacity (0 = invisible, 1 = opaque) |
+| `dur` | number | Duration in milliseconds |
+| `easing` | string | Easing curve name |
+
+### `pivot` — Origin Point Animation
+
+Animates an entity's pivot (origin) point. The pivot controls the center of rotation and scale.
+
+```jes
+pivot "spinner" {
+  ox: 0.5
+  oy: 0.5
+  dur: 200
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ox` | number | Horizontal origin (0 = left edge, 1 = right edge) |
+| `oy` | number | Vertical origin (0 = top edge, 1 = bottom edge) |
+| `dur` | number | Duration in milliseconds |
+| `easing` | string | Easing curve name |
+
+### `cameraMove` — Camera Pan
+
+Animates the scene camera position. No target entity name is specified.
+
+```jes
+cameraMove {
+  x: 200
+  y: 100
+  dur: 800
+  easing: ease_in_out_quad
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `x` | number | Target camera X position |
+| `y` | number | Target camera Y position |
+| `dur` | number | Duration in milliseconds |
+| `easing` | string | Easing curve name |
+
+### `cameraZoom` — Camera Zoom
+
+Animates the scene camera zoom level. No target entity name is specified.
+
+```jes
+cameraZoom {
+  zoom: 1.5
+  dur: 600
+  easing: ease_out_quad
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `zoom` | number | Target zoom level (1.0 = normal, >1 = closer) |
+| `dur` | number | Duration in milliseconds |
+| `easing` | string | Easing curve name |
+
+### `playAudio` — Audio Cue
+
+Triggers an audio event at a specific point in the timeline.
+
+```jes
+playAudio "assets/audio/sfx/whoosh.wav" {
+  volume: 0.8
+  loop: false
+  bgm: false
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `volume` | number | Playback volume (0–1) |
+| `loop` | boolean | Whether to loop (true for music channel) |
+| `bgm` | boolean | Whether this is background music |
+
+Audio actions have no `dur` or `easing` — they fire instantly at their timestamp.
+
+---
+
+## Control Statements
+
+### `wait` — Time Gap
+
+Inserts a pause between action groups. Emitted when there is a gap of more than 0.5ms between consecutive action start times.
+
+```jes
+timeline {
+  move "hero" { x: 100, dur: 300 }
+  wait 500
+  fade "hero" { alpha: 0, dur: 200 }
+}
+```
+
+The `wait` value is in milliseconds.
+
+### `parallel` — Simultaneous Actions
+
+When multiple actions start at the same time, they are wrapped in a `parallel` block:
+
+```jes
+timeline {
+  parallel {
+    move "hero" { x: 500, y: 300, dur: 400, easing: ease_out_cubic }
+    fade "hero" { alpha: 1, dur: 200, easing: ease_out_quad }
+  }
+}
+```
+
+All actions inside `parallel` begin at the same time.
+
+---
+
+## Easing Reference
+
+All 26 easing types plus custom cubic Bézier:
+
+| Easing Name | DSL Value | Description |
+|-------------|-----------|-------------|
+| Linear | `linear` | Constant speed (default, omitted in output) |
+| Quad In | `ease_in_quad` | Accelerating (t²) |
+| Quad Out | `ease_out_quad` | Decelerating |
+| Quad In-Out | `ease_in_out_quad` | Smooth start and end |
+| Cubic In | `ease_in_cubic` | Stronger acceleration (t³) |
+| Cubic Out | `ease_out_cubic` | Stronger deceleration |
+| Cubic In-Out | `ease_in_out_cubic` | Smooth cubic |
+| Quart In | `ease_in_quart` | Very strong acceleration (t⁴) |
+| Quart Out | `ease_out_quart` | Very strong deceleration |
+| Quart In-Out | `ease_in_out_quart` | Smooth quartic |
+| Expo In | `ease_in_expo` | Exponential acceleration |
+| Expo Out | `ease_out_expo` | Exponential deceleration |
+| Expo In-Out | `ease_in_out_expo` | Smooth exponential |
+| Sine In | `ease_in_sine` | Gentle sinusoidal acceleration |
+| Sine Out | `ease_out_sine` | Gentle sinusoidal deceleration |
+| Sine In-Out | `ease_in_out_sine` | Smooth sinusoidal |
+| Elastic In | `ease_in_elastic` | Spring-like overshoot on entry |
+| Elastic Out | `ease_out_elastic` | Spring-like overshoot on exit |
+| Elastic In-Out | `ease_in_out_elastic` | Symmetric elastic |
+| Back In | `ease_in_back` | Slight pullback before acceleration |
+| Back Out | `ease_out_back` | Slight overshoot after deceleration |
+| Back In-Out | `ease_in_out_back` | Symmetric back |
+| Bounce In | `ease_in_bounce` | Bouncing on entry |
+| Bounce Out | `ease_out_bounce` | Bouncing on exit |
+| Bounce In-Out | `ease_in_out_bounce` | Symmetric bounce |
+| Custom | `cubic_bezier(cx1, cy1, cx2, cy2)` | CSS-style cubic Bézier |
+
+### Custom Cubic Bézier
+
+```jes
+move "hero" {
+  x: 500
+  dur: 400
+  easing: cubic_bezier(0.25, 0.10, 0.25, 1.00)
+}
+```
+
+The four parameters define the control points of a cubic Bézier curve from (0,0) to (1,1), matching the CSS `cubic-bezier()` function.
+
+### Easing Omission Rule
+
+`linear` easing is the default and is **not** written to the output. Only non-linear easing values appear in exported code.
+
+---
+
+## Export Modes
+
+### Standard Export
+
+`CodeExporter.export(project)` — full timeline with all events, sorted chronologically. Simultaneous events are wrapped in `parallel` blocks, gaps emit `wait` statements.
+
+### Named Export
+
+`CodeExporter.exportNamed(project, name)` — same as standard but with a comment header:
+
+```jes
+// Timeline: hero_entrance
+// Usage in VNS: @external jes_timeline hero_entrance
+
+timeline {
+  ...
+}
+```
+
+### Group-Annotated Export
+
+`CodeExporter.exportWithGroups(project)` — same as standard but includes `// Group: <name>` comments for entity group structure.
+
+### Incremental Export
+
+`CodeExporter.exportIncremental(project)` — only emits events where property values have *changed* from their initial snapshot. Useful for animations that build on an existing scene state (e.g., launched from a VNS cursor position).
+
+### Audio-Only Export
+
+`CodeExporter.exportAudioCues(project)` — exports only audio cue events in a descriptive format:
+
+```text
+at 0ms: play music "assets/audio/bgm/theme.ogg" volume 0.8
+at 1500ms: play sound "assets/audio/sfx/impact.wav"
+```
+
+---
+
+## Property Code Mapping
+
+The exporter maps Puppeteer's `PropertyType` enum to JES action types and property keys:
+
+| PropertyType | Action | Key | Default |
+|-------------|--------|-----|---------|
+| `X` | `move` | `x` | 0 |
+| `Y` | `move` | `y` | 0 |
+| `PIVOT_X` | `pivot` | `ox` | 0 |
+| `PIVOT_Y` | `pivot` | `oy` | 0 |
+| `ROTATION` | `rotate` | `deg` | 0 |
+| `SCALE_X` | `scale` | `sx` | 1.0 |
+| `SCALE_Y` | `scale` | `sy` | 1.0 |
+| `ALPHA` | `fade` | `alpha` | 1.0 |
+| `CAMERA_X` | `cameraMove` | `x` | 0 |
+| `CAMERA_Y` | `cameraMove` | `y` | 0 |
+| `CAMERA_ZOOM` | `cameraZoom` | `zoom` | 1.0 |
+
+---
+
+## Using Exported Code
+
+### In VNS Scripts — Registry
+
+After registering a timeline in Puppeteer:
+
+```vns
+# Call a registered timeline by name
+[call jes_timeline hero_entrance]
+
+# The timeline runs asynchronously — VNS continues on the next node
+# Use [wait] if you need to block until the animation completes
+[wait 600]
+hero: Did you see that?
+```
+
+### In VNS Scripts — Inline
+
+Paste the exported code directly into a VNS script:
+
+```vns
+narrator: Watch this!
+
+timeline {
+  parallel {
+    move "hero" {
+      x: 500
+      y: 300
+      dur: 400
+      easing: ease_out_cubic
+    }
+    fade "hero" {
+      alpha: 1
+      dur: 200
+      easing: ease_out_quad
+    }
+  }
+}
+
+hero: I'm here!
+```
+
+Inline `timeline { }` blocks are parsed and executed by the VNS interop system (`jes_timeline_inline`).
+
+### In JES Scene Files
+
+Paste the exported code into a `.jes` file as a named timeline:
+
+```jes
+scene "CutsceneIntro" {
+  entity "hero" {
+    component Sprite2D {
+      image: "sprites/hero.png"
+      x: 200
+      y: 400
+    }
+  }
+
+  timeline "hero_entrance" {
+    move "hero" {
+      x: 640
+      dur: 500
+      easing: ease_out_cubic
+    }
+    wait 200
+    parallel {
+      scale "hero" {
+        sx: 1.1
+        sy: 1.1
+        dur: 300
+        easing: ease_in_out_quad
+      }
+      fade "hero" {
+        alpha: 1
+        dur: 300
+      }
+    }
+  }
+}
+```
+
+---
+
+## Runtime Execution
+
+### TimelineData
+
+Puppeteer converts its `AnimationProject` to a `TimelineData` object via `toTimelineData(name)`. This is the runtime representation:
+
+| Component | Description |
+|-----------|-------------|
+| `Track` | Per-entity keyframe data |
+| `Property` | X, Y, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, ALPHA, CAMERA_X, CAMERA_Y, CAMERA_ZOOM, Z |
+| `Keyframe` | (timeMs, value, easing) tuples |
+| `AudioCue` | (timeMs, file, channel, volume, loop, fadeDuration) |
+
+### TimelineRunner
+
+The `TimelineRunner` applies `TimelineData` keyframes to entities via a `SceneAccessor`:
+
+1. Each frame, `update(deltaMs)` advances the internal clock
+2. For each track and property, the runner interpolates between the surrounding keyframes
+3. The interpolated value is written to the entity via `SceneAccessor.setProperty(entityName, property, value)`
+4. Audio cues are triggered when the playhead passes their timestamp
+5. When the timeline ends, the runner marks itself as finished and is removed from `VnState.activeTimelines`
+
+### SceneAccessor
+
+The `SceneAccessor` interface decouples the runner from the scene implementation:
+
+```java
+public interface SceneAccessor {
+    double getProperty(String entityName, TimelineData.Property property);
+    void setProperty(String entityName, TimelineData.Property property, double value);
+}
+```
+
+This allows the same `TimelineData` to animate entities in both JES scenes (`JesScene2D`) and VN scenes (character sprites, background).
+
+### TimelineRegistry
+
+Global name → `TimelineData` map:
+
+```java
+// Registration (from Puppeteer)
+TimelineRegistry.register("hero_entrance", timelineData);
+
+// Lookup (from VNS interop)
+TimelineData data = TimelineRegistry.get("hero_entrance");
+
+// List all registered timelines
+Set<String> names = TimelineRegistry.names();
+
+// Remove
+TimelineRegistry.unregister("hero_entrance");
+```
+
+---
+
+## Complete Examples
+
+### Character Entrance with Sound
+
+```jes
+// Timeline: hero_dramatic_entrance
+// Usage in VNS: @external jes_timeline hero_dramatic_entrance
+
+timeline {
+  parallel {
+    move "hero" {
+      x: 640
+      y: 396
+      dur: 600
+      easing: ease_out_cubic
+    }
+    fade "hero" {
+      alpha: 1
+      dur: 400
+      easing: ease_out_quad
+    }
+  }
+  playAudio "assets/audio/sfx/whoosh.wav" {
+    volume: 0.8
+    loop: false
+    bgm: false
+  }
+  wait 200
+  scale "hero" {
+    sx: 1.05
+    sy: 1.05
+    dur: 150
+    easing: ease_out_quad
+  }
+  scale "hero" {
+    sx: 1
+    sy: 1
+    dur: 150
+    easing: ease_in_quad
+  }
+}
+```
+
+### Camera Zoom with BGM
+
+```jes
+timeline {
+  playAudio "assets/audio/bgm/dramatic.ogg" {
+    volume: 0.7
+    loop: true
+    bgm: true
+  }
+  parallel {
+    cameraMove {
+      x: 400
+      y: 300
+      dur: 1000
+      easing: ease_in_out_quad
+    }
+    cameraZoom {
+      zoom: 1.5
+      dur: 1000
+      easing: ease_in_out_quad
+    }
+  }
+}
+```
+
+### Multi-Entity Choreography
+
+```jes
+timeline {
+  parallel {
+    move "hero" {
+      x: 400
+      dur: 500
+      easing: ease_out_cubic
+    }
+    move "villain" {
+      x: 880
+      dur: 500
+      easing: ease_out_cubic
+    }
+  }
+  wait 300
+  parallel {
+    rotate "hero" {
+      deg: -15
+      dur: 200
+      easing: ease_in_out_quad
+    }
+    rotate "villain" {
+      deg: 15
+      dur: 200
+      easing: ease_in_out_quad
+    }
+  }
+  wait 100
+  parallel {
+    rotate "hero" {
+      deg: 0
+      dur: 200
+      easing: ease_out_back
+    }
+    rotate "villain" {
+      deg: 0
+      dur: 200
+      easing: ease_out_back
+    }
+  }
+}
+```
+
+---
+
+## Number Formatting
+
+The exporter formats numbers as:
+- Integers when the value has no fractional part: `500`, `0`, `360`
+- Two decimal places otherwise, trailing zeros stripped: `320.5`, `1.15`, `0.25`
+
+---
+
+## Related Docs
+
+- [Puppeteer Editor Guide](puppeteer-editor-guide.md)
+- [Puppeteer Architecture](puppeteer.md)
+- [Timeline Animation (Core)](../scripting/timeline/timeline-animation.md)
+- [JES Timeline Actions](../scripting/jes/jes-timeline.md)
+- [VNS Interop](../scripting/vns/vns-interop.md)

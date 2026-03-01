@@ -77,6 +77,14 @@ Each VNS feature area has its own detailed documentation with extensive examples
 - **[Subroutines & Flow Control](vns-flow-control.md)** — labels, jumps, call/return, conditionals, script switching, menu navigation
 - **[Interop & Integration](vns-interop.md)** — JES push/replace/pop, Java reflection calls, inline timelines, menu commands, timeline registry
 
+### Runtime & State
+
+- **[Scene Lifecycle & State](vns-scene-lifecycle.md)** — VnScene node loop, VnState, node types, preflight, character visuals/tweening, screen effects, HUD messages, timeline runners
+- **[Save System](vns-save-system.md)** — named slots, autosave, quick save/load, schema migration, JSON format, atomic writes, sidecar thumbnails, RPG passthrough
+- **[Rollback & History](vns-rollback-history.md)** — rollback stack, forward/backward, dialogue history backlog, capture/restore
+- **[Settings & Playback Modes](vns-settings-modes.md)** — text speed, volumes, skip mode, auto-play, UI hidden, click-reveal, key bindings
+- **[Localization](vns-localization.md)** — locale-aware script loading, UI string localization, multi-language project structure
+
 ### Internals
 
 - **[Parsing Internals](vns-parsing.md)** — parse pipeline, regex patterns, conditional lowering, error model

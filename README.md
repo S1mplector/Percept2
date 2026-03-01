@@ -278,7 +278,7 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/architecture/performance.md`
 - `docs/architecture/native-library-audit.md`
 
-### VNS Scripting (11 sub-documents)
+### VNS Scripting (19 sub-documents)
 - `docs/scripting/vns/vns-scripting.md` — overview and quick reference
 - `docs/scripting/vns/vns-directives.md` — @scenario, @character, @background, @charimg, @charlayer, @charpreset, @label, @var, @define, @include
 - `docs/scripting/vns/vns-dialogue.md` — dialogue forms, text effects, typewriter
@@ -291,6 +291,11 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/scripting/vns/vns-flow-control.md` — labels, jumps, call/return, script switching
 - `docs/scripting/vns/vns-interop.md` — JES/Java integration, inline timelines
 - `docs/scripting/vns/vns-text-formatting.md` — ICU plurals, select, number formatting
+- `docs/scripting/vns/vns-scene-lifecycle.md` — VnScene node loop, VnState, node types, preflight, character visuals
+- `docs/scripting/vns/vns-save-system.md` — named slots, autosave, quick save/load, schema migration, thumbnails
+- `docs/scripting/vns/vns-rollback-history.md` — rollback stack, forward/backward, dialogue backlog
+- `docs/scripting/vns/vns-settings-modes.md` — text speed, volumes, skip, auto-play, UI hidden, key bindings
+- `docs/scripting/vns/vns-localization.md` — locale-aware script loading, UI strings, multi-language structure
 - `docs/scripting/vns/vns-parsing.md` — parser internals
 - `docs/scripting/vns/java-jes-cross-development.md` — hybrid architecture
 
@@ -327,12 +332,14 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/menu-profiles/menu-button-layouts.md` — per-button positional layouts, Bounds Studio
 - `docs/menu-profiles/dialogue-layout.md` — textbox geometry, name box, choices, action buttons
 
-### Editor
-- `docs/editor/editor.md`
-- `docs/editor/puppeteer.md`
-- `docs/editor/action-editor-design.md`
-- `docs/editor/puppeteer-audit.md`
-- `docs/editor/help-center.md`
+### Editor (7 sub-documents)
+- `docs/editor/editor.md` — layout, editing modes, keyboard shortcuts
+- `docs/editor/puppeteer.md` — Puppeteer overview, architecture, data pipeline, JES/VNS relationship
+- `docs/editor/puppeteer-editor-guide.md` — complete usage guide: UI panels, keyframes, 12 presets, 26 easing types, audio cues, camera, groups, layers
+- `docs/editor/puppeteer-jes-dsl.md` — exported timeline DSL: move, rotate, scale, fade, pivot, camera, audio, wait, parallel, easing values
+- `docs/editor/action-editor-design.md` — architecture and component breakdown
+- `docs/editor/puppeteer-audit.md` — hardening audit and expansion roadmap
+- `docs/editor/help-center.md` — in-app documentation browser
 
 ### Project Setup
 - `docs/project-setup/new-project-wizard.md`
