@@ -14,15 +14,15 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import com.jvn.core.ui.BoundsPointCodec;
-import com.jvn.core.vn.ui.VnUiActionButtonSpec;
-import com.jvn.core.vn.ui.VnUiLayoutLoader;
-import com.jvn.core.vn.ui.VnUiLayoutSpec;
-import com.jvn.core.vn.ui.VnUiStyleSpec;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioBuilder;
 import com.jvn.core.vn.text.TextEffect;
 import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
+import com.jvn.core.vn.ui.VnUiActionButtonSpec;
+import com.jvn.core.vn.ui.VnUiLayoutLoader;
+import com.jvn.core.vn.ui.VnUiLayoutSpec;
+import com.jvn.core.vn.ui.VnUiStyleSpec;
 
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
@@ -40,8 +40,8 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -764,6 +764,8 @@ public class DialogueLayoutEditorView extends BorderPane {
       if (dragTarget == DragTarget.NONE) return;
       double w = Math.max(1, preview.getWidth());
       double h = Math.max(1, preview.getHeight());
+      double scale = previewScale();
+      double invScale = scale > 0.0001 ? 1.0 / scale : 1.0;
       double dx = e.getX() - dragStartX;
       double dy = e.getY() - dragStartY;
 
@@ -799,8 +801,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.textBoxWidth(),
             dragStartSpec.textBoxHeight(),
             dragStartSpec.textBoxPadding(),
-            dragStartSpec.nameBoxXOffset() + dx,
-            dragStartSpec.nameBoxYOffset() + dy,
+            dragStartSpec.nameBoxXOffset() + dx * invScale,
+            dragStartSpec.nameBoxYOffset() + dy * invScale,
             dragStartSpec.nameBoxWidth(),
             dragStartSpec.nameBoxHeight(),
             dragStartSpec.nameTextXOffset(),
@@ -817,7 +819,7 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceTextXPadding()
         );
       } else if (dragTarget == DragTarget.CHOICE_BLOCK) {
-        double currentChoiceStart = resolveChoiceYStart(dragStartSpec, h, 3);
+        double currentChoiceStart = resolveChoiceYStart(dragStartSpec, h, 3, scale);
         double nextStart = currentChoiceStart + dy;
         double nextYStartNorm = clamp01(nextStart / h);
         next = new VnUiLayoutSpec(
@@ -871,7 +873,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         );
       } else if (dragTarget == DragTarget.CHOICE_RESIZE) {
         double newWidthFactor = Math.max(0.05, dragStartSpec.choiceWidthFactor() + (dx / w));
-        double newChoiceHeight = Math.max(8, dragStartSpec.choiceHeight() + dy);
+        double newChoiceHeight = Math.max(8, dragStartSpec.choiceHeight() + dy * invScale);
         next = new VnUiLayoutSpec(
             dragStartSpec.textBoxX(),
             dragStartSpec.textBoxY(),
@@ -896,11 +898,14 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceTextXPadding()
         );
       } else if (dragTarget == DragTarget.DIALOGUE_BOUNDS || dragTarget == DragTarget.DIALOGUE_BOUNDS_RESIZE) {
-        TextBoxGeometry textBox = computeTextBoxGeometry(dragStartSpec, w, h);
+        ProjectViewportSpec.Dimensions vp = ProjectViewportSpec.resolve(projectRoot);
+        TextBoxGeometry textBox = computeTextBoxGeometry(dragStartSpec, vp.width(), vp.height());
         double boxW = Math.max(1, textBox.width());
         double boxH = Math.max(1, textBox.height());
         double minTextW = 40;
         double minTextH = 20;
+        double dxSpec = dx * invScale;
+        double dySpec = dy * invScale;
 
         double left0 = clamp(dragStartSpec.dialogueTextHorizontalPadding(), 0, Math.max(0, boxW - minTextW));
         double top0 = clamp(dragStartSpec.dialogueTextTopPadding(), 0, Math.max(0, boxH - minTextH));
@@ -916,13 +921,13 @@ public class DialogueLayoutEditorView extends BorderPane {
         double bottom = bottom0;
 
         if (dragTarget == DragTarget.DIALOGUE_BOUNDS) {
-          left = clamp(left0 + dx, 0, Math.max(0, boxW - width0));
-          top = clamp(top0 + dy, 0, Math.max(0, boxH - height0));
+          left = clamp(left0 + dxSpec, 0, Math.max(0, boxW - width0));
+          top = clamp(top0 + dySpec, 0, Math.max(0, boxH - height0));
           right = Math.max(0, boxW - left - width0);
           bottom = Math.max(0, boxH - top - height0);
         } else {
-          double newTextW = clamp(width0 + dx, minTextW, Math.max(minTextW, boxW - left0));
-          double newTextH = clamp(height0 + dy, minTextH, Math.max(minTextH, boxH - top0));
+          double newTextW = clamp(width0 + dxSpec, minTextW, Math.max(minTextW, boxW - left0));
+          double newTextH = clamp(height0 + dySpec, minTextH, Math.max(minTextH, boxH - top0));
           right = Math.max(0, boxW - left0 - newTextW);
           bottom = Math.max(0, boxH - top0 - newTextH);
         }
@@ -1002,7 +1007,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private static final double HANDLE_SIZE = 10;
 
   private DragTarget hitTest(double x, double y) {
-    LayoutRects r = computeRects(spec, preview.getWidth(), preview.getHeight(), previewChoiceCount());
+    LayoutRects r = computeRects(spec, preview.getWidth(), preview.getHeight(), previewChoiceCount(), previewScale());
     // Resize handles (bottom-right corners) take priority
     if (isNearCorner(x, y, r.textBox())) return DragTarget.TEXT_BOX_RESIZE;
     if (isNearCorner(x, y, r.choiceBlock())) return DragTarget.CHOICE_RESIZE;
@@ -1046,6 +1051,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private void redraw() {
     double w = Math.max(1, preview.getWidth());
     double h = Math.max(1, preview.getHeight());
+    double scale = previewScale();
     GraphicsContext g = preview.getGraphicsContext2D();
 
     g.setFill(LayoutStudioPalette.CANVAS_BACKGROUND_ALT);
@@ -1059,19 +1065,19 @@ public class DialogueLayoutEditorView extends BorderPane {
     }
 
     int choiceCount = previewChoiceCount();
-    LayoutRects rects = computeRects(spec, w, h, choiceCount);
+    LayoutRects rects = computeRects(spec, w, h, choiceCount, scale);
     ChoicePreviewStyle choiceStyle = resolveChoicePreviewStyle();
-    Font nameFont = resolveNamePreviewFont();
-    Font dialogueFont = resolveDialoguePreviewFont();
-    Font choiceFont = resolveChoicePreviewFont();
+    Font nameFont = resolveNamePreviewFont(scale);
+    Font dialogueFont = resolveDialoguePreviewFont(scale);
+    Font choiceFont = resolveChoicePreviewFont(scale);
     List<BoundsPointCodec.Point> textBoxBounds = parseBoundsPoints(style.textBoxBoundsPoints());
     List<BoundsPointCodec.Point> nameBoxBounds = parseBoundsPoints(style.nameBoxBoundsPoints());
     List<BoundsPointCodec.Point> dialogueBounds = parseBoundsPoints(style.dialogueTextBoundsPoints());
     List<BoundsPointCodec.Point> choiceButtonBounds = parseBoundsPoints(style.choiceButtonBoundsPoints());
 
     // Choice block preview (runtime-like).
-    double choiceHeight = Math.max(12, spec.choiceHeight());
-    double choiceGap = Math.max(0, spec.choiceGap());
+    double choiceHeight = Math.max(12 * scale, spec.choiceHeight() * scale);
+    double choiceGap = Math.max(0, spec.choiceGap() * scale);
     double y = rects.choiceBlock().y();
     for (int i = 0; i < choiceCount; i++) {
       boolean hovered = i == 0;
@@ -1080,6 +1086,7 @@ public class DialogueLayoutEditorView extends BorderPane {
           ? (hovered ? firstNonNull(choiceButtonHoverAssetImage, choiceButtonAssetImage) : choiceButtonAssetImage)
           : firstNonNull(choiceButtonDisabledAssetImage, choiceButtonAssetImage);
       boolean clipChoiceButton = hasPolygon(choiceButtonBounds);
+      double scaledCornerRadius = choiceStyle.cornerRadius() * scale;
       if (buttonImage != null && buttonImage.getWidth() > 1 && buttonImage.getHeight() > 1) {
         if (clipChoiceButton) {
           g.save();
@@ -1106,15 +1113,15 @@ public class DialogueLayoutEditorView extends BorderPane {
               y,
               rects.choiceBlock().w(),
               choiceHeight,
-              choiceStyle.cornerRadius(),
-              choiceStyle.cornerRadius());
+              scaledCornerRadius,
+              scaledCornerRadius);
         }
       }
       Color border = !enabled
           ? choiceStyle.disabledBorderColor()
           : (hovered ? choiceStyle.hoverBorderColor() : choiceStyle.borderColor());
       g.setStroke(border);
-      g.setLineWidth(choiceStyle.borderWidth());
+      g.setLineWidth(choiceStyle.borderWidth() * scale);
       if (clipChoiceButton) {
         strokeLocalPolygon(g, choiceButtonBounds, new Rect(rects.choiceBlock().x(), y, rects.choiceBlock().w(), choiceHeight));
       } else {
@@ -1123,8 +1130,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             y,
             rects.choiceBlock().w(),
             choiceHeight,
-            choiceStyle.cornerRadius(),
-            choiceStyle.cornerRadius());
+            scaledCornerRadius,
+            scaledCornerRadius);
       }
       Color textColor = !enabled
           ? choiceStyle.disabledTextColor()
@@ -1134,8 +1141,8 @@ public class DialogueLayoutEditorView extends BorderPane {
       String choiceLabel = i < previewChoiceLabels.size() ? previewChoiceLabels.get(i) : "Choice " + (i + 1);
       g.fillText(
           choiceLabel,
-          rects.choiceBlock().x() + spec.choiceTextXPadding(),
-          y + choiceHeight / 2 + choiceStyle.textBaselineOffset());
+          rects.choiceBlock().x() + spec.choiceTextXPadding() * scale,
+          y + choiceHeight / 2 + choiceStyle.textBaselineOffset() * scale);
       y += choiceHeight + choiceGap;
     }
 
@@ -1173,7 +1180,7 @@ public class DialogueLayoutEditorView extends BorderPane {
 
       g.setFill(RUNTIME_TEXT_COLOR);
       g.setFont(nameFont);
-      g.fillText(previewSpeakerName, rects.nameBox().x() + spec.nameTextXOffset(), rects.nameBox().y() + spec.nameTextBaselineOffset());
+      g.fillText(previewSpeakerName, rects.nameBox().x() + spec.nameTextXOffset() * scale, rects.nameBox().y() + spec.nameTextBaselineOffset() * scale);
     }
 
     String fullText = previewDialogueText();
@@ -1319,22 +1326,25 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.strokeRect(hx, hy, size, size);
   }
 
-  private Font resolveNamePreviewFont() {
+  private Font resolveNamePreviewFont() { return resolveNamePreviewFont(1.0); }
+  private Font resolveNamePreviewFont(double scale) {
     String family = normalizeFontFamily(style.nameTextFontFamily(), DEFAULT_FONT_FAMILY);
     double size = clamp(style.nameTextFontSize() == null ? DEFAULT_NAME_FONT_SIZE : style.nameTextFontSize(), 6, 220);
-    return Font.font(family, FontWeight.BOLD, size);
+    return Font.font(family, FontWeight.BOLD, size * scale);
   }
 
-  private Font resolveDialoguePreviewFont() {
+  private Font resolveDialoguePreviewFont() { return resolveDialoguePreviewFont(1.0); }
+  private Font resolveDialoguePreviewFont(double scale) {
     String family = normalizeFontFamily(style.dialogueTextFontFamily(), DEFAULT_FONT_FAMILY);
     double size = clamp(style.dialogueTextFontSize() == null ? DEFAULT_DIALOGUE_FONT_SIZE : style.dialogueTextFontSize(), 6, 220);
-    return Font.font(family, FontWeight.NORMAL, size);
+    return Font.font(family, FontWeight.NORMAL, size * scale);
   }
 
-  private Font resolveChoicePreviewFont() {
+  private Font resolveChoicePreviewFont() { return resolveChoicePreviewFont(1.0); }
+  private Font resolveChoicePreviewFont(double scale) {
     String family = normalizeFontFamily(style.choiceFontFamily(), DEFAULT_FONT_FAMILY);
     double size = clamp(style.choiceFontSize() == null ? DEFAULT_CHOICE_FONT_SIZE : style.choiceFontSize(), 6, 220);
-    return Font.font(family, FontWeight.NORMAL, size);
+    return Font.font(family, FontWeight.NORMAL, size * scale);
   }
 
   private static String normalizeFontFamily(String raw, String fallback) {
@@ -1363,7 +1373,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.setFont(baseFont);
     double x = startX;
     double y = startY;
-    double lineHeight = 22;
+    double lineHeight = Math.max(12, baseFont.getSize() * 1.35);
     int charCount = 0;
     long animationTime = System.currentTimeMillis();
 
@@ -1485,32 +1495,36 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private LayoutRects computeRects(VnUiLayoutSpec s, double w, double h, int choiceCount) {
+    return computeRects(s, w, h, choiceCount, 1.0);
+  }
+
+  private LayoutRects computeRects(VnUiLayoutSpec s, double w, double h, int choiceCount, double scale) {
     double tbX = clamp(s.textBoxX() * w, 0, w);
     double tbY = clamp(s.textBoxY() * h, 0, h);
     double tbW = clamp(s.textBoxWidth() * w, 1, Math.max(1, w - tbX));
     double tbH = clamp(s.textBoxHeight() * h, 1, Math.max(1, h - tbY));
 
-    double nbX = tbX + s.nameBoxXOffset();
-    double nbY = tbY + s.nameBoxYOffset();
-    double nbW = s.nameBoxWidth();
-    double nbH = s.nameBoxHeight();
+    double nbX = tbX + s.nameBoxXOffset() * scale;
+    double nbY = tbY + s.nameBoxYOffset() * scale;
+    double nbW = s.nameBoxWidth() * scale;
+    double nbH = s.nameBoxHeight() * scale;
 
-    double leftPad = s.dialogueTextHorizontalPadding();
-    double topPad = s.dialogueTextTopPadding();
-    double rightPad = s.dialogueTextRightPadding();
-    double bottomPad = s.dialogueTextBottomPadding();
+    double leftPad = s.dialogueTextHorizontalPadding() * scale;
+    double topPad = s.dialogueTextTopPadding() * scale;
+    double rightPad = s.dialogueTextRightPadding() * scale;
+    double bottomPad = s.dialogueTextBottomPadding() * scale;
     double textX = tbX + leftPad;
     double textY = tbY + topPad;
-    double textW = Math.max(60, tbW - leftPad - rightPad);
-    double textH = Math.max(20, tbH - topPad - bottomPad);
+    double textW = Math.max(60 * scale, tbW - leftPad - rightPad);
+    double textH = Math.max(20 * scale, tbH - topPad - bottomPad);
 
-    double choiceW = clamp(w * s.choiceWidthFactor(), 20, w);
+    double choiceW = clamp(w * s.choiceWidthFactor(), 20 * scale, w);
     double choiceX = clamp(w * s.choiceXCenter() - choiceW / 2, 0, Math.max(0, w - choiceW));
     int count = Math.max(1, choiceCount);
-    double choiceH = Math.max(12, s.choiceHeight());
-    double choiceGap = Math.max(0, s.choiceGap());
+    double choiceH = Math.max(12 * scale, s.choiceHeight() * scale);
+    double choiceGap = Math.max(0, s.choiceGap() * scale);
     double totalChoiceH = count * choiceH + Math.max(0, count - 1) * choiceGap;
-    double choiceStartY = resolveChoiceYStart(s, h, count);
+    double choiceStartY = resolveChoiceYStart(s, h, count, scale);
     choiceStartY = clamp(choiceStartY, 0, Math.max(0, h - totalChoiceH));
 
     return new LayoutRects(
@@ -1566,7 +1580,13 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private double resolveChoiceYStart(VnUiLayoutSpec s, double h, int count) {
-    double total = count * s.choiceHeight() + Math.max(0, count - 1) * s.choiceGap();
+    return resolveChoiceYStart(s, h, count, 1.0);
+  }
+
+  private double resolveChoiceYStart(VnUiLayoutSpec s, double h, int count, double scale) {
+    double choiceH = s.choiceHeight() * scale;
+    double choiceGap = s.choiceGap() * scale;
+    double total = count * choiceH + Math.max(0, count - 1) * choiceGap;
     if (s.choiceYStart() < 0) return (h - total) / 2.0;
     return h * s.choiceYStart();
   }
@@ -2820,6 +2840,13 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private static boolean isLinux() {
     return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
+  }
+
+  private double previewScale() {
+    double viewportW = ProjectViewportSpec.resolve(projectRoot).width();
+    double canvasW = Math.max(1, preview.getWidth());
+    double scale = canvasW / Math.max(1, viewportW);
+    return Double.isFinite(scale) && scale > 0 ? scale : 1.0;
   }
 
   private void updatePreviewSize(StackPane previewPane) {
