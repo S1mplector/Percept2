@@ -10,6 +10,7 @@ import com.jvn.core.ui.BoundsPointCodec;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -32,6 +33,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.Node;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -123,6 +125,9 @@ public class BoundsDrawingTool extends BorderPane {
   private static final double CANVAS_PADDING = 8.0;
   private static final double HANDLE_SIZE = 8.0;
   private static final double SNAP_THRESHOLD = 6.0;
+  private static final double ZOOM_MIN = 0.5;
+  private static final double ZOOM_MAX = 6.0;
+  private static final double ZOOM_STEP = 1.2;
   private static final Color[] BOUND_COLORS = {
       Color.rgb(110, 170, 255, 0.85),
       Color.rgb(255, 170, 110, 0.85),
@@ -138,6 +143,7 @@ public class BoundsDrawingTool extends BorderPane {
   // ── UI components ──
   private final Canvas canvas = new Canvas(600, 400);
   private final StackPane canvasHost = new StackPane(canvas);
+  private final ScrollPane canvasScroll = new ScrollPane(canvasHost);
   private final ListView<BoundEntry> boundsList = new ListView<>();
   private final ObservableList<BoundEntry> bounds = FXCollections.observableArrayList();
   private final TextField idField = new TextField();
@@ -148,6 +154,7 @@ public class BoundsDrawingTool extends BorderPane {
   private final TextField hField = new TextField();
   private final Label coordsLabel = new Label("—");
   private final Label redrawHintLabel = new Label("Redraw target: none");
+  private final Label zoomLabel = new Label("100%");
   private final ToggleGroup modeGroup = new ToggleGroup();
   private final ToggleButton selectBtn = new ToggleButton();
   private final ToggleButton rectBtn = new ToggleButton();
@@ -159,6 +166,7 @@ public class BoundsDrawingTool extends BorderPane {
   private Double workspaceAspectOverride;
   private int selectedIndex = -1;
   private Integer redrawTargetIndex;
+  private double zoom = 1.0;
   private Consumer<List<BoundEntry>> onBoundsChanged;
   private int nextId = 1;
 
@@ -226,7 +234,18 @@ public class BoundsDrawingTool extends BorderPane {
       emitChange();
     });
 
+    Button zoomOutBtn = iconButton(CssIcon.minus("#9cc7ff"), "Zoom out");
+    zoomOutBtn.setOnAction(e -> adjustZoom(1.0 / ZOOM_STEP));
+    Button zoomInBtn = iconButton(CssIcon.plus("#9cc7ff"), "Zoom in");
+    zoomInBtn.setOnAction(e -> adjustZoom(ZOOM_STEP));
+    Button zoomResetBtn = iconButton(CssIcon.expand("#9cc7ff"), "Reset zoom to fit");
+    zoomResetBtn.setOnAction(e -> setZoom(1.0));
+    zoomLabel.setMinWidth(56);
+    zoomLabel.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px; -fx-text-fill: #a0b0c8;");
+    updateZoomLabel();
+
     HBox toolbar = new HBox(6, selectBtn, rectBtn, pointBtn,
+        zoomOutBtn, zoomInBtn, zoomResetBtn, zoomLabel,
         createSpacer(), makeRectFromNails, makePolyFromNails, duplicateBtn, deleteBtn, clearAllBtn);
     toolbar.setAlignment(Pos.CENTER_LEFT);
     toolbar.setPadding(new Insets(0, 0, 6, 0));
@@ -236,8 +255,11 @@ public class BoundsDrawingTool extends BorderPane {
     StackPane.setAlignment(canvas, Pos.TOP_LEFT);
     canvasHost.getStyleClass().add("layout-studio-preview-host");
     canvasHost.setPadding(new Insets(CANVAS_PADDING));
-    canvasHost.widthProperty().addListener((o, ov, nv) -> resizeCanvas());
-    canvasHost.heightProperty().addListener((o, ov, nv) -> resizeCanvas());
+    canvasScroll.setPannable(true);
+    canvasScroll.setFitToWidth(false);
+    canvasScroll.setFitToHeight(false);
+    canvasScroll.viewportBoundsProperty().addListener((o, ov, nv) -> resizeCanvas());
+    canvasScroll.addEventFilter(ScrollEvent.SCROLL, this::onCanvasScroll);
     canvas.widthProperty().addListener((o, ov, nv) -> redraw());
     canvas.heightProperty().addListener((o, ov, nv) -> redraw());
     canvas.setFocusTraversable(true);
@@ -319,9 +341,10 @@ public class BoundsDrawingTool extends BorderPane {
     sideScroll.getStyleClass().add("layout-studio-controls-pane");
 
     setTop(toolbar);
-    setCenter(canvasHost);
+    setCenter(canvasScroll);
     setRight(sideScroll);
     updateRedrawHint();
+    resizeCanvas();
   }
 
   // ── Public API ──
@@ -570,6 +593,23 @@ public class BoundsDrawingTool extends BorderPane {
       duplicateSelected();
       e.consume();
       return;
+    }
+    if (e.isControlDown() || e.isMetaDown()) {
+      if (code == KeyCode.EQUALS || code == KeyCode.PLUS) {
+        adjustZoom(ZOOM_STEP);
+        e.consume();
+        return;
+      }
+      if (code == KeyCode.MINUS) {
+        adjustZoom(1.0 / ZOOM_STEP);
+        e.consume();
+        return;
+      }
+      if (code == KeyCode.DIGIT0 || code == KeyCode.NUMPAD0) {
+        setZoom(1.0);
+        e.consume();
+        return;
+      }
     }
     if (!(code == KeyCode.LEFT || code == KeyCode.RIGHT || code == KeyCode.UP || code == KeyCode.DOWN)) return;
     if (selectedIndex < 0 || selectedIndex >= bounds.size()) return;
@@ -1187,11 +1227,51 @@ public class BoundsDrawingTool extends BorderPane {
     redraw();
   }
 
+  private void onCanvasScroll(ScrollEvent event) {
+    if (event == null) return;
+    if (!(event.isControlDown() || event.isMetaDown())) return;
+    double delta = event.getDeltaY();
+    if (Math.abs(delta) < 0.0001) return;
+    adjustZoom(delta > 0 ? ZOOM_STEP : 1.0 / ZOOM_STEP);
+    event.consume();
+  }
+
+  private void adjustZoom(double factor) {
+    if (!Double.isFinite(factor) || factor <= 0.0) return;
+    setZoom(zoom * factor);
+  }
+
+  private void setZoom(double nextZoom) {
+    double clamped = clamp(nextZoom, ZOOM_MIN, ZOOM_MAX);
+    if (Math.abs(clamped - zoom) < 0.0001) return;
+    zoom = clamped;
+    updateZoomLabel();
+
+    double oldH = canvasScroll.getHvalue();
+    double oldV = canvasScroll.getVvalue();
+    resizeCanvas();
+    canvasScroll.setHvalue(clamp(oldH, 0.0, 1.0));
+    canvasScroll.setVvalue(clamp(oldV, 0.0, 1.0));
+  }
+
+  private void updateZoomLabel() {
+    int pct = (int) Math.round(zoom * 100.0);
+    zoomLabel.setText("Zoom " + pct + "%");
+  }
+
   // ── Canvas sizing ──
 
   private void resizeCanvas() {
-    double availableW = Math.max(1, canvasHost.getWidth() - CANVAS_PADDING * 2);
-    double availableH = Math.max(1, canvasHost.getHeight() - CANVAS_PADDING * 2);
+    Bounds viewport = canvasScroll.getViewportBounds();
+    double viewportW = viewport == null ? canvasHost.getWidth() : viewport.getWidth();
+    double viewportH = viewport == null ? canvasHost.getHeight() : viewport.getHeight();
+    if (viewportW <= 0 || viewportH <= 0) {
+      viewportW = Math.max(viewportW, 600);
+      viewportH = Math.max(viewportH, 400);
+    }
+
+    double availableW = Math.max(1, viewportW - CANVAS_PADDING * 2);
+    double availableH = Math.max(1, viewportH - CANVAS_PADDING * 2);
 
     double aspect = availableW / Math.max(1.0, availableH);
     if (workspaceAspectOverride != null && Double.isFinite(workspaceAspectOverride) && workspaceAspectOverride > 0.0) {
@@ -1209,13 +1289,21 @@ public class BoundsDrawingTool extends BorderPane {
       h = availableH;
       w = h * aspect;
     }
-    w = Math.max(1, w);
-    h = Math.max(1, h);
+    w = Math.max(1, w * zoom);
+    h = Math.max(1, h * zoom);
 
     if (Math.abs(canvas.getWidth() - w) >= 0.5) canvas.setWidth(w);
     if (Math.abs(canvas.getHeight() - h) >= 0.5) canvas.setHeight(h);
-    canvas.setLayoutX(CANVAS_PADDING + (availableW - w) * 0.5);
-    canvas.setLayoutY(CANVAS_PADDING + (availableH - h) * 0.5);
+
+    double hostW = Math.max(viewportW, w + CANVAS_PADDING * 2);
+    double hostH = Math.max(viewportH, h + CANVAS_PADDING * 2);
+    if (Math.abs(canvasHost.getMinWidth() - hostW) >= 0.5) canvasHost.setMinWidth(hostW);
+    if (Math.abs(canvasHost.getMinHeight() - hostH) >= 0.5) canvasHost.setMinHeight(hostH);
+    if (Math.abs(canvasHost.getPrefWidth() - hostW) >= 0.5) canvasHost.setPrefWidth(hostW);
+    if (Math.abs(canvasHost.getPrefHeight() - hostH) >= 0.5) canvasHost.setPrefHeight(hostH);
+
+    canvas.setLayoutX((hostW - w) * 0.5);
+    canvas.setLayoutY((hostH - h) * 0.5);
   }
 
   private double canvasW() { return Math.max(1, canvas.getWidth()); }
