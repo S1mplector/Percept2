@@ -294,10 +294,20 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/scripting/vns/vns-parsing.md` — parser internals
 - `docs/scripting/vns/java-jes-cross-development.md` — hybrid architecture
 
-### JES Scripting
-- `docs/scripting/jes/jes-scripting.md`
-- `docs/scripting/jes/jes-parsing.md`
-- `docs/scripting/jes/components.md`
+### JES Scripting (12 sub-documents)
+- `docs/scripting/jes/jes-scripting.md` — overview, quick start, quick reference
+- `docs/scripting/jes/jes-scenes-entities.md` — scene structure, entity declarations, lifecycle, merging
+- `docs/scripting/jes/components.md` — all 12 component types with properties
+- `docs/scripting/jes/jes-timeline.md` — 22 timeline actions: move, rotate, scale, fade, camera, audio, combat
+- `docs/scripting/jes/jes-input.md` — keyboard mappings, continuous movement, custom handlers
+- `docs/scripting/jes/jes-camera.md` — position, zoom, shake, follow, dead zones, parallax
+- `docs/scripting/jes/jes-physics.md` — rigid bodies, sensors, triggers, restitution, raycasting
+- `docs/scripting/jes/jes-tilemaps.md` — tilesets, collision/trigger layers, pathfinding
+- `docs/scripting/jes/jes-ai.md` — chase, patrol, guard, flee, line-of-sight, A* pathfinding
+- `docs/scripting/jes/jes-rpg.md` — Stats, Inventory, Equipment, Items, damage/heal
+- `docs/scripting/jes/jes-ui-widgets.md` — Button2D, Slider2D, HUD patterns
+- `docs/scripting/jes/jes-bridge.md` — VNS↔JES bridge, call handlers, Java hooks
+- `docs/scripting/jes/jes-parsing.md` — tokenizer, parser, AST, validation
 
 ### Timeline
 - `docs/scripting/timeline/timeline-scripting.md`

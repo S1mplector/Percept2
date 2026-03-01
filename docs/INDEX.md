@@ -43,9 +43,19 @@ Complete documentation for the Java Vector Nexus engine.
 
 ## JES Scripting (Engine Script)
 
-- [JES Overview](scripting/jes/jes-scripting.md) — language guide and quick start
-- [JES Parsing Internals](scripting/jes/jes-parsing.md) — tokenizer, parser, strict validation
-- [Component Reference](scripting/jes/components.md) — per-component property maps
+- [JES Overview](scripting/jes/jes-scripting.md) — landing page, quick start, quick reference tables
+- [Scenes & Entities](scripting/jes/jes-scenes-entities.md) — scene structure, entity declarations, lifecycle, merging, save/load
+- [Component Reference](scripting/jes/components.md) — all 12 component types with full property tables
+- [Timeline & Actions](scripting/jes/jes-timeline.md) — 22 timeline actions: move, rotate, scale, fade, camera, audio, combat, parallel, loop, labels
+- [Input Bindings](scripting/jes/jes-input.md) — keyboard mappings, built-in actions, continuous movement, custom handlers
+- [Camera System](scripting/jes/jes-camera.md) — position, zoom, shake, follow with dead zones, parallax scrolling
+- [Physics & Collision](scripting/jes/jes-physics.md) — rigid bodies, circles, boxes, sensors, triggers, restitution
+- [Tilemaps & Maps](scripting/jes/jes-tilemaps.md) — tilesets, tile layers, collision layers, trigger layers, pathfinding
+- [AI System](scripting/jes/jes-ai.md) — chase, patrol, guard, flee, line-of-sight, A* pathfinding
+- [RPG Stats & Combat](scripting/jes/jes-rpg.md) — Stats, Inventory, Equipment, Items, damage/heal, death callbacks
+- [UI Widgets](scripting/jes/jes-ui-widgets.md) — Button2D, Slider2D, HUD patterns
+- [VN Bridge & Java Hooks](scripting/jes/jes-bridge.md) — call handlers, VNS↔JES scene stack, return data, launch properties
+- [Parsing Internals](scripting/jes/jes-parsing.md) — tokenizer, parser, AST, strict validation
 
 ---
 
