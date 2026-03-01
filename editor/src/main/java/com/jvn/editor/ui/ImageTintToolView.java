@@ -46,6 +46,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.text.TextAlignment;
 
 /**
@@ -809,8 +810,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     for (Image layer : layers) {
       gc.drawImage(layer, 0, 0);
     }
+    SnapshotParameters snapshotParameters = new SnapshotParameters();
+    snapshotParameters.setFill(Color.TRANSPARENT);
     WritableImage out = new WritableImage(width, height);
-    canvas.snapshot(null, out);
+    canvas.snapshot(snapshotParameters, out);
     return out;
   }
 

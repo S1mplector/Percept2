@@ -105,6 +105,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   };
 
   private final Canvas preview = new Canvas(920, 430);
+  private StackPane previewPaneHost;
   private final Properties rawProperties = new Properties();
   private VnUiLayoutSpec spec = VnUiLayoutSpec.defaults();
   private VnUiStyleSpec style = VnUiStyleSpec.defaults();
@@ -217,11 +218,11 @@ public class DialogueLayoutEditorView extends BorderPane {
     setPadding(new Insets(8));
 
     preview.setManaged(false);
-    StackPane previewPane = new StackPane(preview);
+    previewPaneHost = new StackPane(preview);
     StackPane.setAlignment(preview, Pos.TOP_LEFT);
-    previewPane.getStyleClass().add("layout-studio-preview-host");
-    previewPane.setPadding(new Insets(PREVIEW_PADDING));
-    setCenter(previewPane);
+    previewPaneHost.getStyleClass().add("layout-studio-preview-host");
+    previewPaneHost.setPadding(new Insets(PREVIEW_PADDING));
+    setCenter(previewPaneHost);
 
     ScrollPane controls = new ScrollPane(buildControls());
     controls.setFitToWidth(true);
@@ -229,14 +230,14 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.getStyleClass().add("layout-studio-controls-pane");
     setRight(controls);
 
-    previewPane.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
-    previewPane.heightProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
+    previewPaneHost.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPaneHost));
+    previewPaneHost.heightProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPaneHost));
     preview.widthProperty().addListener((o, ov, nv) -> redraw());
     preview.heightProperty().addListener((o, ov, nv) -> redraw());
 
     registerPreviewDrag();
     registerControlListeners();
-    updatePreviewSize(previewPane);
+    updatePreviewSize(previewPaneHost);
     validateState();
     redraw();
   }
@@ -250,6 +251,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     previewAssetCache.clear();
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
+    updatePreviewSize(previewPaneHost);
     validateState();
     redraw();
   }
@@ -1487,12 +1489,14 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private void openTextBoxBoundsStudio() {
+    ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
     openStyleBoundsStudio(
         "Textbox Bounds Studio",
         "textbox",
         "Textbox",
         style.textBoxBoundsPoints(),
         textBoxAssetImage,
+        computeTextBoxWorkspaceAspect(viewport),
         encodedPoints -> style = withBoundsPoints(
             encodedPoints,
             style.nameBoxBoundsPoints(),
@@ -1503,6 +1507,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private void openNameBoxBoundsStudio() {
+    ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
     Image nameBoxAsset = loadImageAsset(style.nameBoxAssetPath());
     openStyleBoundsStudio(
         "Name Box Bounds Studio",
@@ -1510,6 +1515,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         "Name Box",
         style.nameBoxBoundsPoints(),
         firstNonNull(nameBoxAsset, textBoxAssetImage),
+        computeNameBoxWorkspaceAspect(viewport),
         encodedPoints -> style = withBoundsPoints(
             style.textBoxBoundsPoints(),
             encodedPoints,
@@ -1520,12 +1526,14 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private void openDialogueTextBoundsStudio() {
+    ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
     openStyleBoundsStudio(
         "Dialogue Text Bounds Studio",
         "dialogue_text",
         "Dialogue Text",
         style.dialogueTextBoundsPoints(),
         textBoxAssetImage,
+        computeDialogueTextWorkspaceAspect(viewport),
         encodedPoints -> style = withBoundsPoints(
             style.textBoxBoundsPoints(),
             style.nameBoxBoundsPoints(),
@@ -1536,12 +1544,14 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private void openChoiceButtonBoundsStudio() {
+    ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
     openStyleBoundsStudio(
         "Choice Button Bounds Studio",
         "choice_button",
         "Choice Button",
         style.choiceButtonBoundsPoints(),
         firstNonNull(choiceButtonAssetImage, choiceButtonHoverAssetImage),
+        computeChoiceButtonWorkspaceAspect(viewport),
         encodedPoints -> style = withBoundsPoints(
             style.textBoxBoundsPoints(),
             style.nameBoxBoundsPoints(),
@@ -1557,9 +1567,11 @@ public class DialogueLayoutEditorView extends BorderPane {
       String label,
       String boundsPoints,
       Image background,
+      double workspaceAspect,
       Consumer<String> onApply
   ) {
     BoundsDrawingTool tool = new BoundsDrawingTool();
+    tool.setWorkspaceAspect(workspaceAspect);
     if (background != null && background.getWidth() > 1) tool.setBackgroundImage(background);
 
     tool.setBounds(List.of(new BoundsDrawingTool.BoundEntry(
@@ -1614,6 +1626,43 @@ public class DialogueLayoutEditorView extends BorderPane {
       dialog.setMaximized(true);
     }
     dialog.show();
+  }
+
+  private static double safeAspect(double candidate, double fallback) {
+    if (Double.isFinite(candidate) && candidate > 0.0) return candidate;
+    if (Double.isFinite(fallback) && fallback > 0.0) return fallback;
+    return 16.0 / 9.0;
+  }
+
+  private double computeTextBoxWorkspaceAspect(ProjectViewportSpec.Dimensions viewport) {
+    double vw = Math.max(1.0, viewport.width());
+    double vh = Math.max(1.0, viewport.height());
+    double tbW = Math.max(1.0, spec.textBoxWidth() * vw);
+    double tbH = Math.max(1.0, spec.textBoxHeight() * vh);
+    return safeAspect(tbW / tbH, viewport.aspect());
+  }
+
+  private double computeNameBoxWorkspaceAspect(ProjectViewportSpec.Dimensions viewport) {
+    double nbW = Math.max(1.0, spec.nameBoxWidth());
+    double nbH = Math.max(1.0, spec.nameBoxHeight());
+    return safeAspect(nbW / nbH, viewport.aspect());
+  }
+
+  private double computeDialogueTextWorkspaceAspect(ProjectViewportSpec.Dimensions viewport) {
+    double vw = Math.max(1.0, viewport.width());
+    double vh = Math.max(1.0, viewport.height());
+    double tbW = Math.max(1.0, spec.textBoxWidth() * vw);
+    double tbH = Math.max(1.0, spec.textBoxHeight() * vh);
+    double textW = Math.max(40.0, tbW - spec.dialogueTextHorizontalPadding() - spec.dialogueTextRightPadding());
+    double textH = Math.max(20.0, tbH - spec.dialogueTextTopPadding() - spec.dialogueTextBottomPadding());
+    return safeAspect(textW / textH, computeTextBoxWorkspaceAspect(viewport));
+  }
+
+  private double computeChoiceButtonWorkspaceAspect(ProjectViewportSpec.Dimensions viewport) {
+    double vw = Math.max(1.0, viewport.width());
+    double choiceW = clamp(vw * spec.choiceWidthFactor(), 20.0, vw);
+    double choiceH = Math.max(8.0, spec.choiceHeight());
+    return safeAspect(choiceW / choiceH, viewport.aspect());
   }
 
   private String encodeLocalPoints(List<BoundsPointCodec.Point> points) {
@@ -1673,6 +1722,8 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private void openTextBoxButtonBoundsStudio() {
     BoundsDrawingTool tool = new BoundsDrawingTool();
+    ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
+    tool.setWorkspaceAspect(computeTextBoxWorkspaceAspect(viewport));
 
     // Use textbox asset as background if available
     if (textBoxAssetImage != null && textBoxAssetImage.getWidth() > 1) {
@@ -2302,12 +2353,21 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private void updatePreviewSize(StackPane previewPane) {
     if (previewPane == null) return;
-    double w = sanitizeCanvasDimension(previewPane.getWidth() - PREVIEW_PADDING * 2.0);
-    double h = sanitizeCanvasDimension(previewPane.getHeight() - PREVIEW_PADDING * 2.0);
+    double availableW = sanitizeCanvasDimension(previewPane.getWidth() - PREVIEW_PADDING * 2.0);
+    double availableH = sanitizeCanvasDimension(previewPane.getHeight() - PREVIEW_PADDING * 2.0);
+    double aspect = ProjectViewportSpec.resolve(projectRoot).aspect();
+    double w = availableW;
+    double h = w / Math.max(0.0001, aspect);
+    if (h > availableH) {
+      h = availableH;
+      w = h * aspect;
+    }
     if (Math.abs(preview.getWidth() - w) >= 0.5) preview.setWidth(w);
     if (Math.abs(preview.getHeight() - h) >= 0.5) preview.setHeight(h);
-    if (Math.abs(preview.getLayoutX() - PREVIEW_PADDING) >= 0.5) preview.setLayoutX(PREVIEW_PADDING);
-    if (Math.abs(preview.getLayoutY() - PREVIEW_PADDING) >= 0.5) preview.setLayoutY(PREVIEW_PADDING);
+    double x = PREVIEW_PADDING + (availableW - w) * 0.5;
+    double y = PREVIEW_PADDING + (availableH - h) * 0.5;
+    if (Math.abs(preview.getLayoutX() - x) >= 0.5) preview.setLayoutX(x);
+    if (Math.abs(preview.getLayoutY() - y) >= 0.5) preview.setLayoutY(y);
   }
 
   private static double sanitizeCanvasDimension(double value) {

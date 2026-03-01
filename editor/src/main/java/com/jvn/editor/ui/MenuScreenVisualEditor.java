@@ -88,6 +88,7 @@ public class MenuScreenVisualEditor extends BorderPane {
   private final TableView<MenuItemRow> table = new TableView<>();
   private final ObservableList<MenuItemRow> rows = FXCollections.observableArrayList();
   private final Canvas preview = new Canvas(520, 320);
+  private javafx.scene.layout.StackPane previewHost;
   private final java.util.Map<String, Image> imageCache = new LinkedHashMap<>();
 
   private final Properties topLevelExtras = new Properties();
@@ -159,6 +160,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     this.projectRoot = root;
     imageCache.clear();
     refreshSuggestions();
+    updatePreviewSize();
     validateState();
     redrawPreview();
   }
@@ -337,18 +339,12 @@ public class MenuScreenVisualEditor extends BorderPane {
     preview.heightProperty().addListener((o, ov, nv) -> redrawPreview());
     preview.setFocusTraversable(true);
     installPreviewInteractions();
-    javafx.scene.layout.StackPane previewHost = new javafx.scene.layout.StackPane(preview);
+    previewHost = new javafx.scene.layout.StackPane(preview);
     previewHost.getStyleClass().add("layout-studio-preview-host");
     previewHost.setPadding(new Insets(8));
     preview.setManaged(false);
-    previewHost.widthProperty().addListener((o, ov, nv) -> {
-      double pw = Math.max(1, nv.doubleValue() - 16);
-      if (Math.abs(preview.getWidth() - pw) >= 0.5) preview.setWidth(pw);
-    });
-    previewHost.heightProperty().addListener((o, ov, nv) -> {
-      double ph = Math.max(1, nv.doubleValue() - 16);
-      if (Math.abs(preview.getHeight() - ph) >= 0.5) preview.setHeight(ph);
-    });
+    previewHost.widthProperty().addListener((o, ov, nv) -> updatePreviewSize());
+    previewHost.heightProperty().addListener((o, ov, nv) -> updatePreviewSize());
 
     ScrollPane inspPane = buildItemInspector();
 
@@ -356,6 +352,26 @@ public class MenuScreenVisualEditor extends BorderPane {
     split.setDividerPositions(0.30, 0.65);
     SplitPane.setResizableWithParent(inspPane, false);
     setCenter(split);
+    updatePreviewSize();
+  }
+
+  private void updatePreviewSize() {
+    if (previewHost == null) return;
+    double availableW = Math.max(1.0, previewHost.getWidth() - 16.0);
+    double availableH = Math.max(1.0, previewHost.getHeight() - 16.0);
+    double aspect = ProjectViewportSpec.resolve(projectRoot).aspect();
+    double w = availableW;
+    double h = w / Math.max(0.0001, aspect);
+    if (h > availableH) {
+      h = availableH;
+      w = h * aspect;
+    }
+    if (Math.abs(preview.getWidth() - w) >= 0.5) preview.setWidth(w);
+    if (Math.abs(preview.getHeight() - h) >= 0.5) preview.setHeight(h);
+    double x = 8.0 + (availableW - w) * 0.5;
+    double y = 8.0 + (availableH - h) * 0.5;
+    if (Math.abs(preview.getLayoutX() - x) >= 0.5) preview.setLayoutX(x);
+    if (Math.abs(preview.getLayoutY() - y) >= 0.5) preview.setLayoutY(y);
   }
 
   private void buildColumns() {
@@ -1565,6 +1581,7 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void openBoundsStudio() {
     BoundsDrawingTool tool = new BoundsDrawingTool();
+    tool.setWorkspaceAspect(ProjectViewportSpec.resolve(projectRoot).aspect());
 
     // Load background asset from the first item that has a bgAsset, or the screen bg
     if (projectRoot != null) {

@@ -55,6 +55,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
   };
 
   private final Canvas preview = new Canvas(900, 410);
+  private StackPane previewPaneHost;
+  private java.io.File projectRoot;
   private final Properties rawProperties = new Properties();
   private MenuLayoutSpec spec = MenuLayoutSpecDefaults.DEFAULT;
   private Consumer<String> onLayoutTextChanged;
@@ -95,11 +97,11 @@ public class MenuLayoutVisualEditor extends BorderPane {
     setPadding(new Insets(8));
 
     preview.setManaged(false);
-    StackPane previewPane = new StackPane(preview);
+    previewPaneHost = new StackPane(preview);
     StackPane.setAlignment(preview, Pos.TOP_LEFT);
-    previewPane.getStyleClass().add("layout-studio-preview-host");
-    previewPane.setPadding(new Insets(PREVIEW_PADDING));
-    setCenter(previewPane);
+    previewPaneHost.getStyleClass().add("layout-studio-preview-host");
+    previewPaneHost.setPadding(new Insets(PREVIEW_PADDING));
+    setCenter(previewPaneHost);
 
     ScrollPane controls = new ScrollPane(buildControls());
     controls.setFitToWidth(true);
@@ -107,21 +109,22 @@ public class MenuLayoutVisualEditor extends BorderPane {
     controls.getStyleClass().add("layout-studio-controls-pane");
     setRight(controls);
 
-    previewPane.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
-    previewPane.heightProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
+    previewPaneHost.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPaneHost));
+    previewPaneHost.heightProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPaneHost));
     preview.widthProperty().addListener((o, ov, nv) -> redraw());
     preview.heightProperty().addListener((o, ov, nv) -> redraw());
 
     registerPreviewDrag();
     registerListeners();
-    updatePreviewSize(previewPane);
+    updatePreviewSize(previewPaneHost);
     refreshValidation();
     redraw();
   }
 
   public void setProjectRoot(java.io.File root) {
-    // Layout editor doesn't currently load assets, but kept for API consistency
-    // and future expansion (e.g., background image preview).
+    this.projectRoot = root;
+    updatePreviewSize(previewPaneHost);
+    redraw();
   }
 
   public void setOnLayoutTextChanged(Consumer<String> onLayoutTextChanged) {
@@ -734,12 +737,21 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
   private void updatePreviewSize(StackPane previewPane) {
     if (previewPane == null) return;
-    double w = sanitizeCanvasDimension(previewPane.getWidth() - PREVIEW_PADDING * 2.0);
-    double h = sanitizeCanvasDimension(previewPane.getHeight() - PREVIEW_PADDING * 2.0);
+    double availableW = sanitizeCanvasDimension(previewPane.getWidth() - PREVIEW_PADDING * 2.0);
+    double availableH = sanitizeCanvasDimension(previewPane.getHeight() - PREVIEW_PADDING * 2.0);
+    double aspect = ProjectViewportSpec.resolve(projectRoot).aspect();
+    double w = availableW;
+    double h = w / Math.max(0.0001, aspect);
+    if (h > availableH) {
+      h = availableH;
+      w = h * aspect;
+    }
     if (Math.abs(preview.getWidth() - w) >= 0.5) preview.setWidth(w);
     if (Math.abs(preview.getHeight() - h) >= 0.5) preview.setHeight(h);
-    if (Math.abs(preview.getLayoutX() - PREVIEW_PADDING) >= 0.5) preview.setLayoutX(PREVIEW_PADDING);
-    if (Math.abs(preview.getLayoutY() - PREVIEW_PADDING) >= 0.5) preview.setLayoutY(PREVIEW_PADDING);
+    double x = PREVIEW_PADDING + (availableW - w) * 0.5;
+    double y = PREVIEW_PADDING + (availableH - h) * 0.5;
+    if (Math.abs(preview.getLayoutX() - x) >= 0.5) preview.setLayoutX(x);
+    if (Math.abs(preview.getLayoutY() - y) >= 0.5) preview.setLayoutY(y);
   }
 
   private static double sanitizeCanvasDimension(double value) {

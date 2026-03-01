@@ -37,6 +37,7 @@ public class UnifiedMenuEditor extends BorderPane {
 
   private File projectRoot;
   private final Canvas combinedPreview = new Canvas(640, 400);
+  private StackPane combinedPreviewHost;
 
   public UnifiedMenuEditor() {
     setPadding(new Insets(0));
@@ -51,21 +52,15 @@ public class UnifiedMenuEditor extends BorderPane {
     screenTab.setClosable(false);
 
     combinedPreview.setManaged(false);
-    StackPane previewHost = new StackPane(combinedPreview);
+    combinedPreviewHost = new StackPane(combinedPreview);
     StackPane.setAlignment(combinedPreview, Pos.TOP_LEFT);
-    previewHost.setPadding(new Insets(8));
-    previewHost.setStyle("-fx-background-color: #121212;");
-    previewHost.widthProperty().addListener((o, ov, nv) -> {
-      double pw = Math.max(1, nv.doubleValue() - 16);
-      if (Math.abs(combinedPreview.getWidth() - pw) >= 0.5) combinedPreview.setWidth(pw);
-    });
-    previewHost.heightProperty().addListener((o, ov, nv) -> {
-      double ph = Math.max(1, nv.doubleValue() - 16);
-      if (Math.abs(combinedPreview.getHeight() - ph) >= 0.5) combinedPreview.setHeight(ph);
-    });
+    combinedPreviewHost.setPadding(new Insets(8));
+    combinedPreviewHost.setStyle("-fx-background-color: #121212;");
+    combinedPreviewHost.widthProperty().addListener((o, ov, nv) -> updateCombinedPreviewSize());
+    combinedPreviewHost.heightProperty().addListener((o, ov, nv) -> updateCombinedPreviewSize());
     combinedPreview.widthProperty().addListener((o, ov, nv) -> redrawCombinedPreview());
     combinedPreview.heightProperty().addListener((o, ov, nv) -> redrawCombinedPreview());
-    Tab previewTab = new Tab("Combined Preview", previewHost);
+    Tab previewTab = new Tab("Combined Preview", combinedPreviewHost);
     previewTab.setClosable(false);
 
     editorTabs.getTabs().addAll(layoutTab, styleTab, screenTab, previewTab);
@@ -84,6 +79,7 @@ public class UnifiedMenuEditor extends BorderPane {
     setCenter(editorTabs);
 
     setupSync();
+    updateCombinedPreviewSize();
   }
 
   private void setupSync() {
@@ -216,11 +212,32 @@ public class UnifiedMenuEditor extends BorderPane {
     try { return Color.web(s.trim()); } catch (Exception e) { return fallback; }
   }
 
+  private void updateCombinedPreviewSize() {
+    if (combinedPreviewHost == null) return;
+    double availableW = Math.max(1.0, combinedPreviewHost.getWidth() - 16.0);
+    double availableH = Math.max(1.0, combinedPreviewHost.getHeight() - 16.0);
+    double aspect = ProjectViewportSpec.resolve(projectRoot).aspect();
+    double w = availableW;
+    double h = w / Math.max(0.0001, aspect);
+    if (h > availableH) {
+      h = availableH;
+      w = h * aspect;
+    }
+    if (Math.abs(combinedPreview.getWidth() - w) >= 0.5) combinedPreview.setWidth(w);
+    if (Math.abs(combinedPreview.getHeight() - h) >= 0.5) combinedPreview.setHeight(h);
+    double x = 8.0 + (availableW - w) * 0.5;
+    double y = 8.0 + (availableH - h) * 0.5;
+    if (Math.abs(combinedPreview.getLayoutX() - x) >= 0.5) combinedPreview.setLayoutX(x);
+    if (Math.abs(combinedPreview.getLayoutY() - y) >= 0.5) combinedPreview.setLayoutY(y);
+  }
+
   public void setProjectRoot(File root) {
     this.projectRoot = root;
     layoutEditor.setProjectRoot(root);
     styleEditor.setProjectRoot(root);
     screenEditor.setProjectRoot(root);
+    updateCombinedPreviewSize();
+    redrawCombinedPreview();
   }
 
   public void setLayoutText(String text) {

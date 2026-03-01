@@ -63,6 +63,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   };
 
   private final Canvas preview = new Canvas(860, 350);
+  private StackPane previewPaneHost;
   private final TextField tfItemColor = new TextField("#D3D3D3");
   private final TextField tfItemSelectedColor = new TextField("#FFFF00");
   private final TextField tfItemHoverColor = new TextField();
@@ -144,11 +145,11 @@ public class MenuStyleVisualEditor extends BorderPane {
     tfButtonHoverAsset.setPromptText("assets/ui/menu/button_hover.png");
 
     preview.setManaged(false);
-    StackPane previewPane = new StackPane(preview);
+    previewPaneHost = new StackPane(preview);
     StackPane.setAlignment(preview, Pos.TOP_LEFT);
-    previewPane.getStyleClass().add("layout-studio-preview-host");
-    previewPane.setPadding(new Insets(8));
-    setCenter(previewPane);
+    previewPaneHost.getStyleClass().add("layout-studio-preview-host");
+    previewPaneHost.setPadding(new Insets(8));
+    setCenter(previewPaneHost);
 
     VBox controlsContent = new VBox(8, buildControls(), buildCustomPropertiesSection());
     ScrollPane controls = new ScrollPane(controlsContent);
@@ -157,13 +158,13 @@ public class MenuStyleVisualEditor extends BorderPane {
     controls.getStyleClass().add("layout-studio-controls-pane");
     setRight(controls);
 
-    previewPane.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
-    previewPane.heightProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPane));
+    previewPaneHost.widthProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPaneHost));
+    previewPaneHost.heightProperty().addListener((o, ov, nv) -> updatePreviewSize(previewPaneHost));
     preview.widthProperty().addListener((o, ov, nv) -> redrawPreview());
     preview.heightProperty().addListener((o, ov, nv) -> redrawPreview());
 
     registerListeners();
-    updatePreviewSize(previewPane);
+    updatePreviewSize(previewPaneHost);
     refreshValidation();
     redrawPreview();
   }
@@ -206,6 +207,7 @@ public class MenuStyleVisualEditor extends BorderPane {
 
   public void setProjectRoot(File projectRoot) {
     this.projectRoot = projectRoot;
+    updatePreviewSize(previewPaneHost);
     loadButtonAssets();
     refreshValidation();
     redrawPreview();
@@ -960,12 +962,21 @@ public class MenuStyleVisualEditor extends BorderPane {
   }
 
   private void updatePreviewSize(StackPane previewPane) {
-    double w = sanitizeCanvasDimension(previewPane.getWidth() - 16.0);
-    double h = sanitizeCanvasDimension(previewPane.getHeight() - 16.0);
+    double availableW = sanitizeCanvasDimension(previewPane.getWidth() - 16.0);
+    double availableH = sanitizeCanvasDimension(previewPane.getHeight() - 16.0);
+    double aspect = ProjectViewportSpec.resolve(projectRoot).aspect();
+    double w = availableW;
+    double h = w / Math.max(0.0001, aspect);
+    if (h > availableH) {
+      h = availableH;
+      w = h * aspect;
+    }
     if (Math.abs(preview.getWidth() - w) >= 0.5) preview.setWidth(w);
     if (Math.abs(preview.getHeight() - h) >= 0.5) preview.setHeight(h);
-    if (Math.abs(preview.getLayoutX() - 8.0) >= 0.5) preview.setLayoutX(8.0);
-    if (Math.abs(preview.getLayoutY() - 8.0) >= 0.5) preview.setLayoutY(8.0);
+    double x = 8.0 + (availableW - w) * 0.5;
+    double y = 8.0 + (availableH - h) * 0.5;
+    if (Math.abs(preview.getLayoutX() - x) >= 0.5) preview.setLayoutX(x);
+    if (Math.abs(preview.getLayoutY() - y) >= 0.5) preview.setLayoutY(y);
   }
 
   private static double sanitizeCanvasDimension(double value) {

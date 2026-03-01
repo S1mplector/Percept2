@@ -16,9 +16,13 @@ import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
@@ -28,6 +32,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.Node;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -142,6 +147,7 @@ public class BoundsDrawingTool extends BorderPane {
   private final TextField wField = new TextField();
   private final TextField hField = new TextField();
   private final Label coordsLabel = new Label("—");
+  private final Label redrawHintLabel = new Label("Redraw target: none");
   private final ToggleGroup modeGroup = new ToggleGroup();
   private final ToggleButton selectBtn = new ToggleButton();
   private final ToggleButton rectBtn = new ToggleButton();
@@ -150,7 +156,9 @@ public class BoundsDrawingTool extends BorderPane {
   // ── State ──
   private Mode mode = Mode.SELECT;
   private Image backgroundImage;
+  private Double workspaceAspectOverride;
   private int selectedIndex = -1;
+  private Integer redrawTargetIndex;
   private Consumer<List<BoundEntry>> onBoundsChanged;
   private int nextId = 1;
 
@@ -208,8 +216,12 @@ public class BoundsDrawingTool extends BorderPane {
     clearAllBtn.setOnAction(e -> {
       bounds.clear();
       selectedIndex = -1;
+      boundsList.getSelectionModel().clearSelection();
+      clearRedrawTarget();
       nailPoints.clear();
       drawing = false;
+      populateFields();
+      refreshListDisplay();
       redraw();
       emitChange();
     });
@@ -244,11 +256,13 @@ public class BoundsDrawingTool extends BorderPane {
         redraw();
       }
     });
+    installBoundsListContextMenu();
 
     idField.setPromptText("id");
     idField.textProperty().addListener((o, ov, nv) -> {
       if (selectedIndex >= 0 && selectedIndex < bounds.size()) {
         bounds.get(selectedIndex).setId(nv);
+        updateRedrawHint();
         refreshListDisplay();
         emitChange();
       }
@@ -257,6 +271,7 @@ public class BoundsDrawingTool extends BorderPane {
     labelField.textProperty().addListener((o, ov, nv) -> {
       if (selectedIndex >= 0 && selectedIndex < bounds.size()) {
         bounds.get(selectedIndex).setLabel(nv);
+        updateRedrawHint();
         refreshListDisplay();
         emitChange();
       }
@@ -271,6 +286,7 @@ public class BoundsDrawingTool extends BorderPane {
     hField.textProperty().addListener((o, ov, nv) -> applyNumericFieldEdits());
 
     coordsLabel.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px; -fx-text-fill: #a0b0c8;");
+    redrawHintLabel.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px; -fx-text-fill: #f0c98a;");
 
     HBox xyRow = new HBox(4, new Label("x"), xField, new Label("y"), yField);
     HBox whRow = new HBox(4, new Label("w"), wField, new Label("h"), hField);
@@ -284,7 +300,8 @@ public class BoundsDrawingTool extends BorderPane {
         new Label("Label:"), labelField,
         xyRow,
         whRow,
-        coordsLabel
+        coordsLabel,
+        redrawHintLabel
     );
     sideFields.setPadding(new Insets(6));
 
@@ -304,12 +321,14 @@ public class BoundsDrawingTool extends BorderPane {
     setTop(toolbar);
     setCenter(canvasHost);
     setRight(sideScroll);
+    updateRedrawHint();
   }
 
   // ── Public API ──
 
   public void setBackgroundImage(Image image) {
     this.backgroundImage = image;
+    resizeCanvas();
     redraw();
   }
 
@@ -323,11 +342,26 @@ public class BoundsDrawingTool extends BorderPane {
     } else {
       this.backgroundImage = null;
     }
+    resizeCanvas();
     redraw();
   }
 
   public void setOnBoundsChanged(Consumer<List<BoundEntry>> callback) {
     this.onBoundsChanged = callback;
+  }
+
+  /**
+   * Optional normalized workspace aspect ratio (width / height).
+   * When set, the canvas keeps this aspect regardless of host size or asset ratio.
+   */
+  public void setWorkspaceAspect(Double aspect) {
+    if (aspect == null || !Double.isFinite(aspect) || aspect <= 0.0) {
+      workspaceAspectOverride = null;
+    } else {
+      workspaceAspectOverride = aspect;
+    }
+    resizeCanvas();
+    redraw();
   }
 
   public List<BoundEntry> getBounds() {
@@ -337,6 +371,7 @@ public class BoundsDrawingTool extends BorderPane {
   public void setBounds(List<BoundEntry> entries) {
     bounds.clear();
     if (entries != null) bounds.addAll(entries);
+    clearRedrawTarget();
     selectedIndex = bounds.isEmpty() ? -1 : 0;
     boundsList.getSelectionModel().select(selectedIndex);
     populateFields();
@@ -485,8 +520,7 @@ public class BoundsDrawingTool extends BorderPane {
       double nw = Math.abs(drawEndX - drawStartX) / cw;
       double nh = Math.abs(drawEndY - drawStartY) / ch;
       if (nw > 0.01 && nh > 0.01) {
-        String id = "button_" + (nextId++);
-        addBound(new BoundEntry(id, null, clamp01(nx), clamp01(ny), clamp(nw, 0.01, 1.0), clamp(nh, 0.01, 1.0)));
+        applyGeneratedBound(clamp01(nx), clamp01(ny), clamp(nw, 0.01, 1.0), clamp(nh, 0.01, 1.0), null);
       }
       redraw();
     }
@@ -650,8 +684,7 @@ public class BoundsDrawingTool extends BorderPane {
     double w = maxX - minX;
     double h = maxY - minY;
     if (w > 0.005 && h > 0.005) {
-      String id = "button_" + (nextId++);
-      addBound(new BoundEntry(id, null, clamp01(minX), clamp01(minY), clamp(w, 0.01, 1.0), clamp(h, 0.01, 1.0)));
+      applyGeneratedBound(clamp01(minX), clamp01(minY), clamp(w, 0.01, 1.0), clamp(h, 0.01, 1.0), null);
     }
     nailPoints.clear();
     redraw();
@@ -680,8 +713,7 @@ public class BoundsDrawingTool extends BorderPane {
       double ly = clamp01((pt[1] - minY) / h);
       local.add(new BoundsPointCodec.Point(lx, ly));
     }
-    String id = "button_" + (nextId++);
-    addBound(new BoundEntry(id, null, clamp01(minX), clamp01(minY), clamp(w, 0.01, 1.0), clamp(h, 0.01, 1.0), local));
+    applyGeneratedBound(clamp01(minX), clamp01(minY), clamp(w, 0.01, 1.0), clamp(h, 0.01, 1.0), local);
     nailPoints.clear();
     redraw();
   }
@@ -821,6 +853,10 @@ public class BoundsDrawingTool extends BorderPane {
       case POINT_NAIL -> "Point-Nail";
     };
     drawTag(g, 8, 18, modeText);
+    if (isRedrawTargetActive()) {
+      BoundEntry target = bounds.get(redrawTargetIndex);
+      drawTag(g, 8, 38, "Redraw: " + displayLabel(target));
+    }
   }
 
   private void drawBound(GraphicsContext g, BoundEntry b, double cw, double ch, Color color, boolean selected, int index) {
@@ -957,7 +993,9 @@ public class BoundsDrawingTool extends BorderPane {
 
   private void deleteSelected() {
     if (selectedIndex >= 0 && selectedIndex < bounds.size()) {
+      int removedIndex = selectedIndex;
       bounds.remove(selectedIndex);
+      onBoundRemovedAt(removedIndex);
       selectedIndex = Math.min(selectedIndex, bounds.size() - 1);
       if (selectedIndex >= 0) boundsList.getSelectionModel().select(selectedIndex);
       else boundsList.getSelectionModel().clearSelection();
@@ -986,8 +1024,10 @@ public class BoundsDrawingTool extends BorderPane {
         source.getH(),
         source.getLocalPoints()
     );
-    bounds.add(selectedIndex + 1, duplicate);
-    selectedIndex = selectedIndex + 1;
+    int insertIndex = selectedIndex + 1;
+    bounds.add(insertIndex, duplicate);
+    onBoundInsertedAt(insertIndex);
+    selectedIndex = insertIndex;
     boundsList.getSelectionModel().select(selectedIndex);
     populateFields();
     refreshListDisplay();
@@ -995,15 +1035,187 @@ public class BoundsDrawingTool extends BorderPane {
     emitChange();
   }
 
+  private void installBoundsListContextMenu() {
+    MenuItem redrawRectItem = new MenuItem("Edit/Redraw (Rectangle)");
+    redrawRectItem.setOnAction(e -> armRedrawTarget(selectedIndex, Mode.RECTANGLE));
+
+    MenuItem redrawPointItem = new MenuItem("Edit/Redraw (Point-Nail)");
+    redrawPointItem.setOnAction(e -> armRedrawTarget(selectedIndex, Mode.POINT_NAIL));
+
+    MenuItem cancelRedrawItem = new MenuItem("Cancel Redraw Target");
+    cancelRedrawItem.setOnAction(e -> {
+      clearRedrawTarget();
+      redraw();
+    });
+
+    ContextMenu contextMenu = new ContextMenu(
+        redrawRectItem,
+        redrawPointItem,
+        new SeparatorMenuItem(),
+        cancelRedrawItem
+    );
+    contextMenu.setOnShowing(e -> {
+      boolean hasSelection = selectedIndex >= 0 && selectedIndex < bounds.size();
+      redrawRectItem.setDisable(!hasSelection);
+      redrawPointItem.setDisable(!hasSelection);
+      cancelRedrawItem.setDisable(!isRedrawTargetActive());
+    });
+    boundsList.setContextMenu(contextMenu);
+
+    boundsList.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+      if (e.getButton() != MouseButton.SECONDARY) return;
+      Integer index = findListCellIndex(e.getPickResult().getIntersectedNode());
+      if (index == null) return;
+      boundsList.getSelectionModel().select(index);
+    });
+  }
+
+  private Integer findListCellIndex(Node picked) {
+    Node node = picked;
+    while (node != null) {
+      if (node instanceof ListCell<?> cell) {
+        int index = cell.getIndex();
+        if (index >= 0 && index < bounds.size()) return index;
+        return null;
+      }
+      node = node.getParent();
+    }
+    return null;
+  }
+
+  private void armRedrawTarget(int index, Mode drawMode) {
+    if (index < 0 || index >= bounds.size()) return;
+    redrawTargetIndex = index;
+    selectedIndex = index;
+    boundsList.getSelectionModel().select(index);
+    populateFields();
+    updateRedrawHint();
+    activateMode(drawMode);
+    redraw();
+  }
+
+  private void clearRedrawTarget() {
+    redrawTargetIndex = null;
+    updateRedrawHint();
+  }
+
+  private boolean isRedrawTargetActive() {
+    return redrawTargetIndex != null
+        && redrawTargetIndex >= 0
+        && redrawTargetIndex < bounds.size();
+  }
+
+  private void updateRedrawHint() {
+    if (isRedrawTargetActive()) {
+      BoundEntry target = bounds.get(redrawTargetIndex);
+      redrawHintLabel.setText("Redraw target: " + displayLabel(target) + " (draw to replace)");
+    } else {
+      redrawHintLabel.setText("Redraw target: none");
+    }
+  }
+
+  private String displayLabel(BoundEntry entry) {
+    if (entry == null) return "unknown";
+    if (entry.getLabel() != null && !entry.getLabel().isBlank()) return entry.getLabel();
+    if (entry.getId() != null && !entry.getId().isBlank()) return entry.getId();
+    return "unnamed";
+  }
+
+  private void applyGeneratedBound(double x, double y, double w, double h, List<BoundsPointCodec.Point> localPoints) {
+    List<BoundsPointCodec.Point> local = (localPoints == null || localPoints.size() < 3)
+        ? List.of()
+        : List.copyOf(localPoints);
+    if (isRedrawTargetActive()) {
+      BoundEntry target = bounds.get(redrawTargetIndex);
+      target.setX(clamp01(x));
+      target.setY(clamp01(y));
+      target.setW(clamp(w, 0.01, 1.0));
+      target.setH(clamp(h, 0.01, 1.0));
+      target.setLocalPoints(local);
+      selectedIndex = redrawTargetIndex;
+      boundsList.getSelectionModel().select(selectedIndex);
+      clearRedrawTarget();
+      activateMode(Mode.SELECT);
+      populateFields();
+      refreshListDisplay();
+      redraw();
+      emitChange();
+      return;
+    }
+    addBound(new BoundEntry(nextGeneratedId(), null, clamp01(x), clamp01(y), clamp(w, 0.01, 1.0), clamp(h, 0.01, 1.0), local));
+  }
+
+  private String nextGeneratedId() {
+    String id = "button_" + (nextId++);
+    while (containsId(id)) {
+      id = "button_" + (nextId++);
+    }
+    return id;
+  }
+
+  private void onBoundInsertedAt(int index) {
+    if (redrawTargetIndex == null) return;
+    if (index <= redrawTargetIndex) {
+      redrawTargetIndex = redrawTargetIndex + 1;
+      updateRedrawHint();
+    }
+  }
+
+  private void onBoundRemovedAt(int index) {
+    if (redrawTargetIndex == null) return;
+    if (index == redrawTargetIndex) {
+      redrawTargetIndex = null;
+    } else if (index < redrawTargetIndex) {
+      redrawTargetIndex = redrawTargetIndex - 1;
+    }
+    updateRedrawHint();
+  }
+
+  private void activateMode(Mode nextMode) {
+    ToggleButton target = switch (nextMode) {
+      case SELECT -> selectBtn;
+      case RECTANGLE -> rectBtn;
+      case POINT_NAIL -> pointBtn;
+    };
+    if (modeGroup.getSelectedToggle() != target) {
+      target.setSelected(true);
+      return;
+    }
+    mode = nextMode;
+    nailPoints.clear();
+    drawing = false;
+    redraw();
+  }
+
   // ── Canvas sizing ──
 
   private void resizeCanvas() {
-    double w = Math.max(1, canvasHost.getWidth() - CANVAS_PADDING * 2);
-    double h = Math.max(1, canvasHost.getHeight() - CANVAS_PADDING * 2);
+    double availableW = Math.max(1, canvasHost.getWidth() - CANVAS_PADDING * 2);
+    double availableH = Math.max(1, canvasHost.getHeight() - CANVAS_PADDING * 2);
+
+    double aspect = availableW / Math.max(1.0, availableH);
+    if (workspaceAspectOverride != null && Double.isFinite(workspaceAspectOverride) && workspaceAspectOverride > 0.0) {
+      aspect = workspaceAspectOverride;
+    } else if (backgroundImage != null && backgroundImage.getWidth() > 1 && backgroundImage.getHeight() > 1) {
+      aspect = backgroundImage.getWidth() / backgroundImage.getHeight();
+    }
+    if (!Double.isFinite(aspect) || aspect <= 0.0) {
+      aspect = availableW / Math.max(1.0, availableH);
+    }
+
+    double w = availableW;
+    double h = w / aspect;
+    if (h > availableH) {
+      h = availableH;
+      w = h * aspect;
+    }
+    w = Math.max(1, w);
+    h = Math.max(1, h);
+
     if (Math.abs(canvas.getWidth() - w) >= 0.5) canvas.setWidth(w);
     if (Math.abs(canvas.getHeight() - h) >= 0.5) canvas.setHeight(h);
-    canvas.setLayoutX(CANVAS_PADDING);
-    canvas.setLayoutY(CANVAS_PADDING);
+    canvas.setLayoutX(CANVAS_PADDING + (availableW - w) * 0.5);
+    canvas.setLayoutY(CANVAS_PADDING + (availableH - h) * 0.5);
   }
 
   private double canvasW() { return Math.max(1, canvas.getWidth()); }
