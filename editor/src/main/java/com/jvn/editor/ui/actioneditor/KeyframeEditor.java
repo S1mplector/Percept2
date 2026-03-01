@@ -288,7 +288,7 @@ public class KeyframeEditor extends VBox {
                 sliderValue.setMin(-2000); sliderValue.setMax(2000);
             }
             case PIVOT_X, PIVOT_Y -> {
-                sliderValue.setMin(-1.0); sliderValue.setMax(2.0);
+                sliderValue.setMin(0.0); sliderValue.setMax(1.0);
             }
             case ROTATION -> {
                 sliderValue.setMin(-360); sliderValue.setMax(360);

@@ -181,10 +181,19 @@ public class TimelineRunner {
     }
 
     private static void setPivot(Entity2D entity, double pivotX, double pivotY) {
+        double clampedX = clampPivot(pivotX);
+        double clampedY = clampPivot(pivotY);
         if (entity instanceof Sprite2D s) {
-            s.setOrigin(pivotX, pivotY);
+            s.setOrigin(clampedX, clampedY);
         } else if (entity instanceof CharacterEntity2D c) {
-            c.setOrigin(pivotX, pivotY);
+            c.setOrigin(clampedX, clampedY);
         }
+    }
+
+    private static double clampPivot(double value) {
+        if (!Double.isFinite(value)) return 0.5;
+        if (value < 0.0) return 0.0;
+        if (value > 1.0) return 1.0;
+        return value;
     }
 }

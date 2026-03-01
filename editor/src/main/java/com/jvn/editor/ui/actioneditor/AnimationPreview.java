@@ -22,6 +22,59 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
 public class AnimationPreview extends VBox {
+    private static final double PIVOT_MIN = 0.0;
+    private static final double PIVOT_MAX = 1.0;
+    private static final double TRANSFORM_EPSILON = 1e-6;
+
+    private static final class EntityFrame {
+        final double x;
+        final double y;
+        final double w;
+        final double h;
+        final double originX;
+        final double originY;
+        final double scaleX;
+        final double scaleY;
+        final double rotationRad;
+
+        EntityFrame(double x, double y, double w, double h, double originX, double originY,
+                    double scaleX, double scaleY, double rotationRad) {
+            this.x = x;
+            this.y = y;
+            this.w = Math.max(TRANSFORM_EPSILON, w);
+            this.h = Math.max(TRANSFORM_EPSILON, h);
+            this.originX = originX;
+            this.originY = originY;
+            this.scaleX = normalizeScale(scaleX);
+            this.scaleY = normalizeScale(scaleY);
+            this.rotationRad = rotationRad;
+        }
+    }
+
+    private static final class PivotDragState {
+        final double baseX;
+        final double baseY;
+        final double baseW;
+        final double baseH;
+        final double baseOriginX;
+        final double baseOriginY;
+        final double baseScaleX;
+        final double baseScaleY;
+        final double baseRotationRad;
+
+        PivotDragState(EntityFrame frame) {
+            this.baseX = frame.x;
+            this.baseY = frame.y;
+            this.baseW = frame.w;
+            this.baseH = frame.h;
+            this.baseOriginX = frame.originX;
+            this.baseOriginY = frame.originY;
+            this.baseScaleX = frame.scaleX;
+            this.baseScaleY = frame.scaleY;
+            this.baseRotationRad = frame.rotationRad;
+        }
+    }
+
     private final Canvas canvas;
     private final GraphicsContext gc;
     private final FxBlitter2D blitter;
@@ -39,6 +92,7 @@ public class AnimationPreview extends VBox {
     private boolean draggingPivot = false;
     private boolean draggingOrbit = false;
     private boolean draggingOrbitAnchor = false;
+    private PivotDragState pivotDragState;
     private double dragEntityStartX, dragEntityStartY;
     private double orbitRadius = 0.0;
     private boolean orbitToolEnabled = false;
@@ -101,6 +155,7 @@ public class AnimationPreview extends VBox {
             selectedEntityName = null;
             orbitAnchors.clear();
         }
+        pivotDragState = null;
         render();
     }
 
@@ -243,6 +298,7 @@ public class AnimationPreview extends VBox {
         boolean changed = entity != selectedEntity || !entityName.equals(selectedEntityName);
         selectedEntity = entity;
         selectedEntityName = entityName;
+        pivotDragState = null;
         if (changed) render();
     }
 
@@ -250,6 +306,7 @@ public class AnimationPreview extends VBox {
         boolean changed = selectedEntity != null || selectedEntityName != null;
         selectedEntity = null;
         selectedEntityName = null;
+        pivotDragState = null;
         if (changed) render();
     }
 
@@ -289,9 +346,8 @@ public class AnimationPreview extends VBox {
             String name = entry.getKey();
             Entity2D entity = entry.getValue();
             if (entity == null) continue;
-            double[] bounds = getEntityBounds(entity);
-            if (worldX >= bounds[0] && worldX <= bounds[0] + bounds[2]
-                    && worldY >= bounds[1] && worldY <= bounds[1] + bounds[3]) {
+            double[] corners = getEntityCorners(entity);
+            if (containsPointInQuad(corners, worldX, worldY)) {
                 int layer = project != null
                     ? project.computeEffectiveLayerOrder(name)
                     : (int) Math.round(entity.getZ());
@@ -311,24 +367,85 @@ public class AnimationPreview extends VBox {
         return bestName;
     }
 
-    private double[] getEntityBounds(Entity2D entity) {
-        double x = entity.getX();
-        double y = entity.getY();
-        double w = 40, h = 40; // default fallback size
-        double ox = 0.5, oy = 0.5; // default origin
-
+    private EntityFrame describeEntity(Entity2D entity) {
+        if (entity == null) return null;
+        double w = 40.0;
+        double h = 40.0;
+        double ox = 0.5;
+        double oy = 0.5;
         if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
             w = sprite.getWidth();
             h = sprite.getHeight();
             ox = sprite.getOriginX();
             oy = sprite.getOriginY();
-        } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D charEnt) {
-            w = charEnt.getDrawWidth();
-            h = charEnt.getDrawHeight();
-            ox = charEnt.getOriginX();
-            oy = charEnt.getOriginY();
+        } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D character) {
+            w = character.getDrawWidth();
+            h = character.getDrawHeight();
+            ox = character.getOriginX();
+            oy = character.getOriginY();
         }
-        return new double[]{ x - ox * w, y - oy * h, w, h };
+        return new EntityFrame(
+            entity.getX(),
+            entity.getY(),
+            w,
+            h,
+            ox,
+            oy,
+            entity.getScaleX(),
+            entity.getScaleY(),
+            Math.toRadians(entity.getRotationDeg())
+        );
+    }
+
+    private double[] getEntityCorners(Entity2D entity) {
+        EntityFrame frame = describeEntity(entity);
+        if (frame == null) return new double[0];
+        return computeWorldCorners(frame);
+    }
+
+    private static double[] computeWorldCorners(EntityFrame frame) {
+        double left = -frame.originX * frame.w;
+        double top = -frame.originY * frame.h;
+        double right = left + frame.w;
+        double bottom = top + frame.h;
+
+        double[] corners = new double[8];
+        fillCorner(corners, 0, frame, left, top);
+        fillCorner(corners, 2, frame, right, top);
+        fillCorner(corners, 4, frame, right, bottom);
+        fillCorner(corners, 6, frame, left, bottom);
+        return corners;
+    }
+
+    private static void fillCorner(double[] out, int offset, EntityFrame frame, double localX, double localY) {
+        double sx = localX * frame.scaleX;
+        double sy = localY * frame.scaleY;
+        double cos = Math.cos(frame.rotationRad);
+        double sin = Math.sin(frame.rotationRad);
+        out[offset] = frame.x + sx * cos - sy * sin;
+        out[offset + 1] = frame.y + sx * sin + sy * cos;
+    }
+
+    private static boolean containsPointInQuad(double[] corners, double x, double y) {
+        if (corners == null || corners.length < 8) return false;
+        double sign = 0.0;
+        for (int i = 0; i < 4; i++) {
+            int i0 = i * 2;
+            int i1 = ((i + 1) % 4) * 2;
+            double x0 = corners[i0];
+            double y0 = corners[i0 + 1];
+            double x1 = corners[i1];
+            double y1 = corners[i1 + 1];
+            double cross = (x1 - x0) * (y - y0) - (y1 - y0) * (x - x0);
+            if (Math.abs(cross) <= TRANSFORM_EPSILON) continue;
+            double current = Math.signum(cross);
+            if (sign == 0.0) {
+                sign = current;
+            } else if (current != sign) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private double[] screenToWorld(double screenX, double screenY) {
@@ -422,6 +539,7 @@ public class AnimationPreview extends VBox {
                 }
 
                 if (selectedEntity != null && supportsPivotEntity(selectedEntity) && isNearPivotHandle(e.getX(), e.getY())) {
+                    pivotDragState = buildPivotDragState(selectedEntity);
                     draggingPivot = true;
                     return;
                 }
@@ -448,6 +566,7 @@ public class AnimationPreview extends VBox {
                     selectedEntityName = null;
                     draggingEntity = false;
                     draggingOrbit = false;
+                    pivotDragState = null;
                 }
                 render();
             }
@@ -490,21 +609,33 @@ public class AnimationPreview extends VBox {
                 }
                 render();
             } else if (draggingPivot && selectedEntity != null) {
-                double z = camera.getZoom();
-                if (z <= 0) return;
+                if (pivotDragState == null) {
+                    pivotDragState = buildPivotDragState(selectedEntity);
+                }
+                if (pivotDragState == null) return;
+                double[] world = screenToWorld(e.getX(), e.getY());
+                double worldX = world[0];
+                double worldY = world[1];
 
-                double worldX = camera.getX() + e.getX() / z;
-                double worldY = camera.getY() + e.getY() / z;
-                double[] bounds = getEntityBounds(selectedEntity);
-                double bw = Math.max(1e-6, bounds[2]);
-                double bh = Math.max(1e-6, bounds[3]);
+                double dx = worldX - pivotDragState.baseX;
+                double dy = worldY - pivotDragState.baseY;
+                double cos = Math.cos(pivotDragState.baseRotationRad);
+                double sin = Math.sin(pivotDragState.baseRotationRad);
+                double unrotX = cos * dx + sin * dy;
+                double unrotY = -sin * dx + cos * dy;
+                double localX = unrotX / pivotDragState.baseScaleX;
+                double localY = unrotY / pivotDragState.baseScaleY;
 
-                double pivotX = clampPivot((worldX - bounds[0]) / bw);
-                double pivotY = clampPivot((worldY - bounds[1]) / bh);
+                double pivotX = clampPivot(pivotDragState.baseOriginX + localX / pivotDragState.baseW);
+                double pivotY = clampPivot(pivotDragState.baseOriginY + localY / pivotDragState.baseH);
+                selectedEntity.setPosition(worldX, worldY);
                 setEntityPivot(selectedEntity, pivotX, pivotY);
 
                 if (onEntityPivotChanged != null && selectedEntityName != null) {
                     onEntityPivotChanged.accept(selectedEntityName, new double[]{pivotX, pivotY});
+                }
+                if (onEntityMoved != null && selectedEntityName != null) {
+                    onEntityMoved.accept(selectedEntityName, new double[]{worldX, worldY});
                 }
                 render();
             } else if (draggingEntity && selectedEntity != null) {
@@ -531,22 +662,30 @@ public class AnimationPreview extends VBox {
             draggingPivot = false;
             draggingOrbit = false;
             draggingOrbitAnchor = false;
+            pivotDragState = null;
         });
     }
 
     private void drawSelectionHighlight(Entity2D entity) {
         if (entity == null) return;
         double z = camera.getZoom();
-        double[] bounds = getEntityBounds(entity);
-        double sx = (bounds[0] - camera.getX()) * z;
-        double sy = (bounds[1] - camera.getY()) * z;
-        double sw = bounds[2] * z;
-        double sh = bounds[3] * z;
+        double[] corners = getEntityCorners(entity);
+        if (corners.length < 8) return;
+        double[] sx = new double[4];
+        double[] sy = new double[4];
+        double minSx = Double.POSITIVE_INFINITY;
+        double minSy = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < 4; i++) {
+            sx[i] = (corners[i * 2] - camera.getX()) * z;
+            sy[i] = (corners[i * 2 + 1] - camera.getY()) * z;
+            if (sx[i] < minSx) minSx = sx[i];
+            if (sy[i] < minSy) minSy = sy[i];
+        }
 
         gc.setStroke(Color.web("#f0b673"));
         gc.setLineWidth(2);
         gc.setLineDashes(6, 4);
-        gc.strokeRect(sx - 2, sy - 2, sw + 4, sh + 4);
+        gc.strokePolygon(sx, sy, 4);
         gc.setLineDashes((double[]) null);
 
         if (supportsPivotEntity(entity)) {
@@ -559,7 +698,7 @@ public class AnimationPreview extends VBox {
         if (selectedEntityName != null) {
             gc.setFill(Color.web("#f0b673"));
             gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), 10));
-            gc.fillText(selectedEntityName, sx, sy - 6);
+            gc.fillText(selectedEntityName, minSx, minSy - 6);
         }
     }
 
@@ -616,16 +755,35 @@ public class AnimationPreview extends VBox {
         gc.fillOval(ax - 3, ay - 3, 6, 6);
     }
 
+    private PivotDragState buildPivotDragState(Entity2D entity) {
+        EntityFrame frame = describeEntity(entity);
+        return frame == null ? null : new PivotDragState(frame);
+    }
+
     private void setEntityPivot(Entity2D entity, double pivotX, double pivotY) {
+        double clampedX = clampPivot(pivotX);
+        double clampedY = clampPivot(pivotY);
         if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
-            sprite.setOrigin(pivotX, pivotY);
+            sprite.setOrigin(clampedX, clampedY);
         } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D character) {
-            character.setOrigin(pivotX, pivotY);
+            character.setOrigin(clampedX, clampedY);
         }
     }
 
     private static double clampPivot(double v) {
-        return Math.max(-1.0, Math.min(2.0, v));
+        return clamp(v, PIVOT_MIN, PIVOT_MAX);
+    }
+
+    private static double normalizeScale(double value) {
+        if (Math.abs(value) >= TRANSFORM_EPSILON) return value;
+        return value < 0.0 ? -TRANSFORM_EPSILON : TRANSFORM_EPSILON;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        if (!Double.isFinite(value)) return min;
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
     }
 
     public void fitToContent() {
