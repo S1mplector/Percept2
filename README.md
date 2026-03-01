@@ -309,16 +309,23 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/scripting/jes/jes-bridge.md` — VNS↔JES bridge, call handlers, Java hooks
 - `docs/scripting/jes/jes-parsing.md` — tokenizer, parser, AST, validation
 
-### Timeline
-- `docs/scripting/timeline/timeline-scripting.md`
+### Timeline (3 sub-documents)
+- `docs/scripting/timeline/timeline-scripting.md` — overview, quick start, key concepts
+- `docs/scripting/timeline/timeline-story-arcs.md` — arc/link DSL, clusters, validation, story patterns
+- `docs/scripting/timeline/timeline-animation.md` — TimelineData, keyframes, audio cues, TimelineRunner, registry
 
 ### Runtime
 - `docs/runtime/runtime.md`
 - `docs/runtime/interop.md`
 - `docs/runtime/save-system.md`
 
-### Menu System
-- `docs/menu-profiles/menu-profiles.md`
+### Menu & Layout System (6 sub-documents)
+- `docs/menu-profiles/menu-profiles.md` — overview, registry, loader discovery, action types
+- `docs/menu-profiles/menu-screens.md` — .menu files, items, actions, bounds, slot previews
+- `docs/menu-profiles/menu-layouts.md` — .layout files, list positioning, built-in layouts
+- `docs/menu-profiles/menu-styles.md` — .style files, colors, fonts, button skins, backgrounds
+- `docs/menu-profiles/menu-button-layouts.md` — per-button positional layouts, Bounds Studio
+- `docs/menu-profiles/dialogue-layout.md` — textbox geometry, name box, choices, action buttons
 
 ### Editor
 - `docs/editor/editor.md`

@@ -1,308 +1,209 @@
 # Menu Profiles
 
-Menu profiles are JVN's data-driven menu system for main/load/save/settings/custom menu screens.
+Menu profiles are JVN's data-driven menu system for main/load/save/settings/custom menu screens, plus the dialogue UI layout system. Everything is defined in plain properties files — no code changes needed to customize menus and dialogue presentation.
 
 Core classes:
-- model: `core/src/main/java/com/jvn/core/menu/config/MenuProfile.java`
-- loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
-- validator: `core/src/main/java/com/jvn/core/menu/config/MenuProfileValidator.java`
+- `core/src/main/java/com/jvn/core/menu/config/MenuProfile.java`
+- `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+- `core/src/main/java/com/jvn/core/menu/config/MenuProfileValidator.java`
+- `core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
 
-## Why Use Menu Profiles
+---
 
-They separate menu behavior/presentation from code:
+## Sub-Document Reference
 
-- define screen list and default screen
-- define reusable layouts and styles
-- define per-item actions and targets
-- support inheritance via `extends`
-- keep everything as plain properties files
+### Menu System
+
+- **[Menu Screens](menu-screens.md)** — `.menu` files, item declarations, actions, navigation, bounds, slot previews, inheritance, custom actions
+- **[Menu Layouts](menu-layouts.md)** — `.layout` files, list positioning, line height, text alignment, title placement, built-in layouts
+- **[Menu Styles](menu-styles.md)** — `.style` files, item colors/fonts/shadows, button skins, title/hints styling, backgrounds
+- **[Button Layouts](menu-button-layouts.md)** — per-button positional layouts, explicit bounds, resolution hints, Bounds Studio editor
+
+### Dialogue UI
+
+- **[Dialogue Layout & Style](dialogue-layout.md)** — textbox geometry, name box, dialogue text, choice buttons, textbox action buttons, fonts, colors, character framing
+
+---
 
 ## Directory Structure
 
 ```text
-config/menu/
-|-- registry/menu.registry
-|-- theme/menu.theme
-|-- menus/
-|   |-- main.menu
-|   |-- load.menu
-|   |-- save.menu
-|   `-- settings.menu
-|-- layouts/
-|   `-- default.layout
-`-- styles/
-    `-- default.style
+config/
+├── menu/
+│   ├── registry/menu.registry      # Registry: declares IDs and defaults
+│   ├── menus/
+│   │   ├── main.menu               # Main menu screen
+│   │   ├── load.menu               # Load game screen
+│   │   ├── save.menu               # Save game screen
+│   │   ├── settings.menu           # Settings screen
+│   │   └── extras.menu             # Custom screens
+│   ├── layouts/
+│   │   ├── default.layout          # Default list layout
+│   │   └── slots.layout            # Save/load slot layout
+│   ├── styles/
+│   │   ├── default.style           # Default visual style
+│   │   └── neon.style              # Custom style
+│   └── buttons/
+│       └── main_buttons.properties # Button layout for main menu
+└── ui/
+    └── dialogue.layout             # Dialogue textbox layout + style
 ```
 
-## Loader Discovery Rules
+---
 
-`MenuProfileLoader` loads:
+## Quick Start
 
-1. `menu.registry` (if present)
-2. declared `menus/layouts/styles` IDs from registry
-3. discovered files under config directories
-4. fallback defaults from `MenuProfile.defaults()`
+### 1. Registry
 
-Supported registry path candidates include:
+```properties
+# config/menu/registry/menu.registry
+defaultMenu=main
+menus=main,load,save,settings
+layouts=default,slots
+styles=default
+```
+
+### 2. Screen
+
+```properties
+# config/menu/menus/main.menu
+titleText=My Game
+hintsText=↑↓ Navigate    Enter Select    Esc Quit
+layout=default
+defaultItemStyle=default
+items=start,load,settings,quit
+
+item.start.label=New Game
+item.start.action=run_script:scripts/story/prologue.vns
+
+item.load.label=Load Game
+item.load.action=load_menu
+
+item.settings.label=Settings
+item.settings.action=settings_menu
+
+item.quit.label=Quit
+item.quit.action=quit
+```
+
+### 3. Layout
+
+```properties
+# config/menu/layouts/default.layout
+listYStart=0.34
+lineHeight=68
+listWidthFactor=0.44
+textAlign=center
+hintsBottomMargin=36
+titleY=0.14
+```
+
+### 4. Style
+
+```properties
+# config/menu/styles/default.style
+itemColor=#DCE6F8
+itemSelectedColor=#FFE8A3
+itemDisabledColor=#7D8CA8
+itemSelectedPrefix=▶ 
+itemFontFamily=Segoe UI
+itemFontSize=28
+titleColor=#F2F7FF
+titleFontSize=56
+backgroundAsset=assets/backgrounds/title.png
+```
+
+---
+
+## Loader Discovery
+
+`MenuProfileLoader` loads configuration in this order:
+
+1. **Registry** — `menu.registry` (declares IDs and default screen)
+2. **Declared IDs** — menus/layouts/styles listed in registry
+3. **Discovered files** — auto-discovered from config directories
+4. **Fallback defaults** — built-in `MenuProfile.defaults()`
+
+Registry search paths:
 - `config/menu/registry/menu.registry`
 - `config/menu/menu.registry`
 - `config/menu/registry.properties`
 - `menu.registry`
 
-## `menu.registry` Reference
+---
+
+## Inheritance
+
+All three file types support `extends=<parentId>`:
 
 ```properties
-defaultMenu=main
-menus=main,load,save,settings,extras
-layouts=default,compact
-styles=default,neon
-```
-
-Fields:
-- `defaultMenu`: startup screen id
-- `menus`: comma-separated menu IDs
-- `layouts`: layout IDs
-- `styles`: style IDs
-
-## Screen Files (`*.menu`)
-
-Example:
-
-```properties
-titleText=My Game
-hintsText=Select: Enter    Back: Esc
-layout=default
-defaultItemStyle=default
-wrapSelection=true
-items=start,load,settings,quit
-
-item.start.label=Start
-item.start.action=run_script:scripts/story/prologue.vns
-
-item.load.action=load_menu
-item.settings.action=settings_menu
-item.quit.action=quit
-```
-
-Supported item fields:
-- `label`
-- `style`
-- `icon`
-- `enabled`
-- `action`
-- `target`
-- `bgAsset`
-- `bgSelectedAsset`
-- `bgDisabledAsset`
-- `boundsX`
-- `boundsY`
-- `boundsWidth`
-- `boundsHeight`
-- `boundsPoints`
-- `slotPreviewEnabled`
-- `slotPreviewPlaceholderAsset`
-- `slotPreviewFrameAsset`
-- `slotPreviewX`
-- `slotPreviewY`
-- `slotPreviewWidth`
-- `slotPreviewHeight`
-
-`bounds*` mapping rules:
-- values `<= 1` are treated as normalized fractions (relative to menu draw area)
-- values `> 1` are treated as pixels
-- all four `boundsX/Y/Width/Height` should be set together
-
-`boundsPoints` rules:
-- optional polygon hit-test points inside the same item bounds rectangle
-- encoded format: `x1,y1;x2,y2;x3,y3;...`
-- point coordinates are normalized local values (`0..1`) relative to that item's rectangle
-- requires at least 3 valid points
-
-Example:
-
-```properties
-item.start.boundsX=0.18
-item.start.boundsY=0.40
-item.start.boundsWidth=0.52
-item.start.boundsHeight=0.10
-item.start.boundsPoints=0.00,0.30;0.08,0.00;0.92,0.00;1.00,0.30;1.00,1.00;0.00,1.00
-```
-
-This is useful when button artwork has a non-rectangular clickable shape.
-
-`slotPreview*` mapping rules:
-- used by save/load menu rows for inline thumbnail preview
-- values `<= 1` are normalized to the menu row bounds
-- values `> 1` are treated as pixels inside the row
-- set all four `slotPreviewX/Y/Width/Height` together when overriding
-
-### Action Parsing
-
-Actions accept either:
-- split fields: `action=run_script` + `target=scripts/story/prologue.vns`
-- shorthand: `action=run_script:scripts/story/prologue.vns`
-
-Action aliases are normalized by `MenuActionType.parse`.
-
-## Layout Files (`*.layout`)
-
-Example:
-
-```properties
-listYStart=0.35
-lineHeight=40
-listWidthFactor=1.0
-textAlign=center
-hintsBottomMargin=20
-titleY=60
-```
-
-Fields map to `MenuLayoutSpec`:
-- `listYStart`
-- `lineHeight`
-- `listWidthFactor`
-- `textAlign`
-- `hintsBottomMargin`
-- `titleY` (optional override)
-
-## Style Files (`*.style`)
-
-Example:
-
-```properties
-# Item text colors
-itemColor=#cccccc
-itemSelectedColor=#ffd700
-itemHoverColor=#ffe066
-itemDisabledColor=#808080
-
-# Item prefixes
-itemPrefix=  
-itemSelectedPrefix=> 
-itemDisabledPrefix=- 
-
-# Item font
-itemFontFamily=Arial
-itemFontWeight=BOLD
-itemFontSize=20
-
-# Item text effects
-itemShadowColor=#00000088
-itemShadowOffsetX=2
-itemShadowOffsetY=2
-itemOpacity=1.0
-
-# Button skins (all four states)
-buttonAsset=assets/ui/menu/button.png
-buttonSelectedAsset=assets/ui/menu/button_selected.png
-buttonHoverAsset=assets/ui/menu/button_hover.png
-buttonDisabledAsset=assets/ui/menu/button_disabled.png
-buttonTextPaddingX=18
-buttonTextPaddingY=0
-
-# Title styling
-titleColor=#ffffff
-titleFontFamily=Georgia
-titleFontWeight=BOLD
-titleFontSize=36
-titleShadowColor=#000000
-
-# Hints styling
-hintsColor=#aaaaaa
-hintsFontFamily=Arial
-hintsFontSize=14
-
-# Background
-backgroundAsset=assets/ui/menu/bg.png
-backgroundColor=#1a1a2e
-backgroundOpacity=0.9
-```
-
-Fields map to `MenuStyleSpec`. All fields are optional and inherit from parent styles via `extends`.
-
-## Inheritance (`extends`)
-
-`*.menu`, `*.layout`, and `*.style` support `extends=<parentId>`.
-
-Example:
-
-```properties
-# styles/neon_soft.style
+# config/menu/styles/neon_soft.style
 extends=neon
-itemSelectedColor=#8cff66
+itemSelectedColor=#8CFF66
 ```
 
-## Built-in Scene Integration
+Only explicitly set properties override the parent. Circular inheritance is detected and reported.
 
-Menu profile data is consumed by:
-- `MainMenuScene` (`main` and custom screen IDs)
-- `LoadMenuScene` (`load`)
-- `SaveMenuScene` (`save`)
-- `SettingsScene` (`settings`)
-
-This means all major menu scenes now share one config model.
-
-## Runtime Action Parity Notes
-
-Action handling is now consistent across `main`, `load`, `save`, and `settings` contexts:
-
-- `OPEN_MENU` and `MAIN_MENU` push configured menu screens through `MainMenuScene`.
-- `RUN_SCRIPT` and `NEW_GAME` start VN runtime scenes with current settings propagated.
-- `LOAD_MENU` and `SETTINGS_MENU` can be triggered from non-main screens.
-- `SAVE_MENU` can be triggered when an active `VnScene` exists (otherwise it is ignored safely).
-- `QUIT` and `BACK` work in all menu contexts.
-
-For load/save profiles, template item IDs are still important:
-- load slot template action: `item.save_slot.*` (aliases: `slot`, `entry`)
-- save slot template action: `item.new_slot.*` for the top "new save" row
-- existing save rows use `item.save_slot.*` (aliases: `slot`, `entry`)
-
-Per-item icon rendering:
-- `item.<id>.icon=assets/ui/...` is now rendered by the FX menu renderer in all menu scenes.
-
-Save/load inline preview rendering:
-- `item.save_slot.slotPreviewEnabled=true` enables per-row embedded thumbnails.
-- `item.new_slot.slotPreviewEnabled=true` enables preview on the save menu’s "new save" row.
-- `slotPreviewPlaceholderAsset` is used when no sidecar thumbnail exists.
-- `slotPreviewFrameAsset` overlays a frame skin over the thumbnail region.
+---
 
 ## Action Type Reference
 
-`MenuActionType` values:
-- `NEW_GAME`
-- `LOAD_MENU`
-- `SAVE_MENU`
-- `SETTINGS_MENU`
-- `MAIN_MENU`
-- `OPEN_MENU`
-- `RUN_SCRIPT`
-- `BACK`
-- `QUIT`
-- `NOOP`
+| Type | Aliases | Description |
+|------|---------|-------------|
+| `NEW_GAME` | `new`, `start`, `start_game` | Start a new VN game |
+| `LOAD_MENU` | `load`, `continue` | Navigate to load screen |
+| `SAVE_MENU` | `save` | Navigate to save screen |
+| `SETTINGS_MENU` | `settings`, `options` | Navigate to settings |
+| `MAIN_MENU` | `main`, `title` | Return to main menu |
+| `OPEN_MENU` | `submenu`, `menu` | Open a named sub-menu |
+| `RUN_SCRIPT` | `script`, `play_script` | Run a VNS script |
+| `BACK` | `return` | Go back to previous screen |
+| `QUIT` | `exit` | Exit the application |
+| `NOOP` | `none` | No action |
+
+---
 
 ## Validation
 
-Use `MenuProfileValidator.validate(profile)` to detect:
-- missing default screen
-- empty screens
-- unknown layout/style refs
-- `OPEN_MENU` missing or unknown target
-- `RUN_SCRIPT` without target
+```java
+List<String> issues = MenuProfileValidator.validate(profile);
+```
+
+Detects: missing default screen, empty screens, unknown layout/style refs, `OPEN_MENU` with missing target, `RUN_SCRIPT` without target.
+
+---
 
 ## Editor Support
 
-JVN editor has dedicated visual editors for:
-- `config/menu/menus/*.menu`
-- `config/menu/layouts/*.layout`
-- `config/menu/styles/*.style`
+JVN editor provides dedicated visual editors for all config types:
 
-These editors sync to properties text and preserve extra keys where possible.
-`MenuScreenVisualEditor` supports point-nail bounds authoring and writes `boundsPoints` automatically.
+| File type | Editor | Features |
+|-----------|--------|----------|
+| `.menu` | Menu Screen Visual Editor | Item table, action combos, bounds inspector, slot preview config |
+| `.layout` | Menu Layout Visual Editor | Slider controls, live preview, dynamic item count |
+| `.style` | Menu Style Visual Editor | ColorPickers, font selectors, asset pickers |
+| `.buttonlayout` | Bounds Studio | Visual drag/draw button placement tool |
+| `dialogue.layout` | Dialogue Layout Editor | Collapsible sections, resize handles, Bounds Studio |
+| `menu.registry` | Inline Registry Editor | TextField editing with validation |
+
+All editors support **Ctrl+Z / Ctrl+Y** undo/redo and sync bidirectionally with properties text.
+
+---
 
 ## Recommended Authoring Pattern
 
-1. Start with one `default` layout and style.
-2. Define `main/load/save/settings` screens first.
-3. Add custom screens (`extras`, `credits`, etc.) using `OPEN_MENU`.
-4. Keep action targets explicit and stable.
-5. Validate profile in tests/tools before shipping.
+1. Start with `default` layout and style.
+2. Define `main`, `load`, `save`, `settings` screens first.
+3. Add custom screens (`extras`, `credits`) using `OPEN_MENU`.
+4. Use `extends` for style variants instead of duplicating.
+5. Keep action targets explicit and stable.
+6. Validate profile before release.
+
+---
+
+## Related Docs
+
+- [Documentation Index](../INDEX.md)
+- [VNS Scripting](../scripting/vns/vns-scripting.md) — runtime story flow
+- [Editor Guide](../editor/editor.md) — editing modes
+- [Title Screen & Menu Presentation](../project-setup/title-screen.md)

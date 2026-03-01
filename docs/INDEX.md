@@ -61,7 +61,9 @@ Complete documentation for the Java Vector Nexus engine.
 
 ## Timeline
 
-- [Timeline Scripting](scripting/timeline/timeline-scripting.md) — arc/link DSL, editor graph, validation
+- [Timeline Overview](scripting/timeline/timeline-scripting.md) — landing page, quick start, key concepts
+- [Story Arcs & Links DSL](scripting/timeline/timeline-story-arcs.md) — arc declarations, link syntax, clusters, validation, story patterns, editor features
+- [Puppeteer Animation Timelines](scripting/timeline/timeline-animation.md) — TimelineData model, keyframe interpolation, audio cues, TimelineRunner, TimelineRegistry, VNS integration
 
 ---
 
@@ -73,9 +75,14 @@ Complete documentation for the Java Vector Nexus engine.
 
 ---
 
-## Menu System
+## Menu & Layout System
 
-- [Menu Profiles](menu-profiles/menu-profiles.md) — registry, screens, layouts, styles, actions, validation
+- [Menu Profiles Overview](menu-profiles/menu-profiles.md) — landing page, quick start, directory structure, loader discovery, action types
+- [Menu Screens](menu-profiles/menu-screens.md) — `.menu` files, item declarations, actions, bounds, slot previews, inheritance
+- [Menu Layouts](menu-profiles/menu-layouts.md) — `.layout` files, list positioning, line height, text alignment, built-in layouts
+- [Menu Styles](menu-profiles/menu-styles.md) — `.style` files, colors, fonts, shadows, button skins, title/hints, backgrounds
+- [Button Layouts](menu-profiles/menu-button-layouts.md) — per-button positional layouts, explicit bounds, resolution hints, Bounds Studio
+- [Dialogue Layout & Style](menu-profiles/dialogue-layout.md) — textbox geometry, name box, choice buttons, textbox action buttons, character framing
 - [Title Screen & Menu Presentation](project-setup/title-screen.md) — theme + profile layers
 
 ---
