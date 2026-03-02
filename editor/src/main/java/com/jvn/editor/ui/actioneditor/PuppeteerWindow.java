@@ -74,12 +74,16 @@ public class PuppeteerWindow extends Stage {
 
     private AnimationTimer playbackTimer;
     private long lastNanos = 0;
+    private double playbackSpeed = 1.0;
+    private boolean autoKeyEnabled = false;
 
     private final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
     private final KeyframeSelectionModel selectionModel = new KeyframeSelectionModel();
     private Consumer<String> onCopyCode;
     private final TextField tfTimelineName;
+    private Label statusBar;
     private boolean dirty = false;
+    private boolean compactExport = false;
     private boolean previewStaged = false;
     private boolean dirtyBeforePreviewStage = false;
     private AnimationProject previewBaselineProject;
@@ -389,8 +393,26 @@ public class PuppeteerWindow extends Stage {
             slotMenu.getItems().add(mi);
         }
 
+        Button btnBatchKeyframe = makeToolbarIconButton("icon-puppeteer-snap", "Add keyframe for ALL entities at playhead (batch)");
+        btnBatchKeyframe.setOnAction(e -> {
+            PropertyType prop = cbProperty.getValue();
+            if (prop == null) prop = PropertyType.X;
+            timelinePanel.addKeyframeForAllEntities(project.getPlayheadMs(), prop);
+            refreshExportPreviewAndMarkDirty();
+        });
+
+        Button btnZoomFit = makeToolbarIconButton("icon-timeline-fit", "Zoom timeline to fit content");
+        btnZoomFit.setOnAction(e -> timelinePanel.zoomToFit());
+
+        ToggleButton cbCompactExport = makeToolbarIconToggle("icon-puppeteer-save-clip", "Use compact export format");
+        cbCompactExport.setSelected(false);
+        cbCompactExport.setOnAction(e -> {
+            compactExport = cbCompactExport.isSelected();
+            refreshExportPreview();
+        });
+
         HBox keyframeOpsBox = new HBox(4, btnCopyKeyframes, btnPasteKeyframes, btnDuplicateKeyframes,
-            btnSaveClip, btnLoadClip, slotMenu);
+            btnBatchKeyframe, btnSaveClip, btnLoadClip, slotMenu, btnZoomFit, cbCompactExport);
         keyframeOpsBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         cbSnap = makeToolbarIconToggle("icon-puppeteer-snap", "Enable snapping");
@@ -410,6 +432,41 @@ public class PuppeteerWindow extends Stage {
         HBox snapBox = new HBox(4, cbSnap, tfSnapMs);
         snapBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
+        // --- Playback speed ---
+        ComboBox<String> cbSpeed = new ComboBox<>();
+        cbSpeed.getItems().addAll("0.25x", "0.5x", "1x", "2x", "4x");
+        cbSpeed.setValue("1x");
+        cbSpeed.setStyle(STYLE_TEXT_FIELD);
+        cbSpeed.setPrefWidth(64);
+        cbSpeed.setTooltip(new Tooltip("Playback speed"));
+        cbSpeed.setOnAction(e -> {
+            String val = cbSpeed.getValue();
+            if (val != null) {
+                try { playbackSpeed = Double.parseDouble(val.replace("x", "")); }
+                catch (NumberFormatException ignored) { playbackSpeed = 1.0; }
+            }
+        });
+
+        // --- Auto-key toggle ---
+        ToggleButton cbAutoKey = makeToolbarIconToggle("icon-puppeteer-snap", "Auto-key: automatically insert keyframe on drag");
+        cbAutoKey.setSelected(false);
+        cbAutoKey.setOnAction(e -> autoKeyEnabled = cbAutoKey.isSelected());
+        Label lblAutoKey = new Label("Auto");
+        lblAutoKey.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 10px;");
+
+        // --- Snap-to-grid / snap-to-entity toggles ---
+        ToggleButton cbSnapGrid = makeToolbarIconToggle("icon-puppeteer-snap", "Snap entities to grid when dragging");
+        cbSnapGrid.setSelected(false);
+        cbSnapGrid.setOnAction(e -> animationPreview.setSnapToGridEnabled(cbSnapGrid.isSelected()));
+        ToggleButton cbSnapEntity = makeToolbarIconToggle("icon-puppeteer-align-rotation", "Snap to nearby entity positions");
+        cbSnapEntity.setSelected(false);
+        cbSnapEntity.setOnAction(e -> animationPreview.setSnapToEntityEnabled(cbSnapEntity.isSelected()));
+
+        HBox autoKeyBox = new HBox(4, cbAutoKey, lblAutoKey);
+        autoKeyBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbSpeed);
+        previewSnapBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
         cbOrbitTool = makeToolbarIconToggle("icon-puppeteer-orbit", "Enable orbit-anchor tool. Shift+click preview to place anchor, Alt+Shift+click another entity to anchor to it.");
         cbOrbitTool.setSelected(animationPreview.isOrbitToolEnabled());
         cbOrbitTool.setOnAction(e -> animationPreview.setOrbitToolEnabled(cbOrbitTool.isSelected()));
@@ -426,6 +483,10 @@ public class PuppeteerWindow extends Stage {
 
         HBox orbitBox = new HBox(4, cbOrbitTool, cbOrbitAlign, btnClearAnchor);
         orbitBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+        // --- Help button ---
+        Button btnHelp = makeToolbarIconButton("icon-puppeteer-presets", "Show keyboard shortcuts");
+        btnHelp.setOnAction(e -> showShortcutsOverlay());
 
         // --- Audio cues ---
         Button btnAddCue = makeToolbarIconButton("icon-puppeteer-audio-add", "Add audio cue at playhead");
@@ -483,11 +544,17 @@ public class PuppeteerWindow extends Stage {
             makeVSep(),
             snapBox,
             makeVSep(),
+            autoKeyBox,
+            makeVSep(),
+            previewSnapBox,
+            makeVSep(),
             orbitBox,
             makeVSep(),
             cueBox,
             makeVSep(),
-            nameBox
+            nameBox,
+            makeVSep(),
+            btnHelp
         );
         toolbar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         toolbar.setPadding(new Insets(6, 10, 6, 10));
@@ -519,20 +586,17 @@ public class PuppeteerWindow extends Stage {
         mainSplit.getItems().addAll(leftPane, centerPane, codePreview);
         mainSplit.setDividerPositions(0.17, 0.78);
 
-        // --- Shortcuts status bar ---
-        Label shortcutsBar = new Label(
-            "Space: Play/Pause   Home: Rewind   K: Add keyframe   Del: Delete keyframe   " +
-            "Alt+←/→: Nudge by snap   Alt+Shift+←/→: Nudge by 1ms   Ctrl/Cmd+Alt+C/V/D: Copy/Paste/Duplicate keyframes   " +
-            "Ctrl/Cmd+Shift+C: Copy code   Ctrl/Cmd+Alt+Z/Y: Undo/Redo"
-        );
-        shortcutsBar.setMaxWidth(Double.MAX_VALUE);
-        shortcutsBar.setStyle("-fx-background-color: #0a0a0a; -fx-text-fill: #555; -fx-font-size: 10px; " +
+        // --- Status bar with undo/redo labels ---
+        statusBar = new Label("Ready");
+        statusBar.setMaxWidth(Double.MAX_VALUE);
+        statusBar.setStyle("-fx-background-color: #0a0a0a; -fx-text-fill: #555; -fx-font-size: 10px; " +
             "-fx-padding: 4 10; -fx-border-color: #2a2a2a; -fx-border-width: 1 0 0 0;");
+        updateStatusBar();
 
         BorderPane root = new BorderPane();
         root.setTop(toolbar);
         root.setCenter(mainSplit);
-        root.setBottom(shortcutsBar);
+        root.setBottom(statusBar);
         root.setStyle("-fx-background-color: #121212;");
 
         Scene fxScene = new Scene(root);
@@ -572,6 +636,7 @@ public class PuppeteerWindow extends Stage {
     public void setScene(JesScene2D scene) {
         this.scene = scene;
         animationPreview.setScene(scene);
+        entitySelector.setScene(scene);
         if (scene != null) {
             for (String name : scene.names()) {
                 EntityTrack track = project.getOrCreateTrack(name);
@@ -699,7 +764,7 @@ public class PuppeteerWindow extends Stage {
                 lastNanos = now;
                 double deltaMs = deltaNanos / 1_000_000.0;
 
-                double newTime = project.getPlayheadMs() + deltaMs;
+                double newTime = project.getPlayheadMs() + deltaMs * playbackSpeed;
                 double loopEnd = project.hasLoopRegion()
                     ? project.getLoopEndMs()
                     : project.getTotalDurationMs();
@@ -990,7 +1055,7 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void refreshExportPreview() {
-        codePreview.setCode(CodeExporter.export(project));
+        codePreview.setCode(compactExport ? CodeExporter.exportCompact(project) : CodeExporter.export(project));
         List<TimelineDiagnostic.Message> diags = new ArrayList<>();
         diags.addAll(TimelineDiagnostic.diagnose(project, knownSceneEntities()));
         diags.addAll(TimelineDiagnostic.diagnoseDsl(codePreview.getCode()));
@@ -1000,6 +1065,48 @@ public class PuppeteerWindow extends Stage {
     private void refreshExportPreviewAndMarkDirty() {
         refreshExportPreview();
         setDirty(true);
+        updateStatusBar();
+    }
+
+    private void updateStatusBar() {
+        if (statusBar == null) return;
+        StringBuilder sb = new StringBuilder();
+        if (commandStack.canUndo()) {
+            sb.append("Undo: ").append(commandStack.undoDescription());
+        }
+        if (commandStack.canRedo()) {
+            if (sb.length() > 0) sb.append("  │  ");
+            sb.append("Redo: ").append(commandStack.redoDescription());
+        }
+        if (sb.length() == 0) sb.append("Ready");
+        if (autoKeyEnabled) sb.append("  │  Auto-Key ON");
+        sb.append("  │  Speed: ").append(playbackSpeed).append("x");
+        statusBar.setText(sb.toString());
+    }
+
+    private void showShortcutsOverlay() {
+        Alert dialog = new Alert(Alert.AlertType.INFORMATION);
+        EditorTheme.apply(dialog);
+        dialog.setTitle("Keyboard Shortcuts");
+        dialog.setHeaderText("Puppeteer Keyboard Shortcuts");
+        dialog.setContentText(
+            "Space — Play / Pause\n" +
+            "Home — Rewind\n" +
+            "K — Add keyframe at playhead\n" +
+            "Del — Delete selected keyframe\n" +
+            "Alt+←/→ — Nudge keyframe by snap step\n" +
+            "Alt+Shift+←/→ — Nudge keyframe by 1ms\n" +
+            "Ctrl/Cmd+Alt+C — Copy selected keyframes\n" +
+            "Ctrl/Cmd+Alt+V — Paste keyframes at playhead\n" +
+            "Ctrl/Cmd+Alt+D — Duplicate keyframes\n" +
+            "Ctrl/Cmd+Shift+C — Copy exported code\n" +
+            "Ctrl/Cmd+Alt+Z — Undo\n" +
+            "Ctrl/Cmd+Alt+Y — Redo\n" +
+            "Ctrl/Cmd+O — Toggle onion skinning\n" +
+            "A — Toggle orbit tool\n" +
+            "Shift+A — Clear orbit anchor"
+        );
+        dialog.showAndWait();
     }
 
     private void setDirty(boolean value) {

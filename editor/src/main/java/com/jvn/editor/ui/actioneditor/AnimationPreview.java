@@ -107,6 +107,11 @@ public class AnimationPreview extends VBox {
     private boolean orbitAlignRotation = true;
     private final Map<String, double[]> orbitAnchors = new HashMap<>();
 
+    private boolean snapToGridEnabled = false;
+    private double snapGridSize = 10.0;
+    private boolean snapToEntityEnabled = false;
+    private static final double ENTITY_SNAP_THRESHOLD = 8.0;
+
     private Consumer<String> onEntitySelected;
     private BiConsumer<String, double[]> onEntityMoved;
     private BiConsumer<String, double[]> onEntityPivotChanged;
@@ -403,6 +408,36 @@ public class AnimationPreview extends VBox {
     public void setOrbitToolEnabled(boolean enabled) { this.orbitToolEnabled = enabled; render(); }
     public boolean isOrbitAlignRotation() { return orbitAlignRotation; }
     public void setOrbitAlignRotation(boolean enabled) { this.orbitAlignRotation = enabled; }
+
+    public boolean isSnapToGridEnabled() { return snapToGridEnabled; }
+    public void setSnapToGridEnabled(boolean enabled) { this.snapToGridEnabled = enabled; }
+    public double getSnapGridSize() { return snapGridSize; }
+    public void setSnapGridSize(double size) { this.snapGridSize = Math.max(1, size); }
+    public boolean isSnapToEntityEnabled() { return snapToEntityEnabled; }
+    public void setSnapToEntityEnabled(boolean enabled) { this.snapToEntityEnabled = enabled; }
+
+    private double[] applySnap(double x, double y) {
+        if (snapToGridEnabled && snapGridSize > 0) {
+            x = Math.round(x / snapGridSize) * snapGridSize;
+            y = Math.round(y / snapGridSize) * snapGridSize;
+        }
+        if (snapToEntityEnabled && scene != null && selectedEntityName != null) {
+            double bestDx = Double.MAX_VALUE, bestDy = Double.MAX_VALUE;
+            double snapX = x, snapY = y;
+            for (var entry : scene.exportNamed().entrySet()) {
+                if (entry.getKey().equals(selectedEntityName)) continue;
+                Entity2D other = entry.getValue();
+                if (other == null) continue;
+                double dx = Math.abs(other.getX() - x);
+                double dy = Math.abs(other.getY() - y);
+                if (dx < ENTITY_SNAP_THRESHOLD && dx < bestDx) { bestDx = dx; snapX = other.getX(); }
+                if (dy < ENTITY_SNAP_THRESHOLD && dy < bestDy) { bestDy = dy; snapY = other.getY(); }
+            }
+            x = snapX;
+            y = snapY;
+        }
+        return new double[]{x, y};
+    }
     public boolean hasSelectedOrbitAnchor() {
         return selectedEntityName != null && orbitAnchors.containsKey(selectedEntityName);
     }
@@ -799,10 +834,10 @@ public class AnimationPreview extends VBox {
                 double dy = world[1] - prevWorld[1];
                 dragEntityStartX = e.getX();
                 dragEntityStartY = e.getY();
-                selectedEntity.setPosition(
-                    selectedEntity.getX() + dx,
-                    selectedEntity.getY() + dy
-                );
+                double newX = selectedEntity.getX() + dx;
+                double newY = selectedEntity.getY() + dy;
+                double[] snapped = applySnap(newX, newY);
+                selectedEntity.setPosition(snapped[0], snapped[1]);
                 if (onEntityMoved != null && selectedEntityName != null) {
                     onEntityMoved.accept(selectedEntityName,
                         new double[]{selectedEntity.getX(), selectedEntity.getY()});

@@ -29,9 +29,20 @@ public class TimelinePanel extends VBox {
     private static final Color BG_COLOR = Color.web("#121212");
     private static final Color GRID_COLOR = Color.web("#2a2a2a");
     private static final Color PLAYHEAD_COLOR = Color.web("#f38ba8");
-    private static final Color KEYFRAME_COLOR = Color.web("#4da3ff");
     private static final Color KEYFRAME_SELECTED_COLOR = Color.web("#f0b673");
     private static final Color TEXT_COLOR = Color.web("#e6e6e6");
+
+    // Track color coding per property type
+    private static Color trackColorFor(PropertyType prop) {
+        return switch (prop) {
+            case X, Y -> Color.web("#4da3ff");
+            case PIVOT_X, PIVOT_Y -> Color.web("#f7d07a");
+            case ROTATION -> Color.web("#c77dff");
+            case SCALE_X, SCALE_Y -> Color.web("#58d68d");
+            case ALPHA -> Color.web("#f38ba8");
+            case CAMERA_X, CAMERA_Y, CAMERA_ZOOM -> Color.web("#ff8c42");
+        };
+    }
 
     private final AnimationProject project;
     private final Canvas canvas;
@@ -39,6 +50,8 @@ public class TimelinePanel extends VBox {
     private final Pane canvasContainer;
 
     private double pixelsPerMs = 0.2;
+    private static final double MIN_PIXELS_PER_MS = 0.01;
+    private static final double MAX_PIXELS_PER_MS = 5.0;
     private double scrollX = 0;
     private double scrollY = 0;
     private boolean snapEnabled = true;
@@ -184,6 +197,25 @@ public class TimelinePanel extends VBox {
         if (onKeyframeSelected != null) onKeyframeSelected.accept(kf);
         notifyEdited();
         render();
+    }
+
+    /**
+     * Multi-entity batch keyframing: add a keyframe at the given time for every entity track
+     * in the project on the currently selected property.
+     */
+    public void addKeyframeForAllEntities(double time, PropertyType property) {
+        if (property == null) return;
+        time = clampToTimeline(snapTime(Math.max(0, time)));
+        int count = 0;
+        for (EntityTrack track : project.getTracks()) {
+            double value = track.getValueAt(property, time);
+            track.upsertKeyframe(property, new Keyframe(time, value));
+            count++;
+        }
+        if (count > 0) {
+            notifyEdited();
+            render();
+        }
     }
 
     public void deleteSelectedKeyframe() {
@@ -443,7 +475,12 @@ public class TimelinePanel extends VBox {
             gc.setFill(propSelected ? Color.web("#3a3a3a") : Color.web("#151515"));
             gc.fillRect(0, y, width, TRACK_HEIGHT);
 
-            gc.setFill(Color.web("#a0a0a0"));
+            Color propColor = trackColorFor(prop);
+            // Color coded left accent bar
+            gc.setFill(propColor.deriveColor(0, 1, 1, 0.5));
+            gc.fillRect(0, y, 3, TRACK_HEIGHT);
+
+            gc.setFill(propColor.deriveColor(0, 0.6, 1, 1));
             gc.setFont(javafx.scene.text.Font.font(10));
             gc.fillText("  └ " + prop.getDisplayName(), 12, y + 15);
 
@@ -478,7 +515,7 @@ public class TimelinePanel extends VBox {
             if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
 
             boolean isSelected = kf == selectedKeyframe || selectedKeyframes.contains(kf);
-            gc.setFill(isSelected ? KEYFRAME_SELECTED_COLOR : KEYFRAME_COLOR);
+            gc.setFill(isSelected ? KEYFRAME_SELECTED_COLOR : trackColorFor(prop));
 
             // Diamond shape
             double size = 6;
@@ -536,6 +573,24 @@ public class TimelinePanel extends VBox {
             gc.setFill(Color.web("#f0b673", 0.7));
             String label = cue.getChannel().substring(0, 1).toUpperCase();
             gc.fillText(label, x - 3, cueY + 12);
+
+            // Pseudo-waveform visualization: draw a small decorative waveform block after each cue
+            drawAudioWaveform(gc, x, cueY, cue);
+        }
+    }
+
+    private void drawAudioWaveform(GraphicsContext gc, double startX, double baseY, AudioCue cue) {
+        // Draw a decorative waveform representation (visual indicator, not actual audio decode)
+        double waveWidth = 60 * pixelsPerMs; // ~60ms visual width
+        gc.setStroke(Color.web("#f0b673", 0.25));
+        gc.setLineWidth(1);
+        int bars = (int) Math.max(4, Math.min(20, waveWidth / 3));
+        double barW = waveWidth / bars;
+        for (int i = 0; i < bars; i++) {
+            double bx = startX + 6 + i * barW;
+            double amp = 2 + 6 * Math.abs(Math.sin(i * 0.8 + cue.getTimeMs() * 0.01));
+            amp *= cue.getVolume();
+            gc.strokeLine(bx, baseY - amp, bx, baseY + amp);
         }
     }
 
@@ -666,8 +721,13 @@ public class TimelinePanel extends VBox {
 
     private void handleScroll(ScrollEvent e) {
         if (e.isControlDown()) {
+            // Zoom centered on mouse X position
+            double mouseX = e.getX();
+            double timeBefore = (mouseX - LABEL_WIDTH + scrollX) / pixelsPerMs;
             double factor = e.getDeltaY() > 0 ? 1.2 : 0.8;
-            pixelsPerMs = Math.max(0.05, Math.min(2.0, pixelsPerMs * factor));
+            pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, pixelsPerMs * factor));
+            // Adjust scroll to keep the time under the mouse stable
+            scrollX = Math.max(0, timeBefore * pixelsPerMs - (mouseX - LABEL_WIDTH));
             render();
         } else {
             scrollX = Math.max(0, scrollX - e.getDeltaX());
@@ -675,6 +735,21 @@ public class TimelinePanel extends VBox {
             scrollY = Math.max(0, Math.min(maxScrollY, scrollY - e.getDeltaY()));
             render();
         }
+    }
+
+    public double getPixelsPerMs() { return pixelsPerMs; }
+    public void setPixelsPerMs(double ppm) {
+        pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, ppm));
+        render();
+    }
+
+    /** Zoom to fit the entire timeline duration in the visible area. */
+    public void zoomToFit() {
+        double visible = Math.max(100, canvas.getWidth() - LABEL_WIDTH - 20);
+        double duration = Math.max(100, project.getTotalDurationMs());
+        pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, visible / duration));
+        scrollX = 0;
+        render();
     }
 
     private void updatePlayheadFromX(double x) {

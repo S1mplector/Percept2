@@ -3,7 +3,12 @@ package com.jvn.editor.ui.actioneditor;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import com.jvn.scripting.jes.runtime.JesScene2D;
+
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
@@ -30,6 +35,7 @@ public class EntitySelector extends VBox {
     private final Label lblEmptyHint;
 
     private AnimationProject project;
+    private JesScene2D scene;
     private Consumer<String> onEntitySelected;
     private BiConsumer<String, Boolean> onSelectionChanged;
     private Consumer<String> onCreateGroup;
@@ -109,6 +115,10 @@ public class EntitySelector extends VBox {
     public void setOnAddSelectionToGroup(AddToGroupRequest callback) { this.onAddSelectionToGroup = callback; }
     public void setOnEntityLayerDelta(BiConsumer<String, Integer> callback) { this.onEntityLayerDelta = callback; }
     public void setOnGroupLayerDelta(BiConsumer<String, Integer> callback) { this.onGroupLayerDelta = callback; }
+
+    public void setScene(JesScene2D scene) {
+        this.scene = scene;
+    }
 
     public boolean isGroupSelected() {
         TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
@@ -357,6 +367,15 @@ public class EntitySelector extends VBox {
     }
 
     private class EntityTreeCell extends TreeCell<String> {
+        private final Canvas icon = new Canvas(16, 16);
+        private final Label label = new Label();
+        private final HBox row = new HBox(4, icon, label);
+
+        EntityTreeCell() {
+            row.setAlignment(Pos.CENTER_LEFT);
+            label.setStyle("-fx-font-size: 11px;");
+        }
+
         @Override
         protected void updateItem(String item, boolean empty) {
             super.updateItem(item, empty);
@@ -364,12 +383,58 @@ public class EntitySelector extends VBox {
                 setText(null);
                 setGraphic(null);
             } else {
-                setText(isEncodedGroupValue(item) ? "📁 " + toDisplayValue(item) : toDisplayValue(item));
-                if (isEncodedGroupValue(item)) {
-                    setTextFill(Color.web("#f0b673"));
-                } else {
-                    setTextFill(Color.web("#e6e6e6"));
-                }
+                String name = decodeTreeValue(item);
+                boolean isGroup = isEncodedGroupValue(item);
+                label.setText(isGroup ? "📁 " + name : name);
+                label.setTextFill(isGroup ? Color.web("#f0b673") : Color.web("#e6e6e6"));
+                drawEntityIcon(icon.getGraphicsContext2D(), name, isGroup);
+                setText(null);
+                setGraphic(row);
+            }
+        }
+
+        private void drawEntityIcon(GraphicsContext gc, String name, boolean isGroup) {
+            gc.clearRect(0, 0, 16, 16);
+            if (isGroup) {
+                gc.setFill(Color.web("#f0b673", 0.6));
+                gc.fillRoundRect(1, 2, 14, 12, 3, 3);
+                gc.setFill(Color.web("#f0b673"));
+                gc.fillRoundRect(1, 0, 8, 5, 2, 2);
+                return;
+            }
+            if (scene == null) {
+                gc.setFill(Color.web("#4da3ff", 0.7));
+                gc.fillRoundRect(2, 2, 12, 12, 2, 2);
+                return;
+            }
+            var entity = scene.find(name);
+            if (entity instanceof com.jvn.core.scene2d.Sprite2D) {
+                gc.setFill(Color.web("#58d68d"));
+                gc.fillRect(2, 2, 12, 12);
+                gc.setStroke(Color.web("#58d68d", 0.5));
+                gc.strokeLine(3, 3, 13, 13);
+                gc.strokeLine(13, 3, 3, 13);
+            } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D) {
+                gc.setFill(Color.web("#c77dff"));
+                gc.fillOval(4, 1, 8, 8);
+                gc.fillRoundRect(3, 9, 10, 6, 2, 2);
+            } else if (entity instanceof com.jvn.core.scene2d.Label2D) {
+                gc.setFill(Color.web("#f38ba8"));
+                gc.setFont(javafx.scene.text.Font.font(11));
+                gc.fillText("T", 4, 13);
+            } else if (entity instanceof com.jvn.core.scene2d.Panel2D) {
+                gc.setFill(Color.web("#f0b673", 0.5));
+                gc.fillRect(2, 2, 12, 12);
+                gc.setStroke(Color.web("#f0b673"));
+                gc.strokeRect(2, 2, 12, 12);
+            } else if (entity instanceof com.jvn.core.scene2d.SpriteAnimation2D) {
+                gc.setFill(Color.web("#4da3ff"));
+                double[] xs = {3, 13, 13, 3};
+                double[] ys = {3, 6, 10, 13};
+                gc.fillPolygon(xs, ys, 4);
+            } else {
+                gc.setFill(Color.web("#4da3ff", 0.7));
+                gc.fillRoundRect(2, 2, 12, 12, 2, 2);
             }
         }
     }

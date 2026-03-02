@@ -431,6 +431,58 @@ public class CodeExporter {
         }
     }
 
+    /**
+     * Compact export: emits a single-line-per-event format for minimal file size.
+     */
+    public static String exportCompact(AnimationProject project) {
+        if (project == null) return "timeline {}\n";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("timeline {\n");
+
+        List<TimelineEvent> events = collectEvents(project);
+        events.sort(Comparator.comparingDouble(e -> e.startTime));
+
+        double currentTime = 0;
+        for (TimelineEvent ev : events) {
+            double time = Math.round(ev.startTime * 10.0) / 10.0;
+            if (time > currentTime + 0.5) {
+                sb.append("  wait ").append(formatNumber(time - currentTime)).append("\n");
+                currentTime = time;
+            }
+            sb.append("  ").append(formatCompactEvent(ev)).append("\n");
+        }
+
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    private static String formatCompactEvent(TimelineEvent ev) {
+        StringBuilder sb = new StringBuilder();
+        if ("event".equals(ev.actionType)) {
+            sb.append("event \"").append(ev.target).append("\"");
+        } else if ("cameraMove".equals(ev.actionType) || "cameraZoom".equals(ev.actionType)) {
+            sb.append(ev.actionType);
+        } else {
+            sb.append(ev.actionType).append(" \"").append(ev.target).append("\"");
+        }
+        sb.append(" {");
+        for (Map.Entry<String, Object> entry : ev.props.entrySet()) {
+            sb.append(" ").append(entry.getKey()).append(":").append(formatPropValue(entry.getValue()));
+        }
+        if (ev.duration > 0.0 && !"playAudio".equals(ev.actionType)) {
+            sb.append(" dur:").append(formatNumber(ev.duration));
+        }
+        if (ev.easing == com.jvn.core.animation.Easing.Type.CUSTOM && ev.bezierParams != null) {
+            sb.append(String.format(" easing:cubic_bezier(%.2f,%.2f,%.2f,%.2f)",
+                ev.bezierParams[0], ev.bezierParams[1], ev.bezierParams[2], ev.bezierParams[3]));
+        } else if (ev.easing != com.jvn.core.animation.Easing.Type.LINEAR) {
+            sb.append(" easing:").append(ev.easing.name().toLowerCase());
+        }
+        sb.append(" }");
+        return sb.toString();
+    }
+
     private static class TimelineEvent {
         String actionType;
         String target;
