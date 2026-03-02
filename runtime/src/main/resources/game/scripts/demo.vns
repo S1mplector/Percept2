@@ -1,4 +1,4 @@
-# JVN Runtime Demo Prologue
+# JVN Runtime Demo Prologue + Puppeteer Timeline Showcase
 
 @scenario runtime_demo_prologue
 @character narrator "Narrator"
@@ -14,30 +14,421 @@
 [set courage 0]
 
 Narrator: Welcome to {b}JVN Runtime{/b}.
-Narrator: This short prologue showcases branching, variables, transitions, and text effects.
-Hero: I'm {color=#4a9eff}${playerName}{/color}. Want a quick tour?
+Narrator: This build now includes a heavy inline timeline showcase to demonstrate Puppeteer-style choreography.
+Hero: I'm {color=#4a9eff}${playerName}{/color}. Pick a route.
 [show hero center neutral]
 
-> Show me around -> tour
+> Full Puppeteer timeline showcase -> puppeteer_showcase
+> Classic branching mini-tour -> tour
 > Skip to ending -> speedrun
+
+@label puppeteer_showcase
+[bg classroom]
+[transition fade 400]
+[show hero left neutral]
+[show guide right smile]
+Narrator: We start with baseline placement and then run a lot of timeline animation beats.
+
+timeline {
+  move "hero" {
+    x: 120
+    y: 410
+    dur: 0
+  }
+  move "guide" {
+    x: 260
+    y: 410
+    dur: 0
+  }
+}
+[wait 50]
+
+timeline {
+  move "hero" {
+    x: 900
+    y: 410
+    dur: 850
+    easing: ease_in_out_sine
+  }
+  move "guide" {
+    x: 1040
+    y: 410
+    dur: 850
+    easing: ease_in_out_sine
+  }
+}
+[wait 900]
+
+Hero: Entry sequence done. Next up: layered movement + rotation.
+
+timeline {
+  move "hero" {
+    x: 620
+    y: 400
+    dur: 420
+    easing: ease_in_out_cubic
+  }
+  rotate "hero" {
+    angle: -8
+    dur: 420
+    easing: ease_in_out_sine
+  }
+  wait 120
+  scale "hero" {
+    x: 1.18
+    y: 0.86
+    dur: 170
+    easing: ease_out_quad
+  }
+  wait 190
+  scale "hero" {
+    x: 1.0
+    y: 1.0
+    dur: 180
+    easing: ease_in_out_quad
+  }
+}
+[wait 850]
+
+timeline {
+  move "hero" {
+    x: 420
+    y: 410
+    dur: 320
+    easing: ease_out_sine
+  }
+  rotate "hero" {
+    angle: 0
+    dur: 320
+    easing: ease_out_sine
+  }
+}
+[wait 380]
+
+Guide: Now watch pivot-origin control and chained rotations.
+
+timeline {
+  pivot "guide" {
+    ox: 0.5
+    oy: 0.9
+    dur: 220
+    easing: ease_out_quad
+  }
+  rotate "guide" {
+    angle: 12
+    dur: 220
+    easing: ease_out_back
+  }
+  wait 220
+  rotate "guide" {
+    angle: -10
+    dur: 240
+    easing: ease_in_out_quad
+  }
+  wait 240
+  rotate "guide" {
+    angle: 0
+    dur: 240
+    easing: ease_out_quad
+  }
+}
+[wait 760]
+
+Narrator: Camera timeline tracks are also supported.
+
+timeline {
+  cameraMove {
+    x: 95
+    y: -12
+    dur: 700
+    easing: ease_in_out_sine
+  }
+  cameraZoom {
+    zoom: 1.12
+    dur: 700
+    easing: ease_in_out_sine
+  }
+}
+[wait 760]
+
+timeline {
+  cameraMove {
+    x: 0
+    y: 0
+    dur: 520
+    easing: ease_out_sine
+  }
+  cameraZoom {
+    zoom: 1.0
+    dur: 520
+    easing: ease_out_sine
+  }
+}
+[wait 560]
+
+Narrator: We can transition background and keep timeline choreography going.
+[transition crossfade 700 sunset]
+[wait 740]
+
+timeline {
+  move "hero" {
+    x: 480
+    y: 415
+    dur: 460
+    easing: ease_in_out_quad
+  }
+  move "guide" {
+    x: 820
+    y: 415
+    dur: 460
+    easing: ease_in_out_quad
+  }
+}
+[wait 520]
+
+timeline {
+  move "hero" {
+    x: 610
+    y: 400
+    dur: 250
+    easing: ease_in_out_sine
+  }
+  move "guide" {
+    x: 690
+    y: 400
+    dur: 250
+    easing: ease_in_out_sine
+  }
+  wait 260
+  move "hero" {
+    x: 430
+    y: 410
+    dur: 250
+    easing: ease_in_out_sine
+  }
+  move "guide" {
+    x: 870
+    y: 410
+    dur: 250
+    easing: ease_in_out_sine
+  }
+  wait 260
+  move "hero" {
+    x: 560
+    y: 405
+    dur: 260
+    easing: ease_out_sine
+  }
+  move "guide" {
+    x: 740
+    y: 405
+    dur: 260
+    easing: ease_out_sine
+  }
+}
+[wait 900]
+
+Narrator: Fades can do spotlight beats.
+
+timeline {
+  fade "guide" {
+    alpha: 0.25
+    dur: 280
+    easing: ease_in_out_quad
+  }
+}
+[wait 320]
+
+timeline {
+  fade "guide" {
+    alpha: 1.0
+    dur: 300
+    easing: ease_out_quad
+  }
+}
+[wait 340]
+
+timeline {
+  fade "hero" {
+    alpha: 0.35
+    dur: 260
+    easing: ease_in_out_quad
+  }
+}
+[wait 300]
+
+timeline {
+  fade "hero" {
+    alpha: 1.0
+    dur: 280
+    easing: ease_out_quad
+  }
+}
+[wait 320]
+
+Guide: Finale combo: move + rotate + scale + camera at once.
+
+timeline {
+  move "hero" {
+    x: 470
+    y: 395
+    dur: 620
+    easing: ease_in_out_cubic
+  }
+  move "guide" {
+    x: 860
+    y: 395
+    dur: 620
+    easing: ease_in_out_cubic
+  }
+  rotate "hero" {
+    angle: -7
+    dur: 620
+    easing: ease_in_out_sine
+  }
+  rotate "guide" {
+    angle: 7
+    dur: 620
+    easing: ease_in_out_sine
+  }
+  scale "hero" {
+    x: 1.14
+    y: 1.14
+    dur: 620
+    easing: ease_in_out_sine
+  }
+  scale "guide" {
+    x: 1.14
+    y: 1.14
+    dur: 620
+    easing: ease_in_out_sine
+  }
+  cameraMove {
+    x: 40
+    y: -8
+    dur: 620
+    easing: ease_in_out_sine
+  }
+  cameraZoom {
+    zoom: 1.08
+    dur: 620
+    easing: ease_in_out_sine
+  }
+}
+[wait 680]
+
+timeline {
+  move "hero" {
+    x: 560
+    y: 405
+    dur: 500
+    easing: ease_out_sine
+  }
+  move "guide" {
+    x: 740
+    y: 405
+    dur: 500
+    easing: ease_out_sine
+  }
+  rotate "hero" {
+    angle: 0
+    dur: 500
+    easing: ease_out_sine
+  }
+  rotate "guide" {
+    angle: 0
+    dur: 500
+    easing: ease_out_sine
+  }
+  scale "hero" {
+    x: 1.0
+    y: 1.0
+    dur: 500
+    easing: ease_out_sine
+  }
+  scale "guide" {
+    x: 1.0
+    y: 1.0
+    dur: 500
+    easing: ease_out_sine
+  }
+  cameraMove {
+    x: 0
+    y: 0
+    dur: 500
+    easing: ease_out_sine
+  }
+  cameraZoom {
+    zoom: 1.0
+    dur: 500
+    easing: ease_out_sine
+  }
+}
+[wait 560]
+
+Narrator: That was a full in-script timeline showcase using the same action family Puppeteer exports.
+[jump ending]
 
 @label tour
 [inc courage 1]
 [show guide right smile]
 Guide: Great. Here's {wave}smooth motion{/wave} plus a {shake}dramatic hit{/shake}.
 [screen flash 0.35 160 1 1 1]
-Narrator: Choice conditions can depend on variables.
+Narrator: Choice conditions can depend on variables, and timelines can be mixed into any branch.
 
 > Step forward confidently [if courage >= 1] -> brave
 > Stay cautious -> cautious
 
 @label brave
 [transition crossfade 700 sunset]
+timeline {
+  move "hero" {
+    x: 600
+    y: 400
+    dur: 420
+    easing: ease_out_back
+  }
+  scale "hero" {
+    x: 1.1
+    y: 1.1
+    dur: 420
+    easing: ease_out_quad
+  }
+}
+[wait 480]
 Hero: Nice. This is where your own chapter can begin.
 Narrator: Replace this script with your story and your assets.
 [jump ending]
 
 @label cautious
+timeline {
+  cameraMove {
+    x: -40
+    y: 0
+    dur: 380
+    easing: ease_in_out_sine
+  }
+  cameraZoom {
+    zoom: 0.96
+    dur: 380
+    easing: ease_in_out_sine
+  }
+}
+[wait 430]
+timeline {
+  cameraMove {
+    x: 0
+    y: 0
+    dur: 340
+    easing: ease_out_sine
+  }
+  cameraZoom {
+    zoom: 1.0
+    dur: 340
+    easing: ease_out_sine
+  }
+}
+[wait 390]
 Hero: Let's keep it simple and move on.
 Narrator: You can expand this scene in the editor at any time.
 [jump ending]

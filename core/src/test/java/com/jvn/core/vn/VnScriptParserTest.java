@@ -2,6 +2,8 @@ package com.jvn.core.vn;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
@@ -222,6 +224,21 @@ public class VnScriptParserTest {
             && "ui".equals(n.getExternalCommand().getProvider()))
         .findFirst().orElseThrow();
     assertEquals("visualizer toggle", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void parsesRuntimeDemoScriptWithHeavyInlineTimelineShowcase() throws Exception {
+    Path demoScriptPath = Path.of("..", "runtime", "src", "main", "resources", "game", "scripts", "demo.vns");
+    String script = Files.readString(demoScriptPath, StandardCharsets.UTF_8);
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+
+    assertNotNull(scen);
+    assertEquals("runtime_demo_prologue", scen.getId());
+    assertTrue(scen.getNodes().stream().anyMatch(n ->
+        n.getType() == VnNodeType.EXTERNAL
+            && "jes_timeline_inline".equals(n.getExternalCommand().getProvider())));
   }
 
   @Test

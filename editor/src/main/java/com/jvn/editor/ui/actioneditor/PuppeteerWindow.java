@@ -634,27 +634,46 @@ public class PuppeteerWindow extends Stage {
         if (scene == null) return;
 
         double time = project.getPlayheadMs();
-        boolean cameraApplied = false;
+        var previewCamera = animationPreview.getCamera();
+        double cameraX = previewCamera.getX();
+        double cameraY = previewCamera.getY();
+        double cameraZoom = previewCamera.getZoom();
+        boolean hasCameraX = false;
+        boolean hasCameraY = false;
+        boolean hasCameraZoom = false;
         for (EntityTrack track : project.getTracks()) {
-            if (!cameraApplied && (track.hasKeyframes(PropertyType.CAMERA_X)
-                    || track.hasKeyframes(PropertyType.CAMERA_Y)
-                    || track.hasKeyframes(PropertyType.CAMERA_ZOOM))) {
-                double cx = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_X, time);
-                double cy = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_Y, time);
-                double zoom = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_ZOOM, time);
-                animationPreview.getCamera().setPosition(cx, cy);
-                animationPreview.getCamera().setZoom(zoom);
-                cameraApplied = true;
+            if (track.hasKeyframes(PropertyType.CAMERA_X)) {
+                cameraX = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_X, time);
+                hasCameraX = true;
             }
+            if (track.hasKeyframes(PropertyType.CAMERA_Y)) {
+                cameraY = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_Y, time);
+                hasCameraY = true;
+            }
+            if (track.hasKeyframes(PropertyType.CAMERA_ZOOM)) {
+                cameraZoom = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_ZOOM, time);
+                hasCameraZoom = true;
+            }
+        }
 
+        if (hasCameraX || hasCameraY || hasCameraZoom) {
+            previewCamera.setPosition(cameraX, cameraY);
+            previewCamera.setZoom(cameraZoom);
+        }
+
+        for (EntityTrack track : project.getTracks()) {
             var entity = scene.find(track.getEntityName());
             if (entity == null) continue;
 
             entity.setZ(project.computeEffectiveLayerOrder(track.getEntityName()));
 
             if (track.hasKeyframes(PropertyType.X) || track.hasKeyframes(PropertyType.Y)) {
-                double x = project.computeValueAt(track.getEntityName(), PropertyType.X, time);
-                double y = project.computeValueAt(track.getEntityName(), PropertyType.Y, time);
+                double x = track.hasKeyframes(PropertyType.X)
+                    ? project.computeValueAt(track.getEntityName(), PropertyType.X, time)
+                    : entity.getX();
+                double y = track.hasKeyframes(PropertyType.Y)
+                    ? project.computeValueAt(track.getEntityName(), PropertyType.Y, time)
+                    : entity.getY();
                 entity.setPosition(x, y);
             }
             if (track.hasKeyframes(PropertyType.PIVOT_X) || track.hasKeyframes(PropertyType.PIVOT_Y)) {
@@ -671,8 +690,12 @@ public class PuppeteerWindow extends Stage {
                 entity.setRotationDeg(rot);
             }
             if (track.hasKeyframes(PropertyType.SCALE_X) || track.hasKeyframes(PropertyType.SCALE_Y)) {
-                double sx = project.computeValueAt(track.getEntityName(), PropertyType.SCALE_X, time);
-                double sy = project.computeValueAt(track.getEntityName(), PropertyType.SCALE_Y, time);
+                double sx = track.hasKeyframes(PropertyType.SCALE_X)
+                    ? project.computeValueAt(track.getEntityName(), PropertyType.SCALE_X, time)
+                    : entity.getScaleX();
+                double sy = track.hasKeyframes(PropertyType.SCALE_Y)
+                    ? project.computeValueAt(track.getEntityName(), PropertyType.SCALE_Y, time)
+                    : entity.getScaleY();
                 entity.setScale(sx, sy);
             }
             if (track.hasKeyframes(PropertyType.ALPHA)) {

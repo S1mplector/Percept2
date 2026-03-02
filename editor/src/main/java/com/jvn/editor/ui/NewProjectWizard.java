@@ -1388,6 +1388,7 @@ public class NewProjectWizard extends Stage {
         > Writing Dialogue -> tutorial_dialogue
         > Images and Backgrounds -> tutorial_images
         > Transitions and Effects -> tutorial_transitions
+        > Puppeteer Timelines (Animation) -> tutorial_puppeteer
         > Choices -> tutorial_menus
         > That's enough for now -> end_early
 
@@ -1421,6 +1422,216 @@ public class NewProjectWizard extends Stage {
         Codel: And effects like screen flashes add dramatic impact.
         [transition fade 450 field_day]
         Codel: Back to daytime! Transitions help set the mood of each scene.
+        [jump tutorials_hub]
+
+        @label tutorial_puppeteer
+        [show codel center talking]
+        [wait 150]
+        Codel: Let's run a full Puppeteer-style timeline showcase right inside VNS.
+        Codel: Inline timeline blocks use the same action family the Puppeteer editor exports.
+
+        timeline {
+          move "codel" {
+            x: 150
+            y: 410
+            dur: 0
+          }
+        }
+        [wait 50]
+
+        timeline {
+          move "codel" {
+            x: 980
+            y: 405
+            dur: 850
+            easing: ease_in_out_sine
+          }
+        }
+        [wait 900]
+
+        Codel: Movement, rotation, and scaling can stack in the same beat.
+
+        timeline {
+          move "codel" {
+            x: 780
+            y: 398
+            dur: 380
+            easing: ease_in_out_cubic
+          }
+          rotate "codel" {
+            angle: -9
+            dur: 380
+            easing: ease_in_out_sine
+          }
+          wait 120
+          scale "codel" {
+            x: 1.18
+            y: 0.86
+            dur: 170
+            easing: ease_out_quad
+          }
+          wait 190
+          scale "codel" {
+            x: 1.0
+            y: 1.0
+            dur: 180
+            easing: ease_in_out_quad
+          }
+        }
+        [wait 820]
+
+        Codel: Pivot changes make swings and arcs easy.
+
+        timeline {
+          pivot "codel" {
+            ox: 0.5
+            oy: 0.9
+            dur: 220
+            easing: ease_out_quad
+          }
+          rotate "codel" {
+            angle: 12
+            dur: 220
+            easing: ease_out_back
+          }
+          wait 220
+          rotate "codel" {
+            angle: -10
+            dur: 240
+            easing: ease_in_out_quad
+          }
+          wait 240
+          rotate "codel" {
+            angle: 0
+            dur: 240
+            easing: ease_out_quad
+          }
+        }
+        [wait 760]
+
+        Codel: Camera tracks are timeline tracks too.
+
+        timeline {
+          cameraMove {
+            x: 90
+            y: -10
+            dur: 700
+            easing: ease_in_out_sine
+          }
+          cameraZoom {
+            zoom: 1.12
+            dur: 700
+            easing: ease_in_out_sine
+          }
+        }
+        [wait 760]
+        timeline {
+          cameraMove {
+            x: 0
+            y: 0
+            dur: 520
+            easing: ease_out_sine
+          }
+          cameraZoom {
+            zoom: 1.0
+            dur: 520
+            easing: ease_out_sine
+          }
+        }
+        [wait 560]
+
+        [transition crossfade 650 field_evening]
+        [wait 700]
+        Codel: Timelines keep working across scene transitions.
+
+        timeline {
+          move "codel" {
+            x: 540
+            y: 404
+            dur: 420
+            easing: ease_in_out_quad
+          }
+          fade "codel" {
+            alpha: 0.45
+            dur: 220
+            easing: ease_in_out_quad
+          }
+          wait 230
+          fade "codel" {
+            alpha: 1.0
+            dur: 250
+            easing: ease_out_quad
+          }
+        }
+        [wait 560]
+
+        Codel: Finale combo: move + rotate + scale + camera all together.
+
+        timeline {
+          move "codel" {
+            x: 700
+            y: 395
+            dur: 620
+            easing: ease_in_out_cubic
+          }
+          rotate "codel" {
+            angle: -8
+            dur: 620
+            easing: ease_in_out_sine
+          }
+          scale "codel" {
+            x: 1.16
+            y: 1.16
+            dur: 620
+            easing: ease_in_out_sine
+          }
+          cameraMove {
+            x: 36
+            y: -8
+            dur: 620
+            easing: ease_in_out_sine
+          }
+          cameraZoom {
+            zoom: 1.08
+            dur: 620
+            easing: ease_in_out_sine
+          }
+        }
+        [wait 680]
+        timeline {
+          move "codel" {
+            x: 640
+            y: 405
+            dur: 500
+            easing: ease_out_sine
+          }
+          rotate "codel" {
+            angle: 0
+            dur: 500
+            easing: ease_out_sine
+          }
+          scale "codel" {
+            x: 1.0
+            y: 1.0
+            dur: 500
+            easing: ease_out_sine
+          }
+          cameraMove {
+            x: 0
+            y: 0
+            dur: 500
+            easing: ease_out_sine
+          }
+          cameraZoom {
+            zoom: 1.0
+            dur: 500
+            easing: ease_out_sine
+          }
+        }
+        [wait 560]
+        [transition fade 450 field_day]
+        [wait 500]
+        Codel: That was a full text-first Puppeteer workflow demo.
         [jump tutorials_hub]
 
         @label tutorial_menus

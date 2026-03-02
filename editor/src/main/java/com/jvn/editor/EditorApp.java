@@ -23,6 +23,7 @@ import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.NewProjectWizard;
+import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.RunConsoleView;
@@ -2168,12 +2169,12 @@ public class EditorApp extends Application {
   private void launchPuppeteerFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
     PuppeteerWindow puppeteer = new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
+    if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
     FileEditorTab ft = getActiveFileTab();
 
     if (ft != null && ft.getJesScene() != null) {
       puppeteer.setScene(ft.getJesScene());
     } else if (snapshot != null && !snapshot.characters.isEmpty()) {
-      if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
       JesScene2D scene = buildSceneFromSnapshot(snapshot);
       puppeteer.setScene(scene);
     }
@@ -2189,25 +2190,30 @@ public class EditorApp extends Application {
 
   private JesScene2D buildSceneFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
     JesScene2D scene = new JesScene2D();
-    double sceneW = 1280, sceneH = 720;
-    double charW = 200, charH = 400;
+    ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
+    double sceneW = Math.max(1.0, viewport.width());
+    double sceneH = Math.max(1.0, viewport.height());
+    double characterHeight = sceneH * 0.85;
 
     if (snapshot.backgroundId != null) {
-      String bgPath = resolveProjectPath(snapshot.resolveBackgroundPath());
+      String bgPath = resolveProjectPath(firstLayerPath(snapshot.resolveBackgroundPath()));
       com.jvn.core.scene2d.Sprite2D bg = new com.jvn.core.scene2d.Sprite2D(bgPath, sceneW, sceneH);
-      bg.setPosition(sceneW / 2, sceneH / 2);
-      bg.setOrigin(0.5, 0.5);
+      bg.setOrigin(0.0, 0.0);
+      bg.setPosition(0.0, 0.0);
       scene.add(bg);
       scene.registerEntity("bg_" + snapshot.backgroundId, bg);
     }
 
     for (PuppeteerLauncherPanel.CharacterEntry ch : snapshot.characters) {
-      double x = positionToX(ch.position, sceneW);
-      double y = sceneH * 0.55;
-      String spritePath = resolveProjectPath(snapshot.resolveCharacterPath(ch.characterId, ch.expression));
+      String spritePath = resolveProjectPath(firstLayerPath(snapshot.resolveCharacterPath(ch.characterId, ch.expression)));
+      double[] spriteSize = estimateSpriteSize(spritePath, characterHeight);
+      double charW = spriteSize[0];
+      double charH = spriteSize[1];
+      double x = positionToLeftX(ch.position, sceneW, charW);
+      double y = (sceneH * 1.0) - charH;
       com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePath, charW, charH);
+      sprite.setOrigin(0.0, 0.0);
       sprite.setPosition(x, y);
-      sprite.setOrigin(0.5, 1.0);
       scene.add(sprite);
       scene.registerEntity(ch.characterId, sprite);
     }
@@ -2215,16 +2221,38 @@ public class EditorApp extends Application {
     return scene;
   }
 
-  private double positionToX(String position, double sceneW) {
-    if (position == null) return sceneW / 2;
+  private double positionToLeftX(String position, double sceneW, double spriteW) {
+    if (position == null) return (sceneW - spriteW) * 0.5;
     return switch (position) {
-      case "far_left"  -> sceneW * 0.1;
-      case "left"      -> sceneW * 0.25;
-      case "center"    -> sceneW * 0.5;
-      case "right"     -> sceneW * 0.75;
-      case "far_right" -> sceneW * 0.9;
-      default          -> sceneW * 0.5;
+      case "far_left"  -> sceneW * 0.05;
+      case "left"      -> sceneW * 0.20;
+      case "center"    -> (sceneW - spriteW) * 0.5;
+      case "right"     -> sceneW * 0.80 - spriteW;
+      case "far_right" -> sceneW * 0.95 - spriteW;
+      default          -> (sceneW - spriteW) * 0.5;
     };
+  }
+
+  private double[] estimateSpriteSize(String spritePath, double targetHeight) {
+    double height = Math.max(1.0, targetHeight);
+    double width = height * 0.5;
+    if (spritePath == null || spritePath.isBlank()) return new double[] { width, height };
+    try {
+      javafx.scene.image.Image image = new javafx.scene.image.Image(
+          new java.io.File(spritePath).toURI().toString(), 0, 0, true, false);
+      if (image.getWidth() > 0.0 && image.getHeight() > 0.0) {
+        width = image.getWidth() * (height / image.getHeight());
+      }
+    } catch (Exception ignored) {
+    }
+    return new double[] { width, height };
+  }
+
+  private static String firstLayerPath(String pathSpec) {
+    if (pathSpec == null) return "";
+    int idx = pathSpec.indexOf('|');
+    String raw = idx >= 0 ? pathSpec.substring(0, idx) : pathSpec;
+    return raw == null ? "" : raw.trim();
   }
 
   private String resolveProjectPath(String relativePath) {
@@ -2239,6 +2267,7 @@ public class EditorApp extends Application {
   private void openActionEditor() {
     PuppeteerWindow puppeteer = new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
+    if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
     FileEditorTab ft = getActiveFileTab();
     if (ft != null && ft.getJesScene() != null) {
       puppeteer.setScene(ft.getJesScene());
