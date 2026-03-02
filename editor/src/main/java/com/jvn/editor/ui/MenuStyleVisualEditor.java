@@ -2,6 +2,7 @@ package com.jvn.editor.ui;
 
 import java.io.File;
 import java.io.StringReader;
+import java.util.Arrays;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -61,6 +62,7 @@ public class MenuStyleVisualEditor extends BorderPane {
       "hintsColor", "hintsFontFamily", "hintsFontSize",
       "backgroundAsset", "backgroundColor", "backgroundOpacity"
   };
+  private static final Set<String> KNOWN_KEY_SET = Set.copyOf(Arrays.asList(KNOWN_KEYS));
 
   private final Canvas preview = new Canvas(860, 350);
   private StackPane previewPaneHost;
@@ -117,6 +119,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   private boolean applyingHistory = false;
   private final Label validation = new Label("No issues detected.");
   private final List<String> parseDiagnostics = new ArrayList<>();
+  private final List<String> lineDiagnostics = new ArrayList<>();
   private final TableView<CustomProperty> customPropsTable = new TableView<>();
   private final ObservableList<CustomProperty> customProps = FXCollections.observableArrayList();
   private List<String> previewItems = List.of("> New Game", "  Load", "  Settings", "  Quit");
@@ -217,6 +220,8 @@ public class MenuStyleVisualEditor extends BorderPane {
   public void setStyleText(String text) {
     String normalized = normalizeText(text);
     if (normalized.equals(lastLoadedText)) return;
+    lineDiagnostics.clear();
+    lineDiagnostics.addAll(DslPropertyDiagnostics.menuStyleIssues(text, KNOWN_KEY_SET));
     parseDiagnostics.clear();
     suppressEvents = true;
     rawProperties.clear();
@@ -512,13 +517,17 @@ public class MenuStyleVisualEditor extends BorderPane {
   private void onControlChanged() {
     if (suppressEvents) return;
     loadButtonAssets();
+    if (!parseDiagnostics.isEmpty()) parseDiagnostics.clear();
+    lineDiagnostics.clear();
+    lineDiagnostics.addAll(DslPropertyDiagnostics.menuStyleIssues(serialize(), KNOWN_KEY_SET));
     refreshValidation();
     redrawPreview();
     emitText();
   }
 
   private void refreshValidation() {
-    List<String> warnings = new ArrayList<>();
+    LinkedHashSet<String> warnings = new LinkedHashSet<>();
+    warnings.addAll(lineDiagnostics);
     warnings.addAll(parseDiagnostics);
     validateColor(warnings, "itemColor", tfItemColor.getText(), true);
     validateColor(warnings, "itemSelectedColor", tfItemSelectedColor.getText(), true);
@@ -553,12 +562,12 @@ public class MenuStyleVisualEditor extends BorderPane {
       validation.setText("No issues detected.");
       validation.setTextFill(LayoutStudioPalette.TEXT_SUCCESS);
     } else {
-      validation.setText(String.join(" | ", warnings));
+      validation.setText(String.join("\n", warnings));
       validation.setTextFill(LayoutStudioPalette.TEXT_WARNING);
     }
   }
 
-  private void validateColor(List<String> warnings, String key, String value, boolean required) {
+  private void validateColor(Set<String> warnings, String key, String value, boolean required) {
     String normalized = normalize(value, "");
     if (normalized.isBlank()) {
       if (required) {
@@ -573,7 +582,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     }
   }
 
-  private void validateAssetPath(List<String> warnings, String key, String path) {
+  private void validateAssetPath(Set<String> warnings, String key, String path) {
     String normalized = normalize(path, "");
     if (normalized.isBlank()) return;
     File file = resolveAssetFile(normalized);

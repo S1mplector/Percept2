@@ -146,6 +146,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private boolean applyingHistory = false;
   private final Label validation = new Label("No issues detected.");
   private List<String> parserDiagnostics = List.of();
+  private final List<String> lineDiagnostics = new ArrayList<>();
 
   private String previewSpeakerName = "Speaker Name";
   private String previewDialogueLine1 = "Narrator: The GUI editor now controls dialogue bounds.";
@@ -297,6 +298,8 @@ public class DialogueLayoutEditorView extends BorderPane {
         VnUiStyleSpec.defaults()
     );
     parserDiagnostics = parsed.diagnostics();
+    lineDiagnostics.clear();
+    lineDiagnostics.addAll(DslPropertyDiagnostics.dialogueIssues(text, parserDiagnostics));
     spec = parsed.layout();
     style = parsed.style();
     textBoxButtons = new ArrayList<>(parsed.textBoxButtons());
@@ -664,6 +667,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     syncSelectedTextBoxButtonFromControls();
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
+    refreshDiagnosticsFromUiState();
     validateState();
     redraw();
     emitText();
@@ -675,9 +679,17 @@ public class DialogueLayoutEditorView extends BorderPane {
     syncSelectedTextBoxButtonFromControls();
     loadTextBoxAssetImage();
     loadChoiceAssetImages();
+    refreshDiagnosticsFromUiState();
     validateState();
     redraw();
     emitText();
+  }
+
+  private void refreshDiagnosticsFromUiState() {
+    if (!parserDiagnostics.isEmpty()) parserDiagnostics = List.of();
+    String currentText = serialize(spec, style, textBoxButtons, rawProperties);
+    lineDiagnostics.clear();
+    lineDiagnostics.addAll(DslPropertyDiagnostics.dialogueIssues(currentText, List.of()));
   }
 
   private void browseAsset(TextField target, String dialogTitle) {
@@ -992,6 +1004,7 @@ public class DialogueLayoutEditorView extends BorderPane {
           textBoxButtons = new ArrayList<>(dragStartButtons);
           textBoxButtons.set(dragButtonIndex, moved);
           setSelectedTextBoxButton(dragButtonIndex);
+          refreshDiagnosticsFromUiState();
           validateState();
           redraw();
           return;
@@ -1002,6 +1015,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       suppressEvents = true;
       applySpecToControls(spec);
       suppressEvents = false;
+      refreshDiagnosticsFromUiState();
       validateState();
       redraw();
     });
@@ -1749,6 +1763,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     textBoxButtons.add(created);
     refreshTextBoxButtonList();
     setSelectedTextBoxButton(textBoxButtons.size() - 1);
+    refreshDiagnosticsFromUiState();
     validateState();
     redraw();
     emitText();
@@ -1779,6 +1794,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     textBoxButtons.add(insertIndex, duplicate);
     refreshTextBoxButtonList();
     setSelectedTextBoxButton(insertIndex);
+    refreshDiagnosticsFromUiState();
     validateState();
     redraw();
     emitText();
@@ -1794,6 +1810,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     } else {
       setSelectedTextBoxButton(Math.min(selectedButtonIndex, textBoxButtons.size() - 1));
     }
+    refreshDiagnosticsFromUiState();
     validateState();
     redraw();
     emitText();
@@ -1808,6 +1825,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     textBoxButtons.add(next, current);
     refreshTextBoxButtonList();
     setSelectedTextBoxButton(next);
+    refreshDiagnosticsFromUiState();
     validateState();
     redraw();
     emitText();
@@ -1933,6 +1951,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       }
       loadTextBoxAssetImage();
       loadChoiceAssetImages();
+      refreshDiagnosticsFromUiState();
       validateState();
       redraw();
       emitText();
@@ -2176,6 +2195,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       suppressEvents = false;
       refreshTextBoxButtonList();
       setSelectedTextBoxButton(textBoxButtons.isEmpty() ? -1 : 0);
+      refreshDiagnosticsFromUiState();
       validateState();
       redraw();
       emitText();
@@ -2489,8 +2509,8 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private void validateState() {
-    List<String> warnings = new ArrayList<>();
-    warnings.addAll(parserDiagnostics);
+    LinkedHashSet<String> warnings = new LinkedHashSet<>();
+    warnings.addAll(lineDiagnostics);
     Set<String> ids = new LinkedHashSet<>();
 
     if (spec.textBoxWidth() <= 0.0 || spec.textBoxHeight() <= 0.0) {
@@ -2531,12 +2551,12 @@ public class DialogueLayoutEditorView extends BorderPane {
       validation.setText("No issues detected.");
       validation.setTextFill(LayoutStudioPalette.TEXT_SUCCESS);
     } else {
-      validation.setText(String.join(" | ", warnings));
+      validation.setText(String.join("\n", warnings));
       validation.setTextFill(LayoutStudioPalette.TEXT_WARNING);
     }
   }
 
-  private void warnMissingAsset(List<String> warnings, String field, String assetPath) {
+  private void warnMissingAsset(Set<String> warnings, String field, String assetPath) {
     if (projectRoot == null) return;
     String normalized = normalizeAssetPath(assetPath);
     if (normalized.isBlank()) return;

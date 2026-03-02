@@ -2,6 +2,7 @@ package com.jvn.editor.ui;
 
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -53,6 +54,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
       "hintsBottomMargin",
       "titleY"
   };
+  private static final Set<String> KNOWN_KEY_SET = Set.copyOf(Arrays.asList(KNOWN_KEYS));
 
   private final Canvas preview = new Canvas(900, 410);
   private StackPane previewPaneHost;
@@ -82,6 +84,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private boolean applyingHistory = false;
   private final Label validation = new Label("No issues detected.");
   private final List<String> parseDiagnostics = new ArrayList<>();
+  private final List<String> lineDiagnostics = new ArrayList<>();
   private final TableView<CustomProperty> customPropsTable = new TableView<>();
   private final ObservableList<CustomProperty> customProps = FXCollections.observableArrayList();
   private String previewTitle = "Menu Title";
@@ -135,6 +138,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
   public void setLayoutText(String text) {
     String normalizedInput = normalizeText(text);
     if (normalizedInput.equals(lastLoadedText)) return;
+    lineDiagnostics.clear();
+    lineDiagnostics.addAll(DslPropertyDiagnostics.menuLayoutIssues(text, KNOWN_KEY_SET));
     parseDiagnostics.clear();
     suppressEvents = true;
     rawProperties.clear();
@@ -307,13 +312,20 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private void onControlChanged() {
     if (suppressEvents) return;
     spec = readSpecFromControls();
+    if (!parseDiagnostics.isEmpty()) parseDiagnostics.clear();
+    lineDiagnostics.clear();
+    lineDiagnostics.addAll(DslPropertyDiagnostics.menuLayoutIssues(
+        serialize(spec, rawProperties, cbTitleY.isSelected(), customProps),
+        KNOWN_KEY_SET
+    ));
     refreshValidation();
     redraw();
     emitText();
   }
 
   private void refreshValidation() {
-    List<String> warnings = new ArrayList<>();
+    LinkedHashSet<String> warnings = new LinkedHashSet<>();
+    warnings.addAll(lineDiagnostics);
     warnings.addAll(parseDiagnostics);
     if (!Double.isFinite(spec.listYStart()) || spec.listYStart() < 0) {
       warnings.add("List Y start must be a finite value >= 0.");
@@ -350,7 +362,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
       validation.setText("No issues detected.");
       validation.setTextFill(LayoutStudioPalette.TEXT_SUCCESS);
     } else {
-      validation.setText(String.join(" | ", warnings));
+      validation.setText(String.join("\n", warnings));
       validation.setTextFill(LayoutStudioPalette.TEXT_WARNING);
     }
   }

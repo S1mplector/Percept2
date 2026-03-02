@@ -99,6 +99,7 @@ public class MenuScreenVisualEditor extends BorderPane {
   private String lastLoadedText = "";
   private String lastEmittedText = "";
   private final List<String> parseDiagnostics = new ArrayList<>();
+  private final List<String> lineDiagnostics = new ArrayList<>();
   private File projectRoot;
   private String screenIdHint = "main";
   private int previewSelected = 0;
@@ -173,6 +174,8 @@ public class MenuScreenVisualEditor extends BorderPane {
   public void setMenuText(String text) {
     String normalizedInput = normalizeLineEndings(text);
     if (normalizedInput.equals(lastLoadedText)) return;
+    lineDiagnostics.clear();
+    lineDiagnostics.addAll(DslPropertyDiagnostics.menuScreenIssues(text, TOP_LEVEL_KEYS, ITEM_KEYS));
     parseDiagnostics.clear();
     suppressEvents = true;
     Properties p = new Properties();
@@ -1038,13 +1041,17 @@ public class MenuScreenVisualEditor extends BorderPane {
     } else {
       previewSelected = 0;
     }
+    if (!parseDiagnostics.isEmpty()) parseDiagnostics.clear();
+    lineDiagnostics.clear();
+    lineDiagnostics.addAll(DslPropertyDiagnostics.menuScreenIssues(serialize(), TOP_LEVEL_KEYS, ITEM_KEYS));
     validateState();
     redrawPreview();
     emitText();
   }
 
   private void validateState() {
-    List<String> warnings = new ArrayList<>();
+    LinkedHashSet<String> warnings = new LinkedHashSet<>();
+    warnings.addAll(lineDiagnostics);
     warnings.addAll(parseDiagnostics);
     Set<String> ids = new LinkedHashSet<>();
     List<String> knownMenus = discoverMenuIds();
@@ -1122,7 +1129,7 @@ public class MenuScreenVisualEditor extends BorderPane {
       validation.setText("No issues detected.");
       validation.setTextFill(LayoutStudioPalette.TEXT_SUCCESS);
     } else {
-      String joined = String.join(" | ", warnings);
+      String joined = String.join("\n", warnings);
       validation.setText(joined);
       validation.setTextFill(LayoutStudioPalette.TEXT_WARNING);
     }
@@ -1954,7 +1961,7 @@ public class MenuScreenVisualEditor extends BorderPane {
         .replaceAll("\\.$", "");
   }
 
-  private void warnMissingAsset(List<String> warnings, String itemId, String field, String path) {
+  private void warnMissingAsset(Set<String> warnings, String itemId, String field, String path) {
     if (path == null || path.isBlank()) return;
     File resolved = new File(projectRoot, path.trim());
     if (!resolved.exists()) {
