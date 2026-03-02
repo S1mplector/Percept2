@@ -83,6 +83,15 @@ public class EntityTrack {
         if (list != null) Collections.sort(list);
     }
 
+    public Keyframe findKeyframeAt(PropertyType property, double timeMs) {
+        List<Keyframe> list = keyframes.get(property);
+        if (list == null) return null;
+        for (Keyframe kf : list) {
+            if (Math.abs(kf.getTimeMs() - timeMs) <= KEYFRAME_TIME_EPSILON_MS) return kf;
+        }
+        return null;
+    }
+
     public boolean hasKeyframes(PropertyType property) {
         List<Keyframe> list = keyframes.get(property);
         return list != null && !list.isEmpty();

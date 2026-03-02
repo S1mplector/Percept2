@@ -3,6 +3,7 @@ package com.jvn.editor.ui.actioneditor;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 import com.jvn.core.animation.TimelineData;
@@ -20,6 +21,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
@@ -37,12 +39,10 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.stage.Stage;
-import java.util.Locale;
 
 public class PuppeteerWindow extends Stage {
     private final AnimationProject project;
@@ -192,8 +192,8 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setOnEntityMoved((name, pos) -> {
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
-            upsertKeyframeAtTime(track, PropertyType.X, time, pos[0]);
-            upsertKeyframeAtTime(track, PropertyType.Y, time, pos[1]);
+            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.X, time, pos[0]));
+            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, time, pos[1]));
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -201,8 +201,8 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setOnEntityPivotChanged((name, pivot) -> {
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
-            upsertKeyframeAtTime(track, PropertyType.PIVOT_X, time, pivot[0]);
-            upsertKeyframeAtTime(track, PropertyType.PIVOT_Y, time, pivot[1]);
+            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, pivot[0]));
+            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, pivot[1]));
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -210,7 +210,7 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setOnEntityRotationChanged((name, rotationDeg) -> {
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
-            upsertKeyframeAtTime(track, PropertyType.ROTATION, time, rotationDeg);
+            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.ROTATION, time, rotationDeg));
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -272,8 +272,53 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
         });
 
+        Button btnLoopIn = makeToolbarIconButton("icon-puppeteer-loop", "Set loop IN at playhead");
+        btnLoopIn.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #58d68d; -fx-background-radius: 4; " +
+            "-fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-padding: 2 6; -fx-font-size: 9px; -fx-cursor: hand;");
+        btnLoopIn.setText("In");
+        btnLoopIn.setContentDisplay(ContentDisplay.TEXT_ONLY);
+        btnLoopIn.setMinSize(28, 24);
+        btnLoopIn.setPrefSize(28, 24);
+        btnLoopIn.setMaxSize(28, 24);
+        btnLoopIn.setOnAction(e -> {
+            double inMs = project.getPlayheadMs();
+            double outMs = project.hasLoopRegion() ? project.getLoopEndMs() : project.getTotalDurationMs();
+            if (inMs < outMs) {
+                project.setLoopRegion(inMs, outMs);
+                timelinePanel.refresh();
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
+
+        Button btnLoopOut = makeToolbarIconButton("icon-puppeteer-loop", "Set loop OUT at playhead");
+        btnLoopOut.setStyle(btnLoopIn.getStyle());
+        btnLoopOut.setText("Out");
+        btnLoopOut.setContentDisplay(ContentDisplay.TEXT_ONLY);
+        btnLoopOut.setMinSize(28, 24);
+        btnLoopOut.setPrefSize(28, 24);
+        btnLoopOut.setMaxSize(28, 24);
+        btnLoopOut.setOnAction(e -> {
+            double outMs = project.getPlayheadMs();
+            double inMs = project.hasLoopRegion() ? project.getLoopStartMs() : 0;
+            if (outMs > inMs) {
+                project.setLoopRegion(inMs, outMs);
+                timelinePanel.refresh();
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
+
+        Button btnLoopClear = makeToolbarIconButton("icon-puppeteer-clear-anchor", "Clear loop region");
+        btnLoopClear.setMinSize(24, 24);
+        btnLoopClear.setPrefSize(24, 24);
+        btnLoopClear.setMaxSize(24, 24);
+        btnLoopClear.setOnAction(e -> {
+            project.clearLoopRegion();
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
+        });
+
         tfDuration.setTooltip(new Tooltip("Timeline duration (ms)"));
-        HBox durationBox = new HBox(4, tfDuration, btnFitDuration, cbLoop);
+        HBox durationBox = new HBox(4, tfDuration, btnFitDuration, cbLoop, btnLoopIn, btnLoopOut, btnLoopClear);
         durationBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         // --- Presets ---
@@ -377,6 +422,30 @@ public class PuppeteerWindow extends Stage {
 
         HBox nameBox = new HBox(4, tfTimelineName, btnRegister);
         nameBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+        // --- Apply Code to Model (text-first round-trip) ---
+        codePreview.setOnApplyToModel(() -> {
+            String code = codePreview.getCode();
+            String name = tfTimelineName.getText().trim();
+            if (name.isBlank()) name = project.getName();
+            try {
+                AnimationProject imported = CodeImporter.importCode(name, code);
+                project.replaceFrom(imported);
+                entitySelector.refresh(project);
+                timelinePanel.refresh();
+                updatePreview();
+                setDirty(true);
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    EditorTheme.apply(alert);
+                    alert.setTitle("Apply Failed");
+                    alert.setHeaderText("Could not parse the edited code.");
+                    alert.setContentText(ex.getMessage());
+                    alert.showAndWait();
+                });
+            }
+        });
 
         // --- Assemble toolbar ---
         HBox toolbar = new HBox(6,
@@ -607,9 +676,15 @@ public class PuppeteerWindow extends Stage {
                 double deltaMs = deltaNanos / 1_000_000.0;
 
                 double newTime = project.getPlayheadMs() + deltaMs;
-                if (newTime >= project.getTotalDurationMs()) {
+                double loopEnd = project.hasLoopRegion()
+                    ? project.getLoopEndMs()
+                    : project.getTotalDurationMs();
+                double loopStart = project.hasLoopRegion()
+                    ? project.getLoopStartMs()
+                    : 0;
+                if (newTime >= loopEnd) {
                     if (project.isLooping()) {
-                        newTime = 0;
+                        newTime = loopStart;
                     } else {
                         newTime = project.getTotalDurationMs();
                         pause();
@@ -902,6 +977,8 @@ public class PuppeteerWindow extends Stage {
 
     private void refreshExportPreview() {
         codePreview.setCode(CodeExporter.export(project));
+        java.util.List<TimelineDiagnostic.Message> diags = TimelineDiagnostic.diagnose(project, null);
+        codePreview.setDiagnostics(diags);
     }
 
     private void refreshExportPreviewAndMarkDirty() {
@@ -1099,22 +1176,43 @@ public class PuppeteerWindow extends Stage {
         TimelineRegistry.register(data);
         String code = CodeExporter.exportNamed(project, name);
         codePreview.setCode(code);
-        saveTimelineFile(name, code);
-        setDirty(false);
-        setTitle("Puppeteer - " + name + " (saved & registered)");
-        return true;
+        boolean saved = saveTimelineFile(name, code);
+        if (saved) {
+            setDirty(false);
+            setTitle("Puppeteer - " + name + " (saved & registered)");
+        } else {
+            // Registry succeeded but disk write failed — keep dirty
+            setTitle("Puppeteer - " + name + " (registered, save FAILED)");
+        }
+        return saved;
     }
 
-    private void saveTimelineFile(String name, String jesCode) {
-        if (projectRoot == null) return;
+    private boolean saveTimelineFile(String name, String jesCode) {
+        if (projectRoot == null) {
+            showSaveError(name, "No project root set. Timeline registered in memory only.");
+            return false;
+        }
         try {
             Path dir = projectRoot.toPath().resolve("scripts").resolve("timelines");
             Files.createDirectories(dir);
             Path file = dir.resolve(name + ".jes");
             Files.writeString(file, jesCode);
+            return true;
         } catch (IOException ex) {
-            System.err.println("Failed to save timeline " + name + ": " + ex.getMessage());
+            showSaveError(name, ex.getMessage());
+            return false;
         }
+    }
+
+    private void showSaveError(String name, String detail) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            EditorTheme.apply(alert);
+            alert.setTitle("Save Failed");
+            alert.setHeaderText("Could not save timeline '" + name + "' to disk.");
+            alert.setContentText(detail != null ? detail : "Unknown error");
+            alert.showAndWait();
+        });
     }
 
     private void copyToClipboard(String text) {
@@ -1140,11 +1238,6 @@ public class PuppeteerWindow extends Stage {
             return group != null ? group.getGroupTrack() : null;
         }
         return createEntityTrack ? project.getOrCreateTrack(name) : project.getTrack(name);
-    }
-
-    private static void upsertKeyframeAtTime(EntityTrack track, PropertyType property, double timeMs, double value) {
-        if (track == null || property == null) return;
-        track.upsertKeyframe(property, new Keyframe(timeMs, value));
     }
 
     @Override

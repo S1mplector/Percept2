@@ -15,8 +15,11 @@ public class CodePreviewPane extends VBox {
     private final Button btnCopy;
     private final Button btnRegenerate;
     private final Label lblStatus;
+    private final Button btnApply;
+    private final Label lblDiagnostics;
     private Runnable onCopy;
     private Runnable onRegenerate;
+    private Runnable onApplyToModel;
     private boolean manuallyEdited = false;
     private boolean suppressManualEditTracking = false;
 
@@ -65,11 +68,29 @@ public class CodePreviewPane extends VBox {
             if (onRegenerate != null) onRegenerate.run();
         });
 
-        HBox buttonRow = new HBox(10, btnCopy, btnRegenerate);
+        btnApply = new Button("Apply to Model");
+        btnApply.setStyle("-fx-background-color: #58d68d; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
+            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnApply.setTooltip(new Tooltip("Parse the edited code and replace the timeline model"));
+        btnApply.setOnAction(e -> {
+            if (onApplyToModel != null) onApplyToModel.run();
+            manuallyEdited = false;
+            lblStatus.setText("Applied to model");
+            lblStatus.setStyle("-fx-text-fill: #58d68d; -fx-font-size: 9px;");
+        });
+
+        HBox buttonRow = new HBox(10, btnCopy, btnRegenerate, btnApply);
         HBox.setHgrow(btnCopy, Priority.ALWAYS);
         btnCopy.setMaxWidth(Double.MAX_VALUE);
 
-        getChildren().addAll(header, lblStatus, jesEditor, buttonRow);
+        lblDiagnostics = new Label("");
+        lblDiagnostics.setWrapText(true);
+        lblDiagnostics.setMaxWidth(Double.MAX_VALUE);
+        lblDiagnostics.setStyle("-fx-text-fill: #888; -fx-font-size: 10px; -fx-padding: 4 0 0 0;");
+        lblDiagnostics.setVisible(false);
+        lblDiagnostics.setManaged(false);
+
+        getChildren().addAll(header, lblStatus, jesEditor, buttonRow, lblDiagnostics);
     }
 
     public void setCode(String code) {
@@ -94,6 +115,10 @@ public class CodePreviewPane extends VBox {
         this.onRegenerate = callback;
     }
 
+    public void setOnApplyToModel(Runnable callback) {
+        this.onApplyToModel = callback;
+    }
+
     public void setProjectRoot(java.io.File root) {
         jesEditor.setProjectRoot(root);
     }
@@ -108,5 +133,32 @@ public class CodePreviewPane extends VBox {
 
     public boolean isManuallyEdited() {
         return manuallyEdited;
+    }
+
+    public void setDiagnostics(java.util.List<TimelineDiagnostic.Message> messages) {
+        if (messages == null || messages.isEmpty()) {
+            lblDiagnostics.setText("");
+            lblDiagnostics.setVisible(false);
+            lblDiagnostics.setManaged(false);
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (TimelineDiagnostic.Message m : messages) {
+            String icon = switch (m.severity()) {
+                case ERROR -> "\u274c";
+                case WARNING -> "\u26a0";
+                case INFO -> "\u2139";
+            };
+            sb.append(icon).append(" [").append(m.entityOrTrack()).append("] ").append(m.description());
+            if (m.quickFix() != null) sb.append("  \u2192 ").append(m.quickFix());
+            sb.append("\n");
+        }
+        boolean hasError = messages.stream().anyMatch(m -> m.severity() == TimelineDiagnostic.Severity.ERROR);
+        lblDiagnostics.setStyle(hasError
+            ? "-fx-text-fill: #e74c3c; -fx-font-size: 10px; -fx-padding: 4 0 0 0;"
+            : "-fx-text-fill: #f0b673; -fx-font-size: 10px; -fx-padding: 4 0 0 0;");
+        lblDiagnostics.setText(sb.toString().strip());
+        lblDiagnostics.setVisible(true);
+        lblDiagnostics.setManaged(true);
     }
 }

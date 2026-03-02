@@ -402,6 +402,38 @@ public class AnimationProject {
         return data;
     }
 
+    /**
+     * Replaces all tracks, cues, and settings in this project with data from another.
+     * The scene graph (entities) is not affected — only the animation model is swapped.
+     */
+    public void replaceFrom(AnimationProject other) {
+        if (other == null) return;
+        this.name = other.name;
+        this.totalDurationMs = other.totalDurationMs;
+        this.looping = other.looping;
+        this.loopStartMs = other.loopStartMs;
+        this.loopEndMs = other.loopEndMs;
+
+        this.entityTracks.clear();
+        this.rootEntityNames.clear();
+        for (EntityTrack t : other.entityTracks.values()) {
+            this.entityTracks.put(t.getEntityName(), t.copy());
+            if (!t.hasParent()) this.rootEntityNames.add(t.getEntityName());
+        }
+
+        this.groups.clear();
+        this.rootGroupNames.clear();
+        for (EntityGroup g : other.groups.values()) {
+            this.groups.put(g.getName(), g);
+            if (!g.hasParent()) this.rootGroupNames.add(g.getName());
+        }
+
+        this.audioCues.clear();
+        this.audioCues.addAll(other.audioCues);
+        this.editorEventCues.clear();
+        this.editorEventCues.addAll(other.editorEventCues);
+    }
+
     private static TimelineData.Property mapProperty(PropertyType p) {
         return switch (p) {
             case X -> TimelineData.Property.X;

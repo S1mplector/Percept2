@@ -101,6 +101,29 @@ public class PuppeteerCommand {
         );
     }
 
+    /**
+     * Undoable upsert: if a keyframe exists at timeMs, captures old value for restore;
+     * otherwise undo removes the keyframe that was added.
+     */
+    public static PuppeteerCommand upsertKeyframe(EntityTrack track, PropertyType prop, double timeMs, double newValue) {
+        Keyframe existing = track.findKeyframeAt(prop, timeMs);
+        if (existing != null) {
+            double oldValue = existing.getValue();
+            return new PuppeteerCommand("Upsert keyframe",
+                () -> track.upsertKeyframe(prop, new Keyframe(timeMs, newValue)),
+                () -> existing.setValue(oldValue)
+            );
+        } else {
+            return new PuppeteerCommand("Add keyframe (drag)",
+                () -> track.upsertKeyframe(prop, new Keyframe(timeMs, newValue)),
+                () -> {
+                    Keyframe added = track.findKeyframeAt(prop, timeMs);
+                    if (added != null) track.removeKeyframe(prop, added);
+                }
+            );
+        }
+    }
+
     public static PuppeteerCommand applyPreset(EntityTrack track, AnimationPreset preset, double startTime) {
         EntityTrack snapshot = track.copy();
         return new PuppeteerCommand("Apply preset: " + preset.getName(),

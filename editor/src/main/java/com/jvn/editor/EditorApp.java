@@ -23,8 +23,8 @@ import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.NewProjectWizard;
-import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.ProjectExplorerView;
+import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.SettingsEditorView;
@@ -35,6 +35,8 @@ import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
 import com.jvn.editor.ui.WelcomeCenterView;
+import com.jvn.editor.ui.actioneditor.AnimationProject;
+import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.PuppeteerWindow;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
@@ -2167,7 +2169,10 @@ public class EditorApp extends Application {
   }
 
   private void launchPuppeteerFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
-    PuppeteerWindow puppeteer = new PuppeteerWindow();
+    AnimationProject imported = discoverAndImportTimeline();
+    PuppeteerWindow puppeteer = imported != null
+        ? new PuppeteerWindow(imported)
+        : new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
     if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
     FileEditorTab ft = getActiveFileTab();
@@ -2265,7 +2270,10 @@ public class EditorApp extends Application {
   }
 
   private void openActionEditor() {
-    PuppeteerWindow puppeteer = new PuppeteerWindow();
+    AnimationProject imported = discoverAndImportTimeline();
+    PuppeteerWindow puppeteer = imported != null
+        ? new PuppeteerWindow(imported)
+        : new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
     if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
     FileEditorTab ft = getActiveFileTab();
@@ -2273,6 +2281,59 @@ public class EditorApp extends Application {
       puppeteer.setScene(ft.getJesScene());
     }
     puppeteer.show();
+  }
+
+  /**
+   * Scans scripts/timelines/ for existing .jes files and offers a choice dialog.
+   * Returns the imported AnimationProject, or null if the user chose "New" or no files exist.
+   */
+  private AnimationProject discoverAndImportTimeline() {
+    if (projectRoot == null) return null;
+    java.io.File timelinesDir = new java.io.File(projectRoot, "scripts/timelines");
+    if (!timelinesDir.isDirectory()) return null;
+    java.io.File[] jesFiles = timelinesDir.listFiles((dir, name) ->
+        name.endsWith(".jes") && !name.startsWith("."));
+    if (jesFiles == null || jesFiles.length == 0) return null;
+
+    java.util.List<String> names = new java.util.ArrayList<>();
+    for (java.io.File f : jesFiles) {
+      String n = f.getName();
+      names.add(n.substring(0, n.length() - 4));
+    }
+    java.util.Collections.sort(names);
+
+    javafx.scene.control.ChoiceDialog<String> dialog = new javafx.scene.control.ChoiceDialog<>(names.get(0), names);
+    EditorTheme.apply(dialog);
+    dialog.setTitle("Open Timeline");
+    dialog.setHeaderText("Found " + names.size() + " existing timeline(s). Open one or start fresh?");
+    dialog.setContentText("Timeline:");
+
+    // Add a "New" button alongside OK/Cancel
+    dialog.getDialogPane().getButtonTypes().setAll(
+        new ButtonType("Open", ButtonBar.ButtonData.OK_DONE),
+        new ButtonType("New (empty)", ButtonBar.ButtonData.NO),
+        ButtonType.CANCEL
+    );
+
+    Optional<String> result = dialog.showAndWait();
+    if (result.isEmpty()) return null; // cancelled or "New (empty)"
+
+    String selectedName = result.get();
+    if (selectedName == null || selectedName.isBlank()) return null;
+
+    try {
+      java.io.File jesFile = new java.io.File(timelinesDir, selectedName + ".jes");
+      String code = java.nio.file.Files.readString(jesFile.toPath());
+      return CodeImporter.importCode(selectedName, code);
+    } catch (Exception ex) {
+      Alert alert = new Alert(Alert.AlertType.WARNING);
+      EditorTheme.apply(alert);
+      alert.setTitle("Import Failed");
+      alert.setHeaderText("Could not import timeline '" + selectedName + "'");
+      alert.setContentText(ex.getMessage());
+      alert.showAndWait();
+      return null;
+    }
   }
 
   private static void applyLinuxDefaultWindowState(Stage stage) {
