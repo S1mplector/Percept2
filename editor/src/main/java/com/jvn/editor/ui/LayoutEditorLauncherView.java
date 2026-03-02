@@ -357,31 +357,17 @@ public class LayoutEditorLauncherView extends BorderPane {
       } else if (type == ItemType.MENU_LAYOUT) {
         MenuLayoutSpec s = MenuProfile.defaultLayout();
         try (FileWriter fw = new FileWriter(file)) {
-          fw.write("# Menu layout\n");
-          fw.write("listYStart=" + formatDouble(s.listYStart()) + System.lineSeparator());
-          fw.write("lineHeight=" + formatDouble(s.lineHeight()) + System.lineSeparator());
-          fw.write("listWidthFactor=" + formatDouble(s.listWidthFactor()) + System.lineSeparator());
-          fw.write("textAlign=" + s.textAlign() + System.lineSeparator());
-          fw.write("hintsBottomMargin=" + formatDouble(s.hintsBottomMargin()) + System.lineSeparator());
+          fw.write(defaultMenuLayoutTemplate(s).replace("\n", System.lineSeparator()));
         }
       } else if (type == ItemType.MENU_STYLE) {
         MenuStyleSpec s = MenuProfile.defaultStyle();
         try (FileWriter fw = new FileWriter(file)) {
-          fw.write("# Menu style\n");
-          fw.write("itemPrefix=" + valueOrDefault(s.itemPrefix(), "  ") + System.lineSeparator());
-          fw.write("itemSelectedPrefix=" + valueOrDefault(s.itemSelectedPrefix(), "> ") + System.lineSeparator());
-          fw.write("itemDisabledPrefix=" + valueOrDefault(s.itemDisabledPrefix(), "- ") + System.lineSeparator());
-          fw.write("itemDisabledColor=" + valueOrDefault(s.itemDisabledColor(), "#808080") + System.lineSeparator());
-          fw.write("buttonTextPaddingX=18" + System.lineSeparator());
-          fw.write("buttonTextPaddingY=0" + System.lineSeparator());
+          fw.write(defaultMenuStyleTemplate(s).replace("\n", System.lineSeparator()));
         }
       } else if (type == ItemType.MENU_SCREEN) {
         String screenId = file.getName().replace(".menu", "");
         try (FileWriter fw = new FileWriter(file)) {
-          fw.write("# Menu screen definition" + System.lineSeparator());
-          fw.write("titleText=" + titleize(screenId) + System.lineSeparator());
-          fw.write("wrapSelection=true" + System.lineSeparator());
-          fw.write("items=" + System.lineSeparator());
+          fw.write(defaultMenuScreenTemplate(screenId).replace("\n", System.lineSeparator()));
         }
       }
     } catch (Exception ignored) {
@@ -485,6 +471,114 @@ choiceTextBaselineOffset=5
 # textBoxButton.load.y=0.08
 # textBoxButton.load.width=0.1
 # textBoxButton.load.height=0.24
+""";
+  }
+
+  private static String defaultMenuLayoutTemplate(MenuLayoutSpec spec) {
+    MenuLayoutSpec s = spec == null ? MenuProfile.defaultLayout() : spec;
+    return """
+# Menu layout template (.layout)
+# Format: key=value
+# listYStart: first row Y (fraction if <=1, px if >1)
+# lineHeight: row spacing in pixels
+# listWidthFactor: row region width as viewport fraction (0..1)
+# textAlign: left|center|right
+# hintsBottomMargin: hint text bottom margin in pixels
+# titleY: title Y (fraction if <=1, px if >1)
+listYStart=%s
+lineHeight=%s
+listWidthFactor=%s
+textAlign=%s
+hintsBottomMargin=%s
+# titleY=0.12
+""".formatted(
+        formatDouble(s.listYStart()),
+        formatDouble(s.lineHeight()),
+        formatDouble(s.listWidthFactor()),
+        s.textAlign(),
+        formatDouble(s.hintsBottomMargin())
+    );
+  }
+
+  private static String defaultMenuStyleTemplate(MenuStyleSpec style) {
+    MenuStyleSpec s = style == null ? MenuProfile.defaultStyle() : style;
+    return """
+# Menu style template (.style)
+# Colors can be #RRGGBB or #RRGGBBAA.
+# Prefix keys are prepended to rendered labels.
+# Font keys map to JavaFX font resolver.
+# Button asset keys are optional textured row skins.
+itemPrefix=%s
+itemSelectedPrefix=%s
+itemDisabledPrefix=%s
+itemDisabledColor=%s
+buttonTextPaddingX=18
+buttonTextPaddingY=0
+# itemColor=#D3D3D3
+# itemSelectedColor=#FFFF00
+# itemHoverColor=#FFE066
+# itemFontFamily=Segoe UI
+# itemFontWeight=NORMAL
+# itemFontSize=22
+# titleColor=#FFFFFF
+# titleFontSize=44
+# hintsColor=#AAB4C8
+# backgroundAsset=assets/ui/menu/bg.png
+# buttonAsset=assets/ui/menu/button.png
+# buttonSelectedAsset=assets/ui/menu/button_selected.png
+# buttonHoverAsset=assets/ui/menu/button_hover.png
+# buttonDisabledAsset=assets/ui/menu/button_disabled.png
+""".formatted(
+        valueOrDefault(s.itemPrefix(), "  "),
+        valueOrDefault(s.itemSelectedPrefix(), "> "),
+        valueOrDefault(s.itemDisabledPrefix(), "- "),
+        valueOrDefault(s.itemDisabledColor(), "#808080")
+    );
+  }
+
+  private static String defaultMenuScreenTemplate(String screenId) {
+    String id = normalize(screenId, "main");
+    String title = titleize(id);
+    return """
+# Menu screen template (.menu)
+# Core keys:
+# titleText, hintsText, layout, defaultItemStyle, wrapSelection, items
+# Item keys:
+# item.<id>.label / action / target / style / enabled
+# Optional bounds keys:
+# item.<id>.boundsX / boundsY / boundsWidth / boundsHeight
+titleText=%s
+hintsText=Enter/Click: Select    Esc: Back
+layout=default
+defaultItemStyle=default
+wrapSelection=true
+items=start,back
+item.start.label=Start
+item.start.action=noop
+item.back.label=Back
+item.back.action=back
+# item.start.target=extras
+# item.start.style=submenu
+# item.start.enabled=false
+# item.start.boundsX=0.28
+# item.start.boundsY=0.34
+# item.start.boundsWidth=0.44
+# item.start.boundsHeight=0.072
+""".formatted(title);
+  }
+
+  private static String defaultMenuRegistryTemplate() {
+    return """
+# Menu registry
+# File format: Java properties (key=value)
+# defaultMenu: menu id to open first
+# menus: comma-separated .menu ids
+# layouts: comma-separated .layout ids
+# styles: comma-separated .style ids
+defaultMenu=main
+menus=main
+layouts=default
+styles=default
 """;
   }
 
@@ -955,7 +1049,7 @@ choiceTextBaselineOffset=5
           File parent = registryFile.getParentFile();
           if (parent != null && !parent.exists()) parent.mkdirs();
           try (FileWriter fw = new FileWriter(registryFile)) {
-            fw.write("# Menu registry\ndefaultMenu=main\nmenus=main\n");
+            fw.write(defaultMenuRegistryTemplate().replace("\n", System.lineSeparator()));
           }
         } catch (Exception ignored) {
         }

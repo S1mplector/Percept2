@@ -1122,13 +1122,20 @@ public class NewProjectWizard extends Stage {
 
   private void createBlankMenuScaffold(File dir) throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
-      fw.write("# Menu registry - blank project\n");
-      fw.write("# Add menu IDs here once you create .menu files in config/menu/menus/\n");
+      fw.write("# Menu registry (blank project scaffold)\n");
+      fw.write("# File format: Java properties (key=value)\n");
+      fw.write("# This file registers which menu DSL files runtime should discover.\n");
+      fw.write("#\n");
+      fw.write("# defaultMenu: initial menu id opened by [mainmenu] and title flow.\n");
+      fw.write("# menus: comma-separated menu screen ids (.menu files in config/menu/menus/).\n");
+      fw.write("# layouts: comma-separated layout ids (.layout files in config/menu/layouts/).\n");
+      fw.write("# styles: comma-separated style ids (.style files in config/menu/styles/).\n");
+      fw.write("#\n");
       fw.write("# Example:\n");
       fw.write("# defaultMenu=main\n");
       fw.write("# menus=main,load,save,settings\n");
-      fw.write("# layouts=default\n");
-      fw.write("# styles=default\n");
+      fw.write("# layouts=default,submenu,slots\n");
+      fw.write("# styles=default,submenu,slot\n");
     }
   }
 
@@ -1706,6 +1713,14 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
       fw.write("# Menu customization registry\n");
+      fw.write("# File format: Java properties (key=value)\n");
+      fw.write("#\n");
+      fw.write("# defaultMenu: first menu id shown when opening main menu flow.\n");
+      fw.write("# menus: all discoverable .menu files by id.\n");
+      fw.write("# layouts: all discoverable .layout files by id.\n");
+      fw.write("# styles: all discoverable .style files by id.\n");
+      fw.write("#\n");
+      fw.write("# Keep ids lowercase/snake_case and match file names.\n");
       fw.write("defaultMenu=main\n");
       fw.write("menus=" + String.join(",", menus) + "\n");
       fw.write("layouts=default,submenu,slots\n");
@@ -1713,7 +1728,13 @@ choiceTextBaselineOffset=5
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_DEFAULT_PATH))) {
-      fw.write("# Main menu layout\n");
+      fw.write("# Main menu layout (.layout)\n");
+      fw.write("# listYStart: Y position of first row (fraction if <=1, px if >1)\n");
+      fw.write("# lineHeight: vertical spacing between rows (pixels)\n");
+      fw.write("# listWidthFactor: width of list area as viewport fraction (0..1)\n");
+      fw.write("# textAlign: left|center|right alignment inside list area\n");
+      fw.write("# hintsBottomMargin: bottom margin for hint text (pixels)\n");
+      fw.write("# titleY: title Y position (fraction if <=1, px if >1)\n");
       fw.write("listYStart=0.34\n");
       fw.write("lineHeight=68\n");
       fw.write("listWidthFactor=0.44\n");
@@ -1723,7 +1744,9 @@ choiceTextBaselineOffset=5
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SUBMENU_PATH))) {
-      fw.write("# Submenu layout (extras/settings/credits)\n");
+      fw.write("# Submenu layout (.layout)\n");
+      fw.write("# Reused by extras/settings/credits style menus.\n");
+      fw.write("# Keys use same semantics as default.layout.\n");
       fw.write("listYStart=0.24\n");
       fw.write("lineHeight=62\n");
       fw.write("listWidthFactor=0.64\n");
@@ -1733,7 +1756,9 @@ choiceTextBaselineOffset=5
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SLOTS_PATH))) {
-      fw.write("# Save/Load slot layout\n");
+      fw.write("# Save/Load slot layout (.layout)\n");
+      fw.write("# Tuned for wider save slot cards and preview thumbnails.\n");
+      fw.write("# Keys use same semantics as default.layout.\n");
       fw.write("listYStart=0.20\n");
       fw.write("lineHeight=74\n");
       fw.write("listWidthFactor=0.58\n");
@@ -1743,7 +1768,11 @@ choiceTextBaselineOffset=5
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_DEFAULT_PATH))) {
-      fw.write("# Main menu visual style\n");
+      fw.write("# Main menu visual style (.style)\n");
+      fw.write("# Colors accept #RRGGBB or #RRGGBBAA.\n");
+      fw.write("# Prefix values are prepended to rendered labels.\n");
+      fw.write("# Font keys map to JavaFX font family/weight/size.\n");
+      fw.write("# Uncomment buttonAsset keys to use textured row backgrounds.\n");
       fw.write("itemColor=#DCE6F8\n");
       fw.write("itemSelectedColor=#FFE8A3\n");
       fw.write("itemHoverColor=#F4F8FF\n");
@@ -1777,7 +1806,9 @@ choiceTextBaselineOffset=5
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SUBMENU_PATH))) {
-      fw.write("# Submenu style\n");
+      fw.write("# Submenu visual style (.style)\n");
+      fw.write("# Shared by extras/settings/credits-oriented menus.\n");
+      fw.write("# Keys use the same semantics as default.style.\n");
       fw.write("itemColor=#D6E0F4\n");
       fw.write("itemSelectedColor=#B8EAFF\n");
       fw.write("itemHoverColor=#EAF4FF\n");
@@ -1802,7 +1833,9 @@ choiceTextBaselineOffset=5
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SLOT_PATH))) {
-      fw.write("# Save/load slot row style\n");
+      fw.write("# Save/load slot row visual style (.style)\n");
+      fw.write("# Designed for save slot card rows and metadata-heavy labels.\n");
+      fw.write("# Keys use the same semantics as default.style.\n");
       fw.write("itemColor=#E4EDF8\n");
       fw.write("itemSelectedColor=#FFF1B5\n");
       fw.write("itemHoverColor=#F0F7FF\n");
@@ -1820,6 +1853,18 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_MAIN_PATH))) {
       fw.write("# Main menu screen definition (redesigned)\n");
+      fw.write("#\n");
+      fw.write("# Core keys:\n");
+      fw.write("# titleText: menu title line.\n");
+      fw.write("# hintsText: helper controls line shown near footer.\n");
+      fw.write("# layout: layout id from config/menu/layouts/*.layout.\n");
+      fw.write("# defaultItemStyle: style id from config/menu/styles/*.style.\n");
+      fw.write("# wrapSelection: true loops keyboard selection from end->start.\n");
+      fw.write("# items: ordered list of item ids rendered by this screen.\n");
+      fw.write("#\n");
+      fw.write("# Per-item keys:\n");
+      fw.write("# item.<id>.label, item.<id>.action, item.<id>.target, item.<id>.style,\n");
+      fw.write("# item.<id>.enabled, item.<id>.boundsX/Y/Width/Height (optional custom hit box).\n");
       fw.write("titleText=" + name + "\n");
       fw.write("hintsText=Enter/Click: Select    Esc: Back\n");
       fw.write("layout=default\n");
@@ -1860,6 +1905,8 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_EXTRAS_PATH))) {
       fw.write("# Extras submenu\n");
+      fw.write("# Uses submenu layout/style and forwards to nested screens.\n");
+      fw.write("# Demonstrates disabled item rows and open_menu transitions.\n");
       fw.write("titleText=Extras\n");
       fw.write("hintsText=Enter/Click: Select    Esc: Back\n");
       fw.write("layout=submenu\n");
@@ -1878,6 +1925,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_CREDITS_PATH))) {
       fw.write("# Credits submenu\n");
+      fw.write("# Simple informational menu: mostly disabled text rows + one back action.\n");
       fw.write("titleText=Credits\n");
       fw.write("hintsText=Esc: Back\n");
       fw.write("layout=submenu\n");
@@ -1901,6 +1949,8 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_CONFIRM_EXIT_PATH))) {
       fw.write("# Quit confirmation submenu\n");
+      fw.write("# Shows a disabled prompt row with two actionable choices.\n");
+      fw.write("# item.<id>.style overrides row style when needed.\n");
       fw.write("titleText=Exit Game\n");
       fw.write("hintsText=Enter: Confirm    Esc: Cancel\n");
       fw.write("layout=submenu\n");
@@ -1920,6 +1970,10 @@ choiceTextBaselineOffset=5
     if (includeSave) {
       try (FileWriter fw = new FileWriter(new File(dir, MENU_LOAD_PATH))) {
         fw.write("# Load menu presentation profile (slot template)\n");
+        fw.write("# Slot keys:\n");
+        fw.write("# item.<id>.slotPreviewEnabled=true enables embedded save thumbnail.\n");
+        fw.write("# slotPreviewX/Y/Width/Height are normalized inside each row card.\n");
+        fw.write("# Optional bgAsset/bgSelectedAsset/slotPreview*Asset tune row skinning.\n");
         fw.write("titleText=Load Journey\n");
         fw.write("hintsText=Enter: Load    Esc: Back    Del: Delete    R: Rename\n");
         fw.write("layout=slots\n");
@@ -1941,6 +1995,8 @@ choiceTextBaselineOffset=5
 
       try (FileWriter fw = new FileWriter(new File(dir, MENU_SAVE_PATH))) {
         fw.write("# Save menu presentation profile (new slot + slot template)\n");
+        fw.write("# Includes a dedicated new_slot row plus templated save_slot rows.\n");
+        fw.write("# Slot preview keys share the same semantics as load.menu.\n");
         fw.write("titleText=Save Journey\n");
         fw.write("hintsText=Enter: Save    Esc: Back    Del: Delete    R: Rename\n");
         fw.write("layout=slots\n");
@@ -1973,6 +2029,9 @@ choiceTextBaselineOffset=5
     if (includeSettings) {
       try (FileWriter fw = new FileWriter(new File(dir, MENU_SETTINGS_PATH))) {
         fw.write("# Settings menu profile (keys map to engine settings)\n");
+        fw.write("# Each item.<id>.label supports {value} placeholder expansion.\n");
+        fw.write("# Runtime maps known setting ids to user settings store values.\n");
+        fw.write("# 'back' row uses action=back to return to previous screen.\n");
         fw.write("titleText=Settings\n");
         fw.write("hintsText=Up/Down: Select    Left/Right: Adjust    Esc: Back\n");
         fw.write("layout=submenu\n");
