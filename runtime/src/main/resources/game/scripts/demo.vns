@@ -366,6 +366,41 @@ timeline {
 }
 [wait 560]
 
+Narrator: Now showcasing VN-native event tracks within timelines.
+
+timeline {
+  event "expression" {
+    target: hero
+    value: smile
+  }
+  wait 200
+  event "dialogue_marker" {
+    id: showcase_beat_1
+  }
+  move "hero" {
+    x: 500
+    y: 400
+    dur: 300
+    easing: ease_in_out_sine
+  }
+  wait 300
+  event "expression" {
+    target: guide
+    value: surprised
+  }
+  event "script_call" {
+    provider: vn
+    command: log Event tracks working
+  }
+  wait 100
+  event "dialogue_marker" {
+    id: showcase_beat_2
+  }
+}
+[wait 650]
+
+Narrator: Event tracks fired expression changes and dialogue markers inline with movement.
+Narrator: Reusable clips can be saved from any track range and applied elsewhere at any playhead time.
 Narrator: That was a full in-script timeline showcase using the same action family Puppeteer exports.
 [jump ending]
 

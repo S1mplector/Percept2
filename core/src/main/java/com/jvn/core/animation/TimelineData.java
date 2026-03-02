@@ -19,6 +19,30 @@ public class TimelineData {
         CAMERA_X, CAMERA_Y, CAMERA_ZOOM
     }
 
+    /**
+     * Represents a discrete event cue on the timeline (expression change,
+     * dialogue marker, script call, etc.).  Fired once when the playhead
+     * crosses the cue time.
+     */
+    public static class EventCue {
+        private final double timeMs;
+        private final String type;
+        private final java.util.Map<String, String> payload;
+
+        public EventCue(double timeMs, String type, java.util.Map<String, String> payload) {
+            this.timeMs = Math.max(0.0, timeMs);
+            this.type = type == null ? "" : type.trim();
+            this.payload = payload != null
+                ? Collections.unmodifiableMap(new java.util.LinkedHashMap<>(payload))
+                : Collections.emptyMap();
+        }
+
+        public double getTimeMs() { return timeMs; }
+        public String getType() { return type; }
+        public java.util.Map<String, String> getPayload() { return payload; }
+        public String getPayloadValue(String key) { return payload.getOrDefault(key, ""); }
+    }
+
     public static class AudioCue {
         private final double timeMs;
         private final String trackPath;
@@ -142,6 +166,7 @@ public class TimelineData {
     private final double durationMs;
     private final List<Track> tracks = new ArrayList<>();
     private final List<AudioCue> audioCues = new ArrayList<>();
+    private final List<EventCue> eventCues = new ArrayList<>();
     private boolean looping = false;
 
     public TimelineData(String name, double durationMs) {
@@ -166,6 +191,14 @@ public class TimelineData {
 
     public List<AudioCue> getAudioCues() {
         return Collections.unmodifiableList(audioCues);
+    }
+
+    public void addEventCue(EventCue cue) {
+        if (cue != null && !cue.getType().isBlank()) eventCues.add(cue);
+    }
+
+    public List<EventCue> getEventCues() {
+        return Collections.unmodifiableList(eventCues);
     }
 
     public Track getTrack(String entityName) {

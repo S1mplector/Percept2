@@ -1,0 +1,188 @@
+package com.jvn.editor.ui.actioneditor;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.jvn.core.animation.Easing;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Round-trip tests: source -> model -> export -> model -> export.
+ * Verifies semantic equality and stable output (category A + H).
+ */
+class CodeRoundTripTest {
+
+    @Test
+    void simpleMoveRoundTrip() {
+        String original = """
+            timeline {
+              move "hero" {
+                x: 100
+                y: 50
+                dur: 200
+              }
+            }
+            """;
+
+        // Pass 1: import
+        AnimationProject project1 = CodeImporter.importCode("rt_move", original);
+        assertNotNull(project1);
+        EntityTrack hero1 = project1.getTrack("hero");
+        assertNotNull(hero1);
+        assertTrue(hero1.hasKeyframes(PropertyType.X));
+        assertTrue(hero1.hasKeyframes(PropertyType.Y));
+
+        // Pass 1: export
+        String exported1 = CodeExporter.export(project1);
+        assertNotNull(exported1);
+        assertTrue(exported1.contains("timeline"));
+
+        // Pass 2: import the export
+        AnimationProject project2 = CodeImporter.importCode("rt_move_2", exported1);
+        assertNotNull(project2);
+        EntityTrack hero2 = project2.getTrack("hero");
+        assertNotNull(hero2);
+
+        // Pass 2: export again
+        String exported2 = CodeExporter.export(project2);
+        assertNotNull(exported2);
+
+        // Semantic equality: X at endpoint should match
+        assertEquals(
+            hero1.getValueAt(PropertyType.X, 200),
+            hero2.getValueAt(PropertyType.X, 200),
+            0.5, "X at t=200 should match across round-trips"
+        );
+        assertEquals(
+            hero1.getValueAt(PropertyType.Y, 200),
+            hero2.getValueAt(PropertyType.Y, 200),
+            0.5, "Y at t=200 should match across round-trips"
+        );
+    }
+
+    @Test
+    void cameraAndAudioRoundTrip() {
+        String original = """
+            timeline {
+              cameraMove {
+                x: 50
+                y: -20
+                dur: 300
+                easing: ease_in_out_sine
+              }
+              cameraZoom {
+                zoom: 1.25
+                dur: 300
+              }
+              playAudio "assets/sfx/click.wav" {
+                volume: 0.8
+              }
+            }
+            """;
+
+        AnimationProject project1 = CodeImporter.importCode("rt_cam", original);
+        assertNotNull(project1);
+
+        // Verify camera track imported
+        EntityTrack camTrack = project1.getTrack("__camera__");
+        assertNotNull(camTrack, "Camera track should be imported");
+        assertTrue(camTrack.hasKeyframes(PropertyType.CAMERA_X));
+        assertTrue(camTrack.hasKeyframes(PropertyType.CAMERA_ZOOM));
+
+        // Verify audio cue imported
+        assertEquals(1, project1.getAudioCues().size());
+        assertEquals("assets/sfx/click.wav", project1.getAudioCues().get(0).getAudioFile());
+
+        // Export and re-import
+        String exported = CodeExporter.export(project1);
+        AnimationProject project2 = CodeImporter.importCode("rt_cam_2", exported);
+        assertNotNull(project2.getTrack("__camera__"));
+    }
+
+    @Test
+    void eventCueRoundTrip() {
+        String original = """
+            timeline {
+              wait 100
+              event "expression" {
+                target: lavender
+                value: smile
+              }
+              wait 50
+              event "dialogue_marker" {
+                id: beat_1
+              }
+            }
+            """;
+
+        AnimationProject project1 = CodeImporter.importCode("rt_evt", original);
+        assertNotNull(project1);
+        assertEquals(2, project1.getEditorEventCues().size());
+
+        EditorEventCue e1 = project1.getEditorEventCues().get(0);
+        assertEquals("expression", e1.getType());
+        assertEquals("lavender", e1.getPayloadValue("target"));
+
+        // Export and check it contains event blocks
+        String exported = CodeExporter.export(project1);
+        assertTrue(exported.contains("event \"expression\""));
+        assertTrue(exported.contains("event \"dialogue_marker\""));
+
+        // Re-import
+        AnimationProject project2 = CodeImporter.importCode("rt_evt_2", exported);
+        assertEquals(2, project2.getEditorEventCues().size());
+        assertEquals("expression", project2.getEditorEventCues().get(0).getType());
+    }
+
+    @Test
+    void exportFormattingIsDeterministic() {
+        AnimationProject project = new AnimationProject();
+        project.setName("deterministic");
+        EntityTrack track = project.getOrCreateTrack("sprite");
+        track.addKeyframe(PropertyType.X, new Keyframe(0, 0, Easing.Type.LINEAR));
+        track.addKeyframe(PropertyType.X, new Keyframe(500, 100, Easing.Type.EASE_OUT_QUAD));
+        track.addKeyframe(PropertyType.Y, new Keyframe(0, 0, Easing.Type.LINEAR));
+        track.addKeyframe(PropertyType.Y, new Keyframe(500, 50, Easing.Type.EASE_OUT_QUAD));
+
+        String export1 = CodeExporter.export(project);
+        String export2 = CodeExporter.export(project);
+        assertEquals(export1, export2, "Export output should be deterministic");
+    }
+
+    @Test
+    void multiActionWithWaitRoundTrip() {
+        String original = """
+            timeline {
+              move "a" {
+                x: 100
+                dur: 200
+              }
+              wait 200
+              fade "a" {
+                alpha: 0.5
+                dur: 300
+              }
+              wait 100
+              scale "a" {
+                x: 2.0
+                y: 2.0
+                dur: 150
+                easing: ease_in_out_cubic
+              }
+            }
+            """;
+
+        AnimationProject p = CodeImporter.importCode("rt_multi", original);
+        assertNotNull(p);
+        EntityTrack t = p.getTrack("a");
+        assertNotNull(t);
+        assertTrue(t.hasKeyframes(PropertyType.X));
+        assertTrue(t.hasKeyframes(PropertyType.ALPHA));
+        assertTrue(t.hasKeyframes(PropertyType.SCALE_X));
+        assertTrue(t.hasKeyframes(PropertyType.SCALE_Y));
+
+        // Values at endpoints
+        assertEquals(100.0, t.getValueAt(PropertyType.X, 200), 0.5);
+        assertEquals(0.5, t.getValueAt(PropertyType.ALPHA, 500), 0.1);
+        assertEquals(2.0, t.getValueAt(PropertyType.SCALE_X, 600 + 150), 0.5);
+    }
+}

@@ -21,6 +21,7 @@ public class AnimationProject {
     private final List<String> rootGroupNames = new ArrayList<>();
 
     private final List<AudioCue> audioCues = new ArrayList<>();
+    private final List<EditorEventCue> editorEventCues = new ArrayList<>();
 
     private double loopStartMs = -1;
     private double loopEndMs = -1;
@@ -69,6 +70,16 @@ public class AnimationProject {
     }
     public void removeAudioCue(AudioCue cue) { audioCues.remove(cue); }
     public void clearAudioCues() { audioCues.clear(); }
+
+    public List<EditorEventCue> getEditorEventCues() { return Collections.unmodifiableList(editorEventCues); }
+    public void addEditorEventCue(EditorEventCue cue) {
+        if (cue != null) {
+            editorEventCues.add(cue);
+            editorEventCues.sort(EditorEventCue::compareTo);
+        }
+    }
+    public void removeEditorEventCue(EditorEventCue cue) { editorEventCues.remove(cue); }
+    public void clearEditorEventCues() { editorEventCues.clear(); }
 
     public void captureInitialSnapshot() {
         initialSnapshot = new LinkedHashMap<>();
@@ -325,6 +336,9 @@ public class AnimationProject {
         for (AudioCue cue : audioCues) {
             copy.audioCues.add(cue.copy());
         }
+        for (EditorEventCue evt : editorEventCues) {
+            copy.editorEventCues.add(evt.copy());
+        }
         copy.rootEntityNames.addAll(rootEntityNames);
         copy.rootGroupNames.addAll(rootGroupNames);
         return copy;
@@ -379,6 +393,11 @@ public class AnimationProject {
                 "music".equalsIgnoreCase(cue.getChannel()),
                 cue.isFadeIn() ? cue.getFadeDurationMs() : 0.0
             ));
+        }
+        for (EditorEventCue evt : editorEventCues) {
+            if (evt == null || evt.getType().isBlank()) continue;
+            data.addEventCue(new TimelineData.EventCue(
+                evt.getTimeMs(), evt.getType(), evt.getPayloadView()));
         }
         return data;
     }

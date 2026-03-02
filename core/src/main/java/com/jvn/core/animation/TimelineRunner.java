@@ -1,13 +1,14 @@
 package com.jvn.core.animation;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
 import com.jvn.core.scene2d.CharacterEntity2D;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.Label2D;
 import com.jvn.core.scene2d.Panel2D;
 import com.jvn.core.scene2d.Sprite2D;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 
 /**
  * Applies a {@link TimelineData} to a live scene via {@link SceneAccessor}.
@@ -20,6 +21,7 @@ public class TimelineRunner {
     private final TimelineData timeline;
     private final SceneAccessor scene;
     private final List<TimelineData.AudioCue> sortedAudioCues;
+    private final List<TimelineData.EventCue> sortedEventCues;
     private double elapsedMs = 0;
     private boolean finished = false;
 
@@ -28,6 +30,8 @@ public class TimelineRunner {
         this.scene = scene;
         this.sortedAudioCues = new ArrayList<>(timeline.getAudioCues());
         this.sortedAudioCues.sort(Comparator.comparingDouble(TimelineData.AudioCue::getTimeMs));
+        this.sortedEventCues = new ArrayList<>(timeline.getEventCues());
+        this.sortedEventCues.sort(Comparator.comparingDouble(TimelineData.EventCue::getTimeMs));
     }
 
     public TimelineData getTimeline() { return timeline; }
@@ -60,10 +64,12 @@ public class TimelineRunner {
 
         if (timeline.isLooping()) {
             triggerAudioInterval(prevElapsed, nextElapsed, duration, true);
+            triggerEventInterval(prevElapsed, nextElapsed, duration, true);
             elapsedMs = nextElapsed % duration;
         } else {
             double clampedNext = Math.min(nextElapsed, duration);
             triggerAudioInterval(prevElapsed, clampedNext, duration, false);
+            triggerEventInterval(prevElapsed, clampedNext, duration, false);
             elapsedMs = clampedNext;
             if (nextElapsed >= duration - EPS) finished = true;
         }
@@ -145,6 +151,36 @@ public class TimelineRunner {
             double localStart = (cycle == startCycle) ? (startAbs - cycleBase) : 0.0;
             double localEnd = (cycle == endCycle) ? (endAbs - cycleBase) : duration;
             triggerAudioWindow(localStart, localEnd, localStart <= EPS);
+        }
+    }
+
+    private void triggerEventInterval(double startAbs, double endAbs, double duration, boolean looping) {
+        if (sortedEventCues.isEmpty() || endAbs + EPS < startAbs) return;
+
+        if (!looping) {
+            triggerEventWindow(startAbs, endAbs, startAbs <= EPS);
+            return;
+        }
+
+        long startCycle = (long) Math.floor(startAbs / duration);
+        long endCycle = (long) Math.floor(endAbs / duration);
+        for (long cycle = startCycle; cycle <= endCycle; cycle++) {
+            double cycleBase = cycle * duration;
+            double localStart = (cycle == startCycle) ? (startAbs - cycleBase) : 0.0;
+            double localEnd = (cycle == endCycle) ? (endAbs - cycleBase) : duration;
+            triggerEventWindow(localStart, localEnd, localStart <= EPS);
+        }
+    }
+
+    private void triggerEventWindow(double localStart, double localEnd, boolean includeStart) {
+        for (TimelineData.EventCue cue : sortedEventCues) {
+            if (cue == null || cue.getType().isBlank()) continue;
+            double t = cue.getTimeMs();
+            boolean inWindow = includeStart
+                ? (t + EPS >= localStart && t <= localEnd + EPS)
+                : (t > localStart + EPS && t <= localEnd + EPS);
+            if (!inWindow) continue;
+            scene.onEventCue(cue.getType(), cue.getPayload());
         }
     }
 

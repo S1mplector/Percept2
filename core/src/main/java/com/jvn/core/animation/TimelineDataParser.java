@@ -44,6 +44,8 @@ public class TimelineDataParser {
         "cameraZoom\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern PLAY_AUDIO_PATTERN = Pattern.compile(
         "playAudio\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern EVENT_PATTERN = Pattern.compile(
+        "event\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern WAIT_PATTERN = Pattern.compile(
         "wait\\s+(\\d+(?:\\.\\d+)?)", Pattern.CASE_INSENSITIVE);
     private static final Pattern PROP_PATTERN = Pattern.compile(
@@ -325,6 +327,23 @@ public class TimelineDataParser {
                 continue;
             }
 
+            // event "type" { ... }
+            Matcher eventM = EVENT_PATTERN.matcher(trimmed);
+            if (eventM.find()) {
+                String eventType = eventM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                java.util.Map<String, String> payload = new java.util.LinkedHashMap<>();
+                for (java.util.Map.Entry<String, String> entry : ab.props.entrySet()) {
+                    payload.put(entry.getKey(), entry.getValue());
+                }
+                data.addEventCue(new TimelineData.EventCue(cursor, eventType, payload));
+                if (cursor > maxTime) maxTime = cursor;
+                continue;
+            }
+
             // playAudio "path" { ... }
             Matcher playAudioM = PLAY_AUDIO_PATTERN.matcher(trimmed);
             if (playAudioM.find()) {
@@ -365,6 +384,7 @@ public class TimelineDataParser {
         return new TimelineData(name, maxTime) {{
             for (TimelineData.Track t : data.getTracks()) addTrack(t);
             for (TimelineData.AudioCue cue : data.getAudioCues()) addAudioCue(cue);
+            for (TimelineData.EventCue cue : data.getEventCues()) addEventCue(cue);
         }};
     }
 

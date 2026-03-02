@@ -178,6 +178,19 @@ public class CodeExporter {
             events.add(ev);
         }
 
+        for (EditorEventCue evt : project.getEditorEventCues()) {
+            if (evt == null || evt.getType().isBlank()) continue;
+            TimelineEvent ev = new TimelineEvent();
+            ev.actionType = "event";
+            ev.target = evt.getType();
+            ev.startTime = Math.max(0, evt.getTimeMs());
+            ev.duration = 0;
+            for (Map.Entry<String, String> entry : evt.getPayloadView().entrySet()) {
+                ev.props.put(entry.getKey(), entry.getValue());
+            }
+            events.add(ev);
+        }
+
         return events;
     }
 
@@ -274,6 +287,8 @@ public class CodeExporter {
         StringBuilder sb = new StringBuilder();
         if ("cameraMove".equals(ev.actionType) || "cameraZoom".equals(ev.actionType)) {
             sb.append("  ").append(ev.actionType).append(" {\n");
+        } else if ("event".equals(ev.actionType)) {
+            sb.append("  event \"").append(ev.target).append("\" {\n");
         } else {
             sb.append("  ").append(ev.actionType).append(" \"").append(ev.target).append("\" {\n");
         }
@@ -421,7 +436,7 @@ public class CodeExporter {
         String target;
         double startTime;
         double duration;
-        Easing.Type easing;
+        Easing.Type easing = Easing.Type.LINEAR;
         double[] bezierParams; // cx1,cy1,cx2,cy2 — only used when easing==CUSTOM
         Map<String, Object> props = new java.util.LinkedHashMap<>();
     }

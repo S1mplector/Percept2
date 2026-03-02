@@ -39,4 +39,13 @@ public interface SceneAccessor {
      * Optional audio stop hook used by timeline playback.
      */
     default void stopAudio(String channel) {}
+
+    /**
+     * Optional event cue callback used by timeline playback.
+     * Fired once when the playhead crosses an event cue.
+     *
+     * @param type    the event type (e.g. "expression", "dialogue_marker", "script_call")
+     * @param payload key-value pairs describing the event
+     */
+    default void onEventCue(String type, java.util.Map<String, String> payload) {}
 }
