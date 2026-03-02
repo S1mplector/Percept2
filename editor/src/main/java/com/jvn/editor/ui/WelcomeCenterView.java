@@ -58,7 +58,7 @@ public class WelcomeCenterView extends BorderPane {
     return t;
   });
 
-  private final Label headingLabel = new Label("JVN Editor");
+  private final Label headingLabel = new Label("Welcome back to JVN.");
   private final Label versionLabel = new Label("Version: --");
   private final Label workspaceLabel = new Label("Workspace: --");
   private final Label projectLabel = new Label("Project: none");
