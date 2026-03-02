@@ -11,6 +11,7 @@ import java.util.Properties;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
+import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
@@ -1926,6 +1927,117 @@ public class EditorApp extends Application {
     actions.getChildren().add(button);
   }
 
+  private void addChooserActionRow(javafx.scene.layout.VBox actions, String panelName,
+      Runnable embedAction, Runnable windowAction) {
+    if (actions == null || panelName == null) return;
+    Label label = new Label(panelName);
+    label.setMaxWidth(Double.MAX_VALUE);
+    HBox.setHgrow(label, Priority.ALWAYS);
+    label.setStyle("-fx-font-size: 12px; -fx-text-fill: #d0d8e8;");
+
+    Button dockBtn = new Button();
+    dockBtn.setGraphic(CssIcon.dock("#9cc7ff"));
+    dockBtn.setTooltip(new Tooltip("Add to sidebar panel"));
+    dockBtn.setMinSize(26, 26); dockBtn.setPrefSize(26, 26); dockBtn.setMaxSize(26, 26);
+    dockBtn.setFocusTraversable(false);
+    dockBtn.getStyleClass().add("panel-chooser-icon-btn");
+    if (embedAction != null) {
+      dockBtn.setOnAction(e -> embedAction.run());
+    } else {
+      dockBtn.setDisable(true);
+    }
+
+    Button popOutBtn = new Button();
+    popOutBtn.setGraphic(CssIcon.popOut("#f5c46b"));
+    popOutBtn.setTooltip(new Tooltip("Open in separate window"));
+    popOutBtn.setMinSize(26, 26); popOutBtn.setPrefSize(26, 26); popOutBtn.setMaxSize(26, 26);
+    popOutBtn.setFocusTraversable(false);
+    popOutBtn.getStyleClass().add("panel-chooser-icon-btn");
+    if (windowAction != null) {
+      popOutBtn.setOnAction(e -> windowAction.run());
+    } else {
+      popOutBtn.setDisable(true);
+    }
+
+    HBox row = new HBox(6, label, dockBtn, popOutBtn);
+    row.setAlignment(Pos.CENTER_LEFT);
+    row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
+    row.setStyle("-fx-background-color: #1e2230; -fx-background-radius: 4;");
+    actions.getChildren().add(row);
+  }
+
+  private void launchPanelAsWindow(String title, javafx.scene.Parent content, double width, double height) {
+    if (content == null) return;
+    // Detach from any current parent (Tab or other container)
+    if (content.getParent() != null) {
+      javafx.scene.Parent parent = content.getParent();
+      if (parent instanceof javafx.scene.layout.Pane pane) {
+        pane.getChildren().remove(content);
+      }
+    }
+    // Remove from any sidebar tab
+    detachFromSidebarTab(content);
+
+    Stage windowStage = new Stage();
+    windowStage.setTitle(title != null ? title : "Utility");
+    javafx.scene.layout.BorderPane wrapper = new javafx.scene.layout.BorderPane(content);
+    Scene windowScene = new Scene(wrapper, width, height);
+    try {
+      String css = EditorApp.class.getResource("/com/jvn/editor/editor.css").toExternalForm();
+      windowScene.getStylesheets().add(css);
+    } catch (Exception ignore) {}
+    windowStage.setScene(windowScene);
+    windowStage.setOnCloseRequest(e -> {
+      // On window close, do NOT re-attach — user can re-add via chooser
+    });
+    applyLinuxDefaultWindowState(windowStage);
+    windowStage.show();
+  }
+
+  private void detachFromSidebarTab(javafx.scene.Parent content) {
+    Tab[] allTabs = {
+        tabProject, tabTimeline, tabHelp, tabInspector, tabVnsDiagnostics,
+        tabVnsFlowMap, tabAssetBrowser, tabVersionControl, tabLayoutLauncher,
+        tabLayeredImageVisualizer, tabImageAttributesTool, tabImageTintTool,
+        tabMenuFlow, tabPuppeteerLauncher
+    };
+    for (Tab t : allTabs) {
+      if (t != null && t.getContent() == content) {
+        TabPane tp = t.getTabPane();
+        if (tp != null) tp.getTabs().remove(t);
+        t.setContent(null);
+        nullifyTab(t);
+        break;
+      }
+      // Also check if content is wrapped in a ScrollPane
+      if (t != null && t.getContent() instanceof ScrollPane sp && sp.getContent() == content) {
+        TabPane tp = t.getTabPane();
+        if (tp != null) tp.getTabs().remove(t);
+        sp.setContent(null);
+        t.setContent(null);
+        nullifyTab(t);
+        break;
+      }
+    }
+  }
+
+  private void nullifyTab(Tab tab) {
+    if (tab == tabProject) tabProject = null;
+    else if (tab == tabTimeline) tabTimeline = null;
+    else if (tab == tabHelp) tabHelp = null;
+    else if (tab == tabInspector) tabInspector = null;
+    else if (tab == tabVnsDiagnostics) tabVnsDiagnostics = null;
+    else if (tab == tabVnsFlowMap) tabVnsFlowMap = null;
+    else if (tab == tabAssetBrowser) tabAssetBrowser = null;
+    else if (tab == tabVersionControl) tabVersionControl = null;
+    else if (tab == tabLayoutLauncher) tabLayoutLauncher = null;
+    else if (tab == tabLayeredImageVisualizer) tabLayeredImageVisualizer = null;
+    else if (tab == tabImageAttributesTool) tabImageAttributesTool = null;
+    else if (tab == tabImageTintTool) tabImageTintTool = null;
+    else if (tab == tabMenuFlow) tabMenuFlow = null;
+    else if (tab == tabPuppeteerLauncher) tabPuppeteerLauncher = null;
+  }
+
   private void openPanelChooserTab(TabPane pane, boolean leftSide) {
     if (pane == null) return;
     Tab addTab = leftSide ? tabLeftAdd : tabRightAdd;
@@ -1942,69 +2054,100 @@ public class EditorApp extends Application {
     heading.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
     Label info = new Label(details);
     info.setWrapText(true);
-    javafx.scene.layout.VBox actions = new javafx.scene.layout.VBox(8);
-    addChooserActionButton(actions, panelActionLabel("Project", tabProject, pane), "icon-panel-project", () -> {
+    javafx.scene.layout.VBox actions = new javafx.scene.layout.VBox(4);
+    addChooserActionRow(actions, "Project", () -> {
       Tab t = ensureProjectTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
-    });
-    addChooserActionButton(actions, panelActionLabel("Timeline", tabTimeline, pane), "icon-panel-timeline", () -> {
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Project", projView, 600, 700));
+
+    addChooserActionRow(actions, "Timeline", () -> {
       Tab t = ensureTimelineTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
-    });
-    addChooserActionButton(actions, panelActionLabel("VNS Diagnostics", tabVnsDiagnostics, pane), "icon-panel-diagnostics", () -> {
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Story Timeline", timelineView, 600, 700));
+
+    addChooserActionRow(actions, "VNS Diagnostics", () -> {
       Tab t = ensureVnsDiagnosticsTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
-    });
-    addChooserActionButton(actions, panelActionLabel("Label Flow", tabVnsFlowMap, pane), "icon-panel-flow", () -> {
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("VNS Diagnostics", vnsDiagnosticsView, 700, 600));
+
+    addChooserActionRow(actions, "Label Flow", () -> {
       Tab t = ensureVnsFlowMapTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
-    });
-    addChooserActionButton(actions, panelActionLabel("Assets", tabAssetBrowser, pane), "icon-panel-assets", () -> {
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Label Flow Map", vnsFlowMapView, 700, 600));
+
+    addChooserActionRow(actions, "Assets", () -> {
       Tab t = ensureAssetBrowserTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
-    });
-    addChooserActionButton(actions, panelActionLabel("Layout Launcher", tabLayoutLauncher, pane), "icon-panel-layouts", () -> {
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Asset Browser", assetBrowserView, 700, 600));
+
+    addChooserActionRow(actions, "Layout Launcher", () -> {
       Tab t = ensureLayoutLauncherTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (t != null) pane.getSelectionModel().select(t);
       if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
+    }, () -> {
+      if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
+      launchPanelAsWindow("Layout Launcher", layoutEditorLauncherView, 700, 700);
     });
-    addChooserActionButton(actions, panelActionLabel("Layered Image Visualizer", tabLayeredImageVisualizer, pane), "icon-panel-layered", () -> {
+
+    addChooserActionRow(actions, "Layered Image Visualizer", () -> {
       Tab t = ensureLayeredImageVisualizerTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (t != null) pane.getSelectionModel().select(t);
       if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
+    }, () -> {
+      if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
+      launchPanelAsWindow("Layered Image Visualizer", layeredImageVisualizerView, 900, 700);
     });
-    addChooserActionButton(actions, panelActionLabel("Image Attributes Tool", tabImageAttributesTool, pane), "icon-panel-image-attributes", () -> {
+
+    addChooserActionRow(actions, "Image Attributes Tool", () -> {
       Tab t = ensureImageAttributesToolTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (t != null) pane.getSelectionModel().select(t);
       if (imageAttributesToolView != null) imageAttributesToolView.refreshCatalog();
+    }, () -> {
+      if (imageAttributesToolView != null) imageAttributesToolView.refreshCatalog();
+      launchPanelAsWindow("Image Attributes Tool", imageAttributesToolView, 800, 650);
     });
-    addChooserActionButton(actions, panelActionLabel("Image Tint Tool", tabImageTintTool, pane), "icon-panel-image-tint", () -> {
+
+    addChooserActionRow(actions, "Image Tint Tool", () -> {
       Tab t = ensureImageTintToolTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (t != null) pane.getSelectionModel().select(t);
       if (imageTintToolView != null) imageTintToolView.refreshCatalog();
+    }, () -> {
+      if (imageTintToolView != null) imageTintToolView.refreshCatalog();
+      launchPanelAsWindow("Image Tint Tool", imageTintToolView, 800, 650);
     });
-    addChooserActionButton(actions, panelActionLabel("Menu Flow", tabMenuFlow, pane), "icon-panel-menuflow", () -> {
+
+    addChooserActionRow(actions, "Menu Flow", () -> {
       Tab t = ensureMenuFlowTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (t != null) pane.getSelectionModel().select(t);
       if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
+    }, () -> {
+      if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
+      launchPanelAsWindow("Menu Flow Editor", menuFlowEditorView, 900, 650);
     });
-    addChooserActionButton(actions, panelActionLabel("Version Control", tabVersionControl, pane), "icon-panel-vcs", () -> {
+
+    addChooserActionRow(actions, "Version Control", () -> {
       Tab t = ensureVersionControlTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
+      if (t != null) pane.getSelectionModel().select(t);
       if (versionControlView != null) versionControlView.refreshStatus();
+    }, () -> {
+      if (versionControlView != null) versionControlView.refreshStatus();
+      launchPanelAsWindow("Version Control", versionControlView, 700, 600);
     });
-    addChooserActionButton(actions, panelActionLabel("Help", tabHelp, pane), "icon-panel-help", () -> {
+
+    addChooserActionRow(actions, "Help", () -> {
       Tab t = ensureHelpTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
-    });
-    addChooserActionButton(actions, panelActionLabel("Inspector", tabInspector, pane), "icon-panel-inspector", () -> {
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Help Center", helpCenterView, 700, 650));
+
+    addChooserActionRow(actions, "Inspector", () -> {
       Tab t = ensureInspectorTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
-    });
-    addChooserActionButton(actions, panelActionLabel("Puppeteer Launcher", tabPuppeteerLauncher, pane), "icon-panel-puppeteer", () -> {
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Inspector", inspectorView, 400, 600));
+
+    addChooserActionRow(actions, "Puppeteer Launcher", () -> {
       Tab t = ensurePuppeteerLauncherTab(pane);
-      if (t != null && pane != null) pane.getSelectionModel().select(t);
-    });
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Puppeteer Launcher", puppeteerLauncherPanel, 600, 500));
 
     root.getChildren().addAll(heading, info, new javafx.scene.control.Separator(), actions);
     Tab chooser = new Tab("New Panel", root);

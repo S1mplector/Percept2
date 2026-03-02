@@ -290,6 +290,12 @@ public class AnimationPreview extends VBox {
             java.util.List<Keyframe> yFrames = track.getKeyframes(PropertyType.Y);
             if (xFrames.isEmpty() && yFrames.isEmpty()) continue;
 
+            boolean hasPivotX = !track.getKeyframes(PropertyType.PIVOT_X).isEmpty();
+            boolean hasPivotY = !track.getKeyframes(PropertyType.PIVOT_Y).isEmpty();
+            boolean hasRotation = !track.getKeyframes(PropertyType.ROTATION).isEmpty();
+            boolean hasScaleX = !track.getKeyframes(PropertyType.SCALE_X).isEmpty();
+            boolean hasScaleY = !track.getKeyframes(PropertyType.SCALE_Y).isEmpty();
+
             for (int i = -onionFrames; i <= onionFrames; i++) {
                 if (i == 0) continue;
                 double t = now + i * step;
@@ -304,7 +310,31 @@ public class AnimationPreview extends VBox {
                 gc.setStroke(color);
                 gc.setLineWidth(1.5 / z);
                 double size = 20.0 / z;
-                gc.strokeRect(x - size / 2, y - size / 2, size, size);
+
+                if (hasPivotX || hasPivotY || hasRotation || hasScaleX || hasScaleY) {
+                    double pivX = hasPivotX ? track.getValueAt(PropertyType.PIVOT_X, t) : 0.5;
+                    double pivY = hasPivotY ? track.getValueAt(PropertyType.PIVOT_Y, t) : 0.5;
+                    double rot = hasRotation ? Math.toRadians(track.getValueAt(PropertyType.ROTATION, t)) : 0.0;
+                    double sX = hasScaleX ? track.getValueAt(PropertyType.SCALE_X, t) : 1.0;
+                    double sY = hasScaleY ? track.getValueAt(PropertyType.SCALE_Y, t) : 1.0;
+
+                    gc.save();
+                    gc.translate(x, y);
+                    gc.rotate(Math.toDegrees(rot));
+                    gc.scale(sX, sY);
+                    double halfW = size / 2;
+                    double halfH = size / 2;
+                    double offX = -(pivX - 0.5) * size;
+                    double offY = -(pivY - 0.5) * size;
+                    gc.strokeRect(offX - halfW, offY - halfH, size, size);
+
+                    gc.setFill(color);
+                    double pivDot = 2.0 / z / Math.max(0.01, Math.max(Math.abs(sX), Math.abs(sY)));
+                    gc.fillOval(-pivDot, -pivDot, pivDot * 2, pivDot * 2);
+                    gc.restore();
+                } else {
+                    gc.strokeRect(x - size / 2, y - size / 2, size, size);
+                }
 
                 gc.setFill(color);
                 gc.setFont(javafx.scene.text.Font.font(8.0 / z));

@@ -1242,3 +1242,26 @@
 .welcome-health-detail {
   -fx-text-fill: #aeb8cb;
 }
+
+/* Panel chooser icon buttons (dock / pop-out) */
+.panel-chooser-icon-btn {
+  -fx-padding: 0;
+  -fx-background-color: transparent;
+  -fx-background-radius: 4;
+  -fx-border-color: transparent;
+  -fx-border-radius: 4;
+  -fx-cursor: hand;
+}
+
+.panel-chooser-icon-btn:hover {
+  -fx-background-color: #2a3240;
+  -fx-border-color: #3a4555;
+}
+
+.panel-chooser-icon-btn:pressed {
+  -fx-background-color: #3a4860;
+}
+
+.panel-chooser-icon-btn:disabled {
+  -fx-opacity: 0.35;
+}
