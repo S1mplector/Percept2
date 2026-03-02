@@ -7,14 +7,14 @@ import java.util.Properties;
 /**
  * Resolves the runtime VN viewport size from jvn.project for 1:1 editor previews.
  */
-final class ProjectViewportSpec {
-  static final int DEFAULT_WIDTH = 960;
-  static final int DEFAULT_HEIGHT = 540;
+public final class ProjectViewportSpec {
+  public static final int DEFAULT_WIDTH = 960;
+  public static final int DEFAULT_HEIGHT = 540;
 
   private ProjectViewportSpec() {
   }
 
-  static Dimensions resolve(File projectRoot) {
+  public static Dimensions resolve(File projectRoot) {
     int width = DEFAULT_WIDTH;
     int height = DEFAULT_HEIGHT;
 
@@ -47,11 +47,10 @@ final class ProjectViewportSpec {
     }
   }
 
-  static record Dimensions(int width, int height) {
-    double aspect() {
+  public static record Dimensions(int width, int height) {
+    public double aspect() {
       if (height <= 0) return DEFAULT_WIDTH / (double) DEFAULT_HEIGHT;
       return width / (double) height;
     }
   }
 }
-

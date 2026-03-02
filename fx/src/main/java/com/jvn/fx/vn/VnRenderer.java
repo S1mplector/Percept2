@@ -533,9 +533,13 @@ public class VnRenderer {
   }
 
   private void renderBackground(VnBackground background, double width, double height) {
+    if (background == null) return;
     Image img = loadImage(background.getImagePath());
+    com.jvn.core.scene2d.Entity2D proxy = timelineAccessor != null
+        ? timelineAccessor.getProxy(background.getId())
+        : null;
     if (img != null) {
-      gc.drawImage(img, 0, 0, width, height);
+      drawBackgroundImage(img, proxy, width, height);
     } else {
       // Placeholder background
       gc.setFill(Color.DARKSLATEGRAY);
@@ -544,6 +548,32 @@ public class VnRenderer {
       gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 24));
       gc.fillText("No Background Image", 20, 40);
     }
+  }
+
+  private void drawBackgroundImage(Image img, com.jvn.core.scene2d.Entity2D proxy, double width, double height) {
+    if (proxy != null && !proxy.isVisible()) return;
+    double x = proxy != null ? proxy.getX() : 0.0;
+    double y = proxy != null ? proxy.getY() : 0.0;
+    double rotation = proxy != null ? proxy.getRotationDeg() : 0.0;
+    double scaleX = proxy != null ? proxy.getScaleX() : 1.0;
+    double scaleY = proxy != null ? proxy.getScaleY() : 1.0;
+    boolean transformed = Math.abs(x) > 1e-6
+        || Math.abs(y) > 1e-6
+        || Math.abs(rotation) > 1e-6
+        || Math.abs(scaleX - 1.0) > 1e-6
+        || Math.abs(scaleY - 1.0) > 1e-6;
+
+    if (!transformed) {
+      gc.drawImage(img, 0, 0, width, height);
+      return;
+    }
+
+    gc.save();
+    gc.translate(x, y);
+    if (Math.abs(rotation) > 1e-6) gc.rotate(rotation);
+    if (Math.abs(scaleX - 1.0) > 1e-6 || Math.abs(scaleY - 1.0) > 1e-6) gc.scale(scaleX, scaleY);
+    gc.drawImage(img, 0, 0, width, height);
+    gc.restore();
   }
 
   private void renderCharacters(VnState state, VnScenario scenario, double width, double height) {

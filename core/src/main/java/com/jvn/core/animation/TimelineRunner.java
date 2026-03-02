@@ -89,8 +89,12 @@ public class TimelineRunner {
             if (entity == null) continue;
 
             if (track.hasKeyframes(TimelineData.Property.X) || track.hasKeyframes(TimelineData.Property.Y)) {
-                double x = track.getValueAt(TimelineData.Property.X, timeMs);
-                double y = track.getValueAt(TimelineData.Property.Y, timeMs);
+                double x = track.hasKeyframes(TimelineData.Property.X)
+                    ? track.getValueAt(TimelineData.Property.X, timeMs)
+                    : entity.getX();
+                double y = track.hasKeyframes(TimelineData.Property.Y)
+                    ? track.getValueAt(TimelineData.Property.Y, timeMs)
+                    : entity.getY();
                 entity.setPosition(x, y);
             }
             if (track.hasKeyframes(TimelineData.Property.Z)) {
@@ -111,8 +115,12 @@ public class TimelineRunner {
                 entity.setRotationDeg(rot);
             }
             if (track.hasKeyframes(TimelineData.Property.SCALE_X) || track.hasKeyframes(TimelineData.Property.SCALE_Y)) {
-                double sx = track.getValueAt(TimelineData.Property.SCALE_X, timeMs);
-                double sy = track.getValueAt(TimelineData.Property.SCALE_Y, timeMs);
+                double sx = track.hasKeyframes(TimelineData.Property.SCALE_X)
+                    ? track.getValueAt(TimelineData.Property.SCALE_X, timeMs)
+                    : entity.getScaleX();
+                double sy = track.hasKeyframes(TimelineData.Property.SCALE_Y)
+                    ? track.getValueAt(TimelineData.Property.SCALE_Y, timeMs)
+                    : entity.getScaleY();
                 entity.setScale(sx, sy);
             }
             if (track.hasKeyframes(TimelineData.Property.ALPHA)) {

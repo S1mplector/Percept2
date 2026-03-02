@@ -81,4 +81,26 @@ class TimelineDataParserTest {
         assertFalse(cue.isLoop());
         assertEquals(0.4, cue.getVolume(), 0.001);
     }
+
+    @Test
+    void moveWithDurationInterpolatesFromCurrentValue() {
+        String inline = """
+            timeline {
+              move "hero" {
+                x: 100
+                y: 50
+                dur: 200
+              }
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("inline_move_interp", inline);
+        TimelineData.Track hero = data.getTrack("hero");
+        assertNotNull(hero);
+        assertEquals(200.0, data.getDurationMs(), 0.001);
+        assertEquals(0.0, hero.getValueAt(TimelineData.Property.X, 0), 0.001);
+        assertEquals(50.0, hero.getValueAt(TimelineData.Property.X, 100), 0.001);
+        assertEquals(100.0, hero.getValueAt(TimelineData.Property.X, 200), 0.001);
+        assertEquals(25.0, hero.getValueAt(TimelineData.Property.Y, 100), 0.001);
+    }
 }

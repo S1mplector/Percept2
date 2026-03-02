@@ -111,4 +111,27 @@ class TimelineRunnerTest {
         runner.update(250);
         assertEquals(2, scene.audioPlayCount);
     }
+
+    @Test
+    void preservesUntouchedAxesWhenOnlyOneAxisIsKeyed() {
+        TimelineData data = new TimelineData("axis_preserve", 1000);
+        TimelineData.Track hero = new TimelineData.Track("hero");
+        hero.addKeyframe(TimelineData.Property.X, new TimelineData.Keyframe(0, 100, Easing.Type.LINEAR));
+        hero.addKeyframe(TimelineData.Property.X, new TimelineData.Keyframe(1000, 300, Easing.Type.LINEAR));
+        hero.addKeyframe(TimelineData.Property.SCALE_X, new TimelineData.Keyframe(0, 2.0, Easing.Type.LINEAR));
+        hero.addKeyframe(TimelineData.Property.SCALE_X, new TimelineData.Keyframe(1000, 3.0, Easing.Type.LINEAR));
+        data.addTrack(hero);
+
+        RecordingSceneAccessor scene = new RecordingSceneAccessor();
+        scene.hero.setPosition(10, 42);
+        scene.hero.setScale(1.5, 1.75);
+
+        TimelineRunner runner = new TimelineRunner(data, scene);
+        runner.update(500);
+
+        assertEquals(200.0, scene.hero.getX(), 0.001);
+        assertEquals(42.0, scene.hero.getY(), 0.001);
+        assertEquals(2.5, scene.hero.getScaleX(), 0.001);
+        assertEquals(1.75, scene.hero.getScaleY(), 0.001);
+    }
 }

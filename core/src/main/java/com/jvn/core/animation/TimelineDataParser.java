@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
  * </pre>
  */
 public class TimelineDataParser {
+    private static final double EPS = 1e-6;
     private static final String CAMERA_TRACK = "__camera__";
 
     private static final Pattern MOVE_PATTERN = Pattern.compile(
@@ -108,12 +109,24 @@ public class TimelineDataParser {
                 TimelineData.Track track = getOrCreateTrack(data, entity);
 
                 if (ab.has("x")) {
-                    track.addKeyframe(TimelineData.Property.X,
-                        new TimelineData.Keyframe(endTime, ab.getDouble("x", 0), easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.X,
+                        cursor,
+                        endTime,
+                        ab.getDouble("x", 0),
+                        easing
+                    );
                 }
                 if (ab.has("y")) {
-                    track.addKeyframe(TimelineData.Property.Y,
-                        new TimelineData.Keyframe(endTime, ab.getDouble("y", 0), easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.Y,
+                        cursor,
+                        endTime,
+                        ab.getDouble("y", 0),
+                        easing
+                    );
                 }
                 if (endTime > maxTime) maxTime = endTime;
                 continue;
@@ -133,12 +146,24 @@ public class TimelineDataParser {
                 TimelineData.Track track = getOrCreateTrack(data, entity);
 
                 if (ab.has("ox")) {
-                    track.addKeyframe(TimelineData.Property.PIVOT_X,
-                        new TimelineData.Keyframe(endTime, ab.getDouble("ox", 0), easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.PIVOT_X,
+                        cursor,
+                        endTime,
+                        ab.getDouble("ox", 0),
+                        easing
+                    );
                 }
                 if (ab.has("oy")) {
-                    track.addKeyframe(TimelineData.Property.PIVOT_Y,
-                        new TimelineData.Keyframe(endTime, ab.getDouble("oy", 0), easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.PIVOT_Y,
+                        cursor,
+                        endTime,
+                        ab.getDouble("oy", 0),
+                        easing
+                    );
                 }
                 if (endTime > maxTime) maxTime = endTime;
                 continue;
@@ -159,8 +184,14 @@ public class TimelineDataParser {
 
                 if (ab.has("angle") || ab.has("rotation")) {
                     double val = ab.has("angle") ? ab.getDouble("angle", 0) : ab.getDouble("rotation", 0);
-                    track.addKeyframe(TimelineData.Property.ROTATION,
-                        new TimelineData.Keyframe(endTime, val, easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.ROTATION,
+                        cursor,
+                        endTime,
+                        val,
+                        easing
+                    );
                 }
                 if (endTime > maxTime) maxTime = endTime;
                 continue;
@@ -181,13 +212,25 @@ public class TimelineDataParser {
 
                 if (ab.has("x") || ab.has("scale_x")) {
                     double val = ab.has("scale_x") ? ab.getDouble("scale_x", 1) : ab.getDouble("x", 1);
-                    track.addKeyframe(TimelineData.Property.SCALE_X,
-                        new TimelineData.Keyframe(endTime, val, easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.SCALE_X,
+                        cursor,
+                        endTime,
+                        val,
+                        easing
+                    );
                 }
                 if (ab.has("y") || ab.has("scale_y")) {
                     double val = ab.has("scale_y") ? ab.getDouble("scale_y", 1) : ab.getDouble("y", 1);
-                    track.addKeyframe(TimelineData.Property.SCALE_Y,
-                        new TimelineData.Keyframe(endTime, val, easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.SCALE_Y,
+                        cursor,
+                        endTime,
+                        val,
+                        easing
+                    );
                 }
                 if (endTime > maxTime) maxTime = endTime;
                 continue;
@@ -207,8 +250,14 @@ public class TimelineDataParser {
                 TimelineData.Track track = getOrCreateTrack(data, entity);
 
                 if (ab.has("alpha")) {
-                    track.addKeyframe(TimelineData.Property.ALPHA,
-                        new TimelineData.Keyframe(endTime, ab.getDouble("alpha", 1), easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.ALPHA,
+                        cursor,
+                        endTime,
+                        ab.getDouble("alpha", 1),
+                        easing
+                    );
                 }
                 if (endTime > maxTime) maxTime = endTime;
                 continue;
@@ -227,12 +276,24 @@ public class TimelineDataParser {
                 TimelineData.Track track = getOrCreateTrack(data, CAMERA_TRACK);
 
                 if (ab.has("x")) {
-                    track.addKeyframe(TimelineData.Property.CAMERA_X,
-                        new TimelineData.Keyframe(endTime, ab.getDouble("x", 0), easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.CAMERA_X,
+                        cursor,
+                        endTime,
+                        ab.getDouble("x", 0),
+                        easing
+                    );
                 }
                 if (ab.has("y")) {
-                    track.addKeyframe(TimelineData.Property.CAMERA_Y,
-                        new TimelineData.Keyframe(endTime, ab.getDouble("y", 0), easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.CAMERA_Y,
+                        cursor,
+                        endTime,
+                        ab.getDouble("y", 0),
+                        easing
+                    );
                 }
                 if (endTime > maxTime) maxTime = endTime;
                 continue;
@@ -251,8 +312,14 @@ public class TimelineDataParser {
                 TimelineData.Track track = getOrCreateTrack(data, CAMERA_TRACK);
 
                 if (ab.has("zoom")) {
-                    track.addKeyframe(TimelineData.Property.CAMERA_ZOOM,
-                        new TimelineData.Keyframe(endTime, ab.getDouble("zoom", 1), easing));
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.CAMERA_ZOOM,
+                        cursor,
+                        endTime,
+                        ab.getDouble("zoom", 1),
+                        easing
+                    );
                 }
                 if (endTime > maxTime) maxTime = endTime;
                 continue;
@@ -309,6 +376,36 @@ public class TimelineDataParser {
         TimelineData.Track track = new TimelineData.Track(entity);
         data.addTrack(track);
         return track;
+    }
+
+    private static void addTweenKeyframe(
+        TimelineData.Track track,
+        TimelineData.Property property,
+        double startTime,
+        double endTime,
+        double targetValue,
+        Easing.Type easing
+    ) {
+        if (track == null || property == null) return;
+        double start = Math.max(0.0, startTime);
+        double end = Math.max(0.0, endTime);
+        if (end <= start + EPS) {
+            track.addKeyframe(property, new TimelineData.Keyframe(start, targetValue, easing));
+            return;
+        }
+        if (!hasKeyframeAt(track, property, start)) {
+            double startValue = track.getValueAt(property, start);
+            track.addKeyframe(property, new TimelineData.Keyframe(start, startValue, Easing.Type.LINEAR));
+        }
+        track.addKeyframe(property, new TimelineData.Keyframe(end, targetValue, easing));
+    }
+
+    private static boolean hasKeyframeAt(TimelineData.Track track, TimelineData.Property property, double timeMs) {
+        if (track == null || property == null) return false;
+        for (TimelineData.Keyframe keyframe : track.getKeyframes(property)) {
+            if (Math.abs(keyframe.getTimeMs() - timeMs) <= EPS) return true;
+        }
+        return false;
     }
 
     private static Easing.Type parseEasing(String s) {
