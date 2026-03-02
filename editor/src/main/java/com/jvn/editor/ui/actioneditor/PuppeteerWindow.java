@@ -72,6 +72,7 @@ public class PuppeteerWindow extends Stage {
     private long lastNanos = 0;
 
     private final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
+    private final KeyframeSelectionModel selectionModel = new KeyframeSelectionModel();
     private Consumer<String> onCopyCode;
     private final TextField tfTimelineName;
     private boolean dirty = false;
@@ -351,7 +352,22 @@ public class PuppeteerWindow extends Stage {
         btnPasteKeyframes.setOnAction(e -> pasteCopiedKeyframesAtPlayhead());
         Button btnDuplicateKeyframes = makeToolbarIconButton("icon-puppeteer-duplicate", "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)");
         btnDuplicateKeyframes.setOnAction(e -> duplicateSelectedKeyframesBySnapStep());
-        HBox keyframeOpsBox = new HBox(4, btnCopyKeyframes, btnPasteKeyframes, btnDuplicateKeyframes);
+        Button btnSaveClip = makeToolbarIconButton("icon-puppeteer-register", "Save selection as reusable clip");
+        btnSaveClip.setOnAction(e -> saveSelectionAsClip());
+        Button btnLoadClip = makeToolbarIconButton("icon-puppeteer-paste", "Load and apply a saved clip at playhead");
+        btnLoadClip.setOnAction(e -> loadAndApplyClip());
+
+        MenuButton slotMenu = new MenuButton("Slot");
+        slotMenu.setStyle(STYLE_BTN_DARK);
+        slotMenu.setTooltip(new Tooltip("Place selected entity at a VN character slot"));
+        for (VnSlotHelper.Slot slot : VnSlotHelper.Slot.values()) {
+            MenuItem mi = new MenuItem(slot.name().replace('_', ' '));
+            mi.setOnAction(e -> placeEntityAtSlot(slot));
+            slotMenu.getItems().add(mi);
+        }
+
+        HBox keyframeOpsBox = new HBox(4, btnCopyKeyframes, btnPasteKeyframes, btnDuplicateKeyframes,
+            btnSaveClip, btnLoadClip, slotMenu);
         keyframeOpsBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         cbSnap = makeToolbarIconToggle("icon-puppeteer-snap", "Enable snapping");
@@ -599,8 +615,8 @@ public class PuppeteerWindow extends Stage {
                     if (img.getWidth() > 0 && img.getHeight() > 0) {
                         w = img.getWidth();
                         h = img.getHeight();
-                        // Scale down to fit within ~60% of scene height (720 * 0.6 = 432)
-                        double maxH = 432;
+                        double sceneH = animationPreview.getHeight() > 0 ? animationPreview.getHeight() : 720;
+                        double maxH = sceneH * 0.6;
                         if (h > maxH) {
                             double scale = maxH / h;
                             w *= scale;
@@ -611,9 +627,11 @@ public class PuppeteerWindow extends Stage {
             }
         }
 
+        double centerX = animationPreview.getWidth() > 0 ? animationPreview.getWidth() / 2.0 : 640;
+        double centerY = animationPreview.getHeight() > 0 ? animationPreview.getHeight() / 2.0 : 360;
         com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(relativePath, w, h);
         sprite.setOrigin(0.5, 0.5);
-        sprite.setPosition(640, 360);
+        sprite.setPosition(centerX, centerY);
 
         scene.add(sprite);
         scene.registerEntity(entityName, sprite);
@@ -1168,6 +1186,85 @@ public class PuppeteerWindow extends Stage {
         sep.setStyle("-fx-padding: 0 2;");
         return sep;
     }
+
+    private void saveSelectionAsClip() {
+        EntityTrack track = selectedTrackForEditing(false);
+        if (track == null) return;
+        double start = project.hasLoopRegion() ? project.getLoopStartMs() : 0;
+        double end = project.hasLoopRegion() ? project.getLoopEndMs() : project.getTotalDurationMs();
+
+        AnimationClip clip = new AnimationClip(track.getEntityName() + "_clip");
+        clip.captureFromTrack(track, start, end);
+        if (clip.getChannels().isEmpty()) return;
+
+        if (projectRoot != null) {
+            try {
+                java.nio.file.Path clipsDir = projectRoot.toPath().resolve("config").resolve("puppeteer").resolve("clips");
+                java.nio.file.Path clipFile = clipsDir.resolve(clip.getName() + ".clip");
+                clip.saveTo(clipFile);
+                setTitle("Puppeteer - saved clip '" + clip.getName() + "'");
+            } catch (java.io.IOException ex) {
+                showSaveError(clip.getName(), ex.getMessage());
+            }
+        }
+    }
+
+    private void loadAndApplyClip() {
+        EntityTrack track = selectedTrackForEditing(true);
+        if (track == null || projectRoot == null) return;
+        java.io.File clipsDir = new java.io.File(projectRoot, "config/puppeteer/clips");
+        if (!clipsDir.isDirectory()) return;
+        java.io.File[] clipFiles = clipsDir.listFiles((d, n) -> n.endsWith(".clip"));
+        if (clipFiles == null || clipFiles.length == 0) return;
+
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (java.io.File f : clipFiles) {
+            String n = f.getName();
+            names.add(n.substring(0, n.length() - 5));
+        }
+        java.util.Collections.sort(names);
+
+        javafx.scene.control.ChoiceDialog<String> dialog = new javafx.scene.control.ChoiceDialog<>(names.get(0), names);
+        EditorTheme.apply(dialog);
+        dialog.setTitle("Load Clip");
+        dialog.setHeaderText("Apply a saved clip to '" + track.getEntityName() + "' at playhead");
+        dialog.setContentText("Clip:");
+        java.util.Optional<String> result = dialog.showAndWait();
+        if (result.isEmpty()) return;
+
+        try {
+            java.nio.file.Path clipPath = clipsDir.toPath().resolve(result.get() + ".clip");
+            AnimationClip clip = AnimationClip.loadFrom(clipPath);
+            clip.applyToTrack(track, project.getPlayheadMs(), 1.0);
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
+        } catch (Exception ex) {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                EditorTheme.apply(alert);
+                alert.setTitle("Clip Load Failed");
+                alert.setHeaderText("Could not load clip '" + result.get() + "'");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
+            });
+        }
+    }
+
+    private void placeEntityAtSlot(VnSlotHelper.Slot slot) {
+        String entityName = timelinePanel.getSelectedEntity();
+        if (entityName == null || entityName.isBlank()) return;
+        double viewportW = animationPreview.getWidth() > 0 ? animationPreview.getWidth() : 1280;
+        double viewportH = animationPreview.getHeight() > 0 ? animationPreview.getHeight() : 720;
+        double time = project.getPlayheadMs();
+        EntityTrack track = project.getOrCreateTrack(entityName);
+        commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.X, time, VnSlotHelper.slotX(slot, viewportW)));
+        commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, time, VnSlotHelper.baselineY(viewportH)));
+        timelinePanel.refresh();
+        updatePreview();
+        refreshExportPreviewAndMarkDirty();
+    }
+
+    public KeyframeSelectionModel getSelectionModel() { return selectionModel; }
 
     private boolean registerTimeline() {
         String name = tfTimelineName.getText().trim();
