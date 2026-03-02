@@ -17,6 +17,7 @@ import com.jvn.core.input.InputActions;
 import com.jvn.core.input.InputCode;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
+import com.jvn.core.menu.PauseMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.scene2d.Scene2D;

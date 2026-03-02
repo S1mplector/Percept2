@@ -9,6 +9,7 @@ import com.jvn.core.assets.AssetType;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
+import com.jvn.core.menu.PauseMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.menu.config.MenuItemSpec;
