@@ -21,6 +21,7 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
+import java.util.function.LongConsumer;
 
 public class ViewportView extends StackPane {
   private final Canvas canvas = new Canvas(1200, 740);
@@ -30,6 +31,7 @@ public class ViewportView extends StackPane {
   private final Camera2D camera = new Camera2D();
 
   private JesScene2D scene;
+  private LongConsumer beforeSceneUpdateHook;
   private Entity2D selected;
   private boolean showGrid = true;
 
@@ -130,6 +132,10 @@ public class ViewportView extends StackPane {
     if (scene != null) { scene.setInput(input); scene.setCamera(camera); }
   }
 
+  public void setBeforeSceneUpdateHook(LongConsumer hook) {
+    this.beforeSceneUpdateHook = hook;
+  }
+
   public Input getInput() { return input; }
   public Camera2D getCamera() { return camera; }
 
@@ -153,6 +159,12 @@ public class ViewportView extends StackPane {
 
     blitter.setViewport(w, h);
     if (scene != null) {
+      if (beforeSceneUpdateHook != null) {
+        try {
+          beforeSceneUpdateHook.accept(deltaMs);
+        } catch (Exception ignored) {
+        }
+      }
       scene.update(deltaMs);
       scene.render(blitter, w, h);
       drawSelectionOverlay();

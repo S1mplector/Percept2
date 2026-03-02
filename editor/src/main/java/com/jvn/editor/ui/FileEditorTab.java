@@ -4,14 +4,24 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import com.jvn.core.animation.SceneAccessor;
+import com.jvn.core.animation.TimelineData;
+import com.jvn.core.animation.TimelineDataParser;
+import com.jvn.core.animation.TimelineRunner;
 import com.jvn.core.scene2d.Entity2D;
+import com.jvn.core.scene2d.Label2D;
+import com.jvn.core.scene2d.Panel2D;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.scripting.jes.JesLoader;
+import com.jvn.scripting.jes.JesParseException;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
@@ -281,17 +291,7 @@ public class FileEditorTab extends BorderPane {
     if (kind == Kind.JES) {
       String code = jesEditor.getText();
       if (code == null || code.isBlank()) return;
-      try {
-        jesScene = JesLoader.load(code);
-      } catch (com.jvn.scripting.jes.JesParseException ex) {
-        if (onStatus != null) onStatus.accept("JES error: " + ex.getMessage());
-        return;
-      }
-      if (jesScene != null && viewport != null) {
-        jesScene.setInput(viewport.getInput());
-        jesScene.setCamera(viewport.getCamera());
-        viewport.setScene(jesScene);
-      }
+      applyJesPreviewFromCode(code);
     } else if (kind == Kind.VNS) {
       String code = vnsEditor.getText();
       if (code == null || code.isBlank()) return;
@@ -308,17 +308,11 @@ public class FileEditorTab extends BorderPane {
   public void reloadFromDisk() {
     if (file == null) return;
     try {
+      boolean suppressReloadStatus = false;
       if (kind == Kind.JES) {
         String code = Files.readString(file.toPath());
         jesEditor.setText(code);
-        try (FileInputStream in = new FileInputStream(file)) {
-          jesScene = JesLoader.load(in);
-        }
-        if (jesScene != null && viewport != null) {
-          jesScene.setInput(viewport.getInput());
-          jesScene.setCamera(viewport.getCamera());
-          viewport.setScene(jesScene);
-        }
+        if (!applyJesPreviewFromCode(code)) suppressReloadStatus = true;
       } else if (kind == Kind.VNS) {
         String code = Files.readString(file.toPath());
         vnsEditor.setText(code);
@@ -367,7 +361,7 @@ public class FileEditorTab extends BorderPane {
         textEditor.setText(code);
       }
       savedSnapshot = getCurrentText();
-      if (onStatus != null) onStatus.accept("Reloaded: " + file.getName());
+      if (!suppressReloadStatus && onStatus != null) onStatus.accept("Reloaded: " + file.getName());
     } catch (Exception ex) {
       if (onStatus != null) onStatus.accept("Reload failed: " + ex.getMessage());
     }
@@ -474,6 +468,144 @@ public class FileEditorTab extends BorderPane {
   public void focusEditor() { Node ed = getEditorNode(); if (ed != null) ed.requestFocus(); }
   public boolean supportsEditorFullscreenToggle() { return primarySplit != null; }
   public boolean isEditorFullscreen() { return editorFullscreen; }
+
+  private boolean applyJesPreviewFromCode(String code) {
+    if (viewport == null) return false;
+    if (code == null || code.isBlank()) {
+      jesScene = null;
+      viewport.setBeforeSceneUpdateHook(null);
+      viewport.setScene(null);
+      return false;
+    }
+    try {
+      JesScene2D scene = JesLoader.load(code);
+      if (scene == null) return false;
+      bindJesScene(scene);
+      return true;
+    } catch (JesParseException ex) {
+      boolean timelineLoaded = tryLoadTimelinePreview(code);
+      if (!timelineLoaded && onStatus != null) onStatus.accept("JES error: " + ex.getMessage());
+      return timelineLoaded;
+    } catch (Exception ex) {
+      boolean timelineLoaded = tryLoadTimelinePreview(code);
+      if (!timelineLoaded && onStatus != null) onStatus.accept("JES error: " + ex.getMessage());
+      return timelineLoaded;
+    }
+  }
+
+  private void bindJesScene(JesScene2D scene) {
+    jesScene = scene;
+    if (viewport == null) return;
+    viewport.setBeforeSceneUpdateHook(null);
+    if (scene != null) {
+      scene.setInput(viewport.getInput());
+      scene.setCamera(viewport.getCamera());
+      viewport.setScene(scene);
+    } else {
+      viewport.setScene(null);
+    }
+  }
+
+  private boolean tryLoadTimelinePreview(String code) {
+    if (viewport == null || code == null || !code.contains("timeline")) return false;
+    TimelineData timelineData;
+    try {
+      timelineData = TimelineDataParser.parse(timelineNameForPreview(), code);
+    } catch (Exception ex) {
+      return false;
+    }
+    if (timelineData == null) return false;
+
+    JesScene2D previewScene = buildTimelinePreviewScene(timelineData);
+    timelineData.setLooping(true);
+    TimelineRunner runner = new TimelineRunner(timelineData, createTimelineSceneAccessor(previewScene));
+    runner.applyFrame(0.0);
+    bindJesScene(previewScene);
+    viewport.setBeforeSceneUpdateHook(deltaMs -> runner.update(deltaMs));
+    viewport.fitToContent();
+    return true;
+  }
+
+  private String timelineNameForPreview() {
+    if (file == null) return "_timeline_preview";
+    String name = file.getName();
+    int dot = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
+  }
+
+  private JesScene2D buildTimelinePreviewScene(TimelineData data) {
+    JesScene2D scene = new JesScene2D();
+    if (data == null) return scene;
+
+    List<TimelineData.Track> tracks = new ArrayList<>();
+    for (TimelineData.Track track : data.getTracks()) {
+      if (track == null) continue;
+      String name = track.getEntityName();
+      if (name == null || name.isBlank() || "__camera__".equals(name)) continue;
+      tracks.add(track);
+    }
+    tracks.sort(Comparator.comparing(TimelineData.Track::getEntityName));
+
+    for (int i = 0; i < tracks.size(); i++) {
+      TimelineData.Track track = tracks.get(i);
+      String name = track.getEntityName();
+      double fallbackX = 80.0 + (i % 5) * 170.0;
+      double fallbackY = 90.0 + (i / 5) * 130.0;
+      double x = track.hasKeyframes(TimelineData.Property.X) ? track.getValueAt(TimelineData.Property.X, 0.0) : fallbackX;
+      double y = track.hasKeyframes(TimelineData.Property.Y) ? track.getValueAt(TimelineData.Property.Y, 0.0) : fallbackY;
+
+      Panel2D card = new Panel2D(140, 84);
+      card.setFill(colorByIndex(i, 0.35), colorByIndex(i + 2, 0.45), colorByIndex(i + 4, 0.55), 0.9);
+      card.setStroke(1.0, 1.0, 1.0, 0.75, 1.5);
+      card.setPosition(x, y);
+      card.setZ(i * 2.0);
+      scene.add(card);
+      scene.registerEntity(name, card);
+
+      Label2D label = new Label2D(name);
+      label.setAlign(Label2D.Align.CENTER);
+      label.setFont("Arial", 13, true);
+      label.setColor(1.0, 1.0, 1.0, 0.95);
+      label.setPosition(x + 70.0, y + 48.0);
+      label.setZ(i * 2.0 + 1.0);
+      scene.add(label);
+    }
+    return scene;
+  }
+
+  private static double colorByIndex(int index, double floor) {
+    double wave = Math.sin(index * 1.37) * 0.5 + 0.5;
+    return floor + wave * (1.0 - floor);
+  }
+
+  private SceneAccessor createTimelineSceneAccessor(JesScene2D previewScene) {
+    return new SceneAccessor() {
+      @Override
+      public Entity2D findEntity(String name) {
+        return previewScene == null ? null : previewScene.find(name);
+      }
+
+      @Override
+      public void setCameraX(double x) {
+        if (viewport == null) return;
+        var camera = viewport.getCamera();
+        camera.setPosition(x, camera.getY());
+      }
+
+      @Override
+      public void setCameraY(double y) {
+        if (viewport == null) return;
+        var camera = viewport.getCamera();
+        camera.setPosition(camera.getX(), y);
+      }
+
+      @Override
+      public void setCameraZoom(double zoom) {
+        if (viewport == null) return;
+        viewport.getCamera().setZoom(zoom);
+      }
+    };
+  }
 
   public void toggleEditorFullscreen() {
     if (!supportsEditorFullscreenToggle()) return;
