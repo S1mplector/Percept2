@@ -78,18 +78,42 @@ Complete documentation for the Java Vector Nexus engine.
 - [Runtime Guide](runtime/runtime.md) — CLI options, launch patterns, asset lookup
 - [Interop Guide](runtime/interop.md) — provider routing, default + runtime providers
 - [Save System](runtime/save-system.md) — schema, migration, atomic writes, autosave
+- [Audio System](runtime/audio-system.md) — BGM/SFX/Voice channels, backends, crossfade, spectrum, format support
+- [Asset Management](runtime/asset-management.md) — AssetCatalog, filesystem vs classpath, path resolution, conventions
+- [VN Settings Reference](runtime/vn-settings.md) — all settings fields, defaults, ranges, persistence, settings store
 
 ---
 
 ## Menu & Layout System
 
-- [Menu Profiles Overview](menu-profiles/menu-profiles.md) — landing page, quick start, directory structure, loader discovery, action types
-- [Menu Screens](menu-profiles/menu-screens.md) — `.menu` files, item declarations, actions, bounds, slot previews, inheritance
-- [Menu Layouts](menu-profiles/menu-layouts.md) — `.layout` files, list positioning, line height, text alignment, built-in layouts
-- [Menu Styles](menu-profiles/menu-styles.md) — `.style` files, colors, fonts, shadows, button skins, title/hints, backgrounds
-- [Button Layouts](menu-profiles/menu-button-layouts.md) — per-button positional layouts, explicit bounds, resolution hints, Bounds Studio
-- [Dialogue Layout & Style](menu-profiles/dialogue-layout.md) — textbox geometry, name box, choice buttons, textbox action buttons, character framing
+### Menu Reference
+
+- [Menu Profiles Overview](scripting/menus-submenus/menu-profiles.md) — landing page, quick start, directory structure, loader discovery, action types
+- [Menu Screens](scripting/menus-submenus/menu-screens.md) — `.menu` files, item declarations, actions, bounds, slot previews, inheritance
+- [Menu Styles](scripting/menus-submenus/menu-styles.md) — `.style` files, colors, fonts, shadows, button skins, title/hints, backgrounds
 - [Title Screen & Menu Presentation](project-setup/title-screen.md) — theme + profile layers
+
+### Layout Guides
+
+- [Text-First Layout Workflow](scripting/layout/text-first-layout-workflow.md) — beginner guide, golden iteration loop, migration from visual-first
+- [Layout DSL Cookbook](scripting/layout/layout-dsl-cookbook.md) — 10 full recipes, complete key reference, runtime checklists
+- [Dialogue Layout & Style](scripting/layout/dialogue-layout.md) — textbox geometry, name box, choice buttons, textbox action buttons, character framing
+- [Menu Layouts](scripting/layout/menu-layouts.md) — `.layout` files, list positioning, line height, text alignment, built-in layouts
+- [Menu Button Layouts](scripting/layout/menu-button-layouts.md) — per-button positional layouts, explicit bounds, resolution hints, Bounds Studio
+- [Menu Registry & File Discovery](scripting/layout/menu-registry.md) — `menu.registry`, file search paths, fallback, auto-discovery
+- [Menu Actions & Navigation](scripting/layout/menu-actions.md) — all 10 action types, aliases, custom actions, navigation flow
+- [Menu Inheritance & Composition](scripting/layout/menu-inheritance.md) — `extends` for screens/layouts/styles, chains, circular detection
+- [Choice Buttons](scripting/layout/choice-buttons.md) — positioning, 4-state colors, borders, fonts, image assets
+- [Textbox Action Buttons](scripting/layout/textbox-action-buttons.md) — Auto/Skip/Log/Save buttons, positioning, image skins
+- [Character Framing & Sprites](scripting/layout/character-framing.md) — height factor, baseline, textbox interaction
+- [Colors & Theming](scripting/layout/colors-theming.md) — hex format, alpha, all color keys, 4 palette recipes
+- [Fonts & Typography](scripting/layout/fonts-typography.md) — all font keys, cross-platform availability, examples
+- [Save & Load Screens](scripting/layout/save-load-screens.md) — slot templates, thumbnails, placeholder/frame assets
+- [Settings Screen](scripting/layout/settings-screen.md) — `{value}` placeholders, built-in settings, section headers
+- [Assets & Backgrounds](scripting/layout/assets-backgrounds.md) — all asset keys, path conventions, fallback behavior
+- [Validation & Diagnostics](scripting/layout/validation-diagnostics.md) — every diagnostic message, causes, fixes
+- [Layout Editor Tools](scripting/layout/layout-editor-tools.md) — Layout Studio, Bounds Studio, registry editor, screen cards
+- [Scala DSL Reference](scripting/layout/scala-dsl.md) — type-safe Scala builders for styles, layouts, and button layouts
 
 ---
 
@@ -123,9 +147,23 @@ Complete documentation for the Java Vector Nexus engine.
 ## Project Setup
 
 - [New Project Wizard](project-setup/new-project-wizard.md) — wizard sections, generated layout
+- [Project Structure Conventions](project-setup/project-structure.md) — directory layout, naming, asset organization, team patterns
 - [Title Screen](project-setup/title-screen.md) — theme and menu config
 - [Text Effects](project-setup/text-effects.md) — inline dialogue markup tags
 - [Version Control](project-setup/version-control.md) — Git + Git LFS workflows
+- [Localization Workflow](project-setup/localization.md) — locale-aware scripts, UI strings, multi-language setup
+- [Deployment & Packaging](project-setup/deployment.md) — building for distribution, asset bundling, platform targets
+
+---
+
+## Architecture
+
+- [Overview](architecture/overview.md) — high-level engine map
+- [System Architecture](architecture/system-architecture.md) — modules, boot sequence, data flows
+- [2D Engine](architecture/2d-engine.md) — Scene2D, physics, JES runtime
+- [Performance](architecture/performance.md) — build and runtime optimization
+- [Native Library Audit](architecture/native-library-audit.md) — native-math integration status
+- [Debugging & Profiling](architecture/debugging.md) — diagnostics, logging, performance investigation
 
 ---
 
