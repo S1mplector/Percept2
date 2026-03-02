@@ -422,6 +422,82 @@
   -fx-background-color: #c7ffcf;
 }
 
+/* Puppeteer toolbar icons */
+.icon-puppeteer-rewind {
+  -fx-shape: "M4,3 L9,8 L4,13 Z M9,3 L14,8 L9,13 Z M2,3 L3,3 L3,13 L2,13 Z";
+  -fx-background-color: #d2e6ff;
+}
+
+.icon-puppeteer-play {
+  -fx-shape: "M3,2 L13,8 L3,14 Z";
+  -fx-background-color: #c7ffcf;
+}
+
+.icon-puppeteer-pause {
+  -fx-shape: "M3,2 L6,2 L6,14 L3,14 Z M10,2 L13,2 L13,14 L10,14 Z";
+  -fx-background-color: #d2e6ff;
+}
+
+.icon-puppeteer-stop {
+  -fx-shape: "M3,3 L13,3 L13,13 L3,13 Z";
+  -fx-background-color: #ffd0d0;
+}
+
+.icon-puppeteer-loop {
+  -fx-shape: "M8,2 A6,6 0 1,1 2,8 L4,8 L1,11 L1,7 L2,7 A6,6 0 1,0 8,2 Z";
+  -fx-background-color: #c7ffcf;
+}
+
+.icon-puppeteer-presets {
+  -fx-shape: "M3,4 L13,4 L13,5 L3,5 Z M6,3 L8,3 L8,6 L6,6 Z M3,8 L13,8 L13,9 L3,9 Z M9,7 L11,7 L11,10 L9,10 Z M3,12 L13,12 L13,13 L3,13 Z M4,11 L6,11 L6,14 L4,14 Z";
+  -fx-background-color: #d2e6ff;
+}
+
+.icon-puppeteer-paste {
+  -fx-shape: "M5,2 L11,2 L11,4 L13,4 L13,14 L3,14 L3,4 L5,4 Z M5,5 L11,5 L11,13 L5,13 Z";
+  -fx-background-color: #d2e6ff;
+}
+
+.icon-puppeteer-duplicate {
+  -fx-shape: "M2,3 L9,3 L9,10 L2,10 Z M6,7 L13,7 L13,14 L6,14 Z";
+  -fx-background-color: #d2e6ff;
+}
+
+.icon-puppeteer-snap {
+  -fx-shape: "M7,2 L9,2 L9,6 L13,6 L13,8 L9,8 L9,12 L7,12 L7,8 L3,8 L3,6 L7,6 Z";
+  -fx-background-color: #f5d7a4;
+}
+
+.icon-puppeteer-orbit {
+  -fx-shape: "M8,2 A6,6 0 1,1 8,14 A6,6 0 1,1 8,2 Z M8,5 A3,3 0 1,0 8,11 A3,3 0 1,0 8,5 Z M12,8 A1.2,1.2 0 1,1 12,10.4 A1.2,1.2 0 1,1 12,8 Z";
+  -fx-background-color: #f0c8ff;
+}
+
+.icon-puppeteer-align-rotation {
+  -fx-shape: "M8,2 A6,6 0 1,1 2,8 L4,8 L1,11 L1,7 L2,7 A6,6 0 1,0 8,2 Z M8,5 L11,8 L8,11 L8,9 L5,9 L5,7 L8,7 Z";
+  -fx-background-color: #f0c8ff;
+}
+
+.icon-puppeteer-clear-anchor {
+  -fx-shape: "M8,2 A5,5 0 1,1 8,12 A5,5 0 1,1 8,2 Z M7,6 L9,6 L9,8 L11,8 L11,10 L9,10 L9,12 L7,12 L7,10 L5,10 L5,8 L7,8 Z M2,2 L14,14 L13,15 L1,3 Z";
+  -fx-background-color: #ffd0d0;
+}
+
+.icon-puppeteer-audio-add {
+  -fx-shape: "M2,6 L5,6 L8,3 L8,13 L5,10 L2,10 Z M11,6 L13,6 L13,8 L15,8 L15,10 L13,10 L13,12 L11,12 L11,10 L9,10 L9,8 L11,8 Z";
+  -fx-background-color: #d2e6ff;
+}
+
+.icon-puppeteer-audio-clear {
+  -fx-shape: "M2,6 L5,6 L8,3 L8,13 L5,10 L2,10 Z M10,6 L12,8 L14,6 L15,7 L13,9 L15,11 L14,12 L12,10 L10,12 L9,11 L11,9 L9,7 Z";
+  -fx-background-color: #ffd0d0;
+}
+
+.icon-puppeteer-register {
+  -fx-shape: "M2,8 L6,12 L14,3 L12,3 L6,9 L4,7 Z";
+  -fx-background-color: #0f2819;
+}
+
 /* Panel chooser icons */
 .icon-panel-project { -fx-shape: "M1,5 L1,13 L15,13 L15,6 L9,6 L7,4 L1,4 Z"; -fx-background-color: #8ab4f8; }
 .icon-panel-timeline { -fx-shape: "M2,12 L5,8 L8,10 L11,5 L14,7 L14,9 L11,7 L8,12 L5,10 L2,14 Z"; -fx-background-color: #9ecbff; }
@@ -573,6 +649,75 @@
 
 .layout-studio-icon-button:disabled {
   -fx-opacity: 0.45;
+}
+
+.puppeteer-toolbar-icon-button,
+.puppeteer-toolbar-icon-toggle,
+.puppeteer-toolbar-icon-menu {
+  -fx-padding: 0;
+  -fx-min-width: 30;
+  -fx-pref-width: 30;
+  -fx-max-width: 30;
+  -fx-min-height: 28;
+  -fx-pref-height: 28;
+  -fx-max-height: 28;
+  -fx-content-display: graphic-only;
+  -fx-graphic-text-gap: 0;
+  -fx-alignment: center;
+  -fx-background-color: #2a2a2a;
+  -fx-background-radius: 6;
+  -fx-border-color: #3a3a3a;
+  -fx-border-radius: 6;
+}
+
+.puppeteer-toolbar-icon-button:hover,
+.puppeteer-toolbar-icon-toggle:hover,
+.puppeteer-toolbar-icon-menu:hover {
+  -fx-background-color: #353a46;
+}
+
+.puppeteer-toolbar-icon-button:pressed,
+.puppeteer-toolbar-icon-toggle:pressed,
+.puppeteer-toolbar-icon-menu:pressed {
+  -fx-background-color: #404b5f;
+}
+
+.puppeteer-toolbar-icon-toggle:selected {
+  -fx-background-color: #4a5f7f;
+  -fx-border-color: #5d7fb0;
+}
+
+.puppeteer-toolbar-icon-button:disabled,
+.puppeteer-toolbar-icon-toggle:disabled,
+.puppeteer-toolbar-icon-menu:disabled {
+  -fx-opacity: 0.45;
+}
+
+.puppeteer-toolbar-icon-button-success {
+  -fx-background-color: #58d68d;
+  -fx-border-color: #68e69d;
+}
+
+.puppeteer-toolbar-icon-button-success:hover {
+  -fx-background-color: #6ce89f;
+}
+
+.puppeteer-toolbar-icon-button-success:pressed {
+  -fx-background-color: #4bc680;
+}
+
+.puppeteer-toolbar-icon-menu > .label {
+  -fx-padding: 0;
+}
+
+.puppeteer-toolbar-icon-menu > .arrow-button {
+  -fx-padding: 0;
+  -fx-background-color: transparent;
+}
+
+.puppeteer-toolbar-icon-menu > .arrow-button > .arrow {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
 }
 
 .asset-drop-active {

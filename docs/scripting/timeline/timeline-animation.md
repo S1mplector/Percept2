@@ -77,9 +77,45 @@ Between any two keyframes, the value is interpolated using the **destination key
 3. Apply easing: `eased = Easing.apply(b.easing, t)`
 4. Lerp: `result = a.value + (b.value - a.value) * eased`
 
-**Before the first keyframe:** the first keyframe's value is used.
-**After the last keyframe:** the last keyframe's value is used.
-**Single keyframe:** that value is constant.
+**Before the first keyframe:** the first keyframe's value is used (clamped hold).
+**After the last keyframe:** the last keyframe's value is used (clamped hold).
+**Single keyframe:** that value is constant for the entire duration.
+
+### Interpolation Visual
+
+```text
+Value
+  │         ╭── ease_out_cubic ──╮
+  │        ╱                      ╲── ease_in_quad ──╮
+  │       ╱                                           ╲
+  │──────╱                                             ╲──────
+  │  hold                                                hold
+  └──────┬──────────┬────────────────┬──────────────┬──────── Time
+       kf_a       kf_b            kf_c           kf_d
+
+  Before kf_a: returns kf_a.value (hold)
+  Between kf_a–kf_b: eased interpolation using kf_b.easing
+  Between kf_b–kf_c: eased interpolation using kf_c.easing
+  After kf_d: returns kf_d.value (hold)
+```
+
+### Easing Assignment Rule
+
+The easing curve is stored on each keyframe but **applied on the incoming segment** (from the previous keyframe to this one). This means:
+
+- The **first** keyframe's easing is never used for interpolation (there's no preceding segment)
+- The **last** keyframe's easing defines how the animation arrives at its final value
+- Each segment uses the **destination** keyframe's easing
+
+This is important when hand-coding: place the easing on the keyframe you're animating **to**, not from.
+
+### Edge Cases
+
+| Scenario | Behavior |
+|----------|----------|
+| Two keyframes at the same time | Second keyframe's value wins (zero-span → snap) |
+| Span < 0.001ms | Returns destination value directly (avoids precision issues) |
+| No keyframes for a property | Returns default: 0.0 for most, 1.0 for SCALE_X/Y, ALPHA, CAMERA_ZOOM |
 
 ---
 
@@ -169,9 +205,9 @@ Audio cues are triggered when the runner's elapsed time crosses the cue's timest
 
 ## TimelineRunner
 
-`TimelineRunner` plays back a `TimelineData` on a live scene.
+`TimelineRunner` plays back a `TimelineData` on a live scene. Create one runner per playback, call `update()` each frame, and query `isFinished()` to detect completion.
 
-### Usage
+### Basic Usage
 
 ```java
 TimelineData data = TimelineRegistry.get("intro_animation");
@@ -180,33 +216,110 @@ TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
 // In update loop:
 runner.update(deltaMs);
 if (runner.isFinished()) {
-    // Animation complete
+    // Animation complete — runner can be discarded
 }
 ```
 
-### Behavior
+### Per-Frame Update Cycle
 
-- **Each frame**, `update(deltaMs)` advances elapsed time and applies all property values
-- **Entity lookup** — finds entities by name via `SceneAccessor.findEntity()`
-- **Camera** — applies `CAMERA_X`, `CAMERA_Y`, `CAMERA_ZOOM` to the scene camera
-- **Alpha** — applies to `Sprite2D`, `Label2D`, `Panel2D` (type-aware)
-- **Pivot** — applies to `Sprite2D` and `CharacterEntity2D`
-- **Looping** — when `looping=true`, elapsed time wraps with `% duration`
-- **Audio** — triggers audio cues in the correct time window, including across loop boundaries
+Each call to `update(deltaMs)` performs these steps in order:
+
+```text
+1. Guard — if already finished, return immediately
+2. Advance elapsed time: nextElapsed = elapsedMs + deltaMs
+3. Handle duration:
+   - Non-looping: clamp to duration, mark finished if exceeded
+   - Looping: wrap with modulo (elapsedMs = nextElapsed % duration)
+4. Trigger audio cues in the [prev, next] time window
+5. Apply frame — interpolate all properties and write to entities
+```
+
+### Property Write Semantics
+
+The runner **only writes properties that have keyframes**. Unkeyed properties are left untouched:
+
+| What's Keyed | What Gets Written | What's Preserved |
+|--------------|-------------------|------------------|
+| X only | `entity.setPosition(interpolated_x, current_y)` | Y unchanged |
+| SCALE_X only | `entity.setScale(interpolated_sx, current_sy)` | SCALE_Y unchanged |
+| ALPHA | `sprite.setAlpha(value)` | Position, scale, rotation unchanged |
+| CAMERA_X + CAMERA_ZOOM | Camera X and zoom | Camera Y unchanged |
+
+This means you can safely compose multiple timelines that animate different properties on the same entity — they won't interfere as long as they don't animate overlapping properties.
+
+### Alpha Application by Entity Type
+
+| Entity Type | Method Called | Notes |
+|-------------|-------------|-------|
+| `Sprite2D` | `setAlpha(value)` | Direct alpha property |
+| `CharacterEntity2D` | `setAlpha(value)` | Inherits from Sprite2D |
+| `Label2D` | `setColor(r, g, b, alpha)` | Preserves existing RGB, replaces alpha channel |
+| `Panel2D` | `setFill(r, g, b, alpha)` | Preserves existing fill RGB, replaces alpha channel |
+| Other `Entity2D` | **No effect** | Alpha is silently ignored |
+
+### Pivot (Origin) Application
+
+Pivot keyframes (`PIVOT_X`, `PIVOT_Y`) only apply to `Sprite2D` and `CharacterEntity2D`. Values are clamped to 0.0–1.0. Non-finite values (NaN, Infinity) fall back to 0.5 (center origin).
+
+### Camera Track
+
+Camera properties live on a special internal track named `"__camera__"`. The runner checks for `CAMERA_X`, `CAMERA_Y`, `CAMERA_ZOOM` keyframes on every track and routes them to `SceneAccessor` methods instead of entity properties:
+
+```java
+scene.setCameraX(track.getValueAt(CAMERA_X, timeMs));
+scene.setCameraY(track.getValueAt(CAMERA_Y, timeMs));
+scene.setCameraZoom(track.getValueAt(CAMERA_ZOOM, timeMs));
+```
+
+### Looping Behavior
+
+When `TimelineData.isLooping()` is true:
+
+- Elapsed time wraps: `elapsedMs = nextElapsed % duration`
+- The runner **never finishes** — `isFinished()` always returns false
+- Audio cues re-trigger at the start of each loop cycle
+- Loop boundary handling: if the playhead wraps from 980ms→20ms (in a 1000ms loop), cues in both the 980–1000ms AND 0–20ms windows are triggered
+
+### Audio Cue Timing
+
+Audio cues are sorted by time at construction. During each `update()`, the runner checks which cues fall within the time window `[prevElapsed, nextElapsed]`:
+
+| Scenario | Behavior |
+|----------|----------|
+| Cue at t=0 | Fires on the first update (inclusive start) |
+| Cue at t=500, update spans 480→520 | Fires (cue is within window) |
+| Cue at t=500, update spans 520→600 | Does **not** fire (already passed) |
+| Looping, cue at t=0, loop wraps | Re-triggers at each cycle start |
+| Zero-duration timeline | All cues fire once, then finished (or loops) |
+
+### Finished State
+
+- Non-looping: `isFinished()` returns true when `elapsedMs >= duration`
+- Looping: `isFinished()` always returns false
+- Once finished, subsequent `update()` calls are no-ops
+- `getElapsedMs()` returns the current playback position
 
 ### SceneAccessor Interface
 
-The runner communicates with the scene through `SceneAccessor`:
+The runner communicates with the scene through `SceneAccessor`, which decouples it from any specific scene implementation:
 
 ```java
 public interface SceneAccessor {
+    // Required: find entity by name (return null if not found)
     Entity2D findEntity(String name);
-    void setCameraX(double x);
-    void setCameraY(double y);
-    void setCameraZoom(double zoom);
-    void playAudioCue(String path, String channel, double volume, boolean loop, double fadeInMs);
+
+    // Optional camera hooks (default: no-op)
+    default void setCameraX(double x) {}
+    default void setCameraY(double y) {}
+    default void setCameraZoom(double zoom) {}
+
+    // Optional audio hooks (default: no-op)
+    default void playAudioCue(String path, String channel, double volume, boolean loop, double fadeInMs) {}
+    default void stopAudio(String channel) {}
 }
 ```
+
+**`findEntity`** is the only required method. Camera and audio are optional — if the scene doesn't implement them, those keyframes and cues are silently ignored. This allows the same `TimelineData` to work across different scene types (JES scenes, VN scenes, test harnesses).
 
 ---
 
@@ -346,6 +459,227 @@ TimelineRunner runner = new TimelineRunner(
 
 ---
 
+## VnState Lifecycle Management
+
+In VNS scenes, `VnState` manages the lifecycle of active `TimelineRunner` instances:
+
+### Adding Runners
+
+```java
+// From DefaultVnInterop (registered timeline)
+TimelineData data = TimelineRegistry.get(name);
+TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
+scene.getState().addTimelineRunner(runner);
+
+// From DefaultVnInterop (inline timeline)
+String name = "_inline_timeline_" + (++counter);
+TimelineData data = TimelineDataParser.parse(name, blockContent);
+TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
+scene.getState().addTimelineRunner(runner);
+```
+
+### Per-Frame Tick
+
+```java
+// Called every frame in the game loop
+vnState.updateTimelineRunners(deltaMs);
+```
+
+Internally this does:
+
+```java
+activeTimelines.removeIf(r -> {
+    r.update(deltaMs);
+    return r.isFinished();
+});
+```
+
+Finished runners are **automatically removed**. Looping runners persist until the scene changes or they are explicitly removed.
+
+### Querying State
+
+```java
+// Check if any animations are still playing
+if (vnState.hasActiveTimelines()) {
+    // Animations in progress — you might want to wait
+}
+
+// Access the live runner list (e.g., for debugging)
+List<TimelineRunner> runners = vnState.getActiveTimelines();
+```
+
+---
+
+## Concurrent Timeline Patterns
+
+Multiple timelines can run simultaneously. Understanding how they interact is important for complex scenes.
+
+### Independent Timelines (Safe)
+
+Different entities, no conflicts:
+
+```vns
+[call jes_timeline hero_entrance]
+[call jes_timeline villain_entrance]
+[call jes_timeline camera_pan]
+```
+
+Each runner has its own elapsed time and animates its own entities. No interference.
+
+### Same Entity, Different Properties (Safe)
+
+One timeline animates position, another animates alpha:
+
+```vns
+// Timeline A: moves hero
+[call jes_timeline hero_walk]
+
+// Timeline B: fades hero's alpha
+[call jes_timeline hero_glow]
+```
+
+Safe **only if** the timelines don't animate overlapping properties. The runner only writes properties with keyframes, so `hero_walk` (X, Y) and `hero_glow` (ALPHA) won't conflict.
+
+### Same Entity, Same Property (Conflict!)
+
+If two concurrent timelines animate the same property on the same entity, the **last one to write wins** each frame. The result depends on the order runners are stored in `VnState.activeTimelines`:
+
+```vns
+// ❌ CONFLICT — both animate hero's X position
+[call jes_timeline hero_walk_right]
+[call jes_timeline hero_walk_left]
+// Result: unpredictable jitter
+```
+
+**Avoid this.** If you need to change an animation mid-flight, let the first timeline finish (or remove it) before starting the second.
+
+---
+
+## TimelineDataParser Internals
+
+`TimelineDataParser` converts inline JES blocks into `TimelineData`. Understanding its internals helps when hand-coding timelines.
+
+### Time Cursor
+
+The parser maintains a `cursor` variable starting at 0:
+
+- **`wait N`** → `cursor += N`
+- **Actions** → keyframes placed at `[cursor, cursor + dur]`; cursor is **not** advanced
+
+This means:
+
+```jes
+// Two actions without wait = parallel (both start at cursor=0)
+move "a" { x: 100 dur: 300 }   // keyframes: 0→300
+fade "a" { alpha: 1 dur: 200 } // keyframes: 0→200
+```
+
+### Implicit Start Keyframes
+
+When `addTweenKeyframe` creates a keyframe at `endTime`, it checks if a "start" keyframe exists at `startTime` (the cursor). If not, it implicitly creates one using the track's current interpolated value at that time with `LINEAR` easing. This ensures smooth transitions from whatever value the entity currently has.
+
+```text
+// If hero.x has no keyframe at t=500:
+move "hero" { x: 800 dur: 300 easing: ease_out_cubic }
+// → Parser adds implicit keyframe at t=500 with hero's current x value (LINEAR)
+// → Parser adds target keyframe at t=800 with x=800 (ease_out_cubic)
+```
+
+### Action Parsing Details
+
+| Action | Regex Pattern | Track Name | Properties Mapped |
+|--------|--------------|------------|-------------------|
+| `move "name"` | `move\s+"([^"]+)"\s*\{` | `name` | x→X, y→Y |
+| `pivot "name"` | `pivot\s+"([^"]+)"\s*\{` | `name` | ox→PIVOT_X, oy→PIVOT_Y |
+| `rotate "name"` | `rotate\s+"([^"]+)"\s*\{` | `name` | angle/rotation→ROTATION |
+| `scale "name"` | `scale\s+"([^"]+)"\s*\{` | `name` | x/scale_x→SCALE_X, y/scale_y→SCALE_Y |
+| `fade "name"` | `fade\s+"([^"]+)"\s*\{` | `name` | alpha→ALPHA |
+| `cameraMove` | `cameraMove\s*\{` | `__camera__` | x→CAMERA_X, y→CAMERA_Y |
+| `cameraZoom` | `cameraZoom\s*\{` | `__camera__` | zoom→CAMERA_ZOOM |
+| `playAudio "path"` | `playAudio\s+"([^"]+)"\s*\{` | — | Creates AudioCue at cursor time |
+| `wait N` | `wait\s+(\d+(?:\.\d+)?)` | — | Advances cursor by N |
+
+### Block Parsing
+
+Action bodies are read line-by-line until the closing `}`. Properties are extracted with:
+
+```text
+key: value
+key: "string value"
+```
+
+Comments (`//`, `#`) and empty lines within blocks are skipped. The parser is case-insensitive for action names and easing values.
+
+### Duration Aliases
+
+The `dur` property accepts aliases: `dur`, `duration`. Both map to the same value.
+
+### Easing Resolution
+
+The parser maps lowercase easing strings to `Easing.Type` values:
+
+```text
+"linear"           → LINEAR
+"ease_in_quad"     → EASE_IN_QUAD
+"ease_out_cubic"   → EASE_OUT_CUBIC
+"ease_in_out_sine" → EASE_IN_OUT_SINE
+(etc.)
+```
+
+Unknown easing strings fall back to `LINEAR`.
+
+---
+
+## Building TimelineData Programmatically
+
+For dynamic animations or procedural content, you can construct `TimelineData` in Java:
+
+```java
+TimelineData data = new TimelineData("procedural_shake", 400);
+
+TimelineData.Track hero = new TimelineData.Track("hero");
+double[] offsets = {-12, 12, -8, 8, -4, 0};
+double timeStep = 400.0 / offsets.length;
+for (int i = 0; i < offsets.length; i++) {
+    hero.addKeyframe(
+        TimelineData.Property.X,
+        new TimelineData.Keyframe(
+            i * timeStep,
+            baseX + offsets[i],
+            Easing.Type.EASE_OUT_QUAD
+        )
+    );
+}
+data.addTrack(hero);
+
+// Optionally add audio
+data.addAudioCue(new TimelineData.AudioCue(
+    0, "assets/audio/sfx/hit.ogg", "sound", 0.8, false, 0
+));
+
+// Play immediately
+TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
+vnState.addTimelineRunner(runner);
+```
+
+This is useful for:
+- **Damage shake** where amplitude varies by damage amount
+- **Procedural particle paths** based on game state
+- **Dynamic UI animations** where positions depend on screen layout
+
+---
+
+## Performance Notes
+
+- **Interpolation** is O(k) per property per frame (linear scan for surrounding keyframe pair). For typical timelines (< 50 keyframes per property), this is negligible.
+- **Entity lookup** via `findEntity()` is called every frame for every track. In VNS scenes this is a linear scan. Fast for < 20 entities.
+- **Audio cues** use sorted-list window comparison — no overhead between cue points.
+- **Looping** uses modulo arithmetic, no allocation per cycle.
+- **Multiple concurrent runners** are fine for typical use (< 10). Each is independent with its own elapsed time.
+- **Memory** per runner: reference to `TimelineData` (shared, not copied) + sorted audio cue list + two doubles (elapsed, finished flag). Minimal.
+
+---
+
 ## Puppeteer Editor
 
 The Puppeteer is a visual keyframe animation editor that produces `TimelineData`:
@@ -368,4 +702,6 @@ See [Puppeteer Animation Editor](../../editor/puppeteer.md) for the full editor 
 - [Hand-Coding Timelines](timeline-hand-coding.md) — write animations by hand with 18 examples and templates
 - [JES Timeline & Actions](../jes/jes-timeline.md) — JES runtime timeline actions
 - [VNS Interop](../vns/vns-interop.md) — `jes_timeline` provider
-- [Puppeteer Editor](../../editor/puppeteer.md)
+- [Puppeteer Overview & Architecture](../../editor/puppeteer.md) — system architecture, workflow patterns, troubleshooting
+- [Puppeteer Editor Guide](../../editor/puppeteer-editor-guide.md) — visual editor UI usage
+- [Puppeteer JES DSL Reference](../../editor/puppeteer-jes-dsl.md) — exported timeline code syntax

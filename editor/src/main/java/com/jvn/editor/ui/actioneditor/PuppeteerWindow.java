@@ -19,7 +19,6 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
@@ -31,12 +30,14 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
@@ -59,13 +60,13 @@ public class PuppeteerWindow extends Stage {
     private final Button btnStop;
     private final Button btnRewind;
     private final TextField tfDuration;
-    private final CheckBox cbLoop;
+    private final ToggleButton cbLoop;
     private final Label lblTime;
     private ComboBox<PropertyType> cbProperty;
-    private CheckBox cbSnap;
+    private ToggleButton cbSnap;
     private TextField tfSnapMs;
-    private CheckBox cbOrbitTool;
-    private CheckBox cbOrbitAlign;
+    private ToggleButton cbOrbitTool;
+    private ToggleButton cbOrbitAlign;
 
     private AnimationTimer playbackTimer;
     private long lastNanos = 0;
@@ -225,10 +226,10 @@ public class PuppeteerWindow extends Stage {
         });
 
         // --- Transport controls ---
-        btnRewind = makeToolbarButton("⏮", "Rewind (Home)", STYLE_BTN_DARK);
-        btnPlay = makeToolbarButton("▶", "Play (Space)", STYLE_BTN_ACCENT);
-        btnPause = makeToolbarButton("⏸", "Pause (Space)", STYLE_BTN_DARK);
-        btnStop = makeToolbarButton("⏹", "Stop", STYLE_BTN_DARK);
+        btnRewind = makeToolbarIconButton("icon-puppeteer-rewind", "Rewind (Home)");
+        btnPlay = makeToolbarIconButton("icon-puppeteer-play", "Play (Space)");
+        btnPause = makeToolbarIconButton("icon-puppeteer-pause", "Pause (Space)");
+        btnStop = makeToolbarIconButton("icon-puppeteer-stop", "Stop");
 
         btnPlay.setOnAction(e -> play());
         btnPause.setOnAction(e -> pause());
@@ -255,7 +256,7 @@ public class PuppeteerWindow extends Stage {
             } catch (NumberFormatException ignored) {}
         });
 
-        Button btnFitDuration = makeToolbarButton("Fit", "Fit duration to content", STYLE_BTN_DARK);
+        Button btnFitDuration = makeToolbarIconButton("icon-timeline-fit", "Fit duration to content");
         btnFitDuration.setOnAction(e -> {
             this.project.fitDurationToContent();
             tfDuration.setText(String.valueOf((int) this.project.getTotalDurationMs()));
@@ -264,22 +265,20 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
         });
 
-        cbLoop = new CheckBox("Loop");
+        cbLoop = makeToolbarIconToggle("icon-puppeteer-loop", "Loop timeline playback");
         cbLoop.setSelected(this.project.isLooping());
-        cbLoop.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
         cbLoop.setOnAction(e -> {
             this.project.setLooping(cbLoop.isSelected());
             refreshExportPreviewAndMarkDirty();
         });
 
-        Label durLabel = makeToolbarLabel("Duration");
-        Label msLabel = makeToolbarLabel("ms");
-        HBox durationBox = new HBox(4, durLabel, tfDuration, msLabel, btnFitDuration, makeSpacer(4), cbLoop);
+        tfDuration.setTooltip(new Tooltip("Timeline duration (ms)"));
+        HBox durationBox = new HBox(4, tfDuration, btnFitDuration, cbLoop);
         durationBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         // --- Presets ---
         MenuButton presetMenu = buildPresetMenu();
-        presetMenu.setStyle(STYLE_BTN_DARK);
+        configureToolbarIconMenuButton(presetMenu, "icon-puppeteer-presets", "Apply animation preset to selected entity");
         presetMenu.setTooltip(new Tooltip("Apply animation preset to selected entity"));
 
         // --- Property target + snapping ---
@@ -298,22 +297,20 @@ public class PuppeteerWindow extends Stage {
         });
         timelinePanel.setSelectedProperty(PropertyType.X);
 
-        Label propertyLabel = makeToolbarLabel("Property");
-        HBox propertyBox = new HBox(4, propertyLabel, cbProperty);
+        HBox propertyBox = new HBox(4, cbProperty);
         propertyBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
-        Button btnCopyKeyframes = makeToolbarButton("Copy KF", "Copy selected keyframes (Ctrl/Cmd+Alt+C)", STYLE_BTN_DARK);
+        Button btnCopyKeyframes = makeToolbarIconButton("icon-timeline-copy", "Copy selected keyframes (Ctrl/Cmd+Alt+C)");
         btnCopyKeyframes.setOnAction(e -> copySelectedKeyframesToClipboard());
-        Button btnPasteKeyframes = makeToolbarButton("Paste KF", "Paste keyframes at playhead (Ctrl/Cmd+Alt+V)", STYLE_BTN_DARK);
+        Button btnPasteKeyframes = makeToolbarIconButton("icon-puppeteer-paste", "Paste keyframes at playhead (Ctrl/Cmd+Alt+V)");
         btnPasteKeyframes.setOnAction(e -> pasteCopiedKeyframesAtPlayhead());
-        Button btnDuplicateKeyframes = makeToolbarButton("Dup KF", "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)", STYLE_BTN_DARK);
+        Button btnDuplicateKeyframes = makeToolbarIconButton("icon-puppeteer-duplicate", "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)");
         btnDuplicateKeyframes.setOnAction(e -> duplicateSelectedKeyframesBySnapStep());
         HBox keyframeOpsBox = new HBox(4, btnCopyKeyframes, btnPasteKeyframes, btnDuplicateKeyframes);
         keyframeOpsBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
-        cbSnap = new CheckBox("Snap");
+        cbSnap = makeToolbarIconToggle("icon-puppeteer-snap", "Enable snapping");
         cbSnap.setSelected(timelinePanel.isSnapEnabled());
-        cbSnap.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
         cbSnap.setOnAction(e -> timelinePanel.setSnapEnabled(cbSnap.isSelected()));
 
         tfSnapMs = new TextField("50");
@@ -324,24 +321,20 @@ public class PuppeteerWindow extends Stage {
         tfSnapMs.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
             if (!isFocused) applySnapStepFromField();
         });
+        tfSnapMs.setTooltip(new Tooltip("Snap step in milliseconds"));
 
-        Label snapMsLabel = makeToolbarLabel("ms");
-        HBox snapBox = new HBox(4, cbSnap, tfSnapMs, snapMsLabel);
+        HBox snapBox = new HBox(4, cbSnap, tfSnapMs);
         snapBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
-        cbOrbitTool = new CheckBox("Orbit");
+        cbOrbitTool = makeToolbarIconToggle("icon-puppeteer-orbit", "Enable orbit-anchor tool. Shift+click preview to place anchor, Alt+Shift+click another entity to anchor to it.");
         cbOrbitTool.setSelected(animationPreview.isOrbitToolEnabled());
-        cbOrbitTool.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
-        cbOrbitTool.setTooltip(new Tooltip("Enable orbit-anchor tool. Shift+click preview to place anchor, Alt+Shift+click another entity to anchor to it."));
         cbOrbitTool.setOnAction(e -> animationPreview.setOrbitToolEnabled(cbOrbitTool.isSelected()));
 
-        cbOrbitAlign = new CheckBox("Align Rot");
+        cbOrbitAlign = makeToolbarIconToggle("icon-puppeteer-align-rotation", "When orbiting, update entity rotation to face outward.");
         cbOrbitAlign.setSelected(animationPreview.isOrbitAlignRotation());
-        cbOrbitAlign.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
-        cbOrbitAlign.setTooltip(new Tooltip("When orbiting, update entity rotation to face outward."));
         cbOrbitAlign.setOnAction(e -> animationPreview.setOrbitAlignRotation(cbOrbitAlign.isSelected()));
 
-        Button btnClearAnchor = makeToolbarButton("Clear Anchor", "Clear orbit anchor for selected entity", STYLE_BTN_DARK);
+        Button btnClearAnchor = makeToolbarIconButton("icon-puppeteer-clear-anchor", "Clear orbit anchor for selected entity");
         btnClearAnchor.setOnAction(e -> {
             animationPreview.clearOrbitAnchorForSelectedEntity();
             updatePreview();
@@ -351,9 +344,9 @@ public class PuppeteerWindow extends Stage {
         orbitBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         // --- Audio cues ---
-        Button btnAddCue = makeToolbarButton("+ Cue", "Add audio cue at playhead", STYLE_BTN_DARK);
+        Button btnAddCue = makeToolbarIconButton("icon-puppeteer-audio-add", "Add audio cue at playhead");
         btnAddCue.setOnAction(e -> showAddAudioCueDialog());
-        Button btnClearCues = makeToolbarButton("Clear Cues", "Remove all timeline audio cues", STYLE_BTN_DARK);
+        Button btnClearCues = makeToolbarIconButton("icon-puppeteer-audio-clear", "Remove all timeline audio cues");
         btnClearCues.setOnAction(e -> {
             if (project.getAudioCues().isEmpty()) return;
             Alert a = new Alert(Alert.AlertType.CONFIRMATION);
@@ -379,11 +372,10 @@ public class PuppeteerWindow extends Stage {
         tfTimelineName.setStyle(STYLE_TEXT_FIELD);
         tfTimelineName.setTooltip(new Tooltip("Name for @external jes_timeline"));
 
-        Button btnRegister = makeToolbarButton("Register", "Register timeline for VNS interop", STYLE_BTN_GREEN);
+        Button btnRegister = makeToolbarSuccessIconButton("icon-puppeteer-register", "Register timeline for VNS interop");
         btnRegister.setOnAction(e -> registerTimeline());
 
-        Label nameLabel = makeToolbarLabel("Name");
-        HBox nameBox = new HBox(4, nameLabel, tfTimelineName, btnRegister);
+        HBox nameBox = new HBox(4, tfTimelineName, btnRegister);
         nameBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         // --- Assemble toolbar ---
@@ -629,6 +621,8 @@ public class PuppeteerWindow extends Stage {
                 updatePreview();
             }
         };
+        btnPlay.setStyle(STYLE_BTN_ACCENT);
+        btnPause.setStyle(STYLE_BTN_DARK + "-fx-opacity: 0.5;");
         btnPause.setDisable(true);
     }
 
@@ -999,14 +993,61 @@ public class PuppeteerWindow extends Stage {
         "-fx-background-color: #1a1a1a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
         "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";
 
-    private static Button makeToolbarButton(String text, String tooltip, String style) {
-        Button btn = new Button(text);
-        btn.setStyle(style);
+    private static Button makeToolbarIconButton(String iconClass, String tooltip) {
+        Button btn = new Button();
+        btn.getStyleClass().add("puppeteer-toolbar-icon-button");
+        btn.setText("");
+        btn.setGraphic(makeToolbarIcon(iconClass));
         btn.setTooltip(new Tooltip(tooltip));
-        final String baseStyle = style;
-        btn.setOnMouseEntered(e -> btn.setStyle(baseStyle + "-fx-opacity: 0.85;"));
-        btn.setOnMouseExited(e -> btn.setStyle(baseStyle));
+        btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        btn.setGraphicTextGap(0);
+        btn.setMinSize(30, 28);
+        btn.setPrefSize(30, 28);
+        btn.setMaxSize(30, 28);
+        btn.setFocusTraversable(false);
         return btn;
+    }
+
+    private static Button makeToolbarSuccessIconButton(String iconClass, String tooltip) {
+        Button btn = makeToolbarIconButton(iconClass, tooltip);
+        btn.getStyleClass().add("puppeteer-toolbar-icon-button-success");
+        return btn;
+    }
+
+    private static ToggleButton makeToolbarIconToggle(String iconClass, String tooltip) {
+        ToggleButton toggle = new ToggleButton();
+        toggle.getStyleClass().add("puppeteer-toolbar-icon-toggle");
+        toggle.setText("");
+        toggle.setGraphic(makeToolbarIcon(iconClass));
+        toggle.setTooltip(new Tooltip(tooltip));
+        toggle.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        toggle.setGraphicTextGap(0);
+        toggle.setMinSize(30, 28);
+        toggle.setPrefSize(30, 28);
+        toggle.setMaxSize(30, 28);
+        toggle.setFocusTraversable(false);
+        return toggle;
+    }
+
+    private static void configureToolbarIconMenuButton(MenuButton button, String iconClass, String tooltip) {
+        if (button == null) return;
+        button.getStyleClass().add("puppeteer-toolbar-icon-menu");
+        button.setText("");
+        button.setGraphic(makeToolbarIcon(iconClass));
+        button.setTooltip(new Tooltip(tooltip));
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        button.setGraphicTextGap(0);
+        button.setMinSize(30, 28);
+        button.setPrefSize(30, 28);
+        button.setMaxSize(30, 28);
+        button.setFocusTraversable(false);
+    }
+
+    private static Label makeToolbarIcon(String iconClass) {
+        Label icon = new Label();
+        icon.getStyleClass().addAll("icon", iconClass);
+        icon.setMouseTransparent(true);
+        return icon;
     }
 
     private static Label makeToolbarLabel(String text) {

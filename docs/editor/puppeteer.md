@@ -285,106 +285,560 @@ The `SceneAccessor` interface decouples the runner from `JesScene2D`, allowing i
 
 ---
 
-## 4. Usability Guide
+## 4. Workflow Patterns
 
-### Launching Puppeteer
+This section covers the practical workflows for different Puppeteer use cases. For detailed UI controls, see the [Puppeteer Editor Guide](puppeteer-editor-guide.md). For hand-coding without the editor, see [Hand-Coding Timelines](../scripting/timeline/timeline-hand-coding.md).
 
-There are two ways to open Puppeteer:
+### Workflow A: VNS Character Animation (Most Common)
 
-**From a VNS file** (recommended for VN authors):
-1. Open a `.vns` file in the editor
-2. Place cursor on a line where characters are visible
-3. Open the **Puppeteer Launcher** panel (right sidebar)
-4. Review the snapshot preview (background, characters, positions)
-5. Click **Launch Puppeteer Here**
-6. Puppeteer opens with the VN scene pre-populated
+The typical visual novel workflow — animate characters at a specific story moment.
 
-**From a JES file**:
-1. Open a `.jes` file in the editor
-2. Use the menu or the **Puppeteer Launcher** panel
-3. Puppeteer opens with the JES scene's entities
-
-### Creating an Animation
-
-1. **Select an entity** — click it in the preview viewport or in the Entities tree
-2. **Move the playhead** — click on the timeline ruler to set the current time
-3. **Add a keyframe** — press `K` or click in the timeline at the desired time
-4. **Edit keyframe values** — use the Keyframe Editor panel:
-   - Time (ms) — when this keyframe occurs
-   - Value — the property value at this time
-   - Easing — interpolation curve (LINEAR, EASE_IN, EASE_OUT, EASE_IN_OUT, BOUNCE, ELASTIC)
-   - Property Target — choose the active property track from the toolbar (X/Y/rotation/scale/alpha/camera)
-5. **Drag entities** — click and drag in the viewport to reposition; this auto-creates X/Y keyframes at the playhead
-6. **Apply presets** — use the Presets dropdown for common animations (Fade In, Slide From Left, Shake, etc.)
-7. **Snap timing** — enable **Snap** and set step in milliseconds for deterministic keyframe timing
-8. **Add audio cues** — use **+ Cue** to place `playAudio` events at the current playhead
-
-### Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `Space` | Toggle play/pause |
-| `Home` | Rewind to start |
-| `K` | Add keyframe at playhead |
-| `Delete` | Delete selected keyframe(s) |
-| `Shift+Click` | Multi-select keyframes |
-| `Cmd+C` | Copy generated code to clipboard |
-| `Cmd+Z` | Undo |
-| `Cmd+Shift+Z` | Redo |
-| `Cmd+O` | Toggle onion skinning |
-| `Alt+Left` | Nudge selected keyframe(s) backward by snap step |
-| `Alt+Right` | Nudge selected keyframe(s) forward by snap step |
-| Middle-drag / Right-drag | Pan viewport |
-| Scroll wheel | Zoom viewport |
-
-### Using Animations in VNS Scripts
-
-After creating an animation in Puppeteer:
-
-1. Type a name in the **Name** field (e.g. `codel_wave`)
-2. Click **Register** — this adds the timeline to the global registry
-3. In your VNS script, add:
-
-```vns
-[call jes_timeline codel_wave]
+```text
+1. Write VNS script with character positioning
+   │  [show hero center happy]
+   │  [show villain right angry]
+   │  hero: I challenge you!
+   │
+2. Place cursor on the dialogue line
+   │
+3. Open Puppeteer Launcher (right sidebar)
+   │  → Shows: hero @ center [happy], villain @ right [angry]
+   │
+4. Click "Launch Puppeteer Here"
+   │  → Puppeteer opens with both characters at their VNS positions
+   │
+5. Author keyframes (drag entities, press K, apply presets)
+   │
+6. Name the timeline: "hero_challenge_entrance"
+   │
+7. Click "Register" → timeline saved to TimelineRegistry
+   │
+8. In VNS script, add:
+   │  [call jes_timeline hero_challenge_entrance]
+   │
+9. At runtime, TimelineRunner animates the characters
 ```
 
-Alternatively, click **Copy Code** to get the raw JES timeline code for embedding directly in a `.jes` file.
+**Important:** The snapshot captures state *up to the cursor line*. Place the cursor where characters are already visible (after `[show]` commands) but before the animation should play.
 
-Note:
-- Camera keyframes and audio cues are exported to `scripts/timelines/<name>.jes`.
-- Runtime registry playback (`[call jes_timeline <name>]`) now applies entity transforms, camera keyframes, and timeline audio cues.
-- Inline VNS `timeline { ... }` blocks (`jes_timeline_inline` under the hood) now parse and execute Puppeteer-exported `cameraMove`, `cameraZoom`, and `playAudio` actions with matching runtime behavior.
+### Workflow B: JES Scene Animation
 
-### Understanding the Generated Code
+For game scenes, cutscenes, or any JES-based content.
 
-Puppeteer generates JES timeline blocks:
-
-```jes
-timeline {
-  entity "codel" {
-    0ms   { x: 640.00, y: 396.00 }
-    300ms { x: 500.00, y: 396.00, easing: ease_out }
-    600ms { x: 640.00, y: 396.00, easing: ease_in_out }
-  }
-}
+```text
+1. Write JES scene with entities
+   │
+2. Open the .jes file in the editor
+   │
+3. Launch Puppeteer from the launcher panel
+   │  → Puppeteer opens with all JES entities
+   │
+4. Author keyframes
+   │
+5. Click "Copy Code" → JES timeline block on clipboard
+   │
+6. Paste into the .jes file as a named timeline:
+   │  timeline "my_animation" {
+   │    move "hero" { x: 400 dur: 500 easing: ease_out_cubic }
+   │    ...
+   │  }
 ```
 
-Each `entity` block targets a named entity. Each line specifies a timestamp and the property values at that time. The runtime interpolates between keyframes using the specified easing curve.
+### Workflow C: Inline VNS Timeline
 
-### Tips
+For quick one-off animations that don't warrant a registry name.
 
-- **Start with presets** — Apply a preset first, then tweak individual keyframes
-- **Use onion skinning** (`Cmd+O`) to visualize motion paths and timing
-- **Name your timelines** descriptively — they appear in VNS scripts and should be self-documenting
-- **Fit duration** — click the "Fit" button to auto-size the timeline to your content
-- **Loop preview** — check "Loop" to continuously preview cyclic animations
-- **Drag to reposition** — dragging entities in the viewport is the fastest way to author spatial animations
-- **Check the code preview** — the right panel updates live; use it to verify your animation before exporting
+```text
+1. Author animation in Puppeteer (or hand-code)
+   │
+2. Click "Copy Code"
+   │
+3. Paste directly into VNS script as inline block:
+   │  narrator: Watch this!
+   │  timeline {
+   │    move "hero" { x: 500 dur: 400 easing: ease_out_cubic }
+   │    fade "hero" { alpha: 1 dur: 300 }
+   │  }
+   │  hero: Here I am!
+```
+
+Inline `timeline { }` blocks in VNS are parsed by `TimelineDataParser` and executed via `jes_timeline_inline` under the hood. They run **asynchronously** — VNS advances to the next node immediately.
+
+### Workflow D: Hybrid — Editor + Hand-Tuning
+
+For complex animations that benefit from visual authoring but need precise values.
+
+```text
+1. Create animation in Puppeteer (rough positioning)
+   │
+2. Click "Copy Code" → clipboard
+   │
+3. Paste into a .jes file or VNS script
+   │
+4. Hand-edit specific values:
+   │  - Adjust easing: ease_out_cubic → ease_out_back
+   │  - Fine-tune timing: dur: 500 → dur: 420
+   │  - Add audio cues that sync to specific moments
+   │
+5. Test in runtime
+```
+
+This hybrid approach is common for polished cutscenes where visual layout is easier in the editor but timing precision requires manual tuning.
+
+### Workflow E: Standalone Timeline Files
+
+For reusable animations shared across multiple scripts.
+
+```text
+1. Author timeline in Puppeteer or by hand
+   │
+2. Save to: scripts/timelines/hero_entrance.jes
+   │
+3. Register from Java (e.g. in a scene initializer):
+   │  TimelineData data = TimelineDataParser.parse("hero_entrance",
+   │      Files.readString(Path.of("scripts/timelines/hero_entrance.jes")));
+   │  TimelineRegistry.register(data);
+   │
+4. Use from any VNS script:
+   │  [external jes_timeline hero_entrance]
+```
+
+### Which Workflow to Choose
+
+| Scenario | Recommended Workflow |
+|----------|---------------------|
+| Character entrance/exit in VN dialogue | **A** (VNS + Puppeteer) |
+| JES game scene animation | **B** (JES + Copy Code) |
+| Quick one-off animation in dialogue | **C** (Inline VNS) |
+| Polished cutscene | **D** (Hybrid) |
+| Shared animation across many scripts | **E** (Standalone file) |
+| Simple fade/slide you know the values for | Hand-code directly |
 
 ---
 
-## 5. File Map
+## 5. Integration Paths
+
+### VNS → Puppeteer Timeline (Registered)
+
+```text
+VNS Script                          Runtime
+─────────                          ───────
+[call jes_timeline hero_entrance]
+        │
+        ▼
+DefaultVnInterop.handleJesTimeline()
+        │
+        ▼
+TimelineRegistry.get("hero_entrance")
+        │
+        ▼
+TimelineRunner(data, sceneAccessor)
+        │
+        ▼
+VnState.addTimelineRunner(runner)
+        │
+        ▼
+Each frame: VnState.updateTimelineRunners(deltaMs)
+        │
+        ▼
+TimelineRunner.update(deltaMs)
+        │
+        ├─→ For each Track: interpolate properties, apply via SceneAccessor
+        ├─→ Camera keyframes → SceneAccessor.setCameraX/Y/Zoom
+        └─→ Audio cues → SceneAccessor.playAudioCue()
+```
+
+### VNS → Puppeteer Timeline (Inline)
+
+```text
+VNS Script                          Runtime
+─────────                          ───────
+timeline {                          VnScriptParser detects "timeline {"
+  move "hero" { ... }               collects block content
+  wait 200                          calls builder.external("jes_timeline_inline", blockText)
+  fade "hero" { ... }
+}
+        │
+        ▼
+DefaultVnInterop.handleJesTimelineInline(blockText)
+        │
+        ▼
+TimelineDataParser.parse("_inline_timeline_N", blockText)
+        │
+        ▼
+TimelineRunner(data, sceneAccessor)
+        │
+        ▼
+VnState.addTimelineRunner(runner)
+```
+
+### JES Scene → Timeline Block
+
+```text
+JES Scene File (.jes)
+─────────────────────
+scene "Demo" {
+  entity "hero" { ... }
+
+  timeline "intro" {
+    move "hero" { x: 400 dur: 500 }
+  }
+}
+        │
+        ▼
+JesParser → AST with timeline node
+        │
+        ▼
+JesLoader materializes timeline actions
+        │
+        ▼
+JesScene2D.executeTimeline("intro")
+        │
+        ▼
+Sequential action execution (move, fade, etc.)
+```
+
+**Key difference:** JES runtime timelines are *action-based* (sequential execution) while Puppeteer/TimelineRunner timelines are *keyframe-based* (interpolation). Both use the same DSL syntax, but the execution model differs.
+
+---
+
+## 6. Runtime Behavior — Deep Dive
+
+### TimelineRunner Execution Model
+
+`TimelineRunner` is the engine that plays back Puppeteer animations at runtime. Understanding its behavior is crucial for debugging animation issues.
+
+#### Per-Frame Update Cycle
+
+```text
+TimelineRunner.update(deltaMs)
+    │
+    ├─ 1. Guard: if finished, return immediately
+    │
+    ├─ 2. Advance elapsed time
+    │     prevElapsed = elapsedMs
+    │     nextElapsed = prevElapsed + deltaMs
+    │
+    ├─ 3. Handle looping
+    │     if looping: elapsedMs = nextElapsed % duration
+    │     else:       elapsedMs = min(nextElapsed, duration)
+    │                 if nextElapsed >= duration → finished = true
+    │
+    ├─ 4. Trigger audio cues in the [prev, next] time window
+    │     (handles loop boundaries: re-triggers cues each cycle)
+    │
+    └─ 5. Apply frame at current elapsedMs
+          For each Track:
+            Camera properties → SceneAccessor.setCameraX/Y/Zoom
+            Entity properties → find entity by name, then:
+              X/Y     → entity.setPosition(interpolated_x, interpolated_y)
+              Z       → entity.setZ(interpolated_z)
+              PIVOT   → entity.setOrigin(interpolated_ox, interpolated_oy)
+              ROTATION→ entity.setRotationDeg(interpolated_deg)
+              SCALE   → entity.setScale(interpolated_sx, interpolated_sy)
+              ALPHA   → type-aware: Sprite2D.setAlpha / Label2D color alpha / Panel2D fill alpha
+```
+
+#### Property Preservation
+
+The runner only writes properties that have keyframes. If a track has X keyframes but no Y keyframes, the entity's Y position is **untouched** — it retains whatever value it had before the timeline started. This is important for composing animations:
+
+```jes
+// This only animates X — Y stays at whatever position the entity currently has
+timeline {
+  move "hero" { x: 400 dur: 500 easing: ease_out_cubic }
+}
+```
+
+#### Alpha Application
+
+Alpha is applied differently depending on entity type:
+
+| Entity Type | How Alpha is Applied |
+|-------------|---------------------|
+| `Sprite2D` | `setAlpha(value)` — direct alpha property |
+| `Label2D` | `setColor(r, g, b, alpha)` — alpha channel of text color |
+| `Panel2D` | `setFill(r, g, b, alpha)` — alpha channel of fill color |
+| `CharacterEntity2D` | Inherits from `Sprite2D` — same behavior |
+| Other `Entity2D` | **No effect** — alpha is silently ignored |
+
+#### Pivot (Origin) Application
+
+Pivot changes only affect `Sprite2D` and `CharacterEntity2D`. Pivot values are clamped to 0–1. Non-finite values (NaN, Infinity) fall back to 0.5 (center).
+
+#### Camera Track
+
+Camera properties are stored on a special track named `"__camera__"` internally. The runner detects `CAMERA_X`, `CAMERA_Y`, `CAMERA_ZOOM` keyframes and routes them to `SceneAccessor.setCameraX/Y/Zoom()` instead of looking for an entity.
+
+#### Audio Cue Timing
+
+Audio cues fire when the playhead crosses their timestamp during an update interval. Edge cases:
+
+- **First frame:** Cues at t=0 fire on the first update
+- **Looping:** Cues re-trigger at the start of each loop cycle
+- **Loop boundary:** If the playhead wraps from 980ms→20ms (in a 1000ms loop), cues between 980-1000 AND 0-20 are triggered
+- **Zero-duration timeline:** All cues fire once, then the runner finishes (or loops)
+
+### VnState Timeline Management
+
+`VnState` maintains a list of active `TimelineRunner` instances:
+
+```java
+// Add a runner (from VNS interop)
+vnState.addTimelineRunner(runner);
+
+// Each frame in the game loop:
+vnState.updateTimelineRunners(deltaMs);
+// → internally: activeTimelines.removeIf(r -> { r.update(deltaMs); return r.isFinished(); });
+
+// Check if any animations are still playing:
+if (vnState.hasActiveTimelines()) { ... }
+```
+
+Multiple timelines can run simultaneously. They are independent — each has its own elapsed time and applies its own keyframes. If two timelines animate the same property on the same entity, the **last one to write wins** (frame-order dependent).
+
+---
+
+## 7. Entity Name Resolution
+
+Entity names are the bridge between Puppeteer and the runtime. Getting names right is essential.
+
+### VNS Launch
+
+When Puppeteer is launched from a VNS file, entity names come from the VNS character IDs:
+
+| VNS Declaration | Puppeteer Entity Name |
+|-----------------|----------------------|
+| `@character hero "Hero"` + `[show hero center]` | `"hero"` |
+| `@background park assets/bg/park.png` + `[bg park]` | `"bg_park"` |
+
+These names must match exactly in VNS `[call jes_timeline ...]` playback. The `SceneAccessor` provided by `DefaultVnInterop` looks up entities by character ID.
+
+### JES Launch
+
+When launched from a JES file, entity names are the JES entity names:
+
+```jes
+entity "player_sprite" { ... }  // → Puppeteer name: "player_sprite"
+entity "title_label"   { ... }  // → Puppeteer name: "title_label"
+```
+
+### Inline VNS Timelines
+
+In inline VNS `timeline { }` blocks, entity names must match the character IDs used in `[show]` commands:
+
+```vns
+[show hero center happy]
+[show villain right angry]
+
+timeline {
+  move "hero" { x: 500 dur: 400 }      // ✅ matches [show hero ...]
+  move "villain" { x: 800 dur: 400 }   // ✅ matches [show villain ...]
+  move "player" { x: 500 dur: 400 }    // ❌ "player" not shown — silently ignored
+}
+```
+
+**Missing entities are silently skipped** — the runner checks `scene.findEntity(name)` and continues if it returns null.
+
+---
+
+## 8. Export and Code Generation
+
+### CodeExporter Pipeline
+
+```text
+AnimationProject
+    │
+    ▼
+CodeExporter.export(project)
+    │
+    ├─ 1. Collect all events (time, entity, property, value, easing)
+    │     from every EntityTrack and every keyframe
+    │
+    ├─ 2. Sort events by start time
+    │
+    ├─ 3. Group simultaneous events (same start time) into parallel blocks
+    │
+    ├─ 4. Insert wait statements for gaps > 0.5ms
+    │
+    ├─ 5. Merge per-entity properties into action blocks:
+    │     X + Y at same time → single move "entity" { x: ... y: ... }
+    │     SCALE_X + SCALE_Y → single scale "entity" { sx: ... sy: ... }
+    │     PIVOT_X + PIVOT_Y → single pivot "entity" { ox: ... oy: ... }
+    │
+    └─ 6. Format as JES timeline code
+```
+
+### Export Modes Comparison
+
+| Mode | Use Case | What It Includes | Header |
+|------|----------|-----------------|--------|
+| **Standard** | General purpose | All events | None |
+| **Named** | VNS registry | All events | `// Timeline: <name>` + VNS usage hint |
+| **With Groups** | Debugging | All events | `// Group: <name>` annotations |
+| **Incremental** | Additive animations | Only changed properties | None |
+| **Audio-Only** | Sound design | Only audio cues | Descriptive text format |
+
+### Number Formatting
+
+The exporter formats numbers cleanly:
+- **Integers** when no fractional part: `500`, `0`, `360`
+- **Two decimal places** otherwise, trailing zeros stripped: `320.5`, `1.15`, `0.25`
+- Linear easing is **omitted** (it's the default)
+
+---
+
+## 9. Advanced Patterns
+
+### Chaining Timelines
+
+Play multiple timelines in sequence using VNS `[wait]`:
+
+```vns
+[call jes_timeline hero_entrance]
+[wait 700]
+[call jes_timeline villain_entrance]
+[wait 700]
+[call jes_timeline camera_dramatic_zoom]
+[wait 500]
+hero: Let's settle this!
+```
+
+The `[wait]` command pauses VNS progression. The timeline runs asynchronously, so you estimate (or know) the duration and wait that long before triggering the next.
+
+### Overlapping Timelines
+
+Launch multiple timelines without waiting — they run in parallel:
+
+```vns
+[call jes_timeline ambient_float]
+[call jes_timeline camera_slow_pan]
+hero: The world feels so peaceful...
+```
+
+Both `ambient_float` and `camera_slow_pan` execute simultaneously on separate `TimelineRunner` instances.
+
+### Animation + Dialogue Sync
+
+For precise timing, place the timeline just before dialogue:
+
+```vns
+timeline {
+  move "hero" { x: 500 dur: 400 easing: ease_out_cubic }
+  fade "hero" { alpha: 1 dur: 300 easing: ease_out_quad }
+}
+hero: I'm here now!
+```
+
+The inline timeline fires asynchronously, but the dialogue node appears immediately. The player reads the text while the animation plays — this creates a natural feel where the character "arrives" as they speak.
+
+### Looping Ambient Animations
+
+For idle animations (floating gems, breathing characters), create a looping timeline:
+
+```java
+TimelineData ambient = TimelineDataParser.parse("gem_float", """
+    timeline {
+      move "gem" { y: -10 dur: 1000 easing: ease_in_out_sine }
+      wait 1000
+      move "gem" { y: 0 dur: 1000 easing: ease_in_out_sine }
+    }
+    """);
+ambient.setLooping(true);
+TimelineRegistry.register(ambient);
+```
+
+Then trigger from VNS:
+
+```vns
+[external jes_timeline gem_float]
+```
+
+The animation loops until the scene changes or the runner is explicitly removed.
+
+### Presets as Starting Points
+
+The 12 built-in presets are designed as starting points:
+
+| Category | Presets | Typical Customization |
+|----------|---------|----------------------|
+| **Entrance** | Fade In, Slide Left/Right/Bottom, Bounce In | Adjust end position, duration, easing |
+| **Exit** | Fade Out, Zoom Out | Adjust target alpha, scale |
+| **Emphasis** | Shake, Pulse, Spin | Adjust amplitude, repeat count |
+| **Loop** | Float, Breathe | Adjust Y offset, scale range, period |
+
+Apply a preset, then refine: change easing curves, adjust timing, modify target values. The preset provides the keyframe structure; you provide the specific values.
+
+---
+
+## 10. Troubleshooting
+
+### Animation doesn't play
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `[call jes_timeline X]` does nothing | Timeline not registered | Ensure you clicked "Register" in Puppeteer, or register from Java code |
+| Timeline plays but nothing moves | Entity name mismatch | Check that entity names in the timeline match character IDs in VNS `[show]` commands |
+| Inline `timeline { }` does nothing | Empty block or syntax error | Check for `"inline timeline: empty block"` HUD message; verify syntax |
+| Camera doesn't move | SceneAccessor doesn't implement camera | Ensure `RuntimeVnInterop` has a valid `SceneAccessor` with camera hooks |
+
+### Animation looks wrong
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Entity snaps to position | Missing starting keyframe | Add a `dur: 0` keyframe at the initial position before the animation |
+| Jittery movement | Two timelines animating the same property | Avoid overlapping timelines on the same entity/property |
+| Animation too fast/slow | Duration mismatch | Check `dur` values; ensure `[wait]` values in VNS match the timeline duration |
+| Easing feels wrong | Wrong easing direction | `ease_in_*` accelerates, `ease_out_*` decelerates — most entrances want `ease_out_*` |
+| Alpha has no effect | Non-Sprite2D entity | Alpha only works on `Sprite2D`, `Label2D`, `Panel2D`, and `CharacterEntity2D` |
+
+### Puppeteer editor issues
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Entity images are missing | Asset path not resolved | Ensure `projectRoot` is set; check that image paths are relative to project root |
+| Characters at wrong positions | VNS snapshot stale | Move cursor to a line after all relevant `[show]` commands |
+| Keyframe not created | No entity selected | Click an entity in the preview or entity selector before pressing `K` |
+| Code preview shows old code | Auto-refresh delay | Click in the timeline or press any key to trigger a refresh |
+
+### Common VNS + Timeline pitfalls
+
+```vns
+// ❌ PITFALL: Timeline fires but characters aren't shown yet
+[call jes_timeline hero_entrance]
+[show hero center]
+hero: Hello!
+
+// ✅ CORRECT: Show characters first, then animate
+[show hero center]
+[call jes_timeline hero_entrance]
+hero: Hello!
+```
+
+```vns
+// ❌ PITFALL: Assuming timeline blocks VNS execution
+timeline { move "hero" { x: 500 dur: 1000 } }
+hero: I'm there!  // ← This appears immediately, not after 1000ms
+
+// ✅ CORRECT: Add explicit wait if you need to sync
+timeline { move "hero" { x: 500 dur: 1000 } }
+[wait 1000]
+hero: I'm there!
+```
+
+---
+
+## 11. Performance Notes
+
+- **TimelineRunner** is lightweight — interpolation is O(k) per property per frame where k is the number of keyframes (linear scan for surrounding pair)
+- **Multiple simultaneous timelines** are fine for typical use (< 10 concurrent). Each is independent with its own elapsed time
+- **Audio cues** are triggered by comparing timestamp windows, not polling — no overhead between cue points
+- **Entity lookup** via `SceneAccessor.findEntity(name)` is called every frame for every track. In VNS scenes this is a linear scan of the character list — fast for typical counts (< 20 entities)
+- **Looping timelines** use modulo arithmetic, not timeline restart — no allocation per loop cycle
+
+---
+
+## 12. File Map
 
 ### Editor Module (`editor/`)
 
@@ -421,19 +875,25 @@ editor/src/main/java/com/jvn/editor/
 core/src/main/java/com/jvn/core/
 ├── animation/
 │   ├── TimelineData.java                   # Serializable timeline for registry
+│   ├── TimelineDataParser.java             # Inline JES block → TimelineData converter
 │   ├── TimelineRunner.java                 # Applies timeline to entities at runtime
 │   ├── TimelineRegistry.java              # Global name → TimelineData map
-│   └── SceneAccessor.java                 # Interface for entity property access
+│   ├── SceneAccessor.java                 # Interface for entity property access
+│   └── Easing.java                        # 26 easing curves + custom cubic Bézier
 ├── scene2d/
 │   ├── Entity2D.java                       # Base entity (x, y, rotation, scale, alpha)
 │   ├── Sprite2D.java                       # Image entity (width, height, origin)
+│   ├── Label2D.java                        # Text entity (text, font, color)
+│   ├── Panel2D.java                        # Rect entity (fill, border)
+│   ├── CharacterEntity2D.java             # Animated character sprite
 │   ├── Scene2DBase.java                    # Entity list + camera + input
 │   └── Blitter2D.java                      # Rendering interface
 └── vn/
-    ├── VnState.java                        # Mutable VN state (characters, bg, vars)
+    ├── VnState.java                        # Mutable VN state; manages activeTimelines list
     ├── VnScene.java                        # VN scene driver
+    ├── DefaultVnInterop.java              # Handles jes_timeline + jes_timeline_inline
     ├── CharacterPosition.java              # LEFT/CENTER/RIGHT/FAR_LEFT/FAR_RIGHT
-    └── script/VnScriptParser.java          # .vns text → VnScenario
+    └── script/VnScriptParser.java          # .vns text → VnScenario (detects inline timeline blocks)
 ```
 
 ### FX Module (`fx/`)
@@ -447,7 +907,7 @@ fx/src/main/java/com/jvn/fx/
 
 ---
 
-## 6. Recent Additions
+## 13. Recent Additions
 
 ### Asset Picker Panel (`AssetPickerPanel.java`)
 The **Assets** tab in the left sidebar scans the project directory for image files (png, jpg, gif, bmp, webp) and displays them with thumbnails. Selecting an image and clicking **+ Add to Scene** creates a new `Sprite2D` entity at center-screen with the image's actual dimensions, registers it in the scene and project, and refreshes the entity selector and timeline.
@@ -465,10 +925,29 @@ The curve updates live when the easing type is changed.
 ### CharacterEntity2D Bounds
 `CharacterEntity2D` now exposes `getDrawWidth()`, `getDrawHeight()`, `getOriginX()`, and `getOriginY()` getters. `AnimationPreview` uses these for accurate bounding box hit detection and selection highlights on animated sprite-sheet characters.
 
+### Layer Ordering
+Entities and groups now carry `layerOrder` metadata. Puppeteer provides context-menu controls to raise (+10) or lower (-10) layer order. The effective Z value is computed hierarchically through groups and exported to `TimelineData` for runtime use. The `TimelineRunner` applies Z keyframes via `entity.setZ()`.
+
 ---
 
-## 7. Known Limitations
+## 14. Known Limitations
 
 - **Single-scene scope** — Puppeteer operates on one scene at a time; cross-scene transitions must be authored separately
 - **Snapshot is static** — the VNS snapshot at launch time captures the state up to the cursor line; it does not update if the VNS script changes while Puppeteer is open
 - **No drag-from-asset-picker** — assets are added via button click; drag-and-drop onto the preview is not yet implemented
+- **Group properties** — groups only support X and Y animation; rotation, scale, and alpha on groups are not yet supported
+- **Async-only playback** — `[call jes_timeline ...]` always runs asynchronously; there is no blocking variant (use `[wait N]` to synchronize)
+- **No timeline chaining** — there is no built-in way to sequence named timelines; chain them manually with `[wait]` between `[call]` commands
+
+---
+
+## 15. Related Docs
+
+- [Puppeteer Editor Guide](puppeteer-editor-guide.md) — comprehensive UI usage: launching, keyframes, 12 presets, 26 easing types, audio, camera, groups, shortcuts
+- [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — complete exported timeline syntax reference
+- [Hand-Coding Timelines](../scripting/timeline/timeline-hand-coding.md) — writing timelines by hand, time cursor model, 18 examples, reusable templates
+- [Puppeteer Animation Timelines](../scripting/timeline/timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry
+- [Timeline Overview](../scripting/timeline/timeline-scripting.md) — story vs animation timelines
+- [JES Timeline & Actions](../scripting/jes/jes-timeline.md) — JES runtime timeline actions (superset: combat, flow control, loops)
+- [Puppeteer Launcher Panel](sidebar-puppeteer-launcher.md) — VNS snapshot resolution details
+- [Puppeteer Audit & Roadmap](puppeteer-audit.md) — hardening audit and expansion status
