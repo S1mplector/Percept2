@@ -1,10 +1,12 @@
 package com.jvn.editor.ui;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -13,6 +15,8 @@ import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 /**
@@ -27,20 +31,22 @@ public class PuppeteerLauncherPanel extends VBox {
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
-  private static final Pattern SHOW_PATTERN = Pattern.compile("^\\s*\\[show\\s+(\\S+)\\s+(\\S+)(?:\\s+(\\S+))?]", Pattern.CASE_INSENSITIVE);
-  private static final Pattern HIDE_PATTERN = Pattern.compile("^\\s*\\[hide\\s+(\\S+)]", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_SHOW = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+show\\s+(\\S+)(?:\\s+(\\S+))?", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_HIDE = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+hide", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_MOVE = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+move\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_EXPR = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+(?:expression|expr)\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
+  private static final Set<String> KNOWN_POSITIONS = Set.of("far_left", "left", "center", "right", "far_right");
 
   private final Label lblHeader;
   private final Label lblLine;
   private final Label lblLineText;
   private final Label lblLabel;
   private final Label lblBackground;
+  private final Label lblSummary;
   private final VBox characterList;
+  private final VBox diagnosticsList;
   private final Button btnLaunch;
+  private final Button btnLaunchLabelStart;
 
   private String currentSource = "";
   private int currentLine = 0;
@@ -71,18 +77,42 @@ public class PuppeteerLauncherPanel extends VBox {
     lblBackground = new Label("Background: —");
     lblBackground.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
 
+    lblSummary = new Label("Snapshot: —");
+    lblSummary.setStyle("-fx-text-fill: #8fc0ff; -fx-font-size: 11px;");
+
     Label charsHeader = new Label("Visible Characters:");
     charsHeader.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
 
     characterList = new VBox(2);
     characterList.setPadding(new Insets(0, 0, 0, 8));
 
-    btnLaunch = new Button("Launch Puppeteer Here");
+    Label diagnosticsHeader = new Label("Snapshot Diagnostics:");
+    diagnosticsHeader.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
+
+    diagnosticsList = new VBox(2);
+    diagnosticsList.setPadding(new Insets(0, 0, 0, 8));
+
+    btnLaunch = new Button("Launch @ Cursor");
     btnLaunch.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #121212; -fx-font-weight: bold;");
     btnLaunch.setMaxWidth(Double.MAX_VALUE);
+    btnLaunch.setTooltip(new javafx.scene.control.Tooltip("Launch Puppeteer with scene snapshot from the current cursor line"));
     btnLaunch.setOnAction(e -> {
       if (onLaunch != null) onLaunch.accept(resolveSnapshot(currentSource, currentLine));
     });
+
+    btnLaunchLabelStart = new Button("Launch @ Label Start");
+    btnLaunchLabelStart.setStyle("-fx-background-color: #2d3240; -fx-text-fill: #d2e6ff; -fx-font-weight: bold;");
+    btnLaunchLabelStart.setMaxWidth(Double.MAX_VALUE);
+    btnLaunchLabelStart.setTooltip(new javafx.scene.control.Tooltip("Launch Puppeteer from the active label start line"));
+    btnLaunchLabelStart.setOnAction(e -> {
+      if (onLaunch == null) return;
+      int labelStartLine = resolveActiveLabelStartLine(currentSource, currentLine);
+      onLaunch.accept(resolveSnapshot(currentSource, labelStartLine));
+    });
+
+    HBox actionRow = new HBox(6, btnLaunch, btnLaunchLabelStart);
+    HBox.setHgrow(btnLaunch, Priority.ALWAYS);
+    HBox.setHgrow(btnLaunchLabelStart, Priority.ALWAYS);
 
     getChildren().addAll(
         lblHeader,
@@ -93,10 +123,14 @@ public class PuppeteerLauncherPanel extends VBox {
         snapshotHeader,
         lblLabel,
         lblBackground,
+        lblSummary,
         charsHeader,
         characterList,
         new Separator(),
-        btnLaunch
+        diagnosticsHeader,
+        diagnosticsList,
+        new Separator(),
+        actionRow
     );
 
     updateEmpty();
@@ -127,11 +161,17 @@ public class PuppeteerLauncherPanel extends VBox {
     lblLineText.setText("(no VNS file active)");
     lblLabel.setText("Label: —");
     lblBackground.setText("Background: —");
+    lblSummary.setText("Snapshot: —");
     characterList.getChildren().clear();
     Label none = new Label("—");
     none.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
     characterList.getChildren().add(none);
+    diagnosticsList.getChildren().clear();
+    Label hint = new Label("Open a .vns file to enable launch actions.");
+    hint.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    diagnosticsList.getChildren().add(hint);
     btnLaunch.setDisable(true);
+    btnLaunchLabelStart.setDisable(true);
   }
 
   private void refresh() {
@@ -152,6 +192,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     lblLabel.setText("Label: " + (snap.currentLabel != null ? snap.currentLabel : "(before first label)"));
     lblBackground.setText("Background: " + (snap.backgroundId != null ? snap.backgroundId : "—"));
+    lblSummary.setText("Snapshot: " + snap.characters.size() + " character(s) • source line " + (lineIdx + 1));
 
     characterList.getChildren().clear();
     if (snap.characters.isEmpty()) {
@@ -170,7 +211,23 @@ public class PuppeteerLauncherPanel extends VBox {
       }
     }
 
+    diagnosticsList.getChildren().clear();
+    List<String> diagnostics = buildDiagnostics(snap);
+    if (diagnostics.isEmpty()) {
+      Label ok = new Label("All visible snapshot assets are mapped.");
+      ok.setStyle("-fx-text-fill: #8bd17c; -fx-font-size: 11px;");
+      diagnosticsList.getChildren().add(ok);
+    } else {
+      for (String msg : diagnostics) {
+        Label warn = new Label("• " + msg);
+        warn.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px;");
+        warn.setWrapText(true);
+        diagnosticsList.getChildren().add(warn);
+      }
+    }
+
     btnLaunch.setDisable(false);
+    btnLaunchLabelStart.setDisable(false);
   }
 
   // --- VNS Scene State Resolver ---
@@ -188,6 +245,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     for (int i = 0; i <= limit; i++) {
       String line = lines[i];
+      String commandLine = stripInlineComment(line);
       String trimmed = line.trim();
       if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
 
@@ -245,19 +303,16 @@ public class PuppeteerLauncherPanel extends VBox {
       }
 
       // [show charId pos expression?]
-      m = SHOW_PATTERN.matcher(line);
-      if (m.find()) {
-        String charId = m.group(1);
-        String pos = m.group(2).toLowerCase(Locale.ROOT);
-        String expr = m.group(3) != null ? m.group(3) : "neutral";
-        visible.put(charId, new CharacterEntry(charId, pos, expr));
+      CharacterEntry showEntry = parseShowCommand(commandLine);
+      if (showEntry != null) {
+        visible.put(showEntry.characterId, showEntry);
         continue;
       }
 
       // [hide charId]
-      m = HIDE_PATTERN.matcher(line);
-      if (m.find()) {
-        visible.remove(m.group(1));
+      String hideCharacterId = parseHideCommand(commandLine);
+      if (hideCharacterId != null) {
+        visible.remove(hideCharacterId);
         continue;
       }
 
@@ -301,6 +356,107 @@ public class PuppeteerLauncherPanel extends VBox {
     }
 
     return new SceneSnapshot(currentLabel, backgroundId, new ArrayList<>(visible.values()), upToLine, bgPaths, charImgPaths);
+  }
+
+  static int resolveActiveLabelStartLine(String source, int upToLine) {
+    if (source == null || source.isBlank()) return 0;
+    String[] lines = source.split("\n", -1);
+    int limit = Math.max(0, Math.min(upToLine, lines.length - 1));
+    int latestLabelLine = 0;
+    for (int i = 0; i <= limit; i++) {
+      Matcher m = LABEL_PATTERN.matcher(lines[i]);
+      if (m.find()) latestLabelLine = i;
+    }
+    return latestLabelLine;
+  }
+
+  private static List<String> buildDiagnostics(SceneSnapshot snapshot) {
+    List<String> out = new ArrayList<>();
+    if (snapshot == null) return out;
+
+    if (snapshot.backgroundId != null && !snapshot.hasBackgroundPathMapping()) {
+      out.add("Background '" + snapshot.backgroundId + "' has no @background path mapping.");
+    }
+
+    for (CharacterEntry ch : snapshot.characters) {
+      if (ch == null || ch.characterId == null || ch.characterId.isBlank()) continue;
+      if (!snapshot.hasCharacterPathMapping(ch.characterId, ch.expression)) {
+        String expr = (ch.expression == null || ch.expression.isBlank()) ? "neutral" : ch.expression;
+        out.add("Character '" + ch.characterId + "' expression '" + expr + "' has no @charimg/@charpreset mapping.");
+      }
+      if (ch.position == null || !KNOWN_POSITIONS.contains(ch.position.toLowerCase(Locale.ROOT))) {
+        out.add("Character '" + ch.characterId + "' uses position '" + ch.position + "' (Puppeteer launch falls back to center).");
+      }
+    }
+    return out;
+  }
+
+  private static CharacterEntry parseShowCommand(String line) {
+    List<String> tokens = bracketTokens(line);
+    if (tokens.size() < 2 || !"show".equalsIgnoreCase(tokens.get(0))) return null;
+    String charId = tokens.get(1);
+    if (charId == null || charId.isBlank()) return null;
+
+    String position = null;
+    String expression = null;
+    for (int i = 2; i < tokens.size(); i++) {
+      String token = tokens.get(i);
+      if (token == null || token.isBlank()) continue;
+      String lower = token.toLowerCase(Locale.ROOT);
+      if ("at".equals(lower)) {
+        if (i + 1 < tokens.size()) {
+          String atValue = tokens.get(++i);
+          if (atValue != null && !atValue.isBlank()) {
+            String atLower = atValue.toLowerCase(Locale.ROOT);
+            if (isKnownPosition(atLower) && position == null) {
+              position = atLower;
+            } else if (expression == null) {
+              expression = atValue;
+            }
+          }
+        }
+        continue;
+      }
+      if (position == null && isKnownPosition(lower)) {
+        position = lower;
+        continue;
+      }
+      if (expression == null) expression = token;
+    }
+
+    if (position == null) position = "center";
+    if (expression == null || expression.isBlank()) expression = "neutral";
+    return new CharacterEntry(charId, position, expression);
+  }
+
+  private static String parseHideCommand(String line) {
+    List<String> tokens = bracketTokens(line);
+    if (tokens.size() < 2 || !"hide".equalsIgnoreCase(tokens.get(0))) return null;
+    String charId = tokens.get(1);
+    return (charId == null || charId.isBlank()) ? null : charId;
+  }
+
+  private static List<String> bracketTokens(String line) {
+    String raw = stripInlineComment(line).trim();
+    if (raw.length() < 2 || raw.charAt(0) != '[' || raw.charAt(raw.length() - 1) != ']') {
+      return List.of();
+    }
+    String inner = raw.substring(1, raw.length() - 1).trim();
+    if (inner.isEmpty()) return List.of();
+    return Arrays.stream(inner.split("\\s+"))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .toList();
+  }
+
+  private static String stripInlineComment(String line) {
+    if (line == null || line.isBlank()) return "";
+    int comment = line.indexOf('#');
+    return comment >= 0 ? line.substring(0, comment) : line;
+  }
+
+  private static boolean isKnownPosition(String value) {
+    return value != null && KNOWN_POSITIONS.contains(value.toLowerCase(Locale.ROOT));
   }
 
   private static String resolvePresetSpec(Map<String, Map<String, String>> layersByCharacter,
@@ -380,6 +536,24 @@ public class PuppeteerLauncherPanel extends VBox {
 
     public String resolveBackgroundPath() {
       return backgroundId != null ? backgroundPaths.getOrDefault(backgroundId, backgroundId) : null;
+    }
+
+    public boolean hasBackgroundPathMapping() {
+      return backgroundId != null && backgroundPaths.containsKey(backgroundId);
+    }
+
+    public boolean hasCharacterPathMapping(String characterId, String expression) {
+      if (characterId == null || characterId.isBlank()) return false;
+      if (expression != null && characterImagePaths.containsKey(characterId + "/" + expression)) {
+        return true;
+      }
+      if (characterImagePaths.containsKey(characterId + "/neutral")) {
+        return true;
+      }
+      for (String key : characterImagePaths.keySet()) {
+        if (key != null && key.startsWith(characterId + "/")) return true;
+      }
+      return false;
     }
 
     public String resolveCharacterPath(String characterId, String expression) {
