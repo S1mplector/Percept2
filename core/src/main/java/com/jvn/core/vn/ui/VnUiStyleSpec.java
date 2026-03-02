@@ -106,16 +106,16 @@ public record VnUiStyleSpec(
 
   public static VnUiStyleSpec defaults() {
     return new VnUiStyleSpec(
-        null, null, null, null,       // textbox asset, color, opacity, bounds points
-        null, null, null, null, null, null, // name box asset, color, text color, font, size, bounds points
-        null, null, null, null,       // dialogue text color, font, size, bounds points
-        null, null, null, null, null, // choice button assets + bounds points
-        null, null, null, null,       // choice bg colors
-        null, null, null, null,       // choice text colors
-        null, null, null, null,       // choice border colors
-        10.0, 2.0, 5.0,              // corner radius, border width, text baseline
-        null, null,                   // choice font family, size
-        null, null                    // character height factor, baseline Y
+        null, "#0C1220E0", 0.88, null,                       // textbox: dark navy, high opacity
+        null, "#14203890", "#FFD78A", "SansSerif", 18, null, // name box: dark tint, warm gold text
+        "#E8EDF6", "SansSerif", 22, null,                    // dialogue: near-white, clean
+        null, null, null, null, null,                         // choice button assets + bounds
+        "#1A2640D8", "#243358E8", "#2A3D68E8", "#121826A0", // choice bg: dark blue tones
+        "#D4DCF0", "#F0F4FF", "#FFD78A", "#6878A0",         // choice text: light, warm highlight
+        "#3A5080A0", "#5888CCA0", "#C8A04880", "#28345060", // choice borders: blue/gold accents
+        8.0, 1.5, 4.0,                                       // corner radius, border, baseline
+        "SansSerif", 20,                                     // choice font
+        0.85, 1.0                                            // character framing
     );
   }
 

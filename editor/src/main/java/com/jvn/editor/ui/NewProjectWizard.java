@@ -1750,53 +1750,56 @@ public class NewProjectWizard extends Stage {
 
     switch (theme) {
       case "Light Clean" -> {
-        tp.setProperty("backgroundColor", "#F4F7FB");
-        tp.setProperty("titleColor", "#142033");
-        tp.setProperty("itemColor", "#3C4A63");
-        tp.setProperty("itemSelectedColor", "#1D5CFF");
-        tp.setProperty("hintColor", "#5D6A86");
-        tp.setProperty("accentColor", "#1D5CFF");
+        tp.setProperty("backgroundColor", "#EFF3F9");
+        tp.setProperty("titleColor", "#1A2844");
+        tp.setProperty("itemColor", "#3A4D6E");
+        tp.setProperty("itemSelectedColor", "#2264E0");
+        tp.setProperty("itemHoverColor", "#4A6890");
+        tp.setProperty("hintColor", "#6878A0");
+        tp.setProperty("accentColor", "#2264E0");
       }
       case "Retro Game" -> {
-        tp.setProperty("backgroundColor", "#070707");
-        tp.setProperty("titleColor", "#7CFF64");
-        tp.setProperty("itemColor", "#65DB56");
-        tp.setProperty("itemSelectedColor", "#FFE36B");
-        tp.setProperty("hintColor", "#8FCA7E");
-        tp.setProperty("accentColor", "#FFE36B");
+        tp.setProperty("backgroundColor", "#080808");
+        tp.setProperty("titleColor", "#60E848");
+        tp.setProperty("itemColor", "#50C840");
+        tp.setProperty("itemSelectedColor", "#F8D850");
+        tp.setProperty("itemHoverColor", "#78E868");
+        tp.setProperty("hintColor", "#78B868");
+        tp.setProperty("accentColor", "#F8D850");
       }
       case "Nature Green" -> {
-        tp.setProperty("backgroundColor", "#122616");
-        tp.setProperty("titleColor", "#D2F7DA");
-        tp.setProperty("itemColor", "#A9DDB1");
-        tp.setProperty("itemSelectedColor", "#5CE385");
-        tp.setProperty("hintColor", "#88C995");
-        tp.setProperty("accentColor", "#5CE385");
+        tp.setProperty("backgroundColor", "#0E1E14");
+        tp.setProperty("titleColor", "#C8F0D0");
+        tp.setProperty("itemColor", "#98D0A4");
+        tp.setProperty("itemSelectedColor", "#48D878");
+        tp.setProperty("itemHoverColor", "#B0E8B8");
+        tp.setProperty("hintColor", "#78B888");
+        tp.setProperty("accentColor", "#48D878");
       }
       default -> {
-        tp.setProperty("backgroundColor", "#050B16");
-        tp.setProperty("titleColor", "#F3F8FF");
-        tp.setProperty("itemColor", "#D9E3F5");
-        tp.setProperty("itemSelectedColor", "#FFE18A");
-        tp.setProperty("hintColor", "#A8B6D2");
-        tp.setProperty("accentColor", "#7CC4FF");
+        tp.setProperty("backgroundColor", "#060D1A");
+        tp.setProperty("titleColor", "#EEF4FF");
+        tp.setProperty("itemColor", "#C8D6EC");
+        tp.setProperty("itemSelectedColor", "#FFDFA0");
+        tp.setProperty("itemHoverColor", "#E4EEFF");
+        tp.setProperty("hintColor", "#8898B8");
+        tp.setProperty("accentColor", "#78B8F0");
       }
     }
 
-    String systemFont = Font.getDefault().getFamily();
-    tp.setProperty("titleFontFamily", systemFont);
+    tp.setProperty("titleFontFamily", "SansSerif");
     tp.setProperty("titleFontWeight", "BOLD");
-    tp.setProperty("titleFontSize", "50");
-    tp.setProperty("itemFontFamily", systemFont);
+    tp.setProperty("titleFontSize", "48");
+    tp.setProperty("itemFontFamily", "SansSerif");
     tp.setProperty("itemFontWeight", "SEMI_BOLD");
-    tp.setProperty("itemFontSize", "28");
-    tp.setProperty("hintFontFamily", systemFont);
-    tp.setProperty("hintFontSize", "16");
-    tp.setProperty("titleY", "0.12");
-    tp.setProperty("listYStart", "0.33");
-    tp.setProperty("lineHeight", "66");
+    tp.setProperty("itemFontSize", "26");
+    tp.setProperty("hintFontFamily", "SansSerif");
+    tp.setProperty("hintFontSize", "15");
+    tp.setProperty("titleY", "0.16");
+    tp.setProperty("listYStart", "0.38");
+    tp.setProperty("lineHeight", "62");
     tp.setProperty("itemPrefix", "");
-    tp.setProperty("itemSelectedPrefix", "▶ ");
+    tp.setProperty("itemSelectedPrefix", "▸ ");
     tp.setProperty("hintsText", "Enter/Click: Select    Esc: Back");
     tp.setProperty("titleText", name);
     tp.setProperty("backgroundImage", DEFAULT_MENU_BG_ASSET_PATH);
@@ -2039,24 +2042,23 @@ public class NewProjectWizard extends Stage {
         fw.write("# Each item.<id>.label supports {value} placeholder expansion.\n");
         fw.write("# Runtime maps known setting ids to user settings store values.\n");
         fw.write("# 'back' row uses action=back to return to previous screen.\n");
+        fw.write("#\n");
+        fw.write("# To expose advanced/developer settings, add these ids to the items list:\n");
+        fw.write("#   physics_fixed_step, physics_max_substeps, physics_default_friction, input_profile\n");
         fw.write("titleText=Settings\n");
-        fw.write("hintsText=Up/Down: Select    Left/Right: Adjust    Esc: Back\n");
+        fw.write("hintsText=Left/Right: Adjust    Esc: Back\n");
         fw.write("layout=submenu\n");
         fw.write("defaultItemStyle=submenu\n");
         fw.write("wrapSelection=true\n");
-        fw.write("items=text_speed,bgm_volume,sfx_volume,voice_volume,auto_play_delay,skip_unread,skip_after_choices,click_reveal_before_advance,physics_fixed_step,physics_max_substeps,physics_default_friction,input_profile,back\n");
+        fw.write("items=text_speed,auto_play_delay,click_reveal_before_advance,skip_unread,skip_after_choices,bgm_volume,sfx_volume,voice_volume,back\n");
         fw.write("item.text_speed.label=Text Speed: {value}\n");
-        fw.write("item.bgm_volume.label=BGM Volume: {value}\n");
-        fw.write("item.sfx_volume.label=SFX Volume: {value}\n");
-        fw.write("item.voice_volume.label=Voice Volume: {value}\n");
-        fw.write("item.auto_play_delay.label=Auto Advance Delay: {value}\n");
-        fw.write("item.skip_unread.label=Skip Unread Text: {value}\n");
+        fw.write("item.auto_play_delay.label=Auto-Advance: {value}\n");
+        fw.write("item.click_reveal_before_advance.label=Click to Reveal: {value}\n");
+        fw.write("item.skip_unread.label=Skip Unread: {value}\n");
         fw.write("item.skip_after_choices.label=Skip After Choices: {value}\n");
-        fw.write("item.click_reveal_before_advance.label=Click Reveals Before Advance: {value}\n");
-        fw.write("item.physics_fixed_step.label=Physics Fixed Step: {value}\n");
-        fw.write("item.physics_max_substeps.label=Physics Max Substeps: {value}\n");
-        fw.write("item.physics_default_friction.label=Physics Friction: {value}\n");
-        fw.write("item.input_profile.label=Input Profile: {value}\n");
+        fw.write("item.bgm_volume.label=Music: {value}\n");
+        fw.write("item.sfx_volume.label=Sound Effects: {value}\n");
+        fw.write("item.voice_volume.label=Voices: {value}\n");
         fw.write("item.back.label=Back\n");
         fw.write("item.back.action=back\n");
         fw.write("item.back.style=slot\n");

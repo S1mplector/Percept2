@@ -1,5 +1,9 @@
 package com.jvn.fx.menu;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.localization.Localization;
@@ -11,15 +15,12 @@ import com.jvn.core.menu.config.MenuItemSpec;
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.ui.BoundsPointCodec;
+
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 import javafx.scene.image.Image;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 
 public class MenuRenderer {
   private final GraphicsContext gc;
@@ -77,6 +78,37 @@ public class MenuRenderer {
     if (hints == null || hints.isBlank()) {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc";
     }
+    double bottomMargin = layout != null ? layout.hintsBottomMargin() : 20.0;
+    drawHints(hints, w, h, bottomMargin, screenStyle);
+  }
+
+  public void renderPauseMenu(PauseMenuScene scene, double w, double h) {
+    MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
+    MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
+    // Semi-transparent dark overlay instead of full background
+    gc.setFill(Color.rgb(6, 10, 20, 0.72));
+    gc.fillRect(0, 0, w, h);
+
+    String title = scene != null ? scene.getDisplayTitle() : "Paused";
+    double titleY = (layout != null && layout.titleY() != null)
+        ? resolve(layout.titleY(), h)
+        : resolve(theme.getTitleY(), h);
+    drawTitle(title, w, titleY, screenStyle);
+
+    String[] items = scene != null ? scene.getDisplayItems() : new String[]{"Resume"};
+    boolean[] enabled = new boolean[items.length];
+    MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
+    MenuItemSpec[] specs = new MenuItemSpec[items.length];
+    for (int i = 0; i < items.length; i++) {
+      enabled[i] = scene == null || scene.isItemEnabled(i);
+      styles[i] = scene != null ? scene.getStyleForIndex(i) : null;
+      specs[i] = scene != null ? scene.getMenuItemSpec(i) : null;
+    }
+
+    drawMenuList(items, scene != null ? scene.getSelected() : 0, enabled, styles, specs, layout, 0, w, h);
+
+    String hints = scene != null ? scene.getDisplayHints() : null;
+    if (hints == null || hints.isBlank()) hints = "Esc: Resume";
     double bottomMargin = layout != null ? layout.hintsBottomMargin() : 20.0;
     drawHints(hints, w, h, bottomMargin, screenStyle);
   }
@@ -504,6 +536,13 @@ public class MenuRenderer {
   }
 
   public int getHoverIndexForMainMenu(MainMenuScene scene, double w, double h, double mouseX, double mouseY) {
+    if (scene == null) return -1;
+    MenuItemSpec[] specs = new MenuItemSpec[scene.getItemCount()];
+    for (int i = 0; i < specs.length; i++) specs[i] = scene.getMenuItemSpec(i);
+    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), specs, 0, w, h, mouseX, mouseY);
+  }
+
+  public int getHoverIndexForPauseMenu(PauseMenuScene scene, double w, double h, double mouseX, double mouseY) {
     if (scene == null) return -1;
     MenuItemSpec[] specs = new MenuItemSpec[scene.getItemCount()];
     for (int i = 0; i < specs.length; i++) specs[i] = scene.getMenuItemSpec(i);

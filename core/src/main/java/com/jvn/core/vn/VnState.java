@@ -185,6 +185,10 @@ public class VnState {
     return characterVisuals.get(position);
   }
 
+  public CharacterVisual getOrCreateCharacterVisual(CharacterPosition position) {
+    return ensureCharacterVisual(position);
+  }
+
   public void updateCharacterAnimations(long deltaMs) {
     if (!characterVisuals.isEmpty()) {
       var it = characterVisuals.entrySet().iterator();
@@ -630,6 +634,10 @@ public class VnState {
     public double getOffsetY() { return offsetY; }
     public boolean isRemoveOnComplete() { return removeOnComplete; }
     public boolean isFinished() { return !animating; }
+
+    public void setOffsetX(double offsetX) { this.offsetX = offsetX; this.animating = false; }
+    public void setOffsetY(double offsetY) { this.offsetY = offsetY; this.animating = false; }
+    public void setAlpha(double alpha) { this.alpha = alpha; }
 
     public void setImmediate(double alpha, double offsetX, double offsetY) {
       this.alpha = alpha;

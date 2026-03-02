@@ -49,10 +49,10 @@ public class VnRenderer {
   private Font choiceFont;
 
   // Default font settings
-  private static final String DEFAULT_FONT_FAMILY = "Arial";
+  private static final String DEFAULT_FONT_FAMILY = "SansSerif";
   private static final int DEFAULT_NAME_FONT_SIZE = 18;
-  private static final int DEFAULT_DIALOGUE_FONT_SIZE = 16;
-  private static final int DEFAULT_CHOICE_FONT_SIZE = 16;
+  private static final int DEFAULT_DIALOGUE_FONT_SIZE = 22;
+  private static final int DEFAULT_CHOICE_FONT_SIZE = 20;
   private VnState currentState;
   private long animationTime = 0;
   private AudioFacade audioFacade;
@@ -69,14 +69,14 @@ public class VnRenderer {
   public void setAudioFacade(AudioFacade facade) { this.audioFacade = facade; }
 
   // UI Colors
-  private static final Color TEXTBOX_COLOR = Color.rgb(0, 0, 0, 0.62);
-  private static final Color NAME_BOX_COLOR = Color.rgb(30, 30, 50, 0.9);
-  private static final Color TEXT_COLOR = Color.WHITE;
-  private static final Color CHOICE_BG_COLOR = Color.rgb(50, 50, 70, 0.9);
-  private static final Color CHOICE_HOVER_COLOR = Color.rgb(70, 70, 100, 0.9);
-  private static final Color CHOICE_DISABLED_COLOR = Color.rgb(60, 60, 60, 0.6);
-  private static final Color TEXT_COLOR_DISABLED = Color.color(1, 1, 1, 0.5);
-  private static final Color CHOICE_DISABLED_BORDER_COLOR = Color.color(1, 1, 1, 0.55);
+  private static final Color TEXTBOX_COLOR = Color.rgb(12, 18, 32, 0.88);
+  private static final Color NAME_BOX_COLOR = Color.rgb(20, 32, 56, 0.56);
+  private static final Color TEXT_COLOR = Color.web("#E8EDF6");
+  private static final Color CHOICE_BG_COLOR = Color.web("#1A2640D8");
+  private static final Color CHOICE_HOVER_COLOR = Color.web("#243358E8");
+  private static final Color CHOICE_DISABLED_COLOR = Color.web("#121826A0");
+  private static final Color TEXT_COLOR_DISABLED = Color.web("#6878A0");
+  private static final Color CHOICE_DISABLED_BORDER_COLOR = Color.web("#28345060");
   private static final Color HISTORY_PANEL_COLOR = Color.rgb(12, 12, 18, 0.92);
   private static final Color HISTORY_BORDER_COLOR = Color.rgb(220, 220, 255, 0.18);
   private static final Color HISTORY_ENTRY_BG = Color.rgb(24, 24, 34, 0.75);
@@ -86,9 +86,9 @@ public class VnRenderer {
   private static final double HISTORY_HEADER_HEIGHT = 46;
   private static final double HISTORY_FOOTER_HEIGHT = 44;
   private static final double HISTORY_LINE_HEIGHT = 28;
-  private static final double DEFAULT_CHOICE_RADIUS = 10.0;
-  private static final double DEFAULT_CHOICE_BORDER_WIDTH = 2.0;
-  private static final double DEFAULT_CHOICE_TEXT_BASELINE_OFFSET = 5.0;
+  private static final double DEFAULT_CHOICE_RADIUS = 8.0;
+  private static final double DEFAULT_CHOICE_BORDER_WIDTH = 1.5;
+  private static final double DEFAULT_CHOICE_TEXT_BASELINE_OFFSET = 4.0;
   private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
   private static final int VISUALIZER_BAR_COUNT = 96;
@@ -104,6 +104,9 @@ public class VnRenderer {
   private Image textBoxImage;
   private Image nameBoxImage;
   private Color textBoxFillColor = TEXTBOX_COLOR;
+  private Color nameBoxFillColor = NAME_BOX_COLOR;
+  private Color nameTextFillColor = Color.web("#FFD78A");
+  private Color dialogueTextFillColor = TEXT_COLOR;
   private double textBoxAssetOverlayOpacity = 0.28;
   private Color choiceBgColor = CHOICE_BG_COLOR;
   private Color choiceHoverColor = CHOICE_HOVER_COLOR;
@@ -853,12 +856,12 @@ public class VnRenderer {
       if (nameBoxImage != null) {
         gc.drawImage(nameBoxImage, nameBoxX, nameBoxY, nameBoxW, nameBoxH);
       } else {
-        gc.setFill(NAME_BOX_COLOR);
+        gc.setFill(nameBoxFillColor);
         gc.fillRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
       }
       if (clipNameBox) gc.restore();
 
-      gc.setFill(TEXT_COLOR);
+      gc.setFill(nameTextFillColor);
       gc.setFont(nameFont);
       gc.fillText(
           speakerName,
@@ -987,7 +990,7 @@ public class VnRenderer {
         if (span.hasColor()) {
           gc.setFill(parseColorHex(span.getColorHex()));
         } else {
-          gc.setFill(TEXT_COLOR);
+          gc.setFill(dialogueTextFillColor);
         }
         
         // Apply font style for bold/italic
@@ -1063,8 +1066,11 @@ public class VnRenderer {
     textBoxImage = loadImage(resolved.textBoxAssetPath());
     nameBoxImage = loadImage(resolved.nameBoxAssetPath());
     textBoxFillColor = parseColor(resolved.textBoxColor(), TEXTBOX_COLOR);
+    nameBoxFillColor = parseColor(resolved.nameBoxColor(), NAME_BOX_COLOR);
+    nameTextFillColor = parseColor(resolved.nameTextColor(), Color.web("#FFD78A"));
+    dialogueTextFillColor = parseColor(resolved.dialogueTextColor(), TEXT_COLOR);
     textBoxAssetOverlayOpacity = clamp(
-        resolved.textBoxOpacity() == null ? 0.28 : resolved.textBoxOpacity(),
+        resolved.textBoxOpacity() == null ? 0.88 : resolved.textBoxOpacity(),
         0.0,
         1.0
     );

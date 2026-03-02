@@ -15,6 +15,7 @@ import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.scene.Scene;
+import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.DefaultVnInterop;
 import com.jvn.core.vn.VnArgTokenizer;
 import com.jvn.core.vn.VnExternalCommand;
@@ -31,6 +32,7 @@ public class RuntimeVnInterop implements VnInterop {
   private final Engine engine;
   private final DefaultVnInterop base = new DefaultVnInterop();
   private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
+  private final java.util.Map<String, VnCharacterProxyEntity> vnCharacterProxies = new java.util.HashMap<>();
 
   public RuntimeVnInterop(Engine engine) {
     this.engine = engine;
@@ -42,8 +44,13 @@ public class RuntimeVnInterop implements VnInterop {
       @Override
       public com.jvn.core.scene2d.Entity2D findEntity(String name) {
         if (name == null || name.isBlank()) return null;
+        // Try JES scene first (Puppeteer / standalone JES)
         JesScene2D jes = topJesScene();
-        return jes != null ? jes.find(name) : null;
+        if (jes != null) return jes.find(name);
+        // Fallback: bridge VN characters as Entity2D proxies
+        VnScene vn = topVnScene();
+        if (vn != null) return getOrCreateVnCharacterProxy(vn, name);
+        return null;
       }
 
       @Override
@@ -427,6 +434,59 @@ public class RuntimeVnInterop implements VnInterop {
     dst.setAutoPlayDelay(src.getAutoPlayDelay());
     dst.setSkipUnreadText(src.isSkipUnreadText());
     dst.setSkipAfterChoices(src.isSkipAfterChoices());
+  }
+
+  // --- VN Character → Entity2D proxy bridge ---
+
+  private com.jvn.core.scene2d.Entity2D getOrCreateVnCharacterProxy(VnScene vn, String characterId) {
+    if (vn == null || characterId == null) return null;
+    com.jvn.core.vn.VnState state = vn.getState();
+    CharacterPosition pos = state.getCharacterPosition(characterId);
+    if (pos == null) return null; // character not currently visible
+    VnCharacterProxyEntity proxy = vnCharacterProxies.get(characterId);
+    if (proxy == null || proxy.position != pos) {
+      com.jvn.core.vn.VnState.CharacterVisual visual = state.getOrCreateCharacterVisual(pos);
+      proxy = new VnCharacterProxyEntity(characterId, pos, visual);
+      vnCharacterProxies.put(characterId, proxy);
+    }
+    return proxy;
+  }
+
+  /**
+   * Lightweight Entity2D proxy that maps timeline property changes
+   * (setPosition, setScale, setRotationDeg, alpha) to VN CharacterVisual offsets.
+   * <p>
+   * Timeline x/y values are interpreted as pixel <em>offsets</em> from the
+   * character's natural slot position.
+   */
+  static final class VnCharacterProxyEntity extends com.jvn.core.scene2d.Entity2D {
+    final String characterId;
+    final CharacterPosition position;
+    private final com.jvn.core.vn.VnState.CharacterVisual visual;
+
+    VnCharacterProxyEntity(String characterId, CharacterPosition position,
+                           com.jvn.core.vn.VnState.CharacterVisual visual) {
+      this.characterId = characterId;
+      this.position = position;
+      this.visual = visual;
+      // Seed Entity2D fields from current visual state
+      this.x = visual.getOffsetX();
+      this.y = visual.getOffsetY();
+    }
+
+    @Override
+    public void setPosition(double x, double y) {
+      this.x = x;
+      this.y = y;
+      visual.setOffsetX(x);
+      visual.setOffsetY(y);
+    }
+
+    @Override
+    public double getX() { return visual.getOffsetX(); }
+
+    @Override
+    public double getY() { return visual.getOffsetY(); }
   }
 
   private static String safe(String s) { return s == null ? "" : s; }

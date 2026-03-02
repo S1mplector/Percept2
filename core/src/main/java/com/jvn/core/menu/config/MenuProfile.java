@@ -91,64 +91,65 @@ public record MenuProfile(
     screens.put("load", defaultLoadScreen());
     screens.put("save", defaultSaveScreen());
     screens.put("settings", defaultSettingsScreen());
+    screens.put("pause", defaultPauseScreen());
 
     return new MenuProfile("main", screens, layouts, styles);
   }
 
   public static MenuLayoutSpec defaultLayout() {
-    return new MenuLayoutSpec("default", 0.34, 68.0, 0.44, "center", 36.0, 0.14);
+    return new MenuLayoutSpec("default", 0.38, 62.0, 0.36, "center", 32.0, 0.16);
   }
 
   public static MenuLayoutSpec defaultSubmenuLayout() {
-    return new MenuLayoutSpec("submenu", 0.24, 62.0, 0.64, "left", 30.0, 0.11);
+    return new MenuLayoutSpec("submenu", 0.26, 56.0, 0.52, "left", 28.0, 0.13);
   }
 
   public static MenuLayoutSpec defaultSlotsLayout() {
-    return new MenuLayoutSpec("slots", 0.20, 74.0, 0.58, "left", 30.0, 0.10);
+    return new MenuLayoutSpec("slots", 0.22, 68.0, 0.54, "left", 28.0, 0.12);
   }
 
   public static MenuStyleSpec defaultStyle() {
     return new MenuStyleSpec(
         "default",
-        "#DCE6F8", "#FFE8A3", "#F4F8FF", "#7D8CA8",
-        "", "▶ ", "• ",
-        "Segoe UI", "SEMI_BOLD", 28,
-        "#000000AA", 1.0, 1.0, 1.0,
-        null, null, null, null,           // button assets (normal, selected, hover, disabled)
-        28.0, 2.0,
-        "#F2F7FF", "Segoe UI", "BOLD", 56, "#000000A8",
-        "#A8B6D2", "Segoe UI", 18,
-        "assets/demo/backgrounds/field/glorious_ricefield_day.png", "#050B16", 1.0
+        "#C8D6EC", "#FFDFA0", "#E4EEFF", "#5C6B84",
+        "", "▸ ", "",
+        "SansSerif", "SEMI_BOLD", 26,
+        "#00000066", 1.5, 1.5, 1.0,
+        null, null, null, null,
+        24.0, 2.0,
+        "#EEF4FF", "SansSerif", "BOLD", 48, "#00000088",
+        "#8898B8", "SansSerif", 15,
+        null, "#060D1A", 1.0
     );
   }
 
   public static MenuStyleSpec defaultSubmenuStyle() {
     return new MenuStyleSpec(
         "submenu",
-        "#D6E0F4", "#B8EAFF", "#EAF4FF", "#7387AA",
-        "  ", "▸ ", "  ",
-        "Segoe UI", "NORMAL", 24,
-        null, null, null, 1.0,
+        "#B8C8E4", "#90D4F8", "#D8E8FF", "#5A6E8C",
+        "", "▸ ", "",
+        "SansSerif", "NORMAL", 22,
+        "#00000044", 1.0, 1.0, 1.0,
         null, null, null, null,
-        24.0, 1.0,
-        "#EAF2FF", "Segoe UI", "BOLD", 42, null,
-        "#97AACE", "Segoe UI", 16,
-        null, "#091222", 1.0
+        20.0, 1.0,
+        "#D8E6FF", "SansSerif", "BOLD", 36, "#00000066",
+        "#7888A8", "SansSerif", 14,
+        null, "#08101E", 1.0
     );
   }
 
   public static MenuStyleSpec defaultSlotStyle() {
     return new MenuStyleSpec(
         "slot",
-        "#E4EDF8", "#FFF1B5", "#F0F7FF", "#7B87A0",
-        "", "▶ ", "• ",
-        "Segoe UI", "SEMI_BOLD", 22,
-        null, null, null, 1.0,
+        "#C4D4EC", "#FFE4A0", "#E0ECFF", "#5E6E88",
+        "", "▸ ", "",
+        "SansSerif", "SEMI_BOLD", 20,
+        "#00000044", 1.0, 1.0, 1.0,
         null, null, null, null,
-        22.0, 0.0,
-        "#EAF2FF", "Segoe UI", "BOLD", 42, null,
-        "#97AACE", "Segoe UI", 16,
-        null, "#060F1D", 1.0
+        18.0, 0.0,
+        "#D8E6FF", "SansSerif", "BOLD", 36, "#00000066",
+        "#7888A8", "SansSerif", 14,
+        null, "#070E1C", 1.0
     );
   }
 
@@ -161,11 +162,11 @@ public record MenuProfile(
         "default",
         true,
         List.of(
-            new MenuItemSpec("new_game", null, null, null, true, new MenuActionSpec(MenuActionType.NEW_GAME, null), null, null, null, null, null, null, null),
-            new MenuItemSpec("load", null, null, null, true, new MenuActionSpec(MenuActionType.LOAD_MENU, null), null, null, null, null, null, null, null),
-            new MenuItemSpec("settings", null, null, null, true, new MenuActionSpec(MenuActionType.SETTINGS_MENU, null), null, null, null, null, null, null, null),
-            new MenuItemSpec("extras", "Extras", null, null, true, new MenuActionSpec(MenuActionType.OPEN_MENU, "extras"), null, null, null, null, null, null, null),
-            new MenuItemSpec("quit", null, null, null, true, new MenuActionSpec(MenuActionType.OPEN_MENU, "confirm_exit"), null, null, null, null, null, null, null)
+            new MenuItemSpec("new_game", "New Game", null, null, true, new MenuActionSpec(MenuActionType.NEW_GAME, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("load", "Continue", null, null, true, new MenuActionSpec(MenuActionType.LOAD_MENU, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("settings", "Settings", null, null, true, new MenuActionSpec(MenuActionType.SETTINGS_MENU, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("extras", "Gallery", null, null, true, new MenuActionSpec(MenuActionType.OPEN_MENU, "extras"), null, null, null, null, null, null, null),
+            new MenuItemSpec("quit", "Exit", null, null, true, new MenuActionSpec(MenuActionType.OPEN_MENU, "confirm_exit"), null, null, null, null, null, null, null)
         )
     );
   }
@@ -173,15 +174,16 @@ public record MenuProfile(
   public static MenuScreenSpec defaultExtrasScreen() {
     return new MenuScreenSpec(
         "extras",
-        "Extras",
-        "Enter/Click: Select    Esc: Back",
+        "Gallery",
+        "Select an item    Esc: Back",
         "submenu",
         "submenu",
         true,
         List.of(
-            new MenuItemSpec("music_room", "Music Room (Soon)", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("music_room", "Music Room", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("cg_gallery", "CG Gallery", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
             new MenuItemSpec("credits", "Credits", "submenu", null, true, new MenuActionSpec(MenuActionType.OPEN_MENU, "credits"), null, null, null, null, null, null, null),
-            new MenuItemSpec("back", "Return to Main Menu", "submenu", null, true, new MenuActionSpec(MenuActionType.MAIN_MENU, null), null, null, null, null, null, null, null)
+            new MenuItemSpec("back", "Back", "submenu", null, true, new MenuActionSpec(MenuActionType.MAIN_MENU, null), null, null, null, null, null, null, null)
         )
     );
   }
@@ -195,10 +197,11 @@ public record MenuProfile(
         "submenu",
         true,
         List.of(
-            new MenuItemSpec("line_engine", "JVN Engine Team", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("line_editor", "Runtime, Editor, and VNS by JVN contributors", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("line_thanks", "Thanks for building with JVN.", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("back", "Back", "slot", null, true, new MenuActionSpec(MenuActionType.OPEN_MENU, "extras"), null, null, null, null, null, null, null)
+            new MenuItemSpec("line_engine", "Built with JVN Engine", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("line_author", "Story, Art, and Direction by [Your Name]", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("line_music", "Music and Sound by [Composer]", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("line_thanks", "Special thanks to everyone who played.", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("back", "Back", "submenu", null, true, new MenuActionSpec(MenuActionType.OPEN_MENU, "extras"), null, null, null, null, null, null, null)
         )
     );
   }
@@ -206,15 +209,15 @@ public record MenuProfile(
   public static MenuScreenSpec defaultConfirmExitScreen() {
     return new MenuScreenSpec(
         "confirm_exit",
-        "Exit Game",
+        "Exit",
         "Enter: Confirm    Esc: Cancel",
         "submenu",
         "submenu",
         true,
         List.of(
-            new MenuItemSpec("prompt", "Leave this session?", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("quit_yes", "Yes, Quit", "slot", null, true, new MenuActionSpec(MenuActionType.QUIT, null), null, null, null, null, null, null, null),
-            new MenuItemSpec("quit_no", "No, Return", "submenu", null, true, new MenuActionSpec(MenuActionType.MAIN_MENU, null), null, null, null, null, null, null, null)
+            new MenuItemSpec("prompt", "Are you sure you want to exit?", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("quit_yes", "Quit", "submenu", null, true, new MenuActionSpec(MenuActionType.QUIT, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("quit_no", "Cancel", "submenu", null, true, new MenuActionSpec(MenuActionType.MAIN_MENU, null), null, null, null, null, null, null, null)
         )
     );
   }
@@ -222,8 +225,8 @@ public record MenuProfile(
   public static MenuScreenSpec defaultLoadScreen() {
     return new MenuScreenSpec(
         "load",
-        "Load Journey",
-        "Enter: Load    Esc: Back    Del: Delete    R: Rename",
+        "Load Game",
+        "Enter: Load    Del: Delete    Esc: Back",
         "slots",
         "slot",
         true,
@@ -236,14 +239,32 @@ public record MenuProfile(
   public static MenuScreenSpec defaultSaveScreen() {
     return new MenuScreenSpec(
         "save",
-        "Save Journey",
-        "Enter: Save    Esc: Back    Del: Delete    R: Rename",
+        "Save Game",
+        "Enter: Save    Del: Delete    Esc: Back",
         "slots",
         "slot",
         true,
         List.of(
-            new MenuItemSpec("new_slot", "Create New Save", "submenu", null, true, new MenuActionSpec(MenuActionType.SAVE_MENU, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("new_slot", "New Save", "submenu", null, true, new MenuActionSpec(MenuActionType.SAVE_MENU, null), null, null, null, null, null, null, null),
             new MenuItemSpec("save_slot", null, "slot", null, true, new MenuActionSpec(MenuActionType.SAVE_MENU, null), null, null, null, null, null, null, null)
+        )
+    );
+  }
+
+  public static MenuScreenSpec defaultPauseScreen() {
+    return new MenuScreenSpec(
+        "pause",
+        "Paused",
+        "Esc: Resume",
+        "default",
+        "default",
+        true,
+        List.of(
+            new MenuItemSpec("resume", "Resume", "default", null, true, new MenuActionSpec(MenuActionType.BACK, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("save", "Save", "default", null, true, new MenuActionSpec(MenuActionType.SAVE_MENU, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("load", "Load", "default", null, true, new MenuActionSpec(MenuActionType.LOAD_MENU, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("settings", "Settings", "default", null, true, new MenuActionSpec(MenuActionType.SETTINGS_MENU, null), null, null, null, null, null, null, null),
+            new MenuItemSpec("main_menu", "Main Menu", "default", null, true, new MenuActionSpec(MenuActionType.MAIN_MENU, null), null, null, null, null, null, null, null)
         )
     );
   }
@@ -252,24 +273,20 @@ public record MenuProfile(
     return new MenuScreenSpec(
         "settings",
         "Settings",
-        "Up/Down: Select    Left/Right: Adjust    Esc: Back",
+        "Left/Right: Adjust    Esc: Back",
         "submenu",
         "submenu",
         true,
         List.of(
             new MenuItemSpec("text_speed", "Text Speed: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("bgm_volume", "BGM Volume: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("sfx_volume", "SFX Volume: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("voice_volume", "Voice Volume: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("auto_play_delay", "Auto Advance Delay: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("skip_unread", "Skip Unread Text: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("auto_play_delay", "Auto-Advance: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("bgm_volume", "Music: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("sfx_volume", "Sound Effects: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("voice_volume", "Voices: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("skip_unread", "Skip Unread: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
             new MenuItemSpec("skip_after_choices", "Skip After Choices: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("click_reveal_before_advance", "Click Reveals Before Advance: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("physics_fixed_step", "Physics Fixed Step: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("physics_max_substeps", "Physics Max Substeps: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("physics_default_friction", "Physics Friction: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("input_profile", "Input Profile: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("back", "Back", "slot", null, true, new MenuActionSpec(MenuActionType.BACK, null), null, null, null, null, null, null, null)
+            new MenuItemSpec("click_reveal_before_advance", "Click to Reveal: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
+            new MenuItemSpec("back", "Back", "submenu", null, true, new MenuActionSpec(MenuActionType.BACK, null), null, null, null, null, null, null, null)
         )
     );
   }

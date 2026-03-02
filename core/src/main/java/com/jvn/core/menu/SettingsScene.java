@@ -401,18 +401,18 @@ public class SettingsScene implements Scene {
     }
 
     MenuStyleSpec style = menuProfile.style(menuScreen.defaultStyleId());
+    // Text & reading
     out.add(defaultRow(KEY_TEXT_SPEED, style));
+    out.add(defaultRow(KEY_AUTO_PLAY_DELAY, style));
+    out.add(defaultRow(KEY_CLICK_REVEAL_BEFORE_ADVANCE, style));
+    out.add(defaultRow(KEY_SKIP_UNREAD, style));
+    out.add(defaultRow(KEY_SKIP_AFTER_CHOICES, style));
+    // Audio
     out.add(defaultRow(KEY_BGM_VOLUME, style));
     out.add(defaultRow(KEY_SFX_VOLUME, style));
     out.add(defaultRow(KEY_VOICE_VOLUME, style));
-    out.add(defaultRow(KEY_AUTO_PLAY_DELAY, style));
-    out.add(defaultRow(KEY_SKIP_UNREAD, style));
-    out.add(defaultRow(KEY_SKIP_AFTER_CHOICES, style));
-    out.add(defaultRow(KEY_CLICK_REVEAL_BEFORE_ADVANCE, style));
-    out.add(defaultRow(KEY_PHYSICS_FIXED_STEP, style));
-    out.add(defaultRow(KEY_PHYSICS_MAX_SUBSTEPS, style));
-    out.add(defaultRow(KEY_PHYSICS_DEFAULT_FRICTION, style));
-    out.add(defaultRow(KEY_INPUT_PROFILE, style));
+    // Navigation
+    out.add(defaultRow(KEY_BACK, style));
     return out;
   }
 
@@ -623,21 +623,26 @@ public class SettingsScene implements Scene {
 
   private String defaultLabelForKey(String key) {
     return switch (key) {
-      case KEY_TEXT_SPEED -> Localization.t("settings.text_speed");
-      case KEY_BGM_VOLUME -> Localization.t("settings.bgm_volume");
-      case KEY_SFX_VOLUME -> Localization.t("settings.sfx_volume");
-      case KEY_VOICE_VOLUME -> Localization.t("settings.voice_volume");
-      case KEY_AUTO_PLAY_DELAY -> Localization.t("settings.auto_play_delay");
-      case KEY_SKIP_UNREAD -> Localization.t("settings.skip_unread");
-      case KEY_SKIP_AFTER_CHOICES -> Localization.t("settings.skip_after_choices");
-      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> Localization.t("settings.click_reveal_before_advance");
+      case KEY_TEXT_SPEED -> fallbackLocalized("settings.text_speed", "Text Speed");
+      case KEY_BGM_VOLUME -> fallbackLocalized("settings.bgm_volume", "Music");
+      case KEY_SFX_VOLUME -> fallbackLocalized("settings.sfx_volume", "Sound Effects");
+      case KEY_VOICE_VOLUME -> fallbackLocalized("settings.voice_volume", "Voices");
+      case KEY_AUTO_PLAY_DELAY -> fallbackLocalized("settings.auto_play_delay", "Auto-Advance");
+      case KEY_SKIP_UNREAD -> fallbackLocalized("settings.skip_unread", "Skip Unread");
+      case KEY_SKIP_AFTER_CHOICES -> fallbackLocalized("settings.skip_after_choices", "Skip After Choices");
+      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> fallbackLocalized("settings.click_reveal_before_advance", "Click to Reveal");
       case KEY_PHYSICS_FIXED_STEP -> "Physics: Fixed Step";
       case KEY_PHYSICS_MAX_SUBSTEPS -> "Physics: Max Substeps";
-      case KEY_PHYSICS_DEFAULT_FRICTION -> "Physics: Default Friction";
-      case KEY_INPUT_PROFILE -> "Input";
-      case KEY_BACK -> Localization.t("common.back");
+      case KEY_PHYSICS_DEFAULT_FRICTION -> "Physics: Friction";
+      case KEY_INPUT_PROFILE -> "Input Profile";
+      case KEY_BACK -> fallbackLocalized("common.back", "Back");
       default -> titleize(key);
     };
+  }
+
+  private static String fallbackLocalized(String i18nKey, String fallback) {
+    String t = Localization.t(i18nKey);
+    return (t == null || t.isBlank() || t.equals(i18nKey)) ? fallback : t;
   }
 
   private String valueTextForKey(String key) {
@@ -646,16 +651,23 @@ public class SettingsScene implements Scene {
       case KEY_BGM_VOLUME -> toPct(settings.getBgmVolume());
       case KEY_SFX_VOLUME -> toPct(settings.getSfxVolume());
       case KEY_VOICE_VOLUME -> toPct(settings.getVoiceVolume());
-      case KEY_AUTO_PLAY_DELAY -> settings.getAutoPlayDelay() + " ms";
-      case KEY_SKIP_UNREAD -> settings.isSkipUnreadText() ? "ON" : "OFF";
-      case KEY_SKIP_AFTER_CHOICES -> settings.isSkipAfterChoices() ? "ON" : "OFF";
-      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.isClickRevealBeforeAdvance() ? "ON" : "OFF";
+      case KEY_AUTO_PLAY_DELAY -> formatDelay(settings.getAutoPlayDelay());
+      case KEY_SKIP_UNREAD -> settings.isSkipUnreadText() ? "On" : "Off";
+      case KEY_SKIP_AFTER_CHOICES -> settings.isSkipAfterChoices() ? "On" : "Off";
+      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.isClickRevealBeforeAdvance() ? "On" : "Off";
       case KEY_PHYSICS_FIXED_STEP -> settings.getPhysicsFixedStepMs() + " ms";
       case KEY_PHYSICS_MAX_SUBSTEPS -> Integer.toString(settings.getPhysicsMaxSubSteps());
       case KEY_PHYSICS_DEFAULT_FRICTION -> toPct((float) settings.getPhysicsDefaultFriction());
-      case KEY_INPUT_PROFILE -> "Save/Load (" + settings.getInputProfilePath() + ")";
+      case KEY_INPUT_PROFILE -> "Save/Load";
       default -> null;
     };
+  }
+
+  private static String formatDelay(long delayMs) {
+    if (delayMs < 1000) return delayMs + " ms";
+    double seconds = delayMs / 1000.0;
+    if (seconds == Math.floor(seconds)) return (int) seconds + " s";
+    return String.format("%.1f s", seconds);
   }
 
   private String applyValueTemplate(String label, String value) {

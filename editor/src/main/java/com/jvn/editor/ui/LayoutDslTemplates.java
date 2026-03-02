@@ -17,63 +17,74 @@ public final class LayoutDslTemplates {
   public static String defaultDialogueLayoutTemplate() {
     return """
 # Dialogue UI layout (.layout)
-# Text-first workflow:
-# 1) Edit values in this file.
-# 2) Save.
-# 3) Run project in runtime.
-# 4) Validate on real scene, then iterate.
-#
+# Text-first workflow: edit -> save -> run runtime -> validate -> iterate.
 # Format: key=value (Java .properties)
-# Units:
-# - Fractions (0..1) are viewport-relative.
-# - Pixel values are absolute screen-space units.
-# - choiceYStart uses -1 for auto-center, otherwise a 0..1 fraction.
+# Units: fractions (0..1) = viewport-relative, pixel values = absolute.
+# choiceYStart: -1 = auto-center vertically.
 
-# --- Text box container (main dialogue panel) ---
-# textBoxX/textBoxY: top-left anchor in viewport fractions.
-# textBoxWidth/textBoxHeight: size in viewport fractions.
-# textBoxPadding: inner pixel padding fallback for legacy text flow.
-textBoxX=0.0026
-textBoxY=0.7076
-textBoxWidth=0.9974
+# ---- Text box (main dialogue panel) ----
+textBoxX=0.0
+textBoxY=0.75
+textBoxWidth=1.0
 textBoxHeight=0.25
 textBoxPadding=20
 
-# --- Name box (speaker tag panel) ---
-# Offsets are measured from textBox top-left.
-# Use negative Y to lift the nameplate above the dialogue box.
-nameBoxXOffset=20
-nameBoxYOffset=-40
-nameBoxWidth=200
-nameBoxHeight=40
-nameTextXOffset=10
-nameTextBaselineOffset=25
+# ---- Name box (speaker tag) ----
+nameBoxXOffset=24
+nameBoxYOffset=-38
+nameBoxWidth=210
+nameBoxHeight=38
+nameTextXOffset=12
+nameTextBaselineOffset=24
 
-# --- Dialogue text bounds inside the text box ---
-# dialogueTextHorizontalPadding = left text padding.
-# Top/Right/Bottom paddings let you fit custom textbox art exactly.
-dialogueTextHorizontalPadding=20
-dialogueTextTopPadding=40
-dialogueTextRightPadding=20
-dialogueTextBottomPadding=10
+# ---- Dialogue text insets ----
+dialogueTextHorizontalPadding=24
+dialogueTextTopPadding=36
+dialogueTextRightPadding=24
+dialogueTextBottomPadding=12
 
-# --- Choice list geometry ---
-# choiceXCenter: center point of the choice stack (0=left, 1=right).
-# choiceYStart: first choice Y (fraction). Set to -1 for auto-center.
-# choiceWidthFactor: each choice width as viewport fraction.
-# choiceHeight / choiceGap / choiceTextXPadding are pixels.
-choiceXCenter=0.5853
-choiceYStart=0.3601
-choiceWidthFactor=0.6
-choiceHeight=50
+# ---- Choice list ----
+choiceXCenter=0.5
+choiceYStart=-1
+choiceWidthFactor=0.56
+choiceHeight=48
 choiceGap=10
 choiceTextXPadding=20
-choiceCornerRadius=10
-choiceBorderWidth=2
-choiceTextBaselineOffset=5
 
-# --- Optional textbox / choice skin assets ---
-# Uncomment to use custom textures.
+# ---- Dialogue style ----
+textBoxColor=#0C1220E0
+nameBoxColor=#14203890
+nameTextColor=#FFD78A
+nameTextFontFamily=SansSerif
+nameTextFontSize=18
+dialogueTextColor=#E8EDF6
+dialogueTextFontFamily=SansSerif
+dialogueTextFontSize=22
+
+# ---- Choice style ----
+choiceCornerRadius=8
+choiceBorderWidth=1.5
+choiceTextBaselineOffset=4
+choiceFontFamily=SansSerif
+choiceFontSize=20
+choiceBackgroundColor=#1A2640D8
+choiceHoverColor=#243358E8
+choiceSelectedColor=#2A3D68E8
+choiceDisabledColor=#121826A0
+choiceTextColor=#D4DCF0
+choiceHoverTextColor=#F0F4FF
+choiceSelectedTextColor=#FFD78A
+choiceDisabledTextColor=#6878A0
+choiceBorderColor=#3A5080A0
+choiceHoverBorderColor=#5888CCA0
+choiceSelectedBorderColor=#C8A04880
+choiceDisabledBorderColor=#28345060
+
+# ---- Character framing ----
+characterHeightFactor=0.85
+characterBaselineY=1.0
+
+# ---- Custom textbox / choice skin assets (uncomment to use) ----
 # textBoxAsset=assets/ui/textbox.png
 # nameBoxAsset=assets/ui/namebox.png
 # choiceButtonAsset=assets/ui/choice_button.png
@@ -81,81 +92,36 @@ choiceTextBaselineOffset=5
 # choiceButtonSelectedAsset=assets/ui/choice_button_selected.png
 # choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png
 
-# --- Optional text styling ---
-# nameTextColor=#FFFFFFFF
-# nameTextFontFamily=Segoe UI
-# nameTextFontSize=18
-# dialogueTextColor=#FFFFFFFF
-# dialogueTextFontFamily=Segoe UI
-# dialogueTextFontSize=22
-
-# --- Optional choice colors (fallback when no texture is set) ---
-# choiceBackgroundColor=#323246E6
-# choiceHoverColor=#464664E6
-# choiceSelectedColor=#464664E6
-# choiceDisabledColor=#323232A0
-# choiceTextColor=#FFFFFFFF
-# choiceHoverTextColor=#FFFFFFFF
-# choiceSelectedTextColor=#FFFFFFFF
-# choiceDisabledTextColor=#AAAAAAFF
-# choiceBorderColor=#FFFFFFFF
-# choiceHoverBorderColor=#FFFFFFFF
-# choiceSelectedBorderColor=#FFFFFFFF
-# choiceDisabledBorderColor=#AAAAAAFF
-
-# --- Optional character framing tweaks ---
-# characterHeightFactor=0.85
-# characterBaselineY=1.0
-
-# --- Optional clickable textbox action buttons ---
-# Buttons render inside dialogue textbox bounds.
-# textBoxButton.ids controls order and active ids.
-# Per-button keys use textBoxButton.<id>.*.
-# x/y/width/height are normalized (0..1) inside textbox bounds.
-# action can be save_menu, load_menu, settings_menu, main_menu, open_menu, back.
-# textBoxButton.ids=save,load,settings
+# ---- Textbox action buttons (uncomment to enable) ----
+# textBoxButton.ids=save,load
 # textBoxButton.save.label=Save
 # textBoxButton.save.action=save_menu
-# textBoxButton.save.x=0.74
+# textBoxButton.save.x=0.78
 # textBoxButton.save.y=0.08
-# textBoxButton.save.width=0.1
-# textBoxButton.save.height=0.24
-# textBoxButton.save.asset=assets/ui/save_btn.png
-# textBoxButton.save.hoverAsset=assets/ui/save_btn_hover.png
-# textBoxButton.save.disabledAsset=assets/ui/save_btn_disabled.png
+# textBoxButton.save.width=0.09
+# textBoxButton.save.height=0.22
 # textBoxButton.load.label=Load
 # textBoxButton.load.action=load_menu
-# textBoxButton.load.x=0.85
+# textBoxButton.load.x=0.88
 # textBoxButton.load.y=0.08
-# textBoxButton.load.width=0.1
-# textBoxButton.load.height=0.24
+# textBoxButton.load.width=0.09
+# textBoxButton.load.height=0.22
 """;
   }
 
   public static String defaultMenuLayoutTemplate(MenuLayoutSpec spec) {
     MenuLayoutSpec s = spec == null ? MenuProfile.defaultLayout() : spec;
     return """
-# Menu layout template (.layout)
-# Text-first workflow: edit -> save -> run runtime -> validate -> iterate.
-# Format: key=value (Java .properties)
-# Units:
-# - listYStart/titleY: <=1 means viewport fraction, >1 means pixels.
-# - lineHeight/hintsBottomMargin: pixels.
-# - listWidthFactor: viewport fraction (0.1..1.0).
-# textAlign options: left | center | right.
-#
-# Recommended tweak order:
-# 1) listYStart
-# 2) lineHeight
-# 3) listWidthFactor + textAlign
-# 4) titleY/hintsBottomMargin
+# Menu layout (.layout)
+# Text-first workflow: edit -> save -> run runtime -> iterate.
+# listYStart/titleY: viewport fraction (0..1). lineHeight/hintsBottomMargin: pixels.
+# listWidthFactor: viewport fraction (0.1..1.0). textAlign: left | center | right.
 listYStart=%s
 lineHeight=%s
 listWidthFactor=%s
 textAlign=%s
 hintsBottomMargin=%s
-# titleY is optional. Uncomment to override runtime/default style title offset.
-# titleY=0.12
+# titleY=0.16
 """.formatted(
         formatDouble(s.listYStart()),
         formatDouble(s.lineHeight()),
@@ -168,43 +134,33 @@ hintsBottomMargin=%s
   public static String defaultMenuStyleTemplate(MenuStyleSpec style) {
     MenuStyleSpec s = style == null ? MenuProfile.defaultStyle() : style;
     return """
-# Menu style template (.style)
-# Text-first workflow: edit -> save -> run runtime -> compare in-game fonts/colors.
-# Colors can be #RRGGBB or #RRGGBBAA.
-# Prefix keys are prepended to rendered labels.
-# Font keys map to JavaFX font resolver.
-# Asset keys should be project-relative paths.
-#
-# --- Required baseline keys ---
+# Menu style (.style)
+# Colors: #RRGGBB or #RRGGBBAA. Font keys map to JavaFX font resolver.
+itemColor=%s
+itemSelectedColor=%s
+itemDisabledColor=%s
 itemPrefix=%s
 itemSelectedPrefix=%s
 itemDisabledPrefix=%s
-itemDisabledColor=%s
-buttonTextPaddingX=18
-buttonTextPaddingY=0
-
-# --- Optional row colors / typography ---
-# itemColor=#D3D3D3
-# itemSelectedColor=#FFFF00
-# itemHoverColor=#FFE066
-# itemFontFamily=Segoe UI
-# itemFontWeight=NORMAL
-# itemFontSize=22
-# titleColor=#FFFFFF
-# titleFontSize=44
-# hintsColor=#AAB4C8
-
-# --- Optional background and button textures ---
+itemFontFamily=SansSerif
+itemFontWeight=SEMI_BOLD
+itemFontSize=26
+buttonTextPaddingX=24
+buttonTextPaddingY=2
+# itemHoverColor=#E4EEFF
+# itemShadowColor=#00000066
+# titleColor=#EEF4FF
+# titleFontSize=48
+# hintsColor=#8898B8
 # backgroundAsset=assets/ui/menu/bg.png
-# buttonAsset=assets/ui/menu/button.png
-# buttonSelectedAsset=assets/ui/menu/button_selected.png
-# buttonHoverAsset=assets/ui/menu/button_hover.png
-# buttonDisabledAsset=assets/ui/menu/button_disabled.png
+# backgroundColor=#060D1A
 """.formatted(
-        valueOrDefault(s.itemPrefix(), "  "),
-        valueOrDefault(s.itemSelectedPrefix(), "> "),
-        valueOrDefault(s.itemDisabledPrefix(), "- "),
-        valueOrDefault(s.itemDisabledColor(), "#808080")
+        valueOrDefault(s.itemColor(), "#C8D6EC"),
+        valueOrDefault(s.itemSelectedColor(), "#FFDFA0"),
+        valueOrDefault(s.itemDisabledColor(), "#5C6B84"),
+        valueOrDefault(s.itemPrefix(), ""),
+        valueOrDefault(s.itemSelectedPrefix(), "\u25b8 "),
+        valueOrDefault(s.itemDisabledPrefix(), "")
     );
   }
 
@@ -272,30 +228,26 @@ styles=%s
   public static String submenuLayoutTemplate() {
     return """
 # Submenu layout (.layout)
-# Text-first workflow: edit values, save, run runtime, iterate.
-# Reused by extras/settings/credits style menus.
-# Keys use same semantics as default.layout.
-listYStart=0.24
-lineHeight=62
-listWidthFactor=0.64
+# Shared by extras/settings/credits menus.
+listYStart=0.26
+lineHeight=56
+listWidthFactor=0.52
 textAlign=left
-hintsBottomMargin=30
-titleY=0.11
+hintsBottomMargin=28
+titleY=0.13
 """;
   }
 
   public static String slotsLayoutTemplate() {
     return """
 # Save/Load slot layout (.layout)
-# Text-first workflow: edit values, save, run runtime, iterate.
-# Tuned for wider save slot cards and preview thumbnails.
-# Keys use same semantics as default.layout.
-listYStart=0.20
-lineHeight=74
-listWidthFactor=0.58
+# Tuned for wider save slot cards.
+listYStart=0.22
+lineHeight=68
+listWidthFactor=0.54
 textAlign=left
-hintsBottomMargin=30
-titleY=0.10
+hintsBottomMargin=28
+titleY=0.12
 """;
   }
 
@@ -303,70 +255,69 @@ titleY=0.10
     String bg = backgroundAsset == null ? "" : backgroundAsset;
     return """
 # Main menu visual style (.style)
-# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.
-# Colors accept #RRGGBB or #RRGGBBAA.
-# Prefix values are prepended to rendered labels.
-# Font keys map to JavaFX font family/weight/size.
-# Uncomment buttonAsset keys to use textured row backgrounds.
-itemColor=#DCE6F8
-itemSelectedColor=#FFE8A3
-itemHoverColor=#F4F8FF
-itemDisabledColor=#7D8CA8
+# Text-first workflow: edit colors/fonts/asset paths -> save -> run runtime.
+# Colors: #RRGGBB or #RRGGBBAA.  Prefix values prepend to rendered labels.
+itemColor=#C8D6EC
+itemSelectedColor=#FFDFA0
+itemHoverColor=#E4EEFF
+itemDisabledColor=#5C6B84
 itemPrefix=
-itemSelectedPrefix=▶\s
-itemDisabledPrefix=•\s
-itemFontFamily=Segoe UI
+itemSelectedPrefix=\u25b8\s
+itemDisabledPrefix=
+itemFontFamily=SansSerif
 itemFontWeight=SEMI_BOLD
-itemFontSize=28
-itemShadowColor=#000000AA
-itemShadowOffsetX=1
-itemShadowOffsetY=1
-titleColor=#F2F7FF
-titleFontFamily=Segoe UI
+itemFontSize=26
+itemShadowColor=#00000066
+itemShadowOffsetX=1.5
+itemShadowOffsetY=1.5
+titleColor=#EEF4FF
+titleFontFamily=SansSerif
 titleFontWeight=BOLD
-titleFontSize=56
-titleShadowColor=#000000A8
-hintsColor=#A8B6D2
-hintsFontFamily=Segoe UI
-hintsFontSize=18
+titleFontSize=48
+titleShadowColor=#00000088
+hintsColor=#8898B8
+hintsFontFamily=SansSerif
+hintsFontSize=15
 backgroundAsset=%s
-backgroundColor=#050B16
+backgroundColor=#060D1A
 backgroundOpacity=1.0
+buttonTextPaddingX=24
+buttonTextPaddingY=2
 # buttonAsset=assets/ui/menu/button.png
 # buttonSelectedAsset=assets/ui/menu/button_selected.png
 # buttonHoverAsset=assets/ui/menu/button_hover.png
 # buttonDisabledAsset=assets/ui/menu/button_disabled.png
-buttonTextPaddingX=28
-buttonTextPaddingY=2
 """.formatted(bg);
   }
 
   public static String submenuStyleTemplate() {
     return """
 # Submenu visual style (.style)
-# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.
-# Shared by extras/settings/credits-oriented menus.
-# Keys use the same semantics as default.style.
-itemColor=#D6E0F4
-itemSelectedColor=#B8EAFF
-itemHoverColor=#EAF4FF
-itemDisabledColor=#7387AA
-itemPrefix=\s\s
-itemSelectedPrefix=▸\s
-itemDisabledPrefix=\s\s
-itemFontFamily=Segoe UI
+# Shared by extras/settings/credits menus.
+itemColor=#B8C8E4
+itemSelectedColor=#90D4F8
+itemHoverColor=#D8E8FF
+itemDisabledColor=#5A6E8C
+itemPrefix=
+itemSelectedPrefix=\u25b8\s
+itemDisabledPrefix=
+itemFontFamily=SansSerif
 itemFontWeight=NORMAL
-itemFontSize=24
-titleColor=#EAF2FF
-titleFontFamily=Segoe UI
+itemFontSize=22
+itemShadowColor=#00000044
+itemShadowOffsetX=1
+itemShadowOffsetY=1
+titleColor=#D8E6FF
+titleFontFamily=SansSerif
 titleFontWeight=BOLD
-titleFontSize=42
-hintsColor=#97AACE
-hintsFontFamily=Segoe UI
-hintsFontSize=16
-backgroundColor=#091222
+titleFontSize=36
+titleShadowColor=#00000066
+hintsColor=#7888A8
+hintsFontFamily=SansSerif
+hintsFontSize=14
+backgroundColor=#08101E
 backgroundOpacity=1.0
-buttonTextPaddingX=24
+buttonTextPaddingX=20
 buttonTextPaddingY=1
 """;
   }
@@ -374,21 +325,31 @@ buttonTextPaddingY=1
   public static String slotStyleTemplate() {
     return """
 # Save/load slot row visual style (.style)
-# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.
-# Designed for save slot card rows and metadata-heavy labels.
-# Keys use the same semantics as default.style.
-itemColor=#E4EDF8
-itemSelectedColor=#FFF1B5
-itemHoverColor=#F0F7FF
-itemDisabledColor=#7B87A0
+# Designed for save slot card rows.
+itemColor=#C4D4EC
+itemSelectedColor=#FFE4A0
+itemHoverColor=#E0ECFF
+itemDisabledColor=#5E6E88
 itemPrefix=
-itemSelectedPrefix=▶\s
-itemFontFamily=Segoe UI
+itemSelectedPrefix=\u25b8\s
+itemDisabledPrefix=
+itemFontFamily=SansSerif
 itemFontWeight=SEMI_BOLD
-itemFontSize=22
-backgroundColor=#060F1D
+itemFontSize=20
+itemShadowColor=#00000044
+itemShadowOffsetX=1
+itemShadowOffsetY=1
+titleColor=#D8E6FF
+titleFontFamily=SansSerif
+titleFontWeight=BOLD
+titleFontSize=36
+titleShadowColor=#00000066
+hintsColor=#7888A8
+hintsFontFamily=SansSerif
+hintsFontSize=14
+backgroundColor=#070E1C
 backgroundOpacity=1.0
-buttonTextPaddingX=22
+buttonTextPaddingX=18
 buttonTextPaddingY=0
 """;
   }

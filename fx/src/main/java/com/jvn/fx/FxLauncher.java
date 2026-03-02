@@ -4,6 +4,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Locale;
 
 import javax.imageio.ImageIO;
 
@@ -41,7 +42,6 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
-import java.util.Locale;
 
 public class FxLauncher extends Application {
   private static Engine engine;
@@ -175,8 +175,8 @@ public class FxLauncher extends Application {
           ));
         }
       } else if (e.getCode() == KeyCode.ESCAPE) {
-        // ESC = Close history overlay if open
-        if (!handleMenuBack()) handleCloseHistory();
+        // ESC = Pop menu if in menu, otherwise open pause menu from VN scene
+        if (!handleMenuBack()) handleOpenPauseMenu();
       } else if (e.getCode() == KeyCode.UP) {
         handleMenuMove(-1);
       } else if (e.getCode() == KeyCode.DOWN) {
@@ -275,7 +275,10 @@ public class FxLauncher extends Application {
       // Hover selection for menus
       if (engine != null) {
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-        if (currentScene instanceof MainMenuScene main) {
+        if (currentScene instanceof PauseMenuScene pause) {
+          int idx = menuRenderer.getHoverIndexForPauseMenu(pause, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          if (idx >= 0) pause.setSelected(idx);
+        } else if (currentScene instanceof MainMenuScene main) {
           int idx = menuRenderer.getHoverIndexForMainMenu(main, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
           if (idx >= 0) main.setSelected(idx);
         } else if (currentScene instanceof LoadMenuScene load) {
@@ -318,6 +321,9 @@ public class FxLauncher extends Application {
           }
         }
         handleMouseClick(e.getX(), e.getY());
+      } else if (e.getButton() == MouseButton.SECONDARY) {
+        // Right-click = open pause menu or pop menu
+        if (!handleMenuBack()) handleOpenPauseMenu();
       }
     });
 
@@ -381,6 +387,15 @@ public class FxLauncher extends Application {
       vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
     });
 
+    reg.register(PauseMenuScene.class, (pause, ctx) -> {
+      // Render the underlying VN scene first, then the pause overlay
+      VnScene vn = pause.getVnScene();
+      if (vn != null) {
+        vnRenderer.setAudioFacade(vn.getAudioFacade());
+        vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
+      }
+      menuRenderer.renderPauseMenu(pause, ctx.width(), ctx.height());
+    });
     reg.register(MainMenuScene.class, (scene, ctx) -> menuRenderer.renderMainMenu(scene, ctx.width(), ctx.height()));
     reg.register(LoadMenuScene.class, (scene, ctx) -> menuRenderer.renderLoadMenu(scene, ctx.width(), ctx.height()));
     reg.register(SettingsScene.class, (scene, ctx) -> menuRenderer.renderSettings(scene, ctx.width(), ctx.height()));
@@ -616,6 +631,12 @@ public class FxLauncher extends Application {
       
       // Otherwise treat as advance
       vnScene.advanceFromClick();
+    } else if (currentScene instanceof PauseMenuScene pause) {
+      int idx = menuRenderer.getHoverIndexForPauseMenu(pause, canvas.getWidth(), canvas.getHeight(), x, y);
+      if (idx >= 0) {
+        pause.setSelected(idx);
+        pause.activateSelected();
+      }
     } else if (currentScene instanceof MainMenuScene main) {
       int idx = menuRenderer.getHoverIndexForMainMenu(main, canvas.getWidth(), canvas.getHeight(), x, y);
       if (idx >= 0) {
@@ -775,7 +796,10 @@ public class FxLauncher extends Application {
   private boolean handleMenuEnter() {
     if (engine == null) return false;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-    if (currentScene instanceof MainMenuScene main) {
+    if (currentScene instanceof PauseMenuScene pause) {
+      pause.activateSelected();
+      return true;
+    } else if (currentScene instanceof MainMenuScene main) {
       main.activateSelected();
       return true;
     } else if (currentScene instanceof LoadMenuScene load) {
@@ -816,17 +840,33 @@ public class FxLauncher extends Application {
   private boolean handleMenuBack() {
     if (engine == null) return false;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-    if (currentScene instanceof LoadMenuScene || currentScene instanceof SettingsScene || currentScene instanceof SaveMenuScene) {
+    if (currentScene instanceof PauseMenuScene || currentScene instanceof LoadMenuScene
+        || currentScene instanceof SettingsScene || currentScene instanceof SaveMenuScene) {
       engine.scenes().pop();
       return true;
     }
     return false;
   }
 
+  private void handleOpenPauseMenu() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene vn) {
+      engine.scenes().push(new PauseMenuScene(
+          engine, vn,
+          new com.jvn.core.vn.save.VnSaveManager(),
+          "demo.vns",
+          vn.getAudioFacade()
+      ));
+    }
+  }
+
   private void handleMenuMove(int delta) {
     if (engine == null) return;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-    if (currentScene instanceof MainMenuScene main) {
+    if (currentScene instanceof PauseMenuScene pause) {
+      pause.moveSelection(delta);
+    } else if (currentScene instanceof MainMenuScene main) {
       main.moveSelection(delta);
     } else if (currentScene instanceof LoadMenuScene load) {
       load.moveSelection(delta);
