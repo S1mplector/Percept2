@@ -1,5 +1,25 @@
 package com.jvn.editor.ui;
 
+import java.awt.Desktop;
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
@@ -27,25 +47,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-
-import java.awt.Desktop;
-import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import javafx.util.Duration;
 
 /**
  * Opens specialized layout/menu visual editors in external Studio windows.
@@ -262,6 +264,7 @@ public class LayoutStudioWindowManager {
       this.dialogueLayoutVisualEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new DialogueLayoutEditorView() : null;
       this.designNode = resolveDesignNode();
       this.designHost = buildDesignHost();
+      codeEditor.useDslHighlighting();
 
       this.stage = new Stage();
       stage.setResizable(true);
@@ -535,19 +538,27 @@ public class LayoutStudioWindowManager {
       if (dialogueLayoutVisualEditor != null) dialogueLayoutVisualEditor.setProjectRoot(projectRoot);
     }
 
+    private static final long SYNC_DEBOUNCE_MS = 300;
+    private PauseTransition syncDebounce;
+
     private void bindSync() {
+      syncDebounce = new PauseTransition(Duration.millis(SYNC_DEBOUNCE_MS));
       codeEditor.setOnTextChanged(text -> {
         if (syncing) return;
-        if (designPreviewEnabled) {
-          syncing = true;
-          try {
-            applyCodeToDesign(text);
-          } catch (Exception ex) {
-            setStatus("Design sync warning: " + normalize(ex.getMessage(), "Invalid content"));
-          }
-          syncing = false;
-        }
         updateDirtyState();
+        if (designPreviewEnabled) {
+          syncDebounce.setOnFinished(e -> {
+            if (syncing) return;
+            syncing = true;
+            try {
+              applyCodeToDesign(text);
+            } catch (Exception ex) {
+              setStatus("Design sync warning: " + normalize(ex.getMessage(), "Invalid content"));
+            }
+            syncing = false;
+          });
+          syncDebounce.playFromStart();
+        }
       });
 
       if (!designPreviewEnabled) return;
@@ -586,6 +597,64 @@ public class LayoutStudioWindowManager {
       } else if (dialogueLayoutVisualEditor != null) {
         dialogueLayoutVisualEditor.setLayoutText(text);
       }
+      refreshCodeDiagnostics(text);
+    }
+
+    private static final Set<String> LAYOUT_KEYS = Set.of(
+        "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin", "titleY");
+    private static final Set<String> STYLE_KEYS = Set.of(
+        "itemColor", "itemSelectedColor", "itemHoverColor", "itemDisabledColor",
+        "itemPrefix", "itemSelectedPrefix", "itemDisabledPrefix",
+        "itemFontFamily", "itemFontWeight", "itemFontSize",
+        "itemShadowColor", "itemShadowOffsetX", "itemShadowOffsetY", "itemOpacity",
+        "buttonAsset", "buttonSelectedAsset", "buttonHoverAsset", "buttonDisabledAsset",
+        "buttonTextPaddingX", "buttonTextPaddingY",
+        "titleColor", "titleFontFamily", "titleFontWeight", "titleFontSize", "titleShadowColor",
+        "hintsColor", "hintsFontFamily", "hintsFontSize",
+        "backgroundAsset", "backgroundColor", "backgroundOpacity");
+    private static final Set<String> SCREEN_TOP_KEYS = Set.of(
+        "titleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items");
+    private static final Set<String> SCREEN_ITEM_KEYS = Set.of(
+        "label", "style", "icon", "enabled", "action", "target",
+        "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
+        "boundsX", "boundsY", "boundsWidth", "boundsHeight",
+        "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
+        "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight");
+
+    private void refreshCodeDiagnostics(String text) {
+      List<String> rawIssues;
+      switch (kind) {
+        case MENU_SCREEN -> rawIssues = DslPropertyDiagnostics.menuScreenIssues(text, SCREEN_TOP_KEYS, SCREEN_ITEM_KEYS);
+        case MENU_LAYOUT -> rawIssues = DslPropertyDiagnostics.menuLayoutIssues(text, LAYOUT_KEYS);
+        case MENU_STYLE -> rawIssues = DslPropertyDiagnostics.menuStyleIssues(text, STYLE_KEYS);
+        case DIALOGUE_LAYOUT -> rawIssues = DslPropertyDiagnostics.dialogueIssues(text, List.of());
+        default -> rawIssues = List.of();
+      };
+      codeEditor.setDiagnostics(parseDiagnosticStrings(rawIssues));
+    }
+
+    private static List<JavaCodeEditor.Diagnostic> parseDiagnosticStrings(List<String> raw) {
+      if (raw == null || raw.isEmpty()) return List.of();
+      List<JavaCodeEditor.Diagnostic> out = new ArrayList<>();
+      Pattern linePattern = Pattern.compile("^L(\\d+)\\s+(\\S+?):\\s+(.+?)(?:\\s+Quick fix:\\s+(.+))?$");
+      for (String s : raw) {
+        if (s == null || s.isBlank()) continue;
+        Matcher m = linePattern.matcher(s.trim());
+        if (m.matches()) {
+          int line = Integer.parseInt(m.group(1));
+          String key = m.group(2);
+          String message = m.group(3);
+          String quickFix = m.group(4);
+          JavaCodeEditor.Diagnostic.Severity severity =
+              message.toLowerCase(Locale.ROOT).contains("unknown") || message.toLowerCase(Locale.ROOT).contains("invalid")
+                  ? JavaCodeEditor.Diagnostic.Severity.ERROR
+                  : JavaCodeEditor.Diagnostic.Severity.WARNING;
+          out.add(new JavaCodeEditor.Diagnostic(line, key, message, quickFix, severity));
+        } else {
+          out.add(new JavaCodeEditor.Diagnostic(1, "dsl", s, null));
+        }
+      }
+      return out;
     }
 
     private void bindButtons() {

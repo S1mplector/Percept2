@@ -1823,150 +1823,32 @@ public class NewProjectWizard extends Stage {
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
-      fw.write("# Menu customization registry\n");
-      fw.write("# File format: Java properties (key=value)\n");
-      fw.write("# Text-first workflow: edit ids here, save, then run runtime to verify discoverability.\n");
-      fw.write("#\n");
-      fw.write("# defaultMenu: first menu id shown when opening main menu flow.\n");
-      fw.write("# menus: all discoverable .menu files by id.\n");
-      fw.write("# layouts: all discoverable .layout files by id.\n");
-      fw.write("# styles: all discoverable .style files by id.\n");
-      fw.write("#\n");
-      fw.write("# Keep ids lowercase/snake_case and match file names.\n");
-      fw.write("defaultMenu=main\n");
-      fw.write("menus=" + String.join(",", menus) + "\n");
-      fw.write("layouts=default,submenu,slots\n");
-      fw.write("styles=default,submenu,slot\n");
+      fw.write(LayoutDslTemplates.menuRegistryTemplate(
+          "main", String.join(",", menus), "default,submenu,slots", "default,submenu,slot"));
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_DEFAULT_PATH))) {
-      fw.write("# Main menu layout (.layout)\n");
-      fw.write("# Text-first workflow: edit values, save, run runtime, iterate.\n");
-      fw.write("# listYStart: Y position of first row (fraction if <=1, px if >1)\n");
-      fw.write("# lineHeight: vertical spacing between rows (pixels)\n");
-      fw.write("# listWidthFactor: width of list area as viewport fraction (0..1)\n");
-      fw.write("# textAlign: left|center|right alignment inside list area\n");
-      fw.write("# hintsBottomMargin: bottom margin for hint text (pixels)\n");
-      fw.write("# titleY: title Y position (fraction if <=1, px if >1)\n");
-      fw.write("listYStart=0.34\n");
-      fw.write("lineHeight=68\n");
-      fw.write("listWidthFactor=0.44\n");
-      fw.write("textAlign=center\n");
-      fw.write("hintsBottomMargin=36\n");
-      fw.write("titleY=0.14\n");
+      fw.write(LayoutDslTemplates.defaultMenuLayoutTemplate(null));
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SUBMENU_PATH))) {
-      fw.write("# Submenu layout (.layout)\n");
-      fw.write("# Text-first workflow: edit values, save, run runtime, iterate.\n");
-      fw.write("# Reused by extras/settings/credits style menus.\n");
-      fw.write("# Keys use same semantics as default.layout.\n");
-      fw.write("listYStart=0.24\n");
-      fw.write("lineHeight=62\n");
-      fw.write("listWidthFactor=0.64\n");
-      fw.write("textAlign=left\n");
-      fw.write("hintsBottomMargin=30\n");
-      fw.write("titleY=0.11\n");
+      fw.write(LayoutDslTemplates.submenuLayoutTemplate());
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SLOTS_PATH))) {
-      fw.write("# Save/Load slot layout (.layout)\n");
-      fw.write("# Text-first workflow: edit values, save, run runtime, iterate.\n");
-      fw.write("# Tuned for wider save slot cards and preview thumbnails.\n");
-      fw.write("# Keys use same semantics as default.layout.\n");
-      fw.write("listYStart=0.20\n");
-      fw.write("lineHeight=74\n");
-      fw.write("listWidthFactor=0.58\n");
-      fw.write("textAlign=left\n");
-      fw.write("hintsBottomMargin=30\n");
-      fw.write("titleY=0.10\n");
+      fw.write(LayoutDslTemplates.slotsLayoutTemplate());
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_DEFAULT_PATH))) {
-      fw.write("# Main menu visual style (.style)\n");
-      fw.write("# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.\n");
-      fw.write("# Colors accept #RRGGBB or #RRGGBBAA.\n");
-      fw.write("# Prefix values are prepended to rendered labels.\n");
-      fw.write("# Font keys map to JavaFX font family/weight/size.\n");
-      fw.write("# Uncomment buttonAsset keys to use textured row backgrounds.\n");
-      fw.write("itemColor=#DCE6F8\n");
-      fw.write("itemSelectedColor=#FFE8A3\n");
-      fw.write("itemHoverColor=#F4F8FF\n");
-      fw.write("itemDisabledColor=#7D8CA8\n");
-      fw.write("itemPrefix=\n");
-      fw.write("itemSelectedPrefix=▶ \n");
-      fw.write("itemDisabledPrefix=• \n");
-      fw.write("itemFontFamily=Segoe UI\n");
-      fw.write("itemFontWeight=SEMI_BOLD\n");
-      fw.write("itemFontSize=28\n");
-      fw.write("itemShadowColor=#000000AA\n");
-      fw.write("itemShadowOffsetX=1\n");
-      fw.write("itemShadowOffsetY=1\n");
-      fw.write("titleColor=#F2F7FF\n");
-      fw.write("titleFontFamily=Segoe UI\n");
-      fw.write("titleFontWeight=BOLD\n");
-      fw.write("titleFontSize=56\n");
-      fw.write("titleShadowColor=#000000A8\n");
-      fw.write("hintsColor=#A8B6D2\n");
-      fw.write("hintsFontFamily=Segoe UI\n");
-      fw.write("hintsFontSize=18\n");
-      fw.write("backgroundAsset=" + DEFAULT_MENU_BG_ASSET_PATH + "\n");
-      fw.write("backgroundColor=#050B16\n");
-      fw.write("backgroundOpacity=1.0\n");
-      fw.write("# buttonAsset=assets/ui/menu/button.png\n");
-      fw.write("# buttonSelectedAsset=assets/ui/menu/button_selected.png\n");
-      fw.write("# buttonHoverAsset=assets/ui/menu/button_hover.png\n");
-      fw.write("# buttonDisabledAsset=assets/ui/menu/button_disabled.png\n");
-      fw.write("buttonTextPaddingX=28\n");
-      fw.write("buttonTextPaddingY=2\n");
+      fw.write(LayoutDslTemplates.defaultMenuStyleFullTemplate(DEFAULT_MENU_BG_ASSET_PATH));
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SUBMENU_PATH))) {
-      fw.write("# Submenu visual style (.style)\n");
-      fw.write("# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.\n");
-      fw.write("# Shared by extras/settings/credits-oriented menus.\n");
-      fw.write("# Keys use the same semantics as default.style.\n");
-      fw.write("itemColor=#D6E0F4\n");
-      fw.write("itemSelectedColor=#B8EAFF\n");
-      fw.write("itemHoverColor=#EAF4FF\n");
-      fw.write("itemDisabledColor=#7387AA\n");
-      fw.write("itemPrefix=  \n");
-      fw.write("itemSelectedPrefix=▸ \n");
-      fw.write("itemDisabledPrefix=  \n");
-      fw.write("itemFontFamily=Segoe UI\n");
-      fw.write("itemFontWeight=NORMAL\n");
-      fw.write("itemFontSize=24\n");
-      fw.write("titleColor=#EAF2FF\n");
-      fw.write("titleFontFamily=Segoe UI\n");
-      fw.write("titleFontWeight=BOLD\n");
-      fw.write("titleFontSize=42\n");
-      fw.write("hintsColor=#97AACE\n");
-      fw.write("hintsFontFamily=Segoe UI\n");
-      fw.write("hintsFontSize=16\n");
-      fw.write("backgroundColor=#091222\n");
-      fw.write("backgroundOpacity=1.0\n");
-      fw.write("buttonTextPaddingX=24\n");
-      fw.write("buttonTextPaddingY=1\n");
+      fw.write(LayoutDslTemplates.submenuStyleTemplate());
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SLOT_PATH))) {
-      fw.write("# Save/load slot row visual style (.style)\n");
-      fw.write("# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.\n");
-      fw.write("# Designed for save slot card rows and metadata-heavy labels.\n");
-      fw.write("# Keys use the same semantics as default.style.\n");
-      fw.write("itemColor=#E4EDF8\n");
-      fw.write("itemSelectedColor=#FFF1B5\n");
-      fw.write("itemHoverColor=#F0F7FF\n");
-      fw.write("itemDisabledColor=#7B87A0\n");
-      fw.write("itemPrefix=\n");
-      fw.write("itemSelectedPrefix=▶ \n");
-      fw.write("itemFontFamily=Segoe UI\n");
-      fw.write("itemFontWeight=SEMI_BOLD\n");
-      fw.write("itemFontSize=22\n");
-      fw.write("backgroundColor=#060F1D\n");
-      fw.write("backgroundOpacity=1.0\n");
-      fw.write("buttonTextPaddingX=22\n");
-      fw.write("buttonTextPaddingY=0\n");
+      fw.write(LayoutDslTemplates.slotStyleTemplate());
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_MAIN_PATH))) {

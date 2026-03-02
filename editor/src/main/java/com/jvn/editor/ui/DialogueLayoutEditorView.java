@@ -686,10 +686,9 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private void refreshDiagnosticsFromUiState() {
-    if (!parserDiagnostics.isEmpty()) parserDiagnostics = List.of();
     String currentText = serialize(spec, style, textBoxButtons, rawProperties);
     lineDiagnostics.clear();
-    lineDiagnostics.addAll(DslPropertyDiagnostics.dialogueIssues(currentText, List.of()));
+    lineDiagnostics.addAll(DslPropertyDiagnostics.dialogueIssues(currentText, parserDiagnostics));
   }
 
   private void browseAsset(TextField target, String dialogTitle) {

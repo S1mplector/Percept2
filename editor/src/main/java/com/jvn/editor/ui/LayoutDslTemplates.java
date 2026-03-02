@@ -1,10 +1,10 @@
 package com.jvn.editor.ui;
 
+import java.util.Locale;
+
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import com.jvn.core.menu.config.MenuProfile;
 import com.jvn.core.menu.config.MenuStyleSpec;
-
-import java.util.Locale;
 
 /**
  * Centralized source of default DSL template text for layout/menu files.
@@ -250,6 +250,10 @@ item.back.action=back
   }
 
   public static String defaultMenuRegistryTemplate() {
+    return menuRegistryTemplate("main", "main", "default", "default");
+  }
+
+  public static String menuRegistryTemplate(String defaultMenu, String menus, String layouts, String styles) {
     return """
 # Menu registry
 # File format: Java properties (key=value)
@@ -258,10 +262,134 @@ item.back.action=back
 # menus: comma-separated .menu ids
 # layouts: comma-separated .layout ids
 # styles: comma-separated .style ids
-defaultMenu=main
-menus=main
-layouts=default
-styles=default
+defaultMenu=%s
+menus=%s
+layouts=%s
+styles=%s
+""".formatted(defaultMenu, menus, layouts, styles);
+  }
+
+  public static String submenuLayoutTemplate() {
+    return """
+# Submenu layout (.layout)
+# Text-first workflow: edit values, save, run runtime, iterate.
+# Reused by extras/settings/credits style menus.
+# Keys use same semantics as default.layout.
+listYStart=0.24
+lineHeight=62
+listWidthFactor=0.64
+textAlign=left
+hintsBottomMargin=30
+titleY=0.11
+""";
+  }
+
+  public static String slotsLayoutTemplate() {
+    return """
+# Save/Load slot layout (.layout)
+# Text-first workflow: edit values, save, run runtime, iterate.
+# Tuned for wider save slot cards and preview thumbnails.
+# Keys use same semantics as default.layout.
+listYStart=0.20
+lineHeight=74
+listWidthFactor=0.58
+textAlign=left
+hintsBottomMargin=30
+titleY=0.10
+""";
+  }
+
+  public static String defaultMenuStyleFullTemplate(String backgroundAsset) {
+    String bg = backgroundAsset == null ? "" : backgroundAsset;
+    return """
+# Main menu visual style (.style)
+# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.
+# Colors accept #RRGGBB or #RRGGBBAA.
+# Prefix values are prepended to rendered labels.
+# Font keys map to JavaFX font family/weight/size.
+# Uncomment buttonAsset keys to use textured row backgrounds.
+itemColor=#DCE6F8
+itemSelectedColor=#FFE8A3
+itemHoverColor=#F4F8FF
+itemDisabledColor=#7D8CA8
+itemPrefix=
+itemSelectedPrefix=▶\s
+itemDisabledPrefix=•\s
+itemFontFamily=Segoe UI
+itemFontWeight=SEMI_BOLD
+itemFontSize=28
+itemShadowColor=#000000AA
+itemShadowOffsetX=1
+itemShadowOffsetY=1
+titleColor=#F2F7FF
+titleFontFamily=Segoe UI
+titleFontWeight=BOLD
+titleFontSize=56
+titleShadowColor=#000000A8
+hintsColor=#A8B6D2
+hintsFontFamily=Segoe UI
+hintsFontSize=18
+backgroundAsset=%s
+backgroundColor=#050B16
+backgroundOpacity=1.0
+# buttonAsset=assets/ui/menu/button.png
+# buttonSelectedAsset=assets/ui/menu/button_selected.png
+# buttonHoverAsset=assets/ui/menu/button_hover.png
+# buttonDisabledAsset=assets/ui/menu/button_disabled.png
+buttonTextPaddingX=28
+buttonTextPaddingY=2
+""".formatted(bg);
+  }
+
+  public static String submenuStyleTemplate() {
+    return """
+# Submenu visual style (.style)
+# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.
+# Shared by extras/settings/credits-oriented menus.
+# Keys use the same semantics as default.style.
+itemColor=#D6E0F4
+itemSelectedColor=#B8EAFF
+itemHoverColor=#EAF4FF
+itemDisabledColor=#7387AA
+itemPrefix=\s\s
+itemSelectedPrefix=▸\s
+itemDisabledPrefix=\s\s
+itemFontFamily=Segoe UI
+itemFontWeight=NORMAL
+itemFontSize=24
+titleColor=#EAF2FF
+titleFontFamily=Segoe UI
+titleFontWeight=BOLD
+titleFontSize=42
+hintsColor=#97AACE
+hintsFontFamily=Segoe UI
+hintsFontSize=16
+backgroundColor=#091222
+backgroundOpacity=1.0
+buttonTextPaddingX=24
+buttonTextPaddingY=1
+""";
+  }
+
+  public static String slotStyleTemplate() {
+    return """
+# Save/load slot row visual style (.style)
+# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.
+# Designed for save slot card rows and metadata-heavy labels.
+# Keys use the same semantics as default.style.
+itemColor=#E4EDF8
+itemSelectedColor=#FFF1B5
+itemHoverColor=#F0F7FF
+itemDisabledColor=#7B87A0
+itemPrefix=
+itemSelectedPrefix=▶\s
+itemFontFamily=Segoe UI
+itemFontWeight=SEMI_BOLD
+itemFontSize=22
+backgroundColor=#060F1D
+backgroundOpacity=1.0
+buttonTextPaddingX=22
+buttonTextPaddingY=0
 """;
   }
 

@@ -1,9 +1,5 @@
 package com.jvn.editor.ui;
 
-import com.jvn.core.menu.config.MenuActionType;
-
-import javafx.scene.paint.Color;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -14,6 +10,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.jvn.core.menu.config.MenuActionType;
+
+import javafx.scene.paint.Color;
 
 /**
  * Line-aware diagnostics for layout/menu DSL files.
@@ -252,7 +252,7 @@ public final class DslPropertyDiagnostics {
         continue;
       }
       String key = raw.substring(0, sep).trim();
-      String value = raw.substring(sep + 1).trim();
+      String value = stripInlineComment(raw.substring(sep + 1).trim());
       if (key.isBlank()) {
         issues.add(issue(lineNo, "dsl", "Property key is empty.", "Provide a key name before '='."));
         continue;
@@ -267,6 +267,22 @@ public final class DslPropertyDiagnostics {
       lastLineByKey.put(key, lineNo);
     }
     return new ParsedText(lines, lastLineByKey, issues);
+  }
+
+  private static String stripInlineComment(String value) {
+    if (value == null || value.isEmpty()) return value;
+    // Find ' #' or ' !' preceded by whitespace — signals an inline comment.
+    // Avoid stripping '#' that starts a color hex (e.g. #FFFFFF).
+    int idx = -1;
+    for (int i = 1; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if ((c == '#' || c == '!') && Character.isWhitespace(value.charAt(i - 1))) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) return value;
+    return value.substring(0, idx).trim();
   }
 
   private static int findSeparator(String raw) {

@@ -102,6 +102,10 @@ public class MenuScreenVisualEditor extends BorderPane {
   private final List<String> lineDiagnostics = new ArrayList<>();
   private File projectRoot;
   private String screenIdHint = "main";
+  private final UndoManager undoManager = new UndoManager();
+  private Button btnUndo;
+  private Button btnRedo;
+  private boolean applyingHistory = false;
   private int previewSelected = 0;
   private Rect[] previewRects = new Rect[0];
   private int dragRowIndex = -1;
@@ -256,7 +260,11 @@ public class MenuScreenVisualEditor extends BorderPane {
     validateState();
     redrawPreview();
     lastLoadedText = normalizedInput;
-    lastEmittedText = normalizeLineEndings(serialize());
+    String serialized = serialize();
+    lastEmittedText = normalizeLineEndings(serialized);
+    if (!applyingHistory) {
+      undoManager.setInitialState(serialized);
+    }
   }
 
   public String getMenuText() {
@@ -336,7 +344,18 @@ public class MenuScreenVisualEditor extends BorderPane {
     bNormalize.setOnAction(e -> normalizeIds());
     cbSnapBounds.setSelected(true);
     cbSnapBounds.setTooltip(new Tooltip("Snap dragged bounds to a 2% grid. Hold Ctrl while dragging to bypass."));
-    actions.getChildren().addAll(bAdd, bDuplicate, bRemove, bUp, bDown, bNormalize, cbSnapBounds);
+
+    btnUndo = iconActionButton(CssIcon.undo(), "Undo");
+    btnRedo = iconActionButton(CssIcon.redo(), "Redo");
+    btnUndo.setDisable(true);
+    btnRedo.setDisable(true);
+    btnUndo.setOnAction(e -> performUndo());
+    btnRedo.setOnAction(e -> performRedo());
+    undoManager.setOnUndoAvailableChanged(available -> btnUndo.setDisable(!available));
+    undoManager.setOnRedoAvailableChanged(available -> btnRedo.setDisable(!available));
+    UndoManager.installKeyboardShortcuts(this, this::performUndo, this::performRedo);
+
+    actions.getChildren().addAll(bAdd, bDuplicate, bRemove, bUp, bDown, bNormalize, cbSnapBounds, btnUndo, btnRedo);
 
     table.getStyleClass().add("layout-studio-table");
     VBox tablePane = new VBox(6, table, actions);
@@ -1700,8 +1719,31 @@ public class MenuScreenVisualEditor extends BorderPane {
     String text = serialize();
     String normalized = normalizeLineEndings(text);
     if (normalized.equals(lastEmittedText)) return;
+    undoManager.captureState(text);
     lastEmittedText = normalized;
     onMenuTextChanged.accept(text);
+  }
+
+  private void performUndo() {
+    String previous = undoManager.undo();
+    if (previous == null) return;
+    applyingHistory = true;
+    suppressEvents = true;
+    setMenuText(previous);
+    suppressEvents = false;
+    applyingHistory = false;
+    emitText();
+  }
+
+  private void performRedo() {
+    String next = undoManager.redo();
+    if (next == null) return;
+    applyingHistory = true;
+    suppressEvents = true;
+    setMenuText(next);
+    suppressEvents = false;
+    applyingHistory = false;
+    emitText();
   }
 
   private String serialize() {
