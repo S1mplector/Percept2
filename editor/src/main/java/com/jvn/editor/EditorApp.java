@@ -463,7 +463,7 @@ public class EditorApp extends Application {
   @Override
   public void start(Stage primaryStage) {
     primaryStage.setTitle("JVN Editor");
-    layoutStudioWindowManager = new LayoutStudioWindowManager(primaryStage);
+    layoutStudioWindowManager = new LayoutStudioWindowManager(primaryStage, this::doRunProject);
     BorderPane root = new BorderPane();
     String editorVersion = resolveEditorVersion();
 

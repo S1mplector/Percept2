@@ -641,11 +641,28 @@ public class MenuLayoutVisualEditor extends BorderPane {
     }
 
     StringBuilder out = new StringBuilder();
-    out.append("# Menu layout").append(System.lineSeparator());
-    out.append("# values <= 1 are treated as fractions; > 1 are pixels").append(System.lineSeparator());
+    out.append("# Menu layout (.layout)").append(System.lineSeparator());
+    out.append("# Text-first workflow: edit -> save -> run runtime -> verify -> iterate.").append(System.lineSeparator());
+    out.append("# Format: key=value (Java .properties)").append(System.lineSeparator());
+    out.append("# Units:").append(System.lineSeparator());
+    out.append("# - listYStart/titleY: <=1 means viewport fraction, >1 means pixels.").append(System.lineSeparator());
+    out.append("# - lineHeight/hintsBottomMargin: pixels.").append(System.lineSeparator());
+    out.append("# - listWidthFactor: viewport fraction (0.1..1.0).").append(System.lineSeparator());
+    out.append("# - textAlign: left|center|right.").append(System.lineSeparator());
     for (String key : KNOWN_KEYS) {
       String value = merged.getProperty(key);
       if (value == null) continue;
+      if ("listYStart".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Vertical flow ---").append(System.lineSeparator());
+        out.append("# listYStart: first row anchor.").append(System.lineSeparator());
+        out.append("# lineHeight: spacing between consecutive rows.").append(System.lineSeparator());
+      } else if ("listWidthFactor".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Horizontal flow ---").append(System.lineSeparator());
+        out.append("# listWidthFactor + textAlign define row region width and text placement.").append(System.lineSeparator());
+      } else if ("hintsBottomMargin".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Footer / title offsets ---").append(System.lineSeparator());
+        out.append("# hintsBottomMargin shifts hint text above viewport bottom.").append(System.lineSeparator());
+      }
       out.append(key).append("=").append(value).append(System.lineSeparator());
     }
     List<String> extras = new ArrayList<>();

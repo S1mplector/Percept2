@@ -2563,27 +2563,34 @@ public class DialogueLayoutEditorView extends BorderPane {
 
     StringBuilder out = new StringBuilder();
     out.append("# Dialogue UI layout (.layout)").append(System.lineSeparator());
-    out.append("# Format: key=value").append(System.lineSeparator());
-    out.append("# Fractions (0..1) are viewport-relative. Pixel values are absolute offsets/paddings.").append(System.lineSeparator());
-    out.append("# Edit in Dialogue Layout Studio or directly in code.").append(System.lineSeparator());
-    out.append("# choiceYStart: -1 = auto-center choices vertically.").append(System.lineSeparator());
+    out.append("# Text-first workflow: edit -> save -> run runtime -> validate -> iterate.").append(System.lineSeparator());
+    out.append("# Format: key=value (Java .properties)").append(System.lineSeparator());
+    out.append("# Units: fractions (0..1) are viewport-relative; paddings/offsets are pixels.").append(System.lineSeparator());
+    out.append("# choiceYStart: -1 = auto-center choices vertically, otherwise use a 0..1 fraction.").append(System.lineSeparator());
     for (String key : KNOWN_KEYS) {
       String value = merged.getProperty(key);
       if (value == null) continue;
       if ("textBoxX".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Text box container ---").append(System.lineSeparator());
+        out.append("# textBoxX/textBoxY anchor the panel. width/height are viewport fractions.").append(System.lineSeparator());
       } else if ("textBoxAsset".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Text box visual style / shape ---").append(System.lineSeparator());
+        out.append("# Asset keys are optional and can be mixed with color fallbacks.").append(System.lineSeparator());
       } else if ("nameBoxBoundsPoints".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Advanced bounds polygons (optional) ---").append(System.lineSeparator());
+        out.append("# boundsPoints values are encoded point lists for custom clickable shapes.").append(System.lineSeparator());
       } else if ("choiceButtonAsset".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Choice button assets / colors ---").append(System.lineSeparator());
       } else if ("nameBoxXOffset".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Name box placement ---").append(System.lineSeparator());
+        out.append("# Offsets are relative to the textbox top-left corner.").append(System.lineSeparator());
       } else if ("dialogueTextHorizontalPadding".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Dialogue text inner bounds ---").append(System.lineSeparator());
       } else if ("choiceXCenter".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Choice list geometry ---").append(System.lineSeparator());
+        out.append("# choiceWidthFactor is viewport-relative; height/gap/text padding are pixels.").append(System.lineSeparator());
+      } else if ("characterHeightFactor".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Character framing tweaks ---").append(System.lineSeparator());
       }
       out.append(key).append("=").append(value).append(System.lineSeparator());
     }
@@ -2591,6 +2598,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       out.append(System.lineSeparator()).append("# --- Textbox action buttons ---").append(System.lineSeparator());
       out.append("# textBoxButton.ids controls order and active ids.").append(System.lineSeparator());
       out.append("# Per-button keys use textBoxButton.<id>.* and are normalized to textbox bounds.").append(System.lineSeparator());
+      out.append("# action examples: save_menu, load_menu, settings_menu, main_menu, open_menu, back.").append(System.lineSeparator());
       List<String> ids = new ArrayList<>();
       for (VnUiActionButtonSpec button : textBoxButtons) {
         if (button == null || button.id() == null || button.id().isBlank()) continue;

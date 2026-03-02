@@ -662,11 +662,27 @@ public class MenuStyleVisualEditor extends BorderPane {
     if (spBackgroundOpacity.getValue() < 1.0) merged.setProperty("backgroundOpacity", formatDouble(spBackgroundOpacity.getValue()));
 
     StringBuilder out = new StringBuilder();
-    out.append("# Menu style").append(System.lineSeparator());
-    out.append("# Reusable per-button visuals and typography").append(System.lineSeparator());
+    out.append("# Menu style (.style)").append(System.lineSeparator());
+    out.append("# Text-first workflow: edit -> save -> run runtime -> verify -> iterate.").append(System.lineSeparator());
+    out.append("# Format: key=value (Java .properties)").append(System.lineSeparator());
+    out.append("# Colors support #RRGGBB or #RRGGBBAA.").append(System.lineSeparator());
+    out.append("# Asset values should be project-relative paths, for example assets/ui/menu/button.png.").append(System.lineSeparator());
     for (String key : KNOWN_KEYS) {
       String value = merged.getProperty(key);
       if (value == null) continue;
+      if ("itemColor".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Item row colors and prefixes ---").append(System.lineSeparator());
+      } else if ("itemFontFamily".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Item typography / shadows ---").append(System.lineSeparator());
+      } else if ("buttonAsset".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Optional button textures ---").append(System.lineSeparator());
+      } else if ("titleColor".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Title style ---").append(System.lineSeparator());
+      } else if ("hintsColor".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Hint/footer style ---").append(System.lineSeparator());
+      } else if ("backgroundAsset".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Background layer ---").append(System.lineSeparator());
+      }
       out.append(key).append("=").append(value).append(System.lineSeparator());
     }
     for (String key : new ArrayList<>(merged.stringPropertyNames())) {

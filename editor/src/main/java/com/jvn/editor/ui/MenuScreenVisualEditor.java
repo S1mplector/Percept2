@@ -1699,8 +1699,11 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private String serialize() {
     StringBuilder out = new StringBuilder();
-    out.append("# Menu screen definition").append(System.lineSeparator());
-    out.append("# Edited via JVN visual menu editor").append(System.lineSeparator());
+    out.append("# Menu screen definition (.menu)").append(System.lineSeparator());
+    out.append("# Text-first workflow: edit -> save -> run runtime -> validate navigation/actions.").append(System.lineSeparator());
+    out.append("# Format: key=value (Java .properties)").append(System.lineSeparator());
+    out.append("# Core keys: titleText, hintsText, layout, defaultItemStyle, wrapSelection, items").append(System.lineSeparator());
+    out.append("# Per-item schema: item.<id>.label/action/target/style/enabled plus optional bounds and skin keys.").append(System.lineSeparator());
 
     String title = normalize(tfTitle.getText(), "");
     String hints = normalize(tfHints.getText(), "");
@@ -1727,12 +1730,21 @@ public class MenuScreenVisualEditor extends BorderPane {
     }
     List<String> ids = new ArrayList<>();
     for (ResolvedItem item : resolved) ids.add(item.id());
+    out.append(System.lineSeparator()).append("# Ordered item ids shown by this screen").append(System.lineSeparator());
     out.append("items=").append(String.join(",", ids)).append(System.lineSeparator());
 
+    boolean wroteItemHeader = false;
     for (ResolvedItem item : resolved) {
       String id = item.id();
       MenuItemRow row = item.row();
       String prefix = "item." + id + ".";
+      if (!wroteItemHeader) {
+        out.append(System.lineSeparator()).append("# --- Per-item declarations ---").append(System.lineSeparator());
+        out.append("# action examples: open_menu, back, main_menu, save_menu, load_menu, settings_menu, quit, noop").append(System.lineSeparator());
+        out.append("# boundsX/Y/Width/Height are normalized viewport fractions.").append(System.lineSeparator());
+        out.append("# slotPreview* keys configure embedded save/load thumbnails inside custom row skins.").append(System.lineSeparator());
+        wroteItemHeader = true;
+      }
       String label = normalize(row.getLabel(), "");
       String style = normalize(row.getStyle(), "");
       String icon = normalize(row.getIcon(), "");

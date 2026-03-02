@@ -27,7 +27,7 @@ keys are available, how to validate changes in runtime, and how to debug problem
 textBoxY=0.70
 ```
 
-4. Run your project (Play button or `Ctrl+R`).
+4. Run your project (`Ctrl+R`, Play button, or Layout Studio `Ctrl/Cmd+Enter`).
 5. Observe: the dialogue text box now sits higher on screen.
 6. Go back to the file, tweak the value, re-run. Done.
 

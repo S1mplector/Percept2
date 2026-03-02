@@ -54,6 +54,8 @@ public final class CssIcon {
       "M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z";
   private static final String PATH_COPY =
       "M16 1H4c-1.1 0-2 .9-2 2v12h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z";
+  private static final String PATH_PLAY =
+      "M8 5v14l11-7z";
 
   // ── Factory methods ──
 
@@ -77,6 +79,7 @@ public final class CssIcon {
   public static Region link(String color)      { return icon(PATH_LINK, color, 14); }
   public static Region home(String color)      { return icon(PATH_HOME, color, 14); }
   public static Region copy(String color)      { return icon(PATH_COPY, color, 14); }
+  public static Region play(String color)      { return icon(PATH_PLAY, color, 14); }
 
   /** Convenience: icon at default muted color. */
   public static Region plus()     { return plus("#b0b8c8"); }
@@ -99,6 +102,7 @@ public final class CssIcon {
   public static Region link()     { return link("#b0b8c8"); }
   public static Region home()     { return home("#b0b8c8"); }
   public static Region copy()     { return copy("#b0b8c8"); }
+  public static Region play()     { return play("#b0b8c8"); }
 
   /**
    * Creates a section header label with a leading CSS icon.

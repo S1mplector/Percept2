@@ -60,10 +60,16 @@ public class LayoutStudioWindowManager {
   }
 
   private final Stage owner;
+  private final Consumer<File> runProjectHandler;
   private final Map<String, LayoutStudioWindow> windows = new LinkedHashMap<>();
 
   public LayoutStudioWindowManager(Stage owner) {
+    this(owner, null);
+  }
+
+  public LayoutStudioWindowManager(Stage owner, Consumer<File> runProjectHandler) {
     this.owner = owner;
+    this.runProjectHandler = runProjectHandler;
   }
 
   public boolean supports(File file) {
@@ -84,7 +90,15 @@ public class LayoutStudioWindowManager {
       return;
     }
 
-    LayoutStudioWindow window = new LayoutStudioWindow(owner, file, kind, projectRoot, statusSink, () -> windows.remove(key));
+    LayoutStudioWindow window = new LayoutStudioWindow(
+        owner,
+        file,
+        kind,
+        projectRoot,
+        statusSink,
+        runProjectHandler,
+        () -> windows.remove(key)
+    );
     windows.put(key, window);
     window.show();
     if (statusSink != null) statusSink.accept("Opened in Studio: " + file.getName());
@@ -181,6 +195,7 @@ public class LayoutStudioWindowManager {
     private final File file;
     private final Kind kind;
     private final Consumer<String> externalStatus;
+    private final Consumer<File> runProjectHandler;
     private final Runnable onClosed;
 
     private File projectRoot;
@@ -207,6 +222,7 @@ public class LayoutStudioWindowManager {
     private final TextField assetItemIdField = new TextField();
 
     private final Button saveButton = new Button();
+    private final Button runButton = new Button();
     private final Button reloadButton = new Button();
     private final Button revealButton = new Button();
     private final Button maximizeButton = new Button();
@@ -230,11 +246,13 @@ public class LayoutStudioWindowManager {
                        Kind kind,
                        File projectRoot,
                        Consumer<String> statusSink,
+                       Consumer<File> runProjectHandler,
                        Runnable onClosed) {
       this.file = file;
       this.kind = kind;
       this.projectRoot = projectRoot;
       this.externalStatus = statusSink;
+      this.runProjectHandler = runProjectHandler;
       this.onClosed = onClosed;
       this.designPreviewEnabled = true;
 
@@ -261,6 +279,10 @@ public class LayoutStudioWindowManager {
       scene.getAccelerators().put(
           new javafx.scene.input.KeyCodeCombination(javafx.scene.input.KeyCode.S, javafx.scene.input.KeyCombination.SHORTCUT_DOWN),
           this::save
+      );
+      scene.getAccelerators().put(
+          new javafx.scene.input.KeyCodeCombination(javafx.scene.input.KeyCode.ENTER, javafx.scene.input.KeyCombination.SHORTCUT_DOWN),
+          this::saveAndRunProject
       );
       EditorTheme.apply(scene);
       stage.setScene(scene);
@@ -311,8 +333,7 @@ public class LayoutStudioWindowManager {
 
     boolean saveIfDirty() {
       if (!dirty) return true;
-      save();
-      return !dirty;
+      return save();
     }
 
     String fileName() {
@@ -359,6 +380,7 @@ public class LayoutStudioWindowManager {
       configureIconToggle(bSplit, CssIcon.grid("#b0b8c8"), "Split Mode");
       previewToggle.setTooltip(new Tooltip("Enable/disable preview"));
       configureIconButton(saveButton, CssIcon.save("#8cd48c"), "Save");
+      configureIconButton(runButton, CssIcon.play("#8cd48c"), "Save and Run Runtime (Ctrl/Cmd+Enter)");
       configureIconButton(reloadButton, CssIcon.redo("#7ec8e3"), "Reload");
       configureIconButton(revealButton, CssIcon.folder("#d4a8e8"), "Reveal File");
       configureIconButton(maximizeButton, CssIcon.expand("#b0b8c8"), "Maximize / Restore");
@@ -373,6 +395,7 @@ public class LayoutStudioWindowManager {
           bCode,
           bSplit,
           saveButton,
+          runButton,
           reloadButton,
           revealButton,
           maximizeButton
@@ -386,6 +409,7 @@ public class LayoutStudioWindowManager {
       bSplit.getStyleClass().add("layout-studio-toolbar-toggle");
       previewToggle.getStyleClass().add("layout-studio-toolbar-toggle");
       saveButton.getStyleClass().add("layout-studio-toolbar-button");
+      runButton.getStyleClass().add("layout-studio-toolbar-button");
       reloadButton.getStyleClass().add("layout-studio-toolbar-button");
       revealButton.getStyleClass().add("layout-studio-toolbar-button");
 
@@ -566,6 +590,7 @@ public class LayoutStudioWindowManager {
 
     private void bindButtons() {
       saveButton.setOnAction(e -> save());
+      runButton.setOnAction(e -> saveAndRunProject());
       reloadButton.setOnAction(e -> reload());
       revealButton.setOnAction(e -> revealInFinder());
 
@@ -604,7 +629,7 @@ public class LayoutStudioWindowManager {
       }
     }
 
-    private void save() {
+    private boolean save() {
       try {
         Path target = file.toPath();
         Path parent = target.getParent();
@@ -618,8 +643,32 @@ public class LayoutStudioWindowManager {
         dirty = false;
         updateWindowTitle();
         setStatus("Saved: " + file.getName());
+        return true;
       } catch (Exception ex) {
         setStatus("Save failed: " + ex.getMessage());
+        return false;
+      }
+    }
+
+    private void saveAndRunProject() {
+      if (!save()) {
+        setStatus("Run cancelled: save failed.");
+        return;
+      }
+      if (runProjectHandler == null) {
+        setStatus("Run is unavailable for this Studio window.");
+        return;
+      }
+      File root = resolveProjectRootForRun();
+      if (root == null) {
+        setStatus("Run cancelled: project root not found.");
+        return;
+      }
+      setStatus("Running project...");
+      try {
+        runProjectHandler.accept(root);
+      } catch (Exception ex) {
+        setStatus("Run failed: " + normalize(ex.getMessage(), "unknown error"));
       }
     }
 
@@ -637,6 +686,17 @@ public class LayoutStudioWindowManager {
       } catch (Exception ex) {
         setStatus("Reveal failed: " + ex.getMessage());
       }
+    }
+
+    private File resolveProjectRootForRun() {
+      if (projectRoot != null && projectRoot.isDirectory()) return projectRoot;
+      File cursor = file == null ? null : file.getParentFile();
+      while (cursor != null) {
+        File marker = new File(cursor, "jvn.project");
+        if (marker.isFile()) return cursor;
+        cursor = cursor.getParentFile();
+      }
+      return null;
     }
 
     private void browseExistingAsset() {
@@ -950,8 +1010,7 @@ public class LayoutStudioWindowManager {
       Optional<ButtonType> result = alert.showAndWait();
       if (result.isEmpty() || result.get() == ButtonType.CANCEL) return false;
       if (result.get() == discard) return true;
-      save();
-      return !dirty;
+      return save();
     }
 
     private enum Mode { DESIGN, CODE, SPLIT }

@@ -1536,23 +1536,31 @@ public class NewProjectWizard extends Stage {
   private static String defaultDialogueLayoutTemplate() {
     return """
 # Dialogue UI layout (.layout)
-# Format: key=value
-# Fractions (0..1) are relative to the game viewport size.
-# Pixel values are absolute offsets/paddings for fine alignment.
-# Edit manually or in Dialogue Layout Studio.
+# Text-first workflow:
+# 1) Edit values in this file.
+# 2) Save.
+# 3) Run project in runtime.
+# 4) Validate on real scene, then iterate.
+#
+# Format: key=value (Java .properties)
+# Units:
+# - Fractions (0..1) are viewport-relative.
+# - Pixel values are absolute screen-space units.
+# - choiceYStart uses -1 for auto-center, otherwise a 0..1 fraction.
 
 # --- Text box container (main dialogue panel) ---
-# textBoxX / textBoxY: top-left anchor of the panel.
-# textBoxWidth / textBoxHeight: panel size as viewport fraction.
-# textBoxPadding: legacy inner padding fallback (pixels).
-textBoxX=0
-textBoxY=0.75
-textBoxWidth=1
+# textBoxX/textBoxY: top-left anchor in viewport fractions.
+# textBoxWidth/textBoxHeight: size in viewport fractions.
+# textBoxPadding: inner pixel padding fallback for legacy text flow.
+textBoxX=0.0026
+textBoxY=0.7076
+textBoxWidth=0.9974
 textBoxHeight=0.25
 textBoxPadding=20
 
 # --- Name box (speaker tag panel) ---
-# Offsets are measured from the text box top-left corner.
+# Offsets are measured from textBox top-left.
+# Use negative Y to lift the nameplate above the dialogue box.
 nameBoxXOffset=20
 nameBoxYOffset=-40
 nameBoxWidth=200
@@ -1570,11 +1578,11 @@ dialogueTextBottomPadding=10
 
 # --- Choice list geometry ---
 # choiceXCenter: center point of the choice stack (0=left, 1=right).
-# choiceYStart: top Y of first choice; -1 means auto-center vertically.
+# choiceYStart: first choice Y (fraction). Set to -1 for auto-center.
 # choiceWidthFactor: each choice width as viewport fraction.
 # choiceHeight / choiceGap / choiceTextXPadding are pixels.
-choiceXCenter=0.58
-choiceYStart=-1
+choiceXCenter=0.5853
+choiceYStart=0.3601
 choiceWidthFactor=0.6
 choiceHeight=50
 choiceGap=10
@@ -1586,10 +1594,19 @@ choiceTextBaselineOffset=5
 # --- Optional textbox / choice skin assets ---
 # Uncomment to use custom textures.
 # textBoxAsset=assets/ui/textbox.png
+# nameBoxAsset=assets/ui/namebox.png
 # choiceButtonAsset=assets/ui/choice_button.png
 # choiceButtonHoverAsset=assets/ui/choice_button_hover.png
 # choiceButtonSelectedAsset=assets/ui/choice_button_selected.png
 # choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png
+
+# --- Optional text styling ---
+# nameTextColor=#FFFFFFFF
+# nameTextFontFamily=Segoe UI
+# nameTextFontSize=18
+# dialogueTextColor=#FFFFFFFF
+# dialogueTextFontFamily=Segoe UI
+# dialogueTextFontSize=22
 
 # --- Optional choice colors (fallback when no texture is set) ---
 # choiceBackgroundColor=#323246E6
@@ -1610,10 +1627,11 @@ choiceTextBaselineOffset=5
 # characterBaselineY=1.0
 
 # --- Optional clickable textbox action buttons ---
-# textBoxButton.ids sets order and active button ids.
+# Buttons render inside dialogue textbox bounds.
+# textBoxButton.ids controls order and active ids.
 # Per-button keys use textBoxButton.<id>.*.
-# x/y/width/height are normalized relative to the textbox bounds.
-# action can be save_menu, load_menu, settings_menu, main_menu, etc.
+# x/y/width/height are normalized (0..1) inside textbox bounds.
+# action can be save_menu, load_menu, settings_menu, main_menu, open_menu, back.
 # textBoxButton.ids=save,load,settings
 # textBoxButton.save.label=Save
 # textBoxButton.save.action=save_menu
@@ -1714,6 +1732,7 @@ choiceTextBaselineOffset=5
     try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
       fw.write("# Menu customization registry\n");
       fw.write("# File format: Java properties (key=value)\n");
+      fw.write("# Text-first workflow: edit ids here, save, then run runtime to verify discoverability.\n");
       fw.write("#\n");
       fw.write("# defaultMenu: first menu id shown when opening main menu flow.\n");
       fw.write("# menus: all discoverable .menu files by id.\n");
@@ -1729,6 +1748,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_DEFAULT_PATH))) {
       fw.write("# Main menu layout (.layout)\n");
+      fw.write("# Text-first workflow: edit values, save, run runtime, iterate.\n");
       fw.write("# listYStart: Y position of first row (fraction if <=1, px if >1)\n");
       fw.write("# lineHeight: vertical spacing between rows (pixels)\n");
       fw.write("# listWidthFactor: width of list area as viewport fraction (0..1)\n");
@@ -1745,6 +1765,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SUBMENU_PATH))) {
       fw.write("# Submenu layout (.layout)\n");
+      fw.write("# Text-first workflow: edit values, save, run runtime, iterate.\n");
       fw.write("# Reused by extras/settings/credits style menus.\n");
       fw.write("# Keys use same semantics as default.layout.\n");
       fw.write("listYStart=0.24\n");
@@ -1757,6 +1778,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SLOTS_PATH))) {
       fw.write("# Save/Load slot layout (.layout)\n");
+      fw.write("# Text-first workflow: edit values, save, run runtime, iterate.\n");
       fw.write("# Tuned for wider save slot cards and preview thumbnails.\n");
       fw.write("# Keys use same semantics as default.layout.\n");
       fw.write("listYStart=0.20\n");
@@ -1769,6 +1791,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_DEFAULT_PATH))) {
       fw.write("# Main menu visual style (.style)\n");
+      fw.write("# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.\n");
       fw.write("# Colors accept #RRGGBB or #RRGGBBAA.\n");
       fw.write("# Prefix values are prepended to rendered labels.\n");
       fw.write("# Font keys map to JavaFX font family/weight/size.\n");
@@ -1807,6 +1830,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SUBMENU_PATH))) {
       fw.write("# Submenu visual style (.style)\n");
+      fw.write("# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.\n");
       fw.write("# Shared by extras/settings/credits-oriented menus.\n");
       fw.write("# Keys use the same semantics as default.style.\n");
       fw.write("itemColor=#D6E0F4\n");
@@ -1834,6 +1858,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SLOT_PATH))) {
       fw.write("# Save/load slot row visual style (.style)\n");
+      fw.write("# Text-first workflow: edit colors/fonts/asset paths, save, run runtime.\n");
       fw.write("# Designed for save slot card rows and metadata-heavy labels.\n");
       fw.write("# Keys use the same semantics as default.style.\n");
       fw.write("itemColor=#E4EDF8\n");
@@ -1853,6 +1878,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_MAIN_PATH))) {
       fw.write("# Main menu screen definition (redesigned)\n");
+      fw.write("# Text-first workflow: edit item/action wiring here, save, run runtime.\n");
       fw.write("#\n");
       fw.write("# Core keys:\n");
       fw.write("# titleText: menu title line.\n");
@@ -1905,6 +1931,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_EXTRAS_PATH))) {
       fw.write("# Extras submenu\n");
+      fw.write("# Text-first workflow: edit item/action wiring here, save, run runtime.\n");
       fw.write("# Uses submenu layout/style and forwards to nested screens.\n");
       fw.write("# Demonstrates disabled item rows and open_menu transitions.\n");
       fw.write("titleText=Extras\n");
@@ -1925,6 +1952,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_CREDITS_PATH))) {
       fw.write("# Credits submenu\n");
+      fw.write("# Text-first workflow: edit item/action wiring here, save, run runtime.\n");
       fw.write("# Simple informational menu: mostly disabled text rows + one back action.\n");
       fw.write("titleText=Credits\n");
       fw.write("hintsText=Esc: Back\n");
@@ -1949,6 +1977,7 @@ choiceTextBaselineOffset=5
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_CONFIRM_EXIT_PATH))) {
       fw.write("# Quit confirmation submenu\n");
+      fw.write("# Text-first workflow: edit item/action wiring here, save, run runtime.\n");
       fw.write("# Shows a disabled prompt row with two actionable choices.\n");
       fw.write("# item.<id>.style overrides row style when needed.\n");
       fw.write("titleText=Exit Game\n");
@@ -1970,6 +1999,7 @@ choiceTextBaselineOffset=5
     if (includeSave) {
       try (FileWriter fw = new FileWriter(new File(dir, MENU_LOAD_PATH))) {
         fw.write("# Load menu presentation profile (slot template)\n");
+        fw.write("# Text-first workflow: edit slot profile keys, save, run runtime.\n");
         fw.write("# Slot keys:\n");
         fw.write("# item.<id>.slotPreviewEnabled=true enables embedded save thumbnail.\n");
         fw.write("# slotPreviewX/Y/Width/Height are normalized inside each row card.\n");
@@ -1995,6 +2025,7 @@ choiceTextBaselineOffset=5
 
       try (FileWriter fw = new FileWriter(new File(dir, MENU_SAVE_PATH))) {
         fw.write("# Save menu presentation profile (new slot + slot template)\n");
+        fw.write("# Text-first workflow: edit slot profile keys, save, run runtime.\n");
         fw.write("# Includes a dedicated new_slot row plus templated save_slot rows.\n");
         fw.write("# Slot preview keys share the same semantics as load.menu.\n");
         fw.write("titleText=Save Journey\n");
@@ -2029,6 +2060,7 @@ choiceTextBaselineOffset=5
     if (includeSettings) {
       try (FileWriter fw = new FileWriter(new File(dir, MENU_SETTINGS_PATH))) {
         fw.write("# Settings menu profile (keys map to engine settings)\n");
+        fw.write("# Text-first workflow: edit item/action wiring here, save, run runtime.\n");
         fw.write("# Each item.<id>.label supports {value} placeholder expansion.\n");
         fw.write("# Runtime maps known setting ids to user settings store values.\n");
         fw.write("# 'back' row uses action=back to return to previous screen.\n");
@@ -2133,9 +2165,10 @@ choiceTextBaselineOffset=5
       int step = 1;
       fw.write(step++ + ". Open this folder in the JVN Editor.\n");
       fw.write(step++ + ". Edit `" + ENTRY_SCRIPT_PATH + "`.\n");
-      fw.write(step++ + ". Tune `" + DIALOGUE_LAYOUT_PATH + "` with the visual layout editor.\n");
+      fw.write(step++ + ". Edit `" + DIALOGUE_LAYOUT_PATH + "` in text first, then run runtime to validate.\n");
       if (includeMenuPack) {
-        fw.write(step++ + ". Edit `config/menu/menus/*.menu` and `config/menu/layouts/*.layout` in visual editors.\n");
+        fw.write(step++ + ". Edit `config/menu/menus/*.menu`, `config/menu/layouts/*.layout`, and `config/menu/styles/*.style` in text first.\n");
+        fw.write(step++ + ". Use visual Layout Studio tools only when needed (bounds drawing, color picking, quick sanity preview).\n");
       }
       if (shouldStartBlankMenus()) {
         fw.write(step++ + ". Create menu screens, layouts, and styles in `config/menu/` using the Layout Studio.\n");

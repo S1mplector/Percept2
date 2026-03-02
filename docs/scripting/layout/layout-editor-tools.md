@@ -22,6 +22,8 @@ Layout Studio opens in **code mode** by default. This is a text editor tab showi
 - Syntax-aware text editing with properties format support
 - Undo/redo (Ctrl+Z / Ctrl+Y)
 - Saves directly to the file on disk
+- Save + Run Runtime from the Layout Studio toolbar
+- Ctrl/Cmd+Enter shortcut for Save + Run Runtime
 - Immediate feedback — save and run the project to validate
 
 ### Visual Preview (Toggle)
@@ -291,6 +293,7 @@ Mostly useful for orientation — seeing how screen, layout, and style combine. 
 | Ctrl+Z | Undo | All visual editors |
 | Ctrl+Y | Redo | All visual editors |
 | Ctrl+S | Save | All editors |
+| Ctrl+Enter | Save + Run Runtime | Layout Studio windows |
 | Ctrl+R | Run project | Global |
 
 ---

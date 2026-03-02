@@ -377,23 +377,31 @@ public class LayoutEditorLauncherView extends BorderPane {
   private static String defaultDialogueLayoutTemplate() {
     return """
 # Dialogue UI layout (.layout)
-# Format: key=value
-# Fractions (0..1) are relative to the game viewport size.
-# Pixel values are absolute offsets/paddings for fine alignment.
-# Edit manually or in Dialogue Layout Studio.
+# Text-first workflow:
+# 1) Edit values in this file.
+# 2) Save.
+# 3) Run project in runtime.
+# 4) Validate on real scene, then iterate.
+#
+# Format: key=value (Java .properties)
+# Units:
+# - Fractions (0..1) are viewport-relative.
+# - Pixel values are absolute screen-space units.
+# - choiceYStart uses -1 for auto-center, otherwise a 0..1 fraction.
 
 # --- Text box container (main dialogue panel) ---
-# textBoxX / textBoxY: top-left anchor of the panel.
-# textBoxWidth / textBoxHeight: panel size as viewport fraction.
-# textBoxPadding: legacy inner padding fallback (pixels).
-textBoxX=0
-textBoxY=0.75
-textBoxWidth=1
+# textBoxX/textBoxY: top-left anchor in viewport fractions.
+# textBoxWidth/textBoxHeight: size in viewport fractions.
+# textBoxPadding: inner pixel padding fallback for legacy text flow.
+textBoxX=0.0026
+textBoxY=0.7076
+textBoxWidth=0.9974
 textBoxHeight=0.25
 textBoxPadding=20
 
 # --- Name box (speaker tag panel) ---
-# Offsets are measured from the text box top-left corner.
+# Offsets are measured from textBox top-left.
+# Use negative Y to lift the nameplate above the dialogue box.
 nameBoxXOffset=20
 nameBoxYOffset=-40
 nameBoxWidth=200
@@ -411,11 +419,11 @@ dialogueTextBottomPadding=10
 
 # --- Choice list geometry ---
 # choiceXCenter: center point of the choice stack (0=left, 1=right).
-# choiceYStart: top Y of first choice; -1 means auto-center vertically.
+# choiceYStart: first choice Y (fraction). Set to -1 for auto-center.
 # choiceWidthFactor: each choice width as viewport fraction.
 # choiceHeight / choiceGap / choiceTextXPadding are pixels.
-choiceXCenter=0.58
-choiceYStart=-1
+choiceXCenter=0.5853
+choiceYStart=0.3601
 choiceWidthFactor=0.6
 choiceHeight=50
 choiceGap=10
@@ -427,10 +435,19 @@ choiceTextBaselineOffset=5
 # --- Optional textbox / choice skin assets ---
 # Uncomment to use custom textures.
 # textBoxAsset=assets/ui/textbox.png
+# nameBoxAsset=assets/ui/namebox.png
 # choiceButtonAsset=assets/ui/choice_button.png
 # choiceButtonHoverAsset=assets/ui/choice_button_hover.png
 # choiceButtonSelectedAsset=assets/ui/choice_button_selected.png
 # choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png
+
+# --- Optional text styling ---
+# nameTextColor=#FFFFFFFF
+# nameTextFontFamily=Segoe UI
+# nameTextFontSize=18
+# dialogueTextColor=#FFFFFFFF
+# dialogueTextFontFamily=Segoe UI
+# dialogueTextFontSize=22
 
 # --- Optional choice colors (fallback when no texture is set) ---
 # choiceBackgroundColor=#323246E6
@@ -451,10 +468,11 @@ choiceTextBaselineOffset=5
 # characterBaselineY=1.0
 
 # --- Optional clickable textbox action buttons ---
-# textBoxButton.ids sets order and active button ids.
+# Buttons render inside dialogue textbox bounds.
+# textBoxButton.ids controls order and active ids.
 # Per-button keys use textBoxButton.<id>.*.
-# x/y/width/height are normalized relative to the textbox bounds.
-# action can be save_menu, load_menu, settings_menu, main_menu, etc.
+# x/y/width/height are normalized (0..1) inside textbox bounds.
+# action can be save_menu, load_menu, settings_menu, main_menu, open_menu, back.
 # textBoxButton.ids=save,load,settings
 # textBoxButton.save.label=Save
 # textBoxButton.save.action=save_menu
@@ -478,18 +496,25 @@ choiceTextBaselineOffset=5
     MenuLayoutSpec s = spec == null ? MenuProfile.defaultLayout() : spec;
     return """
 # Menu layout template (.layout)
-# Format: key=value
-# listYStart: first row Y (fraction if <=1, px if >1)
-# lineHeight: row spacing in pixels
-# listWidthFactor: row region width as viewport fraction (0..1)
-# textAlign: left|center|right
-# hintsBottomMargin: hint text bottom margin in pixels
-# titleY: title Y (fraction if <=1, px if >1)
+# Text-first workflow: edit -> save -> run runtime -> validate -> iterate.
+# Format: key=value (Java .properties)
+# Units:
+# - listYStart/titleY: <=1 means viewport fraction, >1 means pixels.
+# - lineHeight/hintsBottomMargin: pixels.
+# - listWidthFactor: viewport fraction (0.1..1.0).
+# textAlign options: left | center | right.
+#
+# Recommended tweak order:
+# 1) listYStart
+# 2) lineHeight
+# 3) listWidthFactor + textAlign
+# 4) titleY/hintsBottomMargin
 listYStart=%s
 lineHeight=%s
 listWidthFactor=%s
 textAlign=%s
 hintsBottomMargin=%s
+# titleY is optional. Uncomment to override runtime/default style title offset.
 # titleY=0.12
 """.formatted(
         formatDouble(s.listYStart()),
@@ -504,16 +529,21 @@ hintsBottomMargin=%s
     MenuStyleSpec s = style == null ? MenuProfile.defaultStyle() : style;
     return """
 # Menu style template (.style)
+# Text-first workflow: edit -> save -> run runtime -> compare in-game fonts/colors.
 # Colors can be #RRGGBB or #RRGGBBAA.
 # Prefix keys are prepended to rendered labels.
 # Font keys map to JavaFX font resolver.
-# Button asset keys are optional textured row skins.
+# Asset keys should be project-relative paths.
+#
+# --- Required baseline keys ---
 itemPrefix=%s
 itemSelectedPrefix=%s
 itemDisabledPrefix=%s
 itemDisabledColor=%s
 buttonTextPaddingX=18
 buttonTextPaddingY=0
+
+# --- Optional row colors / typography ---
 # itemColor=#D3D3D3
 # itemSelectedColor=#FFFF00
 # itemHoverColor=#FFE066
@@ -523,6 +553,8 @@ buttonTextPaddingY=0
 # titleColor=#FFFFFF
 # titleFontSize=44
 # hintsColor=#AAB4C8
+
+# --- Optional background and button textures ---
 # backgroundAsset=assets/ui/menu/bg.png
 # buttonAsset=assets/ui/menu/button.png
 # buttonSelectedAsset=assets/ui/menu/button_selected.png
@@ -541,12 +573,21 @@ buttonTextPaddingY=0
     String title = titleize(id);
     return """
 # Menu screen template (.menu)
+# Text-first workflow: edit -> save -> run runtime -> validate navigation/actions.
+# Format: key=value (Java .properties)
+#
 # Core keys:
 # titleText, hintsText, layout, defaultItemStyle, wrapSelection, items
-# Item keys:
+#
+# Per-item keys:
 # item.<id>.label / action / target / style / enabled
-# Optional bounds keys:
+# Optional visual keys:
+# item.<id>.icon / bgAsset / bgSelectedAsset / bgDisabledAsset
+# Optional bounds keys (normalized viewport fractions):
 # item.<id>.boundsX / boundsY / boundsWidth / boundsHeight
+#
+# Common actions:
+# open_menu (requires target), back, main_menu, settings_menu, save_menu, load_menu, quit, noop
 titleText=%s
 hintsText=Enter/Click: Select    Esc: Back
 layout=default
@@ -564,6 +605,7 @@ item.back.action=back
 # item.start.boundsY=0.34
 # item.start.boundsWidth=0.44
 # item.start.boundsHeight=0.072
+# item.start.icon=assets/ui/icons/start.png
 """.formatted(title);
   }
 
@@ -571,6 +613,7 @@ item.back.action=back
     return """
 # Menu registry
 # File format: Java properties (key=value)
+# Text-first workflow: update ids -> save -> run runtime to verify discoverability/wiring.
 # defaultMenu: menu id to open first
 # menus: comma-separated .menu ids
 # layouts: comma-separated .layout ids
