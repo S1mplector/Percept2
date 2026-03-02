@@ -188,6 +188,7 @@ public class EditorApp extends Application {
 
   private void doRunProject(File root) {
     if (root == null) return;
+    if (!saveDirtyEditorsBeforeRun()) return;
     Properties mf = loadManifest(root);
     if (mf == null) { status.setText("jvn.project not found"); return; }
     String type = mf.getProperty("type", "gradle").trim();
@@ -1283,6 +1284,55 @@ public class EditorApp extends Application {
       if (name.endsWith(ext)) return true;
     }
     return false;
+  }
+
+  private boolean saveDirtyEditorsBeforeRun() {
+    int savedFileTabs = 0;
+    if (filesTabs != null) {
+      for (Tab tab : new ArrayList<>(filesTabs.getTabs())) {
+        if (!(tab.getContent() instanceof FileEditorTab ft) || !ft.isDirty()) continue;
+        File target = ft.getFile();
+        if (target == null) {
+          showRunBlockedAlert("Run cancelled: unsaved file",
+              "Save " + ft.getDisplayName() + " before running the project.");
+          return false;
+        }
+        ft.saveTo(target);
+        if (ft.isDirty()) {
+          showRunBlockedAlert("Run cancelled: save failed",
+              "Failed to save " + ft.getDisplayName() + ". Resolve save errors and run again.");
+          return false;
+        }
+        savedFileTabs++;
+      }
+    }
+
+    if (layoutStudioWindowManager != null) {
+      boolean studiosSaved = layoutStudioWindowManager.saveAllDirty(msg -> {
+        if (status != null && msg != null && !msg.isBlank()) status.setText(msg);
+      });
+      if (!studiosSaved) {
+        showRunBlockedAlert("Run cancelled: Studio save failed",
+            "One or more open Studio windows could not be saved. Resolve the save error and run again.");
+        return false;
+      }
+    }
+
+    if (savedFileTabs > 0) {
+      refreshTabDirtyIndicators();
+      if (status != null) status.setText("Saved " + savedFileTabs + " file(s) before run.");
+    }
+    return true;
+  }
+
+  private void showRunBlockedAlert(String header, String content) {
+    if (status != null && header != null && !header.isBlank()) status.setText(header);
+    Alert alert = new Alert(Alert.AlertType.WARNING);
+    EditorTheme.apply(alert);
+    alert.setTitle("Run Blocked");
+    alert.setHeaderText(header == null || header.isBlank() ? "Run cancelled" : header);
+    alert.setContentText(content == null ? "" : content);
+    alert.showAndWait();
   }
 
   private void closeActiveTab() {

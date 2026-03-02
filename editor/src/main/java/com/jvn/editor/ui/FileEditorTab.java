@@ -40,6 +40,8 @@ public class FileEditorTab extends BorderPane {
   public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, MENU_SCREEN, MENU_LAYOUT, MENU_STYLE, DIALOGUE_LAYOUT, OTHER }
   private enum PreviewDockPosition { TOP, BOTTOM, LEFT, RIGHT, WINDOW }
   private enum PreviewLayoutMode { PREVIEW, CODE, SPLIT }
+  private static final boolean STUDIO_DESIGN_PREVIEW_ENABLED =
+      Boolean.parseBoolean(System.getProperty("jvn.layout.preview.enabled", "false"));
 
   private final File file;
   private final Kind kind;
@@ -221,13 +223,13 @@ public class FileEditorTab extends BorderPane {
         themeEditor.setOnTextChanged(t -> themePreview.setThemeFromText(t));
       }
     } else if (kind == Kind.MENU_SCREEN) {
-      setCenter(createStudioWorkspace("Menu Screen Studio", menuScreenVisualEditor, menuScreenEditor, 0.62));
+      setCenter(createStudioWorkspace("Menu Screen Studio", menuScreenVisualEditor, menuScreenEditor, 0.62, STUDIO_DESIGN_PREVIEW_ENABLED));
     } else if (kind == Kind.MENU_LAYOUT) {
-      setCenter(createStudioWorkspace("Menu Layout Studio", menuLayoutVisualEditor, menuLayoutEditor, 0.58));
+      setCenter(createStudioWorkspace("Menu Layout Studio", menuLayoutVisualEditor, menuLayoutEditor, 0.58, STUDIO_DESIGN_PREVIEW_ENABLED));
     } else if (kind == Kind.MENU_STYLE) {
-      setCenter(createStudioWorkspace("Menu Style Studio", menuStyleVisualEditor, menuStyleEditor, 0.58));
+      setCenter(createStudioWorkspace("Menu Style Studio", menuStyleVisualEditor, menuStyleEditor, 0.58, STUDIO_DESIGN_PREVIEW_ENABLED));
     } else if (kind == Kind.DIALOGUE_LAYOUT) {
-      setCenter(createStudioWorkspace("Dialogue Layout Studio", dialogueLayoutVisualEditor, dialogueLayoutEditor, 0.58));
+      setCenter(createStudioWorkspace("Dialogue Layout Studio", dialogueLayoutVisualEditor, dialogueLayoutEditor, 0.58, STUDIO_DESIGN_PREVIEW_ENABLED));
     } else if (kind == Kind.OTHER) {
       setCenter(textEditor);
     } else {
@@ -823,9 +825,10 @@ public class FileEditorTab extends BorderPane {
     if (themePreview != null) themePreview.setSize(previewW, previewH);
   }
 
-  private Node createStudioWorkspace(String title, Node designNode, Node codeNode, double divider) {
+  private Node createStudioWorkspace(String title, Node designNode, Node codeNode, double divider, boolean designEnabled) {
     BorderPane root = new BorderPane();
     BorderPane content = new BorderPane();
+    boolean allowDesign = designEnabled && designNode != null;
 
     ToggleButton bDesign = new ToggleButton("Design");
     ToggleButton bCode = new ToggleButton("Code");
@@ -834,7 +837,15 @@ public class FileEditorTab extends BorderPane {
     bDesign.setToggleGroup(group);
     bCode.setToggleGroup(group);
     bSplit.setToggleGroup(group);
-    bDesign.setSelected(true);
+    if (allowDesign) {
+      bDesign.setSelected(true);
+    } else {
+      bCode.setSelected(true);
+      bDesign.setManaged(false);
+      bDesign.setVisible(false);
+      bSplit.setManaged(false);
+      bSplit.setVisible(false);
+    }
 
     Label titleLabel = new Label(title == null ? "Studio" : title);
     titleLabel.getStyleClass().add("muted");
@@ -846,6 +857,14 @@ public class FileEditorTab extends BorderPane {
     root.setCenter(content);
 
     Runnable applyMode = () -> {
+      if (!allowDesign) {
+        detachFromParent(codeNode);
+        content.setCenter(codeNode);
+        primarySplit = null;
+        primarySplitCodeIndex = 1;
+        editorFullscreen = false;
+        return;
+      }
       if (bSplit.isSelected()) {
         content.setCenter(createVerticalSplit(designNode, codeNode, divider));
       } else if (bCode.isSelected()) {
@@ -865,7 +884,8 @@ public class FileEditorTab extends BorderPane {
 
     group.selectedToggleProperty().addListener((o, ov, nv) -> {
       if (nv == null) {
-        bDesign.setSelected(true);
+        if (allowDesign) bDesign.setSelected(true);
+        else bCode.setSelected(true);
       }
       applyMode.run();
     });

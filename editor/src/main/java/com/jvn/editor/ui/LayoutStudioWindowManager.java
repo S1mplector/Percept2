@@ -59,6 +59,9 @@ public class LayoutStudioWindowManager {
     DIALOGUE_LAYOUT
   }
 
+  private static final boolean STUDIO_DESIGN_PREVIEW_ENABLED =
+      Boolean.parseBoolean(System.getProperty("jvn.layout.preview.enabled", "false"));
+
   private final Stage owner;
   private final Map<String, LayoutStudioWindow> windows = new LinkedHashMap<>();
 
@@ -97,6 +100,21 @@ public class LayoutStudioWindowManager {
       if (!window.requestClose()) return false;
     }
     return true;
+  }
+
+  public boolean saveAllDirty(Consumer<String> statusSink) {
+    boolean ok = true;
+    List<LayoutStudioWindow> copy = new ArrayList<>(windows.values());
+    for (LayoutStudioWindow window : copy) {
+      if (window == null || !window.isDirty()) continue;
+      if (!window.saveIfDirty()) {
+        ok = false;
+        if (statusSink != null) {
+          statusSink.accept("Failed to save Studio file: " + window.fileName());
+        }
+      }
+    }
+    return ok;
   }
 
   private static Kind detectKind(File file) {
@@ -251,7 +269,7 @@ public class LayoutStudioWindowManager {
       configureVisualEditors();
       bindSync();
       bindButtons();
-      applyMode(Mode.SPLIT);
+      applyMode(STUDIO_DESIGN_PREVIEW_ENABLED ? Mode.SPLIT : Mode.CODE);
       loadFromDisk();
 
       stage.setOnCloseRequest(e -> {
@@ -287,6 +305,20 @@ public class LayoutStudioWindowManager {
       return true;
     }
 
+    boolean isDirty() {
+      return dirty;
+    }
+
+    boolean saveIfDirty() {
+      if (!dirty) return true;
+      save();
+      return !dirty;
+    }
+
+    String fileName() {
+      return file == null ? "unknown" : file.getName();
+    }
+
     void setProjectRoot(File projectRoot) {
       this.projectRoot = projectRoot;
       configureVisualEditors();
@@ -312,7 +344,8 @@ public class LayoutStudioWindowManager {
       bDesign.setToggleGroup(modeGroup);
       bCode.setToggleGroup(modeGroup);
       bSplit.setToggleGroup(modeGroup);
-      bSplit.setSelected(true);
+      if (STUDIO_DESIGN_PREVIEW_ENABLED) bSplit.setSelected(true);
+      else bCode.setSelected(true);
 
       bDesign.setOnAction(e -> applyMode(Mode.DESIGN));
       bCode.setOnAction(e -> applyMode(Mode.CODE));
@@ -353,10 +386,22 @@ public class LayoutStudioWindowManager {
       reloadButton.getStyleClass().add("layout-studio-toolbar-button");
       revealButton.getStyleClass().add("layout-studio-toolbar-button");
 
+      if (!STUDIO_DESIGN_PREVIEW_ENABLED) {
+        bDesign.setManaged(false);
+        bDesign.setVisible(false);
+        bSplit.setManaged(false);
+        bSplit.setVisible(false);
+      }
+
       return row;
     }
 
     private Node buildContent() {
+      if (!STUDIO_DESIGN_PREVIEW_ENABLED) {
+        centerHost.setCenter(codeEditor);
+        centerHost.getStyleClass().add("layout-studio-center");
+        return centerHost;
+      }
       split.setOrientation(Orientation.HORIZONTAL);
       ensureSplitContent();
       split.setDividerPositions(0.62);
@@ -452,6 +497,7 @@ public class LayoutStudioWindowManager {
     }
 
     private void configureVisualEditors() {
+      if (!STUDIO_DESIGN_PREVIEW_ENABLED) return;
       if (menuScreenVisualEditor != null) {
         menuScreenVisualEditor.setProjectRoot(projectRoot);
         menuScreenVisualEditor.setScreenIdHint(screenIdFromFile(file));
@@ -463,16 +509,19 @@ public class LayoutStudioWindowManager {
     private void bindSync() {
       codeEditor.setOnTextChanged(text -> {
         if (syncing) return;
-        syncing = true;
-        try {
-          applyCodeToDesign(text);
-        } catch (Exception ex) {
-          setStatus("Design sync warning: " + normalize(ex.getMessage(), "Invalid content"));
+        if (STUDIO_DESIGN_PREVIEW_ENABLED) {
+          syncing = true;
+          try {
+            applyCodeToDesign(text);
+          } catch (Exception ex) {
+            setStatus("Design sync warning: " + normalize(ex.getMessage(), "Invalid content"));
+          }
+          syncing = false;
         }
-        syncing = false;
         updateDirtyState();
       });
 
+      if (!STUDIO_DESIGN_PREVIEW_ENABLED) return;
       if (menuScreenVisualEditor != null) {
         menuScreenVisualEditor.setOnMenuTextChanged(text -> pushDesignTextToCode(text));
       }
@@ -531,10 +580,12 @@ public class LayoutStudioWindowManager {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         syncing = true;
         codeEditor.setTextNoEvent(text);
-        try {
-          applyCodeToDesign(text);
-        } catch (Exception ex) {
-          setStatus("Loaded with design warnings: " + normalize(ex.getMessage(), "invalid content"));
+        if (STUDIO_DESIGN_PREVIEW_ENABLED) {
+          try {
+            applyCodeToDesign(text);
+          } catch (Exception ex) {
+            setStatus("Loaded with design warnings: " + normalize(ex.getMessage(), "invalid content"));
+          }
         }
         syncing = false;
 
@@ -761,7 +812,9 @@ public class LayoutStudioWindowManager {
       return switch (kind) {
         case DIALOGUE_LAYOUT -> "Import textbox/choice button skins and map them to dialogue layout keys.\n"
             + "Use textBoxButton.<itemId>.* to map per-textbox action button assets (enter id in the field below).";
-        case MENU_STYLE -> "Import button textures and map them to style keys.\nUse Split mode to verify visual + file output together.";
+        case MENU_STYLE -> STUDIO_DESIGN_PREVIEW_ENABLED
+            ? "Import button textures and map them to style keys.\nUse Split mode to verify visual + file output together."
+            : "Import button textures and map them to style keys.\nUse Run Project to validate changes in the runtime quickly.";
         case MENU_SCREEN -> "Assign per-item button/icon assets using item.<itemId> keys.\n"
             + "For save/load screens, use slotPreview* keys to configure inline save thumbnails and frame skins.";
         case MENU_LAYOUT -> "This file is geometry-focused. Asset tools are still available for copying paths into custom properties.";
@@ -899,6 +952,7 @@ public class LayoutStudioWindowManager {
     private enum Mode { DESIGN, CODE, SPLIT }
 
     private void applyMode(Mode mode) {
+      if (!STUDIO_DESIGN_PREVIEW_ENABLED) mode = Mode.CODE;
       if (mode == null) mode = Mode.SPLIT;
       if (mode == Mode.DESIGN) {
         centerHost.setCenter(designHost);
@@ -909,9 +963,9 @@ public class LayoutStudioWindowManager {
         centerHost.setCenter(split);
       }
 
-      bDesign.setSelected(mode == Mode.DESIGN);
+      bDesign.setSelected(STUDIO_DESIGN_PREVIEW_ENABLED && mode == Mode.DESIGN);
       bCode.setSelected(mode == Mode.CODE);
-      bSplit.setSelected(mode == Mode.SPLIT);
+      bSplit.setSelected(STUDIO_DESIGN_PREVIEW_ENABLED && mode == Mode.SPLIT);
     }
 
     private static String upsertProperty(String originalText, String key, String value) {
