@@ -18,11 +18,11 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.transform.Affine;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.transform.Affine;
 
 public class AnimationPreview extends VBox {
     private static final double PIVOT_MIN = 0.0;
@@ -97,6 +97,11 @@ public class AnimationPreview extends VBox {
     private boolean draggingOrbitAnchor = false;
     private PivotDragState pivotDragState;
     private double dragEntityStartX, dragEntityStartY;
+    private boolean pivotAxisLocked = false;
+    private boolean pivotAxisIsHorizontal = false;
+    private double pivotDragStartWorldX, pivotDragStartWorldY;
+    private String pivotOverlayText = null;
+    private double pivotOverlayScreenX, pivotOverlayScreenY;
     private double orbitRadius = 0.0;
     private boolean orbitToolEnabled = false;
     private boolean orbitAlignRotation = true;
@@ -209,6 +214,18 @@ public class AnimationPreview extends VBox {
             gc.fillText("No scene loaded", viewportLogicalWidth / 2 - 40, viewportLogicalHeight / 2);
         }
         gc.restore();
+
+        if (pivotOverlayText != null) {
+            gc.setFont(javafx.scene.text.Font.font("Monospaced", 11));
+            double textW = pivotOverlayText.length() * 7.0;
+            double textH = 16.0;
+            double ox = Math.min(pivotOverlayScreenX, w - textW - 6);
+            double oy = Math.max(pivotOverlayScreenY, textH + 4);
+            gc.setFill(Color.web("#1a1a1a", 0.85));
+            gc.fillRoundRect(ox - 4, oy - textH + 2, textW + 8, textH + 4, 4, 4);
+            gc.setFill(Color.web("#f7d07a"));
+            gc.fillText(pivotOverlayText, ox, oy);
+        }
     }
 
     private void updateViewportTransform(double canvasW, double canvasH) {
@@ -417,26 +434,26 @@ public class AnimationPreview extends VBox {
         if (entity == null) return null;
         double w = 40.0;
         double h = 40.0;
-        double ox = 0.5;
-        double oy = 0.5;
         if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
             w = sprite.getWidth();
             h = sprite.getHeight();
-            ox = sprite.getOriginX();
-            oy = sprite.getOriginY();
         } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D character) {
             w = character.getDrawWidth();
             h = character.getDrawHeight();
-            ox = character.getOriginX();
-            oy = character.getOriginY();
+        } else if (entity instanceof com.jvn.core.scene2d.Panel2D panel) {
+            w = panel.getWidth();
+            h = panel.getHeight();
+        } else if (entity instanceof com.jvn.core.scene2d.SpriteAnimation2D) {
+            w = 40.0;
+            h = 40.0;
         }
         return new EntityFrame(
             entity.getX(),
             entity.getY(),
             w,
             h,
-            ox,
-            oy,
+            entity.getOriginX(),
+            entity.getOriginY(),
             entity.getScaleX(),
             entity.getScaleY(),
             Math.toRadians(entity.getRotationDeg())
@@ -619,6 +636,11 @@ public class AnimationPreview extends VBox {
                 if (selectedEntity != null && supportsPivotEntity(selectedEntity) && isNearPivotHandle(e.getX(), e.getY())) {
                     pivotDragState = buildPivotDragState(selectedEntity);
                     draggingPivot = true;
+                    pivotAxisLocked = false;
+                    pivotAxisIsHorizontal = false;
+                    double[] startWorld = screenToWorld(e.getX(), e.getY());
+                    pivotDragStartWorldX = startWorld[0];
+                    pivotDragStartWorldY = startWorld[1];
                     return;
                 }
 
@@ -695,6 +717,26 @@ public class AnimationPreview extends VBox {
                 double worldX = world[0];
                 double worldY = world[1];
 
+                if (e.isShiftDown()) {
+                    if (!pivotAxisLocked) {
+                        double adx = Math.abs(worldX - pivotDragStartWorldX);
+                        double ady = Math.abs(worldY - pivotDragStartWorldY);
+                        if (adx > 2.0 || ady > 2.0) {
+                            pivotAxisLocked = true;
+                            pivotAxisIsHorizontal = adx >= ady;
+                        }
+                    }
+                    if (pivotAxisLocked) {
+                        if (pivotAxisIsHorizontal) {
+                            worldY = pivotDragState.baseY;
+                        } else {
+                            worldX = pivotDragState.baseX;
+                        }
+                    }
+                } else {
+                    pivotAxisLocked = false;
+                }
+
                 double dx = worldX - pivotDragState.baseX;
                 double dy = worldY - pivotDragState.baseY;
                 double cos = Math.cos(pivotDragState.baseRotationRad);
@@ -708,6 +750,10 @@ public class AnimationPreview extends VBox {
                 double pivotY = clampPivot(pivotDragState.baseOriginY + localY / pivotDragState.baseH);
                 selectedEntity.setPosition(worldX, worldY);
                 setEntityPivot(selectedEntity, pivotX, pivotY);
+
+                pivotOverlayText = String.format("Pivot: (%.2f, %.2f)", pivotX, pivotY);
+                pivotOverlayScreenX = e.getX() + 14;
+                pivotOverlayScreenY = e.getY() - 6;
 
                 if (onEntityPivotChanged != null && selectedEntityName != null) {
                     onEntityPivotChanged.accept(selectedEntityName, new double[]{pivotX, pivotY});
@@ -742,6 +788,11 @@ public class AnimationPreview extends VBox {
             draggingOrbit = false;
             draggingOrbitAnchor = false;
             pivotDragState = null;
+            pivotAxisLocked = false;
+            if (pivotOverlayText != null) {
+                pivotOverlayText = null;
+                render();
+            }
         });
     }
 
@@ -785,8 +836,7 @@ public class AnimationPreview extends VBox {
     }
 
     private boolean supportsPivotEntity(Entity2D entity) {
-        return entity instanceof com.jvn.core.scene2d.Sprite2D ||
-               entity instanceof com.jvn.core.scene2d.CharacterEntity2D;
+        return entity != null;
     }
 
     private boolean isNearPivotHandle(double screenX, double screenY) {
@@ -814,6 +864,35 @@ public class AnimationPreview extends VBox {
         gc.strokeLine(px, py - arm, px, py + arm);
         gc.setFill(Color.web("#f7d07a", 0.8));
         gc.fillOval(px - radius, py - radius, radius * 2.0, radius * 2.0);
+
+        EntityFrame frame = describeEntity(entity);
+        if (frame != null) {
+            double ox = frame.originX;
+            double oy = frame.originY;
+            boolean isNonCenter = Math.abs(ox - 0.5) > 0.01 || Math.abs(oy - 0.5) > 0.01;
+
+            if (isNonCenter) {
+                double cos = Math.cos(frame.rotationRad);
+                double sin = Math.sin(frame.rotationRad);
+                double cx = (0.5 - ox) * frame.w * frame.scaleX;
+                double cy = (0.5 - oy) * frame.h * frame.scaleY;
+                double centerWx = px + cx * cos - cy * sin;
+                double centerWy = py + cx * sin + cy * cos;
+                double dotR = 2.0 / z;
+                gc.setFill(Color.web("#f7d07a", 0.4));
+                gc.fillOval(centerWx - dotR, centerWy - dotR, dotR * 2.0, dotR * 2.0);
+                gc.setStroke(Color.web("#f7d07a", 0.3));
+                gc.setLineWidth(0.8 / z);
+                gc.setLineDashes(3.0 / z, 2.0 / z);
+                gc.strokeLine(px, py, centerWx, centerWy);
+                gc.setLineDashes((double[]) null);
+            }
+
+            String label = String.format("(%.2f, %.2f)", ox, oy);
+            gc.setFill(Color.web("#f7d07a", 0.7));
+            gc.setFont(javafx.scene.text.Font.font(8.0 / z));
+            gc.fillText(label, px + arm + (2.0 / z), py - (2.0 / z));
+        }
     }
 
     private void drawOrbitAnchorWorld(String entityName, Entity2D entity, double zoom) {
@@ -847,13 +926,7 @@ public class AnimationPreview extends VBox {
     }
 
     private void setEntityPivot(Entity2D entity, double pivotX, double pivotY) {
-        double clampedX = clampPivot(pivotX);
-        double clampedY = clampPivot(pivotY);
-        if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
-            sprite.setOrigin(clampedX, clampedY);
-        } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D character) {
-            character.setOrigin(clampedX, clampedY);
-        }
+        entity.setOrigin(clampPivot(pivotX), clampPivot(pivotY));
     }
 
     private static double clampPivot(double v) {

@@ -10,6 +10,8 @@ public class Entity2D {
   protected boolean visible = true;
   protected double parallaxX = 1.0;
   protected double parallaxY = 1.0;
+  protected double originX = 0.0;
+  protected double originY = 0.0;
 
   public double getX() { return x; }
   public double getY() { return y; }
@@ -20,6 +22,8 @@ public class Entity2D {
   public boolean isVisible() { return visible; }
   public double getParallaxX() { return parallaxX; }
   public double getParallaxY() { return parallaxY; }
+  public double getOriginX() { return originX; }
+  public double getOriginY() { return originY; }
 
   public void setPosition(double x, double y) { this.x = x; this.y = y; }
   public void setRotationDeg(double deg) { this.rotationDeg = deg; }
@@ -27,6 +31,7 @@ public class Entity2D {
   public void setZ(double z) { this.z = z; }
   public void setVisible(boolean visible) { this.visible = visible; }
   public void setParallax(double px, double py) { this.parallaxX = px; this.parallaxY = py; }
+  public void setOrigin(double ox, double oy) { this.originX = ox; this.originY = oy; }
 
   public void update(long deltaMs) {}
 

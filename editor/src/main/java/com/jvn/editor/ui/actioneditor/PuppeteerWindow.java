@@ -215,6 +215,18 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
         });
 
+        keyframeEditor.setOnPivotPresetApplied((px, py) -> {
+            String name = timelinePanel.getSelectedEntity();
+            if (name == null || name.isBlank()) return;
+            EntityTrack track = this.project.getOrCreateTrack(name);
+            double time = this.project.getPlayheadMs();
+            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, px));
+            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, py));
+            timelinePanel.refresh();
+            updatePreview();
+            refreshExportPreviewAndMarkDirty();
+        });
+
         animationPreview.setOnEntityRotationChanged((name, rotationDeg) -> {
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
@@ -804,25 +816,15 @@ public class PuppeteerWindow extends Stage {
     }
 
     private static double getEntityPivotX(com.jvn.core.scene2d.Entity2D entity) {
-        if (entity instanceof com.jvn.core.scene2d.Sprite2D s) return s.getOriginX();
-        if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D c) return c.getOriginX();
-        return 0.0;
+        return entity.getOriginX();
     }
 
     private static double getEntityPivotY(com.jvn.core.scene2d.Entity2D entity) {
-        if (entity instanceof com.jvn.core.scene2d.Sprite2D s) return s.getOriginY();
-        if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D c) return c.getOriginY();
-        return 0.0;
+        return entity.getOriginY();
     }
 
     private static void setEntityPivot(com.jvn.core.scene2d.Entity2D entity, double pivotX, double pivotY) {
-        double clampedX = clampPivot(pivotX);
-        double clampedY = clampPivot(pivotY);
-        if (entity instanceof com.jvn.core.scene2d.Sprite2D s) {
-            s.setOrigin(clampedX, clampedY);
-        } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D c) {
-            c.setOrigin(clampedX, clampedY);
-        }
+        entity.setOrigin(clampPivot(pivotX), clampPivot(pivotY));
     }
 
     private static double clampPivot(double value) {

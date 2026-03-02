@@ -36,6 +36,7 @@ public enum PropertyType {
     public double getDefaultValue() {
         return switch (this) {
             case SCALE_X, SCALE_Y, ALPHA, CAMERA_ZOOM -> 1.0;
+            case PIVOT_X, PIVOT_Y -> 0.5;
             default -> 0.0;
         };
     }

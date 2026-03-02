@@ -7,8 +7,6 @@ public class Sprite2D extends Entity2D {
   private double alpha = 1.0;
   private boolean useRegion = false;
   private double sx, sy, sw, sh;
-  private double originX = 0.0;
-  private double originY = 0.0;
 
   public Sprite2D(String imagePath, double width, double height) {
     this.imagePath = imagePath;
@@ -31,9 +29,6 @@ public class Sprite2D extends Entity2D {
   public double getWidth() { return width; }
   public double getHeight() { return height; }
   public void setSize(double w, double h) { this.width = w; this.height = h; }
-  public void setOrigin(double ox, double oy) { this.originX = ox; this.originY = oy; }
-  public double getOriginX() { return originX; }
-  public double getOriginY() { return originY; }
 
   @Override
   public void render(Blitter2D b) {

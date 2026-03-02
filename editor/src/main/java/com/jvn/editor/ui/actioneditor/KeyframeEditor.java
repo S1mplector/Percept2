@@ -25,6 +25,8 @@ public class KeyframeEditor extends VBox {
     private final Button btnDelete;
     private final Button btnResetValue;
     private final EasingCurveEditor curveEditor;
+    private final GridPane pivotPresetsGrid;
+    private final Label lblPivotPresets;
 
     private static final String FIELD_STYLE =
         "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
@@ -41,6 +43,7 @@ public class KeyframeEditor extends VBox {
     private PropertyType currentProperty;
     private Runnable onKeyframeChanged;
     private Runnable onDeleteRequested;
+    private java.util.function.BiConsumer<Double, Double> onPivotPresetApplied;
 
     public KeyframeEditor() {
         setSpacing(6);
@@ -94,6 +97,14 @@ public class KeyframeEditor extends VBox {
 
         HBox actionRow = new HBox(6, btnDelete, btnResetValue);
 
+        lblPivotPresets = new Label("Pivot Presets:");
+        lblPivotPresets.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+        pivotPresetsGrid = buildPivotPresetsGrid();
+        pivotPresetsGrid.setVisible(false);
+        pivotPresetsGrid.setManaged(false);
+        lblPivotPresets.setVisible(false);
+        lblPivotPresets.setManaged(false);
+
         grid.add(new Label("Entity:"), 0, 0);
         grid.add(lblEntity, 1, 0);
         grid.add(new Label("Property:"), 0, 1);
@@ -113,7 +124,9 @@ public class KeyframeEditor extends VBox {
         grid.add(new Label("Easing:"), 0, 4);
         grid.add(cbEasing, 1, 4);
         grid.add(curveEditor, 0, 5, 2, 1);
-        grid.add(actionRow, 1, 6);
+        grid.add(lblPivotPresets, 0, 6);
+        grid.add(pivotPresetsGrid, 1, 6);
+        grid.add(actionRow, 1, 7);
 
         for (var node : grid.getChildren()) {
             if (node instanceof Label l && l != header) l.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
@@ -204,6 +217,7 @@ public class KeyframeEditor extends VBox {
             syncTimeSliderBounds(0.0);
             showEmptyState(true);
             setFieldsDisabled(true);
+            showPivotPresets(false);
         } else {
             showEmptyState(false);
             lblProperty.setText(property != null ? property.getDisplayName() : "-");
@@ -219,6 +233,7 @@ public class KeyframeEditor extends VBox {
             configureSliderForProperty(property);
             sliderValue.setValue(kf.getValue());
             setFieldsDisabled(false);
+            showPivotPresets(property == PropertyType.PIVOT_X || property == PropertyType.PIVOT_Y);
         }
     }
 
@@ -236,6 +251,10 @@ public class KeyframeEditor extends VBox {
 
     public Keyframe getCurrentKeyframe() { return currentKeyframe; }
     public PropertyType getCurrentProperty() { return currentProperty; }
+
+    public void setOnPivotPresetApplied(java.util.function.BiConsumer<Double, Double> callback) {
+        this.onPivotPresetApplied = callback;
+    }
 
     private void applyChanges() {
         if (currentKeyframe == null) return;
@@ -317,5 +336,65 @@ public class KeyframeEditor extends VBox {
         cbEasing.setDisable(disabled);
         btnDelete.setDisable(disabled);
         btnResetValue.setDisable(disabled);
+    }
+
+    private void showPivotPresets(boolean show) {
+        pivotPresetsGrid.setVisible(show);
+        pivotPresetsGrid.setManaged(show);
+        lblPivotPresets.setVisible(show);
+        lblPivotPresets.setManaged(show);
+    }
+
+    private GridPane buildPivotPresetsGrid() {
+        GridPane pg = new GridPane();
+        pg.setHgap(2);
+        pg.setVgap(2);
+
+        String[][] labels = {
+            {"TL", "TC", "TR"},
+            {"ML", " C", "MR"},
+            {"BL", "BC", "BR"}
+        };
+        double[][] pivotX = {{0.0, 0.5, 1.0}, {0.0, 0.5, 1.0}, {0.0, 0.5, 1.0}};
+        double[][] pivotY = {{0.0, 0.0, 0.0}, {0.5, 0.5, 0.5}, {1.0, 1.0, 1.0}};
+        String[][] tooltips = {
+            {"Top-Left (0, 0)", "Top-Center (0.5, 0)", "Top-Right (1, 0)"},
+            {"Mid-Left (0, 0.5)", "Center (0.5, 0.5)", "Mid-Right (1, 0.5)"},
+            {"Bottom-Left (0, 1)", "Bottom-Center (0.5, 1)", "Bottom-Right (1, 1)"}
+        };
+
+        String btnStyle = "-fx-background-color: #2a2a2a; -fx-text-fill: #c0c0c0; -fx-background-radius: 2; " +
+            "-fx-border-radius: 2; -fx-padding: 2 4; -fx-font-size: 9px; -fx-cursor: hand; -fx-min-width: 26; -fx-min-height: 18;";
+        String btnHoverStyle = "-fx-background-color: #3a3a5a; -fx-text-fill: #f7d07a; -fx-background-radius: 2; " +
+            "-fx-border-radius: 2; -fx-padding: 2 4; -fx-font-size: 9px; -fx-cursor: hand; -fx-min-width: 26; -fx-min-height: 18;";
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                Button btn = new Button(labels[row][col]);
+                btn.setStyle(btnStyle);
+                btn.setTooltip(new Tooltip(tooltips[row][col]));
+                final double px = pivotX[row][col];
+                final double py = pivotY[row][col];
+                btn.setOnMouseEntered(e -> btn.setStyle(btnHoverStyle));
+                btn.setOnMouseExited(e -> btn.setStyle(btnStyle));
+                btn.setOnAction(e -> applyPivotPreset(px, py));
+                pg.add(btn, col, row);
+            }
+        }
+        return pg;
+    }
+
+    private void applyPivotPreset(double px, double py) {
+        if (currentKeyframe == null || currentProperty == null) return;
+
+        double axisValue = (currentProperty == PropertyType.PIVOT_X) ? px : py;
+        currentKeyframe.setValue(axisValue);
+        tfValue.setText(String.format("%.2f", axisValue));
+        sliderValue.setValue(axisValue);
+        if (onKeyframeChanged != null) onKeyframeChanged.run();
+
+        if (onPivotPresetApplied != null) {
+            onPivotPresetApplied.accept(px, py);
+        }
     }
 }

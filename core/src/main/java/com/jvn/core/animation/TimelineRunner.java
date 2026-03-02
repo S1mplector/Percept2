@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import com.jvn.core.scene2d.CharacterEntity2D;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.Label2D;
 import com.jvn.core.scene2d.Panel2D;
@@ -213,25 +212,15 @@ public class TimelineRunner {
     }
 
     private static double getPivotX(Entity2D entity) {
-        if (entity instanceof Sprite2D s) return s.getOriginX();
-        if (entity instanceof CharacterEntity2D c) return c.getOriginX();
-        return 0.0;
+        return entity.getOriginX();
     }
 
     private static double getPivotY(Entity2D entity) {
-        if (entity instanceof Sprite2D s) return s.getOriginY();
-        if (entity instanceof CharacterEntity2D c) return c.getOriginY();
-        return 0.0;
+        return entity.getOriginY();
     }
 
     private static void setPivot(Entity2D entity, double pivotX, double pivotY) {
-        double clampedX = clampPivot(pivotX);
-        double clampedY = clampPivot(pivotY);
-        if (entity instanceof Sprite2D s) {
-            s.setOrigin(clampedX, clampedY);
-        } else if (entity instanceof CharacterEntity2D c) {
-            c.setOrigin(clampedX, clampedY);
-        }
+        entity.setOrigin(clampPivot(pivotX), clampPivot(pivotY));
     }
 
     private static double clampPivot(double value) {

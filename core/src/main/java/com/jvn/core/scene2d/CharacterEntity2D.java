@@ -7,8 +7,6 @@ public class CharacterEntity2D extends Entity2D {
   private final SpriteSheet sheet;
   private final double drawW;
   private final double drawH;
-  private double originX = 0.5;
-  private double originY = 1.0;
 
   private final Map<String, int[]> animations = new HashMap<>();
   private String currentAnim;
@@ -24,17 +22,12 @@ public class CharacterEntity2D extends Entity2D {
     this.sheet = sheet;
     this.drawW = drawW;
     this.drawH = drawH;
+    this.originX = 0.5;
+    this.originY = 1.0;
   }
 
   public double getDrawWidth() { return drawW; }
   public double getDrawHeight() { return drawH; }
-  public double getOriginX() { return originX; }
-  public double getOriginY() { return originY; }
-
-  public void setOrigin(double ox, double oy) {
-    this.originX = ox;
-    this.originY = oy;
-  }
 
   public void setSpeed(double speed) {
     this.speed = speed;
