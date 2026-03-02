@@ -116,6 +116,7 @@ public class MenuStyleVisualEditor extends BorderPane {
   private Button btnRedo;
   private boolean applyingHistory = false;
   private final Label validation = new Label("No issues detected.");
+  private final List<String> parseDiagnostics = new ArrayList<>();
   private final TableView<CustomProperty> customPropsTable = new TableView<>();
   private final ObservableList<CustomProperty> customProps = FXCollections.observableArrayList();
   private List<String> previewItems = List.of("> New Game", "  Load", "  Settings", "  Quit");
@@ -216,11 +217,13 @@ public class MenuStyleVisualEditor extends BorderPane {
   public void setStyleText(String text) {
     String normalized = normalizeText(text);
     if (normalized.equals(lastLoadedText)) return;
+    parseDiagnostics.clear();
     suppressEvents = true;
     rawProperties.clear();
     try {
       if (text != null && !text.isBlank()) rawProperties.load(new StringReader(text));
-    } catch (Exception ignored) {
+    } catch (Exception ex) {
+      parseDiagnostics.add("Failed to parse style properties: " + ex.getMessage());
     }
 
     tfItemColor.setText(rawProperties.getProperty("itemColor", tfItemColor.getText()));
@@ -234,6 +237,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     try {
       spItemFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("itemFontSize", Integer.toString(spItemFontSize.getValue()))));
     } catch (Exception ignored) {
+      parseDiagnostics.add("Invalid integer for 'itemFontSize': '" + rawProperties.getProperty("itemFontSize") + "'");
     }
 
     // Hover color
@@ -256,13 +260,21 @@ public class MenuStyleVisualEditor extends BorderPane {
     tfTitleColor.setText(rawProperties.getProperty("titleColor", ""));
     cbTitleFontFamily.setValue(rawProperties.getProperty("titleFontFamily", cbTitleFontFamily.getValue()));
     cbTitleFontWeight.setValue(rawProperties.getProperty("titleFontWeight", cbTitleFontWeight.getValue()));
-    try { spTitleFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("titleFontSize", Integer.toString(spTitleFontSize.getValue())))); } catch (Exception ignored) {}
+    try {
+      spTitleFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("titleFontSize", Integer.toString(spTitleFontSize.getValue()))));
+    } catch (Exception ignored) {
+      parseDiagnostics.add("Invalid integer for 'titleFontSize': '" + rawProperties.getProperty("titleFontSize") + "'");
+    }
     tfTitleShadowColor.setText(rawProperties.getProperty("titleShadowColor", ""));
 
     // Hints styling
     tfHintsColor.setText(rawProperties.getProperty("hintsColor", ""));
     cbHintsFontFamily.setValue(rawProperties.getProperty("hintsFontFamily", cbHintsFontFamily.getValue()));
-    try { spHintsFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("hintsFontSize", Integer.toString(spHintsFontSize.getValue())))); } catch (Exception ignored) {}
+    try {
+      spHintsFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("hintsFontSize", Integer.toString(spHintsFontSize.getValue()))));
+    } catch (Exception ignored) {
+      parseDiagnostics.add("Invalid integer for 'hintsFontSize': '" + rawProperties.getProperty("hintsFontSize") + "'");
+    }
 
     // Background
     tfBackgroundAsset.setText(rawProperties.getProperty("backgroundAsset", ""));
@@ -507,6 +519,7 @@ public class MenuStyleVisualEditor extends BorderPane {
 
   private void refreshValidation() {
     List<String> warnings = new ArrayList<>();
+    warnings.addAll(parseDiagnostics);
     validateColor(warnings, "itemColor", tfItemColor.getText(), true);
     validateColor(warnings, "itemSelectedColor", tfItemSelectedColor.getText(), true);
     validateColor(warnings, "itemDisabledColor", tfItemDisabledColor.getText(), true);

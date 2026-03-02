@@ -229,4 +229,19 @@ class MenuButtonLayoutLoaderTest {
     assertTrue(empty.buttons().isEmpty());
     assertTrue(empty.extras().isEmpty());
   }
+
+  @Test
+  void emitsDiagnosticsForDuplicateIdsPartialBoundsAndTypoKeys() {
+    Properties p = new Properties();
+    p.setProperty("button.ids", "start,start");
+    p.setProperty("button.start.boundsX", "0.1");
+    p.setProperty("button.start.hoverAsseet", "assets/ui/hover.png");
+
+    MenuButtonLayoutLoader.ParseResult result = MenuButtonLayoutLoader.parseWithDiagnostics(p);
+
+    assertEquals(1, result.spec().buttons().size());
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("Duplicate button id 'start'")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("partial bounds")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("did you mean 'hoverAsset'")));
+  }
 }

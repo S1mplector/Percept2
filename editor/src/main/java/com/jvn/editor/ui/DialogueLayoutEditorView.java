@@ -134,6 +134,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private String lastEmittedText = "";
   private File projectRoot;
   private Image textBoxAssetImage;
+  private Image nameBoxAssetImage;
   private Image choiceButtonAssetImage;
   private Image choiceButtonHoverAssetImage;
   private Image choiceButtonDisabledAssetImage;
@@ -144,6 +145,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private Button btnRedo;
   private boolean applyingHistory = false;
   private final Label validation = new Label("No issues detected.");
+  private List<String> parserDiagnostics = List.of();
 
   private String previewSpeakerName = "Speaker Name";
   private String previewDialogueLine1 = "Narrator: The GUI editor now controls dialogue bounds.";
@@ -294,6 +296,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         VnUiLayoutSpec.defaults(),
         VnUiStyleSpec.defaults()
     );
+    parserDiagnostics = parsed.diagnostics();
     spec = parsed.layout();
     style = parsed.style();
     textBoxButtons = new ArrayList<>(parsed.textBoxButtons());
@@ -1174,8 +1177,12 @@ public class DialogueLayoutEditorView extends BorderPane {
         g.save();
         clipToLocalPolygon(g, nameBoxBounds, rects.nameBox());
       }
-      g.setFill(RUNTIME_NAME_BOX_COLOR);
-      g.fillRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
+      if (nameBoxAssetImage != null && nameBoxAssetImage.getWidth() > 1 && nameBoxAssetImage.getHeight() > 1) {
+        g.drawImage(nameBoxAssetImage, rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
+      } else {
+        g.setFill(RUNTIME_NAME_BOX_COLOR);
+        g.fillRect(rects.nameBox().x(), rects.nameBox().y(), rects.nameBox().w(), rects.nameBox().h());
+      }
       if (clipNameBox) g.restore();
 
       g.setFill(RUNTIME_TEXT_COLOR);
@@ -2483,6 +2490,7 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private void validateState() {
     List<String> warnings = new ArrayList<>();
+    warnings.addAll(parserDiagnostics);
     Set<String> ids = new LinkedHashSet<>();
 
     if (spec.textBoxWidth() <= 0.0 || spec.textBoxHeight() <= 0.0) {
@@ -2743,6 +2751,7 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private void loadTextBoxAssetImage() {
     textBoxAssetImage = loadImageAsset(style.textBoxAssetPath());
+    nameBoxAssetImage = loadImageAsset(style.nameBoxAssetPath());
   }
 
   private void loadChoiceAssetImages() {

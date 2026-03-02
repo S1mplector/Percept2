@@ -279,4 +279,26 @@ class MenuProfileLoaderTest {
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("wrapSelection")));
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("unknown_custom_action")));
   }
+
+  @Test
+  void emitsDiagnosticsForUnknownKeysAndInvalidItemBounds() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-hardening-");
+    Files.createDirectories(root.resolve("config/menu/menus"));
+    Files.writeString(root.resolve("config/menu/menu.registry"), "menus=main\n");
+    Files.writeString(root.resolve("config/menu/menus/main.menu"), """
+        defaultItemStyl=default
+        items=play,play
+        item.play.action=open_menu
+        item.play.boundsX=0.2
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfileLoader.LoadResult result = MenuProfileLoader.loadWithDiagnostics(assets);
+
+    assertEquals(1, result.profile().screen("main").items().size());
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("Unknown menu screen key 'defaultItemStyl'")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("Duplicate item id 'play'")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("partial bounds")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("OPEN_MENU action requires a target")));
+  }
 }

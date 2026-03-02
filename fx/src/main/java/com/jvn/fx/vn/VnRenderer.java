@@ -11,6 +11,7 @@ import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.localization.Localization;
+import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
 import com.jvn.core.vn.DialogueLine;
@@ -26,7 +27,6 @@ import com.jvn.core.vn.VnVariableInterpolator;
 import com.jvn.core.vn.text.TextEffect;
 import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
-import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
@@ -102,6 +102,7 @@ public class VnRenderer {
   private Image choiceButtonHoverImage;
   private Image choiceButtonDisabledImage;
   private Image textBoxImage;
+  private Image nameBoxImage;
   private Color textBoxFillColor = TEXTBOX_COLOR;
   private double textBoxAssetOverlayOpacity = 0.28;
   private Color choiceBgColor = CHOICE_BG_COLOR;
@@ -819,8 +820,12 @@ public class VnRenderer {
         gc.save();
         clipToLocalPolygon(nameBoxBoundsPolygon, nameBoxX, nameBoxY, nameBoxW, nameBoxH);
       }
-      gc.setFill(NAME_BOX_COLOR);
-      gc.fillRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+      if (nameBoxImage != null) {
+        gc.drawImage(nameBoxImage, nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+      } else {
+        gc.setFill(NAME_BOX_COLOR);
+        gc.fillRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+      }
       if (clipNameBox) gc.restore();
 
       gc.setFill(TEXT_COLOR);
@@ -1026,6 +1031,7 @@ public class VnRenderer {
   private void applyUiStyle(VnUiStyleSpec style) {
     VnUiStyleSpec resolved = style == null ? VnUiStyleSpec.defaults() : style;
     textBoxImage = loadImage(resolved.textBoxAssetPath());
+    nameBoxImage = loadImage(resolved.nameBoxAssetPath());
     textBoxFillColor = parseColor(resolved.textBoxColor(), TEXTBOX_COLOR);
     textBoxAssetOverlayOpacity = clamp(
         resolved.textBoxOpacity() == null ? 0.28 : resolved.textBoxOpacity(),

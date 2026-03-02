@@ -7,12 +7,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
+import com.jvn.core.ui.BoundsPointCodec;
 
 /**
  * Loader for dialogue layout configuration.
@@ -31,6 +33,86 @@ public final class VnUiLayoutLoader {
       "config/vn/dialogue.layout",
       "dialogue.layout"
   };
+
+  private static final Set<String> KNOWN_DIALOGUE_LAYOUT_KEYS = Set.of(
+      "textBoxX",
+      "textBoxY",
+      "textBoxWidth",
+      "textBoxHeight",
+      "textBoxPadding",
+      "nameBoxXOffset",
+      "nameBoxYOffset",
+      "nameBoxWidth",
+      "nameBoxHeight",
+      "nameTextXOffset",
+      "nameTextBaselineOffset",
+      "dialogueTextHorizontalPadding",
+      "dialogueTextTopPadding",
+      "dialogueTextRightPadding",
+      "dialogueTextBottomPadding",
+      "choiceXCenter",
+      "choiceYStart",
+      "choiceWidthFactor",
+      "choiceHeight",
+      "choiceGap",
+      "choiceTextXPadding"
+  );
+
+  private static final Set<String> KNOWN_DIALOGUE_STYLE_KEYS = Set.of(
+      "textBoxAsset",
+      "textBoxColor",
+      "textBoxOpacity",
+      "textBoxBoundsPoints",
+      "nameBoxAsset",
+      "nameBoxColor",
+      "nameTextColor",
+      "nameTextFontFamily",
+      "nameTextFontSize",
+      "nameBoxBoundsPoints",
+      "dialogueTextColor",
+      "dialogueTextFontFamily",
+      "dialogueTextFontSize",
+      "dialogueTextBoundsPoints",
+      "choiceButtonAsset",
+      "choiceButtonHoverAsset",
+      "choiceButtonSelectedAsset",
+      "choiceButtonDisabledAsset",
+      "choiceButtonBoundsPoints",
+      "choiceBackgroundColor",
+      "choiceHoverColor",
+      "choiceSelectedColor",
+      "choiceDisabledColor",
+      "choiceTextColor",
+      "choiceHoverTextColor",
+      "choiceSelectedTextColor",
+      "choiceDisabledTextColor",
+      "choiceBorderColor",
+      "choiceHoverBorderColor",
+      "choiceSelectedBorderColor",
+      "choiceDisabledBorderColor",
+      "choiceCornerRadius",
+      "choiceBorderWidth",
+      "choiceTextBaselineOffset",
+      "choiceFontFamily",
+      "choiceFontSize",
+      "characterHeightFactor",
+      "characterBaselineY"
+  );
+
+  private static final Set<String> KNOWN_TEXTBOX_BUTTON_FIELDS = Set.of(
+      "label",
+      "action",
+      "target",
+      "enabled",
+      "asset",
+      "hoverAsset",
+      "disabledAsset",
+      "boundsPoints",
+      "x",
+      "y",
+      "width",
+      "height"
+  );
 
   public record LoadResult(
       VnUiLayoutSpec layout,
@@ -139,6 +221,7 @@ public final class VnUiLayoutLoader {
     VnUiStyleSpec bStyle = baseStyle == null ? VnUiStyleSpec.defaults() : baseStyle;
     List<VnUiActionButtonSpec> bButtons = baseButtons == null ? List.of() : baseButtons;
     if (props == null) return new LoadResult(bLayout, bStyle, bButtons, diagnostics);
+    warnUnknownKeys(props, diagnostics);
 
     double textBoxX = parseDouble(props.getProperty("textBoxX"), bLayout.textBoxX(), diagnostics, "textBoxX");
     double textBoxY = parseDouble(props.getProperty("textBoxY"), bLayout.textBoxY(), diagnostics, "textBoxY");
@@ -202,23 +285,62 @@ public final class VnUiLayoutLoader {
         choiceTextXPadding
     );
 
+    warnAdjustedDouble("textBoxX", textBoxX, layout.textBoxX(), diagnostics);
+    warnAdjustedDouble("textBoxY", textBoxY, layout.textBoxY(), diagnostics);
+    warnAdjustedDouble("textBoxWidth", textBoxWidth, layout.textBoxWidth(), diagnostics);
+    warnAdjustedDouble("textBoxHeight", textBoxHeight, layout.textBoxHeight(), diagnostics);
+    warnAdjustedDouble("textBoxPadding", textBoxPadding, layout.textBoxPadding(), diagnostics);
+    warnAdjustedDouble("nameBoxWidth", nameBoxWidth, layout.nameBoxWidth(), diagnostics);
+    warnAdjustedDouble("nameBoxHeight", nameBoxHeight, layout.nameBoxHeight(), diagnostics);
+    warnAdjustedDouble("dialogueTextHorizontalPadding", dialogueTextHorizontalPadding, layout.dialogueTextHorizontalPadding(), diagnostics);
+    warnAdjustedDouble("dialogueTextRightPadding", dialogueTextRightPadding, layout.dialogueTextRightPadding(), diagnostics);
+    warnAdjustedDouble("dialogueTextBottomPadding", dialogueTextBottomPadding, layout.dialogueTextBottomPadding(), diagnostics);
+    warnAdjustedDouble("choiceXCenter", choiceXCenter, layout.choiceXCenter(), diagnostics);
+    warnAdjustedDouble("choiceYStart", choiceYStart, layout.choiceYStart(), diagnostics);
+    warnAdjustedDouble("choiceWidthFactor", choiceWidthFactor, layout.choiceWidthFactor(), diagnostics);
+    warnAdjustedDouble("choiceHeight", choiceHeight, layout.choiceHeight(), diagnostics);
+    warnAdjustedDouble("choiceGap", choiceGap, layout.choiceGap(), diagnostics);
+    warnAdjustedDouble("choiceTextXPadding", choiceTextXPadding, layout.choiceTextXPadding(), diagnostics);
+
+    Double textBoxOpacity = parseOptionalDouble(props.getProperty("textBoxOpacity"), bStyle.textBoxOpacity(), diagnostics, "textBoxOpacity");
+    Integer nameTextFontSize = parseOptionalInt(props.getProperty("nameTextFontSize"), bStyle.nameTextFontSize(), diagnostics, "nameTextFontSize");
+    Integer dialogueTextFontSize = parseOptionalInt(props.getProperty("dialogueTextFontSize"), bStyle.dialogueTextFontSize(), diagnostics, "dialogueTextFontSize");
+    double choiceCornerRadius = parseDouble(props.getProperty("choiceCornerRadius"), bStyle.choiceCornerRadius(), diagnostics, "choiceCornerRadius");
+    double choiceBorderWidth = parseDouble(props.getProperty("choiceBorderWidth"), bStyle.choiceBorderWidth(), diagnostics, "choiceBorderWidth");
+    double choiceTextBaselineOffset = parseDouble(
+        props.getProperty("choiceTextBaselineOffset"),
+        bStyle.choiceTextBaselineOffset(),
+        diagnostics,
+        "choiceTextBaselineOffset");
+    Integer choiceFontSize = parseOptionalInt(props.getProperty("choiceFontSize"), bStyle.choiceFontSize(), diagnostics, "choiceFontSize");
+    Double characterHeightFactor = parseOptionalDouble(
+        props.getProperty("characterHeightFactor"),
+        bStyle.characterHeightFactor(),
+        diagnostics,
+        "characterHeightFactor");
+    Double characterBaselineY = parseOptionalDouble(
+        props.getProperty("characterBaselineY"),
+        bStyle.characterBaselineY(),
+        diagnostics,
+        "characterBaselineY");
+
     VnUiStyleSpec style = new VnUiStyleSpec(
         // Textbox
         normalize(props.getProperty("textBoxAsset"), bStyle.textBoxAssetPath()),
         normalize(props.getProperty("textBoxColor"), bStyle.textBoxColor()),
-        parseOptionalDouble(props.getProperty("textBoxOpacity"), bStyle.textBoxOpacity(), diagnostics, "textBoxOpacity"),
+        textBoxOpacity,
         normalize(props.getProperty("textBoxBoundsPoints"), bStyle.textBoxBoundsPoints()),
         // Name box
         normalize(props.getProperty("nameBoxAsset"), bStyle.nameBoxAssetPath()),
         normalize(props.getProperty("nameBoxColor"), bStyle.nameBoxColor()),
         normalize(props.getProperty("nameTextColor"), bStyle.nameTextColor()),
         normalize(props.getProperty("nameTextFontFamily"), bStyle.nameTextFontFamily()),
-        parseOptionalInt(props.getProperty("nameTextFontSize"), bStyle.nameTextFontSize(), diagnostics, "nameTextFontSize"),
+        nameTextFontSize,
         normalize(props.getProperty("nameBoxBoundsPoints"), bStyle.nameBoxBoundsPoints()),
         // Dialogue text
         normalize(props.getProperty("dialogueTextColor"), bStyle.dialogueTextColor()),
         normalize(props.getProperty("dialogueTextFontFamily"), bStyle.dialogueTextFontFamily()),
-        parseOptionalInt(props.getProperty("dialogueTextFontSize"), bStyle.dialogueTextFontSize(), diagnostics, "dialogueTextFontSize"),
+        dialogueTextFontSize,
         normalize(props.getProperty("dialogueTextBoundsPoints"), bStyle.dialogueTextBoundsPoints()),
         // Choice button assets
         normalize(props.getProperty("choiceButtonAsset"), bStyle.choiceButtonAssetPath()),
@@ -240,16 +362,31 @@ public final class VnUiLayoutLoader {
         normalize(props.getProperty("choiceSelectedBorderColor"), bStyle.choiceSelectedBorderColor()),
         normalize(props.getProperty("choiceDisabledBorderColor"), bStyle.choiceDisabledBorderColor()),
         // Choice geometry
-        parseDouble(props.getProperty("choiceCornerRadius"), bStyle.choiceCornerRadius(), diagnostics, "choiceCornerRadius"),
-        parseDouble(props.getProperty("choiceBorderWidth"), bStyle.choiceBorderWidth(), diagnostics, "choiceBorderWidth"),
-        parseDouble(props.getProperty("choiceTextBaselineOffset"), bStyle.choiceTextBaselineOffset(), diagnostics, "choiceTextBaselineOffset"),
+        choiceCornerRadius,
+        choiceBorderWidth,
+        choiceTextBaselineOffset,
         // Choice font
         normalize(props.getProperty("choiceFontFamily"), bStyle.choiceFontFamily()),
-        parseOptionalInt(props.getProperty("choiceFontSize"), bStyle.choiceFontSize(), diagnostics, "choiceFontSize"),
+        choiceFontSize,
         // Character framing
-        parseOptionalDouble(props.getProperty("characterHeightFactor"), bStyle.characterHeightFactor(), diagnostics, "characterHeightFactor"),
-        parseOptionalDouble(props.getProperty("characterBaselineY"), bStyle.characterBaselineY(), diagnostics, "characterBaselineY")
+        characterHeightFactor,
+        characterBaselineY
     );
+
+    warnAdjustedOptionalDouble("textBoxOpacity", textBoxOpacity, style.textBoxOpacity(), diagnostics);
+    warnAdjustedOptionalInt("nameTextFontSize", nameTextFontSize, style.nameTextFontSize(), diagnostics);
+    warnAdjustedOptionalInt("dialogueTextFontSize", dialogueTextFontSize, style.dialogueTextFontSize(), diagnostics);
+    warnAdjustedDouble("choiceCornerRadius", choiceCornerRadius, style.choiceCornerRadius(), diagnostics);
+    warnAdjustedDouble("choiceBorderWidth", choiceBorderWidth, style.choiceBorderWidth(), diagnostics);
+    warnAdjustedDouble("choiceTextBaselineOffset", choiceTextBaselineOffset, style.choiceTextBaselineOffset(), diagnostics);
+    warnAdjustedOptionalInt("choiceFontSize", choiceFontSize, style.choiceFontSize(), diagnostics);
+    warnAdjustedOptionalDouble("characterHeightFactor", characterHeightFactor, style.characterHeightFactor(), diagnostics);
+    warnAdjustedOptionalDouble("characterBaselineY", characterBaselineY, style.characterBaselineY(), diagnostics);
+
+    validateBoundsPoints("textBoxBoundsPoints", style.textBoxBoundsPoints(), diagnostics);
+    validateBoundsPoints("nameBoxBoundsPoints", style.nameBoxBoundsPoints(), diagnostics);
+    validateBoundsPoints("dialogueTextBoundsPoints", style.dialogueTextBoundsPoints(), diagnostics);
+    validateBoundsPoints("choiceButtonBoundsPoints", style.choiceButtonBoundsPoints(), diagnostics);
 
     List<VnUiActionButtonSpec> buttons = parseTextBoxButtons(props, bButtons, diagnostics);
     return new LoadResult(layout, style, buttons, diagnostics);
@@ -511,10 +648,110 @@ public final class VnUiLayoutLoader {
     }
   }
 
+  private static void warnUnknownKeys(Properties props, List<String> diagnostics) {
+    if (props == null || diagnostics == null) return;
+    for (String key : props.stringPropertyNames()) {
+      if (key == null || key.isBlank()) continue;
+      if (KNOWN_DIALOGUE_LAYOUT_KEYS.contains(key)) continue;
+      if (KNOWN_DIALOGUE_STYLE_KEYS.contains(key)) continue;
+      if ("textBoxButton.ids".equals(key)) continue;
+      if (key.startsWith("textBoxButton.")) {
+        int secondDot = key.indexOf('.', "textBoxButton.".length());
+        if (secondDot <= "textBoxButton.".length() || secondDot >= key.length() - 1) {
+          diagnostics.add("Malformed textbox button key '" + key + "'; expected textBoxButton.<id>.<field>");
+          continue;
+        }
+        String field = key.substring(secondDot + 1);
+        if (KNOWN_TEXTBOX_BUTTON_FIELDS.contains(field)) continue;
+        String suggestion = closestKeyHint(field, KNOWN_TEXTBOX_BUTTON_FIELDS);
+        diagnostics.add("Unknown textbox button field '" + field + "' in key '" + key + "'" + suggestion);
+        continue;
+      }
+      String suggestion = closestKeyHint(key, allKnownDialogueKeys());
+      diagnostics.add("Unknown dialogue layout key '" + key + "'" + suggestion);
+    }
+  }
+
+  private static Set<String> allKnownDialogueKeys() {
+    Set<String> combined = new LinkedHashSet<>();
+    combined.addAll(KNOWN_DIALOGUE_LAYOUT_KEYS);
+    combined.addAll(KNOWN_DIALOGUE_STYLE_KEYS);
+    return combined;
+  }
+
+  private static String closestKeyHint(String key, Set<String> candidates) {
+    if (key == null || key.isBlank() || candidates == null || candidates.isEmpty()) return "";
+    String source = key.trim().toLowerCase(Locale.ROOT);
+    String best = null;
+    int bestDistance = Integer.MAX_VALUE;
+    for (String candidate : candidates) {
+      if (candidate == null || candidate.isBlank()) continue;
+      int distance = levenshteinDistance(source, candidate.toLowerCase(Locale.ROOT));
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = candidate;
+      }
+    }
+    if (best == null || bestDistance > 2) return "";
+    return " (did you mean '" + best + "'?)";
+  }
+
+  private static int levenshteinDistance(String a, String b) {
+    if (a == null || b == null) return Integer.MAX_VALUE;
+    int[][] dp = new int[a.length() + 1][b.length() + 1];
+    for (int i = 0; i <= a.length(); i++) dp[i][0] = i;
+    for (int j = 0; j <= b.length(); j++) dp[0][j] = j;
+    for (int i = 1; i <= a.length(); i++) {
+      for (int j = 1; j <= b.length(); j++) {
+        int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+        int deletion = dp[i - 1][j] + 1;
+        int insertion = dp[i][j - 1] + 1;
+        int substitution = dp[i - 1][j - 1] + cost;
+        dp[i][j] = Math.min(Math.min(deletion, insertion), substitution);
+      }
+    }
+    return dp[a.length()][b.length()];
+  }
+
+  private static void warnAdjustedDouble(String key, double raw, double normalized, List<String> diagnostics) {
+    if (diagnostics == null) return;
+    if (nearlyEqual(raw, normalized)) return;
+    diagnostics.add("Value for '" + key + "' was adjusted to " + format(normalized) + " (from " + format(raw) + ")");
+  }
+
+  private static void warnAdjustedOptionalDouble(String key, Double raw, Double normalized, List<String> diagnostics) {
+    if (diagnostics == null) return;
+    if (raw == null && normalized == null) return;
+    if (raw != null && normalized != null && nearlyEqual(raw, normalized)) return;
+    diagnostics.add("Value for '" + key + "' was adjusted to " + (normalized == null ? "null" : format(normalized))
+        + " (from " + (raw == null ? "null" : format(raw)) + ")");
+  }
+
+  private static void warnAdjustedOptionalInt(String key, Integer raw, Integer normalized, List<String> diagnostics) {
+    if (diagnostics == null) return;
+    if (raw == null && normalized == null) return;
+    if (raw != null && raw.equals(normalized)) return;
+    diagnostics.add("Value for '" + key + "' was adjusted to " + normalized + " (from " + raw + ")");
+  }
+
+  private static boolean nearlyEqual(double a, double b) {
+    return Math.abs(a - b) < 1e-9;
+  }
+
+  private static void validateBoundsPoints(String key, String raw, List<String> diagnostics) {
+    if (raw == null || raw.isBlank() || diagnostics == null) return;
+    List<BoundsPointCodec.Point> points = BoundsPointCodec.parse(raw);
+    if (points.size() < 3) {
+      diagnostics.add("Invalid bounds points for '" + key + "': at least 3 valid points are required");
+    }
+  }
+
   private static Double parseOptionalDouble(String raw, Double def, List<String> diagnostics, String key) {
     if (raw == null || raw.isBlank()) return def;
     try {
-      return Double.parseDouble(raw.trim());
+      double value = Double.parseDouble(raw.trim());
+      if (!Double.isFinite(value)) throw new NumberFormatException("non-finite");
+      return value;
     } catch (Exception ex) {
       if (diagnostics != null) diagnostics.add("Invalid number for '" + key + "': '" + raw + "'");
       return def;
@@ -534,7 +771,9 @@ public final class VnUiLayoutLoader {
   private static double parseDouble(String raw, double def, List<String> diagnostics, String key) {
     if (raw == null || raw.isBlank()) return def;
     try {
-      return Double.parseDouble(raw.trim());
+      double value = Double.parseDouble(raw.trim());
+      if (!Double.isFinite(value)) throw new NumberFormatException("non-finite");
+      return value;
     } catch (Exception ex) {
       if (diagnostics != null) {
         diagnostics.add("Invalid number for '" + key + "': '" + raw + "' (using " + format(def) + ")");
@@ -583,9 +822,14 @@ public final class VnUiLayoutLoader {
     if (ids.isEmpty() && !baseById.isEmpty()) ids = new ArrayList<>(baseById.keySet());
 
     List<VnUiActionButtonSpec> result = new ArrayList<>();
+    Set<String> seenIds = new LinkedHashSet<>();
     for (String idRaw : ids) {
       String id = normalize(idRaw, null);
       if (id == null) continue;
+      if (!seenIds.add(id)) {
+        diagnostics.add("Duplicate textbox button id '" + id + "'; later declaration ignored");
+        continue;
+      }
       String prefix = "textBoxButton." + id + ".";
       VnUiActionButtonSpec base = baseById.get(id);
       if (base == null) base = VnUiActionButtonSpec.defaults(id);
@@ -601,7 +845,7 @@ public final class VnUiLayoutLoader {
       double y = parseDouble(props.getProperty(prefix + "y"), base.y(), diagnostics, prefix + "y");
       double width = parseDouble(props.getProperty(prefix + "width"), base.width(), diagnostics, prefix + "width");
       double height = parseDouble(props.getProperty(prefix + "height"), base.height(), diagnostics, prefix + "height");
-      result.add(new VnUiActionButtonSpec(
+      VnUiActionButtonSpec button = new VnUiActionButtonSpec(
           id,
           label,
           action,
@@ -615,7 +859,18 @@ public final class VnUiLayoutLoader {
           y,
           width,
           height
-      ));
+      );
+      warnAdjustedDouble(prefix + "x", x, button.x(), diagnostics);
+      warnAdjustedDouble(prefix + "y", y, button.y(), diagnostics);
+      warnAdjustedDouble(prefix + "width", width, button.width(), diagnostics);
+      warnAdjustedDouble(prefix + "height", height, button.height(), diagnostics);
+      validateBoundsPoints(prefix + "boundsPoints", button.boundsPoints(), diagnostics);
+
+      String normalizedAction = normalize(button.action(), "").toLowerCase(Locale.ROOT);
+      if ("open_menu".equals(normalizedAction) && normalize(button.target(), "").isBlank()) {
+        diagnostics.add("Textbox button '" + id + "' uses open_menu without target");
+      }
+      result.add(button);
     }
     return result;
   }

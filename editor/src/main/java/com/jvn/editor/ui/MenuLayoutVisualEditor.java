@@ -81,6 +81,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private Button btnRedo;
   private boolean applyingHistory = false;
   private final Label validation = new Label("No issues detected.");
+  private final List<String> parseDiagnostics = new ArrayList<>();
   private final TableView<CustomProperty> customPropsTable = new TableView<>();
   private final ObservableList<CustomProperty> customProps = FXCollections.observableArrayList();
   private String previewTitle = "Menu Title";
@@ -134,14 +135,16 @@ public class MenuLayoutVisualEditor extends BorderPane {
   public void setLayoutText(String text) {
     String normalizedInput = normalizeText(text);
     if (normalizedInput.equals(lastLoadedText)) return;
+    parseDiagnostics.clear();
     suppressEvents = true;
     rawProperties.clear();
     try {
       if (text != null && !text.isBlank()) rawProperties.load(new StringReader(text));
-    } catch (Exception ignored) {
+    } catch (Exception ex) {
+      parseDiagnostics.add("Failed to parse layout properties: " + ex.getMessage());
       // Invalid properties fall back to defaults.
     }
-    spec = parse(rawProperties);
+    spec = parse(rawProperties, parseDiagnostics);
     applySpecToControls(spec);
     customProps.clear();
     for (String key : rawProperties.stringPropertyNames()) {
@@ -311,6 +314,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
   private void refreshValidation() {
     List<String> warnings = new ArrayList<>();
+    warnings.addAll(parseDiagnostics);
     if (!Double.isFinite(spec.listYStart()) || spec.listYStart() < 0) {
       warnings.add("List Y start must be a finite value >= 0.");
     }
@@ -590,21 +594,21 @@ public class MenuLayoutVisualEditor extends BorderPane {
     if (onLayoutTextChanged != null) onLayoutTextChanged.accept(next);
   }
 
-  private static MenuLayoutSpec parse(Properties properties) {
+  private static MenuLayoutSpec parse(Properties properties, List<String> diagnostics) {
     MenuLayoutSpec base = MenuLayoutSpecDefaults.DEFAULT;
     if (properties == null) return base;
     Double titleY = null;
     String titleYRaw = properties.getProperty("titleY");
     if (titleYRaw != null && !titleYRaw.isBlank()) {
-      titleY = parseDouble(titleYRaw, 60);
+      titleY = parseDouble(titleYRaw, 60, diagnostics, "titleY");
     }
     return new MenuLayoutSpec(
         "default",
-        parseDouble(properties.getProperty("listYStart"), base.listYStart()),
-        parseDouble(properties.getProperty("lineHeight"), base.lineHeight()),
-        parseDouble(properties.getProperty("listWidthFactor"), base.listWidthFactor()),
+        parseDouble(properties.getProperty("listYStart"), base.listYStart(), diagnostics, "listYStart"),
+        parseDouble(properties.getProperty("lineHeight"), base.lineHeight(), diagnostics, "lineHeight"),
+        parseDouble(properties.getProperty("listWidthFactor"), base.listWidthFactor(), diagnostics, "listWidthFactor"),
         normalize(properties.getProperty("textAlign"), base.textAlign()),
-        parseDouble(properties.getProperty("hintsBottomMargin"), base.hintsBottomMargin()),
+        parseDouble(properties.getProperty("hintsBottomMargin"), base.hintsBottomMargin(), diagnostics, "hintsBottomMargin"),
         titleY
     );
   }
@@ -714,11 +718,16 @@ public class MenuLayoutVisualEditor extends BorderPane {
     return value.trim().toLowerCase(Locale.ROOT);
   }
 
-  private static double parseDouble(String value, double fallback) {
+  private static double parseDouble(String value, double fallback, List<String> diagnostics, String key) {
     if (value == null || value.isBlank()) return fallback;
     try {
-      return Double.parseDouble(value.trim());
+      double parsed = Double.parseDouble(value.trim());
+      if (!Double.isFinite(parsed)) throw new NumberFormatException("non-finite");
+      return parsed;
     } catch (Exception ignored) {
+      if (diagnostics != null && key != null) {
+        diagnostics.add("Invalid number for '" + key + "': '" + value + "' (using " + fallback + ")");
+      }
       return fallback;
     }
   }

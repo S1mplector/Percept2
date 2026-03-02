@@ -190,4 +190,28 @@ class VnUiLayoutLoaderTest {
     assertEquals("0,0;1,0;1,1;0,1", p.getProperty("textBoxButton.save.boundsPoints"));
     assertEquals("0.74", p.getProperty("textBoxButton.save.x"));
   }
+
+  @Test
+  void emitsDiagnosticsForUnknownKeysAdjustmentsAndButtonIssues() {
+    Properties p = new Properties();
+    p.setProperty("textBoxX", "-2.0");
+    p.setProperty("choiceWidthFactor", "2.0");
+    p.setProperty("textBoxButon.ids", "typo");
+    p.setProperty("textBoxButton.ids", "save,save");
+    p.setProperty("textBoxButton.save.action", "open_menu");
+    p.setProperty("textBoxButton.save.boundsPoints", "0,0;1,0");
+
+    VnUiLayoutLoader.LoadResult result = VnUiLayoutLoader.parseWithDiagnostics(
+        p,
+        VnUiLayoutSpec.defaults(),
+        VnUiStyleSpec.defaults()
+    );
+
+    assertEquals(1, result.textBoxButtons().size());
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("Unknown dialogue layout key 'textBoxButon.ids'")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("Value for 'textBoxX' was adjusted")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("Duplicate textbox button id 'save'")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("open_menu without target")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("bounds points")));
+  }
 }

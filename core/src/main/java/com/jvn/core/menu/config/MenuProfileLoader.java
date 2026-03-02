@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -21,6 +22,63 @@ public final class MenuProfileLoader {
       "config/menu/registry.properties",
       "menu.registry"
   };
+
+  private static final Set<String> KNOWN_LAYOUT_FIELDS = Set.of(
+      "extends",
+      "listYStart",
+      "lineHeight",
+      "listWidth",
+      "listWidthFactor",
+      "textAlign",
+      "hintsBottomMargin",
+      "titleY"
+  );
+
+  private static final Set<String> KNOWN_STYLE_FIELDS = Set.of(
+      "extends",
+      "itemColor",
+      "itemSelectedColor",
+      "itemHoverColor",
+      "itemDisabledColor",
+      "itemPrefix",
+      "itemSelectedPrefix",
+      "itemDisabledPrefix",
+      "itemFontFamily",
+      "itemFontWeight",
+      "itemFontSize",
+      "itemShadowColor",
+      "itemShadowOffsetX",
+      "itemShadowOffsetY",
+      "itemOpacity",
+      "buttonAsset",
+      "buttonSelectedAsset",
+      "buttonHoverAsset",
+      "buttonDisabledAsset",
+      "buttonTextPaddingX",
+      "buttonTextPaddingY",
+      "titleColor",
+      "titleFontFamily",
+      "titleFontWeight",
+      "titleFontSize",
+      "titleShadowColor",
+      "hintsColor",
+      "hintsFontFamily",
+      "hintsFontSize",
+      "backgroundAsset",
+      "backgroundColor",
+      "backgroundOpacity"
+  );
+
+  private static final Set<String> KNOWN_SCREEN_FIELDS = Set.of(
+      "extends",
+      "titleText",
+      "hintsText",
+      "layout",
+      "layoutId",
+      "defaultItemStyle",
+      "wrapSelection",
+      "items"
+  );
 
   public record LoadResult(MenuProfile profile, List<String> diagnostics) {
     public LoadResult {
@@ -231,18 +289,81 @@ public final class MenuProfileLoader {
   }
 
   private static MenuLayoutSpec parseLayout(String id, Properties p, MenuLayoutSpec base, List<String> diagnostics, String sourcePath) {
+    warnUnknownLayoutKeys(p, diagnostics, sourcePath);
+    double listYStart = parseDouble(p.getProperty("listYStart"), base.listYStart(), diagnostics, sourcePath, "listYStart");
+    if (listYStart < 0.0) {
+      diagnostics.add("Invalid value for 'listYStart' in " + sourcePath + ": must be >= 0 (using " + base.listYStart() + ")");
+      listYStart = base.listYStart();
+    }
+
+    double lineHeight = parseDouble(p.getProperty("lineHeight"), base.lineHeight(), diagnostics, sourcePath, "lineHeight");
+    if (lineHeight <= 0.0) {
+      diagnostics.add("Invalid value for 'lineHeight' in " + sourcePath + ": must be > 0 (using " + base.lineHeight() + ")");
+      lineHeight = base.lineHeight();
+    }
+
+    double listWidthFactor = parseDouble(
+        p.getProperty("listWidthFactor", p.getProperty("listWidth")),
+        base.listWidthFactor(),
+        diagnostics,
+        sourcePath,
+        "listWidthFactor");
+    if (listWidthFactor < 0.1 || listWidthFactor > 1.0) {
+      double clamped = clamp(listWidthFactor, 0.1, 1.0);
+      diagnostics.add("Value for 'listWidthFactor' in " + sourcePath + " was out of range (0.1..1.0): " + listWidthFactor
+          + " (using " + clamped + ")");
+      listWidthFactor = clamped;
+    }
+
+    String textAlign = normalize(p.getProperty("textAlign"), base.textAlign());
+    if (!isKnownAlign(textAlign)) {
+      diagnostics.add("Invalid value for 'textAlign' in " + sourcePath + ": '" + textAlign
+          + "' (expected left/center/right; using " + base.textAlign() + ")");
+      textAlign = base.textAlign();
+    }
+
+    double hintsBottomMargin = parseDouble(
+        p.getProperty("hintsBottomMargin"),
+        base.hintsBottomMargin(),
+        diagnostics,
+        sourcePath,
+        "hintsBottomMargin");
+    if (hintsBottomMargin < 0.0) {
+      diagnostics.add("Invalid value for 'hintsBottomMargin' in " + sourcePath + ": must be >= 0 (using "
+          + base.hintsBottomMargin() + ")");
+      hintsBottomMargin = base.hintsBottomMargin();
+    }
+
+    Double titleY = parseOptionalDouble(p.getProperty("titleY"), base.titleY(), diagnostics, sourcePath, "titleY");
+    if (titleY != null && titleY < 0.0) {
+      diagnostics.add("Invalid value for 'titleY' in " + sourcePath + ": must be >= 0 (using " + base.titleY() + ")");
+      titleY = base.titleY();
+    }
+
     return new MenuLayoutSpec(
         id,
-        parseDouble(p.getProperty("listYStart"), base.listYStart(), diagnostics, sourcePath, "listYStart"),
-        parseDouble(p.getProperty("lineHeight"), base.lineHeight(), diagnostics, sourcePath, "lineHeight"),
-        parseDouble(p.getProperty("listWidthFactor", p.getProperty("listWidth")), base.listWidthFactor(), diagnostics, sourcePath, "listWidthFactor"),
-        normalize(p.getProperty("textAlign"), base.textAlign()),
-        parseDouble(p.getProperty("hintsBottomMargin"), base.hintsBottomMargin(), diagnostics, sourcePath, "hintsBottomMargin"),
-        parseOptionalDouble(p.getProperty("titleY"), base.titleY(), diagnostics, sourcePath, "titleY")
+        listYStart,
+        lineHeight,
+        listWidthFactor,
+        textAlign,
+        hintsBottomMargin,
+        titleY
     );
   }
 
   private static MenuStyleSpec parseStyle(String id, Properties p, MenuStyleSpec base, List<String> diagnostics, String sourcePath) {
+    warnUnknownStyleKeys(p, diagnostics, sourcePath);
+    Double itemOpacity = parseOptionalDouble(p.getProperty("itemOpacity"), base.itemOpacity(), diagnostics, sourcePath, "itemOpacity");
+    itemOpacity = clampOptional(itemOpacity, 0.0, 1.0, diagnostics, sourcePath, "itemOpacity");
+
+    Double backgroundOpacity = parseOptionalDouble(
+        p.getProperty("backgroundOpacity"),
+        base.backgroundOpacity(),
+        diagnostics,
+        sourcePath,
+        "backgroundOpacity");
+    backgroundOpacity = clampOptional(backgroundOpacity, 0.0, 1.0, diagnostics, sourcePath, "backgroundOpacity");
+
     return new MenuStyleSpec(
         id,
         // Item colors
@@ -257,12 +378,12 @@ public final class MenuProfileLoader {
         // Font
         normalize(p.getProperty("itemFontFamily"), base.itemFontFamily()),
         normalize(p.getProperty("itemFontWeight"), base.itemFontWeight()),
-        parseOptionalInt(p.getProperty("itemFontSize"), base.itemFontSize(), diagnostics, sourcePath, "itemFontSize"),
+        parseOptionalPositiveInt(p.getProperty("itemFontSize"), base.itemFontSize(), diagnostics, sourcePath, "itemFontSize"),
         // Text effects
         normalize(p.getProperty("itemShadowColor"), base.itemShadowColor()),
         parseOptionalDouble(p.getProperty("itemShadowOffsetX"), base.itemShadowOffsetX(), diagnostics, sourcePath, "itemShadowOffsetX"),
         parseOptionalDouble(p.getProperty("itemShadowOffsetY"), base.itemShadowOffsetY(), diagnostics, sourcePath, "itemShadowOffsetY"),
-        parseOptionalDouble(p.getProperty("itemOpacity"), base.itemOpacity(), diagnostics, sourcePath, "itemOpacity"),
+        itemOpacity,
         // Button skins
         normalize(p.getProperty("buttonAsset"), base.buttonAssetPath()),
         normalize(p.getProperty("buttonSelectedAsset"), base.buttonSelectedAssetPath()),
@@ -274,20 +395,21 @@ public final class MenuProfileLoader {
         normalize(p.getProperty("titleColor"), base.titleColor()),
         normalize(p.getProperty("titleFontFamily"), base.titleFontFamily()),
         normalize(p.getProperty("titleFontWeight"), base.titleFontWeight()),
-        parseOptionalInt(p.getProperty("titleFontSize"), base.titleFontSize(), diagnostics, sourcePath, "titleFontSize"),
+        parseOptionalPositiveInt(p.getProperty("titleFontSize"), base.titleFontSize(), diagnostics, sourcePath, "titleFontSize"),
         normalize(p.getProperty("titleShadowColor"), base.titleShadowColor()),
         // Hints styling
         normalize(p.getProperty("hintsColor"), base.hintsColor()),
         normalize(p.getProperty("hintsFontFamily"), base.hintsFontFamily()),
-        parseOptionalInt(p.getProperty("hintsFontSize"), base.hintsFontSize(), diagnostics, sourcePath, "hintsFontSize"),
+        parseOptionalPositiveInt(p.getProperty("hintsFontSize"), base.hintsFontSize(), diagnostics, sourcePath, "hintsFontSize"),
         // Background
         normalize(p.getProperty("backgroundAsset"), base.backgroundAssetPath()),
         normalize(p.getProperty("backgroundColor"), base.backgroundColor()),
-        parseOptionalDouble(p.getProperty("backgroundOpacity"), base.backgroundOpacity(), diagnostics, sourcePath, "backgroundOpacity")
+        backgroundOpacity
     );
   }
 
   private static MenuScreenSpec parseScreen(String id, Properties p, MenuScreenSpec base, List<String> diagnostics, String sourcePath) {
+    warnUnknownScreenKeys(p, diagnostics, sourcePath);
     String titleText = normalize(p.getProperty("titleText"), base == null ? null : base.titleText());
     String hintsText = normalize(p.getProperty("hintsText"), base == null ? null : base.hintsText());
     String layoutId = normalize(p.getProperty("layout", p.getProperty("layoutId")), base == null ? "default" : base.layoutId());
@@ -306,9 +428,14 @@ public final class MenuProfileLoader {
     }
 
     List<MenuItemSpec> items = new ArrayList<>();
+    Set<String> seenIds = new LinkedHashSet<>();
     for (String itemId : itemIds) {
       String idNorm = normalize(itemId, null);
       if (idNorm == null) continue;
+      if (!seenIds.add(idNorm)) {
+        diagnostics.add("Duplicate item id '" + idNorm + "' in " + sourcePath + "; later declaration ignored");
+        continue;
+      }
       String itemPrefix = "item." + idNorm + ".";
       MenuItemSpec bi = baseItems.get(idNorm);
       String label = normalize(p.getProperty(itemPrefix + "label"), bi == null ? null : bi.label());
@@ -324,6 +451,7 @@ public final class MenuProfileLoader {
       Double boundsY = parseOptionalDouble(p.getProperty(itemPrefix + "boundsY"), bi == null ? null : bi.boundsY(), diagnostics, sourcePath, itemPrefix + "boundsY");
       Double boundsWidth = parseOptionalDouble(p.getProperty(itemPrefix + "boundsWidth"), bi == null ? null : bi.boundsWidth(), diagnostics, sourcePath, itemPrefix + "boundsWidth");
       Double boundsHeight = parseOptionalDouble(p.getProperty(itemPrefix + "boundsHeight"), bi == null ? null : bi.boundsHeight(), diagnostics, sourcePath, itemPrefix + "boundsHeight");
+      BoundsFields itemBounds = sanitizeBoundsFields(boundsX, boundsY, boundsWidth, boundsHeight, diagnostics, sourcePath, "Item '" + idNorm + "'");
       boolean slotPreviewEnabled = parseBoolean(
           p.getProperty(itemPrefix + "slotPreviewEnabled"),
           bi != null ? bi.slotPreviewEnabled() : isSlotTemplateItemId(idNorm),
@@ -367,6 +495,14 @@ public final class MenuProfileLoader {
           sourcePath,
           itemPrefix + "slotPreviewHeight"
       );
+      BoundsFields slotPreviewBounds = sanitizeBoundsFields(
+          slotPreviewX,
+          slotPreviewY,
+          slotPreviewWidth,
+          slotPreviewHeight,
+          diagnostics,
+          sourcePath,
+          "Item '" + idNorm + "' slot preview");
       MenuActionSpec action = parseActionWithDiagnostics(actionRaw, targetRaw, diagnostics, sourcePath, itemPrefix + "action");
       Map<String, String> extras = collectItemExtras(p, itemPrefix, bi);
       items.add(new MenuItemSpec(
@@ -379,17 +515,17 @@ public final class MenuProfileLoader {
           buttonAsset,
           buttonSelectedAsset,
           buttonDisabledAsset,
-          boundsX,
-          boundsY,
-          boundsWidth,
-          boundsHeight,
+          itemBounds.x(),
+          itemBounds.y(),
+          itemBounds.width(),
+          itemBounds.height(),
           slotPreviewEnabled,
           slotPreviewPlaceholderAsset,
           slotPreviewFrameAsset,
-          slotPreviewX,
-          slotPreviewY,
-          slotPreviewWidth,
-          slotPreviewHeight,
+          slotPreviewBounds.x(),
+          slotPreviewBounds.y(),
+          slotPreviewBounds.width(),
+          slotPreviewBounds.height(),
           extras
       ));
     }
@@ -417,6 +553,18 @@ public final class MenuProfileLoader {
     if (type == MenuActionType.NOOP && !action.isBlank() && !isNoopAction(action)) {
       diagnostics.add("Unknown menu action '" + action + "' in " + sourcePath + " (" + property + "); falling back to noop");
     }
+    if (type == MenuActionType.OPEN_MENU && (target == null || target.isBlank())) {
+      diagnostics.add("OPEN_MENU action requires a target in " + sourcePath + " (" + property + ")");
+    }
+    if (type == MenuActionType.RUN_SCRIPT && (target == null || target.isBlank())) {
+      diagnostics.add("RUN_SCRIPT action requires a script target in " + sourcePath + " (" + property + ")");
+    }
+    if (target != null && !target.isBlank()
+        && type != MenuActionType.OPEN_MENU
+        && type != MenuActionType.RUN_SCRIPT
+        && type != MenuActionType.NOOP) {
+      diagnostics.add("Target for action '" + action + "' is ignored in " + sourcePath + " (" + property + ")");
+    }
     return new MenuActionSpec(type, target, action);
   }
 
@@ -432,6 +580,49 @@ public final class MenuProfileLoader {
       "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
       "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight"
   );
+
+  private record BoundsFields(Double x, Double y, Double width, Double height) {}
+
+  private static BoundsFields sanitizeBoundsFields(
+      Double x,
+      Double y,
+      Double width,
+      Double height,
+      List<String> diagnostics,
+      String sourcePath,
+      String context
+  ) {
+    Double bx = x;
+    Double by = y;
+    Double bw = width;
+    Double bh = height;
+    int defined = 0;
+    if (bx != null) defined++;
+    if (by != null) defined++;
+    if (bw != null) defined++;
+    if (bh != null) defined++;
+    if (defined > 0 && defined < 4) {
+      diagnostics.add(context + " in " + sourcePath + " has partial bounds; X/Y/Width/Height must be set together");
+      return new BoundsFields(null, null, null, null);
+    }
+    if (bx != null && bx < 0) {
+      diagnostics.add(context + " in " + sourcePath + " has negative boundsX; using 0");
+      bx = 0.0;
+    }
+    if (by != null && by < 0) {
+      diagnostics.add(context + " in " + sourcePath + " has negative boundsY; using 0");
+      by = 0.0;
+    }
+    if (bw != null && bw <= 0) {
+      diagnostics.add(context + " in " + sourcePath + " has non-positive boundsWidth; dropping explicit bounds");
+      return new BoundsFields(null, null, null, null);
+    }
+    if (bh != null && bh <= 0) {
+      diagnostics.add(context + " in " + sourcePath + " has non-positive boundsHeight; dropping explicit bounds");
+      return new BoundsFields(null, null, null, null);
+    }
+    return new BoundsFields(bx, by, bw, bh);
+  }
 
   private static Map<String, String> collectItemExtras(Properties p, String itemPrefix, MenuItemSpec base) {
     Map<String, String> extras = new LinkedHashMap<>();
@@ -534,6 +725,104 @@ public final class MenuProfileLoader {
     return ids;
   }
 
+  private static void warnUnknownLayoutKeys(Properties properties, List<String> diagnostics, String sourcePath) {
+    if (properties == null) return;
+    for (String key : properties.stringPropertyNames()) {
+      if (KNOWN_LAYOUT_FIELDS.contains(key)) continue;
+      String suggestion = closestKeyHint(key, KNOWN_LAYOUT_FIELDS);
+      diagnostics.add("Unknown layout key '" + key + "' in " + sourcePath + suggestion);
+    }
+  }
+
+  private static void warnUnknownStyleKeys(Properties properties, List<String> diagnostics, String sourcePath) {
+    if (properties == null) return;
+    for (String key : properties.stringPropertyNames()) {
+      if (KNOWN_STYLE_FIELDS.contains(key)) continue;
+      String suggestion = closestKeyHint(key, KNOWN_STYLE_FIELDS);
+      diagnostics.add("Unknown style key '" + key + "' in " + sourcePath + suggestion);
+    }
+  }
+
+  private static void warnUnknownScreenKeys(Properties properties, List<String> diagnostics, String sourcePath) {
+    if (properties == null) return;
+    for (String key : properties.stringPropertyNames()) {
+      if (KNOWN_SCREEN_FIELDS.contains(key)) continue;
+      if (!key.startsWith("item.")) {
+        String suggestion = closestKeyHint(key, KNOWN_SCREEN_FIELDS);
+        diagnostics.add("Unknown menu screen key '" + key + "' in " + sourcePath + suggestion);
+        continue;
+      }
+      int secondDot = key.indexOf('.', "item.".length());
+      if (secondDot <= "item.".length() || secondDot >= key.length() - 1) {
+        diagnostics.add("Malformed item property key '" + key + "' in " + sourcePath + "; expected item.<id>.<field>");
+        continue;
+      }
+      String field = key.substring(secondDot + 1);
+      if (KNOWN_ITEM_FIELDS.contains(field)) continue;
+      String suggestion = closestKeyHint(field, KNOWN_ITEM_FIELDS);
+      if (suggestion.isBlank()) continue;
+      diagnostics.add("Unknown item key '" + field + "' in " + sourcePath + " (" + key + ")" + suggestion);
+    }
+  }
+
+  private static String closestKeyHint(String key, Set<String> candidates) {
+    if (key == null || key.isBlank() || candidates == null || candidates.isEmpty()) return "";
+    String source = key.trim().toLowerCase(Locale.ROOT);
+    String best = null;
+    int bestDistance = Integer.MAX_VALUE;
+    for (String candidate : candidates) {
+      if (candidate == null || candidate.isBlank()) continue;
+      String normalized = candidate.toLowerCase(Locale.ROOT);
+      int distance = levenshteinDistance(source, normalized);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = candidate;
+      }
+    }
+    if (best == null || bestDistance > 2) return "";
+    return " (did you mean '" + best + "'?)";
+  }
+
+  private static int levenshteinDistance(String a, String b) {
+    if (a == null || b == null) return Integer.MAX_VALUE;
+    int[][] dp = new int[a.length() + 1][b.length() + 1];
+    for (int i = 0; i <= a.length(); i++) dp[i][0] = i;
+    for (int j = 0; j <= b.length(); j++) dp[0][j] = j;
+    for (int i = 1; i <= a.length(); i++) {
+      for (int j = 1; j <= b.length(); j++) {
+        int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+        int deletion = dp[i - 1][j] + 1;
+        int insertion = dp[i][j - 1] + 1;
+        int substitution = dp[i - 1][j - 1] + cost;
+        dp[i][j] = Math.min(Math.min(deletion, insertion), substitution);
+      }
+    }
+    return dp[a.length()][b.length()];
+  }
+
+  private static boolean isKnownAlign(String value) {
+    if (value == null) return false;
+    String v = value.toLowerCase(Locale.ROOT);
+    return "left".equals(v) || "center".equals(v) || "right".equals(v);
+  }
+
+  private static Double clampOptional(
+      Double value,
+      double min,
+      double max,
+      List<String> diagnostics,
+      String sourcePath,
+      String key
+  ) {
+    if (value == null) return null;
+    double clamped = clamp(value, min, max);
+    if (clamped != value) {
+      diagnostics.add("Value for '" + key + "' in " + sourcePath + " was out of range (" + min + ".." + max + "): "
+          + value + " (using " + clamped + ")");
+    }
+    return clamped;
+  }
+
   private static List<String> parseCsv(String raw) {
     if (raw == null || raw.isBlank()) return new ArrayList<>();
     List<String> out = new ArrayList<>();
@@ -554,7 +843,9 @@ public final class MenuProfileLoader {
   private static double parseDouble(String raw, double def, List<String> diagnostics, String sourcePath, String key) {
     if (raw == null || raw.isBlank()) return def;
     try {
-      return Double.parseDouble(raw.trim());
+      double value = Double.parseDouble(raw.trim());
+      if (!Double.isFinite(value)) throw new NumberFormatException("non-finite");
+      return value;
     } catch (Exception ex) {
       diagnostics.add("Invalid number for '" + key + "' in " + sourcePath + ": '" + raw + "' (using " + def + ")");
       return def;
@@ -564,11 +855,23 @@ public final class MenuProfileLoader {
   private static Double parseOptionalDouble(String raw, Double def, List<String> diagnostics, String sourcePath, String key) {
     if (raw == null || raw.isBlank()) return def;
     try {
-      return Double.parseDouble(raw.trim());
+      double value = Double.parseDouble(raw.trim());
+      if (!Double.isFinite(value)) throw new NumberFormatException("non-finite");
+      return value;
     } catch (Exception ex) {
       diagnostics.add("Invalid number for '" + key + "' in " + sourcePath + ": '" + raw + "' (using " + def + ")");
       return def;
     }
+  }
+
+  private static Integer parseOptionalPositiveInt(String raw, Integer def, List<String> diagnostics, String sourcePath, String key) {
+    Integer parsed = parseOptionalInt(raw, def, diagnostics, sourcePath, key);
+    if (parsed == null) return null;
+    if (parsed <= 0) {
+      diagnostics.add("Invalid integer for '" + key + "' in " + sourcePath + ": '" + parsed + "' (must be > 0; using " + def + ")");
+      return def;
+    }
+    return parsed;
   }
 
   private static Integer parseOptionalInt(String raw, Integer def, List<String> diagnostics, String sourcePath, String key) {
@@ -583,11 +886,17 @@ public final class MenuProfileLoader {
 
   private static boolean parseBoolean(String raw, boolean def, List<String> diagnostics, String sourcePath, String key) {
     if (raw == null || raw.isBlank()) return def;
-    String v = raw.trim().toLowerCase();
-    if ("true".equals(v) || "yes".equals(v) || "1".equals(v)) return true;
-    if ("false".equals(v) || "no".equals(v) || "0".equals(v)) return false;
+    String v = raw.trim().toLowerCase(Locale.ROOT);
+    if ("true".equals(v) || "yes".equals(v) || "1".equals(v) || "on".equals(v)) return true;
+    if ("false".equals(v) || "no".equals(v) || "0".equals(v) || "off".equals(v)) return false;
     diagnostics.add("Invalid boolean for '" + key + "' in " + sourcePath + ": '" + raw + "' (using " + def + ")");
     return def;
+  }
+
+  private static double clamp(double value, double min, double max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
   }
 
   private static String simplify(Exception ex) {

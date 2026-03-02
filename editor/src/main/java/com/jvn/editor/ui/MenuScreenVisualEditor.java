@@ -98,6 +98,7 @@ public class MenuScreenVisualEditor extends BorderPane {
   private boolean suppressEvents = false;
   private String lastLoadedText = "";
   private String lastEmittedText = "";
+  private final List<String> parseDiagnostics = new ArrayList<>();
   private File projectRoot;
   private String screenIdHint = "main";
   private int previewSelected = 0;
@@ -172,11 +173,13 @@ public class MenuScreenVisualEditor extends BorderPane {
   public void setMenuText(String text) {
     String normalizedInput = normalizeLineEndings(text);
     if (normalizedInput.equals(lastLoadedText)) return;
+    parseDiagnostics.clear();
     suppressEvents = true;
     Properties p = new Properties();
     try {
       if (text != null && !text.isBlank()) p.load(new StringReader(text));
-    } catch (Exception ignored) {
+    } catch (Exception ex) {
+      parseDiagnostics.add("Failed to parse menu properties: " + ex.getMessage());
       // Keep defaults when parse fails.
     }
 
@@ -193,7 +196,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     cbLayout.getEditor().setText(normalize(p.getProperty("layout", p.getProperty("layoutId")), ""));
     cbDefaultStyle.setEditable(true);
     cbDefaultStyle.getEditor().setText(normalize(p.getProperty("defaultItemStyle"), ""));
-    cbWrap.setSelected(parseBoolean(p.getProperty("wrapSelection"), true));
+    cbWrap.setSelected(parseBooleanForLoad(p.getProperty("wrapSelection"), true, "wrapSelection"));
 
     List<String> ids = parseCsv(p.getProperty("items"));
     if (ids.isEmpty()) ids = collectItemIdsFromProperties(p);
@@ -204,33 +207,34 @@ public class MenuScreenVisualEditor extends BorderPane {
         String key = normalize(id, "");
         if (key.isEmpty()) continue;
         String prefix = "item." + key + ".";
-        MenuActionSpec action = MenuActionSpec.parse(
+        MenuActionSpec action = parseActionForLoad(
             p.getProperty(prefix + "action"),
-            p.getProperty(prefix + "target")
+            p.getProperty(prefix + "target"),
+            prefix + "action"
         );
         MenuItemRow row = new MenuItemRow(
             key,
             p.getProperty(prefix + "label", ""),
             p.getProperty(prefix + "style", ""),
             p.getProperty(prefix + "icon", ""),
-            parseBoolean(p.getProperty(prefix + "enabled"), true),
+            parseBooleanForLoad(p.getProperty(prefix + "enabled"), true, prefix + "enabled"),
             action.type(),
             action.actionKey(),
             action.target(),
             p.getProperty(prefix + "bgAsset", ""),
             p.getProperty(prefix + "bgSelectedAsset", ""),
             p.getProperty(prefix + "bgDisabledAsset", ""),
-            parseOptionalDouble(p.getProperty(prefix + "boundsX")),
-            parseOptionalDouble(p.getProperty(prefix + "boundsY")),
-            parseOptionalDouble(p.getProperty(prefix + "boundsWidth")),
-            parseOptionalDouble(p.getProperty(prefix + "boundsHeight")),
-            parseBoolean(p.getProperty(prefix + "slotPreviewEnabled"), isSlotTemplateId(key)),
+            parseOptionalDoubleForLoad(p.getProperty(prefix + "boundsX"), prefix + "boundsX"),
+            parseOptionalDoubleForLoad(p.getProperty(prefix + "boundsY"), prefix + "boundsY"),
+            parseOptionalDoubleForLoad(p.getProperty(prefix + "boundsWidth"), prefix + "boundsWidth"),
+            parseOptionalDoubleForLoad(p.getProperty(prefix + "boundsHeight"), prefix + "boundsHeight"),
+            parseBooleanForLoad(p.getProperty(prefix + "slotPreviewEnabled"), isSlotTemplateId(key), prefix + "slotPreviewEnabled"),
             p.getProperty(prefix + "slotPreviewPlaceholderAsset", ""),
             p.getProperty(prefix + "slotPreviewFrameAsset", ""),
-            parseOptionalDouble(p.getProperty(prefix + "slotPreviewX")),
-            parseOptionalDouble(p.getProperty(prefix + "slotPreviewY")),
-            parseOptionalDouble(p.getProperty(prefix + "slotPreviewWidth")),
-            parseOptionalDouble(p.getProperty(prefix + "slotPreviewHeight"))
+            parseOptionalDoubleForLoad(p.getProperty(prefix + "slotPreviewX"), prefix + "slotPreviewX"),
+            parseOptionalDoubleForLoad(p.getProperty(prefix + "slotPreviewY"), prefix + "slotPreviewY"),
+            parseOptionalDoubleForLoad(p.getProperty(prefix + "slotPreviewWidth"), prefix + "slotPreviewWidth"),
+            parseOptionalDoubleForLoad(p.getProperty(prefix + "slotPreviewHeight"), prefix + "slotPreviewHeight")
         );
         for (String prop : p.stringPropertyNames()) {
           if (!prop.startsWith(prefix)) continue;
@@ -1041,6 +1045,7 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void validateState() {
     List<String> warnings = new ArrayList<>();
+    warnings.addAll(parseDiagnostics);
     Set<String> ids = new LinkedHashSet<>();
     List<String> knownMenus = discoverMenuIds();
     for (int i = 0; i < rows.size(); i++) {
@@ -1870,6 +1875,45 @@ public class MenuScreenVisualEditor extends BorderPane {
   private static boolean isSlotTemplateId(String idRaw) {
     String id = normalize(idRaw, "").toLowerCase(Locale.ROOT);
     return "save_slot".equals(id) || "slot".equals(id) || "entry".equals(id) || "new_slot".equals(id) || "new_save".equals(id) || "new".equals(id);
+  }
+
+  private MenuActionSpec parseActionForLoad(String rawAction, String rawTarget, String key) {
+    MenuActionSpec action = MenuActionSpec.parse(rawAction, rawTarget);
+    String raw = normalize(rawAction, "");
+    String normalized = raw.toLowerCase(Locale.ROOT).replace('-', '_');
+    if (action.type() == MenuActionType.NOOP
+        && !raw.isBlank()
+        && !"noop".equals(normalized)
+        && !"no_op".equals(normalized)
+        && !"none".equals(normalized)) {
+      parseDiagnostics.add("Unknown action '" + raw + "' at " + key + "; treated as custom/noop");
+    }
+    return action;
+  }
+
+  private boolean parseBooleanForLoad(String raw, boolean fallback, String key) {
+    if (raw == null || raw.isBlank()) return fallback;
+    String v = raw.trim().toLowerCase(Locale.ROOT);
+    return switch (v) {
+      case "true", "yes", "1" -> true;
+      case "false", "no", "0" -> false;
+      default -> {
+        parseDiagnostics.add("Invalid boolean for '" + key + "': '" + raw + "' (using " + fallback + ")");
+        yield fallback;
+      }
+    };
+  }
+
+  private Double parseOptionalDoubleForLoad(String raw, String key) {
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      double value = Double.parseDouble(raw.trim());
+      if (!Double.isFinite(value)) throw new NumberFormatException("non-finite");
+      return value;
+    } catch (Exception ignored) {
+      parseDiagnostics.add("Invalid number for '" + key + "': '" + raw + "'");
+      return null;
+    }
   }
 
   private static List<String> parseCsv(String raw) {
