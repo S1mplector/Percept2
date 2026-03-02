@@ -119,14 +119,22 @@ Open the Story Timeline sidebar panel to see the graph. Arcs appear as nodes, li
 
 ### Option A: Puppeteer Editor (Visual)
 
-1. Open a JES scene in the editor
-2. Launch Puppeteer from the sidebar
-3. Select an entity, set keyframes at different times
-4. Puppeteer generates `TimelineData` and can export JES code
+The fastest way to create complex animations — point-and-click keyframe editing with real-time preview.
+
+1. Open a `.vns` or `.jes` file in the editor
+2. Open the **Puppeteer Launcher** sidebar panel
+3. Place cursor where characters are visible (for VNS files)
+4. Click **Launch Puppeteer Here**
+5. Select an entity → drag to reposition → keyframes auto-create at playhead
+6. Apply presets (Fade In, Slide, Bounce, Shake) for common patterns
+7. Click **Register** to save to `TimelineRegistry`, or **Copy Code** for the raw JES block
+8. Use in VNS: `[call jes_timeline my_animation]`
+
+See [Puppeteer Editor Guide](../../editor/puppeteer-editor-guide.md) for complete UI reference.
 
 ### Option B: Inline JES Block (Code)
 
-Write timeline actions directly in a JES scene:
+Write timeline actions directly — ideal for quick animations where you know the coordinates.
 
 ```jes
 scene "Cutscene" {
@@ -142,47 +150,149 @@ scene "Cutscene" {
   }
 
   timeline {
-    // Hero slides in from left
-    parallel {
-      move "hero" { x: 400 y: 300 dur: 800 easing: ease_out_back }
-      fade "hero" { alpha: 1.0 dur: 600 easing: ease_in_quad }
-    }
+    move "hero" { x: 400 y: 300 dur: 800 easing: ease_out_back }
+    fade "hero" { alpha: 1.0 dur: 600 easing: ease_in_quad }
     wait 500
-
-    // Camera zooms in
     cameraZoom { zoom: 1.2 dur: 400 easing: ease_in_out_quad }
     wait 300
-
-    // Play dramatic sound
     playAudio "assets/audio/sfx/dramatic.ogg" { volume: 0.8 }
-    wait 200
-
-    // Hero bounces
-    move "hero" { x: 400 y: 280 dur: 200 easing: ease_out_quad }
-    move "hero" { x: 400 y: 300 dur: 200 easing: ease_in_quad }
-
-    // Camera returns
-    cameraZoom { zoom: 1.0 dur: 300 easing: ease_out_quad }
   }
 }
 ```
+
+See [Hand-Coding Timelines](timeline-hand-coding.md) for 18 annotated examples.
 
 ### Option C: VNS Inline Timeline
 
-Trigger timeline animations from VNS scripts:
+Embed timeline blocks directly in VNS dialogue scripts — no registration needed.
 
 ```vns
 [show hero center neutral]
+
 timeline {
-  entity "hero" {
-    0ms { x: -200, alpha: 0.0 }
-    800ms { x: 640, alpha: 1.0, easing: ease_out }
-  }
-  playAudio "assets/audio/sfx/whoosh.ogg"
+  move "hero" { x: -200 dur: 0 }
+  fade "hero" { alpha: 0 dur: 0 }
+  wait 50
+  move "hero" { x: 640 dur: 600 easing: ease_out_back }
+  fade "hero" { alpha: 1 dur: 400 easing: ease_out_quad }
 }
-[wait 200]
+
+[wait 700]
 hero: I have arrived.
 ```
+
+**Important:** Inline timelines run asynchronously — VNS advances immediately. Use `[wait N]` after the block if you need to synchronize dialogue with the animation.
+
+### Option D: Registered Timeline from Java
+
+For programmatic or reusable animations:
+
+```java
+TimelineData data = TimelineDataParser.parse("hero_entrance", """
+    timeline {
+      move "hero" { x: 640 y: 468 dur: 400 easing: ease_out_back }
+      fade "hero" { alpha: 1.0 dur: 300 easing: ease_out_quad }
+    }
+    """);
+TimelineRegistry.register(data);
+```
+
+Then from VNS:
+
+```vns
+[external jes_timeline hero_entrance]
+```
+
+---
+
+## Choosing Your Approach
+
+| Scenario | Best Approach | Why |
+|----------|--------------|-----|
+| Complex multi-entity cutscene | **Puppeteer Editor** | Visual positioning, drag, preview, presets |
+| Quick character entrance/exit | **Hand-code inline** | Faster than opening the editor for simple animations |
+| Polished cutscene with precise timing | **Hybrid** (editor + hand-tuning) | Layout visually, fine-tune values manually |
+| Shared animation used in many scripts | **Registered timeline** | Register once, call from anywhere |
+| One-off animation during dialogue | **VNS inline block** | No registration, lives with the narrative |
+| Dynamic animation (damage shake, etc.) | **Java API** | Amplitude/duration varies by game state |
+
+---
+
+## Animation Architecture Overview
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                        AUTHORING                                 │
+│                                                                   │
+│  Puppeteer Editor ──export──▶ JES timeline code                  │
+│  Hand-coded JES blocks       (move, fade, cameraMove, etc.)     │
+│  Java API (TimelineData)                                         │
+│                                                                   │
+├─────────────────────────────────────────────────────────────────┤
+│                        STORAGE                                    │
+│                                                                   │
+│  TimelineRegistry ◀── register(name, TimelineData)               │
+│  Inline VNS blocks ◀── parsed on-the-fly by TimelineDataParser  │
+│                                                                   │
+├─────────────────────────────────────────────────────────────────┤
+│                        RUNTIME                                    │
+│                                                                   │
+│  TimelineRunner ──reads──▶ TimelineData                          │
+│       │                      (tracks, keyframes, audio cues)     │
+│       │                                                           │
+│       ├──▶ SceneAccessor.findEntity() ──▶ Entity2D properties    │
+│       ├──▶ SceneAccessor.setCameraX/Y/Zoom()                    │
+│       └──▶ SceneAccessor.playAudioCue()                          │
+│                                                                   │
+│  VnState manages active runners (auto-removes finished ones)     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Common Animation Scenarios
+
+Quick reference for which actions to use for typical VN/game animations:
+
+| Scenario | Actions | Duration Guide |
+|----------|---------|---------------|
+| **Character entrance** | `move` + `fade` | 400–700ms, `ease_out_cubic` |
+| **Character exit** | `move` + `fade` | 300–500ms, `ease_in_cubic` |
+| **Emphasis shake** | `move` (oscillating x) | 200–400ms total, decreasing amplitude |
+| **Scale pulse** | `scale` (up then down) | 300–400ms, `ease_out_quad` |
+| **Camera pan** | `cameraMove` | 1000–3000ms, `ease_in_out_quad` |
+| **Camera zoom** | `cameraZoom` | 300–800ms, `ease_in_out_quad` |
+| **Dramatic zoom-in** | `cameraMove` + `cameraZoom` | 300–500ms, `ease_out_expo` |
+| **Dialogue box open** | `move` (slide up) | 250–400ms, `ease_out_cubic` |
+| **Fade to black** | `fade` on overlay | 400–600ms, `ease_in_quad` |
+| **Item pickup** | `move` + `scale` + `fade` | 400–600ms, `ease_out_quad` |
+| **Title reveal** | `fade` + `scale` + `cameraZoom` | 800–1200ms, `ease_out_quad` |
+| **BGM start** | `playAudio` with `fadein` | N/A (fadein: 1000–2000ms) |
+| **SFX hit** | `playAudio` | N/A (instant trigger) |
+| **Idle float/bob** | `move` (y oscillation) | 1000–2000ms per cycle, `ease_in_out_sine` |
+
+---
+
+## Easing Quick Reference
+
+Choose easing based on the animation's feel:
+
+| Direction | Meaning | Best For |
+|-----------|---------|----------|
+| `ease_out_*` | Fast start, smooth stop | Entrances (things arriving) |
+| `ease_in_*` | Slow start, fast end | Exits (things leaving) |
+| `ease_in_out_*` | Smooth both ends | Camera moves, UI transitions |
+| `linear` | Constant speed | Scrolling, mechanical movement |
+
+| Strength | Families (gentle → dramatic) |
+|----------|------------------------------|
+| **Gentle** | `quad` (t²) |
+| **Medium** | `cubic` (t³), `sine` |
+| **Strong** | `quart` (t⁴), `expo` (2^t) |
+| **Bouncy** | `back` (overshoot), `bounce` (bouncing ball) |
+| **Springy** | `elastic` (spring wobble) |
+
+See [Hand-Coding Timelines](timeline-hand-coding.md) for a complete easing decision chart with 26 types.
 
 ---
 
