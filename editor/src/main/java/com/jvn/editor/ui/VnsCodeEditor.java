@@ -604,7 +604,7 @@ public class VnsCodeEditor extends BorderPane {
 
     if ("undefined_label".equals(issue.kind) && issue.label != null) {
       MenuItem create = new MenuItem("Create label '" + issue.label + "'");
-      create.setOnAction(e -> createMissingLabel(issue.label));
+      create.setOnAction(e -> createMissingLabel(issue.label, issue));
       menu.getItems().add(create);
 
       List<String> labels = extractLabels(codeArea.getText());
@@ -626,21 +626,26 @@ public class VnsCodeEditor extends BorderPane {
 
     if ("unreachable_label".equals(issue.kind) && issue.blockEnd > issue.start) {
       MenuItem removeBlock = new MenuItem("Delete unreachable block");
-      removeBlock.setOnAction(e -> codeArea.replaceText(issue.start, issue.blockEnd, ""));
+      removeBlock.setOnAction(e -> deleteIssueBlock(issue));
       menu.getItems().add(removeBlock);
     }
 
     return menu;
   }
 
-  private void createMissingLabel(String label) {
+  private void createMissingLabel(String label, Issue issue) {
     if (label == null || label.isBlank()) return;
+    String text = codeArea.getText();
+    List<LineInfo> lines = splitLines(text);
+    int targetLine = issue != null ? issue.line : Math.max(0, codeArea.getCurrentParagraph());
+    targetLine = Math.max(0, Math.min(targetLine, lines.size() - 1));
+
+    int insertOffset = lineInsertOffset(lines, targetLine + 1);
     String insertion =
-        System.lineSeparator() +
         System.lineSeparator() +
         "@label " + label + System.lineSeparator() +
         "narrator \"TODO: implement this branch.\"" + System.lineSeparator();
-    codeArea.appendText(insertion);
+    codeArea.insertText(insertOffset, insertion);
   }
 
   private void replaceUndefinedLabel(Issue issue, List<String> labels) {
@@ -651,7 +656,7 @@ public class VnsCodeEditor extends BorderPane {
     dialog.setTitle("Replace Label");
     dialog.setContentText("Label:");
     var choice = dialog.showAndWait();
-    choice.ifPresent(value -> codeArea.replaceText(issue.start, issue.end, value));
+    choice.ifPresent(value -> replaceIssueRange(issue, value));
   }
 
   private void replaceAssetPath(Issue issue, List<String> assets) {
@@ -662,7 +667,7 @@ public class VnsCodeEditor extends BorderPane {
     dialog.setTitle("Replace Asset Path");
     dialog.setContentText("Asset:");
     var choice = dialog.showAndWait();
-    choice.ifPresent(value -> codeArea.replaceText(issue.start, issue.end, value));
+    choice.ifPresent(value -> replaceIssueRange(issue, value));
   }
 
   private Issue issueAt(int caret) {
@@ -804,6 +809,50 @@ public class VnsCodeEditor extends BorderPane {
       }
     }
     return new int[] {Math.max(0, text.length() - 1), text.length()};
+  }
+
+  private int lineInsertOffset(List<LineInfo> lines, int zeroBasedLine) {
+    if (lines == null || lines.isEmpty()) return 0;
+    int idx = Math.max(0, Math.min(zeroBasedLine, lines.size()));
+    if (idx >= lines.size()) {
+      return lines.get(lines.size() - 1).end;
+    }
+    return lines.get(idx).start;
+  }
+
+  private void replaceIssueRange(Issue issue, String replacement) {
+    if (issue == null) return;
+    String text = codeArea.getText();
+    int start = Math.max(0, Math.min(issue.start, text.length()));
+    int end = Math.max(start, Math.min(issue.end, text.length()));
+    codeArea.replaceText(start, end, replacement != null ? replacement : "");
+  }
+
+  private void deleteIssueBlock(Issue issue) {
+    if (issue == null) return;
+    String text = codeArea.getText();
+    List<LineInfo> lines = splitLines(text);
+    if (lines.isEmpty()) return;
+
+    int startLine = Math.max(0, Math.min(issue.line, lines.size() - 1));
+    int endOffset = Math.max(issue.start, issue.blockEnd);
+    endOffset = Math.max(0, Math.min(endOffset, text.length()));
+
+    int endLine = startLine;
+    for (LineInfo line : lines) {
+      if (endOffset >= line.start && endOffset <= line.end) {
+        endLine = line.index;
+        break;
+      }
+      if (line.start <= endOffset) endLine = line.index;
+    }
+    endLine = Math.max(startLine, Math.min(endLine + 1, lines.size()));
+
+    int startOffset = lines.get(startLine).start;
+    int deleteTo = endLine >= lines.size()
+        ? text.length()
+        : lines.get(endLine).start;
+    codeArea.replaceText(startOffset, deleteTo, "");
   }
 
   private static String firstToken(String value) {

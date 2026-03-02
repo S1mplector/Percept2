@@ -2,22 +2,21 @@ package com.jvn.editor.ui.actioneditor;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.jvn.core.animation.Easing;
 
 /**
- * Diagnostic engine for Puppeteer timelines.  Scans an {@link AnimationProject}
- * and produces non-blocking warning messages with optional quick-fix suggestions.
- * <p>
- * Categories:
- * <ul>
- *   <li>Unknown property / action names</li>
- *   <li>Invalid easing names</li>
- *   <li>Missing target entities</li>
- *   <li>Out-of-range alpha / zoom / pivot values</li>
- * </ul>
+ * Diagnostic engine for Puppeteer timelines. Scans an {@link AnimationProject}
+ * and timeline DSL text and produces non-blocking warning/error messages with
+ * optional quick-fix suggestions.
  */
 public class TimelineDiagnostic {
 
@@ -27,25 +26,64 @@ public class TimelineDiagnostic {
         Severity severity,
         String entityOrTrack,
         String description,
-        String quickFix
-    ) {}
+        String quickFix,
+        int line
+    ) {
+        public Message(Severity severity, String entityOrTrack, String description, String quickFix) {
+            this(severity, entityOrTrack, description, quickFix, -1);
+        }
+
+        public boolean hasLine() {
+            return line > 0;
+        }
+    }
 
     private static final Set<String> KNOWN_EASINGS;
+    private static final Set<String> KNOWN_ACTIONS;
+    private static final Pattern WAIT_PATTERN = Pattern.compile("^wait\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ACTION_WITH_TARGET_PATTERN = Pattern.compile("^(\\w+)\\s+\"([^\"]+)\"\\s*\\{\\s*$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ACTION_NO_TARGET_PATTERN = Pattern.compile("^(\\w+)\\s*\\{\\s*$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PROP_PATTERN = Pattern.compile("^(\\w+)\\s*:\\s*(.+)$");
+    private static final Pattern CUBIC_BEZIER_PATTERN = Pattern.compile("^cubic_bezier\\((.+)\\)$", Pattern.CASE_INSENSITIVE);
+    private static final Map<String, Set<String>> ACTION_KEYS;
+
     static {
-        Set<String> s = new java.util.LinkedHashSet<>();
+        Set<String> easings = new LinkedHashSet<>();
         for (Easing.Type t : Easing.Type.values()) {
-            s.add(t.name().toLowerCase());
+            String name = t.name().toLowerCase(Locale.ROOT);
+            if (!"custom".equals(name)) easings.add(name);
         }
-        KNOWN_EASINGS = Collections.unmodifiableSet(s);
+        KNOWN_EASINGS = Collections.unmodifiableSet(easings);
+
+        Set<String> actions = new LinkedHashSet<>();
+        actions.add("move");
+        actions.add("pivot");
+        actions.add("rotate");
+        actions.add("scale");
+        actions.add("fade");
+        actions.add("cameraMove");
+        actions.add("cameraZoom");
+        actions.add("event");
+        actions.add("playAudio");
+        actions.add("parallel");
+        actions.add("timeline");
+        actions.add("wait");
+        KNOWN_ACTIONS = Collections.unmodifiableSet(lowerSet(actions));
+
+        Map<String, Set<String>> keys = new LinkedHashMap<>();
+        keys.put("move", lowerSet(Set.of("x", "y", "dur", "duration", "easing")));
+        keys.put("pivot", lowerSet(Set.of("ox", "oy", "dur", "duration", "easing")));
+        keys.put("rotate", lowerSet(Set.of("angle", "rotation", "deg", "dur", "duration", "easing")));
+        keys.put("scale", lowerSet(Set.of("x", "y", "sx", "sy", "scale_x", "scale_y", "dur", "duration", "easing")));
+        keys.put("fade", lowerSet(Set.of("alpha", "dur", "duration", "easing")));
+        keys.put("cameraMove", lowerSet(Set.of("x", "y", "dur", "duration", "easing")));
+        keys.put("cameraZoom", lowerSet(Set.of("zoom", "dur", "duration", "easing")));
+        keys.put("playAudio", lowerSet(Set.of("channel", "volume", "loop", "bgm", "fadeinms", "fadein_ms", "fadein", "fade_in")));
+        ACTION_KEYS = Collections.unmodifiableMap(keys);
     }
 
     /**
      * Run diagnostics on the given project and return a list of messages.
-     * Never blocks editing — always returns even if there are problems.
-     *
-     * @param project       the editor project to validate
-     * @param knownEntities optional set of entity names known to exist in the scene (may be null)
-     * @return list of diagnostic messages, possibly empty
      */
     public static List<Message> diagnose(AnimationProject project, Set<String> knownEntities) {
         if (project == null) return Collections.emptyList();
@@ -54,7 +92,6 @@ public class TimelineDiagnostic {
         for (EntityTrack track : project.getTracks()) {
             String entity = track.getEntityName();
 
-            // Check if entity is known to the scene
             if (knownEntities != null && !knownEntities.isEmpty()
                 && !entity.startsWith("__") && !knownEntities.contains(entity)) {
                 msgs.add(new Message(Severity.WARNING, entity,
@@ -65,7 +102,6 @@ public class TimelineDiagnostic {
             for (PropertyType prop : PropertyType.values()) {
                 List<Keyframe> kfs = track.getKeyframes(prop);
                 for (Keyframe kf : kfs) {
-                    // Alpha range check
                     if (prop == PropertyType.ALPHA) {
                         if (kf.getValue() < 0.0 || kf.getValue() > 1.0) {
                             msgs.add(new Message(Severity.WARNING, entity,
@@ -74,7 +110,6 @@ public class TimelineDiagnostic {
                                 "Clamp to " + Math.max(0, Math.min(1, kf.getValue()))));
                         }
                     }
-                    // Camera zoom range check
                     if (prop == PropertyType.CAMERA_ZOOM) {
                         if (kf.getValue() <= 0.0) {
                             msgs.add(new Message(Severity.WARNING, entity,
@@ -89,7 +124,6 @@ public class TimelineDiagnostic {
                                 null));
                         }
                     }
-                    // Pivot range check
                     if (prop == PropertyType.PIVOT_X || prop == PropertyType.PIVOT_Y) {
                         if (kf.getValue() < 0.0 || kf.getValue() > 1.0) {
                             msgs.add(new Message(Severity.WARNING, entity,
@@ -98,9 +132,8 @@ public class TimelineDiagnostic {
                                 "Clamp to " + Math.max(0, Math.min(1, kf.getValue()))));
                         }
                     }
-                    // Easing validity check
                     if (kf.getEasing() != null && kf.getEasing() != Easing.Type.CUSTOM) {
-                        String easingName = kf.getEasing().name().toLowerCase();
+                        String easingName = kf.getEasing().name().toLowerCase(Locale.ROOT);
                         if (!KNOWN_EASINGS.contains(easingName)) {
                             msgs.add(new Message(Severity.ERROR, entity,
                                 "Unknown easing \"" + easingName + "\" at " + kf.getTimeMs() + "ms",
@@ -111,7 +144,6 @@ public class TimelineDiagnostic {
             }
         }
 
-        // Check event cues
         for (EditorEventCue evt : project.getEditorEventCues()) {
             if (evt.getType().isBlank()) {
                 msgs.add(new Message(Severity.ERROR, "(event)",
@@ -124,20 +156,145 @@ public class TimelineDiagnostic {
     }
 
     /**
+     * Diagnostics for raw timeline DSL text shown in the code editor.
+     * Produces per-line issues for unknown actions/keys and invalid values.
+     */
+    public static List<Message> diagnoseDsl(String dslCode) {
+        if (dslCode == null || dslCode.isBlank()) return Collections.emptyList();
+
+        List<Message> out = new ArrayList<>();
+        String[] lines = dslCode.split("\\r?\\n", -1);
+
+        int i = 0;
+        while (i < lines.length) {
+            String rawLine = lines[i];
+            String line = stripComments(rawLine).trim();
+            int lineNo = i + 1;
+
+            if (line.isEmpty() || "{".equals(line) || "}".equals(line)) {
+                i++;
+                continue;
+            }
+            if (line.equalsIgnoreCase("timeline") || line.equalsIgnoreCase("timeline {")) {
+                i++;
+                continue;
+            }
+            if (line.equalsIgnoreCase("parallel") || line.equalsIgnoreCase("parallel {")) {
+                i++;
+                continue;
+            }
+
+            Matcher wait = WAIT_PATTERN.matcher(line);
+            if (wait.matches()) {
+                validateNonNegativeNumber(out, "timeline", wait.group(1), "wait", lineNo);
+                i++;
+                continue;
+            }
+
+            Matcher withTarget = ACTION_WITH_TARGET_PATTERN.matcher(line);
+            Matcher noTarget = ACTION_NO_TARGET_PATTERN.matcher(line);
+
+            if (!withTarget.matches() && !noTarget.matches()) {
+                String first = firstToken(line);
+                if (!first.isBlank() && Character.isLetter(first.charAt(0))
+                    && !KNOWN_ACTIONS.contains(first.toLowerCase(Locale.ROOT))) {
+                    String suggestion = suggestToken(first, KNOWN_ACTIONS);
+                    out.add(new Message(
+                        Severity.WARNING,
+                        "timeline",
+                        "Unknown timeline action '" + first + "'",
+                        suggestion != null ? "Did you mean '" + suggestion + "'?" : "Use a known action like move/scale/fade",
+                        lineNo
+                    ));
+                }
+                i++;
+                continue;
+            }
+
+            String action = withTarget.matches() ? withTarget.group(1) : noTarget.group(1);
+            String normalizedAction = action.toLowerCase(Locale.ROOT);
+
+            if (!KNOWN_ACTIONS.contains(normalizedAction)) {
+                String suggestion = suggestToken(action, KNOWN_ACTIONS);
+                out.add(new Message(
+                    Severity.WARNING,
+                    "timeline",
+                    "Unknown timeline action '" + action + "'",
+                    suggestion != null ? "Did you mean '" + suggestion + "'?" : "Use a known action like move/scale/fade",
+                    lineNo
+                ));
+                i++;
+                continue;
+            }
+
+            if (!line.endsWith("{")) {
+                i++;
+                continue;
+            }
+
+            int depth = 1;
+            int j = i + 1;
+            while (j < lines.length && depth > 0) {
+                String blockRaw = lines[j];
+                String block = stripComments(blockRaw).trim();
+                int blockLineNo = j + 1;
+
+                depth += count(block, '{');
+                depth -= count(block, '}');
+
+                if (depth <= 0) {
+                    j++;
+                    break;
+                }
+
+                Matcher prop = PROP_PATTERN.matcher(block);
+                if (prop.matches()) {
+                    String key = prop.group(1).trim();
+                    String value = prop.group(2).trim();
+                    validateActionProperty(out, action, key, value, blockLineNo);
+                } else if (!block.isBlank() && !"{".equals(block) && !"}".equals(block)) {
+                    out.add(new Message(
+                        Severity.WARNING,
+                        action,
+                        "Unrecognized line in " + action + " block",
+                        "Use 'key: value' syntax",
+                        blockLineNo
+                    ));
+                }
+                j++;
+            }
+
+            if (depth > 0) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "Unterminated block for action '" + action + "'",
+                    "Add a closing '}'",
+                    lineNo
+                ));
+                break;
+            }
+
+            i = j;
+        }
+
+        return Collections.unmodifiableList(out);
+    }
+
+    /**
      * Validate an easing name string and return the closest known match, or null.
      */
     public static String suggestEasing(String input) {
         if (input == null || input.isBlank()) return "linear";
-        String normalized = input.trim().toUpperCase().replace('-', '_');
+        String normalized = input.trim().toUpperCase(Locale.ROOT).replace('-', '_');
         try {
             Easing.Type.valueOf(normalized);
-            return normalized.toLowerCase();
+            return normalized.toLowerCase(Locale.ROOT);
         } catch (Exception e) {
-            // Find closest by edit distance
             String best = null;
             int bestDist = Integer.MAX_VALUE;
             for (String known : KNOWN_EASINGS) {
-                int dist = editDistance(normalized.toLowerCase(), known);
+                int dist = editDistance(normalized.toLowerCase(Locale.ROOT), known);
                 if (dist < bestDist) {
                     bestDist = dist;
                     best = known;
@@ -147,6 +304,262 @@ public class TimelineDiagnostic {
         }
     }
 
+    private static void validateActionProperty(List<Message> out, String action, String key, String value, int lineNo) {
+        String actionNorm = action.toLowerCase(Locale.ROOT);
+        String keyNorm = key.toLowerCase(Locale.ROOT);
+
+        Set<String> known = ACTION_KEYS.get(actionNorm);
+        if (known != null && !known.contains(keyNorm)) {
+            String suggestion = suggestToken(keyNorm, known);
+            String knownKeys = String.join(", ", known);
+            out.add(new Message(
+                Severity.WARNING,
+                action,
+                "Unknown key '" + key + "' for action '" + action + "'",
+                suggestion != null
+                    ? "Did you mean '" + suggestion + "'?"
+                    : "Known keys: " + knownKeys,
+                lineNo
+            ));
+            return;
+        }
+
+        if ("easing".equals(keyNorm)) {
+            validateEasing(out, action, value, lineNo);
+            return;
+        }
+
+        if (("dur".equals(keyNorm) || "duration".equals(keyNorm))
+            && !isNonNegativeNumber(value)) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "Duration must be a non-negative number",
+                "Use values like 0, 250, 800",
+                lineNo
+            ));
+            return;
+        }
+
+        if ("fade".equals(actionNorm) && "alpha".equals(keyNorm)) {
+            Double n = parseNumber(value);
+            if (n == null) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "Alpha must be numeric",
+                    "Use a value between 0 and 1",
+                    lineNo
+                ));
+            } else if (n < 0.0 || n > 1.0) {
+                out.add(new Message(
+                    Severity.WARNING,
+                    action,
+                    "Alpha " + n + " is out of [0,1] range",
+                    "Clamp to " + clamp01(n),
+                    lineNo
+                ));
+            }
+            return;
+        }
+
+        if ("pivot".equals(actionNorm) && ("ox".equals(keyNorm) || "oy".equals(keyNorm))) {
+            Double n = parseNumber(value);
+            if (n == null) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    key + " must be numeric",
+                    "Use a value between 0 and 1",
+                    lineNo
+                ));
+            } else if (n < 0.0 || n > 1.0) {
+                out.add(new Message(
+                    Severity.WARNING,
+                    action,
+                    key + " " + n + " is out of [0,1] range",
+                    "Clamp to " + clamp01(n),
+                    lineNo
+                ));
+            }
+            return;
+        }
+
+        if ("camerazoom".equals(actionNorm) && "zoom".equals(keyNorm)) {
+            Double n = parseNumber(value);
+            if (n == null) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "zoom must be numeric",
+                    "Use a value like 1.0",
+                    lineNo
+                ));
+            } else if (n <= 0.0) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "zoom must be > 0",
+                    "Set to 0.01 minimum",
+                    lineNo
+                ));
+            }
+        }
+    }
+
+    private static void validateEasing(List<Message> out, String action, String rawValue, int lineNo) {
+        String value = rawValue == null ? "" : rawValue.trim();
+        if (value.isEmpty()) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "easing cannot be empty",
+                "Use 'linear' or an easing like 'ease_in_out_sine'",
+                lineNo
+            ));
+            return;
+        }
+
+        Matcher cubic = CUBIC_BEZIER_PATTERN.matcher(value);
+        if (cubic.matches()) {
+            String body = cubic.group(1);
+            String[] parts = body.split(",");
+            if (parts.length != 4) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "cubic_bezier requires 4 comma-separated numbers",
+                    "Use: cubic_bezier(0.25, 0.1, 0.25, 1.0)",
+                    lineNo
+                ));
+                return;
+            }
+            for (String p : parts) {
+                if (parseNumber(p.trim()) == null) {
+                    out.add(new Message(
+                        Severity.ERROR,
+                        action,
+                        "Invalid cubic_bezier value '" + p.trim() + "'",
+                        "All cubic_bezier values must be numeric",
+                        lineNo
+                    ));
+                    return;
+                }
+            }
+            return;
+        }
+
+        String norm = value.toLowerCase(Locale.ROOT).replace('-', '_');
+        if (KNOWN_EASINGS.contains(norm)) return;
+
+        String suggestion = suggestEasing(value);
+        out.add(new Message(
+            Severity.WARNING,
+            action,
+            "Unknown easing '" + value + "'",
+            suggestion != null ? "Did you mean '" + suggestion + "'?" : "Use known easing names (e.g. linear, ease_in_out_sine)",
+            lineNo
+        ));
+    }
+
+    private static void validateNonNegativeNumber(List<Message> out, String scope, String raw, String field, int lineNo) {
+        Double n = parseNumber(raw);
+        if (n == null) {
+            out.add(new Message(
+                Severity.ERROR,
+                scope,
+                field + " must be numeric",
+                "Use non-negative milliseconds",
+                lineNo
+            ));
+            return;
+        }
+        if (n < 0.0) {
+            out.add(new Message(
+                Severity.ERROR,
+                scope,
+                field + " must be >= 0",
+                "Clamp to 0 or higher",
+                lineNo
+            ));
+        }
+    }
+
+    private static String stripComments(String line) {
+        if (line == null) return "";
+        int hash = line.indexOf('#');
+        int slash = line.indexOf("//");
+        int cut = -1;
+        if (hash >= 0) cut = hash;
+        if (slash >= 0) cut = cut < 0 ? slash : Math.min(cut, slash);
+        return cut >= 0 ? line.substring(0, cut) : line;
+    }
+
+    private static String firstToken(String text) {
+        if (text == null) return "";
+        String t = text.trim();
+        if (t.isEmpty()) return "";
+        int idx = t.indexOf(' ');
+        return idx >= 0 ? t.substring(0, idx) : t;
+    }
+
+    private static String suggestToken(String input, Set<String> options) {
+        if (input == null || input.isBlank() || options == null || options.isEmpty()) return null;
+        String candidate = input.toLowerCase(Locale.ROOT);
+        String best = null;
+        int bestDist = Integer.MAX_VALUE;
+        for (String option : options) {
+            int dist = editDistance(candidate, option);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = option;
+            }
+        }
+        return bestDist <= 3 ? best : null;
+    }
+
+    private static Set<String> lowerSet(Set<String> input) {
+        Set<String> out = new LinkedHashSet<>();
+        for (String value : input) {
+            if (value != null) out.add(value.toLowerCase(Locale.ROOT));
+        }
+        return out;
+    }
+
+    private static int count(String text, char ch) {
+        if (text == null || text.isEmpty()) return 0;
+        int c = 0;
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == ch) c++;
+        }
+        return c;
+    }
+
+    private static boolean isNonNegativeNumber(String text) {
+        Double n = parseNumber(text);
+        return n != null && n >= 0.0;
+    }
+
+    private static Double parseNumber(String text) {
+        if (text == null) return null;
+        try {
+            return Double.parseDouble(text.trim());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String clamp01(double value) {
+        double clamped = Math.max(0.0, Math.min(1.0, value));
+        return formatNumber(clamped);
+    }
+
+    private static String formatNumber(double value) {
+        if (Math.abs(value - Math.rint(value)) < 1e-9) return Long.toString((long) Math.rint(value));
+        String s = String.format(Locale.ROOT, "%.4f", value);
+        return s.replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
     private static int editDistance(String a, String b) {
         int[][] dp = new int[a.length() + 1][b.length() + 1];
         for (int i = 0; i <= a.length(); i++) dp[i][0] = i;
@@ -154,7 +567,10 @@ public class TimelineDiagnostic {
         for (int i = 1; i <= a.length(); i++) {
             for (int j = 1; j <= b.length(); j++) {
                 int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
-                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
+                dp[i][j] = Math.min(
+                    Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1),
+                    dp[i - 1][j - 1] + cost
+                );
             }
         }
         return dp[a.length()][b.length()];

@@ -15,13 +15,18 @@ public class CodePreviewPane extends VBox {
     private final Button btnCopy;
     private final Button btnRegenerate;
     private final Label lblStatus;
-    private final Button btnApply;
+    private final Button btnPreviewApply;
+    private final Button btnCommitPreview;
+    private final Button btnDiscardPreview;
     private final Label lblDiagnostics;
     private Runnable onCopy;
     private Runnable onRegenerate;
-    private Runnable onApplyToModel;
+    private Runnable onPreviewToModel;
+    private Runnable onCommitPreview;
+    private Runnable onDiscardPreview;
     private boolean manuallyEdited = false;
     private boolean suppressManualEditTracking = false;
+    private boolean previewStaged = false;
 
     private static final String STYLE_BTN_ACCENT =
         "-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
@@ -68,18 +73,32 @@ public class CodePreviewPane extends VBox {
             if (onRegenerate != null) onRegenerate.run();
         });
 
-        btnApply = new Button("Apply to Model");
-        btnApply.setStyle("-fx-background-color: #58d68d; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
+        btnPreviewApply = new Button("Preview Parse");
+        btnPreviewApply.setStyle("-fx-background-color: #58d68d; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
             "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
-        btnApply.setTooltip(new Tooltip("Parse the edited code and replace the timeline model"));
-        btnApply.setOnAction(e -> {
-            if (onApplyToModel != null) onApplyToModel.run();
-            manuallyEdited = false;
-            lblStatus.setText("Applied to model");
-            lblStatus.setStyle("-fx-text-fill: #58d68d; -fx-font-size: 9px;");
+        btnPreviewApply.setTooltip(new Tooltip("Parse code and stage it in preview mode"));
+        btnPreviewApply.setOnAction(e -> {
+            if (onPreviewToModel != null) onPreviewToModel.run();
         });
 
-        HBox buttonRow = new HBox(10, btnCopy, btnRegenerate, btnApply);
+        btnCommitPreview = new Button("Commit");
+        btnCommitPreview.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
+            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnCommitPreview.setTooltip(new Tooltip("Commit staged preview changes to the model"));
+        btnCommitPreview.setDisable(true);
+        btnCommitPreview.setOnAction(e -> {
+            if (onCommitPreview != null) onCommitPreview.run();
+        });
+
+        btnDiscardPreview = new Button("Discard");
+        btnDiscardPreview.setStyle(STYLE_BTN_DARK);
+        btnDiscardPreview.setTooltip(new Tooltip("Discard staged preview and restore previous model"));
+        btnDiscardPreview.setDisable(true);
+        btnDiscardPreview.setOnAction(e -> {
+            if (onDiscardPreview != null) onDiscardPreview.run();
+        });
+
+        HBox buttonRow = new HBox(10, btnCopy, btnRegenerate, btnPreviewApply, btnCommitPreview, btnDiscardPreview);
         HBox.setHgrow(btnCopy, Priority.ALWAYS);
         btnCopy.setMaxWidth(Double.MAX_VALUE);
 
@@ -116,7 +135,15 @@ public class CodePreviewPane extends VBox {
     }
 
     public void setOnApplyToModel(Runnable callback) {
-        this.onApplyToModel = callback;
+        this.onPreviewToModel = callback;
+    }
+
+    public void setOnCommitPreview(Runnable callback) {
+        this.onCommitPreview = callback;
+    }
+
+    public void setOnDiscardPreview(Runnable callback) {
+        this.onDiscardPreview = callback;
     }
 
     public void setProjectRoot(java.io.File root) {
@@ -135,6 +162,43 @@ public class CodePreviewPane extends VBox {
         return manuallyEdited;
     }
 
+    public void setPreviewStaged(boolean staged) {
+        previewStaged = staged;
+        btnCommitPreview.setDisable(!staged);
+        btnDiscardPreview.setDisable(!staged);
+        if (staged) {
+            lblStatus.setText("Preview staged — Commit or Discard");
+            lblStatus.setStyle("-fx-text-fill: #4da3ff; -fx-font-size: 9px;");
+        } else if (manuallyEdited) {
+            lblStatus.setText("Manually edited — click Regenerate to sync");
+            lblStatus.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 9px;");
+        } else {
+            lblStatus.setText("Auto-generated");
+            lblStatus.setStyle("-fx-text-fill: #555; -fx-font-size: 9px;");
+        }
+    }
+
+    public boolean isPreviewStaged() {
+        return previewStaged;
+    }
+
+    public void markPreviewCommitted() {
+        manuallyEdited = false;
+        previewStaged = false;
+        btnCommitPreview.setDisable(true);
+        btnDiscardPreview.setDisable(true);
+        lblStatus.setText("Preview committed to model");
+        lblStatus.setStyle("-fx-text-fill: #58d68d; -fx-font-size: 9px;");
+    }
+
+    public void markPreviewDiscarded() {
+        previewStaged = false;
+        btnCommitPreview.setDisable(true);
+        btnDiscardPreview.setDisable(true);
+        lblStatus.setText("Preview discarded");
+        lblStatus.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 9px;");
+    }
+
     public void setDiagnostics(java.util.List<TimelineDiagnostic.Message> messages) {
         if (messages == null || messages.isEmpty()) {
             lblDiagnostics.setText("");
@@ -149,7 +213,9 @@ public class CodePreviewPane extends VBox {
                 case WARNING -> "\u26a0";
                 case INFO -> "\u2139";
             };
-            sb.append(icon).append(" [").append(m.entityOrTrack()).append("] ").append(m.description());
+            sb.append(icon).append(" [").append(m.entityOrTrack()).append("] ");
+            if (m.hasLine()) sb.append("L").append(m.line()).append(": ");
+            sb.append(m.description());
             if (m.quickFix() != null) sb.append("  \u2192 ").append(m.quickFix());
             sb.append("\n");
         }

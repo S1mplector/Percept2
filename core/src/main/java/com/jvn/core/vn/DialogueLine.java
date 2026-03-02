@@ -9,6 +9,7 @@ public class DialogueLine {
   private final String characterId;
   private final String expression;
   private final CharacterPosition position;
+  private final String voiceTrackId;
 
   private DialogueLine(Builder builder) {
     this.speakerName = builder.speakerName;
@@ -16,6 +17,7 @@ public class DialogueLine {
     this.characterId = builder.characterId;
     this.expression = builder.expression;
     this.position = builder.position;
+    this.voiceTrackId = builder.voiceTrackId;
   }
 
   public String getSpeakerName() { return speakerName; }
@@ -23,6 +25,7 @@ public class DialogueLine {
   public String getCharacterId() { return characterId; }
   public String getExpression() { return expression; }
   public CharacterPosition getPosition() { return position; }
+  public String getVoiceTrackId() { return voiceTrackId; }
 
   public static Builder builder() { return new Builder(); }
 
@@ -32,12 +35,14 @@ public class DialogueLine {
     private String characterId = null;
     private String expression = "neutral";
     private CharacterPosition position = CharacterPosition.CENTER;
+    private String voiceTrackId = null;
 
     public Builder speakerName(String name) { this.speakerName = name; return this; }
     public Builder text(String text) { this.text = text; return this; }
     public Builder characterId(String id) { this.characterId = id; return this; }
     public Builder expression(String expression) { this.expression = expression; return this; }
     public Builder position(CharacterPosition position) { this.position = position; return this; }
+    public Builder voiceTrackId(String voiceTrackId) { this.voiceTrackId = voiceTrackId; return this; }
     public DialogueLine build() { return new DialogueLine(this); }
   }
 }

@@ -3,7 +3,11 @@ package com.jvn.editor.ui.actioneditor;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import com.jvn.core.animation.TimelineData;
@@ -76,6 +80,9 @@ public class PuppeteerWindow extends Stage {
     private Consumer<String> onCopyCode;
     private final TextField tfTimelineName;
     private boolean dirty = false;
+    private boolean previewStaged = false;
+    private boolean dirtyBeforePreviewStage = false;
+    private AnimationProject previewBaselineProject;
 
     public PuppeteerWindow() {
         this(new AnimationProject());
@@ -223,6 +230,10 @@ public class PuppeteerWindow extends Stage {
         });
 
         codePreview.setOnRegenerate(() -> {
+            if (previewStaged) {
+                discardStagedPreview();
+                return;
+            }
             refreshExportPreview();
         });
 
@@ -441,27 +452,10 @@ public class PuppeteerWindow extends Stage {
 
         // --- Apply Code to Model (text-first round-trip) ---
         codePreview.setOnApplyToModel(() -> {
-            String code = codePreview.getCode();
-            String name = tfTimelineName.getText().trim();
-            if (name.isBlank()) name = project.getName();
-            try {
-                AnimationProject imported = CodeImporter.importCode(name, code);
-                project.replaceFrom(imported);
-                entitySelector.refresh(project);
-                timelinePanel.refresh();
-                updatePreview();
-                setDirty(true);
-            } catch (Exception ex) {
-                Platform.runLater(() -> {
-                    Alert alert = new Alert(Alert.AlertType.ERROR);
-                    EditorTheme.apply(alert);
-                    alert.setTitle("Apply Failed");
-                    alert.setHeaderText("Could not parse the edited code.");
-                    alert.setContentText(ex.getMessage());
-                    alert.showAndWait();
-                });
-            }
+            stagePreviewFromCode();
         });
+        codePreview.setOnCommitPreview(this::commitStagedPreview);
+        codePreview.setOnDiscardPreview(this::discardStagedPreview);
 
         // --- Assemble toolbar ---
         HBox toolbar = new HBox(6,
@@ -995,7 +989,9 @@ public class PuppeteerWindow extends Stage {
 
     private void refreshExportPreview() {
         codePreview.setCode(CodeExporter.export(project));
-        java.util.List<TimelineDiagnostic.Message> diags = TimelineDiagnostic.diagnose(project, null);
+        List<TimelineDiagnostic.Message> diags = new ArrayList<>();
+        diags.addAll(TimelineDiagnostic.diagnose(project, knownSceneEntities()));
+        diags.addAll(TimelineDiagnostic.diagnoseDsl(codePreview.getCode()));
         codePreview.setDiagnostics(diags);
     }
 
@@ -1009,7 +1005,9 @@ public class PuppeteerWindow extends Stage {
         String timelineName = tfTimelineName != null ? tfTimelineName.getText().trim() : "";
         if (timelineName.isBlank()) timelineName = project.getName();
         if (timelineName == null || timelineName.isBlank()) timelineName = "Untitled Animation";
-        setTitle("Puppeteer - " + timelineName + (dirty ? " *" : ""));
+        String dirtySuffix = dirty ? " *" : "";
+        String previewSuffix = previewStaged ? " [preview]" : "";
+        setTitle("Puppeteer - " + timelineName + dirtySuffix + previewSuffix);
     }
 
     private void applySnapStepFromField() {
@@ -1079,14 +1077,19 @@ public class PuppeteerWindow extends Stage {
     }
 
     private boolean confirmCloseIfDirty() {
-        if (!dirty) return true;
+        if (!dirty && !previewStaged) return true;
         ButtonType save = new ButtonType("Save & Register", ButtonBar.ButtonData.YES);
         ButtonType discard = new ButtonType("Discard", ButtonBar.ButtonData.NO);
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         EditorTheme.apply(alert);
         alert.setTitle("Unsaved Animation");
-        alert.setHeaderText("Save animation changes before closing Puppeteer?");
-        alert.setContentText("Choose Save & Register to persist and register this timeline for runtime use.");
+        if (previewStaged) {
+            alert.setHeaderText("A staged code preview is active.");
+            alert.setContentText("Choose Save & Register to keep staged changes, or Discard to close without them.");
+        } else {
+            alert.setHeaderText("Save animation changes before closing Puppeteer?");
+            alert.setContentText("Choose Save & Register to persist and register this timeline for runtime use.");
+        }
         alert.getButtonTypes().setAll(save, discard, ButtonType.CANCEL);
         var result = alert.showAndWait();
         if (result.isEmpty() || result.get() == ButtonType.CANCEL) return false;
@@ -1275,6 +1278,11 @@ public class PuppeteerWindow extends Stage {
         codePreview.setCode(code);
         boolean saved = saveTimelineFile(name, code);
         if (saved) {
+            if (previewStaged) {
+                previewStaged = false;
+                previewBaselineProject = null;
+                codePreview.markPreviewCommitted();
+            }
             setDirty(false);
             setTitle("Puppeteer - " + name + " (saved & registered)");
         } else {
@@ -1320,6 +1328,81 @@ public class PuppeteerWindow extends Stage {
 
     private void captureProjectSnapshotBaseline() {
         project.captureInitialSnapshot();
+    }
+
+    private Set<String> knownSceneEntities() {
+        if (scene == null) return null;
+        Set<String> names = new LinkedHashSet<>();
+        for (String name : scene.names()) {
+            if (name != null && !name.isBlank()) names.add(name);
+        }
+        return names.isEmpty() ? null : names;
+    }
+
+    private void stagePreviewFromCode() {
+        String code = codePreview.getCode();
+        String name = tfTimelineName.getText().trim();
+        if (name.isBlank()) name = project.getName();
+        try {
+            if (!previewStaged) {
+                previewBaselineProject = project.copy();
+                dirtyBeforePreviewStage = dirty;
+            }
+
+            AnimationProject imported = CodeImporter.importCode(name, code);
+            applyImportedProject(imported);
+            previewStaged = true;
+            codePreview.setPreviewStaged(true);
+            setDirty(dirty);
+            refreshExportPreview();
+        } catch (Exception ex) {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                EditorTheme.apply(alert);
+                alert.setTitle("Preview Failed");
+                alert.setHeaderText("Could not parse the edited code.");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
+            });
+        }
+    }
+
+    private void commitStagedPreview() {
+        if (!previewStaged) return;
+        previewStaged = false;
+        previewBaselineProject = null;
+        codePreview.markPreviewCommitted();
+        setDirty(true);
+        refreshExportPreview();
+    }
+
+    private void discardStagedPreview() {
+        if (!previewStaged) return;
+        if (previewBaselineProject != null) {
+            applyImportedProject(previewBaselineProject);
+        }
+        previewStaged = false;
+        previewBaselineProject = null;
+        codePreview.markPreviewDiscarded();
+        setDirty(dirtyBeforePreviewStage);
+        refreshExportPreview();
+    }
+
+    private void applyImportedProject(AnimationProject imported) {
+        if (imported == null) return;
+        double playhead = project.getPlayheadMs();
+        project.replaceFrom(imported);
+        project.setPlayheadMs(playhead);
+        commandStack.clear();
+        tfDuration.setText(String.valueOf((int) project.getTotalDurationMs()));
+        cbLoop.setSelected(project.isLooping());
+        keyframeEditor.setTimelineDurationMs(project.getTotalDurationMs());
+        keyframeEditor.setKeyframe(null, null);
+        entitySelector.refresh(project);
+        timelinePanel.refresh();
+        timelinePanel.setPlayhead(project.getPlayheadMs());
+        updateTimeLabel();
+        updatePreview();
     }
 
     private String selectionLabel(String name, boolean group) {
