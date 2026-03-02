@@ -613,6 +613,7 @@ The exporter formats numbers as:
 
 - [Puppeteer Editor Guide](puppeteer-editor-guide.md)
 - [Puppeteer Architecture](puppeteer.md)
+- [Hand-Coding Timelines](../scripting/timeline/timeline-hand-coding.md) — write animations by hand with 18 examples, time cursor model, and reusable templates
 - [Timeline Animation (Core)](../scripting/timeline/timeline-animation.md)
 - [JES Timeline Actions](../scripting/jes/jes-timeline.md)
 - [VNS Interop](../scripting/vns/vns-interop.md)

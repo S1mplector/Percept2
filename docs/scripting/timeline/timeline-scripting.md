@@ -211,6 +211,7 @@ See [Story Arcs & Links DSL](timeline-story-arcs.md) for full examples of each p
 ### Animation
 
 - **[Puppeteer Animation Timelines](timeline-animation.md)** — TimelineData model, keyframe interpolation, inline JES block syntax, audio cues, TimelineRunner playback, TimelineRegistry, VNS integration, easing types
+- **[Hand-Coding Timelines](timeline-hand-coding.md)** — writing timeline animations by hand without the Puppeteer editor, time cursor model, easing selection guide, 18 annotated examples, reusable copy-paste templates
 
 ---
 

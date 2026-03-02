@@ -365,6 +365,7 @@ See [Puppeteer Animation Editor](../../editor/puppeteer.md) for the full editor 
 
 - [Timeline Overview](timeline-scripting.md)
 - [Story Arcs & Links](timeline-story-arcs.md)
+- [Hand-Coding Timelines](timeline-hand-coding.md) — write animations by hand with 18 examples and templates
 - [JES Timeline & Actions](../jes/jes-timeline.md) — JES runtime timeline actions
 - [VNS Interop](../vns/vns-interop.md) — `jes_timeline` provider
 - [Puppeteer Editor](../../editor/puppeteer.md)

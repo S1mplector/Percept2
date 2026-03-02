@@ -70,6 +70,7 @@ Complete documentation for the Java Vector Nexus engine.
 - [Timeline Overview](scripting/timeline/timeline-scripting.md) — landing page, quick start, key concepts
 - [Story Arcs & Links DSL](scripting/timeline/timeline-story-arcs.md) — arc declarations, link syntax, clusters, validation, story patterns, editor features
 - [Puppeteer Animation Timelines](scripting/timeline/timeline-animation.md) — TimelineData model, keyframe interpolation, audio cues, TimelineRunner, TimelineRegistry, VNS integration
+- [Hand-Coding Timelines](scripting/timeline/timeline-hand-coding.md) — writing timeline animations by hand, time cursor model, easing guide, 18 annotated examples, reusable templates
 
 ---
 

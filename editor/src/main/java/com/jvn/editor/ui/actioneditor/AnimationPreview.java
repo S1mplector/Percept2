@@ -18,6 +18,7 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.transform.Affine;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -224,7 +225,10 @@ public class AnimationPreview extends VBox {
 
     private void drawMotionPaths() {
         if (project == null) return;
-        double z = camera.getZoom();
+        double z = Math.max(0.0001, camera.getZoom());
+
+        gc.save();
+        applyCameraTransform();
 
         for (EntityTrack track : project.getTracks()) {
             java.util.List<SplinePath.Point> controlPoints =
@@ -234,34 +238,35 @@ public class AnimationPreview extends VBox {
             java.util.List<SplinePath.Point> curve = SplinePath.catmullRom(controlPoints, 16);
 
             gc.setStroke(Color.web("#4da3ff", 0.5));
-            gc.setLineWidth(1.5);
-            gc.setLineDashes(4, 3);
+            gc.setLineWidth(1.5 / z);
+            gc.setLineDashes(4.0 / z, 3.0 / z);
             gc.beginPath();
             boolean first = true;
             for (SplinePath.Point pt : curve) {
-                double sx = (pt.x - camera.getX()) * z;
-                double sy = (pt.y - camera.getY()) * z;
-                if (first) { gc.moveTo(sx, sy); first = false; }
-                else gc.lineTo(sx, sy);
+                if (first) { gc.moveTo(pt.x, pt.y); first = false; }
+                else gc.lineTo(pt.x, pt.y);
             }
             gc.stroke();
             gc.setLineDashes((double[]) null);
 
             gc.setFill(Color.web("#4da3ff", 0.8));
             for (SplinePath.Point pt : controlPoints) {
-                double sx = (pt.x - camera.getX()) * z;
-                double sy = (pt.y - camera.getY()) * z;
-                gc.fillOval(sx - 3, sy - 3, 6, 6);
+                double radius = 3.0 / z;
+                gc.fillOval(pt.x - radius, pt.y - radius, radius * 2.0, radius * 2.0);
             }
         }
+        gc.restore();
     }
 
     private void drawOnionSkins() {
         if (project == null) return;
-        double z = camera.getZoom();
+        double z = Math.max(0.0001, camera.getZoom());
         double now = project.getPlayheadMs();
         double dur = project.getTotalDurationMs();
         double step = dur / 20;
+
+        gc.save();
+        applyCameraTransform();
 
         for (EntityTrack track : project.getTracks()) {
             java.util.List<Keyframe> xFrames = track.getKeyframes(PropertyType.X);
@@ -275,22 +280,21 @@ public class AnimationPreview extends VBox {
 
                 double x = track.getValueAt(PropertyType.X, t);
                 double y = track.getValueAt(PropertyType.Y, t);
-                double sx = (x - camera.getX()) * z;
-                double sy = (y - camera.getY()) * z;
 
                 double alpha = 0.3 * (1.0 - Math.abs(i) / (double)(onionFrames + 1));
                 Color color = i < 0 ? Color.web("#f38ba8", alpha) : Color.web("#58d68d", alpha);
 
                 gc.setStroke(color);
-                gc.setLineWidth(1.5);
-                double size = 20 * z;
-                gc.strokeRect(sx - size / 2, sy - size / 2, size, size);
+                gc.setLineWidth(1.5 / z);
+                double size = 20.0 / z;
+                gc.strokeRect(x - size / 2, y - size / 2, size, size);
 
                 gc.setFill(color);
-                gc.setFont(javafx.scene.text.Font.font(8));
-                gc.fillText(String.format("%.0f", t), sx + size / 2 + 2, sy);
+                gc.setFont(javafx.scene.text.Font.font(8.0 / z));
+                gc.fillText(String.format("%.0f", t), x + size / 2 + (2.0 / z), y);
             }
         }
+        gc.restore();
     }
 
     private void drawGrid(double w, double h) {
@@ -529,9 +533,9 @@ public class AnimationPreview extends VBox {
     private boolean isNearOrbitAnchorHandle(double screenX, double screenY) {
         double[] anchor = getOrbitAnchor(selectedEntityName);
         if (anchor == null) return false;
-        double z = Math.max(0.0001, camera.getZoom());
-        double ax = (anchor[0] - camera.getX()) * z;
-        double ay = (anchor[1] - camera.getY()) * z;
+        double[] viewportPoint = worldToViewport(anchor[0], anchor[1]);
+        double ax = viewportPoint[0];
+        double ay = viewportPoint[1];
         double pointerX = screenToViewportX(screenX);
         double pointerY = screenToViewportY(screenY);
         double dx = pointerX - ax;
@@ -743,38 +747,41 @@ public class AnimationPreview extends VBox {
 
     private void drawSelectionHighlight(Entity2D entity) {
         if (entity == null) return;
-        double z = camera.getZoom();
+        double z = Math.max(0.0001, camera.getZoom());
         double[] corners = getEntityCorners(entity);
         if (corners.length < 8) return;
-        double[] sx = new double[4];
-        double[] sy = new double[4];
-        double minSx = Double.POSITIVE_INFINITY;
-        double minSy = Double.POSITIVE_INFINITY;
+        double[] wx = new double[4];
+        double[] wy = new double[4];
+        double minWx = Double.POSITIVE_INFINITY;
+        double minWy = Double.POSITIVE_INFINITY;
         for (int i = 0; i < 4; i++) {
-            sx[i] = (corners[i * 2] - camera.getX()) * z;
-            sy[i] = (corners[i * 2 + 1] - camera.getY()) * z;
-            if (sx[i] < minSx) minSx = sx[i];
-            if (sy[i] < minSy) minSy = sy[i];
+            wx[i] = corners[i * 2];
+            wy[i] = corners[i * 2 + 1];
+            if (wx[i] < minWx) minWx = wx[i];
+            if (wy[i] < minWy) minWy = wy[i];
         }
 
+        gc.save();
+        applyCameraTransform();
         gc.setStroke(Color.web("#f0b673"));
-        gc.setLineWidth(2);
-        gc.setLineDashes(6, 4);
-        gc.strokePolygon(sx, sy, 4);
+        gc.setLineWidth(2.0 / z);
+        gc.setLineDashes(6.0 / z, 4.0 / z);
+        gc.strokePolygon(wx, wy, 4);
         gc.setLineDashes((double[]) null);
 
         if (supportsPivotEntity(entity)) {
-            drawPivotHandle(entity);
+            drawPivotHandleWorld(entity, z);
         }
         if (selectedEntityName != null && hasOrbitAnchor(selectedEntityName)) {
-            drawOrbitAnchor(selectedEntityName, entity);
+            drawOrbitAnchorWorld(selectedEntityName, entity, z);
         }
 
         if (selectedEntityName != null) {
             gc.setFill(Color.web("#f0b673"));
-            gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), 10));
-            gc.fillText(selectedEntityName, minSx, minSy - 6);
+            gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), 10.0 / z));
+            gc.fillText(selectedEntityName, minWx, minWy - (6.0 / z));
         }
+        gc.restore();
     }
 
     private boolean supportsPivotEntity(Entity2D entity) {
@@ -784,10 +791,9 @@ public class AnimationPreview extends VBox {
 
     private boolean isNearPivotHandle(double screenX, double screenY) {
         if (selectedEntity == null) return false;
-        double z = camera.getZoom();
-        if (z <= 0) return false;
-        double px = (selectedEntity.getX() - camera.getX()) * z;
-        double py = (selectedEntity.getY() - camera.getY()) * z;
+        double[] viewportPoint = worldToViewport(selectedEntity.getX(), selectedEntity.getY());
+        double px = viewportPoint[0];
+        double py = viewportPoint[1];
         double pointerX = screenToViewportX(screenX);
         double pointerY = screenToViewportY(screenY);
         double dx = pointerX - px;
@@ -795,41 +801,44 @@ public class AnimationPreview extends VBox {
         return dx * dx + dy * dy <= 100;
     }
 
-    private void drawPivotHandle(Entity2D entity) {
-        double z = camera.getZoom();
-        if (z <= 0) return;
-        double px = (entity.getX() - camera.getX()) * z;
-        double py = (entity.getY() - camera.getY()) * z;
+    private void drawPivotHandleWorld(Entity2D entity, double zoom) {
+        double z = Math.max(0.0001, zoom);
+        double px = entity.getX();
+        double py = entity.getY();
+        double arm = 7.0 / z;
+        double radius = 3.0 / z;
 
         gc.setStroke(Color.web("#f7d07a"));
-        gc.setLineWidth(1.5);
-        gc.strokeLine(px - 7, py, px + 7, py);
-        gc.strokeLine(px, py - 7, px, py + 7);
+        gc.setLineWidth(1.5 / z);
+        gc.strokeLine(px - arm, py, px + arm, py);
+        gc.strokeLine(px, py - arm, px, py + arm);
         gc.setFill(Color.web("#f7d07a", 0.8));
-        gc.fillOval(px - 3, py - 3, 6, 6);
+        gc.fillOval(px - radius, py - radius, radius * 2.0, radius * 2.0);
     }
 
-    private void drawOrbitAnchor(String entityName, Entity2D entity) {
+    private void drawOrbitAnchorWorld(String entityName, Entity2D entity, double zoom) {
         double[] anchor = getOrbitAnchor(entityName);
         if (anchor == null || entity == null) return;
-        double z = Math.max(0.0001, camera.getZoom());
-        double ax = (anchor[0] - camera.getX()) * z;
-        double ay = (anchor[1] - camera.getY()) * z;
-        double ex = (entity.getX() - camera.getX()) * z;
-        double ey = (entity.getY() - camera.getY()) * z;
+        double z = Math.max(0.0001, zoom);
+        double ax = anchor[0];
+        double ay = anchor[1];
+        double ex = entity.getX();
+        double ey = entity.getY();
+        double arm = 7.0 / z;
+        double radius = 3.0 / z;
 
         gc.setStroke(Color.web("#58d68d", 0.75));
-        gc.setLineWidth(1.0);
-        gc.setLineDashes(4, 3);
+        gc.setLineWidth(1.0 / z);
+        gc.setLineDashes(4.0 / z, 3.0 / z);
         gc.strokeLine(ax, ay, ex, ey);
         gc.setLineDashes((double[]) null);
 
         gc.setStroke(Color.web("#58d68d"));
-        gc.setLineWidth(1.5);
-        gc.strokeLine(ax - 7, ay, ax + 7, ay);
-        gc.strokeLine(ax, ay - 7, ax, ay + 7);
+        gc.setLineWidth(1.5 / z);
+        gc.strokeLine(ax - arm, ay, ax + arm, ay);
+        gc.strokeLine(ax, ay - arm, ax, ay + arm);
         gc.setFill(Color.web("#58d68d", 0.9));
-        gc.fillOval(ax - 3, ay - 3, 6, 6);
+        gc.fillOval(ax - radius, ay - radius, radius * 2.0, radius * 2.0);
     }
 
     private PivotDragState buildPivotDragState(Entity2D entity) {
@@ -861,6 +870,19 @@ public class AnimationPreview extends VBox {
         if (value < min) return min;
         if (value > max) return max;
         return value;
+    }
+
+    private void applyCameraTransform() {
+        gc.translate(-camera.getX(), -camera.getY());
+        gc.scale(camera.getZoom(), camera.getZoom());
+    }
+
+    private double[] worldToViewport(double worldX, double worldY) {
+        Affine transform = new Affine();
+        transform.appendTranslation(-camera.getX(), -camera.getY());
+        transform.appendScale(camera.getZoom(), camera.getZoom());
+        var p = transform.transform(worldX, worldY);
+        return new double[]{p.getX(), p.getY()};
     }
 
     public void fitToContent() {
