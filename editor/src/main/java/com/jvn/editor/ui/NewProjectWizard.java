@@ -1522,61 +1522,108 @@ public class NewProjectWizard extends Stage {
 
   private void createDialogueLayout(File dir) throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, DIALOGUE_LAYOUT_PATH))) {
-      fw.write("# Dialogue UI layout\n");
-      fw.write("# Use the editor's visual layout tools to adjust these values.\n");
-      fw.write("# choiceYStart: -1 means auto-center choices\n");
-      fw.write("textBoxX=0\n");
-      fw.write("textBoxY=0.75\n");
-      fw.write("textBoxWidth=1\n");
-      fw.write("textBoxHeight=0.25\n");
-      fw.write("textBoxPadding=20\n");
-      fw.write("nameBoxXOffset=20\n");
-      fw.write("nameBoxYOffset=-40\n");
-      fw.write("nameBoxWidth=200\n");
-      fw.write("nameBoxHeight=40\n");
-      fw.write("nameTextXOffset=10\n");
-      fw.write("nameTextBaselineOffset=25\n");
-      fw.write("dialogueTextHorizontalPadding=20\n");
-      fw.write("dialogueTextTopPadding=40\n");
-      fw.write("dialogueTextRightPadding=20\n");
-      fw.write("dialogueTextBottomPadding=10\n");
-      fw.write("choiceXCenter=0.58\n");
-      fw.write("choiceYStart=-1\n");
-      fw.write("choiceWidthFactor=0.6\n");
-      fw.write("choiceHeight=50\n");
-      fw.write("choiceGap=10\n");
-      fw.write("choiceTextXPadding=20\n");
-      fw.write("\n");
-      fw.write("# Optional choice button skin/style keys:\n");
-      fw.write("# choiceButtonAsset=assets/ui/choice_button.png\n");
-      fw.write("# choiceButtonHoverAsset=assets/ui/choice_button_hover.png\n");
-      fw.write("# choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png\n");
-      fw.write("# choiceBackgroundColor=#323246E6\n");
-      fw.write("# choiceHoverColor=#464664E6\n");
-      fw.write("# choiceTextColor=#FFFFFFFF\n");
-      fw.write("# choiceBorderColor=#FFFFFFFF\n");
-      fw.write("# choiceCornerRadius=10\n");
-      fw.write("# choiceBorderWidth=2\n");
-      fw.write("# choiceTextBaselineOffset=5\n");
-      fw.write("# characterHeightFactor=0.85\n");
-      fw.write("# characterBaselineY=1.0\n");
-      fw.write("\n");
-      fw.write("# Optional clickable textbox action buttons:\n");
-      fw.write("# textBoxButton.ids=save,load,settings\n");
-      fw.write("# textBoxButton.save.label=Save\n");
-      fw.write("# textBoxButton.save.action=save_menu\n");
-      fw.write("# textBoxButton.save.x=0.74\n");
-      fw.write("# textBoxButton.save.y=0.08\n");
-      fw.write("# textBoxButton.save.width=0.1\n");
-      fw.write("# textBoxButton.save.height=0.24\n");
-      fw.write("# textBoxButton.save.asset=assets/ui/save_btn.png\n");
-      fw.write("# textBoxButton.load.label=Load\n");
-      fw.write("# textBoxButton.load.action=load_menu\n");
-      fw.write("# textBoxButton.load.x=0.85\n");
-      fw.write("# textBoxButton.load.y=0.08\n");
-      fw.write("# textBoxButton.load.width=0.1\n");
-      fw.write("# textBoxButton.load.height=0.24\n");
+      fw.write(defaultDialogueLayoutTemplate().replace("\n", System.lineSeparator()));
     }
+  }
+
+  private static String defaultDialogueLayoutTemplate() {
+    return """
+# Dialogue UI layout (.layout)
+# Format: key=value
+# Fractions (0..1) are relative to the game viewport size.
+# Pixel values are absolute offsets/paddings for fine alignment.
+# Edit manually or in Dialogue Layout Studio.
+
+# --- Text box container (main dialogue panel) ---
+# textBoxX / textBoxY: top-left anchor of the panel.
+# textBoxWidth / textBoxHeight: panel size as viewport fraction.
+# textBoxPadding: legacy inner padding fallback (pixels).
+textBoxX=0
+textBoxY=0.75
+textBoxWidth=1
+textBoxHeight=0.25
+textBoxPadding=20
+
+# --- Name box (speaker tag panel) ---
+# Offsets are measured from the text box top-left corner.
+nameBoxXOffset=20
+nameBoxYOffset=-40
+nameBoxWidth=200
+nameBoxHeight=40
+nameTextXOffset=10
+nameTextBaselineOffset=25
+
+# --- Dialogue text bounds inside the text box ---
+# dialogueTextHorizontalPadding = left text padding.
+# Top/Right/Bottom paddings let you fit custom textbox art exactly.
+dialogueTextHorizontalPadding=20
+dialogueTextTopPadding=40
+dialogueTextRightPadding=20
+dialogueTextBottomPadding=10
+
+# --- Choice list geometry ---
+# choiceXCenter: center point of the choice stack (0=left, 1=right).
+# choiceYStart: top Y of first choice; -1 means auto-center vertically.
+# choiceWidthFactor: each choice width as viewport fraction.
+# choiceHeight / choiceGap / choiceTextXPadding are pixels.
+choiceXCenter=0.58
+choiceYStart=-1
+choiceWidthFactor=0.6
+choiceHeight=50
+choiceGap=10
+choiceTextXPadding=20
+choiceCornerRadius=10
+choiceBorderWidth=2
+choiceTextBaselineOffset=5
+
+# --- Optional textbox / choice skin assets ---
+# Uncomment to use custom textures.
+# textBoxAsset=assets/ui/textbox.png
+# choiceButtonAsset=assets/ui/choice_button.png
+# choiceButtonHoverAsset=assets/ui/choice_button_hover.png
+# choiceButtonSelectedAsset=assets/ui/choice_button_selected.png
+# choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png
+
+# --- Optional choice colors (fallback when no texture is set) ---
+# choiceBackgroundColor=#323246E6
+# choiceHoverColor=#464664E6
+# choiceSelectedColor=#464664E6
+# choiceDisabledColor=#323232A0
+# choiceTextColor=#FFFFFFFF
+# choiceHoverTextColor=#FFFFFFFF
+# choiceSelectedTextColor=#FFFFFFFF
+# choiceDisabledTextColor=#AAAAAAFF
+# choiceBorderColor=#FFFFFFFF
+# choiceHoverBorderColor=#FFFFFFFF
+# choiceSelectedBorderColor=#FFFFFFFF
+# choiceDisabledBorderColor=#AAAAAAFF
+
+# --- Optional character framing tweaks ---
+# characterHeightFactor=0.85
+# characterBaselineY=1.0
+
+# --- Optional clickable textbox action buttons ---
+# textBoxButton.ids sets order and active button ids.
+# Per-button keys use textBoxButton.<id>.*.
+# x/y/width/height are normalized relative to the textbox bounds.
+# action can be save_menu, load_menu, settings_menu, main_menu, etc.
+# textBoxButton.ids=save,load,settings
+# textBoxButton.save.label=Save
+# textBoxButton.save.action=save_menu
+# textBoxButton.save.x=0.74
+# textBoxButton.save.y=0.08
+# textBoxButton.save.width=0.1
+# textBoxButton.save.height=0.24
+# textBoxButton.save.asset=assets/ui/save_btn.png
+# textBoxButton.save.hoverAsset=assets/ui/save_btn_hover.png
+# textBoxButton.save.disabledAsset=assets/ui/save_btn_disabled.png
+# textBoxButton.load.label=Load
+# textBoxButton.load.action=load_menu
+# textBoxButton.load.x=0.85
+# textBoxButton.load.y=0.08
+# textBoxButton.load.width=0.1
+# textBoxButton.load.height=0.24
+""";
   }
 
   private void createMenuTheme(File dir, String name) throws Exception {

@@ -59,9 +59,6 @@ public class LayoutStudioWindowManager {
     DIALOGUE_LAYOUT
   }
 
-  private static final boolean STUDIO_DESIGN_PREVIEW_ENABLED =
-      Boolean.parseBoolean(System.getProperty("jvn.layout.preview.enabled", "false"));
-
   private final Stage owner;
   private final Map<String, LayoutStudioWindow> windows = new LinkedHashMap<>();
 
@@ -199,6 +196,7 @@ public class LayoutStudioWindowManager {
     private final ToggleButton bDesign = new ToggleButton();
     private final ToggleButton bCode = new ToggleButton();
     private final ToggleButton bSplit = new ToggleButton();
+    private final ToggleButton previewToggle = new ToggleButton("Preview");
 
     private final BorderPane centerHost = new BorderPane();
     private final SplitPane split = new SplitPane();
@@ -225,6 +223,7 @@ public class LayoutStudioWindowManager {
     private final MenuStyleVisualEditor menuStyleVisualEditor;
     private final DialogueLayoutEditorView dialogueLayoutVisualEditor;
     private final Node designNode;
+    private final boolean designPreviewEnabled;
 
     LayoutStudioWindow(Stage owner,
                        File file,
@@ -237,6 +236,7 @@ public class LayoutStudioWindowManager {
       this.projectRoot = projectRoot;
       this.externalStatus = statusSink;
       this.onClosed = onClosed;
+      this.designPreviewEnabled = true;
 
       this.menuScreenVisualEditor = (kind == Kind.MENU_SCREEN) ? new MenuScreenVisualEditor() : null;
       this.menuLayoutVisualEditor = (kind == Kind.MENU_LAYOUT) ? new MenuLayoutVisualEditor() : null;
@@ -269,7 +269,7 @@ public class LayoutStudioWindowManager {
       configureVisualEditors();
       bindSync();
       bindButtons();
-      applyMode(STUDIO_DESIGN_PREVIEW_ENABLED ? Mode.SPLIT : Mode.CODE);
+      applyMode(Mode.CODE);
       loadFromDisk();
 
       stage.setOnCloseRequest(e -> {
@@ -344,12 +344,12 @@ public class LayoutStudioWindowManager {
       bDesign.setToggleGroup(modeGroup);
       bCode.setToggleGroup(modeGroup);
       bSplit.setToggleGroup(modeGroup);
-      if (STUDIO_DESIGN_PREVIEW_ENABLED) bSplit.setSelected(true);
-      else bCode.setSelected(true);
+      bCode.setSelected(true);
 
       bDesign.setOnAction(e -> applyMode(Mode.DESIGN));
       bCode.setOnAction(e -> applyMode(Mode.CODE));
       bSplit.setOnAction(e -> applyMode(Mode.SPLIT));
+      previewToggle.setOnAction(e -> applyMode(previewToggle.isSelected() ? Mode.SPLIT : Mode.CODE));
 
       Region spacer = new Region();
       HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -357,6 +357,7 @@ public class LayoutStudioWindowManager {
       configureIconToggle(bDesign, CssIcon.palette("#b0b8c8"), "Design Mode");
       configureIconToggle(bCode, CssIcon.list("#b0b8c8"), "Code Mode");
       configureIconToggle(bSplit, CssIcon.grid("#b0b8c8"), "Split Mode");
+      previewToggle.setTooltip(new Tooltip("Enable/disable preview"));
       configureIconButton(saveButton, CssIcon.save("#8cd48c"), "Save");
       configureIconButton(reloadButton, CssIcon.redo("#7ec8e3"), "Reload");
       configureIconButton(revealButton, CssIcon.folder("#d4a8e8"), "Reveal File");
@@ -367,6 +368,7 @@ public class LayoutStudioWindowManager {
           title,
           dirtyBadge,
           spacer,
+          previewToggle,
           bDesign,
           bCode,
           bSplit,
@@ -382,11 +384,14 @@ public class LayoutStudioWindowManager {
       bDesign.getStyleClass().add("layout-studio-toolbar-toggle");
       bCode.getStyleClass().add("layout-studio-toolbar-toggle");
       bSplit.getStyleClass().add("layout-studio-toolbar-toggle");
+      previewToggle.getStyleClass().add("layout-studio-toolbar-toggle");
       saveButton.getStyleClass().add("layout-studio-toolbar-button");
       reloadButton.getStyleClass().add("layout-studio-toolbar-button");
       revealButton.getStyleClass().add("layout-studio-toolbar-button");
 
-      if (!STUDIO_DESIGN_PREVIEW_ENABLED) {
+      if (!designPreviewEnabled) {
+        previewToggle.setManaged(false);
+        previewToggle.setVisible(false);
         bDesign.setManaged(false);
         bDesign.setVisible(false);
         bSplit.setManaged(false);
@@ -397,7 +402,7 @@ public class LayoutStudioWindowManager {
     }
 
     private Node buildContent() {
-      if (!STUDIO_DESIGN_PREVIEW_ENABLED) {
+      if (!designPreviewEnabled) {
         centerHost.setCenter(codeEditor);
         centerHost.getStyleClass().add("layout-studio-center");
         return centerHost;
@@ -497,7 +502,7 @@ public class LayoutStudioWindowManager {
     }
 
     private void configureVisualEditors() {
-      if (!STUDIO_DESIGN_PREVIEW_ENABLED) return;
+      if (!designPreviewEnabled) return;
       if (menuScreenVisualEditor != null) {
         menuScreenVisualEditor.setProjectRoot(projectRoot);
         menuScreenVisualEditor.setScreenIdHint(screenIdFromFile(file));
@@ -509,7 +514,7 @@ public class LayoutStudioWindowManager {
     private void bindSync() {
       codeEditor.setOnTextChanged(text -> {
         if (syncing) return;
-        if (STUDIO_DESIGN_PREVIEW_ENABLED) {
+        if (designPreviewEnabled) {
           syncing = true;
           try {
             applyCodeToDesign(text);
@@ -521,7 +526,7 @@ public class LayoutStudioWindowManager {
         updateDirtyState();
       });
 
-      if (!STUDIO_DESIGN_PREVIEW_ENABLED) return;
+      if (!designPreviewEnabled) return;
       if (menuScreenVisualEditor != null) {
         menuScreenVisualEditor.setOnMenuTextChanged(text -> pushDesignTextToCode(text));
       }
@@ -580,7 +585,7 @@ public class LayoutStudioWindowManager {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         syncing = true;
         codeEditor.setTextNoEvent(text);
-        if (STUDIO_DESIGN_PREVIEW_ENABLED) {
+        if (designPreviewEnabled) {
           try {
             applyCodeToDesign(text);
           } catch (Exception ex) {
@@ -812,7 +817,7 @@ public class LayoutStudioWindowManager {
       return switch (kind) {
         case DIALOGUE_LAYOUT -> "Import textbox/choice button skins and map them to dialogue layout keys.\n"
             + "Use textBoxButton.<itemId>.* to map per-textbox action button assets (enter id in the field below).";
-        case MENU_STYLE -> STUDIO_DESIGN_PREVIEW_ENABLED
+        case MENU_STYLE -> designPreviewEnabled
             ? "Import button textures and map them to style keys.\nUse Split mode to verify visual + file output together."
             : "Import button textures and map them to style keys.\nUse Run Project to validate changes in the runtime quickly.";
         case MENU_SCREEN -> "Assign per-item button/icon assets using item.<itemId> keys.\n"
@@ -952,7 +957,7 @@ public class LayoutStudioWindowManager {
     private enum Mode { DESIGN, CODE, SPLIT }
 
     private void applyMode(Mode mode) {
-      if (!STUDIO_DESIGN_PREVIEW_ENABLED) mode = Mode.CODE;
+      if (!designPreviewEnabled) mode = Mode.CODE;
       if (mode == null) mode = Mode.SPLIT;
       if (mode == Mode.DESIGN) {
         centerHost.setCenter(designHost);
@@ -963,9 +968,10 @@ public class LayoutStudioWindowManager {
         centerHost.setCenter(split);
       }
 
-      bDesign.setSelected(STUDIO_DESIGN_PREVIEW_ENABLED && mode == Mode.DESIGN);
+      previewToggle.setSelected(designPreviewEnabled && mode != Mode.CODE);
+      bDesign.setSelected(designPreviewEnabled && mode == Mode.DESIGN);
       bCode.setSelected(mode == Mode.CODE);
-      bSplit.setSelected(STUDIO_DESIGN_PREVIEW_ENABLED && mode == Mode.SPLIT);
+      bSplit.setSelected(designPreviewEnabled && mode == Mode.SPLIT);
     }
 
     private static String upsertProperty(String originalText, String key, String value) {

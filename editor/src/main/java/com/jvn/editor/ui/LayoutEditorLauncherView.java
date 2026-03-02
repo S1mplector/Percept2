@@ -351,12 +351,8 @@ public class LayoutEditorLauncherView extends BorderPane {
       File parent = file.getParentFile();
       if (parent != null && !parent.exists()) parent.mkdirs();
       if (type == ItemType.DIALOGUE_LAYOUT) {
-        Properties p = VnUiLayoutLoader.toProperties(VnUiLayoutSpec.defaults());
         try (FileWriter fw = new FileWriter(file)) {
-          fw.write("# Dialogue UI layout\n");
-          for (String key : p.stringPropertyNames()) {
-            fw.write(key + "=" + p.getProperty(key) + System.lineSeparator());
-          }
+          fw.write(defaultDialogueLayoutTemplate().replace("\n", System.lineSeparator()));
         }
       } else if (type == ItemType.MENU_LAYOUT) {
         MenuLayoutSpec s = MenuProfile.defaultLayout();
@@ -390,6 +386,106 @@ public class LayoutEditorLauncherView extends BorderPane {
       }
     } catch (Exception ignored) {
     }
+  }
+
+  private static String defaultDialogueLayoutTemplate() {
+    return """
+# Dialogue UI layout (.layout)
+# Format: key=value
+# Fractions (0..1) are relative to the game viewport size.
+# Pixel values are absolute offsets/paddings for fine alignment.
+# Edit manually or in Dialogue Layout Studio.
+
+# --- Text box container (main dialogue panel) ---
+# textBoxX / textBoxY: top-left anchor of the panel.
+# textBoxWidth / textBoxHeight: panel size as viewport fraction.
+# textBoxPadding: legacy inner padding fallback (pixels).
+textBoxX=0
+textBoxY=0.75
+textBoxWidth=1
+textBoxHeight=0.25
+textBoxPadding=20
+
+# --- Name box (speaker tag panel) ---
+# Offsets are measured from the text box top-left corner.
+nameBoxXOffset=20
+nameBoxYOffset=-40
+nameBoxWidth=200
+nameBoxHeight=40
+nameTextXOffset=10
+nameTextBaselineOffset=25
+
+# --- Dialogue text bounds inside the text box ---
+# dialogueTextHorizontalPadding = left text padding.
+# Top/Right/Bottom paddings let you fit custom textbox art exactly.
+dialogueTextHorizontalPadding=20
+dialogueTextTopPadding=40
+dialogueTextRightPadding=20
+dialogueTextBottomPadding=10
+
+# --- Choice list geometry ---
+# choiceXCenter: center point of the choice stack (0=left, 1=right).
+# choiceYStart: top Y of first choice; -1 means auto-center vertically.
+# choiceWidthFactor: each choice width as viewport fraction.
+# choiceHeight / choiceGap / choiceTextXPadding are pixels.
+choiceXCenter=0.58
+choiceYStart=-1
+choiceWidthFactor=0.6
+choiceHeight=50
+choiceGap=10
+choiceTextXPadding=20
+choiceCornerRadius=10
+choiceBorderWidth=2
+choiceTextBaselineOffset=5
+
+# --- Optional textbox / choice skin assets ---
+# Uncomment to use custom textures.
+# textBoxAsset=assets/ui/textbox.png
+# choiceButtonAsset=assets/ui/choice_button.png
+# choiceButtonHoverAsset=assets/ui/choice_button_hover.png
+# choiceButtonSelectedAsset=assets/ui/choice_button_selected.png
+# choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png
+
+# --- Optional choice colors (fallback when no texture is set) ---
+# choiceBackgroundColor=#323246E6
+# choiceHoverColor=#464664E6
+# choiceSelectedColor=#464664E6
+# choiceDisabledColor=#323232A0
+# choiceTextColor=#FFFFFFFF
+# choiceHoverTextColor=#FFFFFFFF
+# choiceSelectedTextColor=#FFFFFFFF
+# choiceDisabledTextColor=#AAAAAAFF
+# choiceBorderColor=#FFFFFFFF
+# choiceHoverBorderColor=#FFFFFFFF
+# choiceSelectedBorderColor=#FFFFFFFF
+# choiceDisabledBorderColor=#AAAAAAFF
+
+# --- Optional character framing tweaks ---
+# characterHeightFactor=0.85
+# characterBaselineY=1.0
+
+# --- Optional clickable textbox action buttons ---
+# textBoxButton.ids sets order and active button ids.
+# Per-button keys use textBoxButton.<id>.*.
+# x/y/width/height are normalized relative to the textbox bounds.
+# action can be save_menu, load_menu, settings_menu, main_menu, etc.
+# textBoxButton.ids=save,load,settings
+# textBoxButton.save.label=Save
+# textBoxButton.save.action=save_menu
+# textBoxButton.save.x=0.74
+# textBoxButton.save.y=0.08
+# textBoxButton.save.width=0.1
+# textBoxButton.save.height=0.24
+# textBoxButton.save.asset=assets/ui/save_btn.png
+# textBoxButton.save.hoverAsset=assets/ui/save_btn_hover.png
+# textBoxButton.save.disabledAsset=assets/ui/save_btn_disabled.png
+# textBoxButton.load.label=Load
+# textBoxButton.load.action=load_menu
+# textBoxButton.load.x=0.85
+# textBoxButton.load.y=0.08
+# textBoxButton.load.width=0.1
+# textBoxButton.load.height=0.24
+""";
   }
 
   private boolean isBlankMenuProject() {

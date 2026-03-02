@@ -2562,15 +2562,35 @@ public class DialogueLayoutEditorView extends BorderPane {
     }
 
     StringBuilder out = new StringBuilder();
-    out.append("# Dialogue UI layout").append(System.lineSeparator());
-    out.append("# choiceYStart: -1 = auto-center").append(System.lineSeparator());
+    out.append("# Dialogue UI layout (.layout)").append(System.lineSeparator());
+    out.append("# Format: key=value").append(System.lineSeparator());
+    out.append("# Fractions (0..1) are viewport-relative. Pixel values are absolute offsets/paddings.").append(System.lineSeparator());
+    out.append("# Edit in Dialogue Layout Studio or directly in code.").append(System.lineSeparator());
+    out.append("# choiceYStart: -1 = auto-center choices vertically.").append(System.lineSeparator());
     for (String key : KNOWN_KEYS) {
       String value = merged.getProperty(key);
       if (value == null) continue;
+      if ("textBoxX".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Text box container ---").append(System.lineSeparator());
+      } else if ("textBoxAsset".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Text box visual style / shape ---").append(System.lineSeparator());
+      } else if ("nameBoxBoundsPoints".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Advanced bounds polygons (optional) ---").append(System.lineSeparator());
+      } else if ("choiceButtonAsset".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Choice button assets / colors ---").append(System.lineSeparator());
+      } else if ("nameBoxXOffset".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Name box placement ---").append(System.lineSeparator());
+      } else if ("dialogueTextHorizontalPadding".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Dialogue text inner bounds ---").append(System.lineSeparator());
+      } else if ("choiceXCenter".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Choice list geometry ---").append(System.lineSeparator());
+      }
       out.append(key).append("=").append(value).append(System.lineSeparator());
     }
     if (textBoxButtons != null && !textBoxButtons.isEmpty()) {
-      out.append(System.lineSeparator()).append("# Textbox action buttons").append(System.lineSeparator());
+      out.append(System.lineSeparator()).append("# --- Textbox action buttons ---").append(System.lineSeparator());
+      out.append("# textBoxButton.ids controls order and active ids.").append(System.lineSeparator());
+      out.append("# Per-button keys use textBoxButton.<id>.* and are normalized to textbox bounds.").append(System.lineSeparator());
       List<String> ids = new ArrayList<>();
       for (VnUiActionButtonSpec button : textBoxButtons) {
         if (button == null || button.id() == null || button.id().isBlank()) continue;

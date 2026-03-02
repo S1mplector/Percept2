@@ -40,8 +40,6 @@ public class FileEditorTab extends BorderPane {
   public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, MENU_SCREEN, MENU_LAYOUT, MENU_STYLE, DIALOGUE_LAYOUT, OTHER }
   private enum PreviewDockPosition { TOP, BOTTOM, LEFT, RIGHT, WINDOW }
   private enum PreviewLayoutMode { PREVIEW, CODE, SPLIT }
-  private static final boolean STUDIO_DESIGN_PREVIEW_ENABLED =
-      Boolean.parseBoolean(System.getProperty("jvn.layout.preview.enabled", "false"));
 
   private final File file;
   private final Kind kind;
@@ -223,13 +221,13 @@ public class FileEditorTab extends BorderPane {
         themeEditor.setOnTextChanged(t -> themePreview.setThemeFromText(t));
       }
     } else if (kind == Kind.MENU_SCREEN) {
-      setCenter(createStudioWorkspace("Menu Screen Studio", menuScreenVisualEditor, menuScreenEditor, 0.62, STUDIO_DESIGN_PREVIEW_ENABLED));
+      setCenter(createStudioWorkspace("Menu Screen Studio", menuScreenVisualEditor, menuScreenEditor, 0.62, true));
     } else if (kind == Kind.MENU_LAYOUT) {
-      setCenter(createStudioWorkspace("Menu Layout Studio", menuLayoutVisualEditor, menuLayoutEditor, 0.58, STUDIO_DESIGN_PREVIEW_ENABLED));
+      setCenter(createStudioWorkspace("Menu Layout Studio", menuLayoutVisualEditor, menuLayoutEditor, 0.58, true));
     } else if (kind == Kind.MENU_STYLE) {
-      setCenter(createStudioWorkspace("Menu Style Studio", menuStyleVisualEditor, menuStyleEditor, 0.58, STUDIO_DESIGN_PREVIEW_ENABLED));
+      setCenter(createStudioWorkspace("Menu Style Studio", menuStyleVisualEditor, menuStyleEditor, 0.58, true));
     } else if (kind == Kind.DIALOGUE_LAYOUT) {
-      setCenter(createStudioWorkspace("Dialogue Layout Studio", dialogueLayoutVisualEditor, dialogueLayoutEditor, 0.58, STUDIO_DESIGN_PREVIEW_ENABLED));
+      setCenter(createStudioWorkspace("Dialogue Layout Studio", dialogueLayoutVisualEditor, dialogueLayoutEditor, 0.58, true));
     } else if (kind == Kind.OTHER) {
       setCenter(textEditor);
     } else {
@@ -838,7 +836,7 @@ public class FileEditorTab extends BorderPane {
     bCode.setToggleGroup(group);
     bSplit.setToggleGroup(group);
     if (allowDesign) {
-      bDesign.setSelected(true);
+      bCode.setSelected(true);
     } else {
       bCode.setSelected(true);
       bDesign.setManaged(false);
@@ -884,7 +882,7 @@ public class FileEditorTab extends BorderPane {
 
     group.selectedToggleProperty().addListener((o, ov, nv) -> {
       if (nv == null) {
-        if (allowDesign) bDesign.setSelected(true);
+        if (allowDesign) bCode.setSelected(true);
         else bCode.setSelected(true);
       }
       applyMode.run();
