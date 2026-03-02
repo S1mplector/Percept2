@@ -302,6 +302,15 @@ public class PuppeteerWindow extends Stage {
         HBox propertyBox = new HBox(4, propertyLabel, cbProperty);
         propertyBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
+        Button btnCopyKeyframes = makeToolbarButton("Copy KF", "Copy selected keyframes (Ctrl/Cmd+Alt+C)", STYLE_BTN_DARK);
+        btnCopyKeyframes.setOnAction(e -> copySelectedKeyframesToClipboard());
+        Button btnPasteKeyframes = makeToolbarButton("Paste KF", "Paste keyframes at playhead (Ctrl/Cmd+Alt+V)", STYLE_BTN_DARK);
+        btnPasteKeyframes.setOnAction(e -> pasteCopiedKeyframesAtPlayhead());
+        Button btnDuplicateKeyframes = makeToolbarButton("Dup KF", "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)", STYLE_BTN_DARK);
+        btnDuplicateKeyframes.setOnAction(e -> duplicateSelectedKeyframesBySnapStep());
+        HBox keyframeOpsBox = new HBox(4, btnCopyKeyframes, btnPasteKeyframes, btnDuplicateKeyframes);
+        keyframeOpsBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
         cbSnap = new CheckBox("Snap");
         cbSnap.setSelected(timelinePanel.isSnapEnabled());
         cbSnap.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
@@ -387,6 +396,8 @@ public class PuppeteerWindow extends Stage {
             makeVSep(),
             propertyBox,
             makeVSep(),
+            keyframeOpsBox,
+            makeVSep(),
             snapBox,
             makeVSep(),
             orbitBox,
@@ -427,8 +438,9 @@ public class PuppeteerWindow extends Stage {
 
         // --- Shortcuts status bar ---
         Label shortcutsBar = new Label(
-            "Space: Play/Pause   Home: Rewind   Ctrl+Z/Y: Undo/Redo   " +
-            "A: Toggle orbit   Shift+A: Clear anchor   Shift+Click preview: Set orbit anchor   Alt+Shift+Click: Anchor to clicked entity   Del: Delete keyframe"
+            "Space: Play/Pause   Home: Rewind   K: Add keyframe   Del: Delete keyframe   " +
+            "Alt+←/→: Nudge by snap   Alt+Shift+←/→: Nudge by 1ms   Ctrl/Cmd+Alt+C/V/D: Copy/Paste/Duplicate keyframes   " +
+            "Ctrl/Cmd+Shift+C: Copy code   Ctrl/Cmd+Alt+Z/Y: Undo/Redo"
         );
         shortcutsBar.setMaxWidth(Double.MAX_VALUE);
         shortcutsBar.setStyle("-fx-background-color: #0a0a0a; -fx-text-fill: #555; -fx-font-size: 10px; " +
@@ -740,14 +752,26 @@ public class PuppeteerWindow extends Stage {
             }
         );
         scene.getAccelerators().put(
-            new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN),
+            new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
             () -> {
                 String code = CodeExporter.export(project);
                 copyToClipboard(code);
             }
         );
         scene.getAccelerators().put(
-            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
+            new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN),
+            this::copySelectedKeyframesToClipboard
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN),
+            this::pasteCopiedKeyframesAtPlayhead
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN),
+            this::duplicateSelectedKeyframesBySnapStep
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN),
             () -> {
                 commandStack.undo();
                 timelinePanel.refresh();
@@ -755,7 +779,7 @@ public class PuppeteerWindow extends Stage {
             }
         );
         scene.getAccelerators().put(
-            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN, KeyCombination.ALT_DOWN),
             () -> {
                 commandStack.redo();
                 timelinePanel.refresh();
@@ -763,7 +787,7 @@ public class PuppeteerWindow extends Stage {
             }
         );
         scene.getAccelerators().put(
-            new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN),
+            new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN),
             () -> {
                 commandStack.redo();
                 timelinePanel.refresh();
@@ -789,6 +813,20 @@ public class PuppeteerWindow extends Stage {
             }
         );
         scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.LEFT, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN),
+            () -> {
+                timelinePanel.nudgeSelectedKeyframes(-1.0);
+                refreshExportPreviewAndMarkDirty();
+            }
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN),
+            () -> {
+                timelinePanel.nudgeSelectedKeyframes(1.0);
+                refreshExportPreviewAndMarkDirty();
+            }
+        );
+        scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.A),
             () -> {
                 if (cbOrbitTool == null) return;
@@ -803,6 +841,19 @@ public class PuppeteerWindow extends Stage {
                 updatePreview();
             }
         );
+    }
+
+    private void copySelectedKeyframesToClipboard() {
+        timelinePanel.copySelectedKeyframes();
+    }
+
+    private void pasteCopiedKeyframesAtPlayhead() {
+        timelinePanel.pasteCopiedKeyframesAtPlayhead();
+    }
+
+    private void duplicateSelectedKeyframesBySnapStep() {
+        double delta = Math.max(1.0, timelinePanel.getSnapStepMs());
+        timelinePanel.duplicateSelectedKeyframes(delta);
     }
 
     private MenuButton buildPresetMenu() {

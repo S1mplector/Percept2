@@ -1,0 +1,21 @@
+# Menu layout template (.layout)
+# Text-first workflow: edit -> save -> run runtime -> validate -> iterate.
+# Format: key=value (Java .properties)
+# Units:
+# - listYStart/titleY: <=1 means viewport fraction, >1 means pixels.
+# - lineHeight/hintsBottomMargin: pixels.
+# - listWidthFactor: viewport fraction (0.1..1.0).
+# textAlign options: left | center | right.
+#
+# Recommended tweak order:
+# 1) listYStart
+# 2) lineHeight
+# 3) listWidthFactor + textAlign
+# 4) titleY/hintsBottomMargin
+listYStart=0.34
+lineHeight=68
+listWidthFactor=0.44
+textAlign=center
+hintsBottomMargin=36
+# titleY is optional. Uncomment to override runtime/default style title offset.
+# titleY=0.12

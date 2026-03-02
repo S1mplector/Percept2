@@ -1,0 +1,11 @@
+# Menu registry
+# File format: Java properties (key=value)
+# Text-first workflow: update ids -> save -> run runtime to verify discoverability/wiring.
+# defaultMenu: menu id to open first
+# menus: comma-separated .menu ids
+# layouts: comma-separated .layout ids
+# styles: comma-separated .style ids
+defaultMenu=main
+menus=main
+layouts=default
+styles=default

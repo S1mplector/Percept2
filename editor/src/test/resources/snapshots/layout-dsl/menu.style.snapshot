@@ -1,0 +1,32 @@
+# Menu style template (.style)
+# Text-first workflow: edit -> save -> run runtime -> compare in-game fonts/colors.
+# Colors can be #RRGGBB or #RRGGBBAA.
+# Prefix keys are prepended to rendered labels.
+# Font keys map to JavaFX font resolver.
+# Asset keys should be project-relative paths.
+#
+# --- Required baseline keys ---
+itemPrefix=  
+itemSelectedPrefix=▶
+itemDisabledPrefix=•
+itemDisabledColor=#7D8CA8
+buttonTextPaddingX=18
+buttonTextPaddingY=0
+
+# --- Optional row colors / typography ---
+# itemColor=#D3D3D3
+# itemSelectedColor=#FFFF00
+# itemHoverColor=#FFE066
+# itemFontFamily=Segoe UI
+# itemFontWeight=NORMAL
+# itemFontSize=22
+# titleColor=#FFFFFF
+# titleFontSize=44
+# hintsColor=#AAB4C8
+
+# --- Optional background and button textures ---
+# backgroundAsset=assets/ui/menu/bg.png
+# buttonAsset=assets/ui/menu/button.png
+# buttonSelectedAsset=assets/ui/menu/button_selected.png
+# buttonHoverAsset=assets/ui/menu/button_hover.png
+# buttonDisabledAsset=assets/ui/menu/button_disabled.png

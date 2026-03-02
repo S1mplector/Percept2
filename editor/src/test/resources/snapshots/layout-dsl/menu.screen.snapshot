@@ -1,0 +1,34 @@
+# Menu screen template (.menu)
+# Text-first workflow: edit -> save -> run runtime -> validate navigation/actions.
+# Format: key=value (Java .properties)
+#
+# Core keys:
+# titleText, hintsText, layout, defaultItemStyle, wrapSelection, items
+#
+# Per-item keys:
+# item.<id>.label / action / target / style / enabled
+# Optional visual keys:
+# item.<id>.icon / bgAsset / bgSelectedAsset / bgDisabledAsset
+# Optional bounds keys (normalized viewport fractions):
+# item.<id>.boundsX / boundsY / boundsWidth / boundsHeight
+#
+# Common actions:
+# open_menu (requires target), back, main_menu, settings_menu, save_menu, load_menu, quit, noop
+titleText=Main
+hintsText=Enter/Click: Select    Esc: Back
+layout=default
+defaultItemStyle=default
+wrapSelection=true
+items=start,back
+item.start.label=Start
+item.start.action=noop
+item.back.label=Back
+item.back.action=back
+# item.start.target=extras
+# item.start.style=submenu
+# item.start.enabled=false
+# item.start.boundsX=0.28
+# item.start.boundsY=0.34
+# item.start.boundsWidth=0.44
+# item.start.boundsHeight=0.072
+# item.start.icon=assets/ui/icons/start.png

@@ -1,5 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -57,6 +59,9 @@ public class TimelinePanel extends VBox {
     private boolean draggingKeyframe = false;
     private double dragAnchorX;
     private final Map<Keyframe, Double> dragStartTimes = new HashMap<>();
+    private List<ClipboardEntry> copiedKeyframes = List.of();
+
+    private record ClipboardEntry(PropertyType property, Keyframe keyframe, double offsetMs) {}
 
     public TimelinePanel(AnimationProject project) {
         this.project = project;
@@ -163,7 +168,9 @@ public class TimelinePanel extends VBox {
     }
 
     public void addKeyframeAtTime(double time) {
-        if (selectedEntity == null || selectedProperty == null) return;
+        if (selectedEntity == null) return;
+        if (selectedProperty == null) selectedProperty = defaultPropertyForSelection();
+        if (selectedProperty == null) return;
         if (!isPropertySupportedForSelection(selectedProperty)) return;
         EntityTrack track = selectedTrack(true);
         if (track == null) return;
@@ -203,6 +210,7 @@ public class TimelinePanel extends VBox {
     }
 
     public Set<Keyframe> getSelectedKeyframes() { return selectedKeyframes; }
+    public int getCopiedKeyframeCount() { return copiedKeyframes.size(); }
 
     public void nudgeSelectedKeyframes(double deltaMs) {
         if (selectedEntity == null) return;
@@ -225,6 +233,114 @@ public class TimelinePanel extends VBox {
         }
         notifyEdited();
         render();
+    }
+
+    public boolean copySelectedKeyframes() {
+        EntityTrack track = selectedTrack(false);
+        if (track == null) return false;
+        Map<PropertyType, List<Keyframe>> selection = selectedKeyframesByProperty(track);
+        if (selection.isEmpty()) return false;
+
+        double anchor = Double.POSITIVE_INFINITY;
+        for (List<Keyframe> keyframes : selection.values()) {
+            for (Keyframe keyframe : keyframes) {
+                anchor = Math.min(anchor, keyframe.getTimeMs());
+            }
+        }
+        if (!Double.isFinite(anchor)) return false;
+
+        List<ClipboardEntry> snapshot = new ArrayList<>();
+        for (Map.Entry<PropertyType, List<Keyframe>> entry : selection.entrySet()) {
+            PropertyType property = entry.getKey();
+            for (Keyframe keyframe : entry.getValue()) {
+                snapshot.add(new ClipboardEntry(property, keyframe.copy(), keyframe.getTimeMs() - anchor));
+            }
+        }
+        snapshot.sort(Comparator.comparingDouble(ClipboardEntry::offsetMs)
+            .thenComparing(e -> e.property().ordinal()));
+        copiedKeyframes = List.copyOf(snapshot);
+        return !copiedKeyframes.isEmpty();
+    }
+
+    public boolean pasteCopiedKeyframesAtPlayhead() {
+        EntityTrack track = selectedTrack(true);
+        if (track == null || copiedKeyframes.isEmpty()) return false;
+
+        double playhead = clampToTimeline(snapTime(project.getPlayheadMs()));
+        Set<Keyframe> previousSelection = new HashSet<>(selectedKeyframes);
+        Keyframe previousPrimary = selectedKeyframe;
+        PropertyType previousProperty = selectedProperty;
+
+        selectedKeyframes.clear();
+        selectedKeyframe = null;
+
+        PropertyType firstProperty = null;
+        int pasted = 0;
+        for (ClipboardEntry entry : copiedKeyframes) {
+            PropertyType property = entry.property();
+            if (!isPropertySupportedForSelection(property)) continue;
+            Keyframe copy = entry.keyframe().copy();
+            copy.setTimeMs(clampToTimeline(snapTime(playhead + entry.offsetMs())));
+            Keyframe inserted = track.upsertKeyframe(property, copy);
+            if (inserted == null) continue;
+            if (firstProperty == null) firstProperty = property;
+            selectedKeyframes.add(inserted);
+            selectedKeyframe = inserted;
+            pasted++;
+        }
+        if (pasted == 0) {
+            selectedKeyframes.clear();
+            selectedKeyframes.addAll(previousSelection);
+            selectedKeyframe = previousPrimary;
+            selectedProperty = previousProperty;
+            if (onKeyframeSelected != null) onKeyframeSelected.accept(selectedKeyframe);
+            render();
+            return false;
+        }
+
+        if (firstProperty != null) selectedProperty = firstProperty;
+        if (onKeyframeSelected != null) onKeyframeSelected.accept(selectedKeyframe);
+        notifyEdited();
+        render();
+        return true;
+    }
+
+    public boolean duplicateSelectedKeyframes(double deltaMs) {
+        if (Math.abs(deltaMs) < 1e-9) return false;
+        EntityTrack track = selectedTrack(false);
+        if (track == null) return false;
+        Map<PropertyType, List<Keyframe>> selection = selectedKeyframesByProperty(track);
+        if (selection.isEmpty()) return false;
+
+        selectedKeyframes.clear();
+        selectedKeyframe = null;
+
+        PropertyType firstProperty = null;
+        int duplicated = 0;
+        for (Map.Entry<PropertyType, List<Keyframe>> entry : selection.entrySet()) {
+            PropertyType property = entry.getKey();
+            for (Keyframe source : entry.getValue()) {
+                Keyframe copy = source.copy();
+                copy.setTimeMs(clampToTimeline(snapTime(source.getTimeMs() + deltaMs)));
+                Keyframe inserted = track.upsertKeyframe(property, copy);
+                if (inserted == null) continue;
+                if (firstProperty == null) firstProperty = property;
+                selectedKeyframes.add(inserted);
+                selectedKeyframe = inserted;
+                duplicated++;
+            }
+        }
+        if (duplicated == 0) {
+            clearKeyframeSelection();
+            render();
+            return false;
+        }
+
+        if (firstProperty != null) selectedProperty = firstProperty;
+        if (onKeyframeSelected != null) onKeyframeSelected.accept(selectedKeyframe);
+        notifyEdited();
+        render();
+        return true;
     }
 
     private double computeRequiredHeight() {
@@ -697,6 +813,33 @@ public class TimelinePanel extends VBox {
             }
         }
         return props;
+    }
+
+    private Map<PropertyType, List<Keyframe>> selectedKeyframesByProperty(EntityTrack track) {
+        Map<PropertyType, List<Keyframe>> byProperty = new HashMap<>();
+        if (track == null) return byProperty;
+
+        if (!selectedKeyframes.isEmpty()) {
+            for (PropertyType property : editablePropertiesForSelection()) {
+                List<Keyframe> matches = new ArrayList<>();
+                for (Keyframe keyframe : track.getKeyframes(property)) {
+                    if (selectedKeyframes.contains(keyframe)) matches.add(keyframe);
+                }
+                if (!matches.isEmpty()) {
+                    matches.sort(Comparator.comparingDouble(Keyframe::getTimeMs));
+                    byProperty.put(property, matches);
+                }
+            }
+            return byProperty;
+        }
+
+        if (selectedKeyframe == null || selectedProperty == null) return byProperty;
+        if (!isPropertySupportedForSelection(selectedProperty)) return byProperty;
+        List<Keyframe> list = track.getKeyframes(selectedProperty);
+        if (list.contains(selectedKeyframe)) {
+            byProperty.put(selectedProperty, List.of(selectedKeyframe));
+        }
+        return byProperty;
     }
 
     private void clearKeyframeSelection() {

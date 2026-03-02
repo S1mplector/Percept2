@@ -521,11 +521,18 @@ public class FileEditorTab extends BorderPane {
     previewModePreviewButton = new ToggleButton("Preview");
     previewModeCodeButton = new ToggleButton("Code");
     previewModeSplitButton = new ToggleButton("Split");
+    boolean allowSplitToggle = !isVnsPreviewWorkspace();
     ToggleGroup modeGroup = new ToggleGroup();
     previewModePreviewButton.setToggleGroup(modeGroup);
     previewModeCodeButton.setToggleGroup(modeGroup);
     previewModeSplitButton.setToggleGroup(modeGroup);
-    previewModeSplitButton.setSelected(true);
+    if (allowSplitToggle) {
+      previewModeSplitButton.setSelected(true);
+    } else {
+      previewModeCodeButton.setSelected(true);
+      previewModeSplitButton.setManaged(false);
+      previewModeSplitButton.setVisible(false);
+    }
 
     MenuItem dockTop = new MenuItem("Snap Top");
     dockTop.setOnAction(e -> setPreviewDockPosition(PreviewDockPosition.TOP));
@@ -568,7 +575,10 @@ public class FileEditorTab extends BorderPane {
     root.setCenter(previewWorkspaceContent);
 
     modeGroup.selectedToggleProperty().addListener((o, ov, nv) -> {
-      if (nv == null) previewModeSplitButton.setSelected(true);
+      if (nv == null) {
+        if (allowSplitToggle) previewModeSplitButton.setSelected(true);
+        else previewModeCodeButton.setSelected(true);
+      }
       applyPreviewWorkspaceMode();
     });
 
@@ -591,6 +601,7 @@ public class FileEditorTab extends BorderPane {
   private PreviewLayoutMode currentPreviewLayoutMode() {
     if (previewModePreviewButton != null && previewModePreviewButton.isSelected()) return PreviewLayoutMode.PREVIEW;
     if (previewModeCodeButton != null && previewModeCodeButton.isSelected()) return PreviewLayoutMode.CODE;
+    if (isVnsPreviewWorkspace()) return PreviewLayoutMode.CODE;
     return PreviewLayoutMode.SPLIT;
   }
 
@@ -599,7 +610,9 @@ public class FileEditorTab extends BorderPane {
       previewModePreviewButton.setSelected(true);
       return;
     }
-    if (previewModeBeforeDetach == PreviewLayoutMode.SPLIT && previewModeSplitButton != null) {
+    if (!isVnsPreviewWorkspace()
+        && previewModeBeforeDetach == PreviewLayoutMode.SPLIT
+        && previewModeSplitButton != null) {
       previewModeSplitButton.setSelected(true);
       return;
     }
