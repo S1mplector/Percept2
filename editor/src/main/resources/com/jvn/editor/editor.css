@@ -403,7 +403,7 @@
 }
 
 .icon-timeline-copy {
-  -fx-shape: "M4,3 L12,3 L12,11 L4,11 Z M6,5 L14,5 L14,13 L6,13 Z";
+  -fx-shape: "M2,1 L8,1 L10,3 L10,10 L2,10 Z M8,1 L8,3 L10,3 Z M5,5 L11,5 L13,7 L13,14 L5,14 Z M11,5 L11,7 L13,7 Z";
   -fx-background-color: #d2e6ff;
 }
 
@@ -424,12 +424,12 @@
 
 /* Puppeteer toolbar icons */
 .icon-puppeteer-rewind {
-  -fx-shape: "M4,3 L9,8 L4,13 Z M9,3 L14,8 L9,13 Z M2,3 L3,3 L3,13 L2,13 Z";
+  -fx-shape: "M2,3 L4,3 L4,13 L2,13 Z M13,3 L5,8 L13,13 Z";
   -fx-background-color: #d2e6ff;
 }
 
 .icon-puppeteer-play {
-  -fx-shape: "M3,2 L13,8 L3,14 Z";
+  -fx-shape: "M4,2 L14,8 L4,14 Z";
   -fx-background-color: #c7ffcf;
 }
 
@@ -444,58 +444,68 @@
 }
 
 .icon-puppeteer-loop {
-  -fx-shape: "M8,2 A6,6 0 1,1 2,8 L4,8 L1,11 L1,7 L2,7 A6,6 0 1,0 8,2 Z";
+  -fx-shape: "M5,3 L9,3 A5,5 0 0,1 13,8 L15,8 L12,11 L9,8 L11,8 A3,3 0 0,0 9,5 L5,5 Z M11,13 L7,13 A5,5 0 0,1 3,8 L1,8 L4,5 L7,8 L5,8 A3,3 0 0,0 7,11 L11,11 Z";
   -fx-background-color: #c7ffcf;
 }
 
 .icon-puppeteer-presets {
-  -fx-shape: "M3,4 L13,4 L13,5 L3,5 Z M6,3 L8,3 L8,6 L6,6 Z M3,8 L13,8 L13,9 L3,9 Z M9,7 L11,7 L11,10 L9,10 Z M3,12 L13,12 L13,13 L3,13 Z M4,11 L6,11 L6,14 L4,14 Z";
-  -fx-background-color: #d2e6ff;
+  -fx-shape: "M1,15 L3,13 L10,6 L12,8 L5,15 Z M13,1 L14,4 L16,3 L15,6 L13,5 L11,7 L12,5 L10,3 L12,4 Z";
+  -fx-background-color: #ffe08a;
 }
 
 .icon-puppeteer-paste {
-  -fx-shape: "M5,2 L11,2 L11,4 L13,4 L13,14 L3,14 L3,4 L5,4 Z M5,5 L11,5 L11,13 L5,13 Z";
-  -fx-background-color: #d2e6ff;
+  -fx-shape: "M5,1 L11,1 L11,3 L13,3 L13,14 L3,14 L3,3 L5,3 Z M6,5 L6,7 L5,7 L8,10 L11,7 L10,7 L10,5 Z";
+  -fx-background-color: #a8d8ff;
 }
 
 .icon-puppeteer-duplicate {
-  -fx-shape: "M2,3 L9,3 L9,10 L2,10 Z M6,7 L13,7 L13,14 L6,14 Z";
-  -fx-background-color: #d2e6ff;
+  -fx-shape: "M1,2 L9,2 L9,10 L1,10 Z M5,6 L13,6 L13,14 L5,14 Z M10,1 L14,1 L14,2 L12,2 L12,4 L14,4 L14,5 L10,5 L10,4 L11,4 L11,2 L10,2 Z";
+  -fx-background-color: #b8d8ff;
 }
 
 .icon-puppeteer-snap {
-  -fx-shape: "M7,2 L9,2 L9,6 L13,6 L13,8 L9,8 L9,12 L7,12 L7,8 L3,8 L3,6 L7,6 Z";
+  -fx-shape: "M5,2 L11,2 L11,5 L14,5 L14,7 L11,7 L11,8 L5,8 L5,7 L2,7 L2,5 L5,5 Z M6,8 L6,14 L5,14 L5,8 Z M10,8 L10,14 L11,14 L11,8 Z";
   -fx-background-color: #f5d7a4;
 }
 
 .icon-puppeteer-orbit {
-  -fx-shape: "M8,2 A6,6 0 1,1 8,14 A6,6 0 1,1 8,2 Z M8,5 A3,3 0 1,0 8,11 A3,3 0 1,0 8,5 Z M12,8 A1.2,1.2 0 1,1 12,10.4 A1.2,1.2 0 1,1 12,8 Z";
+  -fx-shape: "M8,3 A5,5 0 1,1 3,8 A5,5 0 1,1 8,3 Z M8,5 A3,3 0 1,0 5,8 A3,3 0 1,0 8,5 Z M12,2 A1.5,1.5 0 1,1 12,5 A1.5,1.5 0 1,1 12,2 Z M10,3 L12,3 L12,5 L10,5 Z";
   -fx-background-color: #f0c8ff;
 }
 
 .icon-puppeteer-align-rotation {
-  -fx-shape: "M8,2 A6,6 0 1,1 2,8 L4,8 L1,11 L1,7 L2,7 A6,6 0 1,0 8,2 Z M8,5 L11,8 L8,11 L8,9 L5,9 L5,7 L8,7 Z";
+  -fx-shape: "M13,3 L13,9 L11,9 L11,6 L5,12 L3,10 L9,4 L6,4 L6,2 L12,2 Z M3,3 A7,7 0 0,0 3,13 L1,13 A9,9 0 0,1 1,3 Z";
   -fx-background-color: #f0c8ff;
 }
 
 .icon-puppeteer-clear-anchor {
-  -fx-shape: "M8,2 A5,5 0 1,1 8,12 A5,5 0 1,1 8,2 Z M7,6 L9,6 L9,8 L11,8 L11,10 L9,10 L9,12 L7,12 L7,10 L5,10 L5,8 L7,8 Z M2,2 L14,14 L13,15 L1,3 Z";
+  -fx-shape: "M3,3 L5,3 L8,6 L11,3 L13,3 L13,5 L10,8 L13,11 L13,13 L11,13 L8,10 L5,13 L3,13 L3,11 L6,8 L3,5 Z";
   -fx-background-color: #ffd0d0;
 }
 
 .icon-puppeteer-audio-add {
-  -fx-shape: "M2,6 L5,6 L8,3 L8,13 L5,10 L2,10 Z M11,6 L13,6 L13,8 L15,8 L15,10 L13,10 L13,12 L11,12 L11,10 L9,10 L9,8 L11,8 Z";
-  -fx-background-color: #d2e6ff;
+  -fx-shape: "M1,5 L4,5 L7,2 L7,14 L4,11 L1,11 Z M10,6 L12,6 L12,8 L14,8 L14,10 L12,10 L12,12 L10,12 L10,10 L8,10 L8,8 L10,8 Z";
+  -fx-background-color: #a8d8ff;
 }
 
 .icon-puppeteer-audio-clear {
-  -fx-shape: "M2,6 L5,6 L8,3 L8,13 L5,10 L2,10 Z M10,6 L12,8 L14,6 L15,7 L13,9 L15,11 L14,12 L12,10 L10,12 L9,11 L11,9 L9,7 Z";
+  -fx-shape: "M1,5 L4,5 L7,2 L7,14 L4,11 L1,11 Z M9,6 L11,8 L13,6 L14,7 L12,9 L14,11 L13,12 L11,10 L9,12 L8,11 L10,9 L8,7 Z";
   -fx-background-color: #ffd0d0;
 }
 
 .icon-puppeteer-register {
   -fx-shape: "M2,8 L6,12 L14,3 L12,3 L6,9 L4,7 Z";
-  -fx-background-color: #0f2819;
+  -fx-background-color: #c7ffcf;
+}
+
+.icon-puppeteer-save-clip {
+  -fx-shape: "M2,2 L12,2 L14,4 L14,14 L2,14 Z M5,3 L9,3 L9,6 L5,6 Z M4,9 L12,9 L12,13 L4,13 Z";
+  -fx-background-color: #a8d8ff;
+}
+
+.icon-puppeteer-load-clip {
+  -fx-shape: "M1,5 L1,13 L15,13 L15,6 L9,6 L7,4 L1,4 Z M7,7 L9,7 L9,9 L11,9 L8,12 L5,9 L7,9 Z";
+  -fx-background-color: #ffe08a;
 }
 
 /* Panel chooser icons */
@@ -1104,83 +1114,86 @@
 
 /* Welcome center */
 .welcome-center-root {
-  -fx-background-color: linear-gradient(to bottom, #101218 0%, #0d0f14 100%);
+  -fx-background-color: #0a0a0a;
 }
 
 .welcome-hero-card {
-  -fx-background-color: linear-gradient(to bottom right, #1a1d27, #151821);
-  -fx-border-color: #2a3040;
-  -fx-border-width: 1;
-  -fx-border-radius: 10;
-  -fx-background-radius: 10;
+  -fx-background-color: #111111;
+  -fx-border-color: #222222;
+  -fx-border-width: 0 0 1 0;
+  -fx-border-radius: 0;
+  -fx-background-radius: 0;
 }
 
 .welcome-heading {
-  -fx-font-size: 22px;
-  -fx-font-weight: 800;
-  -fx-text-fill: #f0f3f8;
+  -fx-font-size: 16px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #e0e0e0;
 }
 
 .welcome-subheading {
-  -fx-text-fill: #b8c0d0;
-}
-
-.welcome-meta-text {
-  -fx-text-fill: #9fa7b8;
-}
-
-.welcome-shortcuts-text {
-  -fx-text-fill: #8b96aa;
+  -fx-text-fill: #888888;
   -fx-font-size: 11px;
 }
 
+.welcome-meta-text {
+  -fx-text-fill: #777777;
+  -fx-font-size: 11px;
+}
+
+.welcome-shortcuts-text {
+  -fx-text-fill: #555555;
+  -fx-font-size: 10px;
+}
+
 .welcome-status-text {
-  -fx-text-fill: #7f8797;
+  -fx-text-fill: #555555;
+  -fx-font-size: 10px;
 }
 
 .welcome-action-button {
-  -fx-background-color: #2b3140;
-  -fx-text-fill: #e9eef8;
-  -fx-border-color: #3b4357;
-  -fx-border-radius: 6;
-  -fx-background-radius: 6;
+  -fx-background-color: #1a1a1a;
+  -fx-text-fill: #d0d0d0;
+  -fx-border-color: #2a2a2a;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
   -fx-padding: 0;
   -fx-alignment: center;
 }
 
 .welcome-action-button:hover {
-  -fx-background-color: #364057;
+  -fx-background-color: #252525;
 }
 
 .welcome-section-card {
-  -fx-background-color: #131722;
-  -fx-border-color: #242b3b;
+  -fx-background-color: #0d0d0d;
+  -fx-border-color: #1e1e1e;
   -fx-border-width: 1;
-  -fx-border-radius: 8;
-  -fx-background-radius: 8;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
 }
 
 .welcome-section-title {
-  -fx-font-size: 13px;
+  -fx-font-size: 12px;
   -fx-font-weight: 700;
-  -fx-text-fill: #e6ecf8;
+  -fx-text-fill: #c0c0c0;
 }
 
 .welcome-section-meta {
-  -fx-text-fill: #8d97a9;
-  -fx-font-size: 11px;
+  -fx-text-fill: #666666;
+  -fx-font-size: 10px;
 }
 
 .welcome-filter-field {
-  -fx-background-color: #1a1f2c;
-  -fx-text-fill: #dce4f3;
-  -fx-prompt-text-fill: #727d92;
-  -fx-border-color: #2d3549;
+  -fx-background-color: #111111;
+  -fx-text-fill: #d0d0d0;
+  -fx-prompt-text-fill: #555555;
+  -fx-border-color: #2a2a2a;
 }
 
 .welcome-project-list {
-  -fx-background-color: #10141e;
-  -fx-control-inner-background: #10141e;
+  -fx-background-color: #0a0a0a;
+  -fx-control-inner-background: #0a0a0a;
 }
 
 .welcome-project-list .list-cell {
@@ -1188,38 +1201,40 @@
 }
 
 .welcome-project-list .list-cell:filled:hover {
-  -fx-background-color: #1a2233;
+  -fx-background-color: #161616;
 }
 
 .welcome-project-list .list-cell:filled:selected {
-  -fx-background-color: #25324b;
+  -fx-background-color: #1e1e1e;
 }
 
 .welcome-project-name {
   -fx-font-weight: 700;
-  -fx-text-fill: #e9eef8;
+  -fx-text-fill: #d0d0d0;
 }
 
 .welcome-project-path {
-  -fx-text-fill: #98a3b9;
+  -fx-text-fill: #777777;
+  -fx-font-size: 11px;
 }
 
 .welcome-project-time {
-  -fx-text-fill: #778297;
+  -fx-text-fill: #555555;
+  -fx-font-size: 10px;
 }
 
 .welcome-open-button {
-  -fx-background-color: #243148;
-  -fx-text-fill: #dce7fb;
-  -fx-border-color: #334563;
-  -fx-border-radius: 6;
-  -fx-background-radius: 6;
+  -fx-background-color: #1a1a1a;
+  -fx-text-fill: #d0d0d0;
+  -fx-border-color: #2a2a2a;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
   -fx-padding: 0;
   -fx-alignment: center;
 }
 
 .welcome-open-button:hover {
-  -fx-background-color: #2f4060;
+  -fx-background-color: #252525;
 }
 
 .welcome-health-scroll,
@@ -1228,19 +1243,21 @@
 }
 
 .welcome-health-card {
-  -fx-background-color: #171d2a;
-  -fx-border-color: #2a3143;
+  -fx-background-color: #111111;
+  -fx-border-color: #1e1e1e;
   -fx-border-width: 1;
-  -fx-border-radius: 6;
-  -fx-background-radius: 6;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
 }
 
 .welcome-health-title {
   -fx-font-weight: 700;
+  -fx-font-size: 11px;
 }
 
 .welcome-health-detail {
-  -fx-text-fill: #aeb8cb;
+  -fx-text-fill: #888888;
+  -fx-font-size: 11px;
 }
 
 /* Panel chooser icon buttons (dock / pop-out) */

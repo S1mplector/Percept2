@@ -1,6 +1,7 @@
     package com.jvn.editor.ui;
 
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 
 import com.jvn.core.graphics.Camera2D;
 import com.jvn.core.input.Input;
@@ -21,7 +22,6 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
-import java.util.function.LongConsumer;
 
 public class ViewportView extends StackPane {
   private final Canvas canvas = new Canvas(1200, 740);
@@ -139,6 +139,7 @@ public class ViewportView extends StackPane {
   public Input getInput() { return input; }
   public Camera2D getCamera() { return camera; }
 
+  public void setProjectRoot(java.io.File root) { blitter.setProjectRoot(root); }
   public void setShowGrid(boolean b) { this.showGrid = b; }
   public void setSize(double w, double h) {
     double sw = sanitizeCanvasDimension(w);

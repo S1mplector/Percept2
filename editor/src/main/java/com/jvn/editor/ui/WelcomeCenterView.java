@@ -58,12 +58,10 @@ public class WelcomeCenterView extends BorderPane {
     return t;
   });
 
-  private final Label headingLabel = new Label("Welcome back to JVN");
-  private final Label subheadingLabel = new Label("Open a project, create a new VN, or run a quick environment check.");
+  private final Label headingLabel = new Label("JVN Editor");
   private final Label versionLabel = new Label("Version: --");
   private final Label workspaceLabel = new Label("Workspace: --");
   private final Label projectLabel = new Label("Project: none");
-  private final Label shortcutsLabel = new Label("Shortcuts: Ctrl/Cmd+N new project • Ctrl/Cmd+O open project • Ctrl/Cmd+Shift+H welcome");
   private final Label statusLabel = new Label("Ready");
   private final Label recentMetaLabel = new Label("0 projects");
   private final Label healthMetaLabel = new Label("0 checks");
@@ -150,18 +148,12 @@ public class WelcomeCenterView extends BorderPane {
     getStyleClass().add("welcome-center-root");
     setPadding(new Insets(14));
 
-    Label logoLabel = new Label("JVN");
-    logoLabel.getStyleClass().add("jvn-wordmark");
     headingLabel.getStyleClass().add("welcome-heading");
-    subheadingLabel.getStyleClass().add("welcome-subheading");
-    subheadingLabel.setWrapText(true);
     versionLabel.getStyleClass().add("welcome-meta-text");
     workspaceLabel.getStyleClass().add("welcome-meta-text");
     workspaceLabel.setWrapText(true);
     projectLabel.getStyleClass().add("welcome-meta-text");
     projectLabel.setWrapText(true);
-    shortcutsLabel.getStyleClass().add("welcome-shortcuts-text");
-    shortcutsLabel.setWrapText(true);
     statusLabel.getStyleClass().add("welcome-status-text");
     recentMetaLabel.getStyleClass().add("welcome-section-meta");
     healthMetaLabel.getStyleClass().add("welcome-section-meta");
@@ -182,11 +174,14 @@ public class WelcomeCenterView extends BorderPane {
     configureIconButton(btnOpenLast, CssIcon.link("#f5c46b"), "Open Most Recent Project", "welcome-action-button", 30);
     configureIconButton(btnRefresh, CssIcon.redo("#7ec8e3"), "Refresh Health", "welcome-action-button", 30);
 
-    HBox actions = new HBox(8, btnNewProject, btnOpenProject, btnOpenLast, btnRefresh);
+    HBox actions = new HBox(6, btnNewProject, btnOpenProject, btnOpenLast, btnRefresh);
     actions.setAlignment(Pos.CENTER_LEFT);
 
-    VBox hero = new VBox(7, logoLabel, headingLabel, subheadingLabel, versionLabel, workspaceLabel, projectLabel, actions, shortcutsLabel, statusLabel);
-    hero.setPadding(new Insets(12));
+    HBox headingRow = new HBox(8, headingLabel, versionLabel);
+    headingRow.setAlignment(Pos.BASELINE_LEFT);
+
+    VBox hero = new VBox(4, headingRow, workspaceLabel, projectLabel, actions, statusLabel);
+    hero.setPadding(new Insets(10, 12, 10, 12));
     hero.getStyleClass().add("welcome-hero-card");
 
     Label recentHeader = new Label("Recent Projects");

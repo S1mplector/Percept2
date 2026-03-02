@@ -1927,9 +1927,12 @@ public class EditorApp extends Application {
     actions.getChildren().add(button);
   }
 
-  private void addChooserActionRow(javafx.scene.layout.VBox actions, String panelName,
+  private void addChooserActionRow(javafx.scene.layout.VBox actions, String panelName, String iconClass,
       Runnable embedAction, Runnable windowAction) {
     if (actions == null || panelName == null) return;
+
+    Region panelIcon = icon("icon", iconClass);
+
     Label label = new Label(panelName);
     label.setMaxWidth(Double.MAX_VALUE);
     HBox.setHgrow(label, Priority.ALWAYS);
@@ -1959,7 +1962,7 @@ public class EditorApp extends Application {
       popOutBtn.setDisable(true);
     }
 
-    HBox row = new HBox(6, label, dockBtn, popOutBtn);
+    HBox row = new HBox(6, panelIcon, label, dockBtn, popOutBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
     row.setStyle("-fx-background-color: #1e2230; -fx-background-radius: 4;");
@@ -2055,32 +2058,32 @@ public class EditorApp extends Application {
     Label info = new Label(details);
     info.setWrapText(true);
     javafx.scene.layout.VBox actions = new javafx.scene.layout.VBox(4);
-    addChooserActionRow(actions, "Project", () -> {
+    addChooserActionRow(actions, "Project", "icon-panel-project", () -> {
       Tab t = ensureProjectTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Project", projView, 600, 700));
 
-    addChooserActionRow(actions, "Timeline", () -> {
+    addChooserActionRow(actions, "Timeline", "icon-panel-timeline", () -> {
       Tab t = ensureTimelineTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Story Timeline", timelineView, 600, 700));
 
-    addChooserActionRow(actions, "VNS Diagnostics", () -> {
+    addChooserActionRow(actions, "VNS Diagnostics", "icon-panel-diagnostics", () -> {
       Tab t = ensureVnsDiagnosticsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("VNS Diagnostics", vnsDiagnosticsView, 700, 600));
 
-    addChooserActionRow(actions, "Label Flow", () -> {
+    addChooserActionRow(actions, "Label Flow", "icon-panel-flow", () -> {
       Tab t = ensureVnsFlowMapTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Label Flow Map", vnsFlowMapView, 700, 600));
 
-    addChooserActionRow(actions, "Assets", () -> {
+    addChooserActionRow(actions, "Assets", "icon-panel-assets", () -> {
       Tab t = ensureAssetBrowserTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Asset Browser", assetBrowserView, 700, 600));
 
-    addChooserActionRow(actions, "Layout Launcher", () -> {
+    addChooserActionRow(actions, "Layout Launcher", "icon-panel-layouts", () -> {
       Tab t = ensureLayoutLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
@@ -2089,7 +2092,7 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Layout Launcher", layoutEditorLauncherView, 700, 700);
     });
 
-    addChooserActionRow(actions, "Layered Image Visualizer", () -> {
+    addChooserActionRow(actions, "Layered Image Visualizer", "icon-panel-layered", () -> {
       Tab t = ensureLayeredImageVisualizerTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
@@ -2098,7 +2101,7 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Layered Image Visualizer", layeredImageVisualizerView, 900, 700);
     });
 
-    addChooserActionRow(actions, "Image Attributes Tool", () -> {
+    addChooserActionRow(actions, "Image Attributes Tool", "icon-panel-image-attributes", () -> {
       Tab t = ensureImageAttributesToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (imageAttributesToolView != null) imageAttributesToolView.refreshCatalog();
@@ -2107,7 +2110,7 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Image Attributes Tool", imageAttributesToolView, 800, 650);
     });
 
-    addChooserActionRow(actions, "Image Tint Tool", () -> {
+    addChooserActionRow(actions, "Image Tint Tool", "icon-panel-image-tint", () -> {
       Tab t = ensureImageTintToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (imageTintToolView != null) imageTintToolView.refreshCatalog();
@@ -2116,7 +2119,7 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Image Tint Tool", imageTintToolView, 800, 650);
     });
 
-    addChooserActionRow(actions, "Menu Flow", () -> {
+    addChooserActionRow(actions, "Menu Flow", "icon-panel-menuflow", () -> {
       Tab t = ensureMenuFlowTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
@@ -2125,7 +2128,7 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Menu Flow Editor", menuFlowEditorView, 900, 650);
     });
 
-    addChooserActionRow(actions, "Version Control", () -> {
+    addChooserActionRow(actions, "Version Control", "icon-panel-vcs", () -> {
       Tab t = ensureVersionControlTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (versionControlView != null) versionControlView.refreshStatus();
@@ -2134,17 +2137,17 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Version Control", versionControlView, 700, 600);
     });
 
-    addChooserActionRow(actions, "Help", () -> {
+    addChooserActionRow(actions, "Help", "icon-panel-help", () -> {
       Tab t = ensureHelpTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Help Center", helpCenterView, 700, 650));
 
-    addChooserActionRow(actions, "Inspector", () -> {
+    addChooserActionRow(actions, "Inspector", "icon-panel-inspector", () -> {
       Tab t = ensureInspectorTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Inspector", inspectorView, 400, 600));
 
-    addChooserActionRow(actions, "Puppeteer Launcher", () -> {
+    addChooserActionRow(actions, "Puppeteer Launcher", "icon-panel-puppeteer", () -> {
       Tab t = ensurePuppeteerLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Puppeteer Launcher", puppeteerLauncherPanel, 600, 500));

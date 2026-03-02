@@ -375,9 +375,9 @@ public class PuppeteerWindow extends Stage {
         btnPasteKeyframes.setOnAction(e -> pasteCopiedKeyframesAtPlayhead());
         Button btnDuplicateKeyframes = makeToolbarIconButton("icon-puppeteer-duplicate", "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)");
         btnDuplicateKeyframes.setOnAction(e -> duplicateSelectedKeyframesBySnapStep());
-        Button btnSaveClip = makeToolbarIconButton("icon-puppeteer-register", "Save selection as reusable clip");
+        Button btnSaveClip = makeToolbarIconButton("icon-puppeteer-save-clip", "Save selection as reusable clip");
         btnSaveClip.setOnAction(e -> saveSelectionAsClip());
-        Button btnLoadClip = makeToolbarIconButton("icon-puppeteer-paste", "Load and apply a saved clip at playhead");
+        Button btnLoadClip = makeToolbarIconButton("icon-puppeteer-load-clip", "Load and apply a saved clip at playhead");
         btnLoadClip.setOnAction(e -> loadAndApplyClip());
 
         MenuButton slotMenu = new MenuButton("Slot");
