@@ -1,5 +1,6 @@
 package com.jvn.editor.ui;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -20,14 +21,21 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import javax.imageio.ImageIO;
+
+import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
@@ -46,8 +54,8 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.SnapshotParameters;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.FileChooser;
 
 /**
  * Standalone image tint utility inspired by Ren'Py's Image Tint Tool.
@@ -107,6 +115,34 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private String tintedImageKey;
   private Image tintedImage;
 
+  // ── Zone area selector ──
+  private static final String[] BLEND_MODES = {"Normal", "Multiply", "Screen", "Overlay", "Soft Light"};
+  private final List<TintZone> tintZones = new ArrayList<>();
+  private int selectedZoneIndex = -1;
+  private boolean zoneDrawMode;       // rectangle draw mode
+  private boolean polyDrawMode;       // point-nail polygon draw mode
+  private boolean drawingZone;
+  private double zoneDrawStartX;
+  private double zoneDrawStartY;
+  private double zoneDrawEndX;
+  private double zoneDrawEndY;
+  private final List<double[]> nailPoints = new ArrayList<>(); // canvas coords for polygon nailing
+
+  private final ListView<TintZone> zoneListView = new ListView<>();
+  private final ColorPicker zoneColorPicker = new ColorPicker(Color.web("#ff8844"));
+  private final Slider zoneStrengthSlider = slider(0, 100, 50);
+  private final Slider zoneSaturationSlider = slider(-100, 100, 0);
+  private final Slider zoneContrastSlider = slider(-100, 100, 0);
+  private final Slider zoneFeatherSlider = slider(0, 100, 15);
+  private final Slider zoneRotationSlider = slider(-180, 180, 0);
+  private final ComboBox<String> zoneBlendModeBox = new ComboBox<>();
+  private final TextField zoneNameField = new TextField();
+  private final Region zoneColorSwatch = new Region();
+  private final VBox zoneControlsSection = new VBox(6);
+  private TitledPane zonesPane;
+  private Button zoneDrawToggleButton;
+  private Button polyDrawToggleButton;
+
   public ImageTintToolView() {
     setPadding(new Insets(8));
     buildUi();
@@ -115,9 +151,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private void buildUi() {
     Label title = new Label(TOOL_TITLE);
-    title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
-    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 11px;");
+    title.setStyle("-fx-font-size: 13px; -fx-font-weight: 700;");
+    summaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #8899aa;");
+    summaryLabel.setWrapText(true);
+    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 10px;");
     interactionHintLabel.setWrapText(true);
+    previewInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #99aabb;");
+    statusLabel.setStyle("-fx-font-size: 10px;");
+    statusLabel.setWrapText(true);
 
     filterField.setPromptText("Filter tags...");
     filterField.textProperty().addListener((o, ov, nv) -> {
@@ -140,36 +181,41 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     });
 
     Button refreshButton = iconButton(CssIcon.redo("#7ec8e3"), "Rescan project images", this::refreshCatalog);
-    HBox filterRow = new HBox(8, new Label("Filter"), filterField, refreshButton);
+
+    // ── Compact sidebar rows ──
+    HBox filterRow = new HBox(4, new Label("Filter"), filterField, refreshButton);
     filterRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
-    HBox charRow = new HBox(8, new Label("Char"), characterTagBox);
+    HBox charRow = new HBox(4, new Label("Char"), characterTagBox);
     charRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(characterTagBox, Priority.ALWAYS);
 
-    HBox bgRow = new HBox(8, new Label("Bg"), backgroundTagBox);
+    HBox bgRow = new HBox(4, new Label("Bg"), backgroundTagBox);
     bgRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(backgroundTagBox, Priority.ALWAYS);
 
     Button loadSetupButton = iconButton(CssIcon.download("#8ab4f8"), "Load selected setup", this::loadSelectedSetup);
     Button deleteSetupButton = iconButton(CssIcon.clearX("#f38ba8"), "Delete selected setup", this::deleteSelectedSetup);
-    HBox setupLoadRow = new HBox(8, new Label("Setup"), setupBox, loadSetupButton, deleteSetupButton);
+    HBox setupLoadRow = new HBox(4, new Label("Setup"), setupBox, loadSetupButton, deleteSetupButton);
     setupLoadRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(setupBox, Priority.ALWAYS);
 
     Button saveSetupButton = iconButton(CssIcon.save("#9ed67a"), "Save current setup", this::saveCurrentSetup);
-    HBox setupSaveRow = new HBox(8, new Label("Name"), setupNameField, saveSetupButton);
+    HBox setupSaveRow = new HBox(4, new Label("Save"), setupNameField, saveSetupButton);
     setupSaveRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(setupNameField, Priority.ALWAYS);
 
-    VBox top = new VBox(8, title, summaryLabel, filterRow, charRow, bgRow, setupLoadRow, setupSaveRow);
-    setTop(top);
+    // Tags / setup section
+    TitledPane tagsPane = new TitledPane("Tags & Setup",
+        new VBox(4, filterRow, charRow, bgRow, setupLoadRow, setupSaveRow));
+    tagsPane.setExpanded(true);
+    tagsPane.setAnimated(false);
+    tagsPane.setCollapsible(true);
 
+    // ── Preview canvas fills the center ──
     StackPane previewPane = new StackPane(previewCanvas);
-    previewPane.setMinHeight(180);
-    previewPane.setPrefHeight(250);
-    previewPane.setStyle("-fx-background-color: #121720; -fx-border-color: #2b3445; -fx-border-radius: 6; -fx-background-radius: 6;");
+    previewPane.setStyle("-fx-background-color: #121720; -fx-border-color: #2b3445; -fx-border-radius: 4; -fx-background-radius: 4;");
     previewPane.widthProperty().addListener((o, ov, nv) -> {
       previewCanvas.setWidth(Math.max(140, nv.doubleValue() - 4));
       redrawPreview();
@@ -181,15 +227,24 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     installPreviewInteractions();
 
+    // ── Action buttons ──
     Button resetViewButton = iconButton(CssIcon.expand("#8ab4f8"), "Reset position and zoom", this::resetView);
     Button resetTintButton = iconButton(CssIcon.palette("#f5b971"), "Reset tint controls", this::resetTintControls);
-    fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen this panel in the current editor window", this::requestFullscreenToggle);
+    fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen", this::requestFullscreenToggle);
     updateFullscreenButtonUi();
     Button copyExportButton = iconButton(CssIcon.copy("#9ad19c"), "Copy selected export format", this::copySelectedExport);
-    HBox actionRow = new HBox(8, resetViewButton, resetTintButton, fullscreenButton, new Label("Export"), exportFormatBox, copyExportButton);
+    Button exportPngButton = iconButton(CssIcon.download("#8ab4f8"), "Export tinted image as PNG file", this::exportTintedPng);
+    Button exportSetupBtn = iconButton(CssIcon.save("#9ed67a"), "Export setup to .tintsetup file", this::exportSetupToFile);
+    Button importSetupBtn = iconButton(CssIcon.folder("#f5c46b"), "Import setup from .tintsetup file", this::importSetupFromFile);
+    HBox actionRow = new HBox(4, resetViewButton, resetTintButton, fullscreenButton, copyExportButton);
     actionRow.setAlignment(Pos.CENTER_LEFT);
+    HBox exportRow = new HBox(4, new Label("Export"), exportFormatBox);
+    exportRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportFormatBox, Priority.ALWAYS);
+    HBox fileRow = new HBox(4, exportPngButton, exportSetupBtn, importSetupBtn);
+    fileRow.setAlignment(Pos.CENTER_LEFT);
 
+    // ── Tint controls ──
     tintColorPicker.valueProperty().addListener((o, ov, nv) -> onTintChanged(true));
     tintStrengthSlider.valueProperty().addListener((o, ov, nv) -> onTintChanged(true));
     saturationSlider.valueProperty().addListener((o, ov, nv) -> onTintChanged(true));
@@ -197,11 +252,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     updateTintColorSwatch(tintColorPicker.getValue());
     controlsSection.getChildren().setAll(
-        tintPickerRow("Tint color"),
-        sliderRow("Tint strength", tintStrengthSlider),
+        tintPickerRow("Color"),
+        sliderRow("Strength", tintStrengthSlider),
         sliderRow("Saturation", saturationSlider),
         sliderRow("Contrast", contrastSlider));
-    controlsPane = new TitledPane("Tint controls", controlsSection);
+    controlsPane = new TitledPane("Global Tint", controlsSection);
     controlsPane.setExpanded(true);
     controlsPane.setAnimated(false);
     controlsPane.setCollapsible(true);
@@ -209,9 +264,31 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       if (!applyingState) persistGlobalState();
     });
 
-    VBox center = new VBox(8, previewPane, previewInfoLabel, interactionHintLabel, actionRow, controlsPane, statusLabel);
-    center.setPadding(new Insets(8, 0, 0, 0));
-    setCenter(center);
+    // ── Zone area selector section ──
+    buildZoneSection();
+
+    // ── Right sidebar ──
+    VBox sidebar = new VBox(6,
+        title, summaryLabel,
+        tagsPane,
+        actionRow, exportRow, fileRow,
+        controlsPane,
+        zonesPane,
+        previewInfoLabel, interactionHintLabel,
+        statusLabel);
+    sidebar.setPadding(new Insets(6));
+    sidebar.setStyle("-fx-font-size: 11px;");
+
+    ScrollPane sidebarScroll = new ScrollPane(sidebar);
+    sidebarScroll.setFitToWidth(true);
+    sidebarScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    sidebarScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    sidebarScroll.setStyle("-fx-background: #1a1f2e; -fx-background-color: #1a1f2e; -fx-border-color: #2b3445; -fx-border-width: 0 0 0 1;");
+    sidebarScroll.setPrefWidth(280);
+    sidebarScroll.setMinWidth(230);
+
+    setCenter(previewPane);
+    setRight(sidebarScroll);
 
     bindTagSelectionHandlers();
   }
@@ -367,9 +444,15 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       zoom = clamp(parseDouble(persisted.getProperty("global.zoom"), 1.0), 0.1, 8.0);
       offsetX = parseDouble(persisted.getProperty("global.offsetX"), 0.0);
       offsetY = parseDouble(persisted.getProperty("global.offsetY"), 0.0);
+
+      if (zonesPane != null) {
+        boolean hideZones = parseBoolean(persisted.getProperty("global.hideZones"), true);
+        zonesPane.setExpanded(!hideZones);
+      }
     } finally {
       applyingState = false;
     }
+    loadPersistedZones();
     applyBackgroundTintIfPresent(selectedBackgroundTag());
   }
 
@@ -456,11 +539,43 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persisted.setProperty(prefix + "zoom", formatDouble(zoom));
     persisted.setProperty(prefix + "offsetX", formatDouble(offsetX));
     persisted.setProperty(prefix + "offsetY", formatDouble(offsetY));
+
+    // A: Save zone data with setup.
+    clearPrefix(prefix + "zone.");
+    persisted.setProperty(prefix + "zone.count", Integer.toString(tintZones.size()));
+    for (int i = 0; i < tintZones.size(); i++) {
+      TintZone z = tintZones.get(i);
+      String zp = prefix + "zone." + i + ".";
+      persisted.setProperty(zp + "name", z.name == null ? "" : z.name);
+      persisted.setProperty(zp + "boundsX", formatDouble(z.boundsX));
+      persisted.setProperty(zp + "boundsY", formatDouble(z.boundsY));
+      persisted.setProperty(zp + "boundsW", formatDouble(z.boundsW));
+      persisted.setProperty(zp + "boundsH", formatDouble(z.boundsH));
+      persisted.setProperty(zp + "color", colorToHex(z.color));
+      persisted.setProperty(zp + "strength", formatDouble(z.strength));
+      persisted.setProperty(zp + "saturation", formatDouble(z.saturation));
+      persisted.setProperty(zp + "contrast", formatDouble(z.contrast));
+      persisted.setProperty(zp + "feather", formatDouble(z.feather));
+      persisted.setProperty(zp + "rotation", formatDouble(z.rotation));
+      persisted.setProperty(zp + "blendMode", z.blendMode == null ? "Normal" : z.blendMode);
+      if (z.isPolygon()) {
+        StringBuilder polyStr = new StringBuilder();
+        for (int p = 0; p < z.polygon.size(); p++) {
+          if (p > 0) polyStr.append(";");
+          polyStr.append(formatDouble(z.polygon.get(p)[0])).append(",").append(formatDouble(z.polygon.get(p)[1]));
+        }
+        persisted.setProperty(zp + "polygon", polyStr.toString());
+      }
+    }
+
+    // E: Sync background per-tag tint.
+    persistBackgroundTint(selectedBackgroundTag());
+
     persisted.setProperty("global.selectedSetup", name);
     savePersistentState();
     refreshSetupOptions();
     setupBox.getSelectionModel().select(name);
-    status("Saved setup: " + name);
+    status("Saved setup: " + name + " (" + tintZones.size() + " zones)");
   }
 
   private void loadSelectedSetup() {
@@ -491,13 +606,40 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       zoom = clamp(parseDouble(persisted.getProperty(prefix + "zoom"), zoom), 0.1, 8.0);
       offsetX = parseDouble(persisted.getProperty(prefix + "offsetX"), offsetX);
       offsetY = parseDouble(persisted.getProperty(prefix + "offsetY"), offsetY);
+
+      // A: Load zone data from setup.
+      int zoneCount = (int) parseDouble(persisted.getProperty(prefix + "zone.count"), -1);
+      if (zoneCount >= 0) {
+        tintZones.clear();
+        selectedZoneIndex = -1;
+        int loaded = 0;
+        for (int i = 0; i < zoneCount; i++) {
+          try {
+            TintZone z = loadZoneFromPrefix(persisted, prefix + "zone." + i + ".", i);
+            tintZones.add(z);
+            loaded++;
+          } catch (Exception ignored) { /* F: skip malformed */ }
+        }
+        refreshZoneList();
+        if (!tintZones.isEmpty()) selectZone(0);
+        else zoneControlsSection.setDisable(true);
+        if (loaded < zoneCount) {
+          status("Loaded setup: " + name + " (" + loaded + "/" + zoneCount + " zones, " + (zoneCount - loaded) + " skipped)");
+        }
+      }
     } finally {
       applyingState = false;
     }
+
+    // E: Sync background per-tag tint with loaded values.
+    persistBackgroundTint(selectedBackgroundTag());
+
     persisted.setProperty("global.selectedSetup", name);
     persistGlobalState();
+    tintedImageTag = null; tintedImageKey = null; tintedImage = null;
     redrawPreview();
-    status("Loaded setup: " + name);
+    if (statusLabel.getText().isBlank() || !statusLabel.getText().contains("skipped"))
+      status("Loaded setup: " + name + " (" + tintZones.size() + " zones)");
   }
 
   private void deleteSelectedSetup() {
@@ -572,18 +714,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void copyFullSetup() {
-    StringBuilder out = new StringBuilder();
-    out.append("# JVN Image Tint Tool setup\n");
-    out.append("character=").append(selectedCharacterTag()).append('\n');
-    out.append("background=").append(selectedBackgroundTag()).append('\n');
-    out.append("color=").append(colorToHex(tintColorPicker.getValue())).append('\n');
-    out.append("strength=").append(formatNormalized(tintStrengthSlider.getValue() / 100.0)).append('\n');
-    out.append("saturation=").append(formatNormalized(saturationSlider.getValue() / 100.0)).append('\n');
-    out.append("contrast=").append(formatNormalized(contrastSlider.getValue() / 100.0)).append('\n');
-    out.append("zoom=").append(formatNormalized(zoom)).append('\n');
-    out.append("offsetX=").append(formatNormalized(offsetX)).append('\n');
-    out.append("offsetY=").append(formatNormalized(offsetY)).append('\n');
-    copy(out.toString());
+    copy(buildFullSetupText());
     status("Copied full setup.");
   }
 
@@ -598,7 +729,32 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private void installPreviewInteractions() {
     previewCanvas.setOnMouseClicked(e -> {
+      if (e.getButton() == MouseButton.SECONDARY && polyDrawMode) {
+        // Right-click removes last nail point.
+        if (!nailPoints.isEmpty()) {
+          nailPoints.remove(nailPoints.size() - 1);
+          redrawPreview();
+        }
+        e.consume();
+        return;
+      }
       if (e.getButton() != MouseButton.PRIMARY) return;
+      if (zoneDrawMode) return;
+      if (polyDrawMode) {
+        double mx = e.getX(), my = e.getY();
+        // Close polygon on double-click or clicking near first point.
+        if (nailPoints.size() >= 3 && (e.getClickCount() >= 2 || isNearFirstNail(mx, my))) {
+          commitPolygonZone();
+          e.consume();
+          return;
+        }
+        nailPoints.add(new double[]{mx, my});
+        redrawPreview();
+        int n = nailPoints.size();
+        status("Polygon: " + n + " point(s) — " + (n >= 3 ? "click near first point to close" : "place more points"));
+        e.consume();
+        return;
+      }
       if (e.getClickCount() < 2) return;
       resetView();
       e.consume();
@@ -606,11 +762,28 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     previewCanvas.setOnMousePressed(e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
+      if (polyDrawMode) return; // handled by onMouseClicked
+      if (zoneDrawMode) {
+        drawingZone = true;
+        zoneDrawStartX = e.getX();
+        zoneDrawStartY = e.getY();
+        zoneDrawEndX = e.getX();
+        zoneDrawEndY = e.getY();
+        redrawPreview();
+        return;
+      }
       dragging = true;
       dragLastX = e.getX();
       dragLastY = e.getY();
     });
     previewCanvas.setOnMouseDragged(e -> {
+      if (polyDrawMode) return;
+      if (zoneDrawMode && drawingZone) {
+        zoneDrawEndX = e.getX();
+        zoneDrawEndY = e.getY();
+        redrawPreview();
+        return;
+      }
       if (!dragging) return;
       double dx = e.getX() - dragLastX;
       double dy = e.getY() - dragLastY;
@@ -622,6 +795,13 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     });
     previewCanvas.setOnMouseReleased(e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
+      if (polyDrawMode) return;
+      if (zoneDrawMode && drawingZone) {
+        drawingZone = false;
+        commitDrawnZone();
+        redrawPreview();
+        return;
+      }
       dragging = false;
       persistGlobalState();
     });
@@ -683,9 +863,66 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     double drawY = (h - drawH) * 0.5 + offsetY;
     g.drawImage(tintedCharacter, drawX, drawY, drawW, drawH);
 
+    // Draw zone overlays on the character image region.
+    drawZoneOverlays(g, rawCharacter, drawX, drawY, drawW, drawH);
+
+    // Draw in-progress zone rectangle while user is dragging.
+    if (zoneDrawMode && drawingZone) {
+      double rx = Math.min(zoneDrawStartX, zoneDrawEndX);
+      double ry = Math.min(zoneDrawStartY, zoneDrawEndY);
+      double rw = Math.abs(zoneDrawEndX - zoneDrawStartX);
+      double rh = Math.abs(zoneDrawEndY - zoneDrawStartY);
+      g.setStroke(Color.web("#ffcc00"));
+      g.setLineDashes(6, 4);
+      g.setLineWidth(2);
+      g.strokeRect(rx, ry, rw, rh);
+      g.setFill(Color.color(1, 0.8, 0, 0.12));
+      g.fillRect(rx, ry, rw, rh);
+      g.setLineDashes((double[]) null);
+    }
+
+    // Draw in-progress polygon nail points.
+    if (polyDrawMode && !nailPoints.isEmpty()) {
+      g.setStroke(Color.rgb(255, 120, 120, 0.85));
+      g.setLineWidth(1.5);
+      g.setLineDashes((double[]) null);
+      // Connect placed points.
+      if (nailPoints.size() >= 2) {
+        for (int i = 0; i < nailPoints.size() - 1; i++) {
+          double[] a = nailPoints.get(i);
+          double[] b = nailPoints.get(i + 1);
+          g.strokeLine(a[0], a[1], b[0], b[1]);
+        }
+      }
+      // Dashed closing line preview.
+      if (nailPoints.size() >= 3) {
+        double[] first = nailPoints.get(0);
+        double[] last = nailPoints.get(nailPoints.size() - 1);
+        g.setLineDashes(4, 3);
+        g.strokeLine(last[0], last[1], first[0], first[1]);
+        g.setLineDashes((double[]) null);
+      }
+      // Red dots at each nail.
+      g.setFill(Color.rgb(255, 80, 80, 0.95));
+      for (double[] pt : nailPoints) {
+        g.fillOval(pt[0] - 5, pt[1] - 5, 10, 10);
+        g.setStroke(Color.WHITE);
+        g.setLineWidth(1.2);
+        g.strokeOval(pt[0] - 5, pt[1] - 5, 10, 10);
+      }
+      // Hint label at bottom.
+      g.setFill(Color.color(1, 1, 1, 0.8));
+      g.setTextAlign(TextAlignment.LEFT);
+      String hint = nailPoints.size() >= 3
+          ? nailPoints.size() + " pts — click near first point to close polygon"
+          : nailPoints.size() + " pts — place more points";
+      g.fillText(hint, 8, h - 8);
+    }
+
     previewInfoLabel.setText("Char: " + shortTag(characterTag)
         + "  |  Bg: " + shortTag(selectedBackgroundTag())
-        + "  |  Zoom: " + formatNormalized(zoom));
+        + "  |  Zoom: " + formatNormalized(zoom)
+        + "  |  Zones: " + tintZones.size());
   }
 
   private Image buildTintedImage(String tag, Image source) {
@@ -709,7 +946,39 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     double tg = tint.getGreen();
     double tb = tint.getBlue();
 
+    // Pre-compute zone parameters for performance.
+    int zoneCount = tintZones.size();
+    double[] zx = new double[zoneCount], zy = new double[zoneCount];
+    double[] zw = new double[zoneCount], zh = new double[zoneCount];
+    double[] zStr = new double[zoneCount], zSat = new double[zoneCount], zCon = new double[zoneCount];
+    double[] zFeath = new double[zoneCount];
+    double[] zRot = new double[zoneCount]; // rotation in radians
+    double[] zcr = new double[zoneCount], zcg = new double[zoneCount], zcb = new double[zoneCount];
+    int[] zBlend = new int[zoneCount];
+    @SuppressWarnings("unchecked")
+    List<double[]>[] zPoly = new List[zoneCount]; // null = rectangle, non-null = polygon
+    for (int i = 0; i < zoneCount; i++) {
+      TintZone zone = tintZones.get(i);
+      zx[i] = zone.boundsX;
+      zy[i] = zone.boundsY;
+      zw[i] = zone.boundsW;
+      zh[i] = zone.boundsH;
+      zStr[i] = clamp(zone.strength / 100.0, 0.0, 1.0);
+      zSat[i] = clamp(zone.saturation / 100.0, -1.0, 1.0);
+      zCon[i] = clamp(zone.contrast / 100.0, -1.0, 1.0);
+      zFeath[i] = clamp(zone.feather / 100.0, 0.0, 1.0);
+      zRot[i] = Math.toRadians(zone.rotation);
+      zcr[i] = zone.color.getRed();
+      zcg[i] = zone.color.getGreen();
+      zcb[i] = zone.color.getBlue();
+      zBlend[i] = blendModeIndex(zone.blendMode);
+      zPoly[i] = zone.isPolygon() ? zone.polygon : null;
+    }
+
+    double imgAspect = (double) width / height; // for aspect-correct rotation
+
     for (int y = 0; y < height; y++) {
+      double ny = (double) y / height;
       for (int x = 0; x < width; x++) {
         int argb = reader.getArgb(x, y);
         int a = (argb >>> 24) & 0xFF;
@@ -721,21 +990,44 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         double g = ((argb >>> 8) & 0xFF) / 255.0;
         double b = (argb & 0xFF) / 255.0;
 
-        // Saturation adjustment around luminance.
+        // Global tint pass.
         double lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
         r = lum + (r - lum) * (1.0 + satAdjust);
         g = lum + (g - lum) * (1.0 + satAdjust);
         b = lum + (b - lum) * (1.0 + satAdjust);
-
-        // Contrast adjustment around 0.5 midpoint.
         r = (r - 0.5) * (1.0 + conAdjust) + 0.5;
         g = (g - 0.5) * (1.0 + conAdjust) + 0.5;
         b = (b - 0.5) * (1.0 + conAdjust) + 0.5;
-
-        // Blend toward tint color.
         r = r * (1.0 - tintStrength) + tr * tintStrength;
         g = g * (1.0 - tintStrength) + tg * tintStrength;
         b = b * (1.0 - tintStrength) + tb * tintStrength;
+
+        // Per-zone tint passes (applied in order, composited on top).
+        double nx = (double) x / width;
+        for (int i = 0; i < zoneCount; i++) {
+          double weight = zPoly[i] != null
+              ? polyZoneWeight(nx, ny, zPoly[i], zFeath[i])
+              : zoneWeight(nx, ny, zx[i], zy[i], zw[i], zh[i], zFeath[i], zRot[i], imgAspect);
+          if (weight <= 0.0) continue;
+          double effStr = zStr[i] * weight;
+
+          // Compute zone-tinted pixel from the current (already globally-tinted) color.
+          double zl = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          double zr = zl + (r - zl) * (1.0 + zSat[i]);
+          double zgg = zl + (g - zl) * (1.0 + zSat[i]);
+          double zb = zl + (b - zl) * (1.0 + zSat[i]);
+          zr = (zr - 0.5) * (1.0 + zCon[i]) + 0.5;
+          zgg = (zgg - 0.5) * (1.0 + zCon[i]) + 0.5;
+          zb = (zb - 0.5) * (1.0 + zCon[i]) + 0.5;
+          zr = zr * (1.0 - effStr) + zcr[i] * effStr;
+          zgg = zgg * (1.0 - effStr) + zcg[i] * effStr;
+          zb = zb * (1.0 - effStr) + zcb[i] * effStr;
+
+          // Apply blend mode.
+          r = applyBlend(r, zr, weight, zBlend[i]);
+          g = applyBlend(g, zgg, weight, zBlend[i]);
+          b = applyBlend(b, zb, weight, zBlend[i]);
+        }
 
         int rr = (int) Math.round(clamp(r, 0.0, 1.0) * 255.0);
         int gg = (int) Math.round(clamp(g, 0.0, 1.0) * 255.0);
@@ -750,13 +1042,145 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     return out;
   }
 
+  private static double zoneWeight(double nx, double ny, double zx, double zy, double zw, double zh, double feather, double rotRad, double imgAspect) {
+    if (zw <= 0 || zh <= 0) return 0.0;
+    // Rotate test point into the rectangle's local (un-rotated) coordinate frame.
+    // We must rotate in pixel-equivalent space (aspect-corrected) so that the
+    // tinting matches the overlay which rotates in pixel space via g.rotate().
+    if (rotRad != 0.0) {
+      double cx = zx + zw * 0.5, cy = zy + zh * 0.5;
+      double cosR = Math.cos(-rotRad), sinR = Math.sin(-rotRad);
+      double dx = nx - cx;
+      double dy = (ny - cy) * imgAspect; // scale to pixel-proportional space
+      nx = cx + dx * cosR - dy * sinR;
+      ny = cy + (dx * sinR + dy * cosR) / imgAspect; // scale back
+    }
+    double x1 = zx, y1 = zy, x2 = zx + zw, y2 = zy + zh;
+    if (nx < x1 || nx > x2 || ny < y1 || ny > y2) {
+      if (feather <= 0.0) return 0.0;
+      // Outside: compute distance-based falloff.
+      double dx = nx < x1 ? x1 - nx : (nx > x2 ? nx - x2 : 0.0);
+      double dy = ny < y1 ? y1 - ny : (ny > y2 ? ny - y2 : 0.0);
+      double dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist >= feather) return 0.0;
+      return 1.0 - dist / feather;
+    }
+    // Inside: feather from edges inward.
+    if (feather <= 0.0) return 1.0;
+    double edgeDist = Math.min(Math.min(nx - x1, x2 - nx), Math.min(ny - y1, y2 - ny));
+    if (edgeDist >= feather) return 1.0;
+    return clamp(edgeDist / feather, 0.0, 1.0);
+  }
+
+  private static double polyZoneWeight(double px, double py, List<double[]> poly, double feather) {
+    int n = poly.size();
+    if (n < 3) return 0.0;
+    // Ray-casting point-in-polygon test.
+    boolean inside = false;
+    for (int i = 0, j = n - 1; i < n; j = i++) {
+      double yi = poly.get(i)[1], yj = poly.get(j)[1];
+      double xi = poly.get(i)[0], xj = poly.get(j)[0];
+      if ((yi > py) != (yj > py) &&
+          px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+        inside = !inside;
+      }
+    }
+    if (inside) {
+      if (feather <= 0.0) return 1.0;
+      // Distance to nearest polygon edge for inward feathering.
+      double minDist = Double.MAX_VALUE;
+      for (int i = 0, j = n - 1; i < n; j = i++) {
+        double d = pointToSegmentDist(px, py,
+            poly.get(j)[0], poly.get(j)[1],
+            poly.get(i)[0], poly.get(i)[1]);
+        if (d < minDist) minDist = d;
+      }
+      if (minDist >= feather) return 1.0;
+      return clamp(minDist / feather, 0.0, 1.0);
+    } else {
+      if (feather <= 0.0) return 0.0;
+      // Outside: distance-based falloff from polygon edges.
+      double minDist = Double.MAX_VALUE;
+      for (int i = 0, j = n - 1; i < n; j = i++) {
+        double d = pointToSegmentDist(px, py,
+            poly.get(j)[0], poly.get(j)[1],
+            poly.get(i)[0], poly.get(i)[1]);
+        if (d < minDist) minDist = d;
+      }
+      if (minDist >= feather) return 0.0;
+      return 1.0 - minDist / feather;
+    }
+  }
+
+  private static double pointToSegmentDist(double px, double py, double ax, double ay, double bx, double by) {
+    double dx = bx - ax, dy = by - ay;
+    double lenSq = dx * dx + dy * dy;
+    if (lenSq < 1e-12) return Math.sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+    double t = clamp(((px - ax) * dx + (py - ay) * dy) / lenSq, 0.0, 1.0);
+    double cx = ax + t * dx, cy = ay + t * dy;
+    return Math.sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy));
+  }
+
+  private static double applyBlend(double base, double zone, double weight, int mode) {
+    double blended;
+    switch (mode) {
+      case 1: // Multiply
+        blended = base * zone;
+        break;
+      case 2: // Screen
+        blended = 1.0 - (1.0 - base) * (1.0 - zone);
+        break;
+      case 3: // Overlay
+        blended = base < 0.5 ? 2.0 * base * zone : 1.0 - 2.0 * (1.0 - base) * (1.0 - zone);
+        break;
+      case 4: // Soft Light
+        blended = zone < 0.5
+            ? base - (1.0 - 2.0 * zone) * base * (1.0 - base)
+            : base + (2.0 * zone - 1.0) * (Math.sqrt(base) - base);
+        break;
+      default: // Normal
+        blended = zone;
+        break;
+    }
+    return base * (1.0 - weight) + blended * weight;
+  }
+
+  private static int blendModeIndex(String mode) {
+    if (mode == null) return 0;
+    return switch (mode) {
+      case "Multiply" -> 1;
+      case "Screen" -> 2;
+      case "Overlay" -> 3;
+      case "Soft Light" -> 4;
+      default -> 0;
+    };
+  }
+
   private String tintKey(String tag, Image source) {
-    return normalize(tag)
-        + "|" + source.getWidth() + "x" + source.getHeight()
-        + "|" + colorToHex(tintColorPicker.getValue())
-        + "|" + formatDouble(tintStrengthSlider.getValue())
-        + "|" + formatDouble(saturationSlider.getValue())
-        + "|" + formatDouble(contrastSlider.getValue());
+    StringBuilder sb = new StringBuilder();
+    sb.append(normalize(tag))
+        .append("|").append(source.getWidth()).append("x").append(source.getHeight())
+        .append("|").append(colorToHex(tintColorPicker.getValue()))
+        .append("|").append(formatDouble(tintStrengthSlider.getValue()))
+        .append("|").append(formatDouble(saturationSlider.getValue()))
+        .append("|").append(formatDouble(contrastSlider.getValue()));
+    for (int i = 0; i < tintZones.size(); i++) {
+      TintZone z = tintZones.get(i);
+      sb.append("|z").append(i).append(":")
+          .append(formatDouble(z.boundsX)).append(",").append(formatDouble(z.boundsY)).append(",")
+          .append(formatDouble(z.boundsW)).append(",").append(formatDouble(z.boundsH)).append(",")
+          .append(colorToHex(z.color)).append(",")
+          .append(formatDouble(z.strength)).append(",").append(formatDouble(z.saturation)).append(",")
+          .append(formatDouble(z.contrast)).append(",").append(formatDouble(z.feather)).append(",")
+          .append(formatDouble(z.rotation)).append(",").append(z.blendMode);
+      if (z.isPolygon()) {
+        sb.append(",poly");
+        for (double[] pt : z.polygon) {
+          sb.append(";").append(formatDouble(pt[0])).append(",").append(formatDouble(pt[1]));
+        }
+      }
+    }
+    return sb.toString();
   }
 
   private Image loadImage(String tag) {
@@ -892,6 +1316,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persisted.setProperty("global.offsetY", formatDouble(offsetY));
     boolean hideControls = controlsPane != null && !controlsPane.isExpanded();
     persisted.setProperty("global.hideControls", Boolean.toString(hideControls));
+    boolean hideZones = zonesPane != null && !zonesPane.isExpanded();
+    persisted.setProperty("global.hideZones", Boolean.toString(hideZones));
     savePersistentState();
   }
 
@@ -1145,7 +1571,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private static HBox sliderRow(String label, Slider slider) {
     Label l = new Label(label);
-    l.setMinWidth(90);
+    l.setMinWidth(60);
     TextField valueField = new TextField(String.format(Locale.ROOT, "%.0f", slider.getValue()));
     valueField.setPrefWidth(58);
     slider.valueProperty().addListener((o, ov, nv) -> valueField.setText(String.format(Locale.ROOT, "%.0f", nv.doubleValue())));
@@ -1292,4 +1718,831 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private record PresetTagEntry(String tag, List<String> layerTags) {}
 
   private record LayerRef(String characterId, String layerId) {}
+
+  // ── TintZone model ──
+
+  private static final class TintZone {
+    String name;
+    double boundsX, boundsY, boundsW, boundsH; // fractional 0..1 bounding rect
+    Color color;
+    double strength;   // 0..100
+    double saturation; // -100..100
+    double contrast;   // -100..100
+    double feather;    // 0..100
+    double rotation;   // degrees, -180..180 (only for rectangles)
+    String blendMode;  // one of BLEND_MODES
+    List<double[]> polygon; // fractional image coords (x,y pairs); null or <3 = rectangle
+
+    TintZone(String name, double bx, double by, double bw, double bh) {
+      this.name = name;
+      this.boundsX = bx;
+      this.boundsY = by;
+      this.boundsW = bw;
+      this.boundsH = bh;
+      this.color = Color.web("#ff8844");
+      this.strength = 50;
+      this.saturation = 0;
+      this.contrast = 0;
+      this.feather = 15;
+      this.rotation = 0;
+      this.blendMode = "Normal";
+      this.polygon = null;
+    }
+
+    boolean isPolygon() {
+      return polygon != null && polygon.size() >= 3;
+    }
+
+    @Override public String toString() {
+      String shape = isPolygon()
+          ? " poly(" + polygon.size() + ")"
+          : String.format(Locale.ROOT, " [%.0f%%,%.0f%% %.0f%%x%.0f%%]",
+              boundsX * 100, boundsY * 100, boundsW * 100, boundsH * 100);
+      return (name == null || name.isBlank() ? "Zone" : name) + shape;
+    }
+  }
+
+  // ── Zone UI builder ──
+
+  private void buildZoneSection() {
+    zoneBlendModeBox.getItems().setAll(BLEND_MODES);
+    zoneBlendModeBox.getSelectionModel().select("Normal");
+    zoneNameField.setPromptText("Zone name");
+
+    zoneColorSwatch.setMinSize(18, 18);
+    zoneColorSwatch.setMaxSize(18, 18);
+    zoneColorSwatch.setPrefSize(18, 18);
+    updateZoneColorSwatch(zoneColorPicker.getValue());
+
+    zoneListView.setPrefHeight(100);
+    zoneListView.setMaxHeight(140);
+    zoneListView.setStyle("-fx-background-color: #1a2233; -fx-border-color: #2b3445;");
+    zoneListView.setCellFactory(lv -> new ListCell<TintZone>() {
+      @Override protected void updateItem(TintZone item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+          setStyle("");
+        } else {
+          setText(item.toString());
+          boolean sel = getIndex() == selectedZoneIndex;
+          setStyle(sel
+              ? "-fx-background-color: #2a4a6b; -fx-text-fill: #e2e8f0;"
+              : "-fx-text-fill: #c8d0dc;");
+        }
+      }
+    });
+    zoneListView.getSelectionModel().selectedIndexProperty().addListener((o, ov, nv) -> {
+      if (applyingState) return;
+      int idx = nv == null ? -1 : nv.intValue();
+      selectZone(idx);
+    });
+
+    zoneDrawToggleButton = iconButton(CssIcon.rectSelect("#8ab4f8"), "Drag on preview to draw a rectangular zone", this::toggleZoneDrawMode);
+    polyDrawToggleButton = iconButton(CssIcon.polygon("#c49cf8"), "Click on preview to place polygon vertices; click near first point or double-click to close", this::togglePolyDrawMode);
+
+    Button addZoneButton = iconButton(CssIcon.plus("#9ed67a"), "Add zone at center", this::addDefaultZone);
+    Button removeZoneButton = iconButton(CssIcon.minus("#f38ba8"), "Remove selected zone", this::removeSelectedZone);
+    Button clearZonesButton = iconButton(CssIcon.clearX("#f5b971"), "Remove all zones", this::clearAllZones);
+    Button moveUpButton = iconButton(CssIcon.arrowUp("#8ab4f8"), "Move zone up in order", this::moveZoneUp);
+    Button moveDownButton = iconButton(CssIcon.arrowDown("#8ab4f8"), "Move zone down in order", this::moveZoneDown);
+
+    HBox zoneActions = new HBox(6, zoneDrawToggleButton, polyDrawToggleButton, addZoneButton, removeZoneButton, clearZonesButton, moveUpButton, moveDownButton);
+    zoneActions.setAlignment(Pos.CENTER_LEFT);
+
+    // Per-zone controls
+    zoneColorPicker.valueProperty().addListener((o, ov, nv) -> {
+      if (applyingState) return;
+      updateZoneColorSwatch(nv);
+      applyZoneControlsToSelected();
+    });
+    zoneStrengthSlider.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
+    zoneSaturationSlider.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
+    zoneContrastSlider.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
+    zoneFeatherSlider.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
+    zoneRotationSlider.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
+    zoneBlendModeBox.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
+    zoneNameField.textProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneNameToSelected(); });
+
+    HBox zoneNameRow = new HBox(8, new Label("Name"), zoneNameField);
+    zoneNameRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(zoneNameField, Priority.ALWAYS);
+
+    HBox zoneColorRow = new HBox(8, new Label("Color"), zoneColorSwatch, zoneColorPicker);
+    zoneColorRow.setAlignment(Pos.CENTER_LEFT);
+
+    HBox zoneBlendRow = new HBox(8, new Label("Blend"), zoneBlendModeBox);
+    zoneBlendRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(zoneBlendModeBox, Priority.ALWAYS);
+
+    zoneControlsSection.getChildren().setAll(
+        zoneNameRow,
+        zoneColorRow,
+        sliderRow("Strength", zoneStrengthSlider),
+        sliderRow("Saturation", zoneSaturationSlider),
+        sliderRow("Contrast", zoneContrastSlider),
+        sliderRow("Feather", zoneFeatherSlider),
+        sliderRow("Rotation", zoneRotationSlider),
+        zoneBlendRow);
+    zoneControlsSection.setDisable(true);
+
+    VBox zonesContent = new VBox(6, zoneActions, zoneListView, zoneControlsSection);
+    zonesPane = new TitledPane("Zone Area Selector", zonesContent);
+    zonesPane.setExpanded(false);
+    zonesPane.setAnimated(false);
+    zonesPane.setCollapsible(true);
+    zonesPane.expandedProperty().addListener((o, ov, expanded) -> {
+      if (!applyingState) persistGlobalState();
+    });
+  }
+
+  // ── Zone drawing ──
+
+  private void toggleZoneDrawMode() {
+    // Turn off poly mode if active.
+    if (polyDrawMode) {
+      polyDrawMode = false;
+      nailPoints.clear();
+      resetDrawButtons();
+    }
+    zoneDrawMode = !zoneDrawMode;
+    drawingZone = false;
+    if (zoneDrawMode) {
+      zoneDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
+      zoneDrawToggleButton.setGraphic(CssIcon.rectSelect("#1a1a2e"));
+      status("Rect draw mode ON — drag on preview to create a rectangular zone.");
+    } else {
+      resetDrawButtons();
+      status("Draw mode OFF.");
+    }
+  }
+
+  private void togglePolyDrawMode() {
+    // Turn off rect draw mode if active.
+    if (zoneDrawMode) {
+      zoneDrawMode = false;
+      drawingZone = false;
+      resetDrawButtons();
+    }
+    polyDrawMode = !polyDrawMode;
+    nailPoints.clear();
+    if (polyDrawMode) {
+      polyDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
+      polyDrawToggleButton.setGraphic(CssIcon.polygon("#1a1a2e"));
+      status("Polygon draw mode ON — click to place vertices, click first point or double-click to close.");
+    } else {
+      resetDrawButtons();
+      status("Draw mode OFF.");
+    }
+    redrawPreview();
+  }
+
+  private void resetDrawButtons() {
+    zoneDrawToggleButton.setStyle("-fx-background-color: #2b3445; -fx-padding: 4;");
+    zoneDrawToggleButton.setGraphic(CssIcon.rectSelect("#8ab4f8"));
+    polyDrawToggleButton.setStyle("-fx-background-color: #2b3445; -fx-padding: 4;");
+    polyDrawToggleButton.setGraphic(CssIcon.polygon("#c49cf8"));
+  }
+
+  private boolean isNearFirstNail(double mx, double my) {
+    if (nailPoints.isEmpty()) return false;
+    double[] first = nailPoints.get(0);
+    double dx = mx - first[0];
+    double dy = my - first[1];
+    return (dx * dx + dy * dy) <= (8.0 * 8.0); // 8px snap radius
+  }
+
+  private void commitPolygonZone() {
+    if (nailPoints.size() < 3) {
+      status("Need at least 3 points for a polygon zone.");
+      nailPoints.clear();
+      redrawPreview();
+      return;
+    }
+    Image img = loadImage(selectedCharacterTag());
+    if (img == null) {
+      status("No character image to place zone on.");
+      nailPoints.clear();
+      redrawPreview();
+      return;
+    }
+    double cw = previewCanvas.getWidth();
+    double ch = previewCanvas.getHeight();
+    double imgDrawW = img.getWidth() * zoom;
+    double imgDrawH = img.getHeight() * zoom;
+    double imgDrawX = (cw - imgDrawW) * 0.5 + offsetX;
+    double imgDrawY = (ch - imgDrawH) * 0.5 + offsetY;
+
+    // Convert canvas coords to fractional image coords and compute bounding rect.
+    List<double[]> fracPoly = new ArrayList<>();
+    double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
+    double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
+    for (double[] pt : nailPoints) {
+      double fx = clamp((pt[0] - imgDrawX) / imgDrawW, 0.0, 1.0);
+      double fy = clamp((pt[1] - imgDrawY) / imgDrawH, 0.0, 1.0);
+      fracPoly.add(new double[]{fx, fy});
+      if (fx < minX) minX = fx;
+      if (fy < minY) minY = fy;
+      if (fx > maxX) maxX = fx;
+      if (fy > maxY) maxY = fy;
+    }
+    double bw = maxX - minX;
+    double bh = maxY - minY;
+    if (bw < 0.005 || bh < 0.005) {
+      status("Polygon too small.");
+      nailPoints.clear();
+      redrawPreview();
+      return;
+    }
+
+    TintZone zone = new TintZone("Poly " + (tintZones.size() + 1), minX, minY, bw, bh);
+    zone.polygon = fracPoly;
+    zone.color = zoneColorPicker.getValue() == null ? Color.web("#ff8844") : zoneColorPicker.getValue();
+    zone.strength = zoneStrengthSlider.getValue();
+    zone.saturation = zoneSaturationSlider.getValue();
+    zone.contrast = zoneContrastSlider.getValue();
+    zone.feather = zoneFeatherSlider.getValue();
+    zone.blendMode = zoneBlendModeBox.getValue() == null ? "Normal" : zoneBlendModeBox.getValue();
+    tintZones.add(zone);
+    nailPoints.clear();
+    invalidateTintCache();
+    refreshZoneList();
+    selectZone(tintZones.size() - 1);
+    persistZones();
+    redrawPreview();
+    status("Created polygon " + zone.name + " with " + zone.polygon.size() + " vertices.");
+  }
+
+  private void commitDrawnZone() {
+    Image img = loadImage(selectedCharacterTag());
+    if (img == null) {
+      status("No character image to place zone on.");
+      return;
+    }
+    double cw = previewCanvas.getWidth();
+    double ch = previewCanvas.getHeight();
+    double drawW = img.getWidth() * zoom;
+    double drawH = img.getHeight() * zoom;
+    double drawX = (cw - drawW) * 0.5 + offsetX;
+    double drawY = (ch - drawH) * 0.5 + offsetY;
+
+    // Convert canvas coords to fractional image coords.
+    double rx = Math.min(zoneDrawStartX, zoneDrawEndX);
+    double ry = Math.min(zoneDrawStartY, zoneDrawEndY);
+    double rw = Math.abs(zoneDrawEndX - zoneDrawStartX);
+    double rh = Math.abs(zoneDrawEndY - zoneDrawStartY);
+    if (rw < 4 || rh < 4) {
+      status("Zone too small — drag a larger rectangle.");
+      return;
+    }
+
+    double fx = clamp((rx - drawX) / drawW, 0.0, 1.0);
+    double fy = clamp((ry - drawY) / drawH, 0.0, 1.0);
+    double fw = clamp(rw / drawW, 0.001, 1.0 - fx);
+    double fh = clamp(rh / drawH, 0.001, 1.0 - fy);
+
+    TintZone zone = new TintZone("Zone " + (tintZones.size() + 1), fx, fy, fw, fh);
+    zone.color = zoneColorPicker.getValue() == null ? Color.web("#ff8844") : zoneColorPicker.getValue();
+    zone.strength = zoneStrengthSlider.getValue();
+    zone.saturation = zoneSaturationSlider.getValue();
+    zone.contrast = zoneContrastSlider.getValue();
+    zone.feather = zoneFeatherSlider.getValue();
+    zone.blendMode = zoneBlendModeBox.getValue() == null ? "Normal" : zoneBlendModeBox.getValue();
+    tintZones.add(zone);
+    invalidateTintCache();
+    refreshZoneList();
+    selectZone(tintZones.size() - 1);
+    persistZones();
+    status("Created " + zone.name + ".");
+  }
+
+  // ── Zone management ──
+
+  private void addDefaultZone() {
+    // If polygon nail points are active, commit them as a polygon zone.
+    if (polyDrawMode && nailPoints.size() >= 3) {
+      commitPolygonZone();
+      return;
+    }
+    TintZone zone = new TintZone("Zone " + (tintZones.size() + 1), 0.25, 0.25, 0.5, 0.5);
+    tintZones.add(zone);
+    invalidateTintCache();
+    refreshZoneList();
+    selectZone(tintZones.size() - 1);
+    persistZones();
+    redrawPreview();
+    status("Added " + zone.name + " at center.");
+  }
+
+  private void removeSelectedZone() {
+    if (selectedZoneIndex < 0 || selectedZoneIndex >= tintZones.size()) {
+      status("Select a zone first.");
+      return;
+    }
+    String name = tintZones.get(selectedZoneIndex).name;
+    tintZones.remove(selectedZoneIndex);
+    invalidateTintCache();
+    selectedZoneIndex = Math.min(selectedZoneIndex, tintZones.size() - 1);
+    refreshZoneList();
+    if (selectedZoneIndex >= 0) selectZone(selectedZoneIndex);
+    else zoneControlsSection.setDisable(true);
+    persistZones();
+    redrawPreview();
+    status("Removed " + name + ".");
+  }
+
+  private void clearAllZones() {
+    if (tintZones.isEmpty()) return;
+    tintZones.clear();
+    selectedZoneIndex = -1;
+    invalidateTintCache();
+    refreshZoneList();
+    zoneControlsSection.setDisable(true);
+    persistZones();
+    redrawPreview();
+    status("All zones cleared.");
+  }
+
+  private void moveZoneUp() {
+    if (selectedZoneIndex <= 0 || selectedZoneIndex >= tintZones.size()) return;
+    TintZone z = tintZones.remove(selectedZoneIndex);
+    tintZones.add(selectedZoneIndex - 1, z);
+    invalidateTintCache();
+    selectedZoneIndex--;
+    refreshZoneList();
+    selectZone(selectedZoneIndex);
+    persistZones();
+    redrawPreview();
+  }
+
+  private void moveZoneDown() {
+    if (selectedZoneIndex < 0 || selectedZoneIndex >= tintZones.size() - 1) return;
+    TintZone z = tintZones.remove(selectedZoneIndex);
+    tintZones.add(selectedZoneIndex + 1, z);
+    invalidateTintCache();
+    selectedZoneIndex++;
+    refreshZoneList();
+    selectZone(selectedZoneIndex);
+    persistZones();
+    redrawPreview();
+  }
+
+  private void selectZone(int index) {
+    selectedZoneIndex = (index >= 0 && index < tintZones.size()) ? index : -1;
+    if (selectedZoneIndex < 0) {
+      zoneControlsSection.setDisable(true);
+      return;
+    }
+    zoneControlsSection.setDisable(false);
+    TintZone zone = tintZones.get(selectedZoneIndex);
+    applyingState = true;
+    try {
+      zoneNameField.setText(zone.name == null ? "" : zone.name);
+      zoneColorPicker.setValue(zone.color == null ? Color.web("#ff8844") : zone.color);
+      updateZoneColorSwatch(zoneColorPicker.getValue());
+      zoneStrengthSlider.setValue(zone.strength);
+      zoneSaturationSlider.setValue(zone.saturation);
+      zoneContrastSlider.setValue(zone.contrast);
+      zoneFeatherSlider.setValue(zone.feather);
+      zoneRotationSlider.setValue(zone.rotation);
+      zoneBlendModeBox.getSelectionModel().select(zone.blendMode == null ? "Normal" : zone.blendMode);
+    } finally {
+      applyingState = false;
+    }
+    zoneListView.getSelectionModel().select(selectedZoneIndex);
+    redrawPreview();
+  }
+
+  private void applyZoneControlsToSelected() {
+    if (selectedZoneIndex < 0 || selectedZoneIndex >= tintZones.size()) return;
+    TintZone zone = tintZones.get(selectedZoneIndex);
+    zone.color = zoneColorPicker.getValue() == null ? Color.web("#ff8844") : zoneColorPicker.getValue();
+    zone.strength = zoneStrengthSlider.getValue();
+    zone.saturation = zoneSaturationSlider.getValue();
+    zone.contrast = zoneContrastSlider.getValue();
+    zone.feather = zoneFeatherSlider.getValue();
+    zone.rotation = zoneRotationSlider.getValue();
+    zone.blendMode = zoneBlendModeBox.getValue() == null ? "Normal" : zoneBlendModeBox.getValue();
+    invalidateTintCache();
+    persistZones();
+    redrawPreview();
+  }
+
+  private void applyZoneNameToSelected() {
+    if (selectedZoneIndex < 0 || selectedZoneIndex >= tintZones.size()) return;
+    tintZones.get(selectedZoneIndex).name = normalize(zoneNameField.getText());
+    refreshZoneList();
+    persistZones();
+  }
+
+  private void refreshZoneList() {
+    applyingState = true;
+    try {
+      zoneListView.getItems().setAll(tintZones);
+      if (selectedZoneIndex >= 0 && selectedZoneIndex < tintZones.size()) {
+        zoneListView.getSelectionModel().select(selectedZoneIndex);
+      }
+    } finally {
+      applyingState = false;
+    }
+  }
+
+  private void invalidateTintCache() {
+    tintedImageTag = null;
+    tintedImageKey = null;
+    tintedImage = null;
+  }
+
+  // ── Zone overlay drawing ──
+
+  private void drawZoneOverlays(GraphicsContext g, Image img, double drawX, double drawY, double drawW, double drawH) {
+    for (int i = 0; i < tintZones.size(); i++) {
+      TintZone zone = tintZones.get(i);
+      boolean selected = (i == selectedZoneIndex);
+      Color zc = zone.color == null ? Color.web("#ff8844") : zone.color;
+
+      if (zone.isPolygon()) {
+        // Draw polygon overlay.
+        List<double[]> poly = zone.polygon;
+        double[] xs = new double[poly.size()];
+        double[] ys = new double[poly.size()];
+        for (int p = 0; p < poly.size(); p++) {
+          xs[p] = drawX + poly.get(p)[0] * drawW;
+          ys[p] = drawY + poly.get(p)[1] * drawH;
+        }
+        g.setFill(Color.color(zc.getRed(), zc.getGreen(), zc.getBlue(), selected ? 0.20 : 0.12));
+        g.fillPolygon(xs, ys, poly.size());
+        g.setStroke(selected
+            ? Color.color(zc.getRed(), zc.getGreen(), zc.getBlue(), 0.9)
+            : Color.color(zc.getRed(), zc.getGreen(), zc.getBlue(), 0.55));
+        g.setLineWidth(selected ? 2.2 : 1.3);
+        g.setLineDashes((double[]) null);
+        g.strokePolygon(xs, ys, poly.size());
+        // Vertex dots.
+        g.setFill(selected ? Color.rgb(255, 240, 140, 0.95) : Color.rgb(255, 140, 140, 0.85));
+        for (int p = 0; p < poly.size(); p++) {
+          g.fillOval(xs[p] - 3, ys[p] - 3, 6, 6);
+        }
+        // Label at first vertex.
+        String label = (zone.name == null || zone.name.isBlank() ? "Zone " + (i + 1) : zone.name);
+        g.setFill(Color.color(1, 1, 1, 0.85));
+        g.setTextAlign(TextAlignment.LEFT);
+        g.fillText(label, xs[0] + 6, ys[0] - 4);
+      } else {
+        // Draw rectangle overlay (with optional rotation).
+        double zx = drawX + zone.boundsX * drawW;
+        double zy = drawY + zone.boundsY * drawH;
+        double zw = zone.boundsW * drawW;
+        double zh = zone.boundsH * drawH;
+
+        boolean rotated = zone.rotation != 0.0;
+        if (rotated) {
+          g.save();
+          double rcx = zx + zw * 0.5, rcy = zy + zh * 0.5;
+          g.translate(rcx, rcy);
+          g.rotate(zone.rotation);
+          g.translate(-rcx, -rcy);
+        }
+
+        g.setFill(Color.color(zc.getRed(), zc.getGreen(), zc.getBlue(), selected ? 0.18 : 0.10));
+        g.fillRect(zx, zy, zw, zh);
+        g.setStroke(selected
+            ? Color.color(zc.getRed(), zc.getGreen(), zc.getBlue(), 0.9)
+            : Color.color(zc.getRed(), zc.getGreen(), zc.getBlue(), 0.5));
+        g.setLineWidth(selected ? 2.0 : 1.0);
+        g.setLineDashes(selected ? null : new double[]{5, 3});
+        g.strokeRect(zx, zy, zw, zh);
+        g.setLineDashes((double[]) null);
+
+        String label = (zone.name == null || zone.name.isBlank() ? "Zone " + (i + 1) : zone.name);
+        g.setFill(Color.color(1, 1, 1, 0.85));
+        g.setTextAlign(TextAlignment.LEFT);
+        g.fillText(label, zx + 4, zy + 13);
+
+        if (rotated) g.restore();
+      }
+    }
+  }
+
+  private void updateZoneColorSwatch(Color color) {
+    Color c = color == null ? Color.web("#ff8844") : color;
+    int r = (int) Math.round(clamp(c.getRed(), 0.0, 1.0) * 255.0);
+    int g = (int) Math.round(clamp(c.getGreen(), 0.0, 1.0) * 255.0);
+    int b = (int) Math.round(clamp(c.getBlue(), 0.0, 1.0) * 255.0);
+    String hex = String.format(Locale.ROOT, "#%02X%02X%02X", r, g, b);
+    zoneColorSwatch.setStyle(
+        "-fx-background-color: " + hex + ";"
+            + " -fx-background-radius: 999;"
+            + " -fx-border-color: rgba(255,255,255,0.40);"
+            + " -fx-border-radius: 999;"
+            + " -fx-border-width: 1;");
+  }
+
+  // ── Zone persistence ──
+
+  private void persistZones() {
+    // Clear old zone entries.
+    List<String> toRemove = new ArrayList<>();
+    for (String key : persisted.stringPropertyNames()) {
+      if (key.startsWith("zone.")) toRemove.add(key);
+    }
+    for (String key : toRemove) persisted.remove(key);
+
+    persisted.setProperty("zone.count", Integer.toString(tintZones.size()));
+    for (int i = 0; i < tintZones.size(); i++) {
+      TintZone z = tintZones.get(i);
+      String prefix = "zone." + i + ".";
+      persisted.setProperty(prefix + "name", z.name == null ? "" : z.name);
+      persisted.setProperty(prefix + "boundsX", formatDouble(z.boundsX));
+      persisted.setProperty(prefix + "boundsY", formatDouble(z.boundsY));
+      persisted.setProperty(prefix + "boundsW", formatDouble(z.boundsW));
+      persisted.setProperty(prefix + "boundsH", formatDouble(z.boundsH));
+      persisted.setProperty(prefix + "color", colorToHex(z.color));
+      persisted.setProperty(prefix + "strength", formatDouble(z.strength));
+      persisted.setProperty(prefix + "saturation", formatDouble(z.saturation));
+      persisted.setProperty(prefix + "contrast", formatDouble(z.contrast));
+      persisted.setProperty(prefix + "feather", formatDouble(z.feather));
+      persisted.setProperty(prefix + "rotation", formatDouble(z.rotation));
+      persisted.setProperty(prefix + "blendMode", z.blendMode == null ? "Normal" : z.blendMode);
+      if (z.isPolygon()) {
+        StringBuilder polyStr = new StringBuilder();
+        for (int p = 0; p < z.polygon.size(); p++) {
+          if (p > 0) polyStr.append(";");
+          polyStr.append(formatDouble(z.polygon.get(p)[0])).append(",").append(formatDouble(z.polygon.get(p)[1]));
+        }
+        persisted.setProperty(prefix + "polygon", polyStr.toString());
+      }
+    }
+    savePersistentState();
+  }
+
+  private void loadPersistedZones() {
+    tintZones.clear();
+    selectedZoneIndex = -1;
+    int count = (int) parseDouble(persisted.getProperty("zone.count"), 0);
+    int skipped = 0;
+    for (int i = 0; i < count; i++) {
+      try {
+        TintZone z = loadZoneFromPrefix(persisted, "zone." + i + ".", i);
+        tintZones.add(z);
+      } catch (Exception e) {
+        skipped++;
+      }
+    }
+    refreshZoneList();
+    if (!tintZones.isEmpty()) selectZone(0);
+    else zoneControlsSection.setDisable(true);
+    // F: Diagnostics on load.
+    if (skipped > 0) {
+      status("Loaded " + tintZones.size() + " zones (" + skipped + " malformed entries skipped).");
+    }
+  }
+
+  /** Shared helper: parse a single TintZone from a Properties source with the given prefix. */
+  private static TintZone loadZoneFromPrefix(Properties props, String prefix, int index) {
+    double bx = parseDouble(props.getProperty(prefix + "boundsX"), 0.25);
+    double by = parseDouble(props.getProperty(prefix + "boundsY"), 0.25);
+    double bw = parseDouble(props.getProperty(prefix + "boundsW"), 0.5);
+    double bh = parseDouble(props.getProperty(prefix + "boundsH"), 0.5);
+    String name = props.getProperty(prefix + "name", "Zone " + (index + 1));
+    TintZone z = new TintZone(name, bx, by, bw, bh);
+    z.color = parseColor(props.getProperty(prefix + "color"), Color.web("#ff8844"));
+    z.strength = parseDouble(props.getProperty(prefix + "strength"), 50);
+    z.saturation = parseDouble(props.getProperty(prefix + "saturation"), 0);
+    z.contrast = parseDouble(props.getProperty(prefix + "contrast"), 0);
+    z.feather = parseDouble(props.getProperty(prefix + "feather"), 15);
+    z.rotation = parseDouble(props.getProperty(prefix + "rotation"), 0);
+    String bm = props.getProperty(prefix + "blendMode", "Normal");
+    z.blendMode = (bm == null || bm.isBlank()) ? "Normal" : bm;
+    String polyRaw = props.getProperty(prefix + "polygon", "");
+    if (polyRaw != null && !polyRaw.isBlank()) {
+      List<double[]> pts = new ArrayList<>();
+      for (String pair : polyRaw.split(";")) {
+        String[] xy = pair.split(",");
+        if (xy.length == 2) {
+          try {
+            pts.add(new double[]{Double.parseDouble(xy[0].trim()), Double.parseDouble(xy[1].trim())});
+          } catch (NumberFormatException ignored) {}
+        }
+      }
+      if (pts.size() >= 3) z.polygon = pts;
+    }
+    return z;
+  }
+
+  // ── B: Export tinted PNG ──
+
+  private void exportTintedPng() {
+    Image source = loadImage(selectedCharacterTag());
+    if (source == null) { status("No character image loaded."); return; }
+    Image tinted = buildTintedImage(selectedCharacterTag(), source);
+    if (tinted == null) { status("No tinted image available."); return; }
+    FileChooser fc = new FileChooser();
+    fc.setTitle("Export Tinted PNG");
+    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Image", "*.png"));
+    fc.setInitialFileName("tinted_" + sanitizeFilename(selectedCharacterTag()) + ".png");
+    if (projectRoot != null && projectRoot.isDirectory()) fc.setInitialDirectory(projectRoot);
+    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+    if (file == null) return;
+    try {
+      BufferedImage bImg = SwingFXUtils.fromFXImage(tinted, null);
+      ImageIO.write(bImg, "png", file);
+      status("Exported PNG: " + file.getName());
+    } catch (Exception e) {
+      status("PNG export failed: " + e.getMessage());
+    }
+  }
+
+  // ── C: File-based setup export/import (.tintsetup) ──
+
+  private void exportSetupToFile() {
+    String content = buildFullSetupText();
+    FileChooser fc = new FileChooser();
+    fc.setTitle("Export Tint Setup");
+    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tint Setup", "*.tintsetup"));
+    String tag = selectedCharacterTag();
+    fc.setInitialFileName(sanitizeFilename(tag.isBlank() ? "setup" : tag) + ".tintsetup");
+    if (projectRoot != null && projectRoot.isDirectory()) fc.setInitialDirectory(projectRoot);
+    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+    if (file == null) return;
+    try {
+      Files.writeString(file.toPath(), content, StandardCharsets.UTF_8);
+      status("Exported setup: " + file.getName());
+    } catch (Exception e) {
+      status("Setup export failed: " + e.getMessage());
+    }
+  }
+
+  private void importSetupFromFile() {
+    FileChooser fc = new FileChooser();
+    fc.setTitle("Import Tint Setup");
+    fc.getExtensionFilters().addAll(
+        new FileChooser.ExtensionFilter("Tint Setup", "*.tintsetup"),
+        new FileChooser.ExtensionFilter("All Files", "*.*"));
+    if (projectRoot != null && projectRoot.isDirectory()) fc.setInitialDirectory(projectRoot);
+    File file = fc.showOpenDialog(getScene() != null ? getScene().getWindow() : null);
+    if (file == null) return;
+    try {
+      Properties props = new Properties();
+      try (InputStream in = Files.newInputStream(file.toPath())) {
+        props.load(in);
+      }
+      applyingState = true;
+      try {
+        // D: Import uses normalized values (0.0–1.0) — denormalize to slider ranges.
+        String characterTag = props.getProperty("character", "");
+        String backgroundTag = props.getProperty("background", "");
+        if (!characterTag.isBlank()) {
+          characterTagBox.getSelectionModel().select(characterTag);
+          characterTagBox.getEditor().setText(characterTag);
+        }
+        if (!backgroundTag.isBlank()) {
+          backgroundTagBox.getSelectionModel().select(backgroundTag);
+          backgroundTagBox.getEditor().setText(backgroundTag);
+        }
+
+        tintColorPicker.setValue(parseColor(props.getProperty("color"), tintColorPicker.getValue()));
+        // Values in export are normalized 0.0–1.0; convert to slider range.
+        double str = parseDouble(props.getProperty("strength"), -1);
+        if (str >= 0 && str <= 1.0) tintStrengthSlider.setValue(str * 100.0);
+        double sat = parseDouble(props.getProperty("saturation"), -999);
+        if (sat >= -1.0 && sat <= 1.0 && sat != -999) saturationSlider.setValue(sat * 100.0);
+        double con = parseDouble(props.getProperty("contrast"), -999);
+        if (con >= -1.0 && con <= 1.0 && con != -999) contrastSlider.setValue(con * 100.0);
+        double z = parseDouble(props.getProperty("zoom"), -1);
+        if (z > 0) zoom = clamp(z, 0.1, 8.0);
+        double ox = parseDouble(props.getProperty("offsetX"), Double.NaN);
+        if (!Double.isNaN(ox)) offsetX = ox;
+        double oy = parseDouble(props.getProperty("offsetY"), Double.NaN);
+        if (!Double.isNaN(oy)) offsetY = oy;
+
+        // Import zones.
+        int zoneCount = (int) parseDouble(props.getProperty("zones"), 0);
+        if (zoneCount > 0) {
+          tintZones.clear();
+          selectedZoneIndex = -1;
+          int loaded = 0, skipped = 0;
+          for (int i = 0; i < zoneCount; i++) {
+            try {
+              TintZone tz = loadZoneFromNormalized(props, "zone." + i + ".", i);
+              tintZones.add(tz);
+              loaded++;
+            } catch (Exception ignored) { skipped++; }
+          }
+          refreshZoneList();
+          if (!tintZones.isEmpty()) selectZone(0);
+          else zoneControlsSection.setDisable(true);
+          if (skipped > 0) {
+            status("Imported " + loaded + "/" + zoneCount + " zones (" + skipped + " skipped) from " + file.getName());
+            return;
+          }
+        }
+      } finally {
+        applyingState = false;
+      }
+      persistBackgroundTint(selectedBackgroundTag());
+      persistGlobalState();
+      persistZones();
+      tintedImageTag = null; tintedImageKey = null; tintedImage = null;
+      redrawPreview();
+      status("Imported setup from " + file.getName() + " (" + tintZones.size() + " zones)");
+    } catch (Exception e) {
+      status("Import failed: " + e.getMessage());
+    }
+  }
+
+  /** Parse zone from normalized export format (strength/sat/contrast/feather as 0.0–1.0). */
+  private static TintZone loadZoneFromNormalized(Properties props, String prefix, int index) {
+    String boundsRaw = props.getProperty(prefix + "bounds", "");
+    double bx = 0.25, by = 0.25, bw = 0.5, bh = 0.5;
+    if (!boundsRaw.isBlank()) {
+      String[] parts = boundsRaw.split(",");
+      if (parts.length == 4) {
+        bx = Double.parseDouble(parts[0].trim());
+        by = Double.parseDouble(parts[1].trim());
+        bw = Double.parseDouble(parts[2].trim());
+        bh = Double.parseDouble(parts[3].trim());
+      }
+    }
+    String name = props.getProperty(prefix + "name", "Zone " + (index + 1));
+    TintZone z = new TintZone(name, bx, by, bw, bh);
+    z.color = parseColor(props.getProperty(prefix + "color"), Color.web("#ff8844"));
+    // D: Denormalize from 0.0–1.0 to slider ranges.
+    z.strength = parseDouble(props.getProperty(prefix + "strength"), 0.5) * 100.0;
+    z.saturation = parseDouble(props.getProperty(prefix + "saturation"), 0) * 100.0;
+    z.contrast = parseDouble(props.getProperty(prefix + "contrast"), 0) * 100.0;
+    z.feather = parseDouble(props.getProperty(prefix + "feather"), 0.15) * 100.0;
+    z.rotation = parseDouble(props.getProperty(prefix + "rotation"), 0);
+    String bm = props.getProperty(prefix + "blend", "Normal");
+    z.blendMode = (bm == null || bm.isBlank()) ? "Normal" : bm;
+    String polyRaw = props.getProperty(prefix + "polygon", "");
+    if (polyRaw != null && !polyRaw.isBlank()) {
+      List<double[]> pts = new ArrayList<>();
+      for (String pair : polyRaw.split(";")) {
+        String[] xy = pair.split(",");
+        if (xy.length == 2) {
+          try {
+            pts.add(new double[]{Double.parseDouble(xy[0].trim()), Double.parseDouble(xy[1].trim())});
+          } catch (NumberFormatException ignored) {}
+        }
+      }
+      if (pts.size() >= 3) z.polygon = pts;
+    }
+    return z;
+  }
+
+  /** Build the full setup text (same format for clipboard and file export). D: Uses normalized values. */
+  private String buildFullSetupText() {
+    StringBuilder out = new StringBuilder();
+    out.append("# JVN Image Tint Tool setup\n");
+    out.append("character=").append(selectedCharacterTag()).append('\n');
+    out.append("background=").append(selectedBackgroundTag()).append('\n');
+    out.append("color=").append(colorToHex(tintColorPicker.getValue())).append('\n');
+    out.append("strength=").append(formatNormalized(tintStrengthSlider.getValue() / 100.0)).append('\n');
+    out.append("saturation=").append(formatNormalized(saturationSlider.getValue() / 100.0)).append('\n');
+    out.append("contrast=").append(formatNormalized(contrastSlider.getValue() / 100.0)).append('\n');
+    out.append("zoom=").append(formatNormalized(zoom)).append('\n');
+    out.append("offsetX=").append(formatNormalized(offsetX)).append('\n');
+    out.append("offsetY=").append(formatNormalized(offsetY)).append('\n');
+    if (!tintZones.isEmpty()) {
+      out.append("zones=").append(tintZones.size()).append('\n');
+      for (int i = 0; i < tintZones.size(); i++) {
+        TintZone tz = tintZones.get(i);
+        String p = "zone." + i + ".";
+        out.append(p).append("name=").append(tz.name == null ? "" : tz.name).append('\n');
+        out.append(p).append("bounds=").append(formatNormalized(tz.boundsX)).append(",")
+            .append(formatNormalized(tz.boundsY)).append(",")
+            .append(formatNormalized(tz.boundsW)).append(",")
+            .append(formatNormalized(tz.boundsH)).append('\n');
+        out.append(p).append("color=").append(colorToHex(tz.color)).append('\n');
+        out.append(p).append("strength=").append(formatNormalized(tz.strength / 100.0)).append('\n');
+        out.append(p).append("saturation=").append(formatNormalized(tz.saturation / 100.0)).append('\n');
+        out.append(p).append("contrast=").append(formatNormalized(tz.contrast / 100.0)).append('\n');
+        out.append(p).append("feather=").append(formatNormalized(tz.feather / 100.0)).append('\n');
+        out.append(p).append("rotation=").append(formatNormalized(tz.rotation)).append('\n');
+        out.append(p).append("blend=").append(tz.blendMode == null ? "Normal" : tz.blendMode).append('\n');
+        if (tz.isPolygon()) {
+          StringBuilder polyStr = new StringBuilder();
+          for (int pi = 0; pi < tz.polygon.size(); pi++) {
+            if (pi > 0) polyStr.append(";");
+            polyStr.append(formatNormalized(tz.polygon.get(pi)[0])).append(",")
+                .append(formatNormalized(tz.polygon.get(pi)[1]));
+          }
+          out.append(p).append("polygon=").append(polyStr).append('\n');
+        }
+      }
+    }
+    return out.toString();
+  }
+
+  private static String sanitizeFilename(String input) {
+    if (input == null || input.isBlank()) return "untitled";
+    String s = input.replace('/', '_').replace('\\', '_').replace(':', '_')
+        .replace('*', '_').replace('?', '_').replace('"', '_')
+        .replace('<', '_').replace('>', '_').replace('|', '_');
+    // Use only the last segment if it looks like a path.
+    int lastSlash = s.lastIndexOf('_');
+    if (lastSlash >= 0 && lastSlash < s.length() - 1) s = s.substring(lastSlash + 1);
+    return s.isBlank() ? "untitled" : s;
+  }
 }

@@ -60,6 +60,10 @@ public final class CssIcon {
       "M19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z";
   private static final String PATH_DOCK =
       "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-8-2h2V7h-2v10z";
+  private static final String PATH_RECT_SELECT =
+      "M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z";
+  private static final String PATH_POLYGON =
+      "M12 2l10 7.5-4 12H6L2 9.5z";
 
   // ── Factory methods ──
 
@@ -86,6 +90,8 @@ public final class CssIcon {
   public static Region play(String color)      { return icon(PATH_PLAY, color, 14); }
   public static Region popOut(String color)    { return icon(PATH_POP_OUT, color, 14); }
   public static Region dock(String color)      { return icon(PATH_DOCK, color, 14); }
+  public static Region rectSelect(String color) { return icon(PATH_RECT_SELECT, color, 14); }
+  public static Region polygon(String color)    { return icon(PATH_POLYGON, color, 14); }
 
   /** Convenience: icon at default muted color. */
   public static Region plus()     { return plus("#b0b8c8"); }
@@ -111,6 +117,8 @@ public final class CssIcon {
   public static Region play()     { return play("#b0b8c8"); }
   public static Region popOut()   { return popOut("#b0b8c8"); }
   public static Region dock()     { return dock("#b0b8c8"); }
+  public static Region rectSelect(){ return rectSelect("#b0b8c8"); }
+  public static Region polygon()  { return polygon("#b0b8c8"); }
 
   /**
    * Creates a section header label with a leading CSS icon.
