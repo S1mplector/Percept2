@@ -1265,7 +1265,7 @@ public class NewProjectWizard extends Stage {
     }
     copyDirectoryContents(
         new File(sourceRoot, BUNDLED_DEMO_SPRITE_LEGACY_DIR),
-        new File(projectRoot, "assets/demo/characters/codel")
+        new File(projectRoot, "assets/demo/characters/lavender")
     );
     copyDirectoryContents(
         new File(sourceRoot, BUNDLED_DEMO_BGM_DIR),
@@ -1414,10 +1414,7 @@ public class NewProjectWizard extends Stage {
 
   private void createSampleScript(File dir, String name, boolean useLayeredLavenderDemo) throws Exception {
     String scenarioId = sanitizeName(name).toLowerCase() + "_prologue";
-    String characterId = useLayeredLavenderDemo ? "lavender" : "codel";
-    String characterName = useLayeredLavenderDemo ? "Lavender" : "Codel";
-    String characterDecls = useLayeredLavenderDemo
-        ? """
+    String characterDecls = """
         @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
         @charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
         @charlayer lavender eyes_half_closed assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png
@@ -1426,25 +1423,27 @@ public class NewProjectWizard extends Stage {
         @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
         @charlayer lavender mouth_happy assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_happy.png
         @charlayer lavender mouth_o assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_o.png
-        
+
         @charpreset lavender idle $base | $eyes_neutral | $mouth_neutral
         @charpreset lavender talking $base | $eyes_half_closed | $mouth_smile
         @charpreset lavender happy $base | $eyes_neutral | $mouth_happy
         @charpreset lavender emphasis $base | $eyes_angry | $mouth_o
-        """
-        : """
-        @charimg codel talking assets/demo/characters/codel/Codel1.png
-        @charimg codel idle assets/demo/characters/codel/Codel2.png
         """;
-    String framingCommands = useLayeredLavenderDemo
-        ? """
+    String framingCommands = """
         [set ui.characterHeightFactor 1.28]
         [set ui.characterBaselineY 1.42]
-        """
-        : "";
-    String imageDslLine = useLayeredLavenderDemo
-        ? "Codel: You can build layered expressions with @charlayer + @charpreset, then show them like normal expressions."
-        : "Codel: You define images once with @charimg and @background, then use them by name.";
+        """;
+    String imageDslLine = "Lavender: You can build layered expressions with @charlayer + @charpreset, then show them like normal expressions.";
+    String expressionDemo = """
+        [show lavender center happy]
+        [wait 300]
+        Lavender: This is my happy expression!
+        [show lavender center emphasis]
+        [wait 300]
+        Lavender: And this one's for dramatic moments! Different moods, different presets.
+        [show lavender center idle]
+        [wait 200]
+        """;
 
     String script = """
         # %s - Prologue
@@ -1454,12 +1453,15 @@ public class NewProjectWizard extends Stage {
 
         @scenario %s
 
-        @character codel "Codel"
+        @character lavender "Lavender"
+        @character narrator "???"
 
         __CHAR_DECLS__
 
         @background field_day assets/demo/backgrounds/field/field.jpg
         @background field_evening assets/demo/backgrounds/field/field.jpg
+
+        @var tutorial_count = 0
 
         @label start
         [bg field_day]
@@ -1469,66 +1471,247 @@ public class NewProjectWizard extends Stage {
         __FRAMING_COMMANDS__
         [bgm "assets/demo/audio/03 - Definitely Our Town.mp3"]
 
-        [show codel center talking]
+        [show lavender center talking]
         [wait 240]
 
-        Codel: Hi! My name is Codel, and I'd like to welcome you to the JVN tutorial.
-        Codel: In this tutorial, we'll teach you the basics of JVN, so you can make visual novels of your own.
-        Codel: We'll also demonstrate many features, so you can see what JVN is capable of.
-        Codel: This is {b}%s{/b}, by the way. Feel free to poke around the scripts when we're done!
+        Lavender: Hi! My name is Lavender, and I'd like to welcome you to the JVN tutorial.
+        Lavender: In this tutorial, we'll teach you the basics of JVN, so you can make visual novels of your own.
+        Lavender: We'll also demonstrate many features, so you can see what JVN is capable of.
+        Lavender: This is {b}%s{/b}, by the way. Feel free to poke around the scripts when we're done!
         [jump tutorials_hub]
+
+        # ═══════════════════════════════════════════
+        # Tutorial Hub — Page 1 (Basics)
+        # ═══════════════════════════════════════════
 
         @label tutorials_hub
-        [show codel far_left talking]
+        [show lavender far_left talking]
         [wait 170]
-        Codel: What would you like to see?
+        Lavender: What would you like to learn about?
         > Writing Dialogue -> tutorial_dialogue
+        > Narration & Text Pacing -> tutorial_narration
+        > Expressions & Characters -> tutorial_expressions
         > Images and Backgrounds -> tutorial_images
-        > Transitions and Effects -> tutorial_transitions
-        > Puppeteer Timelines (Animation) -> tutorial_puppeteer
-        > Choices -> tutorial_menus
+        > More topics... -> tutorials_hub_2
         > That's enough for now -> end_early
 
+        # ═══════════════════════════════════════════
+        # Tutorial Hub — Page 2 (Advanced)
+        # ═══════════════════════════════════════════
+
+        @label tutorials_hub_2
+        [show lavender far_left talking]
+        [wait 170]
+        Lavender: Here are some more advanced topics!
+        > Transitions and Effects -> tutorial_transitions
+        > Sound & Music -> tutorial_audio
+        > Variables and Conditions -> tutorial_variables
+        > Puppeteer Timelines (Animation) -> tutorial_puppeteer
+        > Choices and Menus -> tutorial_menus
+        > Subroutines & Flow -> tutorial_subroutines
+        > Back to basics -> tutorials_hub
+
+        # ═══════════════════════════════════════════
+        # Writing Dialogue
+        # ═══════════════════════════════════════════
+
         @label tutorial_dialogue
-        [show codel center talking]
+        [inc tutorial_count]
+        [show lavender center talking]
         [wait 200]
-        Codel: Writing dialogue is the heart of any visual novel!
-        Codel: You can use tags like {b}bold{/b}, {i}italic{/i}, and {color=#4a9eff}color{/color} to style your text.
-        Codel: There's even {wave}wavy text{/wave} for when things get dramatic!
-        Codel: Just remember - a little formatting goes a long way.
+        Lavender: Writing dialogue is the heart of any visual novel!
+        Lavender: The basic syntax is simple: {b}CharacterName: Dialogue text here{/b}
+        Lavender: You can use tags like {b}bold{/b}, {i}italic{/i}, and {color=#4a9eff}color{/color} to style your text.
+        Lavender: There's even {wave}wavy text{/wave} for when things get dramatic!
+        Lavender: And {shake}shaky text{/shake} for when things are really intense!
+        Lavender: You can change {size=24}text size{/size} too, though use it sparingly.
+        Lavender: Just remember - a little formatting goes a long way.
         [jump tutorials_hub]
+
+        # ═══════════════════════════════════════════
+        # Narration & Text Pacing
+        # ═══════════════════════════════════════════
+
+        @label tutorial_narration
+        [inc tutorial_count]
+        [show lavender right talking]
+        [wait 200]
+        Lavender: Not every line needs a named character speaking. Sometimes you want narration!
+        Lavender: To write narration, define a narrator character and use them like anyone else.
+        narrator: The field stretched endlessly under a golden sky. A gentle breeze carried the scent of grass.
+        narrator: Sometimes, stories need a voice that belongs to no one in particular.
+        [show lavender center talking]
+        Lavender: See? That was the narrator - defined with {b}@character narrator "???"{/b}.
+        Lavender: You can give your narrator any display name, or even leave it blank!
+        Lavender: You can also change the text speed mid-scene.
+        [textspeed 12]
+        Lavender: ...Like this. I'm talking much more slowly now...
+        [textspeed 40]
+        Lavender: And now I'm talking really fast because text speed is set to 40!
+        [textspeed 28]
+        Lavender: Back to normal. Use {b}[textspeed N]{/b} to control pacing.
+        Lavender: There's also {b}[autodelay N]{/b} to change how long auto-mode waits between lines.
+        [jump tutorials_hub]
+
+        # ═══════════════════════════════════════════
+        # Expressions & Characters
+        # ═══════════════════════════════════════════
+
+        @label tutorial_expressions
+        [inc tutorial_count]
+        [show lavender center talking]
+        [wait 200]
+        Lavender: Characters can have different expressions - different images for different moods!
+        __EXPR_DEMO__
+        Lavender: Expressions are defined with {b}@charimg{/b} or the layered {b}@charlayer + @charpreset{/b} system.
+        Lavender: Characters can appear in five positions on screen.
+        [show lavender far_left talking]
+        [wait 400]
+        Lavender: This is {b}far_left{/b}!
+        [show lavender left talking]
+        [wait 400]
+        Lavender: This is {b}left{/b}!
+        [show lavender center talking]
+        [wait 400]
+        Lavender: This is {b}center{/b}!
+        [show lavender right talking]
+        [wait 400]
+        Lavender: This is {b}right{/b}!
+        [show lavender far_right talking]
+        [wait 400]
+        Lavender: And this is {b}far_right{/b}!
+        [show lavender center talking]
+        [wait 300]
+        Lavender: You can also {b}hide{/b} characters when they leave the scene.
+        [hide lavender]
+        [wait 500]
+        narrator: Lavender has left the stage. The field is quiet.
+        [wait 400]
+        [show lavender center talking]
+        [wait 300]
+        Lavender: And I'm back! Use {b}[hide characterId]{/b} to remove someone from the screen.
+        Lavender: For advanced layering, you can set a layer order: {b}[show char pos expr 2]{/b}
+        Lavender: Higher layer numbers appear in front of lower ones - great for overlapping characters.
+        [jump tutorials_hub]
+
+        # ═══════════════════════════════════════════
+        # Images and Backgrounds
+        # ═══════════════════════════════════════════
 
         @label tutorial_images
-        [show codel center talking]
+        [inc tutorial_count]
+        [show lavender center talking]
         [wait 170]
-        Codel: Images bring your story to life! You'll mainly work with two types.
-        Codel: Character sprites - that's me! - and backgrounds, like this field behind us.
-        [show codel right talking]
+        Lavender: Images bring your story to life! You'll mainly work with two types.
+        Lavender: Character sprites - that's me! - and backgrounds, like this field behind us.
+        [show lavender right talking]
         [wait 320]
-        Codel: Characters can appear in different spots on screen. See? I just moved!
-        [show codel center talking]
+        Lavender: Characters can appear in different spots on screen. See? I just moved!
+        [show lavender center talking]
         __IMAGE_DSL_LINE__
+        Lavender: Backgrounds are defined with {b}@background id path{/b} and shown with {b}[bg id]{/b}.
+        Lavender: You can combine backgrounds with transitions for smooth scene changes!
         [jump tutorials_hub]
+
+        # ═══════════════════════════════════════════
+        # Transitions and Effects
+        # ═══════════════════════════════════════════
 
         @label tutorial_transitions
-        [show codel center talking]
-        Codel: Transitions make scene changes feel smooth and polished.
+        [inc tutorial_count]
+        [show lavender center talking]
+        Lavender: Transitions make scene changes feel smooth and polished.
         [transition crossfade 650 field_evening]
-        Codel: Like that crossfade! The background just changed to evening.
+        Lavender: Like that crossfade! The background just changed to evening.
         [screen flash 0.28 140 1 1 1]
-        Codel: And effects like screen flashes add dramatic impact.
+        Lavender: And effects like screen flashes add dramatic impact.
+        Lavender: Available types: {b}fade{/b}, {b}crossfade{/b}, {b}dissolve{/b}, {b}slide_left{/b}, {b}slide_right{/b}, and {b}wipe{/b}.
         [transition fade 450 field_day]
-        Codel: Back to daytime! Transitions help set the mood of each scene.
-        [jump tutorials_hub]
+        Lavender: Back to daytime! Transitions help set the mood of each scene.
+        [jump tutorials_hub_2]
+
+        # ═══════════════════════════════════════════
+        # Sound & Music
+        # ═══════════════════════════════════════════
+
+        @label tutorial_audio
+        [inc tutorial_count]
+        [show lavender center talking]
+        [wait 200]
+        Lavender: JVN has a full audio system! You've already been hearing the background music.
+        Lavender: BGM is played with {b}[bgm "path/to/track.mp3"]{/b} and loops by default.
+        Lavender: You can fade it out smoothly...
+        [bgm_fadeout 1500]
+        [wait 1600]
+        Lavender: See? The music faded away using {b}[bgm_fadeout 1500]{/b} (1.5 seconds).
+        [wait 300]
+        Lavender: Let's bring it back!
+        [bgm "assets/demo/audio/03 - Definitely Our Town.mp3"]
+        [wait 500]
+        Lavender: There's also {b}[bgm_crossfade "newTrack" 2000]{/b} to blend between tracks.
+        Lavender: For sound effects, use {b}[sfx "path/to/sound.wav"]{/b}. They play once and don't loop.
+        Lavender: And for voice acting, there's {b}[voice "path/to/line.wav"]{/b}.
+        Lavender: You can control volume per channel with {b}[volume bgm 0.8]{/b} or {b}[volume sfx 1.0]{/b}.
+        [jump tutorials_hub_2]
+
+        # ═══════════════════════════════════════════
+        # Variables and Conditions
+        # ═══════════════════════════════════════════
+
+        @label tutorial_variables
+        [inc tutorial_count]
+        [show lavender center talking]
+        [wait 200]
+        Lavender: Variables let you track player progress and make branching decisions!
+        Lavender: Let me show you. I'll set a variable right now.
+        [set player_mood "happy"]
+        [flag met_lavender]
+        Lavender: I just ran {b}[set player_mood "happy"]{/b} and {b}[flag met_lavender]{/b}.
+        Lavender: {b}[set]{/b} stores a value, {b}[flag]{/b} sets a boolean, {b}[inc]{/b}/{b}[dec]{/b} adjust numbers.
+        Lavender: Now for the fun part - conditionals!
+        [if met_lavender]
+        Lavender: This line only shows because {b}met_lavender{/b} is true! The {b}[if]{/b} block worked.
+        [endif]
+        Lavender: You can also use {b}[elif]{/b} and {b}[else]{/b} for complex branching.
+        [set score 3]
+        [if score > 5]
+        Lavender: Score is high! (You won't see this.)
+        [elif score > 2]
+        Lavender: Score is moderate. Since I set {b}score = 3{/b}, this branch runs!
+        [else]
+        Lavender: Score is low. (You won't see this either.)
+        [endif]
+        Lavender: You can even use {b}[if expr goto label]{/b} for one-line conditional jumps.
+        Lavender: And choices can have conditions too! Watch:
+        [set has_key true]
+        > Open the locked door [if has_key] -> var_door_open
+        > Look for another way -> var_no_door
+        > Continue the tutorial -> tutorials_hub_2
+
+        @label var_door_open
+        [show lavender center talking]
+        Lavender: You opened the door because {b}has_key{/b} was true!
+        Lavender: If it were false, that choice wouldn't even appear.
+        [jump tutorials_hub_2]
+
+        @label var_no_door
+        [show lavender center talking]
+        Lavender: You chose to look for another way. Choices shape the story!
+        [jump tutorials_hub_2]
+
+        # ═══════════════════════════════════════════
+        # Puppeteer Timelines (Animation)
+        # ═══════════════════════════════════════════
 
         @label tutorial_puppeteer
-        [show codel center talking]
+        [inc tutorial_count]
+        [show lavender center talking]
         [wait 150]
-        Codel: Let's run a full Puppeteer-style timeline showcase right inside VNS.
-        Codel: Inline timeline blocks use the same action family the Puppeteer editor exports.
+        Lavender: Let's run a full Puppeteer-style timeline showcase right inside VNS.
+        Lavender: Inline timeline blocks use the same action family the Puppeteer editor exports.
 
         timeline {
-          move "codel" {
+          move "lavender" {
             x: 150
             y: 410
             dur: 0
@@ -1537,7 +1720,7 @@ public class NewProjectWizard extends Stage {
         [wait 50]
 
         timeline {
-          move "codel" {
+          move "lavender" {
             x: 980
             y: 405
             dur: 850
@@ -1546,29 +1729,29 @@ public class NewProjectWizard extends Stage {
         }
         [wait 900]
 
-        Codel: Movement, rotation, and scaling can stack in the same beat.
+        Lavender: Movement, rotation, and scaling can stack in the same beat.
 
         timeline {
-          move "codel" {
+          move "lavender" {
             x: 780
             y: 398
             dur: 380
             easing: ease_in_out_cubic
           }
-          rotate "codel" {
+          rotate "lavender" {
             angle: -9
             dur: 380
             easing: ease_in_out_sine
           }
           wait 120
-          scale "codel" {
+          scale "lavender" {
             x: 1.18
             y: 0.86
             dur: 170
             easing: ease_out_quad
           }
           wait 190
-          scale "codel" {
+          scale "lavender" {
             x: 1.0
             y: 1.0
             dur: 180
@@ -1577,28 +1760,28 @@ public class NewProjectWizard extends Stage {
         }
         [wait 820]
 
-        Codel: Pivot changes make swings and arcs easy.
+        Lavender: Pivot changes make swings and arcs easy.
 
         timeline {
-          pivot "codel" {
+          pivot "lavender" {
             ox: 0.5
             oy: 0.9
             dur: 220
             easing: ease_out_quad
           }
-          rotate "codel" {
+          rotate "lavender" {
             angle: 12
             dur: 220
             easing: ease_out_back
           }
           wait 220
-          rotate "codel" {
+          rotate "lavender" {
             angle: -10
             dur: 240
             easing: ease_in_out_quad
           }
           wait 240
-          rotate "codel" {
+          rotate "lavender" {
             angle: 0
             dur: 240
             easing: ease_out_quad
@@ -1606,7 +1789,7 @@ public class NewProjectWizard extends Stage {
         }
         [wait 760]
 
-        Codel: Camera tracks are timeline tracks too.
+        Lavender: Camera tracks are timeline tracks too.
 
         timeline {
           cameraMove {
@@ -1639,22 +1822,22 @@ public class NewProjectWizard extends Stage {
 
         [transition crossfade 650 field_evening]
         [wait 700]
-        Codel: Timelines keep working across scene transitions.
+        Lavender: Timelines keep working across scene transitions.
 
         timeline {
-          move "codel" {
+          move "lavender" {
             x: 540
             y: 404
             dur: 420
             easing: ease_in_out_quad
           }
-          fade "codel" {
+          fade "lavender" {
             alpha: 0.45
             dur: 220
             easing: ease_in_out_quad
           }
           wait 230
-          fade "codel" {
+          fade "lavender" {
             alpha: 1.0
             dur: 250
             easing: ease_out_quad
@@ -1662,21 +1845,21 @@ public class NewProjectWizard extends Stage {
         }
         [wait 560]
 
-        Codel: Finale combo: move + rotate + scale + camera all together.
+        Lavender: Finale combo: move + rotate + scale + camera all together.
 
         timeline {
-          move "codel" {
+          move "lavender" {
             x: 700
             y: 395
             dur: 620
             easing: ease_in_out_cubic
           }
-          rotate "codel" {
+          rotate "lavender" {
             angle: -8
             dur: 620
             easing: ease_in_out_sine
           }
-          scale "codel" {
+          scale "lavender" {
             x: 1.16
             y: 1.16
             dur: 620
@@ -1696,18 +1879,18 @@ public class NewProjectWizard extends Stage {
         }
         [wait 680]
         timeline {
-          move "codel" {
+          move "lavender" {
             x: 640
             y: 405
             dur: 500
             easing: ease_out_sine
           }
-          rotate "codel" {
+          rotate "lavender" {
             angle: 0
             dur: 500
             easing: ease_out_sine
           }
-          scale "codel" {
+          scale "lavender" {
             x: 1.0
             y: 1.0
             dur: 500
@@ -1728,47 +1911,87 @@ public class NewProjectWizard extends Stage {
         [wait 560]
         [transition fade 450 field_day]
         [wait 500]
-        Codel: That was a full text-first Puppeteer workflow demo.
-        [jump tutorials_hub]
+        Lavender: That was a full text-first Puppeteer workflow demo.
+        [jump tutorials_hub_2]
+
+        # ═══════════════════════════════════════════
+        # Choices and Menus
+        # ═══════════════════════════════════════════
 
         @label tutorial_menus
-        [show codel far_left talking]
+        [inc tutorial_count]
+        [show lavender far_left talking]
         [wait 220]
-        Codel: Choices let players shape the story! Each option can branch to different paths.
-        Codel: JVN also has built-in menu integration. Want to try the save system?
+        Lavender: Choices let players shape the story! Each option can branch to different paths.
+        Lavender: The syntax is simple: {b}> Choice text -> target_label{/b}
+        Lavender: JVN also has built-in menu integration. Want to try the save system?
         > Yes, open save menu -> menus_save
         > No, tell me about it -> menus_explain
 
         @label menus_save
-        Codel: Opening the save menu now!
+        Lavender: Opening the save menu now!
         [save]
-        Codel: That was the [save] command. Players can save their progress anytime.
+        Lavender: That was the {b}[save]{/b} command. Players can save their progress anytime.
         [jump menus_done]
 
         @label menus_explain
-        Codel: No problem! The [save] command opens the save menu.
-        Codel: There's also [mainmenu] to return to the title screen.
+        Lavender: No problem! The {b}[save]{/b} command opens the save menu.
+        Lavender: There's also {b}[mainmenu]{/b} to return to the title screen.
         [jump menus_done]
 
         @label menus_done
-        Codel: You can trigger menus from scripts or let players use keyboard shortcuts.
-        [jump tutorials_hub]
+        Lavender: You can trigger menus from scripts or let players use keyboard shortcuts.
+        Lavender: The {b}[mainmenu]{/b}, {b}[save]{/b}, and {b}[settings]{/b} commands open built-in screens.
+        [jump tutorials_hub_2]
+
+        # ═══════════════════════════════════════════
+        # Subroutines & Flow
+        # ═══════════════════════════════════════════
+
+        @label tutorial_subroutines
+        [inc tutorial_count]
+        [show lavender center talking]
+        [wait 200]
+        Lavender: Subroutines let you reuse sections of your script!
+        Lavender: Use {b}[gosub label]{/b} to call a subroutine, and {b}[return]{/b} to come back.
+        Lavender: Watch - I'll call a greeting subroutine right now.
+        [gosub greeting_sub]
+        Lavender: See? We jumped to the subroutine and came right back.
+        Lavender: JVN also supports {b}@define{/b} for text constants and {b}@include{/b} for splitting scripts.
+        Lavender: For example, {b}@define HERO Alice{/b} lets you reuse a name everywhere.
+        Lavender: And {b}@include common/characters.vns{/b} loads another script file inline.
+        Lavender: These are great for keeping large projects organized!
+        [jump tutorials_hub_2]
+
+        @label greeting_sub
+        narrator: [The subroutine runs here.]
+        Lavender: Hello from inside a subroutine! I'll return now.
+        [return]
+
+        # ═══════════════════════════════════════════
+        # Ending
+        # ═══════════════════════════════════════════
 
         @label end_early
-        [show codel center talking]
+        [show lavender center talking]
         [wait 200]
-        Codel: Thank you for checking out this tutorial!
-        Codel: If you'd like to see how this demo works, take a look at {b}%s{/b}.
-        Codel: You can edit it, break it, rebuild it - that's how you learn!
-        Codel: We look forward to seeing what you create with JVN. Have fun!
+        [if tutorial_count > 5]
+        Lavender: Wow, you've explored so many tutorials! You're well on your way to mastering JVN.
+        [elif tutorial_count > 2]
+        Lavender: You've seen a good chunk of what JVN can do. There's always more to discover!
+        [else]
+        Lavender: Thank you for checking out this tutorial!
+        [endif]
+        Lavender: If you'd like to see how this demo works, take a look at {b}%s{/b}.
+        Lavender: You can edit it, break it, rebuild it - that's how you learn!
+        Lavender: We look forward to seeing what you create with JVN. Have fun!
         [end]
 
         """.formatted(name, scenarioId, name, ENTRY_SCRIPT_PATH)
         .replace("__CHAR_DECLS__", characterDecls.stripTrailing())
         .replace("__FRAMING_COMMANDS__", framingCommands.stripTrailing())
-        .replace("__IMAGE_DSL_LINE__", imageDslLine)
-        .replace("codel", characterId)
-        .replace("Codel", characterName);
+        .replace("__EXPR_DEMO__", expressionDemo.stripTrailing())
+        .replace("__IMAGE_DSL_LINE__", imageDslLine);
 
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
       fw.write(script);

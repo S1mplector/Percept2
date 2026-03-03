@@ -658,7 +658,7 @@ public class FxLauncher extends Application {
           settings.toggleCurrent();
           if (settings.consumeCloseRequested()) engine.scenes().pop();
         } else {
-          double val = computeSliderValue01(x);
+          double val = menuRenderer.computeSettingsSliderValue01(settings, idx, canvas.getWidth(), canvas.getHeight(), x);
           settings.setValueByIndex(idx, val);
         }
       }
@@ -788,7 +788,7 @@ public class FxLauncher extends Application {
       int idx = menuRenderer.getHoverIndexForSettings(settings, canvas.getWidth(), canvas.getHeight(), x, y);
       if (idx >= 0 && settings.hasSliderAt(idx)) {
         settings.setSelected(idx);
-        double val = computeSliderValue01(x);
+        double val = menuRenderer.computeSettingsSliderValue01(settings, idx, canvas.getWidth(), canvas.getHeight(), x);
         settings.setValueByIndex(idx, val);
       }
     }
@@ -872,15 +872,6 @@ public class FxLauncher extends Application {
     }
   }
 
-  private double computeSliderValue01(double mouseX) {
-    double w = canvas.getWidth();
-    double sliderW = w * 0.45;
-    double sliderX = (w - sliderW) / 2;
-    double v = (mouseX - sliderX) / sliderW;
-    if (v < 0) v = 0;
-    if (v > 1) v = 1;
-    return v;
-  }
 
   private void writeQuickSaveThumbnail(VnScene vnScene) {
     try {

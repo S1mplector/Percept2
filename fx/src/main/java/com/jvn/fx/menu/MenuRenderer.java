@@ -241,12 +241,8 @@ public class MenuRenderer {
       if (!hasSlider) continue;
       double value = scene.sliderValue01At(i);
       MenuItemSpec item = specs[i];
-      Rect rowRect = resolveItemRect(i, items.length, item, layout, 0, w, h);
-      double padX = Math.max(20, rowRect.w() * 0.16);
-      double sliderX = rowRect.x() + padX;
-      double sliderW = Math.max(140, rowRect.w() - (padX * 2));
-      double sliderY = rowRect.y() + (rowRect.h() - 8.0) / 2.0;
-      drawSlider(sliderX, sliderY, sliderW, value, i == scene.getSelected());
+      double[] geo = sliderGeometry(i, items.length, item, layout, w, h);
+      drawSlider(geo[0], geo[1], geo[2], value, i == scene.getSelected());
     }
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) {
@@ -963,6 +959,30 @@ public class MenuRenderer {
       java.time.ZonedDateTime z = java.time.ZonedDateTime.ofInstant(inst, java.time.ZoneId.systemDefault());
       return z.toLocalDate().toString() + " " + z.toLocalTime().withNano(0).toString();
     } catch (Exception e) { return Long.toString(millis); }
+  }
+
+  private double[] sliderGeometry(int index, int count, MenuItemSpec item, MenuLayoutSpec layout, double w, double h) {
+    Rect rowRect = resolveItemRect(index, count, item, layout, 0, w, h);
+    double padX = Math.max(20, rowRect.w() * 0.16);
+    double sliderX = rowRect.x() + padX;
+    double sliderW = Math.max(140, rowRect.w() - (padX * 2));
+    double sliderY = rowRect.y() + rowRect.h() * 0.7;
+    return new double[]{sliderX, sliderY, sliderW};
+  }
+
+  public double computeSettingsSliderValue01(SettingsScene scene, int itemIndex, double canvasW, double canvasH, double mouseX) {
+    if (scene == null || itemIndex < 0) return 0;
+    int count = scene.itemCount();
+    if (itemIndex >= count) return 0;
+    MenuItemSpec item = scene.getMenuItemSpec(itemIndex);
+    MenuLayoutSpec layout = scene.getMenuLayout();
+    double[] geo = sliderGeometry(itemIndex, count, item, layout, canvasW, canvasH);
+    double sliderX = geo[0];
+    double sliderW = geo[2];
+    double v = (mouseX - sliderX) / sliderW;
+    if (v < 0) v = 0;
+    if (v > 1) v = 1;
+    return v;
   }
 
   private void drawSlider(double x, double y, double w, double value01, boolean highlight) {
