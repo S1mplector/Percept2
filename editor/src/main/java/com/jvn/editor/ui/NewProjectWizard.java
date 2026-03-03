@@ -119,6 +119,7 @@ public class NewProjectWizard extends Stage {
   private static final String MENU_SETTINGS_PATH = "config/menu/menus/settings.menu";
   private static final String MENU_LAYOUT_DEFAULT_PATH = "config/menu/layouts/default.layout";
   private static final String MENU_LAYOUT_SUBMENU_PATH = "config/menu/layouts/submenu.layout";
+  private static final String MENU_LAYOUT_SETTINGS_PATH = "config/menu/layouts/settings.layout";
   private static final String MENU_LAYOUT_SLOTS_PATH = "config/menu/layouts/slots.layout";
   private static final String MENU_STYLE_DEFAULT_PATH = "config/menu/styles/default.style";
   private static final String MENU_STYLE_SUBMENU_PATH = "config/menu/styles/submenu.style";
@@ -788,6 +789,10 @@ public class NewProjectWizard extends Stage {
     sb.append("|   |   `-- story.timeline\n");
     sb.append("|   |-- ui/\n");
     sb.append("|   |   `-- dialogue.layout\n");
+    sb.append("|   |-- locales/\n");
+    sb.append("|   |   `-- en.properties\n");
+    sb.append("|   |-- puppeteer/\n");
+    sb.append("|   |   `-- clips/\n");
     boolean blankMenus = shouldStartBlankMenus();
     if (includeMenuPack) {
       sb.append("|   `-- menu/\n");
@@ -810,6 +815,7 @@ public class NewProjectWizard extends Stage {
       sb.append("|       |-- layouts/\n");
       sb.append("|       |   |-- default.layout\n");
       sb.append("|       |   |-- submenu.layout\n");
+      sb.append("|       |   |-- settings.layout\n");
       sb.append("|       |   `-- slots.layout\n");
       sb.append("|       |-- styles/\n");
       sb.append("|       |   |-- default.style\n");
@@ -832,13 +838,18 @@ public class NewProjectWizard extends Stage {
     sb.append("|-- scripts/\n");
     sb.append("|   |-- story/\n");
     sb.append("|   |   `-- prologue.vns\n");
+    sb.append("|   |-- routes/\n");
+    sb.append("|   |-- definitions/\n");
     sb.append("|   |-- common/\n");
     sb.append("|   `-- system/\n");
     sb.append("|-- assets/\n");
     sb.append("|   |-- backgrounds/\n");
     sb.append("|   |-- characters/\n");
-    sb.append("|   |-- portraits/\n");
+    sb.append("|   |   |-- sprites/\n");
+    sb.append("|   |   `-- portraits/\n");
     sb.append("|   |-- cg/\n");
+    sb.append("|   |-- effects/\n");
+    sb.append("|   |-- video/\n");
     if (includeDemoAssets) {
       sb.append("|   |-- demo/\n");
       sb.append("|   |   |-- backgrounds/\n");
@@ -986,6 +997,7 @@ public class NewProjectWizard extends Stage {
 
     createSettings(dir);
     createDialogueLayout(dir);
+    createLocaleStub(dir);
 
     if (includeMenuPack) {
       createMenuTheme(dir, displayName);
@@ -1083,6 +1095,8 @@ public class NewProjectWizard extends Stage {
     ensureDirectory(dir, "config/settings");
     ensureDirectory(dir, "config/timeline");
     ensureDirectory(dir, "config/ui");
+    ensureDirectory(dir, "config/locales");
+    ensureDirectory(dir, "config/puppeteer/clips");
     if (includeMenuPack || shouldStartBlankMenus()) {
       ensureDirectory(dir, "config/menu/registry");
       ensureDirectory(dir, "config/menu/menus");
@@ -1097,14 +1111,18 @@ public class NewProjectWizard extends Stage {
 
     // Scripts
     ensureDirectory(dir, "scripts/story");
+    ensureDirectory(dir, "scripts/routes");
+    ensureDirectory(dir, "scripts/definitions");
     ensureDirectory(dir, "scripts/common");
     ensureDirectory(dir, "scripts/system");
 
     // Assets
     ensureDirectory(dir, "assets/backgrounds");
-    ensureDirectory(dir, "assets/characters");
-    ensureDirectory(dir, "assets/portraits");
+    ensureDirectory(dir, "assets/characters/sprites");
+    ensureDirectory(dir, "assets/characters/portraits");
     ensureDirectory(dir, "assets/cg");
+    ensureDirectory(dir, "assets/effects");
+    ensureDirectory(dir, "assets/video");
     if (includeDemoAssets) {
       ensureDirectory(dir, "assets/demo/backgrounds");
       ensureDirectory(dir, "assets/demo/characters");
@@ -1744,6 +1762,16 @@ public class NewProjectWizard extends Stage {
     }
   }
 
+  private void createLocaleStub(File dir) throws Exception {
+    String locale = cmbLocale == null || cmbLocale.getValue() == null ? "en" : cmbLocale.getValue();
+    String fileName = "config/locales/" + locale + ".properties";
+    try (FileWriter fw = new FileWriter(new File(dir, fileName))) {
+      fw.write("# Locale strings (" + locale + ")\n");
+      fw.write("# Add translatable text keys here. The runtime resolves them via VnTextFormatter.\n");
+      fw.write("# Example: greeting=Hello, {name}!\n");
+    }
+  }
+
   private void createMenuTheme(File dir, String name) throws Exception {
     String theme = cmbTheme.getValue();
     Properties tp = new Properties();
@@ -1827,7 +1855,7 @@ public class NewProjectWizard extends Stage {
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
       fw.write(LayoutDslTemplates.menuRegistryTemplate(
-          "main", String.join(",", menus), "default,submenu,slots", "default,submenu,slot"));
+          "main", String.join(",", menus), "default,submenu,settings,slots", "default,submenu,slot"));
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_DEFAULT_PATH))) {
@@ -1836,6 +1864,10 @@ public class NewProjectWizard extends Stage {
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SUBMENU_PATH))) {
       fw.write(LayoutDslTemplates.submenuLayoutTemplate());
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SETTINGS_PATH))) {
+      fw.write(LayoutDslTemplates.settingsLayoutTemplate());
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SLOTS_PATH))) {
@@ -2047,7 +2079,7 @@ public class NewProjectWizard extends Stage {
         fw.write("#   physics_fixed_step, physics_max_substeps, physics_default_friction, input_profile\n");
         fw.write("titleText=Settings\n");
         fw.write("hintsText=Left/Right: Adjust    Esc: Back\n");
-        fw.write("layout=submenu\n");
+        fw.write("layout=settings\n");
         fw.write("defaultItemStyle=submenu\n");
         fw.write("wrapSelection=true\n");
         fw.write("items=text_speed,auto_play_delay,click_reveal_before_advance,skip_unread,skip_after_choices,bgm_volume,sfx_volume,voice_volume,back\n");

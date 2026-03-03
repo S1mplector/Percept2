@@ -238,6 +238,20 @@ titleY=0.13
 """;
   }
 
+  public static String settingsLayoutTemplate() {
+    return """
+# Settings layout (.layout)
+# Tuned for longer item lists (9+ rows) such as the settings menu.
+# Starts higher and uses compact line height to avoid overflow.
+listYStart=0.16
+lineHeight=50
+listWidthFactor=0.56
+textAlign=left
+hintsBottomMargin=24
+titleY=0.07
+""";
+  }
+
   public static String slotsLayoutTemplate() {
     return """
 # Save/Load slot layout (.layout)
