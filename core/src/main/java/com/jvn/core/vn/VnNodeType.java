@@ -16,6 +16,7 @@ public enum VnNodeType {
   // Character control
   SHOW,          // Show a character at a position
   HIDE,          // Hide a character
+  MOVE,          // Move a character to a position with optional easing
 
   // Flow control
   JUMP,          // Jump to a label
@@ -45,7 +46,7 @@ public enum VnNodeType {
    * Returns true if this node type executes instantly and chains to the next node.
    */
   public boolean isInstant() {
-    return this == BACKGROUND || this == SHOW || this == HIDE || 
+    return this == BACKGROUND || this == SHOW || this == HIDE || this == MOVE ||
            this == JUMP || this == CALL || this == RETURN || this == AUDIO;
   }
 

@@ -2,14 +2,15 @@ package com.jvn.core.vn;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
@@ -729,5 +730,108 @@ public class VnScriptParserTest {
             && "audio".equals(n.getExternalCommand().getProvider()))
         .findFirst().orElseThrow();
     assertEquals("crossfade theme2 1500 true", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void parsesMoveCommandBasic() throws Exception {
+    String script = """
+      @label start
+      [show hero center neutral]
+      [move hero right]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode move = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.MOVE)
+        .findFirst().orElseThrow();
+    assertEquals("hero", move.getCharacterToShow());
+    assertEquals(CharacterPosition.RIGHT, move.getShowPosition());
+    assertEquals(0, move.getMoveDurationMs());
+    assertNull(move.getMoveEasingType());
+  }
+
+  @Test
+  public void parsesMoveCommandWithEasing() throws Exception {
+    String script = """
+      @label start
+      [show hero center neutral]
+      [move hero far_left ease_out_bounce]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode move = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.MOVE)
+        .findFirst().orElseThrow();
+    assertEquals("hero", move.getCharacterToShow());
+    assertEquals(CharacterPosition.FAR_LEFT, move.getShowPosition());
+    assertEquals(com.jvn.core.animation.Easing.Type.EASE_OUT_BOUNCE, move.getMoveEasingType());
+  }
+
+  @Test
+  public void parsesMoveCommandWithExpressionEasingDuration() throws Exception {
+    String script = """
+      @label start
+      [show hero center neutral]
+      [move hero right smile ease_in_out_elastic 600]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode move = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.MOVE)
+        .findFirst().orElseThrow();
+    assertEquals("hero", move.getCharacterToShow());
+    assertEquals(CharacterPosition.RIGHT, move.getShowPosition());
+    assertEquals("smile", move.getShowExpression());
+    assertEquals(com.jvn.core.animation.Easing.Type.EASE_IN_OUT_ELASTIC, move.getMoveEasingType());
+    assertEquals(600, move.getMoveDurationMs());
+  }
+
+  @Test
+  public void moveCommandMovesCharacterWithGlobalPosition() throws Exception {
+    String script = """
+      @label start
+      [char hero global on]
+      [show hero center neutral]
+      [move hero right smile ease_out_bounce]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    VnScene scene = new VnScene(scenario);
+    scene.setInterop(new DefaultVnInterop());
+    scene.onEnter();
+
+    assertTrue(scene.getState().getVisibleCharacters().containsKey(CharacterPosition.RIGHT));
+    assertEquals("hero", scene.getState().getVisibleCharacters().get(CharacterPosition.RIGHT).getCharacterId());
+
+    scene.update(400);
+    assertEquals("smile", scene.getState().getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
+  }
+
+  @Test
+  public void charInteropMoveSupportsEasing() throws Exception {
+    String script = """
+      @label start
+      [char hero global on]
+      [show hero center neutral]
+      [char hero move right smile ease_out_back 500]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    VnScene scene = new VnScene(scenario);
+    scene.setInterop(new DefaultVnInterop());
+    scene.onEnter();
+
+    assertTrue(scene.getState().getVisibleCharacters().containsKey(CharacterPosition.RIGHT));
+    assertEquals("hero", scene.getState().getVisibleCharacters().get(CharacterPosition.RIGHT).getCharacterId());
+
+    scene.update(600);
+    assertEquals("smile", scene.getState().getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
   }
 }

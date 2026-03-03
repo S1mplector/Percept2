@@ -3,6 +3,8 @@ package com.jvn.core.vn;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.jvn.core.animation.Easing;
+
 /**
  * Represents a single node in the visual novel script graph
  */
@@ -20,6 +22,8 @@ public class VnNode {
   private final CharacterPosition showPosition;
   private final String showExpression;
   private final Integer showLayerOrder;
+  private final Easing.Type moveEasingType;
+  private final long moveDurationMs;
   private final VnExternalCommand externalCommand;
   private final int sourceLine;
 
@@ -37,6 +41,8 @@ public class VnNode {
     this.showPosition = builder.showPosition;
     this.showExpression = builder.showExpression;
     this.showLayerOrder = builder.showLayerOrder;
+    this.moveEasingType = builder.moveEasingType;
+    this.moveDurationMs = builder.moveDurationMs;
     this.externalCommand = builder.externalCommand;
     this.sourceLine = builder.sourceLine;
   }
@@ -54,6 +60,8 @@ public class VnNode {
   public CharacterPosition getShowPosition() { return showPosition; }
   public String getShowExpression() { return showExpression; }
   public Integer getShowLayerOrder() { return showLayerOrder; }
+  public Easing.Type getMoveEasingType() { return moveEasingType; }
+  public long getMoveDurationMs() { return moveDurationMs; }
   public VnExternalCommand getExternalCommand() { return externalCommand; }
   public int getSourceLine() { return sourceLine; }
 
@@ -73,6 +81,8 @@ public class VnNode {
     private CharacterPosition showPosition;
     private String showExpression = "neutral";
     private Integer showLayerOrder;
+    private Easing.Type moveEasingType;
+    private long moveDurationMs;
     private VnExternalCommand externalCommand;
     private int sourceLine;
 
@@ -90,6 +100,8 @@ public class VnNode {
     public Builder showPosition(CharacterPosition pos) { this.showPosition = pos; return this; }
     public Builder showExpression(String expr) { this.showExpression = expr; return this; }
     public Builder showLayerOrder(Integer layerOrder) { this.showLayerOrder = layerOrder; return this; }
+    public Builder moveEasingType(Easing.Type easing) { this.moveEasingType = easing; return this; }
+    public Builder moveDurationMs(long ms) { this.moveDurationMs = ms; return this; }
     public Builder external(VnExternalCommand cmd) { this.externalCommand = cmd; return this; }
     public Builder sourceLine(int line) { this.sourceLine = line; return this; }
     public VnNode build() { return new VnNode(this); }

@@ -14,12 +14,13 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jvn.core.animation.Easing;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
-import com.jvn.core.vn.VnConditionEvaluator;
 import com.jvn.core.vn.VnArgTokenizer;
+import com.jvn.core.vn.VnConditionEvaluator;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioBuilder;
 import com.jvn.core.vn.VnTransition;
@@ -123,6 +124,12 @@ public class VnScriptParser {
     List<LabelReference> labelReferences = new ArrayList<>();
     Deque<ConditionalBlock> conditionalBlocks = new ArrayDeque<>();
     int syntheticLabelCounter = 0;
+    Map<String, CharacterPosition> customPositions = new HashMap<>();
+
+    CharacterPosition getCustomPosition(String name) {
+      if (name == null || name.isBlank()) return null;
+      return customPositions.get(name.trim().toLowerCase());
+    }
   }
 
   private static final class LabelDeclaration {
@@ -795,7 +802,7 @@ public class VnScriptParser {
           throw parseError(sourceName, lineNumber, "[show] expects: [show <charId> <pos> [expression] [layer]]", rawLine);
         }
         String charId = toks[0];
-        CharacterPosition pos = parsePosition(toks[1], sourceName, lineNumber, rawLine);
+        CharacterPosition pos = parsePosition(toks[1], sourceName, lineNumber, rawLine, state);
         String expr = "neutral";
         Integer layerOrder = null;
         if (toks.length >= 3) {
@@ -817,6 +824,37 @@ public class VnScriptParser {
       case "hide": {
         String charId = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         state.builder.hide(charId);
+        return;
+      }
+      case "move": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = payload.split("\\s+");
+        if (toks.length < 2) {
+          throw parseError(sourceName, lineNumber, "[move] expects: [move <charId> <pos> [expression] [easing] [durationMs]]", rawLine);
+        }
+        String moveCharId = toks[0];
+        CharacterPosition movePos = parsePosition(toks[1], sourceName, lineNumber, rawLine, state);
+        String moveExpr = null;
+        Easing.Type moveEasing = null;
+        long moveDur = 0;
+        for (int ti = 2; ti < toks.length; ti++) {
+          String tok = toks[ti];
+          if (isIntegerToken(tok)) {
+            moveDur = Long.parseLong(tok);
+            if (moveDur < 0) throw parseError(sourceName, lineNumber, "[move] duration must be >= 0", rawLine);
+          } else {
+            Easing.Type parsed = parseEasingToken(tok);
+            if (parsed != null) {
+              moveEasing = parsed;
+            } else {
+              if (moveExpr != null) {
+                throw parseError(sourceName, lineNumber, "[move] unexpected token: " + tok, rawLine);
+              }
+              moveExpr = tok;
+            }
+          }
+        }
+        state.builder.move(moveCharId, movePos, moveExpr, moveEasing, moveDur);
         return;
       }
       case "transition": {
@@ -1265,18 +1303,14 @@ public class VnScriptParser {
   private CharacterPosition parsePosition(String token,
                                           String sourceName,
                                           int lineNumber,
-                                          String rawLine) throws IOException {
-    String t = token.trim().toUpperCase();
-    try {
-      return CharacterPosition.valueOf(t);
-    } catch (IllegalArgumentException e) {
-      if (t.equals("L")) return CharacterPosition.LEFT;
-      if (t.equals("C") || t.equals("CENTER")) return CharacterPosition.CENTER;
-      if (t.equals("R")) return CharacterPosition.RIGHT;
-      if (t.equals("FL")) return CharacterPosition.FAR_LEFT;
-      if (t.equals("FR")) return CharacterPosition.FAR_RIGHT;
-      throw parseError(sourceName, lineNumber, "Unknown character position: " + token, rawLine);
-    }
+                                          String rawLine,
+                                          ParseState state) throws IOException {
+    CharacterPosition predefined = CharacterPosition.predefined(token);
+    if (predefined != null) return predefined;
+    // Check custom positions defined via @position
+    CharacterPosition custom = state.getCustomPosition(token);
+    if (custom != null) return custom;
+    throw parseError(sourceName, lineNumber, "Unknown character position: " + token, rawLine);
   }
 
   private VnTransition.TransitionType parseTransitionType(String token) {
@@ -1388,5 +1422,15 @@ public class VnScriptParser {
     }
     if (esc) out.append('\\');
     return out.toString();
+  }
+
+  private Easing.Type parseEasingToken(String token) {
+    if (token == null || token.isBlank()) return null;
+    String upper = token.trim().toUpperCase();
+    try {
+      return Easing.Type.valueOf(upper);
+    } catch (IllegalArgumentException ignored) {
+      return null;
+    }
   }
 }

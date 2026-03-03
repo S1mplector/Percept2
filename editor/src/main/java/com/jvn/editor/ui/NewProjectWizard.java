@@ -1506,6 +1506,7 @@ public class NewProjectWizard extends Stage {
         > Transitions and Effects -> tutorial_transitions
         > Sound & Music -> tutorial_audio
         > Variables and Conditions -> tutorial_variables
+        > Character Movement & Easing -> tutorial_movement
         > Puppeteer Timelines (Animation) -> tutorial_puppeteer
         > Choices and Menus -> tutorial_menus
         > Subroutines & Flow -> tutorial_subroutines
@@ -1697,6 +1698,41 @@ public class NewProjectWizard extends Stage {
         @label var_no_door
         [show lavender center talking]
         Lavender: You chose to look for another way. Choices shape the story!
+        [jump tutorials_hub_2]
+
+        # ═══════════════════════════════════════════
+        # Character Movement & Easing
+        # ═══════════════════════════════════════════
+
+        @label tutorial_movement
+        [inc tutorial_count]
+        [char lavender global on]
+        [show lavender center talking]
+        [wait 200]
+        Lavender: JVN supports moving characters across the screen with the {b}[move]{/b} command!
+        Lavender: You can use any of the built-in easing presets to control the animation curve.
+        Lavender: Let me show you a few. First, a simple move to the left...
+        [move lavender far_left ease_out_quad]
+        [wait 400]
+        Lavender: That was {b}ease_out_quad{/b} — smooth and natural.
+        Lavender: Now watch {b}ease_out_bounce{/b}!
+        [move lavender far_right ease_out_bounce]
+        [wait 600]
+        Lavender: See the bounce at the end? Great for playful characters.
+        Lavender: Here's {b}ease_out_elastic{/b} — it overshoots and springs back.
+        [move lavender left ease_out_elastic 500]
+        [wait 600]
+        Lavender: You can also specify a custom duration in milliseconds.
+        Lavender: Now {b}ease_in_out_back{/b} — it pulls back before sliding in.
+        [move lavender right ease_in_out_back]
+        [wait 500]
+        Lavender: And {b}ease_out_expo{/b} — a quick burst that eases to a stop.
+        [move lavender center ease_out_expo]
+        [wait 400]
+        [show lavender center idle]
+        Lavender: The syntax is: {b}[move charId position [expression] [easing] [durationMs]]{/b}
+        Lavender: All easing presets from the Puppeteer are available — bounce, elastic, back, expo, sine, and more!
+        [char lavender global off]
         [jump tutorials_hub_2]
 
         # ═══════════════════════════════════════════

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.TimelineRunner;
 import com.jvn.core.tween.Easings;
 import com.jvn.core.vn.rollback.VnRollbackStack;
@@ -144,6 +145,11 @@ public class VnState {
   }
 
   public void showCharacterAnimated(CharacterPosition position, String characterId, String expression, Integer layerOrder) {
+    showCharacterAnimated(position, characterId, expression, layerOrder, null, 0);
+  }
+
+  public void showCharacterAnimated(CharacterPosition position, String characterId, String expression,
+                                     Integer layerOrder, Easing.Type easingType, long customDurationMs) {
     CharacterPosition target = fallbackPositionFor(characterId, position);
     CharacterPosition existingPos = findCharacterPosition(characterId);
     CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
@@ -151,28 +157,30 @@ public class VnState {
     String resolvedExpression = normalizeExpression(expression, fallbackExpression);
     int resolvedLayerOrder = resolveLayerOrder(target, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
 
-    if (isCharacterGlobalPositionEnabled(characterId) && existingPos != null && existingSlot != null && existingPos != target) {
+    if (isCharacterGlobalPositionEnabled(characterId) && existingPos != null && existingSlot != null && !existingPos.equals(target)) {
       // Move the same sprite between slots, then fade expression if needed.
+      long moveDur = customDurationMs > 0 ? customDurationMs : CHARACTER_MOVE_MS;
       String movingExpression = normalizeExpression(existingSlot.getExpression(), resolvedExpression);
       removeSlot(existingPos);
       visibleCharacters.put(target, new CharacterSlot(characterId, movingExpression, resolvedLayerOrder));
       CharacterVisual visual = ensureCharacterVisual(target);
       double startOffset = positionDeltaOffset(existingPos, target);
-      visual.startAnimation(1.0, 1.0, startOffset, 0.0, 0.0, 0.0, CHARACTER_MOVE_MS, false);
+      visual.startAnimation(1.0, 1.0, startOffset, 0.0, 0.0, 0.0, moveDur, false, easingType);
       pendingExpressionSwitches.remove(target);
       if (!resolvedExpression.equals(movingExpression)) {
-        pendingExpressionSwitches.put(target, new PendingExpressionSwitch(characterId, resolvedExpression, CHARACTER_MOVE_MS));
+        pendingExpressionSwitches.put(target, new PendingExpressionSwitch(characterId, resolvedExpression, moveDur));
       }
       characterDefinedPositions.put(characterId, target);
       return;
     }
 
+    long tweenDur = customDurationMs > 0 ? customDurationMs : CHARACTER_TWEEN_MS;
     removeOtherSlotsForCharacter(characterId, target);
     visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
     pendingExpressionSwitches.remove(target);
     CharacterVisual visual = ensureCharacterVisual(target);
     double startX = entranceOffsetX(target);
-    visual.startAnimation(0.0, 1.0, startX, 0.0, 0.0, 0.0, CHARACTER_TWEEN_MS, false);
+    visual.startAnimation(0.0, 1.0, startX, 0.0, 0.0, 0.0, tweenDur, false, easingType);
     if (isCharacterGlobalPositionEnabled(characterId)) {
       characterDefinedPositions.put(characterId, target);
     }
@@ -352,45 +360,17 @@ public class VnState {
   }
 
   private double positionDeltaOffset(CharacterPosition from, CharacterPosition to) {
-    int fromOrd = positionOrdinal(from);
-    int toOrd = positionOrdinal(to);
-    return (fromOrd - toOrd) * CHARACTER_MOVE_STEP_OFFSET;
-  }
-
-  private int positionOrdinal(CharacterPosition position) {
-    if (position == null) return 0;
-    return switch (position) {
-      case FAR_LEFT -> -2;
-      case LEFT -> -1;
-      case CENTER -> 0;
-      case RIGHT -> 1;
-      case FAR_RIGHT -> 2;
-    };
+    return to.moveDeltaFrom(from);
   }
 
   private double entranceOffsetX(CharacterPosition position) {
-    return switch (position) {
-      case FAR_LEFT, LEFT -> -CHARACTER_TWEEN_OFFSET;
-      case FAR_RIGHT, RIGHT -> CHARACTER_TWEEN_OFFSET;
-      case CENTER -> 0.0;
-    };
+    return position.getEntranceOffsetX();
   }
 
   private int resolveLayerOrder(CharacterPosition position, Integer requestedLayerOrder, Integer fallbackLayerOrder) {
     if (requestedLayerOrder != null) return requestedLayerOrder;
     if (fallbackLayerOrder != null) return fallbackLayerOrder;
-    return defaultLayerOrderForPosition(position);
-  }
-
-  private int defaultLayerOrderForPosition(CharacterPosition position) {
-    if (position == null) return 0;
-    return switch (position) {
-      case FAR_LEFT -> -20;
-      case LEFT -> -10;
-      case CENTER -> 0;
-      case RIGHT -> 10;
-      case FAR_RIGHT -> 20;
-    };
+    return position != null ? position.getDefaultLayerOrder() : 0;
   }
 
   public boolean isWaitingForInput() { return waitingForInput; }
@@ -632,6 +612,7 @@ public class VnState {
     private long elapsedMs = 0;
     private boolean animating = false;
     private boolean removeOnComplete = false;
+    private Easing.Type easingType = null;
 
     public double getAlpha() { return alpha; }
     public double getOffsetX() { return offsetX; }
@@ -655,6 +636,14 @@ public class VnState {
                                double startOffsetX, double endOffsetX,
                                double startOffsetY, double endOffsetY,
                                long durationMs, boolean removeOnComplete) {
+      startAnimation(startAlpha, endAlpha, startOffsetX, endOffsetX, startOffsetY, endOffsetY, durationMs, removeOnComplete, null);
+    }
+
+    public void startAnimation(double startAlpha, double endAlpha,
+                               double startOffsetX, double endOffsetX,
+                               double startOffsetY, double endOffsetY,
+                               long durationMs, boolean removeOnComplete,
+                               Easing.Type easingType) {
       this.startAlpha = startAlpha;
       this.endAlpha = endAlpha;
       this.startOffsetX = startOffsetX;
@@ -665,6 +654,7 @@ public class VnState {
       this.elapsedMs = 0L;
       this.animating = true;
       this.removeOnComplete = removeOnComplete;
+      this.easingType = easingType;
       this.alpha = startAlpha;
       this.offsetX = startOffsetX;
       this.offsetY = startOffsetY;
@@ -677,7 +667,7 @@ public class VnState {
         elapsedMs = durationMs;
       }
       double t = elapsedMs / (double) durationMs;
-      double k = Easings.easeOutQuad(t);
+      double k = easingType != null ? Easing.apply(easingType, t) : Easings.easeOutQuad(t);
       alpha = lerp(startAlpha, endAlpha, k);
       offsetX = lerp(startOffsetX, endOffsetX, k);
       offsetY = lerp(startOffsetY, endOffsetY, k);

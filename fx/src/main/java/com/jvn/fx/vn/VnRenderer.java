@@ -458,6 +458,7 @@ public class VnRenderer {
         case TRANSITION:
         case SHOW:
         case HIDE:
+        case MOVE:
         case WAIT:
         case AUDIO:
         case JUMP:
@@ -527,13 +528,7 @@ public class VnRenderer {
 
   private int positionOrdinal(CharacterPosition position) {
     if (position == null) return 0;
-    return switch (position) {
-      case FAR_LEFT -> -2;
-      case LEFT -> -1;
-      case CENTER -> 0;
-      case RIGHT -> 1;
-      case FAR_RIGHT -> 2;
-    };
+    return position.getOrdinal();
   }
 
   private void renderBackground(VnBackground background, double width, double height) {
@@ -638,15 +633,8 @@ public class VnRenderer {
       // Draw placeholder silhouette box
       double spriteHeight = height * characterHeightFactor;
       double spriteWidth = spriteHeight * 0.5;
-      double x = switch (position) {
-        case FAR_LEFT -> width * 0.05;
-        case LEFT -> width * 0.2;
-        case CENTER -> (width - spriteWidth) / 2;
-        case RIGHT -> width * 0.8 - spriteWidth;
-        case FAR_RIGHT -> width * 0.95 - spriteWidth;
-      };
-      // Position placeholder so feet are at screen bottom
-      double y = (height * characterBaselineY) - spriteHeight;
+      double x = position.computeScreenX(width, spriteWidth);
+      double y = position.computeScreenY(height, spriteHeight, characterBaselineY);
       gc.setFill(Color.rgb(200, 200, 200, 0.4));
       gc.fillRoundRect(x + offsetX, y + offsetY, spriteWidth, spriteHeight, 20, 20);
       gc.setStroke(Color.WHITE);
@@ -657,17 +645,8 @@ public class VnRenderer {
 
     double spriteHeight = height * characterHeightFactor;
     double spriteWidth = reference.getWidth() * (spriteHeight / reference.getHeight());
-    
-    double x = switch (position) {
-      case FAR_LEFT -> width * 0.05;
-      case LEFT -> width * 0.2;
-      case CENTER -> (width - spriteWidth) / 2;
-      case RIGHT -> width * 0.8 - spriteWidth;
-      case FAR_RIGHT -> width * 0.95 - spriteWidth;
-    };
-    
-    // Position sprite so feet are at screen bottom (textbox overlaps legs)
-    double y = (height * characterBaselineY) - spriteHeight;
+    double x = position.computeScreenX(width, spriteWidth);
+    double y = position.computeScreenY(height, spriteHeight, characterBaselineY);
     drawLayerStack(layerPaths, x + offsetX, y + offsetY, spriteWidth, spriteHeight);
   }
 

@@ -79,13 +79,13 @@ public class VnSaveManager {
     java.util.Map<String, String> definedPositions = new java.util.HashMap<>();
     for (var entry : state.getCharacterDefinedPositionsSnapshot().entrySet()) {
       if (entry.getKey() == null || entry.getValue() == null) continue;
-      definedPositions.put(entry.getKey(), entry.getValue().name());
+      definedPositions.put(entry.getKey(), entry.getValue().getName());
     }
     saveData.setCharacterDefinedPositions(definedPositions);
 
     java.util.Map<String, String[]> vis = new java.util.HashMap<>();
     for (var entry : state.getVisibleCharacters().entrySet()) {
-      String pos = entry.getKey().name();
+      String pos = entry.getKey().getName();
       VnState.CharacterSlot slot = entry.getValue();
       vis.put(pos, new String[] {
           slot.getCharacterId(),
@@ -340,8 +340,9 @@ public class VnSaveManager {
       String positionName = entry.getValue();
       if (characterId == null || characterId.isBlank() || positionName == null || positionName.isBlank()) continue;
       try {
-        definedPositions.put(characterId, CharacterPosition.valueOf(positionName));
-      } catch (IllegalArgumentException ignored) {
+        CharacterPosition cp = CharacterPosition.predefined(positionName);
+        if (cp != null) definedPositions.put(characterId, cp);
+      } catch (Exception ignored) {
       }
     }
 
@@ -350,7 +351,8 @@ public class VnSaveManager {
       String pos = entry.getKey();
       String[] data = entry.getValue();
       try {
-        CharacterPosition position = CharacterPosition.valueOf(pos);
+        CharacterPosition position = CharacterPosition.predefined(pos);
+        if (position == null) continue;
         String charId = data.length > 0 ? data[0] : null;
         String expr = data.length > 1 ? data[1] : "neutral";
         Integer layer = null;

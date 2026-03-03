@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineDataParser;
@@ -515,8 +516,26 @@ public class DefaultVnInterop implements VnInterop {
         if (toks.length < 3) return;
         CharacterPosition position = parsePositionToken(toks[2]);
         if (position == null) return;
-        String expression = toks.length >= 4 ? toks[3] : state.getCharacterExpression(characterId);
-        state.showCharacterAnimated(position, characterId, expression == null ? "neutral" : expression);
+        String expression = null;
+        Easing.Type easingType = null;
+        long durationMs = 0;
+        for (int ti = 3; ti < toks.length; ti++) {
+          String tok = toks[ti].trim();
+          if (tok.isEmpty()) continue;
+          if (tok.matches("\\d+")) {
+            durationMs = Long.parseLong(tok);
+          } else {
+            Easing.Type parsed = parseEasingType(tok);
+            if (parsed != null) {
+              easingType = parsed;
+            } else if (expression == null) {
+              expression = tok;
+            }
+          }
+        }
+        if (expression == null) expression = state.getCharacterExpression(characterId);
+        state.showCharacterAnimated(position, characterId,
+            expression == null ? "neutral" : expression, null, easingType, durationMs);
         break;
       }
       case "show": {
@@ -554,19 +573,16 @@ public class DefaultVnInterop implements VnInterop {
   }
 
   private CharacterPosition parsePositionToken(String token) {
+    return CharacterPosition.predefined(token);
+  }
+
+  private Easing.Type parseEasingType(String token) {
     if (token == null || token.isBlank()) return null;
-    String t = token.trim().toUpperCase();
+    String upper = token.trim().toUpperCase();
     try {
-      return CharacterPosition.valueOf(t);
-    } catch (Exception ignored) {
-      return switch (t) {
-        case "L", "LEFT" -> CharacterPosition.LEFT;
-        case "C", "CENTER", "CENTRE" -> CharacterPosition.CENTER;
-        case "R", "RIGHT" -> CharacterPosition.RIGHT;
-        case "FL", "FARLEFT", "FAR_LEFT" -> CharacterPosition.FAR_LEFT;
-        case "FR", "FARRIGHT", "FAR_RIGHT" -> CharacterPosition.FAR_RIGHT;
-        default -> null;
-      };
+      return Easing.Type.valueOf(upper);
+    } catch (IllegalArgumentException ignored) {
+      return null;
     }
   }
 

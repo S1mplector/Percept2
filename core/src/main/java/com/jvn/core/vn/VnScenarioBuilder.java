@@ -3,6 +3,8 @@ package com.jvn.core.vn;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.jvn.core.animation.Easing;
+
 /**
  * Fluent builder for creating VN scenarios programmatically
  */
@@ -177,6 +179,18 @@ public class VnScenarioBuilder {
         .characterToHide(characterId)
         .build()
     );
+    return this;
+  }
+
+  public VnScenarioBuilder move(String characterId, CharacterPosition position, String expression,
+                                 Easing.Type easingType, long durationMs) {
+    VnNode.Builder b = VnNode.builder(VnNodeType.MOVE)
+        .characterToShow(characterId)
+        .showPosition(position);
+    if (expression != null) b.showExpression(expression);
+    if (easingType != null) b.moveEasingType(easingType);
+    if (durationMs > 0) b.moveDurationMs(durationMs);
+    scenarioBuilder.addNode(b.build());
     return this;
   }
 

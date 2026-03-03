@@ -99,6 +99,14 @@ public class VnScene implements Scene {
             state.showCharacter(node.getShowPosition(), node.getCharacterToShow(), expr, node.getShowLayerOrder());
           }
           break;
+        case MOVE:
+          if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
+            String moveExpr = node.getShowExpression();
+            if (moveExpr == null) moveExpr = state.getCharacterExpression(node.getCharacterToShow());
+            if (moveExpr == null) moveExpr = "neutral";
+            state.showCharacter(node.getShowPosition(), node.getCharacterToShow(), moveExpr, null);
+          }
+          break;
         case HIDE:
           if (node.getCharacterToHide() != null) {
             for (var entry : new java.util.ArrayList<>(state.getVisibleCharacters().entrySet())) {
@@ -384,6 +392,12 @@ public class VnScene implements Scene {
           instantCount++;
           break;
 
+        case MOVE:
+          processMoveNode(node);
+          state.advance();
+          instantCount++;
+          break;
+
         case WAIT:
           processWaitNode(node);
           if (waitingNode) {
@@ -530,6 +544,14 @@ public class VnScene implements Scene {
     if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
       String expr = node.getShowExpression() != null ? node.getShowExpression() : "neutral";
       state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr, node.getShowLayerOrder());
+    }
+  }
+
+  private void processMoveNode(VnNode node) {
+    if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
+      String expr = node.getShowExpression() != null ? node.getShowExpression() : null;
+      state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr,
+          null, node.getMoveEasingType(), node.getMoveDurationMs());
     }
   }
 
