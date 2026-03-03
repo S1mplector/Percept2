@@ -3,8 +3,8 @@ package com.jvn.editor.ui;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -15,10 +15,10 @@ import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
-import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.fx.audio.FxAudioService;
 import com.jvn.fx.vn.VnRenderer;
 
@@ -53,6 +53,10 @@ public class VnPreviewView extends StackPane {
   private VnUiLayoutSpec uiLayoutOverride;
   private VnUiStyleSpec uiStyleOverride;
   private List<VnUiActionButtonSpec> textBoxButtonsOverride = List.of();
+
+  // Virtual viewport: render at the game's target resolution, scale to fit canvas
+  private int virtualWidth = 0;
+  private int virtualHeight = 0;
 
   public VnPreviewView() {
     getChildren().add(canvas);
@@ -92,6 +96,7 @@ public class VnPreviewView extends StackPane {
     this.audioBackend = nextBackend;
     this.projectRoot = root;
     renderer.setProjectRoot(root);
+    resolveVirtualViewport(root);
     applyUiOverrides();
     bindProjectRoot(audio, root);
     if (scene != null) {
@@ -102,6 +107,12 @@ public class VnPreviewView extends StackPane {
     }
   }
 
+  private void resolveVirtualViewport(File root) {
+    ProjectViewportSpec.Dimensions dims = ProjectViewportSpec.resolve(root);
+    this.virtualWidth = dims.width();
+    this.virtualHeight = dims.height();
+  }
+
   public void setSize(double w, double h) {
     double sw = sanitizeCanvasDimension(w);
     double sh = sanitizeCanvasDimension(h);
@@ -110,11 +121,11 @@ public class VnPreviewView extends StackPane {
   }
 
   public void render(long deltaMs) {
-    double w = canvas.getWidth();
-    double h = canvas.getHeight();
+    double canvasW = canvas.getWidth();
+    double canvasH = canvas.getHeight();
     if (scene == null) {
       gc.setFill(javafx.scene.paint.Color.color(0.06, 0.06, 0.08));
-      gc.fillRect(0, 0, w, h);
+      gc.fillRect(0, 0, canvasW, canvasH);
       gc.setFill(javafx.scene.paint.Color.WHITE);
       gc.fillText("Open a VNS file to preview", 20, 30);
       return;
@@ -123,7 +134,28 @@ public class VnPreviewView extends StackPane {
     renderer.updateAnimation(deltaMs);
     renderer.setAudioFacade(scene.getAudioFacade());
     applyUiOverrides();
-    renderer.render(scene.getState(), scene.getScenario(), w, h, mouseX, mouseY);
+
+    double vw = virtualWidth > 0 ? virtualWidth : canvasW;
+    double vh = virtualHeight > 0 ? virtualHeight : canvasH;
+    double scale = Math.min(canvasW / vw, canvasH / vh);
+    double scaledW = vw * scale;
+    double scaledH = vh * scale;
+    double offsetX = (canvasW - scaledW) / 2.0;
+    double offsetY = (canvasH - scaledH) / 2.0;
+
+    // Clear full canvas (letterbox bars)
+    gc.setFill(javafx.scene.paint.Color.BLACK);
+    gc.fillRect(0, 0, canvasW, canvasH);
+
+    // Transform mouse from canvas space → virtual space
+    double virtualMouseX = (mouseX - offsetX) / scale;
+    double virtualMouseY = (mouseY - offsetY) / scale;
+
+    gc.save();
+    gc.translate(offsetX, offsetY);
+    gc.scale(scale, scale);
+    renderer.render(scene.getState(), scene.getScenario(), vw, vh, virtualMouseX, virtualMouseY);
+    gc.restore();
   }
 
   public void setUiOverrides(VnUiLayoutSpec layout, VnUiStyleSpec style, List<VnUiActionButtonSpec> textBoxButtons) {
@@ -180,13 +212,18 @@ public class VnPreviewView extends StackPane {
 
     if (handleOverlayMouseClick(clickCount, x, y)) return;
 
+    double vx = toVirtualX(x);
+    double vy = toVirtualY(y);
+    double vw = viewportW();
+    double vh = viewportH();
+
     com.jvn.core.vn.ui.VnUiActionButtonSpec textBoxButton =
-        renderer.getHoveredTextBoxButton(scene.getState(), canvas.getWidth(), canvas.getHeight(), x, y);
+        renderer.getHoveredTextBoxButton(scene.getState(), vw, vh, vx, vy);
     if (textBoxButton != null && executeTextBoxButtonAction(textBoxButton)) return;
 
     VnNode node = scene.getState().getCurrentNode();
     if (node != null && node.getType() == VnNodeType.CHOICE) {
-      int idx = renderer.getHoveredChoiceIndex(node.getChoices(), canvas.getWidth(), canvas.getHeight(), x, y);
+      int idx = renderer.getHoveredChoiceIndex(node.getChoices(), vw, vh, vx, vy);
       if (idx >= 0) {
         scene.selectChoice(idx);
       }
@@ -258,7 +295,7 @@ public class VnPreviewView extends StackPane {
     var state = scene.getState();
 
     if (state.isSaveSlotOverlayShown()) {
-      int slot = renderer.getHoveredSaveSlotIndex(canvas.getWidth(), canvas.getHeight(), x, y);
+      int slot = renderer.getHoveredSaveSlotIndex(viewportW(), viewportH(), toVirtualX(x), toVirtualY(y));
       if (slot < 0) {
         state.hideSaveSlotOverlay();
         return true;
@@ -333,7 +370,7 @@ public class VnPreviewView extends StackPane {
 
   private void handleHistoryOverlayKey(KeyCode code, boolean shiftDown) {
     var state = scene.getState();
-    int pageLines = renderer.getHistoryLinesPerPage(canvas.getHeight());
+    int pageLines = renderer.getHistoryLinesPerPage(viewportH());
     int step = shiftDown ? 5 : 1;
 
     if (code == KeyCode.ESCAPE || code == KeyCode.SPACE || code == KeyCode.ENTER || code == KeyCode.B) {
@@ -399,7 +436,7 @@ public class VnPreviewView extends StackPane {
   private void advanceFromInput() {
     VnNode node = scene.getState().getCurrentNode();
     if (node != null && node.getType() == VnNodeType.CHOICE) {
-      int hover = renderer.getHoveredChoiceIndex(node.getChoices(), canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+      int hover = renderer.getHoveredChoiceIndex(node.getChoices(), viewportW(), viewportH(), toVirtualX(mouseX), toVirtualY(mouseY));
       if (hover >= 0) {
         scene.selectChoice(hover);
       }
@@ -484,6 +521,27 @@ public class VnPreviewView extends StackPane {
       case DIGIT9, NUMPAD9 -> 9;
       default -> -1;
     };
+  }
+
+  // ── Virtual viewport helpers ──────────────────────────────────────
+
+  private double viewportW() { return virtualWidth > 0 ? virtualWidth : canvas.getWidth(); }
+  private double viewportH() { return virtualHeight > 0 ? virtualHeight : canvas.getHeight(); }
+
+  private double viewportScale() {
+    return Math.min(canvas.getWidth() / viewportW(), canvas.getHeight() / viewportH());
+  }
+
+  private double toVirtualX(double canvasX) {
+    double scale = viewportScale();
+    double offsetX = (canvas.getWidth() - viewportW() * scale) / 2.0;
+    return (canvasX - offsetX) / scale;
+  }
+
+  private double toVirtualY(double canvasY) {
+    double scale = viewportScale();
+    double offsetY = (canvas.getHeight() - viewportH() * scale) / 2.0;
+    return (canvasY - offsetY) / scale;
   }
 
   private static double sanitizeCanvasDimension(double value) {

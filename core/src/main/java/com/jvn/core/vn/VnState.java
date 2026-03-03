@@ -63,9 +63,7 @@ public class VnState {
   private long flashDurationMs = 0;
   private long flashRemainingMs = 0;
 
-  private static final double CHARACTER_TWEEN_OFFSET = 60.0;
   private static final long CHARACTER_TWEEN_MS = 220;
-  private static final double CHARACTER_MOVE_STEP_OFFSET = 220.0;
   private static final long CHARACTER_MOVE_MS = 320;
   private static final long CHARACTER_EXPRESSION_FADE_MS = 180;
 

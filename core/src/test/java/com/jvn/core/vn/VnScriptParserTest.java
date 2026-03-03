@@ -834,4 +834,252 @@ public class VnScriptParserTest {
     scene.update(600);
     assertEquals("smile", scene.getState().getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Custom Position Tests
+  // ═══════════════════════════════════════════════════════════════════
+
+  @Test
+  public void characterPositionPredefinedLookup() {
+    assertEquals(CharacterPosition.LEFT, CharacterPosition.predefined("left"));
+    assertEquals(CharacterPosition.CENTER, CharacterPosition.predefined("C"));
+    assertEquals(CharacterPosition.FAR_RIGHT, CharacterPosition.predefined("FR"));
+    assertNull(CharacterPosition.predefined("balcony"));
+    assertNull(CharacterPosition.predefined(null));
+  }
+
+  @Test
+  public void characterPositionCustomEquality() {
+    CharacterPosition a = CharacterPosition.named("balcony", 0.3, 0.5);
+    CharacterPosition b = CharacterPosition.named("balcony", 0.9, 0.1);
+    assertEquals(a, b, "Named positions with the same name should be equal");
+    assertEquals(a.hashCode(), b.hashCode());
+
+    CharacterPosition c = CharacterPosition.at(0.3, 0.5);
+    CharacterPosition d = CharacterPosition.at(0.3, 0.5);
+    assertEquals(c, d, "Inline at positions with same coords should be equal");
+
+    CharacterPosition e = CharacterPosition.at(0.7, 0.2);
+    assertFalse(c.equals(e), "Different inline at positions should not be equal");
+  }
+
+  @Test
+  public void characterPositionCustomRendering() {
+    CharacterPosition custom = CharacterPosition.at(0.5, 0.8);
+    assertTrue(custom.isCustom());
+    assertTrue(custom.hasCustomY());
+    assertEquals(0.5, custom.getXFraction(), 1e-6);
+    assertEquals(0.8, custom.getYFraction(), 1e-6);
+
+    // computeScreenX: custom centres sprite on xFraction
+    double screenX = custom.computeScreenX(1920, 200);
+    assertEquals(1920 * 0.5 - 100, screenX, 1e-6);
+
+    // computeScreenY: custom uses yFraction
+    double screenY = custom.computeScreenY(1080, 600, 0.85);
+    assertEquals(1080 * 0.8 - 600, screenY, 1e-6);
+  }
+
+  @Test
+  public void parsesPositionDirective() throws Exception {
+    String script = """
+      @scenario test_positions
+      @character hero "Hero"
+      @charimg hero neutral game/images/hero_neutral.png
+      @position balcony 0.3 0.6
+      @position rooftop 0.5
+
+      [show hero balcony]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode showNode = scenario.getNodes().get(0);
+    assertEquals(VnNodeType.SHOW, showNode.getType());
+    CharacterPosition pos = showNode.getShowPosition();
+    assertTrue(pos.isCustom());
+    assertEquals("balcony", pos.getName());
+    assertEquals(0.3, pos.getXFraction(), 1e-6);
+    assertEquals(0.6, pos.getYFraction(), 1e-6);
+  }
+
+  @Test
+  public void parsesPositionDirectiveXOnly() throws Exception {
+    String script = """
+      @scenario test_positions
+      @character hero "Hero"
+      @charimg hero neutral game/images/hero_neutral.png
+      @position stage_left 0.15
+
+      [show hero stage_left]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode showNode = scenario.getNodes().get(0);
+    CharacterPosition pos = showNode.getShowPosition();
+    assertTrue(pos.isCustom());
+    assertEquals("stage_left", pos.getName());
+    assertEquals(0.15, pos.getXFraction(), 1e-6);
+    assertFalse(pos.hasCustomY());
+  }
+
+  @Test
+  public void parsesShowWithInlineAt() throws Exception {
+    String script = """
+      @scenario test_at
+      @character hero "Hero"
+      @charimg hero neutral game/images/hero_neutral.png
+
+      [show hero at 0.3,0.5]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode showNode = scenario.getNodes().get(0);
+    assertEquals(VnNodeType.SHOW, showNode.getType());
+    CharacterPosition pos = showNode.getShowPosition();
+    assertTrue(pos.isCustom());
+    assertEquals(0.3, pos.getXFraction(), 1e-6);
+    assertEquals(0.5, pos.getYFraction(), 1e-6);
+    assertEquals("neutral", showNode.getShowExpression());
+  }
+
+  @Test
+  public void parsesShowWithInlineAtAndExpression() throws Exception {
+    String script = """
+      @scenario test_at_expr
+      @character hero "Hero"
+      @charimg hero smile game/images/hero_smile.png
+
+      [show hero at 0.7,0.2 smile]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode showNode = scenario.getNodes().get(0);
+    CharacterPosition pos = showNode.getShowPosition();
+    assertTrue(pos.isCustom());
+    assertEquals(0.7, pos.getXFraction(), 1e-6);
+    assertEquals(0.2, pos.getYFraction(), 1e-6);
+    assertEquals("smile", showNode.getShowExpression());
+  }
+
+  @Test
+  public void parsesShowWithInlineAtAndLayerZ() throws Exception {
+    String script = """
+      @scenario test_at_z
+      @character hero "Hero"
+      @charimg hero neutral game/images/hero_neutral.png
+
+      [show hero at 0.3,0.5,10]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode showNode = scenario.getNodes().get(0);
+    CharacterPosition pos = showNode.getShowPosition();
+    assertTrue(pos.isCustom());
+    assertEquals(0.3, pos.getXFraction(), 1e-6);
+    assertEquals(0.5, pos.getYFraction(), 1e-6);
+    assertNotNull(showNode.getShowLayerOrder());
+    assertEquals(10, showNode.getShowLayerOrder().intValue());
+  }
+
+  @Test
+  public void parsesMoveWithInlineAt() throws Exception {
+    String script = """
+      @scenario test_move_at
+      @character hero "Hero"
+      @charimg hero neutral game/images/hero_neutral.png
+
+      [show hero center]
+      [move hero at 0.8,0.3 ease_out_bounce 500]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    VnNode moveNode = scenario.getNodes().get(1);
+    assertEquals(VnNodeType.MOVE, moveNode.getType());
+    CharacterPosition pos = moveNode.getShowPosition();
+    assertTrue(pos.isCustom());
+    assertEquals(0.8, pos.getXFraction(), 1e-6);
+    assertEquals(0.3, pos.getYFraction(), 1e-6);
+    assertEquals(com.jvn.core.animation.Easing.Type.EASE_OUT_BOUNCE, moveNode.getMoveEasingType());
+    assertEquals(500, moveNode.getMoveDurationMs());
+  }
+
+  @Test
+  public void parsesMoveWithNamedCustomPosition() throws Exception {
+    String script = """
+      @scenario test_move_named
+      @character hero "Hero"
+      @charimg hero neutral game/images/hero_neutral.png
+      @position balcony 0.3 0.6
+
+      [show hero center]
+      [move hero balcony ease_out_quad]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    VnNode moveNode = scenario.getNodes().get(1);
+    assertEquals(VnNodeType.MOVE, moveNode.getType());
+    CharacterPosition pos = moveNode.getShowPosition();
+    assertTrue(pos.isCustom());
+    assertEquals("balcony", pos.getName());
+    assertEquals(0.3, pos.getXFraction(), 1e-6);
+    assertEquals(0.6, pos.getYFraction(), 1e-6);
+  }
+
+  @Test
+  public void positionDirectiveRejectsConflictWithPredefined() {
+    String script = """
+      @scenario test_conflict
+      @position center 0.3 0.5
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    assertThrows(IOException.class, () -> parser.parseFromString(script));
+  }
+
+  @Test
+  public void showAtCustomPositionCreatesCorrectSlot() throws Exception {
+    String script = """
+      @scenario test_custom_slot
+      @character hero "Hero"
+      @charimg hero neutral game/images/hero_neutral.png
+
+      [show hero at 0.3,0.5]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    VnScene scene = new VnScene(scenario);
+    scene.setInterop(new DefaultVnInterop());
+    scene.onEnter();
+
+    // Find the character in the visible characters map
+    CharacterPosition expectedPos = CharacterPosition.at(0.3, 0.5);
+    assertTrue(scene.getState().getVisibleCharacters().containsKey(expectedPos),
+        "Visible characters should contain the custom at position");
+    assertEquals("hero", scene.getState().getVisibleCharacters().get(expectedPos).getCharacterId());
+  }
+
+  @Test
+  public void customPositionMoveDeltaCalculation() {
+    CharacterPosition from = CharacterPosition.at(0.2, 0.5);
+    CharacterPosition to = CharacterPosition.at(0.8, 0.5);
+    double delta = to.moveDeltaFrom(from);
+    // (0.2 - 0.8) * 1100 = -660
+    assertEquals(-660.0, delta, 1e-6);
+
+    // Predefined to custom
+    double delta2 = to.moveDeltaFrom(CharacterPosition.CENTER);
+    // (0.5 - 0.8) * 1100 = -330
+    assertEquals(-330.0, delta2, 1e-6);
+  }
 }

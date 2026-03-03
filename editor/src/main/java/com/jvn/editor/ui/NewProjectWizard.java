@@ -1732,6 +1732,19 @@ public class NewProjectWizard extends Stage {
         [show lavender center idle]
         Lavender: The syntax is: {b}[move charId position [expression] [easing] [durationMs]]{/b}
         Lavender: All easing presets from the Puppeteer are available — bounce, elastic, back, expo, sine, and more!
+        Lavender: You can also use {b}custom positions{/b}! Define named spots with {b}@position{/b}...
+        Lavender: For example: {b}@position balcony 0.3 0.6{/b} — that's x=0.3, y=0.6 in screen space.
+        Lavender: Then use them just like built-in positions: {b}[show hero balcony]{/b}
+        Lavender: Or skip the name and go inline: {b}[show hero at 0.3,0.5]{/b}
+        [move lavender at 0.15,0.85 ease_out_back]
+        [wait 400]
+        Lavender: See? I just moved to an inline custom coordinate!
+        [move lavender at 0.85,0.85 ease_out_bounce]
+        [wait 500]
+        Lavender: You can even set the layer order with a third value: {b}[show hero at 0.3,0.5,10]{/b}
+        [move lavender center ease_out_quad]
+        [wait 300]
+        [show lavender center idle]
         [char lavender global off]
         [jump tutorials_hub_2]
 

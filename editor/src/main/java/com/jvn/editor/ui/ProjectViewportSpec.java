@@ -8,8 +8,8 @@ import java.util.Properties;
  * Resolves the runtime VN viewport size from jvn.project for 1:1 editor previews.
  */
 public final class ProjectViewportSpec {
-  public static final int DEFAULT_WIDTH = 960;
-  public static final int DEFAULT_HEIGHT = 540;
+  public static final int DEFAULT_WIDTH = 1920;
+  public static final int DEFAULT_HEIGHT = 1080;
 
   private ProjectViewportSpec() {
   }

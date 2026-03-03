@@ -41,6 +41,7 @@ public class VnScriptParser {
   private static final Pattern DIALOGUE_PATTERN = Pattern.compile("^([^:]+):\\s*(.+)$");
   private static final Pattern DIALOGUE_QUOTED_PATTERN = Pattern.compile("^(\\S+)\\s+\"((?:[^\"\\\\]|\\\\.)*)\"$");
   private static final Pattern COMMAND_PATTERN = Pattern.compile("^\\[(.+)]$");
+  private static final Pattern POSITION_PATTERN = Pattern.compile("^@position\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern DEFINE_PATTERN = Pattern.compile("^@define\\s+(\\S+)(?:\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
   private static final Pattern INCLUDE_PATTERN = Pattern.compile("^@include\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern DEFINE_SUB_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
@@ -399,6 +400,24 @@ public class VnScriptParser {
           state.charBuilders.put(id, cb);
         }
         cb.addExpression(expr, resolvedSpec);
+        continue;
+      }
+
+      Matcher positionMatcher = POSITION_PATTERN.matcher(trimmed);
+      if (positionMatcher.matches()) {
+        String posName = positionMatcher.group(1).trim().toLowerCase();
+        String coords = positionMatcher.group(2).trim();
+        if (CharacterPosition.predefined(posName) != null) {
+          throw parseError(sourceName, lineNumber, "@position name '" + posName + "' conflicts with a predefined position", rawLine);
+        }
+        String[] parts = coords.split("\\s+");
+        try {
+          double px = Double.parseDouble(parts[0]);
+          double py = parts.length >= 2 ? Double.parseDouble(parts[1]) : -1.0;
+          state.customPositions.put(posName, CharacterPosition.named(posName, px, py));
+        } catch (NumberFormatException e) {
+          throw parseError(sourceName, lineNumber, "@position coordinates must be numbers: " + coords, rawLine);
+        }
         continue;
       }
 
@@ -799,22 +818,35 @@ public class VnScriptParser {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = payload.split("\\s+");
         if (toks.length < 2) {
-          throw parseError(sourceName, lineNumber, "[show] expects: [show <charId> <pos> [expression] [layer]]", rawLine);
+          throw parseError(sourceName, lineNumber, "[show] expects: [show <charId> <pos|at x,y[,z]> [expression] [layer]]", rawLine);
         }
         String charId = toks[0];
-        CharacterPosition pos = parsePosition(toks[1], sourceName, lineNumber, rawLine, state);
-        String expr = "neutral";
+        CharacterPosition pos;
         Integer layerOrder = null;
-        if (toks.length >= 3) {
-          if (toks.length == 3 && isIntegerToken(toks[2])) {
-            layerOrder = Integer.parseInt(toks[2]);
+        int nextIdx;
+        if ("at".equalsIgnoreCase(toks[1])) {
+          if (toks.length < 3) {
+            throw parseError(sourceName, lineNumber, "[show] 'at' requires coordinates: [show <charId> at x,y[,z] [expression] [layer]]", rawLine);
+          }
+          InlinePosition ip = parseAtPosition(toks[2], sourceName, lineNumber, rawLine);
+          pos = ip.position();
+          layerOrder = ip.layerOrder();
+          nextIdx = 3;
+        } else {
+          pos = parsePosition(toks[1], sourceName, lineNumber, rawLine, state);
+          nextIdx = 2;
+        }
+        String expr = "neutral";
+        if (nextIdx < toks.length) {
+          if (nextIdx == toks.length - 1 && isIntegerToken(toks[nextIdx])) {
+            if (layerOrder == null) layerOrder = Integer.parseInt(toks[nextIdx]);
           } else {
-            expr = toks[2];
-            if (toks.length >= 4) {
-              if (!isIntegerToken(toks[3])) {
+            expr = toks[nextIdx];
+            if (nextIdx + 1 < toks.length) {
+              if (!isIntegerToken(toks[nextIdx + 1])) {
                 throw parseError(sourceName, lineNumber, "[show] layer must be an integer", rawLine);
               }
-              layerOrder = Integer.parseInt(toks[3]);
+              if (layerOrder == null) layerOrder = Integer.parseInt(toks[nextIdx + 1]);
             }
           }
         }
@@ -830,14 +862,26 @@ public class VnScriptParser {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = payload.split("\\s+");
         if (toks.length < 2) {
-          throw parseError(sourceName, lineNumber, "[move] expects: [move <charId> <pos> [expression] [easing] [durationMs]]", rawLine);
+          throw parseError(sourceName, lineNumber, "[move] expects: [move <charId> <pos|at x,y> [expression] [easing] [durationMs]]", rawLine);
         }
         String moveCharId = toks[0];
-        CharacterPosition movePos = parsePosition(toks[1], sourceName, lineNumber, rawLine, state);
+        CharacterPosition movePos;
+        int moveNextIdx;
+        if ("at".equalsIgnoreCase(toks[1])) {
+          if (toks.length < 3) {
+            throw parseError(sourceName, lineNumber, "[move] 'at' requires coordinates: [move <charId> at x,y [expression] [easing] [durationMs]]", rawLine);
+          }
+          InlinePosition mip = parseAtPosition(toks[2], sourceName, lineNumber, rawLine);
+          movePos = mip.position();
+          moveNextIdx = 3;
+        } else {
+          movePos = parsePosition(toks[1], sourceName, lineNumber, rawLine, state);
+          moveNextIdx = 2;
+        }
         String moveExpr = null;
         Easing.Type moveEasing = null;
         long moveDur = 0;
-        for (int ti = 2; ti < toks.length; ti++) {
+        for (int ti = moveNextIdx; ti < toks.length; ti++) {
           String tok = toks[ti];
           if (isIntegerToken(tok)) {
             moveDur = Long.parseLong(tok);
@@ -1297,6 +1341,24 @@ public class VnScriptParser {
       VnConditionEvaluator.validate(expression);
     } catch (IllegalArgumentException ex) {
       throw parseError(sourceName, lineNumber, "Invalid condition expression: " + ex.getMessage(), rawLine);
+    }
+  }
+
+  private record InlinePosition(CharacterPosition position, Integer layerOrder) {}
+
+  private InlinePosition parseAtPosition(String coordToken, String sourceName,
+                                         int lineNumber, String rawLine) throws IOException {
+    String[] parts = coordToken.split(",");
+    if (parts.length < 1 || parts.length > 3) {
+      throw parseError(sourceName, lineNumber, "'at' expects x,y or x,y,z format, got: " + coordToken, rawLine);
+    }
+    try {
+      double x = Double.parseDouble(parts[0].trim());
+      double y = parts.length >= 2 ? Double.parseDouble(parts[1].trim()) : -1.0;
+      Integer z = parts.length == 3 ? Integer.parseInt(parts[2].trim()) : null;
+      return new InlinePosition(CharacterPosition.at(x, y), z);
+    } catch (NumberFormatException e) {
+      throw parseError(sourceName, lineNumber, "'at' coordinates must be numbers: " + coordToken, rawLine);
     }
   }
 

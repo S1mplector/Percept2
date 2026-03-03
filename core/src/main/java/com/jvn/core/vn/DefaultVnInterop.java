@@ -503,7 +503,12 @@ public class DefaultVnInterop implements VnInterop {
       case "pos":
       case "at": {
         if (toks.length < 3) return;
-        CharacterPosition position = parsePositionToken(toks[2]);
+        CharacterPosition position;
+        if ("at".equalsIgnoreCase(toks[2]) && toks.length >= 4) {
+          position = parseInlinePosition(toks[3]);
+        } else {
+          position = parsePositionToken(toks[2]);
+        }
         if (position == null) return;
         state.setCharacterDefinedPosition(characterId, position);
         if (state.isCharacterGlobalPositionEnabled(characterId)) {
@@ -514,12 +519,20 @@ public class DefaultVnInterop implements VnInterop {
       }
       case "move": {
         if (toks.length < 3) return;
-        CharacterPosition position = parsePositionToken(toks[2]);
+        CharacterPosition position;
+        int startIdx;
+        if ("at".equalsIgnoreCase(toks[2]) && toks.length >= 4) {
+          position = parseInlinePosition(toks[3]);
+          startIdx = 4;
+        } else {
+          position = parsePositionToken(toks[2]);
+          startIdx = 3;
+        }
         if (position == null) return;
         String expression = null;
         Easing.Type easingType = null;
         long durationMs = 0;
-        for (int ti = 3; ti < toks.length; ti++) {
+        for (int ti = startIdx; ti < toks.length; ti++) {
           String tok = toks[ti].trim();
           if (tok.isEmpty()) continue;
           if (tok.matches("\\d+")) {
@@ -540,9 +553,17 @@ public class DefaultVnInterop implements VnInterop {
       }
       case "show": {
         if (toks.length < 3) return;
-        CharacterPosition position = parsePositionToken(toks[2]);
+        CharacterPosition position;
+        int showNextIdx;
+        if ("at".equalsIgnoreCase(toks[2]) && toks.length >= 4) {
+          position = parseInlinePosition(toks[3]);
+          showNextIdx = 4;
+        } else {
+          position = parsePositionToken(toks[2]);
+          showNextIdx = 3;
+        }
         if (position == null) return;
-        String expression = toks.length >= 4 ? toks[3] : "neutral";
+        String expression = showNextIdx < toks.length ? toks[showNextIdx] : "neutral";
         state.showCharacterAnimated(position, characterId, expression);
         break;
       }
@@ -574,6 +595,18 @@ public class DefaultVnInterop implements VnInterop {
 
   private CharacterPosition parsePositionToken(String token) {
     return CharacterPosition.predefined(token);
+  }
+
+  private CharacterPosition parseInlinePosition(String coordToken) {
+    if (coordToken == null || coordToken.isBlank()) return null;
+    String[] parts = coordToken.split(",");
+    try {
+      double x = Double.parseDouble(parts[0].trim());
+      double y = parts.length >= 2 ? Double.parseDouble(parts[1].trim()) : -1.0;
+      return CharacterPosition.at(x, y);
+    } catch (NumberFormatException e) {
+      return null;
+    }
   }
 
   private Easing.Type parseEasingType(String token) {
