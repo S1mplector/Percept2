@@ -668,6 +668,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
       CheckBox activeCheck = new CheckBox();
       activeCheck.setSelected(true);
+      activeCheck.setStyle("-fx-color: #3a7a4f;");
       activeCheck.setTooltip(new Tooltip("Include this group when randomizing with active-only mode"));
       activeCheck.selectedProperty().addListener((o, ov, nv) -> {
         if (applyingState) return;
@@ -676,6 +677,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
       CheckBox swapCheck = new CheckBox();
       swapCheck.setSelected(false);
+      swapCheck.setStyle("-fx-color: #b07830;");
       swapCheck.setTooltip(new Tooltip("Mark this group for quick swapping"));
       swapCheck.selectedProperty().addListener((o, ov, nv) -> {
         if (applyingState) return;
