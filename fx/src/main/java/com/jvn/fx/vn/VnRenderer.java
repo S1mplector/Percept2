@@ -108,6 +108,7 @@ public class VnRenderer {
   private Color nameTextFillColor = Color.web("#FFD78A");
   private Color dialogueTextFillColor = TEXT_COLOR;
   private double textBoxAssetOverlayOpacity = 0.28;
+  private double nameBoxRenderOpacity = 1.0;
   private Color choiceBgColor = CHOICE_BG_COLOR;
   private Color choiceHoverColor = CHOICE_HOVER_COLOR;
   private Color choiceDisabledColor = CHOICE_DISABLED_COLOR;
@@ -853,12 +854,15 @@ public class VnRenderer {
         gc.save();
         clipToLocalPolygon(nameBoxBoundsPolygon, nameBoxX, nameBoxY, nameBoxW, nameBoxH);
       }
+      double prevAlpha = gc.getGlobalAlpha();
+      if (nameBoxRenderOpacity < 0.999) gc.setGlobalAlpha(prevAlpha * nameBoxRenderOpacity);
       if (nameBoxImage != null) {
         gc.drawImage(nameBoxImage, nameBoxX, nameBoxY, nameBoxW, nameBoxH);
       } else {
         gc.setFill(nameBoxFillColor);
         gc.fillRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
       }
+      gc.setGlobalAlpha(prevAlpha);
       if (clipNameBox) gc.restore();
 
       gc.setFill(nameTextFillColor);
@@ -1109,18 +1113,27 @@ public class VnRenderer {
     choiceCornerRadius = clamp(resolved.choiceCornerRadius(), 0.0, 96.0);
     choiceTextBaselineOffset = clamp(resolved.choiceTextBaselineOffset(), -120.0, 120.0);
 
-    // Apply font settings from style spec
+    // Apply font settings from style spec (font weight from spec, with sensible defaults)
     String nameFontFamily = resolved.nameTextFontFamily() != null ? resolved.nameTextFontFamily() : DEFAULT_FONT_FAMILY;
     int nameFontSize = resolved.nameTextFontSize() != null ? resolved.nameTextFontSize() : DEFAULT_NAME_FONT_SIZE;
-    this.nameFont = Font.font(nameFontFamily, FontWeight.BOLD, nameFontSize);
+    FontWeight nameFontWeight = parseFontWeight(resolved.nameTextFontWeight(), FontWeight.BOLD);
+    this.nameFont = Font.font(nameFontFamily, nameFontWeight, nameFontSize);
 
     String dialogueFontFamily = resolved.dialogueTextFontFamily() != null ? resolved.dialogueTextFontFamily() : DEFAULT_FONT_FAMILY;
     int dialogueFontSize = resolved.dialogueTextFontSize() != null ? resolved.dialogueTextFontSize() : DEFAULT_DIALOGUE_FONT_SIZE;
-    this.dialogueFont = Font.font(dialogueFontFamily, FontWeight.NORMAL, dialogueFontSize);
+    FontWeight dialogueFontWeight = parseFontWeight(resolved.dialogueTextFontWeight(), FontWeight.NORMAL);
+    this.dialogueFont = Font.font(dialogueFontFamily, dialogueFontWeight, dialogueFontSize);
 
     String choiceFontFamily = resolved.choiceFontFamily() != null ? resolved.choiceFontFamily() : DEFAULT_FONT_FAMILY;
     int choiceFontSize = resolved.choiceFontSize() != null ? resolved.choiceFontSize() : DEFAULT_CHOICE_FONT_SIZE;
-    this.choiceFont = Font.font(choiceFontFamily, FontWeight.NORMAL, choiceFontSize);
+    FontWeight choiceFontWeightVal = parseFontWeight(resolved.choiceFontWeight(), FontWeight.NORMAL);
+    this.choiceFont = Font.font(choiceFontFamily, choiceFontWeightVal, choiceFontSize);
+
+    // Name box opacity
+    this.nameBoxRenderOpacity = clamp(
+        resolved.nameBoxOpacity() == null ? 1.0 : resolved.nameBoxOpacity(),
+        0.0, 1.0
+    );
 
     // Character framing: lets projects opt into waist-up portraits.
     this.styleCharacterHeightFactor = clamp(
@@ -1195,6 +1208,15 @@ public class VnRenderer {
       return Color.web(raw.trim());
     } catch (Exception ignored) {
       return fallback;
+    }
+  }
+
+  private static FontWeight parseFontWeight(String raw, FontWeight def) {
+    if (raw == null || raw.isBlank()) return def;
+    try {
+      return FontWeight.valueOf(raw.trim().toUpperCase());
+    } catch (Exception ignored) {
+      return def;
     }
   }
 

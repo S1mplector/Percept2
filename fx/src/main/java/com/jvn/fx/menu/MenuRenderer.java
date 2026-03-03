@@ -979,7 +979,8 @@ public class MenuRenderer {
     if (style == null) return theme.getHintFont();
     String family = firstNonBlank(style.hintsFontFamily(), theme.getHintFont().getFamily());
     double size = style.hintsFontSize() != null ? style.hintsFontSize() : theme.getHintFont().getSize();
-    return Font.font(family, FontWeight.NORMAL, size);
+    FontWeight weight = parseFontWeight(style.hintsFontWeight(), FontWeight.NORMAL);
+    return Font.font(family, weight, size);
   }
 
   private FontWeight parseFontWeight(String raw, FontWeight def) {

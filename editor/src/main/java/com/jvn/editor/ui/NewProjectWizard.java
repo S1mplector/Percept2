@@ -28,6 +28,7 @@ import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
@@ -92,6 +93,8 @@ public class NewProjectWizard extends Stage {
   private Label lblPreview;
   private Label lblTargetPath;
   private Label lblEstimatedSize;
+  private Label lblValidation;
+  private Button btnCreate;
 
   // Theme colors
   private static final String BG_DARK = "#0f0f10";
@@ -102,6 +105,10 @@ public class NewProjectWizard extends Stage {
   private static final String TEXT_PRIMARY = "#f1f3f4";
   private static final String TEXT_SECONDARY = "#9aa0a6";
   private static final String TEXT_MUTED = "#7f858b";
+  private static final String BORDER_VALID = "#3a8c5c";
+  private static final String BORDER_ERROR = "#c44040";
+  private static final String TEXT_ERROR = "#e87070";
+  private static final String TEXT_VALID = "#6cc888";
 
   // Project paths
   private static final String ENTRY_SCRIPT_PATH = "scripts/story/prologue.vns";
@@ -227,9 +234,12 @@ public class NewProjectWizard extends Stage {
     grid.setVgap(10);
 
     txtProjectName = createTextField("My Visual Novel");
+    tip(txtProjectName, "Display name for the project. The folder name is derived automatically.");
     txtAuthor = createTextField("Anonymous");
+    tip(txtAuthor, "Author name written to jvn.project manifest and README.");
     txtLocation = createTextField(System.getProperty("user.home") + "/JVN Projects");
     txtLocation.setPrefWidth(440);
+    tip(txtLocation, "Parent directory where the project folder will be created.");
 
     txtProjectName.textProperty().addListener((o, ov, nv) -> updateDerivedFields());
     txtLocation.textProperty().addListener((o, ov, nv) -> updateDerivedFields());
@@ -290,6 +300,7 @@ public class NewProjectWizard extends Stage {
     cmbResolution.setValue("1920x1080 (Full HD)");
     cmbResolution.setPrefWidth(230);
     cmbResolution.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    tip(cmbResolution, "Target rendering resolution. Affects dialogue layout scaling and menu positioning.");
 
     chkCustomResolution = createCheckBox("Custom Resolution", false);
     txtCustomWidth = createTextField("2560");
@@ -318,24 +329,29 @@ public class NewProjectWizard extends Stage {
     cmbTheme.setValue("Dark Elegant");
     cmbTheme.setPrefWidth(230);
     cmbTheme.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    tip(cmbTheme, "Color palette preset for menu theme. Affects title, items, hints, and background colors.");
 
     cmbRuntimeUi = new ComboBox<>();
     cmbRuntimeUi.getItems().addAll("fx", "swing");
     cmbRuntimeUi.setValue("fx");
     cmbRuntimeUi.setPrefWidth(230);
     cmbRuntimeUi.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    tip(cmbRuntimeUi, "UI toolkit for the runtime renderer. 'fx' (JavaFX) is recommended for most projects.");
 
     cmbAudioBackend = new ComboBox<>();
     cmbAudioBackend.getItems().addAll("auto", "simp3", "fx");
     cmbAudioBackend.setValue("auto");
     cmbAudioBackend.setPrefWidth(230);
     cmbAudioBackend.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    tip(cmbAudioBackend, "Audio playback backend. 'auto' selects the best available (simp3 for MP3, fx for WAV).");
 
     cmbLocale = new ComboBox<>();
     cmbLocale.getItems().addAll("en", "de", "es", "fr", "it", "ja", "ko", "pt-BR", "tr", "zh-CN");
+    cmbLocale.setEditable(true);
     cmbLocale.setValue("en");
     cmbLocale.setPrefWidth(230);
     cmbLocale.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    tip(cmbLocale, "Default locale for text mapping. Creates config/locales/<locale>.properties. Type a custom code if needed.");
 
     cmbResolution.setOnAction(e -> updateDerivedFields());
     cmbTheme.setOnAction(e -> updateDerivedFields());
@@ -393,16 +409,27 @@ public class NewProjectWizard extends Stage {
     grid.setVgap(10);
 
     spTextSpeed = createIntSpinner(10, 120, 35, 1);
+    tip(spTextSpeed, "Characters per second for dialogue typewriter effect (10–120).");
     spAutoDelay = createIntSpinner(500, 5000, 2000, 100);
+    tip(spAutoDelay, "Milliseconds to wait before auto-advancing dialogue (500–5000).");
     spBgmVolume = createDoubleSpinner(0.0, 1.0, 0.70, 0.05);
+    tip(spBgmVolume, "Default background music volume (0.0–1.0).");
     spSfxVolume = createDoubleSpinner(0.0, 1.0, 0.80, 0.05);
+    tip(spSfxVolume, "Default sound effects volume (0.0–1.0).");
     spVoiceVolume = createDoubleSpinner(0.0, 1.0, 1.00, 0.05);
+    tip(spVoiceVolume, "Default voice audio volume (0.0–1.0).");
     chkSkipUnreadDefault = createCheckBox("Skip unread text by default", false);
+    tip(chkSkipUnreadDefault, "When enabled, skip mode also skips text the player hasn't seen yet.");
     chkSkipAfterChoicesDefault = createCheckBox("Skip after choices by default", false);
+    tip(chkSkipAfterChoicesDefault, "When enabled, skip mode continues automatically after making a choice.");
     spPhysicsFixedStep = createIntSpinner(0, 50, 0, 5);
+    tip(spPhysicsFixedStep, "Fixed timestep in ms for physics simulation. 0 = variable timestep.");
     spPhysicsMaxSubsteps = createIntSpinner(1, 8, 4, 1);
+    tip(spPhysicsMaxSubsteps, "Maximum physics sub-steps per frame (1–8).");
     spPhysicsFriction = createDoubleSpinner(0.0, 1.0, 0.20, 0.05);
+    tip(spPhysicsFriction, "Default friction coefficient for physics bodies (0.0–1.0).");
     txtInputProfilePath = createTextField(System.getProperty("user.home") + "/.jvn/input-bindings.properties");
+    tip(txtInputProfilePath, "Path to input bindings profile. Shared across projects by default.");
 
     Label note = new Label(
         "These defaults are written to config/settings/vn.settings and can be changed later in Settings Editor.\n"
@@ -654,12 +681,17 @@ public class NewProjectWizard extends Stage {
     lblEstimatedSize.setTextFill(Color.web(TEXT_SECONDARY));
     lblEstimatedSize.setFont(Font.font(Font.getDefault().getFamily(), 11));
 
+    lblValidation = new Label();
+    lblValidation.setFont(Font.font(Font.getDefault().getFamily(), 11));
+    lblValidation.setWrapText(true);
+    lblValidation.setMaxWidth(380);
+
     Button btnCancel = new Button("Cancel");
     btnCancel.setPrefWidth(110);
     btnCancel.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
     btnCancel.setOnAction(e -> close());
 
-    Button btnCreate = new Button("Create Project");
+    btnCreate = new Button("Create Project");
     btnCreate.setPrefWidth(150);
     btnCreate.setStyle("-fx-background-color: " + ACCENT + "; -fx-text-fill: white; -fx-font-weight: bold;");
     btnCreate.setOnAction(e -> createProject());
@@ -667,7 +699,7 @@ public class NewProjectWizard extends Stage {
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
-    footer.getChildren().addAll(lblEstimatedSize, spacer, btnCancel, btnCreate);
+    footer.getChildren().addAll(lblEstimatedSize, lblValidation, spacer, btnCancel, btnCreate);
     return footer;
   }
 
@@ -711,6 +743,52 @@ public class NewProjectWizard extends Stage {
     updateTargetPathLabel();
     updateStructurePreview();
     updateEstimatedSize();
+    validateForm();
+  }
+
+  private void validateForm() {
+    if (lblValidation == null || btnCreate == null) return;
+    String name = txtProjectName == null ? "" : txtProjectName.getText().trim();
+    String location = txtLocation == null ? "" : txtLocation.getText().trim();
+    String slug = sanitizeName(name);
+    String fieldStyle = "-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";";
+    String validBorder = fieldStyle + " -fx-border-color: " + BORDER_VALID + "; -fx-border-width: 1; -fx-border-radius: 3;";
+    String errorBorder = fieldStyle + " -fx-border-color: " + BORDER_ERROR + "; -fx-border-width: 1; -fx-border-radius: 3;";
+
+    List<String> errors = new ArrayList<>();
+
+    if (name.isEmpty()) {
+      errors.add("Project name is required.");
+      if (txtProjectName != null) txtProjectName.setStyle(errorBorder);
+    } else if (slug.isBlank()) {
+      errors.add("Name must contain at least one letter or number.");
+      if (txtProjectName != null) txtProjectName.setStyle(errorBorder);
+    } else {
+      if (txtProjectName != null) txtProjectName.setStyle(validBorder);
+    }
+
+    if (location.isEmpty()) {
+      errors.add("Project location is required.");
+      if (txtLocation != null) txtLocation.setStyle(errorBorder);
+    } else {
+      File target = slug.isBlank() ? null : new File(location, slug);
+      if (target != null && target.exists()) {
+        errors.add("Folder already exists: " + slug);
+        if (txtLocation != null) txtLocation.setStyle(errorBorder);
+      } else {
+        if (txtLocation != null) txtLocation.setStyle(validBorder);
+      }
+    }
+
+    if (errors.isEmpty()) {
+      lblValidation.setText("\u2714 Ready to create");
+      lblValidation.setTextFill(Color.web(TEXT_VALID));
+      btnCreate.setDisable(false);
+    } else {
+      lblValidation.setText(String.join(" ", errors));
+      lblValidation.setTextFill(Color.web(TEXT_ERROR));
+      btnCreate.setDisable(true);
+    }
   }
 
   private void updatePresetPreview() {
@@ -782,94 +860,95 @@ public class NewProjectWizard extends Stage {
 
     StringBuilder sb = new StringBuilder();
     sb.append(projectFolderName).append("/\n");
-    sb.append("|-- config/\n");
-    sb.append("|   |-- settings/\n");
-    sb.append("|   |   `-- vn.settings\n");
-    sb.append("|   |-- timeline/\n");
-    sb.append("|   |   `-- story.timeline\n");
-    sb.append("|   |-- ui/\n");
-    sb.append("|   |   `-- dialogue.layout\n");
-    sb.append("|   |-- locales/\n");
-    sb.append("|   |   `-- en.properties\n");
-    sb.append("|   |-- puppeteer/\n");
-    sb.append("|   |   `-- clips/\n");
+    sb.append("\u251c\u2500\u2500 config/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 settings/\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 vn.settings\n");
+    sb.append("\u2502   \u251c\u2500\u2500 timeline/\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 story.timeline\n");
+    sb.append("\u2502   \u251c\u2500\u2500 ui/\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 dialogue.layout\n");
+    sb.append("\u2502   \u251c\u2500\u2500 locales/\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 en.properties\n");
+    sb.append("\u2502   \u251c\u2500\u2500 puppeteer/\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 clips/\n");
     boolean blankMenus = shouldStartBlankMenus();
     if (includeMenuPack) {
-      sb.append("|   `-- menu/\n");
-      sb.append("|       |-- registry/\n");
-      sb.append("|       |   `-- menu.registry\n");
-      sb.append("|       |-- theme/\n");
-      sb.append("|       |   `-- menu.theme\n");
-      sb.append("|       |-- menus/\n");
-      sb.append("|       |   |-- main.menu\n");
-      sb.append("|       |   |-- extras.menu\n");
-      sb.append("|       |   |-- credits.menu\n");
-      sb.append("|       |   |-- confirm_exit.menu\n");
+      sb.append("\u2502   \u2514\u2500\u2500 menu/\n");
+      sb.append("\u2502       \u251c\u2500\u2500 registry/\n");
+      sb.append("\u2502       \u2502   \u2514\u2500\u2500 menu.registry\n");
+      sb.append("\u2502       \u251c\u2500\u2500 theme/\n");
+      sb.append("\u2502       \u2502   \u2514\u2500\u2500 menu.theme\n");
+      sb.append("\u2502       \u251c\u2500\u2500 menus/\n");
+      sb.append("\u2502       \u2502   \u251c\u2500\u2500 main.menu\n");
+      sb.append("\u2502       \u2502   \u251c\u2500\u2500 extras.menu\n");
+      sb.append("\u2502       \u2502   \u251c\u2500\u2500 credits.menu\n");
+      boolean lastMenu = !includeSave && !includeSettings;
+      sb.append("\u2502       \u2502   ").append(lastMenu ? "\u2514" : "\u251c").append("\u2500\u2500 confirm_exit.menu\n");
       if (includeSave) {
-        sb.append("|       |   |-- load.menu\n");
-        sb.append("|       |   `-- save.menu\n");
+        sb.append("\u2502       \u2502   \u251c\u2500\u2500 load.menu\n");
+        sb.append("\u2502       \u2502   ").append(includeSettings ? "\u251c" : "\u2514").append("\u2500\u2500 save.menu\n");
       }
       if (includeSettings) {
-        sb.append("|       |   `-- settings.menu\n");
+        sb.append("\u2502       \u2502   \u2514\u2500\u2500 settings.menu\n");
       }
-      sb.append("|       |-- layouts/\n");
-      sb.append("|       |   |-- default.layout\n");
-      sb.append("|       |   |-- submenu.layout\n");
-      sb.append("|       |   |-- settings.layout\n");
-      sb.append("|       |   `-- slots.layout\n");
-      sb.append("|       |-- styles/\n");
-      sb.append("|       |   |-- default.style\n");
-      sb.append("|       |   |-- submenu.style\n");
-      sb.append("|       |   `-- slot.style\n");
-      sb.append("|       `-- assets/\n");
-      sb.append("|           |-- buttons/\n");
-      sb.append("|           `-- icons/\n");
+      sb.append("\u2502       \u251c\u2500\u2500 layouts/\n");
+      sb.append("\u2502       \u2502   \u251c\u2500\u2500 default.layout\n");
+      sb.append("\u2502       \u2502   \u251c\u2500\u2500 submenu.layout\n");
+      sb.append("\u2502       \u2502   \u251c\u2500\u2500 settings.layout\n");
+      sb.append("\u2502       \u2502   \u2514\u2500\u2500 slots.layout\n");
+      sb.append("\u2502       \u251c\u2500\u2500 styles/\n");
+      sb.append("\u2502       \u2502   \u251c\u2500\u2500 default.style\n");
+      sb.append("\u2502       \u2502   \u251c\u2500\u2500 submenu.style\n");
+      sb.append("\u2502       \u2502   \u2514\u2500\u2500 slot.style\n");
+      sb.append("\u2502       \u2514\u2500\u2500 assets/\n");
+      sb.append("\u2502           \u251c\u2500\u2500 buttons/\n");
+      sb.append("\u2502           \u2514\u2500\u2500 icons/\n");
     } else if (blankMenus) {
-      sb.append("|   `-- menu/                    (blank - build from scratch)\n");
-      sb.append("|       |-- registry/\n");
-      sb.append("|       |   `-- menu.registry    (empty)\n");
-      sb.append("|       |-- menus/               (add .menu files here)\n");
-      sb.append("|       |-- layouts/             (add .layout files here)\n");
-      sb.append("|       |-- styles/              (add .style files here)\n");
-      sb.append("|       `-- assets/\n");
-      sb.append("|           |-- buttons/\n");
-      sb.append("|           `-- icons/\n");
+      sb.append("\u2502   \u2514\u2500\u2500 menu/                    (blank \u2013 build from scratch)\n");
+      sb.append("\u2502       \u251c\u2500\u2500 registry/\n");
+      sb.append("\u2502       \u2502   \u2514\u2500\u2500 menu.registry    (empty)\n");
+      sb.append("\u2502       \u251c\u2500\u2500 menus/               (add .menu files here)\n");
+      sb.append("\u2502       \u251c\u2500\u2500 layouts/             (add .layout files here)\n");
+      sb.append("\u2502       \u251c\u2500\u2500 styles/              (add .style files here)\n");
+      sb.append("\u2502       \u2514\u2500\u2500 assets/\n");
+      sb.append("\u2502           \u251c\u2500\u2500 buttons/\n");
+      sb.append("\u2502           \u2514\u2500\u2500 icons/\n");
     }
-    sb.append("|-- scripts/\n");
-    sb.append("|   |-- story/\n");
-    sb.append("|   |   `-- prologue.vns\n");
-    sb.append("|   |-- routes/\n");
-    sb.append("|   |-- definitions/\n");
-    sb.append("|   |-- common/\n");
-    sb.append("|   `-- system/\n");
-    sb.append("|-- assets/\n");
-    sb.append("|   |-- backgrounds/\n");
-    sb.append("|   |-- characters/\n");
-    sb.append("|   |   |-- sprites/\n");
-    sb.append("|   |   `-- portraits/\n");
-    sb.append("|   |-- cg/\n");
-    sb.append("|   |-- effects/\n");
-    sb.append("|   |-- video/\n");
+    sb.append("\u251c\u2500\u2500 scripts/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 story/\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 prologue.vns\n");
+    sb.append("\u2502   \u251c\u2500\u2500 routes/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 definitions/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 common/\n");
+    sb.append("\u2502   \u2514\u2500\u2500 system/\n");
+    sb.append("\u251c\u2500\u2500 assets/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 backgrounds/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 characters/\n");
+    sb.append("\u2502   \u2502   \u251c\u2500\u2500 sprites/\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 portraits/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 cg/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 effects/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 video/\n");
     if (includeDemoAssets) {
-      sb.append("|   |-- demo/\n");
-      sb.append("|   |   |-- backgrounds/\n");
-      sb.append("|   |   |   `-- field/\n");
-      sb.append("|   |   |-- characters/\n");
-      sb.append("|   |   |   `-- lavender/\n");
-      sb.append("|   |   `-- audio/\n");
+      sb.append("\u2502   \u251c\u2500\u2500 demo/\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 backgrounds/\n");
+      sb.append("\u2502   \u2502   \u2502   \u2514\u2500\u2500 field/\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 characters/\n");
+      sb.append("\u2502   \u2502   \u2502   \u2514\u2500\u2500 lavender/\n");
+      sb.append("\u2502   \u2502   \u2514\u2500\u2500 audio/\n");
     }
-    sb.append("|   |-- ui/\n");
-    sb.append("|   |-- fonts/\n");
-    sb.append("|   `-- audio/\n");
-    sb.append("|       |-- bgm/\n");
-    sb.append("|       |-- sfx/\n");
-    sb.append("|       `-- voices/\n");
-    sb.append("|-- save/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 ui/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 fonts/\n");
+    sb.append("\u2502   \u2514\u2500\u2500 audio/\n");
+    sb.append("\u2502       \u251c\u2500\u2500 bgm/\n");
+    sb.append("\u2502       \u251c\u2500\u2500 sfx/\n");
+    sb.append("\u2502       \u2514\u2500\u2500 voices/\n");
+    sb.append("\u251c\u2500\u2500 save/\n");
     if (shouldSetupGit()) {
-      sb.append("|-- .gitignore\n");
+      sb.append("\u251c\u2500\u2500 .gitignore\n");
     }
-    sb.append("|-- README.md\n");
-    sb.append("`-- jvn.project\n");
+    sb.append("\u251c\u2500\u2500 README.md\n");
+    sb.append("\u2514\u2500\u2500 jvn.project\n");
 
     return sb.toString();
   }
@@ -1757,13 +1836,65 @@ public class NewProjectWizard extends Stage {
   }
 
   private void createDialogueLayout(File dir) throws Exception {
+    int[] res = parseResolution();
+    double scale = res[1] / 1080.0;
+    String template = LayoutDslTemplates.defaultDialogueLayoutTemplate();
+    if (Math.abs(scale - 1.0) > 0.01) {
+      template = scaleDialogueLayoutPixels(template, scale, res[0], res[1]);
+    }
     try (FileWriter fw = new FileWriter(new File(dir, DIALOGUE_LAYOUT_PATH))) {
-      fw.write(LayoutDslTemplates.defaultDialogueLayoutTemplate().replace("\n", System.lineSeparator()));
+      fw.write(template.replace("\n", System.lineSeparator()));
+    }
+  }
+
+  private static String scaleDialogueLayoutPixels(String template, double scale, int width, int height) {
+    String result = template;
+    result = "# Target resolution: " + width + "x" + height + "\n" + result;
+    // Scale pixel-valued layout keys (not fractional 0..1 keys).
+    result = scaleIntKey(result, "textBoxPadding", scale);
+    result = scaleIntKey(result, "nameBoxXOffset", scale);
+    result = scaleIntKey(result, "nameBoxYOffset", scale);
+    result = scaleIntKey(result, "nameBoxWidth", scale);
+    result = scaleIntKey(result, "nameBoxHeight", scale);
+    result = scaleIntKey(result, "nameTextXOffset", scale);
+    result = scaleIntKey(result, "nameTextBaselineOffset", scale);
+    result = scaleIntKey(result, "dialogueTextHorizontalPadding", scale);
+    result = scaleIntKey(result, "dialogueTextTopPadding", scale);
+    result = scaleIntKey(result, "dialogueTextRightPadding", scale);
+    result = scaleIntKey(result, "dialogueTextBottomPadding", scale);
+    result = scaleIntKey(result, "choiceHeight", scale);
+    result = scaleIntKey(result, "choiceGap", scale);
+    result = scaleIntKey(result, "choiceTextXPadding", scale);
+    result = scaleIntKey(result, "nameTextFontSize", scale);
+    result = scaleIntKey(result, "dialogueTextFontSize", scale);
+    result = scaleIntKey(result, "choiceFontSize", scale);
+    result = scaleIntKey(result, "choiceCornerRadius", scale);
+    return result;
+  }
+
+  private static String scaleIntKey(String text, String key, double scale) {
+    String pattern = key + "=";
+    int idx = text.indexOf(pattern);
+    if (idx < 0) return text;
+    int valStart = idx + pattern.length();
+    int valEnd = valStart;
+    boolean negative = valEnd < text.length() && text.charAt(valEnd) == '-';
+    if (negative) valEnd++;
+    while (valEnd < text.length() && Character.isDigit(text.charAt(valEnd))) valEnd++;
+    if (valEnd == valStart || (negative && valEnd == valStart + 1)) return text;
+    try {
+      int original = Integer.parseInt(text.substring(valStart, valEnd));
+      int scaled = (int) Math.round(original * scale);
+      return text.substring(0, valStart) + scaled + text.substring(valEnd);
+    } catch (NumberFormatException ignored) {
+      return text;
     }
   }
 
   private void createLocaleStub(File dir) throws Exception {
     String locale = cmbLocale == null || cmbLocale.getValue() == null ? "en" : cmbLocale.getValue();
+    boolean hasSample = chkSampleContent != null && chkSampleContent.isSelected();
+    boolean hasMenus = shouldCreateMenuPack();
     String fileName = "config/locales/" + locale + ".properties";
     try (FileWriter fw = new FileWriter(new File(dir, fileName))) {
       fw.write("# Locale strings (" + locale + ")\n");
@@ -1771,9 +1902,15 @@ public class NewProjectWizard extends Stage {
       fw.write("# Supported placeholders: {name}, {0}, {1}, etc.\n");
       fw.write("#\n");
       fw.write("# --- Menu labels (used in .menu screen titleText / hintsText) ---\n");
-      fw.write("# menu.main.title=Main Menu\n");
-      fw.write("# menu.main.hints=Arrow keys to navigate, Enter to select\n");
-      fw.write("# menu.settings.title=Settings\n");
+      if (hasMenus) {
+        fw.write("menu.main.title=Main Menu\n");
+        fw.write("menu.main.hints=Arrow keys to navigate, Enter to select\n");
+        fw.write("menu.settings.title=Settings\n");
+      } else {
+        fw.write("# menu.main.title=Main Menu\n");
+        fw.write("# menu.main.hints=Arrow keys to navigate, Enter to select\n");
+        fw.write("# menu.settings.title=Settings\n");
+      }
       fw.write("#\n");
       fw.write("# --- Settings item labels ({value} expands to current setting) ---\n");
       fw.write("# settings.bgm=BGM Volume: {value}\n");
@@ -1781,8 +1918,13 @@ public class NewProjectWizard extends Stage {
       fw.write("# settings.fullscreen=Fullscreen: {value}\n");
       fw.write("#\n");
       fw.write("# --- Dialogue / story text ---\n");
-      fw.write("# greeting=Hello, {name}!\n");
-      fw.write("# farewell=Goodbye, {name}. Until we meet again.\n");
+      if (hasSample) {
+        fw.write("greeting=Hello, {name}!\n");
+        fw.write("farewell=Goodbye, {name}. Until we meet again.\n");
+      } else {
+        fw.write("# greeting=Hello, {name}!\n");
+        fw.write("# farewell=Goodbye, {name}. Until we meet again.\n");
+      }
     }
   }
 
@@ -1836,6 +1978,7 @@ public class NewProjectWizard extends Stage {
     tp.setProperty("itemFontWeight", "SEMI_BOLD");
     tp.setProperty("itemFontSize", "26");
     tp.setProperty("hintFontFamily", "SansSerif");
+    tp.setProperty("hintFontWeight", "NORMAL");
     tp.setProperty("hintFontSize", "15");
     tp.setProperty("titleY", "0.16");
     tp.setProperty("listYStart", "0.38");
@@ -2096,7 +2239,7 @@ public class NewProjectWizard extends Stage {
         fw.write("layout=settings\n");
         fw.write("defaultItemStyle=submenu\n");
         fw.write("wrapSelection=true\n");
-        fw.write("items=text_speed,auto_play_delay,click_reveal_before_advance,skip_unread,skip_after_choices,bgm_volume,sfx_volume,voice_volume,back\n");
+        fw.write("items=text_speed,auto_play_delay,click_reveal_before_advance,skip_unread,skip_after_choices,bgm_volume,sfx_volume,voice_volume,fullscreen,back\n");
         fw.write("item.text_speed.label=Text Speed: {value}\n");
         fw.write("item.auto_play_delay.label=Auto-Advance: {value}\n");
         fw.write("item.click_reveal_before_advance.label=Click to Reveal: {value}\n");
@@ -2105,6 +2248,7 @@ public class NewProjectWizard extends Stage {
         fw.write("item.bgm_volume.label=Music: {value}\n");
         fw.write("item.sfx_volume.label=Sound Effects: {value}\n");
         fw.write("item.voice_volume.label=Voices: {value}\n");
+        fw.write("item.fullscreen.label=Fullscreen: {value}\n");
         fw.write("item.back.label=Back\n");
         fw.write("item.back.action=back\n");
         fw.write("item.back.style=slot\n");
@@ -2226,6 +2370,13 @@ public class NewProjectWizard extends Stage {
     spinner.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
     spinner.valueProperty().addListener((o, ov, nv) -> updateDerivedFields());
     return spinner;
+  }
+
+  private static void tip(javafx.scene.control.Control control, String text) {
+    Tooltip t = new Tooltip(text);
+    t.setWrapText(true);
+    t.setMaxWidth(320);
+    control.setTooltip(t);
   }
 
   private void showError(String message) {

@@ -167,6 +167,11 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final TextField tfChoiceButtonSelectedAsset = new TextField();
   private final TextField tfChoiceButtonDisabledAsset = new TextField();
 
+  private final ComboBox<String> cbNameTextFontWeight = new ComboBox<>();
+  private final Spinner<Double> spNameBoxOpacity = spinner(0, 1, 1, 0.05);
+  private final ComboBox<String> cbDialogueTextFontWeight = new ComboBox<>();
+  private final ComboBox<String> cbChoiceFontWeight = new ComboBox<>();
+
   private final Spinner<Double> spNameBoxXOffset = spinner(-500, 500, 20, 1);
   private final Spinner<Double> spNameBoxYOffset = spinner(-500, 500, -40, 1);
   private final Spinner<Double> spNameBoxWidth = spinner(20, 1000, 200, 1);
@@ -333,6 +338,12 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private javafx.scene.Node buildControls() {
+    cbNameTextFontWeight.getItems().setAll("NORMAL", "BOLD");
+    cbNameTextFontWeight.setValue("BOLD");
+    cbDialogueTextFontWeight.getItems().setAll("NORMAL", "BOLD");
+    cbDialogueTextFontWeight.setValue("NORMAL");
+    cbChoiceFontWeight.getItems().setAll("NORMAL", "BOLD");
+    cbChoiceFontWeight.setValue("NORMAL");
     tfTextBoxAsset.setPromptText("assets/ui/textbox.png");
     tfTextBoxColor.setPromptText("#000000");
     tfChoiceButtonAsset.setPromptText("assets/ui/choice.png");
@@ -397,6 +408,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(nameGrid, row, "Name Height", spNameBoxHeight);
     row = addRow(nameGrid, row, "Name Text X Offset", spNameTextXOffset);
     row = addRow(nameGrid, row, "Name Text Baseline", spNameTextBaselineOffset);
+    row = addRow(nameGrid, row, "Name Font Weight", cbNameTextFontWeight);
+    row = addRow(nameGrid, row, "Name Box Opacity", spNameBoxOpacity);
     Button nameBoundsStudioBtn = iconButton(CssIcon.grid("#7ec8e3"), "Open name box bounds studio");
     nameBoundsStudioBtn.setOnAction(e -> openNameBoxBoundsStudio());
     row = addRow(nameGrid, row, "Bounds Studio", nameBoundsStudioBtn);
@@ -409,6 +422,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(textBoundsGrid, row, "Text Top Padding", spDialoguePaddingTop);
     row = addRow(textBoundsGrid, row, "Text Right Padding", spDialoguePaddingRight);
     row = addRow(textBoundsGrid, row, "Text Bottom Padding", spDialoguePaddingBottom);
+    row = addRow(textBoundsGrid, row, "Dialogue Font Weight", cbDialogueTextFontWeight);
     Button dialogueBoundsStudioBtn = iconButton(CssIcon.grid("#7ec8e3"), "Open dialogue text bounds studio");
     dialogueBoundsStudioBtn.setOnAction(e -> openDialogueTextBoundsStudio());
     row = addRow(textBoundsGrid, row, "Bounds Studio", dialogueBoundsStudioBtn);
@@ -423,6 +437,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(choiceLayoutGrid, row, "Choice Height", spChoiceHeight);
     row = addRow(choiceLayoutGrid, row, "Choice Gap", spChoiceGap);
     row = addRow(choiceLayoutGrid, row, "Choice Text Padding", spChoiceTextXPadding);
+    row = addRow(choiceLayoutGrid, row, "Choice Font Weight", cbChoiceFontWeight);
     row = addRow(choiceLayoutGrid, row, "Button Asset", assetFieldRow(tfChoiceButtonAsset, "Select Choice Button Asset"));
     row = addRow(choiceLayoutGrid, row, "Hover Asset", assetFieldRow(tfChoiceButtonHoverAsset, "Select Choice Hover Asset"));
     row = addRow(choiceLayoutGrid, row, "Selected Asset", assetFieldRow(tfChoiceButtonSelectedAsset, "Select Choice Selected Asset"));
@@ -614,6 +629,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spChoiceBorderWidth);
     controls.add(spChoiceTextBaselineOffset);
     controls.add(spTextBoxOverlayOpacity);
+    controls.add(spNameBoxOpacity);
     controls.add(spButtonX);
     controls.add(spButtonY);
     controls.add(spButtonWidth);
@@ -653,6 +669,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     chkTextBoxOverlayEnabled.selectedProperty().addListener((o, ov, nv) -> onStyleChanged());
     chkButtonEnabled.selectedProperty().addListener((o, ov, nv) -> onStyleChanged());
     cbButtonAction.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
+    cbNameTextFontWeight.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
+    cbDialogueTextFontWeight.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
+    cbChoiceFontWeight.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
     lvTextBoxButtons.getSelectionModel().selectedIndexProperty().addListener((o, ov, nv) -> {
       if (suppressEvents) return;
       int idx = nv == null ? -1 : nv.intValue();
@@ -1675,14 +1694,14 @@ public class DialogueLayoutEditorView extends BorderPane {
         base.nameTextColor(),
         base.nameTextFontFamily(),
         base.nameTextFontSize(),
-        base.nameTextFontWeight(),
+        normalizeFontWeight(cbNameTextFontWeight.getValue()),
         base.nameBoxBoundsPoints(),
-        base.nameBoxOpacity(),
+        value(spNameBoxOpacity),
         // Dialogue text
         base.dialogueTextColor(),
         base.dialogueTextFontFamily(),
         base.dialogueTextFontSize(),
-        base.dialogueTextFontWeight(),
+        normalizeFontWeight(cbDialogueTextFontWeight.getValue()),
         base.dialogueTextBoundsPoints(),
         // Choice button assets
         normalizeAssetPath(tfChoiceButtonAsset.getText()),
@@ -1710,7 +1729,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         // Choice font
         base.choiceFontFamily(),
         base.choiceFontSize(),
-        base.choiceFontWeight(),
+        normalizeFontWeight(cbChoiceFontWeight.getValue()),
         base.characterHeightFactor(),
         base.characterBaselineY()
     );
@@ -1743,6 +1762,12 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spChoiceCornerRadius, s.choiceCornerRadius());
     setValue(spChoiceBorderWidth, s.choiceBorderWidth());
     setValue(spChoiceTextBaselineOffset, s.choiceTextBaselineOffset());
+
+    cbNameTextFontWeight.setValue(s.nameTextFontWeight() != null ? s.nameTextFontWeight() : "BOLD");
+    double nameBoxOpacity = s.nameBoxOpacity() == null ? 1.0 : clamp(s.nameBoxOpacity(), 0.0, 1.0);
+    setValue(spNameBoxOpacity, nameBoxOpacity);
+    cbDialogueTextFontWeight.setValue(s.dialogueTextFontWeight() != null ? s.dialogueTextFontWeight() : "NORMAL");
+    cbChoiceFontWeight.setValue(s.choiceFontWeight() != null ? s.choiceFontWeight() : "NORMAL");
   }
 
   private void addTextBoxButton() {
@@ -2895,6 +2920,12 @@ public class DialogueLayoutEditorView extends BorderPane {
   private static String normalizeColorValue(String value) {
     if (value == null) return "";
     return value.trim();
+  }
+
+  private static String normalizeFontWeight(String value) {
+    if (value == null || value.isBlank()) return null;
+    String upper = value.trim().toUpperCase(Locale.ROOT);
+    return "NORMAL".equals(upper) || "BOLD".equals(upper) || "SEMI_BOLD".equals(upper) ? upper : null;
   }
 
   private static String normalizeText(String text) {

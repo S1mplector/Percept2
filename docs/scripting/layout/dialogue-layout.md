@@ -421,12 +421,27 @@ See [Localization Workflow](../../project-setup/localization.md) for full detail
 
 ---
 
+## Runtime Behavior
+
+The `VnRenderer` (JavaFX) consumes all style properties at load time via `applyUiStyle`:
+
+- **Font weights** (`nameTextFontWeight`, `dialogueTextFontWeight`, `choiceFontWeight`) are
+  resolved to `FontWeight` values. If omitted, name defaults to `BOLD`, dialogue and choice
+  default to `NORMAL`.
+- **Name box opacity** (`nameBoxOpacity`) is applied as a global alpha multiplier when drawing
+  the name box background. Defaults to `1.0` (fully opaque).
+- All other font, color, and asset properties are applied identically.
+
+---
+
 ## Editor Support
 
 The dialogue layout is edited visually in the **Dialogue Layout Editor**:
 
 - **Collapsible sections** for textbox, name box, text, choices, buttons
 - **Resize handles** for textbox bounds
+- **Font weight** selectors for name text, dialogue text, and choice text (`NORMAL` / `BOLD`)
+- **Name box opacity** slider (0–1)
 - **ColorPicker** for all color fields
 - **Bounds Studio** for textbox button placement (visual drag/draw tool)
 - **Live preview** canvas
