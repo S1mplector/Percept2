@@ -9,8 +9,15 @@ public record MenuScreenSpec(
     String layoutId,
     String defaultStyleId,
     boolean wrapSelection,
-    List<MenuItemSpec> items
+    List<MenuItemSpec> items,
+    String backgroundAsset
 ) {
+  public MenuScreenSpec(String id, String titleText, String hintsText,
+                        String layoutId, String defaultStyleId,
+                        boolean wrapSelection, List<MenuItemSpec> items) {
+    this(id, titleText, hintsText, layoutId, defaultStyleId, wrapSelection, items, null);
+  }
+
   public MenuScreenSpec {
     id = normalize(id, "main");
     titleText = normalize(titleText, null);
@@ -18,6 +25,7 @@ public record MenuScreenSpec(
     layoutId = normalize(layoutId, "default");
     defaultStyleId = normalize(defaultStyleId, "default");
     items = items == null ? List.of() : List.copyOf(items);
+    backgroundAsset = normalize(backgroundAsset, null);
   }
 
   private static String normalize(String v, String def) {

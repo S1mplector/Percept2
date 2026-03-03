@@ -152,6 +152,9 @@ object MenuDsl:
     private var _textAlign: String = "center"
     private var _hintsBottomMargin: Double = 20.0
     private var _titleY: java.lang.Double = null
+    private var _listXCenter: java.lang.Double = null
+    private var _titleX: java.lang.Double = null
+    private var _maxVisibleItems: java.lang.Integer = null
 
     def listYStart(v: Double): Unit = _listYStart = v
     def lineHeight(v: Double): Unit = _lineHeight = v
@@ -159,9 +162,13 @@ object MenuDsl:
     def textAlign(v: String): Unit = _textAlign = v
     def hintsBottomMargin(v: Double): Unit = _hintsBottomMargin = v
     def titleY(v: Double): Unit = _titleY = v
+    def listXCenter(v: Double): Unit = _listXCenter = v
+    def titleX(v: Double): Unit = _titleX = v
+    def maxVisibleItems(v: Int): Unit = _maxVisibleItems = v
 
     def build(): MenuLayoutSpec = new MenuLayoutSpec(
-      id, _listYStart, _lineHeight, _listWidthFactor, _textAlign, _hintsBottomMargin, _titleY
+      id, _listYStart, _lineHeight, _listWidthFactor, _textAlign, _hintsBottomMargin, _titleY,
+      _listXCenter, _titleX, _maxVisibleItems
     )
 
   def menuLayout(id: String)(configure: LayoutBuilder ?=> Unit): MenuLayoutSpec =

@@ -75,7 +75,10 @@ public class MenuScreenVisualEditor extends BorderPane {
       "slotPreviewX",
       "slotPreviewY",
       "slotPreviewWidth",
-      "slotPreviewHeight"
+      "slotPreviewHeight",
+      "fontFamily",
+      "fontWeight",
+      "fontSize"
   );
 
   private final TextField tfTitle = new TextField();
@@ -243,6 +246,9 @@ public class MenuScreenVisualEditor extends BorderPane {
             parseOptionalDoubleForLoad(p.getProperty(prefix + "slotPreviewWidth"), prefix + "slotPreviewWidth"),
             parseOptionalDoubleForLoad(p.getProperty(prefix + "slotPreviewHeight"), prefix + "slotPreviewHeight")
         );
+        row.setFontFamily(p.getProperty(prefix + "fontFamily", ""));
+        row.setFontWeight(p.getProperty(prefix + "fontWeight", ""));
+        row.setFontSize(p.getProperty(prefix + "fontSize", ""));
         for (String prop : p.stringPropertyNames()) {
           if (!prop.startsWith(prefix)) continue;
           String field = prop.substring(prefix.length());
@@ -557,9 +563,25 @@ public class MenuScreenVisualEditor extends BorderPane {
     slotPreviewHCol.setCellFactory(TextFieldTableCell.forTableColumn(doubleStringConverter));
     slotPreviewHCol.setOnEditCommit(e -> e.getRowValue().setSlotPreviewH(e.getNewValue()));
 
+    TableColumn<MenuItemRow, String> fontFamilyCol = new TableColumn<>("Font Family");
+    fontFamilyCol.setCellValueFactory(v -> v.getValue().fontFamilyProperty());
+    fontFamilyCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    fontFamilyCol.setOnEditCommit(e -> e.getRowValue().setFontFamily(normalize(e.getNewValue(), "")));
+
+    TableColumn<MenuItemRow, String> fontWeightCol = new TableColumn<>("Font Weight");
+    fontWeightCol.setCellValueFactory(v -> v.getValue().fontWeightProperty());
+    fontWeightCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    fontWeightCol.setOnEditCommit(e -> e.getRowValue().setFontWeight(normalize(e.getNewValue(), "")));
+
+    TableColumn<MenuItemRow, String> fontSizeCol = new TableColumn<>("Font Size");
+    fontSizeCol.setCellValueFactory(v -> v.getValue().fontSizeProperty());
+    fontSizeCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    fontSizeCol.setOnEditCommit(e -> e.getRowValue().setFontSize(normalize(e.getNewValue(), "")));
+
     // Core columns always visible
     table.getColumns().setAll(
-        idCol, labelCol, styleCol, enabledCol, actionCol, actionKeyCol, targetCol
+        idCol, labelCol, styleCol, enabledCol, actionCol, actionKeyCol, targetCol,
+        fontFamilyCol, fontWeightCol, fontSizeCol
     );
 
   }
@@ -635,6 +657,9 @@ public class MenuScreenVisualEditor extends BorderPane {
     row.slotPreviewYProperty().addListener((o, ov, nv) -> onUiChanged());
     row.slotPreviewWProperty().addListener((o, ov, nv) -> onUiChanged());
     row.slotPreviewHProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.fontFamilyProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.fontWeightProperty().addListener((o, ov, nv) -> onUiChanged());
+    row.fontSizeProperty().addListener((o, ov, nv) -> onUiChanged());
   }
 
   // ── Item Inspector ──
@@ -1010,6 +1035,9 @@ public class MenuScreenVisualEditor extends BorderPane {
         source.getSlotPreviewH()
     );
     copy.extras.putAll(source.extras);
+    copy.setFontFamily(source.getFontFamily());
+    copy.setFontWeight(source.getFontWeight());
+    copy.setFontSize(source.getFontSize());
     attachRowListeners(copy);
     int insertIndex = Math.min(idx + 1, rows.size());
     rows.add(insertIndex, copy);
@@ -1834,6 +1862,12 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (row.getSlotPreviewY() != null) out.append(prefix).append("slotPreviewY=").append(formatDouble(row.getSlotPreviewY())).append(System.lineSeparator());
       if (row.getSlotPreviewW() != null) out.append(prefix).append("slotPreviewWidth=").append(formatDouble(row.getSlotPreviewW())).append(System.lineSeparator());
       if (row.getSlotPreviewH() != null) out.append(prefix).append("slotPreviewHeight=").append(formatDouble(row.getSlotPreviewH())).append(System.lineSeparator());
+      String fontFamily = normalize(row.getFontFamily(), "");
+      String fontWeight = normalize(row.getFontWeight(), "");
+      String fontSize = normalize(row.getFontSize(), "");
+      if (!fontFamily.isBlank()) out.append(prefix).append("fontFamily=").append(escapeValue(fontFamily)).append(System.lineSeparator());
+      if (!fontWeight.isBlank()) out.append(prefix).append("fontWeight=").append(escapeValue(fontWeight)).append(System.lineSeparator());
+      if (!fontSize.isBlank()) out.append(prefix).append("fontSize=").append(escapeValue(fontSize)).append(System.lineSeparator());
       if (!row.extras.isEmpty()) {
         List<String> keys = new ArrayList<>(row.extras.keySet());
         keys.sort(String::compareTo);
@@ -2212,6 +2246,9 @@ public class MenuScreenVisualEditor extends BorderPane {
     private final ObjectProperty<Double> slotPreviewW = new SimpleObjectProperty<>(null);
     private final ObjectProperty<Double> slotPreviewH = new SimpleObjectProperty<>(null);
     private final Map<String, String> extras = new LinkedHashMap<>();
+    private final StringProperty fontFamily = new SimpleStringProperty("");
+    private final StringProperty fontWeight = new SimpleStringProperty("");
+    private final StringProperty fontSize = new SimpleStringProperty("");
 
     private MenuItemRow(
         String id,
@@ -2363,6 +2400,18 @@ public class MenuScreenVisualEditor extends BorderPane {
     public Double getSlotPreviewH() { return slotPreviewH.get(); }
     public ObjectProperty<Double> slotPreviewHProperty() { return slotPreviewH; }
     public void setSlotPreviewH(Double value) { this.slotPreviewH.set(value); }
+
+    public String getFontFamily() { return fontFamily.get(); }
+    public StringProperty fontFamilyProperty() { return fontFamily; }
+    public void setFontFamily(String value) { this.fontFamily.set(value == null ? "" : value); }
+
+    public String getFontWeight() { return fontWeight.get(); }
+    public StringProperty fontWeightProperty() { return fontWeight; }
+    public void setFontWeight(String value) { this.fontWeight.set(value == null ? "" : value); }
+
+    public String getFontSize() { return fontSize.get(); }
+    public StringProperty fontSizeProperty() { return fontSize; }
+    public void setFontSize(String value) { this.fontSize.set(value == null ? "" : value); }
   }
 
   static final class ExtrasEntry {

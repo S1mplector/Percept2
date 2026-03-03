@@ -7,8 +7,17 @@ public record MenuLayoutSpec(
     double listWidthFactor,
     String textAlign,
     double hintsBottomMargin,
-    Double titleY
+    Double titleY,
+    Double listXCenter,
+    Double titleX,
+    Integer maxVisibleItems
 ) {
+  public MenuLayoutSpec(String id, double listYStart, double lineHeight,
+                        double listWidthFactor, String textAlign,
+                        double hintsBottomMargin, Double titleY) {
+    this(id, listYStart, lineHeight, listWidthFactor, textAlign, hintsBottomMargin, titleY, null, null, null);
+  }
+
   public MenuLayoutSpec {
     id = normalize(id, "default");
     listYStart = sane(listYStart, 0.35);
@@ -17,6 +26,9 @@ public record MenuLayoutSpec(
     textAlign = normalize(textAlign, "center").toLowerCase();
     hintsBottomMargin = sane(hintsBottomMargin, 20.0);
     titleY = titleY != null ? sane(titleY, 60.0) : null;
+    if (listXCenter != null) listXCenter = clamp(sane(listXCenter, 0.5), 0.0, 1.0);
+    if (titleX != null) titleX = clamp(sane(titleX, 0.5), 0.0, 1.0);
+    if (maxVisibleItems != null && maxVisibleItems <= 0) maxVisibleItems = null;
   }
 
   private static String normalize(String v, String def) {

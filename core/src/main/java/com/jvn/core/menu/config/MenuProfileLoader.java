@@ -31,7 +31,10 @@ public final class MenuProfileLoader {
       "listWidthFactor",
       "textAlign",
       "hintsBottomMargin",
-      "titleY"
+      "titleY",
+      "listXCenter",
+      "titleX",
+      "maxVisibleItems"
   );
 
   private static final Set<String> KNOWN_STYLE_FIELDS = Set.of(
@@ -341,6 +344,10 @@ public final class MenuProfileLoader {
       titleY = base.titleY();
     }
 
+    Double listXCenter = parseOptionalDouble(p.getProperty("listXCenter"), base.listXCenter(), diagnostics, sourcePath, "listXCenter");
+    Double titleX = parseOptionalDouble(p.getProperty("titleX"), base.titleX(), diagnostics, sourcePath, "titleX");
+    Integer maxVisibleItems = parseOptionalPositiveInt(p.getProperty("maxVisibleItems"), base.maxVisibleItems(), diagnostics, sourcePath, "maxVisibleItems");
+
     return new MenuLayoutSpec(
         id,
         listYStart,
@@ -348,7 +355,10 @@ public final class MenuProfileLoader {
         listWidthFactor,
         textAlign,
         hintsBottomMargin,
-        titleY
+        titleY,
+        listXCenter,
+        titleX,
+        maxVisibleItems
     );
   }
 
@@ -507,6 +517,9 @@ public final class MenuProfileLoader {
           "Item '" + idNorm + "' slot preview");
       MenuActionSpec action = parseActionWithDiagnostics(actionRaw, targetRaw, diagnostics, sourcePath, itemPrefix + "action");
       Map<String, String> extras = collectItemExtras(p, itemPrefix, bi);
+      String itemFontFamily = normalize(p.getProperty(itemPrefix + "fontFamily"), bi == null ? null : bi.fontFamily());
+      String itemFontWeight = normalize(p.getProperty(itemPrefix + "fontWeight"), bi == null ? null : bi.fontWeight());
+      Integer itemFontSize = parseOptionalPositiveInt(p.getProperty(itemPrefix + "fontSize"), bi == null ? null : bi.fontSize(), diagnostics, sourcePath, itemPrefix + "fontSize");
       items.add(new MenuItemSpec(
           idNorm,
           label,
@@ -528,7 +541,10 @@ public final class MenuProfileLoader {
           slotPreviewBounds.y(),
           slotPreviewBounds.width(),
           slotPreviewBounds.height(),
-          extras
+          extras,
+          itemFontFamily,
+          itemFontWeight,
+          itemFontSize
       ));
     }
 
@@ -580,7 +596,8 @@ public final class MenuProfileLoader {
       "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
       "boundsX", "boundsY", "boundsWidth", "boundsHeight",
       "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
-      "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight"
+      "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight",
+      "fontFamily", "fontWeight", "fontSize"
   );
 
   private record BoundsFields(Double x, Double y, Double width, Double height) {}

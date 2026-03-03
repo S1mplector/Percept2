@@ -48,7 +48,7 @@ public class MenuRenderer {
       double titleY = (layout != null && layout.titleY() != null)
           ? resolve(layout.titleY(), h)
           : resolve(theme.getTitleY(), h);
-      drawTitle(title, w, titleY, screenStyle);
+      drawTitle(title, w, titleY, screenStyle, layout);
     }
 
     String[] items;
@@ -94,7 +94,7 @@ public class MenuRenderer {
     double titleY = (layout != null && layout.titleY() != null)
         ? resolve(layout.titleY(), h)
         : resolve(theme.getTitleY(), h);
-    drawTitle(title, w, titleY, screenStyle);
+    drawTitle(title, w, titleY, screenStyle, layout);
 
     String[] items = scene != null ? scene.getDisplayItems() : new String[]{"Resume"};
     boolean[] enabled = new boolean[items.length];
@@ -120,7 +120,7 @@ public class MenuRenderer {
     drawScreenBackground(w, h, screenStyle, false);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("save.title");
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
-    drawTitle(title, w, titleY, screenStyle);
+    drawTitle(title, w, titleY, screenStyle, layout);
     List<String> saves = scene.getSaves();
     String[] items = new String[(saves.size() + 1)];
     items[0] = scene.getNewSlotLabel();
@@ -165,7 +165,7 @@ public class MenuRenderer {
     drawScreenBackground(w, h, screenStyle, false);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("load.title");
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
-    drawTitle(title, w, titleY, screenStyle);
+    drawTitle(title, w, titleY, screenStyle, layout);
     List<String> saves = scene.getSaves();
     if (saves.isEmpty()) {
       drawCenteredText(Localization.t("load.no_saves"), w, h/2, theme.getItemFont(), Color.GRAY);
@@ -219,7 +219,7 @@ public class MenuRenderer {
     drawScreenBackground(w, h, screenStyle, false);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("settings.title");
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
-    drawTitle(title, w, titleY, screenStyle);
+    drawTitle(title, w, titleY, screenStyle, layout);
 
     String[] items = scene.getDisplayItems();
     boolean[] enabled = new boolean[items.length];
@@ -399,16 +399,35 @@ public class MenuRenderer {
   }
 
   private void drawTitle(String text, double w, double y) {
-    drawTitle(text, w, y, null);
+    drawTitle(text, w, y, null, null);
   }
 
   private void drawTitle(String text, double w, double y, MenuStyleSpec style) {
+    drawTitle(text, w, y, style, null);
+  }
+
+  private void drawTitle(String text, double w, double y, MenuStyleSpec style, MenuLayoutSpec layout) {
     if (text == null || text.isBlank()) text = "JVN";
     Color titleColor = parseColor(style != null ? style.titleColor() : null, theme.getTitleColor());
     Font titleFont = resolveTitleFont(style);
-    gc.setFill(titleColor);
     gc.setFont(titleFont);
-    gc.fillText(text, (w - measure(text, titleFont)) / 2, y);
+    double textW = measure(text, titleFont);
+    Double txOverride = layout != null ? layout.titleX() : null;
+    double tx = txOverride != null ? w * txOverride - textW / 2.0 : (w - textW) / 2.0;
+    tx = clamp(tx, 0, Math.max(0, w - textW));
+
+    // Title shadow
+    String shadowRaw = style != null ? style.titleShadowColor() : null;
+    if (shadowRaw != null && !shadowRaw.isBlank()) {
+      Color shadow = parseColor(shadowRaw, null);
+      if (shadow != null) {
+        gc.setFill(shadow);
+        gc.fillText(text, tx + 2, y + 2);
+      }
+    }
+
+    gc.setFill(titleColor);
+    gc.fillText(text, tx, y);
   }
 
   private void drawMenuList(String[] items, int selected, double w, double h) {
@@ -451,7 +470,7 @@ public class MenuRenderer {
       boolean sel = i == selected;
       String label = withPrefix(items[i], style, sel, isEnabled);
       Color color = resolveItemColor(style, sel, isEnabled);
-      Font font = resolveItemFont(style);
+      Font font = resolveItemFont(style, item);
       Rect rect = resolveItemRect(i, items.length, item, layout, areaX, areaWidth, h);
       boolean inlinePreviewEnabled = reserveInlineSlotPreviewSpace && isInlineSlotPreviewEnabled(item, true);
       Rect inlinePreviewRect = inlinePreviewEnabled ? resolveInlineSlotPreviewRect(item, rect) : null;
@@ -486,7 +505,6 @@ public class MenuRenderer {
         gc.setGlobalAlpha(previousAlpha);
       }
 
-      gc.setFill(color);
       gc.setFont(font);
       double tw = measure(label, font);
       double textPadX = style != null && style.buttonTextPaddingX() != null ? style.buttonTextPaddingX() : textPadXDefault;
@@ -499,7 +517,27 @@ public class MenuRenderer {
         default -> leftInset + Math.max(0, (rightInset - leftInset - tw) / 2.0);
       };
       double baseline = rect.y() + rect.h() * 0.55 + textPadY;
+
+      // Item opacity
+      double prevAlpha = gc.getGlobalAlpha();
+      Double itemOp = style != null ? style.itemOpacity() : null;
+      if (itemOp != null && itemOp < 0.999) gc.setGlobalAlpha(prevAlpha * itemOp);
+
+      // Item text shadow
+      String shadowRaw = style != null ? style.itemShadowColor() : null;
+      if (shadowRaw != null && !shadowRaw.isBlank()) {
+        Color shadow = parseColor(shadowRaw, null);
+        if (shadow != null) {
+          double sx = style.itemShadowOffsetX() != null ? style.itemShadowOffsetX() : 1.5;
+          double sy = style.itemShadowOffsetY() != null ? style.itemShadowOffsetY() : 1.5;
+          gc.setFill(shadow);
+          gc.fillText(label, x + sx, baseline + sy);
+        }
+      }
+
+      gc.setFill(color);
       gc.fillText(label, x, baseline);
+      gc.setGlobalAlpha(prevAlpha);
     }
   }
 
@@ -621,12 +659,19 @@ public class MenuRenderer {
     if (lineH <= 0) lineH = theme.getLineHeight();
     double widthFactor = layout != null ? clamp(layout.listWidthFactor(), 0.1, 1.0) : 1.0;
     double listW = areaWidth * widthFactor;
-    String align = layout != null ? layout.textAlign() : "center";
-    double listX = switch (align == null ? "center" : align.toLowerCase()) {
-      case "left" -> areaX;
-      case "right" -> areaX + areaWidth - listW;
-      default -> areaX + (areaWidth - listW) / 2.0;
-    };
+    Double xCenter = layout != null ? layout.listXCenter() : null;
+    double listX;
+    if (xCenter != null) {
+      listX = areaX + areaWidth * xCenter - listW / 2.0;
+      listX = clamp(listX, areaX, areaX + Math.max(0, areaWidth - listW));
+    } else {
+      String align = layout != null ? layout.textAlign() : "center";
+      listX = switch (align == null ? "center" : align.toLowerCase()) {
+        case "left" -> areaX;
+        case "right" -> areaX + areaWidth - listW;
+        default -> areaX + (areaWidth - listW) / 2.0;
+      };
+    }
 
     if (itemSpec != null && itemSpec.boundsX() != null && itemSpec.boundsY() != null
         && itemSpec.boundsWidth() != null && itemSpec.boundsHeight() != null) {
@@ -690,8 +735,9 @@ public class MenuRenderer {
     } else if (selected) {
       path = firstNonBlank(
           item != null ? item.buttonSelectedAssetPath() : null,
-          item != null ? item.buttonAssetPath() : null,
           style != null ? style.buttonSelectedAssetPath() : null,
+          style != null ? style.buttonHoverAssetPath() : null,
+          item != null ? item.buttonAssetPath() : null,
           style != null ? style.buttonAssetPath() : null
       );
     } else {
@@ -956,10 +1002,21 @@ public class MenuRenderer {
   }
 
   private Font resolveItemFont(MenuStyleSpec style) {
-    if (style == null) return theme.getItemFont();
-    String family = firstNonBlank(style.itemFontFamily(), theme.getItemFont().getFamily());
-    double size = style.itemFontSize() != null ? style.itemFontSize() : theme.getItemFont().getSize();
-    String weightRaw = style.itemFontWeight();
+    return resolveItemFont(style, null);
+  }
+
+  private Font resolveItemFont(MenuStyleSpec style, MenuItemSpec item) {
+    if (style == null && item == null) return theme.getItemFont();
+    String family = firstNonBlank(
+        item != null ? item.fontFamily() : null,
+        style != null ? style.itemFontFamily() : null,
+        theme.getItemFont().getFamily());
+    double size = item != null && item.fontSize() != null ? item.fontSize()
+        : style != null && style.itemFontSize() != null ? style.itemFontSize()
+        : theme.getItemFont().getSize();
+    String weightRaw = firstNonBlank(
+        item != null ? item.fontWeight() : null,
+        style != null ? style.itemFontWeight() : null);
     if (weightRaw == null || weightRaw.isBlank()) {
       return Font.font(family, size);
     }

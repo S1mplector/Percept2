@@ -25,7 +25,10 @@ public record MenuItemSpec(
     Double slotPreviewY,
     Double slotPreviewWidth,
     Double slotPreviewHeight,
-    Map<String, String> extras
+    Map<String, String> extras,
+    String fontFamily,
+    String fontWeight,
+    Integer fontSize
 ) {
   public MenuItemSpec {
     id = normalize(id, "item");
@@ -48,6 +51,9 @@ public record MenuItemSpec(
     if (slotPreviewHeight != null && !Double.isFinite(slotPreviewHeight)) slotPreviewHeight = null;
     extras = extras == null ? Collections.emptyMap()
         : Collections.unmodifiableMap(new LinkedHashMap<>(extras));
+    fontFamily = normalize(fontFamily, null);
+    fontWeight = normalize(fontWeight, null);
+    if (fontSize != null && fontSize <= 0) fontSize = null;
   }
 
   public MenuItemSpec(
@@ -80,6 +86,9 @@ public record MenuItemSpec(
         boundsWidth,
         boundsHeight,
         false,
+        null,
+        null,
+        null,
         null,
         null,
         null,

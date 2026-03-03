@@ -52,7 +52,10 @@ public class MenuLayoutVisualEditor extends BorderPane {
       "listWidthFactor",
       "textAlign",
       "hintsBottomMargin",
-      "titleY"
+      "titleY",
+      "listXCenter",
+      "titleX",
+      "maxVisibleItems"
   };
   private static final Set<String> KNOWN_KEY_SET = Set.copyOf(Arrays.asList(KNOWN_KEYS));
 
@@ -73,6 +76,12 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private final Spinner<Double> spHintsBottomMargin = spinner(0, 400, 20, 1);
   private final CheckBox cbTitleY = new CheckBox("Override title Y");
   private final Spinner<Double> spTitleY = spinner(0, 600, 60, 1);
+  private final CheckBox cbListXCenter = new CheckBox("Override list X center");
+  private final Spinner<Double> spListXCenter = spinner(0, 1, 0.5, 0.01);
+  private final CheckBox cbTitleX = new CheckBox("Override title X");
+  private final Spinner<Double> spTitleX = spinner(0, 1, 0.5, 0.01);
+  private final CheckBox cbMaxVisibleItems = new CheckBox("Limit visible items");
+  private final Spinner<Integer> spMaxVisibleItems = intSpinner(1, 100, 10, 1);
 
   private DragTarget dragTarget = DragTarget.NONE;
   private double dragStartX;
@@ -204,6 +213,30 @@ public class MenuLayoutVisualEditor extends BorderPane {
     grid.add(cbTitleY, 0, row++, 2, 1);
     row = addRow(grid, row, "Title Y (<=1 frac, >1 px)", spTitleY);
 
+    spListXCenter.setDisable(true);
+    cbListXCenter.selectedProperty().addListener((o, ov, nv) -> {
+      spListXCenter.setDisable(!nv);
+      if (!suppressEvents) { redraw(); emitText(); }
+    });
+    grid.add(cbListXCenter, 0, row++, 2, 1);
+    row = addRow(grid, row, "List X Center (0..1)", spListXCenter);
+
+    spTitleX.setDisable(true);
+    cbTitleX.selectedProperty().addListener((o, ov, nv) -> {
+      spTitleX.setDisable(!nv);
+      if (!suppressEvents) { redraw(); emitText(); }
+    });
+    grid.add(cbTitleX, 0, row++, 2, 1);
+    row = addRow(grid, row, "Title X (0..1)", spTitleX);
+
+    spMaxVisibleItems.setDisable(true);
+    cbMaxVisibleItems.selectedProperty().addListener((o, ov, nv) -> {
+      spMaxVisibleItems.setDisable(!nv);
+      if (!suppressEvents) { redraw(); emitText(); }
+    });
+    grid.add(cbMaxVisibleItems, 0, row++, 2, 1);
+    row = addRow(grid, row, "Max Visible Items", spMaxVisibleItems);
+
     Label hint = new Label("Drag title/list in preview. Drag handle on list edge for width.");
     hint.getStyleClass().add("muted");
     hint.setWrapText(true);
@@ -307,6 +340,9 @@ public class MenuLayoutVisualEditor extends BorderPane {
     spHintsBottomMargin.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spTitleY.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     cbAlign.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spListXCenter.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spTitleX.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spMaxVisibleItems.valueProperty().addListener((o, ov, nv) -> onControlChanged());
   }
 
   private void onControlChanged() {
@@ -540,6 +576,9 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
   private MenuLayoutSpec readSpecFromControls() {
     Double titleY = cbTitleY.isSelected() ? value(spTitleY) : null;
+    Double listXCenter = cbListXCenter.isSelected() ? value(spListXCenter) : null;
+    Double titleX = cbTitleX.isSelected() ? value(spTitleX) : null;
+    Integer maxVisible = cbMaxVisibleItems.isSelected() ? spMaxVisibleItems.getValue() : null;
     return new MenuLayoutSpec(
         spec.id(),
         value(spListYStart),
@@ -547,7 +586,10 @@ public class MenuLayoutVisualEditor extends BorderPane {
         value(spListWidthFactor),
         cbAlign.getValue(),
         value(spHintsBottomMargin),
-        titleY
+        titleY,
+        listXCenter,
+        titleX,
+        maxVisible
     );
   }
 
@@ -565,6 +607,33 @@ public class MenuLayoutVisualEditor extends BorderPane {
       cbTitleY.setSelected(false);
       spTitleY.setDisable(true);
       setValue(spTitleY, 60);
+    }
+    if (s.listXCenter() != null) {
+      cbListXCenter.setSelected(true);
+      spListXCenter.setDisable(false);
+      setValue(spListXCenter, s.listXCenter());
+    } else {
+      cbListXCenter.setSelected(false);
+      spListXCenter.setDisable(true);
+      setValue(spListXCenter, 0.5);
+    }
+    if (s.titleX() != null) {
+      cbTitleX.setSelected(true);
+      spTitleX.setDisable(false);
+      setValue(spTitleX, s.titleX());
+    } else {
+      cbTitleX.setSelected(false);
+      spTitleX.setDisable(true);
+      setValue(spTitleX, 0.5);
+    }
+    if (s.maxVisibleItems() != null) {
+      cbMaxVisibleItems.setSelected(true);
+      spMaxVisibleItems.setDisable(false);
+      spMaxVisibleItems.getValueFactory().setValue(s.maxVisibleItems());
+    } else {
+      cbMaxVisibleItems.setSelected(false);
+      spMaxVisibleItems.setDisable(true);
+      spMaxVisibleItems.getValueFactory().setValue(10);
     }
   }
 
@@ -614,6 +683,26 @@ public class MenuLayoutVisualEditor extends BorderPane {
     if (titleYRaw != null && !titleYRaw.isBlank()) {
       titleY = parseDouble(titleYRaw, 60, diagnostics, "titleY");
     }
+    Double listXCenter = null;
+    String listXCenterRaw = properties.getProperty("listXCenter");
+    if (listXCenterRaw != null && !listXCenterRaw.isBlank()) {
+      listXCenter = parseDouble(listXCenterRaw, 0.5, diagnostics, "listXCenter");
+    }
+    Double titleX = null;
+    String titleXRaw = properties.getProperty("titleX");
+    if (titleXRaw != null && !titleXRaw.isBlank()) {
+      titleX = parseDouble(titleXRaw, 0.5, diagnostics, "titleX");
+    }
+    Integer maxVisibleItems = null;
+    String maxVisRaw = properties.getProperty("maxVisibleItems");
+    if (maxVisRaw != null && !maxVisRaw.isBlank()) {
+      try {
+        int v = Integer.parseInt(maxVisRaw.trim());
+        if (v > 0) maxVisibleItems = v;
+      } catch (Exception ignored) {
+        diagnostics.add("Invalid integer for 'maxVisibleItems': '" + maxVisRaw + "'");
+      }
+    }
     return new MenuLayoutSpec(
         "default",
         parseDouble(properties.getProperty("listYStart"), base.listYStart(), diagnostics, "listYStart"),
@@ -621,7 +710,10 @@ public class MenuLayoutVisualEditor extends BorderPane {
         parseDouble(properties.getProperty("listWidthFactor"), base.listWidthFactor(), diagnostics, "listWidthFactor"),
         normalize(properties.getProperty("textAlign"), base.textAlign()),
         parseDouble(properties.getProperty("hintsBottomMargin"), base.hintsBottomMargin(), diagnostics, "hintsBottomMargin"),
-        titleY
+        titleY,
+        listXCenter,
+        titleX,
+        maxVisibleItems
     );
   }
 
@@ -639,6 +731,21 @@ public class MenuLayoutVisualEditor extends BorderPane {
       merged.setProperty("titleY", format(spec.titleY()));
     } else {
       merged.remove("titleY");
+    }
+    if (spec.listXCenter() != null) {
+      merged.setProperty("listXCenter", format(spec.listXCenter()));
+    } else {
+      merged.remove("listXCenter");
+    }
+    if (spec.titleX() != null) {
+      merged.setProperty("titleX", format(spec.titleX()));
+    } else {
+      merged.remove("titleX");
+    }
+    if (spec.maxVisibleItems() != null) {
+      merged.setProperty("maxVisibleItems", Integer.toString(spec.maxVisibleItems()));
+    } else {
+      merged.remove("maxVisibleItems");
     }
     for (String key : new ArrayList<>(merged.stringPropertyNames())) {
       if (!isKnownKey(key)) merged.remove(key);
@@ -723,6 +830,15 @@ public class MenuLayoutVisualEditor extends BorderPane {
         }
       }
     });
+    spinner.setValueFactory(vf);
+    spinner.setEditable(true);
+    return spinner;
+  }
+
+  private static Spinner<Integer> intSpinner(int min, int max, int initial, int step) {
+    Spinner<Integer> spinner = new Spinner<>();
+    SpinnerValueFactory.IntegerSpinnerValueFactory vf =
+        new SpinnerValueFactory.IntegerSpinnerValueFactory(min, max, initial, step);
     spinner.setValueFactory(vf);
     spinner.setEditable(true);
     return spinner;
