@@ -132,6 +132,7 @@ nameBoxWidth=200.0
 nameBoxHeight=40.0
 nameTextXOffset=10.0
 nameTextBaselineOffset=25.0
+# nameBoxAutoWidth=true
 
 # ── Dialogue text area ──
 dialogueTextHorizontalPadding=20.0
@@ -667,6 +668,7 @@ styles=default,submenu,slot,dark,pastel,fancy
 | `choiceHeight` | double | `50.0` | >= 14 pixels |
 | `choiceGap` | double | `10.0` | >= 0 pixels |
 | `choiceTextXPadding` | double | `20.0` | >= 0 pixels |
+| `nameBoxAutoWidth` | boolean | `false` | When `true`, name box expands to fit speaker name text; `nameBoxWidth` becomes the minimum |
 
 ### dialogue.layout — Style Keys
 
@@ -746,6 +748,9 @@ Declared using `button.ids` and `button.<id>.<field>` keys in the same `dialogue
 | `textAlign` | String | `"center"` | `left` / `center` / `right` |
 | `hintsBottomMargin` | double | `20.0` | >= 0 (pixels) |
 | `titleY` | Double | *(none)* | (optional) >= 0 (fraction); omit for no title |
+| `listXCenter` | Double | *(none)* | (optional) 0.0–1.0; overrides textAlign-based horizontal positioning |
+| `titleX` | Double | *(none)* | (optional) 0.0–1.0; centers title at this fraction of viewport |
+| `maxVisibleItems` | Integer | *(none)* | (optional) > 0; limits visible items and enables scrolling |
 
 *Alias:* `listWidth` is accepted as an alias for `listWidthFactor`.
 
@@ -798,6 +803,7 @@ Declared using `button.ids` and `button.<id>.<field>` keys in the same `dialogue
 | `layout` | String | `"default"` | Layout ID to use |
 | `defaultItemStyle` | String | `"default"` | Default style for items |
 | `wrapSelection` | Boolean | `true` | Wrap cursor at list boundaries |
+| `backgroundAsset` | String | *(none)* | (optional) Per-screen background image; overrides the style-level background |
 | `items` | CSV | *(auto-discover)* | Comma-separated item IDs |
 
 *Alias:* `layoutId` is accepted as an alias for `layout`.
@@ -819,6 +825,9 @@ Declared using `button.ids` and `button.<id>.<field>` keys in the same `dialogue
 | `boundsY` | Double | (optional) |
 | `boundsWidth` | Double | (optional) |
 | `boundsHeight` | Double | (optional) |
+| `fontFamily` | String | (optional) Per-item font family override |
+| `fontWeight` | String | (optional) Per-item font weight override (`NORMAL` / `BOLD` / `SEMI_BOLD`) |
+| `fontSize` | Integer | (optional) Per-item font size override (> 0) |
 | `slotPreviewEnabled` | Boolean | (optional) Enable save slot thumbnail |
 | `slotPreviewPlaceholderAsset` | String | (optional) Empty slot placeholder |
 | `slotPreviewFrameAsset` | String | (optional) Thumbnail frame image |

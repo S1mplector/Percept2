@@ -92,16 +92,33 @@ nameBoxHeight=40
 # Text position within name box (pixels)
 nameTextXOffset=10
 nameTextBaselineOffset=25
+
+# Dynamic width (optional)
+nameBoxAutoWidth=false
 ```
 
 | Property | Default | Description |
 |----------|---------|-------------|
 | `nameBoxXOffset` | 20 | Horizontal offset from textbox left edge |
 | `nameBoxYOffset` | -40 | Vertical offset from textbox top (negative = above) |
-| `nameBoxWidth` | 200 | Name box width in pixels |
+| `nameBoxWidth` | 200 | Name box width in pixels (also acts as minimum when auto-width is on) |
 | `nameBoxHeight` | 40 | Name box height in pixels |
 | `nameTextXOffset` | 10 | Text X offset inside name box |
 | `nameTextBaselineOffset` | 25 | Text baseline Y offset inside name box |
+| `nameBoxAutoWidth` | false | When `true`, the name box width expands to fit the speaker's name text. The fixed `nameBoxWidth` becomes the minimum width. |
+
+### Name Box Auto-Width
+
+When `nameBoxAutoWidth=true`, the renderer measures the speaker's name text at runtime
+and expands the name box to fit. The formula is:
+
+```
+effective width = max(nameBoxWidth, measuredTextWidth + nameTextXOffset × 2)
+```
+
+This ensures short names (e.g., "Al") still use the minimum `nameBoxWidth`, while longer
+names (e.g., "Professor Henderson") expand the box gracefully. The name box image or
+color fill stretches to the computed width.
 
 ### Name Box Visual Style
 
@@ -338,6 +355,7 @@ nameBoxWidth=220
 nameBoxHeight=38
 nameTextXOffset=12
 nameTextBaselineOffset=24
+nameBoxAutoWidth=true
 nameBoxAsset=assets/ui/namebox_ornate.png
 nameTextColor=#FFE8A3
 nameTextFontFamily=Georgia
@@ -430,6 +448,9 @@ The `VnRenderer` (JavaFX) consumes all style properties at load time via `applyU
   default to `NORMAL`.
 - **Name box opacity** (`nameBoxOpacity`) is applied as a global alpha multiplier when drawing
   the name box background. Defaults to `1.0` (fully opaque).
+- **Name box auto-width** (`nameBoxAutoWidth`) causes the renderer to measure the current
+  speaker's name text each frame and expand the name box width to fit. The fixed `nameBoxWidth`
+  is used as the minimum width, so the box never shrinks below that baseline.
 - All other font, color, and asset properties are applied identically.
 
 ---
@@ -442,6 +463,7 @@ The dialogue layout is edited visually in the **Dialogue Layout Editor**:
 - **Resize handles** for textbox bounds
 - **Font weight** selectors for name text, dialogue text, and choice text (`NORMAL` / `BOLD`)
 - **Name box opacity** slider (0–1)
+- **Name box auto-width** checkbox — toggles dynamic name box sizing
 - **ColorPicker** for all color fields
 - **Bounds Studio** for textbox button placement (visual drag/draw tool)
 - **Live preview** canvas

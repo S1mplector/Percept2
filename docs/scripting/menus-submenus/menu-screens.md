@@ -44,6 +44,7 @@ hintsText=Select: Enter    Back: Esc
 layout=default
 defaultItemStyle=default
 wrapSelection=true
+# backgroundAsset=assets/backgrounds/my_screen_bg.png
 ```
 
 | Property | Default | Description |
@@ -53,6 +54,25 @@ wrapSelection=true
 | `layout` / `layoutId` | `"default"` | Layout ID for positioning |
 | `defaultItemStyle` | `"default"` | Default style ID for items |
 | `wrapSelection` | true | Wrap cursor from last to first item and vice versa |
+| `backgroundAsset` | — | Per-screen background image. Overrides the style-level background when set. |
+
+### Per-Screen Backgrounds
+
+When `backgroundAsset` is set on a screen, it takes priority over the style’s
+`backgroundAsset` and `backgroundColor`. This lets different screens share the same
+style (fonts, colors) while having unique backgrounds:
+
+```properties
+# main.menu — custom title screen background
+backgroundAsset=assets/backgrounds/title_screen.png
+
+# settings.menu — different background
+backgroundAsset=assets/backgrounds/settings_bg.png
+
+# extras.menu — no backgroundAsset, falls back to style’s background
+```
+
+Priority: screen `backgroundAsset` > style `backgroundAsset` > style `backgroundColor` > engine default.
 
 ---
 
@@ -99,6 +119,28 @@ If `items` is omitted, IDs are auto-discovered from `item.<id>.*` keys.
 | `boundsY` | — | Hit area top |
 | `boundsWidth` | — | Hit area width |
 | `boundsHeight` | — | Hit area height |
+| `fontFamily` | — | Per-item font family override (e.g., `Georgia`, `Segoe UI`) |
+| `fontWeight` | — | Per-item font weight override (`NORMAL`, `BOLD`, `SEMI_BOLD`) |
+| `fontSize` | — | Per-item font size override (positive integer) |
+
+### Per-Item Font Overrides
+
+Individual items can override the style’s font properties. Each field is independent —
+you can set just `fontSize` and inherit `fontFamily` and `fontWeight` from the style.
+
+```properties
+# Section header in a distinct font
+item.header.label=── Audio Settings ──
+item.header.action=noop
+item.header.enabled=false
+item.header.fontWeight=BOLD
+item.header.fontSize=18
+
+# Standard item inherits the style font
+item.bgm_vol.label=BGM Volume: {value}
+```
+
+Resolution order: per-item field > style field > engine default.
 
 ### Extras
 
@@ -255,6 +297,7 @@ hintsText=↑↓ Navigate    Enter Select    Esc Quit
 layout=default
 defaultItemStyle=default
 wrapSelection=true
+backgroundAsset=assets/backgrounds/title_screen.png
 
 items=new_game,continue,extras,settings,quit
 
@@ -312,4 +355,5 @@ item.save_slot.slotPreviewHeight=0.90
 - [Menu Layouts](menu-layouts.md)
 - [Menu Styles](menu-styles.md)
 - [Button Layouts](menu-button-layouts.md)
+- [Custom Layout Scenarios](../scripting/layout/custom-scenarios.md)
 - [Dialogue Layout & Style](dialogue-layout.md)

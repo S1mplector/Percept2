@@ -81,7 +81,8 @@ public final class MenuProfileLoader {
       "layoutId",
       "defaultItemStyle",
       "wrapSelection",
-      "items"
+      "items",
+      "backgroundAsset"
   );
 
   public record LoadResult(MenuProfile profile, List<String> diagnostics) {
@@ -548,7 +549,9 @@ public final class MenuProfileLoader {
       ));
     }
 
-    return new MenuScreenSpec(id, titleText, hintsText, layoutId, defaultStyleId, wrapSelection, items);
+    String backgroundAsset = normalize(p.getProperty("backgroundAsset"), base == null ? null : base.backgroundAsset());
+
+    return new MenuScreenSpec(id, titleText, hintsText, layoutId, defaultStyleId, wrapSelection, items, backgroundAsset);
   }
 
   private static MenuActionSpec parseActionWithDiagnostics(

@@ -55,7 +55,8 @@ public final class VnUiLayoutLoader {
       "choiceWidthFactor",
       "choiceHeight",
       "choiceGap",
-      "choiceTextXPadding"
+      "choiceTextXPadding",
+      "nameBoxAutoWidth"
   );
 
   private static final Set<String> KNOWN_DIALOGUE_STYLE_KEYS = Set.of(
@@ -264,6 +265,7 @@ public final class VnUiLayoutLoader {
     double choiceHeight = parseDouble(props.getProperty("choiceHeight"), bLayout.choiceHeight(), diagnostics, "choiceHeight");
     double choiceGap = parseDouble(props.getProperty("choiceGap"), bLayout.choiceGap(), diagnostics, "choiceGap");
     double choiceTextXPadding = parseDouble(props.getProperty("choiceTextXPadding"), bLayout.choiceTextXPadding(), diagnostics, "choiceTextXPadding");
+    boolean nameBoxAutoWidth = parseBoolean(props.getProperty("nameBoxAutoWidth"), bLayout.nameBoxAutoWidth(), diagnostics, "nameBoxAutoWidth");
 
     VnUiLayoutSpec layout = new VnUiLayoutSpec(
         textBoxX,
@@ -286,7 +288,8 @@ public final class VnUiLayoutLoader {
         choiceWidthFactor,
         choiceHeight,
         choiceGap,
-        choiceTextXPadding
+        choiceTextXPadding,
+        nameBoxAutoWidth
     );
 
     warnAdjustedDouble("textBoxX", textBoxX, layout.textBoxX(), diagnostics);
@@ -426,6 +429,7 @@ public final class VnUiLayoutLoader {
     p.setProperty("choiceHeight", format(s.choiceHeight()));
     p.setProperty("choiceGap", format(s.choiceGap()));
     p.setProperty("choiceTextXPadding", format(s.choiceTextXPadding()));
+    if (s.nameBoxAutoWidth()) p.setProperty("nameBoxAutoWidth", "true");
     return p;
   }
 

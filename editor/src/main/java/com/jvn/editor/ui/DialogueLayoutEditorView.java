@@ -120,7 +120,8 @@ public class DialogueLayoutEditorView extends BorderPane {
       "choiceWidthFactor",
       "choiceHeight",
       "choiceGap",
-      "choiceTextXPadding"
+      "choiceTextXPadding",
+      "nameBoxAutoWidth"
   };
 
   private final Canvas preview = new Canvas(920, 430);
@@ -169,6 +170,7 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private final ComboBox<String> cbNameTextFontWeight = new ComboBox<>();
   private final Spinner<Double> spNameBoxOpacity = spinner(0, 1, 1, 0.05);
+  private final CheckBox cbNameBoxAutoWidth = new CheckBox("Auto-width");
   private final ComboBox<String> cbDialogueTextFontWeight = new ComboBox<>();
   private final ComboBox<String> cbChoiceFontWeight = new ComboBox<>();
 
@@ -410,6 +412,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(nameGrid, row, "Name Text Baseline", spNameTextBaselineOffset);
     row = addRow(nameGrid, row, "Name Font Weight", cbNameTextFontWeight);
     row = addRow(nameGrid, row, "Name Box Opacity", spNameBoxOpacity);
+    row = addRow(nameGrid, row, "Name Box Auto-Width", cbNameBoxAutoWidth);
     Button nameBoundsStudioBtn = iconButton(CssIcon.grid("#7ec8e3"), "Open name box bounds studio");
     nameBoundsStudioBtn.setOnAction(e -> openNameBoxBoundsStudio());
     row = addRow(nameGrid, row, "Bounds Studio", nameBoundsStudioBtn);
@@ -670,6 +673,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     chkButtonEnabled.selectedProperty().addListener((o, ov, nv) -> onStyleChanged());
     cbButtonAction.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
     cbNameTextFontWeight.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
+    cbNameBoxAutoWidth.selectedProperty().addListener((o, ov, nv) -> onControlChanged());
     cbDialogueTextFontWeight.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
     cbChoiceFontWeight.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
     lvTextBoxButtons.getSelectionModel().selectedIndexProperty().addListener((o, ov, nv) -> {
@@ -825,7 +829,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceWidthFactor(),
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
-            dragStartSpec.choiceTextXPadding()
+            dragStartSpec.choiceTextXPadding(),
+            dragStartSpec.nameBoxAutoWidth()
         );
       } else if (dragTarget == DragTarget.NAME_BOX) {
         next = new VnUiLayoutSpec(
@@ -849,7 +854,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceWidthFactor(),
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
-            dragStartSpec.choiceTextXPadding()
+            dragStartSpec.choiceTextXPadding(),
+            dragStartSpec.nameBoxAutoWidth()
         );
       } else if (dragTarget == DragTarget.CHOICE_BLOCK) {
         double currentChoiceStart = resolveChoiceYStart(dragStartSpec, h, 3, scale);
@@ -876,7 +882,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceWidthFactor(),
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
-            dragStartSpec.choiceTextXPadding()
+            dragStartSpec.choiceTextXPadding(),
+            dragStartSpec.nameBoxAutoWidth()
         );
       } else if (dragTarget == DragTarget.TEXT_BOX_RESIZE) {
         double newWidth = Math.max(0.05, dragStartSpec.textBoxWidth() + (dx / w));
@@ -902,7 +909,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceWidthFactor(),
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
-            dragStartSpec.choiceTextXPadding()
+            dragStartSpec.choiceTextXPadding(),
+            dragStartSpec.nameBoxAutoWidth()
         );
       } else if (dragTarget == DragTarget.CHOICE_RESIZE) {
         double newWidthFactor = Math.max(0.05, dragStartSpec.choiceWidthFactor() + (dx / w));
@@ -928,7 +936,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             newWidthFactor,
             newChoiceHeight,
             dragStartSpec.choiceGap(),
-            dragStartSpec.choiceTextXPadding()
+            dragStartSpec.choiceTextXPadding(),
+            dragStartSpec.nameBoxAutoWidth()
         );
       } else if (dragTarget == DragTarget.DIALOGUE_BOUNDS || dragTarget == DragTarget.DIALOGUE_BOUNDS_RESIZE) {
         ProjectViewportSpec.Dimensions vp = ProjectViewportSpec.resolve(projectRoot);
@@ -986,7 +995,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceWidthFactor(),
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
-            dragStartSpec.choiceTextXPadding()
+            dragStartSpec.choiceTextXPadding(),
+            dragStartSpec.nameBoxAutoWidth()
         );
       } else if ((dragTarget == DragTarget.TEXTBOX_BUTTON || dragTarget == DragTarget.TEXTBOX_BUTTON_RESIZE)
           && dragButtonIndex >= 0 && dragButtonIndex < dragStartButtons.size()) {
@@ -1652,7 +1662,8 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spChoiceWidthFactor),
         value(spChoiceHeight),
         value(spChoiceGap),
-        value(spChoiceTextXPadding)
+        value(spChoiceTextXPadding),
+        cbNameBoxAutoWidth.isSelected()
     );
   }
 
@@ -1678,6 +1689,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spChoiceHeight, s.choiceHeight());
     setValue(spChoiceGap, s.choiceGap());
     setValue(spChoiceTextXPadding, s.choiceTextXPadding());
+    cbNameBoxAutoWidth.setSelected(s.nameBoxAutoWidth());
   }
 
   private VnUiStyleSpec readStyleFromControls() {

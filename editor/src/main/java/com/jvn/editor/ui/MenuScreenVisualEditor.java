@@ -63,7 +63,8 @@ import javafx.util.StringConverter;
  */
 public class MenuScreenVisualEditor extends BorderPane {
   private static final Set<String> TOP_LEVEL_KEYS = Set.of(
-      "titleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items"
+      "titleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items",
+      "backgroundAsset"
   );
   private static final Set<String> ITEM_KEYS = Set.of(
       "label", "style", "icon", "enabled", "action", "target",
@@ -86,6 +87,7 @@ public class MenuScreenVisualEditor extends BorderPane {
   private final ComboBox<String> cbLayout = new ComboBox<>();
   private final ComboBox<String> cbDefaultStyle = new ComboBox<>();
   private final CheckBox cbWrap = new CheckBox("Wrap selection");
+  private final TextField tfBackgroundAsset = new TextField();
   private final Label validation = new Label();
 
   private final TableView<MenuItemRow> table = new TableView<>();
@@ -207,6 +209,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     cbDefaultStyle.setEditable(true);
     cbDefaultStyle.getEditor().setText(normalize(p.getProperty("defaultItemStyle"), ""));
     cbWrap.setSelected(parseBooleanForLoad(p.getProperty("wrapSelection"), true, "wrapSelection"));
+    tfBackgroundAsset.setText(p.getProperty("backgroundAsset", ""));
 
     List<String> ids = parseCsv(p.getProperty("items"));
     if (ids.isEmpty()) ids = collectItemIdsFromProperties(p);
@@ -305,11 +308,12 @@ public class MenuScreenVisualEditor extends BorderPane {
     addRow(g, 1, "Hints", tfHints);
     addRow(g, 2, "Layout", cbLayout);
     addRow(g, 3, "Default Style", cbDefaultStyle);
-    g.add(cbWrap, 1, 4);
+    addRow(g, 4, "Background Asset", tfBackgroundAsset);
+    g.add(cbWrap, 1, 5);
 
     validation.getStyleClass().add("muted");
     validation.setWrapText(true);
-    g.add(validation, 0, 5, 2, 1);
+    g.add(validation, 0, 6, 2, 1);
 
     setTop(g);
     BorderPane.setMargin(g, new Insets(0, 0, 8, 0));
@@ -592,6 +596,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     cbWrap.selectedProperty().addListener((o, ov, nv) -> onUiChanged());
     cbLayout.getEditor().textProperty().addListener((o, ov, nv) -> onUiChanged());
     cbDefaultStyle.getEditor().textProperty().addListener((o, ov, nv) -> onUiChanged());
+    tfBackgroundAsset.textProperty().addListener((o, ov, nv) -> onUiChanged());
   }
 
   private void setDefaults() {
@@ -602,6 +607,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     cbDefaultStyle.setEditable(true);
     cbDefaultStyle.getEditor().setText("");
     cbWrap.setSelected(true);
+    tfBackgroundAsset.setText("");
     rows.clear();
     table.setItems(rows);
   }
@@ -1793,6 +1799,8 @@ public class MenuScreenVisualEditor extends BorderPane {
     out.append("layout=").append(escapeValue(layout)).append(System.lineSeparator());
     out.append("defaultItemStyle=").append(escapeValue(defaultStyle)).append(System.lineSeparator());
     out.append("wrapSelection=").append(wrap).append(System.lineSeparator());
+    String backgroundAsset = normalize(tfBackgroundAsset.getText(), "");
+    if (!backgroundAsset.isBlank()) out.append("backgroundAsset=").append(escapeValue(backgroundAsset)).append(System.lineSeparator());
 
     List<ResolvedItem> resolved = new ArrayList<>();
     Set<String> usedIds = new LinkedHashSet<>();

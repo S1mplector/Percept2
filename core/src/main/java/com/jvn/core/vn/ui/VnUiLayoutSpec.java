@@ -27,8 +27,28 @@ public record VnUiLayoutSpec(
     double choiceWidthFactor,
     double choiceHeight,
     double choiceGap,
-    double choiceTextXPadding
+    double choiceTextXPadding,
+    boolean nameBoxAutoWidth
 ) {
+  public VnUiLayoutSpec(
+      double textBoxX, double textBoxY, double textBoxWidth, double textBoxHeight,
+      double textBoxPadding,
+      double nameBoxXOffset, double nameBoxYOffset, double nameBoxWidth, double nameBoxHeight,
+      double nameTextXOffset, double nameTextBaselineOffset,
+      double dialogueTextHorizontalPadding, double dialogueTextTopPadding,
+      double dialogueTextRightPadding, double dialogueTextBottomPadding,
+      double choiceXCenter, double choiceYStart, double choiceWidthFactor,
+      double choiceHeight, double choiceGap, double choiceTextXPadding
+  ) {
+    this(textBoxX, textBoxY, textBoxWidth, textBoxHeight, textBoxPadding,
+        nameBoxXOffset, nameBoxYOffset, nameBoxWidth, nameBoxHeight,
+        nameTextXOffset, nameTextBaselineOffset,
+        dialogueTextHorizontalPadding, dialogueTextTopPadding,
+        dialogueTextRightPadding, dialogueTextBottomPadding,
+        choiceXCenter, choiceYStart, choiceWidthFactor,
+        choiceHeight, choiceGap, choiceTextXPadding, false);
+  }
+
   public VnUiLayoutSpec {
     textBoxX = clamp(sane(textBoxX, 0.0), 0.0, 1.0);
     textBoxY = clamp(sane(textBoxY, 0.75), 0.0, 1.0);
@@ -81,7 +101,8 @@ public record VnUiLayoutSpec(
         0.6,
         50.0,
         10.0,
-        20.0
+        20.0,
+        false
     );
   }
 

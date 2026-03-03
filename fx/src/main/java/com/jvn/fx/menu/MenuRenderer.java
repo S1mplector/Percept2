@@ -36,7 +36,8 @@ public class MenuRenderer {
   public void renderMainMenu(MainMenuScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
-    drawScreenBackground(w, h, screenStyle, true);
+    String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
+    drawScreenBackground(w, h, screenStyle, true, screenBg);
 
     // Draw logo if configured, otherwise draw text title
     if (theme.getLogoImagePath() != null) {
@@ -117,7 +118,8 @@ public class MenuRenderer {
   public void renderSaveMenu(SaveMenuScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
-    drawScreenBackground(w, h, screenStyle, false);
+    String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
+    drawScreenBackground(w, h, screenStyle, false, screenBg);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("save.title");
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
     drawTitle(title, w, titleY, screenStyle, layout);
@@ -162,7 +164,8 @@ public class MenuRenderer {
   public void renderLoadMenu(LoadMenuScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
-    drawScreenBackground(w, h, screenStyle, false);
+    String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
+    drawScreenBackground(w, h, screenStyle, false, screenBg);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("load.title");
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
     drawTitle(title, w, titleY, screenStyle, layout);
@@ -216,7 +219,8 @@ public class MenuRenderer {
   public void renderSettings(SettingsScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
-    drawScreenBackground(w, h, screenStyle, false);
+    String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
+    drawScreenBackground(w, h, screenStyle, false, screenBg);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("settings.title");
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
     drawTitle(title, w, titleY, screenStyle, layout);
@@ -257,6 +261,17 @@ public class MenuRenderer {
   }
 
   private void drawScreenBackground(double w, double h, MenuStyleSpec style, boolean allowThemeImageFallback) {
+    drawScreenBackground(w, h, style, allowThemeImageFallback, null);
+  }
+
+  private void drawScreenBackground(double w, double h, MenuStyleSpec style, boolean allowThemeImageFallback, String screenBgAsset) {
+    if (screenBgAsset != null && !screenBgAsset.isBlank()) {
+      Image screenBgImage = loadImage(screenBgAsset);
+      if (screenBgImage != null) {
+        gc.drawImage(screenBgImage, 0, 0, w, h);
+        return;
+      }
+    }
     String styleAsset = style != null ? style.backgroundAssetPath() : null;
     if (styleAsset != null && !styleAsset.isBlank()) {
       Image styleImage = loadImage(styleAsset);

@@ -847,7 +847,13 @@ public class VnRenderer {
     if (speakerName != null && !speakerName.isEmpty()) {
       double nameBoxX = textBoxX + uiLayout.nameBoxXOffset();
       double nameBoxY = textBoxY + uiLayout.nameBoxYOffset();
-      double nameBoxW = uiLayout.nameBoxWidth();
+      double nameBoxW;
+      if (uiLayout.nameBoxAutoWidth()) {
+        double textW = computeTextWidth(speakerName, nameFont);
+        nameBoxW = Math.max(textW + uiLayout.nameTextXOffset() * 2, uiLayout.nameBoxWidth());
+      } else {
+        nameBoxW = uiLayout.nameBoxWidth();
+      }
       double nameBoxH = uiLayout.nameBoxHeight();
       boolean clipNameBox = hasPolygon(nameBoxBoundsPolygon);
       if (clipNameBox) {

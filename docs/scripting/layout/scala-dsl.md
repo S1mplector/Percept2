@@ -115,6 +115,9 @@ val layout = menuLayout("compact") {
 | `textAlign(v)` | String | `"center"` | `"left"`, `"center"`, or `"right"` |
 | `hintsBottomMargin(v)` | Double | `20.0` | Bottom margin for hints text |
 | `titleY(v)` | Double | `null` | Title Y position (optional) |
+| `listXCenter(v)` | Double | `null` | Horizontal center of the item list (0–1). Overrides `textAlign` positioning. |
+| `titleX(v)` | Double | `null` | Horizontal center of the title (0–1). Overrides default centered title. |
+| `maxVisibleItems(v)` | Int | `null` | Max visible items before scrolling. |
 
 ### Layout Examples
 
@@ -141,6 +144,34 @@ val slots = menuLayout("slots") {
   textAlign("left")
   hintsBottomMargin(30.0)
   titleY(0.10)
+}
+```
+
+**Sidebar Layout (Off-Center):**
+
+```scala
+val sidebar = menuLayout("sidebar") {
+  listYStart(0.20)
+  lineHeight(58.0)
+  listWidthFactor(0.30)
+  textAlign("left")
+  listXCenter(0.18)
+  titleX(0.18)
+  titleY(0.08)
+  hintsBottomMargin(24.0)
+}
+```
+
+**Chapter Select with Scroll:**
+
+```scala
+val chapters = menuLayout("chapters") {
+  listYStart(0.22)
+  lineHeight(54.0)
+  listWidthFactor(0.60)
+  textAlign("left")
+  titleY(0.08)
+  maxVisibleItems(6)
 }
 ```
 
@@ -325,6 +356,8 @@ object MyMenuConfig:
     listWidthFactor(0.64)
     textAlign("left")
     titleY(0.11)
+    listXCenter(0.35)
+    titleX(0.35)
   }
 
   val mainButtons = buttonLayout("main", "1920x1080", "main") {

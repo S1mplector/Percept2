@@ -104,6 +104,7 @@ Complete documentation for the Java Vector Nexus engine.
 - [Menu Registry & File Discovery](scripting/layout/menu-registry.md) — `menu.registry`, file search paths, fallback, auto-discovery
 - [Menu Actions & Navigation](scripting/layout/menu-actions.md) — all 10 action types, aliases, custom actions, navigation flow
 - [Menu Inheritance & Composition](scripting/layout/menu-inheritance.md) — `extends` for screens/layouts/styles, chains, circular detection
+- [Custom Layout Scenarios](scripting/layout/custom-scenarios.md) — multi-button textbox, per-screen backgrounds, per-item fonts, auto-width name box, sidebar menus, chapter select, confirmation dialogs
 - [Choice Buttons](scripting/layout/choice-buttons.md) — positioning, 4-state colors, borders, fonts, image assets
 - [Textbox Action Buttons](scripting/layout/textbox-action-buttons.md) — Auto/Skip/Log/Save buttons, positioning, image skins
 - [Character Framing & Sprites](scripting/layout/character-framing.md) — height factor, baseline, textbox interaction

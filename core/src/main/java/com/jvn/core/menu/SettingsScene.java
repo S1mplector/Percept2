@@ -141,6 +141,7 @@ public class SettingsScene implements Scene {
   public int itemCount() { return rows.size(); }
   public int getSelected() { return selected; }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
+  public MenuScreenSpec getMenuScreen() { return menuScreen; }
   public MenuStyleSpec getDefaultMenuStyle() { return menuProfile.style(menuScreen.defaultStyleId()); }
 
   public MenuStyleSpec getStyleForIndex(int idx) {

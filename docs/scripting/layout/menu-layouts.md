@@ -39,6 +39,9 @@ listWidthFactor=1.0
 textAlign=center
 hintsBottomMargin=20
 titleY=60
+# listXCenter=0.5
+# titleX=0.5
+# maxVisibleItems=8
 ```
 
 | Property | Default | Description |
@@ -49,6 +52,36 @@ titleY=60
 | `textAlign` | `"center"` | Text alignment: `"center"`, `"left"`, or `"right"` |
 | `hintsBottomMargin` | 20 | Distance from the bottom edge to the hints text (pixels) |
 | `titleY` | — | Y position of the title text (pixels from top). Optional; if omitted, uses a default based on layout |
+| `listXCenter` | — | Horizontal center of the item list (fraction of viewport, 0–1). Optional; overrides `textAlign`-based positioning when set. |
+| `titleX` | — | Horizontal center of the title text (fraction of viewport, 0–1). Optional; overrides default centered title. |
+| `maxVisibleItems` | — | Maximum number of items to show at once (positive integer). Optional; if omitted, all items are visible. |
+
+### Advanced Positioning: `listXCenter` and `titleX`
+
+By default, the list is positioned using `textAlign` and `listWidthFactor`. Setting
+`listXCenter` provides explicit horizontal centering — the list is centered on the
+specified fraction of the viewport, regardless of `textAlign`. The list is still clamped
+to stay within screen bounds.
+
+Similarly, `titleX` positions the title text’s center at a specific viewport fraction
+instead of the default centered behavior.
+
+```properties
+# Position the list at 30% from the left edge
+listXCenter=0.3
+titleX=0.3
+```
+
+### Scrollable Lists: `maxVisibleItems`
+
+When `maxVisibleItems` is set, only that many items are displayed simultaneously. If the
+menu has more items than the limit, the renderer scrolls the visible window as the
+selection moves. This is useful for long lists like save slots or chapter selects.
+
+```properties
+# Show at most 8 items; scroll if there are more
+maxVisibleItems=8
+```
 
 ---
 
@@ -92,6 +125,7 @@ listWidthFactor=0.56
 textAlign=left
 hintsBottomMargin=24
 titleY=0.07
+maxVisibleItems=8
 ```
 
 ### `slots`
@@ -156,7 +190,27 @@ listYStart=0.18
 lineHeight=48
 listWidthFactor=0.60
 textAlign=left
+maxVisibleItems=10
 ```
+
+### Off-Center Menu (Sidebar Style)
+
+```properties
+# config/menu/layouts/sidebar.layout
+listYStart=0.20
+lineHeight=58
+listWidthFactor=0.30
+textAlign=left
+listXCenter=0.18
+titleX=0.18
+titleY=0.08
+hintsBottomMargin=24
+```
+
+Result:
+- Items are placed in a narrow column on the left side of the screen
+- Title aligns with the item list instead of centering on the screen
+- Ideal for layouts where artwork occupies the right half
 
 ### Wide Slot List
 
@@ -167,6 +221,23 @@ listWidthFactor=0.80
 lineHeight=80
 titleY=40
 ```
+
+### Chapter Select with Scroll
+
+```properties
+# config/menu/layouts/chapters.layout
+listYStart=0.22
+lineHeight=54
+listWidthFactor=0.60
+textAlign=left
+titleY=0.08
+maxVisibleItems=6
+```
+
+Result:
+- Only 6 chapters visible at a time
+- Selection scrolls through remaining chapters
+- Clean look regardless of total chapter count
 
 ---
 
@@ -189,6 +260,8 @@ A screen references a layout by ID. The layout controls geometry; the style cont
 The loader produces diagnostics for:
 
 - `"Invalid number for 'lineHeight' in ..."` — non-numeric value
+- `"Invalid number for 'listXCenter' in ..."` — non-numeric value for optional field
+- `"Invalid number for 'maxVisibleItems' in ..."` — non-positive integer
 - `"Circular layout inheritance detected at '...'"` — `extends` loop
 - `"Layout '...' extends missing layout '...'"` — parent not found
 
