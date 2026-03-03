@@ -209,6 +209,21 @@ State is restored when the panel is reopened or the project is reloaded.
 
 ---
 
+## File Operations Toolbar
+
+Below the tool row, a second row provides file-level export and import actions:
+
+| Button | Icon Color | Description |
+|--------|------------|-------------|
+| **Export PNG** | Blue | Composites all visible layers and saves a flattened PNG file |
+| **Export Setup** | Green | Saves the current layer selection as a `.layersetup` file |
+| **Import Setup** | Yellow | Loads a `.layersetup` file and restores its layer selections |
+| **Copy Charpreset** | Purple | Copies a `@charpreset` snippet to the clipboard, ready to paste into a `.vns` script |
+
+See [.layersetup Files](layersetup-files.md) for the full file format reference and workflow documentation.
+
+---
+
 ## Fullscreen Mode
 
 Click the fullscreen button to expand the visualizer to fill the entire editor window. This is shared across all three image tools (`ImageToolPanel` interface):
@@ -234,6 +249,7 @@ When `refreshCatalog()` is called:
 
 ## Related Docs
 
+- [.layersetup Files](layersetup-files.md) — file format, export/import workflow, charpreset quick-export
 - [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
 - [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-based image assembly
 - [Image Tint Tool](sidebar-image-tint-tool.md) — color tinting and grading

@@ -69,11 +69,24 @@ import javafx.util.StringConverter;
 /**
  * Sidebar utility for layered sprite exploration and snippet generation.
  *
- * Hardening goals:
- * - per-set persistence (selected layers, crop/focus/zoom, ids)
- * - save/load/delete presets
- * - active-group randomization and manual render-order controls
- * - multiple snippet export formats
+ * <h3>.layersetup files</h3>
+ * The visualizer can export the current layer selection to a {@code .layersetup}
+ * file via the save icon in the file-ops toolbar. This file is a simple
+ * key=value text format that records which image is selected for each layer
+ * group. It can later be re-imported into the visualizer (via the folder icon)
+ * to restore the exact same layer configuration — useful for sharing presets
+ * between team members or restoring a specific expression across sessions.
+ * <p>
+ * {@code .layersetup} files are an <b>editor-only</b> artifact; they are not
+ * consumed by the JVN runtime.
+ *
+ * <h3>Hardening goals</h3>
+ * <ul>
+ *   <li>per-set persistence (selected layers, crop/focus/zoom, ids)</li>
+ *   <li>save/load/delete presets</li>
+ *   <li>active-group randomization and manual render-order controls</li>
+ *   <li>multiple snippet export formats</li>
+ * </ul>
  */
 public class LayeredImageVisualizerView extends BorderPane implements ImageToolPanel {
   private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d+)");
@@ -363,7 +376,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Button exportPngButton = iconButton(CssIcon.download("#8ab4f8"), "Export composited image as PNG file", this::exportCompositePng);
     Button exportSetupBtn = iconButton(CssIcon.save("#9ed67a"), "Export setup to .layersetup file", this::exportSetupToFile);
     Button importSetupBtn = iconButton(CssIcon.folder("#f5c46b"), "Import setup from .layersetup file", this::importSetupFromFile);
-    HBox fileRow = new HBox(4, exportPngButton, exportSetupBtn, importSetupBtn);
+    Button exportCharpresetBtn = iconButton(CssIcon.copy("#c6a0f6"), "Copy @charpreset snippet to clipboard", this::copyCharpresetSnippet);
+    HBox fileRow = new HBox(4, exportPngButton, exportSetupBtn, importSetupBtn, exportCharpresetBtn);
     fileRow.setAlignment(Pos.CENTER_LEFT);
 
     HBox framingRow = new HBox(4, matchGameFraming, showOverlayGuides);
@@ -1585,6 +1599,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     status("Copied snippet: " + format + ".");
   }
 
+  private void copyCharpresetSnippet() {
+    String snippet = buildSnippet(SNIPPET_CHARPRESET);
+    if (snippet == null || snippet.isBlank()) {
+      status("No layers selected — nothing to export.");
+      return;
+    }
+    copy(snippet);
+    status("Copied @charpreset snippet to clipboard.");
+  }
+
   private String buildSnippet(String format) {
     String characterId = sanitizeId(characterIdField.getText());
     String expression = sanitizeId(expressionField.getText());
@@ -2766,6 +2790,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private String buildFullSetupText() {
     StringBuilder out = new StringBuilder();
     out.append("# JVN Layered Image Visualizer Setup\n");
+    out.append("#\n");
+    out.append("# This file records a layer selection from the Layered Image Visualizer.\n");
+    out.append("# To restore this configuration, open the visualizer in the JVN editor\n");
+    out.append("# and click the Import button (folder icon in the file-ops toolbar),\n");
+    out.append("# then choose this .layersetup file. The visualizer will match each\n");
+    out.append("# layer.<group> entry to the corresponding group selector and select\n");
+    out.append("# the image whose path (or label) matches the stored value.\n");
+    out.append("#\n");
+    out.append("# Note: .layersetup files are editor-only; they are not used at runtime.\n");
+    out.append('\n');
     out.append("set=").append(currentSetId == null ? "" : currentSetId).append('\n');
     out.append("characterId=").append(sanitizeId(characterIdField.getText())).append('\n');
     out.append("expression=").append(sanitizeId(expressionField.getText())).append('\n');
