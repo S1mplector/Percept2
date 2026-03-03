@@ -418,6 +418,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     groupsRoot.setPadding(new Insets(2));
     ScrollPane groupsScroll = new ScrollPane(groupsRoot);
     groupsScroll.setFitToWidth(true);
+    groupsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    groupsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
 
     typedAttributesField.setPromptText("eyes=angry mouth=smile or eyes_angry mouth_smile");
     typedAttributesField.textProperty().addListener((o, ov, nv) -> {
