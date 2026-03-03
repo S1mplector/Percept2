@@ -106,8 +106,8 @@ public class FxLauncher extends Application {
     this.blitter2D = new FxBlitter2D(gc);
     this.rendererRegistry = createRendererRegistry();
     this.actionMap = loadActionBindings();
-    scene.widthProperty().addListener((obs, ov, nv) -> this.canvas.setWidth(nv.doubleValue()));
-    scene.heightProperty().addListener((obs, ov, nv) -> this.canvas.setHeight(nv.doubleValue()));
+    canvas.widthProperty().bind(root.widthProperty());
+    canvas.heightProperty().bind(root.heightProperty());
 
     // Input handling
     scene.setOnKeyPressed(e -> {
@@ -269,7 +269,7 @@ public class FxLauncher extends Application {
       }
     });
 
-    scene.setOnMouseMoved(e -> {
+    canvas.setOnMouseMoved(e -> {
       mouseX = e.getX();
       mouseY = e.getY();
       if (engine != null && engine.input() != null) engine.input().setMousePosition(mouseX, mouseY);
@@ -297,21 +297,21 @@ public class FxLauncher extends Application {
       }
     });
 
-    scene.setOnMousePressed(e -> {
+    canvas.setOnMousePressed(e -> {
       if (engine != null && engine.input() != null) {
         int btn = e.getButton() == MouseButton.PRIMARY ? 1 : (e.getButton() == MouseButton.MIDDLE ? 2 : 3);
         engine.input().mouseDown(btn);
       }
     });
 
-    scene.setOnMouseReleased(e -> {
+    canvas.setOnMouseReleased(e -> {
       if (engine != null && engine.input() != null) {
         int btn = e.getButton() == MouseButton.PRIMARY ? 1 : (e.getButton() == MouseButton.MIDDLE ? 2 : 3);
         engine.input().mouseUp(btn);
       }
     });
 
-    scene.setOnMouseClicked(e -> {
+    canvas.setOnMouseClicked(e -> {
       if (e.getButton() == MouseButton.PRIMARY) {
         // If history overlay open, close it instead of interacting
         if (engine != null) {
@@ -329,7 +329,7 @@ public class FxLauncher extends Application {
     });
 
     
-    scene.setOnScroll(e -> {
+    canvas.setOnScroll(e -> {
       if (engine != null && engine.input() != null) {
         engine.input().addScrollDeltaY(e.getDeltaY());
       }
@@ -343,7 +343,7 @@ public class FxLauncher extends Application {
       }
     });
 
-    scene.setOnMouseDragged(e -> {
+    canvas.setOnMouseDragged(e -> {
       if (e.isPrimaryButtonDown()) {
         handleMouseDrag(e.getX(), e.getY());
       }
@@ -815,23 +815,9 @@ public class FxLauncher extends Application {
         return true;
       }
       if (save.isNewItemSelected()) {
-        TextInputDialog dlg = new TextInputDialog("");
-        dlg.setTitle("New Save");
-        dlg.setHeaderText(null);
-        dlg.setContentText("Save name:");
-        var result = dlg.showAndWait();
-        result.ifPresent(name -> {
-          String trimmed = name.trim();
-          if (!trimmed.isEmpty()) save.saveNew(trimmed);
-        });
+        save.saveNew(save.generateSaveName());
       } else {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Overwrite save '" + save.getSelectedName() + "'?", ButtonType.YES, ButtonType.NO);
-        alert.setHeaderText(null);
-        alert.setTitle("Confirm Overwrite");
-        var result = alert.showAndWait();
-        if (result.isPresent() && result.get() == ButtonType.YES) {
-          save.saveOverwriteSelected();
-        }
+        save.saveOverwriteSelected();
       }
       return true;
     }

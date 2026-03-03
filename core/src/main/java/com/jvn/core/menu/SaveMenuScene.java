@@ -276,25 +276,42 @@ public class SaveMenuScene implements Scene {
   }
   public int getEntriesCount() { return saves.size() + 1; } // +1 for "New Save..."
 
+  public String generateSaveName() {
+    java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH.mm.ss");
+    return "Save " + java.time.LocalDateTime.now().format(fmt);
+  }
+
   public void saveNew(String name) {
     if (name == null || name.isBlank()) return;
+    if (currentVnScene == null || currentVnScene.getState() == null) {
+      LOG.warn("Cannot save: no active VN scene or state");
+      return;
+    }
     try {
       saveManager.save(currentVnScene.getState(), name);
       writeThumbnailFor(name);
       refresh();
-      engine.scenes().pop();
-    } catch (Exception ignored) { }
+      if (engine != null) engine.scenes().pop();
+    } catch (Exception e) {
+      LOG.warn("Save failed for '{}': {}", name, e.toString());
+    }
   }
 
   public void saveOverwriteSelected() {
     String name = getSelectedName();
     if (name == null) return;
+    if (currentVnScene == null || currentVnScene.getState() == null) {
+      LOG.warn("Cannot overwrite save: no active VN scene or state");
+      return;
+    }
     try {
       saveManager.save(currentVnScene.getState(), name);
       writeThumbnailFor(name);
       refresh();
-      engine.scenes().pop();
-    } catch (Exception ignored) { }
+      if (engine != null) engine.scenes().pop();
+    } catch (Exception e) {
+      LOG.warn("Overwrite save failed for '{}': {}", name, e.toString());
+    }
   }
 
   public boolean deleteSelected() {
