@@ -132,6 +132,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private final ComboBox<String> snippetFormatBox = new ComboBox<>();
   private final CheckBox randomizeActiveOnly = new CheckBox("Randomize active groups only");
   private final CheckBox matchGameFraming = new CheckBox("Match game framing");
+  private final CheckBox showOverlayGuides = new CheckBox("Show overlay guides");
   private final TextField attributeFilterField = new TextField();
   private final TextField typedAttributesField = new TextField();
   private final CheckBox typedRealtime = new CheckBox("Realtime preview");
@@ -283,6 +284,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       if (!applyingState) persistCurrentSetState();
     });
 
+    showOverlayGuides.setSelected(true);
+    showOverlayGuides.setTooltip(new Tooltip("Toggle crosshair and bounding-box overlay on preview"));
+    showOverlayGuides.selectedProperty().addListener((o, ov, nv) -> {
+      redrawPreview();
+      if (!applyingState) persistCurrentSetState();
+    });
+
     characterIdField.setPromptText("Image tag");
     expressionField.setPromptText("Expression id");
     characterIdField.textProperty().addListener((o, ov, nv) -> {
@@ -353,7 +361,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     HBox fileRow = new HBox(8, exportPngButton, exportSetupBtn, importSetupBtn);
     fileRow.setAlignment(Pos.CENTER_LEFT);
 
-    HBox framingRow = new HBox(8, matchGameFraming);
+    HBox framingRow = new HBox(8, matchGameFraming, showOverlayGuides);
     framingRow.setAlignment(Pos.CENTER_LEFT);
 
     VBox controls = new VBox(
@@ -374,15 +382,20 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     scriptPane.setAnimated(false);
     scriptPane.setCollapsible(true);
 
+    VBox actionsRoot = new VBox(6, toolRow, fileRow, framingRow);
+    actionsRoot.setPadding(new Insets(4, 0, 0, 0));
+    TitledPane actionsPane = new TitledPane("Actions", actionsRoot);
+    actionsPane.setExpanded(true);
+    actionsPane.setAnimated(false);
+    actionsPane.setCollapsible(true);
+
     VBox previewSection = new VBox(
         8,
         previewPane,
         previewInfoLabel,
         interactionHintLabel,
         viewControlsPane,
-        toolRow,
-        fileRow,
-        framingRow,
+        actionsPane,
         scriptPane,
         statusLabel);
     previewSection.setPadding(new Insets(0, 0, 4, 0));
@@ -594,6 +607,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     groupRows.clear();
     groupOrder.clear();
     groupBox.getChildren().clear();
+    imageCache.clear();
 
     LayeredSet set = sets.get(selectedSet);
     if (set == null || set.groups.isEmpty()) {
@@ -663,9 +677,14 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         persistCurrentSetState();
       });
 
-      Label groupLabel = new Label(groupName);
+      Label groupLabel = new Label(groupName + " (" + options.size() + ")");
       groupLabel.setMinWidth(110);
-      groupLabel.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px;");
+      boolean isBgGroup = isLikelyBackgroundGroupName(groupName);
+      String labelColor = isBgGroup ? "-fx-text-fill: #f0b673;" : "";
+      groupLabel.setStyle("-fx-font-family: 'Consolas', 'Menlo', 'DejaVu Sans Mono', monospace; -fx-font-size: 11px; " + labelColor);
+      if (isBgGroup) {
+        groupLabel.setTooltip(new Tooltip("Background group — suppressed from snippet export when foreground layers are active"));
+      }
 
       HBox row = new HBox(6, activeCheck, swapCheck, groupLabel, combo, nextButton, openButton, upButton, downButton);
       row.setAlignment(Pos.CENTER_LEFT);
@@ -1058,10 +1077,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       g.drawImage(img, x, y, spriteWidth, spriteHeight);
     }
 
-    g.setStroke(Color.color(1, 1, 1, 0.22));
-    g.strokeRect(x + 0.5, y + 0.5, spriteWidth - 1, spriteHeight - 1);
-    g.strokeLine(canvasWidth / 2.0, y, canvasWidth / 2.0, y + spriteHeight);
-    g.strokeLine(x, canvasHeight / 2.0, x + spriteWidth, canvasHeight / 2.0);
+    if (showOverlayGuides.isSelected()) {
+      g.setStroke(Color.color(1, 1, 1, 0.22));
+      g.strokeRect(x + 0.5, y + 0.5, spriteWidth - 1, spriteHeight - 1);
+      g.strokeLine(canvasWidth / 2.0, y, canvasWidth / 2.0, y + spriteHeight);
+      g.strokeLine(x, canvasHeight / 2.0, x + spriteWidth, canvasHeight / 2.0);
+    }
   }
 
   private ViewportFrame renderViewportPreview(GraphicsContext g, List<Image> layers, double canvasWidth, double canvasHeight, double maxW, double maxH) {
@@ -1094,10 +1115,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       g.drawImage(img, sx, sy, sw, sh, destX, destY, destW, destH);
     }
 
-    g.setStroke(Color.color(1, 1, 1, 0.22));
-    g.strokeRect(destX + 0.5, destY + 0.5, destW - 1, destH - 1);
-    g.strokeLine(canvasWidth / 2.0, destY, canvasWidth / 2.0, destY + destH);
-    g.strokeLine(destX, canvasHeight / 2.0, destX + destW, canvasHeight / 2.0);
+    if (showOverlayGuides.isSelected()) {
+      g.setStroke(Color.color(1, 1, 1, 0.22));
+      g.strokeRect(destX + 0.5, destY + 0.5, destW - 1, destH - 1);
+      g.strokeLine(canvasWidth / 2.0, destY, canvasWidth / 2.0, destY + destH);
+      g.strokeLine(destX, canvasHeight / 2.0, destX + destW, canvasHeight / 2.0);
+    }
     return new ViewportFrame(maxW, maxH, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
   }
 
@@ -1754,6 +1777,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     persisted.setProperty(prefix + "crop", formatDouble(cropSlider.getValue()));
     persisted.setProperty(prefix + "zoom", formatDouble(zoomSlider.getValue()));
     persisted.setProperty(prefix + "groupOrder", encodeCsv(groupOrder));
+    persisted.setProperty(prefix + "snippetFormat", snippetFormatBox.getValue() == null ? "" : snippetFormatBox.getValue());
+    persisted.setProperty(prefix + "showOverlayGuides", Boolean.toString(showOverlayGuides.isSelected()));
 
     for (Map.Entry<String, ComboBox<LayerOption>> entry : selectors.entrySet()) {
       String group = entry.getKey();
@@ -1786,6 +1811,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       typedRealtime.setSelected(parseBoolean(persisted.getProperty(prefix + "typedRealtime"), true));
       shortformsArea.setText(persisted.getProperty(prefix + "shortforms", DEFAULT_SHORTFORMS));
       refreshShortforms();
+
+      String snippetFormat = persisted.getProperty(prefix + "snippetFormat", "");
+      if (!snippetFormat.isBlank() && snippetFormatBox.getItems().contains(snippetFormat)) {
+        snippetFormatBox.getSelectionModel().select(snippetFormat);
+      }
+      showOverlayGuides.setSelected(parseBoolean(persisted.getProperty(prefix + "showOverlayGuides"), true));
 
       focusXSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusX"), focusXSlider.getValue()));
       focusYSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusY"), focusYSlider.getValue()));
@@ -1850,7 +1881,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     if (file == null || !Files.exists(file)) return;
     try (InputStream in = Files.newInputStream(file)) {
       persisted.load(in);
-    } catch (Exception ignored) {
+    } catch (Exception ex) {
+      status("Failed to load persistent state: " + ex.getMessage());
     }
   }
 
@@ -1871,7 +1903,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           -0.5,
           2.0
       );
-    } catch (Exception ignored) {
+    } catch (Exception ex) {
+      status("Failed to load game framing settings: " + ex.getMessage());
     }
   }
 
@@ -1884,7 +1917,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       try (OutputStream out = Files.newOutputStream(file)) {
         persisted.store(out, "JVN " + toolTitle + " State");
       }
-    } catch (Exception ignored) {
+    } catch (Exception ex) {
+      status("Failed to save persistent state: " + ex.getMessage());
     }
   }
 
