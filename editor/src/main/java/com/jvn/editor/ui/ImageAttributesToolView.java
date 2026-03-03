@@ -1,6 +1,7 @@
 package com.jvn.editor.ui;
 
 import java.awt.Desktop;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -24,8 +24,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import javax.imageio.ImageIO;
+
+import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -41,6 +45,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseButton;
@@ -52,6 +57,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.FileChooser;
 import javafx.util.StringConverter;
 
 /**
@@ -356,7 +362,13 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
     tabs.getTabs().addAll(attributesTab, typedTab, shortformsTab);
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-    VBox exportRoot = new VBox(8, expressionRow, exportRow);
+    Button exportPngButton = iconButton(CssIcon.download("#8ab4f8"), "Export composited image as PNG file", this::exportCompositePng);
+    Button exportSetupBtn = iconButton(CssIcon.save("#9ed67a"), "Export setup to .attrsetup file", this::exportSetupToFile);
+    Button importSetupBtn = iconButton(CssIcon.folder("#f5c46b"), "Import setup from .attrsetup file", this::importSetupFromFile);
+    HBox fileRow = new HBox(8, exportPngButton, exportSetupBtn, importSetupBtn);
+    fileRow.setAlignment(Pos.CENTER_LEFT);
+
+    VBox exportRoot = new VBox(8, expressionRow, exportRow, fileRow);
     exportRoot.setPadding(new Insets(4, 0, 0, 0));
     TitledPane exportPane = new TitledPane("Export controls", exportRoot);
     exportPane.setExpanded(false);
@@ -1735,4 +1747,148 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   }
 
   private record InferredGroupLabel(String group, String label) {}
+
+  // ── File export / import ──
+
+  private void exportCompositePng() {
+    List<AttributeOption> selected = selectedOptions();
+    if (selected.isEmpty()) {
+      status("No attributes selected — nothing to export.");
+      return;
+    }
+    List<Image> layers = new ArrayList<>();
+    double maxW = 0, maxH = 0;
+    for (AttributeOption option : selected) {
+      Image img = loadImage(option);
+      if (img == null || img.isError() || img.getWidth() <= 0 || img.getHeight() <= 0) continue;
+      layers.add(img);
+      if (img.getWidth() > maxW) maxW = img.getWidth();
+      if (img.getHeight() > maxH) maxH = img.getHeight();
+    }
+    if (layers.isEmpty()) {
+      status("Selected attribute images could not be loaded.");
+      return;
+    }
+    Canvas offscreen = new Canvas(maxW, maxH);
+    GraphicsContext g = offscreen.getGraphicsContext2D();
+    for (Image img : layers) {
+      g.drawImage(img, 0, 0, img.getWidth(), img.getHeight());
+    }
+    WritableImage snapshot = offscreen.snapshot(new SnapshotParameters() {{
+      setFill(Color.TRANSPARENT);
+    }}, null);
+
+    FileChooser fc = new FileChooser();
+    fc.setTitle("Export Composited PNG");
+    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Image", "*.png"));
+    String suggestedName = sanitizeFilename(currentTagId) + "_" + sanitizeFilename(expressionField.getText()) + ".png";
+    fc.setInitialFileName(suggestedName);
+    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+    if (file == null) return;
+    try {
+      BufferedImage bImg = SwingFXUtils.fromFXImage(snapshot, null);
+      ImageIO.write(bImg, "png", file);
+      status("Exported PNG: " + file.getName());
+    } catch (Exception ex) {
+      status("PNG export failed: " + ex.getMessage());
+    }
+  }
+
+  private void exportSetupToFile() {
+    String text = buildFullSetupText();
+    FileChooser fc = new FileChooser();
+    fc.setTitle("Export Attribute Setup");
+    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Attribute Setup", "*.attrsetup"));
+    String suggestedName = sanitizeFilename(currentTagId) + ".attrsetup";
+    fc.setInitialFileName(suggestedName);
+    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+    if (file == null) return;
+    try {
+      Files.writeString(file.toPath(), text, StandardCharsets.UTF_8);
+      status("Exported setup: " + file.getName());
+    } catch (Exception ex) {
+      status("Setup export failed: " + ex.getMessage());
+    }
+  }
+
+  private void importSetupFromFile() {
+    FileChooser fc = new FileChooser();
+    fc.setTitle("Import Attribute Setup");
+    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Attribute Setup", "*.attrsetup"));
+    File file = fc.showOpenDialog(getScene() != null ? getScene().getWindow() : null);
+    if (file == null) return;
+    try {
+      List<String> lines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+      Map<String, String> assignments = new LinkedHashMap<>();
+      for (String line : lines) {
+        if (line == null) continue;
+        String work = line.trim();
+        if (work.isBlank() || work.startsWith("#")) continue;
+        int eq = work.indexOf('=');
+        if (eq <= 0) continue;
+        String key = work.substring(0, eq).trim();
+        String value = work.substring(eq + 1).trim();
+        if (key.isBlank() || value.isBlank()) continue;
+        // Handle group selections: group.sel.XXX=value
+        if (key.startsWith("group.")) {
+          String groupName = key.substring("group.".length());
+          assignments.put(groupName, value);
+        }
+      }
+      if (assignments.isEmpty()) {
+        status("No attribute assignments found in file.");
+        return;
+      }
+      int applied = 0;
+      applyingState = true;
+      try {
+        for (Map.Entry<String, String> entry : assignments.entrySet()) {
+          String group = resolveGroupName(entry.getKey());
+          if (group == null || group.isBlank()) continue;
+          ComboBox<AttributeOption> combo = selectors.get(group);
+          if (combo == null) continue;
+          AttributeOption target = findOptionByValue(combo, entry.getValue());
+          if (target != null) {
+            combo.getSelectionModel().select(target);
+            applied++;
+          }
+        }
+      } finally {
+        applyingState = false;
+      }
+      updateExpressionFromSelection();
+      redrawPreview();
+      persistCurrentTagState();
+      status("Imported " + applied + " attribute(s) from " + file.getName());
+    } catch (Exception ex) {
+      status("Setup import failed: " + ex.getMessage());
+    }
+  }
+
+  private String buildFullSetupText() {
+    StringBuilder out = new StringBuilder();
+    out.append("# JVN Image Attributes Tool Setup\n");
+    out.append("tag=").append(currentTagId == null ? "" : currentTagId).append('\n');
+    String scriptTag = normalize(exportTagField.getText());
+    if (!scriptTag.isBlank()) {
+      out.append("scriptTag=").append(scriptTag).append('\n');
+    }
+    out.append("expression=").append(normalize(expressionField.getText())).append('\n');
+    out.append("exportFormat=").append(normalize(exportFormatBox.getValue())).append('\n');
+    out.append('\n');
+    for (String group : groupOrder) {
+      ComboBox<AttributeOption> combo = selectors.get(group);
+      AttributeOption option = combo == null ? null : combo.getValue();
+      String selection = (option == null || option.isNone()) ? "(none)" : option.label;
+      out.append("group.").append(group).append('=').append(selection).append('\n');
+    }
+    return out.toString();
+  }
+
+  private static String sanitizeFilename(String raw) {
+    if (raw == null || raw.isBlank()) return "export";
+    String s = raw.replaceAll("[^a-zA-Z0-9._-]", "_");
+    s = s.replaceAll("_+", "_").replaceAll("^_+", "").replaceAll("_+$", "");
+    return s.isBlank() ? "export" : s;
+  }
 }

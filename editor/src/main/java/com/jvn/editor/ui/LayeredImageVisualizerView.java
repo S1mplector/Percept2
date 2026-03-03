@@ -1,6 +1,7 @@
 package com.jvn.editor.ui;
 
 import java.awt.Desktop;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,12 +26,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import javax.imageio.ImageIO;
+
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
 
+import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -48,6 +53,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseButton;
@@ -59,6 +65,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.FileChooser;
 import javafx.util.StringConverter;
 
 /**
@@ -339,6 +346,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         fullscreenButton,
         randomizeActiveOnly);
     toolRow.setAlignment(Pos.CENTER_LEFT);
+
+    Button exportPngButton = iconButton(CssIcon.download("#8ab4f8"), "Export composited image as PNG file", this::exportCompositePng);
+    Button exportSetupBtn = iconButton(CssIcon.save("#9ed67a"), "Export setup to .layersetup file", this::exportSetupToFile);
+    Button importSetupBtn = iconButton(CssIcon.folder("#f5c46b"), "Import setup from .layersetup file", this::importSetupFromFile);
+    HBox fileRow = new HBox(8, exportPngButton, exportSetupBtn, importSetupBtn);
+    fileRow.setAlignment(Pos.CENTER_LEFT);
+
     HBox framingRow = new HBox(8, matchGameFraming);
     framingRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -367,6 +381,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         interactionHintLabel,
         viewControlsPane,
         toolRow,
+        fileRow,
         framingRow,
         scriptPane,
         statusLabel);
@@ -2347,4 +2362,160 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private record CharpresetSnippet(String declarations, String presetLine) {}
 
   private record InferredGroupLabel(String group, String label) {}
+
+  // ── File export / import ──
+
+  private void exportCompositePng() {
+    List<LayerOption> selected = selectedLayers();
+    if (selected.isEmpty()) {
+      status("No layers selected — nothing to export.");
+      return;
+    }
+    List<Image> layers = new ArrayList<>();
+    double maxW = 0, maxH = 0;
+    for (LayerOption option : selected) {
+      Image img = loadImage(option);
+      if (img == null || img.isError() || img.getWidth() <= 0 || img.getHeight() <= 0) continue;
+      layers.add(img);
+      if (img.getWidth() > maxW) maxW = img.getWidth();
+      if (img.getHeight() > maxH) maxH = img.getHeight();
+    }
+    if (layers.isEmpty()) {
+      status("Selected layer images could not be loaded.");
+      return;
+    }
+    Canvas offscreen = new Canvas(maxW, maxH);
+    GraphicsContext g = offscreen.getGraphicsContext2D();
+    for (Image img : layers) {
+      g.drawImage(img, 0, 0, img.getWidth(), img.getHeight());
+    }
+    WritableImage snapshot = offscreen.snapshot(new SnapshotParameters() {{
+      setFill(Color.TRANSPARENT);
+    }}, null);
+
+    FileChooser fc = new FileChooser();
+    fc.setTitle("Export Composited PNG");
+    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Image", "*.png"));
+    String suggestedName = sanitizeFilename(currentSetId) + "_" + sanitizeFilename(expressionField.getText()) + ".png";
+    fc.setInitialFileName(suggestedName);
+    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+    if (file == null) return;
+    try {
+      BufferedImage bImg = SwingFXUtils.fromFXImage(snapshot, null);
+      ImageIO.write(bImg, "png", file);
+      status("Exported PNG: " + file.getName());
+    } catch (Exception ex) {
+      status("PNG export failed: " + ex.getMessage());
+    }
+  }
+
+  private void exportSetupToFile() {
+    String text = buildFullSetupText();
+    FileChooser fc = new FileChooser();
+    fc.setTitle("Export Layer Setup");
+    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Layer Setup", "*.layersetup"));
+    String suggestedName = sanitizeFilename(currentSetId) + ".layersetup";
+    fc.setInitialFileName(suggestedName);
+    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+    if (file == null) return;
+    try {
+      Files.writeString(file.toPath(), text, StandardCharsets.UTF_8);
+      status("Exported setup: " + file.getName());
+    } catch (Exception ex) {
+      status("Setup export failed: " + ex.getMessage());
+    }
+  }
+
+  private void importSetupFromFile() {
+    FileChooser fc = new FileChooser();
+    fc.setTitle("Import Layer Setup");
+    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Layer Setup", "*.layersetup"));
+    File file = fc.showOpenDialog(getScene() != null ? getScene().getWindow() : null);
+    if (file == null) return;
+    try {
+      List<String> lines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+      Map<String, String> assignments = new LinkedHashMap<>();
+      for (String line : lines) {
+        if (line == null) continue;
+        String work = line.trim();
+        if (work.isBlank() || work.startsWith("#")) continue;
+        int eq = work.indexOf('=');
+        if (eq <= 0) continue;
+        String key = work.substring(0, eq).trim();
+        String value = work.substring(eq + 1).trim();
+        if (key.isBlank() || value.isBlank()) continue;
+        if (key.startsWith("layer.")) {
+          String groupName = key.substring("layer.".length());
+          assignments.put(groupName, value);
+        }
+      }
+      if (assignments.isEmpty()) {
+        status("No layer assignments found in file.");
+        return;
+      }
+      int applied = 0;
+      applyingState = true;
+      try {
+        for (Map.Entry<String, String> entry : assignments.entrySet()) {
+          String group = entry.getKey();
+          ComboBox<LayerOption> combo = selectors.get(group);
+          if (combo == null) {
+            for (String g : selectors.keySet()) {
+              if (sanitizeId(g).equals(sanitizeId(group))) {
+                combo = selectors.get(g);
+                break;
+              }
+            }
+          }
+          if (combo == null) continue;
+          LayerOption target = findByRelativePath(combo, entry.getValue());
+          if (target == null) {
+            for (LayerOption opt : combo.getItems()) {
+              if (opt != null && !opt.isNone() && opt.label.equals(entry.getValue())) {
+                target = opt;
+                break;
+              }
+            }
+          }
+          if (target != null) {
+            combo.getSelectionModel().select(target);
+            applied++;
+          }
+        }
+      } finally {
+        applyingState = false;
+      }
+      updateExpressionFromSelection();
+      redrawPreview();
+      persistCurrentSetState();
+      status("Imported " + applied + " layer(s) from " + file.getName());
+    } catch (Exception ex) {
+      status("Setup import failed: " + ex.getMessage());
+    }
+  }
+
+  private String buildFullSetupText() {
+    StringBuilder out = new StringBuilder();
+    out.append("# JVN Layered Image Visualizer Setup\n");
+    out.append("set=").append(currentSetId == null ? "" : currentSetId).append('\n');
+    out.append("characterId=").append(sanitizeId(characterIdField.getText())).append('\n');
+    out.append("expression=").append(sanitizeId(expressionField.getText())).append('\n');
+    out.append('\n');
+    for (String group : groupOrder) {
+      ComboBox<LayerOption> combo = selectors.get(group);
+      LayerOption option = combo != null ? combo.getValue() : null;
+      String selection = (option == null || option.isNone()) ? "(none)" : option.relativePath;
+      String label = (option == null || option.isNone()) ? "(none)" : option.label;
+      out.append("layer.").append(group).append('=').append(selection).append('\n');
+      out.append("# label: ").append(label).append('\n');
+    }
+    return out.toString();
+  }
+
+  private static String sanitizeFilename(String raw) {
+    if (raw == null || raw.isBlank()) return "export";
+    String s = raw.replaceAll("[^a-zA-Z0-9._-]", "_");
+    s = s.replaceAll("_+", "_").replaceAll("^_+", "").replaceAll("_+$", "");
+    return s.isBlank() ? "export" : s;
+  }
 }
