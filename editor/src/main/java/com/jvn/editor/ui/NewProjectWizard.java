@@ -131,9 +131,9 @@ public class NewProjectWizard extends Stage {
   private static final String MENU_STYLE_DEFAULT_PATH = "config/menu/styles/default.style";
   private static final String MENU_STYLE_SUBMENU_PATH = "config/menu/styles/submenu.style";
   private static final String MENU_STYLE_SLOT_PATH = "config/menu/styles/slot.style";
-  private static final String DEFAULT_MENU_BG_ASSET_PATH = "assets/demo/backgrounds/field/glorious_ricefield_day.png";
+  private static final String DEFAULT_MENU_BG_ASSET_PATH = "assets/demo/backgrounds/menu.png";
   private static final String BUNDLED_DEMO_ASSETS_DIR = "demo-assets";
-  private static final String BUNDLED_DEMO_BG_DIR = "demo_bg_field";
+  private static final String BUNDLED_DEMO_BG_DIR = "demo_bg";
   private static final String BUNDLED_DEMO_SPRITE_LAYERED_DIR = "Lavender_test_sprite";
   private static final String BUNDLED_DEMO_SPRITE_LEGACY_DIR = "demo_sprite_codel";
   private static final String BUNDLED_DEMO_BGM_DIR = "demo_bgm";
@@ -1255,7 +1255,7 @@ public class NewProjectWizard extends Stage {
 
     copyDirectoryContents(
         new File(sourceRoot, BUNDLED_DEMO_BG_DIR),
-        new File(projectRoot, "assets/demo/backgrounds/field")
+        new File(projectRoot, "assets/demo/backgrounds")
     );
     boolean copiedLayeredLavender = false;
     File layeredSource = new File(sourceRoot, BUNDLED_DEMO_SPRITE_LAYERED_DIR);
@@ -1458,8 +1458,8 @@ public class NewProjectWizard extends Stage {
 
         __CHAR_DECLS__
 
-        @background field_day assets/demo/backgrounds/field/field.jpg
-        @background field_evening assets/demo/backgrounds/field/field.jpg
+        @background field_day assets/demo/backgrounds/game.png
+        @background field_evening assets/demo/backgrounds/game.png
 
         @var tutorial_count = 0
 
