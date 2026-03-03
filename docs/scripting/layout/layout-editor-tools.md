@@ -136,7 +136,7 @@ Visual editor for `.style` files.
 
 - **ColorPicker** for item colors, title color, hints color, background color
 - **Font family and size** fields
-- **Font weight** selector
+- **Font weight** selectors for items, title, and hints (`NORMAL` / `BOLD` / `SEMI_BOLD`)
 - **Button asset path** fields
 - **Shadow offset** fields
 - **Opacity slider**

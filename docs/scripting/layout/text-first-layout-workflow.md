@@ -172,10 +172,13 @@ nameBoxColor=#1A1A2E                     # (optional) Fallback color
 nameTextColor=#FFFFFF                    # (optional) Name text color
 nameTextFontFamily=Segoe UI              # (optional) Font family for name
 nameTextFontSize=18                      # (optional) Font size for name
+# nameTextFontWeight=NORMAL              # (optional) NORMAL or BOLD
+# nameBoxOpacity=1.0                     # (optional) 0.0–1.0
 
 dialogueTextColor=#F0F0F0                # (optional) Dialogue body text color
 dialogueTextFontFamily=Segoe UI          # (optional) Font family for dialogue
 dialogueTextFontSize=22                  # (optional) Font size for dialogue
+# dialogueTextFontWeight=NORMAL          # (optional) NORMAL or BOLD
 
 # ── Choice Visual Style ──
 choiceButtonAsset=assets/ui/choice.png           # (optional) Button image
@@ -203,6 +206,7 @@ choiceBorderWidth=2.0                    # (optional) 0–12
 choiceTextBaselineOffset=5.0             # (optional) -120 to 120
 choiceFontFamily=Segoe UI                # (optional)
 choiceFontSize=20                        # (optional)
+# choiceFontWeight=NORMAL                # (optional) NORMAL or BOLD
 
 # ── Character Framing (optional) ──
 characterHeightFactor=0.85               # (optional) 0.1–3.0
@@ -275,9 +279,10 @@ titleY=0.14
 
 | ID | listYStart | lineHeight | listWidthFactor | textAlign | hintsBottomMargin | titleY |
 |---|---|---|---|---|---|---|
-| `default` | 0.34 | 68.0 | 0.44 | center | 36.0 | 0.14 |
-| `submenu` | 0.24 | 62.0 | 0.64 | left | 30.0 | 0.11 |
-| `slots` | 0.20 | 74.0 | 0.58 | left | 30.0 | 0.10 |
+| `default` | 0.38 | 62.0 | 0.36 | center | 32.0 | 0.16 |
+| `submenu` | 0.26 | 56.0 | 0.52 | left | 28.0 | 0.13 |
+| `settings` | 0.16 | 50.0 | 0.56 | left | 24.0 | 0.07 |
+| `slots` | 0.22 | 68.0 | 0.54 | left | 28.0 | 0.12 |
 
 #### Runtime Validation Checklist — Menu .layout
 
@@ -343,6 +348,7 @@ titleShadowColor=#000000A8           # (optional) Title shadow color
 # ── Hints Bar Styling ──
 hintsColor=#A8B6D2                   # (optional) Hints text color
 hintsFontFamily=Segoe UI             # (optional) Hints font family
+# hintsFontWeight=NORMAL             # (optional) NORMAL | BOLD | SEMI_BOLD
 hintsFontSize=18                     # (optional) Hints font size
 
 # ── Background ──

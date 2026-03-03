@@ -18,11 +18,14 @@ public record VnUiStyleSpec(
     String nameTextColor,
     String nameTextFontFamily,
     Integer nameTextFontSize,
+    String nameTextFontWeight,
     String nameBoxBoundsPoints,
+    Double nameBoxOpacity,
     // --- Dialogue text ---
     String dialogueTextColor,
     String dialogueTextFontFamily,
     Integer dialogueTextFontSize,
+    String dialogueTextFontWeight,
     String dialogueTextBoundsPoints,
     // --- Choice button assets ---
     String choiceButtonAssetPath,
@@ -50,6 +53,7 @@ public record VnUiStyleSpec(
     // --- Choice font ---
     String choiceFontFamily,
     Integer choiceFontSize,
+    String choiceFontWeight,
     // --- Character framing ---
     Double characterHeightFactor,
     Double characterBaselineY
@@ -64,10 +68,13 @@ public record VnUiStyleSpec(
     nameTextColor = normalize(nameTextColor);
     nameTextFontFamily = normalize(nameTextFontFamily);
     if (nameTextFontSize != null && nameTextFontSize <= 0) nameTextFontSize = null;
+    nameTextFontWeight = normalize(nameTextFontWeight);
     nameBoxBoundsPoints = normalize(nameBoxBoundsPoints);
+    if (nameBoxOpacity != null) nameBoxOpacity = clamp(nameBoxOpacity, 0.0, 1.0);
     dialogueTextColor = normalize(dialogueTextColor);
     dialogueTextFontFamily = normalize(dialogueTextFontFamily);
     if (dialogueTextFontSize != null && dialogueTextFontSize <= 0) dialogueTextFontSize = null;
+    dialogueTextFontWeight = normalize(dialogueTextFontWeight);
     dialogueTextBoundsPoints = normalize(dialogueTextBoundsPoints);
 
     choiceButtonAssetPath = normalize(choiceButtonAssetPath);
@@ -96,6 +103,7 @@ public record VnUiStyleSpec(
     choiceTextBaselineOffset = clamp(sane(choiceTextBaselineOffset, 5.0), -120.0, 120.0);
     choiceFontFamily = normalize(choiceFontFamily);
     if (choiceFontSize != null && choiceFontSize <= 0) choiceFontSize = null;
+    choiceFontWeight = normalize(choiceFontWeight);
     if (characterHeightFactor != null) {
       characterHeightFactor = clamp(characterHeightFactor, 0.1, 3.0);
     }
@@ -108,13 +116,14 @@ public record VnUiStyleSpec(
     return new VnUiStyleSpec(
         null, "#0C1220E0", 0.88, null,                       // textbox: dark navy, high opacity
         null, "#14203890", "#FFD78A", "SansSerif", 18, null, // name box: dark tint, warm gold text
-        "#E8EDF6", "SansSerif", 22, null,                    // dialogue: near-white, clean
+        null, null,                                           // name box: no font weight override, no opacity
+        "#E8EDF6", "SansSerif", 22, null, null,              // dialogue: near-white, clean, no font weight override
         null, null, null, null, null,                         // choice button assets + bounds
         "#1A2640D8", "#243358E8", "#2A3D68E8", "#121826A0", // choice bg: dark blue tones
         "#D4DCF0", "#F0F4FF", "#FFD78A", "#6878A0",         // choice text: light, warm highlight
         "#3A5080A0", "#5888CCA0", "#C8A04880", "#28345060", // choice borders: blue/gold accents
         8.0, 1.5, 4.0,                                       // corner radius, border, baseline
-        "SansSerif", 20,                                     // choice font
+        "SansSerif", 20, null,                               // choice font + weight
         0.85, 1.0                                            // character framing
     );
   }

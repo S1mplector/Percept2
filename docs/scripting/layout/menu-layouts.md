@@ -60,25 +60,38 @@ The standard main menu layout with centered items.
 
 ```properties
 # Built-in defaults
-listYStart=0.34
-lineHeight=68
-listWidthFactor=0.44
+listYStart=0.38
+lineHeight=62
+listWidthFactor=0.36
 textAlign=center
-hintsBottomMargin=36
-titleY=0.14
+hintsBottomMargin=32
+titleY=0.16
 ```
 
 ### `submenu`
 
-A secondary screen layout (settings, extras) with left-aligned items and a wider list.
+A secondary screen layout (extras, gallery) with left-aligned items and a wider list.
 
 ```properties
-listYStart=0.24
-lineHeight=62
-listWidthFactor=0.64
+listYStart=0.26
+lineHeight=56
+listWidthFactor=0.52
 textAlign=left
-hintsBottomMargin=30
-titleY=0.11
+hintsBottomMargin=28
+titleY=0.13
+```
+
+### `settings`
+
+A dedicated settings screen layout with tighter spacing for option rows.
+
+```properties
+listYStart=0.16
+lineHeight=50
+listWidthFactor=0.56
+textAlign=left
+hintsBottomMargin=24
+titleY=0.07
 ```
 
 ### `slots`
@@ -86,12 +99,12 @@ titleY=0.11
 Optimized for save/load screens with taller rows for slot previews.
 
 ```properties
-listYStart=0.20
-lineHeight=74
-listWidthFactor=0.58
+listYStart=0.22
+lineHeight=68
+listWidthFactor=0.54
 textAlign=left
-hintsBottomMargin=30
-titleY=0.10
+hintsBottomMargin=28
+titleY=0.12
 ```
 
 ---
@@ -137,10 +150,11 @@ Result:
 
 ```properties
 # config/menu/layouts/settings.layout
-extends=submenu
-listYStart=0.20
-lineHeight=52
-listWidthFactor=0.70
+# Inherits from the built-in settings preset
+extends=settings
+listYStart=0.18
+lineHeight=48
+listWidthFactor=0.60
 textAlign=left
 ```
 

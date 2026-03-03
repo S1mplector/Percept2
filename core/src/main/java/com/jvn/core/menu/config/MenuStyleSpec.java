@@ -36,6 +36,7 @@ public record MenuStyleSpec(
     // --- Hints styling ---
     String hintsColor,
     String hintsFontFamily,
+    String hintsFontWeight,
     Integer hintsFontSize,
     // --- Background ---
     String backgroundAssetPath,
@@ -71,6 +72,7 @@ public record MenuStyleSpec(
     titleShadowColor = normalize(titleShadowColor, null);
     hintsColor = normalize(hintsColor, null);
     hintsFontFamily = normalize(hintsFontFamily, null);
+    hintsFontWeight = normalize(hintsFontWeight, null);
     if (hintsFontSize != null && hintsFontSize <= 0) hintsFontSize = null;
     backgroundAssetPath = normalize(backgroundAssetPath, null);
     backgroundColor = normalize(backgroundColor, null);

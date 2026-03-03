@@ -21,6 +21,8 @@ public final class LayoutDslTemplates {
 # Format: key=value (Java .properties)
 # Units: fractions (0..1) = viewport-relative, pixel values = absolute.
 # choiceYStart: -1 = auto-center vertically.
+# Font weights: NORMAL, BOLD.  Text keys from config/locales/*.properties
+# are resolved via VnTextFormatter at runtime.
 
 # ---- Text box (main dialogue panel) ----
 textBoxX=0.0
@@ -53,13 +55,17 @@ choiceTextXPadding=20
 
 # ---- Dialogue style ----
 textBoxColor=#0C1220E0
+textBoxOpacity=0.88
 nameBoxColor=#14203890
 nameTextColor=#FFD78A
 nameTextFontFamily=SansSerif
 nameTextFontSize=18
+# nameTextFontWeight=NORMAL
+# nameBoxOpacity=1.0
 dialogueTextColor=#E8EDF6
 dialogueTextFontFamily=SansSerif
 dialogueTextFontSize=22
+# dialogueTextFontWeight=NORMAL
 
 # ---- Choice style ----
 choiceCornerRadius=8
@@ -67,6 +73,7 @@ choiceBorderWidth=1.5
 choiceTextBaselineOffset=4
 choiceFontFamily=SansSerif
 choiceFontSize=20
+# choiceFontWeight=NORMAL
 choiceBackgroundColor=#1A2640D8
 choiceHoverColor=#243358E8
 choiceSelectedColor=#2A3D68E8
@@ -86,11 +93,15 @@ characterBaselineY=1.0
 
 # ---- Custom textbox / choice skin assets (uncomment to use) ----
 # textBoxAsset=assets/ui/textbox.png
+# textBoxBoundsPoints=0,0;1,0;1,1;0,1
 # nameBoxAsset=assets/ui/namebox.png
+# nameBoxBoundsPoints=0,0;1,0;1,1;0,1
+# dialogueTextBoundsPoints=0,0;1,0;1,1;0,1
 # choiceButtonAsset=assets/ui/choice_button.png
 # choiceButtonHoverAsset=assets/ui/choice_button_hover.png
 # choiceButtonSelectedAsset=assets/ui/choice_button_selected.png
 # choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png
+# choiceButtonBoundsPoints=0,0;1,0;1,1;0,1
 
 # ---- Textbox action buttons (uncomment to enable) ----
 # textBoxButton.ids=save,load
@@ -121,7 +132,7 @@ lineHeight=%s
 listWidthFactor=%s
 textAlign=%s
 hintsBottomMargin=%s
-# titleY=0.16
+titleY=0.16
 """.formatted(
         formatDouble(s.listYStart()),
         formatDouble(s.lineHeight()),
@@ -291,10 +302,12 @@ titleFontSize=48
 titleShadowColor=#00000088
 hintsColor=#8898B8
 hintsFontFamily=SansSerif
+# hintsFontWeight=NORMAL
 hintsFontSize=15
 backgroundAsset=%s
 backgroundColor=#060D1A
 backgroundOpacity=1.0
+# itemOpacity=1.0
 buttonTextPaddingX=24
 buttonTextPaddingY=2
 # buttonAsset=assets/ui/menu/button.png
@@ -328,11 +341,17 @@ titleFontSize=36
 titleShadowColor=#00000066
 hintsColor=#7888A8
 hintsFontFamily=SansSerif
+# hintsFontWeight=NORMAL
 hintsFontSize=14
 backgroundColor=#08101E
 backgroundOpacity=1.0
+# itemOpacity=1.0
 buttonTextPaddingX=20
 buttonTextPaddingY=1
+# buttonAsset=assets/ui/menu/button.png
+# buttonSelectedAsset=assets/ui/menu/button_selected.png
+# buttonHoverAsset=assets/ui/menu/button_hover.png
+# buttonDisabledAsset=assets/ui/menu/button_disabled.png
 """;
   }
 
@@ -360,11 +379,17 @@ titleFontSize=36
 titleShadowColor=#00000066
 hintsColor=#7888A8
 hintsFontFamily=SansSerif
+# hintsFontWeight=NORMAL
 hintsFontSize=14
 backgroundColor=#070E1C
 backgroundOpacity=1.0
+# itemOpacity=1.0
 buttonTextPaddingX=18
 buttonTextPaddingY=0
+# buttonAsset=assets/ui/menu/button.png
+# buttonSelectedAsset=assets/ui/menu/button_selected.png
+# buttonHoverAsset=assets/ui/menu/button_hover.png
+# buttonDisabledAsset=assets/ui/menu/button_disabled.png
 """;
   }
 

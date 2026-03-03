@@ -69,6 +69,7 @@ object MenuDsl:
     private var _titleShadowColor: String = null
     private var _hintsColor: String = null
     private var _hintsFontFamily: String = null
+    private var _hintsFontWeight: String = null
     private var _hintsFontSize: Integer = null
     private var _bgAsset: String = null
     private var _bgColor: String = null
@@ -113,9 +114,10 @@ object MenuDsl:
       if fontSize > 0 then _titleFontSize = fontSize
       _titleShadowColor = shadowColor
 
-    def hints(color: String, fontFamily: String = null, fontSize: Int = -1): Unit =
+    def hints(color: String, fontFamily: String = null, fontWeight: String = null, fontSize: Int = -1): Unit =
       _hintsColor = color
       _hintsFontFamily = fontFamily
+      _hintsFontWeight = fontWeight
       if fontSize > 0 then _hintsFontSize = fontSize
 
     def background(asset: String = null, color: String = null, opacity: Double = 1.0): Unit =
@@ -132,7 +134,7 @@ object MenuDsl:
       _buttonAsset, _buttonSelectedAsset, _buttonHoverAsset, _buttonDisabledAsset,
       _buttonPaddingX, _buttonPaddingY,
       _titleColor, _titleFontFamily, _titleFontWeight, _titleFontSize, _titleShadowColor,
-      _hintsColor, _hintsFontFamily, _hintsFontSize,
+      _hintsColor, _hintsFontFamily, _hintsFontWeight, _hintsFontSize,
       _bgAsset, _bgColor, _bgOpacity
     )
 

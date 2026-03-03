@@ -68,10 +68,13 @@ public final class VnUiLayoutLoader {
       "nameTextColor",
       "nameTextFontFamily",
       "nameTextFontSize",
+      "nameTextFontWeight",
       "nameBoxBoundsPoints",
+      "nameBoxOpacity",
       "dialogueTextColor",
       "dialogueTextFontFamily",
       "dialogueTextFontSize",
+      "dialogueTextFontWeight",
       "dialogueTextBoundsPoints",
       "choiceButtonAsset",
       "choiceButtonHoverAsset",
@@ -95,6 +98,7 @@ public final class VnUiLayoutLoader {
       "choiceTextBaselineOffset",
       "choiceFontFamily",
       "choiceFontSize",
+      "choiceFontWeight",
       "characterHeightFactor",
       "characterBaselineY"
   );
@@ -304,6 +308,7 @@ public final class VnUiLayoutLoader {
 
     Double textBoxOpacity = parseOptionalDouble(props.getProperty("textBoxOpacity"), bStyle.textBoxOpacity(), diagnostics, "textBoxOpacity");
     Integer nameTextFontSize = parseOptionalInt(props.getProperty("nameTextFontSize"), bStyle.nameTextFontSize(), diagnostics, "nameTextFontSize");
+    Double nameBoxOpacity = parseOptionalDouble(props.getProperty("nameBoxOpacity"), bStyle.nameBoxOpacity(), diagnostics, "nameBoxOpacity");
     Integer dialogueTextFontSize = parseOptionalInt(props.getProperty("dialogueTextFontSize"), bStyle.dialogueTextFontSize(), diagnostics, "dialogueTextFontSize");
     double choiceCornerRadius = parseDouble(props.getProperty("choiceCornerRadius"), bStyle.choiceCornerRadius(), diagnostics, "choiceCornerRadius");
     double choiceBorderWidth = parseDouble(props.getProperty("choiceBorderWidth"), bStyle.choiceBorderWidth(), diagnostics, "choiceBorderWidth");
@@ -336,11 +341,14 @@ public final class VnUiLayoutLoader {
         normalize(props.getProperty("nameTextColor"), bStyle.nameTextColor()),
         normalize(props.getProperty("nameTextFontFamily"), bStyle.nameTextFontFamily()),
         nameTextFontSize,
+        normalize(props.getProperty("nameTextFontWeight"), bStyle.nameTextFontWeight()),
         normalize(props.getProperty("nameBoxBoundsPoints"), bStyle.nameBoxBoundsPoints()),
+        nameBoxOpacity,
         // Dialogue text
         normalize(props.getProperty("dialogueTextColor"), bStyle.dialogueTextColor()),
         normalize(props.getProperty("dialogueTextFontFamily"), bStyle.dialogueTextFontFamily()),
         dialogueTextFontSize,
+        normalize(props.getProperty("dialogueTextFontWeight"), bStyle.dialogueTextFontWeight()),
         normalize(props.getProperty("dialogueTextBoundsPoints"), bStyle.dialogueTextBoundsPoints()),
         // Choice button assets
         normalize(props.getProperty("choiceButtonAsset"), bStyle.choiceButtonAssetPath()),
@@ -368,12 +376,14 @@ public final class VnUiLayoutLoader {
         // Choice font
         normalize(props.getProperty("choiceFontFamily"), bStyle.choiceFontFamily()),
         choiceFontSize,
+        normalize(props.getProperty("choiceFontWeight"), bStyle.choiceFontWeight()),
         // Character framing
         characterHeightFactor,
         characterBaselineY
     );
 
     warnAdjustedOptionalDouble("textBoxOpacity", textBoxOpacity, style.textBoxOpacity(), diagnostics);
+    warnAdjustedOptionalDouble("nameBoxOpacity", nameBoxOpacity, style.nameBoxOpacity(), diagnostics);
     warnAdjustedOptionalInt("nameTextFontSize", nameTextFontSize, style.nameTextFontSize(), diagnostics);
     warnAdjustedOptionalInt("dialogueTextFontSize", dialogueTextFontSize, style.dialogueTextFontSize(), diagnostics);
     warnAdjustedDouble("choiceCornerRadius", choiceCornerRadius, style.choiceCornerRadius(), diagnostics);
@@ -432,11 +442,14 @@ public final class VnUiLayoutLoader {
     setOptional(p, "nameTextColor", s.nameTextColor());
     setOptional(p, "nameTextFontFamily", s.nameTextFontFamily());
     setOptional(p, "nameTextFontSize", s.nameTextFontSize() == null ? null : Integer.toString(s.nameTextFontSize()));
+    setOptional(p, "nameTextFontWeight", s.nameTextFontWeight());
     setOptional(p, "nameBoxBoundsPoints", s.nameBoxBoundsPoints());
+    setOptional(p, "nameBoxOpacity", s.nameBoxOpacity() == null ? null : format(s.nameBoxOpacity()));
 
     setOptional(p, "dialogueTextColor", s.dialogueTextColor());
     setOptional(p, "dialogueTextFontFamily", s.dialogueTextFontFamily());
     setOptional(p, "dialogueTextFontSize", s.dialogueTextFontSize() == null ? null : Integer.toString(s.dialogueTextFontSize()));
+    setOptional(p, "dialogueTextFontWeight", s.dialogueTextFontWeight());
     setOptional(p, "dialogueTextBoundsPoints", s.dialogueTextBoundsPoints());
 
     setOptional(p, "choiceButtonAsset", s.choiceButtonAssetPath());
@@ -465,6 +478,7 @@ public final class VnUiLayoutLoader {
     p.setProperty("choiceTextBaselineOffset", format(s.choiceTextBaselineOffset()));
     setOptional(p, "choiceFontFamily", s.choiceFontFamily());
     setOptional(p, "choiceFontSize", s.choiceFontSize() == null ? null : Integer.toString(s.choiceFontSize()));
+    setOptional(p, "choiceFontWeight", s.choiceFontWeight());
     setOptional(p, "characterHeightFactor", s.characterHeightFactor() == null ? null : format(s.characterHeightFactor()));
     setOptional(p, "characterBaselineY", s.characterBaselineY() == null ? null : format(s.characterBaselineY()));
     return p;

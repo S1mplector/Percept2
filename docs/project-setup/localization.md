@@ -115,6 +115,52 @@ Labels, jumps, and flow control remain the same — only display text changes.
 
 ---
 
+## Locale Properties Files
+
+The New Project Wizard generates a locale stub at `config/locales/<locale>.properties`. This
+file provides text key mappings that the runtime resolves via `VnTextFormatter`.
+
+### File Location
+
+```text
+config/locales/en.properties
+config/locales/ja.properties
+config/locales/de.properties
+```
+
+### Format
+
+Standard Java `.properties` format. Supports `{name}`, `{0}`, `{1}` placeholders and the
+special `{value}` token for settings items.
+
+### Example
+
+```properties
+# config/locales/en.properties
+
+# --- Menu labels (used in .menu screen titleText / hintsText) ---
+menu.main.title=Main Menu
+menu.main.hints=Arrow keys to navigate, Enter to select
+menu.settings.title=Settings
+
+# --- Settings item labels ({value} expands to current setting) ---
+settings.bgm=BGM Volume: {value}
+settings.sfx=SFX Volume: {value}
+settings.fullscreen=Fullscreen: {value}
+
+# --- Dialogue / story text ---
+greeting=Hello, {name}!
+farewell=Goodbye, {name}. Until we meet again.
+```
+
+### How `{value}` Works
+
+In settings menu screens, item labels can contain `{value}`. At runtime the engine replaces
+`{value}` with the current setting value (e.g., `"75%"`, `"ON"`). This lets you define
+labels like `BGM Volume: {value}` in one place and have the engine fill in the live value.
+
+---
+
 ## UI String Localization
 
 Menu titles, hints, and system messages use the `Localization` class to resolve display text.

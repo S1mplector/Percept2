@@ -63,6 +63,7 @@ public final class MenuProfileLoader {
       "titleShadowColor",
       "hintsColor",
       "hintsFontFamily",
+      "hintsFontWeight",
       "hintsFontSize",
       "backgroundAsset",
       "backgroundColor",
@@ -400,6 +401,7 @@ public final class MenuProfileLoader {
         // Hints styling
         normalize(p.getProperty("hintsColor"), base.hintsColor()),
         normalize(p.getProperty("hintsFontFamily"), base.hintsFontFamily()),
+        normalize(p.getProperty("hintsFontWeight"), base.hintsFontWeight()),
         parseOptionalPositiveInt(p.getProperty("hintsFontSize"), base.hintsFontSize(), diagnostics, sourcePath, "hintsFontSize"),
         // Background
         normalize(p.getProperty("backgroundAsset"), base.backgroundAssetPath()),

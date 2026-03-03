@@ -1767,8 +1767,22 @@ public class NewProjectWizard extends Stage {
     String fileName = "config/locales/" + locale + ".properties";
     try (FileWriter fw = new FileWriter(new File(dir, fileName))) {
       fw.write("# Locale strings (" + locale + ")\n");
-      fw.write("# Add translatable text keys here. The runtime resolves them via VnTextFormatter.\n");
-      fw.write("# Example: greeting=Hello, {name}!\n");
+      fw.write("# The runtime resolves text keys via VnTextFormatter.\n");
+      fw.write("# Supported placeholders: {name}, {0}, {1}, etc.\n");
+      fw.write("#\n");
+      fw.write("# --- Menu labels (used in .menu screen titleText / hintsText) ---\n");
+      fw.write("# menu.main.title=Main Menu\n");
+      fw.write("# menu.main.hints=Arrow keys to navigate, Enter to select\n");
+      fw.write("# menu.settings.title=Settings\n");
+      fw.write("#\n");
+      fw.write("# --- Settings item labels ({value} expands to current setting) ---\n");
+      fw.write("# settings.bgm=BGM Volume: {value}\n");
+      fw.write("# settings.sfx=SFX Volume: {value}\n");
+      fw.write("# settings.fullscreen=Fullscreen: {value}\n");
+      fw.write("#\n");
+      fw.write("# --- Dialogue / story text ---\n");
+      fw.write("# greeting=Hello, {name}!\n");
+      fw.write("# farewell=Goodbye, {name}. Until we meet again.\n");
     }
   }
 

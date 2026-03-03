@@ -104,6 +104,10 @@ public record MenuProfile(
     return new MenuLayoutSpec("submenu", 0.26, 56.0, 0.52, "left", 28.0, 0.13);
   }
 
+  public static MenuLayoutSpec defaultSettingsLayout() {
+    return new MenuLayoutSpec("settings", 0.16, 50.0, 0.56, "left", 24.0, 0.07);
+  }
+
   public static MenuLayoutSpec defaultSlotsLayout() {
     return new MenuLayoutSpec("slots", 0.22, 68.0, 0.54, "left", 28.0, 0.12);
   }
@@ -118,7 +122,7 @@ public record MenuProfile(
         null, null, null, null,
         24.0, 2.0,
         "#EEF4FF", "SansSerif", "BOLD", 48, "#00000088",
-        "#8898B8", "SansSerif", 15,
+        "#8898B8", "SansSerif", null, 15,
         null, "#060D1A", 1.0
     );
   }
@@ -133,7 +137,7 @@ public record MenuProfile(
         null, null, null, null,
         20.0, 1.0,
         "#D8E6FF", "SansSerif", "BOLD", 36, "#00000066",
-        "#7888A8", "SansSerif", 14,
+        "#7888A8", "SansSerif", null, 14,
         null, "#08101E", 1.0
     );
   }
@@ -148,7 +152,7 @@ public record MenuProfile(
         null, null, null, null,
         18.0, 0.0,
         "#D8E6FF", "SansSerif", "BOLD", 36, "#00000066",
-        "#7888A8", "SansSerif", 14,
+        "#7888A8", "SansSerif", null, 14,
         null, "#070E1C", 1.0
     );
   }

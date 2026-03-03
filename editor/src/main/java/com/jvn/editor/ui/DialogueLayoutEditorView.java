@@ -1675,11 +1675,14 @@ public class DialogueLayoutEditorView extends BorderPane {
         base.nameTextColor(),
         base.nameTextFontFamily(),
         base.nameTextFontSize(),
+        base.nameTextFontWeight(),
         base.nameBoxBoundsPoints(),
+        base.nameBoxOpacity(),
         // Dialogue text
         base.dialogueTextColor(),
         base.dialogueTextFontFamily(),
         base.dialogueTextFontSize(),
+        base.dialogueTextFontWeight(),
         base.dialogueTextBoundsPoints(),
         // Choice button assets
         normalizeAssetPath(tfChoiceButtonAsset.getText()),
@@ -1707,6 +1710,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         // Choice font
         base.choiceFontFamily(),
         base.choiceFontSize(),
+        base.choiceFontWeight(),
         base.characterHeightFactor(),
         base.characterBaselineY()
     );
@@ -2090,10 +2094,13 @@ public class DialogueLayoutEditorView extends BorderPane {
         base.nameTextColor(),
         base.nameTextFontFamily(),
         base.nameTextFontSize(),
+        base.nameTextFontWeight(),
         nameBoxBoundsPoints,
+        base.nameBoxOpacity(),
         base.dialogueTextColor(),
         base.dialogueTextFontFamily(),
         base.dialogueTextFontSize(),
+        base.dialogueTextFontWeight(),
         dialogueTextBoundsPoints,
         base.choiceButtonAssetPath(),
         base.choiceButtonHoverAssetPath(),
@@ -2117,6 +2124,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         base.choiceTextBaselineOffset(),
         base.choiceFontFamily(),
         base.choiceFontSize(),
+        base.choiceFontWeight(),
         base.characterHeightFactor(),
         base.characterBaselineY()
     );

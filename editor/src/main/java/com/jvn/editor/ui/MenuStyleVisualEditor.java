@@ -2,9 +2,9 @@ package com.jvn.editor.ui;
 
 import java.io.File;
 import java.io.StringReader;
-import java.util.Arrays;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -59,7 +59,7 @@ public class MenuStyleVisualEditor extends BorderPane {
       "buttonAsset", "buttonSelectedAsset", "buttonHoverAsset", "buttonDisabledAsset",
       "buttonTextPaddingX", "buttonTextPaddingY",
       "titleColor", "titleFontFamily", "titleFontWeight", "titleFontSize", "titleShadowColor",
-      "hintsColor", "hintsFontFamily", "hintsFontSize",
+      "hintsColor", "hintsFontFamily", "hintsFontWeight", "hintsFontSize",
       "backgroundAsset", "backgroundColor", "backgroundOpacity"
   };
   private static final Set<String> KNOWN_KEY_SET = Set.copyOf(Arrays.asList(KNOWN_KEYS));
@@ -96,6 +96,7 @@ public class MenuStyleVisualEditor extends BorderPane {
 
   private final TextField tfHintsColor = new TextField();
   private final ComboBox<String> cbHintsFontFamily = new ComboBox<>();
+  private final ChoiceBox<String> cbHintsFontWeight = new ChoiceBox<>();
   private final Spinner<Integer> spHintsFontSize = intSpinner(8, 48, 14, 1);
 
   private final TextField tfBackgroundAsset = new TextField();
@@ -130,6 +131,8 @@ public class MenuStyleVisualEditor extends BorderPane {
     cbItemFontWeight.setValue("NORMAL");
     cbTitleFontWeight.getItems().setAll("NORMAL", "BOLD");
     cbTitleFontWeight.setValue("BOLD");
+    cbHintsFontWeight.getItems().setAll("NORMAL", "BOLD");
+    cbHintsFontWeight.setValue("NORMAL");
     initFontPicker();
     // Init title/hints font pickers with same font list
     List<String> families = Font.getFamilies();
@@ -275,6 +278,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     // Hints styling
     tfHintsColor.setText(rawProperties.getProperty("hintsColor", ""));
     cbHintsFontFamily.setValue(rawProperties.getProperty("hintsFontFamily", cbHintsFontFamily.getValue()));
+    cbHintsFontWeight.setValue(rawProperties.getProperty("hintsFontWeight", cbHintsFontWeight.getValue()));
     try {
       spHintsFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("hintsFontSize", Integer.toString(spHintsFontSize.getValue()))));
     } catch (Exception ignored) {
@@ -355,6 +359,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     row = addHeader(grid, row, "Hints Styling");
     row = addRow(grid, row, "Hints Color", ColorFieldHelper.create(tfHintsColor));
     row = addRow(grid, row, "Hints Font", cbHintsFontFamily);
+    row = addRow(grid, row, "Hints Weight", cbHintsFontWeight);
     row = addRow(grid, row, "Hints Size", spHintsFontSize);
 
     row = addHeader(grid, row, "Background");
@@ -510,6 +515,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     cbTitleFontWeight.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spTitleFontSize.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     cbHintsFontFamily.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    cbHintsFontWeight.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spHintsFontSize.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spBackgroundOpacity.valueProperty().addListener((o, ov, nv) -> onControlChanged());
   }
@@ -664,6 +670,7 @@ public class MenuStyleVisualEditor extends BorderPane {
 
     setOptionalProperty(merged, "hintsColor", tfHintsColor.getText());
     setOptionalProperty(merged, "hintsFontFamily", cbHintsFontFamily.getValue());
+    setOptionalProperty(merged, "hintsFontWeight", cbHintsFontWeight.getValue());
     merged.setProperty("hintsFontSize", Integer.toString(spHintsFontSize.getValue()));
 
     setOptionalProperty(merged, "backgroundAsset", tfBackgroundAsset.getText());

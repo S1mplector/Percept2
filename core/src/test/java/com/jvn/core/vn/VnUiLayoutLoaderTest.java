@@ -1,16 +1,16 @@
 package com.jvn.core.vn;
 
-import com.jvn.core.vn.ui.VnUiLayoutLoader;
-import com.jvn.core.vn.ui.VnUiActionButtonSpec;
-import com.jvn.core.vn.ui.VnUiLayoutSpec;
-import com.jvn.core.vn.ui.VnUiStyleSpec;
-import org.junit.jupiter.api.Test;
-
-import java.util.Properties;
 import java.util.List;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.jvn.core.vn.ui.VnUiActionButtonSpec;
+import com.jvn.core.vn.ui.VnUiLayoutLoader;
+import com.jvn.core.vn.ui.VnUiLayoutSpec;
+import com.jvn.core.vn.ui.VnUiStyleSpec;
 
 class VnUiLayoutLoaderTest {
 
@@ -75,13 +75,14 @@ class VnUiLayoutLoaderTest {
     VnUiStyleSpec style = new VnUiStyleSpec(
         null, null, null, null,
         null, null, null, null, null, null,
-        null, null, null, null,
+        null, null,
+        null, null, null, null, null,
         null, null, null, null, null,
         null, null, null, null,
         null, null, null, null,
         null, null, null, null,
         10.0, 2.0, 5.0,
-        null, null,
+        null, null, null,
         1.15, 0.9
     );
 
@@ -95,14 +96,16 @@ class VnUiLayoutLoaderTest {
   void serializesStyleBoundsPointKeys() {
     VnUiStyleSpec style = new VnUiStyleSpec(
         null, null, null, "0,0;1,0;1,1;0,1",
-        null, null, null, null, null, "0,0;1,0;0.85,1;0.15,1",
-        null, null, null, "0.05,0.05;0.95,0.05;0.95,0.95;0.05,0.95",
+        null, null, null, null, null, null,
+        "0,0;1,0;0.85,1;0.15,1", null,
+        null, null, null, null,
+        "0.05,0.05;0.95,0.05;0.95,0.95;0.05,0.95",
         null, null, null, null, "0,0;1,0;0.9,1;0.1,1",
         null, null, null, null,
         null, null, null, null,
         null, null, null, null,
         10.0, 2.0, 5.0,
-        null, null,
+        null, null, null,
         null, null
     );
 

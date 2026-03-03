@@ -610,7 +610,7 @@ public class LayoutStudioWindowManager {
         "buttonAsset", "buttonSelectedAsset", "buttonHoverAsset", "buttonDisabledAsset",
         "buttonTextPaddingX", "buttonTextPaddingY",
         "titleColor", "titleFontFamily", "titleFontWeight", "titleFontSize", "titleShadowColor",
-        "hintsColor", "hintsFontFamily", "hintsFontSize",
+        "hintsColor", "hintsFontFamily", "hintsFontWeight", "hintsFontSize",
         "backgroundAsset", "backgroundColor", "backgroundOpacity");
     private static final Set<String> SCREEN_TOP_KEYS = Set.of(
         "titleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items");

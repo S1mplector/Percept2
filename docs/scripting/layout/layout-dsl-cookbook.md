@@ -154,9 +154,12 @@ nameBoxColor=#1A1A2EEE
 nameTextColor=#FFFFFF
 nameTextFontFamily=Segoe UI
 nameTextFontSize=18
+# nameTextFontWeight=NORMAL
+# nameBoxOpacity=1.0
 dialogueTextColor=#F0F0F0
 dialogueTextFontFamily=Segoe UI
 dialogueTextFontSize=22
+# dialogueTextFontWeight=NORMAL
 
 # ── Choice button colors ──
 choiceBackgroundColor=#2A2A4A
@@ -172,6 +175,7 @@ choiceCornerRadius=8.0
 choiceBorderWidth=2.0
 choiceFontFamily=Segoe UI
 choiceFontSize=20
+# choiceFontWeight=NORMAL
 ```
 
 ### Runtime Checklist
@@ -274,23 +278,23 @@ Classic centered main menu with a title at the top.
 ### File: `config/menu/layouts/default.layout`
 
 ```properties
-# Item list starts at 34% from the top
-listYStart=0.34
+# Item list starts at 38% from the top
+listYStart=0.38
 
-# Each item row is 68px tall
-lineHeight=68.0
+# Each item row is 62px tall
+lineHeight=62.0
 
-# Item list occupies 44% of screen width, centered
-listWidthFactor=0.44
+# Item list occupies 36% of screen width, centered
+listWidthFactor=0.36
 
 # Text centered within items
 textAlign=center
 
 # Hints bar margin from the bottom
-hintsBottomMargin=36.0
+hintsBottomMargin=32.0
 
-# Title at 14% from the top
-titleY=0.14
+# Title at 16% from the top
+titleY=0.16
 ```
 
 ### Runtime Checklist
@@ -363,6 +367,7 @@ titleShadowColor=#000000CC
 # ── Hints ──
 hintsColor=#667788
 hintsFontFamily=Georgia
+hintsFontWeight=NORMAL
 hintsFontSize=14
 
 # ── Background ──
@@ -676,10 +681,13 @@ styles=default,submenu,slot,dark,pastel,fancy
 | `nameTextColor` | String | *(none)* | Hex color |
 | `nameTextFontFamily` | String | *(none)* | Font family name |
 | `nameTextFontSize` | Integer | *(none)* | > 0 |
+| `nameTextFontWeight` | String | *(none)* | `NORMAL` or `BOLD` |
+| `nameBoxOpacity` | Double | *(none)* | 0.0–1.0 |
 | `nameBoxBoundsPoints` | String | *(none)* | Custom bounds polygon |
 | `dialogueTextColor` | String | *(none)* | Hex color |
 | `dialogueTextFontFamily` | String | *(none)* | Font family name |
 | `dialogueTextFontSize` | Integer | *(none)* | > 0 |
+| `dialogueTextFontWeight` | String | *(none)* | `NORMAL` or `BOLD` |
 | `dialogueTextBoundsPoints` | String | *(none)* | Custom bounds polygon |
 | `choiceButtonAsset` | String | *(none)* | Normal state button image |
 | `choiceButtonHoverAsset` | String | *(none)* | Hover state |
@@ -703,6 +711,7 @@ styles=default,submenu,slot,dark,pastel,fancy
 | `choiceTextBaselineOffset` | double | `5.0` | -120 to 120 |
 | `choiceFontFamily` | String | *(none)* | Font family |
 | `choiceFontSize` | Integer | *(none)* | > 0 |
+| `choiceFontWeight` | String | *(none)* | `NORMAL` or `BOLD` |
 | `characterHeightFactor` | Double | *(none)* | 0.1–3.0 |
 | `characterBaselineY` | Double | *(none)* | -0.5 to 2.0 |
 
@@ -771,6 +780,7 @@ Declared using `button.ids` and `button.<id>.<field>` keys in the same `dialogue
 | `titleShadowColor` | String | *(none)* | Title shadow color |
 | `hintsColor` | String | *(none)* | Hints bar text color |
 | `hintsFontFamily` | String | *(none)* | Hints font family |
+| `hintsFontWeight` | String | *(none)* | `NORMAL` / `BOLD` / `SEMI_BOLD` |
 | `hintsFontSize` | Integer | *(none)* | > 0 |
 | `backgroundAsset` | String | *(none)* | Background image path |
 | `backgroundColor` | String | *(none)* | Background solid color |

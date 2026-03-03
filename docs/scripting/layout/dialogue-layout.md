@@ -108,11 +108,24 @@ nameTextBaselineOffset=25
 ```properties
 nameBoxAsset=assets/ui/namebox.png
 nameBoxColor=#2a2a4eDD
+nameBoxOpacity=1.0
 nameTextColor=#FFE8A3
 nameTextFontFamily=Georgia
 nameTextFontSize=20
+nameTextFontWeight=BOLD
 nameBoxBoundsPoints=0,0;1,0;1,1;0,1
 ```
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `nameBoxAsset` | — | Image asset for the name box background |
+| `nameBoxColor` | — | Fallback color if no asset (hex with optional alpha) |
+| `nameBoxOpacity` | — | Name box opacity override (0–1) |
+| `nameTextColor` | — | Name text color (hex) |
+| `nameTextFontFamily` | — | Font family for the name text |
+| `nameTextFontSize` | — | Font size for the name text (> 0) |
+| `nameTextFontWeight` | — | Font weight: `NORMAL` or `BOLD` |
+| `nameBoxBoundsPoints` | — | Polygon hit-test shape (normalized `x,y;x,y;...`) |
 
 ---
 
@@ -141,8 +154,17 @@ dialogueTextBottomPadding=10
 dialogueTextColor=#FFFFFF
 dialogueTextFontFamily=Segoe UI
 dialogueTextFontSize=18
+dialogueTextFontWeight=NORMAL
 dialogueTextBoundsPoints=0,0;1,0;1,1;0,1
 ```
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `dialogueTextColor` | — | Dialogue body text color (hex) |
+| `dialogueTextFontFamily` | — | Font family for dialogue text |
+| `dialogueTextFontSize` | — | Font size for dialogue text (> 0) |
+| `dialogueTextFontWeight` | — | Font weight: `NORMAL` or `BOLD` |
+| `dialogueTextBoundsPoints` | — | Custom bounds polygon for the dialogue text area |
 
 ---
 
@@ -205,7 +227,10 @@ choiceTextBaselineOffset=0
 # Font
 choiceFontFamily=Segoe UI
 choiceFontSize=18
+choiceFontWeight=NORMAL
 ```
+
+> **Font weight values:** All `*FontWeight` properties accept `NORMAL` or `BOLD`.
 
 ---
 
@@ -317,6 +342,8 @@ nameBoxAsset=assets/ui/namebox_ornate.png
 nameTextColor=#FFE8A3
 nameTextFontFamily=Georgia
 nameTextFontSize=18
+nameTextFontWeight=BOLD
+# nameBoxOpacity=1.0
 
 # === Dialogue Text ===
 dialogueTextHorizontalPadding=24
@@ -326,6 +353,7 @@ dialogueTextBottomPadding=12
 dialogueTextColor=#F0F0F0
 dialogueTextFontFamily=Noto Sans
 dialogueTextFontSize=16
+# dialogueTextFontWeight=NORMAL
 
 # === Choices ===
 choiceXCenter=0.5
@@ -345,6 +373,7 @@ choiceCornerRadius=6
 choiceBorderWidth=1
 choiceFontFamily=Noto Sans
 choiceFontSize=16
+# choiceFontWeight=NORMAL
 
 # === Character Framing ===
 characterHeightFactor=0.82
@@ -374,6 +403,21 @@ textBoxButton.log.y=0.18
 textBoxButton.log.width=0.06
 textBoxButton.log.height=0.12
 ```
+
+---
+
+## Text Mapping & Localization
+
+Dialogue text supports runtime variable interpolation via `VnTextFormatter`. Text keys
+defined in `config/locales/*.properties` are resolved at runtime:
+
+```properties
+# config/locales/en.properties
+greeting=Hello, {name}!
+farewell=Goodbye, {name}. Until we meet again.
+```
+
+See [Localization Workflow](../../project-setup/localization.md) for full details.
 
 ---
 
