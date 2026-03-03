@@ -538,8 +538,10 @@ public class SettingsScene implements Scene {
 
   private void startNewGame(String scriptName) {
     if (engine == null) return;
-    VnScenario scenario = loadScenario(normalize(scriptName, defaultScriptName));
+    String resolvedScript = normalize(scriptName, defaultScriptName);
+    VnScenario scenario = loadScenario(resolvedScript);
     VnScene vnScene = new VnScene(scenario);
+    vnScene.getState().setSourceScriptName(resolvedScript);
     if (audio != null) vnScene.setAudioFacade(audio);
     if (engine.getVnInteropFactory() != null) {
       vnScene.setInterop(engine.getVnInteropFactory().create(engine));

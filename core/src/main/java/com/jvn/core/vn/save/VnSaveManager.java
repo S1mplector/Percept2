@@ -6,12 +6,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -69,6 +69,7 @@ public class VnSaveManager {
     saveData.setSaveName(saveName);
     saveData.setSchemaVersion(VnSaveData.CURRENT_SCHEMA_VERSION);
     saveData.setScenarioId(state.getScenario().getId());
+    saveData.setScriptName(state.getSourceScriptName());
     saveData.setCurrentNodeIndex(state.getCurrentNodeIndex());
     saveData.setCurrentBackgroundId(state.getCurrentBackgroundId());
     saveData.setVariables(new java.util.HashMap<>(state.getVariables()));

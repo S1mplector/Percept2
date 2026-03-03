@@ -16,6 +16,7 @@ import com.jvn.core.vn.rollback.VnRollbackStack;
  */
 public class VnState {
   private VnScenario scenario;
+  private String sourceScriptName;
   private int currentNodeIndex;
   private String currentBackgroundId;
   private final Map<CharacterPosition, CharacterSlot> visibleCharacters;
@@ -89,6 +90,9 @@ public class VnState {
     this.scenario = scenario;
     this.currentNodeIndex = 0;
   }
+
+  public String getSourceScriptName() { return sourceScriptName; }
+  public void setSourceScriptName(String sourceScriptName) { this.sourceScriptName = sourceScriptName; }
 
   public int getCurrentNodeIndex() { return currentNodeIndex; }
   public void setCurrentNodeIndex(int index) { this.currentNodeIndex = index; }

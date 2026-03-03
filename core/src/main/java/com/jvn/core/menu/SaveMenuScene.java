@@ -405,8 +405,10 @@ public class SaveMenuScene implements Scene {
   }
 
   private void startNewGame(String scriptName) {
-    VnScenario scenario = loadScenario(normalize(scriptName, defaultScriptName));
+    String resolvedScript = normalize(scriptName, defaultScriptName);
+    VnScenario scenario = loadScenario(resolvedScript);
     VnScene scene = new VnScene(scenario);
+    scene.getState().setSourceScriptName(resolvedScript);
     if (currentAudio() != null) scene.setAudioFacade(currentAudio());
     if (engine != null && engine.getVnInteropFactory() != null) {
       scene.setInterop(engine.getVnInteropFactory().create(engine));

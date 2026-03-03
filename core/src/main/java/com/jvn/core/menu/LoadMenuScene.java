@@ -332,13 +332,18 @@ public class LoadMenuScene implements Scene {
     String name = saves.get(selected);
     try {
       VnSaveData data = saveManager.load(name);
-      String scenId = data.getScenarioId();
-      String script = scenId != null ? resolveScriptForScenarioId(scenId) : null;
-      if (script == null) {
-        LOG.warn("Could not resolve script for scenarioId={}, falling back to {}", scenId, defaultScriptName);
+      String script = data.getScriptName();
+      if (script == null || script.isBlank()) {
+        String scenId = data.getScenarioId();
+        script = scenId != null ? resolveScriptForScenarioId(scenId) : null;
       }
-      VnScenario scenario = loadScenario(script != null ? script : defaultScriptName);
+      if (script == null) {
+        LOG.warn("Could not resolve script from save data, falling back to {}", defaultScriptName);
+        script = defaultScriptName;
+      }
+      VnScenario scenario = loadScenario(script);
       VnScene scene = new VnScene(scenario);
+      scene.getState().setSourceScriptName(script);
       if (audio != null) scene.setAudioFacade(audio);
       if (engine != null && engine.getVnInteropFactory() != null) {
         scene.setInterop(engine.getVnInteropFactory().create(engine));
@@ -367,8 +372,10 @@ public class LoadMenuScene implements Scene {
   }
 
   private void startNewGame(String scriptName) {
-    VnScenario scenario = loadScenario(normalize(scriptName, defaultScriptName));
+    String resolvedScript = normalize(scriptName, defaultScriptName);
+    VnScenario scenario = loadScenario(resolvedScript);
     VnScene scene = new VnScene(scenario);
+    scene.getState().setSourceScriptName(resolvedScript);
     if (audio != null) scene.setAudioFacade(audio);
     if (engine != null && engine.getVnInteropFactory() != null) {
       scene.setInterop(engine.getVnInteropFactory().create(engine));

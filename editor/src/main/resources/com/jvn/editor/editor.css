@@ -48,6 +48,11 @@
   -fx-background-color: #f06a6a;
 }
 
+.icon-runtime-copy {
+  -fx-shape: "M4,2 L4,1 L11,1 L11,10 L10,10 L10,2 Z M2,4 L9,4 L9,13 L2,13 Z M3,5 L3,12 L8,12 L8,5 Z";
+  -fx-background-color: #8ab4f8;
+}
+
 .icon-runtime-clear {
   -fx-shape: "M2,3 L3,2 L7,6 L11,2 L12,3 L8,7 L12,11 L11,12 L7,8 L3,12 L2,11 L6,7 Z";
   -fx-background-color: #d3dcf0;

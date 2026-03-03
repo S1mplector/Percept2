@@ -31,6 +31,7 @@ public class VnSaveData implements Serializable {
   private Object rpgState;
   private long saveTimestamp;
   private String saveName;
+  private String scriptName;
   
   public VnSaveData() {
     this.schemaVersion = CURRENT_SCHEMA_VERSION;
@@ -98,6 +99,9 @@ public class VnSaveData implements Serializable {
   
   public String getSaveName() { return saveName; }
   public void setSaveName(String name) { this.saveName = name; }
+
+  public String getScriptName() { return scriptName; }
+  public void setScriptName(String scriptName) { this.scriptName = scriptName; }
 
   public Object getRpgState() { return rpgState; }
   public void setRpgState(Object rpgState) { this.rpgState = rpgState; }

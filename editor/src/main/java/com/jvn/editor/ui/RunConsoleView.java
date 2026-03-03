@@ -12,6 +12,8 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -38,6 +40,7 @@ public class RunConsoleView extends BorderPane {
     private final Label elapsedLabel = new Label();
     private final CheckBox showAllToggle = new CheckBox("Show build output");
     private final Button runBtn = iconButton("icon-runtime-run", "Run current build again");
+    private final Button copyBtn = iconButton("icon-runtime-copy", "Copy traceback to clipboard");
     private final Button clearBtn = iconButton("icon-runtime-clear", "Clear output");
     private final Button stopBtn = iconButton("icon-runtime-stop", "Stop current build");
 
@@ -82,6 +85,7 @@ public class RunConsoleView extends BorderPane {
         showAllToggle.setOnAction(e -> rebuildOutput());
 
         runBtn.setOnAction(e -> rerunProcess());
+        copyBtn.setOnAction(e -> copyTraceback());
         clearBtn.setOnAction(e -> clearOutput());
         stopBtn.setOnAction(e -> stopProcess());
 
@@ -90,7 +94,7 @@ public class RunConsoleView extends BorderPane {
 
         HBox leftHeader = new HBox(8, titleLabel, stateLabel, elapsedLabel);
         leftHeader.setAlignment(Pos.CENTER_LEFT);
-        HBox rightHeader = new HBox(8, showAllToggle, runBtn, stopBtn, clearBtn);
+        HBox rightHeader = new HBox(8, showAllToggle, copyBtn, runBtn, stopBtn, clearBtn);
         rightHeader.setAlignment(Pos.CENTER_RIGHT);
         HBox.setHgrow(leftHeader, Priority.ALWAYS);
 
@@ -252,6 +256,24 @@ public class RunConsoleView extends BorderPane {
         outputFlow.getChildren().add(text);
         scrollPane.layout();
         scrollPane.setVvalue(1.0);
+    }
+
+    private void copyTraceback() {
+        StringBuilder sb = new StringBuilder();
+        for (var node : outputFlow.getChildren()) {
+            if (node instanceof Text t) {
+                sb.append(t.getText());
+            }
+        }
+        String text = sb.toString().trim();
+        if (text.isEmpty()) {
+            appendInfoMessage("Nothing to copy.");
+            return;
+        }
+        ClipboardContent content = new ClipboardContent();
+        content.putString(text);
+        Clipboard.getSystemClipboard().setContent(content);
+        appendInfoMessage("Copied " + text.lines().count() + " lines to clipboard.");
     }
 
     private void clearOutput() {

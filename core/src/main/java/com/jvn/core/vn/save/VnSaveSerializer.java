@@ -40,6 +40,7 @@ public final class VnSaveSerializer {
     private static final String KEY_CALL_STACK = "callStack";
     private static final String KEY_GLOBAL_POSITION_CHARACTERS = "globalPositionCharacters";
     private static final String KEY_CHARACTER_DEFINED_POSITIONS = "characterDefinedPositions";
+    private static final String KEY_SCRIPT_NAME = "scriptName";
     private static final String KEY_RPG_STATE_SERIALIZED = "rpgStateSerialized";
 
     private VnSaveSerializer() {}
@@ -56,6 +57,7 @@ public final class VnSaveSerializer {
         
         // Core state
         appendStringField(sb, KEY_SCENARIO_ID, data.getScenarioId());
+        appendStringField(sb, KEY_SCRIPT_NAME, data.getScriptName());
         appendField(sb, KEY_NODE_INDEX, data.getCurrentNodeIndex(), false);
         appendStringField(sb, KEY_BACKGROUND_ID, data.getCurrentBackgroundId());
         
@@ -121,6 +123,9 @@ public final class VnSaveSerializer {
         }
         if (map.containsKey(KEY_SCENARIO_ID)) {
             data.setScenarioId((String) map.get(KEY_SCENARIO_ID));
+        }
+        if (map.containsKey(KEY_SCRIPT_NAME)) {
+            data.setScriptName((String) map.get(KEY_SCRIPT_NAME));
         }
         if (map.containsKey(KEY_NODE_INDEX)) {
             data.setCurrentNodeIndex(((Number) map.get(KEY_NODE_INDEX)).intValue());

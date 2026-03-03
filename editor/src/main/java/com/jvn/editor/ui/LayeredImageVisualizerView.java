@@ -55,6 +55,7 @@ import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -135,6 +136,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private final CheckBox typedRealtime = new CheckBox("Realtime preview");
   private final TextArea shortformsArea = new TextArea(DEFAULT_SHORTFORMS);
   private final ComboBox<String> shortformBox = new ComboBox<>();
+  private final FlowPane galleryPane = new FlowPane(6, 6);
+  private final Label galleryStatusLabel = new Label("");
 
   private final Canvas previewCanvas = new Canvas(320, 250);
   private final Slider focusXSlider = slider(0, 100, 50);
@@ -453,6 +456,21 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Tab shortformsTab = new Tab("Shortforms", shortformsRoot);
     groupsTabs.getTabs().addAll(attributesTab, typedTab, shortformsTab);
 
+    // ── Gallery section ──
+    galleryPane.setPadding(new Insets(4));
+    galleryPane.setStyle("-fx-background-color: #121720;");
+    galleryStatusLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #8899aa;");
+    galleryStatusLabel.setWrapText(true);
+    Button generateGalleryButton = iconButton(CssIcon.sort("#8ab4f8"), "Generate all charpreset combinations", this::generateGallery);
+    Button clearGalleryButton = iconButton(CssIcon.clearX("#f38ba8"), "Clear gallery", this::clearGallery);
+    HBox galleryToolRow = new HBox(4, new Label("Gallery"), generateGalleryButton, clearGalleryButton, galleryStatusLabel);
+    galleryToolRow.setAlignment(Pos.CENTER_LEFT);
+    VBox galleryRoot = new VBox(4, galleryToolRow, galleryPane);
+    TitledPane galleryTitledPane = new TitledPane("Charpreset Gallery", galleryRoot);
+    galleryTitledPane.setExpanded(false);
+    galleryTitledPane.setAnimated(false);
+    galleryTitledPane.setCollapsible(true);
+
     // ── Right sidebar ──
     VBox sidebar = new VBox(6,
         title, summaryLabel,
@@ -461,6 +479,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         viewControlsPane,
         scriptPane,
         groupsTabs,
+        galleryTitledPane,
         previewInfoLabel, interactionHintLabel,
         statusLabel);
     sidebar.setPadding(new Insets(6));
@@ -1010,6 +1029,210 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     redrawPreview();
     persistCurrentSetState();
     status("Randomized " + changed + " groups.");
+  }
+
+  private void generateGallery() {
+    galleryPane.getChildren().clear();
+    if (selectors.isEmpty() || groupOrder.isEmpty()) {
+      galleryStatusLabel.setText("No groups loaded.");
+      return;
+    }
+
+    // Collect groups that have >1 real option (excluding (none))
+    List<String> varyGroups = new ArrayList<>();
+    List<List<LayerOption>> varyOptions = new ArrayList<>();
+    for (String group : groupOrder) {
+      if (isLikelyBackgroundGroupName(group)) continue;
+      ComboBox<LayerOption> combo = selectors.get(group);
+      if (combo == null) continue;
+      List<LayerOption> realOptions = new ArrayList<>();
+      for (LayerOption opt : combo.getItems()) {
+        if (opt != null && !opt.isNone()) realOptions.add(opt);
+      }
+      if (realOptions.size() > 1) {
+        varyGroups.add(group);
+        varyOptions.add(realOptions);
+      }
+    }
+
+    if (varyGroups.isEmpty()) {
+      galleryStatusLabel.setText("All groups have only one option — nothing to combine.");
+      return;
+    }
+
+    // Compute total combinations and cap
+    long total = 1;
+    for (List<LayerOption> opts : varyOptions) {
+      total *= opts.size();
+      if (total > 500) { total = 500; break; }
+    }
+
+    // Generate cartesian product via index iteration
+    int comboCount = (int) Math.min(total, 500);
+    int numVary = varyGroups.size();
+    int[] sizes = new int[numVary];
+    for (int i = 0; i < numVary; i++) sizes[i] = varyOptions.get(i).size();
+
+    // Collect fixed layers (groups not being varied, excluding backgrounds)
+    List<LayerOption> fixedLayers = new ArrayList<>();
+    for (String group : groupOrder) {
+      if (varyGroups.contains(group)) continue;
+      if (isLikelyBackgroundGroupName(group)) continue;
+      ComboBox<LayerOption> combo = selectors.get(group);
+      LayerOption opt = combo != null ? combo.getValue() : null;
+      if (opt != null && !opt.isNone()) fixedLayers.add(opt);
+    }
+
+    // Preload fixed layer images
+    List<Image> fixedImages = new ArrayList<>();
+    double maxW = 0, maxH = 0;
+    for (LayerOption opt : fixedLayers) {
+      Image img = loadImage(opt);
+      if (img != null && !img.isError() && img.getWidth() > 0) {
+        fixedImages.add(img);
+        if (img.getWidth() > maxW) maxW = img.getWidth();
+        if (img.getHeight() > maxH) maxH = img.getHeight();
+      }
+    }
+
+    // Also scan variable layer images for max dimensions
+    for (List<LayerOption> opts : varyOptions) {
+      for (LayerOption opt : opts) {
+        Image img = loadImage(opt);
+        if (img != null && !img.isError() && img.getWidth() > 0) {
+          if (img.getWidth() > maxW) maxW = img.getWidth();
+          if (img.getHeight() > maxH) maxH = img.getHeight();
+        }
+      }
+    }
+
+    if (maxW <= 0 || maxH <= 0) {
+      galleryStatusLabel.setText("Could not load any layer images.");
+      return;
+    }
+
+    double thumbH = 96;
+    double thumbW = Math.max(24, thumbH * (maxW / maxH));
+    final double fMaxW = maxW, fMaxH = maxH;
+
+    int generated = 0;
+    int[] indices = new int[numVary];
+    outer:
+    for (int c = 0; c < comboCount; c++) {
+      // Build the layer list for this combination
+      List<Image> layers = new ArrayList<>(fixedImages);
+      StringBuilder exprBuilder = new StringBuilder();
+      Map<String, LayerOption> comboMap = new LinkedHashMap<>();
+      for (String group : groupOrder) {
+        int vi = varyGroups.indexOf(group);
+        if (vi >= 0) {
+          LayerOption opt = varyOptions.get(vi).get(indices[vi]);
+          comboMap.put(group, opt);
+          Image img = loadImage(opt);
+          if (img != null && !img.isError()) layers.add(img);
+          if (exprBuilder.length() > 0) exprBuilder.append('_');
+          exprBuilder.append(sanitizeId(opt.label));
+        }
+      }
+
+      if (!layers.isEmpty()) {
+        String expr = exprBuilder.toString();
+        VBox cell = createGalleryThumbnail(layers, thumbW, thumbH, fMaxW, fMaxH, expr, comboMap);
+        galleryPane.getChildren().add(cell);
+        generated++;
+      }
+
+      // Advance indices (odometer)
+      for (int i = numVary - 1; i >= 0; i--) {
+        indices[i]++;
+        if (indices[i] < sizes[i]) break;
+        indices[i] = 0;
+        if (i == 0) break outer;
+      }
+    }
+
+    galleryStatusLabel.setText(generated + " combinations (" + varyGroups.size() + " groups varied)");
+    status("Gallery: generated " + generated + " charpreset thumbnails.");
+  }
+
+  private void clearGallery() {
+    galleryPane.getChildren().clear();
+    galleryStatusLabel.setText("");
+  }
+
+  private VBox createGalleryThumbnail(
+      List<Image> layers, double thumbW, double thumbH,
+      double maxW, double maxH, String expression,
+      Map<String, LayerOption> comboMap
+  ) {
+    Canvas thumb = new Canvas(thumbW, thumbH);
+    GraphicsContext g = thumb.getGraphicsContext2D();
+
+    // Background
+    drawCheckerBackground(g, thumbW, thumbH);
+
+    // Composite layers scaled to fit
+    double scale = Math.min(thumbW / maxW, thumbH / maxH);
+    double offX = (thumbW - maxW * scale) / 2.0;
+    double offY = (thumbH - maxH * scale) / 2.0;
+    for (Image img : layers) {
+      g.drawImage(img, offX, offY, img.getWidth() * scale, img.getHeight() * scale);
+    }
+
+    // Border
+    g.setStroke(Color.color(1, 1, 1, 0.12));
+    g.strokeRect(0.5, 0.5, thumbW - 1, thumbH - 1);
+
+    // Label
+    String shortExpr = expression.length() > 18 ? expression.substring(0, 16) + ".." : expression;
+    Label label = new Label(shortExpr);
+    label.setStyle("-fx-font-size: 9px; -fx-text-fill: #8899aa;");
+    label.setMaxWidth(thumbW);
+    label.setTooltip(new Tooltip(expression));
+
+    VBox cell = new VBox(2, thumb, label);
+    cell.setAlignment(Pos.TOP_CENTER);
+    cell.setStyle("-fx-cursor: hand;");
+
+    // Click to apply this combination
+    thumb.setOnMouseClicked(e -> {
+      if (e.getButton() == MouseButton.PRIMARY) {
+        applyGalleryCombination(comboMap);
+      }
+    });
+
+    // Hover effect
+    thumb.setOnMouseEntered(ev -> {
+      g.setStroke(Color.color(0.54, 0.71, 0.97, 0.8));
+      g.strokeRect(0.5, 0.5, thumbW - 1, thumbH - 1);
+    });
+    thumb.setOnMouseExited(ev -> {
+      g.setStroke(Color.color(1, 1, 1, 0.12));
+      g.strokeRect(0.5, 0.5, thumbW - 1, thumbH - 1);
+    });
+
+    return cell;
+  }
+
+  private void applyGalleryCombination(Map<String, LayerOption> comboMap) {
+    applyingState = true;
+    for (var entry : comboMap.entrySet()) {
+      ComboBox<LayerOption> combo = selectors.get(entry.getKey());
+      if (combo == null) continue;
+      for (int i = 0; i < combo.getItems().size(); i++) {
+        LayerOption item = combo.getItems().get(i);
+        if (item != null && item.file != null && entry.getValue().file != null
+            && item.file.equals(entry.getValue().file)) {
+          combo.getSelectionModel().select(i);
+          break;
+        }
+      }
+    }
+    applyingState = false;
+    updateExpressionFromSelection();
+    redrawPreview();
+    persistCurrentSetState();
+    status("Applied gallery combination.");
   }
 
   private void redrawPreview() {

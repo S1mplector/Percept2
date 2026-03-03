@@ -418,6 +418,7 @@ public class RuntimeVnInterop implements VnInterop {
   private VnScene loadVnScene(String script, VnScene current) throws Exception {
     VnScenario sc = scenarioLoader.load(script);
     VnScene vn = new VnScene(sc);
+    vn.getState().setSourceScriptName(script);
     if (current.getAudioFacade() != null) vn.setAudioFacade(current.getAudioFacade());
     // carry settings
     copySettings(current.getState().getSettings(), vn.getState().getSettings());
