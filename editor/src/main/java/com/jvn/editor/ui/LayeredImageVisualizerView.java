@@ -33,7 +33,6 @@ import com.jvn.core.vn.ui.VnUiStyleSpec;
 
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
-import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
@@ -43,9 +42,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
 import javafx.scene.control.Slider;
-import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
@@ -194,9 +191,14 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     setPadding(new Insets(8));
 
     Label title = new Label(this.toolTitle);
-    title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
-    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 11px;");
+    title.setStyle("-fx-font-size: 13px; -fx-font-weight: 700;");
+    summaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #8899aa;");
+    summaryLabel.setWrapText(true);
+    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 10px;");
     interactionHintLabel.setWrapText(true);
+    previewInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #99aabb;");
+    statusLabel.setStyle("-fx-font-size: 10px;");
+    statusLabel.setWrapText(true);
 
     filterField.setPromptText("Filter sets...");
     filterField.textProperty().addListener((o, ov, nv) -> {
@@ -217,40 +219,40 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     Button refreshButton = iconButton(CssIcon.redo("#7ec8e3"), "Refresh set scan", this::refreshCatalog);
 
-    HBox setRow = new HBox(8, new Label("Set"), setBox, refreshButton);
+    HBox setRow = new HBox(4, new Label("Set"), setBox, refreshButton);
     setRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(setBox, Priority.ALWAYS);
 
-    HBox filterRow = new HBox(8, new Label("Filter"), filterField);
+    HBox filterRow = new HBox(4, new Label("Filter"), filterField);
     filterRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
-    VBox top = new VBox(8, title, summaryLabel, filterRow, setRow);
+    VBox setSection = new VBox(4, filterRow, setRow);
     if (presetControlsEnabled) {
       presetBox.setPromptText("Preset");
       HBox.setHgrow(presetBox, Priority.ALWAYS);
 
       Button loadPresetButton = iconButton(CssIcon.download("#8ab4f8"), "Load selected preset", this::loadSelectedPreset);
       Button deletePresetButton = iconButton(CssIcon.clearX("#f38ba8"), "Delete selected preset", this::deleteSelectedPreset);
-      HBox presetLoadRow = new HBox(6, new Label("Preset"), presetBox, loadPresetButton, deletePresetButton);
+      HBox presetLoadRow = new HBox(4, new Label("Preset"), presetBox, loadPresetButton, deletePresetButton);
       presetLoadRow.setAlignment(Pos.CENTER_LEFT);
 
       presetNameField.setPromptText("Preset name");
       HBox.setHgrow(presetNameField, Priority.ALWAYS);
       Button savePresetButton = iconButton(CssIcon.save("#9ed67a"), "Save preset", this::savePreset);
-      HBox presetSaveRow = new HBox(6, new Label("Name"), presetNameField, savePresetButton);
+      HBox presetSaveRow = new HBox(4, new Label("Name"), presetNameField, savePresetButton);
       presetSaveRow.setAlignment(Pos.CENTER_LEFT);
 
-      top.getChildren().addAll(presetLoadRow, presetSaveRow);
+      setSection.getChildren().addAll(presetLoadRow, presetSaveRow);
     }
-    top.getChildren().add(new Separator());
-    setTop(top);
+    TitledPane setPane = new TitledPane("Set & Presets", setSection);
+    setPane.setExpanded(true);
+    setPane.setAnimated(false);
+    setPane.setCollapsible(true);
 
-    // Preview pane
+    // Preview pane — fills center
     StackPane previewPane = new StackPane(previewCanvas);
-    previewPane.setMinHeight(180);
-    previewPane.setPrefHeight(260);
-    previewPane.setStyle("-fx-background-color: #121720; -fx-border-color: #2b3445; -fx-border-radius: 6; -fx-background-radius: 6;");
+    previewPane.setStyle("-fx-background-color: #121720; -fx-border-color: #2b3445; -fx-border-radius: 4; -fx-background-radius: 4;");
     previewPane.widthProperty().addListener((o, ov, nv) -> {
       previewCanvas.setWidth(Math.max(120, nv.doubleValue() - 4));
       redrawPreview();
@@ -304,14 +306,14 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       if (!applyingState) persistCurrentSetState();
     });
 
-    HBox idRow = new HBox(8, new Label("Tag"), characterIdField, new Label("Expr"), expressionField);
+    HBox idRow = new HBox(4, new Label("Tag"), characterIdField, new Label("Expr"), expressionField);
     idRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(characterIdField, Priority.ALWAYS);
     HBox.setHgrow(expressionField, Priority.ALWAYS);
 
     Button copyShowAttrsButton = iconButton(CssIcon.copy("#9ad19c"), "Copy: show <tag> <attributes>", () -> copyTagAttributes(true, true));
     Button copyAttrsOnlyButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy: <attributes> only", () -> copyTagAttributes(false, false));
-    HBox attrCopyRow = new HBox(8, new Label("Attrs"), copyShowAttrsButton, copyAttrsOnlyButton);
+    HBox attrCopyRow = new HBox(4, new Label("Attrs"), copyShowAttrsButton, copyAttrsOnlyButton);
     attrCopyRow.setAlignment(Pos.CENTER_LEFT);
 
     // Snippet export
@@ -328,7 +330,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Button copySnippetButton = iconButton(CssIcon.copy("#9ad19c"), "Copy selected snippet format", this::copySnippet);
     Button copyRecipeButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy detailed layer recipe comments", this::copyLayerRecipe);
 
-    HBox snippetRow = new HBox(8, new Label("Export"), snippetFormatBox, copySnippetButton, copyRecipeButton);
+    HBox snippetRow = new HBox(4, new Label("Export"), snippetFormatBox, copySnippetButton, copyRecipeButton);
     snippetRow.setAlignment(Pos.CENTER_LEFT);
 
     // Action row
@@ -344,7 +346,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     updateFullscreenButtonUi();
 
     HBox toolRow = new HBox(
-        8,
+        4,
         randomizeButton,
         defaultsButton,
         noneButton,
@@ -358,10 +360,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Button exportPngButton = iconButton(CssIcon.download("#8ab4f8"), "Export composited image as PNG file", this::exportCompositePng);
     Button exportSetupBtn = iconButton(CssIcon.save("#9ed67a"), "Export setup to .layersetup file", this::exportSetupToFile);
     Button importSetupBtn = iconButton(CssIcon.folder("#f5c46b"), "Import setup from .layersetup file", this::importSetupFromFile);
-    HBox fileRow = new HBox(8, exportPngButton, exportSetupBtn, importSetupBtn);
+    HBox fileRow = new HBox(4, exportPngButton, exportSetupBtn, importSetupBtn);
     fileRow.setAlignment(Pos.CENTER_LEFT);
 
-    HBox framingRow = new HBox(8, matchGameFraming, showOverlayGuides);
+    HBox framingRow = new HBox(4, matchGameFraming, showOverlayGuides);
     framingRow.setAlignment(Pos.CENTER_LEFT);
 
     VBox controls = new VBox(
@@ -375,39 +377,27 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     viewControlsPane.setAnimated(false);
     viewControlsPane.setCollapsible(true);
 
-    VBox scriptRoot = new VBox(8, idRow, autoExpression, attrCopyRow, snippetRow);
-    scriptRoot.setPadding(new Insets(4, 0, 0, 0));
+    VBox scriptRoot = new VBox(4, idRow, autoExpression, attrCopyRow, snippetRow);
     TitledPane scriptPane = new TitledPane("Script controls", scriptRoot);
     scriptPane.setExpanded(false);
     scriptPane.setAnimated(false);
     scriptPane.setCollapsible(true);
 
-    VBox actionsRoot = new VBox(6, toolRow, fileRow, framingRow);
-    actionsRoot.setPadding(new Insets(4, 0, 0, 0));
+    VBox actionsRoot = new VBox(4, toolRow, fileRow, framingRow);
     TitledPane actionsPane = new TitledPane("Actions", actionsRoot);
     actionsPane.setExpanded(true);
     actionsPane.setAnimated(false);
     actionsPane.setCollapsible(true);
 
-    VBox previewSection = new VBox(
-        8,
-        previewPane,
-        previewInfoLabel,
-        interactionHintLabel,
-        viewControlsPane,
-        actionsPane,
-        scriptPane,
-        statusLabel);
-    previewSection.setPadding(new Insets(0, 0, 4, 0));
-
+    // ── Layer groups section ──
     Label groupsLabel = new Label("Layer Groups (up/down changes render order)");
-    groupsLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: 700;");
+    groupsLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: 700;");
 
     Button activeAllButton = iconButton(CssIcon.check("#9ed67a"), "Mark all groups active for randomization", () -> setAllGroupsActive(true));
     Button activeNoneButton = iconButton(CssIcon.minus("#f0b673"), "Mark all groups inactive for randomization", () -> setAllGroupsActive(false));
     Button swapAllButton = iconButton(CssIcon.check("#8ab4f8"), "Mark all groups for swap", () -> setAllSwapGroups(true));
     Button swapNoneButton = iconButton(CssIcon.minus("#8ab4f8"), "Clear swap marks", () -> setAllSwapGroups(false));
-    HBox groupTools = new HBox(6, activeAllButton, activeNoneButton, swapAllButton, swapNoneButton);
+    HBox groupTools = new HBox(4, activeAllButton, activeNoneButton, swapAllButton, swapNoneButton);
     groupTools.setAlignment(Pos.CENTER_LEFT);
 
     attributeFilterField.setPromptText("Filter attributes/groups...");
@@ -417,11 +407,11 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         persistCurrentSetState();
       }
     });
-    HBox filterRowAttrs = new HBox(8, new Label("Filter"), attributeFilterField);
+    HBox filterRowAttrs = new HBox(4, new Label("Filter"), attributeFilterField);
     filterRowAttrs.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(attributeFilterField, Priority.ALWAYS);
 
-    VBox groupsRoot = new VBox(8, filterRowAttrs, groupsLabel, groupTools, groupBox);
+    VBox groupsRoot = new VBox(4, filterRowAttrs, groupsLabel, groupTools, groupBox);
     groupsRoot.setPadding(new Insets(2));
     ScrollPane groupsScroll = new ScrollPane(groupsRoot);
     groupsScroll.setFitToWidth(true);
@@ -436,12 +426,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       if (!applyingState) persistCurrentSetState();
     });
     Button applyTypedButton = iconButton(CssIcon.check("#9ed67a"), "Apply typed attributes", () -> applyTypedAttributes(true));
-    HBox typedHeader = new HBox(8, typedRealtime, applyTypedButton);
+    HBox typedHeader = new HBox(4, typedRealtime, applyTypedButton);
     typedHeader.setAlignment(Pos.CENTER_LEFT);
-    VBox typedRoot = new VBox(8, new Label("Type attributes to preview"), typedAttributesField, typedHeader);
-    typedRoot.setPadding(new Insets(8));
+    VBox typedRoot = new VBox(4, new Label("Type attributes to preview"), typedAttributesField, typedHeader);
+    typedRoot.setPadding(new Insets(4));
 
-    shortformsArea.setPrefRowCount(8);
+    shortformsArea.setPrefRowCount(6);
     shortformsArea.setWrapText(false);
     shortformsArea.textProperty().addListener((o, ov, nv) -> {
       refreshShortforms();
@@ -451,10 +441,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     HBox.setHgrow(shortformBox, Priority.ALWAYS);
     Button applyShortformButton = iconButton(CssIcon.check("#9ed67a"), "Apply selected shortform", this::applySelectedShortform);
     Button copyShortformButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy selected shortform expression", this::copySelectedShortform);
-    HBox shortformRow = new HBox(8, shortformBox, applyShortformButton, copyShortformButton);
+    HBox shortformRow = new HBox(4, shortformBox, applyShortformButton, copyShortformButton);
     shortformRow.setAlignment(Pos.CENTER_LEFT);
-    VBox shortformsRoot = new VBox(8, new Label("Format: name = attribute expression"), shortformsArea, shortformRow);
-    shortformsRoot.setPadding(new Insets(8));
+    VBox shortformsRoot = new VBox(4, new Label("Format: name = attribute expression"), shortformsArea, shortformRow);
+    shortformsRoot.setPadding(new Insets(4));
 
     TabPane groupsTabs = new TabPane();
     groupsTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
@@ -463,11 +453,29 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Tab shortformsTab = new Tab("Shortforms", shortformsRoot);
     groupsTabs.getTabs().addAll(attributesTab, typedTab, shortformsTab);
 
-    SplitPane split = new SplitPane(previewSection, groupsTabs);
-    split.setOrientation(Orientation.VERTICAL);
-    split.setDividerPositions(0.58);
+    // ── Right sidebar ──
+    VBox sidebar = new VBox(6,
+        title, summaryLabel,
+        setPane,
+        actionsPane,
+        viewControlsPane,
+        scriptPane,
+        groupsTabs,
+        previewInfoLabel, interactionHintLabel,
+        statusLabel);
+    sidebar.setPadding(new Insets(6));
+    sidebar.setStyle("-fx-font-size: 11px;");
 
-    setCenter(split);
+    ScrollPane sidebarScroll = new ScrollPane(sidebar);
+    sidebarScroll.setFitToWidth(true);
+    sidebarScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    sidebarScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    sidebarScroll.setStyle("-fx-background: #1a1f2e; -fx-background-color: #1a1f2e; -fx-border-color: #2b3445; -fx-border-width: 0 0 0 1;");
+    sidebarScroll.setPrefWidth(320);
+    sidebarScroll.setMinWidth(260);
+
+    setCenter(previewPane);
+    setRight(sidebarScroll);
     updateViewportControlState();
     refreshShortforms();
     redrawPreview();
