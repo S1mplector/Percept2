@@ -56,14 +56,19 @@ TimelineData
 │               ├── timeMs: double
 │               ├── value: double
 │               └── easing: Easing.Type
-└── audioCues: List<AudioCue>
-    └── AudioCue
+├── audioCues: List<AudioCue>
+│   └── AudioCue
+│       ├── timeMs: double
+│       ├── trackPath: String
+│       ├── channel: String ("sound" | "music")
+│       ├── volume: double (0–1)
+│       ├── loop: boolean
+│       └── fadeInMs: double
+└── eventCues: List<EventCue>
+    └── EventCue
         ├── timeMs: double
-        ├── trackPath: String
-        ├── channel: String ("sound" | "music")
-        ├── volume: double (0–1)
-        ├── loop: boolean
-        └── fadeInMs: double
+        ├── type: String
+        └── payload: Map<String, String>
 ```
 
 ---
@@ -151,6 +156,7 @@ timeline {
 | `cameraMove` | `x`, `y`, `dur`, `easing` | Camera position keyframes |
 | `cameraZoom` | `zoom`, `dur`, `easing` | Camera zoom keyframe |
 | `playAudio "path"` | `volume`, `loop`, `bgm`, `channel`, `fadein` | Audio cue |
+| `event "type"` | arbitrary key-value payload | Event cue (instant callback) |
 | `wait <ms>` | — | Advances the time cursor |
 
 ### Time Cursor

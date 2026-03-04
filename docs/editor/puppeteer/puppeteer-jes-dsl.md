@@ -203,6 +203,23 @@ playAudio "assets/audio/sfx/whoosh.wav" {
 
 Audio actions have no `dur` or `easing` — they fire instantly at their timestamp.
 
+### `event` — Event Cue
+
+Fires an instant event cue at the current timeline position. Events carry a type string and an arbitrary key-value payload, delivered to `SceneAccessor.onEventCue(type, payload)`.
+
+```jes
+event "expression" {
+  target: hero
+  value: angry
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| (any key) | string | Arbitrary payload entries — all values are strings |
+
+Event actions have no `dur` or `easing` — they fire instantly at their timestamp, like `playAudio`. The Puppeteer editor emits these from `EditorEventCue` entries. In VNS scenes, the `"expression"` event type is handled by `VnCharacterSceneAccessor` to change character sprites mid-animation.
+
 ---
 
 ## Control Statements
@@ -324,6 +341,28 @@ timeline {
 at 0ms: play music "assets/audio/bgm/theme.ogg" volume 0.8
 at 1500ms: play sound "assets/audio/sfx/impact.wav"
 ```
+
+### Compact Export
+
+`CodeExporter.exportCompact(project)` — single-line-per-action format for minimal file size. Ideal for embedding short timelines:
+
+```jes
+timeline {
+  move "hero" { x:-150 y:350 dur:0 }
+  fade "hero" { alpha:0 dur:0 }
+  wait 100
+  move "hero" { x:400 y:350 dur:600 easing:ease_out_cubic }
+  fade "hero" { alpha:1 dur:400 easing:ease_out_quad }
+}
+```
+
+Key differences from standard export:
+- All properties on a single line inside `{ }`
+- No spaces after colons
+- No `parallel` grouping — each action on its own line
+- `linear` easing still omitted (same as standard)
+
+The parser handles compact format identically to multi-line format.
 
 ---
 
