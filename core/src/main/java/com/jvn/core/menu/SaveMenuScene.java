@@ -1,7 +1,5 @@
 package com.jvn.core.menu;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.AssetType;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.config.MenuActionSpec;
@@ -23,13 +21,6 @@ import com.jvn.core.vn.save.VnSaveManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -267,6 +258,7 @@ public class SaveMenuScene implements Scene {
     selected = idx;
   }
   public String getSaveDirectory() { return saveManager.getSaveDirectory(); }
+  public VnScene getCurrentVnScene() { return currentVnScene; }
 
   public boolean isNewItemSelected() { return selected == 0; }
   public String getSelectedName() {
@@ -282,36 +274,40 @@ public class SaveMenuScene implements Scene {
     return "Save " + java.time.LocalDateTime.now().format(fmt);
   }
 
-  public void saveNew(String name) {
-    if (name == null || name.isBlank()) return;
+  public String saveNew(String name) {
+    if (name == null || name.isBlank()) return null;
     if (currentVnScene == null || currentVnScene.getState() == null) {
       LOG.warn("Cannot save: no active VN scene or state");
-      return;
+      return null;
     }
+    String slot = saveManager.sanitizeSaveName(name);
     try {
-      saveManager.save(currentVnScene.getState(), name);
-      writeThumbnailFor(name);
+      saveManager.save(currentVnScene.getState(), slot);
       refresh();
       if (engine != null) engine.scenes().pop();
+      return slot;
     } catch (Exception e) {
       LOG.warn("Save failed for '{}': {}", name, e.toString());
+      return null;
     }
   }
 
-  public void saveOverwriteSelected() {
+  public String saveOverwriteSelected() {
     String name = getSelectedName();
-    if (name == null) return;
+    if (name == null) return null;
     if (currentVnScene == null || currentVnScene.getState() == null) {
       LOG.warn("Cannot overwrite save: no active VN scene or state");
-      return;
+      return null;
     }
+    String slot = saveManager.sanitizeSaveName(name);
     try {
-      saveManager.save(currentVnScene.getState(), name);
-      writeThumbnailFor(name);
+      saveManager.save(currentVnScene.getState(), slot);
       refresh();
       if (engine != null) engine.scenes().pop();
+      return slot;
     } catch (Exception e) {
       LOG.warn("Overwrite save failed for '{}': {}", name, e.toString());
+      return null;
     }
   }
 
@@ -364,30 +360,6 @@ public class SaveMenuScene implements Scene {
       return "Party " + party + " • HP " + Math.round(totalHp) + "/" + Math.round(totalMax);
     }
     return null;
-  }
-
-  private void writeThumbnailFor(String name) {
-    try {
-      var state = currentVnScene.getState();
-      String bgId = state.getCurrentBackgroundId();
-      if (bgId == null) return;
-      VnScenario scen = state.getScenario();
-      if (scen == null) return;
-      VnBackground bg = scen.getBackground(bgId);
-      if (bg == null) return;
-      String path = bg.getImagePath();
-      if (path == null) return;
-      AssetCatalog assets = new AssetCatalog();
-      try (InputStream in = assets.open(AssetType.IMAGE, path)) {
-        if (in == null) return;
-        BufferedImage bi = ImageIO.read(in);
-        if (bi == null) return;
-        Path dir = Paths.get(saveManager.getSaveDirectory());
-        Files.createDirectories(dir);
-        File out = dir.resolve(name + ".png").toFile();
-        ImageIO.write(bi, "png", out);
-      }
-    } catch (Exception ignored) { }
   }
 
   @Override public void onEnter() { }

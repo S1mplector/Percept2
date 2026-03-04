@@ -596,12 +596,12 @@ public class FxLauncher extends Application {
 
   private void writeSaveThumbnail(VnScene vnScene, String slotName) {
     try {
+      if (vnScene == null || slotName == null || slotName.isBlank()) return;
       String dir = System.getProperty("user.home") + "/.jvn/saves";
       Path d = Paths.get(dir);
       Files.createDirectories(d);
       File out = d.resolve(slotName + ".png").toFile();
-      var img = canvas.snapshot(null, null);
-      ImageIO.write(SwingFXUtils.fromFXImage(img, null), "png", out);
+      captureVnThumbnail(vnScene, out);
     } catch (Exception ignored) {}
   }
 
@@ -814,10 +814,15 @@ public class FxLauncher extends Application {
       if (save.activateSelectedWithoutPrompt()) {
         return true;
       }
+      VnScene vnScene = save.getCurrentVnScene();
+      String slotName;
       if (save.isNewItemSelected()) {
-        save.saveNew(save.generateSaveName());
+        slotName = save.saveNew(save.generateSaveName());
       } else {
-        save.saveOverwriteSelected();
+        slotName = save.saveOverwriteSelected();
+      }
+      if (slotName != null) {
+        writeSaveThumbnail(vnScene, slotName);
       }
       return true;
     }
@@ -875,6 +880,7 @@ public class FxLauncher extends Application {
 
   private void writeQuickSaveThumbnail(VnScene vnScene) {
     try {
+      if (vnScene == null) return;
       var qsm = vnScene.getQuickSaveManager();
       if (qsm == null) return;
       String dir = qsm.getSaveDirectory();
@@ -883,10 +889,22 @@ public class FxLauncher extends Application {
       Path d = Paths.get(dir);
       Files.createDirectories(d);
       File out = d.resolve(name + ".png").toFile();
-      var img = canvas.snapshot(null, null);
-      ImageIO.write(SwingFXUtils.fromFXImage(img, null), "png", out);
+      captureVnThumbnail(vnScene, out);
     } catch (Exception ignored) {
     }
+  }
+
+  private void captureVnThumbnail(VnScene vnScene, File out) throws Exception {
+    if (vnScene == null || out == null || canvas == null || vnRenderer == null) return;
+    double w = canvas.getWidth();
+    double h = canvas.getHeight();
+    if (w <= 1 || h <= 1) return;
+
+    // Render the VN scene directly so the thumbnail includes dialogue, characters, and overlays.
+    vnRenderer.setAudioFacade(vnScene.getAudioFacade());
+    vnRenderer.render(vnScene.getState(), vnScene.getScenario(), w, h, mouseX, mouseY);
+    var img = canvas.snapshot(null, null);
+    ImageIO.write(SwingFXUtils.fromFXImage(img, null), "png", out);
   }
 
   private void handleMenuDelete() {

@@ -49,6 +49,10 @@ public class VnSaveManager {
     return saveDirectory.toString();
   }
 
+  public String sanitizeSaveName(String name) {
+    return sanitizeFileName(name);
+  }
+
   public int getAutosaveSlotCount() {
     return AUTOSAVE_SLOT_COUNT;
   }
