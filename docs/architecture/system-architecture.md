@@ -23,25 +23,82 @@ This document describes the engine structure and the key execution paths across 
 
 Source: `core/src/main/java/com/jvn/core/engine/Engine.java`
 
-The `Engine` class is the central orchestrator. It owns the scene stack, input state, tween runner, and update loop.
+The `Engine` class is the central orchestrator. It owns the scene stack, input state, tween runner, frame statistics, and the multi-phase update loop.
 
-### Update Loop
+### Update Loop — Frame Pipeline
 
-Each frame, the renderer calls `engine.update(deltaMs)`. The engine applies:
+Each frame, the renderer calls `engine.update(deltaMs)`. The engine runs a seven-stage pipeline:
 
-1. **Delta clamping** — caps `deltaMs` to `maxDeltaMs` (default 75ms) to prevent simulation explosions from frame spikes or debugger pauses.
-2. **Delta smoothing** — optional exponential moving average (`deltaSmoothing`, default 0.1). Smooths frame-to-frame jitter. Set to 0 to disable.
-3. **Fixed timestep** (optional) — if `fixedUpdateMs > 0`, the engine accumulates time and runs `tick()` at fixed intervals (up to `maxFixedSteps` per frame). Prevents accumulator runaway by clamping to one step's worth of time when the cap is hit.
-4. **Tick** — updates `TweenRunner`, then calls `update(deltaMs)` on the active scene (top of stack).
-5. **Input frame end** — clears `pressed` and `released` sets for next frame.
+1. **Record & notify** — record raw delta in `FrameStats`; fire `EngineListener.preUpdate(rawDelta)`.
+2. **Delta clamping** — caps `deltaMs` to `maxDeltaMs` (default 75ms) to prevent simulation explosions from frame spikes or debugger pauses.
+3. **Delta smoothing** — optional exponential moving average (`deltaSmoothing`, default 0.1). Smooths frame-to-frame jitter. Set to 0 to disable.
+4. **Time scaling** — multiplies by `timeScale` (default 1.0). Use for slow-motion (`0.5`), fast-forward (`2.0`), or freeze (`0.0`).
+5. **Fixed update phase** — if `fixedUpdateMs > 0`, accumulates scaled time and calls `Scene.fixedUpdate(fixedUpdateMs)` at deterministic intervals (up to `maxFixedSteps` per frame). Computes `interpolationAlpha` from the accumulator remainder.
+6. **Variable update phase** — updates `TweenRunner`, then calls `Scene.update(effectiveDelta)` once per frame.
+7. **Late update phase** — calls `Scene.lateUpdate(effectiveDelta)` once per frame, after entity positions are finalized. Ideal for camera follow.
+8. **Post-frame** — clears input `pressed`/`released` sets; fires `EngineListener.postUpdate(effectiveDelta)`.
+
+If the engine is **paused** or not started, stages 5–7 are skipped — input is still processed and listeners still fire, so pause menus remain responsive.
 
 ```java
-// Default settings
+// Default timing settings
 maxDeltaMs = 75;           // clamp extreme deltas
 deltaSmoothing = 0.1;      // exponential smoothing factor [0..1]
 fixedUpdateMs = 0;          // 0 = variable timestep (disabled)
 maxFixedSteps = 5;          // safety limit per frame
+timeScale = 1.0;            // global time multiplier [0..10]
 ```
+
+### Interpolation Alpha
+
+When using a fixed timestep, the accumulator will have a fractional remainder after the last physics tick. `engine.getInterpolationAlpha()` returns this as a value in [0.0, 1.0]. Renderers should use it to interpolate visual state between the previous and current physics snapshots for stutter-free rendering:
+
+```java
+double renderX = prevX + (curX - prevX) * engine.getInterpolationAlpha();
+```
+
+Returns 0.0 when fixed timestep is disabled.
+
+### Time Scale
+
+`engine.setTimeScale(scale)` multiplies the effective delta after clamping and smoothing. Clamped to [0.0, 10.0].
+
+```java
+engine.setTimeScale(0.5);  // slow-motion
+engine.setTimeScale(2.0);  // fast-forward
+engine.setTimeScale(0.0);  // frozen (game time stops, input still works)
+```
+
+### Pause
+
+`engine.setPaused(true)` freezes all game logic (no scene updates, fixed updates, tweens, or late updates) while keeping input responsive and listeners active. This is separate from `timeScale(0)` — pause skips all update phases entirely rather than passing zero delta.
+
+### Frame Statistics
+
+`engine.frameStats()` returns a `FrameStats` instance that tracks timing over a rolling 60-frame window:
+
+| Method | Description |
+|--------|-------------|
+| `getFps()` | Frames per second (averaged) |
+| `getAvgMs()` | Average frame time in ms |
+| `getMinMs()` | Minimum frame time in window |
+| `getMaxMs()` | Maximum frame time in window |
+| `getTotalFrames()` | Total frames since engine start |
+
+Stats are recorded every frame, even when paused.
+
+### Engine Listeners
+
+Register `EngineListener` instances for frame-level hooks without modifying engine internals:
+
+```java
+engine.addListener(new EngineListener() {
+    @Override public void preUpdate(long rawDeltaMs) { /* profiling start */ }
+    @Override public void postUpdate(long effectiveDeltaMs) { /* profiling end */ }
+});
+```
+
+Listeners fire even when the engine is paused. Both methods have default no-op implementations.
 
 ### ApplicationConfig
 
@@ -54,10 +111,11 @@ Built via `ApplicationConfig.builder()`:
 | `height` | `540` | Initial window height |
 | `fixedUpdateMs` | `0` | Fixed update step (0 = variable) |
 | `fixedUpdateMaxSteps` | `5` | Max substeps per frame |
+| `timeScale` | `1.0` | Initial time scale multiplier |
 
 ### TweenRunner
 
-A lightweight task runner for time-based animations. `Engine.tweens()` returns the shared instance. Add `TweenTask` subclasses (implement `update(deltaMs)` + `isFinished()`); finished tasks are auto-removed.
+A lightweight task runner for time-based animations. `Engine.tweens()` returns the shared instance. Add `TweenTask` subclasses (implement `update(deltaMs)` + `isFinished()`); finished tasks are auto-removed. Tweens run during the variable update phase (not the fixed update phase).
 
 Source: `core/src/main/java/com/jvn/core/tween/TweenRunner.java`
 
@@ -80,11 +138,13 @@ Scenes are managed as a **stack** with lifecycle callbacks:
 
 ```java
 public interface Scene {
-    default void onEnter() {}   // scene becomes active
-    default void onExit() {}    // scene is removed from stack
-    default void onPause() {}   // another scene pushed on top
-    default void onResume() {}  // scene becomes active again after pop
-    void update(long deltaMs);  // called every frame while active
+    default void onEnter() {}           // scene becomes active
+    default void onExit() {}            // scene is removed from stack
+    default void onPause() {}           // another scene pushed on top
+    default void onResume() {}          // scene becomes active again after pop
+    default void fixedUpdate(long dt) {} // deterministic rate (physics, gameplay sim)
+    void update(long deltaMs);           // once per frame (animation, UI, input)
+    default void lateUpdate(long dt) {}  // after update (camera follow, post-corrections)
 }
 ```
 

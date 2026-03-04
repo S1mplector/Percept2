@@ -1,0 +1,88 @@
+package com.jvn.core.engine;
+
+/**
+ * Tracks per-frame timing statistics for diagnostics and profiling.
+ * Updated automatically by the {@link Engine} each frame.
+ *
+ * <p>Statistics are computed over a rolling window (default 60 frames)
+ * to provide stable readings without long-term drift.</p>
+ */
+public class FrameStats {
+  private static final int DEFAULT_WINDOW = 60;
+
+  private final long[] samples;
+  private int head = 0;
+  private int count = 0;
+  private long totalFrames = 0;
+
+  // Cached per-window stats
+  private double fps;
+  private double avgMs;
+  private double minMs;
+  private double maxMs;
+
+  public FrameStats() {
+    this(DEFAULT_WINDOW);
+  }
+
+  public FrameStats(int windowSize) {
+    this.samples = new long[Math.max(1, windowSize)];
+  }
+
+  /**
+   * Record a frame's delta time. Called by the engine each frame.
+   */
+  public void record(long deltaMs) {
+    samples[head] = deltaMs;
+    head = (head + 1) % samples.length;
+    if (count < samples.length) count++;
+    totalFrames++;
+    recompute();
+  }
+
+  private void recompute() {
+    if (count == 0) return;
+    long sum = 0;
+    long lo = Long.MAX_VALUE;
+    long hi = Long.MIN_VALUE;
+    for (int i = 0; i < count; i++) {
+      long s = samples[i];
+      sum += s;
+      if (s < lo) lo = s;
+      if (s > hi) hi = s;
+    }
+    avgMs = (double) sum / count;
+    minMs = lo;
+    maxMs = hi;
+    fps = avgMs > 0 ? 1000.0 / avgMs : 0;
+  }
+
+  /** Frames per second (averaged over the window). */
+  public double getFps() { return fps; }
+
+  /** Average frame time in ms (over the window). */
+  public double getAvgMs() { return avgMs; }
+
+  /** Minimum frame time in ms (over the window). */
+  public double getMinMs() { return minMs; }
+
+  /** Maximum frame time in ms (over the window). */
+  public double getMaxMs() { return maxMs; }
+
+  /** Total frames recorded since engine start. */
+  public long getTotalFrames() { return totalFrames; }
+
+  /** Number of samples currently in the window. */
+  public int getSampleCount() { return count; }
+
+  /** Reset all statistics. */
+  public void reset() {
+    head = 0;
+    count = 0;
+    totalFrames = 0;
+    fps = 0;
+    avgMs = 0;
+    minMs = 0;
+    maxMs = 0;
+  }
+}
