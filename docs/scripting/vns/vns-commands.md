@@ -145,13 +145,24 @@ Place a character at arbitrary screen coordinates without pre-declaring a positi
 
 ### `[move <charId> <position> [expression] [easing] [durationMs]]`
 
-Moves a visible character to a new position with an animated slide. Supports optional expression change, easing curve, and custom duration.
+Moves a character to a new position. The animation style depends on whether **global position mode** is enabled for that character:
+
+- **Global mode ON** — the character **slides** from its current position to the target (a true move tween).
+- **Global mode OFF** (default) — the character is removed from its old slot and **fades in** at the target position from the screen edge (an entrance animation, not a slide).
+
+To get a smooth slide, enable global mode first with `[char <charId> global on]`. See [Global Position Mode](vns-characters.md#global-position-mode) for details.
 
 ```vns
-[move hero right]
-[move hero left happy]
-[move hero center smile ease_out_bounce]
-[move hero far_left neutral ease_out_quad 500]
+# Without global mode — entrance animation at new position
+[show hero left neutral]
+[move hero right]               # hero disappears from left, fades in from right edge
+
+# With global mode — smooth slide
+[char hero global on]
+[show hero left neutral]
+[move hero right]               # hero slides from left to right
+[move hero center happy]        # slides to center, switches to happy
+[move hero far_left neutral ease_out_bounce 500]  # with easing + duration
 ```
 
 **Parameters:**
@@ -162,7 +173,7 @@ Moves a visible character to a new position with an animated slide. Supports opt
 | `position` | Yes | Target position (predefined, named `@position`, or `at x,y`) |
 | `expression` | No | Expression to switch to after move |
 | `easing` | No | Easing curve for the slide animation (see table below) |
-| `durationMs` | No | Duration in ms (default: engine default ~320ms) |
+| `durationMs` | No | Duration in ms (default: ~320ms for slides, ~200ms for entrances) |
 
 **With custom positions:**
 
@@ -204,7 +215,7 @@ Moves a visible character to a new position with an animated slide. Supports opt
 | `ease_out_bounce` | Bounce at end |
 | `ease_in_out_bounce` | Bounce both ends |
 
-The `[move]` command is the top-level shorthand. For global-mode characters, see also `[char <charId> move ...]` in [Characters & Sprites](vns-characters.md).
+See also `[char <charId> move ...]` in [Characters & Sprites](vns-characters.md) for the provider-command form.
 
 ### `[hide <charId>]`
 

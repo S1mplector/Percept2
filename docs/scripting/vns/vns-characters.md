@@ -288,11 +288,77 @@ hero: Come on, let's go!
 
 ## Character Motion System
 
-JVN provides two ways to move characters: the **`[move]` top-level command** (simpler, recommended for most cases) and the **`[char]` provider commands** (for advanced choreography with global position mode).
+JVN provides two ways to move characters: the **`[move]` top-level command** and the **`[char]` provider commands**. Both can be used with or without global position mode, but the animation behavior changes significantly depending on whether global mode is enabled.
+
+---
+
+### Global Position Mode
+
+By default, characters are in **slot mode**: each `[show]` or `[move]` creates an independent display slot at the target position. The character has no memory of where it was before — it simply appears at the new position with an entrance animation (fade-in from screen edge).
+
+**Global position mode** gives a character persistent position memory. When enabled, the engine tracks where the character currently is, and `[move]` produces a **smooth slide tween** from the current position to the target instead of an entrance animation.
+
+#### Enabling / disabling
+
+```vns
+[char hero global on]              # enable global position mode
+[char hero global_position on]     # alias
+[char hero global off]             # disable (revert to slot mode)
+```
+
+#### Behavior comparison
+
+| Action | Slot mode (default) | Global mode |
+|--------|-------------------|-------------|
+| `[show hero left]` | Creates slot at LEFT, entrance fade-in | Creates slot at LEFT, entrance fade-in, remembers LEFT |
+| `[move hero right]` | Removes old slot, creates new slot at RIGHT with entrance fade-in from edge | **Slides** character from LEFT → RIGHT with tween animation |
+| `[show hero right]` while visible at LEFT | Removes LEFT slot, entrance at RIGHT | **Slides** from LEFT → RIGHT (same as `[move]`) |
+| `[hide hero]` | Exit animation | Exit animation |
+| Position after hide + re-show | No memory — always entrance animation | Remembers last position for anchor fallback |
+
+#### When to use global mode
+
+- **Use global mode** when characters need to physically move around the scene — stepping forward, switching sides, pacing, confrontation choreography.
+- **Use slot mode** (default) when characters simply appear and disappear at fixed positions — standard dialogue scenes where characters don't need to slide between positions.
+
+#### Typical pattern
+
+```vns
+# Set up characters with global mode for a choreography scene
+[char hero global on]
+[char villain global on]
+
+[show hero left neutral]
+[show villain right smug]
+
+hero: So we meet at last.
+
+# Hero steps forward — smooth slide from left to center
+[move hero center determined]
+[wait 300]
+
+villain: You dare approach me?
+
+# Villain also steps forward — face-off
+[move villain center smug]
+
+# Hero retreats
+[move hero far_left worried ease_out_back 500]
+```
+
+Without global mode, each `[move]` above would produce an entrance animation instead of a slide, which looks jarring for choreography.
+
+#### Scope and persistence
+
+Global mode is **per-character** and persists for the duration of the scene (or until explicitly disabled). It survives label jumps within the same scenario. It is saved/restored with save files.
+
+Source: `core/src/main/java/com/jvn/core/vn/VnState.java` — `isCharacterGlobalPositionEnabled()`, `showCharacterAnimated()`
+
+---
 
 ### Top-Level `[move]` Command
 
-The simplest way to slide a visible character to a new position:
+The simplest way to reposition a visible character:
 
 ```vns
 [move hero right]
@@ -300,6 +366,10 @@ The simplest way to slide a visible character to a new position:
 [move hero center smile ease_out_bounce]
 [move hero far_left neutral ease_out_quad 500]
 ```
+
+**Animation depends on global mode** (see above):
+- **Global mode ON** → smooth slide tween (~320ms default).
+- **Global mode OFF** → entrance fade-in from screen edge (~200ms default).
 
 **Syntax:** `[move <charId> <position> [expression] [easing] [durationMs]]`
 
@@ -309,7 +379,7 @@ The simplest way to slide a visible character to a new position:
 | `position` | Yes | Target position — predefined (`left`, `center`, etc.), named `@position`, or `at x,y` |
 | `expression` | No | Expression to switch to after the move |
 | `easing` | No | Easing curve for the animation (see table below) |
-| `durationMs` | No | Duration in ms (default: engine default ~320ms) |
+| `durationMs` | No | Duration in ms (default: ~320ms slide / ~200ms entrance) |
 
 **With custom positions:**
 
@@ -346,6 +416,8 @@ Best picks for character movement:
 - **`ease_out_bounce`** — bouncy landing, comedic scenes
 - **`ease_in_out_cubic`** — smooth start and stop, cinematic pans
 
+---
+
 ### `[char]` Provider Commands (Advanced)
 
 For advanced choreography beyond basic show/hide, use the `[char]` (or `[character]`) provider commands.
@@ -355,20 +427,11 @@ For advanced choreography beyond basic show/hide, use the `[char]` (or `[charact
 | Subcommand | Aliases | Description |
 |------------|---------|-------------|
 | `global` | `global_position` | Enable/disable persistent position mode |
-| `at` | `position`, `pos` | Set the character's anchor position |
+| `at` | `position`, `pos` | Set the character's anchor position (updates memory, shows if global mode) |
 | `move` | — | Animated slide to a new position (with optional expression, easing, duration) |
 | `show` | — | Show character at a position with an expression |
 | `expression` | `expr` | Change expression without moving |
 | `hide` | — | Animated exit |
-
-### Enabling global position mode
-
-```vns
-[char hero global on]
-[char hero global_position on]     # alias
-```
-
-When global mode is enabled, the character maintains a persistent anchor position. Without it, each `[show]` creates an independent slot.
 
 ### Setting anchor position
 
@@ -377,6 +440,8 @@ When global mode is enabled, the character maintains a persistent anchor positio
 [char hero pos left]               # alias
 [char hero position right]         # alias
 ```
+
+When global mode is enabled, setting the anchor position also updates the character's visual position on screen. Without global mode, it only stores the position for later reference.
 
 ### Showing via char command
 
