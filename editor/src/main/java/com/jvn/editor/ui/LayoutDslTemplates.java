@@ -365,6 +365,8 @@ buttonTextPaddingY=1
     return """
 # Save/load slot row visual style (.style)
 # Designed for save slot card rows.
+# Inherits default.style so load/save menus reuse the main menu background image.
+extends=default
 itemColor=#C4D4EC
 itemSelectedColor=#FFE4A0
 itemHoverColor=#E0ECFF

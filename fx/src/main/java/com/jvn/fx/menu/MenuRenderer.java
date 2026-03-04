@@ -289,6 +289,30 @@ public class MenuRenderer {
       }
     }
 
+    // Backward-compatibility: older submenu/slot styles may not inherit a background asset.
+    // In that case, use the themed main-menu background as the frosted source.
+    if (isFrostedOverlayStyle(style) && theme.getBackgroundImagePath() != null) {
+      Image fallbackFrostSource = loadImage(theme.getBackgroundImagePath());
+      if (fallbackFrostSource != null) {
+        double alpha = style != null && style.backgroundOpacity() != null ? clamp01(style.backgroundOpacity()) : 1.0;
+        drawBlurredSubmenuBackground(fallbackFrostSource, w, h, alpha);
+        return;
+      }
+    }
+
+    // Submenus should visually stay tied to the main menu background.
+    // If no image source exists, use themed background color plus frosted tint
+    // instead of falling back to slot/submenu hardcoded colors.
+    if (isFrostedOverlayStyle(style)) {
+      Color base = theme.getBackgroundColor() == null ? Color.BLACK : theme.getBackgroundColor();
+      double opacity = style != null && style.backgroundOpacity() != null ? clamp01(style.backgroundOpacity()) : base.getOpacity();
+      gc.setFill(Color.color(base.getRed(), base.getGreen(), base.getBlue(), opacity));
+      gc.fillRect(0, 0, w, h);
+      gc.setFill(SUBMENU_FROST_TINT);
+      gc.fillRect(0, 0, w, h);
+      return;
+    }
+
     String styleColorRaw = style != null ? style.backgroundColor() : null;
     if (styleColorRaw != null && !styleColorRaw.isBlank()) {
       Color color = parseColor(styleColorRaw, theme.getBackgroundColor());
