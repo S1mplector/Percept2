@@ -218,6 +218,52 @@ lavender: Nice to meet you!
 
 ---
 
+## `@position`
+
+Defines a named custom position for character placement. Custom positions let you place characters at arbitrary screen coordinates instead of the five predefined slots.
+
+```text
+@position <name> <x> [y]
+```
+
+- `name` is a unique identifier used in `[show]` and `[move]` commands.
+- `x` is the horizontal screen fraction (`0.0` = left edge, `1.0` = right edge).
+- `y` is the optional vertical screen fraction (`0.0` = top, `1.0` = bottom). Defaults to `0.85` when omitted (standard character baseline).
+- Values are normalized to the game's target resolution.
+- Duplicate names in the same script are parse errors.
+
+**Examples:**
+
+```vns
+# Character standing on a balcony (slightly left, raised)
+@position balcony 0.3 0.6
+
+# Character at far edge, default vertical baseline
+@position doorway 0.1
+
+# Character at a podium (centered, slightly forward)
+@position podium 0.5 0.75
+```
+
+**Usage in commands:**
+
+```vns
+@position balcony 0.3 0.6
+@position doorway 0.1
+
+[show hero balcony neutral]
+hero: The view from up here is breathtaking.
+
+[move hero doorway]
+hero: I should head inside.
+```
+
+Named custom positions work everywhere predefined positions (`center`, `left`, etc.) are accepted — in `[show]`, `[move]`, and `[char ... move/at]` commands.
+
+**See also:** [Characters & Sprites — Custom Positions](vns-characters.md#custom-positions) for inline `at x,y[,z]` syntax and full examples.
+
+---
+
 ## `@label`
 
 Declares a named jump target in the script.
@@ -403,7 +449,7 @@ hero: Here we go.
 
 1. `@scenario` must come before any content (if used).
 2. `@define` and `@include` are processed before other directives on each line.
-3. `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset` can appear in any order relative to each other.
+3. `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@position` can appear in any order relative to each other.
 4. `@var` can appear anywhere — it emits a set command at that position.
 5. `@label` must be unique within the script (including included files).
 
@@ -419,6 +465,7 @@ hero: Here we go.
 @charimg hero neutral assets/characters/hero/neutral.png
 
 @var score = 0
+@position balcony 0.3 0.6
 
 @label start
 # ... story content ...
@@ -429,6 +476,6 @@ hero: Here we go.
 ## Related Docs
 
 - [VNS Overview](vns-scripting.md)
-- [Characters & Sprites](vns-characters.md) — detailed character system docs
+- [Characters & Sprites](vns-characters.md) — detailed character system docs, custom positions
 - [Variables & Conditions](vns-variables.md) — runtime variable system
 - [Parsing Internals](vns-parsing.md) — how directives are processed

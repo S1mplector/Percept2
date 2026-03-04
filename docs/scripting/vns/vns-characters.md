@@ -170,6 +170,122 @@ hero: Oh... I didn't expect that.
 
 ---
 
+## Custom Positions
+
+Beyond the five predefined positions, you can place characters at arbitrary screen coordinates using **named custom positions** or **inline coordinates**.
+
+### Named custom positions (`@position`)
+
+Declare reusable positions in your script header:
+
+```vns
+@position balcony 0.3 0.6
+@position doorway 0.1
+@position podium 0.5 0.75
+```
+
+- `x` is a horizontal screen fraction (`0.0` = left edge, `1.0` = right edge).
+- `y` is optional (`0.0` = top, `1.0` = bottom). Defaults to `0.85` (standard baseline).
+
+Then use them anywhere a position is accepted:
+
+```vns
+[show hero balcony neutral]
+[move hero doorway]
+[char hero at podium]
+```
+
+### Inline positions (`at x,y[,z]`)
+
+For one-off placements, skip the declaration and specify coordinates inline:
+
+```vns
+[show hero at 0.3,0.5]                # x=0.3, y=0.5
+[show hero at 0.3,0.5 happy]          # with expression
+[show hero at 0.3,0.5,10]             # with layer order (z=10)
+[show hero at 0.3,0.5,10 happy]       # with both
+```
+
+Inline positions also work with `[move]`:
+
+```vns
+[move hero at 0.8,0.4]
+[move hero at 0.15,0.85 smile ease_out_bounce]
+```
+
+And with `[char]` subcommands:
+
+```vns
+[char hero move at 0.3,0.5]
+[char hero move at 0.3,0.5 smile]
+[char hero show at 0.8,0.4 neutral]
+```
+
+### Coordinate reference
+
+| Value | Meaning |
+|-------|---------|
+| `x = 0.0` | Left edge of screen |
+| `x = 0.5` | Center horizontally |
+| `x = 1.0` | Right edge of screen |
+| `y = 0.0` | Top of screen |
+| `y = 0.85` | Default character baseline |
+| `y = 1.0` | Bottom of screen |
+| `z` (optional) | Layer order integer — higher = drawn in front |
+
+### Rendering behavior
+
+- Custom positions use `x` as a fraction of screen width to compute the character's horizontal center.
+- Custom positions use `y` as a fraction of screen height for vertical placement.
+- For movement animations, the engine computes a smooth slide delta between the old and new position.
+- Entrance/exit animations default to sliding from the nearest screen edge.
+- Default layer order for custom positions is `0` unless `z` is specified.
+
+### Full example
+
+```vns
+@scenario balcony_scene
+@character hero "Aria"
+@character companion "Kai"
+@charimg hero neutral assets/characters/aria/neutral.png
+@charimg hero happy assets/characters/aria/happy.png
+@charimg companion neutral assets/characters/kai/neutral.png
+@charimg companion pointing assets/characters/kai/pointing.png
+
+@position balcony_left 0.25 0.6
+@position balcony_right 0.75 0.6
+@position ground_center 0.5 0.9
+
+@label start
+[bg castle_night]
+
+# Characters appear on the balcony
+[show hero balcony_left neutral]
+[show companion balcony_right neutral]
+
+companion: Look at the stars tonight!
+[show companion balcony_right pointing]
+
+hero: They're beautiful.
+[show hero balcony_left happy]
+
+# Hero jumps down to the ground using inline position
+[move hero at 0.5,0.9 ease_out_bounce]
+[wait 400]
+
+hero: Come on, let's go!
+
+[end]
+```
+
+### When to use which
+
+- **Predefined positions** (`center`, `left`, etc.) — standard dialogue scenes, simple staging.
+- **Named `@position`** — recurring custom spots (balcony, throne, podium) reused across multiple commands.
+- **Inline `at x,y`** — one-off precise placements, Puppeteer-style choreography, quick prototyping.
+
+---
+
 ## Character Motion System
 
 For advanced choreography beyond basic show/hide, use the `[char]` provider commands.

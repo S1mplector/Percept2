@@ -91,14 +91,40 @@ Shows a character at a named position with an optional expression and layer orde
 [show villain right evil 10]
 ```
 
-**Positions:**
-| Full Name | Shortcut |
-|-----------|----------|
-| `LEFT` | `L` |
-| `CENTER` | `C` |
-| `RIGHT` | `R` |
-| `FAR_LEFT` | `FL` |
-| `FAR_RIGHT` | `FR` |
+**Predefined positions:**
+
+| Full Name | Shortcut | Typical Screen X |
+|-----------|----------|-----------------|
+| `FAR_LEFT` | `FL` | ~5% |
+| `LEFT` | `L` | ~20% |
+| `CENTER` | `C` | ~50% |
+| `RIGHT` | `R` | ~80% |
+| `FAR_RIGHT` | `FR` | ~95% |
+
+**Named custom positions:**
+
+If you've declared a custom position with `@position`, use its name directly:
+
+```vns
+@position balcony 0.3 0.6
+
+[show hero balcony neutral]
+```
+
+**Inline custom positions (`at x,y[,z]`):**
+
+Place a character at arbitrary screen coordinates without pre-declaring a position:
+
+```vns
+[show hero at 0.3,0.5]                # x=0.3, y=0.5
+[show hero at 0.3,0.5 happy]          # with expression
+[show hero at 0.3,0.5,10]             # with layer order (z=10)
+[show hero at 0.3,0.5,10 happy]       # with both
+```
+
+- `x` — horizontal screen fraction (`0.0` = left, `1.0` = right)
+- `y` — vertical screen fraction (`0.0` = top, `1.0` = bottom)
+- `z` — optional layer order integer (higher = in front)
 
 **Layer order:** optional integer controlling z-depth (higher = in front). Default is position-based:
 - `FAR_LEFT` → -20
@@ -106,11 +132,15 @@ Shows a character at a named position with an optional expression and layer orde
 - `CENTER` → 0
 - `RIGHT` → 10
 - `FAR_RIGHT` → 20
+- Custom positions → 0 (unless `z` is specified inline)
 
 ```vns
 # hero appears in front of villain
 [show villain center neutral 0]
 [show hero center determined 10]
+
+# place a character at a precise spot with layer order
+[show narrator at 0.5,0.3,20 thinking]
 ```
 
 ### `[hide <charId>]`
@@ -555,6 +585,17 @@ Advanced character choreography commands.
 [char hero move right smile]     # animated move with expression
 [char hero expression angry]     # change expression only
 [char hero hide]                 # animated hide
+```
+
+**Inline custom positions in `[char]` commands:**
+
+The `move`, `show`, and `at` subcommands also accept `at x,y` inline coordinates:
+
+```vns
+[char hero move at 0.3,0.5]           # animated move to x=0.3, y=0.5
+[char hero move at 0.3,0.5 smile]     # with expression change
+[char hero show at 0.8,0.4 neutral]   # show at inline position
+[char hero at at 0.5,0.5]             # set anchor to inline position
 ```
 
 See [Characters & Sprites](vns-characters.md) for detailed documentation.

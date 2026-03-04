@@ -25,7 +25,7 @@ Complete documentation for the Java Vector Nexus engine.
 ## VNS Scripting (Visual Novel Script)
 
 - [VNS Overview](scripting/vns/vns-scripting.md) — landing page and quick start
-- [Directives & Declarations](scripting/vns/vns-directives.md) — `@scenario`, `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@label`, `@var`, `@define`, `@include`
+- [Directives & Declarations](scripting/vns/vns-directives.md) — `@scenario`, `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@position`, `@label`, `@var`, `@define`, `@include`
 - [Dialogue & Text](scripting/vns/vns-dialogue.md) — dialogue forms, text effects, inline markup
 - [Choices & Branching](scripting/vns/vns-choices.md) — multi-line choices, inline choices, conditional choices, branching patterns
 - [Commands Reference](scripting/vns/vns-commands.md) — complete command catalog with examples

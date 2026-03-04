@@ -186,6 +186,39 @@ See full wizard documentation:
 - `Cmd/Ctrl+Shift+G` -> Open/select Version Control
 - `Cmd/Ctrl+Shift+H` -> Open/select Welcome tab
 
+## VNS Preview Virtual Viewport
+
+The VNS preview renders at the **game's target resolution** (read from `jvn.project`), then scales to fit the editor canvas. This ensures that what you see in the editor preview matches exactly what the player sees at runtime.
+
+### How it works
+
+1. `ProjectViewportSpec` reads `width` and `height` from `jvn.project` (defaults to 1920×1080).
+2. The preview computes a uniform scale factor: `min(canvasWidth / gameWidth, canvasHeight / gameHeight)`.
+3. The scene is rendered at the virtual game resolution inside a `gc.scale()` transform.
+4. Black letterbox bars fill any remaining canvas area when aspect ratios differ.
+5. Mouse coordinates are inverse-transformed from canvas space → virtual space so clicks, hover detection, and overlays work correctly.
+
+### Why this matters
+
+- **Puppeteer timelines** use absolute pixel coordinates (e.g., `x: 739, y: 140`) authored for the game resolution. Without the virtual viewport, these coordinates go off-screen in the smaller editor preview.
+- **Custom character positions** use screen fractions that resolve to game-resolution pixels. The preview must render at that resolution for correct placement.
+- **Dialogue and UI layouts** are resolution-dependent. The preview now shows the correct textbox proportions and choice button positions.
+
+### Configuration
+
+The game resolution is set in `jvn.project`:
+
+```properties
+width=1920
+height=1080
+```
+
+This is automatically configured by the New Project Wizard based on the selected resolution. If no `jvn.project` exists, the preview defaults to 1920×1080.
+
+Source: `editor/src/main/java/com/jvn/editor/ui/VnPreviewView.java`, `editor/src/main/java/com/jvn/editor/ui/ProjectViewportSpec.java`
+
+---
+
 ## Recommended Team Workflow
 
 1. Keep story logic in VNS with clear label naming.
