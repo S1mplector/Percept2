@@ -14,9 +14,9 @@ Complete documentation for the Java Vector Nexus engine.
 
 ## Architecture
 
-- [Overview](architecture/overview.md) — high-level engine map
-- [System Architecture](architecture/system-architecture.md) — modules, boot sequence, data flows
-- [2D Engine](architecture/2d-engine.md) — Scene2D, physics, JES runtime
+- [Overview](architecture/overview.md) — high-level engine map, core capabilities, recommended reading paths
+- [System Architecture](architecture/system-architecture.md) — modules, Engine update loop, delta smoothing, fixed timestep, SceneManager stack, Input system, boot sequence, data flows
+- [2D Engine](architecture/2d-engine.md) — Entity2D properties, Camera2D smoothing/bounds/transforms, PhysicsWorld2D broadphase/raycasts/callbacks, Scene2DBase render pipeline, parallax scrolling
 - [Performance](architecture/performance.md) — build and runtime optimization
 - [Native Library Audit](architecture/native-library-audit.md) — native-math integration status
 
@@ -160,9 +160,9 @@ Complete documentation for the Java Vector Nexus engine.
 
 ## Architecture
 
-- [Overview](architecture/overview.md) — high-level engine map
-- [System Architecture](architecture/system-architecture.md) — modules, boot sequence, data flows
-- [2D Engine](architecture/2d-engine.md) — Scene2D, physics, JES runtime
+- [Overview](architecture/overview.md) — high-level engine map, core capabilities, recommended reading paths
+- [System Architecture](architecture/system-architecture.md) — modules, Engine update loop, delta smoothing, fixed timestep, SceneManager stack, Input system, boot sequence, data flows
+- [2D Engine](architecture/2d-engine.md) — Entity2D properties, Camera2D smoothing/bounds/transforms, PhysicsWorld2D broadphase/raycasts/callbacks, Scene2DBase render pipeline, parallax scrolling
 - [Performance](architecture/performance.md) — build and runtime optimization
 - [Native Library Audit](architecture/native-library-audit.md) — native-math integration status
 - [Debugging & Profiling](architecture/debugging.md) — diagnostics, logging, performance investigation
