@@ -44,11 +44,27 @@ public class RunConsoleView extends BorderPane {
     private final Button clearBtn = iconButton("icon-runtime-clear", "Clear output");
     private final Button stopBtn = iconButton("icon-runtime-stop", "Stop current build");
 
+    // Enhanced UI components
+    private final TextField searchField = new TextField();
+    private final ComboBox<String> logLevelFilter = new ComboBox<>(
+        FXCollections.observableArrayList("All", "Engine", "Errors", "Warnings"));
+    private final ToggleButton autoScrollBtn = new ToggleButton("Auto-scroll");
+    private final ToggleButton wordWrapBtn = new ToggleButton("Wrap");
+    private final Label lineCountLabel = new Label("0 lines");
+    private final Label errorCountLabel = new Label("0 errors");
+    private final Label warnCountLabel = new Label("0 warnings");
+
+    // Raw line buffer for search/filter replay
+    private final List<String> rawLineBuffer = new ArrayList<>();
+
     private EngineState engineState = EngineState.BUILDING;
     private Process runningProcess;
     private ProcessStarter processStarter;
     private long startTime = System.currentTimeMillis();
     private int lineCount = 0;
+    private int errorCount = 0;
+    private int warnCount = 0;
+    private String currentSearchTerm = "";
 
     // Patterns for Gradle noise lines we suppress by default
     private static final Pattern GRADLE_NOISE = Pattern.compile(
@@ -76,45 +92,40 @@ public class RunConsoleView extends BorderPane {
     );
 
     public RunConsoleView(String title) {
-        // Header bar
+        // ─── Menu Bar ────────────────────────────────────────────────
+        MenuBar menuBar = createMenuBar(title);
+
+        // ─── Tool Bar ────────────────────────────────────────────────
+        ToolBar toolBar = createToolBar();
+
+        // ─── Header info row ─────────────────────────────────────────
         stateLabel.getStyleClass().add("run-console-state");
         stateLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
         elapsedLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 12px;");
-        showAllToggle.setStyle("-fx-text-fill: #aaa; -fx-font-size: 11px;");
-        showAllToggle.setSelected(false);
-        showAllToggle.setOnAction(e -> rebuildOutput());
-
-        runBtn.setOnAction(e -> rerunProcess());
-        copyBtn.setOnAction(e -> copyTraceback());
-        clearBtn.setOnAction(e -> clearOutput());
-        stopBtn.setOnAction(e -> stopProcess());
 
         Label titleLabel = new Label(title);
         titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #ddd;");
 
-        HBox leftHeader = new HBox(8, titleLabel, stateLabel, elapsedLabel);
-        leftHeader.setAlignment(Pos.CENTER_LEFT);
-        HBox rightHeader = new HBox(8, showAllToggle, copyBtn, runBtn, stopBtn, clearBtn);
-        rightHeader.setAlignment(Pos.CENTER_RIGHT);
-        HBox.setHgrow(leftHeader, Priority.ALWAYS);
+        HBox infoRow = new HBox(10, titleLabel, stateLabel, elapsedLabel);
+        infoRow.setAlignment(Pos.CENTER_LEFT);
+        infoRow.setPadding(new Insets(4, 10, 4, 10));
+        infoRow.setStyle("-fx-background-color: #1e1e2e; -fx-border-color: #333; -fx-border-width: 0 0 1 0;");
 
-        HBox header = new HBox(leftHeader, rightHeader);
-        header.setPadding(new Insets(6, 10, 6, 10));
-        header.setStyle("-fx-background-color: #1e1e2e; -fx-border-color: #333; -fx-border-width: 0 0 1 0;");
-        header.setAlignment(Pos.CENTER);
-        HBox.setHgrow(rightHeader, Priority.NEVER);
-        HBox.setHgrow(leftHeader, Priority.ALWAYS);
+        VBox topContainer = new VBox(menuBar, toolBar, infoRow);
+        setTop(topContainer);
 
-        // Output area
+        // ─── Output area ─────────────────────────────────────────────
         outputFlow.setPadding(new Insets(8));
         outputFlow.setStyle("-fx-background-color: #0e0e16;");
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle("-fx-background: #0e0e16; -fx-background-color: #0e0e16;");
-
-        setTop(header);
         setCenter(scrollPane);
-        setStyle("-fx-background-color: #0e0e16;");
 
+        // ─── Status bar ──────────────────────────────────────────────
+        HBox statusBar = createStatusBar();
+        setBottom(statusBar);
+
+        setStyle("-fx-background-color: #0e0e16;");
         setState(EngineState.BUILDING);
     }
 
@@ -142,6 +153,9 @@ public class RunConsoleView extends BorderPane {
         this.runningProcess = process;
         startTime = System.currentTimeMillis();
         lineCount = 0;
+        errorCount = 0;
+        warnCount = 0;
+        rawLineBuffer.clear();
         setState(EngineState.BUILDING);
 
         Thread reader = new Thread(() -> {
@@ -188,6 +202,7 @@ public class RunConsoleView extends BorderPane {
     /** Append a raw line from the process. Handles filtering and coloring. */
     public void appendLine(String rawLine) {
         lineCount++;
+        rawLineBuffer.add(rawLine);
 
         // Detect engine state transitions from output
         if (rawLine.contains("> Task") && rawLine.contains(":run")) {
@@ -200,39 +215,83 @@ public class RunConsoleView extends BorderPane {
             setState(EngineState.FAILED);
         }
 
+        // Track error/warning counts
+        boolean isErr = ERROR_LINE.matcher(rawLine).find();
+        boolean isWarn = !isErr && WARN_LINE.matcher(rawLine).find();
+        if (isErr) errorCount++;
+        if (isWarn) warnCount++;
+
         Platform.runLater(() -> {
-            boolean isEngineMsg = ENGINE_MSG.matcher(rawLine).find();
-            boolean isError = ERROR_LINE.matcher(rawLine).find();
-            boolean isWarning = !isError && WARN_LINE.matcher(rawLine).find();
-            boolean isNoise = GRADLE_NOISE.matcher(rawLine).find();
+            if (!passesFilter(rawLine)) return;
 
-            // Always show engine messages, errors, warnings. Hide noise unless toggled.
-            if (!showAllToggle.isSelected() && isNoise && !isEngineMsg && !isError) {
-                return;
-            }
-
-            Text text = new Text(rawLine + "\n");
-            if (isError) {
-                text.setStyle("-fx-fill: #ff5050; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
-            } else if (isWarning) {
-                text.setStyle("-fx-fill: #f0c040; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
-            } else if (isEngineMsg) {
-                text.setStyle("-fx-fill: #e0e0e0; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
-            } else if (isNoise) {
-                text.setStyle("-fx-fill: #555; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 11px;");
-            } else {
-                text.setStyle("-fx-fill: #aaa; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
-            }
+            Text text = styleText(rawLine);
             outputFlow.getChildren().add(text);
 
-            // Auto-scroll to bottom
-            scrollPane.layout();
-            scrollPane.setVvalue(1.0);
+            // Auto-scroll to bottom (unless user disabled it)
+            if (autoScrollBtn.isSelected()) {
+                scrollPane.layout();
+                scrollPane.setVvalue(1.0);
+            }
 
-            // Update elapsed time
+            // Update counters
             long elapsed = (System.currentTimeMillis() - startTime) / 1000;
             elapsedLabel.setText(formatElapsed(elapsed));
+            lineCountLabel.setText(lineCount + " lines");
+            errorCountLabel.setText(errorCount + " errors");
+            errorCountLabel.setStyle(errorCount > 0
+                ? "-fx-text-fill: #ff5050; -fx-font-size: 11px; -fx-font-weight: bold;"
+                : "-fx-text-fill: #888; -fx-font-size: 11px;");
+            warnCountLabel.setText(warnCount + " warnings");
+            warnCountLabel.setStyle(warnCount > 0
+                ? "-fx-text-fill: #f0c040; -fx-font-size: 11px; -fx-font-weight: bold;"
+                : "-fx-text-fill: #888; -fx-font-size: 11px;");
         });
+    }
+
+    /** Check if a line passes the current filter settings. */
+    private boolean passesFilter(String rawLine) {
+        boolean isEngineMsg = ENGINE_MSG.matcher(rawLine).find();
+        boolean isError = ERROR_LINE.matcher(rawLine).find();
+        boolean isWarning = !isError && WARN_LINE.matcher(rawLine).find();
+        boolean isNoise = GRADLE_NOISE.matcher(rawLine).find();
+
+        // Log level filter
+        String level = logLevelFilter.getValue();
+        if ("Engine".equals(level) && !isEngineMsg) return false;
+        if ("Errors".equals(level) && !isError) return false;
+        if ("Warnings".equals(level) && !isWarning && !isError) return false;
+
+        // Show-all toggle (suppress noise unless enabled)
+        if (!showAllToggle.isSelected() && isNoise && !isEngineMsg && !isError) return false;
+
+        // Search filter
+        if (!currentSearchTerm.isEmpty()) {
+            if (!rawLine.toLowerCase().contains(currentSearchTerm.toLowerCase())) return false;
+        }
+
+        return true;
+    }
+
+    /** Style a raw line based on its content type. */
+    private static Text styleText(String rawLine) {
+        boolean isEngineMsg = ENGINE_MSG.matcher(rawLine).find();
+        boolean isError = ERROR_LINE.matcher(rawLine).find();
+        boolean isWarning = !isError && WARN_LINE.matcher(rawLine).find();
+        boolean isNoise = GRADLE_NOISE.matcher(rawLine).find();
+
+        Text text = new Text(rawLine + "\n");
+        if (isError) {
+            text.setStyle("-fx-fill: #ff5050; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
+        } else if (isWarning) {
+            text.setStyle("-fx-fill: #f0c040; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
+        } else if (isEngineMsg) {
+            text.setStyle("-fx-fill: #e0e0e0; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
+        } else if (isNoise) {
+            text.setStyle("-fx-fill: #555; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 11px;");
+        } else {
+            text.setStyle("-fx-fill: #aaa; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
+        }
+        return text;
     }
 
     /** Called when the process exits. */
@@ -278,12 +337,28 @@ public class RunConsoleView extends BorderPane {
 
     private void clearOutput() {
         outputFlow.getChildren().clear();
+        rawLineBuffer.clear();
+        lineCount = 0;
+        errorCount = 0;
+        warnCount = 0;
+        lineCountLabel.setText("0 lines");
+        errorCountLabel.setText("0 errors");
+        errorCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
+        warnCountLabel.setText("0 warnings");
+        warnCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
     }
 
     private void rebuildOutput() {
-        // The toggle changed; we can't reconstruct filtered lines from TextFlow easily,
-        // so just note in the output that the filter changed
-        appendInfoMessage(showAllToggle.isSelected() ? "Showing all build output" : "Filtering build output");
+        outputFlow.getChildren().clear();
+        for (String line : rawLineBuffer) {
+            if (passesFilter(line)) {
+                outputFlow.getChildren().add(styleText(line));
+            }
+        }
+        if (autoScrollBtn.isSelected()) {
+            scrollPane.layout();
+            scrollPane.setVvalue(1.0);
+        }
     }
 
     private void stopProcess() {
@@ -308,6 +383,255 @@ public class RunConsoleView extends BorderPane {
             setState(EngineState.FAILED);
             appendInfoMessage("Failed to start process: " + ex.getMessage());
         }
+    }
+
+    // ─── Menu Bar ────────────────────────────────────────────────────────────
+
+    private MenuBar createMenuBar(String title) {
+        MenuBar bar = new MenuBar();
+        bar.setStyle("-fx-background-color: #16213e; -fx-padding: 0;");
+
+        // — File menu —
+        Menu fileMenu = new Menu("File");
+        MenuItem miSaveLog = new MenuItem("Save Log...");
+        miSaveLog.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN));
+        miSaveLog.setOnAction(e -> saveLogToFile());
+
+        MenuItem miCopyAll = new MenuItem("Copy All");
+        miCopyAll.setAccelerator(new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+        miCopyAll.setOnAction(e -> copyTraceback());
+
+        MenuItem miCopyErrors = new MenuItem("Copy Errors Only");
+        miCopyErrors.setOnAction(e -> copyFilteredLines(true, false));
+
+        MenuItem miCopyWarnings = new MenuItem("Copy Errors + Warnings");
+        miCopyWarnings.setOnAction(e -> copyFilteredLines(true, true));
+
+        MenuItem miClose = new MenuItem("Close");
+        miClose.setAccelerator(new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN));
+        miClose.setOnAction(e -> {
+            javafx.stage.Stage stage = (javafx.stage.Stage) getScene().getWindow();
+            if (stage != null) stage.close();
+        });
+
+        fileMenu.getItems().addAll(miSaveLog, new SeparatorMenuItem(),
+            miCopyAll, miCopyErrors, miCopyWarnings, new SeparatorMenuItem(), miClose);
+
+        // — Edit menu —
+        Menu editMenu = new Menu("Edit");
+        MenuItem miClear = new MenuItem("Clear Output");
+        miClear.setAccelerator(new KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_DOWN));
+        miClear.setOnAction(e -> clearOutput());
+
+        MenuItem miFind = new MenuItem("Find...");
+        miFind.setAccelerator(new KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN));
+        miFind.setOnAction(e -> {
+            searchField.requestFocus();
+            searchField.selectAll();
+        });
+
+        editMenu.getItems().addAll(miClear, new SeparatorMenuItem(), miFind);
+
+        // — View menu —
+        Menu viewMenu = new Menu("View");
+
+        MenuItem miShowAll = new MenuItem("Toggle Build Output");
+        miShowAll.setOnAction(e -> {
+            showAllToggle.setSelected(!showAllToggle.isSelected());
+            rebuildOutput();
+        });
+
+        MenuItem miAutoScroll = new MenuItem("Toggle Auto-Scroll");
+        miAutoScroll.setOnAction(e -> autoScrollBtn.setSelected(!autoScrollBtn.isSelected()));
+
+        MenuItem miWordWrap = new MenuItem("Toggle Word Wrap");
+        miWordWrap.setOnAction(e -> {
+            wordWrapBtn.setSelected(!wordWrapBtn.isSelected());
+            scrollPane.setFitToWidth(wordWrapBtn.isSelected());
+        });
+
+        MenuItem miScrollTop = new MenuItem("Scroll to Top");
+        miScrollTop.setAccelerator(new KeyCodeCombination(KeyCode.HOME, KeyCombination.SHORTCUT_DOWN));
+        miScrollTop.setOnAction(e -> scrollPane.setVvalue(0));
+
+        MenuItem miScrollBottom = new MenuItem("Scroll to Bottom");
+        miScrollBottom.setAccelerator(new KeyCodeCombination(KeyCode.END, KeyCombination.SHORTCUT_DOWN));
+        miScrollBottom.setOnAction(e -> {
+            scrollPane.layout();
+            scrollPane.setVvalue(1.0);
+        });
+
+        viewMenu.getItems().addAll(miShowAll, miAutoScroll, miWordWrap,
+            new SeparatorMenuItem(), miScrollTop, miScrollBottom);
+
+        // — Run menu —
+        Menu runMenu = new Menu("Run");
+        MenuItem miRerun = new MenuItem("Re-run");
+        miRerun.setAccelerator(new KeyCodeCombination(KeyCode.R, KeyCombination.SHORTCUT_DOWN));
+        miRerun.setOnAction(e -> rerunProcess());
+
+        MenuItem miStop = new MenuItem("Stop");
+        miStop.setAccelerator(new KeyCodeCombination(KeyCode.PERIOD, KeyCombination.SHORTCUT_DOWN));
+        miStop.setOnAction(e -> stopProcess());
+
+        runMenu.getItems().addAll(miRerun, miStop);
+
+        // — Help menu —
+        Menu helpMenu = new Menu("Help");
+        MenuItem miShortcuts = new MenuItem("Keyboard Shortcuts");
+        miShortcuts.setOnAction(e -> {
+            Alert dlg = new Alert(Alert.AlertType.INFORMATION);
+            dlg.setTitle("Console Shortcuts");
+            dlg.setHeaderText("Run Console Keyboard Shortcuts");
+            dlg.setContentText(
+                "Cmd+S ........... Save log to file\n" +
+                "Cmd+Shift+C ..... Copy all output\n" +
+                "Cmd+K ........... Clear output\n" +
+                "Cmd+F ........... Focus search field\n" +
+                "Cmd+R ........... Re-run build\n" +
+                "Cmd+. ........... Stop process\n" +
+                "Cmd+W ........... Close window\n" +
+                "Cmd+Home ........ Scroll to top\n" +
+                "Cmd+End ......... Scroll to bottom\n");
+            dlg.getDialogPane().setPrefWidth(380);
+            dlg.showAndWait();
+        });
+
+        MenuItem miAbout = new MenuItem("About " + title);
+        miAbout.setOnAction(e -> {
+            Alert about = new Alert(Alert.AlertType.INFORMATION);
+            about.setTitle("About");
+            about.setHeaderText(title);
+            about.setContentText("JVN Runtime Console\nLine buffer: " + rawLineBuffer.size()
+                + " lines\nErrors: " + errorCount + "  Warnings: " + warnCount);
+            about.showAndWait();
+        });
+
+        helpMenu.getItems().addAll(miShortcuts, new SeparatorMenuItem(), miAbout);
+
+        bar.getMenus().addAll(fileMenu, editMenu, viewMenu, runMenu, helpMenu);
+        return bar;
+    }
+
+    // ─── Tool Bar ───────────────────────────────────────────────────────────
+
+    private ToolBar createToolBar() {
+        ToolBar bar = new ToolBar();
+        bar.setStyle("-fx-background-color: #1a1a2e; -fx-padding: 4 8 4 8;");
+
+        runBtn.setOnAction(e -> rerunProcess());
+        stopBtn.setOnAction(e -> stopProcess());
+        copyBtn.setOnAction(e -> copyTraceback());
+        clearBtn.setOnAction(e -> clearOutput());
+
+        showAllToggle.setStyle("-fx-text-fill: #aaa; -fx-font-size: 11px;");
+        showAllToggle.setSelected(false);
+        showAllToggle.setOnAction(e -> rebuildOutput());
+
+        autoScrollBtn.setSelected(true);
+        autoScrollBtn.setStyle("-fx-font-size: 11px;");
+        autoScrollBtn.setTooltip(new Tooltip("Auto-scroll to latest output"));
+        autoScrollBtn.setFocusTraversable(false);
+
+        wordWrapBtn.setSelected(true);
+        wordWrapBtn.setStyle("-fx-font-size: 11px;");
+        wordWrapBtn.setTooltip(new Tooltip("Toggle word wrapping"));
+        wordWrapBtn.setFocusTraversable(false);
+        wordWrapBtn.setOnAction(e -> scrollPane.setFitToWidth(wordWrapBtn.isSelected()));
+
+        // Search field
+        searchField.setPromptText("Search output...");
+        searchField.setPrefWidth(180);
+        searchField.setStyle("-fx-background-color: #2a2a4e; -fx-text-fill: #ddd; -fx-prompt-text-fill: #666; -fx-font-size: 11px;");
+        searchField.setTooltip(new Tooltip("Filter output by text (Cmd+F)"));
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            currentSearchTerm = newVal != null ? newVal.trim() : "";
+            rebuildOutput();
+        });
+
+        // Log level filter
+        logLevelFilter.setValue("All");
+        logLevelFilter.setStyle("-fx-font-size: 11px;");
+        logLevelFilter.setTooltip(new Tooltip("Filter by log level"));
+        logLevelFilter.setOnAction(e -> rebuildOutput());
+
+        Label searchLabel = new Label("Filter:");
+        searchLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
+
+        bar.getItems().addAll(
+            runBtn, stopBtn, new Separator(),
+            clearBtn, copyBtn, new Separator(),
+            showAllToggle, autoScrollBtn, wordWrapBtn, new Separator(),
+            searchLabel, searchField, logLevelFilter
+        );
+        return bar;
+    }
+
+    // ─── Status Bar ─────────────────────────────────────────────────────────
+
+    private HBox createStatusBar() {
+        HBox bar = new HBox(12);
+        bar.setAlignment(Pos.CENTER_LEFT);
+        bar.setPadding(new Insets(3, 10, 3, 10));
+        bar.setStyle("-fx-background-color: #0f1126; -fx-border-color: #2a2a4e; -fx-border-width: 1 0 0 0;");
+
+        lineCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
+        errorCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
+        warnCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Label bufferLabel = new Label("Buffer: 0");
+        bufferLabel.setStyle("-fx-text-fill: #555; -fx-font-size: 11px;");
+
+        // Update buffer label periodically via the existing append cycle
+        lineCountLabel.textProperty().addListener((o, ov, nv) ->
+            bufferLabel.setText("Buffer: " + rawLineBuffer.size()));
+
+        bar.getChildren().addAll(lineCountLabel, errorCountLabel, warnCountLabel, spacer, bufferLabel);
+        return bar;
+    }
+
+    // ─── File Operations ────────────────────────────────────────────────────
+
+    private void saveLogToFile() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save Log");
+        chooser.setInitialFileName("jvn-runtime.log");
+        chooser.getExtensionFilters().addAll(
+            new FileChooser.ExtensionFilter("Log files", "*.log", "*.txt"),
+            new FileChooser.ExtensionFilter("All files", "*.*"));
+        File file = chooser.showSaveDialog(getScene().getWindow());
+        if (file == null) return;
+
+        try (PrintWriter pw = new PrintWriter(file)) {
+            for (String line : rawLineBuffer) {
+                pw.println(line);
+            }
+            appendInfoMessage("Saved " + rawLineBuffer.size() + " lines to " + file.getName());
+        } catch (Exception ex) {
+            appendInfoMessage("Failed to save log: " + ex.getMessage());
+        }
+    }
+
+    private void copyFilteredLines(boolean includeErrors, boolean includeWarnings) {
+        StringBuilder sb = new StringBuilder();
+        for (String line : rawLineBuffer) {
+            boolean isErr = ERROR_LINE.matcher(line).find();
+            boolean isWarn = !isErr && WARN_LINE.matcher(line).find();
+            if (includeErrors && isErr) sb.append(line).append("\n");
+            if (includeWarnings && isWarn) sb.append(line).append("\n");
+        }
+        String text = sb.toString().trim();
+        if (text.isEmpty()) {
+            appendInfoMessage("No matching lines to copy.");
+            return;
+        }
+        ClipboardContent content = new ClipboardContent();
+        content.putString(text);
+        Clipboard.getSystemClipboard().setContent(content);
+        appendInfoMessage("Copied " + text.lines().count() + " lines to clipboard.");
     }
 
     private static String formatElapsed(long seconds) {
