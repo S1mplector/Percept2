@@ -68,8 +68,8 @@ This page is the high-level map. Use the linked docs for deeper implementation d
 
 - [System Architecture](system-architecture.md) — modules, engine core, boot sequence, data flows
 - [2D Engine](2d-engine.md) — Scene2D, entities, camera, physics, JES runtime
-- [Runtime Guide](../runtime/runtime.md) — CLI options, launch patterns, asset lookup
-- [Editor Guide](../editor/editor.md) — layout, editing modes, keyboard shortcuts
-- [VNS Overview](../scripting/vns/vns-scripting.md) — VNS scripting language
-- [JES Overview](../scripting/jes/jes-scripting.md) — JES scripting language
-- [Menu Profiles](../scripting/menus-submenus/menu-profiles.md) — menu configuration system
+- [Runtime Guide](../../runtime/core/runtime.md) — CLI options, launch patterns, asset lookup
+- [Editor Guide](../../editor/core/editor.md) — layout, editing modes, keyboard shortcuts
+- [VNS Overview](../../scripting/vns/overview/vns-scripting.md) — VNS scripting language
+- [JES Overview](../../scripting/jes/overview/jes-scripting.md) — JES scripting language
+- [Menu Profiles](../../scripting/ui/menus/menu-profiles.md) — menu configuration system

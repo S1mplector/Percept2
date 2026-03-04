@@ -188,7 +188,7 @@ Config files (`.layout`, `.style`, `.menu`, `.registry`) use multiple fallback p
 3. `config/menu/registry.properties`
 4. `menu.registry`
 
-See [Menu Registry & File Discovery](../scripting/layout/menu-registry.md) for complete details.
+See [Menu Registry & File Discovery](../../scripting/ui/layout/structure/menu-registry.md) for complete details.
 
 ---
 
@@ -270,8 +270,8 @@ The file exists on disk but wasn't bundled into the JAR. Ensure your build proce
 
 ## Related Docs
 
-- [Runtime Guide](runtime.md)
+- [Runtime Guide](../core/runtime.md)
 - [Audio System](audio-system.md)
-- [Assets & Backgrounds (Layout)](../scripting/layout/assets-backgrounds.md)
-- [VNS Characters & Sprites](../scripting/vns/vns-characters.md)
-- [Performance](../architecture/performance.md)
+- [Assets & Backgrounds (Layout)](../../scripting/ui/layout/styling/assets-backgrounds.md)
+- [VNS Characters & Sprites](../../scripting/vns/presentation/vns-characters.md)
+- [Performance](../../architecture/quality/performance.md)

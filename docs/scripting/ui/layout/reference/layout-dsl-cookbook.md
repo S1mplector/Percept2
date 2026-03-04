@@ -7,7 +7,7 @@
 
 ## Purpose
 
-This cookbook is a hands-on companion to the [Text-First Layout Workflow](text-first-layout-workflow.md)
+This cookbook is a hands-on companion to the [Text-First Layout Workflow](../workflow/text-first-layout-workflow.md)
 guide. Where the workflow guide teaches the *process*, this cookbook gives you *recipes*:
 concrete, annotated examples you can copy into your project, tweak, and validate immediately
 in runtime.

@@ -373,8 +373,8 @@ narrator: The final day has come.
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
-- [Variables & Conditions](vns-variables.md) — condition expressions
-- [Choices & Branching](vns-choices.md) — choice-driven flow
-- [Commands Reference](vns-commands.md) — full command list
-- [Interop & Integration](vns-interop.md) — JES/Java integration
+- [VNS Overview](../overview/vns-scripting.md)
+- [Variables & Conditions](../language/vns-variables.md) — condition expressions
+- [Choices & Branching](../language/vns-choices.md) — choice-driven flow
+- [Commands Reference](../language/vns-commands.md) — full command list
+- [Interop & Integration](../integration/vns-interop.md) — JES/Java integration

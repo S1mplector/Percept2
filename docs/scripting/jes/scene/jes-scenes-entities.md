@@ -334,8 +334,8 @@ JesScene2D scene = JesLoader.load(in);
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
+- [JES Overview](../overview/jes-scripting.md)
 - [Component Reference](components.md)
-- [Timeline & Actions](jes-timeline.md)
-- [Input Bindings](jes-input.md)
-- [Tilemaps & Maps](jes-tilemaps.md)
+- [Timeline & Actions](../timeline/jes-timeline.md)
+- [Input Bindings](../systems/jes-input.md)
+- [Tilemaps & Maps](../systems/jes-tilemaps.md)

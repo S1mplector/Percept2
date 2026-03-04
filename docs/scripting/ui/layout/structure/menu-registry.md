@@ -284,8 +284,8 @@ menus=main, load, save
 
 ## Related Docs
 
-- [Menu Profiles Overview](../menus-submenus/menu-profiles.md)
-- [Menu Screens](../menus-submenus/menu-screens.md)
+- [Menu Profiles Overview](../../menus/menu-profiles.md)
+- [Menu Screens](../../menus/menu-screens.md)
 - [Menu Layouts](menu-layouts.md)
-- [Menu Styles](../menus-submenus/menu-styles.md)
-- [Text-First Layout Workflow](text-first-layout-workflow.md)
+- [Menu Styles](../../menus/menu-styles.md)
+- [Text-First Layout Workflow](../workflow/text-first-layout-workflow.md)

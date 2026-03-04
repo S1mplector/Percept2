@@ -12,20 +12,20 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 
 | # | Panel | Sub-Document | Default Side | Purpose |
 |---|-------|-------------|-------------|---------|
-| 1 | Project Explorer | **[sidebar-project-explorer.md](sidebar-project-explorer.md)** | Left | File tree, create/rename/delete files, run project |
-| 2 | Story Timeline | **[sidebar-story-timeline.md](sidebar-story-timeline.md)** | Left | Multi-arc story graph with arc/link management |
-| 3 | Inspector | **[sidebar-inspector.md](sidebar-inspector.md)** | Right | Entity property editing for JES scenes |
-| 4 | Puppeteer Launcher | **[sidebar-puppeteer-launcher.md](sidebar-puppeteer-launcher.md)** | Right | VNS scene snapshot and Puppeteer launch |
-| 5 | VNS Diagnostics | **[sidebar-vns-diagnostics.md](sidebar-vns-diagnostics.md)** | Right | Live error/warning list for .vns scripts |
-| 6 | Label Flow Map | **[sidebar-label-flow-map.md](sidebar-label-flow-map.md)** | Right | Visual label-to-label flow graph for VNS |
-| 7 | Asset Browser | **[sidebar-asset-browser.md](sidebar-asset-browser.md)** | Right | Project asset discovery, preview, copy path |
-| 8 | Layout Launcher | **[sidebar-layout-launcher.md](sidebar-layout-launcher.md)** | Right | Quick-launch layout/style/screen editors |
-| 9 | Menu Flow Editor | **[sidebar-menu-flow-editor.md](sidebar-menu-flow-editor.md)** | Right | Visual menu-to-menu navigation wiring |
-| 10 | Layered Image Visualizer | **[sidebar-layered-image-visualizer.md](sidebar-layered-image-visualizer.md)** | Right | Layered sprite exploration and snippet export |
-| 11 | Image Attributes Tool | **[sidebar-image-attributes-tool.md](sidebar-image-attributes-tool.md)** | Right | Attribute-based character image assembly |
-| 12 | Image Tint Tool | **[sidebar-image-tint-tool.md](sidebar-image-tint-tool.md)** | Right | Color tinting and grading for character/background images |
-| 13 | Version Control | **[sidebar-version-control.md](sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
-| 14 | Help Center | **[sidebar-help-center.md](sidebar-help-center.md)** | Right | In-app documentation browser |
+| 1 | Project Explorer | **[sidebar-project-explorer.md](../left/sidebar-project-explorer.md)** | Left | File tree, create/rename/delete files, run project |
+| 2 | Story Timeline | **[sidebar-story-timeline.md](../left/sidebar-story-timeline.md)** | Left | Multi-arc story graph with arc/link management |
+| 3 | Inspector | **[sidebar-inspector.md](../right/sidebar-inspector.md)** | Right | Entity property editing for JES scenes |
+| 4 | Puppeteer Launcher | **[sidebar-puppeteer-launcher.md](../right/sidebar-puppeteer-launcher.md)** | Right | VNS scene snapshot and Puppeteer launch |
+| 5 | VNS Diagnostics | **[sidebar-vns-diagnostics.md](../right/sidebar-vns-diagnostics.md)** | Right | Live error/warning list for .vns scripts |
+| 6 | Label Flow Map | **[sidebar-label-flow-map.md](../right/sidebar-label-flow-map.md)** | Right | Visual label-to-label flow graph for VNS |
+| 7 | Asset Browser | **[sidebar-asset-browser.md](../right/sidebar-asset-browser.md)** | Right | Project asset discovery, preview, copy path |
+| 8 | Layout Launcher | **[sidebar-layout-launcher.md](../right/sidebar-layout-launcher.md)** | Right | Quick-launch layout/style/screen editors |
+| 9 | Menu Flow Editor | **[sidebar-menu-flow-editor.md](../right/sidebar-menu-flow-editor.md)** | Right | Visual menu-to-menu navigation wiring |
+| 10 | Layered Image Visualizer | **[sidebar-layered-image-visualizer.md](../right/sidebar-layered-image-visualizer.md)** | Right | Layered sprite exploration and snippet export |
+| 11 | Image Attributes Tool | **[sidebar-image-attributes-tool.md](../right/sidebar-image-attributes-tool.md)** | Right | Attribute-based character image assembly |
+| 12 | Image Tint Tool | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Color tinting and grading for character/background images |
+| 13 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
+| 14 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser |
 
 ### Adding Panels
 
@@ -67,6 +67,6 @@ Several sidebar utilities persist their state in the project's `.jvn/` directory
 
 ## Related Docs
 
-- [Editor Guide](editor.md) — main editor layout, editing modes, keyboard shortcuts
-- [Puppeteer Editor Guide](puppeteer-editor-guide.md) — comprehensive Puppeteer usage
-- [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — exported timeline code syntax
+- [Editor Guide](../../core/editor.md) — main editor layout, editing modes, keyboard shortcuts
+- [Puppeteer Editor Guide](../../puppeteer/puppeteer-editor-guide.md) — comprehensive Puppeteer usage
+- [Puppeteer JES DSL Reference](../../puppeteer/puppeteer-jes-dsl.md) — exported timeline code syntax

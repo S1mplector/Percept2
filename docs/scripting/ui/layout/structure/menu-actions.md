@@ -575,7 +575,7 @@ item.start.action=new_game
 
 ## Related Docs
 
-- [Menu Screens](../menus-submenus/menu-screens.md)
+- [Menu Screens](../../menus/menu-screens.md)
 - [Menu Registry & File Discovery](menu-registry.md)
 - [Menu Inheritance & Composition](menu-inheritance.md)
-- [Text-First Layout Workflow](text-first-layout-workflow.md)
+- [Text-First Layout Workflow](../workflow/text-first-layout-workflow.md)

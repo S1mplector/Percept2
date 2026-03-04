@@ -364,7 +364,7 @@ scene "PoolTable" {
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Component Reference](components.md) — `PhysicsBody2D`
+- [JES Overview](../overview/jes-scripting.md)
+- [Component Reference](../scene/components.md) — `PhysicsBody2D`
 - [Tilemaps & Maps](jes-tilemaps.md) — tile-based collision
-- [Scenes & Entities](jes-scenes-entities.md)
+- [Scenes & Entities](../scene/jes-scenes-entities.md)

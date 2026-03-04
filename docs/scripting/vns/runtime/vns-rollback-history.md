@@ -276,7 +276,7 @@ Rollback snapshots are only created at **dialogue nodes**. Non-interactive nodes
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Save System](vns-save-system.md)
 - [Settings & Playback Modes](vns-settings-modes.md)
 - [Scene Lifecycle & State](vns-scene-lifecycle.md)

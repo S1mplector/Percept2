@@ -336,8 +336,8 @@ The runtime binds these by default:
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Settings & Playback Modes](vns-settings-modes.md)
 - [Rollback & History](vns-rollback-history.md)
 - [Scene Lifecycle & State](vns-scene-lifecycle.md)
-- [Runtime Save System](../../runtime/save-system.md)
+- [Runtime Save System](../../../runtime/systems/save-system.md)

@@ -220,7 +220,7 @@ Below the tool row, a second row provides file-level export and import actions:
 | **Import Setup** | Yellow | Loads a `.layersetup` file and restores its layer selections |
 | **Copy Charpreset** | Purple | Copies a `@charpreset` snippet to the clipboard, ready to paste into a `.vns` script |
 
-See [.layersetup Files](layersetup-files.md) for the full file format reference and workflow documentation.
+See [.layersetup Files](../../tools/layersetup-files.md) for the full file format reference and workflow documentation.
 
 ---
 
@@ -249,8 +249,8 @@ When `refreshCatalog()` is called:
 
 ## Related Docs
 
-- [.layersetup Files](layersetup-files.md) — file format, export/import workflow, charpreset quick-export
-- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
+- [.layersetup Files](../../tools/layersetup-files.md) — file format, export/import workflow, charpreset quick-export
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
 - [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-based image assembly
 - [Image Tint Tool](sidebar-image-tint-tool.md) — color tinting and grading
 - [Asset Browser](sidebar-asset-browser.md) — general asset discovery

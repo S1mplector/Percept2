@@ -235,7 +235,7 @@ ICU formatting patterns (`plural`, `select`, `number`) work in any locale — th
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
-- [Text Formatting & ICU](vns-text-formatting.md)
-- [Variables & Conditions](vns-variables.md)
+- [VNS Overview](../overview/vns-scripting.md)
+- [Text Formatting & ICU](../language/vns-text-formatting.md)
+- [Variables & Conditions](../language/vns-variables.md)
 - [Scene Lifecycle & State](vns-scene-lifecycle.md)

@@ -261,5 +261,5 @@ If `textBoxOpacity=1.0` and `characterBaselineY > textBoxY`, the lower portion o
 
 - [Dialogue Layout & Style](dialogue-layout.md)
 - [Choice Buttons](choice-buttons.md)
-- [VNS Characters & Sprites](../vns/vns-characters.md)
-- [VNS Transitions](../vns/vns-transitions.md)
+- [VNS Characters & Sprites](../../../vns/presentation/vns-characters.md)
+- [VNS Transitions](../../../vns/presentation/vns-transitions.md)

@@ -164,7 +164,7 @@ The `onAssetSelected` callback fires both when clicking "Use Asset" and when the
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
-- [Project Explorer](sidebar-project-explorer.md) — full file tree navigation
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Project Explorer](../left/sidebar-project-explorer.md) — full file tree navigation
 - [Layered Image Visualizer](sidebar-layered-image-visualizer.md) — layered sprite exploration
 - [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-based image assembly

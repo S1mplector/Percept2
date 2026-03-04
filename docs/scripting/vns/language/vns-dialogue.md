@@ -292,7 +292,7 @@ HUD messages support `${var}` interpolation and auto-expire after a fixed durati
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Text Formatting & ICU](vns-text-formatting.md) — advanced interpolation
 - [Variables & Conditions](vns-variables.md) — variable system
 - [Commands Reference](vns-commands.md) — `[textspeed]`, `[hud]`, `[history]`

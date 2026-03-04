@@ -47,7 +47,7 @@ Entity lifecycle: `update(deltaMs)` is called every frame. `render(Blitter2D)` d
 | `Button2D` | Interactive UI button with hover/press states |
 | `Slider2D` | Draggable slider UI widget |
 
-See [Component Reference](../scripting/jes/components.md) for per-property documentation of all 12 JES component types.
+See [Component Reference](../../scripting/jes/scene/components.md) for per-property documentation of all 12 JES component types.
 
 ---
 
@@ -245,7 +245,7 @@ Parser/runtime support includes:
 | **Gameplay** | `damage`, `heal`, `emitParticles`, `setParallax` |
 | **Flow** | `label`, `jump`, `parallel`, `loop` |
 
-See [Timeline & Actions](../scripting/jes/jes-timeline.md) for full syntax and examples.
+See [Timeline & Actions](../../scripting/jes/timeline/jes-timeline.md) for full syntax and examples.
 
 ---
 

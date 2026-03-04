@@ -458,8 +458,8 @@ Variable state is also captured by the rollback system for in-session undo/redo.
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Text Formatting & ICU](vns-text-formatting.md) — detailed formatting reference
 - [Choices & Branching](vns-choices.md) — conditional choices
 - [Commands Reference](vns-commands.md) — all variable commands
-- [Subroutines & Flow Control](vns-flow-control.md) — jumps and conditionals
+- [Subroutines & Flow Control](../flow/vns-flow-control.md) — jumps and conditionals

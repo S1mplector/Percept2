@@ -595,8 +595,8 @@ These durations are engine defaults and provide a polished feel without explicit
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Layered Character Presets Guide](vns-layered-charpresets.md) — practical guide to `@charlayer` + `@charpreset` with asset organization, cross-character refs, editor tooling
-- [Directives & Declarations](vns-directives.md) — `@character`, `@charimg`, `@charlayer`, `@charpreset`
-- [Commands Reference](vns-commands.md) — `[show]`, `[hide]`, `[char]`
+- [Directives & Declarations](../language/vns-directives.md) — `@character`, `@charimg`, `@charlayer`, `@charpreset`
+- [Commands Reference](../language/vns-commands.md) — `[show]`, `[hide]`, `[char]`
 - [Transitions & Screen Effects](vns-transitions.md) — visual effects that pair with character scenes

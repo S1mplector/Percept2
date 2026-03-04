@@ -363,8 +363,8 @@ timeline {
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Timeline & Actions](jes-timeline.md) — `call`, `waitForCall`
-- [Input Bindings](jes-input.md) — action handlers
-- [Scenes & Entities](jes-scenes-entities.md) — scene lifecycle
-- [VNS Interop & Integration](../vns/vns-interop.md) — VNS side of the bridge
+- [JES Overview](../overview/jes-scripting.md)
+- [Timeline & Actions](../timeline/jes-timeline.md) — `call`, `waitForCall`
+- [Input Bindings](../systems/jes-input.md) — action handlers
+- [Scenes & Entities](../scene/jes-scenes-entities.md) — scene lifecycle
+- [VNS Interop & Integration](../../vns/integration/vns-interop.md) — VNS side of the bridge

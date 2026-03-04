@@ -545,5 +545,5 @@ Closing Puppeteer with unsaved changes prompts: **Save & Register**, **Discard**
 - [Puppeteer Architecture](puppeteer.md)
 - [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)
 - [Puppeteer Audit & Roadmap](puppeteer-audit.md)
-- [Timeline Animation (Core)](../scripting/timeline/timeline-animation.md)
-- [VNS Interop](../scripting/vns/vns-interop.md)
+- [Timeline Animation (Core)](../../scripting/timeline/animation/timeline-animation.md)
+- [VNS Interop](../../scripting/vns/integration/vns-interop.md)

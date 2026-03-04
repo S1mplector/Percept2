@@ -15,13 +15,13 @@ Core classes:
 ### Menu System
 
 - **[Menu Screens](menu-screens.md)** — `.menu` files, item declarations, actions, navigation, bounds, slot previews, inheritance, custom actions
-- **[Menu Layouts](menu-layouts.md)** — `.layout` files, list positioning, line height, text alignment, title placement, built-in layouts
+- **[Menu Layouts](../layout/structure/menu-layouts.md)** — `.layout` files, list positioning, line height, text alignment, title placement, built-in layouts
 - **[Menu Styles](menu-styles.md)** — `.style` files, item colors/fonts/shadows, button skins, title/hints styling, backgrounds
-- **[Button Layouts](menu-button-layouts.md)** — per-button positional layouts, explicit bounds, resolution hints, Bounds Studio editor
+- **[Button Layouts](../layout/structure/menu-button-layouts.md)** — per-button positional layouts, explicit bounds, resolution hints, Bounds Studio editor
 
 ### Dialogue UI
 
-- **[Dialogue Layout & Style](dialogue-layout.md)** — textbox geometry, name box, dialogue text, choice buttons, textbox action buttons, fonts, colors, character framing
+- **[Dialogue Layout & Style](../layout/components/dialogue-layout.md)** — textbox geometry, name box, dialogue text, choice buttons, textbox action buttons, fonts, colors, character framing
 
 ---
 
@@ -203,7 +203,7 @@ All editors support **Ctrl+Z / Ctrl+Y** undo/redo and sync bidirectionally with 
 
 ## Related Docs
 
-- [Documentation Index](../INDEX.md)
-- [VNS Scripting](../scripting/vns/vns-scripting.md) — runtime story flow
-- [Editor Guide](../editor/editor.md) — editing modes
-- [Title Screen & Menu Presentation](../project-setup/title-screen.md)
+- [Documentation Index](../../../INDEX.md)
+- [VNS Scripting](../../vns/overview/vns-scripting.md) — runtime story flow
+- [Editor Guide](../../../editor/core/editor.md) — editing modes
+- [Title Screen & Menu Presentation](../../../project-setup/content/title-screen.md)

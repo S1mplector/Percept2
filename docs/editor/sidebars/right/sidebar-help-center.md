@@ -21,7 +21,7 @@ The Help Center provides immediate access to all project documentation without l
 ```text
 ┌─────────────────┬────────────────────────┐
 │  Filter [______] │  Editor Guide          │
-│  [Refresh]       │  docs/editor/editor.md │
+│  [Refresh]       │  docs/editor/core/editor.md │
 │                  │  [Open in Editor]      │
 │  Quick Access    │  [Reveal File]         │
 │  [README]        │  [Copy Path]           │
@@ -66,8 +66,8 @@ Pre-configured buttons for common documentation entry points:
 | Button | Target Path |
 |--------|-------------|
 | **README** | `README.md` |
-| **Overview** | `docs/Overview.md` |
-| **Editor** | `docs/Editor/Editor.md` |
+| **Overview** | `docs/INDEX.md` |
+| **Editor** | `docs/editor/core/editor.md` |
 
 ### Row 2 — Scripting & Runtime
 
@@ -75,8 +75,8 @@ Pre-configured buttons for common documentation entry points:
 |--------|-------------|
 | **VNS** | `docs/VNS Scripting/VNS Scripting.md` |
 | **JES** | `docs/JES Scripting/JES Scripting.md` |
-| **Runtime** | `docs/Runtime/Runtime.md` |
-| **Menus** | `docs/TitleScreen.md` |
+| **Runtime** | `docs/runtime/core/runtime.md` |
+| **Menus** | `docs/project-setup/content/title-screen.md` |
 
 Quick access buttons are disabled (grayed out) when their target file doesn't exist in the current workspace.
 
@@ -197,5 +197,5 @@ This provides instant access to documentation from anywhere in the editor.
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
-- [Editor Guide](editor.md) — main editor layout and modes
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Editor Guide](../../core/editor.md) — main editor layout and modes

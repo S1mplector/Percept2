@@ -253,7 +253,7 @@ Button layouts and per-item `boundsX/Y/Width/Height` in `.menu` files serve simi
 
 ## Related Docs
 
-- [Menu Profiles Overview](menu-profiles.md)
-- [Menu Screens](menu-screens.md)
+- [Menu Profiles Overview](../../menus/menu-profiles.md)
+- [Menu Screens](../../menus/menu-screens.md)
 - [Menu Layouts](menu-layouts.md)
-- [Menu Styles](menu-styles.md)
+- [Menu Styles](../../menus/menu-styles.md)

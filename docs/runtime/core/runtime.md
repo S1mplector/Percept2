@@ -107,7 +107,7 @@ Runtime extends default interop with providers:
 - `menu`: open menu scenes (main/settings/save/load/custom)
 - `vns`: push/replace/goto VNS scenes/labels
 
-See `docs/Runtime/Interop.md` for provider details.
+See `docs/runtime/core/interop.md` for provider details.
 
 ## Troubleshooting
 

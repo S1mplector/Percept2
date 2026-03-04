@@ -388,8 +388,8 @@ object MyMenuConfig:
 
 ## Related Docs
 
-- [Menu Styles](../menus-submenus/menu-styles.md)
-- [Menu Layouts](menu-layouts.md)
-- [Menu Button Layouts](menu-button-layouts.md)
-- [Colors & Theming](colors-theming.md)
-- [Text-First Layout Workflow](text-first-layout-workflow.md)
+- [Menu Styles](../../menus/menu-styles.md)
+- [Menu Layouts](../structure/menu-layouts.md)
+- [Menu Button Layouts](../structure/menu-button-layouts.md)
+- [Colors & Theming](../styling/colors-theming.md)
+- [Text-First Layout Workflow](../workflow/text-first-layout-workflow.md)

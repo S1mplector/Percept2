@@ -300,8 +300,8 @@ Mostly useful for orientation — seeing how screen, layout, and style combine. 
 
 ## Related Docs
 
-- [Text-First Layout Workflow](text-first-layout-workflow.md)
-- [Layout DSL Cookbook](layout-dsl-cookbook.md)
-- [Dialogue Layout & Style](dialogue-layout.md)
-- [Menu Button Layouts](menu-button-layouts.md)
+- [Text-First Layout Workflow](../workflow/text-first-layout-workflow.md)
+- [Layout DSL Cookbook](../reference/layout-dsl-cookbook.md)
+- [Dialogue Layout & Style](../components/dialogue-layout.md)
+- [Menu Button Layouts](../structure/menu-button-layouts.md)
 - [Validation & Diagnostics](validation-diagnostics.md)

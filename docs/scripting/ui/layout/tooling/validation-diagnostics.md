@@ -458,7 +458,7 @@ After every run, scan console output for diagnostics:
 
 ## Related Docs
 
-- [Text-First Layout Workflow](text-first-layout-workflow.md)
-- [Menu Registry & File Discovery](menu-registry.md)
-- [Menu Screens](../menus-submenus/menu-screens.md)
-- [Dialogue Layout & Style](dialogue-layout.md)
+- [Text-First Layout Workflow](../workflow/text-first-layout-workflow.md)
+- [Menu Registry & File Discovery](../structure/menu-registry.md)
+- [Menu Screens](../../menus/menu-screens.md)
+- [Dialogue Layout & Style](../components/dialogue-layout.md)

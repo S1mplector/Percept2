@@ -150,7 +150,7 @@ Moves a character to a new position. The animation style depends on whether **gl
 - **Global mode ON** — the character **slides** from its current position to the target (a true move tween).
 - **Global mode OFF** (default) — the character is removed from its old slot and **fades in** at the target position from the screen edge (an entrance animation, not a slide).
 
-To get a smooth slide, enable global mode first with `[char <charId> global on]`. See [Global Position Mode](vns-characters.md#global-position-mode) for details.
+To get a smooth slide, enable global mode first with `[char <charId> global on]`. See [Global Position Mode](../presentation/vns-characters.md#global-position-mode) for details.
 
 ```vns
 # Without global mode — entrance animation at new position
@@ -215,7 +215,7 @@ To get a smooth slide, enable global mode first with `[char <charId> global on]`
 | `ease_out_bounce` | Bounce at end |
 | `ease_in_out_bounce` | Bounce both ends |
 
-See also `[char <charId> move ...]` in [Characters & Sprites](vns-characters.md) for the provider-command form.
+See also `[char <charId> move ...]` in [Characters & Sprites](../presentation/vns-characters.md) for the provider-command form.
 
 ### `[hide <charId>]`
 
@@ -339,7 +339,7 @@ Pauses or resumes all audio channels.
 
 Forwards raw payload to the audio interop provider for advanced control.
 
-See [Audio Commands](vns-audio.md) for detailed audio documentation.
+See [Audio Commands](../presentation/vns-audio.md) for detailed audio documentation.
 
 ---
 
@@ -684,7 +684,7 @@ Direct JES scene stack commands.
 [jes_call spawnWave count=5]
 ```
 
-See [Interop & Integration](vns-interop.md) for detailed documentation.
+See [Interop & Integration](../integration/vns-interop.md) for detailed documentation.
 
 ---
 
@@ -728,7 +728,7 @@ The `move`, `show`, and `at` subcommands also accept `at x,y` inline coordinates
 [char hero at at 0.5,0.5]             # set anchor to inline position
 ```
 
-See [Characters & Sprites](vns-characters.md) for detailed documentation.
+See [Characters & Sprites](../presentation/vns-characters.md) for detailed documentation.
 
 ---
 
@@ -745,15 +745,15 @@ timeline {
 }
 ```
 
-See [Interop & Integration](vns-interop.md) for detailed documentation.
+See [Interop & Integration](../integration/vns-interop.md) for detailed documentation.
 
 ---
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
-- [Audio Commands](vns-audio.md)
-- [Characters & Sprites](vns-characters.md)
+- [VNS Overview](../overview/vns-scripting.md)
+- [Audio Commands](../presentation/vns-audio.md)
+- [Characters & Sprites](../presentation/vns-characters.md)
 - [Variables & Conditions](vns-variables.md)
-- [Transitions & Screen Effects](vns-transitions.md)
-- [Interop & Integration](vns-interop.md)
+- [Transitions & Screen Effects](../presentation/vns-transitions.md)
+- [Interop & Integration](../integration/vns-interop.md)

@@ -380,8 +380,8 @@ If `slotPreviewPlaceholderAsset` points to a nonexistent file, empty slots show 
 
 ## Related Docs
 
-- [Menu Screens](../menus-submenus/menu-screens.md)
-- [Menu Layouts](menu-layouts.md)
-- [Menu Actions & Navigation](menu-actions.md)
-- [Assets & Backgrounds](assets-backgrounds.md)
-- [VNS Save System](../vns/vns-save-system.md)
+- [Menu Screens](../../menus/menu-screens.md)
+- [Menu Layouts](../structure/menu-layouts.md)
+- [Menu Actions & Navigation](../structure/menu-actions.md)
+- [Assets & Backgrounds](../styling/assets-backgrounds.md)
+- [VNS Save System](../../../vns/runtime/vns-save-system.md)

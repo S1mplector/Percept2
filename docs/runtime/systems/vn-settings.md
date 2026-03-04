@@ -244,8 +244,8 @@ Physics settings only matter when JES scenes with physics bodies are loaded.
 
 ## Related Docs
 
-- [Settings Screen Configuration](../scripting/layout/settings-screen.md)
-- [VNS Settings & Modes](../scripting/vns/vns-settings-modes.md)
+- [Settings Screen Configuration](../../scripting/ui/layout/screens/settings-screen.md)
+- [VNS Settings & Modes](../../scripting/vns/runtime/vns-settings-modes.md)
 - [Audio System](audio-system.md)
 - [Save System](save-system.md)
-- [Interop Guide](interop.md)
+- [Interop Guide](../core/interop.md)

@@ -344,7 +344,7 @@ link Failure:retry -> Trial:start
 
 ## Related Docs
 
-- [Timeline Overview](timeline-scripting.md)
-- [Puppeteer Animation Timelines](timeline-animation.md)
-- [VNS Scripting](../vns/vns-scripting.md)
-- [Editor Guide](../../editor/editor.md)
+- [Timeline Overview](../overview/timeline-scripting.md)
+- [Puppeteer Animation Timelines](../animation/timeline-animation.md)
+- [VNS Scripting](../../vns/overview/vns-scripting.md)
+- [Editor Guide](../../../editor/core/editor.md)

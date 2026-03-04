@@ -99,24 +99,24 @@ Each JES feature area has its own detailed documentation with examples:
 
 ### Core
 
-- **[Scenes & Entities](jes-scenes-entities.md)** — scene structure, entity declarations, lifecycle, merging, save/load
-- **[Component Reference](components.md)** — all 12 component types with full property tables
-- **[Timeline & Actions](jes-timeline.md)** — 22 timeline actions: move, rotate, scale, fade, camera, audio, combat, parallel, loop, labels, jumps
+- **[Scenes & Entities](../scene/jes-scenes-entities.md)** — scene structure, entity declarations, lifecycle, merging, save/load
+- **[Component Reference](../scene/components.md)** — all 12 component types with full property tables
+- **[Timeline & Actions](../timeline/jes-timeline.md)** — 22 timeline actions: move, rotate, scale, fade, camera, audio, combat, parallel, loop, labels, jumps
 
 ### Systems
 
-- **[Input Bindings](jes-input.md)** — keyboard mappings, built-in actions, continuous movement, custom handlers
-- **[Camera System](jes-camera.md)** — position, zoom, shake, follow with dead zones, parallax scrolling
-- **[Physics & Collision](jes-physics.md)** — rigid bodies, circles, boxes, sensors, triggers, restitution, raycasting
-- **[Tilemaps & Maps](jes-tilemaps.md)** — tilesets, tile layers, collision layers, trigger layers, pathfinding
-- **[AI System](jes-ai.md)** — chase, patrol, guard, flee, line-of-sight, A* pathfinding
-- **[RPG Stats & Combat](jes-rpg.md)** — Stats, Inventory, Equipment, Items, damage/heal, death callbacks
-- **[UI Widgets](jes-ui-widgets.md)** — Button2D, Slider2D, HUD patterns
+- **[Input Bindings](../systems/jes-input.md)** — keyboard mappings, built-in actions, continuous movement, custom handlers
+- **[Camera System](../systems/jes-camera.md)** — position, zoom, shake, follow with dead zones, parallax scrolling
+- **[Physics & Collision](../systems/jes-physics.md)** — rigid bodies, circles, boxes, sensors, triggers, restitution, raycasting
+- **[Tilemaps & Maps](../systems/jes-tilemaps.md)** — tilesets, tile layers, collision layers, trigger layers, pathfinding
+- **[AI System](../gameplay/jes-ai.md)** — chase, patrol, guard, flee, line-of-sight, A* pathfinding
+- **[RPG Stats & Combat](../gameplay/jes-rpg.md)** — Stats, Inventory, Equipment, Items, damage/heal, death callbacks
+- **[UI Widgets](../gameplay/jes-ui-widgets.md)** — Button2D, Slider2D, HUD patterns
 
 ### Integration
 
-- **[VN Bridge & Java Hooks](jes-bridge.md)** — call handlers, VNS↔JES scene stack, return data, launch properties
-- **[Parsing Internals](jes-parsing.md)** — tokenizer, parser, AST, validation
+- **[VN Bridge & Java Hooks](../integration/jes-bridge.md)** — call handlers, VNS↔JES scene stack, return data, launch properties
+- **[Parsing Internals](../internals/jes-parsing.md)** — tokenizer, parser, AST, validation
 
 ---
 
@@ -240,8 +240,8 @@ scene "RPGDemo" {
 
 ## Related Docs
 
-- [Documentation Index](../../INDEX.md)
-- [VNS Scripting](../vns/vns-scripting.md)
-- [Timeline Scripting](../timeline/timeline-scripting.md)
-- [Runtime Guide](../../runtime/runtime.md)
-- [Runtime Interop](../../runtime/interop.md)
+- [Documentation Index](../../../INDEX.md)
+- [VNS Scripting](../../vns/overview/vns-scripting.md)
+- [Timeline Scripting](../../timeline/overview/timeline-scripting.md)
+- [Runtime Guide](../../../runtime/core/runtime.md)
+- [Runtime Interop](../../../runtime/core/interop.md)

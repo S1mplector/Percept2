@@ -370,7 +370,7 @@ narrator: The deal is struck.
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Variables & Conditions](vns-variables.md) — condition expression reference
-- [Subroutines & Flow Control](vns-flow-control.md) — jumps and label patterns
+- [Subroutines & Flow Control](../flow/vns-flow-control.md) — jumps and label patterns
 - [Commands Reference](vns-commands.md) — full command list

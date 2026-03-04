@@ -111,6 +111,6 @@ This is equivalent to selecting **"@charpreset only"** in the snippet format Com
 
 ## Related Docs
 
-- [Layered Image Visualizer](sidebar-layered-image-visualizer.md) — full sidebar documentation
-- [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-based image assembly
-- [Image Tint Tool](sidebar-image-tint-tool.md) — color tinting and grading
+- [Layered Image Visualizer](../sidebars/right/sidebar-layered-image-visualizer.md) — full sidebar documentation
+- [Image Attributes Tool](../sidebars/right/sidebar-image-attributes-tool.md) — attribute-based image assembly
+- [Image Tint Tool](../sidebars/right/sidebar-image-tint-tool.md) — color tinting and grading

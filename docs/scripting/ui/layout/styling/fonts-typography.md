@@ -371,8 +371,8 @@ Using 4+ different font families creates visual chaos. Stick to 2 max: one for h
 
 ## Related Docs
 
-- [Dialogue Layout & Style](dialogue-layout.md)
-- [Menu Styles](../menus-submenus/menu-styles.md)
+- [Dialogue Layout & Style](../components/dialogue-layout.md)
+- [Menu Styles](../../menus/menu-styles.md)
 - [Colors & Theming](colors-theming.md)
-- [Choice Buttons](choice-buttons.md)
-- [VNS Dialogue & Text](../vns/vns-dialogue.md)
+- [Choice Buttons](../components/choice-buttons.md)
+- [VNS Dialogue & Text](../../../vns/language/vns-dialogue.md)

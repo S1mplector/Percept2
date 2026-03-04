@@ -435,7 +435,7 @@ greeting=Hello, {name}!
 farewell=Goodbye, {name}. Until we meet again.
 ```
 
-See [Localization Workflow](../../project-setup/localization.md) for full details.
+See [Localization Workflow](../../../../project-setup/content/localization.md) for full details.
 
 ---
 
@@ -473,8 +473,8 @@ The dialogue layout is edited visually in the **Dialogue Layout Editor**:
 
 ## Related Docs
 
-- [Menu Profiles Overview](menu-profiles.md)
-- [Menu Screens](menu-screens.md)
-- [Menu Styles](menu-styles.md)
-- [VNS Dialogue & Text](../scripting/vns/vns-dialogue.md)
-- [VNS Characters & Sprites](../scripting/vns/vns-characters.md)
+- [Menu Profiles Overview](../../menus/menu-profiles.md)
+- [Menu Screens](../../menus/menu-screens.md)
+- [Menu Styles](../../menus/menu-styles.md)
+- [VNS Dialogue & Text](../../../vns/language/vns-dialogue.md)
+- [VNS Characters & Sprites](../../../vns/presentation/vns-characters.md)

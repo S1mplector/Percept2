@@ -344,8 +344,8 @@ Call `audio.stopSfx()` in scene teardown. The engine doesn't auto-stop SFX on sc
 
 ## Related Docs
 
-- [VNS Audio Commands](../scripting/vns/vns-audio.md)
-- [VNS Settings & Modes](../scripting/vns/vns-settings-modes.md)
-- [Interop Guide](interop.md)
-- [Runtime Guide](runtime.md)
-- [Settings Screen](../scripting/layout/settings-screen.md)
+- [VNS Audio Commands](../../scripting/vns/presentation/vns-audio.md)
+- [VNS Settings & Modes](../../scripting/vns/runtime/vns-settings-modes.md)
+- [Interop Guide](../core/interop.md)
+- [Runtime Guide](../core/runtime.md)
+- [Settings Screen](../../scripting/ui/layout/screens/settings-screen.md)

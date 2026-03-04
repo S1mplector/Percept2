@@ -232,8 +232,8 @@ The Simp3 audio module must be on the classpath. Verify the audio JAR is include
 
 ## Related Docs
 
-- [Runtime Guide](../runtime/runtime.md)
-- [Asset Management](../runtime/asset-management.md)
-- [Project Structure Conventions](project-structure.md)
-- [Performance](../architecture/performance.md)
-- [Getting Started](../getting-started.md)
+- [Runtime Guide](../../runtime/core/runtime.md)
+- [Asset Management](../../runtime/systems/asset-management.md)
+- [Project Structure Conventions](../onboarding/project-structure.md)
+- [Performance](../../architecture/quality/performance.md)
+- [Getting Started](../../guides/getting-started.md)

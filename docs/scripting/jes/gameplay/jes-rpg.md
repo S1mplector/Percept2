@@ -465,8 +465,8 @@ This state is restored by `loadState()`, enabling save/load across sessions.
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Component Reference](components.md) — `Stats`, `Inventory`, `Equipment`
+- [JES Overview](../overview/jes-scripting.md)
+- [Component Reference](../scene/components.md) — `Stats`, `Inventory`, `Equipment`
 - [AI System](jes-ai.md) — combat AI
-- [Timeline & Actions](jes-timeline.md) — `damage`, `heal`
-- [Scenes & Entities](jes-scenes-entities.md) — entity lifecycle
+- [Timeline & Actions](../timeline/jes-timeline.md) — `damage`, `heal`
+- [Scenes & Entities](../scene/jes-scenes-entities.md) — entity lifecycle

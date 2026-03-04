@@ -216,7 +216,7 @@ When no `.vns` file is active:
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
-- [Puppeteer Editor Guide](puppeteer-editor-guide.md) — comprehensive Puppeteer usage after launch
-- [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — exported timeline code syntax
-- [Puppeteer Overview & Architecture](puppeteer.md) — system architecture and data pipeline
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Puppeteer Editor Guide](../../puppeteer/puppeteer-editor-guide.md) — comprehensive Puppeteer usage after launch
+- [Puppeteer JES DSL Reference](../../puppeteer/puppeteer-jes-dsl.md) — exported timeline code syntax
+- [Puppeteer Overview & Architecture](../../puppeteer/puppeteer.md) — system architecture and data pipeline

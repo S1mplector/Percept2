@@ -325,7 +325,7 @@ Save named presets within the Layered Image Visualizer to bookmark specific laye
 
 ### Using the Image Attributes Tool
 
-The **Image Attributes Tool** is an alternative for teams that prefer attribute-string workflows. It generates similar output but uses a group-based attribute selector instead of individual layer toggles. See [Image Attributes Tool](../../editor/sidebar-image-attributes-tool.md) for details.
+The **Image Attributes Tool** is an alternative for teams that prefer attribute-string workflows. It generates similar output but uses a group-based attribute selector instead of individual layer toggles. See [Image Attributes Tool](../../../editor/sidebars/right/sidebar-image-attributes-tool.md) for details.
 
 ---
 
@@ -480,8 +480,8 @@ aria: Now where did I put that notebook...
 ## Related Docs
 
 - [Characters & Sprites](vns-characters.md) — full character system: positions, motion, framing, save/load
-- [Directives & Declarations](vns-directives.md) — `@charimg`, `@charlayer`, `@charpreset` syntax reference
-- [Commands Reference](vns-commands.md) — `[show]`, `[hide]`, `[char]` commands
-- [Layered Image Visualizer](../../editor/sidebar-layered-image-visualizer.md) — editor tool for exploring layered sprites
-- [Image Attributes Tool](../../editor/sidebar-image-attributes-tool.md) — editor tool for attribute-based image assembly
-- [Puppeteer Launcher](../../editor/sidebar-puppeteer-launcher.md) — live scene preview understands layered presets
+- [Directives & Declarations](../language/vns-directives.md) — `@charimg`, `@charlayer`, `@charpreset` syntax reference
+- [Commands Reference](../language/vns-commands.md) — `[show]`, `[hide]`, `[char]` commands
+- [Layered Image Visualizer](../../../editor/sidebars/right/sidebar-layered-image-visualizer.md) — editor tool for exploring layered sprites
+- [Image Attributes Tool](../../../editor/sidebars/right/sidebar-image-attributes-tool.md) — editor tool for attribute-based image assembly
+- [Puppeteer Launcher](../../../editor/sidebars/right/sidebar-puppeteer-launcher.md) — live scene preview understands layered presets

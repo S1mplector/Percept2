@@ -303,8 +303,8 @@ This is implemented in `VnScene.advanceFromClick()`.
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Save System](vns-save-system.md)
 - [Rollback & History](vns-rollback-history.md)
 - [Scene Lifecycle & State](vns-scene-lifecycle.md)
-- [Commands Reference](vns-commands.md)
+- [Commands Reference](../language/vns-commands.md)

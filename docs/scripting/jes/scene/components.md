@@ -810,10 +810,10 @@ entity "ball_2" {
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Timeline & Actions](jes-timeline.md)
-- [Physics & Collision](jes-physics.md)
-- [AI System](jes-ai.md)
-- [RPG Stats & Combat](jes-rpg.md)
-- [UI Widgets](jes-ui-widgets.md)
-- [Input Bindings](jes-input.md)
+- [JES Overview](../overview/jes-scripting.md)
+- [Timeline & Actions](../timeline/jes-timeline.md)
+- [Physics & Collision](../systems/jes-physics.md)
+- [AI System](../gameplay/jes-ai.md)
+- [RPG Stats & Combat](../gameplay/jes-rpg.md)
+- [UI Widgets](../gameplay/jes-ui-widgets.md)
+- [Input Bindings](../systems/jes-input.md)

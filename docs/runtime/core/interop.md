@@ -199,7 +199,7 @@ Character choreography helper provider. `[character]` is accepted as an alias fo
 [char hero show at 0.3,0.5 neutral]
 ```
 
-**Global mode** gives the character persistent position memory. When enabled, `[move]` and `[show]` produce smooth slide tweens instead of entrance animations. See [Character Motion](../scripting/vns/vns-characters.md#global-position-mode) for details.
+**Global mode** gives the character persistent position memory. When enabled, `[move]` and `[show]` produce smooth slide tweens instead of entrance animations. See [Character Motion](../../scripting/vns/presentation/vns-characters.md#global-position-mode) for details.
 
 Example:
 

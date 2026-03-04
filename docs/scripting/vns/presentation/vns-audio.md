@@ -337,6 +337,6 @@ At runtime launch:
 
 ## Related Docs
 
-- [VNS Commands Reference](vns-commands.md)
-- [VNS Overview](vns-scripting.md)
+- [VNS Commands Reference](../language/vns-commands.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Transitions & Screen Effects](vns-transitions.md)

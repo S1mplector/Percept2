@@ -203,9 +203,9 @@ Then add custom menus (e.g. `extras`, `gallery`, `credits`) via `open_menu` acti
 
 ## Related Docs
 
-- [Menu Profiles Overview](../scripting/menus-submenus/menu-profiles.md)
-- [Menu Screens](../scripting/menus-submenus/menu-screens.md)
-- [Menu Styles](../scripting/menus-submenus/menu-styles.md)
-- [Menu Layouts](../scripting/layout/menu-layouts.md)
-- [Editor Guide](../editor/editor.md)
-- [Runtime Guide](../runtime/runtime.md)
+- [Menu Profiles Overview](../../scripting/ui/menus/menu-profiles.md)
+- [Menu Screens](../../scripting/ui/menus/menu-screens.md)
+- [Menu Styles](../../scripting/ui/menus/menu-styles.md)
+- [Menu Layouts](../../scripting/ui/layout/structure/menu-layouts.md)
+- [Editor Guide](../../editor/core/editor.md)
+- [Runtime Guide](../../runtime/core/runtime.md)

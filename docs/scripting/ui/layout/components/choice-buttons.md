@@ -484,5 +484,5 @@ This is a fraction, not pixels. `0.0` = top edge. Use `0.2` or higher, or `-1` f
 - [Dialogue Layout & Style](dialogue-layout.md)
 - [Character Framing](character-framing.md)
 - [Textbox Action Buttons](textbox-action-buttons.md)
-- [Colors & Theming](colors-theming.md)
-- [VNS Choices](../vns/vns-choices.md)
+- [Colors & Theming](../styling/colors-theming.md)
+- [VNS Choices](../../../vns/language/vns-choices.md)

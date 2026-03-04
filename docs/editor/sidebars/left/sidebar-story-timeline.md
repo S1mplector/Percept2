@@ -246,6 +246,6 @@ LINK|Prologue|end_choice_b|Chapter 2|
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
-- [VNS Scripting](../scripting/vns/vns-scripting.md) — VNS script format and commands
-- [Label Flow Map](sidebar-label-flow-map.md) — per-script label flow visualization
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [VNS Scripting](../../../scripting/vns/overview/vns-scripting.md) — VNS script format and commands
+- [Label Flow Map](../right/sidebar-label-flow-map.md) — per-script label flow visualization

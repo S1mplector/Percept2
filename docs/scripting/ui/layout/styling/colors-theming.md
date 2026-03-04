@@ -386,8 +386,8 @@ A semi-transparent textbox on a semi-transparent background makes the combined a
 
 ## Related Docs
 
-- [Dialogue Layout & Style](dialogue-layout.md)
-- [Choice Buttons](choice-buttons.md)
-- [Menu Styles](../menus-submenus/menu-styles.md)
+- [Dialogue Layout & Style](../components/dialogue-layout.md)
+- [Choice Buttons](../components/choice-buttons.md)
+- [Menu Styles](../../menus/menu-styles.md)
 - [Fonts & Typography](fonts-typography.md)
 - [Assets & Backgrounds](assets-backgrounds.md)

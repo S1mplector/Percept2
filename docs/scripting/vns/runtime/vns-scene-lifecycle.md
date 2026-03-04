@@ -360,10 +360,10 @@ This is serialized/deserialized alongside VN saves.
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Save System](vns-save-system.md)
 - [Rollback & History](vns-rollback-history.md)
 - [Settings & Playback Modes](vns-settings-modes.md)
-- [Characters & Sprites](vns-characters.md)
-- [Transitions & Screen Effects](vns-transitions.md)
-- [Interop & Integration](vns-interop.md)
+- [Characters & Sprites](../presentation/vns-characters.md)
+- [Transitions & Screen Effects](../presentation/vns-transitions.md)
+- [Interop & Integration](../integration/vns-interop.md)

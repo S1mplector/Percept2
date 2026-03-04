@@ -349,8 +349,9 @@ Shows a temporary on-screen message (auto-expires after ~2 seconds). Supports `$
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
+- [VNS ↔ JES Architecture](vns-jes-architecture.md) — runtime bridge internals and scene stack coordination
 - [Java + JES Cross Development](java-jes-cross-development.md) — hybrid patterns
-- [Commands Reference](vns-commands.md) — full command catalog
-- [Runtime Interop Guide](../../runtime/interop.md) — runtime provider details
-- [Puppeteer](../../editor/puppeteer.md) — visual timeline editor
+- [Commands Reference](../language/vns-commands.md) — full command catalog
+- [Runtime Interop Guide](../../../runtime/core/interop.md) — runtime provider details
+- [Puppeteer](../../../editor/puppeteer/puppeteer.md) — visual timeline editor

@@ -377,9 +377,9 @@ In practice, VNS parse failures should be treated as **content compilation error
 
 ## Related Docs
 
-- [VNS Scripting Overview](vns-scripting.md)
-- [VNS Directives](vns-directives.md)
-- [VNS Commands](vns-commands.md)
-- [VNS Flow Control](vns-flow-control.md)
-- [VNS Choices](vns-choices.md)
-- [JES Parsing Internals](../jes/jes-parsing.md)
+- [VNS Scripting Overview](../overview/vns-scripting.md)
+- [VNS Directives](../language/vns-directives.md)
+- [VNS Commands](../language/vns-commands.md)
+- [VNS Flow Control](../flow/vns-flow-control.md)
+- [VNS Choices](../language/vns-choices.md)
+- [JES Parsing Internals](../../jes/internals/jes-parsing.md)

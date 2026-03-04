@@ -10,7 +10,7 @@ This document covers the system architecture, the JES/VNS relationship, the data
 
 - **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, entity management, keyframe editing, all 12 presets, 26 easing types, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
 - **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, `playAudio`, `wait`, `parallel`, easing values, custom cubic Bézier, export modes, VNS/JES integration examples
-- **[Sidebar Utilities](sidebar-utilities.md)** — all 14 editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
+- **[Sidebar Utilities](../sidebars/overview/sidebar-utilities.md)** — all 14 editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
 - **[Puppeteer Audit & Roadmap](puppeteer-audit.md)** — hardening audit and expansion roadmap
 
 ---
@@ -287,7 +287,7 @@ The `SceneAccessor` interface decouples the runner from `JesScene2D`, allowing i
 
 ## 4. Workflow Patterns
 
-This section covers the practical workflows for different Puppeteer use cases. For detailed UI controls, see the [Puppeteer Editor Guide](puppeteer-editor-guide.md). For hand-coding without the editor, see [Hand-Coding Timelines](../scripting/timeline/timeline-hand-coding.md).
+This section covers the practical workflows for different Puppeteer use cases. For detailed UI controls, see the [Puppeteer Editor Guide](puppeteer-editor-guide.md). For hand-coding without the editor, see [Hand-Coding Timelines](../../scripting/timeline/animation/timeline-hand-coding.md).
 
 ### Workflow A: VNS Character Animation (Most Common)
 
@@ -945,9 +945,9 @@ Entities and groups now carry `layerOrder` metadata. Puppeteer provides context-
 
 - [Puppeteer Editor Guide](puppeteer-editor-guide.md) — comprehensive UI usage: launching, keyframes, 12 presets, 26 easing types, audio, camera, groups, shortcuts
 - [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — complete exported timeline syntax reference
-- [Hand-Coding Timelines](../scripting/timeline/timeline-hand-coding.md) — writing timelines by hand, time cursor model, 18 examples, reusable templates
-- [Puppeteer Animation Timelines](../scripting/timeline/timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry
-- [Timeline Overview](../scripting/timeline/timeline-scripting.md) — story vs animation timelines
-- [JES Timeline & Actions](../scripting/jes/jes-timeline.md) — JES runtime timeline actions (superset: combat, flow control, loops)
-- [Puppeteer Launcher Panel](sidebar-puppeteer-launcher.md) — VNS snapshot resolution details
+- [Hand-Coding Timelines](../../scripting/timeline/animation/timeline-hand-coding.md) — writing timelines by hand, time cursor model, 18 examples, reusable templates
+- [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry
+- [Timeline Overview](../../scripting/timeline/overview/timeline-scripting.md) — story vs animation timelines
+- [JES Timeline & Actions](../../scripting/jes/timeline/jes-timeline.md) — JES runtime timeline actions (superset: combat, flow control, loops)
+- [Puppeteer Launcher Panel](../sidebars/right/sidebar-puppeteer-launcher.md) — VNS snapshot resolution details
 - [Puppeteer Audit & Roadmap](puppeteer-audit.md) — hardening audit and expansion status

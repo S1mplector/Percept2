@@ -1029,12 +1029,12 @@ behavior. They can be added incrementally to any existing project.
 
 ## Related Docs
 
-- [Dialogue Layout & Style](dialogue-layout.md) — textbox geometry, name box, choices
-- [Menu Layouts](menu-layouts.md) — list positioning, line height, text alignment
-- [Textbox Action Buttons](textbox-action-buttons.md) — button declaration, positioning
-- [Menu Actions & Navigation](menu-actions.md) — action types, navigation flow
-- [Menu Inheritance & Composition](menu-inheritance.md) — `extends` for screens/layouts/styles
-- [Layout DSL Cookbook](layout-dsl-cookbook.md) — complete key reference, runtime checklists
-- [Scala DSL Reference](scala-dsl.md) — type-safe Scala builders
-- [Fonts & Typography](fonts-typography.md) — font keys, availability
-- [Colors & Theming](colors-theming.md) — hex format, color palettes
+- [Dialogue Layout & Style](../components/dialogue-layout.md) — textbox geometry, name box, choices
+- [Menu Layouts](../structure/menu-layouts.md) — list positioning, line height, text alignment
+- [Textbox Action Buttons](../components/textbox-action-buttons.md) — button declaration, positioning
+- [Menu Actions & Navigation](../structure/menu-actions.md) — action types, navigation flow
+- [Menu Inheritance & Composition](../structure/menu-inheritance.md) — `extends` for screens/layouts/styles
+- [Layout DSL Cookbook](../reference/layout-dsl-cookbook.md) — complete key reference, runtime checklists
+- [Scala DSL Reference](../reference/scala-dsl.md) — type-safe Scala builders
+- [Fonts & Typography](../styling/fonts-typography.md) — font keys, availability
+- [Colors & Theming](../styling/colors-theming.md) — hex format, color palettes

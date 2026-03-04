@@ -100,6 +100,6 @@ The button has a tooltip: "Run this project in JVN Runtime".
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
-- [Editor Guide](editor.md) — main editor layout and modes
-- [Asset Browser](sidebar-asset-browser.md) — asset-focused browsing with preview
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Editor Guide](../../core/editor.md) — main editor layout and modes
+- [Asset Browser](../right/sidebar-asset-browser.md) — asset-focused browsing with preview

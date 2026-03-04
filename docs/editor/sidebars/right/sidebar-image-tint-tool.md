@@ -202,7 +202,7 @@ When `refreshCatalog()` is called:
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
 - [Layered Image Visualizer](sidebar-layered-image-visualizer.md) — layer-based sprite composition
 - [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-based image assembly
 - [Asset Browser](sidebar-asset-browser.md) — general asset discovery

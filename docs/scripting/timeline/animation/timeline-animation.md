@@ -691,17 +691,17 @@ The Puppeteer is a visual keyframe animation editor that produces `TimelineData`
 - **Code export** — generates inline JES timeline blocks
 - **Layer order** — entity/group `layerOrder` metadata with raise/lower controls
 
-See [Puppeteer Animation Editor](../../editor/puppeteer.md) for the full editor guide.
+See [Puppeteer Animation Editor](../../../editor/puppeteer/puppeteer.md) for the full editor guide.
 
 ---
 
 ## Related Docs
 
-- [Timeline Overview](timeline-scripting.md)
-- [Story Arcs & Links](timeline-story-arcs.md)
+- [Timeline Overview](../overview/timeline-scripting.md)
+- [Story Arcs & Links](../story/timeline-story-arcs.md)
 - [Hand-Coding Timelines](timeline-hand-coding.md) — write animations by hand with 18 examples and templates
-- [JES Timeline & Actions](../jes/jes-timeline.md) — JES runtime timeline actions
-- [VNS Interop](../vns/vns-interop.md) — `jes_timeline` provider
-- [Puppeteer Overview & Architecture](../../editor/puppeteer.md) — system architecture, workflow patterns, troubleshooting
-- [Puppeteer Editor Guide](../../editor/puppeteer-editor-guide.md) — visual editor UI usage
-- [Puppeteer JES DSL Reference](../../editor/puppeteer-jes-dsl.md) — exported timeline code syntax
+- [JES Timeline & Actions](../../jes/timeline/jes-timeline.md) — JES runtime timeline actions
+- [VNS Interop](../../vns/integration/vns-interop.md) — `jes_timeline` provider
+- [Puppeteer Overview & Architecture](../../../editor/puppeteer/puppeteer.md) — system architecture, workflow patterns, troubleshooting
+- [Puppeteer Editor Guide](../../../editor/puppeteer/puppeteer-editor-guide.md) — visual editor UI usage
+- [Puppeteer JES DSL Reference](../../../editor/puppeteer/puppeteer-jes-dsl.md) — exported timeline code syntax

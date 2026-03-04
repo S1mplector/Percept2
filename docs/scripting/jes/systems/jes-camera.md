@@ -285,6 +285,6 @@ timeline {
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Timeline & Actions](jes-timeline.md)
-- [Scenes & Entities](jes-scenes-entities.md)
+- [JES Overview](../overview/jes-scripting.md)
+- [Timeline & Actions](../timeline/jes-timeline.md)
+- [Scenes & Entities](../scene/jes-scenes-entities.md)

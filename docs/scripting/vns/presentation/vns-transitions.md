@@ -341,7 +341,7 @@ The backlog/history overlay for reviewing past dialogue.
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
-- [Commands Reference](vns-commands.md) — full command list
+- [VNS Overview](../overview/vns-scripting.md)
+- [Commands Reference](../language/vns-commands.md) — full command list
 - [Audio Commands](vns-audio.md) — audio pairing
 - [Characters & Sprites](vns-characters.md) — character show/hide with effects

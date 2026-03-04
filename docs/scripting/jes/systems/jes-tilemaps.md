@@ -366,8 +366,8 @@ scene "Dungeon" {
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Scenes & Entities](jes-scenes-entities.md)
-- [Component Reference](components.md) — `Character2D`
-- [AI System](jes-ai.md) — pathfinding, chase, patrol
+- [JES Overview](../overview/jes-scripting.md)
+- [Scenes & Entities](../scene/jes-scenes-entities.md)
+- [Component Reference](../scene/components.md) — `Character2D`
+- [AI System](../gameplay/jes-ai.md) — pathfinding, chase, patrol
 - [Input Bindings](jes-input.md) — `moveHero`, `interact`

@@ -624,8 +624,8 @@ scene "BattleIntro" {
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Scenes & Entities](jes-scenes-entities.md)
-- [Component Reference](components.md)
-- [Camera System](jes-camera.md)
-- [Input Bindings](jes-input.md)
+- [JES Overview](../overview/jes-scripting.md)
+- [Scenes & Entities](../scene/jes-scenes-entities.md)
+- [Component Reference](../scene/components.md)
+- [Camera System](../systems/jes-camera.md)
+- [Input Bindings](../systems/jes-input.md)

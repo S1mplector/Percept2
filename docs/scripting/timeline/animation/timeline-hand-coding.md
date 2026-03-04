@@ -1034,8 +1034,8 @@ cameraZoom { zoom: 1.0 dur: 600 easing: ease_in_out_quad }
 
 ## Related Docs
 
-- [Puppeteer JES DSL Reference](../../editor/puppeteer-jes-dsl.md) — complete action/property reference and export modes
-- [Puppeteer Editor Guide](../../editor/puppeteer-editor-guide.md) — visual keyframe editor usage
-- [JES Timeline & Actions](../jes/jes-timeline.md) — JES runtime timeline actions (superset including combat, flow control)
+- [Puppeteer JES DSL Reference](../../../editor/puppeteer/puppeteer-jes-dsl.md) — complete action/property reference and export modes
+- [Puppeteer Editor Guide](../../../editor/puppeteer/puppeteer-editor-guide.md) — visual keyframe editor usage
+- [JES Timeline & Actions](../../jes/timeline/jes-timeline.md) — JES runtime timeline actions (superset including combat, flow control)
 - [Puppeteer Animation Timelines](timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry
-- [Timeline Overview](timeline-scripting.md) — story timelines vs animation timelines
+- [Timeline Overview](../overview/timeline-scripting.md) — story timelines vs animation timelines

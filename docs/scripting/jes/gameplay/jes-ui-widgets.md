@@ -338,7 +338,7 @@ timeline {
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Component Reference](components.md) — `Button2D`, `Slider2D`, `Label2D`, `Panel2D`
-- [Timeline & Actions](jes-timeline.md) — `call`, `setParallax`
-- [VN Bridge & Java Hooks](jes-bridge.md) — registering call handlers
+- [JES Overview](../overview/jes-scripting.md)
+- [Component Reference](../scene/components.md) — `Button2D`, `Slider2D`, `Label2D`, `Panel2D`
+- [Timeline & Actions](../timeline/jes-timeline.md) — `call`, `setParallax`
+- [VN Bridge & Java Hooks](../integration/jes-bridge.md) — registering call handlers

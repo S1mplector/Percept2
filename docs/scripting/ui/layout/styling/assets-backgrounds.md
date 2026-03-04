@@ -446,9 +446,9 @@ A 4096x4096 PNG for a small button wastes memory. Size assets appropriately for 
 
 ## Related Docs
 
-- [Dialogue Layout & Style](dialogue-layout.md)
-- [Menu Styles](../menus-submenus/menu-styles.md)
-- [Choice Buttons](choice-buttons.md)
-- [Save & Load Screens](save-load-screens.md)
-- [Menu Button Layouts](menu-button-layouts.md)
+- [Dialogue Layout & Style](../components/dialogue-layout.md)
+- [Menu Styles](../../menus/menu-styles.md)
+- [Choice Buttons](../components/choice-buttons.md)
+- [Save & Load Screens](../screens/save-load-screens.md)
+- [Menu Button Layouts](../structure/menu-button-layouts.md)
 - [Colors & Theming](colors-theming.md)

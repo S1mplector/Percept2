@@ -176,9 +176,9 @@ When `refreshStatus()` is called:
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
 - [Menu Flow Editor](sidebar-menu-flow-editor.md) — visual menu navigation wiring
-- [Menu Screens](../menu-profiles/menu-screens.md) — `.menu` file format
-- [Menu Layouts](../menu-profiles/menu-layouts.md) — `.layout` file format
-- [Menu Styles](../menu-profiles/menu-styles.md) — `.style` file format
-- [Dialogue Layout](../menu-profiles/dialogue-layout.md) — textbox geometry and buttons
+- [Menu Screens](../../../scripting/ui/menus/menu-screens.md) — `.menu` file format
+- [Menu Layouts](../../../scripting/ui/layout/structure/menu-layouts.md) — `.layout` file format
+- [Menu Styles](../../../scripting/ui/menus/menu-styles.md) — `.style` file format
+- [Dialogue Layout](../../../scripting/ui/layout/components/dialogue-layout.md) — textbox geometry and buttons

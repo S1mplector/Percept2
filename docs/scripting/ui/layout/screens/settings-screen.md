@@ -322,7 +322,7 @@ Ensure the item ID matches a recognized setting. Custom settings require runtime
 
 ## Related Docs
 
-- [Menu Screens](../menus-submenus/menu-screens.md)
-- [Menu Actions & Navigation](menu-actions.md)
-- [VNS Settings & Modes](../vns/vns-settings-modes.md)
-- [VNS Save System](../vns/vns-save-system.md)
+- [Menu Screens](../../menus/menu-screens.md)
+- [Menu Actions & Navigation](../structure/menu-actions.md)
+- [VNS Settings & Modes](../../../vns/runtime/vns-settings-modes.md)
+- [VNS Save System](../../../vns/runtime/vns-save-system.md)

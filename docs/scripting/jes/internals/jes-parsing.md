@@ -305,7 +305,7 @@ JesParseException: Unexpected character '$' at line 1, col 16
 
 ### Default Values
 
-The loader applies defaults when properties are omitted. See [Component Reference](components.md) for the complete default value table per component.
+The loader applies defaults when properties are omitted. See [Component Reference](../scene/components.md) for the complete default value table per component.
 
 ### Entity Registration
 
@@ -357,7 +357,7 @@ The JES parser powers several editor features:
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Component Reference](components.md)
-- [Timeline & Actions](jes-timeline.md)
-- [VNS Parsing Internals](../vns/vns-parsing.md)
+- [JES Overview](../overview/jes-scripting.md)
+- [Component Reference](../scene/components.md)
+- [Timeline & Actions](../timeline/jes-timeline.md)
+- [VNS Parsing Internals](../../vns/internals/vns-parsing.md)

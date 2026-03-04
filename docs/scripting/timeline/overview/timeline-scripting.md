@@ -22,7 +22,7 @@ link Chapter1:offer_side -> SideQuest:entry_side
 - **File:** `config/timeline/story.timeline`
 - **Editor:** Story Timeline sidebar panel (visual graph editor)
 - **Purpose:** Authoring-time planning and validation, not runtime execution
-- **Full reference:** [Story Arcs & Links DSL](timeline-story-arcs.md)
+- **Full reference:** [Story Arcs & Links DSL](../story/timeline-story-arcs.md)
 
 ### 2. Animation Timeline — Entity Motion
 
@@ -40,7 +40,7 @@ timeline {
 - **Created with:** Puppeteer editor (visual keyframe editing) or inline JES blocks
 - **Played by:** `TimelineRunner` at runtime
 - **Purpose:** Runtime entity animation and scene choreography
-- **Full reference:** [Puppeteer Animation Timelines](timeline-animation.md)
+- **Full reference:** [Puppeteer Animation Timelines](../animation/timeline-animation.md)
 
 ---
 
@@ -130,7 +130,7 @@ The fastest way to create complex animations — point-and-click keyframe editin
 7. Click **Register** to save to `TimelineRegistry`, or **Copy Code** for the raw JES block
 8. Use in VNS: `[call jes_timeline my_animation]`
 
-See [Puppeteer Editor Guide](../../editor/puppeteer-editor-guide.md) for complete UI reference.
+See [Puppeteer Editor Guide](../../../editor/puppeteer/puppeteer-editor-guide.md) for complete UI reference.
 
 ### Option B: Inline JES Block (Code)
 
@@ -160,7 +160,7 @@ scene "Cutscene" {
 }
 ```
 
-See [Hand-Coding Timelines](timeline-hand-coding.md) for 18 annotated examples.
+See [Hand-Coding Timelines](../animation/timeline-hand-coding.md) for 18 annotated examples.
 
 ### Option C: VNS Inline Timeline
 
@@ -292,7 +292,7 @@ Choose easing based on the animation's feel:
 | **Bouncy** | `back` (overshoot), `bounce` (bouncing ball) |
 | **Springy** | `elastic` (spring wobble) |
 
-See [Hand-Coding Timelines](timeline-hand-coding.md) for a complete easing decision chart with 26 types.
+See [Hand-Coding Timelines](../animation/timeline-hand-coding.md) for a complete easing decision chart with 26 types.
 
 ---
 
@@ -308,7 +308,7 @@ The Story Timeline DSL supports several common narrative patterns:
 | **Failure Loop** | A → B, B fails → A | Retry pattern for challenges |
 | **Parallel Routes** | A → B and A → C (independent) | Multiple storylines |
 
-See [Story Arcs & Links DSL](timeline-story-arcs.md) for full examples of each pattern.
+See [Story Arcs & Links DSL](../story/timeline-story-arcs.md) for full examples of each pattern.
 
 ---
 
@@ -316,20 +316,20 @@ See [Story Arcs & Links DSL](timeline-story-arcs.md) for full examples of each p
 
 ### Story Structure
 
-- **[Story Arcs & Links DSL](timeline-story-arcs.md)** — arc declarations, link syntax, clusters, validation rules, story patterns (linear, branch/merge, hub-and-spoke, failure loops), editor features, team conventions
+- **[Story Arcs & Links DSL](../story/timeline-story-arcs.md)** — arc declarations, link syntax, clusters, validation rules, story patterns (linear, branch/merge, hub-and-spoke, failure loops), editor features, team conventions
 
 ### Animation
 
-- **[Puppeteer Animation Timelines](timeline-animation.md)** — TimelineData model, keyframe interpolation, inline JES block syntax, audio cues, TimelineRunner playback, TimelineRegistry, VNS integration, easing types
-- **[Hand-Coding Timelines](timeline-hand-coding.md)** — writing timeline animations by hand without the Puppeteer editor, time cursor model, easing selection guide, 18 annotated examples, reusable copy-paste templates
+- **[Puppeteer Animation Timelines](../animation/timeline-animation.md)** — TimelineData model, keyframe interpolation, inline JES block syntax, audio cues, TimelineRunner playback, TimelineRegistry, VNS integration, easing types
+- **[Hand-Coding Timelines](../animation/timeline-hand-coding.md)** — writing timeline animations by hand without the Puppeteer editor, time cursor model, easing selection guide, 18 annotated examples, reusable copy-paste templates
 
 ---
 
 ## Related Docs
 
-- [Documentation Index](../../INDEX.md)
-- [VNS Scripting](../vns/vns-scripting.md) — runtime story flow
-- [JES Timeline & Actions](../jes/jes-timeline.md) — all 22 JES timeline actions
-- [Puppeteer Editor Guide](../../editor/puppeteer-editor-guide.md) — visual keyframe editor
-- [Puppeteer JES DSL Reference](../../editor/puppeteer-jes-dsl.md) — exported timeline code syntax
-- [Editor Guide](../../editor/editor.md) — story graph editing mode
+- [Documentation Index](../../../INDEX.md)
+- [VNS Scripting](../../vns/overview/vns-scripting.md) — runtime story flow
+- [JES Timeline & Actions](../../jes/timeline/jes-timeline.md) — all 22 JES timeline actions
+- [Puppeteer Editor Guide](../../../editor/puppeteer/puppeteer-editor-guide.md) — visual keyframe editor
+- [Puppeteer JES DSL Reference](../../../editor/puppeteer/puppeteer-jes-dsl.md) — exported timeline code syntax
+- [Editor Guide](../../../editor/core/editor.md) — story graph editing mode

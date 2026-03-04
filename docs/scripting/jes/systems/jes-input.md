@@ -266,8 +266,8 @@ When the player presses SPACE facing the shopkeeper, the `interactNpc` call is i
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Scenes & Entities](jes-scenes-entities.md)
-- [Component Reference](components.md) — `Character2D`, `controllable`
+- [JES Overview](../overview/jes-scripting.md)
+- [Scenes & Entities](../scene/jes-scenes-entities.md)
+- [Component Reference](../scene/components.md) — `Character2D`, `controllable`
 - [Tilemaps & Maps](jes-tilemaps.md) — collision layers
-- [VN Bridge & Java Hooks](jes-bridge.md)
+- [VN Bridge & Java Hooks](../integration/jes-bridge.md)

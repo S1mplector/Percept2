@@ -243,10 +243,10 @@ Open `config/timeline/story.timeline` to see the narrative structure graph.
 
 ## Next Steps
 
-- **[VNS Scripting Guide](scripting/vns/vns-scripting.md)** — complete language reference
+- **[VNS Scripting Guide](../scripting/vns/overview/vns-scripting.md)** — complete language reference
 - **[Cookbook & Recipes](cookbook.md)** — common patterns and examples
-- **[Editor Guide](editor/editor.md)** — full editor features
-- **[Menu Profiles](menu-profiles/menu-profiles.md)** — customizing menus
-- **[Save System](runtime/save-system.md)** — save/load architecture
-- **[Puppeteer Animation Editor](editor/puppeteer.md)** — visual keyframe animation
-- **[Documentation Index](INDEX.md)** — full docs map
+- **[Editor Guide](../editor/core/editor.md)** — full editor features
+- **[Menu Profiles](../scripting/ui/menus/menu-profiles.md)** — customizing menus
+- **[Save System](../runtime/systems/save-system.md)** — save/load architecture
+- **[Puppeteer Animation Editor](../editor/puppeteer/puppeteer.md)** — visual keyframe animation
+- **[Documentation Index](../INDEX.md)** — full docs map

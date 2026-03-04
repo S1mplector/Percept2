@@ -79,7 +79,7 @@ The runtime can't find any assets. The `--assets` flag is missing or points to t
 
 ### Menu Diagnostics
 
-See [Validation & Diagnostics](../scripting/layout/validation-diagnostics.md) for the complete list of menu/layout diagnostic messages.
+See [Validation & Diagnostics](../../scripting/ui/layout/tooling/validation-diagnostics.md) for the complete list of menu/layout diagnostic messages.
 
 Key patterns:
 - `Invalid number for 'KEY'` — typo in a numeric value
@@ -316,8 +316,8 @@ call "hud" { msg: "Debug: entity at x=100" }
 
 ## Related Docs
 
-- [Validation & Diagnostics (Layout)](../scripting/layout/validation-diagnostics.md)
+- [Validation & Diagnostics (Layout)](../../scripting/ui/layout/tooling/validation-diagnostics.md)
 - [Performance](performance.md)
-- [Runtime Guide](../runtime/runtime.md)
-- [VNS Parsing Internals](../scripting/vns/vns-parsing.md)
-- [Text-First Layout Workflow](../scripting/layout/text-first-layout-workflow.md)
+- [Runtime Guide](../../runtime/core/runtime.md)
+- [VNS Parsing Internals](../../scripting/vns/internals/vns-parsing.md)
+- [Text-First Layout Workflow](../../scripting/ui/layout/workflow/text-first-layout-workflow.md)

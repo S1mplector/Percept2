@@ -294,6 +294,6 @@ itemSelectedColor=#FF0000
 
 - [Menu Profiles Overview](menu-profiles.md)
 - [Menu Screens](menu-screens.md)
-- [Menu Layouts](menu-layouts.md)
-- [Button Layouts](menu-button-layouts.md)
-- [Dialogue Layout & Style](dialogue-layout.md)
+- [Menu Layouts](../layout/structure/menu-layouts.md)
+- [Button Layouts](../layout/structure/menu-button-layouts.md)
+- [Dialogue Layout & Style](../layout/components/dialogue-layout.md)

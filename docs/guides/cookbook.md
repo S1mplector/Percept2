@@ -625,6 +625,6 @@ narrator: To be continued...
 
 ## Related Docs
 
-- [VNS Scripting Guide](scripting/vns/vns-scripting.md) — complete language reference
+- [VNS Scripting Guide](../scripting/vns/overview/vns-scripting.md) — complete language reference
 - [Getting Started](getting-started.md) — first-time setup
-- [Documentation Index](INDEX.md) — full docs map
+- [Documentation Index](../INDEX.md) — full docs map

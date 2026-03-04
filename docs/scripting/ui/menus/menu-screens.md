@@ -352,8 +352,8 @@ item.save_slot.slotPreviewHeight=0.90
 ## Related Docs
 
 - [Menu Profiles Overview](menu-profiles.md)
-- [Menu Layouts](menu-layouts.md)
+- [Menu Layouts](../layout/structure/menu-layouts.md)
 - [Menu Styles](menu-styles.md)
-- [Button Layouts](menu-button-layouts.md)
-- [Custom Layout Scenarios](../scripting/layout/custom-scenarios.md)
-- [Dialogue Layout & Style](dialogue-layout.md)
+- [Button Layouts](../layout/structure/menu-button-layouts.md)
+- [Custom Layout Scenarios](../layout/tooling/custom-scenarios.md)
+- [Dialogue Layout & Style](../layout/components/dialogue-layout.md)

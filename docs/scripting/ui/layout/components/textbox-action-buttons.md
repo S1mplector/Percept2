@@ -380,4 +380,4 @@ textBoxButton.auto.action=mode
 - [Dialogue Layout & Style](dialogue-layout.md)
 - [Choice Buttons](choice-buttons.md)
 - [Character Framing](character-framing.md)
-- [VNS Settings & Modes](../vns/vns-settings-modes.md)
+- [VNS Settings & Modes](../../../vns/runtime/vns-settings-modes.md)

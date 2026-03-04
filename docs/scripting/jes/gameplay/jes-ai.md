@@ -418,7 +418,7 @@ scene "DungeonFloor" {
 
 ## Related Docs
 
-- [JES Overview](jes-scripting.md)
-- [Component Reference](components.md) — `Ai2D`, `Stats`, `Character2D`
-- [Tilemaps & Maps](jes-tilemaps.md) — collision, pathfinding grid
+- [JES Overview](../overview/jes-scripting.md)
+- [Component Reference](../scene/components.md) — `Ai2D`, `Stats`, `Character2D`
+- [Tilemaps & Maps](../systems/jes-tilemaps.md) — collision, pathfinding grid
 - [RPG Stats & Combat](jes-rpg.md) — damage, healing, death

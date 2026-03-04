@@ -412,8 +412,8 @@ Properties format has no way to "unset" an inherited value. Once the parent sets
 
 ## Related Docs
 
-- [Menu Screens](../menus-submenus/menu-screens.md)
+- [Menu Screens](../../menus/menu-screens.md)
 - [Menu Layouts](menu-layouts.md)
-- [Menu Styles](../menus-submenus/menu-styles.md)
+- [Menu Styles](../../menus/menu-styles.md)
 - [Menu Registry & File Discovery](menu-registry.md)
-- [Text-First Layout Workflow](text-first-layout-workflow.md)
+- [Text-First Layout Workflow](../workflow/text-first-layout-workflow.md)

@@ -260,7 +260,7 @@ hero: I should head inside.
 
 Named custom positions work everywhere predefined positions (`center`, `left`, etc.) are accepted — in `[show]`, `[move]`, and `[char ... move/at]` commands.
 
-**See also:** [Characters & Sprites — Custom Positions](vns-characters.md#custom-positions) for inline `at x,y[,z]` syntax and full examples.
+**See also:** [Characters & Sprites — Custom Positions](../presentation/vns-characters.md#custom-positions) for inline `at x,y[,z]` syntax and full examples.
 
 ---
 
@@ -475,7 +475,7 @@ hero: Here we go.
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
-- [Characters & Sprites](vns-characters.md) — detailed character system docs, custom positions
+- [VNS Overview](../overview/vns-scripting.md)
+- [Characters & Sprites](../presentation/vns-characters.md) — detailed character system docs, custom positions
 - [Variables & Conditions](vns-variables.md) — runtime variable system
-- [Parsing Internals](vns-parsing.md) — how directives are processed
+- [Parsing Internals](../internals/vns-parsing.md) — how directives are processed

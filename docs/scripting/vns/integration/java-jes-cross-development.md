@@ -449,8 +449,8 @@ If a `call "name"` in JES doesn't have a registered handler and no fallback `act
 ## Related Docs
 
 - [VNS Interop Commands](vns-interop.md)
-- [JES Bridge & Java Hooks](../jes/jes-bridge.md)
-- [JES Scenes & Entities](../jes/jes-scenes-entities.md)
-- [Runtime Interop Guide](../../runtime/interop.md)
-- [VNS Flow Control](vns-flow-control.md)
-- [Cookbook: Minigame Integration](../../cookbook.md)
+- [JES Bridge & Java Hooks](../../jes/integration/jes-bridge.md)
+- [JES Scenes & Entities](../../jes/scene/jes-scenes-entities.md)
+- [Runtime Interop Guide](../../../runtime/core/interop.md)
+- [VNS Flow Control](../flow/vns-flow-control.md)
+- [Cookbook: Minigame Integration](../../../guides/cookbook.md)

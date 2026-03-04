@@ -365,7 +365,7 @@ assets/ui/
 ## Related Docs
 
 - [New Project Wizard](new-project-wizard.md)
-- [Getting Started](../getting-started.md)
-- [Asset Management](../runtime/asset-management.md)
-- [Version Control](version-control.md)
-- [Menu Registry & File Discovery](../scripting/layout/menu-registry.md)
+- [Getting Started](../../guides/getting-started.md)
+- [Asset Management](../../runtime/systems/asset-management.md)
+- [Version Control](../collaboration/version-control.md)
+- [Menu Registry & File Discovery](../../scripting/ui/layout/structure/menu-registry.md)

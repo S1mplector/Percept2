@@ -264,7 +264,7 @@ hero: I've collected {gem_count, plural, one{# gem} other{# gems}} so far.
 
 ## Related Docs
 
-- [VNS Overview](vns-scripting.md)
+- [VNS Overview](../overview/vns-scripting.md)
 - [Dialogue & Text](vns-dialogue.md) — text effects and dialogue forms
 - [Variables & Conditions](vns-variables.md) — setting and modifying variables
 - [Directives & Declarations](vns-directives.md) — `@define` macro system

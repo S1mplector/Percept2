@@ -239,7 +239,7 @@ Node positions on the graph are remembered during the session via `rememberedScr
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
 - [Layout Launcher](sidebar-layout-launcher.md) — launch individual layout/style editors
-- [Menu Screens](../menu-profiles/menu-screens.md) — `.menu` file format
-- [Menu Profiles](../menu-profiles/menu-profiles.md) — registry, loader, action types
+- [Menu Screens](../../../scripting/ui/menus/menu-screens.md) — `.menu` file format
+- [Menu Profiles](../../../scripting/ui/menus/menu-profiles.md) — registry, loader, action types

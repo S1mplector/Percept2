@@ -367,8 +367,8 @@ The `--locale` flag must be passed to the runtime. The editor's Run button uses 
 
 ## Related Docs
 
-- [VNS Localization](../scripting/vns/vns-localization.md)
-- [VNS Text Formatting & ICU](../scripting/vns/vns-text-formatting.md)
-- [Fonts & Typography](../scripting/layout/fonts-typography.md)
-- [Project Structure Conventions](project-structure.md)
-- [Runtime Guide](../runtime/runtime.md)
+- [VNS Localization](../../scripting/vns/runtime/vns-localization.md)
+- [VNS Text Formatting & ICU](../../scripting/vns/language/vns-text-formatting.md)
+- [Fonts & Typography](../../scripting/ui/layout/styling/fonts-typography.md)
+- [Project Structure Conventions](../onboarding/project-structure.md)
+- [Runtime Guide](../../runtime/core/runtime.md)

@@ -269,7 +269,7 @@ The loader produces diagnostics for:
 
 ## Related Docs
 
-- [Menu Profiles Overview](menu-profiles.md)
-- [Menu Screens](menu-screens.md)
-- [Menu Styles](menu-styles.md)
+- [Menu Profiles Overview](../../menus/menu-profiles.md)
+- [Menu Screens](../../menus/menu-screens.md)
+- [Menu Styles](../../menus/menu-styles.md)
 - [Button Layouts](menu-button-layouts.md)
