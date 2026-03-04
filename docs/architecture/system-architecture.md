@@ -207,19 +207,157 @@ Entrypoint: `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
 7. Launch renderer backend (`fx` or `swing`).
 8. Renderer pumps `engine.update(deltaMs)` each frame.
 
+## JES↔VNS Coordination — How JES Orchestrates VNS
+
+While VNS scripts appear to be standalone visual novel files, **JES infrastructure silently coordinates VNS at every layer**. The relationship is not a simple "VNS can call JES scenes" — JES provides the animation engine, the entity model, the scene graph, and the audio pipeline that VNS relies on for all non-trivial presentation.
+
+### The Coordination Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Engine.update(deltaMs)                                     │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  VnScene (active on scene stack)                      │  │
+│  │  ├── VnState.updateCharacterAnimations(dt)            │  │
+│  │  │     └── CharacterVisual: easing, alpha, offsets    │  │
+│  │  ├── VnState.updateTimelineRunners(dt)                │  │
+│  │  │     └── TimelineRunner → SceneAccessor → Entity2D  │  │
+│  │  ├── VnState.updateScreenEffects(dt)                  │  │
+│  │  │     └── shake, flash, fade timers                  │  │
+│  │  └── processCurrentNode() loop                        │  │
+│  │        └── EXTERNAL → VnInterop.handle()              │  │
+│  │              ├── DefaultVnInterop (core providers)     │  │
+│  │              │     ├── jes_timeline → TimelineRunner   │  │
+│  │              │     ├── inline timeline → TimelineRunner│  │
+│  │              │     └── var, audio, screen, etc.        │  │
+│  │              └── RuntimeVnInterop (runtime providers)  │  │
+│  │                    ├── jes push/replace/pop/call       │  │
+│  │                    ├── vns goto/push/replace           │  │
+│  │                    └── menu settings/save/load/main    │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  JesScene2D (pushed onto scene stack by VNS or boot)  │  │
+│  │  ├── Entity2D scene graph + physics + input actions   │  │
+│  │  ├── TimelineRunner (keyframe animation)              │  │
+│  │  ├── Call handlers: return, vns, startVns, hud, pop   │  │
+│  │  └── JesVnBridge (attaches VNS launch capabilities)   │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Layer 1: JES Animation Infrastructure Inside VNS
+
+VNS doesn't have its own animation engine. Every animated effect in a VN scene is powered by JES infrastructure:
+
+**Character animation** — `VnState.showCharacterAnimated()` uses `Easing.Type` from `com.jvn.core.animation` (the same easing library JES timelines use) to drive slide-in, slide-out, position-move, and expression-fade animations on `CharacterVisual` objects. The animation math is identical to what JES timeline keyframes use.
+
+**Timeline execution** — VNS scripts can embed JES timelines directly via `[jes_timeline name]` or inline timeline blocks. These create `TimelineRunner` instances that are stored in `VnState.activeTimelines` and ticked every frame by `VnState.updateTimelineRunners(deltaMs)`. The timeline runner uses a `SceneAccessor` to resolve entity names to `Entity2D` instances.
+
+**SceneAccessor bridge** — `RuntimeVnInterop` wires a `SceneAccessor` that first checks for a live `JesScene2D` on the stack (for entity lookups via `jes.find(name)`), and falls back to creating `VnCharacterProxyEntity` proxies that map VN character names to lightweight `Entity2D` wrappers. This means JES timelines can animate VN characters by name — the proxy forwards position/scale/rotation/alpha changes to `VnState.CharacterVisual` offsets.
+
+**Audio routing** — The `SceneAccessor.playAudioCue()` and `stopAudio()` hooks route timeline audio cues through the VN scene's `AudioFacade`, mapping JES channel names (`music`, `bgm`, `voice`, `sfx`) to VN audio operations.
+
+**Camera control** — Timeline tracks with `CAMERA_X`, `CAMERA_Y`, `CAMERA_ZOOM` keyframes route through `SceneAccessor.setCameraX/Y/Zoom()`, which the runtime wires to the active `Camera2D`.
+
+### Layer 2: VNS→JES Scene Transitions
+
+VNS scripts push full JES scenes onto the engine's scene stack for minigames, cutscenes, or interactive segments:
+
+| VNS Command | Engine Operation | Return Behavior |
+|-------------|-----------------|-----------------|
+| `[jes push script.jes]` | `engine.scenes().push(jesScene)` | JES calls `return` → pops JES, resumes VNS |
+| `[jes replace script.jes]` | `engine.scenes().replace(jesScene)` | Replaces VNS entirely |
+| `[jes pop]` | `engine.scenes().pop()` | Pops current scene |
+| `[jes call name k=v ...]` | `jes.invokeCall(name, props)` | Calls handler on top JES scene |
+| `[jes push script.jes label after_battle with difficulty=3]` | Push with init props | Init props passed to `init` call handler |
+
+When `RuntimeVnInterop.loadJes()` creates a JES scene from VNS, it automatically wires:
+
+1. **`return` / `vns` call handlers** — pop the JES scene and optionally jump to a VNS label, carrying variables back:
+   ```
+   // Inside JES scene:
+   call "return" { label: "after_minigame", score: 42 }
+   // → pops JES, sets $score=42 in VnState, jumps to :after_minigame in VNS
+   ```
+2. **`hud` call handler** — displays HUD messages on the VN scene's overlay
+3. **`pop` call handler** — shortcut to pop the current scene
+4. **`JesVnBridge`** — attaches `startVns` / `startVn` / `vns` call handlers that let JES launch VN segments mid-gameplay
+
+### Layer 3: JES→VNS via JesVnBridge
+
+Source: `runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
+
+The bridge allows JES scenes to start VN segments (dialogue, cutscenes) and resume when they finish:
+
+```
+// Inside a JES scene, trigger a VN dialogue segment:
+call "startVns" { script: "chapter2.vns", label: "boss_intro", popOnExit: true }
+```
+
+**How it works:**
+
+1. `JesVnBridge.attach(jesScene)` registers `startVns`/`startVn`/`vns` call handlers on the JES scene.
+2. When called, `startVns()` loads the VNS script via `VnScenarioLoader`, wraps it in a `BridgedVnScene` (a `VnScene` subclass with `onEnter`/`onExit` callbacks), and pushes it onto the scene stack.
+3. The JES scene is paused (`jes.setPaused(true)`) — it stays on the stack but doesn't update.
+4. When the VN segment ends, `BridgedVnScene.onExit()` fires:
+   - Unpauses the JES scene (`jes.setPaused(false)`)
+   - Calls `jes.invokeCall("vnsEnded", {script, label})` so the JES scene can react
+   - Optionally pops itself off the stack (controlled by `popOnExit`, default `true`)
+5. Settings (text speed, volumes, skip behavior, physics params, input profile) are copied from the current VN scene to the new one via `copySettings()`.
+6. Audio facade is inherited so BGM continues seamlessly across the transition.
+
+### Layer 4: VnCharacterProxyEntity — The Entity2D Bridge
+
+Source: `runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.VnCharacterProxyEntity`
+
+When a JES timeline animates a VN character by name (e.g., a track targeting `"alice"`), the `SceneAccessor` creates a `VnCharacterProxyEntity` — a lightweight `Entity2D` subclass that forwards property changes to the VN character's `CharacterVisual`:
+
+- **x/y** → interpreted as pixel **offsets** from the character's natural slot position
+- **scale** → applied to character sprite scale
+- **rotation** → applied to character rotation
+- **alpha** → applied to character opacity
+
+This means JES timeline animations work transparently on VN characters without the VN system needing to know about the entity/component model.
+
+### Layer 5: VnCharacterSceneAccessor (Editor Preview)
+
+Source: `core/src/main/java/com/jvn/core/vn/VnCharacterSceneAccessor.java`
+
+The editor uses a separate `SceneAccessor` implementation that creates virtual `Entity2D` proxies for VN character names during preview. This allows the editor's timeline preview to animate characters without a live runtime. Event cues (like `"expression"` changes) are logged for the diagnostics panel.
+
+### Summary: What VNS Delegates to JES
+
+| Capability | JES Component Used | VNS Entry Point |
+|------------|-------------------|-----------------|
+| Character slide/fade animation | `Easing` library | `VnState.showCharacterAnimated()` |
+| Keyframe animation in VN | `TimelineRunner` + `TimelineData` | `[jes_timeline name]` or inline block |
+| Entity lookup for timelines | `SceneAccessor` → `Entity2D` | `RuntimeVnInterop.configureDefaultSceneAccessor()` |
+| Character proxy for timelines | `VnCharacterProxyEntity` (extends `Entity2D`) | Automatic via `SceneAccessor.findEntity()` |
+| Camera animation | `SceneAccessor.setCameraX/Y/Zoom()` | Timeline tracks with `CAMERA_*` properties |
+| Audio cues from timelines | `SceneAccessor.playAudioCue()` | Timeline audio cue entries |
+| Scene transitions to gameplay | `JesScene2D` on scene stack | `[jes push script.jes]` |
+| VN segments from gameplay | `BridgedVnScene` + `JesVnBridge` | JES `call "startVns" { ... }` |
+| Return from JES to VNS | Call handler wiring in `loadJes()` | JES `call "return" { label: "...", k: v }` |
+| Event cues (expression, etc.) | `SceneAccessor.onEventCue()` | Timeline event cue entries |
+
+VNS is, in essence, a **high-level dialogue and branching scripting layer** that delegates all animation, entity management, scene graph, and audio integration to the JES infrastructure underneath.
+
+---
+
 ## VNS Data Flow
 
-1. `.vns` text is parsed by `VnScriptParser` into `VnScenario`.
-2. `VnScene` drives node progression and player state.
-3. External commands become `VnExternalCommand` and are handled by `VnInterop`.
-4. Runtime interop can push JES scenes, open menu scenes, switch scripts, and call Java utilities.
+1. `.vns` text is parsed by `VnScriptParser` into `VnScenario` (a list of `VnNode` entries with labels and character/background metadata).
+2. `VnScene` implements `Scene` and drives an iterative command loop (`processCurrentNode()`) that chains through instant nodes (SHOW, HIDE, BACKGROUND, AUDIO, JUMP, CALL, RETURN, EXTERNAL) and blocks on interactive nodes (DIALOGUE, CHOICE) and timed nodes (WAIT, TRANSITION).
+3. External commands (`[provider payload]`) become `VnExternalCommand` objects routed to `VnInterop.handle()`. The `DefaultVnInterop` handles core providers (var, cond, audio, screen, ui, java, jes_timeline, etc.). `RuntimeVnInterop` extends this with runtime-only providers (jes, menu, vns).
+4. `VnState` manages all mutable state: node index, visible characters, variables, history, rollback stack, active transitions, screen effects, timeline runners, settings, and save slot state.
 
 ## JES Data Flow
 
 1. `JesTokenizer` creates tokens with line/column metadata.
 2. `JesParser` builds AST with strict property validation.
 3. `JesLoader` materializes entities/components and bindings into `JesScene2D`.
-4. `JesScene2D` updates physics, input actions, timeline actions, and call handlers.
+4. `JesScene2D` updates physics, input actions, timeline actions, AI, HUD, and call handlers each frame. Call handlers provide the extensibility point for VNS integration (`return`, `startVns`, `vnsEnded`, etc.).
 
 ## Menu System Flow
 
@@ -256,13 +394,6 @@ Reliability behaviors:
 - Visual editors keep properties text synchronized for source-control-friendly config files.
 - Layout studios can run as dedicated external windows for canvas-heavy menu/dialogue editing workflows.
 - Project run action executes runtime through Gradle with isolated Gradle user home.
-
-## Cross-System Integration Points
-
-- VNS -> JES: `[jes push|replace|call|pop ...]`
-- JES -> VNS: `call "return" { ... }` / `call "vns" { ... }`
-- VNS -> Java: `[java fully.qualified.Class#method ...]`
-- Runtime menus callable from VNS via `[menu ...]`, `[settings]`, `[mainmenu ...]`
 
 ## Design Principles Used Here
 
