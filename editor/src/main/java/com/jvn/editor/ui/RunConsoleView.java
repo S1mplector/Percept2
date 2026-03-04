@@ -27,6 +27,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
+import javafx.scene.Node;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -111,7 +112,24 @@ public class RunConsoleView extends BorderPane {
         Pattern.CASE_INSENSITIVE
     );
 
+    private static final String STATE_BUILDING_CLASS = "run-console-state-building";
+    private static final String STATE_STARTING_CLASS = "run-console-state-starting";
+    private static final String STATE_RUNNING_CLASS = "run-console-state-running";
+    private static final String STATE_STOPPED_CLASS = "run-console-state-stopped";
+    private static final String STATE_FAILED_CLASS = "run-console-state-failed";
+    private static final String COUNTER_ERROR_ACTIVE_CLASS = "run-console-meta-alert";
+    private static final String COUNTER_WARN_ACTIVE_CLASS = "run-console-meta-warn";
+
+    private static final String LOG_COLOR_ERROR = "#f38ba8";
+    private static final String LOG_COLOR_WARNING = "#f0b673";
+    private static final String LOG_COLOR_ENGINE = "#dbe4f0";
+    private static final String LOG_COLOR_NOISE = "#6b7381";
+    private static final String LOG_COLOR_NORMAL = "#b5bfd0";
+    private static final String LOG_COLOR_INFO = "#8ab4f8";
+
     public RunConsoleView(String title) {
+        getStyleClass().add("run-console-root");
+
         // ─── Menu Bar ────────────────────────────────────────────────
         MenuBar menuBar = createMenuBar(title);
 
@@ -120,32 +138,30 @@ public class RunConsoleView extends BorderPane {
 
         // ─── Header info row ─────────────────────────────────────────
         stateLabel.getStyleClass().add("run-console-state");
-        stateLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
-        elapsedLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 12px;");
+        elapsedLabel.getStyleClass().add("run-console-elapsed");
 
         Label titleLabel = new Label(title);
-        titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #ddd;");
+        titleLabel.getStyleClass().add("run-console-title");
 
         HBox infoRow = new HBox(10, titleLabel, stateLabel, elapsedLabel);
         infoRow.setAlignment(Pos.CENTER_LEFT);
         infoRow.setPadding(new Insets(4, 10, 4, 10));
-        infoRow.setStyle("-fx-background-color: #1e1e2e; -fx-border-color: #333; -fx-border-width: 0 0 1 0;");
+        infoRow.getStyleClass().add("run-console-info-row");
 
         VBox topContainer = new VBox(menuBar, toolBar, infoRow);
         setTop(topContainer);
 
         // ─── Output area ─────────────────────────────────────────────
         outputFlow.setPadding(new Insets(8));
-        outputFlow.setStyle("-fx-background-color: #0e0e16;");
+        outputFlow.getStyleClass().add("run-console-output-flow");
         scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background: #0e0e16; -fx-background-color: #0e0e16;");
+        scrollPane.getStyleClass().add("run-console-output-scroll");
         setCenter(scrollPane);
 
         // ─── Status bar ──────────────────────────────────────────────
         HBox statusBar = createStatusBar();
         setBottom(statusBar);
 
-        setStyle("-fx-background-color: #0e0e16;");
         setState(EngineState.BUILDING);
     }
 
@@ -203,20 +219,37 @@ public class RunConsoleView extends BorderPane {
         this.engineState = state;
         Platform.runLater(() -> {
             String emoji;
-            String color;
             switch (state) {
-                case BUILDING:  emoji = ""; color = "#f0c040"; break;
-                case STARTING:  emoji = "▶"; color = "#60c0ff"; break;
-                case RUNNING:   emoji = "●"; color = "#40e060"; break;
-                case STOPPED:   emoji = "■"; color = "#888"; break;
-                case FAILED:    emoji = "✕"; color = "#ff5050"; break;
-                default:        emoji = "?"; color = "#888"; break;
+                case BUILDING -> emoji = "◌";
+                case STARTING -> emoji = "▶";
+                case RUNNING -> emoji = "●";
+                case STOPPED -> emoji = "■";
+                case FAILED -> emoji = "✕";
+                default -> emoji = "?";
             }
             stateLabel.setText(emoji + " " + state.name());
-            stateLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: " + color + ";");
+            updateStateClass(state);
             stopBtn.setDisable(state == EngineState.STOPPED || state == EngineState.FAILED);
             runBtn.setDisable(processStarter == null || !(state == EngineState.STOPPED || state == EngineState.FAILED));
         });
+    }
+
+    private void updateStateClass(EngineState state) {
+        setClassEnabled(stateLabel, STATE_BUILDING_CLASS, state == EngineState.BUILDING);
+        setClassEnabled(stateLabel, STATE_STARTING_CLASS, state == EngineState.STARTING);
+        setClassEnabled(stateLabel, STATE_RUNNING_CLASS, state == EngineState.RUNNING);
+        setClassEnabled(stateLabel, STATE_STOPPED_CLASS, state == EngineState.STOPPED);
+        setClassEnabled(stateLabel, STATE_FAILED_CLASS, state == EngineState.FAILED);
+    }
+
+    private static void setClassEnabled(Node node, String styleClass, boolean enabled) {
+        if (node == null || styleClass == null || styleClass.isBlank()) return;
+        var classes = node.getStyleClass();
+        if (enabled) {
+            if (!classes.contains(styleClass)) classes.add(styleClass);
+        } else {
+            classes.remove(styleClass);
+        }
     }
 
     /** Append a raw line from the process. Handles filtering and coloring. */
@@ -258,14 +291,14 @@ public class RunConsoleView extends BorderPane {
             elapsedLabel.setText(formatElapsed(elapsed));
             lineCountLabel.setText(lineCount + " lines");
             errorCountLabel.setText(errorCount + " errors");
-            errorCountLabel.setStyle(errorCount > 0
-                ? "-fx-text-fill: #ff5050; -fx-font-size: 11px; -fx-font-weight: bold;"
-                : "-fx-text-fill: #888; -fx-font-size: 11px;");
             warnCountLabel.setText(warnCount + " warnings");
-            warnCountLabel.setStyle(warnCount > 0
-                ? "-fx-text-fill: #f0c040; -fx-font-size: 11px; -fx-font-weight: bold;"
-                : "-fx-text-fill: #888; -fx-font-size: 11px;");
+            updateCounterBadgeStyles();
         });
+    }
+
+    private void updateCounterBadgeStyles() {
+        setClassEnabled(errorCountLabel, COUNTER_ERROR_ACTIVE_CLASS, errorCount > 0);
+        setClassEnabled(warnCountLabel, COUNTER_WARN_ACTIVE_CLASS, warnCount > 0);
     }
 
     /** Check if a line passes the current filter settings. */
@@ -301,15 +334,15 @@ public class RunConsoleView extends BorderPane {
 
         Text text = new Text(rawLine + "\n");
         if (isError) {
-            text.setStyle("-fx-fill: #ff5050; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
+            text.setStyle("-fx-fill: " + LOG_COLOR_ERROR + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
         } else if (isWarning) {
-            text.setStyle("-fx-fill: #f0c040; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
+            text.setStyle("-fx-fill: " + LOG_COLOR_WARNING + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
         } else if (isEngineMsg) {
-            text.setStyle("-fx-fill: #e0e0e0; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
+            text.setStyle("-fx-fill: " + LOG_COLOR_ENGINE + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
         } else if (isNoise) {
-            text.setStyle("-fx-fill: #555; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 11px;");
+            text.setStyle("-fx-fill: " + LOG_COLOR_NOISE + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 11px;");
         } else {
-            text.setStyle("-fx-fill: #aaa; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
+            text.setStyle("-fx-fill: " + LOG_COLOR_NORMAL + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
         }
         return text;
     }
@@ -331,7 +364,7 @@ public class RunConsoleView extends BorderPane {
 
     private void appendInfoMessage(String msg) {
         Text text = new Text("── " + msg + " ──\n");
-        text.setStyle("-fx-fill: #60c0ff; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px; -fx-font-style: italic;");
+        text.setStyle("-fx-fill: " + LOG_COLOR_INFO + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px; -fx-font-style: italic;");
         outputFlow.getChildren().add(text);
         scrollPane.layout();
         scrollPane.setVvalue(1.0);
@@ -363,9 +396,8 @@ public class RunConsoleView extends BorderPane {
         warnCount = 0;
         lineCountLabel.setText("0 lines");
         errorCountLabel.setText("0 errors");
-        errorCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
         warnCountLabel.setText("0 warnings");
-        warnCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
+        updateCounterBadgeStyles();
     }
 
     private void rebuildOutput() {
@@ -409,7 +441,7 @@ public class RunConsoleView extends BorderPane {
 
     private MenuBar createMenuBar(String title) {
         MenuBar bar = new MenuBar();
-        bar.setStyle("-fx-background-color: #16213e; -fx-padding: 0;");
+        bar.getStyleClass().add("run-console-menubar");
 
         // — File menu —
         Menu fileMenu = new Menu("File");
@@ -501,6 +533,7 @@ public class RunConsoleView extends BorderPane {
         MenuItem miShortcuts = new MenuItem("Keyboard Shortcuts");
         miShortcuts.setOnAction(e -> {
             Alert dlg = new Alert(Alert.AlertType.INFORMATION);
+            EditorTheme.apply(dlg);
             dlg.setTitle("Console Shortcuts");
             dlg.setHeaderText("Run Console Keyboard Shortcuts");
             dlg.setContentText(
@@ -520,6 +553,7 @@ public class RunConsoleView extends BorderPane {
         MenuItem miAbout = new MenuItem("About " + title);
         miAbout.setOnAction(e -> {
             Alert about = new Alert(Alert.AlertType.INFORMATION);
+            EditorTheme.apply(about);
             about.setTitle("About");
             about.setHeaderText(title);
             about.setContentText("JVN Runtime Console\nLine buffer: " + rawLineBuffer.size()
@@ -537,24 +571,24 @@ public class RunConsoleView extends BorderPane {
 
     private ToolBar createToolBar() {
         ToolBar bar = new ToolBar();
-        bar.setStyle("-fx-background-color: #1a1a2e; -fx-padding: 4 8 4 8;");
+        bar.getStyleClass().add("run-console-toolbar");
 
         runBtn.setOnAction(e -> rerunProcess());
         stopBtn.setOnAction(e -> stopProcess());
         copyBtn.setOnAction(e -> copyTraceback());
         clearBtn.setOnAction(e -> clearOutput());
 
-        showAllToggle.setStyle("-fx-text-fill: #aaa; -fx-font-size: 11px;");
+        showAllToggle.getStyleClass().add("run-console-toggle");
         showAllToggle.setSelected(false);
         showAllToggle.setOnAction(e -> rebuildOutput());
 
         autoScrollBtn.setSelected(true);
-        autoScrollBtn.setStyle("-fx-font-size: 11px;");
+        autoScrollBtn.getStyleClass().add("run-console-toggle");
         autoScrollBtn.setTooltip(new Tooltip("Auto-scroll to latest output"));
         autoScrollBtn.setFocusTraversable(false);
 
         wordWrapBtn.setSelected(true);
-        wordWrapBtn.setStyle("-fx-font-size: 11px;");
+        wordWrapBtn.getStyleClass().add("run-console-toggle");
         wordWrapBtn.setTooltip(new Tooltip("Toggle word wrapping"));
         wordWrapBtn.setFocusTraversable(false);
         wordWrapBtn.setOnAction(e -> scrollPane.setFitToWidth(wordWrapBtn.isSelected()));
@@ -562,7 +596,7 @@ public class RunConsoleView extends BorderPane {
         // Search field
         searchField.setPromptText("Search output...");
         searchField.setPrefWidth(180);
-        searchField.setStyle("-fx-background-color: #2a2a4e; -fx-text-fill: #ddd; -fx-prompt-text-fill: #666; -fx-font-size: 11px;");
+        searchField.getStyleClass().add("run-console-search-field");
         searchField.setTooltip(new Tooltip("Filter output by text (Cmd+F)"));
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
             currentSearchTerm = newVal != null ? newVal.trim() : "";
@@ -571,12 +605,12 @@ public class RunConsoleView extends BorderPane {
 
         // Log level filter
         logLevelFilter.setValue("All");
-        logLevelFilter.setStyle("-fx-font-size: 11px;");
+        logLevelFilter.getStyleClass().add("run-console-filter-combo");
         logLevelFilter.setTooltip(new Tooltip("Filter by log level"));
         logLevelFilter.setOnAction(e -> rebuildOutput());
 
         Label searchLabel = new Label("Filter:");
-        searchLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
+        searchLabel.getStyleClass().add("run-console-search-label");
 
         bar.getItems().addAll(
             runBtn, stopBtn, new Separator(),
@@ -593,23 +627,24 @@ public class RunConsoleView extends BorderPane {
         HBox bar = new HBox(12);
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setPadding(new Insets(3, 10, 3, 10));
-        bar.setStyle("-fx-background-color: #0f1126; -fx-border-color: #2a2a4e; -fx-border-width: 1 0 0 0;");
+        bar.getStyleClass().add("run-console-status-bar");
 
-        lineCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
-        errorCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
-        warnCountLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 11px;");
+        lineCountLabel.getStyleClass().add("run-console-meta");
+        errorCountLabel.getStyleClass().add("run-console-meta");
+        warnCountLabel.getStyleClass().add("run-console-meta");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Label bufferLabel = new Label("Buffer: 0");
-        bufferLabel.setStyle("-fx-text-fill: #555; -fx-font-size: 11px;");
+        bufferLabel.getStyleClass().add("run-console-meta-muted");
 
         // Update buffer label periodically via the existing append cycle
         lineCountLabel.textProperty().addListener((o, ov, nv) ->
             bufferLabel.setText("Buffer: " + rawLineBuffer.size()));
 
         bar.getChildren().addAll(lineCountLabel, errorCountLabel, warnCountLabel, spacer, bufferLabel);
+        updateCounterBadgeStyles();
         return bar;
     }
 

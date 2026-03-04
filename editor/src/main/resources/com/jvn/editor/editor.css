@@ -58,6 +58,129 @@
   -fx-background-color: #d3dcf0;
 }
 
+/* Runtime console palette hardening (aligned to editor black theme) */
+.run-console-root {
+  -fx-background-color: #0f1012;
+}
+
+.run-console-menubar {
+  -fx-background-color: #000000;
+  -fx-border-color: #1a1a1a;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 0;
+}
+
+.run-console-toolbar {
+  -fx-background-color: #111318;
+  -fx-border-color: #1f232b;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 4 8 4 8;
+}
+
+.run-console-info-row {
+  -fx-background-color: #12151b;
+  -fx-border-color: #232833;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 4 10 4 10;
+}
+
+.run-console-title {
+  -fx-font-weight: 700;
+  -fx-font-size: 14px;
+  -fx-text-fill: #dbe4f0;
+}
+
+.run-console-state {
+  -fx-font-weight: 700;
+  -fx-font-size: 13px;
+  -fx-text-fill: #b5bfd0;
+}
+
+.run-console-state-building { -fx-text-fill: #f0b673; }
+.run-console-state-starting { -fx-text-fill: #8ab4f8; }
+.run-console-state-running { -fx-text-fill: #8bcf98; }
+.run-console-state-stopped { -fx-text-fill: #8f97a3; }
+.run-console-state-failed { -fx-text-fill: #f38ba8; }
+
+.run-console-elapsed {
+  -fx-text-fill: #8f97a3;
+  -fx-font-size: 12px;
+}
+
+.run-console-output-flow {
+  -fx-padding: 8;
+  -fx-background-color: #0c0e12;
+}
+
+.run-console-output-scroll {
+  -fx-background: #0c0e12;
+  -fx-background-color: #0c0e12;
+}
+
+.run-console-output-scroll > .viewport {
+  -fx-background-color: #0c0e12;
+}
+
+.run-console-toggle {
+  -fx-font-size: 11px;
+}
+
+.run-console-search-label {
+  -fx-text-fill: #8f97a3;
+  -fx-font-size: 11px;
+}
+
+.run-console-search-field {
+  -fx-background-color: #171a22;
+  -fx-text-fill: #dbe4f0;
+  -fx-prompt-text-fill: #6c7482;
+  -fx-border-color: #2a3240;
+  -fx-border-width: 1;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+  -fx-font-size: 11px;
+}
+
+.run-console-filter-combo {
+  -fx-font-size: 11px;
+  -fx-background-color: #171a22;
+  -fx-border-color: #2a3240;
+  -fx-border-width: 1;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.run-console-filter-combo .list-cell {
+  -fx-text-fill: #dbe4f0;
+}
+
+.run-console-status-bar {
+  -fx-background-color: #101318;
+  -fx-border-color: #232833;
+  -fx-border-width: 1 0 0 0;
+  -fx-padding: 3 10 3 10;
+}
+
+.run-console-meta {
+  -fx-text-fill: #8f97a3;
+  -fx-font-size: 11px;
+}
+
+.run-console-meta-muted {
+  -fx-text-fill: #5f6673;
+  -fx-font-size: 11px;
+}
+
+.run-console-meta-alert {
+  -fx-text-fill: #f38ba8;
+  -fx-font-weight: 700;
+}
+
+.run-console-meta-warn {
+  -fx-text-fill: #f0b673;
+  -fx-font-weight: 700;
+}
+
 /* VCS Icon Buttons */
 .vcs-icon-btn {
   -fx-min-width: 28px;
