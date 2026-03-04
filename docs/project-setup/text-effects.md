@@ -22,42 +22,69 @@ Narrator: {color=#4a9eff}{wave}Welcome{/wave}{/color}
 
 ## Supported Tags
 
-### Animation tags
+### Complete Tag Reference
 
-- `{shake}...{/shake}`
-- `{wave}...{/wave}`
-- `{bounce}...{/bounce}`
-- `{rainbow}...{/rainbow}`
+| Tag | Closing | Value | Description |
+|-----|---------|-------|-------------|
+| `{shake}` | `{/shake}` | — | Text shakes/vibrates with random offsets each frame |
+| `{wave}` | `{/wave}` | — | Text moves in a sine wave pattern |
+| `{bounce}` | `{/bounce}` | — | Text bounces up and down |
+| `{rainbow}` | `{/rainbow}` | — | Text cycles through rainbow colors |
+| `{b}` | `{/b}` | — | Bold text (rendered thicker) |
+| `{bold}` | `{/bold}` | — | Alias for `{b}` |
+| `{i}` | `{/i}` | — | Italic text (rendered slanted) |
+| `{italic}` | `{/italic}` | — | Alias for `{i}` |
+| `{color=V}` | `{/color}` | `#RRGGBB` | Colored text |
+| `{speed=V}` | `{/speed}` | float | Speed multiplier (0.5 = half speed, 2.0 = double) |
+| `{delay=V}` | none | int (ms) | Pause before the next text span |
 
-### Style tags
+### Reserved Effects (Enum Only)
 
-- `{b}...{/b}` or `{bold}...{/bold}`
-- `{i}...{/i}` or `{italic}...{/italic}`
-- `{color=#RRGGBB}...{/color}`
+The `TextEffect` enum also defines `FADE_IN` and `TYPEWRITER`, but these currently have **no parser tag mappings**. They exist for programmatic use or future extension.
 
-### Timing tags
+## Parser Model
 
-- `{speed=<multiplier>}...{/speed}`
-- `{delay=<milliseconds>}` (applies to next emitted span)
+### TextSpan
+
+Each parsed segment becomes a `TextSpan` with:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `text` | `String` | — | The text content |
+| `effect` | `TextEffect` | `NONE` | Active animation/style effect |
+| `colorHex` | `String` | `null` | Color override (e.g., `#FF0000`) |
+| `speedMultiplier` | `float` | `1.0` | Text reveal speed multiplier |
+| `delayMs` | `int` | `0` | Pause before this span (ms) |
+
+Helper methods: `hasEffect()`, `hasColor()`, `hasSpeedChange()`, `hasDelay()`, `length()`.
+
+### Reveal System
+
+`TextParser.getRevealInfo(spans, revealIndex)` returns a `RevealInfo` with the character index, accumulated delay, current speed multiplier, and active span. The renderer uses this to control the typewriter-style text reveal, adjusting timing per-span based on speed multipliers and delays.
 
 ## Important Behavior Notes
 
-TextParser is lightweight and state-based:
+TextParser is lightweight and **state-based** (not stack-based):
 
-- one active animation/style effect channel at a time (`TextEffect` enum)
-- color and speed are tracked separately
-- tags are parsed in a single pass
+- **One active effect** at a time — opening `{shake}` replaces any current effect. Closing it resets to `NONE`.
+- **Color is tracked separately** from effects — `{color}` + `{shake}` works correctly (color and animation are independent channels).
+- **Speed is tracked separately** — `{speed}` doesn't interact with effect state.
+- **Delay is consumed once** — `{delay=500}` attaches to the next text span, then resets to 0.
+- Tags are **case-insensitive** (`{Shake}` works the same as `{shake}`).
 
-Practical implication:
-- nested color + effect works well
-- deeply nested multiple animation tags are not a full stack-based rich text system
+### Nesting Rules
+
+```text
+✅ {color=#FF0000}{shake}scary text{/shake}{/color}   — color + animation
+✅ {speed=0.5}{wave}slow wave{/wave}{/speed}           — speed + animation
+❌ {shake}{wave}text{/wave}{/shake}                     — second animation replaces first
+```
 
 ## Color Format
 
-Supported currently by renderer helper:
-- `#RRGGBB`
+Supported format: `#RRGGBB` (hex)
 
-If color parsing fails, renderer falls back to default dialogue color.
+If color parsing fails, the renderer falls back to the default dialogue text color.
 
 ## Usage in VNS
 
