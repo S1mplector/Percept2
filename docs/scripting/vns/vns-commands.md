@@ -143,6 +143,69 @@ Place a character at arbitrary screen coordinates without pre-declaring a positi
 [show narrator at 0.5,0.3,20 thinking]
 ```
 
+### `[move <charId> <position> [expression] [easing] [durationMs]]`
+
+Moves a visible character to a new position with an animated slide. Supports optional expression change, easing curve, and custom duration.
+
+```vns
+[move hero right]
+[move hero left happy]
+[move hero center smile ease_out_bounce]
+[move hero far_left neutral ease_out_quad 500]
+```
+
+**Parameters:**
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `charId` | Yes | Character ID to move |
+| `position` | Yes | Target position (predefined, named `@position`, or `at x,y`) |
+| `expression` | No | Expression to switch to after move |
+| `easing` | No | Easing curve for the slide animation (see table below) |
+| `durationMs` | No | Duration in ms (default: engine default ~320ms) |
+
+**With custom positions:**
+
+```vns
+@position balcony 0.3 0.6
+
+[move hero balcony]
+[move hero at 0.8,0.4 smile]
+[move hero at 0.15,0.85 neutral ease_out_back 600]
+```
+
+**Easing types** (case-insensitive):
+
+| Easing | Description |
+|--------|-------------|
+| `linear` | Constant speed |
+| `ease_in_quad` | Accelerate (quadratic) |
+| `ease_out_quad` | Decelerate (quadratic) |
+| `ease_in_out_quad` | Accelerate then decelerate |
+| `ease_in_cubic` | Accelerate (cubic) |
+| `ease_out_cubic` | Decelerate (cubic) |
+| `ease_in_out_cubic` | Accelerate then decelerate (cubic) |
+| `ease_in_quart` | Accelerate (quartic) |
+| `ease_out_quart` | Decelerate (quartic) |
+| `ease_in_out_quart` | Accelerate then decelerate (quartic) |
+| `ease_in_expo` | Accelerate (exponential) |
+| `ease_out_expo` | Decelerate (exponential) |
+| `ease_in_out_expo` | Accelerate then decelerate (exponential) |
+| `ease_in_sine` | Accelerate (sine) |
+| `ease_out_sine` | Decelerate (sine) |
+| `ease_in_out_sine` | Accelerate then decelerate (sine) |
+| `ease_in_elastic` | Elastic wind-up |
+| `ease_out_elastic` | Elastic overshoot |
+| `ease_in_out_elastic` | Elastic both ends |
+| `ease_in_back` | Pull back before moving |
+| `ease_out_back` | Overshoot then settle |
+| `ease_in_out_back` | Pull back and overshoot |
+| `ease_in_bounce` | Bounce at start |
+| `ease_out_bounce` | Bounce at end |
+| `ease_in_out_bounce` | Bounce both ends |
+
+The `[move]` command is the top-level shorthand. For global-mode characters, see also `[char <charId> move ...]` in [Characters & Sprites](vns-characters.md).
+
 ### `[hide <charId>]`
 
 Hides a character with an exit animation.
@@ -171,12 +234,28 @@ narrator: ...the story continues.
 
 ## Audio
 
-### `[bgm <track>]`
+### `[bgm <track> [options]]`
 
-Plays background music (loops by default).
+Plays background music (loops by default). Supports optional keyword arguments for loop and volume control.
 
 ```vns
 [bgm assets/audio/bgm/main_theme.ogg]
+[bgm assets/audio/bgm/fanfare.ogg loop=false]
+[bgm assets/audio/bgm/calm.ogg vol=0.6]
+[bgm assets/audio/bgm/battle.ogg loop=true vol=0.8]
+```
+
+**Options:**
+
+| Option | Values | Default | Description |
+|--------|--------|---------|-------------|
+| `loop` | `true`/`false`/`on`/`off`/`1`/`0` | `true` | Whether the track loops |
+| `vol` / `volume` | `0.0` – `1.0` | current | Set BGM volume alongside playback |
+
+**Shorthand:** a bare boolean as the second argument sets loop (backward-compatible):
+
+```vns
+[bgm assets/audio/bgm/victory.ogg false]   # equivalent to loop=false
 ```
 
 ### `[bgm_stop]`
@@ -295,6 +374,14 @@ Triggers a screen flash overlay.
 [screen flash 0.5 150 0 0 255]  # blue flash
 ```
 
+### `[screen clear]`
+
+Force-clears any active shake or flash effects immediately.
+
+```vns
+[screen clear]
+```
+
 ---
 
 ## Settings & Player Modes
@@ -372,15 +459,17 @@ Controls the history/backlog overlay.
 [history clear]       # clear scroll position
 ```
 
-### `[visualizer [on|off|toggle] [bars=<count>]]`
+### `[visualizer [on|off|toggle] [bars=<count>]]` / `[viz]`
 
-Controls the in-scene audio visualizer layer (off by default).
+Controls the in-scene audio visualizer layer (off by default). `[viz]` is a shorthand alias.
 
 ```vns
 [visualizer on]
 [visualizer on bars=48]
 [visualizer off]
 [visualizer toggle]
+[viz on]              # shorthand alias
+[viz toggle]
 ```
 
 ### `[hud <message>]`
@@ -482,6 +571,8 @@ See [Variables & Conditions](vns-variables.md) for detailed documentation.
 [endif]
 ```
 
+`[/if]` is accepted as an alias for `[endif]`.
+
 ### Shortcut jump
 
 ```vns
@@ -532,6 +623,19 @@ Loads a different VNS script.
 
 ## Interop Commands
 
+### `[gosub <label>]`
+
+Subroutine call — pushes the current position onto the call stack and jumps to a label. Use with `[return]`. This is the recommended form for subroutine calls (distinct from `[call <provider> ...]` which is for interop).
+
+```vns
+[gosub shared_cutscene]
+narrator: Back from the cutscene.
+
+@label shared_cutscene
+narrator: This is reusable.
+[return]
+```
+
 ### `[call <provider> <payload>]`
 
 Calls an interop provider with a payload.
@@ -575,16 +679,31 @@ See [Interop & Integration](vns-interop.md) for detailed documentation.
 
 ## Character Motion (Advanced)
 
-### `[char <charId> <subcommand>]`
+### `[char <charId> <subcommand>]` / `[character]`
 
-Advanced character choreography commands.
+Advanced character choreography commands. `[character]` is accepted as an alias for `[char]`.
+
+**Subcommands:**
+
+| Subcommand | Aliases | Description |
+|------------|---------|-------------|
+| `global` | `global_position` | Enable/disable persistent position mode |
+| `at` | `position`, `pos` | Set the character's anchor position |
+| `move` | — | Animated slide to a new position (with optional expression, easing, duration) |
+| `show` | — | Show character at a position with an expression |
+| `expression` | `expr` | Change expression without moving |
+| `hide` | — | Animated exit |
 
 ```vns
-[char hero global on]            # enable global position mode
-[char hero at center]            # set anchor position
-[char hero move right smile]     # animated move with expression
-[char hero expression angry]     # change expression only
-[char hero hide]                 # animated hide
+[char hero global on]                        # enable global position mode
+[char hero at center]                        # set anchor position
+[char hero pos left]                         # alias for 'at'
+[char hero move right smile]                 # animated move with expression
+[char hero move right smile ease_out_quad 500]  # with easing and duration
+[char hero show center happy]                # show at position with expression
+[char hero expression angry]                 # change expression only
+[char hero expr surprised]                   # shorthand alias
+[char hero hide]                             # animated hide
 ```
 
 **Inline custom positions in `[char]` commands:**

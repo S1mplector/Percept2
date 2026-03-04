@@ -52,7 +52,7 @@ Run with runtime:
 VNS is read top-to-bottom. Blank lines and lines starting with `#` are ignored.
 
 Typical order:
-1. Declarations (`@scenario`, `@character`, `@background`, `@charimg`, etc.)
+1. Declarations (`@scenario`, `@character`, `@background`, `@charimg`, `@position`, etc.)
 2. Labels and story content (dialogue, choices, commands)
 
 ---
@@ -63,7 +63,7 @@ Each VNS feature area has its own detailed documentation with extensive examples
 
 ### Language Features
 
-- **[Directives & Declarations](vns-directives.md)** — `@scenario`, `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@label`, `@var`, `@define`, `@include`
+- **[Directives & Declarations](vns-directives.md)** — `@scenario`, `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@position`, `@label`, `@var`, `@define`, `@include`
 - **[Dialogue & Text](vns-dialogue.md)** — colon form, quoted form, inline text effects (`{shake}`, `{wave}`, `{color}`, `{speed}`, `{delay}`), typewriter reveal, skip/auto modes
 - **[Choices & Branching](vns-choices.md)** — multi-line choices, inline choices, conditional visibility, branching patterns (hub, merge, score-gated, nested)
 - **[Variables & Conditions](vns-variables.md)** — set/inc/dec/flag/unflag/clear, condition expressions, if/elif/else/endif blocks, conditional jumps, interpolation
@@ -100,7 +100,7 @@ All commands use `[command args]` form. See [Commands Reference](vns-commands.md
 |----------|----------|
 | **Scene** | `[bg]`, `[transition]` |
 | **Flow** | `[jump]`, `[end]`, `[goto]`, `[call]`, `[return]` |
-| **Characters** | `[show]`, `[hide]`, `[char ... ]` |
+| **Characters** | `[show]`, `[hide]`, `[move]`, `[char ... ]` |
 | **Audio** | `[bgm]`, `[sfx]`, `[voice]`, `[bgm_stop]`, `[bgm_fadeout]`, `[bgm_crossfade]`, `[audio_stop_all]` |
 | **Effects** | `[wait]`, `[screen shake]`, `[screen flash]`, `[transition]` |
 | **Variables** | `[set]`, `[inc]`, `[dec]`, `[flag]`, `[unflag]`, `[clear]` |

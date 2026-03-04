@@ -288,12 +288,84 @@ hero: Come on, let's go!
 
 ## Character Motion System
 
-For advanced choreography beyond basic show/hide, use the `[char]` provider commands.
+JVN provides two ways to move characters: the **`[move]` top-level command** (simpler, recommended for most cases) and the **`[char]` provider commands** (for advanced choreography with global position mode).
+
+### Top-Level `[move]` Command
+
+The simplest way to slide a visible character to a new position:
+
+```vns
+[move hero right]
+[move hero left happy]
+[move hero center smile ease_out_bounce]
+[move hero far_left neutral ease_out_quad 500]
+```
+
+**Syntax:** `[move <charId> <position> [expression] [easing] [durationMs]]`
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `charId` | Yes | Character ID to move |
+| `position` | Yes | Target position — predefined (`left`, `center`, etc.), named `@position`, or `at x,y` |
+| `expression` | No | Expression to switch to after the move |
+| `easing` | No | Easing curve for the animation (see table below) |
+| `durationMs` | No | Duration in ms (default: engine default ~320ms) |
+
+**With custom positions:**
+
+```vns
+@position balcony 0.3 0.6
+
+[move hero balcony]
+[move hero at 0.8,0.4 smile]
+[move hero at 0.15,0.85 neutral ease_out_back 600]
+```
+
+### Easing Reference
+
+All 25 easing types (case-insensitive in VNS):
+
+| Family | In | Out | In-Out |
+|--------|----|----|--------|
+| **Quadratic** | `ease_in_quad` | `ease_out_quad` | `ease_in_out_quad` |
+| **Cubic** | `ease_in_cubic` | `ease_out_cubic` | `ease_in_out_cubic` |
+| **Quartic** | `ease_in_quart` | `ease_out_quart` | `ease_in_out_quart` |
+| **Exponential** | `ease_in_expo` | `ease_out_expo` | `ease_in_out_expo` |
+| **Sine** | `ease_in_sine` | `ease_out_sine` | `ease_in_out_sine` |
+| **Elastic** | `ease_in_elastic` | `ease_out_elastic` | `ease_in_out_elastic` |
+| **Back** | `ease_in_back` | `ease_out_back` | `ease_in_out_back` |
+| **Bounce** | `ease_in_bounce` | `ease_out_bounce` | `ease_in_out_bounce` |
+
+Plus `linear` (constant speed). Source: `core/src/main/java/com/jvn/core/animation/Easing.java`
+
+**In** = accelerate from rest. **Out** = decelerate to rest. **In-Out** = both.
+
+Best picks for character movement:
+- **`ease_out_quad`** — natural deceleration (most common)
+- **`ease_out_back`** — slight overshoot, lively feel
+- **`ease_out_bounce`** — bouncy landing, comedic scenes
+- **`ease_in_out_cubic`** — smooth start and stop, cinematic pans
+
+### `[char]` Provider Commands (Advanced)
+
+For advanced choreography beyond basic show/hide, use the `[char]` (or `[character]`) provider commands.
+
+**Subcommand reference:**
+
+| Subcommand | Aliases | Description |
+|------------|---------|-------------|
+| `global` | `global_position` | Enable/disable persistent position mode |
+| `at` | `position`, `pos` | Set the character's anchor position |
+| `move` | — | Animated slide to a new position (with optional expression, easing, duration) |
+| `show` | — | Show character at a position with an expression |
+| `expression` | `expr` | Change expression without moving |
+| `hide` | — | Animated exit |
 
 ### Enabling global position mode
 
 ```vns
 [char hero global on]
+[char hero global_position on]     # alias
 ```
 
 When global mode is enabled, the character maintains a persistent anchor position. Without it, each `[show]` creates an independent slot.
@@ -302,24 +374,35 @@ When global mode is enabled, the character maintains a persistent anchor positio
 
 ```vns
 [char hero at center]
-[char hero at left]
+[char hero pos left]               # alias
+[char hero position right]         # alias
 ```
+
+### Showing via char command
+
+```vns
+[char hero show center happy]
+[char hero show at 0.3,0.5 neutral]   # with inline position
+```
+
+Shows the character at a position with an expression. Useful in global mode to place the character without a separate `[show]` command.
 
 ### Animated movement
 
 ```vns
-[char hero move right]              # move to right, keep current expression
-[char hero move right smile]        # move to right, switch to smile
-[char hero move far_left neutral]   # move to far left
+[char hero move right]                          # move to right, keep current expression
+[char hero move right smile]                    # move to right, switch to smile
+[char hero move far_left neutral]               # move to far left
+[char hero move center happy ease_out_quad 500] # with easing and duration
 ```
 
-Movement is animated with a slide tween. If an expression is specified, it fades in after the move completes.
+Movement is animated with a slide tween. If an expression is specified, it fades in after the move completes. Optional easing and duration parameters work the same as the top-level `[move]` command (see [Easing Reference](#easing-reference) above).
 
 ### Expression-only change
 
 ```vns
 [char hero expression angry]
-[char hero expr surprised]          # shorthand
+[char hero expr surprised]          # shorthand alias
 ```
 
 Changes expression without moving position.

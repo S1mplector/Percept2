@@ -28,6 +28,14 @@ Each channel has its own volume control, and they can be independently paused, r
 # Start playing BGM (loops by default)
 [bgm assets/audio/bgm/main_theme.ogg]
 
+# With keyword options
+[bgm assets/audio/bgm/fanfare.ogg loop=false]
+[bgm assets/audio/bgm/calm.ogg vol=0.6]
+[bgm assets/audio/bgm/battle.ogg loop=true vol=0.8]
+
+# Shorthand: bare boolean as second arg sets loop (backward-compatible)
+[bgm assets/audio/bgm/victory.ogg false]
+
 # Stop BGM immediately
 [bgm_stop]
 
@@ -37,6 +45,13 @@ Each channel has its own volume control, and they can be independently paused, r
 # Fade out with default duration
 [bgm_fadeout]
 ```
+
+**`[bgm]` options:**
+
+| Option | Values | Default | Description |
+|--------|--------|---------|-------------|
+| `loop` | `true`/`false`/`on`/`off`/`1`/`0` | `true` | Whether the track loops |
+| `vol` / `volume` | `0.0` – `1.0` | current | Set BGM volume alongside playback |
 
 ### Sound Effects
 

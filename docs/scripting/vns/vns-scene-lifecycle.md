@@ -26,6 +26,7 @@ Each line in a compiled VNS script becomes a `VnNode` with a specific type:
 | `BACKGROUND` | Instant | Change the background image |
 | `SHOW` | Instant | Show a character at a position |
 | `HIDE` | Instant | Hide a character |
+| `MOVE` | Instant | Slide a character to a new position (starts tween, chains immediately) |
 | `JUMP` | Instant | Jump to a label |
 | `CALL` | Instant | Call a subroutine (push return address) |
 | `RETURN` | Instant | Return from subroutine |
@@ -39,7 +40,7 @@ Each line in a compiled VNS script becomes a `VnNode` with a specific type:
 
 ```java
 nodeType.isInteractive()  // DIALOGUE, CHOICE — require player input
-nodeType.isInstant()      // BACKGROUND, SHOW, HIDE, JUMP, CALL, RETURN, AUDIO — execute and chain
+nodeType.isInstant()      // BACKGROUND, SHOW, HIDE, MOVE, JUMP, CALL, RETURN, AUDIO — execute and chain
 nodeType.isBlocking()     // WAIT, TRANSITION — block for a duration
 ```
 
@@ -88,6 +89,7 @@ while (instantCount < MAX_INSTANT_CHAIN) {
     BACKGROUND → process and CONTINUE
     SHOW      → process and CONTINUE
     HIDE      → process and CONTINUE
+    MOVE      → start slide tween, queue expression switch, CONTINUE
     JUMP      → process and CONTINUE
     CALL      → push return, jump, CONTINUE
     RETURN    → pop return, CONTINUE
@@ -116,6 +118,7 @@ Preflight applies:
 - `BACKGROUND` — sets current background
 - `SHOW` — shows characters (immediate, no animation)
 - `HIDE` — hides characters
+- `MOVE` — applies target position immediately (no slide tween)
 - `TRANSITION` — applies target background
 - `AUDIO` — processes audio commands
 - `EXTERNAL` — only safe providers (`var`, `ui`, `audio`, `char`, `settings`, `mode`, `screen`, `history`)

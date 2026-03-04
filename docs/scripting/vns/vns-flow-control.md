@@ -139,6 +139,63 @@ Terminates the scenario. The runtime returns to the menu or exits depending on c
 
 ---
 
+## Subroutine Calls
+
+### `[gosub <label>]`
+
+Pushes the current position onto the call stack, then jumps to the target label. Use `[return]` at the end of the subroutine to pop back to the line after `[gosub]`.
+
+```vns
+@label start
+narrator: Before the cutscene.
+[gosub shared_cutscene]
+narrator: After the cutscene — we're back.
+[end]
+
+@label shared_cutscene
+narrator: This is a reusable subroutine.
+narrator: It can be called from multiple places.
+[return]
+```
+
+### `[return]`
+
+Returns from a subroutine call by popping the return address from the call stack. Must be paired with a prior `[gosub]`.
+
+```vns
+[return]
+```
+
+If `[return]` is reached without a matching `[gosub]`, behavior is undefined (the call stack is empty).
+
+### Subroutine patterns
+
+**Reusable flashback:**
+
+```vns
+@label chapter1
+narrator: Something triggered a memory.
+[gosub flashback_01]
+narrator: The memory fades.
+[jump chapter1_continue]
+
+@label chapter3
+narrator: The same memory returns, stronger this time.
+[gosub flashback_01]
+narrator: Now you understand its meaning.
+[jump chapter3_continue]
+
+@label flashback_01
+[transition FADE 800 old_room]
+narrator: Years ago, in this very room...
+[transition FADE 800]
+[return]
+```
+
+**Note:** `[gosub]` is the subroutine call command. `[call <provider> <payload>]` is the general interop command (for JES, Java, timelines, etc.) — they are different commands despite both containing "call" in concept.
+
+---
+
 ## Cross-Script Navigation
 
 ### `[goto <labelOrArc:label>]`
