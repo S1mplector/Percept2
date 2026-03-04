@@ -31,6 +31,8 @@ import javax.imageio.ImageIO;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
 
+import javafx.animation.PauseTransition;
+import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -64,6 +66,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
+import javafx.util.Duration;
 import javafx.util.StringConverter;
 
 /**
@@ -121,6 +124,14 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private static final String SNIPPET_CHARPRESET = "@charpreset only";
   private static final String SNIPPET_SHOW = "[show] only";
   private static final String SNIPPET_RECIPE = "Recipe comments";
+  private static final String GALLERY_CELL_STYLE =
+      "-fx-cursor: hand; -fx-padding: 2; -fx-background-radius: 4; -fx-border-radius: 4; "
+          + "-fx-border-width: 1; -fx-border-color: transparent;";
+  private static final String GALLERY_CELL_SELECTED_STYLE =
+      "-fx-cursor: hand; -fx-padding: 2; -fx-background-radius: 4; -fx-border-radius: 4; "
+          + "-fx-border-width: 1; -fx-border-color: #8ab4f8; -fx-background-color: rgba(138,180,248,0.18);";
+  private static final String GALLERY_LABEL_STYLE = "-fx-font-size: 9px; -fx-text-fill: #8899aa;";
+  private static final String GALLERY_LABEL_SELECTED_STYLE = "-fx-font-size: 9px; -fx-text-fill: #cfe1ff;";
   private static final String DEFAULT_SHORTFORMS = String.join("\n",
       "# Example:",
       "# happy = eyes=neutral mouth=happy",
@@ -173,6 +184,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private final Properties persisted = new Properties();
   private final Random random = new Random();
+  private final PauseTransition stateSaveDebounce = new PauseTransition(Duration.millis(250));
   private final String toolTitle;
   private final String stateFile;
   private final boolean presetControlsEnabled;
@@ -180,6 +192,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private File projectRoot;
   private String currentSetId;
   private String preferredSetId;
+  private VBox selectedGalleryCell;
+  private Label selectedGalleryLabel;
   private boolean applyingState;
   private Button fullscreenButton;
   private Runnable fullscreenToggleHandler;
@@ -188,6 +202,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private double dragLastX;
   private double dragLastY;
   private boolean dragDirty;
+  private boolean stateSavePending;
+  private Task<LayeredCatalogScanResult> scanTask;
+  private Button refreshCatalogButton;
   private double gameCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
   private double gameCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
 
@@ -203,6 +220,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     this.toolTitle = toolTitle == null || toolTitle.isBlank() ? DEFAULT_TOOL_TITLE : toolTitle.trim();
     this.stateFile = stateFile == null || stateFile.isBlank() ? DEFAULT_STATE_FILE : stateFile.trim();
     this.presetControlsEnabled = presetControlsEnabled;
+    stateSaveDebounce.setOnFinished(e -> flushPendingStateSave());
 
     setPadding(new Insets(8));
 
@@ -233,9 +251,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     });
     setBox.setOnAction(e -> onSetSelectionChanged());
 
-    Button refreshButton = iconButton(CssIcon.redo("#7ec8e3"), "Refresh set scan", this::refreshCatalog);
+    refreshCatalogButton = iconButton(CssIcon.redo("#7ec8e3"), "Refresh set scan", this::onCatalogRefreshRequested);
+    updateRefreshButtonUi(false);
 
-    HBox setRow = new HBox(4, new Label("Set"), setBox, refreshButton);
+    HBox setRow = new HBox(4, new Label("Set"), setBox, refreshCatalogButton);
     setRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(setBox, Priority.ALWAYS);
 
@@ -534,6 +553,44 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     updateFullscreenButtonUi();
   }
 
+  private void onCatalogRefreshRequested() {
+    if (scanTask != null && scanTask.isRunning()) {
+      scanTask.cancel();
+      status("Cancelling scan...");
+      return;
+    }
+    refreshCatalog();
+  }
+
+  private void updateRefreshButtonUi(boolean scanning) {
+    if (refreshCatalogButton == null) return;
+    if (scanning) {
+      refreshCatalogButton.setGraphic(CssIcon.clearX("#f38ba8"));
+      refreshCatalogButton.setTooltip(new Tooltip("Cancel set scan"));
+    } else {
+      refreshCatalogButton.setGraphic(CssIcon.redo("#7ec8e3"));
+      refreshCatalogButton.setTooltip(new Tooltip("Refresh set scan"));
+    }
+  }
+
+  private void clearCatalogUi(String message) {
+    currentSetId = null;
+    sets.clear();
+    selectors.clear();
+    activeGroupChecks.clear();
+    swapGroupChecks.clear();
+    groupRows.clear();
+    groupOrder.clear();
+    groupBox.getChildren().clear();
+    imageCache.clear();
+    viewportFrames.clear();
+    presetNameToKey.clear();
+    presetBox.getItems().clear();
+    setBox.getItems().clear();
+    summaryLabel.setText(message);
+    redrawPreview();
+  }
+
   public void refreshCatalog() {
     persistCurrentSetState();
     persistGlobalState();
@@ -546,53 +603,91 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     filterField.setText(persisted.getProperty("global.filter", ""));
     applyingState = false;
 
-    sets.clear();
-    selectors.clear();
-    activeGroupChecks.clear();
-    swapGroupChecks.clear();
-    groupRows.clear();
-    groupOrder.clear();
-    groupBox.getChildren().clear();
-    imageCache.clear();
-    viewportFrames.clear();
-    presetNameToKey.clear();
-    presetBox.getItems().clear();
+    if (scanTask != null && scanTask.isRunning()) {
+      scanTask.cancel();
+    }
+    updateRefreshButtonUi(false);
 
     if (projectRoot == null || !projectRoot.isDirectory()) {
-      currentSetId = null;
-      summaryLabel.setText("Open a project to inspect layered image sets.");
-      setBox.getItems().clear();
-      redrawPreview();
+      clearCatalogUi("Open a project to inspect layered image sets.");
       return;
     }
 
-    Path root = projectRoot.toPath();
-    int imageCount = 0;
-    try (Stream<Path> stream = Files.walk(root, 10)) {
-      List<Path> files = stream
-          .filter(Files::isRegularFile)
-          .filter(this::isImageFile)
-          .filter(path -> !isIgnoredPath(root.relativize(path).toString().replace('\\', '/')))
-          .sorted()
-          .toList();
-      for (Path p : files) {
-        String relative = root.relativize(p).toString().replace('\\', '/');
-        LayerOption option = parseOption(relative, p.toFile());
-        if (option == null) continue;
-        String setId = deriveSetId(relative);
-        sets.computeIfAbsent(setId, LayeredSet::new).add(option);
-        imageCount++;
+    File rootDir = projectRoot;
+    clearCatalogUi("Scanning layered image sets...");
+    status("Scanning assets...");
+    updateRefreshButtonUi(true);
+
+    Task<LayeredCatalogScanResult> task = new Task<>() {
+      @Override
+      protected LayeredCatalogScanResult call() throws Exception {
+        Map<String, LayeredSet> scannedSets = new LinkedHashMap<>();
+        Path root = rootDir.toPath();
+        List<Path> files;
+        try (Stream<Path> stream = Files.walk(root, 10)) {
+          files = stream
+              .filter(Files::isRegularFile)
+              .filter(LayeredImageVisualizerView.this::isImageFile)
+              .filter(path -> !isIgnoredPath(root.relativize(path).toString().replace('\\', '/')))
+              .sorted()
+              .toList();
+        }
+        int total = files.size();
+        int imageCount = 0;
+        int index = 0;
+        for (Path p : files) {
+          if (isCancelled()) return LayeredCatalogScanResult.cancelledResult();
+          String relative = root.relativize(p).toString().replace('\\', '/');
+          LayerOption option = parseOption(relative, p.toFile());
+          if (option != null) {
+            String setId = deriveSetId(relative);
+            scannedSets.computeIfAbsent(setId, LayeredSet::new).add(option);
+            imageCount++;
+          }
+          index++;
+          if (index == total || (index % 200) == 0) {
+            updateProgress(index, Math.max(total, 1));
+          }
+        }
+        return new LayeredCatalogScanResult(scannedSets, imageCount, false);
       }
-    } catch (IOException ex) {
-      currentSetId = null;
-      summaryLabel.setText("Failed to scan project assets: " + ex.getMessage());
-      setBox.getItems().clear();
-      redrawPreview();
-      return;
-    }
+    };
+    scanTask = task;
 
-    summaryLabel.setText("Layer sets: " + sets.size() + "  |  Images: " + imageCount);
-    refreshSetOptions();
+    task.setOnSucceeded(e -> {
+      if (scanTask != task) return;
+      updateRefreshButtonUi(false);
+      LayeredCatalogScanResult result = task.getValue();
+      if (result == null || result.cancelled()) {
+        summaryLabel.setText("Layered set scan cancelled.");
+        status("Scan cancelled.");
+        return;
+      }
+      sets.clear();
+      sets.putAll(result.sets());
+      summaryLabel.setText("Layer sets: " + sets.size() + "  |  Images: " + result.imageCount());
+      refreshSetOptions();
+      status("Scan complete.");
+    });
+
+    task.setOnCancelled(e -> {
+      if (scanTask != task) return;
+      updateRefreshButtonUi(false);
+      summaryLabel.setText("Layered set scan cancelled.");
+      status("Scan cancelled.");
+    });
+
+    task.setOnFailed(e -> {
+      if (scanTask != task) return;
+      updateRefreshButtonUi(false);
+      Throwable ex = task.getException();
+      clearCatalogUi("Failed to scan project assets: " + (ex == null ? "Unknown error" : ex.getMessage()));
+      status("Scan failed.");
+    });
+
+    Thread scanThread = new Thread(task, "jvn-layered-set-scan");
+    scanThread.setDaemon(true);
+    scanThread.start();
   }
 
   private void refreshSetOptions() {
@@ -1051,6 +1146,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private void generateGallery() {
     galleryPane.getChildren().clear();
+    setSelectedGalleryCell(null, null);
     if (selectors.isEmpty() || groupOrder.isEmpty()) {
       galleryStatusLabel.setText("No groups loaded.");
       return;
@@ -1176,6 +1272,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private void clearGallery() {
     galleryPane.getChildren().clear();
     galleryStatusLabel.setText("");
+    setSelectedGalleryCell(null, null);
+  }
+
+  private void setSelectedGalleryCell(VBox cell, Label label) {
+    if (selectedGalleryCell != null) selectedGalleryCell.setStyle(GALLERY_CELL_STYLE);
+    if (selectedGalleryLabel != null) selectedGalleryLabel.setStyle(GALLERY_LABEL_STYLE);
+    selectedGalleryCell = cell;
+    selectedGalleryLabel = label;
+    if (selectedGalleryCell != null) selectedGalleryCell.setStyle(GALLERY_CELL_SELECTED_STYLE);
+    if (selectedGalleryLabel != null) selectedGalleryLabel.setStyle(GALLERY_LABEL_SELECTED_STYLE);
   }
 
   private VBox createGalleryThumbnail(
@@ -1204,29 +1310,20 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     // Label
     String shortExpr = expression.length() > 18 ? expression.substring(0, 16) + ".." : expression;
     Label label = new Label(shortExpr);
-    label.setStyle("-fx-font-size: 9px; -fx-text-fill: #8899aa;");
+    label.setStyle(GALLERY_LABEL_STYLE);
     label.setMaxWidth(thumbW);
     label.setTooltip(new Tooltip(expression));
 
     VBox cell = new VBox(2, thumb, label);
     cell.setAlignment(Pos.TOP_CENTER);
-    cell.setStyle("-fx-cursor: hand;");
+    cell.setStyle(GALLERY_CELL_STYLE);
 
-    // Click to apply this combination
-    thumb.setOnMouseClicked(e -> {
+    // Click to apply and mark this chip as selected.
+    cell.setOnMouseClicked(e -> {
       if (e.getButton() == MouseButton.PRIMARY) {
+        setSelectedGalleryCell(cell, label);
         applyGalleryCombination(comboMap);
       }
-    });
-
-    // Hover effect
-    thumb.setOnMouseEntered(ev -> {
-      g.setStroke(Color.color(0.54, 0.71, 0.97, 0.8));
-      g.strokeRect(0.5, 0.5, thumbW - 1, thumbH - 1);
-    });
-    thumb.setOnMouseExited(ev -> {
-      g.setStroke(Color.color(1, 1, 1, 0.12));
-      g.strokeRect(0.5, 0.5, thumbW - 1, thumbH - 1);
     });
 
     return cell;
@@ -2015,6 +2112,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     savePersistentState();
   }
 
+  private void flushPendingStateSave() {
+    if (!stateSavePending) return;
+    stateSaveDebounce.stop();
+    stateSavePending = false;
+    savePersistentStateNow();
+  }
+
   private void captureStateToPrefix(String prefix) {
     if (prefix == null || prefix.isBlank()) return;
 
@@ -2135,6 +2239,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   }
 
   private void loadPersistentState() {
+    flushPendingStateSave();
     persisted.clear();
     Path file = statePath();
     if (file == null || !Files.exists(file)) return;
@@ -2168,6 +2273,11 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   }
 
   private void savePersistentState() {
+    stateSavePending = true;
+    stateSaveDebounce.playFromStart();
+  }
+
+  private void savePersistentStateNow() {
     Path file = statePath();
     if (file == null) return;
     try {
@@ -2609,6 +2719,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       double destH) {
     boolean valid() {
       return maxW > 0 && maxH > 0 && srcW > 0 && srcH > 0 && destW > 0 && destH > 0;
+    }
+  }
+
+  private record LayeredCatalogScanResult(
+      Map<String, LayeredSet> sets,
+      int imageCount,
+      boolean cancelled
+  ) {
+    static LayeredCatalogScanResult cancelledResult() {
+      return new LayeredCatalogScanResult(Map.of(), 0, true);
     }
   }
 

@@ -23,6 +23,8 @@ import java.util.stream.Stream;
 
 import javax.imageio.ImageIO;
 
+import javafx.animation.PauseTransition;
+import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -56,6 +58,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
+import javafx.util.Duration;
 
 /**
  * Standalone image tint utility inspired by Ren'Py's Image Tint Tool.
@@ -70,6 +73,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private static final String DEFAULT_EXPORT_PROFILE = "Tint Profile";
   private static final String DEFAULT_EXPORT_SETUP = "Full Setup";
+  private static final String LEGACY_ZONE_PREFIX = "zone.";
+  private static final String ZONE_PROFILE_PREFIX = "zone.profile.";
+  private static final String GLOBAL_ZONE_PROFILE_KEY = "_global_";
 
   private final Label summaryLabel = new Label("Open a project to scan image tags.");
   private final Label statusLabel = new Label("");
@@ -97,12 +103,17 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Map<String, String> setupNameToKey = new LinkedHashMap<>();
   private final Map<String, Image> imageCache = new HashMap<>();
   private final Properties persisted = new Properties();
+  private final PauseTransition stateSaveDebounce = new PauseTransition(Duration.millis(250));
 
   private File projectRoot;
   private Runnable fullscreenToggleHandler;
   private boolean fullscreenActive;
   private Button fullscreenButton;
+  private Button refreshCatalogButton;
   private boolean applyingState;
+  private boolean stateSavePending;
+  private Task<TintCatalogScanResult> scanTask;
+  private String activeZoneProfileTag = "";
 
   private boolean dragging;
   private double dragLastX;
@@ -144,6 +155,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private Button polyDrawToggleButton;
 
   public ImageTintToolView() {
+    stateSaveDebounce.setOnFinished(e -> flushPendingStateSave());
     setPadding(new Insets(8));
     buildUi();
     refreshCatalog();
@@ -180,10 +192,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       if (!applyingState) persistGlobalState();
     });
 
-    Button refreshButton = iconButton(CssIcon.redo("#7ec8e3"), "Rescan project images", this::refreshCatalog);
+    refreshCatalogButton = iconButton(CssIcon.redo("#7ec8e3"), "Rescan project images", this::onCatalogRefreshRequested);
+    updateRefreshButtonUi(false);
 
     // ── Compact sidebar rows ──
-    HBox filterRow = new HBox(4, new Label("Filter"), filterField, refreshButton);
+    HBox filterRow = new HBox(4, new Label("Filter"), filterField, refreshCatalogButton);
     filterRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
@@ -296,13 +309,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void bindTagSelectionHandlers() {
     characterTagBox.valueProperty().addListener((o, ov, nv) -> {
       if (applyingState) return;
-      redrawPreview();
-      persistGlobalState();
+      onCharacterTagChanged(false);
     });
     characterTagBox.getEditor().textProperty().addListener((o, ov, nv) -> {
       if (applyingState) return;
-      redrawPreview();
-      persistGlobalState();
+      onCharacterTagChanged(true);
     });
 
     backgroundTagBox.valueProperty().addListener((o, ov, nv) -> {
@@ -316,6 +327,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       redrawPreview();
       persistGlobalState();
     });
+  }
+
+  private void onCharacterTagChanged(boolean fromEditorTyping) {
+    if (!fromEditorTyping || isKnownCharacterTag(selectedCharacterTag())) {
+      switchZoneProfileForCharacter(selectedCharacterTag(), true);
+    }
+    redrawPreview();
+    persistGlobalState();
   }
 
   private void onTintChanged(boolean redraw) {
@@ -349,48 +368,138 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     updateFullscreenButtonUi();
   }
 
-  @Override
-  public void refreshCatalog() {
-    persistGlobalState();
-    loadPersistentState();
+  private void onCatalogRefreshRequested() {
+    if (scanTask != null && scanTask.isRunning()) {
+      scanTask.cancel();
+      status("Cancelling scan...");
+      return;
+    }
+    refreshCatalog();
+  }
+
+  private void updateRefreshButtonUi(boolean scanning) {
+    if (refreshCatalogButton == null) return;
+    if (scanning) {
+      refreshCatalogButton.setGraphic(CssIcon.clearX("#f38ba8"));
+      refreshCatalogButton.setTooltip(new Tooltip("Cancel image scan"));
+    } else {
+      refreshCatalogButton.setGraphic(CssIcon.redo("#7ec8e3"));
+      refreshCatalogButton.setTooltip(new Tooltip("Rescan project images"));
+    }
+  }
+
+  private void clearCatalogUi(String message) {
     imageByTag.clear();
     presetByTag.clear();
     imageCache.clear();
     tintedImageTag = null;
     tintedImageKey = null;
     tintedImage = null;
-
-    if (projectRoot == null || !projectRoot.isDirectory()) {
-      summaryLabel.setText("Open a project to scan image tags.");
-      characterTagBox.getItems().clear();
-      backgroundTagBox.getItems().clear();
-      refreshSetupOptions();
-      redrawPreview();
-      return;
-    }
-
-    Path root = projectRoot.toPath();
-    try (Stream<Path> stream = Files.walk(root, 10)) {
-      stream
-          .filter(Files::isRegularFile)
-          .filter(this::isImageFile)
-          .map(path -> root.relativize(path).toString().replace('\\', '/'))
-          .filter(relative -> !isIgnoredPath(relative))
-          .sorted(Comparator.naturalOrder())
-          .forEach(relative -> imageByTag.put(relative, root.resolve(relative).toFile()));
-      scanScriptCharpresets(root);
-    } catch (Exception ex) {
-      summaryLabel.setText("Image scan failed: " + ex.getMessage());
-      redrawPreview();
-      return;
-    }
-
-    summaryLabel.setText("Images: " + imageByTag.size() + " | Charpresets: " + presetByTag.size());
-    refreshTagLists();
-    applyPersistedSelections();
-    ensureDefaultSelections();
+    summaryLabel.setText(message);
+    characterTagBox.getItems().clear();
+    backgroundTagBox.getItems().clear();
     refreshSetupOptions();
     redrawPreview();
+  }
+
+  @Override
+  public void refreshCatalog() {
+    persistGlobalState();
+    loadPersistentState();
+    if (scanTask != null && scanTask.isRunning()) {
+      scanTask.cancel();
+    }
+    updateRefreshButtonUi(false);
+
+    if (projectRoot == null || !projectRoot.isDirectory()) {
+      clearCatalogUi("Open a project to scan image tags.");
+      return;
+    }
+
+    File rootDir = projectRoot;
+    clearCatalogUi("Scanning image tags...");
+    status("Scanning assets...");
+    updateRefreshButtonUi(true);
+
+    Task<TintCatalogScanResult> task = new Task<>() {
+      @Override
+      protected TintCatalogScanResult call() throws Exception {
+        Map<String, File> scannedImages = new LinkedHashMap<>();
+        Path root = rootDir.toPath();
+        List<String> imagePaths;
+        try (Stream<Path> stream = Files.walk(root, 10)) {
+          imagePaths = stream
+              .filter(Files::isRegularFile)
+              .filter(ImageTintToolView.this::isImageFile)
+              .map(path -> root.relativize(path).toString().replace('\\', '/'))
+              .filter(relative -> !isIgnoredPath(relative))
+              .sorted(Comparator.naturalOrder())
+              .toList();
+        }
+        int total = imagePaths.size();
+        int index = 0;
+        for (String relative : imagePaths) {
+          if (isCancelled()) return TintCatalogScanResult.cancelledResult();
+          scannedImages.put(relative, root.resolve(relative).toFile());
+          index++;
+          if (index == total || (index % 200) == 0) {
+            updateProgress(index, Math.max(total, 1));
+          }
+        }
+        if (isCancelled()) return TintCatalogScanResult.cancelledResult();
+        Map<String, PresetTagEntry> scannedPresets = scanScriptCharpresets(root, this);
+        if (isCancelled()) return TintCatalogScanResult.cancelledResult();
+        return new TintCatalogScanResult(scannedImages, scannedPresets, false);
+      }
+    };
+    scanTask = task;
+
+    task.setOnSucceeded(e -> {
+      if (scanTask != task) return;
+      updateRefreshButtonUi(false);
+      TintCatalogScanResult result = task.getValue();
+      if (result == null || result.cancelled()) {
+        summaryLabel.setText("Image scan cancelled.");
+        status("Scan cancelled.");
+        return;
+      }
+      imageByTag.clear();
+      imageByTag.putAll(result.images());
+      presetByTag.clear();
+      presetByTag.putAll(result.presets());
+      imageCache.clear();
+      tintedImageTag = null;
+      tintedImageKey = null;
+      tintedImage = null;
+
+      summaryLabel.setText("Images: " + imageByTag.size() + " | Charpresets: " + presetByTag.size());
+      refreshTagLists();
+      applyPersistedSelections();
+      ensureDefaultSelections();
+      refreshSetupOptions();
+      switchZoneProfileForCharacter(selectedCharacterTag(), false);
+      redrawPreview();
+      status("Scan complete.");
+    });
+
+    task.setOnCancelled(e -> {
+      if (scanTask != task) return;
+      updateRefreshButtonUi(false);
+      summaryLabel.setText("Image scan cancelled.");
+      status("Scan cancelled.");
+    });
+
+    task.setOnFailed(e -> {
+      if (scanTask != task) return;
+      updateRefreshButtonUi(false);
+      Throwable ex = task.getException();
+      clearCatalogUi("Image scan failed: " + (ex == null ? "Unknown error" : ex.getMessage()));
+      status("Scan failed.");
+    });
+
+    Thread scanThread = new Thread(task, "jvn-image-tint-scan");
+    scanThread.setDaemon(true);
+    scanThread.start();
   }
 
   private void refreshTagLists() {
@@ -452,6 +561,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     } finally {
       applyingState = false;
     }
+    activeZoneProfileTag = normalize(selectedCharacterTag());
     loadPersistedZones();
     applyBackgroundTintIfPresent(selectedBackgroundTag());
   }
@@ -485,6 +595,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     if (changed) {
       applyBackgroundTintIfPresent(selectedBackgroundTag());
+      switchZoneProfileForCharacter(selectedCharacterTag(), false);
       persistGlobalState();
     }
   }
@@ -633,6 +744,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     // E: Sync background per-tag tint with loaded values.
     persistBackgroundTint(selectedBackgroundTag());
+    activeZoneProfileTag = normalize(selectedCharacterTag());
+    persistZones();
 
     persisted.setProperty("global.selectedSetup", name);
     persistGlobalState();
@@ -1322,6 +1435,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void loadPersistentState() {
+    flushPendingStateSave();
     persisted.clear();
     Path file = statePath();
     if (file == null || !Files.exists(file)) return;
@@ -1332,6 +1446,18 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void savePersistentState() {
+    stateSavePending = true;
+    stateSaveDebounce.playFromStart();
+  }
+
+  private void flushPendingStateSave() {
+    if (!stateSavePending) return;
+    stateSaveDebounce.stop();
+    stateSavePending = false;
+    savePersistentStateNow();
+  }
+
+  private void savePersistentStateNow() {
     Path file = statePath();
     if (file == null) return;
     try {
@@ -1441,27 +1567,35 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     return imageByTag.containsKey(n) || presetByTag.containsKey(n);
   }
 
-  private void scanScriptCharpresets(Path root) {
+  private Map<String, PresetTagEntry> scanScriptCharpresets(Path root, Task<?> scanTask) {
+    Map<String, PresetTagEntry> out = new LinkedHashMap<>();
+    if (root == null) return out;
     Map<String, Map<String, String>> layersByCharacter = new LinkedHashMap<>();
     List<PresetDecl> declarations = new ArrayList<>();
     try (Stream<Path> stream = Files.walk(root, 10)) {
-      stream
+      List<String> scriptFiles = stream
           .filter(Files::isRegularFile)
           .filter(ImageTintToolView::isVnsFile)
           .map(path -> root.relativize(path).toString().replace('\\', '/'))
           .filter(relative -> !isIgnoredPath(relative))
           .sorted(Comparator.naturalOrder())
-          .forEach(relative -> parsePresetDeclarations(root.resolve(relative), layersByCharacter, declarations));
+          .toList();
+      for (String relative : scriptFiles) {
+        if (scanTask != null && scanTask.isCancelled()) return out;
+        parsePresetDeclarations(root.resolve(relative), layersByCharacter, declarations);
+      }
     } catch (Exception ignored) {
-      return;
+      return out;
     }
 
     for (PresetDecl declaration : declarations) {
+      if (scanTask != null && scanTask.isCancelled()) return out;
       List<String> layers = resolvePresetLayerTags(layersByCharacter, declaration.characterId(), declaration.spec());
       if (layers.isEmpty()) continue;
       String tag = buildPresetTag(declaration.characterId(), declaration.expressionId());
-      presetByTag.put(tag, new PresetTagEntry(tag, layers));
+      out.put(tag, new PresetTagEntry(tag, layers));
     }
+    return out;
   }
 
   private void parsePresetDeclarations(Path scriptFile,
@@ -1718,6 +1852,16 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private record PresetTagEntry(String tag, List<String> layerTags) {}
 
   private record LayerRef(String characterId, String layerId) {}
+
+  private record TintCatalogScanResult(
+      Map<String, File> images,
+      Map<String, PresetTagEntry> presets,
+      boolean cancelled
+  ) {
+    static TintCatalogScanResult cancelledResult() {
+      return new TintCatalogScanResult(Map.of(), Map.of(), true);
+    }
+  }
 
   // ── TintZone model ──
 
@@ -2240,50 +2384,49 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   // ── Zone persistence ──
 
-  private void persistZones() {
-    // Clear old zone entries.
-    List<String> toRemove = new ArrayList<>();
-    for (String key : persisted.stringPropertyNames()) {
-      if (key.startsWith("zone.")) toRemove.add(key);
-    }
-    for (String key : toRemove) persisted.remove(key);
+  private String zoneProfilePrefix(String characterTag) {
+    String tag = normalize(characterTag);
+    if (tag.isBlank()) return ZONE_PROFILE_PREFIX + GLOBAL_ZONE_PROFILE_KEY + ".";
+    return ZONE_PROFILE_PREFIX + encodeKey(tag) + ".";
+  }
 
-    persisted.setProperty("zone.count", Integer.toString(tintZones.size()));
+  private void writeZonesToPrefix(String prefix) {
+    clearPrefix(prefix);
+    persisted.setProperty(prefix + "count", Integer.toString(tintZones.size()));
     for (int i = 0; i < tintZones.size(); i++) {
       TintZone z = tintZones.get(i);
-      String prefix = "zone." + i + ".";
-      persisted.setProperty(prefix + "name", z.name == null ? "" : z.name);
-      persisted.setProperty(prefix + "boundsX", formatDouble(z.boundsX));
-      persisted.setProperty(prefix + "boundsY", formatDouble(z.boundsY));
-      persisted.setProperty(prefix + "boundsW", formatDouble(z.boundsW));
-      persisted.setProperty(prefix + "boundsH", formatDouble(z.boundsH));
-      persisted.setProperty(prefix + "color", colorToHex(z.color));
-      persisted.setProperty(prefix + "strength", formatDouble(z.strength));
-      persisted.setProperty(prefix + "saturation", formatDouble(z.saturation));
-      persisted.setProperty(prefix + "contrast", formatDouble(z.contrast));
-      persisted.setProperty(prefix + "feather", formatDouble(z.feather));
-      persisted.setProperty(prefix + "rotation", formatDouble(z.rotation));
-      persisted.setProperty(prefix + "blendMode", z.blendMode == null ? "Normal" : z.blendMode);
+      String zonePrefix = prefix + i + ".";
+      persisted.setProperty(zonePrefix + "name", z.name == null ? "" : z.name);
+      persisted.setProperty(zonePrefix + "boundsX", formatDouble(z.boundsX));
+      persisted.setProperty(zonePrefix + "boundsY", formatDouble(z.boundsY));
+      persisted.setProperty(zonePrefix + "boundsW", formatDouble(z.boundsW));
+      persisted.setProperty(zonePrefix + "boundsH", formatDouble(z.boundsH));
+      persisted.setProperty(zonePrefix + "color", colorToHex(z.color));
+      persisted.setProperty(zonePrefix + "strength", formatDouble(z.strength));
+      persisted.setProperty(zonePrefix + "saturation", formatDouble(z.saturation));
+      persisted.setProperty(zonePrefix + "contrast", formatDouble(z.contrast));
+      persisted.setProperty(zonePrefix + "feather", formatDouble(z.feather));
+      persisted.setProperty(zonePrefix + "rotation", formatDouble(z.rotation));
+      persisted.setProperty(zonePrefix + "blendMode", z.blendMode == null ? "Normal" : z.blendMode);
       if (z.isPolygon()) {
         StringBuilder polyStr = new StringBuilder();
         for (int p = 0; p < z.polygon.size(); p++) {
           if (p > 0) polyStr.append(";");
           polyStr.append(formatDouble(z.polygon.get(p)[0])).append(",").append(formatDouble(z.polygon.get(p)[1]));
         }
-        persisted.setProperty(prefix + "polygon", polyStr.toString());
+        persisted.setProperty(zonePrefix + "polygon", polyStr.toString());
       }
     }
-    savePersistentState();
   }
 
-  private void loadPersistedZones() {
+  private int loadZonesFromPrefix(String prefix) {
     tintZones.clear();
     selectedZoneIndex = -1;
-    int count = (int) parseDouble(persisted.getProperty("zone.count"), 0);
+    int count = (int) parseDouble(persisted.getProperty(prefix + "count"), 0);
     int skipped = 0;
     for (int i = 0; i < count; i++) {
       try {
-        TintZone z = loadZoneFromPrefix(persisted, "zone." + i + ".", i);
+        TintZone z = loadZoneFromPrefix(persisted, prefix + i + ".", i);
         tintZones.add(z);
       } catch (Exception e) {
         skipped++;
@@ -2292,7 +2435,51 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     refreshZoneList();
     if (!tintZones.isEmpty()) selectZone(0);
     else zoneControlsSection.setDisable(true);
-    // F: Diagnostics on load.
+    return skipped;
+  }
+
+  private void switchZoneProfileForCharacter(String characterTag, boolean persistCurrentFirst) {
+    String nextTag = normalize(characterTag);
+    if (Objects.equals(nextTag, activeZoneProfileTag)) return;
+    if (persistCurrentFirst && !activeZoneProfileTag.isBlank()) {
+      writeZonesToPrefix(zoneProfilePrefix(activeZoneProfileTag));
+      savePersistentState();
+    }
+    activeZoneProfileTag = nextTag;
+    loadPersistedZones();
+  }
+
+  private void persistZones() {
+    String selectedTag = normalize(selectedCharacterTag());
+    if (!selectedTag.isBlank()) {
+      activeZoneProfileTag = selectedTag;
+    }
+    writeZonesToPrefix(zoneProfilePrefix(activeZoneProfileTag));
+    savePersistentState();
+  }
+
+  private void loadPersistedZones() {
+    if (activeZoneProfileTag.isBlank()) {
+      activeZoneProfileTag = normalize(selectedCharacterTag());
+    }
+
+    String profilePrefix = zoneProfilePrefix(activeZoneProfileTag);
+    boolean hasProfile = persisted.containsKey(profilePrefix + "count");
+    boolean hasLegacy = persisted.containsKey(LEGACY_ZONE_PREFIX + "count");
+    int skipped;
+    if (hasProfile) {
+      skipped = loadZonesFromPrefix(profilePrefix);
+    } else if (hasLegacy) {
+      skipped = loadZonesFromPrefix(LEGACY_ZONE_PREFIX);
+      writeZonesToPrefix(profilePrefix);
+      savePersistentState();
+    } else {
+      tintZones.clear();
+      selectedZoneIndex = -1;
+      refreshZoneList();
+      zoneControlsSection.setDisable(true);
+      return;
+    }
     if (skipped > 0) {
       status("Loaded " + tintZones.size() + " zones (" + skipped + " malformed entries skipped).");
     }
@@ -2442,6 +2629,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       }
       persistBackgroundTint(selectedBackgroundTag());
       persistGlobalState();
+      activeZoneProfileTag = normalize(selectedCharacterTag());
       persistZones();
       tintedImageTag = null; tintedImageKey = null; tintedImage = null;
       redrawPreview();
