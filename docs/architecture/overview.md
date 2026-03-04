@@ -21,12 +21,27 @@ This page is the high-level map. Use the linked docs for deeper implementation d
 
 ## Core Capabilities
 
+### Engine Core
+
+- **Engine** (`core/.../engine/Engine.java`): update loop with delta clamping, delta smoothing, optional fixed timestep
+- **Scene stack** (`SceneManager`): push/pop/replace with `onEnter`/`onExit`/`onPause`/`onResume` lifecycle
+- **Input** (`Input` + `InputCode`): backend-agnostic keyboard, mouse, and gamepad support with per-frame pressed/released tracking
+- **TweenRunner**: lightweight time-based animation task runner, auto-removes finished tasks
+
 ### Visual Novel Runtime
 
-- Parser: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
-- Runtime scene: `core/src/main/java/com/jvn/core/vn/VnScene.java`
-- Interop: `DefaultVnInterop` + runtime extension `RuntimeVnInterop`
-- Save/load: schema-based `VnSaveData`, migration layer, autosave slots, atomic writes
+- **Parser**: `VnScriptParser` — compiles `.vns` text to `VnScenario` with strict diagnostics
+- **Runtime scene**: `VnScene` — drives node progression, character animation, screen effects
+- **Interop**: `DefaultVnInterop` + runtime extension `RuntimeVnInterop` — 14 provider types
+- **Save/load**: schema-based `VnSaveData`, migration layer, autosave slots, atomic writes
+
+### 2D Scene Runtime
+
+- **Entity system**: `Entity2D` with transform, parallax scrolling, z-order rendering
+- **Camera**: `Camera2D` with exponential smoothing, bounds clamping, world↔screen transforms
+- **Physics**: `PhysicsWorld2D` with gravity, broadphase spatial hashing, raycasts, collision/sensor callbacks
+- **JES runtime**: tokenize → parse AST → load to `JesScene2D` with validated components
+- **Timeline actions**: 22 action types for motion, camera, audio, calls, and flow control
 
 ### Menu Framework
 
@@ -34,18 +49,13 @@ This page is the high-level map. Use the linked docs for deeper implementation d
 - Configurable screens, layouts, styles, per-item actions, and inheritance
 - Main/load/save/settings scenes all consume menu profiles
 
-### JES Scene Runtime
-
-- Tokenize -> parse AST -> load to `JesScene2D`
-- Component/property validation in parser for strict diagnostics
-- Timeline actions for motion/camera/audio/calls and branching (`label`, `jump`, `loop`, `parallel`)
-
 ### Editor Tooling
 
 - Code editors for VNS/JES/Timeline and general text formats
-- Visual editors for dialogue layout and menu configs
+- Visual editors for dialogue layout, menu configs, and bounds drawing
 - VNS lint + quick fixes (undefined labels, missing assets, unreachable blocks)
 - Timeline graph with validation and drag/drop script arc creation
+- Puppeteer animation tool with keyframes, easing, audio cues
 - Git + Git LFS version-control panel for team workflows
 - In-editor Help Center (`F1`) for docs search and preview
 
@@ -56,9 +66,10 @@ This page is the high-level map. Use the linked docs for deeper implementation d
 
 ## Recommended Docs Next
 
-- Architecture: `docs/Architecture/Architecture.md`
-- Runtime usage: `docs/Runtime/Runtime.md`
-- Editor tooling: `docs/Editor/Editor.md`
-- VNS language: `docs/VNS Scripting/VNS Scripting.md`
-- JES language: `docs/JES Scripting/JES Scripting.md`
-- Menu profiles: `docs/Menu Profiles/Menu Profiles.md`
+- [System Architecture](system-architecture.md) — modules, engine core, boot sequence, data flows
+- [2D Engine](2d-engine.md) — Scene2D, entities, camera, physics, JES runtime
+- [Runtime Guide](../runtime/runtime.md) — CLI options, launch patterns, asset lookup
+- [Editor Guide](../editor/editor.md) — layout, editing modes, keyboard shortcuts
+- [VNS Overview](../scripting/vns/vns-scripting.md) — VNS scripting language
+- [JES Overview](../scripting/jes/jes-scripting.md) — JES scripting language
+- [Menu Profiles](../scripting/menus-submenus/menu-profiles.md) — menu configuration system

@@ -75,20 +75,42 @@ At runtime:
 
 ### `char`
 
-- character choreography helper provider
-- commands:
-  - `global on|off`
-  - `at <position>`
-  - `move <position> [expression]`
-  - `expression <expr>`
-  - `hide`
+Character choreography helper provider. `[character]` is accepted as an alias for `[char]`.
+
+**Subcommands:**
+
+| Subcommand | Aliases | Description |
+|------------|---------|-------------|
+| `global` | `global_position` | Enable/disable persistent position mode |
+| `at` | `position`, `pos` | Set the character's anchor position |
+| `move` | — | Animated slide to a new position (with optional expression, easing, duration) |
+| `show` | — | Show character at a position with an expression |
+| `expression` | `expr` | Change expression without moving |
+| `hide` | — | Animated exit |
+
+**Move with easing and duration:**
+
+```vns
+[char hero move right smile ease_out_quad 500]
+```
+
+**Show subcommand:**
+
+```vns
+[char hero show center happy]
+[char hero show at 0.3,0.5 neutral]
+```
+
+**Global mode** gives the character persistent position memory. When enabled, `[move]` and `[show]` produce smooth slide tweens instead of entrance animations. See [Character Motion](../scripting/vns/vns-characters.md#global-position-mode) for details.
 
 Example:
 
 ```vns
-[char codel global on]
-[char codel at center]
-[char codel move right smile]
+[char hero global on]
+[char hero at center]
+[char hero move right smile]
+[char hero expr surprised]
+[char hero hide]
 ```
 
 ### `jes_timeline` / `jes_timeline_inline`

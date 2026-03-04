@@ -19,6 +19,117 @@ This document describes the engine structure and the key execution paths across 
 - `audio`
   - Bundled Simp3-compatible audio integration layer (available by default).
 
+## Engine Core
+
+Source: `core/src/main/java/com/jvn/core/engine/Engine.java`
+
+The `Engine` class is the central orchestrator. It owns the scene stack, input state, tween runner, and update loop.
+
+### Update Loop
+
+Each frame, the renderer calls `engine.update(deltaMs)`. The engine applies:
+
+1. **Delta clamping** — caps `deltaMs` to `maxDeltaMs` (default 75ms) to prevent simulation explosions from frame spikes or debugger pauses.
+2. **Delta smoothing** — optional exponential moving average (`deltaSmoothing`, default 0.1). Smooths frame-to-frame jitter. Set to 0 to disable.
+3. **Fixed timestep** (optional) — if `fixedUpdateMs > 0`, the engine accumulates time and runs `tick()` at fixed intervals (up to `maxFixedSteps` per frame). Prevents accumulator runaway by clamping to one step's worth of time when the cap is hit.
+4. **Tick** — updates `TweenRunner`, then calls `update(deltaMs)` on the active scene (top of stack).
+5. **Input frame end** — clears `pressed` and `released` sets for next frame.
+
+```java
+// Default settings
+maxDeltaMs = 75;           // clamp extreme deltas
+deltaSmoothing = 0.1;      // exponential smoothing factor [0..1]
+fixedUpdateMs = 0;          // 0 = variable timestep (disabled)
+maxFixedSteps = 5;          // safety limit per frame
+```
+
+### ApplicationConfig
+
+Built via `ApplicationConfig.builder()`:
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `title` | `"JVN"` | Window title |
+| `width` | `960` | Initial window width |
+| `height` | `540` | Initial window height |
+| `fixedUpdateMs` | `0` | Fixed update step (0 = variable) |
+| `fixedUpdateMaxSteps` | `5` | Max substeps per frame |
+
+### TweenRunner
+
+A lightweight task runner for time-based animations. `Engine.tweens()` returns the shared instance. Add `TweenTask` subclasses (implement `update(deltaMs)` + `isFinished()`); finished tasks are auto-removed.
+
+Source: `core/src/main/java/com/jvn/core/tween/TweenRunner.java`
+
+---
+
+## Scene Stack (SceneManager)
+
+Source: `core/src/main/java/com/jvn/core/scene/SceneManager.java`
+
+Scenes are managed as a **stack** with lifecycle callbacks:
+
+| Operation | Effect |
+|-----------|--------|
+| `push(scene)` | Pauses current scene (`onPause`), pushes new scene, calls `onEnter` |
+| `pop()` | Calls `onExit` on top scene, removes it, calls `onResume` on new top |
+| `replace(scene)` | Pops current (`onExit`), pushes new (`onEnter`) |
+| `peek()` | Returns current scene without modifying stack |
+
+**Scene lifecycle interface:**
+
+```java
+public interface Scene {
+    default void onEnter() {}   // scene becomes active
+    default void onExit() {}    // scene is removed from stack
+    default void onPause() {}   // another scene pushed on top
+    default void onResume() {}  // scene becomes active again after pop
+    void update(long deltaMs);  // called every frame while active
+}
+```
+
+This stack model supports VNS → JES minigame → return patterns, menu overlays, and nested scene transitions.
+
+---
+
+## Input System
+
+Source: `core/src/main/java/com/jvn/core/input/Input.java`, `InputCode.java`
+
+Backend-agnostic input that supports keyboard, mouse, and gamepad:
+
+### InputCode
+
+A unified identifier for any input source:
+
+| Device | Factory | Example |
+|--------|---------|---------|
+| `KEYBOARD` | `InputCode.key("SPACE")` | Key names are uppercased |
+| `MOUSE_BUTTON` | `InputCode.mouse(0)` | Button index (0=primary) |
+| `GAMEPAD_BUTTON` | `InputCode.gamepadButton(0, "A")` | Pad index + button name |
+| `GAMEPAD_AXIS` | `InputCode.gamepadAxis(0, "LEFT_X")` | Pad index + axis name |
+
+InputCodes can be serialized (`encode()`) and deserialized (`decode()`) for persisting bindings.
+
+### Input State
+
+The `Input` class tracks three sets per frame:
+- **`down`** — currently held inputs
+- **`pressed`** — newly pressed this frame (cleared each frame)
+- **`released`** — released this frame (cleared each frame)
+
+Plus mouse position (`mouseX`, `mouseY`), scroll delta (`scrollDeltaY`), and gamepad axis values.
+
+```java
+input.isKeyDown("W")        // held right now
+input.wasKeyPressed("SPACE") // just pressed this frame
+input.wasKeyReleased("E")   // just released this frame
+input.isMouseDown(0)         // left mouse held
+input.getGamepadAxis(0, "LEFT_X") // -1.0 to 1.0
+```
+
+---
+
 ## Runtime Boot Sequence
 
 Entrypoint: `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
@@ -28,11 +139,13 @@ Entrypoint: `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
 3. Build `AssetManager`:
    - Classpath only, or
    - filesystem+classpath overlay when `--assets` is provided.
-4. Start `Engine` and set `VnInteropFactory`.
-5. Launch scene path:
+4. Build `Engine` with `ApplicationConfig`.
+5. Set `VnInteropFactory` and `MenuActionHandler`.
+6. Launch scene path:
    - `--jes`: load JES scene(s) directly.
    - otherwise: push main menu scene.
-6. Launch renderer backend (`fx` or `swing`).
+7. Launch renderer backend (`fx` or `swing`).
+8. Renderer pumps `engine.update(deltaMs)` each frame.
 
 ## VNS Data Flow
 
