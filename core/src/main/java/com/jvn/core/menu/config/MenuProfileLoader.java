@@ -684,12 +684,14 @@ public final class MenuProfileLoader {
     if (assets == null || paths == null) return null;
     for (String path : paths) {
       if (path == null || path.isBlank()) continue;
+      if (!assets.exists(AssetType.SCRIPT, path)) continue;
       try (InputStream in = assets.open(AssetType.SCRIPT, path)) {
         if (in == null) continue;
         Properties p = new Properties();
         p.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         return new LoadedProperties(path, p);
       } catch (Exception ex) {
+        if (isMissingAssetError(ex)) continue;
         diagnostics.add("Failed to parse " + purpose + " at '" + path + "': " + simplify(ex));
       }
     }
@@ -926,5 +928,11 @@ public final class MenuProfileLoader {
     String message = ex.getMessage();
     if (message == null || message.isBlank()) return ex.getClass().getSimpleName();
     return ex.getClass().getSimpleName() + ": " + message;
+  }
+
+  private static boolean isMissingAssetError(Exception ex) {
+    if (ex == null) return false;
+    String message = ex.getMessage();
+    return message != null && message.startsWith("Asset not found:");
   }
 }
