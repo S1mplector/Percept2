@@ -2142,11 +2142,6 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Help Center", helpCenterView, 700, 650));
 
-    addChooserActionRow(actions, "Inspector", "icon-panel-inspector", () -> {
-      Tab t = ensureInspectorTab(pane);
-      if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Inspector", inspectorView, 400, 600));
-
     addChooserActionRow(actions, "Puppeteer Launcher", "icon-panel-puppeteer", () -> {
       Tab t = ensurePuppeteerLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
