@@ -240,10 +240,11 @@ styles=%s
     return """
 # Submenu layout (.layout)
 # Shared by extras/settings/credits menus.
-listYStart=0.26
-lineHeight=56
-listWidthFactor=0.52
-textAlign=left
+listYStart=0.32
+lineHeight=58
+listWidthFactor=0.54
+listXCenter=0.5
+textAlign=center
 hintsBottomMargin=28
 titleY=0.13
 """;
@@ -257,7 +258,8 @@ titleY=0.13
 listYStart=0.16
 lineHeight=50
 listWidthFactor=0.56
-textAlign=left
+listXCenter=0.5
+textAlign=center
 hintsBottomMargin=24
 titleY=0.07
 """;
@@ -270,7 +272,8 @@ titleY=0.07
 listYStart=0.22
 lineHeight=68
 listWidthFactor=0.54
-textAlign=left
+listXCenter=0.5
+textAlign=center
 hintsBottomMargin=28
 titleY=0.12
 """;
@@ -321,6 +324,9 @@ buttonTextPaddingY=2
     return """
 # Submenu visual style (.style)
 # Shared by extras/settings/credits menus.
+# Inherits default.style so submenus use the same background image as main menu.
+# Renderer applies a frosted/blurred treatment for submenu screens.
+extends=default
 itemColor=#B8C8E4
 itemSelectedColor=#90D4F8
 itemHoverColor=#D8E8FF
@@ -344,7 +350,7 @@ hintsFontFamily=SansSerif
 # hintsFontWeight=NORMAL
 hintsFontSize=14
 backgroundColor=#08101E
-backgroundOpacity=1.0
+backgroundOpacity=0.96
 # itemOpacity=1.0
 buttonTextPaddingX=20
 buttonTextPaddingY=1

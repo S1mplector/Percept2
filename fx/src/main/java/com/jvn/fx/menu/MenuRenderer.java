@@ -18,12 +18,16 @@ import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.ui.BoundsPointCodec;
 
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
 public class MenuRenderer {
+  private static final double SUBMENU_BACKGROUND_BLUR_RADIUS = 14.0;
+  private static final Color SUBMENU_FROST_TINT = Color.rgb(224, 236, 255, 0.28);
+
   private final GraphicsContext gc;
   private MenuTheme theme;
   private final java.util.Map<String, Image> imageCache = new java.util.HashMap<>();
@@ -273,6 +277,10 @@ public class MenuRenderer {
       Image styleImage = loadImage(styleAsset);
       if (styleImage != null) {
         double alpha = style != null && style.backgroundOpacity() != null ? clamp01(style.backgroundOpacity()) : 1.0;
+        if (isFrostedOverlayStyle(style)) {
+          drawBlurredSubmenuBackground(styleImage, w, h, alpha);
+          return;
+        }
         double prevAlpha = gc.getGlobalAlpha();
         gc.setGlobalAlpha(alpha);
         gc.drawImage(styleImage, 0, 0, w, h);
@@ -295,6 +303,24 @@ public class MenuRenderer {
       return;
     }
     clear(w, h);
+  }
+
+  private boolean isFrostedOverlayStyle(MenuStyleSpec style) {
+    if (style == null || style.id() == null) return false;
+    String id = style.id().trim().toLowerCase();
+    return "submenu".equals(id) || "slot".equals(id) || "settings".equals(id);
+  }
+
+  private void drawBlurredSubmenuBackground(Image image, double w, double h, double alpha) {
+    gc.save();
+    gc.setGlobalAlpha(alpha);
+    gc.setEffect(new GaussianBlur(SUBMENU_BACKGROUND_BLUR_RADIUS));
+    gc.drawImage(image, 0, 0, w, h);
+    gc.restore();
+
+    // Frosted overlay to create the "iced glass" submenu surface.
+    gc.setFill(SUBMENU_FROST_TINT);
+    gc.fillRect(0, 0, w, h);
   }
 
   private void drawBackgroundImage(String path, double w, double h) {
