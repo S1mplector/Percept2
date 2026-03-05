@@ -136,6 +136,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private String backgroundTintTaskTag;
   private String backgroundTintTaskKey;
   private long backgroundTintTaskSerial;
+  private boolean backgroundFxSliderDragging;
+  private boolean backgroundFxSliderCommitPending;
   private String activeZoneProfileTag = "";
 
   private boolean dragging;
@@ -396,24 +398,16 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     bgTintColorPicker.valueProperty().addListener((o, ov, nv) -> {
       if (!applyingState) onBackgroundFxChanged(true);
     });
-    bgTintStrengthSlider.valueProperty().addListener((o, ov, nv) -> {
-      if (!applyingState) onBackgroundFxChanged(true);
-    });
-    bgSaturationSlider.valueProperty().addListener((o, ov, nv) -> {
-      if (!applyingState) onBackgroundFxChanged(true);
-    });
-    bgContrastSlider.valueProperty().addListener((o, ov, nv) -> {
-      if (!applyingState) onBackgroundFxChanged(true);
-    });
+    bindBackgroundFxSlider(bgTintStrengthSlider);
+    bindBackgroundFxSlider(bgSaturationSlider);
+    bindBackgroundFxSlider(bgContrastSlider);
     bgTintBlendModeBox.valueProperty().addListener((o, ov, nv) -> {
       if (!applyingState) onBackgroundFxChanged(true);
     });
     bgOverlayColorPicker.valueProperty().addListener((o, ov, nv) -> {
       if (!applyingState) onBackgroundFxChanged(true);
     });
-    bgOverlayOpacitySlider.valueProperty().addListener((o, ov, nv) -> {
-      if (!applyingState) onBackgroundFxChanged(true);
-    });
+    bindBackgroundFxSlider(bgOverlayOpacitySlider);
     bgOverlayBlendModeBox.valueProperty().addListener((o, ov, nv) -> {
       if (!applyingState) onBackgroundFxChanged(true);
     });
@@ -485,6 +479,42 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       persistBackgroundTint(selectedBackgroundTag());
       persistGlobalState();
     }
+  }
+
+  private void bindBackgroundFxSlider(Slider slider) {
+    if (slider == null) return;
+    slider.valueProperty().addListener((o, ov, nv) -> {
+      if (applyingState) return;
+      if (backgroundFxSliderDragging || slider.isValueChanging()) {
+        backgroundFxSliderCommitPending = true;
+        onBackgroundFxChanged(false);
+        return;
+      }
+      onBackgroundFxChanged(true);
+    });
+    slider.valueChangingProperty().addListener((o, wasChanging, changing) -> {
+      if (applyingState) return;
+      if (!Boolean.TRUE.equals(changing)) {
+        backgroundFxSliderDragging = false;
+        commitBackgroundFxSliderChange();
+      }
+    });
+    slider.setOnMousePressed(e -> {
+      if (e.getButton() != MouseButton.PRIMARY) return;
+      backgroundFxSliderDragging = true;
+      backgroundFxSliderCommitPending = false;
+    });
+    slider.setOnMouseReleased(e -> {
+      if (e.getButton() != MouseButton.PRIMARY) return;
+      backgroundFxSliderDragging = false;
+      commitBackgroundFxSliderChange();
+    });
+  }
+
+  private void commitBackgroundFxSliderChange() {
+    if (applyingState || !backgroundFxSliderCommitPending) return;
+    backgroundFxSliderCommitPending = false;
+    onBackgroundFxChanged(true);
   }
 
   private void resetBackgroundFxControls() {
