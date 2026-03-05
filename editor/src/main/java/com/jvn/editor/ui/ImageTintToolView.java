@@ -1178,11 +1178,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       if (dist >= feather) return 0.0;
       return 1.0 - dist / feather;
     }
-    // Inside: feather from edges inward.
-    if (feather <= 0.0) return 1.0;
-    double edgeDist = Math.min(Math.min(nx - x1, x2 - nx), Math.min(ny - y1, y2 - ny));
-    if (edgeDist >= feather) return 1.0;
-    return clamp(edgeDist / feather, 0.0, 1.0);
+    // Inside: always fully tinted. Feather applies outward from the boundary only.
+    return 1.0;
   }
 
   private static double polyZoneWeight(double px, double py, List<double[]> poly, double feather) {
@@ -1199,17 +1196,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       }
     }
     if (inside) {
-      if (feather <= 0.0) return 1.0;
-      // Distance to nearest polygon edge for inward feathering.
-      double minDist = Double.MAX_VALUE;
-      for (int i = 0, j = n - 1; i < n; j = i++) {
-        double d = pointToSegmentDist(px, py,
-            poly.get(j)[0], poly.get(j)[1],
-            poly.get(i)[0], poly.get(i)[1]);
-        if (d < minDist) minDist = d;
-      }
-      if (minDist >= feather) return 1.0;
-      return clamp(minDist / feather, 0.0, 1.0);
+      // Inside: always fully tinted. Feather applies outward from the boundary only.
+      return 1.0;
     } else {
       if (feather <= 0.0) return 0.0;
       // Outside: distance-based falloff from polygon edges.
