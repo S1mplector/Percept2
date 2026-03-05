@@ -438,6 +438,18 @@ public class FileEditorTab extends BorderPane {
     }
   }
 
+  public void navigateToOffset(int offset) {
+    if (kind == Kind.VNS && vnsEditor != null) {
+      vnsEditor.goToOffset(offset);
+    }
+  }
+
+  public void navigateToRange(int startOffset, int endOffset) {
+    if (kind == Kind.VNS && vnsEditor != null) {
+      vnsEditor.goToRange(startOffset, endOffset);
+    }
+  }
+
   public JesScene2D getJesScene() { return jesScene; }
   public ViewportView getViewport() { return viewport; }
   public VnPreviewView getVnPreview() { return vnPreview; }

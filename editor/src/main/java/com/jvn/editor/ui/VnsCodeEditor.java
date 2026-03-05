@@ -244,6 +244,32 @@ public class VnsCodeEditor extends BorderPane {
     codeArea.requestFocus();
   }
 
+  public void goToOffset(int offset) {
+    String text = codeArea.getText();
+    int length = text == null ? 0 : text.length();
+    int target = Math.max(0, Math.min(length, offset));
+    codeArea.moveTo(target);
+    codeArea.requestFollowCaret();
+    codeArea.requestFocus();
+  }
+
+  public void goToRange(int startOffset, int endOffset) {
+    String text = codeArea.getText();
+    int length = text == null ? 0 : text.length();
+    int start = Math.max(0, Math.min(length, startOffset));
+    int end = Math.max(0, Math.min(length, endOffset));
+    if (end < start) end = start;
+
+    if (start == end) {
+      goToOffset(start);
+      return;
+    }
+
+    codeArea.selectRange(start, end);
+    codeArea.requestFollowCaret();
+    codeArea.requestFocus();
+  }
+
   public void setProjectRoot(File root) {
     this.projectRoot = root;
     if (completer != null) completer.setProjectRoot(root);

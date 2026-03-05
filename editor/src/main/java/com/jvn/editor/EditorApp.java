@@ -783,7 +783,7 @@ public class EditorApp extends Application {
     inspectorScroll = new ScrollPane(inspectorView);
     inspectorScroll.setFitToWidth(true);
     vnsDiagnosticsView = new VnsDiagnosticsView();
-    vnsDiagnosticsView.setOnOpenLine(this::jumpToActiveVnsLine);
+    vnsDiagnosticsView.setOnOpenTarget(this::jumpToActiveVnsDiagnostic);
     vnsFlowMapView = new VnsFlowMapView();
     vnsFlowMapView.setOnOpenLine(this::jumpToActiveVnsLine);
     puppeteerLauncherPanel = new PuppeteerLauncherPanel();
@@ -1593,6 +1593,18 @@ public class EditorApp extends Application {
     FileEditorTab ft = getActiveFileTab();
     if (ft == null || ft.getKind() != FileEditorTab.Kind.VNS) return;
     ft.navigateToLine(oneBasedLine);
+  }
+
+  private void jumpToActiveVnsDiagnostic(VnsDiagnosticsView.OpenTarget target) {
+    if (target == null) return;
+    FileEditorTab ft = getActiveFileTab();
+    if (ft == null || ft.getKind() != FileEditorTab.Kind.VNS) return;
+
+    if (target.startOffset() >= 0) {
+      ft.navigateToRange(target.startOffset(), target.endOffset());
+      return;
+    }
+    ft.navigateToLine(target.oneBasedLine());
   }
 
   private void fitCameraToEntity(Entity2D e) {
