@@ -265,8 +265,7 @@ public class MainMenuScene implements Scene {
   }
 
   @Override
-  public void onEnter() {
-    if (audio == null) return;
+  public void     if (audio == null) return;
     // When no title BGM is configured, ensure gameplay BGM does not leak into menu screens.
     if (titleBgmPath == null || titleBgmPath.isBlank()) {
       audio.stopBgm();

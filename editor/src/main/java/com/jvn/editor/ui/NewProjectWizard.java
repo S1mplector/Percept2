@@ -2443,7 +2443,7 @@ public class NewProjectWizard extends Stage {
         fw.write("# item.<id>.slotPreviewEnabled=true enables embedded save thumbnail.\n");
         fw.write("# slotPreviewX/Y/Width/Height are normalized inside each row card.\n");
         fw.write("# Optional bgAsset/bgSelectedAsset/slotPreview*Asset tune row skinning.\n");
-        fw.write("titleText=Load Journey\n");
+        fw.write("titleText=Load Save\n");
         fw.write("hintsText=Enter: Load    Esc: Back    Del: Delete    R: Rename\n");
         fw.write("layout=slots\n");
         fw.write("defaultItemStyle=slot\n");

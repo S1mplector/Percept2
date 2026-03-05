@@ -82,19 +82,27 @@ public class SaveMenuScene implements Scene {
 
   public void refresh() {
     List<String> list = new ArrayList<>(saveManager.listSaves());
+    List<String> filtered = new ArrayList<>();
+    String activeScriptName = resolveActiveScriptName();
+    String activeScenarioId = resolveActiveScenarioId();
+    boolean hasScope = activeScriptName != null || activeScenarioId != null;
     try {
       var times = new HashMap<String, Long>();
       for (String n : list) {
         try {
-          times.put(n, saveManager.load(n).getSaveTimestamp());
+          var data = saveManager.load(n);
+          times.put(n, data.getSaveTimestamp());
+          if (!hasScope || matchesCurrentScope(data, activeScriptName, activeScenarioId)) {
+            filtered.add(n);
+          }
         } catch (Exception e) {
           times.put(n, 0L);
         }
       }
-      list.sort(Comparator.comparing((String n) -> times.getOrDefault(n, 0L)).reversed());
+      filtered.sort(Comparator.comparing((String n) -> times.getOrDefault(n, 0L)).reversed());
     } catch (Exception e) {
     }
-    this.saves = list;
+    this.saves = filtered;
     if (selected >= getEntriesCount()) selected = getEntriesCount() - 1;
     if (selected < 0) selected = 0;
   }
@@ -492,5 +500,35 @@ public class SaveMenuScene implements Scene {
     if (v == null) return def;
     String t = v.trim();
     return t.isEmpty() ? def : t;
+  }
+
+  private boolean matchesCurrentScope(com.jvn.core.vn.save.VnSaveData data, String scriptName, String scenarioId) {
+    if (data == null) return false;
+    String saveScriptName = normalizeScriptName(data.getScriptName());
+    String saveScenarioId = normalize(data.getScenarioId(), null);
+    boolean scriptMatch = saveScriptName != null && scriptName != null && saveScriptName.equals(scriptName);
+    boolean scenarioMatch = saveScenarioId != null && scenarioId != null && saveScenarioId.equals(scenarioId);
+    return scriptMatch || scenarioMatch;
+  }
+
+  private String resolveActiveScriptName() {
+    if (currentVnScene != null && currentVnScene.getState() != null) {
+      String script = normalizeScriptName(currentVnScene.getState().getSourceScriptName());
+      if (script != null) return script;
+    }
+    return normalizeScriptName(defaultScriptName);
+  }
+
+  private String resolveActiveScenarioId() {
+    if (currentVnScene == null || currentVnScene.getState() == null || currentVnScene.getState().getScenario() == null) {
+      return null;
+    }
+    return normalize(currentVnScene.getState().getScenario().getId(), null);
+  }
+
+  private static String normalizeScriptName(String scriptName) {
+    if (scriptName == null) return null;
+    String normalized = scriptName.trim().replace('\\', '/');
+    return normalized.isEmpty() ? null : normalized;
   }
 }

@@ -45,6 +45,8 @@ public class LoadMenuScene implements Scene {
   private final MenuLayoutSpec menuLayout;
   private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
   private final List<String> saves = new ArrayList<>();
+  private final String scopedScriptName;
+  private final String scopedScenarioId;
   private int selected = 0;
 
   public LoadMenuScene(Engine engine, VnSaveManager saveManager, String defaultScriptName, com.jvn.core.vn.VnSettings settingsModel, AudioFacade audio) {
@@ -75,6 +77,8 @@ public class LoadMenuScene implements Scene {
     }
     this.menuScreen = menuProfile.screen("load");
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());
+    this.scopedScriptName = normalizeScriptName(this.defaultScriptName);
+    this.scopedScenarioId = resolveScenarioIdForScript(this.defaultScriptName);
     refresh();
   }
 
@@ -114,21 +118,25 @@ public class LoadMenuScene implements Scene {
   public void refresh() {
     saves.clear();
     List<String> names = new ArrayList<>(saveManager.listSaves());
+    List<String> filtered = new ArrayList<>();
     try {
       var times = new HashMap<String, Long>();
       for (String n : names) {
         try {
           VnSaveData d = saveManager.load(n);
           times.put(n, d.getSaveTimestamp());
+          if (matchesCurrentScope(d)) {
+            filtered.add(n);
+          }
         } catch (Exception e) {
           times.put(n, 0L);
         }
       }
-      names.sort(Comparator.comparing((String n) -> times.getOrDefault(n, 0L)).reversed());
+      filtered.sort(Comparator.comparing((String n) -> times.getOrDefault(n, 0L)).reversed());
     } catch (Exception e) {
       // ignore sort issues, fall back to unsorted
     }
-    saves.addAll(names);
+    saves.addAll(filtered);
     if (selected >= saves.size()) selected = Math.max(0, saves.size() - 1);
   }
 
@@ -155,7 +163,8 @@ public class LoadMenuScene implements Scene {
 
   public String getDisplayTitle() {
     String t = resolveDisplayText(menuScreen.titleText());
-    return (t == null || t.isBlank()) ? Localization.t("load.title") : t;
+    String resolved = (t == null || t.isBlank()) ? Localization.t("load.title") : t;
+    return "load journey".equalsIgnoreCase(resolved.trim()) ? "Load Save" : resolved;
   }
 
   public String getDisplayHints() {
@@ -415,6 +424,27 @@ public class LoadMenuScene implements Scene {
     return null;
   }
 
+  private boolean matchesCurrentScope(VnSaveData data) {
+    if (data == null) return false;
+    String saveScriptName = normalizeScriptName(data.getScriptName());
+    String saveScenarioId = normalize(data.getScenarioId(), null);
+    boolean scriptMatch = saveScriptName != null && scopedScriptName != null && saveScriptName.equals(scopedScriptName);
+    boolean scenarioMatch = saveScenarioId != null && scopedScenarioId != null && saveScenarioId.equals(scopedScenarioId);
+    return scriptMatch || scenarioMatch;
+  }
+
+  private String resolveScenarioIdForScript(String scriptName) {
+    String scopedScript = normalizeScriptName(scriptName);
+    if (scopedScript == null) return null;
+    try {
+      VnScenario scenario = scenarioLoader.load(scopedScript);
+      return scenario == null ? null : normalize(scenario.getId(), null);
+    } catch (Exception e) {
+      LOG.debug("Could not resolve scenario ID for script '{}': {}", scopedScript, e.toString());
+      return null;
+    }
+  }
+
   private VnScenario loadScenario(String scriptName) {
     try {
       return scenarioLoader.load(scriptName);
@@ -511,5 +541,11 @@ public class LoadMenuScene implements Scene {
     if (v == null) return def;
     String t = v.trim();
     return t.isEmpty() ? def : t;
+  }
+
+  private static String normalizeScriptName(String scriptName) {
+    if (scriptName == null) return null;
+    String normalized = scriptName.trim().replace('\\', '/');
+    return normalized.isEmpty() ? null : normalized;
   }
 }
