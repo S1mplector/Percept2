@@ -1063,7 +1063,184 @@
 }
 
 .help-doc-content {
+  -fx-padding: 8;
+  -fx-background-color: #14171d;
+  -fx-border-color: #2a2f39;
+  -fx-border-width: 1;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+}
+
+.help-doc-content-scroll {
+  -fx-background: #111318;
+  -fx-background-color: #111318;
+  -fx-border-color: transparent;
+}
+
+.help-doc-content-scroll > .viewport {
+  -fx-background-color: #111318;
+}
+
+.help-md-empty {
+  -fx-text-fill: #8f97a3;
+  -fx-font-style: italic;
+}
+
+.help-md-error {
+  -fx-text-fill: #f38ba8;
   -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+  -fx-font-size: 12px;
+}
+
+.help-md-flow {
+  -fx-line-spacing: 2;
+}
+
+.help-md-text {
+  -fx-fill: #dbe4f0;
+  -fx-font-size: 14px;
+}
+
+.help-md-paragraph .help-md-text {
+  -fx-fill: #dbe4f0;
+}
+
+.help-md-h1 .help-md-text {
+  -fx-fill: #eef4ff;
+  -fx-font-size: 29px;
+  -fx-font-weight: 800;
+}
+
+.help-md-h2 .help-md-text {
+  -fx-fill: #e7eeff;
+  -fx-font-size: 23px;
+  -fx-font-weight: 700;
+}
+
+.help-md-h3 .help-md-text {
+  -fx-fill: #deebff;
+  -fx-font-size: 19px;
+  -fx-font-weight: 700;
+}
+
+.help-md-h4 .help-md-text {
+  -fx-fill: #d6e5ff;
+  -fx-font-size: 17px;
+  -fx-font-weight: 700;
+}
+
+.help-md-h5 .help-md-text {
+  -fx-fill: #cedfff;
+  -fx-font-size: 15px;
+  -fx-font-weight: 700;
+}
+
+.help-md-h6 .help-md-text {
+  -fx-fill: #c5d8f7;
+  -fx-font-size: 14px;
+  -fx-font-weight: 700;
+}
+
+.help-md-bold {
+  -fx-font-weight: 700;
+}
+
+.help-md-italic {
+  -fx-font-style: italic;
+}
+
+.help-md-inline-code {
+  -fx-fill: #9fc2ff;
+  -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+  -fx-font-size: 13px;
+}
+
+.help-md-link {
+  -fx-fill: #8ab4f8;
+}
+
+.help-md-list {
+  -fx-padding: 2 0 2 0;
+}
+
+.help-md-list-marker {
+  -fx-text-fill: #8ab4f8;
+  -fx-font-size: 14px;
+  -fx-min-width: 18;
+}
+
+.help-md-list-item .help-md-text {
+  -fx-fill: #d7dfef;
+}
+
+.help-md-quote {
+  -fx-padding: 4 0 4 10;
+  -fx-border-color: #3a4660;
+  -fx-border-width: 0 0 0 3;
+}
+
+.help-md-quote .help-md-text {
+  -fx-fill: #c4d0e6;
+  -fx-font-style: italic;
+}
+
+.help-md-code-wrapper {
+  -fx-spacing: 4;
+  -fx-padding: 4 0 4 0;
+}
+
+.help-md-code-lang {
+  -fx-text-fill: #8f97a3;
+  -fx-font-size: 11px;
+  -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+}
+
+.help-md-code-block {
+  -fx-background-color: #0d1015;
+  -fx-border-color: #2c3444;
+  -fx-border-width: 1;
+  -fx-background-radius: 6;
+  -fx-border-radius: 6;
+  -fx-padding: 10;
+  -fx-text-fill: #dbe4f0;
+  -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+  -fx-font-size: 12px;
+}
+
+.help-md-hr {
+  -fx-padding: 4 0 4 0;
+}
+
+.help-md-hr .line {
+  -fx-border-color: #2a3240;
+  -fx-border-width: 1 0 0 0;
+}
+
+.help-md-table {
+  -fx-hgap: 0;
+  -fx-vgap: 0;
+  -fx-border-color: #2a3240;
+  -fx-border-width: 1;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.help-md-table-header {
+  -fx-background-color: #1a2030;
+  -fx-border-color: #2a3240;
+  -fx-border-width: 0 1 1 0;
+  -fx-padding: 6 8 6 8;
+  -fx-text-fill: #e4edff;
+  -fx-font-weight: 700;
+  -fx-font-size: 12px;
+}
+
+.help-md-table-cell {
+  -fx-background-color: #141923;
+  -fx-border-color: #2a3240;
+  -fx-border-width: 0 1 1 0;
+  -fx-padding: 6 8 6 8;
+  -fx-text-fill: #d7dfef;
   -fx-font-size: 12px;
 }
 

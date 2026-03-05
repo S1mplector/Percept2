@@ -21,6 +21,7 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Paths;
 
@@ -169,6 +170,7 @@ public class JvnApp {
       } else {
         audio = new FxAudioService();
       }
+      configureAudioProjectRoot(audio, assetRoot);
       // Apply user settings to audio backend immediately
       try {
         if (audio != null && settingsModel != null) {
@@ -188,6 +190,18 @@ public class JvnApp {
       com.jvn.swing.SwingLauncher.launch(engine);
     } else {
       FxLauncher.launch(engine);
+    }
+  }
+
+  private static void configureAudioProjectRoot(AudioFacade audio, String assetRoot) {
+    if (audio == null || assetRoot == null || assetRoot.isBlank()) return;
+    try {
+      File root = new File(assetRoot).getCanonicalFile();
+      audio.getClass().getMethod("setProjectRoot", File.class).invoke(audio, root);
+    } catch (NoSuchMethodException ignored) {
+      // Audio backend does not expose project root configuration.
+    } catch (Exception ex) {
+      log.debug("Could not set audio project root to {}", assetRoot, ex);
     }
   }
 

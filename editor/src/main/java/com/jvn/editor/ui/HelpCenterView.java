@@ -9,13 +9,14 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -38,6 +39,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class HelpCenterView extends BorderPane {
@@ -48,10 +51,16 @@ public class HelpCenterView extends BorderPane {
   private static final String DOC_JES = "docs/JES Scripting/JES Scripting.md";
   private static final String DOC_RUNTIME = "docs/Runtime/Runtime.md";
   private static final String DOC_TITLE = "docs/TitleScreen.md";
+  private static final Pattern HEADING_LINE = Pattern.compile("^(#{1,6})\\s+(.*)$");
+  private static final Pattern UNORDERED_LIST_LINE = Pattern.compile("^\\s*[-*+]\\s+(.*)$");
+  private static final Pattern ORDERED_LIST_LINE = Pattern.compile("^\\s*(\\d+)\\.\\s+(.*)$");
+  private static final Pattern HORIZONTAL_RULE_LINE = Pattern.compile("^\\s*([-*_])(?:\\s*\\1){2,}\\s*$");
+  private static final Pattern TABLE_SEPARATOR_LINE = Pattern.compile("^\\|?\\s*[-:]+(?:\\s*\\|\\s*[-:]+)+\\s*\\|?\\s*$");
 
   private final TextField filterField = new TextField();
   private final ListView<DocEntry> docsList = new ListView<>();
-  private final TextArea contentArea = new TextArea();
+  private final ScrollPane contentScroll = new ScrollPane();
+  private final VBox markdownContent = new VBox(8);
   private final Label titleLabel = new Label("Help Center");
   private final Label pathLabel = new Label("Select a document to preview.");
   private final Label statsLabel = new Label("No docs indexed");
@@ -141,10 +150,11 @@ public class HelpCenterView extends BorderPane {
     left.setPrefWidth(340);
     VBox.setVgrow(docsList, Priority.ALWAYS);
 
-    contentArea.setEditable(false);
-    contentArea.setWrapText(true);
-    contentArea.setPromptText("Documentation preview");
-    contentArea.getStyleClass().add("help-doc-content");
+    markdownContent.getStyleClass().add("help-doc-content");
+    markdownContent.setFillWidth(true);
+    contentScroll.setFitToWidth(true);
+    contentScroll.setContent(markdownContent);
+    contentScroll.getStyleClass().add("help-doc-content-scroll");
 
     Button openButton = new Button("Open in Editor");
     openButton.setOnAction(e -> openSelectedDocInEditor());
@@ -158,13 +168,14 @@ public class HelpCenterView extends BorderPane {
     quickHint.getStyleClass().add("help-tip-text");
     TextFlow hintFlow = new TextFlow(quickHint);
 
-    VBox right = new VBox(8, titleLabel, pathLabel, contentActions, hintFlow, contentArea);
+    VBox right = new VBox(8, titleLabel, pathLabel, contentActions, hintFlow, contentScroll);
     right.setPadding(new Insets(12));
-    VBox.setVgrow(contentArea, Priority.ALWAYS);
+    VBox.setVgrow(contentScroll, Priority.ALWAYS);
 
     SplitPane split = new SplitPane(left, right);
     split.setDividerPositions(0.34);
     setCenter(split);
+    renderMarkdown("");
   }
 
   private VBox buildQuickAccessBox() {
@@ -334,15 +345,15 @@ public class HelpCenterView extends BorderPane {
     if (entry == null) {
       titleLabel.setText("Help Center");
       pathLabel.setText("Select a document to preview.");
-      contentArea.setText("");
+      renderMarkdown("");
       return;
     }
     titleLabel.setText(entry.title());
     pathLabel.setText(entry.sourceLabel() + " - " + entry.relativePath());
     try {
-      contentArea.setText(Files.readString(entry.file().toPath()));
+      renderMarkdown(Files.readString(entry.file().toPath()));
     } catch (Exception ex) {
-      contentArea.setText("Failed to read file:\n" + entry.file().getAbsolutePath() + "\n\n" + ex.getMessage());
+      renderError("Failed to read file:\n" + entry.file().getAbsolutePath() + "\n\n" + ex.getMessage());
     }
   }
 
@@ -371,6 +382,404 @@ public class HelpCenterView extends BorderPane {
     cc.putString(entry.file().getAbsolutePath());
     Clipboard.getSystemClipboard().setContent(cc);
     statsLabel.setText("Copied path: " + entry.relativePath());
+  }
+
+  private void renderMarkdown(String markdown) {
+    markdownContent.getChildren().clear();
+    String normalized = normalizeMarkdown(markdown);
+    if (normalized.isBlank()) {
+      addEmptyState("Documentation preview");
+      return;
+    }
+
+    String[] lines = normalized.split("\n", -1);
+    int i = 0;
+    while (i < lines.length) {
+      String line = lines[i];
+      String trimmed = line.trim();
+      if (trimmed.isBlank()) {
+        i++;
+        continue;
+      }
+
+      Matcher heading = HEADING_LINE.matcher(line);
+      if (heading.matches()) {
+        int level = Math.min(6, heading.group(1).length());
+        addHeading(level, heading.group(2).trim());
+        i++;
+        continue;
+      }
+
+      if (trimmed.startsWith("```")) {
+        i = renderCodeBlock(lines, i);
+        continue;
+      }
+
+      if (HORIZONTAL_RULE_LINE.matcher(trimmed).matches()) {
+        addHorizontalRule();
+        i++;
+        continue;
+      }
+
+      if (isTableStart(lines, i)) {
+        i = renderTableBlock(lines, i);
+        continue;
+      }
+
+      if (trimmed.startsWith(">")) {
+        i = renderQuoteBlock(lines, i);
+        continue;
+      }
+
+      Matcher unordered = UNORDERED_LIST_LINE.matcher(line);
+      if (unordered.matches()) {
+        i = renderListBlock(lines, i, false, 1);
+        continue;
+      }
+      Matcher ordered = ORDERED_LIST_LINE.matcher(line);
+      if (ordered.matches()) {
+        i = renderListBlock(lines, i, true, safeParseInt(ordered.group(1), 1));
+        continue;
+      }
+
+      i = renderParagraphBlock(lines, i);
+    }
+
+    if (markdownContent.getChildren().isEmpty()) {
+      addEmptyState("No markdown content.");
+    }
+  }
+
+  private void renderError(String message) {
+    markdownContent.getChildren().clear();
+    Label error = new Label(message);
+    error.setWrapText(true);
+    error.getStyleClass().add("help-md-error");
+    markdownContent.getChildren().add(error);
+  }
+
+  private int renderParagraphBlock(String[] lines, int start) {
+    StringBuilder paragraph = new StringBuilder();
+    int i = start;
+    while (i < lines.length) {
+      String line = lines[i];
+      String trimmed = line.trim();
+      if (trimmed.isBlank()) break;
+      if (trimmed.startsWith("```")
+          || HEADING_LINE.matcher(line).matches()
+          || HORIZONTAL_RULE_LINE.matcher(trimmed).matches()
+          || trimmed.startsWith(">")
+          || isListLine(line)
+          || isTableStart(lines, i)) {
+        break;
+      }
+      if (paragraph.length() > 0) paragraph.append(' ');
+      paragraph.append(trimmed);
+      i++;
+    }
+    addParagraph(paragraph.toString());
+    return i;
+  }
+
+  private int renderCodeBlock(String[] lines, int start) {
+    String fence = lines[start].trim();
+    String language = fence.length() > 3 ? fence.substring(3).trim() : "";
+    StringBuilder code = new StringBuilder();
+    int i = start + 1;
+    while (i < lines.length) {
+      String line = lines[i];
+      if (line.trim().startsWith("```")) {
+        i++;
+        break;
+      }
+      if (code.length() > 0) code.append('\n');
+      code.append(line);
+      i++;
+    }
+    addCodeBlock(language, code.toString());
+    return i;
+  }
+
+  private int renderQuoteBlock(String[] lines, int start) {
+    StringBuilder quote = new StringBuilder();
+    int i = start;
+    while (i < lines.length) {
+      String trimmed = lines[i].trim();
+      if (!trimmed.startsWith(">")) break;
+      String content = trimmed.length() > 1 ? trimmed.substring(1).trim() : "";
+      if (quote.length() > 0) quote.append('\n');
+      quote.append(content);
+      i++;
+    }
+    addQuote(quote.toString());
+    return i;
+  }
+
+  private int renderListBlock(String[] lines, int start, boolean ordered, int orderedStart) {
+    VBox listBox = new VBox(4);
+    listBox.getStyleClass().add("help-md-list");
+    int index = orderedStart;
+    int i = start;
+    while (i < lines.length) {
+      String line = lines[i];
+      Matcher matcher = ordered ? ORDERED_LIST_LINE.matcher(line) : UNORDERED_LIST_LINE.matcher(line);
+      if (!matcher.matches()) break;
+      String content = ordered ? matcher.group(2).trim() : matcher.group(1).trim();
+      listBox.getChildren().add(createListItem(content, ordered, index));
+      if (ordered) index++;
+      i++;
+    }
+    markdownContent.getChildren().add(listBox);
+    return i;
+  }
+
+  private int renderTableBlock(String[] lines, int start) {
+    List<String[]> rows = new ArrayList<>();
+    String[] header = splitTableRow(lines[start]);
+    if (header.length == 0) return start + 1;
+    rows.add(header);
+
+    int i = start + 2; // Skip markdown separator row.
+    while (i < lines.length) {
+      String raw = lines[i];
+      String trimmed = raw.trim();
+      if (trimmed.isBlank() || !raw.contains("|")) break;
+      String[] row = splitTableRow(raw);
+      if (row.length > 0) rows.add(row);
+      i++;
+    }
+    addTable(rows);
+    return i;
+  }
+
+  private void addHeading(int level, String text) {
+    String style = "help-md-h" + Math.max(1, Math.min(level, 6));
+    markdownContent.getChildren().add(createInlineFlow(text, style, 8));
+  }
+
+  private void addParagraph(String text) {
+    if (text == null || text.isBlank()) return;
+    markdownContent.getChildren().add(createInlineFlow(text, "help-md-paragraph", 8));
+  }
+
+  private void addQuote(String text) {
+    TextFlow flow = createInlineFlow(text, "help-md-quote", 20);
+    markdownContent.getChildren().add(flow);
+  }
+
+  private HBox createListItem(String content, boolean ordered, int index) {
+    Label marker = new Label(ordered ? (index + ".") : "•");
+    marker.getStyleClass().add("help-md-list-marker");
+
+    TextFlow flow = createInlineFlow(content, "help-md-list-item", 34);
+    HBox row = new HBox(8, marker, flow);
+    row.setAlignment(Pos.TOP_LEFT);
+    HBox.setHgrow(flow, Priority.ALWAYS);
+    return row;
+  }
+
+  private void addCodeBlock(String language, String code) {
+    VBox box = new VBox(4);
+    box.getStyleClass().add("help-md-code-wrapper");
+    if (language != null && !language.isBlank()) {
+      Label lang = new Label(language);
+      lang.getStyleClass().add("help-md-code-lang");
+      box.getChildren().add(lang);
+    }
+    Label body = new Label(code == null ? "" : code);
+    body.setWrapText(true);
+    body.setMaxWidth(Double.MAX_VALUE);
+    body.prefWidthProperty().bind(markdownContent.widthProperty().subtract(20));
+    body.getStyleClass().add("help-md-code-block");
+    box.getChildren().add(body);
+    markdownContent.getChildren().add(box);
+  }
+
+  private void addTable(List<String[]> rows) {
+    if (rows == null || rows.isEmpty()) return;
+    int colCount = 0;
+    for (String[] row : rows) {
+      if (row != null) colCount = Math.max(colCount, row.length);
+    }
+    if (colCount <= 0) return;
+
+    GridPane table = new GridPane();
+    table.getStyleClass().add("help-md-table");
+    table.setMaxWidth(Double.MAX_VALUE);
+    table.prefWidthProperty().bind(markdownContent.widthProperty().subtract(8));
+
+    for (int r = 0; r < rows.size(); r++) {
+      String[] row = rows.get(r);
+      for (int c = 0; c < colCount; c++) {
+        String value = (row != null && c < row.length) ? row[c] : "";
+        Label cell = new Label(value);
+        cell.setWrapText(true);
+        cell.setMaxWidth(Double.MAX_VALUE);
+        cell.getStyleClass().add(r == 0 ? "help-md-table-header" : "help-md-table-cell");
+        GridPane.setHgrow(cell, Priority.ALWAYS);
+        table.add(cell, c, r);
+      }
+    }
+    markdownContent.getChildren().add(table);
+  }
+
+  private void addHorizontalRule() {
+    Separator separator = new Separator();
+    separator.getStyleClass().add("help-md-hr");
+    markdownContent.getChildren().add(separator);
+  }
+
+  private void addEmptyState(String message) {
+    Label empty = new Label(message);
+    empty.getStyleClass().add("help-md-empty");
+    markdownContent.getChildren().add(empty);
+  }
+
+  private TextFlow createInlineFlow(String source, String blockClass, double widthInset) {
+    TextFlow flow = new TextFlow();
+    flow.setLineSpacing(2);
+    flow.getStyleClass().add("help-md-flow");
+    if (blockClass != null && !blockClass.isBlank()) flow.getStyleClass().add(blockClass);
+    flow.setMaxWidth(Double.MAX_VALUE);
+    flow.prefWidthProperty().bind(markdownContent.widthProperty().subtract(widthInset));
+    appendInlineMarkdown(flow, source == null ? "" : source);
+    return flow;
+  }
+
+  private void appendInlineMarkdown(TextFlow flow, String source) {
+    int i = 0;
+    while (i < source.length()) {
+      if (source.startsWith("**", i) || source.startsWith("__", i)) {
+        String marker = source.substring(i, i + 2);
+        int end = source.indexOf(marker, i + 2);
+        if (end > i + 2) {
+          appendStyledText(flow, source.substring(i + 2, end), "help-md-bold");
+          i = end + 2;
+          continue;
+        }
+      }
+      if (source.startsWith("*", i) || source.startsWith("_", i)) {
+        String marker = source.substring(i, i + 1);
+        int end = source.indexOf(marker, i + 1);
+        if (end > i + 1) {
+          appendStyledText(flow, source.substring(i + 1, end), "help-md-italic");
+          i = end + 1;
+          continue;
+        }
+      }
+      if (source.startsWith("`", i)) {
+        int end = source.indexOf('`', i + 1);
+        if (end > i + 1) {
+          appendStyledText(flow, source.substring(i + 1, end), "help-md-inline-code");
+          i = end + 1;
+          continue;
+        }
+      }
+      if (source.startsWith("[", i)) {
+        int labelEnd = source.indexOf("](", i + 1);
+        if (labelEnd > i + 1) {
+          int urlEnd = source.indexOf(')', labelEnd + 2);
+          if (urlEnd > labelEnd + 2) {
+            appendLinkText(
+                flow,
+                source.substring(i + 1, labelEnd),
+                source.substring(labelEnd + 2, urlEnd).trim());
+            i = urlEnd + 1;
+            continue;
+          }
+        }
+      }
+      int next = findNextMarkdownToken(source, i + 1);
+      int end = next < 0 ? source.length() : next;
+      appendStyledText(flow, source.substring(i, end));
+      i = end;
+    }
+  }
+
+  private int findNextMarkdownToken(String source, int fromIndex) {
+    int best = -1;
+    for (char ch : new char[] {'*', '_', '`', '['}) {
+      int idx = source.indexOf(ch, fromIndex);
+      if (idx >= 0 && (best < 0 || idx < best)) best = idx;
+    }
+    return best;
+  }
+
+  private void appendStyledText(TextFlow flow, String content, String... styleClasses) {
+    if (content == null || content.isEmpty()) return;
+    Text text = new Text(content);
+    text.getStyleClass().add("help-md-text");
+    if (styleClasses != null) {
+      for (String styleClass : styleClasses) {
+        if (styleClass != null && !styleClass.isBlank()) text.getStyleClass().add(styleClass);
+      }
+    }
+    flow.getChildren().add(text);
+  }
+
+  private void appendLinkText(TextFlow flow, String label, String target) {
+    String textLabel = (label == null || label.isBlank()) ? target : label;
+    if (textLabel == null || textLabel.isBlank()) return;
+    Text link = new Text(textLabel);
+    link.getStyleClass().addAll("help-md-text", "help-md-link");
+    link.setUnderline(true);
+    if (target != null && !target.isBlank()) {
+      link.setOnMouseClicked(e -> openMarkdownLink(target));
+    }
+    flow.getChildren().add(link);
+  }
+
+  private void openMarkdownLink(String target) {
+    if (target == null || target.isBlank()) return;
+    try {
+      if ((target.startsWith("http://") || target.startsWith("https://")) && Desktop.isDesktopSupported()) {
+        Desktop.getDesktop().browse(java.net.URI.create(target));
+        return;
+      }
+    } catch (Exception ignored) {
+    }
+    ClipboardContent cc = new ClipboardContent();
+    cc.putString(target);
+    Clipboard.getSystemClipboard().setContent(cc);
+    statsLabel.setText("Copied link: " + target);
+  }
+
+  private boolean isListLine(String line) {
+    return UNORDERED_LIST_LINE.matcher(line).matches() || ORDERED_LIST_LINE.matcher(line).matches();
+  }
+
+  private boolean isTableStart(String[] lines, int index) {
+    if (lines == null || index < 0 || index + 1 >= lines.length) return false;
+    String current = lines[index];
+    if (current == null || !current.contains("|")) return false;
+    return TABLE_SEPARATOR_LINE.matcher(lines[index + 1].trim()).matches();
+  }
+
+  private String[] splitTableRow(String line) {
+    if (line == null) return new String[0];
+    String row = line.trim();
+    if (row.startsWith("|")) row = row.substring(1);
+    if (row.endsWith("|")) row = row.substring(0, row.length() - 1);
+    if (row.isBlank()) return new String[0];
+    String[] rawCells = row.split("\\|", -1);
+    for (int i = 0; i < rawCells.length; i++) {
+      rawCells[i] = rawCells[i].trim();
+    }
+    return rawCells;
+  }
+
+  private int safeParseInt(String raw, int fallback) {
+    if (raw == null || raw.isBlank()) return fallback;
+    try {
+      return Integer.parseInt(raw.trim());
+    } catch (Exception ignored) {
+      return fallback;
+    }
+  }
+
+  private String normalizeMarkdown(String text) {
+    if (text == null) return "";
+    return text.replace("\r\n", "\n").replace('\r', '\n');
   }
 
   private File detectWorkspaceRoot() {
