@@ -63,7 +63,11 @@ import javafx.util.Duration;
 /**
  * Standalone image tint utility inspired by Ren'Py's Image Tint Tool.
  * This tool is intentionally independent from layered/image-attributes tools.
+ * It focuses on per-image tinting and zone-based tint areas, which can be used in combination with layered setups but do not require them.
+ * The tool scans the project for image files and charpreset tags, allowing you to quickly apply tints to character images and export the results
+ * as PNG files or tint setup files. The tint setups can be loaded back into the tool or used as a reference for manual tinting in layered/image-attributes tools.
  */
+
 public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private static final String STATE_FILE = ".jvn/image-tint-tool.properties";
   private static final String TOOL_TITLE = "Image Tint Tool";
@@ -93,6 +97,18 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Slider saturationSlider = slider(-100, 100, 0);
   private final Slider contrastSlider = slider(-100, 100, 0);
   private final Region tintColorSwatch = new Region();
+  private final ColorPicker bgTintColorPicker = new ColorPicker(Color.web("#ffffff"));
+  private final Slider bgTintStrengthSlider = slider(0, 100, 0);
+  private final Slider bgSaturationSlider = slider(-100, 100, 0);
+  private final Slider bgContrastSlider = slider(-100, 100, 0);
+  private final ComboBox<String> bgTintBlendModeBox = new ComboBox<>();
+  private final ColorPicker bgOverlayColorPicker = new ColorPicker(Color.web("#000000"));
+  private final Slider bgOverlayOpacitySlider = slider(0, 100, 0);
+  private final ComboBox<String> bgOverlayBlendModeBox = new ComboBox<>();
+  private final Region bgTintColorSwatch = new Region();
+  private final Region bgOverlayColorSwatch = new Region();
+  private final VBox backgroundControlsSection = new VBox(8);
+  private TitledPane backgroundPane;
 
   private final Canvas previewCanvas = new Canvas(320, 240);
   private final VBox controlsSection = new VBox(8);
@@ -125,9 +141,27 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private String tintedImageTag;
   private String tintedImageKey;
   private Image tintedImage;
+  private String tintedBackgroundTag;
+  private String tintedBackgroundKey;
+  private Image tintedBackground;
 
   // ── Zone area selector ──
-  private static final String[] BLEND_MODES = {"Normal", "Multiply", "Screen", "Overlay", "Soft Light"};
+  private static final String[] BLEND_MODES = {
+      "Normal",
+      "Multiply",
+      "Screen",
+      "Overlay",
+      "Soft Light",
+      "Hard Light",
+      "Color Dodge",
+      "Color Burn",
+      "Difference",
+      "Exclusion",
+      "Lighten",
+      "Darken",
+      "Add",
+      "Subtract"
+  };
   private final List<TintZone> tintZones = new ArrayList<>();
   private int selectedZoneIndex = -1;
   private boolean zoneDrawMode;       // rectangle draw mode
@@ -155,6 +189,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private Button polyDrawToggleButton;
 
   public ImageTintToolView() {
+
     stateSaveDebounce.setOnFinished(e -> flushPendingStateSave());
     setPadding(new Insets(8));
     buildUi();
@@ -265,7 +300,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     updateTintColorSwatch(tintColorPicker.getValue());
     controlsSection.getChildren().setAll(
-        tintPickerRow("Color"),
+        tintPickerRow("Color", tintColorPicker, tintColorSwatch, Color.WHITE),
         sliderRow("Strength", tintStrengthSlider),
         sliderRow("Saturation", saturationSlider),
         sliderRow("Contrast", contrastSlider));
@@ -277,6 +312,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       if (!applyingState) persistGlobalState();
     });
 
+    buildBackgroundSection();
+
     // ── Zone area selector section ──
     buildZoneSection();
 
@@ -286,6 +323,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         tagsPane,
         actionRow, exportRow, fileRow,
         controlsPane,
+        backgroundPane,
         zonesPane,
         previewInfoLabel, interactionHintLabel,
         statusLabel);
@@ -306,6 +344,57 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     bindTagSelectionHandlers();
   }
 
+  private void buildBackgroundSection() {
+    bgTintBlendModeBox.getItems().setAll(BLEND_MODES);
+    bgTintBlendModeBox.getSelectionModel().select("Normal");
+    bgOverlayBlendModeBox.getItems().setAll(BLEND_MODES);
+    bgOverlayBlendModeBox.getSelectionModel().select("Overlay");
+
+    bgTintColorPicker.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) onBackgroundFxChanged(true);
+    });
+    bgTintStrengthSlider.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) onBackgroundFxChanged(true);
+    });
+    bgSaturationSlider.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) onBackgroundFxChanged(true);
+    });
+    bgContrastSlider.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) onBackgroundFxChanged(true);
+    });
+    bgTintBlendModeBox.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) onBackgroundFxChanged(true);
+    });
+    bgOverlayColorPicker.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) onBackgroundFxChanged(true);
+    });
+    bgOverlayOpacitySlider.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) onBackgroundFxChanged(true);
+    });
+    bgOverlayBlendModeBox.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) onBackgroundFxChanged(true);
+    });
+
+    updateBackgroundSwatches();
+    backgroundControlsSection.getChildren().setAll(
+        tintPickerRow("Tint Color", bgTintColorPicker, bgTintColorSwatch, Color.WHITE),
+        sliderRow("Tint %", bgTintStrengthSlider),
+        sliderRow("Saturation", bgSaturationSlider),
+        sliderRow("Contrast", bgContrastSlider),
+        comboRow("Tint Blend", bgTintBlendModeBox),
+        tintPickerRow("Overlay", bgOverlayColorPicker, bgOverlayColorSwatch, Color.BLACK),
+        sliderRow("Overlay %", bgOverlayOpacitySlider),
+        comboRow("Overlay Blend", bgOverlayBlendModeBox));
+
+    backgroundPane = new TitledPane("Background FX", backgroundControlsSection);
+    backgroundPane.setExpanded(false);
+    backgroundPane.setAnimated(false);
+    backgroundPane.setCollapsible(true);
+    backgroundPane.expandedProperty().addListener((o, ov, expanded) -> {
+      if (!applyingState) persistGlobalState();
+    });
+  }
+
   private void bindTagSelectionHandlers() {
     characterTagBox.valueProperty().addListener((o, ov, nv) -> {
       if (applyingState) return;
@@ -319,7 +408,6 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     backgroundTagBox.valueProperty().addListener((o, ov, nv) -> {
       if (applyingState) return;
       applyBackgroundTintIfPresent(selectedBackgroundTag());
-      redrawPreview();
       persistGlobalState();
     });
     backgroundTagBox.getEditor().textProperty().addListener((o, ov, nv) -> {
@@ -339,14 +427,40 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private void onTintChanged(boolean redraw) {
     updateTintColorSwatch(tintColorPicker.getValue());
-    tintedImageTag = null;
-    tintedImageKey = null;
-    tintedImage = null;
+    invalidateTintCache();
+    if (redraw) redrawPreview();
+    if (!applyingState) {
+      persistGlobalState();
+    }
+  }
+
+  private void onBackgroundFxChanged(boolean redraw) {
+    updateBackgroundSwatches();
+    invalidateBackgroundTintCache();
     if (redraw) redrawPreview();
     if (!applyingState) {
       persistBackgroundTint(selectedBackgroundTag());
       persistGlobalState();
     }
+  }
+
+  private void resetBackgroundFxControls() {
+    applyingState = true;
+    try {
+      bgTintColorPicker.setValue(Color.WHITE);
+      bgTintStrengthSlider.setValue(0.0);
+      bgSaturationSlider.setValue(0.0);
+      bgContrastSlider.setValue(0.0);
+      bgTintBlendModeBox.getSelectionModel().select("Normal");
+      bgOverlayColorPicker.setValue(Color.BLACK);
+      bgOverlayOpacitySlider.setValue(0.0);
+      bgOverlayBlendModeBox.getSelectionModel().select("Overlay");
+    } finally {
+      applyingState = false;
+    }
+    updateBackgroundSwatches();
+    invalidateBackgroundTintCache();
+    redrawPreview();
   }
 
   @Override
@@ -392,9 +506,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     imageByTag.clear();
     presetByTag.clear();
     imageCache.clear();
-    tintedImageTag = null;
-    tintedImageKey = null;
-    tintedImage = null;
+    invalidateTintCache();
+    invalidateBackgroundTintCache();
     summaryLabel.setText(message);
     characterTagBox.getItems().clear();
     backgroundTagBox.getItems().clear();
@@ -468,9 +581,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       presetByTag.clear();
       presetByTag.putAll(result.presets());
       imageCache.clear();
-      tintedImageTag = null;
-      tintedImageKey = null;
-      tintedImage = null;
+      invalidateTintCache();
+      invalidateBackgroundTintCache();
 
       summaryLabel.setText("Images: " + imageByTag.size() + " | Charpresets: " + presetByTag.size());
       refreshTagLists();
@@ -535,6 +647,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         boolean hide = parseBoolean(persisted.getProperty("global.hideControls"), false);
         controlsPane.setExpanded(!hide);
       }
+      if (backgroundPane != null) {
+        boolean hideBackground = parseBoolean(persisted.getProperty("global.hideBackgroundFx"), true);
+        backgroundPane.setExpanded(!hideBackground);
+      }
 
       String savedChar = persisted.getProperty("global.characterTag", "");
       String savedBg = persisted.getProperty("global.backgroundTag", "");
@@ -550,6 +666,15 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       tintStrengthSlider.setValue(parseDouble(persisted.getProperty("global.tintStrength"), 30.0));
       saturationSlider.setValue(parseDouble(persisted.getProperty("global.saturation"), 0.0));
       contrastSlider.setValue(parseDouble(persisted.getProperty("global.contrast"), 0.0));
+      bgTintColorPicker.setValue(parseColor(persisted.getProperty("global.bgTintColor"), Color.WHITE));
+      bgTintStrengthSlider.setValue(parseDouble(persisted.getProperty("global.bgTintStrength"), 0.0));
+      bgSaturationSlider.setValue(parseDouble(persisted.getProperty("global.bgSaturation"), 0.0));
+      bgContrastSlider.setValue(parseDouble(persisted.getProperty("global.bgContrast"), 0.0));
+      bgTintBlendModeBox.getSelectionModel().select(canonicalBlendMode(persisted.getProperty("global.bgTintBlend"), "Normal"));
+      bgOverlayColorPicker.setValue(parseColor(persisted.getProperty("global.bgOverlayColor"), Color.BLACK));
+      bgOverlayOpacitySlider.setValue(parseDouble(persisted.getProperty("global.bgOverlayOpacity"), 0.0));
+      bgOverlayBlendModeBox.getSelectionModel().select(canonicalBlendMode(persisted.getProperty("global.bgOverlayBlend"), "Overlay"));
+      updateBackgroundSwatches();
       zoom = clamp(parseDouble(persisted.getProperty("global.zoom"), 1.0), 0.1, 8.0);
       offsetX = parseDouble(persisted.getProperty("global.offsetX"), 0.0);
       offsetY = parseDouble(persisted.getProperty("global.offsetY"), 0.0);
@@ -647,6 +772,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persisted.setProperty(prefix + "tintStrength", formatDouble(tintStrengthSlider.getValue()));
     persisted.setProperty(prefix + "saturation", formatDouble(saturationSlider.getValue()));
     persisted.setProperty(prefix + "contrast", formatDouble(contrastSlider.getValue()));
+    persisted.setProperty(prefix + "bgTintColor", colorToHex(bgTintColorPicker.getValue()));
+    persisted.setProperty(prefix + "bgTintStrength", formatDouble(bgTintStrengthSlider.getValue()));
+    persisted.setProperty(prefix + "bgSaturation", formatDouble(bgSaturationSlider.getValue()));
+    persisted.setProperty(prefix + "bgContrast", formatDouble(bgContrastSlider.getValue()));
+    persisted.setProperty(prefix + "bgTintBlend", canonicalBlendMode(bgTintBlendModeBox.getValue(), "Normal"));
+    persisted.setProperty(prefix + "bgOverlayColor", colorToHex(bgOverlayColorPicker.getValue()));
+    persisted.setProperty(prefix + "bgOverlayOpacity", formatDouble(bgOverlayOpacitySlider.getValue()));
+    persisted.setProperty(prefix + "bgOverlayBlend", canonicalBlendMode(bgOverlayBlendModeBox.getValue(), "Overlay"));
     persisted.setProperty(prefix + "zoom", formatDouble(zoom));
     persisted.setProperty(prefix + "offsetX", formatDouble(offsetX));
     persisted.setProperty(prefix + "offsetY", formatDouble(offsetY));
@@ -668,7 +801,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       persisted.setProperty(zp + "contrast", formatDouble(z.contrast));
       persisted.setProperty(zp + "feather", formatDouble(z.feather));
       persisted.setProperty(zp + "rotation", formatDouble(z.rotation));
-      persisted.setProperty(zp + "blendMode", z.blendMode == null ? "Normal" : z.blendMode);
+      persisted.setProperty(zp + "blendMode", canonicalBlendMode(z.blendMode, "Normal"));
       persisted.setProperty(zp + "overlayVisible", Boolean.toString(z.overlayVisible));
       if (z.isPolygon()) {
         StringBuilder polyStr = new StringBuilder();
@@ -715,6 +848,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       tintStrengthSlider.setValue(parseDouble(persisted.getProperty(prefix + "tintStrength"), tintStrengthSlider.getValue()));
       saturationSlider.setValue(parseDouble(persisted.getProperty(prefix + "saturation"), saturationSlider.getValue()));
       contrastSlider.setValue(parseDouble(persisted.getProperty(prefix + "contrast"), contrastSlider.getValue()));
+      bgTintColorPicker.setValue(parseColor(persisted.getProperty(prefix + "bgTintColor"), bgTintColorPicker.getValue()));
+      bgTintStrengthSlider.setValue(parseDouble(persisted.getProperty(prefix + "bgTintStrength"), bgTintStrengthSlider.getValue()));
+      bgSaturationSlider.setValue(parseDouble(persisted.getProperty(prefix + "bgSaturation"), bgSaturationSlider.getValue()));
+      bgContrastSlider.setValue(parseDouble(persisted.getProperty(prefix + "bgContrast"), bgContrastSlider.getValue()));
+      bgTintBlendModeBox.getSelectionModel().select(canonicalBlendMode(persisted.getProperty(prefix + "bgTintBlend"), bgTintBlendModeBox.getValue()));
+      bgOverlayColorPicker.setValue(parseColor(persisted.getProperty(prefix + "bgOverlayColor"), bgOverlayColorPicker.getValue()));
+      bgOverlayOpacitySlider.setValue(parseDouble(persisted.getProperty(prefix + "bgOverlayOpacity"), bgOverlayOpacitySlider.getValue()));
+      bgOverlayBlendModeBox.getSelectionModel().select(canonicalBlendMode(persisted.getProperty(prefix + "bgOverlayBlend"), bgOverlayBlendModeBox.getValue()));
       zoom = clamp(parseDouble(persisted.getProperty(prefix + "zoom"), zoom), 0.1, 8.0);
       offsetX = parseDouble(persisted.getProperty(prefix + "offsetX"), offsetX);
       offsetY = parseDouble(persisted.getProperty(prefix + "offsetY"), offsetY);
@@ -744,13 +885,16 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     }
 
     // E: Sync background per-tag tint with loaded values.
+    updateBackgroundSwatches();
+    invalidateBackgroundTintCache();
     persistBackgroundTint(selectedBackgroundTag());
     activeZoneProfileTag = normalize(selectedCharacterTag());
     persistZones();
 
     persisted.setProperty("global.selectedSetup", name);
     persistGlobalState();
-    tintedImageTag = null; tintedImageKey = null; tintedImage = null;
+    invalidateTintCache();
+    invalidateBackgroundTintCache();
     redrawPreview();
     if (statusLabel.getText().isBlank() || !statusLabel.getText().contains("skipped"))
       status("Loaded setup: " + name + " (" + tintZones.size() + " zones)");
@@ -957,7 +1101,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     Image bg = loadImage(selectedBackgroundTag());
     if (bg != null) {
-      drawCover(g, bg, w, h);
+      Image tintedBg = buildTintedBackgroundImage(selectedBackgroundTag(), bg);
+      drawCover(g, tintedBg == null ? bg : tintedBg, w, h);
     } else {
       drawChecker(g, w, h);
     }
@@ -1037,6 +1182,81 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         + "  |  Bg: " + shortTag(selectedBackgroundTag())
         + "  |  Zoom: " + formatNormalized(zoom)
         + "  |  Zones: " + tintZones.size());
+  }
+
+  private Image buildTintedBackgroundImage(String tag, Image source) {
+    if (source == null) return null;
+    String key = backgroundTintKey(tag, source);
+    if (Objects.equals(tintedBackgroundTag, tag) && Objects.equals(tintedBackgroundKey, key) && tintedBackground != null) {
+      return tintedBackground;
+    }
+    int width = (int) Math.max(1, Math.round(source.getWidth()));
+    int height = (int) Math.max(1, Math.round(source.getHeight()));
+    WritableImage out = new WritableImage(width, height);
+    PixelReader reader = source.getPixelReader();
+    PixelWriter writer = out.getPixelWriter();
+    if (reader == null) return source;
+
+    double tintStrength = clamp(bgTintStrengthSlider.getValue() / 100.0, 0.0, 1.0);
+    double satAdjust = clamp(bgSaturationSlider.getValue() / 100.0, -1.0, 1.0);
+    double conAdjust = clamp(bgContrastSlider.getValue() / 100.0, -1.0, 1.0);
+    Color tint = bgTintColorPicker.getValue() == null ? Color.WHITE : bgTintColorPicker.getValue();
+    Color overlay = bgOverlayColorPicker.getValue() == null ? Color.BLACK : bgOverlayColorPicker.getValue();
+    double overlayOpacity = clamp(bgOverlayOpacitySlider.getValue() / 100.0, 0.0, 1.0);
+    int tintBlend = blendModeIndex(bgTintBlendModeBox.getValue());
+    int overlayBlend = blendModeIndex(bgOverlayBlendModeBox.getValue());
+
+    double tr = tint.getRed();
+    double tg = tint.getGreen();
+    double tb = tint.getBlue();
+    double or = overlay.getRed();
+    double og = overlay.getGreen();
+    double ob = overlay.getBlue();
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        int argb = reader.getArgb(x, y);
+        int a = (argb >>> 24) & 0xFF;
+        if (a == 0) {
+          writer.setArgb(x, y, argb);
+          continue;
+        }
+        double r = ((argb >>> 16) & 0xFF) / 255.0;
+        double g = ((argb >>> 8) & 0xFF) / 255.0;
+        double b = (argb & 0xFF) / 255.0;
+
+        double lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        double zr = lum + (r - lum) * (1.0 + satAdjust);
+        double zg = lum + (g - lum) * (1.0 + satAdjust);
+        double zb = lum + (b - lum) * (1.0 + satAdjust);
+        zr = (zr - 0.5) * (1.0 + conAdjust) + 0.5;
+        zg = (zg - 0.5) * (1.0 + conAdjust) + 0.5;
+        zb = (zb - 0.5) * (1.0 + conAdjust) + 0.5;
+        zr = zr * (1.0 - tintStrength) + tr * tintStrength;
+        zg = zg * (1.0 - tintStrength) + tg * tintStrength;
+        zb = zb * (1.0 - tintStrength) + tb * tintStrength;
+
+        r = applyBlend(r, zr, 1.0, tintBlend);
+        g = applyBlend(g, zg, 1.0, tintBlend);
+        b = applyBlend(b, zb, 1.0, tintBlend);
+
+        if (overlayOpacity > 0.0) {
+          r = applyBlend(r, or, overlayOpacity, overlayBlend);
+          g = applyBlend(g, og, overlayOpacity, overlayBlend);
+          b = applyBlend(b, ob, overlayOpacity, overlayBlend);
+        }
+
+        int rr = (int) Math.round(clamp(r, 0.0, 1.0) * 255.0);
+        int gg = (int) Math.round(clamp(g, 0.0, 1.0) * 255.0);
+        int bb = (int) Math.round(clamp(b, 0.0, 1.0) * 255.0);
+        writer.setArgb(x, y, (a << 24) | (rr << 16) | (gg << 8) | bb);
+      }
+    }
+
+    tintedBackgroundTag = tag;
+    tintedBackgroundKey = key;
+    tintedBackground = out;
+    return out;
   }
 
   private Image buildTintedImage(String tag, Image source) {
@@ -1123,7 +1343,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
               ? polyZoneWeight(nx, ny, zPoly[i], zFeath[i])
               : zoneWeight(nx, ny, zx[i], zy[i], zw[i], zh[i], zFeath[i], zRot[i], imgAspect);
           if (weight <= 0.0) continue;
-          double effStr = zStr[i] * weight;
+          double effStr = zStr[i];
 
           // Compute zone-tinted pixel from the current (already globally-tinted) color.
           double zl = 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -1224,38 +1444,104 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private static double applyBlend(double base, double zone, double weight, int mode) {
+    double b = clamp(base, 0.0, 1.0);
+    double s = clamp(zone, 0.0, 1.0);
+    double w = clamp(weight, 0.0, 1.0);
+    if (w <= 0.0) return b;
+    if (mode == 0) {
+      return b * (1.0 - w) + s * w;
+    }
+
+    double bLin = srgbToLinear(b);
+    double sLin = srgbToLinear(s);
     double blended;
     switch (mode) {
       case 1: // Multiply
-        blended = base * zone;
+        blended = bLin * sLin;
         break;
       case 2: // Screen
-        blended = 1.0 - (1.0 - base) * (1.0 - zone);
+        blended = 1.0 - (1.0 - bLin) * (1.0 - sLin);
         break;
       case 3: // Overlay
-        blended = base < 0.5 ? 2.0 * base * zone : 1.0 - 2.0 * (1.0 - base) * (1.0 - zone);
+        blended = bLin < 0.5 ? 2.0 * bLin * sLin : 1.0 - 2.0 * (1.0 - bLin) * (1.0 - sLin);
         break;
       case 4: // Soft Light
-        blended = zone < 0.5
-            ? base - (1.0 - 2.0 * zone) * base * (1.0 - base)
-            : base + (2.0 * zone - 1.0) * (Math.sqrt(base) - base);
+        blended = sLin <= 0.5
+            ? bLin - (1.0 - 2.0 * sLin) * bLin * (1.0 - bLin)
+            : bLin + (2.0 * sLin - 1.0) * (softLightCurve(bLin) - bLin);
+        break;
+      case 5: // Hard Light
+        blended = sLin < 0.5 ? 2.0 * bLin * sLin : 1.0 - 2.0 * (1.0 - bLin) * (1.0 - sLin);
+        break;
+      case 6: // Color Dodge
+        blended = sLin >= (1.0 - 1e-6) ? 1.0 : clamp(bLin / (1.0 - sLin), 0.0, 1.0);
+        break;
+      case 7: // Color Burn
+        blended = sLin <= 1e-6 ? 0.0 : 1.0 - clamp((1.0 - bLin) / sLin, 0.0, 1.0);
+        break;
+      case 8: // Difference
+        blended = Math.abs(bLin - sLin);
+        break;
+      case 9: // Exclusion
+        blended = bLin + sLin - (2.0 * bLin * sLin);
+        break;
+      case 10: // Lighten
+        blended = Math.max(bLin, sLin);
+        break;
+      case 11: // Darken
+        blended = Math.min(bLin, sLin);
+        break;
+      case 12: // Add
+        blended = Math.min(1.0, bLin + sLin);
+        break;
+      case 13: // Subtract
+        blended = Math.max(0.0, bLin - sLin);
         break;
       default: // Normal
-        blended = zone;
+        blended = sLin;
         break;
     }
-    return base * (1.0 - weight) + blended * weight;
+    double blendedSrgb = linearToSrgb(clamp(blended, 0.0, 1.0));
+    return b * (1.0 - w) + blendedSrgb * w;
   }
 
   private static int blendModeIndex(String mode) {
-    if (mode == null) return 0;
-    return switch (mode) {
+    return switch (canonicalBlendMode(mode, "Normal")) {
       case "Multiply" -> 1;
       case "Screen" -> 2;
       case "Overlay" -> 3;
       case "Soft Light" -> 4;
+      case "Hard Light" -> 5;
+      case "Color Dodge" -> 6;
+      case "Color Burn" -> 7;
+      case "Difference" -> 8;
+      case "Exclusion" -> 9;
+      case "Lighten" -> 10;
+      case "Darken" -> 11;
+      case "Add" -> 12;
+      case "Subtract" -> 13;
       default -> 0;
     };
+  }
+
+  private static double softLightCurve(double value) {
+    double v = clamp(value, 0.0, 1.0);
+    if (v <= 0.25) {
+      return ((16.0 * v - 12.0) * v + 4.0) * v;
+    }
+    return Math.sqrt(v);
+  }
+
+  private static double srgbToLinear(double value) {
+    double v = clamp(value, 0.0, 1.0);
+    if (v <= 0.04045) return v / 12.92;
+    return Math.pow((v + 0.055) / 1.055, 2.4);
+  }
+
+  private static double linearToSrgb(double value) {
+    double v = clamp(value, 0.0, 1.0);
+    if (v <= 0.0031308) return v * 12.92;
+    return 1.055 * Math.pow(v, 1.0 / 2.4) - 0.055;
   }
 
   private String tintKey(String tag, Image source) {
@@ -1274,7 +1560,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
           .append(colorToHex(z.color)).append(",")
           .append(formatDouble(z.strength)).append(",").append(formatDouble(z.saturation)).append(",")
           .append(formatDouble(z.contrast)).append(",").append(formatDouble(z.feather)).append(",")
-          .append(formatDouble(z.rotation)).append(",").append(z.blendMode);
+          .append(formatDouble(z.rotation)).append(",").append(canonicalBlendMode(z.blendMode, "Normal"));
       if (z.isPolygon()) {
         sb.append(",poly");
         for (double[] pt : z.polygon) {
@@ -1283,6 +1569,19 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       }
     }
     return sb.toString();
+  }
+
+  private String backgroundTintKey(String tag, Image source) {
+    return normalize(tag)
+        + "|" + source.getWidth() + "x" + source.getHeight()
+        + "|" + colorToHex(bgTintColorPicker.getValue())
+        + "|" + formatDouble(bgTintStrengthSlider.getValue())
+        + "|" + formatDouble(bgSaturationSlider.getValue())
+        + "|" + formatDouble(bgContrastSlider.getValue())
+        + "|" + canonicalBlendMode(bgTintBlendModeBox.getValue(), "Normal")
+        + "|" + colorToHex(bgOverlayColorPicker.getValue())
+        + "|" + formatDouble(bgOverlayOpacitySlider.getValue())
+        + "|" + canonicalBlendMode(bgOverlayBlendModeBox.getValue(), "Overlay");
   }
 
   private Image loadImage(String tag) {
@@ -1380,28 +1679,60 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     String tag = normalize(backgroundTag);
     if (tag.isBlank()) return;
     String prefix = "bg." + encodeKey(tag) + ".";
-    persisted.setProperty(prefix + "color", colorToHex(tintColorPicker.getValue()));
-    persisted.setProperty(prefix + "strength", formatDouble(tintStrengthSlider.getValue()));
-    persisted.setProperty(prefix + "saturation", formatDouble(saturationSlider.getValue()));
-    persisted.setProperty(prefix + "contrast", formatDouble(contrastSlider.getValue()));
+    String tintColor = colorToHex(bgTintColorPicker.getValue());
+    String tintStrength = formatDouble(bgTintStrengthSlider.getValue());
+    String saturation = formatDouble(bgSaturationSlider.getValue());
+    String contrast = formatDouble(bgContrastSlider.getValue());
+    persisted.setProperty(prefix + "tintColor", tintColor);
+    persisted.setProperty(prefix + "tintStrength", tintStrength);
+    persisted.setProperty(prefix + "saturation", saturation);
+    persisted.setProperty(prefix + "contrast", contrast);
+    persisted.setProperty(prefix + "tintBlend", canonicalBlendMode(bgTintBlendModeBox.getValue(), "Normal"));
+    persisted.setProperty(prefix + "overlayColor", colorToHex(bgOverlayColorPicker.getValue()));
+    persisted.setProperty(prefix + "overlayOpacity", formatDouble(bgOverlayOpacitySlider.getValue()));
+    persisted.setProperty(prefix + "overlayBlend", canonicalBlendMode(bgOverlayBlendModeBox.getValue(), "Overlay"));
+    // Backward compatibility for older keys used by previous tool versions.
+    persisted.setProperty(prefix + "color", tintColor);
+    persisted.setProperty(prefix + "strength", tintStrength);
     savePersistentState();
   }
 
   private void applyBackgroundTintIfPresent(String backgroundTag) {
     String tag = normalize(backgroundTag);
-    if (tag.isBlank()) return;
+    if (tag.isBlank()) {
+      resetBackgroundFxControls();
+      return;
+    }
     String prefix = "bg." + encodeKey(tag) + ".";
-    if (!persisted.containsKey(prefix + "color")) return;
+    boolean hasBackgroundFx = persisted.containsKey(prefix + "tintColor")
+        || persisted.containsKey(prefix + "color")
+        || persisted.containsKey(prefix + "tintBlend")
+        || persisted.containsKey(prefix + "overlayColor")
+        || persisted.containsKey(prefix + "overlayOpacity");
+    if (!hasBackgroundFx) {
+      resetBackgroundFxControls();
+      return;
+    }
     applyingState = true;
     try {
-      tintColorPicker.setValue(parseColor(persisted.getProperty(prefix + "color"), tintColorPicker.getValue()));
-      tintStrengthSlider.setValue(parseDouble(persisted.getProperty(prefix + "strength"), tintStrengthSlider.getValue()));
-      saturationSlider.setValue(parseDouble(persisted.getProperty(prefix + "saturation"), saturationSlider.getValue()));
-      contrastSlider.setValue(parseDouble(persisted.getProperty(prefix + "contrast"), contrastSlider.getValue()));
+      bgTintColorPicker.setValue(parseColor(
+          persisted.getProperty(prefix + "tintColor", persisted.getProperty(prefix + "color")),
+          bgTintColorPicker.getValue()));
+      bgTintStrengthSlider.setValue(parseDouble(
+          persisted.getProperty(prefix + "tintStrength", persisted.getProperty(prefix + "strength")),
+          bgTintStrengthSlider.getValue()));
+      bgSaturationSlider.setValue(parseDouble(persisted.getProperty(prefix + "saturation"), bgSaturationSlider.getValue()));
+      bgContrastSlider.setValue(parseDouble(persisted.getProperty(prefix + "contrast"), bgContrastSlider.getValue()));
+      bgTintBlendModeBox.getSelectionModel().select(
+          canonicalBlendMode(persisted.getProperty(prefix + "tintBlend"), bgTintBlendModeBox.getValue()));
+      bgOverlayColorPicker.setValue(parseColor(persisted.getProperty(prefix + "overlayColor"), bgOverlayColorPicker.getValue()));
+      bgOverlayOpacitySlider.setValue(parseDouble(persisted.getProperty(prefix + "overlayOpacity"), bgOverlayOpacitySlider.getValue()));
+      bgOverlayBlendModeBox.getSelectionModel().select(
+          canonicalBlendMode(persisted.getProperty(prefix + "overlayBlend"), bgOverlayBlendModeBox.getValue()));
     } finally {
       applyingState = false;
     }
-    onTintChanged(true);
+    onBackgroundFxChanged(true);
   }
 
   private void persistGlobalState() {
@@ -1413,11 +1744,21 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persisted.setProperty("global.tintStrength", formatDouble(tintStrengthSlider.getValue()));
     persisted.setProperty("global.saturation", formatDouble(saturationSlider.getValue()));
     persisted.setProperty("global.contrast", formatDouble(contrastSlider.getValue()));
+    persisted.setProperty("global.bgTintColor", colorToHex(bgTintColorPicker.getValue()));
+    persisted.setProperty("global.bgTintStrength", formatDouble(bgTintStrengthSlider.getValue()));
+    persisted.setProperty("global.bgSaturation", formatDouble(bgSaturationSlider.getValue()));
+    persisted.setProperty("global.bgContrast", formatDouble(bgContrastSlider.getValue()));
+    persisted.setProperty("global.bgTintBlend", canonicalBlendMode(bgTintBlendModeBox.getValue(), "Normal"));
+    persisted.setProperty("global.bgOverlayColor", colorToHex(bgOverlayColorPicker.getValue()));
+    persisted.setProperty("global.bgOverlayOpacity", formatDouble(bgOverlayOpacitySlider.getValue()));
+    persisted.setProperty("global.bgOverlayBlend", canonicalBlendMode(bgOverlayBlendModeBox.getValue(), "Overlay"));
     persisted.setProperty("global.zoom", formatDouble(zoom));
     persisted.setProperty("global.offsetX", formatDouble(offsetX));
     persisted.setProperty("global.offsetY", formatDouble(offsetY));
     boolean hideControls = controlsPane != null && !controlsPane.isExpanded();
     persisted.setProperty("global.hideControls", Boolean.toString(hideControls));
+    boolean hideBackgroundFx = backgroundPane != null && !backgroundPane.isExpanded();
+    persisted.setProperty("global.hideBackgroundFx", Boolean.toString(hideBackgroundFx));
     boolean hideZones = zonesPane != null && !zonesPane.isExpanded();
     persisted.setProperty("global.hideZones", Boolean.toString(hideZones));
     savePersistentState();
@@ -1710,25 +2051,27 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     return row;
   }
 
-  private HBox tintPickerRow(String label) {
+  private HBox tintPickerRow(String label, ColorPicker picker, Region swatch, Color fallback) {
     Label l = new Label(label);
     l.setMinWidth(90);
 
-    tintColorSwatch.setMinSize(26, 26);
-    tintColorSwatch.setPrefSize(26, 26);
-    tintColorSwatch.setMaxSize(26, 26);
-    tintColorSwatch.setMouseTransparent(true);
+    swatch.setMinSize(26, 26);
+    swatch.setPrefSize(26, 26);
+    swatch.setMaxSize(26, 26);
+    swatch.setMouseTransparent(true);
 
-    tintColorPicker.setMinSize(26, 26);
-    tintColorPicker.setPrefSize(26, 26);
-    tintColorPicker.setMaxSize(26, 26);
-    tintColorPicker.setStyle(
+    picker.setMinSize(26, 26);
+    picker.setPrefSize(26, 26);
+    picker.setMaxSize(26, 26);
+    picker.setStyle(
         "-fx-color-label-visible: false;"
             + " -fx-background-radius: 999;"
             + " -fx-border-radius: 999;");
-    tintColorPicker.setOpacity(0.001);
+    picker.setOpacity(0.001);
 
-    StackPane pickerHost = new StackPane(tintColorSwatch, tintColorPicker);
+    updateColorSwatch(swatch, picker.getValue(), fallback);
+
+    StackPane pickerHost = new StackPane(swatch, picker);
     pickerHost.setMinSize(26, 26);
     pickerHost.setPrefSize(26, 26);
     pickerHost.setMaxSize(26, 26);
@@ -1739,17 +2082,37 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void updateTintColorSwatch(Color color) {
-    Color c = color == null ? Color.WHITE : color;
+    updateColorSwatch(tintColorSwatch, color, Color.WHITE);
+  }
+
+  private void updateBackgroundSwatches() {
+    updateColorSwatch(bgTintColorSwatch, bgTintColorPicker.getValue(), Color.WHITE);
+    updateColorSwatch(bgOverlayColorSwatch, bgOverlayColorPicker.getValue(), Color.BLACK);
+  }
+
+  private static void updateColorSwatch(Region swatch, Color color, Color fallback) {
+    if (swatch == null) return;
+    Color base = fallback == null ? Color.WHITE : fallback;
+    Color c = color == null ? base : color;
     int r = (int) Math.round(clamp(c.getRed(), 0.0, 1.0) * 255.0);
     int g = (int) Math.round(clamp(c.getGreen(), 0.0, 1.0) * 255.0);
     int b = (int) Math.round(clamp(c.getBlue(), 0.0, 1.0) * 255.0);
     String hex = String.format(Locale.ROOT, "#%02X%02X%02X", r, g, b);
-    tintColorSwatch.setStyle(
+    swatch.setStyle(
         "-fx-background-color: " + hex + ";"
             + " -fx-background-radius: 999;"
             + " -fx-border-color: rgba(255,255,255,0.40);"
             + " -fx-border-radius: 999;"
             + " -fx-border-width: 1;");
+  }
+
+  private static HBox comboRow(String label, ComboBox<String> box) {
+    Label l = new Label(label);
+    l.setMinWidth(60);
+    HBox row = new HBox(8, l, box);
+    row.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(box, Priority.ALWAYS);
+    return row;
   }
 
   private Button iconButton(javafx.scene.layout.Region icon, String tooltip, Runnable action) {
@@ -1793,6 +2156,22 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private static String normalize(String raw) {
     if (raw == null) return "";
     return raw.trim().replace('\\', '/');
+  }
+
+  private static String canonicalBlendMode(String raw, String fallback) {
+    String mode = normalize(raw);
+    if (!mode.isBlank()) {
+      for (String candidate : BLEND_MODES) {
+        if (candidate.equalsIgnoreCase(mode)) return candidate;
+      }
+    }
+    String fb = normalize(fallback);
+    if (!fb.isBlank()) {
+      for (String candidate : BLEND_MODES) {
+        if (candidate.equalsIgnoreCase(fb)) return candidate;
+      }
+    }
+    return BLEND_MODES[0];
   }
 
   private static boolean parseBoolean(String raw, boolean fallback) {
@@ -2133,7 +2512,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     zone.saturation = zoneSaturationSlider.getValue();
     zone.contrast = zoneContrastSlider.getValue();
     zone.feather = zoneFeatherSlider.getValue();
-    zone.blendMode = zoneBlendModeBox.getValue() == null ? "Normal" : zoneBlendModeBox.getValue();
+    zone.blendMode = canonicalBlendMode(zoneBlendModeBox.getValue(), "Normal");
     tintZones.add(zone);
     nailPoints.clear();
     invalidateTintCache();
@@ -2178,7 +2557,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     zone.saturation = zoneSaturationSlider.getValue();
     zone.contrast = zoneContrastSlider.getValue();
     zone.feather = zoneFeatherSlider.getValue();
-    zone.blendMode = zoneBlendModeBox.getValue() == null ? "Normal" : zoneBlendModeBox.getValue();
+    zone.blendMode = canonicalBlendMode(zoneBlendModeBox.getValue(), "Normal");
     tintZones.add(zone);
     invalidateTintCache();
     refreshZoneList();
@@ -2276,7 +2655,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       zoneContrastSlider.setValue(zone.contrast);
       zoneFeatherSlider.setValue(zone.feather);
       zoneRotationSlider.setValue(zone.rotation);
-      zoneBlendModeBox.getSelectionModel().select(zone.blendMode == null ? "Normal" : zone.blendMode);
+      zoneBlendModeBox.getSelectionModel().select(canonicalBlendMode(zone.blendMode, "Normal"));
     } finally {
       applyingState = false;
     }
@@ -2293,7 +2672,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     zone.contrast = zoneContrastSlider.getValue();
     zone.feather = zoneFeatherSlider.getValue();
     zone.rotation = zoneRotationSlider.getValue();
-    zone.blendMode = zoneBlendModeBox.getValue() == null ? "Normal" : zoneBlendModeBox.getValue();
+    zone.blendMode = canonicalBlendMode(zoneBlendModeBox.getValue(), "Normal");
     invalidateTintCache();
     persistZones();
     redrawPreview();
@@ -2322,6 +2701,12 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     tintedImageTag = null;
     tintedImageKey = null;
     tintedImage = null;
+  }
+
+  private void invalidateBackgroundTintCache() {
+    tintedBackgroundTag = null;
+    tintedBackgroundKey = null;
+    tintedBackground = null;
   }
 
   // ── Zone overlay drawing ──
@@ -2435,7 +2820,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       persisted.setProperty(zonePrefix + "contrast", formatDouble(z.contrast));
       persisted.setProperty(zonePrefix + "feather", formatDouble(z.feather));
       persisted.setProperty(zonePrefix + "rotation", formatDouble(z.rotation));
-      persisted.setProperty(zonePrefix + "blendMode", z.blendMode == null ? "Normal" : z.blendMode);
+      persisted.setProperty(zonePrefix + "blendMode", canonicalBlendMode(z.blendMode, "Normal"));
       persisted.setProperty(zonePrefix + "overlayVisible", Boolean.toString(z.overlayVisible));
       if (z.isPolygon()) {
         StringBuilder polyStr = new StringBuilder();
@@ -2529,7 +2914,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     z.feather = parseDouble(props.getProperty(prefix + "feather"), 15);
     z.rotation = parseDouble(props.getProperty(prefix + "rotation"), 0);
     String bm = props.getProperty(prefix + "blendMode", "Normal");
-    z.blendMode = (bm == null || bm.isBlank()) ? "Normal" : bm;
+    z.blendMode = canonicalBlendMode(bm, "Normal");
     z.overlayVisible = parseBoolean(props.getProperty(prefix + "overlayVisible"), true);
     String polyRaw = props.getProperty(prefix + "polygon", "");
     if (polyRaw != null && !polyRaw.isBlank()) {
@@ -2626,6 +3011,34 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         if (sat >= -1.0 && sat <= 1.0 && sat != -999) saturationSlider.setValue(sat * 100.0);
         double con = parseDouble(props.getProperty("contrast"), -999);
         if (con >= -1.0 && con <= 1.0 && con != -999) contrastSlider.setValue(con * 100.0);
+        bgTintColorPicker.setValue(parseColor(
+            props.getProperty("bgTintColor", props.getProperty("bg.color")),
+            bgTintColorPicker.getValue()));
+        double bgStr = parseDouble(props.getProperty("bgTintStrength", props.getProperty("bg.strength")), -1);
+        if (bgStr >= 0.0 && bgStr <= 1.0) bgTintStrengthSlider.setValue(bgStr * 100.0);
+        else if (bgStr > 1.0 && bgStr <= 100.0) bgTintStrengthSlider.setValue(bgStr);
+        double bgSat = parseDouble(props.getProperty("bgSaturation", props.getProperty("bg.saturation")), Double.NaN);
+        if (!Double.isNaN(bgSat)) {
+          if (bgSat >= -1.0 && bgSat <= 1.0) bgSaturationSlider.setValue(bgSat * 100.0);
+          else if (bgSat >= -100.0 && bgSat <= 100.0) bgSaturationSlider.setValue(bgSat);
+        }
+        double bgCon = parseDouble(props.getProperty("bgContrast", props.getProperty("bg.contrast")), Double.NaN);
+        if (!Double.isNaN(bgCon)) {
+          if (bgCon >= -1.0 && bgCon <= 1.0) bgContrastSlider.setValue(bgCon * 100.0);
+          else if (bgCon >= -100.0 && bgCon <= 100.0) bgContrastSlider.setValue(bgCon);
+        }
+        bgTintBlendModeBox.getSelectionModel().select(canonicalBlendMode(
+            props.getProperty("bgTintBlend", props.getProperty("bg.tintBlend")),
+            bgTintBlendModeBox.getValue()));
+        bgOverlayColorPicker.setValue(parseColor(
+            props.getProperty("bgOverlayColor", props.getProperty("bg.overlayColor")),
+            bgOverlayColorPicker.getValue()));
+        double bgOverlay = parseDouble(props.getProperty("bgOverlayOpacity", props.getProperty("bg.overlayOpacity")), -1);
+        if (bgOverlay >= 0.0 && bgOverlay <= 1.0) bgOverlayOpacitySlider.setValue(bgOverlay * 100.0);
+        else if (bgOverlay > 1.0 && bgOverlay <= 100.0) bgOverlayOpacitySlider.setValue(bgOverlay);
+        bgOverlayBlendModeBox.getSelectionModel().select(canonicalBlendMode(
+            props.getProperty("bgOverlayBlend", props.getProperty("bg.overlayBlend")),
+            bgOverlayBlendModeBox.getValue()));
         double z = parseDouble(props.getProperty("zoom"), -1);
         if (z > 0) zoom = clamp(z, 0.1, 8.0);
         double ox = parseDouble(props.getProperty("offsetX"), Double.NaN);
@@ -2657,11 +3070,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       } finally {
         applyingState = false;
       }
+      updateBackgroundSwatches();
+      invalidateBackgroundTintCache();
       persistBackgroundTint(selectedBackgroundTag());
       persistGlobalState();
       activeZoneProfileTag = normalize(selectedCharacterTag());
       persistZones();
-      tintedImageTag = null; tintedImageKey = null; tintedImage = null;
+      invalidateTintCache();
+      invalidateBackgroundTintCache();
       redrawPreview();
       status("Imported setup from " + file.getName() + " (" + tintZones.size() + " zones)");
     } catch (Exception e) {
@@ -2692,7 +3108,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     z.feather = parseDouble(props.getProperty(prefix + "feather"), 0.15) * 100.0;
     z.rotation = parseDouble(props.getProperty(prefix + "rotation"), 0);
     String bm = props.getProperty(prefix + "blend", "Normal");
-    z.blendMode = (bm == null || bm.isBlank()) ? "Normal" : bm;
+    z.blendMode = canonicalBlendMode(bm, "Normal");
     z.overlayVisible = parseBoolean(
         props.getProperty(prefix + "overlayVisible", props.getProperty(prefix + "visible")),
         true
@@ -2723,6 +3139,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     out.append("strength=").append(formatNormalized(tintStrengthSlider.getValue() / 100.0)).append('\n');
     out.append("saturation=").append(formatNormalized(saturationSlider.getValue() / 100.0)).append('\n');
     out.append("contrast=").append(formatNormalized(contrastSlider.getValue() / 100.0)).append('\n');
+    out.append("bgTintColor=").append(colorToHex(bgTintColorPicker.getValue())).append('\n');
+    out.append("bgTintStrength=").append(formatNormalized(bgTintStrengthSlider.getValue() / 100.0)).append('\n');
+    out.append("bgSaturation=").append(formatNormalized(bgSaturationSlider.getValue() / 100.0)).append('\n');
+    out.append("bgContrast=").append(formatNormalized(bgContrastSlider.getValue() / 100.0)).append('\n');
+    out.append("bgTintBlend=").append(canonicalBlendMode(bgTintBlendModeBox.getValue(), "Normal")).append('\n');
+    out.append("bgOverlayColor=").append(colorToHex(bgOverlayColorPicker.getValue())).append('\n');
+    out.append("bgOverlayOpacity=").append(formatNormalized(bgOverlayOpacitySlider.getValue() / 100.0)).append('\n');
+    out.append("bgOverlayBlend=").append(canonicalBlendMode(bgOverlayBlendModeBox.getValue(), "Overlay")).append('\n');
     out.append("zoom=").append(formatNormalized(zoom)).append('\n');
     out.append("offsetX=").append(formatNormalized(offsetX)).append('\n');
     out.append("offsetY=").append(formatNormalized(offsetY)).append('\n');
@@ -2742,7 +3166,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         out.append(p).append("contrast=").append(formatNormalized(tz.contrast / 100.0)).append('\n');
         out.append(p).append("feather=").append(formatNormalized(tz.feather / 100.0)).append('\n');
         out.append(p).append("rotation=").append(formatNormalized(tz.rotation)).append('\n');
-        out.append(p).append("blend=").append(tz.blendMode == null ? "Normal" : tz.blendMode).append('\n');
+        out.append(p).append("blend=").append(canonicalBlendMode(tz.blendMode, "Normal")).append('\n');
         out.append(p).append("visible=").append(tz.overlayVisible).append('\n');
         if (tz.isPolygon()) {
           StringBuilder polyStr = new StringBuilder();
