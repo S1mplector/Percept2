@@ -17,6 +17,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.function.BooleanSupplier;
+import java.util.function.DoubleConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -111,6 +113,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private TitledPane backgroundPane;
 
   private final Canvas previewCanvas = new Canvas(320, 240);
+  private final LoadingProgressOverlay previewLoadingOverlay = new LoadingProgressOverlay();
   private final VBox controlsSection = new VBox(8);
   private TitledPane controlsPane;
 
@@ -129,6 +132,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private boolean applyingState;
   private boolean stateSavePending;
   private Task<TintCatalogScanResult> scanTask;
+  private Task<Image> backgroundTintTask;
+  private String backgroundTintTaskTag;
+  private String backgroundTintTaskKey;
+  private long backgroundTintTaskSerial;
   private String activeZoneProfileTag = "";
 
   private boolean dragging;
@@ -144,6 +151,30 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private String tintedBackgroundTag;
   private String tintedBackgroundKey;
   private Image tintedBackground;
+
+  private record BackgroundTintParams(
+      double tintStrength,
+      double satAdjust,
+      double conAdjust,
+      double tr,
+      double tg,
+      double tb,
+      String tintBlendMode,
+      int tintBlendIndex,
+      double overlayOpacity,
+      double or,
+      double og,
+      double ob,
+      String overlayBlendMode,
+      int overlayBlendIndex
+  ) {
+    boolean isIdentity() {
+      return Math.abs(tintStrength) < 1e-8
+          && Math.abs(satAdjust) < 1e-8
+          && Math.abs(conAdjust) < 1e-8
+          && Math.abs(overlayOpacity) < 1e-8;
+    }
+  }
 
   // ── Zone area selector ──
   private static final String[] BLEND_MODES = {
@@ -162,16 +193,25 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       "Add",
       "Subtract"
   };
+  private static final double FREEHAND_CAPTURE_MIN_DISTANCE = 1.4;
+  private static final double FREEHAND_CLOSE_DISTANCE = 12.0;
+  private static final double FREEHAND_RESAMPLE_STEP = 2.4;
+  private static final double FREEHAND_SPLINE_STEP = 1.8;
+  private static final double FREEHAND_SIMPLIFY_EPSILON = 0.9;
+  private static final int FREEHAND_MAX_VERTICES = 220;
   private final List<TintZone> tintZones = new ArrayList<>();
   private int selectedZoneIndex = -1;
   private boolean zoneDrawMode;       // rectangle draw mode
   private boolean polyDrawMode;       // point-nail polygon draw mode
+  private boolean freehandDrawMode;   // hold-drag freehand/lasso draw mode
   private boolean drawingZone;
+  private boolean drawingFreehand;
   private double zoneDrawStartX;
   private double zoneDrawStartY;
   private double zoneDrawEndX;
   private double zoneDrawEndY;
   private final List<double[]> nailPoints = new ArrayList<>(); // canvas coords for polygon nailing
+  private final List<double[]> freehandPoints = new ArrayList<>(); // canvas coords for freehand stroke
 
   private final ListView<TintZone> zoneListView = new ListView<>();
   private final ColorPicker zoneColorPicker = new ColorPicker(Color.web("#ff8844"));
@@ -187,6 +227,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private TitledPane zonesPane;
   private Button zoneDrawToggleButton;
   private Button polyDrawToggleButton;
+  private Button freehandDrawToggleButton;
 
   public ImageTintToolView() {
 
@@ -262,7 +303,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     tagsPane.setCollapsible(true);
 
     // ── Preview canvas fills the center ──
-    StackPane previewPane = new StackPane(previewCanvas);
+    StackPane previewPane = new StackPane(previewCanvas, previewLoadingOverlay);
+    StackPane.setAlignment(previewLoadingOverlay, Pos.CENTER);
+    previewLoadingOverlay.hideOverlay();
     previewPane.setStyle("-fx-background-color: #121720; -fx-border-color: #2b3445; -fx-border-radius: 4; -fx-background-radius: 4;");
     previewPane.widthProperty().addListener((o, ov, nv) -> {
       previewCanvas.setWidth(Math.max(140, nv.doubleValue() - 4));
@@ -996,8 +1039,18 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         e.consume();
         return;
       }
+      if (e.getButton() == MouseButton.SECONDARY && freehandDrawMode) {
+        if (!freehandPoints.isEmpty()) {
+          freehandPoints.clear();
+          drawingFreehand = false;
+          redrawPreview();
+          status("Freehand stroke cleared.");
+        }
+        e.consume();
+        return;
+      }
       if (e.getButton() != MouseButton.PRIMARY) return;
-      if (zoneDrawMode) return;
+      if (zoneDrawMode || freehandDrawMode) return;
       if (polyDrawMode) {
         double mx = e.getX(), my = e.getY();
         // Close polygon on double-click or clicking near first point.
@@ -1021,6 +1074,13 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     previewCanvas.setOnMousePressed(e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
       if (polyDrawMode) return; // handled by onMouseClicked
+      if (freehandDrawMode) {
+        drawingFreehand = true;
+        freehandPoints.clear();
+        freehandPoints.add(new double[]{e.getX(), e.getY()});
+        redrawPreview();
+        return;
+      }
       if (zoneDrawMode) {
         drawingZone = true;
         zoneDrawStartX = e.getX();
@@ -1036,6 +1096,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     });
     previewCanvas.setOnMouseDragged(e -> {
       if (polyDrawMode) return;
+      if (freehandDrawMode && drawingFreehand) {
+        appendFreehandPoint(e.getX(), e.getY());
+        redrawPreview();
+        return;
+      }
       if (zoneDrawMode && drawingZone) {
         zoneDrawEndX = e.getX();
         zoneDrawEndY = e.getY();
@@ -1054,6 +1119,13 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     previewCanvas.setOnMouseReleased(e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
       if (polyDrawMode) return;
+      if (freehandDrawMode && drawingFreehand) {
+        appendFreehandPoint(e.getX(), e.getY());
+        drawingFreehand = false;
+        commitFreehandZone();
+        redrawPreview();
+        return;
+      }
       if (zoneDrawMode && drawingZone) {
         drawingZone = false;
         commitDrawnZone();
@@ -1101,9 +1173,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     Image bg = loadImage(selectedBackgroundTag());
     if (bg != null) {
-      Image tintedBg = buildTintedBackgroundImage(selectedBackgroundTag(), bg);
-      drawCover(g, tintedBg == null ? bg : tintedBg, w, h);
+      Image previewBg = resolvePreviewBackgroundImage(selectedBackgroundTag(), bg);
+      drawCover(g, previewBg == null ? bg : previewBg, w, h);
     } else {
+      cancelBackgroundTintTask();
       drawChecker(g, w, h);
     }
 
@@ -1178,42 +1251,178 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       g.fillText(hint, 8, h - 8);
     }
 
+    if (freehandDrawMode && !freehandPoints.isEmpty()) {
+      g.setStroke(Color.color(0.43, 0.90, 0.95, 0.95));
+      g.setLineWidth(2.4);
+      g.setLineDashes((double[]) null);
+      for (int i = 0; i < freehandPoints.size() - 1; i++) {
+        double[] a = freehandPoints.get(i);
+        double[] b = freehandPoints.get(i + 1);
+        g.strokeLine(a[0], a[1], b[0], b[1]);
+      }
+      if (!drawingFreehand && freehandPoints.size() >= 3) {
+        double[] first = freehandPoints.get(0);
+        double[] last = freehandPoints.get(freehandPoints.size() - 1);
+        g.setLineDashes(4, 3);
+        g.strokeLine(last[0], last[1], first[0], first[1]);
+        g.setLineDashes((double[]) null);
+      }
+      g.setFill(Color.color(0.65, 0.95, 1.0, 0.9));
+      for (double[] pt : freehandPoints) {
+        g.fillOval(pt[0] - 2.0, pt[1] - 2.0, 4.0, 4.0);
+      }
+      g.setFill(Color.color(1, 1, 1, 0.82));
+      g.setTextAlign(TextAlignment.LEFT);
+      String hint = drawingFreehand
+          ? "Freehand: " + freehandPoints.size() + " pts — release to finish"
+          : "Freehand: " + freehandPoints.size() + " pts — draw and release";
+      g.fillText(hint, 8, h - 8);
+    }
+
     previewInfoLabel.setText("Char: " + shortTag(characterTag)
         + "  |  Bg: " + shortTag(selectedBackgroundTag())
         + "  |  Zoom: " + formatNormalized(zoom)
         + "  |  Zones: " + tintZones.size());
   }
 
-  private Image buildTintedBackgroundImage(String tag, Image source) {
+  private Image resolvePreviewBackgroundImage(String tag, Image source) {
     if (source == null) return null;
-    String key = backgroundTintKey(tag, source);
+    BackgroundTintParams params = snapshotBackgroundTintParams();
+    String key = backgroundTintKey(tag, source, params);
+
+    if (params.isIdentity()) {
+      cancelBackgroundTintTask();
+      tintedBackgroundTag = tag;
+      tintedBackgroundKey = key;
+      tintedBackground = source;
+      return source;
+    }
+
     if (Objects.equals(tintedBackgroundTag, tag) && Objects.equals(tintedBackgroundKey, key) && tintedBackground != null) {
+      if (backgroundTintTask == null || !backgroundTintTask.isRunning()) {
+        previewLoadingOverlay.hideOverlay();
+      }
       return tintedBackground;
     }
-    int width = (int) Math.max(1, Math.round(source.getWidth()));
-    int height = (int) Math.max(1, Math.round(source.getHeight()));
-    WritableImage out = new WritableImage(width, height);
-    PixelReader reader = source.getPixelReader();
-    PixelWriter writer = out.getPixelWriter();
-    if (reader == null) return source;
 
-    double tintStrength = clamp(bgTintStrengthSlider.getValue() / 100.0, 0.0, 1.0);
-    double satAdjust = clamp(bgSaturationSlider.getValue() / 100.0, -1.0, 1.0);
-    double conAdjust = clamp(bgContrastSlider.getValue() / 100.0, -1.0, 1.0);
+    ensureBackgroundTintTask(tag, source, key, params);
+    return source;
+  }
+
+  private BackgroundTintParams snapshotBackgroundTintParams() {
     Color tint = bgTintColorPicker.getValue() == null ? Color.WHITE : bgTintColorPicker.getValue();
     Color overlay = bgOverlayColorPicker.getValue() == null ? Color.BLACK : bgOverlayColorPicker.getValue();
-    double overlayOpacity = clamp(bgOverlayOpacitySlider.getValue() / 100.0, 0.0, 1.0);
-    int tintBlend = blendModeIndex(bgTintBlendModeBox.getValue());
-    int overlayBlend = blendModeIndex(bgOverlayBlendModeBox.getValue());
+    String tintBlendMode = canonicalBlendMode(bgTintBlendModeBox.getValue(), "Normal");
+    String overlayBlendMode = canonicalBlendMode(bgOverlayBlendModeBox.getValue(), "Overlay");
+    return new BackgroundTintParams(
+        clamp(bgTintStrengthSlider.getValue() / 100.0, 0.0, 1.0),
+        clamp(bgSaturationSlider.getValue() / 100.0, -1.0, 1.0),
+        clamp(bgContrastSlider.getValue() / 100.0, -1.0, 1.0),
+        tint.getRed(),
+        tint.getGreen(),
+        tint.getBlue(),
+        tintBlendMode,
+        blendModeIndex(tintBlendMode),
+        clamp(bgOverlayOpacitySlider.getValue() / 100.0, 0.0, 1.0),
+        overlay.getRed(),
+        overlay.getGreen(),
+        overlay.getBlue(),
+        overlayBlendMode,
+        blendModeIndex(overlayBlendMode)
+    );
+  }
 
-    double tr = tint.getRed();
-    double tg = tint.getGreen();
-    double tb = tint.getBlue();
-    double or = overlay.getRed();
-    double og = overlay.getGreen();
-    double ob = overlay.getBlue();
+  private void ensureBackgroundTintTask(String tag, Image source, String key, BackgroundTintParams params) {
+    if (backgroundTintTask != null
+        && backgroundTintTask.isRunning()
+        && Objects.equals(backgroundTintTaskTag, tag)
+        && Objects.equals(backgroundTintTaskKey, key)) {
+      previewLoadingOverlay.showDeterminate("Applying background tint...", backgroundTintTask.getProgress());
+      return;
+    }
+
+    cancelBackgroundTintTask();
+    final long serial = ++backgroundTintTaskSerial;
+    Task<Image> task = new Task<>() {
+      @Override
+      protected Image call() {
+        return renderTintedBackgroundImage(
+            source,
+            params,
+            this::isCancelled,
+            progress -> updateProgress(progress, 1.0)
+        );
+      }
+    };
+    backgroundTintTask = task;
+    backgroundTintTaskTag = tag;
+    backgroundTintTaskKey = key;
+    previewLoadingOverlay.showDeterminate("Applying background tint...", 0.0);
+    task.progressProperty().addListener((o, ov, nv) -> {
+      double progress = nv == null ? -1.0 : nv.doubleValue();
+      previewLoadingOverlay.setProgress(progress);
+    });
+    task.setOnSucceeded(e -> {
+      if (serial != backgroundTintTaskSerial) return;
+      Image rendered = task.getValue();
+      if (rendered != null) {
+        tintedBackgroundTag = tag;
+        tintedBackgroundKey = key;
+        tintedBackground = rendered;
+      }
+      backgroundTintTask = null;
+      backgroundTintTaskTag = null;
+      backgroundTintTaskKey = null;
+      previewLoadingOverlay.hideOverlay();
+      redrawPreview();
+    });
+    task.setOnCancelled(e -> {
+      if (serial != backgroundTintTaskSerial) return;
+      backgroundTintTask = null;
+      backgroundTintTaskTag = null;
+      backgroundTintTaskKey = null;
+      previewLoadingOverlay.hideOverlay();
+      redrawPreview();
+    });
+    task.setOnFailed(e -> {
+      if (serial != backgroundTintTaskSerial) return;
+      backgroundTintTask = null;
+      backgroundTintTaskTag = null;
+      backgroundTintTaskKey = null;
+      previewLoadingOverlay.hideOverlay();
+      Throwable ex = task.getException();
+      status("Background tint render failed: " + (ex == null ? "unknown error" : ex.getMessage()));
+      redrawPreview();
+    });
+    Thread renderThread = new Thread(task, "jvn-bg-tint-render");
+    renderThread.setDaemon(true);
+    renderThread.start();
+  }
+
+  private void cancelBackgroundTintTask() {
+    if (backgroundTintTask != null && backgroundTintTask.isRunning()) {
+      backgroundTintTask.cancel();
+    }
+    backgroundTintTask = null;
+    backgroundTintTaskTag = null;
+    backgroundTintTaskKey = null;
+    previewLoadingOverlay.hideOverlay();
+  }
+
+  private static Image renderTintedBackgroundImage(Image source,
+                                                   BackgroundTintParams params,
+                                                   BooleanSupplier isCancelled,
+                                                   DoubleConsumer progressSink) {
+    if (source == null || params == null) return source;
+    int width = (int) Math.max(1, Math.round(source.getWidth()));
+    int height = (int) Math.max(1, Math.round(source.getHeight()));
+    PixelReader reader = source.getPixelReader();
+    if (reader == null) return source;
+    WritableImage out = new WritableImage(width, height);
+    PixelWriter writer = out.getPixelWriter();
 
     for (int y = 0; y < height; y++) {
+      if (isCancelled != null && isCancelled.getAsBoolean()) return null;
       for (int x = 0; x < width; x++) {
         int argb = reader.getArgb(x, y);
         int a = (argb >>> 24) & 0xFF;
@@ -1226,24 +1435,24 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         double b = (argb & 0xFF) / 255.0;
 
         double lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        double zr = lum + (r - lum) * (1.0 + satAdjust);
-        double zg = lum + (g - lum) * (1.0 + satAdjust);
-        double zb = lum + (b - lum) * (1.0 + satAdjust);
-        zr = (zr - 0.5) * (1.0 + conAdjust) + 0.5;
-        zg = (zg - 0.5) * (1.0 + conAdjust) + 0.5;
-        zb = (zb - 0.5) * (1.0 + conAdjust) + 0.5;
-        zr = zr * (1.0 - tintStrength) + tr * tintStrength;
-        zg = zg * (1.0 - tintStrength) + tg * tintStrength;
-        zb = zb * (1.0 - tintStrength) + tb * tintStrength;
+        double zr = lum + (r - lum) * (1.0 + params.satAdjust());
+        double zg = lum + (g - lum) * (1.0 + params.satAdjust());
+        double zb = lum + (b - lum) * (1.0 + params.satAdjust());
+        zr = (zr - 0.5) * (1.0 + params.conAdjust()) + 0.5;
+        zg = (zg - 0.5) * (1.0 + params.conAdjust()) + 0.5;
+        zb = (zb - 0.5) * (1.0 + params.conAdjust()) + 0.5;
+        zr = zr * (1.0 - params.tintStrength()) + params.tr() * params.tintStrength();
+        zg = zg * (1.0 - params.tintStrength()) + params.tg() * params.tintStrength();
+        zb = zb * (1.0 - params.tintStrength()) + params.tb() * params.tintStrength();
 
-        r = applyBlend(r, zr, 1.0, tintBlend);
-        g = applyBlend(g, zg, 1.0, tintBlend);
-        b = applyBlend(b, zb, 1.0, tintBlend);
+        r = applyBlend(r, zr, 1.0, params.tintBlendIndex());
+        g = applyBlend(g, zg, 1.0, params.tintBlendIndex());
+        b = applyBlend(b, zb, 1.0, params.tintBlendIndex());
 
-        if (overlayOpacity > 0.0) {
-          r = applyBlend(r, or, overlayOpacity, overlayBlend);
-          g = applyBlend(g, og, overlayOpacity, overlayBlend);
-          b = applyBlend(b, ob, overlayOpacity, overlayBlend);
+        if (params.overlayOpacity() > 0.0) {
+          r = applyBlend(r, params.or(), params.overlayOpacity(), params.overlayBlendIndex());
+          g = applyBlend(g, params.og(), params.overlayOpacity(), params.overlayBlendIndex());
+          b = applyBlend(b, params.ob(), params.overlayOpacity(), params.overlayBlendIndex());
         }
 
         int rr = (int) Math.round(clamp(r, 0.0, 1.0) * 255.0);
@@ -1251,11 +1460,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         int bb = (int) Math.round(clamp(b, 0.0, 1.0) * 255.0);
         writer.setArgb(x, y, (a << 24) | (rr << 16) | (gg << 8) | bb);
       }
+      if (progressSink != null && ((y & 7) == 0 || y == height - 1)) {
+        progressSink.accept((y + 1) / (double) height);
+      }
     }
-
-    tintedBackgroundTag = tag;
-    tintedBackgroundKey = key;
-    tintedBackground = out;
     return out;
   }
 
@@ -1571,17 +1779,18 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     return sb.toString();
   }
 
-  private String backgroundTintKey(String tag, Image source) {
+  private String backgroundTintKey(String tag, Image source, BackgroundTintParams params) {
+    BackgroundTintParams p = params == null ? snapshotBackgroundTintParams() : params;
     return normalize(tag)
         + "|" + source.getWidth() + "x" + source.getHeight()
-        + "|" + colorToHex(bgTintColorPicker.getValue())
-        + "|" + formatDouble(bgTintStrengthSlider.getValue())
-        + "|" + formatDouble(bgSaturationSlider.getValue())
-        + "|" + formatDouble(bgContrastSlider.getValue())
-        + "|" + canonicalBlendMode(bgTintBlendModeBox.getValue(), "Normal")
-        + "|" + colorToHex(bgOverlayColorPicker.getValue())
-        + "|" + formatDouble(bgOverlayOpacitySlider.getValue())
-        + "|" + canonicalBlendMode(bgOverlayBlendModeBox.getValue(), "Overlay");
+        + "|" + formatDouble(p.tr()) + "," + formatDouble(p.tg()) + "," + formatDouble(p.tb())
+        + "|" + formatDouble(p.tintStrength())
+        + "|" + formatDouble(p.satAdjust())
+        + "|" + formatDouble(p.conAdjust())
+        + "|" + p.tintBlendMode()
+        + "|" + formatDouble(p.or()) + "," + formatDouble(p.og()) + "," + formatDouble(p.ob())
+        + "|" + formatDouble(p.overlayOpacity())
+        + "|" + p.overlayBlendMode();
   }
 
   private Image loadImage(String tag) {
@@ -2350,6 +2559,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     zoneDrawToggleButton = iconButton(CssIcon.rectSelect("#8ab4f8"), "Drag on preview to draw a rectangular zone", this::toggleZoneDrawMode);
     polyDrawToggleButton = iconButton(CssIcon.polygon("#c49cf8"), "Click on preview to place polygon vertices; click near first point or double-click to close", this::togglePolyDrawMode);
+    freehandDrawToggleButton = iconButton(CssIcon.freehand("#7dd3fc"), "Hold and draw to create a smoothed freehand zone", this::toggleFreehandDrawMode);
 
     Button addZoneButton = iconButton(CssIcon.plus("#9ed67a"), "Add zone at center", this::addDefaultZone);
     Button removeZoneButton = iconButton(CssIcon.minus("#f38ba8"), "Remove selected zone", this::removeSelectedZone);
@@ -2357,7 +2567,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     Button moveUpButton = iconButton(CssIcon.arrowUp("#8ab4f8"), "Move zone up in order", this::moveZoneUp);
     Button moveDownButton = iconButton(CssIcon.arrowDown("#8ab4f8"), "Move zone down in order", this::moveZoneDown);
 
-    HBox zoneActions = new HBox(6, zoneDrawToggleButton, polyDrawToggleButton, addZoneButton, removeZoneButton, clearZonesButton, moveUpButton, moveDownButton);
+    HBox zoneActions = new HBox(6, zoneDrawToggleButton, polyDrawToggleButton, freehandDrawToggleButton, addZoneButton, removeZoneButton, clearZonesButton, moveUpButton, moveDownButton);
     zoneActions.setAlignment(Pos.CENTER_LEFT);
 
     // Per-zone controls
@@ -2409,39 +2619,72 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   // ── Zone drawing ──
 
   private void toggleZoneDrawMode() {
-    // Turn off poly mode if active.
+    // Turn off other draw modes if active.
     if (polyDrawMode) {
       polyDrawMode = false;
       nailPoints.clear();
-      resetDrawButtons();
+    }
+    if (freehandDrawMode) {
+      freehandDrawMode = false;
+      drawingFreehand = false;
+      freehandPoints.clear();
     }
     zoneDrawMode = !zoneDrawMode;
     drawingZone = false;
+    resetDrawButtons();
     if (zoneDrawMode) {
       zoneDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
       zoneDrawToggleButton.setGraphic(CssIcon.rectSelect("#1a1a2e"));
       status("Rect draw mode ON — drag on preview to create a rectangular zone.");
     } else {
-      resetDrawButtons();
       status("Draw mode OFF.");
     }
+    redrawPreview();
   }
 
   private void togglePolyDrawMode() {
-    // Turn off rect draw mode if active.
+    // Turn off other draw modes if active.
     if (zoneDrawMode) {
       zoneDrawMode = false;
       drawingZone = false;
-      resetDrawButtons();
+    }
+    if (freehandDrawMode) {
+      freehandDrawMode = false;
+      drawingFreehand = false;
+      freehandPoints.clear();
     }
     polyDrawMode = !polyDrawMode;
     nailPoints.clear();
+    resetDrawButtons();
     if (polyDrawMode) {
       polyDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
       polyDrawToggleButton.setGraphic(CssIcon.polygon("#1a1a2e"));
       status("Polygon draw mode ON — click to place vertices, click first point or double-click to close.");
     } else {
-      resetDrawButtons();
+      status("Draw mode OFF.");
+    }
+    redrawPreview();
+  }
+
+  private void toggleFreehandDrawMode() {
+    // Turn off other draw modes if active.
+    if (zoneDrawMode) {
+      zoneDrawMode = false;
+      drawingZone = false;
+    }
+    if (polyDrawMode) {
+      polyDrawMode = false;
+      nailPoints.clear();
+    }
+    freehandDrawMode = !freehandDrawMode;
+    drawingFreehand = false;
+    freehandPoints.clear();
+    resetDrawButtons();
+    if (freehandDrawMode) {
+      freehandDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
+      freehandDrawToggleButton.setGraphic(CssIcon.freehand("#1a1a2e"));
+      status("Freehand draw mode ON — hold and draw a zone boundary, then release to auto-smooth.");
+    } else {
       status("Draw mode OFF.");
     }
     redrawPreview();
@@ -2452,6 +2695,22 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     zoneDrawToggleButton.setGraphic(CssIcon.rectSelect("#8ab4f8"));
     polyDrawToggleButton.setStyle("-fx-background-color: #2b3445; -fx-padding: 4;");
     polyDrawToggleButton.setGraphic(CssIcon.polygon("#c49cf8"));
+    freehandDrawToggleButton.setStyle("-fx-background-color: #2b3445; -fx-padding: 4;");
+    freehandDrawToggleButton.setGraphic(CssIcon.freehand("#7dd3fc"));
+  }
+
+  private void appendFreehandPoint(double x, double y) {
+    if (freehandPoints.isEmpty()) {
+      freehandPoints.add(new double[]{x, y});
+      return;
+    }
+    double[] last = freehandPoints.get(freehandPoints.size() - 1);
+    double dx = x - last[0];
+    double dy = y - last[1];
+    if ((dx * dx + dy * dy) < (FREEHAND_CAPTURE_MIN_DISTANCE * FREEHAND_CAPTURE_MIN_DISTANCE)) {
+      return;
+    }
+    freehandPoints.add(new double[]{x, y});
   }
 
   private boolean isNearFirstNail(double mx, double my) {
@@ -2566,12 +2825,400 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     status("Created " + zone.name + ".");
   }
 
+  private void commitFreehandZone() {
+    if (freehandPoints.size() < 3) {
+      freehandPoints.clear();
+      status("Freehand stroke too short.");
+      return;
+    }
+    Image img = loadImage(selectedCharacterTag());
+    if (img == null) {
+      freehandPoints.clear();
+      status("No character image to place zone on.");
+      return;
+    }
+    double iw = Math.max(1.0, img.getWidth());
+    double ih = Math.max(1.0, img.getHeight());
+    double cw = previewCanvas.getWidth();
+    double ch = previewCanvas.getHeight();
+    double drawW = iw * zoom;
+    double drawH = ih * zoom;
+    double drawX = (cw - drawW) * 0.5 + offsetX;
+    double drawY = (ch - drawH) * 0.5 + offsetY;
+
+    // Convert canvas coords to image pixel coordinates for stroke processing.
+    List<double[]> strokePx = new ArrayList<>();
+    for (double[] pt : freehandPoints) {
+      double px = clamp((pt[0] - drawX) / drawW, 0.0, 1.0) * iw;
+      double py = clamp((pt[1] - drawY) / drawH, 0.0, 1.0) * ih;
+      strokePx.add(new double[]{px, py});
+    }
+    List<double[]> smoothPx = smoothFreehandStroke(
+        strokePx,
+        FREEHAND_CLOSE_DISTANCE,
+        FREEHAND_RESAMPLE_STEP,
+        FREEHAND_SPLINE_STEP,
+        FREEHAND_SIMPLIFY_EPSILON,
+        FREEHAND_MAX_VERTICES
+    );
+    if (smoothPx.size() < 3) {
+      freehandPoints.clear();
+      status("Freehand stroke did not form a valid zone.");
+      return;
+    }
+
+    List<double[]> fracPoly = new ArrayList<>();
+    double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
+    double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
+    for (double[] pt : smoothPx) {
+      double fx = clamp(pt[0] / iw, 0.0, 1.0);
+      double fy = clamp(pt[1] / ih, 0.0, 1.0);
+      fracPoly.add(new double[]{fx, fy});
+      if (fx < minX) minX = fx;
+      if (fy < minY) minY = fy;
+      if (fx > maxX) maxX = fx;
+      if (fy > maxY) maxY = fy;
+    }
+    double bw = maxX - minX;
+    double bh = maxY - minY;
+    double area = polygonAreaAbs(fracPoly);
+    if (bw < 0.005 || bh < 0.005 || area < 0.00005) {
+      freehandPoints.clear();
+      status("Freehand zone too small.");
+      return;
+    }
+
+    TintZone zone = new TintZone("Stroke " + (tintZones.size() + 1), minX, minY, bw, bh);
+    zone.polygon = fracPoly;
+    zone.color = zoneColorPicker.getValue() == null ? Color.web("#ff8844") : zoneColorPicker.getValue();
+    zone.strength = zoneStrengthSlider.getValue();
+    zone.saturation = zoneSaturationSlider.getValue();
+    zone.contrast = zoneContrastSlider.getValue();
+    zone.feather = zoneFeatherSlider.getValue();
+    zone.blendMode = canonicalBlendMode(zoneBlendModeBox.getValue(), "Normal");
+    tintZones.add(zone);
+    freehandPoints.clear();
+    invalidateTintCache();
+    refreshZoneList();
+    selectZone(tintZones.size() - 1);
+    persistZones();
+    status("Created freehand " + zone.name + " (" + zone.polygon.size() + " vertices from " + strokePx.size() + " samples).");
+  }
+
+  static List<double[]> smoothFreehandStroke(List<double[]> rawStroke,
+                                             double closeDistancePx,
+                                             double resampleStepPx,
+                                             double splineStepPx,
+                                             double simplifyEpsilonPx,
+                                             int maxVertices) {
+    if (rawStroke == null || rawStroke.size() < 3) return List.of();
+    List<double[]> deduped = dedupeSequentialPoints(rawStroke, 0.75);
+    if (deduped.size() < 3) return List.of();
+
+    List<double[]> ring = toClosedRing(deduped, closeDistancePx);
+    if (ring.size() < 3) return List.of();
+
+    List<double[]> resampled = resampleClosedRing(ring, Math.max(0.75, resampleStepPx));
+    if (resampled.size() < 3) return List.of();
+
+    List<double[]> spline = catmullRomClosed(resampled, Math.max(0.6, splineStepPx));
+    if (spline.size() < 3) return List.of();
+
+    double epsilon = Math.max(0.2, simplifyEpsilonPx);
+    List<double[]> simplified = simplifyClosedRingRdp(spline, epsilon);
+    while (simplified.size() > Math.max(3, maxVertices) && epsilon < 20.0) {
+      epsilon *= 1.25;
+      simplified = simplifyClosedRingRdp(spline, epsilon);
+    }
+    if (simplified.size() > Math.max(3, maxVertices)) {
+      simplified = downsampleRing(simplified, Math.max(3, maxVertices));
+    }
+    return simplified;
+  }
+
+  private static List<double[]> dedupeSequentialPoints(List<double[]> points, double minDistance) {
+    if (points == null || points.isEmpty()) return List.of();
+    double minDistSq = minDistance * minDistance;
+    List<double[]> out = new ArrayList<>();
+    for (double[] src : points) {
+      if (src == null || src.length < 2) continue;
+      double[] p = new double[]{src[0], src[1]};
+      if (out.isEmpty()) {
+        out.add(p);
+        continue;
+      }
+      double[] last = out.get(out.size() - 1);
+      double dx = p[0] - last[0];
+      double dy = p[1] - last[1];
+      if ((dx * dx + dy * dy) >= minDistSq) {
+        out.add(p);
+      }
+    }
+    return out;
+  }
+
+  private static List<double[]> toClosedRing(List<double[]> points, double closeDistance) {
+    List<double[]> ring = dedupeSequentialPoints(points, 0.0001);
+    if (ring.size() < 3) return List.of();
+    double[] first = ring.get(0);
+    double[] last = ring.get(ring.size() - 1);
+    double dx = first[0] - last[0];
+    double dy = first[1] - last[1];
+    double closeDistSq = closeDistance * closeDistance;
+    if ((dx * dx + dy * dy) <= closeDistSq) {
+      ring.set(ring.size() - 1, new double[]{first[0], first[1]});
+    } else {
+      ring.add(new double[]{first[0], first[1]});
+    }
+    return ring;
+  }
+
+  private static List<double[]> normalizeRing(List<double[]> closedPoints) {
+    if (closedPoints == null || closedPoints.isEmpty()) return List.of();
+    List<double[]> out = new ArrayList<>();
+    for (double[] p : closedPoints) {
+      if (p == null || p.length < 2) continue;
+      out.add(new double[]{p[0], p[1]});
+    }
+    if (out.size() < 3) return List.of();
+    if (out.size() > 1) {
+      double[] first = out.get(0);
+      double[] last = out.get(out.size() - 1);
+      if (distanceSq(first, last) < 1e-6) out.remove(out.size() - 1);
+    }
+    if (out.size() < 3) return List.of();
+    return out;
+  }
+
+  private static List<double[]> resampleClosedRing(List<double[]> closedPoints, double step) {
+    List<double[]> ring = normalizeRing(closedPoints);
+    int n = ring.size();
+    if (n < 3) return List.of();
+    if (step <= 0.0) return ring;
+
+    double[] cumulative = new double[n + 1];
+    cumulative[0] = 0.0;
+    for (int i = 0; i < n; i++) {
+      double[] a = ring.get(i);
+      double[] b = ring.get((i + 1) % n);
+      cumulative[i + 1] = cumulative[i] + Math.sqrt(distanceSq(a, b));
+    }
+    double totalLength = cumulative[n];
+    if (totalLength <= 1e-6) return ring;
+
+    int samples = Math.max(3, (int) Math.round(totalLength / step));
+    List<double[]> out = new ArrayList<>(samples);
+    int seg = 0;
+    for (int i = 0; i < samples; i++) {
+      double target = (i * totalLength) / samples;
+      while (seg < n - 1 && target > cumulative[seg + 1]) seg++;
+      double segStart = cumulative[seg];
+      double segEnd = cumulative[seg + 1];
+      double segLen = Math.max(segEnd - segStart, 1e-6);
+      double t = clamp((target - segStart) / segLen, 0.0, 1.0);
+      double[] a = ring.get(seg);
+      double[] b = ring.get((seg + 1) % n);
+      out.add(new double[]{
+          a[0] + (b[0] - a[0]) * t,
+          a[1] + (b[1] - a[1]) * t
+      });
+    }
+    return out;
+  }
+
+  private static List<double[]> catmullRomClosed(List<double[]> closedPoints, double targetStep) {
+    List<double[]> ring = normalizeRing(closedPoints);
+    int n = ring.size();
+    if (n < 3) return List.of();
+
+    List<double[]> out = new ArrayList<>();
+    for (int i = 0; i < n; i++) {
+      double[] p0 = ring.get((i - 1 + n) % n);
+      double[] p1 = ring.get(i);
+      double[] p2 = ring.get((i + 1) % n);
+      double[] p3 = ring.get((i + 2) % n);
+      double segmentLength = Math.sqrt(distanceSq(p1, p2));
+      int subdivisions = Math.max(1, Math.min(16, (int) Math.ceil(segmentLength / Math.max(0.4, targetStep))));
+      for (int s = 0; s < subdivisions; s++) {
+        double t = s / (double) subdivisions;
+        out.add(catmullRomPoint(p0, p1, p2, p3, t));
+      }
+    }
+    return dedupeSequentialPoints(out, 0.35);
+  }
+
+  private static double[] catmullRomPoint(double[] p0, double[] p1, double[] p2, double[] p3, double t) {
+    final double alpha = 0.5;
+    double t0 = 0.0;
+    double t1 = t0 + Math.pow(Math.sqrt(distanceSq(p0, p1)), alpha);
+    double t2 = t1 + Math.pow(Math.sqrt(distanceSq(p1, p2)), alpha);
+    double t3 = t2 + Math.pow(Math.sqrt(distanceSq(p2, p3)), alpha);
+    if (Math.abs(t1 - t0) < 1e-6) t1 = t0 + 1e-6;
+    if (Math.abs(t2 - t1) < 1e-6) t2 = t1 + 1e-6;
+    if (Math.abs(t3 - t2) < 1e-6) t3 = t2 + 1e-6;
+
+    double tt = t1 + (t2 - t1) * clamp(t, 0.0, 1.0);
+    double[] a1 = lerp(p0, p1, (tt - t0) / (t1 - t0));
+    double[] a2 = lerp(p1, p2, (tt - t1) / (t2 - t1));
+    double[] a3 = lerp(p2, p3, (tt - t2) / (t3 - t2));
+    double[] b1 = lerp(a1, a2, (tt - t0) / (t2 - t0));
+    double[] b2 = lerp(a2, a3, (tt - t1) / (t3 - t1));
+    return lerp(b1, b2, (tt - t1) / (t2 - t1));
+  }
+
+  private static double[] lerp(double[] a, double[] b, double t) {
+    double clamped = clamp(t, 0.0, 1.0);
+    return new double[]{
+        a[0] + (b[0] - a[0]) * clamped,
+        a[1] + (b[1] - a[1]) * clamped
+    };
+  }
+
+  private static List<double[]> simplifyClosedRingRdp(List<double[]> closedPoints, double epsilon) {
+    List<double[]> ring = normalizeRing(closedPoints);
+    if (ring.size() < 4 || epsilon <= 0.0) return ring;
+
+    int start = farthestFromCentroidIndex(ring);
+    List<double[]> rotated = rotateRing(ring, start);
+    List<double[]> open = new ArrayList<>(rotated);
+    open.add(new double[]{rotated.get(0)[0], rotated.get(0)[1]});
+
+    List<double[]> simplifiedOpen = simplifyPolylineRdp(open, epsilon);
+    if (!simplifiedOpen.isEmpty()) simplifiedOpen.remove(simplifiedOpen.size() - 1);
+    if (simplifiedOpen.size() < 3) return ring;
+    return simplifiedOpen;
+  }
+
+  private static int farthestFromCentroidIndex(List<double[]> points) {
+    double cx = 0.0;
+    double cy = 0.0;
+    for (double[] p : points) {
+      cx += p[0];
+      cy += p[1];
+    }
+    cx /= points.size();
+    cy /= points.size();
+    int bestIndex = 0;
+    double bestDistSq = -1.0;
+    for (int i = 0; i < points.size(); i++) {
+      double[] p = points.get(i);
+      double dx = p[0] - cx;
+      double dy = p[1] - cy;
+      double d = dx * dx + dy * dy;
+      if (d > bestDistSq) {
+        bestDistSq = d;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
+  }
+
+  private static List<double[]> rotateRing(List<double[]> points, int startIndex) {
+    int n = points.size();
+    List<double[]> out = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      double[] p = points.get((startIndex + i) % n);
+      out.add(new double[]{p[0], p[1]});
+    }
+    return out;
+  }
+
+  private static List<double[]> simplifyPolylineRdp(List<double[]> points, double epsilon) {
+    int n = points.size();
+    if (n <= 2) return points;
+    boolean[] keep = new boolean[n];
+    keep[0] = true;
+    keep[n - 1] = true;
+    rdpMark(points, 0, n - 1, epsilon * epsilon, keep);
+    List<double[]> out = new ArrayList<>();
+    for (int i = 0; i < n; i++) {
+      if (keep[i]) {
+        double[] p = points.get(i);
+        out.add(new double[]{p[0], p[1]});
+      }
+    }
+    return out;
+  }
+
+  private static void rdpMark(List<double[]> points, int start, int end, double epsilonSq, boolean[] keep) {
+    if (end <= start + 1) return;
+    double[] a = points.get(start);
+    double[] b = points.get(end);
+    int farthest = -1;
+    double maxDistSq = -1.0;
+    for (int i = start + 1; i < end; i++) {
+      double d = pointToSegmentDistSq(points.get(i), a, b);
+      if (d > maxDistSq) {
+        maxDistSq = d;
+        farthest = i;
+      }
+    }
+    if (farthest >= 0 && maxDistSq > epsilonSq) {
+      keep[farthest] = true;
+      rdpMark(points, start, farthest, epsilonSq, keep);
+      rdpMark(points, farthest, end, epsilonSq, keep);
+    }
+  }
+
+  private static double pointToSegmentDistSq(double[] p, double[] a, double[] b) {
+    double dx = b[0] - a[0];
+    double dy = b[1] - a[1];
+    double lenSq = dx * dx + dy * dy;
+    if (lenSq < 1e-12) {
+      double px = p[0] - a[0];
+      double py = p[1] - a[1];
+      return px * px + py * py;
+    }
+    double t = clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq, 0.0, 1.0);
+    double cx = a[0] + t * dx;
+    double cy = a[1] + t * dy;
+    double px = p[0] - cx;
+    double py = p[1] - cy;
+    return px * px + py * py;
+  }
+
+  private static List<double[]> downsampleRing(List<double[]> points, int maxVertices) {
+    if (points.size() <= maxVertices) return points;
+    List<double[]> out = new ArrayList<>(maxVertices);
+    double step = points.size() / (double) maxVertices;
+    for (int i = 0; i < maxVertices; i++) {
+      int idx = Math.min(points.size() - 1, (int) Math.floor(i * step));
+      double[] p = points.get(idx);
+      out.add(new double[]{p[0], p[1]});
+    }
+    return out;
+  }
+
+  private static double polygonAreaAbs(List<double[]> polygon) {
+    if (polygon == null || polygon.size() < 3) return 0.0;
+    double area = 0.0;
+    int n = polygon.size();
+    for (int i = 0; i < n; i++) {
+      double[] a = polygon.get(i);
+      double[] b = polygon.get((i + 1) % n);
+      area += a[0] * b[1] - b[0] * a[1];
+    }
+    return Math.abs(area) * 0.5;
+  }
+
+  private static double distanceSq(double[] a, double[] b) {
+    double dx = a[0] - b[0];
+    double dy = a[1] - b[1];
+    return dx * dx + dy * dy;
+  }
+
   // ── Zone management ──
 
   private void addDefaultZone() {
     // If polygon nail points are active, commit them as a polygon zone.
     if (polyDrawMode && nailPoints.size() >= 3) {
       commitPolygonZone();
+      return;
+    }
+    if (freehandDrawMode && freehandPoints.size() >= 3) {
+      drawingFreehand = false;
+      commitFreehandZone();
+      redrawPreview();
       return;
     }
     TintZone zone = new TintZone("Zone " + (tintZones.size() + 1), 0.25, 0.25, 0.5, 0.5);
@@ -2704,6 +3351,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void invalidateBackgroundTintCache() {
+    cancelBackgroundTintTask();
     tintedBackgroundTag = null;
     tintedBackgroundKey = null;
     tintedBackground = null;

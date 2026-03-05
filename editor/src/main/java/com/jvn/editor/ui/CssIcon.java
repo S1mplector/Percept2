@@ -64,6 +64,8 @@ public final class CssIcon {
       "M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z";
   private static final String PATH_POLYGON =
       "M12 2l10 7.5-4 12H6L2 9.5z";
+  private static final String PATH_FREEHAND =
+      "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm14.71-9.04c.39-.39.39-1.02 0-1.41l-2.5-2.5a.996.996 0 0 0-1.41 0l-1.96 1.96 3.75 3.75 2.12-2.12z";
   private static final String PATH_VISIBILITY =
       "M12 6.5c-4.77 0-8.8 2.94-10.5 7.5 1.7 4.56 5.73 7.5 10.5 7.5s8.8-2.94 10.5-7.5c-1.7-4.56-5.73-7.5-10.5-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z";
   private static final String PATH_VISIBILITY_OFF =
@@ -96,6 +98,7 @@ public final class CssIcon {
   public static Region dock(String color)      { return icon(PATH_DOCK, color, 14); }
   public static Region rectSelect(String color) { return icon(PATH_RECT_SELECT, color, 14); }
   public static Region polygon(String color)    { return icon(PATH_POLYGON, color, 14); }
+  public static Region freehand(String color)   { return icon(PATH_FREEHAND, color, 14); }
   public static Region visibility(String color) { return icon(PATH_VISIBILITY, color, 14); }
   public static Region visibilityOff(String color) { return icon(PATH_VISIBILITY_OFF, color, 14); }
 
@@ -125,6 +128,7 @@ public final class CssIcon {
   public static Region dock()     { return dock("#b0b8c8"); }
   public static Region rectSelect(){ return rectSelect("#b0b8c8"); }
   public static Region polygon()  { return polygon("#b0b8c8"); }
+  public static Region freehand() { return freehand("#b0b8c8"); }
   public static Region visibility() { return visibility("#b0b8c8"); }
   public static Region visibilityOff() { return visibilityOff("#b0b8c8"); }
 
