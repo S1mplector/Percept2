@@ -669,6 +669,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       persisted.setProperty(zp + "feather", formatDouble(z.feather));
       persisted.setProperty(zp + "rotation", formatDouble(z.rotation));
       persisted.setProperty(zp + "blendMode", z.blendMode == null ? "Normal" : z.blendMode);
+      persisted.setProperty(zp + "overlayVisible", Boolean.toString(z.overlayVisible));
       if (z.isPolygon()) {
         StringBuilder polyStr = new StringBuilder();
         for (int p = 0; p < z.polygon.size(); p++) {
@@ -1863,6 +1864,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     double feather;    // 0..100
     double rotation;   // degrees, -180..180 (only for rectangles)
     String blendMode;  // one of BLEND_MODES
+    boolean overlayVisible; // preview overlay visibility only; tint effect remains active
     List<double[]> polygon; // fractional image coords (x,y pairs); null or <3 = rectangle
 
     TintZone(String name, double bx, double by, double bw, double bh) {
@@ -1878,6 +1880,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       this.feather = 15;
       this.rotation = 0;
       this.blendMode = "Normal";
+      this.overlayVisible = true;
       this.polygon = null;
     }
 
@@ -1910,14 +1913,50 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     zoneListView.setMaxHeight(140);
     zoneListView.setStyle("-fx-background-color: #1a2233; -fx-border-color: #2b3445;");
     zoneListView.setCellFactory(lv -> new ListCell<TintZone>() {
+      private final Label textLabel = new Label();
+      private final Region spacer = new Region();
+      private final Button visibilityButton = new Button();
+      private final HBox row = new HBox(6, textLabel, spacer, visibilityButton);
+
+      {
+        textLabel.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        visibilityButton.setFocusTraversable(false);
+        visibilityButton.setMinSize(22, 22);
+        visibilityButton.setPrefSize(22, 22);
+        visibilityButton.setMaxSize(22, 22);
+        visibilityButton.setStyle("-fx-background-color: transparent; -fx-padding: 2;");
+        visibilityButton.setOnAction(e -> {
+          TintZone zone = getItem();
+          if (zone == null) return;
+          zone.overlayVisible = !zone.overlayVisible;
+          updateVisibilityButton(zone.overlayVisible);
+          zoneListView.refresh();
+          persistZones();
+          redrawPreview();
+          status((zone.overlayVisible ? "Showing" : "Hiding") + " bounds for " + (zone.name == null ? "zone" : zone.name) + ".");
+          e.consume();
+        });
+      }
+
+      private void updateVisibilityButton(boolean visible) {
+        visibilityButton.setGraphic(visible ? CssIcon.visibility("#8ab4f8") : CssIcon.visibilityOff("#6b7280"));
+        visibilityButton.setTooltip(new Tooltip(visible ? "Hide bounds overlay" : "Show bounds overlay"));
+      }
+
       @Override protected void updateItem(TintZone item, boolean empty) {
         super.updateItem(item, empty);
         if (empty || item == null) {
           setText(null);
+          setGraphic(null);
           setStyle("");
         } else {
-          setText(item.toString());
+          setText(null);
+          textLabel.setText(item.toString());
+          updateVisibilityButton(item.overlayVisible);
+          setGraphic(row);
           boolean sel = getIndex() == selectedZoneIndex;
+          textLabel.setStyle(sel ? "-fx-text-fill: #e2e8f0;" : "-fx-text-fill: #c8d0dc;");
           setStyle(sel
               ? "-fx-background-color: #2a4a6b; -fx-text-fill: #e2e8f0;"
               : "-fx-text-fill: #c8d0dc;");
@@ -2290,6 +2329,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void drawZoneOverlays(GraphicsContext g, Image img, double drawX, double drawY, double drawW, double drawH) {
     for (int i = 0; i < tintZones.size(); i++) {
       TintZone zone = tintZones.get(i);
+      if (!zone.overlayVisible) continue;
       boolean selected = (i == selectedZoneIndex);
       Color zc = zone.color == null ? Color.web("#ff8844") : zone.color;
 
@@ -2396,6 +2436,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       persisted.setProperty(zonePrefix + "feather", formatDouble(z.feather));
       persisted.setProperty(zonePrefix + "rotation", formatDouble(z.rotation));
       persisted.setProperty(zonePrefix + "blendMode", z.blendMode == null ? "Normal" : z.blendMode);
+      persisted.setProperty(zonePrefix + "overlayVisible", Boolean.toString(z.overlayVisible));
       if (z.isPolygon()) {
         StringBuilder polyStr = new StringBuilder();
         for (int p = 0; p < z.polygon.size(); p++) {
@@ -2489,6 +2530,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     z.rotation = parseDouble(props.getProperty(prefix + "rotation"), 0);
     String bm = props.getProperty(prefix + "blendMode", "Normal");
     z.blendMode = (bm == null || bm.isBlank()) ? "Normal" : bm;
+    z.overlayVisible = parseBoolean(props.getProperty(prefix + "overlayVisible"), true);
     String polyRaw = props.getProperty(prefix + "polygon", "");
     if (polyRaw != null && !polyRaw.isBlank()) {
       List<double[]> pts = new ArrayList<>();
@@ -2651,6 +2693,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     z.rotation = parseDouble(props.getProperty(prefix + "rotation"), 0);
     String bm = props.getProperty(prefix + "blend", "Normal");
     z.blendMode = (bm == null || bm.isBlank()) ? "Normal" : bm;
+    z.overlayVisible = parseBoolean(
+        props.getProperty(prefix + "overlayVisible", props.getProperty(prefix + "visible")),
+        true
+    );
     String polyRaw = props.getProperty(prefix + "polygon", "");
     if (polyRaw != null && !polyRaw.isBlank()) {
       List<double[]> pts = new ArrayList<>();
@@ -2697,6 +2743,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         out.append(p).append("feather=").append(formatNormalized(tz.feather / 100.0)).append('\n');
         out.append(p).append("rotation=").append(formatNormalized(tz.rotation)).append('\n');
         out.append(p).append("blend=").append(tz.blendMode == null ? "Normal" : tz.blendMode).append('\n');
+        out.append(p).append("visible=").append(tz.overlayVisible).append('\n');
         if (tz.isPolygon()) {
           StringBuilder polyStr = new StringBuilder();
           for (int pi = 0; pi < tz.polygon.size(); pi++) {
