@@ -85,6 +85,20 @@ public class AnimationPreview extends VBox {
         }
     }
 
+    private static final class BackgroundSourceCandidate {
+        final Entity2D entity;
+        final String imagePath;
+        final double naturalWidth;
+        final double naturalHeight;
+
+        BackgroundSourceCandidate(Entity2D entity, String imagePath, double naturalWidth, double naturalHeight) {
+            this.entity = entity;
+            this.imagePath = imagePath;
+            this.naturalWidth = naturalWidth;
+            this.naturalHeight = naturalHeight;
+        }
+    }
+
     private final Canvas canvas;
     private final GraphicsContext gc;
     private final FxBlitter2D blitter;
@@ -144,10 +158,14 @@ public class AnimationPreview extends VBox {
     private ScrollZoomMode scrollZoomMode = ScrollZoomMode.VIEW;
     private java.io.File projectRoot;
     private final Map<String, double[]> sourceImageSizeCache = new HashMap<>();
+    private final Map<String, Image> sourceImageCache = new HashMap<>();
+    private final Set<String> missingSourceImagePaths = new HashSet<>();
 
     public void setProjectRoot(java.io.File root) {
         projectRoot = root;
         sourceImageSizeCache.clear();
+        sourceImageCache.clear();
+        missingSourceImagePaths.clear();
         blitter.setProjectRoot(root);
         viewportSpec = ProjectViewportSpec.resolve(root);
         render();
@@ -230,6 +248,7 @@ public class AnimationPreview extends VBox {
 
         blitter.setViewport(viewportLogicalWidth, viewportLogicalHeight);
         if (scene != null) {
+            drawBackgroundSourceOverflowReference();
             Camera2D activeCamera = scene.getCamera();
             scene.setCamera(null);
             try {
@@ -386,41 +405,16 @@ public class AnimationPreview extends VBox {
         backgroundBoundsAccumulator[1] = minY;
         backgroundBoundsAccumulator[2] = maxX;
         backgroundBoundsAccumulator[3] = maxY;
-        if (scene == null) return;
-
-        Entity2D bestEntity = null;
-        double bestRank = -1.0;
-        for (Entity2D entity : scene.getChildren()) {
-            if (!(entity instanceof com.jvn.core.scene2d.Sprite2D sprite)) continue;
-            String path = sprite.getImagePath();
-            if (path == null || path.isBlank()) continue;
-            double[] natural = resolveImageSize(path);
-            if (natural == null) continue;
-            double spriteW = Math.max(1.0, sprite.getWidth());
-            double spriteH = Math.max(1.0, sprite.getHeight());
-            if (natural[0] <= spriteW * 1.01 && natural[1] <= spriteH * 1.01) continue;
-
-            boolean likelyBackground = isLikelyBackground(path)
-                || spriteW * spriteH >= viewportLogicalWidth * viewportLogicalHeight * 0.35;
-            if (!likelyBackground) continue;
-            double rank = natural[0] * natural[1];
-            if (rank > bestRank) {
-                bestRank = rank;
-                bestEntity = entity;
-            }
-        }
-
-        if (!(bestEntity instanceof com.jvn.core.scene2d.Sprite2D bestSprite)) return;
-        double[] natural = resolveImageSize(bestSprite.getImagePath());
-        if (natural == null) return;
-        EntityFrame frame = describeEntity(bestEntity);
+        BackgroundSourceCandidate candidate = findBestBackgroundSourceCandidate();
+        if (candidate == null) return;
+        EntityFrame frame = describeEntity(candidate.entity);
         if (frame == null) return;
 
         EntityFrame fullSourceFrame = new EntityFrame(
             frame.x,
             frame.y,
-            natural[0],
-            natural[1],
+            candidate.naturalWidth,
+            candidate.naturalHeight,
             frame.originX,
             frame.originY,
             frame.scaleX,
@@ -438,6 +432,60 @@ public class AnimationPreview extends VBox {
         }
     }
 
+    private BackgroundSourceCandidate findBestBackgroundSourceCandidate() {
+        if (scene == null) return null;
+        BackgroundSourceCandidate best = null;
+        double bestRank = -1.0;
+
+        for (Entity2D entity : scene.getChildren()) {
+            if (!(entity instanceof com.jvn.core.scene2d.Sprite2D sprite)) continue;
+            String path = sprite.getImagePath();
+            if (path == null || path.isBlank()) continue;
+
+            double[] natural = resolveImageSize(path);
+            if (natural == null) continue;
+
+            double spriteW = Math.max(1.0, sprite.getWidth());
+            double spriteH = Math.max(1.0, sprite.getHeight());
+            boolean hasOverflow = natural[0] > spriteW * 1.01 || natural[1] > spriteH * 1.01;
+            if (!hasOverflow) continue;
+
+            boolean likelyBackground = isLikelyBackground(path)
+                || spriteW * spriteH >= viewportLogicalWidth * viewportLogicalHeight * 0.35;
+            if (!likelyBackground) continue;
+
+            double rank = natural[0] * natural[1];
+            if (best == null || rank > bestRank) {
+                bestRank = rank;
+                best = new BackgroundSourceCandidate(entity, path, natural[0], natural[1]);
+            }
+        }
+        return best;
+    }
+
+    private void drawBackgroundSourceOverflowReference() {
+        BackgroundSourceCandidate candidate = findBestBackgroundSourceCandidate();
+        if (candidate == null) return;
+
+        Image image = resolveSourceImage(candidate.imagePath);
+        if (image == null) return;
+
+        EntityFrame frame = describeEntity(candidate.entity);
+        if (frame == null) return;
+
+        double left = -frame.originX * candidate.naturalWidth;
+        double top = -frame.originY * candidate.naturalHeight;
+
+        gc.save();
+        gc.translate(frame.x, frame.y);
+        gc.rotate(Math.toDegrees(frame.rotationRad));
+        gc.scale(frame.scaleX, frame.scaleY);
+        gc.setGlobalAlpha(0.38);
+        gc.drawImage(image, left, top, candidate.naturalWidth, candidate.naturalHeight);
+        gc.setGlobalAlpha(1.0);
+        gc.restore();
+    }
+
     private boolean isLikelyBackground(String path) {
         String p = path == null ? "" : path.toLowerCase();
         return p.contains("background") || p.contains("/bg") || p.contains("_bg") || p.contains("backdrop");
@@ -450,7 +498,7 @@ public class AnimationPreview extends VBox {
             double[] cached = sourceImageSizeCache.get(key);
             return cached[0] > 0 && cached[1] > 0 ? cached : null;
         }
-        Image image = loadImageByPath(key);
+        Image image = resolveSourceImage(key);
         double[] size;
         if (image != null && image.getWidth() > 1 && image.getHeight() > 1) {
             size = new double[] { image.getWidth(), image.getHeight() };
@@ -459,6 +507,22 @@ public class AnimationPreview extends VBox {
         }
         sourceImageSizeCache.put(key, size);
         return size[0] > 0 && size[1] > 0 ? size : null;
+    }
+
+    private Image resolveSourceImage(String imagePath) {
+        if (imagePath == null || imagePath.isBlank()) return null;
+        String key = imagePath.trim();
+        Image cached = sourceImageCache.get(key);
+        if (cached != null) return cached;
+        if (missingSourceImagePaths.contains(key)) return null;
+
+        Image loaded = loadImageByPath(key);
+        if (loaded != null && loaded.getWidth() > 1 && loaded.getHeight() > 1) {
+            sourceImageCache.put(key, loaded);
+            return loaded;
+        }
+        missingSourceImagePaths.add(key);
+        return null;
     }
 
     private Image loadImageByPath(String path) {
