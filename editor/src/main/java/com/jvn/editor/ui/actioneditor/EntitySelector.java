@@ -1,5 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -22,6 +24,7 @@ import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
@@ -364,16 +367,28 @@ public class EntitySelector extends VBox {
         } else {
             if (onEntityLayerDelta != null) onEntityLayerDelta.accept(name, delta);
         }
+        treeView.refresh();
     }
 
     private class EntityTreeCell extends TreeCell<String> {
         private final Canvas icon = new Canvas(16, 16);
         private final Label label = new Label();
-        private final HBox row = new HBox(4, icon, label);
+        private final Region spacer = new Region();
+        private final Label layerBadge = new Label();
+        private final HBox row = new HBox(6, icon, label, spacer, layerBadge);
 
         EntityTreeCell() {
             row.setAlignment(Pos.CENTER_LEFT);
             label.setStyle("-fx-font-size: 11px;");
+            label.setMaxWidth(Double.MAX_VALUE);
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            layerBadge.setStyle(
+                "-fx-font-size: 10px; -fx-text-fill: #8a8f98; " +
+                "-fx-background-color: #15181f; -fx-background-radius: 9; " +
+                "-fx-border-color: #2b3240; -fx-border-radius: 9; -fx-padding: 1 7;"
+            );
+            layerBadge.setMinWidth(52);
+            layerBadge.setAlignment(Pos.CENTER_RIGHT);
         }
 
         @Override
@@ -387,10 +402,35 @@ public class EntitySelector extends VBox {
                 boolean isGroup = isEncodedGroupValue(item);
                 label.setText(isGroup ? "📁 " + name : name);
                 label.setTextFill(isGroup ? Color.web("#f0b673") : Color.web("#e6e6e6"));
+                layerBadge.setText(formatLayerBadge(name, isGroup));
                 drawEntityIcon(icon.getGraphicsContext2D(), name, isGroup);
                 setText(null);
                 setGraphic(row);
             }
+        }
+
+        private String formatLayerBadge(String name, boolean isGroup) {
+            int value = computeLayerValue(name, isGroup);
+            return value >= 0 ? "Z +" + value : "Z " + value;
+        }
+
+        private int computeLayerValue(String name, boolean isGroup) {
+            if (project == null || name == null || name.isBlank()) return 0;
+            if (!isGroup) return project.computeEffectiveLayerOrder(name);
+
+            EntityGroup group = project.getGroup(name);
+            if (group == null) return 0;
+
+            int total = 0;
+            Set<String> visited = new HashSet<>();
+            String cursor = group.getName();
+            while (cursor != null && visited.add(cursor)) {
+                EntityGroup current = project.getGroup(cursor);
+                if (current == null) break;
+                total += current.getLayerOrder();
+                cursor = current.getParentGroupName();
+            }
+            return total;
         }
 
         private void drawEntityIcon(GraphicsContext gc, String name, boolean isGroup) {
