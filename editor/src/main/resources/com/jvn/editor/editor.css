@@ -1244,6 +1244,30 @@
   -fx-font-size: 12px;
 }
 
+.help-md-image-block {
+  -fx-padding: 4 0 6 0;
+  -fx-spacing: 6;
+}
+
+.help-md-image-frame {
+  -fx-padding: 4;
+  -fx-background-color: #0f131a;
+  -fx-border-color: #2a3240;
+  -fx-border-width: 1;
+  -fx-background-radius: 6;
+  -fx-border-radius: 6;
+}
+
+.help-md-image-caption {
+  -fx-text-fill: #9fb0c8;
+  -fx-font-size: 12px;
+}
+
+.help-md-image-missing {
+  -fx-text-fill: #f6c177;
+  -fx-font-size: 12px;
+}
+
 /* === Puppeteer dark-theme overrides for JavaFX controls === */
 
 /* TreeView */

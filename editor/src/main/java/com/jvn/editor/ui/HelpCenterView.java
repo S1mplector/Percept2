@@ -13,12 +13,15 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
@@ -56,6 +59,7 @@ public class HelpCenterView extends BorderPane {
   private static final Pattern ORDERED_LIST_LINE = Pattern.compile("^\\s*(\\d+)\\.\\s+(.*)$");
   private static final Pattern HORIZONTAL_RULE_LINE = Pattern.compile("^\\s*([-*_])(?:\\s*\\1){2,}\\s*$");
   private static final Pattern TABLE_SEPARATOR_LINE = Pattern.compile("^\\|?\\s*[-:]+(?:\\s*\\|\\s*[-:]+)+\\s*\\|?\\s*$");
+  private static final Pattern IMAGE_LINE = Pattern.compile("^\\s*!\\[([^\\]]*)\\]\\((.+)\\)\\s*$");
 
   private final TextField filterField = new TextField();
   private final ListView<DocEntry> docsList = new ListView<>();
@@ -73,6 +77,7 @@ public class HelpCenterView extends BorderPane {
   private File workspaceRoot;
   private File projectRoot;
   private Consumer<File> onOpenDoc;
+  private DocEntry activeDocEntry;
 
   public HelpCenterView() {
     getStyleClass().add("help-center-root");
@@ -343,11 +348,13 @@ public class HelpCenterView extends BorderPane {
 
   private void showDoc(DocEntry entry) {
     if (entry == null) {
+      activeDocEntry = null;
       titleLabel.setText("Help Center");
       pathLabel.setText("Select a document to preview.");
       renderMarkdown("");
       return;
     }
+    activeDocEntry = entry;
     titleLabel.setText(entry.title());
     pathLabel.setText(entry.sourceLabel() + " - " + entry.relativePath());
     try {
@@ -398,6 +405,13 @@ public class HelpCenterView extends BorderPane {
       String line = lines[i];
       String trimmed = line.trim();
       if (trimmed.isBlank()) {
+        i++;
+        continue;
+      }
+
+      MarkdownImage image = parseStandaloneImage(line);
+      if (image != null) {
+        addImageBlock(image);
         i++;
         continue;
       }
@@ -469,6 +483,7 @@ public class HelpCenterView extends BorderPane {
           || HEADING_LINE.matcher(line).matches()
           || HORIZONTAL_RULE_LINE.matcher(trimmed).matches()
           || trimmed.startsWith(">")
+          || parseStandaloneImage(line) != null
           || isListLine(line)
           || isTableStart(lines, i)) {
         break;
@@ -565,6 +580,64 @@ public class HelpCenterView extends BorderPane {
   private void addQuote(String text) {
     TextFlow flow = createInlineFlow(text, "help-md-quote", 20);
     markdownContent.getChildren().add(flow);
+  }
+
+  private void addImageBlock(MarkdownImage image) {
+    String source = resolveImageSource(image.target());
+    if (source == null) {
+      addMissingImageBlock(image, "Image not found: " + image.target());
+      return;
+    }
+
+    Image fxImage;
+    try {
+      fxImage = new Image(source, false);
+    } catch (Exception ex) {
+      addMissingImageBlock(image, "Failed to load image: " + image.target());
+      return;
+    }
+    if (fxImage.isError() || fxImage.getWidth() <= 0 || fxImage.getHeight() <= 0) {
+      addMissingImageBlock(image, "Failed to decode image: " + image.target());
+      return;
+    }
+
+    ImageView imageView = new ImageView(fxImage);
+    imageView.setPreserveRatio(true);
+    imageView.setSmooth(true);
+    imageView.setCache(true);
+    imageView.fitWidthProperty().bind(markdownContent.widthProperty().subtract(36));
+
+    StackPane frame = new StackPane(imageView);
+    frame.getStyleClass().add("help-md-image-frame");
+    frame.setMaxWidth(Double.MAX_VALUE);
+
+    VBox box = new VBox(6, frame);
+    box.getStyleClass().add("help-md-image-block");
+    box.setMaxWidth(Double.MAX_VALUE);
+    box.setFillWidth(true);
+    if (image.altText() != null && !image.altText().isBlank()) {
+      Label caption = new Label(image.altText());
+      caption.getStyleClass().add("help-md-image-caption");
+      caption.setWrapText(true);
+      box.getChildren().add(caption);
+    }
+    markdownContent.getChildren().add(box);
+  }
+
+  private void addMissingImageBlock(MarkdownImage image, String message) {
+    VBox box = new VBox(4);
+    box.getStyleClass().add("help-md-image-block");
+    Label missing = new Label(message);
+    missing.setWrapText(true);
+    missing.getStyleClass().add("help-md-image-missing");
+    box.getChildren().add(missing);
+    if (image.altText() != null && !image.altText().isBlank()) {
+      Label caption = new Label(image.altText());
+      caption.getStyleClass().add("help-md-image-caption");
+      caption.setWrapText(true);
+      box.getChildren().add(caption);
+    }
+    markdownContent.getChildren().add(box);
   }
 
   private HBox createListItem(String content, boolean ordered, int index) {
@@ -731,17 +804,123 @@ public class HelpCenterView extends BorderPane {
 
   private void openMarkdownLink(String target) {
     if (target == null || target.isBlank()) return;
+    String resolvedTarget = extractLinkTarget(target);
+    if (resolvedTarget.isBlank()) return;
     try {
-      if ((target.startsWith("http://") || target.startsWith("https://")) && Desktop.isDesktopSupported()) {
-        Desktop.getDesktop().browse(java.net.URI.create(target));
+      if ((resolvedTarget.startsWith("http://") || resolvedTarget.startsWith("https://")) && Desktop.isDesktopSupported()) {
+        Desktop.getDesktop().browse(java.net.URI.create(resolvedTarget));
         return;
       }
     } catch (Exception ignored) {
     }
+    Path localPath = resolveLocalPath(resolvedTarget);
+    if (localPath != null && Files.isRegularFile(localPath)) {
+      if (resolvedTarget.toLowerCase(Locale.ROOT).endsWith(".md") && selectDocByPath(localPath)) {
+        return;
+      }
+      try {
+        if (Desktop.isDesktopSupported()) {
+          Desktop.getDesktop().open(localPath.toFile());
+          return;
+        }
+      } catch (Exception ignored) {
+      }
+      ClipboardContent filePath = new ClipboardContent();
+      filePath.putString(localPath.toString());
+      Clipboard.getSystemClipboard().setContent(filePath);
+      statsLabel.setText("Copied file path: " + localPath);
+      return;
+    }
     ClipboardContent cc = new ClipboardContent();
-    cc.putString(target);
+    cc.putString(resolvedTarget);
     Clipboard.getSystemClipboard().setContent(cc);
-    statsLabel.setText("Copied link: " + target);
+    statsLabel.setText("Copied link: " + resolvedTarget);
+  }
+
+  private MarkdownImage parseStandaloneImage(String line) {
+    if (line == null) return null;
+    Matcher image = IMAGE_LINE.matcher(line.trim());
+    if (!image.matches()) return null;
+    String alt = image.group(1) == null ? "" : image.group(1).trim();
+    String target = extractLinkTarget(image.group(2));
+    if (target.isBlank()) return null;
+    return new MarkdownImage(alt, target);
+  }
+
+  private String resolveImageSource(String target) {
+    String resolved = extractLinkTarget(target);
+    if (resolved.isBlank()) return null;
+    if (resolved.startsWith("http://") || resolved.startsWith("https://") || resolved.startsWith("file:")) {
+      return resolved;
+    }
+    Path local = resolveLocalPath(resolved);
+    if (local == null || !Files.isRegularFile(local)) return null;
+    return local.toUri().toString();
+  }
+
+  private Path resolveLocalPath(String target) {
+    if (target == null || target.isBlank()) return null;
+    try {
+      Path asPath = Path.of(target);
+      if (asPath.isAbsolute()) {
+        return asPath.normalize();
+      }
+    } catch (Exception ignored) {
+    }
+    if (activeDocEntry != null && activeDocEntry.file() != null) {
+      File parent = activeDocEntry.file().getParentFile();
+      if (parent != null) {
+        return parent.toPath().resolve(target).normalize();
+      }
+    }
+    File ws = workspaceRoot != null ? workspaceRoot : detectWorkspaceRoot();
+    if (ws != null) {
+      return ws.toPath().resolve(target).normalize();
+    }
+    return Path.of(target).toAbsolutePath().normalize();
+  }
+
+  private boolean selectDocByPath(Path path) {
+    if (path == null) return false;
+    String wanted = canonicalPath(path.toFile());
+    for (DocEntry entry : allDocs) {
+      if (canonicalPath(entry.file()).equals(wanted)) {
+        docsList.getSelectionModel().select(entry);
+        docsList.scrollTo(entry);
+        showDoc(entry);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private String extractLinkTarget(String raw) {
+    if (raw == null) return "";
+    String value = raw.trim();
+    if (value.isBlank()) return "";
+    if (value.startsWith("<")) {
+      int close = value.indexOf('>');
+      if (close > 1) {
+        return value.substring(1, close).trim();
+      }
+    }
+    int titleSeparator = findLinkTitleSeparator(value);
+    if (titleSeparator > 0) {
+      value = value.substring(0, titleSeparator).trim();
+    }
+    return value;
+  }
+
+  private int findLinkTitleSeparator(String value) {
+    for (int i = 0; i < value.length(); i++) {
+      char ch = value.charAt(i);
+      if (!Character.isWhitespace(ch)) continue;
+      String trailing = value.substring(i).trim();
+      if (trailing.startsWith("\"") || trailing.startsWith("'") || trailing.startsWith("(")) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   private boolean isListLine(String line) {
@@ -856,4 +1035,5 @@ public class HelpCenterView extends BorderPane {
   }
 
   private record DocEntry(File file, String sourceLabel, String relativePath, String title, boolean isWorkspaceDoc) {}
+  private record MarkdownImage(String altText, String target) {}
 }

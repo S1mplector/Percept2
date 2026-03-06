@@ -56,7 +56,27 @@ tasks.register<JavaExec>("generatePuppeteerDocsScreenshots") {
   group = "documentation"
   description = "Captures and annotates Puppeteer UI screenshots, then updates Puppeteer docs."
   classpath = sourceSets["main"].runtimeClasspath
-  mainClass.set("com.jvn.editor.ui.actioneditor.docs.PuppeteerDocsScreenshotTool")
+  mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
+  workingDir = rootProject.projectDir
+  jvmArgs("-Djvn.docs.profile=puppeteer")
+  configureJavaFxRuntime()
+}
+
+tasks.register<JavaExec>("generateImageTintDocsScreenshots") {
+  group = "documentation"
+  description = "Captures and annotates Image Tint Tool screenshots, then updates its docs."
+  classpath = sourceSets["main"].runtimeClasspath
+  mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
+  workingDir = rootProject.projectDir
+  jvmArgs("-Djvn.docs.profile=image-tint")
+  configureJavaFxRuntime()
+}
+
+tasks.register<JavaExec>("generateDocsScreenshots") {
+  group = "documentation"
+  description = "Captures and annotates docs screenshots for all configured editor profiles."
+  classpath = sourceSets["main"].runtimeClasspath
+  mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
   workingDir = rootProject.projectDir
   configureJavaFxRuntime()
 }

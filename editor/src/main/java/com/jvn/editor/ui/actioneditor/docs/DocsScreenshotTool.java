@@ -52,6 +52,8 @@ import java.util.Set;
  * - image-tint
  */
 public final class DocsScreenshotTool extends Application {
+    private static final String CONTACT_SHEET_FILE = "docs_contact_sheet.png";
+
     private static final String PROP_PROFILE = "jvn.docs.profile";
     private static final String PROP_SHOTS = "jvn.docs.screenshots.shots";
     private static final String PROP_ANNOTATE = "jvn.docs.screenshots.annotate";
@@ -702,8 +704,8 @@ public final class DocsScreenshotTool extends Application {
         } else if (existing.isBlank()) {
             updated = replacementBlock + "\n";
         } else {
-            String sep = existing.endsWith("\n") ? "\n" : "\n\n";
-            updated = existing + sep + replacementBlock + "\n";
+            System.out.println("Skipped " + guidePath + " (markers missing: " + startMarker + " / " + endMarker + ")");
+            return;
         }
         Files.writeString(guidePath, updated, StandardCharsets.UTF_8);
         System.out.println("Updated " + guidePath);
