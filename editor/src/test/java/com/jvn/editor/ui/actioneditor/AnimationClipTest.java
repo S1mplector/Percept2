@@ -104,4 +104,27 @@ class AnimationClipTest {
         // Only the keyframe at 200 should be captured (50 and 400 are outside)
         assertEquals(1, clip.getChannels().get(PropertyType.X).size());
     }
+
+    @Test
+    void serializeDeserializePreservesInterpolationAndBezier() {
+        EntityTrack source = new EntityTrack("sprite");
+        source.addKeyframe(PropertyType.X, new Keyframe(0, 0, Easing.Type.LINEAR));
+
+        Keyframe hold = new Keyframe(250, 100, Easing.Type.LINEAR, Easing.Interpolation.HOLD);
+        source.addKeyframe(PropertyType.X, hold);
+
+        Keyframe custom = new Keyframe(500, 200, Easing.Type.CUSTOM, Easing.Interpolation.TWEEN);
+        custom.setBezierParams(0.25, 0.1, 0.25, 1.0);
+        source.addKeyframe(PropertyType.X, custom);
+
+        AnimationClip clip = new AnimationClip("interp_bezier");
+        clip.captureFromTrack(source, 0, 500);
+
+        AnimationClip restored = AnimationClip.deserialize(clip.serialize());
+        var channel = restored.getChannels().get(PropertyType.X);
+        assertEquals(3, channel.size());
+        assertEquals(Easing.Interpolation.HOLD, channel.get(1).getInterpolation());
+        assertEquals(Easing.Type.CUSTOM, channel.get(2).getEasing());
+        assertTrue(channel.get(2).hasBezierParams());
+    }
 }

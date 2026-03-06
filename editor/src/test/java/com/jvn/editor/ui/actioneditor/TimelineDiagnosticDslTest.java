@@ -80,6 +80,25 @@ class TimelineDiagnosticDslTest {
     }
 
     @Test
+    void flagsUnknownInterpolation() {
+        String code = """
+            timeline {
+              move \"hero\" {
+                x: 100
+                dur: 200
+                interp: holdd
+              }
+            }
+            """;
+
+        List<TimelineDiagnostic.Message> messages = TimelineDiagnostic.diagnoseDsl(code);
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("Unknown interpolation")
+                && m.hasLine()
+                && m.line() == 5));
+    }
+
+    @Test
     void validatesPlayAudioProperties() {
         String code = """
             timeline {

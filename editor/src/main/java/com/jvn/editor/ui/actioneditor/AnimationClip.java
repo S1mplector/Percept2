@@ -29,16 +29,38 @@ public class AnimationClip {
         private final double offsetMs;
         private final double value;
         private final Easing.Type easing;
+        private final Easing.Interpolation interpolation;
+        private final double[] bezierParams;
 
         public ClipKeyframe(double offsetMs, double value, Easing.Type easing) {
+            this(offsetMs, value, easing, Easing.Interpolation.TWEEN, null);
+        }
+
+        public ClipKeyframe(
+            double offsetMs,
+            double value,
+            Easing.Type easing,
+            Easing.Interpolation interpolation,
+            double[] bezierParams
+        ) {
             this.offsetMs = offsetMs;
             this.value = value;
             this.easing = easing != null ? easing : Easing.Type.LINEAR;
+            this.interpolation = interpolation != null ? interpolation : Easing.Interpolation.TWEEN;
+            this.bezierParams = (bezierParams != null && bezierParams.length == 4)
+                ? new double[]{bezierParams[0], bezierParams[1], bezierParams[2], bezierParams[3]}
+                : null;
         }
 
         public double getOffsetMs() { return offsetMs; }
         public double getValue() { return value; }
         public Easing.Type getEasing() { return easing; }
+        public Easing.Interpolation getInterpolation() { return interpolation; }
+        public boolean hasBezierParams() { return bezierParams != null && bezierParams.length == 4; }
+        public double[] getBezierParams() {
+            if (!hasBezierParams()) return null;
+            return new double[]{bezierParams[0], bezierParams[1], bezierParams[2], bezierParams[3]};
+        }
     }
 
     public AnimationClip(String name) {
@@ -73,7 +95,9 @@ public class AnimationClip {
                     clipKfs.add(new ClipKeyframe(
                         kf.getTimeMs() - startMs,
                         kf.getValue(),
-                        kf.getEasing()));
+                        kf.getEasing(),
+                        kf.getInterpolation(),
+                        kf.getEasing() == Easing.Type.CUSTOM ? kf.getBezierParams() : null));
                 }
             }
             if (!clipKfs.isEmpty()) {
@@ -96,7 +120,11 @@ public class AnimationClip {
             PropertyType prop = entry.getKey();
             for (ClipKeyframe ckf : entry.getValue()) {
                 double time = insertTimeMs + ckf.getOffsetMs() * scale;
-                Keyframe kf = new Keyframe(time, ckf.getValue(), ckf.getEasing());
+                Keyframe kf = new Keyframe(time, ckf.getValue(), ckf.getEasing(), ckf.getInterpolation());
+                if (ckf.getEasing() == Easing.Type.CUSTOM && ckf.hasBezierParams()) {
+                    double[] bezier = ckf.getBezierParams();
+                    kf.setBezierParams(bezier[0], bezier[1], bezier[2], bezier[3]);
+                }
                 target.addKeyframe(prop, kf);
             }
         }
@@ -121,6 +149,15 @@ public class AnimationClip {
                 sb.append(prefix).append(".offset=").append(formatNum(ckf.getOffsetMs())).append("\n");
                 sb.append(prefix).append(".value=").append(formatNum(ckf.getValue())).append("\n");
                 sb.append(prefix).append(".easing=").append(ckf.getEasing().name().toLowerCase()).append("\n");
+                sb.append(prefix).append(".interp=").append(ckf.getInterpolation().name().toLowerCase()).append("\n");
+                if (ckf.getEasing() == Easing.Type.CUSTOM && ckf.hasBezierParams()) {
+                    double[] bezier = ckf.getBezierParams();
+                    sb.append(prefix).append(".bezier=")
+                        .append(formatNum(bezier[0])).append(",")
+                        .append(formatNum(bezier[1])).append(",")
+                        .append(formatNum(bezier[2])).append(",")
+                        .append(formatNum(bezier[3])).append("\n");
+                }
             }
         }
         return sb.toString();
@@ -151,7 +188,9 @@ public class AnimationClip {
                 double offset = parseDouble(props.get(prefix + ".offset"), 0);
                 double value = parseDouble(props.get(prefix + ".value"), 0);
                 Easing.Type easing = parseEasing(props.get(prefix + ".easing"));
-                kfs.add(new ClipKeyframe(offset, value, easing));
+                Easing.Interpolation interpolation = parseInterpolation(props.get(prefix + ".interp"));
+                double[] bezier = parseBezierParams(props.get(prefix + ".bezier"));
+                kfs.add(new ClipKeyframe(offset, value, easing, interpolation, bezier));
             }
             clip.channels.put(pt, kfs);
         }
@@ -191,5 +230,30 @@ public class AnimationClip {
     private static Easing.Type parseEasing(String s) {
         if (s == null || s.isBlank()) return Easing.Type.LINEAR;
         try { return Easing.Type.valueOf(s.toUpperCase()); } catch (Exception e) { return Easing.Type.LINEAR; }
+    }
+
+    private static Easing.Interpolation parseInterpolation(String s) {
+        if (s == null || s.isBlank()) return Easing.Interpolation.TWEEN;
+        try {
+            return Easing.Interpolation.valueOf(s.trim().toUpperCase());
+        } catch (Exception e) {
+            return Easing.Interpolation.TWEEN;
+        }
+    }
+
+    private static double[] parseBezierParams(String s) {
+        if (s == null || s.isBlank()) return null;
+        String[] parts = s.split(",");
+        if (parts.length != 4) return null;
+        try {
+            return new double[] {
+                Double.parseDouble(parts[0].trim()),
+                Double.parseDouble(parts[1].trim()),
+                Double.parseDouble(parts[2].trim()),
+                Double.parseDouble(parts[3].trim())
+            };
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

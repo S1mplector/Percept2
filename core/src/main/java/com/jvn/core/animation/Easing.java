@@ -7,12 +7,26 @@ public class Easing {
     EASE_IN_QUAD, EASE_OUT_QUAD, EASE_IN_OUT_QUAD,
     EASE_IN_CUBIC, EASE_OUT_CUBIC, EASE_IN_OUT_CUBIC,
     EASE_IN_QUART, EASE_OUT_QUART, EASE_IN_OUT_QUART,
+    EASE_IN_QUINT, EASE_OUT_QUINT, EASE_IN_OUT_QUINT,
+    EASE_IN_CIRC, EASE_OUT_CIRC, EASE_IN_OUT_CIRC,
     EASE_IN_EXPO, EASE_OUT_EXPO, EASE_IN_OUT_EXPO,
     EASE_IN_SINE, EASE_OUT_SINE, EASE_IN_OUT_SINE,
     EASE_IN_ELASTIC, EASE_OUT_ELASTIC, EASE_IN_OUT_ELASTIC,
     EASE_IN_BACK, EASE_OUT_BACK, EASE_IN_OUT_BACK,
     EASE_IN_BOUNCE, EASE_OUT_BOUNCE, EASE_IN_OUT_BOUNCE,
     CUSTOM
+  }
+
+  /**
+   * Segment interpolation behavior between keyframes.
+   * TWEEN: use easing curve.
+   * HOLD: keep previous value until segment end.
+   * STEP: jump to next value immediately after segment start.
+   */
+  public enum Interpolation {
+    TWEEN,
+    HOLD,
+    STEP
   }
   
   public static double apply(Type type, double t) {
@@ -35,6 +49,20 @@ public class Easing {
       case EASE_IN_QUART -> t * t * t * t;
       case EASE_OUT_QUART -> 1 - (--t) * t * t * t;
       case EASE_IN_OUT_QUART -> t < 0.5 ? 8 * t * t * t * t : 1 - 8 * (--t) * t * t * t;
+
+      // Quintic
+      case EASE_IN_QUINT -> t * t * t * t * t;
+      case EASE_OUT_QUINT -> 1 - Math.pow(1 - t, 5);
+      case EASE_IN_OUT_QUINT -> t < 0.5
+          ? 16 * t * t * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 5) / 2;
+
+      // Circular
+      case EASE_IN_CIRC -> 1 - Math.sqrt(1 - t * t);
+      case EASE_OUT_CIRC -> Math.sqrt(1 - (t - 1) * (t - 1));
+      case EASE_IN_OUT_CIRC -> t < 0.5
+          ? (1 - Math.sqrt(1 - Math.pow(2 * t, 2))) / 2
+          : (Math.sqrt(1 - Math.pow(-2 * t + 2, 2)) + 1) / 2;
       
       // Exponential
       case EASE_IN_EXPO -> t == 0 ? 0 : Math.pow(2, 10 * (t - 1));
@@ -104,6 +132,20 @@ public class Easing {
         ? (1 - apply(Type.EASE_OUT_BOUNCE, 1 - 2 * t)) / 2
         : (1 + apply(Type.EASE_OUT_BOUNCE, 2 * t - 1)) / 2;
       case CUSTOM -> t; // fallback linear; use cubicBezier() with params instead
+    };
+  }
+
+  /**
+   * Apply interpolation mode to normalized segment progress {@code t}.
+   * For {@link Interpolation#TWEEN}, this delegates to {@link #apply(Type, double)}.
+   */
+  public static double applyInterpolation(Type type, Interpolation interpolation, double t) {
+    t = Math.max(0, Math.min(1, t));
+    Interpolation mode = interpolation != null ? interpolation : Interpolation.TWEEN;
+    return switch (mode) {
+      case HOLD -> t >= 1.0 ? 1.0 : 0.0;
+      case STEP -> t <= 0.0 ? 0.0 : 1.0;
+      case TWEEN -> apply(type, t);
     };
   }
   

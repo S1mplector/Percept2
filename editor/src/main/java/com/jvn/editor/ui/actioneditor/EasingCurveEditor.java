@@ -33,6 +33,7 @@ public class EasingCurveEditor extends Pane {
 
     private final Canvas canvas;
     private Easing.Type easingType = Easing.Type.LINEAR;
+    private Easing.Interpolation interpolation = Easing.Interpolation.TWEEN;
 
     // Custom Bezier control points (CSS cubic-bezier format: x in [0,1], y can overshoot)
     private double cx1 = 0.25, cy1 = 0.1;
@@ -62,7 +63,7 @@ public class EasingCurveEditor extends Pane {
         });
 
         canvas.setOnMousePressed(e -> {
-            if (easingType != Easing.Type.CUSTOM) return;
+            if (interpolation != Easing.Interpolation.TWEEN || easingType != Easing.Type.CUSTOM) return;
             double[] plot = getPlotBounds();
             double p1x = plot[0] + cx1 * plot[2];
             double p1y = plot[1] + (1 - cy1) * plot[3];
@@ -105,6 +106,15 @@ public class EasingCurveEditor extends Pane {
 
     public Easing.Type getEasingType() {
         return easingType;
+    }
+
+    public void setInterpolation(Easing.Interpolation interpolation) {
+        this.interpolation = interpolation != null ? interpolation : Easing.Interpolation.TWEEN;
+        draw();
+    }
+
+    public Easing.Interpolation getInterpolation() {
+        return interpolation;
     }
 
     public void setBezierParams(double cx1, double cy1, double cx2, double cy2) {
@@ -167,13 +177,19 @@ public class EasingCurveEditor extends Pane {
         gc.setLineWidth(2);
         gc.beginPath();
 
-        boolean isCustom = easingType == Easing.Type.CUSTOM;
+        boolean tween = interpolation == Easing.Interpolation.TWEEN;
+        boolean isCustom = tween && easingType == Easing.Type.CUSTOM;
         int steps = Math.max(60, (int) plotW);
         for (int i = 0; i <= steps; i++) {
             double t = (double) i / steps;
-            double v = isCustom
-                ? Easing.cubicBezier(cx1, cy1, cx2, cy2, t)
-                : Easing.apply(easingType, t);
+            double v;
+            if (!tween) {
+                v = Easing.applyInterpolation(easingType, interpolation, t);
+            } else if (isCustom) {
+                v = Easing.cubicBezier(cx1, cy1, cx2, cy2, t);
+            } else {
+                v = Easing.apply(easingType, t);
+            }
 
             double sx = plotX + t * plotW;
             double sy = plotY + (1 - v) * plotH;
@@ -231,7 +247,9 @@ public class EasingCurveEditor extends Pane {
             // Easing name label
             gc.setFill(Color.web("#888"));
             gc.setFont(Font.font(Font.getDefault().getFamily(), 9));
-            String label = easingType.name().replace("EASE_", "").replace("_", " ");
+            String label = tween
+                ? easingType.name().replace("EASE_", "").replace("_", " ")
+                : interpolation.name();
             gc.fillText(label, plotX + 4, plotY + plotH - 4);
         }
 

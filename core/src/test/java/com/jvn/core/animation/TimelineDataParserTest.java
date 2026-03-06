@@ -103,4 +103,36 @@ class TimelineDataParserTest {
         assertEquals(100.0, hero.getValueAt(TimelineData.Property.X, 200), 0.001);
         assertEquals(25.0, hero.getValueAt(TimelineData.Property.Y, 100), 0.001);
     }
+
+    @Test
+    void parsesInterpolationModeAndCubicBezierEasing() {
+        String inline = """
+            timeline {
+              move "hero" {
+                x: 100
+                dur: 100
+                interp: hold
+              }
+              wait 100
+              move "hero" {
+                x: 200
+                dur: 100
+                easing: cubic_bezier(0.25, 0.1, 0.25, 1.0)
+              }
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("inline_interp_bezier", inline);
+        TimelineData.Track hero = data.getTrack("hero");
+        assertNotNull(hero);
+
+        assertEquals(0.0, hero.getValueAt(TimelineData.Property.X, 50), 0.001);
+        assertEquals(100.0, hero.getValueAt(TimelineData.Property.X, 100), 0.001);
+        assertEquals(200.0, hero.getValueAt(TimelineData.Property.X, 200), 0.001);
+
+        var xKeyframes = hero.getKeyframes(TimelineData.Property.X);
+        assertEquals(Easing.Interpolation.HOLD, xKeyframes.get(1).getInterpolation());
+        assertEquals(Easing.Type.CUSTOM, xKeyframes.get(2).getEasing());
+        assertTrue(xKeyframes.get(2).hasBezierParams());
+    }
 }

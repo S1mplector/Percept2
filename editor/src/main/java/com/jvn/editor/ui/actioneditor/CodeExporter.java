@@ -233,7 +233,12 @@ public class CodeExporter {
             ev.startTime = startTime;
             ev.duration = duration;
             ev.easing = easing;
-            if (easing == Easing.Type.CUSTOM && endKf != null) {
+            ev.interpolation = endKf != null
+                ? endKf.getInterpolation()
+                : Easing.Interpolation.TWEEN;
+            if (ev.interpolation == Easing.Interpolation.TWEEN
+                && easing == Easing.Type.CUSTOM
+                && endKf != null) {
                 ev.bezierParams = endKf.getBezierParams();
             }
 
@@ -302,10 +307,16 @@ public class CodeExporter {
             sb.append("    dur: ").append(formatNumber(ev.duration)).append("\n");
         }
 
-        if (ev.easing == Easing.Type.CUSTOM && ev.bezierParams != null) {
+        if (ev.interpolation != Easing.Interpolation.TWEEN) {
+            sb.append("    interp: ").append(ev.interpolation.name().toLowerCase()).append("\n");
+        }
+
+        if (ev.interpolation == Easing.Interpolation.TWEEN
+            && ev.easing == Easing.Type.CUSTOM
+            && ev.bezierParams != null) {
             sb.append(String.format("    easing: cubic_bezier(%.2f, %.2f, %.2f, %.2f)\n",
                 ev.bezierParams[0], ev.bezierParams[1], ev.bezierParams[2], ev.bezierParams[3]));
-        } else if (ev.easing != Easing.Type.LINEAR) {
+        } else if (ev.easing != Easing.Type.LINEAR && ev.easing != Easing.Type.CUSTOM) {
             sb.append("    easing: ").append(ev.easing.name().toLowerCase()).append("\n");
         }
 
@@ -473,10 +484,16 @@ public class CodeExporter {
         if (ev.duration > 0.0 && !"playAudio".equals(ev.actionType)) {
             sb.append(" dur:").append(formatNumber(ev.duration));
         }
-        if (ev.easing == com.jvn.core.animation.Easing.Type.CUSTOM && ev.bezierParams != null) {
+        if (ev.interpolation != Easing.Interpolation.TWEEN) {
+            sb.append(" interp:").append(ev.interpolation.name().toLowerCase());
+        }
+        if (ev.interpolation == Easing.Interpolation.TWEEN
+            && ev.easing == com.jvn.core.animation.Easing.Type.CUSTOM
+            && ev.bezierParams != null) {
             sb.append(String.format(" easing:cubic_bezier(%.2f,%.2f,%.2f,%.2f)",
                 ev.bezierParams[0], ev.bezierParams[1], ev.bezierParams[2], ev.bezierParams[3]));
-        } else if (ev.easing != com.jvn.core.animation.Easing.Type.LINEAR) {
+        } else if (ev.easing != com.jvn.core.animation.Easing.Type.LINEAR
+            && ev.easing != com.jvn.core.animation.Easing.Type.CUSTOM) {
             sb.append(" easing:").append(ev.easing.name().toLowerCase());
         }
         sb.append(" }");
@@ -489,6 +506,7 @@ public class CodeExporter {
         double startTime;
         double duration;
         Easing.Type easing = Easing.Type.LINEAR;
+        Easing.Interpolation interpolation = Easing.Interpolation.TWEEN;
         double[] bezierParams; // cx1,cy1,cx2,cy2 — only used when easing==CUSTOM
         Map<String, Object> props = new java.util.LinkedHashMap<>();
     }

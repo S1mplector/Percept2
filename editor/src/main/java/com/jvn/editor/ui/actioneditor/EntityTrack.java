@@ -116,11 +116,13 @@ public class EntityTrack {
                 if (span < 0.001) return k1.getValue();
                 double t = (timeMs - k0.getTimeMs()) / span;
                 double easedT;
-                if (k1.getEasing() == com.jvn.core.animation.Easing.Type.CUSTOM) {
+                if (k1.getInterpolation() == com.jvn.core.animation.Easing.Interpolation.TWEEN
+                    && k1.getEasing() == com.jvn.core.animation.Easing.Type.CUSTOM) {
                     easedT = com.jvn.core.animation.Easing.cubicBezier(
                         k1.getCx1(), k1.getCy1(), k1.getCx2(), k1.getCy2(), t);
                 } else {
-                    easedT = com.jvn.core.animation.Easing.apply(k1.getEasing(), t);
+                    easedT = com.jvn.core.animation.Easing.applyInterpolation(
+                        k1.getEasing(), k1.getInterpolation(), t);
                 }
                 return k0.getValue() + (k1.getValue() - k0.getValue()) * easedT;
             }

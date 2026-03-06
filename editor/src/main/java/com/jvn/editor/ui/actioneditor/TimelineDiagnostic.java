@@ -39,6 +39,7 @@ public class TimelineDiagnostic {
     }
 
     private static final Set<String> KNOWN_EASINGS;
+    private static final Set<String> KNOWN_INTERPOLATIONS;
     private static final Set<String> KNOWN_ACTIONS;
     private static final Set<String> KNOWN_AUDIO_CHANNELS;
     private static final double TIME_EPSILON_MS = 0.001;
@@ -56,6 +57,9 @@ public class TimelineDiagnostic {
             if (!"custom".equals(name)) easings.add(name);
         }
         KNOWN_EASINGS = Collections.unmodifiableSet(easings);
+        KNOWN_INTERPOLATIONS = Collections.unmodifiableSet(lowerSet(Set.of(
+            "tween", "hold", "step"
+        )));
 
         Set<String> actions = new LinkedHashSet<>();
         actions.add("move");
@@ -74,13 +78,13 @@ public class TimelineDiagnostic {
         KNOWN_AUDIO_CHANNELS = Collections.unmodifiableSet(lowerSet(Set.of("music", "sound", "voice")));
 
         Map<String, Set<String>> keys = new LinkedHashMap<>();
-        keys.put("move", lowerSet(Set.of("x", "y", "dur", "duration", "easing")));
-        keys.put("pivot", lowerSet(Set.of("ox", "oy", "dur", "duration", "easing")));
-        keys.put("rotate", lowerSet(Set.of("angle", "rotation", "deg", "dur", "duration", "easing")));
-        keys.put("scale", lowerSet(Set.of("x", "y", "sx", "sy", "scale_x", "scale_y", "dur", "duration", "easing")));
-        keys.put("fade", lowerSet(Set.of("alpha", "dur", "duration", "easing")));
-        keys.put("cameraMove", lowerSet(Set.of("x", "y", "dur", "duration", "easing")));
-        keys.put("cameraZoom", lowerSet(Set.of("zoom", "dur", "duration", "easing")));
+        keys.put("move", lowerSet(Set.of("x", "y", "dur", "duration", "easing", "interp")));
+        keys.put("pivot", lowerSet(Set.of("ox", "oy", "dur", "duration", "easing", "interp")));
+        keys.put("rotate", lowerSet(Set.of("angle", "rotation", "deg", "dur", "duration", "easing", "interp")));
+        keys.put("scale", lowerSet(Set.of("x", "y", "sx", "sy", "scale_x", "scale_y", "dur", "duration", "easing", "interp")));
+        keys.put("fade", lowerSet(Set.of("alpha", "dur", "duration", "easing", "interp")));
+        keys.put("cameraMove", lowerSet(Set.of("x", "y", "dur", "duration", "easing", "interp")));
+        keys.put("cameraZoom", lowerSet(Set.of("zoom", "dur", "duration", "easing", "interp")));
         keys.put("playAudio", lowerSet(Set.of("channel", "volume", "loop", "bgm", "fadeinms", "fadein_ms", "fadein", "fade_in")));
         ACTION_KEYS = Collections.unmodifiableMap(keys);
     }
@@ -418,6 +422,11 @@ public class TimelineDiagnostic {
             return;
         }
 
+        if ("interp".equals(keyNorm)) {
+            validateInterpolation(out, action, value, lineNo);
+            return;
+        }
+
         if (("dur".equals(keyNorm) || "duration".equals(keyNorm))
             && !isNonNegativeNumber(value)) {
             out.add(new Message(
@@ -614,6 +623,37 @@ public class TimelineDiagnostic {
             action,
             "Unknown easing '" + value + "'",
             suggestion != null ? "Did you mean '" + suggestion + "'?" : "Use known easing names (e.g. linear, ease_in_out_sine)",
+            lineNo
+        ));
+    }
+
+    private static void validateInterpolation(List<Message> out, String action, String rawValue, int lineNo) {
+        String value = rawValue == null ? "" : stripQuotes(rawValue).trim().toLowerCase(Locale.ROOT);
+        if (value.isEmpty()) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "interp cannot be empty",
+                "Use tween, hold, or step",
+                lineNo
+            ));
+            return;
+        }
+        String normalized = value.replace('-', '_');
+        if ("step_start".equals(normalized) || "instant".equals(normalized) || "jump".equals(normalized)) {
+            return;
+        }
+        if ("step_end".equals(normalized) || "constant".equals(normalized)) {
+            return;
+        }
+        if (KNOWN_INTERPOLATIONS.contains(normalized)) return;
+
+        String suggestion = suggestToken(normalized, KNOWN_INTERPOLATIONS);
+        out.add(new Message(
+            Severity.WARNING,
+            action,
+            "Unknown interpolation '" + value + "'",
+            suggestion != null ? "Did you mean '" + suggestion + "'?" : "Use tween, hold, or step",
             lineNo
         ));
     }

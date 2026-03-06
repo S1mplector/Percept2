@@ -185,4 +185,32 @@ class CodeRoundTripTest {
         assertEquals(0.5, t.getValueAt(PropertyType.ALPHA, 500), 0.1);
         assertEquals(2.0, t.getValueAt(PropertyType.SCALE_X, 600 + 150), 0.5);
     }
+
+    @Test
+    void interpolationControlModesRoundTrip() {
+        String original = """
+            timeline {
+              move "hero" {
+                x: 100
+                dur: 200
+                interp: hold
+              }
+            }
+            """;
+
+        AnimationProject p1 = CodeImporter.importCode("rt_interp", original);
+        EntityTrack t1 = p1.getTrack("hero");
+        assertNotNull(t1);
+        assertEquals(0.0, t1.getValueAt(PropertyType.X, 100), 0.001);
+        assertEquals(100.0, t1.getValueAt(PropertyType.X, 200), 0.001);
+
+        String exported = CodeExporter.export(p1);
+        assertTrue(exported.contains("interp: hold"));
+
+        AnimationProject p2 = CodeImporter.importCode("rt_interp_2", exported);
+        EntityTrack t2 = p2.getTrack("hero");
+        assertNotNull(t2);
+        assertEquals(0.0, t2.getValueAt(PropertyType.X, 100), 0.001);
+        assertEquals(100.0, t2.getValueAt(PropertyType.X, 200), 0.001);
+    }
 }

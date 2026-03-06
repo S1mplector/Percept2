@@ -6,6 +6,7 @@ public class Keyframe implements Comparable<Keyframe> {
     private double timeMs;
     private double value;
     private Easing.Type easing;
+    private Easing.Interpolation interpolation = Easing.Interpolation.TWEEN;
     private double cx1 = 0.25, cy1 = 0.1, cx2 = 0.25, cy2 = 1.0;
 
     public Keyframe(double timeMs, double value) {
@@ -13,9 +14,14 @@ public class Keyframe implements Comparable<Keyframe> {
     }
 
     public Keyframe(double timeMs, double value, Easing.Type easing) {
+        this(timeMs, value, easing, Easing.Interpolation.TWEEN);
+    }
+
+    public Keyframe(double timeMs, double value, Easing.Type easing, Easing.Interpolation interpolation) {
         this.timeMs = sanitizeNonNegativeFinite(timeMs, 0.0);
         this.value = sanitizeFinite(value, 0.0);
         this.easing = easing != null ? easing : Easing.Type.LINEAR;
+        this.interpolation = interpolation != null ? interpolation : Easing.Interpolation.TWEEN;
     }
 
     public double getTimeMs() { return timeMs; }
@@ -29,6 +35,11 @@ public class Keyframe implements Comparable<Keyframe> {
         this.easing = easing != null ? easing : Easing.Type.LINEAR; 
     }
 
+    public Easing.Interpolation getInterpolation() { return interpolation; }
+    public void setInterpolation(Easing.Interpolation interpolation) {
+        this.interpolation = interpolation != null ? interpolation : Easing.Interpolation.TWEEN;
+    }
+
     public double getCx1() { return cx1; }
     public double getCy1() { return cy1; }
     public double getCx2() { return cx2; }
@@ -39,7 +50,7 @@ public class Keyframe implements Comparable<Keyframe> {
     public double[] getBezierParams() { return new double[]{ cx1, cy1, cx2, cy2 }; }
 
     public Keyframe copy() {
-        Keyframe k = new Keyframe(timeMs, value, easing);
+        Keyframe k = new Keyframe(timeMs, value, easing, interpolation);
         k.setBezierParams(cx1, cy1, cx2, cy2);
         return k;
     }
@@ -60,6 +71,6 @@ public class Keyframe implements Comparable<Keyframe> {
 
     @Override
     public String toString() {
-        return String.format("Keyframe[t=%.0fms, v=%.2f, %s]", timeMs, value, easing);
+        return String.format("Keyframe[t=%.0fms, v=%.2f, %s, %s]", timeMs, value, interpolation, easing);
     }
 }

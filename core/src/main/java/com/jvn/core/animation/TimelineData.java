@@ -85,16 +85,42 @@ public class TimelineData {
         private final double timeMs;
         private final double value;
         private final Easing.Type easing;
+        private final Easing.Interpolation interpolation;
+        private final double[] bezierParams;
 
         public Keyframe(double timeMs, double value, Easing.Type easing) {
+            this(timeMs, value, easing, Easing.Interpolation.TWEEN);
+        }
+
+        public Keyframe(double timeMs, double value, Easing.Type easing, Easing.Interpolation interpolation) {
+            this(timeMs, value, easing, interpolation, null);
+        }
+
+        public Keyframe(
+            double timeMs,
+            double value,
+            Easing.Type easing,
+            Easing.Interpolation interpolation,
+            double[] bezierParams
+        ) {
             this.timeMs = timeMs;
             this.value = value;
             this.easing = easing != null ? easing : Easing.Type.LINEAR;
+            this.interpolation = interpolation != null ? interpolation : Easing.Interpolation.TWEEN;
+            this.bezierParams = (bezierParams != null && bezierParams.length == 4)
+                ? new double[]{bezierParams[0], bezierParams[1], bezierParams[2], bezierParams[3]}
+                : null;
         }
 
         public double getTimeMs() { return timeMs; }
         public double getValue() { return value; }
         public Easing.Type getEasing() { return easing; }
+        public Easing.Interpolation getInterpolation() { return interpolation; }
+        public boolean hasBezierParams() { return bezierParams != null && bezierParams.length == 4; }
+        public double[] getBezierParams() {
+            if (!hasBezierParams()) return null;
+            return new double[]{bezierParams[0], bezierParams[1], bezierParams[2], bezierParams[3]};
+        }
     }
 
     public static class Track {
@@ -146,7 +172,15 @@ public class TimelineData {
                     double span = b.getTimeMs() - a.getTimeMs();
                     if (span <= 0) return b.getValue();
                     double t = (timeMs - a.getTimeMs()) / span;
-                    double eased = Easing.apply(b.getEasing(), t);
+                    double eased;
+                    if (b.getInterpolation() == Easing.Interpolation.TWEEN
+                        && b.getEasing() == Easing.Type.CUSTOM
+                        && b.hasBezierParams()) {
+                        double[] bezier = b.getBezierParams();
+                        eased = Easing.cubicBezier(bezier[0], bezier[1], bezier[2], bezier[3], t);
+                    } else {
+                        eased = Easing.applyInterpolation(b.getEasing(), b.getInterpolation(), t);
+                    }
                     return Easing.lerp(a.getValue(), b.getValue(), eased);
                 }
             }

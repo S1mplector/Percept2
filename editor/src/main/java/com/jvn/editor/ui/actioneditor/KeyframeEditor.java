@@ -21,6 +21,7 @@ public class KeyframeEditor extends VBox {
     private final Slider sliderTime;
     private final TextField tfValue;
     private final Slider sliderValue;
+    private final ComboBox<Easing.Interpolation> cbInterpolation;
     private final ComboBox<Easing.Type> cbEasing;
     private final Button btnDelete;
     private final Button btnResetValue;
@@ -85,6 +86,9 @@ public class KeyframeEditor extends VBox {
         cbEasing = new ComboBox<>();
         cbEasing.getItems().addAll(Easing.Type.values());
         cbEasing.setValue(Easing.Type.LINEAR);
+        cbInterpolation = new ComboBox<>();
+        cbInterpolation.getItems().addAll(Easing.Interpolation.values());
+        cbInterpolation.setValue(Easing.Interpolation.TWEEN);
 
         btnDelete = new Button("Delete");
         btnDelete.setStyle("-fx-background-color: #e05577; -fx-text-fill: #0a0a0a; -fx-background-radius: 3; " +
@@ -122,16 +126,18 @@ public class KeyframeEditor extends VBox {
             }
         });
 
-        grid.add(new Label("Easing:"), 0, 4);
-        grid.add(cbEasing, 1, 4);
-        grid.add(curveEditor, 0, 5, 2, 1);
-        grid.add(lblPivotPresets, 0, 6);
-        grid.add(pivotPresetsGrid, 1, 6);
-        grid.add(actionRow, 1, 7);
+        grid.add(new Label("Interp:"), 0, 4);
+        grid.add(cbInterpolation, 1, 4);
+        grid.add(new Label("Easing:"), 0, 5);
+        grid.add(cbEasing, 1, 5);
+        grid.add(curveEditor, 0, 6, 2, 1);
+        grid.add(lblPivotPresets, 0, 7);
+        grid.add(pivotPresetsGrid, 1, 7);
+        grid.add(actionRow, 1, 8);
         lblCameraState = new Label("X 0.0  Y 0.0  Z 1.00");
         lblCameraState.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px; -fx-font-family: monospace;");
-        grid.add(new Label("Camera:"), 0, 8);
-        grid.add(lblCameraState, 1, 8);
+        grid.add(new Label("Camera:"), 0, 9);
+        grid.add(lblCameraState, 1, 9);
 
         for (var node : grid.getChildren()) {
             if (node instanceof Label l && l != header) l.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
@@ -149,6 +155,11 @@ public class KeyframeEditor extends VBox {
         tfValue.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
             if (!isFocused) applyChanges();
         });
+        cbInterpolation.setOnAction(e -> {
+            applyChanges();
+            updateCurveEditorState();
+        });
+
         cbEasing.setOnAction(e -> {
             applyChanges();
             Easing.Type sel = cbEasing.getValue();
@@ -158,6 +169,7 @@ public class KeyframeEditor extends VBox {
                     currentKeyframe.getCx1(), currentKeyframe.getCy1(),
                     currentKeyframe.getCx2(), currentKeyframe.getCy2());
             }
+            updateCurveEditorState();
         });
 
         sliderTime.valueProperty().addListener((obs, oldV, newV) -> {
@@ -218,7 +230,10 @@ public class KeyframeEditor extends VBox {
             lblProperty.setText("-");
             tfTime.setText("");
             tfValue.setText("");
+            cbInterpolation.setValue(Easing.Interpolation.TWEEN);
             cbEasing.setValue(Easing.Type.LINEAR);
+            curveEditor.setInterpolation(Easing.Interpolation.TWEEN);
+            updateCurveEditorState();
             syncTimeSliderBounds(0.0);
             showEmptyState(true);
             setFieldsDisabled(true);
@@ -228,11 +243,14 @@ public class KeyframeEditor extends VBox {
             lblProperty.setText(property != null ? property.getDisplayName() : "-");
             tfTime.setText(String.format("%.0f", kf.getTimeMs()));
             tfValue.setText(String.format("%.2f", kf.getValue()));
+            cbInterpolation.setValue(kf.getInterpolation());
             cbEasing.setValue(kf.getEasing());
+            curveEditor.setInterpolation(kf.getInterpolation());
             curveEditor.setEasingType(kf.getEasing());
             if (kf.getEasing() == Easing.Type.CUSTOM) {
                 curveEditor.setBezierParams(kf.getCx1(), kf.getCy1(), kf.getCx2(), kf.getCy2());
             }
+            updateCurveEditorState();
             syncTimeSliderBounds(kf.getTimeMs());
             sliderTime.setValue(kf.getTimeMs());
             configureSliderForProperty(property);
@@ -294,6 +312,7 @@ public class KeyframeEditor extends VBox {
 
         if (hasError) return;
 
+        currentKeyframe.setInterpolation(cbInterpolation.getValue());
         currentKeyframe.setEasing(cbEasing.getValue());
 
         if (onKeyframeChanged != null) onKeyframeChanged.run();
@@ -342,9 +361,13 @@ public class KeyframeEditor extends VBox {
         sliderTime.setDisable(disabled);
         tfValue.setDisable(disabled);
         sliderValue.setDisable(disabled);
+        cbInterpolation.setDisable(disabled);
         cbEasing.setDisable(disabled);
         btnDelete.setDisable(disabled);
         btnResetValue.setDisable(disabled);
+        if (!disabled) {
+            updateCurveEditorState();
+        }
     }
 
     private void showPivotPresets(boolean show) {
@@ -405,5 +428,18 @@ public class KeyframeEditor extends VBox {
         if (onPivotPresetApplied != null) {
             onPivotPresetApplied.accept(px, py);
         }
+    }
+
+    private void updateCurveEditorState() {
+        Easing.Interpolation mode = cbInterpolation.getValue() != null
+            ? cbInterpolation.getValue()
+            : Easing.Interpolation.TWEEN;
+        curveEditor.setInterpolation(mode);
+        boolean tween = mode == Easing.Interpolation.TWEEN;
+        if (currentKeyframe != null) {
+            cbEasing.setDisable(!tween);
+        }
+        curveEditor.setDisable(currentKeyframe == null);
+        curveEditor.setOpacity(tween ? 1.0 : 0.88);
     }
 }
