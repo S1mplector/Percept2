@@ -13,6 +13,7 @@ import java.util.function.Consumer;
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
@@ -82,6 +83,7 @@ public class PuppeteerWindow extends Stage {
     private Consumer<String> onCopyCode;
     private final TextField tfTimelineName;
     private Label statusBar;
+    private Label viewportInfoLabel;
     private boolean dirty = false;
     private boolean compactExport = false;
     private boolean previewStaged = false;
@@ -578,7 +580,18 @@ public class PuppeteerWindow extends Stage {
 
         SplitPane centerPane = new SplitPane();
         centerPane.setOrientation(Orientation.VERTICAL);
-        centerPane.getItems().addAll(animationPreview, timelinePanel);
+        viewportInfoLabel = new Label();
+        viewportInfoLabel.setStyle("-fx-text-fill: #7e8da8; -fx-font-size: 10px; -fx-padding: 3 8 5 8;");
+        viewportInfoLabel.setTooltip(new Tooltip(
+            "Preview shows full scene bounds. The red rectangle marks the runtime viewport " +
+            "size from jvn.project."
+        ));
+        updateViewportInfoLabel();
+
+        BorderPane previewPane = new BorderPane(animationPreview);
+        previewPane.setTop(viewportInfoLabel);
+        previewPane.setStyle("-fx-background-color: #121212;");
+        centerPane.getItems().addAll(previewPane, timelinePanel);
         centerPane.setDividerPositions(0.4);
 
         SplitPane mainSplit = new SplitPane();
@@ -660,6 +673,7 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setProjectRoot(root);
         assetPicker.setProjectRoot(root);
         codePreview.setProjectRoot(root);
+        updateViewportInfoLabel();
     }
 
     private void addAssetToScene(String relativePath, String suggestedName) {
@@ -1082,6 +1096,15 @@ public class PuppeteerWindow extends Stage {
         if (autoKeyEnabled) sb.append("  │  Auto-Key ON");
         sb.append("  │  Speed: ").append(playbackSpeed).append("x");
         statusBar.setText(sb.toString());
+    }
+
+    private void updateViewportInfoLabel() {
+        if (viewportInfoLabel == null) return;
+        ProjectViewportSpec.Dimensions vp = ProjectViewportSpec.resolve(projectRoot);
+        viewportInfoLabel.setText(
+            "Viewport: " + vp.width() + "x" + vp.height()
+                + "  •  Red frame = runtime-visible area; outside frame is extra scene coverage"
+        );
     }
 
     private void showShortcutsOverlay() {

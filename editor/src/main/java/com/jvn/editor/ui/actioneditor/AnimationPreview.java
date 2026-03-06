@@ -195,17 +195,13 @@ public class AnimationPreview extends VBox {
 
         gc.setFill(Color.web("#121212"));
         gc.fillRect(0, 0, w, h);
-        gc.setFill(Color.BLACK);
-        gc.fillRect(viewportOffsetX, viewportOffsetY, viewportLogicalWidth * viewportScale, viewportLogicalHeight * viewportScale);
 
         gc.save();
-        gc.beginPath();
-        gc.rect(viewportOffsetX, viewportOffsetY, viewportLogicalWidth * viewportScale, viewportLogicalHeight * viewportScale);
-        gc.closePath();
-        gc.clip();
         gc.translate(viewportOffsetX, viewportOffsetY);
         gc.scale(viewportScale, viewportScale);
 
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, 0, viewportLogicalWidth, viewportLogicalHeight);
         drawGrid(viewportLogicalWidth, viewportLogicalHeight);
 
         blitter.setViewport(viewportLogicalWidth, viewportLogicalHeight);
@@ -219,6 +215,7 @@ public class AnimationPreview extends VBox {
             gc.fillText("No scene loaded", viewportLogicalWidth / 2 - 40, viewportLogicalHeight / 2);
         }
         gc.restore();
+        drawRuntimeFrame();
 
         if (pivotOverlayText != null) {
             gc.setFont(javafx.scene.text.Font.font("Monospaced", 11));
@@ -231,6 +228,18 @@ public class AnimationPreview extends VBox {
             gc.setFill(Color.web("#f7d07a"));
             gc.fillText(pivotOverlayText, ox, oy);
         }
+    }
+
+    private void drawRuntimeFrame() {
+        double frameW = viewportLogicalWidth * viewportScale;
+        double frameH = viewportLogicalHeight * viewportScale;
+        double x = viewportOffsetX;
+        double y = viewportOffsetY;
+        gc.save();
+        gc.setStroke(Color.web("#ff4d4d", 0.95));
+        gc.setLineWidth(2.0);
+        gc.strokeRect(x + 0.5, y + 0.5, Math.max(0, frameW - 1.0), Math.max(0, frameH - 1.0));
+        gc.restore();
     }
 
     private void updateViewportTransform(double canvasW, double canvasH) {
