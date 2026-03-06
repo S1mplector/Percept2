@@ -1,4 +1,5 @@
 import java.io.File
+import org.gradle.api.tasks.JavaExec
 
 plugins {
   application
@@ -16,10 +17,7 @@ application {
   mainClass.set("com.jvn.editor.EditorApp")
 }
 
-// Ensure JavaFX modules are available at runtime when launching via :editor:run
-// This avoids the "JavaFX runtime components are missing" error
-tasks.named<org.gradle.api.tasks.JavaExec>("run") {
-  // Add JavaFX modules explicitly; jars are already on the runtimeClasspath via :fx
+fun JavaExec.configureJavaFxRuntime() {
   val fxModules = listOf(
     "javafx.controls",
     "javafx.graphics",
@@ -46,4 +44,19 @@ tasks.named<org.gradle.api.tasks.JavaExec>("run") {
       "--add-modules", fxModules.joinToString(",")
     )
   }
+}
+
+// Ensure JavaFX modules are available at runtime when launching via :editor:run
+// This avoids the "JavaFX runtime components are missing" error.
+tasks.named<JavaExec>("run") {
+  configureJavaFxRuntime()
+}
+
+tasks.register<JavaExec>("generatePuppeteerDocsScreenshots") {
+  group = "documentation"
+  description = "Captures and annotates Puppeteer UI screenshots, then updates Puppeteer docs."
+  classpath = sourceSets["main"].runtimeClasspath
+  mainClass.set("com.jvn.editor.ui.actioneditor.docs.PuppeteerDocsScreenshotTool")
+  workingDir = rootProject.projectDir
+  configureJavaFxRuntime()
 }
