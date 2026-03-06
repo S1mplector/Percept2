@@ -117,17 +117,20 @@ class TimelineModelSanitizationTest {
         project.getOrCreateTrack("npc");
         project.setOrbitAnchor("hero", 320.0, 240.0);
         project.setOrbitAnchorSource("hero", "npc");
+        project.setOrbitAnchorSourceOffset("hero", 12.5, -8.0);
 
         AnimationProject copy = project.copy();
         assertTrue(copy.hasOrbitAnchor("hero"));
         assertArrayEquals(new double[]{320.0, 240.0}, copy.getOrbitAnchor("hero"), 0.0001);
         assertEquals("npc", copy.getOrbitAnchorSourcesView().get("hero"));
+        assertArrayEquals(new double[]{12.5, -8.0}, copy.getOrbitAnchorSourceOffsetsView().get("hero"), 0.0001);
 
         AnimationProject replaced = new AnimationProject();
         replaced.replaceFrom(project);
         assertTrue(replaced.hasOrbitAnchor("hero"));
         assertArrayEquals(new double[]{320.0, 240.0}, replaced.getOrbitAnchor("hero"), 0.0001);
         assertEquals("npc", replaced.getOrbitAnchorSourcesView().get("hero"));
+        assertArrayEquals(new double[]{12.5, -8.0}, replaced.getOrbitAnchorSourceOffsetsView().get("hero"), 0.0001);
     }
 
     @Test
@@ -136,7 +139,9 @@ class TimelineModelSanitizationTest {
         project.setOrbitAnchor("hero", 10.0, 20.0);
         project.setOrbitAnchor("npc", 30.0, 40.0);
         project.setOrbitAnchorSource("hero", "npc");
+        project.setOrbitAnchorSourceOffset("hero", 3.0, -2.0);
         project.setOrbitAnchorSource("npc", "ghost");
+        project.setOrbitAnchorSourceOffset("npc", 5.0, 5.0);
 
         java.util.Set<String> valid = java.util.Set.of("hero", "npc");
         project.pruneOrbitAnchors(valid);
@@ -144,6 +149,8 @@ class TimelineModelSanitizationTest {
         assertTrue(project.hasOrbitAnchor("hero"));
         assertTrue(project.hasOrbitAnchor("npc"));
         assertEquals("npc", project.getOrbitAnchorSourcesView().get("hero"));
+        assertArrayEquals(new double[]{3.0, -2.0}, project.getOrbitAnchorSourceOffsetsView().get("hero"), 0.0001);
         assertFalse(project.getOrbitAnchorSourcesView().containsKey("npc"));
+        assertFalse(project.getOrbitAnchorSourceOffsetsView().containsKey("npc"));
     }
 }

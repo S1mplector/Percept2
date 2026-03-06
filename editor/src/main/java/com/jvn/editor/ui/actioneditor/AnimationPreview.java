@@ -129,6 +129,7 @@ public class AnimationPreview extends VBox {
     private boolean orbitAlignRotation = true;
     private final Map<String, double[]> orbitAnchors = new HashMap<>();
     private final Map<String, String> orbitAnchorSources = new HashMap<>();
+    private final Map<String, double[]> orbitAnchorSourceOffsets = new HashMap<>();
 
     private boolean snapToGridEnabled = false;
     private double snapGridSize = 10.0;
@@ -143,6 +144,7 @@ public class AnimationPreview extends VBox {
     private BiConsumer<String, Double> onEntityRotationChanged;
     private BiConsumer<String, double[]> onOrbitAnchorChanged;
     private BiConsumer<String, String> onOrbitAnchorSourceChanged;
+    private BiConsumer<String, double[]> onOrbitAnchorSourceOffsetChanged;
     private Consumer<String> onOrbitAnchorRemoved;
     private Consumer<double[]> onCameraStateChanged;
     private ProjectViewportSpec.Dimensions viewportSpec =
@@ -226,6 +228,7 @@ public class AnimationPreview extends VBox {
                 String source = entry.getValue();
                 return target == null || !names.contains(target) || source == null || !names.contains(source);
             });
+            orbitAnchorSourceOffsets.keySet().removeIf(name -> !orbitAnchorSources.containsKey(name));
             if (onOrbitAnchorRemoved != null) {
                 for (String name : removed) onOrbitAnchorRemoved.accept(name);
             }
@@ -245,6 +248,7 @@ public class AnimationPreview extends VBox {
             }
             orbitAnchors.clear();
             orbitAnchorSources.clear();
+            orbitAnchorSourceOffsets.clear();
         }
         pivotDragState = null;
         cancelMoveInteraction();
@@ -256,9 +260,11 @@ public class AnimationPreview extends VBox {
         if (project != null) {
             setOrbitAnchors(project.getOrbitAnchorsView());
             setOrbitAnchorSources(project.getOrbitAnchorSourcesView());
+            setOrbitAnchorSourceOffsets(project.getOrbitAnchorSourceOffsetsView());
         } else {
             setOrbitAnchors(Collections.emptyMap());
             setOrbitAnchorSources(Collections.emptyMap());
+            setOrbitAnchorSourceOffsets(Collections.emptyMap());
         }
     }
 
@@ -714,6 +720,7 @@ public class AnimationPreview extends VBox {
     public void setOnEntityRotationChanged(BiConsumer<String, Double> callback) { this.onEntityRotationChanged = callback; }
     public void setOnOrbitAnchorChanged(BiConsumer<String, double[]> callback) { this.onOrbitAnchorChanged = callback; }
     public void setOnOrbitAnchorSourceChanged(BiConsumer<String, String> callback) { this.onOrbitAnchorSourceChanged = callback; }
+    public void setOnOrbitAnchorSourceOffsetChanged(BiConsumer<String, double[]> callback) { this.onOrbitAnchorSourceOffsetChanged = callback; }
     public void setOnOrbitAnchorRemoved(Consumer<String> callback) { this.onOrbitAnchorRemoved = callback; }
     public void setOnCameraStateChanged(Consumer<double[]> callback) { this.onCameraStateChanged = callback; }
 
@@ -809,6 +816,7 @@ public class AnimationPreview extends VBox {
         orbitAnchors.clear();
         if (anchors == null || anchors.isEmpty()) {
             orbitAnchorSources.clear();
+            orbitAnchorSourceOffsets.clear();
             render();
             return;
         }
@@ -820,6 +828,7 @@ public class AnimationPreview extends VBox {
             orbitAnchors.put(name, new double[]{value[0], value[1]});
         }
         orbitAnchorSources.keySet().removeIf(name -> !orbitAnchors.containsKey(name));
+        orbitAnchorSourceOffsets.keySet().removeIf(name -> !orbitAnchorSources.containsKey(name));
         render();
     }
 
@@ -833,7 +842,27 @@ public class AnimationPreview extends VBox {
                 if (target.equals(source)) continue;
                 if (!orbitAnchors.containsKey(target)) continue;
                 orbitAnchorSources.put(target, source);
+                orbitAnchorSourceOffsets.putIfAbsent(target, new double[]{0.0, 0.0});
             }
+        }
+        orbitAnchorSourceOffsets.keySet().removeIf(name -> !orbitAnchorSources.containsKey(name));
+        render();
+    }
+
+    public void setOrbitAnchorSourceOffsets(Map<String, double[]> offsets) {
+        orbitAnchorSourceOffsets.clear();
+        if (offsets != null && !offsets.isEmpty()) {
+            for (Map.Entry<String, double[]> entry : offsets.entrySet()) {
+                String target = entry.getKey();
+                double[] value = entry.getValue();
+                if (target == null || target.isBlank() || value == null || value.length < 2) continue;
+                if (!Double.isFinite(value[0]) || !Double.isFinite(value[1])) continue;
+                if (!orbitAnchorSources.containsKey(target)) continue;
+                orbitAnchorSourceOffsets.put(target, new double[]{value[0], value[1]});
+            }
+        }
+        for (String target : orbitAnchorSources.keySet()) {
+            orbitAnchorSourceOffsets.putIfAbsent(target, new double[]{0.0, 0.0});
         }
         render();
     }
@@ -842,7 +871,11 @@ public class AnimationPreview extends VBox {
         if (selectedEntityName == null) return;
         orbitAnchors.remove(selectedEntityName);
         orbitAnchorSources.remove(selectedEntityName);
+        orbitAnchorSourceOffsets.remove(selectedEntityName);
         if (onOrbitAnchorRemoved != null) onOrbitAnchorRemoved.accept(selectedEntityName);
+        if (onOrbitAnchorSourceOffsetChanged != null) {
+            onOrbitAnchorSourceOffsetChanged.accept(selectedEntityName, null);
+        }
         render();
     }
 
@@ -1006,7 +1039,10 @@ public class AnimationPreview extends VBox {
                 double sx = source.getX();
                 double sy = source.getY();
                 if (Double.isFinite(sx) && Double.isFinite(sy)) {
-                    return new double[]{sx, sy};
+                    double[] offset = orbitAnchorSourceOffsets.get(entityName);
+                    double ox = (offset != null && offset.length >= 2 && Double.isFinite(offset[0])) ? offset[0] : 0.0;
+                    double oy = (offset != null && offset.length >= 2 && Double.isFinite(offset[1])) ? offset[1] : 0.0;
+                    return new double[]{sx + ox, sy + oy};
                 }
             }
         }
@@ -1021,15 +1057,26 @@ public class AnimationPreview extends VBox {
         if (scene != null && scene.find(entityName) == null) return;
         orbitAnchors.put(entityName, new double[]{worldX, worldY});
         orbitAnchorSources.remove(entityName);
+        orbitAnchorSourceOffsets.remove(entityName);
         if (onOrbitAnchorChanged != null) {
             onOrbitAnchorChanged.accept(entityName, new double[]{worldX, worldY});
         }
         if (onOrbitAnchorSourceChanged != null) {
             onOrbitAnchorSourceChanged.accept(entityName, null);
         }
+        if (onOrbitAnchorSourceOffsetChanged != null) {
+            onOrbitAnchorSourceOffsetChanged.accept(entityName, null);
+        }
     }
 
     private void setOrbitAnchorSource(String entityName, String sourceEntityName) {
+        if (scene == null) return;
+        Entity2D source = scene.find(sourceEntityName);
+        if (source == null) return;
+        setOrbitAnchorSource(entityName, sourceEntityName, source.getX(), source.getY());
+    }
+
+    private void setOrbitAnchorSource(String entityName, String sourceEntityName, double anchorWorldX, double anchorWorldY) {
         if (entityName == null || entityName.isBlank()) return;
         if (sourceEntityName == null || sourceEntityName.isBlank()) return;
         if (entityName.equals(sourceEntityName)) return;
@@ -1040,13 +1087,21 @@ public class AnimationPreview extends VBox {
         double sx = source.getX();
         double sy = source.getY();
         if (!Double.isFinite(sx) || !Double.isFinite(sy)) return;
-        orbitAnchors.put(entityName, new double[]{sx, sy});
+        double anchorX = Double.isFinite(anchorWorldX) ? anchorWorldX : sx;
+        double anchorY = Double.isFinite(anchorWorldY) ? anchorWorldY : sy;
+        double offsetX = anchorX - sx;
+        double offsetY = anchorY - sy;
+        orbitAnchors.put(entityName, new double[]{anchorX, anchorY});
         orbitAnchorSources.put(entityName, sourceEntityName);
+        orbitAnchorSourceOffsets.put(entityName, new double[]{offsetX, offsetY});
         if (onOrbitAnchorChanged != null) {
-            onOrbitAnchorChanged.accept(entityName, new double[]{sx, sy});
+            onOrbitAnchorChanged.accept(entityName, new double[]{anchorX, anchorY});
         }
         if (onOrbitAnchorSourceChanged != null) {
             onOrbitAnchorSourceChanged.accept(entityName, sourceEntityName);
+        }
+        if (onOrbitAnchorSourceOffsetChanged != null) {
+            onOrbitAnchorSourceOffsetChanged.accept(entityName, new double[]{offsetX, offsetY});
         }
     }
 
@@ -1118,7 +1173,8 @@ public class AnimationPreview extends VBox {
                         if (anchorSource != null && !anchorSource.equals(selectedEntityName)) {
                             Entity2D sourceEntity = scene != null ? scene.find(anchorSource) : null;
                             if (sourceEntity != null) {
-                                setOrbitAnchorSource(selectedEntityName, anchorSource);
+                                double[] world = screenToWorld(e.getX(), e.getY());
+                                setOrbitAnchorSource(selectedEntityName, anchorSource, world[0], world[1]);
                                 render();
                                 return;
                             }

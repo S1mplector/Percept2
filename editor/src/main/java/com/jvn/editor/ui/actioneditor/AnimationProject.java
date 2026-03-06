@@ -28,6 +28,7 @@ public class AnimationProject {
     private final List<EditorEventCue> editorEventCues = new ArrayList<>();
     private final Map<String, double[]> orbitAnchors = new LinkedHashMap<>();
     private final Map<String, String> orbitAnchorSources = new LinkedHashMap<>();
+    private final Map<String, double[]> orbitAnchorSourceOffsets = new LinkedHashMap<>();
 
     private double loopStartMs = -1;
     private double loopEndMs = -1;
@@ -111,6 +112,18 @@ public class AnimationProject {
         return Collections.unmodifiableMap(copy);
     }
 
+    public Map<String, double[]> getOrbitAnchorSourceOffsetsView() {
+        Map<String, double[]> copy = new LinkedHashMap<>();
+        for (Map.Entry<String, double[]> entry : orbitAnchorSourceOffsets.entrySet()) {
+            String target = entry.getKey();
+            double[] value = entry.getValue();
+            if (target == null || target.isBlank() || value == null || value.length < 2) continue;
+            if (!Double.isFinite(value[0]) || !Double.isFinite(value[1])) continue;
+            copy.put(target, new double[]{value[0], value[1]});
+        }
+        return Collections.unmodifiableMap(copy);
+    }
+
     public boolean hasOrbitAnchor(String entityName) {
         return entityName != null && orbitAnchors.containsKey(entityName);
     }
@@ -130,33 +143,55 @@ public class AnimationProject {
     }
 
     public void setOrbitAnchorSource(String entityName, String sourceEntityName) {
+        setOrbitAnchorSource(entityName, sourceEntityName, 0.0, 0.0);
+    }
+
+    public void setOrbitAnchorSource(String entityName, String sourceEntityName, double offsetX, double offsetY) {
         if (entityName == null || entityName.isBlank()) return;
         if (sourceEntityName == null || sourceEntityName.isBlank()) {
             orbitAnchorSources.remove(entityName);
+            orbitAnchorSourceOffsets.remove(entityName);
             return;
         }
         if (entityName.equals(sourceEntityName)) {
             orbitAnchorSources.remove(entityName);
+            orbitAnchorSourceOffsets.remove(entityName);
             return;
         }
         orbitAnchorSources.put(entityName, sourceEntityName);
+        setOrbitAnchorSourceOffset(entityName, offsetX, offsetY);
+    }
+
+    public void setOrbitAnchorSourceOffset(String entityName, double offsetX, double offsetY) {
+        if (entityName == null || entityName.isBlank()) return;
+        if (!Double.isFinite(offsetX) || !Double.isFinite(offsetY)) return;
+        if (!orbitAnchorSources.containsKey(entityName)) return;
+        orbitAnchorSourceOffsets.put(entityName, new double[]{offsetX, offsetY});
+    }
+
+    public void clearOrbitAnchorSourceOffset(String entityName) {
+        if (entityName == null || entityName.isBlank()) return;
+        orbitAnchorSourceOffsets.remove(entityName);
     }
 
     public void removeOrbitAnchor(String entityName) {
         if (entityName == null || entityName.isBlank()) return;
         orbitAnchors.remove(entityName);
         orbitAnchorSources.remove(entityName);
+        orbitAnchorSourceOffsets.remove(entityName);
     }
 
     public void clearOrbitAnchors() {
         orbitAnchors.clear();
         orbitAnchorSources.clear();
+        orbitAnchorSourceOffsets.clear();
     }
 
     public void setOrbitAnchors(Map<String, double[]> anchors) {
         orbitAnchors.clear();
         if (anchors == null || anchors.isEmpty()) {
             orbitAnchorSources.clear();
+            orbitAnchorSourceOffsets.clear();
             return;
         }
         for (Map.Entry<String, double[]> entry : anchors.entrySet()) {
@@ -167,10 +202,12 @@ public class AnimationProject {
             orbitAnchors.put(name, new double[]{value[0], value[1]});
         }
         orbitAnchorSources.keySet().removeIf(name -> !orbitAnchors.containsKey(name));
+        orbitAnchorSourceOffsets.keySet().removeIf(name -> !orbitAnchorSources.containsKey(name));
     }
 
     public void setOrbitAnchorSources(Map<String, String> sources) {
         orbitAnchorSources.clear();
+        orbitAnchorSourceOffsets.keySet().removeIf(name -> !orbitAnchors.containsKey(name));
         if (sources == null || sources.isEmpty()) return;
         for (Map.Entry<String, String> entry : sources.entrySet()) {
             String target = entry.getKey();
@@ -179,6 +216,24 @@ public class AnimationProject {
             if (target.equals(source)) continue;
             if (!orbitAnchors.containsKey(target)) continue;
             orbitAnchorSources.put(target, source);
+            orbitAnchorSourceOffsets.putIfAbsent(target, new double[]{0.0, 0.0});
+        }
+        orbitAnchorSourceOffsets.keySet().removeIf(name -> !orbitAnchorSources.containsKey(name));
+    }
+
+    public void setOrbitAnchorSourceOffsets(Map<String, double[]> offsets) {
+        orbitAnchorSourceOffsets.clear();
+        if (offsets == null || offsets.isEmpty()) return;
+        for (Map.Entry<String, double[]> entry : offsets.entrySet()) {
+            String target = entry.getKey();
+            double[] value = entry.getValue();
+            if (target == null || target.isBlank() || value == null || value.length < 2) continue;
+            if (!Double.isFinite(value[0]) || !Double.isFinite(value[1])) continue;
+            if (!orbitAnchorSources.containsKey(target)) continue;
+            orbitAnchorSourceOffsets.put(target, new double[]{value[0], value[1]});
+        }
+        for (String target : orbitAnchorSources.keySet()) {
+            orbitAnchorSourceOffsets.putIfAbsent(target, new double[]{0.0, 0.0});
         }
     }
 
@@ -195,12 +250,15 @@ public class AnimationProject {
         orbitAnchors.keySet().removeIf(name -> !allowed.contains(name));
         orbitAnchorSources.entrySet().removeIf(entry ->
             !allowed.contains(entry.getKey()) || !allowed.contains(entry.getValue()));
+        orbitAnchorSourceOffsets.keySet().removeIf(name -> !orbitAnchorSources.containsKey(name));
     }
 
     private void removeOrbitAnchorReferencesTo(String entityName) {
         if (entityName == null || entityName.isBlank()) return;
         orbitAnchorSources.entrySet().removeIf(entry ->
             entityName.equals(entry.getKey()) || entityName.equals(entry.getValue()));
+        orbitAnchorSourceOffsets.keySet().removeIf(name ->
+            entityName.equals(name) || !orbitAnchorSources.containsKey(name));
         orbitAnchors.remove(entityName);
     }
 
@@ -455,6 +513,7 @@ public class AnimationProject {
         copy.loopEndMs = loopEndMs;
         copy.setOrbitAnchors(getOrbitAnchorsView());
         copy.setOrbitAnchorSources(getOrbitAnchorSourcesView());
+        copy.setOrbitAnchorSourceOffsets(getOrbitAnchorSourceOffsetsView());
         for (EntityTrack t : entityTracks.values()) {
             copy.entityTracks.put(t.getEntityName(), t.copy());
         }
@@ -580,6 +639,7 @@ public class AnimationProject {
         }
         this.setOrbitAnchors(other.getOrbitAnchorsView());
         this.setOrbitAnchorSources(other.getOrbitAnchorSourcesView());
+        this.setOrbitAnchorSourceOffsets(other.getOrbitAnchorSourceOffsetsView());
     }
 
     private static TimelineData.Property mapProperty(PropertyType p) {

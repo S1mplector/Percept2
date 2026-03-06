@@ -124,11 +124,21 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setProject(this.project);
         animationPreview.setOrbitAnchors(this.project.getOrbitAnchorsView());
         animationPreview.setOrbitAnchorSources(this.project.getOrbitAnchorSourcesView());
+        animationPreview.setOrbitAnchorSourceOffsets(this.project.getOrbitAnchorSourceOffsetsView());
         animationPreview.setOnOrbitAnchorChanged((entityName, anchor) -> {
             if (entityName == null || anchor == null || anchor.length < 2) return;
             this.project.setOrbitAnchor(entityName, anchor[0], anchor[1]);
         });
         animationPreview.setOnOrbitAnchorSourceChanged(this.project::setOrbitAnchorSource);
+        animationPreview.setOnOrbitAnchorSourceOffsetChanged((entityName, offset) -> {
+            if (entityName == null || entityName.isBlank()) return;
+            if (offset == null || offset.length < 2) {
+                this.project.clearOrbitAnchorSourceOffset(entityName);
+                return;
+            }
+            if (!Double.isFinite(offset[0]) || !Double.isFinite(offset[1])) return;
+            this.project.setOrbitAnchorSourceOffset(entityName, offset[0], offset[1]);
+        });
         animationPreview.setOnOrbitAnchorRemoved(this.project::removeOrbitAnchor);
         animationPreview.setOnCameraStateChanged(state -> {
             if (state != null && state.length >= 3) {
@@ -237,11 +247,22 @@ public class PuppeteerWindow extends Stage {
             if (!Double.isFinite(pos[0]) || !Double.isFinite(pos[1])) return;
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
+            boolean liveDragSource = false;
             if (activeMoveInteraction != null && name.equals(activeMoveInteraction.entityName())) {
                 time = activeMoveInteraction.timeMs();
+                liveDragSource = true;
             }
+            double previousX = valueAtTimeOrFallback(track, PropertyType.X, time, pos[0]);
+            double previousY = valueAtTimeOrFallback(track, PropertyType.Y, time, pos[1]);
             track.upsertKeyframe(PropertyType.X, new Keyframe(time, pos[0]));
             track.upsertKeyframe(PropertyType.Y, new Keyframe(time, pos[1]));
+            if (liveDragSource) {
+                double dx = pos[0] - previousX;
+                double dy = pos[1] - previousY;
+                if (Math.abs(dx) > MOVE_INTERACTION_EPSILON || Math.abs(dy) > MOVE_INTERACTION_EPSILON) {
+                    applyAnchorFollowerDelta(name, time, dx, dy, new LinkedHashSet<>());
+                }
+            }
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -590,7 +611,7 @@ public class PuppeteerWindow extends Stage {
         HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbSpeed, cbWheelMode);
         previewSnapBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
-        cbOrbitTool = makeToolbarIconToggle("icon-puppeteer-orbit", "Enable orbit-anchor tool. Shift+click preview to place anchor, Alt+Shift+click another entity to anchor to it.");
+        cbOrbitTool = makeToolbarIconToggle("icon-puppeteer-orbit", "Enable orbit-anchor tool. Shift+click preview to place anchor. Alt+Shift+click another entity to link the anchor at the exact cursor point (joint/nail).");
         cbOrbitTool.setSelected(animationPreview.isOrbitToolEnabled());
         cbOrbitTool.setOnAction(e -> animationPreview.setOrbitToolEnabled(cbOrbitTool.isSelected()));
 
@@ -784,6 +805,7 @@ public class PuppeteerWindow extends Stage {
             timelinePanel.refresh();
             animationPreview.setOrbitAnchors(project.getOrbitAnchorsView());
             animationPreview.setOrbitAnchorSources(project.getOrbitAnchorSourcesView());
+            animationPreview.setOrbitAnchorSourceOffsets(project.getOrbitAnchorSourceOffsetsView());
             updatePreview();
             refreshExportPreview();
         }
@@ -1649,9 +1671,11 @@ public class PuppeteerWindow extends Stage {
         double playhead = project.getPlayheadMs();
         Map<String, double[]> anchorSnapshot = project.getOrbitAnchorsView();
         Map<String, String> anchorSourceSnapshot = project.getOrbitAnchorSourcesView();
+        Map<String, double[]> anchorOffsetSnapshot = project.getOrbitAnchorSourceOffsetsView();
         project.replaceFrom(imported);
         project.setOrbitAnchors(anchorSnapshot);
         project.setOrbitAnchorSources(anchorSourceSnapshot);
+        project.setOrbitAnchorSourceOffsets(anchorOffsetSnapshot);
         project.pruneOrbitAnchors(collectProjectEntityNames());
         project.setPlayheadMs(playhead);
         activeMoveInteraction = null;
@@ -1665,6 +1689,7 @@ public class PuppeteerWindow extends Stage {
         timelinePanel.setPlayhead(project.getPlayheadMs());
         animationPreview.setOrbitAnchors(project.getOrbitAnchorsView());
         animationPreview.setOrbitAnchorSources(project.getOrbitAnchorSourcesView());
+        animationPreview.setOrbitAnchorSourceOffsets(project.getOrbitAnchorSourceOffsetsView());
         updateTimeLabel();
         updatePreview();
     }
@@ -1676,6 +1701,56 @@ public class PuppeteerWindow extends Stage {
             if (name != null && !name.isBlank()) names.add(name);
         }
         return names;
+    }
+
+    private void applyAnchorFollowerDelta(String sourceEntityName, double timeMs, double dx, double dy, Set<String> visitedSources) {
+        if (sourceEntityName == null || sourceEntityName.isBlank()) return;
+        if (!Double.isFinite(dx) || !Double.isFinite(dy)) return;
+        if (!visitedSources.add(sourceEntityName)) return;
+
+        Map<String, String> sourceLinks = project.getOrbitAnchorSourcesView();
+        if (sourceLinks.isEmpty()) return;
+        for (Map.Entry<String, String> entry : sourceLinks.entrySet()) {
+            String target = entry.getKey();
+            String source = entry.getValue();
+            if (target == null || target.isBlank()) continue;
+            if (!sourceEntityName.equals(source)) continue;
+
+            EntityTrack targetTrack = project.getOrCreateTrack(target);
+            double fallbackX = 0.0;
+            double fallbackY = 0.0;
+            if (scene != null) {
+                var targetEntity = scene.find(target);
+                if (targetEntity != null) {
+                    fallbackX = targetEntity.getX();
+                    fallbackY = targetEntity.getY();
+                }
+            }
+            double prevX = valueAtTimeOrFallback(targetTrack, PropertyType.X, timeMs, fallbackX);
+            double prevY = valueAtTimeOrFallback(targetTrack, PropertyType.Y, timeMs, fallbackY);
+            double nextX = prevX + dx;
+            double nextY = prevY + dy;
+
+            targetTrack.upsertKeyframe(PropertyType.X, new Keyframe(timeMs, nextX));
+            targetTrack.upsertKeyframe(PropertyType.Y, new Keyframe(timeMs, nextY));
+
+            if (scene != null) {
+                var targetEntity = scene.find(target);
+                if (targetEntity != null) {
+                    targetEntity.setPosition(nextX, nextY);
+                }
+            }
+
+            applyAnchorFollowerDelta(target, timeMs, dx, dy, visitedSources);
+        }
+    }
+
+    private static double valueAtTimeOrFallback(EntityTrack track, PropertyType property, double timeMs, double fallback) {
+        if (track == null || property == null) return fallback;
+        Keyframe key = track.findKeyframeAt(property, timeMs);
+        if (key != null && Double.isFinite(key.getValue())) return key.getValue();
+        double value = track.getValueAt(property, timeMs);
+        return Double.isFinite(value) ? value : fallback;
     }
 
     private String selectionLabel(String name, boolean group) {

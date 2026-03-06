@@ -2554,11 +2554,13 @@ public class EditorApp extends Application {
       double[] spriteSize = estimateSpriteSize(spritePath, characterHeight);
       double charW = spriteSize[0];
       double charH = spriteSize[1];
-      double x = positionToLeftX(ch.position, sceneW, charW);
-      double y = (sceneH * 1.0) - charH;
+      double leftX = positionToLeftX(ch.position, sceneW, charW);
+      double topY = (sceneH * 1.0) - charH;
       com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePath, charW, charH);
-      sprite.setOrigin(0.0, 0.0);
-      sprite.setPosition(x, y);
+      // Character-friendly pivot for puppeteering: bottom-center (feet/contact point).
+      sprite.setOrigin(0.5, 1.0);
+      // Keep visual placement equivalent to prior top-left anchoring.
+      sprite.setPosition(leftX + (charW * 0.5), topY + charH);
       scene.add(sprite);
       scene.registerEntity(ch.characterId, sprite);
     }
