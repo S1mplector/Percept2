@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -89,6 +90,20 @@ public class PuppeteerWindow extends Stage {
     private boolean previewStaged = false;
     private boolean dirtyBeforePreviewStage = false;
     private AnimationProject previewBaselineProject;
+    private DragInteractionState activeMoveInteraction;
+
+    private static final double MOVE_INTERACTION_EPSILON = 0.01;
+
+    private record DragInteractionState(
+        String entityName,
+        double timeMs,
+        boolean hadX,
+        double oldX,
+        boolean hadY,
+        double oldY,
+        double startX,
+        double startY
+    ) {}
 
     public PuppeteerWindow() {
         this(new AnimationProject());
@@ -107,6 +122,14 @@ public class PuppeteerWindow extends Stage {
         keyframeEditor.setTimelineDurationMs(this.project.getTotalDurationMs());
         animationPreview = new AnimationPreview();
         animationPreview.setProject(this.project);
+        animationPreview.setOrbitAnchors(this.project.getOrbitAnchorsView());
+        animationPreview.setOrbitAnchorSources(this.project.getOrbitAnchorSourcesView());
+        animationPreview.setOnOrbitAnchorChanged((entityName, anchor) -> {
+            if (entityName == null || anchor == null || anchor.length < 2) return;
+            this.project.setOrbitAnchor(entityName, anchor[0], anchor[1]);
+        });
+        animationPreview.setOnOrbitAnchorSourceChanged(this.project::setOrbitAnchorSource);
+        animationPreview.setOnOrbitAnchorRemoved(this.project::removeOrbitAnchor);
         animationPreview.setOnCameraStateChanged(state -> {
             if (state != null && state.length >= 3) {
                 keyframeEditor.setCameraState(state[0], state[1], state[2]);
@@ -210,10 +233,86 @@ public class PuppeteerWindow extends Stage {
         });
 
         animationPreview.setOnEntityMoved((name, pos) -> {
+            if (name == null || pos == null || pos.length < 2) return;
+            if (!Double.isFinite(pos[0]) || !Double.isFinite(pos[1])) return;
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
-            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.X, time, pos[0]));
-            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, time, pos[1]));
+            if (activeMoveInteraction != null && name.equals(activeMoveInteraction.entityName())) {
+                time = activeMoveInteraction.timeMs();
+            }
+            track.upsertKeyframe(PropertyType.X, new Keyframe(time, pos[0]));
+            track.upsertKeyframe(PropertyType.Y, new Keyframe(time, pos[1]));
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
+        });
+
+        animationPreview.setOnEntityMoveInteractionStarted((name, pos) -> {
+            if (name == null || name.isBlank() || pos == null || pos.length < 2) {
+                activeMoveInteraction = null;
+                return;
+            }
+            if (!Double.isFinite(pos[0]) || !Double.isFinite(pos[1])) {
+                activeMoveInteraction = null;
+                return;
+            }
+            EntityTrack track = this.project.getOrCreateTrack(name);
+            double time = this.project.getPlayheadMs();
+            Keyframe xKey = track.findKeyframeAt(PropertyType.X, time);
+            Keyframe yKey = track.findKeyframeAt(PropertyType.Y, time);
+            activeMoveInteraction = new DragInteractionState(
+                name,
+                time,
+                xKey != null,
+                xKey != null ? xKey.getValue() : pos[0],
+                yKey != null,
+                yKey != null ? yKey.getValue() : pos[1],
+                pos[0],
+                pos[1]
+            );
+        });
+
+        animationPreview.setOnEntityMoveInteractionFinished((name, pos) -> {
+            DragInteractionState interaction = activeMoveInteraction;
+            activeMoveInteraction = null;
+            if (interaction == null || name == null || pos == null || pos.length < 2) return;
+            if (!name.equals(interaction.entityName())) return;
+            if (!Double.isFinite(pos[0]) || !Double.isFinite(pos[1])) return;
+
+            EntityTrack track = this.project.getOrCreateTrack(name);
+            double time = interaction.timeMs();
+            double endX = pos[0];
+            double endY = pos[1];
+            boolean moved = Math.abs(endX - interaction.startX()) > MOVE_INTERACTION_EPSILON
+                || Math.abs(endY - interaction.startY()) > MOVE_INTERACTION_EPSILON;
+
+            if (!moved) {
+                if (!interaction.hadX()) {
+                    Keyframe xKey = track.findKeyframeAt(PropertyType.X, time);
+                    if (xKey != null) track.removeKeyframe(PropertyType.X, xKey);
+                } else {
+                    track.upsertKeyframe(PropertyType.X, new Keyframe(time, interaction.oldX()));
+                }
+                if (!interaction.hadY()) {
+                    Keyframe yKey = track.findKeyframeAt(PropertyType.Y, time);
+                    if (yKey != null) track.removeKeyframe(PropertyType.Y, yKey);
+                } else {
+                    track.upsertKeyframe(PropertyType.Y, new Keyframe(time, interaction.oldY()));
+                }
+                timelinePanel.refresh();
+                refreshExportPreviewAndMarkDirty();
+                return;
+            }
+
+            commandStack.execute(PuppeteerCommand.applyPositionAtTime(
+                track,
+                time,
+                interaction.hadX(),
+                interaction.oldX(),
+                interaction.hadY(),
+                interaction.oldY(),
+                endX,
+                endY
+            ));
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -683,6 +782,8 @@ public class PuppeteerWindow extends Stage {
             captureProjectSnapshotBaseline();
             entitySelector.refresh(project);
             timelinePanel.refresh();
+            animationPreview.setOrbitAnchors(project.getOrbitAnchorsView());
+            animationPreview.setOrbitAnchorSources(project.getOrbitAnchorSourcesView());
             updatePreview();
             refreshExportPreview();
         }
@@ -1546,8 +1647,14 @@ public class PuppeteerWindow extends Stage {
     private void applyImportedProject(AnimationProject imported) {
         if (imported == null) return;
         double playhead = project.getPlayheadMs();
+        Map<String, double[]> anchorSnapshot = project.getOrbitAnchorsView();
+        Map<String, String> anchorSourceSnapshot = project.getOrbitAnchorSourcesView();
         project.replaceFrom(imported);
+        project.setOrbitAnchors(anchorSnapshot);
+        project.setOrbitAnchorSources(anchorSourceSnapshot);
+        project.pruneOrbitAnchors(collectProjectEntityNames());
         project.setPlayheadMs(playhead);
+        activeMoveInteraction = null;
         commandStack.clear();
         tfDuration.setText(String.valueOf((int) project.getTotalDurationMs()));
         cbLoop.setSelected(project.isLooping());
@@ -1556,8 +1663,19 @@ public class PuppeteerWindow extends Stage {
         entitySelector.refresh(project);
         timelinePanel.refresh();
         timelinePanel.setPlayhead(project.getPlayheadMs());
+        animationPreview.setOrbitAnchors(project.getOrbitAnchorsView());
+        animationPreview.setOrbitAnchorSources(project.getOrbitAnchorSourcesView());
         updateTimeLabel();
         updatePreview();
+    }
+
+    private Set<String> collectProjectEntityNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (EntityTrack track : project.getTracks()) {
+            String name = track.getEntityName();
+            if (name != null && !name.isBlank()) names.add(name);
+        }
+        return names;
     }
 
     private String selectionLabel(String name, boolean group) {

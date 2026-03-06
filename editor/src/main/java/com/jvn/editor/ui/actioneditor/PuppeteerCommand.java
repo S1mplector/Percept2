@@ -124,6 +124,50 @@ public class PuppeteerCommand {
         }
     }
 
+    /**
+     * Undoable coalesced position update for a drag interaction.
+     * Captures whether X/Y keyframes originally existed at {@code timeMs} and restores
+     * the exact prior state on undo.
+     */
+    public static PuppeteerCommand applyPositionAtTime(
+        EntityTrack track,
+        double timeMs,
+        boolean hadX,
+        double oldX,
+        boolean hadY,
+        double oldY,
+        double newX,
+        double newY
+    ) {
+        return new PuppeteerCommand("Move entity",
+            () -> {
+                track.upsertKeyframe(PropertyType.X, new Keyframe(timeMs, newX));
+                track.upsertKeyframe(PropertyType.Y, new Keyframe(timeMs, newY));
+            },
+            () -> {
+                restorePropertyAtTime(track, PropertyType.X, timeMs, hadX, oldX);
+                restorePropertyAtTime(track, PropertyType.Y, timeMs, hadY, oldY);
+            }
+        );
+    }
+
+    private static void restorePropertyAtTime(
+        EntityTrack track,
+        PropertyType property,
+        double timeMs,
+        boolean hadKeyframe,
+        double value
+    ) {
+        if (hadKeyframe) {
+            track.upsertKeyframe(property, new Keyframe(timeMs, value));
+            return;
+        }
+        Keyframe kf = track.findKeyframeAt(property, timeMs);
+        if (kf != null) {
+            track.removeKeyframe(property, kf);
+        }
+    }
+
     public static PuppeteerCommand applyPreset(EntityTrack track, AnimationPreset preset, double startTime) {
         EntityTrack snapshot = track.copy();
         return new PuppeteerCommand("Apply preset: " + preset.getName(),

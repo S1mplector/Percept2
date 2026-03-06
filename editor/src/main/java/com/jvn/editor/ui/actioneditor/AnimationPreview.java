@@ -1,5 +1,6 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -127,6 +128,7 @@ public class AnimationPreview extends VBox {
     private boolean orbitToolEnabled = false;
     private boolean orbitAlignRotation = true;
     private final Map<String, double[]> orbitAnchors = new HashMap<>();
+    private final Map<String, String> orbitAnchorSources = new HashMap<>();
 
     private boolean snapToGridEnabled = false;
     private double snapGridSize = 10.0;
@@ -135,8 +137,13 @@ public class AnimationPreview extends VBox {
 
     private Consumer<String> onEntitySelected;
     private BiConsumer<String, double[]> onEntityMoved;
+    private BiConsumer<String, double[]> onEntityMoveInteractionStarted;
+    private BiConsumer<String, double[]> onEntityMoveInteractionFinished;
     private BiConsumer<String, double[]> onEntityPivotChanged;
     private BiConsumer<String, Double> onEntityRotationChanged;
+    private BiConsumer<String, double[]> onOrbitAnchorChanged;
+    private BiConsumer<String, String> onOrbitAnchorSourceChanged;
+    private Consumer<String> onOrbitAnchorRemoved;
     private Consumer<double[]> onCameraStateChanged;
     private ProjectViewportSpec.Dimensions viewportSpec =
         new ProjectViewportSpec.Dimensions(ProjectViewportSpec.DEFAULT_WIDTH, ProjectViewportSpec.DEFAULT_HEIGHT);
@@ -160,6 +167,10 @@ public class AnimationPreview extends VBox {
     private final Map<String, double[]> sourceImageSizeCache = new HashMap<>();
     private final Map<String, Image> sourceImageCache = new HashMap<>();
     private final Set<String> missingSourceImagePaths = new HashSet<>();
+    private boolean moveInteractionActive = false;
+    private String moveInteractionEntityName = null;
+    private double moveInteractionStartX = 0.0;
+    private double moveInteractionStartY = 0.0;
 
     public void setProjectRoot(java.io.File root) {
         projectRoot = root;
@@ -204,7 +215,20 @@ public class AnimationPreview extends VBox {
             scene.setInput(input);
             scene.setCamera(camera);
             Set<String> names = new HashSet<>(scene.names());
-            orbitAnchors.keySet().removeIf(name -> !names.contains(name));
+            java.util.List<String> removed = new java.util.ArrayList<>();
+            orbitAnchors.keySet().removeIf(name -> {
+                boolean drop = !names.contains(name);
+                if (drop) removed.add(name);
+                return drop;
+            });
+            orbitAnchorSources.entrySet().removeIf(entry -> {
+                String target = entry.getKey();
+                String source = entry.getValue();
+                return target == null || !names.contains(target) || source == null || !names.contains(source);
+            });
+            if (onOrbitAnchorRemoved != null) {
+                for (String name : removed) onOrbitAnchorRemoved.accept(name);
+            }
             if (selectedEntityName != null) {
                 if (!names.contains(selectedEntityName)) {
                     selectedEntity = null;
@@ -216,14 +240,26 @@ public class AnimationPreview extends VBox {
         } else {
             selectedEntity = null;
             selectedEntityName = null;
+            if (onOrbitAnchorRemoved != null) {
+                for (String name : orbitAnchors.keySet()) onOrbitAnchorRemoved.accept(name);
+            }
             orbitAnchors.clear();
+            orbitAnchorSources.clear();
         }
         pivotDragState = null;
+        cancelMoveInteraction();
         render();
     }
 
     public void setProject(AnimationProject project) {
         this.project = project;
+        if (project != null) {
+            setOrbitAnchors(project.getOrbitAnchorsView());
+            setOrbitAnchorSources(project.getOrbitAnchorSourcesView());
+        } else {
+            setOrbitAnchors(Collections.emptyMap());
+            setOrbitAnchorSources(Collections.emptyMap());
+        }
     }
 
     public JesScene2D getJesScene() { return scene; }
@@ -672,8 +708,13 @@ public class AnimationPreview extends VBox {
 
     public void setOnEntitySelected(Consumer<String> callback) { this.onEntitySelected = callback; }
     public void setOnEntityMoved(BiConsumer<String, double[]> callback) { this.onEntityMoved = callback; }
+    public void setOnEntityMoveInteractionStarted(BiConsumer<String, double[]> callback) { this.onEntityMoveInteractionStarted = callback; }
+    public void setOnEntityMoveInteractionFinished(BiConsumer<String, double[]> callback) { this.onEntityMoveInteractionFinished = callback; }
     public void setOnEntityPivotChanged(BiConsumer<String, double[]> callback) { this.onEntityPivotChanged = callback; }
     public void setOnEntityRotationChanged(BiConsumer<String, Double> callback) { this.onEntityRotationChanged = callback; }
+    public void setOnOrbitAnchorChanged(BiConsumer<String, double[]> callback) { this.onOrbitAnchorChanged = callback; }
+    public void setOnOrbitAnchorSourceChanged(BiConsumer<String, String> callback) { this.onOrbitAnchorSourceChanged = callback; }
+    public void setOnOrbitAnchorRemoved(Consumer<String> callback) { this.onOrbitAnchorRemoved = callback; }
     public void setOnCameraStateChanged(Consumer<double[]> callback) { this.onCameraStateChanged = callback; }
 
     public Entity2D getSelectedEntity() { return selectedEntity; }
@@ -749,9 +790,59 @@ public class AnimationPreview extends VBox {
     public boolean hasSelectedOrbitAnchor() {
         return selectedEntityName != null && orbitAnchors.containsKey(selectedEntityName);
     }
+
+    public Map<String, double[]> getOrbitAnchorsSnapshot() {
+        Map<String, double[]> copy = new HashMap<>();
+        for (Map.Entry<String, double[]> entry : orbitAnchors.entrySet()) {
+            double[] value = entry.getValue();
+            if (value == null || value.length < 2) continue;
+            copy.put(entry.getKey(), new double[]{value[0], value[1]});
+        }
+        return copy;
+    }
+
+    public Map<String, String> getOrbitAnchorSourcesSnapshot() {
+        return new HashMap<>(orbitAnchorSources);
+    }
+
+    public void setOrbitAnchors(Map<String, double[]> anchors) {
+        orbitAnchors.clear();
+        if (anchors == null || anchors.isEmpty()) {
+            orbitAnchorSources.clear();
+            render();
+            return;
+        }
+        for (Map.Entry<String, double[]> entry : anchors.entrySet()) {
+            String name = entry.getKey();
+            double[] value = entry.getValue();
+            if (name == null || name.isBlank() || value == null || value.length < 2) continue;
+            if (!Double.isFinite(value[0]) || !Double.isFinite(value[1])) continue;
+            orbitAnchors.put(name, new double[]{value[0], value[1]});
+        }
+        orbitAnchorSources.keySet().removeIf(name -> !orbitAnchors.containsKey(name));
+        render();
+    }
+
+    public void setOrbitAnchorSources(Map<String, String> sources) {
+        orbitAnchorSources.clear();
+        if (sources != null && !sources.isEmpty()) {
+            for (Map.Entry<String, String> entry : sources.entrySet()) {
+                String target = entry.getKey();
+                String source = entry.getValue();
+                if (target == null || target.isBlank() || source == null || source.isBlank()) continue;
+                if (target.equals(source)) continue;
+                if (!orbitAnchors.containsKey(target)) continue;
+                orbitAnchorSources.put(target, source);
+            }
+        }
+        render();
+    }
+
     public void clearOrbitAnchorForSelectedEntity() {
         if (selectedEntityName == null) return;
         orbitAnchors.remove(selectedEntityName);
+        orbitAnchorSources.remove(selectedEntityName);
+        if (onOrbitAnchorRemoved != null) onOrbitAnchorRemoved.accept(selectedEntityName);
         render();
     }
 
@@ -907,12 +998,56 @@ public class AnimationPreview extends VBox {
     }
 
     private double[] getOrbitAnchor(String entityName) {
-        return entityName == null ? null : orbitAnchors.get(entityName);
+        if (entityName == null) return null;
+        String sourceName = orbitAnchorSources.get(entityName);
+        if (sourceName != null && !sourceName.isBlank() && scene != null) {
+            Entity2D source = scene.find(sourceName);
+            if (source != null) {
+                double sx = source.getX();
+                double sy = source.getY();
+                if (Double.isFinite(sx) && Double.isFinite(sy)) {
+                    return new double[]{sx, sy};
+                }
+            }
+        }
+        double[] anchor = orbitAnchors.get(entityName);
+        if (anchor == null || anchor.length < 2) return null;
+        return anchor;
     }
 
     private void setOrbitAnchor(String entityName, double worldX, double worldY) {
         if (entityName == null || entityName.isBlank()) return;
+        if (!Double.isFinite(worldX) || !Double.isFinite(worldY)) return;
+        if (scene != null && scene.find(entityName) == null) return;
         orbitAnchors.put(entityName, new double[]{worldX, worldY});
+        orbitAnchorSources.remove(entityName);
+        if (onOrbitAnchorChanged != null) {
+            onOrbitAnchorChanged.accept(entityName, new double[]{worldX, worldY});
+        }
+        if (onOrbitAnchorSourceChanged != null) {
+            onOrbitAnchorSourceChanged.accept(entityName, null);
+        }
+    }
+
+    private void setOrbitAnchorSource(String entityName, String sourceEntityName) {
+        if (entityName == null || entityName.isBlank()) return;
+        if (sourceEntityName == null || sourceEntityName.isBlank()) return;
+        if (entityName.equals(sourceEntityName)) return;
+        if (scene == null) return;
+        Entity2D target = scene.find(entityName);
+        Entity2D source = scene.find(sourceEntityName);
+        if (target == null || source == null) return;
+        double sx = source.getX();
+        double sy = source.getY();
+        if (!Double.isFinite(sx) || !Double.isFinite(sy)) return;
+        orbitAnchors.put(entityName, new double[]{sx, sy});
+        orbitAnchorSources.put(entityName, sourceEntityName);
+        if (onOrbitAnchorChanged != null) {
+            onOrbitAnchorChanged.accept(entityName, new double[]{sx, sy});
+        }
+        if (onOrbitAnchorSourceChanged != null) {
+            onOrbitAnchorSourceChanged.accept(entityName, sourceEntityName);
+        }
     }
 
     private boolean isNearOrbitAnchorHandle(double screenX, double screenY) {
@@ -973,6 +1108,7 @@ public class AnimationPreview extends VBox {
                     draggingPivot = false;
                     draggingOrbitAnchor = false;
                     pivotDragState = null;
+                    cancelMoveInteraction();
                     render();
                     return;
                 }
@@ -982,7 +1118,7 @@ public class AnimationPreview extends VBox {
                         if (anchorSource != null && !anchorSource.equals(selectedEntityName)) {
                             Entity2D sourceEntity = scene != null ? scene.find(anchorSource) : null;
                             if (sourceEntity != null) {
-                                setOrbitAnchor(selectedEntityName, sourceEntity.getX(), sourceEntity.getY());
+                                setOrbitAnchorSource(selectedEntityName, anchorSource);
                                 render();
                                 return;
                             }
@@ -1014,6 +1150,7 @@ public class AnimationPreview extends VBox {
                 if (selectedEntity != null && supportsPivotEntity(selectedEntity) && isNearPivotHandle(e.getX(), e.getY())) {
                     pivotDragState = buildPivotDragState(selectedEntity);
                     draggingPivot = true;
+                    beginMoveInteraction(selectedEntityName, selectedEntity);
                     pivotAxisLocked = false;
                     pivotAxisIsHorizontal = false;
                     double[] startWorld = screenToWorld(e.getX(), e.getY());
@@ -1026,6 +1163,7 @@ public class AnimationPreview extends VBox {
                 if (hitName != null) {
                     if (orbitToolEnabled && hasOrbitAnchor(hitName)) {
                         double[] anchor = getOrbitAnchor(hitName);
+                        beginMoveInteraction(selectedEntityName, selectedEntity);
                         orbitRadius = Math.hypot(selectedEntity.getX() - anchor[0], selectedEntity.getY() - anchor[1]);
                         if (orbitRadius < 0.0001) {
                             double[] world = screenToWorld(e.getX(), e.getY());
@@ -1033,6 +1171,7 @@ public class AnimationPreview extends VBox {
                         }
                         draggingOrbit = true;
                     } else {
+                        beginMoveInteraction(selectedEntityName, selectedEntity);
                         draggingEntity = true;
                         dragEntityStartX = e.getX();
                         dragEntityStartY = e.getY();
@@ -1045,6 +1184,7 @@ public class AnimationPreview extends VBox {
                     draggingEntity = false;
                     draggingOrbit = false;
                     pivotDragState = null;
+                    cancelMoveInteraction();
                 }
                 render();
             }
@@ -1166,6 +1306,7 @@ public class AnimationPreview extends VBox {
         });
 
         canvas.setOnMouseReleased(e -> {
+            endMoveInteraction();
             panning[0] = false;
             draggingEntity = false;
             draggingPivot = false;
@@ -1178,6 +1319,42 @@ public class AnimationPreview extends VBox {
                 render();
             }
         });
+    }
+
+    private void beginMoveInteraction(String entityName, Entity2D entity) {
+        if (entityName == null || entityName.isBlank() || entity == null) return;
+        if (moveInteractionActive && entityName.equals(moveInteractionEntityName)) return;
+        moveInteractionActive = true;
+        moveInteractionEntityName = entityName;
+        moveInteractionStartX = entity.getX();
+        moveInteractionStartY = entity.getY();
+        if (onEntityMoveInteractionStarted != null) {
+            onEntityMoveInteractionStarted.accept(entityName, new double[]{moveInteractionStartX, moveInteractionStartY});
+        }
+    }
+
+    private void endMoveInteraction() {
+        if (!moveInteractionActive) return;
+        String entityName = moveInteractionEntityName;
+        double endX = moveInteractionStartX;
+        double endY = moveInteractionStartY;
+        if (entityName != null && scene != null) {
+            Entity2D entity = scene.find(entityName);
+            if (entity != null) {
+                endX = entity.getX();
+                endY = entity.getY();
+            }
+        }
+        moveInteractionActive = false;
+        moveInteractionEntityName = null;
+        if (entityName != null && onEntityMoveInteractionFinished != null) {
+            onEntityMoveInteractionFinished.accept(entityName, new double[]{endX, endY});
+        }
+    }
+
+    private void cancelMoveInteraction() {
+        moveInteractionActive = false;
+        moveInteractionEntityName = null;
     }
 
     private void drawSelectionHighlight(Entity2D entity) {

@@ -4,8 +4,10 @@ import com.jvn.core.animation.Easing;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TimelineModelSanitizationTest {
@@ -106,5 +108,42 @@ class TimelineModelSanitizationTest {
         assertEquals(0, target.getGroup("groupA").getLayerOrder());
         assertEquals(400.0, target.getLoopStartMs(), 0.0001);
         assertEquals(1400.0, target.getLoopEndMs(), 0.0001);
+    }
+
+    @Test
+    void animationProjectCopiesAndReplacesOrbitAnchorState() {
+        AnimationProject project = new AnimationProject();
+        project.getOrCreateTrack("hero");
+        project.getOrCreateTrack("npc");
+        project.setOrbitAnchor("hero", 320.0, 240.0);
+        project.setOrbitAnchorSource("hero", "npc");
+
+        AnimationProject copy = project.copy();
+        assertTrue(copy.hasOrbitAnchor("hero"));
+        assertArrayEquals(new double[]{320.0, 240.0}, copy.getOrbitAnchor("hero"), 0.0001);
+        assertEquals("npc", copy.getOrbitAnchorSourcesView().get("hero"));
+
+        AnimationProject replaced = new AnimationProject();
+        replaced.replaceFrom(project);
+        assertTrue(replaced.hasOrbitAnchor("hero"));
+        assertArrayEquals(new double[]{320.0, 240.0}, replaced.getOrbitAnchor("hero"), 0.0001);
+        assertEquals("npc", replaced.getOrbitAnchorSourcesView().get("hero"));
+    }
+
+    @Test
+    void pruneOrbitAnchorsDropsMissingTargetsAndSources() {
+        AnimationProject project = new AnimationProject();
+        project.setOrbitAnchor("hero", 10.0, 20.0);
+        project.setOrbitAnchor("npc", 30.0, 40.0);
+        project.setOrbitAnchorSource("hero", "npc");
+        project.setOrbitAnchorSource("npc", "ghost");
+
+        java.util.Set<String> valid = java.util.Set.of("hero", "npc");
+        project.pruneOrbitAnchors(valid);
+
+        assertTrue(project.hasOrbitAnchor("hero"));
+        assertTrue(project.hasOrbitAnchor("npc"));
+        assertEquals("npc", project.getOrbitAnchorSourcesView().get("hero"));
+        assertFalse(project.getOrbitAnchorSourcesView().containsKey("npc"));
     }
 }
