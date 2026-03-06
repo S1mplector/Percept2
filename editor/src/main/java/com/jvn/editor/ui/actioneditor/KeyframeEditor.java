@@ -24,6 +24,7 @@ public class KeyframeEditor extends VBox {
     private final ComboBox<Easing.Type> cbEasing;
     private final Button btnDelete;
     private final Button btnResetValue;
+    private final Label lblCameraState;
     private final EasingCurveEditor curveEditor;
     private final GridPane pivotPresetsGrid;
     private final Label lblPivotPresets;
@@ -127,6 +128,10 @@ public class KeyframeEditor extends VBox {
         grid.add(lblPivotPresets, 0, 6);
         grid.add(pivotPresetsGrid, 1, 6);
         grid.add(actionRow, 1, 7);
+        lblCameraState = new Label("X 0.0  Y 0.0  Z 1.00");
+        lblCameraState.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px; -fx-font-family: monospace;");
+        grid.add(new Label("Camera:"), 0, 8);
+        grid.add(lblCameraState, 1, 8);
 
         for (var node : grid.getChildren()) {
             if (node instanceof Label l && l != header) l.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
@@ -254,6 +259,10 @@ public class KeyframeEditor extends VBox {
 
     public void setOnPivotPresetApplied(java.util.function.BiConsumer<Double, Double> callback) {
         this.onPivotPresetApplied = callback;
+    }
+
+    public void setCameraState(double cameraX, double cameraY, double cameraZoom) {
+        lblCameraState.setText(String.format("X %.1f  Y %.1f  Z %.2f", cameraX, cameraY, cameraZoom));
     }
 
     private void applyChanges() {

@@ -107,7 +107,13 @@ public class PuppeteerWindow extends Stage {
         keyframeEditor.setTimelineDurationMs(this.project.getTotalDurationMs());
         animationPreview = new AnimationPreview();
         animationPreview.setProject(this.project);
+        animationPreview.setOnCameraStateChanged(state -> {
+            if (state != null && state.length >= 3) {
+                keyframeEditor.setCameraState(state[0], state[1], state[2]);
+            }
+        });
         codePreview = new CodePreviewPane();
+        keyframeEditor.setCameraState(animationPreview.getCamera().getX(), animationPreview.getCamera().getY(), animationPreview.getCamera().getZoom());
 
         timelinePanel.setOnTargetSelectionChanged((name, isGroup) -> {
             keyframeEditor.setEntityName(selectionLabel(name, isGroup));
@@ -449,6 +455,22 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
+        ComboBox<String> cbWheelMode = new ComboBox<>();
+        cbWheelMode.getItems().addAll("Wheel: View", "Wheel: Camera");
+        cbWheelMode.setValue("Wheel: View");
+        cbWheelMode.setStyle(STYLE_TEXT_FIELD);
+        cbWheelMode.setPrefWidth(118);
+        cbWheelMode.setTooltip(new Tooltip("Choose what mouse wheel controls in preview"));
+        animationPreview.setScrollZoomMode(AnimationPreview.ScrollZoomMode.VIEW);
+        cbWheelMode.setOnAction(e -> {
+            String mode = cbWheelMode.getValue();
+            if ("Wheel: Camera".equals(mode)) {
+                animationPreview.setScrollZoomMode(AnimationPreview.ScrollZoomMode.CAMERA);
+            } else {
+                animationPreview.setScrollZoomMode(AnimationPreview.ScrollZoomMode.VIEW);
+            }
+        });
+
         // --- Auto-key toggle ---
         ToggleButton cbAutoKey = makeToolbarIconToggle("icon-puppeteer-snap", "Auto-key: automatically insert keyframe on drag");
         cbAutoKey.setSelected(false);
@@ -466,7 +488,7 @@ public class PuppeteerWindow extends Stage {
 
         HBox autoKeyBox = new HBox(4, cbAutoKey, lblAutoKey);
         autoKeyBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-        HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbSpeed);
+        HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbSpeed, cbWheelMode);
         previewSnapBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         cbOrbitTool = makeToolbarIconToggle("icon-puppeteer-orbit", "Enable orbit-anchor tool. Shift+click preview to place anchor, Alt+Shift+click another entity to anchor to it.");
@@ -838,6 +860,7 @@ public class PuppeteerWindow extends Stage {
             previewCamera.setPosition(cameraX, cameraY);
             previewCamera.setZoom(cameraZoom);
         }
+        keyframeEditor.setCameraState(previewCamera.getX(), previewCamera.getY(), previewCamera.getZoom());
 
         for (EntityTrack track : project.getTracks()) {
             var entity = scene.find(track.getEntityName());

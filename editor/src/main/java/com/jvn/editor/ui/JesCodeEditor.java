@@ -22,6 +22,7 @@ import com.jvn.scripting.jes.JesTokenizer;
 import javafx.application.Platform;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 public class JesCodeEditor extends BorderPane {
@@ -108,6 +109,8 @@ public class JesCodeEditor extends BorderPane {
 
     VirtualizedScrollPane<CodeArea> sp = new VirtualizedScrollPane<>(codeArea);
     VBox wrapper = new VBox(sp, lintLabel);
+    VBox.setVgrow(sp, Priority.ALWAYS);
+    sp.setMaxHeight(Double.MAX_VALUE);
     lintLabel.getStyleClass().add("lint-label");
     lintLabel.setText("Ready");
     setCenter(wrapper);

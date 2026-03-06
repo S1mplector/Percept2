@@ -28,6 +28,13 @@ public class AnimationPreview extends VBox {
     private static final double PIVOT_MIN = 0.0;
     private static final double PIVOT_MAX = 1.0;
     private static final double TRANSFORM_EPSILON = 1e-6;
+    private static final double VIEW_ZOOM_MIN = 0.35;
+    private static final double VIEW_ZOOM_MAX = 6.0;
+
+    public enum ScrollZoomMode {
+        VIEW,
+        CAMERA
+    }
 
     private static final class EntityFrame {
         final double x;
@@ -116,6 +123,7 @@ public class AnimationPreview extends VBox {
     private BiConsumer<String, double[]> onEntityMoved;
     private BiConsumer<String, double[]> onEntityPivotChanged;
     private BiConsumer<String, Double> onEntityRotationChanged;
+    private Consumer<double[]> onCameraStateChanged;
     private ProjectViewportSpec.Dimensions viewportSpec =
         new ProjectViewportSpec.Dimensions(ProjectViewportSpec.DEFAULT_WIDTH, ProjectViewportSpec.DEFAULT_HEIGHT);
     private double viewportScale = 1.0;
@@ -130,6 +138,10 @@ public class AnimationPreview extends VBox {
     private double displayMinY = 0.0;
     private double displayWidth = ProjectViewportSpec.DEFAULT_WIDTH;
     private double displayHeight = ProjectViewportSpec.DEFAULT_HEIGHT;
+    private double viewZoomFactor = 1.0;
+    private double viewPanX = 0.0;
+    private double viewPanY = 0.0;
+    private ScrollZoomMode scrollZoomMode = ScrollZoomMode.VIEW;
     private java.io.File projectRoot;
     private final Map<String, double[]> sourceImageSizeCache = new HashMap<>();
 
@@ -234,6 +246,7 @@ public class AnimationPreview extends VBox {
         }
         gc.restore();
         drawRuntimeFrame();
+        drawCameraHud();
 
         if (pivotOverlayText != null) {
             gc.setFont(javafx.scene.text.Font.font("Monospaced", 11));
@@ -273,6 +286,22 @@ public class AnimationPreview extends VBox {
         gc.restore();
     }
 
+    private void drawCameraHud() {
+        String modeText = scrollZoomMode == ScrollZoomMode.CAMERA ? "Camera Zoom" : "View Zoom";
+        String hud = String.format(
+            "Wheel: %s  |  Cam (x=%.1f y=%.1f z=%.2f)  |  View %.2fx",
+            modeText, camera.getX(), camera.getY(), camera.getZoom(), viewZoomFactor
+        );
+        gc.save();
+        gc.setFont(javafx.scene.text.Font.font("Monospaced", 10));
+        double width = Math.max(280.0, hud.length() * 6.0 + 12.0);
+        gc.setFill(Color.web("#050505", 0.75));
+        gc.fillRoundRect(8, 8, width, 18, 6, 6);
+        gc.setFill(Color.web("#d3dae8", 0.95));
+        gc.fillText(hud, 14, 21);
+        gc.restore();
+    }
+
     private void updateViewportTransform(double canvasW, double canvasH) {
         if (viewportSpec == null) {
             viewportSpec = new ProjectViewportSpec.Dimensions(ProjectViewportSpec.DEFAULT_WIDTH, ProjectViewportSpec.DEFAULT_HEIGHT);
@@ -281,20 +310,33 @@ public class AnimationPreview extends VBox {
         viewportLogicalHeight = Math.max(1.0, viewportSpec.height());
 
         double[] bounds = computeDisplayBoundsWorld();
-        displayMinX = bounds[0];
-        displayMinY = bounds[1];
-        displayWidth = Math.max(1.0, bounds[2] - bounds[0]);
-        displayHeight = Math.max(1.0, bounds[3] - bounds[1]);
+        double boundsMinX = bounds[0];
+        double boundsMinY = bounds[1];
+        double boundsMaxX = bounds[2];
+        double boundsMaxY = bounds[3];
+        double boundsWidth = Math.max(1.0, boundsMaxX - boundsMinX);
+        double boundsHeight = Math.max(1.0, boundsMaxY - boundsMinY);
 
-        var fit = ViewportScaler2D.fit(displayWidth, displayHeight, canvasW, canvasH);
-        displayScale = Math.max(1e-6, fit.scale());
-        displayOffsetX = fit.offsetX();
-        displayOffsetY = fit.offsetY();
+        var fit = ViewportScaler2D.fit(boundsWidth, boundsHeight, canvasW, canvasH);
+        double fitScale = Math.max(1e-6, fit.scale());
+        displayScale = fitScale * viewZoomFactor;
+
+        double baseCenterX = (boundsMinX + boundsMaxX) * 0.5;
+        double baseCenterY = (boundsMinY + boundsMaxY) * 0.5;
+        double centerX = baseCenterX + viewPanX;
+        double centerY = baseCenterY + viewPanY;
+
+        displayWidth = Math.max(1.0, canvasW / Math.max(1e-6, displayScale));
+        displayHeight = Math.max(1.0, canvasH / Math.max(1e-6, displayScale));
+        displayMinX = centerX - displayWidth * 0.5;
+        displayMinY = centerY - displayHeight * 0.5;
+        displayOffsetX = 0.0;
+        displayOffsetY = 0.0;
 
         // Keep legacy fields aligned with current visible world transform.
         viewportScale = displayScale;
-        viewportOffsetX = displayOffsetX;
-        viewportOffsetY = displayOffsetY;
+        viewportOffsetX = worldToScreenX(camera.getX());
+        viewportOffsetY = worldToScreenY(camera.getY());
     }
 
     private double[] computeDisplayBoundsWorld() {
@@ -444,7 +486,7 @@ public class AnimationPreview extends VBox {
 
     private void drawMotionPaths() {
         if (project == null) return;
-        double z = Math.max(0.0001, camera.getZoom());
+        double z = Math.max(1e-6, displayScale);
 
         gc.save();
         applyCameraTransform();
@@ -479,7 +521,7 @@ public class AnimationPreview extends VBox {
 
     private void drawOnionSkins() {
         if (project == null) return;
-        double z = Math.max(0.0001, camera.getZoom());
+        double z = Math.max(1e-6, displayScale);
         double now = project.getPlayheadMs();
         double dur = project.getTotalDurationMs();
         double step = dur / 20;
@@ -568,6 +610,7 @@ public class AnimationPreview extends VBox {
     public void setOnEntityMoved(BiConsumer<String, double[]> callback) { this.onEntityMoved = callback; }
     public void setOnEntityPivotChanged(BiConsumer<String, double[]> callback) { this.onEntityPivotChanged = callback; }
     public void setOnEntityRotationChanged(BiConsumer<String, Double> callback) { this.onEntityRotationChanged = callback; }
+    public void setOnCameraStateChanged(Consumer<double[]> callback) { this.onCameraStateChanged = callback; }
 
     public Entity2D getSelectedEntity() { return selectedEntity; }
     public String getSelectedEntityName() { return selectedEntityName; }
@@ -611,6 +654,11 @@ public class AnimationPreview extends VBox {
     public void setSnapGridSize(double size) { this.snapGridSize = Math.max(1, size); }
     public boolean isSnapToEntityEnabled() { return snapToEntityEnabled; }
     public void setSnapToEntityEnabled(boolean enabled) { this.snapToEntityEnabled = enabled; }
+    public ScrollZoomMode getScrollZoomMode() { return scrollZoomMode; }
+    public void setScrollZoomMode(ScrollZoomMode mode) {
+        this.scrollZoomMode = mode == null ? ScrollZoomMode.VIEW : mode;
+        render();
+    }
 
     private double[] applySnap(double x, double y) {
         if (snapToGridEnabled && snapGridSize > 0) {
@@ -819,15 +867,25 @@ public class AnimationPreview extends VBox {
         canvas.setOnScroll(e -> {
             if (!isInsideViewport(e.getX(), e.getY())) return;
             double factor = Math.pow(1.05, e.getDeltaY() / 40.0);
-            double z = camera.getZoom();
-            double[] world = screenToWorld(e.getX(), e.getY());
-            double worldX = world[0];
-            double worldY = world[1];
-            double relativeX = (worldX - camera.getX()) * z;
-            double relativeY = (worldY - camera.getY()) * z;
-            double newZ = Math.max(0.1, Math.min(5.0, z * factor));
-            camera.setZoom(newZ);
-            camera.setPosition(worldX - relativeX / newZ, worldY - relativeY / newZ);
+            if (scrollZoomMode == ScrollZoomMode.CAMERA) {
+                double z = camera.getZoom();
+                double[] world = screenToWorld(e.getX(), e.getY());
+                double worldX = world[0];
+                double worldY = world[1];
+                double relativeX = (worldX - camera.getX()) * z;
+                double relativeY = (worldY - camera.getY()) * z;
+                double newZ = Math.max(0.1, Math.min(5.0, z * factor));
+                camera.setZoom(newZ);
+                camera.setPosition(worldX - relativeX / newZ, worldY - relativeY / newZ);
+            } else {
+                double[] worldBefore = screenToWorld(e.getX(), e.getY());
+                viewZoomFactor = clamp(viewZoomFactor * factor, VIEW_ZOOM_MIN, VIEW_ZOOM_MAX);
+                updateViewportTransform(Math.max(1.0, canvas.getWidth()), Math.max(1.0, canvas.getHeight()));
+                double[] worldAfter = screenToWorld(e.getX(), e.getY());
+                viewPanX += worldBefore[0] - worldAfter[0];
+                viewPanY += worldBefore[1] - worldAfter[1];
+            }
+            notifyCameraStateChanged();
             render();
         });
 
@@ -934,10 +992,16 @@ public class AnimationPreview extends VBox {
                 double dy = (e.getY() - panStart[1]) / Math.max(1e-6, displayScale);
                 panStart[0] = e.getX();
                 panStart[1] = e.getY();
-                camera.setPosition(
-                    camera.getX() - dx,
-                    camera.getY() - dy
-                );
+                if (scrollZoomMode == ScrollZoomMode.CAMERA) {
+                    camera.setPosition(
+                        camera.getX() - dx,
+                        camera.getY() - dy
+                    );
+                } else {
+                    viewPanX -= dx;
+                    viewPanY -= dy;
+                }
+                notifyCameraStateChanged();
                 render();
             } else if (draggingOrbitAnchor && selectedEntityName != null) {
                 double[] world = screenToWorld(e.getX(), e.getY());
@@ -1054,7 +1118,7 @@ public class AnimationPreview extends VBox {
 
     private void drawSelectionHighlight(Entity2D entity) {
         if (entity == null) return;
-        double z = Math.max(0.0001, camera.getZoom());
+        double z = Math.max(1e-6, displayScale);
         double[] corners = getEntityCorners(entity);
         if (corners.length < 8) return;
         double[] wx = new double[4];
@@ -1248,6 +1312,13 @@ public class AnimationPreview extends VBox {
             minX + contentW / 2 - w / (2 * z),
             minY + contentH / 2 - h / (2 * z)
         );
+        notifyCameraStateChanged();
         render();
+    }
+
+    private void notifyCameraStateChanged() {
+        if (onCameraStateChanged != null) {
+            onCameraStateChanged.accept(new double[] { camera.getX(), camera.getY(), camera.getZoom() });
+        }
     }
 }
