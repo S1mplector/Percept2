@@ -3,7 +3,9 @@ package com.jvn.editor.ui.actioneditor;
 import com.jvn.editor.ui.JesCodeEditor;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
@@ -28,13 +30,6 @@ public class CodePreviewPane extends VBox {
     private boolean suppressManualEditTracking = false;
     private boolean previewStaged = false;
 
-    private static final String STYLE_BTN_ACCENT =
-        "-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
-        "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
-    private static final String STYLE_BTN_DARK =
-        "-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 4; " +
-        "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-cursor: hand;";
-
     public CodePreviewPane() {
         setSpacing(10);
         setPadding(new Insets(12, 14, 12, 14));
@@ -55,16 +50,13 @@ public class CodePreviewPane extends VBox {
         });
         VBox.setVgrow(jesEditor, Priority.ALWAYS);
 
-        btnCopy = new Button("Copy to Clipboard");
-        btnCopy.setMaxWidth(Double.MAX_VALUE);
-        btnCopy.setStyle(STYLE_BTN_ACCENT);
+        btnCopy = makeIconButton("icon-timeline-copy", "Copy the code to clipboard");
         btnCopy.setTooltip(new Tooltip("Copy the code to clipboard"));
         btnCopy.setOnAction(e -> {
             if (onCopy != null) onCopy.run();
         });
 
-        btnRegenerate = new Button("Regenerate");
-        btnRegenerate.setStyle(STYLE_BTN_DARK);
+        btnRegenerate = makeIconButton("icon-timeline-auto", "Discard manual edits and regenerate from the timeline");
         btnRegenerate.setTooltip(new Tooltip("Discard manual edits and regenerate from the timeline"));
         btnRegenerate.setOnAction(e -> {
             manuallyEdited = false;
@@ -73,25 +65,21 @@ public class CodePreviewPane extends VBox {
             if (onRegenerate != null) onRegenerate.run();
         });
 
-        btnPreviewApply = new Button("Preview Parse");
-        btnPreviewApply.setStyle("-fx-background-color: #58d68d; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
-            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnPreviewApply = makeIconButton("icon-timeline-validate", "Parse code and stage it in preview mode");
+        btnPreviewApply.getStyleClass().add("puppeteer-toolbar-icon-button-success");
         btnPreviewApply.setTooltip(new Tooltip("Parse code and stage it in preview mode"));
         btnPreviewApply.setOnAction(e -> {
             if (onPreviewToModel != null) onPreviewToModel.run();
         });
 
-        btnCommitPreview = new Button("Commit");
-        btnCommitPreview.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
-            "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnCommitPreview = makeIconButton("icon-puppeteer-register", "Commit staged preview changes to the model");
         btnCommitPreview.setTooltip(new Tooltip("Commit staged preview changes to the model"));
         btnCommitPreview.setDisable(true);
         btnCommitPreview.setOnAction(e -> {
             if (onCommitPreview != null) onCommitPreview.run();
         });
 
-        btnDiscardPreview = new Button("Discard");
-        btnDiscardPreview.setStyle(STYLE_BTN_DARK);
+        btnDiscardPreview = makeIconButton("icon-runtime-clear", "Discard staged preview and restore previous model");
         btnDiscardPreview.setTooltip(new Tooltip("Discard staged preview and restore previous model"));
         btnDiscardPreview.setDisable(true);
         btnDiscardPreview.setOnAction(e -> {
@@ -99,8 +87,7 @@ public class CodePreviewPane extends VBox {
         });
 
         HBox buttonRow = new HBox(10, btnCopy, btnRegenerate, btnPreviewApply, btnCommitPreview, btnDiscardPreview);
-        HBox.setHgrow(btnCopy, Priority.ALWAYS);
-        btnCopy.setMaxWidth(Double.MAX_VALUE);
+        buttonRow.setAlignment(Pos.CENTER_RIGHT);
 
         lblDiagnostics = new Label("");
         lblDiagnostics.setWrapText(true);
@@ -110,6 +97,28 @@ public class CodePreviewPane extends VBox {
         lblDiagnostics.setManaged(false);
 
         getChildren().addAll(header, lblStatus, jesEditor, buttonRow, lblDiagnostics);
+    }
+
+    private static Button makeIconButton(String iconClass, String tooltip) {
+        Button button = new Button();
+        button.getStyleClass().add("puppeteer-toolbar-icon-button");
+        button.setText("");
+        button.setGraphic(makeIcon(iconClass));
+        button.setTooltip(new Tooltip(tooltip));
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        button.setGraphicTextGap(0);
+        button.setMinSize(30, 28);
+        button.setPrefSize(30, 28);
+        button.setMaxSize(30, 28);
+        button.setFocusTraversable(false);
+        return button;
+    }
+
+    private static Label makeIcon(String iconClass) {
+        Label icon = new Label();
+        icon.getStyleClass().addAll("icon", iconClass);
+        icon.setMouseTransparent(true);
+        return icon;
     }
 
     public void setCode(String code) {
