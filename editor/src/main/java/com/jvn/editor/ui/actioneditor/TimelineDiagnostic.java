@@ -40,6 +40,8 @@ public class TimelineDiagnostic {
 
     private static final Set<String> KNOWN_EASINGS;
     private static final Set<String> KNOWN_ACTIONS;
+    private static final Set<String> KNOWN_AUDIO_CHANNELS;
+    private static final double TIME_EPSILON_MS = 0.001;
     private static final Pattern WAIT_PATTERN = Pattern.compile("^wait\\s+(.+)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern ACTION_WITH_TARGET_PATTERN = Pattern.compile("^(\\w+)\\s+\"([^\"]+)\"\\s*\\{\\s*$", Pattern.CASE_INSENSITIVE);
     private static final Pattern ACTION_NO_TARGET_PATTERN = Pattern.compile("^(\\w+)\\s*\\{\\s*$", Pattern.CASE_INSENSITIVE);
@@ -69,6 +71,7 @@ public class TimelineDiagnostic {
         actions.add("timeline");
         actions.add("wait");
         KNOWN_ACTIONS = Collections.unmodifiableSet(lowerSet(actions));
+        KNOWN_AUDIO_CHANNELS = Collections.unmodifiableSet(lowerSet(Set.of("music", "sound", "voice")));
 
         Map<String, Set<String>> keys = new LinkedHashMap<>();
         keys.put("move", lowerSet(Set.of("x", "y", "dur", "duration", "easing")));
@@ -88,6 +91,7 @@ public class TimelineDiagnostic {
     public static List<Message> diagnose(AnimationProject project, Set<String> knownEntities) {
         if (project == null) return Collections.emptyList();
         List<Message> msgs = new ArrayList<>();
+        double durationMs = project.getTotalDurationMs();
 
         for (EntityTrack track : project.getTracks()) {
             String entity = track.getEntityName();
@@ -102,6 +106,25 @@ public class TimelineDiagnostic {
             for (PropertyType prop : PropertyType.values()) {
                 List<Keyframe> kfs = track.getKeyframes(prop);
                 for (Keyframe kf : kfs) {
+                    if (!Double.isFinite(kf.getTimeMs())) {
+                        msgs.add(new Message(Severity.ERROR, entity,
+                            prop.getDisplayName() + " has a non-finite keyframe time",
+                            "Set a numeric keyframe timestamp"));
+                        continue;
+                    }
+                    if (!Double.isFinite(kf.getValue())) {
+                        msgs.add(new Message(Severity.ERROR, entity,
+                            prop.getDisplayName() + " has a non-finite keyframe value at "
+                                + formatNumber(kf.getTimeMs()) + "ms",
+                            "Replace NaN/Infinity with a numeric value"));
+                        continue;
+                    }
+                    if (Double.isFinite(durationMs) && kf.getTimeMs() > durationMs + TIME_EPSILON_MS) {
+                        msgs.add(new Message(Severity.WARNING, entity,
+                            prop.getDisplayName() + " keyframe at " + formatNumber(kf.getTimeMs())
+                                + "ms exceeds timeline duration " + formatNumber(durationMs) + "ms",
+                            "Fit timeline duration to content or move keyframe earlier"));
+                    }
                     if (prop == PropertyType.ALPHA) {
                         if (kf.getValue() < 0.0 || kf.getValue() > 1.0) {
                             msgs.add(new Message(Severity.WARNING, entity,
@@ -144,11 +167,77 @@ public class TimelineDiagnostic {
             }
         }
 
+        Map<String, List<Double>> cueTimesByChannel = new LinkedHashMap<>();
+        for (AudioCue cue : project.getAudioCues()) {
+            String rawChannel = cue.getChannel() == null ? "" : cue.getChannel().trim();
+            String normalizedChannel = rawChannel.toLowerCase(Locale.ROOT);
+
+            if (cue.getAudioFile() == null || cue.getAudioFile().trim().isEmpty()) {
+                msgs.add(new Message(Severity.ERROR, "(audio)",
+                    "Audio cue at " + formatNumber(cue.getTimeMs()) + "ms has empty audio path",
+                    "Set an asset path like assets/audio/sfx/click.wav"));
+            }
+            if (rawChannel.isBlank()) {
+                msgs.add(new Message(Severity.ERROR, "(audio)",
+                    "Audio cue at " + formatNumber(cue.getTimeMs()) + "ms has empty channel",
+                    "Use 'music', 'sound', or 'voice'"));
+            } else if (!KNOWN_AUDIO_CHANNELS.contains(normalizedChannel)) {
+                msgs.add(new Message(Severity.WARNING, "(audio)",
+                    "Audio cue channel '" + rawChannel + "' is non-standard",
+                    "Prefer music/sound/voice for runtime consistency"));
+            }
+            if (!Double.isFinite(cue.getTimeMs())) {
+                msgs.add(new Message(Severity.ERROR, "(audio)",
+                    "Audio cue has non-finite trigger time",
+                    "Set a finite millisecond timestamp"));
+            } else if (Double.isFinite(durationMs) && cue.getTimeMs() > durationMs + TIME_EPSILON_MS) {
+                msgs.add(new Message(Severity.WARNING, "(audio)",
+                    "Audio cue at " + formatNumber(cue.getTimeMs())
+                        + "ms exceeds timeline duration " + formatNumber(durationMs) + "ms",
+                    "Fit timeline duration to content or move cue earlier"));
+            }
+            if (!Double.isFinite(cue.getVolume()) || cue.getVolume() < 0.0 || cue.getVolume() > 1.0) {
+                msgs.add(new Message(Severity.ERROR, "(audio)",
+                    "Audio cue volume " + cue.getVolume() + " is out of [0,1] range",
+                    "Clamp volume to 0..1"));
+            }
+            if (cue.isFadeIn() && cue.getFadeDurationMs() <= 0.0) {
+                msgs.add(new Message(Severity.WARNING, "(audio)",
+                    "Audio cue fade-in is enabled but fade duration is 0ms",
+                    "Set fade duration > 0ms or disable fade-in"));
+            }
+
+            if (Double.isFinite(cue.getTimeMs())) {
+                String key = rawChannel.isBlank() ? "(blank)" : normalizedChannel;
+                List<Double> seenTimes = cueTimesByChannel.computeIfAbsent(key, k -> new ArrayList<>());
+                for (double seen : seenTimes) {
+                    if (Math.abs(seen - cue.getTimeMs()) <= TIME_EPSILON_MS) {
+                        msgs.add(new Message(Severity.WARNING, "(audio)",
+                            "Multiple audio cues share channel '" + (rawChannel.isBlank() ? "(blank)" : rawChannel)
+                                + "' at " + formatNumber(cue.getTimeMs()) + "ms",
+                            "Offset one cue time or use a different channel"));
+                        break;
+                    }
+                }
+                seenTimes.add(cue.getTimeMs());
+            }
+        }
+
         for (EditorEventCue evt : project.getEditorEventCues()) {
             if (evt.getType().isBlank()) {
                 msgs.add(new Message(Severity.ERROR, "(event)",
                     "Event cue at " + evt.getTimeMs() + "ms has empty type",
                     "Set a type like 'expression', 'dialogue_marker', or 'script_call'"));
+            }
+            if (!Double.isFinite(evt.getTimeMs())) {
+                msgs.add(new Message(Severity.ERROR, "(event)",
+                    "Event cue has non-finite trigger time",
+                    "Set a finite millisecond timestamp"));
+            } else if (Double.isFinite(durationMs) && evt.getTimeMs() > durationMs + TIME_EPSILON_MS) {
+                msgs.add(new Message(Severity.WARNING, "(event)",
+                    "Event cue at " + formatNumber(evt.getTimeMs())
+                        + "ms exceeds timeline duration " + formatNumber(durationMs) + "ms",
+                    "Fit timeline duration to content or move cue earlier"));
             }
         }
 
@@ -404,6 +493,73 @@ public class TimelineDiagnostic {
                     lineNo
                 ));
             }
+            return;
+        }
+
+        if ("playaudio".equals(actionNorm) && "channel".equals(keyNorm)) {
+            String normalized = stripQuotes(value).toLowerCase(Locale.ROOT);
+            if (normalized.isBlank()) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "channel cannot be empty",
+                    "Use music, sound, or voice",
+                    lineNo
+                ));
+            } else if (!KNOWN_AUDIO_CHANNELS.contains(normalized)) {
+                out.add(new Message(
+                    Severity.WARNING,
+                    action,
+                    "Unknown audio channel '" + stripQuotes(value) + "'",
+                    "Prefer music/sound/voice for runtime consistency",
+                    lineNo
+                ));
+            }
+            return;
+        }
+
+        if ("playaudio".equals(actionNorm) && "volume".equals(keyNorm)) {
+            Double n = parseNumber(value);
+            if (n == null) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "volume must be numeric",
+                    "Use a value between 0 and 1",
+                    lineNo
+                ));
+            } else if (n < 0.0 || n > 1.0) {
+                out.add(new Message(
+                    Severity.WARNING,
+                    action,
+                    "volume " + n + " is out of [0,1] range",
+                    "Clamp to " + clamp01(n),
+                    lineNo
+                ));
+            }
+            return;
+        }
+
+        if ("playaudio".equals(actionNorm)
+            && ("fadeinms".equals(keyNorm) || "fadein_ms".equals(keyNorm) || "fadein".equals(keyNorm) || "fade_in".equals(keyNorm))) {
+            validateNonNegativeNumber(out, action, value, key, lineNo);
+            return;
+        }
+
+        if ("playaudio".equals(actionNorm) && "loop".equals(keyNorm)) {
+            String normalized = stripQuotes(value).toLowerCase(Locale.ROOT);
+            if (!("true".equals(normalized) || "false".equals(normalized)
+                || "on".equals(normalized) || "off".equals(normalized)
+                || "1".equals(normalized) || "0".equals(normalized)
+                || "yes".equals(normalized) || "no".equals(normalized))) {
+                out.add(new Message(
+                    Severity.WARNING,
+                    action,
+                    "loop value '" + stripQuotes(value) + "' is not a standard boolean token",
+                    "Use true/false, on/off, or 1/0",
+                    lineNo
+                ));
+            }
         }
     }
 
@@ -493,6 +649,18 @@ public class TimelineDiagnostic {
         if (hash >= 0) cut = hash;
         if (slash >= 0) cut = cut < 0 ? slash : Math.min(cut, slash);
         return cut >= 0 ? line.substring(0, cut) : line;
+    }
+
+    private static String stripQuotes(String value) {
+        if (value == null) return "";
+        String trimmed = value.trim();
+        if (trimmed.length() < 2) return trimmed;
+        char first = trimmed.charAt(0);
+        char last = trimmed.charAt(trimmed.length() - 1);
+        if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+            return trimmed.substring(1, trimmed.length() - 1).trim();
+        }
+        return trimmed;
     }
 
     private static String firstToken(String text) {

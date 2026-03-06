@@ -9,6 +9,8 @@ import java.util.Map;
 import com.jvn.core.animation.TimelineData;
 
 public class AnimationProject {
+    private static final double MIN_DURATION_MS = 100.0;
+
     private String name = "Untitled Animation";
     private double totalDurationMs = 3000;
     private double playheadMs = 0;
@@ -35,12 +37,14 @@ public class AnimationProject {
 
     public double getTotalDurationMs() { return totalDurationMs; }
     public void setTotalDurationMs(double totalDurationMs) { 
-        this.totalDurationMs = Math.max(100, totalDurationMs); 
+        this.totalDurationMs = sanitizeDuration(totalDurationMs);
+        this.playheadMs = clampTime(playheadMs, this.totalDurationMs);
+        normalizeLoopRegion();
     }
 
     public double getPlayheadMs() { return playheadMs; }
     public void setPlayheadMs(double playheadMs) { 
-        this.playheadMs = Math.max(0, Math.min(totalDurationMs, playheadMs)); 
+        this.playheadMs = clampTime(playheadMs, totalDurationMs);
     }
 
     public boolean isPlaying() { return playing; }
@@ -53,8 +57,9 @@ public class AnimationProject {
     public double getLoopEndMs() { return loopEndMs; }
     public boolean hasLoopRegion() { return loopStartMs >= 0 && loopEndMs > loopStartMs; }
     public void setLoopRegion(double startMs, double endMs) {
-        this.loopStartMs = Math.max(0, startMs);
-        this.loopEndMs = Math.max(this.loopStartMs + 1, endMs);
+        this.loopStartMs = sanitizeNonNegativeFinite(startMs, 0.0);
+        this.loopEndMs = sanitizeNonNegativeFinite(endMs, this.loopStartMs + 1.0);
+        normalizeLoopRegion();
     }
     public void clearLoopRegion() {
         this.loopStartMs = -1;
@@ -327,6 +332,8 @@ public class AnimationProject {
         copy.totalDurationMs = totalDurationMs;
         copy.playheadMs = playheadMs;
         copy.looping = looping;
+        copy.loopStartMs = loopStartMs;
+        copy.loopEndMs = loopEndMs;
         for (EntityTrack t : entityTracks.values()) {
             copy.entityTracks.put(t.getEntityName(), t.copy());
         }
@@ -409,10 +416,14 @@ public class AnimationProject {
     public void replaceFrom(AnimationProject other) {
         if (other == null) return;
         this.name = other.name;
-        this.totalDurationMs = other.totalDurationMs;
+        setTotalDurationMs(other.totalDurationMs);
+        setPlayheadMs(other.playheadMs);
         this.looping = other.looping;
-        this.loopStartMs = other.loopStartMs;
-        this.loopEndMs = other.loopEndMs;
+        if (other.hasLoopRegion()) {
+            setLoopRegion(other.loopStartMs, other.loopEndMs);
+        } else {
+            clearLoopRegion();
+        }
 
         this.entityTracks.clear();
         this.rootEntityNames.clear();
@@ -424,14 +435,19 @@ public class AnimationProject {
         this.groups.clear();
         this.rootGroupNames.clear();
         for (EntityGroup g : other.groups.values()) {
-            this.groups.put(g.getName(), g);
+            EntityGroup copy = g.copy();
+            this.groups.put(copy.getName(), copy);
             if (!g.hasParent()) this.rootGroupNames.add(g.getName());
         }
 
         this.audioCues.clear();
-        this.audioCues.addAll(other.audioCues);
+        for (AudioCue cue : other.audioCues) {
+            this.audioCues.add(cue.copy());
+        }
         this.editorEventCues.clear();
-        this.editorEventCues.addAll(other.editorEventCues);
+        for (EditorEventCue evt : other.editorEventCues) {
+            this.editorEventCues.add(evt.copy());
+        }
     }
 
     private static TimelineData.Property mapProperty(PropertyType p) {
@@ -448,5 +464,43 @@ public class AnimationProject {
             case CAMERA_Y -> TimelineData.Property.CAMERA_Y;
             case CAMERA_ZOOM -> TimelineData.Property.CAMERA_ZOOM;
         };
+    }
+
+    private void normalizeLoopRegion() {
+        if (!Double.isFinite(loopStartMs) || !Double.isFinite(loopEndMs)) {
+            clearLoopRegion();
+            return;
+        }
+        if (loopStartMs < 0 || loopEndMs <= loopStartMs) {
+            clearLoopRegion();
+            return;
+        }
+
+        double maxStart = Math.max(0.0, totalDurationMs - 1.0);
+        double start = Math.min(loopStartMs, maxStart);
+        double end = Math.max(start + 1.0, loopEndMs);
+        end = Math.min(end, totalDurationMs);
+
+        if (end <= start) {
+            clearLoopRegion();
+            return;
+        }
+        loopStartMs = start;
+        loopEndMs = end;
+    }
+
+    private static double sanitizeDuration(double value) {
+        if (!Double.isFinite(value)) return MIN_DURATION_MS;
+        return Math.max(MIN_DURATION_MS, value);
+    }
+
+    private static double sanitizeNonNegativeFinite(double value, double fallback) {
+        if (!Double.isFinite(value)) return fallback;
+        return Math.max(0.0, value);
+    }
+
+    private static double clampTime(double value, double durationMs) {
+        if (!Double.isFinite(value)) return 0.0;
+        return Math.max(0.0, Math.min(durationMs, value));
     }
 }

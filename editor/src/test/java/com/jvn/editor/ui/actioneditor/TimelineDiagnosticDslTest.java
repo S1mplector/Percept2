@@ -78,4 +78,49 @@ class TimelineDiagnosticDslTest {
         assertFalse(messages.stream().anyMatch(m ->
             m.description().contains("Unknown easing") || m.description().contains("cubic_bezier")));
     }
+
+    @Test
+    void validatesPlayAudioProperties() {
+        String code = """
+            timeline {
+              playAudio {
+                channel: ambience
+                volume: 1.2
+                loop: maybe
+                fadeInMs: -15
+              }
+              playAudio {
+                channel: ""
+                volume: loud
+              }
+            }
+            """;
+
+        List<TimelineDiagnostic.Message> messages = TimelineDiagnostic.diagnoseDsl(code);
+
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("Unknown audio channel 'ambience'")
+                && m.hasLine()
+                && m.line() == 3));
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("volume 1.2 is out of [0,1] range")
+                && m.hasLine()
+                && m.line() == 4));
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("loop value 'maybe' is not a standard boolean token")
+                && m.hasLine()
+                && m.line() == 5));
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("fadeInMs must be >= 0")
+                && m.hasLine()
+                && m.line() == 6));
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("channel cannot be empty")
+                && m.hasLine()
+                && m.line() == 9));
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("volume must be numeric")
+                && m.hasLine()
+                && m.line() == 10));
+    }
 }

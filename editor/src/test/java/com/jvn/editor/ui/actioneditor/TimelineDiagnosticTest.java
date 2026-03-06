@@ -99,6 +99,47 @@ class TimelineDiagnosticTest {
     }
 
     @Test
+    void detectsAudioCueConsistencyProblems() {
+        AnimationProject project = new AnimationProject();
+        project.setTotalDurationMs(1000);
+
+        AudioCue emptyPath = new AudioCue(100, "", "music");
+        AudioCue duplicateA = new AudioCue(220, "assets/audio/a.wav", "sound");
+        AudioCue duplicateB = new AudioCue(220, "assets/audio/b.wav", "sound");
+        AudioCue unknownChannel = new AudioCue(340, "assets/audio/c.wav", "ambience");
+        AudioCue fadeWithoutDuration = new AudioCue(420, "assets/audio/d.wav", "music");
+        fadeWithoutDuration.setFadeIn(true);
+        fadeWithoutDuration.setFadeDurationMs(0);
+        AudioCue beyondDuration = new AudioCue(1400, "assets/audio/e.wav", "voice");
+
+        project.addAudioCue(emptyPath);
+        project.addAudioCue(duplicateA);
+        project.addAudioCue(duplicateB);
+        project.addAudioCue(unknownChannel);
+        project.addAudioCue(fadeWithoutDuration);
+        project.addAudioCue(beyondDuration);
+
+        List<TimelineDiagnostic.Message> msgs = TimelineDiagnostic.diagnose(project, null);
+        assertTrue(msgs.stream().anyMatch(m -> m.description().contains("empty audio path")));
+        assertTrue(msgs.stream().anyMatch(m -> m.description().contains("Multiple audio cues share channel 'sound'")));
+        assertTrue(msgs.stream().anyMatch(m -> m.description().contains("channel 'ambience'")));
+        assertTrue(msgs.stream().anyMatch(m -> m.description().contains("fade-in is enabled")));
+        assertTrue(msgs.stream().anyMatch(m -> m.description().contains("exceeds timeline duration")));
+    }
+
+    @Test
+    void detectsKeyframeBeyondTimelineDuration() {
+        AnimationProject project = new AnimationProject();
+        project.setTotalDurationMs(800);
+        EntityTrack track = project.getOrCreateTrack("hero");
+        track.addKeyframe(PropertyType.X, new Keyframe(1600, 400));
+
+        List<TimelineDiagnostic.Message> msgs = TimelineDiagnostic.diagnose(project, Set.of("hero"));
+        assertTrue(msgs.stream().anyMatch(m ->
+            m.description().contains("keyframe") && m.description().contains("exceeds timeline duration")));
+    }
+
+    @Test
     void cleanProjectProducesNoDiagnostics() {
         AnimationProject project = new AnimationProject();
         EntityTrack track = project.getOrCreateTrack("hero");

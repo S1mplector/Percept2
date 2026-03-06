@@ -13,16 +13,16 @@ public class Keyframe implements Comparable<Keyframe> {
     }
 
     public Keyframe(double timeMs, double value, Easing.Type easing) {
-        this.timeMs = Math.max(0, timeMs);
-        this.value = value;
+        this.timeMs = sanitizeNonNegativeFinite(timeMs, 0.0);
+        this.value = sanitizeFinite(value, 0.0);
         this.easing = easing != null ? easing : Easing.Type.LINEAR;
     }
 
     public double getTimeMs() { return timeMs; }
-    public void setTimeMs(double timeMs) { this.timeMs = Math.max(0, timeMs); }
+    public void setTimeMs(double timeMs) { this.timeMs = sanitizeNonNegativeFinite(timeMs, 0.0); }
 
     public double getValue() { return value; }
-    public void setValue(double value) { this.value = value; }
+    public void setValue(double value) { this.value = sanitizeFinite(value, this.value); }
 
     public Easing.Type getEasing() { return easing; }
     public void setEasing(Easing.Type easing) { 
@@ -42,6 +42,15 @@ public class Keyframe implements Comparable<Keyframe> {
         Keyframe k = new Keyframe(timeMs, value, easing);
         k.setBezierParams(cx1, cy1, cx2, cy2);
         return k;
+    }
+
+    private static double sanitizeFinite(double value, double fallback) {
+        return Double.isFinite(value) ? value : fallback;
+    }
+
+    private static double sanitizeNonNegativeFinite(double value, double fallback) {
+        if (!Double.isFinite(value)) return fallback;
+        return Math.max(0.0, value);
     }
 
     @Override
