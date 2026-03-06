@@ -18,11 +18,11 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.transform.Affine;
 
 public class AnimationPreview extends VBox {
     private static final double PIVOT_MIN = 0.0;
@@ -123,8 +123,19 @@ public class AnimationPreview extends VBox {
     private double viewportOffsetY = 0.0;
     private double viewportLogicalWidth = ProjectViewportSpec.DEFAULT_WIDTH;
     private double viewportLogicalHeight = ProjectViewportSpec.DEFAULT_HEIGHT;
+    private double displayScale = 1.0;
+    private double displayOffsetX = 0.0;
+    private double displayOffsetY = 0.0;
+    private double displayMinX = 0.0;
+    private double displayMinY = 0.0;
+    private double displayWidth = ProjectViewportSpec.DEFAULT_WIDTH;
+    private double displayHeight = ProjectViewportSpec.DEFAULT_HEIGHT;
+    private java.io.File projectRoot;
+    private final Map<String, double[]> sourceImageSizeCache = new HashMap<>();
 
     public void setProjectRoot(java.io.File root) {
+        projectRoot = root;
+        sourceImageSizeCache.clear();
         blitter.setProjectRoot(root);
         viewportSpec = ProjectViewportSpec.resolve(root);
         render();
@@ -197,22 +208,29 @@ public class AnimationPreview extends VBox {
         gc.fillRect(0, 0, w, h);
 
         gc.save();
-        gc.translate(viewportOffsetX, viewportOffsetY);
-        gc.scale(viewportScale, viewportScale);
+        gc.translate(displayOffsetX, displayOffsetY);
+        gc.scale(displayScale, displayScale);
+        gc.translate(-displayMinX, -displayMinY);
 
-        gc.setFill(Color.BLACK);
-        gc.fillRect(0, 0, viewportLogicalWidth, viewportLogicalHeight);
-        drawGrid(viewportLogicalWidth, viewportLogicalHeight);
+        gc.setFill(Color.web("#0e0e0e"));
+        gc.fillRect(displayMinX, displayMinY, displayWidth, displayHeight);
+        drawGrid(displayMinX, displayMinY, displayWidth, displayHeight);
 
         blitter.setViewport(viewportLogicalWidth, viewportLogicalHeight);
         if (scene != null) {
-            if (onionSkinning && project != null) drawOnionSkins();
-            scene.render(blitter, viewportLogicalWidth, viewportLogicalHeight);
-            drawMotionPaths();
-            if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
+            Camera2D activeCamera = scene.getCamera();
+            scene.setCamera(null);
+            try {
+                if (onionSkinning && project != null) drawOnionSkins();
+                scene.render(blitter, viewportLogicalWidth, viewportLogicalHeight);
+                drawMotionPaths();
+                if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
+            } finally {
+                scene.setCamera(activeCamera);
+            }
         } else {
             gc.setFill(Color.web("#a0a0a0"));
-            gc.fillText("No scene loaded", viewportLogicalWidth / 2 - 40, viewportLogicalHeight / 2);
+            gc.fillText("No scene loaded", displayMinX + displayWidth / 2 - 40, displayMinY + displayHeight / 2);
         }
         gc.restore();
         drawRuntimeFrame();
@@ -231,14 +249,27 @@ public class AnimationPreview extends VBox {
     }
 
     private void drawRuntimeFrame() {
-        double frameW = viewportLogicalWidth * viewportScale;
-        double frameH = viewportLogicalHeight * viewportScale;
-        double x = viewportOffsetX;
-        double y = viewportOffsetY;
+        double z = Math.max(0.0001, camera.getZoom());
+        double left = camera.getX();
+        double top = camera.getY();
+        double right = left + viewportLogicalWidth / z;
+        double bottom = top + viewportLogicalHeight / z;
+        double x0 = worldToScreenX(left);
+        double y0 = worldToScreenY(top);
+        double x1 = worldToScreenX(right);
+        double y1 = worldToScreenY(bottom);
+        double x = Math.min(x0, x1);
+        double y = Math.min(y0, y1);
+        double frameW = Math.abs(x1 - x0);
+        double frameH = Math.abs(y1 - y0);
+
         gc.save();
         gc.setStroke(Color.web("#ff4d4d", 0.95));
         gc.setLineWidth(2.0);
         gc.strokeRect(x + 0.5, y + 0.5, Math.max(0, frameW - 1.0), Math.max(0, frameH - 1.0));
+        gc.setFill(Color.web("#ff7a7a", 0.9));
+        gc.setFont(javafx.scene.text.Font.font("Monospaced", 10));
+        gc.fillText("Runtime Frame", x + 6, Math.max(12, y - 6));
         gc.restore();
     }
 
@@ -246,12 +277,169 @@ public class AnimationPreview extends VBox {
         if (viewportSpec == null) {
             viewportSpec = new ProjectViewportSpec.Dimensions(ProjectViewportSpec.DEFAULT_WIDTH, ProjectViewportSpec.DEFAULT_HEIGHT);
         }
-        var vp = ViewportScaler2D.fit(viewportSpec.width(), viewportSpec.height(), canvasW, canvasH);
-        viewportScale = Math.max(1e-6, vp.scale());
-        viewportOffsetX = vp.offsetX();
-        viewportOffsetY = vp.offsetY();
-        viewportLogicalWidth = vp.targetWidth();
-        viewportLogicalHeight = vp.targetHeight();
+        viewportLogicalWidth = Math.max(1.0, viewportSpec.width());
+        viewportLogicalHeight = Math.max(1.0, viewportSpec.height());
+
+        double[] bounds = computeDisplayBoundsWorld();
+        displayMinX = bounds[0];
+        displayMinY = bounds[1];
+        displayWidth = Math.max(1.0, bounds[2] - bounds[0]);
+        displayHeight = Math.max(1.0, bounds[3] - bounds[1]);
+
+        var fit = ViewportScaler2D.fit(displayWidth, displayHeight, canvasW, canvasH);
+        displayScale = Math.max(1e-6, fit.scale());
+        displayOffsetX = fit.offsetX();
+        displayOffsetY = fit.offsetY();
+
+        // Keep legacy fields aligned with current visible world transform.
+        viewportScale = displayScale;
+        viewportOffsetX = displayOffsetX;
+        viewportOffsetY = displayOffsetY;
+    }
+
+    private double[] computeDisplayBoundsWorld() {
+        double z = Math.max(0.0001, camera.getZoom());
+        double runtimeLeft = camera.getX();
+        double runtimeTop = camera.getY();
+        double runtimeRight = runtimeLeft + viewportLogicalWidth / z;
+        double runtimeBottom = runtimeTop + viewportLogicalHeight / z;
+
+        double minX = runtimeLeft;
+        double minY = runtimeTop;
+        double maxX = runtimeRight;
+        double maxY = runtimeBottom;
+
+        if (scene != null) {
+            for (Entity2D entity : scene.getChildren()) {
+                if (entity == null || !entity.isVisible()) continue;
+                double[] corners = getEntityCorners(entity);
+                if (corners.length < 8) continue;
+                for (int i = 0; i < 4; i++) {
+                    double x = corners[i * 2];
+                    double y = corners[i * 2 + 1];
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+            includeFullBackgroundSourceBounds(minX, minY, maxX, maxY);
+            minX = backgroundBoundsAccumulator[0];
+            minY = backgroundBoundsAccumulator[1];
+            maxX = backgroundBoundsAccumulator[2];
+            maxY = backgroundBoundsAccumulator[3];
+        }
+
+        double width = Math.max(1.0, maxX - minX);
+        double height = Math.max(1.0, maxY - minY);
+        double padX = Math.max(24.0, width * 0.06);
+        double padY = Math.max(24.0, height * 0.06);
+        return new double[] { minX - padX, minY - padY, maxX + padX, maxY + padY };
+    }
+
+    private final double[] backgroundBoundsAccumulator = new double[4];
+
+    private void includeFullBackgroundSourceBounds(double minX, double minY, double maxX, double maxY) {
+        backgroundBoundsAccumulator[0] = minX;
+        backgroundBoundsAccumulator[1] = minY;
+        backgroundBoundsAccumulator[2] = maxX;
+        backgroundBoundsAccumulator[3] = maxY;
+        if (scene == null) return;
+
+        Entity2D bestEntity = null;
+        double bestRank = -1.0;
+        for (Entity2D entity : scene.getChildren()) {
+            if (!(entity instanceof com.jvn.core.scene2d.Sprite2D sprite)) continue;
+            String path = sprite.getImagePath();
+            if (path == null || path.isBlank()) continue;
+            double[] natural = resolveImageSize(path);
+            if (natural == null) continue;
+            double spriteW = Math.max(1.0, sprite.getWidth());
+            double spriteH = Math.max(1.0, sprite.getHeight());
+            if (natural[0] <= spriteW * 1.01 && natural[1] <= spriteH * 1.01) continue;
+
+            boolean likelyBackground = isLikelyBackground(path)
+                || spriteW * spriteH >= viewportLogicalWidth * viewportLogicalHeight * 0.35;
+            if (!likelyBackground) continue;
+            double rank = natural[0] * natural[1];
+            if (rank > bestRank) {
+                bestRank = rank;
+                bestEntity = entity;
+            }
+        }
+
+        if (!(bestEntity instanceof com.jvn.core.scene2d.Sprite2D bestSprite)) return;
+        double[] natural = resolveImageSize(bestSprite.getImagePath());
+        if (natural == null) return;
+        EntityFrame frame = describeEntity(bestEntity);
+        if (frame == null) return;
+
+        EntityFrame fullSourceFrame = new EntityFrame(
+            frame.x,
+            frame.y,
+            natural[0],
+            natural[1],
+            frame.originX,
+            frame.originY,
+            frame.scaleX,
+            frame.scaleY,
+            frame.rotationRad
+        );
+        double[] corners = computeWorldCorners(fullSourceFrame);
+        for (int i = 0; i < 4; i++) {
+            double x = corners[i * 2];
+            double y = corners[i * 2 + 1];
+            backgroundBoundsAccumulator[0] = Math.min(backgroundBoundsAccumulator[0], x);
+            backgroundBoundsAccumulator[1] = Math.min(backgroundBoundsAccumulator[1], y);
+            backgroundBoundsAccumulator[2] = Math.max(backgroundBoundsAccumulator[2], x);
+            backgroundBoundsAccumulator[3] = Math.max(backgroundBoundsAccumulator[3], y);
+        }
+    }
+
+    private boolean isLikelyBackground(String path) {
+        String p = path == null ? "" : path.toLowerCase();
+        return p.contains("background") || p.contains("/bg") || p.contains("_bg") || p.contains("backdrop");
+    }
+
+    private double[] resolveImageSize(String imagePath) {
+        if (imagePath == null || imagePath.isBlank()) return null;
+        String key = imagePath.trim();
+        if (sourceImageSizeCache.containsKey(key)) {
+            double[] cached = sourceImageSizeCache.get(key);
+            return cached[0] > 0 && cached[1] > 0 ? cached : null;
+        }
+        Image image = loadImageByPath(key);
+        double[] size;
+        if (image != null && image.getWidth() > 1 && image.getHeight() > 1) {
+            size = new double[] { image.getWidth(), image.getHeight() };
+        } else {
+            size = new double[] { -1, -1 };
+        }
+        sourceImageSizeCache.put(key, size);
+        return size[0] > 0 && size[1] > 0 ? size : null;
+    }
+
+    private Image loadImageByPath(String path) {
+        try {
+            java.net.URL classpath = getClass().getClassLoader().getResource(path);
+            if (classpath != null) return new Image(classpath.toExternalForm(), false);
+        } catch (Exception ignored) {
+        }
+        try {
+            java.io.File absolute = new java.io.File(path);
+            if (absolute.isAbsolute() && absolute.isFile()) {
+                return new Image(absolute.toURI().toString(), false);
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            if (projectRoot != null) {
+                java.io.File relative = new java.io.File(projectRoot, path);
+                if (relative.isFile()) return new Image(relative.toURI().toString(), false);
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     private void drawMotionPaths() {
@@ -358,22 +546,21 @@ public class AnimationPreview extends VBox {
         gc.restore();
     }
 
-    private void drawGrid(double w, double h) {
-        double z = Math.max(0.0001, camera.getZoom());
-        double step = 50.0 * z;
-        if (step < 8) return;
+    private void drawGrid(double minX, double minY, double w, double h) {
+        double step = 100.0;
+        if (step * displayScale < 8.0) return;
+        double maxX = minX + w;
+        double maxY = minY + h;
+        double startX = Math.floor(minX / step) * step;
+        double startY = Math.floor(minY / step) * step;
 
         gc.setStroke(Color.color(1, 1, 1, 0.04));
-        gc.setLineWidth(1);
-
-        double ox = (-camera.getX() * z) % step;
-        double oy = (-camera.getY() * z) % step;
-
-        for (double x = ox; x <= w; x += step) {
-            gc.strokeLine(x, 0, x, h);
+        gc.setLineWidth(1.0 / Math.max(1e-6, displayScale));
+        for (double x = startX; x <= maxX; x += step) {
+            gc.strokeLine(x, minY, x, maxY);
         }
-        for (double y = oy; y <= h; y += step) {
-            gc.strokeLine(0, y, w, y);
+        for (double y = startY; y <= maxY; y += step) {
+            gc.strokeLine(minX, y, maxX, y);
         }
     }
 
@@ -586,26 +773,21 @@ public class AnimationPreview extends VBox {
     }
 
     private boolean isInsideViewport(double screenX, double screenY) {
-        double right = viewportOffsetX + viewportLogicalWidth * viewportScale;
-        double bottom = viewportOffsetY + viewportLogicalHeight * viewportScale;
-        return screenX >= viewportOffsetX && screenX <= right && screenY >= viewportOffsetY && screenY <= bottom;
+        double right = displayOffsetX + displayWidth * displayScale;
+        double bottom = displayOffsetY + displayHeight * displayScale;
+        return screenX >= displayOffsetX && screenX <= right && screenY >= displayOffsetY && screenY <= bottom;
     }
 
     private double screenToViewportX(double screenX) {
-        return (screenX - viewportOffsetX) / Math.max(1e-6, viewportScale);
+        return displayMinX + (screenX - displayOffsetX) / Math.max(1e-6, displayScale);
     }
 
     private double screenToViewportY(double screenY) {
-        return (screenY - viewportOffsetY) / Math.max(1e-6, viewportScale);
+        return displayMinY + (screenY - displayOffsetY) / Math.max(1e-6, displayScale);
     }
 
     private double[] screenToWorld(double screenX, double screenY) {
-        double z = Math.max(0.0001, camera.getZoom());
-        double viewportX = screenToViewportX(screenX);
-        double viewportY = screenToViewportY(screenY);
-        double worldX = camera.getX() + viewportX / z;
-        double worldY = camera.getY() + viewportY / z;
-        return new double[]{worldX, worldY};
+        return new double[]{ screenToViewportX(screenX), screenToViewportY(screenY) };
     }
 
     private boolean hasOrbitAnchor(String entityName) {
@@ -624,11 +806,10 @@ public class AnimationPreview extends VBox {
     private boolean isNearOrbitAnchorHandle(double screenX, double screenY) {
         double[] anchor = getOrbitAnchor(selectedEntityName);
         if (anchor == null) return false;
-        double[] viewportPoint = worldToViewport(anchor[0], anchor[1]);
-        double ax = viewportPoint[0];
-        double ay = viewportPoint[1];
-        double pointerX = screenToViewportX(screenX);
-        double pointerY = screenToViewportY(screenY);
+        double ax = worldToScreenX(anchor[0]);
+        double ay = worldToScreenY(anchor[1]);
+        double pointerX = screenX;
+        double pointerY = screenY;
         double dx = pointerX - ax;
         double dy = pointerY - ay;
         return dx * dx + dy * dy <= 100;
@@ -639,13 +820,14 @@ public class AnimationPreview extends VBox {
             if (!isInsideViewport(e.getX(), e.getY())) return;
             double factor = Math.pow(1.05, e.getDeltaY() / 40.0);
             double z = camera.getZoom();
-            double viewportX = screenToViewportX(e.getX());
-            double viewportY = screenToViewportY(e.getY());
-            double worldX = camera.getX() + viewportX / z;
-            double worldY = camera.getY() + viewportY / z;
+            double[] world = screenToWorld(e.getX(), e.getY());
+            double worldX = world[0];
+            double worldY = world[1];
+            double relativeX = (worldX - camera.getX()) * z;
+            double relativeY = (worldY - camera.getY()) * z;
             double newZ = Math.max(0.1, Math.min(5.0, z * factor));
             camera.setZoom(newZ);
-            camera.setPosition(worldX - viewportX / newZ, worldY - viewportY / newZ);
+            camera.setPosition(worldX - relativeX / newZ, worldY - relativeY / newZ);
             render();
         });
 
@@ -748,13 +930,13 @@ public class AnimationPreview extends VBox {
 
         canvas.setOnMouseDragged(e -> {
             if (panning[0]) {
-                double dx = (e.getX() - panStart[0]) / Math.max(1e-6, viewportScale);
-                double dy = (e.getY() - panStart[1]) / Math.max(1e-6, viewportScale);
+                double dx = (e.getX() - panStart[0]) / Math.max(1e-6, displayScale);
+                double dy = (e.getY() - panStart[1]) / Math.max(1e-6, displayScale);
                 panStart[0] = e.getX();
                 panStart[1] = e.getY();
                 camera.setPosition(
-                    camera.getX() - dx / camera.getZoom(),
-                    camera.getY() - dy / camera.getZoom()
+                    camera.getX() - dx,
+                    camera.getY() - dy
                 );
                 render();
             } else if (draggingOrbitAnchor && selectedEntityName != null) {
@@ -915,11 +1097,10 @@ public class AnimationPreview extends VBox {
 
     private boolean isNearPivotHandle(double screenX, double screenY) {
         if (selectedEntity == null) return false;
-        double[] viewportPoint = worldToViewport(selectedEntity.getX(), selectedEntity.getY());
-        double px = viewportPoint[0];
-        double py = viewportPoint[1];
-        double pointerX = screenToViewportX(screenX);
-        double pointerY = screenToViewportY(screenY);
+        double px = worldToScreenX(selectedEntity.getX());
+        double py = worldToScreenY(selectedEntity.getY());
+        double pointerX = screenX;
+        double pointerY = screenY;
         double dx = pointerX - px;
         double dy = pointerY - py;
         return dx * dx + dy * dy <= 100;
@@ -1020,16 +1201,19 @@ public class AnimationPreview extends VBox {
     }
 
     private void applyCameraTransform() {
-        gc.translate(-camera.getX(), -camera.getY());
-        gc.scale(camera.getZoom(), camera.getZoom());
+        // Scene is rendered in world-overview mode; runtime camera is represented by the red frame.
     }
 
     private double[] worldToViewport(double worldX, double worldY) {
-        Affine transform = new Affine();
-        transform.appendTranslation(-camera.getX(), -camera.getY());
-        transform.appendScale(camera.getZoom(), camera.getZoom());
-        var p = transform.transform(worldX, worldY);
-        return new double[]{p.getX(), p.getY()};
+        return new double[]{worldX, worldY};
+    }
+
+    private double worldToScreenX(double worldX) {
+        return displayOffsetX + (worldX - displayMinX) * displayScale;
+    }
+
+    private double worldToScreenY(double worldY) {
+        return displayOffsetY + (worldY - displayMinY) * displayScale;
     }
 
     public void fitToContent() {
