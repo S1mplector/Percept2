@@ -1,0 +1,180 @@
+package com.jvn.editor.ui;
+
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.TextArea;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
+
+/**
+ * Startup splash window used while the editor performs preflight checks.
+ * Designed to be shown before the main editor stage is created.
+ */
+public final class StartupSplashOverlay {
+  private final Stage stage = new Stage(StageStyle.UNDECORATED);
+  private final Label statusLabel = new Label("Starting JVN Editor...");
+  private final TextArea logArea = new TextArea();
+  private final ProgressBar progressBar = new ProgressBar(0);
+
+  public StartupSplashOverlay(Path logoPath) {
+    BorderPane root = new BorderPane();
+    root.setPadding(new Insets(16));
+    root.setStyle("-fx-background-color: #000000;");
+
+    ImageView logoView = new ImageView(loadLogo(logoPath));
+    if (logoView.getImage() != null) {
+      logoView.setPreserveRatio(true);
+      logoView.setFitHeight(72);
+      logoView.setSmooth(true);
+    }
+
+    Label title = new Label("Java Vector Nexus");
+    title.setTextFill(Color.web("#e6ebf5"));
+    title.setFont(Font.font("System", 20));
+    title.setStyle("-fx-font-weight: 700;");
+
+    Label subtitle = new Label("Loading editor environment");
+    subtitle.setTextFill(Color.web("#9caac0"));
+    subtitle.setFont(Font.font("System", 12));
+
+    VBox titleBox = new VBox(2, title, subtitle);
+    titleBox.setAlignment(Pos.CENTER_LEFT);
+
+    HBox header = new HBox(12, logoView, titleBox);
+    header.setAlignment(Pos.CENTER_LEFT);
+    root.setTop(header);
+
+    logArea.setEditable(false);
+    logArea.setFocusTraversable(false);
+    logArea.setWrapText(true);
+    logArea.setPrefRowCount(8);
+    logArea.setStyle(
+        "-fx-control-inner-background: #000000;"
+            + " -fx-background-color: #000000;"
+            + " -fx-text-fill: #cfd8e6;"
+            + " -fx-highlight-fill: #294a73;"
+            + " -fx-font-family: 'Menlo';"
+            + " -fx-font-size: 11px;");
+    logArea.skinProperty().addListener((obs, oldSkin, newSkin) -> hideLogScrollBars());
+    VBox.setVgrow(logArea, Priority.ALWAYS);
+
+    statusLabel.setTextFill(Color.web("#b7c3d9"));
+    statusLabel.setStyle("-fx-font-size: 11px;");
+
+    progressBar.setMaxWidth(Double.MAX_VALUE);
+    progressBar.setPrefHeight(10);
+    progressBar.setStyle(
+        "-fx-accent: #6ea8ff;"
+            + " -fx-control-inner-background: #000000;"
+            + " -fx-background-color: #000000;"
+            + " -fx-box-border: #000000;"
+            + " -fx-border-color: #000000;");
+    progressBar.skinProperty().addListener((obs, oldSkin, newSkin) -> styleProgressBarForBlackChrome());
+    VBox footer = new VBox(6, statusLabel, progressBar);
+
+    VBox center = new VBox(10, logArea, footer);
+    center.setPadding(new Insets(12, 0, 0, 0));
+    root.setCenter(center);
+
+    Scene scene = new Scene(root, 560, 320, Color.BLACK);
+    stage.setScene(scene);
+    Platform.runLater(this::hideLogScrollBars);
+    Platform.runLater(this::styleProgressBarForBlackChrome);
+    stage.setResizable(false);
+    stage.setAlwaysOnTop(true);
+  }
+
+  public void show() {
+    runOnFx(() -> {
+      if (!stage.isShowing()) {
+        stage.show();
+      }
+      hideLogScrollBars();
+      styleProgressBarForBlackChrome();
+      stage.centerOnScreen();
+    });
+  }
+
+  public void close() {
+    runOnFx(stage::hide);
+  }
+
+  public void setProgress(double progress) {
+    runOnFx(() -> progressBar.setProgress(progress < 0 ? ProgressBar.INDETERMINATE_PROGRESS : progress));
+  }
+
+  public void setStatus(String status) {
+    runOnFx(() -> statusLabel.setText(status == null ? "" : status));
+  }
+
+  public void appendLog(String line) {
+    if (line == null || line.isBlank()) return;
+    runOnFx(() -> {
+      String text = logArea.getText();
+      if (text == null || text.isBlank()) {
+        logArea.setText(line.trim());
+      } else {
+        logArea.appendText(System.lineSeparator() + line.trim());
+      }
+      logArea.setScrollTop(Double.MAX_VALUE);
+    });
+  }
+
+  private void hideLogScrollBars() {
+    for (Node node : logArea.lookupAll(".scroll-bar")) {
+      if (node == null) continue;
+      node.setVisible(false);
+      node.setManaged(false);
+      node.setMouseTransparent(true);
+      node.setStyle("-fx-pref-width: 0; -fx-pref-height: 0; -fx-opacity: 0;");
+    }
+  }
+
+  private void styleProgressBarForBlackChrome() {
+    Node track = progressBar.lookup(".track");
+    if (track instanceof Region region) {
+      region.setStyle("-fx-background-color: #000000; -fx-border-color: #000000;");
+    }
+    Node bar = progressBar.lookup(".bar");
+    if (bar instanceof Region region) {
+      region.setStyle("-fx-background-color: #6ea8ff;");
+    }
+  }
+
+  private static Image loadLogo(Path logoPath) {
+    if (logoPath == null) return null;
+    if (!Files.isRegularFile(logoPath)) return null;
+    try (InputStream in = Files.newInputStream(logoPath)) {
+      return new Image(in);
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private static void runOnFx(Runnable task) {
+    if (task == null) return;
+    if (Platform.isFxApplicationThread()) {
+      task.run();
+    } else {
+      Platform.runLater(task);
+    }
+  }
+}

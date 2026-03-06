@@ -2,11 +2,16 @@ package com.jvn.editor;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
@@ -30,6 +35,7 @@ import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StoryTimelineView;
+import com.jvn.editor.ui.StartupSplashOverlay;
 import com.jvn.editor.ui.TilemapEditorView;
 import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
@@ -43,8 +49,10 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
 
 import javafx.animation.AnimationTimer;
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -82,6 +90,7 @@ import javafx.scene.text.TextFlow;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public class EditorApp extends Application {
   // UI
@@ -163,6 +172,11 @@ public class EditorApp extends Application {
   private static final String DEFAULT_TIMELINE_PATH = "config/timeline/story.timeline";
   private static final String LEGACY_TIMELINE_PATH = "story/story.timeline";
   private static final String LEGACY_TIMELINE_ROOT_PATH = "story.timeline";
+  private static final String STARTUP_LOGO_ABSOLUTE_PATH =
+      "/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/assets/images/jvn_logo.png";
+  private static final long MIN_STARTUP_SPLASH_MS = 900L;
+  private static final long STARTUP_STEP_DELAY_MS = 170L;
+  private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
   public static void main(String[] args) {
     launch(args);
@@ -466,6 +480,179 @@ public class EditorApp extends Application {
 
   @Override
   public void start(Stage primaryStage) {
+    Path logoPath = resolveStartupLogoPath();
+    StartupSplashOverlay splash = new StartupSplashOverlay(logoPath);
+    splash.show();
+    splash.setProgress(0.0);
+    splash.setStatus("Running startup health checks...");
+    splash.appendLog(startupLogLine("INFO", "Bootstrap", "Launching preflight checks"));
+
+    long splashShownNs = System.nanoTime();
+    Task<Void> startupTask = createStartupHealthCheckTask(logoPath);
+    startupTask.messageProperty().addListener((o, ov, nv) -> {
+      if (nv == null || nv.isBlank()) return;
+      splash.appendLog(nv);
+      splash.setStatus(nv);
+    });
+    startupTask.progressProperty().addListener((o, ov, nv) -> {
+      double progress = nv == null ? -1.0 : nv.doubleValue();
+      splash.setProgress(progress);
+    });
+    startupTask.setOnSucceeded(e -> finalizeStartup(primaryStage, splash, splashShownNs, null));
+    startupTask.setOnFailed(e -> finalizeStartup(primaryStage, splash, splashShownNs, startupTask.getException()));
+    Thread startupThread = new Thread(startupTask, "jvn-editor-startup-checks");
+    startupThread.setDaemon(true);
+    startupThread.start();
+  }
+
+  private void finalizeStartup(Stage primaryStage,
+                               StartupSplashOverlay splash,
+                               long splashShownNs,
+                               Throwable startupFailure) {
+    if (startupFailure != null) {
+      splash.appendLog(startupLogLine(
+          "WARN",
+          "Preflight",
+          "Checks reported: " + startupFailure.getMessage()));
+    }
+
+    long elapsedMs = (System.nanoTime() - splashShownNs) / 1_000_000L;
+    long waitMs = Math.max(0L, MIN_STARTUP_SPLASH_MS - elapsedMs);
+    PauseTransition delay = new PauseTransition(Duration.millis(waitMs));
+    delay.setOnFinished(evt -> {
+      try {
+        initializeEditorStage(primaryStage);
+      } catch (Exception ex) {
+        Alert a = new Alert(Alert.AlertType.ERROR, "Startup failed: " + ex.getMessage());
+        EditorTheme.apply(a);
+        a.setHeaderText(null);
+        a.setTitle("JVN Editor");
+        a.showAndWait();
+      } finally {
+        splash.close();
+      }
+    });
+    delay.play();
+  }
+
+  private Task<Void> createStartupHealthCheckTask(Path logoPath) {
+    return new Task<>() {
+      @Override
+      protected Void call() {
+        final int totalChecks = 8;
+        int step = 0;
+        updateProgress(0, totalChecks);
+
+        String javaVersion = System.getProperty("java.version", "unknown");
+        updateMessage(startupLogLine("OK", "Runtime", "Java " + javaVersion));
+        updateProgress(++step, totalChecks);
+        if (isCancelled()) return null;
+        startupSleep(STARTUP_STEP_DELAY_MS);
+
+        String fxVersion = System.getProperty("javafx.version", "unknown");
+        updateMessage(startupLogLine("OK", "Runtime", "JavaFX " + fxVersion));
+        updateProgress(++step, totalChecks);
+        if (isCancelled()) return null;
+        startupSleep(STARTUP_STEP_DELAY_MS);
+
+        File workspace = resolveWorkspaceRoot();
+        boolean workspaceOk = workspace != null && workspace.isDirectory();
+        String workspaceMsg = workspaceOk
+            ? workspace.getAbsolutePath()
+            : "Workspace root not found (continuing in current directory)";
+        updateMessage(startupLogLine(workspaceOk ? "OK" : "WARN", "Workspace", workspaceMsg));
+        updateProgress(++step, totalChecks);
+        if (isCancelled()) return null;
+        startupSleep(STARTUP_STEP_DELAY_MS);
+
+        boolean logoOk = logoPath != null && Files.isRegularFile(logoPath) && Files.isReadable(logoPath);
+        String logoMsg = logoOk
+            ? "Logo ready: " + logoPath.toAbsolutePath()
+            : "Logo not readable: " + (logoPath == null ? "<none>" : logoPath.toAbsolutePath());
+        updateMessage(startupLogLine(logoOk ? "OK" : "WARN", "Branding", logoMsg));
+        updateProgress(++step, totalChecks);
+        if (isCancelled()) return null;
+        startupSleep(STARTUP_STEP_DELAY_MS);
+
+        Path stateDir = (workspace != null ? workspace.toPath() : Path.of(".")).resolve(".jvn");
+        boolean stateOk;
+        String stateMsg;
+        try {
+          Files.createDirectories(stateDir);
+          Path probe = stateDir.resolve(".startup-health-probe");
+          Files.writeString(probe, "ok-" + System.nanoTime());
+          Files.deleteIfExists(probe);
+          stateOk = true;
+          stateMsg = "Writable state path: " + stateDir.toAbsolutePath();
+        } catch (Exception ex) {
+          stateOk = false;
+          stateMsg = "State path not writable: " + ex.getMessage();
+        }
+        updateMessage(startupLogLine(stateOk ? "OK" : "WARN", "State", stateMsg));
+        updateProgress(++step, totalChecks);
+        if (isCancelled()) return null;
+        startupSleep(STARTUP_STEP_DELAY_MS);
+
+        File diskRoot = workspace != null ? workspace : new File(".");
+        long usableBytes = diskRoot.getUsableSpace();
+        double freeGb = usableBytes / (1024.0 * 1024.0 * 1024.0);
+        boolean diskOk = usableBytes >= 512L * 1024L * 1024L;
+        String diskMsg = String.format(Locale.ROOT, "Free disk %.2f GB at %s", freeGb, diskRoot.getAbsolutePath());
+        updateMessage(startupLogLine(diskOk ? "OK" : "WARN", "Storage", diskMsg));
+        updateProgress(++step, totalChecks);
+        if (isCancelled()) return null;
+        startupSleep(STARTUP_STEP_DELAY_MS);
+
+        long maxHeapMb = Runtime.getRuntime().maxMemory() / (1024L * 1024L);
+        boolean heapOk = maxHeapMb >= 768L;
+        String heapMsg = "Max heap " + maxHeapMb + " MB";
+        updateMessage(startupLogLine(heapOk ? "OK" : "WARN", "Memory", heapMsg));
+        updateProgress(++step, totalChecks);
+        if (isCancelled()) return null;
+        startupSleep(STARTUP_STEP_DELAY_MS);
+
+        boolean projectOk = projectRoot == null || projectRoot.isDirectory();
+        String projectMsg = projectRoot == null
+            ? "No project selected yet"
+            : (projectOk ? projectRoot.getAbsolutePath() : "Missing project path: " + projectRoot.getAbsolutePath());
+        updateMessage(startupLogLine(projectOk ? "OK" : "WARN", "Project", projectMsg));
+        updateProgress(++step, totalChecks);
+        startupSleep(STARTUP_STEP_DELAY_MS);
+
+        updateMessage(startupLogLine("INFO", "Bootstrap", "Health checks complete"));
+        return null;
+      }
+    };
+  }
+
+  private Path resolveStartupLogoPath() {
+    Path preferred = Path.of(STARTUP_LOGO_ABSOLUTE_PATH);
+    if (Files.isRegularFile(preferred)) return preferred;
+    File workspaceRoot = resolveWorkspaceRoot();
+    if (workspaceRoot != null) {
+      Path candidate = workspaceRoot.toPath().resolve("docs/assets/images/jvn_logo.png");
+      if (Files.isRegularFile(candidate)) return candidate;
+    }
+    return preferred;
+  }
+
+  private static String startupLogLine(String level, String category, String detail) {
+    String time = LocalTime.now().format(STARTUP_TIME_FORMAT);
+    String lv = level == null ? "INFO" : level.trim().toUpperCase(Locale.ROOT);
+    String cat = category == null ? "Startup" : category.trim();
+    String msg = detail == null ? "" : detail.trim();
+    return "[" + time + "] [" + lv + "] " + cat + " - " + msg;
+  }
+
+  private static void startupSleep(long millis) {
+    try {
+      Thread.sleep(Math.max(0L, millis));
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  private void initializeEditorStage(Stage primaryStage) {
     primaryStage.setTitle("JVN Editor");
     layoutStudioWindowManager = new LayoutStudioWindowManager(primaryStage, this::doRunProject);
     BorderPane root = new BorderPane();
