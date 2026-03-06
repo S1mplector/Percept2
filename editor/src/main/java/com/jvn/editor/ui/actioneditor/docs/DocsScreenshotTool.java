@@ -107,6 +107,64 @@ public final class DocsScreenshotTool extends Application {
                 )
             ),
             new ShotSpec(
+                "toolbar-transport",
+                "toolbar_transport",
+                "puppeteer_ui_toolbar_transport.png",
+                "Toolbar - Transport + Duration",
+                "Playback controls, playhead readout, duration, and loop controls.",
+                6,
+                760,
+                0,
+                List.of(
+                    new Callout("Transport", 0.01, 0.08, 0.40, 0.80),
+                    new Callout("Duration + Loop", 0.43, 0.08, 0.56, 0.80)
+                )
+            ),
+            new ShotSpec(
+                "toolbar-keyframe-ops",
+                "toolbar_key_ops",
+                "puppeteer_ui_toolbar_key_ops.png",
+                "Toolbar - Keyframe Operations",
+                "Property target, copy/paste/duplicate, batch keyframe, clip save/load, slot placement, and zoom fit.",
+                6,
+                1050,
+                0,
+                List.of(
+                    new Callout("Property Track", 0.01, 0.08, 0.16, 0.80),
+                    new Callout("Keyframe / Clip Ops", 0.19, 0.08, 0.80, 0.80)
+                )
+            ),
+            new ShotSpec(
+                "toolbar-preview-modes",
+                "toolbar_preview_modes",
+                "puppeteer_ui_toolbar_preview_modes.png",
+                "Toolbar - Snap + Preview Modes",
+                "Snap, auto-key, drag snapping helpers, playback speed, and wheel mode.",
+                6,
+                820,
+                0,
+                List.of(
+                    new Callout("Snap", 0.01, 0.08, 0.24, 0.80),
+                    new Callout("Auto-Key", 0.27, 0.08, 0.16, 0.80),
+                    new Callout("Preview Modes", 0.45, 0.08, 0.54, 0.80)
+                )
+            ),
+            new ShotSpec(
+                "toolbar-orbit-audio-register",
+                "toolbar_orbit_audio_register",
+                "puppeteer_ui_toolbar_orbit_audio_register.png",
+                "Toolbar - Orbit, Audio, Registration",
+                "Orbit/nail workflow controls, audio cue controls, timeline naming, register, and shortcuts help.",
+                6,
+                980,
+                0,
+                List.of(
+                    new Callout("Orbit Controls", 0.01, 0.08, 0.33, 0.80),
+                    new Callout("Audio Cues", 0.36, 0.08, 0.20, 0.80),
+                    new Callout("Name + Register + Help", 0.59, 0.08, 0.40, 0.80)
+                )
+            ),
+            new ShotSpec(
                 "entities",
                 "entities",
                 "puppeteer_ui_entities_panel.png",
@@ -118,6 +176,34 @@ public final class DocsScreenshotTool extends Application {
                 List.of(
                     new Callout("Entity Stack", 0.05, 0.04, 0.90, 0.48),
                     new Callout("Keyframe Editor", 0.05, 0.55, 0.90, 0.40)
+                )
+            ),
+            new ShotSpec(
+                "entities-tree",
+                "left_tabs",
+                "puppeteer_ui_entities_tree.png",
+                "Entities / Assets Tabs",
+                "Entity hierarchy, filter field, Z-order badges, and access to assets browser.",
+                6,
+                430,
+                0,
+                List.of(
+                    new Callout("Entities Tree", 0.06, 0.10, 0.88, 0.68),
+                    new Callout("Entity Actions", 0.06, 0.81, 0.88, 0.14)
+                )
+            ),
+            new ShotSpec(
+                "keyframe-editor",
+                "keyframe_editor",
+                "puppeteer_ui_keyframe_editor.png",
+                "Keyframe Editor Panel",
+                "Per-keyframe controls: time/value, interpolation, easing curve, pivot presets, and camera readout.",
+                6,
+                430,
+                0,
+                List.of(
+                    new Callout("Keyframe Fields", 0.04, 0.08, 0.92, 0.44),
+                    new Callout("Easing + Pivot + Camera", 0.04, 0.55, 0.92, 0.40)
                 )
             ),
             new ShotSpec(
@@ -135,6 +221,34 @@ public final class DocsScreenshotTool extends Application {
                 )
             ),
             new ShotSpec(
+                "preview-runtime-frame",
+                "preview_canvas",
+                "puppeteer_ui_preview_runtime_frame.png",
+                "Preview - Runtime Framing",
+                "Runtime frame boundaries and scene-overview composition outside the runtime area.",
+                6,
+                960,
+                0,
+                List.of(
+                    new Callout("Runtime Frame", 0.08, 0.08, 0.84, 0.72),
+                    new Callout("Extra Scene Coverage", 0.01, 0.14, 0.97, 0.78)
+                )
+            ),
+            new ShotSpec(
+                "preview-selection-orbit",
+                "preview_canvas",
+                "puppeteer_ui_preview_selection_orbit.png",
+                "Preview - Selection, Pivot, Orbit",
+                "Selection outlines, pivot handles, orbit anchor visualization, and motion paths.",
+                6,
+                960,
+                0,
+                List.of(
+                    new Callout("Selection + Handles", 0.16, 0.18, 0.30, 0.58),
+                    new Callout("Motion Paths / Orbit Context", 0.50, 0.18, 0.45, 0.58)
+                )
+            ),
+            new ShotSpec(
                 "timeline",
                 "timeline",
                 "puppeteer_ui_timeline.png",
@@ -149,6 +263,34 @@ public final class DocsScreenshotTool extends Application {
                 )
             ),
             new ShotSpec(
+                "timeline-details",
+                "timeline",
+                "puppeteer_ui_timeline_details.png",
+                "Timeline - Keyframe Editing Detail",
+                "Entity/property lanes, selected keyframes, and timeline scrubbing interactions.",
+                6,
+                980,
+                0,
+                List.of(
+                    new Callout("Keyframe Lanes", 0.01, 0.18, 0.98, 0.62),
+                    new Callout("Playhead", 0.48, 0.01, 0.04, 0.86)
+                )
+            ),
+            new ShotSpec(
+                "timeline-loop-audio",
+                "timeline",
+                "puppeteer_ui_timeline_loop_audio.png",
+                "Timeline - Loop + Audio Cues",
+                "Loop range visualization and timeline audio cue markers.",
+                6,
+                980,
+                0,
+                List.of(
+                    new Callout("Loop Region", 0.20, 0.06, 0.58, 0.74),
+                    new Callout("Audio Cues", 0.02, 0.83, 0.96, 0.14)
+                )
+            ),
+            new ShotSpec(
                 "code",
                 "code",
                 "puppeteer_ui_code_panel.png",
@@ -160,6 +302,32 @@ public final class DocsScreenshotTool extends Application {
                 List.of(
                     new Callout("Code Editor", 0.03, 0.05, 0.94, 0.75),
                     new Callout("Actions + Diagnostics", 0.03, 0.82, 0.94, 0.15)
+                )
+            ),
+            new ShotSpec(
+                "code-actions",
+                "code_actions",
+                "puppeteer_ui_code_actions.png",
+                "Code Panel - Actions",
+                "Copy/regenerate/preview/commit/discard actions used for text-first round-trip.",
+                6,
+                540,
+                0,
+                List.of(
+                    new Callout("Action Buttons", 0.02, 0.10, 0.96, 0.78)
+                )
+            ),
+            new ShotSpec(
+                "status-bar",
+                "status_bar",
+                "puppeteer_ui_status_bar.png",
+                "Status Bar",
+                "Undo/redo descriptions, auto-key indicator, and playback speed.",
+                6,
+                900,
+                0,
+                List.of(
+                    new Callout("Status / Undo / Redo", 0.01, 0.08, 0.98, 0.84)
                 )
             )
         ),
@@ -378,18 +546,44 @@ public final class DocsScreenshotTool extends Application {
             return regions;
         }
         regions.put("full", root);
-        regions.put("toolbar", root.getTop());
+        Node toolbar = root.getTop();
+        regions.put("toolbar", toolbar);
+        if (toolbar instanceof javafx.scene.layout.HBox toolbarBox) {
+            List<Node> children = toolbarBox.getChildren();
+            putIfPresent(regions, "toolbar_transport", children, 0);
+            putIfPresent(regions, "toolbar_duration", children, 2);
+            putIfPresent(regions, "toolbar_presets", children, 4);
+            putIfPresent(regions, "toolbar_property", children, 6);
+            putIfPresent(regions, "toolbar_key_ops", children, 8);
+            putIfPresent(regions, "toolbar_snap", children, 10);
+            putIfPresent(regions, "toolbar_autokey", children, 12);
+            putIfPresent(regions, "toolbar_preview_modes", children, 14);
+            putIfPresent(regions, "toolbar_orbit", children, 16);
+            putIfPresent(regions, "toolbar_audio", children, 18);
+            putIfPresent(regions, "toolbar_register", children, 20);
+            putIfPresent(regions, "toolbar_help_btn", children, 22);
+            regions.put("toolbar_orbit_audio_register", toolbarBox);
+        }
 
         Node centerNode = root.getCenter();
         if (centerNode instanceof SplitPane mainSplit) {
             List<Node> mainItems = mainSplit.getItems();
             if (!mainItems.isEmpty()) {
                 regions.put("entities", mainItems.get(0));
+                if (mainItems.get(0) instanceof SplitPane leftSplit) {
+                    List<Node> leftItems = leftSplit.getItems();
+                    putIfPresent(regions, "left_tabs", leftItems, 0);
+                    putIfPresent(regions, "keyframe_editor", leftItems, 1);
+                }
             }
             if (mainItems.size() >= 2 && mainItems.get(1) instanceof SplitPane centerSplit) {
                 List<Node> centerItems = centerSplit.getItems();
                 if (!centerItems.isEmpty()) {
                     regions.put("preview", centerItems.get(0));
+                    if (centerItems.get(0) instanceof BorderPane previewPane) {
+                        regions.put("preview_info", previewPane.getTop());
+                        regions.put("preview_canvas", previewPane.getCenter());
+                    }
                 }
                 if (centerItems.size() >= 2) {
                     regions.put("timeline", centerItems.get(1));
@@ -397,9 +591,25 @@ public final class DocsScreenshotTool extends Application {
             }
             if (mainItems.size() >= 3) {
                 regions.put("code", mainItems.get(2));
+                if (mainItems.get(2) instanceof javafx.scene.layout.VBox codeBox) {
+                    List<Node> codeChildren = codeBox.getChildren();
+                    putIfPresent(regions, "code_header", codeChildren, 0);
+                    putIfPresent(regions, "code_status", codeChildren, 1);
+                    putIfPresent(regions, "code_editor", codeChildren, 2);
+                    putIfPresent(regions, "code_actions", codeChildren, 3);
+                    putIfPresent(regions, "code_diagnostics", codeChildren, 4);
+                }
             }
         }
+        regions.put("status_bar", root.getBottom());
         return regions;
+    }
+
+    private static void putIfPresent(Map<String, Node> out, String key, List<Node> nodes, int index) {
+        if (out == null || key == null || nodes == null) return;
+        if (index < 0 || index >= nodes.size()) return;
+        Node node = nodes.get(index);
+        if (node != null) out.put(key, node);
     }
 
     private static Map<String, Node> resolveImageTintRegions(Stage stage) {
