@@ -109,38 +109,6 @@ Overview snapshot:
 
 ![Puppeteer Overview](../../assets/images/puppeteer/puppeteer_ui_full.png)
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│  Toolbar: [Play] [Stop] [Rewind] [K] [Snap] [Fit] [Presets] │
-│  [Name: ________] [Register] [Copy Code] [+ Cue]            │
-├──────────┬───────────────────────────────┬───────────────────┤
-│          │                               │                   │
-│ Entity   │     Animation Preview         │   Keyframe        │
-│ Selector │     (Canvas viewport)         │   Editor          │
-│          │                               │                   │
-│ - hero   │   [drag entities, select,     │   Entity: hero    │
-│ - bg     │    orbit anchors, onion skin] │   Property: X     │
-│ - 📁 grp │                               │   Time: 500       │
-│          │                               │   Value: 320.00   │
-│          │                               │   Easing: [▼]     │
-│          │                               │   [Curve Preview] │
-│          │                               │   [Delete] [Reset]│
-├──────────┴───────────────────────────────┴───────────────────┤
-│                    Timeline Panel                             │
-│  Ruler: |0ms    |500ms    |1s      |1.5s    |2s              │
-│  hero ▸ ──────◆───────────◆──────────────────                │
-│   └ X   ──────◆───────────◆──────────────────                │
-│   └ Y   ──────────────────────────────────────               │
-│  bg   ▸ ──────────────────────────────────────               │
-│         ▲ playhead                                           │
-├──────────────────────────────────────────────────────────────┤
-│  Code Preview (live JES export)                              │
-│  timeline {                                                   │
-│    move "hero" { x: 320.00, y: 396.00, dur: 500, ... }      │
-│  }                                                            │
-└──────────────────────────────────────────────────────────────┘
-```
-
 For raw generated captures and contact sheet, see:
 
 - [Generated Puppeteer Screenshots](generated-puppeteer-screenshots.md)

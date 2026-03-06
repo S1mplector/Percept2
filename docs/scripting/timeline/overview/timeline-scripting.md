@@ -220,34 +220,6 @@ Then from VNS:
 
 ## Animation Architecture Overview
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                        AUTHORING                                 │
-│                                                                   │
-│  Puppeteer Editor ──export──▶ JES timeline code                  │
-│  Hand-coded JES blocks       (move, fade, cameraMove, etc.)     │
-│  Java API (TimelineData)                                         │
-│                                                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                        STORAGE                                    │
-│                                                                   │
-│  TimelineRegistry ◀── register(name, TimelineData)               │
-│  Inline VNS blocks ◀── parsed on-the-fly by TimelineDataParser  │
-│                                                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                        RUNTIME                                    │
-│                                                                   │
-│  TimelineRunner ──reads──▶ TimelineData                          │
-│       │                      (tracks, keyframes, audio cues)     │
-│       │                                                           │
-│       ├──▶ SceneAccessor.findEntity() ──▶ Entity2D properties    │
-│       ├──▶ SceneAccessor.setCameraX/Y/Zoom()                    │
-│       └──▶ SceneAccessor.playAudioCue()                          │
-│                                                                   │
-│  VnState manages active runners (auto-removes finished ones)     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 ---
 
 ## Common Animation Scenarios

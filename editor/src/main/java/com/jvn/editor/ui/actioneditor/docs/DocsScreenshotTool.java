@@ -1,7 +1,19 @@
 package com.jvn.editor.ui.actioneditor.docs;
 
 import com.jvn.core.scene2d.Sprite2D;
+import com.jvn.editor.ui.AssetBrowserView;
+import com.jvn.editor.ui.HelpCenterView;
+import com.jvn.editor.ui.ImageAttributesToolView;
 import com.jvn.editor.ui.ImageTintToolView;
+import com.jvn.editor.ui.InspectorView;
+import com.jvn.editor.ui.LayeredImageVisualizerView;
+import com.jvn.editor.ui.LayoutEditorLauncherView;
+import com.jvn.editor.ui.MenuFlowEditorView;
+import com.jvn.editor.ui.PuppeteerLauncherPanel;
+import com.jvn.editor.ui.VersionControlView;
+import com.jvn.editor.ui.VnsDiagnosticsView;
+import com.jvn.editor.ui.VnsFlowMapView;
+import com.jvn.editor.ui.VnsScriptAnalyzer;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
 import com.jvn.editor.ui.actioneditor.Keyframe;
@@ -14,6 +26,7 @@ import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.SplitPane;
 import javafx.scene.image.WritableImage;
@@ -33,6 +46,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -50,6 +64,7 @@ import java.util.Set;
  * Supported profiles:
  * - puppeteer
  * - image-tint
+ * - right sidebar utilities (asset browser, help center, diagnostics, and more)
  */
 public final class DocsScreenshotTool extends Application {
     private static final String CONTACT_SHEET_FILE = "docs_contact_sheet.png";
@@ -392,9 +407,146 @@ public final class DocsScreenshotTool extends Application {
         DocsScreenshotTool::resolveImageTintRegions
     );
 
-    private static final Map<String, ProfileSpec> PROFILES = Map.of(
-        PUPPETEER_PROFILE.key(), PUPPETEER_PROFILE,
-        IMAGE_TINT_PROFILE.key(), IMAGE_TINT_PROFILE
+    private static final ProfileSpec ASSET_BROWSER_PROFILE = basicSidebarProfile(
+        "asset-browser",
+        "Asset Browser",
+        "docs/editor/sidebars/right/sidebar-asset-browser.md",
+        "docs/editor/sidebars/right/generated-asset-browser-screenshots.md",
+        "docs/assets/images/sidebars/asset-browser",
+        900,
+        DocsScreenshotTool::openAssetBrowserWindow
+    );
+
+    private static final ProfileSpec HELP_CENTER_PROFILE = basicSidebarProfile(
+        "help-center",
+        "Help Center",
+        "docs/editor/sidebars/right/sidebar-help-center.md",
+        "docs/editor/sidebars/right/generated-help-center-screenshots.md",
+        "docs/assets/images/sidebars/help-center",
+        1200,
+        DocsScreenshotTool::openHelpCenterWindow
+    );
+
+    private static final ProfileSpec IMAGE_ATTRIBUTES_PROFILE = basicSidebarProfile(
+        "image-attributes",
+        "Image Attributes Tool",
+        "docs/editor/sidebars/right/sidebar-image-attributes-tool.md",
+        "docs/editor/sidebars/right/generated-image-attributes-screenshots.md",
+        "docs/assets/images/sidebars/image-attributes",
+        1200,
+        DocsScreenshotTool::openImageAttributesWindow
+    );
+
+    private static final ProfileSpec INSPECTOR_PROFILE = basicSidebarProfile(
+        "inspector",
+        "Inspector",
+        "docs/editor/sidebars/right/sidebar-inspector.md",
+        "docs/editor/sidebars/right/generated-inspector-screenshots.md",
+        "docs/assets/images/sidebars/inspector",
+        400,
+        DocsScreenshotTool::openInspectorWindow
+    );
+
+    private static final ProfileSpec LABEL_FLOW_MAP_PROFILE = basicSidebarProfile(
+        "label-flow-map",
+        "Label Flow Map",
+        "docs/editor/sidebars/right/sidebar-label-flow-map.md",
+        "docs/editor/sidebars/right/generated-label-flow-map-screenshots.md",
+        "docs/assets/images/sidebars/label-flow-map",
+        700,
+        DocsScreenshotTool::openLabelFlowMapWindow
+    );
+
+    private static final ProfileSpec LAYERED_IMAGE_VISUALIZER_PROFILE = basicSidebarProfile(
+        "layered-image-visualizer",
+        "Layered Image Visualizer",
+        "docs/editor/sidebars/right/sidebar-layered-image-visualizer.md",
+        "docs/editor/sidebars/right/generated-layered-image-visualizer-screenshots.md",
+        "docs/assets/images/sidebars/layered-image-visualizer",
+        1600,
+        DocsScreenshotTool::openLayeredImageVisualizerWindow
+    );
+
+    private static final ProfileSpec LAYOUT_LAUNCHER_PROFILE = basicSidebarProfile(
+        "layout-launcher",
+        "Layout Launcher",
+        "docs/editor/sidebars/right/sidebar-layout-launcher.md",
+        "docs/editor/sidebars/right/generated-layout-launcher-screenshots.md",
+        "docs/assets/images/sidebars/layout-launcher",
+        800,
+        DocsScreenshotTool::openLayoutLauncherWindow
+    );
+
+    private static final ProfileSpec MENU_FLOW_EDITOR_PROFILE = basicSidebarProfile(
+        "menu-flow-editor",
+        "Menu Flow Editor",
+        "docs/editor/sidebars/right/sidebar-menu-flow-editor.md",
+        "docs/editor/sidebars/right/generated-menu-flow-editor-screenshots.md",
+        "docs/assets/images/sidebars/menu-flow-editor",
+        1000,
+        DocsScreenshotTool::openMenuFlowEditorWindow
+    );
+
+    private static final ProfileSpec PUPPETEER_LAUNCHER_PROFILE = basicSidebarProfile(
+        "puppeteer-launcher",
+        "Puppeteer Launcher",
+        "docs/editor/sidebars/right/sidebar-puppeteer-launcher.md",
+        "docs/editor/sidebars/right/generated-puppeteer-launcher-screenshots.md",
+        "docs/assets/images/sidebars/puppeteer-launcher",
+        350,
+        DocsScreenshotTool::openPuppeteerLauncherWindow
+    );
+
+    private static final ProfileSpec VERSION_CONTROL_PROFILE = basicSidebarProfile(
+        "version-control",
+        "Version Control",
+        "docs/editor/sidebars/right/sidebar-version-control.md",
+        "docs/editor/sidebars/right/generated-version-control-screenshots.md",
+        "docs/assets/images/sidebars/version-control",
+        1600,
+        DocsScreenshotTool::openVersionControlWindow
+    );
+
+    private static final ProfileSpec VNS_DIAGNOSTICS_PROFILE = basicSidebarProfile(
+        "vns-diagnostics",
+        "VNS Diagnostics",
+        "docs/editor/sidebars/right/sidebar-vns-diagnostics.md",
+        "docs/editor/sidebars/right/generated-vns-diagnostics-screenshots.md",
+        "docs/assets/images/sidebars/vns-diagnostics",
+        550,
+        DocsScreenshotTool::openVnsDiagnosticsWindow
+    );
+
+    private static final List<String> DEFAULT_PROFILE_KEYS = List.of(
+        PUPPETEER_PROFILE.key(),
+        IMAGE_TINT_PROFILE.key(),
+        ASSET_BROWSER_PROFILE.key(),
+        HELP_CENTER_PROFILE.key(),
+        IMAGE_ATTRIBUTES_PROFILE.key(),
+        INSPECTOR_PROFILE.key(),
+        LABEL_FLOW_MAP_PROFILE.key(),
+        LAYERED_IMAGE_VISUALIZER_PROFILE.key(),
+        LAYOUT_LAUNCHER_PROFILE.key(),
+        MENU_FLOW_EDITOR_PROFILE.key(),
+        PUPPETEER_LAUNCHER_PROFILE.key(),
+        VERSION_CONTROL_PROFILE.key(),
+        VNS_DIAGNOSTICS_PROFILE.key()
+    );
+
+    private static final Map<String, ProfileSpec> PROFILES = Map.ofEntries(
+        Map.entry(PUPPETEER_PROFILE.key(), PUPPETEER_PROFILE),
+        Map.entry(IMAGE_TINT_PROFILE.key(), IMAGE_TINT_PROFILE),
+        Map.entry(ASSET_BROWSER_PROFILE.key(), ASSET_BROWSER_PROFILE),
+        Map.entry(HELP_CENTER_PROFILE.key(), HELP_CENTER_PROFILE),
+        Map.entry(IMAGE_ATTRIBUTES_PROFILE.key(), IMAGE_ATTRIBUTES_PROFILE),
+        Map.entry(INSPECTOR_PROFILE.key(), INSPECTOR_PROFILE),
+        Map.entry(LABEL_FLOW_MAP_PROFILE.key(), LABEL_FLOW_MAP_PROFILE),
+        Map.entry(LAYERED_IMAGE_VISUALIZER_PROFILE.key(), LAYERED_IMAGE_VISUALIZER_PROFILE),
+        Map.entry(LAYOUT_LAUNCHER_PROFILE.key(), LAYOUT_LAUNCHER_PROFILE),
+        Map.entry(MENU_FLOW_EDITOR_PROFILE.key(), MENU_FLOW_EDITOR_PROFILE),
+        Map.entry(PUPPETEER_LAUNCHER_PROFILE.key(), PUPPETEER_LAUNCHER_PROFILE),
+        Map.entry(VERSION_CONTROL_PROFILE.key(), VERSION_CONTROL_PROFILE),
+        Map.entry(VNS_DIAGNOSTICS_PROFILE.key(), VNS_DIAGNOSTICS_PROFILE)
     );
 
     private Path repoRoot;
@@ -531,13 +683,345 @@ public final class DocsScreenshotTool extends Application {
 
     private static Stage openImageTintWindow(Path repoRoot) {
         ImageTintToolView view = new ImageTintToolView();
-        view.setProjectRoot(repoRoot.toFile());
+        try {
+            view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
+        } catch (IOException ex) {
+            throw new RuntimeException("Failed to prepare docs fixture project for image tint screenshots.", ex);
+        }
         Scene scene = new Scene(view, 1680, 980);
         Stage stage = new Stage();
         stage.setTitle("Docs Screenshot Session - Image Tint Tool");
         stage.setScene(scene);
         stage.show();
         return stage;
+    }
+
+    private static Stage openAssetBrowserWindow(Path repoRoot) throws Exception {
+        AssetBrowserView view = new AssetBrowserView();
+        view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
+        return openToolStage("Docs Screenshot Session - Asset Browser", view, 1120, 900);
+    }
+
+    private static Stage openHelpCenterWindow(Path repoRoot) throws Exception {
+        HelpCenterView view = new HelpCenterView();
+        view.setWorkspaceRoot(repoRoot.toFile());
+        view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
+        return openToolStage("Docs Screenshot Session - Help Center", view, 1400, 900);
+    }
+
+    private static Stage openImageAttributesWindow(Path repoRoot) throws Exception {
+        ImageAttributesToolView view = new ImageAttributesToolView();
+        view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
+        return openToolStage("Docs Screenshot Session - Image Attributes Tool", view, 1380, 930);
+    }
+
+    private static Stage openInspectorWindow(Path repoRoot) {
+        InspectorView view = new InspectorView(msg -> {});
+        JesScene2D scene = new JesScene2D();
+        Sprite2D sprite = new Sprite2D("demo-assets/Lavender_test_sprite/base/lavender_test_sprite_base.png", 430, 760);
+        sprite.setOrigin(0.5, 1.0);
+        sprite.setPosition(640, 710);
+        scene.add(sprite);
+        view.setScene(scene);
+        view.setSelection(sprite);
+
+        BorderPane host = new BorderPane(view);
+        host.setPadding(new javafx.geometry.Insets(10));
+        return openToolStage("Docs Screenshot Session - Inspector", host, 760, 940);
+    }
+
+    private static Stage openLabelFlowMapWindow(Path repoRoot) throws Exception {
+        Path fixtureRoot = ensureDocsFixtureProject(repoRoot);
+        String source = docsSidebarVnsSource();
+        Path script = fixtureRoot.resolve("scripts/docs_flow_map.vns");
+        writeTextFile(script, source);
+
+        VnsFlowMapView view = new VnsFlowMapView();
+        view.setAnalysis(script.toFile(), VnsScriptAnalyzer.analyze(source, fixtureRoot.toFile()));
+        return openToolStage("Docs Screenshot Session - Label Flow Map", view, 1260, 860);
+    }
+
+    private static Stage openLayeredImageVisualizerWindow(Path repoRoot) throws Exception {
+        LayeredImageVisualizerView view = new LayeredImageVisualizerView();
+        view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
+        return openToolStage("Docs Screenshot Session - Layered Image Visualizer", view, 1420, 980);
+    }
+
+    private static Stage openLayoutLauncherWindow(Path repoRoot) throws Exception {
+        LayoutEditorLauncherView view = new LayoutEditorLauncherView();
+        view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
+        return openToolStage("Docs Screenshot Session - Layout Launcher", view, 1220, 900);
+    }
+
+    private static Stage openMenuFlowEditorWindow(Path repoRoot) throws Exception {
+        MenuFlowEditorView view = new MenuFlowEditorView();
+        view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
+        return openToolStage("Docs Screenshot Session - Menu Flow Editor", view, 1520, 980);
+    }
+
+    private static Stage openPuppeteerLauncherWindow(Path repoRoot) throws Exception {
+        Path fixtureRoot = ensureDocsFixtureProject(repoRoot);
+        String source = docsSidebarVnsSource();
+        Path script = fixtureRoot.resolve("scripts/docs_puppeteer_launcher.vns");
+        writeTextFile(script, source);
+
+        PuppeteerLauncherPanel panel = new PuppeteerLauncherPanel();
+        panel.setSource(source);
+        panel.setCaretLine(12);
+        panel.setOnLaunch(snapshot -> {});
+        return openToolStage("Docs Screenshot Session - Puppeteer Launcher", panel, 620, 940);
+    }
+
+    private static Stage openVersionControlWindow(Path repoRoot) {
+        VersionControlView view = new VersionControlView();
+        view.setProjectRoot(repoRoot.toFile());
+        return openToolStage("Docs Screenshot Session - Version Control", view, 980, 900);
+    }
+
+    private static Stage openVnsDiagnosticsWindow(Path repoRoot) throws Exception {
+        Path fixtureRoot = ensureDocsFixtureProject(repoRoot);
+        String source = docsSidebarVnsSource();
+        Path script = fixtureRoot.resolve("scripts/docs_diagnostics.vns");
+        writeTextFile(script, source);
+
+        VnsDiagnosticsView view = new VnsDiagnosticsView();
+        view.setAnalysis(script.toFile(), VnsScriptAnalyzer.analyze(source, fixtureRoot.toFile()));
+        return openToolStage("Docs Screenshot Session - VNS Diagnostics", view, 980, 860);
+    }
+
+    private static Stage openToolStage(String title, Parent root, double width, double height) {
+        Scene scene = new Scene(root, width, height);
+        Stage stage = new Stage();
+        stage.setTitle(title);
+        stage.setScene(scene);
+        stage.show();
+        return stage;
+    }
+
+    private static ProfileSpec basicSidebarProfile(String key,
+                                                   String displayName,
+                                                   String guideDoc,
+                                                   String snippetDoc,
+                                                   String imageDir,
+                                                   long warmupMs,
+                                                   StageFactory stageFactory) {
+        String markerBase = key == null ? "" : key.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+        String startMarker = "<!-- AUTO-" + markerBase + "-SCREENSHOTS:START -->";
+        String endMarker = "<!-- AUTO-" + markerBase + "-SCREENSHOTS:END -->";
+        String fileStem = (key == null ? "sidebar" : key.trim()).replace('-', '_');
+
+        ShotSpec fullShot = new ShotSpec(
+            "full",
+            "full",
+            fileStem + "_ui_full.png",
+            displayName + " Overview",
+            "Full " + displayName + " sidebar utility view.",
+            0,
+            960,
+            0,
+            List.of()
+        );
+
+        return new ProfileSpec(
+            key,
+            displayName,
+            guideDoc,
+            snippetDoc,
+            imageDir,
+            imageDir + "/raw",
+            startMarker,
+            endMarker,
+            warmupMs,
+            List.of(fullShot),
+            stageFactory,
+            DocsScreenshotTool::resolveFullRegions
+        );
+    }
+
+    private static Map<String, Node> resolveFullRegions(Stage stage) {
+        Map<String, Node> regions = new LinkedHashMap<>();
+        if (stage == null || stage.getScene() == null || stage.getScene().getRoot() == null) {
+            return regions;
+        }
+        regions.put("full", stage.getScene().getRoot());
+        return regions;
+    }
+
+    private static Path ensureDocsFixtureProject(Path repoRoot) throws IOException {
+        Path fixtureRoot = repoRoot.resolve("build/docs-screenshots/sidebar-fixture");
+        Files.createDirectories(fixtureRoot);
+
+        Path lavenderBase = fixtureRoot.resolve("assets/characters/lavender/base/lavender_test_sprite_base.png");
+        Path lavenderEyesNeutral = fixtureRoot.resolve("assets/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png");
+        Path lavenderEyesHalfClosed = fixtureRoot.resolve("assets/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png");
+        Path lavenderMouthNeutral = fixtureRoot.resolve("assets/characters/lavender/mouth/lavender_test_sprite_mouth_neutral.png");
+        Path lavenderMouthSmile = fixtureRoot.resolve("assets/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png");
+        Path background = fixtureRoot.resolve("assets/bg/school_day.png");
+
+        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/base/lavender_test_sprite_base.png"), lavenderBase);
+        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/eyes/lavender_test_sprite_eyes_neutral.png"), lavenderEyesNeutral);
+        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/eyes/lavender_test_sprite_eyes_half_closed.png"), lavenderEyesHalfClosed);
+        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/mouth/lavender_test_sprite_mouth_neutral.png"), lavenderMouthNeutral);
+        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/mouth/lavender_test_sprite_mouth_smile.png"), lavenderMouthSmile);
+        copyFile(repoRoot.resolve("demo-assets/demo_bg/game.png"), background);
+
+        writeTextFile(
+            fixtureRoot.resolve("jvn.project"),
+            String.join("\n",
+                "name=docs_sidebar_fixture",
+                "menuRegistry=config/menu/registry/menu.registry",
+                "menuDefaultLayout=config/menu/layouts/default.layout",
+                "menuDefaultStyle=config/menu/styles/default.style",
+                "dialogueLayout=config/ui/dialogue.layout",
+                ""
+            )
+        );
+
+        writeTextFile(
+            fixtureRoot.resolve("config/menu/registry/menu.registry"),
+            String.join("\n",
+                "menus=main,settings,load",
+                "layouts=default",
+                "styles=default",
+                "defaultMenu=main",
+                ""
+            )
+        );
+
+        writeTextFile(
+            fixtureRoot.resolve("config/menu/menus/main.menu"),
+            String.join("\n",
+                "items=new_game,load_game,settings,quit",
+                "item.new_game.action=new_game",
+                "item.load_game.action=open_menu",
+                "item.load_game.target=load",
+                "item.settings.action=open_menu",
+                "item.settings.target=settings",
+                "item.quit.action=quit",
+                ""
+            )
+        );
+
+        writeTextFile(
+            fixtureRoot.resolve("config/menu/menus/settings.menu"),
+            String.join("\n",
+                "items=audio,back",
+                "item.audio.action=noop",
+                "item.back.action=back",
+                ""
+            )
+        );
+
+        writeTextFile(
+            fixtureRoot.resolve("config/menu/menus/load.menu"),
+            String.join("\n",
+                "items=slot_1,slot_2,back",
+                "item.slot_1.action=load_menu",
+                "item.slot_2.action=load_menu",
+                "item.back.action=back",
+                ""
+            )
+        );
+
+        writeTextFile(
+            fixtureRoot.resolve("config/menu/layouts/default.layout"),
+            String.join("\n",
+                "listYStart=0.24",
+                "lineHeight=44",
+                "listWidthFactor=0.46",
+                "textAlign=left",
+                ""
+            )
+        );
+
+        writeTextFile(
+            fixtureRoot.resolve("config/menu/styles/default.style"),
+            String.join("\n",
+                "itemColor=#e6edf8",
+                "itemSelectedColor=#66ccff",
+                "itemDisabledColor=#808080",
+                "itemFontSize=36",
+                "itemPrefix=  ",
+                "itemSelectedPrefix=> ",
+                "itemDisabledPrefix=- ",
+                ""
+            )
+        );
+
+        writeTextFile(
+            fixtureRoot.resolve("config/ui/dialogue.layout"),
+            String.join("\n",
+                "textBoxX=0.04",
+                "textBoxY=0.70",
+                "textBoxW=0.92",
+                "textBoxH=0.24",
+                "nameBoxH=0.08",
+                ""
+            )
+        );
+
+        writeTextFile(
+            fixtureRoot.resolve("docs/project-docs.md"),
+            String.join("\n",
+                "# Project Docs Fixture",
+                "",
+                "This fixture project is used for auto-generated editor sidebar screenshots.",
+                ""
+            )
+        );
+
+        writeTextFile(fixtureRoot.resolve("scripts/docs_fixture.vns"), docsSidebarVnsSource());
+        return fixtureRoot;
+    }
+
+    private static String docsSidebarVnsSource() {
+        return String.join("\n",
+            "@background school assets/bg/school_day.png",
+            "@charimg lavender neutral assets/characters/lavender/base/lavender_test_sprite_base.png",
+            "@charimg lavender happy assets/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png",
+            "",
+            "@label start",
+            "[bg school]",
+            "[show lavender center neutral]",
+            "> Continue | jump intro",
+            "",
+            "@label intro",
+            "[if affinity > 5 goto route_good]",
+            "[jump route_bad]",
+            "",
+            "@label route_good",
+            "[show lavender center happy]",
+            "[jump ending]",
+            "",
+            "@label route_bad",
+            "[jump missing_label]",
+            "",
+            "@label ending",
+            "[hide lavender]",
+            "",
+            "@label orphan",
+            "[bg school]",
+            ""
+        );
+    }
+
+    private static void copyFile(Path source, Path target) throws IOException {
+        if (source == null || target == null) return;
+        if (!Files.exists(source)) {
+            throw new IOException("Missing fixture source asset: " + source);
+        }
+        if (target.getParent() != null) {
+            Files.createDirectories(target.getParent());
+        }
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private static void writeTextFile(Path file, String content) throws IOException {
+        if (file == null) return;
+        if (file.getParent() != null) {
+            Files.createDirectories(file.getParent());
+        }
+        Files.writeString(file, content == null ? "" : content, StandardCharsets.UTF_8);
     }
 
     private static Map<String, Node> resolvePuppeteerRegions(Stage stage) {
@@ -947,7 +1431,7 @@ public final class DocsScreenshotTool extends Application {
     private static Set<String> parseProfileKeys(String value) {
         String norm = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
         if (norm.isBlank() || "all".equals(norm)) {
-            return new LinkedHashSet<>(List.of("puppeteer", "image-tint"));
+            return new LinkedHashSet<>(DEFAULT_PROFILE_KEYS);
         }
         return parseCsvLower(norm);
     }

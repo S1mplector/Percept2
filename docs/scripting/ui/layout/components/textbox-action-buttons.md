@@ -259,20 +259,6 @@ Simply don't declare any button IDs:
 
 The textbox action button coordinate system:
 
-```text
-Textbox Rectangle
-┌──────────────────────────────────────────┐
-│ (0,0)                            (1,0)   │
-│                                          │
-│   dialogueText area                      │
-│                                          │
-│                              ┌──────┐    │
-│                              │ btn  │    │
-│                              └──────┘    │
-│ (0,1)                            (1,1)   │
-└──────────────────────────────────────────┘
-```
-
 - **x=0, y=0** = top-left corner of the textbox
 - **x=1, y=1** = bottom-right corner of the textbox
 - Button `width` and `height` are also fractions of the textbox

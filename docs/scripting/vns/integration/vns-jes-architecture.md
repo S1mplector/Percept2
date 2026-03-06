@@ -33,20 +33,6 @@ The key insight: **VNS and JES never call each other directly**. All coordinatio
 
 The `Engine` manages a stack of `Scene` objects. Only the top scene receives `update()` calls. VNS and JES scenes coexist on this stack:
 
-```text
-┌─────────────────────────────┐
-│ Engine Scene Stack          │
-│                             │
-│  ┌───────────────────────┐  │
-│  │ JES (minigame)   ← top│  │  ← receives update()
-│  ├───────────────────────┤  │
-│  │ VNS (chapter 2)       │  │  ← paused (no updates)
-│  ├───────────────────────┤  │
-│  │ JES (main menu)       │  │  ← paused
-│  └───────────────────────┘  │
-└─────────────────────────────┘
-```
-
 ### Push (overlay)
 
 `engine.scenes().push(scene)` adds a scene on top. The previous scene stays on the stack but stops receiving updates. Used for:
@@ -359,46 +345,6 @@ Only a subset of interop providers run during preflight to avoid side effects:
 ---
 
 ## Complete Data Flow Diagram
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│                      Engine                              │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │              Scene Stack                          │   │
-│  │                                                    │   │
-│  │  ┌────────────┐    push/pop/replace   ┌────────┐  │   │
-│  │  │  VnScene   │◄─────────────────────►│JesScene│  │   │
-│  │  │ (VNS)      │                        │ (JES)  │  │   │
-│  │  └─────┬──────┘                        └───┬────┘  │   │
-│  └────────┼───────────────────────────────────┼──────┘   │
-│           │                                    │          │
-│  ┌────────▼──────────────┐         ┌──────────▼───────┐  │
-│  │ VnInterop             │         │ Call Handlers     │  │
-│  │ (command dispatch)    │         │ (named callbacks) │  │
-│  │                       │         │                   │  │
-│  │ DefaultVnInterop      │         │ registerCall()    │  │
-│  │   ├─ var, cond, ui    │         │ invokeCall()      │  │
-│  │   ├─ java, hud        │         │                   │  │
-│  │   ├─ jes_timeline     │         │ "return" → bridge │  │
-│  │   └─ settings, save   │         │ "vns" → bridge    │  │
-│  │                       │         │ "init" → JES      │  │
-│  │ RuntimeVnInterop      │         └──────────┬───────┘  │
-│  │   ├─ jes (full)       │                    │          │
-│  │   ├─ menu, load       │         ┌──────────▼───────┐  │
-│  │   └─ mainmenu         │         │ JesVnBridge      │  │
-│  └───────────┬───────────┘         │ (JES→VNS launch) │  │
-│              │                      └─────────────────┘  │
-│  ┌───────────▼───────────┐                               │
-│  │ TimelineRunner        │                               │
-│  │ (animation engine)    │                               │
-│  │                       │                               │
-│  │ SceneAccessor         │                               │
-│  │   ├─ JES: real entities                               │
-│  │   └─ VNS: VnCharacterSceneAccessor (proxies)         │
-│  └───────────────────────┘                               │
-└──────────────────────────────────────────────────────────┘
-```
 
 ---
 

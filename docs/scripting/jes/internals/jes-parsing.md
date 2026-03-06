@@ -12,28 +12,6 @@ Source files:
 
 ## Pipeline Overview
 
-```text
-.jes source text
-      │
-      ▼
-┌─────────────┐
-│ JesTokenizer │  → List<JesToken>
-└─────────────┘
-      │
-      ▼
-┌───────────┐
-│ JesParser  │  → JesAst.Program (AST)
-└───────────┘
-      │
-      ▼
-┌───────────┐
-│ JesLoader  │  → JesScene2D (runtime objects)
-└───────────┘
-      │
-      ▼
-  JesScene2D runs input, physics, timeline, call handlers
-```
-
 Each stage has distinct responsibilities and error reporting. Errors at any stage halt processing with source position information.
 
 ---

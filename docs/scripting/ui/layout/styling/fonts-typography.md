@@ -286,42 +286,6 @@ hintsFontSize=20
 
 A typical game uses fonts in these locations:
 
-```text
-┌─────────────────────────────────────────┐
-│  Menu Title    (titleFontFamily/Size)   │
-│                                         │
-│  ▶ New Game    (itemFontFamily/Size)    │
-│    Load Game                            │
-│    Settings                             │
-│    Quit                                 │
-│                                         │
-│  Enter: Select   Esc: Quit              │
-│  (hintsFontFamily/Size)                 │
-└─────────────────────────────────────────┘
-
-┌─────────────────────────────────────────┐
-│  [Character sprites]                    │
-│                                         │
-│  ┌─ Name Box ─────────────────────┐     │
-│  │ Aria  (nameTextFontFamily)     │     │
-│  └────────────────────────────────┘     │
-│  ┌─ Textbox ──────────────────────────┐ │
-│  │ I can't believe what happened...   │ │
-│  │ (dialogueTextFontFamily/Size)      │ │
-│  │                                    │ │
-│  │                      [AUTO] [SKIP] │ │
-│  └────────────────────────────────────┘ │
-│                                         │
-│  ┌─ Choice 1 ─────────────────────────┐ │
-│  │ Go to the forest                   │ │
-│  │ (choiceFontFamily/Size)            │ │
-│  └────────────────────────────────────┘ │
-│  ┌─ Choice 2 ─────────────────────────┐ │
-│  │ Stay here                          │ │
-│  └────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
-```
-
 ---
 
 ## Font Size and Resolution

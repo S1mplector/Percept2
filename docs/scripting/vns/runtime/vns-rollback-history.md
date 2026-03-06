@@ -43,22 +43,6 @@ Every time a **dialogue node** is processed, the engine captures a snapshot of t
 
 ### Stack Architecture
 
-```text
-┌──────────────────────────────────────────────┐
-│ VnRollbackStack                              │
-│                                              │
-│  history (Deque)    future (Deque)           │
-│  ┌──────────┐       ┌──────────┐            │
-│  │ Entry N  │ ←top  │ Entry F1 │ ←top       │
-│  │ Entry N-1│       │ Entry F2 │            │
-│  │ ...      │       │ ...      │            │
-│  │ Entry 1  │       └──────────┘            │
-│  └──────────┘                                │
-│                                              │
-│  maxEntries = 100 (configurable)             │
-└──────────────────────────────────────────────┘
-```
-
 - **History stack** — past rollback entries (newest on top)
 - **Future stack** — entries that were rolled past (for forward navigation)
 - **Max entries** — oldest entries are pruned when the limit is exceeded (default: 100)

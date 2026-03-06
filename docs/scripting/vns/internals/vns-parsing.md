@@ -8,42 +8,6 @@ Parser source: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
 
 ## Pipeline Overview
 
-```text
-.vns source text
-      │
-      ▼
-┌──────────────────┐
-│  Line-by-line     │  Read UTF-8, strip comments/blanks
-│  preprocessing    │
-└──────────────────┘
-      │
-      ▼
-┌──────────────────┐
-│  @define / @include │  Macro expansion + file includes (parser-time)
-│  expansion         │
-└──────────────────┘
-      │
-      ▼
-┌──────────────────┐
-│  Line classification │  Directive? Command? Dialogue? Choice?
-│  & dispatch          │
-└──────────────────┘
-      │
-      ▼
-┌──────────────────┐
-│  VnScenarioBuilder │  Builds linear node sequence
-│  node construction  │
-└──────────────────┘
-      │
-      ▼
-┌──────────────────┐
-│  Validation        │  Label references, if/endif integrity
-└──────────────────┘
-      │
-      ▼
-    VnScenario (executable)
-```
-
 Each stage operates line-by-line. Errors at any stage halt processing with source file, line number, and the offending line text.
 
 ---

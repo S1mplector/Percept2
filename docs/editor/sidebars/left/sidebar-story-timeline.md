@@ -49,26 +49,6 @@ An optional grouping tag assigned to arcs. The cluster filter ComboBox lets you 
 
 ## UI Layout
 
-```text
-┌────────────────────────────────────────────────┐
-│  Toolbar Row 1: [Add Arc] [Add Link] │ [Edit]  │
-│  [Open] [Delete]           Find [________]     │
-│  Toolbar Row 2: Cluster [▼ filter] │ [Copy     │
-│  Goto] [Auto Layout] [Fit] [Validate]          │
-├────────────────────────────────────────────────┤
-│                                                │
-│           Story Graph Canvas                   │
-│     (draggable nodes, directed edges)          │
-│                                                │
-├────────────────────────────────────────────────┤
-│  ┌─────────┬──────────┐                       │
-│  │  Arcs   │  Links   │  (tab switcher)       │
-│  ├─────────┴──────────┤                       │
-│  │  ListView items    │                       │
-│  └────────────────────┘                       │
-└────────────────────────────────────────────────┘
-```
-
 The view is split vertically:
 - **Top 76%** — story graph canvas in a scrollable, pannable viewport
 - **Bottom 24%** — tabbed list views for Arcs and Links

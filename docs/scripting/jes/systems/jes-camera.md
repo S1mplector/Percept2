@@ -141,17 +141,6 @@ Each frame, the camera position moves toward the target by `lerp * distance`:
 
 The dead zone is a rectangle centered on the camera. The camera only moves when the target exits this rectangle. This prevents jittery camera movement during small motions.
 
-```text
-┌──────────────────────┐
-│                      │
-│    ┌──────────┐      │  Viewport
-│    │ Dead Zone│      │
-│    │   Hero   │      │
-│    └──────────┘      │
-│                      │
-└──────────────────────┘
-```
-
 When the hero moves within the dead zone, the camera stays still. When the hero exits the dead zone, the camera starts following with the configured lerp.
 
 **Example: Platformer-style camera:**
