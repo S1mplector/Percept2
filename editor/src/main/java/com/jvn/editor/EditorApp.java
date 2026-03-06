@@ -2519,7 +2519,7 @@ public class EditorApp extends Application {
 
     if (ft != null && ft.getJesScene() != null) {
       puppeteer.setScene(ft.getJesScene());
-    } else if (snapshot != null && !snapshot.characters.isEmpty()) {
+    } else if (snapshot != null && (snapshot.backgroundId != null || !snapshot.characters.isEmpty())) {
       JesScene2D scene = buildSceneFromSnapshot(snapshot);
       puppeteer.setScene(scene);
     }

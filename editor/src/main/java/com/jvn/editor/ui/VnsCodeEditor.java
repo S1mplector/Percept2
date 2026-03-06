@@ -196,7 +196,14 @@ public class VnsCodeEditor extends BorderPane {
   }
 
   public void setText(String s) {
-    codeArea.replaceText(s == null ? "" : s);
+    String next = s == null ? "" : s;
+    int prevCaret = codeArea.getCaretPosition();
+    int prevAnchor = codeArea.getAnchor();
+    codeArea.replaceText(next);
+    int len = codeArea.getLength();
+    int caret = Math.max(0, Math.min(prevCaret, len));
+    int anchor = Math.max(0, Math.min(prevAnchor, len));
+    codeArea.selectRange(anchor, caret);
   }
 
   public void setOnTextChanged(Consumer<String> listener) {

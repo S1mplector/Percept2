@@ -234,7 +234,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
   static SceneSnapshot resolveSnapshot(String source, int upToLine) {
     String[] lines = source.split("\n", -1);
-    int limit = Math.min(upToLine, lines.length - 1);
+    int limit = Math.max(0, Math.min(upToLine, lines.length - 1));
 
     String currentLabel = null;
     String backgroundId = null;
@@ -355,7 +355,7 @@ public class PuppeteerLauncherPanel extends VBox {
       }
     }
 
-    return new SceneSnapshot(currentLabel, backgroundId, new ArrayList<>(visible.values()), upToLine, bgPaths, charImgPaths);
+    return new SceneSnapshot(currentLabel, backgroundId, new ArrayList<>(visible.values()), limit, bgPaths, charImgPaths);
   }
 
   static int resolveActiveLabelStartLine(String source, int upToLine) {
