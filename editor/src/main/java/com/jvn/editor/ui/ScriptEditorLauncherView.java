@@ -10,8 +10,8 @@ import java.util.function.Consumer;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -22,6 +22,8 @@ import javafx.scene.control.TabPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -205,18 +207,51 @@ public class ScriptEditorLauncherView extends VBox {
       });
 
       // Toolbar
-      HBox toolbar = new HBox(8);
-      toolbar.setPadding(new Insets(6, 10, 6, 10));
+      HBox toolbar = new HBox(6);
+      toolbar.setPadding(new Insets(5, 10, 5, 10));
       toolbar.setAlignment(Pos.CENTER_LEFT);
-      toolbar.setStyle("-fx-background-color: #000000; -fx-border-color: #1a1a1a; -fx-border-width: 0 0 1 0;");
+      toolbar.setStyle("-fx-background-color: #0a0a0a; -fx-border-color: #1e1e1e; -fx-border-width: 0 0 1 0;");
 
       Label titleLabel = new Label("JVN Script Editor");
       titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 800; -fx-text-fill: #e6e6e6;");
+
+      Separator toolSep1 = new Separator(javafx.geometry.Orientation.VERTICAL);
+      toolSep1.setPadding(new Insets(0, 4, 0, 4));
+
+      Button saveBtn = toolbarButton("\uD83D\uDCBE Save", "Save current file (Ctrl+S)");
+      saveBtn.setOnAction(e -> saveActiveTab(editorTabs, windowStatus));
+
+      Button saveAllBtn = toolbarButton("\uD83D\uDCBE Save All", "Save all open files (Ctrl+Shift+S)");
+      saveAllBtn.setOnAction(e -> saveAllTabs(editorTabs, windowStatus));
+
+      Separator toolSep2 = new Separator(javafx.geometry.Orientation.VERTICAL);
+      toolSep2.setPadding(new Insets(0, 4, 0, 4));
+
+      Button undoBtn = toolbarButton("\u21A9 Undo", "Undo (Ctrl+Z)");
+      undoBtn.setOnAction(e -> {
+        VnsCodeEditor ed = activeEditor(editorTabs);
+        if (ed != null) ed.getCodeArea().undo();
+      });
+
+      Button redoBtn = toolbarButton("\u21AA Redo", "Redo (Ctrl+Shift+Z)");
+      redoBtn.setOnAction(e -> {
+        VnsCodeEditor ed = activeEditor(editorTabs);
+        if (ed != null) ed.getCodeArea().redo();
+      });
+
+      Separator toolSep3 = new Separator(javafx.geometry.Orientation.VERTICAL);
+      toolSep3.setPadding(new Insets(0, 4, 0, 4));
+
+      Button findBtn = toolbarButton("\uD83D\uDD0D Find", "Find & Replace (Ctrl+F)");
+      findBtn.setOnAction(e -> {
+        VnsCodeEditor ed = activeEditor(editorTabs);
+        if (ed != null) ed.showSearchBar();
+      });
+
       Region spacer = new Region();
       HBox.setHgrow(spacer, Priority.ALWAYS);
 
-      Button refreshBtn = new Button("Refresh");
-      refreshBtn.setStyle("-fx-font-size: 11px;");
+      Button refreshBtn = toolbarButton("\u21BB Refresh", "Refresh file tree");
       refreshBtn.setOnAction(e -> {
         TreeItem<String> refreshedRoot = buildFileTree(scriptsRoot, scriptsRoot.getFileName().toString());
         refreshedRoot.setExpanded(true);
@@ -224,7 +259,13 @@ public class ScriptEditorLauncherView extends VBox {
         windowStatus.setText("File tree refreshed.");
       });
 
-      toolbar.getChildren().addAll(titleLabel, spacer, refreshBtn);
+      toolbar.getChildren().addAll(
+          titleLabel, toolSep1,
+          saveBtn, saveAllBtn, toolSep2,
+          undoBtn, redoBtn, toolSep3,
+          findBtn,
+          spacer, refreshBtn
+      );
 
       SplitPane split = new SplitPane(fileTree, editorTabs);
       split.setDividerPositions(0.22);
@@ -239,6 +280,18 @@ public class ScriptEditorLauncherView extends VBox {
         String css = ScriptEditorLauncherView.class.getResource("/com/jvn/editor/editor.css").toExternalForm();
         scene.getStylesheets().add(css);
       } catch (Exception ignore) {}
+
+      // Keyboard shortcuts
+      scene.addEventFilter(KeyEvent.KEY_PRESSED, (KeyEvent ev) -> {
+        if ((ev.isMetaDown() || ev.isControlDown()) && ev.getCode() == KeyCode.S) {
+          if (ev.isShiftDown()) {
+            saveAllTabs(editorTabs, windowStatus);
+          } else {
+            saveActiveTab(editorTabs, windowStatus);
+          }
+          ev.consume();
+        }
+      });
 
       editorWindow.setScene(scene);
       editorWindow.setOnCloseRequest(e -> editorWindow = null);
@@ -304,7 +357,7 @@ public class ScriptEditorLauncherView extends VBox {
   private String buildTreePath(TreeItem<String> item) {
     List<String> parts = new ArrayList<>();
     TreeItem<String> cur = item;
-    while (cur != null) {
+    while (cur != null && cur.getParent() != null) {
       parts.add(0, cur.getValue());
       cur = cur.getParent();
     }
@@ -332,24 +385,116 @@ public class ScriptEditorLauncherView extends VBox {
     VnsCodeEditor editor = new VnsCodeEditor();
     editor.setProjectRoot(launchRoot);
     editor.setText(content);
+
+    String baseName = file.getName();
+    String rel = launchRoot.toPath().relativize(file.toPath()).toString().replace('\\', '/');
+
+    Tab tab = new Tab(baseName, editor);
+    tab.setUserData(file.getAbsolutePath());
+    tab.setTooltip(new Tooltip(rel));
+    tab.getProperties().put("file", file);
+    tab.getProperties().put("editor", editor);
+    tab.getProperties().put("baseName", baseName);
+    tab.getProperties().put("savedContent", content);
+    tab.getProperties().put("dirty", Boolean.FALSE);
+    markTabClean(tab);
+
+    // Track text changes — mark dirty when content differs from saved snapshot
     editor.setOnTextChanged(text -> {
-      // Auto-save on change (debounced would be ideal, but simple write here)
-      try {
-        Files.writeString(file.toPath(), text);
-        status.setText("Saved: " + file.getName());
-      } catch (IOException ex) {
-        status.setText("Save failed: " + file.getName());
+      String saved = (String) tab.getProperties().getOrDefault("savedContent", "");
+      boolean wasDirty = isTabDirty(tab);
+      boolean nowDirty = !text.equals(saved);
+      if (nowDirty != wasDirty) {
+        tab.getProperties().put("dirty", nowDirty);
+        if (nowDirty) markTabDirty(tab); else markTabClean(tab);
       }
     });
 
-    String rel = launchRoot.toPath().relativize(file.toPath()).toString().replace('\\', '/');
-    String tabTitle = file.getName();
-
-    Tab tab = new Tab(tabTitle, editor);
-    tab.setUserData(file.getAbsolutePath());
-    tab.setTooltip(new Tooltip(rel));
     tabs.getTabs().add(tab);
     tabs.getSelectionModel().select(tab);
     status.setText("Opened: " + rel);
+  }
+
+  // ─── Toolbar / Save / Dirty-Tracking Helpers ─────────────────────
+
+  private static Button toolbarButton(String text, String tooltip) {
+    Button btn = new Button(text);
+    btn.setStyle(
+        "-fx-background-color: #1a1e28; -fx-text-fill: #c8cdd8; "
+      + "-fx-font-size: 11px; -fx-padding: 4 10 4 10; "
+      + "-fx-background-radius: 4; -fx-border-color: #2a2e38; "
+      + "-fx-border-radius: 4; -fx-cursor: hand;");
+    btn.setOnMouseEntered(e -> btn.setStyle(
+        "-fx-background-color: #2a3040; -fx-text-fill: #e8ecf4; "
+      + "-fx-font-size: 11px; -fx-padding: 4 10 4 10; "
+      + "-fx-background-radius: 4; -fx-border-color: #3a4050; "
+      + "-fx-border-radius: 4; -fx-cursor: hand;"));
+    btn.setOnMouseExited(e -> btn.setStyle(
+        "-fx-background-color: #1a1e28; -fx-text-fill: #c8cdd8; "
+      + "-fx-font-size: 11px; -fx-padding: 4 10 4 10; "
+      + "-fx-background-radius: 4; -fx-border-color: #2a2e38; "
+      + "-fx-border-radius: 4; -fx-cursor: hand;"));
+    btn.setTooltip(new Tooltip(tooltip));
+    return btn;
+  }
+
+  private static VnsCodeEditor activeEditor(TabPane tabs) {
+    Tab sel = tabs.getSelectionModel().getSelectedItem();
+    if (sel == null) return null;
+    Object ed = sel.getProperties().get("editor");
+    return ed instanceof VnsCodeEditor ? (VnsCodeEditor) ed : null;
+  }
+
+  private void saveActiveTab(TabPane tabs, Label status) {
+    Tab sel = tabs.getSelectionModel().getSelectedItem();
+    if (sel == null) return;
+    saveTab(sel, status);
+  }
+
+  private void saveAllTabs(TabPane tabs, Label status) {
+    int saved = 0;
+    for (Tab t : tabs.getTabs()) {
+      if (isTabDirty(t)) {
+        saveTab(t, status);
+        saved++;
+      }
+    }
+    if (saved == 0) {
+      status.setText("All files are already saved.");
+    } else {
+      status.setText("Saved " + saved + " file" + (saved > 1 ? "s" : "") + ".");
+    }
+  }
+
+  private void saveTab(Tab tab, Label status) {
+    Object fileObj = tab.getProperties().get("file");
+    Object edObj = tab.getProperties().get("editor");
+    if (!(fileObj instanceof File file) || !(edObj instanceof VnsCodeEditor editor)) return;
+    String text = editor.getText();
+    try {
+      Files.writeString(file.toPath(), text);
+      tab.getProperties().put("savedContent", text);
+      tab.getProperties().put("dirty", Boolean.FALSE);
+      markTabClean(tab);
+      status.setText("Saved: " + file.getName());
+    } catch (IOException ex) {
+      status.setText("Save failed: " + file.getName() + " — " + ex.getMessage());
+    }
+  }
+
+  private static boolean isTabDirty(Tab tab) {
+    return Boolean.TRUE.equals(tab.getProperties().get("dirty"));
+  }
+
+  private static void markTabDirty(Tab tab) {
+    String base = (String) tab.getProperties().getOrDefault("baseName", tab.getText());
+    tab.setText("\u25CF " + base);
+    tab.setStyle("-fx-text-base-color: #f0a050;");
+  }
+
+  private static void markTabClean(Tab tab) {
+    String base = (String) tab.getProperties().getOrDefault("baseName", tab.getText());
+    tab.setText(base);
+    tab.setStyle("-fx-text-base-color: #c8d0e0;");
   }
 }

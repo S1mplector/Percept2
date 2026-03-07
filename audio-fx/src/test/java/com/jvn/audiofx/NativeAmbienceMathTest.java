@@ -66,22 +66,41 @@ class NativeAmbienceMathTest {
   }
 
   @Test
-  void rainAccentRaisesImpactTexture() {
+  void rainAccentRaisesTransientBodyInsteadOfJustHiss() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
-    double lowAccent = highBandProxy(monoSamples(renderAmbience(
+    double[] lowAccent = monoSamples(renderAmbience(
         "rain",
         0.80f,
         0.55f,
         new AmbienceProfile(0.65f, 0.50f, 0.50f, 0.10f, true),
-        176_400)));
-    double highAccent = highBandProxy(monoSamples(renderAmbience(
+        176_400));
+    double[] highAccent = monoSamples(renderAmbience(
         "rain",
         0.80f,
         0.55f,
         new AmbienceProfile(0.65f, 0.50f, 0.50f, 0.95f, true),
-        176_400)));
-    assertTrue(highAccent > lowAccent * 1.05,
-        "higher rain accent should increase droplet/splash texture");
+        176_400));
+    assertTrue(crestFactor(highAccent) > crestFactor(lowAccent) * 1.03,
+        "higher rain accent should sharpen droplet peaks");
+    assertTrue(envelopeVariation(highAccent, 1024) > envelopeVariation(lowAccent, 1024) * 1.10,
+        "higher rain accent should add more burst-driven envelope motion");
+    assertTrue(lowBandShare(highAccent, 900.0) > lowBandShare(lowAccent, 900.0) * 1.05,
+        "higher rain accent should deepen gutter and drain body, not just hiss");
+  }
+
+  @Test
+  void rainKeepsTransientPeaksAndLowMidBody() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    double[] rain = monoSamples(renderAmbience(
+        "rain",
+        0.82f,
+        0.56f,
+        new AmbienceProfile(0.68f, 0.52f, 0.48f, 0.72f, true),
+        176_400));
+    assertTrue(crestFactor(rain) > 3.8,
+        "rain should keep obvious droplet transients instead of flattening into hiss");
+    assertTrue(lowBandShare(rain, 900.0) > 0.24,
+        "rain should keep low-mid roof, gutter, and drain body");
   }
 
   @Test

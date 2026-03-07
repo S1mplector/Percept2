@@ -26,6 +26,9 @@ public final class NativeLoomAmbienceSynth implements AmbienceSynthProvider {
   private AudioFxNativeBridge.AmbienceRenderer renderer;
   private SourceDataLine line;
   private Thread worker;
+  private long sessionId;
+  private long rendererSessionId;
+  private long lineSessionId;
 
   @Override
   public String id() {
@@ -44,13 +47,18 @@ public final class NativeLoomAmbienceSynth implements AmbienceSynthProvider {
       intensity = clamp01(newIntensity);
       volume = clamp01(newVolume);
       profile = newProfile == null ? AmbienceProfile.defaults(true) : newProfile;
+      if (!running) {
+        sessionId++;
+      }
+      long targetSession = sessionId;
       if (renderer == null) {
         renderer = AudioFxNativeBridge.createAmbienceRenderer(SAMPLE_RATE);
+        rendererSessionId = targetSession;
       }
       renderer.configure(preset, intensity, volume, profile);
       if (running) return;
       running = true;
-      worker = new Thread(this::runLoop, "audiofx-native-loom");
+      worker = new Thread(() -> runLoop(targetSession), "audiofx-native-loom");
       worker.setDaemon(true);
       worker.start();
     }
@@ -58,11 +66,19 @@ public final class NativeLoomAmbienceSynth implements AmbienceSynthProvider {
 
   @Override
   public void stop() {
+    final Thread threadToJoin;
+    final SourceDataLine lineToClose;
+    final long stoppingSession;
     synchronized (lock) {
+      stoppingSession = sessionId;
       running = false;
       if (renderer != null) renderer.stop();
-      closeLine();
-      closeRenderer();
+      threadToJoin = worker;
+      lineToClose = detachLineLocked(stoppingSession);
+    }
+    closeLine(lineToClose);
+    if (joinWorker(threadToJoin)) {
+      closeRenderer(detachRenderer(stoppingSession));
     }
   }
 
@@ -76,14 +92,23 @@ public final class NativeLoomAmbienceSynth implements AmbienceSynthProvider {
     }
   }
 
-  private void runLoop() {
+  private void runLoop(long session) {
     byte[] pcm = new byte[BUFFER_FRAMES * FRAME_BYTES];
     try {
       AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, CHANNELS, true, false);
       DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
-      line = (SourceDataLine) AudioSystem.getLine(info);
-      line.open(format, pcm.length * 4);
-      line.start();
+      SourceDataLine openedLine = (SourceDataLine) AudioSystem.getLine(info);
+      openedLine.open(format, pcm.length * 4);
+      openedLine.start();
+      synchronized (lock) {
+        if (session == sessionId && running) {
+          line = openedLine;
+          lineSessionId = session;
+        } else {
+          closeLine(openedLine);
+          return;
+        }
+      }
 
       while (running) {
         AudioFxNativeBridge.AmbienceRenderer active;
@@ -97,8 +122,9 @@ public final class NativeLoomAmbienceSynth implements AmbienceSynthProvider {
         }
         if (active == null) break;
         if (written <= 0) break;
-        if (line != null) {
-          line.write(pcm, 0, written);
+        SourceDataLine activeLine = line;
+        if (activeLine != null) {
+          activeLine.write(pcm, 0, written);
         }
         if (finished) {
           break;
@@ -106,36 +132,75 @@ public final class NativeLoomAmbienceSynth implements AmbienceSynthProvider {
       }
     } catch (Exception ignored) {
     } finally {
-      running = false;
-      closeLine();
-      closeRenderer();
+      synchronized (lock) {
+        if (worker == Thread.currentThread()) {
+          worker = null;
+        }
+        if (session == sessionId) {
+          running = false;
+        }
+      }
+      closeLine(detachLine(session));
+      closeRenderer(detachRenderer(session));
     }
   }
 
-  private void closeLine() {
-    if (line == null) return;
-    try {
-      line.stop();
-    } catch (Exception ignored) {
+  private SourceDataLine detachLine(long session) {
+    synchronized (lock) {
+      return detachLineLocked(session);
     }
-    try {
-      line.flush();
-    } catch (Exception ignored) {
-    }
-    try {
-      line.close();
-    } catch (Exception ignored) {
-    }
+  }
+
+  private SourceDataLine detachLineLocked(long session) {
+    if (line == null || lineSessionId != session) return null;
+    SourceDataLine detached = line;
     line = null;
+    lineSessionId = 0L;
+    return detached;
   }
 
-  private void closeRenderer() {
-    if (renderer == null) return;
+  private AudioFxNativeBridge.AmbienceRenderer detachRenderer(long session) {
+    synchronized (lock) {
+      if (renderer == null || rendererSessionId != session) return null;
+      AudioFxNativeBridge.AmbienceRenderer detached = renderer;
+      renderer = null;
+      rendererSessionId = 0L;
+      return detached;
+    }
+  }
+
+  private boolean joinWorker(Thread threadToJoin) {
+    if (threadToJoin == null || threadToJoin == Thread.currentThread()) return true;
     try {
-      renderer.close();
+      threadToJoin.join(1000L);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    return !threadToJoin.isAlive();
+  }
+
+  private void closeLine(SourceDataLine lineToClose) {
+    if (lineToClose == null) return;
+    try {
+      lineToClose.stop();
     } catch (Exception ignored) {
     }
-    renderer = null;
+    try {
+      lineToClose.flush();
+    } catch (Exception ignored) {
+    }
+    try {
+      lineToClose.close();
+    } catch (Exception ignored) {
+    }
+  }
+
+  private void closeRenderer(AudioFxNativeBridge.AmbienceRenderer rendererToClose) {
+    if (rendererToClose == null) return;
+    try {
+      rendererToClose.close();
+    } catch (Exception ignored) {
+    }
   }
 
   private static float clamp01(float value) {

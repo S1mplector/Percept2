@@ -572,6 +572,10 @@ public class VnsCodeEditor extends BorderPane {
     }
   }
 
+  public org.fxmisc.richtext.CodeArea getCodeArea() {
+    return codeArea;
+  }
+
   public String getText() {
     return codeArea.getText();
   }

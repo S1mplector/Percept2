@@ -14,9 +14,11 @@ public:
 private:
   void updateFilters();
 
-  float dropletEnvelope_ = 0.0f;
+  float microDropEnvelope_ = 0.0f;
+  float roofSplashEnvelope_ = 0.0f;
   float impactEnvelope_ = 0.0f;
-  float dropTimer_ = 0.0f;
+  float microDropTimer_ = 0.0f;
+  float impactTimer_ = 0.0f;
   Lfo slowLfo_{0.15f, 0.0f, 0xDEADBEEFu};
   Lfo mediumLfo_{0.6f, 0.25f, 0xC0FFEE11u};
   NoiseGenerator noiseMid_{0x22222222u};
@@ -24,11 +26,16 @@ private:
   NoiseGenerator noiseDrop_{0x55555555u};
   BiquadFilter bedLowPass_;
   BiquadFilter bedHighPass_;
-  BiquadFilter hissHighPass_;
+  BiquadFilter bedPresenceBandPass_;
+  BiquadFilter mistHighPass_;
+  BiquadFilter splashHighPass_;
   BiquadFilter dropBandPass_;
-  BiquadFilter impactBandPass_;
+  BiquadFilter impactNoiseBandPass_;
+  ModalResonator roofTickBody_;
+  ModalResonator leafDripBody_;
   ModalResonator impactBody_;
   ModalResonator gutterBody_;
+  ModalResonator drainBody_;
 };
 
 }  // namespace jvn::audiofx::detail

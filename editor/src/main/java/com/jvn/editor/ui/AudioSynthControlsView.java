@@ -26,8 +26,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Slider;
-import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
@@ -41,8 +39,7 @@ import javafx.scene.paint.Color;
 /**
  * Professional editor sidebar panel for synthesizer authoring and preview.
  * <ul>
- *   <li>Type toggle: ambience / chiptune</li>
- *   <li>Conditional parameter controls per synth type</li>
+ *   <li>Ambience-first parameter controls</li>
  *   <li>Play/Stop live preview through the real audio runtime</li>
  *   <li>Waveform visualization with RMS/peak meters</li>
  *   <li>VNS command generation, copy, and insert-into-script</li>
@@ -95,11 +92,6 @@ public class AudioSynthControlsView extends BorderPane {
   // --- Callbacks ---
   private Consumer<String> onInsertSnippet;
 
-  // --- Type toggle ---
-  private final ToggleGroup typeGroup = new ToggleGroup();
-  private final ToggleButton btnAmbience = new ToggleButton("Ambience");
-  private final ToggleButton btnChiptune = new ToggleButton("Chiptune");
-
   // --- Ambience controls ---
   private final ComboBox<String> presetCombo = new ComboBox<>();
   private final VBox ambienceParamsBox = new VBox(6);
@@ -111,10 +103,6 @@ public class AudioSynthControlsView extends BorderPane {
   private final Label motionValue = new Label("0.50");
   private final Label spreadValue = new Label("0.50");
   private final Label accentValue = new Label("0.50");
-
-  // --- Chiptune controls ---
-  private final ComboBox<String> cueCombo = new ComboBox<>();
-  private final VBox chiptuneParamsBox = new VBox(6);
 
   // --- Shared controls ---
   private final Slider intensitySlider = createSlider(0.65);
@@ -143,6 +131,7 @@ public class AudioSynthControlsView extends BorderPane {
 
   public AudioSynthControlsView() {
     loadPersistedSettings();
+    settings.setType(SynthType.AMBIENCE);
     buildUi();
     wireListeners();
     initWaveformTimer();
@@ -203,18 +192,8 @@ public class AudioSynthControlsView extends BorderPane {
     VBox root = new VBox(8);
     root.setPadding(new Insets(10));
 
-    Label title = new Label("Synth Authoring");
+    Label title = new Label("Ambience Authoring");
     title.setStyle("-fx-font-weight: 700; -fx-font-size: 14px; -fx-text-fill: #d0d8e8;");
-
-    // Type toggle
-    btnAmbience.setToggleGroup(typeGroup);
-    btnChiptune.setToggleGroup(typeGroup);
-    btnAmbience.setMaxWidth(Double.MAX_VALUE);
-    btnChiptune.setMaxWidth(Double.MAX_VALUE);
-    HBox.setHgrow(btnAmbience, Priority.ALWAYS);
-    HBox.setHgrow(btnChiptune, Priority.ALWAYS);
-    HBox typeRow = new HBox(4, btnAmbience, btnChiptune);
-    typeRow.setAlignment(Pos.CENTER);
 
     // Ambience params
     presetCombo.getItems().addAll("wind", "rain", "ocean", "thunder", "fireplace", "night_insects");
@@ -232,13 +211,6 @@ public class AudioSynthControlsView extends BorderPane {
     ambienceParamsBox.getChildren().addAll(
         sectionLabel("Preset"), presetCombo,
         sectionLabel("Ambience Shaping"), ambienceGrid);
-
-    // Chiptune params
-    cueCombo.getItems().addAll("blip", "confirm", "error", "pickup");
-    cueCombo.setValue(settings.cueId());
-    cueCombo.setMaxWidth(Double.MAX_VALUE);
-    cueCombo.setTooltip(new Tooltip("Chiptune cue pattern (cue:\"...\")"));
-    chiptuneParamsBox.getChildren().addAll(sectionLabel("Cue"), cueCombo);
 
     // Shared controls
     GridPane sharedGrid = new GridPane();
@@ -289,9 +261,7 @@ public class AudioSynthControlsView extends BorderPane {
     root.getChildren().addAll(
         title,
         new Separator(),
-        sectionLabel("Synth Type"), typeRow,
         ambienceParamsBox,
-        chiptuneParamsBox,
         new Separator(),
         sectionLabel("Common"), sharedGrid, loopCheck,
         new Separator(),
@@ -320,27 +290,8 @@ public class AudioSynthControlsView extends BorderPane {
   }
 
   private void wireListeners() {
-    typeGroup.selectedToggleProperty().addListener((obs, o, n) -> {
-      if (n == btnChiptune) {
-        settings.setType(SynthType.CHIPTUNE);
-      } else {
-        settings.setType(SynthType.AMBIENCE);
-      }
-      updateTypeVisibility();
-      updateSnippetPreview();
-      onSettingsChanged();
-      persistSettings();
-    });
-
     presetCombo.valueProperty().addListener((obs, o, n) -> {
       settings.setPreset(n);
-      updateSnippetPreview();
-      onSettingsChanged();
-      persistSettings();
-    });
-
-    cueCombo.valueProperty().addListener((obs, o, n) -> {
-      settings.setCueId(n);
       updateSnippetPreview();
       onSettingsChanged();
       persistSettings();
@@ -388,13 +339,8 @@ public class AudioSynthControlsView extends BorderPane {
   }
 
   private void syncUiFromSettings() {
-    if (settings.type() == SynthType.CHIPTUNE) {
-      btnChiptune.setSelected(true);
-    } else {
-      btnAmbience.setSelected(true);
-    }
+    settings.setType(SynthType.AMBIENCE);
     presetCombo.setValue(settings.preset());
-    cueCombo.setValue(settings.cueId());
     intensitySlider.setValue(settings.intensity());
     volumeSlider.setValue(settings.volume());
     detailSlider.setValue(settings.detail());
@@ -402,16 +348,7 @@ public class AudioSynthControlsView extends BorderPane {
     spreadSlider.setValue(settings.spread());
     accentSlider.setValue(settings.accent());
     loopCheck.setSelected(settings.loop());
-    updateTypeVisibility();
     updateSnippetPreview();
-  }
-
-  private void updateTypeVisibility() {
-    boolean isAmbience = settings.type() == SynthType.AMBIENCE;
-    ambienceParamsBox.setVisible(isAmbience);
-    ambienceParamsBox.setManaged(isAmbience);
-    chiptuneParamsBox.setVisible(!isAmbience);
-    chiptuneParamsBox.setManaged(!isAmbience);
   }
 
   private void updateSnippetPreview() {
@@ -462,21 +399,13 @@ public class AudioSynthControlsView extends BorderPane {
 
   private void startControllerPlayback() {
     if (controller == null) return;
-    if (settings.type() == SynthType.CHIPTUNE) {
-      controller.playBeez(settings.cueId(), settings.intensity(), settings.volume(), settings.loop());
-    } else {
-      controller.playAmbience(settings.preset(), settings.intensity(), settings.volume(),
-          settings.toAmbienceProfile());
-    }
+    controller.playAmbience(settings.preset(), settings.intensity(), settings.volume(),
+        settings.toAmbienceProfile());
   }
 
   private void stopControllerPlayback() {
     if (controller == null) return;
-    if (settings.type() == SynthType.CHIPTUNE) {
-      controller.stopBeez();
-    } else {
-      controller.stopAmbience();
-    }
+    controller.stopAmbience();
   }
 
   private void restartControllerPlayback() {
@@ -661,8 +590,7 @@ public class AudioSynthControlsView extends BorderPane {
 
   private void loadPersistedSettings() {
     try {
-      String type = PREFS.get("synthType", "AMBIENCE");
-      settings.setType("CHIPTUNE".equals(type) ? SynthType.CHIPTUNE : SynthType.AMBIENCE);
+      settings.setType(SynthType.AMBIENCE);
       settings.setPreset(PREFS.get("preset", "wind"));
       settings.setCueId(PREFS.get("cueId", "blip"));
       settings.setIntensity(PREFS.getFloat("intensity", 0.65f));
