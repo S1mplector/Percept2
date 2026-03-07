@@ -6,9 +6,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -40,6 +42,8 @@ public class ScriptEditorLauncherView extends VBox {
   private final VBox recentScriptsList = new VBox(2);
 
   private File projectRoot;
+  private File workspaceRoot;
+  private Consumer<String> onStatus;
   private Stage editorWindow;
 
   public ScriptEditorLauncherView() {
@@ -99,6 +103,14 @@ public class ScriptEditorLauncherView extends VBox {
     }
   }
 
+  public void setWorkspaceRoot(File root) {
+    this.workspaceRoot = root;
+  }
+
+  public void setOnStatus(Consumer<String> onStatus) {
+    this.onStatus = onStatus;
+  }
+
   public File getProjectRoot() {
     return projectRoot;
   }
@@ -137,7 +149,16 @@ public class ScriptEditorLauncherView extends VBox {
 
   // ─── Launch Standalone Editor Window ────────────────────────────────
   public void launchEditorWindow() {
-    if (projectRoot == null || !projectRoot.isDirectory()) return;
+    File launchRoot = resolveLaunchRoot();
+    if (launchRoot == null) {
+      showLaunchError("No project or workspace root is available for the script editor.");
+      return;
+    }
+    Path scriptsRoot = resolveScriptsRoot(launchRoot);
+    if (scriptsRoot == null) {
+      showLaunchError("No scripts directory was found under:\n" + launchRoot.getAbsolutePath());
+      return;
+    }
 
     // If already open, just bring to front
     if (editorWindow != null && editorWindow.isShowing()) {
@@ -146,81 +167,120 @@ public class ScriptEditorLauncherView extends VBox {
       return;
     }
 
-    editorWindow = new Stage();
-    editorWindow.setTitle("JVN Script Editor — " + projectRoot.getName());
-
-    BorderPane root = new BorderPane();
-    root.setStyle("-fx-background-color: #121212;");
-
-    // Left: file tree
-    TreeView<String> fileTree = new TreeView<>();
-    fileTree.setStyle("-fx-background-color: #121212;");
-    TreeItem<String> treeRoot = buildFileTree(projectRoot.toPath().resolve("scripts"), "scripts");
-    treeRoot.setExpanded(true);
-    fileTree.setRoot(treeRoot);
-    fileTree.setShowRoot(true);
-    fileTree.setPrefWidth(220);
-
-    // Center: tabbed editor area
-    TabPane editorTabs = new TabPane();
-    editorTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
-
-    // Status label
-    Label windowStatus = new Label("Select a script to begin editing.");
-    windowStatus.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px; -fx-padding: 4 10 4 10;");
-
-    // Double-click tree item to open file
-    fileTree.setOnMouseClicked(ev -> {
-      if (ev.getClickCount() == 2) {
-        TreeItem<String> sel = fileTree.getSelectionModel().getSelectedItem();
-        if (sel == null || !sel.isLeaf()) return;
-        String path = buildTreePath(sel);
-        File target = projectRoot.toPath().resolve(path).toFile();
-        if (target.exists() && target.isFile()) {
-          openFileInTab(editorTabs, target, windowStatus);
-        }
-      }
-    });
-
-    // Toolbar
-    HBox toolbar = new HBox(8);
-    toolbar.setPadding(new Insets(6, 10, 6, 10));
-    toolbar.setAlignment(Pos.CENTER_LEFT);
-    toolbar.setStyle("-fx-background-color: #000000; -fx-border-color: #1a1a1a; -fx-border-width: 0 0 1 0;");
-
-    Label titleLabel = new Label("JVN Script Editor");
-    titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 800; -fx-text-fill: #e6e6e6;");
-    Region spacer = new Region();
-    HBox.setHgrow(spacer, Priority.ALWAYS);
-
-    Button refreshBtn = new Button("Refresh");
-    refreshBtn.setStyle("-fx-font-size: 11px;");
-    refreshBtn.setOnAction(e -> {
-      TreeItem<String> newRoot = buildFileTree(projectRoot.toPath().resolve("scripts"), "scripts");
-      newRoot.setExpanded(true);
-      fileTree.setRoot(newRoot);
-      windowStatus.setText("File tree refreshed.");
-    });
-
-    toolbar.getChildren().addAll(titleLabel, spacer, refreshBtn);
-
-    SplitPane split = new SplitPane(fileTree, editorTabs);
-    split.setDividerPositions(0.22);
-    SplitPane.setResizableWithParent(fileTree, false);
-
-    root.setTop(toolbar);
-    root.setCenter(split);
-    root.setBottom(windowStatus);
-
-    Scene scene = new Scene(root, 1100, 700);
     try {
-      String css = ScriptEditorLauncherView.class.getResource("/com/jvn/editor/editor.css").toExternalForm();
-      scene.getStylesheets().add(css);
-    } catch (Exception ignore) {}
+      editorWindow = new Stage();
+      editorWindow.setTitle("JVN Script Editor — " + launchRoot.getName());
 
-    editorWindow.setScene(scene);
-    editorWindow.setOnCloseRequest(e -> editorWindow = null);
-    editorWindow.show();
+      BorderPane root = new BorderPane();
+      root.setStyle("-fx-background-color: #121212;");
+
+      // Left: file tree
+      TreeView<String> fileTree = new TreeView<>();
+      fileTree.setStyle("-fx-background-color: #121212;");
+      TreeItem<String> treeRoot = buildFileTree(scriptsRoot, scriptsRoot.getFileName().toString());
+      treeRoot.setExpanded(true);
+      fileTree.setRoot(treeRoot);
+      fileTree.setShowRoot(true);
+      fileTree.setPrefWidth(220);
+
+      // Center: tabbed editor area
+      TabPane editorTabs = new TabPane();
+      editorTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
+
+      // Status label
+      Label windowStatus = new Label("Select a script to begin editing.");
+      windowStatus.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px; -fx-padding: 4 10 4 10;");
+
+      // Double-click tree item to open file
+      fileTree.setOnMouseClicked(ev -> {
+        if (ev.getClickCount() == 2) {
+          TreeItem<String> sel = fileTree.getSelectionModel().getSelectedItem();
+          if (sel == null || !sel.isLeaf()) return;
+          String path = buildTreePath(sel);
+          File target = scriptsRoot.resolve(path).toFile();
+          if (target.exists() && target.isFile()) {
+            openFileInTab(editorTabs, target, launchRoot, windowStatus);
+          }
+        }
+      });
+
+      // Toolbar
+      HBox toolbar = new HBox(8);
+      toolbar.setPadding(new Insets(6, 10, 6, 10));
+      toolbar.setAlignment(Pos.CENTER_LEFT);
+      toolbar.setStyle("-fx-background-color: #000000; -fx-border-color: #1a1a1a; -fx-border-width: 0 0 1 0;");
+
+      Label titleLabel = new Label("JVN Script Editor");
+      titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 800; -fx-text-fill: #e6e6e6;");
+      Region spacer = new Region();
+      HBox.setHgrow(spacer, Priority.ALWAYS);
+
+      Button refreshBtn = new Button("Refresh");
+      refreshBtn.setStyle("-fx-font-size: 11px;");
+      refreshBtn.setOnAction(e -> {
+        TreeItem<String> refreshedRoot = buildFileTree(scriptsRoot, scriptsRoot.getFileName().toString());
+        refreshedRoot.setExpanded(true);
+        fileTree.setRoot(refreshedRoot);
+        windowStatus.setText("File tree refreshed.");
+      });
+
+      toolbar.getChildren().addAll(titleLabel, spacer, refreshBtn);
+
+      SplitPane split = new SplitPane(fileTree, editorTabs);
+      split.setDividerPositions(0.22);
+      SplitPane.setResizableWithParent(fileTree, false);
+
+      root.setTop(toolbar);
+      root.setCenter(split);
+      root.setBottom(windowStatus);
+
+      Scene scene = new Scene(root, 1100, 700);
+      try {
+        String css = ScriptEditorLauncherView.class.getResource("/com/jvn/editor/editor.css").toExternalForm();
+        scene.getStylesheets().add(css);
+      } catch (Exception ignore) {}
+
+      editorWindow.setScene(scene);
+      editorWindow.setOnCloseRequest(e -> editorWindow = null);
+      editorWindow.show();
+      setStatus("Opened script editor window for " + launchRoot.getName());
+    } catch (Exception ex) {
+      editorWindow = null;
+      showLaunchError("Failed to open script editor window:\n" + ex.getMessage());
+    }
+  }
+
+  private File resolveLaunchRoot() {
+    if (projectRoot != null && projectRoot.isDirectory()) return projectRoot;
+    if (workspaceRoot != null && workspaceRoot.isDirectory()) return workspaceRoot;
+    return null;
+  }
+
+  private Path resolveScriptsRoot(File root) {
+    if (root == null) return null;
+    Path[] candidates = new Path[] {
+        root.toPath().resolve("scripts"),
+        root.toPath().resolve("game/scripts"),
+        root.toPath().resolve("runtime/src/main/resources/game/scripts")
+    };
+    for (Path candidate : candidates) {
+      if (Files.isDirectory(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  private void showLaunchError(String message) {
+    setStatus(message);
+    Alert alert = new Alert(Alert.AlertType.ERROR);
+    EditorTheme.apply(alert);
+    alert.setTitle("Script Editor");
+    alert.setHeaderText("Could not open the script editor window");
+    alert.setContentText(message);
+    alert.showAndWait();
+  }
+
+  private void setStatus(String message) {
+    if (onStatus != null && message != null && !message.isBlank()) onStatus.accept(message);
   }
 
   private TreeItem<String> buildFileTree(Path dir, String displayName) {
@@ -251,7 +311,7 @@ public class ScriptEditorLauncherView extends VBox {
     return String.join("/", parts);
   }
 
-  private void openFileInTab(TabPane tabs, File file, Label status) {
+  private void openFileInTab(TabPane tabs, File file, File launchRoot, Label status) {
     // Check if already open
     for (Tab t : tabs.getTabs()) {
       if (file.getAbsolutePath().equals(t.getUserData())) {
@@ -270,7 +330,7 @@ public class ScriptEditorLauncherView extends VBox {
     }
 
     VnsCodeEditor editor = new VnsCodeEditor();
-    editor.setProjectRoot(projectRoot);
+    editor.setProjectRoot(launchRoot);
     editor.setText(content);
     editor.setOnTextChanged(text -> {
       // Auto-save on change (debounced would be ideal, but simple write here)
@@ -282,7 +342,7 @@ public class ScriptEditorLauncherView extends VBox {
       }
     });
 
-    String rel = projectRoot.toPath().relativize(file.toPath()).toString().replace('\\', '/');
+    String rel = launchRoot.toPath().relativize(file.toPath()).toString().replace('\\', '/');
     String tabTitle = file.getName();
 
     Tab tab = new Tab(tabTitle, editor);

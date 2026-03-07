@@ -321,7 +321,10 @@ public class EditorApp extends Application {
     if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(root);
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(root);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(root);
-    if (scriptEditorLauncherView != null) scriptEditorLauncherView.setProjectRoot(root);
+    if (scriptEditorLauncherView != null) {
+      scriptEditorLauncherView.setProjectRoot(root);
+      scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
+    }
   }
 
   private String composeGradleTask(String path, String task) {
@@ -1395,6 +1398,8 @@ public class EditorApp extends Application {
     });
     scriptEditorLauncherView = new ScriptEditorLauncherView();
     scriptEditorLauncherView.setProjectRoot(projectRoot);
+    scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
+    scriptEditorLauncherView.setOnStatus(message -> status.setText(message));
     audioFxController = new AudioFxController();
     audioSynthControlsView = new AudioSynthControlsView();
     audioSynthControlsView.setController(audioFxController);
@@ -2821,6 +2826,7 @@ public class EditorApp extends Application {
     addChooserActionRow(actions, "Script Editor", "icon-panel-flow", null, () -> {
       if (scriptEditorLauncherView != null) {
         scriptEditorLauncherView.setProjectRoot(projectRoot);
+        scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
         scriptEditorLauncherView.launchEditorWindow();
       }
     });
