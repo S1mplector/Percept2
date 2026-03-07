@@ -32,6 +32,32 @@ private:
   std::mt19937 rng_;
 };
 
+/// Ornstein-Uhlenbeck drift process — smooth, aperiodic, deterministic given seed.
+/// Produces band-limited stochastic control signals in [-1, 1].
+/// timescale controls autocorrelation length (seconds); larger = slower drift.
+class DriftProcess {
+public:
+  explicit DriftProcess(float timescaleSeconds = 4.0f, uint32_t seed = 0x55AA55AAu);
+
+  void setTimescale(float seconds);
+  void setSampleRate(float sampleRate);
+  void reset();
+  float next();          // advance one sample, return value in [-1, 1]
+  float current() const; // read without advancing
+
+private:
+  void updateCoefficients();
+
+  float timescale_;
+  float sampleRate_ = 44100.0f;
+  float state_ = 0.0f;
+  float decay_ = 0.0f;    // exp(-dt/timescale)
+  float diffusion_ = 0.0f; // noise scaling
+  uint32_t seed_;
+  std::mt19937 rng_;
+  std::uniform_real_distribution<float> dist_{-1.0f, 1.0f};
+};
+
 class GustGenerator {
 public:
   explicit GustGenerator(float sampleRate = 44100.0f, uint32_t seed = 0xA5A55A5Au);

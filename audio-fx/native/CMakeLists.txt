@@ -82,6 +82,7 @@ add_executable(jvn_audiofx_native_math_test
     src/ambience/ambience_modulation.cpp
     src/ambience/ambience_noise.cpp
     src/ambience/ambience_mode.cpp
+    src/ambience/rain_ambience_mode.cpp
 )
 
 target_include_directories(jvn_audiofx_native_math_test PRIVATE

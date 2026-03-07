@@ -1,6 +1,7 @@
 #include "ambience/ambience_filters.hpp"
 #include "ambience/ambience_mastering.hpp"
 #include "ambience/ambience_modulation.hpp"
+#include "ambience/rain_ambience_mode.hpp"
 #include "ambience/ambience_noise.hpp"
 #include "ambience/ambience_mode.hpp"
 
@@ -51,6 +52,37 @@ double highFrequencyEnergy(const std::vector<float>& values) {
     energy += diff * diff;
   }
   return std::sqrt(energy / static_cast<double>(values.size() - 1));
+}
+
+double shortLagCoherence(const std::vector<float>& values, int maxLag) {
+  double energy = 0.0;
+  for (float value : values) {
+    energy += static_cast<double>(value) * static_cast<double>(value);
+  }
+  double total = 0.0;
+  for (int lag = 1; lag <= maxLag; ++lag) {
+    double corr = 0.0;
+    for (size_t i = static_cast<size_t>(lag); i < values.size(); ++i) {
+      corr += static_cast<double>(values[i]) * static_cast<double>(values[i - lag]);
+    }
+    total += std::abs(corr) / std::max(1.0e-9, energy);
+  }
+  return total / std::max(1, maxLag);
+}
+
+double lowBandShare(const std::vector<float>& values, double cutoffHz) {
+  const double dt = 1.0 / 44100.0;
+  const double alpha = dt / ((1.0 / (2.0 * kPi * cutoffHz)) + dt);
+  double lowPass = 0.0;
+  double low = 0.0;
+  double high = 0.0;
+  for (float value : values) {
+    lowPass += alpha * (static_cast<double>(value) - lowPass);
+    const double highPass = static_cast<double>(value) - lowPass;
+    low += lowPass * lowPass;
+    high += highPass * highPass;
+  }
+  return low / std::max(1.0e-9, low + high);
 }
 
 void testBiquadLowPassImpulseStability() {
@@ -209,6 +241,36 @@ void testPoissonIntervalsRespectMinimum() {
   expect(meanInterval > minimum + 0.18, "sampled event intervals should follow a positive exponential tail");
 }
 
+void testRainModeKeepsLowMidBodyAndTemporalCoherence() {
+  RainAmbienceMode rain(44100);
+  RenderControls controls{};
+  controls.intensity = 0.82f;
+  controls.volume = 0.56f;
+  controls.detail = 0.68f;
+  controls.motion = 0.52f;
+  controls.spread = 0.48f;
+  controls.accent = 0.72f;
+  controls.loop = true;
+  rain.configure(controls);
+
+  std::vector<float> samples;
+  samples.reserve(176400);
+  for (int i = 0; i < 176400; ++i) {
+    samples.push_back(rain.sample(static_cast<float>(i) / 44100.0f));
+  }
+
+  std::vector<float> white(samples.size(), 0.0f);
+  std::mt19937 rng(0x4A564E52u);
+  std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+  for (float& sample : white) {
+    sample = dist(rng);
+  }
+
+  expect(lowBandShare(samples, 900.0) > 0.24, "rain should keep low-mid roof/gutter body");
+  expect(shortLagCoherence(samples, 12) > shortLagCoherence(white, 12) * 6.0,
+      "rain should be materially more coherent than white noise");
+}
+
 }  // namespace
 
 int main() {
@@ -222,6 +284,7 @@ int main() {
   testDcBlockerRemovesOffset();
   testMasterLimiterBoundsHotSignal();
   testPoissonIntervalsRespectMinimum();
+  testRainModeKeepsLowMidBodyAndTemporalCoherence();
   if (gFailures != 0) {
     std::cerr << gFailures << " native ambience math test(s) failed\n";
     return 1;

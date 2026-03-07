@@ -144,12 +144,22 @@ public class VnsCodeEditor extends BorderPane {
 
     mainScrollPane = new VirtualizedScrollPane<>(codeArea);
 
-    // Minimap canvas (right edge)
-    minimapCanvas = new Canvas(80, 100);
+    // Minimap canvas (right edge) — wider for better readability
+    minimapCanvas = new Canvas(100, 100);
     minimapCanvas.setStyle("-fx-cursor: hand;");
-    minimapCanvas.setOnMouseClicked(this::onMinimapClick);
+    minimapCanvas.setOnMousePressed(this::onMinimapPress);
+    minimapCanvas.setOnMouseDragged(this::onMinimapDrag);
 
-    HBox codeAndMinimap = new HBox(mainScrollPane, minimapCanvas);
+    // Redraw minimap when the user scrolls (not just on text change)
+    codeArea.estimatedScrollYProperty().addListener((obs, o, n) ->
+        Platform.runLater(this::redrawMinimap));
+
+    // Separator line between editor and minimap
+    javafx.scene.layout.Region minimapSep = new javafx.scene.layout.Region();
+    minimapSep.setMinWidth(1); minimapSep.setMaxWidth(1);
+    minimapSep.setStyle("-fx-background-color: #1e1e1e;");
+
+    HBox codeAndMinimap = new HBox(mainScrollPane, minimapSep, minimapCanvas);
     HBox.setHgrow(mainScrollPane, Priority.ALWAYS);
     codeAndMinimap.heightProperty().addListener((obs, o, n) -> {
       minimapCanvas.setHeight(n.doubleValue());
@@ -2184,78 +2194,107 @@ public class VnsCodeEditor extends BorderPane {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  FEATURE: Minimap — condensed code overview
+  //  FEATURE: Minimap — condensed code overview with viewport overlay
   // ═══════════════════════════════════════════════════════════════════
+
+  private double minimapLineH_ = 2.0;
+  private int minimapTotalLines_ = 0;
+
   private void redrawMinimap() {
     if (minimapCanvas == null) return;
     double w = minimapCanvas.getWidth();
     double h = minimapCanvas.getHeight();
     GraphicsContext gc = minimapCanvas.getGraphicsContext2D();
-    gc.setFill(Color.web("#0a0a0a"));
+
+    // Background — slightly darker than editor to set it apart
+    gc.setFill(Color.web("#090909"));
     gc.fillRect(0, 0, w, h);
 
     String text = codeArea.getText();
     if (text == null || text.isEmpty() || h <= 0) return;
 
     String[] lines = text.split("\\n", -1);
-    int totalLines = lines.length;
-    if (totalLines == 0) return;
+    minimapTotalLines_ = lines.length;
+    if (minimapTotalLines_ == 0) return;
 
-    double lineH = Math.max(1, h / totalLines);
-    if (lineH > 3) lineH = 3; // cap line height
+    double lineH = Math.max(1, h / minimapTotalLines_);
+    if (lineH > 3) lineH = 3;
+    minimapLineH_ = lineH;
 
-    for (int i = 0; i < totalLines; i++) {
+    // Draw code lines — color-coded by syntax type
+    for (int i = 0; i < minimapTotalLines_; i++) {
       String line = lines[i].trim();
       double y = i * lineH;
       if (y > h) break;
 
       Color color;
-      if (line.startsWith("#")) color = Color.web("#676e95", 0.6);
-      else if (line.startsWith("@")) color = Color.web("#c792ea", 0.7);
-      else if (line.startsWith("[")) color = Color.web("#82aaff", 0.6);
-      else if (line.startsWith(">")) color = Color.web("#c3e88d", 0.6);
-      else if (line.contains(":") && !line.startsWith(" ") && line.indexOf(':') < 30) color = Color.web("#ffcb6b", 0.5);
-      else if (line.isEmpty()) color = Color.TRANSPARENT;
-      else color = Color.web("#3a3a3a", 0.5);
+      if (line.startsWith("#"))        color = Color.web("#676e95", 0.5);
+      else if (line.startsWith("@"))   color = Color.web("#c792ea", 0.65);
+      else if (line.startsWith("["))   color = Color.web("#82aaff", 0.55);
+      else if (line.startsWith(">"))   color = Color.web("#c3e88d", 0.55);
+      else if (line.contains(":") && !line.startsWith(" ") && line.indexOf(':') < 30)
+                                       color = Color.web("#ffcb6b", 0.45);
+      else if (line.isEmpty())         color = Color.TRANSPARENT;
+      else                             color = Color.web("#555555", 0.35);
 
       if (color != Color.TRANSPARENT) {
-        double lineW = Math.min(w - 4, line.length() * 0.8 + 4);
+        double lineW = Math.min(w - 6, line.length() * 0.7 + 4);
         gc.setFill(color);
-        gc.fillRect(2, y, lineW, Math.max(1, lineH - 0.5));
+        gc.fillRect(3, y, lineW, Math.max(1, lineH - 0.5));
       }
 
-      // Bookmark marker
+      // Bookmark markers — right edge
       if (bookmarks.contains(i)) {
-        gc.setFill(Color.web("#4da3ff", 0.8));
-        gc.fillRect(w - 5, y, 3, Math.max(1, lineH));
+        gc.setFill(Color.web("#4da3ff", 0.85));
+        gc.fillRect(w - 4, y, 3, Math.max(1, lineH));
       }
     }
 
-    // Viewport indicator
-    int visibleStart = codeArea.getCurrentParagraph() - 10;
-    int visibleEnd = codeArea.getCurrentParagraph() + 30;
+    // ── Viewport overlay — uses actual visible paragraph range ──────
+    int visibleStart, visibleEnd;
+    try {
+      visibleStart = codeArea.firstVisibleParToAllParIndex();
+      visibleEnd = codeArea.lastVisibleParToAllParIndex();
+    } catch (Exception ex) {
+      // Fallback if not laid out yet
+      visibleStart = Math.max(0, codeArea.getCurrentParagraph() - 10);
+      visibleEnd = Math.min(minimapTotalLines_, codeArea.getCurrentParagraph() + 30);
+    }
     if (visibleStart < 0) visibleStart = 0;
-    if (visibleEnd > totalLines) visibleEnd = totalLines;
+    if (visibleEnd >= minimapTotalLines_) visibleEnd = minimapTotalLines_ - 1;
+
     double vpY = visibleStart * lineH;
-    double vpH = (visibleEnd - visibleStart) * lineH;
-    gc.setFill(Color.web("#ffffff", 0.06));
+    double vpH = Math.max(6, (visibleEnd - visibleStart + 1) * lineH);
+
+    // Filled viewport band
+    gc.setFill(Color.web("#4da3ff", 0.08));
     gc.fillRect(0, vpY, w, vpH);
-    gc.setStroke(Color.web("#4da3ff", 0.3));
-    gc.setLineWidth(1);
-    gc.strokeRect(0, vpY, w, vpH);
+
+    // Top and bottom accent lines
+    gc.setStroke(Color.web("#4da3ff", 0.45));
+    gc.setLineWidth(1.5);
+    gc.strokeLine(0, vpY, w, vpY);
+    gc.strokeLine(0, vpY + vpH, w, vpY + vpH);
+
+    // Left accent bar
+    gc.setFill(Color.web("#4da3ff", 0.35));
+    gc.fillRect(0, vpY, 2, vpH);
   }
 
-  private void onMinimapClick(javafx.scene.input.MouseEvent e) {
-    String text = codeArea.getText();
-    if (text == null || text.isEmpty()) return;
-    String[] lines = text.split("\\n", -1);
-    double h = minimapCanvas.getHeight();
-    if (h <= 0 || lines.length == 0) return;
-    double lineH = Math.max(1, Math.min(3, h / lines.length));
-    int targetLine = (int)(e.getY() / lineH);
-    targetLine = Math.max(0, Math.min(targetLine, lines.length - 1));
+  private void navigateMinimapToY(double mouseY) {
+    if (minimapTotalLines_ == 0 || minimapLineH_ <= 0) return;
+    int targetLine = (int)(mouseY / minimapLineH_);
+    targetLine = Math.max(0, Math.min(targetLine, minimapTotalLines_ - 1));
+    codeArea.showParagraphAtTop(targetLine);
     codeArea.moveTo(targetLine, 0);
-    codeArea.requestFollowCaret();
     codeArea.requestFocus();
+  }
+
+  private void onMinimapPress(javafx.scene.input.MouseEvent e) {
+    navigateMinimapToY(e.getY());
+  }
+
+  private void onMinimapDrag(javafx.scene.input.MouseEvent e) {
+    navigateMinimapToY(e.getY());
   }
 }

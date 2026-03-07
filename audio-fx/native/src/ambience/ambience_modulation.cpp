@@ -68,6 +68,56 @@ void Lfo::advance() {
   phase_ -= std::floor(phase_);
 }
 
+// ─── DriftProcess (Ornstein-Uhlenbeck) ──────────────────────────────
+
+DriftProcess::DriftProcess(float timescaleSeconds, uint32_t seed)
+    : timescale_(std::max(0.01f, timescaleSeconds)), seed_(seed), rng_(seed) {
+  updateCoefficients();
+}
+
+void DriftProcess::setTimescale(float seconds) {
+  timescale_ = std::max(0.01f, seconds);
+  updateCoefficients();
+}
+
+void DriftProcess::setSampleRate(float sampleRate) {
+  sampleRate_ = sanitizeSampleRate(sampleRate);
+  updateCoefficients();
+}
+
+void DriftProcess::reset() {
+  state_ = 0.0f;
+  rng_.seed(seed_);
+  updateCoefficients();
+}
+
+float DriftProcess::next() {
+  // Exact discretization of dx = -x/tau * dt + sigma * dW
+  // where sigma = sqrt(2/tau) gives unit stationary variance
+  const float noise = dist_(rng_);
+  state_ = state_ * decay_ + diffusion_ * noise;
+  // Soft-clip to [-1, 1] with tanh to avoid hard edges
+  state_ = std::tanh(state_);
+  return state_;
+}
+
+float DriftProcess::current() const {
+  return state_;
+}
+
+void DriftProcess::updateCoefficients() {
+  const float dt = 1.0f / sampleRate_;
+  const float theta = 1.0f / timescale_;  // mean reversion rate
+  decay_ = std::exp(-theta * dt);
+  // diffusion chosen so stationary variance ≈ 1.0
+  // Var = sigma^2 / (2*theta), sigma^2 * (1 - exp(-2*theta*dt)) / (2*theta)
+  // We want Var ≈ 1, so sigma = sqrt(2*theta)
+  const float sigma = std::sqrt(2.0f * theta);
+  diffusion_ = sigma * std::sqrt((1.0f - decay_ * decay_) / (2.0f * theta));
+}
+
+// ─── GustGenerator ──────────────────────────────────────────────────
+
 GustGenerator::GustGenerator(float sampleRate, uint32_t seed)
     : sampleRate_(sanitizeSampleRate(sampleRate)), seed_(seed), rng_(seed) {}
 

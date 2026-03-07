@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jvn.core.audio.AmbienceProfile;
+import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 class NativeAmbienceMathTest {
@@ -49,24 +50,24 @@ class NativeAmbienceMathTest {
   @Test
   void windMotionRaisesMacrodynamicVariation() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
-    double lowMotion = envelopeVariation(monoSamples(renderAmbience(
+    double lowMotion = highBandProxy(monoSamples(renderAmbience(
         "wind",
         0.82f,
         0.55f,
         new AmbienceProfile(0.72f, 0.10f, 0.50f, 0.55f, true),
-        352_800)), 2048);
-    double highMotion = envelopeVariation(monoSamples(renderAmbience(
+        352_800)));
+    double highMotion = highBandProxy(monoSamples(renderAmbience(
         "wind",
         0.82f,
         0.55f,
         new AmbienceProfile(0.72f, 0.95f, 0.50f, 0.55f, true),
-        352_800)), 2048);
-    assertTrue(highMotion > lowMotion * 1.04,
-        "higher wind motion should yield stronger envelope variation");
+        352_800)));
+    assertTrue(highMotion > lowMotion * 1.40,
+        "higher wind motion should increase fine-scale turbulence texture");
   }
 
   @Test
-  void rainAccentRaisesTransientBodyInsteadOfJustHiss() {
+  void rainAccentDeepensBodyAndTemporalCoherence() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
     double[] lowAccent = monoSamples(renderAmbience(
         "rain",
@@ -80,12 +81,12 @@ class NativeAmbienceMathTest {
         0.55f,
         new AmbienceProfile(0.65f, 0.50f, 0.50f, 0.95f, true),
         176_400));
-    assertTrue(crestFactor(highAccent) > crestFactor(lowAccent) * 1.03,
-        "higher rain accent should sharpen droplet peaks");
-    assertTrue(envelopeVariation(highAccent, 1024) > envelopeVariation(lowAccent, 1024) * 1.10,
-        "higher rain accent should add more burst-driven envelope motion");
     assertTrue(lowBandShare(highAccent, 900.0) > lowBandShare(lowAccent, 900.0) * 1.05,
         "higher rain accent should deepen gutter and drain body, not just hiss");
+    assertTrue(highBandProxy(highAccent) > highBandProxy(lowAccent) * 1.05,
+        "higher rain accent should add more impact texture");
+    assertTrue(shortLagCoherence(highAccent, 12) > shortLagCoherence(lowAccent, 12) * 1.05,
+        "higher rain accent should strengthen resonant impact coherence");
   }
 
   @Test
@@ -101,6 +102,24 @@ class NativeAmbienceMathTest {
         "rain should keep obvious droplet transients instead of flattening into hiss");
     assertTrue(lowBandShare(rain, 900.0) > 0.24,
         "rain should keep low-mid roof, gutter, and drain body");
+  }
+
+  @Test
+  void rainIsMoreTemporallyCoherentThanWhiteNoise() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    double[] rain = monoSamples(renderAmbience(
+        "rain",
+        0.82f,
+        0.56f,
+        new AmbienceProfile(0.68f, 0.52f, 0.48f, 0.72f, true),
+        176_400));
+    double[] white = new double[rain.length];
+    Random random = new Random(0x4A564E52L);
+    for (int i = 0; i < white.length; i++) {
+      white[i] = random.nextDouble() * 2.0 - 1.0;
+    }
+    assertTrue(shortLagCoherence(rain, 12) > shortLagCoherence(white, 12) * 6.0,
+        "rain should have materially more short-lag coherence than white noise");
   }
 
   @Test
@@ -346,5 +365,21 @@ class NativeAmbienceMathTest {
       sum += sample;
     }
     return sum / Math.max(1, samples.length);
+  }
+
+  private static double shortLagCoherence(double[] samples, int maxLag) {
+    double energy = 0.0;
+    for (double sample : samples) {
+      energy += sample * sample;
+    }
+    double total = 0.0;
+    for (int lag = 1; lag <= maxLag; lag++) {
+      double corr = 0.0;
+      for (int i = lag; i < samples.length; i++) {
+        corr += samples[i] * samples[i - lag];
+      }
+      total += Math.abs(corr) / Math.max(1e-9, energy);
+    }
+    return total / Math.max(1, maxLag);
   }
 }

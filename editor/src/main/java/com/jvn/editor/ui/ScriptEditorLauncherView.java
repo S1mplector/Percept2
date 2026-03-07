@@ -218,22 +218,22 @@ public class ScriptEditorLauncherView extends VBox {
       Separator toolSep1 = new Separator(javafx.geometry.Orientation.VERTICAL);
       toolSep1.setPadding(new Insets(0, 4, 0, 4));
 
-      Button saveBtn = toolbarButton("\uD83D\uDCBE Save", "Save current file (Ctrl+S)");
+      Button saveBtn = toolbarButton("Save", "Save current file (Ctrl+S)");
       saveBtn.setOnAction(e -> saveActiveTab(editorTabs, windowStatus));
 
-      Button saveAllBtn = toolbarButton("\uD83D\uDCBE Save All", "Save all open files (Ctrl+Shift+S)");
+      Button saveAllBtn = toolbarButton("Save All", "Save all open files (Ctrl+Shift+S)");
       saveAllBtn.setOnAction(e -> saveAllTabs(editorTabs, windowStatus));
 
       Separator toolSep2 = new Separator(javafx.geometry.Orientation.VERTICAL);
       toolSep2.setPadding(new Insets(0, 4, 0, 4));
 
-      Button undoBtn = toolbarButton("\u21A9 Undo", "Undo (Ctrl+Z)");
+      Button undoBtn = toolbarButton("Undo", "Undo (Ctrl+Z)");
       undoBtn.setOnAction(e -> {
         VnsCodeEditor ed = activeEditor(editorTabs);
         if (ed != null) ed.getCodeArea().undo();
       });
 
-      Button redoBtn = toolbarButton("\u21AA Redo", "Redo (Ctrl+Shift+Z)");
+      Button redoBtn = toolbarButton("Redo", "Redo (Ctrl+Shift+Z)");
       redoBtn.setOnAction(e -> {
         VnsCodeEditor ed = activeEditor(editorTabs);
         if (ed != null) ed.getCodeArea().redo();
@@ -242,7 +242,7 @@ public class ScriptEditorLauncherView extends VBox {
       Separator toolSep3 = new Separator(javafx.geometry.Orientation.VERTICAL);
       toolSep3.setPadding(new Insets(0, 4, 0, 4));
 
-      Button findBtn = toolbarButton("\uD83D\uDD0D Find", "Find & Replace (Ctrl+F)");
+      Button findBtn = toolbarButton("Find", "Find & Replace (Ctrl+F)");
       findBtn.setOnAction(e -> {
         VnsCodeEditor ed = activeEditor(editorTabs);
         if (ed != null) ed.showSearchBar();
@@ -251,7 +251,7 @@ public class ScriptEditorLauncherView extends VBox {
       Region spacer = new Region();
       HBox.setHgrow(spacer, Priority.ALWAYS);
 
-      Button refreshBtn = toolbarButton("\u21BB Refresh", "Refresh file tree");
+      Button refreshBtn = toolbarButton("Refresh", "Refresh file tree");
       refreshBtn.setOnAction(e -> {
         TreeItem<String> refreshedRoot = buildFileTree(scriptsRoot, scriptsRoot.getFileName().toString());
         refreshedRoot.setExpanded(true);

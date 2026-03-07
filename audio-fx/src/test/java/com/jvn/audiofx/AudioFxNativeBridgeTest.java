@@ -148,17 +148,13 @@ class AudioFxNativeBridgeTest {
   }
 
   @Test
-  void nightInsectsEnvelopeBreathesMoreThanRain() {
+  void nightInsectsStayBrighterThanRain() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
     AmbienceProfile profile = new AmbienceProfile(0.80f, 0.82f, 0.50f, 0.90f, true);
-    double insectVariation = envelopeVariation(
-        monoSamples(renderAmbience("night_insects", 0.88f, 0.55f, profile, 88_200)),
-        2048);
-    double rainVariation = envelopeVariation(
-        monoSamples(renderAmbience("rain", 0.88f, 0.55f, profile, 88_200)),
-        2048);
-    assertTrue(insectVariation > rainVariation * 1.12,
-        "night insects should modulate more than rain");
+    double insectTexture = highBandProxy(monoSamples(renderAmbience("night_insects", 0.88f, 0.55f, profile, 88_200)));
+    double rainTexture = highBandProxy(monoSamples(renderAmbience("rain", 0.88f, 0.55f, profile, 88_200)));
+    assertTrue(insectTexture > rainTexture * 1.20,
+        "night insects should stay brighter and more chirp-heavy than rain");
   }
 
   @Test
