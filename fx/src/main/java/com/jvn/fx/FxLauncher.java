@@ -45,6 +45,7 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
 public class FxLauncher extends Application {
+  private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
   private static Engine engine;
   private AnimationTimer timer;
   private Canvas canvas;
@@ -167,10 +168,11 @@ public class FxLauncher extends Application {
         // S = Settings (in-game)
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
         if (currentScene instanceof VnScene vn) {
+          String fallbackScript = resolveDefaultScriptForMenus(vn);
           engine.scenes().push(new SettingsScene(
               engine,
               new com.jvn.core.vn.save.VnSaveManager(),
-              "demo.vns",
+              fallbackScript,
               vn.getState().getSettings(),
               vn.getAudioFacade()
           ));
@@ -230,10 +232,11 @@ public class FxLauncher extends Application {
           if (actionMap.matches(InputActions.SETTINGS, code)) {
             com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
             if (currentScene instanceof VnScene vn) {
+              String fallbackScript = resolveDefaultScriptForMenus(vn);
               engine.scenes().push(new SettingsScene(
                   engine,
                   new com.jvn.core.vn.save.VnSaveManager(),
-                  "demo.vns",
+                  fallbackScript,
                   vn.getState().getSettings(),
                   vn.getAudioFacade()
               ));
@@ -721,7 +724,8 @@ public class FxLauncher extends Application {
         return true;
       }
       case "load_menu", "open_load_menu", "menu_load" -> {
-        String script = target.isBlank() ? "demo.vns" : target;
+        String fallbackScript = resolveDefaultScriptForMenus(vnScene);
+        String script = target.isBlank() ? fallbackScript : target;
         engine.scenes().push(new LoadMenuScene(
             engine,
             new com.jvn.core.vn.save.VnSaveManager(),
@@ -732,21 +736,23 @@ public class FxLauncher extends Application {
         return true;
       }
       case "settings_menu", "open_settings_menu", "menu_settings" -> {
+        String fallbackScript = resolveDefaultScriptForMenus(vnScene);
         engine.scenes().push(new SettingsScene(
             engine,
             new com.jvn.core.vn.save.VnSaveManager(),
-            "demo.vns",
+            fallbackScript,
             vnScene.getState().getSettings(),
             vnScene.getAudioFacade()
         ));
         return true;
       }
       case "main_menu", "open_main_menu", "menu_main" -> {
+        String fallbackScript = resolveDefaultScriptForMenus(vnScene);
         engine.scenes().push(new MainMenuScene(
             engine,
             vnScene.getState().getSettings(),
             new com.jvn.core.vn.save.VnSaveManager(),
-            "demo.vns",
+            fallbackScript,
             vnScene.getAudioFacade()
         ));
         return true;
@@ -756,11 +762,12 @@ public class FxLauncher extends Application {
           vnScene.getState().showHudMessage("Button target missing", 1200);
           return true;
         }
+        String fallbackScript = resolveDefaultScriptForMenus(vnScene);
         engine.scenes().push(new MainMenuScene(
             engine,
             vnScene.getState().getSettings(),
             new com.jvn.core.vn.save.VnSaveManager(),
-            "demo.vns",
+            fallbackScript,
             vnScene.getAudioFacade(),
             target
         ));
@@ -844,10 +851,11 @@ public class FxLauncher extends Application {
     if (engine == null) return;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof VnScene vn) {
+      String fallbackScript = resolveDefaultScriptForMenus(vn);
       engine.scenes().push(new PauseMenuScene(
           engine, vn,
           new com.jvn.core.vn.save.VnSaveManager(),
-          "demo.vns",
+          fallbackScript,
           vn.getAudioFacade()
       ));
     }
@@ -892,6 +900,14 @@ public class FxLauncher extends Application {
       captureVnThumbnail(vnScene, out);
     } catch (Exception ignored) {
     }
+  }
+
+  private static String resolveDefaultScriptForMenus(VnScene vnScene) {
+    if (vnScene != null && vnScene.getState() != null) {
+      String sourceScript = vnScene.getState().getSourceScriptName();
+      if (sourceScript != null && !sourceScript.isBlank()) return sourceScript.trim();
+    }
+    return DEFAULT_ENTRY_SCRIPT;
   }
 
   private void captureVnThumbnail(VnScene vnScene, File out) throws Exception {

@@ -49,4 +49,25 @@ class VnScenarioLoaderIncludeTest {
     assertNotNull(scenario.getCharacter("lavender"));
     assertNotNull(scenario.getLabelIndex("start"));
   }
+
+  @Test
+  void loadMapsDeprecatedDemoScriptNameToStoryPrologueWhenPresent() throws Exception {
+    Path storyDir = Files.createDirectories(tempProjectRoot.resolve("scripts/story"));
+    Files.writeString(storyDir.resolve("prologue.vns"), """
+        @scenario migrated_prologue
+        @label start
+        Narrator: Migrated entry script.
+        [end]
+        """);
+
+    VnScenarioLoader loader = new VnScenarioLoader(
+        new AssetCatalog(new FilesystemAssetManager(tempProjectRoot)),
+        new VnScriptParser(),
+        "game/scripts/");
+
+    VnScenario scenario = loader.load("demo.vns");
+
+    assertEquals("migrated_prologue", scenario.getId());
+    assertNotNull(scenario.getLabelIndex("start"));
+  }
 }

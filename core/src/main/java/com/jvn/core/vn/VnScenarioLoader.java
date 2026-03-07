@@ -64,13 +64,14 @@ public class VnScenarioLoader {
     LinkedHashSet<String> candidates = new LinkedHashSet<>();
     if (scriptName == null || scriptName.isBlank()) return List.of();
 
+    String normalized = scriptName.trim();
     String locale = Localization.locale();
     LocalizedScriptLoader loader = new LocalizedScriptLoader(
         Thread.currentThread().getContextClassLoader(),
         scriptsBase
     );
 
-    for (String path : loader.getCandidatePaths(scriptName, locale)) {
+    for (String path : loader.getCandidatePaths(normalized, locale)) {
       if (path == null || path.isBlank()) continue;
       candidates.add(path);
       if (path.startsWith(scriptsBase)) {
@@ -78,8 +79,21 @@ public class VnScenarioLoader {
       }
     }
 
+    // Backward compatibility: deprecated runtime demo script key now maps to the project prologue.
+    if ("demo.vns".equalsIgnoreCase(normalized)) {
+      for (String path : loader.getCandidatePaths("story/prologue.vns", locale)) {
+        if (path == null || path.isBlank()) continue;
+        candidates.add(path);
+        if (path.startsWith(scriptsBase)) {
+          candidates.add(path.substring(scriptsBase.length()));
+        }
+      }
+      candidates.add("story/prologue.vns");
+      candidates.add("prologue.vns");
+    }
+
     // Direct fallback in case the provided key already matches the asset catalog key.
-    candidates.add(scriptName);
+    candidates.add(normalized);
 
     return new ArrayList<>(candidates);
   }
