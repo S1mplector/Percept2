@@ -140,6 +140,8 @@ subprojects {
       substitute(module("com.jvn:audio")).using(project(":audio"))
     }
     // Force consistent logback to avoid mixed versions at runtime
+    // (e.g. from transitive dependencies of JUnit or other libraries)
+    // Note: we use 1.5.6 which is the latest as of mid-2024, but this may need to be updated in the future
     resolutionStrategy.force(
       "ch.qos.logback:logback-classic:1.5.6",
       "ch.qos.logback:logback-core:1.5.6"
