@@ -52,13 +52,23 @@ public final class AudioFxController {
   private AmbienceSynthProvider loadAmbienceProvider() {
     List<AmbienceSynthProvider> providers = new ArrayList<>();
     ServiceLoader.load(AmbienceSynthProvider.class).forEach(providers::add);
+    AmbienceSynthProvider best = null;
+    int bestRank = Integer.MAX_VALUE;
     for (AmbienceSynthProvider provider : providers) {
       String id = provider.id() == null ? "" : provider.id().trim().toLowerCase(Locale.ROOT);
-      if ("loom".equals(id)) {
-        return provider;
+      int rank = switch (id) {
+        case "beez" -> 0;
+        case "fx" -> 1;
+        case "loom" -> 2;
+        default -> 100;
+      };
+      if (rank < bestRank) {
+        bestRank = rank;
+        best = provider;
       }
     }
-    return new LoomAmbienceSynth();
+    if (best != null) return best;
+    return new BeezAmbienceSynth();
   }
 
   private ChipSynthProvider loadChipProvider() {

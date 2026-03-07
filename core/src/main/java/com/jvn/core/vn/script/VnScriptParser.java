@@ -104,6 +104,67 @@ public class VnScriptParser {
     return volume;
   }
 
+  private float parseUnitRangeToken(String token,
+                                    String sourceName,
+                                    int lineNumber,
+                                    String rawLine,
+                                    String commandName,
+                                    String fieldName) throws IOException {
+    final float value;
+    try {
+      value = Float.parseFloat(token);
+    } catch (NumberFormatException ex) {
+      throw parseError(sourceName, lineNumber, commandName + " " + fieldName + " must be numeric", rawLine);
+    }
+    if (value < 0f || value > 1f) {
+      throw parseError(sourceName, lineNumber, commandName + " " + fieldName + " must be between 0 and 1", rawLine);
+    }
+    return value;
+  }
+
+  private KeyValueOption parseKeyValueOption(String token,
+                                             String sourceName,
+                                             int lineNumber,
+                                             String rawLine,
+                                             String commandName) throws IOException {
+    if (token == null || token.isBlank()) {
+      throw parseError(sourceName, lineNumber, commandName + " has an empty option token", rawLine);
+    }
+    int eq = token.indexOf('=');
+    int colon = token.indexOf(':');
+    int sep;
+    if (eq > 0 && colon > 0) sep = Math.min(eq, colon);
+    else sep = Math.max(eq, colon);
+    if (sep <= 0 || sep >= token.length() - 1) {
+      throw parseError(sourceName, lineNumber, commandName + " options must use key:value or key=value syntax", rawLine);
+    }
+    String key = token.substring(0, sep).trim().toLowerCase();
+    String value = token.substring(sep + 1).trim();
+    if (key.isEmpty() || value.isEmpty()) {
+      throw parseError(sourceName, lineNumber, commandName + " has malformed option: " + token, rawLine);
+    }
+    return new KeyValueOption(key, value);
+  }
+
+  private String normalizeSynthType(String token,
+                                    boolean allowAll,
+                                    String sourceName,
+                                    int lineNumber,
+                                    String rawLine) throws IOException {
+    String t = token == null ? "" : token.trim().toLowerCase();
+    return switch (t) {
+      case "ambience", "ambient", "ambi" -> "ambience";
+      case "chiptune", "chip", "beez" -> "chiptune";
+      case "all" -> {
+        if (!allowAll) {
+          throw parseError(sourceName, lineNumber, "[synthesizer] type=all is only valid for 'off'", rawLine);
+        }
+        yield "all";
+      }
+      default -> throw parseError(sourceName, lineNumber, "[synthesizer] unknown type: " + token, rawLine);
+    };
+  }
+
   private String formatNumber(double value) {
     if (Math.abs(value - Math.rint(value)) < 1e-9) {
       return Long.toString((long) Math.rint(value));
@@ -144,6 +205,8 @@ public class VnScriptParser {
       this.synthetic = synthetic;
     }
   }
+
+  private record KeyValueOption(String key, String value) {}
 
   private static final class LabelReference {
     final String label;
@@ -735,6 +798,78 @@ public class VnScriptParser {
       case "audio": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         state.builder.external("audio", payload);
+        return;
+      }
+      case "synthesizer":
+      case "synth": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        if (toks.length == 0) {
+          throw parseError(sourceName, lineNumber, "[synthesizer] expects: [synthesizer on|off ...]", rawLine);
+        }
+
+        String action = toks[0].trim().toLowerCase();
+        if ("stop".equals(action)) action = "off";
+        if (!"on".equals(action) && !"off".equals(action)) {
+          throw parseError(sourceName, lineNumber, "[synthesizer] action must be on/off", rawLine);
+        }
+
+        if ("off".equals(action)) {
+          String type = "all";
+          for (int i = 1; i < toks.length; i++) {
+            KeyValueOption option = parseKeyValueOption(toks[i], sourceName, lineNumber, rawLine, "[synthesizer]");
+            switch (option.key()) {
+              case "type", "target", "channel" -> type = normalizeSynthType(option.value(), true, sourceName, lineNumber, rawLine);
+              default -> throw parseError(sourceName, lineNumber, "[synthesizer] unknown off-option: " + option.key(), rawLine);
+            }
+          }
+          state.builder.external("audio", "synth off type=" + type);
+          return;
+        }
+
+        String type = "ambience";
+        String mode = "wind";
+        String cue = null;
+        float intensity = 0.65f;
+        Float volume = null;
+        boolean loop = true;
+
+        for (int i = 1; i < toks.length; i++) {
+          KeyValueOption option = parseKeyValueOption(toks[i], sourceName, lineNumber, rawLine, "[synthesizer]");
+          switch (option.key()) {
+            case "type", "target", "channel" ->
+                type = normalizeSynthType(option.value(), false, sourceName, lineNumber, rawLine);
+            case "mode", "preset" -> mode = option.value();
+            case "cue" -> cue = option.value();
+            case "intensity", "amount" ->
+                intensity = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[synthesizer]", "intensity");
+            case "vol", "volume" ->
+                volume = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[synthesizer]", "volume");
+            case "loop" -> {
+              if (!isBooleanToken(option.value())) {
+                throw parseError(sourceName, lineNumber, "[synthesizer] loop must be true/false/on/off/1/0", rawLine);
+              }
+              loop = parseBooleanToken(option.value());
+            }
+            default -> throw parseError(sourceName, lineNumber, "[synthesizer] unknown option: " + option.key(), rawLine);
+          }
+        }
+
+        StringBuilder normalized = new StringBuilder("synth on type=").append(type);
+        if ("chiptune".equals(type)) {
+          String synthCue = (cue != null && !cue.isBlank()) ? cue : mode;
+          if (synthCue == null || synthCue.isBlank()) synthCue = "blip";
+          normalized.append(" cue=").append(quoteTokenIfNeeded(synthCue));
+        } else {
+          String preset = (mode == null || mode.isBlank()) ? "wind" : mode;
+          normalized.append(" mode=").append(quoteTokenIfNeeded(preset));
+        }
+        normalized.append(" intensity=").append(formatNumber(intensity));
+        if (volume != null) {
+          normalized.append(" volume=").append(formatNumber(volume));
+        }
+        normalized.append(" loop=").append(loop);
+        state.builder.external("audio", normalized.toString());
         return;
       }
       case "volume": {

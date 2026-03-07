@@ -1,5 +1,6 @@
 package com.jvn.core.vn;
 
+import com.jvn.core.audio.AudioFacade;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,9 +92,102 @@ class DefaultVnInteropQuotedArgsTest {
     assertEquals(24, scene.getState().getVariable("ui.audioVisualizerBars"));
   }
 
+  @Test
+  void appliesSynthesizerAudioInteropCommands() {
+    VnScenario scenario = new VnScenarioBuilder("audio_synth")
+        .label("start")
+        .dialogue("Narrator", "Start")
+        .end()
+        .build();
+    VnScene scene = new VnScene(scenario);
+    FakeAudio audio = new FakeAudio();
+    scene.setAudioFacade(audio);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand(
+        "audio",
+        "synth on type=ambience mode=rain intensity=0.81 volume=0.42 loop=true"), scene);
+    assertEquals("rain", audio.lastAmbiencePreset);
+    assertEquals(0.81f, audio.lastAmbienceIntensity);
+    assertEquals(true, audio.lastAmbienceLoop);
+    assertEquals(0.42f, audio.lastAmbienceVolume);
+
+    interop.handle(new VnExternalCommand(
+        "audio",
+        "synth on type=chiptune cue=\"confirm tone\" intensity=0.56 volume=0.73 loop=false"), scene);
+    assertEquals("confirm tone", audio.lastChiptuneCue);
+    assertEquals(0.56f, audio.lastChiptuneIntensity);
+    assertEquals(false, audio.lastChiptuneLoop);
+    assertEquals(0.73f, audio.lastChiptuneVolume);
+
+    interop.handle(new VnExternalCommand("audio", "synth off type=all"), scene);
+    assertEquals(1, audio.stopAmbienceCount);
+    assertEquals(1, audio.stopChiptuneCount);
+  }
+
   public static class Methods {
     public static String join(String a, String b) {
       return a + "|" + b;
+    }
+  }
+
+  private static final class FakeAudio implements AudioFacade {
+    private String lastAmbiencePreset;
+    private float lastAmbienceIntensity;
+    private boolean lastAmbienceLoop;
+    private float lastAmbienceVolume = -1f;
+
+    private String lastChiptuneCue;
+    private float lastChiptuneIntensity;
+    private boolean lastChiptuneLoop;
+    private float lastChiptuneVolume = -1f;
+    private int stopAmbienceCount;
+    private int stopChiptuneCount;
+
+    @Override
+    public void playBgm(String trackId, boolean loop) {
+    }
+
+    @Override
+    public void stopBgm() {
+    }
+
+    @Override
+    public void playSfx(String sfxId) {
+    }
+
+    @Override
+    public void playAmbience(String preset, float intensity, boolean loop) {
+      lastAmbiencePreset = preset;
+      lastAmbienceIntensity = intensity;
+      lastAmbienceLoop = loop;
+    }
+
+    @Override
+    public void stopAmbience() {
+      stopAmbienceCount++;
+    }
+
+    @Override
+    public void setAmbienceVolume(float volume) {
+      lastAmbienceVolume = volume;
+    }
+
+    @Override
+    public void playChiptune(String cueId, float intensity, boolean loop) {
+      lastChiptuneCue = cueId;
+      lastChiptuneIntensity = intensity;
+      lastChiptuneLoop = loop;
+    }
+
+    @Override
+    public void stopChiptune() {
+      stopChiptuneCount++;
+    }
+
+    @Override
+    public void setChiptuneVolume(float volume) {
+      lastChiptuneVolume = volume;
     }
   }
 }

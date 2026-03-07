@@ -448,7 +448,75 @@ public class DefaultVnInterop implements VnInterop {
           } catch (Exception ignored) {}
         }
         break;
+      case "synth":
+      case "synthesizer":
+        handleSynthAudio(toks, a);
+        break;
     }
+  }
+
+  private void handleSynthAudio(String[] toks, com.jvn.core.audio.AudioFacade audio) {
+    if (toks == null || toks.length < 2 || audio == null) return;
+
+    String action = toks[1] == null ? "" : toks[1].trim().toLowerCase();
+    if ("stop".equals(action)) action = "off";
+    if (action.isEmpty()) return;
+
+    String type = "on".equals(action) ? "ambience" : "all";
+    String mode = "wind";
+    String cue = null;
+    float intensity = 0.65f;
+    Float volume = null;
+    Boolean loop = Boolean.TRUE;
+
+    for (int i = 2; i < toks.length; i++) {
+      SynthOption option = parseSynthOption(toks[i]);
+      if (option == null) continue;
+      switch (option.key) {
+        case "type", "target", "channel" -> {
+          String parsedType = parseSynthType(option.value, "off".equals(action));
+          if (parsedType != null) type = parsedType;
+        }
+        case "mode", "preset" -> mode = option.value;
+        case "cue" -> cue = option.value;
+        case "intensity", "amount" -> intensity = clamp01(parseFloatSafe(option.value, intensity));
+        case "vol", "volume" -> volume = clamp01(parseFloatSafe(option.value, 0.7f));
+        case "loop" -> {
+          Boolean b = parseBooleanMaybe(option.value);
+          if (b != null) loop = b;
+        }
+        default -> {
+          // Ignore unknown options here; parser-level validation handles strict VNS command input.
+        }
+      }
+    }
+
+    if ("off".equals(action)) {
+      switch (type) {
+        case "ambience" -> audio.stopAmbience();
+        case "chiptune" -> audio.stopChiptune();
+        default -> {
+          audio.stopAmbience();
+          audio.stopChiptune();
+        }
+      }
+      return;
+    }
+
+    if (!"on".equals(action)) return;
+    boolean playLoop = loop == null || loop;
+    if ("chiptune".equals(type)) {
+      String playCue = cue;
+      if (playCue == null || playCue.isBlank()) playCue = mode;
+      if (playCue == null || playCue.isBlank()) playCue = "blip";
+      if (volume != null) audio.setChiptuneVolume(volume);
+      audio.playChiptune(playCue, intensity, playLoop);
+      return;
+    }
+
+    String preset = mode == null || mode.isBlank() ? "wind" : mode;
+    if (volume != null) audio.setAmbienceVolume(volume);
+    audio.playAmbience(preset, intensity, playLoop);
   }
 
   private void handleScreen(String payload, VnScene scene) {
@@ -593,6 +661,47 @@ public class DefaultVnInterop implements VnInterop {
     return "on".equals(t) || "true".equals(t) || "1".equals(t) || "yes".equals(t);
   }
 
+  private Boolean parseBooleanMaybe(String token) {
+    if (token == null || token.isBlank()) return null;
+    String t = token.trim().toLowerCase();
+    return switch (t) {
+      case "on", "true", "1", "yes" -> Boolean.TRUE;
+      case "off", "false", "0", "no" -> Boolean.FALSE;
+      default -> null;
+    };
+  }
+
+  private String parseSynthType(String token, boolean allowAll) {
+    if (token == null || token.isBlank()) return null;
+    String t = token.trim().toLowerCase();
+    return switch (t) {
+      case "ambience", "ambient", "ambi" -> "ambience";
+      case "chiptune", "chip", "beez" -> "chiptune";
+      case "all" -> allowAll ? "all" : "ambience";
+      default -> null;
+    };
+  }
+
+  private SynthOption parseSynthOption(String token) {
+    if (token == null || token.isBlank()) return null;
+    int eq = token.indexOf('=');
+    int colon = token.indexOf(':');
+    int sep;
+    if (eq > 0 && colon > 0) sep = Math.min(eq, colon);
+    else sep = Math.max(eq, colon);
+    if (sep <= 0 || sep >= token.length() - 1) return null;
+    String key = token.substring(0, sep).trim().toLowerCase();
+    String value = token.substring(sep + 1).trim();
+    if (key.isEmpty() || value.isEmpty()) return null;
+    return new SynthOption(key, value);
+  }
+
+  private float clamp01(float value) {
+    if (value < 0f) return 0f;
+    if (value > 1f) return 1f;
+    return value;
+  }
+
   private CharacterPosition parsePositionToken(String token) {
     return CharacterPosition.predefined(token);
   }
@@ -721,4 +830,6 @@ public class DefaultVnInterop implements VnInterop {
     try { return Long.parseLong(s); } catch (Exception ignored) {}
     return fallback;
   }
+
+  private record SynthOption(String key, String value) {}
 }

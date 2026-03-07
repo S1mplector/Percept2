@@ -127,6 +127,8 @@ narrator: {b}[bgm_fadeout N]{/b} — fade current music to silence over N ms.
 narrator: {b}[bgm_fadein "path" N]{/b} — start new track, fading in over N ms.
 narrator: {b}[sfx "path"]{/b} — play a one-shot sound effect.
 narrator: {b}[voice "path"]{/b} — play a voice clip with the next dialogue line.
+narrator: {b}[synthesizer on mode:"wind" intensity:0.7 volume:0.35 loop:true]{/b} — start procedural ambience.
+narrator: {b}[synthesizer off]{/b} — stop active ambience/chiptune synth layers.
 narrator: {b}Folders:{/b} assets/audio/bgm/, sfx/, voice/, ambience/.
 narrator: {b}Formats:{/b} MP3 or OGG for music, WAV for short SFX.
 [show lavender center happy]
