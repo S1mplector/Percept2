@@ -3,8 +3,6 @@ package com.jvn.core.vn;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -228,15 +226,39 @@ public class VnScriptParserTest {
   }
 
   @Test
-  public void parsesRuntimeDemoScriptWithHeavyInlineTimelineShowcase() throws Exception {
-    Path demoScriptPath = Path.of("..", "runtime", "src", "main", "resources", "game", "scripts", "demo.vns");
-    String script = Files.readString(demoScriptPath, StandardCharsets.UTF_8);
+  public void parsesInlineTimelineShowcaseScript() throws Exception {
+    String script = """
+      @scenario runtime_showcase
+      @character narrator "Narrator"
+      @character hero "Hero"
+      @background classroom game/images/backgrounds/classroom_day.png
+
+      @label start
+      [bg classroom]
+      Narrator: Timeline parser smoke test.
+
+      timeline {
+        move "hero" {
+          x: 620
+          y: 400
+          dur: 420
+          easing: ease_in_out_cubic
+        }
+        rotate "hero" {
+          angle: -8
+          dur: 420
+          easing: ease_in_out_sine
+        }
+      }
+      [wait 450]
+      [end]
+      """;
 
     VnScriptParser parser = new VnScriptParser();
     VnScenario scen = parser.parseFromString(script);
 
     assertNotNull(scen);
-    assertEquals("runtime_demo_prologue", scen.getId());
+    assertEquals("runtime_showcase", scen.getId());
     assertTrue(scen.getNodes().stream().anyMatch(n ->
         n.getType() == VnNodeType.EXTERNAL
             && "jes_timeline_inline".equals(n.getExternalCommand().getProvider())));

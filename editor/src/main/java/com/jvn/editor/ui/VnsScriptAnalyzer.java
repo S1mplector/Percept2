@@ -208,16 +208,56 @@ public final class VnsScriptAnalyzer {
 
   private static void parseWithIncludeResolver(String source, File projectRoot, File sourceFile) throws Exception {
     VnScriptParser parser = new VnScriptParser();
-    if (projectRoot == null || !projectRoot.exists()) {
+    File effectiveRoot = resolveProjectRoot(projectRoot, sourceFile);
+    if (effectiveRoot == null || !effectiveRoot.exists()) {
       parser.parseFromString(source);
       return;
     }
 
-    String sourceName = resolveSourceName(projectRoot, sourceFile);
+    String sourceName = resolveSourceName(effectiveRoot, sourceFile);
     byte[] bytes = source == null ? new byte[0] : source.getBytes(StandardCharsets.UTF_8);
     try (InputStream in = new ByteArrayInputStream(bytes)) {
-      parser.parse(in, sourceName, includePath -> openIncludeForDiagnostics(projectRoot, sourceName, includePath));
+      parser.parse(in, sourceName, includePath -> openIncludeForDiagnostics(effectiveRoot, sourceName, includePath));
     }
+  }
+
+  private static File resolveProjectRoot(File projectRoot, File sourceFile) {
+    File inferred = inferProjectRootFromScript(sourceFile);
+    if (projectRoot == null) {
+      if (inferred != null) return inferred;
+      return sourceFile == null ? null : sourceFile.getParentFile();
+    }
+    if (sourceFile == null || inferred == null) return projectRoot;
+
+    try {
+      Path suppliedPath = projectRoot.toPath().toAbsolutePath().normalize();
+      Path inferredPath = inferred.toPath().toAbsolutePath().normalize();
+      Path sourcePath = sourceFile.toPath().toAbsolutePath().normalize();
+
+      boolean suppliedContainsSource = sourcePath.startsWith(suppliedPath);
+      boolean suppliedHasScripts = Files.isDirectory(suppliedPath.resolve("scripts"));
+      boolean inferredHasScripts = Files.isDirectory(inferredPath.resolve("scripts"));
+      if (!suppliedContainsSource) return inferred;
+      if (!suppliedHasScripts && inferredHasScripts && suppliedPath.startsWith(inferredPath)) {
+        return inferred;
+      }
+    } catch (Exception ignored) {
+    }
+    return projectRoot;
+  }
+
+  private static File inferProjectRootFromScript(File sourceFile) {
+    if (sourceFile == null) return null;
+    Path current = sourceFile.toPath().toAbsolutePath().normalize().getParent();
+    while (current != null) {
+      Path name = current.getFileName();
+      if (name != null && "scripts".equalsIgnoreCase(name.toString())) {
+        Path parent = current.getParent();
+        return (parent != null ? parent : current).toFile();
+      }
+      current = current.getParent();
+    }
+    return null;
   }
 
   private static String resolveSourceName(File projectRoot, File sourceFile) {

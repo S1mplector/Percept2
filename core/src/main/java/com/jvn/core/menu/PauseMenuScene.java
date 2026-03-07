@@ -44,7 +44,7 @@ public class PauseMenuScene implements Scene {
     this.vnScene = vnScene;
     this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
     this.defaultScriptName = defaultScriptName == null || defaultScriptName.isBlank()
-        ? "demo.vns" : defaultScriptName;
+        ? "story/prologue.vns" : defaultScriptName;
     this.audio = audio;
     MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
     this.menuProfile = menuLoad.profile();

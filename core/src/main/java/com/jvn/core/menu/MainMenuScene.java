@@ -16,7 +16,6 @@ import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene.Scene;
-import com.jvn.core.vn.DemoScenario;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
@@ -51,7 +50,7 @@ public class MainMenuScene implements Scene {
     this.engine = engine;
     this.settingsModel = settingsModel == null ? new VnSettings() : settingsModel;
     this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
-    this.defaultScriptName = defaultScriptName == null || defaultScriptName.isBlank() ? "demo.vns" : defaultScriptName;
+    this.defaultScriptName = defaultScriptName == null || defaultScriptName.isBlank() ? "story/prologue.vns" : defaultScriptName;
     this.audio = audio;
     MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
     this.menuProfile = menuLoad.profile();
@@ -249,8 +248,8 @@ public class MainMenuScene implements Scene {
     try {
       return scenarioLoader.load(scriptName);
     } catch (Exception e) {
-      LOG.warn("Failed to load script '{}', falling back to DemoScenario: {}", scriptName, e.toString());
-      return DemoScenario.createSimpleDemo();
+      LOG.warn("Failed to load script '{}': {}", scriptName, e.toString());
+      return MenuScenarioFallbacks.missingScriptScenario(scriptName, e);
     }
   }
 

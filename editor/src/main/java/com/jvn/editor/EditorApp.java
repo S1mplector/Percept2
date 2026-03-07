@@ -1768,10 +1768,7 @@ public class EditorApp extends Application {
 
     File scriptFile = fileTab.getFile();
     String source = currentText != null ? currentText : fileTab.getCurrentTextSnapshot();
-    File analysisRoot = projectRoot;
-    if (analysisRoot == null && scriptFile != null) {
-      analysisRoot = scriptFile.getParentFile();
-    }
+    File analysisRoot = resolveVnsProjectRoot(scriptFile);
 
     VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, analysisRoot, scriptFile);
     if (vnsDiagnosticsView != null) vnsDiagnosticsView.setAnalysis(scriptFile, analysis);
@@ -1839,7 +1836,8 @@ public class EditorApp extends Application {
     
     // Create a new VnPreviewView for fullscreen
     com.jvn.editor.ui.VnPreviewView fullscreenPreview = new com.jvn.editor.ui.VnPreviewView();
-    if (projectRoot != null) fullscreenPreview.setProjectRoot(projectRoot);
+    File previewRoot = resolveVnsProjectRoot(sourceTab.getFile());
+    if (previewRoot != null) fullscreenPreview.setProjectRoot(previewRoot);
     
     // Copy the scenario from the source tab
     try {
@@ -1851,11 +1849,12 @@ public class EditorApp extends Application {
       if (code != null && !code.isBlank()) {
         com.jvn.core.vn.script.VnScriptParser parser = new com.jvn.core.vn.script.VnScriptParser();
         byte[] bytes = code.getBytes(StandardCharsets.UTF_8);
-        String sourceName = sourceTab.getFile() == null ? "<editor>" : sourceTab.getFile().getName();
+        String sourceName = resolveVnsSourceName(sourceTab.getFile(), previewRoot);
         com.jvn.core.vn.VnScenario scenario;
         try (ByteArrayInputStream in = new ByteArrayInputStream(bytes)) {
           scenario = parser.parse(in, sourceName, includePath -> openVnsIncludeForEditor(sourceTab, includePath));
         }
+        fullscreenPreview.setSourceScriptName(sourceName);
         fullscreenPreview.setScenario(scenario);
       }
     } catch (Exception ex) {
@@ -1918,17 +1917,12 @@ public class EditorApp extends Application {
     if (tab == null) throw new java.io.IOException("Include resolver unavailable");
     File sourceFile = tab.getFile();
     if (sourceFile == null) throw new java.io.IOException("Include resolver unavailable");
-    File root = projectRoot;
-    if (root == null) {
-      root = sourceFile.getParentFile();
-    }
+    File root = resolveVnsProjectRoot(sourceFile);
     if (root == null) throw new java.io.IOException("Include resolver unavailable");
 
     Path rootPath = root.toPath().toAbsolutePath().normalize();
-    Path scriptsRoot = rootPath.resolve("scripts").normalize();
-    if (!Files.isDirectory(scriptsRoot)) {
-      scriptsRoot = rootPath;
-    }
+    Path scriptsRoot = resolveVnsScriptsRoot(root);
+    if (scriptsRoot == null) scriptsRoot = rootPath;
 
     String normalized = includePath == null ? "" : includePath.trim().replace('\\', '/');
     if (normalized.isBlank()) {
@@ -1956,6 +1950,51 @@ public class EditorApp extends Application {
       }
     }
     throw new java.io.IOException("Included script not found: " + includePath);
+  }
+
+  private File resolveVnsProjectRoot(File scriptFile) {
+    if (projectRoot != null) return projectRoot;
+    File inferred = inferProjectRootFromScript(scriptFile);
+    if (inferred != null) return inferred;
+    return scriptFile == null ? null : scriptFile.getParentFile();
+  }
+
+  private Path resolveVnsScriptsRoot(File root) {
+    if (root == null) return null;
+    Path rootPath = root.toPath().toAbsolutePath().normalize();
+    Path scriptsRoot = rootPath.resolve("scripts").normalize();
+    if (Files.isDirectory(scriptsRoot)) return scriptsRoot;
+    return rootPath;
+  }
+
+  private String resolveVnsSourceName(File sourceFile, File root) {
+    if (sourceFile == null) return "<editor>";
+    Path filePath = sourceFile.toPath().toAbsolutePath().normalize();
+    Path scriptsRoot = resolveVnsScriptsRoot(root);
+    if (scriptsRoot != null && filePath.startsWith(scriptsRoot)) {
+      return scriptsRoot.relativize(filePath).toString().replace('\\', '/');
+    }
+    if (root != null) {
+      Path rootPath = root.toPath().toAbsolutePath().normalize();
+      if (filePath.startsWith(rootPath)) {
+        return rootPath.relativize(filePath).toString().replace('\\', '/');
+      }
+    }
+    return sourceFile.getName();
+  }
+
+  private File inferProjectRootFromScript(File scriptFile) {
+    if (scriptFile == null) return null;
+    Path current = scriptFile.toPath().toAbsolutePath().normalize().getParent();
+    while (current != null) {
+      Path name = current.getFileName();
+      if (name != null && "scripts".equalsIgnoreCase(name.toString())) {
+        Path parent = current.getParent();
+        return (parent != null ? parent : current).toFile();
+      }
+      current = current.getParent();
+    }
+    return null;
   }
 
   private void installAddTabBehavior(TabPane pane, Tab addTab, Runnable onAddRequested) {

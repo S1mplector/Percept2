@@ -148,9 +148,29 @@
   -fx-border-width: 1;
   -fx-border-radius: 6;
   -fx-background-radius: 6;
+  -fx-text-fill: #dbe4f0;
 }
 
 .run-console-filter-combo .list-cell {
+  -fx-background-color: #171a22;
+  -fx-text-fill: #dbe4f0;
+}
+
+.run-console-filter-combo .arrow-button {
+  -fx-background-color: #171a22;
+}
+
+.run-console-filter-combo .arrow {
+  -fx-background-color: #dbe4f0;
+}
+
+.run-console-filter-combo .combo-box-popup .list-view {
+  -fx-background-color: #171a22;
+  -fx-border-color: #2a3240;
+}
+
+.run-console-filter-combo .combo-box-popup .list-cell {
+  -fx-background-color: #171a22;
   -fx-text-fill: #dbe4f0;
 }
 

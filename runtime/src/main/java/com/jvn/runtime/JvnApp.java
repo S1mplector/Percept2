@@ -27,10 +27,11 @@ import java.nio.file.Paths;
 
 public class JvnApp {
   private static final Logger log = LoggerFactory.getLogger(JvnApp.class);
+  private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
 
   public static void main(String[] args) {
     ApplicationConfig.Builder builder = ApplicationConfig.builder().title("JVN Runtime").width(960).height(540);
-    String scriptName = "demo.vns"; // default script under game/scripts/
+    String scriptName = DEFAULT_ENTRY_SCRIPT;
     String locale = "en";
     boolean launchBilliards = false;
     String ui = "fx"; // fx | swing

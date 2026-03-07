@@ -235,11 +235,9 @@ public class FileEditorTab extends BorderPane {
   private String resolveVnsScriptKey() {
     if (file == null) return null;
     Path filePath = file.toPath().toAbsolutePath().normalize();
-    if (projectRoot != null) {
-      Path scriptsRoot = projectRoot.toPath().resolve("scripts").toAbsolutePath().normalize();
-      if (filePath.startsWith(scriptsRoot)) {
-        return scriptsRoot.relativize(filePath).toString().replace('\\', '/');
-      }
+    Path scriptsRoot = resolveScriptsRootForVnsFile();
+    if (scriptsRoot != null && filePath.startsWith(scriptsRoot)) {
+      return scriptsRoot.relativize(filePath).toString().replace('\\', '/');
     }
     return file.getName();
   }
@@ -250,32 +248,52 @@ public class FileEditorTab extends BorderPane {
       throw new IOException("Include path is empty");
     }
 
+    Path scriptsRoot = resolveScriptsRootForVnsFile();
+    if (scriptsRoot == null) {
+      throw new IOException("Include resolver unavailable for " + includePath);
+    }
+
+    Path sourcePath = file == null ? null : file.toPath().toAbsolutePath().normalize();
+    Path sourceParent = sourcePath == null ? scriptsRoot : sourcePath.getParent();
+    if (sourceParent == null) sourceParent = scriptsRoot;
+    Path workspaceRoot = resolveWorkspaceRootForVnsFile();
+    if (workspaceRoot == null) workspaceRoot = scriptsRoot;
+
+    Path resolved = normalized.startsWith("/")
+        ? scriptsRoot.resolve(normalized.substring(1)).normalize()
+        : sourceParent.resolve(normalized).normalize();
+    if (!resolved.startsWith(workspaceRoot)) {
+      throw new IOException("Include path escapes project root: " + includePath);
+    }
+    return Files.newInputStream(resolved);
+  }
+
+  private Path resolveScriptsRootForVnsFile() {
     if (projectRoot != null) {
-      Path scriptsRoot = projectRoot.toPath().resolve("scripts").toAbsolutePath().normalize();
-      Path base = scriptsRoot;
-      String sourceKey = resolveVnsScriptKey();
-      if (sourceKey != null && !sourceKey.isBlank()) {
-        Path sourcePath = scriptsRoot.resolve(sourceKey).normalize();
-        Path parent = sourcePath.getParent();
-        if (parent != null) base = parent;
-      }
-      Path resolved = normalized.startsWith("/")
-          ? scriptsRoot.resolve(normalized.substring(1)).normalize()
-          : base.resolve(normalized).normalize();
-      if (!resolved.startsWith(scriptsRoot)) {
-        throw new IOException("Include path escapes scripts root: " + includePath);
-      }
-      return Files.newInputStream(resolved);
+      Path root = projectRoot.toPath().toAbsolutePath().normalize();
+      Path scripts = root.resolve("scripts").normalize();
+      if (Files.isDirectory(scripts)) return scripts;
+      return root;
     }
-
-    if (file != null && file.getParentFile() != null) {
-      Path base = file.getParentFile().toPath().toAbsolutePath().normalize();
-      String rel = normalized.startsWith("/") ? normalized.substring(1) : normalized;
-      Path resolved = base.resolve(rel).normalize();
-      return Files.newInputStream(resolved);
+    if (file == null) return null;
+    Path current = file.toPath().toAbsolutePath().normalize().getParent();
+    while (current != null) {
+      Path name = current.getFileName();
+      if (name != null && "scripts".equalsIgnoreCase(name.toString())) {
+        return current;
+      }
+      current = current.getParent();
     }
+    return file.getParentFile() == null ? null : file.getParentFile().toPath().toAbsolutePath().normalize();
+  }
 
-    throw new IOException("Include resolver unavailable for " + includePath);
+  private Path resolveWorkspaceRootForVnsFile() {
+    if (projectRoot != null) return projectRoot.toPath().toAbsolutePath().normalize();
+    Path scriptsRoot = resolveScriptsRootForVnsFile();
+    if (scriptsRoot != null && scriptsRoot.getParent() != null) {
+      return scriptsRoot.getParent().toAbsolutePath().normalize();
+    }
+    return scriptsRoot;
   }
 
   private void setupLayout() {
@@ -323,8 +341,22 @@ public class FileEditorTab extends BorderPane {
     if (viewport != null) viewport.setProjectRoot(root);
     if (vnPreview != null) vnPreview.setProjectRoot(root);
     if (menuScreenVisualEditor != null) menuScreenVisualEditor.setProjectRoot(root);
+    if (menuLayoutVisualEditor != null) menuLayoutVisualEditor.setProjectRoot(root);
     if (menuStyleVisualEditor != null) menuStyleVisualEditor.setProjectRoot(root);
     if (dialogueLayoutVisualEditor != null) dialogueLayoutVisualEditor.setProjectRoot(root);
+
+    if (kind == Kind.VNS && vnsEditor != null && vnPreview != null) {
+      String code = vnsEditor.getText();
+      if (code != null && !code.isBlank()) {
+        try {
+          VnScenario scenario = parseVnsScenarioFromText(code);
+          vnPreview.setSourceScriptName(resolveVnsScriptKey());
+          vnPreview.setScenario(scenario);
+        } catch (Exception ex) {
+          if (onStatus != null) onStatus.accept("VNS parse warning: " + ex.getMessage());
+        }
+      }
+    }
   }
 
   public void setCommandStack(com.jvn.editor.commands.CommandStack cs) {

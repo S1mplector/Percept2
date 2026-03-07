@@ -19,7 +19,7 @@ public class MenuThemePreviewView extends StackPane {
   private final Canvas canvas = new Canvas(1200, 740);
   private final GraphicsContext gc = canvas.getGraphicsContext2D();
   private final MenuRenderer renderer = new MenuRenderer(gc, MenuTheme.defaults());
-  private final MainMenuScene previewScene = new MainMenuScene(null, new VnSettings(), new VnSaveManager(), "demo.vns", null);
+  private final MainMenuScene previewScene = new MainMenuScene(null, new VnSettings(), new VnSaveManager(), "story/prologue.vns", null);
 
   public MenuThemePreviewView() {
     getChildren().add(canvas);

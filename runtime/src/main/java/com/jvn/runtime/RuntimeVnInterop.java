@@ -29,6 +29,7 @@ import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 public class RuntimeVnInterop implements VnInterop {
+  private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
   private final Engine engine;
   private final DefaultVnInterop base = new DefaultVnInterop();
   private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
@@ -322,10 +323,11 @@ public class RuntimeVnInterop implements VnInterop {
     switch (kind) {
       case "settings": {
         VnSettings s = scene.getState().getSettings();
+        String fallbackScript = resolveDefaultScript(scene);
         SettingsScene m = new SettingsScene(
             engine,
             new com.jvn.core.vn.save.VnSaveManager(),
-            "demo.vns",
+            fallbackScript,
             s,
             scene.getAudioFacade()
         );
@@ -338,13 +340,13 @@ public class RuntimeVnInterop implements VnInterop {
         return VnInteropResult.advance();
       }
       case "load": {
-        String defScript = toks.length >= 2 ? toks[1] : "demo.vns";
+        String defScript = toks.length >= 2 ? toks[1] : resolveDefaultScript(scene);
         LoadMenuScene m = new LoadMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), defScript, scene.getState().getSettings(), scene.getAudioFacade());
         engine.scenes().push(m);
         return VnInteropResult.advance();
       }
       case "main": {
-        String script = toks.length >= 2 ? toks[1] : "demo.vns";
+        String script = toks.length >= 2 ? toks[1] : resolveDefaultScript(scene);
         MainMenuScene m = new MainMenuScene(engine, new VnSettings(), new com.jvn.core.vn.save.VnSaveManager(), script, scene.getAudioFacade());
         engine.scenes().push(m);
         return VnInteropResult.advance();
@@ -352,7 +354,7 @@ public class RuntimeVnInterop implements VnInterop {
       default:
         // Treat unknown menu kind as a configured custom menu id.
         // Optional second token can override default script for run_script/new_game actions.
-        String script = toks.length >= 2 ? toks[1] : "demo.vns";
+        String script = toks.length >= 2 ? toks[1] : resolveDefaultScript(scene);
         MainMenuScene custom = new MainMenuScene(
             engine,
             new VnSettings(),
@@ -492,6 +494,14 @@ public class RuntimeVnInterop implements VnInterop {
 
   private static String safe(String s) { return s == null ? "" : s; }
   private static String[] split(String s) { return VnArgTokenizer.tokenizeToArray(s); }
+  private String resolveDefaultScript(VnScene scene) {
+    if (scene != null && scene.getState() != null) {
+      String source = scene.getState().getSourceScriptName();
+      if (source != null && !source.isBlank()) return source.trim();
+    }
+    return DEFAULT_ENTRY_SCRIPT;
+  }
+
   private static Object parseScalar(String s) {
     if (s == null) return "";
     String t = s.trim();

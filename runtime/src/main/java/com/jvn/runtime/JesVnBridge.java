@@ -15,6 +15,7 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
  * Bridges JES scenes to VNS scenes: allows JES to start VN segments and resumes on exit.
  */
 public class JesVnBridge {
+  private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
   private final Engine engine;
   private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
 
@@ -31,7 +32,7 @@ public class JesVnBridge {
 
   private void startVns(JesScene2D jes, Map<String,Object> props) {
     if (jes == null) return;
-    String script = str(props, "script", str(props, "name", "demo.vns"));
+    String script = str(props, "script", str(props, "name", defaultScriptName()));
     String label = str(props, "label", null);
     boolean replace = bool(props, "replace", false);
     boolean popOnExit = bool(props, "popOnExit", true);
@@ -140,5 +141,14 @@ public class JesVnBridge {
       return "true".equalsIgnoreCase(s) || "1".equals(s);
     }
     return def;
+  }
+
+  private String defaultScriptName() {
+    VnScene vn = topVn();
+    if (vn != null && vn.getState() != null) {
+      String source = vn.getState().getSourceScriptName();
+      if (source != null && !source.isBlank()) return source.trim();
+    }
+    return DEFAULT_ENTRY_SCRIPT;
   }
 }
