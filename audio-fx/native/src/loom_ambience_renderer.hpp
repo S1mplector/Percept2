@@ -142,6 +142,23 @@ private:
   float chirpPhase_ = 0.0f;
   float chirpEnvelope_ = 0.0f;
 
+  // Ocean enhanced state
+  float oceanCrashEnvelope_ = 0.0f;
+  // Thunder enhanced state
+  float thunderBoltEnvelope_ = 0.0f;
+  float thunderBoltTimer_ = 0.0f;
+  float thunderBoltDecayRate_ = 0.9990f;
+  float thunderDropEnvelope_ = 0.0f;
+  // Fireplace enhanced state
+  float fireSnapEnvelope_ = 0.0f;
+  float firePopEnvelope_ = 0.0f;
+  float fireEmberPhase_ = 0.0f;
+  // Night insects enhanced state
+  float cricket2Phase_ = 0.0f;
+  float cricket2Envelope_ = 0.0f;
+  float cricket3Phase_ = 0.0f;
+  float frogEnvelope_ = 0.0f;
+
   NoiseGenerator noiseLow_{0x11111111u};
   NoiseGenerator noiseMid_{0x22222222u};
   NoiseGenerator noiseHigh_{0x33333333u};
@@ -176,6 +193,20 @@ private:
   BiquadFilter insectBedLowPass_;
   BiquadFilter insectDetailHighPass_;
 
+  // Ocean enhanced filters
+  BiquadFilter oceanUndertowLowPass_;
+  BiquadFilter oceanCrashBandPass_;
+  BiquadFilter oceanSprayHighPass_;
+  // Thunder enhanced filters
+  BiquadFilter thunderSubBassLowPass_;
+  BiquadFilter thunderDropBandPass_;
+  // Fireplace enhanced filters
+  BiquadFilter fireSnapBandPass_;
+  BiquadFilter fireEmberLowPass_;
+  // Night insects enhanced filters
+  BiquadFilter cricket2BandPass_;
+  BiquadFilter frogBandPass_;
+
   Lfo slowLfo_{0.15f, 0.0f, 0xDEADBEEFu};
   Lfo mediumLfo_{0.6f, 0.25f, 0xC0FFEE11u};
   Lfo fastLfo_{2.5f, 0.5f, 0xFACE1234u};
@@ -183,6 +214,10 @@ private:
   NoiseGenerator noiseThunder_{0x66666666u};
   NoiseGenerator noiseFire_{0x77777777u};
   NoiseGenerator noiseInsect_{0x88888888u};
+  NoiseGenerator noiseOceanFoam_{0x99999999u};
+  NoiseGenerator noiseThunderBolt_{0xAAAAAAAAu};
+  NoiseGenerator noiseFireDetail_{0xBBBBBBBBu};
+  NoiseGenerator noiseInsect2_{0xCCCCCCCCu};
 
   GustGenerator gust_{44100.0f, 0xABCDEF01u};
 };

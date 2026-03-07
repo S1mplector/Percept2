@@ -714,26 +714,14 @@ public class EditorApp extends Application {
         updateMessage("Native bridges loaded");
         advance(++step, totalChecks);
 
-        updateMessage("Running native smoke tests");
+        updateMessage("Running full test suite");
         runGradleStartupProcess(
             workspace,
             splash,
-            "Smoke Tests",
-            List.of(":core:test", "--tests", "com.jvn.core.nativebridge.NativeMathBridgeTest"),
-            "Native math smoke tests failed",
-            "Resolve the `NativeMathBridgeTest` failure and retry.");
-        runGradleStartupProcess(
-            workspace,
-            splash,
-            "Smoke Tests",
-            List.of(
-                ":audio-fx:test",
-                "--tests", "com.jvn.audiofx.AudioFxNativeBridgeTest",
-                "--tests", "com.jvn.audiofx.AudioFxControllerTest",
-                "--tests", "com.jvn.audiofx.VnsCommandBuilderTest",
-                "--tests", "com.jvn.audiofx.WaveformAnalyzerTest"),
-            "Audio synth smoke tests failed",
-            "Resolve the `audio-fx` smoke test failures and retry.");
+            "Tests",
+            List.of("test"),
+            "Repository tests failed",
+            "Resolve the failing test suite and retry startup.");
         advance(++step, totalChecks);
 
         File diskRoot = workspace;
