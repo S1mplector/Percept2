@@ -2,14 +2,15 @@ package com.jvn.audiofx;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class AudioFxControllerTest {
   @Test
-  void defaultsToBeezAmbienceAndBeezChipProviders() {
+  void prefersNativeProvidersWhenBridgeAvailable() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
     AudioFxController controller = new AudioFxController();
-    assertEquals("beez", controller.ambienceProviderId());
-    assertEquals("beez", controller.beezProviderId());
+    assertEquals("native-loom", controller.ambienceProviderId());
+    assertEquals("native-beez", controller.beezProviderId());
   }
 }
-

@@ -11,7 +11,28 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-find_package(JNI REQUIRED)
+set(JAVA_HOME "" CACHE PATH "Path to the JDK home used for JNI headers")
+
+if(NOT JAVA_HOME AND DEFINED ENV{JAVA_HOME})
+    set(JAVA_HOME "$ENV{JAVA_HOME}")
+endif()
+
+if(NOT JAVA_HOME)
+    message(FATAL_ERROR "JAVA_HOME must point to a JDK so JNI headers can be found")
+endif()
+
+set(JAVA_INCLUDE_DIR "${JAVA_HOME}/include")
+if(APPLE)
+    set(JAVA_PLATFORM_INCLUDE_DIR "${JAVA_HOME}/include/darwin")
+elseif(WIN32)
+    set(JAVA_PLATFORM_INCLUDE_DIR "${JAVA_HOME}/include/win32")
+else()
+    set(JAVA_PLATFORM_INCLUDE_DIR "${JAVA_HOME}/include/linux")
+endif()
+
+if(NOT EXISTS "${JAVA_INCLUDE_DIR}/jni.h")
+    message(FATAL_ERROR "jni.h was not found under ${JAVA_INCLUDE_DIR}")
+endif()
 
 set(BEEZ_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src/core/synthesis/oscillator.c
@@ -31,12 +52,11 @@ add_library(jvn_audiofx_native SHARED
 )
 
 target_include_directories(jvn_audiofx_native PRIVATE
-    ${JNI_INCLUDE_DIRS}
+    ${JAVA_INCLUDE_DIR}
+    ${JAVA_PLATFORM_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src
 )
-
-target_link_libraries(jvn_audiofx_native PRIVATE ${JNI_LIBRARIES})
 
 if(UNIX AND NOT APPLE)
     target_link_libraries(jvn_audiofx_native PRIVATE m)

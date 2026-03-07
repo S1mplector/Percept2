@@ -1,6 +1,7 @@
 #include "loom_ambience_renderer.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 

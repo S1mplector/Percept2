@@ -50,6 +50,9 @@ public final class AudioFxController {
   }
 
   private AmbienceSynthProvider loadAmbienceProvider() {
+    if (AudioFxNativeBridge.isAvailable()) {
+      return new NativeLoomAmbienceSynth();
+    }
     List<AmbienceSynthProvider> providers = new ArrayList<>();
     ServiceLoader.load(AmbienceSynthProvider.class).forEach(providers::add);
     AmbienceSynthProvider best = null;
@@ -72,6 +75,9 @@ public final class AudioFxController {
   }
 
   private ChipSynthProvider loadChipProvider() {
+    if (AudioFxNativeBridge.isAvailable()) {
+      return new NativeBeezChipSynth();
+    }
     List<ChipSynthProvider> providers = new ArrayList<>();
     ServiceLoader.load(ChipSynthProvider.class).forEach(providers::add);
     for (ChipSynthProvider provider : providers) {

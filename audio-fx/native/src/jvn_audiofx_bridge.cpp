@@ -33,7 +33,8 @@ LoomAmbienceRenderer* fromAmbience(jlong handle) {
   return reinterpret_cast<LoomAmbienceRenderer*>(handle);
 }
 
-jint renderIntoByteArray(JNIEnv* env, jbyteArray pcm, int requestedFrames, auto&& renderFn) {
+template <typename RenderFn>
+jint renderIntoByteArray(JNIEnv* env, jbyteArray pcm, int requestedFrames, RenderFn&& renderFn) {
   if (pcm == nullptr || requestedFrames <= 0) return 0;
   const jsize arrayLength = env->GetArrayLength(pcm);
   const int maxFrames = static_cast<int>(arrayLength / 4);
