@@ -1,113 +1,101 @@
 # Dialogue UI layout (.layout)
-# Text-first workflow:
-# 1) Edit values in this file.
-# 2) Save.
-# 3) Run project in runtime.
-# 4) Validate on real scene, then iterate.
-#
+# Text-first workflow: edit -> save -> run runtime -> validate -> iterate.
 # Format: key=value (Java .properties)
-# Units:
-# - Fractions (0..1) are viewport-relative.
-# - Pixel values are absolute screen-space units.
-# - choiceYStart uses -1 for auto-center, otherwise a 0..1 fraction.
+# Units: fractions (0..1) = viewport-relative, pixel values = absolute.
+# choiceYStart: -1 = auto-center vertically.
+# Font weights: NORMAL, BOLD.  Text keys from config/locales/*.properties
+# are resolved via VnTextFormatter at runtime.
 
-# --- Text box container (main dialogue panel) ---
-# textBoxX/textBoxY: top-left anchor in viewport fractions.
-# textBoxWidth/textBoxHeight: size in viewport fractions.
-# textBoxPadding: inner pixel padding fallback for legacy text flow.
-textBoxX=0.0026
-textBoxY=0.7076
-textBoxWidth=0.9974
+# ---- Text box (main dialogue panel) ----
+textBoxX=0.0
+textBoxY=0.75
+textBoxWidth=1.0
 textBoxHeight=0.25
 textBoxPadding=20
 
-# --- Name box (speaker tag panel) ---
-# Offsets are measured from textBox top-left.
-# Use negative Y to lift the nameplate above the dialogue box.
-nameBoxXOffset=20
-nameBoxYOffset=-40
-nameBoxWidth=200
-nameBoxHeight=40
-nameTextXOffset=10
-nameTextBaselineOffset=25
+# ---- Name box (speaker tag) ----
+nameBoxXOffset=24
+nameBoxYOffset=-38
+nameBoxWidth=210
+nameBoxHeight=38
+nameTextXOffset=12
+nameTextBaselineOffset=24
 
-# --- Dialogue text bounds inside the text box ---
-# dialogueTextHorizontalPadding = left text padding.
-# Top/Right/Bottom paddings let you fit custom textbox art exactly.
-dialogueTextHorizontalPadding=20
-dialogueTextTopPadding=40
-dialogueTextRightPadding=20
-dialogueTextBottomPadding=10
+# ---- Dialogue text insets ----
+dialogueTextHorizontalPadding=24
+dialogueTextTopPadding=36
+dialogueTextRightPadding=24
+dialogueTextBottomPadding=12
 
-# --- Choice list geometry ---
-# choiceXCenter: center point of the choice stack (0=left, 1=right).
-# choiceYStart: first choice Y (fraction). Set to -1 for auto-center.
-# choiceWidthFactor: each choice width as viewport fraction.
-# choiceHeight / choiceGap / choiceTextXPadding are pixels.
-choiceXCenter=0.5853
-choiceYStart=0.3601
-choiceWidthFactor=0.6
-choiceHeight=50
+# ---- Choice list ----
+choiceXCenter=0.5
+choiceYStart=-1
+choiceWidthFactor=0.56
+choiceHeight=48
 choiceGap=10
 choiceTextXPadding=20
-choiceCornerRadius=10
-choiceBorderWidth=2
-choiceTextBaselineOffset=5
 
-# --- Optional textbox / choice skin assets ---
-# Uncomment to use custom textures.
+# ---- Dialogue style ----
+textBoxColor=#0C1220E0
+textBoxOpacity=0.88
+nameBoxColor=#14203890
+nameTextColor=#FFD78A
+nameTextFontFamily=SansSerif
+nameTextFontSize=18
+# nameTextFontWeight=NORMAL
+# nameBoxOpacity=1.0
+dialogueTextColor=#E8EDF6
+dialogueTextFontFamily=SansSerif
+dialogueTextFontSize=22
+# dialogueTextFontWeight=NORMAL
+
+# ---- Choice style ----
+choiceCornerRadius=8
+choiceBorderWidth=1.5
+choiceTextBaselineOffset=4
+choiceFontFamily=SansSerif
+choiceFontSize=20
+# choiceFontWeight=NORMAL
+choiceBackgroundColor=#1A2640D8
+choiceHoverColor=#243358E8
+choiceSelectedColor=#2A3D68E8
+choiceDisabledColor=#121826A0
+choiceTextColor=#D4DCF0
+choiceHoverTextColor=#F0F4FF
+choiceSelectedTextColor=#FFD78A
+choiceDisabledTextColor=#6878A0
+choiceBorderColor=#3A5080A0
+choiceHoverBorderColor=#5888CCA0
+choiceSelectedBorderColor=#C8A04880
+choiceDisabledBorderColor=#28345060
+
+# ---- Character framing ----
+characterHeightFactor=0.85
+characterBaselineY=1.0
+
+# ---- Custom textbox / choice skin assets (uncomment to use) ----
 # textBoxAsset=assets/ui/textbox.png
+# textBoxBoundsPoints=0,0;1,0;1,1;0,1
 # nameBoxAsset=assets/ui/namebox.png
+# nameBoxBoundsPoints=0,0;1,0;1,1;0,1
+# dialogueTextBoundsPoints=0,0;1,0;1,1;0,1
 # choiceButtonAsset=assets/ui/choice_button.png
 # choiceButtonHoverAsset=assets/ui/choice_button_hover.png
 # choiceButtonSelectedAsset=assets/ui/choice_button_selected.png
 # choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png
+# choiceButtonBoundsPoints=0,0;1,0;1,1;0,1
 
-# --- Optional text styling ---
-# nameTextColor=#FFFFFFFF
-# nameTextFontFamily=Segoe UI
-# nameTextFontSize=18
-# dialogueTextColor=#FFFFFFFF
-# dialogueTextFontFamily=Segoe UI
-# dialogueTextFontSize=22
-
-# --- Optional choice colors (fallback when no texture is set) ---
-# choiceBackgroundColor=#323246E6
-# choiceHoverColor=#464664E6
-# choiceSelectedColor=#464664E6
-# choiceDisabledColor=#323232A0
-# choiceTextColor=#FFFFFFFF
-# choiceHoverTextColor=#FFFFFFFF
-# choiceSelectedTextColor=#FFFFFFFF
-# choiceDisabledTextColor=#AAAAAAFF
-# choiceBorderColor=#FFFFFFFF
-# choiceHoverBorderColor=#FFFFFFFF
-# choiceSelectedBorderColor=#FFFFFFFF
-# choiceDisabledBorderColor=#AAAAAAFF
-
-# --- Optional character framing tweaks ---
-# characterHeightFactor=0.85
-# characterBaselineY=1.0
-
-# --- Optional clickable textbox action buttons ---
-# Buttons render inside dialogue textbox bounds.
-# textBoxButton.ids controls order and active ids.
-# Per-button keys use textBoxButton.<id>.*.
-# x/y/width/height are normalized (0..1) inside textbox bounds.
-# action can be save_menu, load_menu, settings_menu, main_menu, open_menu, back.
-# textBoxButton.ids=save,load,settings
+# ---- Textbox action buttons (uncomment to enable) ----
+# textBoxButton.ids=save,load
 # textBoxButton.save.label=Save
 # textBoxButton.save.action=save_menu
-# textBoxButton.save.x=0.74
+# textBoxButton.save.x=0.78
 # textBoxButton.save.y=0.08
-# textBoxButton.save.width=0.1
-# textBoxButton.save.height=0.24
-# textBoxButton.save.asset=assets/ui/save_btn.png
-# textBoxButton.save.hoverAsset=assets/ui/save_btn_hover.png
-# textBoxButton.save.disabledAsset=assets/ui/save_btn_disabled.png
+# textBoxButton.save.width=0.09
+# textBoxButton.save.height=0.22
 # textBoxButton.load.label=Load
 # textBoxButton.load.action=load_menu
-# textBoxButton.load.x=0.85
+# textBoxButton.load.x=0.88
 # textBoxButton.load.y=0.08
-# textBoxButton.load.width=0.1
-# textBoxButton.load.height=0.24
+# textBoxButton.load.width=0.09
+# textBoxButton.load.height=0.22

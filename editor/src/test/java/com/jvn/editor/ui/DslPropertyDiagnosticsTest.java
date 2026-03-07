@@ -20,7 +20,8 @@ class DslPropertyDiagnosticsTest {
   // ── Menu layout diagnostics ──
 
   private static final Set<String> LAYOUT_KEYS = Set.of(
-      "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin", "titleY");
+      "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin",
+      "titleY", "listXCenter", "titleX", "maxVisibleItems");
 
   @Test
   void menuLayoutCleanTemplateProducesNoDiagnostics() {
@@ -47,6 +48,7 @@ class DslPropertyDiagnosticsTest {
   // ── Menu style diagnostics ──
 
   private static final Set<String> STYLE_KEYS = Set.of(
+      "extends",
       "itemColor", "itemSelectedColor", "itemHoverColor", "itemDisabledColor",
       "itemPrefix", "itemSelectedPrefix", "itemDisabledPrefix",
       "itemFontFamily", "itemFontWeight", "itemFontSize",
@@ -54,7 +56,7 @@ class DslPropertyDiagnosticsTest {
       "buttonAsset", "buttonSelectedAsset", "buttonHoverAsset", "buttonDisabledAsset",
       "buttonTextPaddingX", "buttonTextPaddingY",
       "titleColor", "titleFontFamily", "titleFontWeight", "titleFontSize", "titleShadowColor",
-      "hintsColor", "hintsFontFamily", "hintsFontSize",
+      "hintsColor", "hintsFontFamily", "hintsFontWeight", "hintsFontSize",
       "backgroundAsset", "backgroundColor", "backgroundOpacity");
 
   @Test
@@ -151,16 +153,18 @@ class DslPropertyDiagnosticsTest {
   void submenuLayoutTemplateParseableAsProperties() throws Exception {
     Properties p = new Properties();
     p.load(new StringReader(LayoutDslTemplates.submenuLayoutTemplate()));
-    assertEquals("0.24", p.getProperty("listYStart"));
-    assertEquals("62", p.getProperty("lineHeight"));
+    assertEquals("0.32", p.getProperty("listYStart"));
+    assertEquals("58", p.getProperty("lineHeight"));
+    assertEquals("0.5", p.getProperty("listXCenter"));
   }
 
   @Test
   void slotsLayoutTemplateParseableAsProperties() throws Exception {
     Properties p = new Properties();
     p.load(new StringReader(LayoutDslTemplates.slotsLayoutTemplate()));
-    assertEquals("0.20", p.getProperty("listYStart"));
-    assertEquals("74", p.getProperty("lineHeight"));
+    assertEquals("0.22", p.getProperty("listYStart"));
+    assertEquals("68", p.getProperty("lineHeight"));
+    assertEquals("0.5", p.getProperty("listXCenter"));
   }
 
   @Test
@@ -168,7 +172,8 @@ class DslPropertyDiagnosticsTest {
     Properties p = new Properties();
     p.load(new StringReader(LayoutDslTemplates.submenuStyleTemplate()));
     assertFalse(p.isEmpty(), "Submenu style template should produce properties");
-    assertEquals("#D6E0F4", p.getProperty("itemColor"));
+    assertEquals("default", p.getProperty("extends"));
+    assertEquals("#B8C8E4", p.getProperty("itemColor"));
   }
 
   @Test
@@ -176,7 +181,8 @@ class DslPropertyDiagnosticsTest {
     Properties p = new Properties();
     p.load(new StringReader(LayoutDslTemplates.slotStyleTemplate()));
     assertFalse(p.isEmpty(), "Slot style template should produce properties");
-    assertEquals("#E4EDF8", p.getProperty("itemColor"));
+    assertEquals("default", p.getProperty("extends"));
+    assertEquals("#C4D4EC", p.getProperty("itemColor"));
   }
 
   @Test
@@ -184,7 +190,7 @@ class DslPropertyDiagnosticsTest {
     Properties p = new Properties();
     p.load(new StringReader(LayoutDslTemplates.defaultMenuStyleFullTemplate("assets/bg.png")));
     assertEquals("assets/bg.png", p.getProperty("backgroundAsset"));
-    assertEquals("#DCE6F8", p.getProperty("itemColor"));
+    assertEquals("#C8D6EC", p.getProperty("itemColor"));
   }
 
   // ── Malformed input ──

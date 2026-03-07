@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.io.StringReader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Properties;
@@ -75,8 +76,8 @@ class LayoutDslTemplateRegressionTest {
 
     Properties serialized = VnUiLayoutLoader.toProperties(first.layout(), first.style(), first.textBoxButtons());
     assertEquals(
-        toSortedMap(source),
-        toSortedMap(serialized),
+        toCanonicalSortedMap(source),
+        toCanonicalSortedMap(serialized),
         "Serialized dialogue properties drifted from template-declared defaults"
     );
 
@@ -95,8 +96,8 @@ class LayoutDslTemplateRegressionTest {
 
     Properties reserialized = VnUiLayoutLoader.toProperties(second.layout(), second.style(), second.textBoxButtons());
     assertEquals(
-        toSortedMap(serialized),
-        toSortedMap(reserialized),
+        toCanonicalSortedMap(serialized),
+        toCanonicalSortedMap(reserialized),
         "Dialogue parse/serialize round-trip is not stable"
     );
   }
@@ -125,6 +126,23 @@ class LayoutDslTemplateRegressionTest {
       map.put(key, properties.getProperty(key));
     }
     return map;
+  }
+
+  private static Map<String, String> toCanonicalSortedMap(Properties properties) {
+    Map<String, String> map = new TreeMap<>();
+    for (String key : properties.stringPropertyNames()) {
+      map.put(key, canonicalize(properties.getProperty(key)));
+    }
+    return map;
+  }
+
+  private static String canonicalize(String value) {
+    if (value == null) return null;
+    String trimmed = value.trim();
+    if (!trimmed.matches("-?\\d+(\\.\\d+)?")) {
+      return value;
+    }
+    return new BigDecimal(trimmed).stripTrailingZeros().toPlainString();
   }
 
   private static String normalizeNewlines(String value) {

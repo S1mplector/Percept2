@@ -528,8 +528,6 @@ public class SaveMenuScene implements Scene {
   }
 
   private static String normalizeScriptName(String scriptName) {
-    if (scriptName == null) return null;
-    String normalized = scriptName.trim().replace('\\', '/');
-    return normalized.isEmpty() ? null : normalized;
+    return VnEntryScriptResolver.normalizeScriptKey(scriptName);
   }
 }

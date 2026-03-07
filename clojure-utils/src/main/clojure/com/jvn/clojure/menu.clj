@@ -33,6 +33,7 @@
           :title-shadow-color \"#000000\"
           :hints-color       \"#aaaaaa\"
           :hints-font-family \"Arial\"
+          :hints-font-weight \"NORMAL\"
           :hints-font-size   14
           :bg-asset   \"bg.png\"
           :bg-color   \"#1a1a2e\"
@@ -98,6 +99,7 @@
     ;; Hints
     (get m :hints-color)
     (get m :hints-font-family)
+    (get m :hints-font-weight)
     (box-int (get m :hints-font-size))
     ;; Background
     (get m :bg-asset)
