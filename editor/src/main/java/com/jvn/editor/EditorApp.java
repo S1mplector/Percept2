@@ -900,6 +900,7 @@ public class EditorApp extends Application {
     if (!gradleUserHome.exists()) {
       gradleUserHome.mkdirs();
     }
+    String runtimeJavaHome = System.getProperty("java.home", "").trim();
     List<String> cmd = new ArrayList<>();
     cmd.add(resolveGradleCommand(workspace));
     cmd.add("--no-daemon");
@@ -907,6 +908,10 @@ public class EditorApp extends Application {
     cmd.add("--gradle-user-home");
     cmd.add(gradleUserHome.getAbsolutePath());
     cmd.add("-Dorg.gradle.vfs.watch=false");
+    if (!runtimeJavaHome.isEmpty()) {
+      cmd.add("-Dorg.gradle.java.home=" + runtimeJavaHome);
+      cmd.add("-PjvnNativeJavaHome=" + runtimeJavaHome);
+    }
     return cmd;
   }
 
@@ -936,6 +941,10 @@ public class EditorApp extends Application {
       if (workspace != null) {
         File gradleUserHome = new File(workspace, ".jvn-gradle-user-home");
         pb.environment().put("GRADLE_USER_HOME", gradleUserHome.getAbsolutePath());
+      }
+      String runtimeJavaHome = System.getProperty("java.home", "").trim();
+      if (!runtimeJavaHome.isEmpty()) {
+        pb.environment().put("JAVA_HOME", runtimeJavaHome);
       }
       Process process = pb.start();
       try (BufferedReader reader =

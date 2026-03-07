@@ -3,9 +3,19 @@ import org.gradle.api.Project
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 plugins {
   java
+}
+
+val configuredJavaVersion = (findProperty("javaVersion") as String?)?.toIntOrNull() ?: 21
+val overriddenNativeJavaHome = providers.gradleProperty("jvnNativeJavaHome").orNull?.trim()?.takeIf { it.isNotEmpty() }
+
+java {
+  toolchain {
+    languageVersion.set(JavaLanguageVersion.of(configuredJavaVersion))
+  }
 }
 
 allprojects {
@@ -48,6 +58,26 @@ fun resolveNativeBridgePath(): String =
   ).firstOrNull { it.exists() }?.absolutePath
     ?: nativeBuildDir.resolve(jvnBridgeLibName).absolutePath
 
+fun nativeMathCacheFile() = nativeBuildDir.resolve("CMakeCache.txt")
+
+fun configuredNativeMathJavaHome(): String? =
+  nativeMathCacheFile()
+    .takeIf { it.exists() }
+    ?.useLines { lines ->
+      lines
+        .firstOrNull { it.startsWith("JAVA_HOME:") }
+        ?.substringAfter("=")
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+    }
+
+fun canonicalPath(path: String): String = File(path).canonicalFile.absolutePath
+
+fun nativeMathCacheMatches(expectedJavaHome: String): Boolean {
+  val configuredJavaHome = configuredNativeMathJavaHome() ?: return false
+  return canonicalPath(configuredJavaHome) == canonicalPath(expectedJavaHome)
+}
+
 fun cmakeAvailable(project: Project): Boolean = try {
   val out = ByteArrayOutputStream()
   project.exec {
@@ -64,6 +94,14 @@ val skipNativeMathBuild = providers.gradleProperty("skipNativeMathBuild")
   .map { it.equals("true", ignoreCase = true) }
   .orElse(false)
 
+val rootToolchainLauncher = javaToolchains.launcherFor {
+  languageVersion.set(JavaLanguageVersion.of(configuredJavaVersion))
+}
+
+fun resolveNativeMathJavaHome(): String =
+  overriddenNativeJavaHome?.let(::canonicalPath)
+    ?: rootToolchainLauncher.get().metadata.installationPath.asFile.absolutePath
+
 tasks.register("buildNativeMathIfNeeded") {
   group = "build"
   description = "Build native-math libraries via CMake when required outputs are missing."
@@ -74,9 +112,20 @@ tasks.register("buildNativeMathIfNeeded") {
       return@doLast
     }
 
+    val javaHome = resolveNativeMathJavaHome()
+    val cacheMatchesToolchain = nativeMathCacheMatches(javaHome)
+    if (nativeBuildDir.exists() && !cacheMatchesToolchain) {
+      logger.lifecycle(
+        "native-math cache targets a different JDK (cached={}, expected={}); rebuilding",
+        configuredNativeMathJavaHome() ?: "<missing>",
+        javaHome
+      )
+      nativeBuildDir.deleteRecursively()
+    }
+
     val simjotExists = libExists(simjotLibName)
     val bridgeExists = libExists(jvnBridgeLibName)
-    if (simjotExists && bridgeExists) {
+    if (simjotExists && bridgeExists && cacheMatchesToolchain) {
       logger.lifecycle("native-math already built: {} and {}", simjotLibName, jvnBridgeLibName)
       return@doLast
     }
@@ -94,22 +143,32 @@ tasks.register("buildNativeMathIfNeeded") {
       "cmake", "-S", "native-math", "-B", "native-math/build",
       "-DCMAKE_BUILD_TYPE=Release",
       "-DSIMJOT_NATIVE_BUILD_TESTS=OFF",
-      "-DJVN_BUILD_JNI_BRIDGE=ON"
+      "-DJVN_BUILD_JNI_BRIDGE=ON",
+      "-DJAVA_HOME=$javaHome"
     )
-    exec { commandLine(configureArgs) }
+    exec {
+      environment("JAVA_HOME", javaHome)
+      commandLine(configureArgs)
+    }
 
     if (isWindows) {
-      exec { commandLine("cmake", "--build", "native-math/build", "--config", "Release", "--parallel") }
+      exec {
+        environment("JAVA_HOME", javaHome)
+        commandLine("cmake", "--build", "native-math/build", "--config", "Release", "--parallel")
+      }
     } else {
-      exec { commandLine("cmake", "--build", "native-math/build", "--parallel") }
+      exec {
+        environment("JAVA_HOME", javaHome)
+        commandLine("cmake", "--build", "native-math/build", "--parallel")
+      }
     }
 
     val postSimjot = libExists(simjotLibName)
     val postBridge = libExists(jvnBridgeLibName)
-    if (!postSimjot || !postBridge) {
+    if (!postSimjot || !postBridge || !nativeMathCacheMatches(javaHome)) {
       throw GradleException(
         "native-math build completed but required outputs are missing: " +
-          "$simjotLibName=$postSimjot, $jvnBridgeLibName=$postBridge"
+          "$simjotLibName=$postSimjot, $jvnBridgeLibName=$postBridge, JAVA_HOME=${configuredNativeMathJavaHome() ?: "<missing>"}"
       )
     }
   }
@@ -128,7 +187,7 @@ subprojects {
 
   java {
     toolchain {
-      languageVersion.set(JavaLanguageVersion.of((findProperty("javaVersion") as String?)?.toIntOrNull() ?: 21))
+      languageVersion.set(JavaLanguageVersion.of(configuredJavaVersion))
     }
   }
 
