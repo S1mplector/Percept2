@@ -48,6 +48,14 @@ add_library(jvn_audiofx_native SHARED
     src/beez_renderer.cpp
     src/loom_ambience_renderer.cpp
     src/loom_ambience_synth.cpp
+    src/ambience/ambience_dsp.cpp
+    src/ambience/ambience_mode.cpp
+    src/ambience/wind_ambience_mode.cpp
+    src/ambience/rain_ambience_mode.cpp
+    src/ambience/ocean_ambience_mode.cpp
+    src/ambience/thunder_ambience_mode.cpp
+    src/ambience/fireplace_ambience_mode.cpp
+    src/ambience/night_insects_ambience_mode.cpp
     src/jvn_audiofx_bridge.cpp
     ${BEEZ_CORE_SOURCES}
 )
