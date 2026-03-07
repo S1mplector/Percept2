@@ -117,10 +117,10 @@ Common examples:
 
 ```bash
 # Run a specific VNS script with FX renderer
-./gradlew :runtime:run --args='--script demo.vns --ui fx'
+./gradlew :runtime:run --args='--script scripts/story/prologue.vns --ui fx'
 
 # Run with Swing renderer
-./gradlew :runtime:run --args='--script demo.vns --ui swing'
+./gradlew :runtime:run --args='--script scripts/story/prologue.vns --ui swing'
 
 # Load JES directly
 ./gradlew :runtime:run --args='--jes game/minigames/brickbreaker.jes'
@@ -133,7 +133,7 @@ Supported runtime CLI flags:
 - `--title <text>`
 - `--width <px>`
 - `--height <px>`
-- `--script <name>` default: `demo.vns`
+- `--script <name>` optional override for startup VNS script
 - `--locale <code>` default: `en`
 - `--billiards` (currently logs warning if module entry flow is unavailable)
 - `--ui <fx|swing>` default: `fx`
@@ -143,7 +143,12 @@ Supported runtime CLI flags:
 
 Notes:
 - Script loading uses `AssetCatalog` script paths (typically relative to `game/scripts/` on classpath).
-- If script loading fails, runtime falls back to built-in demo scenario content.
+- If `--script` is omitted, runtime resolves entry script in this order:
+  1. `jvn.project` -> `entryVns`
+  2. system property `jvn.entryVns`
+  3. first discovered `.vns` under `scripts/` (with `prologue/start/main` preference)
+- Set project startup script in `jvn.project`:
+  - `entryVns=scripts/story/prologue.vns`
 
 ## Editor
 

@@ -16,7 +16,7 @@ Entrypoint:
 Run specific VNS script:
 
 ```bash
-./gradlew :runtime:run --args='--script demo.vns'
+./gradlew :runtime:run --args='--script scripts/story/prologue.vns'
 ```
 
 Run VNS with explicit backend:
@@ -55,13 +55,23 @@ Run exactly like editor project-run (typical VN project):
 - `--title <text>`: window title override
 - `--width <px>`: initial width
 - `--height <px>`: initial height
-- `--script <name>`: startup VNS script, default `demo.vns`
+- `--script <name>`: optional startup VNS script override
 - `--locale <code>`: localization key set, default `en`
 - `--billiards`: attempts billiards entry flow (currently may log fallback warning)
 - `--ui <fx|swing>`: rendering backend, default `fx`
 - `--jes <path[,path2...]>`: load JES scene(s) directly instead of menu/VNS entry
 - `--audio <fx|simp3|auto>`: audio backend preference
 - `--assets <dir>`: filesystem asset root overlaid with classpath fallback
+
+## Configure Project Entry Script
+
+Set startup script in project root `jvn.project`:
+
+```properties
+entryVns=scripts/story/prologue.vns
+```
+
+`--script` always overrides `entryVns` for that launch.
 
 ## Audio Backend Behavior
 
@@ -92,6 +102,12 @@ Runtime uses `AssetCatalog` and selected manager chain:
 - filesystem overlay + classpath fallback when `--assets` is provided
 
 This is why project-run from editor passes `--assets <projectRoot>` and a normalized script path.
+
+If `--script` is omitted, runtime resolves the startup script in this order:
+
+1. `jvn.project` -> `entryVns`
+2. system property `jvn.entryVns`
+3. discovered `.vns` under `scripts/` (prefers `prologue`, then `start`, then `main`)
 
 Recommended path conventions for reliable loading:
 - scripts: `scripts/story/prologue.vns`
@@ -125,7 +141,7 @@ Also ensure `org.gradle.vfs.watch=false` remains enabled in `gradle.properties`.
 
 ### Script not loading
 
-If a script path is wrong or not found, runtime falls back to demo scenario content.
+If a script path is wrong or not found, runtime opens a generated "missing script" fallback scene so startup still succeeds.
 
 Typical fixes:
 - confirm script is reachable from configured asset root

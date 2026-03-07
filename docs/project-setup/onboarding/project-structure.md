@@ -111,6 +111,8 @@ vcs.git.enabled=true
 - **`name`** — project display name
 - **`type`** — project type (`vn` for visual novel)
 - **`entryVns`** — startup VNS script path
+  - Example: `entryVns=scripts/story/chapter_01.vns`
+  - Runtime uses this when `--script` is not passed.
 
 ### Optional Fields
 

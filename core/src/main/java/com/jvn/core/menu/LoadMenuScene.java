@@ -17,6 +17,7 @@ import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.save.VnSaveData;
 import com.jvn.core.vn.save.VnSaveManager;
 import org.slf4j.Logger;
@@ -62,7 +63,8 @@ public class LoadMenuScene implements Scene {
   ) {
     this.engine = engine;
     this.saveManager = saveManager;
-    this.defaultScriptName = defaultScriptName == null || defaultScriptName.isBlank() ? "story/prologue.vns" : defaultScriptName;
+    String resolvedDefault = VnEntryScriptResolver.resolveEntryScript(defaultScriptName, null);
+    this.defaultScriptName = resolvedDefault == null ? "story/prologue.vns" : resolvedDefault;
     this.settingsModel = settingsModel == null ? new com.jvn.core.vn.VnSettings() : settingsModel;
     this.audio = audio;
     if (profile == null) {

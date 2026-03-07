@@ -25,6 +25,7 @@ import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
+import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
@@ -497,7 +498,12 @@ public class RuntimeVnInterop implements VnInterop {
   private String resolveDefaultScript(VnScene scene) {
     if (scene != null && scene.getState() != null) {
       String source = scene.getState().getSourceScriptName();
-      if (source != null && !source.isBlank()) return source.trim();
+      String normalized = VnEntryScriptResolver.normalizeScriptKey(source);
+      if (normalized != null) return normalized;
+    }
+    String resolved = VnEntryScriptResolver.resolveEntryScript(null, null);
+    if (resolved != null) {
+      return resolved;
     }
     return DEFAULT_ENTRY_SCRIPT;
   }

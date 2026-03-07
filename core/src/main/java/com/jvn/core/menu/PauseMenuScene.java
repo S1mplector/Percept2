@@ -17,6 +17,7 @@ import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene.Scene;
+import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.save.VnSaveManager;
@@ -43,8 +44,8 @@ public class PauseMenuScene implements Scene {
     this.engine = engine;
     this.vnScene = vnScene;
     this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
-    this.defaultScriptName = defaultScriptName == null || defaultScriptName.isBlank()
-        ? "story/prologue.vns" : defaultScriptName;
+    String resolvedDefault = VnEntryScriptResolver.resolveEntryScript(defaultScriptName, null);
+    this.defaultScriptName = resolvedDefault == null ? "story/prologue.vns" : resolvedDefault;
     this.audio = audio;
     MenuProfileLoader.LoadResult menuLoad = MenuProfileLoader.loadWithDiagnostics();
     this.menuProfile = menuLoad.profile();

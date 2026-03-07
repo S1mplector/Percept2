@@ -10,6 +10,7 @@ import com.jvn.core.assets.FilesystemAssetManager;
 import com.jvn.core.assets.OverlayAssetManager;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnSettingsStore;
+import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.MainMenuScene;
@@ -31,7 +32,7 @@ public class JvnApp {
 
   public static void main(String[] args) {
     ApplicationConfig.Builder builder = ApplicationConfig.builder().title("JVN Runtime").width(960).height(540);
-    String scriptName = DEFAULT_ENTRY_SCRIPT;
+    String scriptName = null;
     String locale = "en";
     boolean launchBilliards = false;
     String ui = "fx"; // fx | swing
@@ -129,10 +130,22 @@ public class JvnApp {
     // Init localization
     Localization.init(locale, Thread.currentThread().getContextClassLoader());
 
-    AssetManager manager = (assetRoot == null || assetRoot.isBlank())
+    File assetRootDir = (assetRoot == null || assetRoot.isBlank())
+        ? null
+        : new File(assetRoot);
+    AssetManager manager = (assetRootDir == null)
         ? new ClasspathAssetManager()
-        : new OverlayAssetManager(new FilesystemAssetManager(Paths.get(assetRoot)), new ClasspathAssetManager());
+        : new OverlayAssetManager(new FilesystemAssetManager(Paths.get(assetRootDir.getPath())), new ClasspathAssetManager());
     AssetCatalog.setDefaultManager(manager);
+
+    String resolvedEntryScript = VnEntryScriptResolver.resolveEntryScript(scriptName, assetRootDir);
+    if (resolvedEntryScript == null) {
+      resolvedEntryScript = DEFAULT_ENTRY_SCRIPT;
+      log.warn(
+          "Could not resolve startup script from --script, jvn.project, system property, or script discovery; falling back to {}",
+          DEFAULT_ENTRY_SCRIPT);
+    }
+    VnEntryScriptResolver.publishToSystemProperty(resolvedEntryScript);
 
     // Log asset availability on startup
     AssetCatalog assets = new AssetCatalog(manager);
@@ -180,7 +193,7 @@ public class JvnApp {
           audio.setVoiceVolume(settingsModel.getVoiceVolume());
         }
       } catch (Exception ignored) {}
-      MainMenuScene menu = new MainMenuScene(engine, settingsModel, saveManager, scriptName, audio);
+      MainMenuScene menu = new MainMenuScene(engine, settingsModel, saveManager, resolvedEntryScript, audio);
       if (settingsModel != null) {
         engine.setFixedUpdateStepMs(settingsModel.getPhysicsFixedStepMs(), settingsModel.getPhysicsMaxSubSteps());
       }

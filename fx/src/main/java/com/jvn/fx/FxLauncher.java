@@ -22,6 +22,7 @@ import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.scene2d.Scene2D;
 import com.jvn.core.scene2d.Scene2DBase;
+import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnScene;
 import com.jvn.fx.menu.MenuRenderer;
 import com.jvn.fx.menu.MenuTheme;
@@ -904,9 +905,11 @@ public class FxLauncher extends Application {
 
   private static String resolveDefaultScriptForMenus(VnScene vnScene) {
     if (vnScene != null && vnScene.getState() != null) {
-      String sourceScript = vnScene.getState().getSourceScriptName();
-      if (sourceScript != null && !sourceScript.isBlank()) return sourceScript.trim();
+      String sourceScript = VnEntryScriptResolver.normalizeScriptKey(vnScene.getState().getSourceScriptName());
+      if (sourceScript != null) return sourceScript;
     }
+    String resolved = VnEntryScriptResolver.resolveEntryScript(null, null);
+    if (resolved != null) return resolved;
     return DEFAULT_ENTRY_SCRIPT;
   }
 

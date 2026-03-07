@@ -22,6 +22,7 @@ import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnSettingsStore;
 import com.jvn.core.vn.save.VnSaveManager;
@@ -111,7 +112,8 @@ public class SettingsScene implements Scene {
   ) {
     this.engine = engine;
     this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
-    this.defaultScriptName = normalize(defaultScriptName, "story/prologue.vns");
+    String resolvedDefault = VnEntryScriptResolver.resolveEntryScript(defaultScriptName, null);
+    this.defaultScriptName = normalize(resolvedDefault, "story/prologue.vns");
     this.settings = settings == null ? new VnSettings() : settings;
     this.audio = audio;
     if (bindings != null) {

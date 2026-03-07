@@ -73,7 +73,8 @@ Project run from editor:
 1. Reads `jvn.project` from project root.
 2. For VN projects (`type=vn`), launches runtime with:
    - `--assets <projectRoot>`
-   - normalized `--script <entryVns>`
+   - normalized `--script <entryVns>` when manifest entry is defined
+   - otherwise runtime-side entry resolution (`entryVns`/property/discovery)
 3. Executes Gradle with isolated user home:
    - `.jvn-gradle-user-home`
    - `--no-daemon`, `--console=plain`, VFS watch disabled

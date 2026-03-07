@@ -51,23 +51,33 @@ class VnScenarioLoaderIncludeTest {
   }
 
   @Test
-  void loadMapsDeprecatedDemoScriptNameToStoryPrologueWhenPresent() throws Exception {
+  void loadMapsDeprecatedDemoScriptNameToResolvedEntryScript() throws Exception {
     Path storyDir = Files.createDirectories(tempProjectRoot.resolve("scripts/story"));
-    Files.writeString(storyDir.resolve("prologue.vns"), """
-        @scenario migrated_prologue
+    Files.writeString(storyDir.resolve("custom_intro.vns"), """
+        @scenario migrated_custom_intro
         @label start
         Narrator: Migrated entry script.
         [end]
         """);
 
+    String previous = System.getProperty("jvn.entryVns");
+    VnEntryScriptResolver.publishToSystemProperty("scripts/story/custom_intro.vns");
     VnScenarioLoader loader = new VnScenarioLoader(
         new AssetCatalog(new FilesystemAssetManager(tempProjectRoot)),
         new VnScriptParser(),
         "game/scripts/");
 
-    VnScenario scenario = loader.load("demo.vns");
+    try {
+      VnScenario scenario = loader.load("demo.vns");
 
-    assertEquals("migrated_prologue", scenario.getId());
-    assertNotNull(scenario.getLabelIndex("start"));
+      assertEquals("migrated_custom_intro", scenario.getId());
+      assertNotNull(scenario.getLabelIndex("start"));
+    } finally {
+      if (previous == null || previous.isBlank()) {
+        VnEntryScriptResolver.publishToSystemProperty(null);
+      } else {
+        VnEntryScriptResolver.publishToSystemProperty(previous);
+      }
+    }
   }
 }

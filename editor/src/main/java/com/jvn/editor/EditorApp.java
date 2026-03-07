@@ -355,7 +355,7 @@ public class EditorApp extends Application {
   }
 
   private void runVnProjectInRuntime(File root, Properties mf) {
-    String entryVns = mf.getProperty("entryVns", "scripts/story/prologue.vns").trim();
+    String entryVns = mf.getProperty("entryVns", "").trim();
     String runtimeScript = normalizeRuntimeScriptPath(entryVns);
     File workspaceRoot = resolveWorkspaceRoot();
     if (workspaceRoot == null) {
@@ -365,7 +365,9 @@ public class EditorApp extends Application {
 
     StringBuilder runtimeArgs = new StringBuilder();
     runtimeArgs.append("--assets ").append(quoteCliArg(root.getAbsolutePath()));
-    runtimeArgs.append(" --script ").append(quoteCliArg(runtimeScript));
+    if (runtimeScript != null && !runtimeScript.isBlank()) {
+      runtimeArgs.append(" --script ").append(quoteCliArg(runtimeScript));
+    }
 
     String title = mf.getProperty("name", "").trim();
     if (!title.isBlank()) runtimeArgs.append(" --title ").append(quoteCliArg(title));
@@ -387,12 +389,12 @@ public class EditorApp extends Application {
   }
 
   private String normalizeRuntimeScriptPath(String entryVns) {
-    if (entryVns == null || entryVns.isBlank()) return "story/prologue.vns";
+    if (entryVns == null || entryVns.isBlank()) return null;
     String script = entryVns.trim().replace('\\', '/');
     if (script.startsWith("./")) script = script.substring(2);
     if (script.startsWith("game/scripts/")) script = script.substring("game/scripts/".length());
     if (script.startsWith("scripts/")) script = script.substring("scripts/".length());
-    return script;
+    return script.isBlank() ? null : script;
   }
 
   private String quoteCliArg(String raw) {

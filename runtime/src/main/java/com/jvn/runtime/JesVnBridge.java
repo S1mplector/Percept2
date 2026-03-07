@@ -9,6 +9,7 @@ import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnState;
+import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 /**
@@ -146,9 +147,11 @@ public class JesVnBridge {
   private String defaultScriptName() {
     VnScene vn = topVn();
     if (vn != null && vn.getState() != null) {
-      String source = vn.getState().getSourceScriptName();
-      if (source != null && !source.isBlank()) return source.trim();
+      String source = VnEntryScriptResolver.normalizeScriptKey(vn.getState().getSourceScriptName());
+      if (source != null) return source;
     }
+    String resolved = VnEntryScriptResolver.resolveEntryScript(null, null);
+    if (resolved != null) return resolved;
     return DEFAULT_ENTRY_SCRIPT;
   }
 }

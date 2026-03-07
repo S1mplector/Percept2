@@ -79,17 +79,31 @@ public class VnScenarioLoader {
       }
     }
 
-    // Backward compatibility: deprecated runtime demo script key now maps to the project prologue.
+    // Backward compatibility: deprecated runtime demo script key now maps to resolved entry script.
     if ("demo.vns".equalsIgnoreCase(normalized)) {
-      for (String path : loader.getCandidatePaths("story/prologue.vns", locale)) {
+      String mappedEntry = VnEntryScriptResolver.resolveEntryScript(null, null);
+      if (mappedEntry == null || mappedEntry.isBlank()) {
+        mappedEntry = "story/prologue.vns";
+      }
+      for (String path : loader.getCandidatePaths(mappedEntry, locale)) {
         if (path == null || path.isBlank()) continue;
         candidates.add(path);
         if (path.startsWith(scriptsBase)) {
           candidates.add(path.substring(scriptsBase.length()));
         }
       }
-      candidates.add("story/prologue.vns");
-      candidates.add("prologue.vns");
+      candidates.add(mappedEntry);
+      if (!"story/prologue.vns".equalsIgnoreCase(mappedEntry)) {
+        for (String path : loader.getCandidatePaths("story/prologue.vns", locale)) {
+          if (path == null || path.isBlank()) continue;
+          candidates.add(path);
+          if (path.startsWith(scriptsBase)) {
+            candidates.add(path.substring(scriptsBase.length()));
+          }
+        }
+        candidates.add("story/prologue.vns");
+        candidates.add("prologue.vns");
+      }
     }
 
     // Direct fallback in case the provided key already matches the asset catalog key.
