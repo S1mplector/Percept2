@@ -47,6 +47,7 @@ set(BEEZ_CORE_SOURCES
 add_library(jvn_audiofx_native SHARED
     src/beez_renderer.cpp
     src/loom_ambience_renderer.cpp
+    src/loom_ambience_synth.cpp
     src/jvn_audiofx_bridge.cpp
     ${BEEZ_CORE_SOURCES}
 )

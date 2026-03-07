@@ -18,6 +18,22 @@ class NativeAmbienceMathTest {
   }
 
   @Test
+  void reconfiguringSameRendererResetsDeterministicState() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    AmbienceProfile profile = new AmbienceProfile(0.70f, 0.66f, 0.52f, 0.61f, true);
+    try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
+      renderer.configure("ocean", 0.84f, 0.58f, profile);
+      byte[] first = renderChunk(renderer, 88_200);
+      renderer.configure("ocean", 0.84f, 0.58f, profile);
+      byte[] second = renderChunk(renderer, 88_200);
+      assertArrayEquals(
+          first,
+          second,
+          "reconfiguring the same native renderer should reset RNG/LFO state");
+    }
+  }
+
+  @Test
   void windMotionRaisesMacrodynamicVariation() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
     double lowMotion = envelopeVariation(monoSamples(renderAmbience(
@@ -147,19 +163,23 @@ class NativeAmbienceMathTest {
       String preset, float intensity, float volume, AmbienceProfile profile, int totalFrames) {
     try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
       renderer.configure(preset, intensity, volume, profile);
-      byte[] pcm = new byte[totalFrames * 4];
-      int offset = 0;
-      int remainingFrames = totalFrames;
-      while (remainingFrames > 0) {
-        int chunkFrames = Math.min(4096, remainingFrames);
-        byte[] chunk = new byte[chunkFrames * 4];
-        int written = renderer.render(chunk, chunkFrames);
-        System.arraycopy(chunk, 0, pcm, offset, written);
-        offset += written;
-        remainingFrames -= chunkFrames;
-      }
-      return pcm;
+      return renderChunk(renderer, totalFrames);
     }
+  }
+
+  private static byte[] renderChunk(AudioFxNativeBridge.AmbienceRenderer renderer, int totalFrames) {
+    byte[] pcm = new byte[totalFrames * 4];
+    int offset = 0;
+    int remainingFrames = totalFrames;
+    while (remainingFrames > 0) {
+      int chunkFrames = Math.min(4096, remainingFrames);
+      byte[] chunk = new byte[chunkFrames * 4];
+      int written = renderer.render(chunk, chunkFrames);
+      System.arraycopy(chunk, 0, pcm, offset, written);
+      offset += written;
+      remainingFrames -= chunkFrames;
+    }
+    return pcm;
   }
 
   private static double[] monoSamples(byte[] pcm) {
