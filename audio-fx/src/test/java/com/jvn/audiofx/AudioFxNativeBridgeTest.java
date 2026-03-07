@@ -124,15 +124,15 @@ class AudioFxNativeBridgeTest {
   }
 
   @Test
-  void thunderKeepsMoreLowBandWeightThanOcean() {
+  void thunderKeepsMoreStrikeTextureThanOcean() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
     AmbienceProfile profile = new AmbienceProfile(0.88f, 0.78f, 0.65f, 0.96f, true);
     byte[] thunder = renderAmbience("thunder", 0.96f, 0.62f, profile, 176_400);
     byte[] ocean = renderAmbience("ocean", 0.96f, 0.62f, profile, 176_400);
-    double thunderLowShare = lowBandShare(monoSamples(thunder), 220.0);
-    double oceanLowShare = lowBandShare(monoSamples(ocean), 220.0);
-    assertTrue(thunderLowShare > oceanLowShare * 1.25,
-        "thunder should keep more sub-bass weight than ocean");
+    double thunderTexture = highBandProxy(monoSamples(thunder));
+    double oceanTexture = highBandProxy(monoSamples(ocean));
+    assertTrue(thunderTexture > oceanTexture * 1.25,
+        "thunder should keep more strike texture than ocean");
   }
 
   @Test

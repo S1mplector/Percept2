@@ -113,6 +113,9 @@ private:
 
   static float clamp01(float value);
   static Preset presetFromToken(const std::string& token);
+  float nextRandom01();
+  float randomRange(float minValue, float maxValue);
+  float sampleEventInterval(float rateHz, float minimumSeconds);
   void updateFilters();
   void maybeTriggerWindGust(float dt);
   float synthesizeWindSample();
@@ -136,28 +139,39 @@ private:
   float elapsedSeconds_ = 0.0f;
   float gustTimer_ = 0.0f;
   float dropletEnvelope_ = 0.0f;
+  float rainDropTimer_ = 0.0f;
   float thunderRumblePhase_ = 0.0f;
   float thunderCrackEnvelope_ = 0.0f;
   float crackleEnvelope_ = 0.0f;
   float chirpPhase_ = 0.0f;
   float chirpEnvelope_ = 0.0f;
+  float windWhistlePhase_ = 0.0f;
 
   // Ocean enhanced state
   float oceanCrashEnvelope_ = 0.0f;
+  float oceanCrashTimer_ = 0.0f;
   // Thunder enhanced state
   float thunderBoltEnvelope_ = 0.0f;
   float thunderBoltTimer_ = 0.0f;
   float thunderBoltDecayRate_ = 0.9990f;
   float thunderDropEnvelope_ = 0.0f;
+  float thunderDropTimer_ = 0.0f;
   // Fireplace enhanced state
   float fireSnapEnvelope_ = 0.0f;
   float firePopEnvelope_ = 0.0f;
   float fireEmberPhase_ = 0.0f;
+  float fireCrackleTimer_ = 0.0f;
+  float firePopTimer_ = 0.0f;
+  float fireSnapTimer_ = 0.0f;
   // Night insects enhanced state
   float cricket2Phase_ = 0.0f;
   float cricket2Envelope_ = 0.0f;
   float cricket3Phase_ = 0.0f;
   float frogEnvelope_ = 0.0f;
+  float frogTimer_ = 0.0f;
+
+  std::mt19937 eventRng_{0x10293847u};
+  std::uniform_real_distribution<float> eventDist_{0.0f, 1.0f};
 
   NoiseGenerator noiseLow_{0x11111111u};
   NoiseGenerator noiseMid_{0x22222222u};

@@ -234,11 +234,13 @@ void LoomAmbienceRenderer::configure(
   motion_ = clamp01(motion);
   spread_ = clamp01(spread);
   accent_ = clamp01(accent);
+  eventRng_.seed(0x10293847u + static_cast<uint32_t>(preset_) * 0x1f1f1f1fu);
   loop_ = loop;
   finished_ = false;
   elapsedSeconds_ = 0.0f;
-  gustTimer_ = 0.0f;
+  gustTimer_ = randomRange(0.2f, 0.8f);
   dropletEnvelope_ = 0.0f;
+  rainDropTimer_ = randomRange(0.02f, 0.12f);
   noiseLow_.reset();
   noiseMid_.reset();
   noiseHigh_.reset();
@@ -256,18 +258,25 @@ void LoomAmbienceRenderer::configure(
   crackleEnvelope_ = 0.0f;
   chirpPhase_ = 0.0f;
   chirpEnvelope_ = 0.0f;
+  windWhistlePhase_ = 0.0f;
   oceanCrashEnvelope_ = 0.0f;
+  oceanCrashTimer_ = randomRange(0.6f, 1.5f);
   thunderBoltEnvelope_ = 0.0f;
-  thunderBoltTimer_ = 0.0f;
+  thunderBoltTimer_ = randomRange(0.4f, 1.4f);
   thunderBoltDecayRate_ = 0.9990f;
   thunderDropEnvelope_ = 0.0f;
+  thunderDropTimer_ = randomRange(0.02f, 0.10f);
   fireSnapEnvelope_ = 0.0f;
   firePopEnvelope_ = 0.0f;
   fireEmberPhase_ = 0.0f;
+  fireCrackleTimer_ = randomRange(0.3f, 1.0f);
+  firePopTimer_ = randomRange(0.08f, 0.30f);
+  fireSnapTimer_ = randomRange(0.02f, 0.10f);
   cricket2Phase_ = 0.0f;
   cricket2Envelope_ = 0.0f;
   cricket3Phase_ = 0.0f;
   frogEnvelope_ = 0.0f;
+  frogTimer_ = randomRange(2.0f, 4.5f);
   gust_.setSampleRate(static_cast<float>(sampleRate_));
   updateFilters();
 }
@@ -338,6 +347,22 @@ LoomAmbienceRenderer::Preset LoomAmbienceRenderer::presetFromToken(const std::st
   return Preset::Wind;
 }
 
+float LoomAmbienceRenderer::nextRandom01() {
+  return eventDist_(eventRng_);
+}
+
+float LoomAmbienceRenderer::randomRange(float minValue, float maxValue) {
+  const float lo = std::min(minValue, maxValue);
+  const float hi = std::max(minValue, maxValue);
+  return lo + (hi - lo) * nextRandom01();
+}
+
+float LoomAmbienceRenderer::sampleEventInterval(float rateHz, float minimumSeconds) {
+  const float safeRate = std::max(0.01f, rateHz);
+  const float u = std::max(1.0e-5f, 1.0f - nextRandom01());
+  return minimumSeconds + (-std::log(u) / safeRate);
+}
+
 void LoomAmbienceRenderer::updateFilters() {
   const float sr = static_cast<float>(sampleRate_);
   const float detailBrightness = 0.8f + detail_ * 0.65f;
@@ -390,15 +415,19 @@ void LoomAmbienceRenderer::updateFilters() {
 
 void LoomAmbienceRenderer::maybeTriggerWindGust(float dt) {
   if (gust_.isActive()) return;
-  gustTimer_ += dt;
-  const float gustChance = (0.05f + motion_ * 0.08f) * (0.35f + intensity_ * 1.15f + accent_ * 0.35f);
-  if (gustTimer_ > 1.0f / std::max(0.05f, gustChance)) {
-    gust_.trigger(0.25f + intensity_ * 0.65f + accent_ * 0.35f);
-    gustTimer_ = 0.0f;
+  gustTimer_ -= dt;
+  if (gustTimer_ <= 0.0f) {
+    const float gustEnergy =
+        (0.22f + intensity_ * 0.60f + accent_ * 0.28f + motion_ * 0.18f)
+        * randomRange(0.88f, 1.15f);
+    gust_.trigger(gustEnergy);
+    const float gustRateHz = 0.08f + motion_ * 0.11f + intensity_ * 0.08f + accent_ * 0.04f;
+    gustTimer_ = sampleEventInterval(gustRateHz, 0.7f);
   }
 }
 
 float LoomAmbienceRenderer::synthesizeWindSample() {
+  const float dt = 1.0f / sampleRate_;
   const float slowMod = slowLfo_.sine() * 0.5f + 0.5f;
   const float medMod = mediumLfo_.triangle() * 0.5f + 0.5f;
   const float fastMod = fastLfo_.sine() * 0.2f + 0.8f;
@@ -431,14 +460,33 @@ float LoomAmbienceRenderer::synthesizeWindSample() {
   if (intensity_ > 0.35f) {
     const float whooshNoise = noiseMid_.filtered(0.06f + intensity_ * 0.18f + detail_ * 0.06f, 0.2f + accent_ * 0.2f);
     const float whooshIntensity = std::sqrt((intensity_ - 0.35f) / 0.65f);
-    speedWhoosh = whooshNoise * whooshIntensity * 0.30f * medMod;
+    speedWhoosh = whooshNoise * whooshIntensity * (0.24f + motion_ * 0.10f) * medMod;
   }
 
-  const float mix = std::tanh((lowLayer + midLayer + highLayer + gustLayer + speedWhoosh) * 0.60f);
+  const float whistleDrive = std::max(
+      0.0f,
+      gustEnvelope * (0.9f + accent_ * 0.45f)
+          + std::max(0.0f, speedWhoosh) * (0.6f + detail_ * 0.35f)
+          - 0.10f);
+  const float whistleFreq =
+      620.0f + detail_ * 1050.0f + accent_ * 650.0f + medMod * 240.0f + gustEnvelope * 360.0f;
+  windWhistlePhase_ += whistleFreq * dt;
+  if (windWhistlePhase_ > 1.0f) windWhistlePhase_ -= std::floor(windWhistlePhase_);
+  const float whistle = std::sin(windWhistlePhase_ * 2.0f * kPi)
+      * whistleDrive * whistleDrive
+      * (0.015f + detail_ * 0.055f + accent_ * 0.040f);
+
+  const float edgeFlutter =
+      lowPassHigh_.process(highPassHigh_.process(noiseGust_.white()))
+      * whistleDrive * (0.010f + detail_ * 0.020f);
+
+  const float mix = std::tanh(
+      (lowLayer + midLayer + highLayer + gustLayer + speedWhoosh + whistle + edgeFlutter) * 0.60f);
   return mix;
 }
 
 float LoomAmbienceRenderer::synthesizeRainSample() {
+  const float dt = 1.0f / sampleRate_;
   slowLfo_.advance();
   mediumLfo_.advance();
   const float slowMod = slowLfo_.sine() * 0.5f + 0.5f;
@@ -451,15 +499,21 @@ float LoomAmbienceRenderer::synthesizeRainSample() {
   float hiss = rainHissHighPass_.process(noiseHigh_.white());
   hiss *= 0.04f + intensity_ * 0.12f + detail_ * 0.12f;
 
-  const float triggerThreshold = 0.989f - intensity_ * 0.07f - accent_ * 0.05f;
-  if (noiseDrop_.white() > triggerThreshold) {
-    dropletEnvelope_ = 0.28f + intensity_ * 0.45f + accent_ * 0.25f;
+  rainDropTimer_ -= dt;
+  if (rainDropTimer_ <= 0.0f) {
+    dropletEnvelope_ = std::max(
+        dropletEnvelope_,
+        (0.14f + intensity_ * 0.22f + accent_ * 0.30f) * randomRange(0.85f, 1.20f));
+    const float dropRateHz = 8.0f + intensity_ * 18.0f + accent_ * 3.0f + motion_ * 5.0f;
+    rainDropTimer_ = sampleEventInterval(dropRateHz, 0.008f);
   }
   dropletEnvelope_ *= 0.9935f - intensity_ * 0.0015f - motion_ * 0.0008f;
   float drop = rainDropBandPass_.process(noiseDrop_.white()) * dropletEnvelope_;
-  drop *= 0.55f + slowMod * 0.25f;
+  drop *= 0.36f + slowMod * 0.16f + accent_ * 0.10f;
+  float splash = rainHissHighPass_.process(noiseDrop_.white());
+  splash *= dropletEnvelope_ * (0.10f + detail_ * 0.10f + accent_ * 0.12f);
 
-  const float body = std::tanh((bed + hiss + drop) * (0.72f + density * 0.28f));
+  const float body = std::tanh((bed + hiss + drop + splash) * (0.72f + density * 0.28f));
   return body;
 }
 
@@ -504,20 +558,24 @@ float LoomAmbienceRenderer::synthesizeOceanSample() {
   spray *= crest * crest * crest * (0.03f + detail_ * 0.07f);
 
   // 5) Crash events — large wave impacts
-  const float crashChance = (0.0008f + intensity_ * 0.003f + accent_ * 0.002f)
-                          * std::max(0.0f, crest - 0.3f);
-  if (noiseOceanFoam_.white() > (1.0f - crashChance) && oceanCrashEnvelope_ < 0.06f) {
-    oceanCrashEnvelope_ = 0.5f + intensity_ * 0.4f + accent_ * 0.25f;
+  oceanCrashTimer_ -= 1.0f / sampleRate_;
+  if (oceanCrashTimer_ <= 0.0f && crest > randomRange(0.32f, 0.68f)) {
+    oceanCrashEnvelope_ =
+        (0.34f + intensity_ * 0.34f + accent_ * 0.34f) * randomRange(0.88f, 1.18f);
+    const float crashRateHz = 0.06f + intensity_ * 0.16f + accent_ * 0.04f;
+    oceanCrashTimer_ = sampleEventInterval(crashRateHz, 0.65f);
   }
   oceanCrashEnvelope_ *= 0.9975f - motion_ * 0.0006f;
   float crash = oceanCrashBandPass_.process(noiseOceanFoam_.pink());
-  crash *= oceanCrashEnvelope_ * (0.3f + detail_ * 0.25f);
+  crash *= oceanCrashEnvelope_ * (0.26f + detail_ * 0.20f + accent_ * 0.18f);
+  float crashSpray = oceanSprayHighPass_.process(noiseOceanFoam_.white());
+  crashSpray *= oceanCrashEnvelope_ * oceanCrashEnvelope_ * (0.05f + detail_ * 0.08f + accent_ * 0.06f);
 
   // 6) Distant continuous roar
   float roar = noiseMid_.filtered(0.04f + intensity_ * 0.06f, 0.1f + accent_ * 0.1f);
   roar *= (0.05f + intensity_ * 0.07f) * slowMod;
 
-  return std::tanh((undertow + swell + wash + foam + spray + crash + roar) * 0.78f);
+  return std::tanh((undertow + swell + wash + foam + spray + crash + crashSpray + roar) * 0.78f);
 }
 
 float LoomAmbienceRenderer::synthesizeThunderSample() {
@@ -539,24 +597,28 @@ float LoomAmbienceRenderer::synthesizeThunderSample() {
   rumble *= (0.20f + intensity_ * 0.30f + accent_ * 0.12f) * rumbleMod;
 
   // 3) Lightning bolt events — multi-stage (crack → rolling decay)
-  thunderBoltTimer_ += dt;
-  const float boltInterval = 7.0f - intensity_ * 4.0f - accent_ * 2.0f;
-  if (thunderBoltTimer_ > std::max(1.5f, boltInterval) && thunderBoltEnvelope_ < 0.02f) {
+  thunderBoltTimer_ -= dt;
+  if (thunderBoltTimer_ <= 0.0f && thunderBoltEnvelope_ < 0.08f) {
     thunderBoltEnvelope_ = 0.85f + intensity_ * 0.15f;
+    thunderCrackEnvelope_ = 0.92f + detail_ * 0.12f + accent_ * 0.08f;
     // Randomize decay rate for distance variation
-    const float r = (noiseThunderBolt_.white() + 1.0f) * 0.5f;
+    const float r = nextRandom01();
     thunderBoltDecayRate_ = 0.9980f + r * 0.0016f;
-    thunderBoltTimer_ = 0.0f;
+    const float boltRateHz = 0.08f + intensity_ * 0.20f + accent_ * 0.04f + motion_ * 0.05f;
+    thunderBoltTimer_ = sampleEventInterval(boltRateHz, 1.0f);
   }
   thunderBoltEnvelope_ *= thunderBoltDecayRate_;
+  thunderCrackEnvelope_ *= 0.9865f - detail_ * 0.0025f;
 
   // Bolt bright crack — only at high envelope (initial strike)
-  const float brightPhase = std::max(0.0f, (thunderBoltEnvelope_ - 0.35f) / 0.65f);
+  const float brightPhase = thunderCrackEnvelope_ * thunderCrackEnvelope_;
   float crack = thunderCrackBandPass_.process(noiseThunderBolt_.white());
-  crack *= brightPhase * brightPhase * (0.55f + detail_ * 0.35f + accent_ * 0.20f);
+  crack *= brightPhase * brightPhase * (0.50f + detail_ * 0.30f + accent_ * 0.38f);
+  float crackAir = thunderRainHighPass_.process(noiseThunderBolt_.white());
+  crackAir *= thunderCrackEnvelope_ * (0.02f + detail_ * 0.04f + accent_ * 0.10f);
 
   // Bolt rolling body — follows full envelope but shaped
-  const float bodyPhase = thunderBoltEnvelope_ * (1.0f - brightPhase * 0.4f);
+  const float bodyPhase = thunderBoltEnvelope_ * (1.0f - std::min(0.55f, brightPhase * 0.35f));
   float boltRumble = thunderRumbleLowPass_.process(noiseThunderBolt_.brown());
   boltRumble *= bodyPhase * (0.4f + intensity_ * 0.3f);
 
@@ -565,9 +627,13 @@ float LoomAmbienceRenderer::synthesizeThunderSample() {
   rain *= (0.10f + intensity_ * 0.16f + detail_ * 0.10f) * (0.85f + mediumLfo_.triangle() * 0.15f);
 
   // Rain droplet events — individual impacts
-  const float dropChance = 0.005f + intensity_ * 0.010f + accent_ * 0.005f;
-  if (noiseDrop_.white() > (1.0f - dropChance) && thunderDropEnvelope_ < 0.08f) {
-    thunderDropEnvelope_ = 0.20f + intensity_ * 0.30f + accent_ * 0.15f;
+  thunderDropTimer_ -= dt;
+  if (thunderDropTimer_ <= 0.0f) {
+    thunderDropEnvelope_ = std::max(
+        thunderDropEnvelope_,
+        (0.16f + intensity_ * 0.20f + accent_ * 0.16f) * randomRange(0.85f, 1.18f));
+    const float dropRateHz = 6.0f + intensity_ * 14.0f + accent_ * 2.0f;
+    thunderDropTimer_ = sampleEventInterval(dropRateHz, 0.01f);
   }
   thunderDropEnvelope_ *= 0.9945f - motion_ * 0.001f;
   float drop = thunderDropBandPass_.process(noiseDrop_.white());
@@ -577,7 +643,7 @@ float LoomAmbienceRenderer::synthesizeThunderSample() {
   float wind = noiseMid_.filtered(0.05f + intensity_ * 0.10f, 0.15f + motion_ * 0.1f);
   wind *= (0.06f + intensity_ * 0.10f + motion_ * 0.06f) * (0.8f + slowMod * 0.4f);
 
-  return std::tanh((subBass + rumble + crack + boltRumble + rain + drop + wind) * 0.72f);
+  return std::tanh((subBass + rumble + crack + crackAir + boltRumble + rain + drop + wind) * 0.72f);
 }
 
 float LoomAmbienceRenderer::synthesizeFireplaceSample() {
@@ -604,27 +670,36 @@ float LoomAmbienceRenderer::synthesizeFireplaceSample() {
   base *= (0.18f + intensity_ * 0.24f) * (0.85f + slowMod * 0.15f);
 
   // 3) Large cracks — infrequent, loud, long decay
-  const float crackleChance = 0.002f + intensity_ * 0.005f + accent_ * 0.004f;
-  if (noiseFire_.white() > (1.0f - crackleChance) && crackleEnvelope_ < 0.06f) {
-    crackleEnvelope_ = 0.40f + intensity_ * 0.40f + accent_ * 0.30f;
+  fireCrackleTimer_ -= dt;
+  if (fireCrackleTimer_ <= 0.0f && crackleEnvelope_ < 0.10f) {
+    crackleEnvelope_ =
+        (0.34f + intensity_ * 0.34f + accent_ * 0.22f) * randomRange(0.85f, 1.20f);
+    const float crackleRateHz = 0.7f + intensity_ * 1.6f + accent_ * 1.2f;
+    fireCrackleTimer_ = sampleEventInterval(crackleRateHz, 0.12f);
   }
   crackleEnvelope_ *= 0.9972f - motion_ * 0.0008f;
   float crackle = fireCrackleBandPass_.process(noiseFire_.white());
   crackle *= crackleEnvelope_ * (0.50f + detail_ * 0.30f + accent_ * 0.15f);
 
   // 4) Medium pops — moderately frequent, mid energy
-  const float popChance = 0.006f + intensity_ * 0.010f + accent_ * 0.005f + detail_ * 0.004f;
-  if (noiseFireDetail_.white() > (1.0f - popChance) && firePopEnvelope_ < 0.08f) {
-    firePopEnvelope_ = 0.22f + intensity_ * 0.25f + accent_ * 0.15f;
+  firePopTimer_ -= dt;
+  if (firePopTimer_ <= 0.0f && firePopEnvelope_ < 0.10f) {
+    firePopEnvelope_ =
+        (0.18f + intensity_ * 0.22f + accent_ * 0.12f) * randomRange(0.85f, 1.18f);
+    const float popRateHz = 2.5f + intensity_ * 5.0f + accent_ * 2.5f + detail_ * 1.5f;
+    firePopTimer_ = sampleEventInterval(popRateHz, 0.05f);
   }
   firePopEnvelope_ *= 0.9952f - motion_ * 0.0006f;
   float pop = fireCrackleBandPass_.process(noiseFireDetail_.white());
   pop *= firePopEnvelope_ * (0.35f + detail_ * 0.25f);
 
   // 5) Small snaps — frequent, quiet, short
-  const float snapChance = 0.012f + intensity_ * 0.018f + detail_ * 0.010f;
-  if (noiseFireDetail_.white() > (1.0f - snapChance) && fireSnapEnvelope_ < 0.10f) {
-    fireSnapEnvelope_ = 0.15f + intensity_ * 0.18f + detail_ * 0.12f;
+  fireSnapTimer_ -= dt;
+  if (fireSnapTimer_ <= 0.0f && fireSnapEnvelope_ < 0.10f) {
+    fireSnapEnvelope_ =
+        (0.11f + intensity_ * 0.15f + detail_ * 0.10f) * randomRange(0.90f, 1.15f);
+    const float snapRateHz = 5.5f + intensity_ * 9.0f + detail_ * 7.0f;
+    fireSnapTimer_ = sampleEventInterval(snapRateHz, 0.02f);
   }
   fireSnapEnvelope_ *= 0.992f - motion_ * 0.001f;
   float snap = fireSnapBandPass_.process(noiseFireDetail_.white());
@@ -692,9 +767,12 @@ float LoomAmbienceRenderer::synthesizeNightInsectsSample() {
   cicada *= cicadaPresence * cicadaMod * (0.06f + intensity_ * 0.10f + detail_ * 0.06f);
 
   // 5) Frog croaks (200-500 Hz) — occasional low-frequency bursts
-  const float frogChance = 0.0005f + intensity_ * 0.001f + accent_ * 0.0008f;
-  if (noiseInsect2_.white() > (1.0f - frogChance) && frogEnvelope_ < 0.05f) {
-    frogEnvelope_ = 0.30f + intensity_ * 0.25f + accent_ * 0.20f;
+  frogTimer_ -= dt;
+  if (frogTimer_ <= 0.0f && frogEnvelope_ < 0.08f) {
+    frogEnvelope_ =
+        (0.22f + intensity_ * 0.20f + accent_ * 0.18f) * randomRange(0.90f, 1.15f);
+    const float frogRateHz = 0.04f + intensity_ * 0.10f + accent_ * 0.12f;
+    frogTimer_ = sampleEventInterval(frogRateHz, 0.9f);
   }
   frogEnvelope_ *= 0.9985f - motion_ * 0.0003f;
   float frog = frogBandPass_.process(noiseInsect2_.white());
