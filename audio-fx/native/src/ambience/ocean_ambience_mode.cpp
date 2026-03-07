@@ -21,6 +21,8 @@ void OceanAmbienceMode::configure(const RenderControls& controls) {
   noiseMid_.reset();
   noiseHigh_.reset();
   noiseOceanFoam_.reset();
+  crashBody_.reset();
+  backwashBody_.reset();
   swellLowPass_.reset();
   washBandPass_.reset();
   foamHighPass_.reset();
@@ -68,6 +70,14 @@ void OceanAmbienceMode::updateFilters() {
       240.0f + controls().detail * 280.0f + controls().motion * 90.0f,
       0.9f + controls().motion * 0.5f,
       sr);
+  crashBody_.setMode(
+      140.0f + controls().intensity * 55.0f + controls().accent * 35.0f,
+      0.20f + controls().accent * 0.08f,
+      sr);
+  backwashBody_.setMode(
+      220.0f + controls().detail * 140.0f + controls().motion * 60.0f,
+      0.28f + controls().motion * 0.10f,
+      sr);
 }
 
 float OceanAmbienceMode::sample(float elapsedSeconds) {
@@ -107,6 +117,16 @@ float OceanAmbienceMode::sample(float elapsedSeconds) {
     crashEnvelope_ =
         (0.34f + controls().intensity * 0.34f + controls().accent * 0.34f) * randomRange(0.88f, 1.18f);
     backwashEnvelope_ = std::max(backwashEnvelope_, crashEnvelope_ * randomRange(0.28f, 0.48f));
+    crashBody_.setMode(
+        randomRange(110.0f + controls().intensity * 45.0f, 210.0f + controls().accent * 55.0f),
+        0.22f + controls().accent * 0.12f,
+        sampleRate());
+    backwashBody_.setMode(
+        randomRange(180.0f + controls().motion * 50.0f, 360.0f + controls().detail * 120.0f),
+        0.28f + controls().motion * 0.12f,
+        sampleRate());
+    crashBody_.excite(crashEnvelope_ * (0.26f + controls().accent * 0.14f));
+    backwashBody_.excite(backwashEnvelope_ * (0.18f + controls().motion * 0.10f));
     const float crashRateHz = 0.06f + controls().intensity * 0.16f + controls().accent * 0.04f;
     crashTimer_ = sampleEventInterval(crashRateHz, 0.65f);
   }
@@ -120,13 +140,19 @@ float OceanAmbienceMode::sample(float elapsedSeconds) {
   float crashSpray = sprayHighPass_.process(noiseOceanFoam_.white());
   crashSpray *= crashEnvelope_ * crashEnvelope_
       * (0.05f + controls().detail * 0.08f + controls().accent * 0.06f);
+  const float crashBody = crashBody_.process()
+      * (0.20f + controls().accent * 0.12f + controls().intensity * 0.08f);
   float backwash = backwashBandPass_.process(noiseMid_.pink());
   backwash *= backwashEnvelope_ * (0.10f + controls().motion * 0.08f + controls().detail * 0.04f);
+  const float backwashBody = backwashBody_.process()
+      * (0.12f + controls().motion * 0.10f + controls().detail * 0.05f);
 
   float roar = noiseMid_.filtered(0.04f + controls().intensity * 0.06f, 0.1f + controls().accent * 0.1f);
   roar *= (0.05f + controls().intensity * 0.07f) * (slowLfo_.sine() * 0.5f + 0.5f);
 
-  return std::tanh((undertow + swell + wash + foam + spray + crash + crashSpray + backwash + roar) * 0.78f);
+  return std::tanh(
+      (undertow + swell + wash + foam + spray + crash + crashSpray + crashBody + backwash + backwashBody + roar)
+      * 0.78f);
 }
 
 }  // namespace jvn::audiofx::detail

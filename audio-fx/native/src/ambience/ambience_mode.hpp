@@ -29,6 +29,7 @@ protected:
 
 private:
   int sampleRate_;
+  uint32_t seed_;
   RenderControls controls_{};
   std::mt19937 eventRng_;
   std::uniform_real_distribution<float> eventDist_{0.0f, 1.0f};

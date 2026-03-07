@@ -16,8 +16,6 @@ private:
 
   float dropletEnvelope_ = 0.0f;
   float impactEnvelope_ = 0.0f;
-  float impactPhase_ = 0.0f;
-  float impactFrequency_ = 1200.0f;
   float dropTimer_ = 0.0f;
   Lfo slowLfo_{0.15f, 0.0f, 0xDEADBEEFu};
   Lfo mediumLfo_{0.6f, 0.25f, 0xC0FFEE11u};
@@ -29,6 +27,8 @@ private:
   BiquadFilter hissHighPass_;
   BiquadFilter dropBandPass_;
   BiquadFilter impactBandPass_;
+  ModalResonator impactBody_;
+  ModalResonator gutterBody_;
 };
 
 }  // namespace jvn::audiofx::detail

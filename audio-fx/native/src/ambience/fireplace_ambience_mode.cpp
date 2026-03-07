@@ -74,11 +74,12 @@ float FireplaceAmbienceMode::sample(float /*elapsedSeconds*/) {
   emberPhase_ += (0.08f + controls().motion * 0.06f) * dt;
   if (emberPhase_ > 1.0f) emberPhase_ -= 1.0f;
   const float emberGlow = 0.7f + 0.3f * std::sin(emberPhase_ * 2.0f * kPi);
+  const float warmthCompensation = 1.0f + controls().detail * 0.52f;
   float ember = emberLowPass_.process(noiseFire_.brown());
-  ember *= (0.14f + controls().intensity * 0.18f) * emberGlow;
+  ember *= (0.14f + controls().intensity * 0.18f) * emberGlow * warmthCompensation;
 
   float base = baseLowPass_.process(noiseFire_.brown());
-  base *= (0.18f + controls().intensity * 0.24f) * (0.85f + slowMod * 0.15f);
+  base *= (0.18f + controls().intensity * 0.24f) * (0.85f + slowMod * 0.15f) * warmthCompensation;
 
   crackleTimer_ -= dt;
   if (crackleTimer_ <= 0.0f && crackleEnvelope_ < 0.10f) {

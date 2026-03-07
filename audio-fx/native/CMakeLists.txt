@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(jvn_audiofx_native LANGUAGES C CXX)
+enable_testing()
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -48,7 +49,10 @@ add_library(jvn_audiofx_native SHARED
     src/beez_renderer.cpp
     src/loom_ambience_renderer.cpp
     src/loom_ambience_synth.cpp
-    src/ambience/ambience_dsp.cpp
+    src/ambience/ambience_filters.cpp
+    src/ambience/ambience_mastering.cpp
+    src/ambience/ambience_modulation.cpp
+    src/ambience/ambience_noise.cpp
     src/ambience/ambience_mode.cpp
     src/ambience/wind_ambience_mode.cpp
     src/ambience/rain_ambience_mode.cpp
@@ -70,3 +74,22 @@ target_include_directories(jvn_audiofx_native PRIVATE
 if(UNIX AND NOT APPLE)
     target_link_libraries(jvn_audiofx_native PRIVATE m)
 endif()
+
+add_executable(jvn_audiofx_native_math_test
+    test/ambience_math_test.cpp
+    src/ambience/ambience_filters.cpp
+    src/ambience/ambience_mastering.cpp
+    src/ambience/ambience_modulation.cpp
+    src/ambience/ambience_noise.cpp
+    src/ambience/ambience_mode.cpp
+)
+
+target_include_directories(jvn_audiofx_native_math_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+if(UNIX AND NOT APPLE)
+    target_link_libraries(jvn_audiofx_native_math_test PRIVATE m)
+endif()
+
+add_test(NAME jvn_audiofx_native_math_test COMMAND jvn_audiofx_native_math_test)

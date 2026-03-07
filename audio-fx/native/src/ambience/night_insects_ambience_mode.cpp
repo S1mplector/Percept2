@@ -80,7 +80,7 @@ float NightInsectsAmbienceMode::sample(float /*elapsedSeconds*/) {
   const float chirpPulse = burstPhase < 0.6f
       ? std::max(0.0f, std::sin(burstPhase / 0.6f * kPi))
       : 0.0f;
-  const float chirpGate = chirpPulse * chirpPulse;
+  const float chirpGate = std::pow(chirpPulse, 2.0f + controls().accent * 2.2f);
 
   const float chirp1Trigger = 0.003f + controls().intensity * 0.006f + controls().accent * 0.005f;
   if (noiseInsect_.white() > (1.0f - chirp1Trigger) && chirpEnvelope_ < 0.1f) {
@@ -88,12 +88,14 @@ float NightInsectsAmbienceMode::sample(float /*elapsedSeconds*/) {
   }
   chirpEnvelope_ *= 0.9960f - controls().motion * 0.0008f;
   float chirp1 = chirpBandPass_.process(noiseInsect_.white());
-  chirp1 *= chirpGate * chirpEnvelope_ * (0.35f + controls().detail * 0.40f) * chorusMod;
+  chirp1 *= chirpGate * chirpEnvelope_
+      * (0.35f + controls().detail * 0.40f + controls().accent * 0.14f)
+      * chorusMod;
 
   cricket2Phase_ += (4.5f + controls().accent * 3.0f + controls().motion * 1.8f) * dt;
   if (cricket2Phase_ > 1.0f) cricket2Phase_ -= 1.0f;
   const float chirp2Pulse = std::max(0.0f, std::sin(cricket2Phase_ * 2.0f * kPi));
-  const float chirp2Gate = chirp2Pulse * chirp2Pulse * chirp2Pulse;
+  const float chirp2Gate = std::pow(chirp2Pulse, 3.0f + controls().accent * 1.8f);
 
   const float chirp2Trigger = 0.002f + controls().intensity * 0.005f + controls().accent * 0.003f;
   if (noiseInsect2_.white() > (1.0f - chirp2Trigger) && cricket2Envelope_ < 0.1f) {
@@ -101,7 +103,9 @@ float NightInsectsAmbienceMode::sample(float /*elapsedSeconds*/) {
   }
   cricket2Envelope_ *= 0.9955f - controls().motion * 0.0007f;
   float chirp2 = cricket2BandPass_.process(noiseInsect2_.white());
-  chirp2 *= chirp2Gate * cricket2Envelope_ * (0.22f + controls().detail * 0.30f) * chorusMod;
+  chirp2 *= chirp2Gate * cricket2Envelope_
+      * (0.22f + controls().detail * 0.30f + controls().accent * 0.10f)
+      * chorusMod;
 
   cricket3Phase_ += (6.0f + controls().motion * 3.0f) * dt;
   if (cricket3Phase_ > 1.0f) cricket3Phase_ -= 1.0f;

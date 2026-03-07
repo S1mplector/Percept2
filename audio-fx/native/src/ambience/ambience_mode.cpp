@@ -6,7 +6,7 @@
 namespace jvn::audiofx::detail {
 
 BaseAmbienceMode::BaseAmbienceMode(int sampleRate, uint32_t seed)
-    : sampleRate_(sampleRate > 1 ? sampleRate : 44100), eventRng_(seed) {}
+    : sampleRate_(sampleRate > 1 ? sampleRate : 44100), seed_(seed), eventRng_(seed) {}
 
 void BaseAmbienceMode::setControls(const RenderControls& controls) {
   controls_.intensity = clamp01(controls.intensity);
@@ -16,6 +16,7 @@ void BaseAmbienceMode::setControls(const RenderControls& controls) {
   controls_.spread = clamp01(controls.spread);
   controls_.accent = clamp01(controls.accent);
   controls_.loop = controls.loop;
+  eventRng_.seed(seed_);
 }
 
 const RenderControls& BaseAmbienceMode::controls() const noexcept {

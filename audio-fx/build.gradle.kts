@@ -106,12 +106,37 @@ val buildAudioFxNativeIfNeeded = tasks.register("buildAudioFxNativeIfNeeded") {
   }
 }
 
+val runAudioFxNativeTests = tasks.register("runAudioFxNativeTests") {
+  group = "verification"
+  description = "Run native audio-fx math/regression tests via CTest."
+  dependsOn(buildAudioFxNativeIfNeeded)
+
+  doLast {
+    if (skipAudioFxNativeBuild.get()) {
+      logger.lifecycle("Skipping audio-fx native tests because -PskipAudioFxNativeBuild=true")
+      return@doLast
+    }
+
+    val buildDirFile = nativeBuildDir.get().asFile
+    if (isWindows) {
+      exec {
+        commandLine("ctest", "--test-dir", buildDirFile.absolutePath, "--output-on-failure", "-C", "Release")
+      }
+    } else {
+      exec {
+        commandLine("ctest", "--test-dir", buildDirFile.absolutePath, "--output-on-failure")
+      }
+    }
+  }
+}
+
 tasks.named("build") {
   dependsOn(buildAudioFxNativeIfNeeded)
 }
 
 tasks.withType<Test>().configureEach {
   dependsOn(buildAudioFxNativeIfNeeded)
+  dependsOn(runAudioFxNativeTests)
   doFirst {
     systemProperty("jvn.native.path.jvn_audiofx_native", resolveAudioFxNativePath())
   }

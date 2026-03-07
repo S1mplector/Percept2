@@ -31,6 +31,8 @@ private:
   BiquadFilter crashBandPass_;
   BiquadFilter sprayHighPass_;
   BiquadFilter backwashBandPass_;
+  ModalResonator crashBody_;
+  ModalResonator backwashBody_;
 };
 
 }  // namespace jvn::audiofx::detail

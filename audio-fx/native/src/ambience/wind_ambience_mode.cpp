@@ -95,22 +95,25 @@ float WindAmbienceMode::sample(float /*elapsedSeconds*/) {
 
   const float shapedIntensity = std::sqrt(std::max(0.0f, controls().intensity * slowMod * randomMod));
   const float detailGain = 0.8f + controls().detail * 0.5f;
+  const float motionBurst = 1.0f + controls().motion * (0.55f * std::max(0.0f, mediumLfo_.triangle()) + 0.35f * fastMod);
+  const float motionBed = 1.0f - controls().motion * 0.18f;
 
   const float lowLayer =
-      lowPassLow_.process(noiseLow_.brown()) * 0.5f * shapedIntensity * 0.6f;
+      lowPassLow_.process(noiseLow_.brown()) * 0.5f * shapedIntensity * 0.6f * motionBed;
 
   float midNoise = lowPassMid_.process(noiseMid_.pink());
   midNoise = highPassMid_.process(midNoise);
   const float midLayer = midNoise * 0.6f * shapedIntensity * medMod * (1.0f + shapedIntensity * 0.3f)
-      * 0.85f * detailGain;
+      * 0.85f * detailGain * (1.0f - controls().motion * 0.10f);
 
   float highNoise = highPassHigh_.process(noiseHigh_.pink());
   highNoise = lowPassHigh_.process(highNoise);
   const float highLayer =
-      highNoise * 0.4f * std::pow(shapedIntensity, 2.4f) * fastMod * (0.12f + controls().detail * 0.22f);
+      highNoise * 0.4f * std::pow(shapedIntensity, 2.4f) * fastMod * (0.12f + controls().detail * 0.22f)
+      * (1.0f - controls().motion * 0.08f);
 
   const float gustNoise = gustFilter_.process(noiseGust_.pink());
-  const float gustLayer = gustNoise * gustEnvelope * (0.35f + controls().accent * 0.45f);
+  const float gustLayer = gustNoise * gustEnvelope * motionBurst * (0.35f + controls().accent * 0.45f);
 
   float speedWhoosh = 0.0f;
   if (controls().intensity > 0.35f) {
@@ -118,7 +121,8 @@ float WindAmbienceMode::sample(float /*elapsedSeconds*/) {
         0.06f + controls().intensity * 0.18f + controls().detail * 0.06f,
         0.2f + controls().accent * 0.2f);
     const float whooshIntensity = std::sqrt((controls().intensity - 0.35f) / 0.65f);
-    speedWhoosh = whooshNoise * whooshIntensity * (0.24f + controls().motion * 0.10f) * medMod;
+    speedWhoosh = whooshNoise * whooshIntensity * motionBurst
+        * (0.24f + controls().motion * 0.16f) * medMod;
   }
 
   const float whistleDrive = std::max(

@@ -95,9 +95,13 @@ float ThunderAmbienceMode::sample(float /*elapsedSeconds*/) {
 
   const float brightPhase = crackEnvelope_ * crackEnvelope_;
   float crack = crackBandPass_.process(noiseThunderBolt_.white());
-  crack *= brightPhase * brightPhase * (0.50f + controls().detail * 0.30f + controls().accent * 0.38f);
+  crack *= brightPhase * brightPhase
+      * (0.62f + controls().detail * 0.36f + controls().accent * 0.48f);
   float crackAir = rainHighPass_.process(noiseThunderBolt_.white());
-  crackAir *= crackEnvelope_ * (0.02f + controls().detail * 0.04f + controls().accent * 0.10f);
+  crackAir *= crackEnvelope_ * (0.06f + controls().detail * 0.08f + controls().accent * 0.22f);
+  float strikeFizz = rainHighPass_.process(noiseThunderBolt_.white());
+  strikeFizz *= brightPhase * brightPhase * brightPhase
+      * (0.04f + controls().detail * 0.07f + controls().accent * 0.14f);
 
   const float bodyGate = rollDelaySeconds_ <= 0.0f ? 1.0f : 0.0f;
   const float bodyPhase = bodyGate * boltEnvelope_ * (1.0f - std::min(0.55f, brightPhase * 0.35f));
@@ -123,7 +127,7 @@ float ThunderAmbienceMode::sample(float /*elapsedSeconds*/) {
   float wind = noiseMid_.filtered(0.05f + controls().intensity * 0.10f, 0.15f + controls().motion * 0.1f);
   wind *= (0.06f + controls().intensity * 0.10f + controls().motion * 0.06f) * (0.8f + slowMod * 0.4f);
 
-  return std::tanh((subBass + rumble + crack + crackAir + boltRumble + rain + drop + wind) * 0.72f);
+  return std::tanh((subBass + rumble + crack + crackAir + strikeFizz + boltRumble + rain + drop + wind) * 0.72f);
 }
 
 }  // namespace jvn::audiofx::detail
