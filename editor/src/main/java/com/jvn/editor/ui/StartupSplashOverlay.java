@@ -9,6 +9,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
@@ -31,8 +32,14 @@ import javafx.stage.StageStyle;
 public final class StartupSplashOverlay {
   private final Stage stage = new Stage(StageStyle.UNDECORATED);
   private final Label statusLabel = new Label("Starting JVN Editor...");
+  private final Label subtitleLabel = new Label("Loading editor environment");
+  private final Label detailLabel = new Label();
   private final TextArea logArea = new TextArea();
   private final ProgressBar progressBar = new ProgressBar(0);
+  private final Button retryButton = createActionButton("Retry");
+  private final Button quitButton = createActionButton("Quit");
+  private final HBox actionBar = new HBox(8, retryButton, quitButton);
+  private String progressAccent = "#6ea8ff";
 
   public StartupSplashOverlay(Path logoPath) {
     BorderPane root = new BorderPane();
@@ -51,11 +58,10 @@ public final class StartupSplashOverlay {
     title.setFont(Font.font("System", 20));
     title.setStyle("-fx-font-weight: 700;");
 
-    Label subtitle = new Label("Loading editor environment");
-    subtitle.setTextFill(Color.web("#9caac0"));
-    subtitle.setFont(Font.font("System", 12));
+    subtitleLabel.setTextFill(Color.web("#9caac0"));
+    subtitleLabel.setFont(Font.font("System", 12));
 
-    VBox titleBox = new VBox(2, title, subtitle);
+    VBox titleBox = new VBox(2, title, subtitleLabel);
     titleBox.setAlignment(Pos.CENTER_LEFT);
 
     HBox header = new HBox(12, logoView, titleBox);
@@ -79,16 +85,26 @@ public final class StartupSplashOverlay {
     statusLabel.setTextFill(Color.web("#b7c3d9"));
     statusLabel.setStyle("-fx-font-size: 11px;");
 
+    detailLabel.setTextFill(Color.web("#75829a"));
+    detailLabel.setStyle("-fx-font-size: 11px;");
+    detailLabel.setWrapText(true);
+    detailLabel.setVisible(false);
+    detailLabel.setManaged(false);
+
+    actionBar.setAlignment(Pos.CENTER_LEFT);
+    actionBar.setVisible(false);
+    actionBar.setManaged(false);
+
     progressBar.setMaxWidth(Double.MAX_VALUE);
     progressBar.setPrefHeight(10);
     progressBar.setStyle(
-        "-fx-accent: #6ea8ff;"
+        "-fx-accent: " + progressAccent + ";"
             + " -fx-control-inner-background: #000000;"
             + " -fx-background-color: #000000;"
             + " -fx-box-border: #000000;"
             + " -fx-border-color: #000000;");
     progressBar.skinProperty().addListener((obs, oldSkin, newSkin) -> styleProgressBarForBlackChrome());
-    VBox footer = new VBox(6, statusLabel, progressBar);
+    VBox footer = new VBox(6, statusLabel, detailLabel, actionBar, progressBar);
 
     VBox center = new VBox(10, logArea, footer);
     center.setPadding(new Insets(12, 0, 0, 0));
@@ -117,12 +133,64 @@ public final class StartupSplashOverlay {
     runOnFx(stage::hide);
   }
 
+  public void prepareForChecks(boolean clearLogs) {
+    runOnFx(() -> {
+      if (clearLogs) {
+        logArea.clear();
+      }
+      subtitleLabel.setText("Loading editor environment");
+      statusLabel.setTextFill(Color.web("#b7c3d9"));
+      detailLabel.setText("");
+      detailLabel.setTextFill(Color.web("#75829a"));
+      detailLabel.setVisible(false);
+      detailLabel.setManaged(false);
+      progressAccent = "#6ea8ff";
+      retryButton.setDisable(true);
+      quitButton.setDisable(true);
+      actionBar.setVisible(false);
+      actionBar.setManaged(false);
+      styleProgressBarForBlackChrome();
+    });
+  }
+
   public void setProgress(double progress) {
     runOnFx(() -> progressBar.setProgress(progress < 0 ? ProgressBar.INDETERMINATE_PROGRESS : progress));
   }
 
   public void setStatus(String status) {
     runOnFx(() -> statusLabel.setText(status == null ? "" : status));
+  }
+
+  public void showFailure(String summary, String detail, Runnable onRetry, Runnable onQuit) {
+    runOnFx(() -> {
+      subtitleLabel.setText("Startup blocked");
+      statusLabel.setText(summary == null ? "Startup checks failed" : summary);
+      statusLabel.setTextFill(Color.web("#f38ba8"));
+      if (detail != null && !detail.isBlank()) {
+        detailLabel.setText(detail.trim());
+        detailLabel.setVisible(true);
+        detailLabel.setManaged(true);
+      } else {
+        detailLabel.setText("");
+        detailLabel.setVisible(false);
+        detailLabel.setManaged(false);
+      }
+      detailLabel.setTextFill(Color.web("#d6a5b5"));
+      progressAccent = "#f38ba8";
+      styleProgressBarForBlackChrome();
+      retryButton.setDisable(false);
+      quitButton.setDisable(false);
+      retryButton.setOnAction(evt -> {
+        retryButton.setDisable(true);
+        quitButton.setDisable(true);
+        if (onRetry != null) onRetry.run();
+      });
+      quitButton.setOnAction(evt -> {
+        if (onQuit != null) onQuit.run();
+      });
+      actionBar.setVisible(true);
+      actionBar.setManaged(true);
+    });
   }
 
   public void appendLog(String line) {
@@ -155,8 +223,21 @@ public final class StartupSplashOverlay {
     }
     Node bar = progressBar.lookup(".bar");
     if (bar instanceof Region region) {
-      region.setStyle("-fx-background-color: #6ea8ff;");
+      region.setStyle("-fx-background-color: " + progressAccent + ";");
     }
+  }
+
+  private static Button createActionButton(String label) {
+    Button button = new Button(label);
+    button.setFocusTraversable(false);
+    button.setStyle(
+        "-fx-background-color: #111111;"
+            + " -fx-text-fill: #d8e0ec;"
+            + " -fx-border-color: #273245;"
+            + " -fx-border-radius: 6;"
+            + " -fx-background-radius: 6;"
+            + " -fx-padding: 6 14 6 14;");
+    return button;
   }
 
   private static Image loadLogo(Path logoPath) {

@@ -1,5 +1,7 @@
 import org.gradle.api.GradleException
 import org.gradle.api.Project
+import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.testing.Test
 import java.io.ByteArrayOutputStream
 
 plugins {
@@ -37,6 +39,14 @@ fun libExists(libName: String): Boolean =
     nativeReleaseDir.resolve(libName),
     nativeDebugDir.resolve(libName)
   ).any { it.exists() }
+
+fun resolveNativeBridgePath(): String =
+  listOf(
+    nativeBuildDir.resolve(jvnBridgeLibName),
+    nativeReleaseDir.resolve(jvnBridgeLibName),
+    nativeDebugDir.resolve(jvnBridgeLibName)
+  ).firstOrNull { it.exists() }?.absolutePath
+    ?: nativeBuildDir.resolve(jvnBridgeLibName).absolutePath
 
 fun cmakeAvailable(project: Project): Boolean = try {
   val out = ByteArrayOutputStream()
@@ -126,6 +136,13 @@ subprojects {
     useJUnitPlatform()
   }
 
+  tasks.withType<Test>().configureEach {
+    dependsOn(rootProject.tasks.named("buildNativeMathIfNeeded"))
+    doFirst {
+      systemProperty("jvn.native.path.jvn_native_bridge", resolveNativeBridgePath())
+    }
+  }
+
   dependencies {
     testImplementation(platform("org.junit:junit-bom:5.11.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -153,6 +170,17 @@ subprojects {
     publications {
       create("mavenJava", org.gradle.api.publish.maven.MavenPublication::class.java) {
         from(components["java"])
+      }
+    }
+  }
+}
+
+gradle.projectsEvaluated {
+  rootProject.allprojects.forEach { target ->
+    target.tasks.withType<JavaExec>().configureEach {
+      dependsOn(rootProject.tasks.named("buildNativeMathIfNeeded"))
+      doFirst {
+        systemProperty("jvn.native.path.jvn_native_bridge", resolveNativeBridgePath())
       }
     }
   }

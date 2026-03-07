@@ -2,11 +2,28 @@ package com.jvn.core.nativebridge;
 
 public final class NativeMathBridge {
   private static final String LIB_NAME = "jvn_native_bridge";
-  private static final boolean LOADED = NativeLibraryLoader.load(LIB_NAME);
+  private static final boolean LOADED;
+  private static final String DIAGNOSTICS;
+
+  static {
+    boolean loaded = false;
+    String diagnostics = "uninitialized";
+    try {
+      loaded = NativeLibraryLoader.load(LIB_NAME);
+      diagnostics = loaded ? "jvn-native-bridge loaded" : "native library not found";
+    } catch (Throwable t) {
+      loaded = false;
+      diagnostics = t.getClass().getSimpleName() + ": " + (t.getMessage() == null ? "load failure" : t.getMessage());
+    }
+    LOADED = loaded;
+    DIAGNOSTICS = diagnostics;
+  }
 
   private NativeMathBridge() {}
 
   public static boolean isAvailable() { return LOADED; }
+
+  public static String diagnostics() { return DIAGNOSTICS; }
 
   public static double dotProduct(double[] a, double[] b) {
     if (!LOADED) return dotProductJava(a, b);

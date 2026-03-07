@@ -113,7 +113,7 @@ tasks.named("build") {
 tasks.withType<Test>().configureEach {
   dependsOn(buildAudioFxNativeIfNeeded)
   doFirst {
-    systemProperty("jvn.native.path", resolveAudioFxNativePath())
+    systemProperty("jvn.native.path.jvn_audiofx_native", resolveAudioFxNativePath())
   }
 }
 
@@ -122,7 +122,7 @@ gradle.projectsEvaluated {
     target.tasks.withType<JavaExec>().configureEach {
       dependsOn(buildAudioFxNativeIfNeeded)
       doFirst {
-        systemProperty("jvn.native.path", resolveAudioFxNativePath())
+        systemProperty("jvn.native.path.jvn_audiofx_native", resolveAudioFxNativePath())
       }
     }
   }

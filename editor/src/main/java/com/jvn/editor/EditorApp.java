@@ -1,8 +1,11 @@
 package com.jvn.editor;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -10,15 +13,21 @@ import java.nio.file.Path;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 import com.jvn.core.scene2d.Entity2D;
+import com.jvn.core.nativebridge.NativeLibraryLoader;
+import com.jvn.core.nativebridge.NativeMathBridge;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.audiofx.AudioFxController;
+import com.jvn.audiofx.AudioFxNativeBridge;
 import com.jvn.editor.ui.AudioSynthControlsView;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorTheme;
@@ -96,6 +105,7 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import javax.tools.ToolProvider;
 
 public class EditorApp extends Application {
   // UI
@@ -186,6 +196,9 @@ public class EditorApp extends Application {
   private static final long MIN_STARTUP_SPLASH_MS = 900L;
   private static final long STARTUP_STEP_DELAY_MS = 170L;
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
+  private static final Pattern STARTUP_PROCESS_NOISE = Pattern.compile(
+      "^(> Task |> Configure |BUILD SUCCESSFUL|Deprecated Gradle|\\d+ actionable|To honour the JVM|Daemon will be stopped|\\s*$)");
+  private static final int STARTUP_COMMAND_TAIL_LINES = 14;
 
   public static void main(String[] args) {
     launch(args);
@@ -495,39 +508,39 @@ public class EditorApp extends Application {
     Path logoPath = resolveStartupLogoPath();
     StartupSplashOverlay splash = new StartupSplashOverlay(logoPath);
     splash.show();
+    launchStartupSequence(primaryStage, splash, logoPath, false);
+  }
+
+  private void launchStartupSequence(Stage primaryStage,
+                                     StartupSplashOverlay splash,
+                                     Path logoPath,
+                                     boolean clearLogs) {
+    splash.prepareForChecks(clearLogs);
     splash.setProgress(0.0);
     splash.setStatus("Running startup health checks...");
-    splash.appendLog(startupLogLine("INFO", "Bootstrap", "Launching preflight checks"));
+    splash.appendLog(startupLogLine("INFO", "Bootstrap",
+        clearLogs ? "Retrying preflight checks" : "Launching preflight checks"));
 
     long splashShownNs = System.nanoTime();
-    Task<Void> startupTask = createStartupHealthCheckTask(logoPath);
+    Task<Void> startupTask = createStartupHealthCheckTask(logoPath, splash);
     startupTask.messageProperty().addListener((o, ov, nv) -> {
       if (nv == null || nv.isBlank()) return;
-      splash.appendLog(nv);
       splash.setStatus(nv);
     });
     startupTask.progressProperty().addListener((o, ov, nv) -> {
       double progress = nv == null ? -1.0 : nv.doubleValue();
       splash.setProgress(progress);
     });
-    startupTask.setOnSucceeded(e -> finalizeStartup(primaryStage, splash, splashShownNs, null));
-    startupTask.setOnFailed(e -> finalizeStartup(primaryStage, splash, splashShownNs, startupTask.getException()));
+    startupTask.setOnSucceeded(e -> finalizeStartupSuccess(primaryStage, splash, splashShownNs));
+    startupTask.setOnFailed(e -> finalizeStartupFailure(primaryStage, splash, logoPath, startupTask.getException()));
     Thread startupThread = new Thread(startupTask, "jvn-editor-startup-checks");
     startupThread.setDaemon(true);
     startupThread.start();
   }
 
-  private void finalizeStartup(Stage primaryStage,
-                               StartupSplashOverlay splash,
-                               long splashShownNs,
-                               Throwable startupFailure) {
-    if (startupFailure != null) {
-      splash.appendLog(startupLogLine(
-          "WARN",
-          "Preflight",
-          "Checks reported: " + startupFailure.getMessage()));
-    }
-
+  private void finalizeStartupSuccess(Stage primaryStage,
+                                      StartupSplashOverlay splash,
+                                      long splashShownNs) {
     long elapsedMs = (System.nanoTime() - splashShownNs) / 1_000_000L;
     long waitMs = Math.max(0L, MIN_STARTUP_SPLASH_MS - elapsedMs);
     PauseTransition delay = new PauseTransition(Duration.millis(waitMs));
@@ -547,92 +560,214 @@ public class EditorApp extends Application {
     delay.play();
   }
 
-  private Task<Void> createStartupHealthCheckTask(Path logoPath) {
+  private void finalizeStartupFailure(Stage primaryStage,
+                                      StartupSplashOverlay splash,
+                                      Path logoPath,
+                                      Throwable startupFailure) {
+    StartupFailure failure = startupFailure instanceof StartupFailure sf
+        ? sf
+        : new StartupFailure(
+            "Startup checks failed",
+            startupFailure == null ? "Unknown startup error" : safeMessage(startupFailure),
+            startupFailure);
+    splash.appendLog(startupLogLine("ERROR", "Preflight", failure.summary()));
+    if (failure.detail() != null && !failure.detail().isBlank()) {
+      splash.appendLog(startupLogLine("ERROR", "Preflight", failure.detail()));
+    }
+    splash.showFailure(
+        failure.summary(),
+        failure.detail(),
+        () -> launchStartupSequence(primaryStage, splash, logoPath, true),
+        Platform::exit);
+  }
+
+  private Task<Void> createStartupHealthCheckTask(Path logoPath, StartupSplashOverlay splash) {
     return new Task<>() {
       @Override
       protected Void call() {
-        final int totalChecks = 8;
+        final int totalChecks = 13;
         int step = 0;
         updateProgress(0, totalChecks);
 
-        String javaVersion = System.getProperty("java.version", "unknown");
-        updateMessage(startupLogLine("OK", "Runtime", "Java " + javaVersion));
-        updateProgress(++step, totalChecks);
-        if (isCancelled()) return null;
-        startupSleep(STARTUP_STEP_DELAY_MS);
-
-        String fxVersion = System.getProperty("javafx.version", "unknown");
-        updateMessage(startupLogLine("OK", "Runtime", "JavaFX " + fxVersion));
-        updateProgress(++step, totalChecks);
-        if (isCancelled()) return null;
-        startupSleep(STARTUP_STEP_DELAY_MS);
-
         File workspace = resolveWorkspaceRoot();
-        boolean workspaceOk = workspace != null && workspace.isDirectory();
-        String workspaceMsg = workspaceOk
-            ? workspace.getAbsolutePath()
-            : "Workspace root not found (continuing in current directory)";
-        updateMessage(startupLogLine(workspaceOk ? "OK" : "WARN", "Workspace", workspaceMsg));
-        updateProgress(++step, totalChecks);
-        if (isCancelled()) return null;
-        startupSleep(STARTUP_STEP_DELAY_MS);
+        if (workspace == null || !workspace.isDirectory()) {
+          throw new StartupFailure(
+              "Workspace root not found",
+              "Launch the editor from the JVN repository root so Gradle, native builds, and smoke tests can run.");
+        }
+        logSplash(splash, "OK", "Workspace", workspace.getAbsolutePath());
+        updateMessage("Workspace root resolved");
+        advance(++step, totalChecks);
 
         boolean logoOk = logoPath != null && Files.isRegularFile(logoPath) && Files.isReadable(logoPath);
-        String logoMsg = logoOk
-            ? "Logo ready: " + logoPath.toAbsolutePath()
-            : "Logo not readable: " + (logoPath == null ? "<none>" : logoPath.toAbsolutePath());
-        updateMessage(startupLogLine(logoOk ? "OK" : "WARN", "Branding", logoMsg));
-        updateProgress(++step, totalChecks);
-        if (isCancelled()) return null;
-        startupSleep(STARTUP_STEP_DELAY_MS);
+        logSplash(splash, logoOk ? "OK" : "WARN", "Branding",
+            logoOk
+                ? "Logo ready: " + logoPath.toAbsolutePath()
+                : "Logo not readable: " + (logoPath == null ? "<none>" : logoPath.toAbsolutePath()));
+        updateMessage(logoOk ? "Brand assets loaded" : "Brand assets unavailable");
+        advance(++step, totalChecks);
 
-        Path stateDir = (workspace != null ? workspace.toPath() : Path.of(".")).resolve(".jvn");
-        boolean stateOk;
-        String stateMsg;
-        try {
-          Files.createDirectories(stateDir);
-          Path probe = stateDir.resolve(".startup-health-probe");
-          Files.writeString(probe, "ok-" + System.nanoTime());
-          Files.deleteIfExists(probe);
-          stateOk = true;
-          stateMsg = "Writable state path: " + stateDir.toAbsolutePath();
-        } catch (Exception ex) {
-          stateOk = false;
-          stateMsg = "State path not writable: " + ex.getMessage();
+        Path stateDir = workspace.toPath().resolve(".jvn");
+        ensureWritableStateDir(stateDir);
+        logSplash(splash, "OK", "State", "Writable state path: " + stateDir.toAbsolutePath());
+        updateMessage("State directory writable");
+        advance(++step, totalChecks);
+
+        int requiredJava = readRequiredJavaVersion(workspace.toPath());
+        int runtimeJava = parseJavaMajor(System.getProperty("java.version", "unknown"));
+        if (requiredJava > 0 && runtimeJava > 0 && runtimeJava < requiredJava) {
+          throw new StartupFailure(
+              "JDK version mismatch",
+              "Running Java " + runtimeJava + " but Gradle toolchain requires Java " + requiredJava + ".");
         }
-        updateMessage(startupLogLine(stateOk ? "OK" : "WARN", "State", stateMsg));
-        updateProgress(++step, totalChecks);
-        if (isCancelled()) return null;
-        startupSleep(STARTUP_STEP_DELAY_MS);
+        if (ToolProvider.getSystemJavaCompiler() == null) {
+          throw new StartupFailure(
+              "Full JDK not detected",
+              "Launch the editor with a JDK installation. `javac` is required for native JNI builds and startup smoke tests.");
+        }
+        logSplash(splash, "OK", "Runtime",
+            "Java " + System.getProperty("java.version", "unknown")
+                + " at " + System.getProperty("java.home", "<unknown>"));
+        updateMessage("JDK toolchain verified");
+        advance(++step, totalChecks);
 
-        File diskRoot = workspace != null ? workspace : new File(".");
+        String fxVersion = System.getProperty("javafx.version", "unknown");
+        logSplash(splash, "OK", "Runtime", "JavaFX " + fxVersion);
+        updateMessage("JavaFX runtime verified");
+        advance(++step, totalChecks);
+
+        Path gradlew = workspace.toPath().resolve(isWindowsOs() ? "gradlew.bat" : "gradlew");
+        Path wrapperProps = workspace.toPath().resolve("gradle/wrapper/gradle-wrapper.properties");
+        if (!Files.isRegularFile(gradlew) || !Files.isRegularFile(wrapperProps)) {
+          throw new StartupFailure(
+              "Gradle wrapper is missing",
+              "Ensure `gradlew` and `gradle/wrapper/gradle-wrapper.properties` exist in the workspace root.");
+        }
+        if (!isWindowsOs() && !Files.isExecutable(gradlew)) {
+          throw new StartupFailure(
+              "Gradle wrapper is not executable",
+              "Run `chmod +x gradlew` and retry startup.");
+        }
+        logSplash(splash, "OK", "Gradle", "Wrapper ready (Gradle " + readGradleWrapperVersion(wrapperProps) + ")");
+        updateMessage("Gradle wrapper located");
+        advance(++step, totalChecks);
+
+        updateMessage("Checking Gradle environment");
+        runStartupProcess(
+            workspace,
+            splash,
+            "Gradle",
+            List.of(resolveGradleCommand(workspace), "--version"),
+            "Gradle wrapper check failed",
+            "Fix the Gradle wrapper or local JDK configuration, then retry.");
+        advance(++step, totalChecks);
+
+        updateMessage("Checking native toolchain");
+        runStartupProcess(
+            workspace,
+            splash,
+            "CMake",
+            List.of("cmake", "--version"),
+            "CMake not available",
+            "Install CMake and a native C/C++ toolchain, then retry.");
+        advance(++step, totalChecks);
+
+        updateMessage("Building native libraries");
+        runGradleStartupProcess(
+            workspace,
+            splash,
+            "Native Build",
+            List.of("buildNativeMathIfNeeded", ":audio-fx:buildAudioFxNativeIfNeeded"),
+            "Native library build failed",
+            "Resolve the native build errors shown above, then retry.");
+        advance(++step, totalChecks);
+
+        Path nativeMathLibrary = NativeLibraryLoader.findExisting("jvn_native_bridge");
+        if (nativeMathLibrary == null) {
+          throw new StartupFailure(
+              "Native math bridge not found",
+              "Expected `jvn_native_bridge` output was not produced under `native-math/build`.");
+        }
+        Path audioFxLibrary = NativeLibraryLoader.findExisting("jvn_audiofx_native");
+        if (audioFxLibrary == null) {
+          throw new StartupFailure(
+              "Audio synth native library not found",
+              "Expected `jvn_audiofx_native` output was not produced under `audio-fx/build/native`.");
+        }
+        logSplash(splash, "OK", "Native", "Math bridge: " + nativeMathLibrary);
+        logSplash(splash, "OK", "Native", "AudioFX bridge: " + audioFxLibrary);
+        updateMessage("Native libraries built");
+        advance(++step, totalChecks);
+
+        if (!NativeMathBridge.isAvailable()) {
+          throw new StartupFailure(
+              "Native math bridge failed to load",
+              NativeMathBridge.diagnostics());
+        }
+        if (!AudioFxNativeBridge.isAvailable()) {
+          throw new StartupFailure(
+              "Audio synth bridge failed to load",
+              AudioFxNativeBridge.diagnostics());
+        }
+        logSplash(splash, "OK", "Native", NativeMathBridge.diagnostics());
+        logSplash(splash, "OK", "Native", AudioFxNativeBridge.diagnostics());
+        updateMessage("Native bridges loaded");
+        advance(++step, totalChecks);
+
+        updateMessage("Running native smoke tests");
+        runGradleStartupProcess(
+            workspace,
+            splash,
+            "Smoke Tests",
+            List.of(":core:test", "--tests", "com.jvn.core.nativebridge.NativeMathBridgeTest"),
+            "Native math smoke tests failed",
+            "Resolve the `NativeMathBridgeTest` failure and retry.");
+        runGradleStartupProcess(
+            workspace,
+            splash,
+            "Smoke Tests",
+            List.of(
+                ":audio-fx:test",
+                "--tests", "com.jvn.audiofx.AudioFxNativeBridgeTest",
+                "--tests", "com.jvn.audiofx.AudioFxControllerTest",
+                "--tests", "com.jvn.audiofx.VnsCommandBuilderTest",
+                "--tests", "com.jvn.audiofx.WaveformAnalyzerTest"),
+            "Audio synth smoke tests failed",
+            "Resolve the `audio-fx` smoke test failures and retry.");
+        advance(++step, totalChecks);
+
+        File diskRoot = workspace;
         long usableBytes = diskRoot.getUsableSpace();
         double freeGb = usableBytes / (1024.0 * 1024.0 * 1024.0);
         boolean diskOk = usableBytes >= 512L * 1024L * 1024L;
-        String diskMsg = String.format(Locale.ROOT, "Free disk %.2f GB at %s", freeGb, diskRoot.getAbsolutePath());
-        updateMessage(startupLogLine(diskOk ? "OK" : "WARN", "Storage", diskMsg));
-        updateProgress(++step, totalChecks);
-        if (isCancelled()) return null;
-        startupSleep(STARTUP_STEP_DELAY_MS);
+        logSplash(splash, diskOk ? "OK" : "WARN", "Storage",
+            String.format(Locale.ROOT, "Free disk %.2f GB at %s", freeGb, diskRoot.getAbsolutePath()));
+        updateMessage("Storage check complete");
+        advance(++step, totalChecks);
 
         long maxHeapMb = Runtime.getRuntime().maxMemory() / (1024L * 1024L);
         boolean heapOk = maxHeapMb >= 768L;
-        String heapMsg = "Max heap " + maxHeapMb + " MB";
-        updateMessage(startupLogLine(heapOk ? "OK" : "WARN", "Memory", heapMsg));
-        updateProgress(++step, totalChecks);
-        if (isCancelled()) return null;
-        startupSleep(STARTUP_STEP_DELAY_MS);
+        logSplash(splash, heapOk ? "OK" : "WARN", "Memory", "Max heap " + maxHeapMb + " MB");
+        updateMessage("Memory check complete");
+        advance(++step, totalChecks);
 
         boolean projectOk = projectRoot == null || projectRoot.isDirectory();
-        String projectMsg = projectRoot == null
-            ? "No project selected yet"
-            : (projectOk ? projectRoot.getAbsolutePath() : "Missing project path: " + projectRoot.getAbsolutePath());
-        updateMessage(startupLogLine(projectOk ? "OK" : "WARN", "Project", projectMsg));
-        updateProgress(++step, totalChecks);
-        startupSleep(STARTUP_STEP_DELAY_MS);
+        logSplash(splash, projectOk ? "OK" : "WARN", "Project",
+            projectRoot == null
+                ? "No project selected yet"
+                : (projectOk ? projectRoot.getAbsolutePath() : "Missing project path: " + projectRoot.getAbsolutePath()));
+        updateMessage("Startup health checks complete");
+        advance(++step, totalChecks);
 
-        updateMessage(startupLogLine("INFO", "Bootstrap", "Health checks complete"));
+        logSplash(splash, "INFO", "Bootstrap", "Health checks complete");
         return null;
+      }
+
+      private void advance(int currentStep, int totalChecks) {
+        updateProgress(currentStep, totalChecks);
+        if (!isCancelled()) {
+          startupSleep(STARTUP_STEP_DELAY_MS);
+        }
       }
     };
   }
@@ -673,6 +808,218 @@ public class EditorApp extends Application {
       Thread.sleep(Math.max(0L, millis));
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
+    }
+  }
+
+  private static void logSplash(StartupSplashOverlay splash, String level, String category, String detail) {
+    if (splash == null) return;
+    splash.appendLog(startupLogLine(level, category, detail));
+  }
+
+  private static String safeMessage(Throwable throwable) {
+    if (throwable == null) return "Unknown startup error";
+    String message = throwable.getMessage();
+    if (message == null || message.isBlank()) return throwable.getClass().getSimpleName();
+    return message.trim();
+  }
+
+  private static void ensureWritableStateDir(Path stateDir) {
+    try {
+      Files.createDirectories(stateDir);
+      Path probe = stateDir.resolve(".startup-health-probe");
+      Files.writeString(probe, "ok-" + System.nanoTime());
+      Files.deleteIfExists(probe);
+    } catch (Exception ex) {
+      throw new StartupFailure(
+          "State directory is not writable",
+          "Unable to write under " + stateDir.toAbsolutePath() + ": " + safeMessage(ex),
+          ex);
+    }
+  }
+
+  private int readRequiredJavaVersion(Path root) {
+    String raw = readGradleProperty(root, "javaVersion");
+    if (raw == null || raw.isBlank()) return -1;
+    try {
+      return Integer.parseInt(raw.trim());
+    } catch (Exception ignore) {
+      return -1;
+    }
+  }
+
+  private String readGradleProperty(Path root, String key) {
+    if (root == null || key == null || key.isBlank()) return null;
+    Path propsPath = root.resolve("gradle.properties");
+    if (!Files.isRegularFile(propsPath)) return null;
+    Properties props = new Properties();
+    try (InputStream in = Files.newInputStream(propsPath)) {
+      props.load(in);
+      return props.getProperty(key);
+    } catch (Exception ignore) {
+      return null;
+    }
+  }
+
+  private String readGradleWrapperVersion(Path wrapperProps) {
+    Properties props = new Properties();
+    try (InputStream in = Files.newInputStream(wrapperProps)) {
+      props.load(in);
+      String distributionUrl = props.getProperty("distributionUrl", "");
+      int gradleIndex = distributionUrl.indexOf("gradle-");
+      int zipIndex = distributionUrl.indexOf(".zip");
+      if (gradleIndex < 0 || zipIndex <= gradleIndex) return "unknown";
+      String version = distributionUrl.substring(gradleIndex + "gradle-".length(), zipIndex);
+      if (version.endsWith("-bin")) version = version.substring(0, version.length() - 4);
+      if (version.endsWith("-all")) version = version.substring(0, version.length() - 4);
+      return version;
+    } catch (Exception ignore) {
+      return "unknown";
+    }
+  }
+
+  private int parseJavaMajor(String raw) {
+    if (raw == null || raw.isBlank()) return -1;
+    String trimmed = raw.trim();
+    if (trimmed.startsWith("1.")) {
+      trimmed = trimmed.substring(2);
+    }
+    int dot = trimmed.indexOf('.');
+    int dash = trimmed.indexOf('-');
+    int end = trimmed.length();
+    if (dot >= 0) end = Math.min(end, dot);
+    if (dash >= 0) end = Math.min(end, dash);
+    try {
+      return Integer.parseInt(trimmed.substring(0, end));
+    } catch (Exception ex) {
+      return -1;
+    }
+  }
+
+  private static boolean isWindowsOs() {
+    return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+  }
+
+  private static String resolveGradleCommand(File workspace) {
+    File gradlew = new File(workspace, isWindowsOs() ? "gradlew.bat" : "gradlew");
+    if (gradlew.isFile()) {
+      return gradlew.getAbsolutePath();
+    }
+    return "gradle";
+  }
+
+  private List<String> commonGradleStartupCommand(File workspace) {
+    File gradleUserHome = new File(workspace, ".jvn-gradle-user-home");
+    if (!gradleUserHome.exists()) {
+      gradleUserHome.mkdirs();
+    }
+    List<String> cmd = new ArrayList<>();
+    cmd.add(resolveGradleCommand(workspace));
+    cmd.add("--no-daemon");
+    cmd.add("--console=plain");
+    cmd.add("--gradle-user-home");
+    cmd.add(gradleUserHome.getAbsolutePath());
+    cmd.add("-Dorg.gradle.vfs.watch=false");
+    return cmd;
+  }
+
+  private void runGradleStartupProcess(File workspace,
+                                       StartupSplashOverlay splash,
+                                       String category,
+                                       List<String> taskArgs,
+                                       String failureSummary,
+                                       String failureDetail) {
+    List<String> cmd = commonGradleStartupCommand(workspace);
+    cmd.addAll(taskArgs);
+    runStartupProcess(workspace, splash, category, cmd, failureSummary, failureDetail);
+  }
+
+  private void runStartupProcess(File workspace,
+                                 StartupSplashOverlay splash,
+                                 String category,
+                                 List<String> command,
+                                 String failureSummary,
+                                 String failureDetail) {
+    logSplash(splash, "INFO", category, "Running: " + String.join(" ", command));
+    Deque<String> tail = new ArrayDeque<>();
+    try {
+      ProcessBuilder pb = new ProcessBuilder(command);
+      pb.directory(workspace);
+      pb.redirectErrorStream(true);
+      if (workspace != null) {
+        File gradleUserHome = new File(workspace, ".jvn-gradle-user-home");
+        pb.environment().put("GRADLE_USER_HOME", gradleUserHome.getAbsolutePath());
+      }
+      Process process = pb.start();
+      try (BufferedReader reader =
+               new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+          String trimmed = line == null ? "" : line.trim();
+          if (trimmed.isBlank()) continue;
+          rememberStartupTail(tail, trimmed);
+          if (STARTUP_PROCESS_NOISE.matcher(trimmed).matches()) continue;
+          logSplash(splash, classifyStartupLine(trimmed), category, trimmed);
+        }
+      }
+      int exitCode = process.waitFor();
+      if (exitCode != 0) {
+        String detail = failureDetail;
+        if (!tail.isEmpty()) {
+          detail = (detail == null ? "" : detail + " ")
+              + "Recent output: " + String.join(" | ", tail);
+        }
+        throw new StartupFailure(failureSummary, detail == null ? "Command failed." : detail.trim());
+      }
+    } catch (StartupFailure ex) {
+      throw ex;
+    } catch (Exception ex) {
+      String detail = (failureDetail == null ? "" : failureDetail + " ")
+          + safeMessage(ex);
+      throw new StartupFailure(failureSummary, detail.trim(), ex);
+    }
+  }
+
+  private static void rememberStartupTail(Deque<String> tail, String line) {
+    if (line == null || line.isBlank()) return;
+    while (tail.size() >= STARTUP_COMMAND_TAIL_LINES) {
+      tail.removeFirst();
+    }
+    tail.addLast(line.trim());
+  }
+
+  private static String classifyStartupLine(String line) {
+    String normalized = line == null ? "" : line.toLowerCase(Locale.ROOT);
+    if (normalized.contains("error") || normalized.contains("failed") || normalized.contains("exception")) {
+      return "ERROR";
+    }
+    if (normalized.contains("warn") || normalized.contains("deprecated")) {
+      return "WARN";
+    }
+    return "INFO";
+  }
+
+  private static final class StartupFailure extends RuntimeException {
+    private final String summary;
+    private final String detail;
+
+    private StartupFailure(String summary, String detail) {
+      super((summary == null ? "Startup failure" : summary) + ": " + (detail == null ? "" : detail));
+      this.summary = summary == null ? "Startup failure" : summary;
+      this.detail = detail == null ? "" : detail;
+    }
+
+    private StartupFailure(String summary, String detail, Throwable cause) {
+      super((summary == null ? "Startup failure" : summary) + ": " + (detail == null ? "" : detail), cause);
+      this.summary = summary == null ? "Startup failure" : summary;
+      this.detail = detail == null ? "" : detail;
+    }
+
+    private String summary() {
+      return summary;
+    }
+
+    private String detail() {
+      return detail;
     }
   }
 
