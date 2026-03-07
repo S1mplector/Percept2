@@ -112,6 +112,9 @@ public class NewProjectWizard extends Stage {
 
   // Project paths
   private static final String ENTRY_SCRIPT_PATH = "scripts/story/prologue.vns";
+  private static final String STORY_TUTORIAL_SCRIPT_PATH = "scripts/story/tutorial_hub.vns";
+  private static final String STORY_BRANCH_SCRIPT_PATH = "scripts/story/branch_demo.vns";
+  private static final String STORY_EPILOGUE_SCRIPT_PATH = "scripts/story/epilogue.vns";
   private static final String TIMELINE_PATH = "config/timeline/story.timeline";
   private static final String SETTINGS_PATH = "config/settings/vn.settings";
   private static final String DIALOGUE_LAYOUT_PATH = "config/ui/dialogue.layout";
@@ -374,6 +377,7 @@ public class NewProjectWizard extends Stage {
 
     Label entryInfo = new Label(
         "Entry script: " + ENTRY_SCRIPT_PATH + "\n" +
+        "Arc scripts: " + STORY_TUTORIAL_SCRIPT_PATH + ", " + STORY_BRANCH_SCRIPT_PATH + ", " + STORY_EPILOGUE_SCRIPT_PATH + "\n" +
         "Timeline file: " + TIMELINE_PATH + "\n" +
         "Dialogue layout: " + DIALOGUE_LAYOUT_PATH + "\n" +
         "Menu registry: " + MENU_REGISTRY_PATH
@@ -916,7 +920,10 @@ public class NewProjectWizard extends Stage {
     }
     sb.append("\u251c\u2500\u2500 scripts/\n");
     sb.append("\u2502   \u251c\u2500\u2500 story/\n");
-    sb.append("\u2502   \u2502   \u2514\u2500\u2500 prologue.vns\n");
+    sb.append("\u2502   \u2502   \u251c\u2500\u2500 prologue.vns\n");
+    sb.append("\u2502   \u2502   \u251c\u2500\u2500 tutorial_hub.vns\n");
+    sb.append("\u2502   \u2502   \u251c\u2500\u2500 branch_demo.vns\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 epilogue.vns\n");
     sb.append("\u2502   \u251c\u2500\u2500 routes/\n");
     sb.append("\u2502   \u251c\u2500\u2500 definitions/\n");
     sb.append("\u2502   \u251c\u2500\u2500 common/\n");
@@ -1067,12 +1074,7 @@ public class NewProjectWizard extends Stage {
 
     if (chkSampleContent.isSelected() && includeDemoAssets) createSampleScript(dir, displayName, useLayeredLavenderDemo);
     else createEmptyScript(dir, displayName);
-
-    try (FileWriter fw = new FileWriter(new File(dir, TIMELINE_PATH))) {
-      fw.write("# Story Timeline for " + displayName + "\n");
-      fw.write("# Author: " + txtAuthor.getText().trim() + "\n\n");
-      fw.write("arc \"Prologue\" script \"" + ENTRY_SCRIPT_PATH + "\" entry \"start\" at 40,40\n");
-    }
+    createStoryTimeline(dir, displayName);
 
     createSettings(dir);
     createDialogueLayout(dir);
@@ -2036,25 +2038,137 @@ public class NewProjectWizard extends Stage {
         Lavender: We look forward to seeing what you create with JVN. Have fun!
         [end]
 
-        """.formatted(name, scenarioId, name, ENTRY_SCRIPT_PATH)
+        """.formatted(name, scenarioId, name, STORY_TUTORIAL_SCRIPT_PATH)
         .replace("__CHAR_DECLS__", characterDecls.stripTrailing())
         .replace("__FRAMING_COMMANDS__", framingCommands.stripTrailing())
         .replace("__EXPR_DEMO__", expressionDemo.stripTrailing())
         .replace("__IMAGE_DSL_LINE__", imageDslLine);
 
-    try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
+    try (FileWriter fw = new FileWriter(new File(dir, STORY_TUTORIAL_SCRIPT_PATH))) {
       fw.write(script);
     }
+
+    createSampleArcEntryAndBranchScripts(dir, name);
   }
 
   private void createEmptyScript(File dir, String name) throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
+      String scenarioId = sanitizeName(name).toLowerCase();
       fw.write("# " + name + " - Prologue\n");
-      fw.write("@scenario " + sanitizeName(name).toLowerCase() + "_prologue\n");
+      fw.write("@scenario " + scenarioId + "_prologue\n");
       fw.write("@character narrator \"Narrator\"\n\n");
       fw.write("@label start\n\n");
-      fw.write("Narrator: " + name + " begins here...\n\n");
+      fw.write("Narrator: Welcome to " + name + ".\n");
+      fw.write("Narrator: This starter project demonstrates multi-file story arcs.\n");
+      fw.write("> Continue to Tutorial Hub -> route_tutorial\n");
+      fw.write("> Take a short branch -> route_branch\n\n");
+      fw.write("@label route_tutorial\n");
+      fw.write("[goto TutorialHub:start]\n\n");
+      fw.write("@label route_branch\n");
+      fw.write("[goto BranchDemo:start]\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, STORY_TUTORIAL_SCRIPT_PATH))) {
+      String scenarioId = sanitizeName(name).toLowerCase();
+      fw.write("# " + name + " - Tutorial Hub\n");
+      fw.write("@scenario " + scenarioId + "_tutorial_hub\n");
+      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@label start\n\n");
+      fw.write("Narrator: This is Tutorial Hub (" + STORY_TUTORIAL_SCRIPT_PATH + ").\n");
+      fw.write("Narrator: It exists to demonstrate arc-to-arc script flow.\n");
+      fw.write("[goto Epilogue:start]\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, STORY_BRANCH_SCRIPT_PATH))) {
+      String scenarioId = sanitizeName(name).toLowerCase();
+      fw.write("# " + name + " - Branch Demo\n");
+      fw.write("@scenario " + scenarioId + "_branch_demo\n");
+      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@label start\n\n");
+      fw.write("Narrator: This is a short branch script (" + STORY_BRANCH_SCRIPT_PATH + ").\n");
+      fw.write("Narrator: From here, we rejoin at the epilogue arc.\n");
+      fw.write("[goto Epilogue:start]\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, STORY_EPILOGUE_SCRIPT_PATH))) {
+      String scenarioId = sanitizeName(name).toLowerCase();
+      fw.write("# " + name + " - Epilogue\n");
+      fw.write("@scenario " + scenarioId + "_epilogue\n");
+      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@label start\n\n");
+      fw.write("Narrator: You reached the epilogue. Edit this file to continue your story.\n");
       fw.write("[end]\n");
+    }
+  }
+
+  private void createSampleArcEntryAndBranchScripts(File dir, String name) throws Exception {
+    String scenarioId = sanitizeName(name).toLowerCase();
+    String tutorialArc = "TutorialHub";
+    String branchArc = "BranchDemo";
+    String epilogueArc = "Epilogue";
+
+    try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
+      fw.write("# " + name + " - Prologue Entry\n");
+      fw.write("@scenario " + scenarioId + "_prologue_entry\n");
+      fw.write("@character lavender \"Lavender\"\n");
+      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@background field_day assets/demo/backgrounds/game.png\n\n");
+      fw.write("@label start\n");
+      fw.write("[bg field_day]\n");
+      fw.write("[transition fade 400]\n");
+      fw.write("narrator: Welcome to " + name + ".\n");
+      fw.write("lavender: This project starts with a timeline-driven multi-file arc workflow.\n");
+      fw.write("lavender: Pick a route and I'll send you to another script file via story arcs.\n");
+      fw.write("> Guided tutorial route -> route_tutorial\n");
+      fw.write("> Quick branch demo route -> route_branch\n\n");
+      fw.write("@label route_tutorial\n");
+      fw.write("[goto " + tutorialArc + ":start]\n\n");
+      fw.write("@label route_branch\n");
+      fw.write("[goto " + branchArc + ":start]\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, STORY_BRANCH_SCRIPT_PATH))) {
+      fw.write("# " + name + " - Branch Demo\n");
+      fw.write("@scenario " + scenarioId + "_branch_demo\n");
+      fw.write("@character lavender \"Lavender\"\n");
+      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@background field_day assets/demo/backgrounds/game.png\n\n");
+      fw.write("@label start\n");
+      fw.write("[bg field_day]\n");
+      fw.write("Lavender: You're now in " + STORY_BRANCH_SCRIPT_PATH + ".\n");
+      fw.write("Lavender: This arc reconnects to the epilogue.\n");
+      fw.write("[goto " + epilogueArc + ":start]\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, STORY_EPILOGUE_SCRIPT_PATH))) {
+      fw.write("# " + name + " - Epilogue\n");
+      fw.write("@scenario " + scenarioId + "_epilogue\n");
+      fw.write("@character lavender \"Lavender\"\n");
+      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@background field_day assets/demo/backgrounds/game.png\n\n");
+      fw.write("@label start\n");
+      fw.write("[bg field_day]\n");
+      fw.write("Lavender: This is the epilogue arc (" + STORY_EPILOGUE_SCRIPT_PATH + ").\n");
+      fw.write("Lavender: Open " + TIMELINE_PATH + " to view and edit the connected arc graph.\n");
+      fw.write("[end]\n");
+    }
+  }
+
+  private void createStoryTimeline(File dir, String displayName) throws Exception {
+    try (FileWriter fw = new FileWriter(new File(dir, TIMELINE_PATH))) {
+      fw.write("# Story Timeline for " + displayName + "\n");
+      fw.write("# Author: " + txtAuthor.getText().trim() + "\n");
+      fw.write("# Starter arc workflow: prologue entry + route split + epilogue merge.\n\n");
+
+      fw.write("arc \"Prologue\" script \"" + ENTRY_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 10 color \"#84c7ff\" tags \"entry,main\" at 40,120\n");
+      fw.write("arc \"TutorialHub\" script \"" + STORY_TUTORIAL_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 8 color \"#93ddaa\" tags \"tutorial,main\" at 380,40\n");
+      fw.write("arc \"BranchDemo\" script \"" + STORY_BRANCH_SCRIPT_PATH + "\" entry \"start\" cluster \"Routes\" priority 7 color \"#f3b27a\" tags \"branch,route\" at 380,220\n");
+      fw.write("arc \"Epilogue\" script \"" + STORY_EPILOGUE_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 9 color \"#d6a8ee\" tags \"ending,main\" at 760,120\n\n");
+
+      fw.write("link Prologue:route_tutorial -> TutorialHub:start\n");
+      fw.write("link Prologue:route_branch -> BranchDemo:start\n");
+      fw.write("link TutorialHub:start -> Epilogue:start\n");
+      fw.write("link BranchDemo:start -> Epilogue:start\n");
     }
   }
 
@@ -2550,7 +2664,7 @@ public class NewProjectWizard extends Stage {
       fw.write("A visual novel project scaffolded by the JVN editor wizard.\n\n");
       if (!txtAuthor.getText().isBlank()) fw.write("**Author:** " + txtAuthor.getText().trim() + "\n\n");
       fw.write("## Enabled Modules\n\n");
-      fw.write("- Sample prologue: " + (chkSampleContent.isSelected() ? "yes" : "no") + "\n");
+      fw.write("- Sample arc walkthrough: " + (chkSampleContent.isSelected() ? "yes" : "no") + "\n");
       fw.write("- Bundled demo assets: " + (includeDemoAssets ? "yes (`assets/demo/...`)" : "no") + "\n");
       fw.write("- Menu profile pack: " + (includeMenuPack ? "yes" : "no") + "\n");
       fw.write("- Blank menus (custom): " + (shouldStartBlankMenus() ? "yes" : "no") + "\n");
@@ -2581,6 +2695,7 @@ public class NewProjectWizard extends Stage {
 
       fw.write("## Entry Points\n\n");
       fw.write("- Script: `" + ENTRY_SCRIPT_PATH + "`\n");
+      fw.write("- Arc scripts: `" + STORY_TUTORIAL_SCRIPT_PATH + "`, `" + STORY_BRANCH_SCRIPT_PATH + "`, `" + STORY_EPILOGUE_SCRIPT_PATH + "`\n");
       fw.write("- Timeline: `" + TIMELINE_PATH + "`\n");
       fw.write("- Settings: `" + SETTINGS_PATH + "`\n");
       fw.write("- Dialogue layout: `" + DIALOGUE_LAYOUT_PATH + "`\n\n");
@@ -2603,7 +2718,8 @@ public class NewProjectWizard extends Stage {
       fw.write("## First Steps\n\n");
       int step = 1;
       fw.write(step++ + ". Open this folder in the JVN Editor.\n");
-      fw.write(step++ + ". Edit `" + ENTRY_SCRIPT_PATH + "`.\n");
+      fw.write(step++ + ". Edit `" + ENTRY_SCRIPT_PATH + "` and the connected arc scripts in `scripts/story/`.\n");
+      fw.write(step++ + ". Open `" + TIMELINE_PATH + "` and inspect/edit arc links.\n");
       fw.write(step++ + ". Edit `" + DIALOGUE_LAYOUT_PATH + "` in text first, then run runtime to validate.\n");
       if (includeMenuPack) {
         fw.write(step++ + ". Edit `config/menu/menus/*.menu`, `config/menu/layouts/*.layout`, and `config/menu/styles/*.style` in text first.\n");
