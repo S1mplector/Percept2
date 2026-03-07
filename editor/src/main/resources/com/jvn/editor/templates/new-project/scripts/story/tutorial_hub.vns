@@ -14,32 +14,46 @@
 
 Lavender: Welcome to the built-in JVN tutorial pack for this project.
 Lavender: Each topic is its own {b}.vns{/b} file under {b}scripts/tutorial/{/b}, similar to Ren'Py-style example packs.
-Lavender: Choose any lesson. You can read it, run it, and edit it as a real project file.
+Lavender: The pack now includes fundamentals, advanced systems, and production/release workflow lessons.
+Lavender: Every lesson is intentionally long-form so teams can treat these files as living references.
 
 @label topics_page_1
 [show lavender far_left talking]
 [wait 120]
-Lavender: Basics:
-> Writing Dialogue & Text Tags -> open_dialogue
-> Narration & Pacing -> open_narration
-> Expressions & Character Setup -> open_expressions
-> Images & Backgrounds -> open_images
-> More advanced topics... -> topics_page_2
+Lavender: Fundamentals page:
+> 01. Writing Dialogue and Text Tags -> open_dialogue
+> 02. Narration and Pacing -> open_narration
+> 03. Expressions and Character Setup -> open_expressions
+> 04. Images and Backgrounds -> open_images
+> Next: Systems and Animation -> topics_page_2
 > Exit tutorial -> end_early
 
 @label topics_page_2
 [show lavender far_left talking]
 [wait 120]
-Lavender: Advanced:
-> Transitions & Screen FX -> open_transitions
-> Audio & Music -> open_audio
-> Variables & Conditions -> open_variables
-> Character Movement & Easing -> open_movement
-> Puppeteer Timeline in VNS -> open_puppeteer
-> Choices & Built-in Menus -> open_menus
-> Subroutines & Flow Composition -> open_subroutines
-> VNS Best Practices Checklist -> open_best_practices
-> Back to basics -> topics_page_1
+Lavender: Systems and animation page:
+> 05. Transitions and Screen FX -> open_transitions
+> 06. Audio and Music -> open_audio
+> 07. Variables and Conditions -> open_variables
+> 08. Character Movement and Easing -> open_movement
+> 09. Puppeteer Timeline from VNS -> open_puppeteer
+> 10. Choices and Built-in Menus -> open_menus
+> 11. Subroutines and Flow Composition -> open_subroutines
+> 12. Best Practices Checklist -> open_best_practices
+> Next: Production workflow -> topics_page_3
+> Back to fundamentals -> topics_page_1
+> Exit tutorial -> end_early
+
+@label topics_page_3
+[show lavender far_left talking]
+[wait 120]
+Lavender: Production workflow page:
+> 13. Camera and Staging -> open_camera
+> 14. Localization and Text Keys -> open_localization
+> 15. UI Layout and Theme Integration -> open_ui_layout
+> 16. Testing and Release Workflow -> open_testing_release
+> Jump back to fundamentals -> topics_page_1
+> Jump back to systems page -> topics_page_2
 > Exit tutorial -> end_early
 
 @label open_dialogue
@@ -78,15 +92,27 @@ Lavender: Advanced:
 @label open_best_practices
 [goto {{BEST_PRACTICES_TARGET}}:start]
 
+@label open_camera
+[goto {{CAMERA_TARGET}}:start]
+
+@label open_localization
+[goto {{LOCALIZATION_TARGET}}:start]
+
+@label open_ui_layout
+[goto {{UI_LAYOUT_TARGET}}:start]
+
+@label open_testing_release
+[goto {{TESTING_RELEASE_TARGET}}:start]
+
 @label end_early
 [show lavender center talking]
 [wait 160]
-[if tutorial_count > 9]
-Lavender: You explored nearly the whole tutorial pack. Great pace.
-[elif tutorial_count > 4]
-Lavender: Nice progress. Keep iterating in these files as your project grows.
+[if tutorial_count > 13]
+Lavender: You explored nearly the entire tutorial pack. Great pace.
+[elif tutorial_count > 7]
+Lavender: Strong progress. You already covered both fundamentals and advanced systems.
 [else]
-Lavender: Start with one topic, then revisit the rest as needed.
+Lavender: Start with one track and revisit the rest as your production needs evolve.
 [endif]
-Lavender: Open the scripts directly in the editor and adapt them to your own narrative style.
+Lavender: Open these files directly in the editor and adapt them to your project's own standards.
 [end]

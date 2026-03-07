@@ -127,6 +127,10 @@ public class NewProjectWizard extends Stage {
   private static final String TUTORIAL_MENUS_SCRIPT_PATH = "scripts/tutorial/10_choices_and_menus.vns";
   private static final String TUTORIAL_SUBROUTINES_SCRIPT_PATH = "scripts/tutorial/11_subroutines_and_flow.vns";
   private static final String TUTORIAL_BEST_PRACTICES_SCRIPT_PATH = "scripts/tutorial/12_best_practices.vns";
+  private static final String TUTORIAL_CAMERA_SCRIPT_PATH = "scripts/tutorial/13_camera_and_staging.vns";
+  private static final String TUTORIAL_LOCALIZATION_SCRIPT_PATH = "scripts/tutorial/14_localization_and_textkeys.vns";
+  private static final String TUTORIAL_UI_LAYOUT_SCRIPT_PATH = "scripts/tutorial/15_ui_layout_and_theme.vns";
+  private static final String TUTORIAL_TESTING_RELEASE_SCRIPT_PATH = "scripts/tutorial/16_testing_and_release.vns";
   private static final String CHARACTERS_SCRIPT_PATH = "scripts/definitions/characters.vns";
   private static final String CHARACTERS_INCLUDE_PATH = "/definitions/characters.vns";
   private static final String TIMELINE_PATH = "config/timeline/story.timeline";
@@ -942,7 +946,11 @@ public class NewProjectWizard extends Stage {
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 09_puppeteer_timeline.vns\n");
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 10_choices_and_menus.vns\n");
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 11_subroutines_and_flow.vns\n");
-      sb.append("\u2502   \u2502   \u2514\u2500\u2500 12_best_practices.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 12_best_practices.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 13_camera_and_staging.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 14_localization_and_textkeys.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 15_ui_layout_and_theme.vns\n");
+      sb.append("\u2502   \u2502   \u2514\u2500\u2500 16_testing_and_release.vns\n");
     }
     sb.append("\u2502   \u251c\u2500\u2500 routes/\n");
     sb.append("\u2502   \u251c\u2500\u2500 definitions/\n");
@@ -1512,6 +1520,10 @@ public class NewProjectWizard extends Stage {
     tokens.put("MENUS_TARGET", toScriptGotoTarget(TUTORIAL_MENUS_SCRIPT_PATH));
     tokens.put("SUBROUTINES_TARGET", toScriptGotoTarget(TUTORIAL_SUBROUTINES_SCRIPT_PATH));
     tokens.put("BEST_PRACTICES_TARGET", toScriptGotoTarget(TUTORIAL_BEST_PRACTICES_SCRIPT_PATH));
+    tokens.put("CAMERA_TARGET", toScriptGotoTarget(TUTORIAL_CAMERA_SCRIPT_PATH));
+    tokens.put("LOCALIZATION_TARGET", toScriptGotoTarget(TUTORIAL_LOCALIZATION_SCRIPT_PATH));
+    tokens.put("UI_LAYOUT_TARGET", toScriptGotoTarget(TUTORIAL_UI_LAYOUT_SCRIPT_PATH));
+    tokens.put("TESTING_RELEASE_TARGET", toScriptGotoTarget(TUTORIAL_TESTING_RELEASE_SCRIPT_PATH));
 
     writeScaffoldTemplateScript(
         dir,
@@ -1565,6 +1577,10 @@ public class NewProjectWizard extends Stage {
     writeScaffoldTemplateScript(dir, TUTORIAL_MENUS_SCRIPT_PATH, "scripts/tutorial/10_choices_and_menus.vns", baseTokens);
     writeScaffoldTemplateScript(dir, TUTORIAL_SUBROUTINES_SCRIPT_PATH, "scripts/tutorial/11_subroutines_and_flow.vns", baseTokens);
     writeScaffoldTemplateScript(dir, TUTORIAL_BEST_PRACTICES_SCRIPT_PATH, "scripts/tutorial/12_best_practices.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_CAMERA_SCRIPT_PATH, "scripts/tutorial/13_camera_and_staging.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_LOCALIZATION_SCRIPT_PATH, "scripts/tutorial/14_localization_and_textkeys.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_UI_LAYOUT_SCRIPT_PATH, "scripts/tutorial/15_ui_layout_and_theme.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_TESTING_RELEASE_SCRIPT_PATH, "scripts/tutorial/16_testing_and_release.vns", baseTokens);
   }
 
   private void writeScaffoldScript(File dir, String relativePath, String content) throws Exception {
@@ -1692,7 +1708,11 @@ public class NewProjectWizard extends Stage {
         fw.write("arc T09_Puppeteer script \"" + TUTORIAL_PUPPETEER_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#c4a4ff\" tags \"tutorial,puppeteer\" at 760,220\n");
         fw.write("arc T10_Menus script \"" + TUTORIAL_MENUS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#84c7ff\" tags \"tutorial,menus\" at 980,220\n");
         fw.write("arc T11_Subroutines script \"" + TUTORIAL_SUBROUTINES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ad6ff\" tags \"tutorial,flow\" at 1200,220\n");
-        fw.write("arc T12_BestPractices script \"" + TUTORIAL_BEST_PRACTICES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#93ddaa\" tags \"tutorial,best_practice\" at 1420,220\n\n");
+        fw.write("arc T12_BestPractices script \"" + TUTORIAL_BEST_PRACTICES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#93ddaa\" tags \"tutorial,best_practice\" at 1420,220\n");
+        fw.write("arc T13_Camera script \"" + TUTORIAL_CAMERA_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#f0c48a\" tags \"tutorial,camera\" at 760,420\n");
+        fw.write("arc T14_Localization script \"" + TUTORIAL_LOCALIZATION_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#f3b27a\" tags \"tutorial,localization\" at 980,420\n");
+        fw.write("arc T15_UILayout script \"" + TUTORIAL_UI_LAYOUT_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#efb3c8\" tags \"tutorial,ui\" at 1200,420\n");
+        fw.write("arc T16_TestingRelease script \"" + TUTORIAL_TESTING_RELEASE_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#d6a8ee\" tags \"tutorial,testing\" at 1420,420\n\n");
       }
 
       fw.write("link Prologue:route_tutorial -> TutorialHub:start\n");
@@ -1713,6 +1733,10 @@ public class NewProjectWizard extends Stage {
         fw.write("link TutorialHub:open_menus -> T10_Menus:start\n");
         fw.write("link TutorialHub:open_subroutines -> T11_Subroutines:start\n");
         fw.write("link TutorialHub:open_best_practices -> T12_BestPractices:start\n");
+        fw.write("link TutorialHub:open_camera -> T13_Camera:start\n");
+        fw.write("link TutorialHub:open_localization -> T14_Localization:start\n");
+        fw.write("link TutorialHub:open_ui_layout -> T15_UILayout:start\n");
+        fw.write("link TutorialHub:open_testing_release -> T16_TestingRelease:start\n");
       }
     }
   }

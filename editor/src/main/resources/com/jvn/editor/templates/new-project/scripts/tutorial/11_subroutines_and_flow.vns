@@ -3,17 +3,387 @@
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
+[textspeed 28]
+[autodelay 1650]
 [show lavender center talking]
-Lavender: [gosub label] enters a reusable block; [return] resumes caller flow.
-[gosub reusable_intro]
-Lavender: Returned from subroutine.
-Lavender: Use @include to split files and keep scenario scripts focused by function.
+Lavender: Welcome to Tutorial 11 - Subroutines and Flow Composition.
+Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
+Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
+Lavender: Focus area for this file: Reusable labels, calls, and structural composition.
+Lavender: Primary command family: [call label].
+narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+
+@label lesson_menu
+[show lavender far_left talking]
+Lavender: Choose a section. You can revisit any section in any order.
+> Guided section index -> section_index
+> Dense reference sheet -> reference_sheet
+> Practice scene -> practice_scene
 > Return to Tutorial Hub -> return_hub
 
-@label reusable_intro
-narrator: [Subroutine section]
-Lavender: Shared intro beat executed.
-[return]
+@label section_index
+[show lavender far_left talking]
+Lavender: Guided sections:
+> Section 01 -> section_01
+> Section 02 -> section_02
+> Section 03 -> section_03
+> Section 04 -> section_04
+> Section 05 -> section_05
+> Section 06 -> section_06
+> Section 07 -> section_07
+> Section 08 -> section_08
+> Section 09 -> section_09
+> Section 10 -> section_10
+> Back to lesson menu -> lesson_menu
+
+@label section_01
+[show lavender left talking]
+Lavender: Section 01 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A01: [return]
+narrator: Example line B01: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 01: annotate why, not only what, in your own scripts.
+Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
+> Next section -> section_02
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_02
+[show lavender left talking]
+Lavender: Section 02 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A02: [return]
+narrator: Example line B02: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 02: annotate why, not only what, in your own scripts.
+Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
+> Next section -> section_03
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_03
+[show lavender left talking]
+Lavender: Section 03 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A03: [return]
+narrator: Example line B03: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 03: annotate why, not only what, in your own scripts.
+Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
+[set tutorial_checkpoint 3]
+> Next section -> section_04
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_04
+[show lavender left talking]
+Lavender: Section 04 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A04: [return]
+narrator: Example line B04: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 04: annotate why, not only what, in your own scripts.
+Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
+> Next section -> section_05
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_05
+[show lavender left talking]
+Lavender: Section 05 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A05: [return]
+narrator: Example line B05: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 05: annotate why, not only what, in your own scripts.
+Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
+> Next section -> section_06
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_06
+[show lavender left talking]
+Lavender: Section 06 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A06: [return]
+narrator: Example line B06: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 06: annotate why, not only what, in your own scripts.
+Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
+[set tutorial_checkpoint 6]
+> Next section -> section_07
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_07
+[show lavender left talking]
+Lavender: Section 07 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A07: [return]
+narrator: Example line B07: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 07: annotate why, not only what, in your own scripts.
+Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
+> Next section -> section_08
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_08
+[show lavender left talking]
+Lavender: Section 08 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A08: [return]
+narrator: Example line B08: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 08: annotate why, not only what, in your own scripts.
+Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
+> Next section -> section_09
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_09
+[show lavender left talking]
+Lavender: Section 09 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A09: [return]
+narrator: Example line B09: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 09: annotate why, not only what, in your own scripts.
+Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
+[set tutorial_checkpoint 9]
+> Next section -> section_10
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_10
+[show lavender left talking]
+Lavender: Section 10 for Reusable labels, calls, and structural composition.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: [call label].
+narrator: Example line A10: [return]
+narrator: Example line B10: [goto script:label]
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 10: annotate why, not only what, in your own scripts.
+Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
+> Next section -> section_10
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label reference_sheet
+[show lavender center talking]
+Lavender: Reference mode: long-form checklist with tactical reminders.
+narrator: Ref 001 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 002 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 003 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 004 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 005 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 006 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 007 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 008 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 009 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 010 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 011 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 012 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 013 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 014 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 015 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 016 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 017 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 018 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 019 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 020 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 021 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 022 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 023 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 024 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 025 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 026 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 027 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 028 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 029 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 030 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 031 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 032 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 033 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 034 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 035 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 036 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 037 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 038 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 039 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 040 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 041 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 042 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 043 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 044 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 045 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 046 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 047 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 048 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 049 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 050 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 051 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 052 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 053 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 054 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 055 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 056 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 057 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 058 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 059 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 060 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 061 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 062 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 063 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 064 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 065 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 066 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 067 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 068 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 069 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 070 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 071 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 072 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 073 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 074 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 075 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 076 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 077 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 078 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 079 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 080 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 081 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 082 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 083 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 084 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 085 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 086 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 087 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 088 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 089 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 090 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 091 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 092 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 093 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 094 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 095 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 096 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 097 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 098 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 099 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 100 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 101 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 102 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 103 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 104 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 105 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 106 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 107 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 108 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 109 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 110 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 111 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 112 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 113 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 114 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 115 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 116 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 117 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 118 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 119 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 120 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 121 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 122 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 123 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 124 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 125 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 126 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 127 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 128 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 129 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 130 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 131 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 132 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 133 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 134 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 135 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 136 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 137 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 138 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 139 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 140 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 141 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 142 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 143 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 144 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 145 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 146 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 147 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 148 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 149 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 150 | Reusable labels, calls, and structural composition | Keep scripts deterministic, readable, and reviewable.
+Lavender: End of reference sheet for Tutorial 11 - Subroutines and Flow Composition.
+> Back to lesson menu -> lesson_menu
+
+@label practice_scene
+[show lavender right talking]
+Lavender: Practice setup for Reusable labels, calls, and structural composition.
+Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
+> Practice path A -> practice_a
+> Practice path B -> practice_b
+> Practice path C -> practice_c
+
+@label practice_a
+[show lavender left talking]
+Lavender: Practice A uses the core pattern: [call label].
+narrator: Validate state transitions after each command batch.
+[set practice_result 1]
+[jump practice_wrap]
+
+@label practice_b
+[show lavender center talking]
+Lavender: Practice B uses alternate pattern: [return].
+narrator: Compare readability between A and B.
+[set practice_result 2]
+[jump practice_wrap]
+
+@label practice_c
+[show lavender right talking]
+Lavender: Practice C uses stress pattern: [goto script:label].
+narrator: Check if this remains maintainable after content scale-up.
+[set practice_result 3]
+[jump practice_wrap]
+
+@label practice_wrap
+[if practice_result == 1]
+Lavender: You picked A. Good for stable baseline implementation.
+[elif practice_result == 2]
+Lavender: You picked B. Useful when balancing readability and flexibility.
+[else]
+Lavender: You picked C. Great for stress-testing workflow assumptions.
+[endif]
+Lavender: Practice scene complete.
+> Back to lesson menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_2]

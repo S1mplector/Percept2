@@ -1,25 +1,389 @@
-# Tutorial 10 - Choices and Menus
+# Tutorial 10 - Choices and Built-in Menus
 @scenario {{SCENARIO_PREFIX}}_tutorial_10_menus
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
+[textspeed 28]
+[autodelay 1650]
 [show lavender center talking]
-Lavender: Choices branch with syntax: > Choice text -> target_label
-Lavender: Menu commands available in scripts: [save], [load], [settings], [mainmenu].
-> Open save menu now -> open_save
-> Explain menu best practices -> explain_menus
+Lavender: Welcome to Tutorial 10 - Choices and Built-in Menus.
+Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
+Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
+Lavender: Focus area for this file: Choice design, menu flow, and consequence clarity.
+Lavender: Primary command family: > Choice text -> label.
+narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+
+@label lesson_menu
+[show lavender far_left talking]
+Lavender: Choose a section. You can revisit any section in any order.
+> Guided section index -> section_index
+> Dense reference sheet -> reference_sheet
+> Practice scene -> practice_scene
 > Return to Tutorial Hub -> return_hub
 
-@label open_save
-Lavender: Opening save menu...
-[save]
-Lavender: Back from save menu.
-[jump return_hub]
+@label section_index
+[show lavender far_left talking]
+Lavender: Guided sections:
+> Section 01 -> section_01
+> Section 02 -> section_02
+> Section 03 -> section_03
+> Section 04 -> section_04
+> Section 05 -> section_05
+> Section 06 -> section_06
+> Section 07 -> section_07
+> Section 08 -> section_08
+> Section 09 -> section_09
+> Section 10 -> section_10
+> Back to lesson menu -> lesson_menu
 
-@label explain_menus
-Lavender: Keep menu-triggering choices explicit and sparing in story-critical beats.
-Lavender: Reserve [mainmenu] for hard exits and confirmations.
-[jump return_hub]
+@label section_01
+[show lavender left talking]
+Lavender: Section 01 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A01: [if var] gated choices
+narrator: Example line B01: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 01: annotate why, not only what, in your own scripts.
+Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
+> Next section -> section_02
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_02
+[show lavender left talking]
+Lavender: Section 02 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A02: [if var] gated choices
+narrator: Example line B02: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 02: annotate why, not only what, in your own scripts.
+Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
+> Next section -> section_03
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_03
+[show lavender left talking]
+Lavender: Section 03 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A03: [if var] gated choices
+narrator: Example line B03: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 03: annotate why, not only what, in your own scripts.
+Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
+[set tutorial_checkpoint 3]
+> Next section -> section_04
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_04
+[show lavender left talking]
+Lavender: Section 04 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A04: [if var] gated choices
+narrator: Example line B04: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 04: annotate why, not only what, in your own scripts.
+Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
+> Next section -> section_05
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_05
+[show lavender left talking]
+Lavender: Section 05 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A05: [if var] gated choices
+narrator: Example line B05: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 05: annotate why, not only what, in your own scripts.
+Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
+> Next section -> section_06
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_06
+[show lavender left talking]
+Lavender: Section 06 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A06: [if var] gated choices
+narrator: Example line B06: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 06: annotate why, not only what, in your own scripts.
+Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
+[set tutorial_checkpoint 6]
+> Next section -> section_07
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_07
+[show lavender left talking]
+Lavender: Section 07 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A07: [if var] gated choices
+narrator: Example line B07: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 07: annotate why, not only what, in your own scripts.
+Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
+> Next section -> section_08
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_08
+[show lavender left talking]
+Lavender: Section 08 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A08: [if var] gated choices
+narrator: Example line B08: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 08: annotate why, not only what, in your own scripts.
+Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
+> Next section -> section_09
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_09
+[show lavender left talking]
+Lavender: Section 09 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A09: [if var] gated choices
+narrator: Example line B09: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 09: annotate why, not only what, in your own scripts.
+Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
+[set tutorial_checkpoint 9]
+> Next section -> section_10
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_10
+[show lavender left talking]
+Lavender: Section 10 for Choice design, menu flow, and consequence clarity.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: > Choice text -> label.
+narrator: Example line A10: [if var] gated choices
+narrator: Example line B10: menu route returns and merges
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 10: annotate why, not only what, in your own scripts.
+Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
+> Next section -> section_10
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label reference_sheet
+[show lavender center talking]
+Lavender: Reference mode: long-form checklist with tactical reminders.
+narrator: Ref 001 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 002 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 003 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 004 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 005 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 006 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 007 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 008 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 009 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 010 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 011 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 012 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 013 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 014 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 015 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 016 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 017 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 018 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 019 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 020 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 021 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 022 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 023 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 024 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 025 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 026 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 027 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 028 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 029 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 030 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 031 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 032 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 033 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 034 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 035 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 036 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 037 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 038 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 039 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 040 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 041 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 042 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 043 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 044 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 045 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 046 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 047 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 048 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 049 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 050 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 051 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 052 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 053 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 054 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 055 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 056 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 057 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 058 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 059 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 060 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 061 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 062 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 063 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 064 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 065 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 066 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 067 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 068 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 069 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 070 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 071 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 072 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 073 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 074 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 075 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 076 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 077 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 078 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 079 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 080 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 081 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 082 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 083 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 084 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 085 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 086 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 087 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 088 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 089 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 090 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 091 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 092 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 093 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 094 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 095 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 096 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 097 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 098 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 099 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 100 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 101 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 102 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 103 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 104 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 105 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 106 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 107 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 108 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 109 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 110 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 111 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 112 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 113 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 114 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 115 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 116 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 117 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 118 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 119 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 120 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 121 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 122 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 123 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 124 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 125 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 126 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 127 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 128 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 129 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 130 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 131 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 132 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 133 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 134 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 135 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 136 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 137 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 138 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 139 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 140 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 141 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 142 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 143 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 144 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 145 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 146 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 147 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 148 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 149 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 150 | Choice design, menu flow, and consequence clarity | Keep scripts deterministic, readable, and reviewable.
+Lavender: End of reference sheet for Tutorial 10 - Choices and Built-in Menus.
+> Back to lesson menu -> lesson_menu
+
+@label practice_scene
+[show lavender right talking]
+Lavender: Practice setup for Choice design, menu flow, and consequence clarity.
+Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
+> Practice path A -> practice_a
+> Practice path B -> practice_b
+> Practice path C -> practice_c
+
+@label practice_a
+[show lavender left talking]
+Lavender: Practice A uses the core pattern: > Choice text -> label.
+narrator: Validate state transitions after each command batch.
+[set practice_result 1]
+[jump practice_wrap]
+
+@label practice_b
+[show lavender center talking]
+Lavender: Practice B uses alternate pattern: [if var] gated choices.
+narrator: Compare readability between A and B.
+[set practice_result 2]
+[jump practice_wrap]
+
+@label practice_c
+[show lavender right talking]
+Lavender: Practice C uses stress pattern: menu route returns and merges.
+narrator: Check if this remains maintainable after content scale-up.
+[set practice_result 3]
+[jump practice_wrap]
+
+@label practice_wrap
+[if practice_result == 1]
+Lavender: You picked A. Good for stable baseline implementation.
+[elif practice_result == 2]
+Lavender: You picked B. Useful when balancing readability and flexibility.
+[else]
+Lavender: You picked C. Great for stress-testing workflow assumptions.
+[endif]
+Lavender: Practice scene complete.
+> Back to lesson menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_2]

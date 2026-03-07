@@ -3,37 +3,387 @@
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
+[textspeed 28]
+[autodelay 1650]
 [show lavender center talking]
-Lavender: Timeline blocks in VNS use the same commands the Puppeteer exports.
+Lavender: Welcome to Tutorial 09 - Puppeteer Timeline from VNS.
+Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
+Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
+Lavender: Focus area for this file: Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Primary command family: timeline { move ... }.
+narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
 
-timeline {
-  move "lavender" { x: 220 y: 405 dur: 0 }
-}
-[wait 60]
-timeline {
-  move "lavender" { x: 920 y: 405 dur: 760 easing: ease_in_out_sine }
-  rotate "lavender" { angle: -8 dur: 760 easing: ease_in_out_sine }
-}
-[wait 820]
-timeline {
-  scale "lavender" { x: 1.14 y: 1.14 dur: 260 easing: ease_out_quad }
-  wait 280
-  scale "lavender" { x: 1.0 y: 1.0 dur: 260 easing: ease_in_out_quad }
-}
-[wait 620]
-timeline {
-  cameraMove { x: 48 y: -10 dur: 460 easing: ease_in_out_sine }
-  cameraZoom { zoom: 1.08 dur: 460 easing: ease_in_out_sine }
-}
-[wait 520]
-timeline {
-  cameraMove { x: 0 y: 0 dur: 420 easing: ease_out_sine }
-  cameraZoom { zoom: 1.0 dur: 420 easing: ease_out_sine }
-}
-[wait 470]
-[show lavender center idle]
-Lavender: Use this as your baseline when validating Puppeteer export behavior.
+@label lesson_menu
+[show lavender far_left talking]
+Lavender: Choose a section. You can revisit any section in any order.
+> Guided section index -> section_index
+> Dense reference sheet -> reference_sheet
+> Practice scene -> practice_scene
 > Return to Tutorial Hub -> return_hub
+
+@label section_index
+[show lavender far_left talking]
+Lavender: Guided sections:
+> Section 01 -> section_01
+> Section 02 -> section_02
+> Section 03 -> section_03
+> Section 04 -> section_04
+> Section 05 -> section_05
+> Section 06 -> section_06
+> Section 07 -> section_07
+> Section 08 -> section_08
+> Section 09 -> section_09
+> Section 10 -> section_10
+> Back to lesson menu -> lesson_menu
+
+@label section_01
+[show lavender left talking]
+Lavender: Section 01 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A01: timeline { rotate ... }
+narrator: Example line B01: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 01: annotate why, not only what, in your own scripts.
+Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
+> Next section -> section_02
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_02
+[show lavender left talking]
+Lavender: Section 02 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A02: timeline { rotate ... }
+narrator: Example line B02: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 02: annotate why, not only what, in your own scripts.
+Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
+> Next section -> section_03
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_03
+[show lavender left talking]
+Lavender: Section 03 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A03: timeline { rotate ... }
+narrator: Example line B03: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 03: annotate why, not only what, in your own scripts.
+Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
+[set tutorial_checkpoint 3]
+> Next section -> section_04
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_04
+[show lavender left talking]
+Lavender: Section 04 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A04: timeline { rotate ... }
+narrator: Example line B04: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 04: annotate why, not only what, in your own scripts.
+Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
+> Next section -> section_05
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_05
+[show lavender left talking]
+Lavender: Section 05 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A05: timeline { rotate ... }
+narrator: Example line B05: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 05: annotate why, not only what, in your own scripts.
+Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
+> Next section -> section_06
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_06
+[show lavender left talking]
+Lavender: Section 06 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A06: timeline { rotate ... }
+narrator: Example line B06: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 06: annotate why, not only what, in your own scripts.
+Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
+[set tutorial_checkpoint 6]
+> Next section -> section_07
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_07
+[show lavender left talking]
+Lavender: Section 07 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A07: timeline { rotate ... }
+narrator: Example line B07: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 07: annotate why, not only what, in your own scripts.
+Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
+> Next section -> section_08
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_08
+[show lavender left talking]
+Lavender: Section 08 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A08: timeline { rotate ... }
+narrator: Example line B08: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 08: annotate why, not only what, in your own scripts.
+Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
+> Next section -> section_09
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_09
+[show lavender left talking]
+Lavender: Section 09 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A09: timeline { rotate ... }
+narrator: Example line B09: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 09: annotate why, not only what, in your own scripts.
+Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
+[set tutorial_checkpoint 9]
+> Next section -> section_10
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label section_10
+[show lavender left talking]
+Lavender: Section 10 for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: Intent: build a repeatable workflow, not one-off script tricks.
+Lavender: Command anchor: timeline { move ... }.
+narrator: Example line A10: timeline { rotate ... }
+narrator: Example line B10: timeline { event ... }
+Lavender: Read this as pattern language: setup, execute, validate, iterate.
+Lavender: Tip 10: annotate why, not only what, in your own scripts.
+Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
+Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
+> Next section -> section_10
+> Section index -> section_index
+> Return to lesson menu -> lesson_menu
+
+@label reference_sheet
+[show lavender center talking]
+Lavender: Reference mode: long-form checklist with tactical reminders.
+narrator: Ref 001 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 002 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 003 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 004 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 005 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 006 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 007 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 008 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 009 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 010 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 011 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 012 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 013 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 014 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 015 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 016 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 017 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 018 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 019 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 020 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 021 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 022 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 023 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 024 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 025 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 026 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 027 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 028 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 029 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 030 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 031 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 032 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 033 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 034 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 035 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 036 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 037 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 038 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 039 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 040 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 041 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 042 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 043 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 044 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 045 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 046 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 047 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 048 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 049 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 050 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 051 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 052 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 053 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 054 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 055 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 056 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 057 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 058 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 059 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 060 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 061 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 062 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 063 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 064 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 065 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 066 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 067 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 068 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 069 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 070 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 071 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 072 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 073 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 074 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 075 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 076 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 077 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 078 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 079 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 080 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 081 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 082 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 083 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 084 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 085 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 086 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 087 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 088 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 089 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 090 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 091 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 092 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 093 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 094 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 095 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 096 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 097 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 098 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 099 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 100 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 101 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 102 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 103 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 104 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 105 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 106 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 107 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 108 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 109 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 110 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 111 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 112 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 113 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 114 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 115 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 116 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 117 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 118 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 119 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 120 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 121 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 122 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 123 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 124 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 125 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 126 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 127 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 128 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 129 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 130 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 131 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 132 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 133 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 134 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 135 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 136 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 137 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 138 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 139 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 140 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 141 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 142 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 143 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 144 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 145 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 146 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 147 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 148 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 149 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+narrator: Ref 150 | Round-trip between editor keyframes and VNS timeline blocks | Keep scripts deterministic, readable, and reviewable.
+Lavender: End of reference sheet for Tutorial 09 - Puppeteer Timeline from VNS.
+> Back to lesson menu -> lesson_menu
+
+@label practice_scene
+[show lavender right talking]
+Lavender: Practice setup for Round-trip between editor keyframes and VNS timeline blocks.
+Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
+> Practice path A -> practice_a
+> Practice path B -> practice_b
+> Practice path C -> practice_c
+
+@label practice_a
+[show lavender left talking]
+Lavender: Practice A uses the core pattern: timeline { move ... }.
+narrator: Validate state transitions after each command batch.
+[set practice_result 1]
+[jump practice_wrap]
+
+@label practice_b
+[show lavender center talking]
+Lavender: Practice B uses alternate pattern: timeline { rotate ... }.
+narrator: Compare readability between A and B.
+[set practice_result 2]
+[jump practice_wrap]
+
+@label practice_c
+[show lavender right talking]
+Lavender: Practice C uses stress pattern: timeline { event ... }.
+narrator: Check if this remains maintainable after content scale-up.
+[set practice_result 3]
+[jump practice_wrap]
+
+@label practice_wrap
+[if practice_result == 1]
+Lavender: You picked A. Good for stable baseline implementation.
+[elif practice_result == 2]
+Lavender: You picked B. Useful when balancing readability and flexibility.
+[else]
+Lavender: You picked C. Great for stress-testing workflow assumptions.
+[endif]
+Lavender: Practice scene complete.
+> Back to lesson menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_2]
