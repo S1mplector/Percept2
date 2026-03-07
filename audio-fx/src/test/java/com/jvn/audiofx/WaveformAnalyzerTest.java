@@ -1,8 +1,12 @@
 package com.jvn.audiofx;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Timeout;
 
 class WaveformAnalyzerTest {
 
@@ -107,5 +111,125 @@ class WaveformAnalyzerTest {
     // Should return some result without crashing, even if native unavailable
     assertNotNull(a);
     assertEquals(32, a.envelope().length);
+  }
+
+  // --- EMPTY constant ---
+
+  @Test
+  void emptySentinelHasZeroValues() {
+    WaveformAnalyzer.Analysis empty = WaveformAnalyzer.EMPTY;
+    assertNotNull(empty);
+    assertEquals(0, empty.envelope().length);
+    assertEquals(0f, empty.rms());
+    assertEquals(0f, empty.peak());
+    assertFalse(empty.nativeAvailable());
+  }
+
+  // --- StreamingAnalyzer ---
+
+  @Test
+  @Timeout(5)
+  void streamingAnalyzerStartAndStopLifecycle() throws InterruptedException {
+    WaveformAnalyzer.StreamingAnalyzer sa = new WaveformAnalyzer.StreamingAnalyzer();
+    assertFalse(sa.isRunning());
+    assertSame(WaveformAnalyzer.EMPTY, sa.latest());
+
+    SynthPreviewSettings s = new SynthPreviewSettings();
+    s.setPreset("wind");
+    s.setIntensity(0.7f);
+    sa.start(s);
+    assertTrue(sa.isRunning());
+
+    // Give the render thread time to produce at least one analysis
+    Thread.sleep(200);
+    WaveformAnalyzer.Analysis a = sa.latest();
+    assertNotNull(a);
+    // Envelope should have data (128 bins from DEFAULT_BINS)
+    assertTrue(a.envelope().length > 0, "Streaming should produce envelope bins");
+
+    sa.stop();
+    assertFalse(sa.isRunning());
+  }
+
+  @Test
+  @Timeout(5)
+  void streamingAnalyzerReconfigureUpdatesAnalysis() throws InterruptedException {
+    WaveformAnalyzer.StreamingAnalyzer sa = new WaveformAnalyzer.StreamingAnalyzer();
+    SynthPreviewSettings s = new SynthPreviewSettings();
+    s.setPreset("wind");
+    s.setIntensity(0.3f);
+    sa.start(s);
+    Thread.sleep(200);
+    WaveformAnalyzer.Analysis a1 = sa.latest();
+
+    // Reconfigure to a different preset/intensity
+    SynthPreviewSettings s2 = new SynthPreviewSettings();
+    s2.setPreset("thunder");
+    s2.setIntensity(0.9f);
+    sa.reconfigure(s2);
+    Thread.sleep(300);
+    WaveformAnalyzer.Analysis a2 = sa.latest();
+
+    // Both should be valid analyses
+    assertNotNull(a1);
+    assertNotNull(a2);
+    assertTrue(a1.envelope().length > 0);
+    assertTrue(a2.envelope().length > 0);
+
+    sa.stop();
+  }
+
+  @Test
+  @Timeout(5)
+  void streamingAnalyzerStopIsIdempotent() {
+    WaveformAnalyzer.StreamingAnalyzer sa = new WaveformAnalyzer.StreamingAnalyzer();
+    // Calling stop before start should not throw
+    sa.stop();
+    sa.stop();
+    assertFalse(sa.isRunning());
+  }
+
+  @Test
+  @Timeout(5)
+  void streamingAnalyzerNullSettingsDoesNotStart() {
+    WaveformAnalyzer.StreamingAnalyzer sa = new WaveformAnalyzer.StreamingAnalyzer();
+    sa.start(null);
+    assertFalse(sa.isRunning());
+  }
+
+  // --- SynthPreviewSettings.copy() ---
+
+  @Test
+  void settingsCopyIsIndependent() {
+    SynthPreviewSettings original = new SynthPreviewSettings();
+    original.setType(SynthPreviewSettings.SynthType.CHIPTUNE);
+    original.setPreset("ocean");
+    original.setCueId("confirm");
+    original.setIntensity(0.3f);
+    original.setVolume(0.8f);
+    original.setLoop(false);
+    original.setDetail(0.1f);
+    original.setMotion(0.2f);
+    original.setSpread(0.3f);
+    original.setAccent(0.4f);
+
+    SynthPreviewSettings copy = original.copy();
+
+    assertEquals(original.type(), copy.type());
+    assertEquals(original.preset(), copy.preset());
+    assertEquals(original.cueId(), copy.cueId());
+    assertEquals(original.intensity(), copy.intensity());
+    assertEquals(original.volume(), copy.volume());
+    assertEquals(original.loop(), copy.loop());
+    assertEquals(original.detail(), copy.detail());
+    assertEquals(original.motion(), copy.motion());
+    assertEquals(original.spread(), copy.spread());
+    assertEquals(original.accent(), copy.accent());
+
+    // Mutating original should not affect copy
+    original.setPreset("rain");
+    original.setIntensity(0.99f);
+    assertEquals("ocean", copy.preset());
+    assertEquals(0.3f, copy.intensity());
   }
 }

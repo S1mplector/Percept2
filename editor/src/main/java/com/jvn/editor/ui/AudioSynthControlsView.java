@@ -1,11 +1,19 @@
 package com.jvn.editor.ui;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.prefs.Preferences;
+
 import com.jvn.audiofx.AudioFxController;
 import com.jvn.audiofx.SynthPreviewSettings;
 import com.jvn.audiofx.SynthPreviewSettings.SynthType;
 import com.jvn.audiofx.VnsCommandBuilder;
 import com.jvn.audiofx.WaveformAnalyzer;
 
+import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -29,9 +37,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-
-import java.util.function.Consumer;
-import java.util.prefs.Preferences;
 
 /**
  * Professional editor sidebar panel for synthesizer authoring and preview.
@@ -74,6 +79,18 @@ public class AudioSynthControlsView extends BorderPane {
   private final SynthPreviewSettings settings = new SynthPreviewSettings();
   private AudioFxController controller;
   private volatile boolean playing;
+
+  // --- Streaming waveform ---
+  private final WaveformAnalyzer.StreamingAnalyzer streamingAnalyzer =
+      new WaveformAnalyzer.StreamingAnalyzer();
+  private AnimationTimer waveformTimer;
+  private final ScheduledExecutorService snapshotExecutor =
+      Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "synth-snapshot");
+        t.setDaemon(true);
+        return t;
+      });
+  private ScheduledFuture<?> pendingSnapshot;
 
   // --- Callbacks ---
   private Consumer<String> onInsertSnippet;
@@ -128,8 +145,15 @@ public class AudioSynthControlsView extends BorderPane {
     loadPersistedSettings();
     buildUi();
     wireListeners();
+    initWaveformTimer();
     syncUiFromSettings();
-    refreshWaveform();
+    requestSnapshot();
+  }
+
+  /** Clean up background threads. Call when this view is permanently removed. */
+  public void dispose() {
+    stopStreaming();
+    snapshotExecutor.shutdownNow();
   }
 
   // --- Public API ---
@@ -290,7 +314,7 @@ public class AudioSynthControlsView extends BorderPane {
       double w = n.doubleValue() - 20;
       if (w > 40) {
         waveformCanvas.setWidth(w);
-        refreshWaveform();
+        if (!playing) requestSnapshot();
       }
     });
   }
@@ -304,21 +328,21 @@ public class AudioSynthControlsView extends BorderPane {
       }
       updateTypeVisibility();
       updateSnippetPreview();
-      refreshWaveform();
+      onSettingsChanged();
       persistSettings();
     });
 
     presetCombo.valueProperty().addListener((obs, o, n) -> {
       settings.setPreset(n);
       updateSnippetPreview();
-      refreshWaveform();
+      onSettingsChanged();
       persistSettings();
     });
 
     cueCombo.valueProperty().addListener((obs, o, n) -> {
       settings.setCueId(n);
       updateSnippetPreview();
-      refreshWaveform();
+      onSettingsChanged();
       persistSettings();
     });
 
@@ -332,6 +356,7 @@ public class AudioSynthControlsView extends BorderPane {
     loopCheck.selectedProperty().addListener((obs, o, n) -> {
       settings.setLoop(n);
       updateSnippetPreview();
+      onSettingsChanged();
       persistSettings();
     });
 
@@ -357,7 +382,7 @@ public class AudioSynthControlsView extends BorderPane {
       valueLabel.setText(String.format("%.2f", v));
       setter.accept(v);
       updateSnippetPreview();
-      refreshWaveform();
+      onSettingsChanged();
       persistSettings();
     });
   }
@@ -393,6 +418,18 @@ public class AudioSynthControlsView extends BorderPane {
     snippetPreview.setText(VnsCommandBuilder.buildOnCommand(settings));
   }
 
+  // --- Settings change dispatch ---
+
+  private void onSettingsChanged() {
+    if (playing) {
+      // Update the live audio output and streaming waveform
+      restartControllerPlayback();
+      streamingAnalyzer.reconfigure(settings);
+    } else {
+      requestSnapshot();
+    }
+  }
+
   // --- Live preview ---
 
   private void doPlay() {
@@ -401,6 +438,22 @@ public class AudioSynthControlsView extends BorderPane {
     btnPlay.setDisable(true);
     btnStop.setDisable(false);
 
+    startControllerPlayback();
+    startStreaming();
+  }
+
+  private void doStop() {
+    playing = false;
+    btnPlay.setDisable(false);
+    btnStop.setDisable(true);
+    stopStreaming();
+    stopControllerPlayback();
+    // Show final static snapshot
+    requestSnapshot();
+  }
+
+  private void startControllerPlayback() {
+    if (controller == null) return;
     if (settings.type() == SynthType.CHIPTUNE) {
       controller.playBeez(settings.cueId(), settings.intensity(), settings.volume(), settings.loop());
     } else {
@@ -409,10 +462,7 @@ public class AudioSynthControlsView extends BorderPane {
     }
   }
 
-  private void doStop() {
-    playing = false;
-    btnPlay.setDisable(false);
-    btnStop.setDisable(true);
+  private void stopControllerPlayback() {
     if (controller == null) return;
     if (settings.type() == SynthType.CHIPTUNE) {
       controller.stopBeez();
@@ -421,15 +471,56 @@ public class AudioSynthControlsView extends BorderPane {
     }
   }
 
-  // --- Waveform visualization ---
+  private void restartControllerPlayback() {
+    stopControllerPlayback();
+    startControllerPlayback();
+  }
 
-  private void refreshWaveform() {
-    Thread t = new Thread(() -> {
-      WaveformAnalyzer.Analysis analysis = WaveformAnalyzer.analyze(settings, WAVEFORM_BINS);
-      Platform.runLater(() -> drawWaveform(analysis));
-    }, "synth-waveform-render");
-    t.setDaemon(true);
-    t.start();
+  // --- Streaming waveform ---
+
+  private void startStreaming() {
+    cancelPendingSnapshot();
+    streamingAnalyzer.start(settings);
+    if (waveformTimer != null) waveformTimer.start();
+  }
+
+  private void stopStreaming() {
+    if (waveformTimer != null) waveformTimer.stop();
+    streamingAnalyzer.stop();
+  }
+
+  private void initWaveformTimer() {
+    waveformTimer = new AnimationTimer() {
+      @Override
+      public void handle(long now) {
+        WaveformAnalyzer.Analysis a = streamingAnalyzer.latest();
+        if (a != null && a.envelope().length > 0) {
+          drawWaveform(a);
+        }
+      }
+    };
+  }
+
+  /**
+   * Debounced static snapshot — used when NOT playing. Cancels any pending
+   * render and schedules a new one 50ms out so rapid slider drags only
+   * trigger a single native renderer creation.
+   */
+  private void requestSnapshot() {
+    if (playing) return;
+    cancelPendingSnapshot();
+    SynthPreviewSettings snap = settings.copy();
+    pendingSnapshot = snapshotExecutor.schedule(() -> {
+      WaveformAnalyzer.Analysis a = WaveformAnalyzer.analyze(snap, WAVEFORM_BINS);
+      Platform.runLater(() -> drawWaveform(a));
+    }, 50, TimeUnit.MILLISECONDS);
+  }
+
+  private void cancelPendingSnapshot() {
+    if (pendingSnapshot != null) {
+      pendingSnapshot.cancel(false);
+      pendingSnapshot = null;
+    }
   }
 
   private void drawWaveform(WaveformAnalyzer.Analysis analysis) {

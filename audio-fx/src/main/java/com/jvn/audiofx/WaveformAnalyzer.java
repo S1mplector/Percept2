@@ -1,11 +1,11 @@
 package com.jvn.audiofx;
 
 /**
- * Renders a short PCM buffer from the native bridge and extracts waveform
+ * Renders PCM from the native bridge (or Java fallback) and extracts waveform
  * envelope, RMS, and peak data for visualization in the editor sidebar.
  * <p>
- * All methods are static and thread-safe (each call creates its own renderer).
- * Falls back gracefully when the native bridge is unavailable.
+ * Provides both one-shot {@link #analyze} and continuous {@link StreamingAnalyzer}
+ * modes. Falls back gracefully when the native bridge is unavailable.
  */
 public final class WaveformAnalyzer {
 
@@ -17,6 +17,9 @@ public final class WaveformAnalyzer {
       boolean nativeAvailable
   ) {}
 
+  /** Empty/zero analysis sentinel. */
+  public static final Analysis EMPTY = new Analysis(new float[0], 0f, 0f, false);
+
   private static final int SAMPLE_RATE = 44_100;
   private static final int RENDER_FRAMES = 4096;
   private static final int CHANNELS = 2;
@@ -24,6 +27,10 @@ public final class WaveformAnalyzer {
   private static final int FRAME_BYTES = CHANNELS * BYTES_PER_SAMPLE;
 
   private WaveformAnalyzer() {}
+
+  // =========================================================================
+  // One-shot analysis (snapshot)
+  // =========================================================================
 
   /**
    * Render a short buffer of the given synth settings and return an analysis.
@@ -66,7 +73,240 @@ public final class WaveformAnalyzer {
     return extractAnalysis(pcm, byteCount, envelopeBins, AudioFxNativeBridge.isAvailable());
   }
 
-  // --- Internal ---
+  // =========================================================================
+  // Real-time streaming analyzer
+  // =========================================================================
+
+  /**
+   * Continuously renders PCM from a dedicated native renderer (or Java
+   * fallback) and maintains a rolling waveform analysis that updates at
+   * approximately real-time rate.
+   * <p>
+   * Thread-safe: {@link #start}, {@link #reconfigure}, and {@link #stop}
+   * may be called from any thread (typically the FX application thread).
+   * {@link #latest()} is lock-free and returns the most recent analysis.
+   */
+  public static final class StreamingAnalyzer {
+    private static final int CHUNK_FRAMES = 1024;
+    private static final int ROLLING_FRAMES = 4096;
+    private static final int DEFAULT_BINS = 128;
+    private static final long CHUNK_SLEEP_MS =
+        (long) Math.ceil(CHUNK_FRAMES * 1000.0 / SAMPLE_RATE);
+
+    private final Object lock = new Object();
+    private volatile boolean running;
+    private volatile Analysis latestAnalysis = EMPTY;
+    private Thread renderThread;
+    private SynthPreviewSettings pendingSettings;
+    private long configGeneration;
+
+    /** Start (or restart) streaming with the given settings. */
+    public void start(SynthPreviewSettings settings) {
+      synchronized (lock) {
+        stopInternal();
+        pendingSettings = settings != null ? settings.copy() : null;
+        configGeneration++;
+        if (pendingSettings == null) return;
+        running = true;
+        renderThread = new Thread(this::renderLoop, "synth-waveform-stream");
+        renderThread.setDaemon(true);
+        renderThread.start();
+      }
+    }
+
+    /** Update settings while streaming. Takes effect on the next render cycle. */
+    public void reconfigure(SynthPreviewSettings settings) {
+      synchronized (lock) {
+        pendingSettings = settings != null ? settings.copy() : null;
+        configGeneration++;
+      }
+    }
+
+    /** Stop streaming and release resources. */
+    public void stop() {
+      synchronized (lock) {
+        stopInternal();
+      }
+    }
+
+    /** Latest analysis result (never null, lock-free read). */
+    public Analysis latest() { return latestAnalysis; }
+
+    /** Whether the render thread is active. */
+    public boolean isRunning() { return running; }
+
+    private void stopInternal() {
+      running = false;
+      if (renderThread != null) {
+        renderThread.interrupt();
+        try { renderThread.join(400); } catch (InterruptedException ignored) {
+          Thread.currentThread().interrupt();
+        }
+        renderThread = null;
+      }
+    }
+
+    private void renderLoop() {
+      try {
+        while (running && !Thread.currentThread().isInterrupted()) {
+          SynthPreviewSettings snap;
+          long gen;
+          synchronized (lock) {
+            snap = pendingSettings;
+            gen = configGeneration;
+          }
+          if (snap == null) break;
+          runSession(snap.copy(), gen);
+        }
+      } finally {
+        running = false;
+      }
+    }
+
+    private void runSession(SynthPreviewSettings settings, long sessionGen) {
+      boolean nativeAvail = AudioFxNativeBridge.isAvailable();
+      float[] rolling = new float[ROLLING_FRAMES];
+      byte[] pcmBuf = new byte[CHUNK_FRAMES * FRAME_BYTES];
+
+      if (settings.type() == SynthPreviewSettings.SynthType.CHIPTUNE) {
+        if (nativeAvail) {
+          try (AudioFxNativeBridge.BeezRenderer r =
+                   AudioFxNativeBridge.createBeezRenderer(SAMPLE_RATE)) {
+            r.configure(settings.cueId(), settings.intensity(),
+                settings.volume(), settings.loop());
+            chunkLoop(pcmBuf, rolling, sessionGen, nativeAvail,
+                (buf, frames) -> r.render(buf, frames));
+          }
+        } else {
+          idleUntilReconfigure(sessionGen);
+        }
+      } else {
+        if (nativeAvail) {
+          try (AudioFxNativeBridge.AmbienceRenderer r =
+                   AudioFxNativeBridge.createAmbienceRenderer(SAMPLE_RATE)) {
+            r.configure(settings.preset(), settings.intensity(),
+                settings.volume(), settings.toAmbienceProfile());
+            chunkLoop(pcmBuf, rolling, sessionGen, nativeAvail,
+                (buf, frames) -> r.render(buf, frames));
+          }
+        } else {
+          FxAmbienceDsp.Preset preset =
+              FxAmbienceDsp.Preset.fromToken(settings.preset());
+          FxAmbienceDsp.State state =
+              new FxAmbienceDsp.State(System.nanoTime());
+          double dt = 1.0 / SAMPLE_RATE;
+          float intensity = settings.intensity();
+          chunkLoop(pcmBuf, rolling, sessionGen, false,
+              (buf, frames) -> renderFallbackChunk(
+                  state, dt, preset, intensity, buf, frames));
+        }
+      }
+    }
+
+    @FunctionalInterface
+    private interface PcmSource {
+      int render(byte[] pcm, int frames);
+    }
+
+    private void chunkLoop(byte[] pcmBuf, float[] rolling,
+                           long sessionGen, boolean nativeAvail,
+                           PcmSource source) {
+      int totalWritten = 0;
+      while (running && !Thread.currentThread().isInterrupted()) {
+        synchronized (lock) {
+          if (configGeneration != sessionGen) return;
+        }
+
+        int bytesWritten = source.render(pcmBuf, CHUNK_FRAMES);
+        int framesDecoded = Math.min(
+            bytesWritten / FRAME_BYTES, CHUNK_FRAMES);
+
+        for (int i = 0; i < framesDecoded; i++) {
+          int offset = i * FRAME_BYTES;
+          short left = (short) ((pcmBuf[offset] & 0xFF)
+              | (pcmBuf[offset + 1] << 8));
+          rolling[totalWritten % ROLLING_FRAMES] = left / 32768f;
+          totalWritten++;
+        }
+
+        int available = Math.min(totalWritten, ROLLING_FRAMES);
+        int startIdx = totalWritten > ROLLING_FRAMES
+            ? totalWritten % ROLLING_FRAMES : 0;
+        latestAnalysis = computeRollingAnalysis(
+            rolling, startIdx, available, DEFAULT_BINS, nativeAvail);
+
+        try {
+          Thread.sleep(CHUNK_SLEEP_MS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          break;
+        }
+      }
+    }
+
+    private void idleUntilReconfigure(long sessionGen) {
+      while (running && !Thread.currentThread().isInterrupted()) {
+        synchronized (lock) {
+          if (configGeneration != sessionGen) return;
+        }
+        try { Thread.sleep(100); } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          break;
+        }
+      }
+    }
+
+    private static int renderFallbackChunk(
+        FxAmbienceDsp.State state, double dt,
+        FxAmbienceDsp.Preset preset, float intensity,
+        byte[] pcm, int frames) {
+      int bytePos = 0;
+      for (int i = 0; i < frames; i++) {
+        float sample = (float) FxAmbienceDsp.synthSample(
+            state, dt, preset, intensity);
+        short s16 = (short) Math.max(-32768,
+            Math.min(32767, (int) (sample * 32767)));
+        pcm[bytePos++] = (byte) (s16 & 0xFF);
+        pcm[bytePos++] = (byte) ((s16 >> 8) & 0xFF);
+        pcm[bytePos++] = (byte) (s16 & 0xFF);
+        pcm[bytePos++] = (byte) ((s16 >> 8) & 0xFF);
+      }
+      return bytePos;
+    }
+
+    private static Analysis computeRollingAnalysis(
+        float[] rolling, int startIdx, int available,
+        int bins, boolean nativeAvail) {
+      if (available <= 0) return EMPTY;
+      int effectiveBins = Math.max(1, bins);
+      float[] envelope = new float[effectiveBins];
+      float peak = 0f;
+      double sumSq = 0.0;
+      int framesPerBin = Math.max(1, available / effectiveBins);
+
+      for (int b = 0; b < effectiveBins; b++) {
+        int binStart = b * framesPerBin;
+        int binEnd = Math.min(binStart + framesPerBin, available);
+        float binMax = 0f;
+        for (int i = binStart; i < binEnd; i++) {
+          int idx = (startIdx + i) % rolling.length;
+          float v = rolling[idx];
+          float abs = Math.abs(v);
+          if (abs > binMax) binMax = abs;
+          sumSq += (double) v * v;
+        }
+        envelope[b] = binMax;
+        if (binMax > peak) peak = binMax;
+      }
+
+      float rms = (float) Math.sqrt(sumSq / available);
+      return new Analysis(envelope, rms, peak, nativeAvail);
+    }
+  }
+
+  // =========================================================================
+  // Internal helpers (one-shot)
+  // =========================================================================
 
   private static Analysis analyzeJavaFallback(SynthPreviewSettings settings, int envelopeBins) {
     if (settings.type() == SynthPreviewSettings.SynthType.CHIPTUNE) {

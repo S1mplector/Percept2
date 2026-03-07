@@ -37,6 +37,11 @@ public final class SynthPreviewSettings {
     this.accent = other.accent;
   }
 
+  /** Create a defensive copy of this settings object. */
+  public SynthPreviewSettings copy() {
+    return new SynthPreviewSettings(this);
+  }
+
   // --- Accessors ---
 
   public SynthType type() { return type; }

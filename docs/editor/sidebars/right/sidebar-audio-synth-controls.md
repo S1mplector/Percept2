@@ -71,12 +71,15 @@ Two toggle buttons: **Ambience** and **Chiptune**. Switching types shows/hides t
 
 ### 6. Waveform
 
-A responsive canvas that renders an amplitude envelope from a short PCM analysis buffer:
+A responsive canvas showing the amplitude envelope:
+- **Real-time streaming** while playing — updates at ~60fps via `AnimationTimer` + `StreamingAnalyzer`
+- **Static snapshot** while stopped — debounced, renders first ~93ms of configured preset
 - Blue vertical bars (mirrored around center line)
 - Filled envelope area
 - Dashed blue RMS lines
 - Dashed orange peak lines
 - "Java fallback" indicator when native bridge is unavailable
+- Parameter changes while playing update both the waveform and the live audio output immediately
 
 ### 7. VNS Command
 
@@ -109,14 +112,16 @@ Only non-default parameters are included in the concise form. Buttons:
 |-------|----------|---------|
 | `SynthPreviewSettings` | `audio-fx/.../audiofx/` | Mutable model for all synth parameters |
 | `VnsCommandBuilder` | `audio-fx/.../audiofx/` | Generates VNS command strings from settings (tested) |
-| `WaveformAnalyzer` | `audio-fx/.../audiofx/` | Renders short PCM buffer and extracts envelope/RMS/peak (tested) |
+| `WaveformAnalyzer` | `audio-fx/.../audiofx/` | One-shot snapshot analysis + `StreamingAnalyzer` for real-time PCM streaming (tested) |
 | `AudioFxController` | `audio-fx/.../audiofx/` | Routes play/stop to native or fallback providers |
 
 ### Wiring
 
 - `EditorApp` creates `AudioFxController` and passes it via `setController()`
 - Insert-into-script callback delegates to `FileEditorTab.insertVnsSnippet()` → `VnsCodeEditor.insertSnippet()`
-- Waveform rendering runs on a daemon thread; results posted to FX thread via `Platform.runLater()`
+- **While playing:** `StreamingAnalyzer` renders PCM on a dedicated daemon thread into a rolling 4096-sample buffer; a JavaFX `AnimationTimer` polls `latest()` at ~60fps and redraws the canvas
+- **While stopped:** A debounced `ScheduledExecutorService` renders a single static snapshot 50ms after the last parameter change, avoiding unbounded thread spawning
+- `dispose()` shuts down both the streaming analyzer and the snapshot executor
 
 ### Persistence
 
@@ -129,16 +134,17 @@ Settings are stored via `java.util.prefs.Preferences` under the `AudioSynthContr
 | Test class | Module | Coverage |
 |------------|--------|----------|
 | `VnsCommandBuilderTest` | `audio-fx` | Command generation: defaults omitted, non-defaults present, chiptune vs ambience, verbose mode, off commands, null safety, determinism |
-| `WaveformAnalyzerTest` | `audio-fx` | Bin counts, non-zero RMS, different presets produce different envelopes, null/zero safety, PCM byte extraction, normalization, chiptune path |
+| `WaveformAnalyzerTest` | `audio-fx` | Bin counts, non-zero RMS, different presets produce different envelopes, null/zero safety, PCM byte extraction, normalization, chiptune path, `EMPTY` sentinel, `StreamingAnalyzer` lifecycle/reconfigure/stop-idempotent/null-safety, `SynthPreviewSettings.copy()` independence |
 
 ---
 
 ## Limitations
 
-- **Waveform is a snapshot**, not real-time streaming. It renders the first ~93ms (4096 frames at 44.1kHz) of the configured preset.
+- **Waveform visualization** mirrors the configured preset's output, not a tap of the actual SourceDataLine audio bus. Both are configured identically so they match.
 - **Chiptune has fewer parameters** than ambience. Detail/Motion/Spread/Accent are ambience-only; this is a real limitation of the Beez engine, not a missing feature.
 - **Insert into Script** only works when a `.vns` file tab is active.
 - **No undo** for inserted snippets (uses standard editor undo if available).
+- **Chiptune streaming fallback** idles (no Java fallback for Beez) — waveform stays empty if native bridge is unavailable.
 
 ---
 
