@@ -74,11 +74,11 @@ tasks.register<JavaExec>("generateImageTintDocsScreenshots") {
 
 tasks.register<JavaExec>("generateSidebarDocsScreenshots") {
   group = "documentation"
-  description = "Captures and annotates screenshots for right-sidebar utility docs."
+  description = "Captures and annotates screenshots for sidebar utility docs."
   classpath = sourceSets["main"].runtimeClasspath
   mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
   workingDir = rootProject.projectDir
-  jvmArgs("-Djvn.docs.profile=asset-browser,help-center,image-attributes,image-tint,inspector,label-flow-map,layered-image-visualizer,layout-launcher,menu-flow-editor,puppeteer-launcher,version-control,vns-diagnostics")
+  jvmArgs("-Djvn.docs.profile=asset-browser,help-center,image-attributes,image-tint,inspector,label-flow-map,layered-image-visualizer,layout-launcher,menu-flow-editor,puppeteer-launcher,version-control,vns-diagnostics,story-timeline")
   configureJavaFxRuntime()
 }
 

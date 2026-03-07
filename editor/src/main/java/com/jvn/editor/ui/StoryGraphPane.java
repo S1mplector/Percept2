@@ -32,11 +32,12 @@ public class StoryGraphPane extends Pane {
     double dragDX, dragDY;
     java.util.function.Consumer<javafx.scene.input.MouseEvent> mousePressedHook;
     java.util.function.Consumer<javafx.scene.input.MouseEvent> mouseReleasedHook;
-    NodeView(StoryTimelineView.Arc arc) {
+    NodeView(StoryTimelineView.Arc arc, Color accent) {
       this.arc = arc;
-      this.rect = new Rectangle(140, 44, Color.web("#2b2f3a"));
+      Color fill = accent == null ? Color.web("#2b2f3a") : Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.22);
+      this.rect = new Rectangle(140, 44, fill);
       rect.setArcWidth(8); rect.setArcHeight(8);
-      rect.setStroke(Color.web("#475069"));
+      rect.setStroke(accent == null ? Color.web("#475069") : accent.interpolate(Color.WHITE, 0.35));
       rect.setStrokeWidth(1.0);
       this.label = new Text(arc.name == null ? "(unnamed)" : arc.name);
       label.setFill(Color.web("#e6e9f0"));
@@ -206,8 +207,10 @@ public class StoryGraphPane extends Pane {
         if (!c.equals(filterCluster)) continue;
       }
       if (a.cluster != null && collapsedClusters.contains(a.cluster)) continue;
-      NodeView nv = new NodeView(a);
+      NodeView nv = new NodeView(a, parseArcColor(a.color));
+      nv.label.setText(nodeTitle(a));
       nv.onMoved = this::updateLinks;
+      Tooltip.install(nv, new Tooltip(nodeTooltip(a)));
       nv.mousePressedHook = e -> {
         if (e.getButton() == MouseButton.PRIMARY) {
           if (!requireShiftToLink || e.isShiftDown()) {
@@ -278,16 +281,20 @@ public class StoryGraphPane extends Pane {
       NodeView from = nodeMap.get(l.fromArc);
       NodeView to = nodeMap.get(l.toArc);
       if (from == null || to == null) continue;
-      Group g = drawArrow(from, to);
+      Group g = drawArrow(from, to, l);
       ContextMenu cm = new ContextMenu();
       MenuItem miRun = new MenuItem("Run Link");
-      miRun.setOnAction(e -> { if (onRunLink != null) onRunLink.accept(toLink(from, to)); });
+      miRun.setOnAction(e -> { if (onRunLink != null) onRunLink.accept(l); });
       MenuItem miDelete = new MenuItem("Delete Link");
-      miDelete.setOnAction(e -> { links.removeIf(li -> li.fromArc.equals(from.arc.name) && li.toArc.equals(to.arc.name) && Objects.equals(li.toLabel, to.arc.entryLabel)); refresh(); if (onGraphChanged != null) onGraphChanged.run(); });
+      miDelete.setOnAction(e -> {
+        links.remove(l);
+        refresh();
+        if (onGraphChanged != null) onGraphChanged.run();
+      });
       cm.getItems().addAll(miRun, miDelete);
       g.setOnMouseClicked(e -> {
         if (e.getButton() == MouseButton.PRIMARY) {
-          if (onRunLink != null) onRunLink.accept(toLink(from, to));
+          if (onRunLink != null) onRunLink.accept(l);
         } else if (e.getButton() == MouseButton.SECONDARY) {
           cm.show(g, e.getScreenX(), e.getScreenY());
         }
@@ -336,7 +343,7 @@ public class StoryGraphPane extends Pane {
     }
   }
 
-  private Group drawArrow(NodeView from, NodeView to) {
+  private Group drawArrow(NodeView from, NodeView to, StoryTimelineView.Link link) {
     double sx = from.getLayoutX() + from.outHandle.getCenterX();
     double sy = from.getLayoutY() + from.outHandle.getCenterY();
     double ex = to.getLayoutX() + to.inHandle.getCenterX();
@@ -357,16 +364,15 @@ public class StoryGraphPane extends Pane {
     arrow.setFill(Color.web("#7a8499"));
 
     Group g = new Group(line, arrow);
+    String hint = linkHint(link);
+    if (!hint.isBlank()) {
+      Text txt = new Text(hint);
+      txt.setFill(Color.web("#c5cede"));
+      txt.setX((sx + ex) * 0.5 + 6);
+      txt.setY((sy + ey) * 0.5 - 6);
+      g.getChildren().add(txt);
+    }
     return g;
-  }
-
-  private StoryTimelineView.Link toLink(NodeView from, NodeView to) {
-    StoryTimelineView.Link l = new StoryTimelineView.Link();
-    l.fromArc = from.arc.name;
-    l.fromLabel = "";
-    l.toArc = to.arc.name;
-    l.toLabel = to.arc.entryLabel == null ? "" : to.arc.entryLabel;
-    return l;
   }
 
   private void updateLinks() {
@@ -462,6 +468,43 @@ public class StoryGraphPane extends Pane {
           if (onLayoutCommitted != null) onLayoutCommitted.run();
         };
       }
+    }
+  }
+
+  private static String nodeTitle(StoryTimelineView.Arc arc) {
+    if (arc == null) return "(unnamed)";
+    String name = arc.name == null || arc.name.isBlank() ? "(unnamed)" : arc.name;
+    return arc.priority == 0 ? name : name + "  p" + arc.priority;
+  }
+
+  private static String nodeTooltip(StoryTimelineView.Arc arc) {
+    if (arc == null) return "";
+    StringBuilder sb = new StringBuilder();
+    sb.append(nodeTitle(arc));
+    if (arc.script != null && !arc.script.isBlank()) sb.append("\nScript: ").append(arc.script);
+    if (arc.entryLabel != null && !arc.entryLabel.isBlank()) sb.append("\nEntry: ").append(arc.entryLabel);
+    if (arc.cluster != null && !arc.cluster.isBlank()) sb.append("\nCluster: ").append(arc.cluster);
+    if (arc.tags != null && !arc.tags.isBlank()) sb.append("\nTags: ").append(arc.tags);
+    if (arc.color != null && !arc.color.isBlank()) sb.append("\nColor: ").append(arc.color);
+    return sb.toString();
+  }
+
+  private static String linkHint(StoryTimelineView.Link link) {
+    if (link == null) return "";
+    String from = link.fromLabel == null ? "" : link.fromLabel.trim();
+    String to = link.toLabel == null ? "" : link.toLabel.trim();
+    if (from.isBlank() && to.isBlank()) return "";
+    if (from.isBlank()) return "-> " + to;
+    if (to.isBlank()) return from + " ->";
+    return from + " -> " + to;
+  }
+
+  private static Color parseArcColor(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      return Color.web(raw.trim());
+    } catch (Exception ignored) {
+      return null;
     }
   }
 

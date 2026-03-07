@@ -30,27 +30,89 @@ import javafx.scene.input.KeyCode;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.function.Consumer;
 
 public class StoryTimelineView extends BorderPane {
+  static final Pattern ARC_DSL_LINE = Pattern.compile(
+      "^\\s*arc\\s+(?:\"((?:[^\"\\\\]|\\\\.)+)\"|(\\S+))"
+          + "(?:\\s+script\\s+\"((?:[^\"\\\\]|\\\\.)*)\")?"
+          + "(?:\\s+entry\\s+\"((?:[^\"\\\\]|\\\\.)*)\")?"
+          + "(?:\\s+cluster\\s+\"((?:[^\"\\\\]|\\\\.)*)\")?"
+          + "(?:\\s+priority\\s+(-?\\d+))?"
+          + "(?:\\s+color\\s+\"((?:[^\"\\\\]|\\\\.)*)\")?"
+          + "(?:\\s+tags\\s+\"((?:[^\"\\\\]|\\\\.)*)\")?"
+          + "(?:\\s+at\\s+(-?\\d+(?:\\.\\d+)?),\\s*(-?\\d+(?:\\.\\d+)?))?"
+          + "\\s*$",
+      Pattern.CASE_INSENSITIVE
+  );
+  static final Pattern LINK_DSL_LINE = Pattern.compile("^\\s*link\\s+(.+?)\\s*->\\s*(.+?)\\s*$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern SIMPLE_TOKEN = Pattern.compile("^[A-Za-z0-9_./-]+$");
+  private static final Pattern LEGACY_ARC = Pattern.compile("^ARC\\|", Pattern.CASE_INSENSITIVE);
+  private static final Pattern LEGACY_LINK = Pattern.compile("^LINK\\|", Pattern.CASE_INSENSITIVE);
+
+  static final class ParsedTimeline {
+    final List<Arc> arcs;
+    final List<Link> links;
+
+    ParsedTimeline(List<Arc> arcs, List<Link> links) {
+      this.arcs = arcs;
+      this.links = links;
+    }
+  }
+
+  static final class LinkEndpoint {
+    final String arc;
+    final String label;
+    final int arcStart;
+    final int arcEnd;
+    final int labelStart;
+    final int labelEnd;
+
+    LinkEndpoint(String arc, String label, int arcStart, int arcEnd, int labelStart, int labelEnd) {
+      this.arc = arc;
+      this.label = label;
+      this.arcStart = arcStart;
+      this.arcEnd = arcEnd;
+      this.labelStart = labelStart;
+      this.labelEnd = labelEnd;
+    }
+  }
+
   public static class Arc {
     public String name;
     public String script;
     public String entryLabel;
     public String cluster;
+    public int priority;
+    public String color;
+    public String tags;
     public double x = 40;
     public double y = 40;
-    public String toLine() { return "ARC|" + nn(name) + "|" + nn(script) + "|" + nn(entryLabel) + "|" + x + "|" + y; }
+    public String toLine() {
+      return "ARC|" + nn(name) + "|" + nn(script) + "|" + nn(entryLabel) + "|" + x + "|" + y
+          + "|" + nn(cluster) + "|" + priority + "|" + nn(color) + "|" + nn(tags);
+    }
   }
 
   private void validate() {
     StringBuilder sb = new StringBuilder();
+    Set<String> arcNames = new LinkedHashSet<>();
+    Set<String> dupNames = new LinkedHashSet<>();
     // Check arcs
     for (Arc a : arcs.getItems()) {
       if (a == null) continue;
+      String arcName = nn(a.name).trim();
+      if (arcName.isBlank()) {
+        sb.append("Arc with empty name detected.\n");
+      } else if (!arcNames.add(arcName.toLowerCase(Locale.ROOT))) {
+        dupNames.add(arcName);
+      }
       File f = resolveFile(a.script);
       if (f == null || !f.exists()) {
         sb.append("Missing script for arc '").append(a.name).append("': ").append(a.script).append("\n");
@@ -60,6 +122,16 @@ public class StoryTimelineView extends BorderPane {
         boolean ok = hasLabel(f, a.entryLabel);
         if (!ok) sb.append("Arc '").append(a.name).append("' missing entry label '").append(a.entryLabel).append("'\n");
       }
+      if (a.color != null && !a.color.isBlank()) {
+        try {
+          javafx.scene.paint.Color.web(a.color);
+        } catch (Exception ex) {
+          sb.append("Arc '").append(a.name).append("' has invalid color value '").append(a.color).append("'\n");
+        }
+      }
+    }
+    for (String dn : dupNames) {
+      sb.append("Duplicate arc name detected: ").append(dn).append("\n");
     }
     // Check links
     for (Link l : links.getItems()) {
@@ -130,13 +202,25 @@ public class StoryTimelineView extends BorderPane {
     arcs.setCellFactory(v -> new ListCell<>() {
       @Override protected void updateItem(Arc a, boolean empty) {
         super.updateItem(a, empty);
-        setText(empty || a == null ? null : a.name + "  [" + a.script + (a.entryLabel == null || a.entryLabel.isBlank() ? "" : (" :: " + a.entryLabel)) + "]");
+        if (empty || a == null) {
+          setText(null);
+          return;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append(nn(a.name));
+        if (a.priority != 0) sb.append("  p").append(a.priority);
+        if (a.cluster != null && !a.cluster.isBlank()) sb.append("  #").append(a.cluster);
+        if (a.tags != null && !a.tags.isBlank()) sb.append("  [").append(a.tags).append("]");
+        sb.append("  [").append(nn(a.script));
+        if (a.entryLabel != null && !a.entryLabel.isBlank()) sb.append(" :: ").append(a.entryLabel);
+        sb.append("]");
+        setText(sb.toString());
       }
     });
     links.setCellFactory(v -> new ListCell<>() {
       @Override protected void updateItem(Link l, boolean empty) {
         super.updateItem(l, empty);
-        setText(empty || l == null ? null : l.fromArc + ":" + nn(l.fromLabel) + "  ->  " + l.toArc + ":" + nn(l.toLabel));
+        setText(empty || l == null ? null : formatEndpoint(l.fromArc, l.fromLabel) + "  ->  " + formatEndpoint(l.toArc, l.toLabel));
       }
     });
     arcs.setPlaceholder(new Label("No arcs yet."));
@@ -395,13 +479,31 @@ public class StoryTimelineView extends BorderPane {
   private void editArc() {
     Arc arc = arcs.getSelectionModel().getSelectedItem();
     if (arc == null) return;
+    ArcDraft draft = showArcDialog("Edit Arc", arc, false);
+    if (draft == null) return;
+    String oldName = arc.name;
+    applyArcDraft(arc, draft);
+    if (oldName != null && !oldName.equals(arc.name)) renameArcReferences(oldName, arc.name);
+    onGraphChanged();
+  }
+
+  private ArcDraft showArcDialog(String title, Arc seed, boolean lockScript) {
+    Arc source = seed == null ? new Arc() : seed;
     GridPane g = new GridPane();
-    g.setHgap(6); g.setVgap(6); g.setPadding(new Insets(8));
-    TextField tfName = new TextField(nn(arc.name));
-    TextField tfScript = new TextField(nn(arc.script));
-    TextField tfEntry = new TextField(nn(arc.entryLabel));
-    TextField tfCluster = new TextField(nn(arc.cluster));
+    g.setHgap(8);
+    g.setVgap(8);
+    g.setPadding(new Insets(10));
+    TextField tfName = new TextField(nn(source.name));
+    TextField tfScript = new TextField(nn(source.script));
+    tfScript.setEditable(!lockScript);
+    tfScript.setDisable(lockScript);
+    TextField tfEntry = new TextField(nn(source.entryLabel));
+    TextField tfCluster = new TextField(nn(source.cluster));
+    TextField tfPriority = new TextField(String.valueOf(source.priority));
+    TextField tfColor = new TextField(nn(source.color));
+    TextField tfTags = new TextField(nn(source.tags));
     Button bBrowse = new Button("Browse...");
+    bBrowse.setDisable(lockScript);
     bBrowse.setOnAction(e -> {
       FileChooser fc = new FileChooser();
       fc.setTitle("Select VNS Script");
@@ -415,22 +517,32 @@ public class StoryTimelineView extends BorderPane {
     g.addRow(1, new Label("Script"), scriptRow);
     g.addRow(2, new Label("Entry Label"), tfEntry);
     g.addRow(3, new Label("Cluster"), tfCluster);
+    g.addRow(4, new Label("Priority"), tfPriority);
+    g.addRow(5, new Label("Color"), tfColor);
+    g.addRow(6, new Label("Tags"), tfTags);
+    tfColor.setPromptText("#ff8844");
+    tfTags.setPromptText("comma,separated,tags");
+    tfPriority.setPromptText("0");
+
     Dialog<ButtonType> dlg = new Dialog<>();
     EditorTheme.apply(dlg);
-    dlg.setTitle("Edit Arc");
+    dlg.setTitle(title);
     dlg.getDialogPane().setContent(g);
     dlg.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
     var res = dlg.showAndWait();
-    if (res.isEmpty() || res.get() != ButtonType.OK) return;
+    if (res.isEmpty() || res.get() != ButtonType.OK) return null;
+
     String newName = tfName.getText() == null ? "" : tfName.getText().trim();
-    if (newName.isEmpty()) return;
-    String oldName = arc.name;
-    arc.name = newName;
-    arc.script = tfScript.getText() == null ? "" : tfScript.getText().trim();
-    arc.entryLabel = tfEntry.getText() == null ? "" : tfEntry.getText().trim();
-    arc.cluster = tfCluster.getText() == null ? "" : tfCluster.getText().trim();
-    if (oldName != null && !oldName.equals(newName)) renameArcReferences(oldName, newName);
-    onGraphChanged();
+    if (newName.isEmpty()) return null;
+    ArcDraft out = new ArcDraft();
+    out.name = newName;
+    out.script = tfScript.getText() == null ? "" : tfScript.getText().trim();
+    out.entryLabel = tfEntry.getText() == null ? "" : tfEntry.getText().trim();
+    out.cluster = tfCluster.getText() == null ? "" : tfCluster.getText().trim();
+    out.priority = parseInt(tfPriority.getText(), 0);
+    out.color = tfColor.getText() == null ? "" : tfColor.getText().trim();
+    out.tags = tfTags.getText() == null ? "" : tfTags.getText().trim();
+    return out;
   }
 
   private void editLink() {
@@ -484,6 +596,52 @@ public class StoryTimelineView extends BorderPane {
     });
   }
 
+  private static final class ArcDraft {
+    String name;
+    String script;
+    String entryLabel;
+    String cluster;
+    int priority;
+    String color;
+    String tags;
+  }
+
+  private void applyArcDraft(Arc target, ArcDraft draft) {
+    if (target == null || draft == null) return;
+    target.name = nn(draft.name).trim();
+    target.script = nn(draft.script).trim();
+    target.entryLabel = nn(draft.entryLabel).trim();
+    target.cluster = nn(draft.cluster).trim();
+    target.priority = draft.priority;
+    target.color = nn(draft.color).trim();
+    target.tags = nn(draft.tags).trim();
+  }
+
+  private String suggestArcName(String base) {
+    String root = (base == null || base.isBlank()) ? "Arc" : base.trim();
+    Set<String> names = new LinkedHashSet<>();
+    for (Arc arc : arcs.getItems()) {
+      if (arc == null || arc.name == null) continue;
+      names.add(arc.name.toLowerCase(Locale.ROOT));
+    }
+    if (!names.contains(root.toLowerCase(Locale.ROOT))) return root;
+    int i = 2;
+    while (true) {
+      String candidate = root + " " + i;
+      if (!names.contains(candidate.toLowerCase(Locale.ROOT))) return candidate;
+      i++;
+    }
+  }
+
+  private static int parseInt(String raw, int fallback) {
+    try {
+      if (raw == null || raw.isBlank()) return fallback;
+      return Integer.parseInt(raw.trim());
+    } catch (Exception ignored) {
+      return fallback;
+    }
+  }
+
   private void renameArcReferences(String oldName, String newName) {
     for (Link li : links.getItems()) {
       if (li == null) continue;
@@ -493,20 +651,12 @@ public class StoryTimelineView extends BorderPane {
   }
 
   private void addArc() {
-    TextInputDialog dlg = new TextInputDialog("Arc");
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null); dlg.setTitle("Arc Name"); dlg.setContentText("Name:");
-    var res = dlg.showAndWait(); if (res.isEmpty()) return; String name = res.get().trim(); if (name.isEmpty()) return;
-    FileChooser fc = new FileChooser();
-    fc.setTitle("Select VNS Script");
-    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("VNS scripts", "*.vns"));
-    File f = fc.showOpenDialog(getScene() == null ? null : getScene().getWindow());
-    if (f == null) return;
-    TextInputDialog ldlg = new TextInputDialog("");
-    EditorTheme.apply(ldlg);
-    ldlg.setHeaderText(null); ldlg.setTitle("Entry Label"); ldlg.setContentText("Label (optional):");
-    var lres = ldlg.showAndWait(); String label = lres.isEmpty() ? "" : lres.get().trim();
-    Arc a = new Arc(); a.name = name; a.script = toRelative(f); a.entryLabel = label;
+    Arc seed = new Arc();
+    seed.name = suggestArcName("Arc");
+    ArcDraft draft = showArcDialog("Add Arc", seed, false);
+    if (draft == null) return;
+    Arc a = new Arc();
+    applyArcDraft(a, draft);
     arcs.getItems().add(a);
     arcs.getSelectionModel().select(a);
     onGraphChanged();
@@ -587,7 +737,7 @@ public class StoryTimelineView extends BorderPane {
     String snip = null;
     Link l = links.getSelectionModel().getSelectedItem();
     if (l != null) {
-      snip = "[goto " + l.toArc + ":" + nn(l.toLabel) + "]";
+      snip = "[goto " + nn(l.toArc) + ":" + nn(l.toLabel) + "]";
     } else {
       Arc a = arcs.getSelectionModel().getSelectedItem();
       if (a != null) snip = "[goto " + nn(a.name) + ":" + nn(a.entryLabel) + "]";
@@ -700,15 +850,13 @@ public class StoryTimelineView extends BorderPane {
 
   private void addArcFromFile(File f) {
     if (f == null) return;
-    TextInputDialog dlg = new TextInputDialog(stripExt(f.getName()));
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null); dlg.setTitle("Arc Name"); dlg.setContentText("Name:");
-    var res = dlg.showAndWait(); if (res.isEmpty()) return; String name = res.get().trim(); if (name.isEmpty()) return;
-    TextInputDialog ldlg = new TextInputDialog("");
-    EditorTheme.apply(ldlg);
-    ldlg.setHeaderText(null); ldlg.setTitle("Entry Label"); ldlg.setContentText("Label (optional):");
-    var lres = ldlg.showAndWait(); String label = lres.isEmpty() ? "" : lres.get().trim();
-    Arc a = new Arc(); a.name = name; a.script = toRelative(f); a.entryLabel = label;
+    Arc seed = new Arc();
+    seed.name = suggestArcName(stripExt(f.getName()));
+    seed.script = toRelative(f);
+    ArcDraft draft = showArcDialog("Add Arc", seed, true);
+    if (draft == null) return;
+    Arc a = new Arc();
+    applyArcDraft(a, draft);
     arcs.getItems().add(a);
     arcs.getSelectionModel().select(a);
     onGraphChanged();
@@ -719,83 +867,276 @@ public class StoryTimelineView extends BorderPane {
   }
 
   public String toDsl() {
+    return serializeDsl(arcs.getItems(), links.getItems());
+  }
+
+  static String serializeDsl(List<Arc> arcList, List<Link> linkList) {
     StringBuilder sb = new StringBuilder();
-    for (Arc a : arcs.getItems()) {
+    if (arcList != null) for (Arc a : arcList) {
       if (a == null) continue;
-      sb.append("arc \"").append(nn(a.name)).append("\"");
-      if (a.script != null && !a.script.isBlank()) sb.append(" script \"").append(nn(a.script)).append("\"");
-      if (a.entryLabel != null && !a.entryLabel.isBlank()) sb.append(" entry \"").append(nn(a.entryLabel)).append("\"");
-      if (a.cluster != null && !a.cluster.isBlank()) sb.append(" cluster \"").append(nn(a.cluster)).append("\"");
+      sb.append("arc ").append(quoteAlways(a.name));
+      if (a.script != null && !a.script.isBlank()) sb.append(" script ").append(quoteAlways(a.script));
+      if (a.entryLabel != null && !a.entryLabel.isBlank()) sb.append(" entry ").append(quoteAlways(a.entryLabel));
+      if (a.cluster != null && !a.cluster.isBlank()) sb.append(" cluster ").append(quoteAlways(a.cluster));
+      if (a.priority != 0) sb.append(" priority ").append(a.priority);
+      if (a.color != null && !a.color.isBlank()) sb.append(" color ").append(quoteAlways(a.color));
+      if (a.tags != null && !a.tags.isBlank()) sb.append(" tags ").append(quoteAlways(a.tags));
       sb.append(" at ").append(a.x).append(",").append(a.y);
       sb.append("\n");
     }
-    for (Link l : links.getItems()) {
+    if (linkList != null) for (Link l : linkList) {
       if (l == null) continue;
-      String fl = (l.fromLabel == null || l.fromLabel.isBlank()) ? nn(l.fromArc) : (nn(l.fromArc) + ":" + nn(l.fromLabel));
-      String tl = (l.toLabel == null || l.toLabel.isBlank()) ? nn(l.toArc) : (nn(l.toArc) + ":" + nn(l.toLabel));
-      sb.append("link ").append(fl).append(" -> ").append(tl).append("\n");
+      sb.append("link ").append(renderEndpoint(l.fromArc, l.fromLabel));
+      sb.append(" -> ").append(renderEndpoint(l.toArc, l.toLabel)).append("\n");
     }
     return sb.toString();
   }
 
   public void fromText(String text) {
+    ParsedTimeline parsed = parseTimelineDsl(text);
+    arcs.getItems().setAll(parsed.arcs);
+    links.getItems().setAll(parsed.links);
+    refreshGraph();
+    updateGraphHint();
+  }
+
+  static ParsedTimeline parseTimelineDsl(String text) {
     List<Arc> alist = new ArrayList<>();
     List<Link> llist = new ArrayList<>();
     if (text == null) text = "";
     String[] lines = text.split("\r?\n");
-    Pattern parc = Pattern.compile("^\\s*arc\\s+(?:\"([^\"]+)\"|(\\S+))(?:\\s+script\\s+\"([^\"]+)\")?(?:\\s+entry\\s+\"([^\"]*)\")?(?:\\s+cluster\\s+\"([^\"]+)\")?(?:\\s+at\\s+(-?\\d+(?:\\.\\d+)?),\\s*(-?\\d+(?:\\.\\d+)?))?\\s*$", Pattern.CASE_INSENSITIVE);
-    Pattern plink = Pattern.compile("^\\s*link\\s+([^\\s]+)\\s*->\\s*([^\\s]+)\\s*$", Pattern.CASE_INSENSITIVE);
     for (String line : lines) {
       if (line == null) continue;
       String s = line.trim();
       if (s.isEmpty() || s.startsWith("#")) continue;
-      if (s.startsWith("ARC|")) {
-        String[] t = s.split("\\|", -1);
-        if (t.length >= 4) {
-          Arc a = new Arc(); a.name = n(t[1]); a.script = n(t[2]); a.entryLabel = n(t[3]);
-          if (t.length >= 6) {
-            try { a.x = Double.parseDouble(t[4]); } catch (Exception ignore) {}
-            try { a.y = Double.parseDouble(t[5]); } catch (Exception ignore) {}
-          }
-          alist.add(a);
-        }
+      if (LEGACY_ARC.matcher(s).find()) {
+        Arc a = parseLegacyArc(s);
+        if (a != null) alist.add(a);
         continue;
       }
-      if (s.startsWith("LINK|")) {
-        String[] t = s.split("\\|", -1);
-        if (t.length >= 5) { Link l = new Link(); l.fromArc = n(t[1]); l.fromLabel = n(t[2]); l.toArc = n(t[3]); l.toLabel = n(t[4]); llist.add(l); }
+      if (LEGACY_LINK.matcher(s).find()) {
+        Link l = parseLegacyLink(s);
+        if (l != null) llist.add(l);
         continue;
       }
-      Matcher ma = parc.matcher(s);
+      Matcher ma = ARC_DSL_LINE.matcher(s);
       if (ma.matches()) {
         Arc a = new Arc();
-        a.name = ma.group(1) != null ? ma.group(1) : ma.group(2);
-        a.script = nn(ma.group(3));
-        a.entryLabel = nn(ma.group(4));
-        a.cluster = nn(ma.group(5));
-        if (ma.group(6) != null && ma.group(7) != null) {
-          try { a.x = Double.parseDouble(ma.group(6)); } catch (Exception ignore) {}
-          try { a.y = Double.parseDouble(ma.group(7)); } catch (Exception ignore) {}
+        a.name = unescapeQuotedToken(ma.group(1) != null ? ma.group(1) : ma.group(2));
+        a.script = unescapeQuotedToken(ma.group(3));
+        a.entryLabel = unescapeQuotedToken(ma.group(4));
+        a.cluster = unescapeQuotedToken(ma.group(5));
+        a.priority = parseInt(ma.group(6), 0);
+        a.color = unescapeQuotedToken(ma.group(7));
+        a.tags = unescapeQuotedToken(ma.group(8));
+        if (ma.group(9) != null && ma.group(10) != null) {
+          a.x = parseDouble(ma.group(9), a.x);
+          a.y = parseDouble(ma.group(10), a.y);
         }
         alist.add(a);
         continue;
       }
-      Matcher ml = plink.matcher(s);
+      Matcher ml = LINK_DSL_LINE.matcher(s);
       if (ml.matches()) {
-        String left = ml.group(1);
-        String right = ml.group(2);
+        LinkEndpoint left = parseLinkEndpoint(ml.group(1));
+        LinkEndpoint right = parseLinkEndpoint(ml.group(2));
+        if (left.arc.isBlank() || right.arc.isBlank()) continue;
         Link l = new Link();
-        int ci = left.indexOf(':');
-        if (ci >= 0) { l.fromArc = left.substring(0,ci); l.fromLabel = left.substring(ci+1); } else { l.fromArc = left; l.fromLabel = ""; }
-        ci = right.indexOf(':');
-        if (ci >= 0) { l.toArc = right.substring(0,ci); l.toLabel = right.substring(ci+1); } else { l.toArc = right; l.toLabel = ""; }
+        l.fromArc = left.arc;
+        l.fromLabel = left.label;
+        l.toArc = right.arc;
+        l.toLabel = right.label;
         llist.add(l);
       }
     }
-    arcs.getItems().setAll(alist);
-    links.getItems().setAll(llist);
-    refreshGraph();
-    updateGraphHint();
+    return new ParsedTimeline(alist, llist);
+  }
+
+  static LinkEndpoint parseLinkEndpoint(String token) {
+    if (token == null) return new LinkEndpoint("", "", 0, 0, -1, -1);
+    String t = token.trim();
+    if (t.isEmpty()) return new LinkEndpoint("", "", 0, 0, -1, -1);
+
+    if (t.startsWith("\"")) {
+      ParsedString arc = parseQuotedPart(t, 0);
+      if (arc == null) return new LinkEndpoint("", "", 0, 0, -1, -1);
+      int idx = skipWs(t, arc.endIndex);
+      if (idx >= t.length()) {
+        return new LinkEndpoint(arc.value, "", arc.valueStart, arc.valueEnd, -1, -1);
+      }
+      if (t.charAt(idx) != ':') {
+        return new LinkEndpoint(arc.value, "", arc.valueStart, arc.valueEnd, -1, -1);
+      }
+      ParsedString label = parseLabelPart(t, idx + 1);
+      return new LinkEndpoint(
+          arc.value,
+          label.value,
+          arc.valueStart,
+          arc.valueEnd,
+          label.valueStart,
+          label.valueEnd
+      );
+    }
+
+    int colon = t.indexOf(':');
+    if (colon < 0) {
+      String arc = t.trim();
+      return new LinkEndpoint(arc, "", 0, arc.length(), -1, -1);
+    }
+    String arc = t.substring(0, colon).trim();
+    ParsedString label = parseLabelPart(t, colon + 1);
+    return new LinkEndpoint(arc, label.value, 0, arc.length(), label.valueStart, label.valueEnd);
+  }
+
+  private static ParsedString parseLabelPart(String raw, int start) {
+    int idx = skipWs(raw, start);
+    if (idx >= raw.length()) return new ParsedString("", idx, idx, idx);
+    if (raw.charAt(idx) == '"') {
+      ParsedString quoted = parseQuotedPart(raw, idx);
+      if (quoted != null) return quoted;
+    }
+    String value = raw.substring(idx).trim();
+    int vs = idx;
+    int ve = idx + value.length();
+    return new ParsedString(value, vs, ve, raw.length());
+  }
+
+  private static ParsedString parseQuotedPart(String raw, int startQuote) {
+    if (raw == null || startQuote < 0 || startQuote >= raw.length() || raw.charAt(startQuote) != '"') return null;
+    StringBuilder out = new StringBuilder();
+    int i = startQuote + 1;
+    while (i < raw.length()) {
+      char c = raw.charAt(i);
+      if (c == '\\' && i + 1 < raw.length()) {
+        i++;
+        out.append(unescapeChar(raw.charAt(i)));
+        i++;
+        continue;
+      }
+      if (c == '"') {
+        return new ParsedString(out.toString(), startQuote + 1, i, i + 1);
+      }
+      out.append(c);
+      i++;
+    }
+    return new ParsedString(out.toString(), startQuote + 1, raw.length(), raw.length());
+  }
+
+  private static int skipWs(String text, int idx) {
+    int i = Math.max(0, idx);
+    while (i < text.length() && Character.isWhitespace(text.charAt(i))) i++;
+    return i;
+  }
+
+  private static char unescapeChar(char c) {
+    return switch (c) {
+      case 'n' -> '\n';
+      case 'r' -> '\r';
+      case 't' -> '\t';
+      case '"' -> '"';
+      case '\\' -> '\\';
+      default -> c;
+    };
+  }
+
+  private static String unescapeQuotedToken(String raw) {
+    if (raw == null) return "";
+    StringBuilder out = new StringBuilder(raw.length());
+    for (int i = 0; i < raw.length(); i++) {
+      char c = raw.charAt(i);
+      if (c == '\\' && i + 1 < raw.length()) {
+        i++;
+        out.append(unescapeChar(raw.charAt(i)));
+      } else {
+        out.append(c);
+      }
+    }
+    return out.toString();
+  }
+
+  private static String escapeQuotedToken(String raw) {
+    String s = raw == null ? "" : raw;
+    return s
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t");
+  }
+
+  private static String quoteAlways(String raw) {
+    return "\"" + escapeQuotedToken(raw) + "\"";
+  }
+
+  private static String quoteIfNeeded(String raw) {
+    String s = raw == null ? "" : raw;
+    if (s.isBlank()) return quoteAlways(s);
+    if (SIMPLE_TOKEN.matcher(s).matches()) return s;
+    return quoteAlways(s);
+  }
+
+  private static String renderEndpoint(String arc, String label) {
+    String out = quoteIfNeeded(nn(arc));
+    if (label != null && !label.isBlank()) out += ":" + quoteIfNeeded(label);
+    return out;
+  }
+
+  private static String formatEndpoint(String arc, String label) {
+    String a = nn(arc);
+    String l = nn(label);
+    return l.isBlank() ? a : (a + ":" + l);
+  }
+
+  private static Arc parseLegacyArc(String raw) {
+    String[] t = raw.split("\\|", -1);
+    if (t.length < 4) return null;
+    Arc a = new Arc();
+    a.name = n(t[1]);
+    a.script = n(t[2]);
+    a.entryLabel = n(t[3]);
+    if (t.length >= 6) {
+      a.x = parseDouble(t[4], a.x);
+      a.y = parseDouble(t[5], a.y);
+    }
+    if (t.length >= 7) a.cluster = n(t[6]);
+    if (t.length >= 8) a.priority = parseInt(t[7], 0);
+    if (t.length >= 9) a.color = n(t[8]);
+    if (t.length >= 10) a.tags = n(t[9]);
+    return a;
+  }
+
+  private static Link parseLegacyLink(String raw) {
+    String[] t = raw.split("\\|", -1);
+    if (t.length < 5) return null;
+    Link l = new Link();
+    l.fromArc = n(t[1]);
+    l.fromLabel = n(t[2]);
+    l.toArc = n(t[3]);
+    l.toLabel = n(t[4]);
+    return l;
+  }
+
+  private static double parseDouble(String raw, double fallback) {
+    try {
+      if (raw == null || raw.isBlank()) return fallback;
+      return Double.parseDouble(raw.trim());
+    } catch (Exception ignored) {
+      return fallback;
+    }
+  }
+
+  private static final class ParsedString {
+    final String value;
+    final int valueStart;
+    final int valueEnd;
+    final int endIndex;
+
+    ParsedString(String value, int valueStart, int valueEnd, int endIndex) {
+      this.value = value;
+      this.valueStart = valueStart;
+      this.valueEnd = valueEnd;
+      this.endIndex = endIndex;
+    }
   }
 
   private void zoomToFit() {

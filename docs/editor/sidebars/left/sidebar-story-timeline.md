@@ -12,7 +12,7 @@ The Story Timeline lets authors plan and visualize the high-level narrative stru
 
 - **Default side:** Left
 - **Tab name:** Timeline
-- **State file:** `.jvn/story-timeline.txt`
+- **State file:** `config/timeline/story.timeline` (legacy fallback files are still loadable)
 
 ---
 
@@ -53,6 +53,8 @@ The view is split vertically:
 - **Top 76%** — story graph canvas in a scrollable, pannable viewport
 - **Bottom 24%** — tabbed list views for Arcs and Links
 
+![Story Timeline Overview](../../../assets/images/sidebars/story-timeline/story_timeline_ui_full.png)
+
 ---
 
 ## Toolbar
@@ -67,6 +69,8 @@ The view is split vertically:
 | **Open** | Opens the selected arc's `.vns` script file in the editor. |
 | **Delete Selected** | Removes the selected arc (and all its links) or the selected link. |
 | **Find** | Text field that highlights matching arc nodes on the graph. |
+
+![Timeline Toolbar](../../../assets/images/sidebars/story-timeline/story_timeline_toolbar.png)
 
 ### Secondary Row
 
@@ -108,6 +112,8 @@ When the graph is empty, a hint label is displayed: *"Add an arc or drag a .vns 
 
 Typing in the Find text field highlights matching arc nodes on the canvas. Selecting an arc or link in the list views also highlights the corresponding node.
 
+![Graph Canvas](../../../assets/images/sidebars/story-timeline/story_timeline_graph.png)
+
 ---
 
 ## Arc & Link Lists
@@ -133,6 +139,8 @@ Each row displays: `FromArc:fromLabel  ->  ToArc:toLabel`
 | Delete link | Delete / Backspace key |
 
 **Context menu:** Open Target Arc, Edit Link..., Copy Goto, Delete Link
+
+![Arcs and Links Lists](../../../assets/images/sidebars/story-timeline/story_timeline_lists.png)
 
 ---
 

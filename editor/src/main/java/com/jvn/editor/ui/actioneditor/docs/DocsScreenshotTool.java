@@ -10,6 +10,7 @@ import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
+import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
@@ -517,6 +518,79 @@ public final class DocsScreenshotTool extends Application {
         DocsScreenshotTool::openVnsDiagnosticsWindow
     );
 
+    private static final ProfileSpec STORY_TIMELINE_PROFILE = new ProfileSpec(
+        "story-timeline",
+        "Story Timeline",
+        "docs/editor/sidebars/left/sidebar-story-timeline.md",
+        "docs/editor/sidebars/left/generated-story-timeline-screenshots.md",
+        "docs/assets/images/sidebars/story-timeline",
+        "docs/assets/images/sidebars/story-timeline/raw",
+        "<!-- AUTO-STORY_TIMELINE-SCREENSHOTS:START -->",
+        "<!-- AUTO-STORY_TIMELINE-SCREENSHOTS:END -->",
+        1000,
+        List.of(
+            new ShotSpec(
+                "full",
+                "full",
+                "story_timeline_ui_full.png",
+                "Story Timeline Overview",
+                "Complete Story Timeline workspace with toolbar, graph canvas, and arc/link tabs.",
+                0,
+                1220,
+                0,
+                List.of(
+                    new Callout("Toolbar", 0.01, 0.01, 0.98, 0.12),
+                    new Callout("Arc Graph Canvas", 0.02, 0.14, 0.96, 0.58),
+                    new Callout("Arcs / Links Lists", 0.02, 0.74, 0.96, 0.24)
+                )
+            ),
+            new ShotSpec(
+                "toolbar",
+                "toolbar",
+                "story_timeline_toolbar.png",
+                "Timeline Toolbar",
+                "Create/edit/open arcs, auto-layout, fit, validate, find, and cluster filtering controls.",
+                8,
+                1180,
+                0,
+                List.of(
+                    new Callout("Arc/Link Actions", 0.01, 0.06, 0.42, 0.84),
+                    new Callout("Find + Cluster + Validation", 0.45, 0.06, 0.54, 0.84)
+                )
+            ),
+            new ShotSpec(
+                "graph",
+                "graph",
+                "story_timeline_graph.png",
+                "Graph Canvas",
+                "Drag nodes, connect arcs, inspect clustered routes, and review link directions.",
+                8,
+                1220,
+                0,
+                List.of(
+                    new Callout("Arc Nodes", 0.04, 0.09, 0.44, 0.66),
+                    new Callout("Directed Links", 0.50, 0.12, 0.44, 0.62)
+                )
+            ),
+            new ShotSpec(
+                "lists",
+                "lists",
+                "story_timeline_lists.png",
+                "Arcs and Links Lists",
+                "Use tabs for quick selection, rename/edit context menus, and keyboard operations.",
+                6,
+                1220,
+                0,
+                List.of(
+                    new Callout("Arcs Tab", 0.02, 0.08, 0.47, 0.84),
+                    new Callout("Links Tab", 0.51, 0.08, 0.47, 0.84)
+                )
+            )
+        ),
+        DocsScreenshotTool::openStoryTimelineWindow,
+        DocsScreenshotTool::resolveStoryTimelineRegions
+    );
+
     private static final List<String> DEFAULT_PROFILE_KEYS = List.of(
         PUPPETEER_PROFILE.key(),
         IMAGE_TINT_PROFILE.key(),
@@ -530,7 +604,8 @@ public final class DocsScreenshotTool extends Application {
         MENU_FLOW_EDITOR_PROFILE.key(),
         PUPPETEER_LAUNCHER_PROFILE.key(),
         VERSION_CONTROL_PROFILE.key(),
-        VNS_DIAGNOSTICS_PROFILE.key()
+        VNS_DIAGNOSTICS_PROFILE.key(),
+        STORY_TIMELINE_PROFILE.key()
     );
 
     private static final Map<String, ProfileSpec> PROFILES = Map.ofEntries(
@@ -546,7 +621,8 @@ public final class DocsScreenshotTool extends Application {
         Map.entry(MENU_FLOW_EDITOR_PROFILE.key(), MENU_FLOW_EDITOR_PROFILE),
         Map.entry(PUPPETEER_LAUNCHER_PROFILE.key(), PUPPETEER_LAUNCHER_PROFILE),
         Map.entry(VERSION_CONTROL_PROFILE.key(), VERSION_CONTROL_PROFILE),
-        Map.entry(VNS_DIAGNOSTICS_PROFILE.key(), VNS_DIAGNOSTICS_PROFILE)
+        Map.entry(VNS_DIAGNOSTICS_PROFILE.key(), VNS_DIAGNOSTICS_PROFILE),
+        Map.entry(STORY_TIMELINE_PROFILE.key(), STORY_TIMELINE_PROFILE)
     );
 
     private Path repoRoot;
@@ -789,6 +865,12 @@ public final class DocsScreenshotTool extends Application {
         return openToolStage("Docs Screenshot Session - VNS Diagnostics", view, 980, 860);
     }
 
+    private static Stage openStoryTimelineWindow(Path repoRoot) throws Exception {
+        StoryTimelineView view = new StoryTimelineView();
+        view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
+        return openToolStage("Docs Screenshot Session - Story Timeline", view, 1600, 980);
+    }
+
     private static Stage openToolStage(String title, Parent root, double width, double height) {
         Scene scene = new Scene(root, width, height);
         Stage stage = new Stage();
@@ -970,6 +1052,65 @@ public final class DocsScreenshotTool extends Application {
             )
         );
 
+        writeTextFile(
+            fixtureRoot.resolve("scripts/story/prologue.vns"),
+            String.join("\n",
+                "@label start",
+                "narrator: The school day begins.",
+                "",
+                "@label branch_a",
+                "narrator: Route A branch.",
+                "",
+                "@label branch_b",
+                "narrator: Route B branch.",
+                ""
+            )
+        );
+        writeTextFile(
+            fixtureRoot.resolve("scripts/story/route_a.vns"),
+            String.join("\n",
+                "@label start",
+                "lavender: Welcome to Route A.",
+                "",
+                "@label converge",
+                "lavender: Returning to the core story.",
+                ""
+            )
+        );
+        writeTextFile(
+            fixtureRoot.resolve("scripts/story/route_b.vns"),
+            String.join("\n",
+                "@label start",
+                "lavender: Welcome to Route B.",
+                "",
+                "@label converge",
+                "lavender: Returning to the core story.",
+                ""
+            )
+        );
+        writeTextFile(
+            fixtureRoot.resolve("scripts/story/epilogue.vns"),
+            String.join("\n",
+                "@label start",
+                "narrator: End of this fixture timeline.",
+                ""
+            )
+        );
+        writeTextFile(
+            fixtureRoot.resolve("config/timeline/story.timeline"),
+            String.join("\n",
+                "arc \"Prologue\" script \"scripts/story/prologue.vns\" entry \"start\" cluster \"Main\" priority 10 color \"#84c7ff\" tags \"intro,main\" at 80,80",
+                "arc \"Route A\" script \"scripts/story/route_a.vns\" entry \"start\" cluster \"Routes\" priority 6 color \"#88e0b7\" tags \"branch,a\" at 420,40",
+                "arc \"Route B\" script \"scripts/story/route_b.vns\" entry \"start\" cluster \"Routes\" priority 6 color \"#f4b184\" tags \"branch,b\" at 420,220",
+                "arc \"Epilogue\" script \"scripts/story/epilogue.vns\" entry \"start\" cluster \"Main\" priority 8 color \"#f2a8d9\" tags \"ending\" at 760,130",
+                "link Prologue:branch_a -> \"Route A\":start",
+                "link Prologue:branch_b -> \"Route B\":start",
+                "link \"Route A\":converge -> Epilogue:start",
+                "link \"Route B\":converge -> Epilogue:start",
+                ""
+            )
+        );
+
         writeTextFile(fixtureRoot.resolve("scripts/docs_fixture.vns"), docsSidebarVnsSource());
         return fixtureRoot;
     }
@@ -1104,6 +1245,33 @@ public final class DocsScreenshotTool extends Application {
         regions.put("full", root);
         regions.put("preview", root.getCenter());
         regions.put("sidebar", root.getRight());
+        return regions;
+    }
+
+    private static Map<String, Node> resolveStoryTimelineRegions(Stage stage) {
+        Map<String, Node> regions = new LinkedHashMap<>();
+        if (stage == null || stage.getScene() == null || !(stage.getScene().getRoot() instanceof BorderPane root)) {
+            return regions;
+        }
+        regions.put("full", root);
+        regions.put("toolbar", root.getTop());
+        Node center = root.getCenter();
+        if (center instanceof SplitPane split && split.getItems().size() >= 2) {
+            regions.put("graph", split.getItems().get(0));
+            regions.put("lists", split.getItems().get(1));
+            if (split.getItems().get(1) instanceof javafx.scene.control.TabPane tabs && !tabs.getTabs().isEmpty()) {
+                if (tabs.getTabs().size() > 1) {
+                    tabs.getSelectionModel().select(1);
+                    tabs.applyCss();
+                    tabs.layout();
+                    Node links = tabs.getTabs().get(1).getContent();
+                    if (links != null) regions.put("links_list", links);
+                    tabs.getSelectionModel().select(0);
+                }
+                Node arcs = tabs.getTabs().get(0).getContent();
+                if (arcs != null) regions.put("arcs_list", arcs);
+            }
+        }
         return regions;
     }
 

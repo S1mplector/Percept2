@@ -41,7 +41,7 @@ story.timeline
 An arc represents one narrative segment (typically one `.vns` script file).
 
 ```text
-arc "ArcName" script "path/to/file.vns" entry "labelName" cluster "ClusterName" at X,Y
+arc "ArcName" script "path/to/file.vns" entry "labelName" cluster "ClusterName" priority 0 color "#88ccff" tags "main,route" at X,Y
 ```
 
 | Field | Required | Description |
@@ -50,6 +50,9 @@ arc "ArcName" script "path/to/file.vns" entry "labelName" cluster "ClusterName" 
 | `script "path"` | Recommended | Path to the VNS script file |
 | `entry "label"` | Optional | Entry label in the script (validated) |
 | `cluster "name"` | Optional | Grouping for editor UI filtering |
+| `priority N` | Optional | Integer sort/importance hint shown in graph/list |
+| `color "#RRGGBB"` | Optional | Arc accent color in graph view |
+| `tags "a,b,c"` | Optional | Free-form metadata tags for filtering/conventions |
 | `at X,Y` | Optional | Position in the editor graph (visual only) |
 
 ### Rules
@@ -58,12 +61,13 @@ arc "ArcName" script "path/to/file.vns" entry "labelName" cluster "ClusterName" 
 - Keywords are **case-insensitive** (`arc`, `ARC`, `Arc` all work).
 - `at X,Y` accepts integers or decimals. These are visual coordinates only — they do not affect runtime.
 - Arc names can be quoted (`"Intro"`) or bare identifiers (`Intro`).
+- Use quotes for values containing spaces, punctuation, or `:`.
 
 ### Examples
 
 ```text
 # Full declaration
-arc "Prologue" script "scripts/story/prologue.vns" entry "start" cluster "Main" at 40,40
+arc "Prologue" script "scripts/story/prologue.vns" entry "start" cluster "Main" priority 10 color "#8ecaff" tags "main,opening" at 40,40
 
 # Minimal — just a name
 arc "Placeholder"
@@ -91,6 +95,12 @@ link FromArc[:FromLabel] -> ToArc[:ToLabel]
 | `FromLabel` | Optional | Label annotation (where the branch conceptually originates) |
 | `ToArc` | Yes | Target arc name |
 | `ToLabel` | Optional | Target label hint (falls back to target arc's `entry`) |
+
+`FromArc`, `ToArc`, and labels may be quoted when they contain spaces or punctuation:
+
+```text
+link "Route A":"choice yes" -> "Act 2":"start"
+```
 
 ### Examples
 

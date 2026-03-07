@@ -30,7 +30,7 @@ public class TimelineCodeEditor extends BorderPane {
   private File projectRoot;
   private List<Issue> issues = Collections.emptyList();
 
-  private static final String[] KW = new String[] { "arc", "script", "entry", "at", "link", "cluster" };
+  private static final String[] KW = new String[] { "arc", "script", "entry", "at", "link", "cluster", "priority", "color", "tags" };
   private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KW) + ")\\b";
   private static final String BOOL_PATTERN = "\\b(?:true|false)\\b";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
@@ -49,8 +49,8 @@ public class TimelineCodeEditor extends BorderPane {
     + "|(?<PUNCT>" + PUNCT_PATTERN + ")"
   );
 
-  private static final Pattern ARC_LINE = Pattern.compile("^\\s*arc\\s+(?:\"([^\"]+)\"|(\\S+))(?:\\s+script\\s+\"([^\"]+)\")?(?:\\s+entry\\s+\"([^\"]*)\")?(?:\\s+cluster\\s+\"([^\"]+)\")?(?:\\s+at\\s+(-?\\d+(?:\\.\\d+)?),\\s*(-?\\d+(?:\\.\\d+)?))?\\s*$", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
-  private static final Pattern LINK_LINE = Pattern.compile("^\\s*link\\s+([^\\s]+)\\s*->\\s*([^\\s]+)\\s*$", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
+  private static final Pattern ARC_LINE = Pattern.compile(StoryTimelineView.ARC_DSL_LINE.pattern(), Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
+  private static final Pattern LINK_LINE = Pattern.compile(StoryTimelineView.LINK_DSL_LINE.pattern(), Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
 
   public TimelineCodeEditor() {
     code.setParagraphGraphicFactory(LineNumberFactory.get(code));
@@ -171,9 +171,9 @@ public class TimelineCodeEditor extends BorderPane {
       Map<String, ArcInfo> arcs = new HashMap<>();
       Matcher ma = ARC_LINE.matcher(text);
       while (ma.find()) {
-        String name = ma.group(1) != null ? ma.group(1) : ma.group(2);
-        String script = nn(ma.group(3));
-        String entry = nn(ma.group(4));
+        String name = unescape(ma.group(1) != null ? ma.group(1) : ma.group(2));
+        String script = unescape(ma.group(3));
+        String entry = unescape(ma.group(4));
         int entryStart = ma.start(4);
         int entryEnd = ma.end(4);
         arcs.put(name, new ArcInfo(name, script, entry, entryStart, entryEnd));
@@ -196,18 +196,16 @@ public class TimelineCodeEditor extends BorderPane {
         int ls = ml.start(1), rs = ml.start(2);
         Token lt = parseToken(left);
         Token rt = parseToken(right);
-        if (!arcs.containsKey(lt.arc)) out.add(new Issue("missing_arc", ls, ls + lt.arc.length(), lt.arc, null, null));
-        if (!arcs.containsKey(rt.arc)) out.add(new Issue("missing_arc", rs, rs + rt.arc.length(), rt.arc, null, null));
+        if (!lt.arc.isBlank() && !arcs.containsKey(lt.arc)) out.add(new Issue("missing_arc", ls + lt.arcStart, ls + lt.arcEnd, lt.arc, null, null));
+        if (!rt.arc.isBlank() && !arcs.containsKey(rt.arc)) out.add(new Issue("missing_arc", rs + rt.arcStart, rs + rt.arcEnd, rt.arc, null, null));
         ArcInfo ta = arcs.get(rt.arc);
         if (ta != null) {
           String lab = (rt.label == null || rt.label.isBlank()) ? ta.entry : rt.label;
           if (lab != null && !lab.isBlank()) {
             File f = resolveFile(ta.script);
             if (f != null && f.exists() && !labelExists(f, lab)) {
-              int idx = right.indexOf(':');
-              if (idx >= 0) {
-                int st = rs + idx + 1;
-                out.add(new Issue("missing_label", st, st + lab.length(), rt.arc, lab, ta.script));
+              if (rt.labelStart >= 0 && rt.labelEnd > rt.labelStart) {
+                out.add(new Issue("missing_label", rs + rt.labelStart, rs + rt.labelEnd, rt.arc, lab, ta.script));
               }
             }
           }
@@ -258,11 +256,27 @@ public class TimelineCodeEditor extends BorderPane {
     ArcInfo(String n, String s, String e, int es, int ee) { name=n; script=s; entry=e; entryStart=es; entryEnd=ee; }
   }
 
-  private static class Token { final String arc; final String label; Token(String a, String l){arc=a;label=l;} }
+  private static class Token {
+    final String arc;
+    final String label;
+    final int arcStart;
+    final int arcEnd;
+    final int labelStart;
+    final int labelEnd;
+
+    Token(String arc, String label, int arcStart, int arcEnd, int labelStart, int labelEnd) {
+      this.arc = arc;
+      this.label = label;
+      this.arcStart = arcStart;
+      this.arcEnd = arcEnd;
+      this.labelStart = labelStart;
+      this.labelEnd = labelEnd;
+    }
+  }
+
   private static Token parseToken(String t) {
-    if (t == null) return new Token("", "");
-    int i = t.indexOf(':');
-    if (i >= 0) return new Token(t.substring(0,i), t.substring(i+1)); else return new Token(t, "");
+    StoryTimelineView.LinkEndpoint ep = StoryTimelineView.parseLinkEndpoint(t);
+    return new Token(ep.arc, ep.label, ep.arcStart, ep.arcEnd, ep.labelStart, ep.labelEnd);
   }
 
   private File resolveFile(String p) {
@@ -290,6 +304,16 @@ public class TimelineCodeEditor extends BorderPane {
   }
 
   private static String nn(String s) { return s == null ? "" : s; }
+
+  private static String unescape(String token) {
+    if (token == null) return "";
+    return token
+      .replace("\\\"", "\"")
+      .replace("\\\\", "\\")
+      .replace("\\n", "\n")
+      .replace("\\r", "\r")
+      .replace("\\t", "\t");
+  }
 
   private List<String> listLabels(File vnsFile) {
     try {
