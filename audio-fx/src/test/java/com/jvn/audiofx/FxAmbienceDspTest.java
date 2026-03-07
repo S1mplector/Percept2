@@ -62,6 +62,37 @@ class FxAmbienceDspTest {
     assertNotEquals(low, high, 1e-9);
   }
 
+  @Test
+  void windGustEnvelopeShowsNaturalDynamicRange() {
+    FxAmbienceDsp.State st = new FxAmbienceDsp.State(0x51515151L);
+    // Warm-up
+    for (int i = 0; i < 10_000; i++) {
+      FxAmbienceDsp.synthSample(st, DT, FxAmbienceDsp.Preset.WIND, 0.78f);
+    }
+    int windows = 24;
+    int windowSize = 2048;
+    double min = Double.POSITIVE_INFINITY;
+    double max = Double.NEGATIVE_INFINITY;
+    for (int w = 0; w < windows; w++) {
+      double rms = 0.0;
+      for (int i = 0; i < windowSize; i++) {
+        double s = FxAmbienceDsp.synthSample(st, DT, FxAmbienceDsp.Preset.WIND, 0.78f);
+        rms += s * s;
+      }
+      rms = Math.sqrt(rms / windowSize);
+      min = Math.min(min, rms);
+      max = Math.max(max, rms);
+    }
+    assertTrue(max > min * 1.20, "wind should breathe with gust envelope variance");
+  }
+
+  @Test
+  void windHighIntensityHasBrighterTexture() {
+    double low = highBandProxy(FxAmbienceDsp.Preset.WIND, 0.25f);
+    double high = highBandProxy(FxAmbienceDsp.Preset.WIND, 0.95f);
+    assertTrue(high > low * 1.08, "higher wind intensity should increase high-band movement");
+  }
+
   private double rms(FxAmbienceDsp.Preset preset, float intensity) {
     FxAmbienceDsp.State st = new FxAmbienceDsp.State(77777L);
     // Warm-up filter state before measuring RMS window.
@@ -76,5 +107,20 @@ class FxAmbienceDspTest {
     }
     return Math.sqrt(acc / n);
   }
-}
 
+  private double highBandProxy(FxAmbienceDsp.Preset preset, float intensity) {
+    FxAmbienceDsp.State st = new FxAmbienceDsp.State(991177L);
+    for (int i = 0; i < 9000; i++) {
+      FxAmbienceDsp.synthSample(st, DT, preset, intensity);
+    }
+    double prev = FxAmbienceDsp.synthSample(st, DT, preset, intensity);
+    int n = 8192;
+    double acc = 0.0;
+    for (int i = 0; i < n; i++) {
+      double cur = FxAmbienceDsp.synthSample(st, DT, preset, intensity);
+      acc += Math.abs(cur - prev);
+      prev = cur;
+    }
+    return acc / n;
+  }
+}

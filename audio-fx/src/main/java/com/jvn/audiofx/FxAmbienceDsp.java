@@ -31,9 +31,16 @@ public final class FxAmbienceDsp {
     double time;
 
     double gustPhase;
+    double windMacro;
+    double windMicro;
+    double windRumbleLp;
     double windBodyLp;
-    double windWhistleLp;
-    double windWhistleHpLp;
+    double windBodyHpRef;
+    double windHissLp;
+    double windHissHpRef;
+    double windResNoise;
+    double windWhistlePhase;
+    double windWhistleEnv;
 
     double rainBedLp;
     double rainBedHpLp;
@@ -59,9 +66,16 @@ public final class FxAmbienceDsp {
     public void reset() {
       time = 0.0;
       gustPhase = 0.0;
+      windMacro = 0.0;
+      windMicro = 0.0;
+      windRumbleLp = 0.0;
       windBodyLp = 0.0;
-      windWhistleLp = 0.0;
-      windWhistleHpLp = 0.0;
+      windBodyHpRef = 0.0;
+      windHissLp = 0.0;
+      windHissHpRef = 0.0;
+      windResNoise = 0.0;
+      windWhistlePhase = 0.0;
+      windWhistleEnv = 0.0;
       rainBedLp = 0.0;
       rainBedHpLp = 0.0;
       dropAmp = 0.0;
@@ -96,21 +110,67 @@ public final class FxAmbienceDsp {
   }
 
   private static double wind(State st, double dt, double i) {
-    double n1 = noise(st);
-    double n2 = noise(st);
-    st.gustPhase += dt * (0.035 + 0.065 * i);
-    double gust = 0.5 + 0.5 * Math.sin(st.gustPhase * Math.PI * 2.0)
-        + 0.25 * Math.sin(st.gustPhase * Math.PI * 3.4 + 1.3);
-    gust = clamp01(gust);
+    double nA = noise(st);
+    double nB = noise(st);
+    double nC = noise(st);
+    double nD = noise(st);
 
-    double bodyCut = 120.0 + 600.0 * gust + 420.0 * i;
-    st.windBodyLp = onePoleLp(st.windBodyLp, n1, bodyCut, dt);
-    double whistleCut = 900.0 + 1600.0 * gust + 800.0 * i;
-    st.windWhistleLp = onePoleLp(st.windWhistleLp, n2, whistleCut, dt);
-    st.windWhistleHpLp = onePoleLp(st.windWhistleHpLp, st.windWhistleLp, 650.0 + 220.0 * i, dt);
-    double whistleHp = st.windWhistleLp - st.windWhistleHpLp;
+    // Two turbulence layers:
+    // - macro controls broad gust envelope shifts
+    // - micro adds flutter and short-term modulation
+    st.windMacro = onePoleLp(st.windMacro, nA, 0.12 + 0.28 * i, dt);
+    st.windMicro = onePoleLp(st.windMicro, nB, 1.8 + 2.8 * i, dt);
 
-    return 0.72 * st.windBodyLp + 0.28 * whistleHp * (0.4 + 0.6 * gust);
+    st.gustPhase += dt * (0.028 + 0.062 * i);
+    double periodic = 0.5 + 0.5 * Math.sin(st.gustPhase * Math.PI * 2.0
+        + 0.45 * Math.sin(st.gustPhase * Math.PI * 2.0 * 0.43 + 1.1));
+
+    // "wind speed" proxy used for spectral shaping. Clamped to [0..1].
+    double speed = 0.22 + 0.62 * i
+        + 0.34 * st.windMacro
+        + 0.18 * st.windMicro
+        + 0.20 * (periodic - 0.5);
+    speed = clamp01(speed);
+    double pressure = speed * speed;
+
+    // Low pressure/structure rumble (colored very low band).
+    double rumbleCut = 34.0 + 145.0 * pressure;
+    st.windRumbleLp = onePoleLp(st.windRumbleLp, nC, rumbleCut, dt);
+
+    // Body of wind (broad moving bandpass).
+    double bodyHighCut = 420.0 + 1650.0 * pressure + 420.0 * i;
+    double bodyLowCut = 88.0 + 240.0 * pressure;
+    st.windBodyLp = onePoleLp(st.windBodyLp, nC, bodyHighCut, dt);
+    st.windBodyHpRef = onePoleLp(st.windBodyHpRef, st.windBodyLp, bodyLowCut, dt);
+    double body = st.windBodyLp - st.windBodyHpRef;
+
+    // Air hiss layer (higher band that grows with speed).
+    double hissHighCut = 5200.0 + 6400.0 * pressure;
+    double hissLowCut = 1200.0 + 1800.0 * pressure;
+    st.windHissLp = onePoleLp(st.windHissLp, nD, hissHighCut, dt);
+    st.windHissHpRef = onePoleLp(st.windHissHpRef, st.windHissLp, hissLowCut, dt);
+    double hiss = st.windHissLp - st.windHissHpRef;
+
+    // Resonance/whistle component for wind over edges and openings.
+    st.windResNoise = onePoleLp(st.windResNoise, noise(st), 3.0 + 5.0 * i, dt);
+    double whistleBase = 520.0 + 1650.0 * pressure + 420.0 * i;
+    double whistleFreq = clamp(whistleBase * (1.0 + 0.07 * st.windResNoise), 180.0, 4200.0);
+    st.windWhistlePhase += dt * whistleFreq;
+    st.windWhistlePhase -= Math.floor(st.windWhistlePhase);
+    double whistleCarrier = Math.sin(Math.PI * 2.0 * st.windWhistlePhase)
+        + 0.34 * Math.sin(Math.PI * 2.0 * st.windWhistlePhase * 2.03 + 0.7);
+    double whistleTarget = smoothstep(0.42, 0.92, speed) * (0.20 + 0.80 * pressure);
+    st.windWhistleEnv = onePoleLp(st.windWhistleEnv, whistleTarget, 8.0 + 12.0 * i, dt);
+    double whistle = whistleCarrier * st.windWhistleEnv;
+
+    double shaped = (0.30 - 0.10 * i) * st.windRumbleLp
+        + 0.58 * body
+        + (0.16 + 0.44 * pressure) * hiss
+        + 0.32 * whistle;
+
+    // Mild saturation behaves closer to real-world pressure compression than hard clipping.
+    double level = 0.38 + 0.95 * pressure;
+    return Math.tanh(shaped * level * 1.55);
   }
 
   private static double rain(State st, double dt, double i) {
@@ -179,5 +239,16 @@ public final class FxAmbienceDsp {
     if (v > 1.0) return 1.0;
     return v;
   }
-}
 
+  private static double clamp(double v, double lo, double hi) {
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+  }
+
+  private static double smoothstep(double edge0, double edge1, double x) {
+    if (edge1 <= edge0) return x >= edge1 ? 1.0 : 0.0;
+    double t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+  }
+}
