@@ -1,10 +1,9 @@
 package com.jvn.audiofx;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class FxAmbienceDspTest {
   private static final double DT = 1.0 / 44_100.0;
@@ -14,6 +13,12 @@ class FxAmbienceDspTest {
     assertEquals(FxAmbienceDsp.Preset.WIND, FxAmbienceDsp.Preset.fromToken("wind"));
     assertEquals(FxAmbienceDsp.Preset.RAIN, FxAmbienceDsp.Preset.fromToken("drizzle"));
     assertEquals(FxAmbienceDsp.Preset.OCEAN, FxAmbienceDsp.Preset.fromToken("waves"));
+    assertEquals(FxAmbienceDsp.Preset.THUNDER, FxAmbienceDsp.Preset.fromToken("thunder"));
+    assertEquals(FxAmbienceDsp.Preset.THUNDER, FxAmbienceDsp.Preset.fromToken("lightning"));
+    assertEquals(FxAmbienceDsp.Preset.FIREPLACE, FxAmbienceDsp.Preset.fromToken("fireplace"));
+    assertEquals(FxAmbienceDsp.Preset.FIREPLACE, FxAmbienceDsp.Preset.fromToken("campfire"));
+    assertEquals(FxAmbienceDsp.Preset.NIGHT_INSECTS, FxAmbienceDsp.Preset.fromToken("night_insects"));
+    assertEquals(FxAmbienceDsp.Preset.NIGHT_INSECTS, FxAmbienceDsp.Preset.fromToken("crickets"));
     assertEquals(FxAmbienceDsp.Preset.WIND, FxAmbienceDsp.Preset.fromToken("unknown"));
   }
 
@@ -84,6 +89,35 @@ class FxAmbienceDspTest {
       max = Math.max(max, rms);
     }
     assertTrue(max > min * 1.20, "wind should breathe with gust envelope variance");
+  }
+
+  @Test
+  void newPresetsProduceDistinctOutput() {
+    FxAmbienceDsp.State thunder = new FxAmbienceDsp.State(555555L);
+    FxAmbienceDsp.State fire = new FxAmbienceDsp.State(555555L);
+    FxAmbienceDsp.State insects = new FxAmbienceDsp.State(555555L);
+
+    double totalThunderFire = 0.0;
+    double totalFireInsects = 0.0;
+    for (int i = 0; i < 1024; i++) {
+      double st = FxAmbienceDsp.synthSample(thunder, DT, FxAmbienceDsp.Preset.THUNDER, 0.65f);
+      double sf = FxAmbienceDsp.synthSample(fire, DT, FxAmbienceDsp.Preset.FIREPLACE, 0.65f);
+      double si = FxAmbienceDsp.synthSample(insects, DT, FxAmbienceDsp.Preset.NIGHT_INSECTS, 0.65f);
+      totalThunderFire += Math.abs(st - sf);
+      totalFireInsects += Math.abs(sf - si);
+    }
+    assertTrue(totalThunderFire > 1.0, "Thunder and fireplace should produce different waveforms");
+    assertTrue(totalFireInsects > 1.0, "Fireplace and night_insects should produce different waveforms");
+  }
+
+  @Test
+  void newPresetsIntensityAffectsEnergy() {
+    for (FxAmbienceDsp.Preset preset : new FxAmbienceDsp.Preset[]{
+        FxAmbienceDsp.Preset.THUNDER, FxAmbienceDsp.Preset.FIREPLACE, FxAmbienceDsp.Preset.NIGHT_INSECTS}) {
+      double low = rms(preset, 0.20f);
+      double high = rms(preset, 0.95f);
+      assertTrue(high > low * 1.05, preset + ": higher intensity should increase energy");
+    }
   }
 
   @Test

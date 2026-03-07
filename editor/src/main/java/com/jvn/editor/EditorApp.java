@@ -18,6 +18,7 @@ import java.util.Properties;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
+import com.jvn.editor.ui.AudioSynthControlsView;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.FileEditorTab;
@@ -131,6 +132,8 @@ public class EditorApp extends Application {
   private TilemapEditorView mapEditorView;
   private PuppeteerLauncherPanel puppeteerLauncherPanel;
   private ScriptEditorLauncherView scriptEditorLauncherView;
+  private AudioSynthControlsView audioSynthControlsView;
+  private Tab tabAudioSynthControls;
   private Tab tabPuppeteerLauncher;
   private final CommandStack commands = new CommandStack();
   private TabPane leftTabs;
@@ -1046,6 +1049,7 @@ public class EditorApp extends Application {
     });
     scriptEditorLauncherView = new ScriptEditorLauncherView();
     scriptEditorLauncherView.setProjectRoot(projectRoot);
+    audioSynthControlsView = new AudioSynthControlsView();
     rightTabs = new TabPane();
     helpCenterView = new HelpCenterView();
     helpCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
@@ -2455,6 +2459,11 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Puppeteer Launcher", puppeteerLauncherPanel, 600, 500));
 
+    addChooserActionRow(actions, "Audio Synth Controls", "icon-panel-diagnostics", () -> {
+      Tab t = ensureAudioSynthControlsTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Audio Synth Controls", audioSynthControlsView, 380, 650));
+
     addChooserActionRow(actions, "Script Editor", "icon-panel-flow", null, () -> {
       if (scriptEditorLauncherView != null) {
         scriptEditorLauncherView.setProjectRoot(projectRoot);
@@ -2622,6 +2631,17 @@ public class EditorApp extends Application {
     }
     attachPanelTabToPane(tabPuppeteerLauncher, targetPane);
     return tabPuppeteerLauncher;
+  }
+
+  private Tab ensureAudioSynthControlsTab(TabPane targetPane) {
+    if (targetPane == null || audioSynthControlsView == null) return null;
+    if (tabAudioSynthControls == null) {
+      tabAudioSynthControls = new Tab("Audio Synth", audioSynthControlsView);
+      tabAudioSynthControls.setClosable(true);
+      tabAudioSynthControls.setOnClosed(e -> tabAudioSynthControls = null);
+    }
+    attachPanelTabToPane(tabAudioSynthControls, targetPane);
+    return tabAudioSynthControls;
   }
 
   private void launchPuppeteerFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {

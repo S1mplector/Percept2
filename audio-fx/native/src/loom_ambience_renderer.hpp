@@ -109,7 +109,7 @@ public:
   bool finished() const noexcept;
 
 private:
-  enum class Preset { Wind, Rain, Ocean };
+  enum class Preset { Wind, Rain, Ocean, Thunder, Fireplace, NightInsects };
 
   static float clamp01(float value);
   static Preset presetFromToken(const std::string& token);
@@ -118,6 +118,9 @@ private:
   float synthesizeWindSample();
   float synthesizeRainSample();
   float synthesizeOceanSample();
+  float synthesizeThunderSample();
+  float synthesizeFireplaceSample();
+  float synthesizeNightInsectsSample();
   float nextMonoSample();
 
   int sampleRate_;
@@ -133,6 +136,11 @@ private:
   float elapsedSeconds_ = 0.0f;
   float gustTimer_ = 0.0f;
   float dropletEnvelope_ = 0.0f;
+  float thunderRumblePhase_ = 0.0f;
+  float thunderCrackEnvelope_ = 0.0f;
+  float crackleEnvelope_ = 0.0f;
+  float chirpPhase_ = 0.0f;
+  float chirpEnvelope_ = 0.0f;
 
   NoiseGenerator noiseLow_{0x11111111u};
   NoiseGenerator noiseMid_{0x22222222u};
@@ -156,10 +164,26 @@ private:
   BiquadFilter oceanWashBandPass_;
   BiquadFilter oceanFoamHighPass_;
 
+  BiquadFilter thunderRumbleLowPass_;
+  BiquadFilter thunderCrackBandPass_;
+  BiquadFilter thunderRainHighPass_;
+
+  BiquadFilter fireCrackleBandPass_;
+  BiquadFilter fireBaseLowPass_;
+  BiquadFilter fireHissHighPass_;
+
+  BiquadFilter insectChirpBandPass_;
+  BiquadFilter insectBedLowPass_;
+  BiquadFilter insectDetailHighPass_;
+
   Lfo slowLfo_{0.15f, 0.0f, 0xDEADBEEFu};
   Lfo mediumLfo_{0.6f, 0.25f, 0xC0FFEE11u};
   Lfo fastLfo_{2.5f, 0.5f, 0xFACE1234u};
   Lfo panLfo_{0.11f, 0.1f, 0x76543210u};
+  NoiseGenerator noiseThunder_{0x66666666u};
+  NoiseGenerator noiseFire_{0x77777777u};
+  NoiseGenerator noiseInsect_{0x88888888u};
+
   GustGenerator gust_{44100.0f, 0xABCDEF01u};
 };
 

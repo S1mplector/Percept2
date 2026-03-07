@@ -244,6 +244,14 @@ void LoomAmbienceRenderer::configure(
   noiseHigh_.reset();
   noiseGust_.reset();
   noiseDrop_.reset();
+  noiseThunder_.reset();
+  noiseFire_.reset();
+  noiseInsect_.reset();
+  thunderRumblePhase_ = 0.0f;
+  thunderCrackEnvelope_ = 0.0f;
+  crackleEnvelope_ = 0.0f;
+  chirpPhase_ = 0.0f;
+  chirpEnvelope_ = 0.0f;
   gust_.setSampleRate(static_cast<float>(sampleRate_));
   updateFilters();
 }
@@ -300,6 +308,17 @@ LoomAmbienceRenderer::Preset LoomAmbienceRenderer::presetFromToken(const std::st
       normalized.find("sea") != std::string::npos || normalized.find("surf") != std::string::npos) {
     return Preset::Ocean;
   }
+  if (normalized.find("thunder") != std::string::npos || normalized.find("lightning") != std::string::npos) {
+    return Preset::Thunder;
+  }
+  if (normalized.find("fire") != std::string::npos || normalized.find("hearth") != std::string::npos ||
+      normalized.find("campfire") != std::string::npos) {
+    return Preset::Fireplace;
+  }
+  if (normalized.find("insect") != std::string::npos || normalized.find("cricket") != std::string::npos ||
+      normalized.find("cicada") != std::string::npos || normalized.find("night") != std::string::npos) {
+    return Preset::NightInsects;
+  }
   return Preset::Wind;
 }
 
@@ -322,6 +341,18 @@ void LoomAmbienceRenderer::updateFilters() {
   oceanSwellLowPass_.setCoefficients(BiquadFilter::Type::LowPass, 180.0f + intensity_ * 110.0f + accent_ * 70.0f, 0.8f, sr);
   oceanWashBandPass_.setCoefficients(BiquadFilter::Type::BandPass, 560.0f + detail_ * 580.0f + intensity_ * 280.0f, 0.7f, sr);
   oceanFoamHighPass_.setCoefficients(BiquadFilter::Type::HighPass, 2200.0f + detail_ * 1800.0f, 0.7f, sr);
+
+  thunderRumbleLowPass_.setCoefficients(BiquadFilter::Type::LowPass, 80.0f + intensity_ * 60.0f + accent_ * 30.0f, 0.9f, sr);
+  thunderCrackBandPass_.setCoefficients(BiquadFilter::Type::BandPass, 1800.0f + detail_ * 2400.0f + accent_ * 600.0f, 1.5f + accent_ * 1.0f, sr);
+  thunderRainHighPass_.setCoefficients(BiquadFilter::Type::HighPass, 2800.0f + detail_ * 1800.0f, 0.6f, sr);
+
+  fireCrackleBandPass_.setCoefficients(BiquadFilter::Type::BandPass, 900.0f + detail_ * 1200.0f + accent_ * 400.0f, 1.8f + detail_ * 0.8f, sr);
+  fireBaseLowPass_.setCoefficients(BiquadFilter::Type::LowPass, 220.0f + intensity_ * 80.0f, 0.85f, sr);
+  fireHissHighPass_.setCoefficients(BiquadFilter::Type::HighPass, 3600.0f + detail_ * 2400.0f, 0.55f, sr);
+
+  insectChirpBandPass_.setCoefficients(BiquadFilter::Type::BandPass, 3200.0f + detail_ * 2800.0f + accent_ * 800.0f, 3.0f + accent_ * 2.0f, sr);
+  insectBedLowPass_.setCoefficients(BiquadFilter::Type::LowPass, 280.0f + intensity_ * 120.0f, 0.7f, sr);
+  insectDetailHighPass_.setCoefficients(BiquadFilter::Type::HighPass, 1600.0f + detail_ * 1400.0f, 0.65f, sr);
 }
 
 void LoomAmbienceRenderer::maybeTriggerWindGust(float dt) {
@@ -419,6 +450,105 @@ float LoomAmbienceRenderer::synthesizeOceanSample() {
   return std::tanh((swell + wash + foam) * 0.92f);
 }
 
+float LoomAmbienceRenderer::synthesizeThunderSample() {
+  const float dt = 1.0f / sampleRate_;
+  slowLfo_.advance();
+  mediumLfo_.advance();
+  fastLfo_.advance();
+  const float slowMod = slowLfo_.sine() * 0.5f + 0.5f;
+
+  // Deep rumble layer — sub-bass thunder body
+  float rumble = thunderRumbleLowPass_.process(noiseThunder_.brown());
+  rumble *= (0.25f + intensity_ * 0.35f + accent_ * 0.15f) * (0.7f + slowMod * 0.3f);
+
+  // Thunder crack events — stochastic bright transients
+  const float crackChance = (0.002f + intensity_ * 0.006f + accent_ * 0.004f) * (1.0f + motion_ * 0.5f);
+  if (noiseThunder_.white() > (1.0f - crackChance) && thunderCrackEnvelope_ < 0.05f) {
+    thunderCrackEnvelope_ = 0.6f + intensity_ * 0.35f + accent_ * 0.25f;
+  }
+  thunderCrackEnvelope_ *= 0.9985f - motion_ * 0.0005f;
+  float crack = thunderCrackBandPass_.process(noiseThunder_.white()) * thunderCrackEnvelope_;
+  crack *= 0.45f + detail_ * 0.35f;
+
+  // Background rain layer — continuous rain bed for texture
+  float rain = thunderRainHighPass_.process(noiseMid_.pink());
+  rain *= (0.08f + intensity_ * 0.14f + detail_ * 0.10f) * (0.85f + mediumLfo_.triangle() * 0.15f);
+
+  // Rumble phase modulation for low-frequency oscillation
+  thunderRumblePhase_ += (0.03f + motion_ * 0.05f) * dt;
+  if (thunderRumblePhase_ > 1.0f) thunderRumblePhase_ -= 1.0f;
+  const float phaseEnvelope = 0.85f + 0.15f * std::sin(thunderRumblePhase_ * 2.0f * kPi);
+
+  return std::tanh((rumble * phaseEnvelope + crack + rain) * 0.75f);
+}
+
+float LoomAmbienceRenderer::synthesizeFireplaceSample() {
+  slowLfo_.advance();
+  mediumLfo_.advance();
+  fastLfo_.advance();
+  const float medMod = mediumLfo_.triangle() * 0.5f + 0.5f;
+  const float fastMod = fastLfo_.sine() * 0.5f + 0.5f;
+
+  // Base warmth layer — low rumbling fire body
+  float base = fireBaseLowPass_.process(noiseFire_.brown());
+  base *= (0.20f + intensity_ * 0.25f) * (0.85f + slowLfo_.sine() * 0.15f);
+
+  // Crackle layer — stochastic popping sounds
+  const float crackleChance = 0.004f + intensity_ * 0.008f + accent_ * 0.006f + detail_ * 0.003f;
+  if (noiseFire_.white() > (1.0f - crackleChance) && crackleEnvelope_ < 0.08f) {
+    crackleEnvelope_ = 0.35f + intensity_ * 0.40f + accent_ * 0.30f;
+  }
+  crackleEnvelope_ *= 0.997f - motion_ * 0.001f;
+  float crackle = fireCrackleBandPass_.process(noiseFire_.white()) * crackleEnvelope_;
+  crackle *= 0.50f + detail_ * 0.30f + accent_ * 0.15f;
+
+  // Hiss/sizzle layer — higher frequency texture
+  float hiss = fireHissHighPass_.process(noiseHigh_.pink());
+  hiss *= (0.03f + intensity_ * 0.06f + detail_ * 0.08f) * fastMod;
+
+  // Breathing modulation — fire intensity fluctuates
+  const float breathe = 0.80f + 0.20f * medMod * (0.8f + motion_ * 0.4f);
+
+  return std::tanh((base + crackle + hiss) * breathe * 0.80f);
+}
+
+float LoomAmbienceRenderer::synthesizeNightInsectsSample() {
+  const float dt = 1.0f / sampleRate_;
+  slowLfo_.advance();
+  mediumLfo_.advance();
+  fastLfo_.advance();
+  const float slowMod = slowLfo_.sine() * 0.5f + 0.5f;
+
+  // Ambient night bed — dark, warm low-frequency layer
+  float bed = insectBedLowPass_.process(noiseInsect_.brown());
+  bed *= (0.10f + intensity_ * 0.12f) * (0.85f + slowMod * 0.15f);
+
+  // Chirp layer — rhythmic insect chirps via oscillating bandpass
+  chirpPhase_ += (2.5f + accent_ * 4.0f + motion_ * 2.0f) * dt;
+  if (chirpPhase_ > 1.0f) chirpPhase_ -= 1.0f;
+  const float chirpPulse = std::max(0.0f, std::sin(chirpPhase_ * 2.0f * kPi));
+  const float chirpGate = chirpPulse * chirpPulse * chirpPulse;
+
+  // Stochastic chirp triggering — individual cricket events
+  const float chirpTrigger = 0.003f + intensity_ * 0.005f + accent_ * 0.004f;
+  if (noiseInsect_.white() > (1.0f - chirpTrigger) && chirpEnvelope_ < 0.1f) {
+    chirpEnvelope_ = 0.25f + intensity_ * 0.35f + accent_ * 0.25f;
+  }
+  chirpEnvelope_ *= 0.9965f - motion_ * 0.0008f;
+
+  float chirp = insectChirpBandPass_.process(noiseInsect_.white());
+  chirp *= chirpGate * chirpEnvelope_ * (0.35f + detail_ * 0.40f);
+
+  // Detail texture — high-frequency rustling / distant insects
+  float detail = insectDetailHighPass_.process(noiseMid_.pink());
+  detail *= (0.04f + detail_ * 0.08f + intensity_ * 0.04f) * (0.7f + mediumLfo_.triangle() * 0.3f);
+
+  // Density modulation — insects go in and out of chorus
+  const float density = 0.65f + 0.35f * slowMod * (0.7f + motion_ * 0.6f);
+
+  return std::tanh((bed + chirp + detail) * density * 0.85f);
+}
+
 float LoomAmbienceRenderer::nextMonoSample() {
   if (finished_) return 0.0f;
   const float sample = [this]() {
@@ -429,6 +559,12 @@ float LoomAmbienceRenderer::nextMonoSample() {
         return synthesizeRainSample();
       case Preset::Ocean:
         return synthesizeOceanSample();
+      case Preset::Thunder:
+        return synthesizeThunderSample();
+      case Preset::Fireplace:
+        return synthesizeFireplaceSample();
+      case Preset::NightInsects:
+        return synthesizeNightInsectsSample();
     }
     return 0.0f;
   }();

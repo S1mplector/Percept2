@@ -1,13 +1,13 @@
 package com.jvn.audiofx;
 
-import com.jvn.core.audio.AmbienceProfile;
-import org.junit.jupiter.api.Test;
-
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.jvn.core.audio.AmbienceProfile;
 
 class AudioFxNativeBridgeTest {
   @Test
@@ -51,6 +51,55 @@ class AudioFxNativeBridgeTest {
     byte[] brightWind = renderAmbience("wind", new AmbienceProfile(0.92f, 0.88f, 0.90f, 0.94f, true));
     assertNotEquals(sampleEnergy(dryWind), sampleEnergy(brightWind));
     assertFalse(Arrays.equals(dryWind, brightWind), "Ambience control changes should alter rendered PCM");
+  }
+
+  @Test
+  void thunderPresetProducesAudibleOutput() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    byte[] thunder = renderAmbience("thunder", new AmbienceProfile(0.60f, 0.55f, 0.50f, 0.70f, true));
+    assertTrue(sampleEnergy(thunder) > 10_000L, "Thunder ambience rendered silence");
+  }
+
+  @Test
+  void fireplacePresetProducesAudibleOutput() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    byte[] fire = renderAmbience("fireplace", new AmbienceProfile(0.65f, 0.50f, 0.55f, 0.60f, true));
+    assertTrue(sampleEnergy(fire) > 10_000L, "Fireplace ambience rendered silence");
+  }
+
+  @Test
+  void nightInsectsPresetProducesAudibleOutput() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    byte[] insects = renderAmbience("night_insects", new AmbienceProfile(0.50f, 0.60f, 0.45f, 0.80f, true));
+    assertTrue(sampleEnergy(insects) > 10_000L, "Night insects ambience rendered silence");
+  }
+
+  @Test
+  void newPresetsProduceMateriallyDifferentOutput() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    AmbienceProfile profile = new AmbienceProfile(0.60f, 0.55f, 0.50f, 0.65f, true);
+    byte[] thunder = renderAmbience("thunder", profile);
+    byte[] fire = renderAmbience("fireplace", profile);
+    byte[] insects = renderAmbience("night_insects", profile);
+    byte[] wind = renderAmbience("wind", profile);
+
+    assertFalse(Arrays.equals(thunder, fire), "Thunder and fireplace should differ");
+    assertFalse(Arrays.equals(fire, insects), "Fireplace and night_insects should differ");
+    assertFalse(Arrays.equals(thunder, insects), "Thunder and night_insects should differ");
+    assertFalse(Arrays.equals(thunder, wind), "Thunder and wind should differ");
+  }
+
+  @Test
+  void newPresetParametersAlterOutput() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    for (String preset : new String[]{"thunder", "fireplace", "night_insects"}) {
+      byte[] low = renderAmbience(preset, new AmbienceProfile(0.15f, 0.15f, 0.10f, 0.10f, true));
+      byte[] high = renderAmbience(preset, new AmbienceProfile(0.92f, 0.88f, 0.90f, 0.94f, true));
+      assertNotEquals(sampleEnergy(low), sampleEnergy(high),
+          preset + ": parameter changes should alter energy");
+      assertFalse(Arrays.equals(low, high),
+          preset + ": parameter changes should alter PCM output");
+    }
   }
 
   private static byte[] renderAmbience(String preset, AmbienceProfile profile) {

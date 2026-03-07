@@ -11,7 +11,10 @@ public final class FxAmbienceDsp {
   public enum Preset {
     WIND,
     RAIN,
-    OCEAN;
+    OCEAN,
+    THUNDER,
+    FIREPLACE,
+    NIGHT_INSECTS;
 
     public static Preset fromToken(String raw) {
       String t = raw == null ? "" : raw.trim().toLowerCase();
@@ -19,6 +22,9 @@ public final class FxAmbienceDsp {
       return switch (t) {
         case "rain", "drizzle", "storm", "downpour" -> RAIN;
         case "ocean", "sea", "waves", "shore" -> OCEAN;
+        case "thunder", "lightning" -> THUNDER;
+        case "fire", "fireplace", "hearth", "campfire" -> FIREPLACE;
+        case "night_insects", "insects", "crickets", "cicada", "night" -> NIGHT_INSECTS;
         default -> WIND;
       };
     }
@@ -53,6 +59,15 @@ public final class FxAmbienceDsp {
     double oceanMidLp;
     double oceanMidHpLp;
 
+    double thunderRumbleLp;
+    double thunderCrackEnv;
+    double fireCrackleLp;
+    double fireCrackleEnv;
+    double fireBaseLp;
+    double chirpPhase;
+    double chirpEnv;
+    double insectBedLp;
+
     public State(long seed) {
       this.seed = normalizeSeed(seed);
       reset();
@@ -85,6 +100,14 @@ public final class FxAmbienceDsp {
       oceanLow = 0.0;
       oceanMidLp = 0.0;
       oceanMidHpLp = 0.0;
+      thunderRumbleLp = 0.0;
+      thunderCrackEnv = 0.0;
+      fireCrackleLp = 0.0;
+      fireCrackleEnv = 0.0;
+      fireBaseLp = 0.0;
+      chirpPhase = 0.0;
+      chirpEnv = 0.0;
+      insectBedLp = 0.0;
     }
 
     public double elapsedSeconds() {
@@ -104,6 +127,9 @@ public final class FxAmbienceDsp {
       case WIND -> wind(st, dt, i);
       case RAIN -> rain(st, dt, i);
       case OCEAN -> ocean(st, dt, i);
+      case THUNDER -> thunder(st, dt, i);
+      case FIREPLACE -> fireplace(st, dt, i);
+      case NIGHT_INSECTS -> nightInsects(st, dt, i);
     };
     st.time += Math.max(0.0, dt);
     return clamp11(mono);
@@ -204,6 +230,79 @@ public final class FxAmbienceDsp {
 
     double foam = oceanHp * (0.22 + 0.78 * swell);
     return 0.74 * st.oceanLow + 0.52 * foam;
+  }
+
+  private static double thunder(State st, double dt, double i) {
+    double n1 = noise(st);
+    double n2 = noise(st);
+
+    // Deep sub-bass rumble
+    st.thunderRumbleLp = onePoleLp(st.thunderRumbleLp, n1, 80.0 + 60.0 * i, dt);
+    double rumble = st.thunderRumbleLp * (0.25 + 0.35 * i);
+
+    // Stochastic thunder cracks
+    double crackChance = 0.002 + 0.006 * i;
+    if (rand01(st) < crackChance && st.thunderCrackEnv < 0.05) {
+      st.thunderCrackEnv = 0.6 + 0.35 * i;
+    }
+    st.thunderCrackEnv *= 0.9985;
+    double crack = n2 * st.thunderCrackEnv * 0.45;
+
+    // Background rain texture
+    double rain = noise(st) * (0.08 + 0.14 * i);
+
+    return Math.tanh((rumble + crack + rain) * 0.75);
+  }
+
+  private static double fireplace(State st, double dt, double i) {
+    double n1 = noise(st);
+    double n2 = noise(st);
+
+    // Warm base body
+    st.fireBaseLp = onePoleLp(st.fireBaseLp, n1, 220.0 + 80.0 * i, dt);
+    double base = st.fireBaseLp * (0.20 + 0.25 * i);
+
+    // Crackle events
+    double crackleChance = 0.004 + 0.008 * i;
+    if (rand01(st) < crackleChance && st.fireCrackleEnv < 0.08) {
+      st.fireCrackleEnv = 0.35 + 0.40 * i;
+    }
+    st.fireCrackleEnv *= 0.997;
+    st.fireCrackleLp = onePoleLp(st.fireCrackleLp, n2, 900.0 + 1200.0 * i, dt);
+    double crackle = st.fireCrackleLp * st.fireCrackleEnv * 0.50;
+
+    // Sizzle/hiss
+    double hiss = noise(st) * (0.03 + 0.06 * i);
+
+    return Math.tanh((base + crackle + hiss) * 0.80);
+  }
+
+  private static double nightInsects(State st, double dt, double i) {
+    double n1 = noise(st);
+    double n2 = noise(st);
+
+    // Dark ambient bed
+    st.insectBedLp = onePoleLp(st.insectBedLp, n1, 280.0 + 120.0 * i, dt);
+    double bed = st.insectBedLp * (0.10 + 0.12 * i);
+
+    // Chirp oscillation
+    st.chirpPhase += (2.5 + 4.0 * i) * dt;
+    if (st.chirpPhase > 1.0) st.chirpPhase -= 1.0;
+    double chirpPulse = Math.max(0.0, Math.sin(st.chirpPhase * Math.PI * 2.0));
+    double gate = chirpPulse * chirpPulse * chirpPulse;
+
+    // Stochastic chirp triggers
+    double chirpTrigger = 0.003 + 0.005 * i;
+    if (rand01(st) < chirpTrigger && st.chirpEnv < 0.1) {
+      st.chirpEnv = 0.25 + 0.35 * i;
+    }
+    st.chirpEnv *= 0.9965;
+    double chirp = n2 * gate * st.chirpEnv * 0.35;
+
+    // High-frequency rustling detail
+    double detail = noise(st) * (0.04 + 0.08 * i);
+
+    return Math.tanh((bed + chirp + detail) * 0.85);
   }
 
   private static double onePoleLp(double state, double x, double cutoffHz, double dt) {
