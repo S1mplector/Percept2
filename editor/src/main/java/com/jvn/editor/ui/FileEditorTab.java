@@ -1,9 +1,13 @@
 package com.jvn.editor.ui;
 
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -207,11 +211,71 @@ public class FileEditorTab extends BorderPane {
       if (kind != Kind.VNS || vnsEditor == null || vnPreview == null) return;
       String code = vnsEditor.getText();
       if (code == null || code.isBlank()) return;
-      VnScriptParser parser = new VnScriptParser();
-      VnScenario scenario = parser.parseFromString(code);
+      VnScenario scenario = parseVnsScenarioFromText(code);
+      vnPreview.setSourceScriptName(resolveVnsScriptKey());
       vnPreview.runScenario(scenario, label);
       if (onStatus != null) onStatus.accept("Run from label: " + (label == null ? "<start>" : label));
     } catch (Exception ignored) {}
+  }
+
+  private VnScenario parseVnsScenarioFromText(String code) throws IOException {
+    VnScriptParser parser = new VnScriptParser();
+    byte[] bytes = code == null ? new byte[0] : code.getBytes(StandardCharsets.UTF_8);
+    try (InputStream in = new ByteArrayInputStream(bytes)) {
+      return parser.parse(in, resolveVnsSourceName(), this::openVnsInclude);
+    }
+  }
+
+  private String resolveVnsSourceName() {
+    String scriptKey = resolveVnsScriptKey();
+    if (scriptKey != null && !scriptKey.isBlank()) return scriptKey;
+    return file != null ? file.getName() : "<editor>";
+  }
+
+  private String resolveVnsScriptKey() {
+    if (file == null) return null;
+    Path filePath = file.toPath().toAbsolutePath().normalize();
+    if (projectRoot != null) {
+      Path scriptsRoot = projectRoot.toPath().resolve("scripts").toAbsolutePath().normalize();
+      if (filePath.startsWith(scriptsRoot)) {
+        return scriptsRoot.relativize(filePath).toString().replace('\\', '/');
+      }
+    }
+    return file.getName();
+  }
+
+  private InputStream openVnsInclude(String includePath) throws IOException {
+    String normalized = includePath == null ? "" : includePath.trim().replace('\\', '/');
+    if (normalized.isBlank()) {
+      throw new IOException("Include path is empty");
+    }
+
+    if (projectRoot != null) {
+      Path scriptsRoot = projectRoot.toPath().resolve("scripts").toAbsolutePath().normalize();
+      Path base = scriptsRoot;
+      String sourceKey = resolveVnsScriptKey();
+      if (sourceKey != null && !sourceKey.isBlank()) {
+        Path sourcePath = scriptsRoot.resolve(sourceKey).normalize();
+        Path parent = sourcePath.getParent();
+        if (parent != null) base = parent;
+      }
+      Path resolved = normalized.startsWith("/")
+          ? scriptsRoot.resolve(normalized.substring(1)).normalize()
+          : base.resolve(normalized).normalize();
+      if (!resolved.startsWith(scriptsRoot)) {
+        throw new IOException("Include path escapes scripts root: " + includePath);
+      }
+      return Files.newInputStream(resolved);
+    }
+
+    if (file != null && file.getParentFile() != null) {
+      Path base = file.getParentFile().toPath().toAbsolutePath().normalize();
+      String rel = normalized.startsWith("/") ? normalized.substring(1) : normalized;
+      Path resolved = base.resolve(rel).normalize();
+      return Files.newInputStream(resolved);
+    }
+
+    throw new IOException("Include resolver unavailable for " + includePath);
   }
 
   private void setupLayout() {
@@ -297,9 +361,11 @@ public class FileEditorTab extends BorderPane {
       String code = vnsEditor.getText();
       if (code == null || code.isBlank()) return;
       try {
-        VnScriptParser parser = new VnScriptParser();
-        VnScenario scenario = parser.parseFromString(code);
-        if (vnPreview != null) vnPreview.setScenario(scenario);
+        VnScenario scenario = parseVnsScenarioFromText(code);
+        if (vnPreview != null) {
+          vnPreview.setSourceScriptName(resolveVnsScriptKey());
+          vnPreview.setScenario(scenario);
+        }
       } catch (Exception ex) {
         if (onStatus != null) onStatus.accept("VNS error: " + ex.getMessage());
       }
@@ -317,10 +383,12 @@ public class FileEditorTab extends BorderPane {
       } else if (kind == Kind.VNS) {
         String code = Files.readString(file.toPath());
         vnsEditor.setText(code);
-        try (FileInputStream in = new FileInputStream(file)) {
-          VnScriptParser parser = new VnScriptParser();
-          VnScenario scenario = parser.parse(in);
-          if (vnPreview != null) vnPreview.setScenario(scenario);
+        try {
+          VnScenario scenario = parseVnsScenarioFromText(code);
+          if (vnPreview != null) {
+            vnPreview.setSourceScriptName(resolveVnsScriptKey());
+            vnPreview.setScenario(scenario);
+          }
         } catch (Exception ex) {
           if (onStatus != null) onStatus.accept("VNS parse warning: " + ex.getMessage());
         }

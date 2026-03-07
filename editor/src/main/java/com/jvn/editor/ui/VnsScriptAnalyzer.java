@@ -2,7 +2,13 @@ package com.jvn.editor.ui;
 
 import com.jvn.core.vn.script.VnScriptParser;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,12 +38,16 @@ public final class VnsScriptAnalyzer {
   }
 
   public static Analysis analyze(String text, File projectRoot) {
+    return analyze(text, projectRoot, null);
+  }
+
+  public static Analysis analyze(String text, File projectRoot, File sourceFile) {
     String source = text == null ? "" : text;
     List<Diagnostic> diagnostics = new ArrayList<>();
 
     // Strict parser diagnostics first.
     try {
-      new VnScriptParser().parseFromString(source);
+      parseWithIncludeResolver(source, projectRoot, sourceFile);
     } catch (Exception ex) {
       int line = parseLineFromMessage(ex.getMessage()) - 1;
       int start = 0;
@@ -194,6 +204,75 @@ public final class VnsScriptAnalyzer {
 
     String startLabel = labels.isEmpty() ? null : pickStartLabel(labelsByName, labels);
     return new Analysis(source, diagnostics, labels, edges, startLabel, backgrounds);
+  }
+
+  private static void parseWithIncludeResolver(String source, File projectRoot, File sourceFile) throws Exception {
+    VnScriptParser parser = new VnScriptParser();
+    if (projectRoot == null || !projectRoot.exists()) {
+      parser.parseFromString(source);
+      return;
+    }
+
+    String sourceName = resolveSourceName(projectRoot, sourceFile);
+    byte[] bytes = source == null ? new byte[0] : source.getBytes(StandardCharsets.UTF_8);
+    try (InputStream in = new ByteArrayInputStream(bytes)) {
+      parser.parse(in, sourceName, includePath -> openIncludeForDiagnostics(projectRoot, sourceName, includePath));
+    }
+  }
+
+  private static String resolveSourceName(File projectRoot, File sourceFile) {
+    if (sourceFile == null) return "story/_analysis.vns";
+    try {
+      Path root = projectRoot.toPath().toAbsolutePath().normalize();
+      Path scriptsRoot = root.resolve("scripts").normalize();
+      Path file = sourceFile.toPath().toAbsolutePath().normalize();
+      if (file.startsWith(scriptsRoot)) {
+        return scriptsRoot.relativize(file).toString().replace('\\', '/');
+      }
+      if (file.startsWith(root)) {
+        return root.relativize(file).toString().replace('\\', '/');
+      }
+    } catch (Exception ignored) {
+    }
+    return sourceFile.getName();
+  }
+
+  private static InputStream openIncludeForDiagnostics(File projectRoot, String sourceName, String includePath) throws IOException {
+    String normalized = includePath == null ? "" : includePath.trim().replace('\\', '/');
+    if (normalized.isBlank()) {
+      throw new IOException("Include path is empty");
+    }
+
+    Path root = projectRoot.toPath().toAbsolutePath().normalize();
+    Path scriptsRoot = root.resolve("scripts").normalize();
+    if (!Files.isDirectory(scriptsRoot)) {
+      scriptsRoot = root;
+    }
+
+    List<Path> candidates = new ArrayList<>();
+    if (normalized.startsWith("/")) {
+      candidates.add(scriptsRoot.resolve(normalized.substring(1)));
+    } else {
+      if (sourceName != null && sourceName.contains("/")) {
+        Path sourceBase = scriptsRoot.resolve(sourceName).normalize().getParent();
+        if (sourceBase != null) {
+          candidates.add(sourceBase.resolve(normalized));
+        }
+      }
+      candidates.add(scriptsRoot.resolve(normalized));
+    }
+    candidates.add(root.resolve(normalized));
+
+    for (Path candidate : candidates) {
+      if (candidate == null) continue;
+      Path resolved = candidate.toAbsolutePath().normalize();
+      if (!resolved.startsWith(root)) continue;
+      if (Files.isRegularFile(resolved)) {
+        return Files.newInputStream(resolved);
+      }
+    }
+
+    throw new IOException("Included script not found: " + includePath);
   }
 
   private static String pickStartLabel(Map<String, LabelNode> labelsByName, List<LabelNode> labels) {

@@ -34,11 +34,18 @@ public class VnScenarioLoader {
   }
 
   public VnScenario load(String scriptName) throws IOException {
-    try (InputStream in = open(scriptName)) {
+    String normalized = scriptName == null ? "" : scriptName.trim();
+    try (InputStream in = open(normalized)) {
       if (in == null) {
-        throw new IOException("Script not found: " + scriptName);
+        throw new IOException("Script not found: " + normalized);
       }
-      return parser.parse(in);
+      return parser.parse(in, normalized, includePath -> {
+        InputStream included = open(includePath);
+        if (included == null) {
+          throw new IOException("Included script not found: " + includePath);
+        }
+        return included;
+      });
     }
   }
 

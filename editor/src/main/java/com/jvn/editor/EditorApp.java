@@ -1,9 +1,11 @@
 package com.jvn.editor;
 
 import java.io.File;
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -1771,7 +1773,7 @@ public class EditorApp extends Application {
       analysisRoot = scriptFile.getParentFile();
     }
 
-    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, analysisRoot);
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, analysisRoot, scriptFile);
     if (vnsDiagnosticsView != null) vnsDiagnosticsView.setAnalysis(scriptFile, analysis);
     if (vnsFlowMapView != null) vnsFlowMapView.setAnalysis(scriptFile, analysis);
   }
@@ -1848,7 +1850,12 @@ public class EditorApp extends Application {
       }
       if (code != null && !code.isBlank()) {
         com.jvn.core.vn.script.VnScriptParser parser = new com.jvn.core.vn.script.VnScriptParser();
-        com.jvn.core.vn.VnScenario scenario = parser.parseFromString(code);
+        byte[] bytes = code.getBytes(StandardCharsets.UTF_8);
+        String sourceName = sourceTab.getFile() == null ? "<editor>" : sourceTab.getFile().getName();
+        com.jvn.core.vn.VnScenario scenario;
+        try (ByteArrayInputStream in = new ByteArrayInputStream(bytes)) {
+          scenario = parser.parse(in, sourceName, includePath -> openVnsIncludeForEditor(sourceTab, includePath));
+        }
         fullscreenPreview.setScenario(scenario);
       }
     } catch (Exception ex) {
@@ -1905,6 +1912,50 @@ public class EditorApp extends Application {
     timer.start();
     fullscreenStage.show();
     fullscreenPreview.requestFocus();
+  }
+
+  private java.io.InputStream openVnsIncludeForEditor(FileEditorTab tab, String includePath) throws java.io.IOException {
+    if (tab == null) throw new java.io.IOException("Include resolver unavailable");
+    File sourceFile = tab.getFile();
+    if (sourceFile == null) throw new java.io.IOException("Include resolver unavailable");
+    File root = projectRoot;
+    if (root == null) {
+      root = sourceFile.getParentFile();
+    }
+    if (root == null) throw new java.io.IOException("Include resolver unavailable");
+
+    Path rootPath = root.toPath().toAbsolutePath().normalize();
+    Path scriptsRoot = rootPath.resolve("scripts").normalize();
+    if (!Files.isDirectory(scriptsRoot)) {
+      scriptsRoot = rootPath;
+    }
+
+    String normalized = includePath == null ? "" : includePath.trim().replace('\\', '/');
+    if (normalized.isBlank()) {
+      throw new java.io.IOException("Include path is empty");
+    }
+
+    List<Path> candidates = new ArrayList<>();
+    if (normalized.startsWith("/")) {
+      candidates.add(scriptsRoot.resolve(normalized.substring(1)));
+    } else {
+      Path sourcePath = sourceFile.toPath().toAbsolutePath().normalize();
+      Path sourceParent = sourcePath.getParent();
+      if (sourceParent != null) {
+        candidates.add(sourceParent.resolve(normalized));
+      }
+      candidates.add(scriptsRoot.resolve(normalized));
+    }
+    candidates.add(rootPath.resolve(normalized));
+
+    for (Path candidate : candidates) {
+      Path resolved = candidate.toAbsolutePath().normalize();
+      if (!resolved.startsWith(rootPath)) continue;
+      if (Files.isRegularFile(resolved)) {
+        return Files.newInputStream(resolved);
+      }
+    }
+    throw new java.io.IOException("Included script not found: " + includePath);
   }
 
   private void installAddTabBehavior(TabPane pane, Tab addTab, Runnable onAddRequested) {

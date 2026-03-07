@@ -2,19 +2,31 @@ package com.jvn.editor.ui;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.jvn.audio.simp3.Simp3AudioService;
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.FilesystemAssetManager;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.vn.DefaultVnInterop;
+import com.jvn.core.vn.VnExternalCommand;
+import com.jvn.core.vn.VnInteropResult;
 import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
@@ -45,11 +57,14 @@ public class VnPreviewView extends StackPane {
   private final GraphicsContext gc = canvas.getGraphicsContext2D();
   private final VnRenderer renderer = new VnRenderer(gc);
   private final Tooltip previewTooltip = new Tooltip(PREVIEW_HINT);
+  private static final Pattern TIMELINE_ARC_PATTERN = Pattern.compile(
+      "^\\s*arc\\s+(?:\"([^\"]+)\"|(\\S+))\\s+script\\s+(?:\"([^\"]+)\"|(\\S+)).*$");
   private VnScene scene;
   private double mouseX, mouseY;
   private AudioFacade audio;
   private File projectRoot;
   private String audioBackend = "auto";
+  private String sourceScriptName;
   private VnUiLayoutSpec uiLayoutOverride;
   private VnUiStyleSpec uiStyleOverride;
   private List<VnUiActionButtonSpec> textBoxButtonsOverride = List.of();
@@ -83,6 +98,13 @@ public class VnPreviewView extends StackPane {
 
   public void runScenario(VnScenario scenario, String label) {
     initializeScenario(scenario, label);
+  }
+
+  public void setSourceScriptName(String sourceScriptName) {
+    this.sourceScriptName = normalizeScriptKey(sourceScriptName);
+    if (scene != null) {
+      scene.getState().setSourceScriptName(this.sourceScriptName);
+    }
   }
 
   public void setProjectRoot(File root) {
@@ -185,8 +207,16 @@ public class VnPreviewView extends StackPane {
       return;
     }
     stopAudio();
+    VnSettings existingSettings = scene == null ? null : scene.getState().getSettings();
+    VnScene nextScene = buildScene(scenario, startLabel, sourceScriptName, existingSettings);
+    this.scene = nextScene;
+    renderer.setAudioFacade(audio);
+    requestFocus();
+  }
+
+  private VnScene buildScene(VnScenario scenario, String startLabel, String scriptName, VnSettings settingsTemplate) {
     VnScene nextScene = new VnScene(scenario);
-    DefaultVnInterop interop = new DefaultVnInterop();
+    PreviewVnInterop interop = new PreviewVnInterop();
     com.jvn.core.vn.VnCharacterSceneAccessor accessor = new com.jvn.core.vn.VnCharacterSceneAccessor();
     interop.setSceneAccessor(accessor);
     renderer.setTimelineAccessor(accessor);
@@ -194,14 +224,168 @@ public class VnPreviewView extends StackPane {
     if (audio == null) audio = createAudioFacade(projectRoot, audioBackend);
     bindProjectRoot(audio, projectRoot);
     nextScene.setAudioFacade(audio);
+    if (settingsTemplate != null) {
+      copySettings(settingsTemplate, nextScene.getState().getSettings());
+    }
+    if (scriptName != null && !scriptName.isBlank()) {
+      nextScene.getState().setSourceScriptName(scriptName);
+    }
     if (startLabel != null && !startLabel.isBlank()) {
       nextScene.getState().jumpToLabel(startLabel);
       nextScene.preflightState(nextScene.getState().getCurrentNodeIndex());
     }
     nextScene.onEnter();
-    this.scene = nextScene;
-    renderer.setAudioFacade(audio);
-    requestFocus();
+    return nextScene;
+  }
+
+  private final class PreviewVnInterop extends DefaultVnInterop {
+    @Override
+    public VnInteropResult handle(VnExternalCommand command, VnScene activeScene) {
+      if (command != null && "vns".equalsIgnoreCase(command.getProvider())) {
+        return handleVnsCommand(command.getPayload(), activeScene);
+      }
+      return super.handle(command, activeScene);
+    }
+  }
+
+  private VnInteropResult handleVnsCommand(String payload, VnScene activeScene) {
+    List<String> tokens = new ArrayList<>(Arrays.asList(splitPayload(payload)));
+    if (tokens.isEmpty()) return VnInteropResult.advance();
+    String cmd = tokens.remove(0).toLowerCase(Locale.ROOT);
+
+    if ("goto".equals(cmd)) {
+      if (tokens.isEmpty()) return VnInteropResult.advance();
+      String target = tokens.remove(0);
+      int colon = target.indexOf(':');
+      if (colon < 0) {
+        activeScene.getState().jumpToLabel(target);
+        return VnInteropResult.stay();
+      }
+      String scriptToken = target.substring(0, colon).trim();
+      String label = target.substring(colon + 1).trim();
+      String script = resolveVnsScriptTarget(scriptToken);
+      if (script == null) return VnInteropResult.advance();
+      return switchPreviewScript(script, label, activeScene);
+    }
+
+    if ("replace".equals(cmd) || "push".equals(cmd)) {
+      if (tokens.isEmpty()) return VnInteropResult.advance();
+      String script = resolveVnsScriptTarget(tokens.remove(0));
+      String label = null;
+      if (!tokens.isEmpty() && "label".equalsIgnoreCase(tokens.get(0))) {
+        tokens.remove(0);
+        if (!tokens.isEmpty()) label = tokens.remove(0);
+      }
+      if (script == null) return VnInteropResult.advance();
+      return switchPreviewScript(script, label, activeScene);
+    }
+
+    activeScene.getState().showHudMessage("Unsupported [vns] command in preview: " + cmd, 1500);
+    return VnInteropResult.advance();
+  }
+
+  private VnInteropResult switchPreviewScript(String script, String label, VnScene activeScene) {
+    try {
+      VnScenario loaded = loadScenarioFromScript(script);
+      VnSettings settings = activeScene == null ? null : activeScene.getState().getSettings();
+      this.sourceScriptName = normalizeScriptKey(script);
+      this.scene = buildScene(loaded, label, sourceScriptName, settings);
+      renderer.setAudioFacade(audio);
+    } catch (Exception ex) {
+      if (activeScene != null) {
+        activeScene.getState().showHudMessage("Preview could not load script: " + script, 1900);
+      }
+    }
+    return VnInteropResult.advance();
+  }
+
+  private VnScenario loadScenarioFromScript(String script) throws IOException {
+    VnScenarioLoader loader;
+    if (projectRoot != null) {
+      loader = new VnScenarioLoader(
+          new AssetCatalog(new FilesystemAssetManager(projectRoot.toPath())),
+          new com.jvn.core.vn.script.VnScriptParser(),
+          "game/scripts/");
+    } else {
+      loader = new VnScenarioLoader();
+    }
+    IOException last = null;
+    for (String candidate : scriptCandidates(script)) {
+      try {
+        return loader.load(candidate);
+      } catch (IOException ex) {
+        last = ex;
+      }
+    }
+    if (last != null) throw last;
+    throw new IOException("Script not found: " + script);
+  }
+
+  private List<String> scriptCandidates(String script) {
+    String normalized = normalizeScriptKey(script);
+    if (normalized == null || normalized.isBlank()) return List.of();
+    List<String> candidates = new ArrayList<>();
+    candidates.add(normalized);
+    if (normalized.startsWith("scripts/")) {
+      candidates.add(normalized.substring("scripts/".length()));
+    } else {
+      candidates.add("scripts/" + normalized);
+    }
+    if (!normalized.contains("/")) {
+      candidates.add("story/" + normalized);
+    }
+    return candidates.stream().filter(s -> s != null && !s.isBlank()).distinct().toList();
+  }
+
+  private String resolveVnsScriptTarget(String token) {
+    String normalized = normalizeScriptKey(token);
+    if (normalized == null || normalized.isBlank()) return null;
+    if (!normalized.endsWith(".vns")) {
+      String fromTimeline = resolveTimelineArcScript(normalized);
+      if (fromTimeline != null && !fromTimeline.isBlank()) {
+        return normalizeScriptKey(fromTimeline);
+      }
+      normalized = normalized + ".vns";
+    }
+    return normalized;
+  }
+
+  private String resolveTimelineArcScript(String arcName) {
+    if (projectRoot == null || arcName == null || arcName.isBlank()) return null;
+    File timeline = new File(projectRoot, "config/timeline/story.timeline");
+    if (!timeline.isFile()) return null;
+    try {
+      for (String line : Files.readAllLines(timeline.toPath())) {
+        if (line == null) continue;
+        String trimmed = line.trim();
+        if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
+        Matcher m = TIMELINE_ARC_PATTERN.matcher(trimmed);
+        if (!m.matches()) continue;
+        String arc = m.group(1) != null ? m.group(1) : m.group(2);
+        String script = m.group(3) != null ? m.group(3) : m.group(4);
+        if (arcName.equalsIgnoreCase(safe(arc))) {
+          return script;
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return null;
+  }
+
+  private String[] splitPayload(String payload) {
+    if (payload == null || payload.isBlank()) return new String[0];
+    return payload.trim().split("\\s+");
+  }
+
+  private String normalizeScriptKey(String raw) {
+    if (raw == null) return null;
+    String normalized = raw.trim().replace('\\', '/');
+    while (normalized.startsWith("/")) normalized = normalized.substring(1);
+    return normalized;
+  }
+
+  private String safe(String value) {
+    return value == null ? "" : value.trim();
   }
 
   private void handleMouseClick(MouseButton button, int clickCount, double x, double y) {
@@ -547,6 +731,17 @@ public class VnPreviewView extends StackPane {
   private static double sanitizeCanvasDimension(double value) {
     if (!Double.isFinite(value)) return 1.0;
     return Math.max(1.0, Math.min(8192.0, value));
+  }
+
+  private void copySettings(VnSettings src, VnSettings dst) {
+    if (src == null || dst == null) return;
+    dst.setTextSpeed(src.getTextSpeed());
+    dst.setBgmVolume(src.getBgmVolume());
+    dst.setSfxVolume(src.getSfxVolume());
+    dst.setVoiceVolume(src.getVoiceVolume());
+    dst.setAutoPlayDelay(src.getAutoPlayDelay());
+    dst.setSkipUnreadText(src.isSkipUnreadText());
+    dst.setSkipAfterChoices(src.isSkipAfterChoices());
   }
 
   public void stopAudio() {

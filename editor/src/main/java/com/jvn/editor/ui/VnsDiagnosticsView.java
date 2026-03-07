@@ -2,7 +2,7 @@ package com.jvn.editor.ui;
 
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
-import javafx.scene.control.ChoiceBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -29,7 +29,7 @@ public class VnsDiagnosticsView extends BorderPane {
   private final Label fileLabel = new Label("No active .vns file");
   private final Label summaryLabel = new Label("Open a .vns script to see diagnostics.");
   private final TextField filterField = new TextField();
-  private final ChoiceBox<String> severityFilter = new ChoiceBox<>(
+  private final ComboBox<String> severityFilter = new ComboBox<>(
       FXCollections.observableArrayList(SEVERITY_ALL, SEVERITY_ERRORS, SEVERITY_WARNINGS)
   );
   private final ListView<DiagnosticRow> listView = new ListView<>();
@@ -49,6 +49,14 @@ public class VnsDiagnosticsView extends BorderPane {
     severityFilter.setValue(SEVERITY_ALL);
     severityFilter.setFocusTraversable(false);
     severityFilter.setPrefWidth(96);
+    severityFilter.getStyleClass().add("run-console-filter-combo");
+    severityFilter.setButtonCell(new javafx.scene.control.ListCell<>() {
+      @Override
+      protected void updateItem(String item, boolean empty) {
+        super.updateItem(item, empty);
+        setText(empty ? "" : item);
+      }
+    });
     severityFilter.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> applyFilter());
 
     listView.setPlaceholder(new Label("No diagnostics"));

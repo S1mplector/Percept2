@@ -115,6 +115,8 @@ public class NewProjectWizard extends Stage {
   private static final String STORY_TUTORIAL_SCRIPT_PATH = "scripts/story/tutorial_hub.vns";
   private static final String STORY_BRANCH_SCRIPT_PATH = "scripts/story/branch_demo.vns";
   private static final String STORY_EPILOGUE_SCRIPT_PATH = "scripts/story/epilogue.vns";
+  private static final String CHARACTERS_SCRIPT_PATH = "scripts/definitions/characters.vns";
+  private static final String CHARACTERS_INCLUDE_PATH = "/definitions/characters.vns";
   private static final String TIMELINE_PATH = "config/timeline/story.timeline";
   private static final String SETTINGS_PATH = "config/settings/vn.settings";
   private static final String DIALOGUE_LAYOUT_PATH = "config/ui/dialogue.layout";
@@ -926,6 +928,7 @@ public class NewProjectWizard extends Stage {
     sb.append("\u2502   \u2502   \u2514\u2500\u2500 epilogue.vns\n");
     sb.append("\u2502   \u251c\u2500\u2500 routes/\n");
     sb.append("\u2502   \u251c\u2500\u2500 definitions/\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 characters.vns\n");
     sb.append("\u2502   \u251c\u2500\u2500 common/\n");
     sb.append("\u2502   \u2514\u2500\u2500 system/\n");
     sb.append("\u251c\u2500\u2500 assets/\n");
@@ -1072,8 +1075,9 @@ public class NewProjectWizard extends Stage {
       useLayeredLavenderDemo = copyBundledDemoAssets(dir);
     }
 
+    createCharactersScript(dir, includeDemoAssets, useLayeredLavenderDemo);
     if (chkSampleContent.isSelected() && includeDemoAssets) createSampleScript(dir, displayName, useLayeredLavenderDemo);
-    else createEmptyScript(dir, displayName);
+    else createEmptyScript(dir, displayName, includeDemoAssets, useLayeredLavenderDemo);
     createStoryTimeline(dir, displayName);
 
     createSettings(dir);
@@ -1414,28 +1418,53 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private void createSampleScript(File dir, String name, boolean useLayeredLavenderDemo) throws Exception {
-    String scenarioId = sanitizeName(name).toLowerCase() + "_prologue";
-    String characterDecls = """
-        @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
-        @charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
-        @charlayer lavender eyes_half_closed assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png
-        @charlayer lavender eyes_angry assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_angry.png
-        @charlayer lavender mouth_neutral assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_neutral.png
-        @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
-        @charlayer lavender mouth_happy assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_happy.png
-        @charlayer lavender mouth_o assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_o.png
+  private void createCharactersScript(File dir, boolean includeDemoAssets, boolean useLayeredLavenderDemo) throws Exception {
+    StringBuilder sb = new StringBuilder();
+    sb.append("# Shared character declarations (import from story files)\n");
+    sb.append("# Usage: @include ").append(CHARACTERS_INCLUDE_PATH).append("\n\n");
+    sb.append("@character lavender \"Lavender\"\n");
+    sb.append("@character narrator \"Narrator\"\n\n");
 
-        @charpreset lavender idle $base | $eyes_neutral | $mouth_neutral
-        @charpreset lavender talking $base | $eyes_half_closed | $mouth_smile
-        @charpreset lavender happy $base | $eyes_neutral | $mouth_happy
-        @charpreset lavender emphasis $base | $eyes_angry | $mouth_o
-        """;
+    if (includeDemoAssets && useLayeredLavenderDemo) {
+      sb.append("@charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png\n");
+      sb.append("@charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png\n");
+      sb.append("@charlayer lavender eyes_half_closed assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png\n");
+      sb.append("@charlayer lavender eyes_angry assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_angry.png\n");
+      sb.append("@charlayer lavender mouth_neutral assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_neutral.png\n");
+      sb.append("@charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png\n");
+      sb.append("@charlayer lavender mouth_happy assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_happy.png\n");
+      sb.append("@charlayer lavender mouth_o assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_o.png\n\n");
+      sb.append("@charpreset lavender neutral $base | $eyes_neutral | $mouth_neutral\n");
+      sb.append("@charpreset lavender idle $base | $eyes_neutral | $mouth_neutral\n");
+      sb.append("@charpreset lavender talking $base | $eyes_half_closed | $mouth_smile\n");
+      sb.append("@charpreset lavender happy $base | $eyes_neutral | $mouth_happy\n");
+      sb.append("@charpreset lavender emphasis $base | $eyes_angry | $mouth_o\n");
+    } else {
+      String spritePath = includeDemoAssets
+          ? "assets/demo/characters/lavender/lavender_test_sprite.png"
+          : "assets/characters/sprites/lavender.png";
+      sb.append("# Replace sprite paths below with your project sprites if needed.\n");
+      sb.append("@charimg lavender neutral ").append(spritePath).append("\n");
+      sb.append("@charimg lavender idle ").append(spritePath).append("\n");
+      sb.append("@charimg lavender talking ").append(spritePath).append("\n");
+      sb.append("@charimg lavender happy ").append(spritePath).append("\n");
+      sb.append("@charimg lavender emphasis ").append(spritePath).append("\n");
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, CHARACTERS_SCRIPT_PATH))) {
+      fw.write(sb.toString());
+    }
+  }
+
+  private void createSampleScript(File dir, String name, boolean useLayeredLavenderDemo) throws Exception {
+    String scenarioId = sanitizeName(name).toLowerCase() + "_tutorial_hub";
     String framingCommands = """
         [set ui.characterHeightFactor 1.28]
         [set ui.characterBaselineY 1.42]
         """;
-    String imageDslLine = "Lavender: You can build layered expressions with @charlayer + @charpreset, then show them like normal expressions.";
+    String imageDslLine = useLayeredLavenderDemo
+        ? "Lavender: You can build layered expressions with @charlayer + @charpreset, then show them like normal expressions."
+        : "Lavender: We import shared character definitions from " + CHARACTERS_INCLUDE_PATH + " so every arc script stays in sync.";
     String expressionDemo = """
         [show lavender center happy]
         [wait 300]
@@ -1455,10 +1484,7 @@ public class NewProjectWizard extends Stage {
 
         @scenario %s
 
-        @character lavender "Lavender"
-        @character narrator "???"
-
-        __CHAR_DECLS__
+        @include %s
 
         @background field_day assets/demo/backgrounds/game.png
         @background field_evening assets/demo/backgrounds/game.png
@@ -1544,7 +1570,7 @@ public class NewProjectWizard extends Stage {
         narrator: The field stretched endlessly under a golden sky. A gentle breeze carried the scent of grass.
         narrator: Sometimes, stories need a voice that belongs to no one in particular.
         [show lavender center talking]
-        Lavender: See? That was the narrator - defined with {b}@character narrator "???"{/b}.
+        Lavender: See? That was the narrator - defined in our shared {b}%s{/b} character file.
         Lavender: You can give your narrator any display name, or even leave it blank!
         Lavender: You can also change the text speed mid-scene.
         [textspeed 12]
@@ -2010,7 +2036,7 @@ public class NewProjectWizard extends Stage {
         Lavender: See? We jumped to the subroutine and came right back.
         Lavender: JVN also supports {b}@define{/b} for text constants and {b}@include{/b} for splitting scripts.
         Lavender: For example, {b}@define HERO Alice{/b} lets you reuse a name everywhere.
-        Lavender: And {b}@include common/characters.vns{/b} loads another script file inline.
+        Lavender: And {b}@include %s{/b} loads another script file inline.
         Lavender: These are great for keeping large projects organized!
         [jump tutorials_hub_2]
 
@@ -2038,8 +2064,14 @@ public class NewProjectWizard extends Stage {
         Lavender: We look forward to seeing what you create with JVN. Have fun!
         [end]
 
-        """.formatted(name, scenarioId, name, STORY_TUTORIAL_SCRIPT_PATH)
-        .replace("__CHAR_DECLS__", characterDecls.stripTrailing())
+        """.formatted(
+            name,
+            scenarioId,
+            CHARACTERS_INCLUDE_PATH,
+            name,
+            CHARACTERS_SCRIPT_PATH,
+            CHARACTERS_INCLUDE_PATH,
+            STORY_TUTORIAL_SCRIPT_PATH)
         .replace("__FRAMING_COMMANDS__", framingCommands.stripTrailing())
         .replace("__EXPR_DEMO__", expressionDemo.stripTrailing())
         .replace("__IMAGE_DSL_LINE__", imageDslLine);
@@ -2051,51 +2083,69 @@ public class NewProjectWizard extends Stage {
     createSampleArcEntryAndBranchScripts(dir, name);
   }
 
-  private void createEmptyScript(File dir, String name) throws Exception {
+  private String toScriptGotoTarget(String scriptPath) {
+    if (scriptPath == null || scriptPath.isBlank()) return "";
+    String normalized = scriptPath.replace('\\', '/');
+    if (normalized.startsWith("scripts/")) {
+      return normalized.substring("scripts/".length());
+    }
+    return normalized;
+  }
+
+  private void createEmptyScript(File dir, String name, boolean includeDemoAssets, boolean useLayeredLavenderDemo) throws Exception {
+    String lavenderExpr = includeDemoAssets && useLayeredLavenderDemo ? "idle" : "neutral";
+    String tutorialTarget = toScriptGotoTarget(STORY_TUTORIAL_SCRIPT_PATH);
+    String branchTarget = toScriptGotoTarget(STORY_BRANCH_SCRIPT_PATH);
+    String epilogueTarget = toScriptGotoTarget(STORY_EPILOGUE_SCRIPT_PATH);
+
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
       String scenarioId = sanitizeName(name).toLowerCase();
       fw.write("# " + name + " - Prologue\n");
       fw.write("@scenario " + scenarioId + "_prologue\n");
-      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n");
       fw.write("@label start\n\n");
+      fw.write("[show lavender center " + lavenderExpr + "]\n");
       fw.write("Narrator: Welcome to " + name + ".\n");
       fw.write("Narrator: This starter project demonstrates multi-file story arcs.\n");
       fw.write("> Continue to Tutorial Hub -> route_tutorial\n");
       fw.write("> Take a short branch -> route_branch\n\n");
       fw.write("@label route_tutorial\n");
-      fw.write("[goto TutorialHub:start]\n\n");
+      fw.write("[goto " + tutorialTarget + ":start]\n\n");
       fw.write("@label route_branch\n");
-      fw.write("[goto BranchDemo:start]\n");
+      fw.write("[goto " + branchTarget + ":start]\n");
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, STORY_TUTORIAL_SCRIPT_PATH))) {
       String scenarioId = sanitizeName(name).toLowerCase();
       fw.write("# " + name + " - Tutorial Hub\n");
       fw.write("@scenario " + scenarioId + "_tutorial_hub\n");
-      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
       fw.write("@label start\n\n");
+      fw.write("[show lavender center " + lavenderExpr + "]\n");
       fw.write("Narrator: This is Tutorial Hub (" + STORY_TUTORIAL_SCRIPT_PATH + ").\n");
       fw.write("Narrator: It exists to demonstrate arc-to-arc script flow.\n");
-      fw.write("[goto Epilogue:start]\n");
+      fw.write("[goto " + epilogueTarget + ":start]\n");
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, STORY_BRANCH_SCRIPT_PATH))) {
       String scenarioId = sanitizeName(name).toLowerCase();
       fw.write("# " + name + " - Branch Demo\n");
       fw.write("@scenario " + scenarioId + "_branch_demo\n");
-      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
       fw.write("@label start\n\n");
+      fw.write("[show lavender center " + lavenderExpr + "]\n");
       fw.write("Narrator: This is a short branch script (" + STORY_BRANCH_SCRIPT_PATH + ").\n");
       fw.write("Narrator: From here, we rejoin at the epilogue arc.\n");
-      fw.write("[goto Epilogue:start]\n");
+      fw.write("[goto " + epilogueTarget + ":start]\n");
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, STORY_EPILOGUE_SCRIPT_PATH))) {
       String scenarioId = sanitizeName(name).toLowerCase();
       fw.write("# " + name + " - Epilogue\n");
       fw.write("@scenario " + scenarioId + "_epilogue\n");
-      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
       fw.write("@label start\n\n");
+      fw.write("[show lavender center " + lavenderExpr + "]\n");
       fw.write("Narrator: You reached the epilogue. Edit this file to continue your story.\n");
       fw.write("[end]\n");
     }
@@ -2103,51 +2153,52 @@ public class NewProjectWizard extends Stage {
 
   private void createSampleArcEntryAndBranchScripts(File dir, String name) throws Exception {
     String scenarioId = sanitizeName(name).toLowerCase();
-    String tutorialArc = "TutorialHub";
-    String branchArc = "BranchDemo";
-    String epilogueArc = "Epilogue";
+    String tutorialTarget = toScriptGotoTarget(STORY_TUTORIAL_SCRIPT_PATH);
+    String branchTarget = toScriptGotoTarget(STORY_BRANCH_SCRIPT_PATH);
+    String epilogueTarget = toScriptGotoTarget(STORY_EPILOGUE_SCRIPT_PATH);
+    String lavenderExpr = "idle";
 
     try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
       fw.write("# " + name + " - Prologue Entry\n");
       fw.write("@scenario " + scenarioId + "_prologue_entry\n");
-      fw.write("@character lavender \"Lavender\"\n");
-      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
       fw.write("@background field_day assets/demo/backgrounds/game.png\n\n");
       fw.write("@label start\n");
       fw.write("[bg field_day]\n");
       fw.write("[transition fade 400]\n");
+      fw.write("[show lavender center " + lavenderExpr + "]\n");
       fw.write("narrator: Welcome to " + name + ".\n");
       fw.write("lavender: This project starts with a timeline-driven multi-file arc workflow.\n");
       fw.write("lavender: Pick a route and I'll send you to another script file via story arcs.\n");
       fw.write("> Guided tutorial route -> route_tutorial\n");
       fw.write("> Quick branch demo route -> route_branch\n\n");
       fw.write("@label route_tutorial\n");
-      fw.write("[goto " + tutorialArc + ":start]\n\n");
+      fw.write("[goto " + tutorialTarget + ":start]\n\n");
       fw.write("@label route_branch\n");
-      fw.write("[goto " + branchArc + ":start]\n");
+      fw.write("[goto " + branchTarget + ":start]\n");
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, STORY_BRANCH_SCRIPT_PATH))) {
       fw.write("# " + name + " - Branch Demo\n");
       fw.write("@scenario " + scenarioId + "_branch_demo\n");
-      fw.write("@character lavender \"Lavender\"\n");
-      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
       fw.write("@background field_day assets/demo/backgrounds/game.png\n\n");
       fw.write("@label start\n");
       fw.write("[bg field_day]\n");
+      fw.write("[show lavender right " + lavenderExpr + "]\n");
       fw.write("Lavender: You're now in " + STORY_BRANCH_SCRIPT_PATH + ".\n");
       fw.write("Lavender: This arc reconnects to the epilogue.\n");
-      fw.write("[goto " + epilogueArc + ":start]\n");
+      fw.write("[goto " + epilogueTarget + ":start]\n");
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, STORY_EPILOGUE_SCRIPT_PATH))) {
       fw.write("# " + name + " - Epilogue\n");
       fw.write("@scenario " + scenarioId + "_epilogue\n");
-      fw.write("@character lavender \"Lavender\"\n");
-      fw.write("@character narrator \"Narrator\"\n\n");
+      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
       fw.write("@background field_day assets/demo/backgrounds/game.png\n\n");
       fw.write("@label start\n");
       fw.write("[bg field_day]\n");
+      fw.write("[show lavender center " + lavenderExpr + "]\n");
       fw.write("Lavender: This is the epilogue arc (" + STORY_EPILOGUE_SCRIPT_PATH + ").\n");
       fw.write("Lavender: Open " + TIMELINE_PATH + " to view and edit the connected arc graph.\n");
       fw.write("[end]\n");
@@ -2696,6 +2747,7 @@ public class NewProjectWizard extends Stage {
       fw.write("## Entry Points\n\n");
       fw.write("- Script: `" + ENTRY_SCRIPT_PATH + "`\n");
       fw.write("- Arc scripts: `" + STORY_TUTORIAL_SCRIPT_PATH + "`, `" + STORY_BRANCH_SCRIPT_PATH + "`, `" + STORY_EPILOGUE_SCRIPT_PATH + "`\n");
+      fw.write("- Shared character definitions: `" + CHARACTERS_SCRIPT_PATH + "` (included by all story scripts)\n");
       fw.write("- Timeline: `" + TIMELINE_PATH + "`\n");
       fw.write("- Settings: `" + SETTINGS_PATH + "`\n");
       fw.write("- Dialogue layout: `" + DIALOGUE_LAYOUT_PATH + "`\n\n");
@@ -2719,6 +2771,7 @@ public class NewProjectWizard extends Stage {
       int step = 1;
       fw.write(step++ + ". Open this folder in the JVN Editor.\n");
       fw.write(step++ + ". Edit `" + ENTRY_SCRIPT_PATH + "` and the connected arc scripts in `scripts/story/`.\n");
+      fw.write(step++ + ". Keep shared character declarations in `" + CHARACTERS_SCRIPT_PATH + "` and import with `@include " + CHARACTERS_INCLUDE_PATH + "`.\n");
       fw.write(step++ + ". Open `" + TIMELINE_PATH + "` and inspect/edit arc links.\n");
       fw.write(step++ + ". Edit `" + DIALOGUE_LAYOUT_PATH + "` in text first, then run runtime to validate.\n");
       if (includeMenuPack) {
