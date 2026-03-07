@@ -1,5 +1,6 @@
 package com.jvn.audio.simp3;
 
+import com.jvn.audiofx.AudioFxController;
 import com.jvn.core.assets.AssetPaths;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
@@ -44,6 +45,9 @@ public class Simp3AudioService implements AudioFacade {
   private final Map<String, File> extractedAudioCache = new HashMap<>();
   private volatile float[] latestBgmSpectrum;
   private volatile long latestBgmSpectrumUpdatedAtNanos;
+  private final AudioFxController audioFx = new AudioFxController();
+  private volatile float ambienceVolume = 0.45f;
+  private volatile float chiptuneVolume = 0.70f;
   private final AudioSpectrumListener bgmSpectrumListener = (timestamp, duration, magnitudes, phases) -> {
     if (magnitudes == null || magnitudes.length == 0) return;
     float[] copy = new float[magnitudes.length];
@@ -187,6 +191,8 @@ public class Simp3AudioService implements AudioFacade {
     stopSfx();
     stopVoice();
     stopBgm();
+    stopAmbience();
+    stopChiptune();
   }
 
   @Override
@@ -342,6 +348,38 @@ public class Simp3AudioService implements AudioFacade {
     } catch (Exception e) {
       log.warn("crossfadeBgm error for trackId={}", trackId, e);
     }
+  }
+
+  @Override
+  public synchronized void playAmbience(String preset, float intensity, boolean loop) {
+    audioFx.playAmbience(preset, clamp01(intensity), ambienceVolume, loop);
+  }
+
+  @Override
+  public synchronized void stopAmbience() {
+    audioFx.stopAmbience();
+  }
+
+  @Override
+  public synchronized void setAmbienceVolume(float volume) {
+    ambienceVolume = clamp01(volume);
+    audioFx.setAmbienceVolume(ambienceVolume);
+  }
+
+  @Override
+  public synchronized void playChiptune(String cueId, float intensity, boolean loop) {
+    audioFx.playBeez(cueId, clamp01(intensity), chiptuneVolume, loop);
+  }
+
+  @Override
+  public synchronized void stopChiptune() {
+    audioFx.stopBeez();
+  }
+
+  @Override
+  public synchronized void setChiptuneVolume(float volume) {
+    chiptuneVolume = clamp01(volume);
+    audioFx.setBeezVolume(chiptuneVolume);
   }
 
   private AudioEngine ensureBgmEngine() {
@@ -550,6 +588,12 @@ public class Simp3AudioService implements AudioFacade {
   private double clamp(double v) {
     if (v < 0) return 0;
     if (v > 1) return 1;
+    return v;
+  }
+
+  private float clamp01(float v) {
+    if (v < 0f) return 0f;
+    if (v > 1f) return 1f;
     return v;
   }
 

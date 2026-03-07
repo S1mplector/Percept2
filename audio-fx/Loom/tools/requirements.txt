@@ -1,0 +1,8 @@
+# Wind Map Generator Dependencies
+# The generator uses only Python standard library by default
+# Optional dependencies for extended functionality:
+
+# For advanced visualization (optional)
+# matplotlib>=3.5.0
+# numpy>=1.21.0
+# pillow>=9.0.0

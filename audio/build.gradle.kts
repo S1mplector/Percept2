@@ -27,6 +27,7 @@ sourceSets {
 dependencies {
   api(project(":core"))
   implementation(project(":fx"))
+  implementation(project(":audio-fx"))
   implementation("com.googlecode.soundlibs:basicplayer:3.0.0.0")
   implementation("com.googlecode.soundlibs:vorbisspi:1.0.3.3")
   implementation("com.googlecode.soundlibs:mp3spi:1.9.5.4")

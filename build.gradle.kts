@@ -135,6 +135,7 @@ subprojects {
   configurations.all {
     resolutionStrategy.dependencySubstitution {
       substitute(module("com.jvn:core")).using(project(":core"))
+      substitute(module("com.jvn:audio-fx")).using(project(":audio-fx"))
       substitute(module("com.jvn:fx")).using(project(":fx"))
       substitute(module("com.jvn:scripting")).using(project(":scripting"))
       substitute(module("com.jvn:audio")).using(project(":audio"))

@@ -25,6 +25,18 @@ Typical memory footprint for the core runtime together with the full editor is a
 
 ## Quick Start
 
+Clone with audio-fx submodules:
+
+```bash
+git clone --recurse-submodules <repo-url>
+```
+
+If you already cloned the repo:
+
+```bash
+git submodule update --init --recursive
+```
+
 Build everything:
 
 ```bash

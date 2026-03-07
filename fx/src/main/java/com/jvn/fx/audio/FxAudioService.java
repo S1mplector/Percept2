@@ -3,6 +3,7 @@ package com.jvn.fx.audio;
 import com.jvn.core.assets.AssetPaths;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.audiofx.AudioFxController;
 import javafx.scene.media.AudioSpectrumListener;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
@@ -23,6 +24,9 @@ public class FxAudioService implements AudioFacade {
   private File projectRoot;
   private volatile float[] latestBgmSpectrum;
   private volatile long latestBgmSpectrumUpdatedAtNanos;
+  private final AudioFxController audioFx = new AudioFxController();
+  private float ambienceVolume = 0.45f;
+  private float chiptuneVolume = 0.70f;
   private final AudioSpectrumListener bgmSpectrumListener = (timestamp, duration, magnitudes, phases) -> {
     if (magnitudes == null || magnitudes.length == 0) return;
     float[] copy = new float[magnitudes.length];
@@ -70,6 +74,8 @@ public class FxAudioService implements AudioFacade {
     stopBgm();
     stopSfx();
     stopVoice();
+    stopAmbience();
+    stopChiptune();
   }
 
   @Override
@@ -279,6 +285,44 @@ public class FxAudioService implements AudioFacade {
       // Fallback if crossfade setup fails
       playBgm(trackId, loop);
     }
+  }
+
+  @Override
+  public void playAmbience(String preset, float intensity, boolean loop) {
+    audioFx.playAmbience(preset, intensity, ambienceVolume, loop);
+  }
+
+  @Override
+  public void stopAmbience() {
+    audioFx.stopAmbience();
+  }
+
+  @Override
+  public void setAmbienceVolume(float volume) {
+    ambienceVolume = clamp01(volume);
+    audioFx.setAmbienceVolume(ambienceVolume);
+  }
+
+  @Override
+  public void playChiptune(String cueId, float intensity, boolean loop) {
+    audioFx.playBeez(cueId, intensity, chiptuneVolume, loop);
+  }
+
+  @Override
+  public void stopChiptune() {
+    audioFx.stopBeez();
+  }
+
+  @Override
+  public void setChiptuneVolume(float volume) {
+    chiptuneVolume = clamp01(volume);
+    audioFx.setBeezVolume(chiptuneVolume);
+  }
+
+  private float clamp01(float v) {
+    if (v < 0f) return 0f;
+    if (v > 1f) return 1f;
+    return v;
   }
 
   private double clamp(float v) {

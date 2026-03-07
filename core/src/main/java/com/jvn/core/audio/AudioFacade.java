@@ -23,6 +23,14 @@ public interface AudioFacade {
   default void seekBgmSeconds(double seconds) {}
   default void crossfadeBgm(String trackId, long ms, boolean loop) {}
 
+  // Optional procedural synthesis controls (loom/beez style audio-fx).
+  default void playAmbience(String preset, float intensity, boolean loop) {}
+  default void stopAmbience() {}
+  default void setAmbienceVolume(float volume) {}
+  default void playChiptune(String cueId, float intensity, boolean loop) {}
+  default void stopChiptune() {}
+  default void setChiptuneVolume(float volume) {}
+
   /**
    * Optional real-time BGM spectrum magnitudes in dB (typically around -60..0).
    * Returns null when unsupported or unavailable.

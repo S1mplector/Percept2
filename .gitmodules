@@ -1,6 +1,0 @@
-[submodule "audio-fx/Loom"]
-	path = audio-fx/Loom
-	url = https://github.com/S1mplector/Loom
-[submodule "audio-fx/beez"]
-	path = audio-fx/beez
-	url = https://github.com/S1mplector/beez

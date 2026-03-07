@@ -14,6 +14,7 @@ rootProject.name = "JVN"
 
 include(
   ":core",
+  ":audio-fx",
   ":fx",
   ":runtime",
   ":scripting",

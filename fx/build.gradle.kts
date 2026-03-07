@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
   api(project(":core"))
+  implementation(project(":audio-fx"))
 
   val javafxVersion = "21.0.3"
   val osName = System.getProperty("os.name").lowercase()
