@@ -1,0 +1,19 @@
+# Tutorial 11 - Subroutines and Flow Composition
+@scenario {{SCENARIO_PREFIX}}_tutorial_11_subroutines
+@include {{CHARACTERS_INCLUDE}}
+{{BG_DECL}}@label start
+{{BG_START}}[inc tutorial_count]
+[show lavender center talking]
+Lavender: [gosub label] enters a reusable block; [return] resumes caller flow.
+[gosub reusable_intro]
+Lavender: Returned from subroutine.
+Lavender: Use @include to split files and keep scenario scripts focused by function.
+> Return to Tutorial Hub -> return_hub
+
+@label reusable_intro
+narrator: [Subroutine section]
+Lavender: Shared intro beat executed.
+[return]
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_2]

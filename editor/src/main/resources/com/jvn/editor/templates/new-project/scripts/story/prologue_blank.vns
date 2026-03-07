@@ -1,0 +1,16 @@
+# {{PROJECT_NAME}} - Prologue
+@scenario {{SCENARIO_PREFIX}}_prologue
+@include {{CHARACTERS_INCLUDE}}
+
+@label start
+[show lavender center {{LAVENDER_EXPR}}]
+Narrator: Welcome to {{PROJECT_NAME}}.
+Narrator: This starter project demonstrates multi-file story arcs.
+> Continue to Tutorial Hub -> route_tutorial
+> Take a short branch -> route_branch
+
+@label route_tutorial
+[goto {{TUTORIAL_TARGET}}:start]
+
+@label route_branch
+[goto {{BRANCH_TARGET}}:start]

@@ -1,0 +1,18 @@
+# {{PROJECT_NAME}} - Prologue Entry
+@scenario {{SCENARIO_PREFIX}}_prologue_entry
+@include {{CHARACTERS_INCLUDE}}
+
+{{BG_DECL}}@label start
+{{BG_START}}{{BG_TRANSITION}}[show lavender center {{LAVENDER_EXPR}}]
+narrator: Welcome to {{PROJECT_NAME}}.
+lavender: This project starts with a timeline-driven multi-file arc workflow.
+lavender: Pick a route and I'll send you to another script file via story arcs.
+> Guided tutorial route -> route_tutorial
+> Quick branch demo route -> route_branch
+
+@label route_tutorial
+[set tutorial_count 0]
+[goto {{TUTORIAL_TARGET}}:start]
+
+@label route_branch
+[goto {{BRANCH_TARGET}}:start]

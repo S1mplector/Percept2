@@ -1,0 +1,25 @@
+# Tutorial 10 - Choices and Menus
+@scenario {{SCENARIO_PREFIX}}_tutorial_10_menus
+@include {{CHARACTERS_INCLUDE}}
+{{BG_DECL}}@label start
+{{BG_START}}[inc tutorial_count]
+[show lavender center talking]
+Lavender: Choices branch with syntax: > Choice text -> target_label
+Lavender: Menu commands available in scripts: [save], [load], [settings], [mainmenu].
+> Open save menu now -> open_save
+> Explain menu best practices -> explain_menus
+> Return to Tutorial Hub -> return_hub
+
+@label open_save
+Lavender: Opening save menu...
+[save]
+Lavender: Back from save menu.
+[jump return_hub]
+
+@label explain_menus
+Lavender: Keep menu-triggering choices explicit and sparing in story-critical beats.
+Lavender: Reserve [mainmenu] for hard exits and confirmations.
+[jump return_hub]
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_2]

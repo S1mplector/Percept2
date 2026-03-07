@@ -1,0 +1,9 @@
+# {{PROJECT_NAME}} - Epilogue
+@scenario {{SCENARIO_PREFIX}}_epilogue
+@include {{CHARACTERS_INCLUDE}}
+
+{{BG_DECL}}@label start
+{{BG_START}}[show lavender center {{LAVENDER_EXPR}}]
+Lavender: This is the epilogue arc ({{STORY_EPILOGUE_SCRIPT_PATH}}).
+Lavender: Open {{TIMELINE_PATH}} to view and edit the connected arc graph.
+[end]

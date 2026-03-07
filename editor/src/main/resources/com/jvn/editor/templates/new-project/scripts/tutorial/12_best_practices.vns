@@ -1,0 +1,18 @@
+# Tutorial 12 - VNS Best Practices
+@scenario {{SCENARIO_PREFIX}}_tutorial_12_best_practices
+@include {{CHARACTERS_INCLUDE}}
+{{BG_DECL}}@label start
+{{BG_START}}[inc tutorial_count]
+[show lavender center talking]
+Lavender: Checklist for production-ready VNS scripts:
+narrator: 1) Keep shared declarations in {{CHARACTERS_SCRIPT_PATH}}.
+narrator: 2) Split scenes into multiple files and connect with [goto script:label].
+narrator: 3) Use clear label names (scene_purpose_state).
+narrator: 4) Centralize constants with @define and reuse values.
+narrator: 5) Keep animation curves/style consistent across scenes.
+narrator: 6) Treat tutorial files as executable references, not static docs.
+Lavender: This tutorial pack ships with your project so the team has living examples from day one.
+> Return to Tutorial Hub -> return_hub
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_2]

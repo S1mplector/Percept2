@@ -1,0 +1,14 @@
+# Tutorial 06 - Audio and Music
+@scenario {{SCENARIO_PREFIX}}_tutorial_06_audio
+@include {{CHARACTERS_INCLUDE}}
+{{BG_DECL}}@label start
+{{BG_START}}[inc tutorial_count]
+[show lavender center talking]
+Lavender: Use [bgm], [bgm_fadeout], and [bgm_crossfade] for music flow.
+{{BGM_START}}Lavender: Use [sfx] for one-shot sounds and [voice] for spoken lines.
+Lavender: Control channel volume with [volume bgm 0.8], [volume sfx 1.0], etc.
+{{BGM_FADE}}Lavender: Keep file naming predictable and group by channel in assets/audio/.
+> Return to Tutorial Hub -> return_hub
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_2]

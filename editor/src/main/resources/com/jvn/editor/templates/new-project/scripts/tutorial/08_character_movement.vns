@@ -1,0 +1,22 @@
+# Tutorial 08 - Character Movement and Easing
+@scenario {{SCENARIO_PREFIX}}_tutorial_08_movement
+@include {{CHARACTERS_INCLUDE}}
+{{BG_DECL}}@label start
+{{BG_START}}[inc tutorial_count]
+[char lavender global on]
+[show lavender center talking]
+Lavender: Motion command syntax: [move charId position [expression] [easing] [durationMs]].
+[move lavender far_left ease_out_quad]
+[wait 350]
+[move lavender far_right ease_out_bounce]
+[wait 450]
+[move lavender at 0.24,0.86 ease_in_out_back 520]
+[wait 560]
+[move lavender center idle ease_out_sine 380]
+[wait 420]
+[char lavender global off]
+Lavender: Use easing families consistently for a coherent animation language.
+> Return to Tutorial Hub -> return_hub
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_2]

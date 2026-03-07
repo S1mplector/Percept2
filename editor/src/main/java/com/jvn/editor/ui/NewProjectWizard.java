@@ -1488,138 +1488,37 @@ public class NewProjectWizard extends Stage {
 
   private void createTutorialHubScript(File dir, String name, boolean includeDemoAssets) throws Exception {
     String scenarioPrefix = sanitizeName(name).toLowerCase(Locale.ROOT);
-    String dialogueTarget = toScriptGotoTarget(TUTORIAL_DIALOGUE_SCRIPT_PATH);
-    String narrationTarget = toScriptGotoTarget(TUTORIAL_NARRATION_SCRIPT_PATH);
-    String expressionsTarget = toScriptGotoTarget(TUTORIAL_EXPRESSIONS_SCRIPT_PATH);
-    String imagesTarget = toScriptGotoTarget(TUTORIAL_IMAGES_SCRIPT_PATH);
-    String transitionsTarget = toScriptGotoTarget(TUTORIAL_TRANSITIONS_SCRIPT_PATH);
-    String audioTarget = toScriptGotoTarget(TUTORIAL_AUDIO_SCRIPT_PATH);
-    String variablesTarget = toScriptGotoTarget(TUTORIAL_VARIABLES_SCRIPT_PATH);
-    String movementTarget = toScriptGotoTarget(TUTORIAL_MOVEMENT_SCRIPT_PATH);
-    String puppeteerTarget = toScriptGotoTarget(TUTORIAL_PUPPETEER_SCRIPT_PATH);
-    String menusTarget = toScriptGotoTarget(TUTORIAL_MENUS_SCRIPT_PATH);
-    String subroutinesTarget = toScriptGotoTarget(TUTORIAL_SUBROUTINES_SCRIPT_PATH);
-    String bestPracticesTarget = toScriptGotoTarget(TUTORIAL_BEST_PRACTICES_SCRIPT_PATH);
-
     String backgroundDecl = includeDemoAssets
         ? "@background field_day assets/demo/backgrounds/game.png\n"
             + "@background field_evening assets/demo/backgrounds/game.png\n\n"
         : "";
     String backgroundStart = includeDemoAssets ? "[bg field_day]\n[transition fade 450]\n" : "";
 
-    String script = """
-        # %s - Tutorial Hub
-        # Multi-file onboarding flow with one script per feature area.
+    java.util.Map<String, String> tokens = new java.util.LinkedHashMap<>();
+    tokens.put("PROJECT_NAME", name);
+    tokens.put("SCENARIO_PREFIX", scenarioPrefix);
+    tokens.put("CHARACTERS_INCLUDE", CHARACTERS_INCLUDE_PATH);
+    tokens.put("BG_DECL", backgroundDecl);
+    tokens.put("BG_START", backgroundStart);
+    tokens.put("DIALOGUE_TARGET", toScriptGotoTarget(TUTORIAL_DIALOGUE_SCRIPT_PATH));
+    tokens.put("NARRATION_TARGET", toScriptGotoTarget(TUTORIAL_NARRATION_SCRIPT_PATH));
+    tokens.put("EXPRESSIONS_TARGET", toScriptGotoTarget(TUTORIAL_EXPRESSIONS_SCRIPT_PATH));
+    tokens.put("IMAGES_TARGET", toScriptGotoTarget(TUTORIAL_IMAGES_SCRIPT_PATH));
+    tokens.put("TRANSITIONS_TARGET", toScriptGotoTarget(TUTORIAL_TRANSITIONS_SCRIPT_PATH));
+    tokens.put("AUDIO_TARGET", toScriptGotoTarget(TUTORIAL_AUDIO_SCRIPT_PATH));
+    tokens.put("VARIABLES_TARGET", toScriptGotoTarget(TUTORIAL_VARIABLES_SCRIPT_PATH));
+    tokens.put("MOVEMENT_TARGET", toScriptGotoTarget(TUTORIAL_MOVEMENT_SCRIPT_PATH));
+    tokens.put("PUPPETEER_TARGET", toScriptGotoTarget(TUTORIAL_PUPPETEER_SCRIPT_PATH));
+    tokens.put("MENUS_TARGET", toScriptGotoTarget(TUTORIAL_MENUS_SCRIPT_PATH));
+    tokens.put("SUBROUTINES_TARGET", toScriptGotoTarget(TUTORIAL_SUBROUTINES_SCRIPT_PATH));
+    tokens.put("BEST_PRACTICES_TARGET", toScriptGotoTarget(TUTORIAL_BEST_PRACTICES_SCRIPT_PATH));
 
-        @scenario %s_tutorial_hub
-        @include %s
-
-        %s@label start
-        %s[textspeed 28]
-        [autodelay 1700]
-        [set ui.characterHeightFactor 1.28]
-        [set ui.characterBaselineY 1.42]
-        [show lavender center talking]
-        [wait 200]
-
-        Lavender: Welcome to the built-in JVN tutorial pack for this project.
-        Lavender: Each topic is its own {b}.vns{/b} file under {b}scripts/tutorial/{/b}, similar to Ren'Py-style example packs.
-        Lavender: Choose any lesson. You can read it, run it, and edit it as a real project file.
-
-        @label topics_page_1
-        [show lavender far_left talking]
-        [wait 120]
-        Lavender: Basics:
-        > Writing Dialogue & Text Tags -> open_dialogue
-        > Narration & Pacing -> open_narration
-        > Expressions & Character Setup -> open_expressions
-        > Images & Backgrounds -> open_images
-        > More advanced topics... -> topics_page_2
-        > Exit tutorial -> end_early
-
-        @label topics_page_2
-        [show lavender far_left talking]
-        [wait 120]
-        Lavender: Advanced:
-        > Transitions & Screen FX -> open_transitions
-        > Audio & Music -> open_audio
-        > Variables & Conditions -> open_variables
-        > Character Movement & Easing -> open_movement
-        > Puppeteer Timeline in VNS -> open_puppeteer
-        > Choices & Built-in Menus -> open_menus
-        > Subroutines & Flow Composition -> open_subroutines
-        > VNS Best Practices Checklist -> open_best_practices
-        > Back to basics -> topics_page_1
-        > Exit tutorial -> end_early
-
-        @label open_dialogue
-        [goto %s:start]
-
-        @label open_narration
-        [goto %s:start]
-
-        @label open_expressions
-        [goto %s:start]
-
-        @label open_images
-        [goto %s:start]
-
-        @label open_transitions
-        [goto %s:start]
-
-        @label open_audio
-        [goto %s:start]
-
-        @label open_variables
-        [goto %s:start]
-
-        @label open_movement
-        [goto %s:start]
-
-        @label open_puppeteer
-        [goto %s:start]
-
-        @label open_menus
-        [goto %s:start]
-
-        @label open_subroutines
-        [goto %s:start]
-
-        @label open_best_practices
-        [goto %s:start]
-
-        @label end_early
-        [show lavender center talking]
-        [wait 160]
-        [if tutorial_count > 9]
-        Lavender: You explored nearly the whole tutorial pack. Great pace.
-        [elif tutorial_count > 4]
-        Lavender: Nice progress. Keep iterating in these files as your project grows.
-        [else]
-        Lavender: Start with one topic, then revisit the rest as needed.
-        [endif]
-        Lavender: Open the scripts directly in the editor and adapt them to your own narrative style.
-        [end]
-        """.formatted(
-            name,
-            scenarioPrefix,
-            CHARACTERS_INCLUDE_PATH,
-            backgroundDecl,
-            backgroundStart,
-            dialogueTarget,
-            narrationTarget,
-            expressionsTarget,
-            imagesTarget,
-            transitionsTarget,
-            audioTarget,
-            variablesTarget,
-            movementTarget,
-            puppeteerTarget,
-            menusTarget,
-            subroutinesTarget,
-            bestPracticesTarget
-        );
-    writeTutorialScript(dir, STORY_TUTORIAL_SCRIPT_PATH, script);
+    writeScaffoldTemplateScript(
+        dir,
+        STORY_TUTORIAL_SCRIPT_PATH,
+        "scripts/story/tutorial_hub.vns",
+        tokens
+    );
   }
 
   private void createTutorialTopicScripts(
@@ -1642,327 +1541,70 @@ public class NewProjectWizard extends Stage {
         ? "Lavender: This project uses layered presets (@charlayer + @charpreset), so expressions are composited from parts."
         : "Lavender: This project uses simple @charimg declarations. You can switch to layered presets later.";
 
-    writeTutorialScript(dir, TUTORIAL_DIALOGUE_SCRIPT_PATH, """
-        # Tutorial 01 - Dialogue Basics
-        @scenario %s_tutorial_01_dialogue
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [show lavender center talking]
-        Lavender: Dialogue lines use {b}Character: text{/b}.
-        Lavender: Text tags include {b}bold{/b}, {i}italic{/i}, {color=#4a9eff}color{/color}, {size=24}size{/size}, {wave}wave{/wave}, and {shake}shake{/shake}.
-        narrator: Keep most lines plain for readability, then use emphasis tags intentionally.
-        Lavender: Best pattern: one thought per line, short paragraphs, and clear speaker transitions.
-        > Return to Tutorial Hub -> return_hub
+    java.util.Map<String, String> baseTokens = new java.util.LinkedHashMap<>();
+    baseTokens.put("SCENARIO_PREFIX", scenarioPrefix);
+    baseTokens.put("CHARACTERS_INCLUDE", CHARACTERS_INCLUDE_PATH);
+    baseTokens.put("BG_DECL", tutorialBgDecl);
+    baseTokens.put("BG_START", tutorialBgStart);
+    baseTokens.put("HUB_TARGET", hubTarget);
+    baseTokens.put("CHARACTERS_SCRIPT_PATH", CHARACTERS_SCRIPT_PATH);
+    baseTokens.put("BG_CROSSFADE", tutorialBgCrossfade);
+    baseTokens.put("BGM_START", tutorialBgmStart);
+    baseTokens.put("BGM_FADE", tutorialBgmFade);
+    baseTokens.put("EXPRESSION_HINT", expressionHint);
 
-        @label return_hub
-        [goto %s:topics_page_1]
-        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
-
-    writeTutorialScript(dir, TUTORIAL_NARRATION_SCRIPT_PATH, """
-        # Tutorial 02 - Narration and Pacing
-        @scenario %s_tutorial_02_narration
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [show lavender right talking]
-        Lavender: Narration is usually a dedicated narrator character.
-        narrator: The campus courtyard sat in warm evening light, quiet except for distant footsteps.
-        Lavender: Use [textspeed] and [autodelay] for tempo control.
-        [textspeed 12]
-        Lavender: Slow dramatic beat...
-        [textspeed 40]
-        Lavender: Fast delivery for energetic scenes.
-        [textspeed 28]
-        [autodelay 1700]
-        Lavender: Reset defaults before returning to normal dialogue flow.
-        > Return to Tutorial Hub -> return_hub
-
-        @label return_hub
-        [goto %s:topics_page_1]
-        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
-
-    writeTutorialScript(dir, TUTORIAL_EXPRESSIONS_SCRIPT_PATH, """
-        # Tutorial 03 - Expressions and Character Setup
-        @scenario %s_tutorial_03_expressions
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [show lavender center talking]
-        Lavender: Swap expressions with [show character position expression].
-        [show lavender center happy]
-        Lavender: Happy preset.
-        [show lavender center emphasis]
-        Lavender: Emphasis preset.
-        [show lavender center idle]
-        Lavender: Neutral/idle preset.
-        %s
-        Lavender: Use consistent naming: idle, talking, happy, angry, surprised, etc.
-        Lavender: Keep shared character declarations in %s and include them from story files.
-        > Return to Tutorial Hub -> return_hub
-
-        @label return_hub
-        [goto %s:topics_page_1]
-        """.formatted(
-            scenarioPrefix,
-            CHARACTERS_INCLUDE_PATH,
-            tutorialBgDecl,
-            tutorialBgStart,
-            expressionHint,
-            CHARACTERS_SCRIPT_PATH,
-            hubTarget
-        ));
-
-    writeTutorialScript(dir, TUTORIAL_IMAGES_SCRIPT_PATH, """
-        # Tutorial 04 - Images and Backgrounds
-        @scenario %s_tutorial_04_images
-        @include %s
-        @background field_day assets/demo/backgrounds/game.png
-        @background field_evening assets/demo/backgrounds/game.png
-
-        @label start
-        [inc tutorial_count]
-        [bg field_day]
-        [show lavender left talking]
-        Lavender: Declare backgrounds with @background id path.
-        Lavender: Show them with [bg id].
-        [show lavender right talking]
-        Lavender: Character placement supports far_left, left, center, right, far_right plus custom coordinates.
-        [show lavender at 0.72,0.84]
-        Lavender: This line used an inline custom position.
-        [show lavender center idle]
-        Lavender: Keep asset paths project-relative and avoid renaming files casually once scripts depend on them.
-        > Return to Tutorial Hub -> return_hub
-
-        @label return_hub
-        [goto %s:topics_page_1]
-        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, hubTarget));
-
-    writeTutorialScript(dir, TUTORIAL_TRANSITIONS_SCRIPT_PATH, """
-        # Tutorial 05 - Transitions and Effects
-        @scenario %s_tutorial_05_transitions
-        @include %s
-        @background field_day assets/demo/backgrounds/game.png
-        @background field_evening assets/demo/backgrounds/game.png
-
-        @label start
-        [inc tutorial_count]
-        [bg field_day]
-        [show lavender center talking]
-        Lavender: Scene polish comes from transitions and short FX accents.
-        %s[screen flash 0.22 120 1 1 1]
-        Lavender: Typical transitions: fade, crossfade, dissolve, slide_left, slide_right, wipe.
-        [transition fade 350 field_day]
-        Lavender: Keep transition durations consistent across your project for stylistic cohesion.
-        > Return to Tutorial Hub -> return_hub
-
-        @label return_hub
-        [goto %s:topics_page_2]
-        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgCrossfade, hubTarget));
-
-    writeTutorialScript(dir, TUTORIAL_AUDIO_SCRIPT_PATH, """
-        # Tutorial 06 - Audio and Music
-        @scenario %s_tutorial_06_audio
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [show lavender center talking]
-        Lavender: Use [bgm], [bgm_fadeout], and [bgm_crossfade] for music flow.
-        %sLavender: Use [sfx] for one-shot sounds and [voice] for spoken lines.
-        Lavender: Control channel volume with [volume bgm 0.8], [volume sfx 1.0], etc.
-        %sLavender: Keep file naming predictable and group by channel in assets/audio/.
-        > Return to Tutorial Hub -> return_hub
-
-        @label return_hub
-        [goto %s:topics_page_2]
-        """.formatted(
-            scenarioPrefix,
-            CHARACTERS_INCLUDE_PATH,
-            tutorialBgDecl,
-            tutorialBgStart,
-            tutorialBgmStart,
-            tutorialBgmFade,
-            hubTarget
-        ));
-
-    writeTutorialScript(dir, TUTORIAL_VARIABLES_SCRIPT_PATH, """
-        # Tutorial 07 - Variables and Conditions
-        @scenario %s_tutorial_07_variables
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [show lavender center talking]
-        [set trust 2]
-        [flag met_lavender]
-        Lavender: [set], [inc], [dec], and [flag] drive stateful branching.
-        [if met_lavender]
-        Lavender: This line appears because met_lavender is true.
-        [endif]
-        > Ask for guidance [if trust >= 2] -> branch_guidance
-        > Stay silent -> branch_silent
-
-        @label branch_guidance
-        Lavender: Conditional choice accepted. trust >= 2.
-        [jump return_hub]
-
-        @label branch_silent
-        Lavender: Alternate branch reached.
-        [jump return_hub]
-
-        @label return_hub
-        [goto %s:topics_page_2]
-        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
-
-    writeTutorialScript(dir, TUTORIAL_MOVEMENT_SCRIPT_PATH, """
-        # Tutorial 08 - Character Movement and Easing
-        @scenario %s_tutorial_08_movement
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [char lavender global on]
-        [show lavender center talking]
-        Lavender: Motion command syntax: [move charId position [expression] [easing] [durationMs]].
-        [move lavender far_left ease_out_quad]
-        [wait 350]
-        [move lavender far_right ease_out_bounce]
-        [wait 450]
-        [move lavender at 0.24,0.86 ease_in_out_back 520]
-        [wait 560]
-        [move lavender center idle ease_out_sine 380]
-        [wait 420]
-        [char lavender global off]
-        Lavender: Use easing families consistently for a coherent animation language.
-        > Return to Tutorial Hub -> return_hub
-
-        @label return_hub
-        [goto %s:topics_page_2]
-        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
-
-    writeTutorialScript(dir, TUTORIAL_PUPPETEER_SCRIPT_PATH, """
-        # Tutorial 09 - Puppeteer Timeline from VNS
-        @scenario %s_tutorial_09_puppeteer
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [show lavender center talking]
-        Lavender: Timeline blocks in VNS use the same commands the Puppeteer exports.
-
-        timeline {
-          move "lavender" { x: 220 y: 405 dur: 0 }
-        }
-        [wait 60]
-        timeline {
-          move "lavender" { x: 920 y: 405 dur: 760 easing: ease_in_out_sine }
-          rotate "lavender" { angle: -8 dur: 760 easing: ease_in_out_sine }
-        }
-        [wait 820]
-        timeline {
-          scale "lavender" { x: 1.14 y: 1.14 dur: 260 easing: ease_out_quad }
-          wait 280
-          scale "lavender" { x: 1.0 y: 1.0 dur: 260 easing: ease_in_out_quad }
-        }
-        [wait 620]
-        timeline {
-          cameraMove { x: 48 y: -10 dur: 460 easing: ease_in_out_sine }
-          cameraZoom { zoom: 1.08 dur: 460 easing: ease_in_out_sine }
-        }
-        [wait 520]
-        timeline {
-          cameraMove { x: 0 y: 0 dur: 420 easing: ease_out_sine }
-          cameraZoom { zoom: 1.0 dur: 420 easing: ease_out_sine }
-        }
-        [wait 470]
-        [show lavender center idle]
-        Lavender: Use this as your baseline when validating Puppeteer export behavior.
-        > Return to Tutorial Hub -> return_hub
-
-        @label return_hub
-        [goto %s:topics_page_2]
-        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
-
-    writeTutorialScript(dir, TUTORIAL_MENUS_SCRIPT_PATH, """
-        # Tutorial 10 - Choices and Menus
-        @scenario %s_tutorial_10_menus
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [show lavender center talking]
-        Lavender: Choices branch with syntax: > Choice text -> target_label
-        Lavender: Menu commands available in scripts: [save], [load], [settings], [mainmenu].
-        > Open save menu now -> open_save
-        > Explain menu best practices -> explain_menus
-        > Return to Tutorial Hub -> return_hub
-
-        @label open_save
-        Lavender: Opening save menu...
-        [save]
-        Lavender: Back from save menu.
-        [jump return_hub]
-
-        @label explain_menus
-        Lavender: Keep menu-triggering choices explicit and sparing in story-critical beats.
-        Lavender: Reserve [mainmenu] for hard exits and confirmations.
-        [jump return_hub]
-
-        @label return_hub
-        [goto %s:topics_page_2]
-        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
-
-    writeTutorialScript(dir, TUTORIAL_SUBROUTINES_SCRIPT_PATH, """
-        # Tutorial 11 - Subroutines and Flow Composition
-        @scenario %s_tutorial_11_subroutines
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [show lavender center talking]
-        Lavender: [gosub label] enters a reusable block; [return] resumes caller flow.
-        [gosub reusable_intro]
-        Lavender: Returned from subroutine.
-        Lavender: Use @include to split files and keep scenario scripts focused by function.
-        > Return to Tutorial Hub -> return_hub
-
-        @label reusable_intro
-        narrator: [Subroutine section]
-        Lavender: Shared intro beat executed.
-        [return]
-
-        @label return_hub
-        [goto %s:topics_page_2]
-        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
-
-    writeTutorialScript(dir, TUTORIAL_BEST_PRACTICES_SCRIPT_PATH, """
-        # Tutorial 12 - VNS Best Practices
-        @scenario %s_tutorial_12_best_practices
-        @include %s
-        %s@label start
-        %s[inc tutorial_count]
-        [show lavender center talking]
-        Lavender: Checklist for production-ready VNS scripts:
-        narrator: 1) Keep shared declarations in %s.
-        narrator: 2) Split scenes into multiple files and connect with [goto script:label].
-        narrator: 3) Use clear label names (scene_purpose_state).
-        narrator: 4) Centralize constants with @define and reuse values.
-        narrator: 5) Keep animation curves/style consistent across scenes.
-        narrator: 6) Treat tutorial files as executable references, not static docs.
-        Lavender: This tutorial pack ships with your project so the team has living examples from day one.
-        > Return to Tutorial Hub -> return_hub
-
-        @label return_hub
-        [goto %s:topics_page_2]
-        """.formatted(
-            scenarioPrefix,
-            CHARACTERS_INCLUDE_PATH,
-            tutorialBgDecl,
-            tutorialBgStart,
-            CHARACTERS_SCRIPT_PATH,
-            hubTarget
-        ));
+    writeScaffoldTemplateScript(dir, TUTORIAL_DIALOGUE_SCRIPT_PATH, "scripts/tutorial/01_dialogue_basics.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_NARRATION_SCRIPT_PATH, "scripts/tutorial/02_narration_and_pacing.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_EXPRESSIONS_SCRIPT_PATH, "scripts/tutorial/03_expressions_and_characters.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_IMAGES_SCRIPT_PATH, "scripts/tutorial/04_images_and_backgrounds.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_TRANSITIONS_SCRIPT_PATH, "scripts/tutorial/05_transitions_and_effects.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_AUDIO_SCRIPT_PATH, "scripts/tutorial/06_audio_and_music.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_VARIABLES_SCRIPT_PATH, "scripts/tutorial/07_variables_and_conditions.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_MOVEMENT_SCRIPT_PATH, "scripts/tutorial/08_character_movement.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_PUPPETEER_SCRIPT_PATH, "scripts/tutorial/09_puppeteer_timeline.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_MENUS_SCRIPT_PATH, "scripts/tutorial/10_choices_and_menus.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_SUBROUTINES_SCRIPT_PATH, "scripts/tutorial/11_subroutines_and_flow.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_BEST_PRACTICES_SCRIPT_PATH, "scripts/tutorial/12_best_practices.vns", baseTokens);
   }
 
-  private void writeTutorialScript(File dir, String relativePath, String content) throws Exception {
+  private void writeScaffoldScript(File dir, String relativePath, String content) throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, relativePath))) {
       fw.write(content);
     }
+  }
+
+  private void writeScaffoldTemplateScript(
+      File dir,
+      String relativePath,
+      String templateRelativePath,
+      java.util.Map<String, String> tokens
+  ) throws Exception {
+    String template = loadScaffoldTemplate(templateRelativePath);
+    String rendered = applyTemplateTokens(template, tokens);
+    writeScaffoldScript(dir, relativePath, rendered);
+  }
+
+  private String loadScaffoldTemplate(String templateRelativePath) throws Exception {
+    String normalized = templateRelativePath == null ? "" : templateRelativePath.replace('\\', '/');
+    if (normalized.startsWith("/")) normalized = normalized.substring(1);
+    String resourcePath = "com/jvn/editor/templates/new-project/" + normalized;
+    try (java.io.InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream(resourcePath)) {
+      if (in == null) {
+        throw new IllegalStateException("Missing scaffold template resource: " + resourcePath);
+      }
+      return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+  }
+
+  private String applyTemplateTokens(String template, java.util.Map<String, String> tokens) {
+    if (template == null || template.isEmpty() || tokens == null || tokens.isEmpty()) return template;
+    String rendered = template;
+    for (var entry : tokens.entrySet()) {
+      String key = entry.getKey() == null ? "" : entry.getKey();
+      String value = entry.getValue() == null ? "" : entry.getValue();
+      rendered = rendered.replace("{{" + key + "}}", value);
+    }
+    return rendered;
   }
 
   private String toScriptGotoTarget(String scriptPath) {
@@ -1979,115 +1621,55 @@ public class NewProjectWizard extends Stage {
     String tutorialTarget = toScriptGotoTarget(STORY_TUTORIAL_SCRIPT_PATH);
     String branchTarget = toScriptGotoTarget(STORY_BRANCH_SCRIPT_PATH);
     String epilogueTarget = toScriptGotoTarget(STORY_EPILOGUE_SCRIPT_PATH);
+    String scenarioPrefix = sanitizeName(name).toLowerCase(Locale.ROOT);
+    java.util.Map<String, String> tokens = new java.util.LinkedHashMap<>();
+    tokens.put("PROJECT_NAME", name);
+    tokens.put("SCENARIO_PREFIX", scenarioPrefix);
+    tokens.put("CHARACTERS_INCLUDE", CHARACTERS_INCLUDE_PATH);
+    tokens.put("LAVENDER_EXPR", lavenderExpr);
+    tokens.put("TUTORIAL_TARGET", tutorialTarget);
+    tokens.put("BRANCH_TARGET", branchTarget);
+    tokens.put("EPILOGUE_TARGET", epilogueTarget);
+    tokens.put("STORY_TUTORIAL_SCRIPT_PATH", STORY_TUTORIAL_SCRIPT_PATH);
+    tokens.put("STORY_BRANCH_SCRIPT_PATH", STORY_BRANCH_SCRIPT_PATH);
+    tokens.put("STORY_EPILOGUE_SCRIPT_PATH", STORY_EPILOGUE_SCRIPT_PATH);
 
-    try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
-      String scenarioId = sanitizeName(name).toLowerCase();
-      fw.write("# " + name + " - Prologue\n");
-      fw.write("@scenario " + scenarioId + "_prologue\n");
-      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n");
-      fw.write("@label start\n\n");
-      fw.write("[show lavender center " + lavenderExpr + "]\n");
-      fw.write("Narrator: Welcome to " + name + ".\n");
-      fw.write("Narrator: This starter project demonstrates multi-file story arcs.\n");
-      fw.write("> Continue to Tutorial Hub -> route_tutorial\n");
-      fw.write("> Take a short branch -> route_branch\n\n");
-      fw.write("@label route_tutorial\n");
-      fw.write("[goto " + tutorialTarget + ":start]\n\n");
-      fw.write("@label route_branch\n");
-      fw.write("[goto " + branchTarget + ":start]\n");
-    }
-
-    try (FileWriter fw = new FileWriter(new File(dir, STORY_TUTORIAL_SCRIPT_PATH))) {
-      String scenarioId = sanitizeName(name).toLowerCase();
-      fw.write("# " + name + " - Tutorial Hub\n");
-      fw.write("@scenario " + scenarioId + "_tutorial_hub\n");
-      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
-      fw.write("@label start\n\n");
-      fw.write("[show lavender center " + lavenderExpr + "]\n");
-      fw.write("Narrator: This is Tutorial Hub (" + STORY_TUTORIAL_SCRIPT_PATH + ").\n");
-      fw.write("Narrator: It exists to demonstrate arc-to-arc script flow.\n");
-      fw.write("[goto " + epilogueTarget + ":start]\n");
-    }
-
-    try (FileWriter fw = new FileWriter(new File(dir, STORY_BRANCH_SCRIPT_PATH))) {
-      String scenarioId = sanitizeName(name).toLowerCase();
-      fw.write("# " + name + " - Branch Demo\n");
-      fw.write("@scenario " + scenarioId + "_branch_demo\n");
-      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
-      fw.write("@label start\n\n");
-      fw.write("[show lavender center " + lavenderExpr + "]\n");
-      fw.write("Narrator: This is a short branch script (" + STORY_BRANCH_SCRIPT_PATH + ").\n");
-      fw.write("Narrator: From here, we rejoin at the epilogue arc.\n");
-      fw.write("[goto " + epilogueTarget + ":start]\n");
-    }
-
-    try (FileWriter fw = new FileWriter(new File(dir, STORY_EPILOGUE_SCRIPT_PATH))) {
-      String scenarioId = sanitizeName(name).toLowerCase();
-      fw.write("# " + name + " - Epilogue\n");
-      fw.write("@scenario " + scenarioId + "_epilogue\n");
-      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
-      fw.write("@label start\n\n");
-      fw.write("[show lavender center " + lavenderExpr + "]\n");
-      fw.write("Narrator: You reached the epilogue. Edit this file to continue your story.\n");
-      fw.write("[end]\n");
-    }
+    writeScaffoldTemplateScript(dir, ENTRY_SCRIPT_PATH, "scripts/story/prologue_blank.vns", tokens);
+    writeScaffoldTemplateScript(dir, STORY_TUTORIAL_SCRIPT_PATH, "scripts/story/tutorial_hub_blank.vns", tokens);
+    writeScaffoldTemplateScript(dir, STORY_BRANCH_SCRIPT_PATH, "scripts/story/branch_demo_blank.vns", tokens);
+    writeScaffoldTemplateScript(dir, STORY_EPILOGUE_SCRIPT_PATH, "scripts/story/epilogue_blank.vns", tokens);
   }
 
-  private void createSampleArcEntryAndBranchScripts(File dir, String name) throws Exception {
-    String scenarioId = sanitizeName(name).toLowerCase();
+  private void createSampleArcEntryAndBranchScripts(File dir, String name, boolean includeDemoAssets) throws Exception {
+    String scenarioId = sanitizeName(name).toLowerCase(Locale.ROOT);
     String tutorialTarget = toScriptGotoTarget(STORY_TUTORIAL_SCRIPT_PATH);
     String branchTarget = toScriptGotoTarget(STORY_BRANCH_SCRIPT_PATH);
     String epilogueTarget = toScriptGotoTarget(STORY_EPILOGUE_SCRIPT_PATH);
     String lavenderExpr = "idle";
+    String backgroundDecl = includeDemoAssets ? "@background field_day assets/demo/backgrounds/game.png\n\n" : "";
+    String backgroundStart = includeDemoAssets ? "[bg field_day]\n" : "";
+    String backgroundTransition = includeDemoAssets ? "[transition fade 400]\n" : "";
+    java.util.Map<String, String> tokens = new java.util.LinkedHashMap<>();
+    tokens.put("PROJECT_NAME", name);
+    tokens.put("SCENARIO_PREFIX", scenarioId);
+    tokens.put("CHARACTERS_INCLUDE", CHARACTERS_INCLUDE_PATH);
+    tokens.put("LAVENDER_EXPR", lavenderExpr);
+    tokens.put("TUTORIAL_TARGET", tutorialTarget);
+    tokens.put("BRANCH_TARGET", branchTarget);
+    tokens.put("EPILOGUE_TARGET", epilogueTarget);
+    tokens.put("STORY_BRANCH_SCRIPT_PATH", STORY_BRANCH_SCRIPT_PATH);
+    tokens.put("STORY_EPILOGUE_SCRIPT_PATH", STORY_EPILOGUE_SCRIPT_PATH);
+    tokens.put("TIMELINE_PATH", TIMELINE_PATH);
+    tokens.put("BG_DECL", backgroundDecl);
+    tokens.put("BG_START", backgroundStart);
+    tokens.put("BG_TRANSITION", backgroundTransition);
 
-    try (FileWriter fw = new FileWriter(new File(dir, ENTRY_SCRIPT_PATH))) {
-      fw.write("# " + name + " - Prologue Entry\n");
-      fw.write("@scenario " + scenarioId + "_prologue_entry\n");
-      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
-      fw.write("@background field_day assets/demo/backgrounds/game.png\n\n");
-      fw.write("@label start\n");
-      fw.write("[bg field_day]\n");
-      fw.write("[transition fade 400]\n");
-      fw.write("[show lavender center " + lavenderExpr + "]\n");
-      fw.write("narrator: Welcome to " + name + ".\n");
-      fw.write("lavender: This project starts with a timeline-driven multi-file arc workflow.\n");
-      fw.write("lavender: Pick a route and I'll send you to another script file via story arcs.\n");
-      fw.write("> Guided tutorial route -> route_tutorial\n");
-      fw.write("> Quick branch demo route -> route_branch\n\n");
-      fw.write("@label route_tutorial\n");
-      fw.write("[goto " + tutorialTarget + ":start]\n\n");
-      fw.write("@label route_branch\n");
-      fw.write("[goto " + branchTarget + ":start]\n");
-    }
-
-    try (FileWriter fw = new FileWriter(new File(dir, STORY_BRANCH_SCRIPT_PATH))) {
-      fw.write("# " + name + " - Branch Demo\n");
-      fw.write("@scenario " + scenarioId + "_branch_demo\n");
-      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
-      fw.write("@background field_day assets/demo/backgrounds/game.png\n\n");
-      fw.write("@label start\n");
-      fw.write("[bg field_day]\n");
-      fw.write("[show lavender right " + lavenderExpr + "]\n");
-      fw.write("Lavender: You're now in " + STORY_BRANCH_SCRIPT_PATH + ".\n");
-      fw.write("Lavender: This arc reconnects to the epilogue.\n");
-      fw.write("[goto " + epilogueTarget + ":start]\n");
-    }
-
-    try (FileWriter fw = new FileWriter(new File(dir, STORY_EPILOGUE_SCRIPT_PATH))) {
-      fw.write("# " + name + " - Epilogue\n");
-      fw.write("@scenario " + scenarioId + "_epilogue\n");
-      fw.write("@include " + CHARACTERS_INCLUDE_PATH + "\n\n");
-      fw.write("@background field_day assets/demo/backgrounds/game.png\n\n");
-      fw.write("@label start\n");
-      fw.write("[bg field_day]\n");
-      fw.write("[show lavender center " + lavenderExpr + "]\n");
-      fw.write("Lavender: This is the epilogue arc (" + STORY_EPILOGUE_SCRIPT_PATH + ").\n");
-      fw.write("Lavender: Open " + TIMELINE_PATH + " to view and edit the connected arc graph.\n");
-      fw.write("[end]\n");
-    }
+    writeScaffoldTemplateScript(dir, ENTRY_SCRIPT_PATH, "scripts/story/prologue_sample.vns", tokens);
+    writeScaffoldTemplateScript(dir, STORY_BRANCH_SCRIPT_PATH, "scripts/story/branch_demo_sample.vns", tokens);
+    writeScaffoldTemplateScript(dir, STORY_EPILOGUE_SCRIPT_PATH, "scripts/story/epilogue_sample.vns", tokens);
   }
 
-  private void createStoryTimeline(File dir, String displayName) throws Exception {
+  private void createStoryTimeline(File dir, String displayName, boolean includeTutorialPack) throws Exception {
     try (FileWriter fw = new FileWriter(new File(dir, TIMELINE_PATH))) {
       fw.write("# Story Timeline for " + displayName + "\n");
       fw.write("# Author: " + txtAuthor.getText().trim() + "\n");
@@ -2098,10 +1680,40 @@ public class NewProjectWizard extends Stage {
       fw.write("arc \"BranchDemo\" script \"" + STORY_BRANCH_SCRIPT_PATH + "\" entry \"start\" cluster \"Routes\" priority 7 color \"#f3b27a\" tags \"branch,route\" at 380,220\n");
       fw.write("arc \"Epilogue\" script \"" + STORY_EPILOGUE_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 9 color \"#d6a8ee\" tags \"ending,main\" at 760,120\n\n");
 
+      if (includeTutorialPack) {
+        fw.write("arc T01_Dialogue script \"" + TUTORIAL_DIALOGUE_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#84c7ff\" tags \"tutorial,dialogue\" at 760,-180\n");
+        fw.write("arc T02_Narration script \"" + TUTORIAL_NARRATION_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ad6ff\" tags \"tutorial,narration\" at 980,-180\n");
+        fw.write("arc T03_Expressions script \"" + TUTORIAL_EXPRESSIONS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ce3d7\" tags \"tutorial,characters\" at 1200,-180\n");
+        fw.write("arc T04_Images script \"" + TUTORIAL_IMAGES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#93ddaa\" tags \"tutorial,images\" at 1420,-180\n");
+        fw.write("arc T05_Transitions script \"" + TUTORIAL_TRANSITIONS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#f0c48a\" tags \"tutorial,fx\" at 760,20\n");
+        fw.write("arc T06_Audio script \"" + TUTORIAL_AUDIO_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#f3b27a\" tags \"tutorial,audio\" at 980,20\n");
+        fw.write("arc T07_Variables script \"" + TUTORIAL_VARIABLES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#efb3c8\" tags \"tutorial,logic\" at 1200,20\n");
+        fw.write("arc T08_Movement script \"" + TUTORIAL_MOVEMENT_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#d6a8ee\" tags \"tutorial,motion\" at 1420,20\n");
+        fw.write("arc T09_Puppeteer script \"" + TUTORIAL_PUPPETEER_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#c4a4ff\" tags \"tutorial,puppeteer\" at 760,220\n");
+        fw.write("arc T10_Menus script \"" + TUTORIAL_MENUS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#84c7ff\" tags \"tutorial,menus\" at 980,220\n");
+        fw.write("arc T11_Subroutines script \"" + TUTORIAL_SUBROUTINES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ad6ff\" tags \"tutorial,flow\" at 1200,220\n");
+        fw.write("arc T12_BestPractices script \"" + TUTORIAL_BEST_PRACTICES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#93ddaa\" tags \"tutorial,best_practice\" at 1420,220\n\n");
+      }
+
       fw.write("link Prologue:route_tutorial -> TutorialHub:start\n");
       fw.write("link Prologue:route_branch -> BranchDemo:start\n");
       fw.write("link TutorialHub:start -> Epilogue:start\n");
       fw.write("link BranchDemo:start -> Epilogue:start\n");
+
+      if (includeTutorialPack) {
+        fw.write("link TutorialHub:open_dialogue -> T01_Dialogue:start\n");
+        fw.write("link TutorialHub:open_narration -> T02_Narration:start\n");
+        fw.write("link TutorialHub:open_expressions -> T03_Expressions:start\n");
+        fw.write("link TutorialHub:open_images -> T04_Images:start\n");
+        fw.write("link TutorialHub:open_transitions -> T05_Transitions:start\n");
+        fw.write("link TutorialHub:open_audio -> T06_Audio:start\n");
+        fw.write("link TutorialHub:open_variables -> T07_Variables:start\n");
+        fw.write("link TutorialHub:open_movement -> T08_Movement:start\n");
+        fw.write("link TutorialHub:open_puppeteer -> T09_Puppeteer:start\n");
+        fw.write("link TutorialHub:open_menus -> T10_Menus:start\n");
+        fw.write("link TutorialHub:open_subroutines -> T11_Subroutines:start\n");
+        fw.write("link TutorialHub:open_best_practices -> T12_BestPractices:start\n");
+      }
     }
   }
 

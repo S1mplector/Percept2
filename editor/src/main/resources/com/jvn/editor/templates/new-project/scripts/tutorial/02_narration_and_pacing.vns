@@ -1,0 +1,20 @@
+# Tutorial 02 - Narration and Pacing
+@scenario {{SCENARIO_PREFIX}}_tutorial_02_narration
+@include {{CHARACTERS_INCLUDE}}
+{{BG_DECL}}@label start
+{{BG_START}}[inc tutorial_count]
+[show lavender right talking]
+Lavender: Narration is usually a dedicated narrator character.
+narrator: The campus courtyard sat in warm evening light, quiet except for distant footsteps.
+Lavender: Use [textspeed] and [autodelay] for tempo control.
+[textspeed 12]
+Lavender: Slow dramatic beat...
+[textspeed 40]
+Lavender: Fast delivery for energetic scenes.
+[textspeed 28]
+[autodelay 1700]
+Lavender: Reset defaults before returning to normal dialogue flow.
+> Return to Tutorial Hub -> return_hub
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_1]

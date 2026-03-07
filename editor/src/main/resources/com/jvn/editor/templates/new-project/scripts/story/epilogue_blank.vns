@@ -1,0 +1,8 @@
+# {{PROJECT_NAME}} - Epilogue
+@scenario {{SCENARIO_PREFIX}}_epilogue
+@include {{CHARACTERS_INCLUDE}}
+
+@label start
+[show lavender center {{LAVENDER_EXPR}}]
+Narrator: You reached the epilogue. Edit this file to continue your story.
+[end]

@@ -1,0 +1,20 @@
+# Tutorial 03 - Expressions and Character Setup
+@scenario {{SCENARIO_PREFIX}}_tutorial_03_expressions
+@include {{CHARACTERS_INCLUDE}}
+{{BG_DECL}}@label start
+{{BG_START}}[inc tutorial_count]
+[show lavender center talking]
+Lavender: Swap expressions with [show character position expression].
+[show lavender center happy]
+Lavender: Happy preset.
+[show lavender center emphasis]
+Lavender: Emphasis preset.
+[show lavender center idle]
+Lavender: Neutral/idle preset.
+{{EXPRESSION_HINT}}
+Lavender: Use consistent naming: idle, talking, happy, angry, surprised, etc.
+Lavender: Keep shared character declarations in {{CHARACTERS_SCRIPT_PATH}} and include them from story files.
+> Return to Tutorial Hub -> return_hub
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_1]

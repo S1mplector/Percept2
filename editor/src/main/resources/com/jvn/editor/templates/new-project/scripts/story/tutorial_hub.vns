@@ -1,0 +1,92 @@
+# {{PROJECT_NAME}} - Tutorial Hub
+# Multi-file onboarding flow with one script per feature area.
+
+@scenario {{SCENARIO_PREFIX}}_tutorial_hub
+@include {{CHARACTERS_INCLUDE}}
+
+{{BG_DECL}}@label start
+{{BG_START}}[textspeed 28]
+[autodelay 1700]
+[set ui.characterHeightFactor 1.28]
+[set ui.characterBaselineY 1.42]
+[show lavender center talking]
+[wait 200]
+
+Lavender: Welcome to the built-in JVN tutorial pack for this project.
+Lavender: Each topic is its own {b}.vns{/b} file under {b}scripts/tutorial/{/b}, similar to Ren'Py-style example packs.
+Lavender: Choose any lesson. You can read it, run it, and edit it as a real project file.
+
+@label topics_page_1
+[show lavender far_left talking]
+[wait 120]
+Lavender: Basics:
+> Writing Dialogue & Text Tags -> open_dialogue
+> Narration & Pacing -> open_narration
+> Expressions & Character Setup -> open_expressions
+> Images & Backgrounds -> open_images
+> More advanced topics... -> topics_page_2
+> Exit tutorial -> end_early
+
+@label topics_page_2
+[show lavender far_left talking]
+[wait 120]
+Lavender: Advanced:
+> Transitions & Screen FX -> open_transitions
+> Audio & Music -> open_audio
+> Variables & Conditions -> open_variables
+> Character Movement & Easing -> open_movement
+> Puppeteer Timeline in VNS -> open_puppeteer
+> Choices & Built-in Menus -> open_menus
+> Subroutines & Flow Composition -> open_subroutines
+> VNS Best Practices Checklist -> open_best_practices
+> Back to basics -> topics_page_1
+> Exit tutorial -> end_early
+
+@label open_dialogue
+[goto {{DIALOGUE_TARGET}}:start]
+
+@label open_narration
+[goto {{NARRATION_TARGET}}:start]
+
+@label open_expressions
+[goto {{EXPRESSIONS_TARGET}}:start]
+
+@label open_images
+[goto {{IMAGES_TARGET}}:start]
+
+@label open_transitions
+[goto {{TRANSITIONS_TARGET}}:start]
+
+@label open_audio
+[goto {{AUDIO_TARGET}}:start]
+
+@label open_variables
+[goto {{VARIABLES_TARGET}}:start]
+
+@label open_movement
+[goto {{MOVEMENT_TARGET}}:start]
+
+@label open_puppeteer
+[goto {{PUPPETEER_TARGET}}:start]
+
+@label open_menus
+[goto {{MENUS_TARGET}}:start]
+
+@label open_subroutines
+[goto {{SUBROUTINES_TARGET}}:start]
+
+@label open_best_practices
+[goto {{BEST_PRACTICES_TARGET}}:start]
+
+@label end_early
+[show lavender center talking]
+[wait 160]
+[if tutorial_count > 9]
+Lavender: You explored nearly the whole tutorial pack. Great pace.
+[elif tutorial_count > 4]
+Lavender: Nice progress. Keep iterating in these files as your project grows.
+[else]
+Lavender: Start with one topic, then revisit the rest as needed.
+[endif]
+Lavender: Open the scripts directly in the editor and adapt them to your own narrative style.
+[end]

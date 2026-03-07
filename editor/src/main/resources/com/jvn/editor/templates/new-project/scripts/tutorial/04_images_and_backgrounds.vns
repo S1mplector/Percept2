@@ -1,0 +1,22 @@
+# Tutorial 04 - Images and Backgrounds
+@scenario {{SCENARIO_PREFIX}}_tutorial_04_images
+@include {{CHARACTERS_INCLUDE}}
+@background field_day assets/demo/backgrounds/game.png
+@background field_evening assets/demo/backgrounds/game.png
+
+@label start
+[inc tutorial_count]
+[bg field_day]
+[show lavender left talking]
+Lavender: Declare backgrounds with @background id path.
+Lavender: Show them with [bg id].
+[show lavender right talking]
+Lavender: Character placement supports far_left, left, center, right, far_right plus custom coordinates.
+[show lavender at 0.72,0.84]
+Lavender: This line used an inline custom position.
+[show lavender center idle]
+Lavender: Keep asset paths project-relative and avoid renaming files casually once scripts depend on them.
+> Return to Tutorial Hub -> return_hub
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_1]

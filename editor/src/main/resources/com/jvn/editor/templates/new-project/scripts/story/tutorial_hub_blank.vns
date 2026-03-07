@@ -1,0 +1,9 @@
+# {{PROJECT_NAME}} - Tutorial Hub
+@scenario {{SCENARIO_PREFIX}}_tutorial_hub
+@include {{CHARACTERS_INCLUDE}}
+
+@label start
+[show lavender center {{LAVENDER_EXPR}}]
+Narrator: This is Tutorial Hub ({{STORY_TUTORIAL_SCRIPT_PATH}}).
+Narrator: It exists to demonstrate arc-to-arc script flow.
+[goto {{EPILOGUE_TARGET}}:start]

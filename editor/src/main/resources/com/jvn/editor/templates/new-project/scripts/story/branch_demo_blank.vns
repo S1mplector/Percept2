@@ -1,0 +1,9 @@
+# {{PROJECT_NAME}} - Branch Demo
+@scenario {{SCENARIO_PREFIX}}_branch_demo
+@include {{CHARACTERS_INCLUDE}}
+
+@label start
+[show lavender center {{LAVENDER_EXPR}}]
+Narrator: This is a short branch script ({{STORY_BRANCH_SCRIPT_PATH}}).
+Narrator: From here, we rejoin at the epilogue arc.
+[goto {{EPILOGUE_TARGET}}:start]

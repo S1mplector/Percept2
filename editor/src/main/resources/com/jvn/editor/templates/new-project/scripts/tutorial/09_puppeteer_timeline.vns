@@ -1,0 +1,39 @@
+# Tutorial 09 - Puppeteer Timeline from VNS
+@scenario {{SCENARIO_PREFIX}}_tutorial_09_puppeteer
+@include {{CHARACTERS_INCLUDE}}
+{{BG_DECL}}@label start
+{{BG_START}}[inc tutorial_count]
+[show lavender center talking]
+Lavender: Timeline blocks in VNS use the same commands the Puppeteer exports.
+
+timeline {
+  move "lavender" { x: 220 y: 405 dur: 0 }
+}
+[wait 60]
+timeline {
+  move "lavender" { x: 920 y: 405 dur: 760 easing: ease_in_out_sine }
+  rotate "lavender" { angle: -8 dur: 760 easing: ease_in_out_sine }
+}
+[wait 820]
+timeline {
+  scale "lavender" { x: 1.14 y: 1.14 dur: 260 easing: ease_out_quad }
+  wait 280
+  scale "lavender" { x: 1.0 y: 1.0 dur: 260 easing: ease_in_out_quad }
+}
+[wait 620]
+timeline {
+  cameraMove { x: 48 y: -10 dur: 460 easing: ease_in_out_sine }
+  cameraZoom { zoom: 1.08 dur: 460 easing: ease_in_out_sine }
+}
+[wait 520]
+timeline {
+  cameraMove { x: 0 y: 0 dur: 420 easing: ease_out_sine }
+  cameraZoom { zoom: 1.0 dur: 420 easing: ease_out_sine }
+}
+[wait 470]
+[show lavender center idle]
+Lavender: Use this as your baseline when validating Puppeteer export behavior.
+> Return to Tutorial Hub -> return_hub
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_2]

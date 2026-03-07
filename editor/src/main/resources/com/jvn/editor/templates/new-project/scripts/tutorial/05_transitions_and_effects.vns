@@ -1,0 +1,19 @@
+# Tutorial 05 - Transitions and Effects
+@scenario {{SCENARIO_PREFIX}}_tutorial_05_transitions
+@include {{CHARACTERS_INCLUDE}}
+@background field_day assets/demo/backgrounds/game.png
+@background field_evening assets/demo/backgrounds/game.png
+
+@label start
+[inc tutorial_count]
+[bg field_day]
+[show lavender center talking]
+Lavender: Scene polish comes from transitions and short FX accents.
+{{BG_CROSSFADE}}[screen flash 0.22 120 1 1 1]
+Lavender: Typical transitions: fade, crossfade, dissolve, slide_left, slide_right, wipe.
+[transition fade 350 field_day]
+Lavender: Keep transition durations consistent across your project for stylistic cohesion.
+> Return to Tutorial Hub -> return_hub
+
+@label return_hub
+[goto {{HUB_TARGET}}:topics_page_2]
