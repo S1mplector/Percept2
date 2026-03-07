@@ -131,6 +131,26 @@ public class NewProjectWizard extends Stage {
   private static final String TUTORIAL_LOCALIZATION_SCRIPT_PATH = "scripts/tutorial/14_localization_and_textkeys.vns";
   private static final String TUTORIAL_UI_LAYOUT_SCRIPT_PATH = "scripts/tutorial/15_ui_layout_and_theme.vns";
   private static final String TUTORIAL_TESTING_RELEASE_SCRIPT_PATH = "scripts/tutorial/16_testing_and_release.vns";
+  private static final String ARC_PROLOGUE = "Prologue";
+  private static final String ARC_TUTORIAL_HUB = "TutorialHub";
+  private static final String ARC_BRANCH_DEMO = "BranchDemo";
+  private static final String ARC_EPILOGUE = "Epilogue";
+  private static final String ARC_T01_DIALOGUE = "T01_Dialogue";
+  private static final String ARC_T02_NARRATION = "T02_Narration";
+  private static final String ARC_T03_EXPRESSIONS = "T03_Expressions";
+  private static final String ARC_T04_IMAGES = "T04_Images";
+  private static final String ARC_T05_TRANSITIONS = "T05_Transitions";
+  private static final String ARC_T06_AUDIO = "T06_Audio";
+  private static final String ARC_T07_VARIABLES = "T07_Variables";
+  private static final String ARC_T08_MOVEMENT = "T08_Movement";
+  private static final String ARC_T09_PUPPETEER = "T09_Puppeteer";
+  private static final String ARC_T10_MENUS = "T10_Menus";
+  private static final String ARC_T11_SUBROUTINES = "T11_Subroutines";
+  private static final String ARC_T12_BEST_PRACTICES = "T12_BestPractices";
+  private static final String ARC_T13_CAMERA = "T13_Camera";
+  private static final String ARC_T14_LOCALIZATION = "T14_Localization";
+  private static final String ARC_T15_UI_LAYOUT = "T15_UILayout";
+  private static final String ARC_T16_TESTING_RELEASE = "T16_TestingRelease";
   private static final String CHARACTERS_SCRIPT_PATH = "scripts/definitions/characters.vns";
   private static final String CHARACTERS_INCLUDE_PATH = "/definitions/characters.vns";
   private static final String TIMELINE_PATH = "config/timeline/story.timeline";
@@ -1508,22 +1528,22 @@ public class NewProjectWizard extends Stage {
     tokens.put("CHARACTERS_INCLUDE", CHARACTERS_INCLUDE_PATH);
     tokens.put("BG_DECL", backgroundDecl);
     tokens.put("BG_START", backgroundStart);
-    tokens.put("DIALOGUE_TARGET", toScriptGotoTarget(TUTORIAL_DIALOGUE_SCRIPT_PATH));
-    tokens.put("NARRATION_TARGET", toScriptGotoTarget(TUTORIAL_NARRATION_SCRIPT_PATH));
-    tokens.put("EXPRESSIONS_TARGET", toScriptGotoTarget(TUTORIAL_EXPRESSIONS_SCRIPT_PATH));
-    tokens.put("IMAGES_TARGET", toScriptGotoTarget(TUTORIAL_IMAGES_SCRIPT_PATH));
-    tokens.put("TRANSITIONS_TARGET", toScriptGotoTarget(TUTORIAL_TRANSITIONS_SCRIPT_PATH));
-    tokens.put("AUDIO_TARGET", toScriptGotoTarget(TUTORIAL_AUDIO_SCRIPT_PATH));
-    tokens.put("VARIABLES_TARGET", toScriptGotoTarget(TUTORIAL_VARIABLES_SCRIPT_PATH));
-    tokens.put("MOVEMENT_TARGET", toScriptGotoTarget(TUTORIAL_MOVEMENT_SCRIPT_PATH));
-    tokens.put("PUPPETEER_TARGET", toScriptGotoTarget(TUTORIAL_PUPPETEER_SCRIPT_PATH));
-    tokens.put("MENUS_TARGET", toScriptGotoTarget(TUTORIAL_MENUS_SCRIPT_PATH));
-    tokens.put("SUBROUTINES_TARGET", toScriptGotoTarget(TUTORIAL_SUBROUTINES_SCRIPT_PATH));
-    tokens.put("BEST_PRACTICES_TARGET", toScriptGotoTarget(TUTORIAL_BEST_PRACTICES_SCRIPT_PATH));
-    tokens.put("CAMERA_TARGET", toScriptGotoTarget(TUTORIAL_CAMERA_SCRIPT_PATH));
-    tokens.put("LOCALIZATION_TARGET", toScriptGotoTarget(TUTORIAL_LOCALIZATION_SCRIPT_PATH));
-    tokens.put("UI_LAYOUT_TARGET", toScriptGotoTarget(TUTORIAL_UI_LAYOUT_SCRIPT_PATH));
-    tokens.put("TESTING_RELEASE_TARGET", toScriptGotoTarget(TUTORIAL_TESTING_RELEASE_SCRIPT_PATH));
+    tokens.put("DIALOGUE_TARGET", ARC_T01_DIALOGUE);
+    tokens.put("NARRATION_TARGET", ARC_T02_NARRATION);
+    tokens.put("EXPRESSIONS_TARGET", ARC_T03_EXPRESSIONS);
+    tokens.put("IMAGES_TARGET", ARC_T04_IMAGES);
+    tokens.put("TRANSITIONS_TARGET", ARC_T05_TRANSITIONS);
+    tokens.put("AUDIO_TARGET", ARC_T06_AUDIO);
+    tokens.put("VARIABLES_TARGET", ARC_T07_VARIABLES);
+    tokens.put("MOVEMENT_TARGET", ARC_T08_MOVEMENT);
+    tokens.put("PUPPETEER_TARGET", ARC_T09_PUPPETEER);
+    tokens.put("MENUS_TARGET", ARC_T10_MENUS);
+    tokens.put("SUBROUTINES_TARGET", ARC_T11_SUBROUTINES);
+    tokens.put("BEST_PRACTICES_TARGET", ARC_T12_BEST_PRACTICES);
+    tokens.put("CAMERA_TARGET", ARC_T13_CAMERA);
+    tokens.put("LOCALIZATION_TARGET", ARC_T14_LOCALIZATION);
+    tokens.put("UI_LAYOUT_TARGET", ARC_T15_UI_LAYOUT);
+    tokens.put("TESTING_RELEASE_TARGET", ARC_T16_TESTING_RELEASE);
 
     writeScaffoldTemplateScript(
         dir,
@@ -1540,7 +1560,7 @@ public class NewProjectWizard extends Stage {
       boolean useLayeredLavenderDemo
   ) throws Exception {
     String scenarioPrefix = sanitizeName(name).toLowerCase(Locale.ROOT);
-    String hubTarget = toScriptGotoTarget(STORY_TUTORIAL_SCRIPT_PATH);
+    String hubTarget = ARC_TUTORIAL_HUB;
     String tutorialBgDecl = includeDemoAssets
         ? "@background field_day assets/demo/backgrounds/game.png\n"
             + "@background field_evening assets/demo/backgrounds/game.png\n\n"
@@ -1623,20 +1643,11 @@ public class NewProjectWizard extends Stage {
     return rendered;
   }
 
-  private String toScriptGotoTarget(String scriptPath) {
-    if (scriptPath == null || scriptPath.isBlank()) return "";
-    String normalized = scriptPath.replace('\\', '/');
-    if (normalized.startsWith("scripts/")) {
-      return normalized.substring("scripts/".length());
-    }
-    return normalized;
-  }
-
   private void createEmptyScript(File dir, String name, boolean includeDemoAssets, boolean useLayeredLavenderDemo) throws Exception {
     String lavenderExpr = includeDemoAssets && useLayeredLavenderDemo ? "idle" : "neutral";
-    String tutorialTarget = toScriptGotoTarget(STORY_TUTORIAL_SCRIPT_PATH);
-    String branchTarget = toScriptGotoTarget(STORY_BRANCH_SCRIPT_PATH);
-    String epilogueTarget = toScriptGotoTarget(STORY_EPILOGUE_SCRIPT_PATH);
+    String tutorialTarget = ARC_TUTORIAL_HUB;
+    String branchTarget = ARC_BRANCH_DEMO;
+    String epilogueTarget = ARC_EPILOGUE;
     String scenarioPrefix = sanitizeName(name).toLowerCase(Locale.ROOT);
     java.util.Map<String, String> tokens = new java.util.LinkedHashMap<>();
     tokens.put("PROJECT_NAME", name);
@@ -1658,9 +1669,9 @@ public class NewProjectWizard extends Stage {
 
   private void createSampleArcEntryAndBranchScripts(File dir, String name, boolean includeDemoAssets) throws Exception {
     String scenarioId = sanitizeName(name).toLowerCase(Locale.ROOT);
-    String tutorialTarget = toScriptGotoTarget(STORY_TUTORIAL_SCRIPT_PATH);
-    String branchTarget = toScriptGotoTarget(STORY_BRANCH_SCRIPT_PATH);
-    String epilogueTarget = toScriptGotoTarget(STORY_EPILOGUE_SCRIPT_PATH);
+    String tutorialTarget = ARC_TUTORIAL_HUB;
+    String branchTarget = ARC_BRANCH_DEMO;
+    String epilogueTarget = ARC_EPILOGUE;
     String lavenderExpr = "idle";
     String backgroundDecl = includeDemoAssets ? "@background field_day assets/demo/backgrounds/game.png\n\n" : "";
     String backgroundStart = includeDemoAssets ? "[bg field_day]\n" : "";
@@ -1691,52 +1702,50 @@ public class NewProjectWizard extends Stage {
       fw.write("# Author: " + txtAuthor.getText().trim() + "\n");
       fw.write("# Starter arc workflow: prologue entry + route split + epilogue merge.\n\n");
 
-      fw.write("arc \"Prologue\" script \"" + ENTRY_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 10 color \"#84c7ff\" tags \"entry,main\" at 40,120\n");
-      fw.write("arc \"TutorialHub\" script \"" + STORY_TUTORIAL_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 8 color \"#93ddaa\" tags \"tutorial,main\" at 380,40\n");
-      fw.write("arc \"BranchDemo\" script \"" + STORY_BRANCH_SCRIPT_PATH + "\" entry \"start\" cluster \"Routes\" priority 7 color \"#f3b27a\" tags \"branch,route\" at 380,220\n");
-      fw.write("arc \"Epilogue\" script \"" + STORY_EPILOGUE_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 9 color \"#d6a8ee\" tags \"ending,main\" at 760,120\n\n");
+      fw.write("arc \"" + ARC_PROLOGUE + "\" script \"" + ENTRY_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 10 color \"#84c7ff\" tags \"entry,main\" at 40,120\n");
+      fw.write("arc \"" + ARC_TUTORIAL_HUB + "\" script \"" + STORY_TUTORIAL_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 8 color \"#93ddaa\" tags \"tutorial,main\" at 380,40\n");
+      fw.write("arc \"" + ARC_BRANCH_DEMO + "\" script \"" + STORY_BRANCH_SCRIPT_PATH + "\" entry \"start\" cluster \"Routes\" priority 7 color \"#f3b27a\" tags \"branch,route\" at 380,220\n");
+      fw.write("arc \"" + ARC_EPILOGUE + "\" script \"" + STORY_EPILOGUE_SCRIPT_PATH + "\" entry \"start\" cluster \"Main\" priority 9 color \"#d6a8ee\" tags \"ending,main\" at 760,120\n\n");
 
       if (includeTutorialPack) {
-        fw.write("arc T01_Dialogue script \"" + TUTORIAL_DIALOGUE_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#84c7ff\" tags \"tutorial,dialogue\" at 760,-180\n");
-        fw.write("arc T02_Narration script \"" + TUTORIAL_NARRATION_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ad6ff\" tags \"tutorial,narration\" at 980,-180\n");
-        fw.write("arc T03_Expressions script \"" + TUTORIAL_EXPRESSIONS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ce3d7\" tags \"tutorial,characters\" at 1200,-180\n");
-        fw.write("arc T04_Images script \"" + TUTORIAL_IMAGES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#93ddaa\" tags \"tutorial,images\" at 1420,-180\n");
-        fw.write("arc T05_Transitions script \"" + TUTORIAL_TRANSITIONS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#f0c48a\" tags \"tutorial,fx\" at 760,20\n");
-        fw.write("arc T06_Audio script \"" + TUTORIAL_AUDIO_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#f3b27a\" tags \"tutorial,audio\" at 980,20\n");
-        fw.write("arc T07_Variables script \"" + TUTORIAL_VARIABLES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#efb3c8\" tags \"tutorial,logic\" at 1200,20\n");
-        fw.write("arc T08_Movement script \"" + TUTORIAL_MOVEMENT_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#d6a8ee\" tags \"tutorial,motion\" at 1420,20\n");
-        fw.write("arc T09_Puppeteer script \"" + TUTORIAL_PUPPETEER_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#c4a4ff\" tags \"tutorial,puppeteer\" at 760,220\n");
-        fw.write("arc T10_Menus script \"" + TUTORIAL_MENUS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#84c7ff\" tags \"tutorial,menus\" at 980,220\n");
-        fw.write("arc T11_Subroutines script \"" + TUTORIAL_SUBROUTINES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ad6ff\" tags \"tutorial,flow\" at 1200,220\n");
-        fw.write("arc T12_BestPractices script \"" + TUTORIAL_BEST_PRACTICES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#93ddaa\" tags \"tutorial,best_practice\" at 1420,220\n");
-        fw.write("arc T13_Camera script \"" + TUTORIAL_CAMERA_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#f0c48a\" tags \"tutorial,camera\" at 760,420\n");
-        fw.write("arc T14_Localization script \"" + TUTORIAL_LOCALIZATION_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#f3b27a\" tags \"tutorial,localization\" at 980,420\n");
-        fw.write("arc T15_UILayout script \"" + TUTORIAL_UI_LAYOUT_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#efb3c8\" tags \"tutorial,ui\" at 1200,420\n");
-        fw.write("arc T16_TestingRelease script \"" + TUTORIAL_TESTING_RELEASE_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#d6a8ee\" tags \"tutorial,testing\" at 1420,420\n\n");
+        fw.write("arc " + ARC_T01_DIALOGUE + " script \"" + TUTORIAL_DIALOGUE_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#84c7ff\" tags \"tutorial,dialogue\" at 760,-180\n");
+        fw.write("arc " + ARC_T02_NARRATION + " script \"" + TUTORIAL_NARRATION_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ad6ff\" tags \"tutorial,narration\" at 980,-180\n");
+        fw.write("arc " + ARC_T03_EXPRESSIONS + " script \"" + TUTORIAL_EXPRESSIONS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ce3d7\" tags \"tutorial,characters\" at 1200,-180\n");
+        fw.write("arc " + ARC_T04_IMAGES + " script \"" + TUTORIAL_IMAGES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#93ddaa\" tags \"tutorial,images\" at 1420,-180\n");
+        fw.write("arc " + ARC_T05_TRANSITIONS + " script \"" + TUTORIAL_TRANSITIONS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#f0c48a\" tags \"tutorial,fx\" at 760,20\n");
+        fw.write("arc " + ARC_T06_AUDIO + " script \"" + TUTORIAL_AUDIO_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#f3b27a\" tags \"tutorial,audio\" at 980,20\n");
+        fw.write("arc " + ARC_T07_VARIABLES + " script \"" + TUTORIAL_VARIABLES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#efb3c8\" tags \"tutorial,logic\" at 1200,20\n");
+        fw.write("arc " + ARC_T08_MOVEMENT + " script \"" + TUTORIAL_MOVEMENT_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#d6a8ee\" tags \"tutorial,motion\" at 1420,20\n");
+        fw.write("arc " + ARC_T09_PUPPETEER + " script \"" + TUTORIAL_PUPPETEER_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#c4a4ff\" tags \"tutorial,puppeteer\" at 760,220\n");
+        fw.write("arc " + ARC_T10_MENUS + " script \"" + TUTORIAL_MENUS_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#84c7ff\" tags \"tutorial,menus\" at 980,220\n");
+        fw.write("arc " + ARC_T11_SUBROUTINES + " script \"" + TUTORIAL_SUBROUTINES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 6 color \"#9ad6ff\" tags \"tutorial,flow\" at 1200,220\n");
+        fw.write("arc " + ARC_T12_BEST_PRACTICES + " script \"" + TUTORIAL_BEST_PRACTICES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#93ddaa\" tags \"tutorial,best_practice\" at 1420,220\n");
+        fw.write("arc " + ARC_T13_CAMERA + " script \"" + TUTORIAL_CAMERA_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#f0c48a\" tags \"tutorial,camera\" at 760,420\n");
+        fw.write("arc " + ARC_T14_LOCALIZATION + " script \"" + TUTORIAL_LOCALIZATION_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#f3b27a\" tags \"tutorial,localization\" at 980,420\n");
+        fw.write("arc " + ARC_T15_UI_LAYOUT + " script \"" + TUTORIAL_UI_LAYOUT_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#efb3c8\" tags \"tutorial,ui\" at 1200,420\n");
+        fw.write("arc " + ARC_T16_TESTING_RELEASE + " script \"" + TUTORIAL_TESTING_RELEASE_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#d6a8ee\" tags \"tutorial,testing\" at 1420,420\n\n");
       }
 
-      fw.write("link Prologue:route_tutorial -> TutorialHub:start\n");
-      fw.write("link Prologue:route_branch -> BranchDemo:start\n");
-      fw.write("link TutorialHub:start -> Epilogue:start\n");
-      fw.write("link BranchDemo:start -> Epilogue:start\n");
+      fw.write("link " + ARC_PROLOGUE + ":route_tutorial -> " + ARC_TUTORIAL_HUB + ":start\n");
+      fw.write("link " + ARC_PROLOGUE + ":route_branch -> " + ARC_BRANCH_DEMO + ":start\n");
 
       if (includeTutorialPack) {
-        fw.write("link TutorialHub:open_dialogue -> T01_Dialogue:start\n");
-        fw.write("link TutorialHub:open_narration -> T02_Narration:start\n");
-        fw.write("link TutorialHub:open_expressions -> T03_Expressions:start\n");
-        fw.write("link TutorialHub:open_images -> T04_Images:start\n");
-        fw.write("link TutorialHub:open_transitions -> T05_Transitions:start\n");
-        fw.write("link TutorialHub:open_audio -> T06_Audio:start\n");
-        fw.write("link TutorialHub:open_variables -> T07_Variables:start\n");
-        fw.write("link TutorialHub:open_movement -> T08_Movement:start\n");
-        fw.write("link TutorialHub:open_puppeteer -> T09_Puppeteer:start\n");
-        fw.write("link TutorialHub:open_menus -> T10_Menus:start\n");
-        fw.write("link TutorialHub:open_subroutines -> T11_Subroutines:start\n");
-        fw.write("link TutorialHub:open_best_practices -> T12_BestPractices:start\n");
-        fw.write("link TutorialHub:open_camera -> T13_Camera:start\n");
-        fw.write("link TutorialHub:open_localization -> T14_Localization:start\n");
-        fw.write("link TutorialHub:open_ui_layout -> T15_UILayout:start\n");
-        fw.write("link TutorialHub:open_testing_release -> T16_TestingRelease:start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_dialogue -> " + ARC_T01_DIALOGUE + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_narration -> " + ARC_T02_NARRATION + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_expressions -> " + ARC_T03_EXPRESSIONS + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_images -> " + ARC_T04_IMAGES + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_transitions -> " + ARC_T05_TRANSITIONS + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_audio -> " + ARC_T06_AUDIO + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_variables -> " + ARC_T07_VARIABLES + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_movement -> " + ARC_T08_MOVEMENT + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_puppeteer -> " + ARC_T09_PUPPETEER + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_menus -> " + ARC_T10_MENUS + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_subroutines -> " + ARC_T11_SUBROUTINES + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_best_practices -> " + ARC_T12_BEST_PRACTICES + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_camera -> " + ARC_T13_CAMERA + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_localization -> " + ARC_T14_LOCALIZATION + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_ui_layout -> " + ARC_T15_UI_LAYOUT + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_testing_release -> " + ARC_T16_TESTING_RELEASE + ":start\n");
       }
     }
   }

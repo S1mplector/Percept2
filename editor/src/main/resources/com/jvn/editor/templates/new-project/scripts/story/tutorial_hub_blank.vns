@@ -5,5 +5,6 @@
 @label start
 [show lavender center {{LAVENDER_EXPR}}]
 Narrator: This is Tutorial Hub ({{STORY_TUTORIAL_SCRIPT_PATH}}).
-Narrator: It exists to demonstrate arc-to-arc script flow.
-[goto {{EPILOGUE_TARGET}}:start]
+Narrator: Sample tutorial lessons are disabled for this project.
+Narrator: Enable \"Sample Tutorial Pack\" in the new project wizard to scaffold the full lessons.
+[end]
