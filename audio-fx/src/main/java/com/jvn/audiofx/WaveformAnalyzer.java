@@ -12,13 +12,17 @@ public final class WaveformAnalyzer {
   /** Result of a waveform analysis pass. */
   public record Analysis(
       float[] envelope,
+      float[] spectrum,
       float rms,
       float peak,
       boolean nativeAvailable
   ) {}
 
   /** Empty/zero analysis sentinel. */
-  public static final Analysis EMPTY = new Analysis(new float[0], 0f, 0f, false);
+  public static final Analysis EMPTY = new Analysis(new float[0], new float[0], 0f, 0f, false);
+
+  private static final int FFT_SIZE = 1024;
+  private static final int SPECTRUM_BANDS = 64;
 
   private static final int SAMPLE_RATE = 44_100;
   private static final int RENDER_FRAMES = 4096;
@@ -41,7 +45,7 @@ public final class WaveformAnalyzer {
    */
   public static Analysis analyze(SynthPreviewSettings settings, int envelopeBins) {
     if (settings == null || envelopeBins < 1) {
-      return new Analysis(new float[0], 0f, 0f, false);
+      return new Analysis(new float[0], new float[0], 0f, 0f, false);
     }
     requireNativeBridge();
 
@@ -252,8 +256,17 @@ public final class WaveformAnalyzer {
         if (binMax > peak) peak = binMax;
       }
 
+      // Compute spectrum from the most recent samples
+      float[] fftSamples = new float[FFT_SIZE];
+      int fftStart = available > FFT_SIZE ? (startIdx + available - FFT_SIZE) % rolling.length : startIdx;
+      int fftLen = Math.min(available, FFT_SIZE);
+      for (int i = 0; i < fftLen; i++) {
+        fftSamples[i] = rolling[(fftStart + i) % rolling.length];
+      }
+      float[] spectrum = computeSpectrum(fftSamples, fftLen, SPECTRUM_BANDS);
+
       float rms = (float) Math.sqrt(sumSq / available);
-      return new Analysis(envelope, rms, peak, nativeAvail);
+      return new Analysis(envelope, spectrum, rms, peak, nativeAvail);
     }
   }
 
@@ -264,7 +277,7 @@ public final class WaveformAnalyzer {
   private static Analysis extractAnalysis(byte[] pcm, int byteCount, int envelopeBins, boolean nativeAvailable) {
     int totalFrames = Math.min(byteCount / FRAME_BYTES, RENDER_FRAMES);
     if (totalFrames <= 0) {
-      return new Analysis(new float[Math.max(1, envelopeBins)], 0f, 0f, nativeAvailable);
+      return new Analysis(new float[Math.max(1, envelopeBins)], new float[SPECTRUM_BANDS], 0f, 0f, nativeAvailable);
     }
 
     // Decode left channel from 16-bit stereo LE
@@ -299,8 +312,103 @@ public final class WaveformAnalyzer {
       if (binMax > peak) peak = binMax;
     }
 
+    // Compute spectrum via FFT
+    float[] spectrum = computeSpectrum(samples, samples.length, SPECTRUM_BANDS);
+
     float rms = (float) Math.sqrt(sumSq / samples.length);
-    return new Analysis(envelope, rms, peak, nativeAvailable);
+    return new Analysis(envelope, spectrum, rms, peak, nativeAvailable);
+  }
+
+  // =========================================================================
+  // FFT and spectrum computation
+  // =========================================================================
+
+  /**
+   * Compute a log-scaled magnitude spectrum from time-domain samples.
+   * Uses a radix-2 Cooley-Tukey FFT with Hanning window.
+   *
+   * @param samples raw PCM samples (mono, normalized -1..1)
+   * @param count   number of valid samples in the array
+   * @param bands   number of output spectrum bands (log-frequency grouped)
+   * @return float array of magnitude values in dB (-60..0 range, clamped)
+   */
+  private static float[] computeSpectrum(float[] samples, int count, int bands) {
+    int n = FFT_SIZE;
+    // Zero-pad or truncate to FFT_SIZE
+    double[] re = new double[n];
+    double[] im = new double[n];
+    int len = Math.min(count, n);
+    // Apply Hanning window
+    for (int i = 0; i < len; i++) {
+      double window = 0.5 * (1.0 - Math.cos(2.0 * Math.PI * i / (len - 1)));
+      re[i] = samples[i] * window;
+    }
+
+    // In-place radix-2 FFT (iterative Cooley-Tukey)
+    // Bit-reversal permutation
+    int bits = Integer.numberOfTrailingZeros(n);
+    for (int i = 0; i < n; i++) {
+      int j = Integer.reverse(i) >>> (32 - bits);
+      if (j > i) {
+        double tmp = re[i]; re[i] = re[j]; re[j] = tmp;
+        tmp = im[i]; im[i] = im[j]; im[j] = tmp;
+      }
+    }
+    // FFT butterfly
+    for (int size = 2; size <= n; size *= 2) {
+      int halfSize = size / 2;
+      double angle = -2.0 * Math.PI / size;
+      double wRe = Math.cos(angle);
+      double wIm = Math.sin(angle);
+      for (int i = 0; i < n; i += size) {
+        double curRe = 1.0, curIm = 0.0;
+        for (int j = 0; j < halfSize; j++) {
+          int a = i + j;
+          int b = a + halfSize;
+          double tRe = curRe * re[b] - curIm * im[b];
+          double tIm = curRe * im[b] + curIm * re[b];
+          re[b] = re[a] - tRe;
+          im[b] = im[a] - tIm;
+          re[a] += tRe;
+          im[a] += tIm;
+          double nextRe = curRe * wRe - curIm * wIm;
+          curIm = curRe * wIm + curIm * wRe;
+          curRe = nextRe;
+        }
+      }
+    }
+
+    // Compute magnitudes for positive frequencies
+    int halfN = n / 2;
+    double[] magnitudes = new double[halfN];
+    for (int i = 0; i < halfN; i++) {
+      magnitudes[i] = Math.sqrt(re[i] * re[i] + im[i] * im[i]) / halfN;
+    }
+
+    // Group into log-frequency bands
+    float[] spectrum = new float[bands];
+    // Map FFT bins to bands using log scale
+    // Skip DC (bin 0), use bins 1..halfN-1
+    double logMin = Math.log(1);
+    double logMax = Math.log(halfN);
+    for (int b = 0; b < bands; b++) {
+      double bandLogStart = logMin + (logMax - logMin) * b / bands;
+      double bandLogEnd = logMin + (logMax - logMin) * (b + 1) / bands;
+      int binStart = Math.max(1, (int) Math.round(Math.exp(bandLogStart)));
+      int binEnd = Math.min(halfN - 1, (int) Math.round(Math.exp(bandLogEnd)));
+      if (binEnd < binStart) binEnd = binStart;
+
+      double maxMag = 0;
+      for (int i = binStart; i <= binEnd; i++) {
+        if (magnitudes[i] > maxMag) maxMag = magnitudes[i];
+      }
+
+      // Convert to dB, clamp to -60..0
+      double db = maxMag > 1e-10 ? 20.0 * Math.log10(maxMag) : -60.0;
+      spectrum[b] = (float) Math.max(-60.0, Math.min(0.0, db));
+    }
+
+    return spectrum;
   }
 
   private static void requireNativeBridge() {

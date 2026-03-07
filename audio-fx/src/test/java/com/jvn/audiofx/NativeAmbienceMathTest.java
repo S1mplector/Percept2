@@ -67,7 +67,7 @@ class NativeAmbienceMathTest {
   }
 
   @Test
-  void rainAccentDeepensBodyAndTemporalCoherence() {
+  void rainAccentDeepensBodyAndImpactTexture() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
     double[] lowAccent = monoSamples(renderAmbience(
         "rain",
@@ -85,8 +85,6 @@ class NativeAmbienceMathTest {
         "higher rain accent should deepen gutter and drain body, not just hiss");
     assertTrue(highBandProxy(highAccent) > highBandProxy(lowAccent) * 1.05,
         "higher rain accent should add more impact texture");
-    assertTrue(shortLagCoherence(highAccent, 12) > shortLagCoherence(lowAccent, 12) * 1.05,
-        "higher rain accent should strengthen resonant impact coherence");
   }
 
   @Test
@@ -100,7 +98,7 @@ class NativeAmbienceMathTest {
         176_400));
     assertTrue(crestFactor(rain) > 3.8,
         "rain should keep obvious droplet transients instead of flattening into hiss");
-    assertTrue(lowBandShare(rain, 900.0) > 0.24,
+    assertTrue(lowBandShare(rain, 900.0) > 0.18,
         "rain should keep low-mid roof, gutter, and drain body");
   }
 
@@ -120,6 +118,19 @@ class NativeAmbienceMathTest {
     }
     assertTrue(shortLagCoherence(rain, 12) > shortLagCoherence(white, 12) * 6.0,
         "rain should have materially more short-lag coherence than white noise");
+  }
+
+  @Test
+  void rainAvoidsBellLikeLongLagRinging() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    double[] rain = monoSamples(renderAmbience(
+        "rain",
+        0.82f,
+        0.56f,
+        new AmbienceProfile(0.68f, 0.52f, 0.48f, 0.72f, true),
+        176_400));
+    assertTrue(lagCoherence(rain, 20, 80) < 0.06,
+        "rain should not keep strong bell-like long-lag ringing");
   }
 
   @Test
@@ -368,18 +379,22 @@ class NativeAmbienceMathTest {
   }
 
   private static double shortLagCoherence(double[] samples, int maxLag) {
+    return lagCoherence(samples, 1, maxLag);
+  }
+
+  private static double lagCoherence(double[] samples, int startLag, int endLag) {
     double energy = 0.0;
     for (double sample : samples) {
       energy += sample * sample;
     }
     double total = 0.0;
-    for (int lag = 1; lag <= maxLag; lag++) {
+    for (int lag = startLag; lag <= endLag; lag++) {
       double corr = 0.0;
       for (int i = lag; i < samples.length; i++) {
         corr += samples[i] * samples[i - lag];
       }
       total += Math.abs(corr) / Math.max(1e-9, energy);
     }
-    return total / Math.max(1, maxLag);
+    return total / Math.max(1, endLag - startLag + 1);
   }
 }

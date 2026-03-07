@@ -19,7 +19,12 @@ private:
     float burstEnvelope = 0.0f;
     float burstDecay = 0.0f;
     float burstGain = 0.0f;
+    float tailEnvelope = 0.0f;
+    float tailDecay = 0.0f;
+    float tailGain = 0.0f;
+    float tonalMix = 0.0f;
     BiquadFilter burstFilter;
+    BiquadFilter tailFilter;
     ModalResonator modeA{44100.0f};
     ModalResonator modeB{44100.0f};
     ModalResonator modeC{44100.0f};
@@ -29,7 +34,12 @@ private:
       burstEnvelope = 0.0f;
       burstDecay = 0.0f;
       burstGain = 0.0f;
+      tailEnvelope = 0.0f;
+      tailDecay = 0.0f;
+      tailGain = 0.0f;
+      tonalMix = 0.0f;
       burstFilter.reset();
+      tailFilter.reset();
       modeA.reset();
       modeB.reset();
       modeC.reset();
@@ -46,6 +56,7 @@ private:
         return voice;
       }
       const float score = voice.burstEnvelope
+          + voice.tailEnvelope
           + (voice.modeA.isActive() ? 1.0f : 0.0f)
           + (voice.modeB.isActive() ? 1.0f : 0.0f)
           + (voice.modeC.isActive() ? 1.0f : 0.0f);

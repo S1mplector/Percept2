@@ -111,12 +111,27 @@ public class AudioSynthControlsView extends BorderPane {
   private final Label volumeValue = new Label("0.45");
   private final CheckBox loopCheck = new CheckBox("Loop");
 
-  // --- Preview / waveform ---
+  // --- Preview / visualizers ---
   private final Button btnPlay = new Button("\u25B6 Play");
   private final Button btnStop = new Button("\u25A0 Stop");
-  private final Canvas waveformCanvas = new Canvas(300, 64);
+  private final Canvas spectrumCanvas = new Canvas(300, 80);
+  private final Canvas waveformCanvas = new Canvas(300, 48);
   private final Label lblRms = new Label("RMS: —");
   private final Label lblPeak = new Label("Peak: —");
+
+  // --- Spectrum animation state ---
+  private static final int SPECTRUM_BANDS = 64;
+  private final float[] smoothedSpectrum = new float[SPECTRUM_BANDS];
+  private final float[] spectrumPeaks = new float[SPECTRUM_BANDS];
+  private final float[] spectrumPeakVel = new float[SPECTRUM_BANDS];
+  // --- Waveform scrolling buffer ---
+  private static final int WAVE_SAMPLES = 256;
+  private final float[] waveBuffer = new float[WAVE_SAMPLES];
+  private int waveWriteIdx = 0;
+  {
+    java.util.Arrays.fill(smoothedSpectrum, -60f);
+    java.util.Arrays.fill(spectrumPeaks, -60f);
+  }
 
   // --- Snippet ---
   private final Label snippetPreview = new Label("");
@@ -230,8 +245,13 @@ public class AudioSynthControlsView extends BorderPane {
     HBox previewRow = new HBox(4, btnPlay, btnStop);
     previewRow.setAlignment(Pos.CENTER);
 
-    // Waveform
-    waveformCanvas.setStyle("-fx-background-color: #0e1018;");
+    // Spectrum + Waveform visualizers
+    spectrumCanvas.setStyle("-fx-background-color: #0a0e14;");
+    waveformCanvas.setStyle("-fx-background-color: #0a0e14;");
+    Label spectrumLabel = new Label("Spectrum");
+    spectrumLabel.setStyle("-fx-font-size: 9px; -fx-text-fill: #4a5568;");
+    Label waveformLabel = new Label("Waveform");
+    waveformLabel.setStyle("-fx-font-size: 9px; -fx-text-fill: #4a5568;");
     lblRms.setStyle("-fx-font-size: 10px; -fx-text-fill: #68a0d0;");
     lblPeak.setStyle("-fx-font-size: 10px; -fx-text-fill: #d08868;");
     HBox metersRow = new HBox(12, lblRms, lblPeak);
@@ -266,7 +286,8 @@ public class AudioSynthControlsView extends BorderPane {
         sectionLabel("Common"), sharedGrid, loopCheck,
         new Separator(),
         sectionLabel("Preview"), previewRow,
-        waveformCanvas, metersRow,
+        spectrumLabel, spectrumCanvas,
+        waveformLabel, waveformCanvas, metersRow,
         new Separator(),
         sectionLabel("VNS Command"), snippetPreview, snippetBtns,
         new Separator(),
@@ -283,6 +304,7 @@ public class AudioSynthControlsView extends BorderPane {
     root.widthProperty().addListener((obs, o, n) -> {
       double w = n.doubleValue() - 20;
       if (w > 40) {
+        spectrumCanvas.setWidth(w);
         waveformCanvas.setWidth(w);
         if (!playing) requestSnapshot();
       }
@@ -382,7 +404,7 @@ public class AudioSynthControlsView extends BorderPane {
       btnPlay.setDisable(false);
       btnStop.setDisable(true);
       stopStreaming();
-      drawWaveformError(errorSummary(ex));
+      drawVisualizerError(errorSummary(ex));
       refreshDiagnosticsFromController();
     }
   }
@@ -432,7 +454,7 @@ public class AudioSynthControlsView extends BorderPane {
       public void handle(long now) {
         WaveformAnalyzer.Analysis a = streamingAnalyzer.latest();
         if (a != null && a.envelope().length > 0) {
-          drawWaveform(a);
+          drawAnalysis(a);
         }
       }
     };
@@ -450,9 +472,9 @@ public class AudioSynthControlsView extends BorderPane {
     pendingSnapshot = snapshotExecutor.schedule(() -> {
       try {
         WaveformAnalyzer.Analysis a = WaveformAnalyzer.analyze(snap, WAVEFORM_BINS);
-        Platform.runLater(() -> drawWaveform(a));
+        Platform.runLater(() -> drawAnalysis(a));
       } catch (RuntimeException ex) {
-        Platform.runLater(() -> drawWaveformError(errorSummary(ex)));
+        Platform.runLater(() -> drawVisualizerError(errorSummary(ex)));
       }
     }, 50, TimeUnit.MILLISECONDS);
   }
@@ -464,98 +486,235 @@ public class AudioSynthControlsView extends BorderPane {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  //  Drawing — dual spectrum + waveform visualizer
+  // ═══════════════════════════════════════════════════════════════════
+
+  private void drawAnalysis(WaveformAnalyzer.Analysis analysis) {
+    if (analysis == null) {
+      drawVisualizerError("No data");
+      return;
+    }
+    drawSpectrum(analysis);
+    drawWaveform(analysis);
+
+    lblRms.setText(String.format("RMS: %.4f", analysis.rms()));
+    lblPeak.setText(String.format("Peak: %.4f", analysis.peak()));
+  }
+
+  // --- Spectrum bars (top canvas) ---
+
+  private void drawSpectrum(WaveformAnalyzer.Analysis analysis) {
+    double w = spectrumCanvas.getWidth();
+    double h = spectrumCanvas.getHeight();
+    GraphicsContext gc = spectrumCanvas.getGraphicsContext2D();
+
+    // Background
+    gc.setFill(Color.web("#0a0e14"));
+    gc.fillRect(0, 0, w, h);
+
+    // Subtle grid lines
+    gc.setStroke(Color.web("#141a24"));
+    gc.setLineWidth(0.5);
+    for (double frac : new double[]{0.25, 0.5, 0.75}) {
+      gc.strokeLine(0, h * frac, w, h * frac);
+    }
+
+    float[] spec = analysis.spectrum();
+    if (spec == null || spec.length == 0) {
+      gc.setFill(Color.web("#404858"));
+      gc.fillText(!analysis.nativeAvailable() ? "Native unavailable" : "No spectrum data", 8, h / 2);
+      return;
+    }
+
+    int bands = Math.min(spec.length, SPECTRUM_BANDS);
+    double bandW = w / bands;
+    double barW = Math.max(1, bandW * 0.75);
+    double gap = (bandW - barW) / 2.0;
+
+    // Smooth spectrum and animate peaks
+    for (int i = 0; i < bands; i++) {
+      float target = spec[i];
+      // Exponential smoothing — fast attack, slower decay
+      if (target > smoothedSpectrum[i]) {
+        smoothedSpectrum[i] += (target - smoothedSpectrum[i]) * 0.45f;
+      } else {
+        smoothedSpectrum[i] += (target - smoothedSpectrum[i]) * 0.12f;
+      }
+      // Peak hold with gravity fall
+      if (smoothedSpectrum[i] > spectrumPeaks[i]) {
+        spectrumPeaks[i] = smoothedSpectrum[i];
+        spectrumPeakVel[i] = 0;
+      } else {
+        spectrumPeakVel[i] += 0.08f;
+        spectrumPeaks[i] -= spectrumPeakVel[i];
+        if (spectrumPeaks[i] < -60f) spectrumPeaks[i] = -60f;
+      }
+    }
+
+    // Draw bars with gradient
+    for (int i = 0; i < bands; i++) {
+      double norm = (60 + smoothedSpectrum[i]) / 60.0;
+      norm = Math.max(0, Math.min(1, norm));
+      double barH = norm * h * 0.92;
+      double x = i * bandW + gap;
+      double y = h - barH;
+
+      // Frequency-dependent color: bass=cyan, mid=blue, treble=purple
+      double freqT = (double) i / bands;
+      Color barBase = interpolateSpectrumColor(freqT);
+      Color barTop = barBase.brighter();
+      Color barBottom = barBase.darker().darker();
+
+      javafx.scene.paint.LinearGradient gradient = new javafx.scene.paint.LinearGradient(
+          0, y, 0, h, false, null,
+          new javafx.scene.paint.Stop(0, barTop),
+          new javafx.scene.paint.Stop(0.5, barBase),
+          new javafx.scene.paint.Stop(1, barBottom)
+      );
+      gc.setFill(gradient);
+      gc.fillRect(x, y, barW, barH);
+
+      // Subtle inner highlight
+      gc.setFill(Color.color(1, 1, 1, 0.06 * norm));
+      gc.fillRect(x, y, barW * 0.4, barH);
+
+      // Peak cap
+      double peakNorm = (60 + spectrumPeaks[i]) / 60.0;
+      peakNorm = Math.max(0, Math.min(1, peakNorm));
+      if (peakNorm > norm + 0.01) {
+        double peakY = h - peakNorm * h * 0.92;
+        gc.setFill(Color.color(1, 1, 1, 0.8));
+        gc.fillRect(x - 0.5, peakY - 1, barW + 1, 2);
+      }
+    }
+
+    // dB scale labels
+    gc.setFill(Color.web("#2a3444", 0.6));
+    gc.fillText("-20dB", 2, h * 0.33 + 3);
+    gc.fillText("-40dB", 2, h * 0.67 + 3);
+  }
+
+  private static Color interpolateSpectrumColor(double t) {
+    // Bass: warm cyan (#40c8e0) → Mid: blue (#4080f0) → Treble: purple (#9060e0)
+    if (t < 0.5) {
+      double f = t * 2.0;
+      return Color.web("#40c8e0").interpolate(Color.web("#4080f0"), f);
+    } else {
+      double f = (t - 0.5) * 2.0;
+      return Color.web("#4080f0").interpolate(Color.web("#9060e0"), f);
+    }
+  }
+
+  // --- Waveform oscilloscope (bottom canvas) ---
+
   private void drawWaveform(WaveformAnalyzer.Analysis analysis) {
     double w = waveformCanvas.getWidth();
     double h = waveformCanvas.getHeight();
     GraphicsContext gc = waveformCanvas.getGraphicsContext2D();
 
     // Background
-    gc.setFill(Color.web("#0e1018"));
+    gc.setFill(Color.web("#0a0e14"));
     gc.fillRect(0, 0, w, h);
 
-    // Grid lines
-    gc.setStroke(Color.web("#1a2030"));
-    gc.setLineWidth(0.5);
-    double midY = h / 2.0;
-    gc.strokeLine(0, midY, w, midY);
-    gc.strokeLine(0, h * 0.25, w, h * 0.25);
-    gc.strokeLine(0, h * 0.75, w, h * 0.75);
-
-    if (analysis == null || analysis.envelope().length == 0) {
-      gc.setFill(Color.web("#404858"));
-      gc.fillText(analysis != null && !analysis.nativeAvailable() ? "Native unavailable" : "No data",
-          w / 2 - 48, midY + 4);
-      lblRms.setText("RMS: —");
-      lblPeak.setText("Peak: —");
-      return;
-    }
-
     float[] env = analysis.envelope();
-    int bins = env.length;
-    double binW = w / bins;
+    if (env == null || env.length == 0) return;
 
-    // Waveform bars (mirrored)
-    gc.setFill(Color.web("#3080d0", 0.7));
-    gc.setStroke(Color.web("#50a0f0", 0.9));
-    gc.setLineWidth(1.0);
-
-    gc.beginPath();
-    for (int i = 0; i < bins; i++) {
-      double x = i * binW;
-      double ampH = env[i] * midY * 0.92;
-      gc.moveTo(x + binW * 0.5, midY - ampH);
-      gc.lineTo(x + binW * 0.5, midY + ampH);
+    // Feed envelope into scrolling buffer
+    int step = Math.max(1, env.length / 8);
+    for (int i = 0; i < env.length; i += step) {
+      waveBuffer[waveWriteIdx % WAVE_SAMPLES] = env[i];
+      waveWriteIdx++;
     }
-    gc.stroke();
 
-    // Fill envelope area
-    gc.setFill(Color.web("#2060a0", 0.25));
+    double midY = h / 2.0;
+
+    // Center line
+    gc.setStroke(Color.web("#141a24"));
+    gc.setLineWidth(0.5);
+    gc.strokeLine(0, midY, w, midY);
+
+    // Draw mirrored waveform from scrolling buffer
+    int readStart = (waveWriteIdx - WAVE_SAMPLES + WAVE_SAMPLES * 100) % WAVE_SAMPLES;
+    double xStep = w / (WAVE_SAMPLES - 1);
+
+    // Fill area (mirrored)
+    gc.setFill(Color.web("#3080d0", 0.15));
     gc.beginPath();
     gc.moveTo(0, midY);
-    for (int i = 0; i < bins; i++) {
-      double x = i * binW + binW * 0.5;
-      double ampH = env[i] * midY * 0.92;
+    for (int i = 0; i < WAVE_SAMPLES; i++) {
+      double x = i * xStep;
+      float amp = waveBuffer[(readStart + i) % WAVE_SAMPLES];
+      double ampH = amp * midY * 0.88;
       gc.lineTo(x, midY - ampH);
     }
     gc.lineTo(w, midY);
-    for (int i = bins - 1; i >= 0; i--) {
-      double x = i * binW + binW * 0.5;
-      double ampH = env[i] * midY * 0.92;
+    for (int i = WAVE_SAMPLES - 1; i >= 0; i--) {
+      double x = i * xStep;
+      float amp = waveBuffer[(readStart + i) % WAVE_SAMPLES];
+      double ampH = amp * midY * 0.88;
       gc.lineTo(x, midY + ampH);
     }
     gc.closePath();
     gc.fill();
 
-    // RMS line
-    double rmsY = analysis.rms() * midY * 0.92;
-    gc.setStroke(Color.web("#68a0d0", 0.5));
+    // Stroke upper line
+    gc.setStroke(Color.web("#50a0f0", 0.8));
+    gc.setLineWidth(1.2);
+    gc.beginPath();
+    for (int i = 0; i < WAVE_SAMPLES; i++) {
+      double x = i * xStep;
+      float amp = waveBuffer[(readStart + i) % WAVE_SAMPLES];
+      double y = midY - amp * midY * 0.88;
+      if (i == 0) gc.moveTo(x, y); else gc.lineTo(x, y);
+    }
+    gc.stroke();
+
+    // Stroke lower line (mirrored)
+    gc.setStroke(Color.web("#50a0f0", 0.4));
     gc.setLineWidth(0.8);
+    gc.beginPath();
+    for (int i = 0; i < WAVE_SAMPLES; i++) {
+      double x = i * xStep;
+      float amp = waveBuffer[(readStart + i) % WAVE_SAMPLES];
+      double y = midY + amp * midY * 0.88;
+      if (i == 0) gc.moveTo(x, y); else gc.lineTo(x, y);
+    }
+    gc.stroke();
+
+    // RMS dashed line
+    double rmsH = analysis.rms() * midY * 0.88;
+    gc.setStroke(Color.web("#68a0d0", 0.35));
+    gc.setLineWidth(0.6);
     gc.setLineDashes(3, 3);
-    gc.strokeLine(0, midY - rmsY, w, midY - rmsY);
-    gc.strokeLine(0, midY + rmsY, w, midY + rmsY);
+    gc.strokeLine(0, midY - rmsH, w, midY - rmsH);
+    gc.strokeLine(0, midY + rmsH, w, midY + rmsH);
     gc.setLineDashes();
 
-    // Peak line
-    double peakY = analysis.peak() * midY * 0.92;
-    gc.setStroke(Color.web("#d08868", 0.4));
-    gc.setLineWidth(0.8);
+    // Peak dashed line
+    double peakH = analysis.peak() * midY * 0.88;
+    gc.setStroke(Color.web("#d08868", 0.25));
+    gc.setLineWidth(0.6);
     gc.setLineDashes(2, 4);
-    gc.strokeLine(0, midY - peakY, w, midY - peakY);
-    gc.strokeLine(0, midY + peakY, w, midY + peakY);
+    gc.strokeLine(0, midY - peakH, w, midY - peakH);
+    gc.strokeLine(0, midY + peakH, w, midY + peakH);
     gc.setLineDashes();
-
-    lblRms.setText(String.format("RMS: %.4f", analysis.rms()));
-    lblPeak.setText(String.format("Peak: %.4f", analysis.peak()));
   }
 
-  private void drawWaveformError(String message) {
-    double w = waveformCanvas.getWidth();
-    double h = waveformCanvas.getHeight();
-    GraphicsContext gc = waveformCanvas.getGraphicsContext2D();
-    gc.setFill(Color.web("#0e1018"));
-    gc.fillRect(0, 0, w, h);
+  private void drawVisualizerError(String message) {
+    // Clear both canvases
+    for (Canvas c : new Canvas[]{spectrumCanvas, waveformCanvas}) {
+      double w = c.getWidth();
+      double h = c.getHeight();
+      GraphicsContext gc = c.getGraphicsContext2D();
+      gc.setFill(Color.web("#0a0e14"));
+      gc.fillRect(0, 0, w, h);
+    }
+    // Show error on spectrum canvas
+    GraphicsContext gc = spectrumCanvas.getGraphicsContext2D();
     gc.setFill(Color.web("#f08868"));
-    gc.fillText(message == null || message.isBlank() ? "Native renderer unavailable" : message, 8, h / 2.0);
+    gc.fillText(message == null || message.isBlank() ? "Native renderer unavailable" : message,
+        8, spectrumCanvas.getHeight() / 2.0);
     lblRms.setText("RMS: —");
     lblPeak.setText("Peak: —");
   }

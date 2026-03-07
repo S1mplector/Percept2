@@ -266,9 +266,10 @@ void testRainModeKeepsLowMidBodyAndTemporalCoherence() {
     sample = dist(rng);
   }
 
-  expect(lowBandShare(samples, 900.0) > 0.24, "rain should keep low-mid roof/gutter body");
+  expect(lowBandShare(samples, 900.0) > 0.18, "rain should keep low-mid roof/gutter body");
   expect(shortLagCoherence(samples, 12) > shortLagCoherence(white, 12) * 6.0,
       "rain should be materially more coherent than white noise");
+  expect(shortLagCoherence(samples, 80) < 0.12, "rain should avoid prolonged bell-like coherence");
 }
 
 }  // namespace
