@@ -228,6 +228,28 @@ bool GustGenerator::isActive() const noexcept {
   return active_;
 }
 
+DcBlocker::DcBlocker(float cutoffHz, float sampleRate)
+    : cutoffHz_(cutoffHz), sampleRate_(sampleRate > 1.0f ? sampleRate : 44100.0f) {
+  setSampleRate(sampleRate_);
+}
+
+void DcBlocker::setSampleRate(float sampleRate) {
+  sampleRate_ = sampleRate > 1.0f ? sampleRate : 44100.0f;
+  coefficient_ = std::exp(-2.0f * kPi * cutoffHz_ / sampleRate_);
+}
+
+void DcBlocker::reset() {
+  x1_ = 0.0f;
+  y1_ = 0.0f;
+}
+
+float DcBlocker::process(float input) {
+  const float output = input - x1_ + coefficient_ * y1_;
+  x1_ = input;
+  y1_ = output;
+  return output;
+}
+
 void SharedLfoBank::setSampleRate(float sampleRate) {
   slow.setSampleRate(sampleRate);
   medium.setSampleRate(sampleRate);
@@ -264,6 +286,7 @@ void WindState::setSampleRate(float sampleRate) {
 void WindState::reset(float initialGustTimer) {
   gustTimer = initialGustTimer;
   whistlePhase = 0.0f;
+  whistleOvertonePhase = 0.0f;
   gust.reset();
   lowPassLow.reset();
   lowPassMid.reset();
@@ -275,15 +298,20 @@ void WindState::reset(float initialGustTimer) {
 
 void RainState::reset(float initialDropTimer) {
   dropletEnvelope = 0.0f;
+  impactEnvelope = 0.0f;
+  impactPhase = 0.0f;
+  impactFrequency = 1200.0f;
   dropTimer = initialDropTimer;
   bedLowPass.reset();
   bedHighPass.reset();
   hissHighPass.reset();
   dropBandPass.reset();
+  impactBandPass.reset();
 }
 
 void OceanState::reset(float initialCrashTimer) {
   crashEnvelope = 0.0f;
+  backwashEnvelope = 0.0f;
   crashTimer = initialCrashTimer;
   swellLowPass.reset();
   washBandPass.reset();
@@ -291,6 +319,7 @@ void OceanState::reset(float initialCrashTimer) {
   undertowLowPass.reset();
   crashBandPass.reset();
   sprayHighPass.reset();
+  backwashBandPass.reset();
 }
 
 void ThunderState::reset(float initialBoltTimer, float initialDropTimer) {
@@ -299,6 +328,7 @@ void ThunderState::reset(float initialBoltTimer, float initialDropTimer) {
   boltEnvelope = 0.0f;
   boltTimer = initialBoltTimer;
   boltDecayRate = 0.9990f;
+  rollDelaySeconds = 0.0f;
   dropEnvelope = 0.0f;
   dropTimer = initialDropTimer;
   rumbleLowPass.reset();
@@ -306,6 +336,26 @@ void ThunderState::reset(float initialBoltTimer, float initialDropTimer) {
   rainHighPass.reset();
   subBassLowPass.reset();
   dropBandPass.reset();
+}
+
+void MasterState::setSampleRate(float sampleRate) {
+  dcBlocker.setSampleRate(sampleRate);
+}
+
+void MasterState::reset() {
+  dcBlocker.reset();
+  limiterEnvelope = 0.0f;
+  limiterGain = 1.0f;
+}
+
+float MasterState::process(float input) {
+  const float dcSafe = dcBlocker.process(input);
+  const float absolute = std::abs(dcSafe);
+  limiterEnvelope = std::max(absolute, limiterEnvelope * 0.9996f);
+  const float targetGain = limiterEnvelope > 0.92f ? (0.92f / limiterEnvelope) : 1.0f;
+  const float slew = targetGain < limiterGain ? 0.035f : 0.0015f;
+  limiterGain += (targetGain - limiterGain) * slew;
+  return std::clamp(dcSafe * limiterGain, -1.0f, 1.0f);
 }
 
 void FireplaceState::reset(float initialCrackleTimer, float initialPopTimer, float initialSnapTimer) {
@@ -342,6 +392,7 @@ LoomAmbienceSynthCore::LoomAmbienceSynthCore(int sampleRate) : sampleRate_(sampl
   const float sampleRateF = static_cast<float>(sampleRate_);
   lfos_.setSampleRate(sampleRateF);
   wind_.setSampleRate(sampleRateF);
+  master_.setSampleRate(sampleRateF);
   updateFilters();
 }
 
@@ -368,6 +419,7 @@ void LoomAmbienceSynthCore::configure(
   lfos_.reset();
   noise_.reset();
   resetDynamicState();
+  master_.reset();
   updateFilters();
 }
 
@@ -513,6 +565,11 @@ void LoomAmbienceSynthCore::updateFilters() {
       1400.0f + controls_.detail * 1600.0f + controls_.accent * 500.0f,
       1.0f + controls_.accent * 0.7f,
       sr);
+  rain_.impactBandPass.setCoefficients(
+      BiquadFilter::Type::BandPass,
+      650.0f + controls_.detail * 950.0f + controls_.accent * 220.0f,
+      1.4f + controls_.detail * 0.8f,
+      sr);
 
   ocean_.swellLowPass.setCoefficients(
       BiquadFilter::Type::LowPass,
@@ -543,6 +600,11 @@ void LoomAmbienceSynthCore::updateFilters() {
       BiquadFilter::Type::HighPass,
       4000.0f + controls_.detail * 2000.0f,
       0.6f,
+      sr);
+  ocean_.backwashBandPass.setCoefficients(
+      BiquadFilter::Type::BandPass,
+      240.0f + controls_.detail * 280.0f + controls_.motion * 90.0f,
+      0.9f + controls_.motion * 0.5f,
       sr);
 
   thunder_.rumbleLowPass.setCoefficients(
@@ -690,14 +752,23 @@ float LoomAmbienceSynthCore::synthesizeWindSample() {
       + gustEnvelope * 360.0f;
   wind_.whistlePhase += whistleFreq * dt;
   if (wind_.whistlePhase > 1.0f) wind_.whistlePhase -= std::floor(wind_.whistlePhase);
+  wind_.whistleOvertonePhase += whistleFreq * (1.92f + medMod * 0.06f) * dt;
+  if (wind_.whistleOvertonePhase > 1.0f) {
+    wind_.whistleOvertonePhase -= std::floor(wind_.whistleOvertonePhase);
+  }
   const float whistle = std::sin(wind_.whistlePhase * 2.0f * kPi)
       * whistleDrive * whistleDrive
       * (0.015f + controls_.detail * 0.055f + controls_.accent * 0.040f);
+  const float overtone = std::sin(wind_.whistleOvertonePhase * 2.0f * kPi)
+      * whistleDrive * whistleDrive * whistleDrive
+      * (0.003f + controls_.detail * 0.015f + controls_.accent * 0.010f);
 
   const float edgeFlutter = wind_.lowPassHigh.process(wind_.highPassHigh.process(noise_.gust.white()))
       * whistleDrive * (0.010f + controls_.detail * 0.020f);
 
-  return std::tanh((lowLayer + midLayer + highLayer + gustLayer + speedWhoosh + whistle + edgeFlutter) * 0.60f);
+  return std::tanh(
+      (lowLayer + midLayer + highLayer + gustLayer + speedWhoosh + whistle + overtone + edgeFlutter)
+      * 0.60f);
 }
 
 float LoomAmbienceSynthCore::synthesizeRainSample() {
@@ -719,17 +790,33 @@ float LoomAmbienceSynthCore::synthesizeRainSample() {
     rain_.dropletEnvelope = std::max(
         rain_.dropletEnvelope,
         (0.14f + controls_.intensity * 0.22f + controls_.accent * 0.30f) * randomRange(0.85f, 1.20f));
+    if (nextRandom01() < (0.18f + controls_.intensity * 0.42f + controls_.accent * 0.14f)) {
+      rain_.impactEnvelope = std::max(
+          rain_.impactEnvelope,
+          (0.10f + controls_.intensity * 0.18f + controls_.accent * 0.12f) * randomRange(0.88f, 1.15f));
+      rain_.impactFrequency =
+          randomRange(520.0f + controls_.detail * 280.0f, 1350.0f + controls_.detail * 850.0f);
+    }
     const float dropRateHz =
         8.0f + controls_.intensity * 18.0f + controls_.accent * 3.0f + controls_.motion * 5.0f;
     rain_.dropTimer = sampleEventInterval(dropRateHz, 0.008f);
   }
   rain_.dropletEnvelope *= 0.9935f - controls_.intensity * 0.0015f - controls_.motion * 0.0008f;
+  rain_.impactEnvelope *= 0.9895f - controls_.motion * 0.0012f;
+  rain_.impactPhase += rain_.impactFrequency * dt;
+  if (rain_.impactPhase > 1.0f) rain_.impactPhase -= std::floor(rain_.impactPhase);
   float drop = rain_.dropBandPass.process(noise_.drop.white()) * rain_.dropletEnvelope;
   drop *= 0.36f + slowMod * 0.16f + controls_.accent * 0.10f;
   float splash = rain_.hissHighPass.process(noise_.drop.white());
   splash *= rain_.dropletEnvelope * (0.10f + controls_.detail * 0.10f + controls_.accent * 0.12f);
+  float impactRing = std::sin(rain_.impactPhase * 2.0f * kPi);
+  impactRing = rain_.impactBandPass.process(impactRing);
+  impactRing *= rain_.impactEnvelope * rain_.impactEnvelope
+      * (0.14f + controls_.detail * 0.10f + controls_.accent * 0.08f);
+  float gutter = rain_.impactBandPass.process(noise_.mid.pink());
+  gutter *= rain_.impactEnvelope * (0.08f + controls_.intensity * 0.06f + controls_.motion * 0.04f);
 
-  return std::tanh((bed + hiss + drop + splash) * (0.72f + density * 0.28f));
+  return std::tanh((bed + hiss + drop + splash + impactRing + gutter) * (0.72f + density * 0.28f));
 }
 
 float LoomAmbienceSynthCore::synthesizeOceanSample() {
@@ -768,20 +855,28 @@ float LoomAmbienceSynthCore::synthesizeOceanSample() {
   if (ocean_.crashTimer <= 0.0f && crest > randomRange(0.32f, 0.68f)) {
     ocean_.crashEnvelope =
         (0.34f + controls_.intensity * 0.34f + controls_.accent * 0.34f) * randomRange(0.88f, 1.18f);
+    ocean_.backwashEnvelope = std::max(
+        ocean_.backwashEnvelope,
+        ocean_.crashEnvelope * randomRange(0.28f, 0.48f));
     const float crashRateHz = 0.06f + controls_.intensity * 0.16f + controls_.accent * 0.04f;
     ocean_.crashTimer = sampleEventInterval(crashRateHz, 0.65f);
   }
   ocean_.crashEnvelope *= 0.9975f - controls_.motion * 0.0006f;
+  const float backwashDrive = std::max(0.0f, (1.0f - crest) * (0.28f + ocean_.crashEnvelope * 0.45f));
+  ocean_.backwashEnvelope += (backwashDrive - ocean_.backwashEnvelope) * 0.0012f;
+  ocean_.backwashEnvelope *= 0.9990f - controls_.motion * 0.0004f;
   float crash = ocean_.crashBandPass.process(noise_.oceanFoam.pink());
   crash *= ocean_.crashEnvelope * (0.26f + controls_.detail * 0.20f + controls_.accent * 0.18f);
   float crashSpray = ocean_.sprayHighPass.process(noise_.oceanFoam.white());
   crashSpray *= ocean_.crashEnvelope * ocean_.crashEnvelope
       * (0.05f + controls_.detail * 0.08f + controls_.accent * 0.06f);
+  float backwash = ocean_.backwashBandPass.process(noise_.mid.pink());
+  backwash *= ocean_.backwashEnvelope * (0.10f + controls_.motion * 0.08f + controls_.detail * 0.04f);
 
   float roar = noise_.mid.filtered(0.04f + controls_.intensity * 0.06f, 0.1f + controls_.accent * 0.1f);
   roar *= (0.05f + controls_.intensity * 0.07f) * (lfos_.slow.sine() * 0.5f + 0.5f);
 
-  return std::tanh((undertow + swell + wash + foam + spray + crash + crashSpray + roar) * 0.78f);
+  return std::tanh((undertow + swell + wash + foam + spray + crash + crashSpray + backwash + roar) * 0.78f);
 }
 
 float LoomAmbienceSynthCore::synthesizeThunderSample() {
@@ -805,12 +900,14 @@ float LoomAmbienceSynthCore::synthesizeThunderSample() {
     thunder_.boltEnvelope = 0.85f + controls_.intensity * 0.15f;
     thunder_.crackEnvelope = 0.92f + controls_.detail * 0.12f + controls_.accent * 0.08f;
     thunder_.boltDecayRate = 0.9980f + nextRandom01() * 0.0016f;
+    thunder_.rollDelaySeconds = randomRange(0.018f, 0.085f) + (1.0f - controls_.motion) * 0.025f;
     const float boltRateHz =
         0.08f + controls_.intensity * 0.20f + controls_.accent * 0.04f + controls_.motion * 0.05f;
     thunder_.boltTimer = sampleEventInterval(boltRateHz, 1.0f);
   }
   thunder_.boltEnvelope *= thunder_.boltDecayRate;
   thunder_.crackEnvelope *= 0.9865f - controls_.detail * 0.0025f;
+  thunder_.rollDelaySeconds = std::max(0.0f, thunder_.rollDelaySeconds - dt);
 
   const float brightPhase = thunder_.crackEnvelope * thunder_.crackEnvelope;
   float crack = thunder_.crackBandPass.process(noise_.thunderBolt.white());
@@ -818,7 +915,9 @@ float LoomAmbienceSynthCore::synthesizeThunderSample() {
   float crackAir = thunder_.rainHighPass.process(noise_.thunderBolt.white());
   crackAir *= thunder_.crackEnvelope * (0.02f + controls_.detail * 0.04f + controls_.accent * 0.10f);
 
-  const float bodyPhase = thunder_.boltEnvelope * (1.0f - std::min(0.55f, brightPhase * 0.35f));
+  const float bodyGate = thunder_.rollDelaySeconds <= 0.0f ? 1.0f : 0.0f;
+  const float bodyPhase =
+      bodyGate * thunder_.boltEnvelope * (1.0f - std::min(0.55f, brightPhase * 0.35f));
   float boltRumble = thunder_.rumbleLowPass.process(noise_.thunderBolt.brown());
   boltRumble *= bodyPhase * (0.4f + controls_.intensity * 0.3f);
 
@@ -992,7 +1091,7 @@ float LoomAmbienceSynthCore::nextMonoSample() {
   if (!controls_.loop && elapsedSeconds_ >= kAutoStopSeconds) {
     finished_ = true;
   }
-  return sample * controls_.volume * (0.18f + 0.82f * controls_.intensity);
+  return master_.process(sample * controls_.volume * (0.18f + 0.82f * controls_.intensity));
 }
 
 }  // namespace jvn::audiofx::detail

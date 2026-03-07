@@ -2,7 +2,9 @@ package com.jvn.audiofx;
 
 import java.util.Arrays;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
@@ -178,6 +180,58 @@ class AudioFxNativeBridgeTest {
     double highTexture = highBandProxy(monoSamples(highDetail));
     assertTrue(highTexture > lowTexture * 1.10,
         "detail should increase high-band ocean texture");
+  }
+
+  @Test
+  void presetAliasesResolveToDeterministicCanonicalOutput() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    AmbienceProfile profile = new AmbienceProfile(0.67f, 0.58f, 0.44f, 0.73f, true);
+    assertArrayEquals(
+        renderAmbience("rain", 0.81f, 0.55f, profile, 44_100),
+        renderAmbience("storm", 0.81f, 0.55f, profile, 44_100));
+    assertArrayEquals(
+        renderAmbience("ocean", 0.81f, 0.55f, profile, 44_100),
+        renderAmbience("surf", 0.81f, 0.55f, profile, 44_100));
+    assertArrayEquals(
+        renderAmbience("thunder", 0.81f, 0.55f, profile, 44_100),
+        renderAmbience("lightning", 0.81f, 0.55f, profile, 44_100));
+    assertArrayEquals(
+        renderAmbience("fireplace", 0.81f, 0.55f, profile, 44_100),
+        renderAmbience("campfire", 0.81f, 0.55f, profile, 44_100));
+    assertArrayEquals(
+        renderAmbience("night_insects", 0.81f, 0.55f, profile, 44_100),
+        renderAmbience("cricket", 0.81f, 0.55f, profile, 44_100));
+  }
+
+  @Test
+  void nonLoopingAmbienceStopsAndReturnsSilenceAfterTimeout() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    AmbienceProfile profile = new AmbienceProfile(0.72f, 0.52f, 0.60f, 0.66f, false);
+    try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
+      renderer.configure("thunder", 0.86f, 0.55f, profile);
+      byte[] chunk = new byte[4096 * 4];
+      int totalFrames = 0;
+      while (!renderer.isFinished() && totalFrames < 44_100 * 18) {
+        int written = renderer.render(chunk, 4096);
+        assertEquals(chunk.length, written);
+        totalFrames += 4096;
+      }
+      assertTrue(renderer.isFinished(), "non-looping ambience should auto-stop");
+      byte[] after = new byte[4096 * 4];
+      int writtenAfterStop = renderer.render(after, 4096);
+      assertEquals(after.length, writtenAfterStop);
+      assertEquals(0L, sampleEnergy(after), "finished renderer should emit silence");
+    }
+  }
+
+  @Test
+  void zeroFrameRenderReturnsZeroWithoutChangingState() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
+      renderer.configure("wind", 0.82f, 0.55f, AmbienceProfile.defaults());
+      assertEquals(0, renderer.render(new byte[0], 0));
+      assertFalse(renderer.isFinished(), "zero-frame render should not finish renderer");
+    }
   }
 
   private static byte[] renderAmbience(String preset, AmbienceProfile profile) {

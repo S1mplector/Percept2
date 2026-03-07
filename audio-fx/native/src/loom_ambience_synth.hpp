@@ -96,6 +96,22 @@ private:
   std::mt19937 rng_;
 };
 
+class DcBlocker {
+public:
+  explicit DcBlocker(float cutoffHz = 18.0f, float sampleRate = 44100.0f);
+
+  void setSampleRate(float sampleRate);
+  void reset();
+  float process(float input);
+
+private:
+  float cutoffHz_;
+  float sampleRate_;
+  float coefficient_ = 0.995f;
+  float x1_ = 0.0f;
+  float y1_ = 0.0f;
+};
+
 struct RenderControls {
   float intensity = 0.65f;
   float volume = 0.45f;
@@ -138,6 +154,7 @@ struct SharedNoiseBank {
 struct WindState {
   float gustTimer = 0.0f;
   float whistlePhase = 0.0f;
+  float whistleOvertonePhase = 0.0f;
   GustGenerator gust{44100.0f, 0xABCDEF01u};
   BiquadFilter lowPassLow;
   BiquadFilter lowPassMid;
@@ -152,17 +169,22 @@ struct WindState {
 
 struct RainState {
   float dropletEnvelope = 0.0f;
+  float impactEnvelope = 0.0f;
+  float impactPhase = 0.0f;
+  float impactFrequency = 1200.0f;
   float dropTimer = 0.0f;
   BiquadFilter bedLowPass;
   BiquadFilter bedHighPass;
   BiquadFilter hissHighPass;
   BiquadFilter dropBandPass;
+  BiquadFilter impactBandPass;
 
   void reset(float initialDropTimer);
 };
 
 struct OceanState {
   float crashEnvelope = 0.0f;
+  float backwashEnvelope = 0.0f;
   float crashTimer = 0.0f;
   BiquadFilter swellLowPass;
   BiquadFilter washBandPass;
@@ -170,6 +192,7 @@ struct OceanState {
   BiquadFilter undertowLowPass;
   BiquadFilter crashBandPass;
   BiquadFilter sprayHighPass;
+  BiquadFilter backwashBandPass;
 
   void reset(float initialCrashTimer);
 };
@@ -180,6 +203,7 @@ struct ThunderState {
   float boltEnvelope = 0.0f;
   float boltTimer = 0.0f;
   float boltDecayRate = 0.9990f;
+  float rollDelaySeconds = 0.0f;
   float dropEnvelope = 0.0f;
   float dropTimer = 0.0f;
   BiquadFilter rumbleLowPass;
@@ -189,6 +213,16 @@ struct ThunderState {
   BiquadFilter dropBandPass;
 
   void reset(float initialBoltTimer, float initialDropTimer);
+};
+
+struct MasterState {
+  DcBlocker dcBlocker{18.0f, 44100.0f};
+  float limiterEnvelope = 0.0f;
+  float limiterGain = 1.0f;
+
+  void setSampleRate(float sampleRate);
+  void reset();
+  float process(float input);
 };
 
 struct FireplaceState {
@@ -278,6 +312,7 @@ private:
   ThunderState thunder_{};
   FireplaceState fireplace_{};
   NightInsectsState insects_{};
+  MasterState master_{};
 };
 
 }  // namespace jvn::audiofx::detail
