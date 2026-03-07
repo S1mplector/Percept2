@@ -1,7 +1,7 @@
 package com.jvn.editor.ui;
 
-import java.io.File;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -194,6 +194,11 @@ public class FileEditorTab extends BorderPane {
     else if (menuStyleEditor != null) menuStyleEditor.showSearchBar();
     else if (dialogueLayoutEditor != null) dialogueLayoutEditor.showSearchBar();
     else if (textEditor != null) textEditor.showSearchBar();
+  }
+
+  public void insertVnsSnippet(String snippet) {
+    if (kind != Kind.VNS || vnsEditor == null || snippet == null) return;
+    vnsEditor.insertSnippet(snippet);
   }
 
   public void launchFromHere() {

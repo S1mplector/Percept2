@@ -710,7 +710,7 @@ public class VnsCodeEditor extends BorderPane {
     return gutter;
   }
 
-  private void insertSnippet(String s) {
+  void insertSnippet(String s) {
     int pos = codeArea.getCaretPosition();
     codeArea.insertText(pos, s);
   }

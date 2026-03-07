@@ -18,6 +18,7 @@ import java.util.Properties;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
+import com.jvn.audiofx.AudioFxController;
 import com.jvn.editor.ui.AudioSynthControlsView;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorTheme;
@@ -133,6 +134,7 @@ public class EditorApp extends Application {
   private PuppeteerLauncherPanel puppeteerLauncherPanel;
   private ScriptEditorLauncherView scriptEditorLauncherView;
   private AudioSynthControlsView audioSynthControlsView;
+  private AudioFxController audioFxController;
   private Tab tabAudioSynthControls;
   private Tab tabPuppeteerLauncher;
   private final CommandStack commands = new CommandStack();
@@ -1049,7 +1051,15 @@ public class EditorApp extends Application {
     });
     scriptEditorLauncherView = new ScriptEditorLauncherView();
     scriptEditorLauncherView.setProjectRoot(projectRoot);
+    audioFxController = new AudioFxController();
     audioSynthControlsView = new AudioSynthControlsView();
+    audioSynthControlsView.setController(audioFxController);
+    audioSynthControlsView.setOnInsertSnippet(snippet -> {
+      FileEditorTab ft = getActiveFileTab();
+      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+        ft.insertVnsSnippet(snippet);
+      }
+    });
     rightTabs = new TabPane();
     helpCenterView = new HelpCenterView();
     helpCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
