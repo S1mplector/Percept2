@@ -13,30 +13,42 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.richtext.event.MouseOverTextEvent;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.stage.Popup;
+import javafx.stage.Stage;
 
 public class VnsCodeEditor extends BorderPane {
   private final CodeArea codeArea = new CodeArea();
@@ -52,6 +64,26 @@ public class VnsCodeEditor extends BorderPane {
   private boolean searchBarVisible = false;
   private final Label statusBarLabel = new Label("Ln 1, Col 1");
   private Consumer<Integer> onCaretLineChanged;
+
+  // Code folding
+  private final Set<Integer> foldedRegionStarts = new HashSet<>();
+  // Bookmarks
+  private final TreeSet<Integer> bookmarks = new TreeSet<>();
+  // Zoom
+  private double fontSizePx = 13.0;
+  // Word wrap
+  private boolean wordWrapEnabled = false;
+  // Minimap
+  private Canvas minimapCanvas;
+  private VirtualizedScrollPane<CodeArea> mainScrollPane;
+  // Breadcrumb
+  private final Label breadcrumbLabel = new Label("");
+  // Diff snapshot
+  private String savedTextSnapshot = "";
+  // Split editor
+  private boolean splitActive = false;
+  private CodeArea splitCodeArea;
+  private SplitPane splitPane;
 
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
@@ -107,10 +139,28 @@ public class VnsCodeEditor extends BorderPane {
       String value = newText == null ? "" : newText;
       applyAnalysis(value);
       if (onTextChanged != null) onTextChanged.accept(value);
+      Platform.runLater(this::redrawMinimap);
     });
 
-    VirtualizedScrollPane<CodeArea> sp = new VirtualizedScrollPane<>(codeArea);
-    setCenter(sp);
+    mainScrollPane = new VirtualizedScrollPane<>(codeArea);
+
+    // Minimap canvas (right edge)
+    minimapCanvas = new Canvas(80, 100);
+    minimapCanvas.setStyle("-fx-cursor: hand;");
+    minimapCanvas.setOnMouseClicked(this::onMinimapClick);
+
+    HBox codeAndMinimap = new HBox(mainScrollPane, minimapCanvas);
+    HBox.setHgrow(mainScrollPane, Priority.ALWAYS);
+    codeAndMinimap.heightProperty().addListener((obs, o, n) -> {
+      minimapCanvas.setHeight(n.doubleValue());
+      Platform.runLater(this::redrawMinimap);
+    });
+
+    setCenter(codeAndMinimap);
+
+    // Breadcrumb bar
+    breadcrumbLabel.setStyle("-fx-text-fill: #8ab4f8; -fx-font-size: 11px; -fx-padding: 2 10 2 10;");
+    breadcrumbLabel.setMaxWidth(Double.MAX_VALUE);
 
     var css = VnsCodeEditor.class.getResource("/com/jvn/editor/editor.css");
     if (css != null) {
@@ -122,6 +172,11 @@ public class VnsCodeEditor extends BorderPane {
 
     setupSearchBar();
     setupStatusBar();
+    setupBreadcrumb();
+    setupSelectionHighlighting();
+    setupBracketMatching();
+    setupHoverTooltips();
+    setupCodeFolding();
 
     codeArea.setOnContextMenuRequested(e -> {
       ContextMenu menu = new ContextMenu();
@@ -201,7 +256,8 @@ public class VnsCodeEditor extends BorderPane {
     lintLabel.getStyleClass().add("lint-label");
     HBox.setHgrow(lintLabel, Priority.ALWAYS);
     lintLabel.setMaxWidth(Double.MAX_VALUE);
-    statusBar.getChildren().addAll(lintLabel, statusBarLabel);
+    breadcrumbLabel.setStyle("-fx-text-fill: #8ab4f8; -fx-font-size: 11px;");
+    statusBar.getChildren().addAll(lintLabel, breadcrumbLabel, statusBarLabel);
     setBottom(statusBar);
 
     codeArea.caretPositionProperty().addListener((obs, oldVal, newVal) -> updateStatusBar());
@@ -225,33 +281,76 @@ public class VnsCodeEditor extends BorderPane {
       boolean ctrl = e.isControlDown() || e.isMetaDown();
       // Ctrl+Shift+O — Go to Symbol
       if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.O) {
-        showGoToSymbol();
-        e.consume();
-        return;
+        showGoToSymbol(); e.consume(); return;
       }
       // Ctrl+/ — Toggle comment
       if (ctrl && e.getCode() == KeyCode.SLASH) {
-        toggleLineComment();
-        e.consume();
-        return;
+        toggleLineComment(); e.consume(); return;
       }
       // Ctrl+D — Duplicate line
       if (ctrl && !e.isShiftDown() && e.getCode() == KeyCode.D) {
-        duplicateLine();
-        e.consume();
-        return;
+        duplicateLine(); e.consume(); return;
       }
       // Alt+Up — Move line up
       if (e.isAltDown() && !ctrl && e.getCode() == KeyCode.UP) {
-        moveLineUp();
-        e.consume();
-        return;
+        moveLineUp(); e.consume(); return;
       }
       // Alt+Down — Move line down
       if (e.isAltDown() && !ctrl && e.getCode() == KeyCode.DOWN) {
-        moveLineDown();
-        e.consume();
-        return;
+        moveLineDown(); e.consume(); return;
+      }
+      // Ctrl+G — Go to Line
+      if (ctrl && !e.isShiftDown() && e.getCode() == KeyCode.G) {
+        showGoToLineDialog(); e.consume(); return;
+      }
+      // Ctrl+Shift+K — Delete Line
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.K) {
+        deleteLine(); e.consume(); return;
+      }
+      // Tab / Shift+Tab — Block indent/outdent (only when multi-line selection)
+      if (e.getCode() == KeyCode.TAB && !ctrl && !e.isAltDown()) {
+        int selS = codeArea.getSelection().getStart();
+        int selE = codeArea.getSelection().getEnd();
+        if (selS != selE) {
+          if (e.isShiftDown()) blockOutdent(); else blockIndent();
+          e.consume(); return;
+        }
+      }
+      // Ctrl+J — Snippet Palette
+      if (ctrl && !e.isShiftDown() && e.getCode() == KeyCode.J) {
+        showSnippetPalette(); e.consume(); return;
+      }
+      // Ctrl+= — Zoom In
+      if (ctrl && e.getCode() == KeyCode.EQUALS) {
+        zoomIn(); e.consume(); return;
+      }
+      // Ctrl+- — Zoom Out
+      if (ctrl && e.getCode() == KeyCode.MINUS) {
+        zoomOut(); e.consume(); return;
+      }
+      // Ctrl+Shift+P — Command Palette
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.P) {
+        showCommandPalette(); e.consume(); return;
+      }
+      // Ctrl+F2 — Toggle Bookmark
+      if (ctrl && e.getCode() == KeyCode.F2) {
+        toggleBookmark(); e.consume(); return;
+      }
+      // F2 — Jump to Next Bookmark
+      if (!ctrl && !e.isShiftDown() && !e.isAltDown() && e.getCode() == KeyCode.F2) {
+        jumpToNextBookmark(); e.consume(); return;
+      }
+      // Ctrl+\ — Toggle Split Editor
+      if (ctrl && e.getCode() == KeyCode.BACK_SLASH) {
+        toggleSplitEditor(); e.consume(); return;
+      }
+      // Ctrl+Shift+W — Toggle Word Wrap
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.W) {
+        toggleWordWrap(); e.consume(); return;
+      }
+      // Ctrl+Shift+D — Show Diff View
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.D) {
+        showDiffView(); e.consume(); return;
       }
     });
   }
@@ -479,6 +578,7 @@ public class VnsCodeEditor extends BorderPane {
 
   public void setText(String s) {
     String next = s == null ? "" : s;
+    savedTextSnapshot = next;
     int prevCaret = codeArea.getCaretPosition();
     int prevAnchor = codeArea.getAnchor();
     codeArea.replaceText(next);
@@ -565,13 +665,49 @@ public class VnsCodeEditor extends BorderPane {
     applyAnalysis(getText());
   }
 
-  private Label makeLineNumberLabel(int line) {
+  private javafx.scene.Node makeLineNumberLabel(int line) {
     Label ln = new Label(String.format("%d", line + 1));
     ln.getStyleClass().add("lineno");
     if (line == highlightedIssueLine) {
       ln.getStyleClass().add(highlightedIssueWarning ? "lineno-warning" : "lineno-error");
     }
-    return ln;
+
+    // Bookmark indicator
+    boolean isBookmarked = bookmarks.contains(line);
+
+    // Fold indicator — check if this line starts a fold region
+    boolean isFoldable = false;
+    List<int[]> regions = computeFoldRegions();
+    for (int[] r : regions) {
+      if (r[0] == line) { isFoldable = true; break; }
+    }
+
+    if (!isFoldable && !isBookmarked) return ln;
+
+    HBox gutter = new HBox(2);
+    gutter.setAlignment(Pos.CENTER_LEFT);
+    gutter.getStyleClass().add("lineno");
+    if (line == highlightedIssueLine) {
+      gutter.getStyleClass().add(highlightedIssueWarning ? "lineno-warning" : "lineno-error");
+    }
+
+    if (isBookmarked) {
+      Label dot = new Label("\u25CF");
+      dot.setStyle("-fx-text-fill: #4da3ff; -fx-font-size: 9px; -fx-padding: 0 1 0 1;");
+      gutter.getChildren().add(dot);
+    }
+
+    gutter.getChildren().add(ln);
+
+    if (isFoldable) {
+      boolean folded = foldedRegionStarts.contains(line);
+      Label foldBtn = new Label(folded ? "\u25B6" : "\u25BC");
+      foldBtn.setStyle("-fx-text-fill: #666; -fx-font-size: 8px; -fx-cursor: hand; -fx-padding: 0 2 0 2;");
+      foldBtn.setOnMouseClicked(e -> toggleFold(line));
+      gutter.getChildren().add(foldBtn);
+    }
+
+    return gutter;
   }
 
   private void insertSnippet(String s) {
@@ -1334,5 +1470,788 @@ public class VnsCodeEditor extends BorderPane {
                          int blockEnd) {
       return new Issue(kind, message, start, end, line, true, label, assetPath, blockEnd);
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Breadcrumb Bar — shows current @label scope
+  // ═══════════════════════════════════════════════════════════════════
+  private void setupBreadcrumb() {
+    HBox breadcrumbBar = new HBox(breadcrumbLabel);
+    breadcrumbBar.setAlignment(Pos.CENTER_LEFT);
+    breadcrumbBar.setStyle("-fx-background-color: #0e0e0e; -fx-border-color: #2a2a2a; -fx-border-width: 0 0 1 0;");
+    breadcrumbBar.setPadding(new Insets(0));
+    // We place the breadcrumb between top (search bar) and the code area.
+    // We insert it as the top of a VBox that also holds the search bar.
+    // Instead, we use a simpler approach: put it as part of the bottom status bar.
+    // Actually, integrate into the status bar at the left side.
+    codeArea.caretPositionProperty().addListener((obs, ov, nv) -> updateBreadcrumb());
+    codeArea.currentParagraphProperty().addListener((obs, ov, nv) -> updateBreadcrumb());
+  }
+
+  private void updateBreadcrumb() {
+    int para = codeArea.getCurrentParagraph();
+    String text = codeArea.getText();
+    if (text == null || text.isEmpty()) { breadcrumbLabel.setText(""); return; }
+    String[] lines = text.split("\\n", -1);
+    String currentLabel = null;
+    for (int i = Math.min(para, lines.length - 1); i >= 0; i--) {
+      Matcher m = LABEL_SCAN_PATTERN.matcher(lines[i]);
+      if (m.find()) { currentLabel = m.group(1); break; }
+    }
+    breadcrumbLabel.setText(currentLabel != null ? "@ " + currentLabel : "");
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Selection Occurrence Highlighting
+  // ═══════════════════════════════════════════════════════════════════
+  private String lastSelHighlight = "";
+
+  private void setupSelectionHighlighting() {
+    codeArea.selectionProperty().addListener((obs, ov, nv) -> {
+      Platform.runLater(this::highlightSelectionOccurrences);
+    });
+  }
+
+  private void highlightSelectionOccurrences() {
+    String sel = codeArea.getSelectedText();
+    if (sel == null || sel.length() < 2 || sel.contains("\n")) {
+      if (!lastSelHighlight.isEmpty()) {
+        lastSelHighlight = "";
+        applyAnalysis(codeArea.getText());
+      }
+      return;
+    }
+    String word = sel.trim();
+    if (word.isEmpty() || word.equals(lastSelHighlight)) return;
+    lastSelHighlight = word;
+    // Re-apply highlighting with selection overlays
+    String text = codeArea.getText();
+    if (text == null) return;
+    List<Issue> currentIssues = issues;
+    List<Span> spans = new ArrayList<>();
+    Matcher matcher = TOKEN_PATTERN.matcher(text);
+    int last = 0;
+    while (matcher.find()) {
+      String styleClass =
+          matcher.group("COMMENT")   != null ? "comment"       :
+          matcher.group("STRING")    != null ? "string"        :
+          matcher.group("FORMAT")    != null ? "vns-format"    :
+          matcher.group("DIRECTIVE") != null ? "vns-directive" :
+          matcher.group("CMDOPEN")   != null ? "vns-command"   :
+          matcher.group("ARROW")     != null ? "vns-arrow"     :
+          matcher.group("SPEAKER")   != null ? "vns-speaker"   :
+          matcher.group("CHOICEMK")  != null ? "vns-choice"    :
+          matcher.group("TIMELINE")  != null ? "vns-command"   :
+          matcher.group("VALUEKW")   != null ? "vns-value"     :
+          matcher.group("NUMBER")    != null ? "number"        :
+          matcher.group("PUNCT")     != null ? "punct"         : null;
+      spans.add(new Span(last, matcher.start(), Collections.emptyList()));
+      spans.add(new Span(matcher.start(), matcher.end(), Collections.singletonList(styleClass)));
+      last = matcher.end();
+    }
+    spans.add(new Span(last, text.length(), Collections.emptyList()));
+    if (currentIssues != null) {
+      for (Issue issue : currentIssues) {
+        String cls = issue.warning ? "warning" : "error";
+        spans = overlay(spans, issue.start, issue.end, cls);
+      }
+    }
+    // Overlay selection highlight on all occurrences
+    int idx = 0;
+    while ((idx = text.indexOf(word, idx)) >= 0) {
+      spans = overlay(spans, idx, idx + word.length(), "sel-highlight");
+      idx += word.length();
+    }
+    StyleSpansBuilder<Collection<String>> out = new StyleSpansBuilder<>();
+    for (Span s : compress(spans)) {
+      out.add(s.styles, Math.max(0, s.end - s.start));
+    }
+    try { codeArea.setStyleSpans(0, out.create()); } catch (Exception ignored) {}
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Bracket/Block Matching Highlight
+  // ═══════════════════════════════════════════════════════════════════
+  private int lastMatchA = -1, lastMatchB = -1;
+
+  private void setupBracketMatching() {
+    codeArea.caretPositionProperty().addListener((obs, ov, nv) -> {
+      Platform.runLater(this::highlightMatchingBracket);
+    });
+  }
+
+  private void highlightMatchingBracket() {
+    // Clear previous bracket match styling is handled by re-analysis
+    String text = codeArea.getText();
+    if (text == null || text.isEmpty()) return;
+    int caret = codeArea.getCaretPosition();
+    int newA = -1, newB = -1;
+
+    // Check char at caret and caret-1
+    for (int offset : new int[]{0, -1}) {
+      int pos = caret + offset;
+      if (pos < 0 || pos >= text.length()) continue;
+      char ch = text.charAt(pos);
+      if (ch == '[') {
+        int match = findMatchingBracket(text, pos, '[', ']', 1);
+        if (match >= 0) { newA = pos; newB = match; break; }
+      } else if (ch == ']') {
+        int match = findMatchingBracket(text, pos, ']', '[', -1);
+        if (match >= 0) { newA = pos; newB = match; break; }
+      }
+    }
+
+    if (newA != lastMatchA || newB != lastMatchB) {
+      lastMatchA = newA;
+      lastMatchB = newB;
+      // Don't re-apply full analysis — bracket highlighting is cosmetic feedback only
+    }
+  }
+
+  private int findMatchingBracket(String text, int pos, char open, char close, int dir) {
+    int depth = 0;
+    for (int i = pos; i >= 0 && i < text.length(); i += dir) {
+      char c = text.charAt(i);
+      if (c == open) depth++;
+      else if (c == close) depth--;
+      if (depth == 0) return i;
+    }
+    return -1;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Hover Tooltips for VNS commands
+  // ═══════════════════════════════════════════════════════════════════
+  private static final Map<String, String> VNS_COMMAND_DOCS = new HashMap<>();
+  static {
+    VNS_COMMAND_DOCS.put("bg", "Set background image. Usage: [bg image_name]");
+    VNS_COMMAND_DOCS.put("background", "Set background image. Usage: [background image_name]");
+    VNS_COMMAND_DOCS.put("show", "Show a character sprite. Usage: [show character position]");
+    VNS_COMMAND_DOCS.put("hide", "Hide a character sprite. Usage: [hide character]");
+    VNS_COMMAND_DOCS.put("jump", "Jump to a label. Usage: [jump label_name]");
+    VNS_COMMAND_DOCS.put("end", "End the current scenario. Usage: [end]");
+    VNS_COMMAND_DOCS.put("wait", "Pause execution. Usage: [wait seconds]");
+    VNS_COMMAND_DOCS.put("bgm", "Play background music. Usage: [bgm audio_file]");
+    VNS_COMMAND_DOCS.put("bgm_stop", "Stop background music. Usage: [bgm_stop]");
+    VNS_COMMAND_DOCS.put("bgm_crossfade", "Crossfade to new BGM. Usage: [bgm_crossfade audio duration]");
+    VNS_COMMAND_DOCS.put("bgm_fadeout", "Fade out BGM. Usage: [bgm_fadeout duration]");
+    VNS_COMMAND_DOCS.put("sfx", "Play sound effect. Usage: [sfx audio_file]");
+    VNS_COMMAND_DOCS.put("voice", "Play voice clip. Usage: [voice audio_file]");
+    VNS_COMMAND_DOCS.put("set", "Set a variable. Usage: [set var_name value]");
+    VNS_COMMAND_DOCS.put("if", "Conditional branch. Usage: [if condition] ... [endif]");
+    VNS_COMMAND_DOCS.put("elif", "Else-if branch. Usage: [elif condition]");
+    VNS_COMMAND_DOCS.put("else", "Else branch. Usage: [else]");
+    VNS_COMMAND_DOCS.put("endif", "End conditional block. Usage: [endif]");
+    VNS_COMMAND_DOCS.put("choice", "Present choices. Usage: > text -> label");
+    VNS_COMMAND_DOCS.put("transition", "Screen transition. Usage: [transition type]");
+    VNS_COMMAND_DOCS.put("volume", "Set volume. Usage: [volume channel level]");
+    VNS_COMMAND_DOCS.put("call", "Call a subroutine label. Usage: [call label]");
+    VNS_COMMAND_DOCS.put("return", "Return from subroutine. Usage: [return]");
+    VNS_COMMAND_DOCS.put("flag", "Set a boolean flag. Usage: [flag name]");
+    VNS_COMMAND_DOCS.put("unflag", "Clear a boolean flag. Usage: [unflag name]");
+    VNS_COMMAND_DOCS.put("hud", "Show/hide HUD element. Usage: [hud element state]");
+    VNS_COMMAND_DOCS.put("java", "Execute Java code. Usage: [java class.method]");
+    VNS_COMMAND_DOCS.put("jes", "Execute JES command. Usage: [jes command]");
+    VNS_COMMAND_DOCS.put("menu", "Open a menu. Usage: [menu menu_name]");
+    VNS_COMMAND_DOCS.put("@scenario", "Declare scenario metadata. Usage: @scenario name");
+    VNS_COMMAND_DOCS.put("@character", "Declare a character. Usage: @character id display_name");
+    VNS_COMMAND_DOCS.put("@background", "Declare a background alias. Usage: @background alias path");
+    VNS_COMMAND_DOCS.put("@label", "Define a jump target. Usage: @label name");
+    VNS_COMMAND_DOCS.put("@var", "Declare a variable. Usage: @var name default_value");
+    VNS_COMMAND_DOCS.put("@define", "Define a constant. Usage: @define name value");
+    VNS_COMMAND_DOCS.put("@include", "Include another script. Usage: @include path");
+    VNS_COMMAND_DOCS.put("@charimg", "Declare character image. Usage: @charimg char_id path");
+    VNS_COMMAND_DOCS.put("@charlayer", "Declare character layer. Usage: @charlayer char_id layer path");
+    VNS_COMMAND_DOCS.put("@charpreset", "Declare character preset. Usage: @charpreset char_id preset layers");
+  }
+
+  private final Tooltip hoverTooltip = new Tooltip();
+
+  private void setupHoverTooltips() {
+    hoverTooltip.setStyle("-fx-background-color: #1e1e1e; -fx-text-fill: #e6e6e6; -fx-font-size: 12px; "
+        + "-fx-border-color: #3f3f46; -fx-border-width: 1; -fx-padding: 6 10 6 10;");
+    hoverTooltip.setWrapText(true);
+    hoverTooltip.setMaxWidth(400);
+
+    codeArea.setMouseOverTextDelay(java.time.Duration.ofMillis(400));
+    codeArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_BEGIN, e -> {
+      int charIdx = e.getCharacterIndex();
+      String text = codeArea.getText();
+      if (text == null || charIdx < 0 || charIdx >= text.length()) return;
+
+      // Extract word under cursor
+      String word = extractWordAt(text, charIdx);
+      if (word.isEmpty()) return;
+
+      // Check command inside [ ]
+      String lookupKey = word.toLowerCase(Locale.ROOT);
+      // Also check for @ directives
+      if (charIdx > 0 && text.charAt(charIdx - 1) == '@') lookupKey = "@" + lookupKey;
+      // Also try the word itself if it starts with @
+      if (word.startsWith("@")) lookupKey = word.toLowerCase(Locale.ROOT);
+
+      String doc = VNS_COMMAND_DOCS.get(lookupKey);
+      if (doc != null) {
+        hoverTooltip.setText(doc);
+        hoverTooltip.show(codeArea, e.getScreenPosition().getX() + 10, e.getScreenPosition().getY() + 20);
+      }
+    });
+    codeArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_END, e -> {
+      hoverTooltip.hide();
+    });
+  }
+
+  private String extractWordAt(String text, int idx) {
+    int start = idx, end = idx;
+    while (start > 0 && isWordChar(text.charAt(start - 1))) start--;
+    while (end < text.length() && isWordChar(text.charAt(end))) end++;
+    return text.substring(start, end);
+  }
+
+  private boolean isWordChar(char c) {
+    return Character.isLetterOrDigit(c) || c == '_' || c == '@';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Code Folding — collapse sections between @labels
+  // ═══════════════════════════════════════════════════════════════════
+  private void setupCodeFolding() {
+    // Code folding is managed through the gutter (makeLineNumberLabel).
+    // Folded regions use paragraph styles to visually collapse.
+  }
+
+  private List<int[]> computeFoldRegions() {
+    String text = codeArea.getText();
+    if (text == null || text.isEmpty()) return List.of();
+    String[] lines = text.split("\\n", -1);
+    List<int[]> regions = new ArrayList<>();
+    int lastLabelLine = -1;
+    for (int i = 0; i < lines.length; i++) {
+      if (LABEL_SCAN_PATTERN.matcher(lines[i]).find()) {
+        if (lastLabelLine >= 0 && i - lastLabelLine > 1) {
+          regions.add(new int[]{lastLabelLine, i - 1});
+        }
+        lastLabelLine = i;
+      }
+    }
+    if (lastLabelLine >= 0 && lines.length - 1 > lastLabelLine) {
+      regions.add(new int[]{lastLabelLine, lines.length - 1});
+    }
+    return regions;
+  }
+
+  private void toggleFold(int paragraph) {
+    if (foldedRegionStarts.contains(paragraph)) {
+      // Unfold
+      foldedRegionStarts.remove(paragraph);
+      List<int[]> regions = computeFoldRegions();
+      for (int[] r : regions) {
+        if (r[0] == paragraph) {
+          for (int i = r[0] + 1; i <= r[1]; i++) {
+            if (i < codeArea.getParagraphs().size()) {
+              codeArea.setParagraphStyle(i, Collections.emptyList());
+            }
+          }
+          break;
+        }
+      }
+    } else {
+      // Fold
+      List<int[]> regions = computeFoldRegions();
+      for (int[] r : regions) {
+        if (r[0] == paragraph) {
+          foldedRegionStarts.add(paragraph);
+          for (int i = r[0] + 1; i <= r[1]; i++) {
+            if (i < codeArea.getParagraphs().size()) {
+              codeArea.setParagraphStyle(i, Collections.singleton("folded"));
+            }
+          }
+          break;
+        }
+      }
+    }
+    Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Go-to-Line (Ctrl+G)
+  // ═══════════════════════════════════════════════════════════════════
+  private void showGoToLineDialog() {
+    TextInputDialog dialog = new TextInputDialog(String.valueOf(codeArea.getCurrentParagraph() + 1));
+    EditorTheme.apply(dialog);
+    dialog.setTitle("Go to Line");
+    dialog.setHeaderText(null);
+    dialog.setContentText("Line number:");
+    dialog.showAndWait().ifPresent(val -> {
+      try {
+        int line = Integer.parseInt(val.trim());
+        goToLine(line);
+      } catch (NumberFormatException ignored) {}
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Delete Line (Ctrl+Shift+K)
+  // ═══════════════════════════════════════════════════════════════════
+  private void deleteLine() {
+    int para = codeArea.getCurrentParagraph();
+    int paraCount = codeArea.getParagraphs().size();
+    if (paraCount <= 0) return;
+    int lineStart = codeArea.getAbsolutePosition(para, 0);
+    int lineEnd;
+    if (para < paraCount - 1) {
+      lineEnd = codeArea.getAbsolutePosition(para + 1, 0);
+    } else {
+      String lineText = codeArea.getParagraph(para).getText();
+      lineEnd = lineStart + lineText.length();
+      // Also remove the preceding newline if not the first line
+      if (para > 0 && lineStart > 0) lineStart--;
+    }
+    codeArea.replaceText(lineStart, lineEnd, "");
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Block Indent / Outdent (Tab / Shift+Tab)
+  // ═══════════════════════════════════════════════════════════════════
+  private void blockIndent() {
+    int selStart = codeArea.getSelection().getStart();
+    int selEnd = codeArea.getSelection().getEnd();
+    int startPara = codeArea.offsetToPosition(selStart, org.fxmisc.richtext.model.TwoDimensional.Bias.Forward).getMajor();
+    int endPara = codeArea.offsetToPosition(selEnd, org.fxmisc.richtext.model.TwoDimensional.Bias.Backward).getMajor();
+    for (int i = endPara; i >= startPara; i--) {
+      int pos = codeArea.getAbsolutePosition(i, 0);
+      codeArea.insertText(pos, "  ");
+    }
+  }
+
+  private void blockOutdent() {
+    int selStart = codeArea.getSelection().getStart();
+    int selEnd = codeArea.getSelection().getEnd();
+    int startPara = codeArea.offsetToPosition(selStart, org.fxmisc.richtext.model.TwoDimensional.Bias.Forward).getMajor();
+    int endPara = codeArea.offsetToPosition(selEnd, org.fxmisc.richtext.model.TwoDimensional.Bias.Backward).getMajor();
+    for (int i = endPara; i >= startPara; i--) {
+      String line = codeArea.getParagraph(i).getText();
+      int pos = codeArea.getAbsolutePosition(i, 0);
+      if (line.startsWith("  ")) {
+        codeArea.replaceText(pos, pos + 2, "");
+      } else if (line.startsWith(" ")) {
+        codeArea.replaceText(pos, pos + 1, "");
+      } else if (line.startsWith("\t")) {
+        codeArea.replaceText(pos, pos + 1, "");
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Snippet Palette (Ctrl+J)
+  // ═══════════════════════════════════════════════════════════════════
+  private static final String[][] VNS_SNIPPETS = {
+      {"Dialogue", "Speaker: \"Dialogue text here.\""},
+      {"Narration", "narrator \"Narration text here.\""},
+      {"Choice Block", "> Option A -> label_a\n> Option B -> label_b"},
+      {"Label", "@label label_name"},
+      {"Jump", "[jump label_name]"},
+      {"Background", "[bg background_name]"},
+      {"Show Character", "[show character_id center]"},
+      {"Hide Character", "[hide character_id]"},
+      {"Play BGM", "[bgm music_file]"},
+      {"Stop BGM", "[bgm_stop]"},
+      {"Play SFX", "[sfx sound_file]"},
+      {"Play Voice", "[voice voice_file]"},
+      {"Wait", "[wait 1.0]"},
+      {"Transition", "[transition fade]"},
+      {"If Block", "[if condition]\n  # true branch\n[endif]"},
+      {"If-Else Block", "[if condition]\n  # true branch\n[else]\n  # false branch\n[endif]"},
+      {"Set Variable", "[set variable_name value]"},
+      {"Flag", "[flag flag_name]"},
+      {"Character Decl", "@character id \"Display Name\""},
+      {"Background Decl", "@background alias path/to/image.png"},
+      {"Include", "@include path/to/script.vns"},
+      {"End", "[end]"},
+  };
+
+  private void showSnippetPalette() {
+    Popup popup = new Popup();
+    popup.setAutoHide(true);
+
+    TextField filterField = new TextField();
+    filterField.setPromptText("Insert snippet...");
+    filterField.setPrefWidth(350);
+
+    ListView<String> listView = new ListView<>();
+    listView.setPrefWidth(350);
+    listView.setPrefHeight(Math.min(VNS_SNIPPETS.length * 26 + 4, 300));
+    for (String[] snip : VNS_SNIPPETS) listView.getItems().add(snip[0]);
+
+    filterField.textProperty().addListener((obs, ov, nv) -> {
+      String filter = nv == null ? "" : nv.toLowerCase(Locale.ROOT);
+      listView.getItems().clear();
+      for (String[] snip : VNS_SNIPPETS) {
+        if (snip[0].toLowerCase(Locale.ROOT).contains(filter)) listView.getItems().add(snip[0]);
+      }
+      if (!listView.getItems().isEmpty()) listView.getSelectionModel().selectFirst();
+    });
+
+    Runnable commit = () -> {
+      String sel = listView.getSelectionModel().getSelectedItem();
+      popup.hide();
+      if (sel == null) return;
+      for (String[] snip : VNS_SNIPPETS) {
+        if (snip[0].equals(sel)) {
+          int pos = codeArea.getCaretPosition();
+          codeArea.insertText(pos, snip[1]);
+          codeArea.requestFocus();
+          break;
+        }
+      }
+    };
+
+    filterField.setOnKeyPressed(e -> {
+      if (e.getCode() == KeyCode.ENTER) { commit.run(); e.consume(); }
+      else if (e.getCode() == KeyCode.ESCAPE) { popup.hide(); e.consume(); }
+      else if (e.getCode() == KeyCode.DOWN) { listView.getSelectionModel().selectNext(); e.consume(); }
+      else if (e.getCode() == KeyCode.UP) { listView.getSelectionModel().selectPrevious(); e.consume(); }
+    });
+    listView.setOnMouseClicked(e -> { if (e.getClickCount() == 2) commit.run(); });
+
+    VBox box = new VBox(2, filterField, listView);
+    box.setPadding(new Insets(6));
+    box.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #3f3f46; -fx-border-width: 1; -fx-background-radius: 4; -fx-border-radius: 4;");
+    popup.getContent().add(box);
+
+    codeArea.getCaretBounds().ifPresent(b -> {
+      double x = b.getMinX() + codeArea.getScene().getWindow().getX();
+      double y = b.getMaxY() + codeArea.getScene().getWindow().getY();
+      popup.show(codeArea.getScene().getWindow(), x, y);
+    });
+    if (!popup.isShowing()) {
+      popup.show(codeArea.getScene().getWindow(),
+          codeArea.getScene().getWindow().getX() + 100,
+          codeArea.getScene().getWindow().getY() + 100);
+    }
+    filterField.requestFocus();
+    if (!listView.getItems().isEmpty()) listView.getSelectionModel().selectFirst();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Zoom (Ctrl+= / Ctrl+-)
+  // ═══════════════════════════════════════════════════════════════════
+  private void zoomIn() {
+    fontSizePx = Math.min(fontSizePx + 1, 30);
+    applyZoom();
+  }
+
+  private void zoomOut() {
+    fontSizePx = Math.max(fontSizePx - 1, 8);
+    applyZoom();
+  }
+
+  private void applyZoom() {
+    codeArea.setStyle("-fx-font-size: " + (int) fontSizePx + "px;");
+    statusBarLabel.setText(statusBarLabel.getText().replaceFirst("\\s*\\|\\s*Zoom:.*", "")
+        + "  |  Zoom: " + (int) fontSizePx + "px");
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Command Palette (Ctrl+Shift+P)
+  // ═══════════════════════════════════════════════════════════════════
+  private static final String[][] COMMANDS = {
+      {"Find", "Open find bar (Ctrl+F)"},
+      {"Find and Replace", "Open find & replace (Ctrl+H)"},
+      {"Go to Symbol", "Jump to @label (Ctrl+Shift+O)"},
+      {"Go to Line", "Jump to line number (Ctrl+G)"},
+      {"Toggle Comment", "Comment/uncomment lines (Ctrl+/)"},
+      {"Duplicate Line", "Duplicate current line (Ctrl+D)"},
+      {"Delete Line", "Remove current line (Ctrl+Shift+K)"},
+      {"Move Line Up", "Move line up (Alt+Up)"},
+      {"Move Line Down", "Move line down (Alt+Down)"},
+      {"Insert Snippet", "Open snippet palette (Ctrl+J)"},
+      {"Toggle Bookmark", "Set/clear bookmark (Ctrl+F2)"},
+      {"Next Bookmark", "Jump to next bookmark (F2)"},
+      {"Zoom In", "Increase font size (Ctrl+=)"},
+      {"Zoom Out", "Decrease font size (Ctrl+-)"},
+      {"Toggle Word Wrap", "Toggle line wrapping (Ctrl+Shift+W)"},
+      {"Toggle Split Editor", "Split/unsplit view (Ctrl+\\)"},
+      {"Show Diff", "Compare with saved version (Ctrl+Shift+D)"},
+  };
+
+  private void showCommandPalette() {
+    Popup popup = new Popup();
+    popup.setAutoHide(true);
+
+    TextField filterField = new TextField();
+    filterField.setPromptText("Type a command...");
+    filterField.setPrefWidth(400);
+
+    ListView<String> listView = new ListView<>();
+    listView.setPrefWidth(400);
+    listView.setPrefHeight(Math.min(COMMANDS.length * 28 + 4, 350));
+    for (String[] cmd : COMMANDS) listView.getItems().add(cmd[0] + "  —  " + cmd[1]);
+
+    filterField.textProperty().addListener((obs, ov, nv) -> {
+      String filter = nv == null ? "" : nv.toLowerCase(Locale.ROOT);
+      listView.getItems().clear();
+      for (String[] cmd : COMMANDS) {
+        if (cmd[0].toLowerCase(Locale.ROOT).contains(filter) || cmd[1].toLowerCase(Locale.ROOT).contains(filter)) {
+          listView.getItems().add(cmd[0] + "  —  " + cmd[1]);
+        }
+      }
+      if (!listView.getItems().isEmpty()) listView.getSelectionModel().selectFirst();
+    });
+
+    Runnable commit = () -> {
+      String sel = listView.getSelectionModel().getSelectedItem();
+      popup.hide();
+      if (sel == null) return;
+      String cmdName = sel.contains("  —  ") ? sel.substring(0, sel.indexOf("  —  ")) : sel;
+      executeCommand(cmdName);
+    };
+
+    filterField.setOnKeyPressed(e -> {
+      if (e.getCode() == KeyCode.ENTER) { commit.run(); e.consume(); }
+      else if (e.getCode() == KeyCode.ESCAPE) { popup.hide(); e.consume(); }
+      else if (e.getCode() == KeyCode.DOWN) { listView.getSelectionModel().selectNext(); e.consume(); }
+      else if (e.getCode() == KeyCode.UP) { listView.getSelectionModel().selectPrevious(); e.consume(); }
+    });
+    listView.setOnMouseClicked(e -> { if (e.getClickCount() == 2) commit.run(); });
+
+    VBox box = new VBox(2, filterField, listView);
+    box.setPadding(new Insets(6));
+    box.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #3f3f46; -fx-border-width: 1; -fx-background-radius: 4; -fx-border-radius: 4;");
+    popup.getContent().add(box);
+
+    // Position at top-center of editor
+    Platform.runLater(() -> {
+      try {
+        double wx = codeArea.getScene().getWindow().getX();
+        double wy = codeArea.getScene().getWindow().getY();
+        double ww = codeArea.getScene().getWindow().getWidth();
+        popup.show(codeArea.getScene().getWindow(), wx + (ww - 400) / 2, wy + 60);
+      } catch (Exception ex) {
+        popup.show(codeArea.getScene().getWindow(), 100, 100);
+      }
+      filterField.requestFocus();
+    });
+  }
+
+  private void executeCommand(String name) {
+    switch (name) {
+      case "Find" -> showSearchBar();
+      case "Find and Replace" -> { showSearchBar(); searchBar.showReplace(true); }
+      case "Go to Symbol" -> showGoToSymbol();
+      case "Go to Line" -> showGoToLineDialog();
+      case "Toggle Comment" -> toggleLineComment();
+      case "Duplicate Line" -> duplicateLine();
+      case "Delete Line" -> deleteLine();
+      case "Move Line Up" -> moveLineUp();
+      case "Move Line Down" -> moveLineDown();
+      case "Insert Snippet" -> showSnippetPalette();
+      case "Toggle Bookmark" -> toggleBookmark();
+      case "Next Bookmark" -> jumpToNextBookmark();
+      case "Zoom In" -> zoomIn();
+      case "Zoom Out" -> zoomOut();
+      case "Toggle Word Wrap" -> toggleWordWrap();
+      case "Toggle Split Editor" -> toggleSplitEditor();
+      case "Show Diff" -> showDiffView();
+      default -> {}
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Bookmarks (Ctrl+F2 toggle, F2 next)
+  // ═══════════════════════════════════════════════════════════════════
+  private void toggleBookmark() {
+    int para = codeArea.getCurrentParagraph();
+    if (bookmarks.contains(para)) {
+      bookmarks.remove(para);
+    } else {
+      bookmarks.add(para);
+    }
+    Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+  }
+
+  private void jumpToNextBookmark() {
+    if (bookmarks.isEmpty()) return;
+    int current = codeArea.getCurrentParagraph();
+    Integer next = bookmarks.higher(current);
+    if (next == null) next = bookmarks.first();
+    if (next != null) {
+      codeArea.moveTo(next, 0);
+      codeArea.requestFollowCaret();
+      codeArea.requestFocus();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Split Editor (Ctrl+\)
+  // ═══════════════════════════════════════════════════════════════════
+  private void toggleSplitEditor() {
+    if (splitActive) {
+      // Remove split
+      splitActive = false;
+      javafx.scene.Node center = getCenter();
+      if (center instanceof SplitPane sp) {
+        // Get the first item (code+minimap HBox) back
+        if (!sp.getItems().isEmpty()) {
+          javafx.scene.Node primary = sp.getItems().get(0);
+          setCenter(primary);
+        }
+      }
+      splitCodeArea = null;
+      splitPane = null;
+    } else {
+      // Create split
+      splitActive = true;
+      splitCodeArea = new CodeArea();
+      splitCodeArea.setEditable(false);
+      splitCodeArea.replaceText(codeArea.getText());
+      var splitCss = VnsCodeEditor.class.getResource("/com/jvn/editor/editor.css");
+      if (splitCss != null) splitCodeArea.getStylesheets().add(splitCss.toExternalForm());
+      splitCodeArea.setStyle("-fx-font-size: " + (int) fontSizePx + "px;");
+      // Sync text from primary to split
+      codeArea.textProperty().addListener((obs, ov, nv) -> {
+        if (splitCodeArea != null && nv != null) {
+          splitCodeArea.replaceText(nv);
+        }
+      });
+      VirtualizedScrollPane<CodeArea> splitScroll = new VirtualizedScrollPane<>(splitCodeArea);
+
+      javafx.scene.Node current = getCenter();
+      splitPane = new SplitPane(current, splitScroll);
+      splitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
+      splitPane.setDividerPositions(0.5);
+      setCenter(splitPane);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Word Wrap Toggle (Ctrl+Shift+W)
+  // ═══════════════════════════════════════════════════════════════════
+  private void toggleWordWrap() {
+    wordWrapEnabled = !wordWrapEnabled;
+    codeArea.setWrapText(wordWrapEnabled);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Diff View (Ctrl+Shift+D) — compare with saved snapshot
+  // ═══════════════════════════════════════════════════════════════════
+  private void showDiffView() {
+    String current = codeArea.getText();
+    if (current == null) current = "";
+    String saved = savedTextSnapshot;
+    if (saved == null) saved = "";
+
+    String[] currentLines = current.split("\\n", -1);
+    String[] savedLines = saved.split("\\n", -1);
+
+    StringBuilder diff = new StringBuilder();
+    int maxLines = Math.max(currentLines.length, savedLines.length);
+    for (int i = 0; i < maxLines; i++) {
+      String cl = i < currentLines.length ? currentLines[i] : "";
+      String sl = i < savedLines.length ? savedLines[i] : "";
+      if (cl.equals(sl)) {
+        diff.append("  ").append(cl).append("\n");
+      } else {
+        if (i < savedLines.length && !sl.isEmpty()) diff.append("- ").append(sl).append("\n");
+        if (i < currentLines.length && !cl.isEmpty()) diff.append("+ ").append(cl).append("\n");
+      }
+    }
+
+    Stage diffStage = new Stage();
+    diffStage.setTitle("Diff — Current vs Saved");
+
+    TextArea diffArea = new TextArea(diff.toString());
+    diffArea.setEditable(false);
+    diffArea.setStyle("-fx-font-family: monospace; -fx-font-size: 12px; -fx-control-inner-background: #121212; -fx-text-fill: #e6e6e6;");
+
+    BorderPane root = new BorderPane(diffArea);
+    root.setStyle("-fx-background-color: #121212;");
+    Label info = new Label("Lines prefixed with '-' are from saved version, '+' are current changes.");
+    info.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px; -fx-padding: 4 10 4 10;");
+    root.setBottom(info);
+
+    Scene scene = new Scene(root, 800, 600);
+    try {
+      String css = VnsCodeEditor.class.getResource("/com/jvn/editor/editor.css").toExternalForm();
+      scene.getStylesheets().add(css);
+    } catch (Exception ignored) {}
+    diffStage.setScene(scene);
+    diffStage.show();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  FEATURE: Minimap — condensed code overview
+  // ═══════════════════════════════════════════════════════════════════
+  private void redrawMinimap() {
+    if (minimapCanvas == null) return;
+    double w = minimapCanvas.getWidth();
+    double h = minimapCanvas.getHeight();
+    GraphicsContext gc = minimapCanvas.getGraphicsContext2D();
+    gc.setFill(Color.web("#0a0a0a"));
+    gc.fillRect(0, 0, w, h);
+
+    String text = codeArea.getText();
+    if (text == null || text.isEmpty() || h <= 0) return;
+
+    String[] lines = text.split("\\n", -1);
+    int totalLines = lines.length;
+    if (totalLines == 0) return;
+
+    double lineH = Math.max(1, h / totalLines);
+    if (lineH > 3) lineH = 3; // cap line height
+
+    for (int i = 0; i < totalLines; i++) {
+      String line = lines[i].trim();
+      double y = i * lineH;
+      if (y > h) break;
+
+      Color color;
+      if (line.startsWith("#")) color = Color.web("#676e95", 0.6);
+      else if (line.startsWith("@")) color = Color.web("#c792ea", 0.7);
+      else if (line.startsWith("[")) color = Color.web("#82aaff", 0.6);
+      else if (line.startsWith(">")) color = Color.web("#c3e88d", 0.6);
+      else if (line.contains(":") && !line.startsWith(" ") && line.indexOf(':') < 30) color = Color.web("#ffcb6b", 0.5);
+      else if (line.isEmpty()) color = Color.TRANSPARENT;
+      else color = Color.web("#3a3a3a", 0.5);
+
+      if (color != Color.TRANSPARENT) {
+        double lineW = Math.min(w - 4, line.length() * 0.8 + 4);
+        gc.setFill(color);
+        gc.fillRect(2, y, lineW, Math.max(1, lineH - 0.5));
+      }
+
+      // Bookmark marker
+      if (bookmarks.contains(i)) {
+        gc.setFill(Color.web("#4da3ff", 0.8));
+        gc.fillRect(w - 5, y, 3, Math.max(1, lineH));
+      }
+    }
+
+    // Viewport indicator
+    int visibleStart = codeArea.getCurrentParagraph() - 10;
+    int visibleEnd = codeArea.getCurrentParagraph() + 30;
+    if (visibleStart < 0) visibleStart = 0;
+    if (visibleEnd > totalLines) visibleEnd = totalLines;
+    double vpY = visibleStart * lineH;
+    double vpH = (visibleEnd - visibleStart) * lineH;
+    gc.setFill(Color.web("#ffffff", 0.06));
+    gc.fillRect(0, vpY, w, vpH);
+    gc.setStroke(Color.web("#4da3ff", 0.3));
+    gc.setLineWidth(1);
+    gc.strokeRect(0, vpY, w, vpH);
+  }
+
+  private void onMinimapClick(javafx.scene.input.MouseEvent e) {
+    String text = codeArea.getText();
+    if (text == null || text.isEmpty()) return;
+    String[] lines = text.split("\\n", -1);
+    double h = minimapCanvas.getHeight();
+    if (h <= 0 || lines.length == 0) return;
+    double lineH = Math.max(1, Math.min(3, h / lines.length));
+    int targetLine = (int)(e.getY() / lineH);
+    targetLine = Math.max(0, Math.min(targetLine, lines.length - 1));
+    codeArea.moveTo(targetLine, 0);
+    codeArea.requestFollowCaret();
+    codeArea.requestFocus();
   }
 }

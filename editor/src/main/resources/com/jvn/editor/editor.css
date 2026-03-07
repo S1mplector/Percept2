@@ -1631,3 +1631,20 @@
 .panel-chooser-icon-btn:disabled {
   -fx-opacity: 0.35;
 }
+
+/* ── VNS Code Editor IDE Features ── */
+
+/* Folded paragraph — visually collapse */
+.code-area .folded {
+  -fx-pref-height: 0;
+  -fx-max-height: 0;
+  -fx-padding: 0;
+  -fx-font-size: 0;
+  visibility: hidden;
+}
+
+/* Selection occurrence highlight */
+.code-area .sel-highlight {
+  -fx-fill: #e6e6e6;
+  -rtfx-background-color: rgba(77, 163, 255, 0.25);
+}
