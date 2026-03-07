@@ -35,13 +35,13 @@ if(NOT EXISTS "${JAVA_INCLUDE_DIR}/jni.h")
 endif()
 
 set(BEEZ_CORE_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src/core/synthesis/oscillator.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src/core/synthesis/envelope.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src/core/synthesis/effects.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src/core/synthesis/filter.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src/core/synthesis/lfo.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src/core/synthesis/channel.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src/core/engine/synth_engine.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/beez/src/core/synthesis/oscillator.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/beez/src/core/synthesis/envelope.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/beez/src/core/synthesis/effects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/beez/src/core/synthesis/filter.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/beez/src/core/synthesis/lfo.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/beez/src/core/synthesis/channel.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/beez/src/core/engine/synth_engine.c
 )
 
 add_library(jvn_audiofx_native SHARED
@@ -55,7 +55,7 @@ target_include_directories(jvn_audiofx_native PRIVATE
     ${JAVA_INCLUDE_DIR}
     ${JAVA_PLATFORM_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../beez/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/beez/src
 )
 
 if(UNIX AND NOT APPLE)
