@@ -174,8 +174,8 @@ public class EditorApp extends Application {
   private static final String DEFAULT_TIMELINE_PATH = "config/timeline/story.timeline";
   private static final String LEGACY_TIMELINE_PATH = "story/story.timeline";
   private static final String LEGACY_TIMELINE_ROOT_PATH = "story.timeline";
-  private static final String STARTUP_LOGO_ABSOLUTE_PATH =
-      "/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/assets/images/jvn_logo.png";
+  private static final String STARTUP_LOGO_RELATIVE_PATH = "docs/assets/images/jvn_logo.png";
+  private static final String STARTUP_LOGO_CLASSPATH_RESOURCE = "/com/jvn/editor/images/jvn_logo.png";
   private static final long MIN_STARTUP_SPLASH_MS = 900L;
   private static final long STARTUP_STEP_DELAY_MS = 170L;
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -630,14 +630,26 @@ public class EditorApp extends Application {
   }
 
   private Path resolveStartupLogoPath() {
-    Path preferred = Path.of(STARTUP_LOGO_ABSOLUTE_PATH);
-    if (Files.isRegularFile(preferred)) return preferred;
     File workspaceRoot = resolveWorkspaceRoot();
     if (workspaceRoot != null) {
-      Path candidate = workspaceRoot.toPath().resolve("docs/assets/images/jvn_logo.png");
+      Path candidate = workspaceRoot.toPath().resolve(STARTUP_LOGO_RELATIVE_PATH);
       if (Files.isRegularFile(candidate)) return candidate;
     }
-    return preferred;
+    Path cwdCandidate = Path.of(STARTUP_LOGO_RELATIVE_PATH);
+    if (Files.isRegularFile(cwdCandidate)) return cwdCandidate;
+    return extractClasspathStartupLogo();
+  }
+
+  private Path extractClasspathStartupLogo() {
+    try (var in = EditorApp.class.getResourceAsStream(STARTUP_LOGO_CLASSPATH_RESOURCE)) {
+      if (in == null) return null;
+      Path temp = Files.createTempFile("jvn-startup-logo-", ".png");
+      temp.toFile().deleteOnExit();
+      Files.write(temp, in.readAllBytes());
+      return temp;
+    } catch (Exception ignored) {
+      return null;
+    }
   }
 
   private static String startupLogLine(String level, String category, String detail) {
