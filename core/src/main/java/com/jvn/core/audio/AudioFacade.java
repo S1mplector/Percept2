@@ -25,6 +25,9 @@ public interface AudioFacade {
 
   // Optional procedural synthesis controls (loom/beez style audio-fx).
   default void playAmbience(String preset, float intensity, boolean loop) {}
+  default void playAmbience(String preset, float intensity, AmbienceProfile profile) {
+    playAmbience(preset, intensity, profile == null || profile.loop());
+  }
   default void stopAmbience() {}
   default void setAmbienceVolume(float volume) {}
   default void playChiptune(String cueId, float intensity, boolean loop) {}

@@ -1,6 +1,7 @@
 package com.jvn.audiofx;
 
 import com.jvn.core.nativebridge.NativeLibraryLoader;
+import com.jvn.core.audio.AmbienceProfile;
 
 public final class AudioFxNativeBridge {
   private static final String LIB_NAME = "jvn_audiofx_native";
@@ -62,7 +63,16 @@ public final class AudioFxNativeBridge {
   private static native void nDestroyBeezRenderer(long handle);
 
   private static native long nCreateAmbienceRenderer(int sampleRate);
-  private static native void nConfigureAmbience(long handle, String preset, float intensity, float volume, boolean loop);
+  private static native void nConfigureAmbience(
+      long handle,
+      String preset,
+      float intensity,
+      float volume,
+      float detail,
+      float motion,
+      float spread,
+      float accent,
+      boolean loop);
   private static native int nRenderAmbience(long handle, byte[] pcm, int frames);
   private static native void nSetAmbienceVolume(long handle, float volume);
   private static native boolean nIsAmbienceFinished(long handle);
@@ -121,8 +131,22 @@ public final class AudioFxNativeBridge {
     }
 
     public void configure(String preset, float intensity, float volume, boolean loop) {
+      configure(preset, intensity, volume, AmbienceProfile.defaults(loop));
+    }
+
+    public void configure(String preset, float intensity, float volume, AmbienceProfile profile) {
       ensureOpen();
-      nConfigureAmbience(handle, preset, intensity, volume, loop);
+      AmbienceProfile effective = profile == null ? AmbienceProfile.defaults(true) : profile;
+      nConfigureAmbience(
+          handle,
+          preset,
+          intensity,
+          volume,
+          effective.detail(),
+          effective.motion(),
+          effective.spread(),
+          effective.accent(),
+          effective.loop());
     }
 
     public int render(byte[] pcm, int frames) {

@@ -3,6 +3,7 @@ package com.jvn.audio.simp3;
 import com.jvn.audiofx.AudioFxController;
 import com.jvn.core.assets.AssetPaths;
 import com.jvn.core.assets.AssetType;
+import com.jvn.core.audio.AmbienceProfile;
 import com.jvn.core.audio.AudioFacade;
 import com.musicplayer.core.audio.AudioEngine;
 import com.musicplayer.core.audio.HybridAudioEngine;
@@ -70,6 +71,7 @@ public class Simp3AudioService implements AudioFacade {
     this.bgmEngine = newEngine();
     attachBgmSpectrumListener(this.bgmEngine);
     this.bgmEngine.setVolume(bgmVolume);
+    log.info("Audio FX backend -> {}", audioFx.diagnosticsSummary());
   }
 
   public synchronized void setProjectRoot(File root) {
@@ -352,7 +354,12 @@ public class Simp3AudioService implements AudioFacade {
 
   @Override
   public synchronized void playAmbience(String preset, float intensity, boolean loop) {
-    audioFx.playAmbience(preset, clamp01(intensity), ambienceVolume, loop);
+    playAmbience(preset, intensity, AmbienceProfile.defaults(loop));
+  }
+
+  @Override
+  public synchronized void playAmbience(String preset, float intensity, AmbienceProfile profile) {
+    audioFx.playAmbience(preset, clamp01(intensity), ambienceVolume, profile);
   }
 
   @Override

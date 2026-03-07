@@ -833,6 +833,10 @@ public class VnScriptParser {
         float intensity = 0.65f;
         Float volume = null;
         boolean loop = true;
+        Float detail = null;
+        Float motion = null;
+        Float spread = null;
+        Float accent = null;
 
         for (int i = 1; i < toks.length; i++) {
           KeyValueOption option = parseKeyValueOption(toks[i], sourceName, lineNumber, rawLine, "[synthesizer]");
@@ -845,6 +849,14 @@ public class VnScriptParser {
                 intensity = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[synthesizer]", "intensity");
             case "vol", "volume" ->
                 volume = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[synthesizer]", "volume");
+            case "detail" ->
+                detail = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[synthesizer]", "detail");
+            case "motion" ->
+                motion = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[synthesizer]", "motion");
+            case "spread", "width" ->
+                spread = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[synthesizer]", "spread");
+            case "accent", "variation" ->
+                accent = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[synthesizer]", "accent");
             case "loop" -> {
               if (!isBooleanToken(option.value())) {
                 throw parseError(sourceName, lineNumber, "[synthesizer] loop must be true/false/on/off/1/0", rawLine);
@@ -867,6 +879,18 @@ public class VnScriptParser {
         normalized.append(" intensity=").append(formatNumber(intensity));
         if (volume != null) {
           normalized.append(" volume=").append(formatNumber(volume));
+        }
+        if (detail != null) {
+          normalized.append(" detail=").append(formatNumber(detail));
+        }
+        if (motion != null) {
+          normalized.append(" motion=").append(formatNumber(motion));
+        }
+        if (spread != null) {
+          normalized.append(" spread=").append(formatNumber(spread));
+        }
+        if (accent != null) {
+          normalized.append(" accent=").append(formatNumber(accent));
         }
         normalized.append(" loop=").append(loop);
         state.builder.external("audio", normalized.toString());

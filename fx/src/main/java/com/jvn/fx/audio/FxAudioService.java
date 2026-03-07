@@ -2,11 +2,14 @@ package com.jvn.fx.audio;
 
 import com.jvn.core.assets.AssetPaths;
 import com.jvn.core.assets.AssetType;
+import com.jvn.core.audio.AmbienceProfile;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.audiofx.AudioFxController;
 import javafx.scene.media.AudioSpectrumListener;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.net.URL;
@@ -15,6 +18,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public class FxAudioService implements AudioFacade {
+  private static final Logger log = LoggerFactory.getLogger(FxAudioService.class);
   private MediaPlayer bgmPlayer;
   private final List<MediaPlayer> sfxPlayers = new ArrayList<>();
   private final List<MediaPlayer> voicePlayers = new ArrayList<>();
@@ -36,6 +40,10 @@ public class FxAudioService implements AudioFacade {
   };
 
   public void setProjectRoot(File root) { this.projectRoot = root; }
+
+  public FxAudioService() {
+    log.info("Audio FX backend -> {}", audioFx.diagnosticsSummary());
+  }
 
   @Override
   public void playBgm(String trackId, boolean loop) {
@@ -289,7 +297,12 @@ public class FxAudioService implements AudioFacade {
 
   @Override
   public void playAmbience(String preset, float intensity, boolean loop) {
-    audioFx.playAmbience(preset, intensity, ambienceVolume, loop);
+    playAmbience(preset, intensity, AmbienceProfile.defaults(loop));
+  }
+
+  @Override
+  public void playAmbience(String preset, float intensity, AmbienceProfile profile) {
+    audioFx.playAmbience(preset, intensity, ambienceVolume, profile);
   }
 
   @Override

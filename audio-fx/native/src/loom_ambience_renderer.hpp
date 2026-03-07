@@ -94,7 +94,15 @@ class LoomAmbienceRenderer {
 public:
   explicit LoomAmbienceRenderer(int sampleRate);
 
-  void configure(const std::string& preset, float intensity, float volume, bool loop);
+  void configure(
+      const std::string& preset,
+      float intensity,
+      float volume,
+      float detail,
+      float motion,
+      float spread,
+      float accent,
+      bool loop);
   int render(uint8_t* pcm, int frames);
   void stop();
   void setVolume(float volume);
@@ -116,6 +124,10 @@ private:
   Preset preset_ = Preset::Wind;
   float intensity_ = 0.65f;
   float volume_ = 0.45f;
+  float detail_ = 0.5f;
+  float motion_ = 0.5f;
+  float spread_ = 0.5f;
+  float accent_ = 0.5f;
   bool loop_ = true;
   bool finished_ = false;
   float elapsedSeconds_ = 0.0f;

@@ -121,9 +121,27 @@ JNIEXPORT jlong JNICALL Java_com_jvn_audiofx_AudioFxNativeBridge_nCreateAmbience
 }
 
 JNIEXPORT void JNICALL Java_com_jvn_audiofx_AudioFxNativeBridge_nConfigureAmbience(
-    JNIEnv* env, jclass, jlong handle, jstring preset, jfloat intensity, jfloat volume, jboolean loop) {
+    JNIEnv* env,
+    jclass,
+    jlong handle,
+    jstring preset,
+    jfloat intensity,
+    jfloat volume,
+    jfloat detail,
+    jfloat motion,
+    jfloat spread,
+    jfloat accent,
+    jboolean loop) {
   if (LoomAmbienceRenderer* renderer = fromAmbience(handle)) {
-    renderer->configure(toUtf8(env, preset), intensity, volume, loop == JNI_TRUE);
+    renderer->configure(
+        toUtf8(env, preset),
+        intensity,
+        volume,
+        detail,
+        motion,
+        spread,
+        accent,
+        loop == JNI_TRUE);
   }
 }
 

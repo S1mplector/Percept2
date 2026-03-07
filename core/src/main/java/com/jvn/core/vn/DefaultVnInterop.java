@@ -11,6 +11,7 @@ import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineDataParser;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.core.animation.TimelineRunner;
+import com.jvn.core.audio.AmbienceProfile;
 
 /**
  * Basic interop implementation.
@@ -468,6 +469,10 @@ public class DefaultVnInterop implements VnInterop {
     float intensity = 0.65f;
     Float volume = null;
     Boolean loop = Boolean.TRUE;
+    Float detail = null;
+    Float motion = null;
+    Float spread = null;
+    Float accent = null;
 
     for (int i = 2; i < toks.length; i++) {
       SynthOption option = parseSynthOption(toks[i]);
@@ -481,6 +486,10 @@ public class DefaultVnInterop implements VnInterop {
         case "cue" -> cue = option.value;
         case "intensity", "amount" -> intensity = clamp01(parseFloatSafe(option.value, intensity));
         case "vol", "volume" -> volume = clamp01(parseFloatSafe(option.value, 0.7f));
+        case "detail" -> detail = clamp01(parseFloatSafe(option.value, 0.5f));
+        case "motion" -> motion = clamp01(parseFloatSafe(option.value, 0.5f));
+        case "spread", "width" -> spread = clamp01(parseFloatSafe(option.value, 0.5f));
+        case "accent", "variation" -> accent = clamp01(parseFloatSafe(option.value, 0.5f));
         case "loop" -> {
           Boolean b = parseBooleanMaybe(option.value);
           if (b != null) loop = b;
@@ -516,7 +525,15 @@ public class DefaultVnInterop implements VnInterop {
 
     String preset = mode == null || mode.isBlank() ? "wind" : mode;
     if (volume != null) audio.setAmbienceVolume(volume);
-    audio.playAmbience(preset, intensity, playLoop);
+    audio.playAmbience(
+        preset,
+        intensity,
+        new AmbienceProfile(
+            detail == null ? AmbienceProfile.DEFAULT_DETAIL : detail,
+            motion == null ? AmbienceProfile.DEFAULT_MOTION : motion,
+            spread == null ? AmbienceProfile.DEFAULT_SPREAD : spread,
+            accent == null ? AmbienceProfile.DEFAULT_ACCENT : accent,
+            playLoop));
   }
 
   private void handleScreen(String payload, VnScene scene) {

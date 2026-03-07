@@ -1,6 +1,7 @@
 package com.jvn.audiofx;
 
 import com.jvn.audiofx.spi.AmbienceSynthProvider;
+import com.jvn.core.audio.AmbienceProfile;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -20,7 +21,7 @@ public final class NativeLoomAmbienceSynth implements AmbienceSynthProvider {
   private volatile String preset = "wind";
   private volatile float intensity = 0.65f;
   private volatile float volume = 0.45f;
-  private volatile boolean loop = true;
+  private volatile AmbienceProfile profile = AmbienceProfile.defaults(true);
 
   private AudioFxNativeBridge.AmbienceRenderer renderer;
   private SourceDataLine line;
@@ -33,15 +34,20 @@ public final class NativeLoomAmbienceSynth implements AmbienceSynthProvider {
 
   @Override
   public void play(String presetName, float newIntensity, float newVolume, boolean newLoop) {
+    play(presetName, newIntensity, newVolume, AmbienceProfile.defaults(newLoop));
+  }
+
+  @Override
+  public void play(String presetName, float newIntensity, float newVolume, AmbienceProfile newProfile) {
     synchronized (lock) {
       preset = (presetName == null || presetName.isBlank()) ? "wind" : presetName;
       intensity = clamp01(newIntensity);
       volume = clamp01(newVolume);
-      loop = newLoop;
+      profile = newProfile == null ? AmbienceProfile.defaults(true) : newProfile;
       if (renderer == null) {
         renderer = AudioFxNativeBridge.createAmbienceRenderer(SAMPLE_RATE);
       }
-      renderer.configure(preset, intensity, volume, loop);
+      renderer.configure(preset, intensity, volume, profile);
       if (running) return;
       running = true;
       worker = new Thread(this::runLoop, "audiofx-native-loom");
@@ -87,7 +93,7 @@ public final class NativeLoomAmbienceSynth implements AmbienceSynthProvider {
           active = renderer;
           if (active == null) break;
           written = active.render(pcm, BUFFER_FRAMES);
-          finished = !loop && active.isFinished();
+          finished = !profile.loop() && active.isFinished();
         }
         if (active == null) break;
         if (written <= 0) break;

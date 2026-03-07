@@ -758,7 +758,7 @@ public class VnScriptParserTest {
   public void parsesSynthesizerAmbienceCommandWithOptions() throws Exception {
     String script = """
       @label start
-      [synthesizer on mode:"wind" intensity:0.72 volume:0.4 loop:false]
+      [synthesizer on mode:"wind" intensity:0.72 volume:0.4 detail:0.61 motion:0.22 spread:0.78 accent:0.83 loop:false]
       [end]
     """;
     VnScriptParser parser = new VnScriptParser();
@@ -767,7 +767,9 @@ public class VnScriptParserTest {
         .filter(n -> n.getType() == VnNodeType.EXTERNAL
             && "audio".equals(n.getExternalCommand().getProvider()))
         .findFirst().orElseThrow();
-    assertEquals("synth on type=ambience mode=wind intensity=0.72 volume=0.4 loop=false", ext.getExternalCommand().getPayload());
+    assertEquals(
+        "synth on type=ambience mode=wind intensity=0.72 volume=0.4 detail=0.61 motion=0.22 spread=0.78 accent=0.83 loop=false",
+        ext.getExternalCommand().getPayload());
   }
 
   @Test
@@ -812,6 +814,18 @@ public class VnScriptParserTest {
     VnScriptParser parser = new VnScriptParser();
     IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
     assertTrue(ex.getMessage().contains("[synthesizer] intensity must be between 0 and 1"));
+  }
+
+  @Test
+  public void rejectsSynthesizerInvalidSpreadRange() {
+    String script = """
+      @label start
+      [synthesizer on mode:"rain" spread:1.3]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("[synthesizer] spread must be between 0 and 1"));
   }
 
   @Test

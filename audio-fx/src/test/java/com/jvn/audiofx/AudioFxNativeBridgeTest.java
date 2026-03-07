@@ -1,5 +1,6 @@
 package com.jvn.audiofx;
 
+import com.jvn.core.audio.AmbienceProfile;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -31,9 +32,9 @@ class AudioFxNativeBridgeTest {
   @Test
   void ambienceRendererSupportsMultiplePresets() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
-    byte[] wind = renderAmbience("wind");
-    byte[] rain = renderAmbience("rain");
-    byte[] ocean = renderAmbience("ocean");
+    byte[] wind = renderAmbience("wind", AmbienceProfile.defaults());
+    byte[] rain = renderAmbience("rain", new AmbienceProfile(0.85f, 0.35f, 0.72f, 0.92f, true));
+    byte[] ocean = renderAmbience("ocean", new AmbienceProfile(0.42f, 0.78f, 0.88f, 0.67f, true));
 
     assertTrue(sampleEnergy(wind) > 10_000L, "Wind ambience rendered silence");
     assertTrue(sampleEnergy(rain) > 10_000L, "Rain ambience rendered silence");
@@ -43,9 +44,18 @@ class AudioFxNativeBridgeTest {
     assertFalse(Arrays.equals(rain, ocean), "Rain and ocean buffers should not be identical");
   }
 
-  private static byte[] renderAmbience(String preset) {
+  @Test
+  void ambienceParametersShapeTheNativeRenderer() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    byte[] dryWind = renderAmbience("wind", new AmbienceProfile(0.15f, 0.15f, 0.10f, 0.10f, true));
+    byte[] brightWind = renderAmbience("wind", new AmbienceProfile(0.92f, 0.88f, 0.90f, 0.94f, true));
+    assertNotEquals(sampleEnergy(dryWind), sampleEnergy(brightWind));
+    assertFalse(Arrays.equals(dryWind, brightWind), "Ambience control changes should alter rendered PCM");
+  }
+
+  private static byte[] renderAmbience(String preset, AmbienceProfile profile) {
     try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
-      renderer.configure(preset, 0.75f, 0.55f, true);
+      renderer.configure(preset, 0.75f, 0.55f, profile);
       byte[] pcm = new byte[4096 * 4];
       int written = renderer.render(pcm, 4096);
       assertTrue(written > 0);

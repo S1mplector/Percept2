@@ -12,5 +12,6 @@ class AudioFxControllerTest {
     AudioFxController controller = new AudioFxController();
     assertEquals("native-loom", controller.ambienceProviderId());
     assertEquals("native-beez", controller.beezProviderId());
+    assertTrue(controller.diagnosticsSummary().contains("bridge="));
   }
 }

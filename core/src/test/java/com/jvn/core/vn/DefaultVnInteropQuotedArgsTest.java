@@ -1,5 +1,6 @@
 package com.jvn.core.vn;
 
+import com.jvn.core.audio.AmbienceProfile;
 import com.jvn.core.audio.AudioFacade;
 import org.junit.jupiter.api.Test;
 
@@ -106,11 +107,15 @@ class DefaultVnInteropQuotedArgsTest {
 
     interop.handle(new VnExternalCommand(
         "audio",
-        "synth on type=ambience mode=rain intensity=0.81 volume=0.42 loop=true"), scene);
+        "synth on type=ambience mode=rain intensity=0.81 volume=0.42 detail=0.63 motion=0.28 spread=0.74 accent=0.91 loop=true"), scene);
     assertEquals("rain", audio.lastAmbiencePreset);
     assertEquals(0.81f, audio.lastAmbienceIntensity);
     assertEquals(true, audio.lastAmbienceLoop);
     assertEquals(0.42f, audio.lastAmbienceVolume);
+    assertEquals(0.63f, audio.lastAmbienceProfile.detail());
+    assertEquals(0.28f, audio.lastAmbienceProfile.motion());
+    assertEquals(0.74f, audio.lastAmbienceProfile.spread());
+    assertEquals(0.91f, audio.lastAmbienceProfile.accent());
 
     interop.handle(new VnExternalCommand(
         "audio",
@@ -136,6 +141,7 @@ class DefaultVnInteropQuotedArgsTest {
     private float lastAmbienceIntensity;
     private boolean lastAmbienceLoop;
     private float lastAmbienceVolume = -1f;
+    private AmbienceProfile lastAmbienceProfile;
 
     private String lastChiptuneCue;
     private float lastChiptuneIntensity;
@@ -161,6 +167,14 @@ class DefaultVnInteropQuotedArgsTest {
       lastAmbiencePreset = preset;
       lastAmbienceIntensity = intensity;
       lastAmbienceLoop = loop;
+    }
+
+    @Override
+    public void playAmbience(String preset, float intensity, AmbienceProfile profile) {
+      lastAmbiencePreset = preset;
+      lastAmbienceIntensity = intensity;
+      lastAmbienceLoop = profile.loop();
+      lastAmbienceProfile = profile;
     }
 
     @Override

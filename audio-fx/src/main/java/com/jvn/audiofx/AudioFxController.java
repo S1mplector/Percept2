@@ -2,6 +2,7 @@ package com.jvn.audiofx;
 
 import com.jvn.audiofx.spi.AmbienceSynthProvider;
 import com.jvn.audiofx.spi.ChipSynthProvider;
+import com.jvn.core.audio.AmbienceProfile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +19,11 @@ public final class AudioFxController {
   }
 
   public void playAmbience(String preset, float intensity, float volume, boolean loop) {
-    ambience.play(preset, clamp01(intensity), clamp01(volume), loop);
+    playAmbience(preset, intensity, volume, AmbienceProfile.defaults(loop));
+  }
+
+  public void playAmbience(String preset, float intensity, float volume, AmbienceProfile profile) {
+    ambience.play(preset, clamp01(intensity), clamp01(volume), profile == null ? AmbienceProfile.defaults(true) : profile);
   }
 
   public void stopAmbience() {
@@ -47,6 +52,16 @@ public final class AudioFxController {
 
   public String beezProviderId() {
     return beez.id();
+  }
+
+  public boolean nativeBridgeAvailable() {
+    return AudioFxNativeBridge.isAvailable();
+  }
+
+  public String diagnosticsSummary() {
+    return "ambience=" + ambience.id()
+        + ", chiptune=" + beez.id()
+        + ", bridge=" + AudioFxNativeBridge.diagnostics();
   }
 
   private AmbienceSynthProvider loadAmbienceProvider() {
