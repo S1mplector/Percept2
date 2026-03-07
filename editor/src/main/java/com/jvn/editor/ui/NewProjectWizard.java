@@ -115,6 +115,18 @@ public class NewProjectWizard extends Stage {
   private static final String STORY_TUTORIAL_SCRIPT_PATH = "scripts/story/tutorial_hub.vns";
   private static final String STORY_BRANCH_SCRIPT_PATH = "scripts/story/branch_demo.vns";
   private static final String STORY_EPILOGUE_SCRIPT_PATH = "scripts/story/epilogue.vns";
+  private static final String TUTORIAL_DIALOGUE_SCRIPT_PATH = "scripts/tutorial/01_dialogue_basics.vns";
+  private static final String TUTORIAL_NARRATION_SCRIPT_PATH = "scripts/tutorial/02_narration_and_pacing.vns";
+  private static final String TUTORIAL_EXPRESSIONS_SCRIPT_PATH = "scripts/tutorial/03_expressions_and_characters.vns";
+  private static final String TUTORIAL_IMAGES_SCRIPT_PATH = "scripts/tutorial/04_images_and_backgrounds.vns";
+  private static final String TUTORIAL_TRANSITIONS_SCRIPT_PATH = "scripts/tutorial/05_transitions_and_effects.vns";
+  private static final String TUTORIAL_AUDIO_SCRIPT_PATH = "scripts/tutorial/06_audio_and_music.vns";
+  private static final String TUTORIAL_VARIABLES_SCRIPT_PATH = "scripts/tutorial/07_variables_and_conditions.vns";
+  private static final String TUTORIAL_MOVEMENT_SCRIPT_PATH = "scripts/tutorial/08_character_movement.vns";
+  private static final String TUTORIAL_PUPPETEER_SCRIPT_PATH = "scripts/tutorial/09_puppeteer_timeline.vns";
+  private static final String TUTORIAL_MENUS_SCRIPT_PATH = "scripts/tutorial/10_choices_and_menus.vns";
+  private static final String TUTORIAL_SUBROUTINES_SCRIPT_PATH = "scripts/tutorial/11_subroutines_and_flow.vns";
+  private static final String TUTORIAL_BEST_PRACTICES_SCRIPT_PATH = "scripts/tutorial/12_best_practices.vns";
   private static final String CHARACTERS_SCRIPT_PATH = "scripts/definitions/characters.vns";
   private static final String CHARACTERS_INCLUDE_PATH = "/definitions/characters.vns";
   private static final String TIMELINE_PATH = "config/timeline/story.timeline";
@@ -506,18 +518,8 @@ public class NewProjectWizard extends Stage {
     lblBlankMenuWarning.setVisible(false);
     lblBlankMenuWarning.setManaged(false);
 
-    chkSampleContent.selectedProperty().addListener((o, ov, nv) -> {
-      if (nv != null && nv && chkBundledDemoAssets != null && !chkBundledDemoAssets.isSelected()) {
-        chkBundledDemoAssets.setSelected(true);
-      }
-      updateDerivedFields();
-    });
-    chkBundledDemoAssets.selectedProperty().addListener((o, ov, nv) -> {
-      if (nv != null && !nv && chkSampleContent != null && chkSampleContent.isSelected()) {
-        chkSampleContent.setSelected(false);
-      }
-      updateDerivedFields();
-    });
+    chkSampleContent.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    chkBundledDemoAssets.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkTitleScreen.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkHistoryBacklog.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkSaveSystem.selectedProperty().addListener((o, ov, nv) -> {
@@ -558,7 +560,7 @@ public class NewProjectWizard extends Stage {
     details.setVgap(4);
     details.setHgap(16);
     details.getChildren().addAll(
-        detailTag("Sample Prologue", "Rich starter VNS with choices and state."),
+        detailTag("Sample Tutorial Pack", "Multi-file VNS tutorial set with one file per feature example."),
         detailTag("Demo Assets", "Copies bundled field/lavender/audio starter assets."),
         detailTag("Menu Profiles", "Creates config/menu registry, screens, layout and style."),
         detailTag("Save/Load", "Adds load.menu and save.menu defaults."),
@@ -863,6 +865,7 @@ public class NewProjectWizard extends Stage {
     boolean includeSave = chkSaveSystem != null && chkSaveSystem.isSelected();
     boolean includeSettings = chkSettingsMenu != null && chkSettingsMenu.isSelected();
     boolean includeDemoAssets = chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected();
+    boolean includeSampleContent = chkSampleContent != null && chkSampleContent.isSelected();
 
     StringBuilder sb = new StringBuilder();
     sb.append(projectFolderName).append("/\n");
@@ -926,6 +929,21 @@ public class NewProjectWizard extends Stage {
     sb.append("\u2502   \u2502   \u251c\u2500\u2500 tutorial_hub.vns\n");
     sb.append("\u2502   \u2502   \u251c\u2500\u2500 branch_demo.vns\n");
     sb.append("\u2502   \u2502   \u2514\u2500\u2500 epilogue.vns\n");
+    if (includeSampleContent) {
+      sb.append("\u2502   \u251c\u2500\u2500 tutorial/\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 01_dialogue_basics.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 02_narration_and_pacing.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 03_expressions_and_characters.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 04_images_and_backgrounds.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 05_transitions_and_effects.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 06_audio_and_music.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 07_variables_and_conditions.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 08_character_movement.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 09_puppeteer_timeline.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 10_choices_and_menus.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 11_subroutines_and_flow.vns\n");
+      sb.append("\u2502   \u2502   \u2514\u2500\u2500 12_best_practices.vns\n");
+    }
     sb.append("\u2502   \u251c\u2500\u2500 routes/\n");
     sb.append("\u2502   \u251c\u2500\u2500 definitions/\n");
     sb.append("\u2502   \u2502   \u2514\u2500\u2500 characters.vns\n");
@@ -1076,9 +1094,9 @@ public class NewProjectWizard extends Stage {
     }
 
     createCharactersScript(dir, includeDemoAssets, useLayeredLavenderDemo);
-    if (chkSampleContent.isSelected() && includeDemoAssets) createSampleScript(dir, displayName, useLayeredLavenderDemo);
+    if (chkSampleContent.isSelected()) createSampleScript(dir, displayName, includeDemoAssets, useLayeredLavenderDemo);
     else createEmptyScript(dir, displayName, includeDemoAssets, useLayeredLavenderDemo);
-    createStoryTimeline(dir, displayName);
+    createStoryTimeline(dir, displayName, chkSampleContent.isSelected());
 
     createSettings(dir);
     createDialogueLayout(dir);
@@ -1196,6 +1214,7 @@ public class NewProjectWizard extends Stage {
 
     // Scripts
     ensureDirectory(dir, "scripts/story");
+    ensureDirectory(dir, "scripts/tutorial");
     ensureDirectory(dir, "scripts/routes");
     ensureDirectory(dir, "scripts/definitions");
     ensureDirectory(dir, "scripts/common");
@@ -1456,631 +1475,494 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private void createSampleScript(File dir, String name, boolean useLayeredLavenderDemo) throws Exception {
-    String scenarioId = sanitizeName(name).toLowerCase() + "_tutorial_hub";
-    String framingCommands = """
-        [set ui.characterHeightFactor 1.28]
-        [set ui.characterBaselineY 1.42]
-        """;
-    String imageDslLine = useLayeredLavenderDemo
-        ? "Lavender: You can build layered expressions with @charlayer + @charpreset, then show them like normal expressions."
-        : "Lavender: We import shared character definitions from " + CHARACTERS_INCLUDE_PATH + " so every arc script stays in sync.";
-    String expressionDemo = """
-        [show lavender center happy]
-        [wait 300]
-        Lavender: This is my happy expression!
-        [show lavender center emphasis]
-        [wait 300]
-        Lavender: And this one's for dramatic moments! Different moods, different presets.
-        [show lavender center idle]
-        [wait 200]
-        """;
+  private void createSampleScript(
+      File dir,
+      String name,
+      boolean includeDemoAssets,
+      boolean useLayeredLavenderDemo
+  ) throws Exception {
+    createTutorialHubScript(dir, name, includeDemoAssets);
+    createTutorialTopicScripts(dir, name, includeDemoAssets, useLayeredLavenderDemo);
+    createSampleArcEntryAndBranchScripts(dir, name, includeDemoAssets);
+  }
+
+  private void createTutorialHubScript(File dir, String name, boolean includeDemoAssets) throws Exception {
+    String scenarioPrefix = sanitizeName(name).toLowerCase(Locale.ROOT);
+    String dialogueTarget = toScriptGotoTarget(TUTORIAL_DIALOGUE_SCRIPT_PATH);
+    String narrationTarget = toScriptGotoTarget(TUTORIAL_NARRATION_SCRIPT_PATH);
+    String expressionsTarget = toScriptGotoTarget(TUTORIAL_EXPRESSIONS_SCRIPT_PATH);
+    String imagesTarget = toScriptGotoTarget(TUTORIAL_IMAGES_SCRIPT_PATH);
+    String transitionsTarget = toScriptGotoTarget(TUTORIAL_TRANSITIONS_SCRIPT_PATH);
+    String audioTarget = toScriptGotoTarget(TUTORIAL_AUDIO_SCRIPT_PATH);
+    String variablesTarget = toScriptGotoTarget(TUTORIAL_VARIABLES_SCRIPT_PATH);
+    String movementTarget = toScriptGotoTarget(TUTORIAL_MOVEMENT_SCRIPT_PATH);
+    String puppeteerTarget = toScriptGotoTarget(TUTORIAL_PUPPETEER_SCRIPT_PATH);
+    String menusTarget = toScriptGotoTarget(TUTORIAL_MENUS_SCRIPT_PATH);
+    String subroutinesTarget = toScriptGotoTarget(TUTORIAL_SUBROUTINES_SCRIPT_PATH);
+    String bestPracticesTarget = toScriptGotoTarget(TUTORIAL_BEST_PRACTICES_SCRIPT_PATH);
+
+    String backgroundDecl = includeDemoAssets
+        ? "@background field_day assets/demo/backgrounds/game.png\n"
+            + "@background field_evening assets/demo/backgrounds/game.png\n\n"
+        : "";
+    String backgroundStart = includeDemoAssets ? "[bg field_day]\n[transition fade 450]\n" : "";
 
     String script = """
-        # %s - Prologue
-        # Demo game created with JVN Engine
-        # Tutorial-style showcase inspired by classic onboarding flows:
-        # A friendly tutorial that teaches the basics of JVN scripting.
+        # %s - Tutorial Hub
+        # Multi-file onboarding flow with one script per feature area.
 
-        @scenario %s
-
+        @scenario %s_tutorial_hub
         @include %s
 
-        @background field_day assets/demo/backgrounds/game.png
-        @background field_evening assets/demo/backgrounds/game.png
-
-        @var tutorial_count = 0
-
-        @label start
-        [bg field_day]
-        [transition fade 500]
-        [textspeed 28]
-        [autodelay 1800]
-        __FRAMING_COMMANDS__
-        [bgm "assets/demo/audio/03 - Definitely Our Town.mp3"]
-
+        %s@label start
+        %s[textspeed 28]
+        [autodelay 1700]
+        [set ui.characterHeightFactor 1.28]
+        [set ui.characterBaselineY 1.42]
         [show lavender center talking]
-        [wait 240]
+        [wait 200]
 
-        Lavender: Hi! My name is Lavender, and I'd like to welcome you to the JVN tutorial.
-        Lavender: In this tutorial, we'll teach you the basics of JVN, so you can make visual novels of your own.
-        Lavender: We'll also demonstrate many features, so you can see what JVN is capable of.
-        Lavender: This is {b}%s{/b}, by the way. Feel free to poke around the scripts when we're done!
-        [jump tutorials_hub]
+        Lavender: Welcome to the built-in JVN tutorial pack for this project.
+        Lavender: Each topic is its own {b}.vns{/b} file under {b}scripts/tutorial/{/b}, similar to Ren'Py-style example packs.
+        Lavender: Choose any lesson. You can read it, run it, and edit it as a real project file.
 
-        # ═══════════════════════════════════════════
-        # Tutorial Hub — Page 1 (Basics)
-        # ═══════════════════════════════════════════
-
-        @label tutorials_hub
+        @label topics_page_1
         [show lavender far_left talking]
-        [wait 170]
-        Lavender: What would you like to learn about?
-        > Writing Dialogue -> tutorial_dialogue
-        > Narration & Text Pacing -> tutorial_narration
-        > Expressions & Characters -> tutorial_expressions
-        > Images and Backgrounds -> tutorial_images
-        > More topics... -> tutorials_hub_2
-        > That's enough for now -> end_early
+        [wait 120]
+        Lavender: Basics:
+        > Writing Dialogue & Text Tags -> open_dialogue
+        > Narration & Pacing -> open_narration
+        > Expressions & Character Setup -> open_expressions
+        > Images & Backgrounds -> open_images
+        > More advanced topics... -> topics_page_2
+        > Exit tutorial -> end_early
 
-        # ═══════════════════════════════════════════
-        # Tutorial Hub — Page 2 (Advanced)
-        # ═══════════════════════════════════════════
-
-        @label tutorials_hub_2
+        @label topics_page_2
         [show lavender far_left talking]
-        [wait 170]
-        Lavender: Here are some more advanced topics!
-        > Transitions and Effects -> tutorial_transitions
-        > Sound & Music -> tutorial_audio
-        > Variables and Conditions -> tutorial_variables
-        > Character Movement & Easing -> tutorial_movement
-        > Puppeteer Timelines (Animation) -> tutorial_puppeteer
-        > Choices and Menus -> tutorial_menus
-        > Subroutines & Flow -> tutorial_subroutines
-        > Back to basics -> tutorials_hub
+        [wait 120]
+        Lavender: Advanced:
+        > Transitions & Screen FX -> open_transitions
+        > Audio & Music -> open_audio
+        > Variables & Conditions -> open_variables
+        > Character Movement & Easing -> open_movement
+        > Puppeteer Timeline in VNS -> open_puppeteer
+        > Choices & Built-in Menus -> open_menus
+        > Subroutines & Flow Composition -> open_subroutines
+        > VNS Best Practices Checklist -> open_best_practices
+        > Back to basics -> topics_page_1
+        > Exit tutorial -> end_early
 
-        # ═══════════════════════════════════════════
-        # Writing Dialogue
-        # ═══════════════════════════════════════════
+        @label open_dialogue
+        [goto %s:start]
 
-        @label tutorial_dialogue
-        [inc tutorial_count]
-        [show lavender center talking]
-        [wait 200]
-        Lavender: Writing dialogue is the heart of any visual novel!
-        Lavender: The basic syntax is simple: {b}CharacterName: Dialogue text here{/b}
-        Lavender: You can use tags like {b}bold{/b}, {i}italic{/i}, and {color=#4a9eff}color{/color} to style your text.
-        Lavender: There's even {wave}wavy text{/wave} for when things get dramatic!
-        Lavender: And {shake}shaky text{/shake} for when things are really intense!
-        Lavender: You can change {size=24}text size{/size} too, though use it sparingly.
-        Lavender: Just remember - a little formatting goes a long way.
-        [jump tutorials_hub]
+        @label open_narration
+        [goto %s:start]
 
-        # ═══════════════════════════════════════════
-        # Narration & Text Pacing
-        # ═══════════════════════════════════════════
+        @label open_expressions
+        [goto %s:start]
 
-        @label tutorial_narration
-        [inc tutorial_count]
-        [show lavender right talking]
-        [wait 200]
-        Lavender: Not every line needs a named character speaking. Sometimes you want narration!
-        Lavender: To write narration, define a narrator character and use them like anyone else.
-        narrator: The field stretched endlessly under a golden sky. A gentle breeze carried the scent of grass.
-        narrator: Sometimes, stories need a voice that belongs to no one in particular.
-        [show lavender center talking]
-        Lavender: See? That was the narrator - defined in our shared {b}%s{/b} character file.
-        Lavender: You can give your narrator any display name, or even leave it blank!
-        Lavender: You can also change the text speed mid-scene.
-        [textspeed 12]
-        Lavender: ...Like this. I'm talking much more slowly now...
-        [textspeed 40]
-        Lavender: And now I'm talking really fast because text speed is set to 40!
-        [textspeed 28]
-        Lavender: Back to normal. Use {b}[textspeed N]{/b} to control pacing.
-        Lavender: There's also {b}[autodelay N]{/b} to change how long auto-mode waits between lines.
-        [jump tutorials_hub]
+        @label open_images
+        [goto %s:start]
 
-        # ═══════════════════════════════════════════
-        # Expressions & Characters
-        # ═══════════════════════════════════════════
+        @label open_transitions
+        [goto %s:start]
 
-        @label tutorial_expressions
-        [inc tutorial_count]
-        [show lavender center talking]
-        [wait 200]
-        Lavender: Characters can have different expressions - different images for different moods!
-        __EXPR_DEMO__
-        Lavender: Expressions are defined with {b}@charimg{/b} or the layered {b}@charlayer + @charpreset{/b} system.
-        Lavender: Characters can appear in five positions on screen.
-        [show lavender far_left talking]
-        [wait 400]
-        Lavender: This is {b}far_left{/b}!
-        [show lavender left talking]
-        [wait 400]
-        Lavender: This is {b}left{/b}!
-        [show lavender center talking]
-        [wait 400]
-        Lavender: This is {b}center{/b}!
-        [show lavender right talking]
-        [wait 400]
-        Lavender: This is {b}right{/b}!
-        [show lavender far_right talking]
-        [wait 400]
-        Lavender: And this is {b}far_right{/b}!
-        [show lavender center talking]
-        [wait 300]
-        Lavender: You can also {b}hide{/b} characters when they leave the scene.
-        [hide lavender]
-        [wait 500]
-        narrator: Lavender has left the stage. The field is quiet.
-        [wait 400]
-        [show lavender center talking]
-        [wait 300]
-        Lavender: And I'm back! Use {b}[hide characterId]{/b} to remove someone from the screen.
-        Lavender: For advanced layering, you can set a layer order: {b}[show char pos expr 2]{/b}
-        Lavender: Higher layer numbers appear in front of lower ones - great for overlapping characters.
-        [jump tutorials_hub]
+        @label open_audio
+        [goto %s:start]
 
-        # ═══════════════════════════════════════════
-        # Images and Backgrounds
-        # ═══════════════════════════════════════════
+        @label open_variables
+        [goto %s:start]
 
-        @label tutorial_images
-        [inc tutorial_count]
-        [show lavender center talking]
-        [wait 170]
-        Lavender: Images bring your story to life! You'll mainly work with two types.
-        Lavender: Character sprites - that's me! - and backgrounds, like this field behind us.
-        [show lavender right talking]
-        [wait 320]
-        Lavender: Characters can appear in different spots on screen. See? I just moved!
-        [show lavender center talking]
-        __IMAGE_DSL_LINE__
-        Lavender: Backgrounds are defined with {b}@background id path{/b} and shown with {b}[bg id]{/b}.
-        Lavender: You can combine backgrounds with transitions for smooth scene changes!
-        [jump tutorials_hub]
+        @label open_movement
+        [goto %s:start]
 
-        # ═══════════════════════════════════════════
-        # Transitions and Effects
-        # ═══════════════════════════════════════════
+        @label open_puppeteer
+        [goto %s:start]
 
-        @label tutorial_transitions
-        [inc tutorial_count]
-        [show lavender center talking]
-        Lavender: Transitions make scene changes feel smooth and polished.
-        [transition crossfade 650 field_evening]
-        Lavender: Like that crossfade! The background just changed to evening.
-        [screen flash 0.28 140 1 1 1]
-        Lavender: And effects like screen flashes add dramatic impact.
-        Lavender: Available types: {b}fade{/b}, {b}crossfade{/b}, {b}dissolve{/b}, {b}slide_left{/b}, {b}slide_right{/b}, and {b}wipe{/b}.
-        [transition fade 450 field_day]
-        Lavender: Back to daytime! Transitions help set the mood of each scene.
-        [jump tutorials_hub_2]
+        @label open_menus
+        [goto %s:start]
 
-        # ═══════════════════════════════════════════
-        # Sound & Music
-        # ═══════════════════════════════════════════
+        @label open_subroutines
+        [goto %s:start]
 
-        @label tutorial_audio
-        [inc tutorial_count]
-        [show lavender center talking]
-        [wait 200]
-        Lavender: JVN has a full audio system! You've already been hearing the background music.
-        Lavender: BGM is played with {b}[bgm "path/to/track.mp3"]{/b} and loops by default.
-        Lavender: You can fade it out smoothly...
-        [bgm_fadeout 1500]
-        [wait 1600]
-        Lavender: See? The music faded away using {b}[bgm_fadeout 1500]{/b} (1.5 seconds).
-        [wait 300]
-        Lavender: Let's bring it back!
-        [bgm "assets/demo/audio/03 - Definitely Our Town.mp3"]
-        [wait 500]
-        Lavender: There's also {b}[bgm_crossfade "newTrack" 2000]{/b} to blend between tracks.
-        Lavender: For sound effects, use {b}[sfx "path/to/sound.wav"]{/b}. They play once and don't loop.
-        Lavender: And for voice acting, there's {b}[voice "path/to/line.wav"]{/b}.
-        Lavender: You can control volume per channel with {b}[volume bgm 0.8]{/b} or {b}[volume sfx 1.0]{/b}.
-        [jump tutorials_hub_2]
-
-        # ═══════════════════════════════════════════
-        # Variables and Conditions
-        # ═══════════════════════════════════════════
-
-        @label tutorial_variables
-        [inc tutorial_count]
-        [show lavender center talking]
-        [wait 200]
-        Lavender: Variables let you track player progress and make branching decisions!
-        Lavender: Let me show you. I'll set a variable right now.
-        [set player_mood "happy"]
-        [flag met_lavender]
-        Lavender: I just ran {b}[set player_mood "happy"]{/b} and {b}[flag met_lavender]{/b}.
-        Lavender: {b}[set]{/b} stores a value, {b}[flag]{/b} sets a boolean, {b}[inc]{/b}/{b}[dec]{/b} adjust numbers.
-        Lavender: Now for the fun part - conditionals!
-        [if met_lavender]
-        Lavender: This line only shows because {b}met_lavender{/b} is true! The {b}[if]{/b} block worked.
-        [endif]
-        Lavender: You can also use {b}[elif]{/b} and {b}[else]{/b} for complex branching.
-        [set score 3]
-        [if score > 5]
-        Lavender: Score is high! (You won't see this.)
-        [elif score > 2]
-        Lavender: Score is moderate. Since I set {b}score = 3{/b}, this branch runs!
-        [else]
-        Lavender: Score is low. (You won't see this either.)
-        [endif]
-        Lavender: You can even use {b}[if expr goto label]{/b} for one-line conditional jumps.
-        Lavender: And choices can have conditions too! Watch:
-        [set has_key true]
-        > Open the locked door [if has_key] -> var_door_open
-        > Look for another way -> var_no_door
-        > Continue the tutorial -> tutorials_hub_2
-
-        @label var_door_open
-        [show lavender center talking]
-        Lavender: You opened the door because {b}has_key{/b} was true!
-        Lavender: If it were false, that choice wouldn't even appear.
-        [jump tutorials_hub_2]
-
-        @label var_no_door
-        [show lavender center talking]
-        Lavender: You chose to look for another way. Choices shape the story!
-        [jump tutorials_hub_2]
-
-        # ═══════════════════════════════════════════
-        # Character Movement & Easing
-        # ═══════════════════════════════════════════
-
-        @label tutorial_movement
-        [inc tutorial_count]
-        [char lavender global on]
-        [show lavender center talking]
-        [wait 200]
-        Lavender: JVN supports moving characters across the screen with the {b}[move]{/b} command!
-        Lavender: You can use any of the built-in easing presets to control the animation curve.
-        Lavender: Let me show you a few. First, a simple move to the left...
-        [move lavender far_left ease_out_quad]
-        [wait 400]
-        Lavender: That was {b}ease_out_quad{/b} — smooth and natural.
-        Lavender: Now watch {b}ease_out_bounce{/b}!
-        [move lavender far_right ease_out_bounce]
-        [wait 600]
-        Lavender: See the bounce at the end? Great for playful characters.
-        Lavender: Here's {b}ease_out_elastic{/b} — it overshoots and springs back.
-        [move lavender left ease_out_elastic 500]
-        [wait 600]
-        Lavender: You can also specify a custom duration in milliseconds.
-        Lavender: Now {b}ease_in_out_back{/b} — it pulls back before sliding in.
-        [move lavender right ease_in_out_back]
-        [wait 500]
-        Lavender: And {b}ease_out_expo{/b} — a quick burst that eases to a stop.
-        [move lavender center ease_out_expo]
-        [wait 400]
-        [show lavender center idle]
-        Lavender: The syntax is: {b}[move charId position [expression] [easing] [durationMs]]{/b}
-        Lavender: All easing presets from the Puppeteer are available — bounce, elastic, back, expo, sine, and more!
-        Lavender: You can also use {b}custom positions{/b}! Define named spots with {b}@position{/b}...
-        Lavender: For example: {b}@position balcony 0.3 0.6{/b} — that's x=0.3, y=0.6 in screen space.
-        Lavender: Then use them just like built-in positions: {b}[show hero balcony]{/b}
-        Lavender: Or skip the name and go inline: {b}[show hero at 0.3,0.5]{/b}
-        [move lavender at 0.15,0.85 ease_out_back]
-        [wait 400]
-        Lavender: See? I just moved to an inline custom coordinate!
-        [move lavender at 0.85,0.85 ease_out_bounce]
-        [wait 500]
-        Lavender: You can even set the layer order with a third value: {b}[show hero at 0.3,0.5,10]{/b}
-        [move lavender center ease_out_quad]
-        [wait 300]
-        [show lavender center idle]
-        [char lavender global off]
-        [jump tutorials_hub_2]
-
-        # ═══════════════════════════════════════════
-        # Puppeteer Timelines (Animation)
-        # ═══════════════════════════════════════════
-
-        @label tutorial_puppeteer
-        [inc tutorial_count]
-        [show lavender center talking]
-        [wait 150]
-        Lavender: Let's run a full Puppeteer-style timeline showcase right inside VNS.
-        Lavender: Inline timeline blocks use the same action family the Puppeteer editor exports.
-
-        timeline {
-          move "lavender" {
-            x: 150
-            y: 410
-            dur: 0
-          }
-        }
-        [wait 50]
-
-        timeline {
-          move "lavender" {
-            x: 980
-            y: 405
-            dur: 850
-            easing: ease_in_out_sine
-          }
-        }
-        [wait 900]
-
-        Lavender: Movement, rotation, and scaling can stack in the same beat.
-
-        timeline {
-          move "lavender" {
-            x: 780
-            y: 398
-            dur: 380
-            easing: ease_in_out_cubic
-          }
-          rotate "lavender" {
-            angle: -9
-            dur: 380
-            easing: ease_in_out_sine
-          }
-          wait 120
-          scale "lavender" {
-            x: 1.18
-            y: 0.86
-            dur: 170
-            easing: ease_out_quad
-          }
-          wait 190
-          scale "lavender" {
-            x: 1.0
-            y: 1.0
-            dur: 180
-            easing: ease_in_out_quad
-          }
-        }
-        [wait 820]
-
-        Lavender: Pivot changes make swings and arcs easy.
-
-        timeline {
-          pivot "lavender" {
-            ox: 0.5
-            oy: 0.9
-            dur: 220
-            easing: ease_out_quad
-          }
-          rotate "lavender" {
-            angle: 12
-            dur: 220
-            easing: ease_out_back
-          }
-          wait 220
-          rotate "lavender" {
-            angle: -10
-            dur: 240
-            easing: ease_in_out_quad
-          }
-          wait 240
-          rotate "lavender" {
-            angle: 0
-            dur: 240
-            easing: ease_out_quad
-          }
-        }
-        [wait 760]
-
-        Lavender: Camera tracks are timeline tracks too.
-
-        timeline {
-          cameraMove {
-            x: 90
-            y: -10
-            dur: 700
-            easing: ease_in_out_sine
-          }
-          cameraZoom {
-            zoom: 1.12
-            dur: 700
-            easing: ease_in_out_sine
-          }
-        }
-        [wait 760]
-        timeline {
-          cameraMove {
-            x: 0
-            y: 0
-            dur: 520
-            easing: ease_out_sine
-          }
-          cameraZoom {
-            zoom: 1.0
-            dur: 520
-            easing: ease_out_sine
-          }
-        }
-        [wait 560]
-
-        [transition crossfade 650 field_evening]
-        [wait 700]
-        Lavender: Timelines keep working across scene transitions.
-
-        timeline {
-          move "lavender" {
-            x: 540
-            y: 404
-            dur: 420
-            easing: ease_in_out_quad
-          }
-          fade "lavender" {
-            alpha: 0.45
-            dur: 220
-            easing: ease_in_out_quad
-          }
-          wait 230
-          fade "lavender" {
-            alpha: 1.0
-            dur: 250
-            easing: ease_out_quad
-          }
-        }
-        [wait 560]
-
-        Lavender: Finale combo: move + rotate + scale + camera all together.
-
-        timeline {
-          move "lavender" {
-            x: 700
-            y: 395
-            dur: 620
-            easing: ease_in_out_cubic
-          }
-          rotate "lavender" {
-            angle: -8
-            dur: 620
-            easing: ease_in_out_sine
-          }
-          scale "lavender" {
-            x: 1.16
-            y: 1.16
-            dur: 620
-            easing: ease_in_out_sine
-          }
-          cameraMove {
-            x: 36
-            y: -8
-            dur: 620
-            easing: ease_in_out_sine
-          }
-          cameraZoom {
-            zoom: 1.08
-            dur: 620
-            easing: ease_in_out_sine
-          }
-        }
-        [wait 680]
-        timeline {
-          move "lavender" {
-            x: 640
-            y: 405
-            dur: 500
-            easing: ease_out_sine
-          }
-          rotate "lavender" {
-            angle: 0
-            dur: 500
-            easing: ease_out_sine
-          }
-          scale "lavender" {
-            x: 1.0
-            y: 1.0
-            dur: 500
-            easing: ease_out_sine
-          }
-          cameraMove {
-            x: 0
-            y: 0
-            dur: 500
-            easing: ease_out_sine
-          }
-          cameraZoom {
-            zoom: 1.0
-            dur: 500
-            easing: ease_out_sine
-          }
-        }
-        [wait 560]
-        [transition fade 450 field_day]
-        [wait 500]
-        Lavender: That was a full text-first Puppeteer workflow demo.
-        [jump tutorials_hub_2]
-
-        # ═══════════════════════════════════════════
-        # Choices and Menus
-        # ═══════════════════════════════════════════
-
-        @label tutorial_menus
-        [inc tutorial_count]
-        [show lavender far_left talking]
-        [wait 220]
-        Lavender: Choices let players shape the story! Each option can branch to different paths.
-        Lavender: The syntax is simple: {b}> Choice text -> target_label{/b}
-        Lavender: JVN also has built-in menu integration. Want to try the save system?
-        > Yes, open save menu -> menus_save
-        > No, tell me about it -> menus_explain
-
-        @label menus_save
-        Lavender: Opening the save menu now!
-        [save]
-        Lavender: That was the {b}[save]{/b} command. Players can save their progress anytime.
-        [jump menus_done]
-
-        @label menus_explain
-        Lavender: No problem! The {b}[save]{/b} command opens the save menu.
-        Lavender: There's also {b}[mainmenu]{/b} to return to the title screen.
-        [jump menus_done]
-
-        @label menus_done
-        Lavender: You can trigger menus from scripts or let players use keyboard shortcuts.
-        Lavender: The {b}[mainmenu]{/b}, {b}[save]{/b}, and {b}[settings]{/b} commands open built-in screens.
-        [jump tutorials_hub_2]
-
-        # ═══════════════════════════════════════════
-        # Subroutines & Flow
-        # ═══════════════════════════════════════════
-
-        @label tutorial_subroutines
-        [inc tutorial_count]
-        [show lavender center talking]
-        [wait 200]
-        Lavender: Subroutines let you reuse sections of your script!
-        Lavender: Use {b}[gosub label]{/b} to call a subroutine, and {b}[return]{/b} to come back.
-        Lavender: Watch - I'll call a greeting subroutine right now.
-        [gosub greeting_sub]
-        Lavender: See? We jumped to the subroutine and came right back.
-        Lavender: JVN also supports {b}@define{/b} for text constants and {b}@include{/b} for splitting scripts.
-        Lavender: For example, {b}@define HERO Alice{/b} lets you reuse a name everywhere.
-        Lavender: And {b}@include %s{/b} loads another script file inline.
-        Lavender: These are great for keeping large projects organized!
-        [jump tutorials_hub_2]
-
-        @label greeting_sub
-        narrator: [The subroutine runs here.]
-        Lavender: Hello from inside a subroutine! I'll return now.
-        [return]
-
-        # ═══════════════════════════════════════════
-        # Ending
-        # ═══════════════════════════════════════════
+        @label open_best_practices
+        [goto %s:start]
 
         @label end_early
         [show lavender center talking]
-        [wait 200]
-        [if tutorial_count > 5]
-        Lavender: Wow, you've explored so many tutorials! You're well on your way to mastering JVN.
-        [elif tutorial_count > 2]
-        Lavender: You've seen a good chunk of what JVN can do. There's always more to discover!
+        [wait 160]
+        [if tutorial_count > 9]
+        Lavender: You explored nearly the whole tutorial pack. Great pace.
+        [elif tutorial_count > 4]
+        Lavender: Nice progress. Keep iterating in these files as your project grows.
         [else]
-        Lavender: Thank you for checking out this tutorial!
+        Lavender: Start with one topic, then revisit the rest as needed.
         [endif]
-        Lavender: If you'd like to see how this demo works, take a look at {b}%s{/b}.
-        Lavender: You can edit it, break it, rebuild it - that's how you learn!
-        Lavender: We look forward to seeing what you create with JVN. Have fun!
+        Lavender: Open the scripts directly in the editor and adapt them to your own narrative style.
         [end]
-
         """.formatted(
             name,
-            scenarioId,
+            scenarioPrefix,
             CHARACTERS_INCLUDE_PATH,
-            name,
+            backgroundDecl,
+            backgroundStart,
+            dialogueTarget,
+            narrationTarget,
+            expressionsTarget,
+            imagesTarget,
+            transitionsTarget,
+            audioTarget,
+            variablesTarget,
+            movementTarget,
+            puppeteerTarget,
+            menusTarget,
+            subroutinesTarget,
+            bestPracticesTarget
+        );
+    writeTutorialScript(dir, STORY_TUTORIAL_SCRIPT_PATH, script);
+  }
+
+  private void createTutorialTopicScripts(
+      File dir,
+      String name,
+      boolean includeDemoAssets,
+      boolean useLayeredLavenderDemo
+  ) throws Exception {
+    String scenarioPrefix = sanitizeName(name).toLowerCase(Locale.ROOT);
+    String hubTarget = toScriptGotoTarget(STORY_TUTORIAL_SCRIPT_PATH);
+    String tutorialBgDecl = includeDemoAssets
+        ? "@background field_day assets/demo/backgrounds/game.png\n"
+            + "@background field_evening assets/demo/backgrounds/game.png\n\n"
+        : "";
+    String tutorialBgStart = includeDemoAssets ? "[bg field_day]\n[transition fade 350]\n" : "";
+    String tutorialBgCrossfade = includeDemoAssets ? "[transition crossfade 600 field_evening]\n" : "";
+    String tutorialBgmStart = includeDemoAssets ? "[bgm \"assets/demo/audio/03 - Definitely Our Town.mp3\"]\n" : "";
+    String tutorialBgmFade = includeDemoAssets ? "[bgm_fadeout 1200]\n[wait 1300]\n" : "";
+    String expressionHint = useLayeredLavenderDemo
+        ? "Lavender: This project uses layered presets (@charlayer + @charpreset), so expressions are composited from parts."
+        : "Lavender: This project uses simple @charimg declarations. You can switch to layered presets later.";
+
+    writeTutorialScript(dir, TUTORIAL_DIALOGUE_SCRIPT_PATH, """
+        # Tutorial 01 - Dialogue Basics
+        @scenario %s_tutorial_01_dialogue
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [show lavender center talking]
+        Lavender: Dialogue lines use {b}Character: text{/b}.
+        Lavender: Text tags include {b}bold{/b}, {i}italic{/i}, {color=#4a9eff}color{/color}, {size=24}size{/size}, {wave}wave{/wave}, and {shake}shake{/shake}.
+        narrator: Keep most lines plain for readability, then use emphasis tags intentionally.
+        Lavender: Best pattern: one thought per line, short paragraphs, and clear speaker transitions.
+        > Return to Tutorial Hub -> return_hub
+
+        @label return_hub
+        [goto %s:topics_page_1]
+        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
+
+    writeTutorialScript(dir, TUTORIAL_NARRATION_SCRIPT_PATH, """
+        # Tutorial 02 - Narration and Pacing
+        @scenario %s_tutorial_02_narration
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [show lavender right talking]
+        Lavender: Narration is usually a dedicated narrator character.
+        narrator: The campus courtyard sat in warm evening light, quiet except for distant footsteps.
+        Lavender: Use [textspeed] and [autodelay] for tempo control.
+        [textspeed 12]
+        Lavender: Slow dramatic beat...
+        [textspeed 40]
+        Lavender: Fast delivery for energetic scenes.
+        [textspeed 28]
+        [autodelay 1700]
+        Lavender: Reset defaults before returning to normal dialogue flow.
+        > Return to Tutorial Hub -> return_hub
+
+        @label return_hub
+        [goto %s:topics_page_1]
+        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
+
+    writeTutorialScript(dir, TUTORIAL_EXPRESSIONS_SCRIPT_PATH, """
+        # Tutorial 03 - Expressions and Character Setup
+        @scenario %s_tutorial_03_expressions
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [show lavender center talking]
+        Lavender: Swap expressions with [show character position expression].
+        [show lavender center happy]
+        Lavender: Happy preset.
+        [show lavender center emphasis]
+        Lavender: Emphasis preset.
+        [show lavender center idle]
+        Lavender: Neutral/idle preset.
+        %s
+        Lavender: Use consistent naming: idle, talking, happy, angry, surprised, etc.
+        Lavender: Keep shared character declarations in %s and include them from story files.
+        > Return to Tutorial Hub -> return_hub
+
+        @label return_hub
+        [goto %s:topics_page_1]
+        """.formatted(
+            scenarioPrefix,
+            CHARACTERS_INCLUDE_PATH,
+            tutorialBgDecl,
+            tutorialBgStart,
+            expressionHint,
             CHARACTERS_SCRIPT_PATH,
+            hubTarget
+        ));
+
+    writeTutorialScript(dir, TUTORIAL_IMAGES_SCRIPT_PATH, """
+        # Tutorial 04 - Images and Backgrounds
+        @scenario %s_tutorial_04_images
+        @include %s
+        @background field_day assets/demo/backgrounds/game.png
+        @background field_evening assets/demo/backgrounds/game.png
+
+        @label start
+        [inc tutorial_count]
+        [bg field_day]
+        [show lavender left talking]
+        Lavender: Declare backgrounds with @background id path.
+        Lavender: Show them with [bg id].
+        [show lavender right talking]
+        Lavender: Character placement supports far_left, left, center, right, far_right plus custom coordinates.
+        [show lavender at 0.72,0.84]
+        Lavender: This line used an inline custom position.
+        [show lavender center idle]
+        Lavender: Keep asset paths project-relative and avoid renaming files casually once scripts depend on them.
+        > Return to Tutorial Hub -> return_hub
+
+        @label return_hub
+        [goto %s:topics_page_1]
+        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, hubTarget));
+
+    writeTutorialScript(dir, TUTORIAL_TRANSITIONS_SCRIPT_PATH, """
+        # Tutorial 05 - Transitions and Effects
+        @scenario %s_tutorial_05_transitions
+        @include %s
+        @background field_day assets/demo/backgrounds/game.png
+        @background field_evening assets/demo/backgrounds/game.png
+
+        @label start
+        [inc tutorial_count]
+        [bg field_day]
+        [show lavender center talking]
+        Lavender: Scene polish comes from transitions and short FX accents.
+        %s[screen flash 0.22 120 1 1 1]
+        Lavender: Typical transitions: fade, crossfade, dissolve, slide_left, slide_right, wipe.
+        [transition fade 350 field_day]
+        Lavender: Keep transition durations consistent across your project for stylistic cohesion.
+        > Return to Tutorial Hub -> return_hub
+
+        @label return_hub
+        [goto %s:topics_page_2]
+        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgCrossfade, hubTarget));
+
+    writeTutorialScript(dir, TUTORIAL_AUDIO_SCRIPT_PATH, """
+        # Tutorial 06 - Audio and Music
+        @scenario %s_tutorial_06_audio
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [show lavender center talking]
+        Lavender: Use [bgm], [bgm_fadeout], and [bgm_crossfade] for music flow.
+        %sLavender: Use [sfx] for one-shot sounds and [voice] for spoken lines.
+        Lavender: Control channel volume with [volume bgm 0.8], [volume sfx 1.0], etc.
+        %sLavender: Keep file naming predictable and group by channel in assets/audio/.
+        > Return to Tutorial Hub -> return_hub
+
+        @label return_hub
+        [goto %s:topics_page_2]
+        """.formatted(
+            scenarioPrefix,
             CHARACTERS_INCLUDE_PATH,
-            STORY_TUTORIAL_SCRIPT_PATH)
-        .replace("__FRAMING_COMMANDS__", framingCommands.stripTrailing())
-        .replace("__EXPR_DEMO__", expressionDemo.stripTrailing())
-        .replace("__IMAGE_DSL_LINE__", imageDslLine);
+            tutorialBgDecl,
+            tutorialBgStart,
+            tutorialBgmStart,
+            tutorialBgmFade,
+            hubTarget
+        ));
 
-    try (FileWriter fw = new FileWriter(new File(dir, STORY_TUTORIAL_SCRIPT_PATH))) {
-      fw.write(script);
+    writeTutorialScript(dir, TUTORIAL_VARIABLES_SCRIPT_PATH, """
+        # Tutorial 07 - Variables and Conditions
+        @scenario %s_tutorial_07_variables
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [show lavender center talking]
+        [set trust 2]
+        [flag met_lavender]
+        Lavender: [set], [inc], [dec], and [flag] drive stateful branching.
+        [if met_lavender]
+        Lavender: This line appears because met_lavender is true.
+        [endif]
+        > Ask for guidance [if trust >= 2] -> branch_guidance
+        > Stay silent -> branch_silent
+
+        @label branch_guidance
+        Lavender: Conditional choice accepted. trust >= 2.
+        [jump return_hub]
+
+        @label branch_silent
+        Lavender: Alternate branch reached.
+        [jump return_hub]
+
+        @label return_hub
+        [goto %s:topics_page_2]
+        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
+
+    writeTutorialScript(dir, TUTORIAL_MOVEMENT_SCRIPT_PATH, """
+        # Tutorial 08 - Character Movement and Easing
+        @scenario %s_tutorial_08_movement
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [char lavender global on]
+        [show lavender center talking]
+        Lavender: Motion command syntax: [move charId position [expression] [easing] [durationMs]].
+        [move lavender far_left ease_out_quad]
+        [wait 350]
+        [move lavender far_right ease_out_bounce]
+        [wait 450]
+        [move lavender at 0.24,0.86 ease_in_out_back 520]
+        [wait 560]
+        [move lavender center idle ease_out_sine 380]
+        [wait 420]
+        [char lavender global off]
+        Lavender: Use easing families consistently for a coherent animation language.
+        > Return to Tutorial Hub -> return_hub
+
+        @label return_hub
+        [goto %s:topics_page_2]
+        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
+
+    writeTutorialScript(dir, TUTORIAL_PUPPETEER_SCRIPT_PATH, """
+        # Tutorial 09 - Puppeteer Timeline from VNS
+        @scenario %s_tutorial_09_puppeteer
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [show lavender center talking]
+        Lavender: Timeline blocks in VNS use the same commands the Puppeteer exports.
+
+        timeline {
+          move "lavender" { x: 220 y: 405 dur: 0 }
+        }
+        [wait 60]
+        timeline {
+          move "lavender" { x: 920 y: 405 dur: 760 easing: ease_in_out_sine }
+          rotate "lavender" { angle: -8 dur: 760 easing: ease_in_out_sine }
+        }
+        [wait 820]
+        timeline {
+          scale "lavender" { x: 1.14 y: 1.14 dur: 260 easing: ease_out_quad }
+          wait 280
+          scale "lavender" { x: 1.0 y: 1.0 dur: 260 easing: ease_in_out_quad }
+        }
+        [wait 620]
+        timeline {
+          cameraMove { x: 48 y: -10 dur: 460 easing: ease_in_out_sine }
+          cameraZoom { zoom: 1.08 dur: 460 easing: ease_in_out_sine }
+        }
+        [wait 520]
+        timeline {
+          cameraMove { x: 0 y: 0 dur: 420 easing: ease_out_sine }
+          cameraZoom { zoom: 1.0 dur: 420 easing: ease_out_sine }
+        }
+        [wait 470]
+        [show lavender center idle]
+        Lavender: Use this as your baseline when validating Puppeteer export behavior.
+        > Return to Tutorial Hub -> return_hub
+
+        @label return_hub
+        [goto %s:topics_page_2]
+        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
+
+    writeTutorialScript(dir, TUTORIAL_MENUS_SCRIPT_PATH, """
+        # Tutorial 10 - Choices and Menus
+        @scenario %s_tutorial_10_menus
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [show lavender center talking]
+        Lavender: Choices branch with syntax: > Choice text -> target_label
+        Lavender: Menu commands available in scripts: [save], [load], [settings], [mainmenu].
+        > Open save menu now -> open_save
+        > Explain menu best practices -> explain_menus
+        > Return to Tutorial Hub -> return_hub
+
+        @label open_save
+        Lavender: Opening save menu...
+        [save]
+        Lavender: Back from save menu.
+        [jump return_hub]
+
+        @label explain_menus
+        Lavender: Keep menu-triggering choices explicit and sparing in story-critical beats.
+        Lavender: Reserve [mainmenu] for hard exits and confirmations.
+        [jump return_hub]
+
+        @label return_hub
+        [goto %s:topics_page_2]
+        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
+
+    writeTutorialScript(dir, TUTORIAL_SUBROUTINES_SCRIPT_PATH, """
+        # Tutorial 11 - Subroutines and Flow Composition
+        @scenario %s_tutorial_11_subroutines
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [show lavender center talking]
+        Lavender: [gosub label] enters a reusable block; [return] resumes caller flow.
+        [gosub reusable_intro]
+        Lavender: Returned from subroutine.
+        Lavender: Use @include to split files and keep scenario scripts focused by function.
+        > Return to Tutorial Hub -> return_hub
+
+        @label reusable_intro
+        narrator: [Subroutine section]
+        Lavender: Shared intro beat executed.
+        [return]
+
+        @label return_hub
+        [goto %s:topics_page_2]
+        """.formatted(scenarioPrefix, CHARACTERS_INCLUDE_PATH, tutorialBgDecl, tutorialBgStart, hubTarget));
+
+    writeTutorialScript(dir, TUTORIAL_BEST_PRACTICES_SCRIPT_PATH, """
+        # Tutorial 12 - VNS Best Practices
+        @scenario %s_tutorial_12_best_practices
+        @include %s
+        %s@label start
+        %s[inc tutorial_count]
+        [show lavender center talking]
+        Lavender: Checklist for production-ready VNS scripts:
+        narrator: 1) Keep shared declarations in %s.
+        narrator: 2) Split scenes into multiple files and connect with [goto script:label].
+        narrator: 3) Use clear label names (scene_purpose_state).
+        narrator: 4) Centralize constants with @define and reuse values.
+        narrator: 5) Keep animation curves/style consistent across scenes.
+        narrator: 6) Treat tutorial files as executable references, not static docs.
+        Lavender: This tutorial pack ships with your project so the team has living examples from day one.
+        > Return to Tutorial Hub -> return_hub
+
+        @label return_hub
+        [goto %s:topics_page_2]
+        """.formatted(
+            scenarioPrefix,
+            CHARACTERS_INCLUDE_PATH,
+            tutorialBgDecl,
+            tutorialBgStart,
+            CHARACTERS_SCRIPT_PATH,
+            hubTarget
+        ));
+  }
+
+  private void writeTutorialScript(File dir, String relativePath, String content) throws Exception {
+    try (FileWriter fw = new FileWriter(new File(dir, relativePath))) {
+      fw.write(content);
     }
-
-    createSampleArcEntryAndBranchScripts(dir, name);
   }
 
   private String toScriptGotoTarget(String scriptPath) {
