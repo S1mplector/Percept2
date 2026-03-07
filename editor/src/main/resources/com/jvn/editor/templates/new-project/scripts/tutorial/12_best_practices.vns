@@ -1,389 +1,207 @@
-# Tutorial 12 - Best Practices Checklist
+# Tutorial 12 — Best Practices
+# A checklist of habits that keep your VNS project clean, readable, and scalable.
+
 @scenario {{SCENARIO_PREFIX}}_tutorial_12_best_practices
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
+[show lavender center happy]
+[wait 200]
+Lavender: You've learned the commands. Now let's talk about the habits that separate a hobby project from a polished game.
 [show lavender center talking]
-Lavender: Welcome to Tutorial 12 - Best Practices Checklist.
-Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
-Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
-Lavender: Focus area for this file: Production standards, review cadence, and maintainability.
-Lavender: Primary command family: folder conventions.
-narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+Lavender: These aren't rules — they're lessons from projects that grew big enough to hurt.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: Choose a section. You can revisit any section in any order.
-> Guided section index -> section_index
-> Dense reference sheet -> reference_sheet
-> Practice scene -> practice_scene
-> Return to Tutorial Hub -> return_hub
+Lavender: What would you like to review?
+> File and folder hygiene -> section_files
+> Naming conventions -> section_naming
+> Dialogue writing tips -> section_dialogue
+> Testing and playtesting -> section_testing
+> Common mistakes -> section_mistakes
+> The full checklist -> reference_sheet
+> Quiz yourself -> practice_scene
+> Back to Tutorial Hub -> return_hub
 
-@label section_index
-[show lavender far_left talking]
-Lavender: Guided sections:
-> Section 01 -> section_01
-> Section 02 -> section_02
-> Section 03 -> section_03
-> Section 04 -> section_04
-> Section 05 -> section_05
-> Section 06 -> section_06
-> Section 07 -> section_07
-> Section 08 -> section_08
-> Section 09 -> section_09
-> Section 10 -> section_10
-> Back to lesson menu -> lesson_menu
+# ─── File and Folder Hygiene ─────────────────────────────────────
 
-@label section_01
+@label section_files
 [show lavender left talking]
-Lavender: Section 01 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A01: naming consistency
-narrator: Example line B01: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 01: annotate why, not only what, in your own scripts.
-Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
-> Next section -> section_02
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: Your project structure is the first thing a collaborator sees. Make it welcoming.
+narrator: {b}scripts/{/b} — all VNS files, organized by chapter or arc.
+narrator: {b}assets/characters/{/b} — character sprites, one folder per character.
+narrator: {b}assets/backgrounds/{/b} — scene backgrounds.
+narrator: {b}assets/audio/bgm/{/b} — music files.
+narrator: {b}assets/audio/sfx/{/b} — sound effects.
+narrator: {b}config/{/b} — menus, layouts, styles, registry files.
+[show lavender center talking]
+Lavender: The exact structure depends on your project, but the principle is universal: {i}group by type, name by purpose{/i}.
+Lavender: Don't dump everything in one folder. Don't use cryptic folder names. Don't mix audio with scripts.
+[show lavender center happy]
+Lavender: If someone new joins the team, they should be able to find any file in under 30 seconds.
+> Next: Naming -> section_naming
+> Back to menu -> lesson_menu
 
-@label section_02
-[show lavender left talking]
-Lavender: Section 02 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A02: naming consistency
-narrator: Example line B02: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 02: annotate why, not only what, in your own scripts.
-Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
-> Next section -> section_03
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Naming Conventions ──────────────────────────────────────────
 
-@label section_03
+@label section_naming
+[show lavender right talking]
+Lavender: Good names prevent bugs. Bad names cause them.
+[show lavender center talking]
+Lavender: For {b}files{/b}:
+narrator: {b}Good:{/b} ch1_rooftop_scene.vns, ch2_library_confrontation.vns
+narrator: {b}Bad:{/b} scene3.vns, new_file_FINAL_v2.vns
+Lavender: For {b}labels{/b}:
+narrator: {b}Good:{/b} rooftop_choice, after_confrontation, ending_brave
+narrator: {b}Bad:{/b} label1, temp, here
+Lavender: For {b}variables{/b}:
+narrator: {b}Good:{/b} courage, met_librarian, ch1_route_active
+narrator: {b}Bad:{/b} x, flag, val
 [show lavender left talking]
-Lavender: Section 03 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A03: naming consistency
-narrator: Example line B03: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 03: annotate why, not only what, in your own scripts.
-Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 3]
-> Next section -> section_04
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: Use snake_case everywhere. Prefix chapter-specific variables. Be descriptive even when it feels verbose.
+[show lavender center happy]
+Lavender: The name should answer "what is this?" without needing to read the surrounding code.
+> Next: Dialogue -> section_dialogue
+> Back to menu -> lesson_menu
 
-@label section_04
-[show lavender left talking]
-Lavender: Section 04 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A04: naming consistency
-narrator: Example line B04: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 04: annotate why, not only what, in your own scripts.
-Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
-> Next section -> section_05
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Dialogue Writing Tips ───────────────────────────────────────
 
-@label section_05
-[show lavender left talking]
-Lavender: Section 05 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A05: naming consistency
-narrator: Example line B05: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 05: annotate why, not only what, in your own scripts.
-Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
-> Next section -> section_06
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_dialogue
+[show lavender center talking]
+Lavender: Technical skill gets the engine running. Writing skill makes the player care. A few things to keep in mind:
+narrator: {b}Keep lines short.{/b} Two sentences per dialogue line, max. Players read fast.
+narrator: {b}Read it aloud.{/b} If it sounds awkward spoken, it reads awkward too.
+narrator: {b}Give characters voice.{/b} Each character should sound different — vocabulary, sentence length, attitude.
+narrator: {b}Use narration for atmosphere.{/b} Don't make characters describe what the player can see.
+[show lavender right talking]
+Lavender: And the golden rule of VN dialogue:
+narrator: {b}Every line should either advance the plot, reveal character, or create mood.{/b}
+narrator: If it doesn't do any of those, cut it.
+[show lavender center happy]
+Lavender: Your player's time is precious. Respect it, and they'll respect your story.
+> Next: Testing -> section_testing
+> Back to menu -> lesson_menu
 
-@label section_06
-[show lavender left talking]
-Lavender: Section 06 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A06: naming consistency
-narrator: Example line B06: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 06: annotate why, not only what, in your own scripts.
-Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 6]
-> Next section -> section_07
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Testing and Playtesting ────────────────────────────────────
 
-@label section_07
+@label section_testing
 [show lavender left talking]
-Lavender: Section 07 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A07: naming consistency
-narrator: Example line B07: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 07: annotate why, not only what, in your own scripts.
-Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
-> Next section -> section_08
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: You will ship bugs. The question is how many. Here's how to minimize them:
+narrator: {b}Play every branch.{/b} Don't just test the happy path. Click every choice.
+narrator: {b}Check your variables.{/b} After each scene, verify counters and flags are what you expect.
+narrator: {b}Test saves and loads.{/b} Save mid-scene, reload, and make sure nothing breaks.
+narrator: {b}Watch for dead ends.{/b} Every label should either lead somewhere or end the scene intentionally.
+[show lavender center talking]
+Lavender: Get someone else to playtest. You've read your script a hundred times — you'll miss things. Fresh eyes catch what you can't.
+[show lavender right talking]
+Lavender: And test on the target resolution. UI elements that look fine at 1920x1080 might overlap at 1280x720.
+[show lavender center happy]
+Lavender: Budget time for testing. It's not optional — it's where quality lives.
+> Next: Common mistakes -> section_mistakes
+> Back to menu -> lesson_menu
 
-@label section_08
-[show lavender left talking]
-Lavender: Section 08 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A08: naming consistency
-narrator: Example line B08: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 08: annotate why, not only what, in your own scripts.
-Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
-> Next section -> section_09
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Common Mistakes ─────────────────────────────────────────────
 
-@label section_09
-[show lavender left talking]
-Lavender: Section 09 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A09: naming consistency
-narrator: Example line B09: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 09: annotate why, not only what, in your own scripts.
-Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 9]
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_mistakes
+[show lavender center talking]
+Lavender: The mistakes I see most often:
+narrator: {b}Missing [endif].{/b} Every [if] needs one. The error is silent but the behavior is wrong.
+narrator: {b}Wrong scenario ID in [goto].{/b} Typos in scenario names cause hard-to-debug navigation failures.
+narrator: {b}Forgetting [return].{/b} A [call] without a matching [return] runs off the end of the label.
+narrator: {b}Overusing variables.{/b} If you have 100 flags and can't remember what half of them do, simplify.
+narrator: {b}Walls of text.{/b} If a single dialogue line fills the entire text box, split it.
+[show lavender right talking]
+Lavender: And the sneaky one:
+narrator: {b}Untested branches.{/b} You wrote it, but did you play it? There's always one path nobody clicked.
+[show lavender center happy]
+Lavender: Most of these are caught by simply playing your own game start to finish. Do it before anyone else does.
+> The full checklist -> reference_sheet
+> Quiz yourself -> practice_scene
+> Back to menu -> lesson_menu
 
-@label section_10
-[show lavender left talking]
-Lavender: Section 10 for Production standards, review cadence, and maintainability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: folder conventions.
-narrator: Example line A10: naming consistency
-narrator: Example line B10: pre-commit validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 10: annotate why, not only what, in your own scripts.
-Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Reference Checklist ─────────────────────────────────────────
 
 @label reference_sheet
 [show lavender center talking]
-Lavender: Reference mode: long-form checklist with tactical reminders.
-narrator: Ref 001 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 002 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 003 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 004 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 005 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 006 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 007 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 008 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 009 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 010 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 011 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 012 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 013 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 014 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 015 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 016 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 017 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 018 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 019 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 020 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 021 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 022 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 023 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 024 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 025 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 026 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 027 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 028 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 029 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 030 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 031 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 032 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 033 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 034 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 035 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 036 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 037 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 038 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 039 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 040 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 041 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 042 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 043 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 044 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 045 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 046 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 047 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 048 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 049 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 050 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 051 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 052 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 053 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 054 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 055 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 056 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 057 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 058 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 059 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 060 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 061 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 062 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 063 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 064 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 065 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 066 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 067 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 068 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 069 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 070 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 071 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 072 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 073 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 074 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 075 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 076 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 077 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 078 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 079 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 080 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 081 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 082 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 083 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 084 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 085 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 086 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 087 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 088 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 089 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 090 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 091 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 092 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 093 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 094 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 095 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 096 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 097 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 098 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 099 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 100 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 101 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 102 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 103 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 104 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 105 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 106 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 107 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 108 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 109 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 110 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 111 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 112 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 113 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 114 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 115 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 116 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 117 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 118 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 119 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 120 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 121 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 122 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 123 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 124 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 125 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 126 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 127 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 128 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 129 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 130 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 131 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 132 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 133 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 134 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 135 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 136 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 137 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 138 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 139 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 140 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 141 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 142 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 143 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 144 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 145 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 146 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 147 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 148 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 149 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 150 | Production standards, review cadence, and maintainability | Keep scripts deterministic, readable, and reviewable.
-Lavender: End of reference sheet for Tutorial 12 - Best Practices Checklist.
-> Back to lesson menu -> lesson_menu
+Lavender: The best practices checklist:
+narrator: {b}Structure:{/b} One scenario per file. Descriptive file names. Organized folders.
+narrator: {b}Naming:{/b} snake_case for labels and variables. Chapter prefixes for scoped state.
+narrator: {b}Dialogue:{/b} Short lines. Distinct character voices. Cut anything that doesn't earn its place.
+narrator: {b}Flow:{/b} Use [call]/[return] for reusable blocks. Merge branches when possible.
+narrator: {b}Variables:{/b} Descriptive names. Minimal count. Document what each one tracks.
+narrator: {b}Testing:{/b} Play every branch. Test saves. Check variable state. Get fresh eyes.
+narrator: {b}Assets:{/b} Organized by type. Consistent naming. No orphan files.
+narrator: {b}Conditions:{/b} Every [if] has [endif]. Keep blocks short. Avoid deep nesting.
+[show lavender center happy]
+Lavender: Print this, pin it to your wall, and check it before every release. Seriously.
+> Back to menu -> lesson_menu
+
+# ─── Practice Quiz ───────────────────────────────────────────────
 
 @label practice_scene
 [show lavender right talking]
-Lavender: Practice setup for Production standards, review cadence, and maintainability.
-Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
-> Practice path A -> practice_a
-> Practice path B -> practice_b
-> Practice path C -> practice_c
-
-@label practice_a
-[show lavender left talking]
-Lavender: Practice A uses the core pattern: folder conventions.
-narrator: Validate state transitions after each command batch.
-[set practice_result 1]
-[jump practice_wrap]
-
-@label practice_b
+Lavender: Quick quiz — no pressure. Just checking your instincts.
 [show lavender center talking]
-Lavender: Practice B uses alternate pattern: naming consistency.
-narrator: Compare readability between A and B.
-[set practice_result 2]
-[jump practice_wrap]
+Lavender: Question 1: You have a greeting that three different scenes use. What's the best approach?
+> Copy-paste it into each scene -> practice_q1_copy
+> Use [call] to a shared greeting label -> practice_q1_call
+> Write three different greetings -> practice_q1_three
 
-@label practice_c
-[show lavender right talking]
-Lavender: Practice C uses stress pattern: pre-commit validation.
-narrator: Check if this remains maintainable after content scale-up.
-[set practice_result 3]
-[jump practice_wrap]
+@label practice_q1_copy
+[show lavender center talking]
+Lavender: That works, but now you have three copies to maintain. Change one, forget the others — instant inconsistency.
+[set practice_score 0]
+[jump practice_q2]
 
-@label practice_wrap
-[if practice_result == 1]
-Lavender: You picked A. Good for stable baseline implementation.
-[elif practice_result == 2]
-Lavender: You picked B. Useful when balancing readability and flexibility.
+@label practice_q1_call
+[inc practice_score]
+[show lavender center happy]
+Lavender: Exactly. One source of truth, called from wherever you need it. Change it once, it updates everywhere.
+[jump practice_q2]
+
+@label practice_q1_three
+[show lavender center talking]
+Lavender: That can work for character variety, but if they're supposed to be the same greeting, you're tripling your maintenance.
+[set practice_score 0]
+[jump practice_q2]
+
+@label practice_q2
+[show lavender center talking]
+Lavender: Question 2: A variable is named "x" and tracks how many times the player helped NPCs. What should you rename it to?
+> npc_help_count -> practice_q2_good
+> flag1 -> practice_q2_bad
+> x is fine -> practice_q2_x
+
+@label practice_q2_good
+[inc practice_score]
+[show lavender center happy]
+Lavender: Perfect. Descriptive, clear, and you'll know what it means six months from now.
+[jump practice_result]
+
+@label practice_q2_bad
+[show lavender center talking]
+Lavender: "flag1" is barely better than "x". What does it flag? When? Why?
+[jump practice_result]
+
+@label practice_q2_x
+[show lavender center talking]
+Lavender: It works... until you have 30 variables and can't remember what any of them do. Trust me.
+[jump practice_result]
+
+@label practice_result
+[show lavender center talking]
+[if practice_score >= 2]
+Lavender: 2 out of 2. You've got the right instincts — clean code, clear names, reusable structure.
+[elif practice_score == 1]
+Lavender: 1 out of 2. You're on the right track. The habits build with practice.
 [else]
-Lavender: You picked C. Great for stress-testing workflow assumptions.
+Lavender: 0 out of 2. No worries — knowing the principles is what matters. You can always refactor.
 [endif]
-Lavender: Practice scene complete.
-> Back to lesson menu -> lesson_menu
+[show lavender center happy]
+Lavender: That's all 12 tutorials. You've got every tool you need. Now go build something worth playing.
+> Back to menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_2]

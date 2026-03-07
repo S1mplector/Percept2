@@ -1,389 +1,191 @@
-# Tutorial 14 - Localization and Text Keys
+# Tutorial 14 — Localization and Text Keys
+# How to prepare your game for multiple languages using locale files and text keys.
+
 @scenario {{SCENARIO_PREFIX}}_tutorial_14_localization
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
+[show lavender center happy]
+[wait 200]
+Lavender: Planning to release in more than one language? Even if you're not sure yet, it's worth setting up now.
 [show lavender center talking]
-Lavender: Welcome to Tutorial 14 - Localization and Text Keys.
-Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
-Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
-Lavender: Focus area for this file: Localization workflow, key strategy, and translation QA.
-Lavender: Primary command family: locale keys.
-narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+Lavender: Retrofitting localization into a finished game is painful. Starting with it is almost free.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: Choose a section. You can revisit any section in any order.
-> Guided section index -> section_index
-> Dense reference sheet -> reference_sheet
+Lavender: What would you like to learn about?
+> What are text keys? -> section_textkeys
+> Locale files -> section_locale_files
+> Naming your keys -> section_naming
+> Translation workflow -> section_workflow
+> Common pitfalls -> section_pitfalls
+> Quick reference card -> reference_sheet
 > Practice scene -> practice_scene
-> Return to Tutorial Hub -> return_hub
+> Back to Tutorial Hub -> return_hub
 
-@label section_index
-[show lavender far_left talking]
-Lavender: Guided sections:
-> Section 01 -> section_01
-> Section 02 -> section_02
-> Section 03 -> section_03
-> Section 04 -> section_04
-> Section 05 -> section_05
-> Section 06 -> section_06
-> Section 07 -> section_07
-> Section 08 -> section_08
-> Section 09 -> section_09
-> Section 10 -> section_10
-> Back to lesson menu -> lesson_menu
+# ─── What Are Text Keys ─────────────────────────────────────────
 
-@label section_01
+@label section_textkeys
 [show lavender left talking]
-Lavender: Section 01 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A01: placeholder discipline
-narrator: Example line B01: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 01: annotate why, not only what, in your own scripts.
-Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
-> Next section -> section_02
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: A {b}text key{/b} is a placeholder in your script that the engine replaces with the correct text at runtime, based on the player's language.
+narrator: {color=#8888cc}Lavender: {{ch1.greeting}}{/color}
+[show lavender center talking]
+Lavender: Instead of writing "Good morning!" directly, you write a key. The locale file maps that key to the actual text.
+narrator: {b}en.locale:{/b} ch1.greeting = Good morning!
+narrator: {b}ja.locale:{/b} ch1.greeting = おはようございます！
+narrator: {b}de.locale:{/b} ch1.greeting = Guten Morgen!
+[show lavender center happy]
+Lavender: Same script, three languages. The VNS file never changes — only the locale files do.
+> Next: Locale files -> section_locale_files
+> Back to menu -> lesson_menu
 
-@label section_02
-[show lavender left talking]
-Lavender: Section 02 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A02: placeholder discipline
-narrator: Example line B02: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 02: annotate why, not only what, in your own scripts.
-Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
-> Next section -> section_03
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Locale Files ────────────────────────────────────────────────
 
-@label section_03
+@label section_locale_files
+[show lavender right talking]
+Lavender: Locale files live in your project's locale directory. One file per language.
+narrator: {color=#8888cc}locale/en.locale{/color}
+narrator: {color=#8888cc}locale/ja.locale{/color}
+narrator: {color=#8888cc}locale/de.locale{/color}
+[show lavender center talking]
+Lavender: Each file is a simple key-value format:
+narrator: {color=#8888cc}ch1.greeting = Good morning!{/color}
+narrator: {color=#8888cc}ch1.farewell = See you tomorrow.{/color}
+narrator: {color=#8888cc}menu.new_game = New Game{/color}
+narrator: {color=#8888cc}menu.load = Load Game{/color}
 [show lavender left talking]
-Lavender: Section 03 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A03: placeholder discipline
-narrator: Example line B03: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 03: annotate why, not only what, in your own scripts.
-Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 3]
-> Next section -> section_04
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: The engine loads the locale file matching the player's language setting. If a key is missing, it falls back to the default locale.
+[show lavender center happy]
+Lavender: Always write your default locale file first (usually English). It's the reference that translators work from.
+> Next: Naming keys -> section_naming
+> Back to menu -> lesson_menu
 
-@label section_04
-[show lavender left talking]
-Lavender: Section 04 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A04: placeholder discipline
-narrator: Example line B04: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 04: annotate why, not only what, in your own scripts.
-Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
-> Next section -> section_05
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Naming Your Keys ───────────────────────────────────────────
 
-@label section_05
-[show lavender left talking]
-Lavender: Section 05 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A05: placeholder discipline
-narrator: Example line B05: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 05: annotate why, not only what, in your own scripts.
-Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
-> Next section -> section_06
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_naming
+[show lavender center talking]
+Lavender: Key naming matters more than you think. A good naming scheme keeps things findable as your project grows.
+narrator: {b}Pattern:{/b} category.context.description
+narrator: {b}Examples:{/b}
+narrator: {color=#8888cc}ch1.rooftop.lavender_greeting{/color}
+narrator: {color=#8888cc}ch2.library.alex_warning{/color}
+narrator: {color=#8888cc}menu.settings.volume_label{/color}
+narrator: {color=#8888cc}ui.confirm.yes{/color}
+[show lavender right talking]
+Lavender: Don't use generic names like "text1" or "line_42". Your translator needs context to translate accurately.
+[show lavender center happy]
+Lavender: A translator seeing "ch1.rooftop.lavender_greeting" knows exactly where this line appears and who says it.
+> Next: Workflow -> section_workflow
+> Back to menu -> lesson_menu
 
-@label section_06
-[show lavender left talking]
-Lavender: Section 06 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A06: placeholder discipline
-narrator: Example line B06: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 06: annotate why, not only what, in your own scripts.
-Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 6]
-> Next section -> section_07
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Translation Workflow ────────────────────────────────────────
 
-@label section_07
+@label section_workflow
 [show lavender left talking]
-Lavender: Section 07 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A07: placeholder discipline
-narrator: Example line B07: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 07: annotate why, not only what, in your own scripts.
-Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
-> Next section -> section_08
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: Here's the workflow that keeps things sane:
+narrator: {b}1.{/b} Write your script in the default language with text keys.
+narrator: {b}2.{/b} Fill out the default locale file (en.locale) with all the text.
+narrator: {b}3.{/b} Send the locale file to translators — they only touch locale files, never VNS scripts.
+narrator: {b}4.{/b} Translators create their locale file (ja.locale, de.locale, etc).
+narrator: {b}5.{/b} Test each language in-game. Check for text overflow, missing keys, and tone.
+[show lavender center talking]
+Lavender: The separation is the key insight: {i}scripts define structure, locale files define text{/i}. Your translators never need to understand VNS syntax.
+[show lavender center happy]
+Lavender: When you add new dialogue, add the key to all locale files. Mark untranslated keys with a prefix like "TODO:" so they're easy to find.
+> Next: Pitfalls -> section_pitfalls
+> Back to menu -> lesson_menu
 
-@label section_08
-[show lavender left talking]
-Lavender: Section 08 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A08: placeholder discipline
-narrator: Example line B08: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 08: annotate why, not only what, in your own scripts.
-Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
-> Next section -> section_09
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Common Pitfalls ────────────────────────────────────────────
 
-@label section_09
-[show lavender left talking]
-Lavender: Section 09 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A09: placeholder discipline
-narrator: Example line B09: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 09: annotate why, not only what, in your own scripts.
-Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 9]
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_pitfalls
+[show lavender center talking]
+Lavender: Things that will bite you if you're not careful:
+narrator: {b}Text length.{/b} German text is often 30% longer than English. Japanese is shorter. Test all languages for overflow.
+narrator: {b}Concatenation.{/b} Don't build sentences from fragments — word order changes between languages. Use full sentences as keys.
+narrator: {b}Hardcoded text.{/b} If you wrote "Hello!" directly in a VNS file, it can't be translated. Always use a key.
+narrator: {b}Missing keys.{/b} If a key exists in en.locale but not ja.locale, the player sees the raw key name. Test for this.
+[show lavender right talking]
+Lavender: And the cultural one:
+narrator: {b}Humor and idioms don't translate literally.{/b} Give translators context notes — "this is sarcastic" or "this is a pun on X."
+[show lavender center happy]
+Lavender: Localization isn't just translation. It's making the game feel native in every language.
+> Reference card -> reference_sheet
+> Try it yourself -> practice_scene
+> Back to menu -> lesson_menu
 
-@label section_10
-[show lavender left talking]
-Lavender: Section 10 for Localization workflow, key strategy, and translation QA.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: locale keys.
-narrator: Example line A10: placeholder discipline
-narrator: Example line B10: per-locale validation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 10: annotate why, not only what, in your own scripts.
-Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Reference Card ──────────────────────────────────────────────
 
 @label reference_sheet
 [show lavender center talking]
-Lavender: Reference mode: long-form checklist with tactical reminders.
-narrator: Ref 001 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 002 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 003 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 004 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 005 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 006 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 007 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 008 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 009 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 010 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 011 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 012 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 013 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 014 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 015 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 016 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 017 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 018 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 019 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 020 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 021 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 022 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 023 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 024 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 025 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 026 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 027 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 028 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 029 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 030 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 031 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 032 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 033 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 034 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 035 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 036 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 037 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 038 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 039 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 040 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 041 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 042 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 043 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 044 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 045 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 046 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 047 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 048 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 049 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 050 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 051 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 052 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 053 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 054 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 055 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 056 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 057 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 058 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 059 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 060 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 061 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 062 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 063 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 064 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 065 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 066 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 067 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 068 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 069 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 070 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 071 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 072 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 073 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 074 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 075 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 076 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 077 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 078 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 079 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 080 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 081 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 082 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 083 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 084 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 085 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 086 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 087 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 088 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 089 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 090 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 091 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 092 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 093 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 094 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 095 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 096 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 097 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 098 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 099 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 100 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 101 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 102 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 103 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 104 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 105 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 106 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 107 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 108 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 109 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 110 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 111 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 112 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 113 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 114 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 115 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 116 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 117 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 118 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 119 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 120 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 121 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 122 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 123 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 124 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 125 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 126 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 127 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 128 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 129 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 130 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 131 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 132 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 133 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 134 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 135 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 136 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 137 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 138 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 139 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 140 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 141 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 142 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 143 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 144 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 145 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 146 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 147 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 148 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 149 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 150 | Localization workflow, key strategy, and translation QA | Keep scripts deterministic, readable, and reviewable.
-Lavender: End of reference sheet for Tutorial 14 - Localization and Text Keys.
-> Back to lesson menu -> lesson_menu
+Lavender: Localization cheat sheet:
+narrator: {b}Text key:{/b} {{category.context.description}} — placeholder resolved at runtime.
+narrator: {b}Locale file:{/b} locale/xx.locale — key = value pairs, one per language.
+narrator: {b}Fallback:{/b} Missing keys fall back to the default locale.
+narrator: {b}Key naming:{/b} category.context.description — descriptive and hierarchical.
+narrator: {b}Workflow:{/b} Scripts use keys. Translators edit locale files. Never mix the two.
+narrator: {b}Testing:{/b} Check text overflow, missing keys, and cultural fit for every language.
+narrator: {b}Tip:{/b} Start with localization even for single-language games. It's free insurance.
+[show lavender center happy]
+Lavender: If you only remember one thing: never hardcode player-visible text. Always use a key.
+> Back to menu -> lesson_menu
+
+# ─── Practice Scene ──────────────────────────────────────────────
 
 @label practice_scene
 [show lavender right talking]
-Lavender: Practice setup for Localization workflow, key strategy, and translation QA.
-Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
-> Practice path A -> practice_a
-> Practice path B -> practice_b
-> Practice path C -> practice_c
+Lavender: Let's think about localization decisions. Pick a scenario:
+> Translating a pun -> practice_pun
+> Handling text overflow -> practice_overflow
+> Organizing 500+ keys -> practice_organize
 
-@label practice_a
+@label practice_pun
+[show lavender center talking]
+Lavender: Your character says "I'm reading a book about anti-gravity — it's impossible to put down!"
+Lavender: That pun doesn't work in most other languages. What do you do?
 [show lavender left talking]
-Lavender: Practice A uses the core pattern: locale keys.
-narrator: Validate state transitions after each command batch.
+Lavender: You give the translator a note: "Pun — feel free to substitute a local equivalent. The tone is lighthearted."
+[show lavender center happy]
+Lavender: Good localization means the translator has creative freedom within the tone you set. Don't demand literal translation of wordplay.
 [set practice_result 1]
 [jump practice_wrap]
 
-@label practice_b
+@label practice_overflow
 [show lavender center talking]
-Lavender: Practice B uses alternate pattern: placeholder discipline.
-narrator: Compare readability between A and B.
+Lavender: Your English text fits perfectly in the dialogue box. Then you switch to German and — it overflows.
+Lavender: "Wiedersehen" is a lot longer than "Bye."
+[show lavender right talking]
+Lavender: Solutions: design your UI with 30% extra space, or allow your text box to scroll, or work with translators to keep lines concise.
+[show lavender center happy]
+Lavender: The best approach: test early. Don't wait until launch week to check your German build.
 [set practice_result 2]
 [jump practice_wrap]
 
-@label practice_c
-[show lavender right talking]
-Lavender: Practice C uses stress pattern: per-locale validation.
-narrator: Check if this remains maintainable after content scale-up.
+@label practice_organize
+[show lavender left talking]
+Lavender: 500 keys. Three languages. How do you not lose your mind?
+Lavender: Group by file: ch1.rooftop.*, ch1.library.*, ch2.*. Match your script structure.
+[show lavender center talking]
+Lavender: Use comments in your locale files to mark sections:
+narrator: {color=#8888cc}# Chapter 1 — Rooftop Scene{/color}
+narrator: {color=#8888cc}ch1.rooftop.greeting = ...{/color}
+[show lavender center happy]
+Lavender: And run a script that checks all locale files have the same keys. Missing keys are silent bugs.
 [set practice_result 3]
 [jump practice_wrap]
 
 @label practice_wrap
+[show lavender center happy]
 [if practice_result == 1]
-Lavender: You picked A. Good for stable baseline implementation.
+Lavender: Cultural adaptation is the hardest part of localization — and the most important. Trust your translators.
 [elif practice_result == 2]
-Lavender: You picked B. Useful when balancing readability and flexibility.
+Lavender: Text overflow is the most common localization bug. Design for it from day one.
 [else]
-Lavender: You picked C. Great for stress-testing workflow assumptions.
+Lavender: Organization scales. A good naming convention at 50 keys still works at 5000.
 [endif]
-Lavender: Practice scene complete.
-> Back to lesson menu -> lesson_menu
+Lavender: Even if you ship in one language, text keys keep your code clean and your options open.
+> Back to menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_3]

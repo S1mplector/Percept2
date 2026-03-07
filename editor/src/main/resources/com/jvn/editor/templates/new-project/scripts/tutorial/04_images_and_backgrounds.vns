@@ -1,389 +1,172 @@
-# Tutorial 04 - Images and Backgrounds
+# Tutorial 04 — Images and Backgrounds
+# How to declare backgrounds, switch between them, and organize your visual assets.
+
 @scenario {{SCENARIO_PREFIX}}_tutorial_04_images
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
+[show lavender center happy]
+[wait 200]
+Lavender: Notice the scenery behind me? That's a {b}background{/b} — and you have full control over it.
 [show lavender center talking]
-Lavender: Welcome to Tutorial 04 - Images and Backgrounds.
-Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
-Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
-Lavender: Focus area for this file: Background IDs, image organization, and composition.
-Lavender: Primary command family: @background id path.
-narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+Lavender: This lesson covers how to declare backgrounds, swap them during scenes, and keep your asset folders tidy.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: Choose a section. You can revisit any section in any order.
-> Guided section index -> section_index
-> Dense reference sheet -> reference_sheet
+Lavender: Pick a topic:
+> Declaring backgrounds -> section_declare
+> Switching backgrounds with [bg] -> section_switching
+> Asset organization tips -> section_organization
+> Composing a scene -> section_composing
+> Quick reference card -> reference_sheet
 > Practice scene -> practice_scene
-> Return to Tutorial Hub -> return_hub
+> Back to Tutorial Hub -> return_hub
 
-@label section_index
-[show lavender far_left talking]
-Lavender: Guided sections:
-> Section 01 -> section_01
-> Section 02 -> section_02
-> Section 03 -> section_03
-> Section 04 -> section_04
-> Section 05 -> section_05
-> Section 06 -> section_06
-> Section 07 -> section_07
-> Section 08 -> section_08
-> Section 09 -> section_09
-> Section 10 -> section_10
-> Back to lesson menu -> lesson_menu
+# ─── Declaring Backgrounds ───────────────────────────────────────
 
-@label section_01
+@label section_declare
 [show lavender left talking]
-Lavender: Section 01 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A01: [bg field_day]
-narrator: Example line B01: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 01: annotate why, not only what, in your own scripts.
-Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
-> Next section -> section_02
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: Before you can use a background in a scene, you declare it with {b}@background{/b}.
+narrator: {color=#8888cc}@background field_day assets/backgrounds/field_day.png{/color}
+narrator: {color=#8888cc}@background classroom assets/backgrounds/school_classroom.png{/color}
+[show lavender center talking]
+Lavender: The first word is the {b}ID{/b} — a short name you'll use in scripts. The rest is the path to the image file.
+Lavender: You can declare backgrounds at the top of any .vns file, or in a shared definitions file.
+Lavender: For this project, the demo backgrounds are already declared at the top of each tutorial file via a template variable.
+[show lavender center happy]
+Lavender: A good naming convention helps a lot. I like {b}location_timeofday{/b} — "cafe_evening", "park_rain", "bedroom_night".
+> Next: Switching backgrounds -> section_switching
+> Back to menu -> lesson_menu
 
-@label section_02
-[show lavender left talking]
-Lavender: Section 02 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A02: [bg field_day]
-narrator: Example line B02: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 02: annotate why, not only what, in your own scripts.
-Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
-> Next section -> section_03
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Switching Backgrounds ───────────────────────────────────────
 
-@label section_03
-[show lavender left talking]
-Lavender: Section 03 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A03: [bg field_day]
-narrator: Example line B03: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 03: annotate why, not only what, in your own scripts.
-Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 3]
-> Next section -> section_04
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_switching
+[show lavender right talking]
+Lavender: Once declared, switching backgrounds mid-scene is one command:
+narrator: {color=#8888cc}[bg field_day]{/color}
+Lavender: That instantly replaces whatever's on screen with the "field_day" image.
+[show lavender center talking]
+Lavender: For a smoother change, pair it with a {b}[transition]{/b}:
+narrator: {color=#8888cc}[transition fade 450]{/color}
+narrator: {color=#8888cc}[bg classroom]{/color}
+Lavender: The transition plays first — a 450ms fade — then the new background appears.
+Lavender: We'll cover transitions in depth in Tutorial 05, but the basic combo is worth knowing now.
+[show lavender center happy]
+Lavender: You can swap backgrounds as often as you like. Hallway to classroom, day to night, indoors to outdoors — one line each.
+> Next: Asset organization -> section_organization
+> Back to menu -> lesson_menu
 
-@label section_04
-[show lavender left talking]
-Lavender: Section 04 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A04: [bg field_day]
-narrator: Example line B04: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 04: annotate why, not only what, in your own scripts.
-Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
-> Next section -> section_05
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Asset Organization ──────────────────────────────────────────
 
-@label section_05
+@label section_organization
 [show lavender left talking]
-Lavender: Section 05 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A05: [bg field_day]
-narrator: Example line B05: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 05: annotate why, not only what, in your own scripts.
-Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
-> Next section -> section_06
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: A visual novel can accumulate a {i}lot{/i} of images. Getting organized early saves pain later.
+[show lavender center talking]
+Lavender: Here's a structure that scales well:
+narrator: {b}assets/backgrounds/{/b} — all your background images.
+narrator: {b}assets/characters/sprites/{/b} — character sprite sheets or individual poses.
+narrator: {b}assets/cg/{/b} — full-screen CG illustrations for special moments.
+narrator: {b}assets/effects/{/b} — overlays, particles, vignettes.
+narrator: {b}assets/ui/{/b} — text box frames, buttons, icons.
+[show lavender right talking]
+Lavender: Name files consistently. If your background is a cafe at night, call it {b}cafe_night.png{/b}, not {b}IMG_3847.png{/b}.
+Lavender: Your future self will thank you when you have fifty backgrounds and need to find one fast.
+[show lavender center happy]
+Lavender: The engine doesn't care about folder depth — only the path in your @background declaration matters.
+> Next: Composing a scene -> section_composing
+> Back to menu -> lesson_menu
 
-@label section_06
-[show lavender left talking]
-Lavender: Section 06 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A06: [bg field_day]
-narrator: Example line B06: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 06: annotate why, not only what, in your own scripts.
-Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 6]
-> Next section -> section_07
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Scene Composition ───────────────────────────────────────────
 
-@label section_07
+@label section_composing
+[show lavender center talking]
+Lavender: A background is your canvas. Characters are painted on top of it. Let me show you what that looks like in script.
+narrator: {color=#8888cc}[bg field_day]{/color}
+narrator: {color=#8888cc}[show lavender center happy]{/color}
+narrator: {color=#8888cc}Lavender: What a beautiful morning!{/color}
 [show lavender left talking]
-Lavender: Section 07 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A07: [bg field_day]
-narrator: Example line B07: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 07: annotate why, not only what, in your own scripts.
-Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
-> Next section -> section_08
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: Three lines — set the stage, place the character, deliver the dialogue. That's a complete scene beat.
+Lavender: You can layer multiple characters on different positions:
+narrator: {color=#8888cc}[show lavender left talking]{/color}
+narrator: {color=#8888cc}[show friend right happy]{/color}
+[show lavender center talking]
+Lavender: Think of it like blocking in theater — who's where, what they look like, and what backdrop they're standing in front of.
+[show lavender center happy]
+Lavender: Change any of those three elements and the scene feels completely different.
+> Reference card -> reference_sheet
+> Try it yourself -> practice_scene
+> Back to menu -> lesson_menu
 
-@label section_08
-[show lavender left talking]
-Lavender: Section 08 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A08: [bg field_day]
-narrator: Example line B08: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 08: annotate why, not only what, in your own scripts.
-Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
-> Next section -> section_09
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_09
-[show lavender left talking]
-Lavender: Section 09 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A09: [bg field_day]
-narrator: Example line B09: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 09: annotate why, not only what, in your own scripts.
-Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 9]
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_10
-[show lavender left talking]
-Lavender: Section 10 for Background IDs, image organization, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: @background id path.
-narrator: Example line A10: [bg field_day]
-narrator: Example line B10: [show lavender at 0.70,0.84]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 10: annotate why, not only what, in your own scripts.
-Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Reference Card ──────────────────────────────────────────────
 
 @label reference_sheet
 [show lavender center talking]
-Lavender: Reference mode: long-form checklist with tactical reminders.
-narrator: Ref 001 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 002 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 003 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 004 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 005 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 006 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 007 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 008 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 009 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 010 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 011 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 012 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 013 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 014 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 015 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 016 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 017 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 018 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 019 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 020 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 021 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 022 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 023 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 024 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 025 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 026 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 027 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 028 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 029 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 030 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 031 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 032 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 033 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 034 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 035 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 036 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 037 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 038 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 039 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 040 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 041 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 042 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 043 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 044 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 045 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 046 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 047 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 048 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 049 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 050 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 051 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 052 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 053 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 054 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 055 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 056 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 057 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 058 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 059 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 060 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 061 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 062 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 063 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 064 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 065 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 066 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 067 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 068 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 069 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 070 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 071 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 072 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 073 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 074 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 075 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 076 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 077 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 078 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 079 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 080 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 081 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 082 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 083 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 084 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 085 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 086 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 087 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 088 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 089 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 090 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 091 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 092 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 093 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 094 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 095 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 096 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 097 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 098 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 099 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 100 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 101 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 102 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 103 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 104 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 105 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 106 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 107 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 108 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 109 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 110 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 111 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 112 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 113 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 114 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 115 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 116 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 117 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 118 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 119 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 120 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 121 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 122 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 123 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 124 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 125 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 126 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 127 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 128 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 129 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 130 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 131 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 132 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 133 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 134 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 135 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 136 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 137 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 138 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 139 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 140 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 141 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 142 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 143 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 144 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 145 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 146 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 147 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 148 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 149 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 150 | Background IDs, image organization, and composition | Keep scripts deterministic, readable, and reviewable.
-Lavender: End of reference sheet for Tutorial 04 - Images and Backgrounds.
-> Back to lesson menu -> lesson_menu
+Lavender: Background and image cheat sheet:
+narrator: {b}@background id path{/b} — declare a background with an ID and file path.
+narrator: {b}[bg id]{/b} — switch to that background immediately.
+narrator: {b}[transition fade N]{/b} — fade transition over N milliseconds (use before [bg]).
+narrator: {b}[transition crossfade N id]{/b} — crossfade directly to a new background.
+narrator: {b}Folder convention:{/b} assets/backgrounds/, assets/characters/, assets/cg/.
+narrator: {b}Naming:{/b} location_timeofday — cafe_night, park_rain, school_morning.
+narrator: {b}Composition:{/b} [bg] sets the canvas, [show] places characters on it.
+[show lavender center happy]
+Lavender: Keep declarations close to where they're used, or centralize them in a definitions file — either works.
+> Back to menu -> lesson_menu
+
+# ─── Practice Scene ──────────────────────────────────────────────
 
 @label practice_scene
 [show lavender right talking]
-Lavender: Practice setup for Background IDs, image organization, and composition.
-Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
-> Practice path A -> practice_a
-> Practice path B -> practice_b
-> Practice path C -> practice_c
+Lavender: Let's build a quick scene together. Pick the setting:
+> Morning in a field -> practice_field
+> Inside a cozy room -> practice_room
+> Somewhere mysterious -> practice_mystery
 
-@label practice_a
-[show lavender left talking]
-Lavender: Practice A uses the core pattern: @background id path.
-narrator: Validate state transitions after each command batch.
+@label practice_field
+[show lavender center happy]
+narrator: Golden light stretched across the meadow. The grass swayed gently in the breeze.
+Lavender: Ah, this is the best time of day. Everything's so warm.
+[show lavender center talking]
+Lavender: Open this file and look at how the background was set at the top — that's all it takes.
+Lavender: Try changing the background declaration to point to a different image and see what happens.
 [set practice_result 1]
 [jump practice_wrap]
 
-@label practice_b
+@label practice_room
+[show lavender center happy]
+narrator: Bookshelves lined every wall. A reading lamp cast a warm circle of amber light on the desk.
+Lavender: I could spend all day in a place like this.
 [show lavender center talking]
-Lavender: Practice B uses alternate pattern: [bg field_day].
-narrator: Compare readability between A and B.
+Lavender: Indoor scenes work great with characters placed slightly off-center — it feels more natural.
+Lavender: Try adding a [show] command with "left" or "right" instead of "center" and see how it changes the feel.
 [set practice_result 2]
 [jump practice_wrap]
 
-@label practice_c
+@label practice_mystery
+[hide lavender]
+[wait 500]
+narrator: The corridor was longer than it should have been. The overhead lights buzzed and flickered.
+[wait 400]
 [show lavender right talking]
-Lavender: Practice C uses stress pattern: [show lavender at 0.70,0.84].
-narrator: Check if this remains maintainable after content scale-up.
+Lavender: ...I don't remember this hallway being here before.
+[show lavender center talking]
+Lavender: Mysterious scenes benefit from hiding the character first, letting the background speak for itself, then revealing them.
 [set practice_result 3]
 [jump practice_wrap]
 
 @label practice_wrap
+[show lavender center happy]
 [if practice_result == 1]
-Lavender: You picked A. Good for stable baseline implementation.
+Lavender: Outdoor scenes feel open and inviting. Let the narrator paint what the background image shows.
 [elif practice_result == 2]
-Lavender: You picked B. Useful when balancing readability and flexibility.
+Lavender: Indoor scenes are intimate. Character placement and lighting descriptions do the heavy lifting.
 [else]
-Lavender: You picked C. Great for stress-testing workflow assumptions.
+Lavender: Mystery scenes thrive on negative space. An empty stage with just a background is powerful.
 [endif]
-Lavender: Practice scene complete.
-> Back to lesson menu -> lesson_menu
+Lavender: Swap in your own background art and these same scripts will feel totally different. That's the magic of it.
+> Back to menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_1]

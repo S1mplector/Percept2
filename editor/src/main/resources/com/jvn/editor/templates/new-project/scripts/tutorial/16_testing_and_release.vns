@@ -1,389 +1,201 @@
-# Tutorial 16 - Testing and Release Workflow
+# Tutorial 16 — Testing and Release
+# How to test your game, catch bugs, and prepare for a confident release.
+
 @scenario {{SCENARIO_PREFIX}}_tutorial_16_testing_release
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
+[show lavender center happy]
+[wait 200]
+Lavender: You've written the script. You've styled the UI. The art is in. Now comes the part nobody enjoys but everybody needs.
 [show lavender center talking]
-Lavender: Welcome to Tutorial 16 - Testing and Release Workflow.
-Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
-Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
-Lavender: Focus area for this file: Diagnostics, regression tests, and ship readiness.
-Lavender: Primary command family: VNS Diagnostics.
-narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+Lavender: Testing. And then — if you're brave — releasing it.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: Choose a section. You can revisit any section in any order.
-> Guided section index -> section_index
-> Dense reference sheet -> reference_sheet
+Lavender: What would you like to review?
+> Script validation -> section_validation
+> Playtesting -> section_playtesting
+> Save/load testing -> section_saves
+> The release checklist -> section_release
+> Post-release -> section_post_release
+> Quick reference card -> reference_sheet
 > Practice scene -> practice_scene
-> Return to Tutorial Hub -> return_hub
+> Back to Tutorial Hub -> return_hub
 
-@label section_index
-[show lavender far_left talking]
-Lavender: Guided sections:
-> Section 01 -> section_01
-> Section 02 -> section_02
-> Section 03 -> section_03
-> Section 04 -> section_04
-> Section 05 -> section_05
-> Section 06 -> section_06
-> Section 07 -> section_07
-> Section 08 -> section_08
-> Section 09 -> section_09
-> Section 10 -> section_10
-> Back to lesson menu -> lesson_menu
+# ─── Script Validation ───────────────────────────────────────────
 
-@label section_01
+@label section_validation
 [show lavender left talking]
-Lavender: Section 01 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A01: parser validation
-narrator: Example line B01: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 01: annotate why, not only what, in your own scripts.
-Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
-> Next section -> section_02
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: Before you play, let the tools catch the obvious stuff.
+narrator: {b}Parser validation{/b} — the editor checks your VNS files for syntax errors. Missing [endif], broken label references, malformed commands.
+narrator: {b}Asset validation{/b} — are all referenced images, audio files, and backgrounds actually present?
+narrator: {b}Label graph{/b} — does every [jump], [goto], and choice arrow point to an existing label?
+[show lavender center talking]
+Lavender: Run validation before every playtest session. It takes seconds and catches hours of debugging.
+[show lavender center happy]
+Lavender: A clean validation pass doesn't mean the game works — it means the script is structurally sound. Logic bugs still need human eyes.
+> Next: Playtesting -> section_playtesting
+> Back to menu -> lesson_menu
 
-@label section_02
-[show lavender left talking]
-Lavender: Section 02 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A02: parser validation
-narrator: Example line B02: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 02: annotate why, not only what, in your own scripts.
-Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
-> Next section -> section_03
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Playtesting ─────────────────────────────────────────────────
 
-@label section_03
+@label section_playtesting
+[show lavender right talking]
+Lavender: There is no substitute for playing your own game. Here's how to do it systematically:
+narrator: {b}Play every branch.{/b} Click every choice. Follow every path to its end.
+narrator: {b}Watch the pacing.{/b} Does the text speed feel right? Are there awkward pauses? Lines that scroll too fast?
+narrator: {b}Check character staging.{/b} Is anyone appearing on the wrong side? Do expressions match the dialogue?
+narrator: {b}Listen to the audio.{/b} Does the music loop smoothly? Are sound effects timed correctly?
+[show lavender center talking]
+Lavender: Keep a notepad open while you play. Write down every issue, no matter how small. Fix them in batches.
 [show lavender left talking]
-Lavender: Section 03 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A03: parser validation
-narrator: Example line B03: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 03: annotate why, not only what, in your own scripts.
-Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 3]
-> Next section -> section_04
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: Then get someone else to play. Fresh eyes catch what you've gone blind to after the 50th read.
+[show lavender center happy]
+Lavender: The best testers are people who've never seen your game before. Watch them play. Don't explain anything.
+> Next: Save/load -> section_saves
+> Back to menu -> lesson_menu
 
-@label section_04
-[show lavender left talking]
-Lavender: Section 04 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A04: parser validation
-narrator: Example line B04: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 04: annotate why, not only what, in your own scripts.
-Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
-> Next section -> section_05
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Save/Load Testing ──────────────────────────────────────────
 
-@label section_05
-[show lavender left talking]
-Lavender: Section 05 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A05: parser validation
-narrator: Example line B05: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 05: annotate why, not only what, in your own scripts.
-Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
-> Next section -> section_06
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_saves
+[show lavender center talking]
+Lavender: Save/load is where most subtle bugs hide. Test these scenarios:
+narrator: {b}Save mid-dialogue.{/b} Reload. Does the text resume from the right line?
+narrator: {b}Save before a choice.{/b} Reload. Are the choices still there?
+narrator: {b}Save after a branch.{/b} Reload. Are your variables correct? Does the story remember what you chose?
+narrator: {b}Save in a subroutine.{/b} Reload. Does [return] still work?
+[show lavender right talking]
+Lavender: Also test edge cases:
+narrator: {b}Save at the very start{/b} of a file. Reload.
+narrator: {b}Save at the very end{/b} of a scene. Reload.
+narrator: {b}Overwrite an existing save.{/b} Load the old save — does it still work?
+[show lavender center happy]
+Lavender: If saving and loading works across every scene transition, you're in good shape.
+> Next: Release checklist -> section_release
+> Back to menu -> lesson_menu
 
-@label section_06
-[show lavender left talking]
-Lavender: Section 06 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A06: parser validation
-narrator: Example line B06: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 06: annotate why, not only what, in your own scripts.
-Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 6]
-> Next section -> section_07
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── The Release Checklist ───────────────────────────────────────
 
-@label section_07
+@label section_release
 [show lavender left talking]
-Lavender: Section 07 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A07: parser validation
-narrator: Example line B07: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 07: annotate why, not only what, in your own scripts.
-Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
-> Next section -> section_08
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: The release checklist. Run through this before you ship:
+narrator: {b}All branches tested.{/b} Every choice leads somewhere. No dead ends.
+narrator: {b}All assets present.{/b} No placeholder images, no missing audio.
+narrator: {b}Variables verified.{/b} Counters, flags, and conditions produce correct outcomes.
+narrator: {b}Text proofread.{/b} Spelling, grammar, punctuation. Read every line.
+narrator: {b}UI tested at target resolution.{/b} Nothing overlaps, nothing is cut off.
+[show lavender center talking]
+Lavender: Also:
+narrator: {b}Locale files complete{/b} (if localized). No raw keys visible in any language.
+narrator: {b}Save/load verified{/b} at every critical point.
+narrator: {b}Menu navigation works.{/b} Main menu, settings, save, load — all reachable and functional.
+narrator: {b}Credits/endings all reachable.{/b} Can the player actually finish the game?
+[show lavender center happy]
+Lavender: Print this list. Check every item. If even one fails, you're not ready to ship.
+> Next: Post-release -> section_post_release
+> Back to menu -> lesson_menu
 
-@label section_08
-[show lavender left talking]
-Lavender: Section 08 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A08: parser validation
-narrator: Example line B08: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 08: annotate why, not only what, in your own scripts.
-Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
-> Next section -> section_09
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Post-Release ────────────────────────────────────────────────
 
-@label section_09
-[show lavender left talking]
-Lavender: Section 09 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A09: parser validation
-narrator: Example line B09: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 09: annotate why, not only what, in your own scripts.
-Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 9]
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_post_release
+[show lavender center talking]
+Lavender: You shipped! Congratulations. But the work isn't quite over:
+narrator: {b}Monitor feedback.{/b} Players will find bugs you didn't. Respond quickly to critical ones.
+narrator: {b}Keep a changelog.{/b} Document every fix, every update. Players appreciate transparency.
+narrator: {b}Don't panic-patch.{/b} Test your fixes before pushing them. A bad hotfix is worse than the original bug.
+[show lavender right talking]
+Lavender: And the most important post-release advice:
+narrator: {b}Take a break.{/b} You earned it. Come back to feedback with fresh energy.
+[show lavender center happy]
+Lavender: Every shipped game teaches you more than ten unfinished ones. Be proud of what you built.
+> Reference card -> reference_sheet
+> Quiz yourself -> practice_scene
+> Back to menu -> lesson_menu
 
-@label section_10
-[show lavender left talking]
-Lavender: Section 10 for Diagnostics, regression tests, and ship readiness.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: VNS Diagnostics.
-narrator: Example line A10: parser validation
-narrator: Example line B10: release checklist
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 10: annotate why, not only what, in your own scripts.
-Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Reference Card ──────────────────────────────────────────────
 
 @label reference_sheet
 [show lavender center talking]
-Lavender: Reference mode: long-form checklist with tactical reminders.
-narrator: Ref 001 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 002 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 003 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 004 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 005 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 006 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 007 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 008 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 009 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 010 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 011 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 012 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 013 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 014 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 015 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 016 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 017 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 018 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 019 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 020 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 021 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 022 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 023 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 024 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 025 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 026 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 027 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 028 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 029 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 030 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 031 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 032 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 033 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 034 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 035 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 036 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 037 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 038 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 039 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 040 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 041 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 042 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 043 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 044 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 045 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 046 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 047 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 048 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 049 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 050 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 051 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 052 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 053 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 054 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 055 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 056 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 057 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 058 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 059 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 060 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 061 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 062 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 063 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 064 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 065 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 066 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 067 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 068 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 069 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 070 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 071 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 072 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 073 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 074 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 075 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 076 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 077 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 078 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 079 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 080 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 081 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 082 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 083 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 084 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 085 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 086 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 087 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 088 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 089 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 090 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 091 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 092 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 093 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 094 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 095 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 096 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 097 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 098 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 099 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 100 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 101 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 102 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 103 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 104 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 105 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 106 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 107 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 108 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 109 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 110 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 111 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 112 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 113 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 114 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 115 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 116 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 117 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 118 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 119 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 120 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 121 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 122 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 123 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 124 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 125 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 126 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 127 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 128 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 129 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 130 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 131 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 132 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 133 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 134 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 135 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 136 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 137 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 138 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 139 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 140 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 141 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 142 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 143 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 144 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 145 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 146 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 147 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 148 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 149 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 150 | Diagnostics, regression tests, and ship readiness | Keep scripts deterministic, readable, and reviewable.
-Lavender: End of reference sheet for Tutorial 16 - Testing and Release Workflow.
-> Back to lesson menu -> lesson_menu
+Lavender: Testing and release cheat sheet:
+narrator: {b}Validation:{/b} Run parser and asset checks before every playtest.
+narrator: {b}Playtesting:{/b} Play every branch. Watch pacing. Get fresh eyes.
+narrator: {b}Saves:{/b} Test save/load at mid-dialogue, choices, branches, and scene edges.
+narrator: {b}Checklist:{/b} All branches, all assets, all variables, all text, all resolutions.
+narrator: {b}Release:{/b} Don't ship until every checklist item passes.
+narrator: {b}Post-release:{/b} Monitor, changelog, test fixes, take breaks.
+narrator: {b}Golden rule:{/b} If you haven't played it, it's broken.
+[show lavender center happy]
+Lavender: That's the last tutorial. All 16 lessons — from dialogue basics to release day. You're ready.
+> Back to menu -> lesson_menu
+
+# ─── Practice Scene ──────────────────────────────────────────────
 
 @label practice_scene
 [show lavender right talking]
-Lavender: Practice setup for Diagnostics, regression tests, and ship readiness.
-Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
-> Practice path A -> practice_a
-> Practice path B -> practice_b
-> Practice path C -> practice_c
-
-@label practice_a
-[show lavender left talking]
-Lavender: Practice A uses the core pattern: VNS Diagnostics.
-narrator: Validate state transitions after each command batch.
-[set practice_result 1]
-[jump practice_wrap]
-
-@label practice_b
+Lavender: Final quiz. Let's see what you've learned across all 16 tutorials.
 [show lavender center talking]
-Lavender: Practice B uses alternate pattern: parser validation.
-narrator: Compare readability between A and B.
-[set practice_result 2]
-[jump practice_wrap]
+Lavender: Question 1: You find a bug where a choice leads nowhere. What's the most likely cause?
+> Missing @label for the choice target -> practice_q1_label
+> A typo in the variable name -> practice_q1_var
+> The save file is corrupted -> practice_q1_save
 
-@label practice_c
-[show lavender right talking]
-Lavender: Practice C uses stress pattern: release checklist.
-narrator: Check if this remains maintainable after content scale-up.
-[set practice_result 3]
-[jump practice_wrap]
+@label practice_q1_label
+[inc practice_score]
+[show lavender center happy]
+Lavender: That's it. Every choice arrow needs a matching @label. If it's missing or misspelled, the engine can't navigate there.
+[jump practice_q2]
 
-@label practice_wrap
-[if practice_result == 1]
-Lavender: You picked A. Good for stable baseline implementation.
-[elif practice_result == 2]
-Lavender: You picked B. Useful when balancing readability and flexibility.
+@label practice_q1_var
+[show lavender center talking]
+Lavender: Variable typos cause different bugs — wrong branch conditions, not missing targets. The issue here is a missing label.
+[set practice_score 0]
+[jump practice_q2]
+
+@label practice_q1_save
+[show lavender center talking]
+Lavender: Save corruption is rare and wouldn't cause a choice to fail. This is simpler — a missing @label.
+[set practice_score 0]
+[jump practice_q2]
+
+@label practice_q2
+[show lavender center talking]
+Lavender: Question 2: When should you start testing?
+> After the game is completely finished -> practice_q2_end
+> After each major section is written -> practice_q2_section
+> Testing is optional -> practice_q2_optional
+
+@label practice_q2_end
+[show lavender center talking]
+Lavender: Waiting until the end means all your bugs pile up at once. Test as you go — catch problems when they're small.
+[jump practice_final]
+
+@label practice_q2_section
+[inc practice_score]
+[show lavender center happy]
+Lavender: Exactly. Test each section as you finish it. Small, frequent tests beat one massive debugging session.
+[jump practice_final]
+
+@label practice_q2_optional
+[show lavender center talking]
+Lavender: It's really not. Untested games have untested bugs, and players find every single one.
+[jump practice_final]
+
+@label practice_final
+[show lavender center talking]
+[if practice_score >= 2]
+Lavender: 2 out of 2. You're ready to ship. Go build something amazing.
+[elif practice_score == 1]
+Lavender: 1 out of 2. Close! Review the testing section if you want to sharpen up.
 [else]
-Lavender: You picked C. Great for stress-testing workflow assumptions.
+Lavender: 0 out of 2. That's okay — these tutorials are always here when you need a refresher.
 [endif]
-Lavender: Practice scene complete.
-> Back to lesson menu -> lesson_menu
+[show lavender center happy]
+Lavender: That's the end of all 16 tutorials. Everything from your first dialogue line to release day.
+Lavender: Now go make a visual novel that matters. I'll be here if you need me.
+> Back to menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_3]

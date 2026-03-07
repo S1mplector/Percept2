@@ -1,389 +1,191 @@
-# Tutorial 15 - UI Layout and Theme Integration
+# Tutorial 15 — UI Layout and Theme
+# How to customize dialogue boxes, menu screens, and visual themes for your game.
+
 @scenario {{SCENARIO_PREFIX}}_tutorial_15_ui_layout
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
+[show lavender center happy]
+[wait 200]
+Lavender: Your game's UI is the frame around every moment. A good frame disappears — a bad one distracts.
 [show lavender center talking]
-Lavender: Welcome to Tutorial 15 - UI Layout and Theme Integration.
-Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
-Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
-Lavender: Focus area for this file: Dialogue layout, menu themes, and UI consistency.
-Lavender: Primary command family: config/ui/dialogue.layout.
-narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+Lavender: Let's talk about how to customize the dialogue box, menus, and visual theme to fit your game's identity.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: Choose a section. You can revisit any section in any order.
-> Guided section index -> section_index
-> Dense reference sheet -> reference_sheet
+Lavender: What would you like to learn about?
+> The dialogue box -> section_dialogue_box
+> Menu screens -> section_menus
+> Styles and colors -> section_styles
+> Layout files explained -> section_layout_files
+> Theme consistency -> section_consistency
+> Quick reference card -> reference_sheet
 > Practice scene -> practice_scene
-> Return to Tutorial Hub -> return_hub
+> Back to Tutorial Hub -> return_hub
 
-@label section_index
-[show lavender far_left talking]
-Lavender: Guided sections:
-> Section 01 -> section_01
-> Section 02 -> section_02
-> Section 03 -> section_03
-> Section 04 -> section_04
-> Section 05 -> section_05
-> Section 06 -> section_06
-> Section 07 -> section_07
-> Section 08 -> section_08
-> Section 09 -> section_09
-> Section 10 -> section_10
-> Back to lesson menu -> lesson_menu
+# ─── The Dialogue Box ───────────────────────────────────────────
 
-@label section_01
+@label section_dialogue_box
 [show lavender left talking]
-Lavender: Section 01 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A01: config/menu/theme/menu.theme
-narrator: Example line B01: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 01: annotate why, not only what, in your own scripts.
-Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
-> Next section -> section_02
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: The dialogue box is what the player stares at the most. It needs to be readable, attractive, and out of the way.
+narrator: {b}Key properties:{/b}
+narrator: {color=#8888cc}textBoxX, textBoxY{/color} — position on screen (normalized 0–1).
+narrator: {color=#8888cc}textBoxWidth, textBoxHeight{/color} — size of the box.
+narrator: {color=#8888cc}textBoxOpacity{/color} — transparency of the background.
+narrator: {color=#8888cc}textBoxAsset{/color} — custom image for the box background.
+[show lavender center talking]
+Lavender: The layout file also controls the name box, dialogue padding, and choice button placement.
+Lavender: You edit these in {b}config/ui/dialogue.layout{/b} — or use the visual editor to drag things around.
+[show lavender center happy]
+Lavender: A good default: semi-transparent dark box at the bottom third of the screen. Don't cover the characters.
+> Next: Menu screens -> section_menus
+> Back to menu -> lesson_menu
 
-@label section_02
-[show lavender left talking]
-Lavender: Section 02 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A02: config/menu/theme/menu.theme
-narrator: Example line B02: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 02: annotate why, not only what, in your own scripts.
-Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
-> Next section -> section_03
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Menu Screens ────────────────────────────────────────────────
 
-@label section_03
+@label section_menus
+[show lavender right talking]
+Lavender: Menu screens — title menu, save/load, settings — each have their own layout and style files.
+narrator: {b}Layout:{/b} Where items appear. List position, line height, text alignment.
+narrator: {b}Style:{/b} How items look. Colors, fonts, selected/disabled states.
+[show lavender center talking]
+Lavender: The file structure:
+narrator: {color=#8888cc}config/menu/screens/main.menu{/color} — the main menu definition.
+narrator: {color=#8888cc}config/menu/layouts/main.layout{/color} — positioning for that menu.
+narrator: {color=#8888cc}config/menu/styles/main.style{/color} — colors and fonts for that menu.
 [show lavender left talking]
-Lavender: Section 03 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A03: config/menu/theme/menu.theme
-narrator: Example line B03: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 03: annotate why, not only what, in your own scripts.
-Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 3]
-> Next section -> section_04
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: Each menu screen references a layout and a style. Change the style, and the menu looks different without moving anything. Change the layout, and things move without changing color.
+[show lavender center happy]
+Lavender: The separation means your artist and your designer can work independently.
+> Next: Styles -> section_styles
+> Back to menu -> lesson_menu
 
-@label section_04
-[show lavender left talking]
-Lavender: Section 04 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A04: config/menu/theme/menu.theme
-narrator: Example line B04: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 04: annotate why, not only what, in your own scripts.
-Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
-> Next section -> section_05
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Styles and Colors ───────────────────────────────────────────
 
-@label section_05
-[show lavender left talking]
-Lavender: Section 05 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A05: config/menu/theme/menu.theme
-narrator: Example line B05: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 05: annotate why, not only what, in your own scripts.
-Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
-> Next section -> section_06
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_styles
+[show lavender center talking]
+Lavender: Style files control the visual identity of your UI. Here's what you can set:
+narrator: {b}itemColor{/b} — default text color for menu items.
+narrator: {b}itemSelectedColor{/b} — color when hovered or selected.
+narrator: {b}itemDisabledColor{/b} — grayed-out items the player can't click.
+narrator: {b}fontFamily{/b} — the typeface. Pick one that matches your game's tone.
+narrator: {b}fontSize{/b} — size in pixels.
+[show lavender right talking]
+Lavender: For the dialogue box, the style file controls:
+narrator: {b}textColor{/b} — dialogue text color.
+narrator: {b}nameTextColor{/b} — the speaking character's name.
+narrator: {b}choiceBgColor{/b} — background of choice buttons.
+narrator: {b}choiceTextColor{/b} — text on choice buttons.
+[show lavender center happy]
+Lavender: Stick to 2–3 colors maximum. Consistency is more important than complexity.
+> Next: Layout files -> section_layout_files
+> Back to menu -> lesson_menu
 
-@label section_06
-[show lavender left talking]
-Lavender: Section 06 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A06: config/menu/theme/menu.theme
-narrator: Example line B06: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 06: annotate why, not only what, in your own scripts.
-Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 6]
-> Next section -> section_07
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Layout Files Explained ──────────────────────────────────────
 
-@label section_07
+@label section_layout_files
 [show lavender left talking]
-Lavender: Section 07 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A07: config/menu/theme/menu.theme
-narrator: Example line B07: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 07: annotate why, not only what, in your own scripts.
-Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
-> Next section -> section_08
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: Layout files are key-value properties. Here's a simplified example for a menu:
+narrator: {color=#8888cc}listYStart = 0.35{/color}
+narrator: {color=#8888cc}lineHeight = 50.0{/color}
+narrator: {color=#8888cc}listWidthFactor = 0.56{/color}
+narrator: {color=#8888cc}textAlign = center{/color}
+[show lavender center talking]
+Lavender: All values are either normalized (0–1 for position ratios) or pixel-based (for sizes like line height and font size).
+Lavender: The visual editors let you tweak these interactively — change a value, see it update live.
+[show lavender center happy]
+Lavender: But understanding the raw file means you can copy-paste layouts between projects, version control them, and diff changes.
+> Next: Theme consistency -> section_consistency
+> Back to menu -> lesson_menu
 
-@label section_08
-[show lavender left talking]
-Lavender: Section 08 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A08: config/menu/theme/menu.theme
-narrator: Example line B08: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 08: annotate why, not only what, in your own scripts.
-Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
-> Next section -> section_09
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Theme Consistency ───────────────────────────────────────────
 
-@label section_09
-[show lavender left talking]
-Lavender: Section 09 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A09: config/menu/theme/menu.theme
-narrator: Example line B09: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 09: annotate why, not only what, in your own scripts.
-Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 9]
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_consistency
+[show lavender center talking]
+Lavender: A consistent theme means the player never thinks about the UI — it just feels right.
+narrator: {b}Use the same font family{/b} across dialogue, menus, and choices.
+narrator: {b}Use the same color palette{/b} — derive selected, disabled, and hover colors from the same base hue.
+narrator: {b}Match opacity and corner radius{/b} between the dialogue box and menu backgrounds.
+narrator: {b}Test at your target resolution.{/b} UI that looks good at 1080p might be too small at 720p.
+[show lavender right talking]
+Lavender: When in doubt, keep it simple. A clean, minimal UI beats an overdesigned one every time.
+[show lavender center happy]
+Lavender: Players remember your story, not your menu borders. Make the UI invisible.
+> Reference card -> reference_sheet
+> Try it yourself -> practice_scene
+> Back to menu -> lesson_menu
 
-@label section_10
-[show lavender left talking]
-Lavender: Section 10 for Dialogue layout, menu themes, and UI consistency.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: config/ui/dialogue.layout.
-narrator: Example line A10: config/menu/theme/menu.theme
-narrator: Example line B10: style/layout separation
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 10: annotate why, not only what, in your own scripts.
-Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Reference Card ──────────────────────────────────────────────
 
 @label reference_sheet
 [show lavender center talking]
-Lavender: Reference mode: long-form checklist with tactical reminders.
-narrator: Ref 001 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 002 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 003 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 004 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 005 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 006 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 007 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 008 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 009 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 010 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 011 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 012 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 013 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 014 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 015 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 016 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 017 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 018 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 019 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 020 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 021 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 022 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 023 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 024 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 025 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 026 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 027 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 028 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 029 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 030 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 031 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 032 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 033 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 034 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 035 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 036 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 037 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 038 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 039 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 040 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 041 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 042 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 043 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 044 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 045 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 046 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 047 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 048 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 049 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 050 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 051 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 052 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 053 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 054 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 055 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 056 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 057 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 058 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 059 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 060 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 061 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 062 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 063 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 064 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 065 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 066 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 067 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 068 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 069 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 070 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 071 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 072 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 073 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 074 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 075 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 076 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 077 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 078 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 079 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 080 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 081 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 082 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 083 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 084 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 085 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 086 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 087 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 088 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 089 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 090 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 091 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 092 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 093 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 094 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 095 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 096 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 097 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 098 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 099 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 100 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 101 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 102 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 103 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 104 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 105 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 106 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 107 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 108 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 109 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 110 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 111 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 112 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 113 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 114 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 115 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 116 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 117 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 118 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 119 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 120 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 121 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 122 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 123 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 124 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 125 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 126 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 127 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 128 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 129 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 130 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 131 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 132 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 133 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 134 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 135 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 136 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 137 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 138 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 139 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 140 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 141 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 142 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 143 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 144 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 145 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 146 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 147 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 148 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 149 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 150 | Dialogue layout, menu themes, and UI consistency | Keep scripts deterministic, readable, and reviewable.
-Lavender: End of reference sheet for Tutorial 15 - UI Layout and Theme Integration.
-> Back to lesson menu -> lesson_menu
+Lavender: UI layout and theme cheat sheet:
+narrator: {b}Dialogue layout:{/b} config/ui/dialogue.layout — text box position, size, padding.
+narrator: {b}Dialogue style:{/b} config/ui/dialogue.style — colors, fonts, opacity.
+narrator: {b}Menu layout:{/b} config/menu/layouts/*.layout — list position, line height, alignment.
+narrator: {b}Menu style:{/b} config/menu/styles/*.style — item colors, fonts, button assets.
+narrator: {b}Menu screen:{/b} config/menu/screens/*.menu — screen definition referencing layout + style.
+narrator: {b}Registry:{/b} config/menu/registry/menu.registry — maps which menus exist and their default.
+narrator: {b}Tip:{/b} Separate layout (where) from style (how it looks). Edit independently.
+[show lavender center happy]
+Lavender: Use the visual editors for quick iteration. Use the raw files for precision and version control.
+> Back to menu -> lesson_menu
+
+# ─── Practice Scene ──────────────────────────────────────────────
 
 @label practice_scene
 [show lavender right talking]
-Lavender: Practice setup for Dialogue layout, menu themes, and UI consistency.
-Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
-> Practice path A -> practice_a
-> Practice path B -> practice_b
-> Practice path C -> practice_c
+Lavender: Let's think about UI design decisions. Pick a scenario:
+> Designing a horror game UI -> practice_horror
+> Making a cheerful VN -> practice_cheerful
+> A minimalist approach -> practice_minimal
 
-@label practice_a
+@label practice_horror
+[show lavender center talking]
+Lavender: Horror game. Dark, moody. What does the UI look like?
+Lavender: Low opacity text box — almost transparent. Dark red accents. A serif font, maybe slightly distressed.
 [show lavender left talking]
-Lavender: Practice A uses the core pattern: config/ui/dialogue.layout.
-narrator: Validate state transitions after each command batch.
+Lavender: The dialogue box should feel like it's barely there. The game world is what matters. The UI lurks.
+[show lavender center happy]
+Lavender: Choice buttons: dark background, faint border, subtle glow on hover. Make the player feel uneasy even in the menu.
 [set practice_result 1]
 [jump practice_wrap]
 
-@label practice_b
+@label practice_cheerful
 [show lavender center talking]
-Lavender: Practice B uses alternate pattern: config/menu/theme/menu.theme.
-narrator: Compare readability between A and B.
+Lavender: A cheerful, cozy VN. Bright colors, rounded corners, playful font.
+Lavender: The text box should be warm — a soft cream or pastel background. High opacity for readability.
+[show lavender right talking]
+Lavender: Choice buttons: colorful, bouncy hover animation, friendly text. The UI should make the player smile before they even read a word.
+[show lavender center happy]
+Lavender: Match the dialogue box style to the menu style. Same fonts, same palette. Consistency is warmth.
 [set practice_result 2]
 [jump practice_wrap]
 
-@label practice_c
-[show lavender right talking]
-Lavender: Practice C uses stress pattern: style/layout separation.
-narrator: Check if this remains maintainable after content scale-up.
+@label practice_minimal
+[show lavender left talking]
+Lavender: Minimalist. Clean lines, lots of white space, a single accent color.
+Lavender: The text box: sharp edges, thin border, no background image — just a semi-transparent solid color.
+[show lavender center talking]
+Lavender: Menus: centered text, generous line height, no icons. Let the typography do the heavy lifting.
+[show lavender center happy]
+Lavender: This approach scales beautifully to any resolution and works with any content. Less is genuinely more.
 [set practice_result 3]
 [jump practice_wrap]
 
 @label practice_wrap
+[show lavender center happy]
 [if practice_result == 1]
-Lavender: You picked A. Good for stable baseline implementation.
+Lavender: Horror UI is about absence — what you don't show. Let the darkness do the design work.
 [elif practice_result == 2]
-Lavender: You picked B. Useful when balancing readability and flexibility.
+Lavender: Cheerful UI is about warmth — soft colors, readable fonts, and consistency that feels like a hug.
 [else]
-Lavender: You picked C. Great for stress-testing workflow assumptions.
+Lavender: Minimalism is the hardest to get wrong. When in doubt, remove elements until only the essential remains.
 [endif]
-Lavender: Practice scene complete.
-> Back to lesson menu -> lesson_menu
+Lavender: Whatever your style, test it with real content. A pretty mockup means nothing if the text is unreadable during gameplay.
+> Back to menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_3]

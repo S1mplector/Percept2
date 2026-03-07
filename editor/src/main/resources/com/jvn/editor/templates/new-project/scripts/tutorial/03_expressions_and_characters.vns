@@ -1,391 +1,193 @@
-# Tutorial 03 - Expressions and Character Setup
+# Tutorial 03 — Expressions and Characters
+# How to declare characters, assign sprites and expressions, and use them in scenes.
+
 @scenario {{SCENARIO_PREFIX}}_tutorial_03_expressions
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
+[show lavender center happy]
+[wait 200]
+Lavender: Hey — see me right now? Smiling, center stage?
 [show lavender center talking]
-Lavender: Welcome to Tutorial 03 - Expressions and Character Setup.
-Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
-Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
-Lavender: Focus area for this file: Character declarations, presets, and expressive intent.
-Lavender: Primary command family: [show lavender center idle].
-narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+Lavender: That's all controlled by the {b}[show]{/b} command and the expression presets defined in your characters file.
+Lavender: This lesson covers how to set up characters and make them emote on screen.
 {{EXPRESSION_HINT}}
-Lavender: Shared declaration source: {{CHARACTERS_SCRIPT_PATH}}.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: Choose a section. You can revisit any section in any order.
-> Guided section index -> section_index
-> Dense reference sheet -> reference_sheet
+Lavender: What do you want to learn about?
+> Declaring characters -> section_declare
+> Expressions and presets -> section_expressions
+> Showing and hiding characters -> section_show_hide
+> Positions and staging -> section_positions
+> Quick reference card -> reference_sheet
 > Practice scene -> practice_scene
-> Return to Tutorial Hub -> return_hub
+> Back to Tutorial Hub -> return_hub
 
-@label section_index
+# ─── Declaring Characters ────────────────────────────────────────
+
+@label section_declare
+[show lavender left talking]
+Lavender: Before a character can appear on screen, you need to declare them.
+Lavender: That happens with {b}@character{/b} — usually in a shared definitions file so every script can use them.
+narrator: {color=#8888cc}@character lavender "Lavender"{/color}
+narrator: {color=#8888cc}@character narrator "Narrator"{/color}
+[show lavender center talking]
+Lavender: The first word after @character is the {b}ID{/b} — what you'll use in scripts. The quoted part is the {b}display name{/b} shown in the text box.
+Lavender: For this project, character declarations live in {b}{{CHARACTERS_SCRIPT_PATH}}{/b}.
+Lavender: You can add as many characters as you want — side characters, villains, the love interest, whoever.
+[show lavender center happy]
+Lavender: Just remember: declare once, use everywhere. Don't duplicate declarations across files.
+> Next: Expressions -> section_expressions
+> Back to menu -> lesson_menu
+
+# ─── Expressions and Presets ─────────────────────────────────────
+
+@label section_expressions
+[show lavender left talking]
+Lavender: Once a character is declared, you give them {b}expressions{/b} — the different visual states they can show.
+Lavender: There are two ways to do this, depending on your art setup.
+[show lavender center talking]
+Lavender: {b}Simple sprites{/b} — one image per expression:
+narrator: {color=#8888cc}@charimg lavender happy assets/characters/sprites/lavender_happy.png{/color}
+narrator: {color=#8888cc}@charimg lavender sad assets/characters/sprites/lavender_sad.png{/color}
+[show lavender right talking]
+Lavender: {b}Layered sprites{/b} — composited from parts (base, eyes, mouth):
+narrator: {color=#8888cc}@charlayer lavender base assets/.../base.png{/color}
+narrator: {color=#8888cc}@charlayer lavender eyes_neutral assets/.../eyes_neutral.png{/color}
+narrator: {color=#8888cc}@charpreset lavender happy $base | $eyes_neutral | $mouth_smile{/color}
+[show lavender center talking]
+Lavender: Layered sprites give you more combinations with fewer art assets. Simple sprites are easier to set up.
+Lavender: Either way, the {b}expression name{/b} — "happy", "sad", "talking" — is what you'll use in [show] commands.
+> Next: Showing and hiding -> section_show_hide
+> Back to menu -> lesson_menu
+
+# ─── Show and Hide ───────────────────────────────────────────────
+
+@label section_show_hide
+[show lavender center talking]
+Lavender: To put a character on screen, use {b}[show]{/b}. To remove them, use {b}[hide]{/b}.
+Lavender: Let me demonstrate. Watch — I'll step off screen and come back.
+[hide lavender]
+[wait 600]
+narrator: She's gone. The stage is empty.
+[wait 400]
+[show lavender center happy]
+Lavender: And I'm back! That was {b}[hide lavender]{/b} followed by {b}[show lavender center happy]{/b}.
+[show lavender center talking]
+Lavender: The show command has three parts:
+narrator: {color=#8888cc}[show lavender center happy]{/color}
+narrator: {b}lavender{/b} — character ID.  {b}center{/b} — position.  {b}happy{/b} — expression.
+Lavender: You can change expression without moving by keeping the same position:
+[show lavender center happy]
+Lavender: Happy!
+[show lavender center emphasis]
+Lavender: Intense!
+[show lavender center talking]
+Lavender: Back to normal. Each [show] is instant — the sprite swaps right away.
+> Next: Positions -> section_positions
+> Back to menu -> lesson_menu
+
+# ─── Positions ───────────────────────────────────────────────────
+
+@label section_positions
+[show lavender center talking]
+Lavender: The engine has named stage positions for quick placement.
+[show lavender left talking]
+Lavender: This is {b}left{/b}.
+[show lavender center talking]
+Lavender: This is {b}center{/b}.
+[show lavender right talking]
+Lavender: This is {b}right{/b}.
 [show lavender far_left talking]
-Lavender: Guided sections:
-> Section 01 -> section_01
-> Section 02 -> section_02
-> Section 03 -> section_03
-> Section 04 -> section_04
-> Section 05 -> section_05
-> Section 06 -> section_06
-> Section 07 -> section_07
-> Section 08 -> section_08
-> Section 09 -> section_09
-> Section 10 -> section_10
-> Back to lesson menu -> lesson_menu
+Lavender: And this is {b}far_left{/b} — handy when you have several characters on screen.
+[show lavender center talking]
+Lavender: For fine control, you can use exact coordinates:
+narrator: {color=#8888cc}[show lavender at 0.70,0.84]{/color}
+Lavender: That places me at 70% from the left edge, 84% from the top.
+[show lavender center happy]
+Lavender: Named positions are easier to read, but coordinates give you pixel-perfect control when you need it.
+> Reference card -> reference_sheet
+> Try it yourself -> practice_scene
+> Back to menu -> lesson_menu
 
-@label section_01
-[show lavender left talking]
-Lavender: Section 01 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A01: [show lavender center happy]
-narrator: Example line B01: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 01: annotate why, not only what, in your own scripts.
-Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
-> Next section -> section_02
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_02
-[show lavender left talking]
-Lavender: Section 02 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A02: [show lavender center happy]
-narrator: Example line B02: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 02: annotate why, not only what, in your own scripts.
-Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
-> Next section -> section_03
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_03
-[show lavender left talking]
-Lavender: Section 03 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A03: [show lavender center happy]
-narrator: Example line B03: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 03: annotate why, not only what, in your own scripts.
-Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 3]
-> Next section -> section_04
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_04
-[show lavender left talking]
-Lavender: Section 04 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A04: [show lavender center happy]
-narrator: Example line B04: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 04: annotate why, not only what, in your own scripts.
-Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
-> Next section -> section_05
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_05
-[show lavender left talking]
-Lavender: Section 05 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A05: [show lavender center happy]
-narrator: Example line B05: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 05: annotate why, not only what, in your own scripts.
-Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
-> Next section -> section_06
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_06
-[show lavender left talking]
-Lavender: Section 06 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A06: [show lavender center happy]
-narrator: Example line B06: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 06: annotate why, not only what, in your own scripts.
-Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 6]
-> Next section -> section_07
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_07
-[show lavender left talking]
-Lavender: Section 07 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A07: [show lavender center happy]
-narrator: Example line B07: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 07: annotate why, not only what, in your own scripts.
-Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
-> Next section -> section_08
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_08
-[show lavender left talking]
-Lavender: Section 08 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A08: [show lavender center happy]
-narrator: Example line B08: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 08: annotate why, not only what, in your own scripts.
-Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
-> Next section -> section_09
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_09
-[show lavender left talking]
-Lavender: Section 09 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A09: [show lavender center happy]
-narrator: Example line B09: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 09: annotate why, not only what, in your own scripts.
-Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 9]
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
-
-@label section_10
-[show lavender left talking]
-Lavender: Section 10 for Character declarations, presets, and expressive intent.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [show lavender center idle].
-narrator: Example line A10: [show lavender center happy]
-narrator: Example line B10: [show lavender center emphasis]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 10: annotate why, not only what, in your own scripts.
-Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Reference Card ──────────────────────────────────────────────
 
 @label reference_sheet
 [show lavender center talking]
-Lavender: Reference mode: long-form checklist with tactical reminders.
-narrator: Ref 001 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 002 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 003 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 004 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 005 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 006 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 007 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 008 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 009 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 010 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 011 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 012 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 013 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 014 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 015 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 016 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 017 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 018 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 019 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 020 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 021 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 022 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 023 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 024 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 025 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 026 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 027 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 028 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 029 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 030 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 031 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 032 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 033 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 034 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 035 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 036 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 037 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 038 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 039 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 040 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 041 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 042 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 043 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 044 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 045 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 046 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 047 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 048 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 049 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 050 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 051 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 052 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 053 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 054 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 055 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 056 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 057 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 058 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 059 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 060 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 061 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 062 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 063 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 064 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 065 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 066 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 067 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 068 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 069 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 070 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 071 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 072 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 073 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 074 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 075 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 076 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 077 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 078 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 079 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 080 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 081 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 082 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 083 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 084 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 085 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 086 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 087 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 088 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 089 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 090 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 091 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 092 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 093 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 094 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 095 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 096 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 097 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 098 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 099 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 100 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 101 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 102 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 103 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 104 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 105 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 106 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 107 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 108 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 109 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 110 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 111 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 112 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 113 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 114 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 115 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 116 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 117 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 118 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 119 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 120 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 121 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 122 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 123 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 124 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 125 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 126 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 127 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 128 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 129 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 130 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 131 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 132 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 133 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 134 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 135 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 136 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 137 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 138 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 139 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 140 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 141 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 142 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 143 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 144 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 145 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 146 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 147 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 148 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 149 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 150 | Character declarations, presets, and expressive intent | Keep scripts deterministic, readable, and reviewable.
-Lavender: End of reference sheet for Tutorial 03 - Expressions and Character Setup.
-> Back to lesson menu -> lesson_menu
+Lavender: Character and expression cheat sheet:
+narrator: {b}@character id "Name"{/b} — declare a character.
+narrator: {b}@charimg id expr path{/b} — assign a simple sprite expression.
+narrator: {b}@charlayer id part path{/b} — assign a layer part (for compositing).
+narrator: {b}@charpreset id expr $part1 | $part2{/b} — define a composited expression.
+narrator: {b}[show id position expression]{/b} — display character on screen.
+narrator: {b}[hide id]{/b} — remove character from screen.
+narrator: {b}Positions:{/b} far_left, left, center, right, far_right, or {b}at X,Y{/b} for exact coords.
+narrator: {b}Expressions:{/b} whatever names you define — happy, sad, talking, neutral, etc.
+[show lavender center happy]
+Lavender: Keep your definitions file organized and name expressions consistently across characters.
+> Back to menu -> lesson_menu
+
+# ─── Practice Scene ──────────────────────────────────────────────
 
 @label practice_scene
 [show lavender right talking]
-Lavender: Practice setup for Character declarations, presets, and expressive intent.
-Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
-> Practice path A -> practice_a
-> Practice path B -> practice_b
-> Practice path C -> practice_c
+Lavender: Let's see expressions in action. Pick a scene and I'll act it out.
+> A greeting -> practice_greeting
+> A disagreement -> practice_disagreement
+> An awkward moment -> practice_awkward
 
-@label practice_a
-[show lavender left talking]
-Lavender: Practice A uses the core pattern: [show lavender center idle].
-narrator: Validate state transitions after each command batch.
+@label practice_greeting
+[hide lavender]
+[wait 400]
+narrator: The door opened, and there she was.
+[show lavender left happy]
+Lavender: Oh hey! I wasn't expecting you this early.
+[show lavender center happy]
+Lavender: Come in, come in! I just made tea.
+[show lavender center talking]
+Lavender: Notice the flow — hide, narrator beat, then show with a happy expression on the left, slide to center.
 [set practice_result 1]
 [jump practice_wrap]
 
-@label practice_b
+@label practice_disagreement
 [show lavender center talking]
-Lavender: Practice B uses alternate pattern: [show lavender center happy].
-narrator: Compare readability between A and B.
+Lavender: Look, I hear what you're saying...
+[show lavender center emphasis]
+Lavender: ...but that's {b}not{/b} what happened and you know it.
+[show lavender right emphasis]
+narrator: She turned away, arms crossed.
+[show lavender center talking]
+Lavender: Expression shifts and position changes sell the conflict. No special effects needed.
 [set practice_result 2]
 [jump practice_wrap]
 
-@label practice_c
+@label practice_awkward
+[show lavender center talking]
+Lavender: So, um...
+[wait 400]
 [show lavender right talking]
-Lavender: Practice C uses stress pattern: [show lavender center emphasis].
-narrator: Check if this remains maintainable after content scale-up.
+Lavender: ...this is the part where one of us is supposed to say something, right?
+[wait 300]
+narrator: Neither of them did.
+[show lavender center happy]
+Lavender: Awkwardness is all about timing and position — small movements, uncomfortable pauses.
 [set practice_result 3]
 [jump practice_wrap]
 
 @label practice_wrap
+[show lavender center happy]
 [if practice_result == 1]
-Lavender: You picked A. Good for stable baseline implementation.
+Lavender: Warm scenes work best when the character literally moves toward the player — left to center, hide to show.
 [elif practice_result == 2]
-Lavender: You picked B. Useful when balancing readability and flexibility.
+Lavender: Conflict scenes need strong expression changes. Don't be afraid to let a character look away.
 [else]
-Lavender: You picked C. Great for stress-testing workflow assumptions.
+Lavender: Comedy and awkwardness live in the pauses. The [wait] command is your best friend here.
 [endif]
-Lavender: Practice scene complete.
-> Back to lesson menu -> lesson_menu
+Lavender: Try adding a second character to one of these scenes — that's where staging gets really fun.
+> Back to menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_1]

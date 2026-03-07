@@ -1,389 +1,191 @@
-# Tutorial 13 - Camera and Staging
+# Tutorial 13 — Camera and Staging
+# How to frame scenes, position characters, and use camera movement for storytelling.
+
 @scenario {{SCENARIO_PREFIX}}_tutorial_13_camera_staging
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
+[show lavender center happy]
+[wait 200]
+Lavender: Where you put the camera changes everything about how a scene feels.
 [show lavender center talking]
-Lavender: Welcome to Tutorial 13 - Camera and Staging.
-Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
-Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
-Lavender: Focus area for this file: Runtime frame, camera intent, and composition.
-Lavender: Primary command family: cameraMove.
-narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+Lavender: Same dialogue, same characters — but zoom in and it's intimate. Pull back and it's lonely. Let's explore.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: Choose a section. You can revisit any section in any order.
-> Guided section index -> section_index
-> Dense reference sheet -> reference_sheet
+Lavender: What would you like to learn about?
+> Character positions -> section_positions
+> Staging for two characters -> section_two_char
+> Camera movement -> section_camera_move
+> Zoom and focus -> section_zoom
+> Composition tips -> section_composition
+> Quick reference card -> reference_sheet
 > Practice scene -> practice_scene
-> Return to Tutorial Hub -> return_hub
+> Back to Tutorial Hub -> return_hub
 
-@label section_index
-[show lavender far_left talking]
-Lavender: Guided sections:
-> Section 01 -> section_01
-> Section 02 -> section_02
-> Section 03 -> section_03
-> Section 04 -> section_04
-> Section 05 -> section_05
-> Section 06 -> section_06
-> Section 07 -> section_07
-> Section 08 -> section_08
-> Section 09 -> section_09
-> Section 10 -> section_10
-> Back to lesson menu -> lesson_menu
+# ─── Character Positions ─────────────────────────────────────────
 
-@label section_01
+@label section_positions
 [show lavender left talking]
-Lavender: Section 01 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A01: cameraZoom
-narrator: Example line B01: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 01: annotate why, not only what, in your own scripts.
-Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
-> Next section -> section_02
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: The engine has several built-in positions for characters on screen:
+narrator: {b}far_left{/b} — edge of the frame, partially cut off. Good for eavesdropping or background characters.
+narrator: {b}left{/b} — a comfortable conversation position.
+narrator: {b}center{/b} — the focus of the scene. Use for solo moments or direct address.
+narrator: {b}right{/b} — the other half of a conversation.
+narrator: {b}far_right{/b} — opposite edge, mirror of far_left.
+[show lavender center talking]
+Lavender: You can also use custom positions with normalized coordinates:
+narrator: {color=#8888cc}[show lavender 0.3,0.85 talking]{/color}
+Lavender: That places me at 30% from the left, 85% from the top. Useful for non-standard framing.
+[show lavender center happy]
+Lavender: Start with the named positions. Graduate to custom coordinates when you need something specific.
+> Next: Two characters -> section_two_char
+> Back to menu -> lesson_menu
 
-@label section_02
-[show lavender left talking]
-Lavender: Section 02 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A02: cameraZoom
-narrator: Example line B02: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 02: annotate why, not only what, in your own scripts.
-Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
-> Next section -> section_03
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Staging Two Characters ──────────────────────────────────────
 
-@label section_03
+@label section_two_char
+[show lavender right talking]
+Lavender: The classic setup: two characters talking. Left and right.
+narrator: {color=#8888cc}[show lavender left talking]{/color}
+narrator: {color=#8888cc}[show alex right talking]{/color}
+[show lavender center talking]
+Lavender: When one character speaks, keep the other visible but in a neutral expression. It sells the illusion of presence.
+Lavender: Swap who's on which side to signal power shifts or surprise:
+narrator: {color=#8888cc}[move lavender right easeInOut 400]{/color}
+narrator: {color=#8888cc}[move alex left easeInOut 400]{/color}
 [show lavender left talking]
-Lavender: Section 03 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A03: cameraZoom
-narrator: Example line B03: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 03: annotate why, not only what, in your own scripts.
-Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 3]
-> Next section -> section_04
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: The side swap tells the player something changed — even if you never say it directly.
+[show lavender center happy]
+Lavender: Avoid putting both characters on the same side. It reads as confusion, not intention.
+> Next: Camera movement -> section_camera_move
+> Back to menu -> lesson_menu
 
-@label section_04
-[show lavender left talking]
-Lavender: Section 04 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A04: cameraZoom
-narrator: Example line B04: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 04: annotate why, not only what, in your own scripts.
-Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
-> Next section -> section_05
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Camera Movement ─────────────────────────────────────────────
 
-@label section_05
-[show lavender left talking]
-Lavender: Section 05 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A05: cameraZoom
-narrator: Example line B05: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 05: annotate why, not only what, in your own scripts.
-Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
-> Next section -> section_06
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_camera_move
+[show lavender center talking]
+Lavender: Camera movement adds life to static scenes. A slow pan during dialogue creates the feeling of a film.
+narrator: {color=#8888cc}[camera pan 0,0 100,0 easeInOut 1000]{/color}
+Lavender: That pans the camera from left to right over one second. The characters stay put — the world moves behind them.
+[show lavender right talking]
+Lavender: Camera movement works best when it's motivated:
+narrator: {b}Pan{/b} when the player's attention should shift — a new character enters, or a detail is revealed.
+narrator: {b}Stay still{/b} during emotional dialogue — movement would be distracting.
+narrator: {b}Combine with character movement{/b} for tracking shots — the camera follows the character.
+[show lavender center happy]
+Lavender: A common mistake is moving the camera during every line. Stillness is powerful. Save movement for moments that earn it.
+> Next: Zoom -> section_zoom
+> Back to menu -> lesson_menu
 
-@label section_06
-[show lavender left talking]
-Lavender: Section 06 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A06: cameraZoom
-narrator: Example line B06: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 06: annotate why, not only what, in your own scripts.
-Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 6]
-> Next section -> section_07
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Zoom and Focus ──────────────────────────────────────────────
 
-@label section_07
+@label section_zoom
 [show lavender left talking]
-Lavender: Section 07 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A07: cameraZoom
-narrator: Example line B07: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 07: annotate why, not only what, in your own scripts.
-Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
-> Next section -> section_08
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: {b}Zoom{/b} changes the emotional distance between the player and the scene.
+narrator: {color=#8888cc}[camera zoom 1.0 1.2 easeIn 600]{/color}
+Lavender: That's a subtle 20% zoom in. Small, but the player feels it — the scene becomes more personal.
+[show lavender center talking]
+Lavender: Zoom levels and when to use them:
+narrator: {b}1.0{/b} — neutral. The default. Good for most dialogue.
+narrator: {b}1.1–1.2{/b} — slight close-up. Use for emotional beats, confessions, tension.
+narrator: {b}1.3+{/b} — dramatic. Use sparingly — for revelations, breakdowns, key decisions.
+narrator: {b}0.8–0.9{/b} — pulled back. Use for establishing shots or showing the full scene.
+[show lavender center happy]
+Lavender: Always reset the zoom when the moment passes. A lingering zoom feels like a bug.
+narrator: {color=#8888cc}[camera zoom 1.2 1.0 easeOut 400]{/color}
+> Next: Composition tips -> section_composition
+> Back to menu -> lesson_menu
 
-@label section_08
-[show lavender left talking]
-Lavender: Section 08 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A08: cameraZoom
-narrator: Example line B08: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 08: annotate why, not only what, in your own scripts.
-Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
-> Next section -> section_09
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Composition Tips ────────────────────────────────────────────
 
-@label section_09
-[show lavender left talking]
-Lavender: Section 09 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A09: cameraZoom
-narrator: Example line B09: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 09: annotate why, not only what, in your own scripts.
-Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 9]
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_composition
+[show lavender center talking]
+Lavender: A few composition principles that work in any visual novel:
+narrator: {b}Rule of thirds.{/b} Place characters at 1/3 or 2/3 of the screen, not dead center — unless the moment calls for it.
+narrator: {b}Empty space is meaning.{/b} A character alone on a wide shot reads as isolated. Use it deliberately.
+narrator: {b}Match framing to mood.{/b} Close for intimate, wide for epic, off-center for unease.
+narrator: {b}Background matters.{/b} A cluttered background behind a serious conversation is distracting. Choose backgrounds that support the tone.
+[show lavender right talking]
+Lavender: And the simplest rule of all:
+narrator: {b}If the player's eye goes to the wrong place, the staging is wrong.{/b}
+[show lavender center happy]
+Lavender: You don't need film school. You need to play your scene, notice where your eyes go, and adjust until they go where you want.
+> Reference card -> reference_sheet
+> Try it yourself -> practice_scene
+> Back to menu -> lesson_menu
 
-@label section_10
-[show lavender left talking]
-Lavender: Section 10 for Runtime frame, camera intent, and composition.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: cameraMove.
-narrator: Example line A10: cameraZoom
-narrator: Example line B10: runtime-frame aware blocking
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 10: annotate why, not only what, in your own scripts.
-Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Reference Card ──────────────────────────────────────────────
 
 @label reference_sheet
 [show lavender center talking]
-Lavender: Reference mode: long-form checklist with tactical reminders.
-narrator: Ref 001 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 002 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 003 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 004 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 005 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 006 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 007 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 008 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 009 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 010 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 011 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 012 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 013 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 014 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 015 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 016 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 017 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 018 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 019 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 020 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 021 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 022 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 023 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 024 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 025 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 026 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 027 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 028 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 029 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 030 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 031 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 032 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 033 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 034 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 035 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 036 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 037 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 038 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 039 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 040 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 041 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 042 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 043 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 044 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 045 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 046 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 047 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 048 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 049 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 050 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 051 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 052 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 053 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 054 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 055 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 056 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 057 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 058 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 059 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 060 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 061 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 062 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 063 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 064 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 065 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 066 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 067 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 068 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 069 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 070 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 071 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 072 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 073 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 074 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 075 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 076 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 077 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 078 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 079 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 080 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 081 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 082 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 083 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 084 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 085 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 086 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 087 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 088 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 089 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 090 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 091 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 092 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 093 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 094 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 095 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 096 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 097 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 098 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 099 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 100 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 101 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 102 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 103 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 104 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 105 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 106 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 107 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 108 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 109 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 110 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 111 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 112 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 113 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 114 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 115 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 116 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 117 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 118 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 119 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 120 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 121 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 122 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 123 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 124 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 125 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 126 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 127 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 128 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 129 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 130 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 131 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 132 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 133 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 134 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 135 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 136 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 137 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 138 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 139 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 140 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 141 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 142 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 143 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 144 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 145 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 146 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 147 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 148 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 149 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 150 | Runtime frame, camera intent, and composition | Keep scripts deterministic, readable, and reviewable.
-Lavender: End of reference sheet for Tutorial 13 - Camera and Staging.
-> Back to lesson menu -> lesson_menu
+Lavender: Camera and staging cheat sheet:
+narrator: {b}Positions:{/b} far_left, left, center, right, far_right, or custom x,y.
+narrator: {b}[show char pos expr]{/b} — place a character at a position with an expression.
+narrator: {b}[move char pos easing ms]{/b} — animate a character to a new position.
+narrator: {b}[camera pan x1,y1 x2,y2 easing ms]{/b} — pan the camera.
+narrator: {b}[camera zoom from to easing ms]{/b} — zoom in or out.
+narrator: {b}Zoom 1.0{/b} = neutral. 1.2 = close. 0.9 = wide.
+narrator: {b}Tip:{/b} Stillness is powerful. Only move the camera when it adds meaning.
+[show lavender center happy]
+Lavender: Staging is invisible when done right. The player doesn't notice the camera — they just feel the scene.
+> Back to menu -> lesson_menu
+
+# ─── Practice Scene ──────────────────────────────────────────────
 
 @label practice_scene
 [show lavender right talking]
-Lavender: Practice setup for Runtime frame, camera intent, and composition.
-Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
-> Practice path A -> practice_a
-> Practice path B -> practice_b
-> Practice path C -> practice_c
+Lavender: Let's stage a few moods. Pick a scenario:
+> A tense confrontation -> practice_tense
+> A quiet confession -> practice_quiet
+> A grand reveal -> practice_reveal
 
-@label practice_a
+@label practice_tense
+[show lavender far_left talking]
+Lavender: Imagine two characters facing off. They start far apart...
+[move lavender left easeInOut 500]
+[wait 500]
 [show lavender left talking]
-Lavender: Practice A uses the core pattern: cameraMove.
-narrator: Validate state transitions after each command batch.
+Lavender: Then slowly close the distance. The camera stays still — the shrinking gap does the work.
+Lavender: No zoom needed here. The movement tells the story of escalation.
 [set practice_result 1]
 [jump practice_wrap]
 
-@label practice_b
+@label practice_quiet
 [show lavender center talking]
-Lavender: Practice B uses alternate pattern: cameraZoom.
-narrator: Compare readability between A and B.
+Lavender: A confession. Close framing. Just you and me.
+narrator: The room is quiet. The background fades to unimportance.
+[show lavender center emphasis]
+Lavender: This is where a gentle zoom from 1.0 to 1.15 over 800ms would say more than any dialogue line.
+[show lavender center happy]
+Lavender: Pair it with a slower text speed and a longer autodelay. Let the moment breathe.
 [set practice_result 2]
 [jump practice_wrap]
 
-@label practice_c
-[show lavender right talking]
-Lavender: Practice C uses stress pattern: runtime-frame aware blocking.
-narrator: Check if this remains maintainable after content scale-up.
+@label practice_reveal
+[show lavender far_right talking]
+Lavender: The camera pans slowly to the left. Nothing but empty background...
+[move lavender center easeOut 600]
+[wait 600]
+[show lavender center happy]
+Lavender: Then I step into frame. The reveal isn't what I say — it's where I appear and when.
+Lavender: A slow pan followed by a character show is one of the most effective staging patterns in VNs.
 [set practice_result 3]
 [jump practice_wrap]
 
 @label practice_wrap
+[show lavender center happy]
 [if practice_result == 1]
-Lavender: You picked A. Good for stable baseline implementation.
+Lavender: Confrontations are about distance — physical and emotional. Let the blocking carry the tension.
 [elif practice_result == 2]
-Lavender: You picked B. Useful when balancing readability and flexibility.
+Lavender: Quiet moments need quiet staging. Small zoom, slow pace, minimal movement.
 [else]
-Lavender: You picked C. Great for stress-testing workflow assumptions.
+Lavender: Reveals use timing and space. The player sees the empty frame first, then the surprise.
 [endif]
-Lavender: Practice scene complete.
-> Back to lesson menu -> lesson_menu
+Lavender: Try staging these in your own script. Position characters, add a camera move, and play it back.
+> Back to menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_3]

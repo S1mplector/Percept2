@@ -1,389 +1,203 @@
-# Tutorial 07 - Variables and Conditions
+# Tutorial 07 — Variables and Conditions
+# How to track game state, branch dialogue, and react to player choices.
+
 @scenario {{SCENARIO_PREFIX}}_tutorial_07_variables
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
 {{BG_START}}[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
+[show lavender center happy]
+[wait 200]
+Lavender: This is where your story stops being linear and starts being {i}yours{/i}.
 [show lavender center talking]
-Lavender: Welcome to Tutorial 07 - Variables and Conditions.
-Lavender: This lesson is intentionally long-form, so your team can use it as a living reference.
-Lavender: We'll cover guided sections, a dense reference sheet, and a mini practice scene.
-Lavender: Focus area for this file: State modeling, branches, and conditional readability.
-Lavender: Primary command family: [set courage 0].
-narrator: Keep this file editable. Teams usually annotate these lines with project-specific conventions.
+Lavender: Variables let you remember things — what the player chose, how many times they visited a place, whether they're on a good path or a bad one.
+Lavender: Combined with conditions, they let you write stories that react to the player.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: Choose a section. You can revisit any section in any order.
-> Guided section index -> section_index
-> Dense reference sheet -> reference_sheet
+Lavender: What do you want to learn?
+> Setting and reading variables -> section_set
+> Incrementing and math -> section_math
+> If / elif / else conditions -> section_conditions
+> Variables with choices -> section_choices_vars
+> Naming conventions -> section_naming
+> Quick reference card -> reference_sheet
 > Practice scene -> practice_scene
-> Return to Tutorial Hub -> return_hub
+> Back to Tutorial Hub -> return_hub
 
-@label section_index
-[show lavender far_left talking]
-Lavender: Guided sections:
-> Section 01 -> section_01
-> Section 02 -> section_02
-> Section 03 -> section_03
-> Section 04 -> section_04
-> Section 05 -> section_05
-> Section 06 -> section_06
-> Section 07 -> section_07
-> Section 08 -> section_08
-> Section 09 -> section_09
-> Section 10 -> section_10
-> Back to lesson menu -> lesson_menu
+# ─── Setting Variables ───────────────────────────────────────────
 
-@label section_01
+@label section_set
 [show lavender left talking]
-Lavender: Section 01 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A01: [inc courage]
-narrator: Example line B01: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 01: annotate why, not only what, in your own scripts.
-Lavender: Team rule 01: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 01: does this section still mirror runtime behavior?
-> Next section -> section_02
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: The {b}[set]{/b} command creates a variable and gives it a value.
+narrator: {color=#8888cc}[set courage 0]{/color}
+Lavender: Now there's a variable called "courage" with the value 0. It persists for the entire playthrough.
+[show lavender center talking]
+Lavender: You can set it to any number, or to a string:
+narrator: {color=#8888cc}[set player_name "Alex"]{/color}
+narrator: {color=#8888cc}[set chapter 1]{/color}
+Lavender: Variables are global — once set, any script file can read or change them.
+[show lavender center happy]
+Lavender: Think of them as the game's memory. "Did the player help the cat?" — store a variable. "Which ending did they unlock?" — store a variable.
+> Next: Math -> section_math
+> Back to menu -> lesson_menu
 
-@label section_02
-[show lavender left talking]
-Lavender: Section 02 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A02: [inc courage]
-narrator: Example line B02: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 02: annotate why, not only what, in your own scripts.
-Lavender: Team rule 02: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 02: does this section still mirror runtime behavior?
-> Next section -> section_03
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Math Operations ─────────────────────────────────────────────
 
-@label section_03
+@label section_math
+[show lavender right talking]
+Lavender: You don't always want to set a specific value. Sometimes you just want to nudge it.
+narrator: {color=#8888cc}[inc courage]{/color}
+Lavender: That adds 1 to courage. If it was 0, now it's 1.
+[show lavender center talking]
+Lavender: There's also {b}[dec]{/b} to subtract:
+narrator: {color=#8888cc}[dec courage]{/color}
+Lavender: And you can set a variable to the result of math:
+narrator: {color=#8888cc}[set total_score courage + kindness]{/color}
 [show lavender left talking]
-Lavender: Section 03 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A03: [inc courage]
-narrator: Example line B03: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 03: annotate why, not only what, in your own scripts.
-Lavender: Team rule 03: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 03: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 3]
-> Next section -> section_04
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: These are great for tracking cumulative choices. Every time the player does something brave, {b}[inc courage]{/b}. At the end, check how high it got.
+[show lavender center happy]
+Lavender: Keep the math simple — if your variable logic needs a spreadsheet to understand, it's too complex for a VN script.
+> Next: Conditions -> section_conditions
+> Back to menu -> lesson_menu
 
-@label section_04
-[show lavender left talking]
-Lavender: Section 04 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A04: [inc courage]
-narrator: Example line B04: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 04: annotate why, not only what, in your own scripts.
-Lavender: Team rule 04: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 04: does this section still mirror runtime behavior?
-> Next section -> section_05
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Conditions ──────────────────────────────────────────────────
 
-@label section_05
+@label section_conditions
+[show lavender center talking]
+Lavender: Conditions let you show different content based on variable values. Here's the basic pattern:
+narrator: {color=#8888cc}[if courage >= 3]{/color}
+narrator: {color=#8888cc}Lavender: You've been really brave.{/color}
+narrator: {color=#8888cc}[elif courage >= 1]{/color}
+narrator: {color=#8888cc}Lavender: You showed some courage.{/color}
+narrator: {color=#8888cc}[else]{/color}
+narrator: {color=#8888cc}Lavender: Maybe next time you'll be braver.{/color}
+narrator: {color=#8888cc}[endif]{/color}
 [show lavender left talking]
-Lavender: Section 05 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A05: [inc courage]
-narrator: Example line B05: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 05: annotate why, not only what, in your own scripts.
-Lavender: Team rule 05: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 05: does this section still mirror runtime behavior?
-> Next section -> section_06
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: {b}[if]{/b} checks the condition. {b}[elif]{/b} checks another if the first was false. {b}[else]{/b} catches everything else.
+Lavender: Always close with {b}[endif]{/b} — the engine needs to know where the block ends.
+[show lavender right talking]
+Lavender: Operators you can use: {b}=={/b} (equal), {b}!={/b} (not equal), {b}>={/b}, {b}<={/b}, {b}>{/b}, {b}<{/b}.
+[show lavender center happy]
+Lavender: You can also check string variables:
+narrator: {color=#8888cc}[if player_name == "Alex"]{/color}
+> Next: Variables with choices -> section_choices_vars
+> Back to menu -> lesson_menu
 
-@label section_06
-[show lavender left talking]
-Lavender: Section 06 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A06: [inc courage]
-narrator: Example line B06: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 06: annotate why, not only what, in your own scripts.
-Lavender: Team rule 06: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 06: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 6]
-> Next section -> section_07
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Variables with Choices ──────────────────────────────────────
 
-@label section_07
-[show lavender left talking]
-Lavender: Section 07 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A07: [inc courage]
-narrator: Example line B07: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 07: annotate why, not only what, in your own scripts.
-Lavender: Team rule 07: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 07: does this section still mirror runtime behavior?
-> Next section -> section_08
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+@label section_choices_vars
+[show lavender center talking]
+Lavender: The real power comes from combining variables with player choices. Watch this:
+narrator: {color=#8888cc}Lavender: The kitten is stuck in the tree. What do you do?{/color}
+narrator: {color=#8888cc}> Climb up and help -> choice_climb{/color}
+narrator: {color=#8888cc}> Walk away -> choice_walk{/color}
+Lavender: Then at each label:
+narrator: {color=#8888cc}@label choice_climb{/color}
+narrator: {color=#8888cc}[inc courage]{/color}
+narrator: {color=#8888cc}[inc kindness]{/color}
+narrator: {color=#8888cc}Lavender: You saved the kitten!{/color}
+[show lavender right talking]
+Lavender: Now later in the story, you can check those values and react differently.
+Lavender: Every choice can quietly adjust the numbers behind the scenes. The player never sees the variables — they just see a story that feels responsive.
+[show lavender center happy]
+Lavender: This is how route systems, affection meters, and branching endings work in visual novels.
+> Next: Naming -> section_naming
+> Back to menu -> lesson_menu
 
-@label section_08
-[show lavender left talking]
-Lavender: Section 08 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A08: [inc courage]
-narrator: Example line B08: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 08: annotate why, not only what, in your own scripts.
-Lavender: Team rule 08: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 08: does this section still mirror runtime behavior?
-> Next section -> section_09
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Naming Conventions ──────────────────────────────────────────
 
-@label section_09
+@label section_naming
 [show lavender left talking]
-Lavender: Section 09 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A09: [inc courage]
-narrator: Example line B09: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 09: annotate why, not only what, in your own scripts.
-Lavender: Team rule 09: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 09: does this section still mirror runtime behavior?
-[set tutorial_checkpoint 9]
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+Lavender: A word on naming. Variables pile up fast, so stay consistent.
+Lavender: Good names:
+narrator: {b}courage{/b}, {b}kindness{/b}, {b}chapter{/b}, {b}met_librarian{/b}, {b}route_active{/b}
+Lavender: Bad names:
+narrator: {b}x{/b}, {b}temp{/b}, {b}flag1{/b}, {b}thing{/b}
+[show lavender center talking]
+Lavender: Use snake_case, keep names descriptive, and prefix related variables:
+narrator: {color=#8888cc}ch1_courage, ch1_kindness, ch2_trust{/color}
+[show lavender center happy]
+Lavender: Future-you will appreciate it when there are fifty variables and you need to find one.
+> Reference card -> reference_sheet
+> Try it yourself -> practice_scene
+> Back to menu -> lesson_menu
 
-@label section_10
-[show lavender left talking]
-Lavender: Section 10 for State modeling, branches, and conditional readability.
-Lavender: Intent: build a repeatable workflow, not one-off script tricks.
-Lavender: Command anchor: [set courage 0].
-narrator: Example line A10: [inc courage]
-narrator: Example line B10: [if courage >= 2]
-Lavender: Read this as pattern language: setup, execute, validate, iterate.
-Lavender: Tip 10: annotate why, not only what, in your own scripts.
-Lavender: Team rule 10: keep naming and folder structures stable as assets grow.
-Lavender: Review checkpoint 10: does this section still mirror runtime behavior?
-> Next section -> section_10
-> Section index -> section_index
-> Return to lesson menu -> lesson_menu
+# ─── Reference Card ──────────────────────────────────────────────
 
 @label reference_sheet
 [show lavender center talking]
-Lavender: Reference mode: long-form checklist with tactical reminders.
-narrator: Ref 001 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 002 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 003 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 004 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 005 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 006 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 007 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 008 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 009 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 010 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 011 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 012 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 013 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 014 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 015 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 016 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 017 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 018 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 019 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 020 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 021 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 022 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 023 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 024 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 025 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 026 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 027 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 028 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 029 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 030 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 031 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 032 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 033 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 034 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 035 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 036 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 037 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 038 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 039 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 040 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 041 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 042 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 043 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 044 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 045 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 046 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 047 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 048 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 049 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 050 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 051 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 052 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 053 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 054 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 055 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 056 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 057 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 058 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 059 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 060 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 061 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 062 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 063 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 064 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 065 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 066 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 067 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 068 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 069 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 070 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 071 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 072 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 073 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 074 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 075 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 076 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 077 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 078 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 079 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 080 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 081 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 082 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 083 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 084 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 085 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 086 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 087 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 088 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 089 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 090 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 091 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 092 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 093 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 094 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 095 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 096 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 097 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 098 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 099 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 100 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 101 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 102 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 103 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 104 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 105 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 106 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 107 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 108 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 109 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 110 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 111 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 112 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 113 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 114 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 115 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 116 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 117 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 118 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 119 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 120 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 121 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 122 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 123 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 124 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 125 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 126 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 127 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 128 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 129 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 130 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 131 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 132 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 133 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 134 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 135 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 136 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 137 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 138 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 139 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 140 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 141 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 142 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 143 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 144 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 145 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 146 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 147 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 148 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 149 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-narrator: Ref 150 | State modeling, branches, and conditional readability | Keep scripts deterministic, readable, and reviewable.
-Lavender: End of reference sheet for Tutorial 07 - Variables and Conditions.
-> Back to lesson menu -> lesson_menu
+Lavender: Variables and conditions cheat sheet:
+narrator: {b}[set name value]{/b} — create or overwrite a variable.
+narrator: {b}[inc name]{/b} — add 1 to a numeric variable.
+narrator: {b}[dec name]{/b} — subtract 1 from a numeric variable.
+narrator: {b}[if condition]{/b} — start a conditional block.
+narrator: {b}[elif condition]{/b} — additional check if previous was false.
+narrator: {b}[else]{/b} — fallback if all checks fail.
+narrator: {b}[endif]{/b} — close the conditional block.
+narrator: {b}Operators:{/b} ==, !=, >=, <=, >, <
+narrator: {b}Values:{/b} numbers or quoted strings.
+[show lavender center happy]
+Lavender: Keep variable names descriptive and your condition blocks short. If an [if] has ten [elif]s, consider restructuring.
+> Back to menu -> lesson_menu
+
+# ─── Practice Scene ──────────────────────────────────────────────
 
 @label practice_scene
+[set courage 0]
 [show lavender right talking]
-Lavender: Practice setup for State modeling, branches, and conditional readability.
-Lavender: We'll run a tiny branch so you can inspect flow behavior quickly.
-> Practice path A -> practice_a
-> Practice path B -> practice_b
-> Practice path C -> practice_c
+Lavender: Let's see variables in action. I'll ask you a few questions and track your answers.
+Lavender: Ready?
+> Let's go -> practice_q1
 
-@label practice_a
-[show lavender left talking]
-Lavender: Practice A uses the core pattern: [set courage 0].
-narrator: Validate state transitions after each command batch.
-[set practice_result 1]
-[jump practice_wrap]
-
-@label practice_b
+@label practice_q1
 [show lavender center talking]
-Lavender: Practice B uses alternate pattern: [inc courage].
-narrator: Compare readability between A and B.
-[set practice_result 2]
-[jump practice_wrap]
+Lavender: A stranger drops their wallet on the sidewalk. What do you do?
+> Pick it up and return it -> practice_q1_kind
+> Keep walking -> practice_q1_skip
 
-@label practice_c
-[show lavender right talking]
-Lavender: Practice C uses stress pattern: [if courage >= 2].
-narrator: Check if this remains maintainable after content scale-up.
-[set practice_result 3]
-[jump practice_wrap]
+@label practice_q1_kind
+[inc courage]
+[show lavender center happy]
+Lavender: That was nice of you.
+[jump practice_q2]
 
-@label practice_wrap
-[if practice_result == 1]
-Lavender: You picked A. Good for stable baseline implementation.
-[elif practice_result == 2]
-Lavender: You picked B. Useful when balancing readability and flexibility.
+@label practice_q1_skip
+[show lavender center talking]
+Lavender: Fair enough. Not everyone stops.
+[jump practice_q2]
+
+@label practice_q2
+[show lavender center talking]
+Lavender: There's a shortcut through a dark alley. The safe path takes ten minutes longer.
+> Take the alley -> practice_q2_brave
+> Go the safe way -> practice_q2_safe
+
+@label practice_q2_brave
+[inc courage]
+[show lavender center happy]
+Lavender: Gutsy move.
+[jump practice_result]
+
+@label practice_q2_safe
+[show lavender center talking]
+Lavender: Smart. No sense in taking risks.
+[jump practice_result]
+
+@label practice_result
+[show lavender center talking]
+[if courage >= 2]
+Lavender: Courage: 2. You're bold — the kind of player who charges into the unknown.
+[elif courage == 1]
+Lavender: Courage: 1. A mix of caution and heart. Very human.
 [else]
-Lavender: You picked C. Great for stress-testing workflow assumptions.
+Lavender: Courage: 0. You play it safe. Nothing wrong with that — some stories reward patience.
 [endif]
-Lavender: Practice scene complete.
-> Back to lesson menu -> lesson_menu
+[show lavender center happy]
+Lavender: See how that worked? Two simple [inc] commands and one [if] block, and the ending feels personal.
+Lavender: That's the whole trick — small tracking, big payoff.
+> Back to menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_2]
