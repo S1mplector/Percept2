@@ -108,7 +108,6 @@ class WaveformAnalyzerTest {
     s.setCueId("blip");
     s.setIntensity(0.8f);
     WaveformAnalyzer.Analysis a = WaveformAnalyzer.analyze(s, 32);
-    // Should return some result without crashing, even if native unavailable
     assertNotNull(a);
     assertEquals(32, a.envelope().length);
   }

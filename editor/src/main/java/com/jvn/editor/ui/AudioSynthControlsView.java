@@ -434,12 +434,20 @@ public class AudioSynthControlsView extends BorderPane {
 
   private void doPlay() {
     if (controller == null) return;
-    playing = true;
-    btnPlay.setDisable(true);
-    btnStop.setDisable(false);
-
-    startControllerPlayback();
-    startStreaming();
+    try {
+      playing = true;
+      btnPlay.setDisable(true);
+      btnStop.setDisable(false);
+      startControllerPlayback();
+      startStreaming();
+    } catch (RuntimeException ex) {
+      playing = false;
+      btnPlay.setDisable(false);
+      btnStop.setDisable(true);
+      stopStreaming();
+      drawWaveformError(errorSummary(ex));
+      refreshDiagnosticsFromController();
+    }
   }
 
   private void doStop() {
@@ -511,8 +519,12 @@ public class AudioSynthControlsView extends BorderPane {
     cancelPendingSnapshot();
     SynthPreviewSettings snap = settings.copy();
     pendingSnapshot = snapshotExecutor.schedule(() -> {
-      WaveformAnalyzer.Analysis a = WaveformAnalyzer.analyze(snap, WAVEFORM_BINS);
-      Platform.runLater(() -> drawWaveform(a));
+      try {
+        WaveformAnalyzer.Analysis a = WaveformAnalyzer.analyze(snap, WAVEFORM_BINS);
+        Platform.runLater(() -> drawWaveform(a));
+      } catch (RuntimeException ex) {
+        Platform.runLater(() -> drawWaveformError(errorSummary(ex)));
+      }
     }, 50, TimeUnit.MILLISECONDS);
   }
 
@@ -542,7 +554,8 @@ public class AudioSynthControlsView extends BorderPane {
 
     if (analysis == null || analysis.envelope().length == 0) {
       gc.setFill(Color.web("#404858"));
-      gc.fillText("No data", w / 2 - 20, midY + 4);
+      gc.fillText(analysis != null && !analysis.nativeAvailable() ? "Native unavailable" : "No data",
+          w / 2 - 48, midY + 4);
       lblRms.setText("RMS: —");
       lblPeak.setText("Peak: —");
       return;
@@ -602,14 +615,29 @@ public class AudioSynthControlsView extends BorderPane {
     gc.strokeLine(0, midY + peakY, w, midY + peakY);
     gc.setLineDashes();
 
-    // Native indicator
-    if (!analysis.nativeAvailable()) {
-      gc.setFill(Color.web("#f0a050", 0.7));
-      gc.fillText("Java fallback", 4, 12);
-    }
-
     lblRms.setText(String.format("RMS: %.4f", analysis.rms()));
     lblPeak.setText(String.format("Peak: %.4f", analysis.peak()));
+  }
+
+  private void drawWaveformError(String message) {
+    double w = waveformCanvas.getWidth();
+    double h = waveformCanvas.getHeight();
+    GraphicsContext gc = waveformCanvas.getGraphicsContext2D();
+    gc.setFill(Color.web("#0e1018"));
+    gc.fillRect(0, 0, w, h);
+    gc.setFill(Color.web("#f08868"));
+    gc.fillText(message == null || message.isBlank() ? "Native renderer unavailable" : message, 8, h / 2.0);
+    lblRms.setText("RMS: —");
+    lblPeak.setText("Peak: —");
+  }
+
+  private static String errorSummary(Throwable ex) {
+    if (ex == null) return "Native renderer unavailable";
+    String message = ex.getMessage();
+    if (message == null || message.isBlank()) {
+      return ex.getClass().getSimpleName();
+    }
+    return message.length() > 64 ? message.substring(0, 61) + "..." : message;
   }
 
   // --- Persistence ---

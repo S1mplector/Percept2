@@ -1,11 +1,11 @@
 package com.jvn.audiofx;
 
 /**
- * Renders PCM from the native bridge (or Java fallback) and extracts waveform
- * envelope, RMS, and peak data for visualization in the editor sidebar.
+ * Renders PCM from the native bridge and extracts waveform envelope, RMS,
+ * and peak data for visualization in the editor sidebar.
  * <p>
  * Provides both one-shot {@link #analyze} and continuous {@link StreamingAnalyzer}
- * modes. Falls back gracefully when the native bridge is unavailable.
+ * modes.
  */
 public final class WaveformAnalyzer {
 
@@ -37,15 +37,13 @@ public final class WaveformAnalyzer {
    *
    * @param settings current synth configuration
    * @param envelopeBins number of bins for the waveform envelope (e.g. 128)
-   * @return analysis with envelope, RMS, and peak; envelope is empty if native unavailable
+   * @return analysis with envelope, RMS, and peak data from the native renderer
    */
   public static Analysis analyze(SynthPreviewSettings settings, int envelopeBins) {
     if (settings == null || envelopeBins < 1) {
       return new Analysis(new float[0], 0f, 0f, false);
     }
-    if (!AudioFxNativeBridge.isAvailable()) {
-      return analyzeJavaFallback(settings, envelopeBins);
-    }
+    requireNativeBridge();
 
     byte[] pcm = new byte[RENDER_FRAMES * FRAME_BYTES];
     int written;
@@ -78,8 +76,8 @@ public final class WaveformAnalyzer {
   // =========================================================================
 
   /**
-   * Continuously renders PCM from a dedicated native renderer (or Java
-   * fallback) and maintains a rolling waveform analysis that updates at
+   * Continuously renders PCM from a dedicated native renderer and maintains a
+   * rolling waveform analysis that updates at
    * approximately real-time rate.
    * <p>
    * Thread-safe: {@link #start}, {@link #reconfigure}, and {@link #stop}
@@ -107,6 +105,7 @@ public final class WaveformAnalyzer {
         pendingSettings = settings != null ? settings.copy() : null;
         configGeneration++;
         if (pendingSettings == null) return;
+        requireNativeBridge();
         running = true;
         renderThread = new Thread(this::renderLoop, "synth-waveform-stream");
         renderThread.setDaemon(true);
@@ -164,41 +163,25 @@ public final class WaveformAnalyzer {
     }
 
     private void runSession(SynthPreviewSettings settings, long sessionGen) {
-      boolean nativeAvail = AudioFxNativeBridge.isAvailable();
+      requireNativeBridge();
       float[] rolling = new float[ROLLING_FRAMES];
       byte[] pcmBuf = new byte[CHUNK_FRAMES * FRAME_BYTES];
 
       if (settings.type() == SynthPreviewSettings.SynthType.CHIPTUNE) {
-        if (nativeAvail) {
-          try (AudioFxNativeBridge.BeezRenderer r =
-                   AudioFxNativeBridge.createBeezRenderer(SAMPLE_RATE)) {
-            r.configure(settings.cueId(), settings.intensity(),
-                settings.volume(), settings.loop());
-            chunkLoop(pcmBuf, rolling, sessionGen, nativeAvail,
-                (buf, frames) -> r.render(buf, frames));
-          }
-        } else {
-          idleUntilReconfigure(sessionGen);
+        try (AudioFxNativeBridge.BeezRenderer r =
+                 AudioFxNativeBridge.createBeezRenderer(SAMPLE_RATE)) {
+          r.configure(settings.cueId(), settings.intensity(),
+              settings.volume(), settings.loop());
+          chunkLoop(pcmBuf, rolling, sessionGen, true,
+              (buf, frames) -> r.render(buf, frames));
         }
       } else {
-        if (nativeAvail) {
-          try (AudioFxNativeBridge.AmbienceRenderer r =
-                   AudioFxNativeBridge.createAmbienceRenderer(SAMPLE_RATE)) {
-            r.configure(settings.preset(), settings.intensity(),
-                settings.volume(), settings.toAmbienceProfile());
-            chunkLoop(pcmBuf, rolling, sessionGen, nativeAvail,
-                (buf, frames) -> r.render(buf, frames));
-          }
-        } else {
-          FxAmbienceDsp.Preset preset =
-              FxAmbienceDsp.Preset.fromToken(settings.preset());
-          FxAmbienceDsp.State state =
-              new FxAmbienceDsp.State(System.nanoTime());
-          double dt = 1.0 / SAMPLE_RATE;
-          float intensity = settings.intensity();
-          chunkLoop(pcmBuf, rolling, sessionGen, false,
-              (buf, frames) -> renderFallbackChunk(
-                  state, dt, preset, intensity, buf, frames));
+        try (AudioFxNativeBridge.AmbienceRenderer r =
+                 AudioFxNativeBridge.createAmbienceRenderer(SAMPLE_RATE)) {
+          r.configure(settings.preset(), settings.intensity(),
+              settings.volume(), settings.toAmbienceProfile());
+          chunkLoop(pcmBuf, rolling, sessionGen, true,
+              (buf, frames) -> r.render(buf, frames));
         }
       }
     }
@@ -244,36 +227,6 @@ public final class WaveformAnalyzer {
       }
     }
 
-    private void idleUntilReconfigure(long sessionGen) {
-      while (running && !Thread.currentThread().isInterrupted()) {
-        synchronized (lock) {
-          if (configGeneration != sessionGen) return;
-        }
-        try { Thread.sleep(100); } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          break;
-        }
-      }
-    }
-
-    private static int renderFallbackChunk(
-        FxAmbienceDsp.State state, double dt,
-        FxAmbienceDsp.Preset preset, float intensity,
-        byte[] pcm, int frames) {
-      int bytePos = 0;
-      for (int i = 0; i < frames; i++) {
-        float sample = (float) FxAmbienceDsp.synthSample(
-            state, dt, preset, intensity);
-        short s16 = (short) Math.max(-32768,
-            Math.min(32767, (int) (sample * 32767)));
-        pcm[bytePos++] = (byte) (s16 & 0xFF);
-        pcm[bytePos++] = (byte) ((s16 >> 8) & 0xFF);
-        pcm[bytePos++] = (byte) (s16 & 0xFF);
-        pcm[bytePos++] = (byte) ((s16 >> 8) & 0xFF);
-      }
-      return bytePos;
-    }
-
     private static Analysis computeRollingAnalysis(
         float[] rolling, int startIdx, int available,
         int bins, boolean nativeAvail) {
@@ -307,22 +260,6 @@ public final class WaveformAnalyzer {
   // =========================================================================
   // Internal helpers (one-shot)
   // =========================================================================
-
-  private static Analysis analyzeJavaFallback(SynthPreviewSettings settings, int envelopeBins) {
-    if (settings.type() == SynthPreviewSettings.SynthType.CHIPTUNE) {
-      return new Analysis(new float[Math.max(1, envelopeBins)], 0f, 0f, false);
-    }
-    FxAmbienceDsp.Preset preset = FxAmbienceDsp.Preset.fromToken(settings.preset());
-    FxAmbienceDsp.State state = new FxAmbienceDsp.State(0x12345678L);
-    double dt = 1.0 / SAMPLE_RATE;
-
-    float[] samples = new float[RENDER_FRAMES];
-    for (int i = 0; i < RENDER_FRAMES; i++) {
-      samples[i] = (float) FxAmbienceDsp.synthSample(state, dt, preset, settings.intensity());
-    }
-
-    return extractFromSamples(samples, envelopeBins, false);
-  }
 
   private static Analysis extractAnalysis(byte[] pcm, int byteCount, int envelopeBins, boolean nativeAvailable) {
     int totalFrames = Math.min(byteCount / FRAME_BYTES, RENDER_FRAMES);
@@ -364,5 +301,11 @@ public final class WaveformAnalyzer {
 
     float rms = (float) Math.sqrt(sumSq / samples.length);
     return new Analysis(envelope, rms, peak, nativeAvailable);
+  }
+
+  private static void requireNativeBridge() {
+    if (!AudioFxNativeBridge.isAvailable()) {
+      throw new IllegalStateException("AudioFX native bridge unavailable: " + AudioFxNativeBridge.diagnostics());
+    }
   }
 }

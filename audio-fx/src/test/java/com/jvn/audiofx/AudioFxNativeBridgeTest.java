@@ -102,12 +102,103 @@ class AudioFxNativeBridgeTest {
     }
   }
 
+  @Test
+  void spreadIncreasesStereoSeparation() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    byte[] narrow = renderAmbience(
+        "ocean",
+        0.78f,
+        0.58f,
+        new AmbienceProfile(0.70f, 0.60f, 0.05f, 0.55f, true),
+        44_100);
+    byte[] wide = renderAmbience(
+        "ocean",
+        0.78f,
+        0.58f,
+        new AmbienceProfile(0.70f, 0.60f, 0.95f, 0.55f, true),
+        44_100);
+    double narrowSeparation = stereoSeparation(narrow);
+    double wideSeparation = stereoSeparation(wide);
+    assertTrue(wideSeparation > narrowSeparation * 1.8,
+        "higher spread should widen left/right divergence");
+  }
+
+  @Test
+  void thunderKeepsMoreLowBandWeightThanOcean() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    AmbienceProfile profile = new AmbienceProfile(0.88f, 0.78f, 0.65f, 0.96f, true);
+    byte[] thunder = renderAmbience("thunder", 0.96f, 0.62f, profile, 176_400);
+    byte[] ocean = renderAmbience("ocean", 0.96f, 0.62f, profile, 176_400);
+    double thunderLowShare = lowBandShare(monoSamples(thunder), 220.0);
+    double oceanLowShare = lowBandShare(monoSamples(ocean), 220.0);
+    assertTrue(thunderLowShare > oceanLowShare * 1.25,
+        "thunder should keep more sub-bass weight than ocean");
+  }
+
+  @Test
+  void fireplaceStaysWarmerThanNightInsects() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    AmbienceProfile profile = new AmbienceProfile(0.72f, 0.58f, 0.40f, 0.66f, true);
+    double fireWarmth = lowBandShare(monoSamples(renderAmbience("fireplace", 0.82f, 0.55f, profile, 44_100)), 320.0);
+    double insectWarmth = lowBandShare(monoSamples(renderAmbience("night_insects", 0.82f, 0.55f, profile, 44_100)), 320.0);
+    assertTrue(fireWarmth > insectWarmth * 1.03,
+        "fireplace should keep more warm-band energy than night insects");
+  }
+
+  @Test
+  void nightInsectsEnvelopeBreathesMoreThanRain() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    AmbienceProfile profile = new AmbienceProfile(0.80f, 0.82f, 0.50f, 0.90f, true);
+    double insectVariation = envelopeVariation(
+        monoSamples(renderAmbience("night_insects", 0.88f, 0.55f, profile, 88_200)),
+        2048);
+    double rainVariation = envelopeVariation(
+        monoSamples(renderAmbience("rain", 0.88f, 0.55f, profile, 88_200)),
+        2048);
+    assertTrue(insectVariation > rainVariation * 1.12,
+        "night insects should modulate more than rain");
+  }
+
+  @Test
+  void detailRaisesHighBandTextureForOcean() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    byte[] lowDetail = renderAmbience(
+        "ocean",
+        0.80f,
+        0.55f,
+        new AmbienceProfile(0.10f, 0.55f, 0.50f, 0.55f, true),
+        44_100);
+    byte[] highDetail = renderAmbience(
+        "ocean",
+        0.80f,
+        0.55f,
+        new AmbienceProfile(0.95f, 0.55f, 0.50f, 0.55f, true),
+        44_100);
+    double lowTexture = highBandProxy(monoSamples(lowDetail));
+    double highTexture = highBandProxy(monoSamples(highDetail));
+    assertTrue(highTexture > lowTexture * 1.10,
+        "detail should increase high-band ocean texture");
+  }
+
   private static byte[] renderAmbience(String preset, AmbienceProfile profile) {
+    return renderAmbience(preset, 0.75f, 0.55f, profile, 4096);
+  }
+
+  private static byte[] renderAmbience(String preset, float intensity, float volume, AmbienceProfile profile, int totalFrames) {
     try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
-      renderer.configure(preset, 0.75f, 0.55f, profile);
-      byte[] pcm = new byte[4096 * 4];
-      int written = renderer.render(pcm, 4096);
-      assertTrue(written > 0);
+      renderer.configure(preset, intensity, volume, profile);
+      byte[] pcm = new byte[totalFrames * 4];
+      int offset = 0;
+      int remainingFrames = totalFrames;
+      while (remainingFrames > 0) {
+        int chunkFrames = Math.min(4096, remainingFrames);
+        byte[] chunk = new byte[chunkFrames * 4];
+        int written = renderer.render(chunk, chunkFrames);
+        assertTrue(written > 0);
+        System.arraycopy(chunk, 0, pcm, offset, written);
+        offset += written;
+        remainingFrames -= chunkFrames;
+      }
       return pcm;
     }
   }
@@ -121,5 +212,81 @@ class AudioFxNativeBridgeTest {
       energy += Math.abs(sample);
     }
     return energy;
+  }
+
+  private static double[] monoSamples(byte[] pcm) {
+    int frames = pcm.length / 4;
+    double[] mono = new double[frames];
+    for (int frame = 0; frame < frames; frame++) {
+      int offset = frame * 4;
+      short left = (short) (((pcm[offset + 1] & 0xFF) << 8) | (pcm[offset] & 0xFF));
+      short right = (short) (((pcm[offset + 3] & 0xFF) << 8) | (pcm[offset + 2] & 0xFF));
+      mono[frame] = ((left + right) * 0.5) / 32767.0;
+    }
+    return mono;
+  }
+
+  private static double stereoSeparation(byte[] pcm) {
+    double sumSquares = 0.0;
+    int frames = pcm.length / 4;
+    for (int frame = 0; frame < frames; frame++) {
+      int offset = frame * 4;
+      short left = (short) (((pcm[offset + 1] & 0xFF) << 8) | (pcm[offset] & 0xFF));
+      short right = (short) (((pcm[offset + 3] & 0xFF) << 8) | (pcm[offset + 2] & 0xFF));
+      double delta = (left - right) / 32767.0;
+      sumSquares += delta * delta;
+    }
+    return Math.sqrt(sumSquares / Math.max(1, frames));
+  }
+
+  private static double lowBandShare(double[] samples, double cutoffHz) {
+    double dt = 1.0 / 44_100.0;
+    double alpha = dt / ((1.0 / (2.0 * Math.PI * cutoffHz)) + dt);
+    double lp = 0.0;
+    double low = 0.0;
+    double high = 0.0;
+    for (double sample : samples) {
+      lp += alpha * (sample - lp);
+      double hp = sample - lp;
+      low += lp * lp;
+      high += hp * hp;
+    }
+    return low / Math.max(1e-9, low + high);
+  }
+
+  private static double envelopeVariation(double[] samples, int windowSize) {
+    int windows = samples.length / windowSize;
+    double[] envelopes = new double[windows];
+    for (int w = 0; w < windows; w++) {
+      double sumSquares = 0.0;
+      for (int i = 0; i < windowSize; i++) {
+        double sample = samples[w * windowSize + i];
+        sumSquares += sample * sample;
+      }
+      envelopes[w] = Math.sqrt(sumSquares / windowSize);
+    }
+    double mean = 0.0;
+    for (double envelope : envelopes) {
+      mean += envelope;
+    }
+    mean /= Math.max(1, envelopes.length);
+    double variance = 0.0;
+    for (double envelope : envelopes) {
+      double delta = envelope - mean;
+      variance += delta * delta;
+    }
+    variance /= Math.max(1, envelopes.length);
+    return Math.sqrt(variance) / Math.max(1e-9, mean);
+  }
+
+  private static double highBandProxy(double[] samples) {
+    double previous = samples[0];
+    double acc = 0.0;
+    for (int i = 1; i < samples.length; i++) {
+      double current = samples[i];
+      acc += Math.abs(current - previous);
+      previous = current;
+    }
+    return acc / Math.max(1, samples.length - 1);
   }
 }
