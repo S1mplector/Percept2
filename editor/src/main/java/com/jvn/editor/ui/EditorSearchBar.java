@@ -1,5 +1,10 @@
 package com.jvn.editor.ui;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.fxmisc.richtext.CodeArea;
+
 import com.jvn.core.nativebridge.NativeSearchBridge;
 
 import javafx.geometry.Insets;
@@ -10,37 +15,42 @@ import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-
-import org.fxmisc.richtext.CodeArea;
-
-import java.util.ArrayList;
-import java.util.List;
+import javafx.scene.layout.VBox;
 
 /**
  * Reusable search bar for code editors.
- * Provides find next/previous functionality with match highlighting.
+ * Provides find next/previous and replace functionality with match highlighting.
  */
-public class EditorSearchBar extends HBox {
+public class EditorSearchBar extends VBox {
   private final TextField searchField = new TextField();
+  private final TextField replaceField = new TextField();
   private final Label statusLabel = new Label("");
   private final Button prevButton = new Button("◀");
   private final Button nextButton = new Button("▶");
+  private final Button replaceButton = new Button("Replace");
+  private final Button replaceAllButton = new Button("All");
   private final Button closeButton = new Button("✕");
+  private final HBox findRow = new HBox(8);
+  private final HBox replaceRow = new HBox(8);
 
   private CodeArea codeArea;
   private List<int[]> matches = new ArrayList<>();
   private int currentMatchIndex = -1;
   private Runnable onClose;
+  private boolean replaceVisible = false;
 
   public EditorSearchBar() {
-    setSpacing(8);
+    setSpacing(2);
     setPadding(new Insets(6, 10, 6, 10));
-    setAlignment(Pos.CENTER_LEFT);
     setStyle("-fx-background-color: #2d2d30; -fx-border-color: #3f3f46; -fx-border-width: 0 0 1 0;");
 
     searchField.setPromptText("Find...");
     searchField.setPrefWidth(200);
     HBox.setHgrow(searchField, Priority.NEVER);
+
+    replaceField.setPromptText("Replace...");
+    replaceField.setPrefWidth(200);
+    HBox.setHgrow(replaceField, Priority.NEVER);
 
     searchField.textProperty().addListener((obs, oldVal, newVal) -> performSearch());
     searchField.setOnKeyPressed(e -> {
@@ -57,8 +67,20 @@ public class EditorSearchBar extends HBox {
       }
     });
 
+    replaceField.setOnKeyPressed(e -> {
+      if (e.getCode() == KeyCode.ENTER) {
+        replaceCurrent();
+        e.consume();
+      } else if (e.getCode() == KeyCode.ESCAPE) {
+        if (onClose != null) onClose.run();
+        e.consume();
+      }
+    });
+
     prevButton.setOnAction(e -> findPrevious());
     nextButton.setOnAction(e -> findNext());
+    replaceButton.setOnAction(e -> replaceCurrent());
+    replaceAllButton.setOnAction(e -> replaceAll());
     closeButton.setOnAction(e -> {
       if (onClose != null) onClose.run();
     });
@@ -66,7 +88,11 @@ public class EditorSearchBar extends HBox {
     statusLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
     statusLabel.setMinWidth(80);
 
-    getChildren().addAll(
+    replaceButton.setStyle("-fx-font-size: 11px; -fx-padding: 2 8 2 8;");
+    replaceAllButton.setStyle("-fx-font-size: 11px; -fx-padding: 2 8 2 8;");
+
+    findRow.setAlignment(Pos.CENTER_LEFT);
+    findRow.getChildren().addAll(
         new Label("Find:"),
         searchField,
         prevButton,
@@ -74,6 +100,18 @@ public class EditorSearchBar extends HBox {
         statusLabel,
         closeButton
     );
+
+    replaceRow.setAlignment(Pos.CENTER_LEFT);
+    replaceRow.getChildren().addAll(
+        new Label("Replace:"),
+        replaceField,
+        replaceButton,
+        replaceAllButton
+    );
+    replaceRow.setVisible(false);
+    replaceRow.setManaged(false);
+
+    getChildren().addAll(findRow, replaceRow);
   }
 
   public void setCodeArea(CodeArea codeArea) {
@@ -87,6 +125,21 @@ public class EditorSearchBar extends HBox {
   public void focus() {
     searchField.requestFocus();
     searchField.selectAll();
+  }
+
+  public void focusReplace() {
+    replaceField.requestFocus();
+    replaceField.selectAll();
+  }
+
+  public void showReplace(boolean show) {
+    replaceVisible = show;
+    replaceRow.setVisible(show);
+    replaceRow.setManaged(show);
+  }
+
+  public boolean isReplaceVisible() {
+    return replaceVisible;
   }
 
   public void setSearchText(String text) {
@@ -158,6 +211,27 @@ public class EditorSearchBar extends HBox {
     int[] match = matches.get(currentMatchIndex);
     codeArea.selectRange(match[0], match[1]);
     codeArea.requestFollowCaret();
+  }
+
+  private void replaceCurrent() {
+    if (codeArea == null || matches.isEmpty() || currentMatchIndex < 0) return;
+    int[] match = matches.get(currentMatchIndex);
+    String replacement = replaceField.getText();
+    if (replacement == null) replacement = "";
+    codeArea.replaceText(match[0], match[1], replacement);
+    performSearch();
+  }
+
+  private void replaceAll() {
+    if (codeArea == null || matches.isEmpty()) return;
+    String replacement = replaceField.getText();
+    if (replacement == null) replacement = "";
+    // Replace from end to start to preserve offsets
+    for (int i = matches.size() - 1; i >= 0; i--) {
+      int[] match = matches.get(i);
+      codeArea.replaceText(match[0], match[1], replacement);
+    }
+    performSearch();
   }
 
   private void updateStatus() {

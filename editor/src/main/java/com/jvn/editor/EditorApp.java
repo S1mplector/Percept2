@@ -1,19 +1,19 @@
 package com.jvn.editor;
 
-import java.io.File;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.FileInputStream;
+import java.lang.management.ManagementFactory;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
-import java.lang.management.ManagementFactory;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
@@ -35,9 +35,10 @@ import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.RunConsoleView;
+import com.jvn.editor.ui.ScriptEditorLauncherView;
 import com.jvn.editor.ui.SettingsEditorView;
-import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.StartupSplashOverlay;
+import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
 import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
@@ -129,6 +130,7 @@ public class EditorApp extends Application {
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
   private TilemapEditorView mapEditorView;
   private PuppeteerLauncherPanel puppeteerLauncherPanel;
+  private ScriptEditorLauncherView scriptEditorLauncherView;
   private Tab tabPuppeteerLauncher;
   private final CommandStack commands = new CommandStack();
   private TabPane leftTabs;
@@ -301,6 +303,7 @@ public class EditorApp extends Application {
     if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(root);
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(root);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(root);
+    if (scriptEditorLauncherView != null) scriptEditorLauncherView.setProjectRoot(root);
   }
 
   private String composeGradleTask(String path, String task) {
@@ -1041,6 +1044,8 @@ public class EditorApp extends Application {
         try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
       }
     });
+    scriptEditorLauncherView = new ScriptEditorLauncherView();
+    scriptEditorLauncherView.setProjectRoot(projectRoot);
     rightTabs = new TabPane();
     helpCenterView = new HelpCenterView();
     helpCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
@@ -2449,6 +2454,13 @@ public class EditorApp extends Application {
       Tab t = ensurePuppeteerLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Puppeteer Launcher", puppeteerLauncherPanel, 600, 500));
+
+    addChooserActionRow(actions, "Script Editor", "icon-panel-flow", null, () -> {
+      if (scriptEditorLauncherView != null) {
+        scriptEditorLauncherView.setProjectRoot(projectRoot);
+        scriptEditorLauncherView.launchEditorWindow();
+      }
+    });
 
     root.getChildren().addAll(heading, info, new javafx.scene.control.Separator(), actions);
     Tab chooser = new Tab("New Panel", root);
