@@ -50,6 +50,9 @@ public final class MenuProfileValidator {
       if (layout.titleY() != null && layout.titleY() < 0.0) {
         warnings.add("Layout '" + layoutId + "' has negative titleY");
       }
+      if (layout.subtitleGap() < 0.0) {
+        warnings.add("Layout '" + layoutId + "' has negative subtitleGap");
+      }
     }
 
     for (MenuStyleSpec style : profile.styles().values()) {

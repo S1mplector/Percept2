@@ -90,6 +90,7 @@ Patch requirements:
 Implemented so far:
 
 - `titleAlign`, `hintsAlign`, and `hintsX` in [`MenuLayoutSpec.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/core/src/main/java/com/jvn/core/menu/config/MenuLayoutSpec.java)
+- `subtitleText` on menu screens and `subtitleGap` on menu layouts
 - runtime title/footer placement in [`MenuRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
 - editor support in [`MenuLayoutVisualEditor.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/editor/src/main/java/com/jvn/editor/ui/MenuLayoutVisualEditor.java)
 

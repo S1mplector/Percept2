@@ -168,6 +168,10 @@ public class LoadMenuScene implements Scene {
     return "load journey".equalsIgnoreCase(resolved.trim()) ? "Load Save" : resolved;
   }
 
+  public String getDisplaySubtitle() {
+    return resolveDisplayText(menuScreen.subtitleText());
+  }
+
   public String getDisplayHints() {
     String t = resolveDisplayText(menuScreen.hintsText());
     if (t == null || t.isBlank()) {

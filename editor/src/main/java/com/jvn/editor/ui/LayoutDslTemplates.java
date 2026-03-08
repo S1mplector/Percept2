@@ -125,7 +125,7 @@ characterBaselineY=1.0
     return """
 # Menu layout (.layout)
 # Text-first workflow: edit -> save -> run runtime -> iterate.
-# listYStart/titleY: viewport fraction (0..1). lineHeight/hintsBottomMargin: pixels.
+# listYStart/titleY: viewport fraction (0..1). lineHeight/hintsBottomMargin/subtitleGap: pixels.
 # listWidthFactor: viewport fraction (0.1..1.0). textAlign/titleAlign/hintsAlign: left | center | right.
 listYStart=%s
 lineHeight=%s
@@ -133,6 +133,7 @@ listWidthFactor=%s
 textAlign=%s
 titleAlign=%s
 hintsBottomMargin=%s
+subtitleGap=%s
 hintsAlign=%s
 titleY=0.16
 # hintsX=0.5
@@ -143,6 +144,7 @@ titleY=0.16
         s.textAlign(),
         s.titleAlign(),
         formatDouble(s.hintsBottomMargin()),
+        formatDouble(s.subtitleGap()),
         s.hintsAlign()
     );
   }
@@ -189,7 +191,7 @@ buttonTextPaddingY=2
 # Format: key=value (Java .properties)
 #
 # Core keys:
-# titleText, hintsText, layout, defaultItemStyle, wrapSelection, items
+# titleText, subtitleText, hintsText, layout, defaultItemStyle, wrapSelection, items
 #
 # Per-item keys:
 # item.<id>.label / action / target / style / enabled
@@ -201,6 +203,7 @@ buttonTextPaddingY=2
 # Common actions:
 # open_menu (requires target), back, main_menu, settings_menu, save_menu, load_menu, quit, noop
 titleText=%s
+# subtitleText=Optional supporting line
 hintsText=Enter/Click: Select    Esc: Back
 layout=default
 defaultItemStyle=default

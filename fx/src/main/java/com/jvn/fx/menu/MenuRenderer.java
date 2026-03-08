@@ -49,12 +49,13 @@ public class MenuRenderer {
       drawLogo(theme.getLogoImagePath(), w, h);
     } else {
       String title = scene != null ? scene.getDisplayTitle() : null;
+      String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
       if (title == null || title.isBlank()) title = theme.getTitleText();
       if (title == null || title.isBlank()) title = Localization.t("app.title");
       double titleY = (layout != null && layout.titleY() != null)
           ? resolve(layout.titleY(), h)
           : resolve(theme.getTitleY(), h);
-      drawTitle(title, w, titleY, screenStyle, layout);
+      drawHeader(title, subtitle, w, titleY, screenStyle, layout);
     }
 
     String[] items;
@@ -97,10 +98,11 @@ public class MenuRenderer {
     gc.fillRect(0, 0, w, h);
 
     String title = scene != null ? scene.getDisplayTitle() : "Paused";
+    String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
     double titleY = (layout != null && layout.titleY() != null)
         ? resolve(layout.titleY(), h)
         : resolve(theme.getTitleY(), h);
-    drawTitle(title, w, titleY, screenStyle, layout);
+    drawHeader(title, subtitle, w, titleY, screenStyle, layout);
 
     String[] items = scene != null ? scene.getDisplayItems() : new String[]{"Resume"};
     boolean[] enabled = new boolean[items.length];
@@ -126,8 +128,9 @@ public class MenuRenderer {
     String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
     drawScreenBackground(w, h, screenStyle, false, screenBg);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("save.title");
+    String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
-    drawTitle(title, w, titleY, screenStyle, layout);
+    drawHeader(title, subtitle, w, titleY, screenStyle, layout);
     List<String> saves = scene.getSaves();
     String[] items = new String[(saves.size() + 1)];
     items[0] = scene.getNewSlotLabel();
@@ -172,8 +175,9 @@ public class MenuRenderer {
     String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
     drawScreenBackground(w, h, screenStyle, false, screenBg);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("load.title");
+    String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
-    drawTitle(title, w, titleY, screenStyle, layout);
+    drawHeader(title, subtitle, w, titleY, screenStyle, layout);
     List<String> saves = scene.getSaves();
     if (saves.isEmpty()) {
       drawCenteredText(Localization.t("load.no_saves"), w, h/2, theme.getItemFont(), Color.GRAY);
@@ -229,13 +233,15 @@ public class MenuRenderer {
     drawScreenBackground(w, h, screenStyle, false, screenBg);
 
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("history.title");
+    String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : resolve(0.1, h);
-    drawTitle(title, w, titleY, screenStyle, layout);
+    drawHeader(title, subtitle, w, titleY, screenStyle, layout);
 
     Font titleFont = resolveTitleFont(screenStyle);
+    Font subtitleFont = resolveSubtitleFont(screenStyle);
     Font entryFont = resolveItemFont(entryStyle);
     double lineHeight = layout != null && layout.lineHeight() > 0 ? layout.lineHeight() : 34.0;
-    Rect content = resolveHistoryContentRect(layout, w, h, titleFont);
+    Rect content = resolveHistoryContentRect(layout, w, h, titleFont, subtitleFont, subtitle);
 
     gc.setFill(Color.rgb(8, 12, 20, 0.74));
     gc.fillRoundRect(content.x() - 12, content.y() - 10, content.w() + 24, content.h() + 20, 14, 14);
@@ -318,8 +324,9 @@ public class MenuRenderer {
     String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
     drawScreenBackground(w, h, screenStyle, false, screenBg);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("settings.title");
+    String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
-    drawTitle(title, w, titleY, screenStyle, layout);
+    drawHeader(title, subtitle, w, titleY, screenStyle, layout);
 
     String[] items = scene.getDisplayItems();
     boolean[] enabled = new boolean[items.length];
@@ -564,17 +571,7 @@ public class MenuRenderer {
     Color titleColor = parseColor(style != null ? style.titleColor() : null, theme.getTitleColor());
     Font titleFont = resolveTitleFont(style);
     gc.setFont(titleFont);
-    double textW = measure(text, titleFont);
-    Double txOverride = layout != null ? layout.titleX() : null;
-    String align = layout != null ? layout.titleAlign() : "center";
-    double tx = txOverride != null
-        ? w * txOverride - textW / 2.0
-        : switch (align == null ? "center" : align.toLowerCase()) {
-          case "left" -> 24.0;
-          case "right" -> w - textW - 24.0;
-          default -> (w - textW) / 2.0;
-        };
-    tx = clamp(tx, 0, Math.max(0, w - textW));
+    double tx = resolveTitleAlignedX(text, titleFont, w, layout);
 
     // Title shadow
     String shadowRaw = style != null ? style.titleShadowColor() : null;
@@ -588,6 +585,39 @@ public class MenuRenderer {
 
     gc.setFill(titleColor);
     gc.fillText(text, tx, y);
+  }
+
+  private void drawHeader(String title, String subtitle, double w, double titleY, MenuStyleSpec style, MenuLayoutSpec layout) {
+    drawTitle(title, w, titleY, style, layout);
+    if (subtitle == null || subtitle.isBlank()) return;
+    Font titleFont = resolveTitleFont(style);
+    Font subtitleFont = resolveSubtitleFont(style);
+    double subtitleY = titleY + Math.max(titleFont.getSize() * 0.82, subtitleFont.getSize()) + (layout != null ? layout.subtitleGap() : 12.0);
+    drawSubtitle(subtitle, w, subtitleY, style, layout, subtitleFont);
+  }
+
+  private void drawSubtitle(String text, double w, double y, MenuStyleSpec style, MenuLayoutSpec layout, Font subtitleFont) {
+    if (text == null || text.isBlank()) return;
+    Color subtitleColor = parseColor(style != null ? style.hintsColor() : null,
+        parseColor(style != null ? style.titleColor() : null, theme.getHintColor()));
+    gc.setFont(subtitleFont);
+    double tx = resolveTitleAlignedX(text, subtitleFont, w, layout);
+    gc.setFill(subtitleColor);
+    gc.fillText(text, tx, y);
+  }
+
+  private double resolveTitleAlignedX(String text, Font font, double w, MenuLayoutSpec layout) {
+    double textW = measure(text, font);
+    Double txOverride = layout != null ? layout.titleX() : null;
+    String align = layout != null ? layout.titleAlign() : "center";
+    double tx = txOverride != null
+        ? w * txOverride - textW / 2.0
+        : switch (align == null ? "center" : align.toLowerCase()) {
+          case "left" -> 24.0;
+          case "right" -> w - textW - 24.0;
+          default -> (w - textW) / 2.0;
+        };
+    return clamp(tx, 0, Math.max(0, w - textW));
   }
 
   private void drawMenuList(String[] items, int selected, double w, double h) {
@@ -899,7 +929,7 @@ public class MenuRenderer {
     return new Rect(listX, itemY, Math.max(1, listW), itemH);
   }
 
-  private Rect resolveHistoryContentRect(MenuLayoutSpec layout, double w, double h, Font titleFont) {
+  private Rect resolveHistoryContentRect(MenuLayoutSpec layout, double w, double h, Font titleFont, Font subtitleFont, String subtitleText) {
     double yStart = layout != null ? resolve(layout.listYStart(), h) : resolve(0.16, h);
     double lineH = layout != null && layout.lineHeight() > 0 ? layout.lineHeight() : 34.0;
     double widthFactor = layout != null ? clamp(layout.listWidthFactor(), 0.1, 1.0) : 0.88;
@@ -917,9 +947,14 @@ public class MenuRenderer {
         default -> (w - listW) / 2.0;
       };
     }
-    double titleBottom = layout != null && layout.titleY() != null
-        ? resolve(layout.titleY(), h) + titleFont.getSize() * 1.35
-        : titleFont.getSize() * 2.0;
+    double titleY = layout != null && layout.titleY() != null
+        ? resolve(layout.titleY(), h)
+        : titleFont.getSize() * 1.2;
+    double titleBottom = titleY + titleFont.getSize() * 0.82;
+    if (subtitleText != null && !subtitleText.isBlank()) {
+      double gap = layout != null ? layout.subtitleGap() : 12.0;
+      titleBottom += gap + subtitleFont.getSize() * 1.2;
+    }
     double top = Math.max(yStart, titleBottom);
     double bottom = h - (layout != null ? Math.max(0.0, layout.hintsBottomMargin()) : 18.0) - 28.0;
     return new Rect(listX, top, Math.max(120, listW), Math.max(lineH, bottom - top));
@@ -1477,6 +1512,17 @@ public class MenuRenderer {
     String family = firstNonBlank(style.titleFontFamily(), theme.getTitleFont().getFamily());
     double size = style.titleFontSize() != null ? style.titleFontSize() : theme.getTitleFont().getSize();
     FontWeight weight = parseFontWeight(style.titleFontWeight(), FontWeight.BOLD);
+    return Font.font(family, weight, size);
+  }
+
+  private Font resolveSubtitleFont(MenuStyleSpec style) {
+    Font titleFont = resolveTitleFont(style);
+    Font hintFont = resolveHintFont(style);
+    String family = style != null ? firstNonBlank(style.titleFontFamily(), hintFont.getFamily(), titleFont.getFamily()) : hintFont.getFamily();
+    double size = Math.max(14.0, Math.min(titleFont.getSize() * 0.55, hintFont.getSize() * 1.35));
+    FontWeight weight = style != null
+        ? parseFontWeight(firstNonBlank(style.titleFontWeight(), style.hintsFontWeight()), FontWeight.NORMAL)
+        : FontWeight.NORMAL;
     return Font.font(family, weight, size);
   }
 

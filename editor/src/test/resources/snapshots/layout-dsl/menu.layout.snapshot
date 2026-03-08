@@ -1,6 +1,6 @@
 # Menu layout (.layout)
 # Text-first workflow: edit -> save -> run runtime -> iterate.
-# listYStart/titleY: viewport fraction (0..1). lineHeight/hintsBottomMargin: pixels.
+# listYStart/titleY: viewport fraction (0..1). lineHeight/hintsBottomMargin/subtitleGap: pixels.
 # listWidthFactor: viewport fraction (0.1..1.0). textAlign/titleAlign/hintsAlign: left | center | right.
 listYStart=0.38
 lineHeight=62
@@ -8,6 +8,7 @@ listWidthFactor=0.36
 textAlign=center
 titleAlign=center
 hintsBottomMargin=32
+subtitleGap=12
 hintsAlign=center
 titleY=0.16
 # hintsX=0.5

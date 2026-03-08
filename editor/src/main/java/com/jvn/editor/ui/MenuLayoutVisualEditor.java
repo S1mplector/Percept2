@@ -53,6 +53,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
       "textAlign",
       "hintsBottomMargin",
       "titleY",
+      "subtitleGap",
       "listXCenter",
       "titleX",
       "maxVisibleItems",
@@ -81,6 +82,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private final ChoiceBox<String> cbHintsAlign = new ChoiceBox<>();
   private final CheckBox cbTitleY = new CheckBox("Override title Y");
   private final Spinner<Double> spTitleY = spinner(0, 600, 60, 1);
+  private final Spinner<Double> spSubtitleGap = spinner(0, 240, 12, 1);
   private final CheckBox cbListXCenter = new CheckBox("Override list X center");
   private final Spinner<Double> spListXCenter = spinner(0, 1, 0.5, 0.01);
   private final CheckBox cbTitleX = new CheckBox("Override title X");
@@ -225,6 +227,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     });
     grid.add(cbTitleY, 0, row++, 2, 1);
     row = addRow(grid, row, "Title Y (<=1 frac, >1 px)", spTitleY);
+    row = addRow(grid, row, "Subtitle Gap", spSubtitleGap);
 
     spListXCenter.setDisable(true);
     cbListXCenter.selectedProperty().addListener((o, ov, nv) -> {
@@ -360,6 +363,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     spListWidthFactor.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spHintsBottomMargin.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     spTitleY.valueProperty().addListener((o, ov, nv) -> onControlChanged());
+    spSubtitleGap.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     cbAlign.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     cbTitleAlign.valueProperty().addListener((o, ov, nv) -> onControlChanged());
     cbHintsAlign.valueProperty().addListener((o, ov, nv) -> onControlChanged());
@@ -398,6 +402,9 @@ public class MenuLayoutVisualEditor extends BorderPane {
     }
     if (!Double.isFinite(spec.hintsBottomMargin()) || spec.hintsBottomMargin() < 0) {
       warnings.add("Hints bottom margin must be >= 0.");
+    }
+    if (!Double.isFinite(spec.subtitleGap()) || spec.subtitleGap() < 0) {
+      warnings.add("Subtitle gap must be >= 0.");
     }
     String align = spec.textAlign() == null ? "" : spec.textAlign().trim().toLowerCase(Locale.ROOT);
     if (!Set.of("left", "center", "right").contains(align)) {
@@ -476,6 +483,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
           dragStartSpec.textAlign(),
           dragStartSpec.hintsBottomMargin(),
           titleY,
+          dragStartSpec.subtitleGap(),
           dragStartSpec.listXCenter(),
           dragStartSpec.titleX(),
           dragStartSpec.maxVisibleItems(),
@@ -524,7 +532,14 @@ public class MenuLayoutVisualEditor extends BorderPane {
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 24));
     double titleW = textWidth(g, previewTitle);
-    g.fillText(previewTitle, resolveAlignedTextX(spec.titleAlign(), spec.titleX(), titleW, w, 16.0), r.titleY() - 8);
+    double titleBaselineY = r.titleY() - 8;
+    g.fillText(previewTitle, resolveAlignedTextX(spec.titleAlign(), spec.titleX(), titleW, w, 16.0), titleBaselineY);
+    String subtitle = "Optional subtitle";
+    g.setFill(LayoutStudioPalette.TEXT_MUTED);
+    g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 14));
+    double subtitleW = textWidth(g, subtitle);
+    double subtitleY = titleBaselineY + 18 + Math.max(0, spec.subtitleGap());
+    g.fillText(subtitle, resolveAlignedTextX(spec.titleAlign(), spec.titleX(), subtitleW, w, 16.0), subtitleY);
 
     // List area and sample entries.
     g.setFill(LayoutStudioPalette.PANEL_FILL_SOFT);
@@ -640,6 +655,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
         cbAlign.getValue(),
         value(spHintsBottomMargin),
         titleY,
+        value(spSubtitleGap),
         listXCenter,
         titleX,
         maxVisible,
@@ -666,6 +682,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
       spTitleY.setDisable(true);
       setValue(spTitleY, 60);
     }
+    setValue(spSubtitleGap, s.subtitleGap());
     if (s.listXCenter() != null) {
       cbListXCenter.setSelected(true);
       spListXCenter.setDisable(false);
@@ -750,6 +767,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     if (titleYRaw != null && !titleYRaw.isBlank()) {
       titleY = parseDouble(titleYRaw, 60, diagnostics, "titleY");
     }
+    double subtitleGap = parseDouble(properties.getProperty("subtitleGap"), base.subtitleGap(), diagnostics, "subtitleGap");
     Double listXCenter = null;
     String listXCenterRaw = properties.getProperty("listXCenter");
     if (listXCenterRaw != null && !listXCenterRaw.isBlank()) {
@@ -783,6 +801,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
         normalize(properties.getProperty("textAlign"), base.textAlign()),
         parseDouble(properties.getProperty("hintsBottomMargin"), base.hintsBottomMargin(), diagnostics, "hintsBottomMargin"),
         titleY,
+        subtitleGap,
         listXCenter,
         titleX,
         maxVisibleItems,
@@ -802,6 +821,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     merged.setProperty("listWidthFactor", format(spec.listWidthFactor()));
     merged.setProperty("textAlign", spec.textAlign());
     merged.setProperty("hintsBottomMargin", format(spec.hintsBottomMargin()));
+    merged.setProperty("subtitleGap", format(spec.subtitleGap()));
     if (includeTitleY && spec.titleY() != null) {
       merged.setProperty("titleY", format(spec.titleY()));
     } else {
@@ -847,7 +867,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
     out.append("# Format: key=value (Java .properties)").append(System.lineSeparator());
     out.append("# Units:").append(System.lineSeparator());
     out.append("# - listYStart/titleY: <=1 means viewport fraction, >1 means pixels.").append(System.lineSeparator());
-    out.append("# - lineHeight/hintsBottomMargin: pixels.").append(System.lineSeparator());
+    out.append("# - lineHeight/hintsBottomMargin/subtitleGap: pixels.").append(System.lineSeparator());
     out.append("# - listWidthFactor: viewport fraction (0.1..1.0).").append(System.lineSeparator());
     out.append("# - textAlign/titleAlign/hintsAlign: left|center|right.").append(System.lineSeparator());
     for (String key : KNOWN_KEYS) {
@@ -863,6 +883,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
       } else if ("hintsBottomMargin".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Footer / title offsets ---").append(System.lineSeparator());
         out.append("# hintsBottomMargin shifts hint text above viewport bottom.").append(System.lineSeparator());
+      } else if ("subtitleGap".equals(key)) {
+        out.append("# subtitleGap controls title -> subtitle spacing in pixels.").append(System.lineSeparator());
       }
       out.append(key).append("=").append(value).append(System.lineSeparator());
     }
@@ -1030,7 +1052,8 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private record PreviewRects(Rect listArea, double titleY, Rect widthHandle) {}
 
   private static final class MenuLayoutSpecDefaults {
-    private static final MenuLayoutSpec DEFAULT = new MenuLayoutSpec("default", 0.35, 40.0, 1.0, "center", 20.0, null);
+    private static final MenuLayoutSpec DEFAULT =
+        new MenuLayoutSpec("default", 0.35, 40.0, 1.0, "center", 20.0, null, 12.0, null, null, null);
   }
 
   static final class CustomProperty {

@@ -89,6 +89,10 @@ public class PauseMenuScene implements Scene {
     return resolveDisplayText(menuScreen.titleText());
   }
 
+  public String getDisplaySubtitle() {
+    return resolveDisplayText(menuScreen.subtitleText());
+  }
+
   public String getDisplayHints() {
     return resolveDisplayText(menuScreen.hintsText());
   }

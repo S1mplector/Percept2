@@ -21,7 +21,7 @@ class DslPropertyDiagnosticsTest {
 
   private static final Set<String> LAYOUT_KEYS = Set.of(
       "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin",
-      "titleY", "listXCenter", "titleX", "maxVisibleItems", "titleAlign", "hintsAlign", "hintsX");
+      "titleY", "subtitleGap", "listXCenter", "titleX", "maxVisibleItems", "titleAlign", "hintsAlign", "hintsX");
 
   @Test
   void menuLayoutCleanTemplateProducesNoDiagnostics() {
@@ -43,6 +43,13 @@ class DslPropertyDiagnosticsTest {
     String text = "listYStart=0.3\nlistYStart=0.5\n";
     List<String> issues = DslPropertyDiagnostics.menuLayoutIssues(text, LAYOUT_KEYS);
     assertTrue(issues.stream().anyMatch(s -> s.contains("Duplicate")));
+  }
+
+  @Test
+  void menuLayoutNegativeSubtitleGapReportsIssue() {
+    String text = "subtitleGap=-4\n";
+    List<String> issues = DslPropertyDiagnostics.menuLayoutIssues(text, LAYOUT_KEYS);
+    assertTrue(issues.stream().anyMatch(s -> s.contains("subtitleGap")));
   }
 
   // ── Menu style diagnostics ──
@@ -76,7 +83,7 @@ class DslPropertyDiagnosticsTest {
   // ── Menu screen diagnostics ──
 
   private static final Set<String> SCREEN_TOP = Set.of(
-      "titleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items");
+      "titleText", "subtitleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items", "backgroundAsset");
   private static final Set<String> SCREEN_ITEM = Set.of(
       "label", "style", "icon", "enabled", "action", "target",
       "bgAsset", "bgSelectedAsset", "bgDisabledAsset",

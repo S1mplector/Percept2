@@ -601,7 +601,7 @@ public class LayoutStudioWindowManager {
     }
 
     private static final Set<String> LAYOUT_KEYS = Set.of(
-        "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin", "titleY",
+        "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin", "titleY", "subtitleGap",
         "listXCenter", "titleX", "maxVisibleItems", "titleAlign", "hintsAlign", "hintsX");
     private static final Set<String> STYLE_KEYS = Set.of(
         "itemColor", "itemSelectedColor", "itemHoverColor", "itemDisabledColor",
@@ -614,7 +614,7 @@ public class LayoutStudioWindowManager {
         "hintsColor", "hintsFontFamily", "hintsFontWeight", "hintsFontSize",
         "backgroundAsset", "backgroundColor", "backgroundOpacity");
     private static final Set<String> SCREEN_TOP_KEYS = Set.of(
-        "titleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items");
+        "titleText", "subtitleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items", "backgroundAsset");
     private static final Set<String> SCREEN_ITEM_KEYS = Set.of(
         "label", "style", "icon", "enabled", "action", "target",
         "bgAsset", "bgSelectedAsset", "bgDisabledAsset",

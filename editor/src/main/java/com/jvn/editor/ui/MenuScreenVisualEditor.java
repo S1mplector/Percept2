@@ -63,7 +63,7 @@ import javafx.util.StringConverter;
  */
 public class MenuScreenVisualEditor extends BorderPane {
   private static final Set<String> TOP_LEVEL_KEYS = Set.of(
-      "titleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items",
+      "titleText", "subtitleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items",
       "backgroundAsset"
   );
   private static final Set<String> ITEM_KEYS = Set.of(
@@ -83,6 +83,7 @@ public class MenuScreenVisualEditor extends BorderPane {
   );
 
   private final TextField tfTitle = new TextField();
+  private final TextField tfSubtitle = new TextField();
   private final TextField tfHints = new TextField();
   private final ComboBox<String> cbLayout = new ComboBox<>();
   private final ComboBox<String> cbDefaultStyle = new ComboBox<>();
@@ -203,6 +204,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     }
 
     tfTitle.setText(p.getProperty("titleText", ""));
+    tfSubtitle.setText(p.getProperty("subtitleText", ""));
     tfHints.setText(p.getProperty("hintsText", ""));
     cbLayout.setEditable(true);
     cbLayout.getEditor().setText(normalize(p.getProperty("layout", p.getProperty("layoutId")), ""));
@@ -284,6 +286,10 @@ public class MenuScreenVisualEditor extends BorderPane {
     return tfTitle.getText();
   }
 
+  public String getSubtitleText() {
+    return tfSubtitle.getText();
+  }
+
   public List<String> getItemLabels() {
     List<String> labels = new ArrayList<>();
     for (MenuItemRow row : rows) {
@@ -305,15 +311,16 @@ public class MenuScreenVisualEditor extends BorderPane {
     cbDefaultStyle.setEditable(true);
 
     addRow(g, 0, "Title", tfTitle);
-    addRow(g, 1, "Hints", tfHints);
-    addRow(g, 2, "Layout", cbLayout);
-    addRow(g, 3, "Default Style", cbDefaultStyle);
-    addRow(g, 4, "Background Asset", tfBackgroundAsset);
-    g.add(cbWrap, 1, 5);
+    addRow(g, 1, "Subtitle", tfSubtitle);
+    addRow(g, 2, "Hints", tfHints);
+    addRow(g, 3, "Layout", cbLayout);
+    addRow(g, 4, "Default Style", cbDefaultStyle);
+    addRow(g, 5, "Background Asset", tfBackgroundAsset);
+    g.add(cbWrap, 1, 6);
 
     validation.getStyleClass().add("muted");
     validation.setWrapText(true);
-    g.add(validation, 0, 6, 2, 1);
+    g.add(validation, 0, 7, 2, 1);
 
     setTop(g);
     BorderPane.setMargin(g, new Insets(0, 0, 8, 0));
@@ -592,6 +599,7 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void registerTopListeners() {
     tfTitle.textProperty().addListener((o, ov, nv) -> onUiChanged());
+    tfSubtitle.textProperty().addListener((o, ov, nv) -> onUiChanged());
     tfHints.textProperty().addListener((o, ov, nv) -> onUiChanged());
     cbWrap.selectedProperty().addListener((o, ov, nv) -> onUiChanged());
     cbLayout.getEditor().textProperty().addListener((o, ov, nv) -> onUiChanged());
@@ -601,6 +609,7 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private void setDefaults() {
     tfTitle.setText("");
+    tfSubtitle.setText("");
     tfHints.setText("Select: Enter    Back: Esc");
     cbLayout.setEditable(true);
     cbLayout.getEditor().setText("");
@@ -1202,15 +1211,25 @@ public class MenuScreenVisualEditor extends BorderPane {
     }
 
     String title = normalize(tfTitle.getText(), "").isBlank() ? titleize(screenIdHint) : tfTitle.getText().trim();
+    String subtitle = normalize(tfSubtitle.getText(), "");
     String hints = normalize(tfHints.getText(), "");
 
     g.setFill(LayoutStudioPalette.TEXT_PRIMARY);
     g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 28));
     double titleW = textWidth(g, title);
-    g.fillText(title, (w - titleW) / 2.0, 52);
+    double titleBaseline = 52;
+    g.fillText(title, (w - titleW) / 2.0, titleBaseline);
+    double startY = 130;
+    if (!subtitle.isBlank()) {
+      g.setFill(LayoutStudioPalette.TEXT_MUTED);
+      g.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 15));
+      double subtitleW = textWidth(g, subtitle);
+      double subtitleBaseline = titleBaseline + 26;
+      g.fillText(subtitle, (w - subtitleW) / 2.0, subtitleBaseline);
+      startY = 150;
+    }
 
     double lineHeight = 38;
-    double startY = 130;
     previewRects = new Rect[rows.size()];
     for (int i = 0; i < rows.size(); i++) {
       MenuItemRow row = rows.get(i);
@@ -1785,16 +1804,18 @@ public class MenuScreenVisualEditor extends BorderPane {
     out.append("# Menu screen definition (.menu)").append(System.lineSeparator());
     out.append("# Text-first workflow: edit -> save -> run runtime -> validate navigation/actions.").append(System.lineSeparator());
     out.append("# Format: key=value (Java .properties)").append(System.lineSeparator());
-    out.append("# Core keys: titleText, hintsText, layout, defaultItemStyle, wrapSelection, items").append(System.lineSeparator());
+    out.append("# Core keys: titleText, subtitleText, hintsText, layout, defaultItemStyle, wrapSelection, items").append(System.lineSeparator());
     out.append("# Per-item schema: item.<id>.label/action/target/style/enabled plus optional bounds and skin keys.").append(System.lineSeparator());
 
     String title = normalize(tfTitle.getText(), "");
+    String subtitle = normalize(tfSubtitle.getText(), "");
     String hints = normalize(tfHints.getText(), "");
     String layout = normalize(cbLayout.getEditor().getText(), "default");
     String defaultStyle = normalize(cbDefaultStyle.getEditor().getText(), "default");
     boolean wrap = cbWrap.isSelected();
 
     if (!title.isBlank()) out.append("titleText=").append(escapeValue(title)).append(System.lineSeparator());
+    if (!subtitle.isBlank()) out.append("subtitleText=").append(escapeValue(subtitle)).append(System.lineSeparator());
     if (!hints.isBlank()) out.append("hintsText=").append(escapeValue(hints)).append(System.lineSeparator());
     out.append("layout=").append(escapeValue(layout)).append(System.lineSeparator());
     out.append("defaultItemStyle=").append(escapeValue(defaultStyle)).append(System.lineSeparator());

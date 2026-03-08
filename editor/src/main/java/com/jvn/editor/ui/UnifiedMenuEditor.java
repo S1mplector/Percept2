@@ -131,6 +131,7 @@ public class UnifiedMenuEditor extends BorderPane {
     String textAlign = layoutProps.getProperty("textAlign", "center").toLowerCase(Locale.ROOT);
     String titleAlign = layoutProps.getProperty("titleAlign", "center").toLowerCase(Locale.ROOT);
     double hintsBottomMargin = parseDouble(layoutProps.getProperty("hintsBottomMargin"), 20);
+    double subtitleGap = parseDouble(layoutProps.getProperty("subtitleGap"), 12);
     String hintsAlign = layoutProps.getProperty("hintsAlign", "center").toLowerCase(Locale.ROOT);
     String titleXStr = layoutProps.getProperty("titleX");
     Double titleX = titleXStr != null && !titleXStr.isBlank() ? parseDouble(titleXStr, 0.5) : null;
@@ -155,6 +156,7 @@ public class UnifiedMenuEditor extends BorderPane {
     // Screen items
     List<String> items = screenEditor.getItemLabels();
     String titleText = screenEditor.getTitleText();
+    String subtitleText = screenEditor.getSubtitleText();
     if (items == null || items.isEmpty()) items = List.of("New Game", "Load", "Settings", "Quit");
     if (titleText == null || titleText.isBlank()) titleText = "Menu Title";
 
@@ -181,7 +183,24 @@ public class UnifiedMenuEditor extends BorderPane {
           case "right" -> Math.max(0, w - titleW - 16.0);
           default -> (w - titleW) / 2.0;
         };
-    g.fillText(titleText, titleXPos, resolvedTitleY);
+    double titleBaselineY = resolvedTitleY;
+    g.fillText(titleText, titleXPos, titleBaselineY);
+    if (subtitleText != null && !subtitleText.isBlank()) {
+      g.setFill(Color.web("#9aa5b5"));
+      g.setFont(Font.font(fontFamily, FontWeight.NORMAL, 15));
+      javafx.scene.text.Text subtitleMeasure = new javafx.scene.text.Text(subtitleText);
+      subtitleMeasure.setFont(g.getFont());
+      double subtitleW = subtitleMeasure.getLayoutBounds().getWidth();
+      double subtitleXPos = titleX != null
+          ? Math.max(0, Math.min(w - subtitleW, w * titleX - subtitleW / 2.0))
+          : switch (titleAlign) {
+            case "left" -> 16.0;
+            case "right" -> Math.max(0, w - subtitleW - 16.0);
+            default -> (w - subtitleW) / 2.0;
+          };
+      double subtitleBaselineY = titleBaselineY + 20 + Math.max(0, subtitleGap);
+      g.fillText(subtitleText, subtitleXPos, subtitleBaselineY);
+    }
 
     // Draw items
     g.setFont(Font.font(fontFamily, fontWeight, fontSize));

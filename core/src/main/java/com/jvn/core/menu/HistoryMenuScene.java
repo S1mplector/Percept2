@@ -78,6 +78,10 @@ public class HistoryMenuScene implements Scene {
     return title == null || title.isBlank() ? Localization.t("history.title") : title;
   }
 
+  public String getDisplaySubtitle() {
+    return resolveDisplayText(menuScreen.subtitleText());
+  }
+
   public String getDisplayHints() {
     String hints = resolveDisplayText(menuScreen.hintsText());
     return hints == null || hints.isBlank() ? Localization.t("history.hint") : hints;

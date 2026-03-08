@@ -40,6 +40,7 @@ config/menu/main.properties
 
 ```properties
 titleText=My Game
+subtitleText=A quieter supporting line
 hintsText=Select: Enter    Back: Esc
 layout=default
 defaultItemStyle=default
@@ -50,6 +51,7 @@ wrapSelection=true
 | Property | Default | Description |
 |----------|---------|-------------|
 | `titleText` | — | Title displayed at top of screen |
+| `subtitleText` | — | Optional subtitle/tagline shown below the title |
 | `hintsText` | — | Hint text at bottom of screen |
 | `layout` / `layoutId` | `"default"` | Layout ID for positioning |
 | `defaultItemStyle` | `"default"` | Default style ID for items |

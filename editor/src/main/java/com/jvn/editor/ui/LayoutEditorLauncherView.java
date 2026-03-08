@@ -515,6 +515,7 @@ public class LayoutEditorLauncherView extends BorderPane {
     String align = normalize(p.getProperty("textAlign"), base.textAlign()).toLowerCase(Locale.ROOT);
     String titleAlign = normalize(p.getProperty("titleAlign"), base.titleAlign()).toLowerCase(Locale.ROOT);
     double hintsBottom = parseDouble(p.getProperty("hintsBottomMargin"), base.hintsBottomMargin());
+    double subtitleGap = parseDouble(p.getProperty("subtitleGap"), base.subtitleGap());
     String hintsAlign = normalize(p.getProperty("hintsAlign"), base.hintsAlign()).toLowerCase(Locale.ROOT);
     Double hintsX = parseOptionalDouble(p.getProperty("hintsX"));
     Double titleY = parseOptionalDouble(p.getProperty("titleY"));
@@ -524,6 +525,7 @@ public class LayoutEditorLauncherView extends BorderPane {
         || !align.equalsIgnoreCase(base.textAlign())
         || !titleAlign.equalsIgnoreCase(base.titleAlign())
         || !approxEqual(hintsBottom, base.hintsBottomMargin())
+        || !approxEqual(subtitleGap, base.subtitleGap())
         || !hintsAlign.equalsIgnoreCase(base.hintsAlign())
         || hintsX != null
         || titleY != null;
@@ -595,8 +597,12 @@ public class LayoutEditorLauncherView extends BorderPane {
     boolean customized = false;
     String layoutId = normalize(firstNonBlank(p.getProperty("layout"), p.getProperty("layoutId")), "default");
     String styleId = normalize(p.getProperty("defaultItemStyle"), "default");
+    String subtitleText = normalize(p.getProperty("subtitleText"), "");
+    String backgroundAsset = normalize(p.getProperty("backgroundAsset"), "");
     if (!"default".equalsIgnoreCase(layoutId)) customized = true;
     if (!"default".equalsIgnoreCase(styleId)) customized = true;
+    if (!subtitleText.isBlank()) customized = true;
+    if (!backgroundAsset.isBlank()) customized = true;
 
     // Collect action targets (navigate_to, open_menu targets)
     List<String> actionTargets = new ArrayList<>();
@@ -645,7 +651,7 @@ public class LayoutEditorLauncherView extends BorderPane {
       warnings.add("\u26A0 Not registered in menu.registry — won't be discovered at runtime.");
     }
 
-    String detail = customized ? "Custom item bounds/skins or non-default style/layout." : "Default menu wiring.";
+    String detail = customized ? "Custom screen copy, background, bounds/skins, or non-default style/layout." : "Default menu wiring.";
     return new LayoutItem(name, relPath, ItemType.MENU_SCREEN,
         customized ? StatusKind.CUSTOMIZED : StatusKind.DEFAULT,
         detail, layoutId, styleId, uniqueTargets, warnings);

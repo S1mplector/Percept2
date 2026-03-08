@@ -32,6 +32,7 @@ public final class MenuProfileLoader {
       "textAlign",
       "hintsBottomMargin",
       "titleY",
+      "subtitleGap",
       "listXCenter",
       "titleX",
       "maxVisibleItems",
@@ -79,6 +80,7 @@ public final class MenuProfileLoader {
   private static final Set<String> KNOWN_SCREEN_FIELDS = Set.of(
       "extends",
       "titleText",
+      "subtitleText",
       "hintsText",
       "layout",
       "layoutId",
@@ -347,6 +349,11 @@ public final class MenuProfileLoader {
       diagnostics.add("Invalid value for 'titleY' in " + sourcePath + ": must be >= 0 (using " + base.titleY() + ")");
       titleY = base.titleY();
     }
+    double subtitleGap = parseDouble(p.getProperty("subtitleGap"), base.subtitleGap(), diagnostics, sourcePath, "subtitleGap");
+    if (subtitleGap < 0.0) {
+      diagnostics.add("Invalid value for 'subtitleGap' in " + sourcePath + ": must be >= 0 (using " + base.subtitleGap() + ")");
+      subtitleGap = base.subtitleGap();
+    }
 
     Double listXCenter = parseOptionalDouble(p.getProperty("listXCenter"), base.listXCenter(), diagnostics, sourcePath, "listXCenter");
     Double titleX = parseOptionalDouble(p.getProperty("titleX"), base.titleX(), diagnostics, sourcePath, "titleX");
@@ -373,6 +380,7 @@ public final class MenuProfileLoader {
         textAlign,
         hintsBottomMargin,
         titleY,
+        subtitleGap,
         listXCenter,
         titleX,
         maxVisibleItems,
@@ -443,6 +451,7 @@ public final class MenuProfileLoader {
   private static MenuScreenSpec parseScreen(String id, Properties p, MenuScreenSpec base, List<String> diagnostics, String sourcePath) {
     warnUnknownScreenKeys(p, diagnostics, sourcePath);
     String titleText = normalize(p.getProperty("titleText"), base == null ? null : base.titleText());
+    String subtitleText = normalize(p.getProperty("subtitleText"), base == null ? null : base.subtitleText());
     String hintsText = normalize(p.getProperty("hintsText"), base == null ? null : base.hintsText());
     String layoutId = normalize(p.getProperty("layout", p.getProperty("layoutId")), base == null ? "default" : base.layoutId());
     String defaultStyleId = normalize(p.getProperty("defaultItemStyle"), base == null ? "default" : base.defaultStyleId());
@@ -570,7 +579,7 @@ public final class MenuProfileLoader {
 
     String backgroundAsset = normalize(p.getProperty("backgroundAsset"), base == null ? null : base.backgroundAsset());
 
-    return new MenuScreenSpec(id, titleText, hintsText, layoutId, defaultStyleId, wrapSelection, items, backgroundAsset);
+    return new MenuScreenSpec(id, titleText, subtitleText, hintsText, layoutId, defaultStyleId, wrapSelection, items, backgroundAsset);
   }
 
   private static MenuActionSpec parseActionWithDiagnostics(

@@ -73,6 +73,8 @@ public class ScriptEditorLauncherView extends BorderPane {
   private final Button revealButton = new Button("Reveal");
 
   private final TextField filterField = new TextField();
+  private final TextField searchField = new TextField();
+  private final VBox searchResults = new VBox(4);
   private final TreeView<ExplorerNode> explorerTree = new TreeView<>();
   private final Label explorerHint = new Label("Double-click or press Enter to open the selected script in the main editor.");
 
@@ -175,8 +177,13 @@ public class ScriptEditorLauncherView extends BorderPane {
     filterField.setPromptText("Filter scripts, paths, or labels...");
     filterField.setStyle(textFieldStyle());
 
+    searchField.setPromptText("Search in all scripts…");
+    searchField.setStyle(textFieldStyle());
+    searchResults.setPadding(new Insets(4, 0, 0, 0));
+
     header.getChildren().addAll(titleRow, desc, projectCard, statsRow, primaryActions, secondaryActions,
-        sectionLabel("Explorer Filter"), filterField);
+        sectionLabel("Explorer Filter"), filterField,
+        sectionLabel("Search in Scripts"), searchField);
 
     explorerTree.setShowRoot(true);
     explorerTree.setStyle("-fx-background-color: #0f131a; -fx-control-inner-background: #0f131a;");
@@ -213,7 +220,13 @@ public class ScriptEditorLauncherView extends BorderPane {
     explorerHint.setWrapText(true);
     explorerHint.setStyle("-fx-text-fill: #738198; -fx-font-size: 10px;");
 
-    VBox explorerBox = new VBox(8, sectionLabel("Project Explorer"), explorerTree, explorerHint);
+    VBox searchResultsCard = new VBox(6, searchResults);
+    searchResultsCard.setPadding(new Insets(6));
+    searchResultsCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    searchResultsCard.setVisible(false);
+    searchResultsCard.setManaged(false);
+
+    VBox explorerBox = new VBox(8, sectionLabel("Project Explorer"), explorerTree, explorerHint, searchResultsCard);
     explorerBox.setPadding(new Insets(10));
     explorerBox.setStyle("-fx-background-color: #11161f;");
     VBox.setVgrow(explorerTree, Priority.ALWAYS);
@@ -287,6 +300,13 @@ public class ScriptEditorLauncherView extends BorderPane {
     });
 
     installContextMenu();
+
+    // Search in scripts — debounced via PauseTransition
+    javafx.animation.PauseTransition searchDebounce = new javafx.animation.PauseTransition(javafx.util.Duration.millis(300));
+    searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+      searchDebounce.setOnFinished(ev -> runContentSearch(newVal));
+      searchDebounce.playFromStart();
+    });
   }
 
   private void installContextMenu() {
@@ -694,6 +714,39 @@ public class ScriptEditorLauncherView extends BorderPane {
     }
   }
 
+  private void runContentSearch(String query) {
+    searchResults.getChildren().clear();
+    // Find the searchResultsCard parent
+    javafx.scene.Parent card = searchResults.getParent();
+    if (query == null || query.isBlank()) {
+      if (card != null) { card.setVisible(false); card.setManaged(false); }
+      return;
+    }
+    List<ScriptEditorWorkspaceModel.SearchHit> hits =
+        ScriptEditorWorkspaceModel.searchContent(snapshot, query, 50);
+    if (hits.isEmpty()) {
+      searchResults.getChildren().add(emptyHint("No matches for \"" + query + "\"."));
+    } else {
+      Label summary = new Label(hits.size() + (hits.size() >= 50 ? "+" : "") + " results");
+      summary.setStyle("-fx-text-fill: #8ea0b8; -fx-font-size: 10px; -fx-padding: 0 0 2 0;");
+      searchResults.getChildren().add(summary);
+      for (ScriptEditorWorkspaceModel.SearchHit hit : hits) {
+        String preview = hit.lineText();
+        if (preview.length() > 80) preview = preview.substring(0, 80) + "…";
+        Label link = new Label(hit.relativePath() + ":" + hit.lineNumber() + "  " + preview);
+        link.setStyle(depLinkStyle(false));
+        link.setWrapText(false);
+        link.setMaxWidth(Double.MAX_VALUE);
+        link.setOnMouseEntered(ev -> link.setStyle(depLinkStyle(true)));
+        link.setOnMouseExited(ev -> link.setStyle(depLinkStyle(false)));
+        link.setOnMouseClicked(ev -> openFileAtLabel(hit.file(), query, Integer.valueOf(hit.lineNumber())));
+        searchResults.getChildren().add(link);
+      }
+    }
+    if (card != null) { card.setVisible(true); card.setManaged(true); }
+    setStatus("Search: " + hits.size() + " matches for \"" + query + "\"");
+  }
+
   private static String depLinkStyle(boolean hover) {
     return hover
         ? "-fx-text-fill: #b8d4f0; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
@@ -721,6 +774,19 @@ public class ScriptEditorLauncherView extends BorderPane {
       setStatus("Opened " + selectedNode.entry.projectRelativePath() + " in the main editor");
     } else {
       launchEditorWindow(selectedNode.file());
+    }
+  }
+
+  private void openFileAtLabel(File file, String labelName, Integer lineNo) {
+    if (file == null) return;
+    if (onOpenFileAtLine != null && lineNo != null) {
+      onOpenFileAtLine.accept(file, lineNo);
+      setStatus("Jumped to @label " + labelName + " (L" + lineNo + ")");
+    } else if (onOpenFile != null) {
+      onOpenFile.accept(file);
+      setStatus("Opened " + file.getName() + " (@label " + labelName + ")");
+    } else {
+      launchEditorWindow(file);
     }
   }
 

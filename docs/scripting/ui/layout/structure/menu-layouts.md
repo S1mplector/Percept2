@@ -39,6 +39,7 @@ listWidthFactor=1.0
 textAlign=center
 titleAlign=center
 hintsBottomMargin=20
+subtitleGap=12
 hintsAlign=center
 titleY=60
 # listXCenter=0.5
@@ -55,6 +56,7 @@ titleY=60
 | `textAlign` | `"center"` | Text alignment: `"center"`, `"left"`, or `"right"` |
 | `titleAlign` | `"center"` | Title alignment when `titleX` is not set |
 | `hintsBottomMargin` | 20 | Distance from the bottom edge to the hints text (pixels) |
+| `subtitleGap` | 12 | Vertical gap between the title and subtitle (pixels) |
 | `hintsAlign` | `"center"` | Hints/footer alignment when `hintsX` is not set |
 | `titleY` | — | Y position of the title text (pixels from top). Optional; if omitted, uses a default based on layout |
 | `listXCenter` | — | Horizontal center of the item list (fraction of viewport, 0–1). Optional; overrides `textAlign`-based positioning when set. |

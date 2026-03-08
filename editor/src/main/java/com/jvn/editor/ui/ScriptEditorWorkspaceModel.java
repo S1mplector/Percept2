@@ -99,6 +99,26 @@ public final class ScriptEditorWorkspaceModel {
     return target.toFile();
   }
 
+  public record SearchHit(File file, String relativePath, int lineNumber, String lineText) {}
+
+  public static List<SearchHit> searchContent(WorkspaceSnapshot snapshot, String query, int maxResults) {
+    if (snapshot == null || snapshot.scripts() == null || query == null || query.isBlank()) return List.of();
+    String lowerQuery = query.toLowerCase(Locale.ROOT);
+    List<SearchHit> hits = new ArrayList<>();
+    for (ScriptFileEntry entry : snapshot.scripts()) {
+      if (hits.size() >= maxResults) break;
+      try {
+        List<String> lines = Files.readAllLines(entry.file().toPath(), StandardCharsets.UTF_8);
+        for (int i = 0; i < lines.size() && hits.size() < maxResults; i++) {
+          if (lines.get(i).toLowerCase(Locale.ROOT).contains(lowerQuery)) {
+            hits.add(new SearchHit(entry.file(), entry.relativePath(), i + 1, lines.get(i).trim()));
+          }
+        }
+      } catch (IOException ignored) {}
+    }
+    return hits;
+  }
+
   public static File renameScript(File scriptFile, String newName) throws IOException {
     Objects.requireNonNull(scriptFile, "scriptFile");
     if (newName == null || newName.isBlank()) throw new IOException("New name must not be blank.");

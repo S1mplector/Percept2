@@ -5,6 +5,7 @@ import java.util.List;
 public record MenuScreenSpec(
     String id,
     String titleText,
+    String subtitleText,
     String hintsText,
     String layoutId,
     String defaultStyleId,
@@ -15,12 +16,19 @@ public record MenuScreenSpec(
   public MenuScreenSpec(String id, String titleText, String hintsText,
                         String layoutId, String defaultStyleId,
                         boolean wrapSelection, List<MenuItemSpec> items) {
-    this(id, titleText, hintsText, layoutId, defaultStyleId, wrapSelection, items, null);
+    this(id, titleText, null, hintsText, layoutId, defaultStyleId, wrapSelection, items, null);
+  }
+
+  public MenuScreenSpec(String id, String titleText, String subtitleText, String hintsText,
+                        String layoutId, String defaultStyleId,
+                        boolean wrapSelection, List<MenuItemSpec> items) {
+    this(id, titleText, subtitleText, hintsText, layoutId, defaultStyleId, wrapSelection, items, null);
   }
 
   public MenuScreenSpec {
     id = normalize(id, "main");
     titleText = normalize(titleText, null);
+    subtitleText = normalize(subtitleText, null);
     hintsText = normalize(hintsText, null);
     layoutId = normalize(layoutId, "default");
     defaultStyleId = normalize(defaultStyleId, "default");

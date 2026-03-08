@@ -71,6 +71,8 @@ public final class DslPropertyDiagnostics {
             "Use 0.1..1.0 (for example 0.44).");
         case "hintsBottomMargin" -> addMinCheck(issues, line.line(), key, value, 0.0,
             "Use a value >= 0.");
+        case "subtitleGap" -> addMinCheck(issues, line.line(), key, value, 0.0,
+            "Use a value >= 0.");
         case "titleY" -> addMinCheck(issues, line.line(), key, value, 0.0,
             "Use >= 0. Use 0..1 for normalized position.");
         case "listXCenter", "titleX", "hintsX" -> addRangeCheck(issues, line.line(), key, value, 0.0, 1.0,

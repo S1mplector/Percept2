@@ -59,6 +59,7 @@ class MenuProfileLoaderTest {
         textAlign=left
         titleAlign=left
         hintsBottomMargin=32
+        subtitleGap=18
         hintsAlign=right
         hintsX=0.82
         """);
@@ -82,6 +83,7 @@ class MenuProfileLoaderTest {
 
     Files.writeString(root.resolve("config/menu/menus/main.menu"), """
         titleText=Neon Title
+        subtitleText=A sharper supporting line
         hintsText=Use arrows and Enter
         layout=wide
         defaultItemStyle=neon
@@ -131,6 +133,7 @@ class MenuProfileLoaderTest {
     assertEquals("main", profile.defaultScreenId());
     MenuScreenSpec main = profile.screen("main");
     assertEquals("Neon Title", main.titleText());
+    assertEquals("A sharper supporting line", main.subtitleText());
     assertEquals("wide", main.layoutId());
     assertEquals(3, main.items().size());
     assertEquals(MenuActionType.RUN_SCRIPT, main.items().get(0).action().type());
@@ -156,6 +159,7 @@ class MenuProfileLoaderTest {
     assertEquals(52.0, profile.layout("wide").lineHeight());
     assertEquals("left", profile.layout("wide").textAlign());
     assertEquals("left", profile.layout("wide").titleAlign());
+    assertEquals(18.0, profile.layout("wide").subtitleGap());
     assertEquals("right", profile.layout("wide").hintsAlign());
     assertEquals(Double.valueOf(0.82), profile.layout("wide").hintsX());
     assertEquals("#00ffff", profile.style("neon").itemSelectedColor());

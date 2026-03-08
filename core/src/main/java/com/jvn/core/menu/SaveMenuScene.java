@@ -137,6 +137,10 @@ public class SaveMenuScene implements Scene {
     return (t == null || t.isBlank()) ? Localization.t("save.title") : t;
   }
 
+  public String getDisplaySubtitle() {
+    return resolveDisplayText(menuScreen.subtitleText());
+  }
+
   public String getDisplayHints() {
     String t = resolveDisplayText(menuScreen.hintsText());
     if (t == null || t.isBlank()) {
