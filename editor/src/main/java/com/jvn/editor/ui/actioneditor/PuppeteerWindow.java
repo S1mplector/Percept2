@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -80,7 +81,7 @@ public class PuppeteerWindow extends Stage {
     private boolean autoKeyEnabled = false;
 
     private final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
-    private final KeyframeSelectionModel selectionModel = new KeyframeSelectionModel();
+    private final KeyframeSelectionModel selectionModel;
     private Consumer<String> onCopyCode;
     private final TextField tfTimelineName;
     private Label statusBar;
@@ -90,19 +91,21 @@ public class PuppeteerWindow extends Stage {
     private boolean previewStaged = false;
     private boolean dirtyBeforePreviewStage = false;
     private AnimationProject previewBaselineProject;
-    private DragInteractionState activeMoveInteraction;
+    private TransformInteractionState activeTransformInteraction;
 
     private static final double MOVE_INTERACTION_EPSILON = 0.01;
+    private static final PropertyType[] TRANSFORM_INTERACTION_PROPERTIES = {
+        PropertyType.X,
+        PropertyType.Y,
+        PropertyType.PIVOT_X,
+        PropertyType.PIVOT_Y,
+        PropertyType.ROTATION
+    };
 
-    private record DragInteractionState(
+    private record TransformInteractionState(
         String entityName,
         double timeMs,
-        boolean hadX,
-        double oldX,
-        boolean hadY,
-        double oldY,
-        double startX,
-        double startY
+        Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> beforeStates
     ) {}
 
     public PuppeteerWindow() {
@@ -118,6 +121,7 @@ public class PuppeteerWindow extends Stage {
 
         entitySelector = new EntitySelector();
         timelinePanel = new TimelinePanel(this.project);
+        selectionModel = timelinePanel.getSelectionModel();
         keyframeEditor = new KeyframeEditor();
         keyframeEditor.setTimelineDurationMs(this.project.getTotalDurationMs());
         animationPreview = new AnimationPreview();
@@ -203,7 +207,11 @@ public class PuppeteerWindow extends Stage {
         });
 
         timelinePanel.setOnKeyframeSelected(kf -> {
-            keyframeEditor.setKeyframe(kf, timelinePanel.getSelectedProperty());
+            if (timelinePanel.getSelectionCount() > 1) {
+                keyframeEditor.setSelection(new ArrayList<>(timelinePanel.getSelectedKeyframes()), timelinePanel.getSelectedProperty());
+            } else {
+                keyframeEditor.setKeyframe(kf, timelinePanel.getSelectedProperty());
+            }
             PropertyType selectedProp = timelinePanel.getSelectedProperty();
             if (selectedProp != null && cbProperty.getValue() != selectedProp) {
                 cbProperty.setValue(selectedProp);
@@ -218,23 +226,25 @@ public class PuppeteerWindow extends Stage {
         timelinePanel.setOnEdited(this::refreshExportPreviewAndMarkDirty);
 
         keyframeEditor.setOnKeyframeChanged(() -> {
-            PropertyType property = keyframeEditor.getCurrentProperty();
-            if (property != null) {
-                EntityTrack track = selectedTrackForEditing(false);
-                if (track != null) track.sortKeyframes(property);
+            if (timelinePanel.getSelectionCount() > 1) {
+                for (EntityTrack track : project.getTracks()) {
+                    for (PropertyType property : PropertyType.values()) {
+                        track.sortKeyframes(property);
+                    }
+                }
+            } else {
+                PropertyType property = keyframeEditor.getCurrentProperty();
+                if (property != null) {
+                    EntityTrack track = selectedTrackForEditing(false);
+                    if (track != null) track.sortKeyframes(property);
+                }
             }
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
 
         keyframeEditor.setOnDeleteRequested(() -> {
-            Keyframe kf = keyframeEditor.getCurrentKeyframe();
-            PropertyType prop = keyframeEditor.getCurrentProperty();
-            if (kf != null && prop != null && timelinePanel.getSelectedProperty() != null) {
-                EntityTrack track = selectedTrackForEditing(false);
-                if (track != null) track.removeKeyframe(prop, kf);
-            }
-            timelinePanel.refresh();
+            timelinePanel.deleteSelectedKeyframe();
             refreshExportPreviewAndMarkDirty();
         });
 
@@ -248,8 +258,8 @@ public class PuppeteerWindow extends Stage {
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
             boolean liveDragSource = false;
-            if (activeMoveInteraction != null && name.equals(activeMoveInteraction.entityName())) {
-                time = activeMoveInteraction.timeMs();
+            if (activeTransformInteraction != null && name.equals(activeTransformInteraction.entityName())) {
+                time = activeTransformInteraction.timeMs();
                 liveDragSource = true;
             }
             double previousX = valueAtTimeOrFallback(track, PropertyType.X, time, pos[0]);
@@ -269,80 +279,54 @@ public class PuppeteerWindow extends Stage {
 
         animationPreview.setOnEntityMoveInteractionStarted((name, pos) -> {
             if (name == null || name.isBlank() || pos == null || pos.length < 2) {
-                activeMoveInteraction = null;
+                activeTransformInteraction = null;
                 return;
             }
             if (!Double.isFinite(pos[0]) || !Double.isFinite(pos[1])) {
-                activeMoveInteraction = null;
+                activeTransformInteraction = null;
                 return;
             }
-            EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
-            Keyframe xKey = track.findKeyframeAt(PropertyType.X, time);
-            Keyframe yKey = track.findKeyframeAt(PropertyType.Y, time);
-            activeMoveInteraction = new DragInteractionState(
+            activeTransformInteraction = new TransformInteractionState(
                 name,
                 time,
-                xKey != null,
-                xKey != null ? xKey.getValue() : pos[0],
-                yKey != null,
-                yKey != null ? yKey.getValue() : pos[1],
-                pos[0],
-                pos[1]
+                captureTransformSnapshots(name, time)
             );
         });
 
         animationPreview.setOnEntityMoveInteractionFinished((name, pos) -> {
-            DragInteractionState interaction = activeMoveInteraction;
-            activeMoveInteraction = null;
+            TransformInteractionState interaction = activeTransformInteraction;
+            activeTransformInteraction = null;
             if (interaction == null || name == null || pos == null || pos.length < 2) return;
             if (!name.equals(interaction.entityName())) return;
             if (!Double.isFinite(pos[0]) || !Double.isFinite(pos[1])) return;
 
-            EntityTrack track = this.project.getOrCreateTrack(name);
             double time = interaction.timeMs();
-            double endX = pos[0];
-            double endY = pos[1];
-            boolean moved = Math.abs(endX - interaction.startX()) > MOVE_INTERACTION_EPSILON
-                || Math.abs(endY - interaction.startY()) > MOVE_INTERACTION_EPSILON;
+            Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> beforeStates = interaction.beforeStates();
+            Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> afterStates = captureTransformSnapshots(time);
+            List<PuppeteerCommand> commands = buildTransformInteractionCommands(time, beforeStates, afterStates);
 
-            if (!moved) {
-                if (!interaction.hadX()) {
-                    Keyframe xKey = track.findKeyframeAt(PropertyType.X, time);
-                    if (xKey != null) track.removeKeyframe(PropertyType.X, xKey);
-                } else {
-                    track.upsertKeyframe(PropertyType.X, new Keyframe(time, interaction.oldX()));
-                }
-                if (!interaction.hadY()) {
-                    Keyframe yKey = track.findKeyframeAt(PropertyType.Y, time);
-                    if (yKey != null) track.removeKeyframe(PropertyType.Y, yKey);
-                } else {
-                    track.upsertKeyframe(PropertyType.Y, new Keyframe(time, interaction.oldY()));
-                }
+            if (commands.isEmpty()) {
+                restoreTransformSnapshots(time, beforeStates);
                 timelinePanel.refresh();
                 refreshExportPreviewAndMarkDirty();
                 return;
             }
 
-            commandStack.execute(PuppeteerCommand.applyPositionAtTime(
-                track,
-                time,
-                interaction.hadX(),
-                interaction.oldX(),
-                interaction.hadY(),
-                interaction.oldY(),
-                endX,
-                endY
-            ));
+            commandStack.execute(PuppeteerCommand.composite("Edit transform", commands));
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
 
         animationPreview.setOnEntityPivotChanged((name, pivot) -> {
+            if (name == null || pivot == null || pivot.length < 2) return;
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
-            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, pivot[0]));
-            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, pivot[1]));
+            if (activeTransformInteraction != null && name.equals(activeTransformInteraction.entityName())) {
+                time = activeTransformInteraction.timeMs();
+            }
+            track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(time, pivot[0]));
+            track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(time, pivot[1]));
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -360,9 +344,13 @@ public class PuppeteerWindow extends Stage {
         });
 
         animationPreview.setOnEntityRotationChanged((name, rotationDeg) -> {
+            if (name == null || rotationDeg == null || !Double.isFinite(rotationDeg)) return;
             EntityTrack track = this.project.getOrCreateTrack(name);
             double time = this.project.getPlayheadMs();
-            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.ROTATION, time, rotationDeg));
+            if (activeTransformInteraction != null && name.equals(activeTransformInteraction.entityName())) {
+                time = activeTransformInteraction.timeMs();
+            }
+            track.upsertKeyframe(PropertyType.ROTATION, new Keyframe(time, rotationDeg));
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -532,6 +520,38 @@ public class PuppeteerWindow extends Stage {
         Button btnZoomFit = makeToolbarIconButton("icon-timeline-fit", "Zoom timeline to fit content");
         btnZoomFit.setOnAction(e -> timelinePanel.zoomToFit());
 
+        ToggleButton cbRipple = makeToolbarIconToggle("icon-puppeteer-loop", "Ripple-retime: shift following keys when nudging a selection");
+        cbRipple.setSelected(timelinePanel.isRippleRetimeEnabled());
+        cbRipple.setOnAction(e -> timelinePanel.setRippleRetimeEnabled(cbRipple.isSelected()));
+
+        Button btnDistributeKeys = makeToolbarIconButton("icon-puppeteer-align-rotation", "Distribute selected keyframes evenly across their current range");
+        btnDistributeKeys.setOnAction(e -> {
+            if (timelinePanel.distributeSelectedKeyframes()) {
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
+
+        Button btnReverseKeys = makeToolbarIconButton("icon-puppeteer-rewind", "Reverse selected keyframes within their current range");
+        btnReverseKeys.setOnAction(e -> {
+            if (timelinePanel.reverseSelectedKeyframes()) {
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
+
+        Button btnStretchKeys = makeToolbarIconButton("icon-timeline-fit", "Stretch selected keyframes 25% wider");
+        btnStretchKeys.setOnAction(e -> {
+            if (timelinePanel.stretchSelectedKeyframes(1.25)) {
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
+
+        Button btnCompressKeys = makeToolbarIconButton("icon-puppeteer-snap", "Compress selected keyframes to 80% of their current range");
+        btnCompressKeys.setOnAction(e -> {
+            if (timelinePanel.stretchSelectedKeyframes(0.8)) {
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
+
         ToggleButton cbCompactExport = makeToolbarIconToggle("icon-puppeteer-save-clip", "Use compact export format");
         cbCompactExport.setSelected(false);
         cbCompactExport.setOnAction(e -> {
@@ -540,7 +560,9 @@ public class PuppeteerWindow extends Stage {
         });
 
         HBox keyframeOpsBox = new HBox(4, btnCopyKeyframes, btnPasteKeyframes, btnDuplicateKeyframes,
-            btnBatchKeyframe, btnSaveClip, btnLoadClip, slotMenu, btnZoomFit, cbCompactExport);
+            btnBatchKeyframe, btnSaveClip, btnLoadClip, slotMenu, btnZoomFit,
+            btnDistributeKeys, btnReverseKeys, btnStretchKeys, btnCompressKeys,
+            cbRipple, cbCompactExport);
         keyframeOpsBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         cbSnap = makeToolbarIconToggle("icon-puppeteer-snap", "Enable snapping");
@@ -1158,6 +1180,22 @@ public class PuppeteerWindow extends Stage {
             }
         );
         scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.R, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN),
+            () -> {
+                if (timelinePanel.reverseSelectedKeyframes()) {
+                    refreshExportPreviewAndMarkDirty();
+                }
+            }
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.E, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN),
+            () -> {
+                if (timelinePanel.distributeSelectedKeyframes()) {
+                    refreshExportPreviewAndMarkDirty();
+                }
+            }
+        );
+        scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.A),
             () -> {
                 if (cbOrbitTool == null) return;
@@ -1265,6 +1303,8 @@ public class PuppeteerWindow extends Stage {
             "Del — Delete selected keyframe\n" +
             "Alt+←/→ — Nudge keyframe by snap step\n" +
             "Alt+Shift+←/→ — Nudge keyframe by 1ms\n" +
+            "Alt+Shift+R — Reverse selected keyframes\n" +
+            "Alt+Shift+E — Distribute selected keyframes\n" +
             "Ctrl/Cmd+Alt+C — Copy selected keyframes\n" +
             "Ctrl/Cmd+Alt+V — Paste keyframes at playhead\n" +
             "Ctrl/Cmd+Alt+D — Duplicate keyframes\n" +
@@ -1678,7 +1718,7 @@ public class PuppeteerWindow extends Stage {
         project.setOrbitAnchorSourceOffsets(anchorOffsetSnapshot);
         project.pruneOrbitAnchors(collectProjectEntityNames());
         project.setPlayheadMs(playhead);
-        activeMoveInteraction = null;
+        activeTransformInteraction = null;
         commandStack.clear();
         tfDuration.setText(String.valueOf((int) project.getTotalDurationMs()));
         cbLoop.setSelected(project.isLooping());
@@ -1701,6 +1741,118 @@ public class PuppeteerWindow extends Stage {
             if (name != null && !name.isBlank()) names.add(name);
         }
         return names;
+    }
+
+    private Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> captureTransformSnapshots(double timeMs) {
+        return captureTransformSnapshots(null, timeMs);
+    }
+
+    private Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> captureTransformSnapshots(String primaryEntityName, double timeMs) {
+        Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> snapshots = new LinkedHashMap<>();
+        Set<String> names = collectProjectEntityNames();
+        if (primaryEntityName != null && !primaryEntityName.isBlank()) {
+            names.add(primaryEntityName);
+            project.getOrCreateTrack(primaryEntityName);
+        }
+        for (String entityName : names) {
+            EntityTrack track = project.getTrack(entityName);
+            if (track == null) continue;
+            snapshots.put(entityName, captureTransformTrackSnapshots(track, timeMs));
+        }
+        return snapshots;
+    }
+
+    private Map<PropertyType, PuppeteerCommand.PropertySnapshot> captureTransformTrackSnapshots(EntityTrack track, double timeMs) {
+        Map<PropertyType, PuppeteerCommand.PropertySnapshot> snapshots = new java.util.EnumMap<>(PropertyType.class);
+        var entity = scene != null ? scene.find(track.getEntityName()) : null;
+        for (PropertyType property : TRANSFORM_INTERACTION_PROPERTIES) {
+            Keyframe keyframe = track.findKeyframeAt(property, timeMs);
+            boolean present = keyframe != null;
+            double value = present
+                ? keyframe.getValue()
+                : valueAtTimeOrFallback(track, property, timeMs, fallbackPropertyValue(entity, property));
+            snapshots.put(property, new PuppeteerCommand.PropertySnapshot(present, value));
+        }
+        return snapshots;
+    }
+
+    private List<PuppeteerCommand> buildTransformInteractionCommands(
+        double timeMs,
+        Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> beforeStates,
+        Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> afterStates
+    ) {
+        List<PuppeteerCommand> commands = new ArrayList<>();
+        Set<String> names = new LinkedHashSet<>();
+        names.addAll(beforeStates.keySet());
+        names.addAll(afterStates.keySet());
+        for (String entityName : names) {
+            EntityTrack track = project.getOrCreateTrack(entityName);
+            Map<PropertyType, PuppeteerCommand.PropertySnapshot> before = beforeStates.getOrDefault(entityName, Map.of());
+            Map<PropertyType, PuppeteerCommand.PropertySnapshot> after = afterStates.getOrDefault(entityName, Map.of());
+            Map<PropertyType, PuppeteerCommand.PropertySnapshot> changedBefore = new java.util.EnumMap<>(PropertyType.class);
+            Map<PropertyType, PuppeteerCommand.PropertySnapshot> changedAfter = new java.util.EnumMap<>(PropertyType.class);
+
+            for (PropertyType property : TRANSFORM_INTERACTION_PROPERTIES) {
+                PuppeteerCommand.PropertySnapshot beforeSnapshot = before.get(property);
+                PuppeteerCommand.PropertySnapshot afterSnapshot = after.get(property);
+                if (!transformChanged(property, beforeSnapshot, afterSnapshot)) continue;
+                changedBefore.put(property, beforeSnapshot != null ? beforeSnapshot : new PuppeteerCommand.PropertySnapshot(false, 0.0));
+                changedAfter.put(property, afterSnapshot != null ? afterSnapshot : new PuppeteerCommand.PropertySnapshot(false, 0.0));
+            }
+
+            if (!changedBefore.isEmpty()) {
+                commands.add(PuppeteerCommand.applyPropertiesAtTime(
+                    track,
+                    timeMs,
+                    changedBefore,
+                    changedAfter,
+                    "Edit " + entityName
+                ));
+            }
+        }
+        return commands;
+    }
+
+    private void restoreTransformSnapshots(
+        double timeMs,
+        Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> snapshots
+    ) {
+        for (Map.Entry<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> entry : snapshots.entrySet()) {
+            EntityTrack track = project.getOrCreateTrack(entry.getKey());
+            for (Map.Entry<PropertyType, PuppeteerCommand.PropertySnapshot> propertyEntry : entry.getValue().entrySet()) {
+                restorePropertySnapshot(track, propertyEntry.getKey(), timeMs, propertyEntry.getValue());
+            }
+        }
+        updatePreview();
+    }
+
+    private void restorePropertySnapshot(
+        EntityTrack track,
+        PropertyType property,
+        double timeMs,
+        PuppeteerCommand.PropertySnapshot snapshot
+    ) {
+        if (track == null || property == null || snapshot == null) return;
+        if (snapshot.present()) {
+            track.upsertKeyframe(property, new Keyframe(timeMs, snapshot.value()));
+        } else {
+            Keyframe keyframe = track.findKeyframeAt(property, timeMs);
+            if (keyframe != null) {
+                track.removeKeyframe(property, keyframe);
+            }
+        }
+        track.sortKeyframes(property);
+    }
+
+    private static boolean transformChanged(
+        PropertyType property,
+        PuppeteerCommand.PropertySnapshot before,
+        PuppeteerCommand.PropertySnapshot after
+    ) {
+        if (before == null && after == null) return false;
+        if (before == null || after == null) return true;
+        double epsilon = property == PropertyType.ROTATION ? 0.1 : MOVE_INTERACTION_EPSILON;
+        return Math.abs(before.value() - after.value()) > epsilon;
     }
 
     private void applyAnchorFollowerDelta(String sourceEntityName, double timeMs, double dx, double dy, Set<String> visitedSources) {
@@ -1751,6 +1903,19 @@ public class PuppeteerWindow extends Stage {
         if (key != null && Double.isFinite(key.getValue())) return key.getValue();
         double value = track.getValueAt(property, timeMs);
         return Double.isFinite(value) ? value : fallback;
+    }
+
+    private static double fallbackPropertyValue(com.jvn.core.scene2d.Entity2D entity, PropertyType property) {
+        if (property == null) return 0.0;
+        if (entity == null) return property.getDefaultValue();
+        return switch (property) {
+            case X -> entity.getX();
+            case Y -> entity.getY();
+            case PIVOT_X -> getEntityPivotX(entity);
+            case PIVOT_Y -> getEntityPivotY(entity);
+            case ROTATION -> entity.getRotationDeg();
+            default -> property.getDefaultValue();
+        };
     }
 
     private String selectionLabel(String name, boolean group) {

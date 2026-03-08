@@ -4,12 +4,14 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -61,7 +63,7 @@ public class TimelinePanel extends VBox {
     private boolean selectedGroup = false;
     private PropertyType selectedProperty;
     private Keyframe selectedKeyframe;
-    private final Set<Keyframe> selectedKeyframes = new HashSet<>();
+    private final KeyframeSelectionModel selectionModel = new KeyframeSelectionModel();
 
     private Consumer<Keyframe> onKeyframeSelected;
     private Consumer<Double> onPlayheadChanged;
@@ -70,11 +72,18 @@ public class TimelinePanel extends VBox {
 
     private boolean draggingPlayhead = false;
     private boolean draggingKeyframe = false;
+    private boolean marqueeSelecting = false;
     private double dragAnchorX;
-    private final Map<Keyframe, Double> dragStartTimes = new HashMap<>();
+    private double marqueeStartX;
+    private double marqueeStartY;
+    private double marqueeEndX;
+    private double marqueeEndY;
+    private final Map<KeyframeSelectionModel.KeyframeRef, Double> dragStartTimes = new HashMap<>();
     private List<ClipboardEntry> copiedKeyframes = List.of();
 
     private record ClipboardEntry(PropertyType property, Keyframe keyframe, double offsetMs) {}
+    private record TrackRow(EntityTrack track, String entityName, boolean group, PropertyType property, double y, double height) {}
+    private record KeyframeHit(TrackRow row, Keyframe keyframe) {}
 
     public TimelinePanel(AnimationProject project) {
         this.project = project;
@@ -191,8 +200,8 @@ public class TimelinePanel extends VBox {
         time = clampToTimeline(snapTime(Math.max(0, time)));
         double value = track.getValueAt(selectedProperty, time);
         Keyframe kf = track.upsertKeyframe(selectedProperty, new Keyframe(time, value));
-        selectedKeyframes.clear();
-        if (kf != null) selectedKeyframes.add(kf);
+        selectionModel.clearSelection();
+        if (kf != null) selectionModel.select(KeyframeSelectionModel.ref(selectedEntity, selectedProperty, kf));
         selectedKeyframe = kf;
         if (onKeyframeSelected != null) onKeyframeSelected.accept(kf);
         notifyEdited();
@@ -219,52 +228,83 @@ public class TimelinePanel extends VBox {
     }
 
     public void deleteSelectedKeyframe() {
-        if (selectedEntity == null) return;
-        EntityTrack track = selectedTrack(false);
-        if (track == null) return;
-
-        if (!selectedKeyframes.isEmpty()) {
-            for (PropertyType prop : editablePropertiesForSelection()) {
-                List<Keyframe> kfs = track.getKeyframes(prop);
-                for (Keyframe kf : new java.util.ArrayList<>(kfs)) {
-                    if (selectedKeyframes.contains(kf)) {
-                        track.removeKeyframe(prop, kf);
-                    }
-                }
+        if (selectionModel.hasSelection()) {
+            for (KeyframeSelectionModel.KeyframeRef ref : new ArrayList<>(selectionModel.getSelected())) {
+                EntityTrack track = ref.entityName() != null
+                    ? project.getTrack(ref.entityName())
+                    : null;
+                if (track == null || ref.property() == null || ref.keyframe() == null) continue;
+                track.removeKeyframe(ref.property(), ref.keyframe());
             }
-            selectedKeyframes.clear();
         } else if (selectedKeyframe != null && selectedProperty != null) {
+            if (selectedEntity == null) return;
+            EntityTrack track = selectedTrack(false);
+            if (track == null) return;
             track.removeKeyframe(selectedProperty, selectedKeyframe);
+        } else {
+            return;
         }
         clearKeyframeSelection();
         notifyEdited();
         render();
     }
 
-    public Set<Keyframe> getSelectedKeyframes() { return selectedKeyframes; }
+    public Set<Keyframe> getSelectedKeyframes() {
+        return selectionModel.getSelected().stream()
+            .map(KeyframeSelectionModel.KeyframeRef::keyframe)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+    public KeyframeSelectionModel getSelectionModel() { return selectionModel; }
+    public int getSelectionCount() { return selectionModel.getSelectionCount(); }
     public int getCopiedKeyframeCount() { return copiedKeyframes.size(); }
 
     public void nudgeSelectedKeyframes(double deltaMs) {
-        if (selectedEntity == null) return;
-        EntityTrack track = selectedTrack(false);
-        if (track == null) return;
-
-        if (!selectedKeyframes.isEmpty()) {
-            for (PropertyType prop : editablePropertiesForSelection()) {
-                for (Keyframe kf : track.getKeyframes(prop)) {
-                    if (!selectedKeyframes.contains(kf)) continue;
-                    double next = clampToTimeline(snapTime(kf.getTimeMs() + deltaMs));
-                    kf.setTimeMs(next);
-                }
-                track.sortKeyframes(prop);
-            }
-        } else if (selectedKeyframe != null && selectedProperty != null) {
+        if (selectionModel.hasSelection()) {
+            selectionModel.moveSelected(project, deltaMs, snapEnabled ? snapStepMs : 0.0);
+        } else if (selectedEntity != null && selectedKeyframe != null && selectedProperty != null) {
+            EntityTrack track = selectedTrack(false);
+            if (track == null) return;
             double next = clampToTimeline(snapTime(selectedKeyframe.getTimeMs() + deltaMs));
             selectedKeyframe.setTimeMs(next);
             track.sortKeyframes(selectedProperty);
+        } else {
+            return;
         }
         notifyEdited();
         render();
+    }
+
+    public boolean distributeSelectedKeyframes() {
+        if (selectionModel.getSelectionCount() < 3) return false;
+        selectionModel.distributeSelected(project, snapEnabled ? snapStepMs : 0.0);
+        notifyEdited();
+        render();
+        return true;
+    }
+
+    public boolean reverseSelectedKeyframes() {
+        if (selectionModel.getSelectionCount() < 2) return false;
+        selectionModel.reverseSelected(project, snapEnabled ? snapStepMs : 0.0);
+        notifyEdited();
+        render();
+        return true;
+    }
+
+    public boolean stretchSelectedKeyframes(double factor) {
+        if (selectionModel.getSelectionCount() < 2) return false;
+        selectionModel.stretchSelected(project, factor, snapEnabled ? snapStepMs : 0.0);
+        notifyEdited();
+        render();
+        return true;
+    }
+
+    public boolean isRippleRetimeEnabled() {
+        return selectionModel.isRippleRetimeEnabled();
+    }
+
+    public void setRippleRetimeEnabled(boolean enabled) {
+        selectionModel.setRippleRetimeEnabled(enabled);
     }
 
     public boolean copySelectedKeyframes() {
@@ -299,11 +339,11 @@ public class TimelinePanel extends VBox {
         if (track == null || copiedKeyframes.isEmpty()) return false;
 
         double playhead = clampToTimeline(snapTime(project.getPlayheadMs()));
-        Set<Keyframe> previousSelection = new HashSet<>(selectedKeyframes);
         Keyframe previousPrimary = selectedKeyframe;
         PropertyType previousProperty = selectedProperty;
 
-        selectedKeyframes.clear();
+        Set<KeyframeSelectionModel.KeyframeRef> previousRefs = new LinkedHashSet<>(selectionModel.getSelected());
+        selectionModel.clearSelection();
         selectedKeyframe = null;
 
         PropertyType firstProperty = null;
@@ -316,13 +356,12 @@ public class TimelinePanel extends VBox {
             Keyframe inserted = track.upsertKeyframe(property, copy);
             if (inserted == null) continue;
             if (firstProperty == null) firstProperty = property;
-            selectedKeyframes.add(inserted);
+            selectionModel.select(KeyframeSelectionModel.ref(track.getEntityName(), property, inserted));
             selectedKeyframe = inserted;
             pasted++;
         }
         if (pasted == 0) {
-            selectedKeyframes.clear();
-            selectedKeyframes.addAll(previousSelection);
+            selectionModel.replaceSelection(previousRefs);
             selectedKeyframe = previousPrimary;
             selectedProperty = previousProperty;
             if (onKeyframeSelected != null) onKeyframeSelected.accept(selectedKeyframe);
@@ -344,7 +383,7 @@ public class TimelinePanel extends VBox {
         Map<PropertyType, List<Keyframe>> selection = selectedKeyframesByProperty(track);
         if (selection.isEmpty()) return false;
 
-        selectedKeyframes.clear();
+        selectionModel.clearSelection();
         selectedKeyframe = null;
 
         PropertyType firstProperty = null;
@@ -357,7 +396,7 @@ public class TimelinePanel extends VBox {
                 Keyframe inserted = track.upsertKeyframe(property, copy);
                 if (inserted == null) continue;
                 if (firstProperty == null) firstProperty = property;
-                selectedKeyframes.add(inserted);
+                selectionModel.select(KeyframeSelectionModel.ref(track.getEntityName(), property, inserted));
                 selectedKeyframe = inserted;
                 duplicated++;
             }
@@ -408,6 +447,7 @@ public class TimelinePanel extends VBox {
         drawTracks(gc, w);
         drawAudioCues(gc, w, h);
         drawPlayhead(gc, h);
+        drawSelectionMarquee(gc);
     }
 
     private void drawTimeRuler(GraphicsContext gc, double width) {
@@ -514,7 +554,7 @@ public class TimelinePanel extends VBox {
             double x = LABEL_WIDTH + kf.getTimeMs() * pixelsPerMs - scrollX;
             if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
 
-            boolean isSelected = kf == selectedKeyframe || selectedKeyframes.contains(kf);
+            boolean isSelected = kf == selectedKeyframe || isSelected(track.getEntityName(), prop, kf);
             gc.setFill(isSelected ? KEYFRAME_SELECTED_COLOR : trackColorFor(prop));
 
             // Diamond shape
@@ -609,6 +649,22 @@ public class TimelinePanel extends VBox {
         gc.fillPolygon(xPoints, yPoints, 3);
     }
 
+    private void drawSelectionMarquee(GraphicsContext gc) {
+        if (!marqueeSelecting) return;
+        double x = Math.min(marqueeStartX, marqueeEndX);
+        double y = Math.min(marqueeStartY, marqueeEndY);
+        double w = Math.abs(marqueeEndX - marqueeStartX);
+        double h = Math.abs(marqueeEndY - marqueeStartY);
+        if (w < 1 || h < 1) return;
+        gc.setFill(Color.web("#4da3ff", 0.12));
+        gc.fillRect(x, y, w, h);
+        gc.setStroke(Color.web("#4da3ff", 0.75));
+        gc.setLineWidth(1.0);
+        gc.setLineDashes(5, 4);
+        gc.strokeRect(x + 0.5, y + 0.5, Math.max(0.0, w - 1.0), Math.max(0.0, h - 1.0));
+        gc.setLineDashes((double[]) null);
+    }
+
     private double computeGridStep() {
         double baseStep = 100 / pixelsPerMs;
         double[] steps = {50, 100, 200, 500, 1000, 2000, 5000};
@@ -629,43 +685,47 @@ public class TimelinePanel extends VBox {
         double x = e.getX();
         double y = e.getY();
 
-        // Check playhead drag
         if (y < HEADER_HEIGHT + 5) {
             draggingPlayhead = true;
             updatePlayheadFromX(x);
             return;
         }
 
-        // Check keyframe click
-        Keyframe kf = findKeyframeAt(x, y);
-        if (kf != null) {
+        KeyframeHit hit = findKeyframeAt(x, y);
+        if (hit != null) {
+            selectedEntity = hit.row().entityName();
+            selectedGroup = hit.row().group();
+            selectedProperty = hit.row().property();
+
+            KeyframeSelectionModel.KeyframeRef ref =
+                KeyframeSelectionModel.ref(hit.row().entityName(), hit.row().property(), hit.keyframe());
             if (e.isShiftDown()) {
-                if (selectedKeyframes.contains(kf)) {
-                    selectedKeyframes.remove(kf);
-                    if (selectedKeyframe == kf) {
-                        selectedKeyframe = selectedKeyframes.stream().findFirst().orElse(null);
-                    }
-                } else {
-                    selectedKeyframes.add(kf);
-                    selectedKeyframe = kf;
-                }
+                selectionModel.toggleSelect(ref);
+                selectedKeyframe = selectionModel.getSelectedOrdered().stream()
+                    .reduce((first, second) -> second)
+                    .map(KeyframeSelectionModel.KeyframeRef::keyframe)
+                    .orElse(null);
             } else {
-                selectedKeyframes.clear();
-                selectedKeyframes.add(kf);
-                selectedKeyframe = kf;
+                selectPrimaryKeyframe(hit.row(), hit.keyframe());
             }
             draggingKeyframe = selectedKeyframe != null;
             dragAnchorX = x;
             captureDragStartTimes();
             notifyTargetSelectionChanged();
-            if (onKeyframeSelected != null) onKeyframeSelected.accept(selectedKeyframe);
+            notifyKeyframeSelectionChanged();
             render();
             return;
         }
-        clearKeyframeSelection();
 
-        // Track selection
+        clearKeyframeSelection();
         selectTrackAt(y);
+
+        marqueeSelecting = y >= HEADER_HEIGHT;
+        marqueeStartX = x;
+        marqueeStartY = y;
+        marqueeEndX = x;
+        marqueeEndY = y;
+        render();
     }
 
     private void handleMouseDragged(MouseEvent e) {
@@ -674,8 +734,8 @@ public class TimelinePanel extends VBox {
         } else if (draggingKeyframe && selectedKeyframe != null) {
             double dt = (e.getX() - dragAnchorX) / pixelsPerMs;
             if (!dragStartTimes.isEmpty()) {
-                for (Map.Entry<Keyframe, Double> entry : dragStartTimes.entrySet()) {
-                    Keyframe moving = entry.getKey();
+                for (Map.Entry<KeyframeSelectionModel.KeyframeRef, Double> entry : dragStartTimes.entrySet()) {
+                    Keyframe moving = entry.getKey().keyframe();
                     double next = clampToTimeline(snapTime(entry.getValue() + dt));
                     moving.setTimeMs(next);
                 }
@@ -683,6 +743,11 @@ public class TimelinePanel extends VBox {
                 double next = clampToTimeline(snapTime(selectedKeyframe.getTimeMs() + dt));
                 selectedKeyframe.setTimeMs(next);
             }
+            render();
+        } else if (marqueeSelecting) {
+            marqueeEndX = e.getX();
+            marqueeEndY = e.getY();
+            applyMarqueeSelection(e.isShiftDown());
             render();
         }
     }
@@ -702,9 +767,16 @@ public class TimelinePanel extends VBox {
             }
             notifyEdited();
         }
+        if (marqueeSelecting) {
+            applyMarqueeSelection(e.isShiftDown());
+            marqueeSelecting = false;
+            notifyKeyframeSelectionChanged();
+        }
         draggingPlayhead = false;
         draggingKeyframe = false;
         dragStartTimes.clear();
+        marqueeSelecting = false;
+        render();
     }
 
     private void handleMouseClicked(MouseEvent e) {
@@ -759,129 +831,52 @@ public class TimelinePanel extends VBox {
         render();
     }
 
-    private Keyframe findKeyframeAt(double mx, double my) {
-        double y = HEADER_HEIGHT - scrollY;
-        EntityTrack groupTrack = selectedGroupTrack();
-
-        if (selectedGroup && selectedEntity != null && groupTrack != null) {
-            y += TRACK_HEIGHT;
-            for (PropertyType prop : editablePropertiesForSelection()) {
-                boolean showTrack = groupTrack.hasKeyframes(prop) || prop == selectedProperty;
-                if (!showTrack) continue;
-
-                double cy = y + TRACK_HEIGHT / 2;
-                for (Keyframe kf : groupTrack.getKeyframes(prop)) {
-                    double kx = LABEL_WIDTH + kf.getTimeMs() * pixelsPerMs - scrollX;
-                    double dist = Math.sqrt(Math.pow(mx - kx, 2) + Math.pow(my - cy, 2));
-                    if (dist < 10) {
-                        selectedProperty = prop;
-                        return kf;
-                    }
+    private KeyframeHit findKeyframeAt(double mx, double my) {
+        for (TrackRow row : buildVisibleRows()) {
+            if (row.property() == null) continue;
+            if (my < row.y() || my > row.y() + row.height()) continue;
+            double cy = row.y() + row.height() / 2;
+            for (Keyframe keyframe : row.track().getKeyframes(row.property())) {
+                double kx = LABEL_WIDTH + keyframe.getTimeMs() * pixelsPerMs - scrollX;
+                double dist = Math.sqrt(Math.pow(mx - kx, 2) + Math.pow(my - cy, 2));
+                if (dist < 10) {
+                    return new KeyframeHit(row, keyframe);
                 }
-                y += TRACK_HEIGHT;
-            }
-        }
-
-        for (EntityTrack track : project.getTracks()) {
-            y += TRACK_HEIGHT; // entity header
-
-            for (PropertyType prop : PropertyType.values()) {
-                boolean showTrack = track.hasKeyframes(prop)
-                    || (!selectedGroup && track.getEntityName().equals(selectedEntity) && prop == selectedProperty);
-                if (!showTrack) continue;
-
-                double cy = y + TRACK_HEIGHT / 2;
-
-                for (Keyframe kf : track.getKeyframes(prop)) {
-                    double kx = LABEL_WIDTH + kf.getTimeMs() * pixelsPerMs - scrollX;
-                    double dist = Math.sqrt(Math.pow(mx - kx, 2) + Math.pow(my - cy, 2));
-                    if (dist < 10) {
-                        selectedEntity = track.getEntityName();
-                        selectedGroup = false;
-                        selectedProperty = prop;
-                        return kf;
-                    }
-                }
-                y += TRACK_HEIGHT;
             }
         }
         return null;
     }
 
     private void selectTrackAt(double my) {
-        double y = HEADER_HEIGHT - scrollY;
-        EntityTrack groupTrack = selectedGroupTrack();
-
-        if (selectedGroup && selectedEntity != null && groupTrack != null) {
-            if (my >= y && my < y + TRACK_HEIGHT) {
-                selectedProperty = null;
-                notifyTargetSelectionChanged();
-                render();
-                return;
-            }
-            y += TRACK_HEIGHT;
-
-            for (PropertyType prop : editablePropertiesForSelection()) {
-                boolean showTrack = groupTrack.hasKeyframes(prop) || prop == selectedProperty;
-                if (!showTrack) continue;
-                if (my >= y && my < y + TRACK_HEIGHT) {
-                    selectedProperty = prop;
-                    notifyTargetSelectionChanged();
-                    render();
-                    return;
-                }
-                y += TRACK_HEIGHT;
-            }
-        }
-
-        for (EntityTrack track : project.getTracks()) {
-            if (my >= y && my < y + TRACK_HEIGHT) {
-                selectedEntity = track.getEntityName();
-                selectedGroup = false;
-                selectedProperty = null;
-                notifyTargetSelectionChanged();
-                render();
-                return;
-            }
-            y += TRACK_HEIGHT;
-
-            for (PropertyType prop : PropertyType.values()) {
-                boolean showTrack = track.hasKeyframes(prop)
-                    || (!selectedGroup && track.getEntityName().equals(selectedEntity) && prop == selectedProperty);
-                if (!showTrack) continue;
-
-                if (my >= y && my < y + TRACK_HEIGHT) {
-                    selectedEntity = track.getEntityName();
-                    selectedGroup = false;
-                    selectedProperty = prop;
-                    notifyTargetSelectionChanged();
-                    render();
-                    return;
-                }
-                y += TRACK_HEIGHT;
-            }
+        for (TrackRow row : buildVisibleRows()) {
+            if (my < row.y() || my >= row.y() + row.height()) continue;
+            selectedEntity = row.entityName();
+            selectedGroup = row.group();
+            selectedProperty = row.property();
+            notifyTargetSelectionChanged();
+            render();
+            return;
         }
     }
 
     private void captureDragStartTimes() {
         dragStartTimes.clear();
-        if (!selectedKeyframes.isEmpty()) {
-            for (Keyframe keyframe : selectedKeyframes) {
-                if (keyframe != null) {
-                    dragStartTimes.put(keyframe, keyframe.getTimeMs());
-                }
+        if (selectionModel.hasSelection()) {
+            for (KeyframeSelectionModel.KeyframeRef ref : selectionModel.getSelectedOrdered()) {
+                dragStartTimes.put(ref, ref.keyframe().getTimeMs());
             }
         } else if (selectedKeyframe != null) {
-            dragStartTimes.put(selectedKeyframe, selectedKeyframe.getTimeMs());
+            dragStartTimes.put(KeyframeSelectionModel.ref(selectedEntity, selectedProperty, selectedKeyframe),
+                selectedKeyframe.getTimeMs());
         }
     }
 
     private Set<PropertyType> collectSelectedProperties(EntityTrack track) {
         Set<PropertyType> props = new HashSet<>();
-        if (track == null || selectedKeyframes.isEmpty()) return props;
+        if (track == null || !selectionModel.hasSelection()) return props;
         for (PropertyType prop : editablePropertiesForSelection()) {
             for (Keyframe kf : track.getKeyframes(prop)) {
-                if (selectedKeyframes.contains(kf)) {
+                if (isSelected(track.getEntityName(), prop, kf)) {
                     props.add(prop);
                     break;
                 }
@@ -894,11 +889,11 @@ public class TimelinePanel extends VBox {
         Map<PropertyType, List<Keyframe>> byProperty = new HashMap<>();
         if (track == null) return byProperty;
 
-        if (!selectedKeyframes.isEmpty()) {
+        if (selectionModel.hasSelection()) {
             for (PropertyType property : editablePropertiesForSelection()) {
                 List<Keyframe> matches = new ArrayList<>();
                 for (Keyframe keyframe : track.getKeyframes(property)) {
-                    if (selectedKeyframes.contains(keyframe)) matches.add(keyframe);
+                    if (isSelected(track.getEntityName(), property, keyframe)) matches.add(keyframe);
                 }
                 if (!matches.isEmpty()) {
                     matches.sort(Comparator.comparingDouble(Keyframe::getTimeMs));
@@ -918,10 +913,93 @@ public class TimelinePanel extends VBox {
     }
 
     private void clearKeyframeSelection() {
-        selectedKeyframes.clear();
+        selectionModel.clearSelection();
         selectedKeyframe = null;
         dragStartTimes.clear();
         if (onKeyframeSelected != null) onKeyframeSelected.accept(null);
+    }
+
+    private List<TrackRow> buildVisibleRows() {
+        List<TrackRow> rows = new ArrayList<>();
+        double y = HEADER_HEIGHT - scrollY;
+        EntityTrack groupTrack = selectedGroupTrack();
+
+        if (selectedGroup && groupTrack != null && selectedEntity != null) {
+            rows.add(new TrackRow(groupTrack, selectedEntity, true, null, y, TRACK_HEIGHT));
+            y += TRACK_HEIGHT;
+            for (PropertyType prop : editablePropertiesForSelection()) {
+                boolean showTrack = groupTrack.hasKeyframes(prop) || prop == selectedProperty;
+                if (!showTrack) continue;
+                rows.add(new TrackRow(groupTrack, selectedEntity, true, prop, y, TRACK_HEIGHT));
+                y += TRACK_HEIGHT;
+            }
+        }
+
+        for (EntityTrack track : project.getTracks()) {
+            rows.add(new TrackRow(track, track.getEntityName(), false, null, y, TRACK_HEIGHT));
+            y += TRACK_HEIGHT;
+            for (PropertyType prop : PropertyType.values()) {
+                boolean showTrack = track.hasKeyframes(prop)
+                    || (!selectedGroup && track.getEntityName().equals(selectedEntity) && prop == selectedProperty);
+                if (!showTrack) continue;
+                rows.add(new TrackRow(track, track.getEntityName(), false, prop, y, TRACK_HEIGHT));
+                y += TRACK_HEIGHT;
+            }
+        }
+        return rows;
+    }
+
+    private void selectPrimaryKeyframe(TrackRow row, Keyframe keyframe) {
+        selectionModel.clearSelection();
+        KeyframeSelectionModel.KeyframeRef primary =
+            KeyframeSelectionModel.ref(row.entityName(), row.property(), keyframe);
+        selectionModel.select(primary);
+        if (!row.group() && (row.property() == PropertyType.X || row.property() == PropertyType.Y)) {
+            PropertyType paired = row.property() == PropertyType.X ? PropertyType.Y : PropertyType.X;
+            Keyframe linked = row.track().findKeyframeAt(paired, keyframe.getTimeMs());
+            if (linked != null) {
+                selectionModel.select(KeyframeSelectionModel.ref(row.entityName(), paired, linked));
+            }
+        }
+        selectedKeyframe = keyframe;
+    }
+
+    private void applyMarqueeSelection(boolean additive) {
+        double x1 = Math.min(marqueeStartX, marqueeEndX);
+        double x2 = Math.max(marqueeStartX, marqueeEndX);
+        double y1 = Math.min(marqueeStartY, marqueeEndY);
+        double y2 = Math.max(marqueeStartY, marqueeEndY);
+        if (x2 - x1 < 2 || y2 - y1 < 2) return;
+
+        List<KeyframeSelectionModel.KeyframeRef> hits = new ArrayList<>();
+        for (TrackRow row : buildVisibleRows()) {
+            if (row.property() == null) continue;
+            if (row.y() + row.height() < y1 || row.y() > y2) continue;
+            double cy = row.y() + row.height() / 2;
+            if (cy < y1 || cy > y2) continue;
+            for (Keyframe keyframe : row.track().getKeyframes(row.property())) {
+                double kx = LABEL_WIDTH + keyframe.getTimeMs() * pixelsPerMs - scrollX;
+                if (kx >= x1 && kx <= x2) {
+                    hits.add(KeyframeSelectionModel.ref(row.entityName(), row.property(), keyframe));
+                }
+            }
+        }
+        if (!additive) selectionModel.clearSelection();
+        for (KeyframeSelectionModel.KeyframeRef hit : hits) {
+            selectionModel.select(hit);
+        }
+        selectedKeyframe = selectionModel.getSelectedOrdered().stream()
+            .reduce((first, second) -> second)
+            .map(KeyframeSelectionModel.KeyframeRef::keyframe)
+            .orElse(null);
+    }
+
+    private void notifyKeyframeSelectionChanged() {
+        if (onKeyframeSelected != null) onKeyframeSelected.accept(selectedKeyframe);
+    }
+
+    private boolean isSelected(String entityName, PropertyType property, Keyframe keyframe) {
+        return selectionModel.isSelected(KeyframeSelectionModel.ref(entityName, property, keyframe));
     }
 
     private EntityTrack selectedTrack(boolean createForEntity) {

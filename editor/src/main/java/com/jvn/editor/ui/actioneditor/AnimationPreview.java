@@ -603,9 +603,17 @@ public class AnimationPreview extends VBox {
             if (controlPoints.size() < 2) continue;
 
             java.util.List<SplinePath.Point> curve = SplinePath.catmullRom(controlPoints, 16);
+            boolean isSelectedPath = selectedEntityName != null
+                && selectedEntityName.equals(track.getEntityName());
+            Color stroke = isSelectedPath
+                ? Color.web("#8bd2ff", 0.92)
+                : Color.web("#4da3ff", 0.28);
+            Color pointFill = isSelectedPath
+                ? Color.web("#f0b673", 0.95)
+                : Color.web("#4da3ff", 0.55);
 
-            gc.setStroke(Color.web("#4da3ff", 0.5));
-            gc.setLineWidth(1.5 / z);
+            gc.setStroke(stroke);
+            gc.setLineWidth((isSelectedPath ? 2.5 : 1.25) / z);
             gc.setLineDashes(4.0 / z, 3.0 / z);
             gc.beginPath();
             boolean first = true;
@@ -616,9 +624,9 @@ public class AnimationPreview extends VBox {
             gc.stroke();
             gc.setLineDashes((double[]) null);
 
-            gc.setFill(Color.web("#4da3ff", 0.8));
+            gc.setFill(pointFill);
             for (SplinePath.Point pt : controlPoints) {
-                double radius = 3.0 / z;
+                double radius = (isSelectedPath ? 4.0 : 2.5) / z;
                 gc.fillOval(pt.x - radius, pt.y - radius, radius * 2.0, radius * 2.0);
             }
         }

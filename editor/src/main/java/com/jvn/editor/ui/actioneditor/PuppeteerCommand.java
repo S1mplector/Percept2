@@ -1,9 +1,14 @@
 package com.jvn.editor.ui.actioneditor;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
+import java.util.Map;
 
 public class PuppeteerCommand {
+
+    public record PropertySnapshot(boolean present, double value) {}
 
     @FunctionalInterface
     public interface Action {
@@ -151,6 +156,39 @@ public class PuppeteerCommand {
         );
     }
 
+    public static PuppeteerCommand applyPropertiesAtTime(
+        EntityTrack track,
+        double timeMs,
+        Map<PropertyType, PropertySnapshot> before,
+        Map<PropertyType, PropertySnapshot> after,
+        String description
+    ) {
+        Map<PropertyType, PropertySnapshot> beforeCopy = before != null ? Map.copyOf(before) : Map.of();
+        Map<PropertyType, PropertySnapshot> afterCopy = after != null ? Map.copyOf(after) : Map.of();
+        String label = description != null && !description.isBlank() ? description : "Edit properties";
+        return new PuppeteerCommand(label,
+            () -> applyPropertySnapshots(track, timeMs, afterCopy),
+            () -> applyPropertySnapshots(track, timeMs, beforeCopy)
+        );
+    }
+
+    public static PuppeteerCommand composite(String description, List<PuppeteerCommand> commands) {
+        List<PuppeteerCommand> safeCommands = commands == null ? List.of() : new ArrayList<>(commands);
+        return new PuppeteerCommand(description,
+            () -> {
+                for (PuppeteerCommand command : safeCommands) {
+                    if (command != null) command.execute();
+                }
+            },
+            () -> {
+                for (int i = safeCommands.size() - 1; i >= 0; i--) {
+                    PuppeteerCommand command = safeCommands.get(i);
+                    if (command != null) command.undo();
+                }
+            }
+        );
+    }
+
     private static void restorePropertyAtTime(
         EntityTrack track,
         PropertyType property,
@@ -165,6 +203,28 @@ public class PuppeteerCommand {
         Keyframe kf = track.findKeyframeAt(property, timeMs);
         if (kf != null) {
             track.removeKeyframe(property, kf);
+        }
+    }
+
+    private static void applyPropertySnapshots(
+        EntityTrack track,
+        double timeMs,
+        Map<PropertyType, PropertySnapshot> snapshots
+    ) {
+        if (track == null || snapshots == null) return;
+        for (Map.Entry<PropertyType, PropertySnapshot> entry : snapshots.entrySet()) {
+            PropertyType property = entry.getKey();
+            PropertySnapshot snapshot = entry.getValue();
+            if (property == null || snapshot == null) continue;
+            if (snapshot.present()) {
+                track.upsertKeyframe(property, new Keyframe(timeMs, snapshot.value()));
+            } else {
+                Keyframe existing = track.findKeyframeAt(property, timeMs);
+                if (existing != null) {
+                    track.removeKeyframe(property, existing);
+                }
+            }
+            track.sortKeyframes(property);
         }
     }
 
