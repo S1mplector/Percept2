@@ -1,9 +1,46 @@
 # {{PROJECT_NAME}} - Branch Demo
+# A short standalone scene reached via [goto] from the prologue.
+# This file demonstrates how story arcs work: the prologue routes here,
+# this scene plays, and then [goto] forwards the player to the epilogue.
+# In a real project, this would be a chapter, a side story, or a route branch.
+
 @scenario {{SCENARIO_PREFIX}}_branch_demo
 @include {{CHARACTERS_INCLUDE}}
 
 {{BG_DECL}}@label start
 {{BG_START}}[show lavender right {{LAVENDER_EXPR}}]
-Lavender: You're now in {{STORY_BRANCH_SCRIPT_PATH}}.
-Lavender: This arc reconnects to the epilogue.
+[wait 200]
+
+# ─── Scene ───────────────────────────────────────────────────────
+# This is where your scene content goes. Right now it's a short meta-explanation,
+# but in a real game this would be dialogue, narration, character staging — a full scene.
+
+Lavender: You just arrived here via a {b}[goto]{/b} command from the prologue script.
+[show lavender center talking]
+Lavender: That command looked like this in the prologue file:
+narrator: {color=#8888cc}[goto {{SCENARIO_PREFIX}}_branch_demo:start]{/color}
+narrator: The first part is the {b}@scenario ID{/b} of this file. The second part ({b}:start{/b}) is the label to jump to.
+
+Lavender: This is a completely separate .vns file with its own @scenario declaration, its own labels, and its own content.
+Lavender: The prologue doesn't know what happens inside this file — it just knows the address.
+
+[show lavender left talking]
+Lavender: Here's what makes this a {b}story arc{/b} pattern:
+narrator: {b}1.{/b} The prologue presents a choice.
+narrator: {b}2.{/b} The choice label contains a [goto] to this file.
+narrator: {b}3.{/b} This file runs its scene from top to bottom.
+narrator: {b}4.{/b} At the end, another [goto] forwards to the epilogue.
+narrator: That's the chain: {color=#8888cc}prologue → branch → epilogue{/color}.
+
+[show lavender center happy]
+Lavender: You can add as many branch files as you want — one per chapter, one per route, one per side story.
+Lavender: Each one is a self-contained .vns file connected by [goto] at the seams.
+
+narrator: The next line sends you to the epilogue. Open {b}{{STORY_EPILOGUE_SCRIPT_PATH}}{/b} to see what happens there.
+
+# ─── Forward to Epilogue ────────────────────────────────────────
+# This [goto] completes the arc: prologue → this branch → epilogue.
+# In a real game, you might have multiple branches that all converge on the same epilogue,
+# or different epilogues for different routes.
+
 [goto {{EPILOGUE_TARGET}}:start]

@@ -1,9 +1,24 @@
 # {{PROJECT_NAME}} - Branch Demo
+# A branch arc file — reached via [goto] from the prologue, forwards to the epilogue via [goto].
+# The arc chain: prologue → this file → epilogue.
+# Replace the placeholder content below with a real scene: dialogue, characters, backgrounds, choices.
+# Add more branch files by duplicating this file, giving it a new @scenario ID,
+# and adding a [goto] in the prologue that points to it.
+
 @scenario {{SCENARIO_PREFIX}}_branch_demo
 @include {{CHARACTERS_INCLUDE}}
 
+# ─── Scene ───────────────────────────────────────────────────────
+# Your scene starts at @label start. Write dialogue, show characters, set backgrounds.
+# When the scene is done, the [goto] at the bottom forwards to the epilogue.
+
 @label start
 [show lavender center {{LAVENDER_EXPR}}]
-Narrator: This is a short branch script ({{STORY_BRANCH_SCRIPT_PATH}}).
-Narrator: From here, we rejoin at the epilogue arc.
+narrator: This is {b}{{STORY_BRANCH_SCRIPT_PATH}}{/b} — a branch arc reached from the prologue via [goto].
+narrator: Replace everything between @label start and the [goto] below with your own scene content.
+
+# ─── Forward to Epilogue ────────────────────────────────────────
+# This [goto] completes the arc. All branches can converge on the same epilogue,
+# or you can create separate epilogue files for different routes.
+
 [goto {{EPILOGUE_TARGET}}:start]

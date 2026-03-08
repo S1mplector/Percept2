@@ -1,9 +1,56 @@
 # {{PROJECT_NAME}} - Epilogue
+# The convergence point — every story branch routes here via [goto].
+# This file is the last arc in the chain: prologue → branch(es) → epilogue.
+# In a real game, this would contain your ending scene, credits sequence,
+# post-game unlock screen, or a route-specific epilogue based on variables.
+
 @scenario {{SCENARIO_PREFIX}}_epilogue
 @include {{CHARACTERS_INCLUDE}}
 
 {{BG_DECL}}@label start
 {{BG_START}}[show lavender center {{LAVENDER_EXPR}}]
-Lavender: This is the epilogue arc ({{STORY_EPILOGUE_SCRIPT_PATH}}).
-Lavender: Open {{TIMELINE_PATH}} to view and edit the connected arc graph.
+[wait 200]
+
+# ─── Epilogue Scene ──────────────────────────────────────────────
+# The player arrives here after completing a branch.
+# You can use [if] blocks to show different endings based on variables
+# set during the story — e.g. [if courage >= 3] for a brave ending.
+
+Lavender: You've reached the {b}epilogue{/b} — the final arc in the story chain.
+[show lavender center talking]
+Lavender: You got here because the branch demo file ended with:
+narrator: {color=#8888cc}[goto {{SCENARIO_PREFIX}}_epilogue:start]{/color}
+narrator: That's the same cross-file navigation pattern the prologue used to reach the branch.
+
+Lavender: In a real project, this is where you'd put your ending. What goes here depends on your game:
+narrator: {b}Linear story{/b} — a single ending scene, credits, and [end].
+narrator: {b}Branching story{/b} — use [if] to check route variables and show different endings.
+narrator: {b}Post-game{/b} — unlock a gallery, new game+, or bonus content before [end].
+
+[show lavender left talking]
+Lavender: Here's what a branching ending would look like in script:
+narrator: {color=#8888cc}[if route == "brave"]{/color}
+narrator: {color=#8888cc}Lavender: You stood your ground when it mattered.{/color}
+narrator: {color=#8888cc}[elif route == "cautious"]{/color}
+narrator: {color=#8888cc}Lavender: You chose carefully. That takes its own kind of strength.{/color}
+narrator: {color=#8888cc}[else]{/color}
+narrator: {color=#8888cc}Lavender: Every path leads somewhere worth arriving.{/color}
+narrator: {color=#8888cc}[endif]{/color}
+
+[show lavender center happy]
+Lavender: The full arc structure of this project:
+narrator: {color=#8888cc}prologue{/color} → {color=#8888cc}branch demo{/color} → {color=#8888cc}epilogue (you are here){/color}
+narrator: Open {b}{{TIMELINE_PATH}}{/b} in the editor to see the arc graph visually.
+
+Lavender: That's the complete demo. To start building your own game:
+narrator: {b}1.{/b} Replace the prologue content with your opening scene.
+narrator: {b}2.{/b} Replace the branch demo with your first chapter or route.
+narrator: {b}3.{/b} Replace this epilogue with your ending.
+narrator: {b}4.{/b} Add more branch files as your story grows — one per chapter or route.
+
+# ─── End ─────────────────────────────────────────────────────────
+# [end] terminates the game session. The engine returns to the main menu.
+# In a real game, you might show credits before calling [end],
+# or [goto] to a post-game scene before ending.
+
 [end]

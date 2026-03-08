@@ -1,8 +1,29 @@
 # {{PROJECT_NAME}} - Epilogue
+# The convergence point — story branches route here via [goto] when they finish.
+# Arc chain: prologue → branch(es) → epilogue (this file).
+# Replace the placeholder content with your ending scene, credits, or post-game sequence.
+# For branching endings, use [if] blocks to check variables set during the story.
+# [end] at the bottom terminates the session and returns to the main menu.
+
 @scenario {{SCENARIO_PREFIX}}_epilogue
 @include {{CHARACTERS_INCLUDE}}
 
+# ─── Epilogue Scene ──────────────────────────────────────────────
+# The player arrives here after completing a branch. Write your ending here.
+# To show different endings based on player choices, use conditional blocks:
+#   [if courage >= 3]
+#   Lavender: You were brave.
+#   [else]
+#   Lavender: You were cautious.
+#   [endif]
+
 @label start
 [show lavender center {{LAVENDER_EXPR}}]
-Narrator: You reached the epilogue. Edit this file to continue your story.
+narrator: This is the epilogue arc — the end of the story chain.
+narrator: All branches converge here. Replace this content with your ending scene.
+
+# ─── End ─────────────────────────────────────────────────────────
+# [end] terminates the game session and returns to the main menu.
+# You can show credits, unlock content, or [goto] a post-game scene before calling [end].
+
 [end]

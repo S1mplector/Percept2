@@ -1,13 +1,29 @@
 # {{PROJECT_NAME}} - Prologue
+# The engine loads this file first when the player starts a new game.
+# Execution begins at @label start. From here, [goto] routes to other scenario files.
+# Replace the placeholder content below with your actual opening scene.
+
 @scenario {{SCENARIO_PREFIX}}_prologue
 @include {{CHARACTERS_INCLUDE}}
 
+# ─── Entry Point ─────────────────────────────────────────────────
+# This label is the game's first frame. Everything the player sees at launch starts here.
+# The @scenario ID above ("{{SCENARIO_PREFIX}}_prologue") is how other files reference this
+# file in [goto] commands — e.g. [goto {{SCENARIO_PREFIX}}_prologue:start].
+
 @label start
 [show lavender center {{LAVENDER_EXPR}}]
-Narrator: Welcome to {{PROJECT_NAME}}.
-Narrator: This starter project demonstrates multi-file story arcs.
-> Continue to Tutorial Hub -> route_tutorial
-> Take a short branch -> route_branch
+narrator: Welcome to {b}{{PROJECT_NAME}}{/b}.
+narrator: This prologue script is the entry point of the game. It routes to other .vns files using {b}[goto]{/b}.
+narrator: Each choice below jumps to a different scenario file. Open this file in the editor to see how.
+
+> Tutorial Hub -> route_tutorial
+> Branch demo -> route_branch
+
+# ─── Route Labels ────────────────────────────────────────────────
+# Each label below is a [goto] target. The choice menu above jumps here,
+# and the [goto] command transfers execution to another scenario file.
+# Add more routes by adding more labels with [goto] commands.
 
 @label route_tutorial
 [goto {{TUTORIAL_TARGET}}:start]

@@ -1,18 +1,44 @@
 # {{PROJECT_NAME}} - Prologue Entry
+# This is the first script the engine loads when the player starts the game.
+# It introduces the project structure and routes the player to other script files using [goto].
+# In a real game, you'd replace this with your opening scene, title card, or cold open.
+
 @scenario {{SCENARIO_PREFIX}}_prologue_entry
 @include {{CHARACTERS_INCLUDE}}
 
 {{BG_DECL}}@label start
 {{BG_START}}{{BG_TRANSITION}}[show lavender center {{LAVENDER_EXPR}}]
-narrator: Welcome to {{PROJECT_NAME}}.
-lavender: This project starts with a timeline-driven multi-file arc workflow.
-lavender: Pick a route and I'll send you to another script file via story arcs.
-> Guided tutorial route -> route_tutorial
-> Quick branch demo route -> route_branch
+[wait 200]
+narrator: Welcome to {b}{{PROJECT_NAME}}{/b}.
+[show lavender center talking]
+Lavender: You're looking at the {b}prologue script{/b} — the entry point of the entire game.
+Lavender: When a player hits "New Game" from the main menu, execution starts right here, at the {b}@label start{/b} in this file.
+
+Lavender: This project is organized into {b}story arcs{/b}: separate .vns files connected by {b}[goto]{/b} commands.
+narrator: The arc structure for this project looks like this:
+narrator: {color=#8888cc}prologue{/color}  →  {color=#8888cc}tutorial hub{/color} (16 lessons)  →  back to prologue
+narrator: {color=#8888cc}prologue{/color}  →  {color=#8888cc}branch demo{/color}  →  {color=#8888cc}epilogue{/color}
+
+[show lavender center happy]
+Lavender: Below are two choices. Each one uses {b}[goto]{/b} to jump to a different scenario file.
+Lavender: Open this file in the editor and read the labels below the choices to see exactly how routing works.
+
+> Learn VNS scripting — 16 interactive lessons covering dialogue to release -> route_tutorial
+> Branching scene demo — see how [goto] connects multiple script files -> route_branch
+
+# ─── Route: Tutorial Hub ────────────────────────────────────────
+# [goto] navigates to the tutorial_hub scenario's "start" label.
+# The tutorial_count variable tracks how many lessons the player completes.
+# When the player leaves the hub, execution returns here or ends.
 
 @label route_tutorial
 [set tutorial_count 0]
 [goto {{TUTORIAL_TARGET}}:start]
+
+# ─── Route: Branch Demo ─────────────────────────────────────────
+# [goto] navigates to the branch_demo scenario's "start" label.
+# That file runs a short scene, then [goto]s to the epilogue.
+# This demonstrates the prologue → branch → epilogue arc pattern.
 
 @label route_branch
 [goto {{BRANCH_TARGET}}:start]
