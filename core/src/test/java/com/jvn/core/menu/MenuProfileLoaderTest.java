@@ -26,6 +26,7 @@ class MenuProfileLoaderTest {
     MenuScreenSpec main = profile.screen("main");
 
     assertNotNull(main);
+    assertNotNull(profile.screen("history"));
     assertEquals(5, main.items().size());
     assertEquals(MenuActionType.NEW_GAME, main.items().get(0).action().type());
     assertEquals(MenuActionType.LOAD_MENU, main.items().get(1).action().type());

@@ -77,11 +77,13 @@ public record MenuProfile(
     layouts.put("default", defaultLayout());
     layouts.put("submenu", defaultSubmenuLayout());
     layouts.put("slots", defaultSlotsLayout());
+    layouts.put("history", defaultHistoryLayout());
 
     Map<String, MenuStyleSpec> styles = new LinkedHashMap<>();
     styles.put("default", defaultStyle());
     styles.put("submenu", defaultSubmenuStyle());
     styles.put("slot", defaultSlotStyle());
+    styles.put("history", defaultHistoryStyle());
 
     Map<String, MenuScreenSpec> screens = new LinkedHashMap<>();
     screens.put("main", defaultMainScreen());
@@ -92,6 +94,7 @@ public record MenuProfile(
     screens.put("save", defaultSaveScreen());
     screens.put("settings", defaultSettingsScreen());
     screens.put("pause", defaultPauseScreen());
+    screens.put("history", defaultHistoryScreen());
 
     return new MenuProfile("main", screens, layouts, styles);
   }
@@ -110,6 +113,10 @@ public record MenuProfile(
 
   public static MenuLayoutSpec defaultSlotsLayout() {
     return new MenuLayoutSpec("slots", 0.22, 68.0, 0.54, "left", 28.0, 0.12);
+  }
+
+  public static MenuLayoutSpec defaultHistoryLayout() {
+    return new MenuLayoutSpec("history", 0.16, 34.0, 0.88, "left", 18.0, 0.1, 0.5, 0.5, null);
   }
 
   public static MenuStyleSpec defaultStyle() {
@@ -154,6 +161,21 @@ public record MenuProfile(
         "#D8E6FF", "SansSerif", "BOLD", 36, "#00000066",
         "#7888A8", "SansSerif", null, 14,
         null, "#070E1C", 1.0
+    );
+  }
+
+  public static MenuStyleSpec defaultHistoryStyle() {
+    return new MenuStyleSpec(
+        "history",
+        "#E3EBFA", "#FFDFA0", "#EDF4FF", "#7585A2",
+        "", "", "",
+        "SansSerif", "NORMAL", 18,
+        "#00000066", 1.0, 1.0, 1.0,
+        null, null, null, null,
+        14.0, 0.0,
+        "#EEF4FF", "SansSerif", "BOLD", 34, "#00000066",
+        "#C5D2E6", "SansSerif", null, 13,
+        null, "#050A16", 0.72
     );
   }
 
@@ -251,6 +273,20 @@ public record MenuProfile(
         List.of(
             new MenuItemSpec("new_slot", "New Save", "submenu", null, true, new MenuActionSpec(MenuActionType.SAVE_MENU, null), null, null, null, null, null, null, null),
             new MenuItemSpec("save_slot", null, "slot", null, true, new MenuActionSpec(MenuActionType.SAVE_MENU, null), null, null, null, null, null, null, null)
+        )
+    );
+  }
+
+  public static MenuScreenSpec defaultHistoryScreen() {
+    return new MenuScreenSpec(
+        "history",
+        "i18n:history.title",
+        "i18n:history.hint",
+        "history",
+        "history",
+        true,
+        List.of(
+            new MenuItemSpec("history_entry", null, "history", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null)
         )
     );
   }

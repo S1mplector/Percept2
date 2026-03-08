@@ -7,6 +7,7 @@ import java.util.List;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.localization.Localization;
+import com.jvn.core.menu.HistoryMenuScene;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.PauseMenuScene;
@@ -218,6 +219,97 @@ public class MenuRenderer {
           + Localization.t("load.delete") + ": Delete    " + Localization.t("load.rename") + ": R";
     }
     drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle);
+  }
+
+  public void renderHistoryMenu(HistoryMenuScene scene, double w, double h) {
+    MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
+    MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
+    MenuStyleSpec entryStyle = scene != null ? scene.getEntryStyle() : screenStyle;
+    String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
+    drawScreenBackground(w, h, screenStyle, false, screenBg);
+
+    String title = scene != null ? scene.getDisplayTitle() : Localization.t("history.title");
+    double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : resolve(0.1, h);
+    drawTitle(title, w, titleY, screenStyle, layout);
+
+    Font titleFont = resolveTitleFont(screenStyle);
+    Font entryFont = resolveItemFont(entryStyle);
+    double lineHeight = layout != null && layout.lineHeight() > 0 ? layout.lineHeight() : 34.0;
+    Rect content = resolveHistoryContentRect(layout, w, h, titleFont);
+
+    gc.setFill(Color.rgb(8, 12, 20, 0.74));
+    gc.fillRoundRect(content.x() - 12, content.y() - 10, content.w() + 24, content.h() + 20, 14, 14);
+    gc.setStroke(Color.rgb(215, 225, 245, 0.18));
+    gc.setLineWidth(1.2);
+    gc.strokeRoundRect(content.x() - 12, content.y() - 10, content.w() + 24, content.h() + 20, 14, 14);
+
+    List<com.jvn.core.vn.VnHistory.HistoryEntry> entries = scene != null ? scene.getEntries() : List.of();
+    int linesPerPage = scene != null ? scene.linesPerPage(h) : Math.max(1, (int) Math.floor(content.h() / lineHeight));
+    int total = entries.size();
+    int maxOffset = Math.max(0, total - linesPerPage);
+    int effectiveOffset = Math.min(Math.max(0, scene != null ? scene.getScrollOffset() : 0), maxOffset);
+    int startIdx = Math.max(0, total - 1 - effectiveOffset);
+
+    gc.setFont(entryFont);
+    Color entryColor = resolveItemColor(entryStyle, false, true);
+    Color emptyColor = parseColor(entryStyle != null ? entryStyle.itemDisabledColor() : null, Color.rgb(160, 170, 190, 0.9));
+    int drawn = 0;
+    for (int i = startIdx; i >= 0 && drawn < linesPerPage; i--) {
+      com.jvn.core.vn.VnHistory.HistoryEntry entry = entries.get(i);
+      String speakerPrefix = entry.getSpeaker() != null && !entry.getSpeaker().isBlank() ? entry.getSpeaker() + ": " : "";
+      String line = speakerPrefix + entry.getText();
+      String truncated = truncateToWidth(line, Math.max(40, content.w() - 18), entryFont);
+      double rowY = content.y() + drawn * lineHeight;
+      gc.setFill((drawn % 2 == 0) ? Color.rgb(255, 255, 255, 0.055) : Color.rgb(255, 255, 255, 0.03));
+      gc.fillRoundRect(content.x() - 4, rowY + 2, content.w() + 8, Math.max(18, lineHeight - 6), 8, 8);
+      String shadowRaw = entryStyle != null ? entryStyle.itemShadowColor() : null;
+      if (shadowRaw != null && !shadowRaw.isBlank()) {
+        Color shadow = parseColor(shadowRaw, null);
+        if (shadow != null) {
+          double sx = entryStyle.itemShadowOffsetX() != null ? entryStyle.itemShadowOffsetX() : 1.0;
+          double sy = entryStyle.itemShadowOffsetY() != null ? entryStyle.itemShadowOffsetY() : 1.0;
+          gc.setFill(shadow);
+          gc.fillText(truncated, content.x() + sx, rowY + lineHeight * 0.72 + sy);
+        }
+      }
+      gc.setFill(entryColor);
+      gc.fillText(truncated, content.x(), rowY + lineHeight * 0.72);
+      drawn++;
+    }
+
+    if (total == 0) {
+      gc.setFill(emptyColor);
+      gc.setFont(entryFont);
+      gc.fillText(Localization.t("history.empty"), content.x(), content.y() + lineHeight * 0.72);
+    }
+
+    if (maxOffset > 0) {
+      double trackX = content.x() + content.w() + 10;
+      double trackY = content.y();
+      double trackW = 6;
+      double trackH = content.h();
+      gc.setFill(Color.rgb(255, 255, 255, 0.12));
+      gc.fillRoundRect(trackX, trackY, trackW, trackH, 6, 6);
+      double thumbFrac = Math.max(0.08, Math.min(1.0, (double) linesPerPage / (double) total));
+      double thumbH = trackH * thumbFrac;
+      double posFrac = maxOffset == 0 ? 0.0 : (double) effectiveOffset / (double) maxOffset;
+      double thumbY = trackY + (trackH - thumbH) * posFrac;
+      gc.setFill(parseColor(entryStyle != null ? entryStyle.itemSelectedColor() : null, Color.rgb(150, 200, 255, 0.8)));
+      gc.fillRoundRect(trackX, thumbY, trackW, thumbH, 4, 4);
+    }
+
+    if (total > 0) {
+      int totalPages = maxOffset == 0 ? 1 : (maxOffset / linesPerPage) + 1;
+      int currentPage = maxOffset == 0 ? 1 : (effectiveOffset / linesPerPage) + 1;
+      String pageText = "Page " + currentPage + " / " + totalPages;
+      Font hintFont = resolveHintFont(screenStyle);
+      gc.setFont(hintFont);
+      gc.setFill(parseColor(screenStyle != null ? screenStyle.hintsColor() : null, theme.getHintColor()));
+      gc.fillText(pageText, content.x() + content.w() - measure(pageText, hintFont), content.y() - 14);
+    }
+
+    String hints = scene != null ? scene.getDisplayHints() : Localization.t("history.hint");
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 18.0, screenStyle);
   }
 
   public void renderSettings(SettingsScene scene, double w, double h) {
@@ -630,6 +722,21 @@ public class MenuRenderer {
     return t.getLayoutBounds().getWidth();
   }
 
+  private String truncateToWidth(String text, double maxWidth, Font font) {
+    if (text == null) return "";
+    if (maxWidth <= 0) return "";
+    if (measure(text, font) <= maxWidth) return text;
+    String ellipsis = "...";
+    if (measure(ellipsis, font) > maxWidth) return ellipsis;
+    int end = text.length();
+    while (end > 0) {
+      String candidate = text.substring(0, end).stripTrailing() + ellipsis;
+      if (measure(candidate, font) <= maxWidth) return candidate;
+      end--;
+    }
+    return ellipsis;
+  }
+
   public int getHoverIndexForList(int count, double w, double h, double mouseX, double mouseY) {
     if (count <= 0) return -1;
     return hoverIndex(count, null, null, 0, w, h, mouseX, mouseY);
@@ -751,6 +858,32 @@ public class MenuRenderer {
     double itemH = Math.max(24, lineH * 0.92);
     double itemY = baseline - itemH * 0.76;
     return new Rect(listX, itemY, Math.max(1, listW), itemH);
+  }
+
+  private Rect resolveHistoryContentRect(MenuLayoutSpec layout, double w, double h, Font titleFont) {
+    double yStart = layout != null ? resolve(layout.listYStart(), h) : resolve(0.16, h);
+    double lineH = layout != null && layout.lineHeight() > 0 ? layout.lineHeight() : 34.0;
+    double widthFactor = layout != null ? clamp(layout.listWidthFactor(), 0.1, 1.0) : 0.88;
+    double listW = w * widthFactor;
+    Double xCenter = layout != null ? layout.listXCenter() : null;
+    double listX;
+    if (xCenter != null) {
+      listX = w * xCenter - listW / 2.0;
+      listX = clamp(listX, 24, Math.max(24, w - listW - 24));
+    } else {
+      String align = layout != null ? layout.textAlign() : "center";
+      listX = switch (align == null ? "center" : align.toLowerCase()) {
+        case "left" -> 24;
+        case "right" -> Math.max(24, w - listW - 24);
+        default -> (w - listW) / 2.0;
+      };
+    }
+    double titleBottom = layout != null && layout.titleY() != null
+        ? resolve(layout.titleY(), h) + titleFont.getSize() * 1.35
+        : titleFont.getSize() * 2.0;
+    double top = Math.max(yStart, titleBottom);
+    double bottom = h - (layout != null ? Math.max(0.0, layout.hintsBottomMargin()) : 18.0) - 28.0;
+    return new Rect(listX, top, Math.max(120, listW), Math.max(lineH, bottom - top));
   }
 
   private boolean isInlineSlotPreviewEnabled(MenuItemSpec itemSpec, boolean defaultIfMissingSpec) {

@@ -15,6 +15,7 @@ import com.jvn.core.graphics.ViewportScaler2D;
 import com.jvn.core.input.ActionMap;
 import com.jvn.core.input.InputActions;
 import com.jvn.core.input.InputCode;
+import com.jvn.core.menu.HistoryMenuScene;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.PauseMenuScene;
@@ -67,22 +68,13 @@ public class FxLauncher extends Application {
   private void handleToggleHistory() {
     if (engine == null) return;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-    if (currentScene instanceof VnScene) {
-      VnScene vnScene = (VnScene) currentScene;
-      boolean wasShown = vnScene.getState().isHistoryOverlayShown();
-      vnScene.getState().toggleHistoryOverlay();
-      if (!wasShown) vnScene.getState().clearHistoryScroll();
+    if (currentScene instanceof HistoryMenuScene) {
+      engine.scenes().pop();
+      return;
     }
-  }
-
-  private void handleCloseHistory() {
-    if (engine == null) return;
-    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-    if (currentScene instanceof VnScene) {
-      VnScene vnScene = (VnScene) currentScene;
-      if (vnScene.getState().isHistoryOverlayShown()) {
-        vnScene.getState().setHistoryOverlayShown(false);
-      }
+    if (currentScene instanceof VnScene vnScene) {
+      vnScene.getState().clearHistoryScroll();
+      engine.scenes().push(new HistoryMenuScene(engine, vnScene));
     }
   }
 
@@ -113,41 +105,10 @@ public class FxLauncher extends Application {
 
     // Input handling
     scene.setOnKeyPressed(e -> {
-      // Intercept when VN save slot overlay is open
       com.jvn.core.scene.Scene cur = engine != null ? engine.scenes().peek() : null;
-      if (cur instanceof VnScene vn && vn.getState().isSaveSlotOverlayShown()) {
-        handleSaveSlotOverlayInput(vn, e);
+      if (cur instanceof HistoryMenuScene historyScene) {
+        handleHistoryMenuInput(historyScene, e.getCode(), e.isShiftDown());
         e.consume();
-        return;
-      }
-      
-      // Intercept when VN history overlay is open
-      if (cur instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
-        int pageLines = vnRenderer != null ? vnRenderer.getHistoryLinesPerPage(canvas.getHeight()) : 5;
-        int step = e.isShiftDown() ? 5 : 1;
-        if (e.getCode() == KeyCode.ESCAPE || e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.B) {
-          // Close overlay on Esc/Space/Enter/B
-          vn.getState().setHistoryOverlayShown(false);
-          e.consume();
-          return;
-        } else if (e.getCode() == KeyCode.UP) {
-          vn.getState().scrollHistoryByLines(step);
-          e.consume();
-          return;
-        } else if (e.getCode() == KeyCode.DOWN) {
-          vn.getState().scrollHistoryByLines(-step);
-          e.consume();
-          return;
-        } else if (e.getCode() == KeyCode.PAGE_UP) {
-          vn.getState().scrollHistoryByLines(pageLines);
-          e.consume();
-          return;
-        } else if (e.getCode() == KeyCode.PAGE_DOWN) {
-          vn.getState().scrollHistoryByLines(-pageLines);
-          e.consume();
-          return;
-        }
-        // Ignore other keys while overlay is open
         return;
       }
 
@@ -190,11 +151,11 @@ public class FxLauncher extends Application {
       } else if (e.getCode() == KeyCode.RIGHT) {
         handleSettingsAdjust(1);
       } else if (e.getCode() == KeyCode.F5) {
-        // F5 = Show save slot overlay
-        handleShowSaveSlotOverlay(true);
+        // F5 = Open save menu
+        handleOpenSaveMenu();
       } else if (e.getCode() == KeyCode.F9) {
-        // F9 = Show load slot overlay
-        handleShowSaveSlotOverlay(false);
+        // F9 = Open load menu
+        handleOpenLoadMenu();
       } else if (e.getCode() == KeyCode.F6) {
         // F6 = Save menu (in-game)
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
@@ -317,14 +278,6 @@ public class FxLauncher extends Application {
 
     canvas.setOnMouseClicked(e -> {
       if (e.getButton() == MouseButton.PRIMARY) {
-        // If history overlay open, close it instead of interacting
-        if (engine != null) {
-          com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-          if (currentScene instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
-            vn.getState().setHistoryOverlayShown(false);
-            return;
-          }
-        }
         handleMouseClick(e.getX(), e.getY());
       } else if (e.getButton() == MouseButton.SECONDARY) {
         // Right-click = open pause menu or pop menu
@@ -339,10 +292,14 @@ public class FxLauncher extends Application {
       }
       if (engine != null) {
         com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-        if (currentScene instanceof VnScene vn && vn.getState().isHistoryOverlayShown()) {
+        if (currentScene instanceof HistoryMenuScene historyScene) {
           double dy = e.getDeltaY();
           int step = e.isShiftDown() ? 6 : 2;
-          if (dy > 0) vn.getState().scrollHistoryByLines(step); else if (dy < 0) vn.getState().scrollHistoryByLines(-step);
+          if (dy > 0) {
+            historyScene.scrollByLines(step);
+          } else if (dy < 0) {
+            historyScene.scrollByLines(-step);
+          }
         }
       }
     });
@@ -362,6 +319,7 @@ public class FxLauncher extends Application {
         long deltaMs = (now - lastNs) / 1_000_000L;
         lastNs = now;
         if (engine != null) engine.update(deltaMs);
+        syncRequestedVnMenus();
 
         // Render
         if (gc != null && canvas != null) {
@@ -400,6 +358,14 @@ public class FxLauncher extends Application {
         vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
       }
       menuRenderer.renderPauseMenu(pause, ctx.width(), ctx.height());
+    });
+    reg.register(HistoryMenuScene.class, (history, ctx) -> {
+      VnScene vn = history.getVnScene();
+      if (vn != null) {
+        vnRenderer.setAudioFacade(vn.getAudioFacade());
+        vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
+      }
+      menuRenderer.renderHistoryMenu(history, ctx.width(), ctx.height());
     });
     reg.register(MainMenuScene.class, (scene, ctx) -> menuRenderer.renderMainMenu(scene, ctx.width(), ctx.height()));
     reg.register(LoadMenuScene.class, (scene, ctx) -> menuRenderer.renderLoadMenu(scene, ctx.width(), ctx.height()));
@@ -516,85 +482,72 @@ public class FxLauncher extends Application {
     }
   }
 
-  private void handleShowSaveSlotOverlay(boolean isSaveMode) {
+  private void handleOpenSaveMenu() {
     if (engine == null) return;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof VnScene vn) {
-      vn.getState().showSaveSlotOverlay(isSaveMode);
+      engine.scenes().push(new SaveMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), vn));
     }
   }
 
-  private void handleSaveSlotOverlayInput(VnScene vn, javafx.scene.input.KeyEvent e) {
-    var state = vn.getState();
-    KeyCode code = e.getCode();
-    
-    if (code == KeyCode.ESCAPE) {
-      state.hideSaveSlotOverlay();
-    } else if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
-      // Confirm selection
-      int slot = state.getSaveSlotSelected();
-      boolean isSaveMode = state.isSaveSlotOverlaySaveMode();
-      state.hideSaveSlotOverlay();
-      
-      if (isSaveMode) {
-        performSlotSave(vn, slot);
-      } else {
-        performSlotLoad(vn, slot);
-      }
+  private void handleOpenLoadMenu() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene vn) {
+      String fallbackScript = resolveDefaultScriptForMenus(vn);
+      engine.scenes().push(new LoadMenuScene(
+          engine,
+          new com.jvn.core.vn.save.VnSaveManager(),
+          fallbackScript,
+          vn.getState().getSettings(),
+          vn.getAudioFacade()
+      ));
+    }
+  }
+
+  private void handleHistoryMenuInput(HistoryMenuScene historyScene, KeyCode code, boolean shiftDown) {
+    if (historyScene == null) return;
+    int pageLines = historyScene.linesPerPage(canvas != null ? canvas.getHeight() : 540.0);
+    int step = shiftDown ? 5 : 1;
+    if (code == KeyCode.ESCAPE || code == KeyCode.SPACE || code == KeyCode.ENTER || code == KeyCode.B) {
+      historyScene.close();
     } else if (code == KeyCode.UP) {
-      // Move up (subtract 2 to go to previous row)
-      state.moveSaveSlotSelection(-2);
+      historyScene.scrollByLines(step);
     } else if (code == KeyCode.DOWN) {
-      // Move down (add 2 to go to next row)
-      state.moveSaveSlotSelection(2);
-    } else if (code == KeyCode.LEFT) {
-      state.moveSaveSlotSelection(-1);
-    } else if (code == KeyCode.RIGHT) {
-      state.moveSaveSlotSelection(1);
-    } else if (code.isDigitKey()) {
-      // Direct slot selection with number keys
-      String name = code.getName();
-      try {
-        int digit = Integer.parseInt(name);
-        state.setSaveSlotSelected(digit);
-      } catch (NumberFormatException ignored) {}
+      historyScene.scrollByLines(-step);
+    } else if (code == KeyCode.PAGE_UP) {
+      historyScene.scrollByLines(pageLines);
+    } else if (code == KeyCode.PAGE_DOWN) {
+      historyScene.scrollByLines(-pageLines);
     }
   }
 
-  // Centralized save slot service
-  private final com.jvn.core.vn.save.VnSaveSlotService saveSlotService = new com.jvn.core.vn.save.VnSaveSlotService();
-
-  private void performSlotSave(VnScene vn, int slot) {
-    String slotName = saveSlotService.getSlotName(slot);
-    var slotInfo = saveSlotService.getSlotInfo(slot);
-    try {
-      var saveManager = new com.jvn.core.vn.save.VnSaveManager();
-      saveManager.save(vn.getState(), slotName);
-      try { writeSaveThumbnail(vn, slotName); } catch (Exception ignored) {}
-      vn.getState().showHudMessage("Saved to " + slotInfo.displayName(), 1500);
-    } catch (Exception e) {
-      vn.getState().showHudMessage("Save failed", 1500);
-    }
-  }
-
-  private void performSlotLoad(VnScene vn, int slot) {
-    String slotName = saveSlotService.getSlotName(slot);
-    var slotInfo = saveSlotService.getSlotInfo(slot);
-    if (!slotInfo.hasData()) {
-      vn.getState().showHudMessage(slotInfo.displayName() + " is empty", 1500);
+  private void syncRequestedVnMenus() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (!(currentScene instanceof VnScene vn)) return;
+    var state = vn.getState();
+    if (state == null) return;
+    if (state.isSaveSlotOverlayShown()) {
+      boolean saveMode = state.isSaveSlotOverlaySaveMode();
+      state.hideSaveSlotOverlay();
+      if (saveMode) {
+        engine.scenes().push(new SaveMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), vn));
+      } else {
+        String fallbackScript = resolveDefaultScriptForMenus(vn);
+        engine.scenes().push(new LoadMenuScene(
+            engine,
+            new com.jvn.core.vn.save.VnSaveManager(),
+            fallbackScript,
+            state.getSettings(),
+            vn.getAudioFacade()
+        ));
+      }
       return;
     }
-    try {
-      var saveManager = new com.jvn.core.vn.save.VnSaveManager();
-      var saveData = saveManager.load(slotName);
-      if (saveData.getScenarioId().equals(vn.getScenario().getId())) {
-        saveManager.applyToState(saveData, vn.getState());
-        vn.getState().showHudMessage("Loaded from " + slotInfo.displayName(), 1500);
-      } else {
-        vn.getState().showHudMessage("Save is for different scenario", 1500);
-      }
-    } catch (Exception e) {
-      vn.getState().showHudMessage("Load failed: " + e.getMessage(), 1500);
+    if (state.isHistoryOverlayShown()) {
+      state.setHistoryOverlayShown(false);
+      engine.scenes().push(new HistoryMenuScene(engine, vn));
     }
   }
 
@@ -648,6 +601,8 @@ public class FxLauncher extends Application {
         main.setSelected(idx);
         main.activateSelected();
       }
+    } else if (currentScene instanceof HistoryMenuScene history) {
+      history.close();
     } else if (currentScene instanceof LoadMenuScene load) {
       int idx = menuRenderer.getHoverIndexForLoadMenu(load, canvas.getWidth(), canvas.getHeight(), x, y);
       if (idx >= 0) {
@@ -695,17 +650,15 @@ public class FxLauncher extends Application {
         return true;
       }
       case "save_slots", "open_save_slots" -> {
-        state.showSaveSlotOverlay(true);
+        handleOpenSaveMenu();
         return true;
       }
       case "load_slots", "open_load_slots" -> {
-        state.showSaveSlotOverlay(false);
+        handleOpenLoadMenu();
         return true;
       }
       case "toggle_history", "history" -> {
-        boolean wasShown = state.isHistoryOverlayShown();
-        state.toggleHistoryOverlay();
-        if (!wasShown) state.clearHistoryScroll();
+        handleToggleHistory();
         return true;
       }
       case "toggle_skip", "skip" -> {
@@ -811,6 +764,9 @@ public class FxLauncher extends Application {
     } else if (currentScene instanceof MainMenuScene main) {
       main.activateSelected();
       return true;
+    } else if (currentScene instanceof HistoryMenuScene history) {
+      history.close();
+      return true;
     } else if (currentScene instanceof LoadMenuScene load) {
       load.activateSelected();
       return true;
@@ -841,7 +797,8 @@ public class FxLauncher extends Application {
     if (engine == null) return false;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof PauseMenuScene || currentScene instanceof LoadMenuScene
-        || currentScene instanceof SettingsScene || currentScene instanceof SaveMenuScene) {
+        || currentScene instanceof SettingsScene || currentScene instanceof SaveMenuScene
+        || currentScene instanceof HistoryMenuScene) {
       engine.scenes().pop();
       return true;
     }

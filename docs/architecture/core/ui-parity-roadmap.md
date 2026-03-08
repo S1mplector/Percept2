@@ -96,7 +96,8 @@ Status:
 Current JVN surface:
 
 - menu save/load screens
-- hardcoded save slot overlay path in [`VnRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- save/load routing in [`FxLauncher.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/FxLauncher.java)
+- preview save/load routing in [`VnPreviewView.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/editor/src/main/java/com/jvn/editor/ui/VnPreviewView.java)
 
 Patch requirements:
 
@@ -106,7 +107,7 @@ Patch requirements:
 
 Status:
 
-- not started
+- completed
 
 ### `preferences`
 
@@ -129,7 +130,8 @@ Status:
 Current JVN surface:
 
 - history runtime support
-- hardcoded history overlay rendering in [`VnRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- themed history scene in [`HistoryMenuScene.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/core/src/main/java/com/jvn/core/menu/HistoryMenuScene.java)
+- history rendering in [`MenuRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
 
 Patch requirements:
 
@@ -139,7 +141,7 @@ Patch requirements:
 
 Status:
 
-- not started
+- completed
 
 ### `help`
 

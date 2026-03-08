@@ -18,6 +18,10 @@ import com.jvn.audio.simp3.Simp3AudioService;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.FilesystemAssetManager;
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.menu.HistoryMenuScene;
+import com.jvn.core.menu.LoadMenuScene;
+import com.jvn.core.menu.SaveMenuScene;
+import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.DefaultVnInterop;
 import com.jvn.core.vn.VnExternalCommand;
 import com.jvn.core.vn.VnInteropResult;
@@ -32,6 +36,8 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
 import com.jvn.fx.audio.FxAudioService;
+import com.jvn.fx.menu.MenuRenderer;
+import com.jvn.fx.menu.MenuTheme;
 import com.jvn.fx.vn.VnRenderer;
 
 import javafx.scene.canvas.Canvas;
@@ -50,12 +56,13 @@ public class VnPreviewView extends StackPane {
       "Space, Enter: Advance",
       "Ctrl/Cmd: Toggle Skip    A: Toggle Auto    H: Toggle UI",
       "B: Toggle History    Esc: Close overlays",
-      "F5: Save slots    F9: Load slots",
-      "Digits: Choice/save-slot selection");
+      "F5: Save menu    F9: Load menu",
+      "Digits: Choice selection");
 
   private final Canvas canvas = new Canvas(1200, 740);
   private final GraphicsContext gc = canvas.getGraphicsContext2D();
   private final VnRenderer renderer = new VnRenderer(gc);
+  private final MenuRenderer menuRenderer = new MenuRenderer(gc, MenuTheme.fromAssets());
   private final Tooltip previewTooltip = new Tooltip(PREVIEW_HINT);
   private static final Pattern TIMELINE_ARC_PATTERN = Pattern.compile(
       "^\\s*arc\\s+(?:\"([^\"]+)\"|(\\S+))\\s+script\\s+(?:\"([^\"]+)\"|(\\S+)).*$");
@@ -68,6 +75,8 @@ public class VnPreviewView extends StackPane {
   private VnUiLayoutSpec uiLayoutOverride;
   private VnUiStyleSpec uiStyleOverride;
   private List<VnUiActionButtonSpec> textBoxButtonsOverride = List.of();
+  private final VnSaveManager previewSaveManager = new VnSaveManager();
+  private Scene overlayScene;
 
   // Virtual viewport: render at the game's target resolution, scale to fit canvas
   private int virtualWidth = 0;
@@ -79,7 +88,11 @@ public class VnPreviewView extends StackPane {
     canvas.setFocusTraversable(true);
 
     // Input handlers
-    canvas.setOnMouseMoved(e -> { mouseX = e.getX(); mouseY = e.getY(); });
+    canvas.setOnMouseMoved(e -> {
+      mouseX = e.getX();
+      mouseY = e.getY();
+      updateOverlayHover(mouseX, mouseY);
+    });
     canvas.setOnMouseClicked(e -> handleMouseClick(e.getButton(), e.getClickCount(), e.getX(), e.getY()));
     canvas.setOnScroll(this::handleScroll);
 
@@ -156,6 +169,7 @@ public class VnPreviewView extends StackPane {
     renderer.updateAnimation(deltaMs);
     renderer.setAudioFacade(scene.getAudioFacade());
     applyUiOverrides();
+    syncRequestedOverlayScene();
 
     double vw = virtualWidth > 0 ? virtualWidth : canvasW;
     double vh = virtualHeight > 0 ? virtualHeight : canvasH;
@@ -177,6 +191,7 @@ public class VnPreviewView extends StackPane {
     gc.translate(offsetX, offsetY);
     gc.scale(scale, scale);
     renderer.render(scene.getState(), scene.getScenario(), vw, vh, virtualMouseX, virtualMouseY);
+    renderOverlayScene(vw, vh);
     gc.restore();
   }
 
@@ -203,6 +218,7 @@ public class VnPreviewView extends StackPane {
     if (scenario == null) {
       stopAudio();
       this.scene = null;
+      this.overlayScene = null;
       renderer.setAudioFacade(null);
       return;
     }
@@ -210,6 +226,7 @@ public class VnPreviewView extends StackPane {
     VnSettings existingSettings = scene == null ? null : scene.getState().getSettings();
     VnScene nextScene = buildScene(scenario, startLabel, sourceScriptName, existingSettings);
     this.scene = nextScene;
+    this.overlayScene = null;
     renderer.setAudioFacade(audio);
     requestFocus();
   }
@@ -236,6 +253,40 @@ public class VnPreviewView extends StackPane {
     }
     nextScene.onEnter();
     return nextScene;
+  }
+
+  private void renderOverlayScene(double vw, double vh) {
+    if (overlayScene instanceof SaveMenuScene save) {
+      menuRenderer.renderSaveMenu(save, vw, vh);
+    } else if (overlayScene instanceof LoadMenuScene load) {
+      menuRenderer.renderLoadMenu(load, vw, vh);
+    } else if (overlayScene instanceof HistoryMenuScene history) {
+      menuRenderer.renderHistoryMenu(history, vw, vh);
+    }
+  }
+
+  private void syncRequestedOverlayScene() {
+    if (scene == null || overlayScene != null) return;
+    var state = scene.getState();
+    if (state == null) return;
+    if (state.isSaveSlotOverlayShown()) {
+      boolean saveMode = state.isSaveSlotOverlaySaveMode();
+      state.hideSaveSlotOverlay();
+      if (saveMode) {
+        overlayScene = new SaveMenuScene(null, previewSaveManager, scene, sourceScriptName);
+      } else {
+        overlayScene = new LoadMenuScene(null, previewSaveManager, normalizeScriptKey(sourceScriptName), state.getSettings(), audio);
+      }
+      return;
+    }
+    if (state.isHistoryOverlayShown()) {
+      state.setHistoryOverlayShown(false);
+      overlayScene = new HistoryMenuScene(null, scene);
+    }
+  }
+
+  private void closeOverlayScene() {
+    overlayScene = null;
   }
 
   private final class PreviewVnInterop extends DefaultVnInterop {
@@ -388,6 +439,20 @@ public class VnPreviewView extends StackPane {
     return value == null ? "" : value.trim();
   }
 
+  private void updateOverlayHover(double x, double y) {
+    double vx = toVirtualX(x);
+    double vy = toVirtualY(y);
+    double vw = viewportW();
+    double vh = viewportH();
+    if (overlayScene instanceof SaveMenuScene save) {
+      int idx = menuRenderer.getHoverIndexForSaveMenu(save, vw, vh, vx, vy);
+      if (idx >= 0) save.setSelected(idx);
+    } else if (overlayScene instanceof LoadMenuScene load) {
+      int idx = menuRenderer.getHoverIndexForLoadMenu(load, vw, vh, vx, vy);
+      if (idx >= 0) load.setSelected(idx);
+    }
+  }
+
   private void handleMouseClick(MouseButton button, int clickCount, double x, double y) {
     mouseX = x;
     mouseY = y;
@@ -434,18 +499,21 @@ public class VnPreviewView extends StackPane {
         loadFromSlot(0);
         return true;
       }
-      case "save_slots", "open_save_slots" -> {
-        state.showSaveSlotOverlay(true);
+      case "save_slots", "open_save_slots", "save_menu", "open_save_menu", "menu_save" -> {
+        overlayScene = new SaveMenuScene(null, previewSaveManager, scene, sourceScriptName);
         return true;
       }
-      case "load_slots", "open_load_slots" -> {
-        state.showSaveSlotOverlay(false);
+      case "load_slots", "open_load_slots", "load_menu", "open_load_menu", "menu_load" -> {
+        overlayScene = new LoadMenuScene(null, previewSaveManager, normalizeScriptKey(sourceScriptName), state.getSettings(), audio);
         return true;
       }
       case "toggle_history", "history" -> {
-        boolean wasShown = state.isHistoryOverlayShown();
-        state.toggleHistoryOverlay();
-        if (!wasShown) state.clearHistoryScroll();
+        if (overlayScene instanceof HistoryMenuScene) {
+          closeOverlayScene();
+        } else {
+          state.clearHistoryScroll();
+          overlayScene = new HistoryMenuScene(null, scene);
+        }
         return true;
       }
       case "toggle_skip", "skip" -> {
@@ -476,24 +544,41 @@ public class VnPreviewView extends StackPane {
   }
 
   private boolean handleOverlayMouseClick(int clickCount, double x, double y) {
-    var state = scene.getState();
+    double vx = toVirtualX(x);
+    double vy = toVirtualY(y);
+    double vw = viewportW();
+    double vh = viewportH();
 
-    if (state.isSaveSlotOverlayShown()) {
-      int slot = renderer.getHoveredSaveSlotIndex(viewportW(), viewportH(), toVirtualX(x), toVirtualY(y));
-      if (slot < 0) {
-        state.hideSaveSlotOverlay();
+    if (overlayScene instanceof SaveMenuScene save) {
+      int idx = menuRenderer.getHoverIndexForSaveMenu(save, vw, vh, vx, vy);
+      if (idx < 0) {
+        closeOverlayScene();
         return true;
       }
-      int previous = state.getSaveSlotSelected();
-      state.setSaveSlotSelected(slot);
-      if (clickCount >= 2 || previous == slot) {
-        confirmSaveSlotAction();
+      int previous = save.getSelected();
+      save.setSelected(idx);
+      if (clickCount >= 2 || previous == idx) {
+        confirmOverlayAction();
       }
       return true;
     }
 
-    if (state.isHistoryOverlayShown()) {
-      state.setHistoryOverlayShown(false);
+    if (overlayScene instanceof LoadMenuScene load) {
+      int idx = menuRenderer.getHoverIndexForLoadMenu(load, vw, vh, vx, vy);
+      if (idx < 0) {
+        closeOverlayScene();
+        return true;
+      }
+      int previous = load.getSelected();
+      load.setSelected(idx);
+      if (clickCount >= 2 || previous == idx) {
+        confirmOverlayAction();
+      }
+      return true;
+    }
+
+    if (overlayScene instanceof HistoryMenuScene) {
+      closeOverlayScene();
       return true;
     }
 
@@ -505,14 +590,8 @@ public class VnPreviewView extends StackPane {
     KeyCode code = e.getCode();
     var state = scene.getState();
 
-    if (state.isSaveSlotOverlayShown()) {
-      handleSaveSlotOverlayKey(code);
-      e.consume();
-      return;
-    }
-
-    if (state.isHistoryOverlayShown()) {
-      handleHistoryOverlayKey(code, e.isShiftDown());
+    if (overlayScene != null) {
+      handleOverlayKey(code, e.isShiftDown());
       e.consume();
       return;
     }
@@ -535,86 +614,89 @@ public class VnPreviewView extends StackPane {
       state.toggleUiHidden();
       e.consume();
     } else if (code == KeyCode.B) {
-      boolean wasShown = state.isHistoryOverlayShown();
-      state.toggleHistoryOverlay();
-      if (!wasShown) state.clearHistoryScroll();
+      state.clearHistoryScroll();
+      overlayScene = new HistoryMenuScene(null, scene);
       e.consume();
     } else if (code == KeyCode.F5) {
-      state.showSaveSlotOverlay(true);
+      overlayScene = new SaveMenuScene(null, previewSaveManager, scene, sourceScriptName);
       e.consume();
     } else if (code == KeyCode.F9) {
-      state.showSaveSlotOverlay(false);
+      overlayScene = new LoadMenuScene(null, previewSaveManager, normalizeScriptKey(sourceScriptName), state.getSettings(), audio);
       e.consume();
     } else if (code == KeyCode.ESCAPE) {
-      state.setHistoryOverlayShown(false);
-      state.hideSaveSlotOverlay();
+      closeOverlayScene();
       e.consume();
     }
   }
 
-  private void handleHistoryOverlayKey(KeyCode code, boolean shiftDown) {
-    var state = scene.getState();
-    int pageLines = renderer.getHistoryLinesPerPage(viewportH());
-    int step = shiftDown ? 5 : 1;
-
-    if (code == KeyCode.ESCAPE || code == KeyCode.SPACE || code == KeyCode.ENTER || code == KeyCode.B) {
-      state.setHistoryOverlayShown(false);
-    } else if (code == KeyCode.UP) {
-      state.scrollHistoryByLines(step);
-    } else if (code == KeyCode.DOWN) {
-      state.scrollHistoryByLines(-step);
-    } else if (code == KeyCode.PAGE_UP) {
-      state.scrollHistoryByLines(pageLines);
-    } else if (code == KeyCode.PAGE_DOWN) {
-      state.scrollHistoryByLines(-pageLines);
-    }
-  }
-
-  private void handleSaveSlotOverlayKey(KeyCode code) {
-    var state = scene.getState();
-    if (code == KeyCode.ESCAPE) {
-      state.hideSaveSlotOverlay();
-      return;
-    }
-    if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
-      confirmSaveSlotAction();
-      return;
-    }
-    if (code == KeyCode.UP) {
-      state.moveSaveSlotSelection(-2);
-      return;
-    }
-    if (code == KeyCode.DOWN) {
-      state.moveSaveSlotSelection(2);
-      return;
-    }
-    if (code == KeyCode.LEFT) {
-      state.moveSaveSlotSelection(-1);
-      return;
-    }
-    if (code == KeyCode.RIGHT) {
-      state.moveSaveSlotSelection(1);
+  private void handleOverlayKey(KeyCode code, boolean shiftDown) {
+    if (overlayScene instanceof HistoryMenuScene history) {
+      int pageLines = history.linesPerPage(viewportH());
+      int step = shiftDown ? 5 : 1;
+      if (code == KeyCode.ESCAPE || code == KeyCode.SPACE || code == KeyCode.ENTER || code == KeyCode.B) {
+        closeOverlayScene();
+      } else if (code == KeyCode.UP) {
+        history.scrollByLines(step);
+      } else if (code == KeyCode.DOWN) {
+        history.scrollByLines(-step);
+      } else if (code == KeyCode.PAGE_UP) {
+        history.scrollByLines(pageLines);
+      } else if (code == KeyCode.PAGE_DOWN) {
+        history.scrollByLines(-pageLines);
+      }
       return;
     }
 
-    int digit = toDigit(code);
-    if (digit >= 0) {
-      state.setSaveSlotSelected(digit);
+    if (overlayScene instanceof SaveMenuScene save) {
+      if (code == KeyCode.ESCAPE) {
+        closeOverlayScene();
+        return;
+      }
+      if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
+        confirmOverlayAction();
+        return;
+      }
+      if (code == KeyCode.UP) {
+        save.moveSelection(-1);
+        return;
+      }
+      if (code == KeyCode.DOWN) {
+        save.moveSelection(1);
+        return;
+      }
+      return;
+    }
+
+    if (overlayScene instanceof LoadMenuScene load) {
+      if (code == KeyCode.ESCAPE) {
+        closeOverlayScene();
+        return;
+      }
+      if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
+        confirmOverlayAction();
+        return;
+      }
+      if (code == KeyCode.UP) {
+        load.moveSelection(-1);
+        return;
+      }
+      if (code == KeyCode.DOWN) {
+        load.moveSelection(1);
+      }
     }
   }
 
   private void handleScroll(ScrollEvent e) {
     if (scene == null) return;
-    var state = scene.getState();
-    if (!state.isHistoryOverlayShown()) return;
-
-    int step = e.isShiftDown() ? 6 : 2;
-    if (e.getDeltaY() > 0) {
-      state.scrollHistoryByLines(step);
-    } else if (e.getDeltaY() < 0) {
-      state.scrollHistoryByLines(-step);
+    if (overlayScene instanceof HistoryMenuScene history) {
+      int step = e.isShiftDown() ? 6 : 2;
+      if (e.getDeltaY() > 0) {
+        history.scrollByLines(step);
+      } else if (e.getDeltaY() < 0) {
+        history.scrollByLines(-step);
+      }
+      e.consume();
     }
-    e.consume();
   }
 
   private void advanceFromInput() {
@@ -642,22 +724,31 @@ public class VnPreviewView extends StackPane {
     return false;
   }
 
-  private void confirmSaveSlotAction() {
-    var state = scene.getState();
-    int slot = state.getSaveSlotSelected();
-    boolean isSave = state.isSaveSlotOverlaySaveMode();
-    state.hideSaveSlotOverlay();
-    if (isSave) {
-      saveToSlot(slot);
-    } else {
-      loadFromSlot(slot);
+  private void confirmOverlayAction() {
+    if (overlayScene instanceof SaveMenuScene save) {
+      if (!save.activateSelectedWithoutPrompt()) {
+        String slotName = save.isNewItemSelected()
+            ? save.saveNew(save.generateSaveName())
+            : save.saveOverwriteSelected();
+        if (slotName != null) {
+          closeOverlayScene();
+        }
+      }
+      return;
+    }
+    if (overlayScene instanceof LoadMenuScene load) {
+      String saveName = load.getSelectedName();
+      if (saveName != null) {
+        loadFromSaveName(saveName);
+        closeOverlayScene();
+      }
     }
   }
 
   private void saveToSlot(int slot) {
     String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
     try {
-      new VnSaveManager().save(scene.getState(), slotName);
+      previewSaveManager.save(scene.getState(), slotName);
       scene.getState().showHudMessage("Saved to " + slotLabel(slot), 1500);
     } catch (Exception e) {
       scene.getState().showHudMessage("Save failed", 1500);
@@ -666,24 +757,31 @@ public class VnPreviewView extends StackPane {
 
   private void loadFromSlot(int slot) {
     String slotName = slot == 0 ? "_quicksave" : ("slot_" + slot);
+    loadFromSaveName(slotName, slot == 0 ? "No quick save found" : ("Slot " + slot + " is empty"), "Loaded from " + slotLabel(slot));
+  }
+
+  private void loadFromSaveName(String saveName) {
+    loadFromSaveName(saveName, "Save is empty", "Loaded from " + saveName);
+  }
+
+  private void loadFromSaveName(String saveName, String missingMessage, String successMessage) {
     try {
-      VnSaveManager saveManager = new VnSaveManager();
-      var saveData = saveManager.load(slotName);
+      var saveData = previewSaveManager.load(saveName);
       String expectedScenarioId = scene.getScenario() != null ? scene.getScenario().getId() : null;
       if (!Objects.equals(saveData.getScenarioId(), expectedScenarioId)) {
         scene.getState().showHudMessage("Save is for different scenario", 1800);
         return;
       }
-      saveManager.applyToState(saveData, scene.getState());
+      previewSaveManager.applyToState(saveData, scene.getState());
       if (audio != null) {
         var s = scene.getState().getSettings();
         audio.setBgmVolume(s.getBgmVolume());
         audio.setSfxVolume(s.getSfxVolume());
         audio.setVoiceVolume(s.getVoiceVolume());
       }
-      scene.getState().showHudMessage("Loaded from " + slotLabel(slot), 1500);
+      scene.getState().showHudMessage(successMessage, 1500);
     } catch (Exception e) {
-      scene.getState().showHudMessage(slot == 0 ? "No quick save found" : ("Slot " + slot + " is empty"), 1800);
+      scene.getState().showHudMessage(missingMessage, 1800);
     }
   }
 
@@ -756,6 +854,7 @@ public class VnPreviewView extends StackPane {
   public void dispose() {
     stopAudio();
     scene = null;
+    overlayScene = null;
     projectRoot = null;
     audio = null;
     renderer.setAudioFacade(null);
