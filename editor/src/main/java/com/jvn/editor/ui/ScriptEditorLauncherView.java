@@ -960,7 +960,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button findBtn = toolbarButton(
           "Find",
           "Find & Replace (Ctrl+F)",
-          CssIcon.search("#8ab4f8"));
+          CssIcon.list("#8ab4f8"));
       findBtn.setOnAction(e -> {
         VnsCodeEditor ed = activeEditor(editorTabs);
         if (ed != null) ed.showSearchBar();

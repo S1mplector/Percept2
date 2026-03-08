@@ -13,6 +13,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
@@ -38,7 +39,11 @@ public final class StartupSplashOverlay {
   private final ProgressBar progressBar = new ProgressBar(0);
   private final Button retryButton = createActionButton("Retry");
   private final Button quitButton = createActionButton("Quit");
-  private final HBox actionBar = new HBox(8, retryButton, quitButton);
+  private final Button continueWithoutTestsButton =
+      createActionButton("Continue without tests", CssIcon.play("#8bcf98"), true);
+  private final Button runTestsAndContinueButton =
+      createActionButton("Run tests and continue", CssIcon.check("#8ab4f8"), false);
+  private final HBox actionBar = new HBox(8);
   private String progressAccent = "#6ea8ff";
 
   public StartupSplashOverlay(Path logoPath) {
@@ -94,6 +99,7 @@ public final class StartupSplashOverlay {
     actionBar.setAlignment(Pos.CENTER_LEFT);
     actionBar.setVisible(false);
     actionBar.setManaged(false);
+    actionBar.getChildren().setAll(retryButton, quitButton);
 
     progressBar.setMaxWidth(Double.MAX_VALUE);
     progressBar.setPrefHeight(10);
@@ -147,8 +153,9 @@ public final class StartupSplashOverlay {
       progressAccent = "#6ea8ff";
       retryButton.setDisable(true);
       quitButton.setDisable(true);
-      actionBar.setVisible(false);
-      actionBar.setManaged(false);
+      continueWithoutTestsButton.setDisable(true);
+      runTestsAndContinueButton.setDisable(true);
+      hideActions();
       styleProgressBarForBlackChrome();
     });
   }
@@ -178,8 +185,11 @@ public final class StartupSplashOverlay {
       detailLabel.setTextFill(Color.web("#d6a5b5"));
       progressAccent = "#f38ba8";
       styleProgressBarForBlackChrome();
+      showActions(retryButton, quitButton);
       retryButton.setDisable(false);
       quitButton.setDisable(false);
+      continueWithoutTestsButton.setDisable(true);
+      runTestsAndContinueButton.setDisable(true);
       retryButton.setOnAction(evt -> {
         retryButton.setDisable(true);
         quitButton.setDisable(true);
@@ -188,8 +198,35 @@ public final class StartupSplashOverlay {
       quitButton.setOnAction(evt -> {
         if (onQuit != null) onQuit.run();
       });
-      actionBar.setVisible(true);
-      actionBar.setManaged(true);
+    });
+  }
+
+  public void showTestChoice(Runnable onContinueWithoutTests, Runnable onRunTestsAndContinue) {
+    runOnFx(() -> {
+      subtitleLabel.setText("Startup preflight complete");
+      statusLabel.setText("Choose how to continue");
+      statusLabel.setTextFill(Color.web("#b7c3d9"));
+      detailLabel.setText("Native libraries and runtime checks passed. You can continue immediately or run the full repository test suite before opening the editor.");
+      detailLabel.setTextFill(Color.web("#9caac0"));
+      detailLabel.setVisible(true);
+      detailLabel.setManaged(true);
+      progressAccent = "#d9b36a";
+      styleProgressBarForBlackChrome();
+      showActions(continueWithoutTestsButton, runTestsAndContinueButton);
+      retryButton.setDisable(true);
+      quitButton.setDisable(true);
+      continueWithoutTestsButton.setDisable(false);
+      runTestsAndContinueButton.setDisable(false);
+      continueWithoutTestsButton.setOnAction(evt -> {
+        continueWithoutTestsButton.setDisable(true);
+        runTestsAndContinueButton.setDisable(true);
+        if (onContinueWithoutTests != null) onContinueWithoutTests.run();
+      });
+      runTestsAndContinueButton.setOnAction(evt -> {
+        continueWithoutTestsButton.setDisable(true);
+        runTestsAndContinueButton.setDisable(true);
+        if (onRunTestsAndContinue != null) onRunTestsAndContinue.run();
+      });
     });
   }
 
@@ -227,13 +264,34 @@ public final class StartupSplashOverlay {
     }
   }
 
+  private void hideActions() {
+    actionBar.setVisible(false);
+    actionBar.setManaged(false);
+  }
+
+  private void showActions(Button... buttons) {
+    actionBar.getChildren().setAll(buttons);
+    actionBar.setVisible(true);
+    actionBar.setManaged(true);
+  }
+
   private static Button createActionButton(String label) {
+    return createActionButton(label, null, false);
+  }
+
+  private static Button createActionButton(String label, Region icon, boolean accent) {
     Button button = new Button(label);
     button.setFocusTraversable(false);
+    if (icon != null) {
+      button.setGraphic(icon);
+      button.setContentDisplay(ContentDisplay.LEFT);
+      button.setGraphicTextGap(8);
+      button.setAlignment(Pos.CENTER_LEFT);
+    }
     button.setStyle(
-        "-fx-background-color: #111111;"
-            + " -fx-text-fill: #d8e0ec;"
-            + " -fx-border-color: #273245;"
+        (accent ? "-fx-background-color: #163322;" : "-fx-background-color: #111111;")
+            + (accent ? " -fx-text-fill: #e8fff2;" : " -fx-text-fill: #d8e0ec;")
+            + (accent ? " -fx-border-color: #28543d;" : " -fx-border-color: #273245;")
             + " -fx-border-radius: 6;"
             + " -fx-background-radius: 6;"
             + " -fx-padding: 6 14 6 14;");

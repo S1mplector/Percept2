@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Pattern;
+import java.util.concurrent.CountDownLatch;
 
 import javax.tools.ToolProvider;
 
@@ -729,14 +730,20 @@ public class EditorApp extends Application {
         updateMessage("Native bridges loaded");
         advance(++step, totalChecks);
 
-        updateMessage("Running full test suite");
-        runGradleStartupProcess(
-            workspace,
-            splash,
-            "Tests",
-            List.of("test"),
-            "Repository tests failed",
-            "Resolve the failing test suite and retry startup.");
+        boolean runFullSuite = awaitStartupTestChoice(splash);
+        if (runFullSuite) {
+          updateMessage("Running full test suite");
+          runGradleStartupProcess(
+              workspace,
+              splash,
+              "Tests",
+              List.of("test"),
+              "Repository tests failed",
+              "Resolve the failing test suite and retry startup.");
+        } else {
+          logSplash(splash, "WARN", "Tests", "Skipped full repository test suite by user choice.");
+          updateMessage("Skipping full test suite");
+        }
         advance(++step, totalChecks);
 
         File diskRoot = workspace;
@@ -817,6 +824,32 @@ public class EditorApp extends Application {
   private static void logSplash(StartupSplashOverlay splash, String level, String category, String detail) {
     if (splash == null) return;
     splash.appendLog(startupLogLine(level, category, detail));
+  }
+
+  private boolean awaitStartupTestChoice(StartupSplashOverlay splash) {
+    CountDownLatch latch = new CountDownLatch(1);
+    final boolean[] runTests = {false};
+    logSplash(splash, "INFO", "Tests",
+        "Awaiting user choice: continue without tests or run the full suite before launch.");
+    splash.showTestChoice(
+        () -> {
+          runTests[0] = false;
+          latch.countDown();
+        },
+        () -> {
+          runTests[0] = true;
+          latch.countDown();
+        });
+    try {
+      latch.await();
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      throw new StartupFailure(
+          "Startup interrupted",
+          "Interrupted while waiting for the startup test choice.",
+          ex);
+    }
+    return runTests[0];
   }
 
   private static String safeMessage(Throwable throwable) {
