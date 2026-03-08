@@ -1,14 +1,26 @@
 package com.jvn.editor.ui;
 
+import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.DecimalFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
+import com.jvn.editor.ui.ScriptEditorWorkspaceModel.ScriptFileEntry;
+import com.jvn.editor.ui.ScriptEditorWorkspaceModel.WorkspaceSnapshot;
+
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
@@ -19,9 +31,12 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
@@ -32,138 +47,490 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 /**
- * Sidebar utility panel that can launch a standalone VNS script editor window
- * for the current project. The sidebar view itself shows project script info
- * and a launch button. The launched window contains a file tree + tabbed
- * VNS code editors with all IDE features.
+ * Sidebar script explorer + launcher for the dedicated VNS editor window.
+ * Designed to behave more like a small IDE explorer than a static launcher card.
  */
-public class ScriptEditorLauncherView extends VBox {
-  private final Label projectLabel = new Label("No project loaded.");
-  private final Label scriptCountLabel = new Label("");
-  private final Button launchButton = new Button("Open Script Editor Window");
-  private final VBox recentScriptsList = new VBox(2);
+public class ScriptEditorLauncherView extends BorderPane {
+  private static final DateTimeFormatter MODIFIED_FORMAT =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+  private static final DecimalFormat SIZE_FORMAT = new DecimalFormat("0.0");
+
+  private final Label projectLabel = new Label("No project loaded");
+  private final Label scriptsRootLabel = new Label("No scripts directory detected");
+  private final Label scriptsStat = statValue("0");
+  private final Label foldersStat = statValue("0");
+  private final Label labelsStat = statValue("0");
+
+  private final Button openInEditorButton = new Button("Open in Editor");
+  private final Button openWindowButton = new Button("Pop Out IDE");
+  private final Button newScriptButton = new Button("New Script");
+  private final Button refreshButton = new Button("Refresh");
+  private final Button revealButton = new Button("Reveal");
+
+  private final TextField filterField = new TextField();
+  private final TreeView<ExplorerNode> explorerTree = new TreeView<>();
+  private final Label explorerHint = new Label("Double-click or press Enter to open the selected script in the main editor.");
+
+  private final Label selectionTitle = new Label("Workspace Overview");
+  private final Label selectionPath = new Label("Select a script to inspect it.");
+  private final Label selectionMeta = new Label("");
+  private final VBox outlineList = new VBox(4);
 
   private File projectRoot;
   private File workspaceRoot;
   private Consumer<String> onStatus;
+  private Consumer<File> onOpenFile;
+
   private Stage editorWindow;
+  private TabPane editorWindowTabs;
+  private Label editorWindowStatus;
+  private File editorWindowLaunchRoot;
+
+  private WorkspaceSnapshot snapshot = ScriptEditorWorkspaceModel.emptySnapshot();
+  private ExplorerNode selectedNode;
 
   public ScriptEditorLauncherView() {
-    setSpacing(10);
-    setPadding(new Insets(12));
-    setStyle("-fx-background-color: #121212;");
-
-    Label heading = new Label("Script Editor");
-    heading.setStyle("-fx-font-size: 16px; -fx-font-weight: 800; -fx-text-fill: #e6e6e6;");
-
-    Label desc = new Label(
-        "Launch a dedicated VNS script editor window for this project. "
-      + "Includes file browser, tabbed editing, syntax highlighting, "
-      + "autocomplete, find & replace, and all IDE shortcuts.");
-    desc.setWrapText(true);
-    desc.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
-
-    projectLabel.setStyle("-fx-text-fill: #8ab4f8; -fx-font-size: 12px;");
-    scriptCountLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
-
-    launchButton.setStyle(
-        "-fx-background-color: #1f6aa5; -fx-text-fill: #ffffff; "
-      + "-fx-font-size: 13px; -fx-font-weight: 700; -fx-padding: 8 20 8 20; "
-      + "-fx-background-radius: 6;");
-    launchButton.setMaxWidth(Double.MAX_VALUE);
-    launchButton.setTooltip(new Tooltip("Opens the script editor in a separate window"));
-    launchButton.setOnAction(e -> launchEditorWindow());
-    launchButton.setDisable(true);
-
-    Label recentHeading = new Label("Scripts in Project");
-    recentHeading.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: #cdd6f4;");
-
-    ScrollPane recentScroll = new ScrollPane(recentScriptsList);
-    recentScroll.setFitToWidth(true);
-    recentScroll.setStyle("-fx-background: #121212; -fx-background-color: #121212;");
-    VBox.setVgrow(recentScroll, Priority.ALWAYS);
-
-    getChildren().addAll(
-        heading, desc, new Separator(),
-        projectLabel, scriptCountLabel,
-        launchButton, new Separator(),
-        recentHeading, recentScroll
-    );
+    buildUi();
+    refreshWorkspace();
   }
 
   public void setProjectRoot(File root) {
     this.projectRoot = root;
-    if (root != null && root.isDirectory()) {
-      projectLabel.setText(root.getName());
-      launchButton.setDisable(false);
-      refreshScriptList();
-    } else {
-      projectLabel.setText("No project loaded.");
-      scriptCountLabel.setText("");
-      launchButton.setDisable(true);
-      recentScriptsList.getChildren().clear();
-    }
+    refreshWorkspace();
   }
 
   public void setWorkspaceRoot(File root) {
     this.workspaceRoot = root;
+    refreshWorkspace();
   }
 
   public void setOnStatus(Consumer<String> onStatus) {
     this.onStatus = onStatus;
   }
 
+  public void setOnOpenFile(Consumer<File> onOpenFile) {
+    this.onOpenFile = onOpenFile;
+    updateActionState();
+  }
+
   public File getProjectRoot() {
     return projectRoot;
   }
 
-  private void refreshScriptList() {
-    recentScriptsList.getChildren().clear();
-    if (projectRoot == null || !projectRoot.isDirectory()) return;
+  public void launchEditorWindow() {
+    launchEditorWindow(selectedNode != null ? selectedNode.file() : null);
+  }
 
-    List<File> scripts = new ArrayList<>();
-    collectVnsFiles(projectRoot.toPath().resolve("scripts"), scripts, 5);
-    scriptCountLabel.setText(scripts.size() + " script" + (scripts.size() == 1 ? "" : "s") + " found");
+  private void buildUi() {
+    getStyleClass().add("script-editor-launcher-root");
+    setStyle("-fx-background-color: #101318;");
 
-    for (File f : scripts) {
-      String rel = projectRoot.toPath().relativize(f.toPath()).toString().replace('\\', '/');
-      Label lbl = new Label(rel);
-      lbl.setStyle("-fx-text-fill: #b0b8c8; -fx-font-size: 11px; -fx-padding: 2 4 2 4;");
-      lbl.setMaxWidth(Double.MAX_VALUE);
-      lbl.setOnMouseEntered(ev -> lbl.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-padding: 2 4 2 4; -fx-background-color: #2a2a2a; -fx-background-radius: 3;"));
-      lbl.setOnMouseExited(ev -> lbl.setStyle("-fx-text-fill: #b0b8c8; -fx-font-size: 11px; -fx-padding: 2 4 2 4;"));
-      recentScriptsList.getChildren().add(lbl);
+    VBox header = new VBox(10);
+    header.setPadding(new Insets(12, 12, 10, 12));
+
+    HBox titleRow = CssIcon.iconLabel(CssIcon.list("#8ab4f8"), "Script Editor",
+        "-fx-font-size: 15px; -fx-font-weight: 800; -fx-text-fill: #e6ebf3;");
+
+    Label desc = new Label(
+        "A focused VNS explorer for your project. Filter scripts, inspect labels, open files in the main editor, or pop out the dedicated tabbed code editor.");
+    desc.setWrapText(true);
+    desc.setStyle("-fx-text-fill: #95a1b3; -fx-font-size: 11px;");
+
+    VBox projectCard = new VBox(4,
+        labelledMeta("Project", projectLabel),
+        labelledMeta("Scripts Root", scriptsRootLabel));
+    projectCard.setPadding(new Insets(10));
+    projectCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+
+    HBox statsRow = new HBox(8,
+        statCard("Scripts", scriptsStat),
+        statCard("Folders", foldersStat),
+        statCard("Labels", labelsStat));
+
+    HBox primaryActions = new HBox(8,
+        styleActionButton(openInEditorButton, CssIcon.dock("#9cc7ff"), true),
+        styleActionButton(openWindowButton, CssIcon.popOut("#f5c46b"), false));
+    HBox secondaryActions = new HBox(8,
+        styleActionButton(newScriptButton, CssIcon.plus("#8bcf98"), false),
+        styleActionButton(refreshButton, CssIcon.undo("#c7d0df"), false),
+        styleActionButton(revealButton, CssIcon.folder("#d5b36a"), false));
+    HBox.setHgrow(openInEditorButton, Priority.ALWAYS);
+    HBox.setHgrow(openWindowButton, Priority.ALWAYS);
+    HBox.setHgrow(newScriptButton, Priority.ALWAYS);
+    HBox.setHgrow(refreshButton, Priority.ALWAYS);
+    HBox.setHgrow(revealButton, Priority.ALWAYS);
+
+    filterField.setPromptText("Filter scripts, paths, or labels...");
+    filterField.setStyle(textFieldStyle());
+
+    header.getChildren().addAll(titleRow, desc, projectCard, statsRow, primaryActions, secondaryActions,
+        sectionLabel("Explorer Filter"), filterField);
+
+    explorerTree.setShowRoot(true);
+    explorerTree.setStyle("-fx-background-color: #0f131a; -fx-control-inner-background: #0f131a;");
+    explorerTree.setCellFactory(tree -> new TreeCell<>() {
+      @Override
+      protected void updateItem(ExplorerNode item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+          setGraphic(null);
+          return;
+        }
+        Region icon = item.directory
+            ? CssIcon.folder(item.relativePath == null ? "#f0c66c" : "#d4b169")
+            : CssIcon.list("#8ab4f8");
+        Label name = new Label(item.displayName);
+        name.setStyle(item.directory
+            ? "-fx-text-fill: #d9dfeb; -fx-font-size: 11px; -fx-font-weight: 700;"
+            : "-fx-text-fill: #c5d0df; -fx-font-size: 11px;");
+        HBox row = new HBox(6, icon, name);
+        row.setAlignment(Pos.CENTER_LEFT);
+        if (item.directory && item.scriptCount > 0) {
+          Region spacer = new Region();
+          HBox.setHgrow(spacer, Priority.ALWAYS);
+          Label badge = new Label(Integer.toString(item.scriptCount));
+          badge.setStyle("-fx-text-fill: #7f8ca3; -fx-font-size: 10px; -fx-background-color: #1c2330; -fx-padding: 1 6 1 6; -fx-background-radius: 999;");
+          row.getChildren().addAll(spacer, badge);
+        }
+        setText(null);
+        setGraphic(row);
+      }
+    });
+
+    explorerHint.setWrapText(true);
+    explorerHint.setStyle("-fx-text-fill: #738198; -fx-font-size: 10px;");
+
+    VBox explorerBox = new VBox(8, sectionLabel("Project Explorer"), explorerTree, explorerHint);
+    explorerBox.setPadding(new Insets(10));
+    explorerBox.setStyle("-fx-background-color: #11161f;");
+    VBox.setVgrow(explorerTree, Priority.ALWAYS);
+
+    selectionTitle.setStyle("-fx-font-size: 13px; -fx-font-weight: 800; -fx-text-fill: #e6ebf3;");
+    selectionPath.setWrapText(true);
+    selectionPath.setStyle("-fx-text-fill: #8ea0b8; -fx-font-size: 11px;");
+    selectionMeta.setWrapText(true);
+    selectionMeta.setStyle("-fx-text-fill: #a6b1c2; -fx-font-size: 11px;");
+
+    VBox outlineCard = new VBox(6, sectionLabel("Label Outline"), outlineList);
+    outlineCard.setPadding(new Insets(10));
+    outlineCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    VBox inspectorBox = new VBox(10, sectionLabel("Selection"), selectionTitle, selectionPath, selectionMeta, outlineCard);
+    inspectorBox.setPadding(new Insets(10));
+    inspectorBox.setStyle("-fx-background-color: #11161f;");
+
+    SplitPane centerSplit = new SplitPane(explorerBox, inspectorBox);
+    centerSplit.setOrientation(Orientation.VERTICAL);
+    centerSplit.setDividerPositions(0.62);
+
+    setTop(header);
+    setCenter(centerSplit);
+
+    wireListeners();
+  }
+
+  private void wireListeners() {
+    filterField.textProperty().addListener((obs, oldVal, newVal) -> rebuildExplorerTree());
+    refreshButton.setOnAction(e -> refreshWorkspace());
+    openInEditorButton.setOnAction(e -> openSelectedInEditor());
+    openWindowButton.setOnAction(e -> launchEditorWindow(selectedNode != null ? selectedNode.file() : null));
+    revealButton.setOnAction(e -> revealSelection());
+    newScriptButton.setOnAction(e -> createNewScript());
+
+    explorerTree.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+      selectedNode = newVal == null ? null : newVal.getValue();
+      updateSelectionInspector();
+      updateActionState();
+    });
+    explorerTree.setOnMouseClicked(ev -> {
+      if (ev.getClickCount() >= 2 && selectedNode != null && selectedNode.file() != null) {
+        openSelectedInEditor();
+      }
+    });
+    explorerTree.addEventFilter(KeyEvent.KEY_PRESSED, ev -> {
+      if (ev.getCode() == KeyCode.ENTER && selectedNode != null && selectedNode.file() != null) {
+        openSelectedInEditor();
+        ev.consume();
+      } else if (ev.getCode() == KeyCode.F5) {
+        refreshWorkspace();
+        ev.consume();
+      }
+    });
+  }
+
+  private void refreshWorkspace() {
+    String previousSelection = selectedNode != null && selectedNode.file() != null
+        ? selectedNode.file().getAbsolutePath()
+        : null;
+
+    File launchRoot = resolveLaunchRoot();
+    snapshot = ScriptEditorWorkspaceModel.index(launchRoot);
+
+    if (launchRoot == null) {
+      projectLabel.setText("No project or workspace root available");
+      scriptsRootLabel.setText("Load or create a project to browse scripts");
+    } else {
+      String rootKind = projectRoot != null && projectRoot.equals(launchRoot) ? "Project" : "Workspace";
+      projectLabel.setText(rootKind + ": " + launchRoot.getName());
+      scriptsRootLabel.setText(snapshot.hasScriptsRoot()
+          ? snapshot.scriptsRoot().toString().replace('\\', '/')
+          : "No scripts root found under " + launchRoot.getAbsolutePath());
+    }
+
+    scriptsStat.setText(Integer.toString(snapshot.scripts().size()));
+    foldersStat.setText(Integer.toString(snapshot.folderCount()));
+    labelsStat.setText(Integer.toString(snapshot.totalLabelCount()));
+
+    rebuildExplorerTree();
+    if (previousSelection != null) {
+      restoreSelection(previousSelection);
+    }
+    if (explorerTree.getSelectionModel().getSelectedItem() == null) {
+      selectFirstLeaf();
+    }
+    updateSelectionInspector();
+    updateActionState();
+  }
+
+  private void rebuildExplorerTree() {
+    List<ScriptFileEntry> visibleScripts = ScriptEditorWorkspaceModel.filter(snapshot.scripts(), filterField.getText());
+    TreeItem<ExplorerNode> rootItem = buildExplorerTree(visibleScripts);
+    explorerTree.setRoot(rootItem);
+    if (rootItem != null) {
+      rootItem.setExpanded(true);
+      rootItem.getChildren().forEach(child -> child.setExpanded(true));
+    }
+    explorerHint.setText(visibleScripts.isEmpty()
+        ? "No scripts match the current filter."
+        : "Double-click or press Enter to open the selected script in the main editor.");
+  }
+
+  private TreeItem<ExplorerNode> buildExplorerTree(List<ScriptFileEntry> scripts) {
+    String rootName = snapshot.hasScriptsRoot() ? snapshot.scriptsRoot().getFileName().toString() : "scripts";
+    TreeItem<ExplorerNode> root = new TreeItem<>(new ExplorerNode(rootName, true, null, null, scripts.size()));
+    Map<Path, TreeItem<ExplorerNode>> folders = new HashMap<>();
+    folders.put(Path.of(""), root);
+
+    for (ScriptFileEntry entry : scripts) {
+      Path relativePath = Path.of(entry.relativePath());
+      Path parent = relativePath.getParent();
+      TreeItem<ExplorerNode> parentItem = root;
+      if (parent != null) {
+        Path walk = Path.of("");
+        for (Path part : parent) {
+          walk = walk.resolve(part.toString());
+          TreeItem<ExplorerNode> existing = folders.get(walk);
+          if (existing == null) {
+            ExplorerNode node = new ExplorerNode(part.toString(), true, walk, null, 0);
+            existing = new TreeItem<>(node);
+            folders.put(walk, existing);
+            parentItem.getChildren().add(existing);
+          }
+          parentItem = existing;
+        }
+      }
+      parentItem.getChildren().add(new TreeItem<>(new ExplorerNode(entry.displayName(), false, relativePath, entry, 0)));
+    }
+
+    sortTree(root);
+    updateDirectoryCounts(root);
+    return root;
+  }
+
+  private void sortTree(TreeItem<ExplorerNode> item) {
+    if (item == null) return;
+    item.getChildren().sort(Comparator
+        .comparing((TreeItem<ExplorerNode> child) -> !child.getValue().directory)
+        .thenComparing(child -> child.getValue().displayName.toLowerCase()));
+    item.getChildren().forEach(this::sortTree);
+  }
+
+  private int updateDirectoryCounts(TreeItem<ExplorerNode> item) {
+    if (item == null || item.getValue() == null) return 0;
+    if (!item.getValue().directory) return item.getValue().file() != null ? 1 : 0;
+    int total = 0;
+    for (TreeItem<ExplorerNode> child : item.getChildren()) {
+      total += updateDirectoryCounts(child);
+    }
+    item.getValue().scriptCount = total;
+    return total;
+  }
+
+  private void restoreSelection(String absolutePath) {
+    TreeItem<ExplorerNode> root = explorerTree.getRoot();
+    if (root == null || absolutePath == null || absolutePath.isBlank()) return;
+    TreeItem<ExplorerNode> match = findByAbsolutePath(root, absolutePath);
+    if (match != null) {
+      explorerTree.getSelectionModel().select(match);
     }
   }
 
-  private void collectVnsFiles(Path dir, List<File> out, int maxDepth) {
-    if (dir == null || !Files.isDirectory(dir) || maxDepth <= 0) return;
-    try (var stream = Files.list(dir)) {
-      stream.sorted().forEach(p -> {
-        if (Files.isDirectory(p)) {
-          collectVnsFiles(p, out, maxDepth - 1);
-        } else if (p.getFileName().toString().toLowerCase().endsWith(".vns")) {
-          out.add(p.toFile());
-        }
-      });
-    } catch (IOException ignored) {}
+  private TreeItem<ExplorerNode> findByAbsolutePath(TreeItem<ExplorerNode> item, String absolutePath) {
+    if (item == null || item.getValue() == null) return null;
+    File file = item.getValue().file();
+    if (file != null && absolutePath.equals(file.getAbsolutePath())) return item;
+    for (TreeItem<ExplorerNode> child : item.getChildren()) {
+      TreeItem<ExplorerNode> match = findByAbsolutePath(child, absolutePath);
+      if (match != null) return match;
+    }
+    return null;
   }
 
-  // ─── Launch Standalone Editor Window ────────────────────────────────
-  public void launchEditorWindow() {
+  private void selectFirstLeaf() {
+    TreeItem<ExplorerNode> root = explorerTree.getRoot();
+    if (root == null) return;
+    TreeItem<ExplorerNode> leaf = firstLeaf(root);
+    if (leaf != null) explorerTree.getSelectionModel().select(leaf);
+  }
+
+  private TreeItem<ExplorerNode> firstLeaf(TreeItem<ExplorerNode> item) {
+    if (item == null) return null;
+    if (item.getValue() != null && item.getValue().file() != null) return item;
+    for (TreeItem<ExplorerNode> child : item.getChildren()) {
+      TreeItem<ExplorerNode> leaf = firstLeaf(child);
+      if (leaf != null) return leaf;
+    }
+    return null;
+  }
+
+  private void updateSelectionInspector() {
+    outlineList.getChildren().clear();
+    if (selectedNode == null) {
+      selectionTitle.setText("Workspace Overview");
+      selectionPath.setText(snapshot.hasScriptsRoot()
+          ? snapshot.scriptsRoot().toString().replace('\\', '/')
+          : "No scripts directory available.");
+      selectionMeta.setText(snapshot.hasScriptsRoot()
+          ? snapshot.scripts().size() + " scripts • " + snapshot.folderCount() + " folders • "
+              + snapshot.totalLabelCount() + " labels"
+          : "Open a project with scripts to browse it here.");
+      outlineList.getChildren().add(emptyHint("Select a script to inspect its labels and metadata."));
+      return;
+    }
+
+    if (selectedNode.file() == null) {
+      File folder = resolveNodeDirectory(selectedNode);
+      selectionTitle.setText(selectedNode.displayName);
+      selectionPath.setText(folder != null ? folder.getAbsolutePath() : "Folder");
+      selectionMeta.setText(selectedNode.scriptCount + " scripts under this folder");
+      outlineList.getChildren().add(emptyHint("Select a script file to see its outline."));
+      return;
+    }
+
+    ScriptFileEntry entry = selectedNode.entry;
+    selectionTitle.setText(entry.displayName());
+    selectionPath.setText(entry.projectRelativePath());
+    selectionMeta.setText(entry.lineCount() + " lines • " + entry.labelCount() + " labels • "
+        + entry.includeCount() + " includes • " + humanFileSize(entry.sizeBytes())
+        + " • modified " + formatModified(entry.lastModifiedMillis()));
+
+    if (entry.labelNames().isEmpty()) {
+      outlineList.getChildren().add(emptyHint("This script does not declare any @label entries."));
+    } else {
+      int maxLabels = Math.min(entry.labelNames().size(), 10);
+      for (int i = 0; i < maxLabels; i++) {
+        Label label = new Label("@label " + entry.labelNames().get(i));
+        label.setStyle("-fx-text-fill: #c9d6e8; -fx-font-size: 11px; -fx-padding: 2 6 2 6; -fx-background-color: #1b2230; -fx-background-radius: 5;");
+        outlineList.getChildren().add(label);
+      }
+      if (entry.labelNames().size() > maxLabels) {
+        outlineList.getChildren().add(emptyHint("+ " + (entry.labelNames().size() - maxLabels) + " more labels"));
+      }
+    }
+  }
+
+  private void updateActionState() {
+    boolean hasLaunchRoot = resolveLaunchRoot() != null;
+    boolean hasScriptsRoot = snapshot.hasScriptsRoot();
+    boolean hasFileSelection = selectedNode != null && selectedNode.file() != null;
+
+    openInEditorButton.setDisable(!hasFileSelection || onOpenFile == null);
+    openWindowButton.setDisable(!hasScriptsRoot);
+    newScriptButton.setDisable(!hasLaunchRoot);
+    refreshButton.setDisable(!hasLaunchRoot);
+    revealButton.setDisable(!(hasScriptsRoot || selectedNode != null));
+  }
+
+  private void openSelectedInEditor() {
+    if (selectedNode == null || selectedNode.file() == null) return;
+    if (onOpenFile != null) {
+      onOpenFile.accept(selectedNode.file());
+      setStatus("Opened " + selectedNode.entry.projectRelativePath() + " in the main editor");
+    } else {
+      launchEditorWindow(selectedNode.file());
+    }
+  }
+
+  private void revealSelection() {
+    File target = null;
+    if (selectedNode != null && selectedNode.file() != null) {
+      target = selectedNode.file().getParentFile();
+    } else if (selectedNode != null && selectedNode.directory) {
+      target = resolveNodeDirectory(selectedNode);
+    } else if (snapshot.hasScriptsRoot()) {
+      target = snapshot.scriptsRoot().toFile();
+    }
+    if (target == null || !target.exists()) {
+      setStatus("Nothing to reveal.");
+      return;
+    }
+    try {
+      Desktop.getDesktop().open(target);
+      setStatus("Revealed " + target.getAbsolutePath());
+    } catch (Exception ex) {
+      showLaunchError("Failed to reveal path:\n" + ex.getMessage());
+    }
+  }
+
+  private void createNewScript() {
+    File launchRoot = resolveLaunchRoot();
+    if (launchRoot == null) {
+      showLaunchError("No project or workspace root is available for creating scripts.");
+      return;
+    }
+
+    TextInputDialog dialog = new TextInputDialog("story/new_scene.vns");
+    EditorTheme.apply(dialog);
+    dialog.setTitle("New Script");
+    dialog.setHeaderText("Create a new VNS script");
+    dialog.setContentText("Relative path inside scripts/");
+
+    dialog.showAndWait().ifPresent(input -> {
+      try {
+        File created = ScriptEditorWorkspaceModel.createScript(launchRoot, input);
+        refreshWorkspace();
+        restoreSelection(created.getAbsolutePath());
+        setStatus("Ready: " + created.getName());
+        if (onOpenFile != null) {
+          onOpenFile.accept(created);
+          setStatus("Created and opened " + created.getName());
+        } else {
+          launchEditorWindow(created);
+        }
+      } catch (IOException ex) {
+        showLaunchError("Failed to create script:\n" + ex.getMessage());
+      }
+    });
+  }
+
+  // ─── Standalone IDE Window ─────────────────────────────────────
+
+  private void launchEditorWindow(File initialFile) {
     File launchRoot = resolveLaunchRoot();
     if (launchRoot == null) {
       showLaunchError("No project or workspace root is available for the script editor.");
       return;
     }
-    Path scriptsRoot = resolveScriptsRoot(launchRoot);
+    Path scriptsRoot = ScriptEditorWorkspaceModel.resolveScriptsRoot(launchRoot);
     if (scriptsRoot == null) {
       showLaunchError("No scripts directory was found under:\n" + launchRoot.getAbsolutePath());
       return;
     }
 
-    // If already open, just bring to front
     if (editorWindow != null && editorWindow.isShowing()) {
+      if (initialFile != null && editorWindowTabs != null && editorWindowStatus != null && editorWindowLaunchRoot != null) {
+        openFileInTab(editorWindowTabs, initialFile, editorWindowLaunchRoot, editorWindowStatus);
+      }
       editorWindow.toFront();
       editorWindow.requestFocus();
       return;
@@ -176,7 +543,6 @@ public class ScriptEditorLauncherView extends VBox {
       BorderPane root = new BorderPane();
       root.setStyle("-fx-background-color: #121212;");
 
-      // Left: file tree
       TreeView<String> fileTree = new TreeView<>();
       fileTree.setStyle("-fx-background-color: #121212;");
       TreeItem<String> treeRoot = buildFileTree(scriptsRoot, scriptsRoot.getFileName().toString());
@@ -185,15 +551,12 @@ public class ScriptEditorLauncherView extends VBox {
       fileTree.setShowRoot(true);
       fileTree.setPrefWidth(220);
 
-      // Center: tabbed editor area
       TabPane editorTabs = new TabPane();
       editorTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
 
-      // Status label
       Label windowStatus = new Label("Select a script to begin editing.");
       windowStatus.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px; -fx-padding: 4 10 4 10;");
 
-      // Double-click tree item to open file
       fileTree.setOnMouseClicked(ev -> {
         if (ev.getClickCount() == 2) {
           TreeItem<String> sel = fileTree.getSelectionModel().getSelectedItem();
@@ -206,7 +569,6 @@ public class ScriptEditorLauncherView extends VBox {
         }
       });
 
-      // Toolbar
       HBox toolbar = new HBox(6);
       toolbar.setPadding(new Insets(5, 10, 5, 10));
       toolbar.setAlignment(Pos.CENTER_LEFT);
@@ -215,7 +577,7 @@ public class ScriptEditorLauncherView extends VBox {
       Label titleLabel = new Label("JVN Script Editor");
       titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 800; -fx-text-fill: #e6e6e6;");
 
-      Separator toolSep1 = new Separator(javafx.geometry.Orientation.VERTICAL);
+      Separator toolSep1 = new Separator(Orientation.VERTICAL);
       toolSep1.setPadding(new Insets(0, 4, 0, 4));
 
       Button saveBtn = toolbarButton("Save", "Save current file (Ctrl+S)");
@@ -224,7 +586,7 @@ public class ScriptEditorLauncherView extends VBox {
       Button saveAllBtn = toolbarButton("Save All", "Save all open files (Ctrl+Shift+S)");
       saveAllBtn.setOnAction(e -> saveAllTabs(editorTabs, windowStatus));
 
-      Separator toolSep2 = new Separator(javafx.geometry.Orientation.VERTICAL);
+      Separator toolSep2 = new Separator(Orientation.VERTICAL);
       toolSep2.setPadding(new Insets(0, 4, 0, 4));
 
       Button undoBtn = toolbarButton("Undo", "Undo (Ctrl+Z)");
@@ -239,7 +601,7 @@ public class ScriptEditorLauncherView extends VBox {
         if (ed != null) ed.getCodeArea().redo();
       });
 
-      Separator toolSep3 = new Separator(javafx.geometry.Orientation.VERTICAL);
+      Separator toolSep3 = new Separator(Orientation.VERTICAL);
       toolSep3.setPadding(new Insets(0, 4, 0, 4));
 
       Button findBtn = toolbarButton("Find", "Find & Replace (Ctrl+F)");
@@ -276,12 +638,8 @@ public class ScriptEditorLauncherView extends VBox {
       root.setBottom(windowStatus);
 
       Scene scene = new Scene(root, 1100, 700);
-      try {
-        String css = ScriptEditorLauncherView.class.getResource("/com/jvn/editor/editor.css").toExternalForm();
-        scene.getStylesheets().add(css);
-      } catch (Exception ignore) {}
+      EditorTheme.apply(scene);
 
-      // Keyboard shortcuts
       scene.addEventFilter(KeyEvent.KEY_PRESSED, (KeyEvent ev) -> {
         if ((ev.isMetaDown() || ev.isControlDown()) && ev.getCode() == KeyCode.S) {
           if (ev.isShiftDown()) {
@@ -293,12 +651,27 @@ public class ScriptEditorLauncherView extends VBox {
         }
       });
 
+      editorWindowTabs = editorTabs;
+      editorWindowStatus = windowStatus;
+      editorWindowLaunchRoot = launchRoot;
+
       editorWindow.setScene(scene);
-      editorWindow.setOnCloseRequest(e -> editorWindow = null);
+      editorWindow.setOnCloseRequest(e -> {
+        editorWindow = null;
+        editorWindowTabs = null;
+        editorWindowStatus = null;
+        editorWindowLaunchRoot = null;
+      });
       editorWindow.show();
+      if (initialFile != null) {
+        openFileInTab(editorTabs, initialFile, launchRoot, windowStatus);
+      }
       setStatus("Opened script editor window for " + launchRoot.getName());
     } catch (Exception ex) {
       editorWindow = null;
+      editorWindowTabs = null;
+      editorWindowStatus = null;
+      editorWindowLaunchRoot = null;
       showLaunchError("Failed to open script editor window:\n" + ex.getMessage());
     }
   }
@@ -309,25 +682,12 @@ public class ScriptEditorLauncherView extends VBox {
     return null;
   }
 
-  private Path resolveScriptsRoot(File root) {
-    if (root == null) return null;
-    Path[] candidates = new Path[] {
-        root.toPath().resolve("scripts"),
-        root.toPath().resolve("game/scripts"),
-        root.toPath().resolve("runtime/src/main/resources/game/scripts")
-    };
-    for (Path candidate : candidates) {
-      if (Files.isDirectory(candidate)) return candidate;
-    }
-    return null;
-  }
-
   private void showLaunchError(String message) {
     setStatus(message);
     Alert alert = new Alert(Alert.AlertType.ERROR);
     EditorTheme.apply(alert);
     alert.setTitle("Script Editor");
-    alert.setHeaderText("Could not open the script editor window");
+    alert.setHeaderText("Could not complete script editor action");
     alert.setContentText(message);
     alert.showAndWait();
   }
@@ -350,7 +710,8 @@ public class ScriptEditorLauncherView extends VBox {
           item.getChildren().add(new TreeItem<>(name));
         }
       });
-    } catch (IOException ignored) {}
+    } catch (IOException ignored) {
+    }
     return item;
   }
 
@@ -365,7 +726,6 @@ public class ScriptEditorLauncherView extends VBox {
   }
 
   private void openFileInTab(TabPane tabs, File file, File launchRoot, Label status) {
-    // Check if already open
     for (Tab t : tabs.getTabs()) {
       if (file.getAbsolutePath().equals(t.getUserData())) {
         tabs.getSelectionModel().select(t);
@@ -373,7 +733,6 @@ public class ScriptEditorLauncherView extends VBox {
       }
     }
 
-    // Read file content
     String content;
     try {
       content = Files.readString(file.toPath());
@@ -399,7 +758,6 @@ public class ScriptEditorLauncherView extends VBox {
     tab.getProperties().put("dirty", Boolean.FALSE);
     markTabClean(tab);
 
-    // Track text changes — mark dirty when content differs from saved snapshot
     editor.setOnTextChanged(text -> {
       String saved = (String) tab.getProperties().getOrDefault("savedContent", "");
       boolean wasDirty = isTabDirty(tab);
@@ -414,8 +772,6 @@ public class ScriptEditorLauncherView extends VBox {
     tabs.getSelectionModel().select(tab);
     status.setText("Opened: " + rel);
   }
-
-  // ─── Toolbar / Save / Dirty-Tracking Helpers ─────────────────────
 
   private static Button toolbarButton(String text, String tooltip) {
     Button btn = new Button(text);
@@ -496,5 +852,99 @@ public class ScriptEditorLauncherView extends VBox {
     String base = (String) tab.getProperties().getOrDefault("baseName", tab.getText());
     tab.setText(base);
     tab.setStyle("-fx-text-base-color: #c8d0e0;");
+  }
+
+  private static Button styleActionButton(Button button, Region icon, boolean accent) {
+    button.setGraphic(icon);
+    button.setAlignment(Pos.CENTER_LEFT);
+    button.setContentDisplay(javafx.scene.control.ContentDisplay.LEFT);
+    button.setGraphicTextGap(8);
+    button.setMaxWidth(Double.MAX_VALUE);
+    button.setMinHeight(32);
+    button.setStyle(accent
+        ? "-fx-background-color: #204d7a; -fx-text-fill: #eef5ff; -fx-font-size: 11px; -fx-font-weight: 700; -fx-background-radius: 8; -fx-border-color: #346d9f; -fx-border-radius: 8;"
+        : "-fx-background-color: #181e28; -fx-text-fill: #cfd7e4; -fx-font-size: 11px; -fx-font-weight: 700; -fx-background-radius: 8; -fx-border-color: #283242; -fx-border-radius: 8;");
+    return button;
+  }
+
+  private static VBox statCard(String labelText, Label valueLabel) {
+    Label label = new Label(labelText);
+    label.setStyle("-fx-text-fill: #77849a; -fx-font-size: 10px; -fx-font-weight: 700;");
+    VBox box = new VBox(2, label, valueLabel);
+    box.setPadding(new Insets(8, 10, 8, 10));
+    box.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    HBox.setHgrow(box, Priority.ALWAYS);
+    box.setMaxWidth(Double.MAX_VALUE);
+    return box;
+  }
+
+  private static Label statValue(String text) {
+    Label label = new Label(text);
+    label.setStyle("-fx-text-fill: #e8edf5; -fx-font-size: 15px; -fx-font-weight: 800;");
+    return label;
+  }
+
+  private static VBox labelledMeta(String labelText, Label valueLabel) {
+    Label label = new Label(labelText);
+    label.setStyle("-fx-text-fill: #77849a; -fx-font-size: 10px; -fx-font-weight: 700;");
+    valueLabel.setWrapText(true);
+    valueLabel.setStyle("-fx-text-fill: #d9dfeb; -fx-font-size: 11px;");
+    return new VBox(2, label, valueLabel);
+  }
+
+  private static Label sectionLabel(String text) {
+    Label label = new Label(text);
+    label.setStyle("-fx-text-fill: #cbd5e2; -fx-font-size: 11px; -fx-font-weight: 800;");
+    return label;
+  }
+
+  private static Label emptyHint(String text) {
+    Label label = new Label(text);
+    label.setWrapText(true);
+    label.setStyle("-fx-text-fill: #768399; -fx-font-size: 11px;");
+    return label;
+  }
+
+  private static String textFieldStyle() {
+    return "-fx-background-color: #171c26; -fx-text-fill: #dbe4f0; -fx-prompt-text-fill: #6d7888; "
+        + "-fx-border-color: #2a3240; -fx-border-radius: 8; -fx-background-radius: 8; -fx-font-size: 11px;";
+  }
+
+  private static String humanFileSize(long sizeBytes) {
+    if (sizeBytes < 1024) return sizeBytes + " B";
+    if (sizeBytes < 1024 * 1024) return SIZE_FORMAT.format(sizeBytes / 1024.0) + " KB";
+    return SIZE_FORMAT.format(sizeBytes / (1024.0 * 1024.0)) + " MB";
+  }
+
+  private static String formatModified(long lastModifiedMillis) {
+    if (lastModifiedMillis <= 0) return "unknown";
+    return MODIFIED_FORMAT.format(Instant.ofEpochMilli(lastModifiedMillis).atZone(ZoneId.systemDefault()));
+  }
+
+  private File resolveNodeDirectory(ExplorerNode node) {
+    if (node == null || snapshot.scriptsRoot() == null) return null;
+    Path relative = node.relativePath == null ? Path.of("") : node.relativePath;
+    return snapshot.scriptsRoot().resolve(relative).toFile();
+  }
+
+  private static final class ExplorerNode {
+    private final String displayName;
+    private final boolean directory;
+    private final Path relativePath;
+    private final ScriptFileEntry entry;
+    private int scriptCount;
+
+    private ExplorerNode(String displayName, boolean directory, Path relativePath,
+        ScriptFileEntry entry, int scriptCount) {
+      this.displayName = displayName;
+      this.directory = directory;
+      this.relativePath = relativePath;
+      this.entry = entry;
+      this.scriptCount = scriptCount;
+    }
+
+    private File file() {
+      return entry != null ? entry.file() : null;
+    }
   }
 }

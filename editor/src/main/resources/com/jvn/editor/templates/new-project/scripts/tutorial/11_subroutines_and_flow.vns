@@ -1,5 +1,5 @@
 # Tutorial 11 — Subroutines and Flow
-# How to organize scripts with labels, calls, returns, and cross-file navigation.
+# [call]/[return], @include, @scenario, @label — structuring scripts that scale.
 
 @scenario {{SCENARIO_PREFIX}}_tutorial_11_subroutines
 @include {{CHARACTERS_INCLUDE}}
@@ -9,188 +9,139 @@
 [autodelay 1650]
 [show lavender center happy]
 [wait 200]
-Lavender: Scripts get long fast. The question is: how do you keep them organized?
+Lavender: [jump] is a one-way trip. {b}[call]{/b} is a round trip — it goes to a label and comes back.
 [show lavender center talking]
-Lavender: Labels, jumps, calls, and returns — these are your tools for structuring flow without turning your script into spaghetti.
+Lavender: That difference is the foundation of reusable script structure. Let me show you.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: What would you like to learn about?
-> Labels as structure -> section_labels
-> Call and return -> section_call
-> Include files -> section_include
-> Organizing large scripts -> section_organizing
-> Quick reference card -> reference_sheet
-> Practice scene -> practice_scene
+> [call] and [return] — reusable blocks -> section_call
+> @include — shared definition files -> section_include
+> @scenario and @label — file structure -> section_structure
+> Organizing a multi-file project -> section_organizing
+> Practice: live call/return demo -> practice_scene
 > Back to Tutorial Hub -> return_hub
 
-# ─── Labels as Structure ─────────────────────────────────────────
-
-@label section_labels
-[show lavender left talking]
-Lavender: You've been using labels since Tutorial 01 — every {b}@label{/b} is a named anchor point in your script.
-narrator: {color=#8888cc}@label morning_routine{/color}
-narrator: {color=#8888cc}Lavender: Good morning! Time to start the day.{/color}
-[show lavender center talking]
-Lavender: Labels aren't just for choices. Think of them as chapters, scenes, or reusable blocks.
-Lavender: Good label names describe {i}what happens{/i} there:
-narrator: {b}Good:{/b} morning_routine, confrontation, rooftop_ending
-narrator: {b}Bad:{/b} label1, scene_a, thing
-[show lavender center happy]
-Lavender: When your script has 50+ labels, naming is the difference between "easy to navigate" and "nightmare."
-> Next: Call and return -> section_call
-> Back to menu -> lesson_menu
-
-# ─── Call and Return ─────────────────────────────────────────────
+# ─── [call] and [return] ────────────────────────────────────────
 
 @label section_call
-[show lavender right talking]
-Lavender: {b}[call label]{/b} is like calling a function — it jumps to a label, runs it, and then comes {i}back{/i} to where you were.
-narrator: {color=#8888cc}Lavender: Let me check something real quick.{/color}
-narrator: {color=#8888cc}[call check_inventory]{/color}
-narrator: {color=#8888cc}Lavender: Okay, back. Where were we?{/color}
-[show lavender center talking]
-Lavender: The key is {b}[return]{/b} at the end of the called label:
-narrator: {color=#8888cc}@label check_inventory{/color}
-narrator: {color=#8888cc}narrator: You rummage through your bag. Nothing useful.{/color}
-narrator: {color=#8888cc}[return]{/color}
-Lavender: Without [return], the script keeps running past that label into whatever comes next — which is almost never what you want.
 [show lavender left talking]
-Lavender: {b}[call]{/b} vs {b}[jump]{/b} — the difference:
-narrator: {b}[jump]{/b} moves to a label and {i}stays{/i} there. One-way trip.
-narrator: {b}[call]{/b} moves to a label and {i}comes back{/i}. Round trip.
+Lavender: {b}[call label]{/b} jumps to a label, runs it, and returns to the line after the call.
+narrator: {color=#8888cc}Lavender: Let me check something.{/color}
+narrator: {color=#8888cc}[call check_inventory]{/color}
+narrator: {color=#8888cc}Lavender: Okay, I'm back. Nothing useful in there.{/color}
+[show lavender center talking]
+Lavender: The called label must end with {b}[return]{/b}:
+narrator: {color=#8888cc}@label check_inventory{/color}
+narrator: {color=#8888cc}narrator: You rummage through your bag.{/color}
+narrator: {color=#8888cc}[return]{/color}
+Lavender: Without [return], execution falls through into whatever label comes next — almost never what you want.
+[show lavender right talking]
+Lavender: {b}[call] vs [jump]{/b}:
+narrator: {b}[jump]{/b} — one-way. Goes to a label, stays there.
+narrator: {b}[call]{/b} — round-trip. Goes to a label, runs it, returns to the caller.
 [show lavender center happy]
-Lavender: Use [call] for reusable bits — inventory checks, recurring NPC greetings, flashback sequences. Use [jump] for permanent scene changes.
-> Next: Include files -> section_include
+Lavender: Use [call] for reusable blocks: NPC greetings, flashbacks, stat checks, recurring setups.
+> Next: @include -> section_include
 > Back to menu -> lesson_menu
 
-# ─── Include Files ───────────────────────────────────────────────
+# ─── @include ────────────────────────────────────────────────────
 
 @label section_include
 [show lavender center talking]
-Lavender: The {b}@include{/b} directive pulls in content from another file — typically character definitions.
-narrator: {color=#8888cc}@include characters/main_cast.vns{/color}
-Lavender: This is how every tutorial file loads the Lavender character definition. You write it once, include it everywhere.
-[show lavender right talking]
-Lavender: Include files are great for:
-narrator: {b}Character declarations{/b} — define names, display colors, and IDs in one place.
-narrator: {b}Shared variables{/b} — initialize common state at the start of each file.
-narrator: {b}Macros{/b} — recurring setup blocks that multiple scenarios need.
+Lavender: {b}@include{/b} inserts the contents of another file at the top of your script:
+narrator: {color=#8888cc}@include scripts/definitions/characters.vns{/color}
+narrator: This pulls in all @character, @charimg, and @background declarations from that file.
+[show lavender left talking]
+Lavender: Without @include, you'd have to copy character declarations into every script file.
+Lavender: With @include, you declare once and share everywhere. Change the display name in one file, it updates across the project.
 [show lavender center happy]
-Lavender: If you change a character's display name in the include file, it updates everywhere. No search-and-replace across 30 files.
-> Next: Organizing -> section_organizing
+Lavender: Common include files:
+narrator: {b}characters.vns{/b} — all @character and @charimg declarations.
+narrator: {b}backgrounds.vns{/b} — shared @background declarations.
+narrator: {b}variables_init.vns{/b} — [set] commands for default variable values.
+> Next: file structure -> section_structure
 > Back to menu -> lesson_menu
 
-# ─── Organizing Large Scripts ────────────────────────────────────
+# ─── @scenario and @label ───────────────────────────────────────
+
+@label section_structure
+[show lavender right talking]
+Lavender: Every VNS file has a structure:
+narrator: {color=#8888cc}@scenario ch1_morning{/color}
+narrator: {color=#8888cc}@include scripts/definitions/characters.vns{/color}
+narrator: {color=#8888cc}@label start{/color}
+narrator: {color=#8888cc}[bg bedroom_morning]{/color}
+narrator: {color=#8888cc}Lavender: Good morning!{/color}
+[show lavender center talking]
+Lavender: {b}@scenario{/b} — declares this file's unique ID. Other files use it in [goto]:
+narrator: {color=#8888cc}[goto ch1_morning:start]{/color}
+narrator: That navigates to the "start" label inside the ch1_morning scenario file.
+Lavender: {b}@label{/b} — named anchor points within the file. Every file should have at least a {b}start{/b} label.
+[show lavender center happy]
+Lavender: Think of @scenario as the file's address. @label is the room number within that address.
+> Next: project organization -> section_organizing
+> Back to menu -> lesson_menu
+
+# ─── Project Organization ───────────────────────────────────────
 
 @label section_organizing
 [show lavender left talking]
-Lavender: As your game grows, you'll need a strategy for script organization. Here's what works:
-narrator: {b}One scenario per file.{/b} Don't put three scenes in one file. Split them.
-narrator: {b}Descriptive file names.{/b} ch1_morning.vns, ch1_confrontation.vns, ch1_rooftop.vns.
-narrator: {b}Use @scenario IDs.{/b} Each file declares a unique scenario name for [goto] targeting.
+Lavender: As your game grows, file organization becomes critical:
+narrator: {b}One scenario per file.{/b} Don't pack three scenes into one file.
+narrator: {b}Descriptive names:{/b} ch1_morning.vns, ch1_confrontation.vns, ch2_library.vns.
+narrator: {b}Folder structure:{/b}
+narrator: {color=#8888cc}scripts/chapter_01/{/color} — all scenes for chapter 1.
+narrator: {color=#8888cc}scripts/chapter_02/{/color} — all scenes for chapter 2.
+narrator: {color=#8888cc}scripts/definitions/{/color} — shared includes (characters, backgrounds).
+narrator: {color=#8888cc}scripts/tutorial/{/color} — you're looking at it.
 [show lavender center talking]
-Lavender: For navigation between files:
-narrator: {color=#8888cc}[goto ch1_confrontation:start]{/color}
-Lavender: The scenario ID comes from the {b}@scenario{/b} line at the top of each file. It's the file's address.
-[show lavender right talking]
-Lavender: Folder structure matters too:
-narrator: {b}scripts/chapter_01/{/b} — all scenes for chapter 1.
-narrator: {b}scripts/shared/{/b} — include files, utility scripts, common labels.
-narrator: {b}scripts/tutorial/{/b} — you're looking at it right now.
+Lavender: Label naming within a file:
+narrator: {b}Good:{/b} morning_routine, rooftop_confrontation, ending_brave
+narrator: {b}Bad:{/b} label1, scene_a, thing
 [show lavender center happy]
-Lavender: The goal is: any team member can open a file and understand where it fits without reading every other file first.
-> Reference card -> reference_sheet
-> Try it yourself -> practice_scene
+Lavender: Goal: anyone can open a file and understand where it fits without reading every other file first.
+> Practice: live demo -> practice_scene
 > Back to menu -> lesson_menu
 
-# ─── Reference Card ──────────────────────────────────────────────
-
-@label reference_sheet
-[show lavender center talking]
-Lavender: Subroutines and flow cheat sheet:
-narrator: {b}@label name{/b} — define a named anchor point.
-narrator: {b}[jump label]{/b} — one-way move to a label in the same file.
-narrator: {b}[call label]{/b} — jump to a label and come back when it hits [return].
-narrator: {b}[return]{/b} — return to the point after the most recent [call].
-narrator: {b}[goto scenario:label]{/b} — cross-file navigation to a different scenario.
-narrator: {b}@include path{/b} — pull in content from another file.
-narrator: {b}@scenario name{/b} — declare this file's scenario ID for [goto] targeting.
-[show lavender center happy]
-Lavender: [call] + [return] is your best friend for reusable content. Once you start using it, you'll wonder how you ever managed without it.
-> Back to menu -> lesson_menu
-
-# ─── Practice Scene ──────────────────────────────────────────────
+# ─── Practice ────────────────────────────────────────────────────
 
 @label practice_scene
-[show lavender right talking]
-Lavender: Let's see [call] and [return] in action. I'll run a few subroutines live.
-Lavender: First, a greeting:
+[show lavender center talking]
+Lavender: Watch [call] and [return] work in real time. I'll call two subroutines and you'll see execution return here each time.
+[wait 300]
+Lavender: Calling the greeting subroutine now:
 [call sub_greeting]
-Lavender: See? I came back. Now let me check something:
+Lavender: I'm back from the greeting. Now calling the inventory check:
 [call sub_check]
 [show lavender center happy]
-Lavender: Two subroutine calls, and the flow returned here each time. Clean and predictable.
-Lavender: Pick a scenario to see how you'd use this in a real scene:
-> A recurring NPC encounter -> practice_npc
-> A flashback sequence -> practice_flashback
-> A utility check -> practice_utility
+Lavender: Both calls returned here. The script continued exactly where it left off.
+[show lavender center talking]
+Lavender: Here's what the subroutines look like in script:
+narrator: {color=#8888cc}@label sub_greeting{/color}
+narrator: {color=#8888cc}[show lavender center happy]{/color}
+narrator: {color=#8888cc}Lavender: Hi! This is the greeting subroutine.{/color}
+narrator: {color=#8888cc}[return]{/color}
+narrator: The [return] sends execution back to the line after [call sub_greeting].
+[show lavender left talking]
+Lavender: Three real-world uses:
+narrator: {b}1. Recurring NPC greetings{/b} — [call shopkeeper_hello] at the start of every shop visit.
+narrator: {b}2. Flashbacks{/b} — [call flashback_childhood] dips into a memory, then returns to present.
+narrator: {b}3. Utility checks{/b} — [call update_stats] runs logic silently and returns.
+[show lavender center happy]
+Lavender: Start with one [call] block. Once you see how clean it makes repeated content, the rest follows naturally.
+> Replay the demo -> practice_scene
+> Back to menu -> lesson_menu
 
 @label sub_greeting
 [show lavender center happy]
-Lavender: Hello! This is the greeting subroutine. I wave, I smile, and then...
+Lavender: Hi! This is the greeting subroutine. It runs and then...
 [return]
 
 @label sub_check
 [show lavender center talking]
-Lavender: Checking... checking... okay, all clear.
+Lavender: Checking inventory... all clear.
 [return]
-
-@label practice_npc
-[show lavender left talking]
-Lavender: Imagine a shopkeeper you visit multiple times. Instead of rewriting the greeting each time:
-narrator: {color=#8888cc}[call shopkeeper_greeting]{/color}
-narrator: {color=#8888cc}Lavender: What are you selling today?{/color}
-[show lavender center happy]
-Lavender: Same greeting, different conversation after. The [call] handles the boilerplate.
-[set practice_result 1]
-[jump practice_wrap]
-
-@label practice_flashback
-[show lavender center talking]
-Lavender: Flashbacks are perfect for [call]. The player dips into a memory, then returns to the present:
-narrator: {color=#8888cc}narrator: Your vision blurs. A memory surfaces...{/color}
-narrator: {color=#8888cc}[call flashback_childhood]{/color}
-narrator: {color=#8888cc}narrator: You blink. The present returns.{/color}
-[show lavender center happy]
-Lavender: The flashback label has its own staging, dialogue, and a [return] at the end. Self-contained.
-[set practice_result 2]
-[jump practice_wrap]
-
-@label practice_utility
-[show lavender right talking]
-Lavender: Utility subroutines run logic without showing dialogue — checking flags, updating counters, gating content:
-narrator: {color=#8888cc}@label update_stats{/color}
-narrator: {color=#8888cc}[if courage >= 3]{/color}
-narrator: {color=#8888cc}[set brave_ending 1]{/color}
-narrator: {color=#8888cc}[endif]{/color}
-narrator: {color=#8888cc}[return]{/color}
-[show lavender center happy]
-Lavender: Call it wherever you need a stat check. The logic lives in one place, but you can invoke it from anywhere.
-[set practice_result 3]
-[jump practice_wrap]
-
-@label practice_wrap
-[show lavender center happy]
-[if practice_result == 1]
-Lavender: Recurring NPCs are the classic use case. Write the greeting once, call it from every visit.
-[elif practice_result == 2]
-Lavender: Flashbacks keep your timeline clean — the memory exists as a subroutine, not tangled into the main flow.
-[else]
-Lavender: Utility subroutines are invisible to the player but save you from duplicating logic everywhere.
-[endif]
-Lavender: Start small — even one [call] in your script makes the structure cleaner.
-> Back to menu -> lesson_menu
 
 @label return_hub
 [goto {{HUB_TARGET}}:topics_page_2]

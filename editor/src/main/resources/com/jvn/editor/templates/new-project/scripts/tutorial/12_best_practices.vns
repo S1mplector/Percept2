@@ -1,5 +1,5 @@
 # Tutorial 12 — Best Practices
-# A checklist of habits that keep your VNS project clean, readable, and scalable.
+# Naming, structure, common bugs, and the habits that keep projects maintainable.
 
 @scenario {{SCENARIO_PREFIX}}_tutorial_12_best_practices
 @include {{CHARACTERS_INCLUDE}}
@@ -9,198 +9,173 @@
 [autodelay 1650]
 [show lavender center happy]
 [wait 200]
-Lavender: You've learned the commands. Now let's talk about the habits that separate a hobby project from a polished game.
+Lavender: Every tutorial so far taught syntax. This one teaches the habits that keep a project alive past week two.
 [show lavender center talking]
-Lavender: These aren't rules — they're lessons from projects that grew big enough to hurt.
+Lavender: Naming, structure, writing craft, and the bugs that bite everyone exactly once.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: What would you like to review?
-> File and folder hygiene -> section_files
-> Naming conventions -> section_naming
-> Dialogue writing tips -> section_dialogue
-> Testing and playtesting -> section_testing
-> Common mistakes -> section_mistakes
-> The full checklist -> reference_sheet
-> Quiz yourself -> practice_scene
+> Naming: files, labels, variables -> section_naming
+> Project structure -> section_structure
+> Writing craft -> section_writing
+> The six most common bugs -> section_bugs
+> Quiz: spot the problem -> practice_scene
 > Back to Tutorial Hub -> return_hub
 
-# ─── File and Folder Hygiene ─────────────────────────────────────
-
-@label section_files
-[show lavender left talking]
-Lavender: Your project structure is the first thing a collaborator sees. Make it welcoming.
-narrator: {b}scripts/{/b} — all VNS files, organized by chapter or arc.
-narrator: {b}assets/characters/{/b} — character sprites, one folder per character.
-narrator: {b}assets/backgrounds/{/b} — scene backgrounds.
-narrator: {b}assets/audio/bgm/{/b} — music files.
-narrator: {b}assets/audio/sfx/{/b} — sound effects.
-narrator: {b}config/{/b} — menus, layouts, styles, registry files.
-[show lavender center talking]
-Lavender: The exact structure depends on your project, but the principle is universal: {i}group by type, name by purpose{/i}.
-Lavender: Don't dump everything in one folder. Don't use cryptic folder names. Don't mix audio with scripts.
-[show lavender center happy]
-Lavender: If someone new joins the team, they should be able to find any file in under 30 seconds.
-> Next: Naming -> section_naming
-> Back to menu -> lesson_menu
-
-# ─── Naming Conventions ──────────────────────────────────────────
+# ─── Naming ──────────────────────────────────────────────────────
 
 @label section_naming
-[show lavender right talking]
-Lavender: Good names prevent bugs. Bad names cause them.
-[show lavender center talking]
-Lavender: For {b}files{/b}:
-narrator: {b}Good:{/b} ch1_rooftop_scene.vns, ch2_library_confrontation.vns
-narrator: {b}Bad:{/b} scene3.vns, new_file_FINAL_v2.vns
-Lavender: For {b}labels{/b}:
-narrator: {b}Good:{/b} rooftop_choice, after_confrontation, ending_brave
-narrator: {b}Bad:{/b} label1, temp, here
-Lavender: For {b}variables{/b}:
-narrator: {b}Good:{/b} courage, met_librarian, ch1_route_active
-narrator: {b}Bad:{/b} x, flag, val
 [show lavender left talking]
-Lavender: Use snake_case everywhere. Prefix chapter-specific variables. Be descriptive even when it feels verbose.
-[show lavender center happy]
-Lavender: The name should answer "what is this?" without needing to read the surrounding code.
-> Next: Dialogue -> section_dialogue
-> Back to menu -> lesson_menu
-
-# ─── Dialogue Writing Tips ───────────────────────────────────────
-
-@label section_dialogue
+Lavender: Three naming domains. Same rule for all: {b}the name should explain itself without context{/b}.
+narrator: {b}Files:{/b}
+narrator: {color=#66bb88}Good:{/color} ch1_rooftop_confrontation.vns, ch2_library_escape.vns
+narrator: {color=#ff6666}Bad:{/color} scene3.vns, new_file_FINAL_v2.vns
 [show lavender center talking]
-Lavender: Technical skill gets the engine running. Writing skill makes the player care. A few things to keep in mind:
-narrator: {b}Keep lines short.{/b} Two sentences per dialogue line, max. Players read fast.
-narrator: {b}Read it aloud.{/b} If it sounds awkward spoken, it reads awkward too.
-narrator: {b}Give characters voice.{/b} Each character should sound different — vocabulary, sentence length, attitude.
-narrator: {b}Use narration for atmosphere.{/b} Don't make characters describe what the player can see.
-[show lavender right talking]
-Lavender: And the golden rule of VN dialogue:
-narrator: {b}Every line should either advance the plot, reveal character, or create mood.{/b}
-narrator: If it doesn't do any of those, cut it.
+narrator: {b}Labels:{/b}
+narrator: {color=#66bb88}Good:{/color} rooftop_choice, after_confrontation, ending_brave
+narrator: {color=#ff6666}Bad:{/color} label1, temp, here
+narrator: {b}Variables:{/b}
+narrator: {color=#66bb88}Good:{/color} courage, met_librarian, ch1_route_active
+narrator: {color=#ff6666}Bad:{/color} x, flag, val
 [show lavender center happy]
-Lavender: Your player's time is precious. Respect it, and they'll respect your story.
-> Next: Testing -> section_testing
+Lavender: Use {b}snake_case{/b} everywhere. Prefix chapter-scoped variables: ch1_courage, ch2_trust.
+> Next: project structure -> section_structure
 > Back to menu -> lesson_menu
 
-# ─── Testing and Playtesting ────────────────────────────────────
+# ─── Project Structure ───────────────────────────────────────────
 
-@label section_testing
+@label section_structure
+[show lavender right talking]
+Lavender: A scalable folder layout:
+narrator: {color=#8888cc}scripts/chapter_01/{/color} — one .vns file per scene.
+narrator: {color=#8888cc}scripts/definitions/{/color} — shared @character, @background includes.
+narrator: {color=#8888cc}assets/characters/sprites/{/color} — character art.
+narrator: {color=#8888cc}assets/backgrounds/{/color} — scene backgrounds.
+narrator: {color=#8888cc}assets/audio/bgm/{/color} — music. {color=#8888cc}sfx/{/color} — effects. {color=#8888cc}voice/{/color} — clips.
+narrator: {color=#8888cc}config/menu/{/color} — menu screens, layouts, styles.
+narrator: {color=#8888cc}config/ui/{/color} — dialogue box layout and style.
+[show lavender center talking]
+Lavender: Rules:
+narrator: {b}One scenario per file.{/b} Don't pack multiple scenes into one script.
+narrator: {b}Group by type.{/b} Scripts with scripts, art with art, audio with audio.
+narrator: {b}Never nest more than 3 folders deep.{/b} Deep trees are hard to navigate.
+[show lavender center happy]
+Lavender: Test: can a new team member find any file in under 30 seconds? If not, reorganize.
+> Next: writing craft -> section_writing
+> Back to menu -> lesson_menu
+
+# ─── Writing Craft ───────────────────────────────────────────────
+
+@label section_writing
+[show lavender center talking]
+Lavender: Technical skill runs the engine. Writing skill makes the player care.
+narrator: {b}Two sentences max per dialogue line.{/b} If it fills the text box, split it.
+narrator: {b}Read lines aloud.{/b} If it sounds awkward spoken, it reads awkward.
+narrator: {b}Give each character a distinct voice.{/b} Vocabulary, rhythm, attitude should differ.
+narrator: {b}Use narration for atmosphere{/b}, not for repeating what the player can see.
 [show lavender left talking]
-Lavender: You will ship bugs. The question is how many. Here's how to minimize them:
-narrator: {b}Play every branch.{/b} Don't just test the happy path. Click every choice.
-narrator: {b}Check your variables.{/b} After each scene, verify counters and flags are what you expect.
-narrator: {b}Test saves and loads.{/b} Save mid-scene, reload, and make sure nothing breaks.
-narrator: {b}Watch for dead ends.{/b} Every label should either lead somewhere or end the scene intentionally.
-[show lavender center talking]
-Lavender: Get someone else to playtest. You've read your script a hundred times — you'll miss things. Fresh eyes catch what you can't.
-[show lavender right talking]
-Lavender: And test on the target resolution. UI elements that look fine at 1920x1080 might overlap at 1280x720.
+Lavender: The golden rule:
+narrator: {b}Every line should advance the plot, reveal character, or create mood.{/b}
+narrator: If a line does none of those, cut it. The player's time is not free.
 [show lavender center happy]
-Lavender: Budget time for testing. It's not optional — it's where quality lives.
-> Next: Common mistakes -> section_mistakes
+Lavender: The best VN dialogue sounds like real people talking — not like someone writing dialogue.
+> Next: common bugs -> section_bugs
 > Back to menu -> lesson_menu
 
-# ─── Common Mistakes ─────────────────────────────────────────────
+# ─── Common Bugs ─────────────────────────────────────────────────
 
-@label section_mistakes
+@label section_bugs
 [show lavender center talking]
-Lavender: The mistakes I see most often:
-narrator: {b}Missing [endif].{/b} Every [if] needs one. The error is silent but the behavior is wrong.
-narrator: {b}Wrong scenario ID in [goto].{/b} Typos in scenario names cause hard-to-debug navigation failures.
-narrator: {b}Forgetting [return].{/b} A [call] without a matching [return] runs off the end of the label.
-narrator: {b}Overusing variables.{/b} If you have 100 flags and can't remember what half of them do, simplify.
-narrator: {b}Walls of text.{/b} If a single dialogue line fills the entire text box, split it.
-[show lavender right talking]
-Lavender: And the sneaky one:
-narrator: {b}Untested branches.{/b} You wrote it, but did you play it? There's always one path nobody clicked.
+Lavender: Six bugs that hit every project. Learn them here instead of in production.
+narrator: {b}1. Missing [endif].{/b} Every [if] needs one. The error is silent — wrong branches run and you won't know why.
+narrator: {b}2. Typo in [goto] scenario ID.{/b} The script can't find the target. Hard to debug because it fails at runtime, not parse time.
+narrator: {b}3. Missing [return].{/b} A [call] without [return] falls through into the next label. Chaos.
+narrator: {b}4. Orphaned labels.{/b} A choice points to "park_scen" but the label is "park_scene". One letter.
+narrator: {b}5. Untested branches.{/b} You wrote it, but did you click it? There's always one path nobody played.
+narrator: {b}6. Variable sprawl.{/b} 100 flags, half undocumented. Simplify before it buries you.
 [show lavender center happy]
-Lavender: Most of these are caught by simply playing your own game start to finish. Do it before anyone else does.
-> The full checklist -> reference_sheet
-> Quiz yourself -> practice_scene
+Lavender: All six are caught by one habit: play your own game start to finish before anyone else does.
+> Quiz: spot the problem -> practice_scene
 > Back to menu -> lesson_menu
 
-# ─── Reference Checklist ─────────────────────────────────────────
-
-@label reference_sheet
-[show lavender center talking]
-Lavender: The best practices checklist:
-narrator: {b}Structure:{/b} One scenario per file. Descriptive file names. Organized folders.
-narrator: {b}Naming:{/b} snake_case for labels and variables. Chapter prefixes for scoped state.
-narrator: {b}Dialogue:{/b} Short lines. Distinct character voices. Cut anything that doesn't earn its place.
-narrator: {b}Flow:{/b} Use [call]/[return] for reusable blocks. Merge branches when possible.
-narrator: {b}Variables:{/b} Descriptive names. Minimal count. Document what each one tracks.
-narrator: {b}Testing:{/b} Play every branch. Test saves. Check variable state. Get fresh eyes.
-narrator: {b}Assets:{/b} Organized by type. Consistent naming. No orphan files.
-narrator: {b}Conditions:{/b} Every [if] has [endif]. Keep blocks short. Avoid deep nesting.
-[show lavender center happy]
-Lavender: Print this, pin it to your wall, and check it before every release. Seriously.
-> Back to menu -> lesson_menu
-
-# ─── Practice Quiz ───────────────────────────────────────────────
+# ─── Quiz ────────────────────────────────────────────────────────
 
 @label practice_scene
-[show lavender right talking]
-Lavender: Quick quiz — no pressure. Just checking your instincts.
+[set quiz 0]
 [show lavender center talking]
-Lavender: Question 1: You have a greeting that three different scenes use. What's the best approach?
-> Copy-paste it into each scene -> practice_q1_copy
-> Use [call] to a shared greeting label -> practice_q1_call
-> Write three different greetings -> practice_q1_three
+Lavender: Three questions. Let's see if you can spot the issue.
 
-@label practice_q1_copy
-[show lavender center talking]
-Lavender: That works, but now you have three copies to maintain. Change one, forget the others — instant inconsistency.
-[set practice_score 0]
-[jump practice_q2]
+@label pq1
+Lavender: Q1: This script has a bug. What is it?
+narrator: {color=#8888cc}[if courage >= 3]{/color}
+narrator: {color=#8888cc}Lavender: You're very brave.{/color}
+narrator: {color=#8888cc}[elif courage >= 1]{/color}
+narrator: {color=#8888cc}Lavender: Not bad.{/color}
+> Missing [endif] -> pq1_correct
+> Missing [return] -> pq1_wrong
+> The variable name is bad -> pq1_wrong
 
-@label practice_q1_call
-[inc practice_score]
+@label pq1_correct
+[inc quiz]
 [show lavender center happy]
-Lavender: Exactly. One source of truth, called from wherever you need it. Change it once, it updates everywhere.
-[jump practice_q2]
+Lavender: Right. Every [if] block must close with [endif]. Without it, the engine doesn't know where the block ends.
+[jump pq2]
 
-@label practice_q1_three
+@label pq1_wrong
 [show lavender center talking]
-Lavender: That can work for character variety, but if they're supposed to be the same greeting, you're tripling your maintenance.
-[set practice_score 0]
-[jump practice_q2]
+Lavender: Not quite. The block is missing {b}[endif]{/b} at the end. Without it, everything after runs unconditionally.
+[jump pq2]
 
-@label practice_q2
+@label pq2
 [show lavender center talking]
-Lavender: Question 2: A variable is named "x" and tracks how many times the player helped NPCs. What should you rename it to?
-> npc_help_count -> practice_q2_good
-> flag1 -> practice_q2_bad
-> x is fine -> practice_q2_x
+Lavender: Q2: What's wrong with this choice target?
+narrator: {color=#8888cc}> Visit the library -> libary_scene{/color}
+narrator: {color=#8888cc}@label library_scene{/color}
+> The label name is misspelled in the choice -> pq2_correct
+> The choice text is too long -> pq2_wrong
+> Nothing is wrong -> pq2_wrong
 
-@label practice_q2_good
-[inc practice_score]
+@label pq2_correct
+[inc quiz]
 [show lavender center happy]
-Lavender: Perfect. Descriptive, clear, and you'll know what it means six months from now.
-[jump practice_result]
+Lavender: Exactly. "libary_scene" vs "library_scene" — one missing letter. The engine can't find the target.
+[jump pq3]
 
-@label practice_q2_bad
+@label pq2_wrong
 [show lavender center talking]
-Lavender: "flag1" is barely better than "x". What does it flag? When? Why?
-[jump practice_result]
+Lavender: Look again: the choice says "libary_scene" but the label says "library_scene". Typo.
+[jump pq3]
 
-@label practice_q2_x
+@label pq3
 [show lavender center talking]
-Lavender: It works... until you have 30 variables and can't remember what any of them do. Trust me.
-[jump practice_result]
+Lavender: Q3: You have a greeting used in 5 different scenes. What's the cleanest approach?
+> Copy-paste into each scene -> pq3_wrong
+> [call] a shared greeting label -> pq3_correct
+> Write 5 unique greetings -> pq3_wrong
 
-@label practice_result
+@label pq3_correct
+[inc quiz]
+[show lavender center happy]
+Lavender: Perfect. One source of truth, called from anywhere. Change it once, it updates everywhere.
+[jump quiz_result]
+
+@label pq3_wrong
 [show lavender center talking]
-[if practice_score >= 2]
-Lavender: 2 out of 2. You've got the right instincts — clean code, clear names, reusable structure.
-[elif practice_score == 1]
-Lavender: 1 out of 2. You're on the right track. The habits build with practice.
+Lavender: The cleanest approach is {b}[call]{/b} — one greeting label, called from all 5 scenes. No duplication.
+[jump quiz_result]
+
+@label quiz_result
+[show lavender center talking]
+[if quiz >= 3]
+Lavender: 3/3. Clean instincts. You'll catch these bugs before they ship.
+[elif quiz == 2]
+Lavender: 2/3. Solid. Review the one you missed — it'll save you a debugging session later.
+[elif quiz == 1]
+Lavender: 1/3. These are the bugs that eat hours. Worth re-reading the common bugs section.
 [else]
-Lavender: 0 out of 2. No worries — knowing the principles is what matters. You can always refactor.
+Lavender: 0/3. Better to miss here than in production. That's what tutorials are for.
 [endif]
-[show lavender center happy]
-Lavender: That's all 12 tutorials. You've got every tool you need. Now go build something worth playing.
+> Retake the quiz -> practice_scene
 > Back to menu -> lesson_menu
 
 @label return_hub

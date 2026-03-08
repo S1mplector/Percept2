@@ -1,5 +1,5 @@
 # Tutorial 06 — Audio and Music
-# How to play background music, trigger sound effects, and control audio fading.
+# [bgm], [sfx], [voice], [synthesizer], and audio fading commands.
 
 @scenario {{SCENARIO_PREFIX}}_tutorial_06_audio
 @include {{CHARACTERS_INCLUDE}}
@@ -9,185 +9,145 @@
 [autodelay 1650]
 [show lavender center happy]
 [wait 200]
-Lavender: Close your eyes for a second. Imagine a scene with no sound at all.
+Lavender: Audio has four layers in VNS: background music, sound effects, voice clips, and procedural synthesis.
 [show lavender center talking]
-Lavender: Flat, right? Audio is half the experience in a visual novel — music sets the mood, sound effects sell the moment.
-Lavender: Let's learn how to control it.
+Lavender: Each layer has its own commands. Let's go through them.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: What would you like to explore?
-> Background music (BGM) -> section_bgm
-> Sound effects (SFX) -> section_sfx
+> [bgm] — background music -> section_bgm
+> [sfx] — sound effects -> section_sfx
+> [voice] — voice acting -> section_voice
+> [synthesizer] — procedural ambience -> section_synth
 > Fading and crossfading audio -> section_fading
-> Voice lines -> section_voice
-> Asset organization for audio -> section_organization
-> Quick reference card -> reference_sheet
-> Practice scene -> practice_scene
+> Practice: scoring a scene -> practice_scene
 > Back to Tutorial Hub -> return_hub
 
-# ─── Background Music ────────────────────────────────────────────
+# ─── BGM ─────────────────────────────────────────────────────────
 
 @label section_bgm
 [show lavender left talking]
-Lavender: {b}[bgm]{/b} starts a music track that loops continuously in the background.
+Lavender: {b}[bgm "path"]{/b} starts a music track that loops until you stop or replace it.
 narrator: {color=#8888cc}[bgm "assets/audio/bgm/peaceful_morning.mp3"]{/color}
-Lavender: That's it — one line and the music plays. It'll keep looping until you change it or stop it.
+narrator: The track plays immediately and loops continuously.
 [show lavender center talking]
-Lavender: To stop music:
+Lavender: To switch tracks, call [bgm] again — the old track stops, the new one starts:
+narrator: {color=#8888cc}[bgm "assets/audio/bgm/tense_night.mp3"]{/color}
+Lavender: To stop music entirely:
 narrator: {color=#8888cc}[bgm_stop]{/color}
-Lavender: To switch to a different track, just call [bgm] again with a new file. The old one stops automatically.
 [show lavender center happy]
-Lavender: Music is the emotional backbone of every scene. A cheerful track makes the same dialogue feel completely different from a tense one.
-Lavender: Choose your tracks carefully — they do more storytelling than you might think.
-> Next: Sound effects -> section_sfx
+Lavender: Format: MP3 or OGG. Keep music files in {b}assets/audio/bgm/{/b} and name them descriptively — cafe_jazz_loop.mp3, not track_03.mp3.
+> Next: sfx -> section_sfx
 > Back to menu -> lesson_menu
 
-# ─── Sound Effects ───────────────────────────────────────────────
+# ─── SFX ─────────────────────────────────────────────────────────
 
 @label section_sfx
 [show lavender right talking]
-Lavender: {b}[sfx]{/b} plays a one-shot sound — a door closing, a phone buzzing, footsteps, thunder.
+Lavender: {b}[sfx "path"]{/b} plays a one-shot sound. It fires once and stops — no looping.
 narrator: {color=#8888cc}[sfx "assets/audio/sfx/door_close.wav"]{/color}
 [show lavender center talking]
-Lavender: Unlike BGM, sound effects play once and stop. They don't loop.
-Lavender: Time them right before or after a dialogue line for maximum impact:
+Lavender: Timing matters. Place the SFX command {i}before{/i} the dialogue line that reacts to it:
 narrator: {color=#8888cc}[sfx "assets/audio/sfx/glass_break.wav"]{/color}
 narrator: {color=#8888cc}Lavender: What was that?!{/color}
+narrator: The player hears the crash, then reads the reaction. Sound first, words second.
 [show lavender left talking]
-Lavender: The sound plays, then the line appears. The player hears the crash {i}before{/i} the reaction — that's good pacing.
+Lavender: SFX files should be short — 0.5 to 2 seconds. Use WAV for crisp, instant playback.
+Lavender: Folder: {b}assets/audio/sfx/{/b}. Names: door_close.wav, footstep_wood.wav, thunder_distant.wav.
+> Next: voice -> section_voice
+> Back to menu -> lesson_menu
+
+# ─── Voice ───────────────────────────────────────────────────────
+
+@label section_voice
+[show lavender center talking]
+Lavender: {b}[voice "path"]{/b} plays a voice clip alongside the next dialogue line.
+narrator: {color=#8888cc}[voice "assets/audio/voice/lavender_001.wav"]{/color}
+narrator: {color=#8888cc}Lavender: I can't believe it's already sunset.{/color}
+narrator: The clip starts when the line appears. If the player clicks ahead, the clip stops.
+[show lavender right talking]
+Lavender: Voice acting is optional. If you use it:
+narrator: {b}Naming:{/b} characterId_lineNumber.wav — lavender_001.wav, alex_042.wav.
+narrator: {b}Folder:{/b} assets/audio/voice/ with subfolders per character.
+narrator: {b}Settings:{/b} always give players a separate voice volume slider.
 [show lavender center happy]
-Lavender: Keep SFX files short — half a second to two seconds is the sweet spot for most effects.
-> Next: Fading -> section_fading
+Lavender: Voice files add up fast. A 10-hour VN can have thousands of clips. Organize early.
+> Next: synthesizer -> section_synth
+> Back to menu -> lesson_menu
+
+# ─── Synthesizer ─────────────────────────────────────────────────
+
+@label section_synth
+[show lavender center talking]
+Lavender: The {b}[synthesizer]{/b} command generates ambient sound procedurally — no audio files needed.
+narrator: {color=#8888cc}[synthesizer on mode:"rain" intensity:0.7 volume:0.4 loop:true]{/color}
+narrator: Starts a rain ambience at 70% intensity, 40% volume, looping.
+[show lavender left talking]
+Lavender: Available modes and their key parameters:
+narrator: {b}wind{/b} — {color=#8888cc}[synthesizer on mode:"wind" intensity:0.7 volume:0.35 loop:true]{/color}
+narrator: {b}rain{/b} — {color=#8888cc}[synthesizer on mode:"rain" intensity:0.68 detail:0.82 motion:0.35 spread:0.72 accent:0.9]{/color}
+narrator: {b}thunder{/b} — {color=#8888cc}[synthesizer on mode:"thunder" intensity:0.8 accent:0.7]{/color}
+narrator: {b}fireplace{/b} — {color=#8888cc}[synthesizer on mode:"fireplace" intensity:0.6 detail:0.75]{/color}
+narrator: {b}night_insects{/b} — {color=#8888cc}[synthesizer on mode:"night_insects" intensity:0.5 accent:0.8 motion:0.6]{/color}
+[show lavender center talking]
+Lavender: Parameters: {b}intensity{/b} (strength), {b}detail{/b} (texture), {b}motion{/b} (stereo movement), {b}spread{/b} (stereo width), {b}accent{/b} (preset-specific variation).
+narrator: {color=#8888cc}[synthesizer off]{/color}
+narrator: Stops all active synth layers.
+[show lavender center happy]
+Lavender: Synth ambience is zero-filesize and infinitely variable. Layer it under BGM for rich atmospheric scenes.
+> Next: fading -> section_fading
 > Back to menu -> lesson_menu
 
 # ─── Fading ──────────────────────────────────────────────────────
 
 @label section_fading
-[show lavender left talking]
-Lavender: Abruptly stopping music is jarring. Fading out is almost always better.
-narrator: {color=#8888cc}[bgm_fadeout 1200]{/color}
-Lavender: That fades the current track to silence over 1200 milliseconds — about one second.
-[show lavender center talking]
-Lavender: You can also fade {i}into{/i} a new track:
-narrator: {color=#8888cc}[bgm_fadein "assets/audio/bgm/tense_night.mp3" 800]{/color}
-Lavender: The new track starts silent and rises to full volume over 800ms.
 [show lavender right talking]
-Lavender: For a smooth crossfade — old track out, new track in simultaneously:
+Lavender: Abrupt music stops are jarring. Use fades instead:
+narrator: {b}Fade out:{/b} {color=#8888cc}[bgm_fadeout 1200]{/color} — current track fades to silence over 1200ms.
+narrator: {b}Fade in:{/b} {color=#8888cc}[bgm_fadein "path" 800]{/color} — new track starts silent, rises to full over 800ms.
+[show lavender center talking]
+Lavender: For a smooth crossfade between tracks, use both together:
 narrator: {color=#8888cc}[bgm_fadeout 1000]{/color}
-narrator: {color=#8888cc}[bgm_fadein "new_track.mp3" 1000]{/color}
-Lavender: The durations overlap, so you get a seamless blend between the two tracks.
+narrator: {color=#8888cc}[bgm_fadein "assets/audio/bgm/tense_night.mp3" 1000]{/color}
+narrator: Both run simultaneously — old track fades out as new track fades in.
 [show lavender center happy]
-Lavender: Fade durations are subjective, but 800–1500ms works for most situations. Shorter feels urgent, longer feels dreamy.
-> Next: Voice -> section_voice
+Lavender: Fade durations: 600–1000ms for standard changes, 1200–2000ms for slow dramatic shifts, 300–500ms for urgent mood swaps.
+> Practice: scoring a scene -> practice_scene
 > Back to menu -> lesson_menu
 
-# ─── Voice Lines ─────────────────────────────────────────────────
-
-@label section_voice
-[show lavender center talking]
-Lavender: If your project has voice acting, the {b}[voice]{/b} command plays a voice clip alongside a dialogue line.
-narrator: {color=#8888cc}[voice "assets/audio/voice/lavender_001.wav"]{/color}
-narrator: {color=#8888cc}Lavender: I can't believe it's already sunset.{/color}
-Lavender: The voice clip plays when the line appears. If the player clicks before it finishes, the clip stops.
-[show lavender right talking]
-Lavender: Voice acting is optional — many great VNs are text-only. But if you add it, a few tips:
-Lavender: Name files by character and line number: {b}lavender_001.wav{/b}, {b}alex_042.wav{/b}.
-Lavender: Keep a separate {b}assets/audio/voice/{/b} folder. Voice files add up fast.
-[show lavender center happy]
-Lavender: And always give the player a volume slider for voice — some people love it, some prefer reading in silence.
-> Reference card -> reference_sheet
-> Try it yourself -> practice_scene
-> Back to menu -> lesson_menu
-
-# ─── Organization ────────────────────────────────────────────────
-
-@label section_organization
-[show lavender left talking]
-Lavender: Audio files multiply quickly. Here's a folder structure that keeps things sane:
-narrator: {b}assets/audio/bgm/{/b} — background music tracks.
-narrator: {b}assets/audio/sfx/{/b} — sound effects.
-narrator: {b}assets/audio/voice/{/b} — voice lines, organized by character.
-narrator: {b}assets/audio/ambience/{/b} — looping environmental sounds (rain, crowd noise, wind).
-[show lavender center talking]
-Lavender: For file names, be descriptive: {b}cafe_jazz_loop.mp3{/b} beats {b}track_03.mp3{/b} every time.
-[show lavender center happy]
-Lavender: And use OGG or MP3 for music, WAV for short SFX. Smaller files load faster.
-> Reference card -> reference_sheet
-> Back to menu -> lesson_menu
-
-# ─── Reference Card ──────────────────────────────────────────────
-
-@label reference_sheet
-[show lavender center talking]
-Lavender: Audio cheat sheet:
-narrator: {b}[bgm "path"]{/b} — play looping background music.
-narrator: {b}[bgm_stop]{/b} — stop music immediately.
-narrator: {b}[bgm_fadeout N]{/b} — fade current music to silence over N ms.
-narrator: {b}[bgm_fadein "path" N]{/b} — start new track, fading in over N ms.
-narrator: {b}[sfx "path"]{/b} — play a one-shot sound effect.
-narrator: {b}[voice "path"]{/b} — play a voice clip with the next dialogue line.
-narrator: {b}[synthesizer on mode:"wind" intensity:0.7 volume:0.35 loop:true]{/b} — start procedural ambience.
-narrator: {b}[synthesizer on mode:"rain" intensity:0.68 detail:0.82 motion:0.35 spread:0.72 accent:0.9]{/b} — shape native ambience texture, motion, stereo spread, and preset-specific accents.
-narrator: {b}[synthesizer on mode:"thunder" intensity:0.8 accent:0.7]{/b} — deep rumbling thunderstorm with stochastic cracks.
-narrator: {b}[synthesizer on mode:"fireplace" intensity:0.6 detail:0.75]{/b} — warm crackling fire with popping embers.
-narrator: {b}[synthesizer on mode:"night_insects" intensity:0.5 accent:0.8 motion:0.6]{/b} — chirping crickets and ambient night bed.
-narrator: {b}[synthesizer off]{/b} — stop active ambience/chiptune synth layers.
-narrator: {b}Folders:{/b} assets/audio/bgm/, sfx/, voice/, ambience/.
-narrator: {b}Formats:{/b} MP3 or OGG for music, WAV for short SFX.
-[show lavender center happy]
-Lavender: Audio is invisible when done well and painful when done wrong. Take the time to get it right.
-> Back to menu -> lesson_menu
-
-# ─── Practice Scene ──────────────────────────────────────────────
+# ─── Practice ────────────────────────────────────────────────────
 
 @label practice_scene
-[show lavender right talking]
-Lavender: Let's hear audio in action. Pick a mood:
-> A peaceful morning -> practice_peaceful
-> A spooky night -> practice_spooky
-> A busy city -> practice_city
+[show lavender center talking]
+Lavender: I'll show you how audio commands layer into a real scene. Follow the script annotations.
+[wait 300]
 
-@label practice_peaceful
+@label practice_scored_scene
 {{BGM_START}}
+narrator: {b}↑ [bgm] started a track above this line.{/b}
+[wait 300]
+narrator: Morning light filtered through the curtains. The town was still quiet.
 [show lavender center happy]
-narrator: Birdsong filtered through the open window. The morning was already warm.
-Lavender: Mmm. This is nice. The music does half the work here.
-[show lavender center talking]
-Lavender: Notice how a calm BGM track completely changes how you read the narrator's description.
-[set practice_result 1]
-[jump practice_wrap]
-
-@label practice_spooky
-[show lavender center talking]
-narrator: The floorboards creaked under each step. Somewhere above, something scratched at the ceiling.
+Lavender: Another beautiful day. I wonder what's out there.
+[wait 200]
+narrator: A knock at the door — sharp and sudden.
+narrator: {b}↑ You'd add [sfx "knock.wav"] right before that narrator line.{/b}
 [show lavender center emphasis]
-Lavender: ...did you hear that? I {i}definitely{/i} heard something.
-[show lavender center talking]
-Lavender: Even without actual audio files, the script structure is there — you'd add [bgm] and [sfx] right before these lines.
-[set practice_result 2]
-[jump practice_wrap]
-
-@label practice_city
-[show lavender center happy]
-narrator: Car horns, distant conversation, the rumble of a train passing underground — the city was alive.
-Lavender: I love this kind of energy. Ambience tracks are perfect here — layer them under a light BGM.
-[show lavender center talking]
-Lavender: The trick is keeping BGM volume lower when there's a lot of ambient sound. Don't fight for the player's ears.
-[set practice_result 3]
-[jump practice_wrap]
-
-@label practice_wrap
+Lavender: Who's there...?
+[wait 400]
+narrator: Silence. Then the distant rumble of thunder.
+narrator: {b}↑ Here you'd layer [synthesizer on mode:"thunder" intensity:0.5 accent:0.6] for atmosphere.{/b}
+[wait 300]
 {{BGM_FADE}}
-[show lavender center happy]
-[if practice_result == 1]
-Lavender: Peaceful scenes pair best with soft, looping tracks. Let the music breathe — don't fill every second.
-[elif practice_result == 2]
-Lavender: Horror relies heavily on audio. Silence is terrifying. A single SFX in an otherwise quiet scene is powerful.
-[else]
-Lavender: Busy environments need layered audio. BGM plus ambience creates a rich soundscape without overwhelming the dialogue.
-[endif]
-Lavender: Drop your own audio files into the assets folder and try wiring them up. You'll hear the difference immediately.
+narrator: {b}↑ [bgm_fadeout] faded the music to silence.{/b}
+[show lavender center talking]
+Lavender: That scene used four audio tools:
+narrator: {b}1.{/b} [bgm] for the background music track.
+narrator: {b}2.{/b} [sfx] for the door knock (marked where it would go).
+narrator: {b}3.{/b} [synthesizer] for the thunder atmosphere.
+narrator: {b}4.{/b} [bgm_fadeout] to fade music as the mood shifts.
+Lavender: Add your own audio files and replace the annotations with real commands to hear it come alive.
+> Replay the scored scene -> practice_scored_scene
 > Back to menu -> lesson_menu
 
 @label return_hub

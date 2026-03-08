@@ -1,5 +1,5 @@
 # Tutorial 07 — Variables and Conditions
-# How to track game state, branch dialogue, and react to player choices.
+# [set], [inc], [dec], [if]/[elif]/[else]/[endif] — making the script remember and react.
 
 @scenario {{SCENARIO_PREFIX}}_tutorial_07_variables
 @include {{CHARACTERS_INCLUDE}}
@@ -7,196 +7,189 @@
 {{BG_START}}[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
+[set demo_var 0]
 [show lavender center happy]
 [wait 200]
-Lavender: This is where your story stops being linear and starts being {i}yours{/i}.
+Lavender: I just set a variable called {b}demo_var{/b} to 0. You didn't see it happen — it's invisible to the player.
 [show lavender center talking]
-Lavender: Variables let you remember things — what the player chose, how many times they visited a place, whether they're on a good path or a bad one.
-Lavender: Combined with conditions, they let you write stories that react to the player.
+Lavender: Variables let the script remember things. Conditions let it react. That's this entire lesson.
 
 @label lesson_menu
 [show lavender far_left talking]
-Lavender: What do you want to learn?
-> Setting and reading variables -> section_set
-> Incrementing and math -> section_math
-> If / elif / else conditions -> section_conditions
-> Variables with choices -> section_choices_vars
-> Naming conventions -> section_naming
-> Quick reference card -> reference_sheet
-> Practice scene -> practice_scene
+> [set] — creating and assigning variables -> section_set
+> [inc] and [dec] — counting up and down -> section_math
+> [if] / [elif] / [else] / [endif] — conditional blocks -> section_conditions
+> Wiring variables to choices -> section_choices_vars
+> Practice: a scored quiz -> practice_scene
 > Back to Tutorial Hub -> return_hub
 
-# ─── Setting Variables ───────────────────────────────────────────
+# ─── [set] ───────────────────────────────────────────────────────
 
 @label section_set
 [show lavender left talking]
-Lavender: The {b}[set]{/b} command creates a variable and gives it a value.
+Lavender: {b}[set name value]{/b} creates a variable or overwrites an existing one.
 narrator: {color=#8888cc}[set courage 0]{/color}
-Lavender: Now there's a variable called "courage" with the value 0. It persists for the entire playthrough.
-[show lavender center talking]
-Lavender: You can set it to any number, or to a string:
 narrator: {color=#8888cc}[set player_name "Alex"]{/color}
 narrator: {color=#8888cc}[set chapter 1]{/color}
-Lavender: Variables are global — once set, any script file can read or change them.
+[show lavender center talking]
+Lavender: Values can be {b}numbers{/b} (0, 42, -1) or {b}strings{/b} ("Alex", "route_a").
+Lavender: Variables are {b}global{/b} — once set, any script file in the project can read or change them.
+Lavender: They persist for the entire playthrough and are included in save files.
 [show lavender center happy]
-Lavender: Think of them as the game's memory. "Did the player help the cat?" — store a variable. "Which ending did they unlock?" — store a variable.
-> Next: Math -> section_math
+Lavender: You can also set a variable to the result of math:
+narrator: {color=#8888cc}[set total courage + kindness]{/color}
+> Next: inc and dec -> section_math
 > Back to menu -> lesson_menu
 
-# ─── Math Operations ─────────────────────────────────────────────
+# ─── [inc] and [dec] ────────────────────────────────────────────
 
 @label section_math
 [show lavender right talking]
-Lavender: You don't always want to set a specific value. Sometimes you just want to nudge it.
-narrator: {color=#8888cc}[inc courage]{/color}
-Lavender: That adds 1 to courage. If it was 0, now it's 1.
+Lavender: {b}[inc name]{/b} adds 1. {b}[dec name]{/b} subtracts 1.
+narrator: {color=#8888cc}[set courage 0]{/color}
+narrator: {color=#8888cc}[inc courage]{/color}    — courage is now 1
+narrator: {color=#8888cc}[inc courage]{/color}    — courage is now 2
+narrator: {color=#8888cc}[dec courage]{/color}    — courage is now 1
 [show lavender center talking]
-Lavender: There's also {b}[dec]{/b} to subtract:
-narrator: {color=#8888cc}[dec courage]{/color}
-Lavender: And you can set a variable to the result of math:
-narrator: {color=#8888cc}[set total_score courage + kindness]{/color}
-[show lavender left talking]
-Lavender: These are great for tracking cumulative choices. Every time the player does something brave, {b}[inc courage]{/b}. At the end, check how high it got.
+Lavender: The typical pattern: the player makes a choice, you silently [inc] a variable. Later, you check how high it got.
+narrator: {color=#8888cc}> Help the stranger -> helped{/color}
+narrator: {color=#8888cc}@label helped{/color}
+narrator: {color=#8888cc}[inc kindness]{/color}
 [show lavender center happy]
-Lavender: Keep the math simple — if your variable logic needs a spreadsheet to understand, it's too complex for a VN script.
-> Next: Conditions -> section_conditions
+Lavender: The player never sees the variable. They just see a story that remembers what they did.
+> Next: conditions -> section_conditions
 > Back to menu -> lesson_menu
 
-# ─── Conditions ──────────────────────────────────────────────────
+# ─── [if] / [elif] / [else] / [endif] ───────────────────────────
 
 @label section_conditions
 [show lavender center talking]
-Lavender: Conditions let you show different content based on variable values. Here's the basic pattern:
+Lavender: {b}[if]{/b} starts a conditional block. The engine checks the condition and runs the matching branch.
+narrator: Complete syntax:
 narrator: {color=#8888cc}[if courage >= 3]{/color}
-narrator: {color=#8888cc}Lavender: You've been really brave.{/color}
+narrator: {color=#8888cc}Lavender: You've been incredibly brave.{/color}
 narrator: {color=#8888cc}[elif courage >= 1]{/color}
 narrator: {color=#8888cc}Lavender: You showed some courage.{/color}
 narrator: {color=#8888cc}[else]{/color}
-narrator: {color=#8888cc}Lavender: Maybe next time you'll be braver.{/color}
+narrator: {color=#8888cc}Lavender: Maybe next time.{/color}
 narrator: {color=#8888cc}[endif]{/color}
 [show lavender left talking]
-Lavender: {b}[if]{/b} checks the condition. {b}[elif]{/b} checks another if the first was false. {b}[else]{/b} catches everything else.
-Lavender: Always close with {b}[endif]{/b} — the engine needs to know where the block ends.
-[show lavender right talking]
-Lavender: Operators you can use: {b}=={/b} (equal), {b}!={/b} (not equal), {b}>={/b}, {b}<={/b}, {b}>{/b}, {b}<{/b}.
-[show lavender center happy]
-Lavender: You can also check string variables:
+Lavender: {b}[if]{/b} — required. Checks the first condition.
+Lavender: {b}[elif]{/b} — optional. Checks another condition if the previous was false. You can chain multiple.
+Lavender: {b}[else]{/b} — optional. Catches everything that didn't match.
+Lavender: {b}[endif]{/b} — {b}required{/b}. Every [if] must have exactly one [endif].
+[show lavender center talking]
+Lavender: Available operators:
+narrator: {b}=={/b} equal   {b}!={/b} not equal   {b}>{/b} greater   {b}<{/b} less   {b}>={/b} greater or equal   {b}<={/b} less or equal
+Lavender: String comparison works too:
 narrator: {color=#8888cc}[if player_name == "Alex"]{/color}
-> Next: Variables with choices -> section_choices_vars
+[show lavender center happy]
+Lavender: Keep conditional blocks short. If you have more than 4 [elif]s, consider restructuring with labels and [jump].
+> Next: wiring to choices -> section_choices_vars
 > Back to menu -> lesson_menu
 
-# ─── Variables with Choices ──────────────────────────────────────
+# ─── Variables + Choices ─────────────────────────────────────────
 
 @label section_choices_vars
 [show lavender center talking]
-Lavender: The real power comes from combining variables with player choices. Watch this:
-narrator: {color=#8888cc}Lavender: The kitten is stuck in the tree. What do you do?{/color}
-narrator: {color=#8888cc}> Climb up and help -> choice_climb{/color}
-narrator: {color=#8888cc}> Walk away -> choice_walk{/color}
-Lavender: Then at each label:
-narrator: {color=#8888cc}@label choice_climb{/color}
+Lavender: The real payoff: combining variables with player choices. Here's a complete pattern:
+narrator: {color=#8888cc}Lavender: A kitten is stuck in the tree.{/color}
+narrator: {color=#8888cc}> Climb up and rescue it -> choice_rescue{/color}
+narrator: {color=#8888cc}> Walk past -> choice_ignore{/color}
+narrator: Then at each target label:
+narrator: {color=#8888cc}@label choice_rescue{/color}
 narrator: {color=#8888cc}[inc courage]{/color}
 narrator: {color=#8888cc}[inc kindness]{/color}
-narrator: {color=#8888cc}Lavender: You saved the kitten!{/color}
-[show lavender right talking]
-Lavender: Now later in the story, you can check those values and react differently.
-Lavender: Every choice can quietly adjust the numbers behind the scenes. The player never sees the variables — they just see a story that feels responsive.
+narrator: {color=#8888cc}Lavender: The kitten purrs in your arms.{/color}
+narrator: {color=#8888cc}[jump after_choice]{/color}
+narrator: And later:
+narrator: {color=#8888cc}@label after_choice{/color}
+narrator: {color=#8888cc}[if kindness >= 1]{/color}
+narrator: {color=#8888cc}Lavender: You know, you're a good person.{/color}
+narrator: {color=#8888cc}[endif]{/color}
 [show lavender center happy]
-Lavender: This is how route systems, affection meters, and branching endings work in visual novels.
-> Next: Naming -> section_naming
+Lavender: This is how affection systems, route unlocks, and branching endings work. Small [inc]s add up to big consequences.
+> Practice: a scored quiz -> practice_scene
 > Back to menu -> lesson_menu
 
-# ─── Naming Conventions ──────────────────────────────────────────
-
-@label section_naming
-[show lavender left talking]
-Lavender: A word on naming. Variables pile up fast, so stay consistent.
-Lavender: Good names:
-narrator: {b}courage{/b}, {b}kindness{/b}, {b}chapter{/b}, {b}met_librarian{/b}, {b}route_active{/b}
-Lavender: Bad names:
-narrator: {b}x{/b}, {b}temp{/b}, {b}flag1{/b}, {b}thing{/b}
-[show lavender center talking]
-Lavender: Use snake_case, keep names descriptive, and prefix related variables:
-narrator: {color=#8888cc}ch1_courage, ch1_kindness, ch2_trust{/color}
-[show lavender center happy]
-Lavender: Future-you will appreciate it when there are fifty variables and you need to find one.
-> Reference card -> reference_sheet
-> Try it yourself -> practice_scene
-> Back to menu -> lesson_menu
-
-# ─── Reference Card ──────────────────────────────────────────────
-
-@label reference_sheet
-[show lavender center talking]
-Lavender: Variables and conditions cheat sheet:
-narrator: {b}[set name value]{/b} — create or overwrite a variable.
-narrator: {b}[inc name]{/b} — add 1 to a numeric variable.
-narrator: {b}[dec name]{/b} — subtract 1 from a numeric variable.
-narrator: {b}[if condition]{/b} — start a conditional block.
-narrator: {b}[elif condition]{/b} — additional check if previous was false.
-narrator: {b}[else]{/b} — fallback if all checks fail.
-narrator: {b}[endif]{/b} — close the conditional block.
-narrator: {b}Operators:{/b} ==, !=, >=, <=, >, <
-narrator: {b}Values:{/b} numbers or quoted strings.
-[show lavender center happy]
-Lavender: Keep variable names descriptive and your condition blocks short. If an [if] has ten [elif]s, consider restructuring.
-> Back to menu -> lesson_menu
-
-# ─── Practice Scene ──────────────────────────────────────────────
+# ─── Practice ────────────────────────────────────────────────────
 
 @label practice_scene
-[set courage 0]
-[show lavender right talking]
-Lavender: Let's see variables in action. I'll ask you a few questions and track your answers.
-Lavender: Ready?
-> Let's go -> practice_q1
+[set quiz_score 0]
+[show lavender center talking]
+Lavender: Let's test the variable system live. I'll ask three questions. Your answers change a variable. At the end, the script reacts.
+> Ready -> practice_q1
 
 @label practice_q1
 [show lavender center talking]
-Lavender: A stranger drops their wallet on the sidewalk. What do you do?
-> Pick it up and return it -> practice_q1_kind
-> Keep walking -> practice_q1_skip
+Lavender: Question 1: A stranger drops their wallet. What do you do?
+> Pick it up and return it -> pq1_return
+> Keep walking -> pq1_walk
 
-@label practice_q1_kind
-[inc courage]
+@label pq1_return
+[inc quiz_score]
 [show lavender center happy]
-Lavender: That was nice of you.
+Lavender: Kind. That's {b}[inc quiz_score]{/b} — your score is now 1.
 [jump practice_q2]
 
-@label practice_q1_skip
+@label pq1_walk
 [show lavender center talking]
-Lavender: Fair enough. Not everyone stops.
+Lavender: Practical. No [inc] — score stays at 0.
 [jump practice_q2]
 
 @label practice_q2
 [show lavender center talking]
-Lavender: There's a shortcut through a dark alley. The safe path takes ten minutes longer.
-> Take the alley -> practice_q2_brave
-> Go the safe way -> practice_q2_safe
+Lavender: Question 2: There's a shortcut through a dark alley. The safe route takes longer.
+> Take the alley -> pq2_alley
+> Go the safe way -> pq2_safe
 
-@label practice_q2_brave
-[inc courage]
+@label pq2_alley
+[inc quiz_score]
 [show lavender center happy]
-Lavender: Gutsy move.
+Lavender: Brave. {b}[inc quiz_score]{/b} again.
+[jump practice_q3]
+
+@label pq2_safe
+[show lavender center talking]
+Lavender: Cautious. Score unchanged.
+[jump practice_q3]
+
+@label practice_q3
+[show lavender center talking]
+Lavender: Question 3: A friend asks for help moving on a rainy Saturday.
+> Show up with coffee -> pq3_help
+> Send a polite excuse -> pq3_skip
+
+@label pq3_help
+[inc quiz_score]
+[show lavender center happy]
+Lavender: Dependable. {b}[inc quiz_score]{/b}.
 [jump practice_result]
 
-@label practice_q2_safe
+@label pq3_skip
 [show lavender center talking]
-Lavender: Smart. No sense in taking risks.
+Lavender: Self-preserving. Score holds.
 [jump practice_result]
 
 @label practice_result
 [show lavender center talking]
-[if courage >= 2]
-Lavender: Courage: 2. You're bold — the kind of player who charges into the unknown.
-[elif courage == 1]
-Lavender: Courage: 1. A mix of caution and heart. Very human.
+Lavender: And now the conditional payoff:
+[if quiz_score >= 3]
+Lavender: Score: 3. You're the kind of person stories are written about.
+narrator: {color=#8888cc}[if quiz_score >= 3]{/color} — this branch ran because all three [inc]s fired.
+[elif quiz_score == 2]
+Lavender: Score: 2. Brave and kind, with a practical streak.
+narrator: {color=#8888cc}[elif quiz_score == 2]{/color} — two out of three.
+[elif quiz_score == 1]
+Lavender: Score: 1. Selective generosity. One moment of courage stood out.
+narrator: {color=#8888cc}[elif quiz_score == 1]{/color} — only one [inc] fired.
 [else]
-Lavender: Courage: 0. You play it safe. Nothing wrong with that — some stories reward patience.
+Lavender: Score: 0. You play it safe. Some stories reward that.
+narrator: {color=#8888cc}[else]{/color} — no [inc]s fired, so this fallback ran.
 [endif]
 [show lavender center happy]
-Lavender: See how that worked? Two simple [inc] commands and one [if] block, and the ending feels personal.
-Lavender: That's the whole trick — small tracking, big payoff.
+Lavender: Three [set]/[inc] commands and one [if] block — that's the entire state system in action.
+> Retake the quiz -> practice_scene
 > Back to menu -> lesson_menu
 
 @label return_hub

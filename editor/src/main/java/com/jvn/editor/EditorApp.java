@@ -147,6 +147,7 @@ public class EditorApp extends Application {
   private AudioFxController audioFxController;
   private Tab tabAudioSynthControls;
   private Tab tabPuppeteerLauncher;
+  private Tab tabScriptEditorLauncher;
   private final CommandStack commands = new CommandStack();
   private TabPane leftTabs;
   private TabPane rightTabs;
@@ -1400,6 +1401,7 @@ public class EditorApp extends Application {
     scriptEditorLauncherView.setProjectRoot(projectRoot);
     scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
     scriptEditorLauncherView.setOnStatus(message -> status.setText(message));
+    scriptEditorLauncherView.setOnOpenFile(this::openFile);
     audioFxController = new AudioFxController();
     audioSynthControlsView = new AudioSynthControlsView();
     audioSynthControlsView.setController(audioFxController);
@@ -2578,6 +2580,17 @@ public class EditorApp extends Application {
     return tabMenuFlow;
   }
 
+  private Tab ensureScriptEditorLauncherTab(TabPane targetPane) {
+    if (targetPane == null || scriptEditorLauncherView == null) return null;
+    if (tabScriptEditorLauncher == null) {
+      tabScriptEditorLauncher = new Tab("Script Editor", scriptEditorLauncherView);
+      tabScriptEditorLauncher.setClosable(true);
+      tabScriptEditorLauncher.setOnClosed(e -> tabScriptEditorLauncher = null);
+    }
+    attachPanelTabToPane(tabScriptEditorLauncher, targetPane);
+    return tabScriptEditorLauncher;
+  }
+
   private String panelActionLabel(String panelName, Tab tab, TabPane targetPane) {
     if (tab != null && tab.getTabPane() == targetPane) return "Open " + panelName;
     if (tab != null && tab.getTabPane() != null) return "Move " + panelName + " Here";
@@ -2710,6 +2723,7 @@ public class EditorApp extends Application {
     else if (tab == tabImageTintTool) tabImageTintTool = null;
     else if (tab == tabMenuFlow) tabMenuFlow = null;
     else if (tab == tabPuppeteerLauncher) tabPuppeteerLauncher = null;
+    else if (tab == tabScriptEditorLauncher) tabScriptEditorLauncher = null;
   }
 
   private void openPanelChooserTab(TabPane pane, boolean leftSide) {
@@ -2823,7 +2837,14 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Audio Synth Controls", audioSynthControlsView, 380, 650));
 
-    addChooserActionRow(actions, "Script Editor", "icon-panel-flow", null, () -> {
+    addChooserActionRow(actions, "Script Editor", "icon-panel-flow", () -> {
+      if (scriptEditorLauncherView != null) {
+        scriptEditorLauncherView.setProjectRoot(projectRoot);
+        scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
+      }
+      Tab t = ensureScriptEditorLauncherTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> {
       if (scriptEditorLauncherView != null) {
         scriptEditorLauncherView.setProjectRoot(projectRoot);
         scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
