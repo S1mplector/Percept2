@@ -29,6 +29,11 @@ class EditorPreferencesStoreTest {
     assertEquals(EditorPanelPlacement.HIDDEN, preferences.getPlacement(EditorSidebarPanel.HELP));
     assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.PROJECT));
     assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.HELP));
+    assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.INSPECTOR));
+    assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.LABEL_FLOW));
+    assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.ASSETS));
+    assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.IMAGE_ATTRIBUTES));
+    assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.AUDIO_SYNTH));
   }
 
   @Test

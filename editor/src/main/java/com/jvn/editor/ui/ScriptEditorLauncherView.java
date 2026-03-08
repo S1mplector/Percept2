@@ -921,22 +921,34 @@ public class ScriptEditorLauncherView extends BorderPane {
       Separator toolSep1 = new Separator(Orientation.VERTICAL);
       toolSep1.setPadding(new Insets(0, 4, 0, 4));
 
-      Button saveBtn = toolbarButton("Save", "Save current file (Ctrl+S)");
+      Button saveBtn = toolbarButton(
+          "Save",
+          "Save current file (Ctrl+S)",
+          CssIcon.save("#8bcf98"));
       saveBtn.setOnAction(e -> saveActiveTab(editorTabs, windowStatus));
 
-      Button saveAllBtn = toolbarButton("Save All", "Save all open files (Ctrl+Shift+S)");
+      Button saveAllBtn = toolbarButton(
+          "Save All",
+          "Save all open files (Ctrl+Shift+S)",
+          CssIcon.save("#6fb7ff"));
       saveAllBtn.setOnAction(e -> saveAllTabs(editorTabs, windowStatus));
 
       Separator toolSep2 = new Separator(Orientation.VERTICAL);
       toolSep2.setPadding(new Insets(0, 4, 0, 4));
 
-      Button undoBtn = toolbarButton("Undo", "Undo (Ctrl+Z)");
+      Button undoBtn = toolbarButton(
+          "Undo",
+          "Undo (Ctrl+Z)",
+          CssIcon.undo("#d9b36a"));
       undoBtn.setOnAction(e -> {
         VnsCodeEditor ed = activeEditor(editorTabs);
         if (ed != null) ed.getCodeArea().undo();
       });
 
-      Button redoBtn = toolbarButton("Redo", "Redo (Ctrl+Shift+Z)");
+      Button redoBtn = toolbarButton(
+          "Redo",
+          "Redo (Ctrl+Shift+Z)",
+          CssIcon.redo("#d9b36a"));
       redoBtn.setOnAction(e -> {
         VnsCodeEditor ed = activeEditor(editorTabs);
         if (ed != null) ed.getCodeArea().redo();
@@ -945,7 +957,10 @@ public class ScriptEditorLauncherView extends BorderPane {
       Separator toolSep3 = new Separator(Orientation.VERTICAL);
       toolSep3.setPadding(new Insets(0, 4, 0, 4));
 
-      Button findBtn = toolbarButton("Find", "Find & Replace (Ctrl+F)");
+      Button findBtn = toolbarButton(
+          "Find",
+          "Find & Replace (Ctrl+F)",
+          CssIcon.search("#8ab4f8"));
       findBtn.setOnAction(e -> {
         VnsCodeEditor ed = activeEditor(editorTabs);
         if (ed != null) ed.showSearchBar();
@@ -954,7 +969,10 @@ public class ScriptEditorLauncherView extends BorderPane {
       Region spacer = new Region();
       HBox.setHgrow(spacer, Priority.ALWAYS);
 
-      Button refreshBtn = toolbarButton("Refresh", "Refresh file tree");
+      Button refreshBtn = toolbarButton(
+          "Refresh",
+          "Refresh file tree",
+          CssIcon.redo("#c7d0df"));
       refreshBtn.setOnAction(e -> {
         TreeItem<String> refreshedRoot = buildFileTree(scriptsRoot, scriptsRoot.getFileName().toString());
         refreshedRoot.setExpanded(true);
@@ -1116,7 +1134,17 @@ public class ScriptEditorLauncherView extends BorderPane {
   }
 
   private static Button toolbarButton(String text, String tooltip) {
+    return toolbarButton(text, tooltip, null);
+  }
+
+  private static Button toolbarButton(String text, String tooltip, Region icon) {
     Button btn = new Button(text);
+    if (icon != null) {
+      btn.setGraphic(icon);
+      btn.setContentDisplay(javafx.scene.control.ContentDisplay.LEFT);
+      btn.setGraphicTextGap(7);
+      btn.setAlignment(Pos.CENTER_LEFT);
+    }
     btn.setStyle(
         "-fx-background-color: #1a1e28; -fx-text-fill: #c8cdd8; "
       + "-fx-font-size: 11px; -fx-padding: 4 10 4 10; "

@@ -6,19 +6,19 @@ import java.util.Map;
 public enum EditorSidebarPanel {
   PROJECT("project", "Project", EditorPanelPlacement.LEFT, true),
   TIMELINE("timeline", "Timeline", EditorPanelPlacement.HIDDEN, true),
-  INSPECTOR("inspector", "Inspector", EditorPanelPlacement.HIDDEN, true),
+  INSPECTOR("inspector", "Inspector", EditorPanelPlacement.HIDDEN, false),
   VNS_DIAGNOSTICS("vns_diagnostics", "VNS Diagnostics", EditorPanelPlacement.HIDDEN, true),
-  LABEL_FLOW("label_flow", "Label Flow", EditorPanelPlacement.HIDDEN, true),
-  ASSETS("assets", "Assets", EditorPanelPlacement.HIDDEN, true),
+  LABEL_FLOW("label_flow", "Label Flow", EditorPanelPlacement.HIDDEN, false),
+  ASSETS("assets", "Assets", EditorPanelPlacement.HIDDEN, false),
   LAYOUT_LAUNCHER("layout_launcher", "Layout Launcher", EditorPanelPlacement.HIDDEN, true),
   LAYERED_IMAGES("layered_images", "Layered Image Visualizer", EditorPanelPlacement.HIDDEN, true),
-  IMAGE_ATTRIBUTES("image_attributes", "Image Attributes Tool", EditorPanelPlacement.HIDDEN, true),
+  IMAGE_ATTRIBUTES("image_attributes", "Image Attributes Tool", EditorPanelPlacement.HIDDEN, false),
   IMAGE_TINT("image_tint", "Image Tint Tool", EditorPanelPlacement.HIDDEN, true),
   MENU_FLOW("menu_flow", "Menu Flow", EditorPanelPlacement.HIDDEN, true),
   VERSION_CONTROL("version_control", "Version Control", EditorPanelPlacement.HIDDEN, true),
   HELP("help", "Help", EditorPanelPlacement.HIDDEN, true),
   PUPPETEER_LAUNCHER("puppeteer_launcher", "Puppeteer Launcher", EditorPanelPlacement.HIDDEN, true),
-  AUDIO_SYNTH("audio_synth", "Audio Synth Controls", EditorPanelPlacement.HIDDEN, true),
+  AUDIO_SYNTH("audio_synth", "Audio Synth Controls", EditorPanelPlacement.HIDDEN, false),
   SCRIPT_EDITOR("script_editor", "Script Editor", EditorPanelPlacement.HIDDEN, true);
 
   private final String key;
