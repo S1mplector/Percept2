@@ -201,6 +201,19 @@ public class FileEditorTab extends BorderPane {
     vnsEditor.insertSnippet(snippet);
   }
 
+  public void setCodeEditorFontSize(double fontSizePx) {
+    if (vnsEditor != null) vnsEditor.setFontSizePx(fontSizePx);
+    if (jesEditor != null) jesEditor.setFontSizePx(fontSizePx);
+    if (javaEditor != null) javaEditor.setFontSizePx(fontSizePx);
+    if (textEditor != null) textEditor.setFontSizePx(fontSizePx);
+    if (timelineEditor != null) timelineEditor.setFontSizePx(fontSizePx);
+    if (themeEditor != null) themeEditor.setFontSizePx(fontSizePx);
+    if (menuScreenEditor != null) menuScreenEditor.setFontSizePx(fontSizePx);
+    if (menuLayoutEditor != null) menuLayoutEditor.setFontSizePx(fontSizePx);
+    if (menuStyleEditor != null) menuStyleEditor.setFontSizePx(fontSizePx);
+    if (dialogueLayoutEditor != null) dialogueLayoutEditor.setFontSizePx(fontSizePx);
+  }
+
   public void launchFromHere() {
     if (kind != Kind.VNS || vnsEditor == null) return;
     vnsEditor.setOnLaunchFromHere(this::runFromLabel);

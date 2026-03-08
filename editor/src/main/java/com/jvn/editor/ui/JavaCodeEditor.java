@@ -49,6 +49,7 @@ public class JavaCodeEditor extends BorderPane {
   private ListView<String> diagnosticsPanel;
   private boolean diagnosticsPanelVisible = false;
   private Consumer<Diagnostic> onQuickFixRequested;
+  private double fontSizePx = 13.0;
 
   private static final String[] KEYWORDS = new String[] {
     "abstract","assert","break","case","catch","class","const","continue",
@@ -105,6 +106,7 @@ public class JavaCodeEditor extends BorderPane {
 
     setupSearchBar();
     setupDiagnosticsPanel();
+    applyFontSize();
   }
 
   private Node buildGutterGraphic(int paragraphIndex, IntFunction<Node> lineNumberFactory) {
@@ -217,6 +219,15 @@ public class JavaCodeEditor extends BorderPane {
     } finally {
       suppressEvent = false;
     }
+  }
+
+  public void setFontSizePx(double fontSizePx) {
+    this.fontSizePx = Math.max(8.0, Math.min(30.0, fontSizePx));
+    applyFontSize();
+  }
+
+  private void applyFontSize() {
+    codeArea.setStyle("-fx-font-size: " + (int) fontSizePx + "px;");
   }
   public void setOnTextChanged(Consumer<String> c) { this.onTextChanged = c; }
   public void setOnQuickFixRequested(Consumer<Diagnostic> c) { this.onQuickFixRequested = c; }

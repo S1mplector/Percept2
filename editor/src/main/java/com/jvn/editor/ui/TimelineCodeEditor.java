@@ -29,6 +29,7 @@ public class TimelineCodeEditor extends BorderPane {
   private boolean suppressEvent;
   private File projectRoot;
   private List<Issue> issues = Collections.emptyList();
+  private double fontSizePx = 13.0;
 
   private static final String[] KW = new String[] { "arc", "script", "entry", "at", "link", "cluster", "priority", "color", "tags" };
   private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KW) + ")\\b";
@@ -60,6 +61,7 @@ public class TimelineCodeEditor extends BorderPane {
     setCenter(sp);
     var css = TimelineCodeEditor.class.getResource("/com/jvn/editor/editor.css");
     if (css != null) { getStylesheets().add(css.toExternalForm()); code.getStylesheets().add(css.toExternalForm()); }
+    applyFontSize();
     code.setOnContextMenuRequested(e -> {
       Issue is = issueAt(code.getCaretPosition());
       if (is == null) return;
@@ -86,6 +88,14 @@ public class TimelineCodeEditor extends BorderPane {
   public void setText(String s) { code.replaceText(s == null ? "" : s); }
   public void setTextNoEvent(String s) { try { suppressEvent = true; setText(s); } finally { suppressEvent = false; } }
   public void setProjectRoot(File root) { this.projectRoot = root; }
+  public void setFontSizePx(double fontSizePx) {
+    this.fontSizePx = Math.max(8.0, Math.min(30.0, fontSizePx));
+    applyFontSize();
+  }
+
+  private void applyFontSize() {
+    code.setStyle("-fx-font-size: " + (int) fontSizePx + "px;");
+  }
 
   private void applyHighlighting(String text) {
     code.setStyleSpans(0, computeHighlighting(text == null ? "" : text));

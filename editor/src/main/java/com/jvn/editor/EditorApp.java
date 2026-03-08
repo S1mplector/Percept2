@@ -32,6 +32,11 @@ import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.AudioSynthControlsView;
 import com.jvn.editor.ui.CssIcon;
+import com.jvn.editor.ui.EditorPanelPlacement;
+import com.jvn.editor.ui.EditorPreferences;
+import com.jvn.editor.ui.EditorPreferencesStore;
+import com.jvn.editor.ui.EditorSettingsView;
+import com.jvn.editor.ui.EditorSidebarPanel;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
@@ -139,6 +144,7 @@ public class EditorApp extends Application {
   private ImageTintToolView imageTintToolView;
   private LayoutStudioWindowManager layoutStudioWindowManager;
   private MenuFlowEditorView menuFlowEditorView;
+  private EditorSettingsView editorSettingsView;
   private SettingsEditorView settingsEditor;
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
   private TilemapEditorView mapEditorView;
@@ -147,6 +153,7 @@ public class EditorApp extends Application {
   private AudioSynthControlsView audioSynthControlsView;
   private AudioFxController audioFxController;
   private Tab tabAudioSynthControls;
+  private Tab tabEditorSettings;
   private Tab tabPuppeteerLauncher;
   private Tab tabScriptEditorLauncher;
   private final CommandStack commands = new CommandStack();
@@ -177,6 +184,8 @@ public class EditorApp extends Application {
   private Tab tabRightAdd;
   private ScrollPane inspectorScroll;
   private File projectRoot;
+  private EditorPreferencesStore editorPreferencesStore;
+  private EditorPreferences editorPreferences = EditorPreferences.defaults();
   private OperatingSystemMXBean osBean;
   private long lastPerfUpdateNs = -1L;
   private double lastFps = 0.0;
@@ -1027,6 +1036,8 @@ public class EditorApp extends Application {
 
   private void initializeEditorStage(Stage primaryStage) {
     primaryStage.setTitle("JVN Editor");
+    editorPreferencesStore = new EditorPreferencesStore();
+    editorPreferences = editorPreferencesStore.load();
     layoutStudioWindowManager = new LayoutStudioWindowManager(primaryStage, this::doRunProject);
     BorderPane root = new BorderPane();
     String editorVersion = resolveEditorVersion();
@@ -1087,8 +1098,11 @@ public class EditorApp extends Application {
     });
     MenuItem miReload = new MenuItem("Reload from Disk");
     miReload.setOnAction(e -> doReload());
+    MenuItem miEditorSettings = new MenuItem("Editor Settings");
+    miEditorSettings.setOnAction(e -> selectEditorSettingsTab());
+    miEditorSettings.setAccelerator(new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN));
     menuEdit.getItems().addAll(miUndo, miRedo, new SeparatorMenuItem(),
-        miFind, miGoToLine, new SeparatorMenuItem(), miReload);
+        miFind, miGoToLine, new SeparatorMenuItem(), miReload, new SeparatorMenuItem(), miEditorSettings);
 
     // ── View ──
     Menu menuView = new Menu("View");
@@ -1121,9 +1135,12 @@ public class EditorApp extends Application {
     miShowImageTint.setOnAction(e -> selectImageTintToolTab());
     MenuItem miShowPuppeteerLauncher = new MenuItem("Puppeteer Launcher");
     miShowPuppeteerLauncher.setOnAction(e -> selectPuppeteerLauncherTab());
+    MenuItem miShowEditorSettings = new MenuItem("Editor Settings");
+    miShowEditorSettings.setOnAction(e -> selectEditorSettingsTab());
     menuPanels.getItems().addAll(miShowProject, miShowTimeline, miShowInspector,
         miShowAssets, new SeparatorMenuItem(),
-        miShowDiagnostics, miShowFlowMap, miShowLayeredVisualizer, miShowImageAttributes, miShowImageTint, miShowPuppeteerLauncher);
+        miShowDiagnostics, miShowFlowMap, miShowLayeredVisualizer, miShowImageAttributes,
+        miShowImageTint, miShowPuppeteerLauncher, miShowEditorSettings);
 
     menuView.getItems().addAll(miToggleEditorFullscreen, new SeparatorMenuItem(),
         miResetCamera, miFitContent, new SeparatorMenuItem(),
@@ -1190,11 +1207,13 @@ public class EditorApp extends Application {
     miToolAssets.setOnAction(e -> selectAssetBrowserTab());
     MenuItem miToolInspector = new MenuItem("Inspector");
     miToolInspector.setOnAction(e -> selectInspectorTab());
+    MenuItem miToolEditorSettings = new MenuItem("Editor Settings");
+    miToolEditorSettings.setOnAction(e -> selectEditorSettingsTab());
 
     menuTools.getItems().addAll(miActionEditor, miPuppeteerPanel, new SeparatorMenuItem(),
         miMenuFlow, miLayoutLauncher, miLayeredVisualizer, miImageAttributes, miImageTint, new SeparatorMenuItem(),
         menuVnsTools, new SeparatorMenuItem(),
-        miToolAssets, miToolInspector);
+        miToolAssets, miToolInspector, new SeparatorMenuItem(), miToolEditorSettings);
 
     // ── Version Control ──
     Menu menuVcs = new Menu("Version Control");
@@ -1287,6 +1306,8 @@ public class EditorApp extends Application {
     row.getChildren().addAll(btnOpen, btnSave, btnUndo, btnRedo, btnApply, btnFullscreen, spacer);
     VBox toolRows = new VBox(6, row);
     HBox.setHgrow(toolRows, Priority.ALWAYS);
+    editorSettingsView = new EditorSettingsView(editorPreferencesStore);
+    editorSettingsView.setOnPreferencesApplied(this::applyEditorPreferences);
     Label wordmark = new Label("JVN");
     wordmark.getStyleClass().add("jvn-wordmark");
     Label verLabel = new Label("v" + editorVersion);
@@ -1333,8 +1354,10 @@ public class EditorApp extends Application {
     });
     tabWelcome = new Tab("Welcome", welcomeView);
     tabWelcome.setClosable(false);
-    filesTabs.getTabs().add(tabWelcome);
-    filesTabs.getSelectionModel().select(tabWelcome);
+    if (editorPreferences.isShowWelcomeOnStartup()) {
+      filesTabs.getTabs().add(tabWelcome);
+      filesTabs.getSelectionModel().select(tabWelcome);
+    }
     root.setCenter(filesTabs);
     inspectorView = new InspectorView(s -> status.setText(s));
     inspectorView.setCommandStack(commands);
@@ -1401,6 +1424,7 @@ public class EditorApp extends Application {
     scriptEditorLauncherView = new ScriptEditorLauncherView();
     scriptEditorLauncherView.setProjectRoot(projectRoot);
     scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
+    scriptEditorLauncherView.setCodeEditorFontSize(editorPreferences.getCodeEditorFontSize());
     scriptEditorLauncherView.setOnStatus(message -> status.setText(message));
     scriptEditorLauncherView.setOnOpenFile(this::openFile);
     scriptEditorLauncherView.setOnOpenFileAtLine((file, line) -> {
@@ -1433,7 +1457,6 @@ public class EditorApp extends Application {
     rightTabs.getTabs().addAll(tabRightAdd);
     installAddTabBehavior(rightTabs, tabRightAdd, this::showRightAddMenu);
     rightTabs.setPrefWidth(360);
-    showRightAddMenu();
     timelineView = new StoryTimelineView();
     timelineView.setMinWidth(240);
     timelineView.setPrefWidth(320);
@@ -1465,6 +1488,7 @@ public class EditorApp extends Application {
     centerSplit.getItems().addAll(leftTabs, filesTabs, rightTabs);
     centerSplit.setDividerPositions(0.22, 0.78);
     savedCenterDividers = new double[]{0.22, 0.78};
+    applyEditorPreferences(editorPreferences);
     root.setLeft(null);
     root.setRight(null);
     root.setCenter(centerSplit);
@@ -2000,6 +2024,7 @@ public class EditorApp extends Application {
     // Create new tab
     FileEditorTab editor = new FileEditorTab(f);
     if (projectRoot != null) editor.setProjectRoot(projectRoot);
+    editor.setCodeEditorFontSize(editorPreferences.getCodeEditorFontSize());
     editor.setOnSelected(ent -> {
       selected = ent;
       if (inspectorView != null) inspectorView.setSelection(ent);
@@ -2078,6 +2103,150 @@ public class EditorApp extends Application {
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(projectRoot);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(projectRoot);
     if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
+  }
+
+  private void applyEditorPreferences(EditorPreferences preferences) {
+    editorPreferences = preferences == null ? EditorPreferences.defaults() : preferences.copy();
+    if (editorSettingsView != null) {
+      editorSettingsView.loadIntoForm(editorPreferences);
+    }
+    applyCodeEditorFontSizePreference();
+    applyWelcomeTabPreference();
+    applyDefaultSidebarPreferences();
+    if (status != null) {
+      status.setText("Editor preferences applied");
+    }
+  }
+
+  private void applyCodeEditorFontSizePreference() {
+    double fontSize = editorPreferences.getCodeEditorFontSize();
+    if (filesTabs != null) {
+      for (Tab tab : filesTabs.getTabs()) {
+        if (tab.getContent() instanceof FileEditorTab fileEditorTab) {
+          fileEditorTab.setCodeEditorFontSize(fontSize);
+        }
+      }
+    }
+    if (scriptEditorLauncherView != null) {
+      scriptEditorLauncherView.setCodeEditorFontSize(fontSize);
+    }
+  }
+
+  private void applyWelcomeTabPreference() {
+    if (filesTabs == null || tabWelcome == null) return;
+    boolean wantsWelcome = editorPreferences.isShowWelcomeOnStartup();
+    boolean hasWelcome = filesTabs.getTabs().contains(tabWelcome);
+    if (wantsWelcome && !hasWelcome) {
+      filesTabs.getTabs().add(0, tabWelcome);
+      if (filesTabs.getSelectionModel().getSelectedItem() == null) {
+        filesTabs.getSelectionModel().select(tabWelcome);
+      }
+      return;
+    }
+    if (!wantsWelcome && hasWelcome) {
+      boolean selected = filesTabs.getSelectionModel().getSelectedItem() == tabWelcome;
+      filesTabs.getTabs().remove(tabWelcome);
+      if (selected && !filesTabs.getTabs().isEmpty()) {
+        filesTabs.getSelectionModel().select(filesTabs.getTabs().get(0));
+      }
+    }
+  }
+
+  private void applyDefaultSidebarPreferences() {
+    if (leftTabs == null || rightTabs == null) return;
+    for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
+      detachConfiguredPanel(panel);
+    }
+    for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
+      EditorPanelPlacement placement = editorPreferences.getPlacement(panel);
+      if (placement == EditorPanelPlacement.LEFT) {
+        ensureSidebarPanel(panel, leftTabs);
+      } else if (placement == EditorPanelPlacement.RIGHT) {
+        ensureSidebarPanel(panel, rightTabs);
+      }
+    }
+    Tab leftDefault = firstRegularTab(leftTabs, tabLeftAdd);
+    if (leftDefault != null) {
+      leftTabs.getSelectionModel().select(leftDefault);
+    }
+    Tab rightDefault = firstRegularTab(rightTabs, tabRightAdd);
+    if (rightDefault != null) {
+      rightTabs.getSelectionModel().select(rightDefault);
+    }
+    if (centerSplit != null) {
+      boolean hasLeft = firstRegularTab(leftTabs, tabLeftAdd) != null;
+      boolean hasRight = firstRegularTab(rightTabs, tabRightAdd) != null;
+      double leftDivider = hasLeft ? 0.22 : 0.0;
+      double rightDivider = hasRight ? 0.78 : 1.0;
+      centerSplit.setDividerPositions(leftDivider, rightDivider);
+      savedCenterDividers = new double[] { leftDivider, rightDivider };
+    }
+  }
+
+  private void detachConfiguredPanel(EditorSidebarPanel panel) {
+    Tab tab = configuredPanelTab(panel);
+    if (tab != null && tab.getTabPane() != null) {
+      tab.getTabPane().getTabs().remove(tab);
+    }
+  }
+
+  private Tab configuredPanelTab(EditorSidebarPanel panel) {
+    if (panel == null) return null;
+    return switch (panel) {
+      case PROJECT -> tabProject;
+      case TIMELINE -> tabTimeline;
+      case INSPECTOR -> tabInspector;
+      case VNS_DIAGNOSTICS -> tabVnsDiagnostics;
+      case LABEL_FLOW -> tabVnsFlowMap;
+      case ASSETS -> tabAssetBrowser;
+      case LAYOUT_LAUNCHER -> tabLayoutLauncher;
+      case LAYERED_IMAGES -> tabLayeredImageVisualizer;
+      case IMAGE_ATTRIBUTES -> tabImageAttributesTool;
+      case IMAGE_TINT -> tabImageTintTool;
+      case MENU_FLOW -> tabMenuFlow;
+      case VERSION_CONTROL -> tabVersionControl;
+      case HELP -> tabHelp;
+      case PUPPETEER_LAUNCHER -> tabPuppeteerLauncher;
+      case AUDIO_SYNTH -> tabAudioSynthControls;
+      case SCRIPT_EDITOR -> tabScriptEditorLauncher;
+    };
+  }
+
+  private Tab ensureSidebarPanel(EditorSidebarPanel panel, TabPane targetPane) {
+    if (panel == null || targetPane == null) return null;
+    return switch (panel) {
+      case PROJECT -> ensureProjectTab(targetPane);
+      case TIMELINE -> ensureTimelineTab(targetPane);
+      case INSPECTOR -> ensureInspectorTab(targetPane);
+      case VNS_DIAGNOSTICS -> ensureVnsDiagnosticsTab(targetPane);
+      case LABEL_FLOW -> ensureVnsFlowMapTab(targetPane);
+      case ASSETS -> ensureAssetBrowserTab(targetPane);
+      case LAYOUT_LAUNCHER -> ensureLayoutLauncherTab(targetPane);
+      case LAYERED_IMAGES -> ensureLayeredImageVisualizerTab(targetPane);
+      case IMAGE_ATTRIBUTES -> ensureImageAttributesToolTab(targetPane);
+      case IMAGE_TINT -> ensureImageTintToolTab(targetPane);
+      case MENU_FLOW -> ensureMenuFlowTab(targetPane);
+      case VERSION_CONTROL -> ensureVersionControlTab(targetPane);
+      case HELP -> ensureHelpTab(targetPane);
+      case PUPPETEER_LAUNCHER -> ensurePuppeteerLauncherTab(targetPane);
+      case AUDIO_SYNTH -> ensureAudioSynthControlsTab(targetPane);
+      case SCRIPT_EDITOR -> ensureScriptEditorLauncherTab(targetPane);
+    };
+  }
+
+  private void ensureSidebarVisible(TabPane targetPane) {
+    if (targetPane == null || centerSplit == null) return;
+    double[] positions = centerSplit.getDividerPositions();
+    double leftDivider = positions.length > 0 ? positions[0] : 0.22;
+    double rightDivider = positions.length > 1 ? positions[1] : 0.78;
+    if (targetPane == leftTabs && firstRegularTab(leftTabs, tabLeftAdd) != null && leftDivider <= 0.01) {
+      leftDivider = 0.22;
+    }
+    if (targetPane == rightTabs && firstRegularTab(rightTabs, tabRightAdd) != null && rightDivider >= 0.99) {
+      rightDivider = 0.78;
+    }
+    centerSplit.setDividerPositions(leftDivider, rightDivider);
+    savedCenterDividers = new double[] { leftDivider, rightDivider };
   }
 
   private FileEditorTab getActiveFileTab() {
@@ -2434,6 +2603,7 @@ public class EditorApp extends Application {
     int idx = (addTab != null) ? targetPane.getTabs().indexOf(addTab) : -1;
     if (idx < 0) idx = targetPane.getTabs().size();
     if (!targetPane.getTabs().contains(tab)) targetPane.getTabs().add(idx, tab);
+    ensureSidebarVisible(targetPane);
   }
 
   private Tab ensureProjectTab(TabPane targetPane) {
@@ -2699,7 +2869,8 @@ public class EditorApp extends Application {
         tabProject, tabTimeline, tabHelp, tabInspector, tabVnsDiagnostics,
         tabVnsFlowMap, tabAssetBrowser, tabVersionControl, tabLayoutLauncher,
         tabLayeredImageVisualizer, tabImageAttributesTool, tabImageTintTool,
-        tabMenuFlow, tabPuppeteerLauncher
+        tabMenuFlow, tabPuppeteerLauncher, tabAudioSynthControls, tabScriptEditorLauncher,
+        tabEditorSettings
     };
     for (Tab t : allTabs) {
       if (t != null && t.getContent() == content) {
@@ -2737,6 +2908,8 @@ public class EditorApp extends Application {
     else if (tab == tabMenuFlow) tabMenuFlow = null;
     else if (tab == tabPuppeteerLauncher) tabPuppeteerLauncher = null;
     else if (tab == tabScriptEditorLauncher) tabScriptEditorLauncher = null;
+    else if (tab == tabAudioSynthControls) tabAudioSynthControls = null;
+    else if (tab == tabEditorSettings) tabEditorSettings = null;
   }
 
   private void openPanelChooserTab(TabPane pane, boolean leftSide) {
@@ -2865,6 +3038,11 @@ public class EditorApp extends Application {
       }
     });
 
+    addChooserActionRow(actions, "Editor Settings", "icon-panel-help", () -> {
+      Tab t = ensureEditorSettingsTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Editor Settings", editorSettingsView, 520, 760));
+
     root.getChildren().addAll(heading, info, new javafx.scene.control.Separator(), actions);
     Tab chooser = new Tab("New Panel", root);
     chooser.setClosable(true);
@@ -2883,8 +3061,11 @@ public class EditorApp extends Application {
   }
 
   private void selectProjectTab() {
-    if (tabProject != null && leftTabs != null && leftTabs.getTabs().contains(tabProject)) {
-      leftTabs.getSelectionModel().select(tabProject);
+    Tab t = (tabProject != null && tabProject.getTabPane() != null)
+        ? tabProject
+        : ensureProjectTab(leftTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
     }
   }
 
@@ -3016,6 +3197,15 @@ public class EditorApp extends Application {
     }
   }
 
+  private void selectEditorSettingsTab() {
+    Tab t = (tabEditorSettings != null && tabEditorSettings.getTabPane() != null)
+        ? tabEditorSettings
+        : ensureEditorSettingsTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+  }
+
   private Tab ensurePuppeteerLauncherTab(TabPane targetPane) {
     if (targetPane == null || puppeteerLauncherPanel == null) return null;
     if (tabPuppeteerLauncher == null) {
@@ -3036,6 +3226,17 @@ public class EditorApp extends Application {
     }
     attachPanelTabToPane(tabAudioSynthControls, targetPane);
     return tabAudioSynthControls;
+  }
+
+  private Tab ensureEditorSettingsTab(TabPane targetPane) {
+    if (targetPane == null || editorSettingsView == null) return null;
+    if (tabEditorSettings == null) {
+      tabEditorSettings = new Tab("Editor Settings", editorSettingsView);
+      tabEditorSettings.setClosable(true);
+      tabEditorSettings.setOnClosed(e -> tabEditorSettings = null);
+    }
+    attachPanelTabToPane(tabEditorSettings, targetPane);
+    return tabEditorSettings;
   }
 
   private void launchPuppeteerFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {

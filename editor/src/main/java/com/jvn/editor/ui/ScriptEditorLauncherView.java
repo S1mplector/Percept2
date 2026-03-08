@@ -90,6 +90,7 @@ public class ScriptEditorLauncherView extends BorderPane {
   private Consumer<String> onStatus;
   private Consumer<File> onOpenFile;
   private java.util.function.BiConsumer<File, Integer> onOpenFileAtLine;
+  private double codeEditorFontSize = 13.0;
 
   private Stage editorWindow;
   private TabPane editorWindowTabs;
@@ -125,6 +126,17 @@ public class ScriptEditorLauncherView extends BorderPane {
 
   public void setOnOpenFileAtLine(java.util.function.BiConsumer<File, Integer> onOpenFileAtLine) {
     this.onOpenFileAtLine = onOpenFileAtLine;
+  }
+
+  public void setCodeEditorFontSize(double fontSizePx) {
+    codeEditorFontSize = Math.max(8.0, Math.min(30.0, fontSizePx));
+    if (editorWindowTabs == null) return;
+    for (Tab tab : editorWindowTabs.getTabs()) {
+      Object editor = tab.getProperties().get("editor");
+      if (editor instanceof VnsCodeEditor vnsEditor) {
+        vnsEditor.setFontSizePx(codeEditorFontSize);
+      }
+    }
   }
 
   public File getProjectRoot() {
@@ -1072,6 +1084,7 @@ public class ScriptEditorLauncherView extends BorderPane {
 
     VnsCodeEditor editor = new VnsCodeEditor();
     editor.setProjectRoot(launchRoot);
+    editor.setFontSizePx(codeEditorFontSize);
     editor.setText(content);
 
     String baseName = file.getName();

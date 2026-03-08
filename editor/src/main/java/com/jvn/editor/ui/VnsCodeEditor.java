@@ -1966,6 +1966,14 @@ public class VnsCodeEditor extends BorderPane {
         + "  |  Zoom: " + (int) fontSizePx + "px");
   }
 
+  public void setFontSizePx(double fontSizePx) {
+    this.fontSizePx = Math.max(8.0, Math.min(30.0, fontSizePx));
+    applyZoom();
+    if (splitCodeArea != null) {
+      splitCodeArea.setStyle("-fx-font-size: " + (int) this.fontSizePx + "px;");
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════
   //  FEATURE: Command Palette (Ctrl+Shift+P)
   // ═══════════════════════════════════════════════════════════════════

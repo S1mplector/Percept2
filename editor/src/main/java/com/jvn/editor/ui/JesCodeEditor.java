@@ -35,6 +35,7 @@ public class JesCodeEditor extends BorderPane {
   private final List<String> cachedLabels = new ArrayList<>();
   private Consumer<String> onTextChanged;
   private boolean suppressTextChanged = false;
+  private double fontSizePx = 13.0;
 
   private static final String[] KEYWORDS = new String[] {
     "scene","entity","component","on","key","do","timeline",
@@ -122,6 +123,7 @@ public class JesCodeEditor extends BorderPane {
     }
 
     completer = new CodeAutoCompleter(codeArea, ctx -> provideSuggestions(ctx));
+    applyFontSize();
   }
 
   public String getText() { return codeArea.getText(); }
@@ -136,6 +138,14 @@ public class JesCodeEditor extends BorderPane {
     }
   }
   public void setOnTextChanged(Consumer<String> listener) { this.onTextChanged = listener; }
+  public void setFontSizePx(double fontSizePx) {
+    this.fontSizePx = Math.max(8.0, Math.min(30.0, fontSizePx));
+    applyFontSize();
+  }
+
+  private void applyFontSize() {
+    codeArea.setStyle("-fx-font-size: " + (int) fontSizePx + "px;");
+  }
 
   private void applyHighlighting(String text) {
     codeArea.setStyleSpans(0, computeHighlighting(text == null ? "" : text));
