@@ -91,11 +91,12 @@ The "Match Game Framing" button switches the preview to simulate how the charact
 
 | Format | Example Output |
 |--------|---------------|
-| **`@charimg + [show]`** | `@charimg hero happy assets/char/hero/base.png\|eyes_happy.png\|mouth_smile.png`<br>`[show hero center happy]` |
+| **`@charimg + [show]`** | `@charimg hero happy assets/char/hero/base.png\|eyes_happy.png\|mouth_smile.png`<br>`[show hero center @happy]` |
 | **`@charimg only`** | `@charimg hero happy assets/char/hero/base.png\|eyes_happy.png\|mouth_smile.png` |
-| **`@charpreset + [show]`** | `@charpreset hero happy $eyes=happy $mouth=smile`<br>`[show hero center happy]` |
+| **`@charpreset + [show]`** | `@charpreset hero happy $layer1 \| $layer2 \| $layer3`<br>`[show hero center @happy]` |
 | **`@charpreset only`** | `@charpreset hero happy $eyes=happy $mouth=smile` |
-| **`[show] only`** | `[show hero center happy]` |
+| **`Inline composite [show]`** | `[show hero center $base+$eyes_happy+$mouth_smile]` |
+| **`[show] only`** | `[show hero center @happy]` |
 | **Recipe comments** | `# hero happy: eyes=happy mouth=smile brow=neutral` |
 
 ---

@@ -239,4 +239,37 @@ class LayeredImageVisualizerViewTest {
             "serious", "eyes=cross_closed mouth=neutral"),
         parsed);
   }
+
+  @Test
+  void formatPresetShowExpressionTokenUsesExplicitPresetSyntax() {
+    assertEquals("@happy", LayeredImageVisualizerView.formatPresetShowExpressionToken("happy"));
+    assertEquals("@thinking_hat", LayeredImageVisualizerView.formatPresetShowExpressionToken("Thinking Hat"));
+    assertEquals("@neutral", LayeredImageVisualizerView.formatPresetShowExpressionToken("###"));
+  }
+
+  @Test
+  void formatInlineLayerExpressionTokenBuildsCompositeLayerRefs() {
+    assertEquals(
+        "$base+$eyes_happy+$mouth_smile",
+        LayeredImageVisualizerView.formatInlineLayerExpressionToken(
+            List.of("base", "eyes_happy", "mouth_smile")));
+    assertEquals(
+        "$eyes_happy+$mouth_smile",
+        LayeredImageVisualizerView.formatInlineLayerExpressionToken(
+            List.of("###", "eyes_happy", "mouth smile")));
+    assertEquals("", LayeredImageVisualizerView.formatInlineLayerExpressionToken(List.of()));
+  }
+
+  @Test
+  void formatShowSnippetProducesCenteredShowCommand() {
+    assertEquals(
+        "[show lavender center @happy]",
+        LayeredImageVisualizerView.formatShowSnippet("lavender", "@happy"));
+    assertEquals(
+        "[show lavender_test center $base+$eyes_happy]",
+        LayeredImageVisualizerView.formatShowSnippet("Lavender Test", "$base+$eyes_happy"));
+    assertEquals(
+        "[show character_id center @neutral]",
+        LayeredImageVisualizerView.formatShowSnippet("###", ""));
+  }
 }

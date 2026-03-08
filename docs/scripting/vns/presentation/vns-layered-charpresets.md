@@ -152,6 +152,23 @@ aria: I really should have studied more...
 
 Each `[show]` command swaps the expression instantly by switching which layers are composited. The transition uses a 180ms crossfade by default.
 
+### Faster preset switching and inline composites
+
+Once the layered presets exist, you can reference them explicitly or build small one-off composites directly in `show`, `move`, and `char` commands:
+
+```vns
+[show aria center @happy]
+[show aria center @thinking+$hat]
+[move aria right @formal+$shared.bow ease_out_back 500]
+[char aria expression $base+$eyes_happy+$mouth_smile+$glasses]
+```
+
+- `@presetName` selects an existing preset explicitly.
+- `$layerId` pulls in a declared layer.
+- `+` combines preset references and layer references inline.
+
+Use this for small variants such as glasses, hats, blush overlays, or event-specific accessories without needing to mint a brand-new permanent preset for every combination.
+
 ---
 
 ## How It Works Internally
@@ -301,11 +318,12 @@ The **Layered Image Visualizer** sidebar panel provides a visual workflow for ex
 
 | Format | What It Generates |
 |--------|-------------------|
-| **@charimg + [show]** | `@charimg aria happy <path1>\|<path2>\|<path3>` + `[show aria center happy]` |
+| **@charimg + [show]** | `@charimg aria happy <path1>\|<path2>\|<path3>` + `[show aria center @happy]` |
 | **@charimg only** | Just the `@charimg` declaration |
-| **@charpreset + [show]** | `@charlayer` declarations + `@charpreset aria happy $layer1 \| $layer2 \| $layer3` + `[show]` |
+| **@charpreset + [show]** | `@charlayer` declarations + `@charpreset aria happy $layer1 \| $layer2 \| $layer3` + `[show aria center @happy]` |
 | **@charpreset only** | Just the `@charlayer` + `@charpreset` declarations |
-| **[show] only** | Just `[show aria center happy]` |
+| **Inline composite [show]** | Just `[show aria center $base+$eyes_happy+$mouth_smile]` |
+| **[show] only** | Just `[show aria center @happy]` |
 | **Recipe comments** | Full commented recipe with both `@charpreset` and `@charimg` forms |
 
 ### Generating multiple expressions quickly

@@ -110,7 +110,27 @@ Layers are drawn bottom-to-top (left-to-right in the declaration).
 [show hero center]           # default expression (neutral)
 [show hero center happy]     # specific expression
 [show hero left angry]       # different position
+[show hero center @happy]    # explicit preset reference
+[show hero center @happy+$glasses]
+[show hero center $base+$eyes_happy+$mouth_smile]
 ```
+
+### Inline preset and composite syntax
+
+For layered characters, `show`, `move`, and `char ... expression/show/move` accept two shorthand forms:
+
+```vns
+[show aria center @happy]
+[move aria right @thinking+$accessory_glasses ease_out_back 500]
+[char aria expression @formal+$shared_accessories.bow]
+```
+
+- `@presetName` explicitly selects an existing preset/expression.
+- `$layerId` pulls in a declared `@charlayer`.
+- `+` combines presets and layers into an inline composite.
+- Cross-character refs still work inside composites: `$shared.bow` and `$shared:bow`.
+
+The parser resolves inline composites into ordinary expression entries at parse time, so runtime rendering behaves exactly like a normal `@charpreset` or `@charimg`.
 
 ### Positions
 
@@ -365,6 +385,7 @@ The simplest way to reposition a visible character:
 [move hero left happy]
 [move hero center smile ease_out_bounce]
 [move hero far_left neutral ease_out_quad 500]
+[move hero center @happy+$accessory_glasses]
 ```
 
 **Animation depends on global mode** (see above):
@@ -447,6 +468,7 @@ When global mode is enabled, setting the anchor position also updates the charac
 
 ```vns
 [char hero show center happy]
+[char hero show center @happy+$glasses]
 [char hero show at 0.3,0.5 neutral]   # with inline position
 ```
 
@@ -459,6 +481,7 @@ Shows the character at a position with an expression. Useful in global mode to p
 [char hero move right smile]                    # move to right, switch to smile
 [char hero move far_left neutral]               # move to far left
 [char hero move center happy ease_out_quad 500] # with easing and duration
+[char hero move center @formal+$shared.bow ease_out_back 500]
 ```
 
 Movement is animated with a slide tween. If an expression is specified, it fades in after the move completes. Optional easing and duration parameters work the same as the top-level `[move]` command (see [Easing Reference](#easing-reference) above).

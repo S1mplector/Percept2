@@ -187,6 +187,7 @@ public class VnScriptParser {
     Deque<ConditionalBlock> conditionalBlocks = new ArrayDeque<>();
     int syntheticLabelCounter = 0;
     Map<String, CharacterPosition> customPositions = new HashMap<>();
+    Map<String, String> inlineCompositeExpressions = new HashMap<>();
 
     CharacterPosition getCustomPosition(String name) {
       if (name == null || name.isBlank()) return null;
@@ -1000,7 +1001,7 @@ public class VnScriptParser {
           if (nextIdx == toks.length - 1 && isIntegerToken(toks[nextIdx])) {
             if (layerOrder == null) layerOrder = Integer.parseInt(toks[nextIdx]);
           } else {
-            expr = toks[nextIdx];
+            expr = resolveInlineExpressionToken(state, charId, toks[nextIdx], sourceName, lineNumber, rawLine);
             if (nextIdx + 1 < toks.length) {
               if (!isIntegerToken(toks[nextIdx + 1])) {
                 throw parseError(sourceName, lineNumber, "[show] layer must be an integer", rawLine);
@@ -1053,7 +1054,7 @@ public class VnScriptParser {
               if (moveExpr != null) {
                 throw parseError(sourceName, lineNumber, "[move] unexpected token: " + tok, rawLine);
               }
-              moveExpr = tok;
+              moveExpr = resolveInlineExpressionToken(state, moveCharId, tok, sourceName, lineNumber, rawLine);
             }
           }
         }
@@ -1184,7 +1185,9 @@ public class VnScriptParser {
       case "char":
       case "character": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.external("char", payload);
+        state.builder.external(
+            "char",
+            normalizeCharacterInteropPayload(state, payload, sourceName, lineNumber, rawLine));
         return;
       }
       case "choice": {
@@ -1402,6 +1405,201 @@ public class VnScriptParser {
       throw parseError(sourceName, lineNumber, "@charpreset produced no layers", rawLine);
     }
     return String.join(" | ", resolved);
+  }
+
+  private String normalizeCharacterInteropPayload(ParseState state,
+                                                  String payload,
+                                                  String sourceName,
+                                                  int lineNumber,
+                                                  String rawLine) throws IOException {
+    String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+    if (toks.length < 2) return payload;
+
+    String characterId = toks[0].trim();
+    String cmd = toks[1].trim().toLowerCase();
+    if (characterId.isEmpty() || cmd.isEmpty()) return payload;
+
+    switch (cmd) {
+      case "move": {
+        int nextIdx = 3;
+        if (toks.length >= 4 && "at".equalsIgnoreCase(toks[2])) {
+          nextIdx = 4;
+        }
+        for (int ti = nextIdx; ti < toks.length; ti++) {
+          String tok = toks[ti].trim();
+          if (tok.isEmpty()) continue;
+          if (isIntegerToken(tok)) continue;
+          Easing.Type easing = parseEasingToken(tok);
+          if (easing != null) continue;
+          toks[ti] = resolveInlineExpressionToken(state, characterId, tok, sourceName, lineNumber, rawLine);
+          break;
+        }
+        return joinNormalizedTokens(toks);
+      }
+      case "show": {
+        int exprIdx = 3;
+        if (toks.length >= 4 && "at".equalsIgnoreCase(toks[2])) {
+          exprIdx = 4;
+        }
+        if (exprIdx < toks.length) {
+          toks[exprIdx] = resolveInlineExpressionToken(state, characterId, toks[exprIdx], sourceName, lineNumber, rawLine);
+        }
+        return joinNormalizedTokens(toks);
+      }
+      case "expression":
+      case "expr": {
+        if (toks.length >= 3) {
+          toks[2] = resolveInlineExpressionToken(state, characterId, toks[2], sourceName, lineNumber, rawLine);
+        }
+        return joinNormalizedTokens(toks);
+      }
+      default:
+        return payload;
+    }
+  }
+
+  private String joinNormalizedTokens(String[] tokens) {
+    StringBuilder sb = new StringBuilder();
+    for (String token : tokens) {
+      if (token == null || token.isEmpty()) continue;
+      if (sb.length() > 0) sb.append(' ');
+      sb.append(quoteTokenIfNeeded(token));
+    }
+    return sb.toString();
+  }
+
+  private String resolveInlineExpressionToken(ParseState state,
+                                              String characterId,
+                                              String rawToken,
+                                              String sourceName,
+                                              int lineNumber,
+                                              String rawLine) throws IOException {
+    String token = rawToken == null ? "" : rawToken.trim();
+    if (token.isEmpty()) return token;
+    if (!token.startsWith("@") && token.indexOf('$') < 0 && token.indexOf('+') < 0) {
+      return token;
+    }
+
+    if (token.startsWith("@") && token.indexOf('+') < 0 && token.indexOf('$') < 0) {
+      String presetName = token.substring(1).trim();
+      if (presetName.isEmpty()) {
+        throw parseError(sourceName, lineNumber, "Inline preset reference cannot be empty", rawLine);
+      }
+      return presetName;
+    }
+
+    List<String> resolvedParts = new ArrayList<>();
+    for (String rawPart : token.split("\\+")) {
+      String part = rawPart == null ? "" : rawPart.trim();
+      if (part.isEmpty()) {
+        throw parseError(sourceName, lineNumber, "Inline composite expression contains an empty segment", rawLine);
+      }
+      if (part.startsWith("@")) {
+        String presetName = part.substring(1).trim();
+        if (presetName.isEmpty()) {
+          throw parseError(sourceName, lineNumber, "Inline preset reference cannot be empty", rawLine);
+        }
+        String presetPath = getOrCreateCharacterBuilder(state, characterId).getExpressionPath(presetName);
+        if (presetPath == null || presetPath.isBlank()) {
+          throw parseError(
+              sourceName,
+              lineNumber,
+              "Unknown character preset '@" + presetName + "' for character '" + characterId + "'",
+              rawLine);
+        }
+        resolvedParts.addAll(splitResolvedLayerSpec(presetPath));
+        continue;
+      }
+      if (part.startsWith("$")) {
+        resolvedParts.add(resolveLayerReferencePath(state, characterId, part.substring(1), sourceName, lineNumber, rawLine));
+        continue;
+      }
+      throw parseError(
+          sourceName,
+          lineNumber,
+          "Inline composite segments must use @preset or $layer syntax: " + part,
+          rawLine);
+    }
+
+    if (resolvedParts.isEmpty()) {
+      throw parseError(sourceName, lineNumber, "Inline composite expression produced no layers", rawLine);
+    }
+
+    String resolvedSpec = String.join(" | ", resolvedParts);
+    String cacheKey = characterId + "|" + resolvedSpec;
+    String existing = state.inlineCompositeExpressions.get(cacheKey);
+    if (existing != null) {
+      return existing;
+    }
+
+    String exprName = buildInlineExpressionName(token, resolvedSpec);
+    com.jvn.core.vn.VnCharacter.Builder builder = getOrCreateCharacterBuilder(state, characterId);
+    if (!builder.hasExpression(exprName)) {
+      builder.addExpression(exprName, resolvedSpec);
+    }
+    state.inlineCompositeExpressions.put(cacheKey, exprName);
+    return exprName;
+  }
+
+  private List<String> splitResolvedLayerSpec(String spec) {
+    String[] tokens = spec.split("\\|");
+    List<String> resolved = new ArrayList<>();
+    for (String token : tokens) {
+      if (token == null) continue;
+      String trimmed = token.trim();
+      if (!trimmed.isEmpty()) {
+        resolved.add(trimmed);
+      }
+    }
+    return resolved;
+  }
+
+  private String resolveLayerReferencePath(ParseState state,
+                                           String defaultCharacterId,
+                                           String rawRef,
+                                           String sourceName,
+                                           int lineNumber,
+                                           String rawLine) throws IOException {
+    LayerReference layerRef = parseLayerReference(rawRef, defaultCharacterId, sourceName, lineNumber, rawLine);
+    Map<String, String> byLayer = state.charLayers.get(layerRef.characterId());
+    String path = byLayer == null ? null : byLayer.get(layerRef.layerId());
+    if (path == null || path.isBlank()) {
+      throw parseError(
+          sourceName,
+          lineNumber,
+          "Unknown @charlayer reference '$" + rawRef + "' for character '" + layerRef.characterId() + "'",
+          rawLine);
+    }
+    return path.trim();
+  }
+
+  private com.jvn.core.vn.VnCharacter.Builder getOrCreateCharacterBuilder(ParseState state, String characterId) {
+    com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(characterId);
+    if (cb == null) {
+      cb = com.jvn.core.vn.VnCharacter.builder(characterId);
+      state.charBuilders.put(characterId, cb);
+    }
+    return cb;
+  }
+
+  private String buildInlineExpressionName(String token, String resolvedSpec) {
+    String base = token
+        .replace('@', ' ')
+        .replace('$', ' ')
+        .replace('+', ' ')
+        .replace(':', ' ')
+        .replace('.', ' ')
+        .trim()
+        .replaceAll("[^A-Za-z0-9_]+", "_")
+        .replaceAll("_+", "_");
+    if (base.isEmpty()) {
+      base = "composite";
+    }
+    if (!Character.isLetter(base.charAt(0)) && base.charAt(0) != '_') {
+      base = "_" + base;
+    }
+    String hash = Integer.toUnsignedString(resolvedSpec.hashCode(), 36);
+    return "__inline_" + base.toLowerCase() + "_" + hash;
   }
 
   private LayerReference parseLayerReference(String rawRef,

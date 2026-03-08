@@ -73,6 +73,127 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void showCommandAcceptsExplicitPresetReference() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character lavender "Lavender"
+      @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+      @charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
+      @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+      @charpreset lavender talking $base | $eyes_neutral | $mouth_smile
+
+      @label start
+      [show lavender center @talking]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode show = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW)
+        .findFirst().orElseThrow();
+    assertEquals("talking", show.getShowExpression());
+  }
+
+  @Test
+  public void showCommandSupportsInlineCompositePresetAndLayer() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character lavender "Lavender"
+      @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+      @charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
+      @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+      @charlayer lavender glasses assets/demo/characters/lavender/props/lavender_glasses.png
+      @charpreset lavender talking $base | $eyes_neutral | $mouth_smile
+
+      @label start
+      [show lavender center @talking+$glasses]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode show = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW)
+        .findFirst().orElseThrow();
+    VnCharacter lavender = scen.getCharacter("lavender");
+    assertNotNull(lavender);
+    assertTrue(show.getShowExpression().startsWith("__inline_"));
+    assertEquals(
+        "assets/demo/characters/lavender/base/lavender_test_sprite_base.png"
+            + " | assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png"
+            + " | assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png"
+            + " | assets/demo/characters/lavender/props/lavender_glasses.png",
+        lavender.getExpressionPath(show.getShowExpression()));
+  }
+
+  @Test
+  public void moveCommandSupportsInlineCompositeLayerSpec() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character lavender "Lavender"
+      @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+      @charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
+      @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+
+      @label start
+      [move lavender center $base+$eyes_neutral+$mouth_smile ease_out_back 500]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode move = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.MOVE)
+        .findFirst().orElseThrow();
+    VnCharacter lavender = scen.getCharacter("lavender");
+    assertNotNull(lavender);
+    assertTrue(move.getShowExpression().startsWith("__inline_"));
+    assertEquals(
+        "assets/demo/characters/lavender/base/lavender_test_sprite_base.png"
+            + " | assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png"
+            + " | assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png",
+        lavender.getExpressionPath(move.getShowExpression()));
+    assertEquals(com.jvn.core.animation.Easing.Type.EASE_OUT_BACK, move.getMoveEasingType());
+    assertEquals(500, move.getMoveDurationMs());
+  }
+
+  @Test
+  public void characterInteropExpressionCommandSupportsInlineCompositePresetAndLayer() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character lavender "Lavender"
+      @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+      @charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
+      @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+      @charlayer lavender glasses assets/demo/characters/lavender/props/lavender_glasses.png
+      @charpreset lavender talking $base | $eyes_neutral | $mouth_smile
+
+      @label start
+      [char lavender global on]
+      [show lavender center @talking]
+      [char lavender expression @talking+$glasses]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnScene scene = new VnScene(scenario);
+    scene.setInterop(new DefaultVnInterop());
+    scene.onEnter();
+
+    String expr = scene.getState().getCharacterExpression("lavender");
+    assertNotNull(expr);
+    assertTrue(expr.startsWith("__inline_"));
+    assertEquals(
+        "assets/demo/characters/lavender/base/lavender_test_sprite_base.png"
+            + " | assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png"
+            + " | assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png"
+            + " | assets/demo/characters/lavender/props/lavender_glasses.png",
+        scenario.getCharacter("lavender").getExpressionPath(expr));
+  }
+
+  @Test
   public void rejectsCharacterPresetWithUnknownLayerReference() {
     String script = """
       @scenario layered_demo

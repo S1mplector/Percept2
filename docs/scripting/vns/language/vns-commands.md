@@ -89,6 +89,9 @@ Shows a character at a named position with an optional expression and layer orde
 [show hero center happy]
 [show hero left angry]
 [show villain right evil 10]
+[show hero center @happy]
+[show hero center @happy+$glasses]
+[show hero center $base+$eyes_happy+$mouth_smile]
 ```
 
 **Predefined positions:**
@@ -163,6 +166,7 @@ To get a smooth slide, enable global mode first with `[char <charId> global on]`
 [move hero right]               # hero slides from left to right
 [move hero center happy]        # slides to center, switches to happy
 [move hero far_left neutral ease_out_bounce 500]  # with easing + duration
+[move hero center @happy+$glasses ease_out_back 500]
 ```
 
 **Parameters:**
@@ -712,7 +716,9 @@ Advanced character choreography commands. `[character]` is accepted as an alias 
 [char hero move right smile]                 # animated move with expression
 [char hero move right smile ease_out_quad 500]  # with easing and duration
 [char hero show center happy]                # show at position with expression
+[char hero show center @happy+$glasses]      # explicit preset/layer composite
 [char hero expression angry]                 # change expression only
+[char hero expression @thinking+$hat]        # inline composite switch
 [char hero expr surprised]                   # shorthand alias
 [char hero hide]                             # animated hide
 ```

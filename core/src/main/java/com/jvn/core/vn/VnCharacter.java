@@ -40,6 +40,8 @@ public class VnCharacter {
 
     public Builder displayName(String name) { this.displayName = name; return this; }
     public String getDisplayName() { return displayName; }
+    public boolean hasExpression(String name) { return expressions.containsKey(name); }
+    public String getExpressionPath(String name) { return expressions.get(name); }
     public Builder addExpression(String name, String imagePath) {
       expressions.put(name, imagePath);
       return this;
