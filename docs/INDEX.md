@@ -118,6 +118,7 @@ Complete documentation for the Java Vector Nexus engine.
 - [Fonts & Typography](scripting/ui/layout/styling/fonts-typography.md) — all font keys, cross-platform availability, examples
 - [Save & Load Screens](scripting/ui/layout/screens/save-load-screens.md) — slot templates, thumbnails, placeholder/frame assets
 - [Settings Screen](scripting/ui/layout/screens/settings-screen.md) — `{value}` placeholders, built-in settings, section headers
+- [Help Screen](scripting/ui/layout/screens/help-screen.md) — static text blocks, wrapped paragraphs, section headers, note cards
 - [Assets & Backgrounds](scripting/ui/layout/styling/assets-backgrounds.md) — all asset keys, path conventions, fallback behavior
 - [Validation & Diagnostics](scripting/ui/layout/tooling/validation-diagnostics.md) — every diagnostic message, causes, fixes
 - [Layout Editor Tools](scripting/ui/layout/tooling/layout-editor-tools.md) — Layout Studio, Bounds Studio, registry editor, screen cards

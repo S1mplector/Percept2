@@ -25,18 +25,23 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
-import javafx.scene.control.TextInputDialog;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
@@ -75,11 +80,14 @@ public class ScriptEditorLauncherView extends BorderPane {
   private final Label selectionPath = new Label("Select a script to inspect it.");
   private final Label selectionMeta = new Label("");
   private final VBox outlineList = new VBox(4);
+  private final VBox includesList = new VBox(4);
+  private final VBox includedByList = new VBox(4);
 
   private File projectRoot;
   private File workspaceRoot;
   private Consumer<String> onStatus;
   private Consumer<File> onOpenFile;
+  private java.util.function.BiConsumer<File, Integer> onOpenFileAtLine;
 
   private Stage editorWindow;
   private TabPane editorWindowTabs;
@@ -111,6 +119,10 @@ public class ScriptEditorLauncherView extends BorderPane {
   public void setOnOpenFile(Consumer<File> onOpenFile) {
     this.onOpenFile = onOpenFile;
     updateActionState();
+  }
+
+  public void setOnOpenFileAtLine(java.util.function.BiConsumer<File, Integer> onOpenFileAtLine) {
+    this.onOpenFileAtLine = onOpenFileAtLine;
   }
 
   public File getProjectRoot() {
@@ -215,7 +227,14 @@ public class ScriptEditorLauncherView extends BorderPane {
     VBox outlineCard = new VBox(6, sectionLabel("Label Outline"), outlineList);
     outlineCard.setPadding(new Insets(10));
     outlineCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
-    VBox inspectorBox = new VBox(10, sectionLabel("Selection"), selectionTitle, selectionPath, selectionMeta, outlineCard);
+    VBox includesCard = new VBox(6, sectionLabel("Includes"), includesList);
+    includesCard.setPadding(new Insets(10));
+    includesCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    VBox includedByCard = new VBox(6, sectionLabel("Included By"), includedByList);
+    includedByCard.setPadding(new Insets(10));
+    includedByCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    VBox inspectorBox = new VBox(10, sectionLabel("Selection"), selectionTitle, selectionPath, selectionMeta,
+        outlineCard, includesCard, includedByCard);
     inspectorBox.setPadding(new Insets(10));
     inspectorBox.setStyle("-fx-background-color: #11161f;");
 
@@ -254,8 +273,173 @@ public class ScriptEditorLauncherView extends BorderPane {
       } else if (ev.getCode() == KeyCode.F5) {
         refreshWorkspace();
         ev.consume();
+      } else if (ev.getCode() == KeyCode.DELETE || ev.getCode() == KeyCode.BACK_SPACE) {
+        if (selectedNode != null && selectedNode.file() != null) {
+          deleteSelectedScript();
+          ev.consume();
+        }
+      } else if (ev.getCode() == KeyCode.F2) {
+        if (selectedNode != null && selectedNode.file() != null) {
+          renameSelectedScript();
+          ev.consume();
+        }
       }
     });
+
+    installContextMenu();
+  }
+
+  private void installContextMenu() {
+    explorerTree.setContextMenu(null);
+    explorerTree.setOnContextMenuRequested(ev -> {
+      TreeItem<ExplorerNode> item = explorerTree.getSelectionModel().getSelectedItem();
+      if (item == null || item.getValue() == null) return;
+      ExplorerNode node = item.getValue();
+
+      ContextMenu ctx = new ContextMenu();
+
+      if (node.file() != null) {
+        MenuItem open = new MenuItem("Open in Editor");
+        open.setOnAction(e -> openSelectedInEditor());
+        MenuItem openWindow = new MenuItem("Open in Script IDE");
+        openWindow.setOnAction(e -> launchEditorWindow(node.file()));
+        ctx.getItems().addAll(open, openWindow, new SeparatorMenuItem());
+
+        MenuItem rename = new MenuItem("Rename…");
+        rename.setOnAction(e -> renameSelectedScript());
+        MenuItem duplicate = new MenuItem("Duplicate");
+        duplicate.setOnAction(e -> duplicateSelectedScript());
+        MenuItem delete = new MenuItem("Delete…");
+        delete.setOnAction(e -> deleteSelectedScript());
+        ctx.getItems().addAll(rename, duplicate, delete, new SeparatorMenuItem());
+
+        MenuItem copyPath = new MenuItem("Copy Absolute Path");
+        copyPath.setOnAction(e -> copyToClipboard(node.file().getAbsolutePath()));
+        MenuItem copyRelPath = new MenuItem("Copy Relative Path");
+        copyRelPath.setOnAction(e -> {
+          if (node.entry != null) copyToClipboard(node.entry.projectRelativePath());
+        });
+        MenuItem reveal = new MenuItem("Reveal in File Manager");
+        reveal.setOnAction(e -> revealFile(node.file()));
+        ctx.getItems().addAll(copyPath, copyRelPath, reveal);
+      } else if (node.directory) {
+        MenuItem newScript = new MenuItem("New Script Here…");
+        newScript.setOnAction(e -> createNewScriptInFolder(node));
+        MenuItem reveal = new MenuItem("Reveal in File Manager");
+        reveal.setOnAction(e -> {
+          File dir = resolveNodeDirectory(node);
+          if (dir != null && dir.exists()) revealFile(dir);
+        });
+        ctx.getItems().addAll(newScript, reveal);
+      }
+
+      if (!ctx.getItems().isEmpty()) {
+        ctx.show(explorerTree, ev.getScreenX(), ev.getScreenY());
+      }
+    });
+  }
+
+  private void renameSelectedScript() {
+    if (selectedNode == null || selectedNode.file() == null) return;
+    File file = selectedNode.file();
+    String currentName = file.getName();
+    String stem = currentName.toLowerCase().endsWith(".vns")
+        ? currentName.substring(0, currentName.length() - 4) : currentName;
+
+    TextInputDialog dialog = new TextInputDialog(stem);
+    EditorTheme.apply(dialog);
+    dialog.setTitle("Rename Script");
+    dialog.setHeaderText("Rename " + currentName);
+    dialog.setContentText("New name (without .vns):");
+
+    dialog.showAndWait().ifPresent(newName -> {
+      try {
+        File renamed = ScriptEditorWorkspaceModel.renameScript(file, newName);
+        refreshWorkspace();
+        restoreSelection(renamed.getAbsolutePath());
+        setStatus("Renamed to " + renamed.getName());
+      } catch (IOException ex) {
+        showLaunchError("Failed to rename script:\n" + ex.getMessage());
+      }
+    });
+  }
+
+  private void duplicateSelectedScript() {
+    if (selectedNode == null || selectedNode.file() == null) return;
+    try {
+      File copy = ScriptEditorWorkspaceModel.duplicateScript(selectedNode.file());
+      refreshWorkspace();
+      restoreSelection(copy.getAbsolutePath());
+      setStatus("Duplicated as " + copy.getName());
+    } catch (IOException ex) {
+      showLaunchError("Failed to duplicate script:\n" + ex.getMessage());
+    }
+  }
+
+  private void deleteSelectedScript() {
+    if (selectedNode == null || selectedNode.file() == null) return;
+    File file = selectedNode.file();
+
+    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+    EditorTheme.apply(confirm);
+    confirm.setTitle("Delete Script");
+    confirm.setHeaderText("Delete " + file.getName() + "?");
+    confirm.setContentText("This action cannot be undone.\n" + file.getAbsolutePath());
+    confirm.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
+
+    confirm.showAndWait().ifPresent(response -> {
+      if (response != ButtonType.OK) return;
+      try {
+        ScriptEditorWorkspaceModel.deleteScript(file);
+        refreshWorkspace();
+        setStatus("Deleted " + file.getName());
+      } catch (IOException ex) {
+        showLaunchError("Failed to delete script:\n" + ex.getMessage());
+      }
+    });
+  }
+
+  private void createNewScriptInFolder(ExplorerNode folderNode) {
+    String prefix = folderNode.relativePath != null ? folderNode.relativePath.toString().replace('\\', '/') + "/" : "";
+    TextInputDialog dialog = new TextInputDialog(prefix + "new_scene.vns");
+    EditorTheme.apply(dialog);
+    dialog.setTitle("New Script");
+    dialog.setHeaderText("Create a new VNS script in " + folderNode.displayName);
+    dialog.setContentText("Relative path inside scripts/");
+
+    dialog.showAndWait().ifPresent(input -> {
+      File launchRoot = resolveLaunchRoot();
+      if (launchRoot == null) return;
+      try {
+        File created = ScriptEditorWorkspaceModel.createScript(launchRoot, input);
+        refreshWorkspace();
+        restoreSelection(created.getAbsolutePath());
+        setStatus("Created " + created.getName());
+        if (onOpenFile != null) onOpenFile.accept(created);
+      } catch (IOException ex) {
+        showLaunchError("Failed to create script:\n" + ex.getMessage());
+      }
+    });
+  }
+
+  private void copyToClipboard(String text) {
+    if (text == null || text.isBlank()) return;
+    ClipboardContent content = new ClipboardContent();
+    content.putString(text);
+    Clipboard.getSystemClipboard().setContent(content);
+    setStatus("Copied: " + text);
+  }
+
+  private void revealFile(File target) {
+    if (target == null) return;
+    File dir = target.isDirectory() ? target : target.getParentFile();
+    if (dir == null || !dir.exists()) return;
+    try {
+      Desktop.getDesktop().open(dir);
+      setStatus("Revealed " + dir.getAbsolutePath());
+    } catch (Exception ex) {
+      showLaunchError("Failed to reveal:\n" + ex.getMessage());
+    }
   }
 
   private void refreshWorkspace() {
@@ -395,6 +579,8 @@ public class ScriptEditorLauncherView extends BorderPane {
 
   private void updateSelectionInspector() {
     outlineList.getChildren().clear();
+    includesList.getChildren().clear();
+    includedByList.getChildren().clear();
     if (selectedNode == null) {
       selectionTitle.setText("Workspace Overview");
       selectionPath.setText(snapshot.hasScriptsRoot()
@@ -405,6 +591,8 @@ public class ScriptEditorLauncherView extends BorderPane {
               + snapshot.totalLabelCount() + " labels"
           : "Open a project with scripts to browse it here.");
       outlineList.getChildren().add(emptyHint("Select a script to inspect its labels and metadata."));
+      includesList.getChildren().add(emptyHint("Select a script to see its includes."));
+      includedByList.getChildren().add(emptyHint("Select a script to see what includes it."));
       return;
     }
 
@@ -414,6 +602,8 @@ public class ScriptEditorLauncherView extends BorderPane {
       selectionPath.setText(folder != null ? folder.getAbsolutePath() : "Folder");
       selectionMeta.setText(selectedNode.scriptCount + " scripts under this folder");
       outlineList.getChildren().add(emptyHint("Select a script file to see its outline."));
+      includesList.getChildren().add(emptyHint("Select a script file."));
+      includedByList.getChildren().add(emptyHint("Select a script file."));
       return;
     }
 
@@ -427,16 +617,89 @@ public class ScriptEditorLauncherView extends BorderPane {
     if (entry.labelNames().isEmpty()) {
       outlineList.getChildren().add(emptyHint("This script does not declare any @label entries."));
     } else {
-      int maxLabels = Math.min(entry.labelNames().size(), 10);
+      int maxLabels = Math.min(entry.labelNames().size(), 50);
       for (int i = 0; i < maxLabels; i++) {
-        Label label = new Label("@label " + entry.labelNames().get(i));
-        label.setStyle("-fx-text-fill: #c9d6e8; -fx-font-size: 11px; -fx-padding: 2 6 2 6; -fx-background-color: #1b2230; -fx-background-radius: 5;");
+        String labelName = entry.labelNames().get(i);
+        Integer lineNo = entry.labelLineNumbers().get(labelName);
+        String lineHint = lineNo != null ? " (L" + lineNo + ")" : "";
+        Label label = new Label("@label " + labelName + lineHint);
+        label.setStyle("-fx-text-fill: #c9d6e8; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #1b2230; -fx-background-radius: 5; -fx-cursor: hand;");
+        label.setOnMouseEntered(ev -> label.setStyle("-fx-text-fill: #e8f0ff; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #263048; -fx-background-radius: 5; -fx-cursor: hand;"));
+        label.setOnMouseExited(ev -> label.setStyle("-fx-text-fill: #c9d6e8; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #1b2230; -fx-background-radius: 5; -fx-cursor: hand;"));
+        label.setOnMouseClicked(ev -> {
+          if (onOpenFileAtLine != null && lineNo != null) {
+            onOpenFileAtLine.accept(entry.file(), lineNo);
+            setStatus("Jumped to @label " + labelName + " (L" + lineNo + ")");
+          } else if (onOpenFile != null) {
+            onOpenFile.accept(entry.file());
+            setStatus("Opened " + entry.file().getName() + " (@label " + labelName + ")");
+          } else {
+            launchEditorWindow(entry.file());
+          }
+        });
         outlineList.getChildren().add(label);
       }
       if (entry.labelNames().size() > maxLabels) {
         outlineList.getChildren().add(emptyHint("+ " + (entry.labelNames().size() - maxLabels) + " more labels"));
       }
     }
+
+    // Includes
+    if (entry.includeTargets().isEmpty()) {
+      includesList.getChildren().add(emptyHint("This script does not @include any other scripts."));
+    } else {
+      for (String target : entry.includeTargets()) {
+        ScriptFileEntry resolved = snapshot.findByRelativePath(target);
+        Label link = new Label("@include " + target);
+        link.setStyle(depLinkStyle(false));
+        link.setOnMouseEntered(ev -> link.setStyle(depLinkStyle(true)));
+        link.setOnMouseExited(ev -> link.setStyle(depLinkStyle(false)));
+        if (resolved != null) {
+          link.setOnMouseClicked(ev -> {
+            if (onOpenFile != null) {
+              onOpenFile.accept(resolved.file());
+              setStatus("Opened included script: " + resolved.displayName());
+            }
+          });
+        } else {
+          link.setStyle("-fx-text-fill: #a07050; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+              + "-fx-background-color: #1b2230; -fx-background-radius: 5;");
+          link.setTooltip(new Tooltip("Could not resolve: " + target));
+        }
+        includesList.getChildren().add(link);
+      }
+    }
+
+    // Included by
+    List<ScriptFileEntry> dependents = snapshot.includedBy(entry.relativePath());
+    if (dependents.isEmpty()) {
+      includedByList.getChildren().add(emptyHint("No other scripts @include this file."));
+    } else {
+      for (ScriptFileEntry dep : dependents) {
+        Label link = new Label(dep.relativePath());
+        link.setStyle(depLinkStyle(false));
+        link.setOnMouseEntered(ev -> link.setStyle(depLinkStyle(true)));
+        link.setOnMouseExited(ev -> link.setStyle(depLinkStyle(false)));
+        link.setOnMouseClicked(ev -> {
+          if (onOpenFile != null) {
+            onOpenFile.accept(dep.file());
+            setStatus("Opened dependent: " + dep.displayName());
+          }
+        });
+        includedByList.getChildren().add(link);
+      }
+    }
+  }
+
+  private static String depLinkStyle(boolean hover) {
+    return hover
+        ? "-fx-text-fill: #b8d4f0; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #243048; -fx-background-radius: 5; -fx-cursor: hand;"
+        : "-fx-text-fill: #9ab0cc; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #1b2230; -fx-background-radius: 5; -fx-cursor: hand;";
   }
 
   private void updateActionState() {

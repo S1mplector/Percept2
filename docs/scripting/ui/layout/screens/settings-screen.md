@@ -176,7 +176,8 @@ item.back.action=back
 
 ### Example 3: Categorized Settings with Section Headers
 
-Use `noop` disabled items as visual section dividers:
+Use `noop` disabled items as visual section dividers. If you want them to render like
+real section headers instead of disabled menu buttons, add `renderAs=section`:
 
 ```properties
 # config/menu/menus/settings.menu
@@ -192,6 +193,9 @@ items=audio_header,bgm_volume,sfx_volume,voice_volume,text_header,text_speed,aut
 item.audio_header.label=── Audio ──
 item.audio_header.action=noop
 item.audio_header.enabled=false
+item.audio_header.renderAs=section
+item.audio_header.fontWeight=BOLD
+item.audio_header.fontSize=18
 
 item.bgm_volume.label=Music Volume: {value}
 item.sfx_volume.label=SFX Volume: {value}
@@ -201,6 +205,9 @@ item.voice_volume.label=Voice Volume: {value}
 item.text_header.label=── Text ──
 item.text_header.action=noop
 item.text_header.enabled=false
+item.text_header.renderAs=section
+item.text_header.fontWeight=BOLD
+item.text_header.fontSize=18
 
 item.text_speed.label=Text Speed: {value}
 item.auto_play_delay.label=Auto Advance: {value}
@@ -210,6 +217,11 @@ item.back.label=Back
 item.back.style=slot
 item.back.action=back
 ```
+
+Notes:
+- `renderAs=section` and `role=section` are both recognized.
+- Section items stay non-selectable because they are disabled.
+- Use per-item `fontFamily`, `fontWeight`, and `fontSize` to give section headers their own typography.
 
 ### Example 4: Settings with Custom Labels
 

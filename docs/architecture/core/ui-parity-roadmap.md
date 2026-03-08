@@ -87,9 +87,15 @@ Patch requirements:
 - Expose title alignment, subtitle spacing, footer/hint placement, and hero-art composition patterns in the menu DSL.
 - Ensure first-run project templates include a polished menu baseline that can be themed without code edits.
 
+Implemented so far:
+
+- `titleAlign`, `hintsAlign`, and `hintsX` in [`MenuLayoutSpec.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/core/src/main/java/com/jvn/core/menu/config/MenuLayoutSpec.java)
+- runtime title/footer placement in [`MenuRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
+- editor support in [`MenuLayoutVisualEditor.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/editor/src/main/java/com/jvn/editor/ui/MenuLayoutVisualEditor.java)
+
 Status:
 
-- not started
+- started
 
 ### `save` / `load`
 
@@ -121,9 +127,17 @@ Patch requirements:
 - Expand spacing, alignment, and section-title controls so settings screens can match heavily customized Ren'Py layouts.
 - Add a concrete migration example from Ren'Py preference widgets to JVN settings menu definitions.
 
+Implemented so far:
+
+- shared menu title/footer alignment controls from the main-menu slice
+- section-header rendering via `item.<id>.renderAs=section` or `role=section` in [`MenuRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
+- updated examples in [`settings-screen.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/layout/screens/settings-screen.md)
+- static text blocks via `renderAs=body` / `paragraph` / `note`
+- variable-height rows via `rowSpan` / `rows`
+
 Status:
 
-- not started
+- started
 
 ### `history`
 
@@ -154,9 +168,15 @@ Patch requirements:
 - Provide a documented canonical help/profile pattern for VN projects.
 - Add consistent title/body/footer layout options so teams are not forced into ad hoc menu hacks.
 
+Implemented so far:
+
+- wrapped static text blocks via `renderAs=body` / `note`
+- variable-height rows for auto-laid-out help content
+- canonical help-screen example in [`help-screen.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/layout/screens/help-screen.md)
+
 Status:
 
-- not started
+- started
 
 ### `nvl`
 

@@ -93,6 +93,7 @@ public record MenuProfile(
     screens.put("load", defaultLoadScreen());
     screens.put("save", defaultSaveScreen());
     screens.put("settings", defaultSettingsScreen());
+    screens.put("help", defaultHelpScreen());
     screens.put("pause", defaultPauseScreen());
     screens.put("history", defaultHistoryScreen());
 
@@ -331,9 +332,104 @@ public record MenuProfile(
     );
   }
 
+  public static MenuScreenSpec defaultHelpScreen() {
+    return new MenuScreenSpec(
+        "help",
+        "Help",
+        "Up/Down: Navigate    Esc: Back",
+        "submenu",
+        "submenu",
+        true,
+        List.of(
+            sectionItem("controls_header", "Controls"),
+            bodyItem(
+                "controls_body",
+                "Click or press Enter to advance dialogue. Use Ctrl/Cmd to toggle skip, A to toggle auto mode, and H to hide the interface.",
+                3
+            ),
+            sectionItem("save_header", "Saving and Loading"),
+            bodyItem(
+                "save_body",
+                "Press F5 to save and F9 to load during gameplay. You can also open the themed save and load screens from the pause menu.",
+                3
+            ),
+            sectionItem("editor_header", "Project Workflow"),
+            bodyItem(
+                "editor_body",
+                "Use the project explorer to open scripts, layouts, and menu profiles. The layout and menu editors preview the same data-driven UI that the runtime renders.",
+                4
+            ),
+            new MenuItemSpec("back", "Back", "submenu", null, true, new MenuActionSpec(MenuActionType.BACK, null), null, null, null, null, null, null, null)
+        )
+    );
+  }
+
   private static String normalize(String v, String def) {
     if (v == null) return def;
     String t = v.trim();
     return t.isEmpty() ? def : t;
+  }
+
+  private static MenuItemSpec sectionItem(String id, String label) {
+    return new MenuItemSpec(
+        id,
+        label,
+        "submenu",
+        null,
+        false,
+        MenuActionSpec.noop(),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        Map.of("renderAs", "section"),
+        null,
+        "BOLD",
+        18
+    );
+  }
+
+  private static MenuItemSpec bodyItem(String id, String label, int rowSpan) {
+    return new MenuItemSpec(
+        id,
+        label,
+        "submenu",
+        null,
+        false,
+        MenuActionSpec.noop(),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        Map.of(
+            "renderAs", "body",
+            "rowSpan", Integer.toString(Math.max(1, rowSpan)),
+            "bodyAlign", "left",
+            "bodyPaddingY", "6"
+        ),
+        null,
+        null,
+        16
+    );
   }
 }

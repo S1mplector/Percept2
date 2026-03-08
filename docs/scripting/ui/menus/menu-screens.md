@@ -146,6 +146,54 @@ Resolution order: per-item field > style field > engine default.
 
 Any `item.<id>.<key>` property not in the known set is preserved as an **extra** and accessible at runtime via `MenuItemSpec.extras()`. This enables custom data without modifying the spec.
 
+### Static Text Blocks
+
+For help screens, lore pages, disclaimers, and explanatory settings text, items can render as
+non-button text blocks instead of selectable buttons.
+
+Supported render modes:
+
+| Extra | Effect |
+|-------|--------|
+| `renderAs=section` | Divider/header row |
+| `renderAs=body` | Wrapped paragraph block |
+| `renderAs=paragraph` | Alias for `body` |
+| `renderAs=text` | Alias for `body` |
+| `renderAs=note` | Wrapped paragraph inside a subtle card |
+| `renderAs=card` | Alias for `note` |
+
+Useful body extras:
+
+| Extra | Description |
+|-------|-------------|
+| `rowSpan` / `rows` | Number of menu rows this block occupies |
+| `bodyAlign` | `left`, `center`, or `right` |
+| `bodyPaddingX` | Horizontal padding inside the text block |
+| `bodyPaddingY` | Vertical padding inside the text block |
+| `bodyLineHeight` | Explicit line height in pixels |
+
+Example:
+
+```properties
+item.controls_header.label=Controls
+item.controls_header.action=noop
+item.controls_header.enabled=false
+item.controls_header.renderAs=section
+
+item.controls_body.label=Click or press Enter to advance dialogue. Esc backs out of menus. F5 saves and F9 loads during gameplay.
+item.controls_body.action=noop
+item.controls_body.enabled=false
+item.controls_body.renderAs=body
+item.controls_body.rowSpan=3
+item.controls_body.bodyAlign=left
+item.controls_body.bodyPaddingY=6
+```
+
+Notes:
+- Text blocks are non-interactive and excluded from hover hit-testing.
+- `rowSpan` only affects auto-laid-out items. Explicit `boundsX/Y/Width/Height` still win.
+- Use per-item `fontFamily`, `fontWeight`, and `fontSize` to give body blocks their own typography.
+
 ---
 
 ## Actions

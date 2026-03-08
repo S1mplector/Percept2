@@ -86,7 +86,7 @@ public class MenuRenderer {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc";
     }
     double bottomMargin = layout != null ? layout.hintsBottomMargin() : 20.0;
-    drawHints(hints, w, h, bottomMargin, screenStyle);
+    drawHints(hints, w, h, bottomMargin, screenStyle, layout);
   }
 
   public void renderPauseMenu(PauseMenuScene scene, double w, double h) {
@@ -117,7 +117,7 @@ public class MenuRenderer {
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) hints = "Esc: Resume";
     double bottomMargin = layout != null ? layout.hintsBottomMargin() : 20.0;
-    drawHints(hints, w, h, bottomMargin, screenStyle);
+    drawHints(hints, w, h, bottomMargin, screenStyle, layout);
   }
 
   public void renderSaveMenu(SaveMenuScene scene, double w, double h) {
@@ -163,7 +163,7 @@ public class MenuRenderer {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
           + Localization.t("save.delete") + ": Delete    " + Localization.t("save.rename") + ": R";
     }
-    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle);
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle, layout);
   }
 
   public void renderLoadMenu(LoadMenuScene scene, double w, double h) {
@@ -218,7 +218,7 @@ public class MenuRenderer {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
           + Localization.t("load.delete") + ": Delete    " + Localization.t("load.rename") + ": R";
     }
-    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle);
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle, layout);
   }
 
   public void renderHistoryMenu(HistoryMenuScene scene, double w, double h) {
@@ -309,7 +309,7 @@ public class MenuRenderer {
     }
 
     String hints = scene != null ? scene.getDisplayHints() : Localization.t("history.hint");
-    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 18.0, screenStyle);
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 18.0, screenStyle, layout);
   }
 
   public void renderSettings(SettingsScene scene, double w, double h) {
@@ -337,14 +337,14 @@ public class MenuRenderer {
       if (!hasSlider) continue;
       double value = scene.sliderValue01At(i);
       MenuItemSpec item = specs[i];
-      double[] geo = sliderGeometry(i, items.length, item, layout, w, h);
+      double[] geo = sliderGeometry(i, items.length, item, specs, layout, w, h);
       drawSlider(geo[0], geo[1], geo[2], value, i == scene.getSelected());
     }
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) {
       hints = "Up/Down, Left/Right, Enter • " + Localization.t("common.back") + ": Esc";
     }
-    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle);
+    drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle, layout);
   }
 
   private void clear(double w, double h) {
@@ -566,7 +566,14 @@ public class MenuRenderer {
     gc.setFont(titleFont);
     double textW = measure(text, titleFont);
     Double txOverride = layout != null ? layout.titleX() : null;
-    double tx = txOverride != null ? w * txOverride - textW / 2.0 : (w - textW) / 2.0;
+    String align = layout != null ? layout.titleAlign() : "center";
+    double tx = txOverride != null
+        ? w * txOverride - textW / 2.0
+        : switch (align == null ? "center" : align.toLowerCase()) {
+          case "left" -> 24.0;
+          case "right" -> w - textW - 24.0;
+          default -> (w - textW) / 2.0;
+        };
     tx = clamp(tx, 0, Math.max(0, w - textW));
 
     // Title shadow
@@ -621,29 +628,49 @@ public class MenuRenderer {
       MenuItemSpec item = itemSpecs != null && i < itemSpecs.length ? itemSpecs[i] : null;
       boolean isEnabled = enabled == null || i >= enabled.length || enabled[i];
       boolean sel = i == selected;
-      String label = withPrefix(items[i], style, sel, isEnabled);
+      boolean sectionItem = isSectionItem(item);
+      boolean bodyItem = isBodyTextItem(item);
+      boolean noteItem = isNoteTextItem(item);
+      String label = (sectionItem || bodyItem || noteItem)
+          ? (items[i] == null ? "" : items[i])
+          : withPrefix(items[i], style, sel, isEnabled);
       Color color = resolveItemColor(style, sel, isEnabled);
       Font font = resolveItemFont(style, item);
-      Rect rect = resolveItemRect(i, items.length, item, layout, areaX, areaWidth, h);
+      Rect rect = resolveItemRect(i, items.length, item, itemSpecs, layout, areaX, areaWidth, h);
       boolean inlinePreviewEnabled = reserveInlineSlotPreviewSpace && isInlineSlotPreviewEnabled(item, true);
       Rect inlinePreviewRect = inlinePreviewEnabled ? resolveInlineSlotPreviewRect(item, rect) : null;
       double reservedRightSpace = inlinePreviewRect != null
           ? Math.max(0, rect.x() + rect.w() - inlinePreviewRect.x() + 8)
           : 0;
 
-      String backgroundAsset = resolveButtonAssetPath(item, style, sel, isEnabled);
-      Image buttonBg = loadImage(backgroundAsset);
-      if (buttonBg != null) {
-        gc.drawImage(buttonBg, rect.x(), rect.y(), rect.w(), rect.h());
+      if (!sectionItem && !bodyItem && !noteItem) {
+        String backgroundAsset = resolveButtonAssetPath(item, style, sel, isEnabled);
+        Image buttonBg = loadImage(backgroundAsset);
+        if (buttonBg != null) {
+          gc.drawImage(buttonBg, rect.x(), rect.y(), rect.w(), rect.h());
+        } else {
+          Color bgFill = !isEnabled
+              ? Color.rgb(80, 80, 90, 0.45)
+              : (sel ? Color.rgb(90, 120, 180, 0.5) : Color.rgb(32, 36, 46, 0.55));
+          gc.setFill(bgFill);
+          gc.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
+          gc.setStroke(sel ? Color.rgb(170, 210, 255, 0.9) : Color.rgb(110, 130, 160, 0.55));
+          gc.setLineWidth(sel ? 2.0 : 1.1);
+          gc.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
+        }
       } else {
-        Color bgFill = !isEnabled
-            ? Color.rgb(80, 80, 90, 0.45)
-            : (sel ? Color.rgb(90, 120, 180, 0.5) : Color.rgb(32, 36, 46, 0.55));
-        gc.setFill(bgFill);
-        gc.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
-        gc.setStroke(sel ? Color.rgb(170, 210, 255, 0.9) : Color.rgb(110, 130, 160, 0.55));
-        gc.setLineWidth(sel ? 2.0 : 1.1);
-        gc.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
+        if (sectionItem) {
+          double dividerY = rect.y() + rect.h() * 0.62;
+          gc.setStroke(Color.rgb(160, 176, 210, 0.28));
+          gc.setLineWidth(1.0);
+          gc.strokeLine(rect.x(), dividerY, rect.x() + rect.w(), dividerY);
+        } else if (noteItem) {
+          gc.setFill(Color.rgb(24, 31, 42, sel && isEnabled ? 0.86 : 0.72));
+          gc.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
+          gc.setStroke(Color.rgb(118, 138, 172, 0.38));
+          gc.setLineWidth(1.0);
+          gc.strokeRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 10, 10);
+        }
       }
 
       Image iconImage = item != null ? loadImage(item.iconPath()) : null;
@@ -658,6 +685,11 @@ public class MenuRenderer {
         gc.setGlobalAlpha(previousAlpha);
       }
 
+      if (bodyItem || noteItem) {
+        drawWrappedItemText(label, rect, item, style, layout, font, color, iconSize, reservedRightSpace);
+        continue;
+      }
+
       gc.setFont(font);
       double tw = measure(label, font);
       double textPadX = style != null && style.buttonTextPaddingX() != null ? style.buttonTextPaddingX() : textPadXDefault;
@@ -669,28 +701,11 @@ public class MenuRenderer {
         case "right" -> rightInset - tw;
         default -> leftInset + Math.max(0, (rightInset - leftInset - tw) / 2.0);
       };
-      double baseline = rect.y() + rect.h() * 0.55 + textPadY;
-
-      // Item opacity
-      double prevAlpha = gc.getGlobalAlpha();
-      Double itemOp = style != null ? style.itemOpacity() : null;
-      if (itemOp != null && itemOp < 0.999) gc.setGlobalAlpha(prevAlpha * itemOp);
-
-      // Item text shadow
-      String shadowRaw = style != null ? style.itemShadowColor() : null;
-      if (shadowRaw != null && !shadowRaw.isBlank()) {
-        Color shadow = parseColor(shadowRaw, null);
-        if (shadow != null) {
-          double sx = style.itemShadowOffsetX() != null ? style.itemShadowOffsetX() : 1.5;
-          double sy = style.itemShadowOffsetY() != null ? style.itemShadowOffsetY() : 1.5;
-          gc.setFill(shadow);
-          gc.fillText(label, x + sx, baseline + sy);
-        }
+      if (sectionItem) {
+        x = rect.x();
       }
-
-      gc.setFill(color);
-      gc.fillText(label, x, baseline);
-      gc.setGlobalAlpha(prevAlpha);
+      double baseline = rect.y() + rect.h() * 0.55 + textPadY;
+      drawItemText(label, x, baseline, style, font, color);
     }
   }
 
@@ -703,11 +718,25 @@ public class MenuRenderer {
   }
 
   private void drawHints(String text, double w, double h, double bottomMargin, MenuStyleSpec style) {
+    drawHints(text, w, h, bottomMargin, style, null);
+  }
+
+  private void drawHints(String text, double w, double h, double bottomMargin, MenuStyleSpec style, MenuLayoutSpec layout) {
     Font hintFont = resolveHintFont(style);
     Color hintColor = parseColor(style != null ? style.hintsColor() : null, theme.getHintColor());
     gc.setFill(hintColor);
     gc.setFont(hintFont);
-    gc.fillText(text, (w - measure(text, hintFont)) / 2, h - Math.max(0, bottomMargin));
+    double textW = measure(text, hintFont);
+    Double hintsX = layout != null ? layout.hintsX() : null;
+    String align = layout != null ? layout.hintsAlign() : "center";
+    double x = hintsX != null
+        ? w * hintsX - textW / 2.0
+        : switch (align == null ? "center" : align.toLowerCase()) {
+          case "left" -> 20.0;
+          case "right" -> w - textW - 20.0;
+          default -> (w - textW) / 2.0;
+        };
+    gc.fillText(text, clamp(x, 0, Math.max(0, w - textW)), h - Math.max(0, bottomMargin));
   }
 
   private void drawCenteredText(String text, double w, double y, Font font, Color color) {
@@ -790,7 +819,7 @@ public class MenuRenderer {
     if (count <= 0) return -1;
     for (int i = 0; i < count; i++) {
       MenuItemSpec item = itemSpecs != null && i < itemSpecs.length ? itemSpecs[i] : null;
-      Rect rect = resolveItemRect(i, count, item, layout, areaX, areaWidth, h);
+      Rect rect = resolveItemRect(i, count, item, itemSpecs, layout, areaX, areaWidth, h);
       if (itemContainsPoint(item, rect, mouseX, mouseY)) return i;
     }
     return -1;
@@ -798,6 +827,7 @@ public class MenuRenderer {
 
   private boolean itemContainsPoint(MenuItemSpec itemSpec, Rect rect, double mouseX, double mouseY) {
     if (rect == null) return false;
+    if (isSectionItem(itemSpec) || isBodyTextItem(itemSpec) || isNoteTextItem(itemSpec)) return false;
     if (itemSpec != null && itemSpec.extras() != null) {
       String raw = itemSpec.extras().get("boundsPoints");
       if (raw != null && !raw.isBlank()) {
@@ -817,6 +847,7 @@ public class MenuRenderer {
       int index,
       int count,
       MenuItemSpec itemSpec,
+      MenuItemSpec[] itemSpecs,
       MenuLayoutSpec layout,
       double areaX,
       double areaWidth,
@@ -854,9 +885,17 @@ public class MenuRenderer {
       return new Rect(x, y, w, hh);
     }
 
-    double baseline = yStart + index * lineH;
-    double itemH = Math.max(24, lineH * 0.92);
-    double itemY = baseline - itemH * 0.76;
+    double rowCursor = 0.0;
+    if (itemSpecs != null) {
+      for (int i = 0; i < index && i < itemSpecs.length; i++) {
+        rowCursor += resolveItemRowSpan(itemSpecs[i]);
+      }
+    } else {
+      rowCursor = index;
+    }
+    int rowSpan = resolveItemRowSpan(itemSpec);
+    double itemH = Math.max(24, lineH * rowSpan * 0.92);
+    double itemY = (yStart - lineH * 0.70) + rowCursor * lineH;
     return new Rect(listX, itemY, Math.max(1, listW), itemH);
   }
 
@@ -889,6 +928,195 @@ public class MenuRenderer {
   private boolean isInlineSlotPreviewEnabled(MenuItemSpec itemSpec, boolean defaultIfMissingSpec) {
     if (itemSpec == null) return defaultIfMissingSpec;
     return itemSpec.slotPreviewEnabled();
+  }
+
+  private boolean isSectionItem(MenuItemSpec itemSpec) {
+    String normalized = normalizedRenderRole(itemSpec);
+    if (normalized == null) return false;
+    return "section".equals(normalized) || "header".equals(normalized);
+  }
+
+  private boolean isBodyTextItem(MenuItemSpec itemSpec) {
+    String normalized = normalizedRenderRole(itemSpec);
+    if (normalized == null) return false;
+    return "body".equals(normalized) || "paragraph".equals(normalized) || "text".equals(normalized);
+  }
+
+  private boolean isNoteTextItem(MenuItemSpec itemSpec) {
+    String normalized = normalizedRenderRole(itemSpec);
+    if (normalized == null) return false;
+    return "note".equals(normalized) || "card".equals(normalized);
+  }
+
+  private String normalizedRenderRole(MenuItemSpec itemSpec) {
+    if (itemSpec == null || itemSpec.extras() == null) return null;
+    String raw = firstNonBlank(itemSpec.extras().get("renderAs"), itemSpec.extras().get("role"));
+    if (raw == null) return null;
+    return raw.trim().toLowerCase();
+  }
+
+  private int resolveItemRowSpan(MenuItemSpec itemSpec) {
+    if (itemSpec == null || itemSpec.extras() == null) return 1;
+    String raw = firstNonBlank(itemSpec.extras().get("rowSpan"), itemSpec.extras().get("rows"));
+    if (raw == null || raw.isBlank()) return 1;
+    try {
+      return Math.max(1, Math.min(32, Integer.parseInt(raw.trim())));
+    } catch (NumberFormatException ex) {
+      return 1;
+    }
+  }
+
+  private String resolveBodyAlign(MenuItemSpec itemSpec, MenuLayoutSpec layout) {
+    if (itemSpec != null && itemSpec.extras() != null) {
+      String raw = firstNonBlank(itemSpec.extras().get("bodyAlign"), itemSpec.extras().get("textAlign"));
+      if (raw != null) {
+        String normalized = raw.trim().toLowerCase();
+        if ("left".equals(normalized) || "center".equals(normalized) || "right".equals(normalized)) {
+          return normalized;
+        }
+      }
+    }
+    return layout != null ? layout.textAlign() : "left";
+  }
+
+  private double resolveBodyPaddingX(MenuItemSpec itemSpec, MenuStyleSpec style) {
+    Double parsed = parseExtraDouble(itemSpec, "bodyPaddingX");
+    if (parsed != null) return Math.max(0.0, parsed);
+    return style != null && style.buttonTextPaddingX() != null ? Math.max(0.0, style.buttonTextPaddingX()) : 18.0;
+  }
+
+  private double resolveBodyPaddingY(MenuItemSpec itemSpec, MenuStyleSpec style) {
+    Double parsed = parseExtraDouble(itemSpec, "bodyPaddingY");
+    if (parsed != null) return Math.max(0.0, parsed);
+    return style != null && style.buttonTextPaddingY() != null ? Math.max(0.0, style.buttonTextPaddingY()) : 10.0;
+  }
+
+  private double resolveBodyLineHeight(MenuItemSpec itemSpec, Font font) {
+    Double parsed = parseExtraDouble(itemSpec, "bodyLineHeight");
+    if (parsed != null && parsed > 0) return parsed;
+    return Math.max(font.getSize() * 1.35, font.getSize() + 6.0);
+  }
+
+  private Double parseExtraDouble(MenuItemSpec itemSpec, String key) {
+    if (itemSpec == null || itemSpec.extras() == null || key == null) return null;
+    String raw = itemSpec.extras().get(key);
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      double value = Double.parseDouble(raw.trim());
+      return Double.isFinite(value) ? value : null;
+    } catch (NumberFormatException ex) {
+      return null;
+    }
+  }
+
+  private void drawWrappedItemText(
+      String label,
+      Rect rect,
+      MenuItemSpec item,
+      MenuStyleSpec style,
+      MenuLayoutSpec layout,
+      Font font,
+      Color color,
+      double iconSize,
+      double reservedRightSpace
+  ) {
+    gc.setFont(font);
+    double padX = resolveBodyPaddingX(item, style);
+    double padY = resolveBodyPaddingY(item, style);
+    double leftInset = rect.x() + padX + (iconSize > 0 ? iconSize + 8 : 0);
+    double rightInset = rect.x() + Math.max(0, rect.w() - padX - reservedRightSpace);
+    double maxWidth = Math.max(16.0, rightInset - leftInset);
+    double lineHeight = resolveBodyLineHeight(item, font);
+    List<String> lines = wrapTextToWidth(label, maxWidth, font);
+    double baseline = rect.y() + padY + font.getSize();
+    double maxBaseline = rect.y() + rect.h() - padY;
+    String align = resolveBodyAlign(item, layout);
+    for (String line : lines) {
+      if (baseline > maxBaseline) break;
+      double x = switch (align) {
+        case "center" -> leftInset + Math.max(0, (maxWidth - measure(line, font)) / 2.0);
+        case "right" -> rightInset - measure(line, font);
+        default -> leftInset;
+      };
+      drawItemText(line, x, baseline, style, font, color);
+      baseline += lineHeight;
+    }
+  }
+
+  private void drawItemText(String label, double x, double baseline, MenuStyleSpec style, Font font, Color color) {
+    double prevAlpha = gc.getGlobalAlpha();
+    Double itemOp = style != null ? style.itemOpacity() : null;
+    if (itemOp != null && itemOp < 0.999) gc.setGlobalAlpha(prevAlpha * itemOp);
+
+    String shadowRaw = style != null ? style.itemShadowColor() : null;
+    if (shadowRaw != null && !shadowRaw.isBlank()) {
+      Color shadow = parseColor(shadowRaw, null);
+      if (shadow != null) {
+        double sx = style.itemShadowOffsetX() != null ? style.itemShadowOffsetX() : 1.5;
+        double sy = style.itemShadowOffsetY() != null ? style.itemShadowOffsetY() : 1.5;
+        gc.setFill(shadow);
+        gc.setFont(font);
+        gc.fillText(label, x + sx, baseline + sy);
+      }
+    }
+
+    gc.setFill(color);
+    gc.setFont(font);
+    gc.fillText(label, x, baseline);
+    gc.setGlobalAlpha(prevAlpha);
+  }
+
+  private List<String> wrapTextToWidth(String text, double maxWidth, Font font) {
+    List<String> lines = new ArrayList<>();
+    if (text == null || text.isBlank()) {
+      lines.add("");
+      return lines;
+    }
+    String[] paragraphs = text.replace("\r", "").split("\n", -1);
+    for (int p = 0; p < paragraphs.length; p++) {
+      String paragraph = paragraphs[p].trim();
+      if (paragraph.isEmpty()) {
+        lines.add("");
+        continue;
+      }
+      String[] words = paragraph.split("\\s+");
+      String current = "";
+      for (String word : words) {
+        String candidate = current.isEmpty() ? word : current + " " + word;
+        if (measure(candidate, font) <= maxWidth) {
+          current = candidate;
+          continue;
+        }
+        if (!current.isEmpty()) {
+          lines.add(current);
+          current = "";
+        }
+        if (measure(word, font) <= maxWidth) {
+          current = word;
+        } else {
+          lines.addAll(breakLongWord(word, maxWidth, font));
+        }
+      }
+      if (!current.isEmpty()) lines.add(current);
+      if (p < paragraphs.length - 1) lines.add("");
+    }
+    return lines.isEmpty() ? List.of("") : lines;
+  }
+
+  private List<String> breakLongWord(String word, double maxWidth, Font font) {
+    List<String> pieces = new ArrayList<>();
+    if (word == null || word.isEmpty()) return pieces;
+    int start = 0;
+    while (start < word.length()) {
+      int end = start + 1;
+      while (end <= word.length() && measure(word.substring(start, end), font) <= maxWidth) {
+        end++;
+      }
+      int safeEnd = Math.max(start + 1, end - 1);
+      pieces.add(word.substring(start, safeEnd));
+      start = safeEnd;
+    }
+    return pieces;
   }
 
   private Rect resolveInlineSlotPreviewRect(MenuItemSpec itemSpec, Rect itemRect) {
@@ -973,7 +1201,7 @@ public class MenuRenderer {
     for (int i = 0; i < count; i++) {
       MenuItemSpec spec = specs != null && i < specs.length ? specs[i] : scene.getMenuItemSpec(i);
       if (!isInlineSlotPreviewEnabled(spec, true)) continue;
-      Rect itemRect = resolveItemRect(i, count, spec, layout, areaX, areaWidth, h);
+      Rect itemRect = resolveItemRect(i, count, spec, specs, layout, areaX, areaWidth, h);
       String previewPath = null;
       if (i == 0) {
         previewPath = scene.getCurrentBackgroundPreviewPath();
@@ -1002,7 +1230,7 @@ public class MenuRenderer {
     for (int i = 0; i < count; i++) {
       MenuItemSpec spec = specs != null && i < specs.length ? specs[i] : scene.getMenuItemSpec(i);
       if (!isInlineSlotPreviewEnabled(spec, true)) continue;
-      Rect itemRect = resolveItemRect(i, count, spec, layout, areaX, areaWidth, h);
+      Rect itemRect = resolveItemRect(i, count, spec, specs, layout, areaX, areaWidth, h);
       String previewPath = null;
       if (i >= 0 && i < saves.size()) {
         File thumb = new File(scene.getSaveDirectory(), saves.get(i) + ".png");
@@ -1144,8 +1372,8 @@ public class MenuRenderer {
     } catch (Exception e) { return Long.toString(millis); }
   }
 
-  private double[] sliderGeometry(int index, int count, MenuItemSpec item, MenuLayoutSpec layout, double w, double h) {
-    Rect rowRect = resolveItemRect(index, count, item, layout, 0, w, h);
+  private double[] sliderGeometry(int index, int count, MenuItemSpec item, MenuItemSpec[] itemSpecs, MenuLayoutSpec layout, double w, double h) {
+    Rect rowRect = resolveItemRect(index, count, item, itemSpecs, layout, 0, w, h);
     double padX = Math.max(20, rowRect.w() * 0.16);
     double sliderX = rowRect.x() + padX;
     double sliderW = Math.max(140, rowRect.w() - (padX * 2));
@@ -1159,7 +1387,9 @@ public class MenuRenderer {
     if (itemIndex >= count) return 0;
     MenuItemSpec item = scene.getMenuItemSpec(itemIndex);
     MenuLayoutSpec layout = scene.getMenuLayout();
-    double[] geo = sliderGeometry(itemIndex, count, item, layout, canvasW, canvasH);
+    MenuItemSpec[] itemSpecs = new MenuItemSpec[count];
+    for (int i = 0; i < count; i++) itemSpecs[i] = scene.getMenuItemSpec(i);
+    double[] geo = sliderGeometry(itemIndex, count, item, itemSpecs, layout, canvasW, canvasH);
     double sliderX = geo[0];
     double sliderW = geo[2];
     double v = (mouseX - sliderX) / sliderW;

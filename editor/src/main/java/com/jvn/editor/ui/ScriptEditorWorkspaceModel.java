@@ -7,9 +7,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -22,7 +24,7 @@ import java.util.regex.Pattern;
  */
 public final class ScriptEditorWorkspaceModel {
   private static final Pattern LABEL_PATTERN = Pattern.compile("^\\s*@label\\s+([^\\s#]+)");
-  private static final Pattern INCLUDE_PATTERN = Pattern.compile("^\\s*@include\\b");
+  private static final Pattern INCLUDE_PATTERN = Pattern.compile("^\\s*@include\\s+(.+)$");
 
   private ScriptEditorWorkspaceModel() {}
 
@@ -97,6 +99,39 @@ public final class ScriptEditorWorkspaceModel {
     return target.toFile();
   }
 
+  public static File renameScript(File scriptFile, String newName) throws IOException {
+    Objects.requireNonNull(scriptFile, "scriptFile");
+    if (newName == null || newName.isBlank()) throw new IOException("New name must not be blank.");
+    String sanitized = newName.trim();
+    if (!sanitized.toLowerCase(Locale.ROOT).endsWith(".vns")) sanitized += ".vns";
+    Path target = scriptFile.toPath().resolveSibling(sanitized);
+    if (Files.exists(target)) throw new IOException("A file named '" + sanitized + "' already exists.");
+    Files.move(scriptFile.toPath(), target);
+    return target.toFile();
+  }
+
+  public static void deleteScript(File scriptFile) throws IOException {
+    Objects.requireNonNull(scriptFile, "scriptFile");
+    if (!scriptFile.exists()) throw new IOException("File does not exist: " + scriptFile.getAbsolutePath());
+    Files.delete(scriptFile.toPath());
+  }
+
+  public static File duplicateScript(File scriptFile) throws IOException {
+    Objects.requireNonNull(scriptFile, "scriptFile");
+    String name = scriptFile.getName();
+    String stem = name.toLowerCase(Locale.ROOT).endsWith(".vns")
+        ? name.substring(0, name.length() - 4) : name;
+    Path parent = scriptFile.toPath().getParent();
+    Path target = parent.resolve(stem + "_copy.vns");
+    int counter = 2;
+    while (Files.exists(target)) {
+      target = parent.resolve(stem + "_copy" + counter + ".vns");
+      counter++;
+    }
+    Files.copy(scriptFile.toPath(), target);
+    return target.toFile();
+  }
+
   public static String normalizeRelativeScriptPath(String requestedRelativePath) {
     String input = requestedRelativePath == null ? "" : requestedRelativePath.trim().replace('\\', '/');
     while (input.startsWith("/")) input = input.substring(1);
@@ -129,12 +164,22 @@ public final class ScriptEditorWorkspaceModel {
 
     int includeCount = 0;
     List<String> labelNames = new ArrayList<>();
-    for (String line : lines) {
+    Map<String, Integer> labelLines = new LinkedHashMap<>();
+    List<String> includeTargets = new ArrayList<>();
+    for (int i = 0; i < lines.size(); i++) {
+      String line = lines.get(i);
       Matcher labelMatcher = LABEL_PATTERN.matcher(line);
       if (labelMatcher.find()) {
-        labelNames.add(labelMatcher.group(1));
+        String name = labelMatcher.group(1);
+        labelNames.add(name);
+        labelLines.put(name, i + 1);
       }
-      if (INCLUDE_PATTERN.matcher(line).find()) includeCount++;
+      Matcher includeMatcher = INCLUDE_PATTERN.matcher(line);
+      if (includeMatcher.find()) {
+        includeCount++;
+        String target = includeMatcher.group(1).trim();
+        if (!target.isEmpty()) includeTargets.add(target);
+      }
     }
 
     String relative = scriptsRoot.relativize(file).toString().replace('\\', '/');
@@ -152,6 +197,8 @@ public final class ScriptEditorWorkspaceModel {
         labelNames.size(),
         includeCount,
         List.copyOf(labelNames),
+        Map.copyOf(labelLines),
+        List.copyOf(includeTargets),
         sizeBytes,
         lastModifiedMillis);
   }
@@ -190,6 +237,8 @@ public final class ScriptEditorWorkspaceModel {
       int labelCount,
       int includeCount,
       List<String> labelNames,
+      Map<String, Integer> labelLineNumbers,
+      List<String> includeTargets,
       long sizeBytes,
       long lastModifiedMillis) {
   }
@@ -203,6 +252,37 @@ public final class ScriptEditorWorkspaceModel {
 
     public boolean hasScriptsRoot() {
       return scriptsRoot != null;
+    }
+
+    public List<ScriptFileEntry> includedBy(String relativePath) {
+      if (relativePath == null || relativePath.isBlank() || scripts == null) return List.of();
+      String needle = relativePath.replace('\\', '/');
+      String fileName = needle.contains("/") ? needle.substring(needle.lastIndexOf('/') + 1) : needle;
+      List<ScriptFileEntry> result = new ArrayList<>();
+      for (ScriptFileEntry entry : scripts) {
+        for (String target : entry.includeTargets()) {
+          String normalized = target.replace('\\', '/').trim();
+          if (normalized.equals(needle) || normalized.equals(fileName)
+              || normalized.endsWith("/" + fileName)) {
+            result.add(entry);
+            break;
+          }
+        }
+      }
+      return result;
+    }
+
+    public ScriptFileEntry findByRelativePath(String relativePath) {
+      if (relativePath == null || scripts == null) return null;
+      String needle = relativePath.replace('\\', '/').trim();
+      for (ScriptFileEntry entry : scripts) {
+        if (entry.relativePath().equals(needle)) return entry;
+        String fileName = entry.relativePath().contains("/")
+            ? entry.relativePath().substring(entry.relativePath().lastIndexOf('/') + 1)
+            : entry.relativePath();
+        if (fileName.equals(needle)) return entry;
+      }
+      return null;
     }
   }
 }

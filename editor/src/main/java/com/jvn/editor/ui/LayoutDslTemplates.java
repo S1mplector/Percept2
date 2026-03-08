@@ -126,19 +126,24 @@ characterBaselineY=1.0
 # Menu layout (.layout)
 # Text-first workflow: edit -> save -> run runtime -> iterate.
 # listYStart/titleY: viewport fraction (0..1). lineHeight/hintsBottomMargin: pixels.
-# listWidthFactor: viewport fraction (0.1..1.0). textAlign: left | center | right.
+# listWidthFactor: viewport fraction (0.1..1.0). textAlign/titleAlign/hintsAlign: left | center | right.
 listYStart=%s
 lineHeight=%s
 listWidthFactor=%s
 textAlign=%s
+titleAlign=%s
 hintsBottomMargin=%s
+hintsAlign=%s
 titleY=0.16
+# hintsX=0.5
 """.formatted(
         formatDouble(s.listYStart()),
         formatDouble(s.lineHeight()),
         formatDouble(s.listWidthFactor()),
         s.textAlign(),
-        formatDouble(s.hintsBottomMargin())
+        s.titleAlign(),
+        formatDouble(s.hintsBottomMargin()),
+        s.hintsAlign()
     );
   }
 

@@ -601,7 +601,8 @@ public class LayoutStudioWindowManager {
     }
 
     private static final Set<String> LAYOUT_KEYS = Set.of(
-        "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin", "titleY");
+        "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin", "titleY",
+        "listXCenter", "titleX", "maxVisibleItems", "titleAlign", "hintsAlign", "hintsX");
     private static final Set<String> STYLE_KEYS = Set.of(
         "itemColor", "itemSelectedColor", "itemHoverColor", "itemDisabledColor",
         "itemPrefix", "itemSelectedPrefix", "itemDisabledPrefix",

@@ -73,7 +73,17 @@ public final class DslPropertyDiagnostics {
             "Use a value >= 0.");
         case "titleY" -> addMinCheck(issues, line.line(), key, value, 0.0,
             "Use >= 0. Use 0..1 for normalized position.");
+        case "listXCenter", "titleX", "hintsX" -> addRangeCheck(issues, line.line(), key, value, 0.0, 1.0,
+            "Use 0..1 (for example 0.5).");
         case "textAlign" -> {
+          String normalized = normalize(value);
+          if (!Set.of("left", "center", "right").contains(normalized)) {
+            issues.add(issue(line.line(), key,
+                "Unsupported align value '" + value + "'.",
+                "Use one of: left, center, right."));
+          }
+        }
+        case "titleAlign", "hintsAlign" -> {
           String normalized = normalize(value);
           if (!Set.of("left", "center", "right").contains(normalized)) {
             issues.add(issue(line.line(), key,

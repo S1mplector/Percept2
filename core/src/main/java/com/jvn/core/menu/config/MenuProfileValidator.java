@@ -36,6 +36,14 @@ public final class MenuProfileValidator {
       if (!Set.of("left", "center", "right").contains(align)) {
         warnings.add("Layout '" + layoutId + "' has invalid textAlign '" + layout.textAlign() + "'");
       }
+      String titleAlign = normalize(layout.titleAlign());
+      if (!Set.of("left", "center", "right").contains(titleAlign)) {
+        warnings.add("Layout '" + layoutId + "' has invalid titleAlign '" + layout.titleAlign() + "'");
+      }
+      String hintsAlign = normalize(layout.hintsAlign());
+      if (!Set.of("left", "center", "right").contains(hintsAlign)) {
+        warnings.add("Layout '" + layoutId + "' has invalid hintsAlign '" + layout.hintsAlign() + "'");
+      }
       if (layout.hintsBottomMargin() < 0.0) {
         warnings.add("Layout '" + layoutId + "' has negative hintsBottomMargin");
       }

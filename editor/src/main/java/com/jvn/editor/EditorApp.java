@@ -12,8 +12,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
@@ -21,13 +21,15 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
-import com.jvn.core.scene2d.Entity2D;
-import com.jvn.core.nativebridge.NativeLibraryLoader;
-import com.jvn.core.nativebridge.NativeMathBridge;
-import com.jvn.editor.commands.CommandStack;
-import com.jvn.editor.ui.AssetBrowserView;
+import javax.tools.ToolProvider;
+
 import com.jvn.audiofx.AudioFxController;
 import com.jvn.audiofx.AudioFxNativeBridge;
+import com.jvn.core.nativebridge.NativeLibraryLoader;
+import com.jvn.core.nativebridge.NativeMathBridge;
+import com.jvn.core.scene2d.Entity2D;
+import com.jvn.editor.commands.CommandStack;
+import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.AudioSynthControlsView;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorTheme;
@@ -105,7 +107,6 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-import javax.tools.ToolProvider;
 
 public class EditorApp extends Application {
   // UI
@@ -1402,6 +1403,18 @@ public class EditorApp extends Application {
     scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
     scriptEditorLauncherView.setOnStatus(message -> status.setText(message));
     scriptEditorLauncherView.setOnOpenFile(this::openFile);
+    scriptEditorLauncherView.setOnOpenFileAtLine((file, line) -> {
+      openFile(file);
+      // After opening, find the tab and navigate to the line
+      javafx.application.Platform.runLater(() -> {
+        for (Tab t : filesTabs.getTabs()) {
+          if (t.getUserData() instanceof File ff && ff.equals(file) && t.getContent() instanceof FileEditorTab ft) {
+            ft.navigateToLine(line);
+            break;
+          }
+        }
+      });
+    });
     audioFxController = new AudioFxController();
     audioSynthControlsView = new AudioSynthControlsView();
     audioSynthControlsView.setController(audioFxController);

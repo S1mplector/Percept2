@@ -513,13 +513,19 @@ public class LayoutEditorLauncherView extends BorderPane {
     double lineHeight = parseDouble(p.getProperty("lineHeight"), base.lineHeight());
     double listWidthFactor = parseDouble(firstNonBlank(p.getProperty("listWidthFactor"), p.getProperty("listWidth")), base.listWidthFactor());
     String align = normalize(p.getProperty("textAlign"), base.textAlign()).toLowerCase(Locale.ROOT);
+    String titleAlign = normalize(p.getProperty("titleAlign"), base.titleAlign()).toLowerCase(Locale.ROOT);
     double hintsBottom = parseDouble(p.getProperty("hintsBottomMargin"), base.hintsBottomMargin());
+    String hintsAlign = normalize(p.getProperty("hintsAlign"), base.hintsAlign()).toLowerCase(Locale.ROOT);
+    Double hintsX = parseOptionalDouble(p.getProperty("hintsX"));
     Double titleY = parseOptionalDouble(p.getProperty("titleY"));
     boolean changed = !approxEqual(listYStart, base.listYStart())
         || !approxEqual(lineHeight, base.lineHeight())
         || !approxEqual(listWidthFactor, base.listWidthFactor())
         || !align.equalsIgnoreCase(base.textAlign())
+        || !titleAlign.equalsIgnoreCase(base.titleAlign())
         || !approxEqual(hintsBottom, base.hintsBottomMargin())
+        || !hintsAlign.equalsIgnoreCase(base.hintsAlign())
+        || hintsX != null
         || titleY != null;
     return new LayoutItem(
         name,

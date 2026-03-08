@@ -34,7 +34,10 @@ public final class MenuProfileLoader {
       "titleY",
       "listXCenter",
       "titleX",
-      "maxVisibleItems"
+      "maxVisibleItems",
+      "titleAlign",
+      "hintsAlign",
+      "hintsX"
   );
 
   private static final Set<String> KNOWN_STYLE_FIELDS = Set.of(
@@ -348,6 +351,19 @@ public final class MenuProfileLoader {
     Double listXCenter = parseOptionalDouble(p.getProperty("listXCenter"), base.listXCenter(), diagnostics, sourcePath, "listXCenter");
     Double titleX = parseOptionalDouble(p.getProperty("titleX"), base.titleX(), diagnostics, sourcePath, "titleX");
     Integer maxVisibleItems = parseOptionalPositiveInt(p.getProperty("maxVisibleItems"), base.maxVisibleItems(), diagnostics, sourcePath, "maxVisibleItems");
+    String titleAlign = normalize(p.getProperty("titleAlign"), base.titleAlign());
+    if (!isKnownAlign(titleAlign)) {
+      diagnostics.add("Invalid value for 'titleAlign' in " + sourcePath + ": '" + titleAlign
+          + "' (expected left/center/right; using " + base.titleAlign() + ")");
+      titleAlign = base.titleAlign();
+    }
+    String hintsAlign = normalize(p.getProperty("hintsAlign"), base.hintsAlign());
+    if (!isKnownAlign(hintsAlign)) {
+      diagnostics.add("Invalid value for 'hintsAlign' in " + sourcePath + ": '" + hintsAlign
+          + "' (expected left/center/right; using " + base.hintsAlign() + ")");
+      hintsAlign = base.hintsAlign();
+    }
+    Double hintsX = parseOptionalDouble(p.getProperty("hintsX"), base.hintsX(), diagnostics, sourcePath, "hintsX");
 
     return new MenuLayoutSpec(
         id,
@@ -359,7 +375,10 @@ public final class MenuProfileLoader {
         titleY,
         listXCenter,
         titleX,
-        maxVisibleItems
+        maxVisibleItems,
+        titleAlign,
+        hintsAlign,
+        hintsX
     );
   }
 

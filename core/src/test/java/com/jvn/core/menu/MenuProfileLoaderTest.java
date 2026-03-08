@@ -27,6 +27,7 @@ class MenuProfileLoaderTest {
 
     assertNotNull(main);
     assertNotNull(profile.screen("history"));
+    assertNotNull(profile.screen("help"));
     assertEquals(5, main.items().size());
     assertEquals(MenuActionType.NEW_GAME, main.items().get(0).action().type());
     assertEquals(MenuActionType.LOAD_MENU, main.items().get(1).action().type());
@@ -56,7 +57,10 @@ class MenuProfileLoaderTest {
         lineHeight=52
         listWidthFactor=0.8
         textAlign=left
+        titleAlign=left
         hintsBottomMargin=32
+        hintsAlign=right
+        hintsX=0.82
         """);
 
     Files.writeString(root.resolve("config/menu/styles/neon.style"), """
@@ -100,6 +104,7 @@ class MenuProfileLoaderTest {
         item.extras.action=open_menu
         item.extras.target=extras
         item.extras.style=neon
+        item.extras.renderAs=section
         item.quit.label=Exit
         item.quit.action=quit
         """);
@@ -107,9 +112,15 @@ class MenuProfileLoaderTest {
     Files.writeString(root.resolve("config/menu/menus/extras.menu"), """
         titleText=Extras
         defaultItemStyle=neon
-        items=credits,back
+        items=credits,guide,back
         item.credits.label=Credits
         item.credits.action=noop
+        item.guide.label=Use Enter to confirm choices. Esc always backs out of this screen.
+        item.guide.action=noop
+        item.guide.enabled=false
+        item.guide.renderAs=body
+        item.guide.rowSpan=3
+        item.guide.bodyAlign=left
         item.back.label=Back
         item.back.action=back
         """);
@@ -136,15 +147,22 @@ class MenuProfileLoaderTest {
     assertEquals("extras", main.items().get(1).action().target());
 
     MenuScreenSpec extras = profile.screen("extras");
-    assertEquals(2, extras.items().size());
-    assertEquals(MenuActionType.BACK, extras.items().get(1).action().type());
+    assertEquals(3, extras.items().size());
+    assertEquals("body", extras.items().get(1).extras().get("renderAs"));
+    assertEquals("3", extras.items().get(1).extras().get("rowSpan"));
+    assertEquals("left", extras.items().get(1).extras().get("bodyAlign"));
+    assertEquals(MenuActionType.BACK, extras.items().get(2).action().type());
 
     assertEquals(52.0, profile.layout("wide").lineHeight());
     assertEquals("left", profile.layout("wide").textAlign());
+    assertEquals("left", profile.layout("wide").titleAlign());
+    assertEquals("right", profile.layout("wide").hintsAlign());
+    assertEquals(Double.valueOf(0.82), profile.layout("wide").hintsX());
     assertEquals("#00ffff", profile.style("neon").itemSelectedColor());
     assertEquals(Integer.valueOf(22), profile.style("neon").itemFontSize());
     assertEquals("assets/ui/menu/btn.png", profile.style("neon").buttonAssetPath());
     assertEquals(Double.valueOf(24), profile.style("neon").buttonTextPaddingX());
+    assertEquals("section", main.items().get(1).extras().get("renderAs"));
   }
 
   @Test

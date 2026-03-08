@@ -21,7 +21,7 @@ class DslPropertyDiagnosticsTest {
 
   private static final Set<String> LAYOUT_KEYS = Set.of(
       "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin",
-      "titleY", "listXCenter", "titleX", "maxVisibleItems");
+      "titleY", "listXCenter", "titleX", "maxVisibleItems", "titleAlign", "hintsAlign", "hintsX");
 
   @Test
   void menuLayoutCleanTemplateProducesNoDiagnostics() {

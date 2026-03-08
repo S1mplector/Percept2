@@ -37,10 +37,13 @@ listYStart=0.35
 lineHeight=40
 listWidthFactor=1.0
 textAlign=center
+titleAlign=center
 hintsBottomMargin=20
+hintsAlign=center
 titleY=60
 # listXCenter=0.5
 # titleX=0.5
+# hintsX=0.5
 # maxVisibleItems=8
 ```
 
@@ -50,13 +53,16 @@ titleY=60
 | `lineHeight` | 40 | Height of each item row in pixels |
 | `listWidthFactor` | 1.0 | Width of the item list as a fraction of the menu draw area (0.1–1.0) |
 | `textAlign` | `"center"` | Text alignment: `"center"`, `"left"`, or `"right"` |
+| `titleAlign` | `"center"` | Title alignment when `titleX` is not set |
 | `hintsBottomMargin` | 20 | Distance from the bottom edge to the hints text (pixels) |
+| `hintsAlign` | `"center"` | Hints/footer alignment when `hintsX` is not set |
 | `titleY` | — | Y position of the title text (pixels from top). Optional; if omitted, uses a default based on layout |
 | `listXCenter` | — | Horizontal center of the item list (fraction of viewport, 0–1). Optional; overrides `textAlign`-based positioning when set. |
 | `titleX` | — | Horizontal center of the title text (fraction of viewport, 0–1). Optional; overrides default centered title. |
+| `hintsX` | — | Horizontal center of the hints/footer text (fraction of viewport, 0–1). Optional; overrides `hintsAlign`. |
 | `maxVisibleItems` | — | Maximum number of items to show at once (positive integer). Optional; if omitted, all items are visible. |
 
-### Advanced Positioning: `listXCenter` and `titleX`
+### Advanced Positioning: `listXCenter`, `titleX`, and `hintsX`
 
 By default, the list is positioned using `textAlign` and `listWidthFactor`. Setting
 `listXCenter` provides explicit horizontal centering — the list is centered on the
@@ -66,10 +72,14 @@ to stay within screen bounds.
 Similarly, `titleX` positions the title text’s center at a specific viewport fraction
 instead of the default centered behavior.
 
+`hintsX` does the same for the footer/hints line, which is useful for help and settings
+screens that place instructions under a left or right content column.
+
 ```properties
 # Position the list at 30% from the left edge
 listXCenter=0.3
 titleX=0.3
+hintsX=0.3
 ```
 
 ### Scrollable Lists: `maxVisibleItems`
@@ -97,7 +107,9 @@ listYStart=0.38
 lineHeight=62
 listWidthFactor=0.36
 textAlign=center
+titleAlign=center
 hintsBottomMargin=32
+hintsAlign=center
 titleY=0.16
 ```
 
@@ -110,7 +122,9 @@ listYStart=0.26
 lineHeight=56
 listWidthFactor=0.52
 textAlign=left
+titleAlign=left
 hintsBottomMargin=28
+hintsAlign=left
 titleY=0.13
 ```
 
@@ -123,7 +137,9 @@ listYStart=0.16
 lineHeight=50
 listWidthFactor=0.56
 textAlign=left
+titleAlign=left
 hintsBottomMargin=24
+hintsAlign=left
 titleY=0.07
 maxVisibleItems=8
 ```
@@ -137,7 +153,9 @@ listYStart=0.22
 lineHeight=68
 listWidthFactor=0.54
 textAlign=left
+titleAlign=left
 hintsBottomMargin=28
+hintsAlign=left
 titleY=0.12
 ```
 
@@ -170,7 +188,9 @@ listYStart=0.40
 lineHeight=60
 listWidthFactor=0.40
 textAlign=center
+titleAlign=center
 hintsBottomMargin=30
+hintsAlign=center
 titleY=80
 ```
 
@@ -203,13 +223,17 @@ listWidthFactor=0.30
 textAlign=left
 listXCenter=0.18
 titleX=0.18
+titleAlign=left
 titleY=0.08
 hintsBottomMargin=24
+hintsAlign=left
+hintsX=0.18
 ```
 
 Result:
 - Items are placed in a narrow column on the left side of the screen
 - Title aligns with the item list instead of centering on the screen
+- Hints align with the same column instead of centering on the viewport
 - Ideal for layouts where artwork occupies the right half
 
 ### Wide Slot List

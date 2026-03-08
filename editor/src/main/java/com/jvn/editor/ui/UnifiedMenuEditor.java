@@ -129,7 +129,13 @@ public class UnifiedMenuEditor extends BorderPane {
     double lineHeight = parseDouble(layoutProps.getProperty("lineHeight"), 40);
     double listWidthFactor = parseDouble(layoutProps.getProperty("listWidthFactor"), 1.0);
     String textAlign = layoutProps.getProperty("textAlign", "center").toLowerCase(Locale.ROOT);
+    String titleAlign = layoutProps.getProperty("titleAlign", "center").toLowerCase(Locale.ROOT);
     double hintsBottomMargin = parseDouble(layoutProps.getProperty("hintsBottomMargin"), 20);
+    String hintsAlign = layoutProps.getProperty("hintsAlign", "center").toLowerCase(Locale.ROOT);
+    String titleXStr = layoutProps.getProperty("titleX");
+    Double titleX = titleXStr != null && !titleXStr.isBlank() ? parseDouble(titleXStr, 0.5) : null;
+    String hintsXStr = layoutProps.getProperty("hintsX");
+    Double hintsX = hintsXStr != null && !hintsXStr.isBlank() ? parseDouble(hintsXStr, 0.5) : null;
     String titleYStr = layoutProps.getProperty("titleY");
     double titleY = titleYStr != null ? parseDouble(titleYStr, 0.12) : 0.12;
 
@@ -168,7 +174,14 @@ public class UnifiedMenuEditor extends BorderPane {
     javafx.scene.text.Text titleMeasure = new javafx.scene.text.Text(titleText);
     titleMeasure.setFont(g.getFont());
     double titleW = titleMeasure.getLayoutBounds().getWidth();
-    g.fillText(titleText, (w - titleW) / 2.0, resolvedTitleY);
+    double titleXPos = titleX != null
+        ? Math.max(0, Math.min(w - titleW, w * titleX - titleW / 2.0))
+        : switch (titleAlign) {
+          case "left" -> 16.0;
+          case "right" -> Math.max(0, w - titleW - 16.0);
+          default -> (w - titleW) / 2.0;
+        };
+    g.fillText(titleText, titleXPos, resolvedTitleY);
 
     // Draw items
     g.setFont(Font.font(fontFamily, fontWeight, fontSize));
@@ -195,6 +208,18 @@ public class UnifiedMenuEditor extends BorderPane {
     double hintsY = h - Math.max(0, hintsBottomMargin);
     g.setFill(Color.web("#888888"));
     g.setFont(Font.font(Font.getDefault().getFamily(), 13));
+    String hintsText = "Enter: Select    Esc: Back";
+    javafx.scene.text.Text hintsMeasure = new javafx.scene.text.Text(hintsText);
+    hintsMeasure.setFont(g.getFont());
+    double hintsW = hintsMeasure.getLayoutBounds().getWidth();
+    double hintsXPos = hintsX != null
+        ? Math.max(0, Math.min(w - hintsW, w * hintsX - hintsW / 2.0))
+        : switch (hintsAlign) {
+          case "left" -> 12.0;
+          case "right" -> Math.max(0, w - hintsW - 12.0);
+          default -> (w - hintsW) / 2.0;
+        };
+    g.fillText(hintsText, hintsXPos, hintsY);
 
     // Labels
     g.setFill(Color.web("#4da3ff88"));
