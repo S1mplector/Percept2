@@ -59,8 +59,89 @@ public record VnUiStyleSpec(
     String choiceFontWeight,
     // --- Character framing ---
     Double characterHeightFactor,
-    Double characterBaselineY
+    Double characterBaselineY,
+    // --- NVL panel ---
+    String nvlPanelAssetPath,
+    String nvlPanelColor,
+    Double nvlPanelOpacity,
+    String nvlSpeakerTextColor,
+    String nvlTextColor,
+    // --- Bubble dialogue ---
+    String bubbleAssetPath,
+    String bubbleColor,
+    Double bubbleOpacity,
+    String bubbleBorderColor,
+    String bubbleSpeakerTextColor,
+    String bubbleTextColor,
+    double bubbleCornerRadius,
+    double bubbleBorderWidth
 ) {
+  public VnUiStyleSpec(
+      String textBoxAssetPath,
+      String textBoxColor,
+      Double textBoxOpacity,
+      String textBoxBoundsPoints,
+      String nameBoxAssetPath,
+      String nameBoxColor,
+      String nameTextColor,
+      String nameTextFontFamily,
+      Integer nameTextFontSize,
+      String nameTextFontWeight,
+      Double nameTextXAlign,
+      String nameBoxBoundsPoints,
+      Double nameBoxOpacity,
+      String dialogueTextColor,
+      String dialogueTextFontFamily,
+      Integer dialogueTextFontSize,
+      String dialogueTextFontWeight,
+      Double dialogueTextXAlign,
+      String dialogueTextBoundsPoints,
+      String choiceButtonAssetPath,
+      String choiceButtonHoverAssetPath,
+      String choiceButtonSelectedAssetPath,
+      String choiceButtonDisabledAssetPath,
+      String choiceButtonBoundsPoints,
+      String choiceBackgroundColor,
+      String choiceHoverColor,
+      String choiceSelectedColor,
+      String choiceDisabledColor,
+      String choiceTextColor,
+      String choiceHoverTextColor,
+      String choiceSelectedTextColor,
+      String choiceDisabledTextColor,
+      String choiceBorderColor,
+      String choiceHoverBorderColor,
+      String choiceSelectedBorderColor,
+      String choiceDisabledBorderColor,
+      double choiceCornerRadius,
+      double choiceBorderWidth,
+      double choiceTextBaselineOffset,
+      Double choiceTextXAlign,
+      String choiceFontFamily,
+      Integer choiceFontSize,
+      String choiceFontWeight,
+      Double characterHeightFactor,
+      Double characterBaselineY
+  ) {
+    this(
+        textBoxAssetPath, textBoxColor, textBoxOpacity, textBoxBoundsPoints,
+        nameBoxAssetPath, nameBoxColor, nameTextColor, nameTextFontFamily,
+        nameTextFontSize, nameTextFontWeight, nameTextXAlign, nameBoxBoundsPoints,
+        nameBoxOpacity, dialogueTextColor, dialogueTextFontFamily, dialogueTextFontSize,
+        dialogueTextFontWeight, dialogueTextXAlign, dialogueTextBoundsPoints,
+        choiceButtonAssetPath, choiceButtonHoverAssetPath, choiceButtonSelectedAssetPath,
+        choiceButtonDisabledAssetPath, choiceButtonBoundsPoints, choiceBackgroundColor,
+        choiceHoverColor, choiceSelectedColor, choiceDisabledColor, choiceTextColor,
+        choiceHoverTextColor, choiceSelectedTextColor, choiceDisabledTextColor,
+        choiceBorderColor, choiceHoverBorderColor, choiceSelectedBorderColor,
+        choiceDisabledBorderColor, choiceCornerRadius, choiceBorderWidth,
+        choiceTextBaselineOffset, choiceTextXAlign, choiceFontFamily, choiceFontSize,
+        choiceFontWeight, characterHeightFactor, characterBaselineY,
+        null, "#08111acc", 0.84, "#F7D89A", "#E8EDF6",
+        null, "#152238ee", 0.96, "#A9BCD9", "#FFD78A", "#F1F5FF", 20.0, 2.0
+    );
+  }
+
   public VnUiStyleSpec {
     textBoxAssetPath = normalize(textBoxAssetPath);
     textBoxColor = normalize(textBoxColor);
@@ -116,6 +197,19 @@ public record VnUiStyleSpec(
     if (characterBaselineY != null) {
       characterBaselineY = clamp(characterBaselineY, -0.5, 2.0);
     }
+    nvlPanelAssetPath = normalize(nvlPanelAssetPath);
+    nvlPanelColor = normalize(nvlPanelColor);
+    if (nvlPanelOpacity != null) nvlPanelOpacity = clamp(nvlPanelOpacity, 0.0, 1.0);
+    nvlSpeakerTextColor = normalize(nvlSpeakerTextColor);
+    nvlTextColor = normalize(nvlTextColor);
+    bubbleAssetPath = normalize(bubbleAssetPath);
+    bubbleColor = normalize(bubbleColor);
+    if (bubbleOpacity != null) bubbleOpacity = clamp(bubbleOpacity, 0.0, 1.0);
+    bubbleBorderColor = normalize(bubbleBorderColor);
+    bubbleSpeakerTextColor = normalize(bubbleSpeakerTextColor);
+    bubbleTextColor = normalize(bubbleTextColor);
+    bubbleCornerRadius = clamp(sane(bubbleCornerRadius, 20.0), 0.0, 96.0);
+    bubbleBorderWidth = clamp(sane(bubbleBorderWidth, 2.0), 0.0, 12.0);
   }
 
   public static VnUiStyleSpec defaults() {
@@ -130,7 +224,9 @@ public record VnUiStyleSpec(
         "#3A5080A0", "#5888CCA0", "#C8A04880", "#28345060", // choice borders: blue/gold accents
         8.0, 1.5, 4.0, null,                                 // corner radius, border, baseline
         "SansSerif", 20, null,                               // choice font + weight
-        0.85, 1.0                                            // character framing
+        0.85, 1.0,                                           // character framing
+        null, "#08111acc", 0.84, "#F7D89A", "#E8EDF6",
+        null, "#152238ee", 0.96, "#A9BCD9", "#FFD78A", "#F1F5FF", 20.0, 2.0
     );
   }
 

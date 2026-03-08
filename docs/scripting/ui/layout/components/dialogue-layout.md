@@ -260,6 +260,112 @@ choiceFontWeight=NORMAL
 
 ---
 
+## NVL Presentation Mode
+
+JVN now supports a first-class NVL dialogue stack. Switch it at runtime:
+
+```vns
+[mode dialogue nvl]
+...
+[mode dialogue standard]
+```
+
+Layout and style keys:
+
+```properties
+nvlX=0.08
+nvlY=0.10
+nvlWidth=0.84
+nvlHeight=0.72
+nvlPadding=24
+nvlSpeakerWidth=160
+nvlEntryGap=18
+nvlMaxEntries=6
+
+nvlPanelAsset=assets/ui/nvl_panel.png
+nvlPanelColor=#08111acc
+nvlPanelOpacity=0.84
+nvlSpeakerTextColor=#F7D89A
+nvlTextColor=#E8EDF6
+```
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `nvlX` | 0.08 | Left edge of the NVL panel (0–1 viewport fraction) |
+| `nvlY` | 0.10 | Top edge of the NVL panel (0–1 viewport fraction) |
+| `nvlWidth` | 0.84 | Width of the NVL panel (0.1–1.0 viewport fraction) |
+| `nvlHeight` | 0.72 | Height of the NVL panel (0.1–1.0 viewport fraction) |
+| `nvlPadding` | 24 | Inner panel padding in pixels |
+| `nvlSpeakerWidth` | 160 | Width of the speaker-name column in pixels |
+| `nvlEntryGap` | 18 | Vertical gap between stacked entries in pixels |
+| `nvlMaxEntries` | 6 | Maximum visible history entries in NVL mode |
+| `nvlPanelAsset` | — | Optional panel frame/skin asset |
+| `nvlPanelColor` | `#08111acc` | NVL panel fallback fill color |
+| `nvlPanelOpacity` | 0.84 | Opacity override for the NVL panel |
+| `nvlSpeakerTextColor` | `#F7D89A` | Speaker-column text color |
+| `nvlTextColor` | `#E8EDF6` | Body-text color |
+
+Use NVL when the conversation itself should stay visible as a stacked page instead of a single active line.
+
+---
+
+## Bubble Presentation Mode
+
+JVN also supports first-class speech-bubble dialogue. Switch it at runtime:
+
+```vns
+[mode bubble on]
+[char lavender bubble left]
+[char lavender bubble_offset 12 -8]
+...
+[mode bubble off]
+```
+
+Layout and style keys:
+
+```properties
+bubbleWidthFactor=0.28
+bubbleMinHeight=92
+bubbleTextPadding=18
+bubbleYOffset=26
+bubbleTailSize=18
+
+bubbleAsset=assets/ui/bubble.png
+bubbleColor=#152238ee
+bubbleOpacity=0.96
+bubbleBorderColor=#A9BCD9
+bubbleSpeakerTextColor=#FFD78A
+bubbleTextColor=#F1F5FF
+bubbleCornerRadius=20
+bubbleBorderWidth=2
+```
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `bubbleWidthFactor` | 0.28 | Bubble width as a fraction of viewport width |
+| `bubbleMinHeight` | 92 | Minimum bubble height in pixels |
+| `bubbleTextPadding` | 18 | Internal text padding in pixels |
+| `bubbleYOffset` | 26 | Offset above the speaking character anchor in pixels |
+| `bubbleTailSize` | 18 | Tail triangle size in pixels |
+| `bubbleAsset` | — | Optional bubble frame/skin asset |
+| `bubbleColor` | `#152238ee` | Bubble fill fallback color |
+| `bubbleOpacity` | 0.96 | Bubble opacity override |
+| `bubbleBorderColor` | `#A9BCD9` | Bubble border color |
+| `bubbleSpeakerTextColor` | `#FFD78A` | Speaker-name color inside the bubble |
+| `bubbleTextColor` | `#F1F5FF` | Bubble body-text color |
+| `bubbleCornerRadius` | 20 | Rounded-corner radius in pixels |
+| `bubbleBorderWidth` | 2 | Bubble border width in pixels |
+
+Bubble placement controls are script-side:
+
+- `[char <id> bubble left|center|right|auto]`
+- `[char <id> bubble_offset <x> <y>]`
+- `[char <id> bubble clear]`
+
+Use bubble mode when the dialogue should feel anchored to characters in the scene instead of the global textbox.
+
+---
+
 ## Character Framing
 
 Controls how character sprites are positioned and scaled in the dialogue scene.

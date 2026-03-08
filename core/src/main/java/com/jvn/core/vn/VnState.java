@@ -16,6 +16,11 @@ import com.jvn.core.vn.rollback.VnRollbackStack;
  * Manages the current state of a visual novel playthrough
  */
 public class VnState {
+  private static final String VAR_DIALOGUE_PRESENTATION_MODE = "ui.dialogueMode";
+  private static final String VAR_BUBBLE_ANCHOR_PREFIX = "ui.bubble.anchor.";
+  private static final String VAR_BUBBLE_OFFSET_X_PREFIX = "ui.bubble.offsetX.";
+  private static final String VAR_BUBBLE_OFFSET_Y_PREFIX = "ui.bubble.offsetY.";
+
   private VnScenario scenario;
   private String sourceScriptName;
   private int currentNodeIndex;
@@ -381,6 +386,58 @@ public class VnState {
   public void setVariable(String key, Object value) { variables.put(key, value); }
   public Object getVariable(String key) { return variables.get(key); }
 
+  public DialoguePresentationMode getDialoguePresentationMode() {
+    return DialoguePresentationMode.fromVariable(variables.get(VAR_DIALOGUE_PRESENTATION_MODE));
+  }
+
+  public void setDialoguePresentationMode(DialoguePresentationMode mode) {
+    DialoguePresentationMode resolved = mode == null ? DialoguePresentationMode.STANDARD : mode;
+    variables.put(VAR_DIALOGUE_PRESENTATION_MODE, resolved.token());
+  }
+
+  public void resetDialoguePresentationMode() {
+    setDialoguePresentationMode(DialoguePresentationMode.STANDARD);
+  }
+
+  public BubbleAnchor getBubbleAnchorPreference(String characterId) {
+    if (characterId == null || characterId.isBlank()) return BubbleAnchor.AUTO;
+    return BubbleAnchor.fromVariable(variables.get(VAR_BUBBLE_ANCHOR_PREFIX + characterId.trim()));
+  }
+
+  public void setBubbleAnchorPreference(String characterId, BubbleAnchor anchor) {
+    if (characterId == null || characterId.isBlank()) return;
+    String key = VAR_BUBBLE_ANCHOR_PREFIX + characterId.trim();
+    BubbleAnchor resolved = anchor == null ? BubbleAnchor.AUTO : anchor;
+    if (resolved == BubbleAnchor.AUTO) {
+      variables.remove(key);
+    } else {
+      variables.put(key, resolved.token());
+    }
+  }
+
+  public double getBubbleOffsetXPreference(String characterId) {
+    return readBubbleOffset(characterId, VAR_BUBBLE_OFFSET_X_PREFIX);
+  }
+
+  public double getBubbleOffsetYPreference(String characterId) {
+    return readBubbleOffset(characterId, VAR_BUBBLE_OFFSET_Y_PREFIX);
+  }
+
+  public void setBubbleOffsetPreference(String characterId, double x, double y) {
+    if (characterId == null || characterId.isBlank()) return;
+    String id = characterId.trim();
+    variables.put(VAR_BUBBLE_OFFSET_X_PREFIX + id, x);
+    variables.put(VAR_BUBBLE_OFFSET_Y_PREFIX + id, y);
+  }
+
+  public void clearBubblePlacementPreference(String characterId) {
+    if (characterId == null || characterId.isBlank()) return;
+    String id = characterId.trim();
+    variables.remove(VAR_BUBBLE_ANCHOR_PREFIX + id);
+    variables.remove(VAR_BUBBLE_OFFSET_X_PREFIX + id);
+    variables.remove(VAR_BUBBLE_OFFSET_Y_PREFIX + id);
+  }
+
   public void jumpToLabel(String label) {
     if (scenario != null) {
       Integer index = scenario.getLabelIndex(label);
@@ -721,5 +778,19 @@ public class VnState {
     if (v < 0f) return 0f;
     if (v > 1f) return 1f;
     return v;
+  }
+
+  private double readBubbleOffset(String characterId, String prefix) {
+    if (characterId == null || characterId.isBlank()) return 0.0;
+    Object value = variables.get(prefix + characterId.trim());
+    if (value instanceof Number n) return n.doubleValue();
+    if (value instanceof String s) {
+      try {
+        return Double.parseDouble(s.trim());
+      } catch (Exception ignored) {
+        return 0.0;
+      }
+    }
+    return 0.0;
   }
 }

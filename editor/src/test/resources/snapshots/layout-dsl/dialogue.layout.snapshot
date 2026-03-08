@@ -73,6 +73,38 @@ choiceDisabledBorderColor=#28345060
 characterHeightFactor=0.85
 characterBaselineY=1.0
 
+# ---- NVL presentation mode ----
+# Switch at runtime with [mode dialogue nvl] and [mode dialogue standard]
+nvlX=0.08
+nvlY=0.1
+nvlWidth=0.84
+nvlHeight=0.72
+nvlPadding=24
+nvlSpeakerWidth=160
+nvlEntryGap=18
+nvlMaxEntries=6
+nvlPanelColor=#08111acc
+nvlPanelOpacity=0.84
+nvlSpeakerTextColor=#F7D89A
+nvlTextColor=#E8EDF6
+# nvlPanelAsset=assets/ui/nvl_panel.png
+
+# ---- Bubble presentation mode ----
+# Switch at runtime with [mode bubble on] / [mode bubble off]
+bubbleWidthFactor=0.28
+bubbleMinHeight=92
+bubbleTextPadding=18
+bubbleYOffset=26
+bubbleTailSize=18
+bubbleColor=#152238ee
+bubbleOpacity=0.96
+bubbleBorderColor=#A9BCD9
+bubbleSpeakerTextColor=#FFD78A
+bubbleTextColor=#F1F5FF
+bubbleCornerRadius=20
+bubbleBorderWidth=2
+# bubbleAsset=assets/ui/bubble.png
+
 # ---- Custom textbox / choice skin assets (uncomment to use) ----
 # textBoxAsset=assets/ui/textbox.png
 # textBoxBoundsPoints=0,0;1,0;1,1;0,1

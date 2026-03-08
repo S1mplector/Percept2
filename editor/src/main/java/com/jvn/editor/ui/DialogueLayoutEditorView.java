@@ -124,7 +124,35 @@ public class DialogueLayoutEditorView extends BorderPane {
       "choiceGap",
       "choiceTextXPadding",
       "choiceTextXAlign",
-      "nameBoxAutoWidth"
+      "nameBoxAutoWidth",
+      "characterHeightFactor",
+      "characterBaselineY",
+      "nvlX",
+      "nvlY",
+      "nvlWidth",
+      "nvlHeight",
+      "nvlPadding",
+      "nvlSpeakerWidth",
+      "nvlEntryGap",
+      "nvlMaxEntries",
+      "nvlPanelAsset",
+      "nvlPanelColor",
+      "nvlPanelOpacity",
+      "nvlSpeakerTextColor",
+      "nvlTextColor",
+      "bubbleWidthFactor",
+      "bubbleMinHeight",
+      "bubbleTextPadding",
+      "bubbleYOffset",
+      "bubbleTailSize",
+      "bubbleAsset",
+      "bubbleColor",
+      "bubbleOpacity",
+      "bubbleBorderColor",
+      "bubbleSpeakerTextColor",
+      "bubbleTextColor",
+      "bubbleCornerRadius",
+      "bubbleBorderWidth"
   };
 
   private final Canvas preview = new Canvas(920, 430);
@@ -213,6 +241,36 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Spinner<Double> spChoiceCornerRadius = spinner(0, 96, 10, 1);
   private final Spinner<Double> spChoiceBorderWidth = spinner(0, 12, 2, 0.1);
   private final Spinner<Double> spChoiceTextBaselineOffset = spinner(-120, 120, 5, 1);
+  private final ComboBox<String> cbPreviewMode = new ComboBox<>();
+  private final ComboBox<String> cbBubblePreviewAnchor = new ComboBox<>();
+
+  private final Spinner<Double> spNvlX = spinner(0, 1, 0.08, 0.01);
+  private final Spinner<Double> spNvlY = spinner(0, 1, 0.10, 0.01);
+  private final Spinner<Double> spNvlWidth = spinner(0.1, 1, 0.84, 0.01);
+  private final Spinner<Double> spNvlHeight = spinner(0.1, 1, 0.72, 0.01);
+  private final Spinner<Double> spNvlPadding = spinner(0, 300, 24, 1);
+  private final Spinner<Double> spNvlSpeakerWidth = spinner(40, 600, 160, 1);
+  private final Spinner<Double> spNvlEntryGap = spinner(0, 160, 18, 1);
+  private final Spinner<Double> spNvlMaxEntries = spinner(1, 20, 6, 1);
+  private final TextField tfNvlPanelAsset = new TextField();
+  private final TextField tfNvlPanelColor = new TextField();
+  private final Spinner<Double> spNvlPanelOpacity = spinner(0, 1, 0.84, 0.01);
+  private final TextField tfNvlSpeakerTextColor = new TextField();
+  private final TextField tfNvlTextColor = new TextField();
+
+  private final Spinner<Double> spBubbleWidthFactor = spinner(0.1, 0.8, 0.28, 0.01);
+  private final Spinner<Double> spBubbleMinHeight = spinner(32, 300, 92, 1);
+  private final Spinner<Double> spBubbleTextPadding = spinner(4, 160, 18, 1);
+  private final Spinner<Double> spBubbleYOffset = spinner(-200, 200, 26, 1);
+  private final Spinner<Double> spBubbleTailSize = spinner(4, 64, 18, 1);
+  private final TextField tfBubbleAsset = new TextField();
+  private final TextField tfBubbleColor = new TextField();
+  private final Spinner<Double> spBubbleOpacity = spinner(0, 1, 0.96, 0.01);
+  private final TextField tfBubbleBorderColor = new TextField();
+  private final TextField tfBubbleSpeakerTextColor = new TextField();
+  private final TextField tfBubbleTextColor = new TextField();
+  private final Spinner<Double> spBubbleCornerRadius = spinner(0, 96, 20, 1);
+  private final Spinner<Double> spBubbleBorderWidth = spinner(0, 12, 2, 0.1);
 
   private final ListView<String> lvTextBoxButtons = new ListView<>();
   private final TextField tfButtonId = new TextField();
@@ -253,6 +311,12 @@ public class DialogueLayoutEditorView extends BorderPane {
     TEXTBOX_BUTTON_RESIZE
   }
 
+  private enum PreviewMode {
+    STANDARD,
+    NVL,
+    BUBBLE
+  }
+
   public DialogueLayoutEditorView() {
     setPadding(new Insets(8));
 
@@ -288,8 +352,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   public void setProjectRoot(File root) {
     this.projectRoot = root;
     previewAssetCache.clear();
-    loadTextBoxAssetImage();
-    loadChoiceAssetImages();
+    loadPreviewAssets();
     updatePreviewSize(previewPaneHost);
     validateState();
     redraw();
@@ -320,8 +383,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     applyStyleToControls(style);
     refreshTextBoxButtonList();
     setSelectedTextBoxButton(textBoxButtons.isEmpty() ? -1 : 0);
-    loadTextBoxAssetImage();
-    loadChoiceAssetImages();
+    loadPreviewAssets();
     suppressEvents = false;
     validateState();
     redraw();
@@ -346,6 +408,11 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private javafx.scene.Node buildControls() {
+    cbPreviewMode.getItems().setAll("Standard", "NVL", "Bubble");
+    cbPreviewMode.setValue("Standard");
+    cbBubblePreviewAnchor.getItems().setAll("Auto", "Left", "Center", "Right");
+    cbBubblePreviewAnchor.setValue("Auto");
+    cbBubblePreviewAnchor.setDisable(true);
     cbNameTextFontWeight.getItems().setAll("NORMAL", "BOLD");
     cbNameTextFontWeight.setValue("BOLD");
     cbDialogueTextFontWeight.getItems().setAll("NORMAL", "BOLD");
@@ -358,6 +425,15 @@ public class DialogueLayoutEditorView extends BorderPane {
     tfChoiceButtonHoverAsset.setPromptText("assets/ui/choice_hover.png");
     tfChoiceButtonSelectedAsset.setPromptText("assets/ui/choice_selected.png");
     tfChoiceButtonDisabledAsset.setPromptText("assets/ui/choice_disabled.png");
+    tfNvlPanelAsset.setPromptText("assets/ui/nvl_panel.png");
+    tfNvlPanelColor.setPromptText("#08111acc");
+    tfNvlSpeakerTextColor.setPromptText("#F7D89A");
+    tfNvlTextColor.setPromptText("#E8EDF6");
+    tfBubbleAsset.setPromptText("assets/ui/bubble.png");
+    tfBubbleColor.setPromptText("#152238ee");
+    tfBubbleBorderColor.setPromptText("#A9BCD9");
+    tfBubbleSpeakerTextColor.setPromptText("#FFD78A");
+    tfBubbleTextColor.setPromptText("#F1F5FF");
     tfChoiceBgColor.setPromptText("#3a3f54");
     tfChoiceHoverColor.setPromptText("#4a5570");
     tfChoiceSelectedColor.setPromptText("#4a5570");
@@ -386,9 +462,15 @@ public class DialogueLayoutEditorView extends BorderPane {
     cbButtonAction.getSelectionModel().select("noop");
     lvTextBoxButtons.setPrefHeight(132);
 
+    GridPane previewGrid = sectionGrid();
+    int row = 0;
+    row = addRow(previewGrid, row, "Preview Mode", cbPreviewMode);
+    row = addRow(previewGrid, row, "Bubble Anchor", cbBubblePreviewAnchor);
+    TitledPane tpPreview = collapsibleSection("Presentation Preview", previewGrid, true);
+
     // --- Section: Textbox ---
     GridPane textboxGrid = sectionGrid();
-    int row = 0;
+    row = 0;
     row = addRow(textboxGrid, row, "TextBox X", spTextBoxX);
     row = addRow(textboxGrid, row, "TextBox Y", spTextBoxY);
     row = addRow(textboxGrid, row, "TextBox Width", spTextBoxWidth);
@@ -479,6 +561,42 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(choiceColorGrid, row, "Text Baseline", spChoiceTextBaselineOffset);
     TitledPane tpChoiceColors = collapsibleSection("Choice Colors & Borders", choiceColorGrid, false);
 
+    // --- Section: NVL ---
+    GridPane nvlGrid = sectionGrid();
+    row = 0;
+    row = addRow(nvlGrid, row, "NVL X", spNvlX);
+    row = addRow(nvlGrid, row, "NVL Y", spNvlY);
+    row = addRow(nvlGrid, row, "NVL Width", spNvlWidth);
+    row = addRow(nvlGrid, row, "NVL Height", spNvlHeight);
+    row = addRow(nvlGrid, row, "NVL Padding", spNvlPadding);
+    row = addRow(nvlGrid, row, "Speaker Width", spNvlSpeakerWidth);
+    row = addRow(nvlGrid, row, "Entry Gap", spNvlEntryGap);
+    row = addRow(nvlGrid, row, "Max Entries", spNvlMaxEntries);
+    row = addRow(nvlGrid, row, "Panel Asset", assetFieldRow(tfNvlPanelAsset, "Select NVL Panel Asset"));
+    row = addRow(nvlGrid, row, "Panel Color", ColorFieldHelper.create(tfNvlPanelColor));
+    row = addRow(nvlGrid, row, "Panel Opacity", spNvlPanelOpacity);
+    row = addRow(nvlGrid, row, "Speaker Color", ColorFieldHelper.create(tfNvlSpeakerTextColor));
+    row = addRow(nvlGrid, row, "Text Color", ColorFieldHelper.create(tfNvlTextColor));
+    TitledPane tpNvl = collapsibleSection("NVL Presentation", nvlGrid, false);
+
+    // --- Section: Bubble ---
+    GridPane bubbleGrid = sectionGrid();
+    row = 0;
+    row = addRow(bubbleGrid, row, "Bubble Width Factor", spBubbleWidthFactor);
+    row = addRow(bubbleGrid, row, "Bubble Min Height", spBubbleMinHeight);
+    row = addRow(bubbleGrid, row, "Text Padding", spBubbleTextPadding);
+    row = addRow(bubbleGrid, row, "Bubble Y Offset", spBubbleYOffset);
+    row = addRow(bubbleGrid, row, "Tail Size", spBubbleTailSize);
+    row = addRow(bubbleGrid, row, "Bubble Asset", assetFieldRow(tfBubbleAsset, "Select Bubble Asset"));
+    row = addRow(bubbleGrid, row, "Bubble Color", ColorFieldHelper.create(tfBubbleColor));
+    row = addRow(bubbleGrid, row, "Bubble Opacity", spBubbleOpacity);
+    row = addRow(bubbleGrid, row, "Border Color", ColorFieldHelper.create(tfBubbleBorderColor));
+    row = addRow(bubbleGrid, row, "Speaker Color", ColorFieldHelper.create(tfBubbleSpeakerTextColor));
+    row = addRow(bubbleGrid, row, "Text Color", ColorFieldHelper.create(tfBubbleTextColor));
+    row = addRow(bubbleGrid, row, "Corner Radius", spBubbleCornerRadius);
+    row = addRow(bubbleGrid, row, "Border Width", spBubbleBorderWidth);
+    TitledPane tpBubble = collapsibleSection("Bubble Presentation", bubbleGrid, false);
+
     // --- Section: Textbox Buttons ---
     GridPane btnGrid = sectionGrid();
     row = 0;
@@ -537,12 +655,13 @@ public class DialogueLayoutEditorView extends BorderPane {
     validation.setPadding(new Insets(2, 8, 8, 8));
 
     javafx.scene.layout.VBox sections = new javafx.scene.layout.VBox(2,
-        tpTextbox, tpName, tpTextBounds, tpChoiceLayout, tpChoiceColors, tpButtons,
+        tpPreview, tpTextbox, tpName, tpTextBounds, tpChoiceLayout, tpChoiceColors, tpNvl, tpBubble, tpButtons,
         historyButtons, hint, validation
     );
     sections.setPadding(new Insets(4));
 
     UndoManager.installKeyboardShortcuts(this, this::performUndo, this::performRedo);
+    updatePreviewModeControls();
 
     return sections;
   }
@@ -643,6 +762,23 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spChoiceCornerRadius);
     controls.add(spChoiceBorderWidth);
     controls.add(spChoiceTextBaselineOffset);
+    controls.add(spNvlX);
+    controls.add(spNvlY);
+    controls.add(spNvlWidth);
+    controls.add(spNvlHeight);
+    controls.add(spNvlPadding);
+    controls.add(spNvlSpeakerWidth);
+    controls.add(spNvlEntryGap);
+    controls.add(spNvlMaxEntries);
+    controls.add(spNvlPanelOpacity);
+    controls.add(spBubbleWidthFactor);
+    controls.add(spBubbleMinHeight);
+    controls.add(spBubbleTextPadding);
+    controls.add(spBubbleYOffset);
+    controls.add(spBubbleTailSize);
+    controls.add(spBubbleOpacity);
+    controls.add(spBubbleCornerRadius);
+    controls.add(spBubbleBorderWidth);
     controls.add(spTextBoxOverlayOpacity);
     controls.add(spNameBoxOpacity);
     controls.add(spButtonX);
@@ -659,6 +795,15 @@ public class DialogueLayoutEditorView extends BorderPane {
         tfChoiceButtonHoverAsset,
         tfChoiceButtonSelectedAsset,
         tfChoiceButtonDisabledAsset,
+        tfNvlPanelAsset,
+        tfNvlPanelColor,
+        tfNvlSpeakerTextColor,
+        tfNvlTextColor,
+        tfBubbleAsset,
+        tfBubbleColor,
+        tfBubbleBorderColor,
+        tfBubbleSpeakerTextColor,
+        tfBubbleTextColor,
         tfChoiceBgColor,
         tfChoiceHoverColor,
         tfChoiceSelectedColor,
@@ -684,6 +829,11 @@ public class DialogueLayoutEditorView extends BorderPane {
     chkTextBoxOverlayEnabled.selectedProperty().addListener((o, ov, nv) -> onStyleChanged());
     chkButtonEnabled.selectedProperty().addListener((o, ov, nv) -> onStyleChanged());
     cbButtonAction.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
+    cbPreviewMode.valueProperty().addListener((o, ov, nv) -> {
+      updatePreviewModeControls();
+      redraw();
+    });
+    cbBubblePreviewAnchor.valueProperty().addListener((o, ov, nv) -> redraw());
     cbNameTextFontWeight.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
     cbNameBoxAutoWidth.selectedProperty().addListener((o, ov, nv) -> onControlChanged());
     cbDialogueTextFontWeight.valueProperty().addListener((o, ov, nv) -> onStyleChanged());
@@ -695,13 +845,16 @@ public class DialogueLayoutEditorView extends BorderPane {
     });
   }
 
+  private void updatePreviewModeControls() {
+    cbBubblePreviewAnchor.setDisable(previewMode() != PreviewMode.BUBBLE);
+  }
+
   private void onControlChanged() {
     if (suppressEvents) return;
     spec = readSpecFromControls();
     style = readStyleFromControls();
     syncSelectedTextBoxButtonFromControls();
-    loadTextBoxAssetImage();
-    loadChoiceAssetImages();
+    loadPreviewAssets();
     refreshDiagnosticsFromUiState();
     validateState();
     redraw();
@@ -712,8 +865,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     if (suppressEvents) return;
     style = readStyleFromControls();
     syncSelectedTextBoxButtonFromControls();
-    loadTextBoxAssetImage();
-    loadChoiceAssetImages();
+    loadPreviewAssets();
     refreshDiagnosticsFromUiState();
     validateState();
     redraw();
@@ -1121,6 +1273,15 @@ public class DialogueLayoutEditorView extends BorderPane {
       g.strokeLine(0, yy, w, yy);
     }
 
+    if (previewMode() == PreviewMode.NVL) {
+      drawNvlPreview(g, w, h, scale);
+      return;
+    }
+    if (previewMode() == PreviewMode.BUBBLE) {
+      drawBubblePreview(g, w, h, scale);
+      return;
+    }
+
     int choiceCount = previewChoiceCount();
     LayoutRects rects = computeRects(spec, w, h, choiceCount, scale);
     ChoicePreviewStyle choiceStyle = resolveChoicePreviewStyle();
@@ -1438,6 +1599,199 @@ public class DialogueLayoutEditorView extends BorderPane {
     return line1 + " " + line2;
   }
 
+  private PreviewMode previewMode() {
+    String raw = cbPreviewMode.getValue();
+    if (raw == null) return PreviewMode.STANDARD;
+    return switch (raw.trim().toLowerCase(Locale.ROOT)) {
+      case "nvl" -> PreviewMode.NVL;
+      case "bubble" -> PreviewMode.BUBBLE;
+      default -> PreviewMode.STANDARD;
+    };
+  }
+
+  private String bubblePreviewAnchor() {
+    String raw = cbBubblePreviewAnchor.getValue();
+    return raw == null ? "auto" : raw.trim().toLowerCase(Locale.ROOT);
+  }
+
+  private void drawNvlPreview(GraphicsContext g, double w, double h, double scale) {
+    Rect panel = new Rect(
+        spec.nvlX() * w,
+        spec.nvlY() * h,
+        spec.nvlWidth() * w,
+        spec.nvlHeight() * h
+    );
+    Image panelImage = loadImageAsset(style.nvlPanelAssetPath());
+    Color panelColor = parseColorValue(style.nvlPanelColor(), Color.rgb(8, 17, 26, 0.84));
+    double opacity = style.nvlPanelOpacity() == null ? 0.84 : clamp(style.nvlPanelOpacity(), 0.0, 1.0);
+    if (panelImage != null && panelImage.getWidth() > 1 && panelImage.getHeight() > 1) {
+      g.drawImage(panelImage, panel.x(), panel.y(), panel.w(), panel.h());
+      g.setFill(withOpacity(panelColor, opacity));
+      g.fillRect(panel.x(), panel.y(), panel.w(), panel.h());
+    } else {
+      g.setFill(withOpacity(panelColor, opacity));
+      g.fillRoundRect(panel.x(), panel.y(), panel.w(), panel.h(), 18 * scale, 18 * scale);
+    }
+    g.setStroke(LayoutStudioPalette.ACCENT_BLUE);
+    g.setLineWidth(2);
+    g.strokeRoundRect(panel.x(), panel.y(), panel.w(), panel.h(), 18 * scale, 18 * scale);
+    drawTag(g, panel.x() + 6, panel.y() + 16, "NVL Panel");
+
+    Font speakerFont = resolveNamePreviewFont(scale);
+    Font textFont = resolveDialoguePreviewFont(scale);
+    Color speakerColor = parseColorValue(style.nvlSpeakerTextColor(), Color.web("#F7D89A"));
+    Color textColor = parseColorValue(style.nvlTextColor(), Color.web("#E8EDF6"));
+    double pad = spec.nvlPadding() * scale;
+    double speakerWidth = spec.nvlSpeakerWidth() * scale;
+    double gap = 16 * scale;
+    double xSpeaker = panel.x() + pad;
+    double xBody = xSpeaker + speakerWidth + gap;
+    double bodyWidth = Math.max(40 * scale, panel.w() - pad * 2 - speakerWidth - gap);
+    double cursorY = panel.y() + pad + speakerFont.getSize();
+    int maxEntries = Math.max(1, (int) Math.round(spec.nvlMaxEntries()));
+    List<String[]> entries = List.of(
+        new String[] {"Narrator", "NVL mode stacks more of the recent conversation on screen."},
+        new String[] {previewSpeakerName, previewDialogueText()},
+        new String[] {"Guide", "Speaker and body columns stay configurable instead of hardcoded."},
+        new String[] {"System", "Use [mode dialogue nvl] to switch at runtime."}
+    );
+    int count = Math.min(entries.size(), maxEntries);
+    for (int i = 0; i < count; i++) {
+      String[] entry = entries.get(i);
+      g.setFont(speakerFont);
+      g.setFill(speakerColor);
+      g.fillText(entry[0], xSpeaker, cursorY);
+      List<String> lines = wrapPlainText(g, entry[1], textFont, bodyWidth);
+      g.setFont(textFont);
+      g.setFill(textColor);
+      double lineHeight = Math.max(12, textFont.getSize() * 1.35);
+      for (int j = 0; j < lines.size(); j++) {
+        g.fillText(lines.get(j), xBody, cursorY + j * lineHeight);
+      }
+      double entryHeight = Math.max(speakerFont.getSize(), lines.size() * lineHeight);
+      cursorY += entryHeight + spec.nvlEntryGap() * scale;
+      if (cursorY > panel.y() + panel.h() - pad) break;
+      g.setStroke(Color.color(1, 1, 1, 0.08));
+      g.strokeLine(panel.x() + pad, cursorY - spec.nvlEntryGap() * scale * 0.5, panel.x() + panel.w() - pad, cursorY - spec.nvlEntryGap() * scale * 0.5);
+    }
+  }
+
+  private void drawBubblePreview(GraphicsContext g, double w, double h, double scale) {
+    double groundY = h * 0.8;
+    double anchorX = switch (bubblePreviewAnchor()) {
+      case "left" -> w * 0.24;
+      case "center", "auto" -> w * 0.5;
+      case "right" -> w * 0.76;
+      default -> w * 0.5;
+    };
+    drawBubbleActorMarkers(g, w, groundY, anchorX, scale);
+
+    Font speakerFont = resolveNamePreviewFont(scale);
+    Font textFont = resolveDialoguePreviewFont(scale);
+    double bubbleWidth = Math.max(160 * scale, Math.min(w * spec.bubbleWidthFactor(), w * 0.7));
+    double textPadding = spec.bubbleTextPadding() * scale;
+    double contentWidth = Math.max(60 * scale, bubbleWidth - textPadding * 2);
+    List<String> lines = wrapPlainText(g, previewDialogueText(), textFont, contentWidth);
+    double lineHeight = Math.max(12, textFont.getSize() * 1.35);
+    double contentHeight = speakerFont.getSize() + 8 * scale + lines.size() * lineHeight;
+    double bubbleHeight = Math.max(spec.bubbleMinHeight() * scale, contentHeight + textPadding * 2);
+    double bubbleX = switch (bubblePreviewAnchor()) {
+      case "left" -> anchorX;
+      case "center", "auto" -> anchorX - bubbleWidth / 2.0;
+      case "right" -> anchorX - bubbleWidth;
+      default -> anchorX - bubbleWidth / 2.0;
+    };
+    bubbleX = clamp(bubbleX, PREVIEW_PADDING * scale, w - bubbleWidth - PREVIEW_PADDING * scale);
+    double bubbleY = groundY - spec.bubbleYOffset() * scale - bubbleHeight;
+    Rect bubble = new Rect(bubbleX, bubbleY, bubbleWidth, bubbleHeight);
+
+    Image bubbleImage = loadImageAsset(style.bubbleAssetPath());
+    Color bubbleColor = parseColorValue(style.bubbleColor(), Color.web("#152238ee"));
+    Color borderColor = parseColorValue(style.bubbleBorderColor(), Color.web("#A9BCD9"));
+    double bubbleOpacity = style.bubbleOpacity() == null ? 0.96 : clamp(style.bubbleOpacity(), 0.0, 1.0);
+    double radius = style.bubbleCornerRadius() * scale;
+    if (bubbleImage != null && bubbleImage.getWidth() > 1 && bubbleImage.getHeight() > 1) {
+      g.drawImage(bubbleImage, bubble.x(), bubble.y(), bubble.w(), bubble.h());
+      g.setFill(withOpacity(bubbleColor, bubbleOpacity));
+      g.fillRoundRect(bubble.x(), bubble.y(), bubble.w(), bubble.h(), radius, radius);
+    } else {
+      g.setFill(withOpacity(bubbleColor, bubbleOpacity));
+      g.fillRoundRect(bubble.x(), bubble.y(), bubble.w(), bubble.h(), radius, radius);
+    }
+    g.setStroke(borderColor);
+    g.setLineWidth(Math.max(1.0, style.bubbleBorderWidth() * scale));
+    g.strokeRoundRect(bubble.x(), bubble.y(), bubble.w(), bubble.h(), radius, radius);
+    drawBubbleTail(g, bubble, anchorX, groundY - 12 * scale, spec.bubbleTailSize() * scale, bubbleColor, borderColor);
+
+    g.setFont(speakerFont);
+    g.setFill(parseColorValue(style.bubbleSpeakerTextColor(), Color.web("#FFD78A")));
+    g.fillText(previewSpeakerName, bubble.x() + textPadding, bubble.y() + textPadding + speakerFont.getSize());
+    g.setFont(textFont);
+    g.setFill(parseColorValue(style.bubbleTextColor(), Color.web("#F1F5FF")));
+    for (int i = 0; i < lines.size(); i++) {
+      g.fillText(lines.get(i), bubble.x() + textPadding, bubble.y() + textPadding + speakerFont.getSize() + 10 * scale + i * lineHeight);
+    }
+
+    g.setStroke(LayoutStudioPalette.ACCENT_BLUE);
+    g.setLineWidth(2);
+    g.strokeRoundRect(bubble.x(), bubble.y(), bubble.w(), bubble.h(), radius, radius);
+    drawTag(g, bubble.x() + 6, bubble.y() - 4, "Bubble");
+  }
+
+  private void drawBubbleActorMarkers(GraphicsContext g, double width, double groundY, double activeAnchorX, double scale) {
+    double[] anchors = {width * 0.24, width * 0.5, width * 0.76};
+    for (double x : anchors) {
+      boolean active = Math.abs(x - activeAnchorX) < 1.0;
+      g.setStroke(active ? LayoutStudioPalette.ACCENT_GOLD : LayoutStudioPalette.PANEL_BORDER_LIGHT);
+      g.setLineWidth(active ? 3 : 2);
+      g.strokeOval(x - 20 * scale, groundY - 120 * scale, 40 * scale, 40 * scale);
+      g.strokeLine(x, groundY - 80 * scale, x, groundY - 10 * scale);
+      g.strokeLine(x - 24 * scale, groundY - 46 * scale, x + 24 * scale, groundY - 46 * scale);
+      g.strokeLine(x, groundY - 10 * scale, x - 20 * scale, groundY + 40 * scale);
+      g.strokeLine(x, groundY - 10 * scale, x + 20 * scale, groundY + 40 * scale);
+    }
+  }
+
+  private void drawBubbleTail(GraphicsContext g, Rect bubble, double anchorX, double tipY, double tailSize, Color fill, Color stroke) {
+    double baseX = clamp(anchorX, bubble.x() + tailSize * 1.5, bubble.x() + bubble.w() - tailSize * 1.5);
+    double baseY = bubble.y() + bubble.h();
+    double[] xs = {baseX - tailSize, baseX + tailSize, anchorX};
+    double[] ys = {baseY - 1, baseY - 1, tipY};
+    g.setFill(withOpacity(fill, 1.0));
+    g.fillPolygon(xs, ys, 3);
+    g.setStroke(stroke);
+    g.setLineWidth(Math.max(1.0, style.bubbleBorderWidth()));
+    g.strokePolygon(xs, ys, 3);
+  }
+
+  private List<String> wrapPlainText(GraphicsContext g, String text, Font font, double maxWidth) {
+    List<String> lines = new ArrayList<>();
+    if (text == null || text.isBlank()) {
+      lines.add("");
+      return lines;
+    }
+    g.setFont(font);
+    String[] paragraphs = text.split("\\n");
+    for (String paragraph : paragraphs) {
+      String[] words = paragraph.split("\\s+");
+      StringBuilder current = new StringBuilder();
+      for (String word : words) {
+        if (word == null || word.isBlank()) continue;
+        String candidate = current.isEmpty() ? word : current + " " + word;
+        if (!current.isEmpty() && computeTextWidth(g, candidate, font) > maxWidth) {
+          lines.add(current.toString());
+          current.setLength(0);
+          current.append(word);
+        } else {
+          if (!current.isEmpty()) current.append(' ');
+          current.append(word);
+        }
+      }
+      lines.add(current.isEmpty() ? "" : current.toString());
+    }
+    return lines.isEmpty() ? List.of("") : lines;
+  }
+
   private void drawStyledPreviewText(
       GraphicsContext g,
       List<TextSpan> spans,
@@ -1726,7 +2080,20 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spChoiceHeight),
         value(spChoiceGap),
         value(spChoiceTextXPadding),
-        cbNameBoxAutoWidth.isSelected()
+        cbNameBoxAutoWidth.isSelected(),
+        value(spNvlX),
+        value(spNvlY),
+        value(spNvlWidth),
+        value(spNvlHeight),
+        value(spNvlPadding),
+        value(spNvlSpeakerWidth),
+        value(spNvlEntryGap),
+        (int) Math.round(value(spNvlMaxEntries)),
+        value(spBubbleWidthFactor),
+        value(spBubbleMinHeight),
+        value(spBubbleTextPadding),
+        value(spBubbleYOffset),
+        value(spBubbleTailSize)
     );
   }
 
@@ -1753,17 +2120,28 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spChoiceGap, s.choiceGap());
     setValue(spChoiceTextXPadding, s.choiceTextXPadding());
     cbNameBoxAutoWidth.setSelected(s.nameBoxAutoWidth());
+    setValue(spNvlX, s.nvlX());
+    setValue(spNvlY, s.nvlY());
+    setValue(spNvlWidth, s.nvlWidth());
+    setValue(spNvlHeight, s.nvlHeight());
+    setValue(spNvlPadding, s.nvlPadding());
+    setValue(spNvlSpeakerWidth, s.nvlSpeakerWidth());
+    setValue(spNvlEntryGap, s.nvlEntryGap());
+    setValue(spNvlMaxEntries, s.nvlMaxEntries());
+    setValue(spBubbleWidthFactor, s.bubbleWidthFactor());
+    setValue(spBubbleMinHeight, s.bubbleMinHeight());
+    setValue(spBubbleTextPadding, s.bubbleTextPadding());
+    setValue(spBubbleYOffset, s.bubbleYOffset());
+    setValue(spBubbleTailSize, s.bubbleTailSize());
   }
 
   private VnUiStyleSpec readStyleFromControls() {
     VnUiStyleSpec base = style == null ? VnUiStyleSpec.defaults() : style;
     return new VnUiStyleSpec(
-        // Textbox
         normalizeAssetPath(tfTextBoxAsset.getText()),
         normalizeColorValue(tfTextBoxColor.getText()),
         chkTextBoxOverlayEnabled.isSelected() ? value(spTextBoxOverlayOpacity) : 0.0,
         base.textBoxBoundsPoints(),
-        // Name box
         base.nameBoxAssetPath(),
         base.nameBoxColor(),
         base.nameTextColor(),
@@ -1773,20 +2151,17 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spNameTextXAlign),
         base.nameBoxBoundsPoints(),
         value(spNameBoxOpacity),
-        // Dialogue text
         base.dialogueTextColor(),
         base.dialogueTextFontFamily(),
         base.dialogueTextFontSize(),
         normalizeFontWeight(cbDialogueTextFontWeight.getValue()),
         value(spDialogueTextXAlign),
         base.dialogueTextBoundsPoints(),
-        // Choice button assets
         normalizeAssetPath(tfChoiceButtonAsset.getText()),
         normalizeAssetPath(tfChoiceButtonHoverAsset.getText()),
         normalizeAssetPath(tfChoiceButtonSelectedAsset.getText()),
         normalizeAssetPath(tfChoiceButtonDisabledAsset.getText()),
         base.choiceButtonBoundsPoints(),
-        // Choice colors
         normalizeColorValue(tfChoiceBgColor.getText()),
         normalizeColorValue(tfChoiceHoverColor.getText()),
         normalizeColorValue(tfChoiceSelectedColor.getText()),
@@ -1799,17 +2174,28 @@ public class DialogueLayoutEditorView extends BorderPane {
         normalizeColorValue(tfChoiceHoverBorderColor.getText()),
         normalizeColorValue(tfChoiceSelectedBorderColor.getText()),
         normalizeColorValue(tfChoiceDisabledBorderColor.getText()),
-        // Choice geometry
         value(spChoiceCornerRadius),
         value(spChoiceBorderWidth),
         value(spChoiceTextBaselineOffset),
         value(spChoiceTextXAlign),
-        // Choice font
         base.choiceFontFamily(),
         base.choiceFontSize(),
         normalizeFontWeight(cbChoiceFontWeight.getValue()),
         base.characterHeightFactor(),
-        base.characterBaselineY()
+        base.characterBaselineY(),
+        normalizeAssetPath(tfNvlPanelAsset.getText()),
+        normalizeColorValue(tfNvlPanelColor.getText()),
+        value(spNvlPanelOpacity),
+        normalizeColorValue(tfNvlSpeakerTextColor.getText()),
+        normalizeColorValue(tfNvlTextColor.getText()),
+        normalizeAssetPath(tfBubbleAsset.getText()),
+        normalizeColorValue(tfBubbleColor.getText()),
+        value(spBubbleOpacity),
+        normalizeColorValue(tfBubbleBorderColor.getText()),
+        normalizeColorValue(tfBubbleSpeakerTextColor.getText()),
+        normalizeColorValue(tfBubbleTextColor.getText()),
+        value(spBubbleCornerRadius),
+        value(spBubbleBorderWidth)
     );
   }
 
@@ -1823,6 +2209,17 @@ public class DialogueLayoutEditorView extends BorderPane {
     tfChoiceButtonHoverAsset.setText(normalizeAssetPath(s.choiceButtonHoverAssetPath()));
     tfChoiceButtonSelectedAsset.setText(normalizeAssetPath(s.choiceButtonSelectedAssetPath()));
     tfChoiceButtonDisabledAsset.setText(normalizeAssetPath(s.choiceButtonDisabledAssetPath()));
+    tfNvlPanelAsset.setText(normalizeAssetPath(s.nvlPanelAssetPath()));
+    tfNvlPanelColor.setText(normalizeColorValue(s.nvlPanelColor()));
+    setValue(spNvlPanelOpacity, s.nvlPanelOpacity() == null ? 0.84 : clamp(s.nvlPanelOpacity(), 0.0, 1.0));
+    tfNvlSpeakerTextColor.setText(normalizeColorValue(s.nvlSpeakerTextColor()));
+    tfNvlTextColor.setText(normalizeColorValue(s.nvlTextColor()));
+    tfBubbleAsset.setText(normalizeAssetPath(s.bubbleAssetPath()));
+    tfBubbleColor.setText(normalizeColorValue(s.bubbleColor()));
+    setValue(spBubbleOpacity, s.bubbleOpacity() == null ? 0.96 : clamp(s.bubbleOpacity(), 0.0, 1.0));
+    tfBubbleBorderColor.setText(normalizeColorValue(s.bubbleBorderColor()));
+    tfBubbleSpeakerTextColor.setText(normalizeColorValue(s.bubbleSpeakerTextColor()));
+    tfBubbleTextColor.setText(normalizeColorValue(s.bubbleTextColor()));
 
     tfChoiceBgColor.setText(normalizeColorValue(s.choiceBackgroundColor()));
     tfChoiceHoverColor.setText(normalizeColorValue(s.choiceHoverColor()));
@@ -1840,6 +2237,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spChoiceCornerRadius, s.choiceCornerRadius());
     setValue(spChoiceBorderWidth, s.choiceBorderWidth());
     setValue(spChoiceTextBaselineOffset, s.choiceTextBaselineOffset());
+    setValue(spBubbleCornerRadius, s.bubbleCornerRadius());
+    setValue(spBubbleBorderWidth, s.bubbleBorderWidth());
     setValue(spNameTextXAlign, s.nameTextXAlign() == null ? 0.0 : s.nameTextXAlign());
     setValue(spDialogueTextXAlign, s.dialogueTextXAlign() == null ? 0.0 : s.dialogueTextXAlign());
     setValue(spChoiceTextXAlign, s.choiceTextXAlign() == null ? 0.0 : s.choiceTextXAlign());
@@ -2058,8 +2457,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       } finally {
         suppressEvents = false;
       }
-      loadTextBoxAssetImage();
-      loadChoiceAssetImages();
+      loadPreviewAssets();
       refreshDiagnosticsFromUiState();
       validateState();
       redraw();
@@ -2662,6 +3060,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     warnMissingAsset(warnings, "choiceButtonHoverAsset", style.choiceButtonHoverAssetPath());
     warnMissingAsset(warnings, "choiceButtonSelectedAsset", style.choiceButtonSelectedAssetPath());
     warnMissingAsset(warnings, "choiceButtonDisabledAsset", style.choiceButtonDisabledAssetPath());
+    warnMissingAsset(warnings, "nvlPanelAsset", style.nvlPanelAssetPath());
+    warnMissingAsset(warnings, "bubbleAsset", style.bubbleAssetPath());
 
     if (warnings.isEmpty()) {
       validation.setText("No issues detected.");
@@ -2725,6 +3125,16 @@ public class DialogueLayoutEditorView extends BorderPane {
       } else if ("choiceXCenter".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Choice list geometry ---").append(System.lineSeparator());
         out.append("# choiceWidthFactor is viewport-relative; height/gap/text padding are pixels.").append(System.lineSeparator());
+      } else if ("nvlX".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- NVL presentation mode ---").append(System.lineSeparator());
+        out.append("# Enable at runtime with [mode dialogue nvl]; return with [mode dialogue standard].").append(System.lineSeparator());
+      } else if ("nvlPanelAsset".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- NVL panel style ---").append(System.lineSeparator());
+      } else if ("bubbleWidthFactor".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Bubble presentation mode ---").append(System.lineSeparator());
+        out.append("# Enable at runtime with [mode bubble on] and disable with [mode bubble off].").append(System.lineSeparator());
+      } else if ("bubbleAsset".equals(key)) {
+        out.append(System.lineSeparator()).append("# --- Bubble visual style ---").append(System.lineSeparator());
       } else if ("characterHeightFactor".equals(key)) {
         out.append(System.lineSeparator()).append("# --- Character framing tweaks ---").append(System.lineSeparator());
       }
@@ -2911,6 +3321,11 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private static <T> T firstNonNull(T first, T second) {
     return first != null ? first : second;
+  }
+
+  private void loadPreviewAssets() {
+    loadTextBoxAssetImage();
+    loadChoiceAssetImages();
   }
 
   private void loadTextBoxAssetImage() {

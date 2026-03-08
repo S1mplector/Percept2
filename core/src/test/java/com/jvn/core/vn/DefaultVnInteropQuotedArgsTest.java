@@ -130,6 +130,36 @@ class DefaultVnInteropQuotedArgsTest {
     assertEquals(1, audio.stopChiptuneCount);
   }
 
+  @Test
+  void togglesDialoguePresentationModesAndBubblePreferences() {
+    VnScenario scenario = new VnScenarioBuilder("dialogue_modes")
+        .label("start")
+        .dialogue("Narrator", "Start")
+        .end()
+        .build();
+    VnScene scene = new VnScene(scenario);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand("mode", "dialogue nvl"), scene);
+    assertEquals(DialoguePresentationMode.NVL, scene.getState().getDialoguePresentationMode());
+
+    interop.handle(new VnExternalCommand("mode", "bubble on"), scene);
+    assertEquals(DialoguePresentationMode.BUBBLE, scene.getState().getDialoguePresentationMode());
+
+    interop.handle(new VnExternalCommand("char", "lavender bubble left"), scene);
+    assertEquals(BubbleAnchor.LEFT, scene.getState().getBubbleAnchorPreference("lavender"));
+
+    interop.handle(new VnExternalCommand("char", "lavender bubble_offset 12 -8"), scene);
+    assertEquals(12.0, scene.getState().getBubbleOffsetXPreference("lavender"));
+    assertEquals(-8.0, scene.getState().getBubbleOffsetYPreference("lavender"));
+
+    interop.handle(new VnExternalCommand("char", "lavender bubble clear"), scene);
+    assertEquals(BubbleAnchor.AUTO, scene.getState().getBubbleAnchorPreference("lavender"));
+
+    interop.handle(new VnExternalCommand("mode", "nvl off"), scene);
+    assertEquals(DialoguePresentationMode.STANDARD, scene.getState().getDialoguePresentationMode());
+  }
+
   public static class Methods {
     public static String join(String a, String b) {
       return a + "|" + b;

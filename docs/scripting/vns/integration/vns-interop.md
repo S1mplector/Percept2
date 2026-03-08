@@ -19,6 +19,51 @@ At runtime:
 
 ---
 
+## Dialogue Presentation Modes
+
+The built-in `mode` and `char` providers now control alternate dialogue presentation without custom hacks.
+
+### Standard / NVL / Bubble
+
+```vns
+[mode dialogue standard]
+[mode dialogue nvl]
+[mode bubble on]
+[mode bubble off]
+[mode nvl toggle]
+```
+
+Supported forms:
+
+- `[mode dialogue standard|nvl|bubble]`
+- `[mode presentation standard|nvl|bubble]`
+- `[mode say standard|nvl|bubble]`
+- `[mode nvl on|off|toggle]`
+- `[mode bubble on|off|toggle]`
+
+### Bubble Placement Overrides
+
+Use the `char` provider to override per-speaker bubble placement:
+
+```vns
+[char lavender bubble left]
+[char lavender bubble center]
+[char lavender bubble right]
+[char lavender bubble auto]
+[char lavender bubble_offset 12 -8]
+[char lavender bubble clear]
+```
+
+Supported forms:
+
+- `[char <id> bubble left|center|right|auto]`
+- `[char <id> bubble clear|reset]`
+- `[char <id> bubble_offset <x> <y>]`
+
+These settings persist through the VN state variable layer, so they behave consistently with saves and runtime mode changes.
+
+---
+
 ## JES Scene Integration
 
 ### Pushing a JES Scene

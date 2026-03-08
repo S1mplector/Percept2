@@ -22,6 +22,8 @@ class VnUiLayoutLoaderTest {
     p.setProperty("nameBoxYOffset", "-52");
     p.setProperty("choiceYStart", "0.2");
     p.setProperty("choiceWidthFactor", "0.72");
+    p.setProperty("nvlSpeakerWidth", "192");
+    p.setProperty("bubbleWidthFactor", "0.34");
 
     VnUiLayoutSpec spec = VnUiLayoutLoader.parse(p, VnUiLayoutSpec.defaults());
 
@@ -30,6 +32,8 @@ class VnUiLayoutLoaderTest {
     assertEquals(-52.0, spec.nameBoxYOffset(), 1e-6);
     assertEquals(0.2, spec.choiceYStart(), 1e-6);
     assertEquals(0.72, spec.choiceWidthFactor(), 1e-6);
+    assertEquals(192.0, spec.nvlSpeakerWidth(), 1e-6);
+    assertEquals(0.34, spec.bubbleWidthFactor(), 1e-6);
   }
 
   @Test
@@ -41,6 +45,8 @@ class VnUiLayoutLoaderTest {
     assertTrue(p.containsKey("textBoxY"));
     assertTrue(p.containsKey("dialogueTextHorizontalPadding"));
     assertTrue(p.containsKey("choiceYStart"));
+    assertTrue(p.containsKey("nvlX"));
+    assertTrue(p.containsKey("bubbleTailSize"));
     assertEquals("0.75", p.getProperty("textBoxY"));
   }
 
@@ -59,6 +65,9 @@ class VnUiLayoutLoaderTest {
     p.setProperty("choiceTextXAlign", "0.5");
     p.setProperty("characterHeightFactor", "1.2");
     p.setProperty("characterBaselineY", "0.95");
+    p.setProperty("nvlPanelColor", "#08111acc");
+    p.setProperty("bubbleColor", "#203040");
+    p.setProperty("bubbleCornerRadius", "24");
 
     VnUiStyleSpec style = VnUiLayoutLoader.parseStyle(p, VnUiStyleSpec.defaults());
 
@@ -74,6 +83,9 @@ class VnUiLayoutLoaderTest {
     assertEquals(0.5, style.choiceTextXAlign(), 1e-6);
     assertEquals(1.2, style.characterHeightFactor(), 1e-6);
     assertEquals(0.95, style.characterBaselineY(), 1e-6);
+    assertEquals("#08111acc", style.nvlPanelColor());
+    assertEquals("#203040", style.bubbleColor());
+    assertEquals(24.0, style.bubbleCornerRadius(), 1e-6);
   }
 
   @Test
@@ -111,6 +123,43 @@ class VnUiLayoutLoaderTest {
 
     assertEquals("1.15", p.getProperty("characterHeightFactor"));
     assertEquals("0.9", p.getProperty("characterBaselineY"));
+  }
+
+  @Test
+  void serializesNvlAndBubbleKeys() {
+    VnUiLayoutSpec layout = new VnUiLayoutSpec(
+        0.0, 0.75, 1.0, 0.25, 20.0,
+        20.0, -40.0, 200.0, 40.0,
+        10.0, 25.0, 20.0, 40.0,
+        20.0, 10.0, 0.5, -1.0, 0.6,
+        50.0, 10.0, 20.0, false,
+        0.06, 0.08, 0.88, 0.74, 28.0, 180.0, 16.0, 7,
+        0.31, 104.0, 20.0, 32.0, 22.0
+    );
+    VnUiStyleSpec style = new VnUiStyleSpec(
+        null, null, null, null,
+        null, null, null, null, null, null, null,
+        null, null,
+        null, null, null, null, null, null,
+        null, null, null, null, null,
+        null, null, null, null,
+        null, null, null, null,
+        null, null, null, null,
+        10.0, 2.0, 5.0, null,
+        null, null, null,
+        null, null,
+        null, "#08111acc", 0.9, "#ffd88a", "#e8edf6",
+        null, "#203040", 0.95, "#90a0c0", "#ffd78a", "#f1f5ff", 18.0, 2.5
+    );
+
+    Properties p = VnUiLayoutLoader.toProperties(layout, style, List.of());
+
+    assertEquals("0.06", p.getProperty("nvlX"));
+    assertEquals("7", p.getProperty("nvlMaxEntries"));
+    assertEquals("0.31", p.getProperty("bubbleWidthFactor"));
+    assertEquals("#08111acc", p.getProperty("nvlPanelColor"));
+    assertEquals("#203040", p.getProperty("bubbleColor"));
+    assertEquals("18", p.getProperty("bubbleCornerRadius"));
   }
 
   @Test

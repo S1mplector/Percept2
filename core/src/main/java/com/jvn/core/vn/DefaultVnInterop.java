@@ -301,6 +301,33 @@ public class DefaultVnInterop implements VnInterop {
         }
         break;
       }
+      case "dialogue":
+      case "presentation":
+      case "say":
+        scene.getState().setDialoguePresentationMode(DialoguePresentationMode.fromToken(arg));
+        break;
+      case "nvl": {
+        if ("toggle".equals(arg)) {
+          DialoguePresentationMode current = scene.getState().getDialoguePresentationMode();
+          scene.getState().setDialoguePresentationMode(
+              current == DialoguePresentationMode.NVL ? DialoguePresentationMode.STANDARD : DialoguePresentationMode.NVL);
+        } else {
+          boolean on = "on".equals(arg) || "true".equals(arg) || "1".equals(arg);
+          scene.getState().setDialoguePresentationMode(on ? DialoguePresentationMode.NVL : DialoguePresentationMode.STANDARD);
+        }
+        break;
+      }
+      case "bubble": {
+        if ("toggle".equals(arg)) {
+          DialoguePresentationMode current = scene.getState().getDialoguePresentationMode();
+          scene.getState().setDialoguePresentationMode(
+              current == DialoguePresentationMode.BUBBLE ? DialoguePresentationMode.STANDARD : DialoguePresentationMode.BUBBLE);
+        } else {
+          boolean on = "on".equals(arg) || "true".equals(arg) || "1".equals(arg);
+          scene.getState().setDialoguePresentationMode(on ? DialoguePresentationMode.BUBBLE : DialoguePresentationMode.STANDARD);
+        }
+        break;
+      }
     }
   }
 
@@ -667,6 +694,24 @@ public class DefaultVnInterop implements VnInterop {
         if (position != null) state.hideCharacterAnimated(position);
         break;
       }
+      case "bubble": {
+        if (toks.length < 3) return;
+        String mode = toks[2].toLowerCase();
+        if ("clear".equals(mode) || "reset".equals(mode) || "auto".equals(mode)) {
+          state.clearBubblePlacementPreference(characterId);
+          return;
+        }
+        state.setBubbleAnchorPreference(characterId, BubbleAnchor.fromToken(mode));
+        break;
+      }
+      case "bubble_offset":
+      case "bubbleoffset": {
+        if (toks.length < 4) return;
+        double x = parseDoubleSafe(toks[2], 0.0);
+        double y = parseDoubleSafe(toks[3], 0.0);
+        state.setBubbleOffsetPreference(characterId, x, y);
+        break;
+      }
       default:
         break;
     }
@@ -840,6 +885,11 @@ public class DefaultVnInterop implements VnInterop {
 
   private static float parseFloatSafe(String s, float fallback) {
     try { return Float.parseFloat(s); } catch (Exception ignored) {}
+    return fallback;
+  }
+
+  private static double parseDoubleSafe(String s, double fallback) {
+    try { return Double.parseDouble(s); } catch (Exception ignored) {}
     return fallback;
   }
 

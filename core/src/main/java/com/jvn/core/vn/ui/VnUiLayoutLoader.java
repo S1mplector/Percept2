@@ -56,7 +56,20 @@ public final class VnUiLayoutLoader {
       "choiceHeight",
       "choiceGap",
       "choiceTextXPadding",
-      "nameBoxAutoWidth"
+      "nameBoxAutoWidth",
+      "nvlX",
+      "nvlY",
+      "nvlWidth",
+      "nvlHeight",
+      "nvlPadding",
+      "nvlSpeakerWidth",
+      "nvlEntryGap",
+      "nvlMaxEntries",
+      "bubbleWidthFactor",
+      "bubbleMinHeight",
+      "bubbleTextPadding",
+      "bubbleYOffset",
+      "bubbleTailSize"
   );
 
   private static final Set<String> KNOWN_DIALOGUE_STYLE_KEYS = Set.of(
@@ -104,7 +117,20 @@ public final class VnUiLayoutLoader {
       "choiceFontSize",
       "choiceFontWeight",
       "characterHeightFactor",
-      "characterBaselineY"
+      "characterBaselineY",
+      "nvlPanelAsset",
+      "nvlPanelColor",
+      "nvlPanelOpacity",
+      "nvlSpeakerTextColor",
+      "nvlTextColor",
+      "bubbleAsset",
+      "bubbleColor",
+      "bubbleOpacity",
+      "bubbleBorderColor",
+      "bubbleSpeakerTextColor",
+      "bubbleTextColor",
+      "bubbleCornerRadius",
+      "bubbleBorderWidth"
   );
 
   private static final Set<String> KNOWN_TEXTBOX_BUTTON_FIELDS = Set.of(
@@ -269,6 +295,19 @@ public final class VnUiLayoutLoader {
     double choiceGap = parseDouble(props.getProperty("choiceGap"), bLayout.choiceGap(), diagnostics, "choiceGap");
     double choiceTextXPadding = parseDouble(props.getProperty("choiceTextXPadding"), bLayout.choiceTextXPadding(), diagnostics, "choiceTextXPadding");
     boolean nameBoxAutoWidth = parseBoolean(props.getProperty("nameBoxAutoWidth"), bLayout.nameBoxAutoWidth(), diagnostics, "nameBoxAutoWidth");
+    double nvlX = parseDouble(props.getProperty("nvlX"), bLayout.nvlX(), diagnostics, "nvlX");
+    double nvlY = parseDouble(props.getProperty("nvlY"), bLayout.nvlY(), diagnostics, "nvlY");
+    double nvlWidth = parseDouble(props.getProperty("nvlWidth"), bLayout.nvlWidth(), diagnostics, "nvlWidth");
+    double nvlHeight = parseDouble(props.getProperty("nvlHeight"), bLayout.nvlHeight(), diagnostics, "nvlHeight");
+    double nvlPadding = parseDouble(props.getProperty("nvlPadding"), bLayout.nvlPadding(), diagnostics, "nvlPadding");
+    double nvlSpeakerWidth = parseDouble(props.getProperty("nvlSpeakerWidth"), bLayout.nvlSpeakerWidth(), diagnostics, "nvlSpeakerWidth");
+    double nvlEntryGap = parseDouble(props.getProperty("nvlEntryGap"), bLayout.nvlEntryGap(), diagnostics, "nvlEntryGap");
+    int nvlMaxEntries = parseInt(props.getProperty("nvlMaxEntries"), bLayout.nvlMaxEntries(), diagnostics, "nvlMaxEntries");
+    double bubbleWidthFactor = parseDouble(props.getProperty("bubbleWidthFactor"), bLayout.bubbleWidthFactor(), diagnostics, "bubbleWidthFactor");
+    double bubbleMinHeight = parseDouble(props.getProperty("bubbleMinHeight"), bLayout.bubbleMinHeight(), diagnostics, "bubbleMinHeight");
+    double bubbleTextPadding = parseDouble(props.getProperty("bubbleTextPadding"), bLayout.bubbleTextPadding(), diagnostics, "bubbleTextPadding");
+    double bubbleYOffset = parseDouble(props.getProperty("bubbleYOffset"), bLayout.bubbleYOffset(), diagnostics, "bubbleYOffset");
+    double bubbleTailSize = parseDouble(props.getProperty("bubbleTailSize"), bLayout.bubbleTailSize(), diagnostics, "bubbleTailSize");
 
     VnUiLayoutSpec layout = new VnUiLayoutSpec(
         textBoxX,
@@ -292,7 +331,20 @@ public final class VnUiLayoutLoader {
         choiceHeight,
         choiceGap,
         choiceTextXPadding,
-        nameBoxAutoWidth
+        nameBoxAutoWidth,
+        nvlX,
+        nvlY,
+        nvlWidth,
+        nvlHeight,
+        nvlPadding,
+        nvlSpeakerWidth,
+        nvlEntryGap,
+        nvlMaxEntries,
+        bubbleWidthFactor,
+        bubbleMinHeight,
+        bubbleTextPadding,
+        bubbleYOffset,
+        bubbleTailSize
     );
 
     warnAdjustedDouble("textBoxX", textBoxX, layout.textBoxX(), diagnostics);
@@ -311,6 +363,19 @@ public final class VnUiLayoutLoader {
     warnAdjustedDouble("choiceHeight", choiceHeight, layout.choiceHeight(), diagnostics);
     warnAdjustedDouble("choiceGap", choiceGap, layout.choiceGap(), diagnostics);
     warnAdjustedDouble("choiceTextXPadding", choiceTextXPadding, layout.choiceTextXPadding(), diagnostics);
+    warnAdjustedDouble("nvlX", nvlX, layout.nvlX(), diagnostics);
+    warnAdjustedDouble("nvlY", nvlY, layout.nvlY(), diagnostics);
+    warnAdjustedDouble("nvlWidth", nvlWidth, layout.nvlWidth(), diagnostics);
+    warnAdjustedDouble("nvlHeight", nvlHeight, layout.nvlHeight(), diagnostics);
+    warnAdjustedDouble("nvlPadding", nvlPadding, layout.nvlPadding(), diagnostics);
+    warnAdjustedDouble("nvlSpeakerWidth", nvlSpeakerWidth, layout.nvlSpeakerWidth(), diagnostics);
+    warnAdjustedDouble("nvlEntryGap", nvlEntryGap, layout.nvlEntryGap(), diagnostics);
+    warnAdjustedInt("nvlMaxEntries", nvlMaxEntries, layout.nvlMaxEntries(), diagnostics);
+    warnAdjustedDouble("bubbleWidthFactor", bubbleWidthFactor, layout.bubbleWidthFactor(), diagnostics);
+    warnAdjustedDouble("bubbleMinHeight", bubbleMinHeight, layout.bubbleMinHeight(), diagnostics);
+    warnAdjustedDouble("bubbleTextPadding", bubbleTextPadding, layout.bubbleTextPadding(), diagnostics);
+    warnAdjustedDouble("bubbleYOffset", bubbleYOffset, layout.bubbleYOffset(), diagnostics);
+    warnAdjustedDouble("bubbleTailSize", bubbleTailSize, layout.bubbleTailSize(), diagnostics);
 
     Double textBoxOpacity = parseOptionalDouble(props.getProperty("textBoxOpacity"), bStyle.textBoxOpacity(), diagnostics, "textBoxOpacity");
     Integer nameTextFontSize = parseOptionalInt(props.getProperty("nameTextFontSize"), bStyle.nameTextFontSize(), diagnostics, "nameTextFontSize");
@@ -337,6 +402,10 @@ public final class VnUiLayoutLoader {
         bStyle.characterBaselineY(),
         diagnostics,
         "characterBaselineY");
+    Double nvlPanelOpacity = parseOptionalDouble(props.getProperty("nvlPanelOpacity"), bStyle.nvlPanelOpacity(), diagnostics, "nvlPanelOpacity");
+    Double bubbleOpacity = parseOptionalDouble(props.getProperty("bubbleOpacity"), bStyle.bubbleOpacity(), diagnostics, "bubbleOpacity");
+    double bubbleCornerRadius = parseDouble(props.getProperty("bubbleCornerRadius"), bStyle.bubbleCornerRadius(), diagnostics, "bubbleCornerRadius");
+    double bubbleBorderWidth = parseDouble(props.getProperty("bubbleBorderWidth"), bStyle.bubbleBorderWidth(), diagnostics, "bubbleBorderWidth");
 
     VnUiStyleSpec style = new VnUiStyleSpec(
         // Textbox
@@ -391,7 +460,22 @@ public final class VnUiLayoutLoader {
         normalize(props.getProperty("choiceFontWeight"), bStyle.choiceFontWeight()),
         // Character framing
         characterHeightFactor,
-        characterBaselineY
+        characterBaselineY,
+        // NVL panel
+        normalize(props.getProperty("nvlPanelAsset"), bStyle.nvlPanelAssetPath()),
+        normalize(props.getProperty("nvlPanelColor"), bStyle.nvlPanelColor()),
+        nvlPanelOpacity,
+        normalize(props.getProperty("nvlSpeakerTextColor"), bStyle.nvlSpeakerTextColor()),
+        normalize(props.getProperty("nvlTextColor"), bStyle.nvlTextColor()),
+        // Bubble dialogue
+        normalize(props.getProperty("bubbleAsset"), bStyle.bubbleAssetPath()),
+        normalize(props.getProperty("bubbleColor"), bStyle.bubbleColor()),
+        bubbleOpacity,
+        normalize(props.getProperty("bubbleBorderColor"), bStyle.bubbleBorderColor()),
+        normalize(props.getProperty("bubbleSpeakerTextColor"), bStyle.bubbleSpeakerTextColor()),
+        normalize(props.getProperty("bubbleTextColor"), bStyle.bubbleTextColor()),
+        bubbleCornerRadius,
+        bubbleBorderWidth
     );
 
     warnAdjustedOptionalDouble("textBoxOpacity", textBoxOpacity, style.textBoxOpacity(), diagnostics);
@@ -407,6 +491,10 @@ public final class VnUiLayoutLoader {
     warnAdjustedOptionalInt("choiceFontSize", choiceFontSize, style.choiceFontSize(), diagnostics);
     warnAdjustedOptionalDouble("characterHeightFactor", characterHeightFactor, style.characterHeightFactor(), diagnostics);
     warnAdjustedOptionalDouble("characterBaselineY", characterBaselineY, style.characterBaselineY(), diagnostics);
+    warnAdjustedOptionalDouble("nvlPanelOpacity", nvlPanelOpacity, style.nvlPanelOpacity(), diagnostics);
+    warnAdjustedOptionalDouble("bubbleOpacity", bubbleOpacity, style.bubbleOpacity(), diagnostics);
+    warnAdjustedDouble("bubbleCornerRadius", bubbleCornerRadius, style.bubbleCornerRadius(), diagnostics);
+    warnAdjustedDouble("bubbleBorderWidth", bubbleBorderWidth, style.bubbleBorderWidth(), diagnostics);
 
     validateBoundsPoints("textBoxBoundsPoints", style.textBoxBoundsPoints(), diagnostics);
     validateBoundsPoints("nameBoxBoundsPoints", style.nameBoxBoundsPoints(), diagnostics);
@@ -442,6 +530,19 @@ public final class VnUiLayoutLoader {
     p.setProperty("choiceGap", format(s.choiceGap()));
     p.setProperty("choiceTextXPadding", format(s.choiceTextXPadding()));
     if (s.nameBoxAutoWidth()) p.setProperty("nameBoxAutoWidth", "true");
+    p.setProperty("nvlX", format(s.nvlX()));
+    p.setProperty("nvlY", format(s.nvlY()));
+    p.setProperty("nvlWidth", format(s.nvlWidth()));
+    p.setProperty("nvlHeight", format(s.nvlHeight()));
+    p.setProperty("nvlPadding", format(s.nvlPadding()));
+    p.setProperty("nvlSpeakerWidth", format(s.nvlSpeakerWidth()));
+    p.setProperty("nvlEntryGap", format(s.nvlEntryGap()));
+    p.setProperty("nvlMaxEntries", Integer.toString(s.nvlMaxEntries()));
+    p.setProperty("bubbleWidthFactor", format(s.bubbleWidthFactor()));
+    p.setProperty("bubbleMinHeight", format(s.bubbleMinHeight()));
+    p.setProperty("bubbleTextPadding", format(s.bubbleTextPadding()));
+    p.setProperty("bubbleYOffset", format(s.bubbleYOffset()));
+    p.setProperty("bubbleTailSize", format(s.bubbleTailSize()));
     return p;
   }
 
@@ -500,6 +601,19 @@ public final class VnUiLayoutLoader {
     setOptional(p, "choiceFontWeight", s.choiceFontWeight());
     setOptional(p, "characterHeightFactor", s.characterHeightFactor() == null ? null : format(s.characterHeightFactor()));
     setOptional(p, "characterBaselineY", s.characterBaselineY() == null ? null : format(s.characterBaselineY()));
+    setOptional(p, "nvlPanelAsset", s.nvlPanelAssetPath());
+    setOptional(p, "nvlPanelColor", s.nvlPanelColor());
+    setOptional(p, "nvlPanelOpacity", s.nvlPanelOpacity() == null ? null : format(s.nvlPanelOpacity()));
+    setOptional(p, "nvlSpeakerTextColor", s.nvlSpeakerTextColor());
+    setOptional(p, "nvlTextColor", s.nvlTextColor());
+    setOptional(p, "bubbleAsset", s.bubbleAssetPath());
+    setOptional(p, "bubbleColor", s.bubbleColor());
+    setOptional(p, "bubbleOpacity", s.bubbleOpacity() == null ? null : format(s.bubbleOpacity()));
+    setOptional(p, "bubbleBorderColor", s.bubbleBorderColor());
+    setOptional(p, "bubbleSpeakerTextColor", s.bubbleSpeakerTextColor());
+    setOptional(p, "bubbleTextColor", s.bubbleTextColor());
+    setOptional(p, "bubbleCornerRadius", format(s.bubbleCornerRadius()));
+    setOptional(p, "bubbleBorderWidth", format(s.bubbleBorderWidth()));
     return p;
   }
 
@@ -767,6 +881,12 @@ public final class VnUiLayoutLoader {
     diagnostics.add("Value for '" + key + "' was adjusted to " + normalized + " (from " + raw + ")");
   }
 
+  private static void warnAdjustedInt(String key, int raw, int normalized, List<String> diagnostics) {
+    if (diagnostics == null) return;
+    if (raw == normalized) return;
+    diagnostics.add("Value for '" + key + "' was adjusted to " + normalized + " (from " + raw + ")");
+  }
+
   private static boolean nearlyEqual(double a, double b) {
     return Math.abs(a - b) < 1e-9;
   }
@@ -797,6 +917,16 @@ public final class VnUiLayoutLoader {
       return Integer.parseInt(raw.trim());
     } catch (Exception ex) {
       if (diagnostics != null) diagnostics.add("Invalid integer for '" + key + "': '" + raw + "'");
+      return def;
+    }
+  }
+
+  private static int parseInt(String raw, int def, List<String> diagnostics, String key) {
+    if (raw == null || raw.isBlank()) return def;
+    try {
+      return Integer.parseInt(raw.trim());
+    } catch (Exception ex) {
+      if (diagnostics != null) diagnostics.add("Invalid integer for '" + key + "': '" + raw + "' (using " + def + ")");
       return def;
     }
   }

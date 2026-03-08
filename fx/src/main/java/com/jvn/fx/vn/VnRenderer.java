@@ -11,9 +11,11 @@ import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.localization.Localization;
+import com.jvn.core.vn.BubbleAnchor;
 import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
+import com.jvn.core.vn.DialoguePresentationMode;
 import com.jvn.core.vn.DialogueLine;
 import com.jvn.core.vn.VnBackground;
 import com.jvn.core.vn.VnCharacter;
@@ -93,12 +95,23 @@ public class VnRenderer {
   private Image choiceButtonDisabledImage;
   private Image textBoxImage;
   private Image nameBoxImage;
+  private Image nvlPanelImage;
+  private Image bubbleImage;
   private Color textBoxFillColor = TEXTBOX_COLOR;
   private Color nameBoxFillColor = NAME_BOX_COLOR;
   private Color nameTextFillColor = Color.web("#FFD78A");
   private Color dialogueTextFillColor = TEXT_COLOR;
+  private Color nvlPanelFillColor = Color.web("#08111acc");
+  private Color nvlSpeakerTextFillColor = Color.web("#F7D89A");
+  private Color nvlTextFillColor = TEXT_COLOR;
+  private Color bubbleFillColor = Color.web("#152238ee");
+  private Color bubbleBorderFillColor = Color.web("#A9BCD9");
+  private Color bubbleSpeakerTextFillColor = Color.web("#FFD78A");
+  private Color bubbleTextFillColor = Color.web("#F1F5FF");
   private double textBoxAssetOverlayOpacity = 0.28;
   private double nameBoxRenderOpacity = 1.0;
+  private double nvlPanelOpacity = 0.84;
+  private double bubbleOpacity = 0.96;
   private Color choiceBgColor = CHOICE_BG_COLOR;
   private Color choiceHoverColor = CHOICE_HOVER_COLOR;
   private Color choiceDisabledColor = CHOICE_DISABLED_COLOR;
@@ -111,6 +124,8 @@ public class VnRenderer {
   private double choiceCornerRadius = DEFAULT_CHOICE_RADIUS;
   private double choiceBorderWidth = DEFAULT_CHOICE_BORDER_WIDTH;
   private double choiceTextBaselineOffset = DEFAULT_CHOICE_TEXT_BASELINE_OFFSET;
+  private double bubbleCornerRadius = 20.0;
+  private double bubbleBorderWidth = 2.0;
   private double nameTextXAlign = 0.0;
   private double dialogueTextXAlign = 0.0;
   private double choiceTextXAlign = 0.0;
@@ -263,6 +278,9 @@ public class VnRenderer {
           renderDialogue(currentNode.getDialogue(), state, width, height, -1);
           break;
         case CHOICE:
+          if (state.getDialoguePresentationMode() == DialoguePresentationMode.NVL) {
+            renderNvlHistory(state, width, height);
+          }
           renderChoices(currentNode.getChoices(), width, height, -1);
           break;
         case BACKGROUND:
@@ -320,6 +338,9 @@ public class VnRenderer {
     if (currentNode != null && !state.isUiHidden()) {
       if (currentNode.getType() == VnNodeType.CHOICE) {
         int hoverIndex = getHoveredChoiceIndex(currentNode.getChoices(), width, height, mouseX, mouseY);
+        if (state.getDialoguePresentationMode() == DialoguePresentationMode.NVL) {
+          renderNvlHistory(state, width, height);
+        }
         renderChoices(currentNode.getChoices(), width, height, hoverIndex);
       } else if (currentNode.getType() == VnNodeType.DIALOGUE) {
         int hoverButton = getHoveredTextBoxButtonIndex(state, width, height, mouseX, mouseY);
@@ -596,7 +617,30 @@ public class VnRenderer {
     }
   }
 
+  private record DialogueRenderEntry(String speaker, String text, int revealedChars) {}
+
+  private record BubbleGeometry(
+      double x,
+      double y,
+      double width,
+      double height,
+      double anchorX,
+      double anchorY,
+      double tailSize,
+      boolean tailOnTop
+  ) {}
+
   private void renderDialogue(DialogueLine dialogue, VnState state, double width, double height, int hoveredButtonIndex) {
+    if (dialogue == null) return;
+    DialoguePresentationMode mode = state == null ? DialoguePresentationMode.STANDARD : state.getDialoguePresentationMode();
+    switch (mode) {
+      case NVL -> renderNvlDialogue(dialogue, state, width, height);
+      case BUBBLE -> renderBubbleDialogue(dialogue, state, width, height);
+      default -> renderStandardDialogue(dialogue, state, width, height, hoveredButtonIndex);
+    }
+  }
+
+  private void renderStandardDialogue(DialogueLine dialogue, VnState state, double width, double height, int hoveredButtonIndex) {
     if (dialogue == null) return;
 
     TextBoxGeometry textBox = computeTextBoxGeometry(width, height);
@@ -698,6 +742,172 @@ public class VnRenderer {
     renderTextBoxButtons(textBox, hoveredButtonIndex);
   }
 
+  private void renderNvlHistory(VnState state, double width, double height) {
+    renderNvlEntries(collectNvlEntries(state, null), width, height);
+  }
+
+  private void renderNvlDialogue(DialogueLine dialogue, VnState state, double width, double height) {
+    renderNvlEntries(collectNvlEntries(state, dialogue), width, height);
+  }
+
+  private void renderNvlEntries(List<DialogueRenderEntry> entries, double width, double height) {
+    if (entries == null || entries.isEmpty()) return;
+    double panelX = clamp(uiLayout.nvlX() * width, 0.0, width);
+    double panelY = clamp(uiLayout.nvlY() * height, 0.0, height);
+    double panelW = clamp(uiLayout.nvlWidth() * width, 120.0, width - panelX);
+    double panelH = clamp(uiLayout.nvlHeight() * height, 80.0, height - panelY);
+    double pad = uiLayout.nvlPadding();
+    double speakerW = Math.max(40.0, uiLayout.nvlSpeakerWidth());
+    double entryGap = Math.max(0.0, uiLayout.nvlEntryGap());
+    double bodyGap = 16.0;
+
+    drawPanel(nvlPanelImage, nvlPanelFillColor, nvlPanelOpacity, panelX, panelY, panelW, panelH, 18.0, null, 0.0);
+
+    gc.save();
+    gc.beginPath();
+    gc.rect(panelX, panelY, panelW, panelH);
+    gc.closePath();
+    gc.clip();
+
+    double y = panelY + pad + nameFont.getSize();
+    double textX = panelX + pad + speakerW + bodyGap;
+    double textWidth = Math.max(80.0, panelW - pad * 2 - speakerW - bodyGap);
+    double speakerX = panelX + pad;
+
+    for (DialogueRenderEntry entry : entries) {
+      if (y > panelY + panelH) break;
+      String speaker = entry.speaker() == null ? "" : entry.speaker();
+      gc.setFill(nvlSpeakerTextFillColor);
+      gc.setFont(nameFont);
+      gc.fillText(truncateText(speaker, Math.max(20.0, speakerW - 8.0), nameFont), speakerX, y);
+
+      String text = entry.text() == null ? "" : entry.text();
+      List<TextSpan> spans = TextParser.parse(text);
+      int revealed = Math.min(entry.revealedChars(), TextParser.plainLength(text));
+      double bodyTop = y;
+      drawStyledText(spans, revealed, textX, bodyTop, textWidth, 0.0, dialogueFont, nvlTextFillColor);
+      double bodyHeight = measureStyledTextHeight(spans, revealed, textWidth, dialogueFont);
+      double entryHeight = Math.max(nameFont.getSize() * 1.2, bodyHeight);
+      y += entryHeight + entryGap;
+    }
+
+    gc.restore();
+  }
+
+  private void renderBubbleDialogue(DialogueLine dialogue, VnState state, double width, double height) {
+    if (dialogue == null) return;
+    String speaker = resolveRuntimeText(dialogue.getSpeakerName());
+    String fullText = resolveRuntimeText(dialogue.getText());
+    List<TextSpan> spans = TextParser.parse(fullText);
+    int revealedChars = Math.min(state.getTextRevealProgress(), TextParser.plainLength(fullText));
+
+    BubbleGeometry bubble = resolveBubbleGeometry(dialogue, state, width, height, speaker, spans, revealedChars);
+    drawBubblePanel(bubble);
+
+    double pad = uiLayout.bubbleTextPadding();
+    double textX = bubble.x() + pad;
+    double contentWidth = Math.max(80.0, bubble.width() - pad * 2);
+    double y = bubble.y() + pad + nameFont.getSize();
+    if (speaker != null && !speaker.isBlank()) {
+      gc.setFill(bubbleSpeakerTextFillColor);
+      gc.setFont(nameFont);
+      gc.fillText(speaker, textX, y);
+      y += nameFont.getSize() * 0.95;
+    }
+    drawStyledText(spans, revealedChars, textX, y, contentWidth, 0.0, dialogueFont, bubbleTextFillColor);
+
+    if (revealedChars >= TextParser.plainLength(fullText) && state.isWaitingForInput()) {
+      double indicatorY = bubble.tailOnTop() ? bubble.y() + bubble.height() - 14.0 : bubble.y() + bubble.height() - 18.0;
+      drawContinueIndicator(bubble.x() + bubble.width() - 24.0, indicatorY);
+    }
+  }
+
+  private BubbleGeometry resolveBubbleGeometry(
+      DialogueLine dialogue,
+      VnState state,
+      double width,
+      double height,
+      String speaker,
+      List<TextSpan> spans,
+      int revealedChars
+  ) {
+    double maxWidth = clamp(width * uiLayout.bubbleWidthFactor(), 180.0, Math.min(width - 32.0, 620.0));
+    double pad = uiLayout.bubbleTextPadding();
+    double contentWidth = Math.max(120.0, maxWidth - pad * 2);
+    double textHeight = measureStyledTextHeight(spans, revealedChars, contentWidth, dialogueFont);
+    double speakerHeight = (speaker == null || speaker.isBlank()) ? 0.0 : nameFont.getSize() * 1.15;
+    double bubbleH = Math.max(uiLayout.bubbleMinHeight(), pad * 2 + textHeight + speakerHeight);
+    double tailSize = uiLayout.bubbleTailSize();
+
+    double anchorX = width * 0.5;
+    double anchorY = height * 0.58;
+    String characterId = dialogue.getCharacterId();
+    if (characterId != null && !characterId.isBlank()) {
+      BubbleAnchor pref = state.getBubbleAnchorPreference(characterId);
+      if (pref != BubbleAnchor.AUTO) {
+        anchorX = switch (pref) {
+          case LEFT -> width * 0.25;
+          case CENTER -> width * 0.50;
+          case RIGHT -> width * 0.75;
+          default -> anchorX;
+        };
+      } else {
+        CharacterPosition position = state.getCharacterPosition(characterId);
+        if (position == null) position = state.getCharacterDefinedPosition(characterId);
+        if (position == null) position = dialogue.getPosition();
+        if (position != null) {
+          anchorX = width * position.getXFraction();
+          double spriteHeight = height * characterHeightFactor;
+          double topY = position.computeScreenY(height, spriteHeight, characterBaselineY);
+          VnState.CharacterVisual visual = state.getCharacterVisual(position);
+          if (visual != null) {
+            anchorX += visual.getOffsetX();
+            topY += visual.getOffsetY();
+          }
+          anchorY = topY + spriteHeight * 0.22;
+        }
+      }
+      anchorX += state.getBubbleOffsetXPreference(characterId);
+      anchorY += state.getBubbleOffsetYPreference(characterId);
+    } else if (dialogue.getPosition() != null) {
+      anchorX = width * dialogue.getPosition().getXFraction();
+      double spriteHeight = height * characterHeightFactor;
+      anchorY = dialogue.getPosition().computeScreenY(height, spriteHeight, characterBaselineY) + spriteHeight * 0.22;
+    }
+
+    double bubbleX = clamp(anchorX - maxWidth / 2.0, 16.0, Math.max(16.0, width - maxWidth - 16.0));
+    double bubbleY = anchorY - bubbleH - tailSize - uiLayout.bubbleYOffset();
+    boolean tailOnTop = false;
+    if (bubbleY < 16.0) {
+      bubbleY = anchorY + tailSize + Math.max(8.0, uiLayout.bubbleYOffset() * 0.35);
+      tailOnTop = true;
+    }
+    bubbleY = clamp(bubbleY, 16.0, Math.max(16.0, height - bubbleH - 16.0));
+    return new BubbleGeometry(bubbleX, bubbleY, maxWidth, bubbleH, anchorX, anchorY, tailSize, tailOnTop);
+  }
+
+  private List<DialogueRenderEntry> collectNvlEntries(VnState state, DialogueLine currentDialogue) {
+    List<DialogueRenderEntry> entries = new ArrayList<>();
+    if (state == null) return entries;
+    List<com.jvn.core.vn.VnHistory.HistoryEntry> historyEntries = state.getHistory().getEntries();
+    int maxEntries = Math.max(1, uiLayout.nvlMaxEntries());
+    int start = Math.max(0, historyEntries.size() - maxEntries);
+    for (int i = start; i < historyEntries.size(); i++) {
+      var entry = historyEntries.get(i);
+      String text = entry.getText() == null ? "" : entry.getText();
+      entries.add(new DialogueRenderEntry(entry.getSpeaker(), text, TextParser.plainLength(text)));
+    }
+    if (currentDialogue != null && !entries.isEmpty()) {
+      String text = resolveRuntimeText(currentDialogue.getText());
+      DialogueRenderEntry last = entries.get(entries.size() - 1);
+      entries.set(entries.size() - 1, new DialogueRenderEntry(
+          resolveRuntimeText(currentDialogue.getSpeakerName()),
+          text,
+          Math.min(state.getTextRevealProgress(), TextParser.plainLength(text))));
+    }
+    return entries;
+  }
+
   private void renderTextBoxButtons(TextBoxGeometry textBox, int hoveredButtonIndex) {
     if (textBoxButtons == null || textBoxButtons.isEmpty()) return;
     for (int i = 0; i < textBoxButtons.size(); i++) {
@@ -765,8 +975,31 @@ public class VnRenderer {
   private record StyledLine(List<StyledGlyph> glyphs, double width) {}
 
   private void drawStyledText(List<TextSpan> spans, int revealedChars, double startX, double startY, double maxWidth, double xAlign) {
-    gc.setFont(dialogueFont);
-    double lineHeight = Math.max(22.0, dialogueFont.getSize() * 1.15);
+    drawStyledText(spans, revealedChars, startX, startY, maxWidth, xAlign, dialogueFont, dialogueTextFillColor);
+  }
+
+  private void drawStyledText(
+      List<TextSpan> spans,
+      int revealedChars,
+      double startX,
+      double startY,
+      double maxWidth,
+      double xAlign,
+      Font baseFont,
+      Color defaultTextColor
+  ) {
+    List<StyledLine> lines = layoutStyledLines(spans, revealedChars, maxWidth, baseFont, defaultTextColor);
+    drawStyledLines(lines, startX, startY, maxWidth, xAlign, baseFont, defaultTextColor);
+  }
+
+  private List<StyledLine> layoutStyledLines(
+      List<TextSpan> spans,
+      int revealedChars,
+      double maxWidth,
+      Font baseFont,
+      Color defaultTextColor
+  ) {
+    gc.setFont(baseFont);
     List<StyledLine> lines = new ArrayList<>();
     List<StyledGlyph> currentLine = new ArrayList<>();
     double currentLineWidth = 0.0;
@@ -782,12 +1015,12 @@ public class VnRenderer {
       }
 
       if (visibleChars > 0) {
-        Color spanColor = span.hasColor() ? parseColorHex(span.getColorHex()) : dialogueTextFillColor;
-        Font effectFont = dialogueFont;
+        Color spanColor = span.hasColor() ? parseColorHex(span.getColorHex()) : defaultTextColor;
+        Font effectFont = baseFont;
         if (span.getEffect() == TextEffect.BOLD) {
-          effectFont = Font.font(dialogueFont.getFamily(), FontWeight.BOLD, dialogueFont.getSize());
+          effectFont = Font.font(baseFont.getFamily(), FontWeight.BOLD, baseFont.getSize());
         } else if (span.getEffect() == TextEffect.ITALIC) {
-          effectFont = Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, dialogueFont.getSize());
+          effectFont = Font.font(baseFont.getFamily(), FontWeight.NORMAL, baseFont.getSize());
         }
 
         for (int i = 0; i < visibleChars; i++) {
@@ -818,7 +1051,19 @@ public class VnRenderer {
     if (!currentLine.isEmpty() || lines.isEmpty()) {
       lines.add(new StyledLine(List.copyOf(currentLine), currentLineWidth));
     }
+    return lines;
+  }
 
+  private void drawStyledLines(
+      List<StyledLine> lines,
+      double startX,
+      double startY,
+      double maxWidth,
+      double xAlign,
+      Font baseFont,
+      Color defaultTextColor
+  ) {
+    double lineHeight = Math.max(22.0, baseFont.getSize() * 1.15);
     for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
       StyledLine line = lines.get(lineIndex);
       double x = resolveAlignedTextX(startX, maxWidth, line.width(), xAlign);
@@ -847,8 +1092,14 @@ public class VnRenderer {
       }
     }
 
-    gc.setFont(dialogueFont);
-    gc.setFill(dialogueTextFillColor);
+    gc.setFont(baseFont);
+    gc.setFill(defaultTextColor);
+  }
+
+  private double measureStyledTextHeight(List<TextSpan> spans, int revealedChars, double maxWidth, Font baseFont) {
+    List<StyledLine> lines = layoutStyledLines(spans, revealedChars, maxWidth, baseFont, dialogueTextFillColor);
+    double lineHeight = Math.max(22.0, baseFont.getSize() * 1.15);
+    return Math.max(lineHeight, lines.size() * lineHeight);
   }
 
   private Color parseColorHex(String hex) {
@@ -869,12 +1120,31 @@ public class VnRenderer {
     VnUiStyleSpec resolved = style == null ? VnUiStyleSpec.defaults() : style;
     textBoxImage = loadImage(resolved.textBoxAssetPath());
     nameBoxImage = loadImage(resolved.nameBoxAssetPath());
+    nvlPanelImage = loadImage(resolved.nvlPanelAssetPath());
+    bubbleImage = loadImage(resolved.bubbleAssetPath());
     textBoxFillColor = parseColor(resolved.textBoxColor(), TEXTBOX_COLOR);
     nameBoxFillColor = parseColor(resolved.nameBoxColor(), NAME_BOX_COLOR);
     nameTextFillColor = parseColor(resolved.nameTextColor(), Color.web("#FFD78A"));
     dialogueTextFillColor = parseColor(resolved.dialogueTextColor(), TEXT_COLOR);
+    nvlPanelFillColor = parseColor(resolved.nvlPanelColor(), Color.web("#08111acc"));
+    nvlSpeakerTextFillColor = parseColor(resolved.nvlSpeakerTextColor(), Color.web("#F7D89A"));
+    nvlTextFillColor = parseColor(resolved.nvlTextColor(), dialogueTextFillColor);
+    bubbleFillColor = parseColor(resolved.bubbleColor(), Color.web("#152238ee"));
+    bubbleBorderFillColor = parseColor(resolved.bubbleBorderColor(), Color.web("#A9BCD9"));
+    bubbleSpeakerTextFillColor = parseColor(resolved.bubbleSpeakerTextColor(), Color.web("#FFD78A"));
+    bubbleTextFillColor = parseColor(resolved.bubbleTextColor(), dialogueTextFillColor);
     textBoxAssetOverlayOpacity = clamp(
         resolved.textBoxOpacity() == null ? 0.88 : resolved.textBoxOpacity(),
+        0.0,
+        1.0
+    );
+    nvlPanelOpacity = clamp(
+        resolved.nvlPanelOpacity() == null ? 0.84 : resolved.nvlPanelOpacity(),
+        0.0,
+        1.0
+    );
+    bubbleOpacity = clamp(
+        resolved.bubbleOpacity() == null ? 0.96 : resolved.bubbleOpacity(),
         0.0,
         1.0
     );
@@ -912,6 +1182,8 @@ public class VnRenderer {
     choiceBorderWidth = clamp(resolved.choiceBorderWidth(), 0.0, 12.0);
     choiceCornerRadius = clamp(resolved.choiceCornerRadius(), 0.0, 96.0);
     choiceTextBaselineOffset = clamp(resolved.choiceTextBaselineOffset(), -120.0, 120.0);
+    bubbleCornerRadius = clamp(resolved.bubbleCornerRadius(), 0.0, 96.0);
+    bubbleBorderWidth = clamp(resolved.bubbleBorderWidth(), 0.0, 12.0);
     nameTextXAlign = clamp(resolved.nameTextXAlign() == null ? 0.0 : resolved.nameTextXAlign(), 0.0, 1.0);
     dialogueTextXAlign = clamp(resolved.dialogueTextXAlign() == null ? 0.0 : resolved.dialogueTextXAlign(), 0.0, 1.0);
     choiceTextXAlign = clamp(resolved.choiceTextXAlign() == null ? 0.0 : resolved.choiceTextXAlign(), 0.0, 1.0);
@@ -1327,6 +1599,67 @@ public class VnRenderer {
     gc.fillRect(0, 0, width, height);
   }
 
+  private void drawPanel(
+      Image asset,
+      Color fillColor,
+      double opacity,
+      double x,
+      double y,
+      double width,
+      double height,
+      double radius,
+      Color borderColor,
+      double borderWidth
+  ) {
+    double prevAlpha = gc.getGlobalAlpha();
+    gc.setGlobalAlpha(prevAlpha * clamp(opacity, 0.0, 1.0));
+    if (asset != null) {
+      gc.drawImage(asset, x, y, width, height);
+    } else {
+      gc.setFill(fillColor);
+      gc.fillRoundRect(x, y, width, height, radius, radius);
+    }
+    gc.setGlobalAlpha(prevAlpha);
+    if (borderColor != null && borderWidth > 0.0) {
+      gc.setStroke(borderColor);
+      gc.setLineWidth(borderWidth);
+      gc.strokeRoundRect(x, y, width, height, radius, radius);
+    }
+  }
+
+  private void drawBubblePanel(BubbleGeometry bubble) {
+    if (bubble == null) return;
+    drawPanel(
+        bubbleImage,
+        bubbleFillColor,
+        bubbleOpacity,
+        bubble.x(),
+        bubble.y(),
+        bubble.width(),
+        bubble.height(),
+        bubbleCornerRadius,
+        bubbleBorderFillColor,
+        bubbleBorderWidth
+    );
+
+    double tailHalf = bubble.tailSize() * 0.58;
+    double tailCenter = clamp(
+        bubble.anchorX(),
+        bubble.x() + bubble.tailSize(),
+        bubble.x() + bubble.width() - bubble.tailSize());
+    double baseY = bubble.tailOnTop() ? bubble.y() : bubble.y() + bubble.height();
+    double tipY = bubble.anchorY();
+    double[] xs = new double[] {tailCenter - tailHalf, tailCenter + tailHalf, bubble.anchorX()};
+    double[] ys = bubble.tailOnTop()
+        ? new double[] {baseY, baseY, tipY}
+        : new double[] {baseY, baseY, tipY};
+    gc.setFill(withOpacity(bubbleFillColor, bubbleOpacity));
+    gc.fillPolygon(xs, ys, 3);
+    gc.setStroke(bubbleBorderFillColor);
+    gc.setLineWidth(bubbleBorderWidth);
+    gc.strokePolygon(xs, ys, 3);
+  }
+
   private void drawWrappedText(String text, double x, double y, double maxWidth, Font font) {
     gc.setFont(font);
     String[] words = text.split(" ");
@@ -1442,6 +1775,7 @@ public class VnRenderer {
 
   private int getHoveredTextBoxButtonIndex(VnState state, double width, double height, double mouseX, double mouseY) {
     if (state == null || state.isUiHidden()) return -1;
+    if (state.getDialoguePresentationMode() != DialoguePresentationMode.STANDARD) return -1;
     if (textBoxButtons == null || textBoxButtons.isEmpty()) return -1;
     VnNode currentNode = state.getCurrentNode();
     if (currentNode == null || currentNode.getType() != VnNodeType.DIALOGUE) return -1;

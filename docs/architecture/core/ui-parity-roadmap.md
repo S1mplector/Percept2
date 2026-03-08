@@ -13,13 +13,13 @@ JVN already has:
 - history and save/load runtime support
 - editor-side dialogue/menu layout tools
 
-What it does not yet have is a complete "screen stack parity" story comparable to Ren'Py's `screens.rpy` + `gui.rpy` workflow.
+What it did not yet have at the start of this roadmap was a complete "screen stack parity" story comparable to Ren'Py's `screens.rpy` + `gui.rpy` workflow.
 
 That gap shows up in three ways:
 
 1. Some presentation controls Ren'Py teams expect are still missing from the dialogue layout DSL.
 2. Some runtime screens are still hardcoded renderer overlays instead of data-driven themed screens.
-3. Alternate presentation modes such as NVL and bubble dialogue are not first-class JVN runtime concepts yet.
+3. Alternate presentation modes such as NVL and bubble dialogue needed to become first-class JVN runtime concepts.
 
 ## Audit Evidence
 
@@ -193,7 +193,7 @@ Patch requirements:
 
 Status:
 
-- not started
+- completed
 
 ### `bubble`
 
@@ -209,7 +209,7 @@ Patch requirements:
 
 Status:
 
-- not started
+- completed
 
 ### `gui.rpy` Variable Migration
 
@@ -302,9 +302,9 @@ Relevant existing surface:
 - [`save-load-screens.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/layout/screens/save-load-screens.md)
 - [`settings-screen.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/layout/screens/settings-screen.md)
 
-### 5. Migration Tooling
+### 5. Optional Migration Tooling
 
-Manual translation from `gui.rpy` and `screens.rpy` is unnecessary friction.
+Manual translation from `gui.rpy` and `screens.rpy` is useful, but it is not required for functional parity.
 
 Required patches:
 
@@ -318,6 +318,10 @@ Required patches:
 
 This should be a migration assistant, not a full transpiler.
 
+Status:
+
+- deferred
+
 ## Recommended Execution Order
 
 1. Dialogue Layout DSL parity
@@ -325,13 +329,14 @@ This should be a migration assistant, not a full transpiler.
 3. Menu screen parity cleanup
 4. NVL mode
 5. Bubble mode
-6. Ren'Py UI import assistant
+6. Optional Ren'Py UI import assistant
 
 This order is deliberate:
 
 - It starts with the smallest high-value mapping layer.
 - It then removes the biggest hardcoded UI surfaces.
 - It leaves alternate modes until the main layout/config foundation is stronger.
+- Import tooling is optional once the runtime/editor surface matches in functionality.
 
 ## Started In This Batch
 
