@@ -121,6 +121,9 @@ public class VnRenderer {
   private double choiceCornerRadius = DEFAULT_CHOICE_RADIUS;
   private double choiceBorderWidth = DEFAULT_CHOICE_BORDER_WIDTH;
   private double choiceTextBaselineOffset = DEFAULT_CHOICE_TEXT_BASELINE_OFFSET;
+  private double nameTextXAlign = 0.0;
+  private double dialogueTextXAlign = 0.0;
+  private double choiceTextXAlign = 0.0;
   private List<BoundsPointCodec.Point> textBoxBoundsPolygon = List.of();
   private List<BoundsPointCodec.Point> nameBoxBoundsPolygon = List.of();
   private List<BoundsPointCodec.Point> dialogueTextBoundsPolygon = List.of();
@@ -852,9 +855,12 @@ public class VnRenderer {
 
       gc.setFill(nameTextFillColor);
       gc.setFont(nameFont);
+      double nameContentX = nameBoxX + uiLayout.nameTextXOffset();
+      double nameContentW = Math.max(0, nameBoxW - uiLayout.nameTextXOffset() * 2);
+      double nameTextW = computeTextWidth(speakerName, nameFont);
       gc.fillText(
           speakerName,
-          nameBoxX + uiLayout.nameTextXOffset(),
+          resolveAlignedTextX(nameContentX, nameContentW, nameTextW, nameTextXAlign),
           nameBoxY + uiLayout.nameTextBaselineOffset()
       );
     }
@@ -882,7 +888,7 @@ public class VnRenderer {
       gc.closePath();
       gc.clip();
     }
-    drawStyledText(spans, revealedLength, textX, textY, textWidth);
+    drawStyledText(spans, revealedLength, textX, textY, textWidth, dialogueTextXAlign);
     gc.restore();
 
     // Draw continue indicator if text is fully revealed
@@ -955,85 +961,95 @@ public class VnRenderer {
     }
   }
 
-  private void drawStyledText(List<TextSpan> spans, int revealedChars, double startX, double startY, double maxWidth) {
+  private record StyledGlyph(char value, Font font, Color color, TextEffect effect, int glyphIndex, double width) {}
+
+  private record StyledLine(List<StyledGlyph> glyphs, double width) {}
+
+  private void drawStyledText(List<TextSpan> spans, int revealedChars, double startX, double startY, double maxWidth, double xAlign) {
     gc.setFont(dialogueFont);
-    double x = startX;
-    double y = startY;
-    double lineHeight = 22;
+    double lineHeight = Math.max(22.0, dialogueFont.getSize() * 1.15);
+    List<StyledLine> lines = new ArrayList<>();
+    List<StyledGlyph> currentLine = new ArrayList<>();
+    double currentLineWidth = 0.0;
     int charCount = 0;
+    int glyphIndex = 0;
 
     for (TextSpan span : spans) {
       String text = span.getText();
       int spanLen = text.length();
-      
-      // Calculate how many chars of this span to show
       int visibleChars = 0;
       if (charCount < revealedChars) {
         visibleChars = Math.min(spanLen, revealedChars - charCount);
       }
-      
+
       if (visibleChars > 0) {
-        String visibleText = text.substring(0, visibleChars);
-        
-        // Apply color if specified
-        if (span.hasColor()) {
-          gc.setFill(parseColorHex(span.getColorHex()));
-        } else {
-          gc.setFill(dialogueTextFillColor);
-        }
-        
-        // Apply font style for bold/italic
+        Color spanColor = span.hasColor() ? parseColorHex(span.getColorHex()) : dialogueTextFillColor;
         Font effectFont = dialogueFont;
         if (span.getEffect() == TextEffect.BOLD) {
           effectFont = Font.font(dialogueFont.getFamily(), FontWeight.BOLD, dialogueFont.getSize());
         } else if (span.getEffect() == TextEffect.ITALIC) {
           effectFont = Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, dialogueFont.getSize());
         }
-        gc.setFont(effectFont);
-        
-        // Draw each character with effects
-        for (int i = 0; i < visibleText.length(); i++) {
-          char c = visibleText.charAt(i);
+
+        for (int i = 0; i < visibleChars; i++) {
+          char c = text.charAt(i);
+          if (c == '\n') {
+            lines.add(new StyledLine(List.copyOf(currentLine), currentLineWidth));
+            currentLine.clear();
+            currentLineWidth = 0.0;
+            continue;
+          }
+
           double charWidth = computeTextWidth(String.valueOf(c), effectFont);
-          
-          // Check for line wrap
-          if (x + charWidth > startX + maxWidth) {
-            x = startX;
-            y += lineHeight;
+          if (!currentLine.isEmpty() && currentLineWidth + charWidth > maxWidth) {
+            lines.add(new StyledLine(List.copyOf(currentLine), currentLineWidth));
+            currentLine.clear();
+            currentLineWidth = 0.0;
           }
-          
-          // Apply effect offset
-          double offsetX = 0, offsetY = 0;
-          double effectPhase = (animationTime * 0.01) + (charCount + i) * 0.3;
-          
-          switch (span.getEffect()) {
-            case SHAKE -> {
-              offsetX = (Math.random() - 0.5) * 3;
-              offsetY = (Math.random() - 0.5) * 3;
-            }
-            case WAVE -> {
-              offsetY = Math.sin(effectPhase) * 3;
-            }
-            case BOUNCE -> {
-              offsetY = Math.abs(Math.sin(effectPhase * 2)) * -4;
-            }
-            case RAINBOW -> {
-              double hue = (effectPhase * 50) % 360;
-              gc.setFill(Color.hsb(hue, 0.8, 1.0));
-            }
-            default -> {}
-          }
-          
-          gc.fillText(String.valueOf(c), x + offsetX, y + offsetY);
-          x += charWidth;
+
+          currentLine.add(new StyledGlyph(c, effectFont, spanColor, span.getEffect(), glyphIndex, charWidth));
+          currentLineWidth += charWidth;
+          glyphIndex++;
         }
-        
-        // Reset font after span
-        gc.setFont(dialogueFont);
       }
-      
+
       charCount += spanLen;
     }
+
+    if (!currentLine.isEmpty() || lines.isEmpty()) {
+      lines.add(new StyledLine(List.copyOf(currentLine), currentLineWidth));
+    }
+
+    for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
+      StyledLine line = lines.get(lineIndex);
+      double x = resolveAlignedTextX(startX, maxWidth, line.width(), xAlign);
+      double y = startY + lineIndex * lineHeight;
+
+      for (StyledGlyph glyph : line.glyphs()) {
+        gc.setFill(glyph.color());
+        gc.setFont(glyph.font());
+
+        double offsetX = 0.0;
+        double offsetY = 0.0;
+        double effectPhase = (animationTime * 0.01) + glyph.glyphIndex() * 0.3;
+        switch (glyph.effect()) {
+          case SHAKE -> {
+            offsetX = (Math.random() - 0.5) * 3;
+            offsetY = (Math.random() - 0.5) * 3;
+          }
+          case WAVE -> offsetY = Math.sin(effectPhase) * 3;
+          case BOUNCE -> offsetY = Math.abs(Math.sin(effectPhase * 2)) * -4;
+          case RAINBOW -> gc.setFill(Color.hsb((effectPhase * 50) % 360, 0.8, 1.0));
+          default -> {}
+        }
+
+        gc.fillText(String.valueOf(glyph.value()), x + offsetX, y + offsetY);
+        x += glyph.width();
+      }
+    }
+
+    gc.setFont(dialogueFont);
+    gc.setFill(dialogueTextFillColor);
   }
 
   private Color parseColorHex(String hex) {
@@ -1097,6 +1113,9 @@ public class VnRenderer {
     choiceBorderWidth = clamp(resolved.choiceBorderWidth(), 0.0, 12.0);
     choiceCornerRadius = clamp(resolved.choiceCornerRadius(), 0.0, 96.0);
     choiceTextBaselineOffset = clamp(resolved.choiceTextBaselineOffset(), -120.0, 120.0);
+    nameTextXAlign = clamp(resolved.nameTextXAlign() == null ? 0.0 : resolved.nameTextXAlign(), 0.0, 1.0);
+    dialogueTextXAlign = clamp(resolved.dialogueTextXAlign() == null ? 0.0 : resolved.dialogueTextXAlign(), 0.0, 1.0);
+    choiceTextXAlign = clamp(resolved.choiceTextXAlign() == null ? 0.0 : resolved.choiceTextXAlign(), 0.0, 1.0);
 
     // Apply font settings from style spec (font weight from spec, with sensible defaults)
     String nameFontFamily = resolved.nameTextFontFamily() != null ? resolved.nameTextFontFamily() : DEFAULT_FONT_FAMILY;
@@ -1313,9 +1332,13 @@ public class VnRenderer {
       Color textColor = !enabled ? choiceDisabledTextColor : (hovered ? choiceHoverTextColor : choiceTextColor);
       gc.setFill(textColor);
       gc.setFont(choiceFont);
+      String choiceText = resolveRuntimeText(choice.getText());
+      double contentX = geo.choiceX() + uiLayout.choiceTextXPadding();
+      double contentWidth = Math.max(0, geo.choiceWidth() - uiLayout.choiceTextXPadding() * 2);
+      double textWidth = computeTextWidth(choiceText, choiceFont);
       gc.fillText(
-          resolveRuntimeText(choice.getText()),
-          geo.choiceX() + uiLayout.choiceTextXPadding(),
+          choiceText,
+          resolveAlignedTextX(contentX, contentWidth, textWidth, choiceTextXAlign),
           y + geo.choiceHeight() / 2 + choiceTextBaselineOffset
       );
     }
@@ -1534,6 +1557,12 @@ public class VnRenderer {
     javafx.scene.text.Text helper = new javafx.scene.text.Text(text);
     helper.setFont(font);
     return helper.getLayoutBounds().getWidth();
+  }
+
+  private double resolveAlignedTextX(double contentX, double contentWidth, double textWidth, double xAlign) {
+    double clampedAlign = clamp(xAlign, 0.0, 1.0);
+    double available = Math.max(0.0, contentWidth - textWidth);
+    return contentX + available * clampedAlign;
   }
 
   private double clamp(double value, double min, double max) {

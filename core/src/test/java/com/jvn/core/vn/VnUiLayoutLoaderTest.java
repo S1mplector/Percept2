@@ -52,8 +52,11 @@ class VnUiLayoutLoaderTest {
     p.setProperty("choiceButtonAsset", "assets/ui/choice.png");
     p.setProperty("choiceButtonBoundsPoints", "0,0;1,0;0.9,1;0.1,1");
     p.setProperty("choiceHoverColor", "#4466aa");
+    p.setProperty("nameTextXAlign", "0.5");
+    p.setProperty("dialogueTextXAlign", "1.0");
     p.setProperty("choiceBorderWidth", "3");
     p.setProperty("choiceTextBaselineOffset", "7");
+    p.setProperty("choiceTextXAlign", "0.5");
     p.setProperty("characterHeightFactor", "1.2");
     p.setProperty("characterBaselineY", "0.95");
 
@@ -64,24 +67,42 @@ class VnUiLayoutLoaderTest {
     assertEquals("assets/ui/choice.png", style.choiceButtonAssetPath());
     assertEquals("0,0;1,0;0.9,1;0.1,1", style.choiceButtonBoundsPoints());
     assertEquals("#4466aa", style.choiceHoverColor());
+    assertEquals(0.5, style.nameTextXAlign(), 1e-6);
+    assertEquals(1.0, style.dialogueTextXAlign(), 1e-6);
     assertEquals(3.0, style.choiceBorderWidth(), 1e-6);
     assertEquals(7.0, style.choiceTextBaselineOffset(), 1e-6);
+    assertEquals(0.5, style.choiceTextXAlign(), 1e-6);
     assertEquals(1.2, style.characterHeightFactor(), 1e-6);
     assertEquals(0.95, style.characterBaselineY(), 1e-6);
+  }
+
+  @Test
+  void serializesTextAlignmentStyleKeys() {
+    Properties raw = new Properties();
+    raw.setProperty("nameTextXAlign", "0.5");
+    raw.setProperty("dialogueTextXAlign", "1.0");
+    raw.setProperty("choiceTextXAlign", "0.25");
+
+    VnUiStyleSpec style = VnUiLayoutLoader.parseStyle(raw, VnUiStyleSpec.defaults());
+    Properties serialized = VnUiLayoutLoader.toStyleProperties(style);
+
+    assertEquals("0.5", serialized.getProperty("nameTextXAlign"));
+    assertEquals("1", serialized.getProperty("dialogueTextXAlign"));
+    assertEquals("0.25", serialized.getProperty("choiceTextXAlign"));
   }
 
   @Test
   void serializesCharacterFramingStyleKeys() {
     VnUiStyleSpec style = new VnUiStyleSpec(
         null, null, null, null,
-        null, null, null, null, null, null,
+        null, null, null, null, null, null, null,
         null, null,
+        null, null, null, null, null, null,
         null, null, null, null, null,
-        null, null, null, null, null,
         null, null, null, null,
         null, null, null, null,
         null, null, null, null,
-        10.0, 2.0, 5.0,
+        10.0, 2.0, 5.0, null,
         null, null, null,
         1.15, 0.9
     );
@@ -96,15 +117,15 @@ class VnUiLayoutLoaderTest {
   void serializesStyleBoundsPointKeys() {
     VnUiStyleSpec style = new VnUiStyleSpec(
         null, null, null, "0,0;1,0;1,1;0,1",
-        null, null, null, null, null, null,
+        null, null, null, null, null, null, null,
         "0,0;1,0;0.85,1;0.15,1", null,
-        null, null, null, null,
+        null, null, null, null, null,
         "0.05,0.05;0.95,0.05;0.95,0.95;0.05,0.95",
         null, null, null, null, "0,0;1,0;0.9,1;0.1,1",
         null, null, null, null,
         null, null, null, null,
         null, null, null, null,
-        10.0, 2.0, 5.0,
+        10.0, 2.0, 5.0, null,
         null, null, null,
         null, null
     );
@@ -122,6 +143,7 @@ class VnUiLayoutLoaderTest {
     Properties p = new Properties();
     p.setProperty("textBoxY", "oops");
     p.setProperty("choiceCornerRadius", "not-a-number");
+    p.setProperty("dialogueTextXAlign", "5");
 
     VnUiLayoutLoader.LoadResult result = VnUiLayoutLoader.parseWithDiagnostics(
         p,
@@ -131,6 +153,7 @@ class VnUiLayoutLoaderTest {
 
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("textBoxY")));
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("choiceCornerRadius")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("dialogueTextXAlign")));
   }
 
   @Test

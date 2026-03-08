@@ -111,16 +111,19 @@ public class DialogueLayoutEditorView extends BorderPane {
       "nameBoxHeight",
       "nameTextXOffset",
       "nameTextBaselineOffset",
+      "nameTextXAlign",
       "dialogueTextHorizontalPadding",
       "dialogueTextTopPadding",
       "dialogueTextRightPadding",
       "dialogueTextBottomPadding",
+      "dialogueTextXAlign",
       "choiceXCenter",
       "choiceYStart",
       "choiceWidthFactor",
       "choiceHeight",
       "choiceGap",
       "choiceTextXPadding",
+      "choiceTextXAlign",
       "nameBoxAutoWidth"
   };
 
@@ -180,11 +183,13 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Spinner<Double> spNameBoxHeight = spinner(12, 300, 40, 1);
   private final Spinner<Double> spNameTextXOffset = spinner(-300, 300, 10, 1);
   private final Spinner<Double> spNameTextBaselineOffset = spinner(-300, 300, 25, 1);
+  private final Spinner<Double> spNameTextXAlign = spinner(0, 1, 0, 0.05);
 
   private final Spinner<Double> spDialoguePaddingX = spinner(0, 300, 20, 1);
   private final Spinner<Double> spDialoguePaddingTop = spinner(-300, 300, 40, 1);
   private final Spinner<Double> spDialoguePaddingRight = spinner(0, 300, 20, 1);
   private final Spinner<Double> spDialoguePaddingBottom = spinner(0, 300, 10, 1);
+  private final Spinner<Double> spDialogueTextXAlign = spinner(0, 1, 0, 0.05);
 
   private final Spinner<Double> spChoiceXCenter = spinner(0, 1, 0.5, 0.01);
   private final Spinner<Double> spChoiceYStart = spinner(-1, 1, -1, 0.01);
@@ -192,6 +197,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Spinner<Double> spChoiceHeight = spinner(14, 200, 50, 1);
   private final Spinner<Double> spChoiceGap = spinner(0, 120, 10, 1);
   private final Spinner<Double> spChoiceTextXPadding = spinner(0, 300, 20, 1);
+  private final Spinner<Double> spChoiceTextXAlign = spinner(0, 1, 0, 0.05);
   private final TextField tfChoiceBgColor = new TextField();
   private final TextField tfChoiceHoverColor = new TextField();
   private final TextField tfChoiceSelectedColor = new TextField();
@@ -410,6 +416,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(nameGrid, row, "Name Height", spNameBoxHeight);
     row = addRow(nameGrid, row, "Name Text X Offset", spNameTextXOffset);
     row = addRow(nameGrid, row, "Name Text Baseline", spNameTextBaselineOffset);
+    row = addRow(nameGrid, row, "Name Text X Align", spNameTextXAlign);
     row = addRow(nameGrid, row, "Name Font Weight", cbNameTextFontWeight);
     row = addRow(nameGrid, row, "Name Box Opacity", spNameBoxOpacity);
     row = addRow(nameGrid, row, "Name Box Auto-Width", cbNameBoxAutoWidth);
@@ -425,6 +432,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(textBoundsGrid, row, "Text Top Padding", spDialoguePaddingTop);
     row = addRow(textBoundsGrid, row, "Text Right Padding", spDialoguePaddingRight);
     row = addRow(textBoundsGrid, row, "Text Bottom Padding", spDialoguePaddingBottom);
+    row = addRow(textBoundsGrid, row, "Dialogue Text X Align", spDialogueTextXAlign);
     row = addRow(textBoundsGrid, row, "Dialogue Font Weight", cbDialogueTextFontWeight);
     Button dialogueBoundsStudioBtn = iconButton(CssIcon.grid("#7ec8e3"), "Open dialogue text bounds studio");
     dialogueBoundsStudioBtn.setOnAction(e -> openDialogueTextBoundsStudio());
@@ -440,6 +448,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(choiceLayoutGrid, row, "Choice Height", spChoiceHeight);
     row = addRow(choiceLayoutGrid, row, "Choice Gap", spChoiceGap);
     row = addRow(choiceLayoutGrid, row, "Choice Text Padding", spChoiceTextXPadding);
+    row = addRow(choiceLayoutGrid, row, "Choice Text X Align", spChoiceTextXAlign);
     row = addRow(choiceLayoutGrid, row, "Choice Font Weight", cbChoiceFontWeight);
     row = addRow(choiceLayoutGrid, row, "Button Asset", assetFieldRow(tfChoiceButtonAsset, "Select Choice Button Asset"));
     row = addRow(choiceLayoutGrid, row, "Hover Asset", assetFieldRow(tfChoiceButtonHoverAsset, "Select Choice Hover Asset"));
@@ -618,16 +627,19 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spNameBoxHeight);
     controls.add(spNameTextXOffset);
     controls.add(spNameTextBaselineOffset);
+    controls.add(spNameTextXAlign);
     controls.add(spDialoguePaddingX);
     controls.add(spDialoguePaddingTop);
     controls.add(spDialoguePaddingRight);
     controls.add(spDialoguePaddingBottom);
+    controls.add(spDialogueTextXAlign);
     controls.add(spChoiceXCenter);
     controls.add(spChoiceYStart);
     controls.add(spChoiceWidthFactor);
     controls.add(spChoiceHeight);
     controls.add(spChoiceGap);
     controls.add(spChoiceTextXPadding);
+    controls.add(spChoiceTextXAlign);
     controls.add(spChoiceCornerRadius);
     controls.add(spChoiceBorderWidth);
     controls.add(spChoiceTextBaselineOffset);
@@ -1184,9 +1196,12 @@ public class DialogueLayoutEditorView extends BorderPane {
       g.setFill(textColor);
       g.setFont(choiceFont);
       String choiceLabel = i < previewChoiceLabels.size() ? previewChoiceLabels.get(i) : "Choice " + (i + 1);
+      double choiceTextWidth = computeTextWidth(g, choiceLabel, choiceFont);
+      double choiceTextLeft = rects.choiceBlock().x() + spec.choiceTextXPadding() * scale;
+      double choiceContentWidth = Math.max(0, rects.choiceBlock().w() - spec.choiceTextXPadding() * scale * 2.0);
       g.fillText(
           choiceLabel,
-          rects.choiceBlock().x() + spec.choiceTextXPadding() * scale,
+          resolveAlignedTextX(choiceTextLeft, choiceContentWidth, choiceTextWidth, style.choiceTextXAlign() == null ? 0.0 : style.choiceTextXAlign()),
           y + choiceHeight / 2 + choiceStyle.textBaselineOffset() * scale);
       y += choiceHeight + choiceGap;
     }
@@ -1229,7 +1244,13 @@ public class DialogueLayoutEditorView extends BorderPane {
 
       g.setFill(RUNTIME_TEXT_COLOR);
       g.setFont(nameFont);
-      g.fillText(previewSpeakerName, rects.nameBox().x() + spec.nameTextXOffset() * scale, rects.nameBox().y() + spec.nameTextBaselineOffset() * scale);
+      double nameTextLeft = rects.nameBox().x() + spec.nameTextXOffset() * scale;
+      double nameTextWidth = computeTextWidth(g, previewSpeakerName, nameFont);
+      double nameContentWidth = Math.max(0, rects.nameBox().w() - spec.nameTextXOffset() * scale * 2.0);
+      g.fillText(
+          previewSpeakerName,
+          resolveAlignedTextX(nameTextLeft, nameContentWidth, nameTextWidth, style.nameTextXAlign() == null ? 0.0 : style.nameTextXAlign()),
+          rects.nameBox().y() + spec.nameTextBaselineOffset() * scale);
     }
 
     String fullText = previewDialogueText();
@@ -1249,7 +1270,15 @@ public class DialogueLayoutEditorView extends BorderPane {
       g.closePath();
       g.clip();
     }
-    drawStyledPreviewText(g, spans, revealedLength, rects.dialogueBounds().x(), rects.dialogueBounds().y(), rects.dialogueBounds().w(), dialogueFont);
+    drawStyledPreviewText(
+        g,
+        spans,
+        revealedLength,
+        rects.dialogueBounds().x(),
+        rects.dialogueBounds().y(),
+        rects.dialogueBounds().w(),
+        dialogueFont,
+        style.dialogueTextXAlign() == null ? 0.0 : style.dialogueTextXAlign());
     g.restore();
 
     // Runtime-like textbox action buttons.
@@ -1416,14 +1445,17 @@ public class DialogueLayoutEditorView extends BorderPane {
       double startX,
       double startY,
       double maxWidth,
-      Font baseFont
+      Font baseFont,
+      double xAlign
   ) {
     if (g == null || spans == null || baseFont == null) return;
     g.setFont(baseFont);
-    double x = startX;
-    double y = startY;
     double lineHeight = Math.max(12, baseFont.getSize() * 1.35);
+    List<PreviewLine> lines = new ArrayList<>();
+    List<PreviewGlyph> currentLine = new ArrayList<>();
+    double currentLineWidth = 0.0;
     int charCount = 0;
+    int glyphIndex = 0;
     long animationTime = System.currentTimeMillis();
 
     for (TextSpan span : spans) {
@@ -1453,16 +1485,41 @@ public class DialogueLayoutEditorView extends BorderPane {
 
         for (int i = 0; i < visibleText.length(); i++) {
           char c = visibleText.charAt(i);
-          double charWidth = computeTextWidth(g, String.valueOf(c), effectFont);
-          if (x + charWidth > startX + maxWidth) {
-            x = startX;
-            y += lineHeight;
+          if (c == '\n') {
+            lines.add(new PreviewLine(List.copyOf(currentLine), currentLineWidth));
+            currentLine.clear();
+            currentLineWidth = 0.0;
+            continue;
           }
+          double charWidth = computeTextWidth(g, String.valueOf(c), effectFont);
+          if (!currentLine.isEmpty() && currentLineWidth + charWidth > maxWidth) {
+            lines.add(new PreviewLine(List.copyOf(currentLine), currentLineWidth));
+            currentLine.clear();
+            currentLineWidth = 0.0;
+          }
+          currentLine.add(new PreviewGlyph(c, effectFont, span.getEffect(), span.hasColor() ? parseColorHex(span.getColorHex()) : RUNTIME_TEXT_COLOR, glyphIndex++, charWidth));
+          currentLineWidth += charWidth;
+        }
+        g.setFont(baseFont);
+      }
+      charCount += spanLen;
+    }
 
-          double offsetX = 0;
-          double offsetY = 0;
-          double effectPhase = (animationTime * 0.01) + (charCount + i) * 0.3;
-          switch (span.getEffect()) {
+    if (!currentLine.isEmpty() || lines.isEmpty()) {
+      lines.add(new PreviewLine(List.copyOf(currentLine), currentLineWidth));
+    }
+
+    for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
+      PreviewLine line = lines.get(lineIndex);
+      double x = resolveAlignedTextX(startX, maxWidth, line.width(), xAlign);
+      double y = startY + lineIndex * lineHeight;
+      for (PreviewGlyph glyph : line.glyphs()) {
+        g.setFont(glyph.font());
+        g.setFill(glyph.color());
+        double offsetX = 0;
+        double offsetY = 0;
+        double effectPhase = (animationTime * 0.01) + glyph.glyphIndex() * 0.3;
+        switch (glyph.effect()) {
             case SHAKE -> {
               offsetX = (Math.random() - 0.5) * 3;
               offsetY = (Math.random() - 0.5) * 3;
@@ -1476,14 +1533,20 @@ public class DialogueLayoutEditorView extends BorderPane {
             default -> {
             }
           }
-
-          g.fillText(String.valueOf(c), x + offsetX, y + offsetY);
-          x += charWidth;
-        }
-        g.setFont(baseFont);
+        g.fillText(String.valueOf(glyph.value()), x + offsetX, y + offsetY);
+        x += glyph.width();
       }
-      charCount += spanLen;
     }
+  }
+
+  private record PreviewGlyph(char value, Font font, TextEffect effect, Color color, int glyphIndex, double width) {}
+
+  private record PreviewLine(List<PreviewGlyph> glyphs, double width) {}
+
+  private static double resolveAlignedTextX(double contentX, double contentWidth, double textWidth, double xAlign) {
+    double clamped = clamp(xAlign, 0.0, 1.0);
+    double freeSpace = Math.max(0.0, contentWidth - textWidth);
+    return contentX + freeSpace * clamped;
   }
 
   private Color parseColorHex(String hex) {
@@ -1707,6 +1770,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         base.nameTextFontFamily(),
         base.nameTextFontSize(),
         normalizeFontWeight(cbNameTextFontWeight.getValue()),
+        value(spNameTextXAlign),
         base.nameBoxBoundsPoints(),
         value(spNameBoxOpacity),
         // Dialogue text
@@ -1714,6 +1778,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         base.dialogueTextFontFamily(),
         base.dialogueTextFontSize(),
         normalizeFontWeight(cbDialogueTextFontWeight.getValue()),
+        value(spDialogueTextXAlign),
         base.dialogueTextBoundsPoints(),
         // Choice button assets
         normalizeAssetPath(tfChoiceButtonAsset.getText()),
@@ -1738,6 +1803,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spChoiceCornerRadius),
         value(spChoiceBorderWidth),
         value(spChoiceTextBaselineOffset),
+        value(spChoiceTextXAlign),
         // Choice font
         base.choiceFontFamily(),
         base.choiceFontSize(),
@@ -1774,6 +1840,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spChoiceCornerRadius, s.choiceCornerRadius());
     setValue(spChoiceBorderWidth, s.choiceBorderWidth());
     setValue(spChoiceTextBaselineOffset, s.choiceTextBaselineOffset());
+    setValue(spNameTextXAlign, s.nameTextXAlign() == null ? 0.0 : s.nameTextXAlign());
+    setValue(spDialogueTextXAlign, s.dialogueTextXAlign() == null ? 0.0 : s.dialogueTextXAlign());
+    setValue(spChoiceTextXAlign, s.choiceTextXAlign() == null ? 0.0 : s.choiceTextXAlign());
 
     cbNameTextFontWeight.setValue(s.nameTextFontWeight() != null ? s.nameTextFontWeight() : "BOLD");
     double nameBoxOpacity = s.nameBoxOpacity() == null ? 1.0 : clamp(s.nameBoxOpacity(), 0.0, 1.0);
@@ -2132,12 +2201,14 @@ public class DialogueLayoutEditorView extends BorderPane {
         base.nameTextFontFamily(),
         base.nameTextFontSize(),
         base.nameTextFontWeight(),
+        base.nameTextXAlign(),
         nameBoxBoundsPoints,
         base.nameBoxOpacity(),
         base.dialogueTextColor(),
         base.dialogueTextFontFamily(),
         base.dialogueTextFontSize(),
         base.dialogueTextFontWeight(),
+        base.dialogueTextXAlign(),
         dialogueTextBoundsPoints,
         base.choiceButtonAssetPath(),
         base.choiceButtonHoverAssetPath(),
@@ -2159,6 +2230,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         base.choiceCornerRadius(),
         base.choiceBorderWidth(),
         base.choiceTextBaselineOffset(),
+        base.choiceTextXAlign(),
         base.choiceFontFamily(),
         base.choiceFontSize(),
         base.choiceFontWeight(),

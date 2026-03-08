@@ -34,3 +34,7 @@ libs/*.jar
 demo-game/
 # Local editor Gradle home
 .jvn-gradle-user-home/
+
+# Local Ren'Py compatibility audit artifacts
+/Was I Write/
+/Was I Write.zip

@@ -19,6 +19,7 @@ public record VnUiStyleSpec(
     String nameTextFontFamily,
     Integer nameTextFontSize,
     String nameTextFontWeight,
+    Double nameTextXAlign,
     String nameBoxBoundsPoints,
     Double nameBoxOpacity,
     // --- Dialogue text ---
@@ -26,6 +27,7 @@ public record VnUiStyleSpec(
     String dialogueTextFontFamily,
     Integer dialogueTextFontSize,
     String dialogueTextFontWeight,
+    Double dialogueTextXAlign,
     String dialogueTextBoundsPoints,
     // --- Choice button assets ---
     String choiceButtonAssetPath,
@@ -50,6 +52,7 @@ public record VnUiStyleSpec(
     double choiceCornerRadius,
     double choiceBorderWidth,
     double choiceTextBaselineOffset,
+    Double choiceTextXAlign,
     // --- Choice font ---
     String choiceFontFamily,
     Integer choiceFontSize,
@@ -69,12 +72,14 @@ public record VnUiStyleSpec(
     nameTextFontFamily = normalize(nameTextFontFamily);
     if (nameTextFontSize != null && nameTextFontSize <= 0) nameTextFontSize = null;
     nameTextFontWeight = normalize(nameTextFontWeight);
+    if (nameTextXAlign != null) nameTextXAlign = clamp(nameTextXAlign, 0.0, 1.0);
     nameBoxBoundsPoints = normalize(nameBoxBoundsPoints);
     if (nameBoxOpacity != null) nameBoxOpacity = clamp(nameBoxOpacity, 0.0, 1.0);
     dialogueTextColor = normalize(dialogueTextColor);
     dialogueTextFontFamily = normalize(dialogueTextFontFamily);
     if (dialogueTextFontSize != null && dialogueTextFontSize <= 0) dialogueTextFontSize = null;
     dialogueTextFontWeight = normalize(dialogueTextFontWeight);
+    if (dialogueTextXAlign != null) dialogueTextXAlign = clamp(dialogueTextXAlign, 0.0, 1.0);
     dialogueTextBoundsPoints = normalize(dialogueTextBoundsPoints);
 
     choiceButtonAssetPath = normalize(choiceButtonAssetPath);
@@ -101,6 +106,7 @@ public record VnUiStyleSpec(
     choiceCornerRadius = clamp(sane(choiceCornerRadius, 10.0), 0.0, 96.0);
     choiceBorderWidth = clamp(sane(choiceBorderWidth, 2.0), 0.0, 12.0);
     choiceTextBaselineOffset = clamp(sane(choiceTextBaselineOffset, 5.0), -120.0, 120.0);
+    if (choiceTextXAlign != null) choiceTextXAlign = clamp(choiceTextXAlign, 0.0, 1.0);
     choiceFontFamily = normalize(choiceFontFamily);
     if (choiceFontSize != null && choiceFontSize <= 0) choiceFontSize = null;
     choiceFontWeight = normalize(choiceFontWeight);
@@ -115,14 +121,14 @@ public record VnUiStyleSpec(
   public static VnUiStyleSpec defaults() {
     return new VnUiStyleSpec(
         null, "#0C1220E0", 0.88, null,                       // textbox: dark navy, high opacity
-        null, "#14203890", "#FFD78A", "SansSerif", 18, null, // name box: dark tint, warm gold text
+        null, "#14203890", "#FFD78A", "SansSerif", 18, null, null, // name box: dark tint, warm gold text
         null, null,                                           // name box: no font weight override, no opacity
-        "#E8EDF6", "SansSerif", 22, null, null,              // dialogue: near-white, clean, no font weight override
+        "#E8EDF6", "SansSerif", 22, null, null, null,        // dialogue: near-white, clean, no font weight override
         null, null, null, null, null,                         // choice button assets + bounds
         "#1A2640D8", "#243358E8", "#2A3D68E8", "#121826A0", // choice bg: dark blue tones
         "#D4DCF0", "#F0F4FF", "#FFD78A", "#6878A0",         // choice text: light, warm highlight
         "#3A5080A0", "#5888CCA0", "#C8A04880", "#28345060", // choice borders: blue/gold accents
-        8.0, 1.5, 4.0,                                       // corner radius, border, baseline
+        8.0, 1.5, 4.0, null,                                 // corner radius, border, baseline
         "SansSerif", 20, null,                               // choice font + weight
         0.85, 1.0                                            // character framing
     );

@@ -130,6 +130,7 @@ nameTextColor=#FFE8A3
 nameTextFontFamily=Georgia
 nameTextFontSize=20
 nameTextFontWeight=BOLD
+nameTextXAlign=0.0
 nameBoxBoundsPoints=0,0;1,0;1,1;0,1
 ```
 
@@ -142,7 +143,10 @@ nameBoxBoundsPoints=0,0;1,0;1,1;0,1
 | `nameTextFontFamily` | — | Font family for the name text |
 | `nameTextFontSize` | — | Font size for the name text (> 0) |
 | `nameTextFontWeight` | — | Font weight: `NORMAL` or `BOLD` |
+| `nameTextXAlign` | — | Horizontal alignment inside the padded name text area (`0.0` left, `0.5` center, `1.0` right) |
 | `nameBoxBoundsPoints` | — | Polygon hit-test shape (normalized `x,y;x,y;...`) |
+
+`nameTextXAlign` is the direct equivalent of a Ren'Py-style `xalign` control for the name label.
 
 ---
 
@@ -172,6 +176,7 @@ dialogueTextColor=#FFFFFF
 dialogueTextFontFamily=Segoe UI
 dialogueTextFontSize=18
 dialogueTextFontWeight=NORMAL
+dialogueTextXAlign=0.0
 dialogueTextBoundsPoints=0,0;1,0;1,1;0,1
 ```
 
@@ -181,6 +186,7 @@ dialogueTextBoundsPoints=0,0;1,0;1,1;0,1
 | `dialogueTextFontFamily` | — | Font family for dialogue text |
 | `dialogueTextFontSize` | — | Font size for dialogue text (> 0) |
 | `dialogueTextFontWeight` | — | Font weight: `NORMAL` or `BOLD` |
+| `dialogueTextXAlign` | — | Horizontal alignment inside the dialogue text bounds (`0.0` left, `0.5` center, `1.0` right) |
 | `dialogueTextBoundsPoints` | — | Custom bounds polygon for the dialogue text area |
 
 ---
@@ -240,6 +246,7 @@ choiceDisabledBorderColor=#3a3a5e
 choiceCornerRadius=8
 choiceBorderWidth=2
 choiceTextBaselineOffset=0
+choiceTextXAlign=0.0
 
 # Font
 choiceFontFamily=Segoe UI
@@ -248,6 +255,8 @@ choiceFontWeight=NORMAL
 ```
 
 > **Font weight values:** All `*FontWeight` properties accept `NORMAL` or `BOLD`.
+>
+> **Horizontal text alignment:** `choiceTextXAlign` mirrors Ren'Py-style `xalign` semantics inside the padded choice text area.
 
 ---
 

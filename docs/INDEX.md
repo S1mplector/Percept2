@@ -19,6 +19,7 @@ Complete documentation for the Java Vector Nexus engine.
 - [2D Engine](architecture/core/2d-engine.md) — Entity2D properties, Camera2D smoothing/bounds/transforms, PhysicsWorld2D broadphase/raycasts/callbacks, Scene2DBase render pipeline, parallax scrolling
 - [Performance](architecture/quality/performance.md) — build and runtime optimization
 - [Native Library Audit](architecture/native/native-library-audit.md) — native-math integration status
+- [Ren'Py UI Parity Roadmap](architecture/core/renpy-ui-parity-roadmap.md) — concrete patch plan for `screens.rpy` / `gui.rpy` migration comfort
 
 ---
 
@@ -171,6 +172,7 @@ Complete documentation for the Java Vector Nexus engine.
 - [Performance](architecture/quality/performance.md) — build and runtime optimization
 - [Native Library Audit](architecture/native/native-library-audit.md) — native-math integration status
 - [Debugging & Profiling](architecture/quality/debugging.md) — diagnostics, logging, performance investigation
+- [Ren'Py UI Parity Roadmap](architecture/core/renpy-ui-parity-roadmap.md) — concrete patch plan for `screens.rpy` / `gui.rpy` migration comfort
 
 ---
 

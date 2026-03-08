@@ -242,6 +242,7 @@ choiceDisabledBorderColor=#00000000
 choiceCornerRadius=10
 choiceBorderWidth=2
 choiceTextBaselineOffset=5
+choiceTextXAlign=0.0
 ```
 
 | Key | Default | Range | Description |
@@ -249,6 +250,7 @@ choiceTextBaselineOffset=5
 | `choiceCornerRadius` | `10.0` | 0–96 | Rounded corner radius (pixels) |
 | `choiceBorderWidth` | `2.0` | 0–12 | Border thickness (pixels) |
 | `choiceTextBaselineOffset` | `5.0` | -120 to 120 | Vertical text offset within button |
+| `choiceTextXAlign` | `0.0` | 0–1 | Horizontal alignment inside the padded choice text area (`0.0` left, `0.5` center, `1.0` right) |
 
 ### Examples
 
