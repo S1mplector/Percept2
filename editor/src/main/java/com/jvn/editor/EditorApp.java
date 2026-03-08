@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
@@ -1370,6 +1371,7 @@ public class EditorApp extends Application {
     vnsFlowMapView = new VnsFlowMapView();
     vnsFlowMapView.setOnOpenLine(this::jumpToActiveVnsLine);
     puppeteerLauncherPanel = new PuppeteerLauncherPanel();
+    puppeteerLauncherPanel.setProjectRoot(projectRoot);
     puppeteerLauncherPanel.setOnLaunch(snapshot -> launchPuppeteerFromSnapshot(snapshot));
     assetBrowserView = new AssetBrowserView();
     assetBrowserView.setProjectRoot(projectRoot);
@@ -2044,7 +2046,11 @@ public class EditorApp extends Application {
       editor.setOnVnsTextChanged(text -> {
         if (editor != getActiveFileTab()) return;
         refreshVnsToolPanels(editor, text);
-        if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setSource(text);
+        if (puppeteerLauncherPanel != null) {
+          puppeteerLauncherPanel.setProjectRoot(projectRoot);
+          puppeteerLauncherPanel.setActiveScriptFile(editor.getFile());
+          puppeteerLauncherPanel.setSource(text);
+        }
       });
       editor.setOnVnsCaretLineChanged(line -> {
         if (editor != getActiveFileTab()) return;
@@ -2102,6 +2108,7 @@ public class EditorApp extends Application {
     if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(projectRoot);
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(projectRoot);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(projectRoot);
+    if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setProjectRoot(projectRoot);
     if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
   }
 
@@ -2115,6 +2122,26 @@ public class EditorApp extends Application {
     applyDefaultSidebarPreferences();
     if (status != null) {
       status.setText("Editor preferences applied");
+    }
+  }
+
+  private void rememberPanelPlacement(EditorSidebarPanel panel, EditorPanelPlacement placement) {
+    if (panel == null || placement == null) return;
+    editorPreferences.setPlacement(panel, placement);
+    if (editorSettingsView != null) {
+      editorSettingsView.loadIntoForm(editorPreferences);
+    }
+    persistEditorPreferences();
+  }
+
+  private void persistEditorPreferences() {
+    if (editorPreferencesStore == null || editorPreferences == null) return;
+    try {
+      editorPreferencesStore.save(editorPreferences);
+    } catch (IOException ex) {
+      if (status != null) {
+        status.setText("Failed to save editor preferences: " + ex.getMessage());
+      }
     }
   }
 
@@ -2188,6 +2215,11 @@ public class EditorApp extends Application {
     if (tab != null && tab.getTabPane() != null) {
       tab.getTabPane().getTabs().remove(tab);
     }
+  }
+
+  private boolean isPanelAttached(EditorSidebarPanel panel) {
+    Tab tab = configuredPanelTab(panel);
+    return tab != null && tab.getTabPane() != null;
   }
 
   private Tab configuredPanelTab(EditorSidebarPanel panel) {
@@ -2270,9 +2302,12 @@ public class EditorApp extends Application {
     refreshVnsToolPanels(ft, null);
     if (puppeteerLauncherPanel != null) {
       if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+        puppeteerLauncherPanel.setProjectRoot(projectRoot);
+        puppeteerLauncherPanel.setActiveScriptFile(ft.getFile());
         puppeteerLauncherPanel.setSource(ft.getCurrentTextSnapshot());
         puppeteerLauncherPanel.setCaretLine(ft.getVnsCaretLine());
       } else {
+        puppeteerLauncherPanel.setActiveScriptFile(null);
         puppeteerLauncherPanel.clear();
       }
     }
@@ -2794,20 +2829,25 @@ public class EditorApp extends Application {
     actions.getChildren().add(button);
   }
 
-  private void addChooserActionRow(javafx.scene.layout.VBox actions, String panelName, String iconClass,
-      Runnable embedAction, Runnable windowAction) {
+  private void addChooserActionRow(javafx.scene.layout.VBox actions, EditorSidebarPanel panel,
+      EditorPanelPlacement targetPlacement, String panelName, String iconClass,
+      Runnable embedAction, Runnable windowAction, Runnable removeAction) {
     if (actions == null || panelName == null) return;
+    if (panel != null && !editorPreferences.isVisibleInChooser(panel)) return;
 
     Region panelIcon = icon("icon", iconClass);
 
     Label label = new Label(panelName);
     label.setMaxWidth(Double.MAX_VALUE);
     HBox.setHgrow(label, Priority.ALWAYS);
-    label.setStyle("-fx-font-size: 12px; -fx-text-fill: #d0d8e8;");
+    label.getStyleClass().add("panel-chooser-title");
+
+    Label placementBadge = new Label();
+    placementBadge.getStyleClass().add("panel-chooser-placement-badge");
 
     Button dockBtn = new Button();
-    dockBtn.setGraphic(CssIcon.dock("#9cc7ff"));
-    dockBtn.setTooltip(new Tooltip("Add to sidebar panel"));
+    dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
+    dockBtn.setTooltip(new Tooltip("Add to sidebar"));
     dockBtn.setMinSize(26, 26); dockBtn.setPrefSize(26, 26); dockBtn.setMaxSize(26, 26);
     dockBtn.setFocusTraversable(false);
     dockBtn.getStyleClass().add("panel-chooser-icon-btn");
@@ -2829,10 +2869,82 @@ public class EditorApp extends Application {
       popOutBtn.setDisable(true);
     }
 
-    HBox row = new HBox(6, panelIcon, label, dockBtn, popOutBtn);
+    Button removeBtn = new Button();
+    removeBtn.setGraphic(CssIcon.minus("#f38ba8"));
+    removeBtn.setTooltip(new Tooltip("Remove from sidebars"));
+    removeBtn.setMinSize(26, 26); removeBtn.setPrefSize(26, 26); removeBtn.setMaxSize(26, 26);
+    removeBtn.setFocusTraversable(false);
+    removeBtn.getStyleClass().add("panel-chooser-icon-btn");
+    if (removeAction != null) {
+      removeBtn.setOnAction(e -> removeAction.run());
+    } else {
+      removeBtn.setDisable(true);
+    }
+
+    Runnable refreshState = () -> {
+      if (panel == null) {
+        placementBadge.setManaged(false);
+        placementBadge.setVisible(false);
+        removeBtn.setManaged(false);
+        removeBtn.setVisible(false);
+        dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
+        dockBtn.setTooltip(new Tooltip("Open in this panel"));
+        return;
+      }
+
+      EditorPanelPlacement placement = editorPreferences.getPlacement(panel);
+      boolean attached = isPanelAttached(panel);
+      placementBadge.setManaged(true);
+      placementBadge.setVisible(true);
+      placementBadge.setText(placement.displayName());
+      placementBadge.getStyleClass().setAll(
+          "panel-chooser-placement-badge",
+          switch (placement) {
+            case LEFT -> "panel-chooser-placement-left";
+            case RIGHT -> "panel-chooser-placement-right";
+            case HIDDEN -> "panel-chooser-placement-hidden";
+          });
+      if (placement == EditorPanelPlacement.HIDDEN || !attached) {
+        dockBtn.setGraphic(CssIcon.plus(targetPlacement == EditorPanelPlacement.RIGHT ? "#f5c46b" : "#9cc7ff"));
+        dockBtn.setTooltip(new Tooltip(
+            "Add to " + (targetPlacement == EditorPanelPlacement.RIGHT ? "right" : "left") + " sidebar"));
+      } else if (placement != targetPlacement) {
+        dockBtn.setGraphic(CssIcon.dock(targetPlacement == EditorPanelPlacement.RIGHT ? "#f5c46b" : "#9cc7ff"));
+        dockBtn.setTooltip(new Tooltip(
+            "Move to " + (targetPlacement == EditorPanelPlacement.RIGHT ? "right" : "left") + " sidebar"));
+      } else {
+        dockBtn.setGraphic(CssIcon.dock(targetPlacement == EditorPanelPlacement.RIGHT ? "#f5c46b" : "#9cc7ff"));
+        dockBtn.setTooltip(new Tooltip("Select panel"));
+      }
+      removeBtn.setManaged(true);
+      removeBtn.setVisible(true);
+      removeBtn.setDisable(!attached && placement == EditorPanelPlacement.HIDDEN);
+    };
+
+    if (embedAction != null) {
+      dockBtn.setOnAction(e -> {
+        embedAction.run();
+        refreshState.run();
+      });
+    }
+    if (windowAction != null) {
+      popOutBtn.setOnAction(e -> {
+        windowAction.run();
+        refreshState.run();
+      });
+    }
+    if (removeAction != null) {
+      removeBtn.setOnAction(e -> {
+        removeAction.run();
+        refreshState.run();
+      });
+    }
+
+    HBox row = new HBox(6, panelIcon, label, placementBadge, dockBtn, popOutBtn, removeBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
-    row.setStyle("-fx-background-color: #1e2230; -fx-background-radius: 4;");
+    row.getStyleClass().add("panel-chooser-row");
+    refreshState.run();
     actions.getChildren().add(row);
   }
 
@@ -2916,6 +3028,8 @@ public class EditorApp extends Application {
     if (pane == null) return;
     Tab addTab = leftSide ? tabLeftAdd : tabRightAdd;
     if (addTab == null) return;
+    EditorPanelPlacement targetPlacement =
+        leftSide ? EditorPanelPlacement.LEFT : EditorPanelPlacement.RIGHT;
 
     String title = leftSide ? "Add Left Panel" : "Add Right Panel";
     String details = leftSide
@@ -2925,105 +3039,163 @@ public class EditorApp extends Application {
     javafx.scene.layout.VBox root = new javafx.scene.layout.VBox(10);
     root.setPadding(new javafx.geometry.Insets(12));
     Label heading = new Label(title);
-    heading.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
+    heading.getStyleClass().add("panel-chooser-heading");
     Label info = new Label(details);
     info.setWrapText(true);
+    info.getStyleClass().add("panel-chooser-copy");
     javafx.scene.layout.VBox actions = new javafx.scene.layout.VBox(4);
-    addChooserActionRow(actions, "Project", "icon-panel-project", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.PROJECT, targetPlacement, "Project", "icon-panel-project", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PROJECT, targetPlacement);
       Tab t = ensureProjectTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Project", projView, 600, 700));
+    }, () -> launchPanelAsWindow("Project", projView, 600, 700), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PROJECT, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
 
-    addChooserActionRow(actions, "Timeline", "icon-panel-timeline", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.TIMELINE, targetPlacement, "Timeline", "icon-panel-timeline", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.TIMELINE, targetPlacement);
       Tab t = ensureTimelineTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Story Timeline", timelineView, 600, 700));
+    }, () -> launchPanelAsWindow("Story Timeline", timelineView, 600, 700), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
 
-    addChooserActionRow(actions, "VNS Diagnostics", "icon-panel-diagnostics", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement, "VNS Diagnostics", "icon-panel-diagnostics", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement);
       Tab t = ensureVnsDiagnosticsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("VNS Diagnostics", vnsDiagnosticsView, 700, 600));
+    }, () -> launchPanelAsWindow("VNS Diagnostics", vnsDiagnosticsView, 700, 600), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.VNS_DIAGNOSTICS, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
 
-    addChooserActionRow(actions, "Label Flow", "icon-panel-flow", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.LABEL_FLOW, targetPlacement, "Label Flow", "icon-panel-flow", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.LABEL_FLOW, targetPlacement);
       Tab t = ensureVnsFlowMapTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Label Flow Map", vnsFlowMapView, 700, 600));
+    }, () -> launchPanelAsWindow("Label Flow Map", vnsFlowMapView, 700, 600), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.LABEL_FLOW, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
 
-    addChooserActionRow(actions, "Assets", "icon-panel-assets", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.ASSETS, targetPlacement, "Assets", "icon-panel-assets", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.ASSETS, targetPlacement);
       Tab t = ensureAssetBrowserTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Asset Browser", assetBrowserView, 700, 600));
+    }, () -> launchPanelAsWindow("Asset Browser", assetBrowserView, 700, 600), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.ASSETS, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
 
-    addChooserActionRow(actions, "Layout Launcher", "icon-panel-layouts", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.LAYOUT_LAUNCHER, targetPlacement, "Layout Launcher", "icon-panel-layouts", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.LAYOUT_LAUNCHER, targetPlacement);
       Tab t = ensureLayoutLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
     }, () -> {
       if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
       launchPanelAsWindow("Layout Launcher", layoutEditorLauncherView, 700, 700);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.LAYOUT_LAUNCHER, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, "Layered Image Visualizer", "icon-panel-layered", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.LAYERED_IMAGES, targetPlacement, "Layered Image Visualizer", "icon-panel-layered", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.LAYERED_IMAGES, targetPlacement);
       Tab t = ensureLayeredImageVisualizerTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
     }, () -> {
       if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
       launchPanelAsWindow("Layered Image Visualizer", layeredImageVisualizerView, 900, 700);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.LAYERED_IMAGES, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, "Image Attributes Tool", "icon-panel-image-attributes", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.IMAGE_ATTRIBUTES, targetPlacement, "Image Attributes Tool", "icon-panel-image-attributes", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.IMAGE_ATTRIBUTES, targetPlacement);
       Tab t = ensureImageAttributesToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (imageAttributesToolView != null) imageAttributesToolView.refreshCatalog();
     }, () -> {
       if (imageAttributesToolView != null) imageAttributesToolView.refreshCatalog();
       launchPanelAsWindow("Image Attributes Tool", imageAttributesToolView, 800, 650);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.IMAGE_ATTRIBUTES, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, "Image Tint Tool", "icon-panel-image-tint", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.IMAGE_TINT, targetPlacement, "Image Tint Tool", "icon-panel-image-tint", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, targetPlacement);
       Tab t = ensureImageTintToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (imageTintToolView != null) imageTintToolView.refreshCatalog();
     }, () -> {
       if (imageTintToolView != null) imageTintToolView.refreshCatalog();
       launchPanelAsWindow("Image Tint Tool", imageTintToolView, 800, 650);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, "Menu Flow", "icon-panel-menuflow", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.MENU_FLOW, targetPlacement, "Menu Flow", "icon-panel-menuflow", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.MENU_FLOW, targetPlacement);
       Tab t = ensureMenuFlowTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
     }, () -> {
       if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
       launchPanelAsWindow("Menu Flow Editor", menuFlowEditorView, 900, 650);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.MENU_FLOW, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, "Version Control", "icon-panel-vcs", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.VERSION_CONTROL, targetPlacement, "Version Control", "icon-panel-vcs", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.VERSION_CONTROL, targetPlacement);
       Tab t = ensureVersionControlTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
       if (versionControlView != null) versionControlView.refreshStatus();
     }, () -> {
       if (versionControlView != null) versionControlView.refreshStatus();
       launchPanelAsWindow("Version Control", versionControlView, 700, 600);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.VERSION_CONTROL, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, "Help", "icon-panel-help", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.HELP, targetPlacement, "Help", "icon-panel-help", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.HELP, targetPlacement);
       Tab t = ensureHelpTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Help Center", helpCenterView, 700, 650));
+    }, () -> launchPanelAsWindow("Help Center", helpCenterView, 700, 650), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.HELP, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
 
-    addChooserActionRow(actions, "Puppeteer Launcher", "icon-panel-puppeteer", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.PUPPETEER_LAUNCHER, targetPlacement, "Puppeteer Launcher", "icon-panel-puppeteer", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PUPPETEER_LAUNCHER, targetPlacement);
       Tab t = ensurePuppeteerLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Puppeteer Launcher", puppeteerLauncherPanel, 600, 500));
+    }, () -> launchPanelAsWindow("Puppeteer Launcher", puppeteerLauncherPanel, 600, 500), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PUPPETEER_LAUNCHER, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
 
-    addChooserActionRow(actions, "Audio Synth Controls", "icon-panel-diagnostics", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.AUDIO_SYNTH, targetPlacement, "Audio Synth Controls", "icon-panel-diagnostics", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.AUDIO_SYNTH, targetPlacement);
       Tab t = ensureAudioSynthControlsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Audio Synth Controls", audioSynthControlsView, 380, 650));
+    }, () -> launchPanelAsWindow("Audio Synth Controls", audioSynthControlsView, 380, 650), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.AUDIO_SYNTH, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
 
-    addChooserActionRow(actions, "Script Editor", "icon-panel-flow", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Script Editor", "icon-panel-flow", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement);
       if (scriptEditorLauncherView != null) {
         scriptEditorLauncherView.setProjectRoot(projectRoot);
         scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
@@ -3036,12 +3208,15 @@ public class EditorApp extends Application {
         scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
         scriptEditorLauncherView.launchEditorWindow();
       }
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, "Editor Settings", "icon-panel-help", () -> {
+    addChooserActionRow(actions, null, targetPlacement, "Editor Settings", "icon-panel-help", () -> {
       Tab t = ensureEditorSettingsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Editor Settings", editorSettingsView, 520, 760));
+    }, () -> launchPanelAsWindow("Editor Settings", editorSettingsView, 520, 760), null);
 
     root.getChildren().addAll(heading, info, new javafx.scene.control.Separator(), actions);
     Tab chooser = new Tab("New Panel", root);
@@ -3272,7 +3447,7 @@ public class EditorApp extends Application {
     double characterHeight = sceneH * 0.85;
 
     if (snapshot.backgroundId != null) {
-      String bgPath = resolveProjectPath(firstLayerPath(snapshot.resolveBackgroundPath()));
+      String bgPath = resolveProjectPathSpec(snapshot.resolveBackgroundPath());
       com.jvn.core.scene2d.Sprite2D bg = new com.jvn.core.scene2d.Sprite2D(bgPath, sceneW, sceneH);
       bg.setOrigin(0.0, 0.0);
       bg.setPosition(0.0, 0.0);
@@ -3281,13 +3456,13 @@ public class EditorApp extends Application {
     }
 
     for (PuppeteerLauncherPanel.CharacterEntry ch : snapshot.characters) {
-      String spritePath = resolveProjectPath(firstLayerPath(snapshot.resolveCharacterPath(ch.characterId, ch.expression)));
-      double[] spriteSize = estimateSpriteSize(spritePath, characterHeight);
+      String spritePathSpec = resolveProjectPathSpec(snapshot.resolveCharacterPath(ch.characterId, ch.expression));
+      double[] spriteSize = estimateSpriteSize(firstLayerPath(spritePathSpec), characterHeight);
       double charW = spriteSize[0];
       double charH = spriteSize[1];
       double leftX = positionToLeftX(ch.position, sceneW, charW);
       double topY = (sceneH * 1.0) - charH;
-      com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePath, charW, charH);
+      com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePathSpec, charW, charH);
       // Character-friendly pivot for puppeteering: bottom-center (feet/contact point).
       sprite.setOrigin(0.5, 1.0);
       // Keep visual placement equivalent to prior top-left anchoring.
@@ -3340,6 +3515,19 @@ public class EditorApp extends Application {
       if (f.exists()) return f.getAbsolutePath();
     }
     return relativePath;
+  }
+
+  private String resolveProjectPathSpec(String pathSpec) {
+    if (pathSpec == null || pathSpec.isBlank()) return "";
+    if (pathSpec.indexOf('|') < 0) return resolveProjectPath(pathSpec.trim());
+    StringBuilder out = new StringBuilder();
+    for (String token : pathSpec.split("\\|")) {
+      String part = token == null ? "" : token.trim();
+      if (part.isEmpty()) continue;
+      if (!out.isEmpty()) out.append(" | ");
+      out.append(resolveProjectPath(part));
+    }
+    return out.toString();
   }
 
   private void openActionEditor() {

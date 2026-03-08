@@ -12,23 +12,37 @@ public final class EditorPreferences {
   private boolean showWelcomeOnStartup;
   private final EnumMap<EditorSidebarPanel, EditorPanelPlacement> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
+  private final EnumMap<EditorSidebarPanel, Boolean> chooserVisibility =
+      new EnumMap<>(EditorSidebarPanel.class);
 
   public EditorPreferences() {
-    this(DEFAULT_CODE_EDITOR_FONT_SIZE, true, EditorSidebarPanel.defaultPlacements());
+    this(
+        DEFAULT_CODE_EDITOR_FONT_SIZE,
+        true,
+        EditorSidebarPanel.defaultPlacements(),
+        EditorSidebarPanel.defaultChooserVisibility());
   }
 
   public EditorPreferences(
       int codeEditorFontSize,
       boolean showWelcomeOnStartup,
-      Map<EditorSidebarPanel, EditorPanelPlacement> placements) {
+      Map<EditorSidebarPanel, EditorPanelPlacement> placements,
+      Map<EditorSidebarPanel, Boolean> chooserVisibility) {
     this.codeEditorFontSize =
         clampCodeEditorFontSize(codeEditorFontSize);
     this.showWelcomeOnStartup = showWelcomeOnStartup;
     panelPlacements.putAll(EditorSidebarPanel.defaultPlacements());
+    this.chooserVisibility.putAll(EditorSidebarPanel.defaultChooserVisibility());
     if (placements != null) {
       for (Map.Entry<EditorSidebarPanel, EditorPanelPlacement> entry : placements.entrySet()) {
         if (entry.getKey() == null || entry.getValue() == null) continue;
         panelPlacements.put(entry.getKey(), entry.getValue());
+      }
+    }
+    if (chooserVisibility != null) {
+      for (Map.Entry<EditorSidebarPanel, Boolean> entry : chooserVisibility.entrySet()) {
+        if (entry.getKey() == null || entry.getValue() == null) continue;
+        this.chooserVisibility.put(entry.getKey(), entry.getValue());
       }
     }
   }
@@ -67,8 +81,26 @@ public final class EditorPreferences {
     return new EnumMap<>(panelPlacements);
   }
 
+  public boolean isVisibleInChooser(EditorSidebarPanel panel) {
+    if (panel == null) return false;
+    return chooserVisibility.getOrDefault(panel, panel.defaultVisibleInChooser());
+  }
+
+  public void setVisibleInChooser(EditorSidebarPanel panel, boolean visible) {
+    if (panel == null) return;
+    chooserVisibility.put(panel, visible);
+  }
+
+  public EnumMap<EditorSidebarPanel, Boolean> copyChooserVisibility() {
+    return new EnumMap<>(chooserVisibility);
+  }
+
   public EditorPreferences copy() {
-    return new EditorPreferences(codeEditorFontSize, showWelcomeOnStartup, panelPlacements);
+    return new EditorPreferences(
+        codeEditorFontSize,
+        showWelcomeOnStartup,
+        panelPlacements,
+        chooserVisibility);
   }
 
   public static int clampCodeEditorFontSize(int value) {

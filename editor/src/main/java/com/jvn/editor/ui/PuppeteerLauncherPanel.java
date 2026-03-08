@@ -1,7 +1,13 @@
 package com.jvn.editor.ui;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -26,6 +32,7 @@ import javafx.scene.layout.VBox;
 public class PuppeteerLauncherPanel extends VBox {
 
   private static final Pattern LABEL_PATTERN = Pattern.compile("^\\s*(?:@label|label)\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern INCLUDE_PATTERN = Pattern.compile("^\\s*@include\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern BG_CMD_PATTERN = Pattern.compile("^\\s*\\[(?:bg|background)\\s+(\\S+)]", Pattern.CASE_INSENSITIVE);
   private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
@@ -50,6 +57,8 @@ public class PuppeteerLauncherPanel extends VBox {
 
   private String currentSource = "";
   private int currentLine = 0;
+  private File projectRoot;
+  private File activeScriptFile;
   private Consumer<SceneSnapshot> onLaunch;
 
   public PuppeteerLauncherPanel() {
@@ -97,7 +106,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunch.setMaxWidth(Double.MAX_VALUE);
     btnLaunch.setTooltip(new javafx.scene.control.Tooltip("Launch Puppeteer with scene snapshot from the current cursor line"));
     btnLaunch.setOnAction(e -> {
-      if (onLaunch != null) onLaunch.accept(resolveSnapshot(currentSource, currentLine));
+      if (onLaunch != null) onLaunch.accept(buildSnapshot(currentLine));
     });
 
     btnLaunchLabelStart = new Button("Launch @ Label Start");
@@ -107,7 +116,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunchLabelStart.setOnAction(e -> {
       if (onLaunch == null) return;
       int labelStartLine = resolveActiveLabelStartLine(currentSource, currentLine);
-      onLaunch.accept(resolveSnapshot(currentSource, labelStartLine));
+      onLaunch.accept(buildSnapshot(labelStartLine));
     });
 
     HBox actionRow = new HBox(6, btnLaunch, btnLaunchLabelStart);
@@ -138,6 +147,14 @@ public class PuppeteerLauncherPanel extends VBox {
 
   public void setOnLaunch(Consumer<SceneSnapshot> handler) {
     this.onLaunch = handler;
+  }
+
+  public void setProjectRoot(File projectRoot) {
+    this.projectRoot = projectRoot;
+  }
+
+  public void setActiveScriptFile(File activeScriptFile) {
+    this.activeScriptFile = activeScriptFile;
   }
 
   public void setSource(String source) {
@@ -188,7 +205,7 @@ public class PuppeteerLauncherPanel extends VBox {
     String lineText = lines[lineIdx].trim();
     lblLineText.setText(lineText.length() > 80 ? lineText.substring(0, 80) + "…" : lineText);
 
-    SceneSnapshot snap = resolveSnapshot(currentSource, lineIdx);
+    SceneSnapshot snap = buildSnapshot(lineIdx);
 
     lblLabel.setText("Label: " + (snap.currentLabel != null ? snap.currentLabel : "(before first label)"));
     lblBackground.setText("Background: " + (snap.backgroundId != null ? snap.backgroundId : "—"));
@@ -233,6 +250,15 @@ public class PuppeteerLauncherPanel extends VBox {
   // --- VNS Scene State Resolver ---
 
   static SceneSnapshot resolveSnapshot(String source, int upToLine) {
+    return resolveSnapshot(source, upToLine, null, null);
+  }
+
+  static SceneSnapshot resolveSnapshot(
+      String source,
+      int upToLine,
+      String sourceName,
+      IncludeSourceResolver includeResolver
+  ) {
     String[] lines = source.split("\n", -1);
     int limit = Math.max(0, Math.min(upToLine, lines.length - 1));
 
@@ -242,6 +268,16 @@ public class PuppeteerLauncherPanel extends VBox {
     Map<String, String> bgPaths = new LinkedHashMap<>();
     Map<String, String> charImgPaths = new LinkedHashMap<>();
     Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
+
+    collectDeclarations(
+        source,
+        limit,
+        sourceName,
+        includeResolver,
+        bgPaths,
+        charImgPaths,
+        charLayerPaths,
+        new HashSet<>());
 
     for (int i = 0; i <= limit; i++) {
       String line = lines[i];
@@ -358,6 +394,14 @@ public class PuppeteerLauncherPanel extends VBox {
     return new SceneSnapshot(currentLabel, backgroundId, new ArrayList<>(visible.values()), limit, bgPaths, charImgPaths);
   }
 
+  private SceneSnapshot buildSnapshot(int lineIdx) {
+    return resolveSnapshot(
+        currentSource,
+        lineIdx,
+        activeScriptFile == null ? null : activeScriptFile.getAbsolutePath(),
+        this::resolveIncludeSource);
+  }
+
   static int resolveActiveLabelStartLine(String source, int upToLine) {
     if (source == null || source.isBlank()) return 0;
     String[] lines = source.split("\n", -1);
@@ -459,6 +503,89 @@ public class PuppeteerLauncherPanel extends VBox {
     return value != null && KNOWN_POSITIONS.contains(value.toLowerCase(Locale.ROOT));
   }
 
+  private static void collectDeclarations(
+      String source,
+      int maxLineInclusive,
+      String sourceName,
+      IncludeSourceResolver includeResolver,
+      Map<String, String> bgPaths,
+      Map<String, String> charImgPaths,
+      Map<String, Map<String, String>> charLayerPaths,
+      Set<String> includeStack
+  ) {
+    if (source == null || source.isBlank()) return;
+    String normalizedSource = normalizeSourceName(sourceName);
+    if (!includeStack.add(normalizedSource)) return;
+    try {
+      String[] lines = source.split("\n", -1);
+      int limit = maxLineInclusive < 0 ? lines.length - 1 : Math.min(maxLineInclusive, lines.length - 1);
+      for (int i = 0; i <= limit; i++) {
+        String line = lines[i];
+        String trimmed = stripInlineComment(line).trim();
+        if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
+
+        Matcher includeMatcher = INCLUDE_PATTERN.matcher(trimmed);
+        if (includeMatcher.matches() && includeResolver != null) {
+          String includePath = stripQuotes(includeMatcher.group(1).trim());
+          if (!includePath.isEmpty()) {
+            try {
+              ResolvedInclude resolved = includeResolver.resolve(normalizedSource, includePath);
+              if (resolved != null && resolved.sourceText() != null && !resolved.sourceText().isBlank()) {
+                collectDeclarations(
+                    resolved.sourceText(),
+                    -1,
+                    resolved.sourceName(),
+                    includeResolver,
+                    bgPaths,
+                    charImgPaths,
+                    charLayerPaths,
+                    includeStack);
+              }
+            } catch (IOException ignored) {
+            }
+          }
+          continue;
+        }
+
+        Matcher backgroundMatcher = BG_DECL_PATTERN.matcher(trimmed);
+        if (backgroundMatcher.matches()) {
+          bgPaths.put(backgroundMatcher.group(1), backgroundMatcher.group(2).trim());
+          continue;
+        }
+
+        Matcher charImgMatcher = CHARIMG_PATTERN.matcher(trimmed);
+        if (charImgMatcher.matches()) {
+          charImgPaths.put(
+              charImgMatcher.group(1) + "/" + charImgMatcher.group(2),
+              charImgMatcher.group(3).trim());
+          continue;
+        }
+
+        Matcher charLayerMatcher = CHARLAYER_PATTERN.matcher(trimmed);
+        if (charLayerMatcher.matches()) {
+          String charId = charLayerMatcher.group(1);
+          String layerId = charLayerMatcher.group(2);
+          String path = charLayerMatcher.group(3).trim();
+          charLayerPaths.computeIfAbsent(charId, k -> new LinkedHashMap<>()).put(layerId, path);
+          continue;
+        }
+
+        Matcher charPresetMatcher = CHARPRESET_PATTERN.matcher(trimmed);
+        if (charPresetMatcher.matches()) {
+          String charId = charPresetMatcher.group(1);
+          String expr = charPresetMatcher.group(2);
+          String spec = charPresetMatcher.group(3).trim();
+          String resolved = resolvePresetSpec(charLayerPaths, charId, spec);
+          if (!resolved.isBlank()) {
+            charImgPaths.put(charId + "/" + expr, resolved);
+          }
+        }
+      }
+    } finally {
+      includeStack.remove(normalizedSource);
+    }
+  }
+
   private static String resolvePresetSpec(Map<String, Map<String, String>> layersByCharacter,
                                           String characterId,
                                           String spec) {
@@ -500,6 +627,90 @@ public class PuppeteerLauncherPanel extends VBox {
       layerId = ref.substring(sep + 1).trim();
     }
     return new LayerRef(characterId, layerId);
+  }
+
+  private ResolvedInclude resolveIncludeSource(String sourceName, String includePath) throws IOException {
+    String normalized = includePath == null ? "" : includePath.trim().replace('\\', '/');
+    if (normalized.isBlank()) {
+      throw new IOException("Include path is empty");
+    }
+
+    File anchorFile = activeScriptFile;
+    if (sourceName != null && !sourceName.isBlank() && !"<script>".equals(sourceName)) {
+      File candidate = new File(sourceName);
+      if (candidate.isFile()) anchorFile = candidate;
+    }
+    if (anchorFile == null) {
+      throw new IOException("Include resolver unavailable");
+    }
+
+    File root = projectRoot;
+    if (root == null) {
+      root = resolveWorkspaceRoot(anchorFile);
+    }
+    if (root == null) {
+      throw new IOException("Project root unavailable");
+    }
+
+    Path rootPath = root.toPath().toAbsolutePath().normalize();
+    Path scriptsRoot = ScriptEditorWorkspaceModel.resolveScriptsRoot(root);
+    if (scriptsRoot == null) {
+      scriptsRoot = rootPath.resolve("scripts");
+    }
+    scriptsRoot = scriptsRoot.toAbsolutePath().normalize();
+
+    List<Path> candidates = new ArrayList<>();
+    if (normalized.startsWith("/")) {
+      candidates.add(scriptsRoot.resolve(normalized.substring(1)));
+    } else {
+      Path sourcePath = anchorFile.toPath().toAbsolutePath().normalize();
+      Path sourceParent = sourcePath.getParent();
+      if (sourceParent != null) {
+        candidates.add(sourceParent.resolve(normalized));
+      }
+      candidates.add(scriptsRoot.resolve(normalized));
+    }
+    candidates.add(rootPath.resolve(normalized));
+
+    for (Path candidate : candidates) {
+      Path resolved = candidate.toAbsolutePath().normalize();
+      if (!resolved.startsWith(rootPath)) continue;
+      if (Files.isRegularFile(resolved)) {
+        return new ResolvedInclude(resolved.toString(), Files.readString(resolved, StandardCharsets.UTF_8));
+      }
+    }
+    throw new IOException("Included script not found: " + includePath);
+  }
+
+  private static File resolveWorkspaceRoot(File scriptFile) {
+    if (scriptFile == null) return null;
+    Path current = scriptFile.toPath().toAbsolutePath().normalize().getParent();
+    while (current != null) {
+      Path name = current.getFileName();
+      if (name != null && "scripts".equalsIgnoreCase(name.toString())) {
+        return current.getParent() == null ? current.toFile() : current.getParent().toFile();
+      }
+      current = current.getParent();
+    }
+    return scriptFile.getParentFile();
+  }
+
+  private static String normalizeSourceName(String sourceName) {
+    if (sourceName == null || sourceName.isBlank()) return "<script>";
+    return sourceName.replace('\\', '/');
+  }
+
+  private static String stripQuotes(String value) {
+    if (value == null) return "";
+    String trimmed = value.trim();
+    if (trimmed.length() >= 2) {
+      char first = trimmed.charAt(0);
+      char last = trimmed.charAt(trimmed.length() - 1);
+      if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+        return trimmed.substring(1, trimmed.length() - 1).trim();
+      }
+    }
+    return trimmed;
   }
 
   // --- Data classes ---
@@ -569,6 +780,13 @@ public class PuppeteerLauncherPanel extends VBox {
       return characterId;
     }
   }
+
+  @FunctionalInterface
+  interface IncludeSourceResolver {
+    ResolvedInclude resolve(String sourceName, String includePath) throws IOException;
+  }
+
+  record ResolvedInclude(String sourceName, String sourceText) {}
 
   private record LayerRef(String characterId, String layerId) {}
 }

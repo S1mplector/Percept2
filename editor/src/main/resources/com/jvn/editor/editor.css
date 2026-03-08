@@ -1669,6 +1669,213 @@
   -fx-opacity: 0.35;
 }
 
+.panel-chooser-row {
+  -fx-background-color: #1e2230;
+  -fx-background-radius: 6;
+  -fx-border-color: #252c3a;
+  -fx-border-radius: 6;
+}
+
+.panel-chooser-heading {
+  -fx-font-size: 14px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #eef3fb;
+}
+
+.panel-chooser-copy {
+  -fx-text-fill: #98a4b8;
+}
+
+.panel-chooser-title {
+  -fx-font-size: 12px;
+  -fx-text-fill: #d0d8e8;
+}
+
+.panel-chooser-placement-badge {
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-padding: 2 8 2 8;
+  -fx-background-radius: 999;
+}
+
+.panel-chooser-placement-hidden {
+  -fx-background-color: #2b313d;
+  -fx-text-fill: #98a4b8;
+}
+
+.panel-chooser-placement-left {
+  -fx-background-color: rgba(77, 163, 255, 0.18);
+  -fx-text-fill: #9cc7ff;
+}
+
+.panel-chooser-placement-right {
+  -fx-background-color: rgba(245, 196, 107, 0.16);
+  -fx-text-fill: #f5c46b;
+}
+
+.editor-settings-view {
+  -fx-background-color: #0f1218;
+}
+
+.editor-settings-toolbar {
+  -fx-background-color: #121722;
+  -fx-border-color: #242b38;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 6 8 6 8;
+}
+
+.editor-settings-toolbar > .container {
+  -fx-background-color: #121722;
+}
+
+.editor-settings-content {
+  -fx-background-color: #0f1218;
+}
+
+.editor-settings-scroll {
+  -fx-background: #0f1218;
+  -fx-background-color: #0f1218;
+  -fx-border-color: transparent;
+}
+
+.editor-settings-scroll > .viewport {
+  -fx-background-color: #0f1218;
+}
+
+.editor-settings-scroll > .corner {
+  -fx-background-color: #0f1218;
+}
+
+.editor-settings-button {
+  -fx-background-color: #1d2430;
+  -fx-text-fill: #d8e0ec;
+  -fx-border-color: #2f3949;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+  -fx-padding: 6 14 6 14;
+}
+
+.editor-settings-button:hover {
+  -fx-background-color: #263042;
+}
+
+.editor-settings-button:pressed {
+  -fx-background-color: #31405a;
+}
+
+.editor-settings-header {
+  -fx-font-size: 15px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #edf2fb;
+}
+
+.editor-settings-copy {
+  -fx-text-fill: #9ba8bd;
+  -fx-font-size: 11px;
+}
+
+.editor-settings-section {
+  -fx-background-color: #131923;
+  -fx-border-color: #232c39;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+  -fx-padding: 12;
+}
+
+.editor-settings-section-title {
+  -fx-font-size: 13px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #dbe3f0;
+}
+
+.editor-settings-label {
+  -fx-font-weight: 600;
+  -fx-text-fill: #d0d8e8;
+}
+
+.editor-settings-status {
+  -fx-text-fill: #9ea8b7;
+  -fx-font-size: 11px;
+  -fx-padding: 8 0 0 2;
+}
+
+.editor-settings-view .spinner {
+  -fx-background-color: #171c25;
+  -fx-border-color: #2e3847;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.editor-settings-view .spinner .text-field {
+  -fx-background-color: #171c25;
+  -fx-text-fill: #edf2fb;
+  -fx-prompt-text-fill: #6f7d93;
+  -fx-background-radius: 6 0 0 6;
+}
+
+.editor-settings-view .spinner .increment-arrow-button,
+.editor-settings-view .spinner .decrement-arrow-button {
+  -fx-background-color: #212937;
+  -fx-background-radius: 0;
+}
+
+.editor-settings-view .spinner .increment-arrow,
+.editor-settings-view .spinner .decrement-arrow {
+  -fx-background-color: #dbe3f0;
+}
+
+.editor-settings-view .check-box {
+  -fx-text-fill: #dbe3f0;
+}
+
+.editor-settings-view .check-box .box {
+  -fx-background-color: #171c25;
+  -fx-border-color: #2e3847;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
+}
+
+.editor-settings-view .check-box:selected .mark {
+  -fx-background-color: #9cc7ff;
+}
+
+.editor-settings-view .combo-box {
+  -fx-background-color: #171c25;
+  -fx-border-color: #2e3847;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.editor-settings-view .combo-box .list-cell {
+  -fx-background-color: #171c25;
+  -fx-text-fill: #edf2fb;
+}
+
+.editor-settings-view .combo-box .arrow-button {
+  -fx-background-color: #212937;
+  -fx-background-radius: 0 6 6 0;
+}
+
+.editor-settings-view .combo-box .arrow {
+  -fx-background-color: #dbe3f0;
+}
+
+.editor-settings-view .combo-box-popup > .list-view {
+  -fx-background-color: #171c25;
+  -fx-border-color: #2e3847;
+}
+
+.editor-settings-view .combo-box-popup > .list-view .list-cell {
+  -fx-background-color: #171c25;
+  -fx-text-fill: #edf2fb;
+}
+
+.editor-settings-view .combo-box-popup > .list-view .list-cell:hover,
+.editor-settings-view .combo-box-popup > .list-view .list-cell:filled:selected {
+  -fx-background-color: #263042;
+  -fx-text-fill: #edf2fb;
+}
+
 /* ── VNS Code Editor IDE Features ── */
 
 /* Folded paragraph — visually collapse */

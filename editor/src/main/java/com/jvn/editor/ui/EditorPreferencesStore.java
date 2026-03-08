@@ -12,6 +12,7 @@ public final class EditorPreferencesStore {
   static final String KEY_SHOW_WELCOME_ON_STARTUP = "showWelcomeOnStartup";
   static final String KEY_PANEL_PREFIX = "panel.";
   static final String KEY_PANEL_SUFFIX = ".placement";
+  static final String KEY_CHOOSER_SUFFIX = ".chooserVisible";
 
   private final Path preferencesFile;
 
@@ -68,6 +69,9 @@ public final class EditorPreferencesStore {
       props.setProperty(
           KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX,
           preferences.getPlacement(panel).name());
+      props.setProperty(
+          KEY_PANEL_PREFIX + panel.key() + KEY_CHOOSER_SUFFIX,
+          Boolean.toString(preferences.isVisibleInChooser(panel)));
     }
     return props;
   }
@@ -84,6 +88,10 @@ public final class EditorPreferencesStore {
       String key = KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX;
       EditorPanelPlacement placement = parsePlacement(props.getProperty(key), panel.defaultPlacement());
       preferences.setPlacement(panel, placement);
+      String chooserKey = KEY_PANEL_PREFIX + panel.key() + KEY_CHOOSER_SUFFIX;
+      preferences.setVisibleInChooser(
+          panel,
+          parseBoolean(props.getProperty(chooserKey), panel.defaultVisibleInChooser()));
     }
     return preferences;
   }
@@ -105,5 +113,13 @@ public final class EditorPreferencesStore {
     } catch (IllegalArgumentException ignored) {
       return fallback;
     }
+  }
+
+  private static boolean parseBoolean(String raw, boolean fallback) {
+    if (raw == null || raw.isBlank()) return fallback;
+    String normalized = raw.trim().toLowerCase();
+    if ("true".equals(normalized)) return true;
+    if ("false".equals(normalized)) return false;
+    return fallback;
   }
 }

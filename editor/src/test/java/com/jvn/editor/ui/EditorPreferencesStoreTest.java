@@ -27,6 +27,8 @@ class EditorPreferencesStoreTest {
     assertTrue(preferences.isShowWelcomeOnStartup());
     assertEquals(EditorPanelPlacement.LEFT, preferences.getPlacement(EditorSidebarPanel.PROJECT));
     assertEquals(EditorPanelPlacement.HIDDEN, preferences.getPlacement(EditorSidebarPanel.HELP));
+    assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.PROJECT));
+    assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.HELP));
   }
 
   @Test
@@ -38,6 +40,7 @@ class EditorPreferencesStoreTest {
     preferences.setShowWelcomeOnStartup(false);
     preferences.setPlacement(EditorSidebarPanel.HELP, EditorPanelPlacement.RIGHT);
     preferences.setPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.LEFT);
+    preferences.setVisibleInChooser(EditorSidebarPanel.HELP, false);
 
     store.save(preferences);
     EditorPreferences loaded = store.load();
@@ -46,6 +49,7 @@ class EditorPreferencesStoreTest {
     assertFalse(loaded.isShowWelcomeOnStartup());
     assertEquals(EditorPanelPlacement.RIGHT, loaded.getPlacement(EditorSidebarPanel.HELP));
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.TIMELINE));
+    assertFalse(loaded.isVisibleInChooser(EditorSidebarPanel.HELP));
   }
 
   @Test
@@ -58,6 +62,10 @@ class EditorPreferencesStoreTest {
         EditorPreferencesStore.KEY_PANEL_PREFIX + EditorSidebarPanel.PROJECT.key()
             + EditorPreferencesStore.KEY_PANEL_SUFFIX,
         "nowhere");
+    props.setProperty(
+        EditorPreferencesStore.KEY_PANEL_PREFIX + EditorSidebarPanel.PROJECT.key()
+            + EditorPreferencesStore.KEY_CHOOSER_SUFFIX,
+        "notabool");
     try (var out = Files.newOutputStream(prefsFile)) {
       props.store(out, "test");
     }
@@ -68,6 +76,7 @@ class EditorPreferencesStoreTest {
     assertEquals(EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE, loaded.getCodeEditorFontSize());
     assertFalse(loaded.isShowWelcomeOnStartup());
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.PROJECT));
+    assertTrue(loaded.isVisibleInChooser(EditorSidebarPanel.PROJECT));
   }
 
   @Test
