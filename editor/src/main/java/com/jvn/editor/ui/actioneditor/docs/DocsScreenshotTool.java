@@ -754,6 +754,7 @@ public final class DocsScreenshotTool extends Application {
         window.setWidth(2200);
         window.setHeight(1300);
         window.show();
+        window.setToolbarClustersExpanded(true);
         return window;
     }
 
@@ -1173,21 +1174,20 @@ public final class DocsScreenshotTool extends Application {
         regions.put("full", root);
         Node toolbar = root.getTop();
         regions.put("toolbar", toolbar);
-        if (toolbar instanceof javafx.scene.layout.HBox toolbarBox) {
-            List<Node> children = toolbarBox.getChildren();
-            putIfPresent(regions, "toolbar_transport", children, 0);
-            putIfPresent(regions, "toolbar_duration", children, 2);
-            putIfPresent(regions, "toolbar_presets", children, 4);
-            putIfPresent(regions, "toolbar_property", children, 6);
-            putIfPresent(regions, "toolbar_key_ops", children, 8);
-            putIfPresent(regions, "toolbar_snap", children, 10);
-            putIfPresent(regions, "toolbar_autokey", children, 12);
-            putIfPresent(regions, "toolbar_preview_modes", children, 14);
-            putIfPresent(regions, "toolbar_orbit", children, 16);
-            putIfPresent(regions, "toolbar_audio", children, 18);
-            putIfPresent(regions, "toolbar_register", children, 20);
-            putIfPresent(regions, "toolbar_help_btn", children, 22);
-            regions.put("toolbar_orbit_audio_register", toolbarBox);
+        if (toolbar instanceof Parent toolbarRoot) {
+            putIfFound(regions, toolbarRoot, "toolbar_transport", "toolbar-group-transport-duration");
+            putIfFound(regions, toolbarRoot, "toolbar_duration", "toolbar-cluster-duration");
+            putIfFound(regions, toolbarRoot, "toolbar_presets", "toolbar-cluster-presets");
+            putIfFound(regions, toolbarRoot, "toolbar_property", "toolbar-cluster-property");
+            putIfFound(regions, toolbarRoot, "toolbar_key_ops", "toolbar-group-keyframe-ops");
+            putIfFound(regions, toolbarRoot, "toolbar_snap", "toolbar-cluster-snap");
+            putIfFound(regions, toolbarRoot, "toolbar_autokey", "toolbar-cluster-preview");
+            putIfFound(regions, toolbarRoot, "toolbar_preview_modes", "toolbar-group-preview-modes");
+            putIfFound(regions, toolbarRoot, "toolbar_orbit", "toolbar-cluster-orbit");
+            putIfFound(regions, toolbarRoot, "toolbar_audio", "toolbar-cluster-audio");
+            putIfFound(regions, toolbarRoot, "toolbar_register", "toolbar-cluster-register");
+            putIfFound(regions, toolbarRoot, "toolbar_help_btn", "toolbar-cluster-help");
+            putIfFound(regions, toolbarRoot, "toolbar_orbit_audio_register", "toolbar-group-orbit-audio-register");
         }
 
         Node centerNode = root.getCenter();
@@ -1235,6 +1235,14 @@ public final class DocsScreenshotTool extends Application {
         if (index < 0 || index >= nodes.size()) return;
         Node node = nodes.get(index);
         if (node != null) out.put(key, node);
+    }
+
+    private static void putIfFound(Map<String, Node> out, Parent root, String key, String nodeId) {
+        if (out == null || key == null || root == null || nodeId == null || nodeId.isBlank()) return;
+        Node node = root.lookup("#" + nodeId);
+        if (node != null) {
+            out.put(key, node);
+        }
     }
 
     private static Map<String, Node> resolveImageTintRegions(Stage stage) {

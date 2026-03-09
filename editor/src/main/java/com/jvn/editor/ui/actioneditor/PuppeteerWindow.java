@@ -22,7 +22,9 @@ import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
@@ -33,7 +35,6 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
@@ -47,8 +48,10 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 public class PuppeteerWindow extends Stage {
@@ -84,6 +87,7 @@ public class PuppeteerWindow extends Stage {
     private final KeyframeSelectionModel selectionModel;
     private Consumer<String> onCopyCode;
     private final TextField tfTimelineName;
+    private final Map<String, CollapsibleToolbarCluster> toolbarClusters = new LinkedHashMap<>();
     private Label statusBar;
     private Label viewportInfoLabel;
     private boolean dirty = false;
@@ -384,7 +388,7 @@ public class PuppeteerWindow extends Stage {
         lblTime.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 72; -fx-alignment: center;");
 
         HBox transportBox = new HBox(4, btnRewind, btnPlay, btnPause, btnStop, makeSpacer(6), lblTime);
-        transportBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        transportBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Duration controls ---
         tfDuration = new TextField(String.valueOf((int) this.project.getTotalDurationMs()));
@@ -463,7 +467,7 @@ public class PuppeteerWindow extends Stage {
 
         tfDuration.setTooltip(new Tooltip("Timeline duration (ms)"));
         HBox durationBox = new HBox(4, tfDuration, btnFitDuration, cbLoop, btnLoopIn, btnLoopOut, btnLoopClear);
-        durationBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        durationBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Presets ---
         MenuButton presetMenu = buildPresetMenu();
@@ -487,7 +491,7 @@ public class PuppeteerWindow extends Stage {
         timelinePanel.setSelectedProperty(PropertyType.X);
 
         HBox propertyBox = new HBox(4, cbProperty);
-        propertyBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        propertyBox.setAlignment(Pos.CENTER_LEFT);
 
         Button btnCopyKeyframes = makeToolbarIconButton("icon-timeline-copy", "Copy selected keyframes (Ctrl/Cmd+Alt+C)");
         btnCopyKeyframes.setOnAction(e -> copySelectedKeyframesToClipboard());
@@ -559,11 +563,27 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreview();
         });
 
-        HBox keyframeOpsBox = new HBox(4, btnCopyKeyframes, btnPasteKeyframes, btnDuplicateKeyframes,
-            btnBatchKeyframe, btnSaveClip, btnLoadClip, slotMenu, btnZoomFit,
-            btnDistributeKeys, btnReverseKeys, btnStretchKeys, btnCompressKeys,
-            cbRipple, cbCompactExport);
-        keyframeOpsBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        HBox keyframeOpsPrimaryRow = new HBox(4,
+            btnCopyKeyframes,
+            btnPasteKeyframes,
+            btnDuplicateKeyframes,
+            btnBatchKeyframe,
+            btnSaveClip,
+            btnLoadClip,
+            slotMenu,
+            btnZoomFit
+        );
+        keyframeOpsPrimaryRow.setAlignment(Pos.CENTER_LEFT);
+
+        HBox keyframeOpsSecondaryRow = new HBox(4,
+            btnDistributeKeys,
+            btnReverseKeys,
+            btnStretchKeys,
+            btnCompressKeys,
+            cbRipple,
+            cbCompactExport
+        );
+        keyframeOpsSecondaryRow.setAlignment(Pos.CENTER_LEFT);
 
         cbSnap = makeToolbarIconToggle("icon-puppeteer-snap", "Enable snapping");
         cbSnap.setSelected(timelinePanel.isSnapEnabled());
@@ -580,7 +600,7 @@ public class PuppeteerWindow extends Stage {
         tfSnapMs.setTooltip(new Tooltip("Snap step in milliseconds"));
 
         HBox snapBox = new HBox(4, cbSnap, tfSnapMs);
-        snapBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        snapBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Playback speed ---
         ComboBox<String> cbSpeed = new ComboBox<>();
@@ -629,9 +649,9 @@ public class PuppeteerWindow extends Stage {
         cbSnapEntity.setOnAction(e -> animationPreview.setSnapToEntityEnabled(cbSnapEntity.isSelected()));
 
         HBox autoKeyBox = new HBox(4, cbAutoKey, lblAutoKey);
-        autoKeyBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        autoKeyBox.setAlignment(Pos.CENTER_LEFT);
         HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbSpeed, cbWheelMode);
-        previewSnapBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        previewSnapBox.setAlignment(Pos.CENTER_LEFT);
 
         cbOrbitTool = makeToolbarIconToggle("icon-puppeteer-orbit", "Enable orbit-anchor tool. Shift+click preview to place anchor. Alt+Shift+click another entity to link the anchor at the exact cursor point (joint/nail).");
         cbOrbitTool.setSelected(animationPreview.isOrbitToolEnabled());
@@ -648,7 +668,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         HBox orbitBox = new HBox(4, cbOrbitTool, cbOrbitAlign, btnClearAnchor);
-        orbitBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        orbitBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Help button ---
         Button btnHelp = makeToolbarIconButton("icon-puppeteer-presets", "Show keyboard shortcuts");
@@ -674,7 +694,7 @@ public class PuppeteerWindow extends Stage {
             });
         });
         HBox cueBox = new HBox(4, btnAddCue, btnClearCues);
-        cueBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        cueBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Timeline name + Register ---
         tfTimelineName = new TextField("my_animation");
@@ -687,7 +707,7 @@ public class PuppeteerWindow extends Stage {
         btnRegister.setOnAction(e -> registerTimeline());
 
         HBox nameBox = new HBox(4, tfTimelineName, btnRegister);
-        nameBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        nameBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Apply Code to Model (text-first round-trip) ---
         codePreview.setOnApplyToModel(() -> {
@@ -697,33 +717,32 @@ public class PuppeteerWindow extends Stage {
         codePreview.setOnDiscardPreview(this::discardStagedPreview);
 
         // --- Assemble toolbar ---
-        HBox toolbar = new HBox(6,
-            transportBox,
-            makeVSep(),
-            durationBox,
-            makeVSep(),
-            presetMenu,
-            makeVSep(),
-            propertyBox,
-            makeVSep(),
-            keyframeOpsBox,
-            makeVSep(),
-            snapBox,
-            makeVSep(),
-            autoKeyBox,
-            makeVSep(),
-            previewSnapBox,
-            makeVSep(),
-            orbitBox,
-            makeVSep(),
-            cueBox,
-            makeVSep(),
-            nameBox,
-            makeVSep(),
-            btnHelp
+        CollapsibleToolbarCluster transportCluster = registerToolbarCluster("transport", "Transport", transportBox);
+        CollapsibleToolbarCluster durationCluster = registerToolbarCluster("duration", "Timeline", durationBox);
+        CollapsibleToolbarCluster presetsCluster = registerToolbarCluster("presets", "Presets", presetMenu);
+        CollapsibleToolbarCluster propertyCluster = registerToolbarCluster("property", "Track", propertyBox);
+        CollapsibleToolbarCluster keyframesCluster = registerToolbarCluster("keyframes", "Keyframes",
+            keyframeOpsPrimaryRow, keyframeOpsSecondaryRow);
+        CollapsibleToolbarCluster snapCluster = registerToolbarCluster("snap", "Snap", snapBox);
+        CollapsibleToolbarCluster previewCluster = registerToolbarCluster("preview", "Preview", autoKeyBox, previewSnapBox);
+        CollapsibleToolbarCluster orbitCluster = registerToolbarCluster("orbit", "Orbit", orbitBox);
+        CollapsibleToolbarCluster audioCluster = registerToolbarCluster("audio", "Audio", cueBox);
+        CollapsibleToolbarCluster registerCluster = registerToolbarCluster("register", "Register", nameBox);
+        CollapsibleToolbarCluster helpCluster = registerToolbarCluster("help", "Help", btnHelp);
+
+        FlowPane toolbar = new FlowPane(10, 8);
+        toolbar.getChildren().addAll(
+            makeToolbarGroup("toolbar-group-transport-duration", transportCluster, durationCluster),
+            presetsCluster,
+            makeToolbarGroup("toolbar-group-keyframe-ops", propertyCluster, keyframesCluster),
+            makeToolbarGroup("toolbar-group-preview-modes", snapCluster, previewCluster),
+            makeToolbarGroup("toolbar-group-orbit-audio-register", orbitCluster, audioCluster, registerCluster),
+            helpCluster
         );
-        toolbar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-        toolbar.setPadding(new Insets(6, 10, 6, 10));
+        toolbar.setId("puppeteer-toolbar");
+        toolbar.setAlignment(Pos.CENTER_LEFT);
+        toolbar.setPadding(new Insets(8, 10, 8, 10));
+        toolbar.setMaxWidth(Double.MAX_VALUE);
         toolbar.setStyle("-fx-background-color: #0a0a0a; -fx-border-color: #2a2a2a; -fx-border-width: 0 0 1 0;");
 
         assetPicker = new AssetPickerPanel();
@@ -808,6 +827,20 @@ public class PuppeteerWindow extends Stage {
 
     private static boolean isLinux() {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
+    }
+
+    public void setToolbarClustersExpanded(boolean expanded) {
+        for (CollapsibleToolbarCluster cluster : toolbarClusters.values()) {
+            cluster.setExpanded(expanded);
+        }
+    }
+
+    public void setToolbarClusterExpanded(String key, boolean expanded) {
+        if (key == null || key.isBlank()) return;
+        CollapsibleToolbarCluster cluster = toolbarClusters.get(key.trim().toLowerCase(Locale.ROOT));
+        if (cluster != null) {
+            cluster.setExpanded(expanded);
+        }
     }
 
     public void setScene(JesScene2D scene) {
@@ -1495,17 +1528,32 @@ public class PuppeteerWindow extends Stage {
         return lbl;
     }
 
+    private CollapsibleToolbarCluster registerToolbarCluster(String key, String title, Node... rows) {
+        VBox content = new VBox(6);
+        content.setAlignment(Pos.CENTER_LEFT);
+        for (Node row : rows) {
+            if (row != null) {
+                content.getChildren().add(row);
+            }
+        }
+        CollapsibleToolbarCluster cluster = new CollapsibleToolbarCluster(key, title, content);
+        toolbarClusters.put(cluster.getClusterKey(), cluster);
+        return cluster;
+    }
+
+    private static FlowPane makeToolbarGroup(String id, Node... children) {
+        FlowPane group = new FlowPane(8, 6);
+        group.setAlignment(Pos.CENTER_LEFT);
+        group.setId(id);
+        group.getChildren().addAll(children);
+        return group;
+    }
+
     private static Region makeSpacer(double width) {
         Region r = new Region();
         r.setMinWidth(width);
         r.setPrefWidth(width);
         return r;
-    }
-
-    private static Separator makeVSep() {
-        Separator sep = new Separator(Orientation.VERTICAL);
-        sep.setStyle("-fx-padding: 0 2;");
-        return sep;
     }
 
     private void saveSelectionAsClip() {
