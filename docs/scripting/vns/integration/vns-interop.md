@@ -1,6 +1,6 @@
 # VNS Interop & Integration
 
-Complete reference for integrating VNS scripts with JES scenes, Java code, inline timelines, and menu systems.
+Complete reference for integrating VNS scripts with JES scenes, Java code, inline timelines, menu systems, and the phone UI layer.
 
 Interop classes:
 - `core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
@@ -349,6 +349,52 @@ Use inline blocks for one-off animations close to story text; use named timeline
 
 ---
 
+## Phone Commands
+
+The phone system reads its seed data from:
+
+- `config/phone/phone.properties`
+- `game/config/phone/phone.properties`
+
+At runtime, phone mutations are persisted through the VN variable layer, so save/load and rollback keep the same chat state.
+
+### Opening the Phone
+
+```vns
+[phone open]           # open the phone home/thread list
+[phone chat mc_lily]   # open directly to a thread
+[phone close]          # request close if a phone overlay is active
+```
+
+### Seeding Contacts and Threads
+
+```vns
+[phone contact mc name="John" self=true]
+[phone contact ll name="Lily" avatar="assets/phone/lily.png"]
+[phone thread mc_lily title="LostVarnacola" participants=mc,ll icon="assets/phone/lily.png"]
+```
+
+Supported options:
+
+- `contact`: `name=`, `avatar=`, `color=`, `self=`
+- `thread`: `title=`, `icon=`, `participants=mc,ll`, `unread=true|false`
+
+### Appending and Mutating Messages
+
+```vns
+[phone message mc_lily ll "You awake?" time=08:14]
+[phone unread mc_lily true]
+[phone clear mc_lily]
+```
+
+Notes:
+
+- `message` expects: `<chatId> <senderId> "text"` plus optional `time=` and `unread=`.
+- Missing contacts/threads are created on demand.
+- New messages move the thread to the top of the phone list.
+
+---
+
 ## HUD Messages
 
 ```vns
@@ -388,6 +434,7 @@ Shows a temporary on-screen message (auto-expires after ~2 seconds). Supports `$
 |----------|---------|
 | `jes` | Push/replace/pop/call JES scenes |
 | `menu` | Open menu scenes |
+| `phone` | Open the phone overlay and mutate contacts/threads/messages |
 | `vns` | Script flow transitions |
 
 ---

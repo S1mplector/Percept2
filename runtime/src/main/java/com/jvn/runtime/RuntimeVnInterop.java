@@ -14,6 +14,11 @@ import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
+import com.jvn.core.phone.PhoneScene;
+import com.jvn.core.phone.VnPhoneCommands;
+import com.jvn.core.phone.VnPhoneData;
+import com.jvn.core.phone.VnPhonePropertiesCodec;
+import com.jvn.core.phone.VnPhoneStateStore;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.DefaultVnInterop;
@@ -189,6 +194,8 @@ public class RuntimeVnInterop implements VnInterop {
         return handleJes(payload, scene);
       case "menu":
         return handleMenu(payload, scene);
+      case "phone":
+        return handlePhone(payload, scene);
       case "vns":
         return handleVns(payload, scene);
       default:
@@ -367,6 +374,37 @@ public class RuntimeVnInterop implements VnInterop {
         engine.scenes().push(custom);
         return VnInteropResult.advance();
     }
+  }
+
+  private VnInteropResult handlePhone(String payload, VnScene scene) {
+    VnPhoneCommands.Result result =
+        VnPhoneCommands.handle(payload, scene, VnPhonePropertiesCodec::loadSeedFromAssets);
+    switch (result.action()) {
+      case OPEN_HOME -> {
+        VnPhoneData data = VnPhoneStateStore.load(scene.getState(), VnPhonePropertiesCodec::loadSeedFromAssets);
+        engine.scenes().push(new PhoneScene(
+            scene,
+            data,
+            updated -> VnPhoneStateStore.save(scene.getState(), updated)));
+      }
+      case OPEN_CHAT -> {
+        VnPhoneData data = VnPhoneStateStore.load(scene.getState(), VnPhonePropertiesCodec::loadSeedFromAssets);
+        engine.scenes().push(new PhoneScene(
+            scene,
+            data,
+            updated -> VnPhoneStateStore.save(scene.getState(), updated),
+            result.chatId()));
+      }
+      case CLOSE -> {
+        Scene top = topScene();
+        if (top instanceof PhoneScene phone && phone.getVnScene() == scene) {
+          engine.scenes().pop();
+        }
+      }
+      case NONE -> {
+      }
+    }
+    return VnInteropResult.advance();
   }
 
   private VnInteropResult handleVns(String payload, VnScene scene) {

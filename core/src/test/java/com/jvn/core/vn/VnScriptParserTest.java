@@ -3,6 +3,7 @@ package com.jvn.core.vn;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -236,6 +237,31 @@ public class VnScriptParserTest {
       assertEquals("Alice", line.getDialogue().getSpeakerName());
       assertEquals("From include.", line.getDialogue().getText());
     }
+  }
+
+  @Test
+  public void parsesPhoneInteropCommandsAsExternalNodes() throws Exception {
+    String script = """
+      @scenario phone_demo
+      @label start
+      [phone contact ll name="Lily" avatar="assets/phone/lily.png"]
+      [phone message mc_lily ll "You awake?" time=08:14]
+      [phone chat mc_lily]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    List<VnNode> externals = scenario.getNodes().stream()
+        .filter(node -> node.getType() == VnNodeType.EXTERNAL)
+        .toList();
+
+    assertEquals(3, externals.size());
+    assertEquals("phone", externals.get(0).getExternalCommand().getProvider());
+    assertEquals("contact ll name=\"Lily\" avatar=\"assets/phone/lily.png\"", externals.get(0).getExternalCommand().getPayload());
+    assertEquals("message mc_lily ll \"You awake?\" time=08:14", externals.get(1).getExternalCommand().getPayload());
+    assertEquals("chat mc_lily", externals.get(2).getExternalCommand().getPayload());
   }
 
   @Test

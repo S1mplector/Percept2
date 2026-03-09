@@ -1,0 +1,181 @@
+.phone-overlay {
+  -fx-padding: 24px;
+  -fx-alignment: center;
+}
+
+.phone-backdrop {
+  -fx-background-color: rgba(6, 10, 18, 0.46);
+}
+
+.phone-shell {
+  -fx-background-color: #101826;
+  -fx-background-radius: 34px;
+  -fx-border-color: rgba(255, 255, 255, 0.10);
+  -fx-border-radius: 34px;
+  -fx-border-width: 1px;
+  -fx-padding: 18px 16px 12px 16px;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.42), 26, 0.28, 0, 16);
+}
+
+.phone-wallpaper {
+  -fx-opacity: 0.22;
+}
+
+.phone-root {
+  -fx-background-color: rgba(8, 14, 24, 0.78);
+  -fx-background-radius: 26px;
+  -fx-padding: 8px 0 0 0;
+}
+
+.phone-header {
+  -fx-padding: 6px 10px 12px 10px;
+  -fx-alignment: center-left;
+}
+
+.phone-nav-button {
+  -fx-background-color: rgba(255, 255, 255, 0.08);
+  -fx-text-fill: #eef5ff;
+  -fx-background-radius: 999px;
+  -fx-padding: 7px 12px;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-cursor: hand;
+}
+
+.phone-nav-button:hover {
+  -fx-background-color: rgba(255, 255, 255, 0.14);
+}
+
+.phone-title-box {
+  -fx-alignment: center-left;
+}
+
+.phone-title {
+  -fx-text-fill: #f4f8ff;
+  -fx-font-size: 18px;
+  -fx-font-weight: 800;
+}
+
+.phone-subtitle {
+  -fx-text-fill: rgba(229, 238, 252, 0.68);
+  -fx-font-size: 11px;
+}
+
+.phone-scroll {
+  -fx-background-color: transparent;
+  -fx-background: transparent;
+  -fx-padding: 0 8px 0 8px;
+}
+
+.phone-scroll > .viewport {
+  -fx-background-color: transparent;
+}
+
+.phone-chat-list {
+  -fx-padding: 2px 4px 10px 4px;
+}
+
+.phone-chat-row {
+  -fx-background-color: rgba(255, 255, 255, 0.05);
+  -fx-background-radius: 20px;
+  -fx-padding: 12px 14px;
+  -fx-cursor: hand;
+  -fx-alignment: center-left;
+}
+
+.phone-chat-row:hover {
+  -fx-background-color: rgba(255, 255, 255, 0.09);
+}
+
+.phone-chat-row.is-selected {
+  -fx-background-color: rgba(120, 183, 255, 0.18);
+  -fx-border-color: rgba(120, 183, 255, 0.42);
+  -fx-border-radius: 20px;
+  -fx-border-width: 1px;
+}
+
+.phone-chat-row.is-unread {
+  -fx-border-color: rgba(255, 255, 255, 0.08);
+  -fx-border-radius: 20px;
+  -fx-border-width: 1px;
+}
+
+.phone-chat-avatar {
+  -fx-background-color: linear-gradient(to bottom right, rgba(120, 183, 255, 0.42), rgba(84, 119, 255, 0.72));
+  -fx-background-radius: 999px;
+  -fx-border-color: rgba(255, 255, 255, 0.10);
+  -fx-border-radius: 999px;
+}
+
+.phone-avatar-fallback {
+  -fx-text-fill: white;
+  -fx-font-size: 13px;
+  -fx-font-weight: 800;
+}
+
+.phone-chat-title {
+  -fx-text-fill: #f6f9ff;
+  -fx-font-size: 13px;
+  -fx-font-weight: 800;
+}
+
+.phone-chat-preview {
+  -fx-text-fill: rgba(233, 240, 252, 0.72);
+  -fx-font-size: 11px;
+}
+
+.phone-chat-badge {
+  -fx-text-fill: #d7e9ff;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+  -fx-background-color: rgba(120, 183, 255, 0.18);
+  -fx-background-radius: 999px;
+  -fx-padding: 4px 8px;
+}
+
+.phone-message-list {
+  -fx-padding: 6px 10px 10px 10px;
+}
+
+.phone-message-row {
+  -fx-padding: 2px 2px 4px 2px;
+}
+
+.phone-message-stack {
+  -fx-max-width: Infinity;
+}
+
+.phone-bubble {
+  -fx-background-radius: 20px;
+  -fx-padding: 10px 12px;
+  -fx-text-fill: #f5f8ff;
+  -fx-font-size: 12px;
+  -fx-line-spacing: 1px;
+}
+
+.phone-message-meta {
+  -fx-text-fill: rgba(232, 239, 252, 0.56);
+  -fx-font-size: 10px;
+}
+
+.phone-empty-state {
+  -fx-padding: 22px 18px;
+  -fx-background-color: rgba(255, 255, 255, 0.04);
+  -fx-background-radius: 24px;
+}
+
+.phone-empty-title {
+  -fx-text-fill: #f4f8ff;
+  -fx-font-size: 16px;
+  -fx-font-weight: 800;
+}
+
+.phone-empty-copy {
+  -fx-text-fill: rgba(230, 238, 251, 0.70);
+  -fx-font-size: 11px;
+}
+
+.phone-footer {
+  -fx-text-fill: rgba(229, 238, 252, 0.62);
+  -fx-font-size: 10px;
+}

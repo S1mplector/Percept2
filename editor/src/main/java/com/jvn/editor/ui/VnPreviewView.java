@@ -21,6 +21,11 @@ import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.menu.HistoryMenuScene;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
+import com.jvn.core.phone.PhoneScene;
+import com.jvn.core.phone.VnPhoneCommands;
+import com.jvn.core.phone.VnPhoneData;
+import com.jvn.core.phone.VnPhonePropertiesCodec;
+import com.jvn.core.phone.VnPhoneStateStore;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.DefaultVnInterop;
 import com.jvn.core.vn.VnExternalCommand;
@@ -38,6 +43,7 @@ import com.jvn.core.vn.ui.VnUiStyleSpec;
 import com.jvn.fx.audio.FxAudioService;
 import com.jvn.fx.menu.MenuRenderer;
 import com.jvn.fx.menu.MenuTheme;
+import com.jvn.fx.phone.PhoneRenderer;
 import com.jvn.fx.vn.VnRenderer;
 
 import javafx.scene.canvas.Canvas;
@@ -63,6 +69,7 @@ public class VnPreviewView extends StackPane {
   private final GraphicsContext gc = canvas.getGraphicsContext2D();
   private final VnRenderer renderer = new VnRenderer(gc);
   private final MenuRenderer menuRenderer = new MenuRenderer(gc, MenuTheme.fromAssets());
+  private final PhoneRenderer phoneRenderer = new PhoneRenderer();
   private final Tooltip previewTooltip = new Tooltip(PREVIEW_HINT);
   private static final Pattern TIMELINE_ARC_PATTERN = Pattern.compile(
       "^\\s*arc\\s+(?:\"([^\"]+)\"|(\\S+))\\s+script\\s+(?:\"([^\"]+)\"|(\\S+)).*$");
@@ -83,7 +90,7 @@ public class VnPreviewView extends StackPane {
   private int virtualHeight = 0;
 
   public VnPreviewView() {
-    getChildren().add(canvas);
+    getChildren().addAll(canvas, phoneRenderer);
     setFocusTraversable(true);
     canvas.setFocusTraversable(true);
 
@@ -131,6 +138,7 @@ public class VnPreviewView extends StackPane {
     this.audioBackend = nextBackend;
     this.projectRoot = root;
     renderer.setProjectRoot(root);
+    phoneRenderer.setProjectRoot(root);
     resolveVirtualViewport(root);
     applyUiOverrides();
     bindProjectRoot(audio, root);
@@ -170,6 +178,9 @@ public class VnPreviewView extends StackPane {
     renderer.setAudioFacade(scene.getAudioFacade());
     applyUiOverrides();
     syncRequestedOverlayScene();
+    if (overlayScene instanceof PhoneScene phone && phone.consumeCloseRequested()) {
+      closeOverlayScene();
+    }
 
     double vw = virtualWidth > 0 ? virtualWidth : canvasW;
     double vh = virtualHeight > 0 ? virtualHeight : canvasH;
@@ -193,6 +204,7 @@ public class VnPreviewView extends StackPane {
     renderer.render(scene.getState(), scene.getScenario(), vw, vh, virtualMouseX, virtualMouseY);
     renderOverlayScene(vw, vh);
     gc.restore();
+    syncPhoneOverlay();
   }
 
   public void setUiOverrides(VnUiLayoutSpec layout, VnUiStyleSpec style, List<VnUiActionButtonSpec> textBoxButtons) {
@@ -219,6 +231,7 @@ public class VnPreviewView extends StackPane {
       stopAudio();
       this.scene = null;
       this.overlayScene = null;
+      phoneRenderer.setSceneModel(null);
       renderer.setAudioFacade(null);
       return;
     }
@@ -227,6 +240,7 @@ public class VnPreviewView extends StackPane {
     VnScene nextScene = buildScene(scenario, startLabel, sourceScriptName, existingSettings);
     this.scene = nextScene;
     this.overlayScene = null;
+    phoneRenderer.setSceneModel(null);
     renderer.setAudioFacade(audio);
     requestFocus();
   }
@@ -265,6 +279,14 @@ public class VnPreviewView extends StackPane {
     }
   }
 
+  private void syncPhoneOverlay() {
+    if (overlayScene instanceof PhoneScene phone) {
+      phoneRenderer.setSceneModel(phone);
+    } else {
+      phoneRenderer.setSceneModel(null);
+    }
+  }
+
   private void syncRequestedOverlayScene() {
     if (scene == null || overlayScene != null) return;
     var state = scene.getState();
@@ -287,16 +309,40 @@ public class VnPreviewView extends StackPane {
 
   private void closeOverlayScene() {
     overlayScene = null;
+    phoneRenderer.setSceneModel(null);
   }
 
   private final class PreviewVnInterop extends DefaultVnInterop {
     @Override
     public VnInteropResult handle(VnExternalCommand command, VnScene activeScene) {
+      if (command != null && "phone".equalsIgnoreCase(command.getProvider())) {
+        return handlePhoneCommand(command.getPayload(), activeScene);
+      }
       if (command != null && "vns".equalsIgnoreCase(command.getProvider())) {
         return handleVnsCommand(command.getPayload(), activeScene);
       }
       return super.handle(command, activeScene);
     }
+  }
+
+  private VnInteropResult handlePhoneCommand(String payload, VnScene activeScene) {
+    VnPhoneCommands.Result result = VnPhoneCommands.handle(payload, activeScene, this::loadPhoneSeed);
+    switch (result.action()) {
+      case OPEN_HOME -> overlayScene = new PhoneScene(
+          activeScene,
+          VnPhoneStateStore.load(activeScene.getState(), this::loadPhoneSeed),
+          updated -> VnPhoneStateStore.save(activeScene.getState(), updated));
+      case OPEN_CHAT -> overlayScene = new PhoneScene(
+          activeScene,
+          VnPhoneStateStore.load(activeScene.getState(), this::loadPhoneSeed),
+          updated -> VnPhoneStateStore.save(activeScene.getState(), updated),
+          result.chatId());
+      case CLOSE -> closeOverlayScene();
+      case NONE -> {
+      }
+    }
+    syncPhoneOverlay();
+    return VnInteropResult.advance();
   }
 
   private VnInteropResult handleVnsCommand(String payload, VnScene activeScene) {
@@ -591,6 +637,17 @@ public class VnPreviewView extends StackPane {
     var state = scene.getState();
 
     if (overlayScene != null) {
+      if (overlayScene instanceof PhoneScene phone) {
+        if (phoneRenderer.handleKeyPressed(code, e.isShiftDown())) {
+          if (phone.consumeCloseRequested()) {
+            closeOverlayScene();
+          } else {
+            syncPhoneOverlay();
+          }
+          e.consume();
+          return;
+        }
+      }
       handleOverlayKey(code, e.isShiftDown());
       e.consume();
       return;
@@ -688,6 +745,16 @@ public class VnPreviewView extends StackPane {
 
   private void handleScroll(ScrollEvent e) {
     if (scene == null) return;
+    if (overlayScene instanceof PhoneScene phone) {
+      phoneRenderer.scrollContent(e.getDeltaY(), e.isShiftDown());
+      if (phone.consumeCloseRequested()) {
+        closeOverlayScene();
+      } else {
+        syncPhoneOverlay();
+      }
+      e.consume();
+      return;
+    }
     if (overlayScene instanceof HistoryMenuScene history) {
       int step = e.isShiftDown() ? 6 : 2;
       if (e.getDeltaY() > 0) {
@@ -842,6 +909,27 @@ public class VnPreviewView extends StackPane {
     dst.setSkipAfterChoices(src.isSkipAfterChoices());
   }
 
+  private VnPhoneData loadPhoneSeed() {
+    try {
+      if (projectRoot != null) {
+        File direct = new File(projectRoot, "config/phone/phone.properties");
+        if (direct.isFile()) {
+          try (InputStream in = new FileInputStream(direct)) {
+            return VnPhonePropertiesCodec.load(in);
+          }
+        }
+        File gamePath = new File(projectRoot, "game/config/phone/phone.properties");
+        if (gamePath.isFile()) {
+          try (InputStream in = new FileInputStream(gamePath)) {
+            return VnPhonePropertiesCodec.load(in);
+          }
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return VnPhonePropertiesCodec.loadSeedFromAssets();
+  }
+
   public void stopAudio() {
     if (audio != null) {
       try {
@@ -855,6 +943,7 @@ public class VnPreviewView extends StackPane {
     stopAudio();
     scene = null;
     overlayScene = null;
+    phoneRenderer.setSceneModel(null);
     projectRoot = null;
     audio = null;
     renderer.setAudioFacade(null);

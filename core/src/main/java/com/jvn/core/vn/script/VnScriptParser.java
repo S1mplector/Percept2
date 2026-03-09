@@ -1199,6 +1199,9 @@ public class VnScriptParser {
         state.builder.choiceNodes(inlineChoices);
         return;
       }
+      case "phone":
+        state.builder.external("phone", arg == null ? "" : arg);
+        return;
       case "jes":
         state.builder.external("jes", arg == null ? "" : arg);
         return;

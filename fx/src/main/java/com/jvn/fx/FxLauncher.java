@@ -21,12 +21,14 @@ import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.PauseMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
+import com.jvn.core.phone.PhoneScene;
 import com.jvn.core.scene2d.Scene2D;
 import com.jvn.core.scene2d.Scene2DBase;
 import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnScene;
 import com.jvn.fx.menu.MenuRenderer;
 import com.jvn.fx.menu.MenuTheme;
+import com.jvn.fx.phone.PhoneRenderer;
 import com.jvn.fx.render.FxSceneRendererRegistry;
 import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.fx.vn.VnRenderer;
@@ -54,6 +56,7 @@ public class FxLauncher extends Application {
   private GraphicsContext gc;
   private VnRenderer vnRenderer;
   private MenuRenderer menuRenderer;
+  private PhoneRenderer phoneRenderer;
   private FxBlitter2D blitter2D;
   private FxSceneRendererRegistry rendererRegistry;
   private ActionMap actionMap;
@@ -87,7 +90,8 @@ public class FxLauncher extends Application {
 
     StackPane root = new StackPane();
     this.canvas = new Canvas(width, height);
-    root.getChildren().add(this.canvas);
+    this.phoneRenderer = new PhoneRenderer();
+    root.getChildren().addAll(this.canvas, this.phoneRenderer);
     javafx.scene.Scene scene = new javafx.scene.Scene(root, width, height);
     primaryStage.setScene(scene);
     applyLinuxDefaultWindowState(primaryStage);
@@ -106,6 +110,18 @@ public class FxLauncher extends Application {
     // Input handling
     scene.setOnKeyPressed(e -> {
       com.jvn.core.scene.Scene cur = engine != null ? engine.scenes().peek() : null;
+      if (cur instanceof PhoneScene phone) {
+        if (phoneRenderer != null && phoneRenderer.handleKeyPressed(e.getCode(), e.isShiftDown())) {
+          if (phone.consumeCloseRequested() && engine != null) {
+            engine.scenes().pop();
+            syncPhoneOverlay(engine.scenes().peek());
+          } else {
+            syncPhoneOverlay(phone);
+          }
+          e.consume();
+          return;
+        }
+      }
       if (cur instanceof HistoryMenuScene historyScene) {
         handleHistoryMenuInput(historyScene, e.getCode(), e.isShiftDown());
         e.consume();
@@ -320,13 +336,18 @@ public class FxLauncher extends Application {
         lastNs = now;
         if (engine != null) engine.update(deltaMs);
         syncRequestedVnMenus();
+        com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
+        if (currentScene instanceof PhoneScene phone && phone.consumeCloseRequested() && engine != null) {
+          engine.scenes().pop();
+          currentScene = engine.scenes().peek();
+        }
+        syncPhoneOverlay(currentScene);
 
         // Render
         if (gc != null && canvas != null) {
           double w = canvas.getWidth();
           double h = canvas.getHeight();
 
-          com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
           boolean rendered = rendererRegistry != null
               && rendererRegistry.render(currentScene, new com.jvn.fx.render.FxSceneRendererRegistry.RenderContext(gc, blitter2D, w, h, mouseX, mouseY));
           if (!rendered) {
@@ -367,6 +388,16 @@ public class FxLauncher extends Application {
       }
       menuRenderer.renderHistoryMenu(history, ctx.width(), ctx.height());
     });
+    reg.register(PhoneScene.class, (phone, ctx) -> {
+      VnScene vn = phone.getVnScene();
+      if (vn != null) {
+        vnRenderer.setAudioFacade(vn.getAudioFacade());
+        vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
+      } else {
+        ctx.gc().setFill(Color.BLACK);
+        ctx.gc().fillRect(0, 0, ctx.width(), ctx.height());
+      }
+    });
     reg.register(MainMenuScene.class, (scene, ctx) -> menuRenderer.renderMainMenu(scene, ctx.width(), ctx.height()));
     reg.register(LoadMenuScene.class, (scene, ctx) -> menuRenderer.renderLoadMenu(scene, ctx.width(), ctx.height()));
     reg.register(SettingsScene.class, (scene, ctx) -> menuRenderer.renderSettings(scene, ctx.width(), ctx.height()));
@@ -392,6 +423,15 @@ public class FxLauncher extends Application {
       b.pop();
     });
     return reg;
+  }
+
+  private void syncPhoneOverlay(com.jvn.core.scene.Scene currentScene) {
+    if (phoneRenderer == null) return;
+    if (currentScene instanceof PhoneScene phone) {
+      phoneRenderer.setSceneModel(phone);
+    } else {
+      phoneRenderer.setSceneModel(null);
+    }
   }
 
   private ActionMap loadActionBindings() {
