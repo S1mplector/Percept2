@@ -9,7 +9,7 @@ This guide walks you through building JVN, creating your first project, and runn
 - **JDK 21** — toolchain auto-download is enabled, but a local JDK 21 is recommended
 - **No global Gradle install required** — `./gradlew` wrapper is included
 - **Git** (optional) — for version control integration in the editor
-- **CMake + C/C++ toolchain** (optional) — for native-math acceleration builds
+- **CMake + C/C++ toolchain** — required for native bridge builds and editor startup
 
 ---
 
@@ -23,13 +23,15 @@ cd Java-Vector-Nexus
 ./gradlew build
 ```
 
-This compiles all modules and runs tests. The build also auto-attempts a `native-math` CMake build when native outputs are missing.
+This compiles all modules and runs tests. The build also configures and builds the native bridges when native outputs are missing.
 
-If you don't have CMake/toolchain installed, bypass native builds:
+If you need to bypass native builds for a limited non-editor scenario:
 
 ```bash
 ./gradlew -PskipNativeMathBuild=true build
 ```
+
+This is an escape hatch, not the supported default workflow. `:editor:run` still expects a working CMake toolchain because the startup preflight verifies and loads native libraries before opening the editor.
 
 ### Targeted builds during development
 
@@ -53,6 +55,8 @@ Instead of full `build` every time, use focused tasks:
 ```bash
 ./gradlew :editor:run
 ```
+
+The editor startup preflight checks `cmake`, validates the native toolchain, and rebuilds missing native libraries before launch.
 
 The editor opens with a Welcome dashboard showing:
 - Recent projects

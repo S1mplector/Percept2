@@ -36,7 +36,7 @@ Cross-platform build scripts were added under `native-math/`:
 - `build_windows.bat` (Windows wrapper)
 
 Build system updates:
-- `native-math/CMakeLists.txt` now has optional `JVN_BUILD_JNI_BRIDGE` target.
+- `native-math/CMakeLists.txt` now has the `JVN_BUILD_JNI_BRIDGE` target used by the supported local build/editor workflow.
 
 ## Recommended Next Integrations (Ordered)
 
@@ -59,4 +59,4 @@ Deferred for now:
 
 - Some functions have POSIX-focused implementations and Windows stubs.
 - JNI bridge must remain narrow and explicit to keep failure handling predictable.
-- Native path is optional by design; Java fallback must remain tested as default.
+- Some runtime call sites still have Java fallbacks, but the supported local developer/editor workflow now assumes `cmake` plus a native toolchain are available and that the JNI bridge can be built locally.

@@ -9,9 +9,9 @@ JVN is a modular Visual Novel engine written primarily in Java, C and C++.
 ## Architecture
 
 JVN is designed to be lightweight and predictable under load:
-- Modular separation of runtime, scripting, renderer backends, editor tooling, and optional native acceleration.
+- Modular separation of runtime, scripting, renderer backends, editor tooling, and native acceleration layers.
 - Performance-critical paths are accelerated in `native-math` (SIMD text search, pooled batch scanning, math kernels, and atomic save-path I/O).
-- Native bridges are isolated in `core/nativebridge` with automatic Java fallbacks, so behavior stays stable even when native binaries are unavailable.
+- Native bridges are isolated in `core/nativebridge`; some call sites still fall back to Java at runtime, but supported local builds and editor startup expect native binaries to be buildable.
 - Hot paths are data-oriented where possible (compact buffers, reduced allocation churn, pooled native buffers for batch workflows).
 
 Typical memory footprint for the core runtime together with the full editor is around **30-60 MB RAM** in normal desktop usage (project/content dependent).
@@ -21,7 +21,10 @@ Typical memory footprint for the core runtime together with the full editor is a
 - JDK 21 (toolchain auto-download is enabled, but local JDK 21 is still recommended)
 - No global Gradle install required (`./gradlew` is included)
 - For team version-control workflows in editor: `git` and `git lfs` installed/configured
-- For native acceleration builds: `cmake` + C/C++ compiler toolchain (`clang`/`gcc`/MSVC)
+- `cmake` + C/C++ compiler toolchain (`clang`/`gcc`/MSVC)
+
+`cmake` is currently a hard requirement for supported local builds and editor startup.
+The editor preflight checks build and verify native libraries before launch.
 
 ## Quick Start
 
@@ -49,6 +52,9 @@ If you need to bypass this on a machine without CMake/toolchain:
 ```bash
 ./gradlew -PskipNativeMathBuild=true build
 ```
+
+That flag is an escape hatch for limited scenarios only.
+It is not the supported default workflow, and `:editor:run` still expects a working native toolchain.
 
 Run editor:
 
@@ -82,9 +88,10 @@ Create runtime distribution:
 ./gradlew :runtime:distZip
 ```
 
-## Native-Math Build (Optional)
+## Native-Math Build
 
-This is optional; Java fallbacks remain active when native libraries are missing, but using the native library nonetheless is recommended. 
+Treat this as required for normal development.
+The current editor startup flow validates CMake, builds native libraries, and loads the JNI bridges before opening the editor.
 
 Build commands:
 
