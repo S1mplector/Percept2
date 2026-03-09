@@ -48,7 +48,6 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
@@ -730,17 +729,23 @@ public class PuppeteerWindow extends Stage {
         CollapsibleToolbarCluster registerCluster = registerToolbarCluster("register", "Register", nameBox);
         CollapsibleToolbarCluster helpCluster = registerToolbarCluster("help", "Help", btnHelp);
 
-        FlowPane toolbar = new FlowPane(10, 8);
-        toolbar.getChildren().addAll(
-            makeToolbarGroup("toolbar-group-transport-duration", transportCluster, durationCluster),
-            presetsCluster,
-            makeToolbarGroup("toolbar-group-keyframe-ops", propertyCluster, keyframesCluster),
-            makeToolbarGroup("toolbar-group-preview-modes", snapCluster, previewCluster),
-            makeToolbarGroup("toolbar-group-orbit-audio-register", orbitCluster, audioCluster, registerCluster),
-            helpCluster
-        );
+        AnimatedToolbarPane toolbar = new AnimatedToolbarPane(10, 8);
+        toolbar.addCluster(transportCluster);
+        toolbar.addCluster(durationCluster);
+        toolbar.addCluster(presetsCluster);
+        toolbar.addCluster(propertyCluster);
+        toolbar.addCluster(keyframesCluster);
+        toolbar.addCluster(snapCluster);
+        toolbar.addCluster(previewCluster);
+        toolbar.addCluster(orbitCluster);
+        toolbar.addCluster(audioCluster);
+        toolbar.addCluster(registerCluster);
+        toolbar.addCluster(helpCluster);
+        toolbar.registerMarker("toolbar-group-transport-duration", transportCluster, durationCluster);
+        toolbar.registerMarker("toolbar-group-keyframe-ops", propertyCluster, keyframesCluster);
+        toolbar.registerMarker("toolbar-group-preview-modes", snapCluster, previewCluster);
+        toolbar.registerMarker("toolbar-group-orbit-audio-register", orbitCluster, audioCluster, registerCluster);
         toolbar.setId("puppeteer-toolbar");
-        toolbar.setAlignment(Pos.CENTER_LEFT);
         toolbar.setPadding(new Insets(8, 10, 8, 10));
         toolbar.setMaxWidth(Double.MAX_VALUE);
         toolbar.setStyle("-fx-background-color: #0a0a0a; -fx-border-color: #2a2a2a; -fx-border-width: 0 0 1 0;");
@@ -840,6 +845,14 @@ public class PuppeteerWindow extends Stage {
         CollapsibleToolbarCluster cluster = toolbarClusters.get(key.trim().toLowerCase(Locale.ROOT));
         if (cluster != null) {
             cluster.setExpanded(expanded);
+        }
+    }
+
+    public void setToolbarClusterPinned(String key, boolean pinned) {
+        if (key == null || key.isBlank()) return;
+        CollapsibleToolbarCluster cluster = toolbarClusters.get(key.trim().toLowerCase(Locale.ROOT));
+        if (cluster != null) {
+            cluster.setPinned(pinned);
         }
     }
 
@@ -1539,14 +1552,6 @@ public class PuppeteerWindow extends Stage {
         CollapsibleToolbarCluster cluster = new CollapsibleToolbarCluster(key, title, content);
         toolbarClusters.put(cluster.getClusterKey(), cluster);
         return cluster;
-    }
-
-    private static FlowPane makeToolbarGroup(String id, Node... children) {
-        FlowPane group = new FlowPane(8, 6);
-        group.setAlignment(Pos.CENTER_LEFT);
-        group.setId(id);
-        group.getChildren().addAll(children);
-        return group;
     }
 
     private static Region makeSpacer(double width) {

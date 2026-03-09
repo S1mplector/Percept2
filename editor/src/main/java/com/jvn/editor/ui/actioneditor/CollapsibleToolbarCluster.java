@@ -4,13 +4,20 @@ import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.ReadOnlyBooleanProperty;
+import javafx.beans.property.ReadOnlyBooleanWrapper;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -27,18 +34,31 @@ public class CollapsibleToolbarCluster extends VBox {
     private static final String STYLE_HEADER_EXPANDED =
         "-fx-background-color: #182130; -fx-border-color: #415a80; -fx-border-radius: 8; " +
         "-fx-background-radius: 8; -fx-padding: 0 10; -fx-cursor: hand;";
+    private static final String STYLE_HEADER_PINNED =
+        "-fx-background-color: #1a2637; -fx-border-color: #66a9ff; -fx-border-radius: 8; " +
+        "-fx-background-radius: 8; -fx-padding: 0 10; -fx-cursor: hand;";
+    private static final String STYLE_PIN_OFF =
+        "-fx-background-color: #12161d; -fx-text-fill: #7f8da3; -fx-border-color: #2d3542; " +
+        "-fx-border-radius: 7; -fx-background-radius: 7; -fx-padding: 0 7; -fx-font-size: 9px; " +
+        "-fx-font-weight: bold; -fx-cursor: hand;";
+    private static final String STYLE_PIN_ON =
+        "-fx-background-color: rgba(102, 169, 255, 0.18); -fx-text-fill: #b7d6ff; -fx-border-color: #66a9ff; " +
+        "-fx-border-radius: 7; -fx-background-radius: 7; -fx-padding: 0 7; -fx-font-size: 9px; " +
+        "-fx-font-weight: bold; -fx-cursor: hand;";
     private static final String STYLE_CONTENT =
         "-fx-background-color: #101318; -fx-border-color: #253247; -fx-border-radius: 8; " +
         "-fx-background-radius: 8;";
 
     private final String clusterKey;
     private final Button headerButton;
+    private final ToggleButton pinButton;
     private final Label indicatorLabel;
     private final Label stateLabel;
     private final StackPane contentWrapper;
     private final Rectangle contentClip = new Rectangle();
+    private final ReadOnlyBooleanWrapper expanded = new ReadOnlyBooleanWrapper(false);
+    private final BooleanProperty pinned = new SimpleBooleanProperty(false);
 
-    private boolean expanded;
     private Timeline activeAnimation;
 
     public CollapsibleToolbarCluster(String clusterKey, String title, Node content) {
@@ -69,8 +89,26 @@ public class CollapsibleToolbarCluster extends VBox {
         headerButton.setGraphicTextGap(0);
         headerButton.setMinHeight(28);
         headerButton.setPrefHeight(28);
+        headerButton.setMaxWidth(Double.MAX_VALUE);
         headerButton.setFocusTraversable(false);
-        headerButton.setOnAction(e -> setExpanded(!expanded));
+        headerButton.setOnAction(e -> {
+            if (isPinned() && isExpanded()) {
+                return;
+            }
+            setExpanded(!isExpanded());
+        });
+
+        pinButton = new ToggleButton("P");
+        pinButton.setMinSize(24, 24);
+        pinButton.setPrefSize(24, 24);
+        pinButton.setMaxSize(24, 24);
+        pinButton.setFocusTraversable(false);
+        pinButton.setTooltip(new Tooltip("Pin cluster open"));
+        pinButton.setOnAction(e -> setPinned(pinButton.isSelected()));
+
+        HBox headerRow = new HBox(6, headerButton, pinButton);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(headerButton, Priority.ALWAYS);
 
         contentWrapper = new StackPane(content);
         contentWrapper.setId(getId() + "-content");
@@ -80,8 +118,9 @@ public class CollapsibleToolbarCluster extends VBox {
         contentClip.widthProperty().bind(contentWrapper.widthProperty());
         contentClip.heightProperty().bind(contentWrapper.heightProperty());
 
-        getChildren().addAll(headerButton, contentWrapper);
+        getChildren().addAll(headerRow, contentWrapper);
         applyExpandedState(false, false);
+        refreshHeaderState();
     }
 
     public String getClusterKey() {
@@ -89,26 +128,69 @@ public class CollapsibleToolbarCluster extends VBox {
     }
 
     public boolean isExpanded() {
-        return expanded;
+        return expanded.get();
+    }
+
+    public ReadOnlyBooleanProperty expandedProperty() {
+        return expanded.getReadOnlyProperty();
+    }
+
+    public boolean isPinned() {
+        return pinned.get();
+    }
+
+    public BooleanProperty pinnedProperty() {
+        return pinned;
+    }
+
+    public void setPinned(boolean pinned) {
+        if (isPinned() == pinned) {
+            return;
+        }
+        this.pinned.set(pinned);
+        if (pinButton.isSelected() != pinned) {
+            pinButton.setSelected(pinned);
+        }
+        if (pinned && !isExpanded()) {
+            applyExpandedState(true, true);
+            return;
+        }
+        refreshHeaderState();
+        requestLayout();
     }
 
     public void setExpanded(boolean expanded) {
-        if (this.expanded == expanded && activeAnimation == null) {
+        if (!expanded && isPinned()) {
+            return;
+        }
+        if (isExpanded() == expanded && activeAnimation == null) {
             return;
         }
         applyExpandedState(expanded, true);
     }
 
     private void applyExpandedState(boolean expanded, boolean animate) {
-        this.expanded = expanded;
-        stateLabel.setText(expanded ? "hide" : "show");
-        headerButton.setStyle(expanded ? STYLE_HEADER_EXPANDED : STYLE_HEADER_COLLAPSED);
+        this.expanded.set(expanded);
+        refreshHeaderState();
         if (!animate) {
             finishExpandedState(expanded);
             indicatorLabel.setRotate(expanded ? 90.0 : 0.0);
             return;
         }
         animateExpandedState(expanded);
+    }
+
+    private void refreshHeaderState() {
+        stateLabel.setText(isPinned() ? "pinned" : (isExpanded() ? "hide" : "show"));
+        if (isPinned()) {
+            headerButton.setStyle(STYLE_HEADER_PINNED);
+        } else {
+            headerButton.setStyle(isExpanded() ? STYLE_HEADER_EXPANDED : STYLE_HEADER_COLLAPSED);
+        }
+        pinButton.setStyle(isPinned() ? STYLE_PIN_ON : STYLE_PIN_OFF);
+        if (pinButton.isSelected() != isPinned()) {
+            pinButton.setSelected(isPinned());
+        }
     }
 
     private void animateExpandedState(boolean expanding) {
