@@ -42,6 +42,29 @@ class StoryGraphPaneLayoutTest {
     assertTrue(layout.get("A").y != layout.get("B").y);
   }
 
+  @Test
+  void autoLayoutUsesParentOrderToReduceSiblingCrossings() {
+    StoryTimelineView.Arc top = arc("Top", "Main");
+    StoryTimelineView.Arc bottom = arc("Bottom", "Main");
+    StoryTimelineView.Arc childTop = arc("ChildTop", "Main");
+    StoryTimelineView.Arc childBottom = arc("ChildBottom", "Main");
+
+    top.y = 40;
+    bottom.y = 320;
+
+    StoryTimelineView.Link topLink = link("Top", "ChildTop");
+    StoryTimelineView.Link bottomLink = link("Bottom", "ChildBottom");
+
+    Map<String, StoryGraphPane.LayoutPosition> layout =
+        StoryGraphPane.computeAutoLayoutPositions(
+            List.of(top, bottom, childTop, childBottom),
+            List.of(topLink, bottomLink)
+        );
+
+    assertTrue(layout.get("Top").y < layout.get("Bottom").y);
+    assertTrue(layout.get("ChildTop").y < layout.get("ChildBottom").y);
+  }
+
   private static StoryTimelineView.Arc arc(String name, String cluster) {
     StoryTimelineView.Arc arc = new StoryTimelineView.Arc();
     arc.name = name;

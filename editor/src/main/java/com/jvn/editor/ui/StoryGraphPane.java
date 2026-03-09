@@ -43,14 +43,14 @@ import java.util.function.Consumer;
  * curved connectors with lightweight label chips.
  */
 public class StoryGraphPane extends Pane {
-  static final double NODE_HEIGHT = 68.0;
-  static final double MIN_NODE_WIDTH = 188.0;
-  static final double MAX_NODE_WIDTH = 286.0;
-  static final double GRID_STEP = 80.0;
-  static final double GRID_MAJOR_STEP = 320.0;
-  static final double COLUMN_GAP = 150.0;
-  static final double ROW_GAP = 24.0;
-  static final double CLUSTER_GAP = 72.0;
+  static final double NODE_HEIGHT = 62.0;
+  static final double MIN_NODE_WIDTH = 164.0;
+  static final double MAX_NODE_WIDTH = 234.0;
+  static final double GRID_STEP = 120.0;
+  static final double GRID_MAJOR_STEP = 480.0;
+  static final double COLUMN_GAP = 190.0;
+  static final double ROW_GAP = 34.0;
+  static final double CLUSTER_GAP = 86.0;
   static final double CLUSTER_PAD_X = 24.0;
   static final double CLUSTER_PAD_Y = 18.0;
   static final double CLUSTER_HEADER_HEIGHT = 34.0;
@@ -96,14 +96,16 @@ public class StoryGraphPane extends Pane {
     final Circle outHandle;
     final double cardWidth;
     final double cardHeight;
+    final boolean denseDefault;
     double dragDX;
     double dragDY;
     boolean movedSincePress;
     Consumer<javafx.scene.input.MouseEvent> mousePressedHook;
     Consumer<javafx.scene.input.MouseEvent> mouseReleasedHook;
 
-    NodeView(StoryTimelineView.Arc arc, Color accent) {
+    NodeView(StoryTimelineView.Arc arc, Color accent, boolean denseDefault) {
       this.arc = arc;
+      this.denseDefault = denseDefault;
       this.cardWidth = nodeWidthForArc(arc);
       this.cardHeight = nodeHeightForArc(arc);
 
@@ -122,15 +124,15 @@ public class StoryGraphPane extends Pane {
       headerTint.setArcHeight(16);
       headerTint.setMouseTransparent(true);
 
-      title = new Text(ellipsize(nodeTitle(arc), 26));
+      title = new Text(ellipsize(nodeTitle(arc), denseDefault ? 22 : 24));
       title.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
       title.setFill(Color.web("#edf3ff"));
       title.setLayoutX(14);
-      title.setLayoutY(27);
+      title.setLayoutY(28);
       title.setMouseTransparent(true);
 
-      subtitle = new Text(ellipsize(nodeSubtitle(arc), 34));
-      subtitle.setFont(Font.font("System", 11));
+      subtitle = new Text(ellipsize(nodeSubtitle(arc), denseDefault ? 22 : 28));
+      subtitle.setFont(Font.font("System", 10.5));
       subtitle.setFill(Color.web("#b4bfd3"));
       subtitle.setLayoutX(14);
       subtitle.setLayoutY(46);
@@ -152,16 +154,16 @@ public class StoryGraphPane extends Pane {
       priorityBadge.setMouseTransparent(true);
       if (!badge.isBlank()) {
         priorityBadge.setLayoutX(cardWidth - badgeWidth - 12);
-        priorityBadge.setLayoutY(10);
+        priorityBadge.setLayoutY(8);
         Bounds bounds = priorityText.getLayoutBounds();
         priorityText.setLayoutX(priorityBadge.getLayoutX() + (badgeWidth - bounds.getWidth()) * 0.5);
-        priorityText.setLayoutY(priorityBadge.getLayoutY() + 12.8);
+        priorityText.setLayoutY(priorityBadge.getLayoutY() + 12.2);
       } else {
         priorityText.setVisible(false);
       }
 
-      inHandle = new Circle(7.0, Color.web("#53657e"));
-      outHandle = new Circle(7.0, Color.web("#53657e"));
+      inHandle = new Circle(6.5, Color.web("#53657e"));
+      outHandle = new Circle(6.5, Color.web("#53657e"));
       inHandle.setStroke(Color.web("#9bb0d1"));
       outHandle.setStroke(Color.web("#9bb0d1"));
       inHandle.setStrokeWidth(1.2);
@@ -189,7 +191,11 @@ public class StoryGraphPane extends Pane {
     double centerX() { return getLayoutX() + cardWidth * 0.5; }
     double centerY() { return getLayoutY() + cardHeight * 0.5; }
 
-    void applySelectionState(boolean selected, boolean highlighted) {
+    void applySelectionState(boolean selected,
+                             boolean highlighted,
+                             boolean related,
+                             boolean deemphasized,
+                             boolean revealDetail) {
       Color baseStroke = parseArcColor(arc.color) == null ? Color.web("#5c6b84") : parseArcColor(arc.color).interpolate(Color.WHITE, 0.36);
       Color activeStroke = selected ? Color.web("#8cd1ff") : (highlighted ? Color.web("#6fc2ff") : baseStroke);
       double strokeWidth = selected ? 2.6 : (highlighted ? 2.0 : 1.35);
@@ -203,6 +209,15 @@ public class StoryGraphPane extends Pane {
         rect.setEffect(null);
       }
       title.setFill(selected ? Color.web("#f7fbff") : Color.web("#edf3ff"));
+      boolean showSubtitle = revealDetail && !nn(subtitle.getText()).isBlank();
+      subtitle.setVisible(showSubtitle);
+      subtitle.setOpacity(showSubtitle ? (selected ? 0.98 : (highlighted ? 0.90 : 0.78)) : 0.0);
+      boolean showBadge = !nn(priorityText.getText()).isBlank() && (!denseDefault || revealDetail || selected);
+      priorityBadge.setVisible(showBadge);
+      priorityText.setVisible(showBadge);
+      title.setLayoutY(showSubtitle ? 28 : 36);
+      headerTint.setOpacity(showSubtitle ? 1.0 : 0.76);
+      setOpacity(deemphasized ? 0.34 : (selected ? 1.0 : (related ? 0.96 : 0.90)));
     }
 
     private void highlightHandle(Circle handle, boolean hovered) {
@@ -263,6 +278,9 @@ public class StoryGraphPane extends Pane {
   private String highlightTerm = "";
   private String selectedArcName;
   private String selectedLinkKey;
+  private String hoveredArcName;
+  private String hoveredLinkKey;
+  private boolean denseMode;
   private static boolean HANDLE_TIP_SHOWN = false;
 
   private Consumer<StoryTimelineView.Arc> onRunArc;
@@ -362,12 +380,14 @@ public class StoryGraphPane extends Pane {
                                                                 List<StoryTimelineView.Link> links) {
     Map<String, StoryTimelineView.Arc> byName = new LinkedHashMap<>();
     Map<String, List<String>> incoming = new HashMap<>();
+    Map<String, List<String>> outgoing = new HashMap<>();
     Map<String, Integer> outgoingCount = new HashMap<>();
     if (arcs != null) {
       for (StoryTimelineView.Arc arc : arcs) {
         if (arc == null || arc.name == null || arc.name.isBlank()) continue;
         byName.put(arc.name, arc);
         incoming.computeIfAbsent(arc.name, key -> new ArrayList<>());
+        outgoing.computeIfAbsent(arc.name, key -> new ArrayList<>());
       }
     }
     if (links != null) {
@@ -375,6 +395,7 @@ public class StoryGraphPane extends Pane {
         if (link == null) continue;
         if (!byName.containsKey(link.fromArc) || !byName.containsKey(link.toArc)) continue;
         incoming.computeIfAbsent(link.toArc, key -> new ArrayList<>()).add(link.fromArc);
+        outgoing.computeIfAbsent(link.fromArc, key -> new ArrayList<>()).add(link.toArc);
         outgoingCount.merge(link.fromArc, 1, Integer::sum);
       }
     }
@@ -430,18 +451,19 @@ public class StoryGraphPane extends Pane {
       for (Integer rank : ranks) {
         List<StoryTimelineView.Arc> bucket = buckets.get(rank);
         if (bucket == null || bucket.isEmpty()) continue;
-        bucket.sort(Comparator
-            .comparingInt((StoryTimelineView.Arc arc) -> outgoingCount.getOrDefault(arc.name, 0))
-            .reversed()
-            .thenComparingInt((StoryTimelineView.Arc arc) -> arc.priority)
-            .reversed()
-            .thenComparing(arc -> nn(arc.name), String.CASE_INSENSITIVE_ORDER));
+        bucket.sort(
+            Comparator.<StoryTimelineView.Arc>comparingDouble(arc -> barycenterSortKey(arc, positions, incoming, outgoing))
+                .thenComparing(Comparator.comparingInt((StoryTimelineView.Arc arc) -> outgoingCount.getOrDefault(arc.name, 0)).reversed())
+                .thenComparing(Comparator.comparingInt((StoryTimelineView.Arc arc) -> arc.priority).reversed())
+                .thenComparingDouble(arc -> arc.y)
+                .thenComparing(arc -> nn(arc.name), String.CASE_INSENSITIVE_ORDER)
+        );
 
         double bucketY = laneTop;
         double columnX = xByRank.getOrDefault(rank, CONTENT_MARGIN);
         for (StoryTimelineView.Arc arc : bucket) {
           positions.put(arc.name, new LayoutPosition(columnX, bucketY));
-          bucketY += nodeHeightForArc(arc) + ROW_GAP;
+          bucketY += nodeHeightForArc(arc) + ROW_GAP + Math.min(12.0, outgoingCount.getOrDefault(arc.name, 0) * 1.5);
         }
         laneBottom = Math.max(laneBottom, bucketY - ROW_GAP);
       }
@@ -455,9 +477,8 @@ public class StoryGraphPane extends Pane {
 
   public static double nodeWidthForArc(StoryTimelineView.Arc arc) {
     String title = nodeTitle(arc);
-    String subtitle = nodeSubtitle(arc);
-    int density = Math.max(title.length(), subtitle.length());
-    double width = 148.0 + density * 4.2;
+    int density = Math.min(20, Math.max(8, title.length()));
+    double width = 132.0 + density * 3.8;
     if (arc != null && arc.priority != 0) width += 28.0;
     return clamp(width, MIN_NODE_WIDTH, MAX_NODE_WIDTH);
   }
@@ -484,12 +505,15 @@ public class StoryGraphPane extends Pane {
     Group grid = drawGrid(bounds);
     getChildren().add(grid);
 
+    List<StoryTimelineView.Link> visibleLinks = visibleLinks(visibleByName.keySet());
+    denseMode = visibleArcs.size() >= 8 || visibleLinks.size() >= 12;
+
     drawClusters(visibleArcs);
 
     for (StoryTimelineView.Arc arc : visibleArcs) {
       if (Double.isNaN(arc.x)) arc.x = CONTENT_MARGIN;
       if (Double.isNaN(arc.y)) arc.y = CONTENT_MARGIN;
-      NodeView view = new NodeView(arc, parseArcColor(arc.color));
+      NodeView view = new NodeView(arc, parseArcColor(arc.color), denseMode);
       view.onMoved = this::updateLinks;
       Tooltip.install(view, new Tooltip(nodeTooltip(arc)));
       view.mousePressedHook = e -> {
@@ -541,12 +565,21 @@ public class StoryGraphPane extends Pane {
           renameArc(arc);
         }
       });
+      view.setOnMouseEntered(e -> {
+        hoveredArcName = arc.name;
+        applySelectionAndHighlightState();
+      });
+      view.setOnMouseExited(e -> {
+        if (nn(hoveredArcName).equals(nn(arc.name))) {
+          hoveredArcName = null;
+          applySelectionAndHighlightState();
+        }
+      });
 
       nodeMap.put(arc.name, view);
       getChildren().add(view);
     }
 
-    List<StoryTimelineView.Link> visibleLinks = visibleLinks(visibleByName.keySet());
     Map<StoryTimelineView.Link, LinkLayoutMetrics> linkMetrics = buildLinkMetrics(visibleLinks);
     for (StoryTimelineView.Link link : visibleLinks) {
       NodeView from = nodeMap.get(link.fromArc);
@@ -577,6 +610,16 @@ public class StoryGraphPane extends Pane {
         selectLinkInternal(link, true);
         if (e.getClickCount() == 2 && onRunLink != null) {
           onRunLink.accept(link);
+        }
+      });
+      rendered.setOnMouseEntered(e -> {
+        hoveredLinkKey = linkKey(link);
+        applySelectionAndHighlightState();
+      });
+      rendered.setOnMouseExited(e -> {
+        if (nn(hoveredLinkKey).equals(linkKey(link))) {
+          hoveredLinkKey = null;
+          applySelectionAndHighlightState();
         }
       });
       linkViews.add(rendered);
@@ -634,15 +677,15 @@ public class StoryGraphPane extends Pane {
       Rectangle background = new Rectangle(x, y, width, height);
       background.setArcWidth(18);
       background.setArcHeight(18);
-      background.setFill(Color.color(base.getRed(), base.getGreen(), base.getBlue(), 0.12));
-      background.setStroke(base.interpolate(Color.WHITE, 0.26));
-      background.setStrokeWidth(1.15);
+      background.setFill(Color.color(base.getRed(), base.getGreen(), base.getBlue(), 0.018));
+      background.setStroke(Color.color(base.getRed(), base.getGreen(), base.getBlue(), 0.26));
+      background.setStrokeWidth(0.95);
 
       Rectangle headerChip = new Rectangle(x + 12, y + 10, Math.max(130.0, Math.min(220.0, 60.0 + name.length() * 7.4)), 22);
       headerChip.setArcWidth(999);
       headerChip.setArcHeight(999);
-      headerChip.setFill(Color.color(base.getRed(), base.getGreen(), base.getBlue(), 0.28));
-      headerChip.setStroke(base.interpolate(Color.WHITE, 0.12));
+      headerChip.setFill(Color.color(base.getRed(), base.getGreen(), base.getBlue(), 0.12));
+      headerChip.setStroke(Color.color(base.getRed(), base.getGreen(), base.getBlue(), 0.34));
       headerChip.setStrokeWidth(1.0);
 
       String clusterLabel = name + (collapsedClusters.contains(name) ? "  (" + counts.getOrDefault(name, 0) + ")" : "");
@@ -680,16 +723,16 @@ public class StoryGraphPane extends Pane {
     for (double x = minX; x <= maxX; x += GRID_STEP) {
       Line line = new Line(x, minY, x, maxY);
       boolean major = Math.round(x) % Math.round(GRID_MAJOR_STEP) == 0;
-      line.setStroke(major ? Color.web("#1d2734") : Color.web("#141b24"));
-      line.setStrokeWidth(major ? 1.1 : 0.75);
+      line.setStroke(major ? Color.web("#182231") : Color.web("#101722"));
+      line.setStrokeWidth(major ? 0.95 : 0.45);
       line.setMouseTransparent(true);
       group.getChildren().add(line);
     }
     for (double y = minY; y <= maxY; y += GRID_STEP) {
       Line line = new Line(minX, y, maxX, y);
       boolean major = Math.round(y) % Math.round(GRID_MAJOR_STEP) == 0;
-      line.setStroke(major ? Color.web("#1d2734") : Color.web("#141b24"));
-      line.setStrokeWidth(major ? 1.1 : 0.75);
+      line.setStroke(major ? Color.web("#182231") : Color.web("#101722"));
+      line.setStrokeWidth(major ? 0.95 : 0.45);
       line.setMouseTransparent(true);
       group.getChildren().add(line);
     }
@@ -706,17 +749,19 @@ public class StoryGraphPane extends Pane {
     double ey = to.getLayoutY() + to.inHandle.getCenterY() + fanOffset(metrics.inIndex(), metrics.inCount(), 10.0);
 
     double dx = ex - sx;
-    double bend = Math.max(84.0, Math.abs(dx) * 0.42);
-    double c1x = sx + (dx >= 0 ? bend : -bend);
-    double c2x = ex - (dx >= 0 ? bend : -bend);
-    double c1y = sy + fanOffset(metrics.outIndex(), metrics.outCount(), 18.0);
-    double c2y = ey + fanOffset(metrics.inIndex(), metrics.inCount(), -18.0);
+    double direction = dx >= 0 ? 1.0 : -1.0;
+    double sourceBundle = Math.max(100.0, Math.abs(dx) * 0.52);
+    double targetBundle = Math.max(78.0, Math.abs(dx) * 0.36);
+    double c1x = sx + direction * sourceBundle;
+    double c2x = ex - direction * targetBundle;
+    double c1y = sy + fanOffset(metrics.outIndex(), metrics.outCount(), metrics.outCount() > 3 ? 4.0 : 9.0);
+    double c2y = ey + fanOffset(metrics.inIndex(), metrics.inCount(), metrics.inCount() > 3 ? -6.0 : -12.0);
 
     Color linkColor = resolveLinkColor(from.arc, to.arc);
     CubicCurve curve = new CubicCurve(sx, sy, c1x, c1y, c2x, c2y, ex, ey);
     curve.setFill(Color.TRANSPARENT);
     curve.setStroke(linkColor);
-    curve.setStrokeWidth(1.55);
+    curve.setStrokeWidth(1.2);
     curve.setStrokeLineCap(StrokeLineCap.ROUND);
     curve.setStrokeLineJoin(StrokeLineJoin.ROUND);
 
@@ -732,6 +777,9 @@ public class StoryGraphPane extends Pane {
       double ny = tangent.getX() / normalLength;
       double offset = fanOffset(metrics.outIndex(), metrics.outCount(), 18.0);
       Group chip = buildLinkChip(compactHint, linkColor, anchor.getX() + nx * offset, anchor.getY() + ny * offset);
+      chip.setVisible(false);
+      chip.setOpacity(0.0);
+      group.getProperties().put("chip", chip);
       group.getChildren().add(chip);
     }
     return group;
@@ -853,23 +901,42 @@ public class StoryGraphPane extends Pane {
   }
 
   private void applySelectionAndHighlightState() {
+    boolean focusMode = hasFocusContext();
+    Set<String> focusArcs = collectFocusArcNames();
+    Set<String> relatedArcs = expandRelatedArcNames(focusArcs);
     for (Map.Entry<String, NodeView> entry : nodeMap.entrySet()) {
       StoryTimelineView.Arc arc = entry.getValue().arc;
       boolean selected = selectedArcName != null && selectedArcName.equals(entry.getKey());
-      boolean highlighted = matchesHighlight(arc);
-      entry.getValue().applySelectionState(selected, highlighted);
+      boolean hovered = hoveredArcName != null && hoveredArcName.equals(entry.getKey());
+      boolean matched = matchesHighlight(arc);
+      boolean focused = focusArcs.contains(entry.getKey());
+      boolean related = selected || hovered || matched || relatedArcs.contains(entry.getKey());
+      boolean highlighted = matched || hovered || focused;
+      boolean deemphasized = focusMode && !related;
+      boolean revealDetail = !denseMode || selected || hovered || matched || focused;
+      entry.getValue().applySelectionState(selected, highlighted, related, deemphasized, revealDetail);
     }
     for (Group group : linkViews) {
       Object raw = group.getProperties().get("link");
       if (!(raw instanceof StoryTimelineView.Link link)) continue;
       boolean selected = selectedLinkKey != null && selectedLinkKey.equals(linkKey(link));
+      boolean hovered = hoveredLinkKey != null && hoveredLinkKey.equals(linkKey(link));
+      boolean touchesSelectedArc = touchesArc(link, selectedArcName);
+      boolean touchesHoveredArc = touchesArc(link, hoveredArcName);
+      boolean highlighted = matchesHighlight(link) || touchesSelectedArc || touchesHoveredArc || hovered;
+      Group chip = group.getProperties().get("chip") instanceof Group value ? value : null;
+      boolean showChip = chip != null && (selected || hovered || touchesSelectedArc || touchesHoveredArc || matchesHighlight(link));
       for (Node child : group.getChildren()) {
         if (child instanceof CubicCurve curve) {
-          curve.setStrokeWidth(selected ? 2.55 : 1.55);
-          curve.setOpacity(selected ? 1.0 : 0.84);
+          curve.setStrokeWidth(selected ? 2.3 : (highlighted ? 1.75 : 0.95));
+          curve.setOpacity(selected ? 0.98 : (highlighted ? 0.72 : (focusMode ? 0.08 : (denseMode ? 0.16 : 0.20))));
         } else if (child instanceof Polygon arrow) {
-          arrow.setOpacity(selected ? 1.0 : 0.88);
+          arrow.setOpacity(selected ? 0.98 : (highlighted ? 0.74 : (focusMode ? 0.10 : (denseMode ? 0.18 : 0.22))));
         }
+      }
+      if (chip != null) {
+        chip.setVisible(showChip);
+        chip.setOpacity(showChip ? 1.0 : 0.0);
       }
     }
   }
@@ -882,6 +949,66 @@ public class StoryGraphPane extends Pane {
         || nn(arc.script).toLowerCase(Locale.ROOT).contains(highlightTerm)
         || nn(arc.tags).toLowerCase(Locale.ROOT).contains(highlightTerm)
         || nn(arc.cluster).toLowerCase(Locale.ROOT).contains(highlightTerm);
+  }
+
+  private boolean matchesHighlight(StoryTimelineView.Link link) {
+    if (link == null || highlightTerm == null || highlightTerm.isBlank()) return false;
+    return nn(link.fromArc).toLowerCase(Locale.ROOT).contains(highlightTerm)
+        || nn(link.toArc).toLowerCase(Locale.ROOT).contains(highlightTerm)
+        || nn(link.fromLabel).toLowerCase(Locale.ROOT).contains(highlightTerm)
+        || nn(link.toLabel).toLowerCase(Locale.ROOT).contains(highlightTerm);
+  }
+
+  private boolean hasFocusContext() {
+    return (selectedArcName != null && !selectedArcName.isBlank())
+        || (selectedLinkKey != null && !selectedLinkKey.isBlank())
+        || (hoveredArcName != null && !hoveredArcName.isBlank())
+        || (hoveredLinkKey != null && !hoveredLinkKey.isBlank())
+        || (highlightTerm != null && !highlightTerm.isBlank());
+  }
+
+  private Set<String> collectFocusArcNames() {
+    Set<String> focused = new LinkedHashSet<>();
+    if (selectedArcName != null && !selectedArcName.isBlank()) focused.add(selectedArcName);
+    if (hoveredArcName != null && !hoveredArcName.isBlank()) focused.add(hoveredArcName);
+    for (Group group : linkViews) {
+      Object raw = group.getProperties().get("link");
+      if (!(raw instanceof StoryTimelineView.Link link)) continue;
+      boolean selected = selectedLinkKey != null && selectedLinkKey.equals(linkKey(link));
+      boolean hovered = hoveredLinkKey != null && hoveredLinkKey.equals(linkKey(link));
+      boolean matched = matchesHighlight(link);
+      if (selected || hovered || matched) {
+        focused.add(nn(link.fromArc));
+        focused.add(nn(link.toArc));
+      }
+    }
+    for (Map.Entry<String, NodeView> entry : nodeMap.entrySet()) {
+      if (matchesHighlight(entry.getValue().arc)) {
+        focused.add(entry.getKey());
+      }
+    }
+    focused.removeIf(String::isBlank);
+    return focused;
+  }
+
+  private Set<String> expandRelatedArcNames(Set<String> focusArcs) {
+    if (focusArcs == null || focusArcs.isEmpty()) return Set.of();
+    Set<String> related = new LinkedHashSet<>(focusArcs);
+    for (Group group : linkViews) {
+      Object raw = group.getProperties().get("link");
+      if (!(raw instanceof StoryTimelineView.Link link)) continue;
+      if (focusArcs.contains(link.fromArc) || focusArcs.contains(link.toArc)) {
+        related.add(nn(link.fromArc));
+        related.add(nn(link.toArc));
+      }
+    }
+    related.removeIf(String::isBlank);
+    return related;
+  }
+
+  private static boolean touchesArc(StoryTimelineView.Link link, String arcName) {
+    if (link == null || arcName == null || arcName.isBlank()) return false;
+    return arcName.equals(link.fromArc) || arcName.equals(link.toArc);
   }
 
   private List<StoryTimelineView.Arc> visibleArcs() {
@@ -1006,6 +1133,31 @@ public class StoryGraphPane extends Pane {
     return min == Integer.MAX_VALUE ? 0 : min;
   }
 
+  private static double barycenterSortKey(StoryTimelineView.Arc arc,
+                                          Map<String, LayoutPosition> positions,
+                                          Map<String, List<String>> incoming,
+                                          Map<String, List<String>> outgoing) {
+    if (arc == null || arc.name == null || arc.name.isBlank()) return Double.POSITIVE_INFINITY;
+    double total = 0.0;
+    int count = 0;
+    for (String parent : incoming.getOrDefault(arc.name, List.of())) {
+      LayoutPosition position = positions.get(parent);
+      if (position == null) continue;
+      total += position.y;
+      count++;
+    }
+    for (String child : outgoing.getOrDefault(arc.name, List.of())) {
+      LayoutPosition position = positions.get(child);
+      if (position == null) continue;
+      total += position.y;
+      count++;
+    }
+    if (count == 0) {
+      return Double.isNaN(arc.y) ? 0.0 : arc.y;
+    }
+    return total / count;
+  }
+
   private static double averageClusterRank(List<StoryTimelineView.Arc> arcs, Map<String, Integer> ranks) {
     if (arcs == null || arcs.isEmpty()) return 0.0;
     double total = 0.0;
@@ -1075,10 +1227,10 @@ public class StoryGraphPane extends Pane {
   private static Color resolveLinkColor(StoryTimelineView.Arc from, StoryTimelineView.Arc to) {
     Color start = parseArcColor(from == null ? null : from.color);
     Color end = parseArcColor(to == null ? null : to.color);
-    if (start == null && end == null) return Color.web("#91a0ba", 0.84);
+    if (start == null && end == null) return Color.web("#91a0ba", 0.74);
     if (start == null) start = end;
     if (end == null) end = start;
-    return start.interpolate(end, 0.5).deriveColor(0, 1.0, 1.0, 0.86);
+    return start.interpolate(end, 0.5).deriveColor(0, 1.0, 0.96, 0.78);
   }
 
   private static String priorityBadgeText(StoryTimelineView.Arc arc) {
@@ -1105,7 +1257,11 @@ public class StoryGraphPane extends Pane {
     if (raw == null || raw.isBlank()) return "";
     String normalized = raw.replace('\\', '/').trim();
     int idx = normalized.lastIndexOf('/');
-    return idx >= 0 ? normalized.substring(idx + 1) : normalized;
+    String fileName = idx >= 0 ? normalized.substring(idx + 1) : normalized;
+    if (fileName.toLowerCase(Locale.ROOT).endsWith(".vns")) {
+      return fileName.substring(0, fileName.length() - 4);
+    }
+    return fileName;
   }
 
   private static String nodeTooltip(StoryTimelineView.Arc arc) {
@@ -1127,7 +1283,7 @@ public class StoryGraphPane extends Pane {
     String to = nn(link.toLabel).trim();
     if (from.isBlank() && to.isBlank()) return "";
     if (!from.isBlank() && (to.isBlank() || isGenericEntryLabel(to))) return from;
-    if (from.isBlank()) return to;
+    if (from.isBlank()) return isGenericEntryLabel(to) ? "" : to;
     if (to.isBlank()) return from;
     return ellipsize(from, 15) + " -> " + ellipsize(to, 15);
   }
