@@ -4,11 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.jvn.core.animation.Easing;
+import com.jvn.core.animation.EasingSpec;
 
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -16,6 +18,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.util.StringConverter;
 
 public class KeyframeEditor extends VBox {
     private final Label lblEntity;
@@ -25,7 +28,7 @@ public class KeyframeEditor extends VBox {
     private final TextField tfValue;
     private final Slider sliderValue;
     private final ComboBox<Easing.Interpolation> cbInterpolation;
-    private final ComboBox<Easing.Type> cbEasing;
+    private final ComboBox<EasingPickerModel.Option> cbEasing;
     private final Button btnDelete;
     private final Button btnResetValue;
     private final Label lblCameraState;
@@ -48,11 +51,13 @@ public class KeyframeEditor extends VBox {
     private final Label lblEmptyHint;
     private final GridPane grid;
     private double timelineDurationMs = 3000.0;
+    private final List<EasingPickerModel.Option> easingOptions;
 
     private Keyframe currentKeyframe;
     private PropertyType currentProperty;
     private final List<Keyframe> currentSelection = new ArrayList<>();
     private boolean updatingUi = false;
+    private boolean syncingEasingSearch = false;
     private Runnable onKeyframeChanged;
     private Runnable onDeleteRequested;
     private java.util.function.BiConsumer<Double, Double> onPivotPresetApplied;
@@ -93,9 +98,46 @@ public class KeyframeEditor extends VBox {
         HBox valueRow = new HBox(6, tfValue, sliderValue);
         HBox.setHgrow(sliderValue, Priority.ALWAYS);
 
+        easingOptions = EasingPickerModel.allOptions();
         cbEasing = new ComboBox<>();
-        cbEasing.getItems().addAll(Easing.Type.values());
-        cbEasing.setValue(Easing.Type.LINEAR);
+        cbEasing.getItems().setAll(easingOptions);
+        cbEasing.setEditable(true);
+        cbEasing.setTooltip(new Tooltip("Type to filter easing names"));
+        cbEasing.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(EasingPickerModel.Option option) {
+                return option != null ? option.label() : "";
+            }
+
+            @Override
+            public EasingPickerModel.Option fromString(String string) {
+                List<EasingPickerModel.Option> matches = EasingPickerModel.filter(string);
+                return matches.isEmpty() ? resolveEasingOption(Easing.Type.LINEAR) : matches.get(0);
+            }
+        });
+        cbEasing.setCellFactory(list -> new ListCell<>() {
+            @Override
+            protected void updateItem(EasingPickerModel.Option item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+                setText(item.label() + "  [" + item.group() + "]");
+                setTooltip(new Tooltip(Easing.token(item.type())));
+            }
+        });
+        cbEasing.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(EasingPickerModel.Option item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+            }
+        });
+        cbEasing.setValue(resolveEasingOption(Easing.Type.LINEAR));
+        syncEasingEditorText();
+        configureEasingSearch();
         cbInterpolation = new ComboBox<>();
         cbInterpolation.getItems().addAll(Easing.Interpolation.values());
         cbInterpolation.setValue(Easing.Interpolation.TWEEN);
@@ -197,13 +239,8 @@ public class KeyframeEditor extends VBox {
 
         cbEasing.setOnAction(e -> {
             applyChanges();
-            Easing.Type sel = cbEasing.getValue();
-            curveEditor.setEasingType(sel);
-            if (sel == Easing.Type.CUSTOM && currentKeyframe != null) {
-                curveEditor.setBezierParams(
-                    currentKeyframe.getCx1(), currentKeyframe.getCy1(),
-                    currentKeyframe.getCx2(), currentKeyframe.getCy2());
-            }
+            syncEasingEditorText();
+            refreshCurveEditorPreview();
             updateCurveEditorState();
         });
 
@@ -275,8 +312,10 @@ public class KeyframeEditor extends VBox {
             tfTime.setText("");
             tfValue.setText("");
             cbInterpolation.setValue(Easing.Interpolation.TWEEN);
-            cbEasing.setValue(Easing.Type.LINEAR);
+            cbEasing.setValue(resolveEasingOption(Easing.Type.LINEAR));
             curveEditor.setInterpolation(Easing.Interpolation.TWEEN);
+            curveEditor.setEasingSpec(EasingSpec.of(Easing.Type.LINEAR));
+            syncEasingEditorText();
             updateCurveEditorState();
             syncTimeSliderBounds(0.0);
             showEmptyState(true);
@@ -289,12 +328,10 @@ public class KeyframeEditor extends VBox {
             tfTime.setText(String.format("%.0f", kf.getTimeMs()));
             tfValue.setText(String.format("%.2f", kf.getValue()));
             cbInterpolation.setValue(kf.getInterpolation());
-            cbEasing.setValue(kf.getEasing());
+            cbEasing.setValue(resolveEasingOption(kf.getEasing()));
+            syncEasingEditorText();
             curveEditor.setInterpolation(kf.getInterpolation());
-            curveEditor.setEasingType(kf.getEasing());
-            if (kf.getEasing() == Easing.Type.CUSTOM) {
-                curveEditor.setBezierParams(kf.getCx1(), kf.getCy1(), kf.getCx2(), kf.getCy2());
-            }
+            curveEditor.setEasingSpec(kf.getEasingSpec());
             updateCurveEditorState();
             syncTimeSliderBounds(kf.getTimeMs());
             sliderTime.setValue(kf.getTimeMs());
@@ -331,7 +368,10 @@ public class KeyframeEditor extends VBox {
         tfValueOffset.setText("0");
         syncTimeSliderBounds(currentSelection.get(0).getTimeMs());
         cbInterpolation.setValue(resolveSharedInterpolation(currentSelection));
-        cbEasing.setValue(resolveSharedEasing(currentSelection));
+        cbEasing.setValue(resolveEasingOption(resolveSharedEasing(currentSelection)));
+        syncEasingEditorText();
+        curveEditor.setInterpolation(cbInterpolation.getValue());
+        curveEditor.setEasingSpec(EasingSpec.of(resolveSharedEasing(currentSelection)));
         setFieldsDisabled(false);
         tfTime.setDisable(true);
         sliderTime.setDisable(true);
@@ -372,8 +412,9 @@ public class KeyframeEditor extends VBox {
         if (currentSelection.size() > 1) {
             for (Keyframe keyframe : currentSelection) {
                 keyframe.setInterpolation(cbInterpolation.getValue());
-                keyframe.setEasing(cbEasing.getValue());
+                applySelectedEasing(keyframe);
             }
+            refreshCurveEditorPreview();
             if (onKeyframeChanged != null) onKeyframeChanged.run();
             return;
         }
@@ -406,7 +447,8 @@ public class KeyframeEditor extends VBox {
         if (hasError) return;
 
         currentKeyframe.setInterpolation(cbInterpolation.getValue());
-        currentKeyframe.setEasing(cbEasing.getValue());
+        applySelectedEasing(currentKeyframe);
+        refreshCurveEditorPreview();
 
         if (onKeyframeChanged != null) onKeyframeChanged.run();
     }
@@ -435,10 +477,11 @@ public class KeyframeEditor extends VBox {
             keyframe.setTimeMs(Math.max(0.0, keyframe.getTimeMs() + timeDelta));
             keyframe.setValue(keyframe.getValue() + valueDelta);
             keyframe.setInterpolation(cbInterpolation.getValue());
-            keyframe.setEasing(cbEasing.getValue());
+            applySelectedEasing(keyframe);
         }
         tfTimeOffset.setText("0");
         tfValueOffset.setText("0");
+        refreshCurveEditorPreview();
         if (onKeyframeChanged != null) onKeyframeChanged.run();
     }
 
@@ -579,6 +622,74 @@ public class KeyframeEditor extends VBox {
         }
         curveEditor.setDisable(currentKeyframe == null);
         curveEditor.setOpacity(tween ? 1.0 : 0.88);
+    }
+
+    private void configureEasingSearch() {
+        cbEasing.getEditor().textProperty().addListener((obs, oldValue, newValue) -> {
+            if (syncingEasingSearch) return;
+            if (!cbEasing.getEditor().isFocused()) return;
+            cbEasing.getItems().setAll(EasingPickerModel.filter(newValue));
+            if (!cbEasing.isShowing()) cbEasing.show();
+        });
+        cbEasing.getEditor().focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (isFocused) {
+                cbEasing.getItems().setAll(easingOptions);
+                cbEasing.show();
+            } else {
+                commitEasingSearch();
+            }
+        });
+        cbEasing.setOnHidden(e -> {
+            if (!cbEasing.getEditor().isFocused()) commitEasingSearch();
+        });
+        cbEasing.getEditor().setOnAction(e -> commitEasingSearch());
+    }
+
+    private void commitEasingSearch() {
+        EasingPickerModel.Option selection = cbEasing.getValue();
+        List<EasingPickerModel.Option> matches = EasingPickerModel.filter(cbEasing.getEditor().getText());
+        if ((selection == null || !matches.contains(selection)) && !matches.isEmpty()) {
+            cbEasing.setValue(matches.get(0));
+        }
+        cbEasing.getItems().setAll(easingOptions);
+        syncEasingEditorText();
+    }
+
+    private void syncEasingEditorText() {
+        syncingEasingSearch = true;
+        EasingPickerModel.Option value = cbEasing.getValue();
+        cbEasing.getEditor().setText(value != null ? value.label() : "");
+        syncingEasingSearch = false;
+    }
+
+    private EasingPickerModel.Option resolveEasingOption(Easing.Type type) {
+        return EasingPickerModel.findByType(type);
+    }
+
+    private Easing.Type selectedEasingType() {
+        EasingPickerModel.Option option = cbEasing.getValue();
+        return option != null ? option.type() : Easing.Type.LINEAR;
+    }
+
+    private void applySelectedEasing(Keyframe keyframe) {
+        if (keyframe == null) return;
+        Easing.Type selectedType = selectedEasingType();
+        if (keyframe.getEasing() == selectedType) return;
+        EasingPickerModel.Option option = cbEasing.getValue();
+        keyframe.setEasingSpec(option != null ? option.defaultSpec() : EasingSpec.of(Easing.Type.LINEAR));
+    }
+
+    private void refreshCurveEditorPreview() {
+        curveEditor.setInterpolation(cbInterpolation.getValue());
+        if (currentSelection.size() > 1) {
+            curveEditor.setEasingSpec(EasingSpec.of(selectedEasingType()));
+            return;
+        }
+        if (currentKeyframe != null) {
+            curveEditor.setEasingSpec(currentKeyframe.getEasingSpec());
+            return;
+        }
+        curveEditor.setEasingSpec(EasingSpec.of(selectedEasingType()));
     }
 
     private static Easing.Interpolation resolveSharedInterpolation(List<Keyframe> keyframes) {

@@ -213,4 +213,39 @@ class CodeRoundTripTest {
         assertEquals(0.0, t2.getValueAt(PropertyType.X, 100), 0.001);
         assertEquals(100.0, t2.getValueAt(PropertyType.X, 200), 0.001);
     }
+
+    @Test
+    void springAndNamedCurvesRoundTrip() {
+        String original = """
+            timeline {
+              move "hero" {
+                x: 220
+                dur: 300
+                easing: spring(220, 24, 1.0, 0)
+              }
+              wait 300
+              move "hero" {
+                x: 480
+                dur: 260
+                easing: hero_pop
+              }
+            }
+            """;
+
+        AnimationProject project = CodeImporter.importCode("rt_spring_named", original);
+        EntityTrack hero = project.getTrack("hero");
+        assertNotNull(hero);
+
+        String exported = CodeExporter.export(project);
+        assertTrue(exported.contains("easing: spring(220, 24, 1, 0)"));
+        assertTrue(exported.contains("easing: hero_pop"));
+
+        AnimationProject roundTripped = CodeImporter.importCode("rt_spring_named_2", exported);
+        EntityTrack hero2 = roundTripped.getTrack("hero");
+        assertNotNull(hero2);
+        assertEquals(hero.getKeyframes(PropertyType.X).get(1).getEasing(), hero2.getKeyframes(PropertyType.X).get(1).getEasing());
+        assertEquals(hero.getKeyframes(PropertyType.X).get(1).getEasingParams()[0],
+            hero2.getKeyframes(PropertyType.X).get(1).getEasingParams()[0], 0.001);
+        assertEquals(Easing.Type.HERO_POP, hero2.getKeyframes(PropertyType.X).get(2).getEasing());
+    }
 }

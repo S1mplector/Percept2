@@ -295,7 +295,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | `Value` field | text field | Direct value edit (validation + error border) |
 | Value slider | slider | Drag changes property value |
 | `Interp` | combo box | `TWEEN`, `HOLD`, `STEP` |
-| `Easing` | combo box | all `Easing.Type` values |
+| `Easing` | searchable combo box | all `Easing.Type` values with inline filtering |
 | Easing curve editor | custom canvas widget | Curve preview; drag bezier handles when easing=`CUSTOM` |
 | `Pivot Presets` label | label | Visible only for `PIVOT_X`/`PIVOT_Y` |
 | Pivot preset grid | 3x3 buttons | `TL`, `TC`, `TR`, `ML`, `C`, `MR`, `BL`, `BC`, `BR` |
@@ -456,7 +456,7 @@ Select a keyframe by clicking its diamond in the timeline. The **Keyframe Editor
 - **Property** — which property track (X, Y, Rotation, etc.)
 - **Time (ms)** — editable text field + slider
 - **Value** — editable text field + slider (range adapts to property type)
-- **Easing** — dropdown with all 32 easing options (`Easing.Type`)
+- **Easing** — searchable dropdown with all 37 easing options (`Easing.Type`)
 - **Curve Preview** — visual easing curve editor (interactive for CUSTOM type)
 - **Delete** — remove this keyframe
 - **Reset** — reset value to the property's default
@@ -484,9 +484,9 @@ After the last keyframe: holds last keyframe value.
 
 ## Easing Types
 
-32 easing options are available in the UI (`Easing.Type`):
+37 easing options are available in the UI (`Easing.Type`):
 
-- 31 built-in curves (`LINEAR` + easing families)
+- 36 built-in curves (`LINEAR`, classic easing families, spring family, and named curves)
 - 1 custom curve (`CUSTOM`) with editable cubic Bézier handles
 
 ### Standard
@@ -522,11 +522,28 @@ After the last keyframe: holds last keyframe value.
 | **Back** | `EASE_IN_BACK` | `EASE_OUT_BACK` | `EASE_IN_OUT_BACK` |
 | **Bounce** | `EASE_IN_BOUNCE` | `EASE_OUT_BOUNCE` | `EASE_IN_OUT_BOUNCE` |
 
+### Spring Family
+
+| Easing | Description |
+|--------|-------------|
+| `SPRING` | Parameterized physical spring, exported as `spring(stiffness, damping, mass, velocity)` |
+| `DAMPED_SPRING` | Parameterized motion-design spring, exported as `damped_spring(frequency, damping_ratio, response, velocity)` |
+
+### Named Curves
+
+| Easing | Description |
+|--------|-------------|
+| `HERO_POP` | Energetic settle with overshoot for entrances and emphasis |
+| `UI_SOFT_IN` | Gentle non-overshooting arrival for UI elements |
+| `CAMERA_GLIDE` | Smooth camera travel with a heavier settle |
+
 ### Custom Cubic Bézier
 
 Select `CUSTOM` easing to define a CSS-style `cubic-bezier(cx1, cy1, cx2, cy2)` curve. The Keyframe Editor shows an interactive curve editor where you can drag control points.
 
 Uses Newton-Raphson iteration for accurate evaluation.
+
+The easing picker is searchable: type part of a family name (`spring`, `bounce`) or a semantic preset (`hero`, `camera`) to filter the list before selecting.
 
 ---
 

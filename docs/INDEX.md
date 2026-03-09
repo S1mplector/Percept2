@@ -130,8 +130,8 @@ Complete documentation for the Java Vector Nexus engine.
 
 - [Editor Guide](editor/core/editor.md) — layout, editing modes, keyboard shortcuts
 - [Puppeteer Overview & Architecture](editor/puppeteer/puppeteer.md) — data pipeline, JES/VNS relationship, snapshot resolution, registry bridge
-- [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) — complete usage: launching, UI panels, keyframes, 12 presets, 26 easing types, audio cues, camera, groups, layer ordering, orbit tool, onion skinning, shortcuts
-- [Puppeteer JES DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md) — exported timeline syntax: move, rotate, scale, fade, pivot, cameraMove, cameraZoom, playAudio, wait, parallel, easing values, export modes, VNS/JES integration
+- [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) — complete usage: launching, UI panels, keyframes, 12 presets, 37 easing options, searchable easing picker, audio cues, camera, groups, layer ordering, orbit tool, onion skinning, shortcuts
+- [Puppeteer JES DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md) — exported timeline syntax: move, rotate, scale, fade, pivot, cameraMove, cameraZoom, playAudio, wait, parallel, easing values, spring functions, named curves, export modes, VNS/JES integration
 - [Sidebar Utilities Overview](editor/sidebars/overview/sidebar-utilities.md) — landing page for all 14 sidebar panels
   - [Project Explorer](editor/sidebars/left/sidebar-project-explorer.md) — file tree, create/rename/delete, run project
   - [Story Timeline](editor/sidebars/left/sidebar-story-timeline.md) — multi-arc story graph, arcs, links, clusters, validation

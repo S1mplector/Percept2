@@ -405,6 +405,12 @@ All keyframe easings use the `Easing.Type` enum:
 
 In inline blocks, use lowercase with underscores: `ease_in_out_quad`.
 
+In addition to the enum-backed names, the timeline parser also accepts:
+
+- `spring(stiffness, damping, mass, velocity)`
+- `damped_spring(frequency, damping_ratio, response, velocity)`
+- named reusable curves: `hero_pop`, `ui_soft_in`, `camera_glide`
+
 ---
 
 ## Complete Example

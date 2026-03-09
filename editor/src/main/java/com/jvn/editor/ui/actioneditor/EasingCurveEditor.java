@@ -3,6 +3,7 @@ package com.jvn.editor.ui.actioneditor;
 import java.util.function.Consumer;
 
 import com.jvn.core.animation.Easing;
+import com.jvn.core.animation.EasingSpec;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -33,6 +34,7 @@ public class EasingCurveEditor extends Pane {
 
     private final Canvas canvas;
     private Easing.Type easingType = Easing.Type.LINEAR;
+    private double[] easingParams;
     private Easing.Interpolation interpolation = Easing.Interpolation.TWEEN;
 
     // Custom Bezier control points (CSS cubic-bezier format: x in [0,1], y can overshoot)
@@ -101,6 +103,22 @@ public class EasingCurveEditor extends Pane {
 
     public void setEasingType(Easing.Type type) {
         this.easingType = type != null ? type : Easing.Type.LINEAR;
+        if (this.easingType != Easing.Type.CUSTOM) {
+            this.easingParams = Easing.coerceParameters(this.easingType, this.easingParams);
+        }
+        draw();
+    }
+
+    public void setEasingSpec(EasingSpec spec) {
+        EasingSpec resolved = spec != null ? spec : EasingSpec.of(Easing.Type.LINEAR);
+        this.easingType = resolved.getType();
+        this.easingParams = resolved.getParameters();
+        if (this.easingType == Easing.Type.CUSTOM && easingParams != null && easingParams.length == 4) {
+            this.cx1 = easingParams[0];
+            this.cy1 = easingParams[1];
+            this.cx2 = easingParams[2];
+            this.cy2 = easingParams[3];
+        }
         draw();
     }
 
@@ -120,6 +138,7 @@ public class EasingCurveEditor extends Pane {
     public void setBezierParams(double cx1, double cy1, double cx2, double cy2) {
         this.cx1 = cx1; this.cy1 = cy1;
         this.cx2 = cx2; this.cy2 = cy2;
+        this.easingParams = new double[]{ cx1, cy1, cx2, cy2 };
         draw();
     }
 
@@ -184,11 +203,11 @@ public class EasingCurveEditor extends Pane {
             double t = (double) i / steps;
             double v;
             if (!tween) {
-                v = Easing.applyInterpolation(easingType, interpolation, t);
+                v = Easing.applyInterpolation(easingType, interpolation, easingParams, t);
             } else if (isCustom) {
                 v = Easing.cubicBezier(cx1, cy1, cx2, cy2, t);
             } else {
-                v = Easing.apply(easingType, t);
+                v = Easing.apply(easingType, easingParams, t);
             }
 
             double sx = plotX + t * plotW;
@@ -248,7 +267,7 @@ public class EasingCurveEditor extends Pane {
             gc.setFill(Color.web("#888"));
             gc.setFont(Font.font(Font.getDefault().getFamily(), 9));
             String label = tween
-                ? easingType.name().replace("EASE_", "").replace("_", " ")
+                ? describeEasingLabel()
                 : interpolation.name();
             gc.fillText(label, plotX + 4, plotY + plotH - 4);
         }
@@ -260,5 +279,12 @@ public class EasingCurveEditor extends Pane {
         gc.fillText("1", plotX + plotW - 4, plotY + plotH + 12);
         gc.fillText("1", plotX - 12, plotY + 4);
         gc.fillText("0", plotX - 12, plotY + plotH + 4);
+    }
+
+    private String describeEasingLabel() {
+        if (easingType == Easing.Type.SPRING || easingType == Easing.Type.DAMPED_SPRING) {
+            return Easing.formatSpec(EasingSpec.of(easingType, easingParams));
+        }
+        return Easing.displayName(easingType);
     }
 }

@@ -201,7 +201,7 @@ Every tween action accepts an `easing` property. Choose based on the feel you wa
 | Linear movement | `linear` | Constant speed (default) |
 | Dramatic zoom | `ease_in_out_expo` | Very pronounced curve |
 
-### All 26 Easing Types
+### Easing Families
 
 | Family | In (slow→fast) | Out (fast→slow) | In-Out (slow→fast→slow) |
 |--------|----------------|-----------------|------------------------|
@@ -214,7 +214,7 @@ Every tween action accepts an `easing` property. Choose based on the feel you wa
 | **Back** | `ease_in_back` | `ease_out_back` | `ease_in_out_back` |
 | **Bounce** | `ease_in_bounce` | `ease_out_bounce` | `ease_in_out_bounce` |
 
-Plus `linear` (constant speed, default when omitted).
+Plus `linear` (constant speed, default when omitted), parameterized springs via `spring(...)` / `damped_spring(...)`, and named reusable curves like `hero_pop`, `ui_soft_in`, and `camera_glide`.
 
 ### Easing Tips
 

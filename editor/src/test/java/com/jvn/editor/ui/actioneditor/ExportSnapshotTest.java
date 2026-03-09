@@ -3,6 +3,7 @@ package com.jvn.editor.ui.actioneditor;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.jvn.core.animation.Easing;
+import com.jvn.core.animation.EasingSpec;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -50,6 +51,21 @@ class ExportSnapshotTest {
         assertTrue(exported.contains("cameraMove"));
         assertTrue(exported.contains("cameraZoom"));
         assertTrue(exported.contains("easing: ease_in_out_sine"));
+    }
+
+    @Test
+    void exportedSpringAndNamedCurveUseDslForms() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack track = project.getOrCreateTrack("hero");
+        track.addKeyframe(PropertyType.X, new Keyframe(0, 0, Easing.Type.LINEAR));
+        track.addKeyframe(PropertyType.X, new Keyframe(400, 180,
+            EasingSpec.spring(220, 24, 1.0, 0.0), Easing.Interpolation.TWEEN));
+        track.addKeyframe(PropertyType.ROTATION, new Keyframe(0, 0, Easing.Type.LINEAR));
+        track.addKeyframe(PropertyType.ROTATION, new Keyframe(400, 12, Easing.Type.HERO_POP));
+
+        String exported = CodeExporter.export(project);
+        assertTrue(exported.contains("easing: spring(220, 24, 1, 0)"));
+        assertTrue(exported.contains("easing: hero_pop"));
     }
 
     @Test

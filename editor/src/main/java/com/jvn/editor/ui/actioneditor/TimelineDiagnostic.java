@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.jvn.core.animation.Easing;
+import com.jvn.core.animation.EasingSpec;
 
 /**
  * Diagnostic engine for Puppeteer timelines. Scans an {@link AnimationProject}
@@ -47,7 +48,6 @@ public class TimelineDiagnostic {
     private static final Pattern ACTION_WITH_TARGET_PATTERN = Pattern.compile("^(\\w+)\\s+\"([^\"]+)\"\\s*\\{\\s*$", Pattern.CASE_INSENSITIVE);
     private static final Pattern ACTION_NO_TARGET_PATTERN = Pattern.compile("^(\\w+)\\s*\\{\\s*$", Pattern.CASE_INSENSITIVE);
     private static final Pattern PROP_PATTERN = Pattern.compile("^(\\w+)\\s*:\\s*(.+)$");
-    private static final Pattern CUBIC_BEZIER_PATTERN = Pattern.compile("^cubic_bezier\\((.+)\\)$", Pattern.CASE_INSENSITIVE);
     private static final Map<String, Set<String>> ACTION_KEYS;
 
     static {
@@ -56,6 +56,7 @@ public class TimelineDiagnostic {
             String name = t.name().toLowerCase(Locale.ROOT);
             if (!"custom".equals(name)) easings.add(name);
         }
+        easings.add("cubic_bezier");
         KNOWN_EASINGS = Collections.unmodifiableSet(easings);
         KNOWN_INTERPOLATIONS = Collections.unmodifiableSet(lowerSet(Set.of(
             "tween", "hold", "step"
@@ -379,22 +380,23 @@ public class TimelineDiagnostic {
      */
     public static String suggestEasing(String input) {
         if (input == null || input.isBlank()) return "linear";
-        String normalized = input.trim().toUpperCase(Locale.ROOT).replace('-', '_');
-        try {
-            Easing.Type.valueOf(normalized);
-            return normalized.toLowerCase(Locale.ROOT);
-        } catch (Exception e) {
-            String best = null;
-            int bestDist = Integer.MAX_VALUE;
-            for (String known : KNOWN_EASINGS) {
-                int dist = editDistance(normalized.toLowerCase(Locale.ROOT), known);
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    best = known;
-                }
-            }
-            return bestDist <= 3 ? best : null;
+        EasingSpec parsed = EasingSpec.tryParse(input);
+        if (parsed != null) {
+            return parsed.toDslString();
         }
+        String normalized = input.trim().toLowerCase(Locale.ROOT).replace('-', '_');
+        int paren = normalized.indexOf('(');
+        String candidate = paren >= 0 ? normalized.substring(0, paren) : normalized;
+        String best = null;
+        int bestDist = Integer.MAX_VALUE;
+        for (String known : KNOWN_EASINGS) {
+            int dist = editDistance(candidate, known);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = known;
+            }
+        }
+        return bestDist <= 3 ? best : null;
     }
 
     private static void validateActionProperty(List<Message> out, String action, String key, String value, int lineNo) {
@@ -585,37 +587,53 @@ public class TimelineDiagnostic {
             return;
         }
 
-        Matcher cubic = CUBIC_BEZIER_PATTERN.matcher(value);
-        if (cubic.matches()) {
-            String body = cubic.group(1);
-            String[] parts = body.split(",");
-            if (parts.length != 4) {
-                out.add(new Message(
-                    Severity.ERROR,
-                    action,
-                    "cubic_bezier requires 4 comma-separated numbers",
-                    "Use: cubic_bezier(0.25, 0.1, 0.25, 1.0)",
-                    lineNo
-                ));
-                return;
-            }
-            for (String p : parts) {
-                if (parseNumber(p.trim()) == null) {
-                    out.add(new Message(
-                        Severity.ERROR,
-                        action,
-                        "Invalid cubic_bezier value '" + p.trim() + "'",
-                        "All cubic_bezier values must be numeric",
-                        lineNo
-                    ));
-                    return;
-                }
-            }
+        if (EasingSpec.tryParse(value) != null) {
             return;
         }
 
-        String norm = value.toLowerCase(Locale.ROOT).replace('-', '_');
-        if (KNOWN_EASINGS.contains(norm)) return;
+        String normalized = value.toLowerCase(Locale.ROOT).replace('-', '_');
+        if (normalized.startsWith("cubic_bezier(")) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "cubic_bezier requires 4 numeric values",
+                "Use: cubic_bezier(0.25, 0.1, 0.25, 1.0)",
+                lineNo
+            ));
+            return;
+        }
+        if ("cubic_bezier".equals(normalized)) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "cubic_bezier requires 4 numeric values",
+                "Use: cubic_bezier(0.25, 0.1, 0.25, 1.0)",
+                lineNo
+            ));
+            return;
+        }
+        if (normalized.startsWith("spring(")) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "spring accepts up to 4 numeric values",
+                "Use: spring(180, 20, 1, 0)",
+                lineNo
+            ));
+            return;
+        }
+        if (normalized.startsWith("damped_spring(")) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "damped_spring accepts up to 4 numeric values",
+                "Use: damped_spring(2.2, 0.38, 1.0, 0)",
+                lineNo
+            ));
+            return;
+        }
+
+        if (KNOWN_EASINGS.contains(normalized)) return;
 
         String suggestion = suggestEasing(value);
         out.add(new Message(

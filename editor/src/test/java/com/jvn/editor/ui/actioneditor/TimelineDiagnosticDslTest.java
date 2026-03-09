@@ -80,6 +80,29 @@ class TimelineDiagnosticDslTest {
     }
 
     @Test
+    void acceptsSpringAndNamedCurveEasing() {
+        String code = """
+            timeline {
+              move "hero" {
+                x: 320
+                dur: 500
+                easing: spring(220, 24, 1.0, 0)
+              }
+              wait 500
+              move "hero" {
+                x: 480
+                dur: 400
+                easing: hero_pop
+              }
+            }
+            """;
+
+        List<TimelineDiagnostic.Message> messages = TimelineDiagnostic.diagnoseDsl(code);
+
+        assertFalse(messages.stream().anyMatch(m -> m.description().contains("Unknown easing")));
+    }
+
+    @Test
     void flagsUnknownInterpolation() {
         String code = """
             timeline {

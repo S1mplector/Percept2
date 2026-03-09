@@ -57,4 +57,21 @@ class EasingInterpolationTest {
         double bezierMid = track.getValueAt(TimelineData.Property.X, 250);
         assertTrue(bezierMid > 250.0 && bezierMid < 300.0);
     }
+
+    @Test
+    void springAndNamedCurvesRespectEndpoints() {
+        double[] springParams = {220.0, 24.0, 1.0, 0.0};
+        assertEquals(0.0, Easing.apply(Easing.Type.SPRING, springParams, 0.0), 1e-9);
+        assertEquals(1.0, Easing.apply(Easing.Type.SPRING, springParams, 1.0), 1e-9);
+        assertEquals(0.0, Easing.apply(Easing.Type.DAMPED_SPRING, null, 0.0), 1e-9);
+        assertEquals(1.0, Easing.apply(Easing.Type.DAMPED_SPRING, null, 1.0), 1e-9);
+        assertEquals(0.0, Easing.apply(Easing.Type.HERO_POP, 0.0), 1e-9);
+        assertEquals(1.0, Easing.apply(Easing.Type.HERO_POP, 1.0), 1e-9);
+
+        double max = 0.0;
+        for (int i = 0; i <= 100; i++) {
+            max = Math.max(max, Easing.apply(Easing.Type.HERO_POP, i / 100.0));
+        }
+        assertTrue(max > 1.0, "hero_pop should overshoot to feel springy");
+    }
 }

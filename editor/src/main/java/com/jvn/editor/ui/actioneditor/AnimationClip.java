@@ -237,6 +237,9 @@ public class AnimationClip {
     }
 
     private static EasingSpec parseEasingSpec(String easingValue, String paramsValue, String bezierValue) {
+        if ((easingValue == null || easingValue.isBlank()) && bezierValue != null && !bezierValue.isBlank()) {
+            return EasingSpec.of(Easing.Type.CUSTOM, parseParams(bezierValue));
+        }
         EasingSpec parsed = EasingSpec.tryParse(easingValue);
         if (parsed != null && parsed.hasParameters()) return parsed;
         if (parsed != null && !parsed.hasParameters() && paramsValue != null && !paramsValue.isBlank()) {

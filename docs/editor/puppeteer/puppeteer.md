@@ -8,8 +8,8 @@ This document covers the system architecture, the JES/VNS relationship, the data
 
 ## Sub-Document Reference
 
-- **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, entity management, keyframe editing, all 12 presets, 26 easing types, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
-- **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, `playAudio`, `wait`, `parallel`, easing values, custom cubic Bézier, export modes, VNS/JES integration examples
+- **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, entity management, keyframe editing, all 12 presets, 37 easing options, searchable easing picker, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
+- **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, `playAudio`, `wait`, `parallel`, easing values, spring functions, named curves, custom cubic Bézier, export modes, VNS/JES integration examples
 - **[Sidebar Utilities](../sidebars/overview/sidebar-utilities.md)** — all 14 editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
 - **[Puppeteer Audit & Roadmap](puppeteer-audit.md)** — hardening audit and expansion roadmap
 
@@ -879,7 +879,8 @@ core/src/main/java/com/jvn/core/
 │   ├── TimelineRunner.java                 # Applies timeline to entities at runtime
 │   ├── TimelineRegistry.java              # Global name → TimelineData map
 │   ├── SceneAccessor.java                 # Interface for entity property access
-│   └── Easing.java                        # 26 easing curves + custom cubic Bézier
+│   ├── Easing.java                        # Standard curves, spring family, named curves
+│   └── EasingSpec.java                    # Parsed easing type + optional parameters
 ├── scene2d/
 │   ├── Entity2D.java                       # Base entity (x, y, rotation, scale, alpha)
 │   ├── Sprite2D.java                       # Image entity (width, height, origin)
@@ -943,7 +944,7 @@ Entities and groups now carry `layerOrder` metadata. Puppeteer provides context-
 
 ## 15. Related Docs
 
-- [Puppeteer Editor Guide](puppeteer-editor-guide.md) — comprehensive UI usage: launching, keyframes, 12 presets, 26 easing types, audio, camera, groups, shortcuts
+- [Puppeteer Editor Guide](puppeteer-editor-guide.md) — comprehensive UI usage: launching, keyframes, 12 presets, 37 easing options, searchable easing picker, audio, camera, groups, shortcuts
 - [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — complete exported timeline syntax reference
 - [Hand-Coding Timelines](../../scripting/timeline/animation/timeline-hand-coding.md) — writing timelines by hand, time cursor model, 18 examples, reusable templates
 - [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry

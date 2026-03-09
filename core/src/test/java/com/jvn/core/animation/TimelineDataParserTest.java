@@ -135,4 +135,33 @@ class TimelineDataParserTest {
         assertEquals(Easing.Type.CUSTOM, xKeyframes.get(2).getEasing());
         assertTrue(xKeyframes.get(2).hasBezierParams());
     }
+
+    @Test
+    void parsesSpringAndNamedCurveEasings() {
+        String inline = """
+            timeline {
+              move "hero" {
+                x: 100
+                dur: 120
+                easing: spring(220, 24, 1.0, 0)
+              }
+              wait 120
+              move "hero" {
+                x: 240
+                dur: 150
+                easing: hero_pop
+              }
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("inline_spring_named", inline);
+        TimelineData.Track hero = data.getTrack("hero");
+        assertNotNull(hero);
+
+        var xKeyframes = hero.getKeyframes(TimelineData.Property.X);
+        assertEquals(Easing.Type.SPRING, xKeyframes.get(1).getEasing());
+        assertEquals(Easing.Type.HERO_POP, xKeyframes.get(2).getEasing());
+        assertTrue(xKeyframes.get(1).hasEasingParams());
+        assertEquals(220.0, xKeyframes.get(1).getEasingParams()[0], 0.001);
+    }
 }

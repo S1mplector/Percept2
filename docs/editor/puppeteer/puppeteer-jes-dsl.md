@@ -257,7 +257,7 @@ All actions inside `parallel` begin at the same time.
 
 ## Easing Reference
 
-All 26 easing types plus custom cubic Bézier:
+All runtime easing values plus custom and parameterized curve functions:
 
 | Easing Name | DSL Value | Description |
 |-------------|-----------|-------------|
@@ -286,6 +286,11 @@ All 26 easing types plus custom cubic Bézier:
 | Bounce In | `ease_in_bounce` | Bouncing on entry |
 | Bounce Out | `ease_out_bounce` | Bouncing on exit |
 | Bounce In-Out | `ease_in_out_bounce` | Symmetric bounce |
+| Spring | `spring(stiffness, damping, mass, velocity)` | Physical spring with overshoot/settle |
+| Damped Spring | `damped_spring(frequency, damping_ratio, response, velocity)` | Motion-design spring tuning with response scaling |
+| Hero Pop | `hero_pop` | Named energetic pop preset |
+| UI Soft In | `ui_soft_in` | Named gentle UI preset |
+| Camera Glide | `camera_glide` | Named camera settle preset |
 | Custom | `cubic_bezier(cx1, cy1, cx2, cy2)` | CSS-style cubic Bézier |
 
 ### Custom Cubic Bézier
@@ -299,6 +304,38 @@ move "hero" {
 ```
 
 The four parameters define the control points of a cubic Bézier curve from (0,0) to (1,1), matching the CSS `cubic-bezier()` function.
+
+### Spring Functions
+
+```jes
+move "hero" {
+  x: 500
+  dur: 420
+  easing: spring(220, 24, 1.0, 0)
+}
+
+cameraMove {
+  x: 140
+  y: -20
+  dur: 800
+  easing: damped_spring(1.25, 1.10, 0.92, 0)
+}
+```
+
+`spring(...)` uses physical parameters: `stiffness`, `damping`, `mass`, `velocity`.
+
+`damped_spring(...)` uses motion-oriented parameters: `frequency`, `damping_ratio`, `response`, `velocity`.
+
+Named reusable curves are exported as bare tokens:
+
+```jes
+scale "hero" {
+  x: 1.08
+  y: 1.08
+  dur: 220
+  easing: hero_pop
+}
+```
 
 ### Easing Omission Rule
 
