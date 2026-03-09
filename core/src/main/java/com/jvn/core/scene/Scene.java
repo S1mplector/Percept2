@@ -1,7 +1,44 @@
 package com.jvn.core.scene;
 
+/**
+ * Lifecycle contract for a single game scene (screen, level, menu, etc.).
+ *
+ * <p>Scenes are managed by a {@link SceneManager} stack. Only the <em>top</em>
+ * scene on the stack receives update callbacks from the {@link com.jvn.core.engine.Engine}.
+ * The lifecycle flows as follows:</p>
+ *
+ * <pre>
+ *   ┌──────────┐  push   ┌──────────┐  update loop  ┌──────────┐  pop    ┌──────────┐
+ *   │ (none)   │───────→ │ onEnter  │──────────────→│ running  │──────→  │ onExit   │
+ *   └──────────┘         └──────────┘               └──────────┘         └──────────┘
+ *                                                      │     ▲
+ *                                              push    │     │  pop (child)
+ *                                              child   ▼     │
+ *                                                   ┌──────────┐
+ *                                                   │ onPause  │
+ *                                                   │   ...    │
+ *                                                   │ onResume │
+ *                                                   └──────────┘
+ * </pre>
+ *
+ * <p>Implementors must provide {@link #update(long)}; all other methods have
+ * default no-op implementations so scenes can override only what they need.</p>
+ *
+ * @see SceneManager
+ * @see com.jvn.core.engine.Engine#update(long)
+ */
 public interface Scene {
+
+  /**
+   * Called once when this scene is pushed onto the stack and becomes active.
+   * Use for resource loading, UI setup, and initial state preparation.
+   */
   default void onEnter() {}
+
+  /**
+   * Called once when this scene is popped off the stack.
+   * Use for resource cleanup and state teardown.
+   */
   default void onExit() {}
   /**
    * Called when another scene is pushed on top of this one.

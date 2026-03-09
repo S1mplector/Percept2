@@ -474,18 +474,32 @@ Controls the history/backlog overlay.
 [history clear]       # clear scroll position
 ```
 
-### `[visualizer [on|off|toggle] [bars=<count>]]` / `[viz]`
+### `[visualizer ...]` / `[viz]`
 
 Controls the in-scene audio visualizer layer (off by default). `[viz]` is a shorthand alias.
 
 ```vns
 [visualizer on]
 [visualizer on bars=48]
+[visualizer set color=#7de2ff z=-15]
 [visualizer off]
 [visualizer toggle]
+[visualizer status]
+[visualizer reset]
 [viz on]              # shorthand alias
 [viz toggle]
 ```
+
+Useful options:
+
+- `bars=<8..96>`
+- `color=<css-color|auto>`
+- `accent=<css-color|auto>`
+- `alpha=<0.1..1.0>`
+- `glow=<on|off>`
+- `style=<dynamic|minimal>`
+- `height=<0.2..1.0>`
+- `z=<int>` / `z-index=<int>` for layer order relative to character sprites
 
 ### `[hud <message>]`
 

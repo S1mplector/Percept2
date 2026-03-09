@@ -378,6 +378,11 @@ public class FxAudioService implements AudioFacade {
   }
 
   @Override
+  public boolean supportsBgmSpectrum() {
+    return true;
+  }
+
+  @Override
   public long getBgmSpectrumUpdatedAtNanos() {
     return latestBgmSpectrumUpdatedAtNanos;
   }

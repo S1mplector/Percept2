@@ -23,6 +23,7 @@ import com.jvn.core.vn.VnCharacterSceneAccessor;
 import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnAudioVisualizerConfig;
 import com.jvn.core.vn.VnState;
 import com.jvn.core.vn.VnVariableInterpolator;
 import com.jvn.core.vn.text.TextEffect;
@@ -35,7 +36,10 @@ import com.jvn.core.vn.ui.VnUiStyleSpec;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
+import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -83,12 +87,9 @@ public class VnRenderer {
   private static final double DEFAULT_CHOICE_TEXT_BASELINE_OFFSET = 4.0;
   private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
-  private static final int VISUALIZER_BAR_COUNT = 96;
-  private static final long VISUALIZER_STALE_NS = 700_000_000L;
+  private static final int VISUALIZER_BAR_COUNT = VnAudioVisualizerConfig.MAX_BARS;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
-  private static final String VAR_AUDIO_VISUALIZER_ENABLED = "ui.audioVisualizer";
-  private static final String VAR_AUDIO_VISUALIZER_BARS = "ui.audioVisualizerBars";
 
   private Image choiceButtonImage;
   private Image choiceButtonHoverImage;
@@ -135,12 +136,24 @@ public class VnRenderer {
   private List<BoundsPointCodec.Point> choiceButtonBoundsPolygon = List.of();
   private final double[] visualizerLevels = new double[VISUALIZER_BAR_COUNT];
   private final double[] visualizerTargets = new double[VISUALIZER_BAR_COUNT];
+  private final double[] visualizerLevelVelocities = new double[VISUALIZER_BAR_COUNT];
+  private final double[] visualizerPeakLevels = new double[VISUALIZER_BAR_COUNT];
+  private final double[] visualizerPeakVelocities = new double[VISUALIZER_BAR_COUNT];
+  private final double[] visualizerWidthMultipliers = new double[VISUALIZER_BAR_COUNT];
+  private final double[] visualizerWidthVelocities = new double[VISUALIZER_BAR_COUNT];
+  private final double[] visualizerGlowLevels = new double[VISUALIZER_BAR_COUNT];
+  private final double[] visualizerBassHistory = new double[12];
+  private int visualizerBassHistoryIndex = 0;
+  private long visualizerLastBeatAtNanos = 0L;
+  private double visualizerBeatFlashIntensity = 0.0;
+  private double visualizerHue = 182.0;
 
   public VnRenderer(GraphicsContext gc) {
     this.gc = gc;
     this.nameFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE);
     this.dialogueFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE);
     this.choiceFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_CHOICE_FONT_SIZE);
+    Arrays.fill(visualizerWidthMultipliers, 1.0);
     reloadUiLayout();
   }
 
@@ -264,11 +277,13 @@ public class VnRenderer {
       renderTransitionOverlay(state, width, height);
     }
 
-    // Audio-reactive layer between background and sprites/UI.
-    renderAudioVisualizer(width, height);
+    List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> orderedCharacters = orderedCharacterEntries(state);
+    AudioVisualizerSettings visualizerSettings = resolveAudioVisualizerSettings();
+    int visualizerSplit = resolveVisualizerCharacterSplit(orderedCharacters, visualizerSettings.zIndex());
 
-    // Render characters
-    renderCharacters(state, scenario, width, height);
+    renderCharacters(orderedCharacters.subList(0, visualizerSplit), state, scenario, width, height);
+    renderAudioVisualizer(width, height, visualizerSettings);
+    renderCharacters(orderedCharacters.subList(visualizerSplit, orderedCharacters.size()), state, scenario, width, height);
 
     // Render current node content (unless UI is hidden)
     VnNode currentNode = state.getCurrentNode();
@@ -398,7 +413,7 @@ public class VnRenderer {
     gc.restore();
   }
 
-  private void renderCharacters(VnState state, VnScenario scenario, double width, double height) {
+  private List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> orderedCharacterEntries(VnState state) {
     Map<CharacterPosition, VnState.CharacterSlot> characters = state.getVisibleCharacters();
 
     java.util.List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> ordered = new java.util.ArrayList<>(characters.entrySet());
@@ -408,7 +423,27 @@ public class VnRenderer {
                 e.getValue() != null ? e.getValue().getLayerOrder() : 0)
             .thenComparingInt(e -> positionOrdinal(e.getKey()))
     );
+    return ordered;
+  }
 
+  private int resolveVisualizerCharacterSplit(List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> orderedCharacters, int visualizerZ) {
+    if (orderedCharacters == null || orderedCharacters.isEmpty()) return 0;
+    for (int i = 0; i < orderedCharacters.size(); i++) {
+      Map.Entry<CharacterPosition, VnState.CharacterSlot> entry = orderedCharacters.get(i);
+      VnState.CharacterSlot slot = entry.getValue();
+      int layerOrder = slot != null ? slot.getLayerOrder() : 0;
+      if (layerOrder >= visualizerZ) return i;
+    }
+    return orderedCharacters.size();
+  }
+
+  private void renderCharacters(
+      List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> ordered,
+      VnState state,
+      VnScenario scenario,
+      double width,
+      double height) {
+    if (ordered == null || ordered.isEmpty()) return;
     for (Map.Entry<CharacterPosition, VnState.CharacterSlot> entry : ordered) {
       CharacterPosition position = entry.getKey();
       VnState.CharacterSlot slot = entry.getValue();
@@ -506,18 +541,18 @@ public class VnRenderer {
     }
   }
 
-  private void renderAudioVisualizer(double width, double height) {
-    if (!isAudioVisualizerEnabled()) {
-      decayVisualizer(0.86);
+  private void renderAudioVisualizer(double width, double height, AudioVisualizerSettings settings) {
+    if (!settings.enabled()) {
+      decayVisualizer(0.86, true);
       return;
     }
-    int activeBars = resolveAudioVisualizerBarCount();
+    int activeBars = settings.bars();
     if (activeBars <= 0) {
-      decayVisualizer(0.86);
+      decayVisualizer(0.86, true);
       return;
     }
     if (audioFacade == null) {
-      decayVisualizer(0.86);
+      decayVisualizer(0.86, true);
       return;
     }
 
@@ -526,20 +561,14 @@ public class VnRenderer {
     long nowNs = System.nanoTime();
     boolean hasFreshData = magnitudes != null
         && magnitudes.length > 0
-        && (updatedAt <= 0L || (nowNs - updatedAt) <= VISUALIZER_STALE_NS);
+        && (updatedAt <= 0L || (nowNs - updatedAt) <= VnAudioVisualizerConfig.STALE_NS);
 
     if (hasFreshData) {
       mapSpectrumToTargets(magnitudes, visualizerTargets, activeBars);
-      for (int i = 0; i < activeBars; i++) {
-        double eased = visualizerLevels[i] * 0.62 + visualizerTargets[i] * 0.38;
-        visualizerLevels[i] = clamp(eased, 0.0, 1.0);
-      }
-      for (int i = activeBars; i < visualizerLevels.length; i++) {
-        visualizerLevels[i] = 0.0;
-        visualizerTargets[i] = 0.0;
-      }
+      updateAudioVisualizerState(activeBars);
     } else {
-      decayVisualizer(0.9);
+      decayVisualizer(0.9, false);
+      clearInactiveVisualizerState(activeBars);
     }
 
     double maxLevel = 0.0;
@@ -550,42 +579,235 @@ public class VnRenderer {
     if (maxLevel < 0.015) return;
 
     TextBoxGeometry textBox = computeTextBoxGeometry(width, height);
-    // Fill the entire area above the textbox.
     double regionBottom = Math.min(height, textBox.y() - 2.0);
-    double regionTop = 0.0;
-    if (regionBottom <= regionTop + 8) return;
+    if (regionBottom <= 8.0) return;
+    double regionHeight = Math.max(24.0, regionBottom * settings.heightFactor());
+    double regionTop = Math.max(0.0, regionBottom - regionHeight);
+    double sidePadding = Math.max(0.0, width * 0.018);
+    double regionWidth = Math.max(1.0, width - sidePadding * 2.0);
+    if (regionWidth <= 8.0) return;
 
-    double regionHeight = regionBottom - regionTop;
-    double sidePadding = 0.0;
-    double regionWidth = Math.max(1.0, width);
-    double gap = 1.0;
-    double barWidth = (regionWidth - gap * (activeBars - 1)) / activeBars;
-    if (barWidth < 1.0) return;
+    AudioVisualizerPalette palette = resolveAudioVisualizerPalette(settings, maxLevel);
 
     gc.save();
     gc.setGlobalAlpha(1.0);
-    gc.setStroke(Color.WHITE);
+    drawAudioVisualizerBackdrop(settings, palette, sidePadding, regionTop, regionWidth, regionHeight, regionBottom);
+    drawAudioVisualizerBars(settings, palette, activeBars, sidePadding, regionWidth, regionTop, regionBottom, regionHeight);
+    gc.restore();
+  }
+
+  private void updateAudioVisualizerState(int activeBars) {
+    boolean beat = detectVisualizerBeat(activeBars);
+    visualizerBeatFlashIntensity = beat ? 1.0 : visualizerBeatFlashIntensity * 0.90;
+
+    for (int i = 0; i < activeBars; i++) {
+      double target = visualizerTargets[i];
+      double diff = target - visualizerLevels[i];
+
+      visualizerLevelVelocities[i] = (visualizerLevelVelocities[i] + diff * 0.28) * 0.84;
+      visualizerLevels[i] = clamp(visualizerLevels[i] + visualizerLevelVelocities[i], 0.0, 1.0);
+      if (Math.abs(diff) < 0.015) {
+        visualizerLevels[i] = clamp(visualizerLevels[i] * 0.82 + target * 0.18, 0.0, 1.0);
+      }
+
+      if (visualizerLevels[i] > visualizerPeakLevels[i]) {
+        visualizerPeakLevels[i] = visualizerLevels[i];
+        visualizerPeakVelocities[i] = 0.0;
+        visualizerGlowLevels[i] = Math.max(visualizerGlowLevels[i], 0.18 + visualizerLevels[i] * 0.82);
+      } else {
+        visualizerPeakVelocities[i] += 0.012 + (1.0 - visualizerLevels[i]) * 0.010;
+        visualizerPeakLevels[i] = Math.max(visualizerLevels[i], visualizerPeakLevels[i] - visualizerPeakVelocities[i] * 0.045);
+      }
+
+      double targetWidth = 0.70 + Math.pow(visualizerLevels[i], 0.72) * 0.62;
+      visualizerWidthVelocities[i] = (visualizerWidthVelocities[i]
+          + (targetWidth - visualizerWidthMultipliers[i]) * 0.22) * 0.86;
+      visualizerWidthMultipliers[i] = clamp(visualizerWidthMultipliers[i] + visualizerWidthVelocities[i], 0.62, 1.42);
+      visualizerGlowLevels[i] *= 0.91;
+
+      if (beat) {
+        visualizerGlowLevels[i] = Math.max(visualizerGlowLevels[i], 0.28 + visualizerLevels[i] * 0.45);
+        visualizerWidthMultipliers[i] = clamp(visualizerWidthMultipliers[i] + 0.06, 0.62, 1.42);
+      }
+    }
+
+    clearInactiveVisualizerState(activeBars);
+  }
+
+  private boolean detectVisualizerBeat(int activeBars) {
+    int bassBars = Math.min(6, activeBars);
+    if (bassBars <= 0) return false;
+
+    double bassEnergy = 0.0;
+    for (int i = 0; i < bassBars; i++) {
+      bassEnergy += visualizerTargets[i];
+    }
+    bassEnergy /= bassBars;
+
+    double average = 0.0;
+    for (double value : visualizerBassHistory) {
+      average += value;
+    }
+    average /= visualizerBassHistory.length;
+
+    visualizerBassHistory[visualizerBassHistoryIndex] = bassEnergy;
+    visualizerBassHistoryIndex = (visualizerBassHistoryIndex + 1) % visualizerBassHistory.length;
+
+    long nowNs = System.nanoTime();
+    double threshold = average * 1.35 + 0.06;
+    if (bassEnergy > threshold && (nowNs - visualizerLastBeatAtNanos) > 180_000_000L) {
+      visualizerLastBeatAtNanos = nowNs;
+      return true;
+    }
+    return false;
+  }
+
+  private AudioVisualizerPalette resolveAudioVisualizerPalette(AudioVisualizerSettings settings, double maxLevel) {
+    boolean cycleColors = VnAudioVisualizerConfig.isAutoToken(settings.colorToken());
+    if (cycleColors) {
+      visualizerHue += 0.55 + maxLevel * 0.45 + visualizerBeatFlashIntensity * 0.30;
+      while (visualizerHue >= 360.0) visualizerHue -= 360.0;
+    }
+
+    Color base = cycleColors
+        ? Color.hsb(visualizerHue, 0.76, 1.0)
+        : parseColor(settings.colorToken(), Color.web("#7DE2FF"));
+    Color accent = VnAudioVisualizerConfig.isAutoToken(settings.accentToken())
+        ? base.interpolate(Color.WHITE, 0.36)
+        : parseColor(settings.accentToken(), base.interpolate(Color.WHITE, 0.36));
+    return new AudioVisualizerPalette(base, accent, base.darker().darker());
+  }
+
+  private void drawAudioVisualizerBackdrop(
+      AudioVisualizerSettings settings,
+      AudioVisualizerPalette palette,
+      double x,
+      double regionTop,
+      double regionWidth,
+      double regionHeight,
+      double regionBottom) {
+    gc.setFill(new LinearGradient(
+        0, regionTop, 0, regionBottom,
+        false, CycleMethod.NO_CYCLE,
+        new Stop(0.0, palette.base().deriveColor(0, 1.0, 1.12, settings.alpha() * 0.12)),
+        new Stop(0.42, palette.base().deriveColor(0, 1.0, 1.0, settings.alpha() * 0.03)),
+        new Stop(1.0, Color.TRANSPARENT)));
+    gc.fillRect(x, regionTop, regionWidth, regionHeight);
+
+    if (visualizerBeatFlashIntensity > 0.02 && VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style())) {
+      gc.setFill(palette.accent().deriveColor(0, 1.0, 1.0, settings.alpha() * 0.08 * visualizerBeatFlashIntensity));
+      gc.fillRect(x, regionTop, regionWidth, regionHeight);
+    }
+
+    gc.setStroke(palette.accent().deriveColor(0, 1.0, 1.0, settings.alpha() * 0.28));
     gc.setLineWidth(1.0);
-    gc.strokeLine(sidePadding, regionBottom + 0.5, sidePadding + regionWidth, regionBottom + 0.5);
+    gc.strokeLine(x, regionBottom + 0.5, x + regionWidth, regionBottom + 0.5);
+  }
+
+  private void drawAudioVisualizerBars(
+      AudioVisualizerSettings settings,
+      AudioVisualizerPalette palette,
+      int activeBars,
+      double sidePadding,
+      double regionWidth,
+      double regionTop,
+      double regionBottom,
+      double regionHeight) {
+    double bandWidth = regionWidth / activeBars;
+    double baseBarWidth = bandWidth * (VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style()) ? 0.76 : 0.68);
+    boolean traceStarted = false;
+
+    if (VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style())) {
+      gc.setStroke(palette.accent().deriveColor(0, 1.0, 1.0, settings.alpha() * 0.52));
+      gc.setLineWidth(1.8);
+      gc.beginPath();
+    }
 
     for (int i = 0; i < activeBars; i++) {
       double level = visualizerLevels[i];
       if (level <= 0.002) continue;
-      double normalized = Math.pow(level, 0.78);
-      double barHeight = Math.max(2.0, normalized * regionHeight);
-      double x = sidePadding + i * (barWidth + gap);
-      double y = regionBottom - barHeight;
 
-      gc.setFill(Color.WHITE);
-      gc.fillRoundRect(x, y, barWidth, barHeight, 3.0, 3.0);
+      double normalized = Math.pow(level, VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style()) ? 0.68 : 0.78);
+      double barHeight = Math.max(2.0, normalized * regionHeight);
+      double widthMultiplier = VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style()) ? visualizerWidthMultipliers[i] : 1.0;
+      double actualWidth = clamp(baseBarWidth * widthMultiplier, 1.0, Math.max(1.0, bandWidth - 0.6));
+      double barX = sidePadding + i * bandWidth + (bandWidth - actualWidth) * 0.5;
+      double barY = regionBottom - barHeight;
+
+      Color barBase = palette.base().interpolate(palette.accent(), (i / (double) Math.max(1, activeBars - 1)) * 0.24);
+      Color barTop = barBase.interpolate(palette.accent(), 0.46).interpolate(Color.WHITE, Math.min(0.28, level * 0.24));
+      Color barBottom = palette.shadow().interpolate(barBase, 0.30);
+
+      if (settings.glow() && VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style())) {
+        double glowPad = 2.0 + visualizerGlowLevels[i] * 5.0;
+        gc.setFill(barBase.deriveColor(0, 1.0, 1.0, settings.alpha() * (0.08 + visualizerGlowLevels[i] * 0.12)));
+        gc.fillRoundRect(
+            barX - glowPad * 0.5,
+            Math.max(regionTop, barY - glowPad),
+            actualWidth + glowPad,
+            Math.min(regionHeight, barHeight + glowPad * 1.5),
+            actualWidth + glowPad,
+            actualWidth + glowPad);
+      }
+
+      gc.setFill(new LinearGradient(
+          0, barY, 0, regionBottom,
+          false, CycleMethod.NO_CYCLE,
+          new Stop(0.0, barTop.deriveColor(0, 1.0, 1.0, settings.alpha())),
+          new Stop(0.55, barBase.deriveColor(0, 1.0, 1.0, settings.alpha() * 0.96)),
+          new Stop(1.0, barBottom.deriveColor(0, 1.0, 1.0, settings.alpha() * 0.92))));
+      gc.fillRoundRect(barX, barY, actualWidth, barHeight, 5.0, 5.0);
+
+      if (VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style())) {
+        double peakLevel = Math.max(level, visualizerPeakLevels[i]);
+        if (peakLevel > level + 0.015) {
+          double peakY = regionBottom - Math.max(2.0, Math.pow(peakLevel, 0.70) * regionHeight);
+          gc.setFill(palette.accent().interpolate(Color.WHITE, 0.20).deriveColor(0, 1.0, 1.0, settings.alpha() * 0.90));
+          gc.fillRoundRect(barX, peakY, actualWidth, 3.0, 3.0, 3.0);
+        }
+
+        double traceX = barX + actualWidth * 0.5;
+        double traceY = Math.max(regionTop, barY - Math.min(14.0, 3.0 + visualizerGlowLevels[i] * 7.0));
+        if (!traceStarted) {
+          gc.moveTo(traceX, traceY);
+          traceStarted = true;
+        } else {
+          gc.lineTo(traceX, traceY);
+        }
+      }
     }
-    gc.restore();
+
+    if (traceStarted && VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style())) {
+      gc.stroke();
+    }
   }
 
-  private void decayVisualizer(double factor) {
+  private void decayVisualizer(double factor, boolean hard) {
     for (int i = 0; i < visualizerLevels.length; i++) {
       visualizerLevels[i] *= factor;
       if (visualizerLevels[i] < 0.0001) visualizerLevels[i] = 0.0;
+      visualizerLevelVelocities[i] *= hard ? 0.68 : 0.82;
+      visualizerPeakVelocities[i] += hard ? 0.006 : 0.010;
+      visualizerPeakLevels[i] = Math.max(visualizerLevels[i], visualizerPeakLevels[i] - visualizerPeakVelocities[i] * (hard ? 0.065 : 0.045));
+      if (visualizerPeakLevels[i] < 0.0001) visualizerPeakLevels[i] = 0.0;
+      visualizerWidthVelocities[i] *= hard ? 0.72 : 0.82;
+      visualizerWidthMultipliers[i] = clamp(1.0 + (visualizerWidthMultipliers[i] - 1.0) * factor, 0.62, 1.42);
+      if (Math.abs(visualizerWidthMultipliers[i] - 1.0) < 0.002) visualizerWidthMultipliers[i] = 1.0;
+      visualizerGlowLevels[i] *= hard ? 0.80 : 0.88;
+    }
+    visualizerBeatFlashIntensity *= hard ? 0.82 : 0.90;
+  }
+
+  private void clearInactiveVisualizerState(int activeBars) {
+    for (int i = activeBars; i < visualizerLevels.length; i++) {
+      visualizerLevels[i] = 0.0;
+      visualizerTargets[i] = 0.0;
+      visualizerLevelVelocities[i] = 0.0;
+      visualizerPeakLevels[i] = 0.0;
+      visualizerPeakVelocities[i] = 0.0;
+      visualizerWidthMultipliers[i] = 1.0;
+      visualizerWidthVelocities[i] = 0.0;
+      visualizerGlowLevels[i] = 0.0;
     }
   }
 
@@ -616,6 +838,19 @@ public class VnRenderer {
       out[i] = clamp(avg * freqWeight, 0.0, 1.0);
     }
   }
+
+  private record AudioVisualizerSettings(
+      boolean enabled,
+      int bars,
+      String style,
+      String colorToken,
+      String accentToken,
+      double alpha,
+      boolean glow,
+      double heightFactor,
+      int zIndex) {}
+
+  private record AudioVisualizerPalette(Color base, Color accent, Color shadow) {}
 
   private record DialogueRenderEntry(String speaker, String text, int revealedChars) {}
 
@@ -1258,23 +1493,56 @@ public class VnRenderer {
     return null;
   }
 
-  private boolean isAudioVisualizerEnabled() {
-    if (currentState == null) return false;
-    Object value = currentState.getVariables().get(VAR_AUDIO_VISUALIZER_ENABLED);
-    if (value == null) return false;
+  private String readStringVariable(VnState state, String key) {
+    if (state == null || key == null || key.isBlank()) return null;
+    Object value = state.getVariables().get(key);
+    if (value == null) return null;
+    String text = value.toString().trim();
+    return text.isEmpty() ? null : text;
+  }
+
+  private Boolean readBooleanVariable(VnState state, String key) {
+    if (state == null || key == null || key.isBlank()) return null;
+    Object value = state.getVariables().get(key);
+    if (value == null) return null;
     if (value instanceof Boolean b) return b;
     if (value instanceof Number n) return n.doubleValue() != 0.0;
     if (value instanceof String s) {
-      String t = s.trim().toLowerCase();
-      return "1".equals(t) || "true".equals(t) || "on".equals(t) || "yes".equals(t);
+      String text = s.trim();
+      if (text.isEmpty()) return null;
+      return VnAudioVisualizerConfig.isTruthy(text);
     }
-    return false;
+    return null;
+  }
+
+  private boolean isAudioVisualizerEnabled() {
+    return currentState != null && VnAudioVisualizerConfig.isTruthy(currentState.getVariables().get(VnAudioVisualizerConfig.VAR_ENABLED));
   }
 
   private int resolveAudioVisualizerBarCount() {
-    Double override = readDoubleVariable(currentState, VAR_AUDIO_VISUALIZER_BARS);
-    if (override == null) return VISUALIZER_BAR_COUNT;
-    return (int) Math.round(clamp(override, 8.0, VISUALIZER_BAR_COUNT));
+    Double override = readDoubleVariable(currentState, VnAudioVisualizerConfig.VAR_BARS);
+    if (override == null) return VnAudioVisualizerConfig.DEFAULT_BARS;
+    return VnAudioVisualizerConfig.clampBars((int) Math.round(override));
+  }
+
+  private AudioVisualizerSettings resolveAudioVisualizerSettings() {
+    String style = VnAudioVisualizerConfig.normalizeStyle(readStringVariable(currentState, VnAudioVisualizerConfig.VAR_STYLE));
+    String colorToken = readStringVariable(currentState, VnAudioVisualizerConfig.VAR_COLOR);
+    String accentToken = readStringVariable(currentState, VnAudioVisualizerConfig.VAR_ACCENT);
+    Double alphaValue = readDoubleVariable(currentState, VnAudioVisualizerConfig.VAR_ALPHA);
+    Double heightValue = readDoubleVariable(currentState, VnAudioVisualizerConfig.VAR_HEIGHT);
+    Double zValue = readDoubleVariable(currentState, VnAudioVisualizerConfig.VAR_Z);
+    Boolean glowValue = readBooleanVariable(currentState, VnAudioVisualizerConfig.VAR_GLOW);
+    return new AudioVisualizerSettings(
+        isAudioVisualizerEnabled(),
+        resolveAudioVisualizerBarCount(),
+        style,
+        colorToken,
+        accentToken,
+        alphaValue == null ? VnAudioVisualizerConfig.DEFAULT_ALPHA : VnAudioVisualizerConfig.clampAlpha(alphaValue),
+        glowValue == null || glowValue,
+        heightValue == null ? VnAudioVisualizerConfig.DEFAULT_HEIGHT : VnAudioVisualizerConfig.clampHeight(heightValue),
+        zValue == null ? VnAudioVisualizerConfig.DEFAULT_Z : (int) Math.round(zValue));
   }
 
   private Color parseColor(String raw, Color fallback) {

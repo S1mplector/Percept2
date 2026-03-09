@@ -11,25 +11,111 @@ import com.jvn.core.scene.SceneManager;
 import com.jvn.core.tween.TweenRunner;
 import com.jvn.core.vn.VnInteropFactory;
 
+/**
+ * Central game engine orchestrator for Java-Vector-Nexus.
+ *
+ * <p>The {@code Engine} owns the core subsystems — scene management, input handling,
+ * tween animation, and frame statistics — and drives them through a deterministic
+ * update loop each display frame. It is <b>platform-agnostic</b>: the host renderer
+ * (e.g. JavaFX, Swing, or a headless test harness) calls {@link #update(long)} once
+ * per frame with the elapsed wall-clock delta in milliseconds.</p>
+ *
+ * <h2>Update Pipeline</h2>
+ * <pre>
+ *   ┌─────────────────────────────────────────────────────┐
+ *   │  1. Record raw delta → FrameStats                   │
+ *   │  2. Notify listeners (preUpdate)                    │
+ *   │  3. Clamp → Smooth → Scale delta                    │
+ *   │  4. [if paused/stopped] skip game logic, end frame  │
+ *   │  5. Fixed-update loop (physics, deterministic sim)  │
+ *   │  6. Variable update (tweens, scene.update)          │
+ *   │  7. Late update (camera follow, post-logic work)    │
+ *   │  8. End input frame; notify listeners (postUpdate)  │
+ *   └─────────────────────────────────────────────────────┘
+ * </pre>
+ *
+ * <h2>Fixed vs Variable Timestep</h2>
+ * <p>When {@link #setFixedUpdateStepMs(long, int)} is configured with a positive step,
+ * the engine runs a <b>semi-fixed timestep</b>: it accumulates elapsed time and invokes
+ * {@link Scene#fixedUpdate(long)} in constant-sized chunks, up to a configurable
+ * maximum number of steps per frame to prevent the "spiral of death." The leftover
+ * accumulator fraction is exposed via {@link #getInterpolationAlpha()} so renderers
+ * can interpolate between physics snapshots for smooth visuals.</p>
+ *
+ * <h2>Time Scaling</h2>
+ * <p>The global {@link #setTimeScale(double)} multiplier is applied <em>after</em>
+ * clamping and smoothing, affecting both fixed and variable updates uniformly.
+ * This makes slow-motion and fast-forward trivial to implement.</p>
+ *
+ * <h2>Thread Safety</h2>
+ * <p>The engine is <b>not thread-safe</b>. All calls — including {@code update},
+ * scene transitions, and input injection — must happen on the same thread
+ * (typically the render/UI thread).</p>
+ *
+ * @see Scene
+ * @see SceneManager
+ * @see EngineListener
+ * @see FrameStats
+ */
 public class Engine {
+
+  /** Immutable application configuration snapshot provided at construction time. */
   private final ApplicationConfig config;
+
+  /** Whether the engine has been started via {@link #start()}. */
   private boolean started;
+
+  /** Whether the engine is currently paused; game logic is skipped while {@code true}. */
   private boolean paused;
+
+  /** Stack-based scene manager; the top scene receives update callbacks. */
   private final SceneManager sceneManager = new SceneManager();
+
+  /** Shared input state; polled by scenes and reset at the end of each frame. */
   private final Input input = new Input();
+
+  /** Global tween runner; updated each variable-update phase. */
   private final TweenRunner tweens = new TweenRunner();
+
+  /** Rolling-window frame timing statistics for diagnostics and profiling. */
   private final FrameStats frameStats = new FrameStats();
+
+  /** Registered observers notified at the start and end of each frame. */
   private final List<EngineListener> listeners = new ArrayList<>();
+
+  /** Optional factory for creating VN interop bridges (set by runtime layer). */
   private VnInteropFactory vnInteropFactory;
+
+  /** Optional handler that intercepts custom menu actions at runtime. */
   private MenuActionHandler menuActionHandler;
 
-  // --- Timing parameters ---
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Timing parameters
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** Maximum allowed raw delta (ms). Deltas above this are clamped to prevent spiral-of-death. */
   private long maxDeltaMs = 75;
+
+  /**
+   * Exponential moving average (EMA) smoothing factor for delta times.
+   * 0 = no smoothing (raw deltas); 1 = instant response.
+   * Default 0.1 provides a gentle low-pass filter that absorbs occasional hitches.
+   */
   private double deltaSmoothing = 0.1;
+
+  /** Running EMA of frame deltas; initialised to -1 to signal "first frame." */
   private double smoothedDeltaMs = -1.0;
+
+  /** Duration of one fixed-update step (ms). 0 = fixed timestep disabled. */
   private long fixedUpdateMs = 0;
+
+  /** Maximum number of fixed-update steps per frame to prevent spiral-of-death. */
   private int maxFixedSteps = 5;
+
+  /** Time (ms) accumulated toward the next fixed-update tick. */
   private double accumulatorMs = 0.0;
+
+  /** Global time multiplier applied after clamping and smoothing. Clamped to [0, 10]. */
   private double timeScale = 1.0;
 
   /**
@@ -42,6 +128,15 @@ public class Engine {
    */
   private double interpolationAlpha = 0.0;
 
+  /**
+   * Construct a new engine with the given application configuration.
+   *
+   * <p>If {@code config} is non-null, timing parameters (fixed-update step,
+   * max steps, time scale) are initialised from it immediately. Pass {@code null}
+   * for a bare engine with default timing (no fixed timestep, 1× scale).</p>
+   *
+   * @param config application configuration, or {@code null} for defaults
+   */
   public Engine(ApplicationConfig config) {
     this.config = config;
     if (config != null) {
@@ -50,14 +145,25 @@ public class Engine {
     }
   }
 
+  /**
+   * Mark the engine as started. While started, the update loop will process
+   * game logic (scenes, tweens, fixed updates). Call this after all initial
+   * scenes and configuration have been set up.
+   */
   public void start() {
     this.started = true;
   }
 
+  /**
+   * Mark the engine as stopped. Game logic ceases on the next frame.
+   * Unlike {@link #setPaused(boolean)}, stopping is typically permanent
+   * (e.g. application shutdown).
+   */
   public void stop() {
     this.started = false;
   }
 
+  /** @return {@code true} if the engine has been started and not yet stopped */
   public boolean isStarted() {
     return started;
   }
@@ -78,8 +184,11 @@ public class Engine {
     return paused;
   }
 
-  // --- Config ---
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Configuration
+  // ──────────────────────────────────────────────────────────────────────────
 
+  /** @return the immutable application config provided at construction, or {@code null} */
   public ApplicationConfig getConfig() {
     return config;
   }
@@ -160,20 +269,26 @@ public class Engine {
     }
   }
 
-  // --- Accessors ---
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Subsystem accessors
+  // ──────────────────────────────────────────────────────────────────────────
 
+  /** @return the stack-based {@link SceneManager} used to push/pop/swap scenes */
   public SceneManager scenes() {
     return sceneManager;
   }
 
+  /** @return the shared {@link Input} state polled by scenes each frame */
   public Input input() {
     return input;
   }
 
+  /** @return the global {@link TweenRunner} for fire-and-forget value animations */
   public TweenRunner tweens() {
     return tweens;
   }
 
+  /** @return the rolling-window {@link FrameStats} for FPS / frame-time diagnostics */
   public FrameStats frameStats() {
     return frameStats;
   }
@@ -192,18 +307,46 @@ public class Engine {
     return interpolationAlpha;
   }
 
-  // --- Timing configuration ---
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Timing configuration
+  // ──────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Set the maximum allowed raw frame delta. Any delta exceeding this value
+   * is clamped down, preventing the "spiral of death" when the application
+   * is suspended or a debugger break causes a huge time jump.
+   *
+   * @param ms max delta in milliseconds; 0 or negative disables clamping
+   */
   public void setMaxDeltaMs(long ms) {
     this.maxDeltaMs = ms <= 0 ? 0 : ms;
   }
 
+  /**
+   * Set the exponential moving average smoothing factor for frame deltas.
+   *
+   * <p>Lower values produce a heavier low-pass filter (smoother but laggier);
+   * higher values track real frame times more closely. A value of {@code 0}
+   * disables smoothing entirely.</p>
+   *
+   * @param alpha smoothing factor, clamped to [0.0, 1.0]
+   */
   public void setDeltaSmoothing(double alpha) {
     if (Double.isNaN(alpha) || Double.isInfinite(alpha) || alpha < 0) alpha = 0;
     if (alpha > 1) alpha = 1;
     this.deltaSmoothing = alpha;
   }
 
+  /**
+   * Configure the fixed-update timestep.
+   *
+   * <p>When {@code stepMs > 0}, the engine accumulates elapsed time and fires
+   * {@link Scene#fixedUpdate(long)} in constant-size chunks. This is ideal for
+   * physics, networking, or any simulation that requires deterministic ticks.</p>
+   *
+   * @param stepMs   duration of one fixed step in ms; 0 or negative disables fixed update
+   * @param maxSteps maximum fixed steps per frame (min 1) to prevent spiral-of-death
+   */
   public void setFixedUpdateStepMs(long stepMs, int maxSteps) {
     this.fixedUpdateMs = stepMs <= 0 ? 0 : stepMs;
     this.maxFixedSteps = Math.max(1, maxSteps);
@@ -222,30 +365,55 @@ public class Engine {
     this.timeScale = scale;
   }
 
+  /** @return current time scale multiplier */
   public double getTimeScale() {
     return timeScale;
   }
 
-  // --- Listener management ---
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Listener management
+  // ──────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Register an {@link EngineListener} to receive frame-boundary callbacks.
+   * Duplicate registrations are silently ignored.
+   *
+   * @param listener the listener to add; {@code null} is ignored
+   */
   public void addListener(EngineListener listener) {
     if (listener != null && !listeners.contains(listener)) {
       listeners.add(listener);
     }
   }
 
+  /**
+   * Unregister a previously registered listener. No-op if not found.
+   *
+   * @param listener the listener to remove
+   */
   public void removeListener(EngineListener listener) {
     listeners.remove(listener);
   }
 
-  // --- Internal helpers ---
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Internal helpers — delta processing pipeline
+  // ──────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Clamp the raw delta to [{@code 0}, {@link #maxDeltaMs}].
+   * Negative deltas (clock skew) are floored to zero.
+   */
   private long clampDelta(long deltaMs) {
     if (deltaMs < 0) return 0;
     if (maxDeltaMs > 0 && deltaMs > maxDeltaMs) return maxDeltaMs;
     return deltaMs;
   }
 
+  /**
+   * Apply exponential moving average smoothing to the clamped delta.
+   * On the very first frame ({@code smoothedDeltaMs < 0}) the EMA is
+   * seeded with the raw value to avoid a ramp-up artefact.
+   */
   private long smoothDelta(long deltaMs) {
     if (deltaSmoothing <= 0) return deltaMs;
     if (smoothedDeltaMs < 0) smoothedDeltaMs = deltaMs;
@@ -254,17 +422,29 @@ public class Engine {
     return Math.round(smoothedDeltaMs);
   }
 
+  /**
+   * Multiply the smoothed delta by the global {@link #timeScale}.
+   * Fast-path short-circuits for the common cases of 1× and 0× scale.
+   */
   private long applyTimeScale(long deltaMs) {
     if (timeScale == 1.0) return deltaMs;
     if (timeScale == 0.0) return 0;
     return Math.round(deltaMs * timeScale);
   }
 
-  // --- Interop / menu wiring ---
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Interop / menu wiring — set by the runtime layer
+  // ──────────────────────────────────────────────────────────────────────────
 
+  /** Set the factory used to create VN interop bridges for visual-novel scenes. */
   public void setVnInteropFactory(VnInteropFactory f) { this.vnInteropFactory = f; }
+
+  /** @return the current VN interop factory, or {@code null} if not configured */
   public VnInteropFactory getVnInteropFactory() { return vnInteropFactory; }
 
+  /** Set the handler that intercepts custom menu action keys at runtime. */
   public void setMenuActionHandler(MenuActionHandler handler) { this.menuActionHandler = handler; }
+
+  /** @return the current menu action handler, or {@code null} if not configured */
   public MenuActionHandler getMenuActionHandler() { return menuActionHandler; }
 }

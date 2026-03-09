@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultVnInteropQuotedArgsTest {
@@ -94,6 +95,67 @@ class DefaultVnInteropQuotedArgsTest {
   }
 
   @Test
+  void configuresVisualizerWithoutImplicitToggleAndCanResetOptions() {
+    VnScenario scenario = new VnScenarioBuilder("ui_visualizer_config")
+        .label("start")
+        .dialogue("Narrator", "Start")
+        .end()
+        .build();
+    VnScene scene = new VnScene(scenario);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand(
+        "ui",
+        "visualizer bars=32 color=#7de2ff accent=#ffffff alpha=0.5 glow=off style=minimal height=0.6 z=-15"), scene);
+
+    assertNull(scene.getState().getVariable(VnAudioVisualizerConfig.VAR_ENABLED));
+    assertEquals(32, scene.getState().getVariable(VnAudioVisualizerConfig.VAR_BARS));
+    assertEquals("#7de2ff", scene.getState().getVariable(VnAudioVisualizerConfig.VAR_COLOR));
+    assertEquals("#ffffff", scene.getState().getVariable(VnAudioVisualizerConfig.VAR_ACCENT));
+    assertEquals(0.5, scene.getState().getVariable(VnAudioVisualizerConfig.VAR_ALPHA));
+    assertEquals(Boolean.FALSE, scene.getState().getVariable(VnAudioVisualizerConfig.VAR_GLOW));
+    assertEquals("minimal", scene.getState().getVariable(VnAudioVisualizerConfig.VAR_STYLE));
+    assertEquals(0.6, scene.getState().getVariable(VnAudioVisualizerConfig.VAR_HEIGHT));
+    assertEquals(-15, scene.getState().getVariable(VnAudioVisualizerConfig.VAR_Z));
+
+    interop.handle(new VnExternalCommand("ui", "visualizer on"), scene);
+    interop.handle(new VnExternalCommand("ui", "visualizer reset"), scene);
+
+    assertEquals(Boolean.TRUE, scene.getState().getVariable(VnAudioVisualizerConfig.VAR_ENABLED));
+    assertNull(scene.getState().getVariable(VnAudioVisualizerConfig.VAR_BARS));
+    assertNull(scene.getState().getVariable(VnAudioVisualizerConfig.VAR_COLOR));
+    assertNull(scene.getState().getVariable(VnAudioVisualizerConfig.VAR_ACCENT));
+    assertNull(scene.getState().getVariable(VnAudioVisualizerConfig.VAR_ALPHA));
+    assertNull(scene.getState().getVariable(VnAudioVisualizerConfig.VAR_GLOW));
+    assertNull(scene.getState().getVariable(VnAudioVisualizerConfig.VAR_STYLE));
+    assertNull(scene.getState().getVariable(VnAudioVisualizerConfig.VAR_HEIGHT));
+    assertNull(scene.getState().getVariable(VnAudioVisualizerConfig.VAR_Z));
+  }
+
+  @Test
+  void reportsVisualizerStatusAgainstSpectrumSupport() {
+    VnScenario scenario = new VnScenarioBuilder("ui_visualizer_status")
+        .label("start")
+        .dialogue("Narrator", "Start")
+        .end()
+        .build();
+    VnScene scene = new VnScene(scenario);
+    FakeAudio audio = new FakeAudio();
+    audio.supportsSpectrum = true;
+    scene.setAudioFacade(audio);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand("ui", "visualizer on bars=16"), scene);
+    interop.handle(new VnExternalCommand("ui", "visualizer status"), scene);
+    assertEquals("Viz on 16 bars dynamic z=-100 waiting", scene.getState().getHudMessage());
+
+    audio.latestSpectrum = new float[] {-12f, -18f, -22f};
+    audio.latestSpectrumUpdatedAtNanos = System.nanoTime();
+    interop.handle(new VnExternalCommand("ui", "visualizer status"), scene);
+    assertEquals("Viz on 16 bars dynamic z=-100 live", scene.getState().getHudMessage());
+  }
+
+  @Test
   void appliesSynthesizerAudioInteropCommands() {
     VnScenario scenario = new VnScenarioBuilder("audio_synth")
         .label("start")
@@ -179,6 +241,9 @@ class DefaultVnInteropQuotedArgsTest {
     private float lastChiptuneVolume = -1f;
     private int stopAmbienceCount;
     private int stopChiptuneCount;
+    private boolean supportsSpectrum;
+    private float[] latestSpectrum;
+    private long latestSpectrumUpdatedAtNanos;
 
     @Override
     public void playBgm(String trackId, boolean loop) {
@@ -232,6 +297,21 @@ class DefaultVnInteropQuotedArgsTest {
     @Override
     public void setChiptuneVolume(float volume) {
       lastChiptuneVolume = volume;
+    }
+
+    @Override
+    public boolean supportsBgmSpectrum() {
+      return supportsSpectrum;
+    }
+
+    @Override
+    public float[] getBgmSpectrumMagnitudes() {
+      return latestSpectrum == null ? null : latestSpectrum.clone();
+    }
+
+    @Override
+    public long getBgmSpectrumUpdatedAtNanos() {
+      return latestSpectrumUpdatedAtNanos;
     }
   }
 }

@@ -1,6 +1,7 @@
 package com.jvn.core.vn;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -12,6 +13,7 @@ import com.jvn.core.animation.TimelineDataParser;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.core.animation.TimelineRunner;
 import com.jvn.core.audio.AmbienceProfile;
+import com.jvn.core.audio.AudioFacade;
 
 /**
  * Basic interop implementation.
@@ -26,9 +28,6 @@ public class DefaultVnInterop implements VnInterop {
   private static final Pattern IF_GOTO_PATTERN = Pattern.compile("(?i)^if\\s+(.+?)\\s+goto\\s+(\\S+)\\s*$");
   private static final Pattern EXPR_GOTO_PATTERN = Pattern.compile("(?i)^(.+?)\\s+goto\\s+(\\S+)\\s*$");
   private static final String[] ALLOWED_JAVA_CLASS_PREFIXES = {"com.jvn."};
-  private static final String VAR_AUDIO_VISUALIZER_ENABLED = "ui.audioVisualizer";
-  private static final String VAR_AUDIO_VISUALIZER_BARS = "ui.audioVisualizerBars";
-  private static final int VISUALIZER_MIN_BARS = 8;
   private SceneAccessor sceneAccessor;
 
   public void setSceneAccessor(SceneAccessor accessor) { this.sceneAccessor = accessor; }
@@ -332,77 +331,317 @@ public class DefaultVnInterop implements VnInterop {
   }
 
   private void handleUi(String payload, VnScene scene) {
-    String arg = (payload == null ? "" : payload.trim().toLowerCase());
-    String[] toks = split(arg);
-    if (toks.length > 0 && ("visualizer".equals(toks[0]) || "viz".equals(toks[0]))) {
-      int optStart = 1;
-      String mode = "toggle";
-      if (toks.length >= 2) {
-        String candidate = toks[1];
-        if ("on".equals(candidate) || "show".equals(candidate) || "true".equals(candidate) || "1".equals(candidate)
-            || "yes".equals(candidate) || "off".equals(candidate) || "hide".equals(candidate)
-            || "false".equals(candidate) || "0".equals(candidate) || "no".equals(candidate)
-            || "toggle".equals(candidate)) {
-          mode = candidate;
-          optStart = 2;
-        }
-      }
-      Object cur = scene.getState().getVariables().get(VAR_AUDIO_VISUALIZER_ENABLED);
-      boolean current = false;
-      if (cur instanceof Boolean b) current = b;
-      else if (cur instanceof Number n) current = n.doubleValue() != 0.0;
-      else if (cur instanceof String s) {
-        String t = s.trim().toLowerCase();
-        current = "1".equals(t) || "true".equals(t) || "on".equals(t) || "yes".equals(t);
-      }
-      boolean next = switch (mode) {
-        case "on", "show", "true", "1", "yes" -> true;
-        case "off", "hide", "false", "0", "no" -> false;
-        default -> !current;
-      };
-      scene.getState().setVariable(VAR_AUDIO_VISUALIZER_ENABLED, next);
-      Integer bars = parseVisualizerBarsOption(toks, optStart);
-      if (bars != null) {
-        scene.getState().setVariable(VAR_AUDIO_VISUALIZER_BARS, bars);
-      }
+    String raw = payload == null ? "" : payload.trim();
+    String[] toks = split(raw);
+    if (toks.length > 0 && ("visualizer".equalsIgnoreCase(toks[0]) || "viz".equalsIgnoreCase(toks[0]))) {
+      handleVisualizerCommand(toks, 1, scene);
       return;
     }
+    String arg = raw.toLowerCase();
     if (arg.isEmpty() || "toggle".equals(arg)) { scene.getState().toggleUiHidden(); return; }
     if ("hide".equals(arg) || "on".equals(arg)) { scene.getState().setUiHidden(true); return; }
     if ("show".equals(arg) || "off".equals(arg)) { scene.getState().setUiHidden(false); }
   }
 
-  private Integer parseVisualizerBarsOption(String[] toks, int start) {
-    if (toks == null || start >= toks.length) return null;
+  private void handleVisualizerCommand(String[] toks, int start, VnScene scene) {
+    if (toks == null || start >= toks.length) {
+      setVisualizerEnabled(scene, !isVisualizerEnabled(scene));
+      return;
+    }
+
+    String first = toks[start] == null ? "" : toks[start].trim();
+    String lower = first.toLowerCase();
+    VisualizerCommandMode mode = VisualizerCommandMode.CONFIGURE_ONLY;
+    int optStart = start;
+
+    if ("toggle".equals(lower)) {
+      mode = VisualizerCommandMode.TOGGLE;
+      optStart = start + 1;
+    } else if ("set".equals(lower) || "config".equals(lower)) {
+      mode = VisualizerCommandMode.CONFIGURE_ONLY;
+      optStart = start + 1;
+    } else if ("reset".equals(lower)) {
+      mode = VisualizerCommandMode.RESET;
+      optStart = start + 1;
+    } else if ("status".equals(lower)) {
+      mode = VisualizerCommandMode.STATUS;
+      optStart = start + 1;
+    } else {
+      Boolean bool = VnAudioVisualizerConfig.parseBooleanToken(lower);
+      if (bool != null) {
+        mode = bool ? VisualizerCommandMode.ENABLE : VisualizerCommandMode.DISABLE;
+        optStart = start + 1;
+      }
+    }
+
+    if (mode == VisualizerCommandMode.STATUS) {
+      if (optStart < toks.length) {
+        scene.getState().showHudMessage("viz: status does not accept options", 1800);
+        return;
+      }
+      scene.getState().showHudMessage(buildVisualizerStatus(scene), 2200);
+      return;
+    }
+    if (mode == VisualizerCommandMode.RESET) {
+      if (optStart < toks.length) {
+        scene.getState().showHudMessage("viz: reset does not accept options", 1800);
+        return;
+      }
+      resetVisualizerOptions(scene);
+      return;
+    }
+
+    VisualizerOptions options = parseVisualizerOptions(toks, optStart);
+    if (mode == VisualizerCommandMode.TOGGLE) {
+      setVisualizerEnabled(scene, !isVisualizerEnabled(scene));
+    } else if (mode == VisualizerCommandMode.ENABLE) {
+      setVisualizerEnabled(scene, true);
+    } else if (mode == VisualizerCommandMode.DISABLE) {
+      setVisualizerEnabled(scene, false);
+    }
+    applyVisualizerOptions(scene, options);
+
+    if (!options.warnings().isEmpty()) {
+      scene.getState().showHudMessage("viz: " + String.join("; ", options.warnings()), 2400);
+    }
+  }
+
+  private boolean isVisualizerEnabled(VnScene scene) {
+    return VnAudioVisualizerConfig.isTruthy(scene.getState().getVariables().get(VnAudioVisualizerConfig.VAR_ENABLED));
+  }
+
+  private void setVisualizerEnabled(VnScene scene, boolean enabled) {
+    scene.getState().setVariable(VnAudioVisualizerConfig.VAR_ENABLED, enabled);
+  }
+
+  private void resetVisualizerOptions(VnScene scene) {
+    var vars = scene.getState().getVariables();
+    vars.remove(VnAudioVisualizerConfig.VAR_BARS);
+    vars.remove(VnAudioVisualizerConfig.VAR_COLOR);
+    vars.remove(VnAudioVisualizerConfig.VAR_ACCENT);
+    vars.remove(VnAudioVisualizerConfig.VAR_ALPHA);
+    vars.remove(VnAudioVisualizerConfig.VAR_GLOW);
+    vars.remove(VnAudioVisualizerConfig.VAR_STYLE);
+    vars.remove(VnAudioVisualizerConfig.VAR_HEIGHT);
+    vars.remove(VnAudioVisualizerConfig.VAR_Z);
+  }
+
+  private String buildVisualizerStatus(VnScene scene) {
+    boolean enabled = isVisualizerEnabled(scene);
+    int bars = readVisualizerBars(scene);
+    String style = readVisualizerStyle(scene);
+    String color = readVisualizerColor(scene);
+    String spectrum = resolveVisualizerSpectrumStatus(scene.getAudioFacade());
+    StringBuilder sb = new StringBuilder("Viz ");
+    sb.append(enabled ? "on" : "off");
+    sb.append(' ').append(bars).append(" bars ");
+    sb.append(style).append(' ');
+    sb.append("z=").append(readVisualizerZ(scene)).append(' ');
+    sb.append(spectrum);
+    if (!VnAudioVisualizerConfig.isAutoToken(color)) {
+      sb.append(' ').append(color);
+    }
+    return sb.toString();
+  }
+
+  private String resolveVisualizerSpectrumStatus(AudioFacade audio) {
+    if (audio == null) return "no-audio";
+    if (!audio.supportsBgmSpectrum()) return "unsupported";
+    float[] magnitudes = audio.getBgmSpectrumMagnitudes();
+    long updatedAt = audio.getBgmSpectrumUpdatedAtNanos();
+    if (magnitudes != null && magnitudes.length > 0) {
+      if (updatedAt <= 0L || (System.nanoTime() - updatedAt) <= VnAudioVisualizerConfig.STALE_NS) return "live";
+      return "stale";
+    }
+    return "waiting";
+  }
+
+  private int readVisualizerBars(VnScene scene) {
+    Object value = scene.getState().getVariables().get(VnAudioVisualizerConfig.VAR_BARS);
+    if (value instanceof Number n) return VnAudioVisualizerConfig.clampBars(n.intValue());
+    if (value instanceof String s) {
+      try {
+        return VnAudioVisualizerConfig.clampBars(Integer.parseInt(s.trim()));
+      } catch (Exception ignored) {
+      }
+    }
+    return VnAudioVisualizerConfig.DEFAULT_BARS;
+  }
+
+  private String readVisualizerStyle(VnScene scene) {
+    Object value = scene.getState().getVariables().get(VnAudioVisualizerConfig.VAR_STYLE);
+    return value instanceof String s ? VnAudioVisualizerConfig.normalizeStyle(s) : VnAudioVisualizerConfig.DEFAULT_STYLE;
+  }
+
+  private String readVisualizerColor(VnScene scene) {
+    Object value = scene.getState().getVariables().get(VnAudioVisualizerConfig.VAR_COLOR);
+    return value == null ? VnAudioVisualizerConfig.AUTO : value.toString().trim();
+  }
+
+  private int readVisualizerZ(VnScene scene) {
+    Object value = scene.getState().getVariables().get(VnAudioVisualizerConfig.VAR_Z);
+    if (value instanceof Number n) return n.intValue();
+    if (value instanceof String s) {
+      try {
+        return Integer.parseInt(s.trim());
+      } catch (Exception ignored) {
+      }
+    }
+    return VnAudioVisualizerConfig.DEFAULT_Z;
+  }
+
+  private VisualizerOptions parseVisualizerOptions(String[] toks, int start) {
+    Integer bars = null;
+    String color = null;
+    String accent = null;
+    Double alpha = null;
+    Boolean glow = null;
+    String style = null;
+    Double height = null;
+    Integer z = null;
+    List<String> warnings = new ArrayList<>();
+
+    if (toks == null || start >= toks.length) {
+      return new VisualizerOptions(bars, color, accent, alpha, glow, style, height, z, warnings);
+    }
+
     for (int i = start; i < toks.length; i++) {
       String token = toks[i] == null ? "" : toks[i].trim();
       if (token.isEmpty()) continue;
-      String lower = token.toLowerCase();
-      if (lower.startsWith("bars=")) {
-        Integer parsed = parseVisualizerBarsValue(token.substring(5).trim());
-        if (parsed != null) return parsed;
-      } else if ("bars".equals(lower)) {
-        if (i + 1 < toks.length) {
-          Integer parsed = parseVisualizerBarsValue(toks[i + 1]);
-          if (parsed != null) return parsed;
-          i++;
+
+      String key = null;
+      String value = null;
+      int eq = token.indexOf('=');
+      if (eq >= 0) {
+        key = token.substring(0, eq).trim().toLowerCase();
+        value = token.substring(eq + 1).trim();
+      } else {
+        String lower = token.toLowerCase();
+        if (token.chars().allMatch(Character::isDigit)) {
+          key = "bars";
+          value = token;
+        } else if (isVisualizerOptionKey(lower)) {
+          if (i + 1 >= toks.length) {
+            warnings.add("missing " + lower);
+            continue;
+          }
+          key = lower;
+          value = toks[++i];
+        } else {
+          warnings.add("ignored " + token);
+          continue;
         }
-      } else if (token.chars().allMatch(Character::isDigit)) {
-        Integer parsed = parseVisualizerBarsValue(token);
-        if (parsed != null) return parsed;
+      }
+
+      if (value == null || value.isBlank()) {
+        warnings.add("missing " + key);
+        continue;
+      }
+
+      switch (key) {
+        case "bars" -> {
+          try {
+            int parsed = Integer.parseInt(value.trim());
+            if (parsed <= 0) warnings.add("bars>0");
+            else bars = VnAudioVisualizerConfig.clampBars(parsed);
+          } catch (Exception ignored) {
+            warnings.add("bad bars");
+          }
+        }
+        case "color" -> color = value.trim();
+        case "accent" -> accent = value.trim();
+        case "alpha" -> {
+          try {
+            alpha = VnAudioVisualizerConfig.clampAlpha(Double.parseDouble(value.trim()));
+          } catch (Exception ignored) {
+            warnings.add("bad alpha");
+          }
+        }
+        case "glow" -> {
+          Boolean parsed = VnAudioVisualizerConfig.parseBooleanToken(value);
+          if (parsed == null) warnings.add("bad glow");
+          else glow = parsed;
+        }
+        case "style" -> {
+          String normalized = value.trim().toLowerCase();
+          if (!VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(normalized)
+              && !VnAudioVisualizerConfig.STYLE_MINIMAL.equals(normalized)) {
+            warnings.add("bad style");
+          } else {
+            style = normalized;
+          }
+        }
+        case "height" -> {
+          try {
+            height = VnAudioVisualizerConfig.clampHeight(Double.parseDouble(value.trim()));
+          } catch (Exception ignored) {
+            warnings.add("bad height");
+          }
+        }
+        case "z", "zindex", "z-index", "layer", "layerorder", "layer-order" -> {
+          try {
+            z = Integer.parseInt(value.trim());
+          } catch (Exception ignored) {
+            warnings.add("bad z");
+          }
+        }
+        default -> warnings.add("unknown " + key);
       }
     }
-    return null;
+
+    return new VisualizerOptions(bars, color, accent, alpha, glow, style, height, z, warnings);
   }
 
-  private Integer parseVisualizerBarsValue(String raw) {
-    if (raw == null || raw.isBlank()) return null;
-    try {
-      int value = Integer.parseInt(raw.trim());
-      if (value <= 0) return null;
-      return Math.max(VISUALIZER_MIN_BARS, value);
-    } catch (Exception ignored) {
-      return null;
+  private boolean isVisualizerOptionKey(String key) {
+    return "bars".equals(key)
+        || "color".equals(key)
+        || "accent".equals(key)
+        || "alpha".equals(key)
+        || "glow".equals(key)
+        || "style".equals(key)
+        || "height".equals(key)
+        || "z".equals(key)
+        || "zindex".equals(key)
+        || "z-index".equals(key)
+        || "layer".equals(key)
+        || "layerorder".equals(key)
+        || "layer-order".equals(key);
+  }
+
+  private void applyVisualizerOptions(VnScene scene, VisualizerOptions options) {
+    if (scene == null || options == null) return;
+    var vars = scene.getState().getVariables();
+
+    if (options.bars() != null) {
+      vars.put(VnAudioVisualizerConfig.VAR_BARS, options.bars());
+    }
+    if (options.color() != null) {
+      if (VnAudioVisualizerConfig.isAutoToken(options.color())) vars.remove(VnAudioVisualizerConfig.VAR_COLOR);
+      else vars.put(VnAudioVisualizerConfig.VAR_COLOR, options.color().trim());
+    }
+    if (options.accent() != null) {
+      if (VnAudioVisualizerConfig.isAutoToken(options.accent())) vars.remove(VnAudioVisualizerConfig.VAR_ACCENT);
+      else vars.put(VnAudioVisualizerConfig.VAR_ACCENT, options.accent().trim());
+    }
+    if (options.alpha() != null) {
+      if (Math.abs(options.alpha() - VnAudioVisualizerConfig.DEFAULT_ALPHA) < 0.0001) vars.remove(VnAudioVisualizerConfig.VAR_ALPHA);
+      else vars.put(VnAudioVisualizerConfig.VAR_ALPHA, options.alpha());
+    }
+    if (options.glow() != null) {
+      if (options.glow()) vars.remove(VnAudioVisualizerConfig.VAR_GLOW);
+      else vars.put(VnAudioVisualizerConfig.VAR_GLOW, Boolean.FALSE);
+    }
+    if (options.style() != null) {
+      if (VnAudioVisualizerConfig.DEFAULT_STYLE.equals(options.style())) vars.remove(VnAudioVisualizerConfig.VAR_STYLE);
+      else vars.put(VnAudioVisualizerConfig.VAR_STYLE, options.style());
+    }
+    if (options.height() != null) {
+      if (Math.abs(options.height() - VnAudioVisualizerConfig.DEFAULT_HEIGHT) < 0.0001) vars.remove(VnAudioVisualizerConfig.VAR_HEIGHT);
+      else vars.put(VnAudioVisualizerConfig.VAR_HEIGHT, options.height());
+    }
+    if (options.z() != null) {
+      if (options.z() == VnAudioVisualizerConfig.DEFAULT_Z) vars.remove(VnAudioVisualizerConfig.VAR_Z);
+      else vars.put(VnAudioVisualizerConfig.VAR_Z, options.z());
     }
   }
 
@@ -897,6 +1136,26 @@ public class DefaultVnInterop implements VnInterop {
     try { return Long.parseLong(s); } catch (Exception ignored) {}
     return fallback;
   }
+
+  private enum VisualizerCommandMode {
+    TOGGLE,
+    ENABLE,
+    DISABLE,
+    CONFIGURE_ONLY,
+    RESET,
+    STATUS
+  }
+
+  private record VisualizerOptions(
+      Integer bars,
+      String color,
+      String accent,
+      Double alpha,
+      Boolean glow,
+      String style,
+      Double height,
+      Integer z,
+      List<String> warnings) {}
 
   private record SynthOption(String key, String value) {}
 }

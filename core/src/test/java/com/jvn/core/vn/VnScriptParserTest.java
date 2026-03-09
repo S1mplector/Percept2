@@ -403,6 +403,23 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesVisualizerConfigCommandWithStyleOptions() throws Exception {
+    String script = """
+      @label start
+      [visualizer set bars=32 color=#7de2ff glow=off style=minimal z=-15]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "ui".equals(n.getExternalCommand().getProvider()))
+        .findFirst().orElseThrow();
+    assertEquals("visualizer set bars=32 color=#7de2ff glow=off style=minimal z=-15", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
   public void rejectsUndefinedLabels() {
     String script = """
       @label start

@@ -41,6 +41,11 @@ public interface AudioFacade {
   default float[] getBgmSpectrumMagnitudes() { return null; }
 
   /**
+   * Whether the backend can provide BGM spectrum samples for visualizers.
+   */
+  default boolean supportsBgmSpectrum() { return false; }
+
+  /**
    * Optional timestamp for latest spectrum sample in System.nanoTime() units.
    * Returns 0 when unsupported.
    */

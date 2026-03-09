@@ -110,9 +110,36 @@ UI visibility and audio visualizer controls:
 [ui viz on bars=32]           # show with 32 bars
 [ui viz on bars 64]           # alternative syntax
 [ui viz on 48]                # bare number also accepted
+[ui viz set color=#7de2ff]    # configure without toggling
+[ui viz bars=24 glow=off]     # config-only shorthand
+[ui viz set style=minimal]    # styles: dynamic, minimal
+[ui viz set z=-15]            # render behind center/right sprites
+[ui viz status]               # HUD summary: on/off, bars, style, spectrum status
+[ui viz reset]                # clear stored visualizer tuning, keep enabled state
 ```
 
-Minimum bars: 8. The visualizer state is stored in variables `ui.audioVisualizer` and `ui.audioVisualizerBars`.
+Supported visualizer options:
+
+- `bars=<int>`: clamp to `8..96` (default `48`)
+- `color=<css-color|auto>`: base color, `auto` enables animated hue cycling
+- `accent=<css-color|auto>`: highlight/peak color
+- `alpha=<0.1..1.0>`: overall overlay opacity
+- `glow=<on|off>`: soft glow and beat flash
+- `style=<dynamic|minimal>`: animated Simp3-style bars vs reduced styling
+- `height=<0.2..1.0>`: fraction of the space above the textbox used by the visualizer
+- `z=<int>` / `z-index=<int>`: layer order relative to character sprites (default `-100`)
+
+The visualizer state is stored in:
+
+- `ui.audioVisualizer`
+- `ui.audioVisualizerBars`
+- `ui.audioVisualizerColor`
+- `ui.audioVisualizerAccent`
+- `ui.audioVisualizerAlpha`
+- `ui.audioVisualizerGlow`
+- `ui.audioVisualizerStyle`
+- `ui.audioVisualizerHeight`
+- `ui.audioVisualizerZ`
 
 ### `history`
 

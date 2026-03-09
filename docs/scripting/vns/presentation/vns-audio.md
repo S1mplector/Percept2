@@ -187,14 +187,34 @@ JVN includes an optional in-scene audio visualizer overlay:
 # Enable with specific bar count
 [visualizer on bars=48]
 
+# Reconfigure without toggling
+[visualizer set color=#7de2ff accent=#ffffff alpha=0.75]
+[visualizer bars=24 glow=off style=minimal]
+[visualizer set z=-15]
+
 # Disable
 [visualizer off]
 
 # Toggle
 [visualizer toggle]
+
+# Inspect/reset runtime config
+[visualizer status]
+[visualizer reset]
 ```
 
-The visualizer renders frequency bars over the scene. It's disabled by default and intended for rhythm-game-style scenes or aesthetic overlays.
+The visualizer renders animated frequency bars over the scene. The default `dynamic` style now uses Simp3-inspired smoothing, peak caps, glow, and subtle beat flashes. It's disabled by default and intended for rhythm-game-style scenes or aesthetic overlays.
+
+Supported options:
+
+- `bars=<8..96>`: visible bars, default `48`
+- `color=<css-color|auto>`: base palette, `auto` cycles hue
+- `accent=<css-color|auto>`: peak/trace color
+- `alpha=<0.1..1.0>`: overlay opacity
+- `glow=<on|off>`: glow and beat flash
+- `style=<dynamic|minimal>`: full animated effect or restrained bars-only render
+- `height=<0.2..1.0>`: vertical share of the region above the textbox
+- `z=<int>` / `z-index=<int>`: layer order relative to character sprites, default `-100`
 
 ---
 

@@ -304,6 +304,9 @@ An optional audio-reactive overlay for music-heavy scenes.
 # Enable with custom bar count
 [visualizer on bars=64]
 
+# Put the visualizer behind character sprites
+[visualizer set z=-15]
+
 # Disable
 [visualizer off]
 
@@ -311,7 +314,7 @@ An optional audio-reactive overlay for music-heavy scenes.
 [visualizer toggle]
 ```
 
-The visualizer renders frequency bars over the scene. It sets the internal variables `ui.audioVisualizer` (boolean) and `ui.audioVisualizerBars` (integer, minimum 8).
+The visualizer renders frequency bars over the scene. It sets internal variables including `ui.audioVisualizer` (boolean), `ui.audioVisualizerBars` (integer, minimum 8), and `ui.audioVisualizerZ` (integer layer order relative to characters).
 
 ---
 

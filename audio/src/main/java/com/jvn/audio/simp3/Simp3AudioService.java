@@ -622,6 +622,11 @@ public class Simp3AudioService implements AudioFacade {
   }
 
   @Override
+  public boolean supportsBgmSpectrum() {
+    return true;
+  }
+
+  @Override
   public long getBgmSpectrumUpdatedAtNanos() {
     return latestBgmSpectrumUpdatedAtNanos;
   }

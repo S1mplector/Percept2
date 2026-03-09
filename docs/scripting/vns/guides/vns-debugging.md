@@ -298,7 +298,7 @@ narrator: World.
 
 **Cause:** Audio visualizer requires FFT data from the audio backend. Not all backends support it.
 
-**Fix:** Check if your audio backend supports spectrum analysis. The visualizer UI variable is `ui.audioVisualizer`.
+**Fix:** Check if your audio backend supports spectrum analysis. Use `[visualizer status]` to confirm whether the runtime sees the backend as `live`, `waiting`, `stale`, or `unsupported`. The visualizer enable flag is `ui.audioVisualizer`.
 
 ---
 
