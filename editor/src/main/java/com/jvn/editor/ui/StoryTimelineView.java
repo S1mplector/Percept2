@@ -267,8 +267,8 @@ public class StoryTimelineView extends BorderPane {
     links.setContextMenu(linkMenu);
 
     // Graph area
-    graphScroll.setFitToWidth(true);
-    graphScroll.setFitToHeight(true);
+    graphScroll.setFitToWidth(false);
+    graphScroll.setFitToHeight(false);
     graphScroll.setPannable(true);
     StackPane graphPane = new StackPane(graphScroll, graphHint);
     graphPane.getStyleClass().add("timeline-graph-pane");
@@ -348,16 +348,26 @@ public class StoryTimelineView extends BorderPane {
 
     // Graph actions wiring
     graph.setOnRunArc(a -> { if (onRunArc != null) onRunArc.accept(a); });
+    graph.setOnSelectArc(a -> {
+      if (a == null) return;
+      links.getSelectionModel().clearSelection();
+      arcs.getSelectionModel().select(a);
+    });
     graph.setOnRunLink(l -> { if (onRunLink != null) onRunLink.accept(l); });
+    graph.setOnSelectLink(l -> {
+      if (l == null) return;
+      arcs.getSelectionModel().clearSelection();
+      links.getSelectionModel().select(l);
+    });
     graph.setOnGraphChanged(this::onGraphChanged);
     graph.setOnLayoutCommitted(this::onGraphChanged);
     graph.setOnDeleteArc(a -> { if (a != null) { removeArcAndLinks(a.name); onGraphChanged(); } });
     graph.setSimpleLinkMode(true);
     arcs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
-      if (nv != null) graph.highlight(nv.name);
+      graph.selectArc(nv == null ? null : nv.name);
     });
     links.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
-      if (nv != null && nv.toArc != null) graph.highlight(nv.toArc);
+      graph.selectLink(nv);
     });
 
     // Wheel zoom with Ctrl/Cmd
@@ -1144,12 +1154,14 @@ public class StoryTimelineView extends BorderPane {
     double minX = Double.POSITIVE_INFINITY, minY = Double.POSITIVE_INFINITY, maxX = Double.NEGATIVE_INFINITY, maxY = Double.NEGATIVE_INFINITY;
     for (Arc a : arcs.getItems()) {
       if (a == null) continue;
+      double width = StoryGraphPane.nodeWidthForArc(a);
+      double height = StoryGraphPane.nodeHeightForArc(a);
       minX = Math.min(minX, a.x);
       minY = Math.min(minY, a.y);
-      maxX = Math.max(maxX, a.x + 140);
-      maxY = Math.max(maxY, a.y + 44);
+      maxX = Math.max(maxX, a.x + width);
+      maxY = Math.max(maxY, a.y + height);
     }
-    double pad = 80;
+    double pad = 120;
     double widthNeeded = (maxX - minX) + pad;
     double heightNeeded = (maxY - minY) + pad;
     double vw = graphScroll.getViewportBounds().getWidth();
