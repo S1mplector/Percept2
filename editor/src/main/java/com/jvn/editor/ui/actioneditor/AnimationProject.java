@@ -556,16 +556,12 @@ public class AnimationProject {
                 if (runtimeProp == null) continue;
 
                 for (Keyframe kf : keyframes) {
-                    double[] bezierParams = kf.getEasing() == com.jvn.core.animation.Easing.Type.CUSTOM
-                        ? kf.getBezierParams()
-                        : null;
                     track.addKeyframe(runtimeProp,
                         new TimelineData.Keyframe(
                             kf.getTimeMs(),
                             kf.getValue(),
-                            kf.getEasing(),
-                            kf.getInterpolation(),
-                            bezierParams
+                            kf.getEasingSpec(),
+                            kf.getInterpolation()
                         ));
                 }
             }

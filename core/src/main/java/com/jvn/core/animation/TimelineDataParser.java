@@ -50,9 +50,6 @@ public class TimelineDataParser {
         "wait\\s+(\\d+(?:\\.\\d+)?)", Pattern.CASE_INSENSITIVE);
     private static final Pattern PROP_PATTERN = Pattern.compile(
         "^\\s*(\\w+)\\s*:\\s*(.+)\\s*$");
-    private static final Pattern CUBIC_BEZIER_PATTERN = Pattern.compile(
-        "^cubic_bezier\\((.+)\\)$", Pattern.CASE_INSENSITIVE);
-
     /**
      * Parse an inline timeline block (the text between outer {@code timeline \{} and {@code \}})
      * into a {@link TimelineData}.
@@ -120,9 +117,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         ab.getDouble("x", 0),
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (ab.has("y")) {
@@ -132,9 +129,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         ab.getDouble("y", 0),
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (endTime > maxTime) maxTime = endTime;
@@ -162,9 +159,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         ab.getDouble("ox", 0),
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (ab.has("oy")) {
@@ -174,9 +171,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         ab.getDouble("oy", 0),
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (endTime > maxTime) maxTime = endTime;
@@ -205,9 +202,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         val,
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (endTime > maxTime) maxTime = endTime;
@@ -236,9 +233,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         val,
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (ab.has("y") || ab.has("scale_y")) {
@@ -249,9 +246,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         val,
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (endTime > maxTime) maxTime = endTime;
@@ -279,9 +276,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         ab.getDouble("alpha", 1),
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (endTime > maxTime) maxTime = endTime;
@@ -308,9 +305,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         ab.getDouble("x", 0),
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (ab.has("y")) {
@@ -320,9 +317,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         ab.getDouble("y", 0),
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (endTime > maxTime) maxTime = endTime;
@@ -349,9 +346,9 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         ab.getDouble("zoom", 1),
-                        easingSpec.easing(),
+                        easingSpec,
                         interpolation,
-                        easingSpec.bezierParams()
+                        easingSpec.getParameters()
                     );
                 }
                 if (endTime > maxTime) maxTime = endTime;
@@ -435,16 +432,16 @@ public class TimelineDataParser {
         double startTime,
         double endTime,
         double targetValue,
-        Easing.Type easing,
+        EasingSpec easingSpec,
         Easing.Interpolation interpolation,
-        double[] bezierParams
+        double[] easingParams
     ) {
         if (track == null || property == null) return;
         double start = Math.max(0.0, startTime);
         double end = Math.max(0.0, endTime);
         if (end <= start + EPS) {
             track.addKeyframe(property, new TimelineData.Keyframe(
-                start, targetValue, easing, interpolation, bezierParams));
+                start, targetValue, easingSpec, interpolation));
             return;
         }
         if (!hasKeyframeAt(track, property, start)) {
@@ -458,7 +455,7 @@ public class TimelineDataParser {
             ));
         }
         track.addKeyframe(property, new TimelineData.Keyframe(
-            end, targetValue, easing, interpolation, bezierParams));
+            end, targetValue, easingSpec, interpolation));
     }
 
     private static boolean hasKeyframeAt(TimelineData.Track track, TimelineData.Property property, double timeMs) {
@@ -470,38 +467,7 @@ public class TimelineDataParser {
     }
 
     private static EasingSpec parseEasingSpec(String s) {
-        if (s == null || s.isBlank()) {
-            return new EasingSpec(Easing.Type.LINEAR, null);
-        }
-        String value = s.trim();
-
-        Matcher cubic = CUBIC_BEZIER_PATTERN.matcher(value);
-        if (cubic.matches()) {
-            String[] parts = cubic.group(1).split(",");
-            if (parts.length == 4) {
-                try {
-                    double[] bezier = new double[] {
-                        Double.parseDouble(parts[0].trim()),
-                        Double.parseDouble(parts[1].trim()),
-                        Double.parseDouble(parts[2].trim()),
-                        Double.parseDouble(parts[3].trim())
-                    };
-                    return new EasingSpec(Easing.Type.CUSTOM, bezier);
-                } catch (Exception ignored) {
-                    // fallback below
-                }
-            }
-        }
-
-        String normalized = value.toUpperCase().replace('-', '_');
-        if ("EASE_IN".equals(normalized)) normalized = "EASE_IN_QUAD";
-        else if ("EASE_OUT".equals(normalized)) normalized = "EASE_OUT_QUAD";
-        else if ("EASE_IN_OUT".equals(normalized)) normalized = "EASE_IN_OUT_QUAD";
-        try {
-            return new EasingSpec(Easing.Type.valueOf(normalized), null);
-        } catch (Exception ignored) {
-            return new EasingSpec(Easing.Type.LINEAR, null);
-        }
+        return EasingSpec.parseOrDefault(s);
     }
 
     private static Easing.Interpolation parseInterpolation(String raw) {
@@ -513,8 +479,6 @@ public class TimelineDataParser {
             default -> Easing.Interpolation.TWEEN;
         };
     }
-
-    private record EasingSpec(Easing.Type easing, double[] bezierParams) {}
 
     private static ActionBlock readBlock(String[] lines, int start) {
         ActionBlock ab = new ActionBlock();

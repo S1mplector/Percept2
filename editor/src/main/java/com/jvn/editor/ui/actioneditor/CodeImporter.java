@@ -54,14 +54,9 @@ public class CodeImporter {
                     Keyframe editorKf = new Keyframe(
                         runtimeKf.getTimeMs(),
                         runtimeKf.getValue(),
-                        runtimeKf.getEasing(),
+                        runtimeKf.getEasingSpec(),
                         runtimeKf.getInterpolation()
                     );
-                    if (runtimeKf.getEasing() == com.jvn.core.animation.Easing.Type.CUSTOM
-                        && runtimeKf.hasBezierParams()) {
-                        double[] bezier = runtimeKf.getBezierParams();
-                        editorKf.setBezierParams(bezier[0], bezier[1], bezier[2], bezier[3]);
-                    }
                     editorTrack.addKeyframe(editorProp, editorKf);
                 }
             }

@@ -16,13 +16,36 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
+/**
+ * {@link AssetManager} implementation that resolves assets from the Java
+ * classpath (embedded JARs or exploded class directories).
+ *
+ * <p>This is the default backend used by {@link AssetCatalog} and is
+ * suitable for packaged game distributions where all assets are bundled
+ * inside the application JAR.</p>
+ *
+ * <p>The {@link #list(String)} method handles both {@code file://} and
+ * {@code jar://} URL protocols so it works in both IDE and packaged
+ * environments.</p>
+ *
+ * @see FilesystemAssetManager
+ * @see OverlayAssetManager
+ */
 public class ClasspathAssetManager implements AssetManager {
+
+  /** The class loader used for resource lookups. */
   private final ClassLoader loader;
 
+  /** Construct using the current thread's context class loader. */
   public ClasspathAssetManager() {
     this(Thread.currentThread().getContextClassLoader());
   }
 
+  /**
+   * Construct using a specific class loader.
+   *
+   * @param loader the loader to use; if {@code null}, falls back to this class's loader
+   */
   public ClasspathAssetManager(ClassLoader loader) {
     this.loader = loader == null ? ClasspathAssetManager.class.getClassLoader() : loader;
   }
@@ -48,7 +71,7 @@ public class ClasspathAssetManager implements AssetManager {
 
   @Override
   public List<String> list(String directory) {
-    // Ensure trailing slash
+    // Ensure trailing slash for consistent directory resolution
     String dir = directory.endsWith("/") ? directory : directory + "/";
     try {
       Set<String> results = new HashSet<>();
@@ -68,6 +91,7 @@ public class ClasspathAssetManager implements AssetManager {
     }
   }
 
+  /** List immediate children of a directory resolved via {@code file://} URL. */
   private List<String> listFromFileProtocol(URL url, String dir) {
     try {
       Path path = Paths.get(url.toURI());
@@ -82,6 +106,7 @@ public class ClasspathAssetManager implements AssetManager {
     }
   }
 
+  /** List immediate children of a directory resolved via {@code jar://} URL. */
   private List<String> listFromJarProtocol(URL url, String dir) {
     try {
       JarURLConnection conn = (JarURLConnection) url.openConnection();

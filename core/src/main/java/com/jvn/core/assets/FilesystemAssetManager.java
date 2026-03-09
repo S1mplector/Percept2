@@ -10,11 +10,36 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * AssetManager backed by a filesystem root, for loading external asset packs.
+ * {@link AssetManager} implementation that resolves assets from an external
+ * filesystem directory tree.
+ *
+ * <p>This backend is used by the editor and runtime when assets live outside
+ * the classpath — for example, a user's project directory or an external
+ * asset pack. It tries the standard {@link AssetPaths} layout first, then
+ * falls back to common alternative directory structures (e.g.
+ * {@code assets/images/}, {@code scripts/}).</p>
+ *
+ * <h2>Resolution Order</h2>
+ * <ol>
+ *   <li>{@code root/game/<type>/<name>} — standard layout.</li>
+ *   <li>{@code root/<name>} — direct project-relative path.</li>
+ *   <li>Type-specific fallbacks (e.g. {@code root/scripts/},
+ *       {@code root/assets/images/}).</li>
+ * </ol>
+ *
+ * @see ClasspathAssetManager
+ * @see OverlayAssetManager
  */
 public class FilesystemAssetManager implements AssetManager {
+
+  /** Root directory that all asset paths are resolved relative to. */
   private final Path root;
 
+  /**
+   * Construct a filesystem asset manager rooted at the given directory.
+   *
+   * @param root the project/asset root; if {@code null}, defaults to {@code "."}
+   */
   public FilesystemAssetManager(Path root) {
     this.root = root == null ? Paths.get(".") : root;
   }
@@ -54,6 +79,10 @@ public class FilesystemAssetManager implements AssetManager {
     }
   }
 
+  /**
+   * Resolve an asset path through the standard layout, direct path, and
+   * type-specific fallback directories.
+   */
   private Path resolve(AssetType type, String name) {
     String normalized = normalize(name);
     Path mapped = root.resolve(AssetPaths.build(type, normalized));
@@ -74,12 +103,14 @@ public class FilesystemAssetManager implements AssetManager {
     };
   }
 
+  /** Try {@code root/scripts/<name>} as a fallback for script assets. */
   private Path resolveScriptFallback(String normalized, Path fallback) {
     String rel = stripKnownPrefix(normalized, "game/scripts/", "scripts/");
     Path p = root.resolve("scripts").resolve(rel);
     return Files.exists(p) ? p : fallback;
   }
 
+  /** Try {@code root/assets/<name>} and {@code root/assets/images/<name>} fallbacks. */
   private Path resolveImageFallback(String normalized, Path fallback) {
     String rel = stripKnownPrefix(normalized, "game/images/", "images/", "assets/");
     Path p = root.resolve("assets").resolve(rel);
@@ -88,6 +119,7 @@ public class FilesystemAssetManager implements AssetManager {
     return Files.exists(images) ? images : fallback;
   }
 
+  /** Try {@code root/assets/audio/<name>} and {@code root/audio/<name>} fallbacks. */
   private Path resolveAudioFallback(String normalized, Path fallback) {
     String rel = stripKnownPrefix(normalized, "game/audio/", "audio/", "assets/audio/");
     Path p = root.resolve("assets/audio").resolve(rel);
@@ -96,6 +128,7 @@ public class FilesystemAssetManager implements AssetManager {
     return Files.exists(audio) ? audio : fallback;
   }
 
+  /** Try {@code root/assets/fonts/<name>} and {@code root/fonts/<name>} fallbacks. */
   private Path resolveFontFallback(String normalized, Path fallback) {
     String rel = stripKnownPrefix(normalized, "game/fonts/", "fonts/", "assets/fonts/");
     Path p = root.resolve("assets/fonts").resolve(rel);
@@ -104,6 +137,7 @@ public class FilesystemAssetManager implements AssetManager {
     return Files.exists(fonts) ? fonts : fallback;
   }
 
+  /** Normalise a path: replace backslashes, strip leading slashes. */
   private String normalize(String name) {
     if (name == null) return "";
     String n = name.replace('\\', '/');
@@ -111,6 +145,7 @@ public class FilesystemAssetManager implements AssetManager {
     return n;
   }
 
+  /** Strip the first matching known prefix from the value. */
   private String stripKnownPrefix(String value, String... prefixes) {
     if (value == null || value.isEmpty()) return "";
     for (String prefix : prefixes) {

@@ -10,20 +10,54 @@ import com.jvn.core.scene2d.Panel2D;
 import com.jvn.core.scene2d.Sprite2D;
 
 /**
- * Applies a {@link TimelineData} to a live scene via {@link SceneAccessor}.
- * Create one per playback, call {@link #update(long)} each frame.
- * Query {@link #isFinished()} to know when the animation is complete.
+ * Plays back a {@link TimelineData} against a live scene via
+ * {@link SceneAccessor}.
+ *
+ * <p>Create one runner per playback session and call
+ * {@link #update(long)} once per frame. The runner interpolates
+ * every track's properties at the current elapsed time, applies
+ * them to entities in the scene, and triggers audio/event cues
+ * as the playhead passes their scheduled times.</p>
+ *
+ * <h2>Lifecycle</h2>
+ * <ol>
+ *   <li>Construct with a timeline and scene accessor.</li>
+ *   <li>Call {@link #update(long)} each frame with the frame delta.</li>
+ *   <li>Query {@link #isFinished()} to detect completion (non-looping).</li>
+ * </ol>
+ *
+ * @see TimelineData
+ * @see SceneAccessor
  */
 public class TimelineRunner {
+
+    /** Epsilon for floating-point time comparisons. */
     private static final double EPS = 1e-6;
 
+    /** The timeline data being played. */
     private final TimelineData timeline;
+
+    /** The scene adapter that receives property updates and cue callbacks. */
     private final SceneAccessor scene;
+
+    /** Audio cues sorted by time for efficient triggering during playback. */
     private final List<TimelineData.AudioCue> sortedAudioCues;
+
+    /** Event cues sorted by time for efficient triggering during playback. */
     private final List<TimelineData.EventCue> sortedEventCues;
+
+    /** Current playhead position in milliseconds. */
     private double elapsedMs = 0;
+
+    /** {@code true} once the playhead reaches the end (non-looping only). */
     private boolean finished = false;
 
+    /**
+     * Construct a runner for the given timeline.
+     *
+     * @param timeline the animation data to play
+     * @param scene    the scene adapter for entity/camera/audio access
+     */
     public TimelineRunner(TimelineData timeline, SceneAccessor scene) {
         this.timeline = timeline;
         this.scene = scene;
@@ -33,13 +67,21 @@ public class TimelineRunner {
         this.sortedEventCues.sort(Comparator.comparingDouble(TimelineData.EventCue::getTimeMs));
     }
 
+    /** @return the timeline being played */
     public TimelineData getTimeline() { return timeline; }
+
+    /** @return {@code true} if playback has completed (always {@code false} for looping timelines) */
     public boolean isFinished() { return finished; }
+
+    /** @return the current playhead position in milliseconds */
     public double getElapsedMs() { return elapsedMs; }
 
     /**
-     * Advance the animation by deltaMs milliseconds and apply property values
-     * to all tracked entities in the scene.
+     * Advance the animation by {@code deltaMs} milliseconds, trigger any
+     * audio/event cues in the elapsed interval, and apply interpolated
+     * property values to all tracked entities.
+     *
+     * @param deltaMs frame delta in milliseconds
      */
     public void update(long deltaMs) {
         if (finished) return;
@@ -77,6 +119,9 @@ public class TimelineRunner {
 
     /**
      * Apply the timeline state at a specific time to all entities.
+     * This can be called independently for scrubbing / seeking.
+     *
+     * @param timeMs the absolute playback time in milliseconds
      */
     public void applyFrame(double timeMs) {
         for (TimelineData.Track track : timeline.getTracks()) {
@@ -135,6 +180,7 @@ public class TimelineRunner {
         }
     }
 
+    /** Trigger audio cues whose time falls within the given absolute interval. */
     private void triggerAudioInterval(double startAbs, double endAbs, double duration, boolean looping) {
         if (sortedAudioCues.isEmpty() || endAbs + EPS < startAbs) return;
 
@@ -153,6 +199,7 @@ public class TimelineRunner {
         }
     }
 
+    /** Trigger event cues whose time falls within the given absolute interval. */
     private void triggerEventInterval(double startAbs, double endAbs, double duration, boolean looping) {
         if (sortedEventCues.isEmpty() || endAbs + EPS < startAbs) return;
 
@@ -171,6 +218,7 @@ public class TimelineRunner {
         }
     }
 
+    /** Fire event cues within a single-cycle time window. */
     private void triggerEventWindow(double localStart, double localEnd, boolean includeStart) {
         for (TimelineData.EventCue cue : sortedEventCues) {
             if (cue == null || cue.getType().isBlank()) continue;
@@ -183,6 +231,7 @@ public class TimelineRunner {
         }
     }
 
+    /** Fire audio cues within a single-cycle time window. */
     private void triggerAudioWindow(double localStart, double localEnd, boolean includeStart) {
         for (TimelineData.AudioCue cue : sortedAudioCues) {
             if (cue == null || cue.getTrackPath().isBlank()) continue;
@@ -201,6 +250,7 @@ public class TimelineRunner {
         }
     }
 
+    /** Apply an alpha value to the entity, dispatching by concrete type. */
     private void applyAlpha(Entity2D entity, double alpha) {
         if (entity instanceof Sprite2D s) {
             s.setAlpha(alpha);

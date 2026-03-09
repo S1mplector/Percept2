@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import com.jvn.core.animation.Easing;
+import com.jvn.core.animation.EasingSpec;
 
 public class CodeExporter {
     private static final double TIME_QUANTIZATION_FACTOR = 1000.0; // 0.001ms
@@ -216,9 +217,9 @@ public class CodeExporter {
             double startVal2 = p2 != null ? track.getValueAt(p2, startTime) : 0;
             double endVal2 = p2 != null ? track.getValueAt(p2, endTime) : 0;
 
-            Easing.Type easing = findEasingAt(list1, endTime);
-            if (easing == null && list2 != null) easing = findEasingAt(list2, endTime);
-            if (easing == null) easing = Easing.Type.LINEAR;
+            EasingSpec easingSpec = findEasingSpecAt(list1, endTime);
+            if (easingSpec == null && list2 != null) easingSpec = findEasingSpecAt(list2, endTime);
+            if (easingSpec == null) easingSpec = EasingSpec.of(Easing.Type.LINEAR);
 
             boolean changed = (hasP1 && Math.abs(endVal1 - startVal1) > 0.001) ||
                              (hasP2 && Math.abs(endVal2 - startVal2) > 0.001);
@@ -232,15 +233,10 @@ public class CodeExporter {
             ev.target = target;
             ev.startTime = startTime;
             ev.duration = duration;
-            ev.easing = easing;
+            ev.easingSpec = easingSpec;
             ev.interpolation = endKf != null
                 ? endKf.getInterpolation()
                 : Easing.Interpolation.TWEEN;
-            if (ev.interpolation == Easing.Interpolation.TWEEN
-                && easing == Easing.Type.CUSTOM
-                && endKf != null) {
-                ev.bezierParams = endKf.getBezierParams();
-            }
 
             switch (actionType) {
                 case "move" -> {
@@ -274,9 +270,9 @@ public class CodeExporter {
         }
     }
 
-    private static Easing.Type findEasingAt(List<Keyframe> list, double time) {
+    private static EasingSpec findEasingSpecAt(List<Keyframe> list, double time) {
         for (Keyframe kf : list) {
-            if (Math.abs(kf.getTimeMs() - time) < 0.5) return kf.getEasing();
+            if (Math.abs(kf.getTimeMs() - time) < 0.5) return kf.getEasingSpec();
         }
         return null;
     }
@@ -312,12 +308,9 @@ public class CodeExporter {
         }
 
         if (ev.interpolation == Easing.Interpolation.TWEEN
-            && ev.easing == Easing.Type.CUSTOM
-            && ev.bezierParams != null) {
-            sb.append(String.format("    easing: cubic_bezier(%.2f, %.2f, %.2f, %.2f)\n",
-                ev.bezierParams[0], ev.bezierParams[1], ev.bezierParams[2], ev.bezierParams[3]));
-        } else if (ev.easing != Easing.Type.LINEAR && ev.easing != Easing.Type.CUSTOM) {
-            sb.append("    easing: ").append(ev.easing.name().toLowerCase()).append("\n");
+            && ev.easingSpec != null
+            && ev.easingSpec.getType() != Easing.Type.LINEAR) {
+            sb.append("    easing: ").append(ev.easingSpec.toDslString()).append("\n");
         }
 
         sb.append("  }\n");
@@ -488,13 +481,9 @@ public class CodeExporter {
             sb.append(" interp:").append(ev.interpolation.name().toLowerCase());
         }
         if (ev.interpolation == Easing.Interpolation.TWEEN
-            && ev.easing == com.jvn.core.animation.Easing.Type.CUSTOM
-            && ev.bezierParams != null) {
-            sb.append(String.format(" easing:cubic_bezier(%.2f,%.2f,%.2f,%.2f)",
-                ev.bezierParams[0], ev.bezierParams[1], ev.bezierParams[2], ev.bezierParams[3]));
-        } else if (ev.easing != com.jvn.core.animation.Easing.Type.LINEAR
-            && ev.easing != com.jvn.core.animation.Easing.Type.CUSTOM) {
-            sb.append(" easing:").append(ev.easing.name().toLowerCase());
+            && ev.easingSpec != null
+            && ev.easingSpec.getType() != com.jvn.core.animation.Easing.Type.LINEAR) {
+            sb.append(" easing:").append(ev.easingSpec.toDslString());
         }
         sb.append(" }");
         return sb.toString();
@@ -505,9 +494,8 @@ public class CodeExporter {
         String target;
         double startTime;
         double duration;
-        Easing.Type easing = Easing.Type.LINEAR;
+        EasingSpec easingSpec = EasingSpec.of(Easing.Type.LINEAR);
         Easing.Interpolation interpolation = Easing.Interpolation.TWEEN;
-        double[] bezierParams; // cx1,cy1,cx2,cy2 — only used when easing==CUSTOM
         Map<String, Object> props = new java.util.LinkedHashMap<>();
     }
 }

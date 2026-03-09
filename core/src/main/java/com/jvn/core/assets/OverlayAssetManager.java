@@ -9,12 +9,40 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Tries a primary AssetManager, then falls back to a secondary one.
+ * Composite {@link AssetManager} that chains a <em>primary</em> manager
+ * with a <em>fallback</em>, creating a layered asset resolution strategy.
+ *
+ * <p>For every operation the primary manager is consulted first. If the
+ * asset is not found there, the fallback is tried. This pattern is useful
+ * for overlaying a project's filesystem assets on top of the classpath
+ * defaults:</p>
+ * <pre>{@code
+ * AssetManager overlay = new OverlayAssetManager(
+ *     new FilesystemAssetManager(projectRoot),   // user assets first
+ *     new ClasspathAssetManager()                // embedded defaults
+ * );
+ * }</pre>
+ *
+ * <p>Either delegate may be {@code null}; {@code null} delegates are
+ * silently skipped.</p>
+ *
+ * @see ClasspathAssetManager
+ * @see FilesystemAssetManager
  */
 public class OverlayAssetManager implements AssetManager {
+
+  /** First manager to consult for every lookup. */
   private final AssetManager primary;
+
+  /** Second manager consulted when the primary does not have the asset. */
   private final AssetManager fallback;
 
+  /**
+   * Construct a layered asset manager.
+   *
+   * @param primary  first manager to try (may be {@code null})
+   * @param fallback second manager tried when primary misses (may be {@code null})
+   */
   public OverlayAssetManager(AssetManager primary, AssetManager fallback) {
     this.primary = primary;
     this.fallback = fallback;

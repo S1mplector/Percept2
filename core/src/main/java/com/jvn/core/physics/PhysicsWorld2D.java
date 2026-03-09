@@ -1,6 +1,5 @@
 package com.jvn.core.physics;
 
-import com.jvn.core.math.Rect;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -8,61 +7,201 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.jvn.core.math.Rect;
+
+/**
+ * Simple 2-D physics simulation supporting AABB and circle rigid bodies.
+ *
+ * <p>Features include:</p>
+ * <ul>
+ *   <li>Configurable gravity, world bounds, and static colliders.</li>
+ *   <li>Spatial-hash broadphase for O(n) pair generation.</li>
+ *   <li>Circle–circle, AABB–AABB, and circle–AABB narrow-phase detection.</li>
+ *   <li>Impulse-based collision response with restitution and friction.</li>
+ *   <li>Sensor bodies (overlap-only triggers).</li>
+ *   <li>Optional fixed-timestep sub-stepping for determinism.</li>
+ *   <li>Raycasting against all dynamic bodies.</li>
+ * </ul>
+ *
+ * <h2>Usage</h2>
+ * <pre>{@code
+ * PhysicsWorld2D world = new PhysicsWorld2D();
+ * world.setGravity(0, 980);
+ * world.setBounds(new Rect(0, 0, 1920, 1080));
+ * world.addBody(RigidBody2D.box(100, 900, 1720, 20)); // floor
+ * world.addBody(playerBody);
+ * // each frame:
+ * world.step(deltaMs);
+ * }</pre>
+ *
+ * @see RigidBody2D
+ * @see Collision2D
+ */
 public class PhysicsWorld2D {
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  World state
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** All dynamic/static bodies registered in the world. */
   private final List<RigidBody2D> bodies = new ArrayList<>();
+
+  /** World gravity X component (pixels / s²). */
   private double gravityX = 0;
+
+  /** World gravity Y component (pixels / s²). */
   private double gravityY = 0;
-  private Rect bounds; // optional world bounds, null = unbounded
+
+  /** Optional world bounds; {@code null} = unbounded. */
+  private Rect bounds;
+
+  /** Immovable rectangular colliders (e.g. tile map geometry). */
   private final List<Rect> staticRects = new ArrayList<>();
+
+  /** Callback for sensor overlap events. */
   private PhysicsSensorListener sensorListener;
+
+  /** Callback for collision events. */
   private CollisionListener collisionListener;
-  private double maxStepMs = 50.0; // clamp excessively large frame steps
-  private double fixedTimeStepMs = 0.0; // optional fixed step for determinism; 0 = disabled
+
+  /** Maximum single-step duration in ms (prevents tunnelling on lag spikes). */
+  private double maxStepMs = 50.0;
+
+  /** Fixed sub-step size in ms; 0 = variable step (disabled). */
+  private double fixedTimeStepMs = 0.0;
+
+  /** Maximum number of fixed sub-steps per frame. */
   private int maxSubSteps = 8;
+
+  /** Accumulator for fixed-timestep remainder between frames. */
   private double accumulatorMs = 0.0;
+
+  /** Spatial-hash cell size in pixels for broadphase. */
   private int broadphaseCellSize = 128;
+
+  /** Spatial-hash grid: cell-key → list of body indices. */
   private final Map<Long, List<Integer>> broadphaseCells = new HashMap<>();
+
+  /** Unique broadphase collision pairs for the current step. */
   private final List<int[]> broadphasePairs = new ArrayList<>();
 
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Inner types
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Result of a {@link #raycast} call, containing the hit body, contact
+   * point, surface normal, and distance along the ray.
+   */
   public static class RaycastHit {
+    /** The body that was hit. */
     public RigidBody2D body;
+    /** Contact point X. */
     public double x;
+    /** Contact point Y. */
     public double y;
+    /** Surface normal X at the contact point. */
     public double nx;
+    /** Surface normal Y at the contact point. */
     public double ny;
+    /** Distance from the ray origin to the contact point. */
     public double distance;
   }
 
+  /**
+   * Listener for sensor overlap events (no physical response).
+   */
   public interface PhysicsSensorListener {
+    /** Called when a sensor overlaps another non-sensor body. */
     void onTrigger(RigidBody2D sensor, RigidBody2D other);
   }
 
+  /**
+   * Listener for collision events (after physical response).
+   */
   public interface CollisionListener {
+    /** Two dynamic bodies collided. Normal points from {@code a} to {@code b}. */
     void onBodiesCollide(RigidBody2D a, RigidBody2D b, double nx, double ny);
+    /** A body collided with the world bounds. */
     void onBoundsCollide(RigidBody2D b, String side);
+    /** A body collided with a static rectangle. */
     void onStaticCollide(RigidBody2D b, Rect tile, double nx, double ny);
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Configuration
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** Set world gravity in pixels / s². */
   public void setGravity(double gx, double gy) { this.gravityX = gx; this.gravityY = gy; }
+
+  /** Set the optional world boundary rectangle ({@code null} = unbounded). */
   public void setBounds(Rect bounds) { this.bounds = bounds; }
+
+  /** Add an immovable rectangular collider (e.g. a tile). */
   public void addStaticRect(Rect r) { if (r != null) staticRects.add(r); }
+
+  /** Remove all static rectangular colliders. */
   public void clearStaticRects() { staticRects.clear(); }
+
+  /** Set the sensor overlap callback. */
   public void setSensorListener(PhysicsSensorListener l) { this.sensorListener = l; }
+
+  /** Set the collision event callback. */
   public void setCollisionListener(CollisionListener l) { this.collisionListener = l; }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Body management
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** Add a body to the simulation. */
   public void addBody(RigidBody2D b) { if (b != null) bodies.add(b); }
+
+  /** Remove a body from the simulation. */
   public void removeBody(RigidBody2D b) { bodies.remove(b); }
+
+  /** @return all registered bodies (mutable list) */
   public List<RigidBody2D> getBodies() { return bodies; }
+
+  /** Set the maximum single-step duration in ms. 0 = no limit. */
   public void setMaxStepMs(double ms) { this.maxStepMs = ms <= 0 ? 0 : ms; }
+
+  /** @return the maximum step duration in ms */
   public double getMaxStepMs() { return maxStepMs; }
+
+  /**
+   * Enable fixed-timestep sub-stepping for deterministic simulation.
+   *
+   * @param stepMs      the fixed sub-step size in ms; 0 = disabled
+   * @param maxSubSteps the maximum number of sub-steps per frame
+   */
   public void setFixedTimeStepMs(double stepMs, int maxSubSteps) {
     this.fixedTimeStepMs = stepMs <= 0 ? 0 : stepMs;
     this.maxSubSteps = Math.max(1, maxSubSteps);
   }
+
+  /** @return the fixed sub-step size in ms (0 = disabled) */
   public double getFixedTimeStepMs() { return fixedTimeStepMs; }
+
+  /** Set the broadphase spatial-hash cell size in pixels. */
   public void setBroadphaseCellSize(int size) { this.broadphaseCellSize = size <= 0 ? 1 : size; }
+
+  /** @return the broadphase cell size in pixels */
   public int getBroadphaseCellSize() { return broadphaseCellSize; }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Raycasting
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Cast a ray (segment) through the world and return the closest hit.
+   *
+   * @param x1 ray start X
+   * @param y1 ray start Y
+   * @param x2 ray end X
+   * @param y2 ray end Y
+   * @return the closest {@link RaycastHit}, or {@code null} if nothing was hit
+   */
   public RaycastHit raycast(double x1, double y1, double x2, double y2) {
     double dx = x2 - x1;
     double dy = y2 - y1;
@@ -82,6 +221,19 @@ public class PhysicsWorld2D {
     return best;
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Simulation step
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Advance the simulation by {@code deltaMs} milliseconds.
+   *
+   * <p>If a fixed timestep is configured, the delta is accumulated and
+   * consumed in fixed sub-steps. Otherwise a single variable step is
+   * performed (clamped by {@link #maxStepMs}).</p>
+   *
+   * @param deltaMs frame delta in milliseconds
+   */
   public void step(double deltaMs) {
     if (deltaMs < 0) return;
     double stepMs = deltaMs;
@@ -104,6 +256,7 @@ public class PhysicsWorld2D {
     }
   }
 
+  /** Execute a single integration + collision pass for the given duration. */
   private void stepOnce(double stepMs) {
     double dt = stepMs / 1000.0;
     if (dt <= 0) return;
@@ -135,6 +288,7 @@ public class PhysicsWorld2D {
     }
   }
 
+  /** Populate broadphase grid and gather unique overlapping body pairs. */
   private List<int[]> gatherPairs() {
     broadphasePairs.clear();
     broadphaseCells.clear();
@@ -167,6 +321,7 @@ public class PhysicsWorld2D {
     return broadphasePairs;
   }
 
+  /** Compute the axis-aligned bounding box of a body for broadphase insertion. */
   private Bounds computeBounds(RigidBody2D b) {
     Bounds out = new Bounds();
     if (b.getShapeType() == RigidBody2D.ShapeType.CIRCLE) {
@@ -185,6 +340,7 @@ public class PhysicsWorld2D {
     return out;
   }
 
+  /** Narrow-phase collision detection; returns contact info or {@code null}. */
   private CollisionInfo findCollision(RigidBody2D a, RigidBody2D b) {
     if (a.getShapeType() == RigidBody2D.ShapeType.CIRCLE && b.getShapeType() == RigidBody2D.ShapeType.CIRCLE) {
       return collideCircleCircle(a, b);
@@ -203,6 +359,7 @@ public class PhysicsWorld2D {
     }
   }
 
+  /** Circle vs circle narrow-phase. */
   private CollisionInfo collideCircleCircle(RigidBody2D a, RigidBody2D b) {
     var ca = a.getCircle();
     var cb = b.getCircle();
@@ -225,6 +382,7 @@ public class PhysicsWorld2D {
     return info;
   }
 
+  /** AABB vs AABB narrow-phase (minimum overlap axis). */
   private CollisionInfo collideAabbAabb(RigidBody2D a, RigidBody2D b) {
     Rect ra = a.getAabb();
     Rect rb = b.getAabb();
@@ -251,6 +409,7 @@ public class PhysicsWorld2D {
     return info;
   }
 
+  /** Circle vs AABB narrow-phase (closest-point test). */
   private CollisionInfo collideCircleAabb(RigidBody2D circleBody, RigidBody2D boxBody, boolean circleFirst) {
     var c = circleBody.getCircle();
     var r = boxBody.getAabb();
@@ -289,6 +448,7 @@ public class PhysicsWorld2D {
     return info;
   }
 
+  /** Apply positional correction and impulse-based velocity response. */
   private void applyCollisionResponse(RigidBody2D a, RigidBody2D b, CollisionInfo info) {
     if (a.isStatic() && b.isStatic()) return;
     double invMassA = a.isStatic() ? 0 : 1.0 / a.getMass();
@@ -322,6 +482,7 @@ public class PhysicsWorld2D {
     if (collisionListener != null) collisionListener.onBodiesCollide(a, b, nx, ny);
   }
 
+  /** Apply tangential friction impulse between two colliding bodies. */
   private void applyFriction(RigidBody2D a, RigidBody2D b, double nx, double ny, double invMassSum) {
     double rvx = b.getVx() - a.getVx();
     double rvy = b.getVy() - a.getVy();
@@ -343,12 +504,14 @@ public class PhysicsWorld2D {
     if (!b.isStatic()) b.setVelocity(b.getVx() + ix * invMassB, b.getVy() + iy * invMassB);
   }
 
+  /** Internal collision contact: normal direction and penetration depth. */
   private static class CollisionInfo {
     double nx;
     double ny;
     double penetration;
   }
 
+  /** Internal axis-aligned bounding box for broadphase. */
   private static class Bounds {
     double minX, minY, maxX, maxY;
   }
@@ -367,6 +530,7 @@ public class PhysicsWorld2D {
     return v < min ? min : Math.min(v, max);
   }
 
+  /** Clamp a body inside the world bounds and reflect velocity on contact. */
   private void resolveWorldBounds(RigidBody2D b) {
     if (bounds == null) return;
     if (b.getShapeType() == RigidBody2D.ShapeType.CIRCLE) {
@@ -384,6 +548,7 @@ public class PhysicsWorld2D {
     }
   }
 
+  /** Resolve collisions between a dynamic body and all static rectangles. */
   private void resolveStaticColliders(RigidBody2D b) {
     if (b.isStatic() || b.isSensor()) return;
     for (Rect tile : staticRects) {
@@ -392,6 +557,7 @@ public class PhysicsWorld2D {
     }
   }
 
+  /** Resolve a circle body against a static rectangle. */
   private void resolveStaticCircle(RigidBody2D body, Rect tile) {
     var c = body.getCircle();
     double closestX = clamp(c.x, tile.left(), tile.right());
@@ -424,6 +590,7 @@ public class PhysicsWorld2D {
     if (collisionListener != null) collisionListener.onStaticCollide(body, tile, nx, ny);
   }
 
+  /** Resolve an AABB body against a static rectangle. */
   private void resolveStaticAabb(RigidBody2D body, Rect tile) {
     Rect r = body.getAabb();
     if (!r.intersects(tile)) return;
@@ -450,6 +617,7 @@ public class PhysicsWorld2D {
     if (collisionListener != null) collisionListener.onStaticCollide(body, tile, nx, ny);
   }
 
+  /** Reflect a body's velocity along a collision normal, applying restitution. */
   private void reflectVelocityAlong(RigidBody2D body, double nx, double ny) {
     double vn = body.getVx() * nx + body.getVy() * ny;
     double rx = body.getVx() - (1 + body.getRestitution()) * vn * nx;
@@ -457,6 +625,7 @@ public class PhysicsWorld2D {
     body.setVelocity(rx, ry);
   }
 
+  /** Reduce tangential velocity after a static collision using the body's friction. */
   private void applyStaticFriction(RigidBody2D body, double nx, double ny) {
     double vx = body.getVx();
     double vy = body.getVy();
@@ -472,12 +641,14 @@ public class PhysicsWorld2D {
     body.setVelocity(finalVx, finalVy);
   }
 
+  /** Dispatch sensor overlap events without applying collision response. */
   private void handleSensor(RigidBody2D a, RigidBody2D b, CollisionInfo info) {
     if (sensorListener == null || info == null) return;
     if (a.isSensor() && !b.isSensor()) sensorListener.onTrigger(a, b);
     if (b.isSensor() && !a.isSensor()) sensorListener.onTrigger(b, a);
   }
 
+  /** Raycast a segment against a circle-shaped body. */
   private RaycastHit raycastCircle(RigidBody2D body, double sx, double sy, double dx, double dy, double segLen) {
     double cx = body.getCircle().x;
     double cy = body.getCircle().y;
@@ -512,6 +683,7 @@ public class PhysicsWorld2D {
     return hit;
   }
 
+  /** Raycast a segment against an AABB-shaped body (slab method). */
   private RaycastHit raycastAabb(RigidBody2D body, double sx, double sy, double dx, double dy) {
     double minX = body.getAabb().left();
     double minY = body.getAabb().top();

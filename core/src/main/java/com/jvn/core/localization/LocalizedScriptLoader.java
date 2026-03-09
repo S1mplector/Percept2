@@ -7,21 +7,50 @@ import java.util.List;
 
 /**
  * Locale-aware script loader for VN dialogue.
- * Supports loading localized versions of VNS scripts with fallback to default.
  *
- * Script resolution order for locale "ja":
- *   1. scripts/example.ja.vns
- *   2. scripts/ja/example.vns
- *   3. scripts/example.vns (fallback)
+ * <p>Supports loading localised versions of VNS scripts with automatic
+ * fallback to the default (unlocalized) file. For a given script name
+ * and locale, the resolution order is:</p>
+ *
+ * <ol>
+ *   <li>{@code scripts/example.<locale>.vns} — locale-suffixed file</li>
+ *   <li>{@code scripts/<locale>/example.vns} — locale subdirectory</li>
+ *   <li>{@code scripts/example.vns} — fallback (always tried last)</li>
+ * </ol>
+ *
+ * <h2>Usage</h2>
+ * <pre>{@code
+ * LocalizedScriptLoader scripts = new LocalizedScriptLoader(loader);
+ * try (InputStream in = scripts.load("chapter1.vns", "ja")) {
+ *     // read localized (or fallback) script
+ * }
+ * }</pre>
+ *
+ * @see Localization
  */
 public final class LocalizedScriptLoader {
+
+    /** Classloader used to resolve script resources. */
     private final ClassLoader loader;
+
+    /** Base classpath directory for scripts (always ends with {@code /}). */
     private final String basePath;
 
+    /**
+     * Create a loader using the default script base path ({@code game/scripts/}).
+     *
+     * @param loader the classloader for resource resolution
+     */
     public LocalizedScriptLoader(ClassLoader loader) {
         this(loader, "game/scripts/");
     }
 
+    /**
+     * Create a loader with a custom base path.
+     *
+     * @param loader   the classloader for resource resolution
+     * @param basePath the classpath directory containing scripts
+     */
     public LocalizedScriptLoader(ClassLoader loader, String basePath) {
         this.loader = loader;
         this.basePath = basePath.endsWith("/") ? basePath : basePath + "/";
@@ -29,9 +58,12 @@ public final class LocalizedScriptLoader {
 
     /**
      * Load a script with locale fallback.
-     * @param scriptName Script name (e.g., "chapter1.vns")
-     * @param locale Target locale (e.g., "ja", "de", "fr")
-     * @return InputStream for the script, or null if not found
+     *
+     * @param scriptName script file name (e.g. "chapter1.vns")
+     * @param locale     target locale code (e.g. "ja", "de", "fr")
+     * @return an {@link InputStream} for the best matching script,
+     *         or {@code null} if no candidate was found
+     * @throws IOException if an I/O error occurs while opening the stream
      */
     public InputStream load(String scriptName, String locale) throws IOException {
         for (String path : getCandidatePaths(scriptName, locale)) {
@@ -42,14 +74,24 @@ public final class LocalizedScriptLoader {
     }
 
     /**
-     * Load a script using the current global locale.
+     * Load a script using the current global locale from
+     * {@link Localization#locale()}.
+     *
+     * @param scriptName script file name
+     * @return an {@link InputStream} or {@code null}
+     * @throws IOException if an I/O error occurs
      */
     public InputStream load(String scriptName) throws IOException {
         return load(scriptName, Localization.locale());
     }
 
     /**
-     * Check if a localized version exists for the given script and locale.
+     * Check whether a locale-specific version of the script exists
+     * (ignoring the universal fallback).
+     *
+     * @param scriptName script file name
+     * @param locale     target locale code
+     * @return {@code true} if a localized variant was found
      */
     public boolean hasLocalizedVersion(String scriptName, String locale) {
         List<String> paths = getCandidatePaths(scriptName, locale);
@@ -63,7 +105,12 @@ public final class LocalizedScriptLoader {
     }
 
     /**
-     * Get candidate paths for a script in order of preference.
+     * Build the ordered list of candidate classpath resources for a
+     * script and locale.
+     *
+     * @param scriptName script file name
+     * @param locale     target locale code
+     * @return ordered list of classpath paths to try
      */
     public List<String> getCandidatePaths(String scriptName, String locale) {
         List<String> paths = new ArrayList<>();
@@ -87,7 +134,11 @@ public final class LocalizedScriptLoader {
     }
 
     /**
-     * Get all available locales for a script by scanning common locale codes.
+     * Probe a set of common locale codes and return those for which at
+     * least one candidate resource exists.
+     *
+     * @param scriptName script file name
+     * @return list of available locale codes
      */
     public List<String> getAvailableLocales(String scriptName) {
         List<String> available = new ArrayList<>();
