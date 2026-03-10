@@ -2907,9 +2907,6 @@ public class EditorApp extends Application {
     HBox.setHgrow(label, Priority.ALWAYS);
     label.getStyleClass().add("panel-chooser-title");
 
-    Label placementBadge = new Label();
-    placementBadge.getStyleClass().add("panel-chooser-placement-badge");
-
     Button dockBtn = new Button();
     dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
     dockBtn.setTooltip(new Tooltip("Add to sidebar"));
@@ -2948,8 +2945,6 @@ public class EditorApp extends Application {
 
     Runnable refreshState = () -> {
       if (panel == null) {
-        placementBadge.setManaged(false);
-        placementBadge.setVisible(false);
         removeBtn.setManaged(false);
         removeBtn.setVisible(false);
         dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
@@ -2959,16 +2954,6 @@ public class EditorApp extends Application {
 
       EditorPanelPlacement placement = editorPreferences.getPlacement(panel);
       boolean attached = isPanelAttached(panel);
-      placementBadge.setManaged(true);
-      placementBadge.setVisible(true);
-      placementBadge.setText(placement.displayName());
-      placementBadge.getStyleClass().setAll(
-          "panel-chooser-placement-badge",
-          switch (placement) {
-            case LEFT -> "panel-chooser-placement-left";
-            case RIGHT -> "panel-chooser-placement-right";
-            case HIDDEN -> "panel-chooser-placement-hidden";
-          });
       if (placement == EditorPanelPlacement.HIDDEN || !attached) {
         dockBtn.setGraphic(CssIcon.plus(targetPlacement == EditorPanelPlacement.RIGHT ? "#f5c46b" : "#9cc7ff"));
         dockBtn.setTooltip(new Tooltip(
@@ -3005,7 +2990,7 @@ public class EditorApp extends Application {
       });
     }
 
-    HBox row = new HBox(6, panelIcon, label, placementBadge, dockBtn, popOutBtn, removeBtn);
+    HBox row = new HBox(6, panelIcon, label, dockBtn, popOutBtn, removeBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
     row.getStyleClass().add("panel-chooser-row");
