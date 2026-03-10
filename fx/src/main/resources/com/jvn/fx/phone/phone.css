@@ -3,6 +3,10 @@
   -fx-alignment: center;
 }
 
+.phone-overlay-embedded {
+  -fx-padding: 8px;
+}
+
 .phone-backdrop {
   -fx-background-color: rgba(6, 10, 18, 0.46);
 }

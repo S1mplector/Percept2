@@ -1892,3 +1892,252 @@
   -fx-fill: #e6e6e6;
   -rtfx-background-color: rgba(77, 163, 255, 0.25);
 }
+
+/* Phone Assets Tool */
+.phone-tool-root {
+  -fx-background-color: transparent;
+}
+
+.phone-tool-root .phone-tool-card {
+  -fx-background-color:
+      linear-gradient(to bottom right, rgba(24, 31, 43, 0.96), rgba(16, 21, 30, 0.98));
+  -fx-border-color: rgba(103, 124, 155, 0.28);
+  -fx-border-width: 1;
+  -fx-border-radius: 14;
+  -fx-background-radius: 14;
+  -fx-padding: 12;
+}
+
+.phone-tool-root .phone-tool-title {
+  -fx-font-size: 16px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #eef4ff;
+}
+
+.phone-tool-root .phone-tool-summary {
+  -fx-font-size: 11px;
+  -fx-text-fill: #aebbd0;
+}
+
+.phone-tool-root .phone-tool-section-title {
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #edf4ff;
+}
+
+.phone-tool-root .phone-tool-help {
+  -fx-font-size: 11px;
+  -fx-text-fill: #97a5bc;
+}
+
+.phone-tool-root .phone-tool-path {
+  -fx-font-family: "Consolas";
+  -fx-font-size: 11px;
+  -fx-text-fill: #c9d7ee;
+}
+
+.phone-tool-root .phone-tool-chip {
+  -fx-padding: 3 9 3 9;
+  -fx-background-radius: 999;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
+.phone-tool-root .phone-tool-chip.is-saved {
+  -fx-background-color: rgba(84, 170, 120, 0.18);
+  -fx-text-fill: #9ad8ae;
+}
+
+.phone-tool-root .phone-tool-chip.is-dirty {
+  -fx-background-color: rgba(245, 196, 107, 0.18);
+  -fx-text-fill: #ffd48b;
+}
+
+.phone-tool-root .phone-tool-actions {
+  -fx-padding: 2 0 0 0;
+}
+
+.phone-tool-root .phone-tool-button {
+  -fx-background-color: #212938;
+  -fx-border-color: #334157;
+  -fx-border-width: 1;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-text-fill: #e7eefb;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+  -fx-padding: 8 12 8 12;
+}
+
+.phone-tool-root .phone-tool-button:hover {
+  -fx-background-color: #2a3548;
+  -fx-border-color: #41536f;
+}
+
+.phone-tool-root .phone-tool-button:pressed {
+  -fx-background-color: #33425a;
+}
+
+.phone-tool-root .phone-tool-button:disabled {
+  -fx-opacity: 0.5;
+}
+
+.phone-tool-root .phone-tool-small-button {
+  -fx-padding: 6 10 6 10;
+}
+
+.phone-tool-root .phone-tool-primary-button {
+  -fx-background-color: linear-gradient(to right, #284c36, #1c3e2f);
+  -fx-border-color: #4f8f69;
+}
+
+.phone-tool-root .phone-tool-primary-button:hover {
+  -fx-background-color: linear-gradient(to right, #325f43, #23523b);
+  -fx-border-color: #68b785;
+}
+
+.phone-tool-root .phone-tool-preview-toggle.is-active {
+  -fx-background-color: linear-gradient(to right, #2b4660, #22364b);
+  -fx-border-color: #72a6d5;
+}
+
+.phone-tool-root .phone-tool-preview-toggle.is-idle {
+  -fx-background-color: #212938;
+}
+
+.phone-tool-root .phone-tool-preview-frame {
+  -fx-background-color:
+      radial-gradient(center 50% 20%, radius 90%, rgba(46, 70, 96, 0.55), rgba(16, 20, 29, 0.96));
+  -fx-border-color: rgba(115, 146, 186, 0.30);
+  -fx-border-width: 1;
+  -fx-border-radius: 18;
+  -fx-background-radius: 18;
+  -fx-padding: 12;
+}
+
+.phone-tool-root .phone-tool-field-label {
+  -fx-text-fill: #b7c4d8;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.phone-tool-root .text-field,
+.phone-tool-root .text-area,
+.phone-tool-root .list-view,
+.phone-tool-root .scroll-pane,
+.phone-tool-root .tab-pane,
+.phone-tool-root .check-box {
+  -fx-font-size: 11px;
+}
+
+.phone-tool-root .text-field,
+.phone-tool-root .text-area {
+  -fx-background-color: #141b26;
+  -fx-border-color: #2b3749;
+  -fx-border-width: 1;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-text-fill: #e8eef9;
+  -fx-prompt-text-fill: #6f7d91;
+}
+
+.phone-tool-root .text-area .content {
+  -fx-background-color: #141b26;
+  -fx-background-radius: 10;
+}
+
+.phone-tool-root .phone-tool-readonly {
+  -fx-opacity: 0.92;
+}
+
+.phone-tool-root .check-box {
+  -fx-text-fill: #d8e3f4;
+}
+
+.phone-tool-root .check-box .box {
+  -fx-background-color: #141b26;
+  -fx-border-color: #3a4b64;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
+}
+
+.phone-tool-root .check-box:selected .mark {
+  -fx-background-color: #8fc2ff;
+}
+
+.phone-tool-root .phone-tool-list {
+  -fx-background-color: #101722;
+  -fx-control-inner-background: #101722;
+  -fx-border-color: #2a3648;
+  -fx-border-width: 1;
+  -fx-border-radius: 12;
+  -fx-background-radius: 12;
+}
+
+.phone-tool-root .phone-tool-list .list-cell {
+  -fx-background-color: transparent;
+  -fx-text-fill: #dbe5f6;
+  -fx-padding: 8 10 8 10;
+}
+
+.phone-tool-root .phone-tool-list .list-cell:hover {
+  -fx-background-color: rgba(67, 92, 125, 0.24);
+}
+
+.phone-tool-root .phone-tool-list .list-cell:filled:selected {
+  -fx-background-color: linear-gradient(to right, rgba(54, 81, 111, 0.95), rgba(35, 53, 75, 0.95));
+  -fx-text-fill: #f2f7ff;
+}
+
+.phone-tool-root .phone-tool-scroll {
+  -fx-background: transparent;
+  -fx-background-color: transparent;
+}
+
+.phone-tool-root .phone-tool-scroll > .viewport {
+  -fx-background-color: transparent;
+}
+
+.phone-tool-root .phone-tool-tabs > .tab-header-area > .headers-region > .tab {
+  -fx-background-color: #18212d;
+  -fx-background-radius: 12 12 0 0;
+  -fx-padding: 6 12 6 12;
+}
+
+.phone-tool-root .phone-tool-tabs > .tab-header-area > .headers-region > .tab:selected {
+  -fx-background-color: #243245;
+}
+
+.phone-tool-root .phone-tool-tabs > .tab-header-area > .headers-region > .tab .tab-label {
+  -fx-text-fill: #dce7f8;
+  -fx-font-weight: 700;
+}
+
+.phone-tool-root .phone-tool-tabs > .tab-content-area {
+  -fx-background-color: transparent;
+}
+
+.phone-tool-root .phone-tool-empty {
+  -fx-padding: 12;
+  -fx-background-color: rgba(15, 20, 29, 0.85);
+  -fx-background-radius: 12;
+  -fx-border-color: rgba(92, 114, 141, 0.22);
+  -fx-border-radius: 12;
+}
+
+.phone-tool-root .phone-tool-empty-title {
+  -fx-text-fill: #e8f0ff;
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+}
+
+.phone-tool-root .phone-tool-empty-copy {
+  -fx-text-fill: #95a5bd;
+  -fx-font-size: 11px;
+}
+
+.phone-tool-root .phone-tool-status {
+  -fx-text-fill: #9fb0c7;
+  -fx-font-size: 11px;
+  -fx-padding: 6 2 2 2;
+}

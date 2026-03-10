@@ -51,6 +51,7 @@ import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.NewProjectWizard;
+import com.jvn.editor.ui.PhoneAssetsToolView;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
@@ -141,6 +142,7 @@ public class EditorApp extends Application {
   private AssetBrowserView assetBrowserView;
   private VersionControlView versionControlView;
   private LayoutEditorLauncherView layoutEditorLauncherView;
+  private PhoneAssetsToolView phoneAssetsToolView;
   private LayeredImageVisualizerView layeredImageVisualizerView;
   private ImageAttributesToolView imageAttributesToolView;
   private ImageTintToolView imageTintToolView;
@@ -178,6 +180,7 @@ public class EditorApp extends Application {
   private Tab tabAssetBrowser;
   private Tab tabVersionControl;
   private Tab tabLayoutLauncher;
+  private Tab tabPhoneAssetsTool;
   private Tab tabLayeredImageVisualizer;
   private Tab tabImageAttributesTool;
   private Tab tabImageTintTool;
@@ -330,6 +333,7 @@ public class EditorApp extends Application {
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(root);
     if (versionControlView != null) versionControlView.setProjectRoot(root);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(root);
+    if (phoneAssetsToolView != null) phoneAssetsToolView.setProjectRoot(root);
     if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(root);
     if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(root);
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(root);
@@ -1161,6 +1165,8 @@ public class EditorApp extends Application {
     miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
     miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
+    MenuItem miShowPhoneAssets = new MenuItem("Phone Assets");
+    miShowPhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
     MenuItem miShowLayeredVisualizer = new MenuItem("Layered Image Visualizer");
     miShowLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miShowImageAttributes = new MenuItem("Image Attributes Tool");
@@ -1173,7 +1179,7 @@ public class EditorApp extends Application {
     miShowEditorSettings.setOnAction(e -> selectEditorSettingsTab());
     menuPanels.getItems().addAll(miShowProject, miShowTimeline, miShowInspector,
         miShowAssets, new SeparatorMenuItem(),
-        miShowDiagnostics, miShowFlowMap, miShowLayeredVisualizer, miShowImageAttributes,
+        miShowDiagnostics, miShowFlowMap, miShowPhoneAssets, miShowLayeredVisualizer, miShowImageAttributes,
         miShowImageTint, miShowPuppeteerLauncher, miShowEditorSettings);
 
     menuView.getItems().addAll(miToggleEditorFullscreen, new SeparatorMenuItem(),
@@ -1223,6 +1229,8 @@ public class EditorApp extends Application {
     miMenuFlow.setOnAction(e -> selectMenuFlowTab());
     MenuItem miLayoutLauncher = new MenuItem("Layout Launcher");
     miLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
+    MenuItem miPhoneAssets = new MenuItem("Phone Assets");
+    miPhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
     MenuItem miLayeredVisualizer = new MenuItem("Layered Image Visualizer");
     miLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miImageAttributes = new MenuItem("Image Attributes Tool");
@@ -1245,7 +1253,7 @@ public class EditorApp extends Application {
     miToolEditorSettings.setOnAction(e -> selectEditorSettingsTab());
 
     menuTools.getItems().addAll(miActionEditor, miPuppeteerPanel, new SeparatorMenuItem(),
-        miMenuFlow, miLayoutLauncher, miLayeredVisualizer, miImageAttributes, miImageTint, new SeparatorMenuItem(),
+        miMenuFlow, miLayoutLauncher, miPhoneAssets, miLayeredVisualizer, miImageAttributes, miImageTint, new SeparatorMenuItem(),
         menuVnsTools, new SeparatorMenuItem(),
         miToolAssets, miToolInspector, new SeparatorMenuItem(), miToolEditorSettings);
 
@@ -1427,6 +1435,16 @@ public class EditorApp extends Application {
     layoutEditorLauncherView = new LayoutEditorLauncherView();
     layoutEditorLauncherView.setProjectRoot(projectRoot);
     layoutEditorLauncherView.setOnOpenFile(target -> {
+      if (target == null) return;
+      if (isEditableFile(target)) {
+        openFile(target);
+      } else {
+        try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
+      }
+    });
+    phoneAssetsToolView = new PhoneAssetsToolView();
+    phoneAssetsToolView.setProjectRoot(projectRoot);
+    phoneAssetsToolView.setOnOpenFile(target -> {
       if (target == null) return;
       if (isEditableFile(target)) {
         openFile(target);
@@ -2137,6 +2155,7 @@ public class EditorApp extends Application {
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(projectRoot);
     if (versionControlView != null) versionControlView.setProjectRoot(projectRoot);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(projectRoot);
+    if (phoneAssetsToolView != null) phoneAssetsToolView.setProjectRoot(projectRoot);
     if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(projectRoot);
     if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(projectRoot);
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(projectRoot);
@@ -2265,6 +2284,7 @@ public class EditorApp extends Application {
       case LABEL_FLOW -> tabVnsFlowMap;
       case ASSETS -> tabAssetBrowser;
       case LAYOUT_LAUNCHER -> tabLayoutLauncher;
+      case PHONE_ASSETS -> tabPhoneAssetsTool;
       case LAYERED_IMAGES -> tabLayeredImageVisualizer;
       case IMAGE_ATTRIBUTES -> tabImageAttributesTool;
       case IMAGE_TINT -> tabImageTintTool;
@@ -2287,6 +2307,7 @@ public class EditorApp extends Application {
       case LABEL_FLOW -> ensureVnsFlowMapTab(targetPane);
       case ASSETS -> ensureAssetBrowserTab(targetPane);
       case LAYOUT_LAUNCHER -> ensureLayoutLauncherTab(targetPane);
+      case PHONE_ASSETS -> ensurePhoneAssetsToolTab(targetPane);
       case LAYERED_IMAGES -> ensureLayeredImageVisualizerTab(targetPane);
       case IMAGE_ATTRIBUTES -> ensureImageAttributesToolTab(targetPane);
       case IMAGE_TINT -> ensureImageTintToolTab(targetPane);
@@ -2772,6 +2793,17 @@ public class EditorApp extends Application {
     return tabLayoutLauncher;
   }
 
+  private Tab ensurePhoneAssetsToolTab(TabPane targetPane) {
+    if (targetPane == null || phoneAssetsToolView == null) return null;
+    if (tabPhoneAssetsTool == null) {
+      tabPhoneAssetsTool = new Tab("Phone Assets", phoneAssetsToolView);
+      tabPhoneAssetsTool.setClosable(true);
+      tabPhoneAssetsTool.setOnClosed(e -> tabPhoneAssetsTool = null);
+    }
+    attachPanelTabToPane(tabPhoneAssetsTool, targetPane);
+    return tabPhoneAssetsTool;
+  }
+
   private Tab ensureLayeredImageVisualizerTab(TabPane targetPane) {
     if (targetPane == null || layeredImageVisualizerView == null) return null;
     if (tabLayeredImageVisualizer == null) {
@@ -3012,7 +3044,7 @@ public class EditorApp extends Application {
   private void detachFromSidebarTab(javafx.scene.Parent content) {
     Tab[] allTabs = {
         tabProject, tabTimeline, tabHelp, tabInspector, tabVnsDiagnostics,
-        tabVnsFlowMap, tabAssetBrowser, tabVersionControl, tabLayoutLauncher,
+        tabVnsFlowMap, tabAssetBrowser, tabVersionControl, tabLayoutLauncher, tabPhoneAssetsTool,
         tabLayeredImageVisualizer, tabImageAttributesTool, tabImageTintTool,
         tabMenuFlow, tabPuppeteerLauncher, tabAudioSynthControls, tabScriptEditorLauncher,
         tabEditorSettings
@@ -3047,6 +3079,7 @@ public class EditorApp extends Application {
     else if (tab == tabAssetBrowser) tabAssetBrowser = null;
     else if (tab == tabVersionControl) tabVersionControl = null;
     else if (tab == tabLayoutLauncher) tabLayoutLauncher = null;
+    else if (tab == tabPhoneAssetsTool) tabPhoneAssetsTool = null;
     else if (tab == tabLayeredImageVisualizer) tabLayeredImageVisualizer = null;
     else if (tab == tabImageAttributesTool) tabImageAttributesTool = null;
     else if (tab == tabImageTintTool) tabImageTintTool = null;
@@ -3132,6 +3165,17 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Layout Launcher", layoutEditorLauncherView, 700, 700);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.LAYOUT_LAUNCHER, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
+
+    addChooserActionRow(actions, EditorSidebarPanel.PHONE_ASSETS, targetPlacement, "Phone Assets", "icon-panel-assets", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PHONE_ASSETS, targetPlacement);
+      Tab t = ensurePhoneAssetsToolTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> {
+      launchPanelAsWindow("Phone Assets", phoneAssetsToolView, 920, 760);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PHONE_ASSETS, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
@@ -3355,6 +3399,15 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
+  }
+
+  private void selectPhoneAssetsToolTab() {
+    Tab t = (tabPhoneAssetsTool != null && tabPhoneAssetsTool.getTabPane() != null)
+        ? tabPhoneAssetsTool
+        : ensurePhoneAssetsToolTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
   }
 
   private void selectLayeredImageVisualizerTab() {

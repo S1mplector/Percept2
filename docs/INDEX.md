@@ -132,7 +132,7 @@ Complete documentation for the Java Vector Nexus engine.
 - [Puppeteer Overview & Architecture](editor/puppeteer/puppeteer.md) — data pipeline, JES/VNS relationship, snapshot resolution, registry bridge
 - [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) — complete usage: launching, UI panels, keyframes, 12 presets, 37 easing options, searchable easing picker, audio cues, camera, groups, layer ordering, orbit tool, onion skinning, shortcuts
 - [Puppeteer JES DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md) — exported timeline syntax: move, rotate, scale, fade, pivot, cameraMove, cameraZoom, playAudio, wait, parallel, easing values, spring functions, named curves, export modes, VNS/JES integration
-- [Sidebar Utilities Overview](editor/sidebars/overview/sidebar-utilities.md) — landing page for all 14 sidebar panels
+- [Sidebar Utilities Overview](editor/sidebars/overview/sidebar-utilities.md) — landing page for documented editor sidebar panels
   - [Project Explorer](editor/sidebars/left/sidebar-project-explorer.md) — file tree, create/rename/delete, run project
   - [Story Timeline](editor/sidebars/left/sidebar-story-timeline.md) — multi-arc story graph, arcs, links, clusters, validation
   - [Inspector](editor/sidebars/right/sidebar-inspector.md) — entity property editing for Sprite2D, Label2D, Panel2D, physics, particles
@@ -141,6 +141,7 @@ Complete documentation for the Java Vector Nexus engine.
   - [Label Flow Map](editor/sidebars/right/sidebar-label-flow-map.md) — visual label-to-label directed graph
   - [Asset Browser](editor/sidebars/right/sidebar-asset-browser.md) — asset discovery, preview, drag-and-drop, type filter
   - [Layout Launcher](editor/sidebars/right/sidebar-layout-launcher.md) — status dashboard and launch for layout/style/screen editors
+  - [Phone Assets](editor/sidebars/right/sidebar-phone-assets-tool.md) — phone config editor with live preview and asset import
   - [Menu Flow Editor](editor/sidebars/right/sidebar-menu-flow-editor.md) — visual menu-to-menu navigation wiring, wire mode
   - [Layered Image Visualizer](editor/sidebars/right/sidebar-layered-image-visualizer.md) — layered sprite exploration, 6 export formats, presets
   - [Image Attributes Tool](editor/sidebars/right/sidebar-image-attributes-tool.md) — attribute-based character image assembly, profiles

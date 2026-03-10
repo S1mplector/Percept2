@@ -26,6 +26,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Rectangle;
 
 /**
  * JavaFX overlay renderer for {@link PhoneScene}.
@@ -34,10 +35,14 @@ import javafx.scene.layout.VBox;
  * styled JavaFX layer shown above it.</p>
  */
 public final class PhoneRenderer extends StackPane {
+  private static final double SHELL_WIDTH = 340.0;
+  private static final double SHELL_HEIGHT = 700.0;
+
   private final Region backdrop = new Region();
   private final StackPane shell = new StackPane();
   private final ImageView wallpaperView = new ImageView();
   private final BorderPane phoneRoot = new BorderPane();
+  private final Rectangle clipRect = new Rectangle();
 
   private final Button navButton = new Button("Close");
   private final Button auxButton = new Button("Home");
@@ -53,6 +58,7 @@ public final class PhoneRenderer extends StackPane {
 
   private PhoneScene sceneModel;
   private File projectRoot;
+  private boolean embeddedPreview;
 
   public PhoneRenderer() {
     getStyleClass().add("phone-overlay");
@@ -78,10 +84,10 @@ public final class PhoneRenderer extends StackPane {
     shell.getStyleClass().add("phone-shell");
     shell.setOnMouseClicked(e -> e.consume());
     shell.setMaxWidth(380);
-    shell.setPrefWidth(340);
+    shell.setPrefWidth(SHELL_WIDTH);
     shell.setMinWidth(300);
     shell.setMaxHeight(760);
-    shell.setPrefHeight(700);
+    shell.setPrefHeight(SHELL_HEIGHT);
     shell.setMinHeight(560);
 
     navButton.getStyleClass().add("phone-nav-button");
@@ -138,6 +144,12 @@ public final class PhoneRenderer extends StackPane {
     getChildren().addAll(backdrop, shell);
     StackPane.setAlignment(shell, Pos.CENTER);
 
+    clipRect.widthProperty().bind(widthProperty());
+    clipRect.heightProperty().bind(heightProperty());
+    setClip(clipRect);
+    widthProperty().addListener((obs, oldValue, newValue) -> updateEmbeddedLayout());
+    heightProperty().addListener((obs, oldValue, newValue) -> updateEmbeddedLayout());
+
     String css = getClass().getResource("/com/jvn/fx/phone/phone.css").toExternalForm();
     getStylesheets().add(css);
   }
@@ -167,7 +179,25 @@ public final class PhoneRenderer extends StackPane {
     setVisible(sceneModel != null);
     setManaged(sceneModel != null);
     setMouseTransparent(sceneModel == null);
+    updateEmbeddedLayout();
     refresh();
+  }
+
+  public void setEmbeddedPreview(boolean embeddedPreview) {
+    if (this.embeddedPreview == embeddedPreview) return;
+    this.embeddedPreview = embeddedPreview;
+    if (embeddedPreview) {
+      if (!getStyleClass().contains("phone-overlay-embedded")) {
+        getStyleClass().add("phone-overlay-embedded");
+      }
+    } else {
+      getStyleClass().remove("phone-overlay-embedded");
+    }
+    updateEmbeddedLayout();
+  }
+
+  public boolean isEmbeddedPreview() {
+    return embeddedPreview;
   }
 
   public boolean handleKeyPressed(KeyCode code, boolean shiftDown) {
@@ -244,6 +274,7 @@ public final class PhoneRenderer extends StackPane {
       wallpaperView.setImage(null);
       homeList.getChildren().clear();
       messageList.getChildren().clear();
+      updateEmbeddedLayout();
       return;
     }
 
@@ -272,6 +303,7 @@ public final class PhoneRenderer extends StackPane {
       refreshChatView(chat);
       sceneModel.markCurrentChatRead();
     }
+    updateEmbeddedLayout();
   }
 
   private void refreshHomeList() {
@@ -469,6 +501,42 @@ public final class PhoneRenderer extends StackPane {
   private static double clamp(double value) {
     if (value < 0.0) return 0.0;
     if (value > 1.0) return 1.0;
+    return value;
+  }
+
+  private void updateEmbeddedLayout() {
+    boolean active = sceneModel != null;
+    backdrop.setVisible(active && !embeddedPreview);
+    backdrop.setManaged(active && !embeddedPreview);
+    backdrop.setMouseTransparent(embeddedPreview || !active);
+
+    if (!embeddedPreview) {
+      shell.setScaleX(1.0);
+      shell.setScaleY(1.0);
+      shell.setTranslateX(0.0);
+      shell.setTranslateY(0.0);
+      return;
+    }
+
+    double availableWidth = Math.max(1.0, getWidth() - snappedLeftInset() - snappedRightInset() - 16.0);
+    double availableHeight = Math.max(1.0, getHeight() - snappedTopInset() - snappedBottomInset() - 16.0);
+    double scale = embeddedScaleFor(availableWidth, availableHeight);
+    shell.setScaleX(scale);
+    shell.setScaleY(scale);
+    shell.setTranslateX(0.0);
+    shell.setTranslateY(0.0);
+  }
+
+  static double embeddedScaleFor(double availableWidth, double availableHeight) {
+    double width = Math.max(1.0, availableWidth);
+    double height = Math.max(1.0, availableHeight);
+    double scale = Math.min(width / SHELL_WIDTH, height / SHELL_HEIGHT);
+    return clamp(scale, 0.0, 1.0);
+  }
+
+  private static double clamp(double value, double min, double max) {
+    if (value < min) return min;
+    if (value > max) return max;
     return value;
   }
 }
