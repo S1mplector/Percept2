@@ -73,6 +73,7 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
 
 import javafx.animation.AnimationTimer;
+import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -102,11 +103,13 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
@@ -187,6 +190,10 @@ public class EditorApp extends Application {
   private Tab tabMenuFlow;
   private Tab tabLeftAdd;
   private Tab tabRightAdd;
+  private StackPane leftSidebarDividerNode;
+  private StackPane rightSidebarDividerNode;
+  private Region leftSidebarHiddenArrow;
+  private Region rightSidebarHiddenArrow;
   private ScrollPane inspectorScroll;
   private File projectRoot;
   private EditorPreferencesStore editorPreferencesStore;
@@ -215,6 +222,7 @@ public class EditorApp extends Application {
   private static final Pattern STARTUP_PROCESS_NOISE = Pattern.compile(
       "^(> Task |> Configure |BUILD SUCCESSFUL|Deprecated Gradle|\\d+ actionable|To honour the JVM|Daemon will be stopped|\\s*$)");
   private static final int STARTUP_COMMAND_TAIL_LINES = 14;
+  private static final double SIDEBAR_COLLAPSED_EPSILON = 0.01;
 
   public static void main(String[] args) {
     launch(args);
@@ -1569,6 +1577,7 @@ public class EditorApp extends Application {
     });
     applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();
+    installSidebarDividerHoverHints();
     scene.setOnDragOver((DragEvent e) -> {
       Dragboard db = e.getDragboard();
       if (db != null && db.hasFiles()) e.acceptTransferModes(TransferMode.COPY);
@@ -2336,6 +2345,97 @@ public class EditorApp extends Application {
     }
     centerSplit.setDividerPositions(leftDivider, rightDivider);
     savedCenterDividers = new double[] { leftDivider, rightDivider };
+    updateSidebarDividerHoverHints();
+  }
+
+  private void installSidebarDividerHoverHints() {
+    installSidebarDividerHoverHints(0);
+  }
+
+  private void installSidebarDividerHoverHints(int attempt) {
+    if (centerSplit == null) return;
+    Platform.runLater(() -> {
+      List<StackPane> dividerNodes = centerSplit.lookupAll(".split-pane-divider").stream()
+          .filter(StackPane.class::isInstance)
+          .map(StackPane.class::cast)
+          .sorted((a, b) -> Double.compare(a.getLayoutX(), b.getLayoutX()))
+          .toList();
+      if (dividerNodes.size() < 2) {
+        if (attempt < 8) {
+          PauseTransition retry = new PauseTransition(Duration.millis(80));
+          retry.setOnFinished(e -> installSidebarDividerHoverHints(attempt + 1));
+          retry.play();
+        }
+        return;
+      }
+
+      leftSidebarDividerNode = dividerNodes.get(0);
+      rightSidebarDividerNode = dividerNodes.get(dividerNodes.size() - 1);
+      leftSidebarHiddenArrow = ensureDividerArrow(leftSidebarDividerNode, true);
+      rightSidebarHiddenArrow = ensureDividerArrow(rightSidebarDividerNode, false);
+
+      leftSidebarDividerNode.hoverProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
+      rightSidebarDividerNode.hoverProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
+      if (centerSplit.getDividers().size() >= 2) {
+        centerSplit.getDividers().get(0).positionProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
+        centerSplit.getDividers().get(1).positionProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
+      }
+      updateSidebarDividerHoverHints();
+    });
+  }
+
+  private Region ensureDividerArrow(StackPane divider, boolean leftSide) {
+    if (divider == null) return null;
+    for (javafx.scene.Node child : divider.getChildren()) {
+      if (child instanceof Region region && region.getStyleClass().contains("sidebar-hidden-drag-arrow")) {
+        return region;
+      }
+    }
+    Region arrow = new Region();
+    arrow.getStyleClass().add("sidebar-hidden-drag-arrow");
+    arrow.getStyleClass().add(leftSide ? "left" : "right");
+    arrow.setManaged(false);
+    arrow.setVisible(false);
+    arrow.setOpacity(0.0);
+    arrow.setMouseTransparent(true);
+    divider.getChildren().add(arrow);
+    return arrow;
+  }
+
+  private void updateSidebarDividerHoverHints() {
+    if (centerSplit == null || centerSplit.getDividers().size() < 2) return;
+    boolean leftHidden = centerSplit.getDividers().get(0).getPosition() <= SIDEBAR_COLLAPSED_EPSILON;
+    boolean rightHidden = centerSplit.getDividers().get(1).getPosition() >= (1.0 - SIDEBAR_COLLAPSED_EPSILON);
+    updateSidebarDividerArrow(leftSidebarDividerNode, leftSidebarHiddenArrow, leftHidden);
+    updateSidebarDividerArrow(rightSidebarDividerNode, rightSidebarHiddenArrow, rightHidden);
+  }
+
+  private void updateSidebarDividerArrow(StackPane divider, Region arrow, boolean collapsed) {
+    if (arrow == null) return;
+    if (!collapsed) {
+      arrow.setVisible(false);
+      arrow.setOpacity(0.0);
+      return;
+    }
+    arrow.setVisible(true);
+    boolean shouldShow = divider != null && divider.isHover();
+    animateSidebarDividerArrow(arrow, shouldShow ? 1.0 : 0.0);
+  }
+
+  private void animateSidebarDividerArrow(javafx.scene.Node arrow, double targetOpacity) {
+    if (arrow == null) return;
+    Object existing = arrow.getProperties().get("sidebar-arrow-fade");
+    if (existing instanceof FadeTransition fade) {
+      fade.stop();
+    }
+    if (Math.abs(arrow.getOpacity() - targetOpacity) < 0.01) {
+      arrow.setOpacity(targetOpacity);
+      return;
+    }
+    FadeTransition fade = new FadeTransition(Duration.millis(140), arrow);
+    fade.setToValue(targetOpacity);
+    arrow.getProperties().put("sidebar-arrow-fade", fade);
+    fade.play();
   }
 
   private FileEditorTab getActiveFileTab() {
@@ -2659,16 +2759,46 @@ public class EditorApp extends Application {
     if (pane == null || addTab == null || onAddRequested == null) return;
     pane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
       if (newTab != addTab) return;
-      Platform.runLater(() -> {
-        Tab fallback = (oldTab != null && oldTab != addTab && pane.getTabs().contains(oldTab))
+      triggerAddTabChooser(pane, addTab, oldTab, onAddRequested);
+    });
+    pane.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+      if (e.getButton() != MouseButton.PRIMARY) return;
+      if (pane.getSelectionModel().getSelectedItem() != addTab) return;
+      if (!isAddTabHeaderClick(e.getTarget())) return;
+      triggerAddTabChooser(pane, addTab, null, onAddRequested);
+      e.consume();
+    });
+  }
+
+  private void triggerAddTabChooser(TabPane pane, Tab addTab, Tab oldTab, Runnable onAddRequested) {
+    if (pane == null || addTab == null || onAddRequested == null) return;
+    Platform.runLater(() -> {
+      Tab fallback = (oldTab != null && oldTab != addTab && pane.getTabs().contains(oldTab))
           ? oldTab
           : firstRegularTab(pane, addTab);
-        if (fallback != null && pane.getTabs().contains(fallback)) {
-          pane.getSelectionModel().select(fallback);
-        }
-        onAddRequested.run();
-      });
+      if (fallback != null && pane.getTabs().contains(fallback)) {
+        pane.getSelectionModel().select(fallback);
+      } else {
+        pane.getSelectionModel().clearSelection();
+      }
+      onAddRequested.run();
     });
+  }
+
+  private boolean isAddTabHeaderClick(Object target) {
+    if (!(target instanceof javafx.scene.Node node)) return false;
+    javafx.scene.Node current = node;
+    while (current != null) {
+      List<String> styleClasses = current.getStyleClass();
+      if (styleClasses.contains("tab-content-area")) return false;
+      if (styleClasses.contains("tab")
+          || styleClasses.contains("tab-label")
+          || styleClasses.contains("tab-container")) {
+        return true;
+      }
+      current = current.getParent();
+    }
+    return false;
   }
 
   private Tab firstRegularTab(TabPane pane, Tab addTab) {
@@ -3289,6 +3419,7 @@ public class EditorApp extends Application {
     int addIdx = pane.getTabs().indexOf(addTab);
     if (addIdx < 0) addIdx = pane.getTabs().size();
     pane.getTabs().add(addIdx, chooser);
+    ensureSidebarVisible(pane);
     pane.getSelectionModel().select(chooser);
   }
 

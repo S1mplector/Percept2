@@ -1518,6 +1518,30 @@
   -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.24), 12, 0.28, 0, 0);
 }
 
+.editor-main-split-pane:horizontal > .split-pane-divider .sidebar-hidden-drag-arrow {
+  -fx-min-width: 10px;
+  -fx-min-height: 16px;
+  -fx-pref-width: 10px;
+  -fx-pref-height: 16px;
+  -fx-max-width: 10px;
+  -fx-max-height: 16px;
+  -fx-background-color: rgba(232, 146, 42, 0.9);
+  -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.36), 9, 0.2, 0, 0);
+  -fx-opacity: 0;
+}
+
+.editor-main-split-pane:horizontal > .split-pane-divider:hover .sidebar-hidden-drag-arrow {
+  -fx-background-color: rgba(245, 167, 73, 0.95);
+}
+
+.editor-main-split-pane:horizontal > .split-pane-divider .sidebar-hidden-drag-arrow.left {
+  -fx-shape: "M1 8 L9 1 L9 15 Z";
+}
+
+.editor-main-split-pane:horizontal > .split-pane-divider .sidebar-hidden-drag-arrow.right {
+  -fx-shape: "M9 8 L1 1 L1 15 Z";
+}
+
 /* Slider */
 .slider .track {
   -fx-background-color: #2a2a2a;
