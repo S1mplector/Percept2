@@ -107,6 +107,13 @@ public class FxLauncher extends Application {
     applyConfiguredCursor(scene);
     applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();
+    log.info(
+        "Runtime viewport -> window={}x{}, logical={}x{}",
+        width,
+        height,
+        (int) targetLogicalWidth(width),
+        (int) targetLogicalHeight(height)
+    );
 
     // Initialize graphics context and resize canvas with scene
     this.gc = this.canvas.getGraphicsContext2D();
@@ -458,6 +465,8 @@ public class FxLauncher extends Application {
       }
       double targetW = (engine != null && engine.getConfig() != null) ? engine.getConfig().width() : w;
       double targetH = (engine != null && engine.getConfig() != null) ? engine.getConfig().height() : h;
+      targetW = targetLogicalWidth(targetW);
+      targetH = targetLogicalHeight(targetH);
       var vp = ViewportScaler2D.fit(targetW, targetH, w, h);
       b.push();
       b.translate(vp.offsetX(), vp.offsetY());
@@ -539,6 +548,10 @@ public class FxLauncher extends Application {
   }
 
   private double targetLogicalWidth(double fallback) {
+    int override = logicalRenderWidthOverride();
+    if (override > 0) {
+      return override;
+    }
     if (engine != null && engine.getConfig() != null && engine.getConfig().width() > 0) {
       return engine.getConfig().width();
     }
@@ -546,6 +559,10 @@ public class FxLauncher extends Application {
   }
 
   private double targetLogicalHeight(double fallback) {
+    int override = logicalRenderHeightOverride();
+    if (override > 0) {
+      return override;
+    }
     if (engine != null && engine.getConfig() != null && engine.getConfig().height() > 0) {
       return engine.getConfig().height();
     }
@@ -588,6 +605,39 @@ public class FxLauncher extends Application {
     double maxX = minX + vp.targetWidth() * vp.scale();
     double maxY = minY + vp.targetHeight() * vp.scale();
     return canvasX >= minX && canvasX <= maxX && canvasY >= minY && canvasY <= maxY;
+  }
+
+  private static int firstPositiveSystemProperty(String... keys) {
+    if (keys == null) return 0;
+    for (String key : keys) {
+      if (key == null || key.isBlank()) continue;
+      String raw = System.getProperty(key);
+      if (raw == null || raw.isBlank()) continue;
+      try {
+        int parsed = Integer.parseInt(raw.trim());
+        if (parsed > 0) return parsed;
+      } catch (Exception ignored) {
+      }
+    }
+    return 0;
+  }
+
+  private static int logicalRenderWidthOverride() {
+    return firstPositiveSystemProperty(
+        "jvn.render.width",
+        "jvn.renderWidth",
+        "jvn.logical.width",
+        "jvn.logicalWidth"
+    );
+  }
+
+  private static int logicalRenderHeightOverride() {
+    return firstPositiveSystemProperty(
+        "jvn.render.height",
+        "jvn.renderHeight",
+        "jvn.logical.height",
+        "jvn.logicalHeight"
+    );
   }
 
   private void drawDefaultScene(double width, double height) {

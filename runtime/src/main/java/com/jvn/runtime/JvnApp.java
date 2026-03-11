@@ -22,9 +22,11 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Paths;
+import java.util.Properties;
 
 public class JvnApp {
   private static final Logger log = LoggerFactory.getLogger(JvnApp.class);
@@ -39,6 +41,12 @@ public class JvnApp {
     String audioBackend = "auto"; // fx | simp3 | auto
     String jesScript = null;
     String assetRoot = null;
+    boolean widthSpecified = false;
+    boolean heightSpecified = false;
+    boolean titleSpecified = false;
+    boolean uiSpecified = false;
+    boolean audioSpecified = false;
+    boolean localeSpecified = false;
 
     for (int i = 0; i < args.length; i++) {
       String a = args[i];
@@ -46,16 +54,19 @@ public class JvnApp {
       String inlineTitle = inlineOptionValue(a, "--title");
       if (inlineTitle != null) {
         builder.title(cleanCliValue(inlineTitle));
+        titleSpecified = true;
         continue;
       }
       String inlineWidth = inlineOptionValue(a, "--width");
       if (inlineWidth != null) {
         builder.width(Integer.parseInt(cleanCliValue(inlineWidth)));
+        widthSpecified = true;
         continue;
       }
       String inlineHeight = inlineOptionValue(a, "--height");
       if (inlineHeight != null) {
         builder.height(Integer.parseInt(cleanCliValue(inlineHeight)));
+        heightSpecified = true;
         continue;
       }
       String inlineScript = inlineOptionValue(a, "--script");
@@ -66,11 +77,13 @@ public class JvnApp {
       String inlineLocale = inlineOptionValue(a, "--locale");
       if (inlineLocale != null) {
         locale = cleanCliValue(inlineLocale);
+        localeSpecified = true;
         continue;
       }
       String inlineUi = inlineOptionValue(a, "--ui");
       if (inlineUi != null) {
         ui = cleanCliValue(inlineUi);
+        uiSpecified = true;
         continue;
       }
       String inlineJes = inlineOptionValue(a, "--jes");
@@ -81,6 +94,7 @@ public class JvnApp {
       String inlineAudio = inlineOptionValue(a, "--audio");
       if (inlineAudio != null) {
         audioBackend = cleanCliValue(inlineAudio);
+        audioSpecified = true;
         continue;
       }
       String inlineAssets = inlineOptionValue(a, "--assets");
@@ -91,37 +105,99 @@ public class JvnApp {
 
       switch (a) {
         case "--title":
-          if (i + 1 < args.length) builder.title(cleanCliValue(args[++i]));
+          if (i + 1 < args.length) {
+            builder.title(cleanCliValue(args[++i]));
+            titleSpecified = true;
+          }
           break;
         case "--width":
-          if (i + 1 < args.length) builder.width(Integer.parseInt(cleanCliValue(args[++i])));
+          if (i + 1 < args.length) {
+            builder.width(Integer.parseInt(cleanCliValue(args[++i])));
+            widthSpecified = true;
+          }
           break;
         case "--height":
-          if (i + 1 < args.length) builder.height(Integer.parseInt(cleanCliValue(args[++i])));
+          if (i + 1 < args.length) {
+            builder.height(Integer.parseInt(cleanCliValue(args[++i])));
+            heightSpecified = true;
+          }
           break;
         case "--script":
           if (i + 1 < args.length) scriptName = cleanCliValue(args[++i]);
           break;
         case "--locale":
-          if (i + 1 < args.length) locale = cleanCliValue(args[++i]);
+          if (i + 1 < args.length) {
+            locale = cleanCliValue(args[++i]);
+            localeSpecified = true;
+          }
           break;
         case "--billiards":
           launchBilliards = true;
           break;
         case "--ui":
-          if (i + 1 < args.length) ui = cleanCliValue(args[++i]);
+          if (i + 1 < args.length) {
+            ui = cleanCliValue(args[++i]);
+            uiSpecified = true;
+          }
           break;
         case "--jes":
           if (i + 1 < args.length) jesScript = cleanCliValue(args[++i]);
           break;
         case "--audio":
-          if (i + 1 < args.length) audioBackend = cleanCliValue(args[++i]);
+          if (i + 1 < args.length) {
+            audioBackend = cleanCliValue(args[++i]);
+            audioSpecified = true;
+          }
           break;
         case "--assets":
           if (i + 1 < args.length) assetRoot = cleanCliValue(args[++i]);
           break;
         default:
           log.warn("Unknown argument: {}", a);
+      }
+    }
+
+    Properties manifest = loadProjectManifest(assetRoot);
+    if (manifest != null) {
+      if (!titleSpecified) {
+        String manifestTitle = manifest.getProperty("name", "").trim();
+        if (!manifestTitle.isBlank()) builder.title(manifestTitle);
+      }
+      if (!widthSpecified) {
+        Integer manifestWidth = parsePositiveInt(manifest.getProperty("width"));
+        if (manifestWidth != null) builder.width(manifestWidth);
+      }
+      if (!heightSpecified) {
+        Integer manifestHeight = parsePositiveInt(manifest.getProperty("height"));
+        if (manifestHeight != null) builder.height(manifestHeight);
+      }
+      if (!uiSpecified) {
+        String manifestUi = manifest.getProperty("runtime.ui", "").trim();
+        if (!manifestUi.isBlank()) ui = manifestUi;
+      }
+      if (!audioSpecified) {
+        String manifestAudio = manifest.getProperty("runtime.audio", "").trim();
+        if (!manifestAudio.isBlank()) audioBackend = manifestAudio;
+      }
+      if (!localeSpecified) {
+        String manifestLocale = manifest.getProperty("runtime.locale", "").trim();
+        if (!manifestLocale.isBlank()) locale = manifestLocale;
+      }
+      Integer renderWidth = firstPositiveInt(
+          manifest.getProperty("renderWidth"),
+          manifest.getProperty("display.renderWidth"),
+          manifest.getProperty("logicalWidth"),
+          manifest.getProperty("display.logicalWidth")
+      );
+      Integer renderHeight = firstPositiveInt(
+          manifest.getProperty("renderHeight"),
+          manifest.getProperty("display.renderHeight"),
+          manifest.getProperty("logicalHeight"),
+          manifest.getProperty("display.logicalHeight")
+      );
+      if (renderWidth != null && renderHeight != null) {
+        System.setProperty("jvn.render.width", Integer.toString(renderWidth));
+        System.setProperty("jvn.render.height", Integer.toString(renderHeight));
       }
     }
 
@@ -236,6 +312,40 @@ public class JvnApp {
       value = value.substring(1, value.length() - 1).trim();
     }
     return value;
+  }
+
+  private static Properties loadProjectManifest(String assetRoot) {
+    if (assetRoot == null || assetRoot.isBlank()) return null;
+    File root = new File(assetRoot);
+    File manifest = new File(root, "jvn.project");
+    if (!manifest.exists() || !manifest.isFile()) return null;
+    try (FileInputStream fis = new FileInputStream(manifest)) {
+      Properties p = new Properties();
+      p.load(fis);
+      return p;
+    } catch (Exception ex) {
+      log.warn("Failed to read {}: {}", manifest.getAbsolutePath(), ex.toString());
+      return null;
+    }
+  }
+
+  private static Integer parsePositiveInt(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      int parsed = Integer.parseInt(raw.trim());
+      return parsed > 0 ? parsed : null;
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private static Integer firstPositiveInt(String... values) {
+    if (values == null) return null;
+    for (String value : values) {
+      Integer parsed = parsePositiveInt(value);
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   private static void loadJes(Engine engine, String jesScript) {
