@@ -14,7 +14,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -59,7 +58,7 @@ public class RunConsoleView extends BorderPane {
     private final ScrollPane scrollPane = new ScrollPane(outputFlow);
     private final Label stateLabel = new Label();
     private final Label elapsedLabel = new Label();
-    private final CheckBox showAllToggle = new CheckBox("Show build output");
+    private final ToggleButton showAllToggle = new ToggleButton("Build Output");
     private final Button runBtn = iconButton("icon-runtime-run", "Run current build again");
     private final Button copyBtn = iconButton("icon-runtime-copy", "Copy traceback to clipboard");
     private final Button clearBtn = iconButton("icon-runtime-clear", "Clear output");
@@ -129,6 +128,8 @@ public class RunConsoleView extends BorderPane {
 
     public RunConsoleView(String title) {
         getStyleClass().add("run-console-root");
+        stateLabel.getStyleClass().add("run-console-state");
+        elapsedLabel.getStyleClass().add("run-console-elapsed");
 
         // ─── Menu Bar ────────────────────────────────────────────────
         MenuBar menuBar = createMenuBar(title);
@@ -136,19 +137,8 @@ public class RunConsoleView extends BorderPane {
         // ─── Tool Bar ────────────────────────────────────────────────
         ToolBar toolBar = createToolBar();
 
-        // ─── Header info row ─────────────────────────────────────────
-        stateLabel.getStyleClass().add("run-console-state");
-        elapsedLabel.getStyleClass().add("run-console-elapsed");
-
-        Label titleLabel = new Label(title);
-        titleLabel.getStyleClass().add("run-console-title");
-
-        HBox infoRow = new HBox(10, titleLabel, stateLabel, elapsedLabel);
-        infoRow.setAlignment(Pos.CENTER_LEFT);
-        infoRow.setPadding(new Insets(4, 10, 4, 10));
-        infoRow.getStyleClass().add("run-console-info-row");
-
-        VBox topContainer = new VBox(menuBar, toolBar, infoRow);
+        VBox topContainer = new VBox(menuBar, toolBar);
+        topContainer.getStyleClass().add("run-console-top");
         setTop(topContainer);
 
         // ─── Output area ─────────────────────────────────────────────
@@ -218,16 +208,16 @@ public class RunConsoleView extends BorderPane {
     public void setState(EngineState state) {
         this.engineState = state;
         Platform.runLater(() -> {
-            String emoji;
+            String label;
             switch (state) {
-                case BUILDING -> emoji = "◌";
-                case STARTING -> emoji = "▶";
-                case RUNNING -> emoji = "●";
-                case STOPPED -> emoji = "■";
-                case FAILED -> emoji = "✕";
-                default -> emoji = "?";
+                case BUILDING -> label = "Building";
+                case STARTING -> label = "Starting";
+                case RUNNING -> label = "Running";
+                case STOPPED -> label = "Stopped";
+                case FAILED -> label = "Failed";
+                default -> label = "Unknown";
             }
-            stateLabel.setText(emoji + " " + state.name());
+            stateLabel.setText(label);
             updateStateClass(state);
             stopBtn.setDisable(state == EngineState.STOPPED || state == EngineState.FAILED);
             runBtn.setDisable(processStarter == null || !(state == EngineState.STOPPED || state == EngineState.FAILED));
@@ -442,6 +432,7 @@ public class RunConsoleView extends BorderPane {
     private MenuBar createMenuBar(String title) {
         MenuBar bar = new MenuBar();
         bar.getStyleClass().add("run-console-menubar");
+        bar.setUseSystemMenuBar(isMac());
 
         // — File menu —
         Menu fileMenu = new Menu("File");
@@ -573,6 +564,9 @@ public class RunConsoleView extends BorderPane {
         ToolBar bar = new ToolBar();
         bar.getStyleClass().add("run-console-toolbar");
 
+        runBtn.getStyleClass().add("run-console-icon-btn-success");
+        stopBtn.getStyleClass().add("run-console-icon-btn-danger");
+
         runBtn.setOnAction(e -> rerunProcess());
         stopBtn.setOnAction(e -> stopProcess());
         copyBtn.setOnAction(e -> copyTraceback());
@@ -581,6 +575,8 @@ public class RunConsoleView extends BorderPane {
         showAllToggle.getStyleClass().add("run-console-toggle");
         showAllToggle.setSelected(false);
         showAllToggle.setOnAction(e -> rebuildOutput());
+        showAllToggle.setFocusTraversable(false);
+        showAllToggle.setTooltip(new Tooltip("Include full Gradle/build chatter"));
 
         autoScrollBtn.setSelected(true);
         autoScrollBtn.getStyleClass().add("run-console-toggle");
@@ -595,7 +591,7 @@ public class RunConsoleView extends BorderPane {
 
         // Search field
         searchField.setPromptText("Search output...");
-        searchField.setPrefWidth(180);
+        searchField.setPrefWidth(240);
         searchField.getStyleClass().add("run-console-search-field");
         searchField.setTooltip(new Tooltip("Filter output by text (Cmd+F)"));
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -605,6 +601,7 @@ public class RunConsoleView extends BorderPane {
 
         // Log level filter
         logLevelFilter.setValue("All");
+        logLevelFilter.setPrefWidth(132);
         logLevelFilter.getStyleClass().add("run-console-filter-combo");
         logLevelFilter.setTooltip(new Tooltip("Filter by log level"));
         logLevelFilter.setOnAction(e -> rebuildOutput());
@@ -612,11 +609,15 @@ public class RunConsoleView extends BorderPane {
         Label searchLabel = new Label("Filter:");
         searchLabel.getStyleClass().add("run-console-search-label");
 
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
         bar.getItems().addAll(
             runBtn, stopBtn, new Separator(),
             clearBtn, copyBtn, new Separator(),
             showAllToggle, autoScrollBtn, wordWrapBtn, new Separator(),
-            searchLabel, searchField, logLevelFilter
+            searchLabel, searchField, logLevelFilter,
+            spacer, stateLabel, elapsedLabel
         );
         return bar;
     }
@@ -632,12 +633,16 @@ public class RunConsoleView extends BorderPane {
         lineCountLabel.getStyleClass().add("run-console-meta");
         errorCountLabel.getStyleClass().add("run-console-meta");
         warnCountLabel.getStyleClass().add("run-console-meta");
+        lineCountLabel.getStyleClass().add("run-console-meta-chip");
+        errorCountLabel.getStyleClass().add("run-console-meta-chip");
+        warnCountLabel.getStyleClass().add("run-console-meta-chip");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Label bufferLabel = new Label("Buffer: 0");
         bufferLabel.getStyleClass().add("run-console-meta-muted");
+        bufferLabel.getStyleClass().add("run-console-meta-chip");
 
         // Update buffer label periodically via the existing append cycle
         lineCountLabel.textProperty().addListener((o, ov, nv) ->
@@ -692,5 +697,9 @@ public class RunConsoleView extends BorderPane {
     private static String formatElapsed(long seconds) {
         if (seconds < 60) return seconds + "s";
         return (seconds / 60) + "m " + (seconds % 60) + "s";
+    }
+
+    private static boolean isMac() {
+        return System.getProperty("os.name", "").toLowerCase().contains("mac");
     }
 }

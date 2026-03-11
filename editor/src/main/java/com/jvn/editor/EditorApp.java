@@ -384,9 +384,11 @@ public class EditorApp extends Application {
 
       javafx.stage.Stage logStage = new javafx.stage.Stage();
       logStage.setTitle(title);
-      javafx.scene.Scene logScene = new javafx.scene.Scene(console, 800, 500);
+      javafx.scene.Scene logScene = new javafx.scene.Scene(console, 980, 620);
       EditorTheme.apply(logScene);
       logStage.setScene(logScene);
+      logStage.setMinWidth(860);
+      logStage.setMinHeight(520);
       applyLinuxDefaultWindowState(logStage);
       logStage.show();
       console.startProcess(starter.start());
