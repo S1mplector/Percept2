@@ -880,6 +880,13 @@ public class FxLauncher extends Application {
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof SettingsScene settings) {
       settings.adjustCurrent(delta);
+    } else if (currentScene instanceof LoadMenuScene load) {
+      int pageSize = 1;
+      var layout = load.getMenuLayout();
+      if (layout != null && layout.maxVisibleItems() != null && layout.maxVisibleItems() > 0) {
+        pageSize = layout.maxVisibleItems();
+      }
+      load.moveSelection(delta * pageSize);
     }
   }
 

@@ -180,41 +180,71 @@ public class MenuRenderer {
     drawHeader(title, subtitle, w, titleY, screenStyle, layout);
     List<String> saves = scene.getSaves();
     if (saves.isEmpty()) {
-      drawCenteredText(Localization.t("load.no_saves"), w, h/2, theme.getItemFont(), Color.GRAY);
+      MenuItemSpec template = scene != null ? scene.getMenuItemSpec(0) : null;
+      int emptySlots = parseItemExtraInt(template, "emptySlotCount", 0);
+      if (emptySlots > 0 && scene != null) {
+        String[] items = new String[emptySlots];
+        boolean[] enabled = new boolean[emptySlots];
+        MenuStyleSpec[] styles = new MenuStyleSpec[emptySlots];
+        MenuItemSpec[] specs = new MenuItemSpec[emptySlots];
+        for (int i = 0; i < emptySlots; i++) {
+          items[i] = "";
+          enabled[i] = false;
+          styles[i] = scene.getStyleForIndex(0);
+          specs[i] = template;
+        }
+        drawMenuList(items, -1, enabled, styles, specs, layout, 0, w * 0.6, h, true);
+      } else {
+        drawCenteredText(Localization.t("load.no_saves"), w, h / 2, theme.getItemFont(), Color.GRAY);
+      }
     } else {
       String[] items = saves.toArray(new String[0]);
-      boolean[] enabled = new boolean[items.length];
-      MenuStyleSpec[] styles = new MenuStyleSpec[items.length];
-      MenuItemSpec[] specs = new MenuItemSpec[items.length];
-      for (int i = 0; i < items.length; i++) {
-        enabled[i] = true;
-        styles[i] = scene.getStyleForIndex(i);
-        specs[i] = scene.getMenuItemSpec(i);
-      }
-      drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w * 0.6, h, true);
-      drawInlineLoadSlotPreviews(scene, layout, specs, 0, w * 0.6, h);
-      File thumb = getThumbnailFile(scene);
-      if (thumb != null) {
-        drawPreviewFile(thumb, w, h);
+      int visibleCount = resolveVisibleCount(layout, items.length);
+      int startIndex = resolveVisibleStart(scene.getSelected(), items.length, visibleCount);
+      int drawCount = Math.max(0, Math.min(visibleCount, items.length - startIndex));
+      if (drawCount <= 0) {
+        drawCenteredText(Localization.t("load.no_saves"), w, h / 2, theme.getItemFont(), Color.GRAY);
       } else {
-        String previewPath = scene.getSelectedPreviewImagePath();
-        if (previewPath != null) {
-          drawPreviewResource(previewPath, w, h);
-        } else {
-          drawPreviewPlaceholder(w, h);
+        String[] visibleItems = new String[drawCount];
+        boolean[] enabled = new boolean[drawCount];
+        MenuStyleSpec[] styles = new MenuStyleSpec[drawCount];
+        MenuItemSpec[] specs = new MenuItemSpec[drawCount];
+        for (int i = 0; i < drawCount; i++) {
+          int globalIndex = startIndex + i;
+          visibleItems[i] = items[globalIndex];
+          enabled[i] = true;
+          styles[i] = scene.getStyleForIndex(globalIndex);
+          specs[i] = scene.getMenuItemSpec(globalIndex);
         }
-      }
-      drawPreviewMetadata(
-        scene.getSelectedScenarioId(),
-        scene.getSelectedTimestamp(),
-        scene.getSelectedNodeIndex(),
-        w, h
-      );
-      String rpg = scene.getSelectedRpgSummary();
-      if (rpg != null && !rpg.isBlank()) {
-        gc.setFill(Color.LIGHTGRAY);
-        gc.setFont(theme.getHintFont());
-        gc.fillText(rpg, 20, h - 50);
+        int localSelected = Math.max(0, Math.min(drawCount - 1, scene.getSelected() - startIndex));
+        boolean showSidePreview = shouldShowLoadSidePreview(scene, specs);
+        drawMenuList(visibleItems, localSelected, enabled, styles, specs, layout, 0, w * 0.6, h, true);
+        drawInlineLoadSlotPreviews(scene, layout, specs, startIndex, drawCount, 0, w * 0.6, h);
+        if (showSidePreview) {
+          File thumb = getThumbnailFile(scene);
+          if (thumb != null) {
+            drawPreviewFile(thumb, w, h);
+          } else {
+            String previewPath = scene.getSelectedPreviewImagePath();
+            if (previewPath != null) {
+              drawPreviewResource(previewPath, w, h);
+            } else {
+              drawPreviewPlaceholder(w, h);
+            }
+          }
+          drawPreviewMetadata(
+            scene.getSelectedScenarioId(),
+            scene.getSelectedTimestamp(),
+            scene.getSelectedNodeIndex(),
+            w, h
+          );
+          String rpg = scene.getSelectedRpgSummary();
+          if (rpg != null && !rpg.isBlank()) {
+            gc.setFill(Color.LIGHTGRAY);
+            gc.setFont(theme.getHintFont());
+            gc.fillText(rpg, 20, h - 50);
+          }
+        }
       }
     }
     String hints = scene != null ? scene.getDisplayHints() : null;
@@ -817,9 +847,17 @@ public class MenuRenderer {
 
   public int getHoverIndexForLoadMenu(LoadMenuScene scene, double w, double h, double mouseX, double mouseY) {
     if (scene == null) return -1;
-    MenuItemSpec[] specs = new MenuItemSpec[scene.getItemCount()];
-    for (int i = 0; i < specs.length; i++) specs[i] = scene.getMenuItemSpec(i);
-    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), specs, 0, w * 0.6, h, mouseX, mouseY);
+    int total = scene.getItemCount();
+    if (total <= 0) return -1;
+    MenuLayoutSpec layout = scene.getMenuLayout();
+    int visibleCount = resolveVisibleCount(layout, total);
+    int startIndex = resolveVisibleStart(scene.getSelected(), total, visibleCount);
+    int drawCount = Math.max(0, Math.min(visibleCount, total - startIndex));
+    if (drawCount <= 0) return -1;
+    MenuItemSpec[] specs = new MenuItemSpec[drawCount];
+    for (int i = 0; i < drawCount; i++) specs[i] = scene.getMenuItemSpec(startIndex + i);
+    int local = hoverIndex(drawCount, layout, specs, 0, w * 0.6, h, mouseX, mouseY);
+    return local < 0 ? -1 : (startIndex + local);
   }
 
   public int getHoverIndexForSaveMenu(SaveMenuScene scene, double w, double h, double mouseX, double mouseY) {
@@ -1214,12 +1252,63 @@ public class MenuRenderer {
     return value <= 1.0 ? total * Math.max(0, value) : value;
   }
 
+  private int resolveVisibleCount(MenuLayoutSpec layout, int totalItems) {
+    if (totalItems <= 0) return 0;
+    int configured = layout != null && layout.maxVisibleItems() != null ? layout.maxVisibleItems() : totalItems;
+    if (configured <= 0) configured = totalItems;
+    return Math.max(1, Math.min(totalItems, configured));
+  }
+
+  private int resolveVisibleStart(int selected, int totalItems, int visibleCount) {
+    if (totalItems <= 0 || visibleCount <= 0) return 0;
+    int clampedSelected = Math.max(0, Math.min(totalItems - 1, selected));
+    if (totalItems <= visibleCount) return 0;
+    int page = clampedSelected / visibleCount;
+    int start = page * visibleCount;
+    return Math.max(0, Math.min(totalItems - visibleCount, start));
+  }
+
   private File getThumbnailFile(LoadMenuScene scene) {
     String dir = scene.getSaveDirectory();
     String name = scene.getSelectedName();
     if (dir == null || name == null) return null;
     File f = new File(dir, name + ".png");
     return f.exists() ? f : null;
+  }
+
+  private boolean shouldShowLoadSidePreview(LoadMenuScene scene, MenuItemSpec[] specs) {
+    if (scene == null) return true;
+    MenuItemSpec template = null;
+    if (specs != null && specs.length > 0) template = specs[0];
+    if (template == null) template = scene.getMenuItemSpec(0);
+    if (template == null && scene.getSelected() >= 0) {
+      template = scene.getMenuItemSpec(scene.getSelected());
+    }
+    if (template == null) return true;
+    return parseItemExtraBoolean(template, "showSidePreview", true)
+        && parseItemExtraBoolean(template, "sidePreview", true);
+  }
+
+  private boolean parseItemExtraBoolean(MenuItemSpec itemSpec, String key, boolean defaultValue) {
+    if (itemSpec == null || key == null || itemSpec.extras() == null) return defaultValue;
+    String raw = itemSpec.extras().get(key);
+    if (raw == null || raw.isBlank()) return defaultValue;
+    return switch (raw.trim().toLowerCase()) {
+      case "true", "1", "yes", "y", "on" -> true;
+      case "false", "0", "no", "n", "off" -> false;
+      default -> defaultValue;
+    };
+  }
+
+  private int parseItemExtraInt(MenuItemSpec itemSpec, String key, int defaultValue) {
+    if (itemSpec == null || key == null || itemSpec.extras() == null) return defaultValue;
+    String raw = itemSpec.extras().get(key);
+    if (raw == null || raw.isBlank()) return defaultValue;
+    try {
+      return Integer.parseInt(raw.trim());
+    } catch (NumberFormatException ignored) {
+      return defaultValue;
+    }
   }
 
   private void drawInlineSaveSlotPreviews(
@@ -1255,23 +1344,26 @@ public class MenuRenderer {
       LoadMenuScene scene,
       MenuLayoutSpec layout,
       MenuItemSpec[] specs,
+      int startIndex,
+      int visibleCount,
       double areaX,
       double areaWidth,
       double h
   ) {
     if (scene == null) return;
     List<String> saves = scene.getSaves();
-    int count = scene.getItemCount();
+    int count = Math.max(0, Math.min(visibleCount, saves.size() - Math.max(0, startIndex)));
     for (int i = 0; i < count; i++) {
-      MenuItemSpec spec = specs != null && i < specs.length ? specs[i] : scene.getMenuItemSpec(i);
+      int globalIndex = startIndex + i;
+      MenuItemSpec spec = specs != null && i < specs.length ? specs[i] : scene.getMenuItemSpec(globalIndex);
       if (!isInlineSlotPreviewEnabled(spec, true)) continue;
       Rect itemRect = resolveItemRect(i, count, spec, specs, layout, areaX, areaWidth, h);
       String previewPath = null;
-      if (i >= 0 && i < saves.size()) {
-        File thumb = new File(scene.getSaveDirectory(), saves.get(i) + ".png");
+      if (globalIndex >= 0 && globalIndex < saves.size()) {
+        File thumb = new File(scene.getSaveDirectory(), saves.get(globalIndex) + ".png");
         if (thumb.exists()) previewPath = thumb.getAbsolutePath();
       }
-      drawInlineSlotPreview(itemRect, spec, previewPath, i == scene.getSelected(), Localization.t("load.no_preview"));
+      drawInlineSlotPreview(itemRect, spec, previewPath, globalIndex == scene.getSelected(), Localization.t("load.no_preview"));
     }
   }
 
@@ -1279,17 +1371,27 @@ public class MenuRenderer {
     if (itemRect == null) return;
     Rect previewRect = resolveInlineSlotPreviewRect(itemSpec, itemRect);
     if (previewRect.w() <= 1 || previewRect.h() <= 1) return;
+    String fitMode = resolveSlotPreviewFitMode(itemSpec);
+    boolean containFit = "contain".equals(fitMode) || "fit".equals(fitMode);
 
     gc.setFill(Color.rgb(6, 9, 14, 0.95));
     gc.fillRoundRect(previewRect.x(), previewRect.y(), previewRect.w(), previewRect.h(), 7, 7);
 
     Image previewImage = loadImage(previewPath);
     if (previewImage != null && !previewImage.isError()) {
-      drawImageCover(previewImage, previewRect);
+      if (containFit) {
+        drawImageContain(previewImage, previewRect);
+      } else {
+        drawImageCover(previewImage, previewRect);
+      }
     } else {
       Image placeholder = itemSpec != null ? loadImage(itemSpec.slotPreviewPlaceholderAssetPath()) : null;
       if (placeholder != null && !placeholder.isError()) {
-        drawImageCover(placeholder, previewRect);
+        if (containFit) {
+          drawImageContain(placeholder, previewRect);
+        } else {
+          drawImageCover(placeholder, previewRect);
+        }
       } else {
         gc.setFill(Color.rgb(32, 36, 48, 0.95));
         gc.fillRoundRect(previewRect.x(), previewRect.y(), previewRect.w(), previewRect.h(), 7, 7);
@@ -1313,6 +1415,15 @@ public class MenuRenderer {
     }
   }
 
+  private String resolveSlotPreviewFitMode(MenuItemSpec itemSpec) {
+    if (itemSpec == null || itemSpec.extras() == null) return "cover";
+    String raw = firstNonBlank(itemSpec.extras().get("slotPreviewFit"), itemSpec.extras().get("previewFit"));
+    if (raw == null || raw.isBlank()) return "cover";
+    String normalized = raw.trim().toLowerCase();
+    if ("contain".equals(normalized) || "fit".equals(normalized)) return "contain";
+    return "cover";
+  }
+
   private void drawImageCover(Image image, Rect target) {
     if (image == null || target == null) return;
     double iw = image.getWidth();
@@ -1333,6 +1444,19 @@ public class MenuRenderer {
       sy = (ih - sh) / 2.0;
     }
     gc.drawImage(image, sx, sy, sw, sh, target.x(), target.y(), target.w(), target.h());
+  }
+
+  private void drawImageContain(Image image, Rect target) {
+    if (image == null || target == null) return;
+    double iw = image.getWidth();
+    double ih = image.getHeight();
+    if (iw <= 0 || ih <= 0) return;
+    double scale = Math.min(target.w() / iw, target.h() / ih);
+    double dw = iw * scale;
+    double dh = ih * scale;
+    double dx = target.x() + (target.w() - dw) / 2.0;
+    double dy = target.y() + (target.h() - dh) / 2.0;
+    gc.drawImage(image, dx, dy, dw, dh);
   }
 
   private void drawPreviewResource(String path, double w, double h) {
