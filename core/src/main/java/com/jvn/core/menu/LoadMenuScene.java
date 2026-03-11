@@ -57,7 +57,7 @@ public class LoadMenuScene implements Scene {
   private final String scopedScriptName;
   private final String scopedScenarioId;
   private boolean favoritesOnly = false;
-  private int selected = 0;
+  private int selected = -1;
 
   public LoadMenuScene(Engine engine, VnSaveManager saveManager, String defaultScriptName, com.jvn.core.vn.VnSettings settingsModel, AudioFacade audio) {
     this(engine, saveManager, defaultScriptName, settingsModel, audio, null);
@@ -211,7 +211,7 @@ public class LoadMenuScene implements Scene {
 
   public void setPageIndex(int pageIndex) {
     if (saves.isEmpty()) {
-      selected = 0;
+      selected = -1;
       return;
     }
     int pages = getPageCount();
@@ -282,6 +282,13 @@ public class LoadMenuScene implements Scene {
     }
     MenuStyleSpec slotStyle = styleForItemId("save_slot", "slot", "entry");
     if (slotStyle != null) return slotStyle;
+    if (!menuScreen.items().isEmpty()) {
+      var repeated = menuScreen.items().get(Math.floorMod(idx, menuScreen.items().size()));
+      String styleId = (repeated != null && repeated.styleId() != null && !repeated.styleId().isBlank())
+          ? repeated.styleId()
+          : menuScreen.defaultStyleId();
+      return menuProfile.style(styleId);
+    }
     return menuProfile.style(menuScreen.defaultStyleId());
   }
 
@@ -308,6 +315,10 @@ public class LoadMenuScene implements Scene {
 
   public void moveSelection(int delta) {
     if (saves.isEmpty()) return;
+    if (selected < 0 || selected >= saves.size()) {
+      selected = delta < 0 ? Math.max(0, saves.size() - 1) : 0;
+      return;
+    }
     int count = saves.size();
     if (menuScreen.wrapSelection()) {
       selected = (selected + delta + count) % count;
@@ -317,7 +328,8 @@ public class LoadMenuScene implements Scene {
   }
   public void setSelected(int idx) {
     int count = saves.size();
-    if (count <= 0) { selected = 0; return; }
+    if (count <= 0) { selected = -1; return; }
+    if (idx < 0) { selected = -1; return; }
     selected = Math.max(0, Math.min(idx, count - 1));
   }
 
@@ -333,6 +345,9 @@ public class LoadMenuScene implements Scene {
     }
     MenuItemSpec template = itemForItemId("save_slot", "slot", "entry");
     if (template != null) return template;
+    if (!menuScreen.items().isEmpty()) {
+      return menuScreen.items().get(Math.floorMod(idx, menuScreen.items().size()));
+    }
     return null;
   }
 
@@ -416,7 +431,10 @@ public class LoadMenuScene implements Scene {
   }
 
   public String getSaveDirectory() { return saveManager.getSaveDirectory(); }
-  public String getSelectedName() { return (saves.isEmpty() ? null : saves.get(selected)); }
+  public String getSelectedName() {
+    if (saves.isEmpty() || selected < 0 || selected >= saves.size()) return null;
+    return saves.get(selected);
+  }
   public String getSelectedRpgSummary() {
     String name = getSelectedName();
     if (name == null) return null;
@@ -427,7 +445,7 @@ public class LoadMenuScene implements Scene {
   }
 
   public boolean deleteSelected() {
-    if (saves.isEmpty()) return false;
+    if (saves.isEmpty() || selected < 0 || selected >= saves.size()) return false;
     String name = saves.get(selected);
     boolean ok = saveManager.deleteSave(name);
     if (ok && name != null) {
@@ -439,7 +457,7 @@ public class LoadMenuScene implements Scene {
   }
 
   public boolean renameSelected(String newName) {
-    if (saves.isEmpty() || newName == null || newName.isBlank()) return false;
+    if (saves.isEmpty() || selected < 0 || selected >= saves.size() || newName == null || newName.isBlank()) return false;
     String old = saves.get(selected);
     boolean ok = saveManager.renameSave(old, newName);
     if (ok) {
@@ -478,7 +496,7 @@ public class LoadMenuScene implements Scene {
   }
 
   public void loadSelected() {
-    if (saves.isEmpty()) return;
+    if (saves.isEmpty() || selected < 0 || selected >= saves.size()) return;
     String name = saves.get(selected);
     try {
       VnSaveData data = saveManager.load(name);

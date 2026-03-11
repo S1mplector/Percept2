@@ -205,22 +205,27 @@ public class MenuRenderer {
     int visibleStartIndex = 0;
     int visibleDrawCount = 0;
     MenuItemSpec[] visibleSpecs = null;
+    double listAreaWidth = resolveLoadListAreaWidth(scene, null, w);
     if (saves.isEmpty()) {
       MenuItemSpec template = scene != null ? scene.getMenuItemSpec(0) : null;
-      int emptySlots = parseItemExtraInt(template, "emptySlotCount", 0);
-      if (emptySlots > 0 && scene != null) {
-        String[] items = new String[emptySlots];
-        boolean[] enabled = new boolean[emptySlots];
-        MenuStyleSpec[] styles = new MenuStyleSpec[emptySlots];
-        MenuItemSpec[] specs = new MenuItemSpec[emptySlots];
-        for (int i = 0; i < emptySlots; i++) {
+      int emptySlots = parseItemExtraInt(template, "emptySlotCount", scene != null ? scene.getPageSize() : 0);
+      int configuredVisible = parseItemExtraInt(template, "visibleSlotCount", 0);
+      int drawSlots = Math.max(emptySlots, configuredVisible);
+      if (drawSlots > 0 && scene != null) {
+        String[] items = new String[drawSlots];
+        boolean[] enabled = new boolean[drawSlots];
+        MenuStyleSpec[] styles = new MenuStyleSpec[drawSlots];
+        MenuItemSpec[] specs = new MenuItemSpec[drawSlots];
+        for (int i = 0; i < drawSlots; i++) {
           items[i] = "";
           enabled[i] = false;
-          styles[i] = scene.getStyleForIndex(0);
-          specs[i] = template;
+          styles[i] = scene.getStyleForIndex(i);
+          MenuItemSpec candidate = scene.getMenuItemSpec(i);
+          specs[i] = candidate != null ? candidate : template;
         }
-        drawMenuList(items, -1, enabled, styles, specs, layout, 0, w * 0.6, h, true);
-        visibleDrawCount = emptySlots;
+        listAreaWidth = resolveLoadListAreaWidth(scene, specs, w);
+        drawMenuList(items, -1, enabled, styles, specs, layout, 0, listAreaWidth, h, true);
+        visibleDrawCount = drawSlots;
         visibleSpecs = specs;
       } else {
         drawCenteredText(Localization.t("load.no_saves"), w, h / 2, theme.getItemFont(), Color.GRAY);
@@ -228,28 +233,41 @@ public class MenuRenderer {
     } else {
       String[] items = saves.toArray(new String[0]);
       int startIndex = scene.getVisibleStartIndex();
-      int drawCount = scene.getVisibleCount();
-      drawCount = Math.max(0, Math.min(drawCount, items.length - startIndex));
-      if (drawCount <= 0) {
+      int dataVisibleCount = scene.getVisibleCount();
+      dataVisibleCount = Math.max(0, Math.min(dataVisibleCount, items.length - startIndex));
+      if (dataVisibleCount <= 0) {
         drawCenteredText(Localization.t("load.no_saves"), w, h / 2, theme.getItemFont(), Color.GRAY);
       } else {
-        String[] visibleItems = new String[drawCount];
-        boolean[] enabled = new boolean[drawCount];
-        MenuStyleSpec[] styles = new MenuStyleSpec[drawCount];
-        MenuItemSpec[] specs = new MenuItemSpec[drawCount];
-        for (int i = 0; i < drawCount; i++) {
+        MenuItemSpec template = scene.getMenuItemSpec(startIndex);
+        int configuredVisible = parseItemExtraInt(template, "visibleSlotCount", 0);
+        boolean fillVisibleSlots = parseItemExtraBoolean(template, "fillVisibleSlots", configuredVisible > 0);
+        int drawSlots = fillVisibleSlots
+            ? Math.max(dataVisibleCount, configuredVisible > 0 ? configuredVisible : scene.getPageSize())
+            : dataVisibleCount;
+        drawSlots = Math.max(dataVisibleCount, drawSlots);
+        String[] visibleItems = new String[drawSlots];
+        boolean[] enabled = new boolean[drawSlots];
+        MenuStyleSpec[] styles = new MenuStyleSpec[drawSlots];
+        MenuItemSpec[] specs = new MenuItemSpec[drawSlots];
+        for (int i = 0; i < drawSlots; i++) {
           int globalIndex = startIndex + i;
-          visibleItems[i] = items[globalIndex];
-          enabled[i] = true;
+          boolean hasSave = globalIndex >= 0 && globalIndex < items.length;
+          visibleItems[i] = hasSave ? items[globalIndex] : "";
+          enabled[i] = hasSave;
           styles[i] = scene.getStyleForIndex(globalIndex);
-          specs[i] = scene.getMenuItemSpec(globalIndex);
+          MenuItemSpec candidate = scene.getMenuItemSpec(globalIndex);
+          specs[i] = candidate != null ? candidate : template;
         }
-        int localSelected = Math.max(0, Math.min(drawCount - 1, scene.getSelected() - startIndex));
         boolean showSidePreview = shouldShowLoadSidePreview(scene, specs);
-        drawMenuList(visibleItems, localSelected, enabled, styles, specs, layout, 0, w * 0.6, h, true);
-        drawInlineLoadSlotPreviews(scene, layout, specs, startIndex, drawCount, 0, w * 0.6, h);
+        listAreaWidth = showSidePreview ? w * 0.6 : w;
+        int selectedGlobal = scene.getSelected();
+        int localSelected = (selectedGlobal >= startIndex && selectedGlobal < startIndex + drawSlots)
+            ? (selectedGlobal - startIndex)
+            : -1;
+        drawMenuList(visibleItems, localSelected, enabled, styles, specs, layout, 0, listAreaWidth, h, true);
+        drawInlineLoadSlotPreviews(scene, layout, specs, startIndex, drawSlots, 0, listAreaWidth, h);
         visibleStartIndex = startIndex;
-        visibleDrawCount = drawCount;
+        visibleDrawCount = drawSlots;
         visibleSpecs = specs;
         if (showSidePreview) {
           File thumb = getThumbnailFile(scene);
@@ -278,7 +296,7 @@ public class MenuRenderer {
         }
       }
     }
-    drawLoadMenuControls(scene, layout, visibleSpecs, visibleStartIndex, visibleDrawCount, w, h);
+    drawLoadMenuControls(scene, layout, visibleSpecs, visibleStartIndex, visibleDrawCount, w, h, listAreaWidth);
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
@@ -888,13 +906,15 @@ public class MenuRenderer {
     if (drawCount <= 0) return -1;
     MenuItemSpec[] specs = new MenuItemSpec[drawCount];
     for (int i = 0; i < drawCount; i++) specs[i] = scene.getMenuItemSpec(startIndex + i);
-    int local = hoverIndex(drawCount, layout, specs, 0, w * 0.6, h, mouseX, mouseY);
+    double listAreaWidth = resolveLoadListAreaWidth(scene, specs, w);
+    int local = hoverIndex(drawCount, layout, specs, 0, listAreaWidth, h, mouseX, mouseY);
     return local < 0 ? -1 : (startIndex + local);
   }
 
   public LoadControlHit getLoadControlHit(LoadMenuScene scene, double w, double h, double mouseX, double mouseY) {
     if (scene == null) return LoadControlHit.none();
     MenuItemSpec template = resolveLoadTemplateItem(scene, null);
+    if (!areLoadControlsVisible(template)) return LoadControlHit.none();
 
     // Per-slot favorite icon hit (visible rows only).
     int total = scene.getItemCount();
@@ -906,8 +926,9 @@ public class MenuRenderer {
       if (drawCount > 0) {
         MenuItemSpec[] specs = new MenuItemSpec[drawCount];
         for (int i = 0; i < drawCount; i++) specs[i] = scene.getMenuItemSpec(startIndex + i);
+        double listAreaWidth = resolveLoadListAreaWidth(scene, specs, w);
         for (int i = 0; i < drawCount; i++) {
-          Rect itemRect = resolveItemRect(i, drawCount, specs[i], specs, layout, 0, w * 0.6, h);
+          Rect itemRect = resolveItemRect(i, drawCount, specs[i], specs, layout, 0, listAreaWidth, h);
           Rect iconRect = resolveLoadSlotFavoriteIconRect(template, itemRect);
           if (iconRect.contains(mouseX, mouseY)) {
             return new LoadControlHit(LoadControlType.TOGGLE_SLOT_FAVORITE, startIndex + i, 0.0);
@@ -1350,6 +1371,15 @@ public class MenuRenderer {
         && parseItemExtraBoolean(template, "sidePreview", true);
   }
 
+  private boolean areLoadControlsVisible(MenuItemSpec template) {
+    return parseItemExtraBoolean(template, "controlsVisible", true)
+        && parseItemExtraBoolean(template, "showControls", true);
+  }
+
+  private double resolveLoadListAreaWidth(LoadMenuScene scene, MenuItemSpec[] specs, double viewportWidth) {
+    return shouldShowLoadSidePreview(scene, specs) ? viewportWidth * 0.6 : viewportWidth;
+  }
+
   private boolean parseItemExtraBoolean(MenuItemSpec itemSpec, String key, boolean defaultValue) {
     if (itemSpec == null || key == null || itemSpec.extras() == null) return defaultValue;
     String raw = itemSpec.extras().get(key);
@@ -1379,10 +1409,12 @@ public class MenuRenderer {
       int visibleStartIndex,
       int visibleDrawCount,
       double w,
-      double h
+      double h,
+      double listAreaWidth
   ) {
     if (scene == null) return;
     MenuItemSpec template = resolveLoadTemplateItem(scene, visibleSpecs);
+    if (!areLoadControlsVisible(template)) return;
 
     int pageCount = scene.getPageCount();
     int currentPage = scene.getCurrentPageIndex();
@@ -1416,7 +1448,7 @@ public class MenuRenderer {
     for (int i = 0; i < visibleDrawCount; i++) {
       int globalIndex = visibleStartIndex + i;
       if (globalIndex < 0 || globalIndex >= scene.getItemCount()) continue;
-      Rect itemRect = resolveItemRect(i, visibleDrawCount, specs[i], specs, layout, 0, w * 0.6, h);
+      Rect itemRect = resolveItemRect(i, visibleDrawCount, specs[i], specs, layout, 0, listAreaWidth, h);
       Rect iconRect = resolveLoadSlotFavoriteIconRect(template, itemRect);
       double prevAlpha = gc.getGlobalAlpha();
       gc.setGlobalAlpha(scene.isFavoriteAt(globalIndex) ? 1.0 : 0.28);
@@ -1637,7 +1669,12 @@ public class MenuRenderer {
         gc.fillRoundRect(previewRect.x(), previewRect.y(), previewRect.w(), previewRect.h(), 7, 7);
         gc.setFill(Color.rgb(205, 212, 225, 0.85));
         gc.setFont(theme.getHintFont());
-        String txt = fallbackText == null || fallbackText.isBlank() ? Localization.t("load.no_preview") : fallbackText;
+        String txt = firstNonBlank(
+            extra(itemSpec, "slotPreviewFallbackText"),
+            extra(itemSpec, "previewFallbackText"),
+            fallbackText
+        );
+        if (txt == null || txt.isBlank()) txt = Localization.t("load.no_preview");
         double tw = measure(txt, theme.getHintFont());
         double tx = previewRect.x() + Math.max(6, (previewRect.w() - tw) / 2.0);
         double ty = previewRect.y() + previewRect.h() * 0.56;
