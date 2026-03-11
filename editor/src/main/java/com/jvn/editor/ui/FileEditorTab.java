@@ -784,7 +784,8 @@ public class FileEditorTab extends BorderPane {
     previewModePreviewButton = new ToggleButton("Preview");
     previewModeCodeButton = new ToggleButton("Code");
     previewModeSplitButton = new ToggleButton("Split");
-    boolean allowSplitToggle = !isVnsPreviewWorkspace();
+    boolean vnsDetachedOnly = isVnsPreviewWorkspace();
+    boolean allowSplitToggle = !vnsDetachedOnly;
     ToggleGroup modeGroup = new ToggleGroup();
     previewModePreviewButton.setToggleGroup(modeGroup);
     previewModeCodeButton.setToggleGroup(modeGroup);
@@ -795,6 +796,14 @@ public class FileEditorTab extends BorderPane {
       previewModeCodeButton.setSelected(true);
       previewModeSplitButton.setManaged(false);
       previewModeSplitButton.setVisible(false);
+    }
+    if (vnsDetachedOnly) {
+      previewModePreviewButton.setManaged(false);
+      previewModePreviewButton.setVisible(false);
+      previewModePreviewButton.setDisable(true);
+      previewModeCodeButton.setManaged(false);
+      previewModeCodeButton.setVisible(false);
+      previewModeCodeButton.setDisable(true);
     }
 
     MenuItem dockTop = new MenuItem("Snap Top");
@@ -811,7 +820,11 @@ public class FileEditorTab extends BorderPane {
     dockBack.setOnAction(e -> closeDetachedPreviewWindow(false));
 
     previewDockMenu = new MenuButton("Snap");
-    previewDockMenu.getItems().addAll(dockTop, dockBottom, dockLeft, dockRight, dockWindow, dockBack);
+    if (vnsDetachedOnly) {
+      previewDockMenu.getItems().add(dockWindow);
+    } else {
+      previewDockMenu.getItems().addAll(dockTop, dockBottom, dockLeft, dockRight, dockWindow, dockBack);
+    }
 
     previewModePreviewButton.getStyleClass().add("layout-studio-toolbar-toggle");
     previewModeCodeButton.getStyleClass().add("layout-studio-toolbar-toggle");
@@ -825,12 +838,14 @@ public class FileEditorTab extends BorderPane {
       configureIconToggle(previewModePreviewButton, CssIcon.speech("#b0b8c8"), "Preview mode");
       configureIconToggle(previewModeCodeButton, CssIcon.list("#b0b8c8"), "Code mode");
       configureIconToggle(previewModeSplitButton, CssIcon.grid("#b0b8c8"), "Split mode");
-      configureIconMenuButton(previewDockMenu, CssIcon.sort("#b0b8c8"), "Snap preview");
+      configureIconMenuButton(previewDockMenu, CssIcon.popOut("#b0b8c8"), "Open preview in separate window");
       previewDockMenu.getStyleClass().add("preview-toolbar-icon-menu");
       titleLabel.setText("VNS");
     }
 
-    HBox toolbar = new HBox(8, titleLabel, previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu);
+    HBox toolbar = vnsDetachedOnly
+        ? new HBox(8, titleLabel, previewDockMenu)
+        : new HBox(8, titleLabel, previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu);
     toolbar.setPadding(new javafx.geometry.Insets(6, 6, 6, 6));
     toolbar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
@@ -851,6 +866,7 @@ public class FileEditorTab extends BorderPane {
 
   private void setPreviewDockPosition(PreviewDockPosition position) {
     if (position == null || dockPreviewNode == null || dockEditorNode == null) return;
+    if (isVnsPreviewWorkspace() && position != PreviewDockPosition.WINDOW) return;
     if (position == PreviewDockPosition.WINDOW) {
       openDetachedPreviewWindow();
       return;
@@ -862,14 +878,16 @@ public class FileEditorTab extends BorderPane {
   }
 
   private PreviewLayoutMode currentPreviewLayoutMode() {
+    if (isVnsPreviewWorkspace()) return PreviewLayoutMode.CODE;
     if (previewModePreviewButton != null && previewModePreviewButton.isSelected()) return PreviewLayoutMode.PREVIEW;
     if (previewModeCodeButton != null && previewModeCodeButton.isSelected()) return PreviewLayoutMode.CODE;
-    if (isVnsPreviewWorkspace()) return PreviewLayoutMode.CODE;
     return PreviewLayoutMode.SPLIT;
   }
 
   private void restorePreviewLayoutMode() {
-    if (previewModeBeforeDetach == PreviewLayoutMode.PREVIEW && previewModePreviewButton != null) {
+    if (!isVnsPreviewWorkspace()
+        && previewModeBeforeDetach == PreviewLayoutMode.PREVIEW
+        && previewModePreviewButton != null) {
       previewModePreviewButton.setSelected(true);
       return;
     }
@@ -1044,6 +1062,13 @@ public class FileEditorTab extends BorderPane {
 
   private void updatePreviewDockMenuText() {
     if (previewDockMenu == null) return;
+    if (isVnsPreviewWorkspace()) {
+      previewDockMenu.setText("");
+      previewDockMenu.setTooltip(new Tooltip(
+          isDetachedPreviewVisible() ? "Preview window is open" : "Open preview in separate window"));
+      previewDockMenu.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+      return;
+    }
     String label;
     if (isDetachedPreviewVisible()) {
       label = "Window";
@@ -1056,12 +1081,6 @@ public class FileEditorTab extends BorderPane {
         case WINDOW -> "Window";
         case TOP -> "Top";
       };
-    }
-    if (isVnsPreviewWorkspace()) {
-      previewDockMenu.setText("");
-      previewDockMenu.setTooltip(new Tooltip("Snap: " + label));
-      previewDockMenu.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-      return;
     }
     previewDockMenu.setText("Snap: " + label);
   }
