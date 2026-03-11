@@ -262,7 +262,7 @@ public class FxLauncher extends Application {
           if (idx >= 0) pause.setSelected(idx);
         } else if (currentScene instanceof MainMenuScene main) {
           int idx = menuRenderer.getHoverIndexForMainMenu(main, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
-          if (idx >= 0) main.setSelected(idx);
+          main.setSelected(idx);
         } else if (currentScene instanceof LoadMenuScene load) {
           int idx = menuRenderer.getHoverIndexForLoadMenu(load, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
           if (idx >= 0) {

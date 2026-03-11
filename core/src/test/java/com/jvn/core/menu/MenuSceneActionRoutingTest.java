@@ -29,6 +29,33 @@ import com.jvn.core.vn.save.VnSaveManager;
 class MenuSceneActionRoutingTest {
 
   @Test
+  void mainMenuStartsUnselectedForDefaultScreenAndSelectsOnFirstMove() throws Exception {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    VnSaveManager saveManager = new VnSaveManager(Files.createTempDirectory("jvn-main-unselected").toString());
+    MainMenuScene scene = new MainMenuScene(engine, new VnSettings(), saveManager, "demo.vns", null);
+
+    assertEquals(-1, scene.getSelected());
+
+    scene.moveSelection(1);
+    assertTrue(scene.getSelected() >= 0);
+
+    scene.setSelected(-1);
+    assertEquals(-1, scene.getSelected());
+  }
+
+  @Test
+  void nonDefaultConfiguredMainMenuStartsSelected() throws Exception {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    VnSaveManager saveManager = new VnSaveManager(Files.createTempDirectory("jvn-main-extras-selected").toString());
+    MainMenuScene scene = new MainMenuScene(engine, new VnSettings(), saveManager, "demo.vns", null, "extras");
+
+    assertTrue(scene.getSelected() >= 0);
+
+    scene.setSelected(-1);
+    assertTrue(scene.getSelected() >= 0);
+  }
+
+  @Test
   void settingsOpenMenuActionPushesConfiguredMainMenu() throws Exception {
     Engine engine = new Engine(ApplicationConfig.builder().build());
     VnSaveManager saveManager = new VnSaveManager(Files.createTempDirectory("jvn-settings-open-menu").toString());

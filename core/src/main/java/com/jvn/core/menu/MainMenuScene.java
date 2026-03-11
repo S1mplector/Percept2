@@ -25,6 +25,7 @@ import com.jvn.core.vn.save.VnSaveManager;
 
 public class MainMenuScene implements Scene {
   private static final Logger LOG = LoggerFactory.getLogger(MainMenuScene.class);
+  private static final int NO_SELECTION = -1;
 
   private final Engine engine;
   private final VnSettings settingsModel;
@@ -35,8 +36,9 @@ public class MainMenuScene implements Scene {
   private final MenuProfile menuProfile;
   private final MenuScreenSpec menuScreen;
   private final MenuLayoutSpec menuLayout;
+  private final boolean allowNoSelection;
   private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
-  private int selected = 0;
+  private int selected = NO_SELECTION;
 
   // Title screen configuration
   private String titleBgmPath = null;
@@ -62,7 +64,8 @@ public class MainMenuScene implements Scene {
     this.menuId = normalize(menuId, menuProfile.defaultScreenId());
     this.menuScreen = menuProfile.screen(this.menuId);
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());
-    this.selected = firstSelectableIndex(0);
+    this.allowNoSelection = equalsIgnoreCase(this.menuId, menuProfile.defaultScreenId());
+    this.selected = allowNoSelection ? NO_SELECTION : firstSelectableIndex(0);
   }
 
   /**
@@ -127,9 +130,13 @@ public class MainMenuScene implements Scene {
   public void moveSelection(int delta) {
     int count = getItemCount();
     if (count <= 0 || delta == 0) return;
-    int steps = Math.abs(delta);
     int dir = delta > 0 ? 1 : -1;
+    int steps = Math.abs(delta);
     int next = selected;
+    if (next < 0) {
+      next = firstSelectableIndex(dir > 0 ? 0 : count - 1);
+      steps = Math.max(0, steps - 1);
+    }
     for (int i = 0; i < steps; i++) {
       next = nextSelectable(next, dir);
     }
@@ -139,8 +146,15 @@ public class MainMenuScene implements Scene {
   public void setSelected(int idx) {
     int count = getItemCount();
     if (count <= 0) {
-      selected = 0;
+      selected = allowNoSelection ? NO_SELECTION : 0;
       return;
+    }
+    if (idx < 0) {
+      if (allowNoSelection) {
+        selected = NO_SELECTION;
+        return;
+      }
+      idx = 0;
     }
     int clamped = Math.max(0, Math.min(idx, count - 1));
     if (isItemEnabled(clamped)) {
@@ -306,6 +320,7 @@ public class MainMenuScene implements Scene {
   private int nextSelectable(int from, int dir) {
     int count = getItemCount();
     if (count <= 0) return 0;
+    if (from < 0) return firstSelectableIndex(dir > 0 ? 0 : count - 1);
     int start = Math.max(0, Math.min(from, count - 1));
     if (!menuScreen.wrapSelection()) {
       int idx = start;
@@ -321,6 +336,11 @@ public class MainMenuScene implements Scene {
       if (isItemEnabled(idx)) return idx;
     }
     return from;
+  }
+
+  private static boolean equalsIgnoreCase(String a, String b) {
+    if (a == null || b == null) return false;
+    return a.equalsIgnoreCase(b);
   }
 
   private String displayLabel(MenuItemSpec item) {
