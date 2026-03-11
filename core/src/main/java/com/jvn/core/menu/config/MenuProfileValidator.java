@@ -102,9 +102,16 @@ public final class MenuProfileValidator {
             warnings.add("Menu '" + screenId + "' item '" + item.id() + "' has RUN_SCRIPT without script target");
           }
         }
+        if (action.type() == MenuActionType.QUIT) {
+          String target = action.target();
+          if (target != null && !target.isBlank() && !profile.hasScreen(target)) {
+            warnings.add("Menu '" + screenId + "' item '" + item.id() + "' quit target references unknown menu '" + target + "'");
+          }
+        }
         if (!action.isCustomAction()
             && action.type() != MenuActionType.OPEN_MENU
             && action.type() != MenuActionType.RUN_SCRIPT
+            && action.type() != MenuActionType.QUIT
             && action.target() != null
             && !action.target().isBlank()) {
           warnings.add("Menu '" + screenId + "' item '" + item.id() + "' defines unused action target '" + action.target() + "'");

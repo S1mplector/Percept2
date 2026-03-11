@@ -611,6 +611,7 @@ public final class MenuProfileLoader {
     if (target != null && !target.isBlank()
         && type != MenuActionType.OPEN_MENU
         && type != MenuActionType.RUN_SCRIPT
+        && type != MenuActionType.QUIT
         && type != MenuActionType.NOOP) {
       diagnostics.add("Target for action '" + action + "' is ignored in " + sourcePath + " (" + property + ")");
     }

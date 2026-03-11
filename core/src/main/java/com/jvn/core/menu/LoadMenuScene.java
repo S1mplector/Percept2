@@ -399,7 +399,7 @@ public class LoadMenuScene implements Scene {
         yield true;
       }
       case QUIT -> {
-        if (engine != null) {
+        if (!openQuitConfirmationMenu(action.target()) && engine != null) {
           engine.stop();
         }
         yield true;
@@ -415,6 +415,9 @@ public class LoadMenuScene implements Scene {
     if (handler == null) return false;
 
     MenuItemSpec selectedItem = getMenuItemSpec(selected);
+    if (selectedItem == null) {
+      selectedItem = getMenuItemSpec(0);
+    }
     String sourceItemId = selectedItem != null ? normalize(selectedItem.id(), "") : "";
     try {
       return handler.handle(new MenuActionContext(
@@ -537,6 +540,18 @@ public class LoadMenuScene implements Scene {
     }
     MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, audio, requested);
     engine.scenes().push(child);
+  }
+
+  private boolean openQuitConfirmationMenu(String targetMenu) {
+    String requested = normalize(targetMenu, null);
+    if (requested == null && menuProfile.screens().containsKey("confirm_exit")) {
+      requested = "confirm_exit";
+    }
+    if (requested == null || requested.isBlank() || "load".equalsIgnoreCase(requested)) return false;
+    if (!menuProfile.screens().containsKey(requested) || engine == null) return false;
+    MainMenuScene child = new MainMenuScene(engine, settingsModel, saveManager, defaultScriptName, audio, requested);
+    engine.scenes().push(child);
+    return true;
   }
 
   private void startNewGame(String scriptName) {

@@ -165,7 +165,9 @@ public class PauseMenuScene implements Scene {
         }
       }
       case QUIT -> {
-        if (engine != null) engine.stop();
+        if (!openQuitConfirmationMenu(action.target()) && engine != null) {
+          engine.stop();
+        }
       }
       case NOOP -> { }
       default -> LOG.debug("Unhandled pause menu action: {}", action.type());
@@ -184,6 +186,19 @@ public class PauseMenuScene implements Scene {
       LOG.warn("Custom menu action '{}' failed in pause menu", action.actionKey(), ex);
       return false;
     }
+  }
+
+  private boolean openQuitConfirmationMenu(String targetMenu) {
+    String requested = normalize(targetMenu, null);
+    if (requested == null && menuProfile.screens().containsKey("confirm_exit")) {
+      requested = "confirm_exit";
+    }
+    if (requested == null || requested.isBlank() || "pause".equalsIgnoreCase(requested)) return false;
+    if (!menuProfile.screens().containsKey(requested) || engine == null) return false;
+    VnSettings model = vnScene != null ? vnScene.getState().getSettings() : new VnSettings();
+    MainMenuScene child = new MainMenuScene(engine, model, saveManager, defaultScriptName, audio, requested);
+    engine.scenes().push(child);
+    return true;
   }
 
   @Override

@@ -244,7 +244,7 @@ public record MenuProfile(
         List.of(
             new MenuItemSpec("prompt", "Are you sure you want to exit?", "submenu", null, false, MenuActionSpec.noop(), null, null, null, null, null, null, null),
             new MenuItemSpec("quit_yes", "Quit", "submenu", null, true, new MenuActionSpec(MenuActionType.QUIT, null), null, null, null, null, null, null, null),
-            new MenuItemSpec("quit_no", "Cancel", "submenu", null, true, new MenuActionSpec(MenuActionType.MAIN_MENU, null), null, null, null, null, null, null, null)
+            new MenuItemSpec("quit_no", "Cancel", "submenu", null, true, new MenuActionSpec(MenuActionType.BACK, null), null, null, null, null, null, null, null)
         )
     );
   }

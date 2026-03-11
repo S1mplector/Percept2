@@ -447,6 +447,15 @@ public class MenuRenderer {
     if (screenBgAsset != null && !screenBgAsset.isBlank()) {
       Image screenBgImage = loadImage(screenBgAsset);
       if (screenBgImage != null) {
+        // Always paint a base layer first so transparent menu background PNGs
+        // do not leak pixels from the previously rendered scene.
+        Color base = parseColor(style != null ? style.backgroundColor() : null, theme.getBackgroundColor());
+        if (base == null) base = Color.BLACK;
+        double baseOpacity = style != null && style.backgroundOpacity() != null
+            ? clamp01(style.backgroundOpacity())
+            : 1.0;
+        gc.setFill(Color.color(base.getRed(), base.getGreen(), base.getBlue(), baseOpacity));
+        gc.fillRect(0, 0, w, h);
         gc.drawImage(screenBgImage, 0, 0, w, h);
         return;
       }

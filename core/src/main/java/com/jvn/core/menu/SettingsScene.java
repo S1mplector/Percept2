@@ -452,8 +452,13 @@ public class SettingsScene implements Scene {
         yield true;
       }
       case QUIT -> {
-        if (engine != null) engine.stop();
-        else closeRequested = true;
+        if (engine != null) {
+          if (!openQuitConfirmationMenu(action.target())) {
+            engine.stop();
+          }
+        } else {
+          closeRequested = true;
+        }
         yield true;
       }
       case NEW_GAME -> {
@@ -540,6 +545,15 @@ public class SettingsScene implements Scene {
     MainMenuScene child = new MainMenuScene(engine, settings, saveManager, defaultScriptName, audio, requested);
     engine.scenes().push(child);
     return true;
+  }
+
+  private boolean openQuitConfirmationMenu(String targetMenu) {
+    String requested = normalize(targetMenu, null);
+    if (requested == null && menuProfile.screens().containsKey("confirm_exit")) {
+      requested = "confirm_exit";
+    }
+    if (requested == null || requested.isBlank() || "settings".equalsIgnoreCase(requested)) return false;
+    return openConfiguredMenu(requested);
   }
 
   private void startNewGame(String scriptName) {

@@ -335,6 +335,11 @@ public class FxLauncher extends Application {
         long deltaMs = (now - lastNs) / 1_000_000L;
         lastNs = now;
         if (engine != null) engine.update(deltaMs);
+        if (engine != null && !engine.isStarted()) {
+          if (timer != null) timer.stop();
+          primaryStage.close();
+          return;
+        }
         syncRequestedVnMenus();
         com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
         if (currentScene instanceof PhoneScene phone && phone.consumeCloseRequested() && engine != null) {
@@ -859,6 +864,14 @@ public class FxLauncher extends Application {
         || currentScene instanceof HistoryMenuScene) {
       engine.scenes().pop();
       return true;
+    }
+    if (currentScene instanceof MainMenuScene main) {
+      String activeMenuId = main.getMenuId();
+      String rootMenuId = main.getMenuProfile() != null ? main.getMenuProfile().defaultScreenId() : "main";
+      if (activeMenuId != null && rootMenuId != null && !activeMenuId.equalsIgnoreCase(rootMenuId)) {
+        engine.scenes().pop();
+        return true;
+      }
     }
     return false;
   }

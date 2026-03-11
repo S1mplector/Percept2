@@ -189,7 +189,9 @@ public class MainMenuScene implements Scene {
         if (engine != null) engine.scenes().pop();
       }
       case QUIT -> {
-        if (engine != null) engine.stop();
+        if (!openQuitConfirmationMenu(action) && engine != null) {
+          engine.stop();
+        }
       }
       case SAVE_MENU -> LOG.debug("Ignoring save menu action in title context");
       case NOOP -> {
@@ -228,6 +230,17 @@ public class MainMenuScene implements Scene {
       child.setTitleBgm(titleBgmPath, titleBgmVolume);
     }
     engine.scenes().push(child);
+  }
+
+  private boolean openQuitConfirmationMenu(MenuActionSpec action) {
+    String target = normalize(action != null ? action.target() : null, null);
+    if (target == null && !equalsIgnoreCase(menuId, "confirm_exit") && menuProfile.hasScreen("confirm_exit")) {
+      target = "confirm_exit";
+    }
+    if (target == null || target.isBlank() || equalsIgnoreCase(target, menuId)) return false;
+    if (!menuProfile.hasScreen(target)) return false;
+    openConfiguredMenu(target);
+    return true;
   }
 
   private void startNewGame(String scriptName) {
