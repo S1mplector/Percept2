@@ -690,8 +690,23 @@ public class FxLauncher extends Application {
 
   private boolean executeTextBoxButtonAction(VnScene vnScene, com.jvn.core.vn.ui.VnUiActionButtonSpec button) {
     if (vnScene == null || button == null || !button.enabled()) return false;
-    String action = normalizeButtonAction(button.action());
     String target = button.target() == null ? "" : button.target().trim();
+    String action = normalizeButtonAction(button.action());
+
+    String rawAction = button.action();
+    if (rawAction != null) {
+      String trimmed = rawAction.trim();
+      int colon = trimmed.indexOf(':');
+      if (colon > 0 && colon < trimmed.length() - 1) {
+        action = normalizeButtonAction(trimmed.substring(0, colon));
+        if (target.isBlank()) {
+          String inlineTarget = trimmed.substring(colon + 1).trim();
+          if (!inlineTarget.isBlank()) {
+            target = inlineTarget;
+          }
+        }
+      }
+    }
     var state = vnScene.getState();
 
     switch (action) {
@@ -782,6 +797,19 @@ public class FxLauncher extends Application {
             fallbackScript,
             vnScene.getAudioFacade(),
             target
+        ));
+        return true;
+      }
+      case "quit", "quit_game", "close_game", "exit" -> {
+        String fallbackScript = resolveDefaultScriptForMenus(vnScene);
+        String menuTarget = target.isBlank() ? "confirm_exit" : target;
+        engine.scenes().push(new MainMenuScene(
+            engine,
+            vnScene.getState().getSettings(),
+            new com.jvn.core.vn.save.VnSaveManager(),
+            fallbackScript,
+            vnScene.getAudioFacade(),
+            menuTarget
         ));
         return true;
       }

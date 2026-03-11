@@ -166,23 +166,27 @@ public class MenuRenderer {
       styles[i] = scene.getStyleForIndex(i);
       specs[i] = scene.getMenuItemSpec(i);
     }
-    drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, w * 0.6, h, true);
-    drawInlineSaveSlotPreviews(scene, layout, specs, 0, w * 0.6, h);
+    boolean showSidePreview = shouldShowSaveSidePreview(scene, specs);
+    double listAreaWidth = showSidePreview ? w * 0.6 : w;
+    drawMenuList(items, scene.getSelected(), enabled, styles, specs, layout, 0, listAreaWidth, h, true);
+    drawInlineSaveSlotPreviews(scene, layout, specs, 0, listAreaWidth, h);
 
-    // Preview: prefer thumbnail when selecting existing; when selecting new, try current background
-    if (scene.isNewItemSelected()) {
-      String path = scene.getCurrentBackgroundPreviewPath();
-      if (path != null) drawPreviewResource(path, w, h); else drawPreviewPlaceholder(w, h);
-    } else {
-      File f = new File(scene.getSaveDirectory(), scene.getSelectedName() + ".png");
-      if (f.exists()) drawPreviewFile(f, w, h); else drawPreviewPlaceholder(w, h);
-      drawPreviewMetadata(null, scene.getSelectedTimestamp(), null, w, h);
-    }
-    String rpg = scene.getCurrentRpgSummary();
-    if (rpg != null && !rpg.isBlank()) {
-      gc.setFill(Color.LIGHTGRAY);
-      gc.setFont(theme.getHintFont());
-      gc.fillText(rpg, 20, h - 50);
+    if (showSidePreview) {
+      // Preview: prefer thumbnail when selecting existing; when selecting new, try current background
+      if (scene.isNewItemSelected()) {
+        String path = scene.getCurrentBackgroundPreviewPath();
+        if (path != null) drawPreviewResource(path, w, h); else drawPreviewPlaceholder(w, h);
+      } else {
+        File f = new File(scene.getSaveDirectory(), scene.getSelectedName() + ".png");
+        if (f.exists()) drawPreviewFile(f, w, h); else drawPreviewPlaceholder(w, h);
+        drawPreviewMetadata(null, scene.getSelectedTimestamp(), null, w, h);
+      }
+      String rpg = scene.getCurrentRpgSummary();
+      if (rpg != null && !rpg.isBlank()) {
+        gc.setFill(Color.LIGHTGRAY);
+        gc.setFont(theme.getHintFont());
+        gc.fillText(rpg, 20, h - 50);
+      }
     }
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) {
@@ -971,7 +975,8 @@ public class MenuRenderer {
     if (scene == null) return -1;
     MenuItemSpec[] specs = new MenuItemSpec[scene.getItemCount()];
     for (int i = 0; i < specs.length; i++) specs[i] = scene.getMenuItemSpec(i);
-    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), specs, 0, w * 0.6, h, mouseX, mouseY);
+    double listAreaWidth = shouldShowSaveSidePreview(scene, specs) ? w * 0.6 : w;
+    return hoverIndex(scene.getItemCount(), scene.getMenuLayout(), specs, 0, listAreaWidth, h, mouseX, mouseY);
   }
 
   public int getHoverIndexForSettings(SettingsScene scene, double w, double h, double mouseX, double mouseY) {
@@ -1369,15 +1374,64 @@ public class MenuRenderer {
 
   private boolean shouldShowLoadSidePreview(LoadMenuScene scene, MenuItemSpec[] specs) {
     if (scene == null) return true;
-    MenuItemSpec template = null;
-    if (specs != null && specs.length > 0) template = specs[0];
-    if (template == null) template = scene.getMenuItemSpec(0);
-    if (template == null && scene.getSelected() >= 0) {
-      template = scene.getMenuItemSpec(scene.getSelected());
+    MenuItemSpec selectedSpec = scene.getSelected() >= 0 ? scene.getMenuItemSpec(scene.getSelected()) : null;
+    List<MenuItemSpec> candidates = collectSidePreviewCandidates(specs, scene.getMenuItemSpec(0), selectedSpec);
+    return resolveSidePreviewPreference(candidates);
+  }
+
+  private boolean shouldShowSaveSidePreview(SaveMenuScene scene, MenuItemSpec[] specs) {
+    if (scene == null) return true;
+    List<MenuItemSpec> candidates = collectSidePreviewCandidates(specs, scene.getMenuItemSpec(0), scene.getMenuItemSpec(scene.getSelected()));
+    return resolveSidePreviewPreference(candidates);
+  }
+
+  private List<MenuItemSpec> collectSidePreviewCandidates(MenuItemSpec[] specs, MenuItemSpec... fallbacks) {
+    List<MenuItemSpec> out = new ArrayList<>();
+    if (specs != null) {
+      for (MenuItemSpec spec : specs) {
+        if (spec != null) out.add(spec);
+      }
     }
-    if (template == null) return true;
-    return parseItemExtraBoolean(template, "showSidePreview", true)
-        && parseItemExtraBoolean(template, "sidePreview", true);
+    if (out.isEmpty() && fallbacks != null) {
+      for (MenuItemSpec fallback : fallbacks) {
+        if (fallback != null) out.add(fallback);
+      }
+    }
+    return out;
+  }
+
+  private boolean resolveSidePreviewPreference(List<MenuItemSpec> candidates) {
+    if (candidates == null || candidates.isEmpty()) return true;
+
+    boolean sawExplicitPreference = false;
+    for (MenuItemSpec item : candidates) {
+      Boolean show = parseItemExtraBooleanNullable(item, "showSidePreview");
+      if (show != null) {
+        sawExplicitPreference = true;
+        if (!show) return false;
+      }
+      Boolean alias = parseItemExtraBooleanNullable(item, "sidePreview");
+      if (alias != null) {
+        sawExplicitPreference = true;
+        if (!alias) return false;
+      }
+    }
+    if (sawExplicitPreference) return true;
+
+    // Explicit absolute bounds are typically authored against full-width card layouts.
+    // When side preview defaults on, cards are clamped into a narrower list area and can overlap.
+    for (MenuItemSpec item : candidates) {
+      if (hasExplicitBounds(item)) return false;
+    }
+    return true;
+  }
+
+  private boolean hasExplicitBounds(MenuItemSpec itemSpec) {
+    if (itemSpec == null) return false;
+    return itemSpec.boundsX() != null
+        && itemSpec.boundsY() != null
+        && itemSpec.boundsWidth() != null
+        && itemSpec.boundsHeight() != null;
   }
 
   private boolean areLoadControlsVisible(MenuItemSpec template) {
@@ -1390,13 +1444,18 @@ public class MenuRenderer {
   }
 
   private boolean parseItemExtraBoolean(MenuItemSpec itemSpec, String key, boolean defaultValue) {
-    if (itemSpec == null || key == null || itemSpec.extras() == null) return defaultValue;
+    Boolean parsed = parseItemExtraBooleanNullable(itemSpec, key);
+    return parsed != null ? parsed : defaultValue;
+  }
+
+  private Boolean parseItemExtraBooleanNullable(MenuItemSpec itemSpec, String key) {
+    if (itemSpec == null || key == null || itemSpec.extras() == null) return null;
     String raw = itemSpec.extras().get(key);
-    if (raw == null || raw.isBlank()) return defaultValue;
+    if (raw == null || raw.isBlank()) return null;
     return switch (raw.trim().toLowerCase()) {
-      case "true", "1", "yes", "y", "on" -> true;
-      case "false", "0", "no", "n", "off" -> false;
-      default -> defaultValue;
+      case "true", "1", "yes", "y", "on" -> Boolean.TRUE;
+      case "false", "0", "no", "n", "off" -> Boolean.FALSE;
+      default -> null;
     };
   }
 
