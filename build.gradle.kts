@@ -73,9 +73,38 @@ fun configuredNativeMathJavaHome(): String? =
 
 fun canonicalPath(path: String): String = File(path).canonicalFile.absolutePath
 
+fun javaHomeReleaseVersion(javaHome: String): String? {
+  val releaseFile = File(javaHome, "release")
+  if (!releaseFile.exists()) return null
+  return releaseFile.useLines { lines ->
+    lines
+      .firstOrNull { it.startsWith("JAVA_VERSION=") }
+      ?.substringAfter("=")
+      ?.trim()
+      ?.trim('"')
+      ?.takeIf { it.isNotEmpty() }
+  }
+}
+
+fun javaFeatureVersion(version: String?): Int? {
+  if (version == null || version.isBlank()) return null
+  val normalized = version.trim()
+  val withoutLegacyPrefix = if (normalized.startsWith("1.")) normalized.substring(2) else normalized
+  val digits = withoutLegacyPrefix.takeWhile { it.isDigit() }
+  return digits.toIntOrNull()
+}
+
 fun nativeMathCacheMatches(expectedJavaHome: String): Boolean {
   val configuredJavaHome = configuredNativeMathJavaHome() ?: return false
-  return canonicalPath(configuredJavaHome) == canonicalPath(expectedJavaHome)
+  val cachedPath = canonicalPath(configuredJavaHome)
+  val expectedPath = canonicalPath(expectedJavaHome)
+  if (cachedPath == expectedPath) return true
+
+  // Avoid unnecessary native rebuilds when only the resolved JDK path changes
+  // (e.g., different Gradle user homes) but the Java feature version remains the same.
+  val cachedFeature = javaFeatureVersion(javaHomeReleaseVersion(cachedPath))
+  val expectedFeature = javaFeatureVersion(javaHomeReleaseVersion(expectedPath))
+  return cachedFeature != null && expectedFeature != null && cachedFeature == expectedFeature
 }
 
 fun cmakeAvailable(project: Project): Boolean = try {

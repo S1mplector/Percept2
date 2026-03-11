@@ -324,4 +324,23 @@ class MenuProfileLoaderTest {
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("partial bounds")));
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("OPEN_MENU action requires a target")));
   }
+
+  @Test
+  void parsesInlineQuitTargetWhenBaseItemProvidesInheritedTarget() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-inline-quit-target-");
+    Files.createDirectories(root.resolve("config/menu/menus"));
+    Files.writeString(root.resolve("config/menu/menu.registry"), "menus=main\n");
+    Files.writeString(root.resolve("config/menu/menus/main.menu"), """
+        items=quit
+        item.quit.action=quit:confirm_exit
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfileLoader.LoadResult result = MenuProfileLoader.loadWithDiagnostics(assets);
+    MenuScreenSpec main = result.profile().screen("main");
+
+    assertEquals(MenuActionType.QUIT, main.items().get(0).action().type());
+    assertEquals("confirm_exit", main.items().get(0).action().target());
+    assertTrue(result.diagnostics().stream().noneMatch(d -> d.contains("Unknown menu action 'quit:confirm_exit'")));
+  }
 }

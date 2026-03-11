@@ -591,11 +591,15 @@ public final class MenuProfileLoader {
   ) {
     String action = rawAction == null ? "" : rawAction.trim();
     String target = normalize(rawTarget, null);
-    if (!action.isEmpty() && target == null) {
+    if (!action.isEmpty()) {
       int colon = action.indexOf(':');
       if (colon > 0 && colon < action.length() - 1) {
-        target = normalize(action.substring(colon + 1), null);
-        action = action.substring(0, colon);
+        String inlineTarget = normalize(action.substring(colon + 1), null);
+        action = action.substring(0, colon).trim();
+        // Keep explicit/inherited target when present; otherwise use inline target.
+        if (target == null || target.isBlank()) {
+          target = inlineTarget;
+        }
       }
     }
     MenuActionType type = MenuActionType.parse(action);
