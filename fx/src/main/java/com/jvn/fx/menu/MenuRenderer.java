@@ -429,7 +429,7 @@ public class MenuRenderer {
       double value = scene.sliderValue01At(i);
       MenuItemSpec item = specs[i];
       double[] geo = sliderGeometry(i, items.length, item, specs, layout, w, h);
-      drawSlider(geo[0], geo[1], geo[2], value, i == scene.getSelected());
+      drawSlider(geo[0], geo[1], geo[2], value, i == scene.getSelected(), item);
     }
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) {
@@ -1879,9 +1879,21 @@ public class MenuRenderer {
   private double[] sliderGeometry(int index, int count, MenuItemSpec item, MenuItemSpec[] itemSpecs, MenuLayoutSpec layout, double w, double h) {
     Rect rowRect = resolveItemRect(index, count, item, itemSpecs, layout, 0, w, h);
     double padX = Math.max(20, rowRect.w() * 0.16);
-    double sliderX = rowRect.x() + padX;
-    double sliderW = Math.max(140, rowRect.w() - (padX * 2));
-    double sliderY = rowRect.y() + rowRect.h() * 0.7;
+    double defaultSliderX = rowRect.x() + padX;
+    double defaultSliderW = Math.max(140, rowRect.w() - (padX * 2));
+    double defaultSliderY = rowRect.y() + rowRect.h() * 0.7;
+
+    Double sliderXRaw = parseExtraDouble(item, "sliderX");
+    Double sliderYRaw = parseExtraDouble(item, "sliderY");
+    Double sliderWRaw = parseExtraDouble(item, "sliderWidth");
+
+    double sliderX = sliderXRaw != null ? resolveCoordinate(sliderXRaw, w) : defaultSliderX;
+    double sliderY = sliderYRaw != null ? resolveCoordinate(sliderYRaw, h) : defaultSliderY;
+    double sliderW = sliderWRaw != null ? resolveSize(sliderWRaw, w) : defaultSliderW;
+
+    sliderW = clamp(sliderW, 12, Math.max(12, w));
+    sliderX = clamp(sliderX, 0, Math.max(0, w - sliderW));
+    sliderY = clamp(sliderY, 0, Math.max(0, h - 1));
     return new double[]{sliderX, sliderY, sliderW};
   }
 
@@ -1902,16 +1914,78 @@ public class MenuRenderer {
     return v;
   }
 
-  private void drawSlider(double x, double y, double w, double value01, boolean highlight) {
-    double h = 8;
-    gc.setFill(Color.rgb(255,255,255,0.15));
-    gc.fillRoundRect(x, y, w, h, 6, 6);
-    gc.setFill(highlight ? theme.getItemSelectedColor() : theme.getItemColor());
-    double fill = Math.max(0, Math.min(1, value01));
-    gc.fillRoundRect(x, y, w * fill, h, 6, 6);
-    double knobX = x + w * fill - 6;
-    gc.setFill(Color.WHITE);
-    gc.fillOval(knobX, y - 4, 12, 12);
+  private void drawSlider(double x, double y, double w, double value01, boolean highlight, MenuItemSpec item) {
+    double fill = clamp01(value01);
+    Double sliderTrackHeight = parseExtraDouble(item, "sliderTrackHeight");
+    boolean showFill = parseItemExtraBoolean(item, "sliderShowFill", true);
+
+    String trackAssetPath = firstNonBlank(
+        extra(item, "sliderTrackAsset"),
+        extra(item, "sliderBaseAsset")
+    );
+    String fillAssetPath = firstNonBlank(
+        highlight ? extra(item, "sliderFillActiveAsset") : null,
+        !highlight ? extra(item, "sliderFillInactiveAsset") : null,
+        extra(item, "sliderFillAsset")
+    );
+    String knobAssetPath = firstNonBlank(
+        highlight ? extra(item, "sliderKnobActiveAsset") : null,
+        !highlight ? extra(item, "sliderKnobInactiveAsset") : null,
+        extra(item, "sliderKnobAsset"),
+        !highlight ? extra(item, "sliderKnobActiveAsset") : null
+    );
+
+    Image trackImage = loadImage(trackAssetPath);
+    double trackH = sliderTrackHeight != null
+        ? Math.max(2.0, sliderTrackHeight)
+        : (trackImage != null && !trackImage.isError() && trackImage.getHeight() > 0
+            ? trackImage.getHeight()
+            : 8.0);
+
+    if (trackImage != null && !trackImage.isError()) {
+      gc.drawImage(trackImage, x, y, w, trackH);
+    } else {
+      gc.setFill(Color.rgb(255, 255, 255, 0.15));
+      gc.fillRoundRect(x, y, w, trackH, 6, 6);
+    }
+
+    if (showFill) {
+      Image fillImage = loadImage(fillAssetPath);
+      if (fillImage != null && !fillImage.isError()) {
+        gc.save();
+        gc.beginPath();
+        gc.rect(x, y, w * fill, trackH);
+        gc.closePath();
+        gc.clip();
+        gc.drawImage(fillImage, x, y, w, trackH);
+        gc.restore();
+      } else {
+        gc.setFill(highlight ? theme.getItemSelectedColor() : theme.getItemColor());
+        gc.fillRoundRect(x, y, w * fill, trackH, 6, 6);
+      }
+    }
+
+    Image knobImage = loadImage(knobAssetPath);
+    Double knobWidth = parseExtraDouble(item, "sliderKnobWidth");
+    Double knobHeight = parseExtraDouble(item, "sliderKnobHeight");
+    Double knobOffsetX = parseExtraDouble(item, "sliderKnobOffsetX");
+    Double knobOffsetY = parseExtraDouble(item, "sliderKnobOffsetY");
+
+    double knobW = knobWidth != null
+        ? Math.max(2.0, knobWidth)
+        : (knobImage != null && !knobImage.isError() && knobImage.getWidth() > 0 ? knobImage.getWidth() : 12.0);
+    double knobH = knobHeight != null
+        ? Math.max(2.0, knobHeight)
+        : (knobImage != null && !knobImage.isError() && knobImage.getHeight() > 0 ? knobImage.getHeight() : 12.0);
+
+    double knobX = x + w * fill - knobW * 0.5 + (knobOffsetX != null ? knobOffsetX : 0.0);
+    double knobY = y + (trackH - knobH) * 0.5 + (knobOffsetY != null ? knobOffsetY : 0.0);
+    if (knobImage != null && !knobImage.isError()) {
+      gc.drawImage(knobImage, knobX, knobY, knobW, knobH);
+    } else {
+      gc.setFill(Color.WHITE);
+      gc.fillOval(knobX, knobY, knobW, knobH);
+    }
   }
 
   private double clamp01(double v) {

@@ -1540,6 +1540,7 @@ public class EditorApp extends Application {
     leftTabs.getSelectionModel().select(tabProject);
     leftTabs.setPrefWidth(300);
     centerSplit = new SplitPane();
+    centerSplit.getStyleClass().add("editor-main-split-pane");
     centerSplit.getItems().addAll(leftTabs, filesTabs, rightTabs);
     centerSplit.setDividerPositions(0.22, 0.78);
     savedCenterDividers = new double[]{0.22, 0.78};
