@@ -26,15 +26,23 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class LoadMenuScene implements Scene {
   private static final Logger LOG = LoggerFactory.getLogger(LoadMenuScene.class);
+  private static final String FAVORITES_FILE_NAME = ".load-favorites.properties";
+  private static final String FAVORITES_PROPERTY = "favorites";
   private final Engine engine;
   private final VnSaveManager saveManager;
   private final String defaultScriptName;
@@ -45,8 +53,10 @@ public class LoadMenuScene implements Scene {
   private final MenuLayoutSpec menuLayout;
   private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
   private final List<String> saves = new ArrayList<>();
+  private final Set<String> favorites = new HashSet<>();
   private final String scopedScriptName;
   private final String scopedScenarioId;
+  private boolean favoritesOnly = false;
   private int selected = 0;
 
   public LoadMenuScene(Engine engine, VnSaveManager saveManager, String defaultScriptName, com.jvn.core.vn.VnSettings settingsModel, AudioFacade audio) {
@@ -80,6 +90,7 @@ public class LoadMenuScene implements Scene {
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());
     this.scopedScriptName = normalizeScriptName(this.defaultScriptName);
     this.scopedScenarioId = resolveScenarioIdForScript(this.defaultScriptName);
+    loadFavoritesFromDisk();
     refresh();
   }
 
@@ -117,8 +128,10 @@ public class LoadMenuScene implements Scene {
   }
 
   public void refresh() {
+    String selectedName = selected >= 0 && selected < saves.size() ? saves.get(selected) : null;
     saves.clear();
     List<String> names = new ArrayList<>(saveManager.listSaves());
+    favorites.retainAll(names);
     List<String> filtered = new ArrayList<>();
     try {
       var times = new HashMap<String, Long>();
@@ -127,7 +140,9 @@ public class LoadMenuScene implements Scene {
           VnSaveData d = saveManager.load(n);
           times.put(n, d.getSaveTimestamp());
           if (matchesCurrentScope(d)) {
-            filtered.add(n);
+            if (!favoritesOnly || favorites.contains(n)) {
+              filtered.add(n);
+            }
           }
         } catch (Exception e) {
           times.put(n, 0L);
@@ -138,12 +153,120 @@ public class LoadMenuScene implements Scene {
       // ignore sort issues, fall back to unsorted
     }
     saves.addAll(filtered);
+    if (selectedName != null) {
+      int idx = saves.indexOf(selectedName);
+      if (idx >= 0) {
+        selected = idx;
+        return;
+      }
+    }
     if (selected >= saves.size()) selected = Math.max(0, saves.size() - 1);
   }
 
   public List<String> getSaves() { return saves; }
   public int getSelected() { return selected; }
   public int getItemCount() { return saves.size(); }
+  public boolean isFavoritesOnly() { return favoritesOnly; }
+
+  public int getPageSize() {
+    Integer configured = menuLayout != null ? menuLayout.maxVisibleItems() : null;
+    return configured != null && configured > 0 ? configured : Math.max(1, saves.size());
+  }
+
+  public int getPageCount() {
+    if (saves.isEmpty()) return 1;
+    int pageSize = getPageSize();
+    return Math.max(1, (saves.size() + pageSize - 1) / pageSize);
+  }
+
+  public int getCurrentPageIndex() {
+    if (saves.isEmpty()) return 0;
+    int pageSize = getPageSize();
+    int maxPage = Math.max(0, getPageCount() - 1);
+    return Math.max(0, Math.min(maxPage, selected / pageSize));
+  }
+
+  public int getVisibleStartIndex() {
+    int pageSize = getPageSize();
+    int start = getCurrentPageIndex() * pageSize;
+    return Math.max(0, Math.min(start, Math.max(0, saves.size() - 1)));
+  }
+
+  public int getVisibleCount() {
+    if (saves.isEmpty()) return 0;
+    int start = getVisibleStartIndex();
+    return Math.max(0, Math.min(getPageSize(), saves.size() - start));
+  }
+
+  public double getPageProgress01() {
+    int pages = getPageCount();
+    if (pages <= 1) return 0.0;
+    return (double) getCurrentPageIndex() / (double) (pages - 1);
+  }
+
+  public void movePage(int deltaPages) {
+    if (deltaPages == 0) return;
+    setPageIndex(getCurrentPageIndex() + deltaPages);
+  }
+
+  public void setPageIndex(int pageIndex) {
+    if (saves.isEmpty()) {
+      selected = 0;
+      return;
+    }
+    int pages = getPageCount();
+    int pageSize = getPageSize();
+    int clampedPage = Math.max(0, Math.min(pageIndex, pages - 1));
+    int local = Math.max(0, Math.min(pageSize - 1, selected % pageSize));
+    int next = clampedPage * pageSize + local;
+    if (next >= saves.size()) next = clampedPage * pageSize;
+    selected = Math.max(0, Math.min(next, saves.size() - 1));
+  }
+
+  public void setPageFromProgress01(double progress01) {
+    int pages = getPageCount();
+    if (pages <= 1) return;
+    double t = progress01;
+    if (Double.isNaN(t) || Double.isInfinite(t)) t = 0.0;
+    if (t < 0.0) t = 0.0;
+    if (t > 1.0) t = 1.0;
+    int targetPage = (int) Math.round(t * (pages - 1));
+    setPageIndex(targetPage);
+  }
+
+  public boolean isFavoriteAt(int index) {
+    if (index < 0 || index >= saves.size()) return false;
+    return favorites.contains(saves.get(index));
+  }
+
+  public boolean toggleFavoriteAt(int index) {
+    if (index < 0 || index >= saves.size()) return false;
+    String name = saves.get(index);
+    if (name == null || name.isBlank()) return false;
+    boolean nowFavorite;
+    if (favorites.contains(name)) {
+      favorites.remove(name);
+      nowFavorite = false;
+    } else {
+      favorites.add(name);
+      nowFavorite = true;
+    }
+    saveFavoritesToDisk();
+    if (favoritesOnly) {
+      refresh();
+    }
+    return nowFavorite;
+  }
+
+  public boolean toggleFavoriteSelected() {
+    return toggleFavoriteAt(selected);
+  }
+
+  public void toggleFavoritesOnly() {
+    favoritesOnly = !favoritesOnly;
+    refresh();
+  }
+
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
   public MenuScreenSpec getMenuScreen() { return menuScreen; }
   public MenuStyleSpec getDefaultMenuStyle() { return menuProfile.style(menuScreen.defaultStyleId()); }
@@ -307,6 +430,10 @@ public class LoadMenuScene implements Scene {
     if (saves.isEmpty()) return false;
     String name = saves.get(selected);
     boolean ok = saveManager.deleteSave(name);
+    if (ok && name != null) {
+      favorites.remove(name);
+      saveFavoritesToDisk();
+    }
     refresh();
     return ok;
   }
@@ -315,6 +442,14 @@ public class LoadMenuScene implements Scene {
     if (saves.isEmpty() || newName == null || newName.isBlank()) return false;
     String old = saves.get(selected);
     boolean ok = saveManager.renameSave(old, newName);
+    if (ok) {
+      String oldSanitized = sanitizeSaveName(old);
+      String newSanitized = sanitizeSaveName(newName);
+      if (oldSanitized != null && newSanitized != null && favorites.remove(oldSanitized)) {
+        favorites.add(newSanitized);
+      }
+      saveFavoritesToDisk();
+    }
     refresh();
     return ok;
   }
@@ -551,5 +686,60 @@ public class LoadMenuScene implements Scene {
 
   private static String normalizeScriptName(String scriptName) {
     return VnEntryScriptResolver.normalizeScriptKey(scriptName);
+  }
+
+  private Path favoritesFilePath() {
+    try {
+      String dir = saveManager != null ? saveManager.getSaveDirectory() : null;
+      if (dir == null || dir.isBlank()) return null;
+      return Paths.get(dir).resolve(FAVORITES_FILE_NAME);
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  private void loadFavoritesFromDisk() {
+    favorites.clear();
+    Path path = favoritesFilePath();
+    if (path == null || !Files.exists(path)) return;
+    Properties p = new Properties();
+    try (InputStream in = Files.newInputStream(path)) {
+      p.load(new InputStreamReader(in));
+      String raw = p.getProperty(FAVORITES_PROPERTY, "");
+      if (raw == null || raw.isBlank()) return;
+      String[] parts = raw.split(",");
+      for (String part : parts) {
+        String name = sanitizeSaveName(part);
+        if (name != null) favorites.add(name);
+      }
+    } catch (Exception e) {
+      LOG.debug("Could not load load-menu favorites from {}: {}", path, e.toString());
+    }
+  }
+
+  private void saveFavoritesToDisk() {
+    Path path = favoritesFilePath();
+    if (path == null) return;
+    try {
+      if (path.getParent() != null) Files.createDirectories(path.getParent());
+      List<String> ordered = new ArrayList<>(favorites);
+      ordered.sort(String::compareToIgnoreCase);
+      String joined = String.join(",", ordered);
+      Properties p = new Properties();
+      p.setProperty(FAVORITES_PROPERTY, joined);
+      try (var out = Files.newOutputStream(path)) {
+        p.store(out, "Load menu favorites");
+      }
+    } catch (Exception e) {
+      LOG.debug("Could not save load-menu favorites to {}: {}", path, e.toString());
+    }
+  }
+
+  private String sanitizeSaveName(String name) {
+    if (name == null) return null;
+    String t = name.trim();
+    if (t.isEmpty()) return null;
+    String sanitized = t.replaceAll("[^a-zA-Z0-9._-]", "_");
+    return sanitized.isBlank() ? null : sanitized;
   }
 }

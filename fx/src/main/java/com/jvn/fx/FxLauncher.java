@@ -644,6 +644,19 @@ public class FxLauncher extends Application {
     } else if (currentScene instanceof HistoryMenuScene history) {
       history.close();
     } else if (currentScene instanceof LoadMenuScene load) {
+      var controlHit = menuRenderer.getLoadControlHit(load, canvas.getWidth(), canvas.getHeight(), x, y);
+      if (controlHit != null && controlHit.handled()) {
+        switch (controlHit.type()) {
+          case CYCLE_LEFT -> load.movePage(-1);
+          case CYCLE_RIGHT -> load.movePage(1);
+          case TOGGLE_FAVORITES_ONLY -> load.toggleFavoritesOnly();
+          case TOGGLE_SLOT_FAVORITE -> load.toggleFavoriteAt(controlHit.saveIndex());
+          case SET_PAGE -> load.setPageFromProgress01(controlHit.pageProgress01());
+          default -> {
+          }
+        }
+        return;
+      }
       int idx = menuRenderer.getHoverIndexForLoadMenu(load, canvas.getWidth(), canvas.getHeight(), x, y);
       if (idx >= 0) {
         load.setSelected(idx);
@@ -792,6 +805,11 @@ public class FxLauncher extends Application {
         double val = menuRenderer.computeSettingsSliderValue01(settings, idx, canvas.getWidth(), canvas.getHeight(), x);
         settings.setValueByIndex(idx, val);
       }
+    } else if (currentScene instanceof LoadMenuScene load) {
+      var controlHit = menuRenderer.getLoadControlHit(load, canvas.getWidth(), canvas.getHeight(), x, y);
+      if (controlHit != null && controlHit.type() == com.jvn.fx.menu.MenuRenderer.LoadControlType.SET_PAGE) {
+        load.setPageFromProgress01(controlHit.pageProgress01());
+      }
     }
   }
 
@@ -881,12 +899,7 @@ public class FxLauncher extends Application {
     if (currentScene instanceof SettingsScene settings) {
       settings.adjustCurrent(delta);
     } else if (currentScene instanceof LoadMenuScene load) {
-      int pageSize = 1;
-      var layout = load.getMenuLayout();
-      if (layout != null && layout.maxVisibleItems() != null && layout.maxVisibleItems() > 0) {
-        pageSize = layout.maxVisibleItems();
-      }
-      load.moveSelection(delta * pageSize);
+      load.movePage(delta);
     }
   }
 

@@ -28,10 +28,33 @@ import javafx.scene.text.FontWeight;
 public class MenuRenderer {
   private static final double SUBMENU_BACKGROUND_BLUR_RADIUS = 14.0;
   private static final Color SUBMENU_FROST_TINT = Color.rgb(224, 236, 255, 0.28);
+  private static final String LOAD_CYCLE_LEFT_ACTIVE_ASSET = "assets/ui/load/controls/page_turn_left_active.png";
+  private static final String LOAD_CYCLE_LEFT_INACTIVE_ASSET = "assets/ui/load/controls/page_turn_left_inactive.png";
+  private static final String LOAD_CYCLE_RIGHT_ACTIVE_ASSET = "assets/ui/load/controls/page_turn_right_active.png";
+  private static final String LOAD_CYCLE_RIGHT_INACTIVE_ASSET = "assets/ui/load/controls/page_turn_right_inactive.png";
+  private static final String LOAD_PAGE_TRACK_ASSET = "assets/ui/load/controls/page_track.png";
+  private static final String LOAD_PAGE_SELECTOR_ASSET = "assets/ui/load/controls/page_selector.png";
+  private static final String LOAD_FAVORITES_BUTTON_ACTIVE_ASSET = "assets/ui/load/controls/favorites_button_active.png";
+  private static final String LOAD_FAVORITES_BUTTON_INACTIVE_ASSET = "assets/ui/load/controls/favorites_button_inactive.png";
+  private static final String LOAD_SLOT_FAVORITE_ICON_ASSET = "assets/ui/load/controls/slot_favorite_icon.png";
 
   private final GraphicsContext gc;
   private MenuTheme theme;
   private final java.util.Map<String, Image> imageCache = new java.util.HashMap<>();
+
+  public enum LoadControlType {
+    NONE,
+    CYCLE_LEFT,
+    CYCLE_RIGHT,
+    TOGGLE_FAVORITES_ONLY,
+    TOGGLE_SLOT_FAVORITE,
+    SET_PAGE
+  }
+
+  public record LoadControlHit(LoadControlType type, int saveIndex, double pageProgress01) {
+    public static LoadControlHit none() { return new LoadControlHit(LoadControlType.NONE, -1, 0.0); }
+    public boolean handled() { return type != null && type != LoadControlType.NONE; }
+  }
 
   public MenuRenderer(GraphicsContext gc) { this.gc = gc; this.theme = MenuTheme.defaults(); }
   public MenuRenderer(GraphicsContext gc, MenuTheme theme) { this.gc = gc; this.theme = (theme == null ? MenuTheme.defaults() : theme); }
@@ -179,6 +202,9 @@ public class MenuRenderer {
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
     drawHeader(title, subtitle, w, titleY, screenStyle, layout);
     List<String> saves = scene.getSaves();
+    int visibleStartIndex = 0;
+    int visibleDrawCount = 0;
+    MenuItemSpec[] visibleSpecs = null;
     if (saves.isEmpty()) {
       MenuItemSpec template = scene != null ? scene.getMenuItemSpec(0) : null;
       int emptySlots = parseItemExtraInt(template, "emptySlotCount", 0);
@@ -194,14 +220,16 @@ public class MenuRenderer {
           specs[i] = template;
         }
         drawMenuList(items, -1, enabled, styles, specs, layout, 0, w * 0.6, h, true);
+        visibleDrawCount = emptySlots;
+        visibleSpecs = specs;
       } else {
         drawCenteredText(Localization.t("load.no_saves"), w, h / 2, theme.getItemFont(), Color.GRAY);
       }
     } else {
       String[] items = saves.toArray(new String[0]);
-      int visibleCount = resolveVisibleCount(layout, items.length);
-      int startIndex = resolveVisibleStart(scene.getSelected(), items.length, visibleCount);
-      int drawCount = Math.max(0, Math.min(visibleCount, items.length - startIndex));
+      int startIndex = scene.getVisibleStartIndex();
+      int drawCount = scene.getVisibleCount();
+      drawCount = Math.max(0, Math.min(drawCount, items.length - startIndex));
       if (drawCount <= 0) {
         drawCenteredText(Localization.t("load.no_saves"), w, h / 2, theme.getItemFont(), Color.GRAY);
       } else {
@@ -220,6 +248,9 @@ public class MenuRenderer {
         boolean showSidePreview = shouldShowLoadSidePreview(scene, specs);
         drawMenuList(visibleItems, localSelected, enabled, styles, specs, layout, 0, w * 0.6, h, true);
         drawInlineLoadSlotPreviews(scene, layout, specs, startIndex, drawCount, 0, w * 0.6, h);
+        visibleStartIndex = startIndex;
+        visibleDrawCount = drawCount;
+        visibleSpecs = specs;
         if (showSidePreview) {
           File thumb = getThumbnailFile(scene);
           if (thumb != null) {
@@ -247,6 +278,7 @@ public class MenuRenderer {
         }
       }
     }
+    drawLoadMenuControls(scene, layout, visibleSpecs, visibleStartIndex, visibleDrawCount, w, h);
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
@@ -850,14 +882,59 @@ public class MenuRenderer {
     int total = scene.getItemCount();
     if (total <= 0) return -1;
     MenuLayoutSpec layout = scene.getMenuLayout();
-    int visibleCount = resolveVisibleCount(layout, total);
-    int startIndex = resolveVisibleStart(scene.getSelected(), total, visibleCount);
-    int drawCount = Math.max(0, Math.min(visibleCount, total - startIndex));
+    int startIndex = scene.getVisibleStartIndex();
+    int drawCount = scene.getVisibleCount();
+    drawCount = Math.max(0, Math.min(drawCount, total - startIndex));
     if (drawCount <= 0) return -1;
     MenuItemSpec[] specs = new MenuItemSpec[drawCount];
     for (int i = 0; i < drawCount; i++) specs[i] = scene.getMenuItemSpec(startIndex + i);
     int local = hoverIndex(drawCount, layout, specs, 0, w * 0.6, h, mouseX, mouseY);
     return local < 0 ? -1 : (startIndex + local);
+  }
+
+  public LoadControlHit getLoadControlHit(LoadMenuScene scene, double w, double h, double mouseX, double mouseY) {
+    if (scene == null) return LoadControlHit.none();
+    MenuItemSpec template = resolveLoadTemplateItem(scene, null);
+
+    // Per-slot favorite icon hit (visible rows only).
+    int total = scene.getItemCount();
+    if (total > 0) {
+      MenuLayoutSpec layout = scene.getMenuLayout();
+      int startIndex = scene.getVisibleStartIndex();
+      int drawCount = scene.getVisibleCount();
+      drawCount = Math.max(0, Math.min(drawCount, total - startIndex));
+      if (drawCount > 0) {
+        MenuItemSpec[] specs = new MenuItemSpec[drawCount];
+        for (int i = 0; i < drawCount; i++) specs[i] = scene.getMenuItemSpec(startIndex + i);
+        for (int i = 0; i < drawCount; i++) {
+          Rect itemRect = resolveItemRect(i, drawCount, specs[i], specs, layout, 0, w * 0.6, h);
+          Rect iconRect = resolveLoadSlotFavoriteIconRect(template, itemRect);
+          if (iconRect.contains(mouseX, mouseY)) {
+            return new LoadControlHit(LoadControlType.TOGGLE_SLOT_FAVORITE, startIndex + i, 0.0);
+          }
+        }
+      }
+    }
+
+    Rect leftRect = resolveLoadCycleLeftRect(template, w, h);
+    if (leftRect.contains(mouseX, mouseY)) {
+      return new LoadControlHit(LoadControlType.CYCLE_LEFT, -1, 0.0);
+    }
+    Rect rightRect = resolveLoadCycleRightRect(template, w, h);
+    if (rightRect.contains(mouseX, mouseY)) {
+      return new LoadControlHit(LoadControlType.CYCLE_RIGHT, -1, 0.0);
+    }
+    Rect favoritesRect = resolveLoadFavoritesButtonRect(template, w, h);
+    if (favoritesRect.contains(mouseX, mouseY)) {
+      return new LoadControlHit(LoadControlType.TOGGLE_FAVORITES_ONLY, -1, 0.0);
+    }
+    Rect trackRect = resolveLoadPageTrackRect(template, w, h);
+    Rect selectorRect = resolveLoadPageSelectorRect(template, trackRect, scene.getPageProgress01());
+    if (trackRect.contains(mouseX, mouseY) || selectorRect.contains(mouseX, mouseY)) {
+      double t = trackRect.w() <= 1 ? 0.0 : (mouseX - trackRect.x()) / trackRect.w();
+      return new LoadControlHit(LoadControlType.SET_PAGE, -1, clamp01(t));
+    }
+    return LoadControlHit.none();
   }
 
   public int getHoverIndexForSaveMenu(SaveMenuScene scene, double w, double h, double mouseX, double mouseY) {
@@ -1252,22 +1329,6 @@ public class MenuRenderer {
     return value <= 1.0 ? total * Math.max(0, value) : value;
   }
 
-  private int resolveVisibleCount(MenuLayoutSpec layout, int totalItems) {
-    if (totalItems <= 0) return 0;
-    int configured = layout != null && layout.maxVisibleItems() != null ? layout.maxVisibleItems() : totalItems;
-    if (configured <= 0) configured = totalItems;
-    return Math.max(1, Math.min(totalItems, configured));
-  }
-
-  private int resolveVisibleStart(int selected, int totalItems, int visibleCount) {
-    if (totalItems <= 0 || visibleCount <= 0) return 0;
-    int clampedSelected = Math.max(0, Math.min(totalItems - 1, selected));
-    if (totalItems <= visibleCount) return 0;
-    int page = clampedSelected / visibleCount;
-    int start = page * visibleCount;
-    return Math.max(0, Math.min(totalItems - visibleCount, start));
-  }
-
   private File getThumbnailFile(LoadMenuScene scene) {
     String dir = scene.getSaveDirectory();
     String name = scene.getSelectedName();
@@ -1309,6 +1370,185 @@ public class MenuRenderer {
     } catch (NumberFormatException ignored) {
       return defaultValue;
     }
+  }
+
+  private void drawLoadMenuControls(
+      LoadMenuScene scene,
+      MenuLayoutSpec layout,
+      MenuItemSpec[] visibleSpecs,
+      int visibleStartIndex,
+      int visibleDrawCount,
+      double w,
+      double h
+  ) {
+    if (scene == null) return;
+    MenuItemSpec template = resolveLoadTemplateItem(scene, visibleSpecs);
+
+    int pageCount = scene.getPageCount();
+    int currentPage = scene.getCurrentPageIndex();
+    boolean canPageLeft = currentPage > 0;
+    boolean canPageRight = currentPage < Math.max(0, pageCount - 1);
+
+    Rect leftRect = resolveLoadCycleLeftRect(template, w, h);
+    Rect rightRect = resolveLoadCycleRightRect(template, w, h);
+    Rect trackRect = resolveLoadPageTrackRect(template, w, h);
+    Rect selectorRect = resolveLoadPageSelectorRect(template, trackRect, scene.getPageProgress01());
+    Rect favoritesRect = resolveLoadFavoritesButtonRect(template, w, h);
+
+    drawLoadControlImage(resolveLoadCycleLeftAsset(template, canPageLeft), leftRect);
+    drawLoadControlImage(resolveLoadCycleRightAsset(template, canPageRight), rightRect);
+    drawLoadControlImage(resolveLoadPageTrackAsset(template), trackRect);
+    drawLoadControlImage(resolveLoadPageSelectorAsset(template), selectorRect);
+    drawLoadControlImage(resolveLoadFavoritesButtonAsset(template, scene.isFavoritesOnly()), favoritesRect);
+
+    String slotFavoriteAsset = resolveLoadSlotFavoriteIconAsset(template);
+    Image slotFavoriteIcon = loadImage(slotFavoriteAsset);
+    if (slotFavoriteIcon == null || slotFavoriteIcon.isError()) return;
+    if (visibleDrawCount <= 0) return;
+
+    MenuItemSpec[] specs = visibleSpecs;
+    if (specs == null || specs.length < visibleDrawCount) {
+      specs = new MenuItemSpec[visibleDrawCount];
+      for (int i = 0; i < visibleDrawCount; i++) {
+        specs[i] = scene.getMenuItemSpec(visibleStartIndex + i);
+      }
+    }
+    for (int i = 0; i < visibleDrawCount; i++) {
+      int globalIndex = visibleStartIndex + i;
+      if (globalIndex < 0 || globalIndex >= scene.getItemCount()) continue;
+      Rect itemRect = resolveItemRect(i, visibleDrawCount, specs[i], specs, layout, 0, w * 0.6, h);
+      Rect iconRect = resolveLoadSlotFavoriteIconRect(template, itemRect);
+      double prevAlpha = gc.getGlobalAlpha();
+      gc.setGlobalAlpha(scene.isFavoriteAt(globalIndex) ? 1.0 : 0.28);
+      gc.drawImage(slotFavoriteIcon, iconRect.x(), iconRect.y(), iconRect.w(), iconRect.h());
+      gc.setGlobalAlpha(prevAlpha);
+    }
+  }
+
+  private void drawLoadControlImage(String assetPath, Rect target) {
+    if (target == null || target.w() <= 0 || target.h() <= 0) return;
+    Image img = loadImage(assetPath);
+    if (img == null || img.isError()) return;
+    gc.drawImage(img, target.x(), target.y(), target.w(), target.h());
+  }
+
+  private MenuItemSpec resolveLoadTemplateItem(LoadMenuScene scene, MenuItemSpec[] visibleSpecs) {
+    if (visibleSpecs != null && visibleSpecs.length > 0 && visibleSpecs[0] != null) return visibleSpecs[0];
+    if (scene == null) return null;
+    MenuItemSpec first = scene.getMenuItemSpec(0);
+    if (first != null) return first;
+    return scene.getMenuItemSpec(scene.getSelected());
+  }
+
+  private Rect resolveLoadCycleLeftRect(MenuItemSpec itemSpec, double w, double h) {
+    return resolveLoadControlRect(itemSpec, "cycleLeft", 0.084375, 0.48148, 0.01979, 0.04630, w, h);
+  }
+
+  private Rect resolveLoadCycleRightRect(MenuItemSpec itemSpec, double w, double h) {
+    return resolveLoadControlRect(itemSpec, "cycleRight", 0.702083, 0.48148, 0.01979, 0.04630, w, h);
+  }
+
+  private Rect resolveLoadPageTrackRect(MenuItemSpec itemSpec, double w, double h) {
+    return resolveLoadControlRect(itemSpec, "pageTrack", 0.23906, 0.74444, 0.28854, 0.06019, w, h);
+  }
+
+  private Rect resolveLoadFavoritesButtonRect(MenuItemSpec itemSpec, double w, double h) {
+    return resolveLoadControlRect(itemSpec, "favoritesButton", 0.51094, 0.74537, 0.04635, 0.05556, w, h);
+  }
+
+  private Rect resolveLoadPageSelectorRect(MenuItemSpec itemSpec, Rect trackRect, double progress01) {
+    if (trackRect == null) return new Rect(0, 0, 1, 1);
+    Double selectorWRaw = parseExtraDouble(itemSpec, "pageSelectorWidth");
+    Double selectorHRaw = parseExtraDouble(itemSpec, "pageSelectorHeight");
+    double selectorW = selectorWRaw == null
+        ? trackRect.w() * 0.0903
+        : (selectorWRaw <= 1.0 ? trackRect.w() * selectorWRaw : selectorWRaw);
+    double selectorH = selectorHRaw == null
+        ? trackRect.h() * 0.8769
+        : (selectorHRaw <= 1.0 ? trackRect.h() * selectorHRaw : selectorHRaw);
+    selectorW = clamp(selectorW, 10.0, Math.max(10.0, trackRect.w()));
+    selectorH = clamp(selectorH, 10.0, Math.max(10.0, trackRect.h() * 1.4));
+    double t = clamp01(progress01);
+    double x = trackRect.x() + t * Math.max(0.0, trackRect.w() - selectorW);
+    double y = trackRect.y() + (trackRect.h() - selectorH) / 2.0;
+    return new Rect(x, y, selectorW, selectorH);
+  }
+
+  private Rect resolveLoadSlotFavoriteIconRect(MenuItemSpec itemSpec, Rect itemRect) {
+    if (itemRect == null) return new Rect(0, 0, 1, 1);
+    Double xVal = parseExtraDouble(itemSpec, "slotFavoriteX");
+    Double yVal = parseExtraDouble(itemSpec, "slotFavoriteY");
+    Double wVal = parseExtraDouble(itemSpec, "slotFavoriteWidth");
+    Double hVal = parseExtraDouble(itemSpec, "slotFavoriteHeight");
+    double x = itemRect.x() + resolveCoordinate(xVal != null ? xVal : 0.0335, itemRect.w());
+    double y = itemRect.y() + resolveCoordinate(yVal != null ? yVal : 0.002, itemRect.h());
+    double w = resolveSize(wVal != null ? wVal : 0.0928, itemRect.w());
+    double h = resolveSize(hVal != null ? hVal : 0.1455, itemRect.h());
+    w = clamp(w, 8, Math.max(8, itemRect.w()));
+    h = clamp(h, 8, Math.max(8, itemRect.h()));
+    x = clamp(x, itemRect.x(), itemRect.x() + Math.max(0.0, itemRect.w() - w));
+    y = clamp(y, itemRect.y(), itemRect.y() + Math.max(0.0, itemRect.h() - h));
+    return new Rect(x, y, w, h);
+  }
+
+  private Rect resolveLoadControlRect(
+      MenuItemSpec itemSpec,
+      String keyPrefix,
+      double defaultX,
+      double defaultY,
+      double defaultW,
+      double defaultH,
+      double viewportW,
+      double viewportH
+  ) {
+    Double xVal = parseExtraDouble(itemSpec, keyPrefix + "X");
+    Double yVal = parseExtraDouble(itemSpec, keyPrefix + "Y");
+    Double wVal = parseExtraDouble(itemSpec, keyPrefix + "Width");
+    Double hVal = parseExtraDouble(itemSpec, keyPrefix + "Height");
+    double x = resolveCoordinate(xVal != null ? xVal : defaultX, viewportW);
+    double y = resolveCoordinate(yVal != null ? yVal : defaultY, viewportH);
+    double w = resolveSize(wVal != null ? wVal : defaultW, viewportW);
+    double h = resolveSize(hVal != null ? hVal : defaultH, viewportH);
+    w = clamp(w, 8, Math.max(8, viewportW));
+    h = clamp(h, 8, Math.max(8, viewportH));
+    x = clamp(x, 0, Math.max(0, viewportW - w));
+    y = clamp(y, 0, Math.max(0, viewportH - h));
+    return new Rect(x, y, w, h);
+  }
+
+  private String resolveLoadCycleLeftAsset(MenuItemSpec itemSpec, boolean active) {
+    return active
+        ? firstNonBlank(extra(itemSpec, "cycleLeftActiveAsset"), LOAD_CYCLE_LEFT_ACTIVE_ASSET)
+        : firstNonBlank(extra(itemSpec, "cycleLeftInactiveAsset"), LOAD_CYCLE_LEFT_INACTIVE_ASSET);
+  }
+
+  private String resolveLoadCycleRightAsset(MenuItemSpec itemSpec, boolean active) {
+    return active
+        ? firstNonBlank(extra(itemSpec, "cycleRightActiveAsset"), LOAD_CYCLE_RIGHT_ACTIVE_ASSET)
+        : firstNonBlank(extra(itemSpec, "cycleRightInactiveAsset"), LOAD_CYCLE_RIGHT_INACTIVE_ASSET);
+  }
+
+  private String resolveLoadPageTrackAsset(MenuItemSpec itemSpec) {
+    return firstNonBlank(extra(itemSpec, "pageTrackAsset"), LOAD_PAGE_TRACK_ASSET);
+  }
+
+  private String resolveLoadPageSelectorAsset(MenuItemSpec itemSpec) {
+    return firstNonBlank(extra(itemSpec, "pageSelectorAsset"), LOAD_PAGE_SELECTOR_ASSET);
+  }
+
+  private String resolveLoadFavoritesButtonAsset(MenuItemSpec itemSpec, boolean active) {
+    return active
+        ? firstNonBlank(extra(itemSpec, "favoritesButtonActiveAsset"), LOAD_FAVORITES_BUTTON_ACTIVE_ASSET)
+        : firstNonBlank(extra(itemSpec, "favoritesButtonInactiveAsset"), LOAD_FAVORITES_BUTTON_INACTIVE_ASSET);
+  }
+
+  private String resolveLoadSlotFavoriteIconAsset(MenuItemSpec itemSpec) {
+    return firstNonBlank(extra(itemSpec, "slotFavoriteAsset"), LOAD_SLOT_FAVORITE_ICON_ASSET);
+  }
+
+  private String extra(MenuItemSpec itemSpec, String key) {
+    if (itemSpec == null || key == null || itemSpec.extras() == null) return null;
+    return itemSpec.extras().get(key);
   }
 
   private void drawInlineSaveSlotPreviews(
