@@ -8,6 +8,11 @@ import java.util.Locale;
 
 import javax.imageio.ImageIO;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 import com.jvn.core.demo.Example2DScene;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.graphics.Camera2D;
@@ -26,6 +31,7 @@ import com.jvn.core.scene2d.Scene2D;
 import com.jvn.core.scene2d.Scene2DBase;
 import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.ui.VnCursorConfigLoader;
 import com.jvn.fx.menu.MenuRenderer;
 import com.jvn.fx.menu.MenuTheme;
 import com.jvn.fx.phone.PhoneRenderer;
@@ -37,6 +43,8 @@ import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.Cursor;
+import javafx.scene.ImageCursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
@@ -44,11 +52,13 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
+import javafx.scene.image.Image;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
 public class FxLauncher extends Application {
+  private static final Logger log = LoggerFactory.getLogger(FxLauncher.class);
   private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
   private static Engine engine;
   private AnimationTimer timer;
@@ -94,6 +104,7 @@ public class FxLauncher extends Application {
     root.getChildren().addAll(this.canvas, this.phoneRenderer);
     javafx.scene.Scene scene = new javafx.scene.Scene(root, width, height);
     primaryStage.setScene(scene);
+    applyConfiguredCursor(scene);
     applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();
 
@@ -251,42 +262,52 @@ public class FxLauncher extends Application {
     });
 
     canvas.setOnMouseMoved(e -> {
-      mouseX = e.getX();
-      mouseY = e.getY();
+      com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
+      mouseX = toSceneX(e.getX(), currentScene);
+      mouseY = toSceneY(e.getY(), currentScene);
       if (engine != null && engine.input() != null) engine.input().setMousePosition(mouseX, mouseY);
       // Hover selection for menus
       if (engine != null) {
-        com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+        double rw = renderWidthForScene(currentScene);
+        double rh = renderHeightForScene(currentScene);
         if (currentScene instanceof PauseMenuScene pause) {
-          int idx = menuRenderer.getHoverIndexForPauseMenu(pause, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          int idx = menuRenderer.getHoverIndexForPauseMenu(pause, rw, rh, mouseX, mouseY);
           if (idx >= 0) pause.setSelected(idx);
         } else if (currentScene instanceof MainMenuScene main) {
-          int idx = menuRenderer.getHoverIndexForMainMenu(main, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          int idx = menuRenderer.getHoverIndexForMainMenu(main, rw, rh, mouseX, mouseY);
           main.setSelected(idx);
         } else if (currentScene instanceof LoadMenuScene load) {
-          int idx = menuRenderer.getHoverIndexForLoadMenu(load, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          int idx = menuRenderer.getHoverIndexForLoadMenu(load, rw, rh, mouseX, mouseY);
           if (idx >= 0) {
             load.setSelected(idx);
           }
         } else if (currentScene instanceof SettingsScene settings) {
-          int idx = menuRenderer.getHoverIndexForSettings(settings, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          int idx = menuRenderer.getHoverIndexForSettings(settings, rw, rh, mouseX, mouseY);
           if (idx >= 0) settings.setSelected(idx);
         } else if (currentScene instanceof SaveMenuScene save) {
-          int idx = menuRenderer.getHoverIndexForSaveMenu(save, canvas.getWidth(), canvas.getHeight(), mouseX, mouseY);
+          int idx = menuRenderer.getHoverIndexForSaveMenu(save, rw, rh, mouseX, mouseY);
           if (idx >= 0) save.setSelected(idx);
         }
       }
     });
 
     canvas.setOnMousePressed(e -> {
+      com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
+      mouseX = toSceneX(e.getX(), currentScene);
+      mouseY = toSceneY(e.getY(), currentScene);
       if (engine != null && engine.input() != null) {
+        engine.input().setMousePosition(mouseX, mouseY);
         int btn = e.getButton() == MouseButton.PRIMARY ? 1 : (e.getButton() == MouseButton.MIDDLE ? 2 : 3);
         engine.input().mouseDown(btn);
       }
     });
 
     canvas.setOnMouseReleased(e -> {
+      com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
+      mouseX = toSceneX(e.getX(), currentScene);
+      mouseY = toSceneY(e.getY(), currentScene);
       if (engine != null && engine.input() != null) {
+        engine.input().setMousePosition(mouseX, mouseY);
         int btn = e.getButton() == MouseButton.PRIMARY ? 1 : (e.getButton() == MouseButton.MIDDLE ? 2 : 3);
         engine.input().mouseUp(btn);
       }
@@ -294,7 +315,11 @@ public class FxLauncher extends Application {
 
     canvas.setOnMouseClicked(e -> {
       if (e.getButton() == MouseButton.PRIMARY) {
-        handleMouseClick(e.getX(), e.getY());
+        com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
+        if (!isPointInSceneViewport(e.getX(), e.getY(), currentScene)) {
+          return;
+        }
+        handleMouseClick(toSceneX(e.getX(), currentScene), toSceneY(e.getY(), currentScene));
       } else if (e.getButton() == MouseButton.SECONDARY) {
         // Right-click = open pause menu or pop menu
         if (!handleMenuBack()) handleOpenPauseMenu();
@@ -322,7 +347,8 @@ public class FxLauncher extends Application {
 
     canvas.setOnMouseDragged(e -> {
       if (e.isPrimaryButtonDown()) {
-        handleMouseDrag(e.getX(), e.getY());
+        com.jvn.core.scene.Scene currentScene = engine != null ? engine.scenes().peek() : null;
+        handleMouseDrag(toSceneX(e.getX(), currentScene), toSceneY(e.getY(), currentScene));
       }
     });
 
@@ -352,16 +378,28 @@ public class FxLauncher extends Application {
         if (gc != null && canvas != null) {
           double w = canvas.getWidth();
           double h = canvas.getHeight();
+          gc.setFill(Color.BLACK);
+          gc.fillRect(0, 0, w, h);
 
-          boolean rendered = rendererRegistry != null
-              && rendererRegistry.render(currentScene, new com.jvn.fx.render.FxSceneRendererRegistry.RenderContext(gc, blitter2D, w, h, mouseX, mouseY));
-          if (!rendered) {
-            // Default render: clear and draw title text
-            gc.setFill(Color.BLACK);
-            gc.fillRect(0, 0, w, h);
-            gc.setFill(Color.WHITE);
-            gc.fillText("JVN - Java Visual Novel", 20, 30);
-            gc.fillText("No scene loaded. Push a Scene to the engine's scene manager.", 20, 60);
+          boolean rendered = false;
+          if (rendererRegistry != null) {
+            if (shouldUseAspectFitViewport(currentScene)) {
+              ViewportScaler2D.Transform vp = viewportTransform(w, h);
+              gc.save();
+              gc.translate(vp.offsetX(), vp.offsetY());
+              gc.scale(vp.scale(), vp.scale());
+              rendered = rendererRegistry.render(currentScene,
+                  new com.jvn.fx.render.FxSceneRendererRegistry.RenderContext(
+                      gc, blitter2D, vp.targetWidth(), vp.targetHeight(), mouseX, mouseY));
+              if (!rendered) drawDefaultScene(vp.targetWidth(), vp.targetHeight());
+              gc.restore();
+            } else {
+              rendered = rendererRegistry.render(currentScene,
+                  new com.jvn.fx.render.FxSceneRendererRegistry.RenderContext(gc, blitter2D, w, h, mouseX, mouseY));
+              if (!rendered) drawDefaultScene(w, h);
+            }
+          } else {
+            drawDefaultScene(w, h);
           }
         }
       }
@@ -428,6 +466,134 @@ public class FxLauncher extends Application {
       b.pop();
     });
     return reg;
+  }
+
+  private void applyConfiguredCursor(javafx.scene.Scene scene) {
+    if (scene == null) return;
+    VnCursorConfigLoader.LoadResult loadResult = VnCursorConfigLoader.loadFromAssetsWithDiagnostics(new AssetCatalog());
+    for (String diagnostic : loadResult.diagnostics()) {
+      log.warn("Cursor config: {}", diagnostic);
+    }
+    VnCursorConfigLoader.VnCursorConfig config = loadResult.config();
+    if (config == null || config.assetPath() == null || config.assetPath().isBlank()) {
+      scene.setCursor(Cursor.DEFAULT);
+      return;
+    }
+
+    Image image = loadCursorImage(config.assetPath());
+    if (image == null || image.isError() || image.getWidth() <= 0 || image.getHeight() <= 0) {
+      log.warn("Cursor asset could not be loaded: {}", config.assetPath());
+      scene.setCursor(Cursor.DEFAULT);
+      return;
+    }
+
+    double hotspotX = Math.max(0.0, Math.min(config.hotspotX(), Math.max(0.0, image.getWidth() - 1)));
+    double hotspotY = Math.max(0.0, Math.min(config.hotspotY(), Math.max(0.0, image.getHeight() - 1)));
+    scene.setCursor(new ImageCursor(image, hotspotX, hotspotY));
+    log.info("Applied custom cursor '{}' ({}, {})", config.assetPath(), hotspotX, hotspotY);
+  }
+
+  private Image loadCursorImage(String path) {
+    if (path == null || path.isBlank()) return null;
+    try {
+      AssetCatalog assets = new AssetCatalog();
+      var url = assets.url(AssetType.IMAGE, path);
+      if (url != null) {
+        Image image = new Image(url.toExternalForm());
+        if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
+      }
+    } catch (Exception ignored) {
+    }
+
+    try {
+      var classpath = getClass().getClassLoader().getResource(path);
+      if (classpath != null) {
+        Image image = new Image(classpath.toExternalForm());
+        if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
+      }
+    } catch (Exception ignored) {
+    }
+
+    try {
+      File file = new File(path);
+      if (file.exists()) {
+        Image image = new Image(file.toURI().toString());
+        if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
+      }
+    } catch (Exception ignored) {
+    }
+    return null;
+  }
+
+  private boolean shouldUseAspectFitViewport(com.jvn.core.scene.Scene scene) {
+    return !(scene instanceof Scene2D);
+  }
+
+  private ViewportScaler2D.Transform viewportTransform(double viewportWidth, double viewportHeight) {
+    return ViewportScaler2D.fit(
+        targetLogicalWidth(viewportWidth),
+        targetLogicalHeight(viewportHeight),
+        viewportWidth,
+        viewportHeight
+    );
+  }
+
+  private double targetLogicalWidth(double fallback) {
+    if (engine != null && engine.getConfig() != null && engine.getConfig().width() > 0) {
+      return engine.getConfig().width();
+    }
+    return Math.max(1.0, fallback);
+  }
+
+  private double targetLogicalHeight(double fallback) {
+    if (engine != null && engine.getConfig() != null && engine.getConfig().height() > 0) {
+      return engine.getConfig().height();
+    }
+    return Math.max(1.0, fallback);
+  }
+
+  private double renderWidthForScene(com.jvn.core.scene.Scene scene) {
+    if (canvas == null || !shouldUseAspectFitViewport(scene)) {
+      return canvas != null ? canvas.getWidth() : 0.0;
+    }
+    return targetLogicalWidth(canvas.getWidth());
+  }
+
+  private double renderHeightForScene(com.jvn.core.scene.Scene scene) {
+    if (canvas == null || !shouldUseAspectFitViewport(scene)) {
+      return canvas != null ? canvas.getHeight() : 0.0;
+    }
+    return targetLogicalHeight(canvas.getHeight());
+  }
+
+  private double toSceneX(double canvasX, com.jvn.core.scene.Scene scene) {
+    if (canvas == null || !shouldUseAspectFitViewport(scene)) return canvasX;
+    ViewportScaler2D.Transform vp = viewportTransform(canvas.getWidth(), canvas.getHeight());
+    double scale = Math.max(0.000001, vp.scale());
+    return (canvasX - vp.offsetX()) / scale;
+  }
+
+  private double toSceneY(double canvasY, com.jvn.core.scene.Scene scene) {
+    if (canvas == null || !shouldUseAspectFitViewport(scene)) return canvasY;
+    ViewportScaler2D.Transform vp = viewportTransform(canvas.getWidth(), canvas.getHeight());
+    double scale = Math.max(0.000001, vp.scale());
+    return (canvasY - vp.offsetY()) / scale;
+  }
+
+  private boolean isPointInSceneViewport(double canvasX, double canvasY, com.jvn.core.scene.Scene scene) {
+    if (canvas == null || !shouldUseAspectFitViewport(scene)) return true;
+    ViewportScaler2D.Transform vp = viewportTransform(canvas.getWidth(), canvas.getHeight());
+    double minX = vp.offsetX();
+    double minY = vp.offsetY();
+    double maxX = minX + vp.targetWidth() * vp.scale();
+    double maxY = minY + vp.targetHeight() * vp.scale();
+    return canvasX >= minX && canvasX <= maxX && canvasY >= minY && canvasY <= maxY;
+  }
+
+  private void drawDefaultScene(double width, double height) {
+    gc.setFill(Color.WHITE);
+    gc.fillText("JVN - Java Visual Novel", 20, 30);
+    gc.fillText("No scene loaded. Push a Scene to the engine's scene manager.", 20, 60);
   }
 
   private void syncPhoneOverlay(com.jvn.core.scene.Scene currentScene) {
@@ -552,7 +718,9 @@ public class FxLauncher extends Application {
 
   private void handleHistoryMenuInput(HistoryMenuScene historyScene, KeyCode code, boolean shiftDown) {
     if (historyScene == null) return;
-    int pageLines = historyScene.linesPerPage(canvas != null ? canvas.getHeight() : 540.0);
+    int pageLines = historyScene.linesPerPage(renderHeightForScene(historyScene) > 0
+        ? renderHeightForScene(historyScene)
+        : 540.0);
     int step = shiftDown ? 5 : 1;
     if (code == KeyCode.ESCAPE || code == KeyCode.SPACE || code == KeyCode.ENTER || code == KeyCode.B) {
       historyScene.close();
@@ -610,11 +778,13 @@ public class FxLauncher extends Application {
   private void handleMouseClick(double x, double y) {
     if (engine == null) return;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    double rw = renderWidthForScene(currentScene);
+    double rh = renderHeightForScene(currentScene);
     if (currentScene instanceof VnScene) {
       VnScene vnScene = (VnScene) currentScene;
 
       com.jvn.core.vn.ui.VnUiActionButtonSpec textBoxButton =
-          vnRenderer.getHoveredTextBoxButton(vnScene.getState(), canvas.getWidth(), canvas.getHeight(), x, y);
+          vnRenderer.getHoveredTextBoxButton(vnScene.getState(), rw, rh, x, y);
       if (textBoxButton != null && executeTextBoxButtonAction(vnScene, textBoxButton)) {
         return;
       }
@@ -624,7 +794,7 @@ public class FxLauncher extends Application {
           vnScene.getState().getCurrentNode().getType() == com.jvn.core.vn.VnNodeType.CHOICE) {
         int choiceIndex = vnRenderer.getHoveredChoiceIndex(
           vnScene.getState().getCurrentNode().getChoices(),
-          canvas.getWidth(), canvas.getHeight(), x, y
+          rw, rh, x, y
         );
         if (choiceIndex >= 0) {
           vnScene.selectChoice(choiceIndex);
@@ -635,13 +805,13 @@ public class FxLauncher extends Application {
       // Otherwise treat as advance
       vnScene.advanceFromClick();
     } else if (currentScene instanceof PauseMenuScene pause) {
-      int idx = menuRenderer.getHoverIndexForPauseMenu(pause, canvas.getWidth(), canvas.getHeight(), x, y);
+      int idx = menuRenderer.getHoverIndexForPauseMenu(pause, rw, rh, x, y);
       if (idx >= 0) {
         pause.setSelected(idx);
         pause.activateSelected();
       }
     } else if (currentScene instanceof MainMenuScene main) {
-      int idx = menuRenderer.getHoverIndexForMainMenu(main, canvas.getWidth(), canvas.getHeight(), x, y);
+      int idx = menuRenderer.getHoverIndexForMainMenu(main, rw, rh, x, y);
       if (idx >= 0) {
         main.setSelected(idx);
         main.activateSelected();
@@ -649,7 +819,7 @@ public class FxLauncher extends Application {
     } else if (currentScene instanceof HistoryMenuScene history) {
       history.close();
     } else if (currentScene instanceof LoadMenuScene load) {
-      var controlHit = menuRenderer.getLoadControlHit(load, canvas.getWidth(), canvas.getHeight(), x, y);
+      var controlHit = menuRenderer.getLoadControlHit(load, rw, rh, x, y);
       if (controlHit != null && controlHit.handled()) {
         switch (controlHit.type()) {
           case CYCLE_LEFT -> load.movePage(-1);
@@ -662,25 +832,25 @@ public class FxLauncher extends Application {
         }
         return;
       }
-      int idx = menuRenderer.getHoverIndexForLoadMenu(load, canvas.getWidth(), canvas.getHeight(), x, y);
+      int idx = menuRenderer.getHoverIndexForLoadMenu(load, rw, rh, x, y);
       if (idx >= 0) {
         load.setSelected(idx);
         load.activateSelected();
       }
     } else if (currentScene instanceof SettingsScene settings) {
-      int idx = menuRenderer.getHoverIndexForSettings(settings, canvas.getWidth(), canvas.getHeight(), x, y);
+      int idx = menuRenderer.getHoverIndexForSettings(settings, rw, rh, x, y);
       if (idx >= 0) {
         settings.setSelected(idx);
         if (!settings.hasSliderAt(idx)) {
           settings.toggleCurrent();
           if (settings.consumeCloseRequested()) engine.scenes().pop();
         } else {
-          double val = menuRenderer.computeSettingsSliderValue01(settings, idx, canvas.getWidth(), canvas.getHeight(), x);
+          double val = menuRenderer.computeSettingsSliderValue01(settings, idx, rw, rh, x);
           settings.setValueByIndex(idx, val);
         }
       }
     } else if (currentScene instanceof SaveMenuScene save) {
-      int idx = menuRenderer.getHoverIndexForSaveMenu(save, canvas.getWidth(), canvas.getHeight(), x, y);
+      int idx = menuRenderer.getHoverIndexForSaveMenu(save, rw, rh, x, y);
       if (idx >= 0) {
         save.setSelected(idx);
         handleMenuEnter();
@@ -831,15 +1001,17 @@ public class FxLauncher extends Application {
   private void handleMouseDrag(double x, double y) {
     if (engine == null) return;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    double rw = renderWidthForScene(currentScene);
+    double rh = renderHeightForScene(currentScene);
     if (currentScene instanceof SettingsScene settings) {
-      int idx = menuRenderer.getHoverIndexForSettings(settings, canvas.getWidth(), canvas.getHeight(), x, y);
+      int idx = menuRenderer.getHoverIndexForSettings(settings, rw, rh, x, y);
       if (idx >= 0 && settings.hasSliderAt(idx)) {
         settings.setSelected(idx);
-        double val = menuRenderer.computeSettingsSliderValue01(settings, idx, canvas.getWidth(), canvas.getHeight(), x);
+        double val = menuRenderer.computeSettingsSliderValue01(settings, idx, rw, rh, x);
         settings.setValueByIndex(idx, val);
       }
     } else if (currentScene instanceof LoadMenuScene load) {
-      var controlHit = menuRenderer.getLoadControlHit(load, canvas.getWidth(), canvas.getHeight(), x, y);
+      var controlHit = menuRenderer.getLoadControlHit(load, rw, rh, x, y);
       if (controlHit != null && controlHit.type() == com.jvn.fx.menu.MenuRenderer.LoadControlType.SET_PAGE) {
         load.setPageFromProgress01(controlHit.pageProgress01());
       }
