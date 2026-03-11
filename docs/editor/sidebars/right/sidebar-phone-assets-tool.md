@@ -13,7 +13,7 @@ The **Phone Assets** sidebar is the structured editor for the phone framework. I
 ## Core Workflow
 
 1. Open the **Phone Assets** panel from the right sidebar chooser or **Tools → Phone Assets**
-2. Edit the **App** tab for title, subtitle, wallpaper, and bubble/theme colors
+2. Edit the **App** tab for title, subtitle, wallpaper, bubble/theme colors, and skin/chrome asset paths
 3. Add contacts in **Contacts**
 4. Create threads in **Threads**
 5. Add or edit messages in **Messages**
@@ -24,6 +24,7 @@ The **Phone Assets** sidebar is the structured editor for the phone framework. I
 The panel supports both browsing and importing image assets:
 
 - Wallpaper imports default into `assets/ui/phone/`
+- Skin/chrome imports default into `assets/ui/phone/skins/`
 - Contact avatars import into `assets/phone/contacts/`
 - Thread icons import into `assets/phone/chats/`
 

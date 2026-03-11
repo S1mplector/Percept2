@@ -57,6 +57,7 @@ public class PhoneAssetsToolView extends BorderPane {
   static final String CONFIG_PATH = "config/phone/phone.properties";
   static final String GAME_CONFIG_PATH = "game/config/phone/phone.properties";
   static final String WALLPAPER_IMPORT_DIR = "assets/ui/phone";
+  static final String SKIN_IMPORT_DIR = "assets/ui/phone/skins";
   static final String CONTACT_IMPORT_DIR = "assets/phone/contacts";
   static final String CHAT_IMPORT_DIR = "assets/phone/chats";
 
@@ -84,6 +85,22 @@ public class PhoneAssetsToolView extends BorderPane {
   private final TextField surfaceField = new TextField();
   private final TextField incomingBubbleField = new TextField();
   private final TextField outgoingBubbleField = new TextField();
+  private final TextField skinIdField = new TextField();
+  private final TextField skinBackgroundField = new TextField();
+  private final TextField skinTopBarField = new TextField();
+  private final TextField skinBottomBarField = new TextField();
+  private final TextField skinMessageField = new TextField();
+  private final TextField skinNavLeadingField = new TextField();
+  private final TextField skinNavTrailingPrimaryField = new TextField();
+  private final TextField skinNavTrailingSecondaryField = new TextField();
+  private final TextField skinComposerLeadingField = new TextField();
+  private final TextField skinComposerTrailingPrimaryField = new TextField();
+  private final TextField skinComposerTrailingSecondaryField = new TextField();
+  private final TextField skinStatusBackdropField = new TextField();
+  private final TextField skinStatusIconField = new TextField();
+  private final TextField skinFloatingActionField = new TextField();
+  private final TextField bubbleIncomingImageField = new TextField();
+  private final TextField bubbleOutgoingImageField = new TextField();
 
   private final ListView<String> contactList = new ListView<>();
   private final TextField contactIdField = readonlyField();
@@ -283,7 +300,7 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private Tab buildAppTab() {
-    Label copy = new Label("App title, wallpaper, and theme colors written to phone.properties.");
+    Label copy = new Label("App title, wallpaper, theme colors, and optional skin/chrome overlays written to phone.properties.");
     copy.getStyleClass().add("phone-tool-help");
     copy.setWrapText(true);
 
@@ -294,6 +311,22 @@ public class PhoneAssetsToolView extends BorderPane {
     surfaceField.setPromptText("#101826");
     incomingBubbleField.setPromptText("#1c2738");
     outgoingBubbleField.setPromptText("#2563eb");
+    skinIdField.setPromptText("sms | discord | custom");
+    skinBackgroundField.setPromptText("assets/ui/phone/skins/sms/sms_background.png");
+    skinTopBarField.setPromptText("assets/ui/phone/skins/sms/sms_top_bar.png");
+    skinBottomBarField.setPromptText("assets/ui/phone/skins/sms/sms_bottom_bar.png");
+    skinMessageField.setPromptText("assets/ui/phone/skins/sms/sms_message_field.png");
+    skinNavLeadingField.setPromptText("assets/ui/phone/skins/sms/sms_back_arrow.png");
+    skinNavTrailingPrimaryField.setPromptText("assets/ui/phone/skins/sms/sms_video_call_button.png");
+    skinNavTrailingSecondaryField.setPromptText("assets/ui/phone/skins/sms/sms_enter_profile_arrow.png");
+    skinComposerLeadingField.setPromptText("assets/ui/phone/skins/sms/sms_take_picture_button.png");
+    skinComposerTrailingPrimaryField.setPromptText("assets/ui/phone/skins/sms/sms_record_voice_message_button.png");
+    skinComposerTrailingSecondaryField.setPromptText("assets/ui/phone/skins/sms/sms_ping.png");
+    skinStatusBackdropField.setPromptText("assets/ui/phone/skins/discord/d_status_backdrop.png");
+    skinStatusIconField.setPromptText("assets/ui/phone/skins/discord/d_status_online.png");
+    skinFloatingActionField.setPromptText("assets/ui/phone/skins/discord/d_jump_button.png");
+    bubbleIncomingImageField.setPromptText("assets/ui/phone/skins/sms/speech bubbles/sms_their_message_-_FULL.png");
+    bubbleOutgoingImageField.setPromptText("assets/ui/phone/skins/sms/speech bubbles/sms_your_message_FULL.png");
 
     GridPane grid = formGrid();
     int row = 0;
@@ -304,6 +337,22 @@ public class PhoneAssetsToolView extends BorderPane {
     addLabeledRow(grid, row++, "Surface", surfaceField);
     addLabeledRow(grid, row++, "Incoming Bubble", incomingBubbleField);
     addLabeledRow(grid, row++, "Outgoing Bubble", outgoingBubbleField);
+    addLabeledRow(grid, row++, "Skin", skinIdField);
+    addLabeledRow(grid, row++, "Skin Background", assetFieldRow(skinBackgroundField, SKIN_IMPORT_DIR, "Skin Background"));
+    addLabeledRow(grid, row++, "Skin Top Bar", assetFieldRow(skinTopBarField, SKIN_IMPORT_DIR, "Skin Top Bar"));
+    addLabeledRow(grid, row++, "Skin Bottom Bar", assetFieldRow(skinBottomBarField, SKIN_IMPORT_DIR, "Skin Bottom Bar"));
+    addLabeledRow(grid, row++, "Skin Message Field", assetFieldRow(skinMessageField, SKIN_IMPORT_DIR, "Skin Message Field"));
+    addLabeledRow(grid, row++, "Skin Nav Leading", assetFieldRow(skinNavLeadingField, SKIN_IMPORT_DIR, "Skin Nav Leading"));
+    addLabeledRow(grid, row++, "Skin Nav Trailing 1", assetFieldRow(skinNavTrailingPrimaryField, SKIN_IMPORT_DIR, "Skin Nav Trailing Primary"));
+    addLabeledRow(grid, row++, "Skin Nav Trailing 2", assetFieldRow(skinNavTrailingSecondaryField, SKIN_IMPORT_DIR, "Skin Nav Trailing Secondary"));
+    addLabeledRow(grid, row++, "Skin Composer Leading", assetFieldRow(skinComposerLeadingField, SKIN_IMPORT_DIR, "Skin Composer Leading"));
+    addLabeledRow(grid, row++, "Skin Composer Trailing 1", assetFieldRow(skinComposerTrailingPrimaryField, SKIN_IMPORT_DIR, "Skin Composer Trailing Primary"));
+    addLabeledRow(grid, row++, "Skin Composer Trailing 2", assetFieldRow(skinComposerTrailingSecondaryField, SKIN_IMPORT_DIR, "Skin Composer Trailing Secondary"));
+    addLabeledRow(grid, row++, "Skin Status Backdrop", assetFieldRow(skinStatusBackdropField, SKIN_IMPORT_DIR, "Skin Status Backdrop"));
+    addLabeledRow(grid, row++, "Skin Status Icon", assetFieldRow(skinStatusIconField, SKIN_IMPORT_DIR, "Skin Status Icon"));
+    addLabeledRow(grid, row++, "Skin Floating Action", assetFieldRow(skinFloatingActionField, SKIN_IMPORT_DIR, "Skin Floating Action"));
+    addLabeledRow(grid, row++, "Incoming Bubble Image", assetFieldRow(bubbleIncomingImageField, SKIN_IMPORT_DIR, "Incoming Bubble Image"));
+    addLabeledRow(grid, row++, "Outgoing Bubble Image", assetFieldRow(bubbleOutgoingImageField, SKIN_IMPORT_DIR, "Outgoing Bubble Image"));
 
     VBox root = new VBox(10, copy, grid);
     root.getStyleClass().add("phone-tool-card");
@@ -545,6 +594,86 @@ public class PhoneAssetsToolView extends BorderPane {
       workingData.setOutgoingBubbleColor(trimToNull(newValue));
       changed("Updated outgoing bubble color.");
     });
+    skinIdField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinId(trimToNull(newValue));
+      changed("Updated phone skin id.");
+    });
+    skinBackgroundField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinBackgroundPath(normalizeRelativePath(newValue));
+      changed("Updated skin background.");
+    });
+    skinTopBarField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinTopBarPath(normalizeRelativePath(newValue));
+      changed("Updated skin top bar.");
+    });
+    skinBottomBarField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinBottomBarPath(normalizeRelativePath(newValue));
+      changed("Updated skin bottom bar.");
+    });
+    skinMessageField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinMessageFieldPath(normalizeRelativePath(newValue));
+      changed("Updated skin message field.");
+    });
+    skinNavLeadingField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinNavLeadingPath(normalizeRelativePath(newValue));
+      changed("Updated skin nav leading icon.");
+    });
+    skinNavTrailingPrimaryField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinNavTrailingPrimaryPath(normalizeRelativePath(newValue));
+      changed("Updated skin nav trailing primary icon.");
+    });
+    skinNavTrailingSecondaryField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinNavTrailingSecondaryPath(normalizeRelativePath(newValue));
+      changed("Updated skin nav trailing secondary icon.");
+    });
+    skinComposerLeadingField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinComposerLeadingPath(normalizeRelativePath(newValue));
+      changed("Updated skin composer leading icon.");
+    });
+    skinComposerTrailingPrimaryField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinComposerTrailingPrimaryPath(normalizeRelativePath(newValue));
+      changed("Updated skin composer trailing primary icon.");
+    });
+    skinComposerTrailingSecondaryField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinComposerTrailingSecondaryPath(normalizeRelativePath(newValue));
+      changed("Updated skin composer trailing secondary icon.");
+    });
+    skinStatusBackdropField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinStatusBackdropPath(normalizeRelativePath(newValue));
+      changed("Updated skin status backdrop.");
+    });
+    skinStatusIconField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinStatusIconPath(normalizeRelativePath(newValue));
+      changed("Updated skin status icon.");
+    });
+    skinFloatingActionField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setSkinFloatingActionPath(normalizeRelativePath(newValue));
+      changed("Updated skin floating action.");
+    });
+    bubbleIncomingImageField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setIncomingBubbleImagePath(normalizeRelativePath(newValue));
+      changed("Updated incoming bubble image.");
+    });
+    bubbleOutgoingImageField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setOutgoingBubbleImagePath(normalizeRelativePath(newValue));
+      changed("Updated outgoing bubble image.");
+    });
 
     contactList.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
       if (applyingUi) return;
@@ -598,6 +727,21 @@ public class PhoneAssetsToolView extends BorderPane {
 
   private void installAssetDropTargets() {
     AssetPickerSupport.installAssetDrop(wallpaperField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinBackgroundField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinTopBarField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinBottomBarField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinMessageField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinNavLeadingField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinNavTrailingPrimaryField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinNavTrailingSecondaryField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinComposerLeadingField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinComposerTrailingPrimaryField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinComposerTrailingSecondaryField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinStatusBackdropField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinStatusIconField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(skinFloatingActionField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(bubbleIncomingImageField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(bubbleOutgoingImageField, this::toProjectRelativePath);
     AssetPickerSupport.installAssetDrop(contactAvatarField, this::toProjectRelativePath);
     AssetPickerSupport.installAssetDrop(chatIconField, this::toProjectRelativePath);
   }
@@ -657,6 +801,22 @@ public class PhoneAssetsToolView extends BorderPane {
       surfaceField.setText(firstNonBlank(workingData.getSurfaceColor(), ""));
       incomingBubbleField.setText(firstNonBlank(workingData.getIncomingBubbleColor(), ""));
       outgoingBubbleField.setText(firstNonBlank(workingData.getOutgoingBubbleColor(), ""));
+      skinIdField.setText(firstNonBlank(workingData.getSkinId(), ""));
+      skinBackgroundField.setText(firstNonBlank(workingData.getSkinBackgroundPath(), ""));
+      skinTopBarField.setText(firstNonBlank(workingData.getSkinTopBarPath(), ""));
+      skinBottomBarField.setText(firstNonBlank(workingData.getSkinBottomBarPath(), ""));
+      skinMessageField.setText(firstNonBlank(workingData.getSkinMessageFieldPath(), ""));
+      skinNavLeadingField.setText(firstNonBlank(workingData.getSkinNavLeadingPath(), ""));
+      skinNavTrailingPrimaryField.setText(firstNonBlank(workingData.getSkinNavTrailingPrimaryPath(), ""));
+      skinNavTrailingSecondaryField.setText(firstNonBlank(workingData.getSkinNavTrailingSecondaryPath(), ""));
+      skinComposerLeadingField.setText(firstNonBlank(workingData.getSkinComposerLeadingPath(), ""));
+      skinComposerTrailingPrimaryField.setText(firstNonBlank(workingData.getSkinComposerTrailingPrimaryPath(), ""));
+      skinComposerTrailingSecondaryField.setText(firstNonBlank(workingData.getSkinComposerTrailingSecondaryPath(), ""));
+      skinStatusBackdropField.setText(firstNonBlank(workingData.getSkinStatusBackdropPath(), ""));
+      skinStatusIconField.setText(firstNonBlank(workingData.getSkinStatusIconPath(), ""));
+      skinFloatingActionField.setText(firstNonBlank(workingData.getSkinFloatingActionPath(), ""));
+      bubbleIncomingImageField.setText(firstNonBlank(workingData.getIncomingBubbleImagePath(), ""));
+      bubbleOutgoingImageField.setText(firstNonBlank(workingData.getOutgoingBubbleImagePath(), ""));
     } finally {
       applyingUi = false;
     }
@@ -1269,6 +1429,22 @@ public class PhoneAssetsToolView extends BorderPane {
     copy.setSurfaceColor(source.getSurfaceColor());
     copy.setIncomingBubbleColor(source.getIncomingBubbleColor());
     copy.setOutgoingBubbleColor(source.getOutgoingBubbleColor());
+    copy.setSkinId(source.getSkinId());
+    copy.setSkinBackgroundPath(source.getSkinBackgroundPath());
+    copy.setSkinTopBarPath(source.getSkinTopBarPath());
+    copy.setSkinBottomBarPath(source.getSkinBottomBarPath());
+    copy.setSkinMessageFieldPath(source.getSkinMessageFieldPath());
+    copy.setSkinNavLeadingPath(source.getSkinNavLeadingPath());
+    copy.setSkinNavTrailingPrimaryPath(source.getSkinNavTrailingPrimaryPath());
+    copy.setSkinNavTrailingSecondaryPath(source.getSkinNavTrailingSecondaryPath());
+    copy.setSkinComposerLeadingPath(source.getSkinComposerLeadingPath());
+    copy.setSkinComposerTrailingPrimaryPath(source.getSkinComposerTrailingPrimaryPath());
+    copy.setSkinComposerTrailingSecondaryPath(source.getSkinComposerTrailingSecondaryPath());
+    copy.setSkinStatusBackdropPath(source.getSkinStatusBackdropPath());
+    copy.setSkinStatusIconPath(source.getSkinStatusIconPath());
+    copy.setSkinFloatingActionPath(source.getSkinFloatingActionPath());
+    copy.setIncomingBubbleImagePath(source.getIncomingBubbleImagePath());
+    copy.setOutgoingBubbleImagePath(source.getOutgoingBubbleImagePath());
 
     for (VnPhoneData.Contact contact : source.getContacts().values()) {
       VnPhoneData.Contact target = copy.getOrCreateContact(contact.getId());

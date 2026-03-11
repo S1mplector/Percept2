@@ -27,6 +27,22 @@ public final class VnPhoneData {
   private String surfaceColor = "#101826";
   private String incomingBubbleColor = "#1c2738";
   private String outgoingBubbleColor = "#2563eb";
+  private String skinId = "default";
+  private String skinBackgroundPath;
+  private String skinTopBarPath;
+  private String skinBottomBarPath;
+  private String skinMessageFieldPath;
+  private String skinNavLeadingPath;
+  private String skinNavTrailingPrimaryPath;
+  private String skinNavTrailingSecondaryPath;
+  private String skinComposerLeadingPath;
+  private String skinComposerTrailingPrimaryPath;
+  private String skinComposerTrailingSecondaryPath;
+  private String skinStatusBackdropPath;
+  private String skinStatusIconPath;
+  private String skinFloatingActionPath;
+  private String incomingBubbleImagePath;
+  private String outgoingBubbleImagePath;
 
   private final LinkedHashMap<String, Contact> contacts = new LinkedHashMap<>();
   private final LinkedHashMap<String, Chat> chats = new LinkedHashMap<>();
@@ -86,6 +102,135 @@ public final class VnPhoneData {
 
   public void setOutgoingBubbleColor(String outgoingBubbleColor) {
     this.outgoingBubbleColor = blankToNull(outgoingBubbleColor);
+  }
+
+  public String getSkinId() {
+    return skinId == null || skinId.isBlank() ? "default" : skinId;
+  }
+
+  public void setSkinId(String skinId) {
+    String normalized = blankToNull(skinId);
+    this.skinId = normalized == null ? "default" : normalized.toLowerCase(Locale.ROOT);
+  }
+
+  public String getSkinBackgroundPath() {
+    return skinBackgroundPath;
+  }
+
+  public void setSkinBackgroundPath(String skinBackgroundPath) {
+    this.skinBackgroundPath = blankToNull(skinBackgroundPath);
+  }
+
+  public String getSkinTopBarPath() {
+    return skinTopBarPath;
+  }
+
+  public void setSkinTopBarPath(String skinTopBarPath) {
+    this.skinTopBarPath = blankToNull(skinTopBarPath);
+  }
+
+  public String getSkinBottomBarPath() {
+    return skinBottomBarPath;
+  }
+
+  public void setSkinBottomBarPath(String skinBottomBarPath) {
+    this.skinBottomBarPath = blankToNull(skinBottomBarPath);
+  }
+
+  public String getSkinMessageFieldPath() {
+    return skinMessageFieldPath;
+  }
+
+  public void setSkinMessageFieldPath(String skinMessageFieldPath) {
+    this.skinMessageFieldPath = blankToNull(skinMessageFieldPath);
+  }
+
+  public String getSkinNavLeadingPath() {
+    return skinNavLeadingPath;
+  }
+
+  public void setSkinNavLeadingPath(String skinNavLeadingPath) {
+    this.skinNavLeadingPath = blankToNull(skinNavLeadingPath);
+  }
+
+  public String getSkinNavTrailingPrimaryPath() {
+    return skinNavTrailingPrimaryPath;
+  }
+
+  public void setSkinNavTrailingPrimaryPath(String skinNavTrailingPrimaryPath) {
+    this.skinNavTrailingPrimaryPath = blankToNull(skinNavTrailingPrimaryPath);
+  }
+
+  public String getSkinNavTrailingSecondaryPath() {
+    return skinNavTrailingSecondaryPath;
+  }
+
+  public void setSkinNavTrailingSecondaryPath(String skinNavTrailingSecondaryPath) {
+    this.skinNavTrailingSecondaryPath = blankToNull(skinNavTrailingSecondaryPath);
+  }
+
+  public String getSkinComposerLeadingPath() {
+    return skinComposerLeadingPath;
+  }
+
+  public void setSkinComposerLeadingPath(String skinComposerLeadingPath) {
+    this.skinComposerLeadingPath = blankToNull(skinComposerLeadingPath);
+  }
+
+  public String getSkinComposerTrailingPrimaryPath() {
+    return skinComposerTrailingPrimaryPath;
+  }
+
+  public void setSkinComposerTrailingPrimaryPath(String skinComposerTrailingPrimaryPath) {
+    this.skinComposerTrailingPrimaryPath = blankToNull(skinComposerTrailingPrimaryPath);
+  }
+
+  public String getSkinComposerTrailingSecondaryPath() {
+    return skinComposerTrailingSecondaryPath;
+  }
+
+  public void setSkinComposerTrailingSecondaryPath(String skinComposerTrailingSecondaryPath) {
+    this.skinComposerTrailingSecondaryPath = blankToNull(skinComposerTrailingSecondaryPath);
+  }
+
+  public String getSkinStatusBackdropPath() {
+    return skinStatusBackdropPath;
+  }
+
+  public void setSkinStatusBackdropPath(String skinStatusBackdropPath) {
+    this.skinStatusBackdropPath = blankToNull(skinStatusBackdropPath);
+  }
+
+  public String getSkinStatusIconPath() {
+    return skinStatusIconPath;
+  }
+
+  public void setSkinStatusIconPath(String skinStatusIconPath) {
+    this.skinStatusIconPath = blankToNull(skinStatusIconPath);
+  }
+
+  public String getSkinFloatingActionPath() {
+    return skinFloatingActionPath;
+  }
+
+  public void setSkinFloatingActionPath(String skinFloatingActionPath) {
+    this.skinFloatingActionPath = blankToNull(skinFloatingActionPath);
+  }
+
+  public String getIncomingBubbleImagePath() {
+    return incomingBubbleImagePath;
+  }
+
+  public void setIncomingBubbleImagePath(String incomingBubbleImagePath) {
+    this.incomingBubbleImagePath = blankToNull(incomingBubbleImagePath);
+  }
+
+  public String getOutgoingBubbleImagePath() {
+    return outgoingBubbleImagePath;
+  }
+
+  public void setOutgoingBubbleImagePath(String outgoingBubbleImagePath) {
+    this.outgoingBubbleImagePath = blankToNull(outgoingBubbleImagePath);
   }
 
   public Map<String, Contact> getContacts() {

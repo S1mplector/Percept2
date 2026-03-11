@@ -3,6 +3,7 @@ package com.jvn.fx.phone;
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import com.jvn.core.assets.AssetCatalog;
@@ -19,9 +20,11 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.PixelReader;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -40,14 +43,31 @@ public final class PhoneRenderer extends StackPane {
 
   private final Region backdrop = new Region();
   private final StackPane shell = new StackPane();
+  private final Pane skinUnderlay = new Pane();
+  private final Pane skinOverlay = new Pane();
+  private final ImageView skinBackgroundView = new ImageView();
+  private final ImageView skinTopBarView = new ImageView();
+  private final ImageView skinBottomBarView = new ImageView();
+  private final ImageView skinMessageFieldView = new ImageView();
+  private final ImageView skinNavLeadingView = new ImageView();
+  private final ImageView skinNavTrailingPrimaryView = new ImageView();
+  private final ImageView skinNavTrailingSecondaryView = new ImageView();
+  private final ImageView skinComposerLeadingView = new ImageView();
+  private final ImageView skinComposerTrailingPrimaryView = new ImageView();
+  private final ImageView skinComposerTrailingSecondaryView = new ImageView();
+  private final ImageView skinStatusBackdropView = new ImageView();
+  private final ImageView skinStatusIconView = new ImageView();
+  private final ImageView skinFloatingActionView = new ImageView();
   private final ImageView wallpaperView = new ImageView();
   private final BorderPane phoneRoot = new BorderPane();
   private final Rectangle clipRect = new Rectangle();
 
   private final Button navButton = new Button("Close");
+  private final Button auxSecondaryButton = new Button();
   private final Button auxButton = new Button("Home");
   private final Label titleLabel = new Label("Phone");
   private final Label subtitleLabel = new Label("Messages");
+  private final HBox header = new HBox(10);
   private final ScrollPane homeScroll = new ScrollPane();
   private final VBox homeList = new VBox(8);
   private final ScrollPane messageScroll = new ScrollPane();
@@ -55,6 +75,7 @@ public final class PhoneRenderer extends StackPane {
   private final Label footerLabel = new Label("Esc closes");
 
   private final Map<String, Image> imageCache = new HashMap<>();
+  private final Map<String, AlphaBounds> alphaBoundsCache = new HashMap<>();
 
   private PhoneScene sceneModel;
   private File projectRoot;
@@ -75,11 +96,32 @@ public final class PhoneRenderer extends StackPane {
       e.consume();
     });
 
-    wallpaperView.getStyleClass().add("phone-wallpaper");
-    wallpaperView.setPreserveRatio(false);
-    wallpaperView.setSmooth(true);
-    wallpaperView.setManaged(false);
-    wallpaperView.setMouseTransparent(true);
+    skinUnderlay.getStyleClass().add("phone-skin-underlay");
+    skinUnderlay.setMouseTransparent(true);
+    skinUnderlay.setManaged(false);
+    skinUnderlay.prefWidthProperty().bind(shell.widthProperty());
+    skinUnderlay.prefHeightProperty().bind(shell.heightProperty());
+
+    skinOverlay.getStyleClass().add("phone-skin-overlay");
+    skinOverlay.setMouseTransparent(true);
+    skinOverlay.setManaged(false);
+    skinOverlay.prefWidthProperty().bind(shell.widthProperty());
+    skinOverlay.prefHeightProperty().bind(shell.heightProperty());
+
+    configureLayerImageView(wallpaperView, "phone-wallpaper");
+    configureLayerImageView(skinBackgroundView, "phone-skin-background");
+    configureLayerImageView(skinTopBarView, "phone-skin-top-bar");
+    configureLayerImageView(skinBottomBarView, "phone-skin-bottom-bar");
+    configureLayerImageView(skinMessageFieldView, "phone-skin-message-field");
+    configureLayerImageView(skinNavLeadingView, "phone-skin-nav-leading");
+    configureLayerImageView(skinNavTrailingPrimaryView, "phone-skin-nav-trailing-primary");
+    configureLayerImageView(skinNavTrailingSecondaryView, "phone-skin-nav-trailing-secondary");
+    configureLayerImageView(skinComposerLeadingView, "phone-skin-composer-leading");
+    configureLayerImageView(skinComposerTrailingPrimaryView, "phone-skin-composer-trailing-primary");
+    configureLayerImageView(skinComposerTrailingSecondaryView, "phone-skin-composer-trailing-secondary");
+    configureLayerImageView(skinStatusBackdropView, "phone-skin-status-backdrop");
+    configureLayerImageView(skinStatusIconView, "phone-skin-status-icon");
+    configureLayerImageView(skinFloatingActionView, "phone-skin-floating-action");
 
     shell.getStyleClass().add("phone-shell");
     shell.setOnMouseClicked(e -> e.consume());
@@ -106,6 +148,14 @@ public final class PhoneRenderer extends StackPane {
       refresh();
     });
 
+    auxSecondaryButton.getStyleClass().add("phone-nav-button");
+    auxSecondaryButton.setFocusTraversable(false);
+    auxSecondaryButton.setOnAction(e -> {
+      if (sceneModel == null) return;
+      sceneModel.showHome();
+      refresh();
+    });
+
     titleLabel.getStyleClass().add("phone-title");
     subtitleLabel.getStyleClass().add("phone-subtitle");
 
@@ -114,7 +164,7 @@ public final class PhoneRenderer extends StackPane {
 
     Region headerSpacer = new Region();
     HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-    HBox header = new HBox(10, navButton, titles, headerSpacer, auxButton);
+    header.getChildren().setAll(navButton, titles, headerSpacer, auxSecondaryButton, auxButton);
     header.setAlignment(Pos.CENTER_LEFT);
     header.getStyleClass().add("phone-header");
 
@@ -139,7 +189,23 @@ public final class PhoneRenderer extends StackPane {
     phoneRoot.getStyleClass().add("phone-root");
     BorderPane.setMargin(footerLabel, new Insets(12, 18, 18, 18));
 
-    shell.getChildren().addAll(wallpaperView, phoneRoot);
+    skinUnderlay.getChildren().addAll(
+        skinBackgroundView,
+        wallpaperView,
+        skinTopBarView,
+        skinBottomBarView,
+        skinMessageFieldView);
+    skinOverlay.getChildren().addAll(
+        skinStatusBackdropView,
+        skinStatusIconView,
+        skinFloatingActionView,
+        skinNavLeadingView,
+        skinNavTrailingPrimaryView,
+        skinNavTrailingSecondaryView,
+        skinComposerLeadingView,
+        skinComposerTrailingPrimaryView,
+        skinComposerTrailingSecondaryView);
+    shell.getChildren().addAll(skinUnderlay, phoneRoot, skinOverlay);
 
     getChildren().addAll(backdrop, shell);
     StackPane.setAlignment(shell, Pos.CENTER);
@@ -161,6 +227,7 @@ public final class PhoneRenderer extends StackPane {
     }
     this.projectRoot = projectRoot;
     imageCache.clear();
+    alphaBoundsCache.clear();
     refresh();
   }
 
@@ -274,13 +341,16 @@ public final class PhoneRenderer extends StackPane {
       wallpaperView.setImage(null);
       homeList.getChildren().clear();
       messageList.getChildren().clear();
+      applySkinAssets(null);
+      applyLayoutForSkin(null, false, true);
       updateEmbeddedLayout();
       return;
     }
 
     VnPhoneData data = sceneModel.getData();
-    applyTheme(data);
+    boolean skinned = applyTheme(data);
     updateWallpaper(data);
+    applySkinAssets(data);
 
     if (sceneModel.isShowingHome()) {
       titleLabel.setText(data.getTitle());
@@ -288,21 +358,28 @@ public final class PhoneRenderer extends StackPane {
       navButton.setText("Close");
       auxButton.setVisible(false);
       auxButton.setManaged(false);
+      auxSecondaryButton.setVisible(false);
+      auxSecondaryButton.setManaged(false);
       phoneRoot.setCenter(homeScroll);
       footerLabel.setText("Enter opens the selected chat. Esc closes.");
       refreshHomeList();
     } else {
       VnPhoneData.Chat chat = sceneModel.getCurrentChat();
+      boolean hasSecondaryNav = hasText(data.getSkinNavTrailingSecondaryPath());
       titleLabel.setText(chat == null ? "Conversation" : firstNonBlank(chat.getTitle(), data.defaultChatTitle(chat)));
       subtitleLabel.setText(chat == null ? "" : chat.getParticipants().size() + " participant(s)");
       navButton.setText(sceneModel.canReturnHome() ? "Back" : "Close");
       auxButton.setVisible(sceneModel.canReturnHome());
       auxButton.setManaged(sceneModel.canReturnHome());
+      auxSecondaryButton.setVisible(sceneModel.canReturnHome() && hasSecondaryNav);
+      auxSecondaryButton.setManaged(sceneModel.canReturnHome() && hasSecondaryNav);
       phoneRoot.setCenter(messageScroll);
       footerLabel.setText("Arrow keys or wheel scroll. Home jumps back to the thread list.");
       refreshChatView(chat);
       sceneModel.markCurrentChatRead();
     }
+    applySceneChromeVisibility(data, sceneModel.isShowingHome());
+    applyLayoutForSkin(data, skinned, sceneModel.isShowingHome());
     updateEmbeddedLayout();
   }
 
@@ -371,11 +448,7 @@ public final class PhoneRenderer extends StackPane {
       bubble.getStyleClass().addAll("phone-bubble", outgoing ? "outgoing" : "incoming");
       bubble.setWrapText(true);
       bubble.setMaxWidth(220);
-      if (outgoing) {
-        bubble.setStyle("-fx-background-color: " + firstNonBlank(sceneModel.getData().getOutgoingBubbleColor(), "#2563eb") + ";");
-      } else {
-        bubble.setStyle("-fx-background-color: " + firstNonBlank(sceneModel.getData().getIncomingBubbleColor(), "#1c2738") + ";");
-      }
+      applyBubbleStyle(bubble, outgoing);
 
       Label meta = new Label(formatMeta(sender, message));
       meta.getStyleClass().add("phone-message-meta");
@@ -435,15 +508,252 @@ public final class PhoneRenderer extends StackPane {
     Image wallpaper = loadImage(data == null ? null : data.getWallpaperPath());
     wallpaperView.setImage(wallpaper);
     wallpaperView.setVisible(wallpaper != null);
-    wallpaperView.setManaged(wallpaper != null);
   }
 
-  private void applyTheme(VnPhoneData data) {
+  private boolean applyTheme(VnPhoneData data) {
+    shell.getStyleClass().removeAll("is-skinned", "skin-sms", "skin-discord", "skin-custom");
+    phoneRoot.getStyleClass().remove("is-skinned");
+    header.getStyleClass().remove("is-skinned");
+    navButton.getStyleClass().remove("is-skinned");
+    auxButton.getStyleClass().remove("is-skinned");
+    auxSecondaryButton.getStyleClass().remove("is-skinned");
+
     if (data == null) {
       shell.setStyle(null);
-      return;
+      return false;
+    }
+    boolean skinned = hasSkinAssets(data);
+    if (skinned) {
+      shell.getStyleClass().add("is-skinned");
+      phoneRoot.getStyleClass().add("is-skinned");
+      header.getStyleClass().add("is-skinned");
+      navButton.getStyleClass().add("is-skinned");
+      auxButton.getStyleClass().add("is-skinned");
+      auxSecondaryButton.getStyleClass().add("is-skinned");
+      String skin = firstNonBlank(data.getSkinId(), "default").toLowerCase(Locale.ROOT);
+      if ("sms".equals(skin)) {
+        shell.getStyleClass().add("skin-sms");
+      } else if ("discord".equals(skin)) {
+        shell.getStyleClass().add("skin-discord");
+      } else {
+        shell.getStyleClass().add("skin-custom");
+      }
     }
     shell.setStyle("-fx-background-color: " + firstNonBlank(data.getSurfaceColor(), "#101826") + ";");
+    return skinned;
+  }
+
+  private void applyBubbleStyle(Label bubble, boolean outgoing) {
+    if (bubble == null || sceneModel == null) return;
+    VnPhoneData data = sceneModel.getData();
+    String imagePath = outgoing ? data.getOutgoingBubbleImagePath() : data.getIncomingBubbleImagePath();
+    Image image = loadImage(imagePath);
+    if (image != null && image.getUrl() != null && !image.getUrl().isBlank()) {
+      String imageUrl = cssUrl(image.getUrl());
+      bubble.setStyle(
+          "-fx-background-color: transparent;"
+              + "-fx-background-image: url(\"" + imageUrl + "\");"
+              + "-fx-background-repeat: no-repeat;"
+              + "-fx-background-size: 100% 100%;");
+      return;
+    }
+    String color = outgoing
+        ? firstNonBlank(data.getOutgoingBubbleColor(), "#2563eb")
+        : firstNonBlank(data.getIncomingBubbleColor(), "#1c2738");
+    bubble.setStyle("-fx-background-color: " + color + "; -fx-background-image: null;");
+  }
+
+  private void applySkinAssets(VnPhoneData data) {
+    if (data == null) {
+      setLayerImage(skinBackgroundView, null);
+      setLayerImage(skinTopBarView, null);
+      setLayerImage(skinBottomBarView, null);
+      setLayerImage(skinMessageFieldView, null);
+      setLayerImage(skinNavLeadingView, null);
+      setLayerImage(skinNavTrailingPrimaryView, null);
+      setLayerImage(skinNavTrailingSecondaryView, null);
+      setLayerImage(skinComposerLeadingView, null);
+      setLayerImage(skinComposerTrailingPrimaryView, null);
+      setLayerImage(skinComposerTrailingSecondaryView, null);
+      setLayerImage(skinStatusBackdropView, null);
+      setLayerImage(skinStatusIconView, null);
+      setLayerImage(skinFloatingActionView, null);
+      return;
+    }
+    setLayerImage(skinBackgroundView, data.getSkinBackgroundPath());
+    setLayerImage(skinTopBarView, data.getSkinTopBarPath());
+    setLayerImage(skinBottomBarView, data.getSkinBottomBarPath());
+    setLayerImage(skinMessageFieldView, data.getSkinMessageFieldPath());
+    setLayerImage(skinNavLeadingView, data.getSkinNavLeadingPath());
+    setLayerImage(skinNavTrailingPrimaryView, data.getSkinNavTrailingPrimaryPath());
+    setLayerImage(skinNavTrailingSecondaryView, data.getSkinNavTrailingSecondaryPath());
+    setLayerImage(skinComposerLeadingView, data.getSkinComposerLeadingPath());
+    setLayerImage(skinComposerTrailingPrimaryView, data.getSkinComposerTrailingPrimaryPath());
+    setLayerImage(skinComposerTrailingSecondaryView, data.getSkinComposerTrailingSecondaryPath());
+    setLayerImage(skinStatusBackdropView, data.getSkinStatusBackdropPath());
+    setLayerImage(skinStatusIconView, data.getSkinStatusIconPath());
+    setLayerImage(skinFloatingActionView, data.getSkinFloatingActionPath());
+  }
+
+  private void applySceneChromeVisibility(VnPhoneData data, boolean showingHome) {
+    boolean skinned = hasSkinAssets(data);
+    skinUnderlay.setVisible(skinned);
+    skinOverlay.setVisible(skinned);
+    skinUnderlay.setManaged(skinned);
+    skinOverlay.setManaged(skinned);
+    if (!skinned) return;
+
+    setVisibleIfImage(skinBackgroundView, true);
+    setVisibleIfImage(skinTopBarView, true);
+    setVisibleIfImage(skinBottomBarView, true);
+    setVisibleIfImage(skinNavLeadingView, true);
+    setVisibleIfImage(skinNavTrailingPrimaryView, !showingHome);
+    setVisibleIfImage(skinNavTrailingSecondaryView, !showingHome);
+    setVisibleIfImage(skinStatusBackdropView, !showingHome);
+    setVisibleIfImage(skinStatusIconView, !showingHome);
+    setVisibleIfImage(skinFloatingActionView, !showingHome);
+    setVisibleIfImage(skinMessageFieldView, !showingHome);
+    setVisibleIfImage(skinComposerLeadingView, !showingHome);
+    setVisibleIfImage(skinComposerTrailingPrimaryView, !showingHome);
+    setVisibleIfImage(skinComposerTrailingSecondaryView, !showingHome);
+  }
+
+  private void applyLayoutForSkin(VnPhoneData data, boolean skinned, boolean showingHome) {
+    if (!skinned) {
+      header.setPadding(new Insets(6, 10, 12, 10));
+      phoneRoot.setPadding(new Insets(8, 0, 0, 0));
+      BorderPane.setMargin(homeScroll, Insets.EMPTY);
+      BorderPane.setMargin(messageScroll, Insets.EMPTY);
+      footerLabel.setVisible(true);
+      footerLabel.setManaged(true);
+      return;
+    }
+
+    navButton.setText("");
+    auxButton.setText("");
+    auxSecondaryButton.setText("");
+
+    SkinInsets insets = resolveSkinInsets(data);
+    header.setPadding(new Insets(insets.headerTop(), insets.side(), insets.headerBottom(), insets.side()));
+    phoneRoot.setPadding(Insets.EMPTY);
+    BorderPane.setMargin(homeScroll, new Insets(insets.listTop(), insets.side(), insets.listBottom(), insets.side()));
+    BorderPane.setMargin(messageScroll, new Insets(insets.listTop(), insets.side(), insets.listBottom(), insets.side()));
+    footerLabel.setVisible(false);
+    footerLabel.setManaged(false);
+
+    if (showingHome) {
+      homeList.setSpacing(10);
+    } else {
+      messageList.setSpacing(8);
+    }
+  }
+
+  private SkinInsets resolveSkinInsets(VnPhoneData data) {
+    if (data == null) return SkinInsets.DEFAULT;
+
+    double width = SHELL_WIDTH;
+    double height = SHELL_HEIGHT;
+    AlphaBounds topBar = alphaBounds(data.getSkinTopBarPath(), skinTopBarView.getImage());
+    AlphaBounds bottomBar = alphaBounds(data.getSkinBottomBarPath(), skinBottomBarView.getImage());
+    AlphaBounds messageField = alphaBounds(data.getSkinMessageFieldPath(), skinMessageFieldView.getImage());
+
+    double topCover = topBar == null ? 0.105 : topBar.maxY();
+    double bottomStart = 0.90;
+    if (bottomBar != null) bottomStart = Math.min(bottomStart, bottomBar.minY());
+    if (messageField != null) bottomStart = Math.min(bottomStart, messageField.minY());
+
+    String skin = firstNonBlank(data.getSkinId(), "default").toLowerCase(Locale.ROOT);
+    double side = "discord".equals(skin) ? 14.0 : 16.0;
+    double headerTop = clamp(topCover * height * 0.08, 4.0, 20.0);
+    double headerBottom = clamp(topCover * height * 0.06, 6.0, 24.0);
+    double listTop = clamp(topCover * height * 0.18, 16.0, 74.0);
+    double listBottom = clamp((1.0 - bottomStart) * height + 10.0, 48.0, 180.0);
+    return new SkinInsets(side, headerTop, headerBottom, listTop, listBottom);
+  }
+
+  private AlphaBounds alphaBounds(String path, Image image) {
+    if (path == null || path.isBlank() || image == null) return null;
+    AlphaBounds raw = alphaBoundsCache.computeIfAbsent(path, ignored -> computeAlphaBounds(image));
+    if (raw == null) return null;
+    double scaleX = image.getWidth() <= 0 ? 1.0 : 1.0 / image.getWidth();
+    double scaleY = image.getHeight() <= 0 ? 1.0 : 1.0 / image.getHeight();
+    return new AlphaBounds(
+        raw.minX() * scaleX,
+        raw.minY() * scaleY,
+        raw.maxX() * scaleX,
+        raw.maxY() * scaleY);
+  }
+
+  private AlphaBounds computeAlphaBounds(Image image) {
+    if (image == null || image.getPixelReader() == null || image.getWidth() <= 0 || image.getHeight() <= 0) return null;
+    PixelReader reader = image.getPixelReader();
+    int width = Math.max(1, (int) Math.round(image.getWidth()));
+    int height = Math.max(1, (int) Math.round(image.getHeight()));
+
+    int minX = width;
+    int minY = height;
+    int maxX = -1;
+    int maxY = -1;
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        int alpha = (reader.getArgb(x, y) >>> 24) & 0xFF;
+        if (alpha < 12) continue;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < minX || maxY < minY) return null;
+    return new AlphaBounds(minX, minY, maxX + 1.0, maxY + 1.0);
+  }
+
+  private void setLayerImage(ImageView view, String path) {
+    if (view == null) return;
+    Image image = loadImage(path);
+    view.setImage(image);
+    view.setVisible(image != null);
+  }
+
+  private static void setVisibleIfImage(ImageView view, boolean visible) {
+    if (view == null) return;
+    view.setVisible(visible && view.getImage() != null);
+  }
+
+  private static boolean hasSkinAssets(VnPhoneData data) {
+    if (data == null) return false;
+    return hasText(data.getSkinBackgroundPath())
+        || hasText(data.getSkinTopBarPath())
+        || hasText(data.getSkinBottomBarPath())
+        || hasText(data.getSkinMessageFieldPath())
+        || hasText(data.getSkinNavLeadingPath())
+        || hasText(data.getSkinNavTrailingPrimaryPath())
+        || hasText(data.getSkinNavTrailingSecondaryPath())
+        || hasText(data.getSkinComposerLeadingPath())
+        || hasText(data.getSkinComposerTrailingPrimaryPath())
+        || hasText(data.getSkinComposerTrailingSecondaryPath())
+        || hasText(data.getSkinStatusBackdropPath())
+        || hasText(data.getSkinStatusIconPath())
+        || hasText(data.getSkinFloatingActionPath());
+  }
+
+  private static boolean hasText(String value) {
+    return value != null && !value.isBlank();
+  }
+
+  private static String cssUrl(String url) {
+    if (url == null) return "";
+    return url.replace("\\", "\\\\").replace("\"", "\\\"");
+  }
+
+  private void configureLayerImageView(ImageView view, String styleClass) {
+    view.getStyleClass().add(styleClass);
+    view.setPreserveRatio(false);
+    view.setSmooth(true);
+    view.setManaged(false);
+    view.setMouseTransparent(true);
+    view.fitWidthProperty().bind(shell.widthProperty());
+    view.fitHeightProperty().bind(shell.heightProperty());
   }
 
   private void scrollHomeSelectionIntoView() {
@@ -481,6 +791,13 @@ public final class PhoneRenderer extends StackPane {
       }
       return null;
     });
+  }
+
+  private record AlphaBounds(double minX, double minY, double maxX, double maxY) {
+  }
+
+  private record SkinInsets(double side, double headerTop, double headerBottom, double listTop, double listBottom) {
+    private static final SkinInsets DEFAULT = new SkinInsets(14.0, 8.0, 12.0, 18.0, 62.0);
   }
 
   private static String initials(String value) {

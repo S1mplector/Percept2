@@ -18,6 +18,16 @@ class VnPhonePropertiesCodecTest {
     data.setSubtitle("Unread chats");
     data.setWallpaperPath("assets/ui/phone_wallpaper.png");
     data.setAccentColor("#80bfff");
+    data.setSkinId("sms");
+    data.setSkinBackgroundPath("assets/ui/phone/skins/sms/sms_background.png");
+    data.setSkinTopBarPath("assets/ui/phone/skins/sms/sms_top_bar.png");
+    data.setSkinBottomBarPath("assets/ui/phone/skins/sms/sms_bottom_bar.png");
+    data.setSkinMessageFieldPath("assets/ui/phone/skins/sms/sms_message_field.png");
+    data.setSkinNavLeadingPath("assets/ui/phone/skins/sms/sms_back_arrow.png");
+    data.setSkinNavTrailingPrimaryPath("assets/ui/phone/skins/sms/sms_video_call_button.png");
+    data.setSkinComposerTrailingPrimaryPath("assets/ui/phone/skins/sms/sms_record_voice_message_button.png");
+    data.setIncomingBubbleImagePath("assets/ui/phone/skins/sms/speech bubbles/sms_their_message_-_FULL.png");
+    data.setOutgoingBubbleImagePath("assets/ui/phone/skins/sms/speech bubbles/sms_your_message_FULL.png");
 
     VnPhoneData.Contact mc = data.getOrCreateContact("mc");
     mc.setDisplayName("John");
@@ -41,6 +51,9 @@ class VnPhonePropertiesCodecTest {
     assertEquals("Accord", decoded.getTitle());
     assertEquals("Unread chats", decoded.getSubtitle());
     assertEquals("assets/ui/phone_wallpaper.png", decoded.getWallpaperPath());
+    assertEquals("sms", decoded.getSkinId());
+    assertEquals("assets/ui/phone/skins/sms/sms_top_bar.png", decoded.getSkinTopBarPath());
+    assertEquals("assets/ui/phone/skins/sms/speech bubbles/sms_their_message_-_FULL.png", decoded.getIncomingBubbleImagePath());
     assertEquals("Lily", decoded.getContact("ll").getDisplayName());
     assertTrue(decoded.getContact("mc").isSelf());
     assertEquals(1, decoded.orderedChats().size());
@@ -74,5 +87,19 @@ class VnPhonePropertiesCodecTest {
     VnPhoneData decoded = VnPhoneStateStore.load(state, VnPhoneData::new);
     assertEquals(2, decoded.getChat("thread_a").getMessages().size());
     assertEquals("persisted", decoded.getChat("thread_a").getLastMessage().getText());
+  }
+
+  @Test
+  void supportsLegacyBubbleImagePropertyAliases() throws Exception {
+    String props = """
+        app.skin=discord
+        app.bubbleIncomingImage=assets/ui/phone/skins/discord/incoming.png
+        app.bubbleOutgoingImage=assets/ui/phone/skins/discord/outgoing.png
+        """;
+
+    VnPhoneData decoded = VnPhonePropertiesCodec.loadFromString(props);
+    assertEquals("discord", decoded.getSkinId());
+    assertEquals("assets/ui/phone/skins/discord/incoming.png", decoded.getIncomingBubbleImagePath());
+    assertEquals("assets/ui/phone/skins/discord/outgoing.png", decoded.getOutgoingBubbleImagePath());
   }
 }

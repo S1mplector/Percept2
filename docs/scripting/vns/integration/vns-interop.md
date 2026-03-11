@@ -358,6 +358,29 @@ The phone system reads its seed data from:
 
 At runtime, phone mutations are persisted through the VN variable layer, so save/load and rollback keep the same chat state.
 
+### Phone `app.*` Skin Keys
+
+`phone.properties` supports optional skin-driven renderer keys for 1:1 chrome overlays:
+
+- `app.skin` (`sms`, `discord`, or custom id)
+- `app.skin.background`
+- `app.skin.topBar`
+- `app.skin.bottomBar`
+- `app.skin.messageField`
+- `app.skin.nav.leading`
+- `app.skin.nav.trailingPrimary`
+- `app.skin.nav.trailingSecondary`
+- `app.skin.composer.leading`
+- `app.skin.composer.trailingPrimary`
+- `app.skin.composer.trailingSecondary`
+- `app.skin.statusBackdrop`
+- `app.skin.statusIcon`
+- `app.skin.floatingAction`
+- `app.skin.bubbleIncoming`
+- `app.skin.bubbleOutgoing`
+
+Legacy aliases `app.bubbleIncomingImage` and `app.bubbleOutgoingImage` are still read.
+
 ### Opening the Phone
 
 ```vns

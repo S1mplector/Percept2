@@ -183,3 +183,96 @@
   -fx-text-fill: rgba(229, 238, 252, 0.62);
   -fx-font-size: 10px;
 }
+
+.phone-shell.is-skinned {
+  -fx-background-color: rgba(6, 10, 16, 0.92);
+  -fx-padding: 0;
+  -fx-border-color: rgba(255, 255, 255, 0.08);
+}
+
+.phone-root.is-skinned {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+.phone-header.is-skinned {
+  -fx-padding: 6px 16px 10px 16px;
+}
+
+.phone-nav-button.is-skinned {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-text-fill: transparent;
+  -fx-background-radius: 999px;
+  -fx-padding: 12px;
+  -fx-min-width: 42px;
+  -fx-min-height: 42px;
+  -fx-pref-width: 42px;
+  -fx-pref-height: 42px;
+}
+
+.phone-nav-button.is-skinned:hover {
+  -fx-background-color: rgba(255, 255, 255, 0.07);
+}
+
+.phone-shell.is-skinned .phone-scroll {
+  -fx-padding: 0 10px 0 10px;
+}
+
+.phone-shell.skin-sms .phone-title {
+  -fx-font-size: 16px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #f7f9ff;
+}
+
+.phone-shell.skin-sms .phone-subtitle {
+  -fx-font-size: 10px;
+  -fx-text-fill: rgba(232, 237, 249, 0.72);
+}
+
+.phone-shell.skin-sms .phone-chat-row {
+  -fx-background-color: rgba(20, 24, 32, 0.58);
+  -fx-background-radius: 16px;
+}
+
+.phone-shell.skin-sms .phone-bubble.incoming {
+  -fx-text-fill: #f0f3ff;
+}
+
+.phone-shell.skin-sms .phone-bubble.outgoing {
+  -fx-text-fill: #f7fbff;
+}
+
+.phone-shell.skin-discord .phone-title {
+  -fx-font-size: 15px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #f2f5ff;
+}
+
+.phone-shell.skin-discord .phone-subtitle {
+  -fx-font-size: 10px;
+  -fx-text-fill: rgba(211, 223, 245, 0.74);
+}
+
+.phone-shell.skin-discord .phone-chat-row {
+  -fx-background-color: rgba(29, 33, 46, 0.82);
+  -fx-background-radius: 12px;
+}
+
+.phone-shell.skin-discord .phone-chat-row.is-selected {
+  -fx-background-color: rgba(74, 86, 116, 0.86);
+  -fx-border-color: rgba(169, 194, 241, 0.44);
+  -fx-border-radius: 12px;
+}
+
+.phone-shell.skin-discord .phone-chat-title {
+  -fx-text-fill: #f0f3ff;
+}
+
+.phone-shell.skin-discord .phone-chat-preview {
+  -fx-text-fill: rgba(198, 208, 232, 0.84);
+}
+
+.phone-shell.skin-discord .phone-bubble {
+  -fx-background-radius: 16px;
+}

@@ -74,6 +74,29 @@ public final class VnPhonePropertiesCodec {
     data.setSurfaceColor(props.getProperty("app.surface"));
     data.setIncomingBubbleColor(props.getProperty("app.bubbleIncoming"));
     data.setOutgoingBubbleColor(props.getProperty("app.bubbleOutgoing"));
+    data.setSkinId(firstNonBlank(
+        props.getProperty("app.skin"),
+        props.getProperty("app.style"),
+        props.getProperty("app.theme")));
+    data.setSkinBackgroundPath(props.getProperty("app.skin.background"));
+    data.setSkinTopBarPath(props.getProperty("app.skin.topBar"));
+    data.setSkinBottomBarPath(props.getProperty("app.skin.bottomBar"));
+    data.setSkinMessageFieldPath(props.getProperty("app.skin.messageField"));
+    data.setSkinNavLeadingPath(props.getProperty("app.skin.nav.leading"));
+    data.setSkinNavTrailingPrimaryPath(props.getProperty("app.skin.nav.trailingPrimary"));
+    data.setSkinNavTrailingSecondaryPath(props.getProperty("app.skin.nav.trailingSecondary"));
+    data.setSkinComposerLeadingPath(props.getProperty("app.skin.composer.leading"));
+    data.setSkinComposerTrailingPrimaryPath(props.getProperty("app.skin.composer.trailingPrimary"));
+    data.setSkinComposerTrailingSecondaryPath(props.getProperty("app.skin.composer.trailingSecondary"));
+    data.setSkinStatusBackdropPath(props.getProperty("app.skin.statusBackdrop"));
+    data.setSkinStatusIconPath(props.getProperty("app.skin.statusIcon"));
+    data.setSkinFloatingActionPath(props.getProperty("app.skin.floatingAction"));
+    data.setIncomingBubbleImagePath(firstNonBlank(
+        props.getProperty("app.skin.bubbleIncoming"),
+        props.getProperty("app.bubbleIncomingImage")));
+    data.setOutgoingBubbleImagePath(firstNonBlank(
+        props.getProperty("app.skin.bubbleOutgoing"),
+        props.getProperty("app.bubbleOutgoingImage")));
 
     List<String> contactIds = parseCsv(props.getProperty("contacts"));
     if (contactIds.isEmpty()) {
@@ -148,6 +171,22 @@ public final class VnPhonePropertiesCodec {
     put(props, "app.surface", data.getSurfaceColor());
     put(props, "app.bubbleIncoming", data.getIncomingBubbleColor());
     put(props, "app.bubbleOutgoing", data.getOutgoingBubbleColor());
+    put(props, "app.skin", data.getSkinId());
+    put(props, "app.skin.background", data.getSkinBackgroundPath());
+    put(props, "app.skin.topBar", data.getSkinTopBarPath());
+    put(props, "app.skin.bottomBar", data.getSkinBottomBarPath());
+    put(props, "app.skin.messageField", data.getSkinMessageFieldPath());
+    put(props, "app.skin.nav.leading", data.getSkinNavLeadingPath());
+    put(props, "app.skin.nav.trailingPrimary", data.getSkinNavTrailingPrimaryPath());
+    put(props, "app.skin.nav.trailingSecondary", data.getSkinNavTrailingSecondaryPath());
+    put(props, "app.skin.composer.leading", data.getSkinComposerLeadingPath());
+    put(props, "app.skin.composer.trailingPrimary", data.getSkinComposerTrailingPrimaryPath());
+    put(props, "app.skin.composer.trailingSecondary", data.getSkinComposerTrailingSecondaryPath());
+    put(props, "app.skin.statusBackdrop", data.getSkinStatusBackdropPath());
+    put(props, "app.skin.statusIcon", data.getSkinStatusIconPath());
+    put(props, "app.skin.floatingAction", data.getSkinFloatingActionPath());
+    put(props, "app.skin.bubbleIncoming", data.getIncomingBubbleImagePath());
+    put(props, "app.skin.bubbleOutgoing", data.getOutgoingBubbleImagePath());
 
     List<String> contactIds = new ArrayList<>(data.getContacts().keySet());
     props.setProperty("contacts", String.join(",", contactIds));
