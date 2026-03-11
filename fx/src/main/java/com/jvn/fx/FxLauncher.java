@@ -934,6 +934,10 @@ public class FxLauncher extends Application {
         vnScene.advanceFromClick();
         return true;
       }
+      case "rollback", "back" -> {
+        vnScene.rollback();
+        return true;
+      }
       case "quick_save", "save_quick" -> {
         handleQuickSave();
         return true;

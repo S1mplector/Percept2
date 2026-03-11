@@ -1158,9 +1158,10 @@ public class VnRenderer {
       Image drawAsset = !enabled
           ? firstNonNull(disabledAsset, asset)
           : (hovered ? firstNonNull(hoverAsset, asset) : asset);
+      boolean imageBacked = drawAsset != null;
       List<BoundsPointCodec.Point> buttonPolygon = parseBoundsPoints(button.boundsPoints());
       boolean clipButton = hasPolygon(buttonPolygon);
-      if (drawAsset != null) {
+      if (imageBacked) {
         if (clipButton) {
           gc.save();
           clipToLocalPolygon(buttonPolygon, geometry.x(), geometry.y(), geometry.width(), geometry.height());
@@ -1183,25 +1184,24 @@ public class VnRenderer {
           gc.setFill(fill);
           gc.fillRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
         }
-      }
+        gc.setStroke(!enabled
+            ? Color.rgb(120, 125, 136, 0.75)
+            : (hovered ? Color.rgb(170, 210, 255, 0.95) : Color.rgb(120, 135, 170, 0.82)));
+        gc.setLineWidth(hovered ? 2.0 : 1.2);
+        if (clipButton) {
+          strokeLocalPolygon(buttonPolygon, geometry.x(), geometry.y(), geometry.width(), geometry.height());
+        } else {
+          gc.strokeRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
+        }
 
-      gc.setStroke(!enabled
-          ? Color.rgb(120, 125, 136, 0.75)
-          : (hovered ? Color.rgb(170, 210, 255, 0.95) : Color.rgb(120, 135, 170, 0.82)));
-      gc.setLineWidth(hovered ? 2.0 : 1.2);
-      if (clipButton) {
-        strokeLocalPolygon(buttonPolygon, geometry.x(), geometry.y(), geometry.width(), geometry.height());
-      } else {
-        gc.strokeRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
+        gc.setFill(!enabled ? Color.rgb(172, 176, 188, 0.75) : (hovered ? Color.rgb(245, 252, 255) : Color.rgb(225, 232, 246)));
+        gc.setFont(Font.font(choiceFont.getFamily(), FontWeight.BOLD, clamp(geometry.height() * 0.42, 10, 18)));
+        String label = button.label() == null || button.label().isBlank() ? button.id() : button.label();
+        double textW = computeTextWidth(label, gc.getFont());
+        double textX = geometry.x() + Math.max(8, (geometry.width() - textW) / 2.0);
+        double textY = geometry.y() + geometry.height() * 0.64;
+        gc.fillText(label, textX, textY);
       }
-
-      gc.setFill(!enabled ? Color.rgb(172, 176, 188, 0.75) : (hovered ? Color.rgb(245, 252, 255) : Color.rgb(225, 232, 246)));
-      gc.setFont(Font.font(choiceFont.getFamily(), FontWeight.BOLD, clamp(geometry.height() * 0.42, 10, 18)));
-      String label = button.label() == null || button.label().isBlank() ? button.id() : button.label();
-      double textW = computeTextWidth(label, gc.getFont());
-      double textX = geometry.x() + Math.max(8, (geometry.width() - textW) / 2.0);
-      double textY = geometry.y() + geometry.height() * 0.64;
-      gc.fillText(label, textX, textY);
     }
   }
 
