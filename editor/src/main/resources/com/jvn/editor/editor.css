@@ -1508,14 +1508,14 @@
 
 /* Main editor sidebars: easier-to-find resize rail with subtle hover glow */
 .editor-main-split-pane:horizontal > .split-pane-divider {
-  -fx-background-color: #262626;
+  -fx-background-color: #2b2722;
   -fx-padding: 0 2 0 2;
   -fx-background-insets: 0;
 }
 
 .editor-main-split-pane:horizontal > .split-pane-divider:hover {
-  -fx-background-color: #343434;
-  -fx-effect: dropshadow(gaussian, rgba(230, 230, 230, 0.16), 12, 0.28, 0, 0);
+  -fx-background-color: #3a3024;
+  -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.24), 12, 0.28, 0, 0);
 }
 
 /* Slider */
