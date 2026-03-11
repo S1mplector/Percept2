@@ -81,7 +81,7 @@ public class VnPreviewView extends StackPane {
   private String sourceScriptName;
   private VnUiLayoutSpec uiLayoutOverride;
   private VnUiStyleSpec uiStyleOverride;
-  private List<VnUiActionButtonSpec> textBoxButtonsOverride = List.of();
+  private List<VnUiActionButtonSpec> textBoxButtonsOverride;
   private final VnSaveManager previewSaveManager = new VnSaveManager();
   private Scene overlayScene;
 
@@ -210,20 +210,24 @@ public class VnPreviewView extends StackPane {
   public void setUiOverrides(VnUiLayoutSpec layout, VnUiStyleSpec style, List<VnUiActionButtonSpec> textBoxButtons) {
     uiLayoutOverride = layout;
     uiStyleOverride = style;
-    textBoxButtonsOverride = textBoxButtons == null ? List.of() : List.copyOf(textBoxButtons);
+    // Null means "no override", preserving project/runtime defaults.
+    textBoxButtonsOverride = textBoxButtons == null ? null : List.copyOf(textBoxButtons);
+    renderer.reloadUiLayout();
     applyUiOverrides();
   }
 
   public void clearUiOverrides() {
     uiLayoutOverride = null;
     uiStyleOverride = null;
-    textBoxButtonsOverride = List.of();
+    textBoxButtonsOverride = null;
+    renderer.reloadUiLayout();
+    applyUiOverrides();
   }
 
   private void applyUiOverrides() {
     if (uiLayoutOverride != null) renderer.setUiLayout(uiLayoutOverride);
     if (uiStyleOverride != null) renderer.setUiStyle(uiStyleOverride);
-    renderer.setTextBoxButtons(textBoxButtonsOverride == null ? List.of() : textBoxButtonsOverride);
+    if (textBoxButtonsOverride != null) renderer.setTextBoxButtons(textBoxButtonsOverride);
   }
 
   private void initializeScenario(VnScenario scenario, String startLabel) {
