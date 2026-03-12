@@ -974,7 +974,7 @@ public class VnRenderer {
       drawContinueIndicator(textBoxX + textBoxWidth - 30, textBoxY + textBoxHeight - 20);
     }
 
-    renderTextBoxButtons(textBox, hoveredButtonIndex);
+    renderTextBoxButtons(textBox, width, height, hoveredButtonIndex);
   }
 
   private void renderNvlHistory(VnState state, double width, double height) {
@@ -1143,12 +1143,12 @@ public class VnRenderer {
     return entries;
   }
 
-  private void renderTextBoxButtons(TextBoxGeometry textBox, int hoveredButtonIndex) {
+  private void renderTextBoxButtons(TextBoxGeometry textBox, double viewportWidth, double viewportHeight, int hoveredButtonIndex) {
     if (textBoxButtons == null || textBoxButtons.isEmpty()) return;
     for (int i = 0; i < textBoxButtons.size(); i++) {
       VnUiActionButtonSpec button = textBoxButtons.get(i);
       if (button == null) continue;
-      ButtonGeometry geometry = computeButtonGeometry(button, textBox);
+      ButtonGeometry geometry = computeButtonGeometry(button, textBox, viewportWidth, viewportHeight);
       boolean hovered = i == hoveredButtonIndex;
       boolean enabled = button.enabled();
 
@@ -2052,7 +2052,7 @@ public class VnRenderer {
     for (int i = textBoxButtons.size() - 1; i >= 0; i--) {
       VnUiActionButtonSpec button = textBoxButtons.get(i);
       if (button == null || !button.enabled()) continue;
-      ButtonGeometry geometry = computeButtonGeometry(button, textBox);
+      ButtonGeometry geometry = computeButtonGeometry(button, textBox, width, height);
       if (buttonContainsPoint(button, geometry, mouseX, mouseY)) return i;
     }
     return -1;
@@ -2102,11 +2102,20 @@ public class VnRenderer {
     return new TextBoxGeometry(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
   }
 
-  private ButtonGeometry computeButtonGeometry(VnUiActionButtonSpec button, TextBoxGeometry textBox) {
-    double x = textBox.x() + textBox.width() * button.x();
-    double y = textBox.y() + textBox.height() * button.y();
-    double width = Math.max(8, textBox.width() * button.width());
-    double height = Math.max(8, textBox.height() * button.height());
+  private ButtonGeometry computeButtonGeometry(
+      VnUiActionButtonSpec button,
+      TextBoxGeometry textBox,
+      double viewportWidth,
+      double viewportHeight
+  ) {
+    double baseX = button.viewportSpace() ? 0.0 : textBox.x();
+    double baseY = button.viewportSpace() ? 0.0 : textBox.y();
+    double baseW = button.viewportSpace() ? Math.max(1.0, viewportWidth) : textBox.width();
+    double baseH = button.viewportSpace() ? Math.max(1.0, viewportHeight) : textBox.height();
+    double x = baseX + baseW * button.x();
+    double y = baseY + baseH * button.y();
+    double width = Math.max(8, baseW * button.width());
+    double height = Math.max(8, baseH * button.height());
     return new ButtonGeometry(x, y, width, height);
   }
 

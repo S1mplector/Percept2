@@ -215,6 +215,7 @@ class VnUiLayoutLoaderTest {
     p.setProperty("textBoxButton.save.y", "0.06");
     p.setProperty("textBoxButton.save.width", "0.12");
     p.setProperty("textBoxButton.save.height", "0.24");
+    p.setProperty("textBoxButton.save.space", "viewport");
     p.setProperty("textBoxButton.save.boundsPoints", "0,0;1,0;0.8,1;0.2,1");
     p.setProperty("textBoxButton.load.label", "Load");
     p.setProperty("textBoxButton.load.action", "load_menu");
@@ -233,6 +234,8 @@ class VnUiLayoutLoaderTest {
     assertEquals("0,0;1,0;0.8,1;0.2,1", save.boundsPoints());
     assertEquals(0.72, save.x(), 1e-6);
     assertEquals(0.24, save.height(), 1e-6);
+    assertEquals("viewport", save.coordinateSpace());
+    assertTrue(save.viewportSpace());
   }
 
   @Test
@@ -250,7 +253,8 @@ class VnUiLayoutLoaderTest {
         0.74,
         0.08,
         0.1,
-        0.24
+        0.24,
+        "viewport"
     );
 
     Properties p = VnUiLayoutLoader.toProperties(
@@ -264,6 +268,7 @@ class VnUiLayoutLoaderTest {
     assertEquals("assets/ui/save.png", p.getProperty("textBoxButton.save.asset"));
     assertEquals("0,0;1,0;1,1;0,1", p.getProperty("textBoxButton.save.boundsPoints"));
     assertEquals("0.74", p.getProperty("textBoxButton.save.x"));
+    assertEquals("viewport", p.getProperty("textBoxButton.save.space"));
   }
 
   @Test

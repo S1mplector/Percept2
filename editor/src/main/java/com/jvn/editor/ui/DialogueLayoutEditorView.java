@@ -1171,12 +1171,14 @@ public class DialogueLayoutEditorView extends BorderPane {
           double ny = baseButton.y();
           double nw = baseButton.width();
           double nh = baseButton.height();
+          double refWidth = baseButton.viewportSpace() ? Math.max(1.0, w) : Math.max(1.0, textBox.width());
+          double refHeight = baseButton.viewportSpace() ? Math.max(1.0, h) : Math.max(1.0, textBox.height());
           if (dragTarget == DragTarget.TEXTBOX_BUTTON) {
-            nx = clamp01(baseButton.x() + (dx / Math.max(1, textBox.width())));
-            ny = clamp01(baseButton.y() + (dy / Math.max(1, textBox.height())));
+            nx = clamp01(baseButton.x() + (dx / refWidth));
+            ny = clamp01(baseButton.y() + (dy / refHeight));
           } else {
-            nw = clamp(baseButton.width() + (dx / Math.max(1, textBox.width())), 0.01, 1.0);
-            nh = clamp(baseButton.height() + (dy / Math.max(1, textBox.height())), 0.01, 1.0);
+            nw = clamp(baseButton.width() + (dx / refWidth), 0.01, 1.0);
+            nh = clamp(baseButton.height() + (dy / refHeight), 0.01, 1.0);
           }
           VnUiActionButtonSpec moved = new VnUiActionButtonSpec(
               baseButton.id(),
@@ -1191,7 +1193,8 @@ public class DialogueLayoutEditorView extends BorderPane {
               nx,
               ny,
               nw,
-              nh
+              nh,
+              baseButton.coordinateSpace()
           );
           textBoxButtons = new ArrayList<>(dragStartButtons);
           textBoxButtons.set(dragButtonIndex, moved);
@@ -1221,9 +1224,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     if (isNearCorner(x, y, r.textBox())) return DragTarget.TEXT_BOX_RESIZE;
     if (isNearCorner(x, y, r.choiceBlock())) return DragTarget.CHOICE_RESIZE;
     if (isNearCorner(x, y, r.dialogueBounds())) return DragTarget.DIALOGUE_BOUNDS_RESIZE;
-    dragButtonIndex = hitTestButtonResizeIndex(x, y, r.textBox());
+    dragButtonIndex = hitTestButtonResizeIndex(x, y, r.textBox(), preview.getWidth(), preview.getHeight());
     if (dragButtonIndex >= 0) return DragTarget.TEXTBOX_BUTTON_RESIZE;
-    dragButtonIndex = hitTestButtonIndex(x, y, r.textBox());
+    dragButtonIndex = hitTestButtonIndex(x, y, r.textBox(), preview.getWidth(), preview.getHeight());
     if (dragButtonIndex >= 0) return DragTarget.TEXTBOX_BUTTON;
     if (isNearBorder(x, y, r.dialogueBounds(), 6.0)) return DragTarget.DIALOGUE_BOUNDS;
     if (r.nameBox().contains(x, y)) return DragTarget.NAME_BOX;
@@ -1443,7 +1446,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.restore();
 
     // Runtime-like textbox action buttons.
-    drawTextBoxButtonPreview(g, rects.textBox());
+    drawTextBoxButtonPreview(g, rects.textBox(), preview.getWidth(), preview.getHeight());
 
     // Editor overlays.
     g.setStroke(LayoutStudioPalette.ACCENT_BLUE);
@@ -1472,12 +1475,12 @@ public class DialogueLayoutEditorView extends BorderPane {
     drawTag(g, rects.dialogueBounds().x() + 6, rects.dialogueBounds().y() - 4, "Text Bounds");
   }
 
-  private void drawTextBoxButtonPreview(GraphicsContext g, Rect textBoxRect) {
+  private void drawTextBoxButtonPreview(GraphicsContext g, Rect textBoxRect, double viewportWidth, double viewportHeight) {
     if (textBoxButtons == null || textBoxButtons.isEmpty()) return;
     for (int i = 0; i < textBoxButtons.size(); i++) {
       VnUiActionButtonSpec button = textBoxButtons.get(i);
       if (button == null) continue;
-      Rect rect = computeTextBoxButtonRect(button, textBoxRect);
+      Rect rect = computeTextBoxButtonRect(button, textBoxRect, viewportWidth, viewportHeight);
       boolean hovered = i == selectedButtonIndex;
       boolean enabled = button.enabled();
       Image asset = loadImageAsset(button.assetPath());
@@ -2009,21 +2012,25 @@ public class DialogueLayoutEditorView extends BorderPane {
     return new TextBoxGeometry(tbX, tbY, tbW, tbH);
   }
 
-  private Rect computeTextBoxButtonRect(VnUiActionButtonSpec button, Rect textBoxRect) {
+  private Rect computeTextBoxButtonRect(VnUiActionButtonSpec button, Rect textBoxRect, double viewportWidth, double viewportHeight) {
     if (button == null || textBoxRect == null) return new Rect(0, 0, 1, 1);
-    double x = textBoxRect.x() + textBoxRect.w() * button.x();
-    double y = textBoxRect.y() + textBoxRect.h() * button.y();
-    double width = Math.max(8, textBoxRect.w() * button.width());
-    double height = Math.max(8, textBoxRect.h() * button.height());
+    double baseX = button.viewportSpace() ? 0.0 : textBoxRect.x();
+    double baseY = button.viewportSpace() ? 0.0 : textBoxRect.y();
+    double baseW = button.viewportSpace() ? Math.max(1.0, viewportWidth) : textBoxRect.w();
+    double baseH = button.viewportSpace() ? Math.max(1.0, viewportHeight) : textBoxRect.h();
+    double x = baseX + baseW * button.x();
+    double y = baseY + baseH * button.y();
+    double width = Math.max(8, baseW * button.width());
+    double height = Math.max(8, baseH * button.height());
     return new Rect(x, y, width, height);
   }
 
-  private int hitTestButtonIndex(double x, double y, Rect textBoxRect) {
+  private int hitTestButtonIndex(double x, double y, Rect textBoxRect, double viewportWidth, double viewportHeight) {
     if (textBoxButtons == null || textBoxButtons.isEmpty()) return -1;
     for (int i = textBoxButtons.size() - 1; i >= 0; i--) {
       VnUiActionButtonSpec button = textBoxButtons.get(i);
       if (button == null || !button.enabled()) continue;
-      Rect rect = computeTextBoxButtonRect(button, textBoxRect);
+      Rect rect = computeTextBoxButtonRect(button, textBoxRect, viewportWidth, viewportHeight);
       List<BoundsPointCodec.Point> points = parseBoundsPoints(button.boundsPoints());
       if (hasPolygon(points)) {
         if (BoundsPointCodec.containsInRect(points, rect.x(), rect.y(), rect.w(), rect.h(), x, y)) return i;
@@ -2034,12 +2041,12 @@ public class DialogueLayoutEditorView extends BorderPane {
     return -1;
   }
 
-  private int hitTestButtonResizeIndex(double x, double y, Rect textBoxRect) {
+  private int hitTestButtonResizeIndex(double x, double y, Rect textBoxRect, double viewportWidth, double viewportHeight) {
     if (textBoxButtons == null || textBoxButtons.isEmpty()) return -1;
     for (int i = textBoxButtons.size() - 1; i >= 0; i--) {
       VnUiActionButtonSpec button = textBoxButtons.get(i);
       if (button == null || !button.enabled()) continue;
-      Rect rect = computeTextBoxButtonRect(button, textBoxRect);
+      Rect rect = computeTextBoxButtonRect(button, textBoxRect, viewportWidth, viewportHeight);
       if (isNearCorner(x, y, rect)) return i;
     }
     return -1;
@@ -2296,7 +2303,8 @@ public class DialogueLayoutEditorView extends BorderPane {
         clamp01(source.x() + 0.02),
         clamp01(source.y() + 0.02),
         source.width(),
-        source.height()
+        source.height(),
+        source.coordinateSpace()
     );
     int insertIndex = Math.min(selectedButtonIndex + 1, textBoxButtons.size());
     textBoxButtons.add(insertIndex, duplicate);
@@ -2689,7 +2697,8 @@ public class DialogueLayoutEditorView extends BorderPane {
               existing.id(), existing.label(), existing.action(), existing.target(),
               existing.enabled(), existing.assetPath(), existing.hoverAssetPath(),
               existing.disabledAssetPath(), boundsPoints,
-              match.getX(), match.getY(), match.getW(), match.getH()
+              match.getX(), match.getY(), match.getW(), match.getH(),
+              existing.coordinateSpace()
           ));
         }
       }
@@ -2906,7 +2915,8 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spButtonX),
         value(spButtonY),
         value(spButtonWidth),
-        value(spButtonHeight)
+        value(spButtonHeight),
+        current.coordinateSpace()
     );
 
     textBoxButtons.set(selectedButtonIndex, updated);
@@ -3143,7 +3153,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     if (textBoxButtons != null && !textBoxButtons.isEmpty()) {
       out.append(System.lineSeparator()).append("# --- Textbox action buttons ---").append(System.lineSeparator());
       out.append("# textBoxButton.ids controls order and active ids.").append(System.lineSeparator());
-      out.append("# Per-button keys use textBoxButton.<id>.* and are normalized to textbox bounds.").append(System.lineSeparator());
+      out.append("# Per-button keys use textBoxButton.<id>.*.").append(System.lineSeparator());
+      out.append("# space=textbox (default) or space=viewport for screen-space anchoring.").append(System.lineSeparator());
       out.append("# action examples: save_menu, load_menu, settings_menu, main_menu, open_menu, back.").append(System.lineSeparator());
       List<String> ids = new ArrayList<>();
       for (VnUiActionButtonSpec button : textBoxButtons) {
@@ -3162,6 +3173,9 @@ public class DialogueLayoutEditorView extends BorderPane {
           out.append(prefix).append("target=").append(button.target()).append(System.lineSeparator());
         }
         out.append(prefix).append("enabled=").append(button.enabled()).append(System.lineSeparator());
+        if ("viewport".equalsIgnoreCase(button.coordinateSpace())) {
+          out.append(prefix).append("space=viewport").append(System.lineSeparator());
+        }
         if (button.assetPath() != null && !button.assetPath().isBlank()) {
           out.append(prefix).append("asset=").append(button.assetPath()).append(System.lineSeparator());
         }

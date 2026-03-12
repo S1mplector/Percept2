@@ -1,9 +1,10 @@
 package com.jvn.core.vn.ui;
 
 /**
- * Clickable button hotspot placed on top of the dialogue textbox.
+ * Clickable button hotspot placed on top of VN dialogue UI.
  *
- * <p>Bounds are normalized relative to the textbox rect (0..1).
+ * <p>Bounds can be normalized either to the textbox rect (0..1) or to the
+ * viewport (0..1), controlled by {@code coordinateSpace}.
  */
 public record VnUiActionButtonSpec(
     String id,
@@ -18,8 +19,27 @@ public record VnUiActionButtonSpec(
     double x,
     double y,
     double width,
-    double height
+    double height,
+    String coordinateSpace
 ) {
+  public VnUiActionButtonSpec(
+      String id,
+      String label,
+      String action,
+      String target,
+      boolean enabled,
+      String assetPath,
+      String hoverAssetPath,
+      String disabledAssetPath,
+      String boundsPoints,
+      double x,
+      double y,
+      double width,
+      double height
+  ) {
+    this(id, label, action, target, enabled, assetPath, hoverAssetPath, disabledAssetPath, boundsPoints, x, y, width, height, "textbox");
+  }
+
   public VnUiActionButtonSpec {
     id = normalize(id, "button");
     label = normalize(label, id);
@@ -29,6 +49,7 @@ public record VnUiActionButtonSpec(
     hoverAssetPath = normalize(hoverAssetPath, null);
     disabledAssetPath = normalize(disabledAssetPath, null);
     boundsPoints = normalize(boundsPoints, null);
+    coordinateSpace = normalizeCoordinateSpace(coordinateSpace);
     x = clamp01(sane(x, 0.0));
     y = clamp01(sane(y, 0.0));
     width = clamp(sane(width, 0.12), 0.01, 1.0);
@@ -52,8 +73,21 @@ public record VnUiActionButtonSpec(
         0.0,
         0.0,
         0.12,
-        0.25
+        0.25,
+        "textbox"
     );
+  }
+
+  public boolean viewportSpace() {
+    return "viewport".equalsIgnoreCase(coordinateSpace);
+  }
+
+  public static String normalizeCoordinateSpace(String value) {
+    String normalized = normalize(value, "textbox");
+    if (normalized == null) return "textbox";
+    String lower = normalized.trim().toLowerCase();
+    if ("viewport".equals(lower) || "screen".equals(lower) || "global".equals(lower)) return "viewport";
+    return "textbox";
   }
 
   private static String normalize(String value, String def) {

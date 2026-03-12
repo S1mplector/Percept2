@@ -138,6 +138,7 @@ public final class VnUiLayoutLoader {
       "action",
       "target",
       "enabled",
+      "space",
       "asset",
       "hoverAsset",
       "disabledAsset",
@@ -640,6 +641,9 @@ public final class VnUiLayoutLoader {
       setOptional(p, prefix + "action", b.action());
       setOptional(p, prefix + "target", b.target());
       p.setProperty(prefix + "enabled", Boolean.toString(b.enabled()));
+      if ("viewport".equalsIgnoreCase(b.coordinateSpace())) {
+        p.setProperty(prefix + "space", "viewport");
+      }
       setOptional(p, prefix + "asset", b.assetPath());
       setOptional(p, prefix + "hoverAsset", b.hoverAssetPath());
       setOptional(p, prefix + "disabledAsset", b.disabledAssetPath());
@@ -1000,6 +1004,16 @@ public final class VnUiLayoutLoader {
       String action = normalize(props.getProperty(prefix + "action"), base.action());
       String target = normalize(props.getProperty(prefix + "target"), base.target());
       boolean enabled = parseBoolean(props.getProperty(prefix + "enabled"), base.enabled(), diagnostics, prefix + "enabled");
+      String requestedSpace = normalize(props.getProperty(prefix + "space"), base.coordinateSpace());
+      String coordinateSpace = VnUiActionButtonSpec.normalizeCoordinateSpace(requestedSpace);
+      if (requestedSpace != null
+          && !"viewport".equalsIgnoreCase(requestedSpace)
+          && !"screen".equalsIgnoreCase(requestedSpace)
+          && !"global".equalsIgnoreCase(requestedSpace)
+          && !"textbox".equalsIgnoreCase(requestedSpace)
+          && diagnostics != null) {
+        diagnostics.add("Invalid textbox button space '" + requestedSpace + "' for '" + id + "' (using textbox)");
+      }
       String asset = normalize(props.getProperty(prefix + "asset"), base.assetPath());
       String hoverAsset = normalize(props.getProperty(prefix + "hoverAsset"), base.hoverAssetPath());
       String disabledAsset = normalize(props.getProperty(prefix + "disabledAsset"), base.disabledAssetPath());
@@ -1021,7 +1035,8 @@ public final class VnUiLayoutLoader {
           x,
           y,
           width,
-          height
+          height,
+          coordinateSpace
       );
       warnAdjustedDouble(prefix + "x", x, button.x(), diagnostics);
       warnAdjustedDouble(prefix + "y", y, button.y(), diagnostics);
