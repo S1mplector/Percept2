@@ -97,6 +97,7 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
@@ -224,6 +225,7 @@ public class EditorApp extends Application {
       "^(> Task |> Configure |BUILD SUCCESSFUL|Deprecated Gradle|\\d+ actionable|To honour the JVM|Daemon will be stopped|\\s*$)");
   private static final int STARTUP_COMMAND_TAIL_LINES = 14;
   private static final double SIDEBAR_COLLAPSED_EPSILON = 0.01;
+  private static final String PANEL_CHOOSER_TAB_ROLE = "panel-chooser";
 
   public static void main(String[] args) {
     launch(args);
@@ -1518,11 +1520,15 @@ public class EditorApp extends Application {
       }
     });
     rightTabs = new TabPane();
+    rightTabs.getStyleClass().add("sidebar-tab-pane");
+    rightTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
+    rightTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
     helpCenterView = new HelpCenterView();
     helpCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
     helpCenterView.setProjectRoot(projectRoot);
     helpCenterView.setOnOpenDoc(this::openFile);
     tabRightAdd = new Tab("+", new Region()); tabRightAdd.setClosable(false);
+    tabRightAdd.getStyleClass().add("sidebar-add-tab");
     rightTabs.getTabs().addAll(tabRightAdd);
     installAddTabBehavior(rightTabs, tabRightAdd, this::showRightAddMenu);
     rightTabs.setPrefWidth(360);
@@ -1550,8 +1556,12 @@ public class EditorApp extends Application {
       doRunProject(projectDir);
     });
     leftTabs = new TabPane();
+    leftTabs.getStyleClass().add("sidebar-tab-pane");
+    leftTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
+    leftTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
     tabProject = new Tab("Project", projView); tabProject.setClosable(false);
     tabLeftAdd = new Tab("+", new Region()); tabLeftAdd.setClosable(false);
+    tabLeftAdd.getStyleClass().add("sidebar-add-tab");
     leftTabs.getTabs().addAll(tabProject, tabLeftAdd);
     installAddTabBehavior(leftTabs, tabLeftAdd, this::showLeftAddMenu);
     leftTabs.getSelectionModel().select(tabProject);
@@ -3050,6 +3060,13 @@ public class EditorApp extends Application {
     label.setMaxWidth(Double.MAX_VALUE);
     HBox.setHgrow(label, Priority.ALWAYS);
     label.getStyleClass().add("panel-chooser-title");
+    label.setWrapText(false);
+
+    Label placementBadge = new Label();
+    placementBadge.getStyleClass().add("panel-chooser-placement-badge");
+    placementBadge.setMinWidth(74);
+    placementBadge.setMaxWidth(74);
+    placementBadge.setAlignment(Pos.CENTER);
 
     Button dockBtn = new Button();
     dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
@@ -3093,11 +3110,16 @@ public class EditorApp extends Application {
         removeBtn.setVisible(false);
         dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
         dockBtn.setTooltip(new Tooltip("Open in this panel"));
+        placementBadge.setManaged(false);
+        placementBadge.setVisible(false);
         return;
       }
 
       EditorPanelPlacement placement = editorPreferences.getPlacement(panel);
       boolean attached = isPanelAttached(panel);
+      placementBadge.setManaged(true);
+      placementBadge.setVisible(true);
+      updateChooserPlacementBadge(placementBadge, placement, attached);
       if (placement == EditorPanelPlacement.HIDDEN || !attached) {
         dockBtn.setGraphic(CssIcon.plus(targetPlacement == EditorPanelPlacement.RIGHT ? "#f5c46b" : "#9cc7ff"));
         dockBtn.setTooltip(new Tooltip(
@@ -3115,11 +3137,15 @@ public class EditorApp extends Application {
       removeBtn.setDisable(!attached && placement == EditorPanelPlacement.HIDDEN);
     };
 
+    final Runnable dockAction;
     if (embedAction != null) {
-      dockBtn.setOnAction(e -> {
+      dockAction = () -> {
         embedAction.run();
         refreshState.run();
-      });
+      };
+      dockBtn.setOnAction(e -> dockAction.run());
+    } else {
+      dockAction = null;
     }
     if (windowAction != null) {
       popOutBtn.setOnAction(e -> {
@@ -3134,12 +3160,101 @@ public class EditorApp extends Application {
       });
     }
 
-    HBox row = new HBox(6, panelIcon, label, dockBtn, popOutBtn, removeBtn);
+    HBox row = new HBox(6, panelIcon, label, placementBadge, dockBtn, popOutBtn, removeBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
     row.getStyleClass().add("panel-chooser-row");
+    String filterKey = panelName.toLowerCase(Locale.ROOT)
+        + (panel != null ? " " + panel.key().toLowerCase(Locale.ROOT) : "");
+    row.getProperties().put("chooserFilterKey", filterKey);
+    row.setOnMouseClicked(e -> {
+      if (e.getButton() != MouseButton.PRIMARY || e.getClickCount() < 2) return;
+      if (isInsideChooserIconButton(e.getTarget())) return;
+      if (dockAction == null) return;
+      dockAction.run();
+      e.consume();
+    });
     refreshState.run();
     actions.getChildren().add(row);
+  }
+
+  private boolean isInsideChooserIconButton(Object target) {
+    if (!(target instanceof javafx.scene.Node node)) return false;
+    javafx.scene.Node current = node;
+    while (current != null) {
+      if (current.getStyleClass().contains("panel-chooser-icon-btn")) return true;
+      current = current.getParent();
+    }
+    return false;
+  }
+
+  private void updateChooserPlacementBadge(Label badge, EditorPanelPlacement placement, boolean attached) {
+    if (badge == null) return;
+    badge.getStyleClass().removeAll(
+        "panel-chooser-placement-hidden",
+        "panel-chooser-placement-left",
+        "panel-chooser-placement-right");
+    if (!attached) {
+      badge.setText("Detached");
+      badge.getStyleClass().add("panel-chooser-placement-hidden");
+      return;
+    }
+    if (placement == EditorPanelPlacement.LEFT) {
+      badge.setText("Left");
+      badge.getStyleClass().add("panel-chooser-placement-left");
+      return;
+    }
+    if (placement == EditorPanelPlacement.RIGHT) {
+      badge.setText("Right");
+      badge.getStyleClass().add("panel-chooser-placement-right");
+      return;
+    }
+    badge.setText("Hidden");
+    badge.getStyleClass().add("panel-chooser-placement-hidden");
+  }
+
+  private void installPanelChooserFilter(TextField filterField, VBox actions) {
+    if (filterField == null || actions == null) return;
+    Runnable apply = () -> {
+      String needle = filterField.getText() == null ? "" : filterField.getText().trim().toLowerCase(Locale.ROOT);
+      for (javafx.scene.Node child : actions.getChildren()) {
+        if (!(child instanceof HBox row)) continue;
+        Object key = row.getProperties().get("chooserFilterKey");
+        String searchable = key == null ? "" : key.toString();
+        boolean visible = needle.isBlank() || searchable.contains(needle);
+        row.setManaged(visible);
+        row.setVisible(visible);
+      }
+    };
+    filterField.textProperty().addListener((obs, oldText, newText) -> apply.run());
+    filterField.setOnAction(e -> {
+      for (javafx.scene.Node child : actions.getChildren()) {
+        if (!(child instanceof HBox row) || !row.isVisible()) continue;
+        row.fireEvent(new MouseEvent(
+            MouseEvent.MOUSE_CLICKED,
+            0, 0, 0, 0,
+            MouseButton.PRIMARY,
+            2,
+            false, false, false, false,
+            true, false, false, true, false, false,
+            null));
+        break;
+      }
+    });
+    apply.run();
+  }
+
+  private Tab findPanelChooserTab(TabPane pane, boolean leftSide) {
+    if (pane == null) return null;
+    String side = leftSide ? "left" : "right";
+    for (Tab tab : pane.getTabs()) {
+      Object role = tab.getProperties().get(PANEL_CHOOSER_TAB_ROLE);
+      Object tag = tab.getProperties().get("chooserSide");
+      if (PANEL_CHOOSER_TAB_ROLE.equals(role) && side.equals(tag)) {
+        return tab;
+      }
+    }
+    return null;
   }
 
   private void launchPanelAsWindow(String title, javafx.scene.Parent content, double width, double height) {
@@ -3223,6 +3338,10 @@ public class EditorApp extends Application {
     if (pane == null) return;
     Tab addTab = leftSide ? tabLeftAdd : tabRightAdd;
     if (addTab == null) return;
+    Tab existing = findPanelChooserTab(pane, leftSide);
+    if (existing != null) {
+      pane.getTabs().remove(existing);
+    }
     EditorPanelPlacement targetPlacement =
         leftSide ? EditorPanelPlacement.LEFT : EditorPanelPlacement.RIGHT;
 
@@ -3238,6 +3357,9 @@ public class EditorApp extends Application {
     Label info = new Label(details);
     info.setWrapText(true);
     info.getStyleClass().add("panel-chooser-copy");
+    TextField filter = new TextField();
+    filter.setPromptText("Filter panels...");
+    filter.getStyleClass().add("panel-chooser-filter");
     javafx.scene.layout.VBox actions = new javafx.scene.layout.VBox(4);
     addChooserActionRow(actions, EditorSidebarPanel.PROJECT, targetPlacement, "Project", "icon-panel-project", () -> {
       rememberPanelPlacement(EditorSidebarPanel.PROJECT, targetPlacement);
@@ -3424,14 +3546,19 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Editor Settings", editorSettingsView, 520, 760), null);
 
-    root.getChildren().addAll(heading, info, new javafx.scene.control.Separator(), actions);
+    installPanelChooserFilter(filter, actions);
+    root.getChildren().addAll(heading, info, filter, new javafx.scene.control.Separator(), actions);
     Tab chooser = new Tab("New Panel", root);
     chooser.setClosable(true);
+    chooser.getStyleClass().add("panel-chooser-tab");
+    chooser.getProperties().put(PANEL_CHOOSER_TAB_ROLE, PANEL_CHOOSER_TAB_ROLE);
+    chooser.getProperties().put("chooserSide", leftSide ? "left" : "right");
     int addIdx = pane.getTabs().indexOf(addTab);
     if (addIdx < 0) addIdx = pane.getTabs().size();
     pane.getTabs().add(addIdx, chooser);
     ensureSidebarVisible(pane);
     pane.getSelectionModel().select(chooser);
+    Platform.runLater(filter::requestFocus);
   }
 
   private void showLeftAddMenu() {

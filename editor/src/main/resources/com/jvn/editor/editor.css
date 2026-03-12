@@ -1783,6 +1783,47 @@
   -fx-font-size: 11px;
 }
 
+/* Sidebar tab panes */
+.sidebar-tab-pane > .tab-header-area,
+.sidebar-tab-pane > .tab-header-area > .tab-header-background {
+  -fx-background-color: #171717;
+}
+
+.sidebar-tab-pane .tab {
+  -fx-background-color: #202020;
+  -fx-background-insets: 0;
+  -fx-background-radius: 6 6 0 0;
+}
+
+.sidebar-tab-pane .tab:hover {
+  -fx-background-color: #2a2a2a;
+}
+
+.sidebar-tab-pane .tab:selected {
+  -fx-background-color: #2f2f2f;
+  -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.22), 8, 0.22, 0, 0);
+}
+
+.sidebar-tab-pane .tab .tab-close-button {
+  -fx-opacity: 0.75;
+}
+
+.sidebar-tab-pane .tab .tab-close-button:hover {
+  -fx-opacity: 1.0;
+}
+
+.sidebar-tab-pane .tab.sidebar-add-tab {
+  -fx-background-color: #1f1f1f;
+}
+
+.sidebar-tab-pane .tab.sidebar-add-tab:hover {
+  -fx-background-color: #2a2723;
+}
+
+.sidebar-tab-pane .tab.sidebar-add-tab .tab-label {
+  -fx-font-weight: 700;
+}
+
 /* Panel chooser icon buttons (dock / pop-out) */
 .panel-chooser-icon-btn {
   -fx-padding: 0;
@@ -1813,6 +1854,11 @@
   -fx-border-radius: 6;
 }
 
+.panel-chooser-row:hover {
+  -fx-background-color: #292929;
+  -fx-border-color: #3b3b3b;
+}
+
 .panel-chooser-heading {
   -fx-font-size: 14px;
   -fx-font-weight: 700;
@@ -1826,6 +1872,15 @@
 .panel-chooser-title {
   -fx-font-size: 12px;
   -fx-text-fill: #d7d7d7;
+}
+
+.panel-chooser-filter {
+  -fx-background-color: #171717;
+  -fx-text-fill: #e6e6e6;
+  -fx-prompt-text-fill: #737373;
+  -fx-border-color: #333333;
+  -fx-background-radius: 6;
+  -fx-border-radius: 6;
 }
 
 .panel-chooser-placement-badge {
