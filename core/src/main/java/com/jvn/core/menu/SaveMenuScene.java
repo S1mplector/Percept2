@@ -205,7 +205,17 @@ public class SaveMenuScene implements Scene {
         if (engine != null) {
           com.jvn.core.input.ActionBindingProfile profile =
               com.jvn.core.input.ActionBindingProfile.deserialize(settingsModel.getInputProfileSerialized());
-          engine.scenes().push(new SettingsScene(engine, saveManager, defaultScriptName, settingsModel, currentAudio(), profile));
+          String targetMenu = normalize(action.target(), "settings");
+          engine.scenes().push(new SettingsScene(
+              engine,
+              saveManager,
+              defaultScriptName,
+              settingsModel,
+              currentAudio(),
+              profile,
+              menuProfile,
+              targetMenu
+          ));
         }
         yield true;
       }

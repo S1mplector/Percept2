@@ -895,8 +895,12 @@ public class FxLauncher extends Application {
           settings.toggleCurrent();
           if (settings.consumeCloseRequested()) engine.scenes().pop();
         } else {
-          double val = menuRenderer.computeSettingsSliderValue01(settings, idx, rw, rh, x);
-          settings.setValueByIndex(idx, val);
+          if (menuRenderer.isSettingsSliderResetHit(settings, idx, rw, rh, x, y)) {
+            settings.resetValueByIndex(idx);
+          } else {
+            double val = menuRenderer.computeSettingsSliderValue01(settings, idx, rw, rh, x);
+            settings.setValueByIndex(idx, val);
+          }
         }
       }
     } else if (currentScene instanceof SaveMenuScene save) {

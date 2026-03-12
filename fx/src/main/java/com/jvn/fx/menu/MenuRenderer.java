@@ -430,6 +430,8 @@ public class MenuRenderer {
       MenuItemSpec item = specs[i];
       double[] geo = sliderGeometry(i, items.length, item, specs, layout, w, h);
       drawSlider(geo[0], geo[1], geo[2], value, i == scene.getSelected(), item);
+      Rect resetRect = resolveSettingsSliderResetRect(item, i == scene.getSelected(), geo[0], geo[1], geo[2], w, h);
+      drawSettingsSliderReset(item, i == scene.getSelected(), resetRect);
     }
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) {
@@ -1914,6 +1916,26 @@ public class MenuRenderer {
     return v;
   }
 
+  public boolean isSettingsSliderResetHit(
+      SettingsScene scene,
+      int itemIndex,
+      double canvasW,
+      double canvasH,
+      double mouseX,
+      double mouseY
+  ) {
+    if (scene == null || itemIndex < 0) return false;
+    int count = scene.itemCount();
+    if (itemIndex >= count || !scene.hasSliderAt(itemIndex)) return false;
+    MenuItemSpec item = scene.getMenuItemSpec(itemIndex);
+    MenuLayoutSpec layout = scene.getMenuLayout();
+    MenuItemSpec[] itemSpecs = new MenuItemSpec[count];
+    for (int i = 0; i < count; i++) itemSpecs[i] = scene.getMenuItemSpec(i);
+    double[] geo = sliderGeometry(itemIndex, count, item, itemSpecs, layout, canvasW, canvasH);
+    Rect resetRect = resolveSettingsSliderResetRect(item, true, geo[0], geo[1], geo[2], canvasW, canvasH);
+    return resetRect != null && resetRect.contains(mouseX, mouseY);
+  }
+
   private void drawSlider(double x, double y, double w, double value01, boolean highlight, MenuItemSpec item) {
     double fill = clamp01(value01);
     Double sliderTrackHeight = parseExtraDouble(item, "sliderTrackHeight");
@@ -1986,6 +2008,81 @@ public class MenuRenderer {
       gc.setFill(Color.WHITE);
       gc.fillOval(knobX, knobY, knobW, knobH);
     }
+  }
+
+  private void drawSettingsSliderReset(MenuItemSpec item, boolean highlight, Rect rect) {
+    if (item == null || rect == null) return;
+    String resetAssetPath = firstNonBlank(
+        highlight ? extra(item, "sliderResetActiveAsset") : null,
+        !highlight ? extra(item, "sliderResetInactiveAsset") : null,
+        extra(item, "sliderResetAsset"),
+        !highlight ? extra(item, "sliderResetActiveAsset") : null
+    );
+    Image resetImage = loadImage(resetAssetPath);
+    if (resetImage != null && !resetImage.isError()) {
+      gc.drawImage(resetImage, rect.x(), rect.y(), rect.w(), rect.h());
+      return;
+    }
+    gc.setFill(highlight ? Color.rgb(229, 101, 94, 0.95) : Color.rgb(220, 212, 154, 0.95));
+    gc.fillRoundRect(rect.x(), rect.y(), rect.w(), rect.h(), 4, 4);
+    gc.setFill(Color.rgb(18, 18, 18, 0.95));
+    gc.setFont(Font.font("SansSerif", FontWeight.BOLD, Math.max(10, Math.min(20, rect.h() * 0.58))));
+    gc.fillText("R", rect.x() + rect.w() * 0.33, rect.y() + rect.h() * 0.72);
+  }
+
+  private Rect resolveSettingsSliderResetRect(
+      MenuItemSpec item,
+      boolean highlight,
+      double sliderX,
+      double sliderY,
+      double sliderW,
+      double canvasW,
+      double canvasH
+  ) {
+    if (item == null) return null;
+    String resetAssetPath = firstNonBlank(
+        highlight ? extra(item, "sliderResetActiveAsset") : null,
+        !highlight ? extra(item, "sliderResetInactiveAsset") : null,
+        extra(item, "sliderResetAsset"),
+        !highlight ? extra(item, "sliderResetActiveAsset") : null
+    );
+    Double resetXRaw = parseExtraDouble(item, "sliderResetX");
+    Double resetYRaw = parseExtraDouble(item, "sliderResetY");
+    Double resetWidthRaw = parseExtraDouble(item, "sliderResetWidth");
+    Double resetHeightRaw = parseExtraDouble(item, "sliderResetHeight");
+    if ((resetAssetPath == null || resetAssetPath.isBlank())
+        && resetWidthRaw == null && resetHeightRaw == null
+        && resetXRaw == null && resetYRaw == null) {
+      return null;
+    }
+
+    Image resetImage = loadImage(resetAssetPath);
+    Image trackImage = loadImage(firstNonBlank(extra(item, "sliderTrackAsset"), extra(item, "sliderBaseAsset")));
+    Double sliderTrackHeight = parseExtraDouble(item, "sliderTrackHeight");
+    double trackH = sliderTrackHeight != null
+        ? Math.max(2.0, sliderTrackHeight)
+        : (trackImage != null && !trackImage.isError() && trackImage.getHeight() > 0
+            ? trackImage.getHeight()
+            : 8.0);
+
+    double resetW = resetWidthRaw != null
+        ? Math.max(2.0, resolveSize(resetWidthRaw, canvasW))
+        : (resetImage != null && !resetImage.isError() && resetImage.getWidth() > 0
+            ? resetImage.getWidth()
+            : 24.0);
+    double resetH = resetHeightRaw != null
+        ? Math.max(2.0, resolveSize(resetHeightRaw, canvasH))
+        : (resetImage != null && !resetImage.isError() && resetImage.getHeight() > 0
+            ? resetImage.getHeight()
+            : 24.0);
+
+    double defaultX = sliderX - resetW - 8.0;
+    double defaultY = sliderY + (trackH - resetH) * 0.5;
+    double x = resetXRaw != null ? resolveCoordinate(resetXRaw, canvasW) : defaultX;
+    double y = resetYRaw != null ? resolveCoordinate(resetYRaw, canvasH) : defaultY;
+    x = clamp(x, 0, Math.max(0, canvasW - resetW));
+    y = clamp(y, 0, Math.max(0, canvasH - resetH));
+    return new Rect(x, y, resetW, resetH);
   }
 
   private double clamp01(double v) {

@@ -151,7 +151,17 @@ public class PauseMenuScene implements Scene {
         if (engine != null) {
           VnSettings s = vnScene != null ? vnScene.getState().getSettings() : new VnSettings();
           ActionBindingProfile profile = ActionBindingProfile.deserialize(s.getInputProfileSerialized());
-          engine.scenes().push(new SettingsScene(engine, saveManager, defaultScriptName, s, audio, profile));
+          String targetMenu = normalize(action.target(), "settings");
+          engine.scenes().push(new SettingsScene(
+              engine,
+              saveManager,
+              defaultScriptName,
+              s,
+              audio,
+              profile,
+              menuProfile,
+              targetMenu
+          ));
         }
       }
       case MAIN_MENU -> {

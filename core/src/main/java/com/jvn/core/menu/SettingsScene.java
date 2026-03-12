@@ -458,7 +458,6 @@ public class SettingsScene implements Scene {
       }
     }
     if (!out.isEmpty()) {
-      ensureBuiltInSettingVisible(out, KEY_CLICK_REVEAL_BEFORE_ADVANCE, menuProfile.style(menuScreen.defaultStyleId()));
       return out;
     }
 
