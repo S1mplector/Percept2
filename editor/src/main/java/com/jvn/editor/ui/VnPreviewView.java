@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 
 import com.jvn.audio.simp3.Simp3AudioService;
 import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 import com.jvn.core.assets.FilesystemAssetManager;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.menu.HistoryMenuScene;
@@ -37,6 +38,7 @@ import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.save.VnSaveManager;
+import com.jvn.core.vn.ui.VnCursorConfigLoader;
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
@@ -49,9 +51,12 @@ import com.jvn.fx.vn.VnRenderer;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Tooltip;
+import javafx.scene.Cursor;
+import javafx.scene.ImageCursor;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
+import javafx.scene.image.Image;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
 
@@ -84,6 +89,7 @@ public class VnPreviewView extends StackPane {
   private List<VnUiActionButtonSpec> textBoxButtonsOverride;
   private final VnSaveManager previewSaveManager = new VnSaveManager();
   private Scene overlayScene;
+  private Cursor configuredCursor = Cursor.DEFAULT;
 
   // Virtual viewport: render at the game's target resolution, scale to fit canvas
   private int virtualWidth = 0;
@@ -110,6 +116,8 @@ public class VnPreviewView extends StackPane {
     // Keep focus for key handling when mouse enters
     canvas.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_ENTERED, e -> requestFocus());
     canvas.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> requestFocus());
+    canvas.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_ENTERED, e -> applyCursor(configuredCursor));
+    phoneRenderer.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_ENTERED, e -> applyCursor(configuredCursor));
   }
 
   public void setScenario(VnScenario scenario) {
@@ -140,6 +148,7 @@ public class VnPreviewView extends StackPane {
     renderer.setProjectRoot(root);
     phoneRenderer.setProjectRoot(root);
     resolveVirtualViewport(root);
+    applyConfiguredCursor();
     applyUiOverrides();
     bindProjectRoot(audio, root);
     if (scene != null) {
@@ -487,6 +496,65 @@ public class VnPreviewView extends StackPane {
 
   private String safe(String value) {
     return value == null ? "" : value.trim();
+  }
+
+  private void applyConfiguredCursor() {
+    if (projectRoot == null) {
+      applyCursor(Cursor.DEFAULT);
+      return;
+    }
+
+    VnCursorConfigLoader.LoadResult load = VnCursorConfigLoader.loadFromProjectRootWithDiagnostics(projectRoot);
+    VnCursorConfigLoader.VnCursorConfig cfg = load.config();
+    if (cfg == null || cfg.assetPath() == null || cfg.assetPath().isBlank()) {
+      applyCursor(Cursor.DEFAULT);
+      return;
+    }
+
+    Image image = loadCursorImage(cfg.assetPath());
+    if (image == null || image.isError() || image.getWidth() <= 0 || image.getHeight() <= 0) {
+      applyCursor(Cursor.DEFAULT);
+      return;
+    }
+
+    double hotspotX = Math.max(0.0, Math.min(cfg.hotspotX(), Math.max(0.0, image.getWidth() - 1)));
+    double hotspotY = Math.max(0.0, Math.min(cfg.hotspotY(), Math.max(0.0, image.getHeight() - 1)));
+    applyCursor(new ImageCursor(image, hotspotX, hotspotY));
+  }
+
+  private Image loadCursorImage(String path) {
+    if (path == null || path.isBlank()) return null;
+    try {
+      if (projectRoot != null) {
+        AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(projectRoot.toPath()));
+        var url = assets.url(AssetType.IMAGE, path);
+        if (url != null) {
+          Image image = new Image(url.toExternalForm());
+          if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
+        }
+      }
+    } catch (Exception ignored) {
+    }
+
+    try {
+      File direct = new File(path);
+      if (!direct.isAbsolute() && projectRoot != null) {
+        direct = new File(projectRoot, path);
+      }
+      if (direct.exists()) {
+        Image image = new Image(direct.toURI().toString());
+        if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
+      }
+    } catch (Exception ignored) {
+    }
+    return null;
+  }
+
+  private void applyCursor(Cursor cursor) {
+    configuredCursor = cursor == null ? Cursor.DEFAULT : cursor;
+    setCursor(configuredCursor);
+    canvas.setCursor(configuredCursor);
+    phoneRenderer.setCursor(configuredCursor);
   }
 
   private void updateOverlayHover(double x, double y) {

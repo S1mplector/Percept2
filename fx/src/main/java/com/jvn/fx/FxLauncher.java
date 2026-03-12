@@ -60,6 +60,7 @@ import javafx.stage.Stage;
 public class FxLauncher extends Application {
   private static final Logger log = LoggerFactory.getLogger(FxLauncher.class);
   private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
+  private static final String ASSETS_ROOT_PROPERTY = "jvn.assets.root";
   private static Engine engine;
   private AnimationTimer timer;
   private Canvas canvas;
@@ -70,6 +71,7 @@ public class FxLauncher extends Application {
   private FxBlitter2D blitter2D;
   private FxSceneRendererRegistry rendererRegistry;
   private ActionMap actionMap;
+  private Cursor configuredCursor = Cursor.DEFAULT;
   private double mouseX = 0;
   private double mouseY = 0;
 
@@ -105,6 +107,10 @@ public class FxLauncher extends Application {
     javafx.scene.Scene scene = new javafx.scene.Scene(root, width, height);
     primaryStage.setScene(scene);
     applyConfiguredCursor(scene);
+    primaryStage.focusedProperty().addListener((obs, oldValue, focused) -> {
+      if (focused) applyConfiguredCursor(scene);
+    });
+    scene.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_ENTERED, e -> applyConfiguredCursor(scene));
     applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();
     log.info(
@@ -485,20 +491,30 @@ public class FxLauncher extends Application {
     }
     VnCursorConfigLoader.VnCursorConfig config = loadResult.config();
     if (config == null || config.assetPath() == null || config.assetPath().isBlank()) {
-      scene.setCursor(Cursor.DEFAULT);
+      File projectRoot = resolveAssetsRoot();
+      if (projectRoot != null) {
+        VnCursorConfigLoader.LoadResult projectLoad = VnCursorConfigLoader.loadFromProjectRootWithDiagnostics(projectRoot);
+        for (String diagnostic : projectLoad.diagnostics()) {
+          log.warn("Cursor config (project): {}", diagnostic);
+        }
+        config = projectLoad.config();
+      }
+    }
+    if (config == null || config.assetPath() == null || config.assetPath().isBlank()) {
+      applyCursor(scene, Cursor.DEFAULT);
       return;
     }
 
     Image image = loadCursorImage(config.assetPath());
     if (image == null || image.isError() || image.getWidth() <= 0 || image.getHeight() <= 0) {
       log.warn("Cursor asset could not be loaded: {}", config.assetPath());
-      scene.setCursor(Cursor.DEFAULT);
+      applyCursor(scene, Cursor.DEFAULT);
       return;
     }
 
     double hotspotX = Math.max(0.0, Math.min(config.hotspotX(), Math.max(0.0, image.getWidth() - 1)));
     double hotspotY = Math.max(0.0, Math.min(config.hotspotY(), Math.max(0.0, image.getHeight() - 1)));
-    scene.setCursor(new ImageCursor(image, hotspotX, hotspotY));
+    applyCursor(scene, new ImageCursor(image, hotspotX, hotspotY));
     log.info("Applied custom cursor '{}' ({}, {})", config.assetPath(), hotspotX, hotspotY);
   }
 
@@ -531,7 +547,40 @@ public class FxLauncher extends Application {
       }
     } catch (Exception ignored) {
     }
+
+    try {
+      File projectRoot = resolveAssetsRoot();
+      if (projectRoot != null) {
+        File relative = new File(projectRoot, path);
+        if (relative.exists()) {
+          Image image = new Image(relative.toURI().toString());
+          if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
+        }
+      }
+    } catch (Exception ignored) {
+    }
     return null;
+  }
+
+  private File resolveAssetsRoot() {
+    String raw = System.getProperty(ASSETS_ROOT_PROPERTY, "");
+    if (raw == null || raw.isBlank()) return null;
+    File root = new File(raw.trim());
+    return root.exists() && root.isDirectory() ? root : null;
+  }
+
+  private void applyCursor(javafx.scene.Scene scene, Cursor cursor) {
+    configuredCursor = cursor == null ? Cursor.DEFAULT : cursor;
+    scene.setCursor(configuredCursor);
+    if (scene.getRoot() != null) {
+      scene.getRoot().setCursor(configuredCursor);
+    }
+    if (canvas != null) {
+      canvas.setCursor(configuredCursor);
+    }
+    if (phoneRenderer != null) {
+      phoneRenderer.setCursor(configuredCursor);
+    }
   }
 
   private boolean shouldUseAspectFitViewport(com.jvn.core.scene.Scene scene) {

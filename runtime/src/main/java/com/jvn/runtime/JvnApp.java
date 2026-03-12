@@ -212,6 +212,11 @@ public class JvnApp {
     AssetManager manager = (assetRootDir == null)
         ? new ClasspathAssetManager()
         : new OverlayAssetManager(new FilesystemAssetManager(Paths.get(assetRootDir.getPath())), new ClasspathAssetManager());
+    if (assetRootDir != null) {
+      System.setProperty("jvn.assets.root", assetRootDir.getAbsolutePath());
+    } else {
+      System.clearProperty("jvn.assets.root");
+    }
     AssetCatalog.setDefaultManager(manager);
 
     String resolvedEntryScript = VnEntryScriptResolver.resolveEntryScript(scriptName, assetRootDir);
