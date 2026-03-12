@@ -1009,6 +1009,7 @@ public class MenuRenderer {
 
   private boolean itemContainsPoint(MenuItemSpec itemSpec, Rect rect, double mouseX, double mouseY) {
     if (rect == null) return false;
+    if (itemSpec != null && !itemSpec.enabled()) return false;
     if (isSectionItem(itemSpec) || isBodyTextItem(itemSpec) || isNoteTextItem(itemSpec)) return false;
     if (itemSpec != null && itemSpec.extras() != null) {
       String raw = itemSpec.extras().get("boundsPoints");

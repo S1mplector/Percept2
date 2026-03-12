@@ -221,7 +221,9 @@ public class SettingsScene implements Scene {
     String[] out = new String[rows.size()];
     for (int i = 0; i < rows.size(); i++) {
       Row r = rows.get(i);
-      String label = (r.label() != null && !r.label().isBlank()) ? r.label() : defaultLabelForKey(r.key());
+      // Preserve explicit blank labels for decorative rows in menu profiles.
+      // Only synthesize fallback labels when label is truly unspecified.
+      String label = (r.label() != null) ? r.label() : defaultLabelForKey(r.key());
       String value = valueTextForKey(r.key());
       String text = applyValueTemplate(label, value);
       if (KEY_INPUT_PROFILE.equals(r.key()) && bindingStatus != null && !bindingStatus.isBlank()) {
