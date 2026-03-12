@@ -373,7 +373,17 @@ public class LoadMenuScene implements Scene {
         com.jvn.core.input.ActionBindingProfile profile =
             com.jvn.core.input.ActionBindingProfile.deserialize(settingsModel.getInputProfileSerialized());
         if (engine != null) {
-          engine.scenes().push(new SettingsScene(engine, saveManager, defaultScriptName, settingsModel, audio, profile));
+          String targetMenu = normalize(action.target(), "settings");
+          engine.scenes().push(new SettingsScene(
+              engine,
+              saveManager,
+              defaultScriptName,
+              settingsModel,
+              audio,
+              profile,
+              menuProfile,
+              targetMenu
+          ));
         }
         yield true;
       }

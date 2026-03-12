@@ -48,6 +48,7 @@ public class SettingsScene implements Scene {
   private final Engine engine;
   private final VnSaveManager saveManager;
   private final String defaultScriptName;
+  private final String menuId;
   private final MenuProfile menuProfile;
   private final MenuScreenSpec menuScreen;
   private final MenuLayoutSpec menuLayout;
@@ -69,15 +70,15 @@ public class SettingsScene implements Scene {
   ) {}
 
   public SettingsScene(VnSettings settings) {
-    this(null, null, null, settings, null, null, null);
+    this(null, null, null, settings, null, null, null, "settings");
   }
 
   public SettingsScene(VnSettings settings, AudioFacade audio) {
-    this(null, null, null, settings, audio, null, null);
+    this(null, null, null, settings, audio, null, null, "settings");
   }
 
   public SettingsScene(VnSettings settings, AudioFacade audio, ActionBindingProfile bindings) {
-    this(null, null, null, settings, audio, bindings, null);
+    this(null, null, null, settings, audio, bindings, null, "settings");
   }
 
   public SettingsScene(
@@ -87,7 +88,7 @@ public class SettingsScene implements Scene {
       VnSettings settings,
       AudioFacade audio
   ) {
-    this(engine, saveManager, defaultScriptName, settings, audio, null, null);
+    this(engine, saveManager, defaultScriptName, settings, audio, null, null, "settings");
   }
 
   public SettingsScene(
@@ -98,7 +99,7 @@ public class SettingsScene implements Scene {
       AudioFacade audio,
       ActionBindingProfile bindings
   ) {
-    this(engine, saveManager, defaultScriptName, settings, audio, bindings, null);
+    this(engine, saveManager, defaultScriptName, settings, audio, bindings, null, "settings");
   }
 
   SettingsScene(
@@ -109,6 +110,31 @@ public class SettingsScene implements Scene {
       AudioFacade audio,
       ActionBindingProfile bindings,
       MenuProfile profile
+  ) {
+    this(engine, saveManager, defaultScriptName, settings, audio, bindings, profile, "settings");
+  }
+
+  public SettingsScene(
+      Engine engine,
+      VnSaveManager saveManager,
+      String defaultScriptName,
+      VnSettings settings,
+      AudioFacade audio,
+      ActionBindingProfile bindings,
+      String menuId
+  ) {
+    this(engine, saveManager, defaultScriptName, settings, audio, bindings, null, menuId);
+  }
+
+  SettingsScene(
+      Engine engine,
+      VnSaveManager saveManager,
+      String defaultScriptName,
+      VnSettings settings,
+      AudioFacade audio,
+      ActionBindingProfile bindings,
+      MenuProfile profile,
+      String menuId
   ) {
     this.engine = engine;
     this.saveManager = saveManager == null ? new VnSaveManager() : saveManager;
@@ -132,13 +158,20 @@ public class SettingsScene implements Scene {
     } else {
       this.menuProfile = profile;
     }
-    this.menuScreen = menuProfile.screen("settings");
+    String requestedMenu = normalize(menuId, "settings");
+    if (!this.menuProfile.hasScreen(requestedMenu)) {
+      LOG.warn("Settings menu '{}' is not defined in menu profile; using 'settings'", requestedMenu);
+      requestedMenu = "settings";
+    }
+    this.menuId = requestedMenu;
+    this.menuScreen = menuProfile.screen(this.menuId);
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());
     this.rows = buildRows();
     this.selected = firstSelectableIndex(0);
   }
 
   public VnSettings model() { return settings; }
+  public String getMenuId() { return menuId; }
   public int itemCount() { return rows.size(); }
   public int getSelected() { return selected; }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
@@ -350,6 +383,29 @@ public class SettingsScene implements Scene {
     applyLiveVolumes();
   }
 
+  public void resetValueByIndex(int idx) {
+    Row row = rowAt(idx);
+    if (row == null || !row.enabled()) return;
+
+    VnSettings defaults = new VnSettings();
+    switch (row.key()) {
+      case KEY_TEXT_SPEED -> settings.setTextSpeed(defaults.getTextSpeed());
+      case KEY_BGM_VOLUME -> settings.setBgmVolume(defaults.getBgmVolume());
+      case KEY_SFX_VOLUME -> settings.setSfxVolume(defaults.getSfxVolume());
+      case KEY_VOICE_VOLUME -> settings.setVoiceVolume(defaults.getVoiceVolume());
+      case KEY_AUTO_PLAY_DELAY -> settings.setAutoPlayDelay(defaults.getAutoPlayDelay());
+      case KEY_SKIP_UNREAD -> settings.setSkipUnreadText(defaults.isSkipUnreadText());
+      case KEY_SKIP_AFTER_CHOICES -> settings.setSkipAfterChoices(defaults.isSkipAfterChoices());
+      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.setClickRevealBeforeAdvance(defaults.isClickRevealBeforeAdvance());
+      case KEY_PHYSICS_FIXED_STEP -> settings.setPhysicsFixedStepMs(defaults.getPhysicsFixedStepMs());
+      case KEY_PHYSICS_MAX_SUBSTEPS -> settings.setPhysicsMaxSubSteps(defaults.getPhysicsMaxSubSteps());
+      case KEY_PHYSICS_DEFAULT_FRICTION -> settings.setPhysicsDefaultFriction(defaults.getPhysicsDefaultFriction());
+      default -> {
+      }
+    }
+    applyLiveVolumes();
+  }
+
   public boolean consumeCloseRequested() {
     boolean out = closeRequested;
     closeRequested = false;
@@ -504,7 +560,13 @@ public class SettingsScene implements Scene {
         yield true;
       }
       case NOOP -> false;
-      case SETTINGS_MENU -> false;
+      case SETTINGS_MENU -> {
+        boolean opened = openSettingsMenu(action.target());
+        if (!opened && confirm) {
+          bindingStatus = "Settings menu not found: " + normalize(action.target(), "settings");
+        }
+        yield true;
+      }
       default -> {
         if (confirm) {
           bindingStatus = "Unsupported settings action: " + action.type().name().toLowerCase();
@@ -521,7 +583,7 @@ public class SettingsScene implements Scene {
     try {
       return handler.handle(new MenuActionContext(
           engine,
-          "settings",
+          menuId,
           normalize(itemId, ""),
           defaultScriptName,
           action
@@ -547,12 +609,34 @@ public class SettingsScene implements Scene {
     return true;
   }
 
+  private boolean openSettingsMenu(String targetMenu) {
+    String requested = normalize(targetMenu, "settings");
+    if (requested == null || engine == null) return false;
+    if (!menuProfile.hasScreen(requested)) {
+      LOG.debug("Configured settings menu '{}' not found in profile", requested);
+      return false;
+    }
+    if (requested.equalsIgnoreCase(menuId)) return true;
+    SettingsScene child = new SettingsScene(
+        engine,
+        saveManager,
+        defaultScriptName,
+        settings,
+        audio,
+        bindings,
+        menuProfile,
+        requested
+    );
+    engine.scenes().push(child);
+    return true;
+  }
+
   private boolean openQuitConfirmationMenu(String targetMenu) {
     String requested = normalize(targetMenu, null);
     if (requested == null && menuProfile.screens().containsKey("confirm_exit")) {
       requested = "confirm_exit";
     }
-    if (requested == null || requested.isBlank() || "settings".equalsIgnoreCase(requested)) return false;
+    if (requested == null || requested.isBlank() || requested.equalsIgnoreCase(menuId)) return false;
     return openConfiguredMenu(requested);
   }
 

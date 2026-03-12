@@ -615,6 +615,7 @@ public final class MenuProfileLoader {
     if (target != null && !target.isBlank()
         && type != MenuActionType.OPEN_MENU
         && type != MenuActionType.RUN_SCRIPT
+        && type != MenuActionType.SETTINGS_MENU
         && type != MenuActionType.QUIT
         && type != MenuActionType.NOOP) {
       diagnostics.add("Target for action '" + action + "' is ignored in " + sourcePath + " (" + property + ")");
@@ -633,7 +634,14 @@ public final class MenuProfileLoader {
       "boundsX", "boundsY", "boundsWidth", "boundsHeight",
       "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
       "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight",
-      "fontFamily", "fontWeight", "fontSize"
+      "fontFamily", "fontWeight", "fontSize",
+      "sliderX", "sliderY", "sliderWidth",
+      "sliderTrackAsset", "sliderBaseAsset", "sliderTrackHeight", "sliderShowFill",
+      "sliderFillAsset", "sliderFillActiveAsset", "sliderFillInactiveAsset",
+      "sliderKnobAsset", "sliderKnobActiveAsset", "sliderKnobInactiveAsset",
+      "sliderKnobWidth", "sliderKnobHeight", "sliderKnobOffsetX", "sliderKnobOffsetY",
+      "sliderResetAsset", "sliderResetActiveAsset", "sliderResetInactiveAsset",
+      "sliderResetX", "sliderResetY", "sliderResetWidth", "sliderResetHeight"
   );
 
   private record BoundsFields(Double x, Double y, Double width, Double height) {}

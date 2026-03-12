@@ -181,7 +181,17 @@ public class MainMenuScene implements Scene {
       case SETTINGS_MENU -> {
         com.jvn.core.input.ActionBindingProfile profile =
             com.jvn.core.input.ActionBindingProfile.deserialize(settingsModel.getInputProfileSerialized());
-        engine.scenes().push(new SettingsScene(engine, saveManager, defaultScriptName, settingsModel, audio, profile));
+        String targetMenu = normalize(action.target(), "settings");
+        engine.scenes().push(new SettingsScene(
+            engine,
+            saveManager,
+            defaultScriptName,
+            settingsModel,
+            audio,
+            profile,
+            null,
+            targetMenu
+        ));
       }
       case OPEN_MENU -> openConfiguredMenu(action.target());
       case MAIN_MENU -> openConfiguredMenu("main");
