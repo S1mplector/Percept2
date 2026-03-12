@@ -455,7 +455,7 @@ public class SettingsScene implements Scene {
         MenuActionSpec action = item.action() == null ? MenuActionSpec.noop() : item.action();
         String key = canonicalKey(action.target() != null ? action.target() : id);
         MenuStyleSpec style = menuProfile.style(normalize(item.styleId(), menuScreen.defaultStyleId()));
-        String label = resolveDisplayText(item.label());
+        String label = resolveItemLabelText(item.label());
         out.add(new Row(id, key, label, item.enabled(), style, action));
       }
     }
@@ -793,6 +793,12 @@ public class SettingsScene implements Scene {
       if (!key.isEmpty()) return Localization.t(key);
     }
     return value;
+  }
+
+  private String resolveItemLabelText(String raw) {
+    if (raw == null) return null;
+    if (raw.isBlank()) return "";
+    return resolveDisplayText(raw);
   }
 
   private String canonicalKey(String raw) {

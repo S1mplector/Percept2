@@ -88,6 +88,7 @@ import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
+import javafx.scene.control.Labeled;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
@@ -2765,15 +2766,11 @@ public class EditorApp extends Application {
 
   private void installAddTabBehavior(TabPane pane, Tab addTab, Runnable onAddRequested) {
     if (pane == null || addTab == null || onAddRequested == null) return;
-    pane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
-      if (newTab != addTab) return;
-      triggerAddTabChooser(pane, addTab, oldTab, onAddRequested);
-    });
     pane.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
-      if (pane.getSelectionModel().getSelectedItem() != addTab) return;
-      if (!isAddTabHeaderClick(e.getTarget())) return;
-      triggerAddTabChooser(pane, addTab, null, onAddRequested);
+      if (!isAddTabHeaderClick(e.getTarget(), addTab)) return;
+      Tab selected = pane.getSelectionModel().getSelectedItem();
+      triggerAddTabChooser(pane, addTab, selected, onAddRequested);
       e.consume();
     });
   }
@@ -2793,17 +2790,18 @@ public class EditorApp extends Application {
     });
   }
 
-  private boolean isAddTabHeaderClick(Object target) {
+  private boolean isAddTabHeaderClick(Object target, Tab addTab) {
     if (!(target instanceof javafx.scene.Node node)) return false;
+    String addLabel = addTab == null ? "+" : addTab.getText();
     javafx.scene.Node current = node;
     while (current != null) {
-      List<String> styleClasses = current.getStyleClass();
-      if (styleClasses.contains("tab-content-area")) return false;
-      if (styleClasses.contains("tab")
-          || styleClasses.contains("tab-label")
-          || styleClasses.contains("tab-container")) {
+      if (current instanceof Labeled labeled
+          && addLabel != null
+          && addLabel.equals(labeled.getText())) {
         return true;
       }
+      List<String> styleClasses = current.getStyleClass();
+      if (styleClasses.contains("tab-content-area")) return false;
       current = current.getParent();
     }
     return false;
