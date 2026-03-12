@@ -967,7 +967,8 @@ public class FileEditorTab extends BorderPane {
 
     detachFromParent(dockPreviewNode);
     StackPane host = new StackPane(dockPreviewNode);
-    Scene scene = new Scene(host, Math.max(640.0, lastSizedWidth * 0.75), Math.max(360.0, lastSizedHeight * 0.65));
+    double[] initialSize = initialDetachedPreviewSize();
+    Scene scene = new Scene(host, initialSize[0], initialSize[1]);
     scene.widthProperty().addListener((o, ov, nv) -> refreshPreviewSizeFromLast());
     scene.heightProperty().addListener((o, ov, nv) -> refreshPreviewSizeFromLast());
 
@@ -1339,6 +1340,25 @@ public class FileEditorTab extends BorderPane {
   private static double sanitizeDimension(double value) {
     if (!Double.isFinite(value)) return 1.0;
     return Math.max(1.0, Math.min(8192.0, value));
+  }
+
+  private double[] initialDetachedPreviewSize() {
+    double width = Math.max(640.0, sanitizeDimension(lastSizedWidth * 0.75));
+    double height = Math.max(360.0, sanitizeDimension(lastSizedHeight * 0.65));
+
+    if (kind != Kind.VNS) {
+      return new double[] {width, height};
+    }
+
+    double aspect = ProjectViewportSpec.resolve(projectRoot).aspect();
+    if (!Double.isFinite(aspect) || aspect <= 0.05) aspect = 16.0 / 9.0;
+
+    if ((width / height) > aspect) width = height * aspect;
+    else height = width / aspect;
+
+    width = Math.max(640.0, sanitizeDimension(width));
+    height = Math.max(360.0, sanitizeDimension(height));
+    return new double[] {width, height};
   }
 
   private boolean isVnsPreviewWorkspace() {

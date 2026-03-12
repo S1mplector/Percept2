@@ -28,8 +28,25 @@ public final class ProjectViewportSpec {
     try (FileInputStream fis = new FileInputStream(manifest)) {
       Properties p = new Properties();
       p.load(fis);
-      width = parsePositiveInt(p.getProperty("width"), width);
-      height = parsePositiveInt(p.getProperty("height"), height);
+      Integer renderWidth = firstPositiveIntNullable(
+          p.getProperty("renderWidth"),
+          p.getProperty("display.renderWidth"),
+          p.getProperty("logicalWidth"),
+          p.getProperty("display.logicalWidth")
+      );
+      Integer renderHeight = firstPositiveIntNullable(
+          p.getProperty("renderHeight"),
+          p.getProperty("display.renderHeight"),
+          p.getProperty("logicalHeight"),
+          p.getProperty("display.logicalHeight")
+      );
+      if (renderWidth != null && renderHeight != null) {
+        width = renderWidth;
+        height = renderHeight;
+      } else {
+        width = firstPositiveInt(width, p.getProperty("width"));
+        height = firstPositiveInt(height, p.getProperty("height"));
+      }
     } catch (Exception ignored) {
       // Fall back to defaults when project manifest can't be read.
     }
@@ -37,14 +54,23 @@ public final class ProjectViewportSpec {
     return new Dimensions(width, height);
   }
 
-  private static int parsePositiveInt(String raw, int fallback) {
-    if (raw == null || raw.isBlank()) return fallback;
-    try {
-      int value = Integer.parseInt(raw.trim());
-      return value > 0 ? value : fallback;
-    } catch (Exception ignored) {
-      return fallback;
+  private static int firstPositiveInt(int fallback, String... values) {
+    Integer parsed = firstPositiveIntNullable(values);
+    return parsed != null ? parsed : fallback;
+  }
+
+  private static Integer firstPositiveIntNullable(String... values) {
+    if (values == null) return null;
+    for (String raw : values) {
+      if (raw == null || raw.isBlank()) continue;
+      try {
+        int value = Integer.parseInt(raw.trim());
+        if (value > 0) return value;
+      } catch (Exception ignored) {
+        // Keep scanning remaining candidates.
+      }
     }
+    return null;
   }
 
   public static record Dimensions(int width, int height) {

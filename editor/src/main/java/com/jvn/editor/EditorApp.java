@@ -329,7 +329,12 @@ public class EditorApp extends Application {
 
   private void configureProjectContext(File root, Properties mf) {
     if (root == null) return;
-    if (projView != null) projView.setRootDirectory(root);
+    if (projView != null) {
+      projView.setRootDirectory(root);
+      if (tabProject != null && tabProject.getContent() != projView) {
+        tabProject.setContent(projView);
+      }
+    }
     if (timelineView != null) {
       timelineView.setTimelineFile(resolveTimelineFile(root, mf));
       timelineView.setProjectRoot(root);
@@ -1526,6 +1531,9 @@ public class EditorApp extends Application {
     timelineView.setOnRunArc(this::openTimelineArc);
     timelineView.setOnRunLink(this::openTimelineLinkTarget);
     projView = new ProjectExplorerView();
+    if (projectRoot != null) {
+      projView.setRootDirectory(projectRoot);
+    }
     projView.setOnOpenFile(f -> {
       if (f == null) return;
       if (isEditableFile(f)) {
@@ -2830,9 +2838,14 @@ public class EditorApp extends Application {
 
   private Tab ensureProjectTab(TabPane targetPane) {
     if (targetPane == null || projView == null) return null;
+    if (projectRoot != null) {
+      projView.setRootDirectory(projectRoot);
+    }
     if (tabProject == null) {
       tabProject = new Tab("Project", projView);
       tabProject.setClosable(false);
+    } else if (tabProject.getContent() != projView) {
+      tabProject.setContent(projView);
     }
     attachPanelTabToPane(tabProject, targetPane);
     return tabProject;
