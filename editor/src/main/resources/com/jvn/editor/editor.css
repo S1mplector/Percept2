@@ -1874,6 +1874,22 @@
   -fx-text-fill: #d7d7d7;
 }
 
+.panel-chooser-memory-indicator {
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-min-width: 12px;
+  -fx-max-width: 12px;
+  -fx-alignment: center;
+}
+
+.panel-chooser-memory-loaded {
+  -fx-text-fill: #6fcd8f;
+}
+
+.panel-chooser-memory-unloaded {
+  -fx-text-fill: #6d6d6d;
+}
+
 .panel-chooser-filter {
   -fx-background-color: #171717;
   -fx-text-fill: #e6e6e6;

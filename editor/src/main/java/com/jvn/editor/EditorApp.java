@@ -16,6 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -227,6 +228,10 @@ public class EditorApp extends Application {
   private static final int STARTUP_COMMAND_TAIL_LINES = 14;
   private static final double SIDEBAR_COLLAPSED_EPSILON = 0.01;
   private static final String PANEL_CHOOSER_TAB_ROLE = "panel-chooser";
+  private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
+  private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
+      new EnumMap<>(EditorSidebarPanel.class);
+  private Stage editorSettingsWindow;
 
   public static void main(String[] args) {
     launch(args);
@@ -2184,6 +2189,10 @@ public class EditorApp extends Application {
         ensureSidebarPanel(panel, rightTabs);
       }
     }
+    for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
+      releaseSidebarPanelIfUnused(panel);
+    }
+    releaseEditorSettingsIfUnused();
     Tab leftDefault = firstRegularTab(leftTabs, tabLeftAdd);
     if (leftDefault != null) {
       leftTabs.getSelectionModel().select(leftDefault);
@@ -2946,6 +2955,7 @@ public class EditorApp extends Application {
 
   private Tab ensureProjectTab(TabPane targetPane) {
     if (targetPane == null || projView == null) return null;
+    closePanelWindow(EditorSidebarPanel.PROJECT, true);
     if (projectRoot != null) {
       projView.setRootDirectory(projectRoot);
     }
@@ -2960,12 +2970,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureTimelineTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.TIMELINE, true);
     StoryTimelineView timeline = ensureTimelineView();
     if (targetPane == null || timeline == null) return null;
     if (tabTimeline == null) {
       tabTimeline = new Tab("Timeline", timeline);
       tabTimeline.setClosable(true);
-      tabTimeline.setOnClosed(e -> tabTimeline = null);
+      tabTimeline.setOnClosed(e -> {
+        tabTimeline = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.TIMELINE);
+      });
     } else if (tabTimeline.getContent() != timeline) {
       tabTimeline.setContent(timeline);
     }
@@ -2974,12 +2988,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureHelpTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.HELP, true);
     HelpCenterView help = ensureHelpCenterView();
     if (targetPane == null || help == null) return null;
     if (tabHelp == null) {
       tabHelp = new Tab("Help", help);
       tabHelp.setClosable(true);
-      tabHelp.setOnClosed(e -> tabHelp = null);
+      tabHelp.setOnClosed(e -> {
+        tabHelp = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.HELP);
+      });
     } else if (tabHelp.getContent() != help) {
       tabHelp.setContent(help);
     }
@@ -2999,12 +3017,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureVnsDiagnosticsTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.VNS_DIAGNOSTICS, true);
     VnsDiagnosticsView diagnostics = ensureVnsDiagnosticsView();
     if (targetPane == null || diagnostics == null) return null;
     if (tabVnsDiagnostics == null) {
       tabVnsDiagnostics = new Tab("VNS Diagnostics", diagnostics);
       tabVnsDiagnostics.setClosable(true);
-      tabVnsDiagnostics.setOnClosed(e -> tabVnsDiagnostics = null);
+      tabVnsDiagnostics.setOnClosed(e -> {
+        tabVnsDiagnostics = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.VNS_DIAGNOSTICS);
+      });
     } else if (tabVnsDiagnostics.getContent() != diagnostics) {
       tabVnsDiagnostics.setContent(diagnostics);
     }
@@ -3013,12 +3035,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureVnsFlowMapTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.LABEL_FLOW, true);
     VnsFlowMapView flowMap = ensureVnsFlowMapView();
     if (targetPane == null || flowMap == null) return null;
     if (tabVnsFlowMap == null) {
       tabVnsFlowMap = new Tab("Label Flow", flowMap);
       tabVnsFlowMap.setClosable(true);
-      tabVnsFlowMap.setOnClosed(e -> tabVnsFlowMap = null);
+      tabVnsFlowMap.setOnClosed(e -> {
+        tabVnsFlowMap = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.LABEL_FLOW);
+      });
     } else if (tabVnsFlowMap.getContent() != flowMap) {
       tabVnsFlowMap.setContent(flowMap);
     }
@@ -3027,12 +3053,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureAssetBrowserTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.ASSETS, true);
     AssetBrowserView assets = ensureAssetBrowserView();
     if (targetPane == null || assets == null) return null;
     if (tabAssetBrowser == null) {
       tabAssetBrowser = new Tab("Assets", assets);
       tabAssetBrowser.setClosable(true);
-      tabAssetBrowser.setOnClosed(e -> tabAssetBrowser = null);
+      tabAssetBrowser.setOnClosed(e -> {
+        tabAssetBrowser = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.ASSETS);
+      });
     } else if (tabAssetBrowser.getContent() != assets) {
       tabAssetBrowser.setContent(assets);
     }
@@ -3041,12 +3071,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureVersionControlTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.VERSION_CONTROL, true);
     VersionControlView vcs = ensureVersionControlView();
     if (targetPane == null || vcs == null) return null;
     if (tabVersionControl == null) {
       tabVersionControl = new Tab("Version Control", vcs);
       tabVersionControl.setClosable(true);
-      tabVersionControl.setOnClosed(e -> tabVersionControl = null);
+      tabVersionControl.setOnClosed(e -> {
+        tabVersionControl = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.VERSION_CONTROL);
+      });
     } else if (tabVersionControl.getContent() != vcs) {
       tabVersionControl.setContent(vcs);
     }
@@ -3055,12 +3089,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureLayoutLauncherTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.LAYOUT_LAUNCHER, true);
     LayoutEditorLauncherView launcher = ensureLayoutEditorLauncherView();
     if (targetPane == null || launcher == null) return null;
     if (tabLayoutLauncher == null) {
       tabLayoutLauncher = new Tab("Layout Launcher", launcher);
       tabLayoutLauncher.setClosable(true);
-      tabLayoutLauncher.setOnClosed(e -> tabLayoutLauncher = null);
+      tabLayoutLauncher.setOnClosed(e -> {
+        tabLayoutLauncher = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.LAYOUT_LAUNCHER);
+      });
     } else if (tabLayoutLauncher.getContent() != launcher) {
       tabLayoutLauncher.setContent(launcher);
     }
@@ -3069,12 +3107,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensurePhoneAssetsToolTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.PHONE_ASSETS, true);
     PhoneAssetsToolView phoneAssets = ensurePhoneAssetsToolView();
     if (targetPane == null || phoneAssets == null) return null;
     if (tabPhoneAssetsTool == null) {
       tabPhoneAssetsTool = new Tab("Phone Assets", phoneAssets);
       tabPhoneAssetsTool.setClosable(true);
-      tabPhoneAssetsTool.setOnClosed(e -> tabPhoneAssetsTool = null);
+      tabPhoneAssetsTool.setOnClosed(e -> {
+        tabPhoneAssetsTool = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.PHONE_ASSETS);
+      });
     } else if (tabPhoneAssetsTool.getContent() != phoneAssets) {
       tabPhoneAssetsTool.setContent(phoneAssets);
     }
@@ -3083,6 +3125,7 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureLayeredImageVisualizerTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.LAYERED_IMAGES, true);
     LayeredImageVisualizerView layered = ensureLayeredImageVisualizerView();
     if (targetPane == null || layered == null) return null;
     if (tabLayeredImageVisualizer == null) {
@@ -3093,6 +3136,7 @@ public class EditorApp extends Application {
           restoreLayeredImageVisualizerLayout(false);
         }
         tabLayeredImageVisualizer = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.LAYERED_IMAGES);
       });
     } else if (tabLayeredImageVisualizer.getContent() != layered) {
       tabLayeredImageVisualizer.setContent(layered);
@@ -3102,6 +3146,7 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureImageAttributesToolTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.IMAGE_ATTRIBUTES, true);
     ImageAttributesToolView attributes = ensureImageAttributesToolView();
     if (targetPane == null || attributes == null) return null;
     if (tabImageAttributesTool == null) {
@@ -3112,6 +3157,7 @@ public class EditorApp extends Application {
           restoreLayeredImageVisualizerLayout(false);
         }
         tabImageAttributesTool = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.IMAGE_ATTRIBUTES);
       });
     } else if (tabImageAttributesTool.getContent() != attributes) {
       tabImageAttributesTool.setContent(attributes);
@@ -3121,6 +3167,7 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureImageTintToolTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.IMAGE_TINT, true);
     ImageTintToolView tint = ensureImageTintToolView();
     if (targetPane == null || tint == null) return null;
     if (tabImageTintTool == null) {
@@ -3131,6 +3178,7 @@ public class EditorApp extends Application {
           restoreLayeredImageVisualizerLayout(false);
         }
         tabImageTintTool = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.IMAGE_TINT);
       });
     } else if (tabImageTintTool.getContent() != tint) {
       tabImageTintTool.setContent(tint);
@@ -3140,12 +3188,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureMenuFlowTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.MENU_FLOW, true);
     MenuFlowEditorView menuFlow = ensureMenuFlowEditorView();
     if (targetPane == null || menuFlow == null) return null;
     if (tabMenuFlow == null) {
       tabMenuFlow = new Tab("Menu Flow", menuFlow);
       tabMenuFlow.setClosable(true);
-      tabMenuFlow.setOnClosed(e -> tabMenuFlow = null);
+      tabMenuFlow.setOnClosed(e -> {
+        tabMenuFlow = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.MENU_FLOW);
+      });
     } else if (tabMenuFlow.getContent() != menuFlow) {
       tabMenuFlow.setContent(menuFlow);
     }
@@ -3154,12 +3206,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureScriptEditorLauncherTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.SCRIPT_EDITOR, true);
     ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
     if (targetPane == null || launcher == null) return null;
     if (tabScriptEditorLauncher == null) {
       tabScriptEditorLauncher = new Tab("Script Editor", launcher);
       tabScriptEditorLauncher.setClosable(true);
-      tabScriptEditorLauncher.setOnClosed(e -> tabScriptEditorLauncher = null);
+      tabScriptEditorLauncher.setOnClosed(e -> {
+        tabScriptEditorLauncher = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.SCRIPT_EDITOR);
+      });
     } else if (tabScriptEditorLauncher.getContent() != launcher) {
       tabScriptEditorLauncher.setContent(launcher);
     }
@@ -3206,6 +3262,10 @@ public class EditorApp extends Application {
     placementBadge.setMinWidth(74);
     placementBadge.setMaxWidth(74);
     placementBadge.setAlignment(Pos.CENTER);
+    Label memoryIndicator = new Label("●");
+    memoryIndicator.getStyleClass().add("panel-chooser-memory-indicator");
+    Tooltip memoryTooltip = new Tooltip();
+    memoryIndicator.setTooltip(memoryTooltip);
 
     Button dockBtn = new Button();
     dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
@@ -3244,6 +3304,7 @@ public class EditorApp extends Application {
     }
 
     Runnable refreshState = () -> {
+      updateChooserMemoryIndicator(memoryIndicator, panel, memoryTooltip);
       if (panel == null) {
         removeBtn.setManaged(false);
         removeBtn.setVisible(false);
@@ -3299,7 +3360,7 @@ public class EditorApp extends Application {
       });
     }
 
-    HBox row = new HBox(6, panelIcon, label, placementBadge, dockBtn, popOutBtn, removeBtn);
+    HBox row = new HBox(6, panelIcon, label, memoryIndicator, placementBadge, dockBtn, popOutBtn, removeBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
     row.getStyleClass().add("panel-chooser-row");
@@ -3352,6 +3413,20 @@ public class EditorApp extends Application {
     badge.getStyleClass().add("panel-chooser-placement-hidden");
   }
 
+  private void updateChooserMemoryIndicator(
+      Label indicator, EditorSidebarPanel panel, Tooltip tooltip) {
+    if (indicator == null) return;
+    boolean loaded = isPanelLoadedInMemory(panel);
+    indicator.getStyleClass().removeAll(
+        "panel-chooser-memory-loaded",
+        "panel-chooser-memory-unloaded");
+    indicator.getStyleClass().add(
+        loaded ? "panel-chooser-memory-loaded" : "panel-chooser-memory-unloaded");
+    if (tooltip != null) {
+      tooltip.setText(loaded ? "Loaded in memory" : "Not loaded in memory");
+    }
+  }
+
   private void installPanelChooserFilter(TextField filterField, VBox actions) {
     if (filterField == null || actions == null) return;
     Runnable apply = () -> {
@@ -3396,8 +3471,31 @@ public class EditorApp extends Application {
     return null;
   }
 
-  private void launchPanelAsWindow(String title, javafx.scene.Parent content, double width, double height) {
+  private void launchPanelAsWindow(
+      String title,
+      javafx.scene.Parent content,
+      double width,
+      double height,
+      EditorSidebarPanel panel) {
     if (content == null) return;
+    if (panel != null) {
+      Stage existing = panelWindows.get(panel);
+      if (existing != null) {
+        if (existing.isShowing()) {
+          existing.toFront();
+          existing.requestFocus();
+          return;
+        }
+        panelWindows.remove(panel);
+      }
+    } else if (content == editorSettingsView && editorSettingsWindow != null) {
+      if (editorSettingsWindow.isShowing()) {
+        editorSettingsWindow.toFront();
+        editorSettingsWindow.requestFocus();
+        return;
+      }
+      editorSettingsWindow = null;
+    }
     // Detach from any current parent (Tab or other container)
     if (content.getParent() != null) {
       javafx.scene.Parent parent = content.getParent();
@@ -3417,8 +3515,27 @@ public class EditorApp extends Application {
       windowScene.getStylesheets().add(css);
     } catch (Exception ignore) {}
     windowStage.setScene(windowScene);
-    windowStage.setOnCloseRequest(e -> {
-      // On window close, do NOT re-attach — user can re-add via chooser
+    if (panel != null) {
+      panelWindows.put(panel, windowStage);
+    } else if (content == editorSettingsView) {
+      editorSettingsWindow = windowStage;
+    }
+    windowStage.setOnHidden(e -> {
+      boolean suppressUnload = Boolean.TRUE.equals(
+          windowStage.getProperties().remove(PANEL_WINDOW_SUPPRESS_UNLOAD_KEY));
+      if (panel != null) {
+        panelWindows.remove(panel, windowStage);
+        if (!suppressUnload) {
+          releaseSidebarPanelIfUnused(panel);
+        }
+      } else if (content == editorSettingsView) {
+        if (editorSettingsWindow == windowStage) {
+          editorSettingsWindow = null;
+        }
+        if (!suppressUnload) {
+          releaseEditorSettingsIfUnused();
+        }
+      }
     });
     applyLinuxDefaultWindowState(windowStage);
     windowStage.show();
@@ -3473,6 +3590,98 @@ public class EditorApp extends Application {
     else if (tab == tabEditorSettings) tabEditorSettings = null;
   }
 
+  private void closePanelWindow(EditorSidebarPanel panel, boolean suppressUnload) {
+    if (panel == null) return;
+    Stage stage = panelWindows.get(panel);
+    if (stage == null) return;
+    if (suppressUnload) {
+      stage.getProperties().put(PANEL_WINDOW_SUPPRESS_UNLOAD_KEY, Boolean.TRUE);
+    }
+    if (stage.isShowing()) {
+      stage.close();
+    } else {
+      panelWindows.remove(panel);
+    }
+  }
+
+  private void closeEditorSettingsWindow(boolean suppressUnload) {
+    if (editorSettingsWindow == null) return;
+    if (suppressUnload) {
+      editorSettingsWindow.getProperties().put(PANEL_WINDOW_SUPPRESS_UNLOAD_KEY, Boolean.TRUE);
+    }
+    if (editorSettingsWindow.isShowing()) {
+      editorSettingsWindow.close();
+    } else {
+      editorSettingsWindow = null;
+    }
+  }
+
+  private boolean isPanelLoadedInMemory(EditorSidebarPanel panel) {
+    if (panel == null) return editorSettingsView != null;
+    return switch (panel) {
+      case PROJECT -> projView != null;
+      case TIMELINE -> timelineView != null;
+      case INSPECTOR -> inspectorView != null;
+      case VNS_DIAGNOSTICS -> vnsDiagnosticsView != null;
+      case LABEL_FLOW -> vnsFlowMapView != null;
+      case ASSETS -> assetBrowserView != null;
+      case LAYOUT_LAUNCHER -> layoutEditorLauncherView != null;
+      case PHONE_ASSETS -> phoneAssetsToolView != null;
+      case LAYERED_IMAGES -> layeredImageVisualizerView != null;
+      case IMAGE_ATTRIBUTES -> imageAttributesToolView != null;
+      case IMAGE_TINT -> imageTintToolView != null;
+      case MENU_FLOW -> menuFlowEditorView != null;
+      case VERSION_CONTROL -> versionControlView != null;
+      case HELP -> helpCenterView != null;
+      case PUPPETEER_LAUNCHER -> puppeteerLauncherPanel != null;
+      case AUDIO_SYNTH -> audioSynthControlsView != null;
+      case SCRIPT_EDITOR -> scriptEditorLauncherView != null;
+    };
+  }
+
+  private void releaseSidebarPanelIfUnused(EditorSidebarPanel panel) {
+    if (panel == null || isPanelAttached(panel)) return;
+    Stage window = panelWindows.get(panel);
+    if (window != null && window.isShowing()) return;
+    releaseSidebarPanel(panel);
+  }
+
+  private void releaseSidebarPanel(EditorSidebarPanel panel) {
+    if (panel == null) return;
+    switch (panel) {
+      case PROJECT -> {
+      }
+      case TIMELINE -> timelineView = null;
+      case INSPECTOR -> {
+      }
+      case VNS_DIAGNOSTICS -> vnsDiagnosticsView = null;
+      case LABEL_FLOW -> vnsFlowMapView = null;
+      case ASSETS -> assetBrowserView = null;
+      case LAYOUT_LAUNCHER -> layoutEditorLauncherView = null;
+      case PHONE_ASSETS -> phoneAssetsToolView = null;
+      case LAYERED_IMAGES -> layeredImageVisualizerView = null;
+      case IMAGE_ATTRIBUTES -> imageAttributesToolView = null;
+      case IMAGE_TINT -> imageTintToolView = null;
+      case MENU_FLOW -> menuFlowEditorView = null;
+      case VERSION_CONTROL -> versionControlView = null;
+      case HELP -> helpCenterView = null;
+      case PUPPETEER_LAUNCHER -> puppeteerLauncherPanel = null;
+      case AUDIO_SYNTH -> {
+        if (audioSynthControlsView != null) {
+          audioSynthControlsView.dispose();
+        }
+        audioSynthControlsView = null;
+      }
+      case SCRIPT_EDITOR -> scriptEditorLauncherView = null;
+    }
+  }
+
+  private void releaseEditorSettingsIfUnused() {
+    if (tabEditorSettings != null && tabEditorSettings.getTabPane() != null) return;
+    if (editorSettingsWindow != null && editorSettingsWindow.isShowing()) return;
+    editorSettingsView = null;
+  }
+
   private void openPanelChooserTab(TabPane pane, boolean leftSide) {
     if (pane == null) return;
     Tab addTab = leftSide ? tabLeftAdd : tabRightAdd;
@@ -3504,7 +3713,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.PROJECT, targetPlacement);
       Tab t = ensureProjectTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Project", projView, 600, 700), () -> {
+    }, () -> launchPanelAsWindow("Project", projView, 600, 700, EditorSidebarPanel.PROJECT), () -> {
       rememberPanelPlacement(EditorSidebarPanel.PROJECT, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3513,7 +3722,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.TIMELINE, targetPlacement);
       Tab t = ensureTimelineTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Story Timeline", ensureTimelineView(), 600, 700), () -> {
+    }, () -> launchPanelAsWindow("Story Timeline", ensureTimelineView(), 600, 700, EditorSidebarPanel.TIMELINE), () -> {
       rememberPanelPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3522,7 +3731,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement);
       Tab t = ensureVnsDiagnosticsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("VNS Diagnostics", ensureVnsDiagnosticsView(), 700, 600), () -> {
+    }, () -> launchPanelAsWindow("VNS Diagnostics", ensureVnsDiagnosticsView(), 700, 600, EditorSidebarPanel.VNS_DIAGNOSTICS), () -> {
       rememberPanelPlacement(EditorSidebarPanel.VNS_DIAGNOSTICS, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3531,7 +3740,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.LABEL_FLOW, targetPlacement);
       Tab t = ensureVnsFlowMapTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Label Flow Map", ensureVnsFlowMapView(), 700, 600), () -> {
+    }, () -> launchPanelAsWindow("Label Flow Map", ensureVnsFlowMapView(), 700, 600, EditorSidebarPanel.LABEL_FLOW), () -> {
       rememberPanelPlacement(EditorSidebarPanel.LABEL_FLOW, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3540,7 +3749,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.ASSETS, targetPlacement);
       Tab t = ensureAssetBrowserTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Asset Browser", ensureAssetBrowserView(), 700, 600), () -> {
+    }, () -> launchPanelAsWindow("Asset Browser", ensureAssetBrowserView(), 700, 600, EditorSidebarPanel.ASSETS), () -> {
       rememberPanelPlacement(EditorSidebarPanel.ASSETS, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3553,7 +3762,7 @@ public class EditorApp extends Application {
     }, () -> {
       LayoutEditorLauncherView view = ensureLayoutEditorLauncherView();
       if (view != null) view.refreshStatus();
-      launchPanelAsWindow("Layout Launcher", view, 700, 700);
+      launchPanelAsWindow("Layout Launcher", view, 700, 700, EditorSidebarPanel.LAYOUT_LAUNCHER);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.LAYOUT_LAUNCHER, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3564,7 +3773,7 @@ public class EditorApp extends Application {
       Tab t = ensurePhoneAssetsToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> {
-      launchPanelAsWindow("Phone Assets", ensurePhoneAssetsToolView(), 920, 760);
+      launchPanelAsWindow("Phone Assets", ensurePhoneAssetsToolView(), 920, 760, EditorSidebarPanel.PHONE_ASSETS);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.PHONE_ASSETS, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3578,7 +3787,7 @@ public class EditorApp extends Application {
     }, () -> {
       LayeredImageVisualizerView view = ensureLayeredImageVisualizerView();
       if (view != null) view.refreshCatalog();
-      launchPanelAsWindow("Layered Image Visualizer", view, 900, 700);
+      launchPanelAsWindow("Layered Image Visualizer", view, 900, 700, EditorSidebarPanel.LAYERED_IMAGES);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.LAYERED_IMAGES, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3592,7 +3801,7 @@ public class EditorApp extends Application {
     }, () -> {
       ImageAttributesToolView view = ensureImageAttributesToolView();
       if (view != null) view.refreshCatalog();
-      launchPanelAsWindow("Image Attributes Tool", view, 800, 650);
+      launchPanelAsWindow("Image Attributes Tool", view, 800, 650, EditorSidebarPanel.IMAGE_ATTRIBUTES);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_ATTRIBUTES, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3606,7 +3815,7 @@ public class EditorApp extends Application {
     }, () -> {
       ImageTintToolView view = ensureImageTintToolView();
       if (view != null) view.refreshCatalog();
-      launchPanelAsWindow("Image Tint Tool", view, 800, 650);
+      launchPanelAsWindow("Image Tint Tool", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3620,7 +3829,7 @@ public class EditorApp extends Application {
     }, () -> {
       MenuFlowEditorView view = ensureMenuFlowEditorView();
       if (view != null) view.refreshStatus();
-      launchPanelAsWindow("Menu Flow Editor", view, 900, 650);
+      launchPanelAsWindow("Menu Flow Editor", view, 900, 650, EditorSidebarPanel.MENU_FLOW);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.MENU_FLOW, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3634,7 +3843,7 @@ public class EditorApp extends Application {
     }, () -> {
       VersionControlView view = ensureVersionControlView();
       if (view != null) view.refreshStatus();
-      launchPanelAsWindow("Version Control", view, 700, 600);
+      launchPanelAsWindow("Version Control", view, 700, 600, EditorSidebarPanel.VERSION_CONTROL);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.VERSION_CONTROL, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3644,7 +3853,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.HELP, targetPlacement);
       Tab t = ensureHelpTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Help Center", ensureHelpCenterView(), 700, 650), () -> {
+    }, () -> launchPanelAsWindow("Help Center", ensureHelpCenterView(), 700, 650, EditorSidebarPanel.HELP), () -> {
       rememberPanelPlacement(EditorSidebarPanel.HELP, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3653,7 +3862,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.PUPPETEER_LAUNCHER, targetPlacement);
       Tab t = ensurePuppeteerLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Puppeteer Launcher", ensurePuppeteerLauncherPanel(), 600, 500), () -> {
+    }, () -> launchPanelAsWindow("Puppeteer Launcher", ensurePuppeteerLauncherPanel(), 600, 500, EditorSidebarPanel.PUPPETEER_LAUNCHER), () -> {
       rememberPanelPlacement(EditorSidebarPanel.PUPPETEER_LAUNCHER, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3662,7 +3871,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.AUDIO_SYNTH, targetPlacement);
       Tab t = ensureAudioSynthControlsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Audio Synth Controls", ensureAudioSynthControlsView(), 380, 650), () -> {
+    }, () -> launchPanelAsWindow("Audio Synth Controls", ensureAudioSynthControlsView(), 380, 650, EditorSidebarPanel.AUDIO_SYNTH), () -> {
       rememberPanelPlacement(EditorSidebarPanel.AUDIO_SYNTH, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3687,7 +3896,7 @@ public class EditorApp extends Application {
     addChooserActionRow(actions, null, targetPlacement, "Editor Settings", "icon-panel-help", () -> {
       Tab t = ensureEditorSettingsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Editor Settings", ensureEditorSettingsView(), 520, 760), null);
+    }, () -> launchPanelAsWindow("Editor Settings", ensureEditorSettingsView(), 520, 760, null), null);
 
     installPanelChooserFilter(filter, actions);
     root.getChildren().addAll(heading, info, filter, new javafx.scene.control.Separator(), actions);
@@ -3868,12 +4077,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensurePuppeteerLauncherTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.PUPPETEER_LAUNCHER, true);
     PuppeteerLauncherPanel launcher = ensurePuppeteerLauncherPanel();
     if (targetPane == null || launcher == null) return null;
     if (tabPuppeteerLauncher == null) {
       tabPuppeteerLauncher = new Tab("Puppeteer Launcher", launcher);
       tabPuppeteerLauncher.setClosable(true);
-      tabPuppeteerLauncher.setOnClosed(e -> tabPuppeteerLauncher = null);
+      tabPuppeteerLauncher.setOnClosed(e -> {
+        tabPuppeteerLauncher = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.PUPPETEER_LAUNCHER);
+      });
     } else if (tabPuppeteerLauncher.getContent() != launcher) {
       tabPuppeteerLauncher.setContent(launcher);
     }
@@ -3882,12 +4095,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureAudioSynthControlsTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.AUDIO_SYNTH, true);
     AudioSynthControlsView audioSynth = ensureAudioSynthControlsView();
     if (targetPane == null || audioSynth == null) return null;
     if (tabAudioSynthControls == null) {
       tabAudioSynthControls = new Tab("Audio Synth", audioSynth);
       tabAudioSynthControls.setClosable(true);
-      tabAudioSynthControls.setOnClosed(e -> tabAudioSynthControls = null);
+      tabAudioSynthControls.setOnClosed(e -> {
+        tabAudioSynthControls = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.AUDIO_SYNTH);
+      });
     } else if (tabAudioSynthControls.getContent() != audioSynth) {
       tabAudioSynthControls.setContent(audioSynth);
     }
@@ -3896,12 +4113,16 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureEditorSettingsTab(TabPane targetPane) {
+    closeEditorSettingsWindow(true);
     EditorSettingsView settingsView = ensureEditorSettingsView();
     if (targetPane == null || settingsView == null) return null;
     if (tabEditorSettings == null) {
       tabEditorSettings = new Tab("Editor Settings", settingsView);
       tabEditorSettings.setClosable(true);
-      tabEditorSettings.setOnClosed(e -> tabEditorSettings = null);
+      tabEditorSettings.setOnClosed(e -> {
+        tabEditorSettings = null;
+        releaseEditorSettingsIfUnused();
+      });
     } else if (tabEditorSettings.getContent() != settingsView) {
       tabEditorSettings.setContent(settingsView);
     }
