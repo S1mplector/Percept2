@@ -170,6 +170,30 @@ class LayeredImageVisualizerViewTest {
   }
 
   @Test
+  void searchableHelpersMatchTextAndLayerPaths() {
+    assertEquals(true, LayeredImageVisualizerView.matchesSearchableText("assets/characters/john_doe", "john doe"));
+    assertEquals(
+        "offer  ·  assets/characters/john_doe/arm behind/hand gesture/John_Doe_arm_offer.png",
+        LayeredImageVisualizerView.layerOptionPopupText(
+            "offer",
+            "assets/characters/john_doe/arm behind/hand gesture/John_Doe_arm_offer.png"));
+    assertEquals(
+        true,
+        LayeredImageVisualizerView.matchesLayerOptionSearch(
+            "offer",
+            "arm_behind",
+            "assets/characters/john_doe/arm behind/hand gesture/John_Doe_arm_offer.png",
+            "hand gesture"));
+    assertEquals(
+        true,
+        LayeredImageVisualizerView.matchesLayerOptionSearch(
+            "offer",
+            "arm_behind",
+            "assets/characters/john_doe/arm behind/hand gesture/John_Doe_arm_offer.png",
+            "arm behind"));
+  }
+
+  @Test
   void backgroundGroupDetectionRecognizesCommonNames() {
     assertEquals(true, LayeredImageVisualizerView.isLikelyBackgroundGroupName("field"));
     assertEquals(true, LayeredImageVisualizerView.isLikelyBackgroundGroupName("mainmenu"));

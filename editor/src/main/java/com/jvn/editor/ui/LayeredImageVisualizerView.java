@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Random;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -32,8 +34,11 @@ import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
 
 import javafx.animation.PauseTransition;
+import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.event.ActionEvent;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.SnapshotParameters;
@@ -43,6 +48,8 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Tab;
@@ -55,7 +62,9 @@ import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -66,6 +75,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
+import javafx.stage.Popup;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
 
@@ -183,6 +193,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private final Map<String, Image> imageCache = new HashMap<>();
   private final Map<String, String> presetNameToKey = new LinkedHashMap<>();
   private final Map<Canvas, ViewportFrame> viewportFrames = new IdentityHashMap<>();
+  private final Map<ComboBox<LayerOption>, SearchableComboPopup<LayerOption>> selectorSearchPopups = new IdentityHashMap<>();
 
   private final Properties persisted = new Properties();
   private final Random random = new Random();
@@ -210,6 +221,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private double gameCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
   private double gameCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
   private boolean disposed;
+  private SearchableComboPopup<String> setBoxSearchPopup;
+  private SearchableComboPopup<String> presetBoxSearchPopup;
+  private SearchableComboPopup<String> shortformBoxSearchPopup;
 
   public LayeredImageVisualizerView() {
     this(DEFAULT_TOOL_TITLE, DEFAULT_STATE_FILE, false);
@@ -259,6 +273,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       @Override public String toString(String object) { return object == null ? "" : object; }
       @Override public String fromString(String string) { return string; }
     });
+    setBoxSearchPopup = installSearchableComboPopup(
+        setBox,
+        searchableComboAdapter(
+            value -> value == null ? "" : value,
+            value -> value == null ? "" : value,
+            value -> value == null ? null : value,
+            (value, query) -> matchesSearchableText(value, query)));
     setBox.setOnAction(e -> onSetSelectionChanged());
 
     refreshCatalogButton = iconButton(CssIcon.redo("#7ec8e3"), "Refresh set scan", this::onCatalogRefreshRequested);
@@ -275,6 +296,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     VBox setSection = new VBox(4, filterRow, setRow);
     if (presetControlsEnabled) {
       presetBox.setPromptText("Preset");
+      presetBoxSearchPopup = installSearchableComboPopup(
+          presetBox,
+          searchableComboAdapter(
+              value -> value == null ? "" : value,
+              value -> value == null ? "" : value,
+              value -> value == null ? null : value,
+              (value, query) -> matchesSearchableText(value, query)));
       HBox.setHgrow(presetBox, Priority.ALWAYS);
 
       Button loadPresetButton = iconButton(CssIcon.download("#8ab4f8"), "Load selected preset", this::loadSelectedPreset);
@@ -487,6 +515,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       if (!applyingState) persistCurrentSetState();
     });
     shortformBox.setPromptText("Shortform");
+    shortformBoxSearchPopup = installSearchableComboPopup(
+        shortformBox,
+        searchableComboAdapter(
+            value -> value == null ? "" : value,
+            value -> value == null ? "" : value,
+            value -> value == null ? null : value,
+            (value, query) -> matchesSearchableText(value, query)));
     HBox.setHgrow(shortformBox, Priority.ALWAYS);
     Button applyShortformButton = iconButton(CssIcon.check("#9ed67a"), "Apply selected shortform", this::applySelectedShortform);
     Button copyShortformButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy selected shortform expression", this::copySelectedShortform);
@@ -559,6 +594,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     if (disposed) return;
     disposed = true;
     stateSaveDebounce.stop();
+    hideAllSearchablePopups();
     Task<LayeredCatalogScanResult> task = scanTask;
     scanTask = null;
     if (task != null && task.isRunning()) {
@@ -604,6 +640,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private void clearCatalogUi(String message) {
     currentSetId = null;
+    clearSelectorSearchPopups();
+    hidePersistentSearchPopups();
     sets.clear();
     selectors.clear();
     activeGroupChecks.clear();
@@ -746,6 +784,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     }
 
     setBox.getItems().setAll(visible);
+    refreshVisibleSearchablePopup(setBoxSearchPopup);
 
     Map<String, Integer> groupCounts = new HashMap<>();
     for (String setId : visible) {
@@ -773,6 +812,327 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     }
   }
 
+  private void hideAllSearchablePopups() {
+    clearSelectorSearchPopups();
+    hidePersistentSearchPopups();
+  }
+
+  private void clearSelectorSearchPopups() {
+    selectorSearchPopups.values().forEach(SearchableComboPopup::hide);
+    selectorSearchPopups.clear();
+  }
+
+  private void hidePersistentSearchPopups() {
+    if (setBoxSearchPopup != null) setBoxSearchPopup.hide();
+    if (presetBoxSearchPopup != null) presetBoxSearchPopup.hide();
+    if (shortformBoxSearchPopup != null) shortformBoxSearchPopup.hide();
+  }
+
+  private void refreshVisibleSearchablePopup(SearchableComboPopup<?> popup) {
+    if (popup != null && popup.isShowing()) {
+      popup.refreshFromItems();
+    }
+  }
+
+  private static <T> SearchableComboAdapter<T> searchableComboAdapter(
+      Function<T, String> buttonText,
+      Function<T, String> popupText,
+      Function<T, String> tooltipText,
+      BiPredicate<T, String> matches
+  ) {
+    return new SearchableComboAdapter<>(buttonText, popupText, tooltipText, matches);
+  }
+
+  private <T> SearchableComboPopup<T> installSearchableComboPopup(ComboBox<T> box, SearchableComboAdapter<T> adapter) {
+    if (box == null || adapter == null) return null;
+    box.setEditable(false);
+    box.setVisibleRowCount(14);
+    box.setButtonCell(createSearchableComboCell(adapter, true));
+    box.setCellFactory(list -> createSearchableComboCell(adapter, false));
+    SearchableComboPopup<T> popup = new SearchableComboPopup<>(box, adapter);
+    box.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+      if (disposed || box.isDisabled() || event.getButton() != MouseButton.PRIMARY) return;
+      event.consume();
+      box.requestFocus();
+      Platform.runLater(() -> {
+        if (!disposed && !box.isDisabled()) {
+          toggleSearchablePopup(popup);
+        }
+      });
+    });
+    box.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> {
+      if (disposed || box.isDisabled() || event.getButton() != MouseButton.PRIMARY) return;
+      event.consume();
+    });
+    box.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
+      if (disposed || box.isDisabled() || event.getButton() != MouseButton.PRIMARY) return;
+      event.consume();
+    });
+    box.setOnShowing(event -> {
+      event.consume();
+      popup.hide();
+    });
+    box.setOnHidden(event -> popup.hide());
+    box.showingProperty().addListener((obs, wasShowing, showing) -> {
+      if (!showing || disposed) return;
+      Platform.runLater(() -> {
+        if (box.isShowing()) {
+          box.hide();
+        }
+      });
+    });
+    box.setOnKeyPressed(event -> {
+      if (disposed || box.isDisabled()) return;
+      if (event.getCode() == KeyCode.DOWN
+          || event.getCode() == KeyCode.UP
+          || event.getCode() == KeyCode.SPACE
+          || event.getCode() == KeyCode.ENTER
+          || event.getCode() == KeyCode.F4) {
+        event.consume();
+        openSearchablePopup(popup);
+      } else if (event.getCode() == KeyCode.ESCAPE) {
+        popup.hide();
+      }
+    });
+    return popup;
+  }
+
+  private void toggleSearchablePopup(SearchableComboPopup<?> popup) {
+    if (popup == null) return;
+    if (popup.isShowing()) {
+      popup.hide();
+      return;
+    }
+    openSearchablePopup(popup);
+  }
+
+  private void openSearchablePopup(SearchableComboPopup<?> popup) {
+    if (popup == null || disposed) return;
+    popup.show();
+  }
+
+  private <T> ListCell<T> createSearchableComboCell(SearchableComboAdapter<T> adapter, boolean buttonCell) {
+    return new ListCell<>() {
+      @Override
+      protected void updateItem(T item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+          setTooltip(null);
+          return;
+        }
+        String text = buttonCell ? adapter.buttonText().apply(item) : adapter.popupText().apply(item);
+        String tooltip = adapter.tooltipText().apply(item);
+        setText(text == null || text.isBlank() ? null : text);
+        setTooltip(tooltip == null || tooltip.isBlank() ? null : new Tooltip(tooltip));
+      }
+    };
+  }
+
+  static boolean matchesSearchableText(String text, String query) {
+    String value = text == null ? "" : text.trim();
+    String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+    if (normalizedQuery.isBlank()) return true;
+    String lower = value.toLowerCase(Locale.ROOT);
+    if (lower.contains(normalizedQuery)) return true;
+    String sanitizedValue = sanitizeId(value.replace('/', ' '));
+    String sanitizedQuery = sanitizeId(normalizedQuery);
+    return !sanitizedQuery.isBlank() && sanitizedValue.contains(sanitizedQuery);
+  }
+
+  private static String layerOptionButtonText(LayerOption option) {
+    return option == null ? "" : option.label;
+  }
+
+  static String layerOptionPopupText(LayerOption option) {
+    if (option == null) return "";
+    if (option.isNone()) return option.label;
+    return layerOptionPopupText(option.label, option.relativePath);
+  }
+
+  static String layerOptionPopupText(String label, String relativePath) {
+    String normalizedLabel = label == null ? "" : label.trim();
+    String normalizedPath = relativePath == null ? "" : relativePath.trim();
+    if (normalizedLabel.isBlank() || normalizedLabel.equals(normalizedPath)) {
+      return normalizedPath;
+    }
+    return normalizedLabel + "  ·  " + normalizedPath;
+  }
+
+  private static String layerOptionTooltipText(LayerOption option) {
+    if (option == null) return null;
+    return option.relativePath == null || option.relativePath.isBlank() ? option.label : option.relativePath;
+  }
+
+  static boolean matchesLayerOptionSearch(LayerOption option, String query) {
+    if (option == null) return false;
+    return matchesLayerOptionSearch(option.label, option.group, option.relativePath, query);
+  }
+
+  static boolean matchesLayerOptionSearch(String label, String group, String relativePath, String query) {
+    String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+    if (normalizedQuery.isBlank()) return true;
+    return matchesSearchableText(label, normalizedQuery)
+        || matchesSearchableText(relativePath, normalizedQuery)
+        || matchesSearchableText(group, normalizedQuery)
+        || matchesSearchableText(layerOptionPopupText(label, relativePath), normalizedQuery);
+  }
+
+  private static record SearchableComboAdapter<T>(
+      Function<T, String> buttonText,
+      Function<T, String> popupText,
+      Function<T, String> tooltipText,
+      BiPredicate<T, String> matches
+  ) {}
+
+  private final class SearchableComboPopup<T> {
+    private final ComboBox<T> owner;
+    private final SearchableComboAdapter<T> adapter;
+    private final Popup popup = new Popup();
+    private final VBox root = new VBox(6);
+    private final TextField searchField = new TextField();
+    private final ListView<T> listView = new ListView<>();
+    private List<T> sourceItems = List.of();
+
+    private SearchableComboPopup(ComboBox<T> owner, SearchableComboAdapter<T> adapter) {
+      this.owner = owner;
+      this.adapter = adapter;
+      popup.setAutoHide(true);
+      popup.setHideOnEscape(true);
+      popup.setAutoFix(true);
+
+      root.setPadding(new Insets(6));
+      root.setMinWidth(220);
+      root.setStyle(
+          "-fx-background-color: #161616;"
+              + "-fx-border-color: #3a3a3a;"
+              + "-fx-border-radius: 4;"
+              + "-fx-background-radius: 4;");
+      searchField.setPromptText("Search...");
+      listView.setCellFactory(list -> createSearchableComboCell(adapter, false));
+      listView.setPlaceholder(new Label("No matching items"));
+      VBox.setVgrow(listView, Priority.ALWAYS);
+      root.getChildren().setAll(searchField, listView);
+      popup.getContent().setAll(root);
+
+      searchField.textProperty().addListener((o, ov, nv) -> applyFilter());
+      searchField.setOnKeyPressed(event -> {
+        if (event.getCode() == KeyCode.DOWN) {
+          if (!listView.getItems().isEmpty()) {
+            listView.requestFocus();
+            listView.getSelectionModel().select(Math.max(0, listView.getSelectionModel().getSelectedIndex()));
+            listView.scrollTo(listView.getSelectionModel().getSelectedIndex());
+          }
+          event.consume();
+        } else if (event.getCode() == KeyCode.ENTER) {
+          commitSelection();
+          event.consume();
+        } else if (event.getCode() == KeyCode.ESCAPE) {
+          hide();
+          owner.requestFocus();
+          event.consume();
+        }
+      });
+
+      listView.setOnMouseClicked(event -> {
+        if (event.getButton() != MouseButton.PRIMARY) return;
+        commitSelection();
+        event.consume();
+      });
+      listView.setOnKeyPressed(event -> {
+        if (event.getCode() == KeyCode.ENTER) {
+          commitSelection();
+          event.consume();
+        } else if (event.getCode() == KeyCode.ESCAPE) {
+          hide();
+          owner.requestFocus();
+          event.consume();
+        }
+      });
+    }
+
+    private boolean isShowing() {
+      return popup.isShowing();
+    }
+
+    private void show() {
+      if (owner.isShowing()) {
+        owner.hide();
+      }
+      sourceItems = new ArrayList<>(owner.getItems());
+      searchField.clear();
+      applyFilter();
+      selectCurrentValue();
+
+      Bounds bounds = owner.localToScreen(owner.getBoundsInLocal());
+      if (bounds == null) return;
+      double width = Math.max(280.0, bounds.getWidth());
+      root.setPrefWidth(width);
+      root.setMaxWidth(width);
+      searchField.setPrefWidth(width - 12);
+      listView.setPrefWidth(width - 12);
+      listView.setPrefHeight(Math.min(360.0, Math.max(160.0, listView.getItems().size() * 28.0 + 8.0)));
+
+      popup.show(owner, bounds.getMinX(), bounds.getMaxY());
+      Platform.runLater(searchField::requestFocus);
+    }
+
+    private void hide() {
+      popup.hide();
+    }
+
+    private void refreshFromItems() {
+      sourceItems = new ArrayList<>(owner.getItems());
+      applyFilter();
+      selectCurrentValue();
+    }
+
+    private void applyFilter() {
+      List<T> filtered = new ArrayList<>();
+      String query = searchField.getText();
+      for (T item : sourceItems) {
+        if (adapter.matches().test(item, query)) {
+          filtered.add(item);
+        }
+      }
+      listView.getItems().setAll(filtered);
+      if (!filtered.isEmpty() && listView.getSelectionModel().isEmpty()) {
+        listView.getSelectionModel().select(0);
+      }
+    }
+
+    private void selectCurrentValue() {
+      T current = owner.getValue();
+      if (current == null) {
+        if (!listView.getItems().isEmpty()) {
+          listView.getSelectionModel().select(0);
+          listView.scrollTo(0);
+        }
+        return;
+      }
+      int index = listView.getItems().indexOf(current);
+      if (index >= 0) {
+        listView.getSelectionModel().select(index);
+        listView.scrollTo(index);
+      } else if (!listView.getItems().isEmpty()) {
+        listView.getSelectionModel().select(0);
+        listView.scrollTo(0);
+      }
+    }
+
+    private void commitSelection() {
+      T selected = listView.getSelectionModel().getSelectedItem();
+      if (selected == null) return;
+      T previous = owner.getValue();
+      owner.getSelectionModel().select(selected);
+      if (!Objects.equals(previous, owner.getValue())) {
+        owner.fireEvent(new ActionEvent());
+      }
+      hide();
+      owner.requestFocus();
+    }
+  }
+
   private void onSetSelectionChanged() {
     String selectedSet = setBox.getValue();
     if (selectedSet == null || selectedSet.isBlank()) return;
@@ -783,6 +1143,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     currentSetId = selectedSet;
 
+    clearSelectorSearchPopups();
     selectors.clear();
     activeGroupChecks.clear();
     swapGroupChecks.clear();
@@ -818,6 +1179,15 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       combo.getItems().addAll(options);
       selectPreferredLayerOption(groupName, combo);
       combo.setMaxWidth(Double.MAX_VALUE);
+      selectorSearchPopups.put(
+          combo,
+          installSearchableComboPopup(
+              combo,
+              searchableComboAdapter(
+                  LayeredImageVisualizerView::layerOptionButtonText,
+                  LayeredImageVisualizerView::layerOptionPopupText,
+                  LayeredImageVisualizerView::layerOptionTooltipText,
+                  LayeredImageVisualizerView::matchesLayerOptionSearch)));
 
       CheckBox activeCheck = new CheckBox();
       activeCheck.setSelected(true);
@@ -1004,6 +1374,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     shortforms.putAll(parsed);
     String keep = shortformBox.getValue();
     shortformBox.getItems().setAll(shortforms.keySet());
+    refreshVisibleSearchablePopup(shortformBoxSearchPopup);
     if (keep != null && shortforms.containsKey(keep)) {
       shortformBox.getSelectionModel().select(keep);
     } else if (!shortforms.isEmpty()) {
@@ -2077,6 +2448,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private void refreshPresetList() {
     presetNameToKey.clear();
     presetBox.getItems().clear();
+    refreshVisibleSearchablePopup(presetBoxSearchPopup);
     if (currentSetId == null || currentSetId.isBlank()) return;
 
     String prefix = "preset." + encodeKey(currentSetId) + ".";
@@ -2099,6 +2471,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     List<String> names = new ArrayList<>(namesToKeys.keySet());
     names.sort(String.CASE_INSENSITIVE_ORDER);
     presetBox.getItems().setAll(names);
+    refreshVisibleSearchablePopup(presetBoxSearchPopup);
     for (String name : names) {
       presetNameToKey.put(name, namesToKeys.get(name));
     }
