@@ -144,6 +144,24 @@ class ImageTintToolViewTest {
   }
 
   @Test
+  void filterAssetDropdownItemsUsesSearchTokensAndPreservesOrder() {
+    List<String> items = List.of(
+        "assets/demo/backgrounds/field_day.png",
+        "assets/demo/characters/lavender/base.png",
+        "preset:lavender/neutral",
+        "assets/demo/characters/john/base.png");
+
+    assertEquals(
+        List.of(
+            "assets/demo/characters/lavender/base.png",
+            "preset:lavender/neutral"),
+        ImageTintToolView.filterAssetDropdownItems(items, "lavender"));
+    assertEquals(
+        List.of("assets/demo/backgrounds/field_day.png"),
+        ImageTintToolView.filterAssetDropdownItems(items, "bg:field"));
+  }
+
+  @Test
   void smoothFreehandStrokeBuildsStableClosedShapeFromNoisyRectangle() {
     List<double[]> stroke = new ArrayList<>();
     for (int i = 0; i <= 40; i++) stroke.add(new double[]{40 + i * 3, 40 + Math.sin(i * 0.25)});

@@ -26,8 +26,10 @@ import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 
 import javafx.animation.PauseTransition;
+import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.SnapshotParameters;
@@ -50,7 +52,9 @@ import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -60,6 +64,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
+import javafx.stage.Popup;
 import javafx.util.Duration;
 
 /**
@@ -126,6 +131,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Map<String, PresetTagEntry> presetByTag = new LinkedHashMap<>();
   private final Map<String, String> setupNameToKey = new LinkedHashMap<>();
   private final Map<String, Image> imageCache = new HashMap<>();
+  private final Map<ComboBox<String>, AssetTagSearchPopup> assetTagSearchPopups = new HashMap<>();
   private final Properties persisted = new Properties();
   private final PauseTransition stateSaveDebounce = new PauseTransition(Duration.millis(250));
 
@@ -575,6 +581,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (disposed) return;
     disposed = true;
     stateSaveDebounce.stop();
+    assetTagSearchPopups.values().forEach(AssetTagSearchPopup::hide);
+    assetTagSearchPopups.clear();
     Task<TintCatalogScanResult> task = scanTask;
     scanTask = null;
     if (task != null && task.isRunning()) {
@@ -737,6 +745,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     bgs.sort(Comparator.comparingInt(tag -> isLikelyBackgroundTag(tag) ? 0 : 1));
     backgroundTagBox.getItems().setAll(bgs);
+    refreshVisibleAssetTagPopup(characterTagBox);
+    refreshVisibleAssetTagPopup(backgroundTagBox);
 
     boolean previousApplying = applyingState;
     applyingState = true;
@@ -2215,13 +2225,30 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     box.setVisibleRowCount(14);
     box.setButtonCell(createAssetTagCell(true));
     box.setCellFactory(list -> createAssetTagCell(false));
-    box.setOnShowing(e -> {
-      if (disposed) return;
-      if ((imageByTag.isEmpty() && presetByTag.isEmpty()) && (scanTask == null || !scanTask.isRunning())) {
-        refreshCatalog();
-        return;
+    AssetTagSearchPopup popup = assetTagSearchPopups.computeIfAbsent(box, AssetTagSearchPopup::new);
+    box.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+      if (disposed || box.isDisabled()) return;
+      event.consume();
+      box.requestFocus();
+      toggleAssetTagPopup(box);
+    });
+    box.setOnShowing(event -> {
+      event.consume();
+      popup.hide();
+    });
+    box.setOnHidden(event -> popup.hide());
+    box.setOnKeyPressed(event -> {
+      if (disposed || box.isDisabled()) return;
+      if (event.getCode() == KeyCode.DOWN
+          || event.getCode() == KeyCode.UP
+          || event.getCode() == KeyCode.SPACE
+          || event.getCode() == KeyCode.ENTER
+          || event.getCode() == KeyCode.F4) {
+        event.consume();
+        openAssetTagPopup(box);
+      } else if (event.getCode() == KeyCode.ESCAPE) {
+        popup.hide();
       }
-      refreshTagLists();
     });
   }
 
@@ -2254,6 +2281,24 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     return ".../" + String.join("/", java.util.Arrays.copyOfRange(parts, parts.length - 4, parts.length));
   }
 
+  static List<String> filterAssetDropdownItems(List<String> items, String query) {
+    if (items == null || items.isEmpty()) {
+      return List.of();
+    }
+    String normalizedQuery = normalize(query);
+    if (normalizedQuery.isBlank()) {
+      return new ArrayList<>(items);
+    }
+    List<String> filtered = new ArrayList<>();
+    for (String item : items) {
+      if (matchesTagSearch(item, normalizedQuery)
+          || describeAssetTag(item, false).toLowerCase(Locale.ROOT).contains(normalizedQuery)) {
+        filtered.add(item);
+      }
+    }
+    return filtered;
+  }
+
   private void setComboTagValue(ComboBox<String> box, String rawValue) {
     if (box == null) return;
     String value = normalize(rawValue);
@@ -2272,6 +2317,167 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     }
     if (box.isEditable() && box.getEditor() != null) {
       box.getEditor().setText(value);
+    }
+  }
+
+  private void toggleAssetTagPopup(ComboBox<String> box) {
+    AssetTagSearchPopup popup = assetTagSearchPopups.get(box);
+    if (popup == null) return;
+    if (popup.isShowing()) {
+      popup.hide();
+      return;
+    }
+    openAssetTagPopup(box);
+  }
+
+  private void openAssetTagPopup(ComboBox<String> box) {
+    if (box == null || disposed || box.isDisabled()) return;
+    if ((imageByTag.isEmpty() && presetByTag.isEmpty()) && (scanTask == null || !scanTask.isRunning())) {
+      refreshCatalog();
+      return;
+    }
+    refreshTagLists();
+    AssetTagSearchPopup popup = assetTagSearchPopups.computeIfAbsent(box, AssetTagSearchPopup::new);
+    popup.show();
+  }
+
+  private void refreshVisibleAssetTagPopup(ComboBox<String> box) {
+    AssetTagSearchPopup popup = assetTagSearchPopups.get(box);
+    if (popup != null && popup.isShowing()) {
+      popup.refreshFromItems();
+    }
+  }
+
+  private final class AssetTagSearchPopup {
+    private final ComboBox<String> owner;
+    private final Popup popup = new Popup();
+    private final VBox root = new VBox(6);
+    private final TextField searchField = new TextField();
+    private final ListView<String> listView = new ListView<>();
+    private List<String> sourceItems = List.of();
+
+    private AssetTagSearchPopup(ComboBox<String> owner) {
+      this.owner = owner;
+      popup.setAutoHide(true);
+      popup.setHideOnEscape(true);
+      popup.setAutoFix(true);
+
+      root.setPadding(new Insets(6));
+      root.setMinWidth(220);
+      root.setStyle(
+          "-fx-background-color: #161616;"
+              + "-fx-border-color: #3a3a3a;"
+              + "-fx-border-radius: 4;"
+              + "-fx-background-radius: 4;");
+      searchField.setPromptText("Search assets...");
+      listView.setCellFactory(list -> createAssetTagCell(false));
+      listView.setPlaceholder(new Label("No matching assets"));
+      VBox.setVgrow(listView, Priority.ALWAYS);
+      root.getChildren().setAll(searchField, listView);
+      popup.getContent().setAll(root);
+
+      searchField.textProperty().addListener((o, ov, nv) -> applyFilter());
+      searchField.setOnKeyPressed(event -> {
+        if (event.getCode() == KeyCode.DOWN) {
+          if (!listView.getItems().isEmpty()) {
+            listView.requestFocus();
+            listView.getSelectionModel().select(Math.max(0, listView.getSelectionModel().getSelectedIndex()));
+            listView.scrollTo(listView.getSelectionModel().getSelectedIndex());
+          }
+          event.consume();
+        } else if (event.getCode() == KeyCode.ENTER) {
+          commitSelection();
+          event.consume();
+        } else if (event.getCode() == KeyCode.ESCAPE) {
+          hide();
+          owner.requestFocus();
+          event.consume();
+        }
+      });
+
+      listView.setOnMouseClicked(event -> {
+        if (event.getButton() != MouseButton.PRIMARY) return;
+        commitSelection();
+        event.consume();
+      });
+      listView.setOnKeyPressed(event -> {
+        if (event.getCode() == KeyCode.ENTER) {
+          commitSelection();
+          event.consume();
+        } else if (event.getCode() == KeyCode.ESCAPE) {
+          hide();
+          owner.requestFocus();
+          event.consume();
+        }
+      });
+    }
+
+    private boolean isShowing() {
+      return popup.isShowing();
+    }
+
+    private void show() {
+      sourceItems = new ArrayList<>(owner.getItems());
+      searchField.clear();
+      applyFilter();
+      selectCurrentValue();
+
+      Bounds bounds = owner.localToScreen(owner.getBoundsInLocal());
+      if (bounds == null) return;
+      double width = Math.max(260.0, bounds.getWidth());
+      root.setPrefWidth(width);
+      root.setMaxWidth(width);
+      searchField.setPrefWidth(width - 12);
+      listView.setPrefWidth(width - 12);
+      listView.setPrefHeight(Math.min(360.0, Math.max(160.0, listView.getItems().size() * 28.0 + 8.0)));
+
+      popup.show(owner, bounds.getMinX(), bounds.getMaxY());
+      Platform.runLater(searchField::requestFocus);
+    }
+
+    private void hide() {
+      popup.hide();
+    }
+
+    private void refreshFromItems() {
+      sourceItems = new ArrayList<>(owner.getItems());
+      applyFilter();
+      selectCurrentValue();
+    }
+
+    private void applyFilter() {
+      List<String> filtered = filterAssetDropdownItems(sourceItems, searchField.getText());
+      listView.getItems().setAll(filtered);
+      if (!filtered.isEmpty() && listView.getSelectionModel().isEmpty()) {
+        listView.getSelectionModel().select(0);
+      }
+    }
+
+    private void selectCurrentValue() {
+      String current = normalize(owner.getValue());
+      if (current.isBlank()) {
+        if (!listView.getItems().isEmpty()) {
+          listView.getSelectionModel().select(0);
+          listView.scrollTo(0);
+        }
+        return;
+      }
+      int index = listView.getItems().indexOf(current);
+      if (index >= 0) {
+        listView.getSelectionModel().select(index);
+        listView.scrollTo(index);
+      } else if (!listView.getItems().isEmpty()) {
+        listView.getSelectionModel().select(0);
+        listView.scrollTo(0);
+      }
+    }
+
+    private void commitSelection() {
+      String selected = normalize(listView.getSelectionModel().getSelectedItem());
+      if (selected.isBlank()) return;
+      setComboTagValue(owner, selected);
+      hide();
+      owner.requestFocus();
     }
   }
 
