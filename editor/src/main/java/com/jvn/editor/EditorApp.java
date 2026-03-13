@@ -228,6 +228,7 @@ public class EditorApp extends Application {
   private static final int STARTUP_COMMAND_TAIL_LINES = 14;
   private static final double SIDEBAR_COLLAPSED_EPSILON = 0.01;
   private static final String PANEL_CHOOSER_TAB_ROLE = "panel-chooser";
+  private static final String PANEL_CHOOSER_REFRESH_KEY = "panel-chooser-refresh";
   private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
   private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
       new EnumMap<>(EditorSidebarPanel.class);
@@ -2117,6 +2118,7 @@ public class EditorApp extends Application {
       editorSettingsView.loadIntoForm(editorPreferences);
     }
     persistEditorPreferences();
+    refreshOpenPanelChooserIndicators();
   }
 
   private void persistEditorPreferences() {
@@ -2209,12 +2211,14 @@ public class EditorApp extends Application {
       centerSplit.setDividerPositions(leftDivider, rightDivider);
       savedCenterDividers = new double[] { leftDivider, rightDivider };
     }
+    refreshOpenPanelChooserIndicators();
   }
 
   private void detachConfiguredPanel(EditorSidebarPanel panel) {
     Tab tab = configuredPanelTab(panel);
     if (tab != null && tab.getTabPane() != null) {
       tab.getTabPane().getTabs().remove(tab);
+      refreshOpenPanelChooserIndicators();
     }
   }
 
@@ -2951,6 +2955,7 @@ public class EditorApp extends Application {
     if (idx < 0) idx = targetPane.getTabs().size();
     if (!targetPane.getTabs().contains(tab)) targetPane.getTabs().add(idx, tab);
     ensureSidebarVisible(targetPane);
+    refreshOpenPanelChooserIndicators();
   }
 
   private Tab ensureProjectTab(TabPane targetPane) {
@@ -3384,6 +3389,7 @@ public class EditorApp extends Application {
       dockAction.run();
       e.consume();
     });
+    row.getProperties().put(PANEL_CHOOSER_REFRESH_KEY, refreshState);
     refreshState.run();
     actions.getChildren().add(row);
   }
@@ -3483,6 +3489,34 @@ public class EditorApp extends Application {
     return null;
   }
 
+  private void refreshOpenPanelChooserIndicators() {
+    refreshOpenPanelChooserIndicators(leftTabs);
+    refreshOpenPanelChooserIndicators(rightTabs);
+  }
+
+  private void refreshOpenPanelChooserIndicators(TabPane pane) {
+    if (pane == null) return;
+    for (Tab tab : pane.getTabs()) {
+      if (!PANEL_CHOOSER_TAB_ROLE.equals(tab.getProperties().get(PANEL_CHOOSER_TAB_ROLE))) {
+        continue;
+      }
+      refreshChooserNode(tab.getContent());
+    }
+  }
+
+  private void refreshChooserNode(javafx.scene.Node node) {
+    if (node == null) return;
+    Object refresher = node.getProperties().get(PANEL_CHOOSER_REFRESH_KEY);
+    if (refresher instanceof Runnable runnable) {
+      runnable.run();
+    }
+    if (node instanceof javafx.scene.Parent parent) {
+      for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) {
+        refreshChooserNode(child);
+      }
+    }
+  }
+
   private void launchPanelAsWindow(
       String title,
       javafx.scene.Parent content,
@@ -3548,9 +3582,11 @@ public class EditorApp extends Application {
           releaseEditorSettingsIfUnused();
         }
       }
+      refreshOpenPanelChooserIndicators();
     });
     applyLinuxDefaultWindowState(windowStage);
     windowStage.show();
+    refreshOpenPanelChooserIndicators();
   }
 
   private void detachFromSidebarTab(javafx.scene.Parent content) {
@@ -3567,6 +3603,7 @@ public class EditorApp extends Application {
         if (tp != null) tp.getTabs().remove(t);
         t.setContent(null);
         nullifyTab(t);
+        refreshOpenPanelChooserIndicators();
         break;
       }
       // Also check if content is wrapped in a ScrollPane
@@ -3576,6 +3613,7 @@ public class EditorApp extends Application {
         sp.setContent(null);
         t.setContent(null);
         nullifyTab(t);
+        refreshOpenPanelChooserIndicators();
         break;
       }
     }
@@ -3633,6 +3671,7 @@ public class EditorApp extends Application {
       stage.close();
     } else {
       panelWindows.remove(panel);
+      refreshOpenPanelChooserIndicators();
     }
   }
 
@@ -3645,6 +3684,7 @@ public class EditorApp extends Application {
       editorSettingsWindow.close();
     } else {
       editorSettingsWindow = null;
+      refreshOpenPanelChooserIndicators();
     }
   }
 
@@ -3676,6 +3716,7 @@ public class EditorApp extends Application {
     Stage window = panelWindows.get(panel);
     if (window != null && window.isShowing()) return;
     releaseSidebarPanel(panel);
+    refreshOpenPanelChooserIndicators();
   }
 
   private void releaseSidebarPanel(EditorSidebarPanel panel) {
@@ -3778,6 +3819,7 @@ public class EditorApp extends Application {
         scriptEditorLauncherView = null;
       }
     }
+    refreshOpenPanelChooserIndicators();
   }
 
   private void releaseEditorSettingsIfUnused() {
@@ -3786,6 +3828,7 @@ public class EditorApp extends Application {
     clearTabContent(tabEditorSettings);
     tabEditorSettings = null;
     editorSettingsView = null;
+    refreshOpenPanelChooserIndicators();
   }
 
   private void openPanelChooserTab(TabPane pane, boolean leftSide) {
