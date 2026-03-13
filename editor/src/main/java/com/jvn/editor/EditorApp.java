@@ -3019,8 +3019,6 @@ public class EditorApp extends Application {
           : firstRegularTab(pane, addTab);
       if (fallback != null && pane.getTabs().contains(fallback)) {
         pane.getSelectionModel().select(fallback);
-      } else {
-        pane.getSelectionModel().clearSelection();
       }
       onAddRequested.run();
     });
@@ -4184,7 +4182,12 @@ public class EditorApp extends Application {
     pane.getTabs().add(addIdx, chooser);
     ensureSidebarVisible(pane);
     pane.getSelectionModel().select(chooser);
-    Platform.runLater(filter::requestFocus);
+    Platform.runLater(() -> {
+      pane.requestLayout();
+      chooserScroll.requestLayout();
+      root.requestLayout();
+      filter.requestFocus();
+    });
   }
 
   private void showLeftAddMenu() {

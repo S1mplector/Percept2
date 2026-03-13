@@ -277,9 +277,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       persistGlobalState();
     });
 
-    characterTagBox.setEditable(true);
+    configureAssetTagBox(characterTagBox);
     characterTagBox.setPromptText("Character image tag");
-    backgroundTagBox.setEditable(true);
+    configureAssetTagBox(backgroundTagBox);
     backgroundTagBox.setPromptText("Background image tag");
 
     setupBox.setPromptText("Saved setup");
@@ -461,19 +461,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       if (applyingState) return;
       onCharacterTagChanged(false);
     });
-    characterTagBox.getEditor().textProperty().addListener((o, ov, nv) -> {
-      if (applyingState) return;
-      onCharacterTagChanged(true);
-    });
 
     backgroundTagBox.valueProperty().addListener((o, ov, nv) -> {
       if (applyingState) return;
       applyBackgroundTintIfPresent(selectedBackgroundTag());
-      persistGlobalState();
-    });
-    backgroundTagBox.getEditor().textProperty().addListener((o, ov, nv) -> {
-      if (applyingState) return;
-      redrawPreview();
       persistGlobalState();
     });
   }
@@ -777,10 +768,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
       String savedChar = persisted.getProperty("global.characterTag", "");
       String savedBg = persisted.getProperty("global.backgroundTag", "");
-      characterTagBox.getSelectionModel().select(savedChar);
-      characterTagBox.getEditor().setText(savedChar);
-      backgroundTagBox.getSelectionModel().select(savedBg);
-      backgroundTagBox.getEditor().setText(savedBg);
+      setComboTagValue(characterTagBox, savedChar);
+      setComboTagValue(backgroundTagBox, savedBg);
       String exportFormat = persisted.getProperty("global.exportFormat", DEFAULT_EXPORT_PROFILE);
       if (!exportFormatBox.getItems().contains(exportFormat)) exportFormat = DEFAULT_EXPORT_PROFILE;
       exportFormatBox.getSelectionModel().select(exportFormat);
@@ -822,8 +811,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       if (currentCharacter.isBlank() || !isKnownCharacterTag(currentCharacter)) {
         String fallbackCharacter = pickDefaultCharacterTag(buildCharacterTagList(normalize(assetScopeBox.getValue())));
         if (!fallbackCharacter.isBlank()) {
-          characterTagBox.getSelectionModel().select(fallbackCharacter);
-          characterTagBox.getEditor().setText(fallbackCharacter);
+          setComboTagValue(characterTagBox, fallbackCharacter);
           changed = true;
         }
       }
@@ -832,8 +820,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       if (currentBackground.isBlank() || !imageByTag.containsKey(currentBackground)) {
         String fallbackBackground = pickDefaultBackgroundTag(new ArrayList<>(imageByTag.keySet()));
         if (!fallbackBackground.isBlank()) {
-          backgroundTagBox.getSelectionModel().select(fallbackBackground);
-          backgroundTagBox.getEditor().setText(fallbackBackground);
+          setComboTagValue(backgroundTagBox, fallbackBackground);
           changed = true;
         }
       }
@@ -962,10 +949,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     try {
       String characterTag = persisted.getProperty(prefix + "characterTag", "");
       String backgroundTag = persisted.getProperty(prefix + "backgroundTag", "");
-      characterTagBox.getSelectionModel().select(characterTag);
-      characterTagBox.getEditor().setText(characterTag);
-      backgroundTagBox.getSelectionModel().select(backgroundTag);
-      backgroundTagBox.getEditor().setText(backgroundTag);
+      setComboTagValue(characterTagBox, characterTag);
+      setComboTagValue(backgroundTagBox, backgroundTag);
 
       tintColorPicker.setValue(parseColor(persisted.getProperty(prefix + "tintColor"), Color.WHITE));
       tintStrengthSlider.setValue(parseDouble(persisted.getProperty(prefix + "tintStrength"), tintStrengthSlider.getValue()));
@@ -2213,6 +2198,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (box == null) return "";
     String selected = normalize(box.getValue());
     if (!selected.isBlank()) return selected;
+    if (!box.isEditable()) return "";
     return normalize(box.getEditor() == null ? "" : box.getEditor().getText());
   }
 
@@ -2221,6 +2207,72 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (value.isBlank()) return "(none)";
     if (value.length() <= 48) return value;
     return "..." + value.substring(value.length() - 45);
+  }
+
+  private void configureAssetTagBox(ComboBox<String> box) {
+    if (box == null) return;
+    box.setEditable(false);
+    box.setVisibleRowCount(14);
+    box.setButtonCell(createAssetTagCell(true));
+    box.setCellFactory(list -> createAssetTagCell(false));
+    box.setOnShowing(e -> {
+      if (disposed) return;
+      if ((imageByTag.isEmpty() && presetByTag.isEmpty()) && (scanTask == null || !scanTask.isRunning())) {
+        refreshCatalog();
+        return;
+      }
+      refreshTagLists();
+    });
+  }
+
+  private ListCell<String> createAssetTagCell(boolean compact) {
+    return new ListCell<>() {
+      @Override
+      protected void updateItem(String item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null || item.isBlank()) {
+          setText(null);
+          setTooltip(null);
+          return;
+        }
+        setText(describeAssetTag(item, compact));
+        setTooltip(new Tooltip(item));
+      }
+    };
+  }
+
+  static String describeAssetTag(String rawTag, boolean compact) {
+    String tag = normalize(rawTag);
+    if (tag.isBlank()) return "";
+    if (tag.startsWith(PRESET_TAG_PREFIX)) {
+      String remainder = normalize(tag.substring(PRESET_TAG_PREFIX.length()));
+      return remainder.isBlank() ? "Preset" : "Preset · " + remainder;
+    }
+    if (!compact) return tag;
+    String[] parts = tag.split("/");
+    if (parts.length <= 4) return tag;
+    return ".../" + String.join("/", java.util.Arrays.copyOfRange(parts, parts.length - 4, parts.length));
+  }
+
+  private void setComboTagValue(ComboBox<String> box, String rawValue) {
+    if (box == null) return;
+    String value = normalize(rawValue);
+    if (value.isBlank()) {
+      box.getSelectionModel().clearSelection();
+      box.setValue(null);
+      if (box.isEditable() && box.getEditor() != null) {
+        box.getEditor().clear();
+      }
+      return;
+    }
+    if (box.getItems().contains(value)) {
+      box.getSelectionModel().select(value);
+    } else {
+      box.setValue(value);
+    }
+    if (box.isEditable() && box.getEditor() != null) {
+      box.getEditor().setText(value);
+    }
   }
 
   private List<String> buildCharacterTagList(String scopeRaw) {
@@ -3808,12 +3860,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         String characterTag = props.getProperty("character", "");
         String backgroundTag = props.getProperty("background", "");
         if (!characterTag.isBlank()) {
-          characterTagBox.getSelectionModel().select(characterTag);
-          characterTagBox.getEditor().setText(characterTag);
+          setComboTagValue(characterTagBox, characterTag);
         }
         if (!backgroundTag.isBlank()) {
-          backgroundTagBox.getSelectionModel().select(backgroundTag);
-          backgroundTagBox.getEditor().setText(backgroundTag);
+          setComboTagValue(backgroundTagBox, backgroundTag);
         }
 
         tintColorPicker.setValue(parseColor(props.getProperty("color"), tintColorPicker.getValue()));

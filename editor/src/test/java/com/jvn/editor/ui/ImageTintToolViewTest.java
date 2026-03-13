@@ -127,6 +127,23 @@ class ImageTintToolViewTest {
   }
 
   @Test
+  void describeAssetTagFormatsPresetAndCompactAssetLabels() {
+    assertEquals(
+        "Preset · lavender/neutral",
+        ImageTintToolView.describeAssetTag("preset:lavender/neutral", true));
+    assertEquals(
+        ".../characters/lavender/base/lavender_test_sprite_base.png",
+        ImageTintToolView.describeAssetTag(
+            "assets/demo/characters/lavender/base/lavender_test_sprite_base.png",
+            true));
+    assertEquals(
+        "assets/demo/characters/lavender/base/lavender_test_sprite_base.png",
+        ImageTintToolView.describeAssetTag(
+            "assets/demo/characters/lavender/base/lavender_test_sprite_base.png",
+            false));
+  }
+
+  @Test
   void smoothFreehandStrokeBuildsStableClosedShapeFromNoisyRectangle() {
     List<double[]> stroke = new ArrayList<>();
     for (int i = 0; i <= 40; i++) stroke.add(new double[]{40 + i * 3, 40 + Math.sin(i * 0.25)});
