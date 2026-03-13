@@ -3602,6 +3602,26 @@ public class EditorApp extends Application {
     else if (tab == tabEditorSettings) tabEditorSettings = null;
   }
 
+  private void clearTabContent(Tab tab) {
+    if (tab == null) return;
+    if (tab.getContent() instanceof ScrollPane sp) {
+      sp.setContent(null);
+    }
+    tab.setContent(null);
+  }
+
+  private void releaseSidebarPanelTab(EditorSidebarPanel panel) {
+    if (panel == null) return;
+    Tab tab = configuredPanelTab(panel);
+    if (tab == null) return;
+    TabPane pane = tab.getTabPane();
+    if (pane != null) {
+      pane.getTabs().remove(tab);
+    }
+    clearTabContent(tab);
+    nullifyTab(tab);
+  }
+
   private void closePanelWindow(EditorSidebarPanel panel, boolean suppressUnload) {
     if (panel == null) return;
     Stage stage = panelWindows.get(panel);
@@ -3660,37 +3680,111 @@ public class EditorApp extends Application {
 
   private void releaseSidebarPanel(EditorSidebarPanel panel) {
     if (panel == null) return;
+    releaseSidebarPanelTab(panel);
+    panelWindows.remove(panel);
     switch (panel) {
       case PROJECT -> {
       }
-      case TIMELINE -> timelineView = null;
+      case TIMELINE -> {
+        if (timelineView != null) {
+          timelineView.setProjectRoot(null);
+        }
+        timelineView = null;
+      }
       case INSPECTOR -> {
       }
       case VNS_DIAGNOSTICS -> vnsDiagnosticsView = null;
       case LABEL_FLOW -> vnsFlowMapView = null;
-      case ASSETS -> assetBrowserView = null;
-      case LAYOUT_LAUNCHER -> layoutEditorLauncherView = null;
-      case PHONE_ASSETS -> phoneAssetsToolView = null;
-      case LAYERED_IMAGES -> layeredImageVisualizerView = null;
-      case IMAGE_ATTRIBUTES -> imageAttributesToolView = null;
-      case IMAGE_TINT -> imageTintToolView = null;
-      case MENU_FLOW -> menuFlowEditorView = null;
-      case VERSION_CONTROL -> versionControlView = null;
-      case HELP -> helpCenterView = null;
-      case PUPPETEER_LAUNCHER -> puppeteerLauncherPanel = null;
+      case ASSETS -> {
+        if (assetBrowserView != null) {
+          assetBrowserView.setProjectRoot(null);
+        }
+        assetBrowserView = null;
+      }
+      case LAYOUT_LAUNCHER -> {
+        if (layoutEditorLauncherView != null) {
+          layoutEditorLauncherView.setProjectRoot(null);
+        }
+        layoutEditorLauncherView = null;
+      }
+      case PHONE_ASSETS -> {
+        if (phoneAssetsToolView != null) {
+          phoneAssetsToolView.dispose();
+        }
+        phoneAssetsToolView = null;
+      }
+      case LAYERED_IMAGES -> {
+        if (layeredVisualizerFullscreen && fullscreenImageToolView == layeredImageVisualizerView) {
+          restoreLayeredImageVisualizerLayout(false);
+        }
+        if (layeredImageVisualizerView != null) {
+          layeredImageVisualizerView.dispose();
+        }
+        layeredImageVisualizerView = null;
+      }
+      case IMAGE_ATTRIBUTES -> {
+        if (layeredVisualizerFullscreen && fullscreenImageToolView == imageAttributesToolView) {
+          restoreLayeredImageVisualizerLayout(false);
+        }
+        if (imageAttributesToolView != null) {
+          imageAttributesToolView.dispose();
+        }
+        imageAttributesToolView = null;
+      }
+      case IMAGE_TINT -> {
+        if (layeredVisualizerFullscreen && fullscreenImageToolView == imageTintToolView) {
+          restoreLayeredImageVisualizerLayout(false);
+        }
+        if (imageTintToolView != null) {
+          imageTintToolView.dispose();
+        }
+        imageTintToolView = null;
+      }
+      case MENU_FLOW -> {
+        if (menuFlowEditorView != null) {
+          menuFlowEditorView.setProjectRoot(null);
+        }
+        menuFlowEditorView = null;
+      }
+      case VERSION_CONTROL -> {
+        if (versionControlView != null) {
+          versionControlView.dispose();
+        }
+        versionControlView = null;
+      }
+      case HELP -> {
+        if (helpCenterView != null) {
+          helpCenterView.setProjectRoot(null);
+        }
+        helpCenterView = null;
+      }
+      case PUPPETEER_LAUNCHER -> {
+        if (puppeteerLauncherPanel != null) {
+          puppeteerLauncherPanel.setProjectRoot(null);
+        }
+        puppeteerLauncherPanel = null;
+      }
       case AUDIO_SYNTH -> {
         if (audioSynthControlsView != null) {
           audioSynthControlsView.dispose();
         }
         audioSynthControlsView = null;
       }
-      case SCRIPT_EDITOR -> scriptEditorLauncherView = null;
+      case SCRIPT_EDITOR -> {
+        if (scriptEditorLauncherView != null) {
+          scriptEditorLauncherView.setProjectRoot(null);
+          scriptEditorLauncherView.setWorkspaceRoot(null);
+        }
+        scriptEditorLauncherView = null;
+      }
     }
   }
 
   private void releaseEditorSettingsIfUnused() {
     if (tabEditorSettings != null && tabEditorSettings.getTabPane() != null) return;
     if (editorSettingsWindow != null && editorSettingsWindow.isShowing()) return;
+    clearTabContent(tabEditorSettings);
+    tabEditorSettings = null;
     editorSettingsView = null;
   }
 

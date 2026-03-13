@@ -136,6 +136,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private String backgroundTintTaskTag;
   private String backgroundTintTaskKey;
   private long backgroundTintTaskSerial;
+  private boolean disposed;
   private boolean backgroundFxSliderDragging;
   private boolean backgroundFxSliderCommitPending;
   private String activeZoneProfileTag = "";
@@ -538,6 +539,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   @Override
   public void setProjectRoot(File projectRoot) {
+    if (disposed) return;
     persistGlobalState();
     this.projectRoot = projectRoot;
     refreshCatalog();
@@ -553,6 +555,24 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (fullscreenActive == active) return;
     fullscreenActive = active;
     updateFullscreenButtonUi();
+  }
+
+  public void dispose() {
+    if (disposed) return;
+    disposed = true;
+    stateSaveDebounce.stop();
+    Task<TintCatalogScanResult> task = scanTask;
+    scanTask = null;
+    if (task != null && task.isRunning()) {
+      task.cancel();
+    }
+    backgroundTintTaskSerial++;
+    cancelBackgroundTintTask();
+    setupNameToKey.clear();
+    tintZones.clear();
+    zoneListView.getItems().clear();
+    clearCatalogUi("Image tint tool disposed.");
+    projectRoot = null;
   }
 
   private void onCatalogRefreshRequested() {
@@ -590,6 +610,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   @Override
   public void refreshCatalog() {
+    if (disposed) return;
     persistGlobalState();
     loadPersistentState();
     if (scanTask != null && scanTask.isRunning()) {
@@ -641,7 +662,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     scanTask = task;
 
     task.setOnSucceeded(e -> {
-      if (scanTask != task) return;
+      if (disposed || scanTask != task) return;
+      scanTask = null;
       updateRefreshButtonUi(false);
       TintCatalogScanResult result = task.getValue();
       if (result == null || result.cancelled()) {
@@ -668,14 +690,16 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     });
 
     task.setOnCancelled(e -> {
-      if (scanTask != task) return;
+      if (disposed || scanTask != task) return;
+      scanTask = null;
       updateRefreshButtonUi(false);
       summaryLabel.setText("Image scan cancelled.");
       status("Scan cancelled.");
     });
 
     task.setOnFailed(e -> {
-      if (scanTask != task) return;
+      if (disposed || scanTask != task) return;
+      scanTask = null;
       updateRefreshButtonUi(false);
       Throwable ex = task.getException();
       clearCatalogUi("Image scan failed: " + (ex == null ? "Unknown error" : ex.getMessage()));
@@ -1393,7 +1417,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       previewLoadingOverlay.setProgress(progress);
     });
     task.setOnSucceeded(e -> {
-      if (serial != backgroundTintTaskSerial) return;
+      if (disposed || serial != backgroundTintTaskSerial) return;
       Image rendered = task.getValue();
       if (rendered != null) {
         tintedBackgroundTag = tag;
@@ -1407,7 +1431,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       redrawPreview();
     });
     task.setOnCancelled(e -> {
-      if (serial != backgroundTintTaskSerial) return;
+      if (disposed || serial != backgroundTintTaskSerial) return;
       backgroundTintTask = null;
       backgroundTintTaskTag = null;
       backgroundTintTaskKey = null;
@@ -1415,7 +1439,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       redrawPreview();
     });
     task.setOnFailed(e -> {
-      if (serial != backgroundTintTaskSerial) return;
+      if (disposed || serial != backgroundTintTaskSerial) return;
       backgroundTintTask = null;
       backgroundTintTaskTag = null;
       backgroundTintTaskKey = null;

@@ -145,6 +145,7 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   private File projectRoot;
   private String currentTagId;
   private boolean applyingState;
+  private boolean disposed;
 
   private Runnable fullscreenToggleHandler;
   private boolean fullscreenActive;
@@ -384,14 +385,35 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
 
   @Override
   public void setProjectRoot(File projectRoot) {
+    if (disposed) return;
     persistCurrentTagState();
     persistGlobalState();
     this.projectRoot = projectRoot;
     refreshCatalog();
   }
 
+  public void dispose() {
+    if (disposed) return;
+    disposed = true;
+    tags.clear();
+    selectors.clear();
+    swapChecks.clear();
+    groupRows.clear();
+    groupOrder.clear();
+    imageCache.clear();
+    profileNameToKey.clear();
+    groupBox.getChildren().clear();
+    tagBox.getItems().clear();
+    profileBox.getItems().clear();
+    currentTagId = null;
+    projectRoot = null;
+    summaryLabel.setText("Image attributes tool disposed.");
+    redrawPreview();
+  }
+
   @Override
   public void refreshCatalog() {
+    if (disposed) return;
     persistCurrentTagState();
     persistGlobalState();
 

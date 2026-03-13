@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 import com.jvn.editor.vcs.GitVcsService;
@@ -93,6 +94,7 @@ public class VersionControlView extends BorderPane {
   private boolean busy;
   private Consumer<String> onOpenRelativePath;
   private Timeline autoRefreshTimer;
+  private boolean disposed;
 
   public VersionControlView() {
     titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
@@ -284,12 +286,14 @@ public class VersionControlView extends BorderPane {
   }
 
   public void setProjectRoot(File projectRoot) {
+    if (disposed) return;
     this.projectRoot = projectRoot;
     repoLabel.setText(projectRoot == null ? "No project loaded" : "Project: " + projectRoot.getAbsolutePath());
     refreshStatus();
   }
 
   public void refreshStatus() {
+    if (disposed) return;
     runAsync("Refresh status", () -> {
       boolean git = vcs.isGitAvailable();
       Platform.runLater(() -> {
@@ -793,17 +797,21 @@ public class VersionControlView extends BorderPane {
   }
 
   private void runAsync(String actionName, Runnable action) {
-    if (busy) return;
+    if (busy || disposed) return;
     setBusy(true);
-    worker.submit(() -> {
-      try {
-        action.run();
-      } catch (Exception ex) {
-        appendLog(actionName + " failed: " + ex.getMessage());
-      } finally {
-        Platform.runLater(() -> setBusy(false));
-      }
-    });
+    try {
+      worker.submit(() -> {
+        try {
+          action.run();
+        } catch (Exception ex) {
+          appendLog(actionName + " failed: " + ex.getMessage());
+        } finally {
+          Platform.runLater(() -> setBusy(false));
+        }
+      });
+    } catch (RejectedExecutionException ex) {
+      setBusy(false);
+    }
   }
 
   private void setBusy(boolean busy) {
@@ -854,6 +862,16 @@ public class VersionControlView extends BorderPane {
 
   private String safe(String value) {
     return value == null || value.isBlank() ? "--" : value;
+  }
+
+  public void dispose() {
+    if (disposed) return;
+    disposed = true;
+    if (autoRefreshTimer != null) {
+      autoRefreshTimer.stop();
+      autoRefreshTimer = null;
+    }
+    worker.shutdownNow();
   }
 
   private static final class StatusCell extends ListCell<GitVcsService.StatusEntry> {

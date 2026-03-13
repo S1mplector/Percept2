@@ -208,6 +208,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private Button refreshCatalogButton;
   private double gameCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
   private double gameCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
+  private boolean disposed;
 
   public LayeredImageVisualizerView() {
     this(DEFAULT_TOOL_TITLE, DEFAULT_STATE_FILE, false);
@@ -538,11 +539,29 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   }
 
   public void setProjectRoot(File projectRoot) {
+    if (disposed) return;
     if (Objects.equals(this.projectRoot, projectRoot)) return;
     persistCurrentSetState();
     persistGlobalState();
     this.projectRoot = projectRoot;
     refreshCatalog();
+  }
+
+  public void dispose() {
+    if (disposed) return;
+    disposed = true;
+    stateSaveDebounce.stop();
+    Task<LayeredCatalogScanResult> task = scanTask;
+    scanTask = null;
+    if (task != null && task.isRunning()) {
+      task.cancel();
+    }
+    updateRefreshButtonUi(false);
+    clearCatalogUi("Layered visualizer disposed.");
+    projectRoot = null;
+    selectedGalleryCell = null;
+    selectedGalleryLabel = null;
+    dragCanvas = null;
   }
 
   public void setOnToggleFullscreen(Runnable handler) {
@@ -594,6 +613,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   }
 
   public void refreshCatalog() {
+    if (disposed) return;
     persistCurrentSetState();
     persistGlobalState();
 
@@ -657,7 +677,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     scanTask = task;
 
     task.setOnSucceeded(e -> {
-      if (scanTask != task) return;
+      if (disposed || scanTask != task) return;
+      scanTask = null;
       updateRefreshButtonUi(false);
       LayeredCatalogScanResult result = task.getValue();
       if (result == null || result.cancelled()) {
@@ -673,14 +694,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     });
 
     task.setOnCancelled(e -> {
-      if (scanTask != task) return;
+      if (disposed || scanTask != task) return;
+      scanTask = null;
       updateRefreshButtonUi(false);
       summaryLabel.setText("Layered set scan cancelled.");
       status("Scan cancelled.");
     });
 
     task.setOnFailed(e -> {
-      if (scanTask != task) return;
+      if (disposed || scanTask != task) return;
+      scanTask = null;
       updateRefreshButtonUi(false);
       Throwable ex = task.getException();
       clearCatalogUi("Failed to scan project assets: " + (ex == null ? "Unknown error" : ex.getMessage()));

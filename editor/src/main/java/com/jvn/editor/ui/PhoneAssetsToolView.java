@@ -137,6 +137,7 @@ public class PhoneAssetsToolView extends BorderPane {
   private String selectedContactId;
   private String selectedChatId;
   private String selectedMessageId;
+  private boolean disposed;
 
   public PhoneAssetsToolView() {
     getStyleClass().add("phone-tool-root");
@@ -155,6 +156,7 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   public void setProjectRoot(File projectRoot) {
+    if (disposed) return;
     if (Objects.equals(this.projectRoot, projectRoot)) return;
     this.projectRoot = projectRoot;
     loadPersistedState();
@@ -162,12 +164,43 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   public void setOnOpenFile(Consumer<File> onOpenFile) {
+    if (disposed) return;
     this.onOpenFile = onOpenFile;
   }
 
   public void refreshFromDisk() {
+    if (disposed) return;
     refreshProjectState();
     status("Phone configuration reloaded from disk.");
+  }
+
+  public void dispose() {
+    if (disposed) return;
+    disposed = true;
+    onOpenFile = null;
+    projectRoot = null;
+    activeConfigFile = null;
+    selectedContactId = null;
+    selectedChatId = null;
+    selectedMessageId = null;
+    previewSelectedChat = false;
+    persisted.clear();
+    workingData = new VnPhoneData();
+    applyingUi = true;
+    try {
+      contactList.getItems().clear();
+      chatList.getItems().clear();
+      messageList.getItems().clear();
+    } finally {
+      applyingUi = false;
+    }
+    phoneRenderer.setProjectRoot(null);
+    phoneRenderer.setSceneModel(new PhoneScene(null, new VnPhoneData(), ignored -> { }));
+    phoneRenderer.refresh();
+    summaryLabel.setText("Phone assets tool disposed.");
+    statusLabel.setText("");
+    dirty = false;
+    updateDirtyBadge();
   }
 
   static Path resolveConfigPath(Path projectRoot) {
@@ -1131,6 +1164,7 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private void refreshPreview() {
+    if (disposed) return;
     phoneRenderer.setProjectRoot(projectRoot);
     previewHomeButton.getStyleClass().setAll(
         "phone-tool-button",
@@ -1179,6 +1213,7 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private void changed(String message) {
+    if (disposed) return;
     dirty = true;
     updateDirtyBadge();
     updateControlsDisabledState();
@@ -1194,10 +1229,12 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private void status(String message) {
+    if (disposed) return;
     statusLabel.setText(firstNonBlank(message, ""));
   }
 
   private void persistUiState() {
+    if (disposed) return;
     if (projectRoot == null || !projectRoot.isDirectory()) return;
     if (selectedContactId != null) persisted.setProperty("selection.contact", selectedContactId);
     else persisted.remove("selection.contact");
@@ -1219,6 +1256,7 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private void loadPersistedState() {
+    if (disposed) return;
     persisted.clear();
     if (projectRoot == null || !projectRoot.isDirectory()) return;
     Path statePath = projectRoot.toPath().resolve(STATE_FILE);
