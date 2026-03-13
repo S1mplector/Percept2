@@ -2227,10 +2227,16 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     box.setCellFactory(list -> createAssetTagCell(false));
     AssetTagSearchPopup popup = assetTagSearchPopups.computeIfAbsent(box, AssetTagSearchPopup::new);
     box.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
-      if (disposed || box.isDisabled()) return;
+      if (disposed || box.isDisabled() || event.getButton() != MouseButton.PRIMARY) return;
       event.consume();
       box.requestFocus();
-      toggleAssetTagPopup(box);
+      // Defer until after the click cycle finishes so the popup is not
+      // immediately dismissed by the matching mouse-release event.
+      Platform.runLater(() -> {
+        if (!disposed && !box.isDisabled()) {
+          toggleAssetTagPopup(box);
+        }
+      });
     });
     box.setOnShowing(event -> {
       event.consume();
