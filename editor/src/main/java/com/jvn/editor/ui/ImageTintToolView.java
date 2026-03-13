@@ -2238,11 +2238,27 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         }
       });
     });
+    box.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> {
+      if (disposed || box.isDisabled() || event.getButton() != MouseButton.PRIMARY) return;
+      event.consume();
+    });
+    box.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
+      if (disposed || box.isDisabled() || event.getButton() != MouseButton.PRIMARY) return;
+      event.consume();
+    });
     box.setOnShowing(event -> {
       event.consume();
       popup.hide();
     });
     box.setOnHidden(event -> popup.hide());
+    box.showingProperty().addListener((obs, wasShowing, showing) -> {
+      if (!showing || disposed) return;
+      Platform.runLater(() -> {
+        if (box.isShowing()) {
+          box.hide();
+        }
+      });
+    });
     box.setOnKeyPressed(event -> {
       if (disposed || box.isDisabled()) return;
       if (event.getCode() == KeyCode.DOWN
@@ -2338,6 +2354,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private void openAssetTagPopup(ComboBox<String> box) {
     if (box == null || disposed || box.isDisabled()) return;
+    if (box.isShowing()) {
+      box.hide();
+    }
     if ((imageByTag.isEmpty() && presetByTag.isEmpty()) && (scanTask == null || !scanTask.isRunning())) {
       refreshCatalog();
       return;
