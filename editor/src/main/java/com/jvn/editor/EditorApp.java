@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -205,9 +207,18 @@ public class EditorApp extends Application {
   private OperatingSystemMXBean osBean;
   private long lastPerfUpdateNs = -1L;
   private double lastFps = 0.0;
+  private double smoothedProcessCpu = Double.NaN;
+  private double smoothedFps = Double.NaN;
+  private long lastGcCollectionCount = -1L;
+  private long lastGcCollectionTimeMs = -1L;
+  private static final long PERF_UPDATE_INTERVAL_NS = 300_000_000L;
+  private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
+  private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
+  private static final double TARGET_FPS = 60.0;
   private static final Color CPU_COLOR = Color.web("#f27333");
   private static final Color GPU_COLOR = Color.web("#a855f7");
   private static final Color RAM_COLOR = Color.web("#49a5ff");
+  private static final Color FPS_COLOR = Color.web("#f4f4f4");
   private static final Color GRID_BG = Color.color(0.08, 0.08, 0.08, 0.8);
   private static final Color GRID_LINE = Color.color(1, 1, 1, 0.08);
   private static final String[] EDITABLE_EXTENSIONS = new String[] {
@@ -1352,7 +1363,7 @@ public class EditorApp extends Application {
     fps = new Label("");
     cpuText = new Text("CPU --");
     cpuText.setFill(CPU_COLOR);
-    gpuText = new Text(" | GPU n/a");
+    gpuText = new Text(" | HEAP --");
     gpuText.setFill(GPU_COLOR);
     ramText = new Text(" | RAM --");
     ramText.setFill(RAM_COLOR);
@@ -1738,40 +1749,130 @@ public class EditorApp extends Application {
 
   private void updatePerf(long nowNs) {
     if (perf == null) return;
-    if (lastPerfUpdateNs > 0 && (nowNs - lastPerfUpdateNs) < 500_000_000L) return; // 0.5s throttle
+    if (lastPerfUpdateNs > 0 && (nowNs - lastPerfUpdateNs) < PERF_UPDATE_INTERVAL_NS) return;
     lastPerfUpdateNs = nowNs;
 
-    double sysCpu = -1;
-    double procCpu = -1;
+    double processCpu = -1;
     if (osBean != null) {
-      sysCpu = osBean.getSystemCpuLoad();
-      procCpu = osBean.getProcessCpuLoad();
+      processCpu = osBean.getProcessCpuLoad();
     }
-    Runtime rt = Runtime.getRuntime();
-    double usedMb = (rt.totalMemory() - rt.freeMemory()) / (1024.0 * 1024.0);
-    double maxMb = rt.maxMemory() / (1024.0 * 1024.0);
 
-    String cpuStr = (sysCpu >= 0)
-        ? String.format("CPU %.0f%% sys / %.0f%% app", sysCpu * 100.0, procCpu >= 0 ? procCpu * 100.0 : 0.0)
+    smoothedProcessCpu = smoothRatio(smoothedProcessCpu, processCpu, PERF_CPU_SMOOTH_ALPHA);
+    smoothedFps = smoothRatio(smoothedFps, lastFps / TARGET_FPS, PERF_FPS_SMOOTH_ALPHA);
+
+    MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
+    MemoryUsage heap = memoryBean.getHeapMemoryUsage();
+    MemoryUsage nonHeap = memoryBean.getNonHeapMemoryUsage();
+    double heapUsedMb = Math.max(0.0, bytesToMb(heap == null ? -1L : heap.getUsed()));
+    long heapMaxBytes = heap == null ? -1L : heap.getMax();
+    if (heapMaxBytes <= 0 && heap != null) {
+      heapMaxBytes = heap.getCommitted();
+    }
+    if (heapMaxBytes <= 0) {
+      heapMaxBytes = Runtime.getRuntime().maxMemory();
+    }
+    double heapMaxMb = Math.max(1.0, bytesToMb(heapMaxBytes));
+    double nonHeapMb = Math.max(0.0, bytesToMb(nonHeap == null ? -1L : nonHeap.getUsed()));
+    double heapRatio = clamp01(heapUsedMb / heapMaxMb);
+    double heapUsedClampedMb = clamp(heapUsedMb, 0.0, heapMaxMb);
+    double jvnUsedMb = Math.max(0.0, heapUsedMb + nonHeapMb);
+
+    long gcCount = 0;
+    long gcTimeMs = 0;
+    for (var gcBean : ManagementFactory.getGarbageCollectorMXBeans()) {
+      if (gcBean == null) continue;
+      long c = gcBean.getCollectionCount();
+      long t = gcBean.getCollectionTime();
+      if (c > 0) gcCount += c;
+      if (t > 0) gcTimeMs += t;
+    }
+    long gcCountDelta = (lastGcCollectionCount >= 0L) ? Math.max(0L, gcCount - lastGcCollectionCount) : 0L;
+    long gcTimeDelta = (lastGcCollectionTimeMs >= 0L) ? Math.max(0L, gcTimeMs - lastGcCollectionTimeMs) : 0L;
+    lastGcCollectionCount = gcCount;
+    lastGcCollectionTimeMs = gcTimeMs;
+    String gcText = gcCountDelta > 0
+        ? String.format(Locale.ROOT, "GC +%d/%dms", gcCountDelta, gcTimeDelta)
+        : "GC idle";
+
+    int threadCount = ManagementFactory.getThreadMXBean().getThreadCount();
+
+    String cpuTextValue = isRatioValid(smoothedProcessCpu)
+        ? String.format(
+            Locale.ROOT,
+            "CPU app %.0f%%",
+            safePercent(smoothedProcessCpu))
         : "CPU --";
-    String ramStr = String.format(" | RAM %.0f / %.0f MB", usedMb, maxMb);
-    String gpuStr = " | GPU n/a";
-    String fpsStr = String.format(" | FPS %.0f", lastFps);
+    String heapText = String.format(
+        Locale.ROOT,
+        " | HEAP %.0f/%.0f MB (%.0f%%)",
+        heapUsedClampedMb,
+        heapMaxMb,
+        heapRatio * 100.0);
+    String ramTextValue = String.format(
+        Locale.ROOT,
+        " | JVN %.0f MB • non-heap %.0f MB",
+        jvnUsedMb,
+        nonHeapMb);
+    String fpsTextValue = String.format(
+        Locale.ROOT,
+        " | FPS %.0f | THR %d | %s",
+        Math.max(0.0, smoothedFps * TARGET_FPS),
+        threadCount,
+        gcText);
 
-    cpuText.setText(cpuStr);
-    ramText.setText(ramStr);
-    gpuText.setText(gpuStr);
-    fpsText.setText(fpsStr);
+    cpuText.setText(cpuTextValue);
+    gpuText.setText(heapText);
+    ramText.setText(ramTextValue);
+    fpsText.setText(fpsTextValue);
 
-    perfGraph.pushSample(sysCpu >= 0 ? sysCpu : 0, maxMb > 0 ? (usedMb / maxMb) : 0, 0);
+    perfGraph.pushSample(
+        isRatioValid(smoothedProcessCpu) ? smoothedProcessCpu : 0,
+        heapRatio,
+        clamp01(smoothedFps));
   }
 
-  /** Tiny inline graph renderer for CPU/RAM usage. */
+  private static double smoothRatio(double previous, double sample, double alpha) {
+    if (!Double.isFinite(sample) || sample < 0) return previous;
+    double clampedSample = clamp01(sample);
+    if (!Double.isFinite(previous) || previous < 0) return clampedSample;
+    double a = Math.min(1.0, Math.max(0.01, alpha));
+    return previous + (clampedSample - previous) * a;
+  }
+
+  private static boolean isRatioValid(double ratio) {
+    return Double.isFinite(ratio) && ratio >= 0;
+  }
+
+  private static double safePercent(double ratio) {
+    if (!isRatioValid(ratio)) return 0.0;
+    return clamp01(ratio) * 100.0;
+  }
+
+  private static double bytesToMb(long bytes) {
+    if (bytes <= 0) return 0.0;
+    return bytes / (1024.0 * 1024.0);
+  }
+
+  private static double clamp(double value, double min, double max) {
+    if (!Double.isFinite(value)) return min;
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+  }
+
+  private static double clamp01(double value) {
+    if (!Double.isFinite(value)) return 0;
+    if (value < 0) return 0;
+    if (value > 1) return 1;
+    return value;
+  }
+
+  /** Tiny inline graph renderer for CPU/heap/FPS trends. */
   private static class PerfGraph {
     private final Canvas canvas = new Canvas(320, 64);
-    private final double[] cpu = new double[240]; // ~4s at 60fps
+    private final double[] cpu = new double[240]; // ~72s at ~300ms updates
     private final double[] ram = new double[240];
-    private final double[] gpu = new double[240];
+    private final double[] fps = new double[240];
     private int idx = 0;
     private boolean filled = false;
 
@@ -1781,11 +1882,11 @@ public class EditorApp extends Application {
       redraw();
     }
 
-    public void pushSample(double cpu01, double ram01, double gpu01) {
+    public void pushSample(double cpu01, double ram01, double fps01) {
       int i = idx % cpu.length;
       cpu[i] = clamp01(cpu01);
       ram[i] = clamp01(ram01);
-      gpu[i] = clamp01(gpu01);
+      fps[i] = clamp01(fps01);
       idx++;
       if (idx >= cpu.length) filled = true;
       redraw();
@@ -1816,8 +1917,8 @@ public class EditorApp extends Application {
       if (samples <= 1) return;
       double scaleX = w / (cpu.length - 1);
 
-      // RAM area
-      g.setFill(RAM_COLOR.deriveColor(0, 1, 1, 0.18));
+      // HEAP area
+      g.setFill(GPU_COLOR.deriveColor(0, 1, 1, 0.26));
       g.beginPath();
       for (int i = 0; i < samples; i++) {
         int si = (idx - samples + i + cpu.length) % cpu.length;
@@ -1829,6 +1930,18 @@ public class EditorApp extends Application {
       g.lineTo((samples - 1) * scaleX, h);
       g.closePath();
       g.fill();
+
+      // HEAP outline
+      g.setStroke(GPU_COLOR.deriveColor(0, 1, 1, 0.95));
+      g.setLineWidth(1.6);
+      g.beginPath();
+      for (int i = 0; i < samples; i++) {
+        int si = (idx - samples + i + cpu.length) % cpu.length;
+        double x = i * scaleX;
+        double y = h * (1 - ram[si]);
+        if (i == 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      g.stroke();
 
       // CPU line
       g.setStroke(CPU_COLOR.deriveColor(0, 1, 1, 0.9));
@@ -1842,14 +1955,14 @@ public class EditorApp extends Application {
       }
       g.stroke();
 
-      // GPU line
-      g.setStroke(GPU_COLOR.deriveColor(0, 1, 1, 0.9));
+      // FPS line
+      g.setStroke(FPS_COLOR.deriveColor(0, 1, 1, 0.88));
       g.setLineWidth(2);
       g.beginPath();
       for (int i = 0; i < samples; i++) {
         int si = (idx - samples + i + cpu.length) % cpu.length;
         double x = i * scaleX;
-        double y = h * (1 - gpu[si]);
+        double y = h * (1 - fps[si]);
         if (i == 0) g.moveTo(x, y); else g.lineTo(x, y);
       }
       g.stroke();
