@@ -90,6 +90,43 @@ class ImageTintToolViewTest {
   }
 
   @Test
+  void filterCharacterTagsForScopeSupportsPresetAndCharacterModes() {
+    List<String> imageTags = List.of(
+        "assets/demo/backgrounds/field_day.png",
+        "assets/demo/characters/lavender/base.png",
+        "assets/demo/characters/lavender/eyes_happy.png");
+    List<String> presetTags = List.of(
+        "preset:lavender/neutral",
+        "preset:lavender/talking");
+
+    assertEquals(
+        List.of("preset:lavender/neutral", "preset:lavender/talking"),
+        ImageTintToolView.filterCharacterTagsForScope(imageTags, presetTags, "Charpresets only"));
+    assertEquals(
+        List.of(
+            "assets/demo/characters/lavender/base.png",
+            "assets/demo/characters/lavender/eyes_happy.png"),
+        ImageTintToolView.filterCharacterTagsForScope(imageTags, presetTags, "Character assets only"));
+    assertEquals(
+        List.of(
+            "assets/demo/backgrounds/field_day.png",
+            "assets/demo/characters/lavender/base.png",
+            "assets/demo/characters/lavender/eyes_happy.png",
+            "preset:lavender/neutral",
+            "preset:lavender/talking"),
+        ImageTintToolView.filterCharacterTagsForScope(imageTags, presetTags, "All image assets + charpresets"));
+  }
+
+  @Test
+  void matchesTagSearchSupportsScopedTokens() {
+    assertTrue(ImageTintToolView.matchesTagSearch("preset:john/neutral", "preset:john/neut"));
+    assertTrue(ImageTintToolView.matchesTagSearch("assets/characters/john_doe/base.png", "character:john"));
+    assertTrue(ImageTintToolView.matchesTagSearch("assets/backgrounds/field_day.png", "bg:field"));
+    assertEquals(false, ImageTintToolView.matchesTagSearch("assets/backgrounds/field_day.png", "character:john"));
+    assertEquals(false, ImageTintToolView.matchesTagSearch("preset:john/neutral", "asset:john"));
+  }
+
+  @Test
   void smoothFreehandStrokeBuildsStableClosedShapeFromNoisyRectangle() {
     List<double[]> stroke = new ArrayList<>();
     for (int i = 0; i <= 40; i++) stroke.add(new double[]{40 + i * 3, 40 + Math.sin(i * 0.25)});

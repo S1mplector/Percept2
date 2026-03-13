@@ -74,6 +74,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private static final String STATE_FILE = ".jvn/image-tint-tool.properties";
   private static final String TOOL_TITLE = "Image Tint Tool";
   private static final String PRESET_TAG_PREFIX = "preset:";
+  private static final String ASSET_SCOPE_CHARACTER_PRESETS_ONLY = "Charpresets only";
+  private static final String ASSET_SCOPE_CHARACTER_ASSETS_ONLY = "Character assets only";
+  private static final String ASSET_SCOPE_CHARACTER_ASSETS_AND_PRESETS = "Character assets + charpresets";
+  private static final String ASSET_SCOPE_ALL_ASSETS_AND_PRESETS = "All image assets + charpresets";
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
 
@@ -89,6 +93,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Label interactionHintLabel = new Label("Drag preview to pan, scroll to zoom, double-click to reset.");
 
   private final TextField filterField = new TextField();
+  private final ComboBox<String> assetScopeBox = new ComboBox<>();
   private final ComboBox<String> characterTagBox = new ComboBox<>();
   private final ComboBox<String> backgroundTagBox = new ComboBox<>();
   private final ComboBox<String> setupBox = new ComboBox<>();
@@ -257,6 +262,20 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       refreshTagLists();
       persistGlobalState();
     });
+    assetScopeBox.getItems().setAll(
+        ASSET_SCOPE_CHARACTER_ASSETS_AND_PRESETS,
+        ASSET_SCOPE_CHARACTER_ASSETS_ONLY,
+        ASSET_SCOPE_CHARACTER_PRESETS_ONLY,
+        ASSET_SCOPE_ALL_ASSETS_AND_PRESETS);
+    assetScopeBox.getSelectionModel().select(ASSET_SCOPE_CHARACTER_ASSETS_AND_PRESETS);
+    assetScopeBox.setTooltip(new Tooltip("Choose which assets appear in the character tag loader."));
+    assetScopeBox.valueProperty().addListener((o, ov, nv) -> {
+      if (applyingState) return;
+      refreshTagLists();
+      ensureDefaultSelections();
+      redrawPreview();
+      persistGlobalState();
+    });
 
     characterTagBox.setEditable(true);
     characterTagBox.setPromptText("Character image tag");
@@ -279,6 +298,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     filterRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
+    HBox scopeRow = new HBox(4, new Label("Scope"), assetScopeBox);
+    scopeRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(assetScopeBox, Priority.ALWAYS);
+
     HBox charRow = new HBox(4, new Label("Char"), characterTagBox);
     charRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(characterTagBox, Priority.ALWAYS);
@@ -300,7 +323,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     // Tags / setup section
     TitledPane tagsPane = new TitledPane("Tags & Setup",
-        new VBox(4, filterRow, charRow, bgRow, setupLoadRow, setupSaveRow));
+        new VBox(4, filterRow, scopeRow, charRow, bgRow, setupLoadRow, setupSaveRow));
     tagsPane.setExpanded(true);
     tagsPane.setAnimated(false);
     tagsPane.setCollapsible(true);
@@ -611,7 +634,6 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   @Override
   public void refreshCatalog() {
     if (disposed) return;
-    persistGlobalState();
     loadPersistentState();
     if (scanTask != null && scanTask.isRunning()) {
       scanTask.cancel();
@@ -714,13 +736,12 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void refreshTagLists() {
     String keepChar = selectedCharacterTag();
     String keepBg = selectedBackgroundTag();
-    String filter = normalize(filterField.getText()).toLowerCase(Locale.ROOT);
-    List<String> characterTags = buildCharacterTagList();
+    String filter = normalize(filterField.getText());
+    String scope = normalize(assetScopeBox.getValue());
+    List<String> characterTags = buildCharacterTagList(scope);
     List<String> bgs = new ArrayList<>(imageByTag.keySet());
-    if (!filter.isBlank()) {
-      characterTags.removeIf(tag -> !tag.toLowerCase(Locale.ROOT).contains(filter));
-      bgs.removeIf(tag -> !tag.toLowerCase(Locale.ROOT).contains(filter));
-    }
+    characterTags.removeIf(tag -> !matchesTagSearch(tag, filter));
+    bgs.removeIf(tag -> !matchesTagSearch(tag, filter));
     characterTagBox.getItems().setAll(characterTags);
 
     bgs.sort(Comparator.comparingInt(tag -> isLikelyBackgroundTag(tag) ? 0 : 1));
@@ -740,6 +761,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     applyingState = true;
     try {
       filterField.setText(persisted.getProperty("global.filter", ""));
+      String scope = normalize(persisted.getProperty("global.assetScope", ASSET_SCOPE_CHARACTER_ASSETS_AND_PRESETS));
+      if (!assetScopeBox.getItems().contains(scope)) {
+        scope = ASSET_SCOPE_CHARACTER_ASSETS_AND_PRESETS;
+      }
+      assetScopeBox.getSelectionModel().select(scope);
       if (controlsPane != null) {
         boolean hide = parseBoolean(persisted.getProperty("global.hideControls"), false);
         controlsPane.setExpanded(!hide);
@@ -794,7 +820,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     try {
       String currentCharacter = selectedCharacterTag();
       if (currentCharacter.isBlank() || !isKnownCharacterTag(currentCharacter)) {
-        String fallbackCharacter = pickDefaultCharacterTag(buildCharacterTagList());
+        String fallbackCharacter = pickDefaultCharacterTag(buildCharacterTagList(normalize(assetScopeBox.getValue())));
         if (!fallbackCharacter.isBlank()) {
           characterTagBox.getSelectionModel().select(fallbackCharacter);
           characterTagBox.getEditor().setText(fallbackCharacter);
@@ -2000,6 +2026,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private void persistGlobalState() {
     persisted.setProperty("global.filter", normalize(filterField.getText()));
+    persisted.setProperty("global.assetScope", normalize(assetScopeBox.getValue()));
     persisted.setProperty("global.characterTag", selectedCharacterTag());
     persisted.setProperty("global.backgroundTag", selectedBackgroundTag());
     persisted.setProperty("global.exportFormat", normalize(exportFormatBox.getValue()));
@@ -2110,6 +2137,54 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         || n.contains("mainmenu");
   }
 
+  static boolean matchesTagSearch(String tag, String queryRaw) {
+    String normalizedTag = normalize(tag).toLowerCase(Locale.ROOT);
+    if (normalizedTag.isBlank()) return false;
+    String query = normalize(queryRaw).toLowerCase(Locale.ROOT);
+    if (query.isBlank()) return true;
+
+    boolean presetTag = normalizedTag.startsWith(PRESET_TAG_PREFIX);
+    boolean backgroundTag = !presetTag && isLikelyBackgroundTag(normalizedTag);
+
+    String[] terms = query.split("\\s+");
+    for (String term : terms) {
+      String t = normalize(term).toLowerCase(Locale.ROOT);
+      if (t.isBlank()) continue;
+      if (!matchesSearchTerm(normalizedTag, t, presetTag, backgroundTag)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean matchesSearchTerm(String normalizedTag, String term, boolean presetTag, boolean backgroundTag) {
+    int sep = term.indexOf(':');
+    if (sep <= 0) {
+      return normalizedTag.contains(term);
+    }
+    String key = term.substring(0, sep);
+    String value = term.substring(sep + 1);
+    boolean valueMatches = value.isBlank() || normalizedTag.contains(value);
+
+    switch (key) {
+      case "preset":
+      case "charpreset":
+        return presetTag && valueMatches;
+      case "char":
+      case "character":
+        return (presetTag || !backgroundTag) && valueMatches;
+      case "asset":
+      case "image":
+      case "file":
+        return !presetTag && valueMatches;
+      case "bg":
+      case "background":
+        return backgroundTag && valueMatches;
+      default:
+        return normalizedTag.contains(term);
+    }
+  }
+
   static String pickDefaultCharacterTag(List<String> tags) {
     if (tags == null || tags.isEmpty()) return "";
     for (String tag : tags) {
@@ -2148,9 +2223,45 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     return "..." + value.substring(value.length() - 45);
   }
 
-  private List<String> buildCharacterTagList() {
-    List<String> tags = new ArrayList<>(imageByTag.keySet());
-    tags.addAll(presetByTag.keySet());
+  private List<String> buildCharacterTagList(String scopeRaw) {
+    return filterCharacterTagsForScope(
+        new ArrayList<>(imageByTag.keySet()),
+        new ArrayList<>(presetByTag.keySet()),
+        scopeRaw);
+  }
+
+  static List<String> filterCharacterTagsForScope(List<String> imageTags, List<String> presetTags, String scopeRaw) {
+    String scope = normalize(scopeRaw);
+    List<String> tags = new ArrayList<>();
+    boolean includePresets = false;
+    boolean includeAllImages = false;
+    boolean includeCharacterImages = false;
+
+    if (ASSET_SCOPE_CHARACTER_PRESETS_ONLY.equals(scope)) {
+      includePresets = true;
+    } else if (ASSET_SCOPE_CHARACTER_ASSETS_ONLY.equals(scope)) {
+      includeCharacterImages = true;
+    } else if (ASSET_SCOPE_ALL_ASSETS_AND_PRESETS.equals(scope)) {
+      includePresets = true;
+      includeAllImages = true;
+    } else {
+      includePresets = true;
+      includeCharacterImages = true;
+    }
+
+    if (includeAllImages && imageTags != null) {
+      tags.addAll(imageTags);
+    } else if (includeCharacterImages && imageTags != null) {
+      for (String tag : imageTags) {
+        if (!isLikelyBackgroundTag(tag)) {
+          tags.add(tag);
+        }
+      }
+    }
+    if (includePresets && presetTags != null) {
+      tags.addAll(presetTags);
+    }
+
     tags.sort(String.CASE_INSENSITIVE_ORDER);
     return tags;
   }

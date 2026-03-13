@@ -81,6 +81,7 @@ import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.collections.ListChangeListener;
 import javafx.concurrent.Task;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -241,6 +242,8 @@ public class EditorApp extends Application {
   private static final String PANEL_CHOOSER_TAB_ROLE = "panel-chooser";
   private static final String PANEL_CHOOSER_REFRESH_KEY = "panel-chooser-refresh";
   private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
+  private static final String SIDEBAR_TAB_NORMALIZING_KEY = "jvn.sidebar.normalizing";
+  private static final String SIDEBAR_LAST_REGULAR_TAB_KEY = "jvn.sidebar.lastRegularTab";
   private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
       new EnumMap<>(EditorSidebarPanel.class);
   private Stage editorSettingsWindow;
@@ -3002,6 +3005,7 @@ public class EditorApp extends Application {
 
   private void installAddTabBehavior(TabPane pane, Tab addTab, Runnable onAddRequested) {
     if (pane == null || addTab == null || onAddRequested == null) return;
+    normalizeSidebarTabs(pane, addTab);
     pane.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
       if (!isAddTabHeaderClick(e.getTarget(), addTab)) return;
@@ -3009,15 +3013,29 @@ public class EditorApp extends Application {
       triggerAddTabChooser(pane, addTab, selected, onAddRequested);
       e.consume();
     });
+    pane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
+      if (newTab == addTab) {
+        triggerAddTabChooser(pane, addTab, oldTab, onAddRequested);
+        return;
+      }
+      if (newTab != null) {
+        pane.getProperties().put(SIDEBAR_LAST_REGULAR_TAB_KEY, newTab);
+      }
+      refreshOpenPanelChooserIndicators();
+    });
+    pane.getTabs().addListener((ListChangeListener<Tab>) change -> {
+      normalizeSidebarTabs(pane, addTab);
+      refreshOpenPanelChooserIndicators();
+      updateSidebarDividerHoverHints();
+    });
   }
 
   private void triggerAddTabChooser(TabPane pane, Tab addTab, Tab oldTab, Runnable onAddRequested) {
     if (pane == null || addTab == null || onAddRequested == null) return;
     Platform.runLater(() -> {
-      Tab fallback = (oldTab != null && oldTab != addTab && pane.getTabs().contains(oldTab))
-          ? oldTab
-          : firstRegularTab(pane, addTab);
+      Tab fallback = resolveSidebarFallbackTab(pane, addTab, oldTab);
       if (fallback != null && pane.getTabs().contains(fallback)) {
+        pane.getProperties().put(SIDEBAR_LAST_REGULAR_TAB_KEY, fallback);
         pane.getSelectionModel().select(fallback);
       } else {
         pane.getSelectionModel().clearSelection();
@@ -3031,16 +3049,64 @@ public class EditorApp extends Application {
     String addLabel = addTab == null ? "+" : addTab.getText();
     javafx.scene.Node current = node;
     while (current != null) {
+      List<String> styleClasses = current.getStyleClass();
+      if (styleClasses.contains("sidebar-add-tab")) {
+        return true;
+      }
       if (current instanceof Labeled labeled
           && addLabel != null
           && addLabel.equals(labeled.getText())) {
         return true;
       }
-      List<String> styleClasses = current.getStyleClass();
       if (styleClasses.contains("tab-content-area")) return false;
       current = current.getParent();
     }
     return false;
+  }
+
+  private Tab resolveSidebarFallbackTab(TabPane pane, Tab addTab, Tab oldTab) {
+    if (pane == null) return null;
+    if (oldTab != null && oldTab != addTab && pane.getTabs().contains(oldTab)) {
+      return oldTab;
+    }
+    Object remembered = pane.getProperties().get(SIDEBAR_LAST_REGULAR_TAB_KEY);
+    if (remembered instanceof Tab rememberedTab
+        && rememberedTab != addTab
+        && pane.getTabs().contains(rememberedTab)) {
+      return rememberedTab;
+    }
+    return firstRegularTab(pane, addTab);
+  }
+
+  private void normalizeSidebarTabs(TabPane pane, Tab addTab) {
+    if (pane == null || addTab == null) return;
+    if (Boolean.TRUE.equals(pane.getProperties().get(SIDEBAR_TAB_NORMALIZING_KEY))) {
+      return;
+    }
+    pane.getProperties().put(SIDEBAR_TAB_NORMALIZING_KEY, Boolean.TRUE);
+    try {
+      if (!pane.getTabs().contains(addTab)) {
+        pane.getTabs().add(addTab);
+      }
+      Tab chooser = null;
+      for (Tab tab : new ArrayList<>(pane.getTabs())) {
+        if (!PANEL_CHOOSER_TAB_ROLE.equals(tab.getProperties().get(PANEL_CHOOSER_TAB_ROLE))) {
+          continue;
+        }
+        if (chooser == null) {
+          chooser = tab;
+          continue;
+        }
+        pane.getTabs().remove(tab);
+      }
+      int addIndex = pane.getTabs().indexOf(addTab);
+      if (addIndex >= 0 && addIndex != pane.getTabs().size() - 1) {
+        pane.getTabs().remove(addTab);
+        pane.getTabs().add(addTab);
+      }
+    } finally {
+      pane.getProperties().remove(SIDEBAR_TAB_NORMALIZING_KEY);
+    }
   }
 
   private Tab firstRegularTab(TabPane pane, Tab addTab) {
@@ -4167,6 +4233,7 @@ public class EditorApp extends Application {
     chooser.getStyleClass().add("panel-chooser-tab");
     chooser.getProperties().put(PANEL_CHOOSER_TAB_ROLE, PANEL_CHOOSER_TAB_ROLE);
     chooser.getProperties().put("chooserSide", leftSide ? "left" : "right");
+    chooser.setOnClosed(e -> refreshOpenPanelChooserIndicators());
     int addIdx = pane.getTabs().indexOf(addTab);
     if (addIdx < 0) addIdx = pane.getTabs().size();
     pane.getTabs().add(addIdx, chooser);

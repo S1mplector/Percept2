@@ -34,16 +34,28 @@ class LayeredImageVisualizerViewTest {
   @Test
   void deriveSetIdUsesStableAssetBuckets() {
     assertEquals("assets/characters/nora", LayeredImageVisualizerView.deriveSetIdFromRelative("assets/characters/nora/body/base.png"));
+    assertEquals("assets/demo/characters/lavender", LayeredImageVisualizerView.deriveSetIdFromRelative("assets/demo/characters/lavender/eyes/neutral.png"));
+    assertEquals("game/images/characters/john_doe", LayeredImageVisualizerView.deriveSetIdFromRelative("game/images/characters/john_doe/head/eyes/eyes_01.png"));
     assertEquals("assets/ui", LayeredImageVisualizerView.deriveSetIdFromRelative("assets/ui/icons/play.png"));
     assertEquals("demo-assets/demo_sprite_codel", LayeredImageVisualizerView.deriveSetIdFromRelative("demo-assets/demo_sprite_codel/Codel1.png"));
     assertEquals("(root)", LayeredImageVisualizerView.deriveSetIdFromRelative("root_image.png"));
   }
 
   @Test
+  void characterPathDetectionHandlesCommonProjectLayouts() {
+    assertEquals(true, LayeredImageVisualizerView.isCharacterAssetPath("assets/characters/nora/base.png"));
+    assertEquals(true, LayeredImageVisualizerView.isCharacterAssetPath("assets/demo/characters/lavender/eyes/neutral.png"));
+    assertEquals(true, LayeredImageVisualizerView.isCharacterAssetPath("game/images/characters/john_doe/head/eyes_01.png"));
+    assertEquals(false, LayeredImageVisualizerView.isCharacterAssetPath("assets/backgrounds/school_day.png"));
+    assertEquals(false, LayeredImageVisualizerView.shouldIncludePathForScan("assets/backgrounds/school_day.png", true));
+    assertEquals(true, LayeredImageVisualizerView.shouldIncludePathForScan("assets/backgrounds/school_day.png", false));
+  }
+
+  @Test
   void chooseSetSelectionPrefersCharacterSetsByDefault() {
-    List<String> visible = List.of("assets/bg", "assets/ui", "assets/characters/nora", "assets/characters/ryan");
+    List<String> visible = List.of("assets/bg", "assets/ui", "assets/demo/characters/nora", "assets/characters/ryan");
     assertEquals(
-        "assets/characters/nora",
+        "assets/demo/characters/nora",
         LayeredImageVisualizerView.chooseSetSelection(null, "assets/ui", visible));
   }
 
@@ -105,6 +117,26 @@ class LayeredImageVisualizerViewTest {
   }
 
   @Test
+  void inferFolderBasedGroupNormalizesNestedCharacterFolders() {
+    assertEquals(
+        "arm_behind",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "assets/characters/john_doe/arm behind/holding phone/John_Doe_arm_behind_-_holding_phone_full.png"));
+    assertEquals(
+        "body_arms",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "assets/characters/john_doe/body/body arms/John_Doe_body_arm_-_grabbing_neck.png"));
+    assertEquals(
+        "eyes",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "assets/characters/lily_langley/head/normal/eyes/Lilily_Langley_normal_head_-_eyes_06.png"));
+    assertEquals(
+        "faces_heads",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "assets/characters/lily_langley/head/normal/faces (+heads)/Lilily_Langley_normal_faces_-_default.png"));
+  }
+
+  @Test
   void inferLabelFromFilenameFallsBackToTailTokenWhenGroupTokenMissing() {
     assertEquals(
         "base",
@@ -145,6 +177,15 @@ class LayeredImageVisualizerViewTest {
     assertEquals(false, LayeredImageVisualizerView.isLikelyBackgroundGroupName("eyes"));
     assertEquals(false, LayeredImageVisualizerView.isLikelyBackgroundGroupName("mouth"));
     assertEquals(false, LayeredImageVisualizerView.isLikelyBackgroundGroupName("codel"));
+  }
+
+  @Test
+  void optionalOverlayGroupDetectionTargetsArmsAndProps() {
+    assertEquals(true, LayeredImageVisualizerView.isLikelyOptionalOverlayGroup("arm behind"));
+    assertEquals(true, LayeredImageVisualizerView.isLikelyOptionalOverlayGroup("body_arms"));
+    assertEquals(true, LayeredImageVisualizerView.isLikelyOptionalOverlayGroup("additions"));
+    assertEquals(false, LayeredImageVisualizerView.isLikelyOptionalOverlayGroup("eyes"));
+    assertEquals(false, LayeredImageVisualizerView.isLikelyOptionalOverlayGroup("body"));
   }
 
   @Test

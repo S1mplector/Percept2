@@ -144,6 +144,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private final Label interactionHintLabel = new Label("Drag preview to pan, scroll to zoom, double-click to reset view.");
 
   private final TextField filterField = new TextField();
+  private final CheckBox characterAssetsOnlyScan = new CheckBox("Characters only");
   private final ComboBox<String> setBox = new ComboBox<>();
   private final TextField characterIdField = new TextField();
   private final TextField expressionField = new TextField();
@@ -245,6 +246,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     filterField.focusedProperty().addListener((o, ov, nv) -> {
       if (!nv) persistGlobalState();
     });
+    characterAssetsOnlyScan.setSelected(true);
+    characterAssetsOnlyScan.setTooltip(new Tooltip("Scan character asset folders by default; disable to include all images."));
+    characterAssetsOnlyScan.selectedProperty().addListener((o, ov, nv) -> {
+      if (applyingState) return;
+      persistGlobalState();
+      refreshCatalog();
+    });
 
     setBox.setPromptText("Select layered set");
     setBox.setConverter(new StringConverter<>() {
@@ -260,7 +268,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     setRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(setBox, Priority.ALWAYS);
 
-    HBox filterRow = new HBox(4, new Label("Filter"), filterField);
+    HBox filterRow = new HBox(4, new Label("Filter"), filterField, characterAssetsOnlyScan);
     filterRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
@@ -615,7 +623,6 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   public void refreshCatalog() {
     if (disposed) return;
     persistCurrentSetState();
-    persistGlobalState();
 
     loadPersistentState();
     reloadGameFramingSettings();
@@ -623,7 +630,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     applyingState = true;
     filterField.setText(persisted.getProperty("global.filter", ""));
+    characterAssetsOnlyScan.setSelected(parseBoolean(persisted.getProperty("global.charactersOnly"), true));
     applyingState = false;
+    final boolean charactersOnlyMode = characterAssetsOnlyScan.isSelected();
 
     if (scanTask != null && scanTask.isRunning()) {
       scanTask.cancel();
@@ -650,7 +659,11 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           files = stream
               .filter(Files::isRegularFile)
               .filter(LayeredImageVisualizerView.this::isImageFile)
-              .filter(path -> !isIgnoredPath(root.relativize(path).toString().replace('\\', '/')))
+              .filter(path -> {
+                String relative = root.relativize(path).toString().replace('\\', '/');
+                if (isIgnoredPath(relative)) return false;
+                return shouldIncludePathForScan(relative, charactersOnlyMode);
+              })
               .sorted()
               .toList();
         }
@@ -658,7 +671,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         int imageCount = 0;
         int index = 0;
         for (Path p : files) {
-          if (isCancelled()) return LayeredCatalogScanResult.cancelledResult();
+          if (isCancelled()) return LayeredCatalogScanResult.cancelledResult(charactersOnlyMode);
           String relative = root.relativize(p).toString().replace('\\', '/');
           LayerOption option = parseOption(relative, p.toFile());
           if (option != null) {
@@ -671,7 +684,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
             updateProgress(index, Math.max(total, 1));
           }
         }
-        return new LayeredCatalogScanResult(scannedSets, imageCount, false);
+        return new LayeredCatalogScanResult(scannedSets, imageCount, false, charactersOnlyMode);
       }
     };
     scanTask = task;
@@ -688,9 +701,15 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       }
       sets.clear();
       sets.putAll(result.sets());
-      summaryLabel.setText("Layer sets: " + sets.size() + "  |  Images: " + result.imageCount());
+      if (result.charactersOnly() && result.imageCount() == 0) {
+        summaryLabel.setText("No character assets found. Disable Characters only to scan all assets.");
+      } else {
+        summaryLabel.setText(
+            "Layer sets: " + sets.size() + "  |  Images: " + result.imageCount()
+                + (result.charactersOnly() ? "  |  Mode: Characters only" : "  |  Mode: All assets"));
+      }
       refreshSetOptions();
-      status("Scan complete.");
+      status(result.charactersOnly() ? "Scan complete (characters only)." : "Scan complete.");
     });
 
     task.setOnCancelled(e -> {
@@ -797,7 +816,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
       combo.getItems().add(LayerOption.none());
       combo.getItems().addAll(options);
-      selectPreferredLayerOption(combo);
+      selectPreferredLayerOption(groupName, combo);
       combo.setMaxWidth(Double.MAX_VALUE);
 
       CheckBox activeCheck = new CheckBox();
@@ -1123,8 +1142,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private void applyDefaultSelection() {
     applyingState = true;
-    for (ComboBox<LayerOption> combo : selectors.values()) {
-      selectPreferredLayerOption(combo);
+    for (Map.Entry<String, ComboBox<LayerOption>> entry : selectors.entrySet()) {
+      selectPreferredLayerOption(entry.getKey(), entry.getValue());
     }
     applyingState = false;
     updateExpressionFromSelection();
@@ -1949,7 +1968,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     return out;
   }
 
-  private void selectPreferredLayerOption(ComboBox<LayerOption> combo) {
+  private void selectPreferredLayerOption(String groupName, ComboBox<LayerOption> combo) {
     if (combo == null || combo.getItems().isEmpty()) return;
     if (combo.getItems().size() == 1) {
       combo.getSelectionModel().select(0);
@@ -1965,6 +1984,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         preferredIdx = i;
       }
     }
+    if (preferredScore >= 10 && isLikelyOptionalOverlayGroup(groupName)) {
+      combo.getSelectionModel().select(0);
+      return;
+    }
     combo.getSelectionModel().select(preferredIdx);
   }
 
@@ -1977,6 +2000,24 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     if (key.contains("default")) return 4;
     if (key.contains("base")) return 5;
     return 10;
+  }
+
+  static boolean isLikelyOptionalOverlayGroup(String groupName) {
+    String g = sanitizeId(groupName);
+    if (g.isBlank()) return false;
+    return g.contains("arm")
+        || g.contains("hand")
+        || g.contains("gesture")
+        || g.contains("phone")
+        || g.contains("additions")
+        || g.contains("addition")
+        || g.contains("accessory")
+        || g.contains("prop")
+        || g.contains("item")
+        || g.contains("glasses")
+        || g.contains("cig")
+        || g.contains("sweat")
+        || g.contains("tail_front");
   }
 
   static boolean isLikelyBackgroundGroupName(String groupName) {
@@ -2176,6 +2217,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private void persistGlobalState() {
     if (projectRoot == null) return;
     persisted.setProperty("global.filter", filterField.getText() == null ? "" : filterField.getText().trim());
+    persisted.setProperty("global.charactersOnly", Boolean.toString(characterAssetsOnlyScan.isSelected()));
     String selectedSet = setBox.getValue();
     if (selectedSet != null && !selectedSet.isBlank()) {
       persisted.setProperty("global.selectedSet", selectedSet);
@@ -2478,6 +2520,21 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         || path.startsWith(".jvn/");
   }
 
+  static boolean shouldIncludePathForScan(String relative, boolean charactersOnlyMode) {
+    if (!charactersOnlyMode) return true;
+    return isCharacterAssetPath(relative);
+  }
+
+  static boolean isCharacterAssetPath(String relative) {
+    if (relative == null || relative.isBlank()) return false;
+    String normalized = relative.replace('\\', '/').toLowerCase(Locale.ROOT);
+    while (normalized.startsWith("/")) {
+      normalized = normalized.substring(1);
+    }
+    return normalized.startsWith("characters/")
+        || normalized.contains("/characters/");
+  }
+
   private LayerOption parseOption(String relative, File file) {
     if (relative == null || file == null) return null;
     String normalizedRelative = relative.replace('\\', '/');
@@ -2522,6 +2579,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     if (parent.isBlank()) return "(root)";
 
     String[] parts = parent.split("/");
+    int characterIndex = findPathSegmentIndex(parts, "characters");
+    if (characterIndex >= 0 && characterIndex + 1 < parts.length) {
+      return String.join("/", java.util.Arrays.copyOfRange(parts, 0, characterIndex + 2));
+    }
     if (parts.length >= 3 && "assets".equals(parts[0]) && "characters".equals(parts[1])) {
       return "assets/characters/" + parts[2];
     }
@@ -2566,7 +2627,18 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   }
 
   static boolean isCharacterSetId(String setId) {
-    return setId != null && setId.startsWith("assets/characters/");
+    if (setId == null || setId.isBlank()) return false;
+    String normalized = setId.replace('\\', '/').toLowerCase(Locale.ROOT);
+    return normalized.startsWith("characters/")
+        || normalized.contains("/characters/");
+  }
+
+  private static int findPathSegmentIndex(String[] parts, String segment) {
+    if (parts == null || segment == null || segment.isBlank()) return -1;
+    for (int i = 0; i < parts.length; i++) {
+      if (segment.equalsIgnoreCase(parts[i])) return i;
+    }
+    return -1;
   }
 
   private static String findFirstCharacterSet(List<String> visibleSetIds) {
@@ -2608,7 +2680,39 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     if (!parent.startsWith(prefix)) return "";
     String remainder = parent.substring(prefix.length());
     if (remainder.isBlank()) return "";
-    return sanitizeId(takeLastPathToken(remainder));
+    String[] rawSegments = remainder.split("/");
+    List<String> segments = new ArrayList<>();
+    for (String segment : rawSegments) {
+      String normalizedSegment = sanitizeId(segment);
+      if (!normalizedSegment.isBlank()) segments.add(normalizedSegment);
+    }
+    if (segments.isEmpty()) return "";
+    if (segments.size() == 1) return segments.get(0);
+
+    String first = segments.get(0);
+    String second = segments.get(1);
+
+    // Keep nested arm variants in one group to avoid accidental stacked overlays.
+    if (first.startsWith("arm")) {
+      return first;
+    }
+
+    // Body folders often nest tail/body-arms under body.
+    if ("body".equals(first)) {
+      if (second.startsWith("tail")) return second;
+      if (second.contains("arm")) return "body_arms";
+      return first;
+    }
+
+    // Head folders can include style buckets (normal/tilted) before actual groups.
+    if ("head".equals(first)) {
+      if (("normal".equals(second) || "tilted".equals(second)) && segments.size() >= 3) {
+        return segments.get(2);
+      }
+      return second;
+    }
+
+    return first;
   }
 
   static String inferLabelFromFilenameForGroup(String baseName, String group) {
@@ -2803,10 +2907,11 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private record LayeredCatalogScanResult(
       Map<String, LayeredSet> sets,
       int imageCount,
-      boolean cancelled
+      boolean cancelled,
+      boolean charactersOnly
   ) {
-    static LayeredCatalogScanResult cancelledResult() {
-      return new LayeredCatalogScanResult(Map.of(), 0, true);
+    static LayeredCatalogScanResult cancelledResult(boolean charactersOnly) {
+      return new LayeredCatalogScanResult(Map.of(), 0, true, charactersOnly);
     }
   }
 
