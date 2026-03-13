@@ -10,6 +10,7 @@ public final class EditorPreferences {
 
   private int codeEditorFontSize;
   private boolean showWelcomeOnStartup;
+  private boolean loadSidebarExtensionsOnDemand;
   private final EnumMap<EditorSidebarPanel, EditorPanelPlacement> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
   private final EnumMap<EditorSidebarPanel, Boolean> chooserVisibility =
@@ -19,6 +20,7 @@ public final class EditorPreferences {
     this(
         DEFAULT_CODE_EDITOR_FONT_SIZE,
         true,
+        true,
         EditorSidebarPanel.defaultPlacements(),
         EditorSidebarPanel.defaultChooserVisibility());
   }
@@ -26,11 +28,13 @@ public final class EditorPreferences {
   public EditorPreferences(
       int codeEditorFontSize,
       boolean showWelcomeOnStartup,
+      boolean loadSidebarExtensionsOnDemand,
       Map<EditorSidebarPanel, EditorPanelPlacement> placements,
       Map<EditorSidebarPanel, Boolean> chooserVisibility) {
     this.codeEditorFontSize =
         clampCodeEditorFontSize(codeEditorFontSize);
     this.showWelcomeOnStartup = showWelcomeOnStartup;
+    this.loadSidebarExtensionsOnDemand = loadSidebarExtensionsOnDemand;
     panelPlacements.putAll(EditorSidebarPanel.defaultPlacements());
     this.chooserVisibility.putAll(EditorSidebarPanel.defaultChooserVisibility());
     if (placements != null) {
@@ -67,6 +71,14 @@ public final class EditorPreferences {
     this.showWelcomeOnStartup = showWelcomeOnStartup;
   }
 
+  public boolean isLoadSidebarExtensionsOnDemand() {
+    return loadSidebarExtensionsOnDemand;
+  }
+
+  public void setLoadSidebarExtensionsOnDemand(boolean loadSidebarExtensionsOnDemand) {
+    this.loadSidebarExtensionsOnDemand = loadSidebarExtensionsOnDemand;
+  }
+
   public EditorPanelPlacement getPlacement(EditorSidebarPanel panel) {
     if (panel == null) return EditorPanelPlacement.HIDDEN;
     return panelPlacements.getOrDefault(panel, panel.defaultPlacement());
@@ -99,6 +111,7 @@ public final class EditorPreferences {
     return new EditorPreferences(
         codeEditorFontSize,
         showWelcomeOnStartup,
+        loadSidebarExtensionsOnDemand,
         panelPlacements,
         chooserVisibility);
   }

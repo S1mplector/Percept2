@@ -26,6 +26,8 @@ public class EditorSettingsView extends BorderPane {
   private final Spinner<Integer> codeEditorFontSizeSpinner = new Spinner<>();
   private final CheckBox showWelcomeOnStartupCheck =
       new CheckBox("Show Welcome tab on startup");
+  private final CheckBox loadSidebarExtensionsOnDemandCheck =
+      new CheckBox("Load sidebar extensions only when opened (lower memory usage)");
   private final Map<EditorSidebarPanel, ComboBox<EditorPanelPlacement>> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
   private final Map<EditorSidebarPanel, CheckBox> chooserVisibilityChecks =
@@ -87,8 +89,10 @@ public class EditorSettingsView extends BorderPane {
     codeEditorFontSizeSpinner.setEditable(true);
     codeEditorFontSizeSpinner.getStyleClass().add("editor-settings-spinner");
     showWelcomeOnStartupCheck.getStyleClass().add("editor-settings-check");
+    loadSidebarExtensionsOnDemandCheck.getStyleClass().add("editor-settings-check");
     generalGrid.addRow(0, fieldLabel("Code Editor Text Size"), codeEditorFontSizeSpinner);
     generalGrid.add(showWelcomeOnStartupCheck, 1, 1);
+    generalGrid.add(loadSidebarExtensionsOnDemandCheck, 1, 2);
     generalSection.getChildren().add(generalGrid);
 
     VBox sidebarSection = new VBox(10);
@@ -169,6 +173,7 @@ public class EditorSettingsView extends BorderPane {
     EditorPreferences model = preferences == null ? EditorPreferences.defaults() : preferences.copy();
     codeEditorFontSizeSpinner.getValueFactory().setValue(model.getCodeEditorFontSize());
     showWelcomeOnStartupCheck.setSelected(model.isShowWelcomeOnStartup());
+    loadSidebarExtensionsOnDemandCheck.setSelected(model.isLoadSidebarExtensionsOnDemand());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
       if (combo != null) combo.setValue(model.getPlacement(panel));
@@ -196,6 +201,7 @@ public class EditorSettingsView extends BorderPane {
             ? EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE
             : fontSize.intValue());
     preferences.setShowWelcomeOnStartup(showWelcomeOnStartupCheck.isSelected());
+    preferences.setLoadSidebarExtensionsOnDemand(loadSidebarExtensionsOnDemandCheck.isSelected());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
       preferences.setPlacement(

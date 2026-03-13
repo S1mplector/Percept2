@@ -10,6 +10,7 @@ import java.util.Properties;
 public final class EditorPreferencesStore {
   static final String KEY_CODE_EDITOR_FONT_SIZE = "codeEditorFontSize";
   static final String KEY_SHOW_WELCOME_ON_STARTUP = "showWelcomeOnStartup";
+  static final String KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND = "loadSidebarExtensionsOnDemand";
   static final String KEY_PANEL_PREFIX = "panel.";
   static final String KEY_PANEL_SUFFIX = ".placement";
   static final String KEY_CHOOSER_SUFFIX = ".chooserVisible";
@@ -65,6 +66,9 @@ public final class EditorPreferencesStore {
     props.setProperty(
         KEY_SHOW_WELCOME_ON_STARTUP,
         Boolean.toString(preferences.isShowWelcomeOnStartup()));
+    props.setProperty(
+        KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND,
+        Boolean.toString(preferences.isLoadSidebarExtensionsOnDemand()));
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       props.setProperty(
           KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX,
@@ -84,6 +88,8 @@ public final class EditorPreferencesStore {
         EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE));
     preferences.setShowWelcomeOnStartup(Boolean.parseBoolean(
         props.getProperty(KEY_SHOW_WELCOME_ON_STARTUP, "true")));
+    preferences.setLoadSidebarExtensionsOnDemand(parseBoolean(
+        props.getProperty(KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND), true));
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       String key = KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX;
       EditorPanelPlacement placement = parsePlacement(props.getProperty(key), panel.defaultPlacement());

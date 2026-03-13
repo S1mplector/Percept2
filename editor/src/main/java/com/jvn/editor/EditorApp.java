@@ -16,6 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -1366,8 +1367,6 @@ public class EditorApp extends Application {
     row.getChildren().addAll(btnOpen, btnSave, btnUndo, btnRedo, btnApply, btnFullscreen, spacer);
     VBox toolRows = new VBox(6, row);
     HBox.setHgrow(toolRows, Priority.ALWAYS);
-    editorSettingsView = new EditorSettingsView(editorPreferencesStore);
-    editorSettingsView.setOnPreferencesApplied(this::applyEditorPreferences);
     Label wordmark = new Label("JVN");
     wordmark.getStyleClass().add("jvn-wordmark");
     Label verLabel = new Label("v" + editorVersion);
@@ -1425,118 +1424,16 @@ public class EditorApp extends Application {
     inspectorView.setPrefWidth(320);
     inspectorScroll = new ScrollPane(inspectorView);
     inspectorScroll.setFitToWidth(true);
-    vnsDiagnosticsView = new VnsDiagnosticsView();
-    vnsDiagnosticsView.setOnOpenTarget(this::jumpToActiveVnsDiagnostic);
-    vnsFlowMapView = new VnsFlowMapView();
-    vnsFlowMapView.setOnOpenLine(this::jumpToActiveVnsLine);
-    puppeteerLauncherPanel = new PuppeteerLauncherPanel();
-    puppeteerLauncherPanel.setProjectRoot(projectRoot);
-    puppeteerLauncherPanel.setOnLaunch(snapshot -> launchPuppeteerFromSnapshot(snapshot));
-    assetBrowserView = new AssetBrowserView();
-    assetBrowserView.setProjectRoot(projectRoot);
-    assetBrowserView.setOnOpenAsset(asset -> {
-      if (asset == null) return;
-      if (isEditableFile(asset)) {
-        openFile(asset);
-      } else {
-        try { java.awt.Desktop.getDesktop().open(asset); } catch (Exception ignored) {}
-      }
-    });
-    versionControlView = new VersionControlView();
-    versionControlView.setProjectRoot(projectRoot);
-    versionControlView.setOnOpenRelativePath(relativePath -> {
-      if (projectRoot == null || relativePath == null || relativePath.isBlank()) return;
-      File target = new File(projectRoot, relativePath);
-      if (!target.exists()) return;
-      if (isEditableFile(target)) openFile(target);
-    });
-    layoutEditorLauncherView = new LayoutEditorLauncherView();
-    layoutEditorLauncherView.setProjectRoot(projectRoot);
-    layoutEditorLauncherView.setOnOpenFile(target -> {
-      if (target == null) return;
-      if (isEditableFile(target)) {
-        openFile(target);
-      } else {
-        try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
-      }
-    });
-    phoneAssetsToolView = new PhoneAssetsToolView();
-    phoneAssetsToolView.setProjectRoot(projectRoot);
-    phoneAssetsToolView.setOnOpenFile(target -> {
-      if (target == null) return;
-      if (isEditableFile(target)) {
-        openFile(target);
-      } else {
-        try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
-      }
-    });
-    layeredImageVisualizerView = new LayeredImageVisualizerView();
-    layeredImageVisualizerView.setProjectRoot(projectRoot);
-    layeredImageVisualizerView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(layeredImageVisualizerView));
-    layeredImageVisualizerView.setFullscreenActive(false);
-    imageAttributesToolView = new ImageAttributesToolView();
-    imageAttributesToolView.setProjectRoot(projectRoot);
-    imageAttributesToolView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(imageAttributesToolView));
-    imageAttributesToolView.setFullscreenActive(false);
-    imageTintToolView = new ImageTintToolView();
-    imageTintToolView.setProjectRoot(projectRoot);
-    imageTintToolView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(imageTintToolView));
-    imageTintToolView.setFullscreenActive(false);
-    menuFlowEditorView = new MenuFlowEditorView();
-    menuFlowEditorView.setProjectRoot(projectRoot);
-    menuFlowEditorView.setOnOpenFile(target -> {
-      if (target == null) return;
-      if (isEditableFile(target)) {
-        openFile(target);
-      } else {
-        try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
-      }
-    });
-    scriptEditorLauncherView = new ScriptEditorLauncherView();
-    scriptEditorLauncherView.setProjectRoot(projectRoot);
-    scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
-    scriptEditorLauncherView.setCodeEditorFontSize(editorPreferences.getCodeEditorFontSize());
-    scriptEditorLauncherView.setOnStatus(message -> status.setText(message));
-    scriptEditorLauncherView.setOnOpenFile(this::openFile);
-    scriptEditorLauncherView.setOnOpenFileAtLine((file, line) -> {
-      openFile(file);
-      // After opening, find the tab and navigate to the line
-      javafx.application.Platform.runLater(() -> {
-        for (Tab t : filesTabs.getTabs()) {
-          if (t.getUserData() instanceof File ff && ff.equals(file) && t.getContent() instanceof FileEditorTab ft) {
-            ft.navigateToLine(line);
-            break;
-          }
-        }
-      });
-    });
     audioFxController = new AudioFxController();
-    audioSynthControlsView = new AudioSynthControlsView();
-    audioSynthControlsView.setController(audioFxController);
-    audioSynthControlsView.setOnInsertSnippet(snippet -> {
-      FileEditorTab ft = getActiveFileTab();
-      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
-        ft.insertVnsSnippet(snippet);
-      }
-    });
     rightTabs = new TabPane();
     rightTabs.getStyleClass().add("sidebar-tab-pane");
     rightTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
     rightTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
-    helpCenterView = new HelpCenterView();
-    helpCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
-    helpCenterView.setProjectRoot(projectRoot);
-    helpCenterView.setOnOpenDoc(this::openFile);
     tabRightAdd = new Tab("+", new Region()); tabRightAdd.setClosable(false);
     tabRightAdd.getStyleClass().add("sidebar-add-tab");
     rightTabs.getTabs().addAll(tabRightAdd);
     installAddTabBehavior(rightTabs, tabRightAdd, this::showRightAddMenu);
     rightTabs.setPrefWidth(360);
-    timelineView = new StoryTimelineView();
-    timelineView.setMinWidth(240);
-    timelineView.setPrefWidth(320);
-    timelineView.setOnRunArc(this::openTimelineArc);
-    timelineView.setOnRunLink(this::openTimelineLinkTarget);
     projView = new ProjectExplorerView();
     if (projectRoot != null) {
       projView.setRootDirectory(projectRoot);
@@ -2264,11 +2161,23 @@ public class EditorApp extends Application {
 
   private void applyDefaultSidebarPreferences() {
     if (leftTabs == null || rightTabs == null) return;
+    EnumSet<EditorSidebarPanel> attachedBeforeRefresh = EnumSet.noneOf(EditorSidebarPanel.class);
+    for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
+      if (isPanelAttached(panel)) {
+        attachedBeforeRefresh.add(panel);
+      }
+    }
+    boolean loadOnDemand = editorPreferences != null && editorPreferences.isLoadSidebarExtensionsOnDemand();
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       detachConfiguredPanel(panel);
     }
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       EditorPanelPlacement placement = editorPreferences.getPlacement(panel);
+      if (loadOnDemand
+          && panel != EditorSidebarPanel.PROJECT
+          && !attachedBeforeRefresh.contains(panel)) {
+        continue;
+      }
       if (placement == EditorPanelPlacement.LEFT) {
         ensureSidebarPanel(panel, leftTabs);
       } else if (placement == EditorPanelPlacement.RIGHT) {
@@ -2349,6 +2258,197 @@ public class EditorApp extends Application {
       case AUDIO_SYNTH -> ensureAudioSynthControlsTab(targetPane);
       case SCRIPT_EDITOR -> ensureScriptEditorLauncherTab(targetPane);
     };
+  }
+
+  private void openEditableOrExternal(File target) {
+    if (target == null) return;
+    if (isEditableFile(target)) {
+      openFile(target);
+      return;
+    }
+    try {
+      java.awt.Desktop.getDesktop().open(target);
+    } catch (Exception ignored) {
+    }
+  }
+
+  private EditorSettingsView ensureEditorSettingsView() {
+    if (editorSettingsView != null) return editorSettingsView;
+    editorSettingsView = new EditorSettingsView(editorPreferencesStore);
+    editorSettingsView.setOnPreferencesApplied(this::applyEditorPreferences);
+    editorSettingsView.loadIntoForm(editorPreferences);
+    return editorSettingsView;
+  }
+
+  private VnsDiagnosticsView ensureVnsDiagnosticsView() {
+    if (vnsDiagnosticsView != null) return vnsDiagnosticsView;
+    vnsDiagnosticsView = new VnsDiagnosticsView();
+    vnsDiagnosticsView.setOnOpenTarget(this::jumpToActiveVnsDiagnostic);
+    FileEditorTab ft = getActiveFileTab();
+    refreshVnsToolPanels(ft, ft != null ? ft.getCurrentTextSnapshot() : null);
+    return vnsDiagnosticsView;
+  }
+
+  private VnsFlowMapView ensureVnsFlowMapView() {
+    if (vnsFlowMapView != null) return vnsFlowMapView;
+    vnsFlowMapView = new VnsFlowMapView();
+    vnsFlowMapView.setOnOpenLine(this::jumpToActiveVnsLine);
+    FileEditorTab ft = getActiveFileTab();
+    refreshVnsToolPanels(ft, ft != null ? ft.getCurrentTextSnapshot() : null);
+    return vnsFlowMapView;
+  }
+
+  private PuppeteerLauncherPanel ensurePuppeteerLauncherPanel() {
+    if (puppeteerLauncherPanel != null) return puppeteerLauncherPanel;
+    puppeteerLauncherPanel = new PuppeteerLauncherPanel();
+    puppeteerLauncherPanel.setProjectRoot(projectRoot);
+    puppeteerLauncherPanel.setOnLaunch(snapshot -> launchPuppeteerFromSnapshot(snapshot));
+    FileEditorTab ft = getActiveFileTab();
+    if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+      puppeteerLauncherPanel.setActiveScriptFile(ft.getFile());
+      puppeteerLauncherPanel.setSource(ft.getCurrentTextSnapshot());
+      puppeteerLauncherPanel.setCaretLine(ft.getVnsCaretLine());
+    }
+    return puppeteerLauncherPanel;
+  }
+
+  private AssetBrowserView ensureAssetBrowserView() {
+    if (assetBrowserView != null) return assetBrowserView;
+    assetBrowserView = new AssetBrowserView();
+    assetBrowserView.setProjectRoot(projectRoot);
+    assetBrowserView.setOnOpenAsset(this::openEditableOrExternal);
+    return assetBrowserView;
+  }
+
+  private VersionControlView ensureVersionControlView() {
+    if (versionControlView != null) return versionControlView;
+    versionControlView = new VersionControlView();
+    versionControlView.setProjectRoot(projectRoot);
+    versionControlView.setOnOpenRelativePath(relativePath -> {
+      if (projectRoot == null || relativePath == null || relativePath.isBlank()) return;
+      File target = new File(projectRoot, relativePath);
+      if (!target.exists()) return;
+      if (isEditableFile(target)) openFile(target);
+    });
+    return versionControlView;
+  }
+
+  private LayoutEditorLauncherView ensureLayoutEditorLauncherView() {
+    if (layoutEditorLauncherView != null) return layoutEditorLauncherView;
+    layoutEditorLauncherView = new LayoutEditorLauncherView();
+    layoutEditorLauncherView.setProjectRoot(projectRoot);
+    layoutEditorLauncherView.setOnOpenFile(this::openEditableOrExternal);
+    return layoutEditorLauncherView;
+  }
+
+  private PhoneAssetsToolView ensurePhoneAssetsToolView() {
+    if (phoneAssetsToolView != null) return phoneAssetsToolView;
+    phoneAssetsToolView = new PhoneAssetsToolView();
+    phoneAssetsToolView.setProjectRoot(projectRoot);
+    phoneAssetsToolView.setOnOpenFile(this::openEditableOrExternal);
+    return phoneAssetsToolView;
+  }
+
+  private LayeredImageVisualizerView ensureLayeredImageVisualizerView() {
+    if (layeredImageVisualizerView != null) return layeredImageVisualizerView;
+    layeredImageVisualizerView = new LayeredImageVisualizerView();
+    layeredImageVisualizerView.setProjectRoot(projectRoot);
+    layeredImageVisualizerView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(layeredImageVisualizerView));
+    layeredImageVisualizerView.setFullscreenActive(false);
+    return layeredImageVisualizerView;
+  }
+
+  private ImageAttributesToolView ensureImageAttributesToolView() {
+    if (imageAttributesToolView != null) return imageAttributesToolView;
+    imageAttributesToolView = new ImageAttributesToolView();
+    imageAttributesToolView.setProjectRoot(projectRoot);
+    imageAttributesToolView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(imageAttributesToolView));
+    imageAttributesToolView.setFullscreenActive(false);
+    return imageAttributesToolView;
+  }
+
+  private ImageTintToolView ensureImageTintToolView() {
+    if (imageTintToolView != null) return imageTintToolView;
+    imageTintToolView = new ImageTintToolView();
+    imageTintToolView.setProjectRoot(projectRoot);
+    imageTintToolView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(imageTintToolView));
+    imageTintToolView.setFullscreenActive(false);
+    return imageTintToolView;
+  }
+
+  private MenuFlowEditorView ensureMenuFlowEditorView() {
+    if (menuFlowEditorView != null) return menuFlowEditorView;
+    menuFlowEditorView = new MenuFlowEditorView();
+    menuFlowEditorView.setProjectRoot(projectRoot);
+    menuFlowEditorView.setOnOpenFile(this::openEditableOrExternal);
+    return menuFlowEditorView;
+  }
+
+  private ScriptEditorLauncherView ensureScriptEditorLauncherView() {
+    if (scriptEditorLauncherView != null) return scriptEditorLauncherView;
+    scriptEditorLauncherView = new ScriptEditorLauncherView();
+    scriptEditorLauncherView.setProjectRoot(projectRoot);
+    scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
+    scriptEditorLauncherView.setCodeEditorFontSize(editorPreferences.getCodeEditorFontSize());
+    scriptEditorLauncherView.setOnStatus(message -> {
+      if (status != null) status.setText(message);
+    });
+    scriptEditorLauncherView.setOnOpenFile(this::openFile);
+    scriptEditorLauncherView.setOnOpenFileAtLine((file, line) -> {
+      openFile(file);
+      javafx.application.Platform.runLater(() -> {
+        if (filesTabs == null) return;
+        for (Tab t : filesTabs.getTabs()) {
+          if (t.getUserData() instanceof File ff && ff.equals(file) && t.getContent() instanceof FileEditorTab ft) {
+            ft.navigateToLine(line);
+            break;
+          }
+        }
+      });
+    });
+    return scriptEditorLauncherView;
+  }
+
+  private AudioSynthControlsView ensureAudioSynthControlsView() {
+    if (audioSynthControlsView != null) return audioSynthControlsView;
+    if (audioFxController == null) {
+      audioFxController = new AudioFxController();
+    }
+    audioSynthControlsView = new AudioSynthControlsView();
+    audioSynthControlsView.setController(audioFxController);
+    audioSynthControlsView.setOnInsertSnippet(snippet -> {
+      FileEditorTab ft = getActiveFileTab();
+      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+        ft.insertVnsSnippet(snippet);
+      }
+    });
+    return audioSynthControlsView;
+  }
+
+  private HelpCenterView ensureHelpCenterView() {
+    if (helpCenterView != null) return helpCenterView;
+    helpCenterView = new HelpCenterView();
+    helpCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
+    helpCenterView.setProjectRoot(projectRoot);
+    helpCenterView.setOnOpenDoc(this::openFile);
+    return helpCenterView;
+  }
+
+  private StoryTimelineView ensureTimelineView() {
+    if (timelineView != null) return timelineView;
+    timelineView = new StoryTimelineView();
+    timelineView.setMinWidth(240);
+    timelineView.setPrefWidth(320);
+    timelineView.setOnRunArc(this::openTimelineArc);
+    timelineView.setOnRunLink(this::openTimelineLinkTarget);
+    if (projectRoot != null) {
+      Properties mf = loadManifest(projectRoot);
+      if (mf != null) {
+        timelineView.setTimelineFile(resolveTimelineFile(projectRoot, mf));
+      }
+      timelineView.setProjectRoot(projectRoot);
+    }
+    return timelineView;
   }
 
   private void ensureSidebarVisible(TabPane targetPane) {
@@ -2860,22 +2960,28 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureTimelineTab(TabPane targetPane) {
-    if (targetPane == null || timelineView == null) return null;
+    StoryTimelineView timeline = ensureTimelineView();
+    if (targetPane == null || timeline == null) return null;
     if (tabTimeline == null) {
-      tabTimeline = new Tab("Timeline", timelineView);
+      tabTimeline = new Tab("Timeline", timeline);
       tabTimeline.setClosable(true);
       tabTimeline.setOnClosed(e -> tabTimeline = null);
+    } else if (tabTimeline.getContent() != timeline) {
+      tabTimeline.setContent(timeline);
     }
     attachPanelTabToPane(tabTimeline, targetPane);
     return tabTimeline;
   }
 
   private Tab ensureHelpTab(TabPane targetPane) {
-    if (targetPane == null || helpCenterView == null) return null;
+    HelpCenterView help = ensureHelpCenterView();
+    if (targetPane == null || help == null) return null;
     if (tabHelp == null) {
-      tabHelp = new Tab("Help", helpCenterView);
+      tabHelp = new Tab("Help", help);
       tabHelp.setClosable(true);
       tabHelp.setOnClosed(e -> tabHelp = null);
+    } else if (tabHelp.getContent() != help) {
+      tabHelp.setContent(help);
     }
     attachPanelTabToPane(tabHelp, targetPane);
     return tabHelp;
@@ -2893,136 +2999,169 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureVnsDiagnosticsTab(TabPane targetPane) {
-    if (targetPane == null || vnsDiagnosticsView == null) return null;
+    VnsDiagnosticsView diagnostics = ensureVnsDiagnosticsView();
+    if (targetPane == null || diagnostics == null) return null;
     if (tabVnsDiagnostics == null) {
-      tabVnsDiagnostics = new Tab("VNS Diagnostics", vnsDiagnosticsView);
+      tabVnsDiagnostics = new Tab("VNS Diagnostics", diagnostics);
       tabVnsDiagnostics.setClosable(true);
       tabVnsDiagnostics.setOnClosed(e -> tabVnsDiagnostics = null);
+    } else if (tabVnsDiagnostics.getContent() != diagnostics) {
+      tabVnsDiagnostics.setContent(diagnostics);
     }
     attachPanelTabToPane(tabVnsDiagnostics, targetPane);
     return tabVnsDiagnostics;
   }
 
   private Tab ensureVnsFlowMapTab(TabPane targetPane) {
-    if (targetPane == null || vnsFlowMapView == null) return null;
+    VnsFlowMapView flowMap = ensureVnsFlowMapView();
+    if (targetPane == null || flowMap == null) return null;
     if (tabVnsFlowMap == null) {
-      tabVnsFlowMap = new Tab("Label Flow", vnsFlowMapView);
+      tabVnsFlowMap = new Tab("Label Flow", flowMap);
       tabVnsFlowMap.setClosable(true);
       tabVnsFlowMap.setOnClosed(e -> tabVnsFlowMap = null);
+    } else if (tabVnsFlowMap.getContent() != flowMap) {
+      tabVnsFlowMap.setContent(flowMap);
     }
     attachPanelTabToPane(tabVnsFlowMap, targetPane);
     return tabVnsFlowMap;
   }
 
   private Tab ensureAssetBrowserTab(TabPane targetPane) {
-    if (targetPane == null || assetBrowserView == null) return null;
+    AssetBrowserView assets = ensureAssetBrowserView();
+    if (targetPane == null || assets == null) return null;
     if (tabAssetBrowser == null) {
-      tabAssetBrowser = new Tab("Assets", assetBrowserView);
+      tabAssetBrowser = new Tab("Assets", assets);
       tabAssetBrowser.setClosable(true);
       tabAssetBrowser.setOnClosed(e -> tabAssetBrowser = null);
+    } else if (tabAssetBrowser.getContent() != assets) {
+      tabAssetBrowser.setContent(assets);
     }
     attachPanelTabToPane(tabAssetBrowser, targetPane);
     return tabAssetBrowser;
   }
 
   private Tab ensureVersionControlTab(TabPane targetPane) {
-    if (targetPane == null || versionControlView == null) return null;
+    VersionControlView vcs = ensureVersionControlView();
+    if (targetPane == null || vcs == null) return null;
     if (tabVersionControl == null) {
-      tabVersionControl = new Tab("Version Control", versionControlView);
+      tabVersionControl = new Tab("Version Control", vcs);
       tabVersionControl.setClosable(true);
       tabVersionControl.setOnClosed(e -> tabVersionControl = null);
+    } else if (tabVersionControl.getContent() != vcs) {
+      tabVersionControl.setContent(vcs);
     }
     attachPanelTabToPane(tabVersionControl, targetPane);
     return tabVersionControl;
   }
 
   private Tab ensureLayoutLauncherTab(TabPane targetPane) {
-    if (targetPane == null || layoutEditorLauncherView == null) return null;
+    LayoutEditorLauncherView launcher = ensureLayoutEditorLauncherView();
+    if (targetPane == null || launcher == null) return null;
     if (tabLayoutLauncher == null) {
-      tabLayoutLauncher = new Tab("Layout Launcher", layoutEditorLauncherView);
+      tabLayoutLauncher = new Tab("Layout Launcher", launcher);
       tabLayoutLauncher.setClosable(true);
       tabLayoutLauncher.setOnClosed(e -> tabLayoutLauncher = null);
+    } else if (tabLayoutLauncher.getContent() != launcher) {
+      tabLayoutLauncher.setContent(launcher);
     }
     attachPanelTabToPane(tabLayoutLauncher, targetPane);
     return tabLayoutLauncher;
   }
 
   private Tab ensurePhoneAssetsToolTab(TabPane targetPane) {
-    if (targetPane == null || phoneAssetsToolView == null) return null;
+    PhoneAssetsToolView phoneAssets = ensurePhoneAssetsToolView();
+    if (targetPane == null || phoneAssets == null) return null;
     if (tabPhoneAssetsTool == null) {
-      tabPhoneAssetsTool = new Tab("Phone Assets", phoneAssetsToolView);
+      tabPhoneAssetsTool = new Tab("Phone Assets", phoneAssets);
       tabPhoneAssetsTool.setClosable(true);
       tabPhoneAssetsTool.setOnClosed(e -> tabPhoneAssetsTool = null);
+    } else if (tabPhoneAssetsTool.getContent() != phoneAssets) {
+      tabPhoneAssetsTool.setContent(phoneAssets);
     }
     attachPanelTabToPane(tabPhoneAssetsTool, targetPane);
     return tabPhoneAssetsTool;
   }
 
   private Tab ensureLayeredImageVisualizerTab(TabPane targetPane) {
-    if (targetPane == null || layeredImageVisualizerView == null) return null;
+    LayeredImageVisualizerView layered = ensureLayeredImageVisualizerView();
+    if (targetPane == null || layered == null) return null;
     if (tabLayeredImageVisualizer == null) {
-      tabLayeredImageVisualizer = new Tab("Layered Images", layeredImageVisualizerView);
+      tabLayeredImageVisualizer = new Tab("Layered Images", layered);
       tabLayeredImageVisualizer.setClosable(true);
       tabLayeredImageVisualizer.setOnClosed(e -> {
-        if (layeredVisualizerFullscreen && fullscreenImageToolView == layeredImageVisualizerView) {
+        if (layeredVisualizerFullscreen && fullscreenImageToolView == layered) {
           restoreLayeredImageVisualizerLayout(false);
         }
         tabLayeredImageVisualizer = null;
       });
+    } else if (tabLayeredImageVisualizer.getContent() != layered) {
+      tabLayeredImageVisualizer.setContent(layered);
     }
     attachPanelTabToPane(tabLayeredImageVisualizer, targetPane);
     return tabLayeredImageVisualizer;
   }
 
   private Tab ensureImageAttributesToolTab(TabPane targetPane) {
-    if (targetPane == null || imageAttributesToolView == null) return null;
+    ImageAttributesToolView attributes = ensureImageAttributesToolView();
+    if (targetPane == null || attributes == null) return null;
     if (tabImageAttributesTool == null) {
-      tabImageAttributesTool = new Tab("Image Attributes", imageAttributesToolView);
+      tabImageAttributesTool = new Tab("Image Attributes", attributes);
       tabImageAttributesTool.setClosable(true);
       tabImageAttributesTool.setOnClosed(e -> {
-        if (layeredVisualizerFullscreen && fullscreenImageToolView == imageAttributesToolView) {
+        if (layeredVisualizerFullscreen && fullscreenImageToolView == attributes) {
           restoreLayeredImageVisualizerLayout(false);
         }
         tabImageAttributesTool = null;
       });
+    } else if (tabImageAttributesTool.getContent() != attributes) {
+      tabImageAttributesTool.setContent(attributes);
     }
     attachPanelTabToPane(tabImageAttributesTool, targetPane);
     return tabImageAttributesTool;
   }
 
   private Tab ensureImageTintToolTab(TabPane targetPane) {
-    if (targetPane == null || imageTintToolView == null) return null;
+    ImageTintToolView tint = ensureImageTintToolView();
+    if (targetPane == null || tint == null) return null;
     if (tabImageTintTool == null) {
-      tabImageTintTool = new Tab("Image Tint", imageTintToolView);
+      tabImageTintTool = new Tab("Image Tint", tint);
       tabImageTintTool.setClosable(true);
       tabImageTintTool.setOnClosed(e -> {
-        if (layeredVisualizerFullscreen && fullscreenImageToolView == imageTintToolView) {
+        if (layeredVisualizerFullscreen && fullscreenImageToolView == tint) {
           restoreLayeredImageVisualizerLayout(false);
         }
         tabImageTintTool = null;
       });
+    } else if (tabImageTintTool.getContent() != tint) {
+      tabImageTintTool.setContent(tint);
     }
     attachPanelTabToPane(tabImageTintTool, targetPane);
     return tabImageTintTool;
   }
 
   private Tab ensureMenuFlowTab(TabPane targetPane) {
-    if (targetPane == null || menuFlowEditorView == null) return null;
+    MenuFlowEditorView menuFlow = ensureMenuFlowEditorView();
+    if (targetPane == null || menuFlow == null) return null;
     if (tabMenuFlow == null) {
-      tabMenuFlow = new Tab("Menu Flow", menuFlowEditorView);
+      tabMenuFlow = new Tab("Menu Flow", menuFlow);
       tabMenuFlow.setClosable(true);
       tabMenuFlow.setOnClosed(e -> tabMenuFlow = null);
+    } else if (tabMenuFlow.getContent() != menuFlow) {
+      tabMenuFlow.setContent(menuFlow);
     }
     attachPanelTabToPane(tabMenuFlow, targetPane);
     return tabMenuFlow;
   }
 
   private Tab ensureScriptEditorLauncherTab(TabPane targetPane) {
-    if (targetPane == null || scriptEditorLauncherView == null) return null;
+    ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
+    if (targetPane == null || launcher == null) return null;
     if (tabScriptEditorLauncher == null) {
-      tabScriptEditorLauncher = new Tab("Script Editor", scriptEditorLauncherView);
+      tabScriptEditorLauncher = new Tab("Script Editor", launcher);
       tabScriptEditorLauncher.setClosable(true);
       tabScriptEditorLauncher.setOnClosed(e -> tabScriptEditorLauncher = null);
+    } else if (tabScriptEditorLauncher.getContent() != launcher) {
+      tabScriptEditorLauncher.setContent(launcher);
     }
     attachPanelTabToPane(tabScriptEditorLauncher, targetPane);
     return tabScriptEditorLauncher;
@@ -3374,7 +3513,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.TIMELINE, targetPlacement);
       Tab t = ensureTimelineTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Story Timeline", timelineView, 600, 700), () -> {
+    }, () -> launchPanelAsWindow("Story Timeline", ensureTimelineView(), 600, 700), () -> {
       rememberPanelPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3383,7 +3522,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement);
       Tab t = ensureVnsDiagnosticsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("VNS Diagnostics", vnsDiagnosticsView, 700, 600), () -> {
+    }, () -> launchPanelAsWindow("VNS Diagnostics", ensureVnsDiagnosticsView(), 700, 600), () -> {
       rememberPanelPlacement(EditorSidebarPanel.VNS_DIAGNOSTICS, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3392,7 +3531,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.LABEL_FLOW, targetPlacement);
       Tab t = ensureVnsFlowMapTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Label Flow Map", vnsFlowMapView, 700, 600), () -> {
+    }, () -> launchPanelAsWindow("Label Flow Map", ensureVnsFlowMapView(), 700, 600), () -> {
       rememberPanelPlacement(EditorSidebarPanel.LABEL_FLOW, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3401,7 +3540,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.ASSETS, targetPlacement);
       Tab t = ensureAssetBrowserTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Asset Browser", assetBrowserView, 700, 600), () -> {
+    }, () -> launchPanelAsWindow("Asset Browser", ensureAssetBrowserView(), 700, 600), () -> {
       rememberPanelPlacement(EditorSidebarPanel.ASSETS, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3412,8 +3551,9 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
       if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
     }, () -> {
-      if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
-      launchPanelAsWindow("Layout Launcher", layoutEditorLauncherView, 700, 700);
+      LayoutEditorLauncherView view = ensureLayoutEditorLauncherView();
+      if (view != null) view.refreshStatus();
+      launchPanelAsWindow("Layout Launcher", view, 700, 700);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.LAYOUT_LAUNCHER, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3424,7 +3564,7 @@ public class EditorApp extends Application {
       Tab t = ensurePhoneAssetsToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> {
-      launchPanelAsWindow("Phone Assets", phoneAssetsToolView, 920, 760);
+      launchPanelAsWindow("Phone Assets", ensurePhoneAssetsToolView(), 920, 760);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.PHONE_ASSETS, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3436,8 +3576,9 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
       if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
     }, () -> {
-      if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
-      launchPanelAsWindow("Layered Image Visualizer", layeredImageVisualizerView, 900, 700);
+      LayeredImageVisualizerView view = ensureLayeredImageVisualizerView();
+      if (view != null) view.refreshCatalog();
+      launchPanelAsWindow("Layered Image Visualizer", view, 900, 700);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.LAYERED_IMAGES, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3449,8 +3590,9 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
       if (imageAttributesToolView != null) imageAttributesToolView.refreshCatalog();
     }, () -> {
-      if (imageAttributesToolView != null) imageAttributesToolView.refreshCatalog();
-      launchPanelAsWindow("Image Attributes Tool", imageAttributesToolView, 800, 650);
+      ImageAttributesToolView view = ensureImageAttributesToolView();
+      if (view != null) view.refreshCatalog();
+      launchPanelAsWindow("Image Attributes Tool", view, 800, 650);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_ATTRIBUTES, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3462,8 +3604,9 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
       if (imageTintToolView != null) imageTintToolView.refreshCatalog();
     }, () -> {
-      if (imageTintToolView != null) imageTintToolView.refreshCatalog();
-      launchPanelAsWindow("Image Tint Tool", imageTintToolView, 800, 650);
+      ImageTintToolView view = ensureImageTintToolView();
+      if (view != null) view.refreshCatalog();
+      launchPanelAsWindow("Image Tint Tool", view, 800, 650);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3475,8 +3618,9 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
       if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
     }, () -> {
-      if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
-      launchPanelAsWindow("Menu Flow Editor", menuFlowEditorView, 900, 650);
+      MenuFlowEditorView view = ensureMenuFlowEditorView();
+      if (view != null) view.refreshStatus();
+      launchPanelAsWindow("Menu Flow Editor", view, 900, 650);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.MENU_FLOW, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3488,8 +3632,9 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
       if (versionControlView != null) versionControlView.refreshStatus();
     }, () -> {
-      if (versionControlView != null) versionControlView.refreshStatus();
-      launchPanelAsWindow("Version Control", versionControlView, 700, 600);
+      VersionControlView view = ensureVersionControlView();
+      if (view != null) view.refreshStatus();
+      launchPanelAsWindow("Version Control", view, 700, 600);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.VERSION_CONTROL, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3499,7 +3644,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.HELP, targetPlacement);
       Tab t = ensureHelpTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Help Center", helpCenterView, 700, 650), () -> {
+    }, () -> launchPanelAsWindow("Help Center", ensureHelpCenterView(), 700, 650), () -> {
       rememberPanelPlacement(EditorSidebarPanel.HELP, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3508,7 +3653,7 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.PUPPETEER_LAUNCHER, targetPlacement);
       Tab t = ensurePuppeteerLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Puppeteer Launcher", puppeteerLauncherPanel, 600, 500), () -> {
+    }, () -> launchPanelAsWindow("Puppeteer Launcher", ensurePuppeteerLauncherPanel(), 600, 500), () -> {
       rememberPanelPlacement(EditorSidebarPanel.PUPPETEER_LAUNCHER, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
@@ -3517,25 +3662,23 @@ public class EditorApp extends Application {
       rememberPanelPlacement(EditorSidebarPanel.AUDIO_SYNTH, targetPlacement);
       Tab t = ensureAudioSynthControlsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Audio Synth Controls", audioSynthControlsView, 380, 650), () -> {
+    }, () -> launchPanelAsWindow("Audio Synth Controls", ensureAudioSynthControlsView(), 380, 650), () -> {
       rememberPanelPlacement(EditorSidebarPanel.AUDIO_SYNTH, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
     addChooserActionRow(actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Script Editor", "icon-panel-flow", () -> {
       rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement);
-      if (scriptEditorLauncherView != null) {
-        scriptEditorLauncherView.setProjectRoot(projectRoot);
-        scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
-      }
+      ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
+      launcher.setProjectRoot(projectRoot);
+      launcher.setWorkspaceRoot(resolveWorkspaceRoot());
       Tab t = ensureScriptEditorLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> {
-      if (scriptEditorLauncherView != null) {
-        scriptEditorLauncherView.setProjectRoot(projectRoot);
-        scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
-        scriptEditorLauncherView.launchEditorWindow();
-      }
+      ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
+      launcher.setProjectRoot(projectRoot);
+      launcher.setWorkspaceRoot(resolveWorkspaceRoot());
+      launcher.launchEditorWindow();
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -3544,7 +3687,7 @@ public class EditorApp extends Application {
     addChooserActionRow(actions, null, targetPlacement, "Editor Settings", "icon-panel-help", () -> {
       Tab t = ensureEditorSettingsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Editor Settings", editorSettingsView, 520, 760), null);
+    }, () -> launchPanelAsWindow("Editor Settings", ensureEditorSettingsView(), 520, 760), null);
 
     installPanelChooserFilter(filter, actions);
     root.getChildren().addAll(heading, info, filter, new javafx.scene.control.Separator(), actions);
@@ -3725,33 +3868,42 @@ public class EditorApp extends Application {
   }
 
   private Tab ensurePuppeteerLauncherTab(TabPane targetPane) {
-    if (targetPane == null || puppeteerLauncherPanel == null) return null;
+    PuppeteerLauncherPanel launcher = ensurePuppeteerLauncherPanel();
+    if (targetPane == null || launcher == null) return null;
     if (tabPuppeteerLauncher == null) {
-      tabPuppeteerLauncher = new Tab("Puppeteer Launcher", puppeteerLauncherPanel);
+      tabPuppeteerLauncher = new Tab("Puppeteer Launcher", launcher);
       tabPuppeteerLauncher.setClosable(true);
       tabPuppeteerLauncher.setOnClosed(e -> tabPuppeteerLauncher = null);
+    } else if (tabPuppeteerLauncher.getContent() != launcher) {
+      tabPuppeteerLauncher.setContent(launcher);
     }
     attachPanelTabToPane(tabPuppeteerLauncher, targetPane);
     return tabPuppeteerLauncher;
   }
 
   private Tab ensureAudioSynthControlsTab(TabPane targetPane) {
-    if (targetPane == null || audioSynthControlsView == null) return null;
+    AudioSynthControlsView audioSynth = ensureAudioSynthControlsView();
+    if (targetPane == null || audioSynth == null) return null;
     if (tabAudioSynthControls == null) {
-      tabAudioSynthControls = new Tab("Audio Synth", audioSynthControlsView);
+      tabAudioSynthControls = new Tab("Audio Synth", audioSynth);
       tabAudioSynthControls.setClosable(true);
       tabAudioSynthControls.setOnClosed(e -> tabAudioSynthControls = null);
+    } else if (tabAudioSynthControls.getContent() != audioSynth) {
+      tabAudioSynthControls.setContent(audioSynth);
     }
     attachPanelTabToPane(tabAudioSynthControls, targetPane);
     return tabAudioSynthControls;
   }
 
   private Tab ensureEditorSettingsTab(TabPane targetPane) {
-    if (targetPane == null || editorSettingsView == null) return null;
+    EditorSettingsView settingsView = ensureEditorSettingsView();
+    if (targetPane == null || settingsView == null) return null;
     if (tabEditorSettings == null) {
-      tabEditorSettings = new Tab("Editor Settings", editorSettingsView);
+      tabEditorSettings = new Tab("Editor Settings", settingsView);
       tabEditorSettings.setClosable(true);
       tabEditorSettings.setOnClosed(e -> tabEditorSettings = null);
+    } else if (tabEditorSettings.getContent() != settingsView) {
+      tabEditorSettings.setContent(settingsView);
     }
     attachPanelTabToPane(tabEditorSettings, targetPane);
     return tabEditorSettings;
