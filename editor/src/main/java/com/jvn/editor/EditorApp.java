@@ -3259,13 +3259,21 @@ public class EditorApp extends Application {
 
     Label placementBadge = new Label();
     placementBadge.getStyleClass().add("panel-chooser-placement-badge");
-    placementBadge.setMinWidth(74);
-    placementBadge.setMaxWidth(74);
+    placementBadge.setMinWidth(10);
+    placementBadge.setMaxWidth(10);
     placementBadge.setAlignment(Pos.CENTER);
+    Tooltip placementTooltip = new Tooltip();
+    placementBadge.setTooltip(placementTooltip);
+    Region memoryIcon = CssIcon.memory("#9a9a9a");
+    memoryIcon.getStyleClass().add("panel-chooser-memory-icon");
     Label memoryIndicator = new Label("●");
     memoryIndicator.getStyleClass().add("panel-chooser-memory-indicator");
     Tooltip memoryTooltip = new Tooltip();
     memoryIndicator.setTooltip(memoryTooltip);
+    Tooltip.install(memoryIcon, memoryTooltip);
+    HBox memoryGroup = new HBox(3, memoryIcon, memoryIndicator);
+    memoryGroup.getStyleClass().add("panel-chooser-memory-group");
+    memoryGroup.setAlignment(Pos.CENTER_LEFT);
 
     Button dockBtn = new Button();
     dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
@@ -3312,6 +3320,8 @@ public class EditorApp extends Application {
         dockBtn.setTooltip(new Tooltip("Open in this panel"));
         placementBadge.setManaged(false);
         placementBadge.setVisible(false);
+        memoryGroup.setManaged(true);
+        memoryGroup.setVisible(true);
         return;
       }
 
@@ -3319,7 +3329,7 @@ public class EditorApp extends Application {
       boolean attached = isPanelAttached(panel);
       placementBadge.setManaged(true);
       placementBadge.setVisible(true);
-      updateChooserPlacementBadge(placementBadge, placement, attached);
+      updateChooserPlacementBadge(placementBadge, placement, attached, placementTooltip);
       if (placement == EditorPanelPlacement.HIDDEN || !attached) {
         dockBtn.setGraphic(CssIcon.plus(targetPlacement == EditorPanelPlacement.RIGHT ? "#f5c46b" : "#9cc7ff"));
         dockBtn.setTooltip(new Tooltip(
@@ -3360,7 +3370,7 @@ public class EditorApp extends Application {
       });
     }
 
-    HBox row = new HBox(6, panelIcon, label, memoryIndicator, placementBadge, dockBtn, popOutBtn, removeBtn);
+    HBox row = new HBox(6, panelIcon, label, memoryGroup, placementBadge, dockBtn, popOutBtn, removeBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
     row.getStyleClass().add("panel-chooser-row");
@@ -3388,29 +3398,31 @@ public class EditorApp extends Application {
     return false;
   }
 
-  private void updateChooserPlacementBadge(Label badge, EditorPanelPlacement placement, boolean attached) {
+  private void updateChooserPlacementBadge(
+      Label badge, EditorPanelPlacement placement, boolean attached, Tooltip tooltip) {
     if (badge == null) return;
     badge.getStyleClass().removeAll(
         "panel-chooser-placement-hidden",
         "panel-chooser-placement-left",
         "panel-chooser-placement-right");
+    badge.setText("");
     if (!attached) {
-      badge.setText("Detached");
       badge.getStyleClass().add("panel-chooser-placement-hidden");
+      if (tooltip != null) tooltip.setText("Detached from sidebars");
       return;
     }
     if (placement == EditorPanelPlacement.LEFT) {
-      badge.setText("Left");
       badge.getStyleClass().add("panel-chooser-placement-left");
+      if (tooltip != null) tooltip.setText("Attached to left sidebar");
       return;
     }
     if (placement == EditorPanelPlacement.RIGHT) {
-      badge.setText("Right");
       badge.getStyleClass().add("panel-chooser-placement-right");
+      if (tooltip != null) tooltip.setText("Attached to right sidebar");
       return;
     }
-    badge.setText("Hidden");
     badge.getStyleClass().add("panel-chooser-placement-hidden");
+    if (tooltip != null) tooltip.setText("Hidden by default");
   }
 
   private void updateChooserMemoryIndicator(

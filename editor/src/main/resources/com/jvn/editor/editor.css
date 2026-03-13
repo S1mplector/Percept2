@@ -1874,6 +1874,15 @@
   -fx-text-fill: #d7d7d7;
 }
 
+.panel-chooser-memory-group {
+  -fx-alignment: center-left;
+  -fx-padding: 0 2 0 0;
+}
+
+.panel-chooser-memory-icon {
+  -fx-opacity: 0.85;
+}
+
 .panel-chooser-memory-indicator {
   -fx-font-size: 11px;
   -fx-font-weight: 700;
@@ -1900,25 +1909,27 @@
 }
 
 .panel-chooser-placement-badge {
-  -fx-font-size: 10px;
-  -fx-font-weight: 700;
-  -fx-padding: 2 8 2 8;
+  -fx-padding: 0;
+  -fx-min-width: 10px;
+  -fx-pref-width: 10px;
+  -fx-max-width: 10px;
+  -fx-min-height: 10px;
+  -fx-pref-height: 10px;
+  -fx-max-height: 10px;
   -fx-background-radius: 999;
+  -fx-border-radius: 999;
 }
 
 .panel-chooser-placement-hidden {
-  -fx-background-color: #313131;
-  -fx-text-fill: #a3a3a3;
+  -fx-background-color: #4a4a4a;
 }
 
 .panel-chooser-placement-left {
-  -fx-background-color: rgba(151, 151, 151, 0.18);
-  -fx-text-fill: #c2c2c2;
+  -fx-background-color: #9cc7ff;
 }
 
 .panel-chooser-placement-right {
-  -fx-background-color: rgba(245, 196, 107, 0.16);
-  -fx-text-fill: #f5c46b;
+  -fx-background-color: #f5c46b;
 }
 
 .editor-settings-view {
