@@ -3,6 +3,7 @@ import org.gradle.api.Project
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 plugins {
   `java-library`
@@ -25,6 +26,34 @@ val nativeLibName = when {
   else -> "libjvn_audiofx_native.so"
 }
 val nativeBuildDir = layout.buildDirectory.dir("native")
+
+fun audioFxNativeCacheFile(): File = nativeBuildDir.get().asFile.resolve("CMakeCache.txt")
+
+fun canonicalPath(path: String): String = File(path).canonicalFile.absolutePath
+
+fun configuredAudioFxCacheValue(key: String): String? =
+  audioFxNativeCacheFile()
+    .takeIf { it.exists() }
+    ?.useLines { lines ->
+      lines
+        .firstOrNull { it.startsWith("$key=") }
+        ?.substringAfter("=")
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+    }
+
+fun configuredAudioFxSourceDir(): String? =
+  configuredAudioFxCacheValue("CMAKE_HOME_DIRECTORY:INTERNAL")
+
+fun configuredAudioFxBuildDir(): String? =
+  configuredAudioFxCacheValue("CMAKE_CACHEFILE_DIR:INTERNAL")
+
+fun audioFxCacheMatches(sourceDir: String, buildDir: String): Boolean {
+  val cachedSourceDir = configuredAudioFxSourceDir() ?: return false
+  val cachedBuildDir = configuredAudioFxBuildDir() ?: return false
+  return canonicalPath(cachedSourceDir) == canonicalPath(sourceDir)
+    && canonicalPath(cachedBuildDir) == canonicalPath(buildDir)
+}
 
 fun audioFxNativeCandidates(): List<java.io.File> {
   val base = nativeBuildDir.get().asFile
@@ -80,13 +109,24 @@ val buildAudioFxNativeIfNeeded = tasks.register("buildAudioFxNativeIfNeeded") {
     }
 
     val javaHome = toolchainLauncher.get().metadata.installationPath.asFile.absolutePath
+    val sourceDir = project.file("native").absolutePath
     val buildDirFile = nativeBuildDir.get().asFile
+    if (buildDirFile.exists() && !audioFxCacheMatches(sourceDir, buildDirFile.absolutePath)) {
+      logger.lifecycle(
+        "audio-fx native cache targets a different source/build directory (cachedSource={}, cachedBuild={}, expectedSource={}, expectedBuild={}); rebuilding",
+        configuredAudioFxSourceDir() ?: "<missing>",
+        configuredAudioFxBuildDir() ?: "<missing>",
+        sourceDir,
+        buildDirFile.absolutePath
+      )
+      buildDirFile.deleteRecursively()
+    }
     buildDirFile.mkdirs()
 
     exec {
       commandLine(
         "cmake",
-        "-S", project.file("native").absolutePath,
+        "-S", sourceDir,
         "-B", buildDirFile.absolutePath,
         "-DCMAKE_BUILD_TYPE=Release",
         "-DJAVA_HOME=$javaHome"
