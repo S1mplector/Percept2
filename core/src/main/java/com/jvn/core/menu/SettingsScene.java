@@ -59,6 +59,7 @@ public class SettingsScene implements Scene {
   private ActionBindingProfile bindings;
   private String bindingStatus = "";
   private boolean closeRequested = false;
+  private String requestedMenuId = null;
 
   private record Row(
       String id,
@@ -75,6 +76,10 @@ public class SettingsScene implements Scene {
 
   public SettingsScene(VnSettings settings, AudioFacade audio) {
     this(null, null, null, settings, audio, null, null, "settings");
+  }
+
+  public SettingsScene(VnSettings settings, AudioFacade audio, MenuProfile profile, String menuId) {
+    this(null, null, null, settings, audio, null, profile, menuId);
   }
 
   public SettingsScene(VnSettings settings, AudioFacade audio, ActionBindingProfile bindings) {
@@ -177,6 +182,11 @@ public class SettingsScene implements Scene {
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
   public MenuScreenSpec getMenuScreen() { return menuScreen; }
   public MenuStyleSpec getDefaultMenuStyle() { return menuProfile.style(menuScreen.defaultStyleId()); }
+  public String consumeRequestedMenuId() {
+    String requested = requestedMenuId;
+    requestedMenuId = null;
+    return requested;
+  }
 
   public MenuStyleSpec getStyleForIndex(int idx) {
     Row r = rowAt(idx);
@@ -250,6 +260,17 @@ public class SettingsScene implements Scene {
     };
   }
 
+  public boolean hasToggleAt(int idx) {
+    Row r = rowAt(idx);
+    if (r == null) return false;
+    return switch (r.key()) {
+      case KEY_SKIP_UNREAD,
+           KEY_SKIP_AFTER_CHOICES,
+           KEY_CLICK_REVEAL_BEFORE_ADVANCE -> true;
+      default -> false;
+    };
+  }
+
   public double sliderValue01At(int idx) {
     Row r = rowAt(idx);
     if (r == null) return 0;
@@ -263,6 +284,17 @@ public class SettingsScene implements Scene {
       case KEY_PHYSICS_MAX_SUBSTEPS -> clamp01((settings.getPhysicsMaxSubSteps() - 1) / 7.0);
       case KEY_PHYSICS_DEFAULT_FRICTION -> clamp01(settings.getPhysicsDefaultFriction());
       default -> 0.0;
+    };
+  }
+
+  public boolean toggleValueAt(int idx) {
+    Row r = rowAt(idx);
+    if (r == null) return false;
+    return switch (r.key()) {
+      case KEY_SKIP_UNREAD -> settings.isSkipUnreadText();
+      case KEY_SKIP_AFTER_CHOICES -> settings.isSkipAfterChoices();
+      case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.isClickRevealBeforeAdvance();
+      default -> false;
     };
   }
 
@@ -600,7 +632,11 @@ public class SettingsScene implements Scene {
 
   private boolean openConfiguredMenu(String targetMenu) {
     String requested = normalize(targetMenu, null);
-    if (requested == null || engine == null) return false;
+    if (requested == null) return false;
+    if (engine == null) {
+      closeRequested = true;
+      return true;
+    }
     if (!menuProfile.screens().containsKey(requested)) {
       LOG.debug("Configured menu '{}' not found in profile", requested);
       return false;
@@ -612,12 +648,16 @@ public class SettingsScene implements Scene {
 
   private boolean openSettingsMenu(String targetMenu) {
     String requested = normalize(targetMenu, "settings");
-    if (requested == null || engine == null) return false;
+    if (requested == null) return false;
     if (!menuProfile.hasScreen(requested)) {
       LOG.debug("Configured settings menu '{}' not found in profile", requested);
       return false;
     }
     if (requested.equalsIgnoreCase(menuId)) return true;
+    if (engine == null) {
+      requestedMenuId = requested;
+      return true;
+    }
     SettingsScene child = new SettingsScene(
         engine,
         saveManager,

@@ -89,7 +89,16 @@ class DslPropertyDiagnosticsTest {
       "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
       "boundsX", "boundsY", "boundsWidth", "boundsHeight",
       "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
-      "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight");
+      "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight",
+      "sliderX", "sliderY", "sliderWidth",
+      "sliderTrackAsset", "sliderBaseAsset", "sliderTrackHeight", "sliderShowFill",
+      "sliderFillAsset", "sliderFillActiveAsset", "sliderFillInactiveAsset",
+      "sliderKnobAsset", "sliderKnobActiveAsset", "sliderKnobInactiveAsset",
+      "sliderKnobWidth", "sliderKnobHeight", "sliderKnobOffsetX", "sliderKnobOffsetY",
+      "sliderResetAsset", "sliderResetActiveAsset", "sliderResetInactiveAsset",
+      "sliderResetX", "sliderResetY", "sliderResetWidth", "sliderResetHeight",
+      "toggleCheckedAsset", "toggleUncheckedAsset",
+      "toggleX", "toggleY", "toggleWidth", "toggleHeight");
 
   @Test
   void menuScreenCleanTemplateProducesNoDiagnostics() {
@@ -103,6 +112,13 @@ class DslPropertyDiagnosticsTest {
     String text = "titleText=Test\nitems=a\nwrapSelection=maybe\n";
     List<String> issues = DslPropertyDiagnostics.menuScreenIssues(text, SCREEN_TOP, SCREEN_ITEM);
     assertTrue(issues.stream().anyMatch(s -> s.contains("wrapSelection")));
+  }
+
+  @Test
+  void settingsMenuTemplateProducesNoDiagnostics() {
+    String template = LayoutDslTemplates.defaultSettingsMenuTemplate();
+    List<String> issues = DslPropertyDiagnostics.menuScreenIssues(template, SCREEN_TOP, SCREEN_ITEM);
+    assertTrue(issues.isEmpty(), () -> "Settings menu template should be clean but got: " + issues);
   }
 
   // ── Dialogue diagnostics ──
@@ -190,6 +206,15 @@ class DslPropertyDiagnosticsTest {
     assertFalse(p.isEmpty(), "Slot style template should produce properties");
     assertEquals("default", p.getProperty("extends"));
     assertEquals("#C4D4EC", p.getProperty("itemColor"));
+  }
+
+  @Test
+  void settingsStyleTemplateParseableAsProperties() throws Exception {
+    Properties p = new Properties();
+    p.load(new StringReader(LayoutDslTemplates.settingsStyleTemplate()));
+    assertFalse(p.isEmpty(), "Settings style template should produce properties");
+    assertEquals("#D7E2F4", p.getProperty("itemColor"));
+    assertEquals("#08101E", p.getProperty("backgroundColor"));
   }
 
   @Test

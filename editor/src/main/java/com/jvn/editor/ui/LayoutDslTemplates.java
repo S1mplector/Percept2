@@ -135,20 +135,25 @@ bubbleBorderWidth=2
 # choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png
 # choiceButtonBoundsPoints=0,0;1,0;1,1;0,1
 
-# ---- Textbox action buttons (uncomment to enable) ----
-# textBoxButton.ids=save,load
-# textBoxButton.save.label=Save
-# textBoxButton.save.action=save_menu
-# textBoxButton.save.x=0.78
-# textBoxButton.save.y=0.08
-# textBoxButton.save.width=0.09
-# textBoxButton.save.height=0.22
-# textBoxButton.load.label=Load
-# textBoxButton.load.action=load_menu
-# textBoxButton.load.x=0.88
-# textBoxButton.load.y=0.08
-# textBoxButton.load.width=0.09
-# textBoxButton.load.height=0.22
+# ---- Textbox action buttons (optional) ----
+# Define quick-menu buttons here if your project uses them.
+# textBoxButton.ids=history,menu
+# textBoxButton.history.label=History
+# textBoxButton.history.action=history
+# textBoxButton.history.enabled=true
+# textBoxButton.history.space=viewport
+# textBoxButton.history.x=0.08
+# textBoxButton.history.y=0.92
+# textBoxButton.history.width=0.04
+# textBoxButton.history.height=0.055
+# textBoxButton.menu.label=Menu
+# textBoxButton.menu.action=settings_menu
+# textBoxButton.menu.enabled=true
+# textBoxButton.menu.space=viewport
+# textBoxButton.menu.x=0.88
+# textBoxButton.menu.y=0.92
+# textBoxButton.menu.width=0.04
+# textBoxButton.menu.height=0.055
 """;
   }
 
@@ -293,15 +298,47 @@ titleY=0.13
   public static String settingsLayoutTemplate() {
     return """
 # Settings layout (.layout)
-# Tuned for longer item lists (9+ rows) such as the settings menu.
-# Starts higher and uses compact line height to avoid overflow.
-listYStart=0.16
-lineHeight=50
-listWidthFactor=0.56
+# Generic left-aligned settings screen.
+listYStart=0.24
+lineHeight=56
+listWidthFactor=0.6
 listXCenter=0.5
-textAlign=center
-hintsBottomMargin=24
-titleY=0.07
+textAlign=left
+hintsBottomMargin=22
+titleY=0.12
+""";
+  }
+
+  public static String settingsStyleTemplate() {
+    return """
+# Settings visual style (.style)
+# Generic fallback settings presentation. Override in project config for custom skins.
+itemColor=#D7E2F4
+itemSelectedColor=#FFD78A
+itemHoverColor=#EEF4FF
+itemDisabledColor=#6A7892
+itemPrefix=
+itemSelectedPrefix=\u25b8\s
+itemDisabledPrefix=
+itemFontFamily=SansSerif
+itemFontWeight=SEMI_BOLD
+itemFontSize=20
+itemShadowColor=#00000055
+itemShadowOffsetX=1
+itemShadowOffsetY=1
+itemOpacity=1.0
+buttonTextPaddingX=18
+buttonTextPaddingY=0
+titleColor=#EEF4FF
+titleFontFamily=SansSerif
+titleFontWeight=BOLD
+titleFontSize=40
+titleShadowColor=#00000066
+hintsColor=#96A4BE
+hintsFontFamily=SansSerif
+hintsFontSize=14
+backgroundColor=#08101E
+backgroundOpacity=0.96
 """;
   }
 
@@ -438,6 +475,38 @@ buttonTextPaddingY=0
 # buttonSelectedAsset=assets/ui/menu/button_selected.png
 # buttonHoverAsset=assets/ui/menu/button_hover.png
 # buttonDisabledAsset=assets/ui/menu/button_disabled.png
+""";
+  }
+
+  public static String defaultSettingsMenuTemplate() {
+    return """
+# Settings menu profile (.menu)
+# Generic fallback settings screen. Override in project config for custom skins.
+titleText=Settings
+hintsText=Up/Down: Navigate    Left/Right: Adjust    Enter: Toggle    Esc: Back
+layout=settings
+defaultItemStyle=settings
+wrapSelection=true
+items=text_speed,auto_play_delay,bgm_volume,sfx_volume,voice_volume,skip_unread,skip_after_choices,click_reveal_before_advance,back
+item.text_speed.label=Text Speed {value}
+item.auto_play_delay.label=Auto-Advance {value}
+item.bgm_volume.label=Music {value}
+item.sfx_volume.label=Sound Effects {value}
+item.voice_volume.label=Voice {value}
+item.skip_unread.label=Skip Unread {value}
+item.skip_after_choices.label=Skip After Choices {value}
+item.click_reveal_before_advance.label=Click Reveal {value}
+item.back.label=Back
+item.back.action=back
+
+# Optional slider/toggle positioning overrides:
+# item.text_speed.sliderX=0.58
+# item.text_speed.sliderY=0.36
+# item.text_speed.sliderWidth=0.24
+# item.skip_unread.toggleX=0.82
+# item.skip_unread.toggleY=0.58
+# item.skip_unread.toggleWidth=0.03
+# item.skip_unread.toggleHeight=0.05
 """;
   }
 

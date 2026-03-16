@@ -433,6 +433,12 @@ public class MenuRenderer {
       Rect resetRect = resolveSettingsSliderResetRect(item, i == scene.getSelected(), geo[0], geo[1], geo[2], w, h);
       drawSettingsSliderReset(item, i == scene.getSelected(), resetRect);
     }
+    for (int i = 0; i < items.length; i++) {
+      if (!scene.hasToggleAt(i)) continue;
+      MenuItemSpec item = specs[i];
+      Rect toggleRect = resolveSettingsToggleRect(item, i, items.length, specs, layout, w, h);
+      drawSettingsToggle(item, scene.toggleValueAt(i), i == scene.getSelected(), toggleRect);
+    }
     String hints = scene != null ? scene.getDisplayHints() : null;
     if (hints == null || hints.isBlank()) {
       hints = "Up/Down, Left/Right, Enter • " + Localization.t("common.back") + ": Esc";
@@ -2084,6 +2090,70 @@ public class MenuRenderer {
     x = clamp(x, 0, Math.max(0, canvasW - resetW));
     y = clamp(y, 0, Math.max(0, canvasH - resetH));
     return new Rect(x, y, resetW, resetH);
+  }
+
+  private void drawSettingsToggle(MenuItemSpec item, boolean enabled, boolean highlight, Rect rect) {
+    if (item == null || rect == null) return;
+    String assetPath = firstNonBlank(
+        enabled ? extra(item, "toggleCheckedAsset") : null,
+        !enabled ? extra(item, "toggleUncheckedAsset") : null,
+        enabled ? extra(item, "toggleUncheckedAsset") : null
+    );
+    Image image = loadImage(assetPath);
+    if (image != null && !image.isError()) {
+      gc.drawImage(image, rect.x(), rect.y(), rect.w(), rect.h());
+      return;
+    }
+    gc.setFill(enabled ? Color.rgb(213, 108, 94, 0.95) : Color.rgb(232, 225, 178, 0.92));
+    gc.fillRect(rect.x(), rect.y(), rect.w(), rect.h());
+    gc.setStroke(highlight ? Color.rgb(18, 18, 18, 0.95) : Color.rgb(38, 38, 38, 0.7));
+    gc.setLineWidth(highlight ? 2.2 : 1.2);
+    gc.strokeRect(rect.x(), rect.y(), rect.w(), rect.h());
+    if (enabled) {
+      gc.setStroke(Color.rgb(15, 15, 15, 0.95));
+      gc.setLineWidth(Math.max(2.0, rect.w() * 0.12));
+      gc.strokeLine(rect.x() + rect.w() * 0.18, rect.y() + rect.h() * 0.56, rect.x() + rect.w() * 0.42, rect.y() + rect.h() * 0.82);
+      gc.strokeLine(rect.x() + rect.w() * 0.42, rect.y() + rect.h() * 0.82, rect.x() + rect.w() * 0.84, rect.y() + rect.h() * 0.16);
+    }
+  }
+
+  private Rect resolveSettingsToggleRect(
+      MenuItemSpec item,
+      int itemIndex,
+      int count,
+      MenuItemSpec[] itemSpecs,
+      MenuLayoutSpec layout,
+      double canvasW,
+      double canvasH
+  ) {
+    if (item == null) return null;
+    Rect rowRect = resolveItemRect(itemIndex, count, item, itemSpecs, layout, 0, canvasW, canvasH);
+    Double toggleXRaw = parseExtraDouble(item, "toggleX");
+    Double toggleYRaw = parseExtraDouble(item, "toggleY");
+    Double toggleWidthRaw = parseExtraDouble(item, "toggleWidth");
+    Double toggleHeightRaw = parseExtraDouble(item, "toggleHeight");
+    String checkedAsset = extra(item, "toggleCheckedAsset");
+    String uncheckedAsset = extra(item, "toggleUncheckedAsset");
+    if ((checkedAsset == null || checkedAsset.isBlank())
+        && (uncheckedAsset == null || uncheckedAsset.isBlank())
+        && toggleXRaw == null && toggleYRaw == null && toggleWidthRaw == null && toggleHeightRaw == null) {
+      return null;
+    }
+
+    Image toggleImage = loadImage(firstNonBlank(checkedAsset, uncheckedAsset));
+    double toggleW = toggleWidthRaw != null
+        ? Math.max(2.0, resolveSize(toggleWidthRaw, canvasW))
+        : (toggleImage != null && !toggleImage.isError() && toggleImage.getWidth() > 0 ? toggleImage.getWidth() : 26.0);
+    double toggleH = toggleHeightRaw != null
+        ? Math.max(2.0, resolveSize(toggleHeightRaw, canvasH))
+        : (toggleImage != null && !toggleImage.isError() && toggleImage.getHeight() > 0 ? toggleImage.getHeight() : 26.0);
+    double defaultX = rowRect.x() + rowRect.w() - toggleW - 8.0;
+    double defaultY = rowRect.y() + Math.max(0.0, (rowRect.h() - toggleH) * 0.5);
+    double x = toggleXRaw != null ? resolveCoordinate(toggleXRaw, canvasW) : defaultX;
+    double y = toggleYRaw != null ? resolveCoordinate(toggleYRaw, canvasH) : defaultY;
+    x = clamp(x, 0, Math.max(0, canvasW - toggleW));
+    y = clamp(y, 0, Math.max(0, canvasH - toggleH));
+    return new Rect(x, y, toggleW, toggleH);
   }
 
   private double clamp01(double v) {

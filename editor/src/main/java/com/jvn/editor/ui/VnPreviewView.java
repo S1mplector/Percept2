@@ -21,7 +21,10 @@ import com.jvn.core.assets.FilesystemAssetManager;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.menu.HistoryMenuScene;
 import com.jvn.core.menu.LoadMenuScene;
+import com.jvn.core.menu.config.MenuProfile;
+import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.SaveMenuScene;
+import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.phone.PhoneScene;
 import com.jvn.core.phone.VnPhoneCommands;
 import com.jvn.core.phone.VnPhoneData;
@@ -294,6 +297,8 @@ public class VnPreviewView extends StackPane {
       menuRenderer.renderLoadMenu(load, vw, vh);
     } else if (overlayScene instanceof HistoryMenuScene history) {
       menuRenderer.renderHistoryMenu(history, vw, vh);
+    } else if (overlayScene instanceof SettingsScene settings) {
+      menuRenderer.renderSettings(settings, vw, vh);
     }
   }
 
@@ -678,6 +683,21 @@ public class VnPreviewView extends StackPane {
         state.toggleUiHidden();
         return true;
       }
+      case "settings_menu", "open_settings_menu", "menu_settings" -> {
+        overlayScene = createPreviewSettingsScene("settings");
+        return true;
+      }
+      case "open_menu", "menu_open" -> {
+        String target = button.target() == null ? "" : button.target().trim();
+        if (target.equalsIgnoreCase("settings")
+            || target.equalsIgnoreCase("settings_audio")
+            || target.equalsIgnoreCase("settings_controls")) {
+          overlayScene = createPreviewSettingsScene(target);
+          return true;
+        }
+        state.showHudMessage("Preview menu not available: " + (target.isBlank() ? "(empty)" : target), 1400);
+        return true;
+      }
       case "noop", "none" -> {
         return true;
       }
@@ -729,6 +749,29 @@ public class VnPreviewView extends StackPane {
 
     if (overlayScene instanceof HistoryMenuScene) {
       closeOverlayScene();
+      return true;
+    }
+
+    if (overlayScene instanceof SettingsScene settings) {
+      int idx = menuRenderer.getHoverIndexForSettings(settings, vw, vh, vx, vy);
+      if (idx < 0) {
+        closeOverlayScene();
+        return true;
+      }
+      settings.setSelected(idx);
+      if (!settings.hasSliderAt(idx)) {
+        settings.toggleCurrent();
+      } else if (menuRenderer.isSettingsSliderResetHit(settings, idx, vw, vh, vx, vy)) {
+        settings.resetValueByIndex(idx);
+      } else {
+        double value = menuRenderer.computeSettingsSliderValue01(settings, idx, vw, vh, vx);
+        settings.setValueByIndex(idx, value);
+      }
+      if (settings.consumeCloseRequested()) {
+        closeOverlayScene();
+      } else {
+        syncRequestedSettingsOverlay();
+      }
       return true;
     }
 
@@ -844,6 +887,30 @@ public class VnPreviewView extends StackPane {
       if (code == KeyCode.DOWN) {
         load.moveSelection(1);
       }
+      return;
+    }
+
+    if (overlayScene instanceof SettingsScene settings) {
+      if (code == KeyCode.ESCAPE) {
+        closeOverlayScene();
+        return;
+      }
+      if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
+        settings.toggleCurrent();
+      } else if (code == KeyCode.UP) {
+        settings.moveSelection(-1);
+      } else if (code == KeyCode.DOWN) {
+        settings.moveSelection(1);
+      } else if (code == KeyCode.LEFT) {
+        settings.adjustCurrent(-1);
+      } else if (code == KeyCode.RIGHT) {
+        settings.adjustCurrent(1);
+      }
+      if (settings.consumeCloseRequested()) {
+        closeOverlayScene();
+      } else {
+        syncRequestedSettingsOverlay();
+      }
     }
   }
 
@@ -913,6 +980,41 @@ public class VnPreviewView extends StackPane {
         loadFromSaveName(saveName);
         closeOverlayScene();
       }
+      return;
+    }
+    if (overlayScene instanceof SettingsScene settings) {
+      settings.toggleCurrent();
+      if (settings.consumeCloseRequested()) {
+        closeOverlayScene();
+      } else {
+        syncRequestedSettingsOverlay();
+      }
+    }
+  }
+
+  private SettingsScene createPreviewSettingsScene(String menuId) {
+    MenuProfile profile = loadPreviewMenuProfile();
+    if (profile != null && profile.hasScreen(menuId)) {
+      return new SettingsScene(scene.getState().getSettings(), audio, profile, menuId);
+    }
+    return new SettingsScene(scene.getState().getSettings(), audio);
+  }
+
+  private void syncRequestedSettingsOverlay() {
+    if (!(overlayScene instanceof SettingsScene settings) || scene == null) return;
+    String requestedMenuId = settings.consumeRequestedMenuId();
+    if (requestedMenuId == null || requestedMenuId.isBlank()) return;
+    overlayScene = createPreviewSettingsScene(requestedMenuId);
+  }
+
+  private MenuProfile loadPreviewMenuProfile() {
+    if (projectRoot == null) return null;
+    try {
+      MenuProfileLoader.LoadResult load = MenuProfileLoader.loadWithDiagnostics(
+          new AssetCatalog(new FilesystemAssetManager(projectRoot.toPath())));
+      return load.profile();
+    } catch (Exception ignored) {
+      return null;
     }
   }
 

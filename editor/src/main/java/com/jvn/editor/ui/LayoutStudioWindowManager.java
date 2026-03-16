@@ -620,7 +620,16 @@ public class LayoutStudioWindowManager {
         "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
         "boundsX", "boundsY", "boundsWidth", "boundsHeight",
         "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
-        "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight");
+        "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight",
+        "sliderX", "sliderY", "sliderWidth",
+        "sliderTrackAsset", "sliderBaseAsset", "sliderTrackHeight", "sliderShowFill",
+        "sliderFillAsset", "sliderFillActiveAsset", "sliderFillInactiveAsset",
+        "sliderKnobAsset", "sliderKnobActiveAsset", "sliderKnobInactiveAsset",
+        "sliderKnobWidth", "sliderKnobHeight", "sliderKnobOffsetX", "sliderKnobOffsetY",
+        "sliderResetAsset", "sliderResetActiveAsset", "sliderResetInactiveAsset",
+        "sliderResetX", "sliderResetY", "sliderResetWidth", "sliderResetHeight",
+        "toggleCheckedAsset", "toggleUncheckedAsset",
+        "toggleX", "toggleY", "toggleWidth", "toggleHeight");
 
     private void refreshCodeDiagnostics(String text) {
       List<String> rawIssues;

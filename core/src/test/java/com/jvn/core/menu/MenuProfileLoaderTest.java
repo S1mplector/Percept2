@@ -28,6 +28,8 @@ class MenuProfileLoaderTest {
     assertNotNull(main);
     assertNotNull(profile.screen("history"));
     assertNotNull(profile.screen("help"));
+    assertTrue(profile.hasLayout("settings"));
+    assertTrue(profile.hasStyle("settings"));
     assertEquals(5, main.items().size());
     assertEquals(MenuActionType.NEW_GAME, main.items().get(0).action().type());
     assertEquals(MenuActionType.LOAD_MENU, main.items().get(1).action().type());
@@ -167,6 +169,32 @@ class MenuProfileLoaderTest {
     assertEquals("assets/ui/menu/btn.png", profile.style("neon").buttonAssetPath());
     assertEquals(Double.valueOf(24), profile.style("neon").buttonTextPaddingX());
     assertEquals("section", main.items().get(1).extras().get("renderAs"));
+  }
+
+  @Test
+  void preservesSettingsToggleExtrasFromMenuDsl() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-settings-toggle-");
+    Files.createDirectories(root.resolve("config/menu/menus"));
+    Files.writeString(root.resolve("config/menu/menu.registry"), "menus=settings\n");
+    Files.writeString(root.resolve("config/menu/menus/settings.menu"), """
+        layout=settings
+        defaultItemStyle=settings
+        items=skip_unread
+        item.skip_unread.label=Skip Unread
+        item.skip_unread.toggleCheckedAsset=assets/ui/toggle_on.png
+        item.skip_unread.toggleUncheckedAsset=assets/ui/toggle_off.png
+        item.skip_unread.toggleX=0.61
+        item.skip_unread.toggleY=0.48
+        item.skip_unread.toggleWidth=0.03
+        item.skip_unread.toggleHeight=0.05
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfile profile = MenuProfileLoader.load(assets);
+
+    MenuScreenSpec settings = profile.screen("settings");
+    assertEquals("assets/ui/toggle_on.png", settings.items().get(0).extras().get("toggleCheckedAsset"));
+    assertEquals("0.61", settings.items().get(0).extras().get("toggleX"));
   }
 
   @Test

@@ -84,6 +84,8 @@ public class MenuScreenVisualEditor extends BorderPane {
       "sliderKnobWidth", "sliderKnobHeight", "sliderKnobOffsetX", "sliderKnobOffsetY",
       "sliderResetAsset", "sliderResetActiveAsset", "sliderResetInactiveAsset",
       "sliderResetX", "sliderResetY", "sliderResetWidth", "sliderResetHeight",
+      "toggleCheckedAsset", "toggleUncheckedAsset",
+      "toggleX", "toggleY", "toggleWidth", "toggleHeight",
       "fontFamily",
       "fontWeight",
       "fontSize"

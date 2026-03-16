@@ -76,12 +76,14 @@ public record MenuProfile(
     Map<String, MenuLayoutSpec> layouts = new LinkedHashMap<>();
     layouts.put("default", defaultLayout());
     layouts.put("submenu", defaultSubmenuLayout());
+    layouts.put("settings", defaultSettingsLayout());
     layouts.put("slots", defaultSlotsLayout());
     layouts.put("history", defaultHistoryLayout());
 
     Map<String, MenuStyleSpec> styles = new LinkedHashMap<>();
     styles.put("default", defaultStyle());
     styles.put("submenu", defaultSubmenuStyle());
+    styles.put("settings", defaultSettingsStyle());
     styles.put("slot", defaultSlotStyle());
     styles.put("history", defaultHistoryStyle());
 
@@ -109,7 +111,7 @@ public record MenuProfile(
   }
 
   public static MenuLayoutSpec defaultSettingsLayout() {
-    return new MenuLayoutSpec("settings", 0.16, 50.0, 0.56, "left", 24.0, 0.07);
+    return new MenuLayoutSpec("settings", 0.24, 56.0, 0.6, "left", 22.0, 0.12, 0.5, 0.5, null);
   }
 
   public static MenuLayoutSpec defaultSlotsLayout() {
@@ -162,6 +164,21 @@ public record MenuProfile(
         "#D8E6FF", "SansSerif", "BOLD", 36, "#00000066",
         "#7888A8", "SansSerif", null, 14,
         null, "#070E1C", 1.0
+    );
+  }
+
+  public static MenuStyleSpec defaultSettingsStyle() {
+    return new MenuStyleSpec(
+        "settings",
+        "#D7E2F4", "#FFD78A", "#EEF4FF", "#6A7892",
+        "", "▸ ", "",
+        "SansSerif", "SEMI_BOLD", 20,
+        "#00000055", 1.0, 1.0, 1.0,
+        null, null, null, null,
+        18.0, 0.0,
+        "#EEF4FF", "SansSerif", "BOLD", 40, "#00000066",
+        "#96A4BE", "SansSerif", null, 14,
+        null, "#08101E", 0.96
     );
   }
 
@@ -314,20 +331,21 @@ public record MenuProfile(
     return new MenuScreenSpec(
         "settings",
         "Settings",
-        "Left/Right: Adjust    Esc: Back",
-        "submenu",
-        "submenu",
+        null,
+        "Up/Down: Navigate    Left/Right: Adjust    Enter: Toggle    Esc: Back",
+        "settings",
+        "settings",
         true,
         List.of(
-            new MenuItemSpec("text_speed", "Text Speed: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("auto_play_delay", "Auto-Advance: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("bgm_volume", "Music: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("sfx_volume", "Sound Effects: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("voice_volume", "Voices: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("skip_unread", "Skip Unread: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("skip_after_choices", "Skip After Choices: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("click_reveal_before_advance", "Click to Reveal: {value}", "submenu", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null),
-            new MenuItemSpec("back", "Back", "submenu", null, true, new MenuActionSpec(MenuActionType.BACK, null), null, null, null, null, null, null, null)
+            settingsSliderItem("text_speed", "Text Speed {value}"),
+            settingsSliderItem("auto_play_delay", "Auto-Advance {value}"),
+            settingsSliderItem("bgm_volume", "Music {value}"),
+            settingsSliderItem("sfx_volume", "Sound Effects {value}"),
+            settingsSliderItem("voice_volume", "Voice {value}"),
+            settingsToggleItem("skip_unread", "Skip Unread {value}"),
+            settingsToggleItem("skip_after_choices", "Skip After Choices {value}"),
+            settingsToggleItem("click_reveal_before_advance", "Click Reveal {value}"),
+            actionItem("back", "Back", MenuActionType.BACK)
         )
     );
   }
@@ -396,6 +414,93 @@ public record MenuProfile(
         null,
         "BOLD",
         18
+    );
+  }
+
+  private static MenuItemSpec actionItem(String id, String label, MenuActionType actionType) {
+    return new MenuItemSpec(
+        id,
+        label,
+        "settings",
+        null,
+        true,
+        new MenuActionSpec(actionType, null),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        Map.of(),
+        null,
+        null,
+        null
+    );
+  }
+
+  private static MenuItemSpec settingsSliderItem(String id, String label) {
+    return new MenuItemSpec(
+        id,
+        label,
+        "settings",
+        null,
+        true,
+        MenuActionSpec.noop(),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        Map.of(),
+        null,
+        null,
+        null
+    );
+  }
+
+  private static MenuItemSpec settingsToggleItem(String id, String label) {
+    return new MenuItemSpec(
+        id,
+        label,
+        "settings",
+        null,
+        true,
+        MenuActionSpec.noop(),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        Map.of(),
+        null,
+        null,
+        null
     );
   }
 

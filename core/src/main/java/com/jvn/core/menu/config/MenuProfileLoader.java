@@ -641,7 +641,18 @@ public final class MenuProfileLoader {
       "sliderKnobAsset", "sliderKnobActiveAsset", "sliderKnobInactiveAsset",
       "sliderKnobWidth", "sliderKnobHeight", "sliderKnobOffsetX", "sliderKnobOffsetY",
       "sliderResetAsset", "sliderResetActiveAsset", "sliderResetInactiveAsset",
-      "sliderResetX", "sliderResetY", "sliderResetWidth", "sliderResetHeight"
+      "sliderResetX", "sliderResetY", "sliderResetWidth", "sliderResetHeight",
+      "toggleCheckedAsset", "toggleUncheckedAsset",
+      "toggleX", "toggleY", "toggleWidth", "toggleHeight"
+  );
+
+  private static final Set<String> STRUCTURAL_ITEM_FIELDS = Set.of(
+      "label", "style", "icon", "enabled", "action", "target",
+      "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
+      "boundsX", "boundsY", "boundsWidth", "boundsHeight",
+      "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
+      "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight",
+      "fontFamily", "fontWeight", "fontSize"
   );
 
   private record BoundsFields(Double x, Double y, Double width, Double height) {}
@@ -695,7 +706,7 @@ public final class MenuProfileLoader {
     for (String key : p.stringPropertyNames()) {
       if (!key.startsWith(itemPrefix)) continue;
       String field = key.substring(itemPrefix.length());
-      if (KNOWN_ITEM_FIELDS.contains(field)) continue;
+      if (STRUCTURAL_ITEM_FIELDS.contains(field)) continue;
       String value = p.getProperty(key);
       if (value != null && !value.isBlank()) {
         extras.put(field, value.trim());

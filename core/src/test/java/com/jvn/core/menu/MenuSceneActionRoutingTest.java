@@ -104,6 +104,37 @@ class MenuSceneActionRoutingTest {
   }
 
   @Test
+  void standaloneSettingsSceneRequestsConfiguredSettingsMenu() {
+    MenuProfile profile = profileWith(
+        settingsScreenWith(new MenuActionSpec(MenuActionType.SETTINGS_MENU, "settings_audio")),
+        loadScreenWith(new MenuActionSpec(MenuActionType.LOAD_MENU, null)),
+        saveScreenWith(new MenuActionSpec(MenuActionType.SAVE_MENU, null))
+    );
+    profile = new MenuProfile(
+        profile.defaultScreenId(),
+        withAdditionalScreen(
+            profile.screens(),
+            new MenuScreenSpec(
+                "settings_audio",
+                "Settings Audio",
+                null,
+                "default",
+                "default",
+                true,
+                List.of(new MenuItemSpec("back", "Back", null, null, true, new MenuActionSpec(MenuActionType.BACK, null),
+                    null, null, null, null, null, null, null))
+            )),
+        profile.layouts(),
+        profile.styles()
+    );
+
+    SettingsScene scene = new SettingsScene(new VnSettings(), null, profile, "settings");
+    scene.toggleCurrent();
+
+    assertEquals("settings_audio", scene.consumeRequestedMenuId());
+  }
+
+  @Test
   void loadCustomActionDelegatesToEngineHandler() throws Exception {
     Engine engine = new Engine(ApplicationConfig.builder().build());
     AtomicReference<MenuActionContext> captured = new AtomicReference<>();
@@ -229,6 +260,12 @@ class MenuSceneActionRoutingTest {
     screens.put("load", load);
     screens.put("save", save);
     return new MenuProfile("main", screens, layouts, styles);
+  }
+
+  private static Map<String, MenuScreenSpec> withAdditionalScreen(Map<String, MenuScreenSpec> screens, MenuScreenSpec screen) {
+    Map<String, MenuScreenSpec> copy = new LinkedHashMap<>(screens);
+    copy.put(screen.id(), screen);
+    return copy;
   }
 
   private static MenuScreenSpec settingsScreenWith(MenuActionSpec action) {

@@ -171,6 +171,7 @@ public class NewProjectWizard extends Stage {
   private static final String MENU_LAYOUT_SLOTS_PATH = "config/menu/layouts/slots.layout";
   private static final String MENU_STYLE_DEFAULT_PATH = "config/menu/styles/default.style";
   private static final String MENU_STYLE_SUBMENU_PATH = "config/menu/styles/submenu.style";
+  private static final String MENU_STYLE_SETTINGS_PATH = "config/menu/styles/settings.style";
   private static final String MENU_STYLE_SLOT_PATH = "config/menu/styles/slot.style";
   private static final String DEFAULT_MENU_BG_ASSET_PATH = "assets/demo/backgrounds/menu.png";
   private static final String BUNDLED_DEMO_ASSETS_DIR = "demo-assets";
@@ -932,6 +933,7 @@ public class NewProjectWizard extends Stage {
       sb.append("\u2502       \u251c\u2500\u2500 styles/\n");
       sb.append("\u2502       \u2502   \u251c\u2500\u2500 default.style\n");
       sb.append("\u2502       \u2502   \u251c\u2500\u2500 submenu.style\n");
+      sb.append("\u2502       \u2502   \u251c\u2500\u2500 settings.style\n");
       sb.append("\u2502       \u2502   \u2514\u2500\u2500 slot.style\n");
       sb.append("\u2502       \u2514\u2500\u2500 assets/\n");
       sb.append("\u2502           \u251c\u2500\u2500 buttons/\n");
@@ -1284,8 +1286,8 @@ public class NewProjectWizard extends Stage {
       fw.write("# Example:\n");
       fw.write("# defaultMenu=main\n");
       fw.write("# menus=main,load,save,settings\n");
-      fw.write("# layouts=default,submenu,slots\n");
-      fw.write("# styles=default,submenu,slot\n");
+      fw.write("# layouts=default,submenu,settings,slots\n");
+      fw.write("# styles=default,submenu,settings,slot\n");
     }
   }
 
@@ -1976,7 +1978,7 @@ public class NewProjectWizard extends Stage {
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_REGISTRY_PATH))) {
       fw.write(LayoutDslTemplates.menuRegistryTemplate(
-          "main", String.join(",", menus), "default,submenu,settings,slots", "default,submenu,slot"));
+          "main", String.join(",", menus), "default,submenu,settings,slots", "default,submenu,settings,slot"));
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_DEFAULT_PATH))) {
@@ -2001,6 +2003,10 @@ public class NewProjectWizard extends Stage {
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SUBMENU_PATH))) {
       fw.write(LayoutDslTemplates.submenuStyleTemplate());
+    }
+
+    try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SETTINGS_PATH))) {
+      fw.write(LayoutDslTemplates.settingsStyleTemplate());
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SLOT_PATH))) {
@@ -2190,32 +2196,7 @@ public class NewProjectWizard extends Stage {
 
     if (includeSettings) {
       try (FileWriter fw = new FileWriter(new File(dir, MENU_SETTINGS_PATH))) {
-        fw.write("# Settings menu profile (keys map to engine settings)\n");
-        fw.write("# Text-first workflow: edit item/action wiring here, save, run runtime.\n");
-        fw.write("# Each item.<id>.label supports {value} placeholder expansion.\n");
-        fw.write("# Runtime maps known setting ids to user settings store values.\n");
-        fw.write("# 'back' row uses action=back to return to previous screen.\n");
-        fw.write("#\n");
-        fw.write("# To expose advanced/developer settings, add these ids to the items list:\n");
-        fw.write("#   physics_fixed_step, physics_max_substeps, physics_default_friction, input_profile\n");
-        fw.write("titleText=Settings\n");
-        fw.write("hintsText=Left/Right: Adjust    Esc: Back\n");
-        fw.write("layout=settings\n");
-        fw.write("defaultItemStyle=submenu\n");
-        fw.write("wrapSelection=true\n");
-        fw.write("items=text_speed,auto_play_delay,click_reveal_before_advance,skip_unread,skip_after_choices,bgm_volume,sfx_volume,voice_volume,fullscreen,back\n");
-        fw.write("item.text_speed.label=Text Speed: {value}\n");
-        fw.write("item.auto_play_delay.label=Auto-Advance: {value}\n");
-        fw.write("item.click_reveal_before_advance.label=Click to Reveal: {value}\n");
-        fw.write("item.skip_unread.label=Skip Unread: {value}\n");
-        fw.write("item.skip_after_choices.label=Skip After Choices: {value}\n");
-        fw.write("item.bgm_volume.label=Music: {value}\n");
-        fw.write("item.sfx_volume.label=Sound Effects: {value}\n");
-        fw.write("item.voice_volume.label=Voices: {value}\n");
-        fw.write("item.fullscreen.label=Fullscreen: {value}\n");
-        fw.write("item.back.label=Back\n");
-        fw.write("item.back.action=back\n");
-        fw.write("item.back.style=slot\n");
+        fw.write(LayoutDslTemplates.defaultSettingsMenuTemplate());
       }
     }
   }

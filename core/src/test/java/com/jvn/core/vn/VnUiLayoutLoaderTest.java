@@ -1,5 +1,7 @@
 package com.jvn.core.vn;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Properties;
 
@@ -293,5 +295,14 @@ class VnUiLayoutLoaderTest {
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("Duplicate textbox button id 'save'")));
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("open_menu without target")));
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("bounds points")));
+  }
+
+  @Test
+  void missingDialogueLayoutDoesNotInventTextBoxButtons() throws Exception {
+    Path root = Files.createTempDirectory("jvn-dialogue-defaults-");
+
+    VnUiLayoutLoader.LoadResult result = VnUiLayoutLoader.loadFromProjectRootWithDiagnostics(root.toFile());
+
+    assertTrue(result.textBoxButtons().isEmpty());
   }
 }

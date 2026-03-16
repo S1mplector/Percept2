@@ -208,13 +208,25 @@ public final class VnUiLayoutLoader {
   public static LoadResult loadFromAssetsWithDiagnostics(AssetCatalog assets) {
     List<String> diagnostics = new ArrayList<>();
     Properties props = loadPropertiesFromAssetsInternal(assets, diagnostics);
-    return parseWithDiagnostics(props, VnUiLayoutSpec.defaults(), VnUiStyleSpec.defaults(), List.of(), diagnostics);
+    return parseWithDiagnostics(
+        props,
+        VnUiLayoutSpec.defaults(),
+        VnUiStyleSpec.defaults(),
+        List.of(),
+        diagnostics
+    );
   }
 
   public static LoadResult loadFromProjectRootWithDiagnostics(File projectRoot) {
     List<String> diagnostics = new ArrayList<>();
     Properties props = loadPropertiesFromProjectRootInternal(projectRoot, diagnostics);
-    return parseWithDiagnostics(props, VnUiLayoutSpec.defaults(), VnUiStyleSpec.defaults(), List.of(), diagnostics);
+    return parseWithDiagnostics(
+        props,
+        VnUiLayoutSpec.defaults(),
+        VnUiStyleSpec.defaults(),
+        List.of(),
+        diagnostics
+    );
   }
 
   public static Properties loadPropertiesFromAssets() {

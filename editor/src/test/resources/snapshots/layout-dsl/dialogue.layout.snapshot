@@ -117,17 +117,22 @@ bubbleBorderWidth=2
 # choiceButtonDisabledAsset=assets/ui/choice_button_disabled.png
 # choiceButtonBoundsPoints=0,0;1,0;1,1;0,1
 
-# ---- Textbox action buttons (uncomment to enable) ----
-# textBoxButton.ids=save,load
-# textBoxButton.save.label=Save
-# textBoxButton.save.action=save_menu
-# textBoxButton.save.x=0.78
-# textBoxButton.save.y=0.08
-# textBoxButton.save.width=0.09
-# textBoxButton.save.height=0.22
-# textBoxButton.load.label=Load
-# textBoxButton.load.action=load_menu
-# textBoxButton.load.x=0.88
-# textBoxButton.load.y=0.08
-# textBoxButton.load.width=0.09
-# textBoxButton.load.height=0.22
+# ---- Textbox action buttons (optional) ----
+# Define quick-menu buttons here if your project uses them.
+# textBoxButton.ids=history,menu
+# textBoxButton.history.label=History
+# textBoxButton.history.action=history
+# textBoxButton.history.enabled=true
+# textBoxButton.history.space=viewport
+# textBoxButton.history.x=0.08
+# textBoxButton.history.y=0.92
+# textBoxButton.history.width=0.04
+# textBoxButton.history.height=0.055
+# textBoxButton.menu.label=Menu
+# textBoxButton.menu.action=settings_menu
+# textBoxButton.menu.enabled=true
+# textBoxButton.menu.space=viewport
+# textBoxButton.menu.x=0.88
+# textBoxButton.menu.y=0.92
+# textBoxButton.menu.width=0.04
+# textBoxButton.menu.height=0.055
