@@ -63,6 +63,8 @@ import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.ScriptEditorLauncherView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StartupSplashOverlay;
+import com.jvn.editor.ui.StoryboardOverlayState;
+import com.jvn.editor.ui.StoryboardOverlayView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
 import com.jvn.editor.ui.VersionControlView;
@@ -152,6 +154,7 @@ public class EditorApp extends Application {
   private VersionControlView versionControlView;
   private LayoutEditorLauncherView layoutEditorLauncherView;
   private PhoneAssetsToolView phoneAssetsToolView;
+  private StoryboardOverlayView storyboardOverlayView;
   private LayeredImageVisualizerView layeredImageVisualizerView;
   private ImageAttributesToolView imageAttributesToolView;
   private ImageTintToolView imageTintToolView;
@@ -190,6 +193,7 @@ public class EditorApp extends Application {
   private Tab tabVersionControl;
   private Tab tabLayoutLauncher;
   private Tab tabPhoneAssetsTool;
+  private Tab tabStoryboardOverlay;
   private Tab tabLayeredImageVisualizer;
   private Tab tabImageAttributesTool;
   private Tab tabImageTintTool;
@@ -202,6 +206,7 @@ public class EditorApp extends Application {
   private Region rightSidebarHiddenArrow;
   private ScrollPane inspectorScroll;
   private File projectRoot;
+  private StoryboardOverlayState storyboardOverlayState = StoryboardOverlayState.none();
   private EditorPreferencesStore editorPreferencesStore;
   private EditorPreferences editorPreferences = EditorPreferences.defaults();
   private OperatingSystemMXBean osBean;
@@ -368,6 +373,7 @@ public class EditorApp extends Application {
     if (versionControlView != null) versionControlView.setProjectRoot(root);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(root);
     if (phoneAssetsToolView != null) phoneAssetsToolView.setProjectRoot(root);
+    if (storyboardOverlayView != null) storyboardOverlayView.setProjectRoot(root);
     if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(root);
     if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(root);
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(root);
@@ -376,6 +382,7 @@ public class EditorApp extends Application {
       scriptEditorLauncherView.setProjectRoot(root);
       scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
     }
+    syncStoryboardOverlayProjectState();
   }
 
   private String composeGradleTask(String path, String task) {
@@ -1203,6 +1210,8 @@ public class EditorApp extends Application {
     miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
     MenuItem miShowPhoneAssets = new MenuItem("Phone Assets");
     miShowPhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
+    MenuItem miShowStoryboardOverlay = new MenuItem("Storyboard Overlay");
+    miShowStoryboardOverlay.setOnAction(e -> selectStoryboardOverlayTab());
     MenuItem miShowLayeredVisualizer = new MenuItem("Layered Image Visualizer");
     miShowLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miShowImageAttributes = new MenuItem("Image Attributes Tool");
@@ -1215,7 +1224,7 @@ public class EditorApp extends Application {
     miShowEditorSettings.setOnAction(e -> selectEditorSettingsTab());
     menuPanels.getItems().addAll(miShowProject, miShowTimeline, miShowInspector,
         miShowAssets, new SeparatorMenuItem(),
-        miShowDiagnostics, miShowFlowMap, miShowPhoneAssets, miShowLayeredVisualizer, miShowImageAttributes,
+        miShowDiagnostics, miShowFlowMap, miShowPhoneAssets, miShowStoryboardOverlay, miShowLayeredVisualizer, miShowImageAttributes,
         miShowImageTint, miShowPuppeteerLauncher, miShowEditorSettings);
 
     menuView.getItems().addAll(miToggleEditorFullscreen, new SeparatorMenuItem(),
@@ -1267,6 +1276,8 @@ public class EditorApp extends Application {
     miLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
     MenuItem miPhoneAssets = new MenuItem("Phone Assets");
     miPhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
+    MenuItem miStoryboardOverlay = new MenuItem("Storyboard Overlay");
+    miStoryboardOverlay.setOnAction(e -> selectStoryboardOverlayTab());
     MenuItem miLayeredVisualizer = new MenuItem("Layered Image Visualizer");
     miLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miImageAttributes = new MenuItem("Image Attributes Tool");
@@ -1289,7 +1300,7 @@ public class EditorApp extends Application {
     miToolEditorSettings.setOnAction(e -> selectEditorSettingsTab());
 
     menuTools.getItems().addAll(miActionEditor, miPuppeteerPanel, new SeparatorMenuItem(),
-        miMenuFlow, miLayoutLauncher, miPhoneAssets, miLayeredVisualizer, miImageAttributes, miImageTint, new SeparatorMenuItem(),
+        miMenuFlow, miLayoutLauncher, miPhoneAssets, miStoryboardOverlay, miLayeredVisualizer, miImageAttributes, miImageTint, new SeparatorMenuItem(),
         menuVnsTools, new SeparatorMenuItem(),
         miToolAssets, miToolInspector, new SeparatorMenuItem(), miToolEditorSettings);
 
@@ -2125,6 +2136,7 @@ public class EditorApp extends Application {
     FileEditorTab editor = new FileEditorTab(f);
     if (projectRoot != null) editor.setProjectRoot(projectRoot);
     editor.setCodeEditorFontSize(editorPreferences.getCodeEditorFontSize());
+    editor.setStoryboardOverlay(storyboardOverlayState);
     editor.setOnSelected(ent -> {
       selected = ent;
       if (inspectorView != null) inspectorView.setSelection(ent);
@@ -2203,12 +2215,14 @@ public class EditorApp extends Application {
     if (versionControlView != null) versionControlView.setProjectRoot(projectRoot);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(projectRoot);
     if (phoneAssetsToolView != null) phoneAssetsToolView.setProjectRoot(projectRoot);
+    if (storyboardOverlayView != null) storyboardOverlayView.setProjectRoot(projectRoot);
     if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(projectRoot);
     if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(projectRoot);
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(projectRoot);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(projectRoot);
     if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setProjectRoot(projectRoot);
     if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
+    syncStoryboardOverlayProjectState();
   }
 
   private void applyEditorPreferences(EditorPreferences preferences) {
@@ -2351,6 +2365,7 @@ public class EditorApp extends Application {
       case ASSETS -> tabAssetBrowser;
       case LAYOUT_LAUNCHER -> tabLayoutLauncher;
       case PHONE_ASSETS -> tabPhoneAssetsTool;
+      case STORYBOARD_OVERLAY -> tabStoryboardOverlay;
       case LAYERED_IMAGES -> tabLayeredImageVisualizer;
       case IMAGE_ATTRIBUTES -> tabImageAttributesTool;
       case IMAGE_TINT -> tabImageTintTool;
@@ -2374,6 +2389,7 @@ public class EditorApp extends Application {
       case ASSETS -> ensureAssetBrowserTab(targetPane);
       case LAYOUT_LAUNCHER -> ensureLayoutLauncherTab(targetPane);
       case PHONE_ASSETS -> ensurePhoneAssetsToolTab(targetPane);
+      case STORYBOARD_OVERLAY -> ensureStoryboardOverlayTab(targetPane);
       case LAYERED_IMAGES -> ensureLayeredImageVisualizerTab(targetPane);
       case IMAGE_ATTRIBUTES -> ensureImageAttributesToolTab(targetPane);
       case IMAGE_TINT -> ensureImageTintToolTab(targetPane);
@@ -2473,6 +2489,15 @@ public class EditorApp extends Application {
     phoneAssetsToolView.setProjectRoot(projectRoot);
     phoneAssetsToolView.setOnOpenFile(this::openEditableOrExternal);
     return phoneAssetsToolView;
+  }
+
+  private StoryboardOverlayView ensureStoryboardOverlayView() {
+    if (storyboardOverlayView != null) return storyboardOverlayView;
+    storyboardOverlayView = new StoryboardOverlayView();
+    storyboardOverlayView.setOnOverlayChanged(this::setStoryboardOverlayState);
+    storyboardOverlayView.setProjectRoot(projectRoot);
+    refreshStoryboardOverlayContext(getActiveFileTab());
+    return storyboardOverlayView;
   }
 
   private LayeredImageVisualizerView ensureLayeredImageVisualizerView() {
@@ -2701,6 +2726,7 @@ public class EditorApp extends Application {
         mapEditorView.clearContext();
       }
     }
+    refreshStoryboardOverlayContext(ft);
     refreshVnsToolPanels(ft, null);
     if (puppeteerLauncherPanel != null) {
       if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
@@ -3241,6 +3267,24 @@ public class EditorApp extends Application {
     }
     attachPanelTabToPane(tabPhoneAssetsTool, targetPane);
     return tabPhoneAssetsTool;
+  }
+
+  private Tab ensureStoryboardOverlayTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.STORYBOARD_OVERLAY, true);
+    StoryboardOverlayView storyboardOverlay = ensureStoryboardOverlayView();
+    if (targetPane == null || storyboardOverlay == null) return null;
+    if (tabStoryboardOverlay == null) {
+      tabStoryboardOverlay = new Tab("Storyboard Overlay", storyboardOverlay);
+      tabStoryboardOverlay.setClosable(true);
+      tabStoryboardOverlay.setOnClosed(e -> {
+        tabStoryboardOverlay = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.STORYBOARD_OVERLAY);
+      });
+    } else if (tabStoryboardOverlay.getContent() != storyboardOverlay) {
+      tabStoryboardOverlay.setContent(storyboardOverlay);
+    }
+    attachPanelTabToPane(tabStoryboardOverlay, targetPane);
+    return tabStoryboardOverlay;
   }
 
   private Tab ensureLayeredImageVisualizerTab(TabPane targetPane) {
@@ -3813,6 +3857,7 @@ public class EditorApp extends Application {
       case ASSETS -> assetBrowserView != null;
       case LAYOUT_LAUNCHER -> layoutEditorLauncherView != null;
       case PHONE_ASSETS -> phoneAssetsToolView != null;
+      case STORYBOARD_OVERLAY -> storyboardOverlayView != null;
       case LAYERED_IMAGES -> layeredImageVisualizerView != null;
       case IMAGE_ATTRIBUTES -> imageAttributesToolView != null;
       case IMAGE_TINT -> imageTintToolView != null;
@@ -3867,6 +3912,12 @@ public class EditorApp extends Application {
           phoneAssetsToolView.dispose();
         }
         phoneAssetsToolView = null;
+      }
+      case STORYBOARD_OVERLAY -> {
+        if (storyboardOverlayView != null) {
+          storyboardOverlayView.dispose();
+        }
+        storyboardOverlayView = null;
       }
       case LAYERED_IMAGES -> {
         if (layeredVisualizerFullscreen && fullscreenImageToolView == layeredImageVisualizerView) {
@@ -4040,6 +4091,20 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Phone Assets", ensurePhoneAssetsToolView(), 920, 760, EditorSidebarPanel.PHONE_ASSETS);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.PHONE_ASSETS, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
+
+    addChooserActionRow(actions, EditorSidebarPanel.STORYBOARD_OVERLAY, targetPlacement, "Storyboard Overlay", "icon-panel-storyboard", () -> {
+      rememberPanelPlacement(EditorSidebarPanel.STORYBOARD_OVERLAY, targetPlacement);
+      Tab t = ensureStoryboardOverlayTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+      refreshStoryboardOverlayContext(getActiveFileTab());
+    }, () -> {
+      StoryboardOverlayView view = ensureStoryboardOverlayView();
+      refreshStoryboardOverlayContext(getActiveFileTab());
+      launchPanelAsWindow("Storyboard Overlay", view, 420, 720, EditorSidebarPanel.STORYBOARD_OVERLAY);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.STORYBOARD_OVERLAY, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
@@ -4296,6 +4361,16 @@ public class EditorApp extends Application {
     }
   }
 
+  private void selectStoryboardOverlayTab() {
+    Tab t = (tabStoryboardOverlay != null && tabStoryboardOverlay.getTabPane() != null)
+        ? tabStoryboardOverlay
+        : ensureStoryboardOverlayTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+    refreshStoryboardOverlayContext(getActiveFileTab());
+  }
+
   private void selectLayeredImageVisualizerTab() {
     Tab t = (tabLayeredImageVisualizer != null && tabLayeredImageVisualizer.getTabPane() != null)
         ? tabLayeredImageVisualizer
@@ -4324,6 +4399,46 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (imageTintToolView != null) imageTintToolView.refreshCatalog();
+  }
+
+  private void setStoryboardOverlayState(StoryboardOverlayState storyboardOverlayState) {
+    this.storyboardOverlayState =
+        storyboardOverlayState == null ? StoryboardOverlayState.none() : storyboardOverlayState;
+    applyStoryboardOverlayToOpenTabs();
+  }
+
+  private void applyStoryboardOverlayToOpenTabs() {
+    if (filesTabs == null) return;
+    for (Tab tab : filesTabs.getTabs()) {
+      if (tab.getContent() instanceof FileEditorTab fileTab) {
+        fileTab.setStoryboardOverlay(storyboardOverlayState);
+      }
+    }
+  }
+
+  private void syncStoryboardOverlayProjectState() {
+    if (storyboardOverlayView != null) {
+      storyboardOverlayView.setProjectRoot(projectRoot);
+      refreshStoryboardOverlayContext(getActiveFileTab());
+    } else {
+      setStoryboardOverlayState(StoryboardOverlayState.none());
+    }
+  }
+
+  private void refreshStoryboardOverlayContext(FileEditorTab fileTab) {
+    if (storyboardOverlayView == null) return;
+    ProjectViewportSpec.Dimensions dims = ProjectViewportSpec.resolve(projectRoot);
+    String label;
+    if (fileTab == null) {
+      label = "Active preview: open a JES or VNS tab. Overlay fits " + dims.width() + "x" + dims.height() + ".";
+    } else if (fileTab.getKind() == FileEditorTab.Kind.JES) {
+      label = "Active preview: JES scene. Overlay fits " + dims.width() + "x" + dims.height() + ".";
+    } else if (fileTab.getKind() == FileEditorTab.Kind.VNS) {
+      label = "Active preview: VNS scene. Overlay fits " + dims.width() + "x" + dims.height() + ".";
+    } else {
+      label = "Active preview: " + fileTab.getDisplayName() + " has no JES/VNS preview.";
+    }
+    storyboardOverlayView.setActivePreviewLabel(label);
   }
 
   private void selectInspectorTab() {

@@ -12,6 +12,7 @@ public enum EditorSidebarPanel {
   ASSETS("assets", "Assets", EditorPanelPlacement.HIDDEN, false),
   LAYOUT_LAUNCHER("layout_launcher", "Layout Launcher", EditorPanelPlacement.HIDDEN, true),
   PHONE_ASSETS("phone_assets", "Phone Assets", EditorPanelPlacement.HIDDEN, true),
+  STORYBOARD_OVERLAY("storyboard_overlay", "Storyboard Overlay", EditorPanelPlacement.HIDDEN, true),
   LAYERED_IMAGES("layered_images", "Layered Image Visualizer", EditorPanelPlacement.HIDDEN, true),
   IMAGE_ATTRIBUTES("image_attributes", "Image Attributes Tool", EditorPanelPlacement.HIDDEN, false),
   IMAGE_TINT("image_tint", "Image Tint Tool", EditorPanelPlacement.HIDDEN, true),

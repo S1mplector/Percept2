@@ -90,6 +90,7 @@ public class VnPreviewView extends StackPane {
   private final VnSaveManager previewSaveManager = new VnSaveManager();
   private Scene overlayScene;
   private Cursor configuredCursor = Cursor.DEFAULT;
+  private StoryboardOverlayState storyboardOverlay = StoryboardOverlayState.none();
 
   // Virtual viewport: render at the game's target resolution, scale to fit canvas
   private int virtualWidth = 0;
@@ -172,12 +173,15 @@ public class VnPreviewView extends StackPane {
     if (Math.abs(canvas.getHeight() - sh) >= 0.5) canvas.setHeight(sh);
   }
 
+  public void setStoryboardOverlay(StoryboardOverlayState storyboardOverlay) {
+    this.storyboardOverlay = storyboardOverlay == null ? StoryboardOverlayState.none() : storyboardOverlay;
+  }
+
   public void render(long deltaMs) {
     double canvasW = canvas.getWidth();
     double canvasH = canvas.getHeight();
     if (scene == null) {
-      gc.setFill(javafx.scene.paint.Color.color(0.06, 0.06, 0.08));
-      gc.fillRect(0, 0, canvasW, canvasH);
+      renderEmptyPreview(canvasW, canvasH);
       gc.setFill(javafx.scene.paint.Color.WHITE);
       gc.fillText("Open a VNS file to preview", 20, 30);
       return;
@@ -212,6 +216,7 @@ public class VnPreviewView extends StackPane {
     gc.scale(scale, scale);
     renderer.render(scene.getState(), scene.getScenario(), vw, vh, virtualMouseX, virtualMouseY);
     renderOverlayScene(vw, vh);
+    drawStoryboardOverlay(vw, vh);
     gc.restore();
     syncPhoneOverlay();
   }
@@ -290,6 +295,33 @@ public class VnPreviewView extends StackPane {
     } else if (overlayScene instanceof HistoryMenuScene history) {
       menuRenderer.renderHistoryMenu(history, vw, vh);
     }
+  }
+
+  private void renderEmptyPreview(double canvasW, double canvasH) {
+    double vw = virtualWidth > 0 ? virtualWidth : canvasW;
+    double vh = virtualHeight > 0 ? virtualHeight : canvasH;
+    double scale = Math.min(canvasW / vw, canvasH / vh);
+    double scaledW = vw * scale;
+    double scaledH = vh * scale;
+    double offsetX = (canvasW - scaledW) / 2.0;
+    double offsetY = (canvasH - scaledH) / 2.0;
+    gc.setFill(javafx.scene.paint.Color.BLACK);
+    gc.fillRect(0, 0, canvasW, canvasH);
+    gc.save();
+    gc.translate(offsetX, offsetY);
+    gc.scale(scale, scale);
+    gc.setFill(javafx.scene.paint.Color.color(0.06, 0.06, 0.08));
+    gc.fillRect(0, 0, vw, vh);
+    drawStoryboardOverlay(vw, vh);
+    gc.restore();
+  }
+
+  private void drawStoryboardOverlay(double vw, double vh) {
+    if (storyboardOverlay == null || !storyboardOverlay.enabled() || !storyboardOverlay.hasImage()) return;
+    gc.save();
+    gc.setGlobalAlpha(storyboardOverlay.opacity());
+    gc.drawImage(storyboardOverlay.image(), 0, 0, vw, vh);
+    gc.restore();
   }
 
   private void syncPhoneOverlay() {

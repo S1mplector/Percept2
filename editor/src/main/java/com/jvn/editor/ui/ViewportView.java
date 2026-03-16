@@ -1,4 +1,4 @@
-    package com.jvn.editor.ui;
+package com.jvn.editor.ui;
 
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
@@ -34,6 +34,9 @@ public class ViewportView extends StackPane {
   private LongConsumer beforeSceneUpdateHook;
   private Entity2D selected;
   private boolean showGrid = true;
+  private StoryboardOverlayState storyboardOverlay = StoryboardOverlayState.none();
+  private int overlayViewportWidth = ProjectViewportSpec.DEFAULT_WIDTH;
+  private int overlayViewportHeight = ProjectViewportSpec.DEFAULT_HEIGHT;
 
   private boolean panning = false;
   private double panLastX, panLastY;
@@ -139,7 +142,15 @@ public class ViewportView extends StackPane {
   public Input getInput() { return input; }
   public Camera2D getCamera() { return camera; }
 
-  public void setProjectRoot(java.io.File root) { blitter.setProjectRoot(root); }
+  public void setProjectRoot(java.io.File root) {
+    blitter.setProjectRoot(root);
+    ProjectViewportSpec.Dimensions dims = ProjectViewportSpec.resolve(root);
+    overlayViewportWidth = dims.width();
+    overlayViewportHeight = dims.height();
+  }
+  public void setStoryboardOverlay(StoryboardOverlayState storyboardOverlay) {
+    this.storyboardOverlay = storyboardOverlay == null ? StoryboardOverlayState.none() : storyboardOverlay;
+  }
   public void setShowGrid(boolean b) { this.showGrid = b; }
   public void setSize(double w, double h) {
     double sw = sanitizeCanvasDimension(w);
@@ -168,9 +179,11 @@ public class ViewportView extends StackPane {
       }
       scene.update(deltaMs);
       scene.render(blitter, w, h);
+      drawStoryboardOverlay();
       drawSelectionOverlay();
       if (scene.getInput() != null) scene.getInput().endFrame();
     } else {
+      drawStoryboardOverlay();
       gc.setFill(javafx.scene.paint.Color.WHITE);
       gc.fillText("Open a JES file to preview", 20, 30);
     }
@@ -281,6 +294,19 @@ public class ViewportView extends StackPane {
     if (dx != 0 || dy != 0) camera.setPosition(camera.getX() + dx, camera.getY() + dy);
     if (input.wasKeyPressed("Q")) camera.setZoom(camera.getZoom() * 0.9);
     if (input.wasKeyPressed("E")) camera.setZoom(camera.getZoom() * 1.1);
+  }
+
+  private void drawStoryboardOverlay() {
+    if (storyboardOverlay == null || !storyboardOverlay.enabled() || !storyboardOverlay.hasImage()) return;
+    double z = Math.max(0.0001, camera.getZoom());
+    double screenX = -camera.getX() * z;
+    double screenY = -camera.getY() * z;
+    double screenW = overlayViewportWidth * z;
+    double screenH = overlayViewportHeight * z;
+    gc.save();
+    gc.setGlobalAlpha(storyboardOverlay.opacity());
+    gc.drawImage(storyboardOverlay.image(), screenX, screenY, screenW, screenH);
+    gc.restore();
   }
 
   private static int mapButton(MouseButton b) {

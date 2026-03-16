@@ -1,6 +1,6 @@
 # Editor — Sidebar Utilities
 
-Complete reference for all 15 documented sidebar panels available in the JVN editor. Each panel has its own dedicated sub-document with full details, examples, and usage guides.
+Complete reference for all 16 documented sidebar panels available in the JVN editor. Each panel has its own dedicated sub-document with full details, examples, and usage guides.
 
 Panels can be added to either the left or right sidebar via the **+** tab. Each panel is independently closable and repositionable.
 
@@ -21,12 +21,13 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 | 7 | Asset Browser | **[sidebar-asset-browser.md](../right/sidebar-asset-browser.md)** | Right | Project asset discovery, preview, copy path |
 | 8 | Layout Launcher | **[sidebar-layout-launcher.md](../right/sidebar-layout-launcher.md)** | Right | Quick-launch layout/style/screen editors |
 | 9 | Phone Assets | **[sidebar-phone-assets-tool.md](../right/sidebar-phone-assets-tool.md)** | Right | Structured editor for phone config, contacts, threads, messages, and asset import |
-| 10 | Menu Flow Editor | **[sidebar-menu-flow-editor.md](../right/sidebar-menu-flow-editor.md)** | Right | Visual menu-to-menu navigation wiring |
-| 11 | Layered Image Visualizer | **[sidebar-layered-image-visualizer.md](../right/sidebar-layered-image-visualizer.md)** | Right | Layered sprite exploration and snippet export |
-| 12 | Image Attributes Tool | **[sidebar-image-attributes-tool.md](../right/sidebar-image-attributes-tool.md)** | Right | Attribute-based character image assembly |
-| 13 | Image Tint Tool | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Color tinting and grading for character/background images |
-| 14 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
-| 15 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser |
+| 10 | Storyboard Overlay | **[sidebar-storyboard-overlay.md](../right/sidebar-storyboard-overlay.md)** | Right | Transparent board-frame overlays for JES and VNS staging previews |
+| 11 | Menu Flow Editor | **[sidebar-menu-flow-editor.md](../right/sidebar-menu-flow-editor.md)** | Right | Visual menu-to-menu navigation wiring |
+| 12 | Layered Image Visualizer | **[sidebar-layered-image-visualizer.md](../right/sidebar-layered-image-visualizer.md)** | Right | Layered sprite exploration and snippet export |
+| 13 | Image Attributes Tool | **[sidebar-image-attributes-tool.md](../right/sidebar-image-attributes-tool.md)** | Right | Attribute-based character image assembly |
+| 14 | Image Tint Tool | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Color tinting and grading for character/background images |
+| 15 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
+| 16 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser |
 
 ### Adding Panels
 

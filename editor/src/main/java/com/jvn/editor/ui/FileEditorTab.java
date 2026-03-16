@@ -571,6 +571,10 @@ public class FileEditorTab extends BorderPane {
   public JesScene2D getJesScene() { return jesScene; }
   public ViewportView getViewport() { return viewport; }
   public VnPreviewView getVnPreview() { return vnPreview; }
+  public void setStoryboardOverlay(StoryboardOverlayState storyboardOverlay) {
+    if (viewport != null) viewport.setStoryboardOverlay(storyboardOverlay);
+    if (vnPreview != null) vnPreview.setStoryboardOverlay(storyboardOverlay);
+  }
   public void stopPreviewAudio() {
     if (vnPreview != null) vnPreview.stopAudio();
   }
