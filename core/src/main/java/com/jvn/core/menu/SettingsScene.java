@@ -668,7 +668,7 @@ public class SettingsScene implements Scene {
         menuProfile,
         requested
     );
-    engine.scenes().push(child);
+    engine.scenes().replace(child);
     return true;
   }
 

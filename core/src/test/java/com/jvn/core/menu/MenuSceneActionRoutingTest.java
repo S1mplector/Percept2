@@ -135,6 +135,44 @@ class MenuSceneActionRoutingTest {
   }
 
   @Test
+  void settingsMenuActionReplacesCurrentSettingsSceneWhenEnginePresent() throws Exception {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    VnSaveManager saveManager = new VnSaveManager(Files.createTempDirectory("jvn-settings-replace").toString());
+    MenuProfile profile = profileWith(
+        settingsScreenWith(new MenuActionSpec(MenuActionType.SETTINGS_MENU, "settings_audio")),
+        loadScreenWith(new MenuActionSpec(MenuActionType.LOAD_MENU, null)),
+        saveScreenWith(new MenuActionSpec(MenuActionType.SAVE_MENU, null))
+    );
+    profile = new MenuProfile(
+        profile.defaultScreenId(),
+        withAdditionalScreen(
+            profile.screens(),
+            new MenuScreenSpec(
+                "settings_audio",
+                "Settings Audio",
+                null,
+                "default",
+                "default",
+                true,
+                List.of(new MenuItemSpec("back", "Back", null, null, true, new MenuActionSpec(MenuActionType.BACK, null),
+                    null, null, null, null, null, null, null))
+            )),
+        profile.layouts(),
+        profile.styles()
+    );
+
+    SettingsScene scene = new SettingsScene(engine, saveManager, "demo.vns", new VnSettings(), null, null, profile);
+    engine.scenes().push(scene);
+
+    scene.toggleCurrent();
+
+    SettingsScene top = assertInstanceOf(SettingsScene.class, engine.scenes().peek());
+    assertEquals("settings_audio", top.getMenuId());
+    engine.scenes().pop();
+    assertTrue(engine.scenes().isEmpty());
+  }
+
+  @Test
   void loadCustomActionDelegatesToEngineHandler() throws Exception {
     Engine engine = new Engine(ApplicationConfig.builder().build());
     AtomicReference<MenuActionContext> captured = new AtomicReference<>();
