@@ -198,6 +198,35 @@ class MenuProfileLoaderTest {
   }
 
   @Test
+  void preservesExplicitBlankScreenTextAndItemLabels() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-blank-text-");
+    Files.createDirectories(root.resolve("config/menu/menus"));
+    Files.writeString(root.resolve("config/menu/menu.registry"), "menus=settings\n");
+    Files.writeString(root.resolve("config/menu/menus/settings.menu"), """
+        titleText=
+        subtitleText=
+        hintsText=
+        layout=settings
+        defaultItemStyle=settings
+        items=decor,resume
+        item.decor.enabled=false
+        item.decor.label=
+        item.resume.label=
+        item.resume.action=back
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfile profile = MenuProfileLoader.load(assets);
+    MenuScreenSpec settings = profile.screen("settings");
+
+    assertEquals("", settings.titleText());
+    assertEquals("", settings.subtitleText());
+    assertEquals("", settings.hintsText());
+    assertEquals("", settings.items().get(0).label());
+    assertEquals("", settings.items().get(1).label());
+  }
+
+  @Test
   void fallsBackToNoopForUnknownAction() throws Exception {
     Path root = Files.createTempDirectory("jvn-menu-unknown-action-");
     Files.createDirectories(root.resolve("config/menu/menus"));

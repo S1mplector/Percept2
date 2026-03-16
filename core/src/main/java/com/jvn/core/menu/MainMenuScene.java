@@ -385,8 +385,9 @@ public class MainMenuScene implements Scene {
   }
 
   private String resolveDisplayText(String raw) {
-    String value = normalize(raw, null);
-    if (value == null) return null;
+    if (raw == null) return null;
+    String value = raw.trim();
+    if (value.isEmpty()) return "";
     if (value.startsWith("i18n:")) {
       String key = value.substring("i18n:".length()).trim();
       if (!key.isEmpty()) return Localization.t(key);

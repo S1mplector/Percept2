@@ -450,9 +450,9 @@ public final class MenuProfileLoader {
 
   private static MenuScreenSpec parseScreen(String id, Properties p, MenuScreenSpec base, List<String> diagnostics, String sourcePath) {
     warnUnknownScreenKeys(p, diagnostics, sourcePath);
-    String titleText = normalize(p.getProperty("titleText"), base == null ? null : base.titleText());
-    String subtitleText = normalize(p.getProperty("subtitleText"), base == null ? null : base.subtitleText());
-    String hintsText = normalize(p.getProperty("hintsText"), base == null ? null : base.hintsText());
+    String titleText = configuredText(p, "titleText", base == null ? null : base.titleText());
+    String subtitleText = configuredText(p, "subtitleText", base == null ? null : base.subtitleText());
+    String hintsText = configuredText(p, "hintsText", base == null ? null : base.hintsText());
     String layoutId = normalize(p.getProperty("layout", p.getProperty("layoutId")), base == null ? "default" : base.layoutId());
     String defaultStyleId = normalize(p.getProperty("defaultItemStyle"), base == null ? "default" : base.defaultStyleId());
     boolean wrapSelection = parseBoolean(p.getProperty("wrapSelection"), base == null || base.wrapSelection(), diagnostics, sourcePath, "wrapSelection");
@@ -479,7 +479,7 @@ public final class MenuProfileLoader {
       }
       String itemPrefix = "item." + idNorm + ".";
       MenuItemSpec bi = baseItems.get(idNorm);
-      String label = normalize(p.getProperty(itemPrefix + "label"), bi == null ? null : bi.label());
+      String label = configuredText(p, itemPrefix + "label", bi == null ? null : bi.label());
       String styleId = normalize(p.getProperty(itemPrefix + "style"), bi == null ? defaultStyleId : bi.styleId());
       String icon = normalize(p.getProperty(itemPrefix + "icon"), bi == null ? null : bi.iconPath());
       boolean enabled = parseBoolean(p.getProperty(itemPrefix + "enabled"), bi == null || bi.enabled(), diagnostics, sourcePath, itemPrefix + "enabled");
@@ -914,6 +914,14 @@ public final class MenuProfileLoader {
     if (v == null) return def;
     String t = v.trim();
     return t.isEmpty() ? def : t;
+  }
+
+  private static String configuredText(Properties properties, String key, String inheritedValue) {
+    if (properties == null || key == null || !properties.containsKey(key)) return inheritedValue;
+    String raw = properties.getProperty(key);
+    if (raw == null) return inheritedValue;
+    String trimmed = raw.trim();
+    return trimmed.isEmpty() ? "" : trimmed;
   }
 
   private static double parseDouble(String raw, double def, List<String> diagnostics, String sourcePath, String key) {

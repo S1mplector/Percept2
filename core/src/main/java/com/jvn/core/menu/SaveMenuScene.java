@@ -134,7 +134,7 @@ public class SaveMenuScene implements Scene {
 
   public String getDisplayTitle() {
     String t = resolveDisplayText(menuScreen.titleText());
-    return (t == null || t.isBlank()) ? Localization.t("save.title") : t;
+    return t != null ? t : Localization.t("save.title");
   }
 
   public String getDisplaySubtitle() {
@@ -143,7 +143,7 @@ public class SaveMenuScene implements Scene {
 
   public String getDisplayHints() {
     String t = resolveDisplayText(menuScreen.hintsText());
-    if (t == null || t.isBlank()) {
+    if (t == null) {
       return Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
           + Localization.t("save.delete") + ": Delete    " + Localization.t("save.rename") + ": R";
     }
@@ -514,8 +514,9 @@ public class SaveMenuScene implements Scene {
   }
 
   private String resolveDisplayText(String raw) {
-    if (raw == null || raw.isBlank()) return null;
+    if (raw == null) return null;
     String value = raw.trim();
+    if (value.isEmpty()) return "";
     if (value.startsWith("i18n:")) {
       String key = value.substring("i18n:".length()).trim();
       if (!key.isEmpty()) return Localization.t(key);

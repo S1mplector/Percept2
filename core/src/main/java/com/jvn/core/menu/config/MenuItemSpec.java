@@ -32,7 +32,7 @@ public record MenuItemSpec(
 ) {
   public MenuItemSpec {
     id = normalize(id, "item");
-    label = normalize(label, null);
+    label = normalizeText(label, null);
     styleId = normalize(styleId, null);
     iconPath = normalize(iconPath, null);
     action = action == null ? MenuActionSpec.noop() : action;
@@ -103,5 +103,11 @@ public record MenuItemSpec(
     if (v == null) return def;
     String t = v.trim();
     return t.isEmpty() ? def : t;
+  }
+
+  private static String normalizeText(String v, String def) {
+    if (v == null) return def;
+    String t = v.trim();
+    return t.isEmpty() ? "" : t;
   }
 }

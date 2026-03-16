@@ -27,9 +27,9 @@ public record MenuScreenSpec(
 
   public MenuScreenSpec {
     id = normalize(id, "main");
-    titleText = normalize(titleText, null);
-    subtitleText = normalize(subtitleText, null);
-    hintsText = normalize(hintsText, null);
+    titleText = normalizeText(titleText, null);
+    subtitleText = normalizeText(subtitleText, null);
+    hintsText = normalizeText(hintsText, null);
     layoutId = normalize(layoutId, "default");
     defaultStyleId = normalize(defaultStyleId, "default");
     items = items == null ? List.of() : List.copyOf(items);
@@ -40,5 +40,11 @@ public record MenuScreenSpec(
     if (v == null) return def;
     String t = v.trim();
     return t.isEmpty() ? def : t;
+  }
+
+  private static String normalizeText(String v, String def) {
+    if (v == null) return def;
+    String t = v.trim();
+    return t.isEmpty() ? "" : t;
   }
 }

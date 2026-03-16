@@ -75,7 +75,7 @@ public class HistoryMenuScene implements Scene {
 
   public String getDisplayTitle() {
     String title = resolveDisplayText(menuScreen.titleText());
-    return title == null || title.isBlank() ? Localization.t("history.title") : title;
+    return title != null ? title : Localization.t("history.title");
   }
 
   public String getDisplaySubtitle() {
@@ -84,7 +84,7 @@ public class HistoryMenuScene implements Scene {
 
   public String getDisplayHints() {
     String hints = resolveDisplayText(menuScreen.hintsText());
-    return hints == null || hints.isBlank() ? Localization.t("history.hint") : hints;
+    return hints != null ? hints : Localization.t("history.hint");
   }
 
   public List<VnHistory.HistoryEntry> getEntries() {
@@ -133,8 +133,9 @@ public class HistoryMenuScene implements Scene {
   }
 
   private static String resolveDisplayText(String raw) {
-    if (raw == null || raw.isBlank()) return null;
+    if (raw == null) return null;
     String value = raw.trim();
+    if (value.isEmpty()) return "";
     if (value.startsWith("i18n:")) {
       String key = value.substring("i18n:".length()).trim();
       if (!key.isEmpty()) return Localization.t(key);

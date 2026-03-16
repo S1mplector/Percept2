@@ -73,8 +73,8 @@ public class MenuRenderer {
     } else {
       String title = scene != null ? scene.getDisplayTitle() : null;
       String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
-      if (title == null || title.isBlank()) title = theme.getTitleText();
-      if (title == null || title.isBlank()) title = Localization.t("app.title");
+      if (title == null) title = theme.getTitleText();
+      if (title == null) title = Localization.t("app.title");
       double titleY = (layout != null && layout.titleY() != null)
           ? resolve(layout.titleY(), h)
           : resolve(theme.getTitleY(), h);
@@ -105,8 +105,8 @@ public class MenuRenderer {
     drawMenuList(items, scene != null ? scene.getSelected() : 0, enabled, styles, specs, layout, 0, w, h);
 
     String hints = scene != null ? scene.getDisplayHints() : null;
-    if (hints == null || hints.isBlank()) hints = theme.getMainHintsText();
-    if (hints == null || hints.isBlank()) {
+    if (hints == null) hints = theme.getMainHintsText();
+    if (hints == null) {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc";
     }
     double bottomMargin = layout != null ? layout.hintsBottomMargin() : 20.0;
@@ -140,7 +140,7 @@ public class MenuRenderer {
     drawMenuList(items, scene != null ? scene.getSelected() : 0, enabled, styles, specs, layout, 0, w, h);
 
     String hints = scene != null ? scene.getDisplayHints() : null;
-    if (hints == null || hints.isBlank()) hints = "Esc: Resume";
+    if (hints == null) hints = "Esc: Resume";
     double bottomMargin = layout != null ? layout.hintsBottomMargin() : 20.0;
     drawHints(hints, w, h, bottomMargin, screenStyle, layout);
   }
@@ -189,7 +189,7 @@ public class MenuRenderer {
       }
     }
     String hints = scene != null ? scene.getDisplayHints() : null;
-    if (hints == null || hints.isBlank()) {
+    if (hints == null) {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
           + Localization.t("save.delete") + ": Delete    " + Localization.t("save.rename") + ": R";
     }
@@ -302,7 +302,7 @@ public class MenuRenderer {
     }
     drawLoadMenuControls(scene, layout, visibleSpecs, visibleStartIndex, visibleDrawCount, w, h, listAreaWidth);
     String hints = scene != null ? scene.getDisplayHints() : null;
-    if (hints == null || hints.isBlank()) {
+    if (hints == null) {
       hints = Localization.t("common.select") + ": Enter    " + Localization.t("common.back") + ": Esc    "
           + Localization.t("load.delete") + ": Delete    " + Localization.t("load.rename") + ": R";
     }
@@ -440,7 +440,7 @@ public class MenuRenderer {
       drawSettingsToggle(item, scene.toggleValueAt(i), i == scene.getSelected(), toggleRect);
     }
     String hints = scene != null ? scene.getDisplayHints() : null;
-    if (hints == null || hints.isBlank()) {
+    if (hints == null) {
       hints = "Up/Down, Left/Right, Enter • " + Localization.t("common.back") + ": Esc";
     }
     drawHints(hints, w, h, layout != null ? layout.hintsBottomMargin() : 20.0, screenStyle, layout);

@@ -212,7 +212,7 @@ public class SettingsScene implements Scene {
 
   public String getDisplayTitle() {
     String t = resolveDisplayText(menuScreen.titleText());
-    return (t == null || t.isBlank()) ? Localization.t("settings.title") : t;
+    return t != null ? t : Localization.t("settings.title");
   }
 
   public String getDisplaySubtitle() {
@@ -221,7 +221,7 @@ public class SettingsScene implements Scene {
 
   public String getDisplayHints() {
     String t = resolveDisplayText(menuScreen.hintsText());
-    if (t == null || t.isBlank()) {
+    if (t == null) {
       return "Up/Down, Left/Right, Enter • " + Localization.t("common.back") + ": Esc";
     }
     return t;
@@ -826,8 +826,9 @@ public class SettingsScene implements Scene {
   }
 
   private String resolveDisplayText(String raw) {
-    if (raw == null || raw.isBlank()) return null;
+    if (raw == null) return null;
     String value = raw.trim();
+    if (value.isEmpty()) return "";
     if (value.startsWith("i18n:")) {
       String key = value.substring("i18n:".length()).trim();
       if (!key.isEmpty()) return Localization.t(key);
