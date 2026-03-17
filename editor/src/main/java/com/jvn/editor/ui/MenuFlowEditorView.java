@@ -82,6 +82,9 @@ public class MenuFlowEditorView extends BorderPane {
   private final Label selectedItemLabel = new Label("Item: (none)");
   private final Label wireModeLabel = new Label("Wire mode: Off");
   private final Label wireHintLabel = new Label("Select an item, then wire on canvas or use quick target.");
+  private final Label registryPathLabel = new Label("Registry: " + DEFAULT_MENU_REGISTRY_PATH);
+  private final Label registryMenusLabel = new Label("Menus: (auto-discovery)");
+  private final Label registrySelectionLabel = new Label("Selected screen: (none)");
 
   private final Button refreshButton = iconBtn("Refresh", CssIcon.redo("#7ec8e3"));
   private final Button validateButton = iconBtn("Validate", CssIcon.check("#8cd48c"));
@@ -102,6 +105,14 @@ public class MenuFlowEditorView extends BorderPane {
   private final Button addItemButton = iconBtn("Add Item", CssIcon.plus("#8cd48c"));
   private final Button duplicateItemButton = iconBtn("Duplicate", CssIcon.copy("#a8d0f0"));
   private final Button removeItemButton = iconBtn("Remove Item", CssIcon.minus("#f0a080"));
+  private final ComboBox<String> defaultMenuCombo = new ComboBox<>();
+  private final TextField registryLayoutsField = new TextField();
+  private final TextField registryStylesField = new TextField();
+  private final Button registerSelectedButton = iconBtn("Register Selected", CssIcon.plus("#8cd48c"));
+  private final Button unregisterSelectedButton = iconBtn("Unregister Selected", CssIcon.minus("#f0a080"));
+  private final Button syncRegistryMenusButton = iconBtn("Sync Screens", CssIcon.redo("#a8d0f0"));
+  private final Button saveRegistryButton = iconBtn("Save Registry", CssIcon.save("#8cd48c"));
+  private final Button openRegistryButton = iconBtn("Open Registry", CssIcon.expand("#7ec8e3"));
 
   private final TableView<MenuItemModel> itemTable = new TableView<>();
   private final TextArea diagnosticsArea = new TextArea();
@@ -117,9 +128,17 @@ public class MenuFlowEditorView extends BorderPane {
   private final Map<String, MenuScreenModel> screensById = new LinkedHashMap<>();
   private final Map<String, NodeView> nodeViews = new LinkedHashMap<>();
   private final Map<String, Point2D> rememberedScreenPositions = new LinkedHashMap<>();
+  private final LinkedHashSet<String> registryMenus = new LinkedHashSet<>();
+  private final LinkedHashSet<String> registryLayouts = new LinkedHashSet<>();
+  private final LinkedHashSet<String> registryStyles = new LinkedHashSet<>();
 
   private MenuScreenModel selectedScreen;
   private boolean suppressRowEvents;
+  private boolean suppressRegistryEvents;
+  private boolean registryFileExists;
+  private boolean registryDirty;
+  private String registryRelativePath = DEFAULT_MENU_REGISTRY_PATH;
+  private String registryDefaultMenu = "";
 
   private enum WireMode { NONE, OPEN_MENU }
   private WireMode wireMode = WireMode.NONE;
@@ -177,12 +196,45 @@ public class MenuFlowEditorView extends BorderPane {
 
     wireHintLabel.setWrapText(true);
     wireHintLabel.setStyle("-fx-text-fill: #a6adba; -fx-font-size: 11px;");
+    registryPathLabel.setWrapText(true);
+    registryPathLabel.setStyle("-fx-text-fill: #8f98a8; -fx-font-size: 10px; -fx-font-family: 'Consolas';");
+    registryMenusLabel.setWrapText(true);
+    registryMenusLabel.setStyle("-fx-text-fill: #a6adba; -fx-font-size: 11px;");
+    registrySelectionLabel.setWrapText(true);
+    registrySelectionLabel.setStyle("-fx-text-fill: #a6adba; -fx-font-size: 11px;");
 
     quickTargetCombo.setEditable(true);
     quickTargetCombo.setPromptText("target menu id");
     quickTargetCombo.setMaxWidth(Double.MAX_VALUE);
     quickTargetCombo.valueProperty().addListener((o, ov, nv) -> updateUiState());
     quickTargetCombo.getEditor().textProperty().addListener((o, ov, nv) -> updateUiState());
+
+    defaultMenuCombo.setEditable(true);
+    defaultMenuCombo.setPromptText("main");
+    defaultMenuCombo.setMaxWidth(Double.MAX_VALUE);
+    defaultMenuCombo.valueProperty().addListener((o, ov, nv) -> {
+      if (suppressRegistryEvents) return;
+      registryDirty = true;
+      updateUiState();
+    });
+    defaultMenuCombo.getEditor().textProperty().addListener((o, ov, nv) -> {
+      if (suppressRegistryEvents) return;
+      registryDirty = true;
+      updateUiState();
+    });
+
+    registryLayoutsField.setPromptText("default, compact");
+    registryLayoutsField.textProperty().addListener((o, ov, nv) -> {
+      if (suppressRegistryEvents) return;
+      registryDirty = true;
+      updateUiState();
+    });
+    registryStylesField.setPromptText("default, neon");
+    registryStylesField.textProperty().addListener((o, ov, nv) -> {
+      if (suppressRegistryEvents) return;
+      registryDirty = true;
+      updateUiState();
+    });
 
     quickAddItemField.setPromptText("new_item_id");
 
@@ -213,15 +265,32 @@ public class MenuFlowEditorView extends BorderPane {
     itemButtons.setAlignment(Pos.CENTER_LEFT);
 
     Label selectionHeader = sectionLabel("Selection");
+    Label registryHeader = sectionLabel("Registry Wiring");
     Label wiringHeader = sectionLabel("Wiring Utilities");
     Label itemsHeader = sectionLabel("Items");
     Label validationHeader = sectionLabel("Validation");
+
+    HBox defaultMenuRow = labeledInput("Default", defaultMenuCombo);
+    HBox layoutsRow = labeledInput("Layouts", registryLayoutsField);
+    HBox stylesRow = labeledInput("Styles", registryStylesField);
+    FlowPane registryButtons = new FlowPane(6, 6,
+        registerSelectedButton, unregisterSelectedButton, syncRegistryMenusButton, saveRegistryButton, openRegistryButton);
+    registryButtons.setAlignment(Pos.CENTER_LEFT);
 
     VBox detail = new VBox(8,
         selectionHeader,
         selectedMenuLabel,
         selectedFileLabel,
         selectedItemLabel,
+        new Separator(),
+        registryHeader,
+        registryPathLabel,
+        registryMenusLabel,
+        registrySelectionLabel,
+        defaultMenuRow,
+        layoutsRow,
+        stylesRow,
+        registryButtons,
         new Separator(),
         wiringHeader,
         wireModeLabel,
@@ -369,6 +438,12 @@ public class MenuFlowEditorView extends BorderPane {
       rebuildGraph();
     });
 
+    registerSelectedButton.setOnAction(e -> registerSelectedScreen());
+    unregisterSelectedButton.setOnAction(e -> unregisterSelectedScreen());
+    syncRegistryMenusButton.setOnAction(e -> syncRegistryMenusToDiscoveredScreens());
+    saveRegistryButton.setOnAction(e -> saveRegistryState(true));
+    openRegistryButton.setOnAction(e -> openRegistryFile());
+
     wireOpenButton.setOnAction(e -> {
       if (wireMode == WireMode.OPEN_MENU) {
         cancelWireMode("Wire mode canceled.");
@@ -425,10 +500,12 @@ public class MenuFlowEditorView extends BorderPane {
     wireMode = WireMode.NONE;
 
     if (projectRoot == null || !projectRoot.isDirectory()) {
+      clearRegistryState();
       projectLabel.setText("No project loaded.");
       statusLabel.setText("Open a project to inspect menu flow.");
       itemTable.setItems(FXCollections.observableArrayList());
       refreshQuickTargetOptions();
+      refreshRegistryEditorState();
       rebuildGraph();
       refreshDiagnostics();
       updateUiState();
@@ -438,6 +515,7 @@ public class MenuFlowEditorView extends BorderPane {
     projectLabel.setText("Project: " + projectRoot.getAbsolutePath());
 
     Properties manifest = loadManifest(projectRoot);
+    loadRegistryState(projectRoot, manifest);
     Set<String> menuIds = discoverMenuIds(projectRoot, manifest);
     if (menuIds.isEmpty()) menuIds.add("main");
 
@@ -453,10 +531,179 @@ public class MenuFlowEditorView extends BorderPane {
     selectedScreen = screensById.values().stream().findFirst().orElse(null);
     itemTable.setItems(selectedScreen == null ? FXCollections.observableArrayList() : selectedScreen.items);
     refreshQuickTargetOptions();
+    refreshRegistryEditorState();
     rebuildGraph();
     refreshDiagnostics();
     updateUiState();
     statusLabel.setText("Loaded " + screensById.size() + " menu screen(s).");
+  }
+
+  private void clearRegistryState() {
+    registryFileExists = false;
+    registryDirty = false;
+    registryRelativePath = DEFAULT_MENU_REGISTRY_PATH;
+    registryDefaultMenu = "";
+    registryMenus.clear();
+    registryLayouts.clear();
+    registryStyles.clear();
+  }
+
+  private void loadRegistryState(File root, Properties manifest) {
+    clearRegistryState();
+    if (root == null) return;
+    registryRelativePath = manifestPath(manifest, "menuRegistry", DEFAULT_MENU_REGISTRY_PATH);
+    File registryFile = new File(root, registryRelativePath);
+    registryFileExists = registryFile.exists() && registryFile.isFile();
+    Properties registry = loadProperties(registryFile);
+    registryDefaultMenu = sanitizeId(normalize(registry.getProperty("defaultMenu", registry.getProperty("defaultScreen")), ""));
+    registryMenus.addAll(parseCsv(registry.getProperty("menus")));
+    registryLayouts.addAll(parseCsv(registry.getProperty("layouts")));
+    registryStyles.addAll(parseCsv(registry.getProperty("styles")));
+  }
+
+  private void refreshRegistryEditorState() {
+    suppressRegistryEvents = true;
+    try {
+      registryPathLabel.setText("Registry: " + registryRelativePath
+          + (registryFileExists ? "" : " (missing, runtime auto-discovers)"));
+      registryMenusLabel.setText("Menus: "
+          + (registryMenus.isEmpty() ? "(auto-discovery / none declared)" : String.join(", ", registryMenus)));
+      defaultMenuCombo.getItems().setAll(screensById.keySet());
+      defaultMenuCombo.getEditor().setText(registryDefaultMenu);
+      registryLayoutsField.setText(String.join(", ", registryLayouts));
+      registryStylesField.setText(String.join(", ", registryStyles));
+      updateRegistrySelectionLabel();
+    } finally {
+      suppressRegistryEvents = false;
+    }
+  }
+
+  private void updateRegistrySelectionLabel() {
+    if (selectedScreen == null) {
+      registrySelectionLabel.setText("Selected screen: (none)");
+      return;
+    }
+    boolean registered = registryMenus.contains(selectedScreen.id);
+    String prefix = registered ? "Selected screen: registered" : "Selected screen: not registered";
+    String suffix = registryDefaultMenu.equals(selectedScreen.id) ? " • defaultMenu" : "";
+    registrySelectionLabel.setText(prefix + " (" + selectedScreen.id + ")" + suffix);
+  }
+
+  private void captureRegistryStateFromUi() {
+    registryDefaultMenu = sanitizeId(normalize(defaultMenuCombo.getEditor().getText(), ""));
+    registryLayouts.clear();
+    registryLayouts.addAll(parseCsv(registryLayoutsField.getText()));
+    registryStyles.clear();
+    registryStyles.addAll(parseCsv(registryStylesField.getText()));
+  }
+
+  private void registerSelectedScreen() {
+    if (selectedScreen == null) {
+      statusLabel.setText("Select a menu screen first.");
+      return;
+    }
+    captureRegistryStateFromUi();
+    if (registryMenus.add(selectedScreen.id)) {
+      registryDirty = true;
+      if (registryDefaultMenu.isBlank()) {
+        registryDefaultMenu = selectedScreen.id;
+      }
+      refreshRegistryEditorState();
+      refreshDiagnostics();
+      updateUiState();
+      statusLabel.setText("Registered '" + selectedScreen.id + "' in menu.registry.");
+      return;
+    }
+    statusLabel.setText("Menu '" + selectedScreen.id + "' is already registered.");
+  }
+
+  private void unregisterSelectedScreen() {
+    if (selectedScreen == null) {
+      statusLabel.setText("Select a menu screen first.");
+      return;
+    }
+    captureRegistryStateFromUi();
+    if (!registryMenus.remove(selectedScreen.id)) {
+      statusLabel.setText("Menu '" + selectedScreen.id + "' is not registered.");
+      return;
+    }
+    if (selectedScreen.id.equals(registryDefaultMenu)) {
+      registryDefaultMenu = registryMenus.stream().findFirst().orElse("");
+    }
+    registryDirty = true;
+    refreshRegistryEditorState();
+    refreshDiagnostics();
+    updateUiState();
+    statusLabel.setText("Unregistered '" + selectedScreen.id + "' from menu.registry.");
+  }
+
+  private void syncRegistryMenusToDiscoveredScreens() {
+    captureRegistryStateFromUi();
+    registryMenus.clear();
+    registryMenus.addAll(screensById.keySet());
+    if (registryDefaultMenu.isBlank() || !registryMenus.contains(registryDefaultMenu)) {
+      registryDefaultMenu = screensById.containsKey("main")
+          ? "main"
+          : screensById.keySet().stream().findFirst().orElse("");
+    }
+    registryDirty = true;
+    refreshRegistryEditorState();
+    refreshDiagnostics();
+    updateUiState();
+    statusLabel.setText("Registry menus synced to discovered screens.");
+  }
+
+  private void saveRegistryState(boolean verbose) {
+    if (projectRoot == null || !projectRoot.isDirectory()) return;
+    captureRegistryStateFromUi();
+    File registryFile = new File(projectRoot, registryRelativePath);
+    Properties out = new Properties();
+    if (!registryDefaultMenu.isBlank()) out.setProperty("defaultMenu", registryDefaultMenu);
+    if (!registryMenus.isEmpty()) out.setProperty("menus", String.join(",", registryMenus));
+    if (!registryLayouts.isEmpty()) out.setProperty("layouts", String.join(",", registryLayouts));
+    if (!registryStyles.isEmpty()) out.setProperty("styles", String.join(",", registryStyles));
+    try {
+      File parent = registryFile.getParentFile();
+      if (parent != null && !parent.exists()) parent.mkdirs();
+      try (FileOutputStream fos = new FileOutputStream(registryFile)) {
+        out.store(fos, "Edited via JVN Menu Flow Editor");
+      }
+      registryFileExists = true;
+      registryDirty = false;
+      refreshRegistryEditorState();
+      refreshDiagnostics();
+      updateUiState();
+      if (verbose) statusLabel.setText("Saved " + toRelativeProjectPath(registryFile));
+    } catch (Exception ex) {
+      if (verbose) statusLabel.setText("Registry save failed: " + ex.getMessage());
+    }
+  }
+
+  private void openRegistryFile() {
+    if (projectRoot == null || onOpenFile == null) return;
+    File registryFile = new File(projectRoot, registryRelativePath);
+    if (!registryFile.exists()) {
+      try {
+        File parent = registryFile.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+        try (FileOutputStream fos = new FileOutputStream(registryFile)) {
+          Properties template = new Properties();
+          template.setProperty("defaultMenu", "main");
+          template.setProperty("menus", "main");
+          template.store(fos, "Menu registry");
+        }
+      } catch (Exception ex) {
+        statusLabel.setText("Failed to create registry file: " + ex.getMessage());
+        return;
+      }
+      registryFileExists = true;
+      loadRegistryState(projectRoot, loadManifest(projectRoot));
+      refreshRegistryEditorState();
+      refreshDiagnostics();
+      updateUiState();
+    }
+    onOpenFile.accept(registryFile);
+    statusLabel.setText("Opened " + toRelativeProjectPath(registryFile));
   }
 
   private void loadItems(MenuScreenModel screen) {
@@ -1067,10 +1314,17 @@ public class MenuFlowEditorView extends BorderPane {
     List<String> issues = new ArrayList<>();
 
     Set<String> allIds = new LinkedHashSet<>(screensById.keySet());
+    String effectiveDefaultMenu = sanitizeId(normalize(defaultMenuCombo.getEditor().getText(), registryDefaultMenu));
+    Set<String> declaredMenus = new LinkedHashSet<>(registryMenus);
+    boolean registryWiringActive = registryFileExists || !declaredMenus.isEmpty() || !effectiveDefaultMenu.isBlank();
+
     for (MenuScreenModel screen : screensById.values()) {
       Set<String> seenItems = new HashSet<>();
       if (screen.items.isEmpty()) {
         issues.add("[WARN] menu '" + screen.id + "' has no items");
+      }
+      if (registryWiringActive && !declaredMenus.isEmpty() && !declaredMenus.contains(screen.id)) {
+        issues.add("[WARN] menu '" + screen.id + "' exists but is not listed in menu.registry");
       }
       for (MenuItemModel row : screen.items) {
         String itemId = sanitizeId(row.getId());
@@ -1109,11 +1363,23 @@ public class MenuFlowEditorView extends BorderPane {
       }
     }
 
-    if (!screensById.isEmpty() && screensById.containsKey("main")) {
-      Set<String> reachable = computeReachableMenus("main");
+    if (registryWiringActive) {
+      if (!effectiveDefaultMenu.isBlank() && !allIds.contains(effectiveDefaultMenu)) {
+        issues.add("[ERROR] menu.registry defaultMenu '" + effectiveDefaultMenu + "' does not exist");
+      }
+      for (String id : declaredMenus) {
+        if (!allIds.contains(id)) {
+          issues.add("[WARN] menu.registry lists '" + id + "' but no matching .menu file was found");
+        }
+      }
+    }
+
+    String reachabilityRoot = !effectiveDefaultMenu.isBlank() ? effectiveDefaultMenu : (screensById.containsKey("main") ? "main" : "");
+    if (!reachabilityRoot.isBlank() && screensById.containsKey(reachabilityRoot)) {
+      Set<String> reachable = computeReachableMenus(reachabilityRoot);
       for (String id : screensById.keySet()) {
         if (!reachable.contains(id)) {
-          issues.add("[WARN] menu '" + id + "' is unreachable from main");
+          issues.add("[WARN] menu '" + id + "' is unreachable from " + reachabilityRoot);
         }
       }
     }
@@ -1207,6 +1473,7 @@ public class MenuFlowEditorView extends BorderPane {
     boolean hasSelection = selectedScreen != null;
     MenuItemModel selectedItem = getSelectedItem();
     boolean hasItem = selectedItem != null;
+    boolean selectedRegistered = hasSelection && registryMenus.contains(selectedScreen.id);
 
     saveSelectedButton.setDisable(!hasSelection);
     saveAllButton.setDisable(!hasProject);
@@ -1214,6 +1481,14 @@ public class MenuFlowEditorView extends BorderPane {
     autoLayoutButton.setDisable(screensById.isEmpty());
     openButton.setDisable(!hasSelection);
     addScreenButton.setDisable(!hasProject);
+    registerSelectedButton.setDisable(!hasSelection || selectedRegistered);
+    unregisterSelectedButton.setDisable(!hasSelection || !selectedRegistered);
+    syncRegistryMenusButton.setDisable(!hasProject || screensById.isEmpty());
+    saveRegistryButton.setDisable(!hasProject || !registryDirty);
+    openRegistryButton.setDisable(!hasProject);
+    defaultMenuCombo.setDisable(!hasProject);
+    registryLayoutsField.setDisable(!hasProject);
+    registryStylesField.setDisable(!hasProject);
 
     wireOpenButton.setDisable(!(hasSelection && hasItem));
     cancelWireButton.setDisable(wireMode == WireMode.NONE);
@@ -1235,6 +1510,10 @@ public class MenuFlowEditorView extends BorderPane {
       selectedMenuLabel.setText("Menu: " + selectedScreen.id + (selectedScreen.dirty ? " *" : ""));
       selectedFileLabel.setText("File: " + toRelativeProjectPath(selectedScreen.file));
     }
+    updateRegistrySelectionLabel();
+    registryMenusLabel.setText("Menus: "
+        + (registryMenus.isEmpty() ? "(auto-discovery / none declared)" : String.join(", ", registryMenus))
+        + (registryDirty ? " *" : ""));
 
     if (selectedItem == null) {
       selectedItemLabel.setText("Item: (none)");
@@ -1465,6 +1744,19 @@ public class MenuFlowEditorView extends BorderPane {
     Label label = new Label(text);
     label.setStyle("-fx-font-size: 11px; -fx-text-fill: #8c96a8; -fx-font-weight: 700;");
     return label;
+  }
+
+  private static HBox labeledInput(String label, javafx.scene.Node input) {
+    Label l = new Label(label);
+    l.setMinWidth(64);
+    l.setStyle("-fx-text-fill: #b0b8c8; -fx-font-size: 11px;");
+    if (input instanceof Region region) {
+      region.setMaxWidth(Double.MAX_VALUE);
+      HBox.setHgrow(region, Priority.ALWAYS);
+    }
+    HBox row = new HBox(6, l, input);
+    row.setAlignment(Pos.CENTER_LEFT);
+    return row;
   }
 
   private enum NodeKind { SCREEN, SPECIAL, MISSING }

@@ -1,6 +1,6 @@
 # Sidebar — Menu Flow Editor
 
-Visual flow editor for menu-to-menu navigation. Lets teams wire `OPEN_MENU`, `BACK`, and `MAIN_MENU` actions between menu screens on a node graph.
+Visual flow editor for menu-to-menu navigation and `menu.registry` wiring. Lets teams wire `OPEN_MENU`, `BACK`, and `MAIN_MENU` actions between menu screens on a node graph, then register screens and set the default menu entry point from the same sidebar.
 
 Source: `editor/src/main/java/com/jvn/editor/ui/MenuFlowEditorView.java`
 
@@ -87,6 +87,37 @@ Directed edges show navigation flow:
 
 ---
 
+## Registry Wiring
+
+The right-hand sidebar includes a registry section for editing `config/menu/registry/menu.registry` without leaving the flow editor.
+
+### Controls
+
+| Control | Description |
+|--------|-------------|
+| **Registry path** | Shows the effective registry file path resolved from the project manifest |
+| **Menus** | Read-only summary of currently registered menu IDs |
+| **Selected screen status** | Shows whether the current screen is registered and whether it is the default menu |
+| **Default** | Editable combo box for `defaultMenu` |
+| **Layouts** | Editable comma-separated `layouts=` list |
+| **Styles** | Editable comma-separated `styles=` list |
+| **Register Selected** | Add the selected screen to `menus=` |
+| **Unregister Selected** | Remove the selected screen from `menus=` |
+| **Sync Screens** | Replace `menus=` with all discovered `.menu` files |
+| **Save Registry** | Write the registry file to disk |
+| **Open Registry** | Open the registry file in the text editor, creating it if needed |
+
+### Registry Diagnostics
+
+Validation now also checks:
+
+- Screens that exist on disk but are missing from `menus=`
+- IDs listed in `menus=` that do not have matching `.menu` files
+- `defaultMenu` values that do not resolve to an existing screen
+- Reachability from the effective registry entry point
+
+---
+
 ## Item Table
 
 An editable `TableView` showing items in the currently selected menu screen.
@@ -95,10 +126,10 @@ An editable `TableView` showing items in the currently selected menu screen.
 
 | Column | Type | Description |
 |--------|------|-------------|
-| **ID** | Text (editable) | Unique item identifier within the screen |
-| **Label** | Text (editable) | Display text shown to the player |
+| **Item** | Text (editable) | Unique item identifier within the screen |
 | **Action** | ComboBox | Action type (see below) |
-| **Target** | Text (editable) | Target menu ID (for `OPEN_MENU`) |
+| **Action Key** | Text (editable) | Raw action key written to the `.menu` file |
+| **Target** | Text (editable) | Target menu ID for actions that use one |
 
 ### Action Types
 
