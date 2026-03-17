@@ -993,18 +993,26 @@ public class VnPreviewView extends StackPane {
   }
 
   private SettingsScene createPreviewSettingsScene(String menuId) {
+    return createPreviewSettingsScene(menuId, null);
+  }
+
+  private SettingsScene createPreviewSettingsScene(String menuId, String preferredSelectionKey) {
+    SettingsScene previewScene;
     MenuProfile profile = loadPreviewMenuProfile();
     if (profile != null && profile.hasScreen(menuId)) {
-      return new SettingsScene(scene.getState().getSettings(), audio, profile, menuId);
+      previewScene = new SettingsScene(scene.getState().getSettings(), audio, profile, menuId);
+    } else {
+      previewScene = new SettingsScene(scene.getState().getSettings(), audio);
     }
-    return new SettingsScene(scene.getState().getSettings(), audio);
+    previewScene.preferSelectionKey(preferredSelectionKey);
+    return previewScene;
   }
 
   private void syncRequestedSettingsOverlay() {
     if (!(overlayScene instanceof SettingsScene settings) || scene == null) return;
     String requestedMenuId = settings.consumeRequestedMenuId();
     if (requestedMenuId == null || requestedMenuId.isBlank()) return;
-    overlayScene = createPreviewSettingsScene(requestedMenuId);
+    overlayScene = createPreviewSettingsScene(requestedMenuId, settings.consumeRequestedSelectionKey());
   }
 
   private MenuProfile loadPreviewMenuProfile() {

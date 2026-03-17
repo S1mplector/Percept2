@@ -60,6 +60,8 @@ public class SettingsScene implements Scene {
   private String bindingStatus = "";
   private boolean closeRequested = false;
   private String requestedMenuId = null;
+  private String requestedSelectionKey = null;
+  private String lastPrimarySelectionKey = null;
 
   private record Row(
       String id,
@@ -172,7 +174,8 @@ public class SettingsScene implements Scene {
     this.menuScreen = menuProfile.screen(this.menuId);
     this.menuLayout = menuProfile.layout(menuScreen.layoutId());
     this.rows = buildRows();
-    this.selected = firstSelectableIndex(0);
+    this.selected = resolvePreferredSelectionIndex(null);
+    rememberPrimarySelection(this.selected);
   }
 
   public VnSettings model() { return settings; }
@@ -186,6 +189,17 @@ public class SettingsScene implements Scene {
     String requested = requestedMenuId;
     requestedMenuId = null;
     return requested;
+  }
+
+  public String consumeRequestedSelectionKey() {
+    String requested = requestedSelectionKey;
+    requestedSelectionKey = null;
+    return requested;
+  }
+
+  public void preferSelectionKey(String preferredKey) {
+    selected = resolvePreferredSelectionIndex(preferredKey);
+    rememberPrimarySelection(selected);
   }
 
   public MenuStyleSpec getStyleForIndex(int idx) {
@@ -308,6 +322,7 @@ public class SettingsScene implements Scene {
       next = nextSelectable(next, dir);
     }
     selected = next;
+    rememberPrimarySelection(selected);
   }
 
   public void setSelected(int idx) {
@@ -319,9 +334,11 @@ public class SettingsScene implements Scene {
     int clamped = Math.max(0, Math.min(idx, count - 1));
     if (isItemEnabled(clamped)) {
       selected = clamped;
+      rememberPrimarySelection(selected);
       return;
     }
     selected = firstSelectableIndex(clamped);
+    rememberPrimarySelection(selected);
   }
 
   public void adjustCurrent(int delta) {
@@ -654,8 +671,10 @@ public class SettingsScene implements Scene {
       return false;
     }
     if (requested.equalsIgnoreCase(menuId)) return true;
+    String preferredSelectionKey = preferredSelectionKeyForSwitch();
     if (engine == null) {
       requestedMenuId = requested;
+      requestedSelectionKey = preferredSelectionKey;
       return true;
     }
     SettingsScene child = new SettingsScene(
@@ -668,6 +687,7 @@ public class SettingsScene implements Scene {
         menuProfile,
         requested
     );
+    child.preferSelectionKey(preferredSelectionKey);
     engine.scenes().replace(child);
     return true;
   }
@@ -735,6 +755,46 @@ public class SettingsScene implements Scene {
     return start;
   }
 
+  private int resolvePreferredSelectionIndex(String preferredKey) {
+    int count = itemCount();
+    if (count <= 0) return 0;
+    String requestedKey = normalize(preferredKey, null);
+    if (requestedKey != null) {
+      int match = indexForPrimaryKey(requestedKey);
+      if (match >= 0) return match;
+    }
+    int primary = firstPrimarySelectionIndex();
+    if (primary >= 0) return primary;
+    return firstSelectableIndex(0);
+  }
+
+  private int firstPrimarySelectionIndex() {
+    for (int i = 0; i < rows.size(); i++) {
+      Row row = rows.get(i);
+      if (row != null && row.enabled() && isPrimarySelectionKey(row.key())) return i;
+    }
+    return -1;
+  }
+
+  private int indexForPrimaryKey(String key) {
+    if (key == null || key.isBlank()) return -1;
+    for (int i = 0; i < rows.size(); i++) {
+      Row row = rows.get(i);
+      if (row != null && row.enabled() && key.equals(row.key()) && isPrimarySelectionKey(row.key())) return i;
+    }
+    return -1;
+  }
+
+  private String preferredSelectionKeyForSwitch() {
+    String remembered = normalize(lastPrimarySelectionKey, null);
+    if (remembered != null) return remembered;
+    Row current = rowAt(selected);
+    if (current != null && current.enabled() && isPrimarySelectionKey(current.key())) {
+      return current.key();
+    }
+    return null;
+  }
+
   private int nextSelectable(int from, int dir) {
     int count = itemCount();
     if (count <= 0) return 0;
@@ -753,6 +813,12 @@ public class SettingsScene implements Scene {
       if (isItemEnabled(idx)) return idx;
     }
     return from;
+  }
+
+  private void rememberPrimarySelection(int idx) {
+    Row row = rowAt(idx);
+    if (row == null || !row.enabled() || !isPrimarySelectionKey(row.key())) return;
+    lastPrimarySelectionKey = row.key();
   }
 
   private Row rowAt(int idx) {
@@ -860,6 +926,24 @@ public class SettingsScene implements Scene {
       case "input", "input_profile", "bindings", "input_bindings" -> KEY_INPUT_PROFILE;
       case "back", "close", "return" -> KEY_BACK;
       default -> v;
+    };
+  }
+
+  private boolean isPrimarySelectionKey(String key) {
+    return switch (key) {
+      case KEY_TEXT_SPEED,
+           KEY_BGM_VOLUME,
+           KEY_SFX_VOLUME,
+           KEY_VOICE_VOLUME,
+           KEY_AUTO_PLAY_DELAY,
+           KEY_SKIP_UNREAD,
+           KEY_SKIP_AFTER_CHOICES,
+           KEY_CLICK_REVEAL_BEFORE_ADVANCE,
+           KEY_PHYSICS_FIXED_STEP,
+           KEY_PHYSICS_MAX_SUBSTEPS,
+           KEY_PHYSICS_DEFAULT_FRICTION,
+           KEY_INPUT_PROFILE -> true;
+      default -> false;
     };
   }
 
