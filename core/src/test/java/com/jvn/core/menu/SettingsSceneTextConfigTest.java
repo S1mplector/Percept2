@@ -53,6 +53,30 @@ class SettingsSceneTextConfigTest {
   }
 
   @Test
+  void explicitBlankSettingLabelSuppressesValueText() {
+    Map<String, MenuLayoutSpec> layouts = Map.of("settings", MenuProfile.defaultSettingsLayout());
+    Map<String, MenuStyleSpec> styles = Map.of("settings", MenuProfile.defaultSettingsStyle());
+    Map<String, MenuScreenSpec> screens = new LinkedHashMap<>();
+    screens.put("main", MenuProfile.defaultMainScreen());
+    screens.put("settings", new MenuScreenSpec(
+        "settings",
+        "",
+        "",
+        "",
+        "settings",
+        "settings",
+        true,
+        List.of(
+            new MenuItemSpec("text_speed", "", "settings", null, true, MenuActionSpec.noop(), null, null, null, null, null, null, null)
+        )
+    ));
+
+    SettingsScene scene = new SettingsScene(new VnSettings(), null, new MenuProfile("main", screens, layouts, styles), "settings");
+
+    assertArrayEquals(new String[] { "" }, scene.getDisplayItems());
+  }
+
+  @Test
   void settingsPreferPrimaryControlsAndCarryThemAcrossTabSwitches() {
     Map<String, MenuLayoutSpec> layouts = Map.of("settings", MenuProfile.defaultSettingsLayout());
     Map<String, MenuStyleSpec> styles = Map.of("settings", MenuProfile.defaultSettingsStyle());

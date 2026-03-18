@@ -18,9 +18,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javafx.geometry.Insets;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -110,48 +112,53 @@ public class PuppeteerLauncherPanel extends VBox {
     diagnosticsList = new VBox(2);
     diagnosticsList.setPadding(new Insets(0, 0, 0, 8));
 
-    btnLaunch = new Button("Launch @ Cursor");
-    btnLaunch.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #121212; -fx-font-weight: bold;");
-    btnLaunch.setMaxWidth(Double.MAX_VALUE);
-    btnLaunch.setTooltip(new javafx.scene.control.Tooltip("Launch Puppeteer with scene snapshot from the current cursor line"));
+    btnLaunch = createActionButton(
+        "Launch @ Cursor",
+        "icon-puppeteer-launch-cursor",
+        "-fx-background-color: #4da3ff; -fx-text-fill: #121212; -fx-font-weight: bold;",
+        "Launch Puppeteer with scene snapshot from the current cursor line");
     btnLaunch.setOnAction(e -> {
       if (onLaunch != null) onLaunch.accept(buildSnapshot(currentLine));
     });
 
-    btnLaunchLabelStart = new Button("Launch @ Label Start");
-    btnLaunchLabelStart.setStyle("-fx-background-color: #2d3240; -fx-text-fill: #d2e6ff; -fx-font-weight: bold;");
-    btnLaunchLabelStart.setMaxWidth(Double.MAX_VALUE);
-    btnLaunchLabelStart.setTooltip(new javafx.scene.control.Tooltip("Launch Puppeteer from the active label start line"));
+    btnLaunchLabelStart = createActionButton(
+        "Launch @ Label Start",
+        "icon-puppeteer-launch-label",
+        "-fx-background-color: #2d3240; -fx-text-fill: #d2e6ff; -fx-font-weight: bold;",
+        "Launch Puppeteer from the active label start line");
     btnLaunchLabelStart.setOnAction(e -> {
       if (onLaunch == null) return;
       int labelStartLine = resolveActiveLabelStartLine(currentSource, currentLine);
       onLaunch.accept(buildSnapshot(labelStartLine));
     });
 
-    btnLaunchSceneStart = new Button("Launch @ Scene Start");
-    btnLaunchSceneStart.setStyle("-fx-background-color: #1f2d25; -fx-text-fill: #c8f0d0; -fx-font-weight: bold;");
-    btnLaunchSceneStart.setMaxWidth(Double.MAX_VALUE);
-    btnLaunchSceneStart.setTooltip(new javafx.scene.control.Tooltip("Launch Puppeteer from the most recent background change in the active label"));
+    btnLaunchSceneStart = createActionButton(
+        "Launch @ Scene Start",
+        "icon-puppeteer-launch-scene",
+        "-fx-background-color: #1f2d25; -fx-text-fill: #c8f0d0; -fx-font-weight: bold;",
+        "Launch Puppeteer from the most recent background change in the active label");
     btnLaunchSceneStart.setOnAction(e -> {
       if (onLaunch == null) return;
       int sceneStartLine = resolveSceneStartLine(currentSource, currentLine);
       onLaunch.accept(buildSnapshot(sceneStartLine));
     });
 
-    btnOpenTimeline = new Button("Open Timeline");
-    btnOpenTimeline.setStyle("-fx-background-color: #2d3240; -fx-text-fill: #d2e6ff;");
-    btnOpenTimeline.setMaxWidth(Double.MAX_VALUE);
-    btnOpenTimeline.setTooltip(new javafx.scene.control.Tooltip("Open the related timeline file or inline block"));
+    btnOpenTimeline = createActionButton(
+        "Open Timeline",
+        "icon-puppeteer-open-timeline",
+        "-fx-background-color: #2d3240; -fx-text-fill: #d2e6ff;",
+        "Open the related timeline file or inline block");
     btnOpenTimeline.setOnAction(e -> {
       if (onOpenTarget == null) return;
       OpenTarget target = resolveTimelineOpenTarget(buildSnapshot(currentLine));
       if (target != null) onOpenTarget.accept(target);
     });
 
-    btnOpenIssue = new Button("Jump To Issue");
-    btnOpenIssue.setStyle("-fx-background-color: #403225; -fx-text-fill: #f0d2b8;");
-    btnOpenIssue.setMaxWidth(Double.MAX_VALUE);
-    btnOpenIssue.setTooltip(new javafx.scene.control.Tooltip("Jump to the first launcher issue in the active VNS source"));
+    btnOpenIssue = createActionButton(
+        "Jump To Issue",
+        "icon-puppeteer-jump-issue",
+        "-fx-background-color: #403225; -fx-text-fill: #f0d2b8;",
+        "Jump to the first launcher issue in the active VNS source");
     btnOpenIssue.setOnAction(e -> {
       if (onOpenTarget == null) return;
       OpenTarget target = resolvePrimaryIssueOpenTarget(buildSnapshot(currentLine));
@@ -306,6 +313,24 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunchSceneStart.setDisable(false);
     btnOpenTimeline.setDisable(resolveTimelineOpenTarget(snap) == null);
     btnOpenIssue.setDisable(resolvePrimaryIssueOpenTarget(snap) == null);
+  }
+
+  private static Button createActionButton(String text, String iconClass, String style, String tooltip) {
+    Button button = new Button(text);
+    button.setStyle(style);
+    button.setMaxWidth(Double.MAX_VALUE);
+    button.setGraphic(makeIcon(iconClass));
+    button.setContentDisplay(ContentDisplay.LEFT);
+    button.setGraphicTextGap(8);
+    button.setTooltip(new Tooltip(tooltip));
+    return button;
+  }
+
+  private static Label makeIcon(String iconClass) {
+    Label icon = new Label();
+    icon.getStyleClass().addAll("icon", iconClass);
+    icon.setMouseTransparent(true);
+    return icon;
   }
 
   // --- VNS Scene State Resolver ---

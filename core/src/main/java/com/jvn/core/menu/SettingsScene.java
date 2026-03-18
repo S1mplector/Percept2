@@ -885,6 +885,7 @@ public class SettingsScene implements Scene {
 
   private String applyValueTemplate(String label, String value) {
     if (label == null) label = "";
+    if (label.isBlank()) return "";
     if (value == null || value.isBlank()) return label;
     if (label.contains("{value}")) return label.replace("{value}", value);
     if (label.contains("%value%")) return label.replace("%value%", value);
