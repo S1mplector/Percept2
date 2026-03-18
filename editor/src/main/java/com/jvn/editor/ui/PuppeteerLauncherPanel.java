@@ -38,6 +38,7 @@ public class PuppeteerLauncherPanel extends VBox {
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern JES_TIMELINE_PATTERN = Pattern.compile("^\\s*@external\\s+jes_timeline\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_SHOW = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+show\\s+(\\S+)(?:\\s+(\\S+))?", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_HIDE = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+hide", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_MOVE = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+move\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
@@ -49,17 +50,22 @@ public class PuppeteerLauncherPanel extends VBox {
   private final Label lblLineText;
   private final Label lblLabel;
   private final Label lblBackground;
+  private final Label lblTimeline;
   private final Label lblSummary;
   private final VBox characterList;
   private final VBox diagnosticsList;
   private final Button btnLaunch;
   private final Button btnLaunchLabelStart;
+  private final Button btnLaunchSceneStart;
+  private final Button btnOpenTimeline;
+  private final Button btnOpenIssue;
 
   private String currentSource = "";
   private int currentLine = 0;
   private File projectRoot;
   private File activeScriptFile;
   private Consumer<SceneSnapshot> onLaunch;
+  private Consumer<OpenTarget> onOpenTarget;
 
   public PuppeteerLauncherPanel() {
     setSpacing(8);
@@ -85,6 +91,9 @@ public class PuppeteerLauncherPanel extends VBox {
 
     lblBackground = new Label("Background: —");
     lblBackground.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+
+    lblTimeline = new Label("Timeline: —");
+    lblTimeline.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
 
     lblSummary = new Label("Snapshot: —");
     lblSummary.setStyle("-fx-text-fill: #8fc0ff; -fx-font-size: 11px;");
@@ -119,9 +128,44 @@ public class PuppeteerLauncherPanel extends VBox {
       onLaunch.accept(buildSnapshot(labelStartLine));
     });
 
-    HBox actionRow = new HBox(6, btnLaunch, btnLaunchLabelStart);
+    btnLaunchSceneStart = new Button("Launch @ Scene Start");
+    btnLaunchSceneStart.setStyle("-fx-background-color: #1f2d25; -fx-text-fill: #c8f0d0; -fx-font-weight: bold;");
+    btnLaunchSceneStart.setMaxWidth(Double.MAX_VALUE);
+    btnLaunchSceneStart.setTooltip(new javafx.scene.control.Tooltip("Launch Puppeteer from the most recent background change in the active label"));
+    btnLaunchSceneStart.setOnAction(e -> {
+      if (onLaunch == null) return;
+      int sceneStartLine = resolveSceneStartLine(currentSource, currentLine);
+      onLaunch.accept(buildSnapshot(sceneStartLine));
+    });
+
+    btnOpenTimeline = new Button("Open Timeline");
+    btnOpenTimeline.setStyle("-fx-background-color: #2d3240; -fx-text-fill: #d2e6ff;");
+    btnOpenTimeline.setMaxWidth(Double.MAX_VALUE);
+    btnOpenTimeline.setTooltip(new javafx.scene.control.Tooltip("Open the related timeline file or inline block"));
+    btnOpenTimeline.setOnAction(e -> {
+      if (onOpenTarget == null) return;
+      OpenTarget target = resolveTimelineOpenTarget(buildSnapshot(currentLine));
+      if (target != null) onOpenTarget.accept(target);
+    });
+
+    btnOpenIssue = new Button("Jump To Issue");
+    btnOpenIssue.setStyle("-fx-background-color: #403225; -fx-text-fill: #f0d2b8;");
+    btnOpenIssue.setMaxWidth(Double.MAX_VALUE);
+    btnOpenIssue.setTooltip(new javafx.scene.control.Tooltip("Jump to the first launcher issue in the active VNS source"));
+    btnOpenIssue.setOnAction(e -> {
+      if (onOpenTarget == null) return;
+      OpenTarget target = resolvePrimaryIssueOpenTarget(buildSnapshot(currentLine));
+      if (target != null) onOpenTarget.accept(target);
+    });
+
+    HBox actionRow = new HBox(6, btnLaunch, btnLaunchLabelStart, btnLaunchSceneStart);
     HBox.setHgrow(btnLaunch, Priority.ALWAYS);
     HBox.setHgrow(btnLaunchLabelStart, Priority.ALWAYS);
+    HBox.setHgrow(btnLaunchSceneStart, Priority.ALWAYS);
+
+    HBox openRow = new HBox(6, btnOpenTimeline, btnOpenIssue);
+    HBox.setHgrow(btnOpenTimeline, Priority.ALWAYS);
+    HBox.setHgrow(btnOpenIssue, Priority.ALWAYS);
 
     getChildren().addAll(
         lblHeader,
@@ -132,6 +176,7 @@ public class PuppeteerLauncherPanel extends VBox {
         snapshotHeader,
         lblLabel,
         lblBackground,
+        lblTimeline,
         lblSummary,
         charsHeader,
         characterList,
@@ -139,6 +184,7 @@ public class PuppeteerLauncherPanel extends VBox {
         diagnosticsHeader,
         diagnosticsList,
         new Separator(),
+        openRow,
         actionRow
     );
 
@@ -147,6 +193,10 @@ public class PuppeteerLauncherPanel extends VBox {
 
   public void setOnLaunch(Consumer<SceneSnapshot> handler) {
     this.onLaunch = handler;
+  }
+
+  public void setOnOpenTarget(Consumer<OpenTarget> handler) {
+    this.onOpenTarget = handler;
   }
 
   public void setProjectRoot(File projectRoot) {
@@ -178,6 +228,7 @@ public class PuppeteerLauncherPanel extends VBox {
     lblLineText.setText("(no VNS file active)");
     lblLabel.setText("Label: —");
     lblBackground.setText("Background: —");
+    lblTimeline.setText("Timeline: —");
     lblSummary.setText("Snapshot: —");
     characterList.getChildren().clear();
     Label none = new Label("—");
@@ -189,6 +240,9 @@ public class PuppeteerLauncherPanel extends VBox {
     diagnosticsList.getChildren().add(hint);
     btnLaunch.setDisable(true);
     btnLaunchLabelStart.setDisable(true);
+    btnLaunchSceneStart.setDisable(true);
+    btnOpenTimeline.setDisable(true);
+    btnOpenIssue.setDisable(true);
   }
 
   private void refresh() {
@@ -209,7 +263,11 @@ public class PuppeteerLauncherPanel extends VBox {
 
     lblLabel.setText("Label: " + (snap.currentLabel != null ? snap.currentLabel : "(before first label)"));
     lblBackground.setText("Background: " + (snap.backgroundId != null ? snap.backgroundId : "—"));
-    lblSummary.setText("Snapshot: " + snap.characters.size() + " character(s) • source line " + (lineIdx + 1));
+    lblTimeline.setText("Timeline: " + describeTimelineContext(snap));
+    lblSummary.setText(
+        "Snapshot: " + snap.characters.size() + " character(s)"
+            + " • scene start " + (resolveSceneStartLine(currentSource, lineIdx) + 1)
+            + " • source line " + (lineIdx + 1));
 
     characterList.getChildren().clear();
     if (snap.characters.isEmpty()) {
@@ -229,7 +287,7 @@ public class PuppeteerLauncherPanel extends VBox {
     }
 
     diagnosticsList.getChildren().clear();
-    List<String> diagnostics = buildDiagnostics(snap);
+    List<String> diagnostics = buildDiagnostics(snap, projectRoot);
     if (diagnostics.isEmpty()) {
       Label ok = new Label("All visible snapshot assets are mapped.");
       ok.setStyle("-fx-text-fill: #8bd17c; -fx-font-size: 11px;");
@@ -245,6 +303,9 @@ public class PuppeteerLauncherPanel extends VBox {
 
     btnLaunch.setDisable(false);
     btnLaunchLabelStart.setDisable(false);
+    btnLaunchSceneStart.setDisable(false);
+    btnOpenTimeline.setDisable(resolveTimelineOpenTarget(snap) == null);
+    btnOpenIssue.setDisable(resolvePrimaryIssueOpenTarget(snap) == null);
   }
 
   // --- VNS Scene State Resolver ---
@@ -264,10 +325,13 @@ public class PuppeteerLauncherPanel extends VBox {
 
     String currentLabel = null;
     String backgroundId = null;
+    int backgroundLine = -1;
     Map<String, CharacterEntry> visible = new LinkedHashMap<>();
     Map<String, String> bgPaths = new LinkedHashMap<>();
     Map<String, String> charImgPaths = new LinkedHashMap<>();
     Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
+    String referencedTimelineName = null;
+    int referencedTimelineLine = -1;
 
     collectDeclarations(
         source,
@@ -298,6 +362,7 @@ public class PuppeteerLauncherPanel extends VBox {
       m = BG_CMD_PATTERN.matcher(line);
       if (m.find()) {
         backgroundId = m.group(1);
+        backgroundLine = i;
         continue;
       }
 
@@ -339,7 +404,7 @@ public class PuppeteerLauncherPanel extends VBox {
       }
 
       // [show charId pos expression?]
-      CharacterEntry showEntry = parseShowCommand(commandLine);
+      CharacterEntry showEntry = parseShowCommand(commandLine, i);
       if (showEntry != null) {
         visible.put(showEntry.characterId, showEntry);
         continue;
@@ -352,13 +417,20 @@ public class PuppeteerLauncherPanel extends VBox {
         continue;
       }
 
+      m = JES_TIMELINE_PATTERN.matcher(line);
+      if (m.find()) {
+        referencedTimelineName = m.group(1);
+        referencedTimelineLine = i;
+        continue;
+      }
+
       // @external character <id> show <pos> [expr]
       m = EXT_CHAR_SHOW.matcher(line);
       if (m.find()) {
         String charId = m.group(1);
         String pos = m.group(2).toLowerCase(Locale.ROOT);
         String expr = m.group(3) != null ? m.group(3) : "neutral";
-        visible.put(charId, new CharacterEntry(charId, pos, expr));
+        visible.put(charId, new CharacterEntry(charId, pos, expr, i));
         continue;
       }
 
@@ -376,7 +448,7 @@ public class PuppeteerLauncherPanel extends VBox {
         String pos = m.group(2).toLowerCase(Locale.ROOT);
         CharacterEntry existing = visible.get(charId);
         String expr = existing != null ? existing.expression : "neutral";
-        visible.put(charId, new CharacterEntry(charId, pos, expr));
+        visible.put(charId, new CharacterEntry(charId, pos, expr, i));
         continue;
       }
 
@@ -387,11 +459,26 @@ public class PuppeteerLauncherPanel extends VBox {
         String expr = m.group(2);
         CharacterEntry existing = visible.get(charId);
         String pos = existing != null ? existing.position : "center";
-        visible.put(charId, new CharacterEntry(charId, pos, expr));
+        visible.put(charId, new CharacterEntry(charId, pos, expr, i));
       }
     }
 
-    return new SceneSnapshot(currentLabel, backgroundId, new ArrayList<>(visible.values()), limit, bgPaths, charImgPaths);
+    InlineTimelineContext inlineTimeline = resolveInlineTimelineContext(source, limit);
+    String inlineTimelineName = inlineTimeline != null ? deriveInlineTimelineName(currentLabel, inlineTimeline.startLine()) : null;
+
+    return new SceneSnapshot(
+        currentLabel,
+        backgroundId,
+        backgroundLine,
+        new ArrayList<>(visible.values()),
+        limit,
+        bgPaths,
+        charImgPaths,
+        referencedTimelineName,
+        referencedTimelineLine,
+        inlineTimeline != null ? inlineTimeline.body() : null,
+        inlineTimeline != null ? inlineTimeline.startLine() : -1,
+        inlineTimelineName);
   }
 
   private SceneSnapshot buildSnapshot(int lineIdx) {
@@ -414,7 +501,69 @@ public class PuppeteerLauncherPanel extends VBox {
     return latestLabelLine;
   }
 
-  private static List<String> buildDiagnostics(SceneSnapshot snapshot) {
+  static int resolveSceneStartLine(String source, int upToLine) {
+    if (source == null || source.isBlank()) return 0;
+    String[] lines = source.split("\n", -1);
+    int limit = Math.max(0, Math.min(upToLine, lines.length - 1));
+    int labelStart = resolveActiveLabelStartLine(source, limit);
+    int sceneStart = labelStart;
+    for (int i = labelStart; i <= limit; i++) {
+      String trimmed = stripInlineComment(lines[i]).trim();
+      if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
+      if (BG_CMD_PATTERN.matcher(trimmed).find()) {
+        sceneStart = i;
+      }
+    }
+    return sceneStart;
+  }
+
+  private OpenTarget resolvePrimaryIssueOpenTarget(SceneSnapshot snapshot) {
+    if (snapshot == null || activeScriptFile == null) return null;
+    if (snapshot.backgroundId != null && !snapshot.hasBackgroundPathMapping() && snapshot.backgroundLine >= 0) {
+      return new OpenTarget(activeScriptFile, snapshot.backgroundLine + 1);
+    }
+    for (CharacterEntry ch : snapshot.characters) {
+      if (ch == null) continue;
+      if (!snapshot.hasCharacterPathMapping(ch.characterId, ch.expression) && ch.atLine >= 0) {
+        return new OpenTarget(activeScriptFile, ch.atLine + 1);
+      }
+      if (ch.position == null || !KNOWN_POSITIONS.contains(ch.position.toLowerCase(Locale.ROOT))) {
+        return new OpenTarget(activeScriptFile, ch.atLine + 1);
+      }
+    }
+    if (snapshot.referencedTimelineLine >= 0 && snapshot.resolveTimelineFile(projectRoot) == null) {
+      return new OpenTarget(activeScriptFile, snapshot.referencedTimelineLine + 1);
+    }
+    return null;
+  }
+
+  private OpenTarget resolveTimelineOpenTarget(SceneSnapshot snapshot) {
+    if (snapshot == null) return null;
+    if (snapshot.hasInlineTimeline() && activeScriptFile != null && snapshot.inlineTimelineStartLine >= 0) {
+      return new OpenTarget(activeScriptFile, snapshot.inlineTimelineStartLine + 1);
+    }
+    File timelineFile = snapshot.resolveTimelineFile(projectRoot);
+    if (timelineFile != null) {
+      return new OpenTarget(timelineFile, 1);
+    }
+    if (snapshot.referencedTimelineLine >= 0 && activeScriptFile != null) {
+      return new OpenTarget(activeScriptFile, snapshot.referencedTimelineLine + 1);
+    }
+    return null;
+  }
+
+  private static String describeTimelineContext(SceneSnapshot snapshot) {
+    if (snapshot == null) return "—";
+    if (snapshot.hasInlineTimeline()) {
+      return snapshot.inlineTimelineName + " (inline block)";
+    }
+    if (snapshot.referencedTimelineName != null && !snapshot.referencedTimelineName.isBlank()) {
+      return snapshot.referencedTimelineName;
+    }
+    return "—";
+  }
+
+  private static List<String> buildDiagnostics(SceneSnapshot snapshot, File projectRoot) {
     List<String> out = new ArrayList<>();
     if (snapshot == null) return out;
 
@@ -432,10 +581,14 @@ public class PuppeteerLauncherPanel extends VBox {
         out.add("Character '" + ch.characterId + "' uses position '" + ch.position + "' (Puppeteer launch falls back to center).");
       }
     }
+    if (snapshot.referencedTimelineName != null && !snapshot.referencedTimelineName.isBlank()
+        && !snapshot.hasInlineTimeline() && snapshot.resolveTimelineFile(projectRoot) == null) {
+      out.add("Timeline '" + snapshot.referencedTimelineName + "' is referenced here, but scripts/timelines/" + snapshot.referencedTimelineName + ".jes was not found.");
+    }
     return out;
   }
 
-  private static CharacterEntry parseShowCommand(String line) {
+  private static CharacterEntry parseShowCommand(String line, int atLine) {
     List<String> tokens = bracketTokens(line);
     if (tokens.size() < 2 || !"show".equalsIgnoreCase(tokens.get(0))) return null;
     String charId = tokens.get(1);
@@ -470,7 +623,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     if (position == null) position = "center";
     if (expression == null || expression.isBlank()) expression = "neutral";
-    return new CharacterEntry(charId, position, expression);
+    return new CharacterEntry(charId, position, expression, atLine);
   }
 
   private static String parseHideCommand(String line) {
@@ -501,6 +654,76 @@ public class PuppeteerLauncherPanel extends VBox {
 
   private static boolean isKnownPosition(String value) {
     return value != null && KNOWN_POSITIONS.contains(value.toLowerCase(Locale.ROOT));
+  }
+
+  private static InlineTimelineContext resolveInlineTimelineContext(String source, int cursorLine) {
+    if (source == null || source.isBlank()) return null;
+    String[] lines = source.split("\n", -1);
+    int limit = Math.max(0, Math.min(cursorLine, lines.length - 1));
+    for (int i = 0; i <= limit; i++) {
+      String trimmed = stripInlineComment(lines[i]).trim();
+      if (!startsInlineTimeline(trimmed)) continue;
+      int openingLine = i;
+      int braceDepth = countChar(trimmed, '{');
+      int j = i;
+      if (braceDepth == 0) {
+        boolean foundOpeningBrace = false;
+        while (++j < lines.length) {
+          String nextTrimmed = stripInlineComment(lines[j]).trim();
+          if (nextTrimmed.isEmpty() || nextTrimmed.startsWith("#")) continue;
+          if ("{".equals(nextTrimmed)) {
+            braceDepth = 1;
+            foundOpeningBrace = true;
+            break;
+          }
+          break;
+        }
+        if (!foundOpeningBrace) {
+          continue;
+        }
+      }
+      StringBuilder block = new StringBuilder();
+      int endLine = j;
+      while (++endLine < lines.length && braceDepth > 0) {
+        String line = lines[endLine];
+        for (char c : line.toCharArray()) {
+          if (c == '{') braceDepth++;
+          else if (c == '}') braceDepth--;
+        }
+        if (braceDepth > 0) {
+          block.append(line).append('\n');
+        } else {
+          int lastBrace = line.lastIndexOf('}');
+          if (lastBrace > 0) block.append(line, 0, lastBrace).append('\n');
+        }
+      }
+      if (braceDepth == 0 && limit >= openingLine && limit <= endLine) {
+        return new InlineTimelineContext(openingLine, endLine, block.toString());
+      }
+      i = Math.max(i, endLine);
+    }
+    return null;
+  }
+
+  private static boolean startsInlineTimeline(String trimmed) {
+    return trimmed.startsWith("timeline") && (trimmed.endsWith("{") || trimmed.equals("timeline"));
+  }
+
+  private static int countChar(String value, char ch) {
+    int count = 0;
+    for (int i = 0; i < value.length(); i++) {
+      if (value.charAt(i) == ch) count++;
+    }
+    return count;
+  }
+
+  private static String deriveInlineTimelineName(String currentLabel, int startLine) {
+    String base = currentLabel != null && !currentLabel.isBlank() ? currentLabel : "inline_timeline";
+    String normalized = base.replaceAll("[^A-Za-z0-9_]+", "_");
+    normalized = normalized.replaceAll("_+", "_");
+    normalized = normalized.replaceAll("^_+|_+$", "");
+    if (normalized.isBlank()) normalized = "inline_timeline";
+    return normalized + "_inline_" + Math.max(1, startLine + 1);
   }
 
   private static void collectDeclarations(
@@ -719,30 +942,54 @@ public class PuppeteerLauncherPanel extends VBox {
     public final String characterId;
     public final String position;
     public final String expression;
+    public final int atLine;
 
-    public CharacterEntry(String characterId, String position, String expression) {
+    public CharacterEntry(String characterId, String position, String expression, int atLine) {
       this.characterId = characterId;
       this.position = position;
       this.expression = expression;
+      this.atLine = atLine;
     }
   }
 
   public static class SceneSnapshot {
     public final String currentLabel;
     public final String backgroundId;
+    public final int backgroundLine;
     public final List<CharacterEntry> characters;
     public final int atLine;
     public final Map<String, String> backgroundPaths;
     public final Map<String, String> characterImagePaths;
+    public final String referencedTimelineName;
+    public final int referencedTimelineLine;
+    public final String inlineTimelineBody;
+    public final int inlineTimelineStartLine;
+    public final String inlineTimelineName;
 
-    public SceneSnapshot(String currentLabel, String backgroundId, List<CharacterEntry> characters, int atLine,
-                         Map<String, String> backgroundPaths, Map<String, String> characterImagePaths) {
+    public SceneSnapshot(String currentLabel,
+                         String backgroundId,
+                         int backgroundLine,
+                         List<CharacterEntry> characters,
+                         int atLine,
+                         Map<String, String> backgroundPaths,
+                         Map<String, String> characterImagePaths,
+                         String referencedTimelineName,
+                         int referencedTimelineLine,
+                         String inlineTimelineBody,
+                         int inlineTimelineStartLine,
+                         String inlineTimelineName) {
       this.currentLabel = currentLabel;
       this.backgroundId = backgroundId;
+      this.backgroundLine = backgroundLine;
       this.characters = characters;
       this.atLine = atLine;
       this.backgroundPaths = backgroundPaths;
       this.characterImagePaths = characterImagePaths;
+      this.referencedTimelineName = referencedTimelineName;
+      this.referencedTimelineLine = referencedTimelineLine;
+      this.inlineTimelineBody = inlineTimelineBody;
+      this.inlineTimelineStartLine = inlineTimelineStartLine;
+      this.inlineTimelineName = inlineTimelineName;
     }
 
     public String resolveBackgroundPath() {
@@ -779,7 +1026,28 @@ public class PuppeteerLauncherPanel extends VBox {
       }
       return characterId;
     }
+
+    public boolean hasInlineTimeline() {
+      return inlineTimelineBody != null && !inlineTimelineBody.isBlank();
+    }
+
+    public String preferredTimelineName() {
+      if (hasInlineTimeline() && inlineTimelineName != null && !inlineTimelineName.isBlank()) {
+        return inlineTimelineName;
+      }
+      return referencedTimelineName;
+    }
+
+    public File resolveTimelineFile(File projectRoot) {
+      if (projectRoot == null || referencedTimelineName == null || referencedTimelineName.isBlank()) {
+        return null;
+      }
+      File file = new File(new File(projectRoot, "scripts/timelines"), referencedTimelineName + ".jes");
+      return file.isFile() ? file : null;
+    }
   }
+
+  public record OpenTarget(File file, int oneBasedLine) {}
 
   @FunctionalInterface
   interface IncludeSourceResolver {
@@ -787,6 +1055,7 @@ public class PuppeteerLauncherPanel extends VBox {
   }
 
   record ResolvedInclude(String sourceName, String sourceText) {}
+  record InlineTimelineContext(int startLine, int endLine, String body) {}
 
   private record LayerRef(String characterId, String layerId) {}
 }

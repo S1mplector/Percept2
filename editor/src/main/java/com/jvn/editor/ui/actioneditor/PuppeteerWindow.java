@@ -696,7 +696,12 @@ public class PuppeteerWindow extends Stage {
         cueBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Timeline name + Register ---
-        tfTimelineName = new TextField("my_animation");
+        String initialTimelineName = this.project.getName();
+        if (initialTimelineName == null || initialTimelineName.isBlank()
+            || "Untitled Animation".equalsIgnoreCase(initialTimelineName)) {
+            initialTimelineName = "my_animation";
+        }
+        tfTimelineName = new TextField(initialTimelineName);
         tfTimelineName.setPrefWidth(110);
         tfTimelineName.setPromptText("timeline_name");
         tfTimelineName.setStyle(STYLE_TEXT_FIELD);
@@ -944,6 +949,14 @@ public class PuppeteerWindow extends Stage {
     }
 
     public AnimationProject getProject() { return project; }
+
+    public void setTimelineName(String name) {
+        String normalized = name != null ? name.trim() : "";
+        if (normalized.isBlank()) return;
+        project.setName(normalized);
+        tfTimelineName.setText(normalized);
+        setDirty(dirty);
+    }
 
     public void setOnCopyCode(Consumer<String> callback) { this.onCopyCode = callback; }
 

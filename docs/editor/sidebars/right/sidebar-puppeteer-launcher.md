@@ -46,8 +46,13 @@ Full Puppeteer Launcher sidebar utility view.
 | **Scene Snapshot at Cursor** | Blue header for the snapshot section |
 | **Label** | The most recent `@label` / `label` declaration before the cursor, or "(before first label)" |
 | **Background** | The active background ID from the most recent `[bg]` / `[background]` command, or "—" |
+| **Timeline** | Related timeline context: referenced `@external jes_timeline <name>`, active inline `timeline { ... }` block, or "—" |
 | **Visible Characters** | List of character entries in monospace font, colored `#f0b673` |
-| **Launch Puppeteer Here** | Blue button — disabled when no VNS file is active |
+| **Open Timeline** | Opens the related `.jes` timeline file, or jumps to the inline `timeline { ... }` block in the active VNS script |
+| **Jump To Issue** | Jumps to the first visible launcher issue in the active VNS file (missing mapping, invalid position, or missing timeline file) |
+| **Launch @ Cursor** | Launches Puppeteer with the exact scene snapshot at the current line |
+| **Launch @ Label Start** | Launches Puppeteer from the active label start line |
+| **Launch @ Scene Start** | Launches Puppeteer from the latest background change inside the active label |
 
 ### Character Entry Format
 
@@ -128,16 +133,21 @@ The resolved snapshot is passed to Puppeteer as a `SceneSnapshot` object:
 static class SceneSnapshot {
     String currentLabel;                              // Active label name
     String backgroundId;                              // Active background ID
+    int backgroundLine;                               // Source line of the current background
     List<CharacterEntry> characters;                  // Visible characters
     Map<String, String> bgPaths;                      // bgId → asset path
     Map<String, String> charImgPaths;                 // "charId/expression" → asset path
-    Map<String, Map<String, String>> charLayerPaths;  // charId → (layerId → path)
+    String referencedTimelineName;                    // @external jes_timeline target
+    int referencedTimelineLine;                       // Source line of timeline reference
+    String inlineTimelineBody;                        // Inline timeline block body when cursor is inside one
+    int inlineTimelineStartLine;                      // Source line of inline timeline block start
 }
 
 static class CharacterEntry {
     String characterId;   // e.g., "hero"
     String position;      // e.g., "center", "left", "right"
     String expression;    // e.g., "happy", "neutral"
+    int atLine;           // Source line that last changed this visible entry
 }
 ```
 
@@ -145,7 +155,7 @@ static class CharacterEntry {
 
 ## What Puppeteer Receives
 
-When you click **Launch Puppeteer Here**, the snapshot is used to construct a `JesScene2D`:
+When you click one of the launch actions, the snapshot is used to construct a `JesScene2D`:
 
 1. **Background** — A `Sprite2D` entity positioned at (0, 0) using the resolved asset path from `bgPaths[backgroundId]`
 2. **Characters** — One `Sprite2D` per visible character, positioned at VN slot locations:
@@ -156,7 +166,9 @@ When you click **Launch Puppeteer Here**, the snapshot is used to construct a `J
 3. **Expression images** — Resolved from `charImgPaths["charId/expression"]` or composited from `charLayerPaths`
 4. **Layer paths** — If a character uses layered sprites (`@charlayer`), all layer paths are available for Puppeteer's entity setup
 
-This means the Puppeteer viewport shows exactly what the player would see at that script position, and you can immediately start authoring animations in that context.
+If the cursor is inside an inline `timeline { ... }` block, Puppeteer imports that block directly. If the snapshot sees `@external jes_timeline <name>`, Puppeteer prefers `scripts/timelines/<name>.jes` automatically instead of making you pick from the whole timeline directory first.
+
+This means the Puppeteer viewport shows exactly what the player would see at that script position, while the launch flow is now aware of the most relevant timeline source.
 
 ---
 

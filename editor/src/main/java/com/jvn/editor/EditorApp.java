@@ -2445,6 +2445,7 @@ public class EditorApp extends Application {
     puppeteerLauncherPanel = new PuppeteerLauncherPanel();
     puppeteerLauncherPanel.setProjectRoot(projectRoot);
     puppeteerLauncherPanel.setOnLaunch(snapshot -> launchPuppeteerFromSnapshot(snapshot));
+    puppeteerLauncherPanel.setOnOpenTarget(this::openPuppeteerLauncherTarget);
     FileEditorTab ft = getActiveFileTab();
     if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
       puppeteerLauncherPanel.setActiveScriptFile(ft.getFile());
@@ -2820,6 +2821,22 @@ public class EditorApp extends Application {
       return;
     }
     ft.navigateToLine(target.oneBasedLine());
+  }
+
+  private void openPuppeteerLauncherTarget(PuppeteerLauncherPanel.OpenTarget target) {
+    if (target == null || target.file() == null) return;
+    File file = target.file();
+    openFile(file);
+    if (target.oneBasedLine() <= 0) return;
+    Platform.runLater(() -> {
+      if (filesTabs == null) return;
+      for (Tab t : filesTabs.getTabs()) {
+        if (t.getUserData() instanceof File ff && ff.equals(file) && t.getContent() instanceof FileEditorTab ft) {
+          ft.navigateToLine(target.oneBasedLine());
+          break;
+        }
+      }
+    });
   }
 
   private void fitCameraToEntity(Entity2D e) {
@@ -4523,12 +4540,19 @@ public class EditorApp extends Application {
   }
 
   private void launchPuppeteerFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
-    AnimationProject imported = discoverAndImportTimeline();
+    String preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
+    AnimationProject imported = importTimelineFromSnapshot(snapshot);
+    if (imported == null && (preferredTimelineName == null || preferredTimelineName.isBlank())) {
+      imported = discoverAndImportTimeline();
+    }
     PuppeteerWindow puppeteer = imported != null
         ? new PuppeteerWindow(imported)
         : new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
     if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
+    if (preferredTimelineName != null && !preferredTimelineName.isBlank()) {
+      puppeteer.setTimelineName(preferredTimelineName);
+    }
     FileEditorTab ft = getActiveFileTab();
 
     if (ft != null && ft.getJesScene() != null) {
@@ -4540,6 +4564,9 @@ public class EditorApp extends Application {
 
     if (snapshot != null) {
       String title = "Puppeteer";
+      if (preferredTimelineName != null && !preferredTimelineName.isBlank()) {
+        title += " - " + preferredTimelineName;
+      }
       if (snapshot.currentLabel != null) title += " @ " + snapshot.currentLabel;
       title += " (line " + (snapshot.atLine + 1) + ")";
       puppeteer.setTitle(title);
@@ -4652,6 +4679,31 @@ public class EditorApp extends Application {
     puppeteer.show();
   }
 
+  private AnimationProject importTimelineFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
+    if (snapshot == null) return null;
+    String preferredTimelineName = snapshot.preferredTimelineName();
+    if (snapshot.hasInlineTimeline()) {
+      try {
+        return CodeImporter.importCode(
+            preferredTimelineName != null && !preferredTimelineName.isBlank() ? preferredTimelineName : "inline_timeline",
+            wrapInlineTimeline(snapshot.inlineTimelineBody));
+      } catch (Exception ex) {
+        showTimelineImportWarning("inline timeline", ex);
+        return null;
+      }
+    }
+    if (preferredTimelineName != null && !preferredTimelineName.isBlank()) {
+      return importNamedTimeline(preferredTimelineName, false);
+    }
+    return null;
+  }
+
+  private static String wrapInlineTimeline(String body) {
+    String content = body != null ? body.strip() : "";
+    if (content.isEmpty()) return "timeline {\n}\n";
+    return "timeline {\n" + content + "\n}\n";
+  }
+
   /**
    * Scans scripts/timelines/ for existing .jes files and offers a choice dialog.
    * Returns the imported AnimationProject, or null if the user chose "New" or no files exist.
@@ -4690,19 +4742,32 @@ public class EditorApp extends Application {
     String selectedName = result.get();
     if (selectedName == null || selectedName.isBlank()) return null;
 
+    return importNamedTimeline(selectedName, true);
+  }
+
+  private AnimationProject importNamedTimeline(String selectedName, boolean showWarningOnFailure) {
+    if (projectRoot == null || selectedName == null || selectedName.isBlank()) return null;
     try {
+      java.io.File timelinesDir = new java.io.File(projectRoot, "scripts/timelines");
       java.io.File jesFile = new java.io.File(timelinesDir, selectedName + ".jes");
+      if (!jesFile.isFile()) return null;
       String code = java.nio.file.Files.readString(jesFile.toPath());
       return CodeImporter.importCode(selectedName, code);
     } catch (Exception ex) {
-      Alert alert = new Alert(Alert.AlertType.WARNING);
-      EditorTheme.apply(alert);
-      alert.setTitle("Import Failed");
-      alert.setHeaderText("Could not import timeline '" + selectedName + "'");
-      alert.setContentText(ex.getMessage());
-      alert.showAndWait();
+      if (showWarningOnFailure) {
+        showTimelineImportWarning(selectedName, ex);
+      }
       return null;
     }
+  }
+
+  private void showTimelineImportWarning(String timelineName, Exception ex) {
+    Alert alert = new Alert(Alert.AlertType.WARNING);
+    EditorTheme.apply(alert);
+    alert.setTitle("Import Failed");
+    alert.setHeaderText("Could not import timeline '" + timelineName + "'");
+    alert.setContentText(ex != null ? ex.getMessage() : "Unknown error");
+    alert.showAndWait();
   }
 
   private static void applyLinuxDefaultWindowState(Stage stage) {
