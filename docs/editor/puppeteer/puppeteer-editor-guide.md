@@ -297,6 +297,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | `Interp` | combo box | `TWEEN`, `HOLD`, `STEP` |
 | `Easing` | searchable combo box | all `Easing.Type` values with inline filtering |
 | Easing curve editor | custom canvas widget | Curve preview; drag bezier handles when easing=`CUSTOM` |
+| `Presets` | combo + buttons | Apply, save, update, or delete project easing presets stored in `config/puppeteer/easing-presets.properties` |
 | `Pivot Presets` label | label | Visible only for `PIVOT_X`/`PIVOT_Y` |
 | Pivot preset grid | 3x3 buttons | `TL`, `TC`, `TR`, `ML`, `C`, `MR`, `BL`, `BC`, `BR` |
 | `Delete` | button | Deletes current keyframe |
@@ -458,6 +459,7 @@ Select a keyframe by clicking its diamond in the timeline. The **Keyframe Editor
 - **Value** — editable text field + slider (range adapts to property type)
 - **Easing** — searchable dropdown with all 37 easing options (`Easing.Type`)
 - **Curve Preview** — visual easing curve editor (interactive for CUSTOM type)
+- **Curve Presets** — save the current easing as a project preset, update an existing preset after tweaking it, or reapply saved presets by name
 - **Delete** — remove this keyframe
 - **Reset** — reset value to the property's default
 
@@ -544,6 +546,17 @@ Select `CUSTOM` easing to define a CSS-style `cubic-bezier(cx1, cy1, cx2, cy2)` 
 Uses Newton-Raphson iteration for accurate evaluation.
 
 The easing picker is searchable: type part of a family name (`spring`, `bounce`) or a semantic preset (`hero`, `camera`) to filter the list before selecting.
+
+### Project Curve Presets
+
+When a project is open, Puppeteer also exposes a project preset manager below the curve editor:
+
+- **Apply** — load a saved preset onto the current keyframe or multi-selection
+- **Save New** — persist the current easing shape into `config/puppeteer/easing-presets.properties`
+- **Update** — overwrite the selected preset after refining the curve
+- **Delete** — remove the selected preset from the project file
+
+This is mainly useful for custom cubic Bézier curves, but the saved preset format stores the full `EasingSpec`, so named curves and spring-based entries can also be preserved as named project shortcuts.
 
 ---
 

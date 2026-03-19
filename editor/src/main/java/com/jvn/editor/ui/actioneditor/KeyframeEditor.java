@@ -1,5 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,6 +35,13 @@ public class KeyframeEditor extends VBox {
     private final Button btnResetValue;
     private final Label lblCameraState;
     private final EasingCurveEditor curveEditor;
+    private final ComboBox<PuppeteerEasingPresetStore.Preset> cbCurvePreset;
+    private final TextField tfCurvePresetName;
+    private final Button btnApplyCurvePreset;
+    private final Button btnSaveCurvePreset;
+    private final Button btnUpdateCurvePreset;
+    private final Button btnDeleteCurvePreset;
+    private final Label lblCurvePresetStatus;
     private final GridPane pivotPresetsGrid;
     private final Label lblPivotPresets;
     private final VBox batchBox;
@@ -52,12 +61,15 @@ public class KeyframeEditor extends VBox {
     private final GridPane grid;
     private double timelineDurationMs = 3000.0;
     private final List<EasingPickerModel.Option> easingOptions;
+    private final List<PuppeteerEasingPresetStore.Preset> curvePresets = new ArrayList<>();
 
     private Keyframe currentKeyframe;
     private PropertyType currentProperty;
     private final List<Keyframe> currentSelection = new ArrayList<>();
     private boolean updatingUi = false;
     private boolean syncingEasingSearch = false;
+    private boolean updatingPresetUi = false;
+    private File projectRoot;
     private Runnable onKeyframeChanged;
     private Runnable onDeleteRequested;
     private java.util.function.BiConsumer<Double, Double> onPivotPresetApplied;
@@ -200,19 +212,83 @@ public class KeyframeEditor extends VBox {
             }
         });
 
+        cbCurvePreset = new ComboBox<>();
+        cbCurvePreset.setPromptText("Project presets");
+        cbCurvePreset.setTooltip(new Tooltip("Saved project easing presets"));
+        cbCurvePreset.setCellFactory(list -> new ListCell<>() {
+            @Override
+            protected void updateItem(PuppeteerEasingPresetStore.Preset item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+                setText(item.name());
+                setTooltip(new Tooltip(item.spec().toDslString()));
+            }
+        });
+        cbCurvePreset.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(PuppeteerEasingPresetStore.Preset item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.name());
+            }
+        });
+        HBox.setHgrow(cbCurvePreset, Priority.ALWAYS);
+
+        btnApplyCurvePreset = new Button("Apply");
+        btnApplyCurvePreset.setTooltip(new Tooltip("Apply the selected preset to the current easing"));
+        btnApplyCurvePreset.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 3; " +
+            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+        HBox presetPickerRow = new HBox(6, cbCurvePreset, btnApplyCurvePreset);
+        HBox.setHgrow(cbCurvePreset, Priority.ALWAYS);
+
+        tfCurvePresetName = new TextField();
+        tfCurvePresetName.setPromptText("Preset name");
+        tfCurvePresetName.setStyle(FIELD_STYLE);
+        HBox.setHgrow(tfCurvePresetName, Priority.ALWAYS);
+
+        btnSaveCurvePreset = new Button("Save New");
+        btnSaveCurvePreset.setTooltip(new Tooltip("Save the current easing as a new project preset"));
+        btnSaveCurvePreset.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 3; " +
+            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+
+        btnUpdateCurvePreset = new Button("Update");
+        btnUpdateCurvePreset.setTooltip(new Tooltip("Overwrite the selected preset with the current easing"));
+        btnUpdateCurvePreset.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 3; " +
+            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+
+        btnDeleteCurvePreset = new Button("Delete");
+        btnDeleteCurvePreset.setTooltip(new Tooltip("Delete the selected preset from the project"));
+        btnDeleteCurvePreset.setStyle("-fx-background-color: #3a2323; -fx-text-fill: #f1c1c1; -fx-background-radius: 3; " +
+            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+
+        HBox presetActionsRow = new HBox(6,
+            tfCurvePresetName,
+            btnSaveCurvePreset,
+            btnUpdateCurvePreset,
+            btnDeleteCurvePreset);
+
+        lblCurvePresetStatus = new Label("Open a project to save easing presets.");
+        lblCurvePresetStatus.setStyle("-fx-text-fill: #7f8796; -fx-font-size: 10px;");
+        VBox presetBox = new VBox(4, presetPickerRow, presetActionsRow, lblCurvePresetStatus);
+
         grid.add(new Label("Interp:"), 0, 4);
         grid.add(cbInterpolation, 1, 4);
         grid.add(new Label("Easing:"), 0, 5);
         grid.add(cbEasing, 1, 5);
         grid.add(curveEditor, 0, 6, 2, 1);
-        grid.add(batchBox, 0, 7, 2, 1);
-        grid.add(lblPivotPresets, 0, 8);
-        grid.add(pivotPresetsGrid, 1, 8);
-        grid.add(actionRow, 1, 9);
+        grid.add(new Label("Presets:"), 0, 7);
+        grid.add(presetBox, 1, 7);
+        grid.add(batchBox, 0, 8, 2, 1);
+        grid.add(lblPivotPresets, 0, 9);
+        grid.add(pivotPresetsGrid, 1, 9);
+        grid.add(actionRow, 1, 10);
         lblCameraState = new Label("X 0.0  Y 0.0  Z 1.00");
         lblCameraState.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px; -fx-font-family: monospace;");
-        grid.add(new Label("Camera:"), 0, 10);
-        grid.add(lblCameraState, 1, 10);
+        grid.add(new Label("Camera:"), 0, 11);
+        grid.add(lblCameraState, 1, 11);
 
         for (var node : grid.getChildren()) {
             if (node instanceof Label l && l != header) l.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
@@ -243,6 +319,18 @@ public class KeyframeEditor extends VBox {
             refreshCurveEditorPreview();
             updateCurveEditorState();
         });
+        cbCurvePreset.setOnAction(e -> {
+            if (updatingPresetUi) return;
+            PuppeteerEasingPresetStore.Preset preset = cbCurvePreset.getValue();
+            tfCurvePresetName.setText(preset != null ? preset.name() : "");
+            refreshPresetUiState();
+        });
+        tfCurvePresetName.textProperty().addListener((obs, oldValue, newValue) -> refreshPresetUiState());
+        tfCurvePresetName.setOnAction(e -> saveCurvePreset(false));
+        btnApplyCurvePreset.setOnAction(e -> applySelectedCurvePreset());
+        btnSaveCurvePreset.setOnAction(e -> saveCurvePreset(false));
+        btnUpdateCurvePreset.setOnAction(e -> saveCurvePreset(true));
+        btnDeleteCurvePreset.setOnAction(e -> deleteSelectedCurvePreset());
 
         sliderTime.valueProperty().addListener((obs, oldV, newV) -> {
             if (currentKeyframe == null || !sliderTime.isValueChanging()) return;
@@ -294,11 +382,17 @@ public class KeyframeEditor extends VBox {
         });
 
         setFieldsDisabled(true);
+        refreshPresetUiState();
     }
 
     public void setTimelineDurationMs(double durationMs) {
         timelineDurationMs = Math.max(100.0, durationMs);
         syncTimeSliderBounds(currentKeyframe != null ? currentKeyframe.getTimeMs() : 0.0);
+    }
+
+    public void setProjectRoot(File root) {
+        projectRoot = root;
+        reloadCurvePresets();
     }
 
     public void setKeyframe(Keyframe kf, PropertyType property) {
@@ -342,6 +436,7 @@ public class KeyframeEditor extends VBox {
             showBatchEditor(false);
         }
         updatingUi = false;
+        refreshPresetUiState();
     }
 
     public void setSelection(List<Keyframe> selection, PropertyType property) {
@@ -371,7 +466,7 @@ public class KeyframeEditor extends VBox {
         cbEasing.setValue(resolveEasingOption(resolveSharedEasing(currentSelection)));
         syncEasingEditorText();
         curveEditor.setInterpolation(cbInterpolation.getValue());
-        curveEditor.setEasingSpec(EasingSpec.of(resolveSharedEasing(currentSelection)));
+        curveEditor.setEasingSpec(resolveSharedEasingSpec(currentSelection));
         setFieldsDisabled(false);
         tfTime.setDisable(true);
         sliderTime.setDisable(true);
@@ -382,6 +477,7 @@ public class KeyframeEditor extends VBox {
         showBatchEditor(true);
         updateCurveEditorState();
         updatingUi = false;
+        refreshPresetUiState();
     }
 
     public void setEntityName(String name) {
@@ -407,6 +503,204 @@ public class KeyframeEditor extends VBox {
         lblCameraState.setText(String.format("X %.1f  Y %.1f  Z %.2f", cameraX, cameraY, cameraZoom));
     }
 
+    private void reloadCurvePresets() {
+        String selectedId = cbCurvePreset.getValue() != null ? cbCurvePreset.getValue().id() : null;
+        curvePresets.clear();
+        curvePresets.addAll(PuppeteerEasingPresetStore.load(projectRoot));
+        updatingPresetUi = true;
+        cbCurvePreset.getItems().setAll(curvePresets);
+        PuppeteerEasingPresetStore.Preset selected = null;
+        if (selectedId != null) {
+            for (PuppeteerEasingPresetStore.Preset preset : curvePresets) {
+                if (preset.id().equals(selectedId)) {
+                    selected = preset;
+                    break;
+                }
+            }
+        }
+        cbCurvePreset.setValue(selected);
+        if (selected != null) {
+            tfCurvePresetName.setText(selected.name());
+        } else if (tfCurvePresetName.getText() == null || tfCurvePresetName.getText().isBlank()) {
+            tfCurvePresetName.setText("");
+        }
+        updatingPresetUi = false;
+        if (projectRoot == null) {
+            setCurvePresetStatus("Open a project to save easing presets.");
+        } else if (curvePresets.isEmpty()) {
+            setCurvePresetStatus("No project presets yet. Save the current easing to " + PuppeteerEasingPresetStore.CONFIG_PATH + ".");
+        } else {
+            setCurvePresetStatus(curvePresets.size() + " project preset"
+                + (curvePresets.size() == 1 ? "" : "s") + " loaded from " + PuppeteerEasingPresetStore.CONFIG_PATH + ".");
+        }
+        refreshPresetUiState();
+    }
+
+    private void persistCurvePresets(String successMessage) {
+        if (projectRoot == null) {
+            setCurvePresetStatus("Open a project before saving easing presets.");
+            return;
+        }
+        try {
+            PuppeteerEasingPresetStore.save(projectRoot, curvePresets);
+            setCurvePresetStatus(successMessage);
+        } catch (IOException ex) {
+            setCurvePresetStatus("Failed to save easing presets: " + ex.getMessage());
+        }
+        refreshPresetUiState();
+    }
+
+    private void applySelectedCurvePreset() {
+        PuppeteerEasingPresetStore.Preset preset = cbCurvePreset.getValue();
+        if (preset == null) {
+            setCurvePresetStatus("Select a preset to apply.");
+            refreshPresetUiState();
+            return;
+        }
+        applyExplicitEasingSpec(preset.spec());
+        tfCurvePresetName.setText(preset.name());
+        setCurvePresetStatus("Applied easing preset '" + preset.name() + "'.");
+        if (onKeyframeChanged != null && (!currentSelection.isEmpty() || currentKeyframe != null)) {
+            onKeyframeChanged.run();
+        }
+        refreshPresetUiState();
+    }
+
+    private void saveCurvePreset(boolean updateExisting) {
+        if (projectRoot == null) {
+            setCurvePresetStatus("Open a project before saving easing presets.");
+            refreshPresetUiState();
+            return;
+        }
+        String name = PuppeteerEasingPresetStore.normalizeName(tfCurvePresetName.getText());
+        if (name.isBlank()) {
+            setCurvePresetStatus("Preset name cannot be blank.");
+            refreshPresetUiState();
+            return;
+        }
+        EasingSpec spec = resolveEditorEasingSpec();
+        if (updateExisting) {
+            PuppeteerEasingPresetStore.Preset selected = cbCurvePreset.getValue();
+            if (selected == null) {
+                setCurvePresetStatus("Select a preset to update.");
+                refreshPresetUiState();
+                return;
+            }
+            int index = curvePresets.indexOf(selected);
+            if (index < 0) {
+                setCurvePresetStatus("The selected preset is no longer loaded.");
+                refreshPresetUiState();
+                return;
+            }
+            PuppeteerEasingPresetStore.Preset updated =
+                new PuppeteerEasingPresetStore.Preset(selected.id(), name, spec);
+            curvePresets.set(index, updated);
+            updatingPresetUi = true;
+            cbCurvePreset.getItems().setAll(curvePresets);
+            cbCurvePreset.setValue(updated);
+            updatingPresetUi = false;
+            persistCurvePresets("Updated easing preset '" + updated.name() + "'.");
+            return;
+        }
+
+        for (PuppeteerEasingPresetStore.Preset preset : curvePresets) {
+            if (preset.name().equalsIgnoreCase(name)) {
+                setCurvePresetStatus("Preset '" + name + "' already exists. Use Update instead.");
+                refreshPresetUiState();
+                return;
+            }
+        }
+        PuppeteerEasingPresetStore.Preset created = new PuppeteerEasingPresetStore.Preset(
+            PuppeteerEasingPresetStore.uniqueId(name, curvePresets, null),
+            name,
+            spec);
+        curvePresets.add(created);
+        updatingPresetUi = true;
+        cbCurvePreset.getItems().setAll(curvePresets);
+        cbCurvePreset.setValue(created);
+        updatingPresetUi = false;
+        persistCurvePresets("Saved easing preset '" + created.name() + "'.");
+    }
+
+    private void deleteSelectedCurvePreset() {
+        if (projectRoot == null) {
+            setCurvePresetStatus("Open a project before deleting easing presets.");
+            refreshPresetUiState();
+            return;
+        }
+        PuppeteerEasingPresetStore.Preset selected = cbCurvePreset.getValue();
+        if (selected == null) {
+            setCurvePresetStatus("Select a preset to delete.");
+            refreshPresetUiState();
+            return;
+        }
+        curvePresets.removeIf(preset -> preset.id().equals(selected.id()));
+        updatingPresetUi = true;
+        cbCurvePreset.getItems().setAll(curvePresets);
+        cbCurvePreset.setValue(null);
+        updatingPresetUi = false;
+        tfCurvePresetName.setText("");
+        persistCurvePresets("Deleted easing preset '" + selected.name() + "'.");
+    }
+
+    private void refreshPresetUiState() {
+        boolean hasProject = projectRoot != null;
+        boolean hasSelection = currentKeyframe != null || !currentSelection.isEmpty();
+        boolean hasPreset = cbCurvePreset.getValue() != null;
+        btnApplyCurvePreset.setDisable(!hasPreset);
+        tfCurvePresetName.setDisable(!hasProject);
+        btnSaveCurvePreset.setDisable(!hasProject || tfCurvePresetName.getText().trim().isEmpty());
+        btnUpdateCurvePreset.setDisable(!hasProject || !hasPreset || tfCurvePresetName.getText().trim().isEmpty());
+        btnDeleteCurvePreset.setDisable(!hasProject || !hasPreset);
+        cbCurvePreset.setDisable(curvePresets.isEmpty());
+        if (!hasProject) {
+            tfCurvePresetName.setPromptText("Preset name (open a project first)");
+        } else if (hasSelection) {
+            tfCurvePresetName.setPromptText("Preset name");
+        } else {
+            tfCurvePresetName.setPromptText("Preset name (optional without selection)");
+        }
+    }
+
+    private void setCurvePresetStatus(String message) {
+        lblCurvePresetStatus.setText(message != null ? message : "");
+    }
+
+    private EasingSpec resolveEditorEasingSpec() {
+        if (currentSelection.size() > 1) {
+            return resolveSharedEasingSpec(currentSelection);
+        }
+        if (currentKeyframe != null) {
+            return currentKeyframe.getEasingSpec();
+        }
+        Easing.Type type = selectedEasingType();
+        if (type == Easing.Type.CUSTOM) {
+            double[] params = curveEditor.getBezierParams();
+            return EasingSpec.cubicBezier(params[0], params[1], params[2], params[3]);
+        }
+        return EasingSpec.of(type);
+    }
+
+    private void applyExplicitEasingSpec(EasingSpec spec) {
+        EasingSpec resolved = spec != null ? spec : EasingSpec.of(Easing.Type.LINEAR);
+        boolean priorUpdating = updatingUi;
+        updatingUi = true;
+        cbEasing.setValue(resolveEasingOption(resolved.getType()));
+        syncEasingEditorText();
+        curveEditor.setInterpolation(cbInterpolation.getValue());
+        curveEditor.setEasingSpec(resolved);
+        if (currentSelection.size() > 1) {
+            for (Keyframe keyframe : currentSelection) {
+                keyframe.setEasingSpec(resolved);
+            }
+        } else if (currentKeyframe != null) {
+            currentKeyframe.setEasingSpec(resolved);
+        }
+        updatingUi = priorUpdating;
+        refreshCurveEditorPreview();
+        updateCurveEditorState();
+    }
+
     private void applyChanges() {
         if (updatingUi) return;
         if (currentSelection.size() > 1) {
@@ -416,6 +710,7 @@ public class KeyframeEditor extends VBox {
             }
             refreshCurveEditorPreview();
             if (onKeyframeChanged != null) onKeyframeChanged.run();
+            refreshPresetUiState();
             return;
         }
         if (currentKeyframe == null) return;
@@ -451,6 +746,7 @@ public class KeyframeEditor extends VBox {
         refreshCurveEditorPreview();
 
         if (onKeyframeChanged != null) onKeyframeChanged.run();
+        refreshPresetUiState();
     }
 
     private void applyBatchOffsets() {
@@ -538,6 +834,7 @@ public class KeyframeEditor extends VBox {
         if (!disabled) {
             updateCurveEditorState();
         }
+        refreshPresetUiState();
     }
 
     private void showBatchEditor(boolean show) {
@@ -682,14 +979,14 @@ public class KeyframeEditor extends VBox {
     private void refreshCurveEditorPreview() {
         curveEditor.setInterpolation(cbInterpolation.getValue());
         if (currentSelection.size() > 1) {
-            curveEditor.setEasingSpec(EasingSpec.of(selectedEasingType()));
+            curveEditor.setEasingSpec(resolveSharedEasingSpec(currentSelection));
             return;
         }
         if (currentKeyframe != null) {
             curveEditor.setEasingSpec(currentKeyframe.getEasingSpec());
             return;
         }
-        curveEditor.setEasingSpec(EasingSpec.of(selectedEasingType()));
+        curveEditor.setEasingSpec(resolveEditorEasingSpec());
     }
 
     private static Easing.Interpolation resolveSharedInterpolation(List<Keyframe> keyframes) {
@@ -707,6 +1004,16 @@ public class KeyframeEditor extends VBox {
         for (Keyframe keyframe : keyframes) {
             if (keyframe.getEasing() != first) {
                 return Easing.Type.LINEAR;
+            }
+        }
+        return first;
+    }
+
+    private static EasingSpec resolveSharedEasingSpec(List<Keyframe> keyframes) {
+        EasingSpec first = keyframes.get(0).getEasingSpec();
+        for (Keyframe keyframe : keyframes) {
+            if (!first.equals(keyframe.getEasingSpec())) {
+                return EasingSpec.of(resolveSharedEasing(keyframes));
             }
         }
         return first;

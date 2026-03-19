@@ -890,6 +890,7 @@ public class PuppeteerWindow extends Stage {
         this.projectRoot = root;
         animationPreview.setProjectRoot(root);
         assetPicker.setProjectRoot(root);
+        keyframeEditor.setProjectRoot(root);
         codePreview.setProjectRoot(root);
         updateViewportInfoLabel();
     }
