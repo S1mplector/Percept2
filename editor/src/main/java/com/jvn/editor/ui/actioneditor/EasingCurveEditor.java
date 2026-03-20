@@ -18,6 +18,9 @@ import javafx.scene.text.Font;
  * draggable, allowing the user to define a custom cubic-bezier(cx1,cy1,cx2,cy2) curve.
  */
 public class EasingCurveEditor extends Pane {
+    private static final double COMPACT_WIDTH = 180;
+    private static final double COMPACT_HEIGHT = 140;
+    private static final double EXPANDED_HEIGHT = 320;
 
     private static final double PADDING = 20;
     private static final double HANDLE_RADIUS = 5;
@@ -46,14 +49,14 @@ public class EasingCurveEditor extends Pane {
 
     // Callback when user drags control points
     private Consumer<double[]> onBezierChanged;
+    private boolean expanded;
 
     public EasingCurveEditor() {
-        canvas = new Canvas(180, 140);
+        canvas = new Canvas(COMPACT_WIDTH, COMPACT_HEIGHT);
         getChildren().add(canvas);
 
-        setPrefSize(180, 140);
-        setMinSize(100, 80);
-        setMaxSize(Double.MAX_VALUE, 180);
+        setMaxWidth(Double.MAX_VALUE);
+        setExpanded(false);
 
         widthProperty().addListener((obs, o, n) -> {
             canvas.setWidth(n.doubleValue());
@@ -99,6 +102,20 @@ public class EasingCurveEditor extends Pane {
         canvas.setOnMouseReleased(e -> draggingHandle = 0);
 
         draw();
+    }
+
+    public void setExpanded(boolean expanded) {
+        this.expanded = expanded;
+        double prefHeight = expanded ? EXPANDED_HEIGHT : COMPACT_HEIGHT;
+        double minHeight = expanded ? 220 : 80;
+        setPrefSize(COMPACT_WIDTH, prefHeight);
+        setMinSize(100, minHeight);
+        setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        draw();
+    }
+
+    public boolean isExpanded() {
+        return expanded;
     }
 
     public void setEasingType(Easing.Type type) {

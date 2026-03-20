@@ -1,6 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -824,6 +825,31 @@ public class TimelinePanel extends VBox {
         render();
     }
 
+    public boolean zoomToSelection() {
+        List<Double> times = navigationTimes();
+        if (times.isEmpty()) {
+            zoomToFit();
+            return false;
+        }
+        double[] window = computeFocusWindow(times.get(0), times.get(times.size() - 1), project.getTotalDurationMs());
+        double start = window[0];
+        double end = window[1];
+        double visible = Math.max(100, canvas.getWidth() - LABEL_WIDTH - 20);
+        double span = Math.max(100.0, end - start);
+        pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, visible / span));
+        scrollX = Math.max(0.0, start * pixelsPerMs - 12.0);
+        render();
+        return true;
+    }
+
+    public boolean jumpPlayheadToPreviousKeyframe() {
+        return jumpPlayheadToAdjacentKeyframe(false);
+    }
+
+    public boolean jumpPlayheadToNextKeyframe() {
+        return jumpPlayheadToAdjacentKeyframe(true);
+    }
+
     private void updatePlayheadFromX(double x) {
         double time = clampToTimeline(snapTime((x - LABEL_WIDTH + scrollX) / pixelsPerMs));
         project.setPlayheadMs(time);
@@ -1042,6 +1068,128 @@ public class TimelinePanel extends VBox {
 
     private double clampToTimeline(double timeMs) {
         return Math.max(0.0, Math.min(project.getTotalDurationMs(), timeMs));
+    }
+
+    private boolean jumpPlayheadToAdjacentKeyframe(boolean forward) {
+        List<Double> times = navigationTimes();
+        if (times.isEmpty()) return false;
+        double playhead = project.getPlayheadMs();
+        double epsilon = 0.001;
+        Double target = null;
+        if (forward) {
+            for (double time : times) {
+                if (time > playhead + epsilon) {
+                    target = time;
+                    break;
+                }
+            }
+        } else {
+            for (int i = times.size() - 1; i >= 0; i--) {
+                double time = times.get(i);
+                if (time < playhead - epsilon) {
+                    target = time;
+                    break;
+                }
+            }
+        }
+        if (target == null) return false;
+        project.setPlayheadMs(target);
+        ensureTimeVisible(target);
+        if (onPlayheadChanged != null) onPlayheadChanged.accept(target);
+        render();
+        return true;
+    }
+
+    private List<Double> navigationTimes() {
+        List<Double> times = new ArrayList<>();
+        if (selectionModel.hasSelection()) {
+            for (KeyframeSelectionModel.KeyframeRef ref : selectionModel.getSelectedOrdered()) {
+                if (ref != null && ref.keyframe() != null) {
+                    times.add(ref.keyframe().getTimeMs());
+                }
+            }
+            return normalizeNavigationTimes(times);
+        }
+
+        EntityTrack track = selectedTrack(false);
+        if (track != null) {
+            if (selectedProperty != null && isPropertySupportedForSelection(selectedProperty)) {
+                for (Keyframe keyframe : track.getKeyframes(selectedProperty)) {
+                    times.add(keyframe.getTimeMs());
+                }
+            }
+            if (times.isEmpty()) {
+                for (PropertyType property : editablePropertiesForSelection()) {
+                    if (!isPropertySupportedForSelection(property)) continue;
+                    for (Keyframe keyframe : track.getKeyframes(property)) {
+                        times.add(keyframe.getTimeMs());
+                    }
+                }
+            }
+            if (!times.isEmpty()) {
+                return normalizeNavigationTimes(times);
+            }
+        }
+
+        for (EntityTrack projectTrack : project.getTracks()) {
+            for (PropertyType property : PropertyType.values()) {
+                for (Keyframe keyframe : projectTrack.getKeyframes(property)) {
+                    times.add(keyframe.getTimeMs());
+                }
+            }
+        }
+        return normalizeNavigationTimes(times);
+    }
+
+    private void ensureTimeVisible(double timeMs) {
+        double visibleWidth = Math.max(80.0, canvas.getWidth() - LABEL_WIDTH - 20.0);
+        double visibleSpanMs = Math.max(40.0, visibleWidth / Math.max(MIN_PIXELS_PER_MS, pixelsPerMs));
+        double leftTime = scrollX / pixelsPerMs;
+        double rightTime = leftTime + visibleSpanMs;
+        double paddingMs = Math.max(40.0, visibleSpanMs * 0.12);
+        if (timeMs < leftTime + paddingMs) {
+            scrollX = Math.max(0.0, (timeMs - paddingMs) * pixelsPerMs);
+        } else if (timeMs > rightTime - paddingMs) {
+            scrollX = Math.max(0.0, (timeMs - visibleSpanMs + paddingMs) * pixelsPerMs);
+        }
+    }
+
+    static List<Double> normalizeNavigationTimes(List<Double> rawTimes) {
+        if (rawTimes == null || rawTimes.isEmpty()) return List.of();
+        List<Double> normalized = new ArrayList<>();
+        for (Double value : rawTimes) {
+            if (value == null || !Double.isFinite(value)) continue;
+            normalized.add(value);
+        }
+        if (normalized.isEmpty()) return List.of();
+        Collections.sort(normalized);
+        List<Double> unique = new ArrayList<>();
+        for (double value : normalized) {
+            if (unique.isEmpty() || Math.abs(unique.get(unique.size() - 1) - value) > 0.001) {
+                unique.add(value);
+            }
+        }
+        return List.copyOf(unique);
+    }
+
+    static double[] computeFocusWindow(double minTimeMs, double maxTimeMs, double durationMs) {
+        double min = Math.min(minTimeMs, maxTimeMs);
+        double max = Math.max(minTimeMs, maxTimeMs);
+        double duration = Math.max(100.0, durationMs);
+        if (!Double.isFinite(min) || !Double.isFinite(max)) {
+            return new double[]{0.0, duration};
+        }
+        double span = Math.max(0.0, max - min);
+        double padding = Math.max(80.0, span * 0.18);
+        double start = Math.max(0.0, min - padding);
+        double end = Math.min(duration, max + padding);
+        if (end - start < 100.0) {
+            double center = (min + max) * 0.5;
+            start = Math.max(0.0, center - 50.0);
+            end = Math.min(duration, start + 100.0);
+            start = Math.max(0.0, end - 100.0);
+        }
+        return new double[]{start, end};
     }
 
     private void notifyEdited() {

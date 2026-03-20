@@ -152,30 +152,35 @@ public class AnimatedToolbarPane extends Region {
     private LayoutPlan buildLayoutPlan(double availableWidth, double left, double top) {
         List<CollapsibleToolbarCluster> ordered = orderedClusters();
         Map<Node, LayoutCell> cells = new IdentityHashMap<>();
+        if (ordered.isEmpty()) {
+            return new LayoutPlan(List.of(), cells, 0.0, 0.0);
+        }
 
-        double x = left;
-        double y = top;
-        double rowHeight = 0.0;
-        double maxRight = left;
-
+        List<RowPlan> rows = new ArrayList<>();
         for (CollapsibleToolbarCluster cluster : ordered) {
             double width = snapSizeX(preferredClusterWidth(cluster));
             double height = snapSizeY(preferredClusterHeight(cluster));
-            if (x > left && x + width > left + availableWidth + 0.5) {
-                x = left;
-                y += rowHeight + vgap;
-                rowHeight = 0.0;
-            }
-
-            cells.put(cluster, new LayoutCell(x, y, width, height));
-            x += width + hgap;
-            rowHeight = Math.max(rowHeight, height);
-            maxRight = Math.max(maxRight, x - hgap);
+            placeIntoBestRow(rows, cluster, width, height, availableWidth);
         }
 
-        double contentWidth = ordered.isEmpty() ? 0.0 : Math.max(0.0, maxRight - left);
-        double contentHeight = ordered.isEmpty() ? 0.0 : Math.max(0.0, y - top + rowHeight);
-        return new LayoutPlan(ordered, cells, contentWidth, contentHeight);
+        double y = top;
+        double maxRight = left;
+        List<CollapsibleToolbarCluster> visualOrder = new ArrayList<>(ordered.size());
+
+        for (RowPlan row : rows) {
+            double x = left;
+            for (RowEntry entry : row.entries()) {
+                cells.put(entry.cluster(), new LayoutCell(x, y, entry.width(), entry.height()));
+                visualOrder.add(entry.cluster());
+                x += entry.width() + hgap;
+                maxRight = Math.max(maxRight, x - hgap);
+            }
+            y += row.height() + vgap;
+        }
+
+        double contentWidth = Math.max(0.0, maxRight - left);
+        double contentHeight = Math.max(0.0, y - top - vgap);
+        return new LayoutPlan(visualOrder, cells, contentWidth, contentHeight);
     }
 
     private List<CollapsibleToolbarCluster> orderedClusters() {
@@ -224,6 +229,62 @@ public class AnimatedToolbarPane extends Region {
         return width;
     }
 
+    static List<List<Integer>> packWidthRows(List<Double> widths, double availableWidth, double hgap) {
+        List<RowWidthPlan> rows = new ArrayList<>();
+        if (widths == null || widths.isEmpty()) {
+            return List.of();
+        }
+        double resolvedAvailableWidth = Math.max(1.0, availableWidth);
+        double resolvedGap = Math.max(0.0, hgap);
+        for (int i = 0; i < widths.size(); i++) {
+            double width = widths.get(i) != null ? Math.max(0.0, widths.get(i)) : 0.0;
+            placeWidthIntoBestRow(rows, i, width, resolvedAvailableWidth, resolvedGap);
+        }
+        List<List<Integer>> packed = new ArrayList<>(rows.size());
+        for (RowWidthPlan row : rows) {
+            packed.add(List.copyOf(row.indices()));
+        }
+        return List.copyOf(packed);
+    }
+
+    private void placeIntoBestRow(List<RowPlan> rows,
+                                  CollapsibleToolbarCluster cluster,
+                                  double width,
+                                  double height,
+                                  double availableWidth) {
+        RowPlan target = null;
+        for (RowPlan row : rows) {
+            if (row.canFit(width, availableWidth, hgap)) {
+                target = row;
+                break;
+            }
+        }
+        if (target == null) {
+            target = new RowPlan();
+            rows.add(target);
+        }
+        target.add(cluster, width, height, hgap);
+    }
+
+    private static void placeWidthIntoBestRow(List<RowWidthPlan> rows,
+                                              int index,
+                                              double width,
+                                              double availableWidth,
+                                              double hgap) {
+        RowWidthPlan target = null;
+        for (RowWidthPlan row : rows) {
+            if (row.canFit(width, availableWidth, hgap)) {
+                target = row;
+                break;
+            }
+        }
+        if (target == null) {
+            target = new RowWidthPlan();
+            rows.add(target);
+        }
+        target.add(index, width, hgap);
+    }
+
     private static boolean sameOrder(List<CollapsibleToolbarCluster> left, List<CollapsibleToolbarCluster> right) {
         if (left == right) return true;
         if (left == null || right == null || left.size() != right.size()) return false;
@@ -245,10 +306,62 @@ public class AnimatedToolbarPane extends Region {
 
     private record LayoutCell(double x, double y, double width, double height) {}
 
+    private record RowEntry(CollapsibleToolbarCluster cluster, double width, double height) {}
+
     private record LayoutPlan(List<CollapsibleToolbarCluster> orderedClusters,
                               Map<Node, LayoutCell> cells,
                               double width,
                               double height) {}
+
+    private static final class RowPlan {
+        private final List<RowEntry> entries = new ArrayList<>();
+        private double usedWidth;
+        private double height;
+
+        private boolean canFit(double width, double availableWidth, double hgap) {
+            if (entries.isEmpty()) return true;
+            return usedWidth + hgap + width <= availableWidth + 0.5;
+        }
+
+        private void add(CollapsibleToolbarCluster cluster, double width, double height, double hgap) {
+            if (!entries.isEmpty()) {
+                usedWidth += hgap;
+            }
+            entries.add(new RowEntry(cluster, width, height));
+            usedWidth += width;
+            this.height = Math.max(this.height, height);
+        }
+
+        private List<RowEntry> entries() {
+            return entries;
+        }
+
+        private double height() {
+            return height;
+        }
+    }
+
+    private static final class RowWidthPlan {
+        private final List<Integer> indices = new ArrayList<>();
+        private double usedWidth;
+
+        private boolean canFit(double width, double availableWidth, double hgap) {
+            if (indices.isEmpty()) return true;
+            return usedWidth + hgap + width <= availableWidth + 0.5;
+        }
+
+        private void add(int index, double width, double hgap) {
+            if (!indices.isEmpty()) {
+                usedWidth += hgap;
+            }
+            indices.add(index);
+            usedWidth += width;
+        }
+
+        private List<Integer> indices() {
+            return indices;
+        }
+    }
 
     private static final class MarkerRegion extends Region {
         private final List<Node> members;

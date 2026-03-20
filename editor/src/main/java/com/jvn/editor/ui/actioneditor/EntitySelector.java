@@ -18,13 +18,13 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
@@ -34,6 +34,7 @@ public class EntitySelector extends VBox {
     private final TextField filterField;
     private final TreeView<String> treeView;
     private final TreeItem<String> rootItem;
+    private final ActionEditorTextPromptOverlay groupPromptOverlay;
 
     private final Label lblEmptyHint;
 
@@ -48,9 +49,11 @@ public class EntitySelector extends VBox {
     private BiConsumer<String, Integer> onGroupLayerDelta;
 
     public EntitySelector() {
-        setSpacing(4);
-        setPadding(new Insets(6, 8, 6, 8));
+        setSpacing(0);
         setStyle("-fx-background-color: #1a1a1a;");
+
+        VBox content = new VBox(4);
+        content.setPadding(new Insets(6, 8, 6, 8));
 
         Label header = new Label("Entities");
         header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
@@ -90,22 +93,18 @@ public class EntitySelector extends VBox {
         Button btnNewGroup = new Button("+ Group");
         btnNewGroup.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #a0a0a0; -fx-background-radius: 3; " +
             "-fx-border-color: #3a3a3a; -fx-border-radius: 3; -fx-padding: 2 8; -fx-font-size: 10px; -fx-cursor: hand;");
-        btnNewGroup.setOnAction(e -> {
-            TextInputDialog dialog = new TextInputDialog("NewGroup");
-            dialog.setTitle("Create Group");
-            dialog.setHeaderText(null);
-            dialog.setContentText("Group name:");
-            dialog.showAndWait().ifPresent(name -> {
-                if (onCreateGroup != null && name != null && !name.isBlank()) {
-                    onCreateGroup.accept(name);
-                }
-            });
-        });
+        btnNewGroup.setOnAction(e -> showCreateGroupOverlay());
 
         HBox toolbar = new HBox(6, btnNewGroup);
         toolbar.setPadding(new Insets(4, 0, 0, 0));
 
-        getChildren().addAll(header, filterField, lblEmptyHint, treeView, toolbar);
+        groupPromptOverlay = new ActionEditorTextPromptOverlay();
+
+        content.getChildren().addAll(header, filterField, lblEmptyHint, treeView, toolbar);
+        StackPane contentStack = new StackPane(content, groupPromptOverlay);
+        VBox.setVgrow(contentStack, Priority.ALWAYS);
+
+        getChildren().add(contentStack);
         updateEmptyState();
 
         setupContextMenu();
@@ -166,6 +165,20 @@ public class EntitySelector extends VBox {
         lblEmptyHint.setManaged(empty);
         treeView.setVisible(!empty);
         treeView.setManaged(!empty);
+    }
+
+    private void showCreateGroupOverlay() {
+        groupPromptOverlay.showPrompt(
+            "Create Group",
+            "Add a new entity group inside the current Puppeteer project.",
+            "Group name",
+            "NewGroup",
+            "Create",
+            name -> {
+                if (onCreateGroup != null && name != null && !name.isBlank()) {
+                    onCreateGroup.accept(name);
+                }
+            });
     }
 
     private TreeItem<String> buildGroupItem(String groupName) {

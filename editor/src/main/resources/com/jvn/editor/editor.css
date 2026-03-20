@@ -714,6 +714,11 @@
   -fx-background-color: #e4e4e4;
 }
 
+.icon-puppeteer-forward {
+  -fx-shape: "M12,3 L14,3 L14,13 L12,13 Z M3,3 L11,8 L3,13 Z";
+  -fx-background-color: #e4e4e4;
+}
+
 .icon-puppeteer-play {
   -fx-shape: "M4,2 L14,8 L4,14 Z";
   -fx-background-color: #c7ffcf;
@@ -817,6 +822,16 @@
 .icon-puppeteer-jump-issue {
   -fx-shape: "M8,1 L15,14 L1,14 Z M7,5 L9,5 L9,10 L7,10 Z M7,11 L9,11 L9,13 L7,13 Z";
   -fx-background-color: #f0d2b8;
+}
+
+.icon-puppeteer-focus-selection {
+  -fx-shape: "M3,3 L6,3 L6,2 L2,2 L2,6 L3,6 Z M13,3 L10,3 L10,2 L14,2 L14,6 L13,6 Z M3,13 L6,13 L6,14 L2,14 L2,10 L3,10 Z M13,13 L10,13 L10,14 L14,14 L14,10 L13,10 Z M6,8 A2,2 0 1,0 10,8 A2,2 0 1,0 6,8 Z";
+  -fx-background-color: #d2e6ff;
+}
+
+.icon-puppeteer-pin {
+  -fx-shape: "M8,1 L12,5 L10,7 L10,10 L9,11 L9,15 L7,15 L7,11 L6,10 L6,7 L4,5 Z";
+  -fx-background-color: #c45555;
 }
 
 /* Panel chooser icons */

@@ -568,6 +568,7 @@ public class EditorApp extends Application {
 
   @Override
   public void start(Stage primaryStage) {
+    EditorCrashSupport.installProcessHandler();
     Path logoPath = resolveStartupLogoPath();
     StartupSplashOverlay splash = new StartupSplashOverlay(logoPath);
     splash.show();

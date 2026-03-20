@@ -52,6 +52,7 @@ public class CollapsibleToolbarCluster extends VBox {
     private final String clusterKey;
     private final Button headerButton;
     private final ToggleButton pinButton;
+    private final Label pinIcon;
     private final Label indicatorLabel;
     private final Label stateLabel;
     private final StackPane contentWrapper;
@@ -98,7 +99,14 @@ public class CollapsibleToolbarCluster extends VBox {
             setExpanded(!isExpanded());
         });
 
-        pinButton = new ToggleButton("P");
+        pinIcon = new Label();
+        pinIcon.getStyleClass().addAll("icon", "icon-puppeteer-pin");
+        pinIcon.setMouseTransparent(true);
+
+        pinButton = new ToggleButton();
+        pinButton.setText("");
+        pinButton.setGraphic(pinIcon);
+        pinButton.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         pinButton.setMinSize(24, 24);
         pinButton.setPrefSize(24, 24);
         pinButton.setMaxSize(24, 24);
@@ -188,6 +196,9 @@ public class CollapsibleToolbarCluster extends VBox {
             headerButton.setStyle(isExpanded() ? STYLE_HEADER_EXPANDED : STYLE_HEADER_COLLAPSED);
         }
         pinButton.setStyle(isPinned() ? STYLE_PIN_ON : STYLE_PIN_OFF);
+        pinIcon.setStyle(isPinned()
+            ? "-fx-background-color: #ff6b6b;"
+            : "-fx-background-color: #c45555;");
         if (pinButton.isSelected() != isPinned()) {
             pinButton.setSelected(isPinned());
         }

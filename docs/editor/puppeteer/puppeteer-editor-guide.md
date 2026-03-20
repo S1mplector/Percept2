@@ -98,8 +98,9 @@ This means the Puppeteer animation viewport matches exactly what the player woul
 
 Use the **Assets** tab in the left sidebar:
 1. Browse project images (png, jpg, gif, bmp, webp)
-2. Select an image
-3. Click **+ Add to Scene** — creates a `Sprite2D` entity at center-screen
+2. Import external images directly into `assets/puppeteer/imported` with **Import...**, or drag image files onto the panel
+3. Select an image
+4. Double-click it, press `Enter`, or click **+ Add to Scene** — creates a `Sprite2D` entity at center-screen
 
 ---
 
@@ -191,6 +192,9 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Load clip | icon button | enabled | Load clip file and apply at playhead |
 | Slot menu | text menu button | `Slot` | Place selected entity at VN slot positions |
 | Slot menu entries | menu items | fixed | `FAR_LEFT`, `LEFT`, `CENTER`, `RIGHT`, `FAR_RIGHT` |
+| Previous keyframe | icon button | enabled | Jump playhead to previous keyframe in the active context (`Page Up`) |
+| Next keyframe | icon button | enabled | Jump playhead to next keyframe in the active context (`Page Down`) |
+| Focus selection | icon button | enabled | Zoom timeline to selected keys or the active track (`Ctrl/Cmd+Alt+F`) |
 | Timeline zoom fit | icon button | enabled | Fit timeline zoom to full duration |
 | Compact export | icon toggle | off | Switch code preview to compact export |
 
@@ -290,14 +294,14 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Empty hint | label | Visible when no keyframe selected |
 | `Entity` value | label | Current selected target |
 | `Property` value | label | Current property track |
-| `Time (ms)` field | text field | Direct time edit (validation + error border) |
+| `Time (ms)` field | text field | Direct time edit (validation + error border); `Up/Down` or mouse wheel nudges by `10ms`, `Shift` increases to `50ms` |
 | Time slider | slider | Drag changes keyframe time |
-| `Value` field | text field | Direct value edit (validation + error border) |
+| `Value` field | text field | Direct value edit (validation + error border); `Up/Down` or mouse wheel nudges by property-aware increments |
 | Value slider | slider | Drag changes property value |
 | `Interp` | combo box | `TWEEN`, `HOLD`, `STEP` |
-| `Easing` | searchable combo box | all `Easing.Type` values with inline filtering |
-| Easing curve editor | custom canvas widget | Curve preview; drag bezier handles when easing=`CUSTOM` |
-| `Presets` | combo + buttons | Apply, save, update, or delete project easing presets stored in `config/puppeteer/easing-presets.properties` |
+| `Easing` | searchable preset-aware combo box | custom popup search over built-ins and project presets; also supports save, update, and delete for presets stored in `config/puppeteer/easing-presets.properties` |
+| `Expand Curve` | button | enlarges the curve editor within the left panel and gives the lower inspector more height |
+| Easing curve editor | custom canvas widget | Curve preview; drag bezier handles when easing=`CUSTOM`; supports expanded mode for more detailed tuning |
 | `Pivot Presets` label | label | Visible only for `PIVOT_X`/`PIVOT_Y` |
 | Pivot preset grid | 3x3 buttons | `TL`, `TC`, `TR`, `ML`, `C`, `MR`, `BL`, `BC`, `BR` |
 | `Delete` | button | Deletes current keyframe |

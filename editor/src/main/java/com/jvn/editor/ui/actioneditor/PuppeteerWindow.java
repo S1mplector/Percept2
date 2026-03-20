@@ -522,6 +522,12 @@ public class PuppeteerWindow extends Stage {
 
         Button btnZoomFit = makeToolbarIconButton("icon-timeline-fit", "Zoom timeline to fit content");
         btnZoomFit.setOnAction(e -> timelinePanel.zoomToFit());
+        Button btnFocusSelection = makeToolbarIconButton("icon-puppeteer-focus-selection", "Zoom timeline to the current selection or active track");
+        btnFocusSelection.setOnAction(e -> timelinePanel.zoomToSelection());
+        Button btnPrevKeyframe = makeToolbarIconButton("icon-puppeteer-rewind", "Jump playhead to previous keyframe (Page Up)");
+        btnPrevKeyframe.setOnAction(e -> timelinePanel.jumpPlayheadToPreviousKeyframe());
+        Button btnNextKeyframe = makeToolbarIconButton("icon-puppeteer-forward", "Jump playhead to next keyframe (Page Down)");
+        btnNextKeyframe.setOnAction(e -> timelinePanel.jumpPlayheadToNextKeyframe());
 
         ToggleButton cbRipple = makeToolbarIconToggle("icon-puppeteer-loop", "Ripple-retime: shift following keys when nudging a selection");
         cbRipple.setSelected(timelinePanel.isRippleRetimeEnabled());
@@ -570,6 +576,9 @@ public class PuppeteerWindow extends Stage {
             btnSaveClip,
             btnLoadClip,
             slotMenu,
+            btnPrevKeyframe,
+            btnNextKeyframe,
+            btnFocusSelection,
             btnZoomFit
         );
         keyframeOpsPrimaryRow.setAlignment(Pos.CENTER_LEFT);
@@ -770,6 +779,15 @@ public class PuppeteerWindow extends Stage {
         leftPane.setOrientation(Orientation.VERTICAL);
         leftPane.getItems().addAll(leftTabs, keyframeEditor);
         leftPane.setDividerPositions(0.65);
+        final double[] collapsedKeyframeDivider = {0.65};
+        keyframeEditor.setOnCurveEditorExpandedChanged(expanded -> {
+            if (expanded) {
+                collapsedKeyframeDivider[0] = leftPane.getDividerPositions()[0];
+                leftPane.setDividerPositions(Math.min(collapsedKeyframeDivider[0], 0.42));
+            } else {
+                leftPane.setDividerPositions(collapsedKeyframeDivider[0]);
+            }
+        });
 
         SplitPane centerPane = new SplitPane();
         centerPane.setOrientation(Orientation.VERTICAL);
@@ -1151,6 +1169,18 @@ public class PuppeteerWindow extends Stage {
             this::rewind
         );
         scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.PAGE_UP),
+            () -> timelinePanel.jumpPlayheadToPreviousKeyframe()
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.PAGE_DOWN),
+            () -> timelinePanel.jumpPlayheadToNextKeyframe()
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN),
+            () -> timelinePanel.zoomToSelection()
+        );
+        scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.K),
             () -> {
                 timelinePanel.addKeyframeAtPlayhead();
@@ -1359,8 +1389,10 @@ public class PuppeteerWindow extends Stage {
         dialog.setContentText(
             "Space — Play / Pause\n" +
             "Home — Rewind\n" +
+            "Page Up / Page Down — Jump to previous / next keyframe\n" +
             "K — Add keyframe at playhead\n" +
             "Del — Delete selected keyframe\n" +
+            "Ctrl/Cmd+Alt+F — Focus timeline on selection\n" +
             "Alt+←/→ — Nudge keyframe by snap step\n" +
             "Alt+Shift+←/→ — Nudge keyframe by 1ms\n" +
             "Alt+Shift+R — Reverse selected keyframes\n" +

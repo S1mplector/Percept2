@@ -1,6 +1,10 @@
 package com.jvn.editor.ui.actioneditor;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -9,6 +13,7 @@ import java.util.function.BiConsumer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -16,15 +21,20 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
 /**
  * Asset picker panel for Puppeteer. Browses the project directory for image files
  * and allows the user to add them as Sprite2D entities to the current scene.
  */
 public class AssetPickerPanel extends VBox {
+    static final String IMPORT_RELATIVE_DIR = "assets/puppeteer/imported";
 
     private static final Set<String> IMAGE_EXTENSIONS = Set.of(
         "png", "jpg", "jpeg", "gif", "bmp", "webp"
@@ -41,11 +51,23 @@ public class AssetPickerPanel extends VBox {
     private static final String STYLE_BTN_ACCENT =
         "-fx-background-color: #4da3ff; -fx-text-fill: #fff; -fx-background-radius: 4; " +
         "-fx-padding: 4 10; -fx-font-size: 11px; -fx-cursor: hand; -fx-font-weight: bold;";
+    private static final String STYLE_CELL_BASE =
+        "-fx-background-color: transparent; -fx-background-radius: 6; -fx-border-radius: 6; " +
+        "-fx-border-color: transparent; -fx-padding: 2 4;";
+    private static final String STYLE_CELL_HOVER =
+        "-fx-background-color: #262c35; -fx-background-radius: 6; -fx-border-radius: 6; " +
+        "-fx-border-color: #2f3946; -fx-padding: 2 4;";
+    private static final String STYLE_CELL_SELECTED =
+        "-fx-background-color: linear-gradient(to right, #24384e, #1d2d40); "
+            + "-fx-background-radius: 6; -fx-border-radius: 6; "
+            + "-fx-border-color: #4da3ff; -fx-padding: 2 4;";
 
     private final ListView<AssetEntry> listView;
     private final TextField filterField;
     private final Label lblStatus;
     private final Label lblEmptyHint;
+    private final Button btnImport;
+    private final Button btnAdd;
 
     private File projectRoot;
     private final List<AssetEntry> allAssets = new ArrayList<>();
@@ -71,7 +93,12 @@ public class AssetPickerPanel extends VBox {
         btnRefresh.setTooltip(new Tooltip("Rescan project for images"));
         btnRefresh.setOnAction(e -> scanProject());
 
-        HBox filterRow = new HBox(4, filterField, btnRefresh);
+        btnImport = new Button("Import...");
+        btnImport.setStyle(STYLE_BTN);
+        btnImport.setTooltip(new Tooltip("Import image files into " + IMPORT_RELATIVE_DIR));
+        btnImport.setOnAction(e -> importFromChooser());
+
+        HBox filterRow = new HBox(4, filterField, btnRefresh, btnImport);
         filterRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(filterField, Priority.ALWAYS);
 
@@ -82,19 +109,34 @@ public class AssetPickerPanel extends VBox {
         listView = new ListView<>();
         listView.setStyle("-fx-background-color: #1a1a1a; -fx-control-inner-background: #1a1a1a;");
         listView.setCellFactory(lv -> new AssetCell());
+        listView.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> updateActionState());
+        listView.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
+                addSelectedToScene();
+                event.consume();
+            }
+        });
+        listView.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                addSelectedToScene();
+                event.consume();
+            }
+        });
         VBox.setVgrow(listView, Priority.ALWAYS);
 
-        Button btnAdd = new Button("+ Add to Scene");
+        btnAdd = new Button("+ Add to Scene");
         btnAdd.setStyle(STYLE_BTN_ACCENT);
         btnAdd.setMaxWidth(Double.MAX_VALUE);
-        btnAdd.setTooltip(new Tooltip("Add selected image as a new entity"));
+        btnAdd.setTooltip(new Tooltip("Add selected image as a new entity. Double-click or press Enter also works."));
         btnAdd.setOnAction(e -> addSelectedToScene());
 
         lblStatus = new Label("");
         lblStatus.setStyle("-fx-text-fill: #555; -fx-font-size: 10px;");
 
+        installImportDropTarget();
         getChildren().addAll(header, filterRow, lblEmptyHint, listView, btnAdd, lblStatus);
         updateEmptyState();
+        updateActionState();
     }
 
     public void setOnAddToScene(BiConsumer<String, String> callback) {
@@ -107,15 +149,20 @@ public class AssetPickerPanel extends VBox {
             lblEmptyHint.setText("Scanning...");
             scanProject();
         } else {
+            allAssets.clear();
+            listView.getItems().clear();
             updateEmptyState();
+            updateActionState();
         }
     }
 
     private void scanProject() {
+        String previousSelection = selectedRelativePath();
         allAssets.clear();
         if (projectRoot == null || !projectRoot.isDirectory()) {
             lblEmptyHint.setText("No project root set.\nOpen a VNS file and launch\nPuppeteer to browse assets.");
             updateEmptyState();
+            updateActionState();
             return;
         }
 
@@ -134,11 +181,13 @@ public class AssetPickerPanel extends VBox {
         lblStatus.setText(allAssets.size() + " images found");
 
         if (allAssets.isEmpty()) {
-            lblEmptyHint.setText("No images found in project.\nSupported: png, jpg, gif, bmp, webp");
+            lblEmptyHint.setText("No images found in project.\nDrop image files here or click Import...");
         }
 
         applyFilter();
+        reselectByRelativePath(previousSelection);
         updateEmptyState();
+        updateActionState();
     }
 
     private void collectImages(File dir, List<File> out, int depth) {
@@ -167,6 +216,7 @@ public class AssetPickerPanel extends VBox {
     }
 
     private void applyFilter() {
+        String previousSelection = selectedRelativePath();
         String query = filterField.getText().trim().toLowerCase();
         listView.getItems().clear();
         for (AssetEntry entry : allAssets) {
@@ -174,7 +224,9 @@ public class AssetPickerPanel extends VBox {
                 listView.getItems().add(entry);
             }
         }
+        reselectByRelativePath(previousSelection);
         updateEmptyState();
+        updateActionState();
     }
 
     private void updateEmptyState() {
@@ -183,6 +235,12 @@ public class AssetPickerPanel extends VBox {
         lblEmptyHint.setManaged(empty);
         listView.setVisible(!empty);
         listView.setManaged(!empty);
+    }
+
+    private void updateActionState() {
+        boolean hasProject = projectRoot != null && projectRoot.isDirectory();
+        btnImport.setDisable(!hasProject);
+        btnAdd.setDisable(listView.getSelectionModel().getSelectedItem() == null);
     }
 
     private void addSelectedToScene() {
@@ -195,6 +253,165 @@ public class AssetPickerPanel extends VBox {
             onAddToScene.accept(selected.relativePath, selected.baseName);
             lblStatus.setText("Added: " + selected.baseName);
         }
+    }
+
+    private void importFromChooser() {
+        if (projectRoot == null || !projectRoot.isDirectory()) {
+            lblStatus.setText("Open a project first");
+            return;
+        }
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Import Images Into Puppeteer");
+        chooser.getExtensionFilters().setAll(
+            new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"),
+            new FileChooser.ExtensionFilter("All Files", "*.*"));
+        File initialDir = initialImportDirectory();
+        if (initialDir != null && initialDir.isDirectory()) {
+            chooser.setInitialDirectory(initialDir);
+        }
+        List<File> selectedFiles = chooser.showOpenMultipleDialog(getScene() == null ? null : getScene().getWindow());
+        importFiles(selectedFiles);
+    }
+
+    private File initialImportDirectory() {
+        if (projectRoot == null || !projectRoot.isDirectory()) {
+            return new File(System.getProperty("user.home", "."));
+        }
+        File importDir = resolveImportDirectory(projectRoot);
+        if (importDir.isDirectory()) {
+            return importDir;
+        }
+        return projectRoot;
+    }
+
+    private void installImportDropTarget() {
+        setOnDragOver(event -> {
+            if (projectRoot != null && projectRoot.isDirectory() && event.getDragboard().hasFiles()) {
+                event.acceptTransferModes(TransferMode.COPY);
+            }
+            event.consume();
+        });
+        setOnDragEntered(event -> {
+            if (projectRoot != null && projectRoot.isDirectory() && event.getDragboard().hasFiles()) {
+                if (!getStyle().contains("#202833")) {
+                    setStyle("-fx-background-color: #202833; -fx-border-color: #4da3ff; -fx-border-width: 1;");
+                }
+            }
+            event.consume();
+        });
+        setOnDragExited(event -> {
+            setStyle("-fx-background-color: #1a1a1a;");
+            event.consume();
+        });
+        setOnDragDropped(event -> {
+            boolean success = false;
+            if (projectRoot != null && projectRoot.isDirectory()) {
+                success = importFiles(event.getDragboard().getFiles()) > 0;
+            }
+            setStyle("-fx-background-color: #1a1a1a;");
+            event.setDropCompleted(success);
+            event.consume();
+        });
+    }
+
+    private int importFiles(List<File> files) {
+        if (projectRoot == null || !projectRoot.isDirectory()) {
+            lblStatus.setText("Open a project first");
+            return 0;
+        }
+        if (files == null || files.isEmpty()) {
+            return 0;
+        }
+
+        List<String> importedPaths = new ArrayList<>();
+        int skipped = 0;
+        File importDir = resolveImportDirectory(projectRoot);
+        Path projectRootPath = projectRoot.toPath().toAbsolutePath().normalize();
+
+        try {
+            Files.createDirectories(importDir.toPath());
+            for (File file : files) {
+                if (file == null || !file.isFile()) {
+                    skipped++;
+                    continue;
+                }
+                String ext = getExtension(file.getName());
+                if (!IMAGE_EXTENSIONS.contains(ext)) {
+                    skipped++;
+                    continue;
+                }
+
+                Path source = file.toPath().toAbsolutePath().normalize();
+                Path target;
+                if (source.startsWith(projectRootPath)) {
+                    target = source;
+                } else {
+                    target = resolveUniqueImportTarget(importDir.toPath(), file.getName());
+                    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                }
+                importedPaths.add(projectRootPath.relativize(target).toString().replace('\\', '/'));
+            }
+        } catch (IOException ex) {
+            lblStatus.setText("Import failed: " + ex.getMessage());
+            return 0;
+        }
+
+        if (importedPaths.isEmpty()) {
+            lblStatus.setText(skipped > 0 ? "No importable images selected" : "Nothing imported");
+            return 0;
+        }
+
+        filterField.clear();
+        scanProject();
+        reselectByRelativePath(importedPaths.get(importedPaths.size() - 1));
+        listView.scrollTo(Math.max(0, listView.getSelectionModel().getSelectedIndex()));
+
+        if (importedPaths.size() == 1) {
+            lblStatus.setText("Imported: " + importedPaths.get(0));
+        } else {
+            lblStatus.setText("Imported " + importedPaths.size() + " images into " + IMPORT_RELATIVE_DIR);
+        }
+        if (skipped > 0) {
+            lblStatus.setText(lblStatus.getText() + " (" + skipped + " skipped)");
+        }
+        return importedPaths.size();
+    }
+
+    private String selectedRelativePath() {
+        AssetEntry selected = listView.getSelectionModel().getSelectedItem();
+        return selected != null ? selected.relativePath : null;
+    }
+
+    private void reselectByRelativePath(String relativePath) {
+        if (relativePath != null) {
+            for (AssetEntry entry : listView.getItems()) {
+                if (relativePath.equals(entry.relativePath)) {
+                    listView.getSelectionModel().select(entry);
+                    return;
+                }
+            }
+        }
+        if (!listView.getItems().isEmpty() && listView.getSelectionModel().getSelectedItem() == null) {
+            listView.getSelectionModel().select(0);
+        }
+    }
+
+    static File resolveImportDirectory(File projectRoot) {
+        return new File(projectRoot, IMPORT_RELATIVE_DIR);
+    }
+
+    static Path resolveUniqueImportTarget(Path importDir, String originalFileName) {
+        String fileName = (originalFileName == null || originalFileName.isBlank()) ? "asset.png" : originalFileName.trim();
+        int dot = fileName.lastIndexOf('.');
+        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        String ext = dot > 0 ? fileName.substring(dot) : "";
+        Path candidate = importDir.resolve(fileName);
+        int suffix = 2;
+        while (Files.exists(candidate)) {
+            candidate = importDir.resolve(base + "-" + suffix + ext);
+            suffix++;
+        }
+        return candidate;
     }
 
     // --- Data model ---
@@ -216,6 +433,29 @@ public class AssetPickerPanel extends VBox {
     // --- Custom cell with thumbnail ---
     private static class AssetCell extends ListCell<AssetEntry> {
         private static final double THUMB_SIZE = 32;
+        private final ImageView thumb = new ImageView();
+        private final Label nameLabel = new Label();
+        private final Label pathLabel = new Label();
+        private final VBox textBox = new VBox(1);
+        private final HBox row = new HBox(8, thumb, textBox);
+
+        AssetCell() {
+            thumb.setFitWidth(THUMB_SIZE);
+            thumb.setFitHeight(THUMB_SIZE);
+            thumb.setPreserveRatio(true);
+            thumb.setSmooth(true);
+
+            nameLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
+            pathLabel.setStyle("-fx-font-size: 9px;");
+            textBox.getChildren().addAll(nameLabel, pathLabel);
+            HBox.setHgrow(textBox, Priority.ALWAYS);
+
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setPadding(new Insets(3));
+
+            setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            hoverProperty().addListener((obs, wasHover, isHover) -> refreshCellStyle());
+        }
 
         @Override
         protected void updateItem(AssetEntry item, boolean empty) {
@@ -223,42 +463,49 @@ public class AssetPickerPanel extends VBox {
             if (empty || item == null) {
                 setText(null);
                 setGraphic(null);
-                setStyle("-fx-background-color: transparent;");
+                setStyle(STYLE_CELL_BASE);
                 return;
             }
-
-            ImageView thumb = new ImageView();
-            thumb.setFitWidth(THUMB_SIZE);
-            thumb.setFitHeight(THUMB_SIZE);
-            thumb.setPreserveRatio(true);
-            thumb.setSmooth(true);
 
             try {
                 Image img = new Image(item.file.toURI().toString(), THUMB_SIZE * 2, THUMB_SIZE * 2, true, true, true);
                 thumb.setImage(img);
             } catch (Exception ignored) {
-                // no thumbnail available
+                thumb.setImage(null);
             }
 
-            VBox textBox = new VBox(1);
-            Label nameLabel = new Label(item.baseName);
-            nameLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
-            Label pathLabel = new Label(item.relativePath);
-            pathLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 9px;");
-            textBox.getChildren().addAll(nameLabel, pathLabel);
-
-            HBox row = new HBox(6, thumb, textBox);
-            row.setAlignment(Pos.CENTER_LEFT);
-            row.setPadding(new Insets(2));
+            nameLabel.setText(item.baseName);
+            pathLabel.setText(item.relativePath);
 
             setGraphic(row);
             setText(null);
-            setStyle("-fx-background-color: transparent; -fx-padding: 2;");
+            refreshCellStyle();
+        }
 
-            setOnMouseEntered(e -> setStyle("-fx-background-color: #2a2a2a; -fx-padding: 2;"));
-            setOnMouseExited(e -> {
-                if (!isSelected()) setStyle("-fx-background-color: transparent; -fx-padding: 2;");
-            });
+        @Override
+        public void updateSelected(boolean selected) {
+            super.updateSelected(selected);
+            refreshCellStyle();
+        }
+
+        private void refreshCellStyle() {
+            if (getItem() == null || isEmpty()) {
+                setStyle(STYLE_CELL_BASE);
+                return;
+            }
+            if (isSelected()) {
+                setStyle(STYLE_CELL_SELECTED);
+                nameLabel.setStyle("-fx-text-fill: #eef6ff; -fx-font-size: 11px; -fx-font-weight: bold;");
+                pathLabel.setStyle("-fx-text-fill: #9fc6ef; -fx-font-size: 9px;");
+            } else if (isHover()) {
+                setStyle(STYLE_CELL_HOVER);
+                nameLabel.setStyle("-fx-text-fill: #f2f2f2; -fx-font-size: 11px; -fx-font-weight: bold;");
+                pathLabel.setStyle("-fx-text-fill: #8b93a2; -fx-font-size: 9px;");
+            } else {
+                setStyle(STYLE_CELL_BASE);
+                nameLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
+                pathLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 9px;");
+            }
         }
     }
 }
