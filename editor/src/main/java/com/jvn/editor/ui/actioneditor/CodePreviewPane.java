@@ -107,16 +107,16 @@ public class CodePreviewPane extends VBox {
         button.setTooltip(new Tooltip(tooltip));
         button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         button.setGraphicTextGap(0);
-        button.setMinSize(30, 28);
-        button.setPrefSize(30, 28);
-        button.setMaxSize(30, 28);
+        button.setMinSize(34, 30);
+        button.setPrefSize(34, 30);
+        button.setMaxSize(34, 30);
         button.setFocusTraversable(false);
         return button;
     }
 
     private static Label makeIcon(String iconClass) {
         Label icon = new Label();
-        icon.getStyleClass().addAll("icon", iconClass);
+        icon.getStyleClass().addAll("icon", "puppeteer-toolbar-icon", iconClass);
         icon.setMouseTransparent(true);
         return icon;
     }

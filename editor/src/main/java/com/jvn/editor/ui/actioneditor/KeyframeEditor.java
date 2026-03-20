@@ -30,6 +30,7 @@ public class KeyframeEditor extends VBox {
     private final Slider sliderValue;
     private final ComboBox<Easing.Interpolation> cbInterpolation;
     private final PuppeteerEasingComboBox cbEasing;
+    private final Button btnPresetLibrary;
     private final Button btnEditCurve;
     private final Button btnUpdateCurvePreset;
     private final Button btnExpandCurveEditor;
@@ -38,6 +39,7 @@ public class KeyframeEditor extends VBox {
     private final Label lblCameraState;
     private final Label lblCurvePresetHint;
     private final EasingCurveEditor curveEditor;
+    private final PuppeteerEasingPresetLibraryPanel presetLibraryPanel;
     private final GridPane pivotPresetsGrid;
     private final Label lblPivotPresets;
     private final VBox batchBox;
@@ -107,6 +109,10 @@ public class KeyframeEditor extends VBox {
         cbEasing = new PuppeteerEasingComboBox();
         cbEasing.setCurrentSpecSupplier(this::resolveEditorEasingSpec);
         cbEasing.setCurrentSpec(EasingSpec.of(Easing.Type.LINEAR));
+        btnPresetLibrary = new Button("Preset Library");
+        btnPresetLibrary.setTooltip(new Tooltip("Open the project easing preset library"));
+        btnPresetLibrary.setStyle("-fx-background-color: #243449; -fx-text-fill: #dce8f7; -fx-background-radius: 3; " +
+            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
         cbInterpolation = new ComboBox<>();
         cbInterpolation.getItems().addAll(Easing.Interpolation.values());
         cbInterpolation.setValue(Easing.Interpolation.TWEEN);
@@ -125,6 +131,22 @@ public class KeyframeEditor extends VBox {
         lblCurvePresetHint = new Label();
         lblCurvePresetHint.setStyle("-fx-text-fill: #8ea4c6; -fx-font-size: 10px;");
         lblCurvePresetHint.setWrapText(true);
+        presetLibraryPanel = new PuppeteerEasingPresetLibraryPanel();
+        presetLibraryPanel.setCurrentSpecSupplier(this::resolveEditorEasingSpec);
+        presetLibraryPanel.setSelectedEntrySupplier(cbEasing::getSelectedEntry);
+        presetLibraryPanel.setOnPresetApplied(spec -> {
+            applyExplicitEasingSpec(spec);
+            syncPresetEditSessionFromSelection(false);
+            refreshPresetUiState();
+            if (onKeyframeChanged != null) onKeyframeChanged.run();
+        });
+        presetLibraryPanel.setOnLibraryChanged(() -> {
+            EasingSpec current = resolveEditorEasingSpec();
+            cbEasing.reloadProjectPresets();
+            cbEasing.setCurrentSpec(current);
+            syncPresetEditSessionFromSelection(false);
+            refreshPresetUiState();
+        });
 
         btnDelete = new Button("Delete");
         btnDelete.setStyle("-fx-background-color: #e05577; -fx-text-fill: #0a0a0a; -fx-background-radius: 3; " +
@@ -184,7 +206,7 @@ public class KeyframeEditor extends VBox {
                 if (onKeyframeChanged != null) onKeyframeChanged.run();
             }
         });
-        HBox easingRow = new HBox(6, cbEasing, btnExpandCurveEditor);
+        HBox easingRow = new HBox(6, cbEasing, btnPresetLibrary, btnExpandCurveEditor);
         HBox.setHgrow(cbEasing, Priority.ALWAYS);
         HBox curveActionRow = new HBox(6, btnEditCurve, btnUpdateCurvePreset, lblCurvePresetHint);
         HBox.setHgrow(lblCurvePresetHint, Priority.ALWAYS);
@@ -195,14 +217,15 @@ public class KeyframeEditor extends VBox {
         grid.add(easingRow, 1, 5);
         grid.add(curveActionRow, 1, 6);
         grid.add(curveEditor, 0, 7, 2, 1);
-        grid.add(batchBox, 0, 8, 2, 1);
-        grid.add(lblPivotPresets, 0, 9);
-        grid.add(pivotPresetsGrid, 1, 9);
-        grid.add(actionRow, 1, 10);
+        grid.add(presetLibraryPanel, 0, 8, 2, 1);
+        grid.add(batchBox, 0, 9, 2, 1);
+        grid.add(lblPivotPresets, 0, 10);
+        grid.add(pivotPresetsGrid, 1, 10);
+        grid.add(actionRow, 1, 11);
         lblCameraState = new Label("X 0.0  Y 0.0  Z 1.00");
         lblCameraState.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px; -fx-font-family: monospace;");
-        grid.add(new Label("Camera:"), 0, 11);
-        grid.add(lblCameraState, 1, 11);
+        grid.add(new Label("Camera:"), 0, 12);
+        grid.add(lblCameraState, 1, 12);
 
         GridPane.setHgrow(curveEditor, Priority.ALWAYS);
         GridPane.setVgrow(curveEditor, Priority.ALWAYS);
@@ -245,6 +268,10 @@ public class KeyframeEditor extends VBox {
             syncPresetEditSessionFromSelection(false);
             refreshCurveEditorPreview();
             updateCurveEditorState();
+        });
+        btnPresetLibrary.setOnAction(e -> {
+            presetLibraryPanel.toggleVisible();
+            refreshPresetUiState();
         });
         btnEditCurve.setOnAction(e -> beginCurveEdit());
         btnUpdateCurvePreset.setOnAction(e -> updateActivePresetFromCurve());
@@ -311,6 +338,7 @@ public class KeyframeEditor extends VBox {
 
     public void setProjectRoot(File root) {
         cbEasing.setProjectRoot(root);
+        presetLibraryPanel.setProjectRoot(root);
         refreshPresetUiState();
     }
 
@@ -428,6 +456,8 @@ public class KeyframeEditor extends VBox {
 
     private void refreshPresetUiState() {
         cbEasing.refreshState();
+        presetLibraryPanel.refreshView();
+        btnPresetLibrary.setText(presetLibraryPanel.isPanelVisible() ? "Hide Library" : "Preset Library");
         refreshCurveActionState();
     }
 
@@ -488,6 +518,7 @@ public class KeyframeEditor extends VBox {
         EasingSpec current = resolveEditorEasingSpec();
         EasingSpec editable = current.getType() == Easing.Type.CUSTOM ? current : toEditableCurveSpec(current);
         if (cbEasing.updatePreset(activePresetEditId, activePresetEditName, editable)) {
+            presetLibraryPanel.reloadLibrary();
             syncPresetEditSessionFromSelection(true);
             refreshCurveEditorPreview();
             updateCurveEditorState();

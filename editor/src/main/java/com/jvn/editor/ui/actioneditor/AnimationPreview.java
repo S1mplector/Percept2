@@ -20,6 +20,7 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -137,6 +138,7 @@ public class AnimationPreview extends VBox {
     private static final double ENTITY_SNAP_THRESHOLD = 8.0;
 
     private Consumer<String> onEntitySelected;
+    private Consumer<PuppeteerAssetTransfer.Payload> onAssetDropped;
     private BiConsumer<String, double[]> onEntityMoved;
     private BiConsumer<String, double[]> onEntityMoveInteractionStarted;
     private BiConsumer<String, double[]> onEntityMoveInteractionFinished;
@@ -173,6 +175,8 @@ public class AnimationPreview extends VBox {
     private String moveInteractionEntityName = null;
     private double moveInteractionStartX = 0.0;
     private double moveInteractionStartY = 0.0;
+    private boolean assetDropHighlightActive = false;
+    private String assetDropLabel = null;
 
     public void setProjectRoot(java.io.File root) {
         projectRoot = root;
@@ -270,6 +274,11 @@ public class AnimationPreview extends VBox {
 
     public JesScene2D getJesScene() { return scene; }
     public Camera2D getCamera() { return camera; }
+    public ProjectViewportSpec.Dimensions getViewportDimensions() {
+        return viewportSpec != null
+            ? viewportSpec
+            : new ProjectViewportSpec.Dimensions(ProjectViewportSpec.DEFAULT_WIDTH, ProjectViewportSpec.DEFAULT_HEIGHT);
+    }
 
     public void render() {
         double w = Math.max(1.0, canvas.getWidth());
@@ -308,6 +317,7 @@ public class AnimationPreview extends VBox {
         gc.restore();
         drawRuntimeFrame();
         drawCameraHud();
+        drawAssetDropOverlay();
 
         if (pivotOverlayText != null) {
             gc.setFont(javafx.scene.text.Font.font("Monospaced", 11));
@@ -360,6 +370,29 @@ public class AnimationPreview extends VBox {
         gc.fillRoundRect(8, 8, width, 18, 6, 6);
         gc.setFill(Color.web("#d3dae8", 0.95));
         gc.fillText(hud, 14, 21);
+        gc.restore();
+    }
+
+    private void drawAssetDropOverlay() {
+        if (!assetDropHighlightActive) return;
+        double x = displayOffsetX;
+        double y = displayOffsetY;
+        double w = Math.max(1.0, displayWidth * displayScale);
+        double h = Math.max(1.0, displayHeight * displayScale);
+        gc.save();
+        gc.setFill(Color.web("#4da3ff", 0.08));
+        gc.fillRoundRect(x + 2.0, y + 2.0, Math.max(0.0, w - 4.0), Math.max(0.0, h - 4.0), 14.0, 14.0);
+        gc.setStroke(Color.web("#7bc0ff", 0.95));
+        gc.setLineWidth(2.0);
+        gc.setLineDashes(10.0, 6.0);
+        gc.strokeRoundRect(x + 2.0, y + 2.0, Math.max(0.0, w - 4.0), Math.max(0.0, h - 4.0), 14.0, 14.0);
+        gc.setLineDashes((double[]) null);
+        String label = assetDropLabel == null || assetDropLabel.isBlank()
+            ? "Drop to add asset"
+            : assetDropLabel;
+        gc.setFill(Color.web("#d9ecff", 0.96));
+        gc.setFont(javafx.scene.text.Font.font("Monospaced", 12));
+        gc.fillText(label, x + 18.0, y + 28.0);
         gc.restore();
     }
 
@@ -721,6 +754,7 @@ public class AnimationPreview extends VBox {
     }
 
     public void setOnEntitySelected(Consumer<String> callback) { this.onEntitySelected = callback; }
+    public void setOnAssetDropped(Consumer<PuppeteerAssetTransfer.Payload> callback) { this.onAssetDropped = callback; }
     public void setOnEntityMoved(BiConsumer<String, double[]> callback) { this.onEntityMoved = callback; }
     public void setOnEntityMoveInteractionStarted(BiConsumer<String, double[]> callback) { this.onEntityMoveInteractionStarted = callback; }
     public void setOnEntityMoveInteractionFinished(BiConsumer<String, double[]> callback) { this.onEntityMoveInteractionFinished = callback; }
@@ -1126,6 +1160,29 @@ public class AnimationPreview extends VBox {
     }
 
     private void setupMouseControls() {
+        canvas.setOnDragOver(e -> {
+            PuppeteerAssetTransfer.Payload payload = PuppeteerAssetTransfer.fromDragboard(e.getDragboard());
+            if (payload != null) {
+                e.acceptTransferModes(TransferMode.COPY);
+                setAssetDropHighlight(true, "Drop to add '" + payload.suggestedName() + "' as a prop");
+            }
+            e.consume();
+        });
+        canvas.setOnDragExited(e -> {
+            setAssetDropHighlight(false, null);
+            e.consume();
+        });
+        canvas.setOnDragDropped(e -> {
+            PuppeteerAssetTransfer.Payload payload = PuppeteerAssetTransfer.fromDragboard(e.getDragboard());
+            boolean success = payload != null;
+            if (payload != null && onAssetDropped != null) {
+                onAssetDropped.accept(payload);
+            }
+            setAssetDropHighlight(false, null);
+            e.setDropCompleted(success);
+            e.consume();
+        });
+
         canvas.setOnScroll(e -> {
             if (!isInsideViewport(e.getX(), e.getY())) return;
             double factor = Math.pow(1.05, e.getDeltaY() / 40.0);
@@ -1625,5 +1682,14 @@ public class AnimationPreview extends VBox {
         if (onCameraStateChanged != null) {
             onCameraStateChanged.accept(new double[] { camera.getX(), camera.getY(), camera.getZoom() });
         }
+    }
+
+    private void setAssetDropHighlight(boolean active, String label) {
+        boolean changed = assetDropHighlightActive != active;
+        String normalized = label == null ? null : label.trim();
+        if (!changed && java.util.Objects.equals(assetDropLabel, normalized)) return;
+        assetDropHighlightActive = active;
+        assetDropLabel = active ? normalized : null;
+        render();
     }
 }

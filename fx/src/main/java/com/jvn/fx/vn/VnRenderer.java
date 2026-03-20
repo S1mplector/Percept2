@@ -937,10 +937,19 @@ public class VnRenderer {
       double nameContentX = nameBoxX + uiLayout.nameTextXOffset();
       double nameContentW = Math.max(0, nameBoxW - uiLayout.nameTextXOffset() * 2);
       double nameTextW = computeTextWidth(speakerName, nameFont);
+      double nameTextBaselineY = uiLayout.nameTextYAlign() >= 0.0
+          ? resolvePaddedTextBaselineY(
+              nameBoxY,
+              nameBoxH,
+              uiLayout.nameTextTopPadding(),
+              uiLayout.nameTextBottomPadding(),
+              nameFont,
+              uiLayout.nameTextYAlign())
+          : nameBoxY + uiLayout.nameTextBaselineOffset();
       gc.fillText(
           speakerName,
           resolveAlignedTextX(nameContentX, nameContentW, nameTextW, nameTextXAlign),
-          nameBoxY + uiLayout.nameTextBaselineOffset()
+          nameTextBaselineY
       );
     }
 
@@ -1677,10 +1686,19 @@ public class VnRenderer {
       double contentX = geo.choiceX() + uiLayout.choiceTextXPadding();
       double contentWidth = Math.max(0, geo.choiceWidth() - uiLayout.choiceTextXPadding() * 2);
       double textWidth = computeTextWidth(choiceText, choiceFont);
+      double textBaselineY = uiLayout.choiceTextYAlign() >= 0.0
+          ? resolvePaddedTextBaselineY(
+              y,
+              geo.choiceHeight(),
+              uiLayout.choiceTextTopPadding(),
+              uiLayout.choiceTextBottomPadding(),
+              choiceFont,
+              uiLayout.choiceTextYAlign())
+          : y + geo.choiceHeight() / 2 + choiceTextBaselineOffset;
       gc.fillText(
           choiceText,
           resolveAlignedTextX(contentX, contentWidth, textWidth, choiceTextXAlign),
-          y + geo.choiceHeight() / 2 + choiceTextBaselineOffset
+          textBaselineY
       );
     }
   }
@@ -1966,6 +1984,30 @@ public class VnRenderer {
     helper.setFont(font);
     double ascent = -helper.getLayoutBounds().getMinY();
     return ascent > 0.0 ? ascent : Math.max(1.0, font.getSize() * 0.8);
+  }
+
+  private double computeTextHeight(Font font) {
+    javafx.scene.text.Text helper = new javafx.scene.text.Text("Hg");
+    helper.setFont(font);
+    double height = helper.getLayoutBounds().getHeight();
+    return height > 0.0 ? height : Math.max(1.0, font.getSize());
+  }
+
+  private double resolvePaddedTextBaselineY(
+      double boxY,
+      double boxHeight,
+      double topPadding,
+      double bottomPadding,
+      Font font,
+      double yAlign
+  ) {
+    double contentTop = boxY + Math.max(0.0, topPadding);
+    double contentHeight = Math.max(1.0, boxHeight - Math.max(0.0, topPadding) - Math.max(0.0, bottomPadding));
+    double textHeight = computeTextHeight(font);
+    double ascent = computeTextAscent(font);
+    double clampedAlign = clamp(yAlign, 0.0, 1.0);
+    double extra = Math.max(0.0, contentHeight - textHeight);
+    return contentTop + ascent + extra * clampedAlign;
   }
 
   private double resolveAlignedTextX(double contentX, double contentWidth, double textWidth, double xAlign) {

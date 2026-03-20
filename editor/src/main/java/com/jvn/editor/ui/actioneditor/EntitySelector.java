@@ -12,15 +12,12 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
-import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
-import javafx.scene.control.Menu;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -35,6 +32,7 @@ public class EntitySelector extends VBox {
     private final TreeView<String> treeView;
     private final TreeItem<String> rootItem;
     private final ActionEditorTextPromptOverlay groupPromptOverlay;
+    private final ActionEditorDialogOverlay actionOverlay;
 
     private final Label lblEmptyHint;
 
@@ -95,19 +93,29 @@ public class EntitySelector extends VBox {
             "-fx-border-color: #3a3a3a; -fx-border-radius: 3; -fx-padding: 2 8; -fx-font-size: 10px; -fx-cursor: hand;");
         btnNewGroup.setOnAction(e -> showCreateGroupOverlay());
 
-        HBox toolbar = new HBox(6, btnNewGroup);
+        Button btnActions = new Button("Actions");
+        btnActions.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #a0a0a0; -fx-background-radius: 3; " +
+            "-fx-border-color: #3a3a3a; -fx-border-radius: 3; -fx-padding: 2 8; -fx-font-size: 10px; -fx-cursor: hand;");
+        btnActions.setOnAction(e -> showSelectionActionsOverlay());
+
+        HBox toolbar = new HBox(6, btnNewGroup, btnActions);
         toolbar.setPadding(new Insets(4, 0, 0, 0));
 
         groupPromptOverlay = new ActionEditorTextPromptOverlay();
+        actionOverlay = new ActionEditorDialogOverlay();
 
         content.getChildren().addAll(header, filterField, lblEmptyHint, treeView, toolbar);
-        StackPane contentStack = new StackPane(content, groupPromptOverlay);
+        StackPane contentStack = new StackPane(content, actionOverlay, groupPromptOverlay);
         VBox.setVgrow(contentStack, Priority.ALWAYS);
 
         getChildren().add(contentStack);
         updateEmptyState();
-
-        setupContextMenu();
+        treeView.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.SECONDARY) {
+                showSelectionActionsOverlay();
+                event.consume();
+            }
+        });
     }
 
     public void setOnEntitySelected(Consumer<String> callback) { this.onEntitySelected = callback; }
@@ -238,77 +246,103 @@ public class EntitySelector extends VBox {
         return copy;
     }
 
-    private void setupContextMenu() {
-        ContextMenu cm = new ContextMenu();
+    private void showSelectionActionsOverlay() {
+        TreeItem<String> selected = treeView.getSelectionModel().getSelectedItem();
+        if (selected == null || project == null) return;
 
-        Menu addToGroupMenu = new Menu("Add to Group");
-        MenuItem removeFromGroup = new MenuItem("Remove from Group");
-        Menu layerMenu = new Menu("Layer Order");
-        MenuItem layerUp = new MenuItem("Raise (+10)");
-        MenuItem layerDown = new MenuItem("Lower (-10)");
-        MenuItem deleteItem = new MenuItem("Delete");
-        layerMenu.getItems().addAll(layerUp, layerDown);
+        String encoded = selected.getValue();
+        String name = decodeTreeValue(encoded);
+        boolean group = isEncodedGroupValue(encoded);
 
-        cm.getItems().addAll(addToGroupMenu, removeFromGroup, layerMenu, new SeparatorMenuItem(), deleteItem);
+        VBox menu = new VBox(8);
+        menu.getChildren().add(buildActionMenuButton("Add to Group", () -> showAddToGroupOverlay(name, group)));
+        menu.getChildren().add(buildActionMenuButton(
+            group ? "Remove from Parent Group" : "Remove from Group",
+            () -> removeSelectionFromGroup(encoded)));
+        menu.getChildren().add(buildActionMenuButton("Raise Layer (+10)", () -> adjustLayerOrder(+10)));
+        menu.getChildren().add(buildActionMenuButton("Lower Layer (-10)", () -> adjustLayerOrder(-10)));
+        menu.getChildren().add(buildActionMenuButton(
+            group ? "Delete Group" : "Delete Entity",
+            () -> deleteSelection(encoded)));
 
-        cm.setOnShowing(e -> { 
-            addToGroupMenu.getItems().clear();
-            if (project != null) {
-                TreeItem<String> selected = treeView.getSelectionModel().getSelectedItem();
-                String selectedName = selected == null ? null : decodeTreeValue(selected.getValue());
-                for (EntityGroup g : project.getGroups()) {
-                    if (selectedName != null && selectedName.equals(g.getName())) continue;
-                    MenuItem mi = new MenuItem(g.getName());
-                    mi.setOnAction(ev -> {
-                        TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
-                        if (sel != null) {
-                            String encoded = sel.getValue();
-                            String name = decodeTreeValue(encoded);
-                            boolean selectedIsGroup = isEncodedGroupValue(encoded);
-                            if (onAddSelectionToGroup != null) {
-                                onAddSelectionToGroup.accept(name, selectedIsGroup, g.getName());
-                            } else if (onAddToGroup != null) {
-                                onAddToGroup.accept(name, g.getName());
-                            }
-                        }
-                    });
-                    addToGroupMenu.getItems().add(mi);
+        actionOverlay.showDialog(
+            group ? "Group Actions" : "Entity Actions",
+            name,
+            menu,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Close", actionOverlay::hideOverlay).defaultFocus(true)
+        );
+    }
+
+    private void showAddToGroupOverlay(String selectionName, boolean selectionIsGroup) {
+        if (project == null || selectionName == null || selectionName.isBlank()) return;
+        VBox menu = new VBox(8);
+        boolean hasTargets = false;
+        for (EntityGroup group : project.getGroups()) {
+            if (group == null) continue;
+            if (selectionName.equals(group.getName())) continue;
+            hasTargets = true;
+            menu.getChildren().add(buildActionMenuButton(group.getName(), () -> {
+                if (onAddSelectionToGroup != null) {
+                    onAddSelectionToGroup.accept(selectionName, selectionIsGroup, group.getName());
+                } else if (!selectionIsGroup && onAddToGroup != null) {
+                    onAddToGroup.accept(selectionName, group.getName());
                 }
+                actionOverlay.hideOverlay();
+            }));
+        }
+        if (!hasTargets) {
+            Label empty = new Label("Create a group first to organize entities.");
+            empty.setWrapText(true);
+            empty.setStyle("-fx-text-fill: #7f8796; -fx-font-size: 11px;");
+            menu.getChildren().add(empty);
+        }
+        actionOverlay.showDialog(
+            "Add to Group",
+            selectionName,
+            menu,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Back", this::showSelectionActionsOverlay).defaultFocus(true),
+            ActionEditorDialogOverlay.ActionSpec.neutral("Close", actionOverlay::hideOverlay)
+        );
+    }
+
+    private void removeSelectionFromGroup(String encoded) {
+        if (encoded == null || project == null) return;
+        String name = decodeTreeValue(encoded);
+        if (isEncodedGroupValue(encoded)) {
+            project.removeGroupFromParent(name);
+        } else {
+            project.removeEntityFromGroup(name);
+        }
+        refresh(project);
+        actionOverlay.hideOverlay();
+    }
+
+    private void deleteSelection(String encoded) {
+        if (encoded == null || project == null) return;
+        String name = decodeTreeValue(encoded);
+        if (isEncodedGroupValue(encoded)) {
+            project.removeGroup(name);
+        } else {
+            project.removeTrack(name);
+        }
+        refresh(project);
+        actionOverlay.hideOverlay();
+    }
+
+    private Button buildActionMenuButton(String label, Runnable action) {
+        Button button = new Button(label);
+        button.setMaxWidth(Double.MAX_VALUE);
+        button.setAlignment(Pos.CENTER_LEFT);
+        button.setStyle(
+            "-fx-background-color: #23262c; -fx-text-fill: #d7dde6; -fx-background-radius: 4; "
+                + "-fx-border-color: #3a3f48; -fx-border-radius: 4; -fx-padding: 7 10; -fx-font-size: 11px; -fx-cursor: hand;");
+        button.setOnAction(event -> {
+            if (action != null) {
+                action.run();
             }
+            event.consume();
         });
-
-        removeFromGroup.setOnAction(e -> {
-            TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
-            if (sel != null && project != null) {
-                String encoded = sel.getValue();
-                String name = decodeTreeValue(encoded);
-                if (isEncodedGroupValue(encoded)) {
-                    project.removeGroupFromParent(name);
-                } else {
-                    project.removeEntityFromGroup(name);
-                }
-                refresh(project);
-            }
-        });
-
-        layerUp.setOnAction(e -> adjustLayerOrder(+10));
-        layerDown.setOnAction(e -> adjustLayerOrder(-10));
-
-        deleteItem.setOnAction(e -> {
-            TreeItem<String> sel = treeView.getSelectionModel().getSelectedItem();
-            if (sel != null && project != null) {
-                String encoded = sel.getValue();
-                String name = decodeTreeValue(encoded);
-                if (isEncodedGroupValue(encoded)) {
-                    project.removeGroup(name);
-                } else {
-                    project.removeTrack(name);
-                }
-                refresh(project);
-            }
-        });
-
-        treeView.setContextMenu(cm);
+        return button;
     }
 
     private static String encodeGroupValue(String name) {

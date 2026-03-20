@@ -25,21 +25,18 @@ import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.Node;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
-import javafx.scene.control.MenuButton;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.ListView;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
@@ -50,6 +47,7 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -87,6 +85,9 @@ public class PuppeteerWindow extends Stage {
     private Consumer<String> onCopyCode;
     private final TextField tfTimelineName;
     private final Map<String, CollapsibleToolbarCluster> toolbarClusters = new LinkedHashMap<>();
+    private AnimatedToolbarPane toolbarPane;
+    private ToggleButton btnToolbarDynamicMode;
+    private ToggleButton btnToolbarCompactMode;
     private Label statusBar;
     private Label viewportInfoLabel;
     private boolean dirty = false;
@@ -95,6 +96,8 @@ public class PuppeteerWindow extends Stage {
     private boolean dirtyBeforePreviewStage = false;
     private AnimationProject previewBaselineProject;
     private TransformInteractionState activeTransformInteraction;
+    private final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
+    private boolean bypassCloseConfirmation = false;
 
     private static final double MOVE_INTERACTION_EPSILON = 0.01;
     private static final PropertyType[] TRANSFORM_INTERACTION_PROPERTIES = {
@@ -151,6 +154,10 @@ public class PuppeteerWindow extends Stage {
             if (state != null && state.length >= 3) {
                 keyframeEditor.setCameraState(state[0], state[1], state[2]);
             }
+        });
+        animationPreview.setOnAssetDropped(payload -> {
+            if (payload == null || !payload.isValid()) return;
+            addAssetToScene(payload.relativePath(), payload.suggestedName(), PuppeteerAssetPlacementRole.PROP);
         });
         codePreview = new CodePreviewPane();
         keyframeEditor.setCameraState(animationPreview.getCamera().getX(), animationPreview.getCamera().getY(), animationPreview.getCamera().getZoom());
@@ -469,9 +476,8 @@ public class PuppeteerWindow extends Stage {
         durationBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Presets ---
-        MenuButton presetMenu = buildPresetMenu();
-        configureToolbarIconMenuButton(presetMenu, "icon-puppeteer-presets", "Apply animation preset to selected entity");
-        presetMenu.setTooltip(new Tooltip("Apply animation preset to selected entity"));
+        Button presetButton = makeToolbarIconButton("icon-puppeteer-presets", "Apply animation preset to selected entity");
+        presetButton.setOnAction(e -> showPresetMenuOverlay());
 
         // --- Property target + snapping ---
         cbProperty = new ComboBox<>();
@@ -503,14 +509,8 @@ public class PuppeteerWindow extends Stage {
         Button btnLoadClip = makeToolbarIconButton("icon-puppeteer-load-clip", "Load and apply a saved clip at playhead");
         btnLoadClip.setOnAction(e -> loadAndApplyClip());
 
-        MenuButton slotMenu = new MenuButton("Slot");
-        slotMenu.setStyle(STYLE_BTN_DARK);
-        slotMenu.setTooltip(new Tooltip("Place selected entity at a VN character slot"));
-        for (VnSlotHelper.Slot slot : VnSlotHelper.Slot.values()) {
-            MenuItem mi = new MenuItem(slot.name().replace('_', ' '));
-            mi.setOnAction(e -> placeEntityAtSlot(slot));
-            slotMenu.getItems().add(mi);
-        }
+        Button slotButton = makeToolbarIconButton("icon-puppeteer-focus-selection", "Place selected entity at a VN character slot");
+        slotButton.setOnAction(e -> showSlotMenuOverlay());
 
         Button btnBatchKeyframe = makeToolbarIconButton("icon-puppeteer-snap", "Add keyframe for ALL entities at playhead (batch)");
         btnBatchKeyframe.setOnAction(e -> {
@@ -575,7 +575,7 @@ public class PuppeteerWindow extends Stage {
             btnBatchKeyframe,
             btnSaveClip,
             btnLoadClip,
-            slotMenu,
+            slotButton,
             btnPrevKeyframe,
             btnNextKeyframe,
             btnFocusSelection,
@@ -688,18 +688,17 @@ public class PuppeteerWindow extends Stage {
         Button btnClearCues = makeToolbarIconButton("icon-puppeteer-audio-clear", "Remove all timeline audio cues");
         btnClearCues.setOnAction(e -> {
             if (project.getAudioCues().isEmpty()) return;
-            Alert a = new Alert(Alert.AlertType.CONFIRMATION);
-            EditorTheme.apply(a);
-            a.setTitle("Clear Audio Cues");
-            a.setHeaderText("Remove all audio cues from this animation?");
-            a.setContentText("This cannot be undone from the cue panel.");
-            a.showAndWait().ifPresent(bt -> {
-                if (bt == ButtonType.OK) {
+            overlayDialog.showDialog(
+                "Clear Audio Cues",
+                "Remove all audio cues from this animation? This cannot be undone from the cue panel.",
+                null,
+                ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+                ActionEditorDialogOverlay.ActionSpec.danger("Clear", () -> {
                     project.clearAudioCues();
                     timelinePanel.refresh();
                     refreshExportPreviewAndMarkDirty();
-                }
-            });
+                })
+            );
         });
         HBox cueBox = new HBox(4, btnAddCue, btnClearCues);
         cueBox.setAlignment(Pos.CENTER_LEFT);
@@ -732,7 +731,7 @@ public class PuppeteerWindow extends Stage {
         // --- Assemble toolbar ---
         CollapsibleToolbarCluster transportCluster = registerToolbarCluster("transport", "Transport", transportBox);
         CollapsibleToolbarCluster durationCluster = registerToolbarCluster("duration", "Timeline", durationBox);
-        CollapsibleToolbarCluster presetsCluster = registerToolbarCluster("presets", "Presets", presetMenu);
+        CollapsibleToolbarCluster presetsCluster = registerToolbarCluster("presets", "Presets", presetButton);
         CollapsibleToolbarCluster propertyCluster = registerToolbarCluster("property", "Track", propertyBox);
         CollapsibleToolbarCluster keyframesCluster = registerToolbarCluster("keyframes", "Keyframes",
             keyframeOpsPrimaryRow, keyframeOpsSecondaryRow);
@@ -743,29 +742,75 @@ public class PuppeteerWindow extends Stage {
         CollapsibleToolbarCluster registerCluster = registerToolbarCluster("register", "Register", nameBox);
         CollapsibleToolbarCluster helpCluster = registerToolbarCluster("help", "Help", btnHelp);
 
-        AnimatedToolbarPane toolbar = new AnimatedToolbarPane(10, 8);
-        toolbar.addCluster(transportCluster);
-        toolbar.addCluster(durationCluster);
-        toolbar.addCluster(presetsCluster);
-        toolbar.addCluster(propertyCluster);
-        toolbar.addCluster(keyframesCluster);
-        toolbar.addCluster(snapCluster);
-        toolbar.addCluster(previewCluster);
-        toolbar.addCluster(orbitCluster);
-        toolbar.addCluster(audioCluster);
-        toolbar.addCluster(registerCluster);
-        toolbar.addCluster(helpCluster);
-        toolbar.registerMarker("toolbar-group-transport-duration", transportCluster, durationCluster);
-        toolbar.registerMarker("toolbar-group-keyframe-ops", propertyCluster, keyframesCluster);
-        toolbar.registerMarker("toolbar-group-preview-modes", snapCluster, previewCluster);
-        toolbar.registerMarker("toolbar-group-orbit-audio-register", orbitCluster, audioCluster, registerCluster);
-        toolbar.setId("puppeteer-toolbar");
-        toolbar.setPadding(new Insets(8, 10, 8, 10));
-        toolbar.setMaxWidth(Double.MAX_VALUE);
-        toolbar.setStyle("-fx-background-color: #0a0a0a; -fx-border-color: #2a2a2a; -fx-border-width: 0 0 1 0;");
+        toolbarPane = new AnimatedToolbarPane(10, 8);
+        toolbarPane.addCluster(transportCluster);
+        toolbarPane.addCluster(durationCluster);
+        toolbarPane.addCluster(presetsCluster);
+        toolbarPane.addCluster(propertyCluster);
+        toolbarPane.addCluster(keyframesCluster);
+        toolbarPane.addCluster(snapCluster);
+        toolbarPane.addCluster(previewCluster);
+        toolbarPane.addCluster(orbitCluster);
+        toolbarPane.addCluster(audioCluster);
+        toolbarPane.addCluster(registerCluster);
+        toolbarPane.addCluster(helpCluster);
+        toolbarPane.registerMarker("toolbar-group-transport-duration", transportCluster, durationCluster);
+        toolbarPane.registerMarker("toolbar-group-keyframe-ops", propertyCluster, keyframesCluster);
+        toolbarPane.registerMarker("toolbar-group-preview-modes", snapCluster, previewCluster);
+        toolbarPane.registerMarker("toolbar-group-orbit-audio-register", orbitCluster, audioCluster, registerCluster);
+        toolbarPane.setId("puppeteer-toolbar");
+        toolbarPane.setPadding(new Insets(8, 10, 8, 10));
+        toolbarPane.setMinHeight(Region.USE_PREF_SIZE);
+        toolbarPane.setMaxWidth(Double.MAX_VALUE);
+
+        ToggleGroup toolbarModeGroup = new ToggleGroup();
+        btnToolbarDynamicMode = makeToolbarModeButton("Dynamic", "Use the reorderable, cluster-driven toolbar layout.");
+        btnToolbarCompactMode = makeToolbarModeButton("Compact", "Keep all toolbar sections expanded in a stable compact layout.");
+        btnToolbarDynamicMode.setToggleGroup(toolbarModeGroup);
+        btnToolbarCompactMode.setToggleGroup(toolbarModeGroup);
+        btnToolbarDynamicMode.setSelected(true);
+        btnToolbarDynamicMode.setOnAction(e -> {
+            if (btnToolbarDynamicMode.isSelected()) {
+                setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.DYNAMIC);
+            }
+        });
+        btnToolbarCompactMode.setOnAction(e -> {
+            if (btnToolbarCompactMode.isSelected()) {
+                setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.COMPACT);
+            }
+        });
+
+        Label toolbarModeLabel = new Label("Toolbar Layout");
+        toolbarModeLabel.getStyleClass().add("puppeteer-toolbar-mode-label");
+        HBox toolbarModeBar = new HBox(8, toolbarModeLabel, btnToolbarDynamicMode, btnToolbarCompactMode);
+        toolbarModeBar.getStyleClass().add("puppeteer-toolbar-mode-bar");
+        toolbarModeBar.setAlignment(Pos.CENTER_LEFT);
+        toolbarModeBar.setMaxWidth(Double.MAX_VALUE);
+
+        VBox toolbarShell = new VBox(6, toolbarModeBar, toolbarPane) {
+            @Override
+            protected double computeMinHeight(double width) {
+                return computePrefHeight(width);
+            }
+
+            @Override
+            protected double computePrefHeight(double width) {
+                Insets insets = getInsets();
+                double contentWidth = width <= 0.0
+                    ? -1.0
+                    : Math.max(1.0, width - insets.getLeft() - insets.getRight());
+                double modeBarHeight = toolbarModeBar.prefHeight(contentWidth);
+                double clustersHeight = toolbarPane.prefHeight(contentWidth);
+                return insets.getTop() + modeBarHeight + getSpacing() + clustersHeight + insets.getBottom();
+            }
+        };
+        toolbarShell.getStyleClass().add("puppeteer-toolbar-shell");
+        toolbarShell.setFillWidth(true);
+        toolbarShell.setMinHeight(Region.USE_PREF_SIZE);
+        toolbarShell.setMaxWidth(Double.MAX_VALUE);
 
         assetPicker = new AssetPickerPanel();
-        assetPicker.setOnAddToScene((path, name) -> addAssetToScene(path, name));
+        assetPicker.setOnAddToScene(this::addAssetToScene);
 
         Tab entitiesTab = new Tab("Entities", entitySelector);
         entitiesTab.setClosable(false);
@@ -792,7 +837,7 @@ public class PuppeteerWindow extends Stage {
         SplitPane centerPane = new SplitPane();
         centerPane.setOrientation(Orientation.VERTICAL);
         viewportInfoLabel = new Label();
-        viewportInfoLabel.setStyle("-fx-text-fill: #7e8da8; -fx-font-size: 10px; -fx-padding: 3 8 5 8;");
+        viewportInfoLabel.setStyle("-fx-text-fill: #979797; -fx-font-size: 10px; -fx-padding: 3 8 5 8;");
         viewportInfoLabel.setTooltip(new Tooltip(
             "Preview shows full scene bounds. The red rectangle marks the runtime viewport " +
             "size from jvn.project."
@@ -818,12 +863,13 @@ public class PuppeteerWindow extends Stage {
         updateStatusBar();
 
         BorderPane root = new BorderPane();
-        root.setTop(toolbar);
+        root.setTop(toolbarShell);
         root.setCenter(mainSplit);
         root.setBottom(statusBar);
         root.setStyle("-fx-background-color: #121212;");
 
-        Scene fxScene = new Scene(root);
+        StackPane rootStack = new StackPane(root, overlayDialog);
+        Scene fxScene = new Scene(rootStack);
         EditorTheme.apply(fxScene);
         setScene(fxScene);
         applyLinuxDefaultWindowState();
@@ -833,11 +879,12 @@ public class PuppeteerWindow extends Stage {
         tfTimelineName.textProperty().addListener((obs, ov, nv) -> setDirty(dirty));
         setDirty(false);
         setOnCloseRequest(e -> {
-            if (!confirmCloseIfDirty()) {
-                e.consume();
+            if (bypassCloseConfirmation) {
+                if (playbackTimer != null) playbackTimer.stop();
                 return;
             }
-            if (playbackTimer != null) playbackTimer.stop();
+            e.consume();
+            requestWindowClose();
         });
 
         refreshExportPreview();
@@ -861,6 +908,25 @@ public class PuppeteerWindow extends Stage {
         for (CollapsibleToolbarCluster cluster : toolbarClusters.values()) {
             cluster.setExpanded(expanded);
         }
+    }
+
+    public void setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode mode) {
+        AnimatedToolbarPane.LayoutMode resolved = mode != null
+            ? mode
+            : AnimatedToolbarPane.LayoutMode.DYNAMIC;
+        if (toolbarPane != null) {
+            toolbarPane.setLayoutMode(resolved);
+        }
+        if (btnToolbarDynamicMode != null && btnToolbarDynamicMode.isSelected() != (resolved == AnimatedToolbarPane.LayoutMode.DYNAMIC)) {
+            btnToolbarDynamicMode.setSelected(resolved == AnimatedToolbarPane.LayoutMode.DYNAMIC);
+        }
+        if (btnToolbarCompactMode != null && btnToolbarCompactMode.isSelected() != (resolved == AnimatedToolbarPane.LayoutMode.COMPACT)) {
+            btnToolbarCompactMode.setSelected(resolved == AnimatedToolbarPane.LayoutMode.COMPACT);
+        }
+    }
+
+    public AnimatedToolbarPane.LayoutMode getToolbarLayoutMode() {
+        return toolbarPane != null ? toolbarPane.getLayoutMode() : AnimatedToolbarPane.LayoutMode.DYNAMIC;
     }
 
     public void setToolbarClusterExpanded(String key, boolean expanded) {
@@ -913,58 +979,93 @@ public class PuppeteerWindow extends Stage {
         updateViewportInfoLabel();
     }
 
-    private void addAssetToScene(String relativePath, String suggestedName) {
+    private void addAssetToScene(String relativePath, String suggestedName, PuppeteerAssetPlacementRole role) {
+        if (relativePath == null || relativePath.isBlank()) return;
         if (scene == null) {
-            scene = new JesScene2D();
-            animationPreview.setScene(scene);
+            setScene(new JesScene2D());
         }
+        if (scene == null) return;
 
-        // Deduplicate name
-        String entityName = suggestedName;
-        int suffix = 2;
-        while (scene.find(entityName) != null) {
-            entityName = suggestedName + "_" + suffix++;
-        }
+        PuppeteerAssetPlacementRole resolvedRole = role != null ? role : PuppeteerAssetPlacementRole.PROP;
+        String entityName = resolveUniqueEntityName(suggestedName, resolvedRole);
+        double[] naturalSize = resolveAssetNaturalSize(relativePath);
+        PuppeteerAssetPlacement.Placement placement = PuppeteerAssetPlacement.plan(
+            resolvedRole,
+            animationPreview.getViewportDimensions(),
+            naturalSize[0],
+            naturalSize[1]
+        );
 
-        // Load image to get dimensions
-        double w = 200, h = 200;
-        if (projectRoot != null) {
-            java.io.File imgFile = new java.io.File(projectRoot, relativePath);
-            if (imgFile.exists()) {
-                try {
-                    javafx.scene.image.Image img = new javafx.scene.image.Image(
-                        imgFile.toURI().toString(), 0, 0, true, false);
-                    if (img.getWidth() > 0 && img.getHeight() > 0) {
-                        w = img.getWidth();
-                        h = img.getHeight();
-                        double sceneH = animationPreview.getHeight() > 0 ? animationPreview.getHeight() : 720;
-                        double maxH = sceneH * 0.6;
-                        if (h > maxH) {
-                            double scale = maxH / h;
-                            w *= scale;
-                            h = maxH;
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
-        }
-
-        double centerX = animationPreview.getWidth() > 0 ? animationPreview.getWidth() / 2.0 : 640;
-        double centerY = animationPreview.getHeight() > 0 ? animationPreview.getHeight() / 2.0 : 360;
-        com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(relativePath, w, h);
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setPosition(centerX, centerY);
+        com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(relativePath, placement.width(), placement.height());
+        sprite.setOrigin(placement.originX(), placement.originY());
+        sprite.setPosition(placement.x(), placement.y());
+        sprite.setZ(placement.z());
 
         scene.add(sprite);
         scene.registerEntity(entityName, sprite);
 
         EntityTrack track = project.getOrCreateTrack(entityName);
-        track.setLayerOrder((int) Math.round(sprite.getZ()));
+        track.setLayerOrder((int) Math.round(placement.z()));
         captureProjectSnapshotBaseline();
         entitySelector.refresh(project);
         timelinePanel.refresh();
-        animationPreview.render();
+        timelinePanel.setSelectedTarget(entityName, false);
+        animationPreview.selectEntity(entityName);
+        updatePreview();
         refreshExportPreviewAndMarkDirty();
+    }
+
+    private String resolveUniqueEntityName(String suggestedName, PuppeteerAssetPlacementRole role) {
+        String base = suggestedName == null ? "" : suggestedName.trim();
+        if (base.isBlank()) {
+            base = switch (role != null ? role : PuppeteerAssetPlacementRole.PROP) {
+                case BACKGROUND -> "background";
+                case CHARACTER -> "character";
+                case PROP -> "prop";
+            };
+        }
+        String entityName = base;
+        int suffix = 2;
+        while (scene != null && scene.find(entityName) != null) {
+            entityName = base + "_" + suffix++;
+        }
+        return entityName;
+    }
+
+    private double[] resolveAssetNaturalSize(String relativePath) {
+        javafx.scene.image.Image image = loadAssetImage(relativePath);
+        if (image != null && image.getWidth() > 1.0 && image.getHeight() > 1.0) {
+            return new double[] { image.getWidth(), image.getHeight() };
+        }
+        return new double[] { -1.0, -1.0 };
+    }
+
+    private javafx.scene.image.Image loadAssetImage(String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) return null;
+        try {
+            java.net.URL resource = getClass().getClassLoader().getResource(relativePath);
+            if (resource != null) {
+                javafx.scene.image.Image image = new javafx.scene.image.Image(resource.toExternalForm(), false);
+                if (image.getWidth() > 1.0 && image.getHeight() > 1.0) {
+                    return image;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            java.io.File file = new java.io.File(relativePath);
+            if (!file.isAbsolute() && projectRoot != null) {
+                file = new java.io.File(projectRoot, relativePath);
+            }
+            if (file.isFile()) {
+                javafx.scene.image.Image image = new javafx.scene.image.Image(file.toURI().toString(), false);
+                if (image.getWidth() > 1.0 && image.getHeight() > 1.0) {
+                    return image;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     public AnimationProject getProject() { return project; }
@@ -1315,21 +1416,41 @@ public class PuppeteerWindow extends Stage {
         timelinePanel.duplicateSelectedKeyframes(delta);
     }
 
-    private MenuButton buildPresetMenu() {
-        MenuButton mb = new MenuButton("Presets");
-        mb.setTooltip(new Tooltip("Apply animation preset to selected entity"));
-
+    private void showPresetMenuOverlay() {
+        VBox content = new VBox(10);
         String lastCategory = "";
         for (AnimationPreset preset : AnimationPreset.ALL) {
             if (!preset.getCategory().equals(lastCategory)) {
-                if (!lastCategory.isEmpty()) mb.getItems().add(new SeparatorMenuItem());
                 lastCategory = preset.getCategory();
+                Label header = new Label(lastCategory);
+                header.setStyle("-fx-text-fill: #8ea4c6; -fx-font-size: 10px; -fx-font-weight: bold;");
+                content.getChildren().add(header);
             }
-            MenuItem mi = new MenuItem(preset.getName() + "  [" + preset.getCategory() + "]");
-            mi.setOnAction(e -> applyPreset(preset));
-            mb.getItems().add(mi);
+            content.getChildren().add(buildOverlayMenuButton(
+                preset.getName(),
+                () -> applyPreset(preset)));
         }
-        return mb;
+        overlayDialog.showDialog(
+            "Animation Presets",
+            "Apply a preset to the selected entity at the current playhead.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Close", overlayDialog::hideOverlay).defaultFocus(true)
+        );
+    }
+
+    private void showSlotMenuOverlay() {
+        VBox content = new VBox(8);
+        for (VnSlotHelper.Slot slot : VnSlotHelper.Slot.values()) {
+            content.getChildren().add(buildOverlayMenuButton(
+                slot.name().replace('_', ' '),
+                () -> placeEntityAtSlot(slot)));
+        }
+        overlayDialog.showDialog(
+            "VN Slots",
+            "Place the selected entity on a standard visual-novel staging slot.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Close", overlayDialog::hideOverlay).defaultFocus(true)
+        );
     }
 
     private void applyPreset(AnimationPreset preset) {
@@ -1382,11 +1503,7 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void showShortcutsOverlay() {
-        Alert dialog = new Alert(Alert.AlertType.INFORMATION);
-        EditorTheme.apply(dialog);
-        dialog.setTitle("Keyboard Shortcuts");
-        dialog.setHeaderText("Puppeteer Keyboard Shortcuts");
-        dialog.setContentText(
+        TextArea content = new TextArea(
             "Space — Play / Pause\n" +
             "Home — Rewind\n" +
             "Page Up / Page Down — Jump to previous / next keyframe\n" +
@@ -1407,7 +1524,18 @@ public class PuppeteerWindow extends Stage {
             "A — Toggle orbit tool\n" +
             "Shift+A — Clear orbit anchor"
         );
-        dialog.showAndWait();
+        content.setEditable(false);
+        content.setWrapText(false);
+        content.setFocusTraversable(false);
+        content.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #d7dde6; -fx-font-family: Monospaced;");
+        content.setPrefColumnCount(36);
+        content.setPrefRowCount(14);
+        overlayDialog.showDialog(
+            "Keyboard Shortcuts",
+            "Puppeteer keyboard shortcuts",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.accent("Close", overlayDialog::hideOverlay)
+        );
     }
 
     private void setDirty(boolean value) {
@@ -1431,22 +1559,14 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void showAddAudioCueDialog() {
-        Dialog<ButtonType> dialog = new Dialog<>();
-        EditorTheme.apply(dialog);
-        dialog.setTitle("Add Audio Cue");
-        dialog.setHeaderText("Create an audio trigger at playhead " + String.format("%.0fms", project.getPlayheadMs()));
-
-        ButtonType addType = new ButtonType("Add Cue", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().setAll(addType, ButtonType.CANCEL);
-
         TextField tfPath = new TextField();
         tfPath.setPromptText("assets/audio/music/softbreeze.mp3");
         tfPath.setStyle(STYLE_TEXT_FIELD);
 
-        ComboBox<String> cbChannel = new ComboBox<>();
-        cbChannel.getItems().addAll("music", "sound", "voice");
-        cbChannel.setValue("music");
-        cbChannel.setStyle(STYLE_TEXT_FIELD);
+        ToggleGroup channelGroup = new ToggleGroup();
+        RadioButton rbMusic = buildChannelButton("music", channelGroup, true);
+        RadioButton rbSound = buildChannelButton("sound", channelGroup, false);
+        RadioButton rbVoice = buildChannelButton("voice", channelGroup, false);
 
         javafx.scene.control.Slider volume = new javafx.scene.control.Slider(0.0, 1.0, 1.0);
         volume.setBlockIncrement(0.05);
@@ -1469,42 +1589,57 @@ public class PuppeteerWindow extends Stage {
         grid.add(lPath, 0, 0);
         grid.add(tfPath, 1, 0);
         grid.add(lChannel, 0, 1);
-        grid.add(cbChannel, 1, 1);
+        grid.add(new HBox(8, rbMusic, rbSound, rbVoice), 1, 1);
         grid.add(lVolume, 0, 2);
         grid.add(new HBox(8, volume, volumeLabel), 1, 2);
-        dialog.getDialogPane().setContent(grid);
-
-        dialog.showAndWait().ifPresent(bt -> {
-            if (bt != addType) return;
+        overlayDialog.showDialog(
+            "Add Audio Cue",
+            "Create an audio trigger at playhead " + String.format("%.0fms", project.getPlayheadMs()),
+            grid,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("Add Cue", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
             String path = tfPath.getText() != null ? tfPath.getText().trim() : "";
-            if (path.isBlank()) return;
-            AudioCue cue = new AudioCue(project.getPlayheadMs(), path, cbChannel.getValue());
+                if (path.isBlank()) {
+                    tfPath.requestFocus();
+                    return;
+                }
+                RadioButton selectedChannel = (RadioButton) channelGroup.getSelectedToggle();
+                String channel = selectedChannel != null ? selectedChannel.getText() : "music";
+                AudioCue cue = new AudioCue(project.getPlayheadMs(), path, channel);
             cue.setVolume(volume.getValue());
             project.addAudioCue(cue);
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
-        });
+                overlayDialog.hideOverlay();
+            })
+        );
     }
 
-    private boolean confirmCloseIfDirty() {
-        if (!dirty && !previewStaged) return true;
-        ButtonType save = new ButtonType("Save & Register", ButtonBar.ButtonData.YES);
-        ButtonType discard = new ButtonType("Discard", ButtonBar.ButtonData.NO);
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        EditorTheme.apply(alert);
-        alert.setTitle("Unsaved Animation");
-        if (previewStaged) {
-            alert.setHeaderText("A staged code preview is active.");
-            alert.setContentText("Choose Save & Register to keep staged changes, or Discard to close without them.");
-        } else {
-            alert.setHeaderText("Save animation changes before closing Puppeteer?");
-            alert.setContentText("Choose Save & Register to persist and register this timeline for runtime use.");
+    private void requestWindowClose() {
+        if (!dirty && !previewStaged) {
+            closeNow();
+            return;
         }
-        alert.getButtonTypes().setAll(save, discard, ButtonType.CANCEL);
-        var result = alert.showAndWait();
-        if (result.isEmpty() || result.get() == ButtonType.CANCEL) return false;
-        if (result.get() == discard) return true;
-        return registerTimeline();
+        String message = previewStaged
+            ? "A staged code preview is active. Save & Register keeps the staged changes; Discard closes without them."
+            : "Save animation changes before closing Puppeteer?";
+        overlayDialog.showDialog(
+            "Unsaved Animation",
+            message,
+            null,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+            ActionEditorDialogOverlay.ActionSpec.danger("Discard", this::closeNow),
+            ActionEditorDialogOverlay.ActionSpec.accent("Save & Register", () -> {
+                if (registerTimeline()) {
+                    closeNow();
+                }
+            })
+        );
+    }
+
+    private void closeNow() {
+        bypassCloseConfirmation = true;
+        close();
     }
 
     public PuppeteerCommand.Stack getCommandStack() { return commandStack; }
@@ -1532,9 +1667,9 @@ public class PuppeteerWindow extends Stage {
         btn.setTooltip(new Tooltip(tooltip));
         btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         btn.setGraphicTextGap(0);
-        btn.setMinSize(30, 28);
-        btn.setPrefSize(30, 28);
-        btn.setMaxSize(30, 28);
+        btn.setMinSize(34, 30);
+        btn.setPrefSize(34, 30);
+        btn.setMaxSize(34, 30);
         btn.setFocusTraversable(false);
         return btn;
     }
@@ -1553,30 +1688,16 @@ public class PuppeteerWindow extends Stage {
         toggle.setTooltip(new Tooltip(tooltip));
         toggle.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         toggle.setGraphicTextGap(0);
-        toggle.setMinSize(30, 28);
-        toggle.setPrefSize(30, 28);
-        toggle.setMaxSize(30, 28);
+        toggle.setMinSize(34, 30);
+        toggle.setPrefSize(34, 30);
+        toggle.setMaxSize(34, 30);
         toggle.setFocusTraversable(false);
         return toggle;
     }
 
-    private static void configureToolbarIconMenuButton(MenuButton button, String iconClass, String tooltip) {
-        if (button == null) return;
-        button.getStyleClass().add("puppeteer-toolbar-icon-menu");
-        button.setText("");
-        button.setGraphic(makeToolbarIcon(iconClass));
-        button.setTooltip(new Tooltip(tooltip));
-        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        button.setGraphicTextGap(0);
-        button.setMinSize(30, 28);
-        button.setPrefSize(30, 28);
-        button.setMaxSize(30, 28);
-        button.setFocusTraversable(false);
-    }
-
     private static Label makeToolbarIcon(String iconClass) {
         Label icon = new Label();
-        icon.getStyleClass().addAll("icon", iconClass);
+        icon.getStyleClass().addAll("icon", "puppeteer-toolbar-icon", iconClass);
         icon.setMouseTransparent(true);
         return icon;
     }
@@ -1585,6 +1706,40 @@ public class PuppeteerWindow extends Stage {
         Label lbl = new Label(text);
         lbl.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
         return lbl;
+    }
+
+    private static ToggleButton makeToolbarModeButton(String text, String tooltip) {
+        ToggleButton button = new ToggleButton(text);
+        button.getStyleClass().add("puppeteer-toolbar-mode-button");
+        button.setTooltip(new Tooltip(tooltip));
+        button.setMinHeight(26);
+        button.setFocusTraversable(false);
+        return button;
+    }
+
+    private static RadioButton buildChannelButton(String channel, ToggleGroup group, boolean selected) {
+        RadioButton button = new RadioButton(channel);
+        button.setToggleGroup(group);
+        button.setSelected(selected);
+        button.setStyle("-fx-text-fill: #d7dde6; -fx-font-size: 11px;");
+        return button;
+    }
+
+    private Button buildOverlayMenuButton(String label, Runnable action) {
+        Button button = new Button(label);
+        button.setMaxWidth(Double.MAX_VALUE);
+        button.setAlignment(Pos.CENTER_LEFT);
+        button.setStyle(
+            "-fx-background-color: #23262c; -fx-text-fill: #d7dde6; -fx-background-radius: 4; "
+                + "-fx-border-color: #3a3f48; -fx-border-radius: 4; -fx-padding: 7 10; -fx-font-size: 11px; -fx-cursor: hand;");
+        button.setOnAction(event -> {
+            overlayDialog.hideOverlay();
+            if (action != null) {
+                action.run();
+            }
+            event.consume();
+        });
+        return button;
     }
 
     private CollapsibleToolbarCluster registerToolbarCluster(String key, String title, Node... rows) {
@@ -1644,30 +1799,34 @@ public class PuppeteerWindow extends Stage {
         }
         java.util.Collections.sort(names);
 
-        javafx.scene.control.ChoiceDialog<String> dialog = new javafx.scene.control.ChoiceDialog<>(names.get(0), names);
-        EditorTheme.apply(dialog);
-        dialog.setTitle("Load Clip");
-        dialog.setHeaderText("Apply a saved clip to '" + track.getEntityName() + "' at playhead");
-        dialog.setContentText("Clip:");
-        java.util.Optional<String> result = dialog.showAndWait();
-        if (result.isEmpty()) return;
+        ListView<String> clipList = new ListView<>();
+        clipList.getItems().setAll(names);
+        clipList.getSelectionModel().select(0);
+        clipList.setPrefHeight(Math.min(320.0, Math.max(140.0, names.size() * 28.0 + 12.0)));
 
-        try {
-            java.nio.file.Path clipPath = clipsDir.toPath().resolve(result.get() + ".clip");
-            AnimationClip clip = AnimationClip.loadFrom(clipPath);
-            clip.applyToTrack(track, project.getPlayheadMs(), 1.0);
-            timelinePanel.refresh();
-            refreshExportPreviewAndMarkDirty();
-        } catch (Exception ex) {
-            Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.WARNING);
-                EditorTheme.apply(alert);
-                alert.setTitle("Clip Load Failed");
-                alert.setHeaderText("Could not load clip '" + result.get() + "'");
-                alert.setContentText(ex.getMessage());
-                alert.showAndWait();
-            });
-        }
+        overlayDialog.showDialog(
+            "Load Clip",
+            "Apply a saved clip to '" + track.getEntityName() + "' at playhead.",
+            clipList,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("Apply", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
+                String selectedClip = clipList.getSelectionModel().getSelectedItem();
+                if (selectedClip == null || selectedClip.isBlank()) {
+                    clipList.requestFocus();
+                    return;
+                }
+                try {
+                    java.nio.file.Path clipPath = clipsDir.toPath().resolve(selectedClip + ".clip");
+                    AnimationClip clip = AnimationClip.loadFrom(clipPath);
+                    clip.applyToTrack(track, project.getPlayheadMs(), 1.0);
+                    timelinePanel.refresh();
+                    refreshExportPreviewAndMarkDirty();
+                    overlayDialog.hideOverlay();
+                } catch (Exception ex) {
+                    showOverlayError("Clip Load Failed", "Could not load clip '" + selectedClip + "'", ex.getMessage());
+                }
+            })
+        );
     }
 
     private void placeEntityAtSlot(VnSlotHelper.Slot slot) {
@@ -1727,14 +1886,22 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void showSaveError(String name, String detail) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            EditorTheme.apply(alert);
-            alert.setTitle("Save Failed");
-            alert.setHeaderText("Could not save timeline '" + name + "' to disk.");
-            alert.setContentText(detail != null ? detail : "Unknown error");
-            alert.showAndWait();
-        });
+        Platform.runLater(() -> showOverlayError(
+            "Save Failed",
+            "Could not save timeline '" + name + "' to disk.",
+            detail != null ? detail : "Unknown error"));
+    }
+
+    private void showOverlayError(String title, String header, String detail) {
+        Label detailLabel = new Label(detail == null || detail.isBlank() ? "Unknown error" : detail.trim());
+        detailLabel.setWrapText(true);
+        detailLabel.setStyle("-fx-text-fill: #e6a8b3; -fx-font-size: 11px;");
+        overlayDialog.showDialog(
+            title,
+            header,
+            detailLabel,
+            ActionEditorDialogOverlay.ActionSpec.accent("Close", overlayDialog::hideOverlay)
+        );
     }
 
     private void copyToClipboard(String text) {
@@ -1773,14 +1940,10 @@ public class PuppeteerWindow extends Stage {
             setDirty(dirty);
             refreshExportPreview();
         } catch (Exception ex) {
-            Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                EditorTheme.apply(alert);
-                alert.setTitle("Preview Failed");
-                alert.setHeaderText("Could not parse the edited code.");
-                alert.setContentText(ex.getMessage());
-                alert.showAndWait();
-            });
+            Platform.runLater(() -> showOverlayError(
+                "Preview Failed",
+                "Could not parse the edited code.",
+                ex.getMessage()));
         }
     }
 

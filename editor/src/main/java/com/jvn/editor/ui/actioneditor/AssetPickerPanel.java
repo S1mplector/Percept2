@@ -8,10 +8,10 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
@@ -67,13 +67,19 @@ public class AssetPickerPanel extends VBox {
     private final Label lblStatus;
     private final Label lblEmptyHint;
     private final Button btnImport;
-    private final Button btnAdd;
+    private final Button btnMakeBackground;
+    private final Button btnMakeCharacter;
+    private final Button btnMakeProp;
 
     private File projectRoot;
     private final List<AssetEntry> allAssets = new ArrayList<>();
 
-    // callback: (relativePath, suggestedName) -> add entity to scene
-    private BiConsumer<String, String> onAddToScene;
+    @FunctionalInterface
+    interface AssetPlacementHandler {
+        void accept(String relativePath, String suggestedName, PuppeteerAssetPlacementRole role);
+    }
+
+    private AssetPlacementHandler onAddToScene;
 
     public AssetPickerPanel() {
         setSpacing(4);
@@ -112,34 +118,53 @@ public class AssetPickerPanel extends VBox {
         listView.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> updateActionState());
         listView.setOnMouseClicked(event -> {
             if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
-                addSelectedToScene();
+                addSelectedToScene(PuppeteerAssetPlacementRole.PROP);
                 event.consume();
             }
         });
         listView.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ENTER) {
-                addSelectedToScene();
+                addSelectedToScene(PuppeteerAssetPlacementRole.PROP);
                 event.consume();
             }
         });
+        listView.setOnDragDetected(event -> startSelectedAssetDrag());
         VBox.setVgrow(listView, Priority.ALWAYS);
 
-        btnAdd = new Button("+ Add to Scene");
-        btnAdd.setStyle(STYLE_BTN_ACCENT);
-        btnAdd.setMaxWidth(Double.MAX_VALUE);
-        btnAdd.setTooltip(new Tooltip("Add selected image as a new entity. Double-click or press Enter also works."));
-        btnAdd.setOnAction(e -> addSelectedToScene());
+        btnMakeBackground = new Button("Make Background");
+        btnMakeBackground.setStyle(STYLE_BTN);
+        btnMakeBackground.setMaxWidth(Double.MAX_VALUE);
+        btnMakeBackground.setTooltip(new Tooltip("Add the selected image as a centered, viewport-covering background."));
+        btnMakeBackground.setOnAction(e -> addSelectedToScene(PuppeteerAssetPlacementRole.BACKGROUND));
+
+        btnMakeCharacter = new Button("Make Character");
+        btnMakeCharacter.setStyle(STYLE_BTN);
+        btnMakeCharacter.setMaxWidth(Double.MAX_VALUE);
+        btnMakeCharacter.setTooltip(new Tooltip("Add the selected image as a bottom-centered character."));
+        btnMakeCharacter.setOnAction(e -> addSelectedToScene(PuppeteerAssetPlacementRole.CHARACTER));
+
+        btnMakeProp = new Button("Make Prop");
+        btnMakeProp.setStyle(STYLE_BTN_ACCENT);
+        btnMakeProp.setMaxWidth(Double.MAX_VALUE);
+        btnMakeProp.setTooltip(new Tooltip("Add the selected image as a centered prop. Double-click, Enter, or drag to the preview also uses this."));
+        btnMakeProp.setOnAction(e -> addSelectedToScene(PuppeteerAssetPlacementRole.PROP));
+
+        HBox actionRow = new HBox(6, btnMakeBackground, btnMakeCharacter, btnMakeProp);
+        actionRow.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(btnMakeBackground, Priority.ALWAYS);
+        HBox.setHgrow(btnMakeCharacter, Priority.ALWAYS);
+        HBox.setHgrow(btnMakeProp, Priority.ALWAYS);
 
         lblStatus = new Label("");
         lblStatus.setStyle("-fx-text-fill: #555; -fx-font-size: 10px;");
 
         installImportDropTarget();
-        getChildren().addAll(header, filterRow, lblEmptyHint, listView, btnAdd, lblStatus);
+        getChildren().addAll(header, filterRow, lblEmptyHint, listView, actionRow, lblStatus);
         updateEmptyState();
         updateActionState();
     }
 
-    public void setOnAddToScene(BiConsumer<String, String> callback) {
+    public void setOnAddToScene(AssetPlacementHandler callback) {
         this.onAddToScene = callback;
     }
 
@@ -240,19 +265,35 @@ public class AssetPickerPanel extends VBox {
     private void updateActionState() {
         boolean hasProject = projectRoot != null && projectRoot.isDirectory();
         btnImport.setDisable(!hasProject);
-        btnAdd.setDisable(listView.getSelectionModel().getSelectedItem() == null);
+        boolean disablePlacement = listView.getSelectionModel().getSelectedItem() == null;
+        btnMakeBackground.setDisable(disablePlacement);
+        btnMakeCharacter.setDisable(disablePlacement);
+        btnMakeProp.setDisable(disablePlacement);
     }
 
-    private void addSelectedToScene() {
+    private void addSelectedToScene(PuppeteerAssetPlacementRole role) {
         AssetEntry selected = listView.getSelectionModel().getSelectedItem();
         if (selected == null) {
             lblStatus.setText("Select an image first");
             return;
         }
         if (onAddToScene != null) {
-            onAddToScene.accept(selected.relativePath, selected.baseName);
-            lblStatus.setText("Added: " + selected.baseName);
+            onAddToScene.accept(selected.relativePath, selected.baseName, role != null ? role : PuppeteerAssetPlacementRole.PROP);
+            PuppeteerAssetPlacementRole resolvedRole = role != null ? role : PuppeteerAssetPlacementRole.PROP;
+            lblStatus.setText("Added " + resolvedRole.displayName().toLowerCase() + ": " + selected.baseName);
         }
+    }
+
+    private void startSelectedAssetDrag() {
+        AssetEntry selected = listView.getSelectionModel().getSelectedItem();
+        if (selected == null) return;
+        String encoded = PuppeteerAssetTransfer.encode(selected.relativePath, selected.baseName);
+        if (encoded.isBlank()) return;
+        var dragboard = listView.startDragAndDrop(TransferMode.COPY);
+        ClipboardContent content = new ClipboardContent();
+        content.putString(encoded);
+        dragboard.setContent(content);
+        lblStatus.setText("Drop into the preview to add '" + selected.baseName + "' as a prop.");
     }
 
     private void importFromChooser() {

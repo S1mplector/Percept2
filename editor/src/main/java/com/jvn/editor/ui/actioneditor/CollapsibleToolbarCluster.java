@@ -29,24 +29,30 @@ public class CollapsibleToolbarCluster extends VBox {
     private static final Interpolator SIZE_INTERPOLATOR = Interpolator.SPLINE(0.2, 0.0, 0.2, 1.0);
     private static final Interpolator OPACITY_INTERPOLATOR = Interpolator.EASE_BOTH;
     private static final String STYLE_HEADER_COLLAPSED =
-        "-fx-background-color: #15181d; -fx-border-color: #2d3542; -fx-border-radius: 8; " +
+        "-fx-background-color: #171717; -fx-border-color: #373737; -fx-border-radius: 8; " +
         "-fx-background-radius: 8; -fx-padding: 0 10; -fx-cursor: hand;";
     private static final String STYLE_HEADER_EXPANDED =
-        "-fx-background-color: #182130; -fx-border-color: #415a80; -fx-border-radius: 8; " +
+        "-fx-background-color: #202020; -fx-border-color: #505050; -fx-border-radius: 8; " +
         "-fx-background-radius: 8; -fx-padding: 0 10; -fx-cursor: hand;";
     private static final String STYLE_HEADER_PINNED =
-        "-fx-background-color: #1a2637; -fx-border-color: #66a9ff; -fx-border-radius: 8; " +
+        "-fx-background-color: #242424; -fx-border-color: #6a6a6a; -fx-border-radius: 8; " +
         "-fx-background-radius: 8; -fx-padding: 0 10; -fx-cursor: hand;";
+    private static final String STYLE_HEADER_COMPACT =
+        "-fx-background-color: #151515; -fx-border-color: #3d3d3d; -fx-border-radius: 8; " +
+        "-fx-background-radius: 8; -fx-padding: 0 10; -fx-cursor: default;";
     private static final String STYLE_PIN_OFF =
-        "-fx-background-color: #12161d; -fx-text-fill: #7f8da3; -fx-border-color: #2d3542; " +
+        "-fx-background-color: #161616; -fx-text-fill: #9c9c9c; -fx-border-color: #3b3b3b; " +
         "-fx-border-radius: 7; -fx-background-radius: 7; -fx-padding: 0 7; -fx-font-size: 9px; " +
         "-fx-font-weight: bold; -fx-cursor: hand;";
     private static final String STYLE_PIN_ON =
-        "-fx-background-color: rgba(102, 169, 255, 0.18); -fx-text-fill: #b7d6ff; -fx-border-color: #66a9ff; " +
+        "-fx-background-color: rgba(160, 160, 160, 0.16); -fx-text-fill: #d8d8d8; -fx-border-color: #7a7a7a; " +
         "-fx-border-radius: 7; -fx-background-radius: 7; -fx-padding: 0 7; -fx-font-size: 9px; " +
         "-fx-font-weight: bold; -fx-cursor: hand;";
     private static final String STYLE_CONTENT =
-        "-fx-background-color: #101318; -fx-border-color: #253247; -fx-border-radius: 8; " +
+        "-fx-background-color: #121212; -fx-border-color: #2f2f2f; -fx-border-radius: 8; " +
+        "-fx-background-radius: 8;";
+    private static final String STYLE_CONTENT_COMPACT =
+        "-fx-background-color: #111111; -fx-border-color: #2a2a2a; -fx-border-radius: 8; " +
         "-fx-background-radius: 8;";
 
     private final String clusterKey;
@@ -61,6 +67,7 @@ public class CollapsibleToolbarCluster extends VBox {
     private final BooleanProperty pinned = new SimpleBooleanProperty(false);
 
     private Timeline activeAnimation;
+    private AnimatedToolbarPane.LayoutMode layoutMode = AnimatedToolbarPane.LayoutMode.DYNAMIC;
 
     public CollapsibleToolbarCluster(String clusterKey, String title, Node content) {
         this.clusterKey = sanitize(clusterKey);
@@ -70,7 +77,7 @@ public class CollapsibleToolbarCluster extends VBox {
         setId("toolbar-cluster-" + this.clusterKey);
 
         indicatorLabel = new Label(">");
-        indicatorLabel.setStyle("-fx-text-fill: #b7c4d8; -fx-font-size: 10px; -fx-font-weight: bold;");
+        indicatorLabel.setStyle("-fx-text-fill: #c7c7c7; -fx-font-size: 10px; -fx-font-weight: bold;");
         indicatorLabel.setMouseTransparent(true);
 
         Label titleLabel = new Label(normalizeTitle(title));
@@ -78,7 +85,7 @@ public class CollapsibleToolbarCluster extends VBox {
         titleLabel.setMouseTransparent(true);
 
         stateLabel = new Label("show");
-        stateLabel.setStyle("-fx-text-fill: #7f8da3; -fx-font-size: 9px;");
+        stateLabel.setStyle("-fx-text-fill: #9b9b9b; -fx-font-size: 9px;");
         stateLabel.setMouseTransparent(true);
 
         HBox headerGraphic = new HBox(6, indicatorLabel, titleLabel, stateLabel);
@@ -93,6 +100,9 @@ public class CollapsibleToolbarCluster extends VBox {
         headerButton.setMaxWidth(Double.MAX_VALUE);
         headerButton.setFocusTraversable(false);
         headerButton.setOnAction(e -> {
+            if (layoutMode != AnimatedToolbarPane.LayoutMode.DYNAMIC) {
+                return;
+            }
             if (isPinned() && isExpanded()) {
                 return;
             }
@@ -100,7 +110,7 @@ public class CollapsibleToolbarCluster extends VBox {
         });
 
         pinIcon = new Label();
-        pinIcon.getStyleClass().addAll("icon", "icon-puppeteer-pin");
+        pinIcon.getStyleClass().addAll("icon", "puppeteer-toolbar-icon", "icon-puppeteer-pin");
         pinIcon.setMouseTransparent(true);
 
         pinButton = new ToggleButton();
@@ -151,6 +161,27 @@ public class CollapsibleToolbarCluster extends VBox {
         return pinned;
     }
 
+    public AnimatedToolbarPane.LayoutMode getLayoutMode() {
+        return layoutMode;
+    }
+
+    public void setLayoutMode(AnimatedToolbarPane.LayoutMode mode) {
+        AnimatedToolbarPane.LayoutMode resolved = mode != null
+            ? mode
+            : AnimatedToolbarPane.LayoutMode.DYNAMIC;
+        if (layoutMode == resolved) {
+            return;
+        }
+        layoutMode = resolved;
+        if (activeAnimation != null) {
+            activeAnimation.stop();
+            activeAnimation = null;
+        }
+        refreshHeaderState();
+        finishExpandedState(expanded.get());
+        indicatorLabel.setRotate(layoutMode == AnimatedToolbarPane.LayoutMode.COMPACT || expanded.get() ? 90.0 : 0.0);
+    }
+
     public void setPinned(boolean pinned) {
         if (isPinned() == pinned) {
             return;
@@ -180,6 +211,11 @@ public class CollapsibleToolbarCluster extends VBox {
     private void applyExpandedState(boolean expanded, boolean animate) {
         this.expanded.set(expanded);
         refreshHeaderState();
+        if (layoutMode == AnimatedToolbarPane.LayoutMode.COMPACT) {
+            finishExpandedState(expanded);
+            indicatorLabel.setRotate(90.0);
+            return;
+        }
         if (!animate) {
             finishExpandedState(expanded);
             indicatorLabel.setRotate(expanded ? 90.0 : 0.0);
@@ -189,16 +225,30 @@ public class CollapsibleToolbarCluster extends VBox {
     }
 
     private void refreshHeaderState() {
+        boolean compact = layoutMode == AnimatedToolbarPane.LayoutMode.COMPACT;
         stateLabel.setText(isPinned() ? "pinned" : (isExpanded() ? "hide" : "show"));
-        if (isPinned()) {
+        if (compact) {
+            headerButton.setStyle(STYLE_HEADER_COMPACT);
+        } else if (isPinned()) {
             headerButton.setStyle(STYLE_HEADER_PINNED);
         } else {
             headerButton.setStyle(isExpanded() ? STYLE_HEADER_EXPANDED : STYLE_HEADER_COLLAPSED);
         }
         pinButton.setStyle(isPinned() ? STYLE_PIN_ON : STYLE_PIN_OFF);
         pinIcon.setStyle(isPinned()
-            ? "-fx-background-color: #ff6b6b;"
-            : "-fx-background-color: #c45555;");
+            ? "-fx-background-color: #e26c6c;"
+            : "-fx-background-color: #bb5f5f;");
+        indicatorLabel.setManaged(!compact);
+        indicatorLabel.setVisible(!compact);
+        stateLabel.setManaged(!compact);
+        stateLabel.setVisible(!compact);
+        pinButton.setManaged(!compact);
+        pinButton.setVisible(!compact);
+        setSpacing(compact ? 3.0 : 4.0);
+        headerButton.setMinHeight(compact ? 24.0 : 28.0);
+        headerButton.setPrefHeight(compact ? 24.0 : 28.0);
+        contentWrapper.setPadding(compact ? new Insets(6, 8, 6, 8) : new Insets(8, 10, 8, 10));
+        contentWrapper.setStyle(compact ? STYLE_CONTENT_COMPACT : STYLE_CONTENT);
         if (pinButton.isSelected() != isPinned()) {
             pinButton.setSelected(isPinned());
         }
@@ -248,7 +298,8 @@ public class CollapsibleToolbarCluster extends VBox {
 
     private void finishExpandedState(boolean expanded) {
         contentWrapper.setMinHeight(0.0);
-        if (expanded) {
+        boolean showContent = layoutMode == AnimatedToolbarPane.LayoutMode.COMPACT || expanded;
+        if (showContent) {
             contentWrapper.setManaged(true);
             contentWrapper.setVisible(true);
             contentWrapper.setOpacity(1.0);

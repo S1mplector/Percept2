@@ -46,6 +46,9 @@ public final class VnUiLayoutLoader {
       "nameBoxHeight",
       "nameTextXOffset",
       "nameTextBaselineOffset",
+      "nameTextTopPadding",
+      "nameTextBottomPadding",
+      "nameTextYAlign",
       "dialogueTextHorizontalPadding",
       "dialogueTextTopPadding",
       "dialogueTextRightPadding",
@@ -56,6 +59,9 @@ public final class VnUiLayoutLoader {
       "choiceHeight",
       "choiceGap",
       "choiceTextXPadding",
+      "choiceTextTopPadding",
+      "choiceTextBottomPadding",
+      "choiceTextYAlign",
       "nameBoxAutoWidth",
       "nvlX",
       "nvlY",
@@ -281,6 +287,9 @@ public final class VnUiLayoutLoader {
     double nameBoxHeight = parseDouble(props.getProperty("nameBoxHeight"), bLayout.nameBoxHeight(), diagnostics, "nameBoxHeight");
     double nameTextXOffset = parseDouble(props.getProperty("nameTextXOffset"), bLayout.nameTextXOffset(), diagnostics, "nameTextXOffset");
     double nameTextBaselineOffset = parseDouble(props.getProperty("nameTextBaselineOffset"), bLayout.nameTextBaselineOffset(), diagnostics, "nameTextBaselineOffset");
+    double nameTextTopPadding = parseDouble(props.getProperty("nameTextTopPadding"), bLayout.nameTextTopPadding(), diagnostics, "nameTextTopPadding");
+    double nameTextBottomPadding = parseDouble(props.getProperty("nameTextBottomPadding"), bLayout.nameTextBottomPadding(), diagnostics, "nameTextBottomPadding");
+    double nameTextYAlign = parseDouble(props.getProperty("nameTextYAlign"), bLayout.nameTextYAlign(), diagnostics, "nameTextYAlign");
     double dialogueTextHorizontalPadding = parseDouble(
         props.getProperty("dialogueTextHorizontalPadding"),
         bLayout.dialogueTextHorizontalPadding(),
@@ -307,6 +316,9 @@ public final class VnUiLayoutLoader {
     double choiceHeight = parseDouble(props.getProperty("choiceHeight"), bLayout.choiceHeight(), diagnostics, "choiceHeight");
     double choiceGap = parseDouble(props.getProperty("choiceGap"), bLayout.choiceGap(), diagnostics, "choiceGap");
     double choiceTextXPadding = parseDouble(props.getProperty("choiceTextXPadding"), bLayout.choiceTextXPadding(), diagnostics, "choiceTextXPadding");
+    double choiceTextTopPadding = parseDouble(props.getProperty("choiceTextTopPadding"), bLayout.choiceTextTopPadding(), diagnostics, "choiceTextTopPadding");
+    double choiceTextBottomPadding = parseDouble(props.getProperty("choiceTextBottomPadding"), bLayout.choiceTextBottomPadding(), diagnostics, "choiceTextBottomPadding");
+    double choiceTextYAlign = parseDouble(props.getProperty("choiceTextYAlign"), bLayout.choiceTextYAlign(), diagnostics, "choiceTextYAlign");
     boolean nameBoxAutoWidth = parseBoolean(props.getProperty("nameBoxAutoWidth"), bLayout.nameBoxAutoWidth(), diagnostics, "nameBoxAutoWidth");
     double nvlX = parseDouble(props.getProperty("nvlX"), bLayout.nvlX(), diagnostics, "nvlX");
     double nvlY = parseDouble(props.getProperty("nvlY"), bLayout.nvlY(), diagnostics, "nvlY");
@@ -334,6 +346,9 @@ public final class VnUiLayoutLoader {
         nameBoxHeight,
         nameTextXOffset,
         nameTextBaselineOffset,
+        nameTextTopPadding,
+        nameTextBottomPadding,
+        nameTextYAlign,
         dialogueTextHorizontalPadding,
         dialogueTextTopPadding,
         dialogueTextRightPadding,
@@ -344,6 +359,9 @@ public final class VnUiLayoutLoader {
         choiceHeight,
         choiceGap,
         choiceTextXPadding,
+        choiceTextTopPadding,
+        choiceTextBottomPadding,
+        choiceTextYAlign,
         nameBoxAutoWidth,
         nvlX,
         nvlY,
@@ -367,6 +385,9 @@ public final class VnUiLayoutLoader {
     warnAdjustedDouble("textBoxPadding", textBoxPadding, layout.textBoxPadding(), diagnostics);
     warnAdjustedDouble("nameBoxWidth", nameBoxWidth, layout.nameBoxWidth(), diagnostics);
     warnAdjustedDouble("nameBoxHeight", nameBoxHeight, layout.nameBoxHeight(), diagnostics);
+    warnAdjustedDouble("nameTextTopPadding", nameTextTopPadding, layout.nameTextTopPadding(), diagnostics);
+    warnAdjustedDouble("nameTextBottomPadding", nameTextBottomPadding, layout.nameTextBottomPadding(), diagnostics);
+    warnAdjustedDouble("nameTextYAlign", nameTextYAlign, layout.nameTextYAlign(), diagnostics);
     warnAdjustedDouble("dialogueTextHorizontalPadding", dialogueTextHorizontalPadding, layout.dialogueTextHorizontalPadding(), diagnostics);
     warnAdjustedDouble("dialogueTextRightPadding", dialogueTextRightPadding, layout.dialogueTextRightPadding(), diagnostics);
     warnAdjustedDouble("dialogueTextBottomPadding", dialogueTextBottomPadding, layout.dialogueTextBottomPadding(), diagnostics);
@@ -376,6 +397,9 @@ public final class VnUiLayoutLoader {
     warnAdjustedDouble("choiceHeight", choiceHeight, layout.choiceHeight(), diagnostics);
     warnAdjustedDouble("choiceGap", choiceGap, layout.choiceGap(), diagnostics);
     warnAdjustedDouble("choiceTextXPadding", choiceTextXPadding, layout.choiceTextXPadding(), diagnostics);
+    warnAdjustedDouble("choiceTextTopPadding", choiceTextTopPadding, layout.choiceTextTopPadding(), diagnostics);
+    warnAdjustedDouble("choiceTextBottomPadding", choiceTextBottomPadding, layout.choiceTextBottomPadding(), diagnostics);
+    warnAdjustedDouble("choiceTextYAlign", choiceTextYAlign, layout.choiceTextYAlign(), diagnostics);
     warnAdjustedDouble("nvlX", nvlX, layout.nvlX(), diagnostics);
     warnAdjustedDouble("nvlY", nvlY, layout.nvlY(), diagnostics);
     warnAdjustedDouble("nvlWidth", nvlWidth, layout.nvlWidth(), diagnostics);
@@ -532,6 +556,9 @@ public final class VnUiLayoutLoader {
     p.setProperty("nameBoxHeight", format(s.nameBoxHeight()));
     p.setProperty("nameTextXOffset", format(s.nameTextXOffset()));
     p.setProperty("nameTextBaselineOffset", format(s.nameTextBaselineOffset()));
+    p.setProperty("nameTextTopPadding", format(s.nameTextTopPadding()));
+    p.setProperty("nameTextBottomPadding", format(s.nameTextBottomPadding()));
+    p.setProperty("nameTextYAlign", format(s.nameTextYAlign()));
     p.setProperty("dialogueTextHorizontalPadding", format(s.dialogueTextHorizontalPadding()));
     p.setProperty("dialogueTextTopPadding", format(s.dialogueTextTopPadding()));
     p.setProperty("dialogueTextRightPadding", format(s.dialogueTextRightPadding()));
@@ -542,6 +569,9 @@ public final class VnUiLayoutLoader {
     p.setProperty("choiceHeight", format(s.choiceHeight()));
     p.setProperty("choiceGap", format(s.choiceGap()));
     p.setProperty("choiceTextXPadding", format(s.choiceTextXPadding()));
+    p.setProperty("choiceTextTopPadding", format(s.choiceTextTopPadding()));
+    p.setProperty("choiceTextBottomPadding", format(s.choiceTextBottomPadding()));
+    p.setProperty("choiceTextYAlign", format(s.choiceTextYAlign()));
     if (s.nameBoxAutoWidth()) p.setProperty("nameBoxAutoWidth", "true");
     p.setProperty("nvlX", format(s.nvlX()));
     p.setProperty("nvlY", format(s.nvlY()));

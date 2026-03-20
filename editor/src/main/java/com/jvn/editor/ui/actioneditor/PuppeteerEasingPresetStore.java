@@ -48,9 +48,13 @@ final class PuppeteerEasingPresetStore {
 
   private PuppeteerEasingPresetStore() {}
 
+  static Path resolveProjectFile(File projectRoot) {
+    return projectRoot == null ? null : projectRoot.toPath().resolve(CONFIG_PATH);
+  }
+
   static List<Preset> load(File projectRoot) {
     if (projectRoot == null) return List.of();
-    return load(projectRoot.toPath().resolve(CONFIG_PATH));
+    return load(resolveProjectFile(projectRoot));
   }
 
   static List<Preset> load(Path file) {
@@ -100,7 +104,7 @@ final class PuppeteerEasingPresetStore {
 
   static void save(File projectRoot, Collection<Preset> presets) throws IOException {
     if (projectRoot == null) throw new IOException("Project root is missing");
-    save(projectRoot.toPath().resolve(CONFIG_PATH), presets);
+    save(resolveProjectFile(projectRoot), presets);
   }
 
   static void save(Path file, Collection<Preset> presets) throws IOException {

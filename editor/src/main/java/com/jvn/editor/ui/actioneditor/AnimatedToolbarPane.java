@@ -5,6 +5,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.scene.Node;
 import javafx.scene.layout.Region;
 import javafx.util.Duration;
@@ -17,6 +18,11 @@ import java.util.List;
 import java.util.Map;
 
 public class AnimatedToolbarPane extends Region {
+    public enum LayoutMode {
+        DYNAMIC,
+        COMPACT
+    }
+
     private static final Duration REORDER_DURATION = Duration.millis(220);
     private static final Interpolator REORDER_INTERPOLATOR = Interpolator.SPLINE(0.2, 0.0, 0.1, 1.0);
 
@@ -30,6 +36,7 @@ public class AnimatedToolbarPane extends Region {
     private List<CollapsibleToolbarCluster> lastOrderedClusters = List.of();
 
     private boolean animateNextLayout;
+    private LayoutMode layoutMode = LayoutMode.DYNAMIC;
 
     public AnimatedToolbarPane(double hgap, double vgap) {
         this.hgap = Math.max(0.0, hgap);
@@ -48,9 +55,27 @@ public class AnimatedToolbarPane extends Region {
         }
         clusters.add(cluster);
         baseOrder.put(cluster, clusters.size() - 1);
+        cluster.setLayoutMode(layoutMode);
         getChildren().add(cluster);
         cluster.expandedProperty().addListener((obs, oldValue, newValue) -> triggerAnimatedLayout());
         cluster.pinnedProperty().addListener((obs, oldValue, newValue) -> triggerAnimatedLayout());
+    }
+
+    public LayoutMode getLayoutMode() {
+        return layoutMode;
+    }
+
+    public void setLayoutMode(LayoutMode mode) {
+        LayoutMode resolved = mode != null ? mode : LayoutMode.DYNAMIC;
+        if (layoutMode == resolved) {
+            return;
+        }
+        layoutMode = resolved;
+        for (CollapsibleToolbarCluster cluster : clusters) {
+            cluster.setLayoutMode(resolved);
+        }
+        animateNextLayout = resolved == LayoutMode.DYNAMIC;
+        requestLayout();
     }
 
     public void registerMarker(String id, Node... members) {
@@ -68,9 +93,19 @@ public class AnimatedToolbarPane extends Region {
     }
 
     @Override
+    public Orientation getContentBias() {
+        return Orientation.HORIZONTAL;
+    }
+
+    @Override
     protected double computePrefWidth(double height) {
         Insets insets = getInsets();
         return insets.getLeft() + insets.getRight() + naturalContentWidth();
+    }
+
+    @Override
+    protected double computeMinHeight(double width) {
+        return computePrefHeight(width);
     }
 
     @Override
@@ -90,7 +125,8 @@ public class AnimatedToolbarPane extends Region {
         double top = snappedTopInset();
         double availableWidth = Math.max(1.0, getWidth() - left - snappedRightInset());
         LayoutPlan plan = buildLayoutPlan(availableWidth, left, top);
-        boolean animateTransitions = animateNextLayout || !sameOrder(plan.orderedClusters(), lastOrderedClusters);
+        boolean animateTransitions = layoutMode == LayoutMode.DYNAMIC
+            && (animateNextLayout || !sameOrder(plan.orderedClusters(), lastOrderedClusters));
         animateNextLayout = false;
         lastOrderedClusters = List.copyOf(plan.orderedClusters());
 
@@ -150,6 +186,8 @@ public class AnimatedToolbarPane extends Region {
     }
 
     private LayoutPlan buildLayoutPlan(double availableWidth, double left, double top) {
+        double resolvedHgap = effectiveHgap();
+        double resolvedVgap = effectiveVgap();
         List<CollapsibleToolbarCluster> ordered = orderedClusters();
         Map<Node, LayoutCell> cells = new IdentityHashMap<>();
         if (ordered.isEmpty()) {
@@ -160,7 +198,7 @@ public class AnimatedToolbarPane extends Region {
         for (CollapsibleToolbarCluster cluster : ordered) {
             double width = snapSizeX(preferredClusterWidth(cluster));
             double height = snapSizeY(preferredClusterHeight(cluster));
-            placeIntoBestRow(rows, cluster, width, height, availableWidth);
+            placeIntoBestRow(rows, cluster, width, height, availableWidth, resolvedHgap);
         }
 
         double y = top;
@@ -172,18 +210,21 @@ public class AnimatedToolbarPane extends Region {
             for (RowEntry entry : row.entries()) {
                 cells.put(entry.cluster(), new LayoutCell(x, y, entry.width(), entry.height()));
                 visualOrder.add(entry.cluster());
-                x += entry.width() + hgap;
-                maxRight = Math.max(maxRight, x - hgap);
+                x += entry.width() + resolvedHgap;
+                maxRight = Math.max(maxRight, x - resolvedHgap);
             }
-            y += row.height() + vgap;
+            y += row.height() + resolvedVgap;
         }
 
         double contentWidth = Math.max(0.0, maxRight - left);
-        double contentHeight = Math.max(0.0, y - top - vgap);
+        double contentHeight = Math.max(0.0, y - top - resolvedVgap);
         return new LayoutPlan(visualOrder, cells, contentWidth, contentHeight);
     }
 
     private List<CollapsibleToolbarCluster> orderedClusters() {
+        if (layoutMode == LayoutMode.COMPACT) {
+            return List.copyOf(clusters);
+        }
         List<CollapsibleToolbarCluster> ordered = new ArrayList<>(clusters);
         Comparator<CollapsibleToolbarCluster> comparator = Comparator
             .comparing(CollapsibleToolbarCluster::isPinned)
@@ -220,9 +261,10 @@ public class AnimatedToolbarPane extends Region {
             return 0.0;
         }
         double width = 0.0;
+        double resolvedHgap = effectiveHgap();
         for (int i = 0; i < clusters.size(); i++) {
             if (i > 0) {
-                width += hgap;
+                width += resolvedHgap;
             }
             width += preferredClusterWidth(clusters.get(i));
         }
@@ -251,7 +293,8 @@ public class AnimatedToolbarPane extends Region {
                                   CollapsibleToolbarCluster cluster,
                                   double width,
                                   double height,
-                                  double availableWidth) {
+                                  double availableWidth,
+                                  double hgap) {
         RowPlan target = null;
         for (RowPlan row : rows) {
             if (row.canFit(width, availableWidth, hgap)) {
@@ -264,6 +307,14 @@ public class AnimatedToolbarPane extends Region {
             rows.add(target);
         }
         target.add(cluster, width, height, hgap);
+    }
+
+    private double effectiveHgap() {
+        return layoutMode == LayoutMode.COMPACT ? Math.max(4.0, hgap - 2.0) : hgap;
+    }
+
+    private double effectiveVgap() {
+        return layoutMode == LayoutMode.COMPACT ? Math.max(4.0, vgap - 2.0) : vgap;
     }
 
     private static void placeWidthIntoBestRow(List<RowWidthPlan> rows,

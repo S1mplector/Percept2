@@ -112,6 +112,9 @@ public class DialogueLayoutEditorView extends BorderPane {
       "nameBoxHeight",
       "nameTextXOffset",
       "nameTextBaselineOffset",
+      "nameTextTopPadding",
+      "nameTextBottomPadding",
+      "nameTextYAlign",
       "nameTextXAlign",
       "dialogueTextHorizontalPadding",
       "dialogueTextTopPadding",
@@ -124,6 +127,9 @@ public class DialogueLayoutEditorView extends BorderPane {
       "choiceHeight",
       "choiceGap",
       "choiceTextXPadding",
+      "choiceTextTopPadding",
+      "choiceTextBottomPadding",
+      "choiceTextYAlign",
       "choiceTextXAlign",
       "nameBoxAutoWidth",
       "characterHeightFactor",
@@ -212,6 +218,9 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Spinner<Double> spNameBoxHeight = spinner(12, 300, 40, 1);
   private final Spinner<Double> spNameTextXOffset = spinner(-300, 300, 10, 1);
   private final Spinner<Double> spNameTextBaselineOffset = spinner(-300, 300, 25, 1);
+  private final Spinner<Double> spNameTextTopPadding = spinner(0, 300, 0, 1);
+  private final Spinner<Double> spNameTextBottomPadding = spinner(0, 300, 0, 1);
+  private final Spinner<Double> spNameTextYAlign = spinner(-1, 1, -1, 0.05);
   private final Spinner<Double> spNameTextXAlign = spinner(0, 1, 0, 0.05);
 
   private final Spinner<Double> spDialoguePaddingX = spinner(0, 300, 20, 1);
@@ -226,6 +235,9 @@ public class DialogueLayoutEditorView extends BorderPane {
   private final Spinner<Double> spChoiceHeight = spinner(14, 200, 50, 1);
   private final Spinner<Double> spChoiceGap = spinner(0, 120, 10, 1);
   private final Spinner<Double> spChoiceTextXPadding = spinner(0, 300, 20, 1);
+  private final Spinner<Double> spChoiceTextTopPadding = spinner(0, 300, 0, 1);
+  private final Spinner<Double> spChoiceTextBottomPadding = spinner(0, 300, 0, 1);
+  private final Spinner<Double> spChoiceTextYAlign = spinner(-1, 1, -1, 0.05);
   private final Spinner<Double> spChoiceTextXAlign = spinner(0, 1, 0, 0.05);
   private final TextField tfChoiceBgColor = new TextField();
   private final TextField tfChoiceHoverColor = new TextField();
@@ -462,6 +474,8 @@ public class DialogueLayoutEditorView extends BorderPane {
     cbButtonAction.setEditable(true);
     cbButtonAction.getSelectionModel().select("noop");
     lvTextBoxButtons.setPrefHeight(132);
+    spNameTextYAlign.setTooltip(new Tooltip("Vertical align inside the padded name box. Set to -1 to keep legacy baseline mode."));
+    spChoiceTextYAlign.setTooltip(new Tooltip("Vertical align inside the padded choice button. Set to -1 to keep legacy baseline mode."));
 
     GridPane previewGrid = sectionGrid();
     int row = 0;
@@ -499,6 +513,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(nameGrid, row, "Name Height", spNameBoxHeight);
     row = addRow(nameGrid, row, "Name Text X Offset", spNameTextXOffset);
     row = addRow(nameGrid, row, "Name Text Baseline", spNameTextBaselineOffset);
+    row = addRow(nameGrid, row, "Name Text Top Pad", spNameTextTopPadding);
+    row = addRow(nameGrid, row, "Name Text Bottom Pad", spNameTextBottomPadding);
+    row = addRow(nameGrid, row, "Name Text Y Align", spNameTextYAlign);
     row = addRow(nameGrid, row, "Name Text X Align", spNameTextXAlign);
     row = addRow(nameGrid, row, "Name Font Weight", cbNameTextFontWeight);
     row = addRow(nameGrid, row, "Name Box Opacity", spNameBoxOpacity);
@@ -531,6 +548,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = addRow(choiceLayoutGrid, row, "Choice Height", spChoiceHeight);
     row = addRow(choiceLayoutGrid, row, "Choice Gap", spChoiceGap);
     row = addRow(choiceLayoutGrid, row, "Choice Text Padding", spChoiceTextXPadding);
+    row = addRow(choiceLayoutGrid, row, "Choice Text Top Pad", spChoiceTextTopPadding);
+    row = addRow(choiceLayoutGrid, row, "Choice Text Bottom Pad", spChoiceTextBottomPadding);
+    row = addRow(choiceLayoutGrid, row, "Choice Text Y Align", spChoiceTextYAlign);
     row = addRow(choiceLayoutGrid, row, "Choice Text X Align", spChoiceTextXAlign);
     row = addRow(choiceLayoutGrid, row, "Choice Font Weight", cbChoiceFontWeight);
     row = addRow(choiceLayoutGrid, row, "Button Asset", assetFieldRow(tfChoiceButtonAsset, "Select Choice Button Asset"));
@@ -747,6 +767,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spNameBoxHeight);
     controls.add(spNameTextXOffset);
     controls.add(spNameTextBaselineOffset);
+    controls.add(spNameTextTopPadding);
+    controls.add(spNameTextBottomPadding);
+    controls.add(spNameTextYAlign);
     controls.add(spNameTextXAlign);
     controls.add(spDialoguePaddingX);
     controls.add(spDialoguePaddingTop);
@@ -759,6 +782,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spChoiceHeight);
     controls.add(spChoiceGap);
     controls.add(spChoiceTextXPadding);
+    controls.add(spChoiceTextTopPadding);
+    controls.add(spChoiceTextBottomPadding);
+    controls.add(spChoiceTextYAlign);
     controls.add(spChoiceTextXAlign);
     controls.add(spChoiceCornerRadius);
     controls.add(spChoiceBorderWidth);
@@ -985,6 +1011,9 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameBoxHeight(),
             dragStartSpec.nameTextXOffset(),
             dragStartSpec.nameTextBaselineOffset(),
+            dragStartSpec.nameTextTopPadding(),
+            dragStartSpec.nameTextBottomPadding(),
+            dragStartSpec.nameTextYAlign(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
             dragStartSpec.dialogueTextRightPadding(),
@@ -995,7 +1024,23 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding(),
-            dragStartSpec.nameBoxAutoWidth()
+            dragStartSpec.choiceTextTopPadding(),
+            dragStartSpec.choiceTextBottomPadding(),
+            dragStartSpec.choiceTextYAlign(),
+            dragStartSpec.nameBoxAutoWidth(),
+            dragStartSpec.nvlX(),
+            dragStartSpec.nvlY(),
+            dragStartSpec.nvlWidth(),
+            dragStartSpec.nvlHeight(),
+            dragStartSpec.nvlPadding(),
+            dragStartSpec.nvlSpeakerWidth(),
+            dragStartSpec.nvlEntryGap(),
+            dragStartSpec.nvlMaxEntries(),
+            dragStartSpec.bubbleWidthFactor(),
+            dragStartSpec.bubbleMinHeight(),
+            dragStartSpec.bubbleTextPadding(),
+            dragStartSpec.bubbleYOffset(),
+            dragStartSpec.bubbleTailSize()
         );
       } else if (dragTarget == DragTarget.NAME_BOX) {
         next = new VnUiLayoutSpec(
@@ -1010,6 +1055,9 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameBoxHeight(),
             dragStartSpec.nameTextXOffset(),
             dragStartSpec.nameTextBaselineOffset(),
+            dragStartSpec.nameTextTopPadding(),
+            dragStartSpec.nameTextBottomPadding(),
+            dragStartSpec.nameTextYAlign(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
             dragStartSpec.dialogueTextRightPadding(),
@@ -1020,7 +1068,23 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding(),
-            dragStartSpec.nameBoxAutoWidth()
+            dragStartSpec.choiceTextTopPadding(),
+            dragStartSpec.choiceTextBottomPadding(),
+            dragStartSpec.choiceTextYAlign(),
+            dragStartSpec.nameBoxAutoWidth(),
+            dragStartSpec.nvlX(),
+            dragStartSpec.nvlY(),
+            dragStartSpec.nvlWidth(),
+            dragStartSpec.nvlHeight(),
+            dragStartSpec.nvlPadding(),
+            dragStartSpec.nvlSpeakerWidth(),
+            dragStartSpec.nvlEntryGap(),
+            dragStartSpec.nvlMaxEntries(),
+            dragStartSpec.bubbleWidthFactor(),
+            dragStartSpec.bubbleMinHeight(),
+            dragStartSpec.bubbleTextPadding(),
+            dragStartSpec.bubbleYOffset(),
+            dragStartSpec.bubbleTailSize()
         );
       } else if (dragTarget == DragTarget.CHOICE_BLOCK) {
         double currentChoiceStart = resolveChoiceYStart(dragStartSpec, h, 3, scale);
@@ -1038,6 +1102,9 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameBoxHeight(),
             dragStartSpec.nameTextXOffset(),
             dragStartSpec.nameTextBaselineOffset(),
+            dragStartSpec.nameTextTopPadding(),
+            dragStartSpec.nameTextBottomPadding(),
+            dragStartSpec.nameTextYAlign(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
             dragStartSpec.dialogueTextRightPadding(),
@@ -1048,7 +1115,23 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding(),
-            dragStartSpec.nameBoxAutoWidth()
+            dragStartSpec.choiceTextTopPadding(),
+            dragStartSpec.choiceTextBottomPadding(),
+            dragStartSpec.choiceTextYAlign(),
+            dragStartSpec.nameBoxAutoWidth(),
+            dragStartSpec.nvlX(),
+            dragStartSpec.nvlY(),
+            dragStartSpec.nvlWidth(),
+            dragStartSpec.nvlHeight(),
+            dragStartSpec.nvlPadding(),
+            dragStartSpec.nvlSpeakerWidth(),
+            dragStartSpec.nvlEntryGap(),
+            dragStartSpec.nvlMaxEntries(),
+            dragStartSpec.bubbleWidthFactor(),
+            dragStartSpec.bubbleMinHeight(),
+            dragStartSpec.bubbleTextPadding(),
+            dragStartSpec.bubbleYOffset(),
+            dragStartSpec.bubbleTailSize()
         );
       } else if (dragTarget == DragTarget.TEXT_BOX_RESIZE) {
         double newWidth = Math.max(0.05, dragStartSpec.textBoxWidth() + (dx / w));
@@ -1065,6 +1148,9 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameBoxHeight(),
             dragStartSpec.nameTextXOffset(),
             dragStartSpec.nameTextBaselineOffset(),
+            dragStartSpec.nameTextTopPadding(),
+            dragStartSpec.nameTextBottomPadding(),
+            dragStartSpec.nameTextYAlign(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
             dragStartSpec.dialogueTextRightPadding(),
@@ -1075,7 +1161,23 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding(),
-            dragStartSpec.nameBoxAutoWidth()
+            dragStartSpec.choiceTextTopPadding(),
+            dragStartSpec.choiceTextBottomPadding(),
+            dragStartSpec.choiceTextYAlign(),
+            dragStartSpec.nameBoxAutoWidth(),
+            dragStartSpec.nvlX(),
+            dragStartSpec.nvlY(),
+            dragStartSpec.nvlWidth(),
+            dragStartSpec.nvlHeight(),
+            dragStartSpec.nvlPadding(),
+            dragStartSpec.nvlSpeakerWidth(),
+            dragStartSpec.nvlEntryGap(),
+            dragStartSpec.nvlMaxEntries(),
+            dragStartSpec.bubbleWidthFactor(),
+            dragStartSpec.bubbleMinHeight(),
+            dragStartSpec.bubbleTextPadding(),
+            dragStartSpec.bubbleYOffset(),
+            dragStartSpec.bubbleTailSize()
         );
       } else if (dragTarget == DragTarget.CHOICE_RESIZE) {
         double newWidthFactor = Math.max(0.05, dragStartSpec.choiceWidthFactor() + (dx / w));
@@ -1092,6 +1194,9 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameBoxHeight(),
             dragStartSpec.nameTextXOffset(),
             dragStartSpec.nameTextBaselineOffset(),
+            dragStartSpec.nameTextTopPadding(),
+            dragStartSpec.nameTextBottomPadding(),
+            dragStartSpec.nameTextYAlign(),
             dragStartSpec.dialogueTextHorizontalPadding(),
             dragStartSpec.dialogueTextTopPadding(),
             dragStartSpec.dialogueTextRightPadding(),
@@ -1102,7 +1207,23 @@ public class DialogueLayoutEditorView extends BorderPane {
             newChoiceHeight,
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding(),
-            dragStartSpec.nameBoxAutoWidth()
+            dragStartSpec.choiceTextTopPadding(),
+            dragStartSpec.choiceTextBottomPadding(),
+            dragStartSpec.choiceTextYAlign(),
+            dragStartSpec.nameBoxAutoWidth(),
+            dragStartSpec.nvlX(),
+            dragStartSpec.nvlY(),
+            dragStartSpec.nvlWidth(),
+            dragStartSpec.nvlHeight(),
+            dragStartSpec.nvlPadding(),
+            dragStartSpec.nvlSpeakerWidth(),
+            dragStartSpec.nvlEntryGap(),
+            dragStartSpec.nvlMaxEntries(),
+            dragStartSpec.bubbleWidthFactor(),
+            dragStartSpec.bubbleMinHeight(),
+            dragStartSpec.bubbleTextPadding(),
+            dragStartSpec.bubbleYOffset(),
+            dragStartSpec.bubbleTailSize()
         );
       } else if (dragTarget == DragTarget.DIALOGUE_BOUNDS || dragTarget == DragTarget.DIALOGUE_BOUNDS_RESIZE) {
         ProjectViewportSpec.Dimensions vp = ProjectViewportSpec.resolve(projectRoot);
@@ -1151,6 +1272,9 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.nameBoxHeight(),
             dragStartSpec.nameTextXOffset(),
             dragStartSpec.nameTextBaselineOffset(),
+            dragStartSpec.nameTextTopPadding(),
+            dragStartSpec.nameTextBottomPadding(),
+            dragStartSpec.nameTextYAlign(),
             left,
             top,
             right,
@@ -1161,7 +1285,23 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.choiceHeight(),
             dragStartSpec.choiceGap(),
             dragStartSpec.choiceTextXPadding(),
-            dragStartSpec.nameBoxAutoWidth()
+            dragStartSpec.choiceTextTopPadding(),
+            dragStartSpec.choiceTextBottomPadding(),
+            dragStartSpec.choiceTextYAlign(),
+            dragStartSpec.nameBoxAutoWidth(),
+            dragStartSpec.nvlX(),
+            dragStartSpec.nvlY(),
+            dragStartSpec.nvlWidth(),
+            dragStartSpec.nvlHeight(),
+            dragStartSpec.nvlPadding(),
+            dragStartSpec.nvlSpeakerWidth(),
+            dragStartSpec.nvlEntryGap(),
+            dragStartSpec.nvlMaxEntries(),
+            dragStartSpec.bubbleWidthFactor(),
+            dragStartSpec.bubbleMinHeight(),
+            dragStartSpec.bubbleTextPadding(),
+            dragStartSpec.bubbleYOffset(),
+            dragStartSpec.bubbleTailSize()
         );
       } else if ((dragTarget == DragTarget.TEXTBOX_BUTTON || dragTarget == DragTarget.TEXTBOX_BUTTON_RESIZE)
           && dragButtonIndex >= 0 && dragButtonIndex < dragStartButtons.size()) {
@@ -1364,10 +1504,19 @@ public class DialogueLayoutEditorView extends BorderPane {
       double choiceTextWidth = computeTextWidth(g, choiceLabel, choiceFont);
       double choiceTextLeft = rects.choiceBlock().x() + spec.choiceTextXPadding() * scale;
       double choiceContentWidth = Math.max(0, rects.choiceBlock().w() - spec.choiceTextXPadding() * scale * 2.0);
+      double choiceTextBaseline = spec.choiceTextYAlign() >= 0.0
+          ? resolvePaddedTextBaselineY(
+              y,
+              choiceHeight,
+              spec.choiceTextTopPadding() * scale,
+              spec.choiceTextBottomPadding() * scale,
+              choiceFont,
+              spec.choiceTextYAlign())
+          : y + choiceHeight / 2 + choiceStyle.textBaselineOffset() * scale;
       g.fillText(
           choiceLabel,
           resolveAlignedTextX(choiceTextLeft, choiceContentWidth, choiceTextWidth, style.choiceTextXAlign() == null ? 0.0 : style.choiceTextXAlign()),
-          y + choiceHeight / 2 + choiceStyle.textBaselineOffset() * scale);
+          choiceTextBaseline);
       y += choiceHeight + choiceGap;
     }
 
@@ -1412,10 +1561,19 @@ public class DialogueLayoutEditorView extends BorderPane {
       double nameTextLeft = rects.nameBox().x() + spec.nameTextXOffset() * scale;
       double nameTextWidth = computeTextWidth(g, previewSpeakerName, nameFont);
       double nameContentWidth = Math.max(0, rects.nameBox().w() - spec.nameTextXOffset() * scale * 2.0);
+      double nameTextBaseline = spec.nameTextYAlign() >= 0.0
+          ? resolvePaddedTextBaselineY(
+              rects.nameBox().y(),
+              rects.nameBox().h(),
+              spec.nameTextTopPadding() * scale,
+              spec.nameTextBottomPadding() * scale,
+              nameFont,
+              spec.nameTextYAlign())
+          : rects.nameBox().y() + spec.nameTextBaselineOffset() * scale;
       g.fillText(
           previewSpeakerName,
           resolveAlignedTextX(nameTextLeft, nameContentWidth, nameTextWidth, style.nameTextXAlign() == null ? 0.0 : style.nameTextXAlign()),
-          rects.nameBox().y() + spec.nameTextBaselineOffset() * scale);
+          nameTextBaseline);
     }
 
     String fullText = previewDialogueText();
@@ -2066,6 +2224,7 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private VnUiLayoutSpec readSpecFromControls() {
+    VnUiLayoutSpec base = spec == null ? VnUiLayoutSpec.defaults() : spec;
     return new VnUiLayoutSpec(
         value(spTextBoxX),
         value(spTextBoxY),
@@ -2078,6 +2237,9 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spNameBoxHeight),
         value(spNameTextXOffset),
         value(spNameTextBaselineOffset),
+        value(spNameTextTopPadding),
+        value(spNameTextBottomPadding),
+        value(spNameTextYAlign),
         value(spDialoguePaddingX),
         value(spDialoguePaddingTop),
         value(spDialoguePaddingRight),
@@ -2088,6 +2250,9 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spChoiceHeight),
         value(spChoiceGap),
         value(spChoiceTextXPadding),
+        value(spChoiceTextTopPadding),
+        value(spChoiceTextBottomPadding),
+        value(spChoiceTextYAlign),
         cbNameBoxAutoWidth.isSelected(),
         value(spNvlX),
         value(spNvlY),
@@ -2117,6 +2282,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spNameBoxHeight, s.nameBoxHeight());
     setValue(spNameTextXOffset, s.nameTextXOffset());
     setValue(spNameTextBaselineOffset, s.nameTextBaselineOffset());
+    setValue(spNameTextTopPadding, s.nameTextTopPadding());
+    setValue(spNameTextBottomPadding, s.nameTextBottomPadding());
+    setValue(spNameTextYAlign, s.nameTextYAlign());
     setValue(spDialoguePaddingX, s.dialogueTextHorizontalPadding());
     setValue(spDialoguePaddingTop, s.dialogueTextTopPadding());
     setValue(spDialoguePaddingRight, s.dialogueTextRightPadding());
@@ -2127,6 +2295,9 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spChoiceHeight, s.choiceHeight());
     setValue(spChoiceGap, s.choiceGap());
     setValue(spChoiceTextXPadding, s.choiceTextXPadding());
+    setValue(spChoiceTextTopPadding, s.choiceTextTopPadding());
+    setValue(spChoiceTextBottomPadding, s.choiceTextBottomPadding());
+    setValue(spChoiceTextYAlign, s.choiceTextYAlign());
     cbNameBoxAutoWidth.setSelected(s.nameBoxAutoWidth());
     setValue(spNvlX, s.nvlX());
     setValue(spNvlY, s.nvlY());
@@ -3494,6 +3665,30 @@ public class DialogueLayoutEditorView extends BorderPane {
     helper.setFont(font);
     double ascent = -helper.getLayoutBounds().getMinY();
     return ascent > 0.0 ? ascent : Math.max(1.0, font.getSize() * 0.8);
+  }
+
+  private double computeTextHeight(Font font) {
+    javafx.scene.text.Text helper = new javafx.scene.text.Text("Hg");
+    helper.setFont(font);
+    double height = helper.getLayoutBounds().getHeight();
+    return height > 0.0 ? height : Math.max(1.0, font.getSize());
+  }
+
+  private double resolvePaddedTextBaselineY(
+      double boxY,
+      double boxHeight,
+      double topPadding,
+      double bottomPadding,
+      Font font,
+      double yAlign
+  ) {
+    double contentTop = boxY + Math.max(0.0, topPadding);
+    double contentHeight = Math.max(1.0, boxHeight - Math.max(0.0, topPadding) - Math.max(0.0, bottomPadding));
+    double textHeight = computeTextHeight(font);
+    double ascent = computeTextAscent(font);
+    double clampedAlign = clamp(yAlign, 0.0, 1.0);
+    double extra = Math.max(0.0, contentHeight - textHeight);
+    return contentTop + ascent + extra * clampedAlign;
   }
 
   private record Rect(double x, double y, double w, double h) {
