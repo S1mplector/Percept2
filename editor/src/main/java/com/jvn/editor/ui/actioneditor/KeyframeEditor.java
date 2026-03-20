@@ -30,10 +30,13 @@ public class KeyframeEditor extends VBox {
     private final Slider sliderValue;
     private final ComboBox<Easing.Interpolation> cbInterpolation;
     private final PuppeteerEasingComboBox cbEasing;
+    private final Button btnEditCurve;
+    private final Button btnUpdateCurvePreset;
     private final Button btnExpandCurveEditor;
     private final Button btnDelete;
     private final Button btnResetValue;
     private final Label lblCameraState;
+    private final Label lblCurvePresetHint;
     private final EasingCurveEditor curveEditor;
     private final GridPane pivotPresetsGrid;
     private final Label lblPivotPresets;
@@ -58,6 +61,8 @@ public class KeyframeEditor extends VBox {
     private final List<Keyframe> currentSelection = new ArrayList<>();
     private boolean updatingUi = false;
     private boolean curveEditorExpanded = false;
+    private String activePresetEditId;
+    private String activePresetEditName;
     private Runnable onKeyframeChanged;
     private Runnable onDeleteRequested;
     private java.util.function.BiConsumer<Double, Double> onPivotPresetApplied;
@@ -105,10 +110,21 @@ public class KeyframeEditor extends VBox {
         cbInterpolation = new ComboBox<>();
         cbInterpolation.getItems().addAll(Easing.Interpolation.values());
         cbInterpolation.setValue(Easing.Interpolation.TWEEN);
+        btnEditCurve = new Button("Edit Curve");
+        btnEditCurve.setTooltip(new Tooltip("Convert the current easing into an editable cubic bezier"));
+        btnEditCurve.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #f0d98a; -fx-background-radius: 3; " +
+            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+        btnUpdateCurvePreset = new Button("Update Preset");
+        btnUpdateCurvePreset.setTooltip(new Tooltip("Write the edited curve back into the selected preset"));
+        btnUpdateCurvePreset.setStyle("-fx-background-color: #2d4a2d; -fx-text-fill: #d6f5d6; -fx-background-radius: 3; " +
+            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
         btnExpandCurveEditor = new Button("Expand Curve");
         btnExpandCurveEditor.setTooltip(new Tooltip("Grow the curve editor inside the left panel"));
         btnExpandCurveEditor.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 3; " +
             "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+        lblCurvePresetHint = new Label();
+        lblCurvePresetHint.setStyle("-fx-text-fill: #8ea4c6; -fx-font-size: 10px;");
+        lblCurvePresetHint.setWrapText(true);
 
         btnDelete = new Button("Delete");
         btnDelete.setStyle("-fx-background-color: #e05577; -fx-text-fill: #0a0a0a; -fx-background-radius: 3; " +
@@ -170,20 +186,23 @@ public class KeyframeEditor extends VBox {
         });
         HBox easingRow = new HBox(6, cbEasing, btnExpandCurveEditor);
         HBox.setHgrow(cbEasing, Priority.ALWAYS);
+        HBox curveActionRow = new HBox(6, btnEditCurve, btnUpdateCurvePreset, lblCurvePresetHint);
+        HBox.setHgrow(lblCurvePresetHint, Priority.ALWAYS);
 
         grid.add(new Label("Interp:"), 0, 4);
         grid.add(cbInterpolation, 1, 4);
         grid.add(new Label("Easing:"), 0, 5);
         grid.add(easingRow, 1, 5);
-        grid.add(curveEditor, 0, 6, 2, 1);
-        grid.add(batchBox, 0, 7, 2, 1);
-        grid.add(lblPivotPresets, 0, 8);
-        grid.add(pivotPresetsGrid, 1, 8);
-        grid.add(actionRow, 1, 9);
+        grid.add(curveActionRow, 1, 6);
+        grid.add(curveEditor, 0, 7, 2, 1);
+        grid.add(batchBox, 0, 8, 2, 1);
+        grid.add(lblPivotPresets, 0, 9);
+        grid.add(pivotPresetsGrid, 1, 9);
+        grid.add(actionRow, 1, 10);
         lblCameraState = new Label("X 0.0  Y 0.0  Z 1.00");
         lblCameraState.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px; -fx-font-family: monospace;");
-        grid.add(new Label("Camera:"), 0, 10);
-        grid.add(lblCameraState, 1, 10);
+        grid.add(new Label("Camera:"), 0, 11);
+        grid.add(lblCameraState, 1, 11);
 
         GridPane.setHgrow(curveEditor, Priority.ALWAYS);
         GridPane.setVgrow(curveEditor, Priority.ALWAYS);
@@ -223,9 +242,12 @@ public class KeyframeEditor extends VBox {
 
         cbEasing.setOnAction(e -> {
             applyChanges();
+            syncPresetEditSessionFromSelection(false);
             refreshCurveEditorPreview();
             updateCurveEditorState();
         });
+        btnEditCurve.setOnAction(e -> beginCurveEdit());
+        btnUpdateCurvePreset.setOnAction(e -> updateActivePresetFromCurve());
         btnExpandCurveEditor.setOnAction(e -> setCurveEditorExpanded(!curveEditorExpanded, true));
 
         sliderTime.valueProperty().addListener((obs, oldV, newV) -> {
@@ -299,6 +321,7 @@ public class KeyframeEditor extends VBox {
         this.currentProperty = property;
 
         if (kf == null) {
+            clearPresetEditSession();
             lblProperty.setText("-");
             tfTime.setText("");
             tfValue.setText("");
@@ -319,6 +342,7 @@ public class KeyframeEditor extends VBox {
             tfValue.setText(String.format("%.2f", kf.getValue()));
             cbInterpolation.setValue(kf.getInterpolation());
             cbEasing.setCurrentSpec(kf.getEasingSpec());
+            syncPresetEditSessionFromSelection(false);
             curveEditor.setInterpolation(kf.getInterpolation());
             curveEditor.setEasingSpec(kf.getEasingSpec());
             updateCurveEditorState();
@@ -359,6 +383,7 @@ public class KeyframeEditor extends VBox {
         syncTimeSliderBounds(currentSelection.get(0).getTimeMs());
         cbInterpolation.setValue(resolveSharedInterpolation(currentSelection));
         cbEasing.setCurrentSpec(resolveSharedEasingSpec(currentSelection));
+        clearPresetEditSession();
         curveEditor.setInterpolation(cbInterpolation.getValue());
         curveEditor.setEasingSpec(resolveSharedEasingSpec(currentSelection));
         setFieldsDisabled(false);
@@ -403,6 +428,7 @@ public class KeyframeEditor extends VBox {
 
     private void refreshPresetUiState() {
         cbEasing.refreshState();
+        refreshCurveActionState();
     }
 
     private EasingSpec resolveEditorEasingSpec() {
@@ -437,6 +463,36 @@ public class KeyframeEditor extends VBox {
         updatingUi = priorUpdating;
         refreshCurveEditorPreview();
         updateCurveEditorState();
+    }
+
+    private void beginCurveEdit() {
+        if (currentSelection.size() > 1 || currentKeyframe == null) return;
+        if (cbInterpolation.getValue() != Easing.Interpolation.TWEEN) return;
+
+        PuppeteerEasingCatalog.Entry selected = cbEasing.getSelectedEntry();
+        if (selected != null && selected.isPreset()) {
+            activePresetEditId = selected.id();
+            activePresetEditName = selected.label();
+        } else {
+            clearPresetEditSession();
+        }
+
+        EasingSpec editable = toEditableCurveSpec(resolveEditorEasingSpec());
+        applyExplicitEasingSpec(editable);
+        if (onKeyframeChanged != null) onKeyframeChanged.run();
+        refreshPresetUiState();
+    }
+
+    private void updateActivePresetFromCurve() {
+        if (activePresetEditId == null || activePresetEditName == null) return;
+        EasingSpec current = resolveEditorEasingSpec();
+        EasingSpec editable = current.getType() == Easing.Type.CUSTOM ? current : toEditableCurveSpec(current);
+        if (cbEasing.updatePreset(activePresetEditId, activePresetEditName, editable)) {
+            syncPresetEditSessionFromSelection(true);
+            refreshCurveEditorPreview();
+            updateCurveEditorState();
+            if (onKeyframeChanged != null) onKeyframeChanged.run();
+        }
     }
 
     private void applyChanges() {
@@ -632,6 +688,8 @@ public class KeyframeEditor extends VBox {
         sliderValue.setDisable(disabled);
         cbInterpolation.setDisable(disabled);
         cbEasing.setDisable(disabled);
+        btnEditCurve.setDisable(disabled);
+        btnUpdateCurvePreset.setDisable(disabled);
         btnExpandCurveEditor.setDisable(disabled);
         btnDelete.setDisable(disabled);
         btnResetValue.setDisable(disabled);
@@ -727,19 +785,24 @@ public class KeyframeEditor extends VBox {
             : Easing.Interpolation.TWEEN;
         curveEditor.setInterpolation(mode);
         boolean tween = mode == Easing.Interpolation.TWEEN;
-        boolean curveInteractive = tween && currentKeyframe != null && currentSelection.size() <= 1;
+        boolean curveInteractive = tween
+            && currentKeyframe != null
+            && currentSelection.size() <= 1
+            && resolveEditorEasingSpec().getType() == Easing.Type.CUSTOM;
         btnExpandCurveEditor.setDisable(!curveInteractive);
         if (currentSelection.size() > 1) {
             cbEasing.setDisable(!tween);
             curveEditor.setDisable(true);
             curveEditor.setOpacity(0.45);
+            refreshCurveActionState();
             return;
         }
         if (currentKeyframe != null) {
             cbEasing.setDisable(!tween);
         }
-        curveEditor.setDisable(currentKeyframe == null);
+        curveEditor.setDisable(currentKeyframe == null || !curveInteractive);
         curveEditor.setOpacity(tween ? 1.0 : 0.88);
+        refreshCurveActionState();
     }
 
     private void applySelectedEasing(Keyframe keyframe) {
@@ -790,5 +853,138 @@ public class KeyframeEditor extends VBox {
             }
         }
         return first;
+    }
+
+    private void refreshCurveActionState() {
+        boolean singleKeyframe = currentKeyframe != null && currentSelection.size() <= 1;
+        boolean tween = cbInterpolation.getValue() == Easing.Interpolation.TWEEN;
+        EasingSpec current = resolveEditorEasingSpec();
+        boolean customCurve = singleKeyframe && tween && current.getType() == Easing.Type.CUSTOM;
+
+        btnEditCurve.setDisable(!singleKeyframe || !tween || customCurve);
+        btnUpdateCurvePreset.setDisable(!customCurve || activePresetEditId == null || activePresetEditName == null);
+
+        if (!singleKeyframe) {
+            lblCurvePresetHint.setText("Curve editing is only available for a single tween keyframe.");
+            return;
+        }
+        if (!tween) {
+            lblCurvePresetHint.setText("Switch interpolation to TWEEN to edit easing curves.");
+            return;
+        }
+        if (activePresetEditId != null && activePresetEditName != null) {
+            if (customCurve) {
+                lblCurvePresetHint.setText("Editing preset '" + activePresetEditName + "'. Drag the handles, then click Update Preset.");
+            } else {
+                lblCurvePresetHint.setText("Preset '" + activePresetEditName + "' is selected. Click Edit Curve to tweak it.");
+            }
+            return;
+        }
+        if (customCurve) {
+            lblCurvePresetHint.setText("Drag the red and green handles below to shape the curve.");
+            return;
+        }
+        lblCurvePresetHint.setText("Click Edit Curve to turn the current easing into an editable bezier.");
+    }
+
+    private void syncPresetEditSessionFromSelection(boolean preserveCurrent) {
+        PuppeteerEasingCatalog.Entry entry = cbEasing.getSelectedEntry();
+        if (entry != null && entry.isPreset()) {
+            activePresetEditId = entry.id();
+            activePresetEditName = entry.label();
+        } else if (!preserveCurrent) {
+            clearPresetEditSession();
+        }
+    }
+
+    private void clearPresetEditSession() {
+        activePresetEditId = null;
+        activePresetEditName = null;
+    }
+
+    static EasingSpec toEditableCurveSpec(EasingSpec spec) {
+        EasingSpec resolved = spec != null ? spec : EasingSpec.of(Easing.Type.LINEAR);
+        if (resolved.getType() == Easing.Type.CUSTOM) {
+            double[] params = Easing.coerceParameters(Easing.Type.CUSTOM, resolved.getParameters());
+            return EasingSpec.cubicBezier(params[0], params[1], params[2], params[3]);
+        }
+        EasingSpec named = Easing.namedCurveSpec(resolved.getType());
+        if (named.getType() == Easing.Type.CUSTOM) {
+            double[] params = Easing.coerceParameters(Easing.Type.CUSTOM, named.getParameters());
+            return EasingSpec.cubicBezier(params[0], params[1], params[2], params[3]);
+        }
+        double[] bezier = approximateBezier(resolved);
+        return EasingSpec.cubicBezier(bezier[0], bezier[1], bezier[2], bezier[3]);
+    }
+
+    static double[] approximateBezier(EasingSpec spec) {
+        EasingSpec resolved = spec != null ? spec : EasingSpec.of(Easing.Type.LINEAR);
+        double[] best = seededBezier(resolved);
+        double bestError = approximationError(resolved, best);
+        double[] steps = {0.35, 0.18, 0.09, 0.045, 0.022, 0.011, 0.005};
+
+        for (double step : steps) {
+            boolean improved;
+            do {
+                improved = false;
+                for (int index = 0; index < 4; index++) {
+                    for (double delta : new double[]{-step, step}) {
+                        double[] candidate = best.clone();
+                        candidate[index] = clampBezierParam(index, candidate[index] + delta);
+                        double error = approximationError(resolved, candidate);
+                        if (error + 1e-9 < bestError) {
+                            best = candidate;
+                            bestError = error;
+                            improved = true;
+                        }
+                    }
+                }
+            } while (improved);
+        }
+        return best;
+    }
+
+    private static double[] seededBezier(EasingSpec spec) {
+        Easing.Type type = spec != null ? spec.getType() : Easing.Type.LINEAR;
+        return switch (type) {
+            case LINEAR -> new double[]{0.0, 0.0, 1.0, 1.0};
+            case EASE_IN_SINE -> new double[]{0.12, 0.0, 0.39, 0.0};
+            case EASE_OUT_SINE -> new double[]{0.61, 1.0, 0.88, 1.0};
+            case EASE_IN_OUT_SINE -> new double[]{0.37, 0.0, 0.63, 1.0};
+            case EASE_IN_QUAD -> new double[]{0.11, 0.0, 0.50, 0.0};
+            case EASE_OUT_QUAD -> new double[]{0.50, 1.0, 0.89, 1.0};
+            case EASE_IN_OUT_QUAD -> new double[]{0.45, 0.0, 0.55, 1.0};
+            case EASE_IN_CUBIC -> new double[]{0.32, 0.0, 0.67, 0.0};
+            case EASE_OUT_CUBIC -> new double[]{0.33, 1.0, 0.68, 1.0};
+            case EASE_IN_OUT_CUBIC -> new double[]{0.65, 0.0, 0.35, 1.0};
+            case EASE_IN_QUART -> new double[]{0.50, 0.0, 0.75, 0.0};
+            case EASE_OUT_QUART -> new double[]{0.25, 1.0, 0.50, 1.0};
+            case EASE_IN_OUT_QUART -> new double[]{0.76, 0.0, 0.24, 1.0};
+            case EASE_IN_QUINT -> new double[]{0.64, 0.0, 0.78, 0.0};
+            case EASE_OUT_QUINT -> new double[]{0.22, 1.0, 0.36, 1.0};
+            case EASE_IN_OUT_QUINT -> new double[]{0.83, 0.0, 0.17, 1.0};
+            case UI_SOFT_IN -> new double[]{0.18, 0.96, 0.33, 1.0};
+            default -> new double[]{0.25, 0.10, 0.25, 1.0};
+        };
+    }
+
+    private static double approximationError(EasingSpec spec, double[] bezier) {
+        double error = 0.0;
+        for (int i = 1; i < 24; i++) {
+            double t = i / 24.0;
+            double expected = Easing.apply(spec, t);
+            double actual = Easing.cubicBezier(bezier[0], bezier[1], bezier[2], bezier[3], t);
+            double diff = actual - expected;
+            double weight = 1.0 + Math.abs(t - 0.5);
+            error += diff * diff * weight;
+        }
+        return error;
+    }
+
+    private static double clampBezierParam(int index, double value) {
+        return switch (index) {
+            case 0, 2 -> Math.max(0.0, Math.min(1.0, value));
+            default -> Math.max(-0.5, Math.min(1.5, value));
+        };
     }
 }

@@ -97,6 +97,10 @@ final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entr
         return value != null ? value.spec() : EasingSpec.of(Easing.Type.LINEAR);
     }
 
+    PuppeteerEasingCatalog.Entry getSelectedEntry() {
+        return getValue();
+    }
+
     void refreshState() {
         boolean hasProject = projectRoot != null;
         boolean hasPresetSelection = getValue() != null && getValue().isPreset();
@@ -481,6 +485,54 @@ final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entr
             presetNameField.setText("");
             setCurrentSpec(fallbackSpec);
         }
+    }
+
+    boolean updatePreset(String presetEntryId, String presetName, EasingSpec spec) {
+        if (projectRoot == null) {
+            setStatus("Open a project before updating easing presets.", true);
+            refreshState();
+            return false;
+        }
+        String presetId = stripPresetPrefix(presetEntryId);
+        if (presetId == null || presetId.isBlank()) {
+            setStatus("Select a project preset to update.", true);
+            refreshState();
+            return false;
+        }
+        String name = PuppeteerEasingPresetStore.normalizeName(presetName);
+        if (name.isBlank()) {
+            setStatus("Preset name cannot be blank.", true);
+            refreshState();
+            return false;
+        }
+        EasingSpec resolved = spec != null ? spec : resolveCurrentSpec();
+        if (resolved == null) {
+            setStatus("No easing is available to save yet.", true);
+            refreshState();
+            return false;
+        }
+
+        List<PuppeteerEasingPresetStore.Preset> updated = new ArrayList<>(presets);
+        int index = indexOfPreset(presetId);
+        if (index < 0) {
+            setStatus("The selected preset is no longer loaded.", true);
+            refreshState();
+            return false;
+        }
+        for (PuppeteerEasingPresetStore.Preset preset : updated) {
+            if (!preset.id().equals(presetId) && preset.name().equalsIgnoreCase(name)) {
+                setStatus("Preset '" + name + "' already exists.", true);
+                refreshState();
+                return false;
+            }
+        }
+        updated.set(index, new PuppeteerEasingPresetStore.Preset(presetId, name, resolved));
+        if (persistPresets(updated, "Updated easing preset '" + name + "'.")) {
+            presetNameField.setText(name);
+            setCurrentSpec(resolved);
+            return true;
+        }
+        return false;
     }
 
     private boolean persistPresets(List<PuppeteerEasingPresetStore.Preset> updated, String successMessage) {
