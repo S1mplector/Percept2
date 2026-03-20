@@ -1428,9 +1428,9 @@ public class DialogueLayoutEditorView extends BorderPane {
       g.beginPath();
       g.rect(
           rects.dialogueBounds().x(),
-          rects.dialogueBounds().y() - dialogueFont.getSize(),
+          rects.dialogueBounds().y(),
           rects.dialogueBounds().w(),
-          rects.dialogueBounds().h() + dialogueFont.getSize()
+          rects.dialogueBounds().h()
       );
       g.closePath();
       g.clip();
@@ -1440,7 +1440,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         spans,
         revealedLength,
         rects.dialogueBounds().x(),
-        rects.dialogueBounds().y(),
+        rects.dialogueBounds().y() + computeTextAscent(dialogueFont),
         rects.dialogueBounds().w(),
         dialogueFont,
         style.dialogueTextXAlign() == null ? 0.0 : style.dialogueTextXAlign());
@@ -3487,6 +3487,13 @@ public class DialogueLayoutEditorView extends BorderPane {
     javafx.scene.text.Text helper = new javafx.scene.text.Text(text);
     helper.setFont(font);
     return helper.getLayoutBounds().getWidth();
+  }
+
+  private double computeTextAscent(Font font) {
+    javafx.scene.text.Text helper = new javafx.scene.text.Text("Hg");
+    helper.setFont(font);
+    double ascent = -helper.getLayoutBounds().getMinY();
+    return ascent > 0.0 ? ascent : Math.max(1.0, font.getSize() * 0.8);
   }
 
   private record Rect(double x, double y, double w, double h) {

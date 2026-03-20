@@ -951,23 +951,24 @@ public class VnRenderer {
     int revealedLength = Math.min(state.getTextRevealProgress(), plainLength);
 
     double textX = textBoxX + uiLayout.dialogueTextHorizontalPadding();
-    double textY = textBoxY + uiLayout.dialogueTextTopPadding();
+    double textTop = textBoxY + uiLayout.dialogueTextTopPadding();
     double textWidth = Math.max(
         60,
         textBoxWidth - uiLayout.dialogueTextHorizontalPadding() - uiLayout.dialogueTextRightPadding());
     double textHeight = Math.max(
         20,
         textBoxHeight - uiLayout.dialogueTextTopPadding() - uiLayout.dialogueTextBottomPadding());
+    double textBaselineY = textTop + computeTextAscent(dialogueFont);
     gc.save();
     if (hasPolygon(dialogueTextBoundsPolygon)) {
-      clipToLocalPolygon(dialogueTextBoundsPolygon, textX, textY, textWidth, textHeight);
+      clipToLocalPolygon(dialogueTextBoundsPolygon, textX, textTop, textWidth, textHeight);
     } else {
       gc.beginPath();
-      gc.rect(textX, textY - dialogueFont.getSize(), textWidth, textHeight + dialogueFont.getSize());
+      gc.rect(textX, textTop, textWidth, textHeight);
       gc.closePath();
       gc.clip();
     }
-    drawStyledText(spans, revealedLength, textX, textY, textWidth, dialogueTextXAlign);
+    drawStyledText(spans, revealedLength, textX, textBaselineY, textWidth, dialogueTextXAlign);
     gc.restore();
 
     // Draw continue indicator if text is fully revealed
@@ -1958,6 +1959,13 @@ public class VnRenderer {
     javafx.scene.text.Text helper = new javafx.scene.text.Text(text);
     helper.setFont(font);
     return helper.getLayoutBounds().getWidth();
+  }
+
+  private double computeTextAscent(Font font) {
+    javafx.scene.text.Text helper = new javafx.scene.text.Text("Hg");
+    helper.setFont(font);
+    double ascent = -helper.getLayoutBounds().getMinY();
+    return ascent > 0.0 ? ascent : Math.max(1.0, font.getSize() * 0.8);
   }
 
   private double resolveAlignedTextX(double contentX, double contentWidth, double textWidth, double xAlign) {
