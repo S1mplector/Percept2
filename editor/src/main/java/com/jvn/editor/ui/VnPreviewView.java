@@ -150,6 +150,7 @@ public class VnPreviewView extends StackPane {
     this.audioBackend = nextBackend;
     this.projectRoot = root;
     renderer.setProjectRoot(root);
+    menuRenderer.setProjectRoot(root);
     phoneRenderer.setProjectRoot(root);
     resolveVirtualViewport(root);
     applyConfiguredCursor();

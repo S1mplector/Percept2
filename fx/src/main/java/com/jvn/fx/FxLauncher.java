@@ -125,6 +125,7 @@ public class FxLauncher extends Application {
     this.gc = this.canvas.getGraphicsContext2D();
     this.vnRenderer = new VnRenderer(gc);
     this.menuRenderer = new MenuRenderer(gc, MenuTheme.fromAssets());
+    this.menuRenderer.setProjectRoot(resolveAssetsRoot());
     this.blitter2D = new FxBlitter2D(gc);
     this.rendererRegistry = createRendererRegistry();
     this.actionMap = loadActionBindings();

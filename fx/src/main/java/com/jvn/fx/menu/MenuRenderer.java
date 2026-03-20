@@ -17,6 +17,7 @@ import com.jvn.core.menu.config.MenuItemSpec;
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.ui.BoundsPointCodec;
+import com.jvn.fx.ui.ProjectFontResolver;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.GaussianBlur;
@@ -41,6 +42,7 @@ public class MenuRenderer {
   private final GraphicsContext gc;
   private MenuTheme theme;
   private final java.util.Map<String, Image> imageCache = new java.util.HashMap<>();
+  private File projectRoot;
 
   public enum LoadControlType {
     NONE,
@@ -60,6 +62,7 @@ public class MenuRenderer {
   public MenuRenderer(GraphicsContext gc, MenuTheme theme) { this.gc = gc; this.theme = (theme == null ? MenuTheme.defaults() : theme); }
   public void setTheme(MenuTheme t) { this.theme = (t == null ? MenuTheme.defaults() : t); }
   public MenuTheme getTheme() { return theme; }
+  public void setProjectRoot(File root) { this.projectRoot = root; }
 
   public void renderMainMenu(MainMenuScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
@@ -823,19 +826,26 @@ public class MenuRenderer {
 
       gc.setFont(font);
       double tw = measure(label, font);
-      double textPadX = style != null && style.buttonTextPaddingX() != null ? style.buttonTextPaddingX() : textPadXDefault;
-      double textPadY = style != null && style.buttonTextPaddingY() != null ? style.buttonTextPaddingY() : textPadYDefault;
+      String itemAlign = resolveItemTextAlign(item, align);
+      Double textXRaw = parseExtraDouble(item, "textX");
+      Double textBaselineRaw = firstNonNull(parseExtraDouble(item, "textBaselineY"), parseExtraDouble(item, "textY"));
+      double textPadX = resolveItemTextPaddingX(item, style, textPadXDefault);
+      double textPadY = resolveItemTextPaddingY(item, style, textPadYDefault);
       double leftInset = rect.x() + Math.max(0, textPadX) + (iconSize > 0 ? iconSize + 8 : 0);
       double rightInset = rect.x() + Math.max(0, rect.w() - textPadX - reservedRightSpace);
-      double x = switch (align == null ? "center" : align.toLowerCase()) {
-        case "left" -> leftInset;
-        case "right" -> rightInset - tw;
-        default -> leftInset + Math.max(0, (rightInset - leftInset - tw) / 2.0);
-      };
-      if (sectionItem) {
+      double x = textXRaw != null
+          ? rect.x() + resolveLocalCoordinate(textXRaw, rect.w())
+          : switch (itemAlign) {
+            case "left" -> leftInset;
+            case "right" -> rightInset - tw;
+            default -> leftInset + Math.max(0, (rightInset - leftInset - tw) / 2.0);
+          };
+      if (sectionItem && textXRaw == null) {
         x = rect.x();
       }
-      double baseline = rect.y() + rect.h() * 0.55 + textPadY;
+      double baseline = textBaselineRaw != null
+          ? rect.y() + resolveLocalCoordinate(textBaselineRaw, rect.h())
+          : rect.y() + rect.h() * 0.55 + textPadY;
       drawItemText(label, x, baseline, style, font, color);
     }
   }
@@ -1173,6 +1183,31 @@ public class MenuRenderer {
     return layout != null ? layout.textAlign() : "left";
   }
 
+  private String resolveItemTextAlign(MenuItemSpec itemSpec, String defaultAlign) {
+    if (itemSpec != null && itemSpec.extras() != null) {
+      String raw = firstNonBlank(itemSpec.extras().get("textAlign"), itemSpec.extras().get("align"));
+      if (raw != null) {
+        String normalized = raw.trim().toLowerCase();
+        if ("left".equals(normalized) || "center".equals(normalized) || "right".equals(normalized)) {
+          return normalized;
+        }
+      }
+    }
+    return defaultAlign == null ? "center" : defaultAlign.toLowerCase();
+  }
+
+  private double resolveItemTextPaddingX(MenuItemSpec itemSpec, MenuStyleSpec style, double defaultValue) {
+    Double parsed = firstNonNull(parseExtraDouble(itemSpec, "textPaddingX"), parseExtraDouble(itemSpec, "textPadX"));
+    if (parsed != null) return parsed;
+    return style != null && style.buttonTextPaddingX() != null ? style.buttonTextPaddingX() : defaultValue;
+  }
+
+  private double resolveItemTextPaddingY(MenuItemSpec itemSpec, MenuStyleSpec style, double defaultValue) {
+    Double parsed = firstNonNull(parseExtraDouble(itemSpec, "textPaddingY"), parseExtraDouble(itemSpec, "textPadY"));
+    if (parsed != null) return parsed;
+    return style != null && style.buttonTextPaddingY() != null ? style.buttonTextPaddingY() : defaultValue;
+  }
+
   private double resolveBodyPaddingX(MenuItemSpec itemSpec, MenuStyleSpec style) {
     Double parsed = parseExtraDouble(itemSpec, "bodyPaddingX");
     if (parsed != null) return Math.max(0.0, parsed);
@@ -1201,6 +1236,10 @@ public class MenuRenderer {
     } catch (NumberFormatException ex) {
       return null;
     }
+  }
+
+  private static <T> T firstNonNull(T first, T second) {
+    return first != null ? first : second;
   }
 
   private void drawWrappedItemText(
@@ -1367,6 +1406,10 @@ public class MenuRenderer {
 
   private double resolveCoordinate(double value, double total) {
     return value <= 1.0 ? total * value : value;
+  }
+
+  private double resolveLocalCoordinate(double value, double total) {
+    return Math.abs(value) <= 1.0 ? total * value : value;
   }
 
   private double resolveSize(double value, double total) {
@@ -2212,10 +2255,10 @@ public class MenuRenderer {
         item != null ? item.fontWeight() : null,
         style != null ? style.itemFontWeight() : null);
     if (weightRaw == null || weightRaw.isBlank()) {
-      return Font.font(family, size);
+      return ProjectFontResolver.resolve(projectRoot, family, null, size, theme.getItemFont().getFamily());
     }
     FontWeight weight = parseFontWeight(weightRaw, FontWeight.NORMAL);
-    return Font.font(family, weight, size);
+    return ProjectFontResolver.resolve(projectRoot, family, weight, size, theme.getItemFont().getFamily());
   }
 
   private Font resolveTitleFont(MenuStyleSpec style) {
@@ -2223,7 +2266,7 @@ public class MenuRenderer {
     String family = firstNonBlank(style.titleFontFamily(), theme.getTitleFont().getFamily());
     double size = style.titleFontSize() != null ? style.titleFontSize() : theme.getTitleFont().getSize();
     FontWeight weight = parseFontWeight(style.titleFontWeight(), FontWeight.BOLD);
-    return Font.font(family, weight, size);
+    return ProjectFontResolver.resolve(projectRoot, family, weight, size, theme.getTitleFont().getFamily());
   }
 
   private Font resolveSubtitleFont(MenuStyleSpec style) {
@@ -2234,7 +2277,7 @@ public class MenuRenderer {
     FontWeight weight = style != null
         ? parseFontWeight(firstNonBlank(style.titleFontWeight(), style.hintsFontWeight()), FontWeight.NORMAL)
         : FontWeight.NORMAL;
-    return Font.font(family, weight, size);
+    return ProjectFontResolver.resolve(projectRoot, family, weight, size, hintFont.getFamily());
   }
 
   private Font resolveHintFont(MenuStyleSpec style) {
@@ -2242,7 +2285,7 @@ public class MenuRenderer {
     String family = firstNonBlank(style.hintsFontFamily(), theme.getHintFont().getFamily());
     double size = style.hintsFontSize() != null ? style.hintsFontSize() : theme.getHintFont().getSize();
     FontWeight weight = parseFontWeight(style.hintsFontWeight(), FontWeight.NORMAL);
-    return Font.font(family, weight, size);
+    return ProjectFontResolver.resolve(projectRoot, family, weight, size, theme.getHintFont().getFamily());
   }
 
   private FontWeight parseFontWeight(String raw, FontWeight def) {

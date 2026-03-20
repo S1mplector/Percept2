@@ -69,7 +69,8 @@ public class SettingsScene implements Scene {
       String label,
       boolean enabled,
       MenuStyleSpec style,
-      MenuActionSpec action
+      MenuActionSpec action,
+      MenuItemSpec itemSpec
   ) {}
 
   public SettingsScene(VnSettings settings) {
@@ -211,6 +212,7 @@ public class SettingsScene implements Scene {
   public MenuItemSpec getMenuItemSpec(int idx) {
     Row row = rowAt(idx);
     if (row == null) return null;
+    if (row.itemSpec() != null) return row.itemSpec();
     for (MenuItemSpec item : menuScreen.items()) {
       if (item != null && item.id().equalsIgnoreCase(row.id())) {
         return item;
@@ -248,9 +250,12 @@ public class SettingsScene implements Scene {
       // Preserve explicit blank labels for decorative rows in menu profiles.
       // Only synthesize fallback labels when label is truly unspecified.
       String label = (r.label() != null) ? r.label() : defaultLabelForKey(r.key());
-      String value = valueTextForKey(r.key());
+      String value = shouldShowValue(r) ? valueTextForKey(r.key()) : null;
       String text = applyValueTemplate(label, value);
-      if (KEY_INPUT_PROFILE.equals(r.key()) && bindingStatus != null && !bindingStatus.isBlank()) {
+      if (KEY_INPUT_PROFILE.equals(r.key())
+          && shouldShowBindingStatus(r)
+          && bindingStatus != null
+          && !bindingStatus.isBlank()) {
         text += " • " + bindingStatus;
       }
       out[i] = text;
@@ -505,7 +510,7 @@ public class SettingsScene implements Scene {
         String key = canonicalKey(action.target() != null ? action.target() : id);
         MenuStyleSpec style = menuProfile.style(normalize(item.styleId(), menuScreen.defaultStyleId()));
         String label = resolveItemLabelText(item.label());
-        out.add(new Row(id, key, label, item.enabled(), style, action));
+        out.add(new Row(id, key, label, item.enabled(), style, action, item));
       }
     }
     if (!out.isEmpty()) {
@@ -529,7 +534,7 @@ public class SettingsScene implements Scene {
   }
 
   private Row defaultRow(String key, MenuStyleSpec style) {
-    return new Row(key, key, null, true, style, MenuActionSpec.noop());
+    return new Row(key, key, null, true, style, MenuActionSpec.noop(), null);
   }
 
   private void ensureBuiltInSettingVisible(List<Row> rows, String key, MenuStyleSpec style) {
@@ -890,6 +895,28 @@ public class SettingsScene implements Scene {
     if (label.contains("{value}")) return label.replace("{value}", value);
     if (label.contains("%value%")) return label.replace("%value%", value);
     return label + ": " + value;
+  }
+
+  private boolean shouldShowValue(Row row) {
+    return parseItemExtraBoolean(row, "showValue", true)
+        && parseItemExtraBoolean(row, "valueVisible", true)
+        && !parseItemExtraBoolean(row, "hideValue", false);
+  }
+
+  private boolean shouldShowBindingStatus(Row row) {
+    return parseItemExtraBoolean(row, "showBindingStatus", true)
+        && !parseItemExtraBoolean(row, "hideBindingStatus", false);
+  }
+
+  private boolean parseItemExtraBoolean(Row row, String key, boolean defaultValue) {
+    if (row == null || row.itemSpec() == null || row.itemSpec().extras() == null || key == null) return defaultValue;
+    String raw = row.itemSpec().extras().get(key);
+    if (raw == null || raw.isBlank()) return defaultValue;
+    return switch (raw.trim().toLowerCase()) {
+      case "true", "1", "yes", "y", "on" -> true;
+      case "false", "0", "no", "n", "off" -> false;
+      default -> defaultValue;
+    };
   }
 
   private String resolveDisplayText(String raw) {

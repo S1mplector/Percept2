@@ -77,6 +77,55 @@ class SettingsSceneTextConfigTest {
   }
 
   @Test
+  void showValueFalseSuppressesGeneratedSettingValueText() {
+    Map<String, MenuLayoutSpec> layouts = Map.of("settings", MenuProfile.defaultSettingsLayout());
+    Map<String, MenuStyleSpec> styles = Map.of("settings", MenuProfile.defaultSettingsStyle());
+    Map<String, MenuScreenSpec> screens = new LinkedHashMap<>();
+    screens.put("main", MenuProfile.defaultMainScreen());
+    screens.put("settings", new MenuScreenSpec(
+        "settings",
+        "",
+        "",
+        "",
+        "settings",
+        "settings",
+        true,
+        List.of(
+            new MenuItemSpec(
+                "skip_unread",
+                "Unseen Text",
+                "settings",
+                null,
+                true,
+                MenuActionSpec.noop(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of("showValue", "false"),
+                null,
+                null,
+                null
+            )
+        )
+    ));
+
+    SettingsScene scene = new SettingsScene(new VnSettings(), null, new MenuProfile("main", screens, layouts, styles), "settings");
+
+    assertArrayEquals(new String[] { "Unseen Text" }, scene.getDisplayItems());
+  }
+
+  @Test
   void settingsPreferPrimaryControlsAndCarryThemAcrossTabSwitches() {
     Map<String, MenuLayoutSpec> layouts = Map.of("settings", MenuProfile.defaultSettingsLayout());
     Map<String, MenuStyleSpec> styles = Map.of("settings", MenuProfile.defaultSettingsStyle());

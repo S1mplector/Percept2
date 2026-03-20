@@ -33,6 +33,7 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
+import com.jvn.fx.ui.ProjectFontResolver;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -1427,17 +1428,17 @@ public class VnRenderer {
     String nameFontFamily = resolved.nameTextFontFamily() != null ? resolved.nameTextFontFamily() : DEFAULT_FONT_FAMILY;
     int nameFontSize = resolved.nameTextFontSize() != null ? resolved.nameTextFontSize() : DEFAULT_NAME_FONT_SIZE;
     FontWeight nameFontWeight = parseFontWeight(resolved.nameTextFontWeight(), FontWeight.BOLD);
-    this.nameFont = Font.font(nameFontFamily, nameFontWeight, nameFontSize);
+    this.nameFont = ProjectFontResolver.resolve(projectRoot, nameFontFamily, nameFontWeight, nameFontSize, DEFAULT_FONT_FAMILY);
 
     String dialogueFontFamily = resolved.dialogueTextFontFamily() != null ? resolved.dialogueTextFontFamily() : DEFAULT_FONT_FAMILY;
     int dialogueFontSize = resolved.dialogueTextFontSize() != null ? resolved.dialogueTextFontSize() : DEFAULT_DIALOGUE_FONT_SIZE;
     FontWeight dialogueFontWeight = parseFontWeight(resolved.dialogueTextFontWeight(), FontWeight.NORMAL);
-    this.dialogueFont = Font.font(dialogueFontFamily, dialogueFontWeight, dialogueFontSize);
+    this.dialogueFont = ProjectFontResolver.resolve(projectRoot, dialogueFontFamily, dialogueFontWeight, dialogueFontSize, DEFAULT_FONT_FAMILY);
 
     String choiceFontFamily = resolved.choiceFontFamily() != null ? resolved.choiceFontFamily() : DEFAULT_FONT_FAMILY;
     int choiceFontSize = resolved.choiceFontSize() != null ? resolved.choiceFontSize() : DEFAULT_CHOICE_FONT_SIZE;
     FontWeight choiceFontWeightVal = parseFontWeight(resolved.choiceFontWeight(), FontWeight.NORMAL);
-    this.choiceFont = Font.font(choiceFontFamily, choiceFontWeightVal, choiceFontSize);
+    this.choiceFont = ProjectFontResolver.resolve(projectRoot, choiceFontFamily, choiceFontWeightVal, choiceFontSize, DEFAULT_FONT_FAMILY);
 
     // Name box opacity
     this.nameBoxRenderOpacity = clamp(

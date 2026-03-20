@@ -23,6 +23,7 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
+import com.jvn.fx.ui.ProjectFontResolver;
 
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
@@ -1572,21 +1573,21 @@ public class DialogueLayoutEditorView extends BorderPane {
   private Font resolveNamePreviewFont(double scale) {
     String family = normalizeFontFamily(style.nameTextFontFamily(), DEFAULT_FONT_FAMILY);
     double size = clamp(style.nameTextFontSize() == null ? DEFAULT_NAME_FONT_SIZE : style.nameTextFontSize(), 6, 220);
-    return Font.font(family, FontWeight.BOLD, size * scale);
+    return ProjectFontResolver.resolve(projectRoot, family, FontWeight.BOLD, size * scale, DEFAULT_FONT_FAMILY);
   }
 
   private Font resolveDialoguePreviewFont() { return resolveDialoguePreviewFont(1.0); }
   private Font resolveDialoguePreviewFont(double scale) {
     String family = normalizeFontFamily(style.dialogueTextFontFamily(), DEFAULT_FONT_FAMILY);
     double size = clamp(style.dialogueTextFontSize() == null ? DEFAULT_DIALOGUE_FONT_SIZE : style.dialogueTextFontSize(), 6, 220);
-    return Font.font(family, FontWeight.NORMAL, size * scale);
+    return ProjectFontResolver.resolve(projectRoot, family, FontWeight.NORMAL, size * scale, DEFAULT_FONT_FAMILY);
   }
 
   private Font resolveChoicePreviewFont() { return resolveChoicePreviewFont(1.0); }
   private Font resolveChoicePreviewFont(double scale) {
     String family = normalizeFontFamily(style.choiceFontFamily(), DEFAULT_FONT_FAMILY);
     double size = clamp(style.choiceFontSize() == null ? DEFAULT_CHOICE_FONT_SIZE : style.choiceFontSize(), 6, 220);
-    return Font.font(family, FontWeight.NORMAL, size * scale);
+    return ProjectFontResolver.resolve(projectRoot, family, FontWeight.NORMAL, size * scale, DEFAULT_FONT_FAMILY);
   }
 
   private static String normalizeFontFamily(String raw, String fallback) {

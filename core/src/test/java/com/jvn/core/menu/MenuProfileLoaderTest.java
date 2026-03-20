@@ -227,6 +227,36 @@ class MenuProfileLoaderTest {
   }
 
   @Test
+  void settingsMenuTargetsAreNotFlaggedAsUnused() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-settings-target-");
+    Files.createDirectories(root.resolve("config/menu/menus"));
+    Files.writeString(root.resolve("config/menu/menu.registry"), """
+        defaultMenu=settings
+        menus=settings,settings_audio
+        """);
+    Files.writeString(root.resolve("config/menu/menus/settings.menu"), """
+        layout=settings
+        defaultItemStyle=settings
+        items=audio_tab
+        item.audio_tab.label=Audio
+        item.audio_tab.action=settings_menu
+        item.audio_tab.target=settings_audio
+        """);
+    Files.writeString(root.resolve("config/menu/menus/settings_audio.menu"), """
+        layout=settings
+        defaultItemStyle=settings
+        items=back
+        item.back.label=Back
+        item.back.action=back
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfileLoader.LoadResult result = MenuProfileLoader.loadWithDiagnostics(assets);
+
+    assertTrue(result.diagnostics().stream().noneMatch(d -> d.contains("unused action target")));
+  }
+
+  @Test
   void fallsBackToNoopForUnknownAction() throws Exception {
     Path root = Files.createTempDirectory("jvn-menu-unknown-action-");
     Files.createDirectories(root.resolve("config/menu/menus"));

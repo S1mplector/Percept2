@@ -110,6 +110,7 @@ public final class MenuProfileValidator {
         }
         if (!action.isCustomAction()
             && action.type() != MenuActionType.OPEN_MENU
+            && action.type() != MenuActionType.SETTINGS_MENU
             && action.type() != MenuActionType.RUN_SCRIPT
             && action.type() != MenuActionType.QUIT
             && action.target() != null
