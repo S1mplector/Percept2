@@ -26,6 +26,12 @@ class KeyframeEditorNudgeTest {
     }
 
     @Test
+    void curveNudgeStepSupportsFineAndLargeAdjustments() {
+        assertEquals(0.01, KeyframeEditor.resolveCurveNudgeStep(false));
+        assertEquals(0.05, KeyframeEditor.resolveCurveNudgeStep(true));
+    }
+
+    @Test
     void editableCurveSpecPreservesCustomBezierValues() {
         EasingSpec custom = EasingSpec.cubicBezier(0.2, 0.8, 0.4, 1.0);
 

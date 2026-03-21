@@ -39,12 +39,18 @@ public class KeyframeEditor extends VBox {
     private final Button btnEditCurve;
     private final Button btnUpdateCurvePreset;
     private final Button btnExpandCurveEditor;
+    private final Button btnResetCurve;
     private final Button btnDelete;
     private final Button btnResetValue;
     private final Label lblCameraState;
     private final Label lblCurvePresetHint;
+    private final Label lblCurveInteractionHint;
     private final Label lblTimeStepHint;
     private final Label lblValueStepHint;
+    private final TextField tfCurveX1;
+    private final TextField tfCurveY1;
+    private final TextField tfCurveX2;
+    private final TextField tfCurveY2;
     private final EasingCurveEditor curveEditor;
     private final PuppeteerEasingPresetLibraryPanel presetLibraryPanel;
     private final GridPane pivotPresetsGrid;
@@ -116,6 +122,7 @@ public class KeyframeEditor extends VBox {
     private boolean curveEditorExpanded = false;
     private String activePresetEditId;
     private String activePresetEditName;
+    private EasingSpec curveEditBaselineSpec = EasingSpec.cubicBezier(0.25, 0.10, 0.25, 1.00);
     private Runnable onKeyframeChanged;
     private Runnable onDeleteRequested;
     private java.util.function.BiConsumer<Double, Double> onPivotPresetApplied;
@@ -193,20 +200,32 @@ public class KeyframeEditor extends VBox {
         btnExpandCurveEditor = new Button("Expand");
         btnExpandCurveEditor.setTooltip(new Tooltip("Grow the curve editor inside the left panel"));
         btnExpandCurveEditor.setStyle(SECONDARY_BUTTON_STYLE);
+        btnResetCurve = new Button("Reset Curve");
+        btnResetCurve.setTooltip(new Tooltip("Reset the editable curve back to the easing you started from"));
+        btnResetCurve.setStyle(SECONDARY_BUTTON_STYLE);
         lblCurvePresetHint = new Label();
         lblCurvePresetHint.setStyle(SUBTLE_HINT_STYLE);
         lblCurvePresetHint.setWrapText(true);
+        lblCurveInteractionHint = new Label();
+        lblCurveInteractionHint.setStyle(SUBTLE_HINT_STYLE);
+        lblCurveInteractionHint.setWrapText(true);
 
         lblTimeStepHint = new Label();
         lblTimeStepHint.setStyle(SUBTLE_HINT_STYLE);
         lblValueStepHint = new Label();
         lblValueStepHint.setStyle(SUBTLE_HINT_STYLE);
 
+        tfCurveX1 = createCurveParamField("x1", "First control point X. Use Up/Down or mouse wheel to nudge.");
+        tfCurveY1 = createCurveParamField("y1", "First control point Y. Hold Shift for larger nudges.");
+        tfCurveX2 = createCurveParamField("x2", "Second control point X. Use Up/Down or mouse wheel to nudge.");
+        tfCurveY2 = createCurveParamField("y2", "Second control point Y. Hold Shift for larger nudges.");
+
         presetLibraryPanel = new PuppeteerEasingPresetLibraryPanel();
         presetLibraryPanel.setCurrentSpecSupplier(this::resolveEditorEasingSpec);
         presetLibraryPanel.setSelectedEntrySupplier(cbEasing::getSelectedEntry);
         presetLibraryPanel.setOnPresetApplied(spec -> {
             applyExplicitEasingSpec(spec);
+            syncCurveEditBaseline(spec);
             syncPresetEditSessionFromSelection(false);
             refreshPresetUiState();
             if (onKeyframeChanged != null) onKeyframeChanged.run();
@@ -265,9 +284,7 @@ public class KeyframeEditor extends VBox {
         curveEditor = new EasingCurveEditor();
         curveEditor.setOnBezierChanged(params -> {
             if (currentKeyframe != null && currentKeyframe.getEasing() == Easing.Type.CUSTOM) {
-                currentKeyframe.setBezierParams(params[0], params[1], params[2], params[3]);
-                cbEasing.setCurrentSpec(currentKeyframe.getEasingSpec());
-                if (onKeyframeChanged != null) onKeyframeChanged.run();
+                applyCurveSpec(EasingSpec.cubicBezier(params[0], params[1], params[2], params[3]), true);
             }
         });
 
@@ -301,10 +318,20 @@ public class KeyframeEditor extends VBox {
         HBox curveToolbar = new HBox(8, new Label("Curve Workspace"), createSpacer(), btnEditCurve, btnUpdateCurvePreset, btnExpandCurveEditor);
         curveToolbar.setAlignment(Pos.CENTER_LEFT);
         ((Label) curveToolbar.getChildren().get(0)).setStyle(SECTION_TITLE_STYLE);
-        VBox curveSection = new VBox(8, curveToolbar, lblCurvePresetHint, curveEditor);
+        HBox curveParamsRow = new HBox(
+            8,
+            buildLabeledControl("x1", tfCurveX1),
+            buildLabeledControl("y1", tfCurveY1),
+            buildLabeledControl("x2", tfCurveX2),
+            buildLabeledControl("y2", tfCurveY2),
+            createSpacer(),
+            btnResetCurve
+        );
+        curveParamsRow.setAlignment(Pos.BOTTOM_LEFT);
+        VBox.setVgrow(curveEditor, Priority.ALWAYS);
+        VBox curveSection = new VBox(8, curveToolbar, lblCurvePresetHint, curveParamsRow, lblCurveInteractionHint, curveEditor);
         curveSection.setStyle(SECTION_STYLE);
         curveSection.setMaxWidth(Double.MAX_VALUE);
-        VBox.setVgrow(curveEditor, Priority.ALWAYS);
 
         lblCameraState = new Label("X 0.0  Y 0.0  Z 1.00");
         lblCameraState.setStyle("-fx-text-fill: #d5b27f; -fx-font-size: 11px; -fx-font-family: monospace;");
@@ -370,6 +397,10 @@ public class KeyframeEditor extends VBox {
         tfValueOffset.setOnAction(e -> applyBatchOffsets());
         installNudgeHandlers(tfTime, true, this::nudgeTimeField);
         installNudgeHandlers(tfValue, false, this::nudgeValueField);
+        installCurveParamHandlers(tfCurveX1, 0);
+        installCurveParamHandlers(tfCurveY1, 1);
+        installCurveParamHandlers(tfCurveX2, 2);
+        installCurveParamHandlers(tfCurveY2, 3);
         cbInterpolation.setOnAction(e -> {
             applyChanges();
             updateCurveEditorState();
@@ -377,6 +408,7 @@ public class KeyframeEditor extends VBox {
 
         cbEasing.setOnAction(e -> {
             applyChanges();
+            syncCurveEditBaseline(resolveEditorEasingSpec());
             syncPresetEditSessionFromSelection(false);
             refreshCurveEditorPreview();
             updateCurveEditorState();
@@ -387,6 +419,7 @@ public class KeyframeEditor extends VBox {
         });
         btnEditCurve.setOnAction(e -> beginCurveEdit());
         btnUpdateCurvePreset.setOnAction(e -> updateActivePresetFromCurve());
+        btnResetCurve.setOnAction(e -> resetCurveToBaseline());
         btnExpandCurveEditor.setOnAction(e -> setCurveEditorExpanded(!curveEditorExpanded, true));
 
         sliderTime.valueProperty().addListener((obs, oldV, newV) -> {
@@ -461,6 +494,19 @@ public class KeyframeEditor extends VBox {
         VBox box = new VBox(5, titleLabel, control);
         box.setMaxWidth(Double.MAX_VALUE);
         return box;
+    }
+
+    private TextField createCurveParamField(String prompt, String tooltipText) {
+        TextField field = new TextField();
+        field.setPromptText(prompt);
+        field.setPrefWidth(72);
+        field.setStyle(FIELD_STYLE);
+        field.setTooltip(new Tooltip(tooltipText));
+        field.setOnAction(e -> applyCurveParameterFields());
+        field.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) applyCurveParameterFields();
+        });
+        return field;
     }
 
     private VBox buildEditorRow(String title, String subtitle, Node editorNode, Label stepHint) {
@@ -554,6 +600,7 @@ public class KeyframeEditor extends VBox {
         this.currentProperty = property;
 
         if (kf == null) {
+            syncCurveEditBaseline(EasingSpec.of(Easing.Type.LINEAR));
             clearPresetEditSession();
             lblProperty.setText("-");
             tfTime.setText("");
@@ -569,6 +616,7 @@ public class KeyframeEditor extends VBox {
             showPivotPresets(false);
             showBatchEditor(false);
         } else {
+            syncCurveEditBaseline(kf.getEasingSpec());
             showEmptyState(false);
             lblProperty.setText(property != null ? property.getDisplayName() : "-");
             tfTime.setText(String.format("%.0f", kf.getTimeMs()));
@@ -608,6 +656,7 @@ public class KeyframeEditor extends VBox {
 
         currentKeyframe = null;
         currentProperty = property;
+        syncCurveEditBaseline(resolveSharedEasingSpec(currentSelection));
         showEmptyState(false);
         lblProperty.setText(property != null ? property.getDisplayName() : "Mixed");
         lblSelectionSummary.setText(currentSelection.size() + " keyframes selected. Interpolation and easing changes apply to the full selection.");
@@ -687,6 +736,16 @@ public class KeyframeEditor extends VBox {
         return selected;
     }
 
+    private void syncCurveEditBaseline(EasingSpec spec) {
+        curveEditBaselineSpec = toEditableCurveSpec(spec);
+    }
+
+    private void applyCurveSpec(EasingSpec spec, boolean notifyChange) {
+        if (spec == null || currentKeyframe == null || currentSelection.size() > 1) return;
+        applyExplicitEasingSpec(spec);
+        if (notifyChange && onKeyframeChanged != null) onKeyframeChanged.run();
+    }
+
     private void applyExplicitEasingSpec(EasingSpec spec) {
         EasingSpec resolved = spec != null ? spec : EasingSpec.of(Easing.Type.LINEAR);
         boolean priorUpdating = updatingUi;
@@ -701,6 +760,7 @@ public class KeyframeEditor extends VBox {
         } else if (currentKeyframe != null) {
             currentKeyframe.setEasingSpec(resolved);
         }
+        syncCurveParameterFields(resolveCurveParams(resolved));
         updatingUi = priorUpdating;
         refreshCurveEditorPreview();
         updateCurveEditorState();
@@ -719,9 +779,20 @@ public class KeyframeEditor extends VBox {
         }
 
         EasingSpec editable = toEditableCurveSpec(resolveEditorEasingSpec());
+        syncCurveEditBaseline(editable);
         applyExplicitEasingSpec(editable);
         if (onKeyframeChanged != null) onKeyframeChanged.run();
         refreshPresetUiState();
+    }
+
+    private void resetCurveToBaseline() {
+        if (currentSelection.size() > 1 || currentKeyframe == null) return;
+        if (cbInterpolation.getValue() != Easing.Interpolation.TWEEN) return;
+        EasingSpec baseline = curveEditBaselineSpec != null
+            ? curveEditBaselineSpec
+            : toEditableCurveSpec(resolveEditorEasingSpec());
+        applyExplicitEasingSpec(baseline);
+        if (onKeyframeChanged != null) onKeyframeChanged.run();
     }
 
     private void updateActivePresetFromCurve() {
@@ -729,6 +800,7 @@ public class KeyframeEditor extends VBox {
         EasingSpec current = resolveEditorEasingSpec();
         EasingSpec editable = current.getType() == Easing.Type.CUSTOM ? current : toEditableCurveSpec(current);
         if (cbEasing.updatePreset(activePresetEditId, activePresetEditName, editable)) {
+            syncCurveEditBaseline(editable);
             presetLibraryPanel.reloadLibrary();
             syncPresetEditSessionFromSelection(true);
             refreshCurveEditorPreview();
@@ -839,8 +911,28 @@ public class KeyframeEditor extends VBox {
         });
     }
 
+    private void installCurveParamHandlers(TextField field, int parameterIndex) {
+        if (field == null) return;
+        field.setOnKeyPressed(event -> {
+            if (event.getCode() != KeyCode.UP && event.getCode() != KeyCode.DOWN) return;
+            double step = resolveCurveNudgeStep(event.isShiftDown());
+            nudgeCurveParameterField(parameterIndex, event.getCode() == KeyCode.UP ? step : -step);
+            event.consume();
+        });
+        field.setOnScroll(event -> {
+            if (Math.abs(event.getDeltaY()) < 0.001) return;
+            double step = resolveCurveNudgeStep(event.isShiftDown());
+            nudgeCurveParameterField(parameterIndex, event.getDeltaY() > 0 ? step : -step);
+            event.consume();
+        });
+    }
+
     static double resolveTimeNudgeStep(boolean large) {
         return large ? 50.0 : 10.0;
+    }
+
+    static double resolveCurveNudgeStep(boolean large) {
+        return large ? 0.05 : 0.01;
     }
 
     private double resolveValueNudgeStep(boolean large) {
@@ -872,6 +964,42 @@ public class KeyframeEditor extends VBox {
         applyChanges();
     }
 
+    private void nudgeCurveParameterField(int parameterIndex, double delta) {
+        if (!isCurveParameterEditingEnabled()) return;
+        TextField field = curveParamField(parameterIndex);
+        if (field == null) return;
+        double[] params = curveEditor.getBezierParams();
+        double current = parameterIndex >= 0 && parameterIndex < params.length
+            ? params[parameterIndex]
+            : 0.0;
+        double next = clampCurveParam(parameterIndex, parseOrFallback(field.getText(), current) + delta);
+        field.setText(formatCurveParam(next));
+        applyCurveParameterFields();
+    }
+
+    private void applyCurveParameterFields() {
+        if (updatingUi || !isCurveParameterEditingEnabled()) return;
+        double[] current = curveEditor.getBezierParams();
+        double[] next = current.clone();
+        TextField[] fields = curveParamFields();
+        boolean hasError = false;
+
+        for (int i = 0; i < fields.length; i++) {
+            TextField field = fields[i];
+            try {
+                double value = clampCurveParam(i, Double.parseDouble(field.getText().trim()));
+                next[i] = value;
+                field.setText(formatCurveParam(value));
+                setFieldError(field, false);
+            } catch (NumberFormatException ex) {
+                setFieldError(field, true);
+                hasError = true;
+            }
+        }
+        if (hasError) return;
+        applyCurveSpec(EasingSpec.cubicBezier(next[0], next[1], next[2], next[3]), true);
+    }
+
     private double parseOrFallback(String raw, double fallback) {
         if (raw == null || raw.isBlank()) return fallback;
         try {
@@ -883,6 +1011,62 @@ public class KeyframeEditor extends VBox {
 
     private String formatValue(double value) {
         return String.format("%.2f", value);
+    }
+
+    private String formatCurveParam(double value) {
+        return String.format("%.3f", value);
+    }
+
+    private double[] resolveCurveParams(EasingSpec spec) {
+        EasingSpec editable = toEditableCurveSpec(spec);
+        return Easing.coerceParameters(Easing.Type.CUSTOM, editable.getParameters());
+    }
+
+    private TextField[] curveParamFields() {
+        return new TextField[]{ tfCurveX1, tfCurveY1, tfCurveX2, tfCurveY2 };
+    }
+
+    private TextField curveParamField(int parameterIndex) {
+        return switch (parameterIndex) {
+            case 0 -> tfCurveX1;
+            case 1 -> tfCurveY1;
+            case 2 -> tfCurveX2;
+            case 3 -> tfCurveY2;
+            default -> null;
+        };
+    }
+
+    private boolean isCurveParameterEditingEnabled() {
+        return currentKeyframe != null
+            && currentSelection.size() <= 1
+            && cbInterpolation.getValue() == Easing.Interpolation.TWEEN
+            && resolveEditorEasingSpec().getType() == Easing.Type.CUSTOM;
+    }
+
+    private void syncCurveParameterFields(double[] params) {
+        double[] resolved = params != null && params.length == 4
+            ? params
+            : Easing.coerceParameters(Easing.Type.CUSTOM, null);
+        boolean priorUpdating = updatingUi;
+        updatingUi = true;
+        try {
+            tfCurveX1.setText(formatCurveParam(resolved[0]));
+            tfCurveY1.setText(formatCurveParam(resolved[1]));
+            tfCurveX2.setText(formatCurveParam(resolved[2]));
+            tfCurveY2.setText(formatCurveParam(resolved[3]));
+            for (TextField field : curveParamFields()) {
+                setFieldError(field, false);
+            }
+        } finally {
+            updatingUi = priorUpdating;
+        }
+    }
+
+    private static double clampCurveParam(int parameterIndex, double value) {
+        return switch (parameterIndex) {
+            case 0, 2 -> Math.max(0.0, Math.min(1.0, value));
+            default -> Math.max(-0.5, Math.min(1.5, value));
+        };
     }
 
     private void syncTimeSliderBounds(double timeMs) {
@@ -934,11 +1118,15 @@ public class KeyframeEditor extends VBox {
         btnEditCurve.setDisable(disabled);
         btnUpdateCurvePreset.setDisable(disabled);
         btnExpandCurveEditor.setDisable(disabled);
+        btnResetCurve.setDisable(disabled);
         btnDelete.setDisable(disabled);
         btnResetValue.setDisable(disabled);
         tfTimeOffset.setDisable(disabled);
         tfValueOffset.setDisable(disabled);
         btnApplyBatch.setDisable(disabled);
+        for (TextField field : curveParamFields()) {
+            field.setDisable(disabled);
+        }
         if (!disabled) {
             updateCurveEditorState();
         }
@@ -1027,24 +1215,28 @@ public class KeyframeEditor extends VBox {
             ? cbInterpolation.getValue()
             : Easing.Interpolation.TWEEN;
         curveEditor.setInterpolation(mode);
+        EasingSpec current = resolveEditorEasingSpec();
         boolean tween = mode == Easing.Interpolation.TWEEN;
-        boolean curveInteractive = tween
-            && currentKeyframe != null
-            && currentSelection.size() <= 1
-            && resolveEditorEasingSpec().getType() == Easing.Type.CUSTOM;
-        btnExpandCurveEditor.setDisable(!curveInteractive);
+        boolean hasPreview = currentKeyframe != null || currentSelection.size() > 1;
+        boolean singleKeyframe = currentKeyframe != null && currentSelection.size() <= 1;
+        boolean customCurve = singleKeyframe && tween && current.getType() == Easing.Type.CUSTOM;
+
         if (currentSelection.size() > 1) {
             cbEasing.setDisable(!tween);
-            curveEditor.setDisable(true);
-            curveEditor.setOpacity(0.45);
-            refreshCurveActionState();
-            return;
-        }
-        if (currentKeyframe != null) {
+        } else if (currentKeyframe != null) {
             cbEasing.setDisable(!tween);
         }
-        curveEditor.setDisable(currentKeyframe == null || !curveInteractive);
-        curveEditor.setOpacity(tween ? 1.0 : 0.88);
+
+        syncCurveParameterFields(resolveCurveParams(current));
+        for (TextField field : curveParamFields()) {
+            field.setDisable(!customCurve);
+        }
+        btnResetCurve.setDisable(!customCurve);
+        btnExpandCurveEditor.setDisable(!hasPreview);
+        curveEditor.setDisable(!hasPreview);
+        curveEditor.setOpacity(!hasPreview ? 0.55 : customCurve ? 1.0 : tween ? 0.96 : 0.90);
+        lblCurveInteractionHint.setText(resolveCurveInteractionHint(hasPreview, singleKeyframe, tween, customCurve));
+        curveEditor.setHelperText(resolveCurveCanvasHint(hasPreview, singleKeyframe, tween, customCurve));
         refreshCurveActionState();
     }
 
@@ -1117,17 +1309,55 @@ public class KeyframeEditor extends VBox {
         }
         if (activePresetEditId != null && activePresetEditName != null) {
             if (customCurve) {
-                lblCurvePresetHint.setText("Editing preset '" + activePresetEditName + "'. Drag the handles, then click Update Preset.");
+                lblCurvePresetHint.setText("Editing preset '" + activePresetEditName + "'. Drag handles or type exact values, then click Update Preset.");
             } else {
                 lblCurvePresetHint.setText("Preset '" + activePresetEditName + "' is selected. Click Make Editable to tweak it.");
             }
             return;
         }
         if (customCurve) {
-            lblCurvePresetHint.setText("Drag the red and green handles below to shape the curve.");
+            lblCurvePresetHint.setText("Drag the red and green handles below or use x1/y1/x2/y2 for exact control.");
             return;
         }
         lblCurvePresetHint.setText("Click Make Editable to convert the current easing into a cubic bezier you can drag.");
+    }
+
+    private String resolveCurveInteractionHint(boolean hasPreview,
+                                               boolean singleKeyframe,
+                                               boolean tween,
+                                               boolean customCurve) {
+        if (!hasPreview) {
+            return "Select a keyframe to preview easing curves here.";
+        }
+        if (!singleKeyframe) {
+            return "Preview only. Multi-selection shows the shared curve or a fallback. Select one keyframe to edit handles.";
+        }
+        if (!tween) {
+            return "Preview only. HOLD and STEP are inspectable here, but editable handles only apply to TWEEN.";
+        }
+        if (customCurve) {
+            return "Precise controls are live. Shift-drag or Shift-nudge snaps in 0.05 increments.";
+        }
+        return "Preview only. Click Make Editable to turn this easing into a draggable cubic bezier.";
+    }
+
+    private String resolveCurveCanvasHint(boolean hasPreview,
+                                          boolean singleKeyframe,
+                                          boolean tween,
+                                          boolean customCurve) {
+        if (!hasPreview) {
+            return "Select a keyframe to preview a curve.";
+        }
+        if (!singleKeyframe) {
+            return "Preview only for multi-selection.";
+        }
+        if (!tween) {
+            return "Preview only for non-tween interpolation.";
+        }
+        if (customCurve) {
+            return "Drag handles. Shift snaps to 0.05.";
+        }
+        return "Hover to inspect. Click Make Editable to drag handles.";
     }
 
     private void syncPresetEditSessionFromSelection(boolean preserveCurrent) {
