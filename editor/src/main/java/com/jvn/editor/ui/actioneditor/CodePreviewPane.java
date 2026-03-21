@@ -34,15 +34,19 @@ public class CodePreviewPane extends VBox {
         setSpacing(10);
         setPadding(new Insets(12, 14, 12, 14));
         setStyle("-fx-background-color: #1a1a1a;");
-        setMinWidth(300);
+        setMinWidth(0);
+        setPrefWidth(340);
 
         Label header = new Label("Timeline Code");
         header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
+        header.setMinWidth(0);
 
         lblStatus = new Label("Auto-generated");
         lblStatus.setStyle("-fx-text-fill: #555; -fx-font-size: 9px;");
+        lblStatus.setMinWidth(0);
 
         jesEditor = new JesCodeEditor();
+        jesEditor.setMinWidth(0);
         jesEditor.setOnTextChanged(text -> {
             if (!suppressManualEditTracking) {
                 markManuallyEdited();
@@ -88,9 +92,11 @@ public class CodePreviewPane extends VBox {
 
         HBox buttonRow = new HBox(10, btnCopy, btnRegenerate, btnPreviewApply, btnCommitPreview, btnDiscardPreview);
         buttonRow.setAlignment(Pos.CENTER_RIGHT);
+        buttonRow.setMinWidth(0);
 
         lblDiagnostics = new Label("");
         lblDiagnostics.setWrapText(true);
+        lblDiagnostics.setMinWidth(0);
         lblDiagnostics.setMaxWidth(Double.MAX_VALUE);
         lblDiagnostics.setStyle("-fx-text-fill: #888; -fx-font-size: 10px; -fx-padding: 4 0 0 0;");
         lblDiagnostics.setVisible(false);

@@ -18,9 +18,10 @@ import javafx.scene.text.Font;
  * draggable, allowing the user to define a custom cubic-bezier(cx1,cy1,cx2,cy2) curve.
  */
 public class EasingCurveEditor extends Pane {
-    private static final double COMPACT_WIDTH = 180;
+    private static final double COMPACT_WIDTH = 520;
     private static final double COMPACT_HEIGHT = 140;
     private static final double EXPANDED_HEIGHT = 320;
+    private static final double MIN_WIDTH = 240;
 
     private static final double PADDING = 20;
     private static final double HANDLE_RADIUS = 5;
@@ -109,8 +110,9 @@ public class EasingCurveEditor extends Pane {
         double prefHeight = expanded ? EXPANDED_HEIGHT : COMPACT_HEIGHT;
         double minHeight = expanded ? 220 : 80;
         setPrefSize(COMPACT_WIDTH, prefHeight);
-        setMinSize(100, minHeight);
-        setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        setMinSize(MIN_WIDTH, minHeight);
+        setMaxWidth(expanded ? Double.MAX_VALUE : COMPACT_WIDTH);
+        setMaxHeight(Double.MAX_VALUE);
         draw();
     }
 

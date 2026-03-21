@@ -103,7 +103,8 @@ public class KeyframeEditor extends VBox {
     private static final String BADGE_MULTI_STYLE =
         "-fx-background-color: #2f2a21; -fx-text-fill: #f0d89b; -fx-border-color: #736040; " +
         "-fx-border-radius: 999; -fx-background-radius: 999; -fx-padding: 4 10; -fx-font-size: 10px; -fx-font-weight: bold;";
-    private static final double EDITOR_WORKING_WIDTH = 700.0;
+    private static final double EDITOR_WORKING_WIDTH = 600.0;
+    private static final double EDITOR_VIEWPORT_WIDTH = 624.0;
 
     private final Label lblEmptyHint;
     private final VBox contentBox;
@@ -338,6 +339,10 @@ public class KeyframeEditor extends VBox {
         editorBody.setMaxWidth(EDITOR_WORKING_WIDTH);
 
         ScrollPane editorScrollPane = new ScrollPane(editorBody);
+        editorScrollPane.setMinWidth(0);
+        editorScrollPane.setPrefViewportWidth(EDITOR_WORKING_WIDTH);
+        editorScrollPane.setPrefWidth(EDITOR_VIEWPORT_WIDTH);
+        editorScrollPane.setMaxWidth(EDITOR_VIEWPORT_WIDTH);
         editorScrollPane.setFitToWidth(false);
         editorScrollPane.setFitToHeight(false);
         editorScrollPane.setPannable(true);
