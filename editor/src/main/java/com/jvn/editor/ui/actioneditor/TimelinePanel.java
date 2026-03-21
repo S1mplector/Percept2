@@ -29,7 +29,14 @@ public class TimelinePanel extends VBox {
     private static final double TRACK_HEIGHT = 24;
     private static final double HEADER_HEIGHT = 30;
     private static final double LABEL_WIDTH = 140;
-    private static final PropertyType[] GROUP_PROPERTIES = {PropertyType.X, PropertyType.Y};
+    private static final PropertyType[] GROUP_PROPERTIES = {
+        PropertyType.X,
+        PropertyType.Y,
+        PropertyType.ROTATION,
+        PropertyType.SCALE_X,
+        PropertyType.SCALE_Y,
+        PropertyType.ALPHA
+    };
     private static final Color BG_COLOR = Color.web("#121212");
     private static final Color GRID_COLOR = Color.web("#2a2a2a");
     private static final Color PLAYHEAD_COLOR = Color.web("#f38ba8");
@@ -983,8 +990,8 @@ public class TimelinePanel extends VBox {
         KeyframeSelectionModel.KeyframeRef primary =
             KeyframeSelectionModel.ref(row.entityName(), row.property(), keyframe);
         selectionModel.select(primary);
-        if (!row.group() && (row.property() == PropertyType.X || row.property() == PropertyType.Y)) {
-            PropertyType paired = row.property() == PropertyType.X ? PropertyType.Y : PropertyType.X;
+        PropertyType paired = pairedProperty(row.property());
+        if (paired != null) {
             Keyframe linked = row.track().findKeyframeAt(paired, keyframe.getTimeMs());
             if (linked != null) {
                 selectionModel.select(KeyframeSelectionModel.ref(row.entityName(), paired, linked));
@@ -1047,7 +1054,15 @@ public class TimelinePanel extends VBox {
     }
 
     private static boolean isGroupProperty(PropertyType property) {
-        return property == PropertyType.X || property == PropertyType.Y;
+        return AnimationProject.isGroupProperty(property);
+    }
+
+    private static PropertyType pairedProperty(PropertyType property) {
+        if (property == PropertyType.X) return PropertyType.Y;
+        if (property == PropertyType.Y) return PropertyType.X;
+        if (property == PropertyType.SCALE_X) return PropertyType.SCALE_Y;
+        if (property == PropertyType.SCALE_Y) return PropertyType.SCALE_X;
+        return null;
     }
 
     private PropertyType resolveSelectionProperty(TrackRow row) {
@@ -1098,7 +1113,7 @@ public class TimelinePanel extends VBox {
 
     private PropertyType[] editablePropertiesForSelection() {
         if (!selectedGroup) return PropertyType.values();
-        return new PropertyType[]{PropertyType.X, PropertyType.Y};
+        return GROUP_PROPERTIES.clone();
     }
 
     private double snapTime(double timeMs) {

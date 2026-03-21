@@ -1376,21 +1376,6 @@ public class EditorApp extends Application {
     btnApply.setOnAction(e -> applyCodeFromEditor());
     Button btnFullscreen = new Button("Fullscreen");
     btnFullscreen.setOnAction(e -> toggleActiveEditorFullscreen());
-    Button btnWelcome = new Button("Welcome");
-    btnWelcome.getStyleClass().add("main-editor-nav-button");
-    btnWelcome.setOnAction(e -> selectWelcomeTab());
-    Button btnProject = new Button("Project");
-    btnProject.getStyleClass().add("main-editor-nav-button");
-    btnProject.setOnAction(e -> selectProjectTab());
-    Button btnTimeline = new Button("Timeline");
-    btnTimeline.getStyleClass().add("main-editor-nav-button");
-    btnTimeline.setOnAction(e -> selectTimelineTab());
-    Button btnInspector = new Button("Inspector");
-    btnInspector.getStyleClass().add("main-editor-nav-button");
-    btnInspector.setOnAction(e -> selectInspectorTab());
-    Button btnHelp = new Button("Help");
-    btnHelp.getStyleClass().add("main-editor-nav-button");
-    btnHelp.setOnAction(e -> selectHelpTab());
 
     btnOpen.setGraphic(icon("icon", "icon-open"));
     btnOpen.setContentDisplay(ContentDisplay.RIGHT);
@@ -1434,20 +1419,10 @@ public class EditorApp extends Application {
     btnRedo.setTooltip(new Tooltip("Redo (Shift+Cmd+Z)"));
     btnApply.setTooltip(new Tooltip("Apply current JES/VNS editor text to the preview (Cmd+Enter)"));
     btnFullscreen.setTooltip(new Tooltip("Toggle editor fullscreen layout (F11)"));
-    btnWelcome.setTooltip(new Tooltip("Open Welcome Center"));
-    btnProject.setTooltip(new Tooltip("Focus Project Explorer"));
-    btnTimeline.setTooltip(new Tooltip("Focus Story Timeline"));
-    btnInspector.setTooltip(new Tooltip("Focus Inspector"));
-    btnHelp.setTooltip(new Tooltip("Focus Help Center"));
 
     HBox actionRow = new HBox(8, btnOpen, btnSave, btnRunProject, btnUndo, btnRedo, btnApply, btnFullscreen);
     actionRow.getStyleClass().add("main-editor-action-row");
-    Label navLabel = new Label("Jump");
-    navLabel.getStyleClass().add("main-editor-nav-label");
-    HBox navRow = new HBox(8, navLabel, btnWelcome, btnProject, btnTimeline, btnInspector, btnHelp);
-    navRow.getStyleClass().add("main-editor-nav-row");
-    VBox toolRows = new VBox(6, actionRow, navRow);
-    HBox.setHgrow(toolRows, Priority.ALWAYS);
+    HBox.setHgrow(actionRow, Priority.ALWAYS);
 
     Runnable refreshChrome = () -> {
       FileEditorTab ft = getActiveFileTab();
@@ -1510,7 +1485,7 @@ public class EditorApp extends Application {
     logoBox.setAlignment(Pos.CENTER_RIGHT);
     logoBox.getStyleClass().add("jvn-wordmark-box");
     logoBox.getChildren().addAll(wordmark, verLabel);
-    toolbar.setLeft(toolRows);
+    toolbar.setLeft(actionRow);
 
     VBox perfBox = new VBox(4, perf, perfGraph.getCanvas());
     perfBox.setAlignment(Pos.CENTER);
@@ -4772,6 +4747,9 @@ public class EditorApp extends Application {
       puppeteer.setTimelineName(preferredTimelineName);
     }
     FileEditorTab ft = getActiveFileTab();
+    if (ft != null) {
+      puppeteer.setSourceScriptFile(ft.getFile());
+    }
 
     if (ft != null && ft.getJesScene() != null) {
       puppeteer.setScene(ft.getJesScene());
@@ -4891,6 +4869,9 @@ public class EditorApp extends Application {
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
     if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
     FileEditorTab ft = getActiveFileTab();
+    if (ft != null) {
+      puppeteer.setSourceScriptFile(ft.getFile());
+    }
     if (ft != null && ft.getJesScene() != null) {
       puppeteer.setScene(ft.getJesScene());
     }

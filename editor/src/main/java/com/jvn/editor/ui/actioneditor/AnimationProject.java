@@ -263,18 +263,49 @@ public class AnimationProject {
     }
 
     public void captureInitialSnapshot() {
-        initialSnapshot = new LinkedHashMap<>();
+        Map<String, Map<PropertyType, Double>> snapshot = new LinkedHashMap<>();
         for (Map.Entry<String, EntityTrack> entry : entityTracks.entrySet()) {
             Map<PropertyType, Double> props = new LinkedHashMap<>();
             for (PropertyType p : PropertyType.values()) {
                 props.put(p, entry.getValue().getValueAt(p, 0));
             }
-            initialSnapshot.put(entry.getKey(), props);
+            snapshot.put(entry.getKey(), props);
         }
+        setInitialSnapshot(snapshot);
     }
 
     public Map<String, Map<PropertyType, Double>> getInitialSnapshot() {
         return initialSnapshot;
+    }
+
+    public void setInitialSnapshot(Map<String, Map<PropertyType, Double>> snapshot) {
+        if (snapshot == null || snapshot.isEmpty()) {
+            initialSnapshot = null;
+            return;
+        }
+        Map<String, Map<PropertyType, Double>> copy = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<PropertyType, Double>> entry : snapshot.entrySet()) {
+            String entityName = entry.getKey();
+            if (entityName == null || entityName.isBlank()) continue;
+            Map<PropertyType, Double> source = entry.getValue();
+            Map<PropertyType, Double> props = new LinkedHashMap<>();
+            if (source != null) {
+                for (Map.Entry<PropertyType, Double> propEntry : source.entrySet()) {
+                    PropertyType property = propEntry.getKey();
+                    Double value = propEntry.getValue();
+                    if (property == null || value == null || !Double.isFinite(value)) continue;
+                    props.put(property, value);
+                }
+            }
+            copy.put(entityName, props);
+        }
+        initialSnapshot = copy.isEmpty() ? null : copy;
+    }
+
+    public Double getInitialSnapshotValue(String entityName, PropertyType property) {
+        if (initialSnapshot == null || entityName == null || property == null) return null;
+        Map<PropertyType, Double> values = initialSnapshot.get(entityName);
+        return values != null ? values.get(property) : null;
     }
 
     public EntityTrack getTrack(String entityName) { return entityTracks.get(entityName); }
@@ -339,20 +370,28 @@ public class AnimationProject {
         EntityGroup g = groups.remove(name);
         rootGroupNames.remove(name);
         if (g != null) {
+            EntityGroup parent = g.hasParent() ? groups.get(g.getParentGroupName()) : null;
             if (g.hasParent()) {
-                EntityGroup parent = groups.get(g.getParentGroupName());
                 if (parent != null) parent.removeChildGroup(name);
             }
-        for (String child : g.getChildEntityNames()) {
-            EntityTrack t = entityTracks.get(child);
-            if (t != null) {
-                t.setParentGroupName(null);
-                if (!rootEntityNames.contains(child)) rootEntityNames.add(child);
+            for (String child : g.getChildEntityNames()) {
+                EntityTrack t = entityTracks.get(child);
+                if (t == null) continue;
+                if (parent != null) {
+                    t.setParentGroupName(parent.getName());
+                    parent.addChildEntity(child);
+                } else {
+                    t.setParentGroupName(null);
+                    if (!rootEntityNames.contains(child)) rootEntityNames.add(child);
                 }
             }
             for (String childGroup : g.getChildGroupNames()) {
                 EntityGroup cg = groups.get(childGroup);
-                if (cg != null) {
+                if (cg == null) continue;
+                if (parent != null) {
+                    cg.setParentGroupName(parent.getName());
+                    parent.addChildGroup(childGroup);
+                } else {
                     cg.setParentGroupName(null);
                     if (!rootGroupNames.contains(childGroup)) rootGroupNames.add(childGroup);
                 }
@@ -364,6 +403,15 @@ public class AnimationProject {
 
     public List<String> getRootEntityNames() { return Collections.unmodifiableList(rootEntityNames); }
     public List<String> getRootGroupNames() { return Collections.unmodifiableList(rootGroupNames); }
+
+    public static boolean isGroupProperty(PropertyType property) {
+        return property == PropertyType.X
+            || property == PropertyType.Y
+            || property == PropertyType.ROTATION
+            || property == PropertyType.SCALE_X
+            || property == PropertyType.SCALE_Y
+            || property == PropertyType.ALPHA;
+    }
 
     public void addEntityToGroup(String entityName, String groupName) {
         EntityTrack track = entityTracks.get(entityName);
@@ -405,12 +453,18 @@ public class AnimationProject {
         }
     }
 
+    public boolean canAddGroupToGroup(String childGroupName, String parentGroupName) {
+        EntityGroup child = groups.get(childGroupName);
+        EntityGroup parent = groups.get(parentGroupName);
+        if (child == null || parent == null) return false;
+        if (childGroupName.equals(parentGroupName)) return false;
+        return !wouldCreateCycle(parentGroupName, childGroupName);
+    }
+
     public void addGroupToGroup(String childGroupName, String parentGroupName) {
         EntityGroup child = groups.get(childGroupName);
         EntityGroup parent = groups.get(parentGroupName);
-        if (child == null || parent == null || childGroupName.equals(parentGroupName)) return;
-
-        if (wouldCreateCycle(parentGroupName, childGroupName)) return;
+        if (!canAddGroupToGroup(childGroupName, parentGroupName)) return;
 
         String oldParent = child.getParentGroupName();
         if (oldParent != null) {
@@ -421,6 +475,71 @@ public class AnimationProject {
 
         child.setParentGroupName(parentGroupName);
         parent.addChildGroup(childGroupName);
+    }
+
+    public boolean renameGroup(String currentName, String nextName) {
+        if (currentName == null || currentName.isBlank() || nextName == null || nextName.isBlank()) return false;
+        if (currentName.equals(nextName)) return true;
+        EntityGroup source = groups.get(currentName);
+        if (source == null || groups.containsKey(nextName)) return false;
+
+        EntityGroup renamed = new EntityGroup(nextName);
+        renamed.setParentGroupName(source.getParentGroupName());
+        renamed.setExpanded(source.isExpanded());
+        renamed.setLayerOrder(source.getLayerOrder());
+        for (String childEntity : source.getChildEntityNames()) {
+            renamed.addChildEntity(childEntity);
+        }
+        for (String childGroup : source.getChildGroupNames()) {
+            renamed.addChildGroup(childGroup);
+        }
+
+        EntityTrack sourceTrack = source.getGroupTrack();
+        EntityTrack renamedTrack = renamed.getGroupTrack();
+        renamedTrack.setExpanded(sourceTrack.isExpanded());
+        renamedTrack.setVisible(sourceTrack.isVisible());
+        renamedTrack.setLayerOrder(sourceTrack.getLayerOrder());
+        for (PropertyType property : PropertyType.values()) {
+            List<Keyframe> sourceKeyframes = sourceTrack.getKeyframes(property);
+            if (sourceKeyframes.isEmpty()) continue;
+            List<Keyframe> copied = new ArrayList<>();
+            for (Keyframe keyframe : sourceKeyframes) {
+                copied.add(keyframe.copy());
+            }
+            renamedTrack.setKeyframes(property, copied);
+        }
+
+        LinkedHashMap<String, EntityGroup> updated = new LinkedHashMap<>();
+        for (Map.Entry<String, EntityGroup> entry : groups.entrySet()) {
+            if (currentName.equals(entry.getKey())) {
+                updated.put(nextName, renamed);
+            } else {
+                updated.put(entry.getKey(), entry.getValue());
+            }
+        }
+        groups.clear();
+        groups.putAll(updated);
+        replaceName(rootGroupNames, currentName, nextName);
+
+        if (source.hasParent()) {
+            EntityGroup parent = groups.get(source.getParentGroupName());
+            if (parent != null) {
+                parent.replaceChildGroup(currentName, nextName);
+            }
+        }
+        for (String childEntity : source.getChildEntityNames()) {
+            EntityTrack track = entityTracks.get(childEntity);
+            if (track != null) {
+                track.setParentGroupName(nextName);
+            }
+        }
+        for (String childGroup : source.getChildGroupNames()) {
+            EntityGroup child = groups.get(childGroup);
+            if (child != null) {
+                child.setParentGroupName(nextName);
+            }
+        }
+        return true;
     }
 
     private boolean wouldCreateCycle(String current, String proposedAncestor) {
@@ -436,17 +555,35 @@ public class AnimationProject {
     }
 
     public double computeValueAt(String entityName, PropertyType property, double timeMs) {
+        return computeValueAt(entityName, property, timeMs, property != null ? property.getDefaultValue() : 0.0);
+    }
+
+    public double computeValueAt(String entityName, PropertyType property, double timeMs, double fallbackLocalValue) {
         EntityTrack track = entityTracks.get(entityName);
-        if (track == null) return property.getDefaultValue();
+        if (track == null) return fallbackLocalValue;
 
-        double localValue = track.getValueAt(property, timeMs);
+        double localValue = track.hasKeyframes(property)
+            ? track.getValueAt(property, timeMs)
+            : fallbackLocalValue;
 
-        if (track.hasParent() && property.isEntityProperty() && 
-            (property == PropertyType.X || property == PropertyType.Y)) {
+        if (track.hasParent() && property.isEntityProperty() && isAdditiveGroupProperty(property)) {
             double parentValue = computeGroupValueAt(track.getParentGroupName(), property, timeMs);
             return localValue + parentValue;
         }
+        if (track.hasParent() && property.isEntityProperty() && isMultiplicativeGroupProperty(property)) {
+            double parentValue = computeGroupValueAt(track.getParentGroupName(), property, timeMs);
+            return localValue * parentValue;
+        }
         return localValue;
+    }
+
+    public boolean hasEffectiveAnimation(String entityName, PropertyType property) {
+        EntityTrack track = entityTracks.get(entityName);
+        if (track == null || property == null) return false;
+        if (track.hasKeyframes(property)) return true;
+        return track.hasParent()
+            && property.isEntityProperty()
+            && hasGroupAnimation(track.getParentGroupName(), property);
     }
 
     public int computeEffectiveLayerOrder(String entityName) {
@@ -473,14 +610,22 @@ public class AnimationProject {
     }
 
     private double computeGroupValueAt(String groupName, PropertyType property, double timeMs) {
-        double value = 0;
+        double value = isMultiplicativeGroupProperty(property) ? 1.0 : 0.0;
         java.util.Set<String> visited = new java.util.HashSet<>();
         String cursor = groupName;
         while (cursor != null) {
             if (!visited.add(cursor)) break;
             EntityGroup group = groups.get(cursor);
             if (group == null) break;
-            value += group.getGroupTrack().getValueAt(property, timeMs);
+            EntityTrack groupTrack = group.getGroupTrack();
+            if (groupTrack.hasKeyframes(property)) {
+                double current = groupTrack.getValueAt(property, timeMs);
+                if (isMultiplicativeGroupProperty(property)) {
+                    value *= current;
+                } else {
+                    value += current;
+                }
+            }
             cursor = group.getParentGroupName();
         }
         return value;
@@ -528,6 +673,7 @@ public class AnimationProject {
         }
         copy.rootEntityNames.addAll(rootEntityNames);
         copy.rootGroupNames.addAll(rootGroupNames);
+        copy.setInitialSnapshot(initialSnapshot);
         return copy;
     }
 
@@ -636,6 +782,45 @@ public class AnimationProject {
         this.setOrbitAnchors(other.getOrbitAnchorsView());
         this.setOrbitAnchorSources(other.getOrbitAnchorSourcesView());
         this.setOrbitAnchorSourceOffsets(other.getOrbitAnchorSourceOffsetsView());
+        this.setInitialSnapshot(other.initialSnapshot);
+    }
+
+    private boolean hasGroupAnimation(String groupName, PropertyType property) {
+        if (!isGroupProperty(property)) return false;
+        Set<String> visited = new HashSet<>();
+        String cursor = groupName;
+        while (cursor != null && visited.add(cursor)) {
+            EntityGroup group = groups.get(cursor);
+            if (group == null) break;
+            if (group.getGroupTrack().hasKeyframes(property)) {
+                return true;
+            }
+            cursor = group.getParentGroupName();
+        }
+        return false;
+    }
+
+    private static boolean isAdditiveGroupProperty(PropertyType property) {
+        return property == PropertyType.X
+            || property == PropertyType.Y
+            || property == PropertyType.ROTATION;
+    }
+
+    private static boolean isMultiplicativeGroupProperty(PropertyType property) {
+        return property == PropertyType.SCALE_X
+            || property == PropertyType.SCALE_Y
+            || property == PropertyType.ALPHA;
+    }
+
+    private static void replaceName(List<String> values, String currentName, String nextName) {
+        if (values == null || currentName == null || nextName == null || currentName.equals(nextName)) return;
+        int index = values.indexOf(currentName);
+        if (index < 0) return;
+        if (values.contains(nextName)) {
+            values.remove(index);
+            return;
+        }
+        values.set(index, nextName);
     }
 
     private static TimelineData.Property mapProperty(PropertyType p) {

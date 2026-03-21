@@ -47,6 +47,16 @@ public class EntityGroup {
         }
     }
     public void removeChildGroup(String groupName) { childGroupNames.remove(groupName); }
+    public void replaceChildGroup(String currentName, String nextName) {
+        if (currentName == null || nextName == null || currentName.equals(nextName)) return;
+        int index = childGroupNames.indexOf(currentName);
+        if (index < 0) return;
+        if (childGroupNames.contains(nextName)) {
+            childGroupNames.remove(index);
+            return;
+        }
+        childGroupNames.set(index, nextName);
+    }
 
     public boolean hasChildren() {
         return !childEntityNames.isEmpty() || !childGroupNames.isEmpty();

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -63,6 +64,14 @@ import javafx.stage.Stage;
 
 public class PuppeteerWindow extends Stage {
     private static final double LEFT_LIBRARY_WORKING_WIDTH = 360.0;
+    private static final List<PropertyType> GROUP_PROPERTY_CHOICES = List.of(
+        PropertyType.X,
+        PropertyType.Y,
+        PropertyType.ROTATION,
+        PropertyType.SCALE_X,
+        PropertyType.SCALE_Y,
+        PropertyType.ALPHA
+    );
 
     private final AnimationProject project;
     private JesScene2D scene;
@@ -226,17 +235,22 @@ public class PuppeteerWindow extends Stage {
             if (selectedProp != null && cbProperty != null && cbProperty.getValue() != selectedProp) {
                 cbProperty.setValue(selectedProp);
             }
+            refreshPropertyPickerChoices();
             refreshSidebarTabs();
         });
 
         entitySelector.setOnSelectionChanged((name, isGroup) -> {
             timelinePanel.setSelectedTarget(name, isGroup);
+            refreshPropertyPickerChoices();
         });
 
         entitySelector.setOnCreateGroup(groupName -> {
             this.project.getOrCreateGroup(groupName);
             entitySelector.refresh(this.project);
+            entitySelector.selectGroup(groupName);
+            timelinePanel.setSelectedTarget(groupName, true);
             timelinePanel.refresh();
+            updatePreview();
             refreshExportPreviewAndMarkDirty();
         });
 
@@ -247,6 +261,16 @@ public class PuppeteerWindow extends Stage {
                 this.project.addEntityToGroup(name, groupName);
             }
             entitySelector.refresh(this.project);
+            timelinePanel.refresh();
+            updatePreview();
+            refreshExportPreviewAndMarkDirty();
+        });
+
+        entitySelector.setOnRenameGroup((currentName, nextName) -> {
+            if (!this.project.renameGroup(currentName, nextName)) return;
+            entitySelector.refresh(this.project);
+            entitySelector.selectGroup(nextName);
+            timelinePanel.setSelectedTarget(nextName, true);
             timelinePanel.refresh();
             updatePreview();
             refreshExportPreviewAndMarkDirty();
@@ -533,7 +557,7 @@ public class PuppeteerWindow extends Stage {
 
         // --- Property target + snapping ---
         cbProperty = new ComboBox<>();
-        cbProperty.getItems().addAll(PropertyType.values());
+        cbProperty.getItems().setAll(PropertyType.values());
         cbProperty.setValue(PropertyType.X);
         cbProperty.setStyle(STYLE_TEXT_FIELD);
         cbProperty.setPrefWidth(130);
@@ -546,6 +570,7 @@ public class PuppeteerWindow extends Stage {
             }
         });
         timelinePanel.setSelectedProperty(PropertyType.X);
+        refreshPropertyPickerChoices();
 
         HBox propertyBox = new HBox(4, cbProperty);
         propertyBox.setAlignment(Pos.CENTER_LEFT);
@@ -1757,6 +1782,10 @@ public class PuppeteerWindow extends Stage {
         refreshSidebarTabs();
     }
 
+    public void setSourceScriptFile(java.io.File file) {
+        assetPicker.setScriptTargetFile(file);
+    }
+
     private void addAssetToScene(String relativePath, String suggestedName, PuppeteerAssetPlacementRole role) {
         if (relativePath == null || relativePath.isBlank()) return;
         if (scene == null) {
@@ -1928,6 +1957,23 @@ public class PuppeteerWindow extends Stage {
         refreshSidebarTabs();
     }
 
+    private void refreshPropertyPickerChoices() {
+        if (cbProperty == null || timelinePanel == null) return;
+        List<PropertyType> allowed = timelinePanel.isSelectedGroup()
+            ? GROUP_PROPERTY_CHOICES
+            : List.of(PropertyType.values());
+        if (!cbProperty.getItems().equals(allowed)) {
+            cbProperty.getItems().setAll(allowed);
+        }
+        PropertyType selected = timelinePanel.getSelectedProperty();
+        if (selected == null || !allowed.contains(selected)) {
+            selected = allowed.isEmpty() ? null : allowed.get(0);
+        }
+        if (selected != null && cbProperty.getValue() != selected) {
+            cbProperty.setValue(selected);
+        }
+    }
+
     private void updatePreview() {
         if (scene == null) return;
 
@@ -1963,44 +2009,50 @@ public class PuppeteerWindow extends Stage {
         for (EntityTrack track : project.getTracks()) {
             var entity = scene.find(track.getEntityName());
             if (entity == null) continue;
+            String entityName = track.getEntityName();
+            entity.setZ(project.computeEffectiveLayerOrder(entityName));
 
-            entity.setZ(project.computeEffectiveLayerOrder(track.getEntityName()));
+            double baseX = baselinePropertyValue(entityName, entity, PropertyType.X);
+            double baseY = baselinePropertyValue(entityName, entity, PropertyType.Y);
+            double x = project.hasEffectiveAnimation(entityName, PropertyType.X)
+                ? project.computeValueAt(entityName, PropertyType.X, time, baseX)
+                : baseX;
+            double y = project.hasEffectiveAnimation(entityName, PropertyType.Y)
+                ? project.computeValueAt(entityName, PropertyType.Y, time, baseY)
+                : baseY;
+            entity.setPosition(x, y);
 
-            if (track.hasKeyframes(PropertyType.X) || track.hasKeyframes(PropertyType.Y)) {
-                double x = track.hasKeyframes(PropertyType.X)
-                    ? project.computeValueAt(track.getEntityName(), PropertyType.X, time)
-                    : entity.getX();
-                double y = track.hasKeyframes(PropertyType.Y)
-                    ? project.computeValueAt(track.getEntityName(), PropertyType.Y, time)
-                    : entity.getY();
-                entity.setPosition(x, y);
-            }
-            if (track.hasKeyframes(PropertyType.PIVOT_X) || track.hasKeyframes(PropertyType.PIVOT_Y)) {
-                double pivotX = track.hasKeyframes(PropertyType.PIVOT_X)
-                    ? project.computeValueAt(track.getEntityName(), PropertyType.PIVOT_X, time)
-                    : getEntityPivotX(entity);
-                double pivotY = track.hasKeyframes(PropertyType.PIVOT_Y)
-                    ? project.computeValueAt(track.getEntityName(), PropertyType.PIVOT_Y, time)
-                    : getEntityPivotY(entity);
-                setEntityPivot(entity, pivotX, pivotY);
-            }
-            if (track.hasKeyframes(PropertyType.ROTATION)) {
-                double rot = project.computeValueAt(track.getEntityName(), PropertyType.ROTATION, time);
-                entity.setRotationDeg(rot);
-            }
-            if (track.hasKeyframes(PropertyType.SCALE_X) || track.hasKeyframes(PropertyType.SCALE_Y)) {
-                double sx = track.hasKeyframes(PropertyType.SCALE_X)
-                    ? project.computeValueAt(track.getEntityName(), PropertyType.SCALE_X, time)
-                    : entity.getScaleX();
-                double sy = track.hasKeyframes(PropertyType.SCALE_Y)
-                    ? project.computeValueAt(track.getEntityName(), PropertyType.SCALE_Y, time)
-                    : entity.getScaleY();
-                entity.setScale(sx, sy);
-            }
-            if (track.hasKeyframes(PropertyType.ALPHA)) {
-                double alpha = project.computeValueAt(track.getEntityName(), PropertyType.ALPHA, time);
-                setEntityAlpha(entity, alpha);
-            }
+            double basePivotX = baselinePropertyValue(entityName, entity, PropertyType.PIVOT_X);
+            double basePivotY = baselinePropertyValue(entityName, entity, PropertyType.PIVOT_Y);
+            double pivotX = project.hasEffectiveAnimation(entityName, PropertyType.PIVOT_X)
+                ? project.computeValueAt(entityName, PropertyType.PIVOT_X, time, basePivotX)
+                : basePivotX;
+            double pivotY = project.hasEffectiveAnimation(entityName, PropertyType.PIVOT_Y)
+                ? project.computeValueAt(entityName, PropertyType.PIVOT_Y, time, basePivotY)
+                : basePivotY;
+            setEntityPivot(entity, pivotX, pivotY);
+
+            double baseRotation = baselinePropertyValue(entityName, entity, PropertyType.ROTATION);
+            double rotation = project.hasEffectiveAnimation(entityName, PropertyType.ROTATION)
+                ? project.computeValueAt(entityName, PropertyType.ROTATION, time, baseRotation)
+                : baseRotation;
+            entity.setRotationDeg(rotation);
+
+            double baseScaleX = baselinePropertyValue(entityName, entity, PropertyType.SCALE_X);
+            double baseScaleY = baselinePropertyValue(entityName, entity, PropertyType.SCALE_Y);
+            double scaleX = project.hasEffectiveAnimation(entityName, PropertyType.SCALE_X)
+                ? project.computeValueAt(entityName, PropertyType.SCALE_X, time, baseScaleX)
+                : baseScaleX;
+            double scaleY = project.hasEffectiveAnimation(entityName, PropertyType.SCALE_Y)
+                ? project.computeValueAt(entityName, PropertyType.SCALE_Y, time, baseScaleY)
+                : baseScaleY;
+            entity.setScale(scaleX, scaleY);
+
+            double baseAlpha = baselinePropertyValue(entityName, entity, PropertyType.ALPHA);
+            double alpha = project.hasEffectiveAnimation(entityName, PropertyType.ALPHA)
+                ? project.computeValueAt(entityName, PropertyType.ALPHA, time, baseAlpha)
+                : baseAlpha;
+            setEntityAlpha(entity, alpha);
         }
 
         animationPreview.render();
@@ -2014,6 +2066,18 @@ public class PuppeteerWindow extends Stage {
             l.setColor(l.getColorR(), l.getColorG(), l.getColorB(), alpha);
         else if (entity instanceof com.jvn.core.scene2d.Panel2D p)
             p.setFill(p.getFillR(), p.getFillG(), p.getFillB(), alpha);
+    }
+
+    private double baselinePropertyValue(com.jvn.core.scene2d.Entity2D entity, PropertyType property) {
+        return baselinePropertyValue(null, entity, property);
+    }
+
+    private double baselinePropertyValue(String entityName, com.jvn.core.scene2d.Entity2D entity, PropertyType property) {
+        Double initialValue = entityName != null ? project.getInitialSnapshotValue(entityName, property) : null;
+        if (initialValue != null && Double.isFinite(initialValue)) {
+            return initialValue;
+        }
+        return fallbackPropertyValue(entity, property);
     }
 
     private static double getEntityPivotX(com.jvn.core.scene2d.Entity2D entity) {
@@ -2875,7 +2939,23 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void captureProjectSnapshotBaseline() {
-        project.captureInitialSnapshot();
+        if (scene == null) {
+            project.captureInitialSnapshot();
+            return;
+        }
+        Map<String, Map<PropertyType, Double>> snapshot = new LinkedHashMap<>();
+        for (String entityName : scene.names()) {
+            if (entityName == null || entityName.isBlank()) continue;
+            var entity = scene.find(entityName);
+            if (entity == null) continue;
+            Map<PropertyType, Double> props = new EnumMap<>(PropertyType.class);
+            for (PropertyType property : PropertyType.values()) {
+                if (!property.isEntityProperty()) continue;
+                props.put(property, baselinePropertyValue(entity, property));
+            }
+            snapshot.put(entityName, props);
+        }
+        project.setInitialSnapshot(snapshot);
     }
 
     private Set<String> knownSceneEntities() {
@@ -3140,8 +3220,17 @@ public class PuppeteerWindow extends Stage {
             case PIVOT_X -> getEntityPivotX(entity);
             case PIVOT_Y -> getEntityPivotY(entity);
             case ROTATION -> entity.getRotationDeg();
+            case SCALE_X -> entity.getScaleX();
+            case SCALE_Y -> entity.getScaleY();
+            case ALPHA -> getEntityAlpha(entity);
             default -> property.getDefaultValue();
         };
+    }
+
+    private static double getEntityAlpha(com.jvn.core.scene2d.Entity2D entity) {
+        if (entity instanceof com.jvn.core.scene2d.Sprite2D s) return s.getAlpha();
+        if (entity instanceof com.jvn.core.scene2d.Label2D l) return l.getAlpha();
+        return 1.0;
     }
 
     private String selectionLabel(String name, boolean group) {

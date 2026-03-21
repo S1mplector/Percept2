@@ -43,6 +43,7 @@ public class EntitySelector extends VBox {
     private Consumer<String> onCreateGroup;
     private BiConsumer<String, String> onAddToGroup;
     private AddToGroupRequest onAddSelectionToGroup;
+    private BiConsumer<String, String> onRenameGroup;
     private BiConsumer<String, Integer> onEntityLayerDelta;
     private BiConsumer<String, Integer> onGroupLayerDelta;
 
@@ -126,6 +127,7 @@ public class EntitySelector extends VBox {
     public void setOnCreateGroup(Consumer<String> callback) { this.onCreateGroup = callback; }
     public void setOnAddToGroup(BiConsumer<String, String> callback) { this.onAddToGroup = callback; }
     public void setOnAddSelectionToGroup(AddToGroupRequest callback) { this.onAddSelectionToGroup = callback; }
+    public void setOnRenameGroup(BiConsumer<String, String> callback) { this.onRenameGroup = callback; }
     public void setOnEntityLayerDelta(BiConsumer<String, Integer> callback) { this.onEntityLayerDelta = callback; }
     public void setOnGroupLayerDelta(BiConsumer<String, Integer> callback) { this.onGroupLayerDelta = callback; }
 
@@ -181,13 +183,14 @@ public class EntitySelector extends VBox {
     private void showCreateGroupOverlay() {
         groupPromptOverlay.showPrompt(
             "Create Group",
-            "Add a new entity group inside the current Puppeteer project.",
+            "Add a new entity group inside the current Puppeteer project. Existing names will get a numeric suffix.",
             "Group name",
             "NewGroup",
             "Create",
             name -> {
-                if (onCreateGroup != null && name != null && !name.isBlank()) {
-                    onCreateGroup.accept(name);
+                String resolvedName = resolveUniqueGroupName(name, null);
+                if (onCreateGroup != null && name != null && !resolvedName.isBlank()) {
+                    onCreateGroup.accept(resolvedName);
                 }
             });
     }
@@ -196,6 +199,14 @@ public class EntitySelector extends VBox {
         EntityGroup group = project.getGroup(groupName);
         TreeItem<String> item = new TreeItem<>(encodeGroupValue(groupName));
         item.setExpanded(group != null && group.isExpanded());
+        if (group != null) {
+            item.expandedProperty().addListener((obs, oldValue, newValue) -> {
+                EntityGroup current = project != null ? project.getGroup(groupName) : null;
+                if (current != null) {
+                    current.setExpanded(newValue);
+                }
+            });
+        }
 
         if (group != null) {
             for (String childGroup : group.getChildGroupNames()) {
@@ -256,16 +267,27 @@ public class EntitySelector extends VBox {
         String encoded = selected.getValue();
         String name = decodeTreeValue(encoded);
         boolean group = isEncodedGroupValue(encoded);
+        boolean hasParent = selectionHasParent(name, group);
 
         VBox menu = new VBox(8);
-        menu.getChildren().add(buildActionMenuButton("Add to Group", () -> showAddToGroupOverlay(name, group)));
         menu.getChildren().add(buildActionMenuButton(
-            group ? "Remove from Parent Group" : "Remove from Group",
-            () -> removeSelectionFromGroup(encoded)));
+            group ? "Wrap in New Parent Group" : "Wrap in New Group",
+            () -> showCreateParentGroupOverlay(name, group)));
+        if (group) {
+            menu.getChildren().add(buildActionMenuButton("Rename Group", () -> showRenameGroupOverlay(name)));
+        }
+        menu.getChildren().add(buildActionMenuButton(
+            group ? "Move Under Another Group" : "Add to Existing Group",
+            () -> showAddToGroupOverlay(name, group)));
+        if (hasParent) {
+            menu.getChildren().add(buildActionMenuButton(
+                group ? "Move Group to Root" : "Move to Root",
+                () -> removeSelectionFromGroup(encoded)));
+        }
         menu.getChildren().add(buildActionMenuButton("Raise Layer (+10)", () -> adjustLayerOrder(+10)));
         menu.getChildren().add(buildActionMenuButton("Lower Layer (-10)", () -> adjustLayerOrder(-10)));
         menu.getChildren().add(buildActionMenuButton(
-            group ? "Delete Group" : "Delete Entity",
+            group ? "Ungroup Container" : "Delete Entity",
             () -> deleteSelection(encoded)));
 
         actionOverlay.showDialog(
@@ -283,6 +305,13 @@ public class EntitySelector extends VBox {
         for (EntityGroup group : project.getGroups()) {
             if (group == null) continue;
             if (selectionName.equals(group.getName())) continue;
+            if (selectionIsGroup && !project.canAddGroupToGroup(selectionName, group.getName())) continue;
+            if (!selectionIsGroup) {
+                EntityTrack track = project.getTrack(selectionName);
+                if (track != null && group.getName().equals(track.getParentGroupName())) {
+                    continue;
+                }
+            }
             hasTargets = true;
             menu.getChildren().add(buildActionMenuButton(group.getName(), () -> {
                 if (onAddSelectionToGroup != null) {
@@ -294,7 +323,9 @@ public class EntitySelector extends VBox {
             }));
         }
         if (!hasTargets) {
-            Label empty = new Label("Create a group first to organize entities.");
+            Label empty = new Label(selectionIsGroup
+                ? "No valid parent groups are available for this group."
+                : "Create another group first to organize this entity.");
             empty.setWrapText(true);
             empty.setStyle("-fx-text-fill: #7f8796; -fx-font-size: 11px;");
             menu.getChildren().add(empty);
@@ -305,6 +336,49 @@ public class EntitySelector extends VBox {
             menu,
             ActionEditorDialogOverlay.ActionSpec.neutral("Back", this::showSelectionActionsOverlay).defaultFocus(true),
             ActionEditorDialogOverlay.ActionSpec.neutral("Close", actionOverlay::hideOverlay)
+        );
+    }
+
+    private void showCreateParentGroupOverlay(String selectionName, boolean selectionIsGroup) {
+        if (project == null || selectionName == null || selectionName.isBlank()) return;
+        String suggestedName = resolveUniqueGroupName(selectionName + "Group", null);
+        actionOverlay.hideOverlay();
+        groupPromptOverlay.showPrompt(
+            selectionIsGroup ? "Wrap Group in Parent Group" : "Wrap Entity in New Group",
+            "Create a new group and place the current selection inside it. Existing names will get a numeric suffix.",
+            "Group name",
+            suggestedName,
+            "Create",
+            requestedName -> {
+                String groupName = resolveUniqueGroupName(requestedName, null);
+                if (groupName.isBlank()) return;
+                if (onCreateGroup != null) {
+                    onCreateGroup.accept(groupName);
+                }
+                if (onAddSelectionToGroup != null) {
+                    onAddSelectionToGroup.accept(selectionName, selectionIsGroup, groupName);
+                } else if (!selectionIsGroup && onAddToGroup != null) {
+                    onAddToGroup.accept(selectionName, groupName);
+                }
+            }
+        );
+    }
+
+    private void showRenameGroupOverlay(String currentName) {
+        if (project == null || currentName == null || currentName.isBlank()) return;
+        actionOverlay.hideOverlay();
+        groupPromptOverlay.showPrompt(
+            "Rename Group",
+            "Update the group label across the hierarchy. Existing names will get a numeric suffix.",
+            "Group name",
+            currentName,
+            "Rename",
+            requestedName -> {
+                String nextName = resolveUniqueGroupName(requestedName, currentName);
+                if (onRenameGroup != null && !nextName.equals(currentName)) {
+                    onRenameGroup.accept(currentName, nextName);
+                }
+            }
         );
     }
 
@@ -418,6 +492,33 @@ public class EntitySelector extends VBox {
             if (onEntityLayerDelta != null) onEntityLayerDelta.accept(name, delta);
         }
         treeView.refresh();
+    }
+
+    private boolean selectionHasParent(String name, boolean group) {
+        if (project == null || name == null || name.isBlank()) return false;
+        if (group) {
+            EntityGroup entityGroup = project.getGroup(name);
+            return entityGroup != null && entityGroup.hasParent();
+        }
+        EntityTrack track = project.getTrack(name);
+        return track != null && track.hasParent();
+    }
+
+    private String resolveUniqueGroupName(String requestedName, String currentName) {
+        String base = requestedName == null ? "" : requestedName.trim();
+        if (base.isBlank()) {
+            base = "NewGroup";
+        }
+        if (project == null || base.equals(currentName) || project.getGroup(base) == null) {
+            return base;
+        }
+        int suffix = 2;
+        String candidate = base + "_" + suffix;
+        while (!candidate.equals(currentName) && project.getGroup(candidate) != null) {
+            suffix++;
+            candidate = base + "_" + suffix;
+        }
+        return candidate;
     }
 
     private class EntityTreeCell extends TreeCell<String> {

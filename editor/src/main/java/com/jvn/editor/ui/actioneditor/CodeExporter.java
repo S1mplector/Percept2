@@ -158,6 +158,8 @@ public class CodeExporter {
 
             collectPropertyEvents(events, groupName, gt, PropertyType.X, PropertyType.Y, "move");
             collectPropertyEvents(events, groupName, gt, PropertyType.ROTATION, null, "rotate");
+            collectPropertyEvents(events, groupName, gt, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale");
+            collectPropertyEvents(events, groupName, gt, PropertyType.ALPHA, null, "fade");
         }
 
         if (cameraTrack != null) {
