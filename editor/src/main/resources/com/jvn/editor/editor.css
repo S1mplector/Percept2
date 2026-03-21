@@ -1721,6 +1721,24 @@
   -fx-shape: "M9 8 L1 1 L1 15 Z";
 }
 
+.puppeteer-split-pane > .split-pane-divider {
+  -fx-background-color: #2b2722;
+  -fx-background-insets: 0;
+}
+
+.puppeteer-split-pane:horizontal > .split-pane-divider {
+  -fx-padding: 0 2 0 2;
+}
+
+.puppeteer-split-pane:vertical > .split-pane-divider {
+  -fx-padding: 2 0 2 0;
+}
+
+.puppeteer-split-pane > .split-pane-divider:hover {
+  -fx-background-color: #3a3024;
+  -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.24), 12, 0.28, 0, 0);
+}
+
 /* Slider */
 .slider .track {
   -fx-background-color: #2a2a2a;

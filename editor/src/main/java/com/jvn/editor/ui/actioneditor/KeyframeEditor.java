@@ -103,7 +103,7 @@ public class KeyframeEditor extends VBox {
     private static final String BADGE_MULTI_STYLE =
         "-fx-background-color: #2f2a21; -fx-text-fill: #f0d89b; -fx-border-color: #736040; " +
         "-fx-border-radius: 999; -fx-background-radius: 999; -fx-padding: 4 10; -fx-font-size: 10px; -fx-font-weight: bold;";
-    private static final double EDITOR_WORKING_WIDTH = 760.0;
+    private static final double EDITOR_WORKING_WIDTH = 700.0;
 
     private final Label lblEmptyHint;
     private final VBox contentBox;

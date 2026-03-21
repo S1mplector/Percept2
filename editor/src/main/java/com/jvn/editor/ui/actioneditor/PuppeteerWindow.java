@@ -92,6 +92,7 @@ public class PuppeteerWindow extends Stage {
     private AnimatedToolbarPane toolbarPane;
     private ToggleButton btnToolbarDynamicMode;
     private ToggleButton btnToolbarCompactMode;
+    private ToggleButton btnCodePaneToggle;
     private Label statusBar;
     private Label viewportInfoLabel;
     private StackPane previewViewportHost;
@@ -102,6 +103,9 @@ public class PuppeteerWindow extends Stage {
     private Button btnFullscreenPlay;
     private Button btnFullscreenPause;
     private Label lblFullscreenTime;
+    private SplitPane leftWorkspaceSplit;
+    private SplitPane centerWorkspaceSplit;
+    private SplitPane mainWorkspaceSplit;
     private boolean dirty = false;
     private boolean compactExport = false;
     private boolean previewStaged = false;
@@ -110,6 +114,8 @@ public class PuppeteerWindow extends Stage {
     private TransformInteractionState activeTransformInteraction;
     private final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
     private boolean bypassCloseConfirmation = false;
+    private boolean codePaneVisible = true;
+    private double[] codePaneDividerPositions = new double[] {0.17, 0.78};
 
     private static final double MOVE_INTERACTION_EPSILON = 0.01;
     private static final PropertyType[] TRANSFORM_INTERACTION_PROPERTIES = {
@@ -791,10 +797,13 @@ public class PuppeteerWindow extends Stage {
                 setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.COMPACT);
             }
         });
+        btnCodePaneToggle = makeToolbarModeButton("Code Pane", "Show or hide the generated timeline code panel.");
+        btnCodePaneToggle.setSelected(true);
+        btnCodePaneToggle.setOnAction(e -> setCodePaneVisible(btnCodePaneToggle.isSelected()));
 
         Label toolbarModeLabel = new Label("Toolbar Layout");
         toolbarModeLabel.getStyleClass().add("puppeteer-toolbar-mode-label");
-        HBox toolbarModeBar = new HBox(8, toolbarModeLabel, btnToolbarDynamicMode, btnToolbarCompactMode);
+        HBox toolbarModeBar = new HBox(8, toolbarModeLabel, btnToolbarDynamicMode, btnToolbarCompactMode, btnCodePaneToggle);
         toolbarModeBar.getStyleClass().add("puppeteer-toolbar-mode-bar");
         toolbarModeBar.setAlignment(Pos.CENTER_LEFT);
         toolbarModeBar.setMaxWidth(Double.MAX_VALUE);
@@ -846,22 +855,24 @@ public class PuppeteerWindow extends Stage {
         leftTabsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         leftTabsScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
-        SplitPane leftPane = new SplitPane();
-        leftPane.setOrientation(Orientation.VERTICAL);
-        leftPane.getItems().addAll(leftTabsScrollPane, keyframeEditor);
-        leftPane.setDividerPositions(0.65);
+        leftWorkspaceSplit = new SplitPane();
+        leftWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
+        leftWorkspaceSplit.setOrientation(Orientation.VERTICAL);
+        leftWorkspaceSplit.getItems().addAll(leftTabsScrollPane, keyframeEditor);
+        leftWorkspaceSplit.setDividerPositions(0.65);
         final double[] collapsedKeyframeDivider = {0.65};
         keyframeEditor.setOnCurveEditorExpandedChanged(expanded -> {
             if (expanded) {
-                collapsedKeyframeDivider[0] = leftPane.getDividerPositions()[0];
-                leftPane.setDividerPositions(Math.min(collapsedKeyframeDivider[0], 0.42));
+                collapsedKeyframeDivider[0] = leftWorkspaceSplit.getDividerPositions()[0];
+                leftWorkspaceSplit.setDividerPositions(Math.min(collapsedKeyframeDivider[0], 0.42));
             } else {
-                leftPane.setDividerPositions(collapsedKeyframeDivider[0]);
+                leftWorkspaceSplit.setDividerPositions(collapsedKeyframeDivider[0]);
             }
         });
 
-        SplitPane centerPane = new SplitPane();
-        centerPane.setOrientation(Orientation.VERTICAL);
+        centerWorkspaceSplit = new SplitPane();
+        centerWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
+        centerWorkspaceSplit.setOrientation(Orientation.VERTICAL);
         viewportInfoLabel = new Label();
         viewportInfoLabel.setStyle("-fx-text-fill: #979797; -fx-font-size: 10px; -fx-padding: 3 8 5 8;");
         viewportInfoLabel.setTooltip(new Tooltip(
@@ -899,13 +910,14 @@ public class PuppeteerWindow extends Stage {
         BorderPane previewPane = new BorderPane(previewViewportHost);
         previewPane.setTop(viewportInfoLabel);
         previewPane.setStyle("-fx-background-color: #121212;");
-        centerPane.getItems().addAll(previewPane, timelinePanel);
-        centerPane.setDividerPositions(0.4);
+        centerWorkspaceSplit.getItems().addAll(previewPane, timelinePanel);
+        centerWorkspaceSplit.setDividerPositions(0.4);
 
-        SplitPane mainSplit = new SplitPane();
-        mainSplit.setOrientation(Orientation.HORIZONTAL);
-        mainSplit.getItems().addAll(leftPane, centerPane, codePreview);
-        mainSplit.setDividerPositions(0.17, 0.78);
+        mainWorkspaceSplit = new SplitPane();
+        mainWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
+        mainWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
+        mainWorkspaceSplit.getItems().addAll(leftWorkspaceSplit, centerWorkspaceSplit, codePreview);
+        mainWorkspaceSplit.setDividerPositions(codePaneDividerPositions);
 
         // --- Status bar with undo/redo labels ---
         statusBar = new Label("Ready");
@@ -916,7 +928,7 @@ public class PuppeteerWindow extends Stage {
 
         BorderPane root = new BorderPane();
         root.setTop(toolbarShell);
-        root.setCenter(mainSplit);
+        root.setCenter(mainWorkspaceSplit);
         root.setBottom(statusBar);
         root.setStyle("-fx-background-color: #121212;");
 
@@ -928,6 +940,7 @@ public class PuppeteerWindow extends Stage {
 
         setupKeyboardShortcuts(fxScene);
         setupPlaybackTimer();
+        setCodePaneVisible(true);
         tfTimelineName.textProperty().addListener((obs, ov, nv) -> setDirty(dirty));
         setDirty(false);
         setOnCloseRequest(e -> {
@@ -979,6 +992,39 @@ public class PuppeteerWindow extends Stage {
 
     public AnimatedToolbarPane.LayoutMode getToolbarLayoutMode() {
         return toolbarPane != null ? toolbarPane.getLayoutMode() : AnimatedToolbarPane.LayoutMode.DYNAMIC;
+    }
+
+    public void setCodePaneVisible(boolean visible) {
+        codePaneVisible = visible;
+        if (btnCodePaneToggle != null && btnCodePaneToggle.isSelected() != visible) {
+            btnCodePaneToggle.setSelected(visible);
+        }
+        if (codePreview != null) {
+            codePreview.setManaged(visible);
+            codePreview.setVisible(visible);
+        }
+        if (mainWorkspaceSplit == null) {
+            return;
+        }
+        if (visible) {
+            if (!mainWorkspaceSplit.getItems().contains(codePreview)) {
+                mainWorkspaceSplit.getItems().add(codePreview);
+            }
+            mainWorkspaceSplit.setDividerPositions(codePaneDividerPositions);
+            return;
+        }
+        if (mainWorkspaceSplit.getItems().contains(codePreview)) {
+            double[] positions = mainWorkspaceSplit.getDividerPositions();
+            if (positions.length >= 2) {
+                codePaneDividerPositions = positions.clone();
+            }
+            mainWorkspaceSplit.getItems().remove(codePreview);
+        }
+        mainWorkspaceSplit.setDividerPositions(0.5);
+    }
+
+    public boolean isCodePaneVisible() {
+        return codePaneVisible;
     }
 
     public void setToolbarClusterExpanded(String key, boolean expanded) {
