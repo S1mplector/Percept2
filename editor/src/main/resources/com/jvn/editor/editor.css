@@ -1121,6 +1121,80 @@
   -fx-padding: 0;
 }
 
+.puppeteer-preview-viewport-host {
+  -fx-background-color: #121212;
+}
+
+.puppeteer-preview-overlay-button {
+  -fx-background-color: rgba(8, 8, 8, 0.94);
+  -fx-text-fill: #f3f3f3;
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+  -fx-padding: 0 14 0 12;
+  -fx-border-color: rgba(188, 188, 188, 0.96);
+  -fx-border-width: 1.2;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.42), 14, 0.28, 0, 3);
+}
+
+.puppeteer-preview-overlay-button:hover {
+  -fx-background-color: rgba(28, 28, 28, 0.97);
+  -fx-border-color: rgba(232, 232, 232, 0.98);
+}
+
+.puppeteer-preview-overlay-button:pressed {
+  -fx-background-color: rgba(0, 0, 0, 0.97);
+}
+
+.puppeteer-preview-overlay-button .puppeteer-toolbar-icon {
+  -fx-opacity: 1;
+}
+
+.puppeteer-preview-fullscreen-root,
+.puppeteer-preview-fullscreen-viewport {
+  -fx-background-color: #050505;
+}
+
+.puppeteer-preview-fullscreen-transport {
+  -fx-background-color: rgba(14, 14, 14, 0.94);
+  -fx-border-color: rgba(112, 112, 112, 0.78);
+  -fx-border-width: 1;
+  -fx-border-radius: 18;
+  -fx-background-radius: 18;
+  -fx-padding: 10 14;
+}
+
+.puppeteer-preview-fullscreen-time {
+  -fx-text-fill: #f0f0f0;
+  -fx-font-size: 13px;
+  -fx-font-weight: 800;
+  -fx-min-width: 72;
+  -fx-alignment: center;
+}
+
+.puppeteer-preview-fullscreen-exit-button {
+  -fx-background-color: linear-gradient(to bottom, #2f2f2f, #232323);
+  -fx-text-fill: #f0f0f0;
+  -fx-background-radius: 999;
+  -fx-border-color: #5a5a5a;
+  -fx-border-radius: 999;
+  -fx-padding: 7 14;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.puppeteer-preview-fullscreen-exit-button:hover {
+  -fx-background-color: linear-gradient(to bottom, #3a3a3a, #2b2b2b);
+  -fx-border-color: #7b7b7b;
+}
+
+.puppeteer-preview-fullscreen-placeholder {
+  -fx-text-fill: #8a8a8a;
+  -fx-font-size: 12px;
+  -fx-font-weight: 600;
+}
+
 .asset-drop-active {
   -fx-border-color: #bababa;
   -fx-border-width: 1;
@@ -2281,6 +2355,22 @@
   -fx-padding: 2 0 0 0;
 }
 
+.phone-tool-root .phone-tool-metric-row {
+  -fx-padding: 1 0 0 0;
+}
+
+.phone-tool-root .phone-tool-metric-chip {
+  -fx-background-color: rgba(48, 48, 48, 0.92);
+  -fx-border-color: rgba(109, 109, 109, 0.55);
+  -fx-border-width: 1;
+  -fx-border-radius: 999;
+  -fx-background-radius: 999;
+  -fx-padding: 5 10 5 10;
+  -fx-text-fill: #e8e8e8;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
 .phone-tool-root .phone-tool-button {
   -fx-background-color: #282828;
   -fx-border-color: #404040;
@@ -2329,6 +2419,14 @@
   -fx-background-color: #282828;
 }
 
+.phone-tool-root .phone-tool-preview-host {
+  -fx-padding: 0;
+}
+
+.phone-tool-root .phone-tool-preview-card {
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.18), 14, 0.12, 0, 3);
+}
+
 .phone-tool-root .phone-tool-preview-frame {
   -fx-background-color:
       radial-gradient(center 50% 20%, radius 90%, rgba(67, 67, 67, 0.55), rgba(20, 20, 20, 0.96));
@@ -2337,6 +2435,29 @@
   -fx-border-radius: 18;
   -fx-background-radius: 18;
   -fx-padding: 12;
+}
+
+.phone-tool-root .phone-tool-preview-note {
+  -fx-font-size: 11px;
+  -fx-text-fill: #d3d3d3;
+}
+
+.phone-tool-root .phone-tool-workspace {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+.phone-tool-root .phone-tool-workspace > .split-pane-divider {
+  -fx-background-color: transparent;
+  -fx-padding: 3;
+}
+
+.phone-tool-root .phone-tool-workspace:horizontal > .split-pane-divider {
+  -fx-border-color: transparent rgba(120, 120, 120, 0.18) transparent rgba(120, 120, 120, 0.18);
+}
+
+.phone-tool-root .phone-tool-workspace:vertical > .split-pane-divider {
+  -fx-border-color: rgba(120, 120, 120, 0.18) transparent rgba(120, 120, 120, 0.18) transparent;
 }
 
 .phone-tool-root .phone-tool-field-label {
@@ -2413,6 +2534,16 @@
   -fx-text-fill: #f7f7f7;
 }
 
+.phone-tool-root .phone-tool-list-meta {
+  -fx-text-fill: #9d9d9d;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
+.phone-tool-root .phone-tool-filter-field {
+  -fx-pref-height: 34;
+}
+
 .phone-tool-root .phone-tool-scroll {
   -fx-background: transparent;
   -fx-background-color: transparent;
@@ -2439,6 +2570,25 @@
 
 .phone-tool-root .phone-tool-tabs > .tab-content-area {
   -fx-background-color: transparent;
+}
+
+.phone-tool-root .phone-tool-section-grid {
+  -fx-padding: 2 0 0 0;
+}
+
+.phone-tool-root .phone-tool-section-card {
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.14), 12, 0.1, 0, 2);
+}
+
+.phone-tool-root .phone-tool-section-card-title {
+  -fx-text-fill: #f2f2f2;
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+}
+
+.phone-tool-root .phone-tool-section-card-copy {
+  -fx-text-fill: #ababab;
+  -fx-font-size: 10px;
 }
 
 .phone-tool-root .phone-tool-empty {

@@ -21,8 +21,10 @@ import com.jvn.core.phone.VnPhoneData;
 import com.jvn.core.phone.VnPhonePropertiesCodec;
 import com.jvn.fx.phone.PhoneRenderer;
 
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -32,6 +34,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
@@ -39,6 +42,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -65,6 +69,10 @@ public class PhoneAssetsToolView extends BorderPane {
   private final Label statusLabel = new Label("");
   private final Label configPathLabel = new Label(CONFIG_PATH);
   private final Label dirtyLabel = new Label("Saved");
+  private final Label contactMetricLabel = metricChip("Contacts 0");
+  private final Label threadMetricLabel = metricChip("Threads 0");
+  private final Label messageMetricLabel = metricChip("Messages 0");
+  private final Label previewMetricLabel = metricChip("Preview Home");
 
   private final Button saveButton = headerButton("Save", CssIcon.save("#9ed67a"));
   private final Button refreshButton = headerButton("Refresh", CssIcon.redo("#7ec8e3"));
@@ -75,8 +83,10 @@ public class PhoneAssetsToolView extends BorderPane {
   private final StackPane previewFrame = new StackPane();
   private final Button previewHomeButton = headerButton("Preview Home", CssIcon.home("#9cc7ff"));
   private final Button previewChatButton = headerButton("Preview Chat", CssIcon.speech("#f5c46b"));
+  private final Label previewSelectionLabel = new Label("Previewing home list");
 
   private final TabPane sections = new TabPane();
+  private final SplitPane workspaceSplit = new SplitPane();
 
   private final TextField appTitleField = new TextField();
   private final TextField appSubtitleField = new TextField();
@@ -103,6 +113,8 @@ public class PhoneAssetsToolView extends BorderPane {
   private final TextField bubbleOutgoingImageField = new TextField();
 
   private final ListView<String> contactList = new ListView<>();
+  private final TextField contactFilterField = filterField("Filter contacts...");
+  private final Label contactCountLabel = new Label("0 contacts");
   private final TextField contactIdField = readonlyField();
   private final TextField contactNameField = new TextField();
   private final TextField contactAvatarField = new TextField();
@@ -111,6 +123,8 @@ public class PhoneAssetsToolView extends BorderPane {
   private final VBox contactForm = new VBox(10);
 
   private final ListView<String> chatList = new ListView<>();
+  private final TextField chatFilterField = filterField("Filter threads...");
+  private final Label chatCountLabel = new Label("0 threads");
   private final TextField chatIdField = readonlyField();
   private final TextField chatTitleField = new TextField();
   private final TextField chatParticipantsField = new TextField();
@@ -119,6 +133,8 @@ public class PhoneAssetsToolView extends BorderPane {
   private final VBox chatForm = new VBox(10);
 
   private final ListView<String> messageList = new ListView<>();
+  private final TextField messageFilterField = filterField("Filter messages...");
+  private final Label messageCountLabel = new Label("0 messages");
   private final Label messageIdLabel = new Label("No message selected");
   private final TextField messageSenderField = new TextField();
   private final TextField messageTimeField = new TextField();
@@ -266,6 +282,10 @@ public class PhoneAssetsToolView extends BorderPane {
 
     configPathLabel.getStyleClass().add("phone-tool-path");
     dirtyLabel.getStyleClass().addAll("phone-tool-chip", "is-saved");
+    contactMetricLabel.getStyleClass().add("phone-tool-metric-chip");
+    threadMetricLabel.getStyleClass().add("phone-tool-metric-chip");
+    messageMetricLabel.getStyleClass().add("phone-tool-metric-chip");
+    previewMetricLabel.getStyleClass().add("phone-tool-metric-chip");
 
     saveButton.getStyleClass().add("phone-tool-primary-button");
     saveButton.setOnAction(e -> saveConfig());
@@ -273,15 +293,23 @@ public class PhoneAssetsToolView extends BorderPane {
     importConfigButton.setOnAction(e -> importConfig());
     openConfigButton.setOnAction(e -> openConfigFile());
 
-    HBox pathRow = new HBox(8, new Label("Config"), configPathLabel, dirtyLabel);
+    Label configLabel = new Label("Config");
+    configLabel.getStyleClass().add("phone-tool-section-title");
+    HBox pathRow = new HBox(8, configLabel, configPathLabel);
     pathRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(configPathLabel, Priority.ALWAYS);
 
-    HBox actions = new HBox(8, refreshButton, importConfigButton, openConfigButton, saveButton);
+    HBox titleRow = new HBox(10, title, dirtyLabel);
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+
+    FlowPane metrics = new FlowPane(8, 8, contactMetricLabel, threadMetricLabel, messageMetricLabel, previewMetricLabel);
+    metrics.getStyleClass().add("phone-tool-metric-row");
+
+    FlowPane actions = new FlowPane(8, 8, refreshButton, importConfigButton, openConfigButton, saveButton);
     actions.setAlignment(Pos.CENTER_LEFT);
     actions.getStyleClass().add("phone-tool-actions");
 
-    VBox header = new VBox(8, title, summaryLabel, pathRow, actions);
+    VBox header = new VBox(10, titleRow, summaryLabel, metrics, pathRow, actions);
     header.getStyleClass().add("phone-tool-card");
     setTop(header);
     BorderPane.setMargin(header, new Insets(0, 0, 8, 0));
@@ -289,8 +317,8 @@ public class PhoneAssetsToolView extends BorderPane {
 
   private void buildCenter() {
     previewFrame.getStyleClass().add("phone-tool-preview-frame");
-    previewFrame.setPrefHeight(470);
-    previewFrame.setMinHeight(420);
+    previewFrame.setPrefHeight(390);
+    previewFrame.setMinHeight(320);
     previewFrame.setAlignment(Pos.CENTER);
     phoneRenderer.setEmbeddedPreview(true);
     phoneRenderer.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
@@ -301,6 +329,8 @@ public class PhoneAssetsToolView extends BorderPane {
     Label previewCopy = new Label("Uses the same JavaFX phone renderer as runtime and preview.");
     previewCopy.getStyleClass().add("phone-tool-help");
     previewCopy.setWrapText(true);
+    previewSelectionLabel.getStyleClass().add("phone-tool-preview-note");
+    previewSelectionLabel.setWrapText(true);
 
     previewHomeButton.setOnAction(e -> {
       previewSelectedChat = false;
@@ -316,8 +346,16 @@ public class PhoneAssetsToolView extends BorderPane {
     HBox previewToolbar = new HBox(8, previewHomeButton, previewChatButton);
     previewToolbar.setAlignment(Pos.CENTER_LEFT);
 
-    VBox previewCard = new VBox(10, previewTitle, previewCopy, previewToolbar, previewFrame);
+    VBox previewCard = new VBox(10, previewTitle, previewCopy, previewSelectionLabel, previewToolbar, previewFrame);
     previewCard.getStyleClass().add("phone-tool-card");
+    previewCard.getStyleClass().add("phone-tool-preview-card");
+    previewCard.setMaxWidth(560);
+    previewCard.setFillWidth(true);
+    VBox.setVgrow(previewFrame, Priority.ALWAYS);
+
+    StackPane previewHost = new StackPane(previewCard);
+    previewHost.getStyleClass().add("phone-tool-preview-host");
+    previewHost.setAlignment(Pos.TOP_CENTER);
 
     sections.getTabs().addAll(
         buildAppTab(),
@@ -327,9 +365,25 @@ public class PhoneAssetsToolView extends BorderPane {
     sections.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
     sections.getStyleClass().add("phone-tool-tabs");
 
-    VBox content = new VBox(8, previewCard, sections);
-    VBox.setVgrow(sections, Priority.ALWAYS);
-    setCenter(content);
+    workspaceSplit.getItems().setAll(sections, previewHost);
+    workspaceSplit.getStyleClass().add("phone-tool-workspace");
+    workspaceSplit.setDividerPositions(0.58);
+    SplitPane.setResizableWithParent(previewHost, true);
+    SplitPane.setResizableWithParent(sections, true);
+    widthProperty().addListener((obs, oldWidth, newWidth) -> updateWorkspaceLayout());
+    Platform.runLater(this::updateWorkspaceLayout);
+
+    setCenter(workspaceSplit);
+  }
+
+  private void updateWorkspaceLayout() {
+    double width = getWidth() > 0 ? getWidth() : getPrefWidth();
+    boolean wide = width >= 1180.0;
+    Orientation targetOrientation = wide ? Orientation.HORIZONTAL : Orientation.VERTICAL;
+    if (workspaceSplit.getOrientation() != targetOrientation) {
+      workspaceSplit.setOrientation(targetOrientation);
+      workspaceSplit.setDividerPositions(wide ? 0.56 : 0.60);
+    }
   }
 
   private Tab buildAppTab() {
@@ -361,34 +415,55 @@ public class PhoneAssetsToolView extends BorderPane {
     bubbleIncomingImageField.setPromptText("assets/ui/phone/skins/sms/speech bubbles/sms_their_message_-_FULL.png");
     bubbleOutgoingImageField.setPromptText("assets/ui/phone/skins/sms/speech bubbles/sms_your_message_FULL.png");
 
-    GridPane grid = formGrid();
-    int row = 0;
-    addLabeledRow(grid, row++, "Title", appTitleField);
-    addLabeledRow(grid, row++, "Subtitle", appSubtitleField);
-    addLabeledRow(grid, row++, "Wallpaper", assetFieldRow(wallpaperField, WALLPAPER_IMPORT_DIR, "Wallpaper"));
-    addLabeledRow(grid, row++, "Accent", accentField);
-    addLabeledRow(grid, row++, "Surface", surfaceField);
-    addLabeledRow(grid, row++, "Incoming Bubble", incomingBubbleField);
-    addLabeledRow(grid, row++, "Outgoing Bubble", outgoingBubbleField);
-    addLabeledRow(grid, row++, "Skin", skinIdField);
-    addLabeledRow(grid, row++, "Skin Background", assetFieldRow(skinBackgroundField, SKIN_IMPORT_DIR, "Skin Background"));
-    addLabeledRow(grid, row++, "Skin Top Bar", assetFieldRow(skinTopBarField, SKIN_IMPORT_DIR, "Skin Top Bar"));
-    addLabeledRow(grid, row++, "Skin Bottom Bar", assetFieldRow(skinBottomBarField, SKIN_IMPORT_DIR, "Skin Bottom Bar"));
-    addLabeledRow(grid, row++, "Skin Message Field", assetFieldRow(skinMessageField, SKIN_IMPORT_DIR, "Skin Message Field"));
-    addLabeledRow(grid, row++, "Skin Nav Leading", assetFieldRow(skinNavLeadingField, SKIN_IMPORT_DIR, "Skin Nav Leading"));
-    addLabeledRow(grid, row++, "Skin Nav Trailing 1", assetFieldRow(skinNavTrailingPrimaryField, SKIN_IMPORT_DIR, "Skin Nav Trailing Primary"));
-    addLabeledRow(grid, row++, "Skin Nav Trailing 2", assetFieldRow(skinNavTrailingSecondaryField, SKIN_IMPORT_DIR, "Skin Nav Trailing Secondary"));
-    addLabeledRow(grid, row++, "Skin Composer Leading", assetFieldRow(skinComposerLeadingField, SKIN_IMPORT_DIR, "Skin Composer Leading"));
-    addLabeledRow(grid, row++, "Skin Composer Trailing 1", assetFieldRow(skinComposerTrailingPrimaryField, SKIN_IMPORT_DIR, "Skin Composer Trailing Primary"));
-    addLabeledRow(grid, row++, "Skin Composer Trailing 2", assetFieldRow(skinComposerTrailingSecondaryField, SKIN_IMPORT_DIR, "Skin Composer Trailing Secondary"));
-    addLabeledRow(grid, row++, "Skin Status Backdrop", assetFieldRow(skinStatusBackdropField, SKIN_IMPORT_DIR, "Skin Status Backdrop"));
-    addLabeledRow(grid, row++, "Skin Status Icon", assetFieldRow(skinStatusIconField, SKIN_IMPORT_DIR, "Skin Status Icon"));
-    addLabeledRow(grid, row++, "Skin Floating Action", assetFieldRow(skinFloatingActionField, SKIN_IMPORT_DIR, "Skin Floating Action"));
-    addLabeledRow(grid, row++, "Incoming Bubble Image", assetFieldRow(bubbleIncomingImageField, SKIN_IMPORT_DIR, "Incoming Bubble Image"));
-    addLabeledRow(grid, row++, "Outgoing Bubble Image", assetFieldRow(bubbleOutgoingImageField, SKIN_IMPORT_DIR, "Outgoing Bubble Image"));
+    GridPane basicsGrid = formGrid();
+    int basicsRow = 0;
+    addLabeledRow(basicsGrid, basicsRow++, "Title", appTitleField);
+    addLabeledRow(basicsGrid, basicsRow++, "Subtitle", appSubtitleField);
+    addLabeledRow(basicsGrid, basicsRow++, "Wallpaper", assetFieldRow(wallpaperField, WALLPAPER_IMPORT_DIR, "Wallpaper"));
+    addLabeledRow(basicsGrid, basicsRow++, "Skin", skinIdField);
 
-    VBox root = new VBox(10, copy, grid);
-    root.getStyleClass().add("phone-tool-card");
+    GridPane paletteGrid = formGrid();
+    int paletteRow = 0;
+    addLabeledRow(paletteGrid, paletteRow++, "Accent", accentField);
+    addLabeledRow(paletteGrid, paletteRow++, "Surface", surfaceField);
+    addLabeledRow(paletteGrid, paletteRow++, "Incoming Bubble", incomingBubbleField);
+    addLabeledRow(paletteGrid, paletteRow++, "Outgoing Bubble", outgoingBubbleField);
+
+    GridPane shellGrid = formGrid();
+    int shellRow = 0;
+    addLabeledRow(shellGrid, shellRow++, "Skin Background", assetFieldRow(skinBackgroundField, SKIN_IMPORT_DIR, "Skin Background"));
+    addLabeledRow(shellGrid, shellRow++, "Skin Top Bar", assetFieldRow(skinTopBarField, SKIN_IMPORT_DIR, "Skin Top Bar"));
+    addLabeledRow(shellGrid, shellRow++, "Skin Bottom Bar", assetFieldRow(skinBottomBarField, SKIN_IMPORT_DIR, "Skin Bottom Bar"));
+    addLabeledRow(shellGrid, shellRow++, "Skin Message Field", assetFieldRow(skinMessageField, SKIN_IMPORT_DIR, "Skin Message Field"));
+
+    GridPane controlsGrid = formGrid();
+    int controlsRow = 0;
+    addLabeledRow(controlsGrid, controlsRow++, "Skin Nav Leading", assetFieldRow(skinNavLeadingField, SKIN_IMPORT_DIR, "Skin Nav Leading"));
+    addLabeledRow(controlsGrid, controlsRow++, "Skin Nav Trailing 1", assetFieldRow(skinNavTrailingPrimaryField, SKIN_IMPORT_DIR, "Skin Nav Trailing Primary"));
+    addLabeledRow(controlsGrid, controlsRow++, "Skin Nav Trailing 2", assetFieldRow(skinNavTrailingSecondaryField, SKIN_IMPORT_DIR, "Skin Nav Trailing Secondary"));
+    addLabeledRow(controlsGrid, controlsRow++, "Skin Composer Leading", assetFieldRow(skinComposerLeadingField, SKIN_IMPORT_DIR, "Skin Composer Leading"));
+    addLabeledRow(controlsGrid, controlsRow++, "Skin Composer Trailing 1", assetFieldRow(skinComposerTrailingPrimaryField, SKIN_IMPORT_DIR, "Skin Composer Trailing Primary"));
+    addLabeledRow(controlsGrid, controlsRow++, "Skin Composer Trailing 2", assetFieldRow(skinComposerTrailingSecondaryField, SKIN_IMPORT_DIR, "Skin Composer Trailing Secondary"));
+    addLabeledRow(controlsGrid, controlsRow++, "Skin Status Backdrop", assetFieldRow(skinStatusBackdropField, SKIN_IMPORT_DIR, "Skin Status Backdrop"));
+    addLabeledRow(controlsGrid, controlsRow++, "Skin Status Icon", assetFieldRow(skinStatusIconField, SKIN_IMPORT_DIR, "Skin Status Icon"));
+    addLabeledRow(controlsGrid, controlsRow++, "Skin Floating Action", assetFieldRow(skinFloatingActionField, SKIN_IMPORT_DIR, "Skin Floating Action"));
+
+    GridPane bubbleGrid = formGrid();
+    int bubbleRow = 0;
+    addLabeledRow(bubbleGrid, bubbleRow++, "Incoming Bubble Image", assetFieldRow(bubbleIncomingImageField, SKIN_IMPORT_DIR, "Incoming Bubble Image"));
+    addLabeledRow(bubbleGrid, bubbleRow++, "Outgoing Bubble Image", assetFieldRow(bubbleOutgoingImageField, SKIN_IMPORT_DIR, "Outgoing Bubble Image"));
+
+    FlowPane sectionsGrid = new FlowPane(12, 12);
+    sectionsGrid.getStyleClass().add("phone-tool-section-grid");
+    sectionsGrid.setPrefWrapLength(960);
+    sectionsGrid.getChildren().addAll(
+        sectionCard("Basics", "Identity, wallpaper, and active phone skin.", basicsGrid),
+        sectionCard("Palette", "Override key accent and bubble colors.", paletteGrid),
+        sectionCard("Shell Assets", "Frame, top bar, bottom bar, and message field artwork.", shellGrid),
+        sectionCard("Controls + Status", "Navigation, composer, and overlay icons used by the renderer.", controlsGrid),
+        sectionCard("Bubble Images", "Optional image-based incoming and outgoing message bubbles.", bubbleGrid));
+
+    VBox root = new VBox(10, copy, sectionsGrid);
     root.setPadding(new Insets(8));
 
     ScrollPane scroll = cardScroll(root);
@@ -398,6 +473,7 @@ public class PhoneAssetsToolView extends BorderPane {
   private Tab buildContactsTab() {
     contactList.getStyleClass().add("phone-tool-list");
     contactList.setPlaceholder(emptyState("No contacts yet", "Add contacts here or create them by referencing new senders in messages."));
+    contactCountLabel.getStyleClass().add("phone-tool-list-meta");
 
     contactNameField.setPromptText("Display name");
     contactAvatarField.setPromptText("assets/phone/contacts/lily.png");
@@ -405,6 +481,9 @@ public class PhoneAssetsToolView extends BorderPane {
 
     Label contactTitle = new Label("Selected Contact");
     contactTitle.getStyleClass().add("phone-tool-section-title");
+    Label detailCopy = new Label("Edit the selected contact's display name, avatar, accent color, and sender role.");
+    detailCopy.getStyleClass().add("phone-tool-help");
+    detailCopy.setWrapText(true);
 
     GridPane grid = formGrid();
     int row = 0;
@@ -414,7 +493,7 @@ public class PhoneAssetsToolView extends BorderPane {
     addLabeledRow(grid, row++, "Color", contactColorField);
     grid.add(contactSelfCheck, 1, row);
 
-    contactForm.getChildren().setAll(contactTitle, grid);
+    contactForm.getChildren().setAll(contactTitle, detailCopy, grid);
     contactForm.getStyleClass().add("phone-tool-card");
     contactForm.setPadding(new Insets(8));
 
@@ -426,11 +505,14 @@ public class PhoneAssetsToolView extends BorderPane {
     HBox actions = new HBox(8, addButton, removeButton);
     actions.setAlignment(Pos.CENTER_LEFT);
 
-    VBox root = new VBox(
-        8,
-        actions,
-        contactList,
-        contactForm);
+    HBox listHeader = new HBox(8, sectionLabel("Contacts"), createSpacer(), contactCountLabel);
+    listHeader.setAlignment(Pos.CENTER_LEFT);
+
+    VBox listCard = new VBox(8, listHeader, contactFilterField, actions, contactList);
+    listCard.getStyleClass().add("phone-tool-card");
+    VBox.setVgrow(contactList, Priority.ALWAYS);
+
+    VBox root = new VBox(10, listCard, contactForm);
     VBox.setVgrow(contactList, Priority.ALWAYS);
     root.setPadding(new Insets(8));
 
@@ -441,6 +523,7 @@ public class PhoneAssetsToolView extends BorderPane {
   private Tab buildChatsTab() {
     chatList.getStyleClass().add("phone-tool-list");
     chatList.setPlaceholder(emptyState("No threads yet", "Create a thread before adding messages."));
+    chatCountLabel.getStyleClass().add("phone-tool-list-meta");
 
     chatTitleField.setPromptText("Lily");
     chatParticipantsField.setPromptText("mc,lily");
@@ -448,6 +531,9 @@ public class PhoneAssetsToolView extends BorderPane {
 
     Label chatTitle = new Label("Selected Thread");
     chatTitle.getStyleClass().add("phone-tool-section-title");
+    Label detailCopy = new Label("Define thread title, participants, unread state, and the icon shown on the home list.");
+    detailCopy.getStyleClass().add("phone-tool-help");
+    detailCopy.setWrapText(true);
 
     GridPane grid = formGrid();
     int row = 0;
@@ -457,7 +543,7 @@ public class PhoneAssetsToolView extends BorderPane {
     addLabeledRow(grid, row++, "Icon", assetFieldRow(chatIconField, CHAT_IMPORT_DIR, "Chat Icon"));
     grid.add(chatUnreadCheck, 1, row);
 
-    chatForm.getChildren().setAll(chatTitle, grid);
+    chatForm.getChildren().setAll(chatTitle, detailCopy, grid);
     chatForm.getStyleClass().add("phone-tool-card");
     chatForm.setPadding(new Insets(8));
 
@@ -465,15 +551,24 @@ public class PhoneAssetsToolView extends BorderPane {
     addButton.setOnAction(e -> addChat());
     Button removeButton = smallButton("Remove", CssIcon.minus("#f38ba8"));
     removeButton.setOnAction(e -> removeSelectedChat());
+    Button previewThreadButton = smallButton("Preview Selected Thread", CssIcon.speech("#f5c46b"));
+    previewThreadButton.setOnAction(e -> {
+      previewSelectedChat = true;
+      refreshPreview();
+      persistUiState();
+    });
 
-    HBox actions = new HBox(8, addButton, removeButton);
+    HBox actions = new HBox(8, addButton, removeButton, previewThreadButton);
     actions.setAlignment(Pos.CENTER_LEFT);
 
-    VBox root = new VBox(
-        8,
-        actions,
-        chatList,
-        chatForm);
+    HBox listHeader = new HBox(8, sectionLabel("Threads"), createSpacer(), chatCountLabel);
+    listHeader.setAlignment(Pos.CENTER_LEFT);
+
+    VBox listCard = new VBox(8, listHeader, chatFilterField, actions, chatList);
+    listCard.getStyleClass().add("phone-tool-card");
+    VBox.setVgrow(chatList, Priority.ALWAYS);
+
+    VBox root = new VBox(10, listCard, chatForm);
     VBox.setVgrow(chatList, Priority.ALWAYS);
     root.setPadding(new Insets(8));
 
@@ -484,6 +579,7 @@ public class PhoneAssetsToolView extends BorderPane {
   private Tab buildMessagesTab() {
     messageList.getStyleClass().add("phone-tool-list");
     messageList.setPlaceholder(emptyState("No messages", "Select or create a thread, then add its messages here."));
+    messageCountLabel.getStyleClass().add("phone-tool-list-meta");
 
     messageSenderField.setPromptText("mc");
     messageTimeField.setPromptText("08:15");
@@ -494,6 +590,9 @@ public class PhoneAssetsToolView extends BorderPane {
     Label messageTitle = new Label("Selected Message");
     messageTitle.getStyleClass().add("phone-tool-section-title");
     messageIdLabel.getStyleClass().add("phone-tool-path");
+    Label detailCopy = new Label("Edit sender, timestamp, and body text for the selected message.");
+    detailCopy.getStyleClass().add("phone-tool-help");
+    detailCopy.setWrapText(true);
 
     GridPane grid = formGrid();
     int row = 0;
@@ -502,7 +601,7 @@ public class PhoneAssetsToolView extends BorderPane {
     addLabeledRow(grid, row++, "Time", messageTimeField);
     addLabeledRow(grid, row++, "Text", messageTextArea);
 
-    messageForm.getChildren().setAll(messageTitle, grid);
+    messageForm.getChildren().setAll(messageTitle, detailCopy, grid);
     messageForm.getStyleClass().add("phone-tool-card");
     messageForm.setPadding(new Insets(8));
 
@@ -520,11 +619,14 @@ public class PhoneAssetsToolView extends BorderPane {
     HBox actions = new HBox(8, addButton, removeButton, previewThreadButton);
     actions.setAlignment(Pos.CENTER_LEFT);
 
-    VBox root = new VBox(
-        8,
-        actions,
-        messageList,
-        messageForm);
+    HBox listHeader = new HBox(8, sectionLabel("Messages"), createSpacer(), messageCountLabel);
+    listHeader.setAlignment(Pos.CENTER_LEFT);
+
+    VBox listCard = new VBox(8, listHeader, messageFilterField, actions, messageList);
+    listCard.getStyleClass().add("phone-tool-card");
+    VBox.setVgrow(messageList, Priority.ALWAYS);
+
+    VBox root = new VBox(10, listCard, messageForm);
     VBox.setVgrow(messageList, Priority.ALWAYS);
     root.setPadding(new Insets(8));
 
@@ -756,6 +858,19 @@ public class PhoneAssetsToolView extends BorderPane {
     messageSenderField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message sender."));
     messageTimeField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message time."));
     messageTextArea.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message text."));
+
+    contactFilterField.textProperty().addListener((obs, oldValue, newValue) -> refreshContactList());
+    chatFilterField.textProperty().addListener((obs, oldValue, newValue) -> {
+      refreshChatList();
+      fillChatForm();
+      refreshMessageList();
+      fillMessageForm();
+      refreshPreview();
+    });
+    messageFilterField.textProperty().addListener((obs, oldValue, newValue) -> {
+      refreshMessageList();
+      fillMessageForm();
+    });
   }
 
   private void installAssetDropTargets() {
@@ -856,7 +971,9 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private void refreshContactList() {
-    List<String> ids = new ArrayList<>(workingData.getContacts().keySet());
+    List<String> allIds = new ArrayList<>(workingData.getContacts().keySet());
+    List<String> ids = filterContactIds(allIds);
+    contactCountLabel.setText(countLabelText(ids.size(), allIds.size(), "contact"));
     applyingUi = true;
     try {
       contactList.setItems(FXCollections.observableArrayList(ids));
@@ -883,7 +1000,9 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private void refreshChatList() {
-    List<String> ids = chatIds();
+    List<String> allIds = chatIds();
+    List<String> ids = filterChatIds(allIds);
+    chatCountLabel.setText(countLabelText(ids.size(), allIds.size(), "thread"));
     applyingUi = true;
     try {
       chatList.setItems(FXCollections.observableArrayList(ids));
@@ -910,7 +1029,9 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private void refreshMessageList() {
-    List<String> ids = messageIdsFor(selectedChatId);
+    List<String> allIds = messageIdsFor(selectedChatId);
+    List<String> ids = filterMessageIds(allIds);
+    messageCountLabel.setText(countLabelText(ids.size(), allIds.size(), "message"));
     applyingUi = true;
     try {
       messageList.setItems(FXCollections.observableArrayList(ids));
@@ -1176,6 +1297,15 @@ public class PhoneAssetsToolView extends BorderPane {
         previewSelectedChat ? "is-active" : "is-idle");
     previewChatButton.setDisable(selectedChatId == null);
 
+    String selectedChatTitle = selectedChatId == null
+        ? "No thread selected"
+        : firstNonBlank(displayTitleForChat(selectedChatId), selectedChatId);
+    previewSelectionLabel.setText(
+        previewSelectedChat && selectedChatId != null
+            ? "Previewing thread: " + selectedChatTitle
+            : "Previewing home list. Select a thread to inspect its conversation view.");
+    previewMetricLabel.setText(previewSelectedChat && selectedChatId != null ? "Preview Thread" : "Preview Home");
+
     VnPhoneData previewData = copyOf(workingData);
     PhoneScene scene = previewSelectedChat && selectedChatId != null
         ? new PhoneScene(null, previewData, ignored -> { }, selectedChatId)
@@ -1187,6 +1317,11 @@ public class PhoneAssetsToolView extends BorderPane {
   private void updateSummary() {
     if (projectRoot == null || !projectRoot.isDirectory()) {
       summaryLabel.setText("Open a project to edit phone assets and configuration.");
+      contactMetricLabel.setText("Contacts 0");
+      threadMetricLabel.setText("Threads 0");
+      messageMetricLabel.setText("Messages 0");
+      previewMetricLabel.setText("Preview Disabled");
+      previewSelectionLabel.setText("Preview unavailable until a project is open.");
       return;
     }
     int messageCount = 0;
@@ -1194,11 +1329,10 @@ public class PhoneAssetsToolView extends BorderPane {
       messageCount += chat.getMessages().size();
     }
     String fileLabel = activeConfigFile == null ? CONFIG_PATH : toProjectRelativePath(activeConfigFile);
-    summaryLabel.setText(
-        "Contacts: " + workingData.getContacts().size()
-            + "  |  Threads: " + workingData.getChats().size()
-            + "  |  Messages: " + messageCount
-            + "  |  File: " + fileLabel);
+    summaryLabel.setText("Editing " + fileLabel + ". Drag assets into fields, preview the home list or a thread, then save back to the shared runtime config.");
+    contactMetricLabel.setText("Contacts " + workingData.getContacts().size());
+    threadMetricLabel.setText("Threads " + workingData.getChats().size());
+    messageMetricLabel.setText("Messages " + messageCount);
   }
 
   private void updateControlsDisabledState() {
@@ -1349,6 +1483,68 @@ public class PhoneAssetsToolView extends BorderPane {
       ids.add(message.getId());
     }
     return ids;
+  }
+
+  private List<String> filterContactIds(List<String> ids) {
+    String query = normalizedFilter(contactFilterField);
+    if (query.isBlank()) return ids;
+    List<String> filtered = new ArrayList<>();
+    for (String id : ids) {
+      VnPhoneData.Contact contact = workingData.getContact(id);
+      String haystack = (id + " " + firstNonBlank(contact == null ? null : contact.getDisplayName(), "")).toLowerCase(Locale.ROOT);
+      if (haystack.contains(query)) filtered.add(id);
+    }
+    return filtered;
+  }
+
+  private List<String> filterChatIds(List<String> ids) {
+    String query = normalizedFilter(chatFilterField);
+    if (query.isBlank()) return ids;
+    List<String> filtered = new ArrayList<>();
+    for (String id : ids) {
+      VnPhoneData.Chat chat = workingData.getChat(id);
+      String participants = chat == null ? "" : String.join(" ", chat.getParticipants());
+      String haystack = (id + " " + firstNonBlank(chat == null ? null : chat.getTitle(), "") + " " + participants)
+          .toLowerCase(Locale.ROOT);
+      if (haystack.contains(query)) filtered.add(id);
+    }
+    return filtered;
+  }
+
+  private List<String> filterMessageIds(List<String> ids) {
+    String query = normalizedFilter(messageFilterField);
+    if (query.isBlank()) return ids;
+    List<String> filtered = new ArrayList<>();
+    for (String id : ids) {
+      VnPhoneData.Message message = selectedMessage(id);
+      String haystack = message == null
+          ? id.toLowerCase(Locale.ROOT)
+          : (id + " "
+              + firstNonBlank(message.getSenderId(), "") + " "
+              + firstNonBlank(message.getTimeText(), "") + " "
+              + firstNonBlank(message.getText(), ""))
+              .toLowerCase(Locale.ROOT);
+      if (haystack.contains(query)) filtered.add(id);
+    }
+    return filtered;
+  }
+
+  private String displayTitleForChat(String chatId) {
+    VnPhoneData.Chat chat = chatId == null ? null : workingData.getChat(chatId);
+    return chat == null ? null : firstNonBlank(chat.getTitle(), workingData.defaultChatTitle(chat), chat.getId());
+  }
+
+  private static String countLabelText(int visibleCount, int totalCount, String noun) {
+    String label = totalCount == 1 ? noun : noun + "s";
+    if (visibleCount == totalCount) {
+      return totalCount + " " + label;
+    }
+    return visibleCount + " of " + totalCount + " " + label;
+  }
+
+  private static String normalizedFilter(TextField field) {
+    if (field == null || field.getText() == null) return "";
+    return field.getText().trim().toLowerCase(Locale.ROOT);
   }
 
   private String displayNameFor(String contactId) {
@@ -1532,6 +1728,21 @@ public class PhoneAssetsToolView extends BorderPane {
     return scroll;
   }
 
+  private static VBox sectionCard(String title, String copy, javafx.scene.Node content) {
+    Label titleLabel = new Label(title);
+    titleLabel.getStyleClass().add("phone-tool-section-card-title");
+    Label copyLabel = new Label(copy);
+    copyLabel.getStyleClass().add("phone-tool-section-card-copy");
+    copyLabel.setWrapText(true);
+
+    VBox box = new VBox(8, titleLabel, copyLabel, content);
+    box.getStyleClass().addAll("phone-tool-card", "phone-tool-section-card");
+    box.setPadding(new Insets(10));
+    box.setPrefWidth(430);
+    box.setMinWidth(320);
+    return box;
+  }
+
   private static javafx.scene.Node emptyState(String title, String copy) {
     Label titleLabel = new Label(title);
     titleLabel.getStyleClass().add("phone-tool-empty-title");
@@ -1551,6 +1762,13 @@ public class PhoneAssetsToolView extends BorderPane {
     return field;
   }
 
+  private static TextField filterField(String promptText) {
+    TextField field = new TextField();
+    field.setPromptText(promptText);
+    field.getStyleClass().add("phone-tool-filter-field");
+    return field;
+  }
+
   private static Button headerButton(String text, Region icon) {
     Button button = new Button(text, icon);
     button.getStyleClass().add("phone-tool-button");
@@ -1565,6 +1783,22 @@ public class PhoneAssetsToolView extends BorderPane {
     button.setContentDisplay(ContentDisplay.LEFT);
     button.setGraphicTextGap(6);
     return button;
+  }
+
+  private static Label metricChip(String text) {
+    return new Label(text);
+  }
+
+  private static Label sectionLabel(String text) {
+    Label label = new Label(text);
+    label.getStyleClass().add("phone-tool-section-title");
+    return label;
+  }
+
+  private static Region createSpacer() {
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    return spacer;
   }
 
   private static List<String> parseIdCsv(String raw) {

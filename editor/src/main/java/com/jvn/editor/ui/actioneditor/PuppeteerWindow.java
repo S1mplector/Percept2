@@ -31,6 +31,7 @@ import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.RadioButton;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
@@ -46,12 +47,15 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 public class PuppeteerWindow extends Stage {
+    private static final double LEFT_LIBRARY_WORKING_WIDTH = 360.0;
+
     private final AnimationProject project;
     private JesScene2D scene;
 
@@ -90,6 +94,14 @@ public class PuppeteerWindow extends Stage {
     private ToggleButton btnToolbarCompactMode;
     private Label statusBar;
     private Label viewportInfoLabel;
+    private StackPane previewViewportHost;
+    private Label previewFullscreenPlaceholderLabel;
+    private Button btnPreviewFullscreen;
+    private Stage previewFullscreenStage;
+    private StackPane fullscreenViewportHost;
+    private Button btnFullscreenPlay;
+    private Button btnFullscreenPause;
+    private Label lblFullscreenTime;
     private boolean dirty = false;
     private boolean compactExport = false;
     private boolean previewStaged = false;
@@ -820,9 +832,23 @@ public class PuppeteerWindow extends Stage {
         leftTabs.setTabMinWidth(60);
         leftTabs.setStyle("-fx-background-color: #1a1a1a;");
 
+        StackPane leftTabsContent = new StackPane(leftTabs);
+        leftTabsContent.setAlignment(Pos.TOP_LEFT);
+        leftTabsContent.setMinWidth(LEFT_LIBRARY_WORKING_WIDTH);
+        leftTabsContent.setPrefWidth(LEFT_LIBRARY_WORKING_WIDTH);
+        leftTabsContent.setMaxWidth(LEFT_LIBRARY_WORKING_WIDTH);
+
+        ScrollPane leftTabsScrollPane = new ScrollPane(leftTabsContent);
+        leftTabsScrollPane.setFitToWidth(false);
+        leftTabsScrollPane.setFitToHeight(true);
+        leftTabsScrollPane.setPannable(true);
+        leftTabsScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        leftTabsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        leftTabsScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+
         SplitPane leftPane = new SplitPane();
         leftPane.setOrientation(Orientation.VERTICAL);
-        leftPane.getItems().addAll(leftTabs, keyframeEditor);
+        leftPane.getItems().addAll(leftTabsScrollPane, keyframeEditor);
         leftPane.setDividerPositions(0.65);
         final double[] collapsedKeyframeDivider = {0.65};
         keyframeEditor.setOnCurveEditorExpandedChanged(expanded -> {
@@ -844,7 +870,33 @@ public class PuppeteerWindow extends Stage {
         ));
         updateViewportInfoLabel();
 
-        BorderPane previewPane = new BorderPane(animationPreview);
+        previewFullscreenPlaceholderLabel = new Label("Preview is open in fullscreen mode.");
+        previewFullscreenPlaceholderLabel.getStyleClass().add("puppeteer-preview-fullscreen-placeholder");
+        previewFullscreenPlaceholderLabel.setMouseTransparent(true);
+        previewFullscreenPlaceholderLabel.setManaged(false);
+        previewFullscreenPlaceholderLabel.setVisible(false);
+
+        btnPreviewFullscreen = makeToolbarIconButton("icon-fullscreen", "Open preview fullscreen");
+        btnPreviewFullscreen.getStyleClass().add("puppeteer-preview-overlay-button");
+        btnPreviewFullscreen.setText("Fullscreen");
+        btnPreviewFullscreen.setContentDisplay(ContentDisplay.LEFT);
+        btnPreviewFullscreen.setGraphicTextGap(8);
+        btnPreviewFullscreen.setMinSize(128, 36);
+        btnPreviewFullscreen.setPrefSize(128, 36);
+        btnPreviewFullscreen.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        btnPreviewFullscreen.setManaged(false);
+        btnPreviewFullscreen.setVisible(false);
+        btnPreviewFullscreen.setOnAction(e -> enterFullscreenPreview());
+
+        previewViewportHost = new StackPane(animationPreview, previewFullscreenPlaceholderLabel, btnPreviewFullscreen);
+        previewViewportHost.getStyleClass().add("puppeteer-preview-viewport-host");
+        previewViewportHost.hoverProperty().addListener((obs, wasHover, isHover) -> updatePreviewOverlayVisibility());
+        StackPane.setAlignment(previewFullscreenPlaceholderLabel, Pos.CENTER);
+        StackPane.setAlignment(btnPreviewFullscreen, Pos.TOP_RIGHT);
+        StackPane.setMargin(btnPreviewFullscreen, new Insets(10));
+        updatePreviewOverlayVisibility();
+
+        BorderPane previewPane = new BorderPane(previewViewportHost);
         previewPane.setTop(viewportInfoLabel);
         previewPane.setStyle("-fx-background-color: #121212;");
         centerPane.getItems().addAll(previewPane, timelinePanel);
@@ -966,6 +1018,7 @@ public class PuppeteerWindow extends Stage {
             updatePreview();
             refreshExportPreview();
         }
+        updatePreviewOverlayVisibility();
     }
 
     private java.io.File projectRoot;
@@ -1085,19 +1138,13 @@ public class PuppeteerWindow extends Stage {
         project.setPlaying(true);
         lastNanos = System.nanoTime();
         playbackTimer.start();
-        btnPlay.setStyle(STYLE_BTN_DARK + "-fx-opacity: 0.5;");
-        btnPlay.setDisable(true);
-        btnPause.setStyle(STYLE_BTN_ACCENT);
-        btnPause.setDisable(false);
+        refreshTransportButtonStates();
     }
 
     private void pause() {
         project.setPlaying(false);
         playbackTimer.stop();
-        btnPlay.setStyle(STYLE_BTN_ACCENT);
-        btnPlay.setDisable(false);
-        btnPause.setStyle(STYLE_BTN_DARK + "-fx-opacity: 0.5;");
-        btnPause.setDisable(true);
+        refreshTransportButtonStates();
     }
 
     private void stop() {
@@ -1145,13 +1192,14 @@ public class PuppeteerWindow extends Stage {
                 updatePreview();
             }
         };
-        btnPlay.setStyle(STYLE_BTN_ACCENT);
-        btnPause.setStyle(STYLE_BTN_DARK + "-fx-opacity: 0.5;");
-        btnPause.setDisable(true);
+        refreshTransportButtonStates();
     }
 
     private void updateTimeLabel() {
         lblTime.setText(String.format("%.0f ms", project.getPlayheadMs()));
+        if (lblFullscreenTime != null) {
+            lblFullscreenTime.setText(String.format("%.0f ms", project.getPlayheadMs()));
+        }
     }
 
     private void updatePreview() {
@@ -1258,6 +1306,164 @@ public class PuppeteerWindow extends Stage {
         if (value < 0.0) return 0.0;
         if (value > 1.0) return 1.0;
         return value;
+    }
+
+    private void refreshTransportButtonStates() {
+        refreshTransportButtonState(btnPlay, btnPause);
+        refreshTransportButtonState(btnFullscreenPlay, btnFullscreenPause);
+    }
+
+    private void refreshTransportButtonState(Button playButton, Button pauseButton) {
+        if (playButton == null || pauseButton == null) return;
+        if (project.isPlaying()) {
+            playButton.setStyle(STYLE_BTN_DARK + "-fx-opacity: 0.5;");
+            playButton.setDisable(true);
+            pauseButton.setStyle(STYLE_BTN_ACCENT);
+            pauseButton.setDisable(false);
+        } else {
+            playButton.setStyle(STYLE_BTN_ACCENT);
+            playButton.setDisable(false);
+            pauseButton.setStyle(STYLE_BTN_DARK + "-fx-opacity: 0.5;");
+            pauseButton.setDisable(true);
+        }
+    }
+
+    private void ensurePreviewFullscreenStage() {
+        if (previewFullscreenStage != null) return;
+
+        Button btnFullscreenRewind = makeToolbarIconButton("icon-puppeteer-rewind", "Rewind (Home)");
+        btnFullscreenPlay = makeToolbarIconButton("icon-puppeteer-play", "Play (Space)");
+        btnFullscreenPause = makeToolbarIconButton("icon-puppeteer-pause", "Pause (Space)");
+        Button btnFullscreenStop = makeToolbarIconButton("icon-puppeteer-stop", "Stop");
+
+        btnFullscreenRewind.setOnAction(e -> rewind());
+        btnFullscreenPlay.setOnAction(e -> play());
+        btnFullscreenPause.setOnAction(e -> pause());
+        btnFullscreenStop.setOnAction(e -> stop());
+
+        lblFullscreenTime = new Label("0 ms");
+        lblFullscreenTime.getStyleClass().add("puppeteer-preview-fullscreen-time");
+
+        HBox playbackControls = new HBox(8,
+            btnFullscreenRewind,
+            btnFullscreenPlay,
+            btnFullscreenPause,
+            btnFullscreenStop,
+            makeSpacer(8),
+            lblFullscreenTime
+        );
+        playbackControls.setAlignment(Pos.CENTER_LEFT);
+
+        Button btnExitFullscreen = new Button("Exit Fullscreen");
+        btnExitFullscreen.getStyleClass().add("puppeteer-preview-fullscreen-exit-button");
+        btnExitFullscreen.setFocusTraversable(false);
+        btnExitFullscreen.setOnAction(e -> exitFullscreenPreview());
+
+        Region overlaySpacer = new Region();
+        HBox.setHgrow(overlaySpacer, Priority.ALWAYS);
+
+        HBox transportOverlay = new HBox(12, playbackControls, overlaySpacer, btnExitFullscreen);
+        transportOverlay.getStyleClass().add("puppeteer-preview-fullscreen-transport");
+        transportOverlay.setAlignment(Pos.CENTER_LEFT);
+        transportOverlay.setMaxWidth(960);
+        transportOverlay.setPickOnBounds(false);
+
+        fullscreenViewportHost = new StackPane();
+        fullscreenViewportHost.getStyleClass().add("puppeteer-preview-fullscreen-viewport");
+
+        StackPane fullscreenRoot = new StackPane(fullscreenViewportHost, transportOverlay);
+        fullscreenRoot.getStyleClass().add("puppeteer-preview-fullscreen-root");
+        StackPane.setAlignment(transportOverlay, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(transportOverlay, new Insets(0, 24, 24, 24));
+
+        Scene fullscreenScene = new Scene(fullscreenRoot, Math.max(getWidth(), 1280), Math.max(getHeight(), 720));
+        EditorTheme.apply(fullscreenScene);
+        setupFullscreenPreviewShortcuts(fullscreenScene);
+
+        previewFullscreenStage = new Stage();
+        previewFullscreenStage.initOwner(this);
+        previewFullscreenStage.setTitle("Puppeteer Preview");
+        previewFullscreenStage.setScene(fullscreenScene);
+        previewFullscreenStage.setFullScreenExitHint("");
+        previewFullscreenStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
+        previewFullscreenStage.setOnCloseRequest(e -> {
+            e.consume();
+            exitFullscreenPreview();
+        });
+
+        refreshTransportButtonStates();
+        updateTimeLabel();
+    }
+
+    private void setupFullscreenPreviewShortcuts(Scene scene) {
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.SPACE),
+            () -> {
+                if (project.isPlaying()) pause();
+                else play();
+            }
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.HOME),
+            this::rewind
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.ESCAPE),
+            this::exitFullscreenPreview
+        );
+    }
+
+    private boolean isPreviewFullscreenActive() {
+        return fullscreenViewportHost != null && fullscreenViewportHost.getChildren().contains(animationPreview);
+    }
+
+    private void enterFullscreenPreview() {
+        if (scene == null || isPreviewFullscreenActive()) return;
+        ensurePreviewFullscreenStage();
+        if (previewViewportHost != null) {
+            previewViewportHost.getChildren().remove(animationPreview);
+        }
+        if (fullscreenViewportHost != null && !fullscreenViewportHost.getChildren().contains(animationPreview)) {
+            fullscreenViewportHost.getChildren().add(animationPreview);
+        }
+        if (previewFullscreenPlaceholderLabel != null) {
+            previewFullscreenPlaceholderLabel.setVisible(true);
+        }
+        if (previewFullscreenStage != null) {
+            if (!previewFullscreenStage.isShowing()) {
+                previewFullscreenStage.show();
+            }
+            previewFullscreenStage.toFront();
+            previewFullscreenStage.setFullScreen(true);
+        }
+        updatePreviewOverlayVisibility();
+        refreshTransportButtonStates();
+        updateTimeLabel();
+        Platform.runLater(this::updatePreview);
+    }
+
+    private void exitFullscreenPreview() {
+        if (fullscreenViewportHost != null) {
+            fullscreenViewportHost.getChildren().remove(animationPreview);
+        }
+        if (previewViewportHost != null && !previewViewportHost.getChildren().contains(animationPreview)) {
+            previewViewportHost.getChildren().add(0, animationPreview);
+        }
+        if (previewFullscreenPlaceholderLabel != null) {
+            previewFullscreenPlaceholderLabel.setVisible(false);
+        }
+        if (previewFullscreenStage != null) {
+            previewFullscreenStage.setFullScreen(false);
+            previewFullscreenStage.hide();
+        }
+        updatePreviewOverlayVisibility();
+        Platform.runLater(this::updatePreview);
+    }
+
+    private void updatePreviewOverlayVisibility() {
+        if (btnPreviewFullscreen == null || previewViewportHost == null) return;
+        boolean show = scene != null && !isPreviewFullscreenActive() && previewViewportHost.isHover();
+        btnPreviewFullscreen.setVisible(show);
     }
 
     private void setupKeyboardShortcuts(Scene scene) {
@@ -1638,6 +1844,9 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void closeNow() {
+        if (previewFullscreenStage != null) {
+            previewFullscreenStage.hide();
+        }
         bypassCloseConfirmation = true;
         close();
     }
