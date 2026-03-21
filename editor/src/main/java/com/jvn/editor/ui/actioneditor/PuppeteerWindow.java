@@ -25,7 +25,9 @@ import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBase;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContentDisplay;
@@ -141,6 +143,13 @@ public class PuppeteerWindow extends Stage {
     private double[] codePaneDividerPositions = new double[] {0.17, 0.78};
 
     private static final double MOVE_INTERACTION_EPSILON = 0.01;
+    private static final Insets TOOLBAR_PADDING_DYNAMIC = new Insets(8, 10, 8, 10);
+    private static final Insets TOOLBAR_PADDING_COMPACT = new Insets(5, 8, 5, 8);
+    private static final String PROP_TOOLBAR_BASE_SPACING = "puppeteerToolbarBaseSpacing";
+    private static final String PROP_TOOLBAR_BASE_PREF_WIDTH = "puppeteerToolbarBasePrefWidth";
+    private static final String PROP_TOOLBAR_BASE_PREF_HEIGHT = "puppeteerToolbarBasePrefHeight";
+    private static final String PROP_TOOLBAR_BASE_ICON_WIDTH = "puppeteerToolbarBaseIconWidth";
+    private static final String PROP_TOOLBAR_BASE_ICON_HEIGHT = "puppeteerToolbarBaseIconHeight";
     private static final PropertyType[] TRANSFORM_INTERACTION_PROPERTIES = {
         PropertyType.X,
         PropertyType.Y,
@@ -802,7 +811,7 @@ public class PuppeteerWindow extends Stage {
         toolbarPane.registerMarker("toolbar-group-preview-modes", snapCluster, previewCluster);
         toolbarPane.registerMarker("toolbar-group-orbit-audio-register", orbitCluster, audioCluster, registerCluster);
         toolbarPane.setId("puppeteer-toolbar");
-        toolbarPane.setPadding(new Insets(8, 10, 8, 10));
+        toolbarPane.setPadding(TOOLBAR_PADDING_DYNAMIC);
         toolbarPane.setMinHeight(Region.USE_PREF_SIZE);
         toolbarPane.setMaxWidth(Double.MAX_VALUE);
 
@@ -1561,7 +1570,11 @@ public class PuppeteerWindow extends Stage {
             : AnimatedToolbarPane.LayoutMode.DYNAMIC;
         if (toolbarPane != null) {
             toolbarPane.setLayoutMode(resolved);
+            toolbarPane.setPadding(resolved == AnimatedToolbarPane.LayoutMode.COMPACT
+                ? TOOLBAR_PADDING_COMPACT
+                : TOOLBAR_PADDING_DYNAMIC);
         }
+        applyToolbarDensity(resolved);
         if (btnToolbarDynamicMode != null && btnToolbarDynamicMode.isSelected() != (resolved == AnimatedToolbarPane.LayoutMode.DYNAMIC)) {
             btnToolbarDynamicMode.setSelected(resolved == AnimatedToolbarPane.LayoutMode.DYNAMIC);
         }
@@ -1573,6 +1586,86 @@ public class PuppeteerWindow extends Stage {
 
     public AnimatedToolbarPane.LayoutMode getToolbarLayoutMode() {
         return toolbarPane != null ? toolbarPane.getLayoutMode() : AnimatedToolbarPane.LayoutMode.DYNAMIC;
+    }
+
+    private void applyToolbarDensity(AnimatedToolbarPane.LayoutMode mode) {
+        if (toolbarPane == null) return;
+        boolean compact = mode == AnimatedToolbarPane.LayoutMode.COMPACT;
+        applyToolbarDensity(toolbarPane, compact);
+        toolbarPane.requestLayout();
+    }
+
+    private void applyToolbarDensity(Node node, boolean compact) {
+        if (node == null) return;
+
+        if (node instanceof HBox hBox) {
+            double baseSpacing = rememberToolbarMetric(hBox, PROP_TOOLBAR_BASE_SPACING, hBox.getSpacing());
+            hBox.setSpacing(compact ? Math.max(2.0, baseSpacing - 2.0) : baseSpacing);
+        } else if (node instanceof VBox vBox) {
+            double baseSpacing = rememberToolbarMetric(vBox, PROP_TOOLBAR_BASE_SPACING, vBox.getSpacing());
+            vBox.setSpacing(compact ? Math.max(3.0, baseSpacing - 2.0) : baseSpacing);
+        }
+
+        if (node instanceof ButtonBase button && isToolbarIconControl(button)) {
+            applyToolbarButtonDensity(button, compact);
+        } else if (node instanceof Label label && label.getStyleClass().contains("puppeteer-toolbar-icon")) {
+            applyToolbarIconDensity(label, compact);
+        }
+
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) {
+                applyToolbarDensity(child, compact);
+            }
+        }
+    }
+
+    private void applyToolbarButtonDensity(ButtonBase button, boolean compact) {
+        double baseWidth = rememberToolbarMetric(button, PROP_TOOLBAR_BASE_PREF_WIDTH, sanitizeToolbarSize(button.getPrefWidth(), button.getMinWidth()));
+        double baseHeight = rememberToolbarMetric(button, PROP_TOOLBAR_BASE_PREF_HEIGHT, sanitizeToolbarSize(button.getPrefHeight(), button.getMinHeight()));
+        double targetWidth = compact ? Math.max(26.0, baseWidth - 4.0) : baseWidth;
+        double targetHeight = compact ? Math.max(22.0, baseHeight - 4.0) : baseHeight;
+        button.setMinSize(targetWidth, targetHeight);
+        button.setPrefSize(targetWidth, targetHeight);
+        button.setMaxSize(targetWidth, targetHeight);
+    }
+
+    private void applyToolbarIconDensity(Label icon, boolean compact) {
+        double baseWidth = rememberToolbarMetric(icon, PROP_TOOLBAR_BASE_ICON_WIDTH, sanitizeToolbarSize(icon.getPrefWidth(), 16.0));
+        double baseHeight = rememberToolbarMetric(icon, PROP_TOOLBAR_BASE_ICON_HEIGHT, sanitizeToolbarSize(icon.getPrefHeight(), 16.0));
+        double targetWidth = compact ? Math.max(13.0, baseWidth - 2.0) : baseWidth;
+        double targetHeight = compact ? Math.max(13.0, baseHeight - 2.0) : baseHeight;
+        icon.setMinSize(targetWidth, targetHeight);
+        icon.setPrefSize(targetWidth, targetHeight);
+        icon.setMaxSize(targetWidth, targetHeight);
+    }
+
+    private boolean isToolbarIconControl(ButtonBase button) {
+        if (button == null) return false;
+        List<String> styles = button.getStyleClass();
+        return styles.contains("puppeteer-toolbar-icon-button")
+            || styles.contains("puppeteer-toolbar-icon-toggle")
+            || styles.contains("puppeteer-toolbar-icon-menu");
+    }
+
+    private double rememberToolbarMetric(Node node, String key, double fallback) {
+        if (node == null || key == null) return fallback;
+        Object existing = node.getProperties().get(key);
+        if (existing instanceof Number number) {
+            return number.doubleValue();
+        }
+        double value = fallback;
+        node.getProperties().put(key, value);
+        return value;
+    }
+
+    private double sanitizeToolbarSize(double value, double fallback) {
+        if (Double.isFinite(value) && value > 0.0 && value != Region.USE_COMPUTED_SIZE && value != Region.USE_PREF_SIZE) {
+            return value;
+        }
+        if (Double.isFinite(fallback) && fallback > 0.0 && fallback != Region.USE_COMPUTED_SIZE && fallback != Region.USE_PREF_SIZE) {
+            return fallback;
+        }
+        return 16.0;
     }
 
     public void setCodePaneVisible(boolean visible) {
