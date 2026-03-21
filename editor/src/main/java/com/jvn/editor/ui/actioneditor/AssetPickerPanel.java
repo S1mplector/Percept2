@@ -83,6 +83,7 @@ public class AssetPickerPanel extends VBox {
 
     public AssetPickerPanel() {
         setSpacing(4);
+        setMinWidth(0);
         setPadding(new Insets(4));
         setStyle("-fx-background-color: #1a1a1a;");
 
@@ -113,6 +114,7 @@ public class AssetPickerPanel extends VBox {
         lblEmptyHint.setWrapText(true);
 
         listView = new ListView<>();
+        listView.setMinWidth(0);
         listView.setStyle("-fx-background-color: #1a1a1a; -fx-control-inner-background: #1a1a1a;");
         listView.setCellFactory(lv -> new AssetCell());
         listView.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> updateActionState());

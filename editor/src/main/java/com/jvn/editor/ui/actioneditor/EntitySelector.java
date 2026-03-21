@@ -48,6 +48,7 @@ public class EntitySelector extends VBox {
 
     public EntitySelector() {
         setSpacing(0);
+        setMinWidth(0);
         setStyle("-fx-background-color: #1a1a1a;");
 
         VBox content = new VBox(4);
@@ -70,6 +71,7 @@ public class EntitySelector extends VBox {
         lblEmptyHint.setWrapText(true);
 
         treeView = new TreeView<>(rootItem);
+        treeView.setMinWidth(0);
         treeView.setShowRoot(false);
         treeView.setStyle("-fx-background-color: #1a1a1a; -fx-control-inner-background: #1a1a1a;");
         treeView.setCellFactory(tv -> new EntityTreeCell());
@@ -106,6 +108,7 @@ public class EntitySelector extends VBox {
 
         content.getChildren().addAll(header, filterField, lblEmptyHint, treeView, toolbar);
         StackPane contentStack = new StackPane(content, actionOverlay, groupPromptOverlay);
+        contentStack.setMinWidth(0);
         VBox.setVgrow(contentStack, Priority.ALWAYS);
 
         getChildren().add(contentStack);

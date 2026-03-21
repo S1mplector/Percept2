@@ -103,6 +103,22 @@ public class PuppeteerWindow extends Stage {
     private Button btnFullscreenPlay;
     private Button btnFullscreenPause;
     private Label lblFullscreenTime;
+    private Label lblSidebarSelectionTarget;
+    private Label lblSidebarSelectionScope;
+    private Label lblSidebarSelectionProperty;
+    private Label lblSidebarSelectionPlayhead;
+    private Label lblSidebarSelectionCount;
+    private Label lblSidebarSceneTracks;
+    private Label lblSidebarSceneGroups;
+    private Label lblSidebarSceneDuration;
+    private Label lblSidebarSceneViewport;
+    private Label lblSidebarSceneCamera;
+    private Label lblSidebarSceneCodePane;
+    private Label lblSidebarSceneAnchors;
+    private Button btnSidebarAddKeyframe;
+    private Button btnSidebarFocusSelection;
+    private Button btnSidebarClearSelection;
+    private Button btnSidebarCodePane;
     private SplitPane leftWorkspaceSplit;
     private SplitPane centerWorkspaceSplit;
     private SplitPane mainWorkspaceSplit;
@@ -171,6 +187,7 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setOnCameraStateChanged(state -> {
             if (state != null && state.length >= 3) {
                 keyframeEditor.setCameraState(state[0], state[1], state[2]);
+                refreshSidebarTabs();
             }
         });
         animationPreview.setOnAssetDropped(payload -> {
@@ -193,6 +210,7 @@ public class PuppeteerWindow extends Stage {
             if (selectedProp != null && cbProperty != null && cbProperty.getValue() != selectedProp) {
                 cbProperty.setValue(selectedProp);
             }
+            refreshSidebarTabs();
         });
 
         entitySelector.setOnSelectionChanged((name, isGroup) -> {
@@ -244,12 +262,14 @@ public class PuppeteerWindow extends Stage {
             if (selectedProp != null && cbProperty.getValue() != selectedProp) {
                 cbProperty.setValue(selectedProp);
             }
+            refreshSidebarTabs();
         });
 
         timelinePanel.setOnPlayheadChanged(time -> {
             this.project.setPlayheadMs(time);
             updateTimeLabel();
             updatePreview();
+            refreshSidebarTabs();
         });
         timelinePanel.setOnEdited(this::refreshExportPreviewAndMarkDirty);
 
@@ -832,22 +852,33 @@ public class PuppeteerWindow extends Stage {
 
         assetPicker = new AssetPickerPanel();
         assetPicker.setOnAddToScene(this::addAssetToScene);
+        entitySelector.setMinWidth(0);
+        assetPicker.setMinWidth(0);
 
         Tab entitiesTab = new Tab("Entities", entitySelector);
         entitiesTab.setClosable(false);
         Tab assetsTab = new Tab("Assets", assetPicker);
         assetsTab.setClosable(false);
-        TabPane leftTabs = new TabPane(entitiesTab, assetsTab);
-        leftTabs.setTabMinWidth(60);
+        Tab selectionTab = buildSelectionTab();
+        selectionTab.setClosable(false);
+        Tab sceneTab = buildSceneTab();
+        sceneTab.setClosable(false);
+        TabPane leftTabs = new TabPane(entitiesTab, assetsTab, selectionTab, sceneTab);
+        leftTabs.setMinWidth(0);
+        leftTabs.setTabMinWidth(56);
         leftTabs.setStyle("-fx-background-color: #1a1a1a;");
 
         StackPane leftTabsContent = new StackPane(leftTabs);
         leftTabsContent.setAlignment(Pos.TOP_LEFT);
-        leftTabsContent.setMinWidth(LEFT_LIBRARY_WORKING_WIDTH);
+        leftTabsContent.setMinWidth(0);
         leftTabsContent.setPrefWidth(LEFT_LIBRARY_WORKING_WIDTH);
         leftTabsContent.setMaxWidth(LEFT_LIBRARY_WORKING_WIDTH);
 
         ScrollPane leftTabsScrollPane = new ScrollPane(leftTabsContent);
+        leftTabsScrollPane.setMinWidth(0);
+        leftTabsScrollPane.setPrefViewportWidth(LEFT_LIBRARY_WORKING_WIDTH);
+        leftTabsScrollPane.setPrefWidth(LEFT_LIBRARY_WORKING_WIDTH);
+        leftTabsScrollPane.setMaxWidth(LEFT_LIBRARY_WORKING_WIDTH);
         leftTabsScrollPane.setFitToWidth(false);
         leftTabsScrollPane.setFitToHeight(true);
         leftTabsScrollPane.setPannable(true);
@@ -855,9 +886,12 @@ public class PuppeteerWindow extends Stage {
         leftTabsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         leftTabsScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
+        keyframeEditor.setMinWidth(0);
         leftWorkspaceSplit = new SplitPane();
         leftWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
         leftWorkspaceSplit.setOrientation(Orientation.VERTICAL);
+        leftWorkspaceSplit.setMinWidth(0);
+        leftWorkspaceSplit.setPrefWidth(LEFT_LIBRARY_WORKING_WIDTH);
         leftWorkspaceSplit.getItems().addAll(leftTabsScrollPane, keyframeEditor);
         leftWorkspaceSplit.setDividerPositions(0.65);
         final double[] collapsedKeyframeDivider = {0.65};
@@ -873,6 +907,7 @@ public class PuppeteerWindow extends Stage {
         centerWorkspaceSplit = new SplitPane();
         centerWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
         centerWorkspaceSplit.setOrientation(Orientation.VERTICAL);
+        centerWorkspaceSplit.setMinWidth(0);
         viewportInfoLabel = new Label();
         viewportInfoLabel.setStyle("-fx-text-fill: #979797; -fx-font-size: 10px; -fx-padding: 3 8 5 8;");
         viewportInfoLabel.setTooltip(new Tooltip(
@@ -916,6 +951,7 @@ public class PuppeteerWindow extends Stage {
         mainWorkspaceSplit = new SplitPane();
         mainWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
         mainWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
+        mainWorkspaceSplit.setMinWidth(0);
         mainWorkspaceSplit.getItems().addAll(leftWorkspaceSplit, centerWorkspaceSplit, codePreview);
         mainWorkspaceSplit.setDividerPositions(codePaneDividerPositions);
 
@@ -953,6 +989,266 @@ public class PuppeteerWindow extends Stage {
         });
 
         refreshExportPreview();
+    }
+
+    private Tab buildSelectionTab() {
+        lblSidebarSelectionTarget = buildSidebarValueLabel();
+        lblSidebarSelectionScope = buildSidebarValueLabel();
+        lblSidebarSelectionProperty = buildSidebarValueLabel();
+        lblSidebarSelectionPlayhead = buildSidebarValueLabel();
+        lblSidebarSelectionCount = buildSidebarValueLabel();
+
+        btnSidebarAddKeyframe = buildSidebarActionButton("Add Keyframe", () -> {
+            if (timelinePanel.getSelectedEntity() == null) return;
+            timelinePanel.addKeyframeAtPlayhead();
+            refreshExportPreviewAndMarkDirty();
+            refreshSidebarTabs();
+        });
+        btnSidebarFocusSelection = buildSidebarActionButton("Focus Timeline", () -> {
+            timelinePanel.zoomToSelection();
+            refreshSidebarTabs();
+        });
+        Button btnPrevKey = buildSidebarActionButton("Prev Key", () -> {
+            if (timelinePanel.jumpPlayheadToPreviousKeyframe()) {
+                updateTimeLabel();
+                updatePreview();
+            }
+            refreshSidebarTabs();
+        });
+        Button btnNextKey = buildSidebarActionButton("Next Key", () -> {
+            if (timelinePanel.jumpPlayheadToNextKeyframe()) {
+                updateTimeLabel();
+                updatePreview();
+            }
+            refreshSidebarTabs();
+        });
+        btnSidebarClearSelection = buildSidebarActionButton("Clear", () -> {
+            entitySelector.selectEntity(null);
+            animationPreview.clearSelection();
+            timelinePanel.setSelectedTarget(null, false);
+            keyframeEditor.setEntityName("-");
+            keyframeEditor.setKeyframe(null, null);
+            refreshSidebarTabs();
+        });
+
+        HBox selectionActionsPrimary = buildSidebarButtonRow(btnSidebarAddKeyframe, btnSidebarFocusSelection);
+        HBox selectionActionsSecondary = buildSidebarButtonRow(btnPrevKey, btnNextKey, btnSidebarClearSelection);
+
+        ScrollPane content = buildSidebarTabContent(
+            buildSidebarCard(
+                "Selection",
+                buildSidebarInfoBlock("Target", lblSidebarSelectionTarget),
+                buildSidebarInfoBlock("Scope", lblSidebarSelectionScope),
+                buildSidebarInfoBlock("Property", lblSidebarSelectionProperty),
+                buildSidebarInfoBlock("Playhead", lblSidebarSelectionPlayhead),
+                buildSidebarInfoBlock("Selected Keyframes", lblSidebarSelectionCount)
+            ),
+            buildSidebarCard(
+                "Actions",
+                selectionActionsPrimary,
+                selectionActionsSecondary
+            )
+        );
+        Tab tab = new Tab("Selection", content);
+        refreshSidebarTabs();
+        return tab;
+    }
+
+    private Tab buildSceneTab() {
+        lblSidebarSceneTracks = buildSidebarValueLabel();
+        lblSidebarSceneGroups = buildSidebarValueLabel();
+        lblSidebarSceneDuration = buildSidebarValueLabel();
+        lblSidebarSceneViewport = buildSidebarValueLabel();
+        lblSidebarSceneCamera = buildSidebarValueLabel();
+        lblSidebarSceneCodePane = buildSidebarValueLabel();
+        lblSidebarSceneAnchors = buildSidebarValueLabel();
+
+        Button btnFitPreview = buildSidebarActionButton("Fit Preview", () -> {
+            animationPreview.fitToContent();
+            refreshSidebarTabs();
+        });
+        Button btnFullscreen = buildSidebarActionButton("Fullscreen", this::enterFullscreenPreview);
+        btnSidebarCodePane = buildSidebarActionButton("Hide Code Pane", () -> {
+            setCodePaneVisible(!isCodePaneVisible());
+            refreshSidebarTabs();
+        });
+        Button btnRefreshCode = buildSidebarActionButton("Refresh Code", this::refreshExportPreview);
+
+        HBox previewActions = buildSidebarButtonRow(btnFitPreview, btnFullscreen);
+        HBox workspaceActions = buildSidebarButtonRow(btnSidebarCodePane, btnRefreshCode);
+
+        ScrollPane content = buildSidebarTabContent(
+            buildSidebarCard(
+                "Project",
+                buildSidebarInfoBlock("Tracks", lblSidebarSceneTracks),
+                buildSidebarInfoBlock("Groups", lblSidebarSceneGroups),
+                buildSidebarInfoBlock("Duration", lblSidebarSceneDuration),
+                buildSidebarInfoBlock("Orbit Anchors", lblSidebarSceneAnchors)
+            ),
+            buildSidebarCard(
+                "Preview",
+                buildSidebarInfoBlock("Viewport", lblSidebarSceneViewport),
+                buildSidebarInfoBlock("Camera", lblSidebarSceneCamera),
+                buildSidebarInfoBlock("Code Pane", lblSidebarSceneCodePane),
+                previewActions,
+                workspaceActions
+            )
+        );
+        Tab tab = new Tab("Scene", content);
+        refreshSidebarTabs();
+        return tab;
+    }
+
+    private ScrollPane buildSidebarTabContent(Node... content) {
+        VBox body = new VBox(10);
+        body.setPadding(new Insets(8));
+        body.setFillWidth(true);
+        body.setMinWidth(0);
+        if (content != null) {
+            body.getChildren().addAll(content);
+        }
+
+        ScrollPane scrollPane = new ScrollPane(body);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(false);
+        scrollPane.setPannable(true);
+        scrollPane.setMinWidth(0);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        return scrollPane;
+    }
+
+    private VBox buildSidebarCard(String title, Node... content) {
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle(STYLE_SIDEBAR_CARD_TITLE);
+
+        VBox card = new VBox(8);
+        card.setStyle(STYLE_SIDEBAR_CARD);
+        card.setMinWidth(0);
+        card.getChildren().add(titleLabel);
+        if (content != null) {
+            card.getChildren().addAll(content);
+        }
+        return card;
+    }
+
+    private VBox buildSidebarInfoBlock(String title, Label valueLabel) {
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle(STYLE_SIDEBAR_META_LABEL);
+        VBox block = new VBox(2, titleLabel, valueLabel);
+        block.setMinWidth(0);
+        return block;
+    }
+
+    private Label buildSidebarValueLabel() {
+        Label label = new Label("-");
+        label.setStyle(STYLE_SIDEBAR_VALUE_LABEL);
+        label.setWrapText(true);
+        label.setMaxWidth(Double.MAX_VALUE);
+        return label;
+    }
+
+    private Button buildSidebarActionButton(String text, Runnable action) {
+        Button button = new Button(text);
+        button.setMaxWidth(Double.MAX_VALUE);
+        button.setAlignment(Pos.CENTER_LEFT);
+        button.setStyle(STYLE_BTN_DARK);
+        button.setOnAction(event -> {
+            if (action != null) {
+                action.run();
+            }
+            event.consume();
+        });
+        return button;
+    }
+
+    private HBox buildSidebarButtonRow(Button... buttons) {
+        HBox row = new HBox(6);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setMinWidth(0);
+        if (buttons != null) {
+            for (Button button : buttons) {
+                if (button == null) continue;
+                HBox.setHgrow(button, Priority.ALWAYS);
+                row.getChildren().add(button);
+            }
+        }
+        return row;
+    }
+
+    private void refreshSidebarTabs() {
+        String selectedName = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
+        boolean selectedGroup = timelinePanel != null && timelinePanel.isSelectedGroup();
+        PropertyType selectedProperty = timelinePanel != null ? timelinePanel.getSelectedProperty() : null;
+        int selectionCount = timelinePanel != null ? timelinePanel.getSelectionCount() : 0;
+        boolean hasTarget = selectedName != null && !selectedName.isBlank();
+
+        if (lblSidebarSelectionTarget != null) {
+            lblSidebarSelectionTarget.setText(hasTarget ? selectionLabel(selectedName, selectedGroup) : "No target");
+        }
+        if (lblSidebarSelectionScope != null) {
+            lblSidebarSelectionScope.setText(
+                selectionCount > 1
+                    ? "Multi-keyframe selection"
+                    : selectedGroup
+                        ? "Group track"
+                        : hasTarget
+                            ? "Entity track"
+                            : "Nothing selected");
+        }
+        if (lblSidebarSelectionProperty != null) {
+            lblSidebarSelectionProperty.setText(selectedProperty != null ? selectedProperty.getDisplayName() : "None");
+        }
+        if (lblSidebarSelectionPlayhead != null) {
+            lblSidebarSelectionPlayhead.setText(String.format("%.0f ms", project.getPlayheadMs()));
+        }
+        if (lblSidebarSelectionCount != null) {
+            lblSidebarSelectionCount.setText(String.valueOf(selectionCount));
+        }
+        if (btnSidebarAddKeyframe != null) {
+            btnSidebarAddKeyframe.setDisable(!hasTarget);
+        }
+        if (btnSidebarFocusSelection != null) {
+            btnSidebarFocusSelection.setDisable(!hasTarget);
+        }
+        if (btnSidebarClearSelection != null) {
+            btnSidebarClearSelection.setDisable(!hasTarget && selectionCount == 0);
+        }
+
+        if (lblSidebarSceneTracks != null) {
+            lblSidebarSceneTracks.setText(String.valueOf(countItems(project.getTracks())));
+        }
+        if (lblSidebarSceneGroups != null) {
+            lblSidebarSceneGroups.setText(String.valueOf(countItems(project.getGroups())));
+        }
+        if (lblSidebarSceneDuration != null) {
+            lblSidebarSceneDuration.setText(String.format("%.0f ms", project.getTotalDurationMs()));
+        }
+        if (lblSidebarSceneAnchors != null) {
+            lblSidebarSceneAnchors.setText(String.valueOf(project.getOrbitAnchorsView().size()));
+        }
+        if (lblSidebarSceneViewport != null) {
+            ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
+            lblSidebarSceneViewport.setText(viewport.width() + " x " + viewport.height());
+        }
+        if (lblSidebarSceneCamera != null) {
+            var camera = animationPreview.getCamera();
+            lblSidebarSceneCamera.setText(String.format("X %.1f  Y %.1f  Z %.2f", camera.getX(), camera.getY(), camera.getZoom()));
+        }
+        if (lblSidebarSceneCodePane != null) {
+            lblSidebarSceneCodePane.setText(codePaneVisible ? "Visible" : "Hidden");
+        }
+        if (btnSidebarCodePane != null) {
+            btnSidebarCodePane.setText(codePaneVisible ? "Hide Code Pane" : "Show Code Pane");
+        }
+    }
+
+    private int countItems(Iterable<?> items) {
+        if (items == null) return 0;
+        int count = 0;
+        for (Object ignored : items) {
+            count++;
+        }
+        return count;
     }
 
     private void applyLinuxDefaultWindowState() {
@@ -1011,6 +1307,7 @@ public class PuppeteerWindow extends Stage {
                 mainWorkspaceSplit.getItems().add(codePreview);
             }
             mainWorkspaceSplit.setDividerPositions(codePaneDividerPositions);
+            refreshSidebarTabs();
             return;
         }
         if (mainWorkspaceSplit.getItems().contains(codePreview)) {
@@ -1021,6 +1318,7 @@ public class PuppeteerWindow extends Stage {
             mainWorkspaceSplit.getItems().remove(codePreview);
         }
         mainWorkspaceSplit.setDividerPositions(0.5);
+        refreshSidebarTabs();
     }
 
     public boolean isCodePaneVisible() {
@@ -1065,6 +1363,7 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreview();
         }
         updatePreviewOverlayVisibility();
+        refreshSidebarTabs();
     }
 
     private java.io.File projectRoot;
@@ -1076,6 +1375,7 @@ public class PuppeteerWindow extends Stage {
         keyframeEditor.setProjectRoot(root);
         codePreview.setProjectRoot(root);
         updateViewportInfoLabel();
+        refreshSidebarTabs();
     }
 
     private void addAssetToScene(String relativePath, String suggestedName, PuppeteerAssetPlacementRole role) {
@@ -1246,6 +1546,7 @@ public class PuppeteerWindow extends Stage {
         if (lblFullscreenTime != null) {
             lblFullscreenTime.setText(String.format("%.0f ms", project.getPlayheadMs()));
         }
+        refreshSidebarTabs();
     }
 
     private void updatePreview() {
@@ -1324,6 +1625,7 @@ public class PuppeteerWindow extends Stage {
         }
 
         animationPreview.render();
+        refreshSidebarTabs();
     }
 
     private void setEntityAlpha(com.jvn.core.scene2d.Entity2D entity, double alpha) {
@@ -1721,6 +2023,7 @@ public class PuppeteerWindow extends Stage {
         diags.addAll(TimelineDiagnostic.diagnose(project, knownSceneEntities()));
         diags.addAll(TimelineDiagnostic.diagnoseDsl(codePreview.getCode()));
         codePreview.setDiagnostics(diags);
+        refreshSidebarTabs();
     }
 
     private void refreshExportPreviewAndMarkDirty() {
@@ -1913,6 +2216,15 @@ public class PuppeteerWindow extends Stage {
     private static final String STYLE_TEXT_FIELD =
         "-fx-background-color: #1a1a1a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
         "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";
+    private static final String STYLE_SIDEBAR_CARD =
+        "-fx-background-color: #151515; -fx-border-color: #2f2f2f; -fx-border-radius: 8; "
+            + "-fx-background-radius: 8; -fx-padding: 10 12;";
+    private static final String STYLE_SIDEBAR_CARD_TITLE =
+        "-fx-text-fill: #efefef; -fx-font-size: 12px; -fx-font-weight: bold;";
+    private static final String STYLE_SIDEBAR_META_LABEL =
+        "-fx-text-fill: #8c8c8c; -fx-font-size: 10px; -fx-font-weight: bold;";
+    private static final String STYLE_SIDEBAR_VALUE_LABEL =
+        "-fx-text-fill: #f0f0f0; -fx-font-size: 12px;";
 
     private static Button makeToolbarIconButton(String iconClass, String tooltip) {
         Button btn = new Button();
