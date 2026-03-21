@@ -29,6 +29,7 @@ public class TimelinePanel extends VBox {
     private static final double TRACK_HEIGHT = 24;
     private static final double HEADER_HEIGHT = 30;
     private static final double LABEL_WIDTH = 140;
+    private static final PropertyType[] GROUP_PROPERTIES = {PropertyType.X, PropertyType.Y};
     private static final Color BG_COLOR = Color.web("#121212");
     private static final Color GRID_COLOR = Color.web("#2a2a2a");
     private static final Color PLAYHEAD_COLOR = Color.web("#f38ba8");
@@ -420,16 +421,17 @@ public class TimelinePanel extends VBox {
         EntityTrack groupTrack = selectedGroupTrack();
         if (selectedGroup && groupTrack != null) {
             trackCount++; // selected group header
-            for (PropertyType p : editablePropertiesForSelection()) {
-                if (groupTrack.hasKeyframes(p) || p == selectedProperty) {
+            for (PropertyType p : GROUP_PROPERTIES) {
+                if (shouldShowPropertyTrack(groupTrack, true, true, p)) {
                     trackCount++;
                 }
             }
         }
         for (EntityTrack track : project.getTracks()) {
             trackCount++; // entity header
+            boolean isSelected = !selectedGroup && track.getEntityName().equals(selectedEntity);
             for (PropertyType p : PropertyType.values()) {
-                if (track.hasKeyframes(p)) trackCount++;
+                if (shouldShowPropertyTrack(track, isSelected, false, p)) trackCount++;
             }
         }
         return HEADER_HEIGHT + trackCount * TRACK_HEIGHT + 50;
@@ -482,13 +484,13 @@ public class TimelinePanel extends VBox {
         EntityTrack groupTrack = selectedGroupTrack();
 
         if (selectedGroup && groupTrack != null && selectedEntity != null) {
-            y = drawTrackBlock(gc, width, y, groupTrack, "[Group] " + selectedEntity, true, editablePropertiesForSelection());
+            y = drawTrackBlock(gc, width, y, groupTrack, "[Group] " + selectedEntity, true, true, GROUP_PROPERTIES);
         }
 
         for (EntityTrack track : project.getTracks()) {
             String entityName = track.getEntityName();
             boolean isSelected = !selectedGroup && entityName.equals(selectedEntity);
-            y = drawTrackBlock(gc, width, y, track, entityName, isSelected, PropertyType.values());
+            y = drawTrackBlock(gc, width, y, track, entityName, isSelected, false, PropertyType.values());
         }
     }
 
@@ -498,6 +500,7 @@ public class TimelinePanel extends VBox {
                                   EntityTrack track,
                                   String label,
                                   boolean isSelected,
+                                  boolean groupTrack,
                                   PropertyType[] properties) {
         if (track == null) return y;
         gc.setFill(isSelected ? Color.web("#2a2a2a") : Color.web("#1a1a1a"));
@@ -509,7 +512,7 @@ public class TimelinePanel extends VBox {
         y += TRACK_HEIGHT;
 
         for (PropertyType prop : properties) {
-            boolean showTrack = track.hasKeyframes(prop) || (isSelected && prop == selectedProperty);
+            boolean showTrack = shouldShowPropertyTrack(track, isSelected, groupTrack, prop);
             if (!showTrack) continue;
 
             boolean propSelected = isSelected && prop == selectedProperty;
@@ -878,7 +881,7 @@ public class TimelinePanel extends VBox {
             if (my < row.y() || my >= row.y() + row.height()) continue;
             selectedEntity = row.entityName();
             selectedGroup = row.group();
-            selectedProperty = row.property();
+            selectedProperty = resolveSelectionProperty(row);
             notifyTargetSelectionChanged();
             render();
             return;
@@ -953,8 +956,8 @@ public class TimelinePanel extends VBox {
         if (selectedGroup && groupTrack != null && selectedEntity != null) {
             rows.add(new TrackRow(groupTrack, selectedEntity, true, null, y, TRACK_HEIGHT));
             y += TRACK_HEIGHT;
-            for (PropertyType prop : editablePropertiesForSelection()) {
-                boolean showTrack = groupTrack.hasKeyframes(prop) || prop == selectedProperty;
+            for (PropertyType prop : GROUP_PROPERTIES) {
+                boolean showTrack = shouldShowPropertyTrack(groupTrack, true, true, prop);
                 if (!showTrack) continue;
                 rows.add(new TrackRow(groupTrack, selectedEntity, true, prop, y, TRACK_HEIGHT));
                 y += TRACK_HEIGHT;
@@ -964,9 +967,9 @@ public class TimelinePanel extends VBox {
         for (EntityTrack track : project.getTracks()) {
             rows.add(new TrackRow(track, track.getEntityName(), false, null, y, TRACK_HEIGHT));
             y += TRACK_HEIGHT;
+            boolean isSelected = !selectedGroup && track.getEntityName().equals(selectedEntity);
             for (PropertyType prop : PropertyType.values()) {
-                boolean showTrack = track.hasKeyframes(prop)
-                    || (!selectedGroup && track.getEntityName().equals(selectedEntity) && prop == selectedProperty);
+                boolean showTrack = shouldShowPropertyTrack(track, isSelected, false, prop);
                 if (!showTrack) continue;
                 rows.add(new TrackRow(track, track.getEntityName(), false, prop, y, TRACK_HEIGHT));
                 y += TRACK_HEIGHT;
@@ -1045,6 +1048,43 @@ public class TimelinePanel extends VBox {
 
     private static boolean isGroupProperty(PropertyType property) {
         return property == PropertyType.X || property == PropertyType.Y;
+    }
+
+    private PropertyType resolveSelectionProperty(TrackRow row) {
+        if (row == null) return defaultPropertyForSelection();
+        if (row.property() != null) return row.property();
+        if (row.group()) {
+            return selectedProperty != null && isGroupProperty(selectedProperty)
+                ? selectedProperty
+                : PropertyType.X;
+        }
+        if (selectedProperty != null) {
+            if (selectedProperty.isEntityProperty()) {
+                return selectedProperty;
+            }
+            EntityTrack track = row.track();
+            if (track != null && track.hasKeyframes(selectedProperty)) {
+                return selectedProperty;
+            }
+        }
+        return PropertyType.X;
+    }
+
+    private boolean shouldShowPropertyTrack(EntityTrack track, boolean isSelected, boolean groupTrack, PropertyType property) {
+        if (track == null || property == null) return false;
+        if (groupTrack) {
+            return isGroupProperty(property) && (track.hasKeyframes(property) || isSelected);
+        }
+        if (track.hasKeyframes(property)) {
+            return true;
+        }
+        if (!isSelected) {
+            return false;
+        }
+        if (property.isEntityProperty()) {
+            return true;
+        }
+        return property == selectedProperty;
     }
 
     private PropertyType defaultPropertyForSelection() {

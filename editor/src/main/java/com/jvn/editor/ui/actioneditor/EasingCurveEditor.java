@@ -26,14 +26,14 @@ public class EasingCurveEditor extends Pane {
     private static final double HANDLE_RADIUS = 5;
     private static final Color BG_COLOR = Color.web("#0e0e0e");
     private static final Color GRID_COLOR = Color.web("#2a2a2a");
-    private static final Color AXIS_COLOR = Color.web("#3a3a3a");
-    private static final Color CURVE_COLOR = Color.web("#4da3ff");
-    private static final Color LABEL_COLOR = Color.web("#666");
+    private static final Color AXIS_COLOR = Color.web("#4a4a4a");
+    private static final Color CURVE_COLOR = Color.web("#d9dee6");
+    private static final Color LABEL_COLOR = Color.web("#787878");
     private static final Color POINT_COLOR = Color.web("#f0b673");
-    private static final Color LINEAR_COLOR = Color.web("#333");
+    private static final Color LINEAR_COLOR = Color.web("#404040");
     private static final Color HANDLE_COLOR = Color.web("#ff6b6b");
     private static final Color HANDLE2_COLOR = Color.web("#51cf66");
-    private static final Color TANGENT_COLOR = Color.web("#555");
+    private static final Color TANGENT_COLOR = Color.web("#6a6a6a");
 
     private final Canvas canvas;
     private Easing.Type easingType = Easing.Type.LINEAR;

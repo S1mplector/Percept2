@@ -32,16 +32,16 @@ import javafx.stage.FileChooser;
 
 final class PuppeteerEasingPresetLibraryPanel extends VBox {
     private static final String PANEL_STYLE =
-        "-fx-background-color: #14171d; -fx-background-radius: 8; -fx-border-radius: 8; "
-            + "-fx-border-color: #2b3340;";
+        "-fx-background-color: #121212; -fx-background-radius: 8; -fx-border-radius: 8; "
+            + "-fx-border-color: #2f2f2f;";
     private static final String FIELD_STYLE =
         "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
         "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 4 6; -fx-font-size: 11px;";
     private static final String BUTTON_STYLE =
-        "-fx-background-color: #23262c; -fx-text-fill: #d7dde6; -fx-background-radius: 4; "
-            + "-fx-border-color: #3a3f48; -fx-border-radius: 4; -fx-padding: 5 10; -fx-font-size: 11px; -fx-cursor: hand;";
+        "-fx-background-color: #232323; -fx-text-fill: #e0e0e0; -fx-background-radius: 4; "
+            + "-fx-border-color: #3d3d3d; -fx-border-radius: 4; -fx-padding: 5 10; -fx-font-size: 11px; -fx-cursor: hand;";
     private static final String ACCENT_BUTTON_STYLE =
-        "-fx-background-color: #315d98; -fx-text-fill: white; -fx-background-radius: 4; "
+        "-fx-background-color: #434343; -fx-text-fill: white; -fx-border-color: #707070; -fx-background-radius: 4; "
             + "-fx-border-radius: 4; -fx-padding: 5 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
     private static final String DANGER_BUTTON_STYLE =
         "-fx-background-color: #6d2f3a; -fx-text-fill: #ffe3e7; -fx-background-radius: 4; "
@@ -83,13 +83,13 @@ final class PuppeteerEasingPresetLibraryPanel extends VBox {
         header.setStyle("-fx-text-fill: #f2f4f7; -fx-font-size: 12px; -fx-font-weight: bold;");
 
         filePathLabel.setWrapText(true);
-        filePathLabel.setStyle("-fx-text-fill: #7f8796; -fx-font-size: 10px;");
+        filePathLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 10px;");
 
         previewCanvas.setWidth(228);
         previewCanvas.setHeight(132);
 
         currentSpecLabel.setWrapText(true);
-        currentSpecLabel.setStyle("-fx-text-fill: #9fb7d6; -fx-font-size: 10px;");
+        currentSpecLabel.setStyle("-fx-text-fill: #b0b0b0; -fx-font-size: 10px;");
         selectedSpecLabel.setWrapText(true);
         selectedSpecLabel.setStyle("-fx-text-fill: #f2d591; -fx-font-size: 10px;");
 
@@ -153,7 +153,7 @@ final class PuppeteerEasingPresetLibraryPanel extends VBox {
         fileRow.setAlignment(Pos.CENTER_LEFT);
 
         statusLabel.setWrapText(true);
-        statusLabel.setStyle("-fx-text-fill: #7f8796; -fx-font-size: 10px;");
+        statusLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 10px;");
 
         getChildren().addAll(
             header,
@@ -523,7 +523,7 @@ final class PuppeteerEasingPresetLibraryPanel extends VBox {
         statusLabel.setText(message == null ? "" : message.trim());
         statusLabel.setStyle(error
             ? "-fx-text-fill: #e6a8b3; -fx-font-size: 10px;"
-            : "-fx-text-fill: #7f8796; -fx-font-size: 10px;");
+            : "-fx-text-fill: #888888; -fx-font-size: 10px;");
     }
 
     private static String uniqueName(String preferred, List<PuppeteerEasingPresetStore.Preset> existing, String reservedId) {

@@ -8,10 +8,13 @@ import java.util.Objects;
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
 
+import javafx.geometry.Pos;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -19,11 +22,13 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 public class KeyframeEditor extends VBox {
     private final Label lblEntity;
     private final Label lblProperty;
+    private final Label lblSelectionMode;
     private final TextField tfTime;
     private final Slider sliderTime;
     private final TextField tfValue;
@@ -38,25 +43,70 @@ public class KeyframeEditor extends VBox {
     private final Button btnResetValue;
     private final Label lblCameraState;
     private final Label lblCurvePresetHint;
+    private final Label lblTimeStepHint;
+    private final Label lblValueStepHint;
     private final EasingCurveEditor curveEditor;
     private final PuppeteerEasingPresetLibraryPanel presetLibraryPanel;
     private final GridPane pivotPresetsGrid;
     private final Label lblPivotPresets;
+    private final VBox pivotBox;
     private final VBox batchBox;
     private final Label lblSelectionSummary;
     private final TextField tfTimeOffset;
     private final TextField tfValueOffset;
     private final Button btnApplyBatch;
 
+    private static final String PANEL_STYLE =
+        "-fx-background-color: #181818; -fx-border-color: #2a2a2a; -fx-border-width: 1 0 0 0;";
+    private static final String HEADER_STYLE =
+        "-fx-font-weight: bold; -fx-text-fill: #efefef; -fx-font-size: 13px;";
     private static final String FIELD_STYLE =
-        "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
-        "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";
+        "-fx-background-color: #111111; -fx-text-fill: #ececec; -fx-border-color: #3a3a3a; " +
+        "-fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 5 8; -fx-font-size: 12px;";
     private static final String FIELD_STYLE_ERROR =
-        "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #e05577; " +
-        "-fx-border-width: 1.5; -fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";
+        "-fx-background-color: #111111; -fx-text-fill: #ececec; -fx-border-color: #e05577; " +
+        "-fx-border-width: 1.5; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 5 8; -fx-font-size: 12px;";
+    private static final String SECTION_STYLE =
+        "-fx-background-color: #121212; -fx-border-color: #2f2f2f; -fx-border-radius: 8; " +
+        "-fx-background-radius: 8; -fx-padding: 10 12;";
+    private static final String TILE_STYLE =
+        "-fx-background-color: #121212; -fx-border-color: #2f2f2f; -fx-border-radius: 8; " +
+        "-fx-background-radius: 8; -fx-padding: 8 10;";
+    private static final String SECTION_TITLE_STYLE =
+        "-fx-text-fill: #ececec; -fx-font-size: 11px; -fx-font-weight: bold;";
+    private static final String LABEL_STYLE =
+        "-fx-text-fill: #a0a0a0; -fx-font-size: 11px;";
+    private static final String META_CAPTION_STYLE =
+        "-fx-text-fill: #7f7f7f; -fx-font-size: 10px; -fx-font-weight: bold;";
+    private static final String META_VALUE_STYLE =
+        "-fx-text-fill: #f0f0f0; -fx-font-size: 16px; -fx-font-weight: bold;";
+    private static final String SUBTLE_HINT_STYLE =
+        "-fx-text-fill: #909090; -fx-font-size: 10px;";
+    private static final String SECONDARY_BUTTON_STYLE =
+        "-fx-background-color: #242424; -fx-text-fill: #e6e6e6; -fx-background-radius: 6; " +
+        "-fx-border-color: #3d3d3d; -fx-border-radius: 6; -fx-padding: 5 10; -fx-font-size: 11px; -fx-cursor: hand;";
+    private static final String TOGGLE_BUTTON_STYLE =
+        "-fx-background-color: #3b3b3b; -fx-text-fill: #f1f1f1; -fx-background-radius: 6; " +
+        "-fx-border-color: #6a6a6a; -fx-border-radius: 6; -fx-padding: 5 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
+    private static final String SUCCESS_BUTTON_STYLE =
+        "-fx-background-color: #294229; -fx-text-fill: #dff3df; -fx-background-radius: 6; " +
+        "-fx-border-color: #446644; -fx-border-radius: 6; -fx-padding: 5 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
+    private static final String DANGER_BUTTON_STYLE =
+        "-fx-background-color: #6b3038; -fx-text-fill: #ffe6ea; -fx-background-radius: 6; " +
+        "-fx-border-color: #904652; -fx-border-radius: 6; -fx-padding: 5 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
+    private static final String BADGE_IDLE_STYLE =
+        "-fx-background-color: #1d1d1d; -fx-text-fill: #8f8f8f; -fx-border-color: #3b3b3b; " +
+        "-fx-border-radius: 999; -fx-background-radius: 999; -fx-padding: 4 10; -fx-font-size: 10px; -fx-font-weight: bold;";
+    private static final String BADGE_ACTIVE_STYLE =
+        "-fx-background-color: #2b2b2b; -fx-text-fill: #ececec; -fx-border-color: #616161; " +
+        "-fx-border-radius: 999; -fx-background-radius: 999; -fx-padding: 4 10; -fx-font-size: 10px; -fx-font-weight: bold;";
+    private static final String BADGE_MULTI_STYLE =
+        "-fx-background-color: #2f2a21; -fx-text-fill: #f0d89b; -fx-border-color: #736040; " +
+        "-fx-border-radius: 999; -fx-background-radius: 999; -fx-padding: 4 10; -fx-font-size: 10px; -fx-font-weight: bold;";
+    private static final double EDITOR_WORKING_WIDTH = 760.0;
 
     private final Label lblEmptyHint;
-    private final GridPane grid;
+    private final VBox contentBox;
     private double timelineDurationMs = 3000.0;
     private Keyframe currentKeyframe;
     private PropertyType currentProperty;
@@ -71,66 +121,86 @@ public class KeyframeEditor extends VBox {
     private java.util.function.Consumer<Boolean> onCurveEditorExpandedChanged;
 
     public KeyframeEditor() {
-        setSpacing(6);
-        setPadding(new Insets(8));
-        setStyle("-fx-background-color: #1a1a1a;");
-        setMinHeight(140);
+        setSpacing(10);
+        setPadding(new Insets(10, 10, 8, 10));
+        setStyle(PANEL_STYLE);
+        setMinHeight(200);
 
         Label header = new Label("Keyframe Editor");
-        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
+        header.setStyle(HEADER_STYLE);
 
-        lblEmptyHint = new Label("Select a keyframe in the timeline\nto edit its properties here.");
-        lblEmptyHint.setStyle("-fx-text-fill: #555; -fx-font-size: 11px; -fx-padding: 12 0 0 0;");
+        lblSelectionMode = new Label("No Selection");
+        lblSelectionMode.setStyle(BADGE_IDLE_STYLE);
+
+        HBox headerRow = new HBox(8, header, createSpacer(), lblSelectionMode);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+
+        lblEmptyHint = new Label("Select a keyframe in the timeline to edit timing, value, easing, and curve behavior here.");
+        lblEmptyHint.setStyle(SECTION_STYLE + " -fx-text-fill: #717171; -fx-font-size: 11px;");
         lblEmptyHint.setWrapText(true);
 
-        grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(6);
+        contentBox = new VBox(10);
+        contentBox.setFillWidth(true);
+        contentBox.setMaxWidth(Double.MAX_VALUE);
 
         lblEntity = new Label("-");
+        lblEntity.setStyle(META_VALUE_STYLE);
+        lblEntity.setWrapText(true);
+        lblEntity.setMaxWidth(Double.MAX_VALUE);
         lblProperty = new Label("-");
+        lblProperty.setStyle(META_VALUE_STYLE);
+        lblProperty.setWrapText(true);
+        lblProperty.setMaxWidth(Double.MAX_VALUE);
 
         tfTime = new TextField();
-        tfTime.setPrefWidth(60);
+        tfTime.setPromptText("ms");
+        tfTime.setPrefWidth(86);
         tfTime.setStyle(FIELD_STYLE);
         sliderTime = new Slider(0, 3000, 0);
         sliderTime.setTooltip(new Tooltip("Drag to adjust keyframe time"));
-        HBox timeRow = new HBox(6, tfTime, sliderTime);
+        HBox timeRow = new HBox(8, tfTime, sliderTime);
+        timeRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(sliderTime, Priority.ALWAYS);
 
         tfValue = new TextField();
-        tfValue.setPrefWidth(60);
+        tfValue.setPromptText("value");
+        tfValue.setPrefWidth(96);
         tfValue.setStyle(FIELD_STYLE);
         sliderValue = new Slider(-2000, 2000, 0);
         sliderValue.setTooltip(new Tooltip("Drag to adjust value"));
-        HBox valueRow = new HBox(6, tfValue, sliderValue);
+        HBox valueRow = new HBox(8, tfValue, sliderValue);
+        valueRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(sliderValue, Priority.ALWAYS);
 
         cbEasing = new PuppeteerEasingComboBox();
         cbEasing.setCurrentSpecSupplier(this::resolveEditorEasingSpec);
         cbEasing.setCurrentSpec(EasingSpec.of(Easing.Type.LINEAR));
-        btnPresetLibrary = new Button("Preset Library");
+        btnPresetLibrary = new Button("Show Library");
         btnPresetLibrary.setTooltip(new Tooltip("Open the project easing preset library"));
-        btnPresetLibrary.setStyle("-fx-background-color: #243449; -fx-text-fill: #dce8f7; -fx-background-radius: 3; " +
-            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+        btnPresetLibrary.setStyle(SECONDARY_BUTTON_STYLE);
         cbInterpolation = new ComboBox<>();
         cbInterpolation.getItems().addAll(Easing.Interpolation.values());
         cbInterpolation.setValue(Easing.Interpolation.TWEEN);
-        btnEditCurve = new Button("Edit Curve");
+        cbInterpolation.setMaxWidth(Double.MAX_VALUE);
+        cbInterpolation.setStyle(FIELD_STYLE);
+        btnEditCurve = new Button("Make Editable");
         btnEditCurve.setTooltip(new Tooltip("Convert the current easing into an editable cubic bezier"));
-        btnEditCurve.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #f0d98a; -fx-background-radius: 3; " +
-            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+        btnEditCurve.setStyle(SECONDARY_BUTTON_STYLE);
         btnUpdateCurvePreset = new Button("Update Preset");
         btnUpdateCurvePreset.setTooltip(new Tooltip("Write the edited curve back into the selected preset"));
-        btnUpdateCurvePreset.setStyle("-fx-background-color: #2d4a2d; -fx-text-fill: #d6f5d6; -fx-background-radius: 3; " +
-            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
-        btnExpandCurveEditor = new Button("Expand Curve");
+        btnUpdateCurvePreset.setStyle(SUCCESS_BUTTON_STYLE);
+        btnExpandCurveEditor = new Button("Expand");
         btnExpandCurveEditor.setTooltip(new Tooltip("Grow the curve editor inside the left panel"));
-        btnExpandCurveEditor.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 3; " +
-            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+        btnExpandCurveEditor.setStyle(SECONDARY_BUTTON_STYLE);
         lblCurvePresetHint = new Label();
-        lblCurvePresetHint.setStyle("-fx-text-fill: #8ea4c6; -fx-font-size: 10px;");
+        lblCurvePresetHint.setStyle(SUBTLE_HINT_STYLE);
         lblCurvePresetHint.setWrapText(true);
+
+        lblTimeStepHint = new Label();
+        lblTimeStepHint.setStyle(SUBTLE_HINT_STYLE);
+        lblValueStepHint = new Label();
+        lblValueStepHint.setStyle(SUBTLE_HINT_STYLE);
+
         presetLibraryPanel = new PuppeteerEasingPresetLibraryPanel();
         presetLibraryPanel.setCurrentSpecSupplier(this::resolveEditorEasingSpec);
         presetLibraryPanel.setSelectedEntrySupplier(cbEasing::getSelectedEntry);
@@ -149,55 +219,48 @@ public class KeyframeEditor extends VBox {
         });
 
         btnDelete = new Button("Delete");
-        btnDelete.setStyle("-fx-background-color: #e05577; -fx-text-fill: #0a0a0a; -fx-background-radius: 3; " +
-            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnDelete.setStyle(DANGER_BUTTON_STYLE);
         btnDelete.setTooltip(new Tooltip("Delete this keyframe (Del)"));
 
-        btnResetValue = new Button("Reset");
+        btnResetValue = new Button("Reset Value");
         btnResetValue.setTooltip(new Tooltip("Reset to property default"));
-        btnResetValue.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 3; " +
-            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
-
-        HBox actionRow = new HBox(6, btnDelete, btnResetValue);
+        btnResetValue.setStyle(SECONDARY_BUTTON_STYLE);
 
         lblSelectionSummary = new Label("No multi-selection");
-        lblSelectionSummary.setStyle("-fx-text-fill: #8ea4c6; -fx-font-size: 11px;");
+        lblSelectionSummary.setStyle(LABEL_STYLE);
         tfTimeOffset = new TextField("0");
+        tfTimeOffset.setPromptText("+/- ms");
         tfTimeOffset.setPrefWidth(70);
         tfTimeOffset.setStyle(FIELD_STYLE);
         tfTimeOffset.setTooltip(new Tooltip("Add this delta to all selected keyframe times"));
         tfValueOffset = new TextField("0");
+        tfValueOffset.setPromptText("+/- value");
         tfValueOffset.setPrefWidth(70);
         tfValueOffset.setStyle(FIELD_STYLE);
         tfValueOffset.setTooltip(new Tooltip("Add this delta to all selected keyframe values"));
-        btnApplyBatch = new Button("Apply Batch");
-        btnApplyBatch.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 3; " +
-            "-fx-border-radius: 3; -fx-padding: 3 10; -fx-font-size: 11px; -fx-cursor: hand;");
+        btnApplyBatch = new Button("Apply Offsets");
+        btnApplyBatch.setStyle(SECONDARY_BUTTON_STYLE);
         btnApplyBatch.setTooltip(new Tooltip("Apply time and value offsets to the current multi-selection"));
-        HBox batchOffsets = new HBox(6,
-            new Label("Time Δ"), tfTimeOffset,
-            new Label("Value Δ"), tfValueOffset,
-            btnApplyBatch);
-        batchBox = new VBox(4, lblSelectionSummary, batchOffsets);
+
+        VBox batchTimeBox = buildLabeledControl("Time Offset", tfTimeOffset);
+        VBox batchValueBox = buildLabeledControl("Value Offset", tfValueOffset);
+        HBox batchOffsets = new HBox(10, batchTimeBox, batchValueBox, createSpacer(), btnApplyBatch);
+        batchOffsets.setAlignment(Pos.BOTTOM_LEFT);
+        HBox.setHgrow(batchTimeBox, Priority.ALWAYS);
+        HBox.setHgrow(batchValueBox, Priority.ALWAYS);
+        batchBox = buildSection("Batch Adjustments", lblSelectionSummary, batchOffsets);
         batchBox.setVisible(false);
         batchBox.setManaged(false);
 
-        lblPivotPresets = new Label("Pivot Presets:");
-        lblPivotPresets.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+        lblPivotPresets = new Label("Pivot Anchors");
+        lblPivotPresets.setStyle(SECTION_TITLE_STYLE);
         pivotPresetsGrid = buildPivotPresetsGrid();
-        pivotPresetsGrid.setVisible(false);
-        pivotPresetsGrid.setManaged(false);
-        lblPivotPresets.setVisible(false);
-        lblPivotPresets.setManaged(false);
+        Label pivotHint = new Label("Quick positions apply both pivot axes together.");
+        pivotHint.setStyle(SUBTLE_HINT_STYLE);
+        pivotBox = buildSection(lblPivotPresets, pivotHint, pivotPresetsGrid);
+        pivotBox.setVisible(false);
+        pivotBox.setManaged(false);
 
-        grid.add(new Label("Entity:"), 0, 0);
-        grid.add(lblEntity, 1, 0);
-        grid.add(new Label("Property:"), 0, 1);
-        grid.add(lblProperty, 1, 1);
-        grid.add(new Label("Time (ms):"), 0, 2);
-        grid.add(timeRow, 1, 2);
-        grid.add(new Label("Value:"), 0, 3);
-        grid.add(valueRow, 1, 3);
         curveEditor = new EasingCurveEditor();
         curveEditor.setOnBezierChanged(params -> {
             if (currentKeyframe != null && currentKeyframe.getEasing() == Easing.Type.CUSTOM) {
@@ -206,40 +269,84 @@ public class KeyframeEditor extends VBox {
                 if (onKeyframeChanged != null) onKeyframeChanged.run();
             }
         });
-        HBox easingRow = new HBox(6, cbEasing, btnPresetLibrary, btnExpandCurveEditor);
+
+        VBox entityTile = buildMetaTile("Entity", lblEntity);
+        VBox propertyTile = buildMetaTile("Property", lblProperty);
+        HBox infoRow = new HBox(10, entityTile, propertyTile);
+        infoRow.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(entityTile, Priority.ALWAYS);
+        HBox.setHgrow(propertyTile, Priority.ALWAYS);
+
+        VBox timeEditor = buildEditorRow("Time", "Timeline position", timeRow, lblTimeStepHint);
+        VBox valueEditor = buildEditorRow("Value", "Current property value", valueRow, lblValueStepHint);
+        Label nudgeHint = new Label("Arrow keys or mouse wheel nudge the focused field. Hold Shift for larger steps.");
+        nudgeHint.setStyle(SUBTLE_HINT_STYLE);
+        VBox valueSection = buildSection("Keyframe Values", timeEditor, valueEditor, nudgeHint);
+
+        HBox easingPickerRow = new HBox(8, cbEasing, btnPresetLibrary);
+        easingPickerRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(cbEasing, Priority.ALWAYS);
-        HBox curveActionRow = new HBox(6, btnEditCurve, btnUpdateCurvePreset, lblCurvePresetHint);
-        HBox.setHgrow(lblCurvePresetHint, Priority.ALWAYS);
 
-        grid.add(new Label("Interp:"), 0, 4);
-        grid.add(cbInterpolation, 1, 4);
-        grid.add(new Label("Easing:"), 0, 5);
-        grid.add(easingRow, 1, 5);
-        grid.add(curveActionRow, 1, 6);
-        grid.add(curveEditor, 0, 7, 2, 1);
-        grid.add(presetLibraryPanel, 0, 8, 2, 1);
-        grid.add(batchBox, 0, 9, 2, 1);
-        grid.add(lblPivotPresets, 0, 10);
-        grid.add(pivotPresetsGrid, 1, 10);
-        grid.add(actionRow, 1, 11);
+        VBox interpolationBox = buildLabeledControl("Interpolation", cbInterpolation);
+        interpolationBox.setMinWidth(150);
+        VBox easingBox = buildLabeledControl("Easing", easingPickerRow);
+        HBox easingSectionRow = new HBox(10, interpolationBox, easingBox);
+        easingSectionRow.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(easingBox, Priority.ALWAYS);
+        Label easingHint = new Label("Tweens can use library presets or be converted into an editable bezier curve.");
+        easingHint.setStyle(SUBTLE_HINT_STYLE);
+        VBox easingSection = buildSection("Interpolation + Easing", easingSectionRow, easingHint);
+
+        HBox curveToolbar = new HBox(8, new Label("Curve Workspace"), createSpacer(), btnEditCurve, btnUpdateCurvePreset, btnExpandCurveEditor);
+        curveToolbar.setAlignment(Pos.CENTER_LEFT);
+        ((Label) curveToolbar.getChildren().get(0)).setStyle(SECTION_TITLE_STYLE);
+        VBox curveSection = new VBox(8, curveToolbar, lblCurvePresetHint, curveEditor);
+        curveSection.setStyle(SECTION_STYLE);
+        curveSection.setMaxWidth(Double.MAX_VALUE);
+        VBox.setVgrow(curveEditor, Priority.ALWAYS);
+
         lblCameraState = new Label("X 0.0  Y 0.0  Z 1.00");
-        lblCameraState.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px; -fx-font-family: monospace;");
-        grid.add(new Label("Camera:"), 0, 12);
-        grid.add(lblCameraState, 1, 12);
+        lblCameraState.setStyle("-fx-text-fill: #d5b27f; -fx-font-size: 11px; -fx-font-family: monospace;");
+        Label cameraLabel = new Label("Camera");
+        cameraLabel.setStyle(META_CAPTION_STYLE);
+        VBox cameraBox = new VBox(2, cameraLabel, lblCameraState);
+        cameraBox.setStyle(TILE_STYLE);
+        cameraBox.setMinWidth(180);
 
-        GridPane.setHgrow(curveEditor, Priority.ALWAYS);
-        GridPane.setVgrow(curveEditor, Priority.ALWAYS);
-        GridPane.setFillWidth(curveEditor, true);
+        HBox footerRow = new HBox(8, cameraBox, createSpacer(), btnResetValue, btnDelete);
+        footerRow.setAlignment(Pos.CENTER_LEFT);
 
-        for (var node : grid.getChildren()) {
-            if (node instanceof Label l && l != header) l.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
-        }
+        contentBox.getChildren().addAll(
+            infoRow,
+            valueSection,
+            easingSection,
+            curveSection,
+            presetLibraryPanel,
+            batchBox,
+            pivotBox,
+            footerRow
+        );
+        contentBox.setVisible(false);
+        contentBox.setManaged(false);
+        VBox.setVgrow(contentBox, Priority.ALWAYS);
+        updateStepHints();
 
-        grid.setVisible(false);
-        grid.setManaged(false);
-        grid.setMaxWidth(Double.MAX_VALUE);
-        VBox.setVgrow(grid, Priority.ALWAYS);
-        getChildren().addAll(header, lblEmptyHint, grid);
+        VBox editorBody = new VBox(10, headerRow, lblEmptyHint, contentBox);
+        editorBody.setFillWidth(true);
+        editorBody.setMinWidth(EDITOR_WORKING_WIDTH);
+        editorBody.setPrefWidth(EDITOR_WORKING_WIDTH);
+        editorBody.setMaxWidth(EDITOR_WORKING_WIDTH);
+
+        ScrollPane editorScrollPane = new ScrollPane(editorBody);
+        editorScrollPane.setFitToWidth(false);
+        editorScrollPane.setFitToHeight(false);
+        editorScrollPane.setPannable(true);
+        editorScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        editorScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        editorScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+
+        VBox.setVgrow(editorScrollPane, Priority.ALWAYS);
+        getChildren().add(editorScrollPane);
 
         tfTime.setTooltip(new Tooltip("Direct time edit. Use Up/Down or mouse wheel to nudge."));
         tfValue.setTooltip(new Tooltip("Direct value edit. Use Up/Down or mouse wheel to nudge."));
@@ -323,12 +430,105 @@ public class KeyframeEditor extends VBox {
             currentKeyframe = null;
             currentProperty = null;
             currentSelection.clear();
+            showEmptyState(true);
+            showBatchEditor(false);
+            showPivotPresets(false);
             setFieldsDisabled(true);
         });
 
         setFieldsDisabled(true);
         setCurveEditorExpanded(false, false);
         refreshPresetUiState();
+    }
+
+    private VBox buildMetaTile(String title, Label valueLabel) {
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle(META_CAPTION_STYLE);
+        VBox box = new VBox(4, titleLabel, valueLabel);
+        box.setStyle(TILE_STYLE);
+        box.setMaxWidth(Double.MAX_VALUE);
+        return box;
+    }
+
+    private VBox buildLabeledControl(String title, Node control) {
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle(META_CAPTION_STYLE);
+        VBox box = new VBox(5, titleLabel, control);
+        box.setMaxWidth(Double.MAX_VALUE);
+        return box;
+    }
+
+    private VBox buildEditorRow(String title, String subtitle, Node editorNode, Label stepHint) {
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle(SECTION_TITLE_STYLE);
+        Label subtitleLabel = new Label(subtitle);
+        subtitleLabel.setStyle(SUBTLE_HINT_STYLE);
+        VBox headerBox = new VBox(1, titleLabel, subtitleLabel);
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+
+        HBox hintRow = new HBox(8, headerBox, createSpacer(), stepHint);
+        hintRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox box = new VBox(6, hintRow, editorNode);
+        box.setMaxWidth(Double.MAX_VALUE);
+        return box;
+    }
+
+    private VBox buildSection(String title, Node... content) {
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle(SECTION_TITLE_STYLE);
+        return buildSection(titleLabel, content);
+    }
+
+    private VBox buildSection(Label titleLabel, Node... content) {
+        VBox box = new VBox(8);
+        box.setStyle(SECTION_STYLE);
+        box.setMaxWidth(Double.MAX_VALUE);
+        if (titleLabel != null) {
+            box.getChildren().add(titleLabel);
+        }
+        if (content != null) {
+            box.getChildren().addAll(content);
+        }
+        return box;
+    }
+
+    private Region createSpacer() {
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        return spacer;
+    }
+
+    private void updateSelectionModeBadge() {
+        if (currentSelection.size() > 1) {
+            lblSelectionMode.setText("Multi-Select");
+            lblSelectionMode.setStyle(BADGE_MULTI_STYLE);
+            return;
+        }
+        if (currentKeyframe != null) {
+            lblSelectionMode.setText("Single Keyframe");
+            lblSelectionMode.setStyle(BADGE_ACTIVE_STYLE);
+            return;
+        }
+        lblSelectionMode.setText("No Selection");
+        lblSelectionMode.setStyle(BADGE_IDLE_STYLE);
+    }
+
+    private void updateStepHints() {
+        lblTimeStepHint.setText("Nudge: " + formatStep(resolveTimeNudgeStep(false)) + " ms  |  Shift " + formatStep(resolveTimeNudgeStep(true)) + " ms");
+        double fine = resolveValueNudgeStep(currentProperty != null ? currentProperty : PropertyType.X, false);
+        double large = resolveValueNudgeStep(currentProperty != null ? currentProperty : PropertyType.X, true);
+        lblValueStepHint.setText("Nudge: " + formatStep(fine) + "  |  Shift " + formatStep(large));
+    }
+
+    private String formatStep(double value) {
+        if (Math.abs(value - Math.rint(value)) < 0.0001) {
+            return String.format("%.0f", value);
+        }
+        if (Math.abs(value) >= 1.0) {
+            return String.format("%.2f", value);
+        }
+        return String.format("%.2f", value);
     }
 
     public void setTimelineDurationMs(double durationMs) {
@@ -383,6 +583,8 @@ public class KeyframeEditor extends VBox {
             showBatchEditor(false);
         }
         updatingUi = false;
+        updateStepHints();
+        updateSelectionModeBadge();
         refreshPresetUiState();
     }
 
@@ -403,7 +605,7 @@ public class KeyframeEditor extends VBox {
         currentProperty = property;
         showEmptyState(false);
         lblProperty.setText(property != null ? property.getDisplayName() : "Mixed");
-        lblSelectionSummary.setText(currentSelection.size() + " keyframes selected");
+        lblSelectionSummary.setText(currentSelection.size() + " keyframes selected. Interpolation and easing changes apply to the full selection.");
         tfTime.setText("");
         tfValue.setText("");
         tfTimeOffset.setText("0");
@@ -424,6 +626,8 @@ public class KeyframeEditor extends VBox {
         showBatchEditor(true);
         updateCurveEditorState();
         updatingUi = false;
+        updateStepHints();
+        updateSelectionModeBadge();
         refreshPresetUiState();
     }
 
@@ -457,7 +661,9 @@ public class KeyframeEditor extends VBox {
     private void refreshPresetUiState() {
         cbEasing.refreshState();
         presetLibraryPanel.refreshView();
-        btnPresetLibrary.setText(presetLibraryPanel.isPanelVisible() ? "Hide Library" : "Preset Library");
+        boolean libraryVisible = presetLibraryPanel.isPanelVisible();
+        btnPresetLibrary.setText(libraryVisible ? "Hide Library" : "Show Library");
+        btnPresetLibrary.setStyle(libraryVisible ? TOGGLE_BUTTON_STYLE : SECONDARY_BUTTON_STYLE);
         refreshCurveActionState();
     }
 
@@ -703,13 +909,14 @@ public class KeyframeEditor extends VBox {
                 sliderValue.setMin(0.0); sliderValue.setMax(1.0);
             }
         }
+        updateStepHints();
     }
 
     private void showEmptyState(boolean empty) {
         lblEmptyHint.setVisible(empty);
         lblEmptyHint.setManaged(empty);
-        grid.setVisible(!empty);
-        grid.setManaged(!empty);
+        contentBox.setVisible(!empty);
+        contentBox.setManaged(!empty);
     }
 
     private void setFieldsDisabled(boolean disabled) {
@@ -730,6 +937,7 @@ public class KeyframeEditor extends VBox {
         if (!disabled) {
             updateCurveEditorState();
         }
+        updateSelectionModeBadge();
         refreshPresetUiState();
     }
 
@@ -739,16 +947,15 @@ public class KeyframeEditor extends VBox {
     }
 
     private void showPivotPresets(boolean show) {
-        pivotPresetsGrid.setVisible(show);
-        pivotPresetsGrid.setManaged(show);
-        lblPivotPresets.setVisible(show);
-        lblPivotPresets.setManaged(show);
+        pivotBox.setVisible(show);
+        pivotBox.setManaged(show);
     }
 
     private void setCurveEditorExpanded(boolean expanded, boolean notifyParent) {
         curveEditorExpanded = expanded;
         curveEditor.setExpanded(expanded);
-        btnExpandCurveEditor.setText(expanded ? "Compact Curve" : "Expand Curve");
+        btnExpandCurveEditor.setText(expanded ? "Compact" : "Expand");
+        btnExpandCurveEditor.setStyle(expanded ? TOGGLE_BUTTON_STYLE : SECONDARY_BUTTON_STYLE);
         btnExpandCurveEditor.setTooltip(new Tooltip(expanded
             ? "Return the curve editor to its compact height"
             : "Grow the curve editor inside the left panel"));
@@ -775,10 +982,10 @@ public class KeyframeEditor extends VBox {
             {"Bottom-Left (0, 1)", "Bottom-Center (0.5, 1)", "Bottom-Right (1, 1)"}
         };
 
-        String btnStyle = "-fx-background-color: #2a2a2a; -fx-text-fill: #c0c0c0; -fx-background-radius: 2; " +
-            "-fx-border-radius: 2; -fx-padding: 2 4; -fx-font-size: 9px; -fx-cursor: hand; -fx-min-width: 26; -fx-min-height: 18;";
-        String btnHoverStyle = "-fx-background-color: #3a3a5a; -fx-text-fill: #f7d07a; -fx-background-radius: 2; " +
-            "-fx-border-radius: 2; -fx-padding: 2 4; -fx-font-size: 9px; -fx-cursor: hand; -fx-min-width: 26; -fx-min-height: 18;";
+        String btnStyle = "-fx-background-color: #232323; -fx-text-fill: #d2d2d2; -fx-border-color: #3d3d3d; -fx-background-radius: 4; " +
+            "-fx-border-radius: 4; -fx-padding: 3 5; -fx-font-size: 9px; -fx-cursor: hand; -fx-min-width: 28; -fx-min-height: 20;";
+        String btnHoverStyle = "-fx-background-color: #343434; -fx-text-fill: #f2d79b; -fx-border-color: #6a6a6a; -fx-background-radius: 4; " +
+            "-fx-border-radius: 4; -fx-padding: 3 5; -fx-font-size: 9px; -fx-cursor: hand; -fx-min-width: 28; -fx-min-height: 20;";
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
@@ -896,18 +1103,18 @@ public class KeyframeEditor extends VBox {
         btnUpdateCurvePreset.setDisable(!customCurve || activePresetEditId == null || activePresetEditName == null);
 
         if (!singleKeyframe) {
-            lblCurvePresetHint.setText("Curve editing is only available for a single tween keyframe.");
+            lblCurvePresetHint.setText("Curve editing only activates for a single keyframe selection.");
             return;
         }
         if (!tween) {
-            lblCurvePresetHint.setText("Switch interpolation to TWEEN to edit easing curves.");
+            lblCurvePresetHint.setText("Switch interpolation to TWEEN to unlock editable easing curves.");
             return;
         }
         if (activePresetEditId != null && activePresetEditName != null) {
             if (customCurve) {
                 lblCurvePresetHint.setText("Editing preset '" + activePresetEditName + "'. Drag the handles, then click Update Preset.");
             } else {
-                lblCurvePresetHint.setText("Preset '" + activePresetEditName + "' is selected. Click Edit Curve to tweak it.");
+                lblCurvePresetHint.setText("Preset '" + activePresetEditName + "' is selected. Click Make Editable to tweak it.");
             }
             return;
         }
@@ -915,7 +1122,7 @@ public class KeyframeEditor extends VBox {
             lblCurvePresetHint.setText("Drag the red and green handles below to shape the curve.");
             return;
         }
-        lblCurvePresetHint.setText("Click Edit Curve to turn the current easing into an editable bezier.");
+        lblCurvePresetHint.setText("Click Make Editable to convert the current easing into a cubic bezier you can drag.");
     }
 
     private void syncPresetEditSessionFromSelection(boolean preserveCurrent) {
