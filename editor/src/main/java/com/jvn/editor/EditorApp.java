@@ -98,6 +98,7 @@ import javafx.scene.control.Labeled;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
@@ -173,6 +174,7 @@ public class EditorApp extends Application {
   private Tab tabPuppeteerLauncher;
   private Tab tabScriptEditorLauncher;
   private final CommandStack commands = new CommandStack();
+  private Runnable refreshMainCommandUi = () -> {};
   private TabPane leftTabs;
   private TabPane rightTabs;
   private SplitPane centerSplit;
@@ -326,6 +328,7 @@ public class EditorApp extends Application {
       welcomeView.setCurrentProject(dir);
       welcomeView.markProjectVisited(dir);
     }
+    refreshMainCommandUi.run();
   }
 
   private Properties loadManifest(File dir) {
@@ -1126,6 +1129,8 @@ public class EditorApp extends Application {
 
     // Menu
     MenuBar mb = new MenuBar();
+    mb.setUseSystemMenuBar(false);
+    mb.setFocusTraversable(false);
     Menu menuFile = new Menu("File");
     MenuItem miNewProject = new MenuItem("New Project...");
     miNewProject.setOnAction(e -> doNewProject(primaryStage));
@@ -1152,10 +1157,10 @@ public class EditorApp extends Application {
     // ── Edit ──
     Menu menuEdit = new Menu("Edit");
     MenuItem miUndo = new MenuItem("Undo");
-    miUndo.setOnAction(e -> { commands.undo(); status.setText("Undo"); inspectorView.setSelection(selected); });
+    miUndo.setOnAction(e -> executeUndo());
     miUndo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN));
     MenuItem miRedo = new MenuItem("Redo");
-    miRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
+    miRedo.setOnAction(e -> executeRedo());
     miRedo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     MenuItem miFind = new MenuItem("Find / Replace");
     miFind.setAccelerator(new KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN));
@@ -1163,7 +1168,7 @@ public class EditorApp extends Application {
       FileEditorTab ft = getActiveFileTab();
       if (ft != null) ft.showSearchBar();
     });
-    MenuItem miGoToLine = new MenuItem("Go to Line...");
+    MenuItem miGoToLine = new MenuItem("Go to VNS Line...");
     miGoToLine.setAccelerator(new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN));
     miGoToLine.setOnAction(e -> {
       javafx.scene.control.TextInputDialog dlg = new javafx.scene.control.TextInputDialog();
@@ -1193,7 +1198,7 @@ public class EditorApp extends Application {
     miToggleEditorFullscreen.setAccelerator(new KeyCodeCombination(KeyCode.F11));
     MenuItem miResetCamera = new MenuItem("Reset Camera");
     miResetCamera.setOnAction(e -> resetCamera());
-    MenuItem miFitContent = new MenuItem("Fit to Content / Fullscreen Preview");
+    MenuItem miFitContent = new MenuItem("Fit Content / Open Fullscreen Preview");
     miFitContent.setOnAction(e -> fitCameraToContent());
 
     Menu menuPanels = new Menu("Panels");
@@ -1234,12 +1239,12 @@ public class EditorApp extends Application {
 
     // ── Run ──
     Menu menuRun = new Menu("Run");
-    MenuItem miApplyCode = new MenuItem("Apply Code");
+    MenuItem miApplyCode = new MenuItem("Apply to Preview");
     miApplyCode.setOnAction(e -> applyCodeFromEditor());
     miApplyCode.setAccelerator(new KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN));
     MenuItem miRunProject = new MenuItem("Run Project");
     miRunProject.setOnAction(e -> doRunProject(primaryStage));
-    MenuItem miLaunchHere = new MenuItem("Launch from Here");
+    MenuItem miLaunchHere = new MenuItem("Launch VNS from Here");
     miLaunchHere.setAccelerator(new KeyCodeCombination(KeyCode.F5));
     miLaunchHere.setOnAction(e -> {
       FileEditorTab ft = getActiveFileTab();
@@ -1249,7 +1254,7 @@ public class EditorApp extends Application {
         status.setText("Launch from Here is only available for VNS files");
       }
     });
-    MenuItem miLaunchStart = new MenuItem("Launch from Start");
+    MenuItem miLaunchStart = new MenuItem("Launch VNS from Start");
     miLaunchStart.setAccelerator(new KeyCodeCombination(KeyCode.F5, KeyCombination.SHIFT_DOWN));
     miLaunchStart.setOnAction(e -> {
       FileEditorTab ft = getActiveFileTab();
@@ -1319,7 +1324,7 @@ public class EditorApp extends Application {
 
     // ── Help ──
     Menu menuHelp = new Menu("Help");
-    MenuItem miWelcome = new MenuItem("Welcome");
+    MenuItem miWelcome = new MenuItem("Welcome Center");
     miWelcome.setOnAction(e -> selectWelcomeTab());
     miWelcome.setAccelerator(new KeyCodeCombination(KeyCode.H, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     MenuItem miHelpCenter = new MenuItem("Help Center");
@@ -1341,23 +1346,61 @@ public class EditorApp extends Application {
 
     mb.getMenus().addAll(menuFile, menuEdit, menuView, menuRun, menuTools, menuVcs, menuHelp);
 
+    Label toolbarCommandSummary = new Label();
+    toolbarCommandSummary.getStyleClass().add("main-editor-command-summary");
+    toolbarCommandSummary.setWrapText(false);
+    toolbarCommandSummary.setTextOverrun(OverrunStyle.LEADING_ELLIPSIS);
+    toolbarCommandSummary.setMaxWidth(Double.MAX_VALUE);
+
+    Region menuSpacer = new Region();
+    HBox.setHgrow(menuSpacer, Priority.ALWAYS);
+    HBox commandBar = new HBox(10, mb, menuSpacer, toolbarCommandSummary);
+    commandBar.getStyleClass().add("main-editor-command-bar");
+    commandBar.setAlignment(Pos.CENTER_LEFT);
+
     // Toolbar
     osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
     BorderPane toolbar = new BorderPane();
     toolbar.getStyleClass().add("master-toolbar");
-    Button btnOpen = new Button("Open"); btnOpen.setOnAction(e -> doOpenProject(primaryStage));
-    Button btnSave = new Button("Save"); btnSave.setOnAction(e -> doSave(primaryStage));
-    Button btnUndo = new Button("Undo"); btnUndo.setOnAction(e -> { commands.undo(); status.setText("Undo"); inspectorView.setSelection(selected); });
-    Button btnRedo = new Button("Redo"); btnRedo.setOnAction(e -> { commands.redo(); status.setText("Redo"); inspectorView.setSelection(selected); });
-    Button btnApply = new Button("Apply Code"); btnApply.setOnAction(e -> applyCodeFromEditor());
-    Button btnFullscreen = new Button("Fullscreen"); btnFullscreen.setOnAction(e -> toggleActiveEditorFullscreen());
-    // Icons to the right of text
+    Button btnOpen = new Button("Open Project");
+    btnOpen.setOnAction(e -> doOpenProject(primaryStage));
+    Button btnSave = new Button("Save");
+    btnSave.setOnAction(e -> doSave(primaryStage));
+    Button btnRunProject = new Button("Run Project");
+    btnRunProject.setOnAction(e -> doRunProject(primaryStage));
+    Button btnUndo = new Button("Undo");
+    btnUndo.setOnAction(e -> executeUndo());
+    Button btnRedo = new Button("Redo");
+    btnRedo.setOnAction(e -> executeRedo());
+    Button btnApply = new Button("Apply Preview");
+    btnApply.setOnAction(e -> applyCodeFromEditor());
+    Button btnFullscreen = new Button("Fullscreen");
+    btnFullscreen.setOnAction(e -> toggleActiveEditorFullscreen());
+    Button btnWelcome = new Button("Welcome");
+    btnWelcome.getStyleClass().add("main-editor-nav-button");
+    btnWelcome.setOnAction(e -> selectWelcomeTab());
+    Button btnProject = new Button("Project");
+    btnProject.getStyleClass().add("main-editor-nav-button");
+    btnProject.setOnAction(e -> selectProjectTab());
+    Button btnTimeline = new Button("Timeline");
+    btnTimeline.getStyleClass().add("main-editor-nav-button");
+    btnTimeline.setOnAction(e -> selectTimelineTab());
+    Button btnInspector = new Button("Inspector");
+    btnInspector.getStyleClass().add("main-editor-nav-button");
+    btnInspector.setOnAction(e -> selectInspectorTab());
+    Button btnHelp = new Button("Help");
+    btnHelp.getStyleClass().add("main-editor-nav-button");
+    btnHelp.setOnAction(e -> selectHelpTab());
+
     btnOpen.setGraphic(icon("icon", "icon-open"));
     btnOpen.setContentDisplay(ContentDisplay.RIGHT);
     btnOpen.setGraphicTextGap(6);
     btnSave.setGraphic(icon("icon", "icon-save"));
     btnSave.setContentDisplay(ContentDisplay.RIGHT);
     btnSave.setGraphicTextGap(6);
+    btnRunProject.setGraphic(icon("icon", "icon-runtime-run"));
+    btnRunProject.setContentDisplay(ContentDisplay.RIGHT);
+    btnRunProject.setGraphicTextGap(6);
     btnUndo.setGraphic(icon("icon", "icon-undo"));
     btnUndo.setContentDisplay(ContentDisplay.RIGHT);
     btnUndo.setGraphicTextGap(6);
@@ -1384,18 +1427,81 @@ public class EditorApp extends Application {
     perf = new TextFlow(cpuText, gpuText, ramText, fpsText);
     perf.setLineSpacing(2);
     perfGraph = new PerfGraph();
-    btnOpen.setTooltip(new Tooltip("Open Project (Cmd+O)"));
-    btnSave.setTooltip(new Tooltip("Save (Cmd+S)"));
+    btnOpen.setTooltip(new Tooltip("Open Project Directory (Cmd+O)"));
+    btnSave.setTooltip(new Tooltip("Save active file (Cmd+S)"));
+    btnRunProject.setTooltip(new Tooltip("Run current project"));
     btnUndo.setTooltip(new Tooltip("Undo (Cmd+Z)"));
     btnRedo.setTooltip(new Tooltip("Redo (Shift+Cmd+Z)"));
-    btnApply.setTooltip(new Tooltip("Apply Code (Cmd+Enter)"));
-    btnFullscreen.setTooltip(new Tooltip("Toggle Editor Fullscreen (F11)"));
-    Region spacer = new Region();
-    HBox.setHgrow(spacer, Priority.ALWAYS);
-    HBox row = new HBox(8);
-    row.getChildren().addAll(btnOpen, btnSave, btnUndo, btnRedo, btnApply, btnFullscreen, spacer);
-    VBox toolRows = new VBox(6, row);
+    btnApply.setTooltip(new Tooltip("Apply current JES/VNS editor text to the preview (Cmd+Enter)"));
+    btnFullscreen.setTooltip(new Tooltip("Toggle editor fullscreen layout (F11)"));
+    btnWelcome.setTooltip(new Tooltip("Open Welcome Center"));
+    btnProject.setTooltip(new Tooltip("Focus Project Explorer"));
+    btnTimeline.setTooltip(new Tooltip("Focus Story Timeline"));
+    btnInspector.setTooltip(new Tooltip("Focus Inspector"));
+    btnHelp.setTooltip(new Tooltip("Focus Help Center"));
+
+    HBox actionRow = new HBox(8, btnOpen, btnSave, btnRunProject, btnUndo, btnRedo, btnApply, btnFullscreen);
+    actionRow.getStyleClass().add("main-editor-action-row");
+    Label navLabel = new Label("Jump");
+    navLabel.getStyleClass().add("main-editor-nav-label");
+    HBox navRow = new HBox(8, navLabel, btnWelcome, btnProject, btnTimeline, btnInspector, btnHelp);
+    navRow.getStyleClass().add("main-editor-nav-row");
+    VBox toolRows = new VBox(6, actionRow, navRow);
     HBox.setHgrow(toolRows, Priority.ALWAYS);
+
+    Runnable refreshChrome = () -> {
+      FileEditorTab ft = getActiveFileTab();
+      Tab activeTab = filesTabs != null ? filesTabs.getSelectionModel().getSelectedItem() : null;
+      boolean hasFile = ft != null;
+      boolean canFullscreen = canToggleActiveEditorLayout() || editorFullscreen || layeredVisualizerFullscreen;
+
+      miSave.setText(hasFile ? "Save " + ft.getDisplayName() : "Save");
+      miSaveAs.setText(hasFile ? "Save " + ft.getDisplayName() + " As..." : "Save As...");
+      miSave.setDisable(!hasFile);
+      miSaveAs.setDisable(!hasFile);
+      String activeTitle = activeTab != null && activeTab.getText() != null
+          ? activeTab.getText().replace(" *", "")
+          : "";
+      miCloseTab.setText(activeTab != null && activeTab.isClosable() && !activeTitle.isBlank()
+          ? "Close " + activeTitle
+          : "Close Tab");
+      miCloseTab.setDisable(activeTab == null || !activeTab.isClosable());
+
+      miUndo.setText(commands.canUndo() ? "Undo " + commands.undoDescription() : "Undo");
+      miRedo.setText(commands.canRedo() ? "Redo " + commands.redoDescription() : "Redo");
+      miUndo.setDisable(!commands.canUndo());
+      miRedo.setDisable(!commands.canRedo());
+      miFind.setDisable(!hasFile);
+      miGoToLine.setDisable(ft == null || ft.getKind() != FileEditorTab.Kind.VNS);
+      miReload.setDisable(!hasFile);
+
+      miToggleEditorFullscreen.setText(editorFullscreen || layeredVisualizerFullscreen
+          ? "Restore Editor Layout"
+          : "Toggle Editor Fullscreen");
+      miToggleEditorFullscreen.setDisable(!canFullscreen);
+      miResetCamera.setDisable(!canResetActiveCamera());
+      miFitContent.setDisable(!canFitActiveContent());
+
+      miApplyCode.setDisable(!canApplyPreview());
+      miLaunchHere.setDisable(!canLaunchFromActiveTab());
+      miLaunchStart.setDisable(!canLaunchFromActiveTab());
+
+      btnSave.setDisable(!hasFile);
+      btnUndo.setDisable(!commands.canUndo());
+      btnRedo.setDisable(!commands.canRedo());
+      btnApply.setDisable(!canApplyPreview());
+      btnFullscreen.setDisable(!canFullscreen);
+      btnFullscreen.setText(editorFullscreen || layeredVisualizerFullscreen ? "Restore Layout" : "Fullscreen");
+      toolbarCommandSummary.setText(buildMainCommandSummary());
+    };
+    refreshMainCommandUi = refreshChrome;
+    commands.setOnChange(refreshChrome);
+    menuFile.setOnShowing(e -> refreshChrome.run());
+    menuEdit.setOnShowing(e -> refreshChrome.run());
+    menuView.setOnShowing(e -> refreshChrome.run());
+    menuRun.setOnShowing(e -> refreshChrome.run());
+    menuHelp.setOnShowing(e -> refreshChrome.run());
+
     Label wordmark = new Label("JVN");
     wordmark.getStyleClass().add("jvn-wordmark");
     Label verLabel = new Label("v" + editorVersion);
@@ -1418,10 +1524,8 @@ public class EditorApp extends Application {
     toolbar.setRight(logoBox);
 
     // Layout
-    BorderPane top = new BorderPane();
-    top.getStyleClass().add("master-toolbar");
-    top.setTop(mb);
-    top.setCenter(toolbar);
+    VBox top = new VBox(commandBar, toolbar);
+    top.getStyleClass().add("master-toolbar-shell");
     root.setTop(top);
     // Center: per-file tabs with embedded preview
     filesTabs = new TabPane();
@@ -1499,8 +1603,9 @@ public class EditorApp extends Application {
     savedCenterDividers = new double[]{0.22, 0.78};
     applyEditorPreferences(editorPreferences);
     root.setLeft(null);
-    root.setRight(null);
+   root.setRight(null);
     root.setCenter(centerSplit);
+    refreshMainCommandUi.run();
 
     Scene scene = new Scene(root, 1200, 800);
     // Load editor stylesheet (icons, theme, etc.)
@@ -1630,6 +1735,7 @@ public class EditorApp extends Application {
       EditorTheme.apply(a);
       a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
     }
+    refreshMainCommandUi.run();
   }
 
   private void toggleActiveEditorFullscreen() {
@@ -1652,6 +1758,7 @@ public class EditorApp extends Application {
       editorFullscreen = false;
       status.setText("Editor layout restored");
     }
+    refreshMainCommandUi.run();
   }
 
   private void toggleImageToolFullscreen(ImageToolPanel tool) {
@@ -1676,6 +1783,7 @@ public class EditorApp extends Application {
     fullscreenImageToolView = tool;
     setImageToolFullscreenState(tool);
     status.setText(imageToolName(tool) + " fullscreen — use the fullscreen button again to restore");
+    refreshMainCommandUi.run();
   }
 
   private void restoreLayeredImageVisualizerLayout(boolean announce) {
@@ -1693,6 +1801,7 @@ public class EditorApp extends Application {
     if (announce) {
       status.setText("Image tool layout restored");
     }
+    refreshMainCommandUi.run();
   }
 
   private Tab ensureTabForImageTool(ImageToolPanel tool, TabPane targetPane) {
@@ -1754,6 +1863,110 @@ public class EditorApp extends Application {
 
   private void buildSceneGraph() {
     updateContextForActiveTab();
+  }
+
+  private void executeUndo() {
+    if (!commands.canUndo()) return;
+    commands.undo();
+    if (status != null) status.setText("Undo");
+    if (inspectorView != null) inspectorView.setSelection(selected);
+    refreshMainCommandUi.run();
+  }
+
+  private void executeRedo() {
+    if (!commands.canRedo()) return;
+    commands.redo();
+    if (status != null) status.setText("Redo");
+    if (inspectorView != null) inspectorView.setSelection(selected);
+    refreshMainCommandUi.run();
+  }
+
+  private boolean canApplyPreview() {
+    FileEditorTab ft = getActiveFileTab();
+    if (ft == null) return false;
+    return ft.getKind() == FileEditorTab.Kind.JES || ft.getKind() == FileEditorTab.Kind.VNS;
+  }
+
+  private boolean canLaunchFromActiveTab() {
+    FileEditorTab ft = getActiveFileTab();
+    return ft != null && ft.getKind() == FileEditorTab.Kind.VNS;
+  }
+
+  private boolean canResetActiveCamera() {
+    FileEditorTab ft = getActiveFileTab();
+    return ft != null && ft.getKind() == FileEditorTab.Kind.JES && ft.getViewport() != null;
+  }
+
+  private boolean canFitActiveContent() {
+    FileEditorTab ft = getActiveFileTab();
+    if (ft == null) return false;
+    return ft.getKind() == FileEditorTab.Kind.JES || ft.getKind() == FileEditorTab.Kind.VNS;
+  }
+
+  private boolean canToggleActiveEditorLayout() {
+    FileEditorTab ft = getActiveFileTab();
+    return ft != null && ft.supportsEditorFullscreenToggle();
+  }
+
+  private int countDirtyFileTabs() {
+    if (filesTabs == null) return 0;
+    int dirtyCount = 0;
+    for (Tab tab : filesTabs.getTabs()) {
+      if (tab.getContent() instanceof FileEditorTab ft && ft.isDirty()) dirtyCount++;
+    }
+    return dirtyCount;
+  }
+
+  private String buildMainCommandSummary() {
+    List<String> parts = new ArrayList<>();
+    parts.add(projectRoot != null ? "Project " + projectRoot.getName() : "No Project Open");
+
+    Tab activeTab = filesTabs != null ? filesTabs.getSelectionModel().getSelectedItem() : null;
+    FileEditorTab ft = getActiveFileTab();
+    if (ft != null) {
+      parts.add(kindLabel(ft.getKind()));
+      parts.add(ft.getDisplayName() + (ft.isDirty() ? " Unsaved" : " Saved"));
+      if (canLaunchFromActiveTab()) {
+        parts.add("Launch Here Ready");
+      } else if (ft.getKind() == FileEditorTab.Kind.JES) {
+        parts.add("Scene Preview Ready");
+      }
+    } else if (activeTab == tabWelcome) {
+      parts.add("Welcome Center");
+    } else if (activeTab != null && activeTab.getText() != null && !activeTab.getText().isBlank()) {
+      parts.add(activeTab.getText());
+    } else {
+      parts.add("No File Selected");
+    }
+
+    int dirtyTabs = countDirtyFileTabs();
+    if (dirtyTabs > 0 && (ft == null || !ft.isDirty() || dirtyTabs > 1)) {
+      parts.add(dirtyTabs + " Unsaved Tab" + (dirtyTabs == 1 ? "" : "s"));
+    }
+    if (commands.canUndo()) parts.add("Undo " + commands.undoDescription());
+    if (commands.canRedo()) parts.add("Redo " + commands.redoDescription());
+    if (layeredVisualizerFullscreen && fullscreenImageToolView != null) {
+      parts.add(imageToolName(fullscreenImageToolView) + " Fullscreen");
+    } else if (editorFullscreen) {
+      parts.add("Editor Fullscreen");
+    }
+    return String.join("  •  ", parts);
+  }
+
+  private String kindLabel(FileEditorTab.Kind kind) {
+    if (kind == null) return "Editor";
+    return switch (kind) {
+      case JES -> "JES Scene";
+      case VNS -> "VNS Script";
+      case JAVA -> "Java Source";
+      case TIMELINE -> "Timeline";
+      case THEME -> "Theme";
+      case MENU_SCREEN -> "Menu Screen";
+      case MENU_LAYOUT -> "Menu Layout";
+      case MENU_STYLE -> "Menu Style";
+      case DIALOGUE_LAYOUT -> "Dialogue Layout";
+      case OTHER -> "Text File";
+    };
   }
 
   private String mapKey(KeyCode code) { return code == null ? "" : (code.getName() == null || code.getName().isBlank() ? code.toString() : code.getName()).toUpperCase(); }
@@ -2107,6 +2320,7 @@ public class EditorApp extends Application {
         updateTabTitle(t, ft);
       }
     }
+    refreshMainCommandUi.run();
   }
 
   private void updateTabTitle(Tab tab, FileEditorTab ft) {
@@ -2224,6 +2438,7 @@ public class EditorApp extends Application {
     if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setProjectRoot(projectRoot);
     if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
     syncStoryboardOverlayProjectState();
+    refreshMainCommandUi.run();
   }
 
   private void applyEditorPreferences(EditorPreferences preferences) {
@@ -2741,6 +2956,7 @@ public class EditorApp extends Application {
         puppeteerLauncherPanel.clear();
       }
     }
+    refreshMainCommandUi.run();
   }
 
   private void closeAndDisposeTab(Tab tab) {
@@ -2752,6 +2968,7 @@ public class EditorApp extends Application {
       }
     }
     filesTabs.getTabs().remove(tab);
+    refreshMainCommandUi.run();
   }
 
   private void stopPreviewAudioInInactiveTabs(FileEditorTab active) {

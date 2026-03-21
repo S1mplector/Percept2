@@ -15,4 +15,5 @@ public class MoveEntityCommand implements Command {
 
   @Override public void execute() { if (entity != null) entity.setPosition(tx, ty); }
   @Override public void undo() { if (entity != null) entity.setPosition(sx, sy); }
+  @Override public String description() { return "Move Entity"; }
 }
