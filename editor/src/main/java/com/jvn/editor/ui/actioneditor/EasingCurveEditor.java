@@ -1,20 +1,25 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
 
+import javafx.animation.AnimationTimer;
 import javafx.geometry.VPos;
+import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.Cursor;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.text.Font;
 
 /**
@@ -35,6 +40,7 @@ public class EasingCurveEditor extends Pane {
     private static final double HANDLE_RADIUS = 6.5;
     private static final double HANDLE_HIT_RADIUS = 16;
     private static final double SNAP_INCREMENT = 0.05;
+    private static final double KEYBOARD_NUDGE_INCREMENT = 0.01;
 
     private static final Color BG_COLOR = Color.web("#0e0e0e");
     private static final Color GRID_COLOR = Color.web("#2a2a2a");
@@ -68,6 +74,7 @@ public class EasingCurveEditor extends Pane {
     // Drag state
     private int draggingHandle = 0; // 0=none, 1=P1, 2=P2
     private int hoveredHandle = 0;
+    private int selectedHandle = 0;
     private double hoverProgress = Double.NaN;
     private String helperText = "";
 
@@ -75,11 +82,28 @@ public class EasingCurveEditor extends Pane {
     private Consumer<double[]> onBezierChanged;
     private boolean expanded;
 
+    // --- A) Ghost curve overlays for adjacent keyframes ---
+    private final List<GhostCurve> ghostCurves = new ArrayList<>();
+
+    // --- B) Animated motion preview ---
+    private boolean animating = false;
+    private double animProgress = 0.0;
+    private long animStartNanos = 0;
+    private double animDurationMs = 1000.0;
+    private AnimationTimer animTimer;
+    private static final Color ANIM_DOT_COLOR = Color.web("#ff6b8a");
+    private static final Color ANIM_TRAIL_COLOR = Color.web("#ff6b8a", 0.18);
+    private static final Color ANIM_BAR_BG = Color.web("#1a1a1a");
+    private static final Color ANIM_BAR_FILL = Color.web("#ff6b8a", 0.7);
+    private static final double ANIM_DOT_RADIUS = 5.0;
+    private static final double MOTION_BAR_HEIGHT = 6.0;
+
     public EasingCurveEditor() {
         canvas = new Canvas(COMPACT_WIDTH, COMPACT_HEIGHT);
         getChildren().add(canvas);
 
         setMaxWidth(Double.MAX_VALUE);
+        setFocusTraversable(true);
         setExpanded(false);
 
         widthProperty().addListener((obs, o, n) -> {
@@ -91,9 +115,12 @@ public class EasingCurveEditor extends Pane {
             draw();
         });
         disabledProperty().addListener((obs, oldValue, newValue) -> draw());
+        canvas.focusedProperty().addListener((obs, oldValue, newValue) -> draw());
 
+        canvas.setFocusTraversable(true);
         canvas.setOnMousePressed(this::handleMousePressed);
         canvas.setOnMouseDragged(this::handleMouseDragged);
+        canvas.setOnKeyPressed(this::handleKeyPressed);
         canvas.setOnMouseReleased(e -> {
             draggingHandle = 0;
             hoveredHandle = resolveHandleAt(e.getX(), e.getY());
@@ -134,10 +161,17 @@ public class EasingCurveEditor extends Pane {
         return expanded;
     }
 
+    @Override
+    public void requestFocus() {
+        super.requestFocus();
+        canvas.requestFocus();
+    }
+
     public void setEasingType(Easing.Type type) {
         this.easingType = type != null ? type : Easing.Type.LINEAR;
         if (this.easingType != Easing.Type.CUSTOM) {
             this.easingParams = Easing.coerceParameters(this.easingType, this.easingParams);
+            selectedHandle = 0;
         }
         draw();
     }
@@ -151,6 +185,9 @@ public class EasingCurveEditor extends Pane {
             this.cy1 = easingParams[1];
             this.cx2 = easingParams[2];
             this.cy2 = easingParams[3];
+            if (selectedHandle == 0) selectedHandle = 1;
+        } else {
+            selectedHandle = 0;
         }
         draw();
     }
@@ -161,6 +198,11 @@ public class EasingCurveEditor extends Pane {
 
     public void setInterpolation(Easing.Interpolation interpolation) {
         this.interpolation = interpolation != null ? interpolation : Easing.Interpolation.TWEEN;
+        if (this.interpolation != Easing.Interpolation.TWEEN) {
+            selectedHandle = 0;
+        } else if (easingType == Easing.Type.CUSTOM && selectedHandle == 0) {
+            selectedHandle = 1;
+        }
         draw();
     }
 
@@ -172,6 +214,7 @@ public class EasingCurveEditor extends Pane {
         this.cx1 = cx1; this.cy1 = cy1;
         this.cx2 = cx2; this.cy2 = cy2;
         this.easingParams = new double[]{ cx1, cy1, cx2, cy2 };
+        if (selectedHandle == 0) selectedHandle = 1;
         draw();
     }
 
@@ -186,6 +229,78 @@ public class EasingCurveEditor extends Pane {
     public void setHelperText(String helperText) {
         this.helperText = helperText != null ? helperText.trim() : "";
         draw();
+    }
+
+    // --- A) Ghost curve overlay API ---
+
+    public record GhostCurve(String label, EasingSpec spec, Easing.Interpolation interpolation, Color color) {
+        public GhostCurve(String label, EasingSpec spec, Easing.Interpolation interpolation) {
+            this(label, spec, interpolation, Color.web("#5a7aaa", 0.45));
+        }
+    }
+
+    public void setGhostCurves(List<GhostCurve> curves) {
+        ghostCurves.clear();
+        if (curves != null) {
+            ghostCurves.addAll(curves);
+        }
+        draw();
+    }
+
+    public void clearGhostCurves() {
+        ghostCurves.clear();
+        draw();
+    }
+
+    // --- B) Animated motion preview API ---
+
+    public void setAnimDurationMs(double durationMs) {
+        this.animDurationMs = Math.max(50.0, durationMs);
+    }
+
+    public boolean isAnimating() {
+        return animating;
+    }
+
+    public void startAnimation() {
+        if (animating) stopAnimation();
+        animating = true;
+        animProgress = 0.0;
+        animStartNanos = System.nanoTime();
+        if (animTimer == null) {
+            animTimer = new AnimationTimer() {
+                @Override
+                public void handle(long now) {
+                    if (!animating) {
+                        stop();
+                        return;
+                    }
+                    double elapsedMs = (now - animStartNanos) / 1_000_000.0;
+                    animProgress = elapsedMs / animDurationMs;
+                    if (animProgress >= 1.0) {
+                        animProgress = 0.0;
+                        animStartNanos = now;
+                    }
+                    draw();
+                }
+            };
+        }
+        animTimer.start();
+        draw();
+    }
+
+    public void stopAnimation() {
+        animating = false;
+        if (animTimer != null) {
+            animTimer.stop();
+        }
+        animProgress = 0.0;
+        draw();
+    }
+
+    public void toggleAnimation() {
+        if (animating) stopAnimation();
+        else startAnimation();
     }
 
     private double[] getPlotBounds() {
@@ -227,6 +342,9 @@ public class EasingCurveEditor extends Pane {
             draggingHandle = resolvePreferredHandle(event.getX(), event.getY());
             updateHandleFromMouse(event.getX(), event.getY(), event.isShiftDown());
         }
+        if (draggingHandle != 0) {
+            selectedHandle = draggingHandle;
+        }
         hoveredHandle = draggingHandle;
         updateCursor(isInsidePlot(event.getX(), event.getY()));
         draw();
@@ -237,6 +355,49 @@ public class EasingCurveEditor extends Pane {
         hoverProgress = clamp01((event.getX() - getPlotBounds()[0]) / getPlotBounds()[2]);
         updateHandleFromMouse(event.getX(), event.getY(), event.isShiftDown());
         updateCursor(true);
+    }
+
+    private void handleKeyPressed(KeyEvent event) {
+        if (!isInteractiveCustomCurve()) return;
+
+        if (event.getCode() == KeyCode.TAB) {
+            selectedHandle = event.isShiftDown()
+                ? (selectedHandle == 2 ? 1 : 2)
+                : (selectedHandle == 1 ? 2 : 1);
+            hoveredHandle = selectedHandle;
+            draw();
+            event.consume();
+            return;
+        }
+        if (event.getCode() == KeyCode.DIGIT1 || event.getCode() == KeyCode.NUMPAD1) {
+            selectedHandle = 1;
+            hoveredHandle = 1;
+            draw();
+            event.consume();
+            return;
+        }
+        if (event.getCode() == KeyCode.DIGIT2 || event.getCode() == KeyCode.NUMPAD2) {
+            selectedHandle = 2;
+            hoveredHandle = 2;
+            draw();
+            event.consume();
+            return;
+        }
+        if (event.getCode() == KeyCode.LEFT
+            || event.getCode() == KeyCode.RIGHT
+            || event.getCode() == KeyCode.UP
+            || event.getCode() == KeyCode.DOWN) {
+            if (selectedHandle == 0) {
+                selectedHandle = 1;
+            }
+            double step = event.isShiftDown() ? SNAP_INCREMENT : KEYBOARD_NUDGE_INCREMENT;
+            nudgeSelectedHandle(
+                event.getCode() == KeyCode.LEFT ? -step : event.getCode() == KeyCode.RIGHT ? step : 0.0,
+                event.getCode() == KeyCode.DOWN ? -step : event.getCode() == KeyCode.UP ? step : 0.0,
+                event.isShiftDown()
+            );
+            event.consume();
+        }
     }
 
     private void updateHandleFromMouse(double mouseX, double mouseY, boolean snap) {
@@ -257,6 +418,32 @@ public class EasingCurveEditor extends Pane {
             cx2 = nx;
             cy2 = ny;
         }
+        selectedHandle = draggingHandle;
+        commitCurveChange();
+    }
+
+    private void nudgeSelectedHandle(double deltaX, double deltaY, boolean snap) {
+        if (selectedHandle == 1) {
+            cx1 = clamp01(cx1 + deltaX);
+            cy1 = clampBezierY(cy1 + deltaY);
+            if (snap) {
+                cx1 = snap(cx1, SNAP_INCREMENT);
+                cy1 = snap(cy1, SNAP_INCREMENT);
+            }
+        } else if (selectedHandle == 2) {
+            cx2 = clamp01(cx2 + deltaX);
+            cy2 = clampBezierY(cy2 + deltaY);
+            if (snap) {
+                cx2 = snap(cx2, SNAP_INCREMENT);
+                cy2 = snap(cy2, SNAP_INCREMENT);
+            }
+        } else {
+            return;
+        }
+        commitCurveChange();
+    }
+
+    private void commitCurveChange() {
         easingParams = new double[]{ cx1, cy1, cx2, cy2 };
         draw();
         if (onBezierChanged != null) {
@@ -294,7 +481,7 @@ public class EasingCurveEditor extends Pane {
     }
 
     private void updateCursor(boolean insidePlot) {
-        if (draggingHandle != 0 || hoveredHandle != 0) {
+        if (draggingHandle != 0 || hoveredHandle != 0 || selectedHandle != 0) {
             canvas.setCursor(Cursor.HAND);
             return;
         }
@@ -394,6 +581,16 @@ public class EasingCurveEditor extends Pane {
         return String.format("t %.2f  ->  %.2f", progress, value);
     }
 
+    private String formatHandleReadout(int handle) {
+        if (handle == 1) {
+            return String.format("P1  x %.3f  y %.3f", cx1, cy1);
+        }
+        if (handle == 2) {
+            return String.format("P2  x %.3f  y %.3f", cx2, cy2);
+        }
+        return "Click or press 1/2 to select a handle";
+    }
+
     private void draw() {
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -458,12 +655,42 @@ public class EasingCurveEditor extends Pane {
         gc.strokeLine(plotX, zeroY, plotX + plotW, oneY);
         gc.setLineDashes((double[]) null);
 
+        // --- A) Draw ghost curve overlays (adjacent keyframes) ---
+        int steps = Math.max(60, (int) plotW);
+        for (GhostCurve ghost : ghostCurves) {
+            if (ghost.spec() == null) continue;
+            Color ghostColor = ghost.color() != null ? ghost.color() : Color.web("#5a7aaa", 0.45);
+            gc.setStroke(ghostColor);
+            gc.setLineWidth(1.4);
+            gc.setLineDashes(6, 4);
+            gc.beginPath();
+            for (int i = 0; i <= steps; i++) {
+                double t = (double) i / steps;
+                double gv = Easing.applyInterpolation(ghost.spec(), ghost.interpolation(), t);
+                double gsx = plotX + t * plotW;
+                double gsy = screenYForValue(gv, plotY, plotH, rangeMin, rangeMax);
+                if (i == 0) gc.moveTo(gsx, gsy);
+                else gc.lineTo(gsx, gsy);
+            }
+            gc.stroke();
+            gc.setLineDashes((double[]) null);
+            // Ghost label badge
+            if (ghost.label() != null && !ghost.label().isBlank()) {
+                gc.setFill(ghostColor.deriveColor(0, 1.0, 1.0, 0.85));
+                gc.setFont(LABEL_FONT);
+                double labelT = 0.85;
+                double labelV = Easing.applyInterpolation(ghost.spec(), ghost.interpolation(), labelT);
+                double labelX = plotX + labelT * plotW;
+                double labelY = screenYForValue(labelV, plotY, plotH, rangeMin, rangeMax) - 8;
+                gc.fillText(ghost.label(), labelX, labelY);
+            }
+        }
+
         // Draw the easing curve.
         gc.setStroke(CURVE_COLOR);
         gc.setLineWidth(2);
         gc.beginPath();
 
-        int steps = Math.max(60, (int) plotW);
         for (int i = 0; i <= steps; i++) {
             double t = (double) i / steps;
             double v = evaluateCurveValue(t, tween, isCustom);
@@ -512,8 +739,8 @@ public class EasingCurveEditor extends Pane {
             gc.strokeLine(endSx, endSy, p2x, p2y);
             gc.setLineDashes((double[]) null);
 
-            drawHandle(gc, p1x, p1y, HANDLE_COLOR, "P1", hoveredHandle == 1 || draggingHandle == 1);
-            drawHandle(gc, p2x, p2y, HANDLE2_COLOR, "P2", hoveredHandle == 2 || draggingHandle == 2);
+            drawHandle(gc, p1x, p1y, HANDLE_COLOR, "P1", hoveredHandle == 1 || draggingHandle == 1 || selectedHandle == 1);
+            drawHandle(gc, p2x, p2y, HANDLE2_COLOR, "P2", hoveredHandle == 2 || draggingHandle == 2 || selectedHandle == 2);
             drawFooterLabel(gc,
                 String.format("cubic-bezier(%.2f, %.2f, %.2f, %.2f)", cx1, cy1, cx2, cy2),
                 plotX + 2,
@@ -524,6 +751,53 @@ public class EasingCurveEditor extends Pane {
                 ? describeEasingLabel()
                 : interpolation.name();
             drawFooterLabel(gc, label, plotX + 2, plotY + plotH + 15, Color.web("#8d939b"));
+        }
+
+        // --- B) Animated motion preview ---
+        if (animating && animProgress >= 0.0) {
+            double ap = Math.min(1.0, animProgress);
+            double av = evaluateCurveValue(ap, tween, isCustom);
+            double adx = plotX + ap * plotW;
+            double ady = screenYForValue(av, plotY, plotH, rangeMin, rangeMax);
+
+            // Trail: draw fading segments behind the dot
+            int trailSegments = Math.max(6, (int) (ap * 20));
+            for (int i = 0; i < trailSegments; i++) {
+                double segT = ap * (double) i / trailSegments;
+                double segV = evaluateCurveValue(segT, tween, isCustom);
+                double segX = plotX + segT * plotW;
+                double segY = screenYForValue(segV, plotY, plotH, rangeMin, rangeMax);
+                double fade = (double) (i + 1) / trailSegments;
+                gc.setFill(ANIM_TRAIL_COLOR.deriveColor(0, 1, 1, fade * 0.6));
+                double r = 2.0 + fade * 1.5;
+                gc.fillOval(segX - r, segY - r, r * 2, r * 2);
+            }
+
+            // Main dot
+            gc.setFill(ANIM_DOT_COLOR);
+            gc.fillOval(adx - ANIM_DOT_RADIUS, ady - ANIM_DOT_RADIUS, ANIM_DOT_RADIUS * 2, ANIM_DOT_RADIUS * 2);
+            gc.setStroke(Color.web("#ffffff", 0.7));
+            gc.setLineWidth(1.2);
+            gc.strokeOval(adx - ANIM_DOT_RADIUS, ady - ANIM_DOT_RADIUS, ANIM_DOT_RADIUS * 2, ANIM_DOT_RADIUS * 2);
+
+            // Crosshair guides from dot
+            gc.setStroke(ANIM_DOT_COLOR.deriveColor(0, 1, 1, 0.3));
+            gc.setLineWidth(0.8);
+            gc.setLineDashes(2, 3);
+            gc.strokeLine(adx, plotY, adx, plotY + plotH);
+            gc.strokeLine(plotX, ady, plotX + plotW, ady);
+            gc.setLineDashes((double[]) null);
+
+            // Motion progress bar at bottom
+            double barY = plotY + plotH + BOTTOM_PADDING - MOTION_BAR_HEIGHT - 2;
+            gc.setFill(ANIM_BAR_BG);
+            gc.fillRoundRect(plotX, barY, plotW, MOTION_BAR_HEIGHT, 3, 3);
+            gc.setFill(ANIM_BAR_FILL);
+            gc.fillRoundRect(plotX, barY, plotW * ap, MOTION_BAR_HEIGHT, 3, 3);
+
+            // Value readout badge
+            drawBadge(gc, plotX + plotW - 6, plotY + plotH - 42,
+                String.format("t %.2f → %.3f", ap, av), true);
         }
 
         // Axis labels.
@@ -543,6 +817,12 @@ public class EasingCurveEditor extends Pane {
         if (Double.isFinite(hoverProgress)) {
             double value = evaluateCurveValue(hoverProgress, tween, isCustom);
             drawBadge(gc, plotX + plotW - 118, plotY + 6, formatReadout(hoverProgress, value), true);
+        }
+        if (isCustom) {
+            drawBadge(gc, plotX + 6, plotY + plotH - 22, formatHandleReadout(selectedHandle), false);
+            if (canvas.isFocused()) {
+                drawBadge(gc, plotX + plotW - 210, plotY + plotH - 22, "1/2 select  •  Arrows nudge  •  Shift snap", true);
+            }
         }
         if (isDisabled()) {
             drawBadge(gc, plotX + plotW - 80, plotY + plotH - 22, "Locked", true);
