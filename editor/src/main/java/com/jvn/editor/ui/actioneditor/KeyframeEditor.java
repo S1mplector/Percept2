@@ -110,7 +110,6 @@ public class KeyframeEditor extends VBox {
         "-fx-background-color: #2f2a21; -fx-text-fill: #f0d89b; -fx-border-color: #736040; " +
         "-fx-border-radius: 999; -fx-background-radius: 999; -fx-padding: 4 10; -fx-font-size: 10px; -fx-font-weight: bold;";
     private static final double EDITOR_WORKING_WIDTH = 600.0;
-    private static final double EDITOR_VIEWPORT_WIDTH = 624.0;
 
     private final Label lblEmptyHint;
     private final VBox contentBox;
@@ -131,6 +130,7 @@ public class KeyframeEditor extends VBox {
     public KeyframeEditor() {
         setSpacing(10);
         setPadding(new Insets(10, 10, 8, 10));
+        setFillWidth(true);
         setStyle(PANEL_STYLE);
         setMinHeight(200);
 
@@ -361,16 +361,16 @@ public class KeyframeEditor extends VBox {
 
         VBox editorBody = new VBox(10, headerRow, lblEmptyHint, contentBox);
         editorBody.setFillWidth(true);
-        editorBody.setMinWidth(EDITOR_WORKING_WIDTH);
+        editorBody.setMinWidth(0);
         editorBody.setPrefWidth(EDITOR_WORKING_WIDTH);
-        editorBody.setMaxWidth(EDITOR_WORKING_WIDTH);
+        editorBody.setMaxWidth(Double.MAX_VALUE);
 
         ScrollPane editorScrollPane = new ScrollPane(editorBody);
         editorScrollPane.setMinWidth(0);
         editorScrollPane.setPrefViewportWidth(EDITOR_WORKING_WIDTH);
-        editorScrollPane.setPrefWidth(EDITOR_VIEWPORT_WIDTH);
-        editorScrollPane.setMaxWidth(EDITOR_VIEWPORT_WIDTH);
-        editorScrollPane.setFitToWidth(false);
+        editorScrollPane.setPrefWidth(EDITOR_WORKING_WIDTH);
+        editorScrollPane.setMaxWidth(Double.MAX_VALUE);
+        editorScrollPane.setFitToWidth(true);
         editorScrollPane.setFitToHeight(false);
         editorScrollPane.setPannable(true);
         editorScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);

@@ -19,6 +19,7 @@ import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
+import com.jvn.core.vn.LayeredCharacterResolver;
 import com.jvn.core.vn.VnArgTokenizer;
 import com.jvn.core.vn.VnConditionEvaluator;
 import com.jvn.core.vn.VnScenario;
@@ -1384,22 +1385,38 @@ public class VnScriptParser {
       String part = token.trim();
       if (part.isEmpty()) continue;
       if (part.startsWith("$")) {
-        String ref = part.substring(1).trim();
-        if (ref.isEmpty()) {
+        String rawRef = part.substring(1).trim();
+        if (rawRef.isEmpty()) {
           throw parseError(sourceName, lineNumber, "@charpreset contains empty $layer reference", rawLine);
         }
-        LayerReference layerRef = parseLayerReference(ref, characterId, sourceName, lineNumber, rawLine);
-        Map<String, String> byLayer = state.charLayers.get(layerRef.characterId());
-        String path = byLayer == null ? null : byLayer.get(layerRef.layerId());
+        String path = LayeredCharacterResolver.resolveLayerPath(state.charLayers, characterId, rawRef);
+        LayeredCharacterResolver.CharacterRef layerRef = LayeredCharacterResolver.parseReference(rawRef, characterId);
         if (path == null || path.isBlank()) {
           throw parseError(
               sourceName,
               lineNumber,
-              "Unknown @charlayer reference '$" + ref + "' for character '" + layerRef.characterId() + "'",
+              "Unknown @charlayer reference '$" + rawRef + "' for character '" + layerRef.characterId() + "'",
               rawLine
           );
         }
-        resolved.add(path.trim());
+        resolved.add(path);
+      } else if (part.startsWith("@")) {
+        String rawPresetRef = part.substring(1).trim();
+        if (rawPresetRef.isEmpty()) {
+          throw parseError(sourceName, lineNumber, "@charpreset contains empty @preset reference", rawLine);
+        }
+        LayeredCharacterResolver.CharacterRef presetRef = LayeredCharacterResolver.parseReference(rawPresetRef, characterId);
+        com.jvn.core.vn.VnCharacter.Builder presetCharacter = state.charBuilders.get(presetRef.characterId());
+        String presetPath = presetCharacter == null ? null : presetCharacter.getExpressionPath(presetRef.localId());
+        if (presetPath == null || presetPath.isBlank()) {
+          throw parseError(
+              sourceName,
+              lineNumber,
+              "Unknown @charpreset reference '@" + rawPresetRef + "' for character '" + presetRef.characterId() + "'",
+              rawLine
+          );
+        }
+        resolved.addAll(splitResolvedLayerSpec(presetPath));
       } else {
         resolved.add(part);
       }
@@ -1563,9 +1580,8 @@ public class VnScriptParser {
                                            String sourceName,
                                            int lineNumber,
                                            String rawLine) throws IOException {
-    LayerReference layerRef = parseLayerReference(rawRef, defaultCharacterId, sourceName, lineNumber, rawLine);
-    Map<String, String> byLayer = state.charLayers.get(layerRef.characterId());
-    String path = byLayer == null ? null : byLayer.get(layerRef.layerId());
+    String path = LayeredCharacterResolver.resolveLayerPath(state.charLayers, defaultCharacterId, rawRef);
+    LayeredCharacterResolver.CharacterRef layerRef = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
     if (path == null || path.isBlank()) {
       throw parseError(
           sourceName,
@@ -1573,7 +1589,7 @@ public class VnScriptParser {
           "Unknown @charlayer reference '$" + rawRef + "' for character '" + layerRef.characterId() + "'",
           rawLine);
     }
-    return path.trim();
+    return path;
   }
 
   private com.jvn.core.vn.VnCharacter.Builder getOrCreateCharacterBuilder(ParseState state, String characterId) {
@@ -1603,34 +1619,6 @@ public class VnScriptParser {
     }
     String hash = Integer.toUnsignedString(resolvedSpec.hashCode(), 36);
     return "__inline_" + base.toLowerCase() + "_" + hash;
-  }
-
-  private LayerReference parseLayerReference(String rawRef,
-                                             String defaultCharacterId,
-                                             String sourceName,
-                                             int lineNumber,
-                                             String rawLine) throws IOException {
-    String ref = rawRef == null ? "" : rawRef.trim();
-    if (ref.isEmpty()) {
-      throw parseError(sourceName, lineNumber, "Layer reference cannot be empty", rawLine);
-    }
-    String characterId = defaultCharacterId;
-    String layerId = ref;
-
-    int colon = ref.indexOf(':');
-    int dot = ref.indexOf('.');
-    int sep = colon >= 0 ? colon : dot;
-    if (colon >= 0 && dot >= 0) {
-      sep = Math.min(colon, dot);
-    }
-    if (sep > 0) {
-      characterId = ref.substring(0, sep).trim();
-      layerId = ref.substring(sep + 1).trim();
-    }
-    if (characterId == null || characterId.isBlank() || layerId.isBlank()) {
-      throw parseError(sourceName, lineNumber, "Malformed layer reference '$" + rawRef + "'", rawLine);
-    }
-    return new LayerReference(characterId, layerId);
   }
 
   private void validateLabelReferences(ParseState state) throws IOException {

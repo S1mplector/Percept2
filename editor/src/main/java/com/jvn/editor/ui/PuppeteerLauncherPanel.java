@@ -17,6 +17,8 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jvn.core.vn.LayeredCharacterResolver;
+
 import javafx.geometry.Insets;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Button;
@@ -421,7 +423,7 @@ public class PuppeteerLauncherPanel extends VBox {
         String charId = m.group(1);
         String expr = m.group(2);
         String spec = m.group(3).trim();
-        String resolved = resolvePresetSpec(charLayerPaths, charId, spec);
+        String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charId, spec);
         if (!resolved.isBlank()) {
           charImgPaths.put(charId + "/" + expr, resolved);
         }
@@ -823,7 +825,7 @@ public class PuppeteerLauncherPanel extends VBox {
           String charId = charPresetMatcher.group(1);
           String expr = charPresetMatcher.group(2);
           String spec = charPresetMatcher.group(3).trim();
-          String resolved = resolvePresetSpec(charLayerPaths, charId, spec);
+          String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charId, spec);
           if (!resolved.isBlank()) {
             charImgPaths.put(charId + "/" + expr, resolved);
           }
@@ -835,6 +837,7 @@ public class PuppeteerLauncherPanel extends VBox {
   }
 
   private static String resolvePresetSpec(Map<String, Map<String, String>> layersByCharacter,
+                                          Map<String, String> expressionsByCharacter,
                                           String characterId,
                                           String spec) {
     if (spec == null || spec.isBlank()) return "";
@@ -845,12 +848,15 @@ public class PuppeteerLauncherPanel extends VBox {
       String part = token.trim();
       if (part.isEmpty()) continue;
       if (part.startsWith("$")) {
-        LayerRef ref = parseLayerRef(part.substring(1).trim(), characterId);
-        Map<String, String> layerMap = layersByCharacter.get(ref.characterId);
-        if (layerMap == null) continue;
-        String path = layerMap.get(ref.layerId);
+        String path = LayeredCharacterResolver.resolveLayerPath(layersByCharacter, characterId, part.substring(1).trim());
         if (path == null || path.isBlank()) continue;
         resolved.add(path.trim());
+      } else if (part.startsWith("@")) {
+        LayeredCharacterResolver.CharacterRef ref =
+            LayeredCharacterResolver.parseReference(part.substring(1).trim(), characterId);
+        String presetPath = expressionsByCharacter.get(ref.characterId() + "/" + ref.localId());
+        if (presetPath == null || presetPath.isBlank()) continue;
+        resolved.addAll(splitResolvedLayerSpec(presetPath));
       } else {
         resolved.add(part);
       }
@@ -858,23 +864,17 @@ public class PuppeteerLauncherPanel extends VBox {
     return String.join(" | ", resolved);
   }
 
-  private static LayerRef parseLayerRef(String rawRef, String defaultCharacterId) {
-    String ref = rawRef == null ? "" : rawRef.trim();
-    if (ref.isEmpty()) return new LayerRef(defaultCharacterId, "");
-    String characterId = defaultCharacterId;
-    String layerId = ref;
-
-    int colon = ref.indexOf(':');
-    int dot = ref.indexOf('.');
-    int sep = colon >= 0 ? colon : dot;
-    if (colon >= 0 && dot >= 0) {
-      sep = Math.min(colon, dot);
+  private static List<String> splitResolvedLayerSpec(String spec) {
+    List<String> resolved = new ArrayList<>();
+    if (spec == null || spec.isBlank()) return resolved;
+    for (String token : spec.split("\\|")) {
+      if (token == null) continue;
+      String trimmed = token.trim();
+      if (!trimmed.isEmpty()) {
+        resolved.add(trimmed);
+      }
     }
-    if (sep > 0) {
-      characterId = ref.substring(0, sep).trim();
-      layerId = ref.substring(sep + 1).trim();
-    }
-    return new LayerRef(characterId, layerId);
+    return resolved;
   }
 
   private ResolvedInclude resolveIncludeSource(String sourceName, String includePath) throws IOException {
@@ -1082,5 +1082,4 @@ public class PuppeteerLauncherPanel extends VBox {
   record ResolvedInclude(String sourceName, String sourceText) {}
   record InlineTimelineContext(int startLine, int endLine, String body) {}
 
-  private record LayerRef(String characterId, String layerId) {}
 }

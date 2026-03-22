@@ -2179,6 +2179,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Map<String, Integer> layerIdCounts = new HashMap<>();
     StringBuilder declarations = new StringBuilder();
     StringBuilder presetSpec = new StringBuilder();
+    List<String> layerRefs = new ArrayList<>();
 
     if (selected.isEmpty()) {
       String layerId = nextLayerId(layerIdCounts, "base");
@@ -2188,6 +2189,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           .append(fallbackPath)
           .append('\n');
       presetSpec.append('$').append(layerId);
+      layerRefs.add("base");
     } else {
       for (LayerSelection selection : selected) {
         LayerOption option = selection.option();
@@ -2206,8 +2208,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
             .append(layerId).append(' ')
             .append(relativePath)
             .append('\n');
+        String layerRef = !groupId.isBlank() && !labelId.isBlank()
+            ? groupId + "=" + labelId
+            : layerId;
         if (presetSpec.length() > 0) presetSpec.append(" | ");
-        presetSpec.append('$').append(layerId);
+        presetSpec.append('$').append(layerRef);
+        layerRefs.add(layerRef);
       }
     }
 
@@ -2219,14 +2225,15 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           .append(fallbackPath)
           .append('\n');
       presetSpec.append('$').append(layerId);
+      layerRefs.add("base");
     }
 
     String presetLine = "@charpreset " + characterId + " " + expression + " " + presetSpec;
-    return new CharpresetSnippet(declarations.toString(), presetLine, splitLayerIds(presetSpec.toString()));
+    return new CharpresetSnippet(declarations.toString(), presetLine, List.copyOf(layerRefs));
   }
 
   private String buildInlineCompositeShowSnippet(String characterId, CharpresetSnippet charpreset, String expression) {
-    String inlineExpression = formatInlineLayerExpressionToken(charpreset.layerIds());
+    String inlineExpression = formatInlineLayerExpressionToken(charpreset.layerRefs());
     if (inlineExpression.isBlank()) {
       inlineExpression = formatPresetShowExpressionToken(expression);
     }
@@ -2239,16 +2246,32 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     return "@" + normalized;
   }
 
-  static String formatInlineLayerExpressionToken(List<String> layerIds) {
-    if (layerIds == null || layerIds.isEmpty()) return "";
+  static String formatInlineLayerExpressionToken(List<String> layerRefs) {
+    if (layerRefs == null || layerRefs.isEmpty()) return "";
     StringBuilder out = new StringBuilder();
-    for (String layerId : layerIds) {
-      String normalized = sanitizeId(layerId);
+    for (String layerRef : layerRefs) {
+      String normalized = normalizeLayerReferenceToken(layerRef);
       if (normalized.isBlank()) continue;
       if (out.length() > 0) out.append('+');
       out.append('$').append(normalized);
     }
     return out.toString();
+  }
+
+  private static String normalizeLayerReferenceToken(String layerRef) {
+    String raw = layerRef == null ? "" : layerRef.trim();
+    if (raw.isBlank()) return "";
+    int eq = raw.indexOf('=');
+    if (eq > 0 && eq < raw.length() - 1) {
+      String group = sanitizeId(raw.substring(0, eq));
+      String variant = sanitizeId(raw.substring(eq + 1));
+      if (!group.isBlank() && !variant.isBlank()) {
+        return group + "=" + variant;
+      }
+      if (!group.isBlank()) return group;
+      return variant;
+    }
+    return sanitizeId(raw);
   }
 
   static String formatShowSnippet(String characterId, String expressionToken) {
@@ -2257,19 +2280,6 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     String normalizedExpression = expressionToken == null ? "" : expressionToken.trim();
     if (normalizedExpression.isBlank()) normalizedExpression = "@neutral";
     return "[show " + normalizedCharacterId + " center " + normalizedExpression + "]";
-  }
-
-  private static List<String> splitLayerIds(String presetSpec) {
-    List<String> layerIds = new ArrayList<>();
-    if (presetSpec == null || presetSpec.isBlank()) return layerIds;
-    for (String token : presetSpec.split("\\|")) {
-      String part = token == null ? "" : token.trim();
-      if (part.startsWith("$")) {
-        String layerId = sanitizeId(part.substring(1));
-        if (!layerId.isBlank()) layerIds.add(layerId);
-      }
-    }
-    return layerIds;
   }
 
   private static String nextLayerId(Map<String, Integer> counts, String base) {
@@ -3328,7 +3338,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private record LayerSelection(String group, LayerOption option) {}
 
-  private record CharpresetSnippet(String declarations, String presetLine, List<String> layerIds) {}
+  private record CharpresetSnippet(String declarations, String presetLine, List<String> layerRefs) {}
 
   private record InferredGroupLabel(String group, String label) {}
 

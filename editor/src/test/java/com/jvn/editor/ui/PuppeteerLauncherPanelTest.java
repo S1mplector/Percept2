@@ -60,6 +60,36 @@ class PuppeteerLauncherPanelTest {
   }
 
   @Test
+  void resolveSnapshotSupportsGroupedLayerRefsAndNestedPresets() {
+    String source = """
+        @label start
+        @include /definitions/characters.vns
+        [show lavender center talking]
+        """;
+    String definitions = """
+        @charlayer lavender base assets/demo/characters/lavender/base.png
+        @charlayer lavender body_school assets/demo/characters/lavender/body_school.png
+        @charlayer lavender eyes_half_closed assets/demo/characters/lavender/eyes_half_closed.png
+        @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth_smile.png
+        @charpreset lavender neutral $base | $body=school | $eyes=half_closed
+        @charpreset lavender talking @neutral | $mouth=smile
+        """;
+
+    PuppeteerLauncherPanel.SceneSnapshot snapshot = PuppeteerLauncherPanel.resolveSnapshot(
+        source,
+        99,
+        "/tmp/project/scripts/story/prologue.vns",
+        (sourceName, includePath) -> new PuppeteerLauncherPanel.ResolvedInclude(
+            "/tmp/project/scripts/definitions/characters.vns",
+            definitions));
+
+    assertTrue(snapshot.hasCharacterPathMapping("lavender", "talking"));
+    assertEquals(
+        "assets/demo/characters/lavender/base.png | assets/demo/characters/lavender/body_school.png | assets/demo/characters/lavender/eyes_half_closed.png | assets/demo/characters/lavender/mouth_smile.png",
+        snapshot.resolveCharacterPath("lavender", "talking"));
+  }
+
+  @Test
   void resolveSnapshotCapturesReferencedTimelineName() {
     String source = """
         @label intro

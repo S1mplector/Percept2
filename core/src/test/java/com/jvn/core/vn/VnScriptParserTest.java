@@ -74,6 +74,36 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesGroupedLayerReferencesAndPresetComposition() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character lavender "Lavender"
+      @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+      @charlayer lavender body_school assets/demo/characters/lavender/body/lavender_test_sprite_body_school.png
+      @charlayer lavender eyes_half_closed assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png
+      @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+      @charpreset lavender neutral $base | $body=school | $eyes=half_closed
+      @charpreset lavender talking @neutral | $mouth=smile
+
+      @label start
+      [show lavender center talking]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+
+    VnCharacter lavender = scen.getCharacter("lavender");
+    assertNotNull(lavender);
+    assertEquals(
+        "assets/demo/characters/lavender/base/lavender_test_sprite_base.png"
+            + " | assets/demo/characters/lavender/body/lavender_test_sprite_body_school.png"
+            + " | assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png"
+            + " | assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png",
+        lavender.getExpressionPath("talking"));
+  }
+
+  @Test
   public void showCommandAcceptsExplicitPresetReference() throws Exception {
     String script = """
       @scenario layered_demo
@@ -157,6 +187,35 @@ public class VnScriptParserTest {
         lavender.getExpressionPath(move.getShowExpression()));
     assertEquals(com.jvn.core.animation.Easing.Type.EASE_OUT_BACK, move.getMoveEasingType());
     assertEquals(500, move.getMoveDurationMs());
+  }
+
+  @Test
+  public void showCommandSupportsGroupedInlineCompositeLayerSpec() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character lavender "Lavender"
+      @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+      @charlayer lavender eyes_half_closed assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png
+      @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+
+      @label start
+      [show lavender center $base+$eyes=half_closed+$mouth=smile]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode show = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW)
+        .findFirst().orElseThrow();
+    VnCharacter lavender = scen.getCharacter("lavender");
+    assertNotNull(lavender);
+    assertTrue(show.getShowExpression().startsWith("__inline_"));
+    assertEquals(
+        "assets/demo/characters/lavender/base/lavender_test_sprite_base.png"
+            + " | assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png"
+            + " | assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png",
+        lavender.getExpressionPath(show.getShowExpression()));
   }
 
   @Test

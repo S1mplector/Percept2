@@ -315,13 +315,13 @@ class LayeredImageVisualizerViewTest {
   @Test
   void formatInlineLayerExpressionTokenBuildsCompositeLayerRefs() {
     assertEquals(
-        "$base+$eyes_happy+$mouth_smile",
+        "$base+$eyes=happy+$mouth=smile",
         LayeredImageVisualizerView.formatInlineLayerExpressionToken(
-            List.of("base", "eyes_happy", "mouth_smile")));
+            List.of("base", "eyes=happy", "mouth=smile")));
     assertEquals(
-        "$eyes_happy+$mouth_smile",
+        "$eyes=happy+$mouth_smile",
         LayeredImageVisualizerView.formatInlineLayerExpressionToken(
-            List.of("###", "eyes_happy", "mouth smile")));
+            List.of("###", "eyes=happy", "mouth smile")));
     assertEquals("", LayeredImageVisualizerView.formatInlineLayerExpressionToken(List.of()));
   }
 

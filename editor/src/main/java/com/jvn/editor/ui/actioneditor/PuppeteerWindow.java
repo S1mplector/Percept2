@@ -140,8 +140,9 @@ public class PuppeteerWindow extends Stage {
     private Button btnSidebarFocusSelection;
     private Button btnSidebarClearSelection;
     private Button btnSidebarCodePane;
-    private SplitPane leftWorkspaceSplit;
-    private SplitPane centerWorkspaceSplit;
+    private SplitPane topWorkspaceSplit;
+    private SplitPane bottomWorkspaceSplit;
+    private SplitPane workspaceContentSplit;
     private SplitPane mainWorkspaceSplit;
     private boolean dirty = false;
     private boolean compactExport = false;
@@ -152,7 +153,7 @@ public class PuppeteerWindow extends Stage {
     private final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
     private boolean bypassCloseConfirmation = false;
     private boolean codePaneVisible = true;
-    private double[] codePaneDividerPositions = new double[] {0.17, 0.78};
+    private double codePaneDividerPosition = 0.78;
 
     private static final double MOVE_INTERACTION_EPSILON = 0.01;
     private static final Insets TOOLBAR_PADDING_DYNAMIC = new Insets(8, 10, 8, 10);
@@ -948,31 +949,18 @@ public class PuppeteerWindow extends Stage {
 
         keyframeEditor.setMinWidth(0);
         keyframeEditor.setMinHeight(0);
-        leftWorkspaceSplit = new SplitPane();
-        leftWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
-        leftWorkspaceSplit.setOrientation(Orientation.VERTICAL);
-        leftWorkspaceSplit.setMinWidth(0);
-        leftWorkspaceSplit.setMinHeight(0);
-        leftWorkspaceSplit.setPrefWidth(LEFT_LIBRARY_WORKING_WIDTH);
-        leftWorkspaceSplit.getItems().addAll(leftTabsScrollPane, keyframeEditor);
-        SplitPane.setResizableWithParent(leftTabsScrollPane, Boolean.TRUE);
-        SplitPane.setResizableWithParent(keyframeEditor, Boolean.TRUE);
-        leftWorkspaceSplit.setDividerPositions(0.65);
-        final double[] collapsedKeyframeDivider = {0.65};
+        final double[] collapsedWorkspaceDivider = {0.4};
         keyframeEditor.setOnCurveEditorExpandedChanged(expanded -> {
-            if (expanded) {
-                collapsedKeyframeDivider[0] = leftWorkspaceSplit.getDividerPositions()[0];
-                leftWorkspaceSplit.setDividerPositions(Math.min(collapsedKeyframeDivider[0], 0.42));
-            } else {
-                leftWorkspaceSplit.setDividerPositions(collapsedKeyframeDivider[0]);
+            if (workspaceContentSplit == null || workspaceContentSplit.getDividers().isEmpty()) {
+                return;
             }
+            if (expanded) {
+                collapsedWorkspaceDivider[0] = workspaceContentSplit.getDividerPositions()[0];
+                workspaceContentSplit.setDividerPositions(Math.min(collapsedWorkspaceDivider[0], 0.42));
+                return;
+            }
+            workspaceContentSplit.setDividerPositions(collapsedWorkspaceDivider[0]);
         });
-
-        centerWorkspaceSplit = new SplitPane();
-        centerWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
-        centerWorkspaceSplit.setOrientation(Orientation.VERTICAL);
-        centerWorkspaceSplit.setMinWidth(0);
-        centerWorkspaceSplit.setMinHeight(0);
         viewportInfoLabel = new Label();
         viewportInfoLabel.setStyle("-fx-text-fill: #979797; -fx-font-size: 10px; -fx-padding: 3 8 5 8;");
         viewportInfoLabel.setTooltip(new Tooltip(
@@ -1009,23 +997,54 @@ public class PuppeteerWindow extends Stage {
         updatePreviewOverlayVisibility();
 
         BorderPane previewPane = new BorderPane(previewViewportHost);
+        previewPane.setMinWidth(0);
         animationPreview.setMinHeight(0);
+        animationPreview.setMinWidth(0);
         previewPane.setMinHeight(0);
+        timelinePanel.setMinWidth(0);
         timelinePanel.setMinHeight(0);
         previewPane.setTop(viewportInfoLabel);
         previewPane.setStyle("-fx-background-color: #121212;");
-        centerWorkspaceSplit.getItems().addAll(previewPane, timelinePanel);
+
+        topWorkspaceSplit = new SplitPane();
+        topWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
+        topWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
+        topWorkspaceSplit.setMinWidth(0);
+        topWorkspaceSplit.setMinHeight(0);
+        topWorkspaceSplit.getItems().addAll(leftTabsScrollPane, previewPane);
+        SplitPane.setResizableWithParent(leftTabsScrollPane, Boolean.TRUE);
         SplitPane.setResizableWithParent(previewPane, Boolean.TRUE);
+        topWorkspaceSplit.setDividerPositions(0.2);
+
+        bottomWorkspaceSplit = new SplitPane();
+        bottomWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
+        bottomWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
+        bottomWorkspaceSplit.setMinWidth(0);
+        bottomWorkspaceSplit.setMinHeight(0);
+        bottomWorkspaceSplit.getItems().addAll(keyframeEditor, timelinePanel);
+        SplitPane.setResizableWithParent(keyframeEditor, Boolean.TRUE);
         SplitPane.setResizableWithParent(timelinePanel, Boolean.TRUE);
-        centerWorkspaceSplit.setDividerPositions(0.4);
+        bottomWorkspaceSplit.setDividerPositions(0.28);
+
+        workspaceContentSplit = new SplitPane();
+        workspaceContentSplit.getStyleClass().add("puppeteer-split-pane");
+        workspaceContentSplit.setOrientation(Orientation.VERTICAL);
+        workspaceContentSplit.setMinWidth(0);
+        workspaceContentSplit.setMinHeight(0);
+        workspaceContentSplit.getItems().addAll(topWorkspaceSplit, bottomWorkspaceSplit);
+        SplitPane.setResizableWithParent(topWorkspaceSplit, Boolean.TRUE);
+        SplitPane.setResizableWithParent(bottomWorkspaceSplit, Boolean.TRUE);
+        workspaceContentSplit.setDividerPositions(0.4);
+        collapsedWorkspaceDivider[0] = workspaceContentSplit.getDividerPositions()[0];
 
         mainWorkspaceSplit = new SplitPane();
         mainWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
         mainWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
         mainWorkspaceSplit.setMinWidth(0);
         mainWorkspaceSplit.setMinHeight(0);
-        mainWorkspaceSplit.getItems().addAll(leftWorkspaceSplit, centerWorkspaceSplit, codePreview);
-        mainWorkspaceSplit.setDividerPositions(codePaneDividerPositions);
+        codePreview.setMinWidth(0);
+        mainWorkspaceSplit.getItems().addAll(workspaceContentSplit, codePreview);
+        mainWorkspaceSplit.setDividerPositions(codePaneDividerPosition);
 
         // --- Status bar with undo/redo labels ---
         statusBar = new Label("Ready");
@@ -1760,18 +1779,17 @@ public class PuppeteerWindow extends Stage {
             if (!mainWorkspaceSplit.getItems().contains(codePreview)) {
                 mainWorkspaceSplit.getItems().add(codePreview);
             }
-            mainWorkspaceSplit.setDividerPositions(codePaneDividerPositions);
+            mainWorkspaceSplit.setDividerPositions(codePaneDividerPosition);
             refreshSidebarTabs();
             return;
         }
         if (mainWorkspaceSplit.getItems().contains(codePreview)) {
             double[] positions = mainWorkspaceSplit.getDividerPositions();
-            if (positions.length >= 2) {
-                codePaneDividerPositions = positions.clone();
+            if (positions.length >= 1) {
+                codePaneDividerPosition = positions[0];
             }
             mainWorkspaceSplit.getItems().remove(codePreview);
         }
-        mainWorkspaceSplit.setDividerPositions(0.5);
         refreshSidebarTabs();
         refreshToolbarCommandSummary();
     }
