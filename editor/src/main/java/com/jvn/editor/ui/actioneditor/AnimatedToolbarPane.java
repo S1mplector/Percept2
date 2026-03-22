@@ -310,11 +310,11 @@ public class AnimatedToolbarPane extends Region {
     }
 
     private double effectiveHgap() {
-        return layoutMode == LayoutMode.COMPACT ? Math.max(3.0, hgap - 4.0) : hgap;
+        return layoutMode == LayoutMode.COMPACT ? Math.max(2.0, hgap - 5.0) : hgap;
     }
 
     private double effectiveVgap() {
-        return layoutMode == LayoutMode.COMPACT ? Math.max(3.0, vgap - 4.0) : vgap;
+        return layoutMode == LayoutMode.COMPACT ? Math.max(0.0, vgap - 8.0) : vgap;
     }
 
     private static void placeWidthIntoBestRow(List<RowWidthPlan> rows,

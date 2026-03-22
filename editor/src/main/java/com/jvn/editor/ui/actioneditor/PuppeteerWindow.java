@@ -107,6 +107,9 @@ public class PuppeteerWindow extends Stage {
     private final TextField tfTimelineName;
     private final Map<String, CollapsibleToolbarCluster> toolbarClusters = new LinkedHashMap<>();
     private AnimatedToolbarPane toolbarPane;
+    private HBox toolbarCommandBar;
+    private HBox toolbarModeBar;
+    private VBox toolbarShell;
     private ToggleButton btnToolbarDynamicMode;
     private ToggleButton btnToolbarCompactMode;
     private ToggleButton btnCodePaneToggle;
@@ -153,12 +156,19 @@ public class PuppeteerWindow extends Stage {
 
     private static final double MOVE_INTERACTION_EPSILON = 0.01;
     private static final Insets TOOLBAR_PADDING_DYNAMIC = new Insets(8, 10, 8, 10);
-    private static final Insets TOOLBAR_PADDING_COMPACT = new Insets(5, 8, 5, 8);
+    private static final Insets TOOLBAR_PADDING_COMPACT = new Insets(1, 4, 1, 4);
+    private static final Insets TOOLBAR_COMMAND_BAR_PADDING_DYNAMIC = new Insets(6, 10, 0, 10);
+    private static final Insets TOOLBAR_COMMAND_BAR_PADDING_COMPACT = new Insets(1, 4, 0, 4);
+    private static final Insets TOOLBAR_MODE_BAR_PADDING_DYNAMIC = new Insets(8, 10, 0, 10);
+    private static final Insets TOOLBAR_MODE_BAR_PADDING_COMPACT = new Insets(0, 4, 0, 4);
+    private static final double TOOLBAR_SHELL_SPACING_DYNAMIC = 6.0;
+    private static final double TOOLBAR_SHELL_SPACING_COMPACT = 1.0;
     private static final String PROP_TOOLBAR_BASE_SPACING = "puppeteerToolbarBaseSpacing";
     private static final String PROP_TOOLBAR_BASE_PREF_WIDTH = "puppeteerToolbarBasePrefWidth";
     private static final String PROP_TOOLBAR_BASE_PREF_HEIGHT = "puppeteerToolbarBasePrefHeight";
     private static final String PROP_TOOLBAR_BASE_ICON_WIDTH = "puppeteerToolbarBaseIconWidth";
     private static final String PROP_TOOLBAR_BASE_ICON_HEIGHT = "puppeteerToolbarBaseIconHeight";
+    private static final String PROP_TOOLBAR_MODE_BUTTON_BASE_HEIGHT = "puppeteerToolbarModeButtonBaseHeight";
     private static final PropertyType[] TRANSFORM_INTERACTION_PROPERTIES = {
         PropertyType.X,
         PropertyType.Y,
@@ -862,14 +872,14 @@ public class PuppeteerWindow extends Stage {
 
         Label toolbarModeLabel = new Label("Toolbar Layout");
         toolbarModeLabel.getStyleClass().add("puppeteer-toolbar-mode-label");
-        HBox toolbarModeBar = new HBox(8, toolbarModeLabel, btnToolbarDynamicMode, btnToolbarCompactMode, btnCodePaneToggle);
+        toolbarModeBar = new HBox(8, toolbarModeLabel, btnToolbarDynamicMode, btnToolbarCompactMode, btnCodePaneToggle);
         toolbarModeBar.getStyleClass().add("puppeteer-toolbar-mode-bar");
         toolbarModeBar.setAlignment(Pos.CENTER_LEFT);
         toolbarModeBar.setMaxWidth(Double.MAX_VALUE);
 
-        HBox toolbarCommandBar = buildToolbarCommandBar();
+        toolbarCommandBar = buildToolbarCommandBar();
 
-        VBox toolbarShell = new VBox(6, toolbarCommandBar, toolbarModeBar, toolbarPane) {
+        toolbarShell = new VBox(6, toolbarCommandBar, toolbarModeBar, toolbarPane) {
             @Override
             protected double computeMinHeight(double width) {
                 return computePrefHeight(width);
@@ -931,17 +941,22 @@ public class PuppeteerWindow extends Stage {
         leftTabsScrollPane.setFitToWidth(true);
         leftTabsScrollPane.setFitToHeight(true);
         leftTabsScrollPane.setPannable(true);
+        leftTabsScrollPane.setMinHeight(0);
         leftTabsScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         leftTabsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         leftTabsScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
         keyframeEditor.setMinWidth(0);
+        keyframeEditor.setMinHeight(0);
         leftWorkspaceSplit = new SplitPane();
         leftWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
         leftWorkspaceSplit.setOrientation(Orientation.VERTICAL);
         leftWorkspaceSplit.setMinWidth(0);
+        leftWorkspaceSplit.setMinHeight(0);
         leftWorkspaceSplit.setPrefWidth(LEFT_LIBRARY_WORKING_WIDTH);
         leftWorkspaceSplit.getItems().addAll(leftTabsScrollPane, keyframeEditor);
+        SplitPane.setResizableWithParent(leftTabsScrollPane, Boolean.TRUE);
+        SplitPane.setResizableWithParent(keyframeEditor, Boolean.TRUE);
         leftWorkspaceSplit.setDividerPositions(0.65);
         final double[] collapsedKeyframeDivider = {0.65};
         keyframeEditor.setOnCurveEditorExpandedChanged(expanded -> {
@@ -957,6 +972,7 @@ public class PuppeteerWindow extends Stage {
         centerWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
         centerWorkspaceSplit.setOrientation(Orientation.VERTICAL);
         centerWorkspaceSplit.setMinWidth(0);
+        centerWorkspaceSplit.setMinHeight(0);
         viewportInfoLabel = new Label();
         viewportInfoLabel.setStyle("-fx-text-fill: #979797; -fx-font-size: 10px; -fx-padding: 3 8 5 8;");
         viewportInfoLabel.setTooltip(new Tooltip(
@@ -985,6 +1001,7 @@ public class PuppeteerWindow extends Stage {
 
         previewViewportHost = new StackPane(animationPreview, previewFullscreenPlaceholderLabel, btnPreviewFullscreen);
         previewViewportHost.getStyleClass().add("puppeteer-preview-viewport-host");
+        previewViewportHost.setMinHeight(0);
         previewViewportHost.hoverProperty().addListener((obs, wasHover, isHover) -> updatePreviewOverlayVisibility());
         StackPane.setAlignment(previewFullscreenPlaceholderLabel, Pos.CENTER);
         StackPane.setAlignment(btnPreviewFullscreen, Pos.TOP_RIGHT);
@@ -992,15 +1009,21 @@ public class PuppeteerWindow extends Stage {
         updatePreviewOverlayVisibility();
 
         BorderPane previewPane = new BorderPane(previewViewportHost);
+        animationPreview.setMinHeight(0);
+        previewPane.setMinHeight(0);
+        timelinePanel.setMinHeight(0);
         previewPane.setTop(viewportInfoLabel);
         previewPane.setStyle("-fx-background-color: #121212;");
         centerWorkspaceSplit.getItems().addAll(previewPane, timelinePanel);
+        SplitPane.setResizableWithParent(previewPane, Boolean.TRUE);
+        SplitPane.setResizableWithParent(timelinePanel, Boolean.TRUE);
         centerWorkspaceSplit.setDividerPositions(0.4);
 
         mainWorkspaceSplit = new SplitPane();
         mainWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
         mainWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
         mainWorkspaceSplit.setMinWidth(0);
+        mainWorkspaceSplit.setMinHeight(0);
         mainWorkspaceSplit.getItems().addAll(leftWorkspaceSplit, centerWorkspaceSplit, codePreview);
         mainWorkspaceSplit.setDividerPositions(codePaneDividerPositions);
 
@@ -1026,6 +1049,7 @@ public class PuppeteerWindow extends Stage {
         setupKeyboardShortcuts(fxScene);
         setupPlaybackTimer();
         setCodePaneVisible(true);
+        applyToolbarChromeDensity(getToolbarLayoutMode());
         tfTimelineName.textProperty().addListener((obs, ov, nv) -> setDirty(dirty));
         setDirty(false);
         setOnCloseRequest(e -> {
@@ -1599,6 +1623,7 @@ public class PuppeteerWindow extends Stage {
                 ? TOOLBAR_PADDING_COMPACT
                 : TOOLBAR_PADDING_DYNAMIC);
         }
+        applyToolbarChromeDensity(resolved);
         applyToolbarDensity(resolved);
         if (btnToolbarDynamicMode != null && btnToolbarDynamicMode.isSelected() != (resolved == AnimatedToolbarPane.LayoutMode.DYNAMIC)) {
             btnToolbarDynamicMode.setSelected(resolved == AnimatedToolbarPane.LayoutMode.DYNAMIC);
@@ -1620,15 +1645,33 @@ public class PuppeteerWindow extends Stage {
         toolbarPane.requestLayout();
     }
 
+    private void applyToolbarChromeDensity(AnimatedToolbarPane.LayoutMode mode) {
+        boolean compact = mode == AnimatedToolbarPane.LayoutMode.COMPACT;
+        if (toolbarShell != null) {
+            toolbarShell.setSpacing(compact ? TOOLBAR_SHELL_SPACING_COMPACT : TOOLBAR_SHELL_SPACING_DYNAMIC);
+        }
+        if (toolbarCommandBar != null) {
+            toolbarCommandBar.setPadding(compact ? TOOLBAR_COMMAND_BAR_PADDING_COMPACT : TOOLBAR_COMMAND_BAR_PADDING_DYNAMIC);
+            toolbarCommandBar.setSpacing(compact ? 4.0 : 10.0);
+        }
+        if (toolbarModeBar != null) {
+            toolbarModeBar.setPadding(compact ? TOOLBAR_MODE_BAR_PADDING_COMPACT : TOOLBAR_MODE_BAR_PADDING_DYNAMIC);
+            toolbarModeBar.setSpacing(compact ? 4.0 : 8.0);
+        }
+        applyToolbarModeButtonDensity(btnToolbarDynamicMode, compact);
+        applyToolbarModeButtonDensity(btnToolbarCompactMode, compact);
+        applyToolbarModeButtonDensity(btnCodePaneToggle, compact);
+    }
+
     private void applyToolbarDensity(Node node, boolean compact) {
         if (node == null) return;
 
         if (node instanceof HBox hBox) {
             double baseSpacing = rememberToolbarMetric(hBox, PROP_TOOLBAR_BASE_SPACING, hBox.getSpacing());
-            hBox.setSpacing(compact ? Math.max(2.0, baseSpacing - 2.0) : baseSpacing);
+            hBox.setSpacing(compact ? Math.max(0.0, baseSpacing - 4.0) : baseSpacing);
         } else if (node instanceof VBox vBox) {
             double baseSpacing = rememberToolbarMetric(vBox, PROP_TOOLBAR_BASE_SPACING, vBox.getSpacing());
-            vBox.setSpacing(compact ? Math.max(3.0, baseSpacing - 2.0) : baseSpacing);
+            vBox.setSpacing(compact ? Math.max(0.0, baseSpacing - 5.0) : baseSpacing);
         }
 
         if (node instanceof ButtonBase button && isToolbarIconControl(button)) {
@@ -1647,8 +1690,8 @@ public class PuppeteerWindow extends Stage {
     private void applyToolbarButtonDensity(ButtonBase button, boolean compact) {
         double baseWidth = rememberToolbarMetric(button, PROP_TOOLBAR_BASE_PREF_WIDTH, sanitizeToolbarSize(button.getPrefWidth(), button.getMinWidth()));
         double baseHeight = rememberToolbarMetric(button, PROP_TOOLBAR_BASE_PREF_HEIGHT, sanitizeToolbarSize(button.getPrefHeight(), button.getMinHeight()));
-        double targetWidth = compact ? Math.max(26.0, baseWidth - 4.0) : baseWidth;
-        double targetHeight = compact ? Math.max(22.0, baseHeight - 4.0) : baseHeight;
+        double targetWidth = compact ? Math.max(24.0, baseWidth - 6.0) : baseWidth;
+        double targetHeight = compact ? Math.max(17.0, baseHeight - 8.0) : baseHeight;
         button.setMinSize(targetWidth, targetHeight);
         button.setPrefSize(targetWidth, targetHeight);
         button.setMaxSize(targetWidth, targetHeight);
@@ -1657,11 +1700,19 @@ public class PuppeteerWindow extends Stage {
     private void applyToolbarIconDensity(Label icon, boolean compact) {
         double baseWidth = rememberToolbarMetric(icon, PROP_TOOLBAR_BASE_ICON_WIDTH, sanitizeToolbarSize(icon.getPrefWidth(), 16.0));
         double baseHeight = rememberToolbarMetric(icon, PROP_TOOLBAR_BASE_ICON_HEIGHT, sanitizeToolbarSize(icon.getPrefHeight(), 16.0));
-        double targetWidth = compact ? Math.max(13.0, baseWidth - 2.0) : baseWidth;
-        double targetHeight = compact ? Math.max(13.0, baseHeight - 2.0) : baseHeight;
+        double targetWidth = compact ? Math.max(11.0, baseWidth - 3.0) : baseWidth;
+        double targetHeight = compact ? Math.max(11.0, baseHeight - 3.0) : baseHeight;
         icon.setMinSize(targetWidth, targetHeight);
         icon.setPrefSize(targetWidth, targetHeight);
         icon.setMaxSize(targetWidth, targetHeight);
+    }
+
+    private void applyToolbarModeButtonDensity(ToggleButton button, boolean compact) {
+        if (button == null) return;
+        double baseHeight = rememberToolbarMetric(button, PROP_TOOLBAR_MODE_BUTTON_BASE_HEIGHT, sanitizeToolbarSize(button.getMinHeight(), 26.0));
+        double targetHeight = compact ? Math.max(18.0, baseHeight - 8.0) : baseHeight;
+        button.setMinHeight(targetHeight);
+        button.setPrefHeight(targetHeight);
     }
 
     private boolean isToolbarIconControl(ButtonBase button) {

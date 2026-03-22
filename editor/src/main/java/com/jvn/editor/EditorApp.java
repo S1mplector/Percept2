@@ -106,6 +106,8 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
@@ -1146,13 +1148,31 @@ public class EditorApp extends Application {
     miSave.setOnAction(e -> doSave(primaryStage));
     MenuItem miSaveAs = new MenuItem("Save As...");
     miSaveAs.setOnAction(e -> doSaveAs(primaryStage));
+    MenuItem miSaveAllTabs = new MenuItem("Save All Open Tabs");
+    miSaveAllTabs.setOnAction(e -> saveAllOpenTabs());
     miOpenProject.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN));
     miOpen.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     miOpenVns.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN));
     miSave.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN));
     miSaveAs.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+    miSaveAllTabs.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN));
     miCloseTab.setAccelerator(new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN));
-    menuFile.getItems().addAll(miNewProject, miOpenProject, new SeparatorMenuItem(), miOpen, miOpenVns, miSave, miSaveAs, miCloseTab);
+    MenuItem miCloseAllTabs = new MenuItem("Close All Tabs");
+    miCloseAllTabs.setOnAction(e -> closeAllClosableTabs());
+    miCloseAllTabs.setAccelerator(new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+    MenuItem miRevealActiveFile = new MenuItem("Reveal Active File in File Manager");
+    miRevealActiveFile.setOnAction(e -> revealActiveFileInFileManager());
+    MenuItem miCopyActiveFilePath = new MenuItem("Copy Active File Path");
+    miCopyActiveFilePath.setOnAction(e -> copyActiveFilePathToClipboard());
+    Menu menuFileOpen = new Menu("Open");
+    menuFileOpen.getItems().addAll(miNewProject, miOpenProject, new SeparatorMenuItem(), miOpen, miOpenVns);
+    Menu menuFileSave = new Menu("Save");
+    menuFileSave.getItems().addAll(miSave, miSaveAs, miSaveAllTabs);
+    Menu menuFileCurrent = new Menu("Current File");
+    menuFileCurrent.getItems().addAll(miRevealActiveFile, miCopyActiveFilePath);
+    Menu menuFileClose = new Menu("Close");
+    menuFileClose.getItems().addAll(miCloseTab, miCloseAllTabs);
+    menuFile.getItems().addAll(menuFileOpen, new SeparatorMenuItem(), menuFileSave, new SeparatorMenuItem(), menuFileCurrent, menuFileClose);
 
     // ── Edit ──
     Menu menuEdit = new Menu("Edit");
@@ -1188,8 +1208,11 @@ public class EditorApp extends Application {
     MenuItem miEditorSettings = new MenuItem("Editor Settings");
     miEditorSettings.setOnAction(e -> selectEditorSettingsTab());
     miEditorSettings.setAccelerator(new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN));
-    menuEdit.getItems().addAll(miUndo, miRedo, new SeparatorMenuItem(),
-        miFind, miGoToLine, new SeparatorMenuItem(), miReload, new SeparatorMenuItem(), miEditorSettings);
+    Menu menuEditSearch = new Menu("Search");
+    menuEditSearch.getItems().addAll(miFind, miGoToLine);
+    Menu menuEditDocument = new Menu("Document");
+    menuEditDocument.getItems().addAll(miReload, miEditorSettings);
+    menuEdit.getItems().addAll(miUndo, miRedo, new SeparatorMenuItem(), menuEditSearch, new SeparatorMenuItem(), menuEditDocument);
 
     // ── View ──
     Menu menuView = new Menu("View");
@@ -1204,16 +1227,30 @@ public class EditorApp extends Application {
     Menu menuPanels = new Menu("Panels");
     MenuItem miShowProject = new MenuItem("Project Explorer");
     miShowProject.setOnAction(e -> selectProjectTab());
+    MenuItem miShowWelcomePanel = new MenuItem("Welcome Center");
+    miShowWelcomePanel.setOnAction(e -> selectWelcomeTab());
     MenuItem miShowTimeline = new MenuItem("Story Timeline");
     miShowTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miShowInspector = new MenuItem("Inspector");
     miShowInspector.setOnAction(e -> selectInspectorTab());
+    MenuItem miShowHelpPanel = new MenuItem("Help Center");
+    miShowHelpPanel.setOnAction(e -> selectHelpTab());
+    MenuItem miShowVersionControlPanel = new MenuItem("Version Control");
+    miShowVersionControlPanel.setOnAction(e -> selectVersionControlTab());
     MenuItem miShowAssets = new MenuItem("Asset Browser");
     miShowAssets.setOnAction(e -> selectAssetBrowserTab());
+    MenuItem miShowScriptEditorWorkspace = new MenuItem("Script Editor Workspace");
+    miShowScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
+    MenuItem miShowAudioSynthControls = new MenuItem("Audio Synth Controls");
+    miShowAudioSynthControls.setOnAction(e -> selectAudioSynthControlsTab());
     MenuItem miShowDiagnostics = new MenuItem("VNS Diagnostics");
     miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
     miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
+    MenuItem miShowMenuFlow = new MenuItem("Menu Flow Editor");
+    miShowMenuFlow.setOnAction(e -> selectMenuFlowTab());
+    MenuItem miShowLayoutLauncher = new MenuItem("Layout Launcher");
+    miShowLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
     MenuItem miShowPhoneAssets = new MenuItem("Phone Assets");
     miShowPhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
     MenuItem miShowStoryboardOverlay = new MenuItem("Storyboard Overlay");
@@ -1228,14 +1265,77 @@ public class EditorApp extends Application {
     miShowPuppeteerLauncher.setOnAction(e -> selectPuppeteerLauncherTab());
     MenuItem miShowEditorSettings = new MenuItem("Editor Settings");
     miShowEditorSettings.setOnAction(e -> selectEditorSettingsTab());
-    menuPanels.getItems().addAll(miShowProject, miShowTimeline, miShowInspector,
-        miShowAssets, new SeparatorMenuItem(),
-        miShowDiagnostics, miShowFlowMap, miShowPhoneAssets, miShowStoryboardOverlay, miShowLayeredVisualizer, miShowImageAttributes,
-        miShowImageTint, miShowPuppeteerLauncher, miShowEditorSettings);
+    menuPanels.getItems().addAll(
+        miShowWelcomePanel, miShowProject, miShowTimeline, miShowInspector, miShowHelpPanel, miShowVersionControlPanel,
+        new SeparatorMenuItem(),
+        miShowAssets, miShowScriptEditorWorkspace, miShowAudioSynthControls, miShowPuppeteerLauncher,
+        new SeparatorMenuItem(),
+        miShowDiagnostics, miShowFlowMap, miShowMenuFlow, miShowLayoutLauncher, miShowPhoneAssets, miShowStoryboardOverlay,
+        miShowLayeredVisualizer, miShowImageAttributes, miShowImageTint,
+        new SeparatorMenuItem(),
+        miShowEditorSettings);
 
-    menuView.getItems().addAll(miToggleEditorFullscreen, new SeparatorMenuItem(),
-        miResetCamera, miFitContent, new SeparatorMenuItem(),
-        menuPanels);
+    Menu menuViewport = new Menu("Viewport");
+    menuViewport.getItems().addAll(miToggleEditorFullscreen, miResetCamera, miFitContent);
+    menuView.getItems().addAll(menuViewport, new SeparatorMenuItem(), menuPanels);
+
+    // ── Navigate ──
+    Menu menuNavigate = new Menu("Navigate");
+    Menu menuNavigateCore = new Menu("Core Panels");
+    MenuItem miNavigateWelcome = new MenuItem("Welcome Center");
+    miNavigateWelcome.setOnAction(e -> selectWelcomeTab());
+    MenuItem miNavigateProject = new MenuItem("Project Explorer");
+    miNavigateProject.setOnAction(e -> selectProjectTab());
+    MenuItem miNavigateTimeline = new MenuItem("Story Timeline");
+    miNavigateTimeline.setOnAction(e -> selectTimelineTab());
+    MenuItem miNavigateInspector = new MenuItem("Inspector");
+    miNavigateInspector.setOnAction(e -> selectInspectorTab());
+    MenuItem miNavigateHelp = new MenuItem("Help Center");
+    miNavigateHelp.setOnAction(e -> selectHelpTab());
+    MenuItem miNavigateVersionControl = new MenuItem("Version Control");
+    miNavigateVersionControl.setOnAction(e -> selectVersionControlTab());
+    menuNavigateCore.getItems().addAll(
+        miNavigateWelcome, miNavigateProject, miNavigateTimeline, miNavigateInspector, miNavigateHelp, miNavigateVersionControl);
+
+    Menu menuNavigateEditors = new Menu("Editors & Tools");
+    MenuItem miNavigateAssetBrowser = new MenuItem("Asset Browser");
+    miNavigateAssetBrowser.setOnAction(e -> selectAssetBrowserTab());
+    MenuItem miNavigateScriptWorkspace = new MenuItem("Script Editor Workspace");
+    miNavigateScriptWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
+    MenuItem miNavigateAudioSynth = new MenuItem("Audio Synth Controls");
+    miNavigateAudioSynth.setOnAction(e -> selectAudioSynthControlsTab());
+    MenuItem miNavigatePuppeteer = new MenuItem("Puppeteer Launcher");
+    miNavigatePuppeteer.setOnAction(e -> selectPuppeteerLauncherTab());
+    MenuItem miNavigateMenuFlow = new MenuItem("Menu Flow Editor");
+    miNavigateMenuFlow.setOnAction(e -> selectMenuFlowTab());
+    MenuItem miNavigateLayoutLauncher = new MenuItem("Layout Launcher");
+    miNavigateLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
+    menuNavigateEditors.getItems().addAll(
+        miNavigateAssetBrowser, miNavigateScriptWorkspace, miNavigateAudioSynth, miNavigatePuppeteer, miNavigateMenuFlow, miNavigateLayoutLauncher);
+
+    Menu menuNavigateVisual = new Menu("Visual Tools");
+    MenuItem miNavigatePhoneAssets = new MenuItem("Phone Assets");
+    miNavigatePhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
+    MenuItem miNavigateStoryboard = new MenuItem("Storyboard Overlay");
+    miNavigateStoryboard.setOnAction(e -> selectStoryboardOverlayTab());
+    MenuItem miNavigateLayered = new MenuItem("Layered Image Visualizer");
+    miNavigateLayered.setOnAction(e -> selectLayeredImageVisualizerTab());
+    MenuItem miNavigateImageAttributes = new MenuItem("Image Attributes Tool");
+    miNavigateImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
+    MenuItem miNavigateImageTint = new MenuItem("Image Tint Tool");
+    miNavigateImageTint.setOnAction(e -> selectImageTintToolTab());
+    menuNavigateVisual.getItems().addAll(
+        miNavigatePhoneAssets, miNavigateStoryboard, miNavigateLayered, miNavigateImageAttributes, miNavigateImageTint);
+
+    Menu menuNavigateAnalysis = new Menu("Analysis");
+    MenuItem miNavigateDiagnostics = new MenuItem("VNS Diagnostics");
+    miNavigateDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
+    MenuItem miNavigateFlowMap = new MenuItem("Label Flow Map");
+    miNavigateFlowMap.setOnAction(e -> selectVnsFlowMapTab());
+    MenuItem miNavigateSettings = new MenuItem("Editor Settings");
+    miNavigateSettings.setOnAction(e -> selectEditorSettingsTab());
+    menuNavigateAnalysis.getItems().addAll(miNavigateDiagnostics, miNavigateFlowMap, miNavigateSettings);
+    menuNavigate.getItems().addAll(menuNavigateCore, menuNavigateEditors, menuNavigateVisual, menuNavigateAnalysis);
 
     // ── Run ──
     Menu menuRun = new Menu("Run");
@@ -1275,6 +1375,10 @@ public class EditorApp extends Application {
     miActionEditor.setAccelerator(new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     MenuItem miPuppeteerPanel = new MenuItem("Puppeteer Launcher");
     miPuppeteerPanel.setOnAction(e -> selectPuppeteerLauncherTab());
+    MenuItem miScriptEditorWorkspace = new MenuItem("Script Editor Workspace");
+    miScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
+    MenuItem miAudioSynthControls = new MenuItem("Audio Synth Controls");
+    miAudioSynthControls.setOnAction(e -> selectAudioSynthControlsTab());
 
     MenuItem miMenuFlow = new MenuItem("Menu Flow Editor");
     miMenuFlow.setOnAction(e -> selectMenuFlowTab());
@@ -1304,11 +1408,20 @@ public class EditorApp extends Application {
     miToolInspector.setOnAction(e -> selectInspectorTab());
     MenuItem miToolEditorSettings = new MenuItem("Editor Settings");
     miToolEditorSettings.setOnAction(e -> selectEditorSettingsTab());
+    MenuItem miToolVersionControl = new MenuItem("Version Control");
+    miToolVersionControl.setOnAction(e -> selectVersionControlTab());
 
-    menuTools.getItems().addAll(miActionEditor, miPuppeteerPanel, new SeparatorMenuItem(),
-        miMenuFlow, miLayoutLauncher, miPhoneAssets, miStoryboardOverlay, miLayeredVisualizer, miImageAttributes, miImageTint, new SeparatorMenuItem(),
-        menuVnsTools, new SeparatorMenuItem(),
-        miToolAssets, miToolInspector, new SeparatorMenuItem(), miToolEditorSettings);
+    Menu menuAnimationTools = new Menu("Animation");
+    menuAnimationTools.getItems().addAll(miActionEditor, miPuppeteerPanel, miAudioSynthControls);
+    Menu menuScriptTools = new Menu("Scripts & Analysis");
+    menuScriptTools.getItems().addAll(miScriptEditorWorkspace, menuVnsTools, miMenuFlow);
+    Menu menuLayoutTools = new Menu("Layout & UI");
+    menuLayoutTools.getItems().addAll(miLayoutLauncher, miPhoneAssets, miStoryboardOverlay);
+    Menu menuImageTools = new Menu("Image & Assets");
+    menuImageTools.getItems().addAll(miToolAssets, miLayeredVisualizer, miImageAttributes, miImageTint);
+    Menu menuWorkspaceTools = new Menu("Workspace");
+    menuWorkspaceTools.getItems().addAll(miToolInspector, miToolVersionControl, miToolEditorSettings);
+    menuTools.getItems().addAll(menuAnimationTools, menuScriptTools, menuLayoutTools, menuImageTools, menuWorkspaceTools);
 
     // ── Version Control ──
     Menu menuVcs = new Menu("Version Control");
@@ -1320,7 +1433,11 @@ public class EditorApp extends Application {
       if (versionControlView != null) versionControlView.refreshStatus();
       selectVersionControlTab();
     });
-    menuVcs.getItems().addAll(miOpenVcs, miRefreshVcs);
+    MenuItem miRevealProjectRoot = new MenuItem("Reveal Project Root in File Manager");
+    miRevealProjectRoot.setOnAction(e -> revealProjectRootInFileManager());
+    MenuItem miCopyProjectRootPath = new MenuItem("Copy Project Root Path");
+    miCopyProjectRootPath.setOnAction(e -> copyProjectRootPathToClipboard());
+    menuVcs.getItems().addAll(miOpenVcs, miRefreshVcs, new SeparatorMenuItem(), miRevealProjectRoot, miCopyProjectRootPath);
 
     // ── Help ──
     Menu menuHelp = new Menu("Help");
@@ -1334,6 +1451,10 @@ public class EditorApp extends Application {
     miRefreshHelp.setOnAction(e -> {
       if (helpCenterView != null) helpCenterView.refresh();
     });
+    MenuItem miOpenProjectDocs = new MenuItem("Open Project Docs Folder");
+    miOpenProjectDocs.setOnAction(e -> openProjectDocsFolder());
+    MenuItem miOpenWorkspaceDocs = new MenuItem("Open Workspace Docs Folder");
+    miOpenWorkspaceDocs.setOnAction(e -> openWorkspaceDocsFolder());
     MenuItem miAbout = new MenuItem("About JVN Editor");
     miAbout.setOnAction(e -> {
       javafx.scene.control.Alert about = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
@@ -1342,9 +1463,14 @@ public class EditorApp extends Application {
       about.setContentText("Java Vector Nexus — Visual Novel & 2D Game Toolkit");
       about.showAndWait();
     });
-    menuHelp.getItems().addAll(miWelcome, miHelpCenter, miRefreshHelp, new SeparatorMenuItem(), miAbout);
+    menuHelp.getItems().addAll(
+        miWelcome, miHelpCenter, miRefreshHelp,
+        new SeparatorMenuItem(),
+        miOpenProjectDocs, miOpenWorkspaceDocs,
+        new SeparatorMenuItem(),
+        miAbout);
 
-    mb.getMenus().addAll(menuFile, menuEdit, menuView, menuRun, menuTools, menuVcs, menuHelp);
+    mb.getMenus().addAll(menuFile, menuEdit, menuView, menuNavigate, menuRun, menuTools, menuVcs, menuHelp);
 
     Label toolbarCommandSummary = new Label();
     toolbarCommandSummary.getStyleClass().add("main-editor-command-summary");
@@ -1379,25 +1505,25 @@ public class EditorApp extends Application {
 
     btnOpen.setGraphic(icon("icon", "icon-open"));
     btnOpen.setContentDisplay(ContentDisplay.RIGHT);
-    btnOpen.setGraphicTextGap(6);
+    btnOpen.setGraphicTextGap(4);
     btnSave.setGraphic(icon("icon", "icon-save"));
     btnSave.setContentDisplay(ContentDisplay.RIGHT);
-    btnSave.setGraphicTextGap(6);
+    btnSave.setGraphicTextGap(4);
     btnRunProject.setGraphic(icon("icon", "icon-runtime-run"));
     btnRunProject.setContentDisplay(ContentDisplay.RIGHT);
-    btnRunProject.setGraphicTextGap(6);
+    btnRunProject.setGraphicTextGap(4);
     btnUndo.setGraphic(icon("icon", "icon-undo"));
     btnUndo.setContentDisplay(ContentDisplay.RIGHT);
-    btnUndo.setGraphicTextGap(6);
+    btnUndo.setGraphicTextGap(4);
     btnRedo.setGraphic(icon("icon", "icon-redo"));
     btnRedo.setContentDisplay(ContentDisplay.RIGHT);
-    btnRedo.setGraphicTextGap(6);
+    btnRedo.setGraphicTextGap(4);
     btnApply.setGraphic(icon("icon", "icon-apply"));
     btnApply.setContentDisplay(ContentDisplay.RIGHT);
-    btnApply.setGraphicTextGap(6);
+    btnApply.setGraphicTextGap(4);
     btnFullscreen.setGraphic(icon("icon", "icon-fullscreen"));
     btnFullscreen.setContentDisplay(ContentDisplay.RIGHT);
-    btnFullscreen.setGraphicTextGap(6);
+    btnFullscreen.setGraphicTextGap(4);
     btnApply.setOnKeyPressed(e -> { if (e.getCode() == KeyCode.ENTER && e.isShortcutDown()) applyCodeFromEditor(); });
     status = new Label("Ready");
     fps = new Label("");
@@ -1419,21 +1545,44 @@ public class EditorApp extends Application {
     btnRedo.setTooltip(new Tooltip("Redo (Shift+Cmd+Z)"));
     btnApply.setTooltip(new Tooltip("Apply current JES/VNS editor text to the preview (Cmd+Enter)"));
     btnFullscreen.setTooltip(new Tooltip("Toggle editor fullscreen layout (F11)"));
+    List<Button> toolbarButtons = List.of(btnOpen, btnSave, btnRunProject, btnUndo, btnRedo, btnApply, btnFullscreen);
+    for (Button button : toolbarButtons) {
+      button.getStyleClass().add("main-editor-toolbar-button");
+    }
+    btnRunProject.getStyleClass().add("main-editor-toolbar-primary-button");
+    btnApply.getStyleClass().add("main-editor-toolbar-preview-button");
 
-    HBox actionRow = new HBox(8, btnOpen, btnSave, btnRunProject, btnUndo, btnRedo, btnApply, btnFullscreen);
+    Region projectEditDivider = buildMainToolbarDivider();
+    Region editPreviewDivider = buildMainToolbarDivider();
+    HBox actionRow = new HBox(8,
+        btnOpen,
+        btnSave,
+        btnRunProject,
+        projectEditDivider,
+        btnUndo,
+        btnRedo,
+        editPreviewDivider,
+        btnApply,
+        btnFullscreen);
     actionRow.getStyleClass().add("main-editor-action-row");
-    HBox.setHgrow(actionRow, Priority.ALWAYS);
+    actionRow.setAlignment(Pos.CENTER_LEFT);
+    actionRow.setMaxWidth(Region.USE_PREF_SIZE);
 
     Runnable refreshChrome = () -> {
       FileEditorTab ft = getActiveFileTab();
       Tab activeTab = filesTabs != null ? filesTabs.getSelectionModel().getSelectedItem() : null;
       boolean hasFile = ft != null;
+      boolean hasProject = projectRoot != null && projectRoot.isDirectory();
       boolean canFullscreen = canToggleActiveEditorLayout() || editorFullscreen || layeredVisualizerFullscreen;
+      int dirtyTabs = countDirtyFileTabs();
+      int closableTabs = countClosableTabs();
 
       miSave.setText(hasFile ? "Save " + ft.getDisplayName() : "Save");
       miSaveAs.setText(hasFile ? "Save " + ft.getDisplayName() + " As..." : "Save As...");
       miSave.setDisable(!hasFile);
       miSaveAs.setDisable(!hasFile);
+      miSaveAllTabs.setText(dirtyTabs > 0 ? "Save All Open Tabs (" + dirtyTabs + " dirty)" : "Save All Open Tabs");
+      miSaveAllTabs.setDisable(dirtyTabs == 0);
       String activeTitle = activeTab != null && activeTab.getText() != null
           ? activeTab.getText().replace(" *", "")
           : "";
@@ -1441,6 +1590,12 @@ public class EditorApp extends Application {
           ? "Close " + activeTitle
           : "Close Tab");
       miCloseTab.setDisable(activeTab == null || !activeTab.isClosable());
+      miCloseAllTabs.setText(closableTabs > 0 ? "Close All Tabs (" + closableTabs + ")" : "Close All Tabs");
+      miCloseAllTabs.setDisable(closableTabs == 0);
+      miRevealActiveFile.setText(hasFile ? "Reveal " + ft.getDisplayName() + " in File Manager" : "Reveal Active File in File Manager");
+      miRevealActiveFile.setDisable(!hasFile);
+      miCopyActiveFilePath.setText(hasFile ? "Copy " + ft.getDisplayName() + " Path" : "Copy Active File Path");
+      miCopyActiveFilePath.setDisable(!hasFile);
 
       miUndo.setText(commands.canUndo() ? "Undo " + commands.undoDescription() : "Undo");
       miRedo.setText(commands.canRedo() ? "Redo " + commands.redoDescription() : "Redo");
@@ -1460,6 +1615,12 @@ public class EditorApp extends Application {
       miApplyCode.setDisable(!canApplyPreview());
       miLaunchHere.setDisable(!canLaunchFromActiveTab());
       miLaunchStart.setDisable(!canLaunchFromActiveTab());
+      miOpenVcs.setDisable(!hasProject);
+      miRefreshVcs.setDisable(!hasProject);
+      miRevealProjectRoot.setDisable(!hasProject);
+      miCopyProjectRootPath.setDisable(!hasProject);
+      miOpenProjectDocs.setDisable(resolveDocsDirectory(projectRoot) == null);
+      miOpenWorkspaceDocs.setDisable(resolveDocsDirectory(resolveWorkspaceRoot()) == null);
 
       btnSave.setDisable(!hasFile);
       btnUndo.setDisable(!commands.canUndo());
@@ -1474,7 +1635,10 @@ public class EditorApp extends Application {
     menuFile.setOnShowing(e -> refreshChrome.run());
     menuEdit.setOnShowing(e -> refreshChrome.run());
     menuView.setOnShowing(e -> refreshChrome.run());
+    menuNavigate.setOnShowing(e -> refreshChrome.run());
     menuRun.setOnShowing(e -> refreshChrome.run());
+    menuTools.setOnShowing(e -> refreshChrome.run());
+    menuVcs.setOnShowing(e -> refreshChrome.run());
     menuHelp.setOnShowing(e -> refreshChrome.run());
 
     Label wordmark = new Label("JVN");
@@ -1808,6 +1972,46 @@ public class EditorApp extends Application {
     ft.saveTo(f);
   }
 
+  private void saveAllOpenTabs() {
+    int savedFileTabs = 0;
+    int failedFileTabs = 0;
+    if (filesTabs != null) {
+      for (Tab tab : new ArrayList<>(filesTabs.getTabs())) {
+        if (!(tab.getContent() instanceof FileEditorTab ft) || !ft.isDirty()) continue;
+        File target = ft.getFile();
+        if (target == null) {
+          failedFileTabs++;
+          continue;
+        }
+        ft.saveTo(target);
+        if (ft.isDirty()) failedFileTabs++;
+        else savedFileTabs++;
+      }
+    }
+
+    boolean studiosSaved = true;
+    if (layoutStudioWindowManager != null) {
+      studiosSaved = layoutStudioWindowManager.saveAllDirty(msg -> {
+        if (status != null && msg != null && !msg.isBlank()) status.setText(msg);
+      });
+    }
+
+    refreshTabDirtyIndicators();
+    refreshMainCommandUi.run();
+
+    if (status != null) {
+      if (savedFileTabs == 0 && failedFileTabs == 0 && studiosSaved) {
+        status.setText("Nothing to save.");
+      } else {
+        List<String> parts = new ArrayList<>();
+        if (savedFileTabs > 0) parts.add("saved " + savedFileTabs + " tab" + (savedFileTabs == 1 ? "" : "s"));
+        if (failedFileTabs > 0) parts.add(failedFileTabs + " tab" + (failedFileTabs == 1 ? "" : "s") + " still dirty");
+        if (!studiosSaved) parts.add("studio windows need attention");
+        status.setText(parts.isEmpty() ? "Nothing to save." : "Save all: " + String.join(", ", parts) + ".");
+      }
+    }
+  }
+
   private void doSaveAs(Stage stage) {
     try {
       FileEditorTab ft = getActiveFileTab(); if (ft == null) return;
@@ -1890,6 +2094,15 @@ public class EditorApp extends Application {
       if (tab.getContent() instanceof FileEditorTab ft && ft.isDirty()) dirtyCount++;
     }
     return dirtyCount;
+  }
+
+  private int countClosableTabs() {
+    if (filesTabs == null) return 0;
+    int closableCount = 0;
+    for (Tab tab : filesTabs.getTabs()) {
+      if (tab.isClosable()) closableCount++;
+    }
+    return closableCount;
   }
 
   private String buildMainCommandSummary() {
@@ -2190,6 +2403,12 @@ public class EditorApp extends Application {
     return r;
   }
 
+  private Region buildMainToolbarDivider() {
+    Region divider = new Region();
+    divider.getStyleClass().add("main-editor-toolbar-divider");
+    return divider;
+  }
+
   private boolean isEditableFile(File f) {
     if (f == null || !f.isFile()) return false;
     String name = f.getName().toLowerCase();
@@ -2258,6 +2477,21 @@ public class EditorApp extends Application {
     closeAndDisposeTab(active);
   }
 
+  private void closeAllClosableTabs() {
+    if (filesTabs == null) return;
+    if (!confirmCloseAllTabs()) return;
+    int closed = 0;
+    for (Tab tab : new ArrayList<>(filesTabs.getTabs())) {
+      if (!tab.isClosable()) continue;
+      closeAndDisposeTab(tab);
+      closed++;
+    }
+    refreshMainCommandUi.run();
+    if (status != null) {
+      status.setText(closed > 0 ? "Closed " + closed + " tab" + (closed == 1 ? "" : "s") + "." : "No closable tabs.");
+    }
+  }
+
   private boolean confirmCloseAllTabs() {
     if (filesTabs == null) return true;
     for (Tab tab : new ArrayList<>(filesTabs.getTabs())) {
@@ -2286,6 +2520,74 @@ public class EditorApp extends Application {
     ft.saveTo(f);
     refreshTabDirtyIndicators();
     return !ft.isDirty();
+  }
+
+  private void revealActiveFileInFileManager() {
+    FileEditorTab ft = getActiveFileTab();
+    File target = ft != null ? ft.getFile() : null;
+    if (target == null) {
+      if (status != null) status.setText("No active file to reveal.");
+      return;
+    }
+    openDirectoryInFileManager(target.isDirectory() ? target : target.getParentFile(),
+        "Could not reveal " + ft.getDisplayName() + ".");
+  }
+
+  private void revealProjectRootInFileManager() {
+    openDirectoryInFileManager(projectRoot, "Project root is not available.");
+  }
+
+  private void copyActiveFilePathToClipboard() {
+    FileEditorTab ft = getActiveFileTab();
+    File target = ft != null ? ft.getFile() : null;
+    if (target == null) {
+      if (status != null) status.setText("No active file path to copy.");
+      return;
+    }
+    copyToClipboard(target.getAbsolutePath());
+    if (status != null) status.setText("Copied path for " + ft.getDisplayName() + ".");
+  }
+
+  private void copyProjectRootPathToClipboard() {
+    if (projectRoot == null) {
+      if (status != null) status.setText("Project root is not available.");
+      return;
+    }
+    copyToClipboard(projectRoot.getAbsolutePath());
+    if (status != null) status.setText("Copied project root path.");
+  }
+
+  private void openProjectDocsFolder() {
+    openDirectoryInFileManager(resolveDocsDirectory(projectRoot), "Project docs folder not found.");
+  }
+
+  private void openWorkspaceDocsFolder() {
+    openDirectoryInFileManager(resolveDocsDirectory(resolveWorkspaceRoot()), "Workspace docs folder not found.");
+  }
+
+  private void openDirectoryInFileManager(File dir, String missingMessage) {
+    if (dir == null || !dir.isDirectory()) {
+      if (status != null && missingMessage != null && !missingMessage.isBlank()) status.setText(missingMessage);
+      return;
+    }
+    try {
+      java.awt.Desktop.getDesktop().open(dir);
+      if (status != null) status.setText("Opened " + dir.getName() + ".");
+    } catch (Exception ex) {
+      if (status != null) status.setText("Failed to open " + dir.getAbsolutePath() + ".");
+    }
+  }
+
+  private File resolveDocsDirectory(File root) {
+    if (root == null) return null;
+    File docs = new File(root, "docs");
+    return docs.isDirectory() ? docs : null;
+  }
+
+  private void copyToClipboard(String text) {
+    ClipboardContent content = new ClipboardContent();
+    content.putString(text == null ? "" : text);
+    Clipboard.getSystemClipboard().setContent(content);
   }
 
   private void refreshTabDirtyIndicators() {
@@ -4513,6 +4815,28 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (versionControlView != null) versionControlView.refreshStatus();
+  }
+
+  private void selectScriptEditorLauncherTab() {
+    Tab t = (tabScriptEditorLauncher != null && tabScriptEditorLauncher.getTabPane() != null)
+        ? tabScriptEditorLauncher
+        : ensureScriptEditorLauncherTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+    if (scriptEditorLauncherView != null) {
+      scriptEditorLauncherView.setProjectRoot(projectRoot);
+      scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
+    }
+  }
+
+  private void selectAudioSynthControlsTab() {
+    Tab t = (tabAudioSynthControls != null && tabAudioSynthControls.getTabPane() != null)
+        ? tabAudioSynthControls
+        : ensureAudioSynthControlsTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
   }
 
   private void selectMenuFlowTab() {

@@ -38,8 +38,8 @@ public class CollapsibleToolbarCluster extends VBox {
         "-fx-background-color: #242424; -fx-border-color: #6a6a6a; -fx-border-radius: 8; " +
         "-fx-background-radius: 8; -fx-padding: 0 10; -fx-cursor: hand;";
     private static final String STYLE_HEADER_COMPACT =
-        "-fx-background-color: #151515; -fx-border-color: #353535; -fx-border-radius: 7; " +
-        "-fx-background-radius: 7; -fx-padding: 0 8; -fx-cursor: default;";
+        "-fx-background-color: #151515; -fx-border-color: #353535; -fx-border-radius: 6; " +
+        "-fx-background-radius: 6; -fx-padding: 0 5; -fx-cursor: default;";
     private static final String STYLE_PIN_OFF =
         "-fx-background-color: #161616; -fx-text-fill: #9c9c9c; -fx-border-color: #3b3b3b; " +
         "-fx-border-radius: 7; -fx-background-radius: 7; -fx-padding: 0 7; -fx-font-size: 9px; " +
@@ -52,8 +52,8 @@ public class CollapsibleToolbarCluster extends VBox {
         "-fx-background-color: #121212; -fx-border-color: #2f2f2f; -fx-border-radius: 8; " +
         "-fx-background-radius: 8;";
     private static final String STYLE_CONTENT_COMPACT =
-        "-fx-background-color: #111111; -fx-border-color: #2a2a2a; -fx-border-radius: 8; " +
-        "-fx-background-radius: 8;";
+        "-fx-background-color: #111111; -fx-border-color: #2a2a2a; -fx-border-radius: 7; " +
+        "-fx-background-radius: 7;";
 
     private final String clusterKey;
     private final Button headerButton;
@@ -247,15 +247,15 @@ public class CollapsibleToolbarCluster extends VBox {
         stateLabel.setVisible(!compact);
         pinButton.setManaged(!compact);
         pinButton.setVisible(!compact);
-        setSpacing(compact ? 2.0 : 4.0);
-        headerGraphic.setSpacing(compact ? 4.0 : 6.0);
-        headerRow.setSpacing(compact ? 4.0 : 6.0);
+        setSpacing(compact ? 0.0 : 4.0);
+        headerGraphic.setSpacing(compact ? 2.0 : 6.0);
+        headerRow.setSpacing(compact ? 2.0 : 6.0);
         titleLabel.setStyle(compact
-            ? "-fx-text-fill: #dddddd; -fx-font-size: 10px; -fx-font-weight: bold;"
+            ? "-fx-text-fill: #dddddd; -fx-font-size: 8px; -fx-font-weight: bold;"
             : "-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
-        headerButton.setMinHeight(compact ? 20.0 : 28.0);
-        headerButton.setPrefHeight(compact ? 20.0 : 28.0);
-        contentWrapper.setPadding(compact ? new Insets(4, 6, 4, 6) : new Insets(8, 10, 8, 10));
+        headerButton.setMinHeight(compact ? 16.0 : 28.0);
+        headerButton.setPrefHeight(compact ? 16.0 : 28.0);
+        contentWrapper.setPadding(compact ? new Insets(2, 4, 2, 4) : new Insets(8, 10, 8, 10));
         contentWrapper.setStyle(compact ? STYLE_CONTENT_COMPACT : STYLE_CONTENT);
         if (pinButton.isSelected() != isPinned()) {
             pinButton.setSelected(isPinned());
