@@ -180,12 +180,12 @@ public class MenuFlowEditorView extends BorderPane {
     graphScroll.setPannable(true);
     graphPane.setPrefSize(1200, 760);
 
-    graphEmptyLabel.setStyle("-fx-text-fill: #a6adba;");
+    graphEmptyLabel.setStyle("-fx-text-fill: #a4a4a4;");
     graphEmptyLabel.setMouseTransparent(true);
     StackPane.setAlignment(graphEmptyLabel, Pos.CENTER);
 
     StackPane graphHost = new StackPane(graphScroll, graphEmptyLabel);
-    graphHost.setStyle("-fx-background-color: #101217; -fx-border-color: #2a2f3a;");
+    graphHost.setStyle("-fx-background-color: #121212; -fx-border-color: #333333;");
 
     buildItemTable();
 
@@ -195,13 +195,13 @@ public class MenuFlowEditorView extends BorderPane {
     diagnosticsArea.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px;");
 
     wireHintLabel.setWrapText(true);
-    wireHintLabel.setStyle("-fx-text-fill: #a6adba; -fx-font-size: 11px;");
+    wireHintLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 11px;");
     registryPathLabel.setWrapText(true);
-    registryPathLabel.setStyle("-fx-text-fill: #8f98a8; -fx-font-size: 10px; -fx-font-family: 'Consolas';");
+    registryPathLabel.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 10px; -fx-font-family: 'Consolas';");
     registryMenusLabel.setWrapText(true);
-    registryMenusLabel.setStyle("-fx-text-fill: #a6adba; -fx-font-size: 11px;");
+    registryMenusLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 11px;");
     registrySelectionLabel.setWrapText(true);
-    registrySelectionLabel.setStyle("-fx-text-fill: #a6adba; -fx-font-size: 11px;");
+    registrySelectionLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 11px;");
 
     quickTargetCombo.setEditable(true);
     quickTargetCombo.setPromptText("target menu id");
@@ -306,7 +306,7 @@ public class MenuFlowEditorView extends BorderPane {
         diagnosticsArea
     );
     detail.setPadding(new Insets(8));
-    detail.setStyle("-fx-background-color: #13161d; -fx-border-color: #2a2f3a;");
+    detail.setStyle("-fx-background-color: #161616; -fx-border-color: #333333;");
     detail.setMinWidth(360);
     detail.setPrefWidth(420);
     VBox.setVgrow(itemTable, Priority.ALWAYS);

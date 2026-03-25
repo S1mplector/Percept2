@@ -254,11 +254,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void buildUi() {
     Label title = new Label(TOOL_TITLE);
     title.setStyle("-fx-font-size: 13px; -fx-font-weight: 700;");
-    summaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #8899aa;");
+    summaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
     summaryLabel.setWrapText(true);
-    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 10px;");
+    interactionHintLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 10px;");
     interactionHintLabel.setWrapText(true);
-    previewInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #99aabb;");
+    previewInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #a0a0a0;");
     statusLabel.setStyle("-fx-font-size: 10px;");
     statusLabel.setWrapText(true);
 
@@ -338,7 +338,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     StackPane previewPane = new StackPane(previewCanvas, previewLoadingOverlay);
     StackPane.setAlignment(previewLoadingOverlay, Pos.CENTER);
     previewLoadingOverlay.hideOverlay();
-    previewPane.setStyle("-fx-background-color: #121720; -fx-border-color: #2b3445; -fx-border-radius: 4; -fx-background-radius: 4;");
+    previewPane.setStyle("-fx-background-color: #161616; -fx-border-color: #333333; -fx-border-radius: 4; -fx-background-radius: 4;");
     previewPane.widthProperty().addListener((o, ov, nv) -> {
       previewCanvas.setWidth(Math.max(140, nv.doubleValue() - 4));
       redrawPreview();
@@ -409,7 +409,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     sidebarScroll.setFitToWidth(true);
     sidebarScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
     sidebarScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-    sidebarScroll.setStyle("-fx-background: #1a1f2e; -fx-background-color: #1a1f2e; -fx-border-color: #2b3445; -fx-border-width: 0 0 0 1;");
+    sidebarScroll.setStyle("-fx-background: #1a1a1a; -fx-background-color: #1a1a1a; -fx-border-color: #333333; -fx-border-width: 0 0 0 1;");
     sidebarScroll.setPrefWidth(280);
     sidebarScroll.setMinWidth(230);
 
@@ -1243,7 +1243,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     GraphicsContext g = previewCanvas.getGraphicsContext2D();
     double w = previewCanvas.getWidth();
     double h = previewCanvas.getHeight();
-    g.setFill(Color.web("#121720"));
+    g.setFill(Color.web("#161616"));
     g.fillRect(0, 0, w, h);
 
     Image bg = loadImage(selectedBackgroundTag());
@@ -2947,7 +2947,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     zoneListView.setPrefHeight(100);
     zoneListView.setMaxHeight(140);
-    zoneListView.setStyle("-fx-background-color: #1a2233; -fx-border-color: #2b3445;");
+    zoneListView.setStyle("-fx-background-color: #1f1f1f; -fx-border-color: #333333;");
     zoneListView.setCellFactory(lv -> new ListCell<TintZone>() {
       private final Label textLabel = new Label();
       private final Region spacer = new Region();
@@ -2976,7 +2976,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       }
 
       private void updateVisibilityButton(boolean visible) {
-        visibilityButton.setGraphic(visible ? CssIcon.visibility("#8ab4f8") : CssIcon.visibilityOff("#6b7280"));
+        visibilityButton.setGraphic(visible ? CssIcon.visibility("#d0d0d0") : CssIcon.visibilityOff("#6b7280"));
         visibilityButton.setTooltip(new Tooltip(visible ? "Hide bounds overlay" : "Show bounds overlay"));
       }
 
@@ -2994,7 +2994,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
           boolean sel = getIndex() == selectedZoneIndex;
           textLabel.setStyle(sel ? "-fx-text-fill: #e2e8f0;" : "-fx-text-fill: #c8d0dc;");
           setStyle(sel
-              ? "-fx-background-color: #2a4a6b; -fx-text-fill: #e2e8f0;"
+              ? "-fx-background-color: #2b2b2b; -fx-text-fill: #e2e8f0;"
               : "-fx-text-fill: #c8d0dc;");
         }
       }
@@ -3005,15 +3005,15 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       selectZone(idx);
     });
 
-    zoneDrawToggleButton = iconButton(CssIcon.rectSelect("#8ab4f8"), "Drag on preview to draw a rectangular zone", this::toggleZoneDrawMode);
+    zoneDrawToggleButton = iconButton(CssIcon.rectSelect("#d0d0d0"), "Drag on preview to draw a rectangular zone", this::toggleZoneDrawMode);
     polyDrawToggleButton = iconButton(CssIcon.polygon("#c49cf8"), "Click on preview to place polygon vertices; click near first point or double-click to close", this::togglePolyDrawMode);
     freehandDrawToggleButton = iconButton(CssIcon.freehand("#7dd3fc"), "Hold and draw to create a smoothed freehand zone", this::toggleFreehandDrawMode);
 
     Button addZoneButton = iconButton(CssIcon.plus("#9ed67a"), "Add zone at center", this::addDefaultZone);
     Button removeZoneButton = iconButton(CssIcon.minus("#f38ba8"), "Remove selected zone", this::removeSelectedZone);
     Button clearZonesButton = iconButton(CssIcon.clearX("#f5b971"), "Remove all zones", this::clearAllZones);
-    Button moveUpButton = iconButton(CssIcon.arrowUp("#8ab4f8"), "Move zone up in order", this::moveZoneUp);
-    Button moveDownButton = iconButton(CssIcon.arrowDown("#8ab4f8"), "Move zone down in order", this::moveZoneDown);
+    Button moveUpButton = iconButton(CssIcon.arrowUp("#d0d0d0"), "Move zone up in order", this::moveZoneUp);
+    Button moveDownButton = iconButton(CssIcon.arrowDown("#d0d0d0"), "Move zone down in order", this::moveZoneDown);
 
     HBox zoneActions = new HBox(6, zoneDrawToggleButton, polyDrawToggleButton, freehandDrawToggleButton, addZoneButton, removeZoneButton, clearZonesButton, moveUpButton, moveDownButton);
     zoneActions.setAlignment(Pos.CENTER_LEFT);
@@ -3139,11 +3139,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void resetDrawButtons() {
-    zoneDrawToggleButton.setStyle("-fx-background-color: #2b3445; -fx-padding: 4;");
-    zoneDrawToggleButton.setGraphic(CssIcon.rectSelect("#8ab4f8"));
-    polyDrawToggleButton.setStyle("-fx-background-color: #2b3445; -fx-padding: 4;");
+    zoneDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
+    zoneDrawToggleButton.setGraphic(CssIcon.rectSelect("#d0d0d0"));
+    polyDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
     polyDrawToggleButton.setGraphic(CssIcon.polygon("#c49cf8"));
-    freehandDrawToggleButton.setStyle("-fx-background-color: #2b3445; -fx-padding: 4;");
+    freehandDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
     freehandDrawToggleButton.setGraphic(CssIcon.freehand("#7dd3fc"));
   }
 

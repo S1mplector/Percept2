@@ -140,9 +140,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           + "-fx-border-width: 1; -fx-border-color: transparent;";
   private static final String GALLERY_CELL_SELECTED_STYLE =
       "-fx-cursor: hand; -fx-padding: 2; -fx-background-radius: 4; -fx-border-radius: 4; "
-          + "-fx-border-width: 1; -fx-border-color: #8ab4f8; -fx-background-color: rgba(138,180,248,0.18);";
-  private static final String GALLERY_LABEL_STYLE = "-fx-font-size: 9px; -fx-text-fill: #8899aa;";
-  private static final String GALLERY_LABEL_SELECTED_STYLE = "-fx-font-size: 9px; -fx-text-fill: #cfe1ff;";
+          + "-fx-border-width: 1; -fx-border-color: #5a5a5a; -fx-background-color: rgba(255,255,255,0.08);";
+  private static final String GALLERY_LABEL_STYLE = "-fx-font-size: 9px; -fx-text-fill: #9a9a9a;";
+  private static final String GALLERY_LABEL_SELECTED_STYLE = "-fx-font-size: 9px; -fx-text-fill: #e0e0e0;";
   private static final String DEFAULT_SHORTFORMS = String.join("\n",
       "# Example:",
       "# happy = eyes=neutral mouth=happy",
@@ -243,11 +243,11 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     Label title = new Label(this.toolTitle);
     title.setStyle("-fx-font-size: 13px; -fx-font-weight: 700;");
-    summaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #8899aa;");
+    summaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
     summaryLabel.setWrapText(true);
-    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 10px;");
+    interactionHintLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 10px;");
     interactionHintLabel.setWrapText(true);
-    previewInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #99aabb;");
+    previewInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #a0a0a0;");
     statusLabel.setStyle("-fx-font-size: 10px;");
     statusLabel.setWrapText(true);
 
@@ -325,7 +325,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     // Preview pane — fills center
     StackPane previewPane = new StackPane(previewCanvas);
-    previewPane.setStyle("-fx-background-color: #121720; -fx-border-color: #2b3445; -fx-border-radius: 4; -fx-background-radius: 4;");
+    previewPane.setStyle("-fx-background-color: #161616; -fx-border-color: #333333; -fx-border-radius: 4; -fx-background-radius: 4;");
     previewPane.widthProperty().addListener((o, ov, nv) -> {
       previewCanvas.setWidth(Math.max(120, nv.doubleValue() - 4));
       redrawPreview();
@@ -539,8 +539,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     // ── Gallery section ──
     galleryPane.setPadding(new Insets(4));
-    galleryPane.setStyle("-fx-background-color: #121720;");
-    galleryStatusLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #8899aa;");
+    galleryPane.setStyle("-fx-background-color: #161616;");
+    galleryStatusLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
     galleryStatusLabel.setWrapText(true);
     Button generateGalleryButton = iconButton(CssIcon.sort("#8ab4f8"), "Generate all charpreset combinations", this::generateGallery);
     Button clearGalleryButton = iconButton(CssIcon.clearX("#f38ba8"), "Clear gallery", this::clearGallery);
@@ -570,7 +570,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     sidebarScroll.setFitToWidth(true);
     sidebarScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
     sidebarScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-    sidebarScroll.setStyle("-fx-background: #1a1f2e; -fx-background-color: #1a1f2e; -fx-border-color: #2b3445; -fx-border-width: 0 0 0 1;");
+    sidebarScroll.setStyle("-fx-background: #1a1a1a; -fx-background-color: #1a1a1a; -fx-border-color: #333333; -fx-border-width: 0 0 0 1;");
     sidebarScroll.setPrefWidth(320);
     sidebarScroll.setMinWidth(260);
 

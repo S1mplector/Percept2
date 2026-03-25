@@ -149,24 +149,24 @@ public class ScriptEditorLauncherView extends BorderPane {
 
   private void buildUi() {
     getStyleClass().add("script-editor-launcher-root");
-    setStyle("-fx-background-color: #101318;");
+    setStyle("-fx-background-color: #121212;");
 
     VBox header = new VBox(10);
     header.setPadding(new Insets(12, 12, 10, 12));
 
-    HBox titleRow = CssIcon.iconLabel(CssIcon.list("#8ab4f8"), "Script Editor",
+    HBox titleRow = CssIcon.iconLabel(CssIcon.list("#c9c9c9"), "Script Editor",
         "-fx-font-size: 15px; -fx-font-weight: 800; -fx-text-fill: #e6ebf3;");
 
     Label desc = new Label(
         "A focused VNS explorer for your project. Filter scripts, inspect labels, open files in the main editor, or pop out the dedicated tabbed code editor.");
     desc.setWrapText(true);
-    desc.setStyle("-fx-text-fill: #95a1b3; -fx-font-size: 11px;");
+    desc.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 11px;");
 
     VBox projectCard = new VBox(4,
         labelledMeta("Project", projectLabel),
         labelledMeta("Scripts Root", scriptsRootLabel));
     projectCard.setPadding(new Insets(10));
-    projectCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    projectCard.setStyle("-fx-background-color: #1a1a1a; -fx-background-radius: 8; -fx-border-color: #333333; -fx-border-radius: 8;");
 
     HBox statsRow = new HBox(8,
         statCard("Scripts", scriptsStat),
@@ -174,7 +174,7 @@ public class ScriptEditorLauncherView extends BorderPane {
         statCard("Labels", labelsStat));
 
     HBox primaryActions = new HBox(8,
-        styleActionButton(openInEditorButton, CssIcon.dock("#9cc7ff"), true),
+        styleActionButton(openInEditorButton, CssIcon.dock("#d0d0d0"), true),
         styleActionButton(openWindowButton, CssIcon.popOut("#f5c46b"), false));
     HBox secondaryActions = new HBox(8,
         styleActionButton(newScriptButton, CssIcon.plus("#8bcf98"), false),
@@ -198,7 +198,7 @@ public class ScriptEditorLauncherView extends BorderPane {
         sectionLabel("Search in Scripts"), searchField);
 
     explorerTree.setShowRoot(true);
-    explorerTree.setStyle("-fx-background-color: #0f131a; -fx-control-inner-background: #0f131a;");
+    explorerTree.setStyle("-fx-background-color: #121212; -fx-control-inner-background: #121212;");
     explorerTree.setCellFactory(tree -> new TreeCell<>() {
       @Override
       protected void updateItem(ExplorerNode item, boolean empty) {
@@ -210,7 +210,7 @@ public class ScriptEditorLauncherView extends BorderPane {
         }
         Region icon = item.directory
             ? CssIcon.folder(item.relativePath == null ? "#f0c66c" : "#d4b169")
-            : CssIcon.list("#8ab4f8");
+            : CssIcon.list("#bcbcbc");
         Label name = new Label(item.displayName);
         name.setStyle(item.directory
             ? "-fx-text-fill: #d9dfeb; -fx-font-size: 11px; -fx-font-weight: 700;"
@@ -221,7 +221,7 @@ public class ScriptEditorLauncherView extends BorderPane {
           Region spacer = new Region();
           HBox.setHgrow(spacer, Priority.ALWAYS);
           Label badge = new Label(Integer.toString(item.scriptCount));
-          badge.setStyle("-fx-text-fill: #7f8ca3; -fx-font-size: 10px; -fx-background-color: #1c2330; -fx-padding: 1 6 1 6; -fx-background-radius: 999;");
+          badge.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 10px; -fx-background-color: #242424; -fx-padding: 1 6 1 6; -fx-background-radius: 999;");
           row.getChildren().addAll(spacer, badge);
         }
         setText(null);
@@ -230,38 +230,38 @@ public class ScriptEditorLauncherView extends BorderPane {
     });
 
     explorerHint.setWrapText(true);
-    explorerHint.setStyle("-fx-text-fill: #738198; -fx-font-size: 10px;");
+    explorerHint.setStyle("-fx-text-fill: #8a8a8a; -fx-font-size: 10px;");
 
     VBox searchResultsCard = new VBox(6, searchResults);
     searchResultsCard.setPadding(new Insets(6));
-    searchResultsCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    searchResultsCard.setStyle("-fx-background-color: #1a1a1a; -fx-background-radius: 8; -fx-border-color: #333333; -fx-border-radius: 8;");
     searchResultsCard.setVisible(false);
     searchResultsCard.setManaged(false);
 
     VBox explorerBox = new VBox(8, sectionLabel("Project Explorer"), explorerTree, explorerHint, searchResultsCard);
     explorerBox.setPadding(new Insets(10));
-    explorerBox.setStyle("-fx-background-color: #11161f;");
+    explorerBox.setStyle("-fx-background-color: #161616;");
     VBox.setVgrow(explorerTree, Priority.ALWAYS);
 
     selectionTitle.setStyle("-fx-font-size: 13px; -fx-font-weight: 800; -fx-text-fill: #e6ebf3;");
     selectionPath.setWrapText(true);
-    selectionPath.setStyle("-fx-text-fill: #8ea0b8; -fx-font-size: 11px;");
+    selectionPath.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 11px;");
     selectionMeta.setWrapText(true);
-    selectionMeta.setStyle("-fx-text-fill: #a6b1c2; -fx-font-size: 11px;");
+    selectionMeta.setStyle("-fx-text-fill: #b8b8b8; -fx-font-size: 11px;");
 
     VBox outlineCard = new VBox(6, sectionLabel("Label Outline"), outlineList);
     outlineCard.setPadding(new Insets(10));
-    outlineCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    outlineCard.setStyle("-fx-background-color: #1a1a1a; -fx-background-radius: 8; -fx-border-color: #333333; -fx-border-radius: 8;");
     VBox includesCard = new VBox(6, sectionLabel("Includes"), includesList);
     includesCard.setPadding(new Insets(10));
-    includesCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    includesCard.setStyle("-fx-background-color: #1a1a1a; -fx-background-radius: 8; -fx-border-color: #333333; -fx-border-radius: 8;");
     VBox includedByCard = new VBox(6, sectionLabel("Included By"), includedByList);
     includedByCard.setPadding(new Insets(10));
-    includedByCard.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    includedByCard.setStyle("-fx-background-color: #1a1a1a; -fx-background-radius: 8; -fx-border-color: #333333; -fx-border-radius: 8;");
     VBox inspectorBox = new VBox(10, sectionLabel("Selection"), selectionTitle, selectionPath, selectionMeta,
         outlineCard, includesCard, includedByCard);
     inspectorBox.setPadding(new Insets(10));
-    inspectorBox.setStyle("-fx-background-color: #11161f;");
+    inspectorBox.setStyle("-fx-background-color: #161616;");
 
     SplitPane centerSplit = new SplitPane(explorerBox, inspectorBox);
     centerSplit.setOrientation(Orientation.VERTICAL);
@@ -740,7 +740,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       searchResults.getChildren().add(emptyHint("No matches for \"" + query + "\"."));
     } else {
       Label summary = new Label(hits.size() + (hits.size() >= 50 ? "+" : "") + " results");
-      summary.setStyle("-fx-text-fill: #8ea0b8; -fx-font-size: 10px; -fx-padding: 0 0 2 0;");
+      summary.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 10px; -fx-padding: 0 0 2 0;");
       searchResults.getChildren().add(summary);
       for (ScriptEditorWorkspaceModel.SearchHit hit : hits) {
         String preview = hit.lineText();
@@ -1221,7 +1221,7 @@ public class ScriptEditorLauncherView extends BorderPane {
   private static void markTabClean(Tab tab) {
     String base = (String) tab.getProperties().getOrDefault("baseName", tab.getText());
     tab.setText(base);
-    tab.setStyle("-fx-text-base-color: #c8d0e0;");
+    tab.setStyle("-fx-text-base-color: #d0d0d0;");
   }
 
   private static Button styleActionButton(Button button, Region icon, boolean accent) {
@@ -1232,17 +1232,17 @@ public class ScriptEditorLauncherView extends BorderPane {
     button.setMaxWidth(Double.MAX_VALUE);
     button.setMinHeight(32);
     button.setStyle(accent
-        ? "-fx-background-color: #204d7a; -fx-text-fill: #eef5ff; -fx-font-size: 11px; -fx-font-weight: 700; -fx-background-radius: 8; -fx-border-color: #346d9f; -fx-border-radius: 8;"
-        : "-fx-background-color: #181e28; -fx-text-fill: #cfd7e4; -fx-font-size: 11px; -fx-font-weight: 700; -fx-background-radius: 8; -fx-border-color: #283242; -fx-border-radius: 8;");
+        ? "-fx-background-color: #252525; -fx-text-fill: #f2f2f2; -fx-font-size: 11px; -fx-font-weight: 700; -fx-background-radius: 8; -fx-border-color: #3a3a3a; -fx-border-radius: 8;"
+        : "-fx-background-color: #1a1a1a; -fx-text-fill: #d8d8d8; -fx-font-size: 11px; -fx-font-weight: 700; -fx-background-radius: 8; -fx-border-color: #303030; -fx-border-radius: 8;");
     return button;
   }
 
   private static VBox statCard(String labelText, Label valueLabel) {
     Label label = new Label(labelText);
-    label.setStyle("-fx-text-fill: #77849a; -fx-font-size: 10px; -fx-font-weight: 700;");
+    label.setStyle("-fx-text-fill: #8e8e8e; -fx-font-size: 10px; -fx-font-weight: 700;");
     VBox box = new VBox(2, label, valueLabel);
     box.setPadding(new Insets(8, 10, 8, 10));
-    box.setStyle("-fx-background-color: #151a23; -fx-background-radius: 8; -fx-border-color: #232b38; -fx-border-radius: 8;");
+    box.setStyle("-fx-background-color: #1a1a1a; -fx-background-radius: 8; -fx-border-color: #333333; -fx-border-radius: 8;");
     HBox.setHgrow(box, Priority.ALWAYS);
     box.setMaxWidth(Double.MAX_VALUE);
     return box;
@@ -1250,34 +1250,34 @@ public class ScriptEditorLauncherView extends BorderPane {
 
   private static Label statValue(String text) {
     Label label = new Label(text);
-    label.setStyle("-fx-text-fill: #e8edf5; -fx-font-size: 15px; -fx-font-weight: 800;");
+    label.setStyle("-fx-text-fill: #ececec; -fx-font-size: 15px; -fx-font-weight: 800;");
     return label;
   }
 
   private static VBox labelledMeta(String labelText, Label valueLabel) {
     Label label = new Label(labelText);
-    label.setStyle("-fx-text-fill: #77849a; -fx-font-size: 10px; -fx-font-weight: 700;");
+    label.setStyle("-fx-text-fill: #8e8e8e; -fx-font-size: 10px; -fx-font-weight: 700;");
     valueLabel.setWrapText(true);
-    valueLabel.setStyle("-fx-text-fill: #d9dfeb; -fx-font-size: 11px;");
+    valueLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 11px;");
     return new VBox(2, label, valueLabel);
   }
 
   private static Label sectionLabel(String text) {
     Label label = new Label(text);
-    label.setStyle("-fx-text-fill: #cbd5e2; -fx-font-size: 11px; -fx-font-weight: 800;");
+    label.setStyle("-fx-text-fill: #d3d3d3; -fx-font-size: 11px; -fx-font-weight: 800;");
     return label;
   }
 
   private static Label emptyHint(String text) {
     Label label = new Label(text);
     label.setWrapText(true);
-    label.setStyle("-fx-text-fill: #768399; -fx-font-size: 11px;");
+    label.setStyle("-fx-text-fill: #8e8e8e; -fx-font-size: 11px;");
     return label;
   }
 
   private static String textFieldStyle() {
-    return "-fx-background-color: #171c26; -fx-text-fill: #dbe4f0; -fx-prompt-text-fill: #6d7888; "
-        + "-fx-border-color: #2a3240; -fx-border-radius: 8; -fx-background-radius: 8; -fx-font-size: 11px;";
+    return "-fx-background-color: #181818; -fx-text-fill: #e0e0e0; -fx-prompt-text-fill: #7f7f7f; "
+        + "-fx-border-color: #333333; -fx-border-radius: 8; -fx-background-radius: 8; -fx-font-size: 11px;";
   }
 
   private static String humanFileSize(long sizeBytes) {

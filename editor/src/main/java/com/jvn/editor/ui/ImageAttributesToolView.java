@@ -169,7 +169,7 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   private void buildUi() {
     Label title = new Label(TOOL_TITLE);
     title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
-    interactionHintLabel.setStyle("-fx-text-fill: #aeb6c7; -fx-font-size: 11px;");
+    interactionHintLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 11px;");
     interactionHintLabel.setWrapText(true);
 
     tagFilterField.setPromptText("Filter tags...");
@@ -278,7 +278,7 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
     StackPane previewPane = new StackPane(previewCanvas);
     previewPane.setMinHeight(180);
     previewPane.setPrefHeight(250);
-    previewPane.setStyle("-fx-background-color: #121720; -fx-border-color: #2b3445; -fx-border-radius: 6; -fx-background-radius: 6;");
+    previewPane.setStyle("-fx-background-color: #161616; -fx-border-color: #333333; -fx-border-radius: 6; -fx-background-radius: 6;");
     previewPane.widthProperty().addListener((o, ov, nv) -> {
       previewCanvas.setWidth(Math.max(140, nv.doubleValue() - 4));
       redrawPreview();
