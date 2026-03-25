@@ -109,11 +109,7 @@ public class PuppeteerWindow extends Stage {
     private final Map<String, CollapsibleToolbarCluster> toolbarClusters = new LinkedHashMap<>();
     private AnimatedToolbarPane toolbarPane;
     private HBox toolbarCommandBar;
-    private HBox toolbarModeBar;
     private VBox toolbarShell;
-    private ToggleButton btnToolbarDynamicMode;
-    private ToggleButton btnToolbarCompactMode;
-    private ToggleButton btnCodePaneToggle;
     private Label lblToolbarCommandSummary;
     private Label statusBar;
     private Label viewportInfoLabel;
@@ -164,8 +160,6 @@ public class PuppeteerWindow extends Stage {
     private static final Insets TOOLBAR_PADDING_COMPACT = new Insets(1, 4, 1, 4);
     private static final Insets TOOLBAR_COMMAND_BAR_PADDING_DYNAMIC = new Insets(6, 10, 0, 10);
     private static final Insets TOOLBAR_COMMAND_BAR_PADDING_COMPACT = new Insets(1, 4, 0, 4);
-    private static final Insets TOOLBAR_MODE_BAR_PADDING_DYNAMIC = new Insets(8, 10, 0, 10);
-    private static final Insets TOOLBAR_MODE_BAR_PADDING_COMPACT = new Insets(0, 4, 0, 4);
     private static final double TOOLBAR_SHELL_SPACING_DYNAMIC = 6.0;
     private static final double TOOLBAR_SHELL_SPACING_COMPACT = 1.0;
     private static final String PROP_TOOLBAR_BASE_SPACING = "puppeteerToolbarBaseSpacing";
@@ -173,7 +167,6 @@ public class PuppeteerWindow extends Stage {
     private static final String PROP_TOOLBAR_BASE_PREF_HEIGHT = "puppeteerToolbarBasePrefHeight";
     private static final String PROP_TOOLBAR_BASE_ICON_WIDTH = "puppeteerToolbarBaseIconWidth";
     private static final String PROP_TOOLBAR_BASE_ICON_HEIGHT = "puppeteerToolbarBaseIconHeight";
-    private static final String PROP_TOOLBAR_MODE_BUTTON_BASE_HEIGHT = "puppeteerToolbarModeButtonBaseHeight";
     private static final PropertyType[] TRANSFORM_INTERACTION_PROPERTIES = {
         PropertyType.X,
         PropertyType.Y,
@@ -858,36 +851,9 @@ public class PuppeteerWindow extends Stage {
         toolbarPane.setMinHeight(Region.USE_PREF_SIZE);
         toolbarPane.setMaxWidth(Double.MAX_VALUE);
 
-        ToggleGroup toolbarModeGroup = new ToggleGroup();
-        btnToolbarDynamicMode = makeToolbarModeButton("Dynamic", "Use the reorderable, cluster-driven toolbar layout.");
-        btnToolbarCompactMode = makeToolbarModeButton("Compact", "Keep all toolbar sections expanded in a stable compact layout.");
-        btnToolbarDynamicMode.setToggleGroup(toolbarModeGroup);
-        btnToolbarCompactMode.setToggleGroup(toolbarModeGroup);
-        btnToolbarDynamicMode.setSelected(true);
-        btnToolbarDynamicMode.setOnAction(e -> {
-            if (btnToolbarDynamicMode.isSelected()) {
-                setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.DYNAMIC);
-            }
-        });
-        btnToolbarCompactMode.setOnAction(e -> {
-            if (btnToolbarCompactMode.isSelected()) {
-                setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.COMPACT);
-            }
-        });
-        btnCodePaneToggle = makeToolbarModeButton("Code Pane", "Show or hide the generated timeline code panel.");
-        btnCodePaneToggle.setSelected(true);
-        btnCodePaneToggle.setOnAction(e -> setCodePaneVisible(btnCodePaneToggle.isSelected()));
-
-        Label toolbarModeLabel = new Label("Toolbar Layout");
-        toolbarModeLabel.getStyleClass().add("puppeteer-toolbar-mode-label");
-        toolbarModeBar = new HBox(8, toolbarModeLabel, btnToolbarDynamicMode, btnToolbarCompactMode, btnCodePaneToggle);
-        toolbarModeBar.getStyleClass().add("puppeteer-toolbar-mode-bar");
-        toolbarModeBar.setAlignment(Pos.CENTER_LEFT);
-        toolbarModeBar.setMaxWidth(Double.MAX_VALUE);
-
         toolbarCommandBar = buildToolbarCommandBar();
 
-        toolbarShell = new VBox(6, toolbarCommandBar, toolbarModeBar, toolbarPane) {
+        toolbarShell = new VBox(6, toolbarCommandBar, toolbarPane) {
             @Override
             protected double computeMinHeight(double width) {
                 return computePrefHeight(width);
@@ -900,12 +866,9 @@ public class PuppeteerWindow extends Stage {
                     ? -1.0
                     : Math.max(1.0, width - insets.getLeft() - insets.getRight());
                 double commandBarHeight = toolbarCommandBar.prefHeight(contentWidth);
-                double modeBarHeight = toolbarModeBar.prefHeight(contentWidth);
                 double clustersHeight = toolbarPane.prefHeight(contentWidth);
                 return insets.getTop()
                     + commandBarHeight
-                    + getSpacing()
-                    + modeBarHeight
                     + getSpacing()
                     + clustersHeight
                     + insets.getBottom();
@@ -1253,6 +1216,22 @@ public class PuppeteerWindow extends Stage {
         MenuItem miFullscreenPreview = new MenuItem("Toggle Focused Preview Layout");
         miFullscreenPreview.setOnAction(e -> togglePreviewFocusMode());
 
+        MenuItem miExpandAll = new MenuItem("Expand All Clusters");
+        miExpandAll.setOnAction(e -> toolbarClusters.values().forEach(c -> c.setExpanded(true)));
+        MenuItem miCollapseAll = new MenuItem("Collapse All Clusters");
+        miCollapseAll.setOnAction(e -> toolbarClusters.values().forEach(c -> c.setExpanded(false)));
+
+        Menu toolbarClustersMenu = new Menu("Toolbar Clusters");
+        toolbarClustersMenu.setOnShowing(e -> {
+            toolbarClustersMenu.getItems().clear();
+            for (CollapsibleToolbarCluster cluster : toolbarClusters.values()) {
+                CheckMenuItem mi = new CheckMenuItem(cluster.getTitle());
+                mi.setSelected(cluster.isExpanded());
+                mi.setOnAction(ev -> cluster.setExpanded(mi.isSelected()));
+                toolbarClustersMenu.getItems().add(mi);
+            }
+        });
+
         Menu viewMenu = new Menu("View");
         viewMenu.getItems().addAll(
             miShowCodePane,
@@ -1260,6 +1239,10 @@ public class PuppeteerWindow extends Stage {
             new SeparatorMenuItem(),
             miLayoutDynamic,
             miLayoutCompact,
+            new SeparatorMenuItem(),
+            toolbarClustersMenu,
+            miExpandAll,
+            miCollapseAll,
             new SeparatorMenuItem(),
             miFocusTimeline,
             miZoomFit,
@@ -1680,12 +1663,6 @@ public class PuppeteerWindow extends Stage {
         }
         applyToolbarChromeDensity(resolved);
         applyToolbarDensity(resolved);
-        if (btnToolbarDynamicMode != null && btnToolbarDynamicMode.isSelected() != (resolved == AnimatedToolbarPane.LayoutMode.DYNAMIC)) {
-            btnToolbarDynamicMode.setSelected(resolved == AnimatedToolbarPane.LayoutMode.DYNAMIC);
-        }
-        if (btnToolbarCompactMode != null && btnToolbarCompactMode.isSelected() != (resolved == AnimatedToolbarPane.LayoutMode.COMPACT)) {
-            btnToolbarCompactMode.setSelected(resolved == AnimatedToolbarPane.LayoutMode.COMPACT);
-        }
         refreshToolbarCommandSummary();
     }
 
@@ -1709,13 +1686,6 @@ public class PuppeteerWindow extends Stage {
             toolbarCommandBar.setPadding(compact ? TOOLBAR_COMMAND_BAR_PADDING_COMPACT : TOOLBAR_COMMAND_BAR_PADDING_DYNAMIC);
             toolbarCommandBar.setSpacing(compact ? 4.0 : 10.0);
         }
-        if (toolbarModeBar != null) {
-            toolbarModeBar.setPadding(compact ? TOOLBAR_MODE_BAR_PADDING_COMPACT : TOOLBAR_MODE_BAR_PADDING_DYNAMIC);
-            toolbarModeBar.setSpacing(compact ? 4.0 : 8.0);
-        }
-        applyToolbarModeButtonDensity(btnToolbarDynamicMode, compact);
-        applyToolbarModeButtonDensity(btnToolbarCompactMode, compact);
-        applyToolbarModeButtonDensity(btnCodePaneToggle, compact);
     }
 
     private void applyToolbarDensity(Node node, boolean compact) {
@@ -1762,14 +1732,6 @@ public class PuppeteerWindow extends Stage {
         icon.setMaxSize(targetWidth, targetHeight);
     }
 
-    private void applyToolbarModeButtonDensity(ToggleButton button, boolean compact) {
-        if (button == null) return;
-        double baseHeight = rememberToolbarMetric(button, PROP_TOOLBAR_MODE_BUTTON_BASE_HEIGHT, sanitizeToolbarSize(button.getMinHeight(), 26.0));
-        double targetHeight = compact ? Math.max(18.0, baseHeight - 8.0) : baseHeight;
-        button.setMinHeight(targetHeight);
-        button.setPrefHeight(targetHeight);
-    }
-
     private boolean isToolbarIconControl(ButtonBase button) {
         if (button == null) return false;
         List<String> styles = button.getStyleClass();
@@ -1801,9 +1763,6 @@ public class PuppeteerWindow extends Stage {
 
     public void setCodePaneVisible(boolean visible) {
         codePaneVisible = visible;
-        if (btnCodePaneToggle != null && btnCodePaneToggle.isSelected() != visible) {
-            btnCodePaneToggle.setSelected(visible);
-        }
         if (codePreview != null) {
             codePreview.setManaged(visible);
             codePreview.setVisible(visible);
@@ -2819,15 +2778,6 @@ public class PuppeteerWindow extends Stage {
         Label lbl = new Label(text);
         lbl.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
         return lbl;
-    }
-
-    private static ToggleButton makeToolbarModeButton(String text, String tooltip) {
-        ToggleButton button = new ToggleButton(text);
-        button.getStyleClass().add("puppeteer-toolbar-mode-button");
-        button.setTooltip(new Tooltip(tooltip));
-        button.setMinHeight(26);
-        button.setFocusTraversable(false);
-        return button;
     }
 
     private static RadioButton buildChannelButton(String channel, ToggleGroup group, boolean selected) {

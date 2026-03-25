@@ -148,6 +148,10 @@ public class CollapsibleToolbarCluster extends VBox {
         return clusterKey;
     }
 
+    public String getTitle() {
+        return titleLabel.getText();
+    }
+
     public boolean isExpanded() {
         return expanded.get();
     }
