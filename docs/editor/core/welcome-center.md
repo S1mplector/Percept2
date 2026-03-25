@@ -1,0 +1,104 @@
+# Welcome Center
+
+The startup dashboard that greets users when the editor opens. Provides quick access to recent projects, environment health diagnostics, and project creation/opening actions.
+
+Source: `editor/src/main/java/com/jvn/editor/ui/WelcomeCenterView.java`
+
+---
+
+## Overview
+
+The Welcome Center opens as the default center tab when no project is loaded. It is divided into a hero card at the top and a split panel below with recent projects on the left and environment health checks on the right.
+
+- **Tab name:** Welcome
+- **Shortcut:** `Cmd/Ctrl+Shift+H` to open/select the Welcome tab
+
+---
+
+## Hero Card
+
+Displays at the top of the dashboard:
+
+| Element | Description |
+|---------|-------------|
+| **Heading** | "Welcome back to JVN." |
+| **Version** | Current editor version string |
+| **Workspace** | Absolute path to the active workspace root |
+| **Project** | Absolute path to the currently loaded project (or "none") |
+| **Status** | Last refresh timestamp |
+
+### Quick Actions
+
+Four icon buttons in the hero card:
+
+| Button | Icon | Action |
+|--------|------|--------|
+| **New Project** | Green `+` | Opens the New Project Wizard |
+| **Open Project** | Blue folder | Opens a directory chooser to select a project |
+| **Open Most Recent** | Yellow link | Opens the first project in the recent list |
+| **Refresh Health** | Cyan redo | Re-runs all health checks |
+
+All buttons are disabled while a health check is in progress.
+
+---
+
+## Recent Projects
+
+Left panel of the split view.
+
+- **Filter field** — type to filter projects by name or path (case-insensitive substring match)
+- **Project list** — up to 10 most recently accessed projects, sorted by last modification time
+- **Double-click** or **Enter** to open a project
+- **Counter label** — shows `N projects` or `N / M shown` when filtering
+
+### Discovery Sources
+
+Projects are collected from multiple sources and deduplicated:
+
+1. Currently loaded project (if any)
+2. Persisted recent history (`.jvn/recent-projects.txt`)
+3. Default project root directories (`~/JVN-Projects`, `~/Documents/JVN-Projects`)
+4. Workspace subdirectory scan (looks for folders containing `jvn.project`)
+
+History is capped at 40 entries and stored in the workspace `.jvn/` directory.
+
+---
+
+## Environment Health
+
+Right panel of the split view. Runs four automated checks on the workspace and project environment:
+
+| Check | What It Validates |
+|-------|-------------------|
+| **Java Runtime** | Compares running JVM major version against the project's Gradle toolchain version. Reports OK (match), WARN (mismatch), ERROR (below required), or INFO (unable to compare). |
+| **Gradle Wrapper** | Verifies `gradlew` script and `gradle-wrapper.properties` exist and are executable. Reports wrapper version and VFS watch status. |
+| **Git** | Checks if `git` is available on PATH. Reports INFO if missing (optional feature). |
+| **Project Artifacts** | Validates `jvn.project` manifest exists and that referenced files (`entryVns`, `timeline`, `dialogueLayout`, menu config) are present on disk. Lists any missing artifacts. |
+
+### Severity Levels
+
+| Severity | Color | Meaning |
+|----------|-------|---------|
+| OK | Green | Check passed |
+| WARN | Orange | Non-blocking issue |
+| ERROR | Red | Blocking issue that should be resolved |
+| INFO | Blue | Informational, no action needed |
+
+The summary line shows: `N checks • X ok • Y warn • Z error • W info`
+
+---
+
+## Refresh Behavior
+
+- Health checks run on a background daemon thread to avoid blocking the UI
+- The dashboard is refreshed automatically when the workspace or project changes
+- Manual refresh via the Refresh button
+- All buttons are disabled during refresh to prevent concurrent checks
+
+---
+
+## Related Docs
+
+- [Editor Guide](editor.md) — main editor layout and modes
+- [New Project Wizard](../../project-setup/onboarding/new-project-wizard.md) — scaffolding a new project
+- [Version Control](../sidebars/right/sidebar-version-control.md) — Git integration

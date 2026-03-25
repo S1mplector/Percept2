@@ -8,8 +8,8 @@ Start with **[INDEX.md](INDEX.md)** for a navigable table of contents covering a
 
 | Directory | Coverage |
 |-----------|----------|
-| `architecture/` | System architecture, 2D engine, performance, native library audit, UI parity roadmap |
-| `editor/` | Editor guide, Puppeteer animation editor, sidebar panels (15+ documented utilities) |
+| `architecture/` | System architecture, 2D engine, performance, native library audit, audio synthesis architecture, UI parity roadmap |
+| `editor/` | Editor guide, Welcome Center, Run Console, Scene Graph, Tilemap Editor, Puppeteer animation editor, 18 documented sidebar panels |
 | `guides/` | Getting started guide, cookbook and recipes |
 | `project-setup/` | New project wizard, project structure, title screen, text effects, version control, localization, deployment |
 | `runtime/` | Runtime guide, interop, save system, audio system, asset management, VN settings |

@@ -148,6 +148,13 @@ Complete documentation for the Java Vector Nexus engine.
   - [Image Tint Tool](editor/sidebars/right/sidebar-image-tint-tool.md) — color tinting/grading with tint, saturation, contrast
   - [Version Control](editor/sidebars/right/sidebar-version-control.md) — Git panel: init, commit, push, pull, branch, stash, remote setup
   - [Help Center](editor/sidebars/right/sidebar-help-center.md) — in-app Markdown documentation browser, quick access, F1 shortcut
+  - [Audio Synth Controls](editor/sidebars/right/sidebar-audio-synth-controls.md) — synthesizer authoring, live waveform preview, VNS command generation
+  - [Storyboard Overlay](editor/sidebars/right/sidebar-storyboard-overlay.md) — ghost board-frame overlays for staging reference
+  - [Script Editor](editor/sidebars/right/sidebar-script-editor.md) — VNS script explorer, label outline, include graph, pop-out IDE
+- [Welcome Center](editor/core/welcome-center.md) — startup dashboard, recent projects, environment health checks
+- [Run Console](editor/core/run-console.md) — filtered build output, engine state tracking, error/warning counters
+- [Scene Graph View](editor/core/scene-graph.md) — entity list, type badges, rename/delete, filter, fit-to-selection
+- [Tilemap Editor](editor/core/tilemap-editor.md) — visual tile painting, layer/map selection, tileset preview
 - [Action Editor Design](editor/core/action-editor-design.md) — architecture and component breakdown
 - [Puppeteer Audit](editor/puppeteer/puppeteer-audit.md) — hardening audit and expansion roadmap
 - [Help Center](editor/core/help-center.md) — in-app documentation browser
@@ -173,6 +180,7 @@ Complete documentation for the Java Vector Nexus engine.
 - [2D Engine](architecture/core/2d-engine.md) — Entity2D properties, Camera2D smoothing/bounds/transforms, PhysicsWorld2D broadphase/raycasts/callbacks, Scene2DBase render pipeline, parallax scrolling
 - [Performance](architecture/quality/performance.md) — build and runtime optimization
 - [Native Library Audit](architecture/native/native-library-audit.md) — native-math integration status
+- [Audio Synthesis Architecture](architecture/native/audio-synthesis.md) — JNI synth backends, waveform analysis, streaming architecture, VNS integration
 - [Debugging & Profiling](architecture/quality/debugging.md) — diagnostics, logging, performance investigation
 - [Ren'Py UI Parity Roadmap](architecture/core/ui-parity-roadmap.md) — concrete patch plan for `screens.rpy` / `gui.rpy` migration comfort
 

@@ -153,14 +153,16 @@ titleShadowColor=#000000
 ```properties
 hintsColor=#AAAAAA
 hintsFontFamily=Arial
+hintsFontWeight=NORMAL
 hintsFontSize=14
 ```
 
-| Property | Description |
-|----------|-------------|
-| `hintsColor` | Hints text color |
-| `hintsFontFamily` | Hints font family |
-| `hintsFontSize` | Hints font size (pixels) |
+| Property | Default | Description |
+|----------|---------|-------------|
+| `hintsColor` | — | Hints text color |
+| `hintsFontFamily` | — | Hints font family |
+| `hintsFontWeight` | `NORMAL` | Hints font weight: `NORMAL`, `BOLD`, `SEMI_BOLD` |
+| `hintsFontSize` | — | Hints font size (pixels) |
 
 ---
 

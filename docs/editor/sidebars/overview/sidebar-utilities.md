@@ -1,6 +1,6 @@
 # Editor — Sidebar Utilities
 
-Complete reference for all 16 documented sidebar panels available in the JVN editor. Each panel has its own dedicated sub-document with full details, examples, and usage guides.
+Complete reference for all 18 documented sidebar panels available in the JVN editor. Each panel has its own dedicated sub-document with full details, examples, and usage guides.
 
 Panels can be added to either the left or right sidebar via the **+** tab. Each panel is independently closable and repositionable.
 
@@ -28,6 +28,8 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 | 14 | Image Tint Tool | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Color tinting and grading for character/background images |
 | 15 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
 | 16 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser |
+| 17 | Audio Synth Controls | **[sidebar-audio-synth-controls.md](../right/sidebar-audio-synth-controls.md)** | Right | Synthesizer authoring, waveform preview, VNS command generation |
+| 18 | Script Editor | **[sidebar-script-editor.md](../right/sidebar-script-editor.md)** | Right | VNS script explorer, label outline, include graph, pop-out IDE |
 
 ### Adding Panels
 
