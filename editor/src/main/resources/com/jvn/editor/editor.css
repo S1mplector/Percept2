@@ -1143,21 +1143,59 @@
 }
 
 .puppeteer-preview-overlay-button {
-  -fx-background-color: rgba(8, 8, 8, 0.94);
   -fx-text-fill: #f3f3f3;
-  -fx-font-size: 12px;
+  -fx-font-size: 12.5px;
   -fx-font-weight: 800;
-  -fx-padding: 0 14 0 12;
-  -fx-border-color: rgba(188, 188, 188, 0.96);
-  -fx-border-width: 1.2;
-  -fx-background-radius: 999;
-  -fx-border-radius: 999;
-  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.42), 14, 0.28, 0, 3);
+  -fx-padding: 4 18 4 14;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-cursor: hand;
 }
 
-.puppeteer-preview-overlay-button:hover {
-  -fx-background-color: rgba(28, 28, 28, 0.97);
-  -fx-border-color: rgba(232, 232, 232, 0.98);
+/* Idle state: subtle, semi-transparent — always visible but not distracting */
+.puppeteer-preview-overlay-button-idle {
+  -fx-background-color: rgba(18, 18, 18, 0.55);
+  -fx-text-fill: rgba(200, 200, 200, 0.70);
+  -fx-border-color: rgba(120, 120, 120, 0.35);
+  -fx-border-width: 1;
+  -fx-effect: none;
+}
+
+.puppeteer-preview-overlay-button-idle:hover {
+  -fx-background-color: rgba(22, 22, 22, 0.92);
+  -fx-text-fill: #f3f3f3;
+  -fx-border-color: rgba(210, 210, 210, 0.90);
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.50), 16, 0.30, 0, 3);
+}
+
+/* Hover state (applied by code when viewport is hovered): full prominence */
+.puppeteer-preview-overlay-button-hover {
+  -fx-background-color: rgba(8, 8, 8, 0.94);
+  -fx-text-fill: #f3f3f3;
+  -fx-border-color: rgba(200, 200, 200, 0.96);
+  -fx-border-width: 1.2;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.50), 16, 0.30, 0, 3);
+}
+
+.puppeteer-preview-overlay-button-hover:hover {
+  -fx-background-color: rgba(30, 30, 30, 0.97);
+  -fx-border-color: rgba(240, 240, 240, 0.98);
+}
+
+/* Back button: always prominent with accent tint */
+.puppeteer-preview-overlay-button-back {
+  -fx-background-color: rgba(12, 12, 12, 0.92);
+  -fx-text-fill: #e8e8e8;
+  -fx-border-color: rgba(100, 170, 255, 0.80);
+  -fx-border-width: 1.4;
+  -fx-effect: dropshadow(gaussian, rgba(60, 130, 220, 0.30), 18, 0.25, 0, 2);
+}
+
+.puppeteer-preview-overlay-button-back:hover {
+  -fx-background-color: rgba(24, 36, 52, 0.96);
+  -fx-text-fill: #ffffff;
+  -fx-border-color: rgba(120, 190, 255, 0.98);
+  -fx-effect: dropshadow(gaussian, rgba(70, 150, 240, 0.45), 20, 0.30, 0, 2);
 }
 
 .puppeteer-preview-overlay-button:pressed {

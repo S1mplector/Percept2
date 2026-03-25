@@ -978,11 +978,12 @@ public class PuppeteerWindow extends Stage {
 
         btnPreviewFullscreen = makeToolbarIconButton("icon-fullscreen", "Focus the preview in the editor workspace");
         btnPreviewFullscreen.getStyleClass().add("puppeteer-preview-overlay-button");
-        btnPreviewFullscreen.setText("Focus View");
+        btnPreviewFullscreen.getStyleClass().add("puppeteer-preview-overlay-button-idle");
+        btnPreviewFullscreen.setText("Focus");
         btnPreviewFullscreen.setContentDisplay(ContentDisplay.LEFT);
-        btnPreviewFullscreen.setGraphicTextGap(8);
-        btnPreviewFullscreen.setMinSize(136, 36);
-        btnPreviewFullscreen.setPrefSize(136, 36);
+        btnPreviewFullscreen.setGraphicTextGap(6);
+        btnPreviewFullscreen.setMinSize(Region.USE_PREF_SIZE, 34);
+        btnPreviewFullscreen.setPrefSize(Region.USE_COMPUTED_SIZE, 34);
         btnPreviewFullscreen.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
         btnPreviewFullscreen.setManaged(false);
         btnPreviewFullscreen.setVisible(false);
@@ -990,11 +991,12 @@ public class PuppeteerWindow extends Stage {
 
         btnPreviewBack = makeToolbarIconButton("icon-puppeteer-rewind", "Return to the standard editor workspace");
         btnPreviewBack.getStyleClass().add("puppeteer-preview-overlay-button");
-        btnPreviewBack.setText("Back");
+        btnPreviewBack.getStyleClass().add("puppeteer-preview-overlay-button-back");
+        btnPreviewBack.setText("◀ Back to Editor");
         btnPreviewBack.setContentDisplay(ContentDisplay.LEFT);
         btnPreviewBack.setGraphicTextGap(8);
-        btnPreviewBack.setMinSize(102, 36);
-        btnPreviewBack.setPrefSize(102, 36);
+        btnPreviewBack.setMinSize(160, 42);
+        btnPreviewBack.setPrefSize(160, 42);
         btnPreviewBack.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
         btnPreviewBack.setManaged(false);
         btnPreviewBack.setVisible(false);
@@ -1004,10 +1006,14 @@ public class PuppeteerWindow extends Stage {
         previewViewportHost.getStyleClass().add("puppeteer-preview-viewport-host");
         previewViewportHost.setMinHeight(0);
         previewViewportHost.hoverProperty().addListener((obs, wasHover, isHover) -> updatePreviewOverlayVisibility());
-        StackPane.setAlignment(btnPreviewBack, Pos.TOP_LEFT);
-        StackPane.setMargin(btnPreviewBack, new Insets(10));
-        StackPane.setAlignment(btnPreviewFullscreen, Pos.TOP_RIGHT);
-        StackPane.setMargin(btnPreviewFullscreen, new Insets(10));
+        // Unmanaged nodes ignore StackPane alignment, so position manually
+        btnPreviewBack.setLayoutX(10);
+        btnPreviewBack.setLayoutY(8);
+        btnPreviewFullscreen.layoutXProperty().bind(
+            previewViewportHost.widthProperty()
+                .subtract(btnPreviewFullscreen.widthProperty())
+                .subtract(14));
+        btnPreviewFullscreen.setLayoutY(8);
         updatePreviewOverlayVisibility();
 
         previewPane = new BorderPane(previewViewportHost);
@@ -2228,8 +2234,10 @@ public class PuppeteerWindow extends Stage {
         topWorkspaceDividerPosition = readDividerPosition(topWorkspaceSplit, topWorkspaceDividerPosition);
         bottomWorkspaceDividerPosition = readDividerPosition(bottomWorkspaceSplit, bottomWorkspaceDividerPosition);
 
-        detachNode(previewPane);
-        detachNode(timelinePanel);
+        // Remove via SplitPane items API (not detachNode — node.getParent()
+        // returns the internal Content wrapper, not the SplitPane itself)
+        topWorkspaceSplit.getItems().remove(previewPane);
+        bottomWorkspaceSplit.getItems().remove(timelinePanel);
         previewFocusSplit.getItems().setAll(previewPane, timelinePanel);
         SplitPane.setResizableWithParent(previewPane, Boolean.TRUE);
         SplitPane.setResizableWithParent(timelinePanel, Boolean.TRUE);
@@ -2248,13 +2256,28 @@ public class PuppeteerWindow extends Stage {
     private void exitFullscreenPreview() {
         if (!previewFocusMode) return;
         previewFocusDividerPosition = readDividerPosition(previewFocusSplit, previewFocusDividerPosition);
-        previewFocusSplit.getItems().clear();
-        attachToSplitPane(topWorkspaceSplit, previewPane, 1);
-        attachToSplitPane(bottomWorkspaceSplit, timelinePanel, 1);
+
+        // Remove via SplitPane items API (not detachNode — node.getParent()
+        // returns the internal Content wrapper, not the SplitPane itself,
+        // so detachNode leaves stale refs in the items list that block re-addition)
+        previewFocusSplit.getItems().remove(previewPane);
+        previewFocusSplit.getItems().remove(timelinePanel);
+
         previewFocusMode = false;
         updatePreviewWorkspaceModeVisibility();
+
+        // Re-attach to original split panes (force-remove stale refs first)
+        topWorkspaceSplit.getItems().remove(previewPane);
+        topWorkspaceSplit.getItems().add(previewPane);
+        SplitPane.setResizableWithParent(previewPane, Boolean.TRUE);
+
+        bottomWorkspaceSplit.getItems().remove(timelinePanel);
+        bottomWorkspaceSplit.getItems().add(timelinePanel);
+        SplitPane.setResizableWithParent(timelinePanel, Boolean.TRUE);
+
         updatePreviewOverlayVisibility();
         refreshSidebarTabs();
+
         Platform.runLater(() -> {
             topWorkspaceSplit.setDividerPositions(topWorkspaceDividerPosition);
             bottomWorkspaceSplit.setDividerPositions(bottomWorkspaceDividerPosition);
@@ -2264,10 +2287,21 @@ public class PuppeteerWindow extends Stage {
 
     private void updatePreviewOverlayVisibility() {
         if (btnPreviewFullscreen == null || previewViewportHost == null) return;
-        boolean showFocusButton = scene != null && !isPreviewFullscreenActive() && previewViewportHost.isHover();
-        btnPreviewFullscreen.setVisible(showFocusButton);
+        boolean fullscreen = isPreviewFullscreenActive();
+        boolean hasScene = scene != null;
+        boolean hovering = previewViewportHost.isHover();
+
+        // Focus button: always visible when scene loaded and not in fullscreen;
+        // swap between idle (subtle) and hover (prominent) style classes
+        btnPreviewFullscreen.setVisible(hasScene && !fullscreen);
+        btnPreviewFullscreen.getStyleClass().removeAll(
+            "puppeteer-preview-overlay-button-idle", "puppeteer-preview-overlay-button-hover");
+        btnPreviewFullscreen.getStyleClass().add(
+            hovering ? "puppeteer-preview-overlay-button-hover" : "puppeteer-preview-overlay-button-idle");
+
+        // Back button: always visible during fullscreen
         if (btnPreviewBack != null) {
-            btnPreviewBack.setVisible(isPreviewFullscreenActive());
+            btnPreviewBack.setVisible(fullscreen);
         }
     }
 
