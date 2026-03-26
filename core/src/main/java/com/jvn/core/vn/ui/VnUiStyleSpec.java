@@ -9,6 +9,7 @@ package com.jvn.core.vn.ui;
 public record VnUiStyleSpec(
     // --- Textbox ---
     String textBoxAssetPath,
+    String textBoxNarrationAssetPath,
     String textBoxColor,
     Double textBoxOpacity,
     String textBoxBoundsPoints,
@@ -124,7 +125,72 @@ public record VnUiStyleSpec(
       Double characterBaselineY
   ) {
     this(
-        textBoxAssetPath, textBoxColor, textBoxOpacity, textBoxBoundsPoints,
+        textBoxAssetPath, null, textBoxColor, textBoxOpacity, textBoxBoundsPoints,
+        nameBoxAssetPath, nameBoxColor, nameTextColor, nameTextFontFamily,
+        nameTextFontSize, nameTextFontWeight, nameTextXAlign, nameBoxBoundsPoints,
+        nameBoxOpacity, dialogueTextColor, dialogueTextFontFamily, dialogueTextFontSize,
+        dialogueTextFontWeight, dialogueTextXAlign, dialogueTextBoundsPoints,
+        choiceButtonAssetPath, choiceButtonHoverAssetPath, choiceButtonSelectedAssetPath,
+        choiceButtonDisabledAssetPath, choiceButtonBoundsPoints, choiceBackgroundColor,
+        choiceHoverColor, choiceSelectedColor, choiceDisabledColor, choiceTextColor,
+        choiceHoverTextColor, choiceSelectedTextColor, choiceDisabledTextColor,
+        choiceBorderColor, choiceHoverBorderColor, choiceSelectedBorderColor,
+        choiceDisabledBorderColor, choiceCornerRadius, choiceBorderWidth,
+        choiceTextBaselineOffset, choiceTextXAlign, choiceFontFamily, choiceFontSize,
+        choiceFontWeight, characterHeightFactor, characterBaselineY
+    );
+  }
+
+  public VnUiStyleSpec(
+      String textBoxAssetPath,
+      String textBoxNarrationAssetPath,
+      String textBoxColor,
+      Double textBoxOpacity,
+      String textBoxBoundsPoints,
+      String nameBoxAssetPath,
+      String nameBoxColor,
+      String nameTextColor,
+      String nameTextFontFamily,
+      Integer nameTextFontSize,
+      String nameTextFontWeight,
+      Double nameTextXAlign,
+      String nameBoxBoundsPoints,
+      Double nameBoxOpacity,
+      String dialogueTextColor,
+      String dialogueTextFontFamily,
+      Integer dialogueTextFontSize,
+      String dialogueTextFontWeight,
+      Double dialogueTextXAlign,
+      String dialogueTextBoundsPoints,
+      String choiceButtonAssetPath,
+      String choiceButtonHoverAssetPath,
+      String choiceButtonSelectedAssetPath,
+      String choiceButtonDisabledAssetPath,
+      String choiceButtonBoundsPoints,
+      String choiceBackgroundColor,
+      String choiceHoverColor,
+      String choiceSelectedColor,
+      String choiceDisabledColor,
+      String choiceTextColor,
+      String choiceHoverTextColor,
+      String choiceSelectedTextColor,
+      String choiceDisabledTextColor,
+      String choiceBorderColor,
+      String choiceHoverBorderColor,
+      String choiceSelectedBorderColor,
+      String choiceDisabledBorderColor,
+      double choiceCornerRadius,
+      double choiceBorderWidth,
+      double choiceTextBaselineOffset,
+      Double choiceTextXAlign,
+      String choiceFontFamily,
+      Integer choiceFontSize,
+      String choiceFontWeight,
+      Double characterHeightFactor,
+      Double characterBaselineY
+  ) {
+    this(
+        textBoxAssetPath, textBoxNarrationAssetPath, textBoxColor, textBoxOpacity, textBoxBoundsPoints,
         nameBoxAssetPath, nameBoxColor, nameTextColor, nameTextFontFamily,
         nameTextFontSize, nameTextFontWeight, nameTextXAlign, nameBoxBoundsPoints,
         nameBoxOpacity, dialogueTextColor, dialogueTextFontFamily, dialogueTextFontSize,
@@ -142,8 +208,89 @@ public record VnUiStyleSpec(
     );
   }
 
+  public VnUiStyleSpec(
+      String textBoxAssetPath,
+      String textBoxColor,
+      Double textBoxOpacity,
+      String textBoxBoundsPoints,
+      String nameBoxAssetPath,
+      String nameBoxColor,
+      String nameTextColor,
+      String nameTextFontFamily,
+      Integer nameTextFontSize,
+      String nameTextFontWeight,
+      Double nameTextXAlign,
+      String nameBoxBoundsPoints,
+      Double nameBoxOpacity,
+      String dialogueTextColor,
+      String dialogueTextFontFamily,
+      Integer dialogueTextFontSize,
+      String dialogueTextFontWeight,
+      Double dialogueTextXAlign,
+      String dialogueTextBoundsPoints,
+      String choiceButtonAssetPath,
+      String choiceButtonHoverAssetPath,
+      String choiceButtonSelectedAssetPath,
+      String choiceButtonDisabledAssetPath,
+      String choiceButtonBoundsPoints,
+      String choiceBackgroundColor,
+      String choiceHoverColor,
+      String choiceSelectedColor,
+      String choiceDisabledColor,
+      String choiceTextColor,
+      String choiceHoverTextColor,
+      String choiceSelectedTextColor,
+      String choiceDisabledTextColor,
+      String choiceBorderColor,
+      String choiceHoverBorderColor,
+      String choiceSelectedBorderColor,
+      String choiceDisabledBorderColor,
+      double choiceCornerRadius,
+      double choiceBorderWidth,
+      double choiceTextBaselineOffset,
+      Double choiceTextXAlign,
+      String choiceFontFamily,
+      Integer choiceFontSize,
+      String choiceFontWeight,
+      Double characterHeightFactor,
+      Double characterBaselineY,
+      String nvlPanelAssetPath,
+      String nvlPanelColor,
+      Double nvlPanelOpacity,
+      String nvlSpeakerTextColor,
+      String nvlTextColor,
+      String bubbleAssetPath,
+      String bubbleColor,
+      Double bubbleOpacity,
+      String bubbleBorderColor,
+      String bubbleSpeakerTextColor,
+      String bubbleTextColor,
+      double bubbleCornerRadius,
+      double bubbleBorderWidth
+  ) {
+    this(
+        textBoxAssetPath, null, textBoxColor, textBoxOpacity, textBoxBoundsPoints,
+        nameBoxAssetPath, nameBoxColor, nameTextColor, nameTextFontFamily,
+        nameTextFontSize, nameTextFontWeight, nameTextXAlign, nameBoxBoundsPoints,
+        nameBoxOpacity, dialogueTextColor, dialogueTextFontFamily, dialogueTextFontSize,
+        dialogueTextFontWeight, dialogueTextXAlign, dialogueTextBoundsPoints,
+        choiceButtonAssetPath, choiceButtonHoverAssetPath, choiceButtonSelectedAssetPath,
+        choiceButtonDisabledAssetPath, choiceButtonBoundsPoints, choiceBackgroundColor,
+        choiceHoverColor, choiceSelectedColor, choiceDisabledColor, choiceTextColor,
+        choiceHoverTextColor, choiceSelectedTextColor, choiceDisabledTextColor,
+        choiceBorderColor, choiceHoverBorderColor, choiceSelectedBorderColor,
+        choiceDisabledBorderColor, choiceCornerRadius, choiceBorderWidth,
+        choiceTextBaselineOffset, choiceTextXAlign, choiceFontFamily, choiceFontSize,
+        choiceFontWeight, characterHeightFactor, characterBaselineY,
+        nvlPanelAssetPath, nvlPanelColor, nvlPanelOpacity, nvlSpeakerTextColor, nvlTextColor,
+        bubbleAssetPath, bubbleColor, bubbleOpacity, bubbleBorderColor, bubbleSpeakerTextColor,
+        bubbleTextColor, bubbleCornerRadius, bubbleBorderWidth
+    );
+  }
+
   public VnUiStyleSpec {
     textBoxAssetPath = normalize(textBoxAssetPath);
+    textBoxNarrationAssetPath = normalize(textBoxNarrationAssetPath);
     textBoxColor = normalize(textBoxColor);
     if (textBoxOpacity != null) textBoxOpacity = clamp(textBoxOpacity, 0.0, 1.0);
     textBoxBoundsPoints = normalize(textBoxBoundsPoints);
@@ -214,7 +361,7 @@ public record VnUiStyleSpec(
 
   public static VnUiStyleSpec defaults() {
     return new VnUiStyleSpec(
-        null, "#0C1220E0", 0.88, null,                       // textbox: dark navy, high opacity
+        null, null, "#0C1220E0", 0.88, null,                 // textbox: dark navy, high opacity
         null, "#14203890", "#FFD78A", "SansSerif", 18, null, null, // name box: dark tint, warm gold text
         null, null,                                           // name box: no font weight override, no opacity
         "#E8EDF6", "SansSerif", 22, null, null, null,        // dialogue: near-white, clean, no font weight override

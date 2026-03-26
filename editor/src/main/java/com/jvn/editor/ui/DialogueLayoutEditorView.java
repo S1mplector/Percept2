@@ -2318,6 +2318,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     VnUiStyleSpec base = style == null ? VnUiStyleSpec.defaults() : style;
     return new VnUiStyleSpec(
         normalizeAssetPath(tfTextBoxAsset.getText()),
+        base.textBoxNarrationAssetPath(),
         normalizeColorValue(tfTextBoxColor.getText()),
         chkTextBoxOverlayEnabled.isSelected() ? value(spTextBoxOverlayOpacity) : 0.0,
         base.textBoxBoundsPoints(),
@@ -2770,6 +2771,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     VnUiStyleSpec base = style == null ? VnUiStyleSpec.defaults() : style;
     return new VnUiStyleSpec(
         base.textBoxAssetPath(),
+        base.textBoxNarrationAssetPath(),
         base.textBoxColor(),
         base.textBoxOpacity(),
         textBoxBoundsPoints,

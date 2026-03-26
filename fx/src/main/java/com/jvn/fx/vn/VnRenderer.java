@@ -96,6 +96,7 @@ public class VnRenderer {
   private Image choiceButtonHoverImage;
   private Image choiceButtonDisabledImage;
   private Image textBoxImage;
+  private Image narrationTextBoxImage;
   private Image nameBoxImage;
   private Image nvlPanelImage;
   private Image bubbleImage;
@@ -886,13 +887,16 @@ public class VnRenderer {
     double textBoxHeight = textBox.height();
 
     // Draw text box background (asset if provided, otherwise default fill).
+    String speakerName = resolveRuntimeText(dialogue.getSpeakerName());
+    boolean hasSpeaker = speakerName != null && !speakerName.isEmpty();
+    Image activeTextBoxImage = hasSpeaker || narrationTextBoxImage == null ? textBoxImage : narrationTextBoxImage;
     boolean clipTextBox = hasPolygon(textBoxBoundsPolygon);
     if (clipTextBox) {
       gc.save();
       clipToLocalPolygon(textBoxBoundsPolygon, textBoxX, textBoxY, textBoxWidth, textBoxHeight);
     }
-    if (textBoxImage != null) {
-      gc.drawImage(textBoxImage, textBoxX, textBoxY, textBoxWidth, textBoxHeight);
+    if (activeTextBoxImage != null) {
+      gc.drawImage(activeTextBoxImage, textBoxX, textBoxY, textBoxWidth, textBoxHeight);
       if (textBoxAssetOverlayOpacity > 0.001) {
         gc.setFill(withOpacity(textBoxFillColor, textBoxAssetOverlayOpacity));
         gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
@@ -904,8 +908,7 @@ public class VnRenderer {
     if (clipTextBox) gc.restore();
 
     // Draw name box if speaker exists
-      String speakerName = resolveRuntimeText(dialogue.getSpeakerName());
-    if (speakerName != null && !speakerName.isEmpty()) {
+    if (hasSpeaker) {
       double nameBoxX = textBoxX + uiLayout.nameBoxXOffset();
       double nameBoxY = textBoxY + uiLayout.nameBoxYOffset();
       double nameBoxW;
@@ -1365,6 +1368,7 @@ public class VnRenderer {
   private void applyUiStyle(VnUiStyleSpec style) {
     VnUiStyleSpec resolved = style == null ? VnUiStyleSpec.defaults() : style;
     textBoxImage = loadImage(resolved.textBoxAssetPath());
+    narrationTextBoxImage = loadImage(resolved.textBoxNarrationAssetPath());
     nameBoxImage = loadImage(resolved.nameBoxAssetPath());
     nvlPanelImage = loadImage(resolved.nvlPanelAssetPath());
     bubbleImage = loadImage(resolved.bubbleAssetPath());

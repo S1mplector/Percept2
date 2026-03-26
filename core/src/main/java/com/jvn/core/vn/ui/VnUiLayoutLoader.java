@@ -80,6 +80,7 @@ public final class VnUiLayoutLoader {
 
   private static final Set<String> KNOWN_DIALOGUE_STYLE_KEYS = Set.of(
       "textBoxAsset",
+      "textBoxNarrationAsset",
       "textBoxColor",
       "textBoxOpacity",
       "textBoxBoundsPoints",
@@ -447,6 +448,7 @@ public final class VnUiLayoutLoader {
     VnUiStyleSpec style = new VnUiStyleSpec(
         // Textbox
         normalize(props.getProperty("textBoxAsset"), bStyle.textBoxAssetPath()),
+        normalize(props.getProperty("textBoxNarrationAsset"), bStyle.textBoxNarrationAssetPath()),
         normalize(props.getProperty("textBoxColor"), bStyle.textBoxColor()),
         textBoxOpacity,
         normalize(props.getProperty("textBoxBoundsPoints"), bStyle.textBoxBoundsPoints()),
@@ -593,6 +595,7 @@ public final class VnUiLayoutLoader {
     VnUiStyleSpec s = style == null ? VnUiStyleSpec.defaults() : style;
     Properties p = new Properties();
     setOptional(p, "textBoxAsset", s.textBoxAssetPath());
+    setOptional(p, "textBoxNarrationAsset", s.textBoxNarrationAssetPath());
     setOptional(p, "textBoxColor", s.textBoxColor());
     setOptional(p, "textBoxOpacity", s.textBoxOpacity() == null ? null : format(s.textBoxOpacity()));
     setOptional(p, "textBoxBoundsPoints", s.textBoxBoundsPoints());

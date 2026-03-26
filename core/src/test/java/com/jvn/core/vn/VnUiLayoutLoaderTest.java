@@ -70,6 +70,7 @@ class VnUiLayoutLoaderTest {
   void parsesStyleOverrides() {
     Properties p = new Properties();
     p.setProperty("textBoxAsset", "assets/ui/textbox.png");
+    p.setProperty("textBoxNarrationAsset", "assets/ui/textbox_narration.png");
     p.setProperty("textBoxBoundsPoints", "0,0;1,0;1,1;0,1");
     p.setProperty("choiceButtonAsset", "assets/ui/choice.png");
     p.setProperty("choiceButtonBoundsPoints", "0,0;1,0;0.9,1;0.1,1");
@@ -88,6 +89,7 @@ class VnUiLayoutLoaderTest {
     VnUiStyleSpec style = VnUiLayoutLoader.parseStyle(p, VnUiStyleSpec.defaults());
 
     assertEquals("assets/ui/textbox.png", style.textBoxAssetPath());
+    assertEquals("assets/ui/textbox_narration.png", style.textBoxNarrationAssetPath());
     assertEquals("0,0;1,0;1,1;0,1", style.textBoxBoundsPoints());
     assertEquals("assets/ui/choice.png", style.choiceButtonAssetPath());
     assertEquals("0,0;1,0;0.9,1;0.1,1", style.choiceButtonBoundsPoints());
@@ -107,6 +109,7 @@ class VnUiLayoutLoaderTest {
   @Test
   void serializesTextAlignmentStyleKeys() {
     Properties raw = new Properties();
+    raw.setProperty("textBoxNarrationAsset", "assets/ui/thought_box.png");
     raw.setProperty("nameTextXAlign", "0.5");
     raw.setProperty("dialogueTextXAlign", "1.0");
     raw.setProperty("choiceTextXAlign", "0.25");
@@ -114,6 +117,7 @@ class VnUiLayoutLoaderTest {
     VnUiStyleSpec style = VnUiLayoutLoader.parseStyle(raw, VnUiStyleSpec.defaults());
     Properties serialized = VnUiLayoutLoader.toStyleProperties(style);
 
+    assertEquals("assets/ui/thought_box.png", serialized.getProperty("textBoxNarrationAsset"));
     assertEquals("0.5", serialized.getProperty("nameTextXAlign"));
     assertEquals("1", serialized.getProperty("dialogueTextXAlign"));
     assertEquals("0.25", serialized.getProperty("choiceTextXAlign"));
