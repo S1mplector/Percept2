@@ -1,7 +1,10 @@
 package com.jvn.core.physics;
 
 import com.jvn.core.math.Circle;
+import com.jvn.core.math.Ray2;
 import com.jvn.core.math.Rect;
+import com.jvn.core.math.Scalars;
+import com.jvn.core.math.Segment2;
 
 /**
  * Static utility class providing lightweight 2-D collision tests.
@@ -14,7 +17,9 @@ import com.jvn.core.math.Rect;
  * <ul>
  *   <li>{@link #intersects(Rect, Rect)} — AABB vs AABB overlap.</li>
  *   <li>{@link #intersects(Circle, Circle)} — circle vs circle overlap.</li>
+ *   <li>{@link #intersects(Circle, Rect)} — circle vs AABB overlap.</li>
  *   <li>{@link #raycastSegmentAABB} — segment vs AABB raycast.</li>
+ *   <li>{@link #raycastRayAABB} — ray vs AABB raycast.</li>
  * </ul>
  *
  * @see PhysicsWorld2D
@@ -48,6 +53,32 @@ public final class Collision2D {
     double dy = a.y - b.y;
     double rr = a.r + b.r;
     return dx * dx + dy * dy <= rr * rr;
+  }
+
+  /**
+   * Test whether a circle overlaps an axis-aligned rectangle.
+   *
+   * @param circle the circle
+   * @param rect the rectangle
+   * @return {@code true} if the shapes intersect
+   */
+  public static boolean intersects(Circle circle, Rect rect) {
+    double closestX = Scalars.clamp(circle.x, rect.left(), rect.right());
+    double closestY = Scalars.clamp(circle.y, rect.top(), rect.bottom());
+    double dx = closestX - circle.x;
+    double dy = closestY - circle.y;
+    return dx * dx + dy * dy <= circle.r * circle.r;
+  }
+
+  /**
+   * Test whether an axis-aligned rectangle overlaps a circle.
+   *
+   * @param rect the rectangle
+   * @param circle the circle
+   * @return {@code true} if the shapes intersect
+   */
+  public static boolean intersects(Rect rect, Circle circle) {
+    return intersects(circle, rect);
   }
 
   /**
@@ -97,5 +128,76 @@ public final class Collision2D {
       return new double[] { ix, iy, tmin };
     }
     return null;
+  }
+
+  /**
+   * Raycast a typed line segment against an axis-aligned bounding box.
+   *
+   * @param segment the segment to test
+   * @param r the AABB to test against
+   * @return a 3-element array {@code [intersectX, intersectY, t]} or {@code null}
+   */
+  public static double[] raycastSegmentAABB(Segment2 segment, Rect r) {
+    if (segment == null || r == null) return null;
+    return raycastSegmentAABB(segment.x1, segment.y1, segment.x2, segment.y2, r);
+  }
+
+  /**
+   * Raycast an infinite ray against an axis-aligned bounding box using
+   * the slab method.
+   *
+   * @param ox origin X
+   * @param oy origin Y
+   * @param dx direction X
+   * @param dy direction Y
+   * @param r the AABB to test against
+   * @return a 3-element array {@code [intersectX, intersectY, t]} where
+   *         {@code t >= 0} scales the direction vector, or {@code null}
+   */
+  public static double[] raycastRayAABB(double ox, double oy, double dx, double dy, Rect r) {
+    double tmin = 0.0;
+    double tmax = Double.POSITIVE_INFINITY;
+
+    if (dx != 0.0) {
+      double tx1 = (r.left() - ox) / dx;
+      double tx2 = (r.right() - ox) / dx;
+      double tminx = Math.min(tx1, tx2);
+      double tmaxx = Math.max(tx1, tx2);
+      tmin = Math.max(tmin, tminx);
+      tmax = Math.min(tmax, tmaxx);
+    } else if (ox < r.left() || ox > r.right()) {
+      return null;
+    }
+
+    if (dy != 0.0) {
+      double ty1 = (r.top() - oy) / dy;
+      double ty2 = (r.bottom() - oy) / dy;
+      double tminy = Math.min(ty1, ty2);
+      double tmaxy = Math.max(ty1, ty2);
+      tmin = Math.max(tmin, tminy);
+      tmax = Math.min(tmax, tmaxy);
+    } else if (oy < r.top() || oy > r.bottom()) {
+      return null;
+    }
+
+    if (tmax >= tmin && tmax >= 0.0) {
+      double t = tmin < 0.0 ? 0.0 : tmin;
+      double ix = ox + t * dx;
+      double iy = oy + t * dy;
+      return new double[] { ix, iy, t };
+    }
+    return null;
+  }
+
+  /**
+   * Raycast a typed ray against an axis-aligned bounding box.
+   *
+   * @param ray the ray to test
+   * @param r the AABB to test against
+   * @return a 3-element array {@code [intersectX, intersectY, t]} or {@code null}
+   */
+  public static double[] raycastRayAABB(Ray2 ray, Rect r) {
+    if (ray == null || r == null) return null;
+    return raycastRayAABB(ray.x, ray.y, ray.dx, ray.dy, r);
   }
 }

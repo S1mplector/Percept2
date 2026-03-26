@@ -14,7 +14,7 @@ Zero-dependency foundation module for the JVN engine. Every other module depends
 | `graphics` | Camera2D, ViewportScaler2D |
 | `input` | Input polling, key/mouse bindings |
 | `localization` | Locale-aware resource resolution |
-| `math` | Vector, interpolation, easing utilities |
+| `math` | Scalar helpers plus 2D vector, geometry, ray, segment, and transform utilities |
 | `menu` | Menu profile system — screens, layouts, styles, actions, registry, inheritance |
 | `nativebridge` | JNI bridge abstractions for native-math |
 | `phone` | In-game phone UI model, config codec, and command/runtime support for chats, apps, calls, and typed messages |

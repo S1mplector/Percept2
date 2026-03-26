@@ -393,7 +393,16 @@ public class RuntimeVnInterop implements VnInterop {
             scene,
             data,
             updated -> VnPhoneStateStore.save(scene.getState(), updated),
-            result.chatId()));
+            result.targetId()));
+      }
+      case OPEN_CALL -> {
+        VnPhoneData data = VnPhoneStateStore.load(scene.getState(), VnPhonePropertiesCodec::loadSeedFromAssets);
+        PhoneScene phone = new PhoneScene(
+            scene,
+            data,
+            updated -> VnPhoneStateStore.save(scene.getState(), updated));
+        phone.openCall(result.targetId());
+        engine.scenes().push(phone);
       }
       case CLOSE -> {
         Scene top = topScene();
