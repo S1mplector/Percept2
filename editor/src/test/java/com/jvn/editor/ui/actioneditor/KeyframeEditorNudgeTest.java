@@ -54,4 +54,25 @@ class KeyframeEditorNudgeTest {
                 "approximation drifted too far at t=" + t + ": expected=" + expected + ", actual=" + actual);
         }
     }
+
+    @Test
+    void reverseEditableCurveSpecSwapsEaseDirection() {
+        EasingSpec reversed = KeyframeEditor.reverseEditableCurveSpec(
+            EasingSpec.cubicBezier(0.42, 0.0, 1.0, 1.0));
+
+        double[] params = reversed.getParameters();
+        assertEquals(Easing.Type.CUSTOM, reversed.getType());
+        assertEquals(0.0, params[0], 0.000001);
+        assertEquals(0.0, params[1], 0.000001);
+        assertEquals(0.58, params[2], 0.000001);
+        assertEquals(1.0, params[3], 0.000001);
+    }
+
+    @Test
+    void clampEditableCurveSpecRemovesOvershootWithoutChangingTimingHandles() {
+        EasingSpec clamped = KeyframeEditor.clampEditableCurveSpec(
+            EasingSpec.cubicBezier(0.34, 1.56, 0.64, -0.20));
+
+        assertEquals(EasingSpec.cubicBezier(0.34, 1.0, 0.64, 0.0), clamped);
+    }
 }

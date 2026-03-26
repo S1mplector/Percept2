@@ -58,4 +58,19 @@ class PuppeteerEasingPresetStoreTest {
         assertEquals("Soft Landing", loaded.get(0).name());
         assertEquals(EasingSpec.cubicBezier(0.22, 1.0, 0.36, 1.0), loaded.get(0).spec());
     }
+
+    @Test
+    void loadsCssStyleBezierSpecsFromPresetFiles() throws Exception {
+        Path presetFile = tempDir.resolve(PuppeteerEasingPresetStore.CONFIG_PATH);
+        Files.createDirectories(presetFile.getParent());
+        Files.writeString(presetFile, """
+            preset.001.name=Snappy Out
+            preset.001.spec=cubic-bezier(0.16, 1.0, 0.30, 1.0)
+            """, StandardCharsets.UTF_8);
+
+        List<PuppeteerEasingPresetStore.Preset> loaded = PuppeteerEasingPresetStore.load(tempDir.toFile());
+
+        assertEquals(1, loaded.size());
+        assertEquals(EasingSpec.cubicBezier(0.16, 1.0, 0.30, 1.0), loaded.get(0).spec());
+    }
 }

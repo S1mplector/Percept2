@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  */
 public final class EasingSpec {
   private static final Pattern FUNCTION_PATTERN =
-      Pattern.compile("^([a-zA-Z_][\\w]*)\\s*\\((.*)\\)$");
+      Pattern.compile("^([a-zA-Z_][\\w-]*)\\s*\\((.*)\\)$");
 
   private final Easing.Type type;
   private final double[] parameters;

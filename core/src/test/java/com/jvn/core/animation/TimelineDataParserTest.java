@@ -137,6 +137,31 @@ class TimelineDataParserTest {
     }
 
     @Test
+    void parsesCssStyleCubicBezierEasing() {
+        String inline = """
+            timeline {
+              move "hero" {
+                x: 160
+                dur: 120
+                easing: cubic-bezier(0.22, 1.0, 0.36, 1.0)
+              }
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("inline_css_bezier", inline);
+        TimelineData.Track hero = data.getTrack("hero");
+        assertNotNull(hero);
+
+        var xKeyframes = hero.getKeyframes(TimelineData.Property.X);
+        assertEquals(Easing.Type.CUSTOM, xKeyframes.get(1).getEasing());
+        assertTrue(xKeyframes.get(1).hasBezierParams());
+        assertEquals(0.22, xKeyframes.get(1).getBezierParams()[0], 0.001);
+        assertEquals(1.0, xKeyframes.get(1).getBezierParams()[1], 0.001);
+        assertEquals(0.36, xKeyframes.get(1).getBezierParams()[2], 0.001);
+        assertEquals(1.0, xKeyframes.get(1).getBezierParams()[3], 0.001);
+    }
+
+    @Test
     void parsesSpringAndNamedCurveEasings() {
         String inline = """
             timeline {
