@@ -227,7 +227,7 @@ public final class VnPhoneCommands {
     String chatId = tokens.get(1);
     String senderId = null;
     int textStart = 2;
-    if (tokens.size() >= 4) {
+    if (tokens.size() >= 4 && parseOption(tokens.get(2)) == null) {
       senderId = tokens.get(2);
       textStart = 3;
     }

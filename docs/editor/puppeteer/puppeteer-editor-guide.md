@@ -393,7 +393,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Dialog | Trigger | Fields / Buttons |
 |-------|---------|------------------|
 | Keyboard Shortcuts | Help button | Informational shortcut list |
-| Add Audio Cue | Add cue button | Path field, channel dropdown (`music/sound/voice`), volume slider, `Add Cue` |
+| Add Audio Cue | Add cue button | Path field, searchable project audio library, `Browse...`, `Import...`, `Preview`, `Stop`, channel dropdown (`music/sound/voice`), volume slider, `Add Cue` |
 | Clear Audio Cues confirmation | Clear cues button | Confirm / cancel |
 | Create Group | `+ Group` button | Group name input |
 | Load Clip | Load clip button | Clip selector list |
@@ -641,10 +641,15 @@ Audio events can be placed at specific times on the timeline.
 
 1. Move the playhead to the desired time
 2. Click **+ Cue** in the toolbar
-3. Fill in the dialog:
-   - **Path** — audio asset path (e.g., `assets/audio/music/theme.mp3`)
+3. Filter or select an entry from the project audio library to fill the path automatically
+4. Use **Browse...** to point at an existing file, or **Import...** to copy external audio into `assets/audio/puppeteer/`
+5. Use **Preview** / **Stop** to check the selected cue before saving
+6. Fill in the remaining dialog fields:
+   - **Path** — audio asset path (for example `assets/audio/music/theme.mp3`)
    - **Channel** — `music`, `sound`, or `voice`
    - **Volume** — 0.0 to 1.0
+
+The library scan picks up common project audio formats including `aac`, `flac`, `m4a`, `mp3`, `ogg`, `opus`, `wav`, and `webm`.
 
 ### Audio Cue Properties
 

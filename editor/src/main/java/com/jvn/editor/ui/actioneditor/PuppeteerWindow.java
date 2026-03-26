@@ -1,8 +1,10 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -61,6 +63,9 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 public class PuppeteerWindow extends Stage {
@@ -118,6 +123,7 @@ public class PuppeteerWindow extends Stage {
     private StackPane previewViewportHost;
     private Button btnPreviewFullscreen;
     private Button btnPreviewBack;
+    private MediaPlayer audioPreviewPlayer;
     private Label lblSidebarSelectionTarget;
     private Label lblSidebarSelectionScope;
     private Label lblSidebarSelectionProperty;
@@ -2626,6 +2632,121 @@ public class PuppeteerWindow extends Stage {
         tfPath.setPromptText("assets/audio/music/softbreeze.mp3");
         tfPath.setStyle(STYLE_TEXT_FIELD);
 
+        List<PuppeteerAudioLibrary.AudioEntry> libraryEntries = new ArrayList<>(PuppeteerAudioLibrary.scan(projectRoot));
+        TextField tfLibraryFilter = new TextField();
+        tfLibraryFilter.setPromptText("Filter project audio...");
+        tfLibraryFilter.setStyle(STYLE_TEXT_FIELD);
+
+        ListView<PuppeteerAudioLibrary.AudioEntry> libraryList = new ListView<>();
+        libraryList.setCellFactory(list -> new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(PuppeteerAudioLibrary.AudioEntry item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.relativePath());
+            }
+        });
+        libraryList.setPrefHeight(180);
+        libraryList.setMinHeight(120);
+        libraryList.setStyle("-fx-background-color: #14171d; -fx-control-inner-background: #14171d;");
+
+        Label libraryMeta = makeToolbarLabel("");
+        refreshAudioLibraryList(libraryList, libraryEntries, tfLibraryFilter.getText());
+        libraryMeta.setText(libraryEntries.isEmpty()
+            ? "No project audio found yet. Use Browse or Import to seed the library."
+            : libraryEntries.size() + " project audio files");
+        tfLibraryFilter.textProperty().addListener((obs, oldValue, newValue) ->
+            refreshAudioLibraryList(libraryList, libraryEntries, newValue)
+        );
+        libraryList.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue != null) {
+                tfPath.setText(newValue.relativePath());
+            }
+        });
+        libraryList.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2 && libraryList.getSelectionModel().getSelectedItem() != null) {
+                tfPath.setText(libraryList.getSelectionModel().getSelectedItem().relativePath());
+                playAudioPreview(tfPath.getText());
+                event.consume();
+            }
+        });
+
+        Button btnBrowseAudio = new Button("Browse...");
+        btnBrowseAudio.setStyle(STYLE_BTN_DARK);
+        btnBrowseAudio.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Choose Audio Cue");
+            chooser.getExtensionFilters().setAll(
+                new FileChooser.ExtensionFilter("Audio", "*.ogg", "*.wav", "*.mp3", "*.m4a", "*.aac", "*.flac", "*.opus"),
+                new FileChooser.ExtensionFilter("All Files", "*.*"));
+            if (projectRoot != null && projectRoot.isDirectory()) {
+                chooser.setInitialDirectory(projectRoot);
+            }
+            File selected = chooser.showOpenDialog(this);
+            if (selected == null) return;
+            if (projectRoot != null && projectRoot.isDirectory()) {
+                Path rootPath = projectRoot.toPath().toAbsolutePath().normalize();
+                Path selectedPath = selected.toPath().toAbsolutePath().normalize();
+                if (selectedPath.startsWith(rootPath)) {
+                    tfPath.setText(rootPath.relativize(selectedPath).toString().replace('\\', '/'));
+                    return;
+                }
+            }
+            tfPath.setText(selected.getAbsolutePath().replace('\\', '/'));
+        });
+
+        Button btnImportAudio = new Button("Import...");
+        btnImportAudio.setStyle(STYLE_BTN_DARK);
+        btnImportAudio.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Import Audio Into Project");
+            chooser.getExtensionFilters().setAll(
+                new FileChooser.ExtensionFilter("Audio", "*.ogg", "*.wav", "*.mp3", "*.m4a", "*.aac", "*.flac", "*.opus"),
+                new FileChooser.ExtensionFilter("All Files", "*.*"));
+            File initialDir = projectRoot != null && projectRoot.isDirectory()
+                ? new File(projectRoot, PuppeteerAudioLibrary.IMPORT_RELATIVE_DIR)
+                : null;
+            if (initialDir != null && initialDir.isDirectory()) {
+                chooser.setInitialDirectory(initialDir);
+            } else if (projectRoot != null && projectRoot.isDirectory()) {
+                chooser.setInitialDirectory(projectRoot);
+            }
+            File selected = chooser.showOpenDialog(this);
+            if (selected == null) return;
+            if (projectRoot == null || !projectRoot.isDirectory()) {
+                tfPath.setText(selected.getAbsolutePath().replace('\\', '/'));
+                return;
+            }
+            try {
+                Path importDir = projectRoot.toPath().resolve(PuppeteerAudioLibrary.IMPORT_RELATIVE_DIR);
+                Files.createDirectories(importDir);
+                Path target = PuppeteerAudioLibrary.resolveUniqueImportTarget(importDir, selected.getName());
+                Files.copy(selected.toPath(), target, StandardCopyOption.REPLACE_EXISTING);
+                String relativePath = projectRoot.toPath().toAbsolutePath().normalize()
+                    .relativize(target.toAbsolutePath().normalize())
+                    .toString()
+                    .replace('\\', '/');
+                tfPath.setText(relativePath);
+                libraryEntries.clear();
+                libraryEntries.addAll(PuppeteerAudioLibrary.scan(projectRoot));
+                refreshAudioLibraryList(libraryList, libraryEntries, tfLibraryFilter.getText());
+                libraryMeta.setText(libraryEntries.size() + " project audio files");
+            } catch (IOException ex) {
+                statusBar.setText("Audio import failed: " + ex.getMessage());
+            }
+        });
+
+        Button btnPreviewAudio = new Button("Preview");
+        btnPreviewAudio.setStyle(STYLE_BTN_DARK);
+        btnPreviewAudio.setOnAction(e -> playAudioPreview(tfPath.getText()));
+
+        Button btnStopAudio = new Button("Stop");
+        btnStopAudio.setStyle(STYLE_BTN_DARK);
+        btnStopAudio.setOnAction(e -> stopAudioPreview());
+
+        HBox pathRow = new HBox(8, tfPath, btnBrowseAudio, btnImportAudio);
+        HBox.setHgrow(tfPath, Priority.ALWAYS);
+        pathRow.setAlignment(Pos.CENTER_LEFT);
+
         ToggleGroup channelGroup = new ToggleGroup();
         RadioButton rbMusic = buildChannelButton("music", channelGroup, true);
         RadioButton rbSound = buildChannelButton("sound", channelGroup, false);
@@ -2650,16 +2771,25 @@ public class PuppeteerWindow extends Stage {
         Label lChannel = makeToolbarLabel("Channel");
         Label lVolume = makeToolbarLabel("Volume");
         grid.add(lPath, 0, 0);
-        grid.add(tfPath, 1, 0);
+        grid.add(pathRow, 1, 0);
         grid.add(lChannel, 0, 1);
         grid.add(new HBox(8, rbMusic, rbSound, rbVoice), 1, 1);
         grid.add(lVolume, 0, 2);
         grid.add(new HBox(8, volume, volumeLabel), 1, 2);
+
+        Label libraryTitle = makeToolbarLabel("Project Audio");
+        HBox libraryActions = new HBox(8, btnPreviewAudio, btnStopAudio, libraryMeta);
+        libraryActions.setAlignment(Pos.CENTER_LEFT);
+        VBox libraryBox = new VBox(8, libraryTitle, tfLibraryFilter, libraryList, libraryActions);
+        libraryBox.setPadding(new Insets(0, 8, 8, 8));
         overlayDialog.showDialog(
             "Add Audio Cue",
             "Create an audio trigger at playhead " + String.format("%.0fms", project.getPlayheadMs()),
-            grid,
-            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+            new VBox(8, grid, libraryBox),
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", () -> {
+                stopAudioPreview();
+                overlayDialog.hideOverlay();
+            }).defaultFocus(true),
             ActionEditorDialogOverlay.ActionSpec.stayOpen("Add Cue", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
             String path = tfPath.getText() != null ? tfPath.getText().trim() : "";
                 if (path.isBlank()) {
@@ -2673,13 +2803,71 @@ public class PuppeteerWindow extends Stage {
             project.addAudioCue(cue);
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
+                stopAudioPreview();
                 overlayDialog.hideOverlay();
             })
         );
     }
 
+    private void refreshAudioLibraryList(ListView<PuppeteerAudioLibrary.AudioEntry> listView,
+                                         List<PuppeteerAudioLibrary.AudioEntry> allEntries,
+                                         String filterText) {
+        if (listView == null) return;
+        String query = filterText == null ? "" : filterText.trim().toLowerCase(Locale.ROOT);
+        listView.getItems().clear();
+        for (PuppeteerAudioLibrary.AudioEntry entry : allEntries) {
+            if (entry == null) continue;
+            if (query.isEmpty() || entry.relativePath().toLowerCase(Locale.ROOT).contains(query)) {
+                listView.getItems().add(entry);
+            }
+        }
+    }
+
+    private void playAudioPreview(String rawPath) {
+        stopAudioPreview();
+        String uri = resolveAudioPreviewUri(rawPath);
+        if (uri == null || uri.isBlank()) {
+            if (statusBar != null) statusBar.setText("Audio preview not found");
+            return;
+        }
+        try {
+            audioPreviewPlayer = new MediaPlayer(new Media(uri));
+            audioPreviewPlayer.setOnError(() -> {
+                if (statusBar != null) statusBar.setText("Audio preview failed");
+                stopAudioPreview();
+            });
+            audioPreviewPlayer.play();
+        } catch (Exception ex) {
+            if (statusBar != null) statusBar.setText("Audio preview failed: " + ex.getMessage());
+            stopAudioPreview();
+        }
+    }
+
+    private void stopAudioPreview() {
+        if (audioPreviewPlayer == null) return;
+        try {
+            audioPreviewPlayer.stop();
+            audioPreviewPlayer.dispose();
+        } catch (Exception ignored) {
+        }
+        audioPreviewPlayer = null;
+    }
+
+    private String resolveAudioPreviewUri(String rawPath) {
+        String path = rawPath == null ? "" : rawPath.trim();
+        if (path.isBlank()) return null;
+        File direct = new File(path);
+        if (direct.isFile()) return direct.toURI().toString();
+        if (projectRoot != null) {
+            File fromRoot = new File(projectRoot, path.replace('\\', '/'));
+            if (fromRoot.isFile()) return fromRoot.toURI().toString();
+        }
+        return null;
+    }
+
     private void requestWindowClose() {
         if (!dirty && !previewStaged) {
+            stopAudioPreview();
             closeNow();
             return;
         }
@@ -2701,6 +2889,7 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void closeNow() {
+        stopAudioPreview();
         bypassCloseConfirmation = true;
         close();
     }

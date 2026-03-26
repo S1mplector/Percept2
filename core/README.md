@@ -17,7 +17,7 @@ Zero-dependency foundation module for the JVN engine. Every other module depends
 | `math` | Vector, interpolation, easing utilities |
 | `menu` | Menu profile system — screens, layouts, styles, actions, registry, inheritance |
 | `nativebridge` | JNI bridge abstractions for native-math |
-| `phone` | In-game phone UI model |
+| `phone` | In-game phone UI model, config codec, and command/runtime support for chats, apps, calls, and typed messages |
 | `physics` | PhysicsWorld2D, broadphase, raycasts, rigid bodies |
 | `rpg` | Stats, inventory, equipment, items, damage/heal |
 | `scene` / `scene2d` | Scene graph, Entity2D, Sprite2D, Label2D, Panel2D, SpriteAnimation2D, parallax |

@@ -358,6 +358,16 @@ The phone system reads its seed data from:
 
 At runtime, phone mutations are persisted through the VN variable layer, so save/load and rollback keep the same chat state.
 
+### Phone Seed Config
+
+`phone.properties` can seed more than a simple thread list. The runtime and editor also read:
+
+- `home.mode` (`threads` or `apps`)
+- `status.time`, `status.mode`, `status.signal`, `status.battery`
+- `chat.<id>.composerText`, `chat.<id>.composerHint`
+- `home.apps` plus `phoneapp.<id>.title`, `icon`, `badge`, `accent`, `page`, `target`, `targetValue`
+- `calls` plus `call.<id>.title`, `subtitle`, `avatar`, `status`, `participant`, `video`
+
 ### Phone `app.*` Skin Keys
 
 `phone.properties` supports optional skin-driven renderer keys for 1:1 chrome overlays:
@@ -384,36 +394,53 @@ Legacy aliases `app.bubbleIncomingImage` and `app.bubbleOutgoingImage` are still
 ### Opening the Phone
 
 ```vns
-[phone open]           # open the phone home/thread list
-[phone chat mc_lily]   # open directly to a thread
-[phone close]          # request close if a phone overlay is active
+[phone open]                  # open the home view (thread list or app grid)
+[phone open home]             # explicit home open
+[phone open chat mc_lily]     # open directly to a thread
+[phone open call lily_video]  # open directly to a call surface
+[phone chat mc_lily]          # shorthand for opening a thread
+[phone call lily_video]       # shorthand for opening a call surface
+[phone close]                 # request close if a phone overlay is active
 ```
 
-### Seeding Contacts and Threads
+### Seeding Contacts, Threads, Apps, and Calls
 
 ```vns
 [phone contact mc name="John" self=true]
 [phone contact ll name="Lily" avatar="assets/phone/lily.png"]
-[phone thread mc_lily title="LostVarnacola" participants=mc,ll icon="assets/phone/lily.png"]
+[phone thread mc_lily title="LostVarnacola" participants=mc,ll icon="assets/phone/lily.png" composer="typing..." composerHint="Message"]
+[phone app messages title="Messages" icon="assets/ui/phone/apps/messages.png" badge=3 page=0 chat=mc_lily]
+[phone call lily_video title="Lily" subtitle="LostVarnacola" participant=ll video=true]
 ```
 
 Supported options:
 
 - `contact`: `name=`, `avatar=`, `color=`, `self=`
-- `thread`: `title=`, `icon=`, `participants=mc,ll`, `unread=true|false`
+- `thread`: `title=`, `icon=`, `participants=mc,ll`, `unread=true|false`, `composer=`, `composerHint=` / `hint=`
+- `app`: `title=`, `icon=`, `badge=`, `accent=`, `page=`, `target=`, `targetValue=`, shorthand `chat=` / `call=`
+- `call`: `title=`, `subtitle=`, `avatar=`, `status=`, `participant=`, `video=`, `open=`
 
 ### Appending and Mutating Messages
 
 ```vns
 [phone message mc_lily ll "You awake?" time=08:14]
+[phone message mc_lily type=image asset="assets/phone/messages/lily_photo.png" caption="Look at this" time=08:15]
+[phone message mc_lily type=audio asset="assets/audio/voice/lily_note.ogg" caption="Voice note" duration=0:12]
+[phone message mc_lily type=date "Friday, 8 March"]
+[phone message mc_lily ll "Choose one" menu="Meet now|Later"]
 [phone unread mc_lily true]
 [phone clear mc_lily]
 ```
 
 Notes:
 
-- `message` expects: `<chatId> <senderId> "text"` plus optional `time=` and `unread=`.
-- Missing contacts/threads are created on demand.
+- `message` accepts either `<chatId> "text"` or `<chatId> <senderId> "text"` plus options.
+- If the first token after `<chatId>` is an option like `type=image`, no sender is used.
+- `type=` accepts `text`, `image`, `audio`, `menu`, `date`, and `label`.
+- `asset=` is the generic media path. `image=` and `audio=` are shorthands that also force the matching message type.
+- `menu=` / `choices=` / `options=` split entries on `|`.
+- `[phone call <id>]` with no options opens an existing call. Add `open=true` to mutate and open in the same command.
+- Missing contacts, threads, apps, and calls are created on demand.
 - New messages move the thread to the top of the phone list.
 
 ---
@@ -457,7 +484,7 @@ Shows a temporary on-screen message (auto-expires after ~2 seconds). Supports `$
 |----------|---------|
 | `jes` | Push/replace/pop/call JES scenes |
 | `menu` | Open menu scenes |
-| `phone` | Open the phone overlay and mutate contacts/threads/messages |
+| `phone` | Open the phone overlay and mutate contacts, threads, apps, calls, and typed messages |
 | `vns` | Script flow transitions |
 
 ---

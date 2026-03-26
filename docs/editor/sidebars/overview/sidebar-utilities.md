@@ -20,7 +20,7 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 | 6 | Label Flow Map | **[sidebar-label-flow-map.md](../right/sidebar-label-flow-map.md)** | Right | Visual label-to-label flow graph for VNS |
 | 7 | Asset Browser | **[sidebar-asset-browser.md](../right/sidebar-asset-browser.md)** | Right | Project asset discovery, preview, copy path |
 | 8 | Layout Launcher | **[sidebar-layout-launcher.md](../right/sidebar-layout-launcher.md)** | Right | Quick-launch layout/style/screen editors |
-| 9 | Phone Assets | **[sidebar-phone-assets-tool.md](../right/sidebar-phone-assets-tool.md)** | Right | Structured editor for phone config, contacts, threads, messages, and asset import |
+| 9 | Phone Assets | **[sidebar-phone-assets-tool.md](../right/sidebar-phone-assets-tool.md)** | Right | Structured editor for phone config, status/chrome, contacts, threads, apps, calls, typed messages, and asset import |
 | 10 | Storyboard Overlay | **[sidebar-storyboard-overlay.md](../right/sidebar-storyboard-overlay.md)** | Right | Transparent board-frame overlays for JES and VNS staging previews |
 | 11 | Menu Flow Editor | **[sidebar-menu-flow-editor.md](../right/sidebar-menu-flow-editor.md)** | Right | Visual menu-to-menu navigation wiring |
 | 12 | Layered Image Visualizer | **[sidebar-layered-image-visualizer.md](../right/sidebar-layered-image-visualizer.md)** | Right | Layered sprite exploration and snippet export |
