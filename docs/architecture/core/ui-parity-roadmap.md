@@ -221,8 +221,8 @@ Current JVN surface:
 Patch requirements:
 
 - Add a migration table from high-value Ren'Py `gui.*` variables to JVN keys.
-- Add an editor-side import/audit utility that can read common Ren'Py UI values and scaffold JVN config files.
-- Emit partial-support diagnostics instead of dropping unsupported values silently.
+- Keep the focus on direct runtime/editor parity, not a one-off audit importer.
+- Expand automated coverage so the current dialogue/menu layout DSL remains a concrete support target for common Ren'Py `gui.*` values.
 
 Status:
 

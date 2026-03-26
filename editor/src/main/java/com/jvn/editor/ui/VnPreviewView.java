@@ -387,7 +387,15 @@ public class VnPreviewView extends StackPane {
           activeScene,
           VnPhoneStateStore.load(activeScene.getState(), this::loadPhoneSeed),
           updated -> VnPhoneStateStore.save(activeScene.getState(), updated),
-          result.chatId());
+          result.targetId());
+      case OPEN_CALL -> {
+        PhoneScene phoneScene = new PhoneScene(
+            activeScene,
+            VnPhoneStateStore.load(activeScene.getState(), this::loadPhoneSeed),
+            updated -> VnPhoneStateStore.save(activeScene.getState(), updated));
+        phoneScene.openCall(result.targetId());
+        overlayScene = phoneScene;
+      }
       case CLOSE -> closeOverlayScene();
       case NONE -> {
       }

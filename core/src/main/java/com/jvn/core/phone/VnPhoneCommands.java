@@ -20,10 +20,11 @@ public final class VnPhoneCommands {
     NONE,
     OPEN_HOME,
     OPEN_CHAT,
+    OPEN_CALL,
     CLOSE
   }
 
-  public record Result(Action action, String chatId) {
+  public record Result(Action action, String targetId) {
     public static Result none() {
       return new Result(Action.NONE, null);
     }
@@ -34,6 +35,10 @@ public final class VnPhoneCommands {
 
     public static Result openChat(String chatId) {
       return new Result(Action.OPEN_CHAT, VnPhoneData.normalizeId(chatId));
+    }
+
+    public static Result openCall(String callId) {
+      return new Result(Action.OPEN_CALL, VnPhoneData.normalizeId(callId));
     }
 
     public static Result close() {
@@ -54,9 +59,11 @@ public final class VnPhoneCommands {
     return switch (cmd) {
       case "open", "show" -> handleOpen(tokens, state);
       case "chat" -> handleOpenChat(tokens, state);
+      case "call" -> handleCalls(tokens, state, seedSupplier);
       case "close", "hide" -> Result.close();
       case "contact" -> mutateContacts(tokens, state, seedSupplier);
       case "thread" -> mutateThreads(tokens, state, seedSupplier);
+      case "app" -> mutateApps(tokens, state, seedSupplier);
       case "message" -> mutateMessages(tokens, state, seedSupplier);
       case "unread" -> mutateUnread(tokens, state, seedSupplier);
       case "clear" -> mutateClear(tokens, state, seedSupplier);
@@ -77,6 +84,13 @@ public final class VnPhoneCommands {
         return Result.none();
       }
       return Result.openChat(tokens.get(2));
+    }
+    if ("call".equals(second)) {
+      if (tokens.size() < 3) {
+        state.showHudMessage("phone open call: missing call id", 1400);
+        return Result.none();
+      }
+      return Result.openCall(tokens.get(2));
     }
     return Result.openChat(tokens.get(1));
   }
@@ -133,6 +147,8 @@ public final class VnPhoneCommands {
           }
         }
         case "unread" -> chat.setUnread(parseBoolean(option.value(), chat.isUnread()));
+        case "composer", "composertext", "typing" -> chat.setComposerText(option.value());
+        case "composerhint", "hint" -> chat.setComposerHint(option.value());
         default -> state.showHudMessage("phone thread: ignored option '" + option.key() + "'", 900);
       }
     }
@@ -143,32 +159,124 @@ public final class VnPhoneCommands {
     return Result.none();
   }
 
+  private static Result mutateApps(List<String> tokens, VnState state, Supplier<VnPhoneData> seedSupplier) {
+    if (tokens.size() < 2) {
+      state.showHudMessage("phone app: missing id", 1400);
+      return Result.none();
+    }
+    VnPhoneData data = VnPhoneStateStore.load(state, seedSupplier);
+    VnPhoneData.PhoneApp app = data.getOrCreateApp(tokens.get(1));
+    for (KeyValue option : parseOptions(tokens, 2)) {
+      switch (option.key()) {
+        case "title", "name" -> app.setTitle(option.value());
+        case "icon", "avatar" -> app.setIconPath(option.value());
+        case "badge" -> app.setBadgeText(option.value());
+        case "accent", "color" -> app.setAccentColor(option.value());
+        case "page" -> app.setPage(parseInt(option.value(), app.getPage()));
+        case "target", "route" -> app.setTargetType(option.value());
+        case "targetvalue", "chat", "call", "value" -> {
+          if ("chat".equals(option.key())) app.setTargetType(VnPhoneData.AppTargetType.CHAT);
+          if ("call".equals(option.key())) app.setTargetType(VnPhoneData.AppTargetType.CALL);
+          app.setTargetValue(option.value());
+        }
+        default -> state.showHudMessage("phone app: ignored option '" + option.key() + "'", 900);
+      }
+    }
+    VnPhoneStateStore.save(state, data);
+    return Result.none();
+  }
+
+  private static Result handleCalls(List<String> tokens, VnState state, Supplier<VnPhoneData> seedSupplier) {
+    if (tokens.size() < 2) {
+      state.showHudMessage("phone call: missing id", 1400);
+      return Result.none();
+    }
+    boolean openRequested = tokens.size() == 2 || (tokens.size() >= 3 && !tokens.get(2).contains("=") && !tokens.get(2).contains(":"));
+    if (openRequested && tokens.size() == 2) {
+      return Result.openCall(tokens.get(1));
+    }
+
+    VnPhoneData data = VnPhoneStateStore.load(state, seedSupplier);
+    VnPhoneData.Call call = data.getOrCreateCall(tokens.get(1));
+    for (KeyValue option : parseOptions(tokens, 2)) {
+      switch (option.key()) {
+        case "title", "name" -> call.setTitle(option.value());
+        case "subtitle" -> call.setSubtitle(option.value());
+        case "avatar", "icon" -> call.setAvatarPath(option.value());
+        case "status" -> call.setStatusText(option.value());
+        case "participant", "contact" -> call.setParticipantId(option.value());
+        case "video" -> call.setVideo(parseBoolean(option.value(), call.isVideo()));
+        case "open" -> {
+          if (parseBoolean(option.value(), false)) {
+            VnPhoneStateStore.save(state, data);
+            return Result.openCall(call.getId());
+          }
+        }
+        default -> state.showHudMessage("phone call: ignored option '" + option.key() + "'", 900);
+      }
+    }
+    VnPhoneStateStore.save(state, data);
+    return Result.none();
+  }
+
   private static Result mutateMessages(List<String> tokens, VnState state, Supplier<VnPhoneData> seedSupplier) {
-    if (tokens.size() < 4) {
+    if (tokens.size() < 3) {
       state.showHudMessage("phone message: expected chat sender text", 1500);
       return Result.none();
     }
     String chatId = tokens.get(1);
-    String senderId = tokens.get(2);
-    List<KeyValue> options = new ArrayList<>();
-    String text = collectMessageText(tokens, 3, options);
-    if (text == null || text.isBlank()) {
-      state.showHudMessage("phone message: missing text", 1400);
-      return Result.none();
+    String senderId = null;
+    int textStart = 2;
+    if (tokens.size() >= 4) {
+      senderId = tokens.get(2);
+      textStart = 3;
     }
 
+    List<KeyValue> options = new ArrayList<>();
+    String text = collectMessageText(tokens, textStart, options);
     String time = null;
     boolean unread = true;
+    VnPhoneData.MessageType type = VnPhoneData.MessageType.TEXT;
+    String asset = null;
+    String caption = null;
+    String duration = null;
+    List<String> menuOptions = List.of();
     for (KeyValue option : options) {
       switch (option.key()) {
         case "time", "timestamp", "at" -> time = option.value();
         case "unread" -> unread = parseBoolean(option.value(), true);
+        case "type" -> type = VnPhoneData.MessageType.fromToken(option.value());
+        case "asset", "image", "audio", "path" -> {
+          asset = option.value();
+          if ("image".equals(option.key())) type = VnPhoneData.MessageType.IMAGE;
+          if ("audio".equals(option.key())) type = VnPhoneData.MessageType.AUDIO;
+        }
+        case "caption" -> caption = option.value();
+        case "duration" -> duration = option.value();
+        case "options", "choices", "menu" -> {
+          menuOptions = splitPipe(option.value());
+          if ("menu".equals(option.key()) || "choices".equals(option.key())) {
+            type = VnPhoneData.MessageType.MENU;
+          }
+        }
         default -> state.showHudMessage("phone message: ignored option '" + option.key() + "'", 900);
       }
     }
 
+    boolean hasPayload = !(text == null || text.isBlank())
+        || !(asset == null || asset.isBlank())
+        || !(caption == null || caption.isBlank())
+        || !menuOptions.isEmpty();
+    if (!hasPayload) {
+      state.showHudMessage("phone message: missing text or payload", 1400);
+      return Result.none();
+    }
+
+    if ((type == VnPhoneData.MessageType.DATE || type == VnPhoneData.MessageType.LABEL) && senderId != null && senderId.contains("=")) {
+      senderId = null;
+    }
     VnPhoneData data = VnPhoneStateStore.load(state, seedSupplier);
-    data.appendMessage(chatId, senderId, text, time, unread);
+    data.appendMessage(chatId, senderId, text, time, type, asset, caption, duration, menuOptions, unread);
     VnPhoneStateStore.save(state, data);
     return Result.none();
   }
@@ -198,7 +306,7 @@ public final class VnPhoneCommands {
 
   private static String collectMessageText(List<String> tokens, int start, List<KeyValue> options) {
     List<String> textParts = new ArrayList<>();
-    for (int i = start; i < tokens.size(); i++) {
+    for (int i = Math.max(0, start); i < tokens.size(); i++) {
       KeyValue option = parseOption(tokens.get(i));
       if (option != null) {
         options.add(option);
@@ -239,12 +347,33 @@ public final class VnPhoneCommands {
     };
   }
 
+  private static int parseInt(String token, int fallback) {
+    if (token == null || token.isBlank()) return fallback;
+    try {
+      return Integer.parseInt(token.trim());
+    } catch (NumberFormatException ignored) {
+      return fallback;
+    }
+  }
+
   private static List<String> splitCsv(String csv) {
     List<String> values = new ArrayList<>();
     if (csv == null || csv.isBlank()) return values;
     for (String token : csv.split(",")) {
       String normalized = VnPhoneData.normalizeId(token);
       if (normalized != null && !values.contains(normalized)) {
+        values.add(normalized);
+      }
+    }
+    return values;
+  }
+
+  private static List<String> splitPipe(String raw) {
+    List<String> values = new ArrayList<>();
+    if (raw == null || raw.isBlank()) return values;
+    for (String token : raw.split("\\|")) {
+      String normalized = token == null ? null : token.trim();
+      if (normalized != null && !normalized.isEmpty()) {
         values.add(normalized);
       }
     }

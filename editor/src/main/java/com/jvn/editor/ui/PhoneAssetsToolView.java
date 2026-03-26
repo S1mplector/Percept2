@@ -29,6 +29,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -62,8 +63,10 @@ public class PhoneAssetsToolView extends BorderPane {
   static final String GAME_CONFIG_PATH = "game/config/phone/phone.properties";
   static final String WALLPAPER_IMPORT_DIR = "assets/ui/phone";
   static final String SKIN_IMPORT_DIR = "assets/ui/phone/skins";
+  static final String APP_IMPORT_DIR = "assets/ui/phone/apps";
   static final String CONTACT_IMPORT_DIR = "assets/phone/contacts";
   static final String CHAT_IMPORT_DIR = "assets/phone/chats";
+  static final String MESSAGE_IMPORT_DIR = "assets/phone/messages";
 
   private final Label summaryLabel = new Label("Open a project to edit phone assets and configuration.");
   private final Label statusLabel = new Label("");
@@ -83,6 +86,7 @@ public class PhoneAssetsToolView extends BorderPane {
   private final StackPane previewFrame = new StackPane();
   private final Button previewHomeButton = headerButton("Preview Home", CssIcon.home("#9cc7ff"));
   private final Button previewChatButton = headerButton("Preview Chat", CssIcon.speech("#f5c46b"));
+  private final Button previewCallButton = headerButton("Preview Call", CssIcon.play("#f38ba8"));
   private final Label previewSelectionLabel = new Label("Previewing home list");
 
   private final TabPane sections = new TabPane();
@@ -111,6 +115,11 @@ public class PhoneAssetsToolView extends BorderPane {
   private final TextField skinFloatingActionField = new TextField();
   private final TextField bubbleIncomingImageField = new TextField();
   private final TextField bubbleOutgoingImageField = new TextField();
+  private final ComboBox<VnPhoneData.HomeMode> homeModeCombo = new ComboBox<>();
+  private final TextField statusTimeField = new TextField();
+  private final TextField statusModeField = new TextField();
+  private final TextField statusSignalField = new TextField();
+  private final TextField statusBatteryField = new TextField();
 
   private final ListView<String> contactList = new ListView<>();
   private final TextField contactFilterField = filterField("Filter contacts...");
@@ -132,14 +141,44 @@ public class PhoneAssetsToolView extends BorderPane {
   private final CheckBox chatUnreadCheck = new CheckBox("Mark thread unread on home list");
   private final VBox chatForm = new VBox(10);
 
+  private final ListView<String> appList = new ListView<>();
+  private final TextField appFilterField = filterField("Filter apps...");
+  private final Label appCountLabel = new Label("0 apps");
+  private final TextField appIdField = readonlyField();
+  private final TextField appNameField = new TextField();
+  private final TextField appIconField = new TextField();
+  private final TextField appBadgeField = new TextField();
+  private final TextField appAccentColorField = new TextField();
+  private final TextField appPageField = new TextField();
+  private final ComboBox<VnPhoneData.AppTargetType> appTargetTypeCombo = new ComboBox<>();
+  private final TextField appTargetValueField = new TextField();
+  private final VBox appForm = new VBox(10);
+
   private final ListView<String> messageList = new ListView<>();
   private final TextField messageFilterField = filterField("Filter messages...");
   private final Label messageCountLabel = new Label("0 messages");
   private final Label messageIdLabel = new Label("No message selected");
+  private final ComboBox<VnPhoneData.MessageType> messageTypeCombo = new ComboBox<>();
   private final TextField messageSenderField = new TextField();
   private final TextField messageTimeField = new TextField();
+  private final TextField messageAssetField = new TextField();
+  private final TextField messageCaptionField = new TextField();
+  private final TextField messageDurationField = new TextField();
+  private final TextField messageOptionsField = new TextField();
   private final TextArea messageTextArea = new TextArea();
   private final VBox messageForm = new VBox(10);
+
+  private final ListView<String> callList = new ListView<>();
+  private final TextField callFilterField = filterField("Filter calls...");
+  private final Label callCountLabel = new Label("0 calls");
+  private final TextField callIdField = readonlyField();
+  private final TextField callTitleField = new TextField();
+  private final TextField callSubtitleField = new TextField();
+  private final TextField callParticipantField = new TextField();
+  private final TextField callAvatarField = new TextField();
+  private final TextField callStatusField = new TextField();
+  private final CheckBox callVideoCheck = new CheckBox("Video call");
+  private final VBox callForm = new VBox(10);
 
   private final Properties persisted = new Properties();
 
@@ -149,11 +188,19 @@ public class PhoneAssetsToolView extends BorderPane {
   private File activeConfigFile;
   private boolean applyingUi;
   private boolean dirty;
-  private boolean previewSelectedChat;
+  private PreviewMode previewMode = PreviewMode.HOME;
   private String selectedContactId;
   private String selectedChatId;
+  private String selectedAppId;
   private String selectedMessageId;
+  private String selectedCallId;
   private boolean disposed;
+
+  private enum PreviewMode {
+    HOME,
+    CHAT,
+    CALL
+  }
 
   public PhoneAssetsToolView() {
     getStyleClass().add("phone-tool-root");
@@ -198,8 +245,10 @@ public class PhoneAssetsToolView extends BorderPane {
     activeConfigFile = null;
     selectedContactId = null;
     selectedChatId = null;
+    selectedAppId = null;
     selectedMessageId = null;
-    previewSelectedChat = false;
+    selectedCallId = null;
+    previewMode = PreviewMode.HOME;
     persisted.clear();
     workingData = new VnPhoneData();
     applyingUi = true;
@@ -333,17 +382,22 @@ public class PhoneAssetsToolView extends BorderPane {
     previewSelectionLabel.setWrapText(true);
 
     previewHomeButton.setOnAction(e -> {
-      previewSelectedChat = false;
+      previewMode = PreviewMode.HOME;
       refreshPreview();
       persistUiState();
     });
     previewChatButton.setOnAction(e -> {
-      previewSelectedChat = true;
+      previewMode = PreviewMode.CHAT;
+      refreshPreview();
+      persistUiState();
+    });
+    previewCallButton.setOnAction(e -> {
+      previewMode = PreviewMode.CALL;
       refreshPreview();
       persistUiState();
     });
 
-    HBox previewToolbar = new HBox(8, previewHomeButton, previewChatButton);
+    HBox previewToolbar = new HBox(8, previewHomeButton, previewChatButton, previewCallButton);
     previewToolbar.setAlignment(Pos.CENTER_LEFT);
 
     VBox previewCard = new VBox(10, previewTitle, previewCopy, previewSelectionLabel, previewToolbar, previewFrame);
@@ -361,7 +415,9 @@ public class PhoneAssetsToolView extends BorderPane {
         buildAppTab(),
         buildContactsTab(),
         buildChatsTab(),
-        buildMessagesTab());
+        buildAppsTab(),
+        buildMessagesTab(),
+        buildCallsTab());
     sections.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
     sections.getStyleClass().add("phone-tool-tabs");
 
@@ -391,13 +447,19 @@ public class PhoneAssetsToolView extends BorderPane {
     copy.getStyleClass().add("phone-tool-help");
     copy.setWrapText(true);
 
+    homeModeCombo.getItems().setAll(VnPhoneData.HomeMode.values());
     appTitleField.setPromptText("Phone");
     appSubtitleField.setPromptText("Messages");
     wallpaperField.setPromptText("assets/ui/phone/wallpaper.png");
+    homeModeCombo.setPromptText("threads | apps");
     accentField.setPromptText("#78b7ff");
     surfaceField.setPromptText("#101826");
     incomingBubbleField.setPromptText("#1c2738");
     outgoingBubbleField.setPromptText("#2563eb");
+    statusTimeField.setPromptText("9:41");
+    statusModeField.setPromptText("Focus");
+    statusSignalField.setPromptText("LTE");
+    statusBatteryField.setPromptText("82%");
     skinIdField.setPromptText("sms | discord | custom");
     skinBackgroundField.setPromptText("assets/ui/phone/skins/sms/sms_background.png");
     skinTopBarField.setPromptText("assets/ui/phone/skins/sms/sms_top_bar.png");
@@ -419,6 +481,7 @@ public class PhoneAssetsToolView extends BorderPane {
     int basicsRow = 0;
     addLabeledRow(basicsGrid, basicsRow++, "Title", appTitleField);
     addLabeledRow(basicsGrid, basicsRow++, "Subtitle", appSubtitleField);
+    addLabeledRow(basicsGrid, basicsRow++, "Home Mode", homeModeCombo);
     addLabeledRow(basicsGrid, basicsRow++, "Wallpaper", assetFieldRow(wallpaperField, WALLPAPER_IMPORT_DIR, "Wallpaper"));
     addLabeledRow(basicsGrid, basicsRow++, "Skin", skinIdField);
 
@@ -428,6 +491,13 @@ public class PhoneAssetsToolView extends BorderPane {
     addLabeledRow(paletteGrid, paletteRow++, "Surface", surfaceField);
     addLabeledRow(paletteGrid, paletteRow++, "Incoming Bubble", incomingBubbleField);
     addLabeledRow(paletteGrid, paletteRow++, "Outgoing Bubble", outgoingBubbleField);
+
+    GridPane statusGrid = formGrid();
+    int statusRow = 0;
+    addLabeledRow(statusGrid, statusRow++, "Time", statusTimeField);
+    addLabeledRow(statusGrid, statusRow++, "Mode", statusModeField);
+    addLabeledRow(statusGrid, statusRow++, "Signal", statusSignalField);
+    addLabeledRow(statusGrid, statusRow++, "Battery", statusBatteryField);
 
     GridPane shellGrid = formGrid();
     int shellRow = 0;
@@ -459,6 +529,7 @@ public class PhoneAssetsToolView extends BorderPane {
     sectionsGrid.getChildren().addAll(
         sectionCard("Basics", "Identity, wallpaper, and active phone skin.", basicsGrid),
         sectionCard("Palette", "Override key accent and bubble colors.", paletteGrid),
+        sectionCard("Status Bar", "Semantic status text shown in home, chat, and call views.", statusGrid),
         sectionCard("Shell Assets", "Frame, top bar, bottom bar, and message field artwork.", shellGrid),
         sectionCard("Controls + Status", "Navigation, composer, and overlay icons used by the renderer.", controlsGrid),
         sectionCard("Bubble Images", "Optional image-based incoming and outgoing message bubbles.", bubbleGrid));
@@ -553,7 +624,7 @@ public class PhoneAssetsToolView extends BorderPane {
     removeButton.setOnAction(e -> removeSelectedChat());
     Button previewThreadButton = smallButton("Preview Selected Thread", CssIcon.speech("#f5c46b"));
     previewThreadButton.setOnAction(e -> {
-      previewSelectedChat = true;
+      previewMode = PreviewMode.CHAT;
       refreshPreview();
       persistUiState();
     });
@@ -576,13 +647,82 @@ public class PhoneAssetsToolView extends BorderPane {
     return new Tab("Threads", scroll);
   }
 
+  private Tab buildAppsTab() {
+    appList.getStyleClass().add("phone-tool-list");
+    appList.setPlaceholder(emptyState("No apps yet", "Add launchable apps for the home grid and route them to chats or calls."));
+    appCountLabel.getStyleClass().add("phone-tool-list-meta");
+
+    appNameField.setPromptText("Messages");
+    appIconField.setPromptText("assets/ui/phone/apps/messages.png");
+    appBadgeField.setPromptText("3");
+    appAccentColorField.setPromptText("#78b7ff");
+    appPageField.setPromptText("0");
+    appTargetTypeCombo.getItems().setAll(VnPhoneData.AppTargetType.values());
+    appTargetValueField.setPromptText("thread_or_call_id");
+
+    Label title = new Label("Selected App");
+    title.getStyleClass().add("phone-tool-section-title");
+    Label detailCopy = new Label("Define the home-grid app icon, badge, page grouping, and where the app launches.");
+    detailCopy.getStyleClass().add("phone-tool-help");
+    detailCopy.setWrapText(true);
+
+    GridPane grid = formGrid();
+    int row = 0;
+    addLabeledRow(grid, row++, "ID", appIdField);
+    addLabeledRow(grid, row++, "Title", appNameField);
+    addLabeledRow(grid, row++, "Icon", assetFieldRow(appIconField, APP_IMPORT_DIR, "App Icon"));
+    addLabeledRow(grid, row++, "Badge", appBadgeField);
+    addLabeledRow(grid, row++, "Accent", appAccentColorField);
+    addLabeledRow(grid, row++, "Page", appPageField);
+    addLabeledRow(grid, row++, "Target", appTargetTypeCombo);
+    addLabeledRow(grid, row++, "Target Value", appTargetValueField);
+
+    appForm.getChildren().setAll(title, detailCopy, grid);
+    appForm.getStyleClass().add("phone-tool-card");
+    appForm.setPadding(new Insets(8));
+
+    Button addButton = smallButton("Add App", CssIcon.plus("#9ed67a"));
+    addButton.setOnAction(e -> addApp());
+    Button removeButton = smallButton("Remove", CssIcon.minus("#f38ba8"));
+    removeButton.setOnAction(e -> removeSelectedApp());
+    Button previewHomeGridButton = smallButton("Preview Home Grid", CssIcon.grid("#9cc7ff"));
+    previewHomeGridButton.setOnAction(e -> {
+      previewMode = PreviewMode.HOME;
+      homeModeCombo.setValue(VnPhoneData.HomeMode.APPS);
+      refreshPreview();
+      persistUiState();
+    });
+
+    HBox actions = new HBox(8, addButton, removeButton, previewHomeGridButton);
+    actions.setAlignment(Pos.CENTER_LEFT);
+
+    HBox listHeader = new HBox(8, sectionLabel("Apps"), createSpacer(), appCountLabel);
+    listHeader.setAlignment(Pos.CENTER_LEFT);
+
+    VBox listCard = new VBox(8, listHeader, appFilterField, actions, appList);
+    listCard.getStyleClass().add("phone-tool-card");
+    VBox.setVgrow(appList, Priority.ALWAYS);
+
+    VBox root = new VBox(10, listCard, appForm);
+    VBox.setVgrow(appList, Priority.ALWAYS);
+    root.setPadding(new Insets(8));
+
+    ScrollPane scroll = cardScroll(root);
+    return new Tab("Apps", scroll);
+  }
+
   private Tab buildMessagesTab() {
     messageList.getStyleClass().add("phone-tool-list");
     messageList.setPlaceholder(emptyState("No messages", "Select or create a thread, then add its messages here."));
     messageCountLabel.getStyleClass().add("phone-tool-list-meta");
 
+    messageTypeCombo.getItems().setAll(VnPhoneData.MessageType.values());
     messageSenderField.setPromptText("mc");
     messageTimeField.setPromptText("08:15");
+    messageAssetField.setPromptText("assets/phone/messages/photo.png");
+    messageCaptionField.setPromptText("Caption");
+    messageDurationField.setPromptText("0:14");
+    messageOptionsField.setPromptText("Option A | Option B");
     messageTextArea.setPromptText("Message text");
     messageTextArea.setPrefRowCount(4);
     messageTextArea.setWrapText(true);
@@ -597,8 +737,13 @@ public class PhoneAssetsToolView extends BorderPane {
     GridPane grid = formGrid();
     int row = 0;
     addLabeledRow(grid, row++, "Message", messageIdLabel);
+    addLabeledRow(grid, row++, "Type", messageTypeCombo);
     addLabeledRow(grid, row++, "Sender", messageSenderField);
     addLabeledRow(grid, row++, "Time", messageTimeField);
+    addLabeledRow(grid, row++, "Asset", assetFieldRow(messageAssetField, MESSAGE_IMPORT_DIR, "Message Asset"));
+    addLabeledRow(grid, row++, "Caption", messageCaptionField);
+    addLabeledRow(grid, row++, "Duration", messageDurationField);
+    addLabeledRow(grid, row++, "Options", messageOptionsField);
     addLabeledRow(grid, row++, "Text", messageTextArea);
 
     messageForm.getChildren().setAll(messageTitle, detailCopy, grid);
@@ -611,7 +756,7 @@ public class PhoneAssetsToolView extends BorderPane {
     removeButton.setOnAction(e -> removeSelectedMessage());
     Button previewThreadButton = smallButton("Preview Thread", CssIcon.speech("#f5c46b"));
     previewThreadButton.setOnAction(e -> {
-      previewSelectedChat = true;
+      previewMode = PreviewMode.CHAT;
       refreshPreview();
       persistUiState();
     });
@@ -632,6 +777,66 @@ public class PhoneAssetsToolView extends BorderPane {
 
     ScrollPane scroll = cardScroll(root);
     return new Tab("Messages", scroll);
+  }
+
+  private Tab buildCallsTab() {
+    callList.getStyleClass().add("phone-tool-list");
+    callList.setPlaceholder(emptyState("No calls yet", "Create voice or video call surfaces that can be opened from apps or previewed directly."));
+    callCountLabel.getStyleClass().add("phone-tool-list-meta");
+
+    callTitleField.setPromptText("Lily");
+    callSubtitleField.setPromptText("LostVarnacola");
+    callParticipantField.setPromptText("lily");
+    callAvatarField.setPromptText("assets/phone/contacts/lily.png");
+    callStatusField.setPromptText("Calling...");
+
+    Label title = new Label("Selected Call");
+    title.getStyleClass().add("phone-tool-section-title");
+    Label detailCopy = new Label("Edit the shared call surface used by the phone runtime and preview.");
+    detailCopy.getStyleClass().add("phone-tool-help");
+    detailCopy.setWrapText(true);
+
+    GridPane grid = formGrid();
+    int row = 0;
+    addLabeledRow(grid, row++, "ID", callIdField);
+    addLabeledRow(grid, row++, "Title", callTitleField);
+    addLabeledRow(grid, row++, "Subtitle", callSubtitleField);
+    addLabeledRow(grid, row++, "Participant", callParticipantField);
+    addLabeledRow(grid, row++, "Avatar", assetFieldRow(callAvatarField, CONTACT_IMPORT_DIR, "Call Avatar"));
+    addLabeledRow(grid, row++, "Status", callStatusField);
+    grid.add(callVideoCheck, 1, row);
+
+    callForm.getChildren().setAll(title, detailCopy, grid);
+    callForm.getStyleClass().add("phone-tool-card");
+    callForm.setPadding(new Insets(8));
+
+    Button addButton = smallButton("Add Call", CssIcon.plus("#9ed67a"));
+    addButton.setOnAction(e -> addCall());
+    Button removeButton = smallButton("Remove", CssIcon.minus("#f38ba8"));
+    removeButton.setOnAction(e -> removeSelectedCall());
+    Button previewButton = smallButton("Preview Call", CssIcon.play("#f38ba8"));
+    previewButton.setOnAction(e -> {
+      previewMode = PreviewMode.CALL;
+      refreshPreview();
+      persistUiState();
+    });
+
+    HBox actions = new HBox(8, addButton, removeButton, previewButton);
+    actions.setAlignment(Pos.CENTER_LEFT);
+
+    HBox listHeader = new HBox(8, sectionLabel("Calls"), createSpacer(), callCountLabel);
+    listHeader.setAlignment(Pos.CENTER_LEFT);
+
+    VBox listCard = new VBox(8, listHeader, callFilterField, actions, callList);
+    listCard.getStyleClass().add("phone-tool-card");
+    VBox.setVgrow(callList, Priority.ALWAYS);
+
+    VBox root = new VBox(10, listCard, callForm);
+    VBox.setVgrow(callList, Priority.ALWAYS);
+    root.setPadding(new Insets(8));
+
+    ScrollPane scroll = cardScroll(root);
+    return new Tab("Calls", scroll);
   }
 
   private void configureLists() {
@@ -669,6 +874,26 @@ public class PhoneAssetsToolView extends BorderPane {
       }
     });
 
+    appList.setCellFactory(list -> new ListCell<>() {
+      @Override
+      protected void updateItem(String item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+          return;
+        }
+        VnPhoneData.PhoneApp app = workingData.getApp(item);
+        if (app == null) {
+          setText(item);
+          return;
+        }
+        String title = firstNonBlank(app.getTitle(), app.getId());
+        String badge = firstNonBlank(app.getBadgeText(), "");
+        String suffix = badge.isBlank() ? "" : "  [" + badge + "]";
+        setText(title + "  (page " + app.getPage() + ", " + app.getTargetType().token() + ")" + suffix);
+      }
+    });
+
     messageList.setCellFactory(list -> new ListCell<>() {
       @Override
       protected void updateItem(String item, boolean empty) {
@@ -686,9 +911,30 @@ public class PhoneAssetsToolView extends BorderPane {
             displayNameFor(message.getSenderId()),
             message.getSenderId());
         String time = firstNonBlank(message.getTimeText(), "");
-        String text = message.getText() == null ? "" : message.getText().replace('\n', ' ');
+        String text = firstNonBlank(message.getPreviewText(), "");
+        text = text.replace('\n', ' ');
         if (text.length() > 54) text = text.substring(0, 51) + "...";
-        setText(sender + (time.isBlank() ? "" : "  " + time) + "  " + text);
+        String prefix = message.getType() == VnPhoneData.MessageType.TEXT ? "" : "[" + message.getType().token() + "] ";
+        setText(sender + (time.isBlank() ? "" : "  " + time) + "  " + prefix + text);
+      }
+    });
+
+    callList.setCellFactory(list -> new ListCell<>() {
+      @Override
+      protected void updateItem(String item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+          return;
+        }
+        VnPhoneData.Call call = workingData.getCall(item);
+        if (call == null) {
+          setText(item);
+          return;
+        }
+        String title = firstNonBlank(call.getTitle(), displayNameFor(call.getParticipantId()), call.getId());
+        String mode = call.isVideo() ? "video" : "voice";
+        setText(title + "  (" + mode + ")");
       }
     });
   }
@@ -703,6 +949,11 @@ public class PhoneAssetsToolView extends BorderPane {
       if (applyingUi) return;
       workingData.setSubtitle(newValue);
       changed("Updated phone subtitle.");
+    });
+    homeModeCombo.valueProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setHomeMode(newValue);
+      changed("Updated home mode.");
     });
     wallpaperField.textProperty().addListener((obs, oldValue, newValue) -> {
       if (applyingUi) return;
@@ -728,6 +979,26 @@ public class PhoneAssetsToolView extends BorderPane {
       if (applyingUi) return;
       workingData.setOutgoingBubbleColor(trimToNull(newValue));
       changed("Updated outgoing bubble color.");
+    });
+    statusTimeField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setStatusTimeText(trimToNull(newValue));
+      changed("Updated status time.");
+    });
+    statusModeField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setStatusModeText(trimToNull(newValue));
+      changed("Updated status mode.");
+    });
+    statusSignalField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setStatusSignalText(trimToNull(newValue));
+      changed("Updated status signal.");
+    });
+    statusBatteryField.textProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      workingData.setStatusBatteryText(trimToNull(newValue));
+      changed("Updated status battery.");
     });
     skinIdField.textProperty().addListener((obs, oldValue, newValue) -> {
       if (applyingUi) return;
@@ -849,15 +1120,49 @@ public class PhoneAssetsToolView extends BorderPane {
     chatIconField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedChat(chat -> chat.setIconPath(normalizeRelativePath(newValue)), "Updated thread icon."));
     chatUnreadCheck.selectedProperty().addListener((obs, oldValue, newValue) -> updateSelectedChat(chat -> chat.setUnread(newValue), "Updated unread state."));
 
+    appList.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      selectedAppId = newValue;
+      selectedAppId = coerceSelection(selectedAppId, appIds());
+      fillAppEntryForm();
+      persistUiState();
+    });
+    appNameField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedApp(app -> app.setTitle(newValue), "Updated app title."));
+    appIconField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedApp(app -> app.setIconPath(normalizeRelativePath(newValue)), "Updated app icon."));
+    appBadgeField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedApp(app -> app.setBadgeText(trimToNull(newValue)), "Updated app badge."));
+    appAccentColorField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedApp(app -> app.setAccentColor(trimToNull(newValue)), "Updated app accent."));
+    appPageField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedApp(app -> app.setPage(parseIntSafe(newValue, app.getPage())), "Updated app page."));
+    appTargetTypeCombo.valueProperty().addListener((obs, oldValue, newValue) -> updateSelectedApp(app -> app.setTargetType(newValue), "Updated app target type."));
+    appTargetValueField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedApp(app -> app.setTargetValue(trimToNull(newValue)), "Updated app target value."));
+
     messageList.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
       if (applyingUi) return;
       selectedMessageId = newValue;
       fillMessageForm();
       persistUiState();
     });
+    messageTypeCombo.valueProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message type."));
     messageSenderField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message sender."));
     messageTimeField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message time."));
+    messageAssetField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message asset."));
+    messageCaptionField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message caption."));
+    messageDurationField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message duration."));
+    messageOptionsField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message options."));
     messageTextArea.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedMessageFromFields("Updated message text."));
+
+    callList.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingUi) return;
+      selectedCallId = newValue;
+      selectedCallId = coerceSelection(selectedCallId, callIds());
+      fillCallForm();
+      persistUiState();
+    });
+    callTitleField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedCall(call -> call.setTitle(newValue), "Updated call title."));
+    callSubtitleField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedCall(call -> call.setSubtitle(newValue), "Updated call subtitle."));
+    callParticipantField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedCall(call -> call.setParticipantId(newValue), "Updated call participant."));
+    callAvatarField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedCall(call -> call.setAvatarPath(normalizeRelativePath(newValue)), "Updated call avatar."));
+    callStatusField.textProperty().addListener((obs, oldValue, newValue) -> updateSelectedCall(call -> call.setStatusText(newValue), "Updated call status."));
+    callVideoCheck.selectedProperty().addListener((obs, oldValue, newValue) -> updateSelectedCall(call -> call.setVideo(newValue), "Updated call mode."));
 
     contactFilterField.textProperty().addListener((obs, oldValue, newValue) -> refreshContactList());
     chatFilterField.textProperty().addListener((obs, oldValue, newValue) -> {
@@ -870,6 +1175,14 @@ public class PhoneAssetsToolView extends BorderPane {
     messageFilterField.textProperty().addListener((obs, oldValue, newValue) -> {
       refreshMessageList();
       fillMessageForm();
+    });
+    appFilterField.textProperty().addListener((obs, oldValue, newValue) -> {
+      refreshAppList();
+      fillAppEntryForm();
+    });
+    callFilterField.textProperty().addListener((obs, oldValue, newValue) -> {
+      refreshCallList();
+      fillCallForm();
     });
   }
 
@@ -892,6 +1205,9 @@ public class PhoneAssetsToolView extends BorderPane {
     AssetPickerSupport.installAssetDrop(bubbleOutgoingImageField, this::toProjectRelativePath);
     AssetPickerSupport.installAssetDrop(contactAvatarField, this::toProjectRelativePath);
     AssetPickerSupport.installAssetDrop(chatIconField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(appIconField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(messageAssetField, this::toProjectRelativePath);
+    AssetPickerSupport.installAssetDrop(callAvatarField, this::toProjectRelativePath);
   }
 
   private void refreshProjectState() {
@@ -908,8 +1224,12 @@ public class PhoneAssetsToolView extends BorderPane {
     fillContactForm();
     refreshChatList();
     fillChatForm();
+    refreshAppList();
+    fillAppEntryForm();
     refreshMessageList();
     fillMessageForm();
+    refreshCallList();
+    fillCallForm();
     refreshPreview();
     updateSummary();
     updateControlsDisabledState();
@@ -930,9 +1250,17 @@ public class PhoneAssetsToolView extends BorderPane {
   private void restoreSelections() {
     selectedContactId = coerceSelection(persisted.getProperty("selection.contact"), new ArrayList<>(workingData.getContacts().keySet()));
     selectedChatId = coerceSelection(persisted.getProperty("selection.chat"), chatIds());
-    previewSelectedChat = parseBoolean(persisted.getProperty("preview.selectedChat"), false);
+    selectedAppId = coerceSelection(persisted.getProperty("selection.app"), appIds());
+    selectedCallId = coerceSelection(persisted.getProperty("selection.call"), callIds());
+    previewMode = parsePreviewMode(persisted.getProperty("preview.mode"));
     if (selectedChatId == null && !chatIds().isEmpty()) {
       selectedChatId = chatIds().get(0);
+    }
+    if (selectedAppId == null && !appIds().isEmpty()) {
+      selectedAppId = appIds().get(0);
+    }
+    if (selectedCallId == null && !callIds().isEmpty()) {
+      selectedCallId = callIds().get(0);
     }
     selectedMessageId = coerceSelection(
         persisted.getProperty("selection.message"),
@@ -944,11 +1272,16 @@ public class PhoneAssetsToolView extends BorderPane {
     try {
       appTitleField.setText(workingData.getTitle());
       appSubtitleField.setText(workingData.getSubtitle());
+      homeModeCombo.setValue(workingData.getHomeMode());
       wallpaperField.setText(firstNonBlank(workingData.getWallpaperPath(), ""));
       accentField.setText(firstNonBlank(workingData.getAccentColor(), ""));
       surfaceField.setText(firstNonBlank(workingData.getSurfaceColor(), ""));
       incomingBubbleField.setText(firstNonBlank(workingData.getIncomingBubbleColor(), ""));
       outgoingBubbleField.setText(firstNonBlank(workingData.getOutgoingBubbleColor(), ""));
+      statusTimeField.setText(firstNonBlank(workingData.getStatusTimeText(), ""));
+      statusModeField.setText(firstNonBlank(workingData.getStatusModeText(), ""));
+      statusSignalField.setText(firstNonBlank(workingData.getStatusSignalText(), ""));
+      statusBatteryField.setText(firstNonBlank(workingData.getStatusBatteryText(), ""));
       skinIdField.setText(firstNonBlank(workingData.getSkinId(), ""));
       skinBackgroundField.setText(firstNonBlank(workingData.getSkinBackgroundPath(), ""));
       skinTopBarField.setText(firstNonBlank(workingData.getSkinTopBarPath(), ""));
@@ -1028,6 +1361,38 @@ public class PhoneAssetsToolView extends BorderPane {
     }
   }
 
+  private void refreshAppList() {
+    List<String> allIds = appIds();
+    List<String> ids = filterAppIds(allIds);
+    appCountLabel.setText(countLabelText(ids.size(), allIds.size(), "app"));
+    applyingUi = true;
+    try {
+      appList.setItems(FXCollections.observableArrayList(ids));
+      selectedAppId = coerceSelection(selectedAppId, ids);
+      if (selectedAppId != null) appList.getSelectionModel().select(selectedAppId);
+      else appList.getSelectionModel().clearSelection();
+    } finally {
+      applyingUi = false;
+    }
+  }
+
+  private void fillAppEntryForm() {
+    VnPhoneData.PhoneApp app = selectedApp();
+    applyingUi = true;
+    try {
+      appIdField.setText(app == null ? "" : app.getId());
+      appNameField.setText(app == null ? "" : firstNonBlank(app.getTitle(), ""));
+      appIconField.setText(app == null ? "" : firstNonBlank(app.getIconPath(), ""));
+      appBadgeField.setText(app == null ? "" : firstNonBlank(app.getBadgeText(), ""));
+      appAccentColorField.setText(app == null ? "" : firstNonBlank(app.getAccentColor(), ""));
+      appPageField.setText(app == null ? "" : Integer.toString(app.getPage()));
+      appTargetTypeCombo.setValue(app == null ? null : app.getTargetType());
+      appTargetValueField.setText(app == null ? "" : firstNonBlank(app.getTargetValue(), ""));
+    } finally {
+      applyingUi = false;
+    }
+  }
+
   private void refreshMessageList() {
     List<String> allIds = messageIdsFor(selectedChatId);
     List<String> ids = filterMessageIds(allIds);
@@ -1048,9 +1413,45 @@ public class PhoneAssetsToolView extends BorderPane {
     applyingUi = true;
     try {
       messageIdLabel.setText(message == null ? "No message selected" : message.getId());
+      messageTypeCombo.setValue(message == null ? VnPhoneData.MessageType.TEXT : message.getType());
       messageSenderField.setText(message == null ? "" : firstNonBlank(message.getSenderId(), ""));
       messageTimeField.setText(message == null ? "" : firstNonBlank(message.getTimeText(), ""));
+      messageAssetField.setText(message == null ? "" : firstNonBlank(message.getAssetPath(), ""));
+      messageCaptionField.setText(message == null ? "" : firstNonBlank(message.getCaption(), ""));
+      messageDurationField.setText(message == null ? "" : firstNonBlank(message.getDurationText(), ""));
+      messageOptionsField.setText(message == null ? "" : String.join(" | ", message.getOptions()));
       messageTextArea.setText(message == null ? "" : firstNonBlank(message.getText(), ""));
+    } finally {
+      applyingUi = false;
+    }
+  }
+
+  private void refreshCallList() {
+    List<String> allIds = callIds();
+    List<String> ids = filterCallIds(allIds);
+    callCountLabel.setText(countLabelText(ids.size(), allIds.size(), "call"));
+    applyingUi = true;
+    try {
+      callList.setItems(FXCollections.observableArrayList(ids));
+      selectedCallId = coerceSelection(selectedCallId, ids);
+      if (selectedCallId != null) callList.getSelectionModel().select(selectedCallId);
+      else callList.getSelectionModel().clearSelection();
+    } finally {
+      applyingUi = false;
+    }
+  }
+
+  private void fillCallForm() {
+    VnPhoneData.Call call = selectedCall();
+    applyingUi = true;
+    try {
+      callIdField.setText(call == null ? "" : call.getId());
+      callTitleField.setText(call == null ? "" : firstNonBlank(call.getTitle(), ""));
+      callSubtitleField.setText(call == null ? "" : firstNonBlank(call.getSubtitle(), ""));
+      callParticipantField.setText(call == null ? "" : firstNonBlank(call.getParticipantId(), ""));
+      callAvatarField.setText(call == null ? "" : firstNonBlank(call.getAvatarPath(), ""));
+      callStatusField.setText(call == null ? "" : firstNonBlank(call.getStatusText(), ""));
+      callVideoCheck.setSelected(call != null && call.isVideo());
     } finally {
       applyingUi = false;
     }
@@ -1079,6 +1480,16 @@ public class PhoneAssetsToolView extends BorderPane {
     refreshPreview();
   }
 
+  private void updateSelectedApp(Consumer<VnPhoneData.PhoneApp> mutator, String message) {
+    if (applyingUi || mutator == null) return;
+    VnPhoneData.PhoneApp app = selectedApp();
+    if (app == null) return;
+    mutator.accept(app);
+    changed(message);
+    refreshAppList();
+    refreshPreview();
+  }
+
   private void updateSelectedMessageFromFields(String message) {
     if (applyingUi) return;
     VnPhoneData.Chat chat = selectedChat();
@@ -1088,17 +1499,45 @@ public class PhoneAssetsToolView extends BorderPane {
     String senderId = sanitizeId(messageSenderField.getText());
     String time = trimToNull(messageTimeField.getText());
     String text = messageTextArea.getText();
+    String asset = normalizeRelativePath(messageAssetField.getText());
+    String caption = trimToNull(messageCaptionField.getText());
+    String duration = trimToNull(messageDurationField.getText());
+    List<String> options = parsePipeList(messageOptionsField.getText());
+    VnPhoneData.MessageType type = messageTypeCombo.getValue() == null ? VnPhoneData.MessageType.TEXT : messageTypeCombo.getValue();
     if (!senderId.isBlank()) {
       workingData.getOrCreateContact(senderId);
     }
 
     int index = messageIndex(chat, original.getId());
     if (index < 0) return;
-    chat.getMessages().set(index, new VnPhoneData.Message(original.getId(), senderId, text, time));
+    chat.getMessages().set(index, new VnPhoneData.Message(
+        original.getId(),
+        senderId.isBlank() ? null : senderId,
+        text,
+        time,
+        type,
+        trimToNull(asset),
+        caption,
+        duration,
+        options));
     changed(message);
     refreshContactList();
     refreshChatList();
     refreshMessageList();
+    refreshPreview();
+  }
+
+  private void updateSelectedCall(Consumer<VnPhoneData.Call> mutator, String message) {
+    if (applyingUi || mutator == null) return;
+    VnPhoneData.Call call = selectedCall();
+    if (call == null) return;
+    mutator.accept(call);
+    if (call.getParticipantId() != null && !call.getParticipantId().isBlank()) {
+      workingData.getOrCreateContact(call.getParticipantId());
+    }
+    changed(message);
+    refreshContactList();
+    refreshCallList();
     refreshPreview();
   }
 
@@ -1121,7 +1560,7 @@ public class PhoneAssetsToolView extends BorderPane {
     VnPhoneData.Contact contact = selectedContact();
     if (contact == null) return;
     if (isContactReferenced(contact.getId())) {
-      showInfo("Contact In Use", "Remove the contact from thread participants and messages before deleting it.");
+      showInfo("Contact In Use", "Remove the contact from thread participants, messages, and calls before deleting it.");
       return;
     }
     workingData.getContacts().remove(contact.getId());
@@ -1140,6 +1579,9 @@ public class PhoneAssetsToolView extends BorderPane {
         if (Objects.equals(contactId, message.getSenderId())) return true;
       }
     }
+    for (VnPhoneData.Call call : workingData.getCalls().values()) {
+      if (Objects.equals(contactId, call.getParticipantId())) return true;
+    }
     return false;
   }
 
@@ -1157,12 +1599,42 @@ public class PhoneAssetsToolView extends BorderPane {
     }
     selectedChatId = id;
     selectedMessageId = null;
-    previewSelectedChat = true;
+    previewMode = PreviewMode.CHAT;
     changed("Added thread " + id + ".");
     refreshChatList();
     fillChatForm();
     refreshMessageList();
     fillMessageForm();
+    refreshPreview();
+  }
+
+  private void addApp() {
+    String id = promptForId("Add App", "App ID", nextId("app", new LinkedHashSet<>(appIds())));
+    if (id == null) return;
+    if (workingData.getApps().containsKey(id)) {
+      status("App already exists: " + id);
+      return;
+    }
+    VnPhoneData.PhoneApp app = workingData.getOrCreateApp(id);
+    app.setTitle(id);
+    selectedAppId = id;
+    workingData.setHomeMode(VnPhoneData.HomeMode.APPS);
+    previewMode = PreviewMode.HOME;
+    changed("Added app " + id + ".");
+    refreshAppList();
+    fillAppEntryForm();
+    fillAppForm();
+    refreshPreview();
+  }
+
+  private void removeSelectedApp() {
+    VnPhoneData.PhoneApp app = selectedApp();
+    if (app == null) return;
+    workingData.removeApp(app.getId());
+    selectedAppId = null;
+    changed("Removed app " + app.getId() + ".");
+    refreshAppList();
+    fillAppEntryForm();
     refreshPreview();
   }
 
@@ -1193,11 +1665,39 @@ public class PhoneAssetsToolView extends BorderPane {
     String messageId = nextMessageId(chat);
     chat.getMessages().add(new VnPhoneData.Message(messageId, senderId, "", null));
     selectedMessageId = messageId;
-    previewSelectedChat = true;
+    previewMode = PreviewMode.CHAT;
     changed("Added message " + messageId + ".");
     refreshContactList();
     refreshMessageList();
     fillMessageForm();
+    refreshPreview();
+  }
+
+  private void addCall() {
+    String id = promptForId("Add Call", "Call ID", nextId("call", new LinkedHashSet<>(callIds())));
+    if (id == null) return;
+    if (workingData.getCalls().containsKey(id)) {
+      status("Call already exists: " + id);
+      return;
+    }
+    VnPhoneData.Call call = workingData.getOrCreateCall(id);
+    call.setTitle(id);
+    selectedCallId = id;
+    previewMode = PreviewMode.CALL;
+    changed("Added call " + id + ".");
+    refreshCallList();
+    fillCallForm();
+    refreshPreview();
+  }
+
+  private void removeSelectedCall() {
+    VnPhoneData.Call call = selectedCall();
+    if (call == null) return;
+    workingData.removeCall(call.getId());
+    selectedCallId = null;
+    changed("Removed call " + call.getId() + ".");
+    refreshCallList();
+    fillCallForm();
     refreshPreview();
   }
 
@@ -1263,8 +1763,12 @@ public class PhoneAssetsToolView extends BorderPane {
       fillContactForm();
       refreshChatList();
       fillChatForm();
+      refreshAppList();
+      fillAppEntryForm();
       refreshMessageList();
       fillMessageForm();
+      refreshCallList();
+      fillCallForm();
       refreshPreview();
       updateSummary();
     } catch (Exception ex) {
@@ -1290,26 +1794,59 @@ public class PhoneAssetsToolView extends BorderPane {
     previewHomeButton.getStyleClass().setAll(
         "phone-tool-button",
         "phone-tool-preview-toggle",
-        previewSelectedChat ? "is-idle" : "is-active");
+        previewMode == PreviewMode.HOME ? "is-active" : "is-idle");
     previewChatButton.getStyleClass().setAll(
         "phone-tool-button",
         "phone-tool-preview-toggle",
-        previewSelectedChat ? "is-active" : "is-idle");
+        previewMode == PreviewMode.CHAT ? "is-active" : "is-idle");
+    previewCallButton.getStyleClass().setAll(
+        "phone-tool-button",
+        "phone-tool-preview-toggle",
+        previewMode == PreviewMode.CALL ? "is-active" : "is-idle");
     previewChatButton.setDisable(selectedChatId == null);
+    previewCallButton.setDisable(selectedCallId == null);
 
     String selectedChatTitle = selectedChatId == null
         ? "No thread selected"
         : firstNonBlank(displayTitleForChat(selectedChatId), selectedChatId);
-    previewSelectionLabel.setText(
-        previewSelectedChat && selectedChatId != null
+    String selectedCallTitle = selectedCallId == null
+        ? "No call selected"
+        : firstNonBlank(displayTitleForCall(selectedCallId), selectedCallId);
+
+    switch (previewMode) {
+      case CHAT -> {
+        previewSelectionLabel.setText(selectedChatId != null
             ? "Previewing thread: " + selectedChatTitle
-            : "Previewing home list. Select a thread to inspect its conversation view.");
-    previewMetricLabel.setText(previewSelectedChat && selectedChatId != null ? "Preview Thread" : "Preview Home");
+            : "Previewing thread view. Select a thread to inspect its conversation surface.");
+        previewMetricLabel.setText("Preview Thread");
+      }
+      case CALL -> {
+        previewSelectionLabel.setText(selectedCallId != null
+            ? "Previewing call: " + selectedCallTitle
+            : "Previewing call view. Select a call surface to inspect it.");
+        previewMetricLabel.setText("Preview Call");
+      }
+      case HOME -> {
+        String homeCopy = workingData.getHomeMode() == VnPhoneData.HomeMode.APPS
+            ? "Previewing home grid. Select or author apps to inspect the launcher surface."
+            : "Previewing home list. Select a thread to inspect its conversation view.";
+        previewSelectionLabel.setText(homeCopy);
+        previewMetricLabel.setText("Preview Home");
+      }
+    }
 
     VnPhoneData previewData = copyOf(workingData);
-    PhoneScene scene = previewSelectedChat && selectedChatId != null
-        ? new PhoneScene(null, previewData, ignored -> { }, selectedChatId)
-        : new PhoneScene(null, previewData, ignored -> { });
+    PhoneScene scene = switch (previewMode) {
+      case CHAT -> selectedChatId != null
+          ? new PhoneScene(null, previewData, ignored -> { }, selectedChatId)
+          : new PhoneScene(null, previewData, ignored -> { });
+      case CALL -> {
+        PhoneScene callScene = new PhoneScene(null, previewData, ignored -> { });
+        if (selectedCallId != null) callScene.openCall(selectedCallId);
+        yield callScene;
+      }
+      case HOME -> new PhoneScene(null, previewData, ignored -> { });
+    };
     phoneRenderer.setSceneModel(scene);
     phoneRenderer.refresh();
   }
@@ -1329,7 +1866,7 @@ public class PhoneAssetsToolView extends BorderPane {
       messageCount += chat.getMessages().size();
     }
     String fileLabel = activeConfigFile == null ? CONFIG_PATH : toProjectRelativePath(activeConfigFile);
-    summaryLabel.setText("Editing " + fileLabel + ". Drag assets into fields, preview the home list or a thread, then save back to the shared runtime config.");
+    summaryLabel.setText("Editing " + fileLabel + ". Drag assets into fields, preview the home surface, chats, or calls, then save back to the shared runtime config.");
     contactMetricLabel.setText("Contacts " + workingData.getContacts().size());
     threadMetricLabel.setText("Threads " + workingData.getChats().size());
     messageMetricLabel.setText("Messages " + messageCount);
@@ -1343,7 +1880,9 @@ public class PhoneAssetsToolView extends BorderPane {
     openConfigButton.setDisable(!hasProject || activeConfigFile == null || !activeConfigFile.exists());
     contactForm.setDisable(selectedContact() == null);
     chatForm.setDisable(selectedChat() == null);
+    appForm.setDisable(selectedApp() == null);
     messageForm.setDisable(selectedMessage(selectedMessageId) == null);
+    callForm.setDisable(selectedCall() == null);
   }
 
   private void changed(String message) {
@@ -1374,9 +1913,13 @@ public class PhoneAssetsToolView extends BorderPane {
     else persisted.remove("selection.contact");
     if (selectedChatId != null) persisted.setProperty("selection.chat", selectedChatId);
     else persisted.remove("selection.chat");
+    if (selectedAppId != null) persisted.setProperty("selection.app", selectedAppId);
+    else persisted.remove("selection.app");
     if (selectedMessageId != null) persisted.setProperty("selection.message", selectedMessageId);
     else persisted.remove("selection.message");
-    persisted.setProperty("preview.selectedChat", Boolean.toString(previewSelectedChat));
+    if (selectedCallId != null) persisted.setProperty("selection.call", selectedCallId);
+    else persisted.remove("selection.call");
+    persisted.setProperty("preview.mode", previewMode.name().toLowerCase(Locale.ROOT));
 
     Path statePath = projectRoot.toPath().resolve(STATE_FILE);
     try {
@@ -1450,6 +1993,10 @@ public class PhoneAssetsToolView extends BorderPane {
     return selectedChatId == null ? null : workingData.getChat(selectedChatId);
   }
 
+  private VnPhoneData.PhoneApp selectedApp() {
+    return selectedAppId == null ? null : workingData.getApp(selectedAppId);
+  }
+
   private VnPhoneData.Message selectedMessage(String messageId) {
     VnPhoneData.Chat chat = selectedChat();
     if (chat == null || messageId == null) return null;
@@ -1475,12 +2022,32 @@ public class PhoneAssetsToolView extends BorderPane {
     return ids;
   }
 
+  private List<String> appIds() {
+    List<String> ids = new ArrayList<>();
+    for (VnPhoneData.PhoneApp app : workingData.orderedApps()) {
+      if (app != null && app.getId() != null) ids.add(app.getId());
+    }
+    return ids;
+  }
+
   private List<String> messageIdsFor(String chatId) {
     VnPhoneData.Chat chat = chatId == null ? null : workingData.getChat(chatId);
     List<String> ids = new ArrayList<>();
     if (chat == null) return ids;
     for (VnPhoneData.Message message : chat.getMessages()) {
       ids.add(message.getId());
+    }
+    return ids;
+  }
+
+  private VnPhoneData.Call selectedCall() {
+    return selectedCallId == null ? null : workingData.getCall(selectedCallId);
+  }
+
+  private List<String> callIds() {
+    List<String> ids = new ArrayList<>();
+    for (VnPhoneData.Call call : workingData.orderedCalls()) {
+      if (call != null && call.getId() != null) ids.add(call.getId());
     }
     return ids;
   }
@@ -1511,6 +2078,21 @@ public class PhoneAssetsToolView extends BorderPane {
     return filtered;
   }
 
+  private List<String> filterAppIds(List<String> ids) {
+    String query = normalizedFilter(appFilterField);
+    if (query.isBlank()) return ids;
+    List<String> filtered = new ArrayList<>();
+    for (String id : ids) {
+      VnPhoneData.PhoneApp app = workingData.getApp(id);
+      String haystack = (id + " "
+          + firstNonBlank(app == null ? null : app.getTitle(), "") + " "
+          + firstNonBlank(app == null ? null : app.getTargetValue(), ""))
+          .toLowerCase(Locale.ROOT);
+      if (haystack.contains(query)) filtered.add(id);
+    }
+    return filtered;
+  }
+
   private List<String> filterMessageIds(List<String> ids) {
     String query = normalizedFilter(messageFilterField);
     if (query.isBlank()) return ids;
@@ -1522,8 +2104,27 @@ public class PhoneAssetsToolView extends BorderPane {
           : (id + " "
               + firstNonBlank(message.getSenderId(), "") + " "
               + firstNonBlank(message.getTimeText(), "") + " "
-              + firstNonBlank(message.getText(), ""))
+              + firstNonBlank(message.getText(), "") + " "
+              + firstNonBlank(message.getCaption(), "") + " "
+              + firstNonBlank(message.getAssetPath(), "") + " "
+              + String.join(" ", message.getOptions()))
               .toLowerCase(Locale.ROOT);
+      if (haystack.contains(query)) filtered.add(id);
+    }
+    return filtered;
+  }
+
+  private List<String> filterCallIds(List<String> ids) {
+    String query = normalizedFilter(callFilterField);
+    if (query.isBlank()) return ids;
+    List<String> filtered = new ArrayList<>();
+    for (String id : ids) {
+      VnPhoneData.Call call = workingData.getCall(id);
+      String haystack = (id + " "
+          + firstNonBlank(call == null ? null : call.getTitle(), "") + " "
+          + firstNonBlank(call == null ? null : call.getParticipantId(), "") + " "
+          + firstNonBlank(call == null ? null : call.getSubtitle(), ""))
+          .toLowerCase(Locale.ROOT);
       if (haystack.contains(query)) filtered.add(id);
     }
     return filtered;
@@ -1532,6 +2133,11 @@ public class PhoneAssetsToolView extends BorderPane {
   private String displayTitleForChat(String chatId) {
     VnPhoneData.Chat chat = chatId == null ? null : workingData.getChat(chatId);
     return chat == null ? null : firstNonBlank(chat.getTitle(), workingData.defaultChatTitle(chat), chat.getId());
+  }
+
+  private String displayTitleForCall(String callId) {
+    VnPhoneData.Call call = callId == null ? null : workingData.getCall(callId);
+    return call == null ? null : firstNonBlank(call.getTitle(), displayNameFor(call.getParticipantId()), call.getId());
   }
 
   private static String countLabelText(int visibleCount, int totalCount, String noun) {
@@ -1658,11 +2264,16 @@ public class PhoneAssetsToolView extends BorderPane {
     if (source == null) return copy;
     copy.setTitle(source.getTitle());
     copy.setSubtitle(source.getSubtitle());
+    copy.setHomeMode(source.getHomeMode());
     copy.setWallpaperPath(source.getWallpaperPath());
     copy.setAccentColor(source.getAccentColor());
     copy.setSurfaceColor(source.getSurfaceColor());
     copy.setIncomingBubbleColor(source.getIncomingBubbleColor());
     copy.setOutgoingBubbleColor(source.getOutgoingBubbleColor());
+    copy.setStatusTimeText(source.getStatusTimeText());
+    copy.setStatusModeText(source.getStatusModeText());
+    copy.setStatusSignalText(source.getStatusSignalText());
+    copy.setStatusBatteryText(source.getStatusBatteryText());
     copy.setSkinId(source.getSkinId());
     copy.setSkinBackgroundPath(source.getSkinBackgroundPath());
     copy.setSkinTopBarPath(source.getSkinTopBarPath());
@@ -1695,12 +2306,45 @@ public class PhoneAssetsToolView extends BorderPane {
       target.setIconPath(chat.getIconPath());
       target.setParticipants(chat.getParticipants());
       target.setUnread(chat.isUnread());
+      target.setComposerText(chat.getComposerText());
+      target.setComposerHint(chat.getComposerHint());
       for (VnPhoneData.Message message : chat.getMessages()) {
         target.getMessages().add(new VnPhoneData.Message(
             message.getId(),
             message.getSenderId(),
             message.getText(),
-            message.getTimeText()));
+            message.getTimeText(),
+            message.getType(),
+            message.getAssetPath(),
+            message.getCaption(),
+            message.getDurationText(),
+            message.getOptions()));
+      }
+    }
+
+    copy.setAppOrder(source.getAppOrder());
+    for (VnPhoneData.PhoneApp app : source.orderedApps()) {
+      VnPhoneData.PhoneApp target = copy.getOrCreateApp(app.getId());
+      target.setTitle(app.getTitle());
+      target.setIconPath(app.getIconPath());
+      target.setBadgeText(app.getBadgeText());
+      target.setAccentColor(app.getAccentColor());
+      target.setPage(app.getPage());
+      target.setTargetType(app.getTargetType());
+      target.setTargetValue(app.getTargetValue());
+    }
+
+    copy.setCallOrder(source.getCallOrder());
+    for (VnPhoneData.Call call : source.orderedCalls()) {
+      VnPhoneData.Call target = copy.getOrCreateCall(call.getId());
+      target.setTitle(call.getTitle());
+      target.setSubtitle(call.getSubtitle());
+      target.setParticipantId(call.getParticipantId());
+      target.setAvatarPath(call.getAvatarPath());
+      target.setStatusText(call.getStatusText());
+      target.setVideo(call.isVideo());
+      if (target.getParticipantId() != null && !target.getParticipantId().isBlank()) {
+        copy.getOrCreateContact(target.getParticipantId());
       }
     }
     return copy;
@@ -1843,6 +2487,34 @@ public class PhoneAssetsToolView extends BorderPane {
     if (visible == null || visible.isEmpty()) return null;
     if (preferred != null && visible.contains(preferred)) return preferred;
     return visible.get(0);
+  }
+
+  private static int parseIntSafe(String raw, int fallback) {
+    if (raw == null || raw.isBlank()) return fallback;
+    try {
+      return Integer.parseInt(raw.trim());
+    } catch (NumberFormatException ignored) {
+      return fallback;
+    }
+  }
+
+  private static List<String> parsePipeList(String raw) {
+    List<String> values = new ArrayList<>();
+    if (raw == null || raw.isBlank()) return values;
+    for (String token : raw.split("\\|")) {
+      String normalized = trimToNull(token);
+      if (normalized != null) values.add(normalized);
+    }
+    return values;
+  }
+
+  private static PreviewMode parsePreviewMode(String raw) {
+    if (raw == null || raw.isBlank()) return PreviewMode.HOME;
+    return switch (raw.trim().toLowerCase(Locale.ROOT)) {
+      case "chat", "thread" -> PreviewMode.CHAT;
+      case "call" -> PreviewMode.CALL;
+      default -> PreviewMode.HOME;
+    };
   }
 
   private static boolean parseBoolean(String raw, boolean fallback) {

@@ -142,6 +142,55 @@ class VnUiLayoutLoaderTest {
   }
 
   @Test
+  void supportsRenpyStyleGuiParityFieldsForDialogueChoiceAndNvl() {
+    Properties p = new Properties();
+    p.setProperty("textBoxY", "0.69");
+    p.setProperty("textBoxHeight", "0.28");
+    p.setProperty("nameBoxXOffset", "48");
+    p.setProperty("nameBoxYOffset", "-56");
+    p.setProperty("nameBoxWidth", "260");
+    p.setProperty("nameTextXAlign", "0.5");
+    p.setProperty("dialogueTextHorizontalPadding", "34");
+    p.setProperty("dialogueTextRightPadding", "28");
+    p.setProperty("dialogueTextXAlign", "0.25");
+    p.setProperty("choiceWidthFactor", "0.78");
+    p.setProperty("choiceHeight", "62");
+    p.setProperty("choiceGap", "14");
+    p.setProperty("choiceTextXAlign", "0.5");
+    p.setProperty("choiceButtonSelectedAsset", "assets/ui/choice_selected.png");
+    p.setProperty("choiceButtonDisabledAsset", "assets/ui/choice_disabled.png");
+    p.setProperty("nvlWidth", "0.82");
+    p.setProperty("nvlHeight", "0.76");
+    p.setProperty("nvlPanelAsset", "assets/ui/nvl_panel.png");
+
+    VnUiLayoutSpec layout = VnUiLayoutLoader.parse(p, VnUiLayoutSpec.defaults());
+    VnUiStyleSpec style = VnUiLayoutLoader.parseStyle(p, VnUiStyleSpec.defaults());
+    Properties serialized = VnUiLayoutLoader.toProperties(layout, style, List.of());
+
+    assertEquals(0.69, layout.textBoxY(), 1e-6);
+    assertEquals(0.28, layout.textBoxHeight(), 1e-6);
+    assertEquals(48.0, layout.nameBoxXOffset(), 1e-6);
+    assertEquals(-56.0, layout.nameBoxYOffset(), 1e-6);
+    assertEquals(260.0, layout.nameBoxWidth(), 1e-6);
+    assertEquals(0.5, style.nameTextXAlign(), 1e-6);
+    assertEquals(34.0, layout.dialogueTextHorizontalPadding(), 1e-6);
+    assertEquals(28.0, layout.dialogueTextRightPadding(), 1e-6);
+    assertEquals(0.25, style.dialogueTextXAlign(), 1e-6);
+    assertEquals(0.78, layout.choiceWidthFactor(), 1e-6);
+    assertEquals(62.0, layout.choiceHeight(), 1e-6);
+    assertEquals(14.0, layout.choiceGap(), 1e-6);
+    assertEquals(0.5, style.choiceTextXAlign(), 1e-6);
+    assertEquals("assets/ui/choice_selected.png", style.choiceButtonSelectedAssetPath());
+    assertEquals("assets/ui/choice_disabled.png", style.choiceButtonDisabledAssetPath());
+    assertEquals(0.82, layout.nvlWidth(), 1e-6);
+    assertEquals(0.76, layout.nvlHeight(), 1e-6);
+    assertEquals("assets/ui/nvl_panel.png", style.nvlPanelAssetPath());
+    assertEquals("assets/ui/choice_selected.png", serialized.getProperty("choiceButtonSelectedAsset"));
+    assertEquals("assets/ui/choice_disabled.png", serialized.getProperty("choiceButtonDisabledAsset"));
+    assertEquals("assets/ui/nvl_panel.png", serialized.getProperty("nvlPanelAsset"));
+  }
+
+  @Test
   void serializesNvlAndBubbleKeys() {
     VnUiLayoutSpec layout = new VnUiLayoutSpec(
         0.0, 0.75, 1.0, 0.25, 20.0,

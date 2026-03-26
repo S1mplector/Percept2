@@ -16,6 +16,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
@@ -28,6 +29,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Rectangle;
 
@@ -65,14 +67,24 @@ public final class PhoneRenderer extends StackPane {
   private final Button navButton = new Button("Close");
   private final Button auxSecondaryButton = new Button();
   private final Button auxButton = new Button("Home");
+  private final Label statusTimeLabel = new Label();
+  private final Label statusModeLabel = new Label();
+  private final Label statusSignalLabel = new Label();
+  private final Label statusBatteryLabel = new Label();
+  private final HBox statusBar = new HBox(8);
   private final Label titleLabel = new Label("Phone");
   private final Label subtitleLabel = new Label("Messages");
   private final HBox header = new HBox(10);
+  private final VBox topChrome = new VBox(4);
   private final ScrollPane homeScroll = new ScrollPane();
   private final VBox homeList = new VBox(8);
+  private final TilePane appGrid = new TilePane();
   private final ScrollPane messageScroll = new ScrollPane();
   private final VBox messageList = new VBox(10);
+  private final VBox callView = new VBox(14);
+  private final Label composerPreviewLabel = new Label();
   private final Label footerLabel = new Label("Esc closes");
+  private final VBox bottomChrome = new VBox(4);
 
   private final Map<String, Image> imageCache = new HashMap<>();
   private final Map<String, AlphaBounds> alphaBoundsCache = new HashMap<>();
@@ -156,6 +168,16 @@ public final class PhoneRenderer extends StackPane {
       refresh();
     });
 
+    statusTimeLabel.getStyleClass().add("phone-status-label");
+    statusModeLabel.getStyleClass().add("phone-status-label");
+    statusSignalLabel.getStyleClass().add("phone-status-label");
+    statusBatteryLabel.getStyleClass().add("phone-status-label");
+    Region statusSpacer = new Region();
+    HBox.setHgrow(statusSpacer, Priority.ALWAYS);
+    statusBar.getChildren().setAll(statusTimeLabel, statusSpacer, statusModeLabel, statusSignalLabel, statusBatteryLabel);
+    statusBar.setAlignment(Pos.CENTER_LEFT);
+    statusBar.getStyleClass().add("phone-status-bar");
+
     titleLabel.getStyleClass().add("phone-title");
     subtitleLabel.getStyleClass().add("phone-subtitle");
 
@@ -174,20 +196,39 @@ public final class PhoneRenderer extends StackPane {
     homeScroll.getStyleClass().add("phone-scroll");
     homeScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
 
+    appGrid.getStyleClass().add("phone-app-grid");
+    appGrid.setPrefColumns(3);
+    appGrid.setHgap(10);
+    appGrid.setVgap(12);
+    appGrid.setPrefTileWidth(86);
+    appGrid.setAlignment(Pos.TOP_CENTER);
+
     messageList.getStyleClass().add("phone-message-list");
     messageScroll.setContent(messageList);
     messageScroll.setFitToWidth(true);
     messageScroll.getStyleClass().add("phone-scroll");
     messageScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
 
+    callView.getStyleClass().add("phone-call-view");
+    callView.setAlignment(Pos.CENTER);
+    callView.setFillWidth(true);
+    callView.setPadding(new Insets(18, 18, 12, 18));
+
+    composerPreviewLabel.getStyleClass().add("phone-composer-preview");
+    composerPreviewLabel.setWrapText(true);
+    composerPreviewLabel.setVisible(false);
+    composerPreviewLabel.setManaged(false);
+
     footerLabel.getStyleClass().add("phone-footer");
     footerLabel.setWrapText(true);
 
-    phoneRoot.setTop(header);
+    topChrome.getChildren().setAll(statusBar, header);
+    bottomChrome.getChildren().setAll(composerPreviewLabel, footerLabel);
+    phoneRoot.setTop(topChrome);
     phoneRoot.setCenter(homeScroll);
-    phoneRoot.setBottom(footerLabel);
+    phoneRoot.setBottom(bottomChrome);
     phoneRoot.getStyleClass().add("phone-root");
-    BorderPane.setMargin(footerLabel, new Insets(12, 18, 18, 18));
+    BorderPane.setMargin(bottomChrome, new Insets(12, 18, 18, 18));
 
     skinUnderlay.getChildren().addAll(
         skinBackgroundView,
@@ -274,14 +315,14 @@ public final class PhoneRenderer extends StackPane {
       refresh();
       return true;
     }
-    if (code == KeyCode.HOME && sceneModel.isShowingChat()) {
+    if (code == KeyCode.HOME && !sceneModel.isShowingHome()) {
       sceneModel.showHome();
       refresh();
       return true;
     }
     if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
       if (sceneModel.isShowingHome()) {
-        sceneModel.openSelectedChat();
+        sceneModel.openSelectedHomeEntry();
         refresh();
       }
       return true;
@@ -299,6 +340,8 @@ public final class PhoneRenderer extends StackPane {
       }
       return false;
     }
+
+    if (sceneModel.isShowingCall()) return false;
 
     double step = shiftDown ? 0.18 : 0.10;
     if (code == KeyCode.UP) {
@@ -340,7 +383,12 @@ public final class PhoneRenderer extends StackPane {
     if (sceneModel == null) {
       wallpaperView.setImage(null);
       homeList.getChildren().clear();
+      appGrid.getChildren().clear();
       messageList.getChildren().clear();
+      callView.getChildren().clear();
+      composerPreviewLabel.setText("");
+      composerPreviewLabel.setVisible(false);
+      composerPreviewLabel.setManaged(false);
       applySkinAssets(null);
       applyLayoutForSkin(null, false, true);
       updateEmbeddedLayout();
@@ -351,6 +399,7 @@ public final class PhoneRenderer extends StackPane {
     boolean skinned = applyTheme(data);
     updateWallpaper(data);
     applySkinAssets(data);
+    updateStatusBar(data);
 
     if (sceneModel.isShowingHome()) {
       titleLabel.setText(data.getTitle());
@@ -361,8 +410,28 @@ public final class PhoneRenderer extends StackPane {
       auxSecondaryButton.setVisible(false);
       auxSecondaryButton.setManaged(false);
       phoneRoot.setCenter(homeScroll);
-      footerLabel.setText("Enter opens the selected chat. Esc closes.");
-      refreshHomeList();
+      footerLabel.setText(data.getHomeMode() == VnPhoneData.HomeMode.APPS
+          ? "Enter opens the selected app. Esc closes."
+          : "Enter opens the selected chat. Esc closes.");
+      updateComposerPreview(null);
+      if (data.getHomeMode() == VnPhoneData.HomeMode.APPS) {
+        refreshAppHome();
+      } else {
+        refreshHomeList();
+      }
+    } else if (sceneModel.isShowingCall()) {
+      VnPhoneData.Call call = sceneModel.getCurrentCall();
+      titleLabel.setText(call == null ? "Call" : firstNonBlank(call.getTitle(), call.getId()));
+      subtitleLabel.setText(call == null ? "" : firstNonBlank(call.getSubtitle(), call.isVideo() ? "Video call" : "Voice call"));
+      navButton.setText(sceneModel.canReturnHome() ? "Back" : "Close");
+      auxButton.setVisible(sceneModel.canReturnHome());
+      auxButton.setManaged(sceneModel.canReturnHome());
+      auxSecondaryButton.setVisible(false);
+      auxSecondaryButton.setManaged(false);
+      phoneRoot.setCenter(callView);
+      footerLabel.setText("Esc closes. Home jumps back to the launcher.");
+      updateComposerPreview(null);
+      refreshCallView(call);
     } else {
       VnPhoneData.Chat chat = sceneModel.getCurrentChat();
       boolean hasSecondaryNav = hasText(data.getSkinNavTrailingSecondaryPath());
@@ -376,6 +445,7 @@ public final class PhoneRenderer extends StackPane {
       phoneRoot.setCenter(messageScroll);
       footerLabel.setText("Arrow keys or wheel scroll. Home jumps back to the thread list.");
       refreshChatView(chat);
+      updateComposerPreview(chat);
       sceneModel.markCurrentChatRead();
     }
     applySceneChromeVisibility(data, sceneModel.isShowingHome());
@@ -384,6 +454,7 @@ public final class PhoneRenderer extends StackPane {
   }
 
   private void refreshHomeList() {
+    homeScroll.setContent(homeList);
     homeList.getChildren().clear();
     List<VnPhoneData.Chat> chats = sceneModel.getOrderedChats();
     if (chats.isEmpty()) {
@@ -401,7 +472,7 @@ public final class PhoneRenderer extends StackPane {
       if (i == selected) row.getStyleClass().add("is-selected");
       if (chat != null && chat.isUnread()) row.getStyleClass().add("is-unread");
       row.setGraphic(buildChatRow(chat));
-      row.setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
+      row.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
       row.setOnAction(e -> {
         sceneModel.setSelectedHomeIndex(rowIndex);
         sceneModel.openSelectedChat();
@@ -410,6 +481,56 @@ public final class PhoneRenderer extends StackPane {
       homeList.getChildren().add(row);
     }
     scrollHomeSelectionIntoView();
+  }
+
+  private void refreshAppHome() {
+    homeScroll.setContent(appGrid);
+    appGrid.getChildren().clear();
+    List<VnPhoneData.PhoneApp> apps = sceneModel.getOrderedApps();
+    if (apps.isEmpty()) {
+      homeScroll.setContent(emptyState("No apps yet", "Create launchable apps in phone.properties or use the phone assets tool."));
+      return;
+    }
+
+    int selected = sceneModel.getSelectedHomeIndex();
+    for (int i = 0; i < apps.size(); i++) {
+      VnPhoneData.PhoneApp app = apps.get(i);
+      final int rowIndex = i;
+      Button tile = new Button();
+      tile.getStyleClass().add("phone-app-tile");
+      if (i == selected) tile.getStyleClass().add("is-selected");
+      tile.setMaxWidth(Double.MAX_VALUE);
+      tile.setGraphic(buildAppTile(app));
+      tile.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+      tile.setOnAction(e -> {
+        sceneModel.setSelectedHomeIndex(rowIndex);
+        sceneModel.openSelectedHomeEntry();
+        refresh();
+      });
+      appGrid.getChildren().add(tile);
+    }
+    scrollHomeSelectionIntoView();
+  }
+
+  private Node buildAppTile(VnPhoneData.PhoneApp app) {
+    StackPane icon = avatarNode(app == null ? null : app.getIconPath(), app == null ? "?" : initials(app.getTitle()), "phone-app-icon");
+    Label title = new Label(app == null ? "App" : firstNonBlank(app.getTitle(), app.getId()));
+    title.getStyleClass().add("phone-app-title");
+    title.setWrapText(true);
+    title.setMaxWidth(82);
+    title.setAlignment(Pos.CENTER);
+
+    Label badge = new Label(app == null ? "" : firstNonBlank(app.getBadgeText(), ""));
+    badge.getStyleClass().add("phone-app-badge");
+    badge.setVisible(app != null && hasText(app.getBadgeText()));
+    badge.setManaged(app != null && hasText(app.getBadgeText()));
+
+    StackPane iconStack = new StackPane(icon, badge);
+    StackPane.setAlignment(badge, Pos.TOP_RIGHT);
+
+    VBox box = new VBox(6, iconStack, title);
+    box.setAlignment(Pos.TOP_CENTER);
+    return box;
   }
 
   private Node buildChatRow(VnPhoneData.Chat chat) {
@@ -433,7 +554,48 @@ public final class PhoneRenderer extends StackPane {
     return row;
   }
 
+  private void refreshCallView(VnPhoneData.Call call) {
+    callView.getChildren().clear();
+    if (call == null) {
+      callView.getChildren().add(emptyState("No call selected", "Create a call entry, then preview it from the phone assets tool or open it from a phone app."));
+      return;
+    }
+
+    String participantName = participantName(call);
+    StackPane avatar = avatarNode(call.getAvatarPath(), initials(firstNonBlank(participantName, call.getTitle(), call.getId())), "phone-call-avatar");
+    avatar.setMinSize(88, 88);
+    avatar.setPrefSize(88, 88);
+    avatar.setMaxSize(88, 88);
+
+    Label title = new Label(firstNonBlank(call.getTitle(), participantName, "Call"));
+    title.getStyleClass().add("phone-call-title");
+    title.setWrapText(true);
+    title.setAlignment(Pos.CENTER);
+    title.setMaxWidth(Double.MAX_VALUE);
+
+    Label subtitle = new Label(firstNonBlank(call.getSubtitle(), participantName, ""));
+    subtitle.getStyleClass().add("phone-call-subtitle");
+    subtitle.setWrapText(true);
+    subtitle.setAlignment(Pos.CENTER);
+    subtitle.setMaxWidth(Double.MAX_VALUE);
+
+    Label status = new Label(firstNonBlank(call.getStatusText(), call.isVideo() ? "Connecting video..." : "Calling..."));
+    status.getStyleClass().add("phone-call-status");
+
+    Label mode = new Label(call.isVideo() ? "Video" : "Voice");
+    mode.getStyleClass().add("phone-call-mode");
+
+    HBox chips = new HBox(8, mode, new Label(firstNonBlank(participantName, "")));
+    chips.setAlignment(Pos.CENTER);
+    for (Node child : chips.getChildren()) {
+      child.getStyleClass().add("phone-call-chip");
+    }
+
+    callView.getChildren().addAll(avatar, title, subtitle, status, chips);
+  }
+
   private void refreshChatView(VnPhoneData.Chat chat) {
+    messageScroll.setContent(messageList);
     messageList.getChildren().clear();
     if (chat == null || chat.getMessages().isEmpty()) {
       messageList.getChildren().add(emptyState("No messages", "Use [phone message <chat> <sender> \"text\"] to append conversation history."));
@@ -441,21 +603,27 @@ public final class PhoneRenderer extends StackPane {
     }
 
     for (VnPhoneData.Message message : chat.getMessages()) {
-      VnPhoneData.Contact sender = sceneModel.getData().getOrCreateContact(message.getSenderId());
-      boolean outgoing = sender.isSelf();
+      if (message.getType().isSystemType()) {
+        messageList.getChildren().add(buildSystemMessageRow(message));
+        continue;
+      }
 
-      Label bubble = new Label(message.getText());
-      bubble.getStyleClass().addAll("phone-bubble", outgoing ? "outgoing" : "incoming");
-      bubble.setWrapText(true);
-      bubble.setMaxWidth(220);
-      applyBubbleStyle(bubble, outgoing);
+      VnPhoneData.Contact sender = message.getSenderId() == null ? null : sceneModel.getData().getContact(message.getSenderId());
+      boolean outgoing = sender != null && sender.isSelf();
+      Node bubble = buildMessageBubble(message, outgoing);
+      if (bubble == null) continue;
 
-      Label meta = new Label(formatMeta(sender, message));
-      meta.getStyleClass().add("phone-message-meta");
-
-      VBox stack = new VBox(4, bubble, meta);
+      VBox stack = new VBox(4);
       stack.setAlignment(outgoing ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
       stack.getStyleClass().add("phone-message-stack");
+      stack.getChildren().add(bubble);
+
+      String metaText = formatMeta(sender, message);
+      if (!metaText.isBlank()) {
+        Label meta = new Label(metaText);
+        meta.getStyleClass().add("phone-message-meta");
+        stack.getChildren().add(meta);
+      }
 
       HBox row = new HBox(stack);
       row.setAlignment(outgoing ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
@@ -466,9 +634,109 @@ public final class PhoneRenderer extends StackPane {
   }
 
   private String formatMeta(VnPhoneData.Contact sender, VnPhoneData.Message message) {
-    String name = sender == null ? message.getSenderId() : firstNonBlank(sender.getDisplayName(), sender.getId());
+    String name = sender == null ? firstNonBlank(message.getSenderId(), "") : firstNonBlank(sender.getDisplayName(), sender.getId());
     String time = firstNonBlank(message.getTimeText(), "");
+    if (name.isBlank()) return time;
     return time.isBlank() ? name : name + "  " + time;
+  }
+
+  private Node buildMessageBubble(VnPhoneData.Message message, boolean outgoing) {
+    if (message == null) return null;
+    return switch (message.getType()) {
+      case IMAGE -> buildImageBubble(message, outgoing);
+      case AUDIO -> buildAudioBubble(message, outgoing);
+      case MENU -> buildMenuBubble(message, outgoing);
+      case DATE, LABEL -> null;
+      case TEXT -> buildTextBubble(message, outgoing);
+    };
+  }
+
+  private Label buildTextBubble(VnPhoneData.Message message, boolean outgoing) {
+    Label bubble = new Label(firstNonBlank(message.getText(), message.getCaption(), ""));
+    bubble.getStyleClass().addAll("phone-bubble", outgoing ? "outgoing" : "incoming");
+    bubble.setWrapText(true);
+    bubble.setMaxWidth(220);
+    applyBubbleStyle(bubble, outgoing);
+    return bubble;
+  }
+
+  private VBox buildImageBubble(VnPhoneData.Message message, boolean outgoing) {
+    VBox bubble = bubbleCard(outgoing);
+    Image image = loadImage(message.getAssetPath());
+    if (image != null) {
+      ImageView view = new ImageView(image);
+      view.setFitWidth(186);
+      view.setPreserveRatio(true);
+      view.setSmooth(true);
+      bubble.getChildren().add(view);
+    } else {
+      Label missing = new Label(firstNonBlank(message.getAssetPath(), "Missing image"));
+      missing.getStyleClass().add("phone-media-copy");
+      missing.setWrapText(true);
+      bubble.getChildren().add(missing);
+    }
+    String caption = firstNonBlank(message.getCaption(), message.getText(), "");
+    if (!caption.isBlank()) {
+      Label label = new Label(caption);
+      label.getStyleClass().add("phone-media-caption");
+      label.setWrapText(true);
+      bubble.getChildren().add(label);
+    }
+    return bubble;
+  }
+
+  private VBox buildAudioBubble(VnPhoneData.Message message, boolean outgoing) {
+    VBox bubble = bubbleCard(outgoing);
+    Label title = new Label(firstNonBlank(message.getCaption(), message.getText(), displayAssetName(message.getAssetPath()), "Voice message"));
+    title.getStyleClass().add("phone-media-title");
+    title.setWrapText(true);
+
+    Label detail = new Label(firstNonBlank(message.getDurationText(), message.getAssetPath(), ""));
+    detail.getStyleClass().add("phone-media-copy");
+    detail.setWrapText(true);
+
+    bubble.getChildren().addAll(title, detail);
+    return bubble;
+  }
+
+  private VBox buildMenuBubble(VnPhoneData.Message message, boolean outgoing) {
+    VBox bubble = bubbleCard(outgoing);
+    String prompt = firstNonBlank(message.getText(), message.getCaption(), "");
+    if (!prompt.isBlank()) {
+      Label label = new Label(prompt);
+      label.getStyleClass().add("phone-media-title");
+      label.setWrapText(true);
+      bubble.getChildren().add(label);
+    }
+    for (String option : message.getOptions()) {
+      Label item = new Label(option);
+      item.getStyleClass().add("phone-menu-option");
+      item.setWrapText(true);
+      bubble.getChildren().add(item);
+    }
+    return bubble;
+  }
+
+  private VBox bubbleCard(boolean outgoing) {
+    VBox bubble = new VBox(8);
+    bubble.getStyleClass().addAll("phone-bubble-card", outgoing ? "outgoing" : "incoming");
+    bubble.setMaxWidth(220);
+    applyBubbleStyle(bubble, outgoing);
+    return bubble;
+  }
+
+  private Node buildSystemMessageRow(VnPhoneData.Message message) {
+    Label label = new Label(firstNonBlank(message.getText(), message.getCaption(), message.getPreviewText()));
+    label.getStyleClass().add("phone-system-message");
+    if (message.getType() == VnPhoneData.MessageType.DATE) {
+      label.getStyleClass().add("is-date");
+    } else {
+      label.getStyleClass().add("is-label");
+    }
+    HBox row = new HBox(label);
+    row.setAlignment(Pos.CENTER);
+    row.getStyleClass().add("phone-system-row");
+    return row;
   }
 
   private Node emptyState(String title, String copy) {
@@ -502,6 +770,26 @@ public final class PhoneRenderer extends StackPane {
       avatar.getChildren().add(initial);
     }
     return avatar;
+  }
+
+  private void updateStatusBar(VnPhoneData data) {
+    statusTimeLabel.setText(data == null ? "" : data.getStatusTimeText());
+    statusModeLabel.setText(data == null ? "" : firstNonBlank(data.getStatusModeText(), ""));
+    statusSignalLabel.setText(data == null ? "" : data.getStatusSignalText());
+    statusBatteryLabel.setText(data == null ? "" : data.getStatusBatteryText());
+
+    statusModeLabel.setVisible(hasText(statusModeLabel.getText()));
+    statusModeLabel.setManaged(hasText(statusModeLabel.getText()));
+  }
+
+  private void updateComposerPreview(VnPhoneData.Chat chat) {
+    String value = chat == null
+        ? ""
+        : firstNonBlank(chat.getComposerText(), chat.getComposerHint(), "");
+    boolean visible = hasText(value);
+    composerPreviewLabel.setText(visible ? value : "");
+    composerPreviewLabel.setVisible(visible);
+    composerPreviewLabel.setManaged(visible);
   }
 
   private void updateWallpaper(VnPhoneData data) {
@@ -543,7 +831,7 @@ public final class PhoneRenderer extends StackPane {
     return skinned;
   }
 
-  private void applyBubbleStyle(Label bubble, boolean outgoing) {
+  private void applyBubbleStyle(Region bubble, boolean outgoing) {
     if (bubble == null || sceneModel == null) return;
     VnPhoneData data = sceneModel.getData();
     String imagePath = outgoing ? data.getOutgoingBubbleImagePath() : data.getIncomingBubbleImagePath();
@@ -620,10 +908,12 @@ public final class PhoneRenderer extends StackPane {
 
   private void applyLayoutForSkin(VnPhoneData data, boolean skinned, boolean showingHome) {
     if (!skinned) {
+      topChrome.setSpacing(4);
       header.setPadding(new Insets(6, 10, 12, 10));
       phoneRoot.setPadding(new Insets(8, 0, 0, 0));
       BorderPane.setMargin(homeScroll, Insets.EMPTY);
       BorderPane.setMargin(messageScroll, Insets.EMPTY);
+      BorderPane.setMargin(callView, new Insets(8, 10, 8, 10));
       footerLabel.setVisible(true);
       footerLabel.setManaged(true);
       return;
@@ -634,10 +924,12 @@ public final class PhoneRenderer extends StackPane {
     auxSecondaryButton.setText("");
 
     SkinInsets insets = resolveSkinInsets(data);
+    topChrome.setSpacing(2);
     header.setPadding(new Insets(insets.headerTop(), insets.side(), insets.headerBottom(), insets.side()));
     phoneRoot.setPadding(Insets.EMPTY);
     BorderPane.setMargin(homeScroll, new Insets(insets.listTop(), insets.side(), insets.listBottom(), insets.side()));
     BorderPane.setMargin(messageScroll, new Insets(insets.listTop(), insets.side(), insets.listBottom(), insets.side()));
+    BorderPane.setMargin(callView, new Insets(insets.listTop(), insets.side(), insets.listBottom(), insets.side()));
     footerLabel.setVisible(false);
     footerLabel.setManaged(false);
 
@@ -757,13 +1049,13 @@ public final class PhoneRenderer extends StackPane {
   }
 
   private void scrollHomeSelectionIntoView() {
-    List<VnPhoneData.Chat> chats = sceneModel.getOrderedChats();
-    if (chats.isEmpty()) {
+    int count = sceneModel.getHomeEntryCount();
+    if (count <= 0) {
       homeScroll.setVvalue(0.0);
       return;
     }
-    int index = Math.max(0, Math.min(sceneModel.getSelectedHomeIndex(), chats.size() - 1));
-    double denominator = Math.max(1, chats.size() - 1);
+    int index = Math.max(0, Math.min(sceneModel.getSelectedHomeIndex(), count - 1));
+    double denominator = Math.max(1, count - 1);
     homeScroll.setVvalue(index / denominator);
   }
 
@@ -805,6 +1097,19 @@ public final class PhoneRenderer extends StackPane {
     String[] parts = value.trim().split("\\s+");
     if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
     return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+  }
+
+  private String participantName(VnPhoneData.Call call) {
+    if (call == null || call.getParticipantId() == null || sceneModel == null) return "";
+    VnPhoneData.Contact contact = sceneModel.getData().getContact(call.getParticipantId());
+    return contact == null ? call.getParticipantId() : firstNonBlank(contact.getDisplayName(), contact.getId());
+  }
+
+  private static String displayAssetName(String path) {
+    if (path == null || path.isBlank()) return "";
+    String normalized = path.replace('\\', '/');
+    int slash = normalized.lastIndexOf('/');
+    return slash >= 0 ? normalized.substring(slash + 1) : normalized;
   }
 
   private static String firstNonBlank(String... values) {

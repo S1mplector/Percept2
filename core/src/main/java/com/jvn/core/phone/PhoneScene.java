@@ -18,6 +18,7 @@ public final class PhoneScene implements Scene {
 
   private boolean closeRequested;
   private String currentChatId;
+  private String currentCallId;
   private int selectedHomeIndex;
 
   public PhoneScene(VnScene vnScene, VnPhoneData data, Consumer<VnPhoneData> persistCallback) {
@@ -36,6 +37,7 @@ public final class PhoneScene implements Scene {
       openChat(initialChatId);
     } else {
       this.currentChatId = null;
+      this.currentCallId = null;
       this.selectedHomeIndex = 0;
     }
   }
@@ -52,8 +54,12 @@ public final class PhoneScene implements Scene {
     return data.orderedChats();
   }
 
+  public List<VnPhoneData.PhoneApp> getOrderedApps() {
+    return data.orderedApps();
+  }
+
   public boolean isShowingHome() {
-    return currentChatId == null;
+    return currentChatId == null && currentCallId == null;
   }
 
   public boolean canReturnHome() {
@@ -64,12 +70,24 @@ public final class PhoneScene implements Scene {
     return currentChatId != null;
   }
 
+  public boolean isShowingCall() {
+    return currentCallId != null;
+  }
+
   public String getCurrentChatId() {
     return currentChatId;
   }
 
+  public String getCurrentCallId() {
+    return currentCallId;
+  }
+
   public VnPhoneData.Chat getCurrentChat() {
     return currentChatId == null ? null : data.getChat(currentChatId);
+  }
+
+  public VnPhoneData.Call getCurrentCall() {
+    return currentCallId == null ? null : data.getCall(currentCallId);
   }
 
   public int getSelectedHomeIndex() {
@@ -77,21 +95,38 @@ public final class PhoneScene implements Scene {
   }
 
   public void setSelectedHomeIndex(int selectedHomeIndex) {
-    int max = Math.max(0, getOrderedChats().size() - 1);
+    int max = Math.max(0, getHomeEntryCount() - 1);
     this.selectedHomeIndex = Math.max(0, Math.min(selectedHomeIndex, max));
+  }
+
+  public int getHomeEntryCount() {
+    return data.getHomeMode() == VnPhoneData.HomeMode.APPS
+        ? getOrderedApps().size()
+        : getOrderedChats().size();
   }
 
   public void moveSelection(int delta) {
     if (!isShowingHome()) return;
-    List<VnPhoneData.Chat> chats = getOrderedChats();
-    if (chats.isEmpty()) {
+    int count = getHomeEntryCount();
+    if (count <= 0) {
       selectedHomeIndex = 0;
       return;
     }
     int next = selectedHomeIndex + delta;
-    if (next < 0) next = chats.size() - 1;
-    if (next >= chats.size()) next = 0;
+    if (next < 0) next = count - 1;
+    if (next >= count) next = 0;
     selectedHomeIndex = next;
+  }
+
+  public void openSelectedHomeEntry() {
+    if (data.getHomeMode() == VnPhoneData.HomeMode.APPS) {
+      List<VnPhoneData.PhoneApp> apps = getOrderedApps();
+      if (apps.isEmpty()) return;
+      VnPhoneData.PhoneApp app = apps.get(Math.max(0, Math.min(selectedHomeIndex, apps.size() - 1)));
+      if (app != null) activateApp(app);
+      return;
+    }
+    openSelectedChat();
   }
 
   public void openSelectedChat() {
@@ -108,18 +143,35 @@ public final class PhoneScene implements Scene {
     if (chat.getTitle() == null || chat.getTitle().isBlank()) {
       chat.setTitle(data.defaultChatTitle(chat));
     }
+    currentCallId = null;
     currentChatId = normalized;
     chat.setUnread(false);
     syncSelectionWithChat(normalized);
     persist();
   }
 
+  public void openCall(String callId) {
+    String normalized = VnPhoneData.normalizeId(callId);
+    if (normalized == null) return;
+    VnPhoneData.Call call = data.getOrCreateCall(normalized);
+    currentChatId = null;
+    currentCallId = normalized;
+    if (call.getParticipantId() != null) {
+      VnPhoneData.Contact contact = data.getOrCreateContact(call.getParticipantId());
+      if (contact.getDisplayName() == null || contact.getDisplayName().isBlank()) {
+        contact.setDisplayName(contact.getId());
+      }
+    }
+    persist();
+  }
+
   public void showHome() {
     currentChatId = null;
+    currentCallId = null;
   }
 
   public void back() {
-    if (isShowingChat() && homeAccessible) {
+    if ((isShowingChat() || isShowingCall()) && homeAccessible) {
       showHome();
       return;
     }
@@ -145,6 +197,15 @@ public final class PhoneScene implements Scene {
 
   public void persist() {
     persistCallback.accept(data);
+  }
+
+  private void activateApp(VnPhoneData.PhoneApp app) {
+    if (app == null) return;
+    switch (app.getTargetType()) {
+      case CHAT -> openChat(app.getTargetValue());
+      case CALL -> openCall(app.getTargetValue());
+      case HOME, NONE, LABEL -> showHome();
+    }
   }
 
   private void syncSelectionWithChat(String chatId) {

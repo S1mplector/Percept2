@@ -1,6 +1,7 @@
 package com.jvn.core.phone;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -12,13 +13,16 @@ import java.util.Set;
 /**
  * Mutable phone data model used by runtime, preview, and project config loading.
  *
- * <p>The model is deliberately simple and property-file-friendly so it can be
- * persisted through the existing VN variable/save/rollback path as a single
- * serialized string.</p>
+ * <p>The model stays property-file-friendly so it can be serialized through the
+ * existing VN variable/save path as a single string while still supporting a
+ * fuller "phone system" surface.</p>
  */
 public final class VnPhoneData {
   private static final String DEFAULT_TITLE = "Phone";
   private static final String DEFAULT_SUBTITLE = "Messages";
+  private static final String DEFAULT_STATUS_TIME = "9:41";
+  private static final String DEFAULT_STATUS_SIGNAL = "LTE";
+  private static final String DEFAULT_STATUS_BATTERY = "100%";
 
   private String title = DEFAULT_TITLE;
   private String subtitle = DEFAULT_SUBTITLE;
@@ -43,10 +47,19 @@ public final class VnPhoneData {
   private String skinFloatingActionPath;
   private String incomingBubbleImagePath;
   private String outgoingBubbleImagePath;
+  private HomeMode homeMode = HomeMode.THREADS;
+  private String statusTimeText = DEFAULT_STATUS_TIME;
+  private String statusModeText;
+  private String statusSignalText = DEFAULT_STATUS_SIGNAL;
+  private String statusBatteryText = DEFAULT_STATUS_BATTERY;
 
   private final LinkedHashMap<String, Contact> contacts = new LinkedHashMap<>();
   private final LinkedHashMap<String, Chat> chats = new LinkedHashMap<>();
   private final List<String> chatOrder = new ArrayList<>();
+  private final LinkedHashMap<String, PhoneApp> apps = new LinkedHashMap<>();
+  private final List<String> appOrder = new ArrayList<>();
+  private final LinkedHashMap<String, Call> calls = new LinkedHashMap<>();
+  private final List<String> callOrder = new ArrayList<>();
 
   public String getTitle() {
     return title == null || title.isBlank() ? DEFAULT_TITLE : title;
@@ -233,6 +246,50 @@ public final class VnPhoneData {
     this.outgoingBubbleImagePath = blankToNull(outgoingBubbleImagePath);
   }
 
+  public HomeMode getHomeMode() {
+    return homeMode == null ? HomeMode.THREADS : homeMode;
+  }
+
+  public void setHomeMode(HomeMode homeMode) {
+    this.homeMode = homeMode == null ? HomeMode.THREADS : homeMode;
+  }
+
+  public void setHomeMode(String token) {
+    this.homeMode = HomeMode.fromToken(token);
+  }
+
+  public String getStatusTimeText() {
+    return firstNonBlank(statusTimeText, DEFAULT_STATUS_TIME);
+  }
+
+  public void setStatusTimeText(String statusTimeText) {
+    this.statusTimeText = blankToNull(statusTimeText);
+  }
+
+  public String getStatusModeText() {
+    return statusModeText;
+  }
+
+  public void setStatusModeText(String statusModeText) {
+    this.statusModeText = blankToNull(statusModeText);
+  }
+
+  public String getStatusSignalText() {
+    return firstNonBlank(statusSignalText, DEFAULT_STATUS_SIGNAL);
+  }
+
+  public void setStatusSignalText(String statusSignalText) {
+    this.statusSignalText = blankToNull(statusSignalText);
+  }
+
+  public String getStatusBatteryText() {
+    return firstNonBlank(statusBatteryText, DEFAULT_STATUS_BATTERY);
+  }
+
+  public void setStatusBatteryText(String statusBatteryText) {
+    this.statusBatteryText = blankToNull(statusBatteryText);
+  }
+
   public Map<String, Contact> getContacts() {
     return contacts;
   }
@@ -243,6 +300,22 @@ public final class VnPhoneData {
 
   public List<String> getChatOrder() {
     return chatOrder;
+  }
+
+  public Map<String, PhoneApp> getApps() {
+    return apps;
+  }
+
+  public List<String> getAppOrder() {
+    return appOrder;
+  }
+
+  public Map<String, Call> getCalls() {
+    return calls;
+  }
+
+  public List<String> getCallOrder() {
+    return callOrder;
   }
 
   public Contact getContact(String id) {
@@ -267,6 +340,30 @@ public final class VnPhoneData {
     return chat;
   }
 
+  public PhoneApp getApp(String id) {
+    return apps.get(normalizeId(id));
+  }
+
+  public PhoneApp getOrCreateApp(String id) {
+    String normalized = normalizeId(id);
+    if (normalized == null) throw new IllegalArgumentException("app id cannot be blank");
+    PhoneApp app = apps.computeIfAbsent(normalized, PhoneApp::new);
+    ensureAppOrder(normalized);
+    return app;
+  }
+
+  public Call getCall(String id) {
+    return calls.get(normalizeId(id));
+  }
+
+  public Call getOrCreateCall(String id) {
+    String normalized = normalizeId(id);
+    if (normalized == null) throw new IllegalArgumentException("call id cannot be blank");
+    Call call = calls.computeIfAbsent(normalized, Call::new);
+    ensureCallOrder(normalized);
+    return call;
+  }
+
   public void removeChat(String id) {
     String normalized = normalizeId(id);
     if (normalized == null) return;
@@ -274,34 +371,57 @@ public final class VnPhoneData {
     chatOrder.removeIf(normalized::equals);
   }
 
+  public void removeApp(String id) {
+    String normalized = normalizeId(id);
+    if (normalized == null) return;
+    apps.remove(normalized);
+    appOrder.removeIf(normalized::equals);
+  }
+
+  public void removeCall(String id) {
+    String normalized = normalizeId(id);
+    if (normalized == null) return;
+    calls.remove(normalized);
+    callOrder.removeIf(normalized::equals);
+  }
+
   public void clearChats() {
     chats.clear();
     chatOrder.clear();
   }
 
+  public void clearApps() {
+    apps.clear();
+    appOrder.clear();
+  }
+
+  public void clearCalls() {
+    calls.clear();
+    callOrder.clear();
+  }
+
   public void setChatOrder(List<String> order) {
-    chatOrder.clear();
-    if (order == null) return;
-    Set<String> seen = new LinkedHashSet<>();
-    for (String id : order) {
-      String normalized = normalizeId(id);
-      if (normalized != null && seen.add(normalized)) {
-        chatOrder.add(normalized);
-      }
-    }
+    replaceOrder(chatOrder, order);
+  }
+
+  public void setAppOrder(List<String> order) {
+    replaceOrder(appOrder, order);
+  }
+
+  public void setCallOrder(List<String> order) {
+    replaceOrder(callOrder, order);
   }
 
   public List<Chat> orderedChats() {
-    List<Chat> ordered = new ArrayList<>();
-    Set<String> seen = new LinkedHashSet<>();
-    for (String id : chatOrder) {
-      Chat chat = chats.get(id);
-      if (chat != null && seen.add(id)) ordered.add(chat);
-    }
-    for (Map.Entry<String, Chat> entry : chats.entrySet()) {
-      if (seen.add(entry.getKey())) ordered.add(entry.getValue());
-    }
-    return ordered;
+    return orderedValues(chats, chatOrder);
+  }
+
+  public List<PhoneApp> orderedApps() {
+    return orderedValues(apps, appOrder);
+  }
+
+  public List<Call> orderedCalls() {
+    return orderedValues(calls, callOrder);
   }
 
   public void moveChatToFront(String id) {
@@ -313,16 +433,41 @@ public final class VnPhoneData {
   }
 
   public void appendMessage(String chatId, String senderId, String text, String timeText, boolean unread) {
+    appendMessage(chatId, senderId, text, timeText, MessageType.TEXT, null, null, null, List.of(), unread);
+  }
+
+  public void appendMessage(String chatId,
+                            String senderId,
+                            String text,
+                            String timeText,
+                            MessageType type,
+                            String assetPath,
+                            String caption,
+                            String durationText,
+                            List<String> options,
+                            boolean unread) {
     Chat chat = getOrCreateChat(chatId);
-    Contact sender = getOrCreateContact(senderId);
-    if (sender.getDisplayName() == null || sender.getDisplayName().isBlank()) {
-      sender.setDisplayName(sender.getId());
+    String normalizedSender = normalizeId(senderId);
+    if (normalizedSender != null) {
+      Contact sender = getOrCreateContact(normalizedSender);
+      if (sender.getDisplayName() == null || sender.getDisplayName().isBlank()) {
+        sender.setDisplayName(sender.getId());
+      }
+      chat.addParticipant(sender.getId());
     }
-    chat.addParticipant(sender.getId());
     if (chat.getTitle() == null || chat.getTitle().isBlank()) {
       chat.setTitle(defaultChatTitle(chat));
     }
-    chat.getMessages().add(new Message(nextMessageId(chat), sender.getId(), text, blankToNull(timeText)));
+    chat.getMessages().add(new Message(
+        nextMessageId(chat),
+        normalizedSender,
+        text,
+        blankToNull(timeText),
+        type,
+        assetPath,
+        caption,
+        durationText,
+        options));
     chat.setUnread(unread);
     moveChatToFront(chat.getId());
   }
@@ -363,10 +508,47 @@ public final class VnPhoneData {
   }
 
   public void ensureChatOrder(String chatId) {
-    String normalized = normalizeId(chatId);
-    if (normalized == null) return;
-    if (!chatOrder.contains(normalized)) {
-      chatOrder.add(normalized);
+    ensureOrder(chatOrder, chatId);
+  }
+
+  public void ensureAppOrder(String appId) {
+    ensureOrder(appOrder, appId);
+  }
+
+  public void ensureCallOrder(String callId) {
+    ensureOrder(callOrder, callId);
+  }
+
+  private static void ensureOrder(List<String> order, String id) {
+    String normalized = normalizeId(id);
+    if (normalized == null || order == null) return;
+    if (!order.contains(normalized)) {
+      order.add(normalized);
+    }
+  }
+
+  private static <T> List<T> orderedValues(LinkedHashMap<String, T> map, List<String> order) {
+    List<T> ordered = new ArrayList<>();
+    Set<String> seen = new LinkedHashSet<>();
+    for (String id : order) {
+      T item = map.get(id);
+      if (item != null && seen.add(id)) ordered.add(item);
+    }
+    for (Map.Entry<String, T> entry : map.entrySet()) {
+      if (seen.add(entry.getKey())) ordered.add(entry.getValue());
+    }
+    return ordered;
+  }
+
+  private static void replaceOrder(List<String> target, List<String> source) {
+    target.clear();
+    if (source == null) return;
+    Set<String> seen = new LinkedHashSet<>();
+    for (String id : source) {
+      String normalized = normalizeId(id);
+      if (normalized != null && seen.add(normalized)) {
+        target.add(normalized);
+      }
     }
   }
 
@@ -398,6 +580,100 @@ public final class VnPhoneData {
     if (value == null) return null;
     String trimmed = value.trim();
     return trimmed.isEmpty() ? null : trimmed;
+  }
+
+  private static String firstNonBlank(String... values) {
+    if (values == null) return "";
+    for (String value : values) {
+      if (value != null && !value.isBlank()) return value;
+    }
+    return "";
+  }
+
+  public enum HomeMode {
+    THREADS("threads"),
+    APPS("apps");
+
+    private final String token;
+
+    HomeMode(String token) {
+      this.token = token;
+    }
+
+    public String token() {
+      return token;
+    }
+
+    public static HomeMode fromToken(String token) {
+      if (token == null || token.isBlank()) return THREADS;
+      return "apps".equalsIgnoreCase(token.trim()) ? APPS : THREADS;
+    }
+  }
+
+  public enum AppTargetType {
+    NONE("none"),
+    HOME("home"),
+    CHAT("chat"),
+    CALL("call"),
+    LABEL("label");
+
+    private final String token;
+
+    AppTargetType(String token) {
+      this.token = token;
+    }
+
+    public String token() {
+      return token;
+    }
+
+    public static AppTargetType fromToken(String token) {
+      if (token == null || token.isBlank()) return NONE;
+      String normalized = token.trim().toLowerCase(Locale.ROOT);
+      return switch (normalized) {
+        case "home" -> HOME;
+        case "chat", "thread" -> CHAT;
+        case "call", "video", "voice" -> CALL;
+        case "label" -> LABEL;
+        default -> NONE;
+      };
+    }
+  }
+
+  public enum MessageType {
+    TEXT("text"),
+    IMAGE("image"),
+    AUDIO("audio"),
+    MENU("menu"),
+    DATE("date"),
+    LABEL("label");
+
+    private final String token;
+
+    MessageType(String token) {
+      this.token = token;
+    }
+
+    public String token() {
+      return token;
+    }
+
+    public boolean isSystemType() {
+      return this == DATE || this == LABEL;
+    }
+
+    public static MessageType fromToken(String token) {
+      if (token == null || token.isBlank()) return TEXT;
+      String normalized = token.trim().toLowerCase(Locale.ROOT);
+      return switch (normalized) {
+        case "image", "photo" -> IMAGE;
+        case "audio", "voice" -> AUDIO;
+        case "menu", "choices", "choice" -> MENU;
+        case "date" -> DATE;
+        case "label", "marker" -> LABEL;
+        default -> TEXT;
+      };
+    }
   }
 
   public static final class Contact {
@@ -457,6 +733,8 @@ public final class VnPhoneData {
     private final List<String> participants = new ArrayList<>();
     private final List<Message> messages = new ArrayList<>();
     private boolean unread;
+    private String composerText;
+    private String composerHint;
 
     public Chat(String id) {
       String normalized = normalizeId(id);
@@ -514,14 +792,178 @@ public final class VnPhoneData {
       this.unread = unread;
     }
 
+    public String getComposerText() {
+      return composerText;
+    }
+
+    public void setComposerText(String composerText) {
+      this.composerText = blankToNull(composerText);
+    }
+
+    public String getComposerHint() {
+      return composerHint;
+    }
+
+    public void setComposerHint(String composerHint) {
+      this.composerHint = blankToNull(composerHint);
+    }
+
     public Message getLastMessage() {
       return messages.isEmpty() ? null : messages.get(messages.size() - 1);
     }
 
     public String getLastPreview() {
       Message last = getLastMessage();
-      if (last == null || last.getText() == null || last.getText().isBlank()) return "No messages yet";
-      return last.getText();
+      return last == null ? "No messages yet" : last.getPreviewText();
+    }
+  }
+
+  public static final class PhoneApp {
+    private final String id;
+    private String title;
+    private String iconPath;
+    private String badgeText;
+    private String accentColor;
+    private int page;
+    private AppTargetType targetType = AppTargetType.NONE;
+    private String targetValue;
+
+    public PhoneApp(String id) {
+      String normalized = normalizeId(id);
+      if (normalized == null) throw new IllegalArgumentException("app id cannot be blank");
+      this.id = normalized;
+    }
+
+    public String getId() {
+      return id;
+    }
+
+    public String getTitle() {
+      return title;
+    }
+
+    public void setTitle(String title) {
+      this.title = blankToNull(title);
+    }
+
+    public String getIconPath() {
+      return iconPath;
+    }
+
+    public void setIconPath(String iconPath) {
+      this.iconPath = blankToNull(iconPath);
+    }
+
+    public String getBadgeText() {
+      return badgeText;
+    }
+
+    public void setBadgeText(String badgeText) {
+      this.badgeText = blankToNull(badgeText);
+    }
+
+    public String getAccentColor() {
+      return accentColor;
+    }
+
+    public void setAccentColor(String accentColor) {
+      this.accentColor = blankToNull(accentColor);
+    }
+
+    public int getPage() {
+      return page;
+    }
+
+    public void setPage(int page) {
+      this.page = Math.max(0, page);
+    }
+
+    public AppTargetType getTargetType() {
+      return targetType == null ? AppTargetType.NONE : targetType;
+    }
+
+    public void setTargetType(AppTargetType targetType) {
+      this.targetType = targetType == null ? AppTargetType.NONE : targetType;
+    }
+
+    public void setTargetType(String token) {
+      this.targetType = AppTargetType.fromToken(token);
+    }
+
+    public String getTargetValue() {
+      return targetValue;
+    }
+
+    public void setTargetValue(String targetValue) {
+      this.targetValue = blankToNull(targetValue);
+    }
+  }
+
+  public static final class Call {
+    private final String id;
+    private String title;
+    private String subtitle;
+    private String avatarPath;
+    private String statusText;
+    private String participantId;
+    private boolean video;
+
+    public Call(String id) {
+      String normalized = normalizeId(id);
+      if (normalized == null) throw new IllegalArgumentException("call id cannot be blank");
+      this.id = normalized;
+    }
+
+    public String getId() {
+      return id;
+    }
+
+    public String getTitle() {
+      return title;
+    }
+
+    public void setTitle(String title) {
+      this.title = blankToNull(title);
+    }
+
+    public String getSubtitle() {
+      return subtitle;
+    }
+
+    public void setSubtitle(String subtitle) {
+      this.subtitle = blankToNull(subtitle);
+    }
+
+    public String getAvatarPath() {
+      return avatarPath;
+    }
+
+    public void setAvatarPath(String avatarPath) {
+      this.avatarPath = blankToNull(avatarPath);
+    }
+
+    public String getStatusText() {
+      return statusText;
+    }
+
+    public void setStatusText(String statusText) {
+      this.statusText = blankToNull(statusText);
+    }
+
+    public String getParticipantId() {
+      return participantId;
+    }
+
+    public void setParticipantId(String participantId) {
+      this.participantId = normalizeId(participantId);
+    }
+
+    public boolean isVideo() {
+      return video;
+    }
+
+    public void setVideo(boolean video) {
+      this.video = video;
     }
   }
 
@@ -530,14 +972,42 @@ public final class VnPhoneData {
     private final String senderId;
     private final String text;
     private final String timeText;
+    private final MessageType type;
+    private final String assetPath;
+    private final String caption;
+    private final String durationText;
+    private final List<String> options;
 
     public Message(String id, String senderId, String text, String timeText) {
+      this(id, senderId, text, timeText, MessageType.TEXT, null, null, null, List.of());
+    }
+
+    public Message(String id,
+                   String senderId,
+                   String text,
+                   String timeText,
+                   MessageType type,
+                   String assetPath,
+                   String caption,
+                   String durationText,
+                   List<String> options) {
       String normalizedId = blankToNull(id);
       this.id = normalizedId == null ? "message" : normalizedId;
-      String normalizedSender = normalizeId(senderId);
-      this.senderId = normalizedSender == null ? "unknown" : normalizedSender;
+      this.senderId = normalizeId(senderId);
       this.text = Objects.requireNonNullElse(text, "");
       this.timeText = blankToNull(timeText);
+      this.type = type == null ? MessageType.TEXT : type;
+      this.assetPath = blankToNull(assetPath);
+      this.caption = blankToNull(caption);
+      this.durationText = blankToNull(durationText);
+      List<String> normalizedOptions = new ArrayList<>();
+      if (options != null) {
+        for (String option : options) {
+          String normalized = blankToNull(option);
+          if (normalized != null) normalizedOptions.add(normalized);
+        }
+      }
+      this.options = Collections.unmodifiableList(normalizedOptions);
     }
 
     public String getId() {
@@ -554,6 +1024,42 @@ public final class VnPhoneData {
 
     public String getTimeText() {
       return timeText;
+    }
+
+    public MessageType getType() {
+      return type;
+    }
+
+    public String getAssetPath() {
+      return assetPath;
+    }
+
+    public String getCaption() {
+      return caption;
+    }
+
+    public String getDurationText() {
+      return durationText;
+    }
+
+    public List<String> getOptions() {
+      return options;
+    }
+
+    public String getPreviewText() {
+      return switch (type) {
+        case IMAGE -> joinPreview("[Image]", firstNonBlank(caption, text, assetPath));
+        case AUDIO -> joinPreview("[Audio]", firstNonBlank(caption, durationText, text, assetPath));
+        case MENU -> options.isEmpty() ? "[Menu]" : "[Menu] " + options.get(0);
+        case DATE -> firstNonBlank(text, caption, "Date");
+        case LABEL -> firstNonBlank(text, caption, "Marker");
+        case TEXT -> firstNonBlank(text, caption, "Message");
+      };
+    }
+
+    private static String joinPreview(String prefix, String value) {
+      String resolved = blankToNull(value);
+      return resolved == null ? prefix : prefix + " " + resolved;
     }
   }
 }
