@@ -49,6 +49,7 @@ class LayeredImageVisualizerViewTest {
     assertEquals(false, LayeredImageVisualizerView.isCharacterAssetPath("assets/backgrounds/school_day.png"));
     assertEquals(false, LayeredImageVisualizerView.shouldIncludePathForScan("assets/backgrounds/school_day.png", true));
     assertEquals(true, LayeredImageVisualizerView.shouldIncludePathForScan("assets/backgrounds/school_day.png", false));
+    assertEquals(true, LayeredImageVisualizerView.isIgnoredLayerPreviewPath("assets/characters/john_doe/null/john_doe_null_ref.png"));
   }
 
   @Test

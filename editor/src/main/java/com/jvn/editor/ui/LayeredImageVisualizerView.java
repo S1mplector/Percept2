@@ -691,6 +691,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       @Override
       protected LayeredCatalogScanResult call() throws Exception {
         Map<String, LayeredSet> scannedSets = new LinkedHashMap<>();
+        LayeredCharacterProjectCatalog.Catalog projectCatalog = LayeredCharacterProjectCatalog.load(rootDir);
+        Map<String, LayeredSet> declaredSets = buildDeclaredLayeredSets(rootDir, projectCatalog);
         Path root = rootDir.toPath();
         List<Path> files;
         try (Stream<Path> stream = Files.walk(root, 10)) {
@@ -705,15 +707,22 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
               .sorted()
               .toList();
         }
+        int imageCount = countLayerOptions(declaredSets);
         int total = files.size();
-        int imageCount = 0;
         int index = 0;
         for (Path p : files) {
           if (isCancelled()) return LayeredCatalogScanResult.cancelledResult(charactersOnlyMode);
           String relative = root.relativize(p).toString().replace('\\', '/');
+          String setId = deriveSetId(relative);
+          if (declaredSets.containsKey(setId)) {
+            index++;
+            if (index == total || (index % 200) == 0) {
+              updateProgress(index, Math.max(total, 1));
+            }
+            continue;
+          }
           LayerOption option = parseOption(relative, p.toFile());
           if (option != null) {
-            String setId = deriveSetId(relative);
             scannedSets.computeIfAbsent(setId, LayeredSet::new).add(option);
             imageCount++;
           }
@@ -721,6 +730,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           if (index == total || (index % 200) == 0) {
             updateProgress(index, Math.max(total, 1));
           }
+        }
+        for (LayeredSet declaredSet : declaredSets.values()) {
+          scannedSets.put(declaredSet.id, declaredSet);
         }
         return new LayeredCatalogScanResult(scannedSets, imageCount, false, charactersOnlyMode);
       }
@@ -1158,8 +1170,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       return;
     }
 
-    List<String> groupNames = new ArrayList<>(set.groups.keySet());
-    groupNames.sort(Comparator.naturalOrder());
+    List<String> groupNames = set.scriptBacked && !set.defaultGroupOrder.isEmpty()
+        ? new ArrayList<>(set.defaultGroupOrder)
+        : new ArrayList<>(set.groups.keySet());
+    if (!set.scriptBacked) {
+      groupNames.sort(Comparator.naturalOrder());
+    }
 
     for (String groupName : groupNames) {
       List<LayerOption> options = new ArrayList<>(set.groups.get(groupName));
@@ -1251,11 +1267,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       groupOrder.add(groupName);
     }
 
-    if (characterIdField.getText() == null || characterIdField.getText().isBlank()) {
-      characterIdField.setText(sanitizeId(takeLastPathToken(selectedSet)));
+    String prefix = statePrefix(selectedSet);
+    boolean hasStoredSelection = hasStoredLayerSelections(prefix);
+    applyStateFromPrefix(prefix);
+    if (!hasStoredSelection) {
+      applyDefaultProjectPreset(set);
     }
-
-    applyStateFromPrefix(statePrefix(selectedSet));
     refreshPresetList();
 
     persistGlobalState();
@@ -2197,9 +2214,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         String relativePath = option.relativePath == null ? "" : option.relativePath.trim();
         if (relativePath.isBlank()) continue;
 
+        String declaredLayerId = sanitizeId(option.layerId);
         String groupId = sanitizeId(selection.group());
         String labelId = sanitizeId(option.label);
-        String baseLayerId = sanitizeId((groupId.isBlank() ? "layer" : groupId) + "_" + (labelId.isBlank() ? "variant" : labelId));
+        String baseLayerId = !declaredLayerId.isBlank()
+            ? declaredLayerId
+            : sanitizeId((groupId.isBlank() ? "layer" : groupId) + "_" + (labelId.isBlank() ? "variant" : labelId));
         if (baseLayerId.isBlank()) baseLayerId = "layer";
         String layerId = nextLayerId(layerIdCounts, baseLayerId);
 
@@ -2208,7 +2228,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
             .append(layerId).append(' ')
             .append(relativePath)
             .append('\n');
-        String layerRef = !groupId.isBlank() && !labelId.isBlank()
+        String layerRef = !declaredLayerId.isBlank()
+            ? layerId
+            : !groupId.isBlank() && !labelId.isBlank()
             ? groupId + "=" + labelId
             : layerId;
         if (presetSpec.length() > 0) presetSpec.append(" | ");
@@ -2307,6 +2329,18 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private void updateExpressionFromSelection() {
     if (!autoExpression.isSelected()) return;
+    LayeredSet set = currentSet();
+    if (set != null && !set.projectPresets.isEmpty()) {
+      Map<String, String> selectedByGroup = selectedPathsByGroup();
+      for (Map.Entry<String, Map<String, String>> entry : set.projectPresets.entrySet()) {
+        if (selectedByGroup.equals(entry.getValue())) {
+          applyingState = true;
+          expressionField.setText(sanitizeId(entry.getKey()));
+          applyingState = false;
+          return;
+        }
+      }
+    }
     List<String> names = new ArrayList<>();
     for (String group : groupOrder) {
       ComboBox<LayerOption> combo = selectors.get(group);
@@ -2347,6 +2381,21 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       out.add(new LayerSelection(group, option));
     }
     return out;
+  }
+
+  private Map<String, String> selectedPathsByGroup() {
+    Map<String, String> out = new LinkedHashMap<>();
+    for (LayerSelection selection : selectedLayerEntries()) {
+      LayerOption option = selection.option();
+      if (option == null || option.isNone() || option.relativePath == null || option.relativePath.isBlank()) continue;
+      out.put(selection.group(), option.relativePath);
+    }
+    return out;
+  }
+
+  private LayeredSet currentSet() {
+    if (currentSetId == null || currentSetId.isBlank()) return null;
+    return sets.get(currentSetId);
   }
 
   private void selectPreferredLayerOption(String groupName, ComboBox<LayerOption> combo) {
@@ -2663,7 +2712,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private void applyStateFromPrefix(String prefix) {
     applyingState = true;
     try {
-      String fallbackChar = sanitizeId(takeLastPathToken(currentSetId));
+      LayeredSet set = currentSet();
+      String fallbackChar = set != null && set.characterId != null && !set.characterId.isBlank()
+          ? sanitizeId(set.characterId)
+          : sanitizeId(takeLastPathToken(currentSetId));
       String charId = persisted.getProperty(prefix + "charId", fallbackChar);
       String expr = persisted.getProperty(prefix + "expr", "");
 
@@ -2728,6 +2780,38 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     } finally {
       applyingState = false;
     }
+    redrawPreview();
+  }
+
+  private boolean hasStoredLayerSelections(String prefix) {
+    if (prefix == null || prefix.isBlank()) return false;
+    for (String key : persisted.stringPropertyNames()) {
+      if (key.startsWith(prefix + "sel.")) return true;
+    }
+    return false;
+  }
+
+  private void applyDefaultProjectPreset(LayeredSet set) {
+    if (set == null || set.projectPresets.isEmpty()) return;
+    String presetName = set.defaultProjectPresetName();
+    if (presetName == null || presetName.isBlank()) return;
+    Map<String, String> selection = set.projectPresets.get(presetName);
+    if (selection == null || selection.isEmpty()) return;
+
+    applyingState = true;
+    try {
+      for (Map.Entry<String, String> entry : selection.entrySet()) {
+        ComboBox<LayerOption> combo = selectors.get(entry.getKey());
+        if (combo == null) continue;
+        LayerOption option = findByRelativePath(combo, entry.getValue());
+        if (option != null) {
+          combo.getSelectionModel().select(option);
+        }
+      }
+    } finally {
+      applyingState = false;
+    }
+    updateExpressionFromSelection();
     redrawPreview();
   }
 
@@ -2921,6 +3005,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private LayerOption parseOption(String relative, File file) {
     if (relative == null || file == null) return null;
     String normalizedRelative = relative.replace('\\', '/');
+    if (isIgnoredLayerPreviewPath(normalizedRelative)) return null;
     String fileName = file.getName();
     int dot = fileName.lastIndexOf('.');
     String base = dot > 0 ? fileName.substring(0, dot) : fileName;
@@ -2949,7 +3034,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       } catch (NumberFormatException ignore) {
       }
     }
-    return new LayerOption(label, group, normalizedRelative, file, sortKey);
+    return new LayerOption(label, group, normalizedRelative, file, sortKey, "");
   }
 
   private String deriveSetId(String relative) {
@@ -3096,6 +3181,70 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     }
 
     return first;
+  }
+
+  private Map<String, LayeredSet> buildDeclaredLayeredSets(File rootDir, LayeredCharacterProjectCatalog.Catalog catalog) {
+    Map<String, LayeredSet> out = new LinkedHashMap<>();
+    if (rootDir == null || catalog == null || catalog.setsById().isEmpty()) return out;
+    for (LayeredCharacterProjectCatalog.DeclaredSet declaredSet : catalog.setsById().values()) {
+      if (declaredSet == null || declaredSet.groups().isEmpty()) continue;
+      LayeredSet set = new LayeredSet(declaredSet.setId());
+      set.scriptBacked = true;
+      set.characterId = declaredSet.characterId();
+      set.defaultGroupOrder.addAll(declaredSet.groupOrder());
+      for (List<LayeredCharacterProjectCatalog.DeclaredOption> options : declaredSet.groups().values()) {
+        for (LayeredCharacterProjectCatalog.DeclaredOption option : options) {
+          if (option == null || option.relativePath() == null || option.relativePath().isBlank()) continue;
+          if (isIgnoredLayerPreviewPath(option.relativePath())) continue;
+          File file = resolveProjectAssetFile(rootDir, option.relativePath());
+          set.add(new LayerOption(
+              option.label(),
+              option.groupId(),
+              option.relativePath(),
+              file,
+              option.order(),
+              option.layerId()));
+        }
+      }
+      for (LayeredCharacterProjectCatalog.DeclaredPreset preset : declaredSet.presets().values()) {
+        if (preset == null || preset.name() == null || preset.name().isBlank()) continue;
+        set.projectPresets.put(preset.name(), new LinkedHashMap<>(preset.selectionsByGroup()));
+      }
+      out.put(set.id, set);
+    }
+    return out;
+  }
+
+  private static File resolveProjectAssetFile(File projectRoot, String relativePath) {
+    if (relativePath == null || relativePath.isBlank()) return null;
+    try {
+      Path candidate = Path.of(relativePath);
+      if (candidate.isAbsolute()) return candidate.normalize().toFile();
+    } catch (Exception ignore) {
+    }
+    return projectRoot.toPath().resolve(relativePath).normalize().toFile();
+  }
+
+  private static int countLayerOptions(Map<String, LayeredSet> sets) {
+    if (sets == null || sets.isEmpty()) return 0;
+    int count = 0;
+    for (LayeredSet set : sets.values()) {
+      if (set == null) continue;
+      for (List<LayerOption> options : set.groups.values()) {
+        if (options != null) count += options.size();
+      }
+    }
+    return count;
+  }
+
+  static boolean isIgnoredLayerPreviewPath(String relativePath) {
+    if (relativePath == null || relativePath.isBlank()) return false;
+    String normalized = relativePath.replace('\\', '/').toLowerCase(Locale.ROOT);
+    return normalized.contains("/null/")
+        || normalized.endsWith("_null.png")
+        || normalized.endsWith("_null_ref.png")
+        || normalized.contains("_null_ref.")
+        || normalized.contains("/null_");
   }
 
   static String inferLabelFromFilenameForGroup(String baseName, String group) {
@@ -3300,7 +3449,11 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private static final class LayeredSet {
     final String id;
+    String characterId;
+    boolean scriptBacked;
     final Map<String, List<LayerOption>> groups = new LinkedHashMap<>();
+    final List<String> defaultGroupOrder = new ArrayList<>();
+    final Map<String, Map<String, String>> projectPresets = new LinkedHashMap<>();
 
     LayeredSet(String id) {
       this.id = Objects.requireNonNullElse(id, "(set)");
@@ -3308,7 +3461,22 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     void add(LayerOption option) {
       if (option == null) return;
-      groups.computeIfAbsent(option.group, k -> new ArrayList<>()).add(option);
+      groups.computeIfAbsent(option.group, k -> {
+        if (!defaultGroupOrder.contains(option.group)) {
+          defaultGroupOrder.add(option.group);
+        }
+        return new ArrayList<>();
+      }).add(option);
+    }
+
+    String defaultProjectPresetName() {
+      if (projectPresets.isEmpty()) return "";
+      for (String key : List.of("neutral", "default", "idle", "normal")) {
+        for (String presetName : projectPresets.keySet()) {
+          if (key.equalsIgnoreCase(presetName)) return presetName;
+        }
+      }
+      return projectPresets.keySet().iterator().next();
     }
   }
 
@@ -3318,17 +3486,19 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     final String relativePath;
     final File file;
     final int sortKey;
+    final String layerId;
 
-    LayerOption(String label, String group, String relativePath, File file, int sortKey) {
+    LayerOption(String label, String group, String relativePath, File file, int sortKey, String layerId) {
       this.label = label;
       this.group = group;
       this.relativePath = relativePath;
       this.file = file;
       this.sortKey = sortKey;
+      this.layerId = layerId == null ? "" : layerId;
     }
 
     static LayerOption none() {
-      return new LayerOption(NONE_LABEL, "none", "", null, Integer.MIN_VALUE);
+      return new LayerOption(NONE_LABEL, "none", "", null, Integer.MIN_VALUE, "");
     }
 
     boolean isNone() {
