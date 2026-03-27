@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -168,5 +170,40 @@ class VnPhonePropertiesCodecTest {
     assertEquals("Lily", decoded.getCall("lily_video").getTitle());
     assertTrue(decoded.getCall("lily_video").isVideo());
     assertEquals("lily", decoded.getCall("lily_video").getParticipantId());
+  }
+
+  @Test
+  void reportsPhoneConfigDiagnosticsForUnknownKeysBrokenIdsAndMissingAssets() throws Exception {
+    Path root = Files.createTempDirectory("jvn-phone-diagnostics-");
+    Files.createDirectories(root.resolve("config/phone"));
+    Files.writeString(root.resolve("config/phone/phone.properties"), """
+        app.wallpaper=assets/ui/missing_wallpaper.png
+        app.unknownField=surprise
+        contacts=mc
+        contact.mc.name=John
+        chats=thread_a
+        chat.thread_a.participants=mc,lily
+        chat.thread_a.messages=m1,m2,m3
+        chat.thread_a.message.m1.sender=lily
+        chat.thread_a.message.m1.type=image
+        chat.thread_a.message.m2.type=menu
+        chat.thread_a.message.m2.text=Choose
+        chat.thread_a.message.m3.type=explode
+        chat.thread_a.message.m3.text=Fallback
+        home.apps=messages
+        phoneapp.messages.target=chat
+        phoneapp.messages.targetValue=missing_chat
+        calls=lily_call
+        call.lily_call.participant=lily
+        """);
+
+    VnPhonePropertiesCodec.LoadResult load = VnPhonePropertiesCodec.loadFromProjectRootWithDiagnostics(root.toFile());
+
+    assertTrue(load.diagnostics().stream().anyMatch(d -> d.contains("Unknown phone config key 'app.unknownField'")));
+    assertTrue(load.diagnostics().stream().anyMatch(d -> d.contains("Phone wallpaper is missing")));
+    assertTrue(load.diagnostics().stream().anyMatch(d -> d.contains("references undefined contact 'lily'")));
+    assertTrue(load.diagnostics().stream().anyMatch(d -> d.contains("message 'm2' is menu type without options")));
+    assertTrue(load.diagnostics().stream().anyMatch(d -> d.contains("message 'm3' uses unknown type 'explode'")));
+    assertTrue(load.diagnostics().stream().anyMatch(d -> d.contains("targets unknown chat 'missing_chat'")));
   }
 }

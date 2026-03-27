@@ -110,6 +110,8 @@ public class SaveMenuScene implements Scene {
 
   public List<String> getSaves() { return saves; }
   public int getSelected() { return selected; }
+  public VnSaveManager getSaveManager() { return saveManager; }
+  public String getDefaultScriptName() { return defaultScriptName; }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
   public MenuScreenSpec getMenuScreen() { return menuScreen; }
   public MenuStyleSpec getDefaultMenuStyle() { return menuProfile.style(menuScreen.defaultStyleId()); }

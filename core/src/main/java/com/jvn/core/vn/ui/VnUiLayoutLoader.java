@@ -1048,6 +1048,10 @@ public final class VnUiLayoutLoader {
       String label = normalize(props.getProperty(prefix + "label"), base.label());
       String action = normalize(props.getProperty(prefix + "action"), base.action());
       String target = normalize(props.getProperty(prefix + "target"), base.target());
+      String inlineTarget = VnUiActionButtonActions.inlineTarget(action);
+      if (target == null && inlineTarget != null) {
+        target = inlineTarget;
+      }
       boolean enabled = parseBoolean(props.getProperty(prefix + "enabled"), base.enabled(), diagnostics, prefix + "enabled");
       String requestedSpace = normalize(props.getProperty(prefix + "space"), base.coordinateSpace());
       String coordinateSpace = VnUiActionButtonSpec.normalizeCoordinateSpace(requestedSpace);
@@ -1089,9 +1093,12 @@ public final class VnUiLayoutLoader {
       warnAdjustedDouble(prefix + "height", height, button.height(), diagnostics);
       validateBoundsPoints(prefix + "boundsPoints", button.boundsPoints(), diagnostics);
 
-      String normalizedAction = normalize(button.action(), "").toLowerCase(Locale.ROOT);
-      if ("open_menu".equals(normalizedAction) && normalize(button.target(), "").isBlank()) {
-        diagnostics.add("Textbox button '" + id + "' uses open_menu without target");
+      String normalizedAction = VnUiActionButtonActions.normalize(button.action());
+      if (!VnUiActionButtonActions.isSupported(button.action())) {
+        diagnostics.add("Textbox button '" + id + "' uses unknown action '" + button.action() + "'");
+      }
+      if (VnUiActionButtonActions.requiresTarget(normalizedAction) && normalize(button.target(), "").isBlank()) {
+        diagnostics.add("Textbox button '" + id + "' uses " + normalizedAction + " without target");
       }
       result.add(button);
     }

@@ -14,7 +14,7 @@ Standalone application entry point for running JVN projects. Boots the engine, w
 ## Dependencies
 
 - `:core`, `:fx`, `:scripting`, `:audio`, `:swing`
-- `:demo-game`, `:billiards-game` (runtime classpath for bundled demo assets)
+- `:demo-game` (runtime classpath for bundled demo assets)
 - `logback-classic` — logging
 
 ## Build & Run

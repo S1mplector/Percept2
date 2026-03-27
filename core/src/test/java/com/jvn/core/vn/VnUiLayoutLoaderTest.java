@@ -146,6 +146,22 @@ class VnUiLayoutLoaderTest {
   }
 
   @Test
+  void reportsBrokenTextboxButtonActions() throws Exception {
+    Path root = Files.createTempDirectory("jvn-ui-button-diagnostics-");
+    Files.createDirectories(root.resolve("config/ui"));
+    Files.writeString(root.resolve("config/ui/dialogue.layout"), """
+        textBoxButton.ids=help,menu
+        textBoxButton.help.action=teleport_menu
+        textBoxButton.menu.action=open_menu
+        """);
+
+    VnUiLayoutLoader.LoadResult load = VnUiLayoutLoader.loadFromProjectRootWithDiagnostics(root.toFile());
+
+    assertTrue(load.diagnostics().stream().anyMatch(d -> d.contains("unknown action 'teleport_menu'")));
+    assertTrue(load.diagnostics().stream().anyMatch(d -> d.contains("uses open_menu without target")));
+  }
+
+  @Test
   void supportsRenpyStyleGuiParityFieldsForDialogueChoiceAndNvl() {
     Properties p = new Properties();
     p.setProperty("textBoxY", "0.69");

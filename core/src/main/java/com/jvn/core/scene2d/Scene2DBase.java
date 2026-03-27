@@ -123,6 +123,7 @@ public class Scene2DBase implements Scene2D {
     children.sort(Comparator.comparingDouble(Entity2D::getZ));
     b.push();
     if (camera != null) {
+      camera.setViewportSize(width, height);
       b.translate(-camera.getX(), -camera.getY());
       b.scale(camera.getZoom(), camera.getZoom());
     }
@@ -146,4 +147,3 @@ public class Scene2DBase implements Scene2D {
     b.pop();
   }
 }
-

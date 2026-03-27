@@ -29,6 +29,17 @@ public class VnScenario {
     return index >= 0 && index < nodes.size() ? nodes.get(index) : null;
   }
   public Integer getLabelIndex(String label) { return labels.get(label); }
+  public String findLabelAtOrBefore(int nodeIndex) {
+    String best = null;
+    int bestIndex = Integer.MIN_VALUE;
+    for (Map.Entry<String, Integer> entry : labels.entrySet()) {
+      Integer index = entry.getValue();
+      if (index == null || index > nodeIndex || index < bestIndex) continue;
+      bestIndex = index;
+      best = entry.getKey();
+    }
+    return best;
+  }
   public VnCharacter getCharacter(String id) { return characters.get(id); }
   public VnBackground getBackground(String id) { return backgrounds.get(id); }
 

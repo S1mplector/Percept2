@@ -79,6 +79,10 @@ public class MainMenuScene implements Scene {
   public String getTitleBgmPath() { return titleBgmPath; }
   public double getTitleBgmVolume() { return titleBgmVolume; }
   public String getMenuId() { return menuId; }
+  public VnSettings getSettingsModel() { return settingsModel; }
+  public VnSaveManager getSaveManager() { return saveManager; }
+  public String getDefaultScriptName() { return defaultScriptName; }
+  public AudioFacade getAudioFacade() { return audio; }
   public MenuProfile getMenuProfile() { return menuProfile; }
   public MenuScreenSpec getMenuScreen() { return menuScreen; }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }

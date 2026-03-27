@@ -14,6 +14,7 @@ import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.MainMenuScene;
+import com.jvn.core.project.ProjectHealthChecker;
 import com.jvn.fx.FxLauncher;
 import com.jvn.fx.audio.FxAudioService;
 import com.jvn.core.audio.AudioFacade;
@@ -36,7 +37,6 @@ public class JvnApp {
     ApplicationConfig.Builder builder = ApplicationConfig.builder().title("JVN Runtime").width(960).height(540);
     String scriptName = null;
     String locale = "en";
-    boolean launchBilliards = false;
     String ui = "fx"; // fx | swing
     String audioBackend = "auto"; // fx | simp3 | auto
     String jesScript = null;
@@ -131,9 +131,6 @@ public class JvnApp {
             localeSpecified = true;
           }
           break;
-        case "--billiards":
-          launchBilliards = true;
-          break;
         case "--ui":
           if (i + 1 < args.length) {
             ui = cleanCliValue(args[++i]);
@@ -203,9 +200,6 @@ public class JvnApp {
 
     ApplicationConfig cfg = builder.build();
     
-    // Init localization
-    Localization.init(locale, Thread.currentThread().getContextClassLoader());
-
     File assetRootDir = (assetRoot == null || assetRoot.isBlank())
         ? null
         : new File(assetRoot);
@@ -218,6 +212,10 @@ public class JvnApp {
       System.clearProperty("jvn.assets.root");
     }
     AssetCatalog.setDefaultManager(manager);
+
+    // Init localization after the asset manager is configured so project string
+    // tables resolve through the same overlay as other runtime assets.
+    Localization.init(locale, Thread.currentThread().getContextClassLoader());
 
     String resolvedEntryScript = VnEntryScriptResolver.resolveEntryScript(scriptName, assetRootDir);
     if (resolvedEntryScript == null) {
@@ -239,6 +237,20 @@ public class JvnApp {
     } catch (Exception e) {
       log.warn("Unable to list assets: {}", e.toString());
     }
+    if (assetRootDir != null) {
+      ProjectHealthChecker.Report report = ProjectHealthChecker.inspect(assetRootDir);
+      if (report.hasIssues()) {
+        log.warn("Project health -> errors={}, warnings={}", report.errorCount(), report.warningCount());
+        for (ProjectHealthChecker.Diagnostic diagnostic : report.diagnostics()) {
+          String location = diagnostic.location();
+          if (location == null || location.isBlank()) {
+            log.warn("Project health [{}]: {}", diagnostic.category(), diagnostic.message());
+          } else {
+            log.warn("Project health [{}] {}: {}", diagnostic.category(), location, diagnostic.message());
+          }
+        }
+      }
+    }
     
     // Create engine and show scene
     Engine engine = new Engine(cfg);
@@ -247,8 +259,6 @@ public class JvnApp {
 
     if (jesScript != null) {
       loadJes(engine, jesScript);
-    } else if (launchBilliards) {
-      log.warn("Billiards module is not available; ignoring --billiards flag.");
     } else {
       VnSettings settingsModel = new VnSettingsStore().load();
       VnSaveManager saveManager = new VnSaveManager();

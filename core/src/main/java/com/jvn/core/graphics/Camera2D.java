@@ -1,10 +1,18 @@
 package com.jvn.core.graphics;
 
+import com.jvn.core.math.Rect;
+import com.jvn.core.math.Scalars;
+
 /**
  * 2D camera with smooth follow, zoom, and optional world-space bounds clamping.
  *
- * <p>The camera maintains a <b>current position</b> ({@link #getX()}, {@link #getY()})
- * and a <b>target position</b> ({@link #getTargetX()}, {@link #getTargetY()}).
+ * <p>The camera stores the <b>top-left world coordinate</b> of the visible view
+ * in {@link #getX()} / {@link #getY()}, not the view centre. Use
+ * {@link #setCenter(double, double, double, double)} or
+ * {@link #setTargetCenter(double, double, double, double)} when follow logic is
+ * authored in centre coordinates.</p>
+ *
+ * <p>The camera maintains a <b>current position</b> and a <b>target position</b>.
  * Each frame, {@link #update(long)} moves the current position toward the target
  * using an exponential-decay smoothing function, producing silky camera follow
  * without overshoot.</p>
@@ -16,14 +24,16 @@ package com.jvn.core.graphics;
  *
  * <h2>Bounds</h2>
  * <p>Optional axis-aligned bounds can be set via {@link #setBounds(double, double, double, double)}.
- * When enabled, the camera position is clamped after every update and teleport,
- * preventing the view from scrolling past the edge of the game world.</p>
+ * When a logical viewport size is known via {@link #setViewportSize(double, double)},
+ * bounds clamping applies to the <em>entire visible view</em>, not only the camera's
+ * top-left coordinate. This keeps the rendered frame inside the world edges.</p>
  *
  * <h2>Coordinate Transforms</h2>
- * <p>{@link #worldToScreenX}/{@link #worldToScreenY} and
- * {@link #screenToWorldX}/{@link #screenToWorldY} convert between world-space
- * coordinates and pixel-space screen coordinates, accounting for the camera's
- * current position and zoom level.</p>
+ * <p>{@link #worldToScreenX(double)} / {@link #worldToScreenY(double)} and
+ * {@link #screenToWorldX(double)} / {@link #screenToWorldY(double)} convert
+ * between world-space coordinates and screen-space coordinates relative to the
+ * view origin. Overloads with explicit origins are available when the camera is
+ * rendered into an inset viewport.</p>
  *
  * @see ViewportScaler2D
  */
@@ -65,6 +75,12 @@ public class Camera2D {
   /** Maximum allowed Y (bottom edge of world bounds). */
   private double boundBottom;
 
+  /** Logical viewport width used for view-size-aware clamping and centre helpers. */
+  private double viewportWidth;
+
+  /** Logical viewport height used for view-size-aware clamping and centre helpers. */
+  private double viewportHeight;
+
   // ──────────────────────────────────────────────────────────────────────────
   //  Position & zoom accessors
   // ──────────────────────────────────────────────────────────────────────────
@@ -85,7 +101,13 @@ public class Camera2D {
    * @param x world X
    * @param y world Y
    */
-  public void setPosition(double x, double y) { this.x = x; this.y = y; this.targetX = x; this.targetY = y; clampToBounds(); }
+  public void setPosition(double x, double y) {
+    this.x = x;
+    this.y = y;
+    this.targetX = x;
+    this.targetY = y;
+    clampToBounds();
+  }
 
   /**
    * Set the zoom factor. Values ≤ 0 are clamped to a tiny positive epsilon
@@ -93,7 +115,10 @@ public class Camera2D {
    *
    * @param z desired zoom factor
    */
-  public void setZoom(double z) { this.zoom = z <= 0 ? 0.0001 : z; }
+  public void setZoom(double z) {
+    this.zoom = z <= 0 ? 0.0001 : z;
+    clampToBounds();
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Smooth follow
@@ -106,13 +131,95 @@ public class Camera2D {
    * @param x target world X
    * @param y target world Y
    */
-  public void setTarget(double x, double y) { this.targetX = x; this.targetY = y; }
+  public void setTarget(double x, double y) {
+    this.targetX = x;
+    this.targetY = y;
+    clampToBounds();
+  }
 
   /** @return the target X the camera is moving toward */
   public double getTargetX() { return targetX; }
 
   /** @return the target Y the camera is moving toward */
   public double getTargetY() { return targetY; }
+
+  /**
+   * Supply the logical viewport size used by this camera.
+   *
+   * <p>When set, bounds clamping takes the visible view size into account so the
+   * full camera frame stays inside the configured world bounds.</p>
+   */
+  public void setViewportSize(double width, double height) {
+    this.viewportWidth = width > 0 ? width : 0.0;
+    this.viewportHeight = height > 0 ? height : 0.0;
+    clampToBounds();
+  }
+
+  /** @return logical viewport width previously supplied via {@link #setViewportSize(double, double)} */
+  public double getViewportWidth() { return viewportWidth; }
+
+  /** @return logical viewport height previously supplied via {@link #setViewportSize(double, double)} */
+  public double getViewportHeight() { return viewportHeight; }
+
+  /** @return visible world-space width using the known viewport size, or 0 when unknown */
+  public double viewWidth() { return viewWidth(viewportWidth); }
+
+  /** @return visible world-space height using the known viewport size, or 0 when unknown */
+  public double viewHeight() { return viewHeight(viewportHeight); }
+
+  /**
+   * Compute the visible world-space width for a logical viewport width.
+   */
+  public double viewWidth(double viewportWidth) {
+    double width = resolveViewportWidth(viewportWidth);
+    return width <= 0 ? 0.0 : width / zoom;
+  }
+
+  /**
+   * Compute the visible world-space height for a logical viewport height.
+   */
+  public double viewHeight(double viewportHeight) {
+    double height = resolveViewportHeight(viewportHeight);
+    return height <= 0 ? 0.0 : height / zoom;
+  }
+
+  /** @return current view centre X using the known viewport size, or {@link #getX()} when unknown */
+  public double centerX() { return centerX(viewportWidth); }
+
+  /** @return current view centre Y using the known viewport size, or {@link #getY()} when unknown */
+  public double centerY() { return centerY(viewportHeight); }
+
+  /**
+   * Compute the current view centre X for a logical viewport width.
+   */
+  public double centerX(double viewportWidth) {
+    return x + viewWidth(viewportWidth) * 0.5;
+  }
+
+  /**
+   * Compute the current view centre Y for a logical viewport height.
+   */
+  public double centerY(double viewportHeight) {
+    return y + viewHeight(viewportHeight) * 0.5;
+  }
+
+  /**
+   * Teleport the camera so the visible view is centred on the given world point.
+   */
+  public void setCenter(double centerX, double centerY, double viewportWidth, double viewportHeight) {
+    double viewW = viewWidth(viewportWidth);
+    double viewH = viewHeight(viewportHeight);
+    setPosition(centerX - viewW * 0.5, centerY - viewH * 0.5);
+  }
+
+  /**
+   * Set the smooth-follow target so the visible view centres on the given world point.
+   */
+  public void setTargetCenter(double centerX, double centerY, double viewportWidth, double viewportHeight) {
+    double viewW = viewWidth(viewportWidth);
+    double viewH = viewHeight(viewportHeight);
+    setTarget(centerX - viewW * 0.5, centerY - viewH * 0.5);
+  }
 
   /**
    * Set the smoothing time constant.
@@ -142,6 +249,35 @@ public class Camera2D {
     this.boundBottom = Math.max(top, bottom);
     this.hasBounds = true;
     clampToBounds();
+  }
+
+  /**
+   * Set axis-aligned world-space bounds from a rectangle.
+   */
+  public void setBounds(Rect bounds) {
+    if (bounds == null) {
+      clearBounds();
+      return;
+    }
+    setBounds(bounds.left(), bounds.top(), bounds.right(), bounds.bottom());
+  }
+
+  /** @return whether world-space clamping is active */
+  public boolean hasBounds() { return hasBounds; }
+
+  /**
+   * Copy the configured bounds into {@code out}.
+   *
+   * @return the populated rect, or {@code null} when bounds are disabled
+   */
+  public Rect bounds(Rect out) {
+    if (!hasBounds) return null;
+    Rect result = out == null ? new Rect() : out;
+    result.x = boundLeft;
+    result.y = boundTop;
+    result.w = boundRight - boundLeft;
+    result.h = boundBottom - boundTop;
+    return result;
   }
 
   /** Remove world-space bounds; the camera may move freely. */
@@ -178,10 +314,31 @@ public class Camera2D {
   /** Clamp the current position to the configured world bounds (no-op if bounds are disabled). */
   private void clampToBounds() {
     if (!hasBounds) return;
-    if (x < boundLeft) x = boundLeft;
-    if (y < boundTop) y = boundTop;
-    if (x > boundRight) x = boundRight;
-    if (y > boundBottom) y = boundBottom;
+    double viewW = viewWidth();
+    double viewH = viewHeight();
+    x = clampAxisToBounds(x, boundLeft, boundRight, viewW);
+    y = clampAxisToBounds(y, boundTop, boundBottom, viewH);
+    targetX = clampAxisToBounds(targetX, boundLeft, boundRight, viewW);
+    targetY = clampAxisToBounds(targetY, boundTop, boundBottom, viewH);
+  }
+
+  private double clampAxisToBounds(double value, double min, double max, double visibleSize) {
+    if (visibleSize <= 0.0) {
+      return Scalars.clamp(value, min, max);
+    }
+    double available = max - min;
+    if (visibleSize >= available) {
+      return min + (available - visibleSize) * 0.5;
+    }
+    return Scalars.clamp(value, min, max - visibleSize);
+  }
+
+  private double resolveViewportWidth(double override) {
+    return override > 0 ? override : viewportWidth;
+  }
+
+  private double resolveViewportHeight(double override) {
+    return override > 0 ? override : viewportHeight;
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -191,48 +348,137 @@ public class Camera2D {
   /**
    * Convert a world-space X coordinate to screen-space pixels.
    *
+   * @param wx world X coordinate
+   * @return screen X in pixels
+   */
+  public double worldToScreenX(double wx) {
+    return (wx - x) * zoom;
+  }
+
+  /**
+   * Convert a world-space X coordinate to screen-space pixels relative to an
+   * explicit screen origin.
+   */
+  public double worldToScreenX(double wx, double originX) {
+    return worldToScreenX(wx) + originX;
+  }
+
+  /**
+   * Convert a world-space X coordinate to screen-space pixels.
+   *
    * @param wx            world X coordinate
-   * @param viewportWidth viewport width in pixels (reserved for future use)
-   * @param originX       screen X of the camera origin (typically viewport centre)
+   * @param viewportWidth viewport width in pixels (ignored; kept for compatibility)
+   * @param originX       screen X of the camera origin
    * @return screen X in pixels
    */
   public double worldToScreenX(double wx, double viewportWidth, double originX) {
-    return (wx - x) * zoom + originX;
+    return worldToScreenX(wx, originX);
+  }
+
+  /**
+   * Convert a world-space Y coordinate to screen-space pixels.
+   *
+   * @param wy world Y coordinate
+   * @return screen Y in pixels
+   */
+  public double worldToScreenY(double wy) {
+    return (wy - y) * zoom;
+  }
+
+  /**
+   * Convert a world-space Y coordinate to screen-space pixels relative to an
+   * explicit screen origin.
+   */
+  public double worldToScreenY(double wy, double originY) {
+    return worldToScreenY(wy) + originY;
   }
 
   /**
    * Convert a world-space Y coordinate to screen-space pixels.
    *
    * @param wy             world Y coordinate
-   * @param viewportHeight viewport height in pixels (reserved for future use)
-   * @param originY        screen Y of the camera origin (typically viewport centre)
+   * @param viewportHeight viewport height in pixels (ignored; kept for compatibility)
+   * @param originY        screen Y of the camera origin
    * @return screen Y in pixels
    */
   public double worldToScreenY(double wy, double viewportHeight, double originY) {
-    return (wy - y) * zoom + originY;
+    return worldToScreenY(wy, originY);
+  }
+
+  /**
+   * Convert a screen-space X coordinate back to world-space.
+   *
+   * @param sx screen X in pixels
+   * @return world X
+   */
+  public double screenToWorldX(double sx) {
+    return sx / zoom + x;
+  }
+
+  /**
+   * Convert a screen-space X coordinate back to world-space using an explicit origin.
+   */
+  public double screenToWorldX(double sx, double originX) {
+    return screenToWorldX(sx - originX);
   }
 
   /**
    * Convert a screen-space X coordinate back to world-space.
    *
    * @param sx            screen X in pixels
-   * @param viewportWidth viewport width in pixels (reserved for future use)
+   * @param viewportWidth viewport width in pixels (ignored; kept for compatibility)
    * @param originX       screen X of the camera origin
    * @return world X
    */
   public double screenToWorldX(double sx, double viewportWidth, double originX) {
-    return (sx - originX) / zoom + x;
+    return screenToWorldX(sx, originX);
+  }
+
+  /**
+   * Convert a screen-space Y coordinate back to world-space.
+   *
+   * @param sy screen Y in pixels
+   * @return world Y
+   */
+  public double screenToWorldY(double sy) {
+    return sy / zoom + y;
+  }
+
+  /**
+   * Convert a screen-space Y coordinate back to world-space using an explicit origin.
+   */
+  public double screenToWorldY(double sy, double originY) {
+    return screenToWorldY(sy - originY);
   }
 
   /**
    * Convert a screen-space Y coordinate back to world-space.
    *
    * @param sy             screen Y in pixels
-   * @param viewportHeight viewport height in pixels (reserved for future use)
+   * @param viewportHeight viewport height in pixels (ignored; kept for compatibility)
    * @param originY        screen Y of the camera origin
    * @return world Y
    */
   public double screenToWorldY(double sy, double viewportHeight, double originY) {
-    return (sy - originY) / zoom + y;
+    return screenToWorldY(sy, originY);
+  }
+
+  /**
+   * Copy the currently visible world-space view rectangle into {@code out}.
+   */
+  public Rect viewRect(Rect out) {
+    return viewRect(viewportWidth, viewportHeight, out);
+  }
+
+  /**
+   * Copy the visible world-space view rectangle for an explicit logical viewport size.
+   */
+  public Rect viewRect(double viewportWidth, double viewportHeight, Rect out) {
+    Rect result = out == null ? new Rect() : out;
+    result.x = x;
+    result.y = y;
+    result.w = viewWidth(viewportWidth);
+    result.h = viewHeight(viewportHeight);
+    return result;
   }
 }

@@ -257,6 +257,26 @@ class MenuProfileLoaderTest {
   }
 
   @Test
+  void flagsUnknownSettingsMenuTargets() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-settings-missing-target-");
+    Files.createDirectories(root.resolve("config/menu/menus"));
+    Files.writeString(root.resolve("config/menu/menu.registry"), "menus=settings\n");
+    Files.writeString(root.resolve("config/menu/menus/settings.menu"), """
+        layout=settings
+        defaultItemStyle=settings
+        items=audio_tab
+        item.audio_tab.label=Audio
+        item.audio_tab.action=settings_menu
+        item.audio_tab.target=settings_audio
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfileLoader.LoadResult result = MenuProfileLoader.loadWithDiagnostics(assets);
+
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.contains("unknown settings menu 'settings_audio'")));
+  }
+
+  @Test
   void fallsBackToNoopForUnknownAction() throws Exception {
     Path root = Files.createTempDirectory("jvn-menu-unknown-action-");
     Files.createDirectories(root.resolve("config/menu/menus"));

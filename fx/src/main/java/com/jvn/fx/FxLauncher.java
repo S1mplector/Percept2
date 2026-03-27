@@ -20,6 +20,7 @@ import com.jvn.core.graphics.ViewportScaler2D;
 import com.jvn.core.input.ActionMap;
 import com.jvn.core.input.InputActions;
 import com.jvn.core.input.InputCode;
+import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.HistoryMenuScene;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.MainMenuScene;
@@ -27,10 +28,17 @@ import com.jvn.core.menu.PauseMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.phone.PhoneScene;
+import com.jvn.core.phone.VnPhonePropertiesCodec;
+import com.jvn.core.phone.VnPhoneData;
+import com.jvn.core.phone.VnPhoneStateStore;
+import com.jvn.core.project.ProjectHealthChecker;
 import com.jvn.core.scene2d.Scene2D;
 import com.jvn.core.scene2d.Scene2DBase;
 import com.jvn.core.vn.VnEntryScriptResolver;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.ui.VnUiActionButtonActions;
 import com.jvn.core.vn.ui.VnCursorConfigLoader;
 import com.jvn.fx.menu.MenuRenderer;
 import com.jvn.fx.menu.MenuTheme;
@@ -72,6 +80,9 @@ public class FxLauncher extends Application {
   private FxSceneRendererRegistry rendererRegistry;
   private ActionMap actionMap;
   private Cursor configuredCursor = Cursor.DEFAULT;
+  private javafx.scene.Scene fxScene;
+  private File runtimeProjectRoot;
+  private ProjectHotReloadTracker hotReloadTracker;
   private double mouseX = 0;
   private double mouseY = 0;
 
@@ -105,8 +116,8 @@ public class FxLauncher extends Application {
     this.phoneRenderer = new PhoneRenderer();
     root.getChildren().addAll(this.canvas, this.phoneRenderer);
     javafx.scene.Scene scene = new javafx.scene.Scene(root, width, height);
+    this.fxScene = scene;
     primaryStage.setScene(scene);
-    applyConfiguredCursor(scene);
     primaryStage.focusedProperty().addListener((obs, oldValue, focused) -> {
       if (focused) applyConfiguredCursor(scene);
     });
@@ -125,12 +136,18 @@ public class FxLauncher extends Application {
     this.gc = this.canvas.getGraphicsContext2D();
     this.vnRenderer = new VnRenderer(gc);
     this.menuRenderer = new MenuRenderer(gc, MenuTheme.fromAssets());
-    this.menuRenderer.setProjectRoot(resolveAssetsRoot());
+    this.runtimeProjectRoot = resolveAssetsRoot();
+    this.vnRenderer.setProjectRoot(runtimeProjectRoot);
+    this.menuRenderer.setProjectRoot(runtimeProjectRoot);
+    this.phoneRenderer.setProjectRoot(runtimeProjectRoot);
     this.blitter2D = new FxBlitter2D(gc);
     this.rendererRegistry = createRendererRegistry();
     this.actionMap = loadActionBindings();
+    this.hotReloadTracker = ProjectHotReloadTracker.create(runtimeProjectRoot);
     canvas.widthProperty().bind(root.widthProperty());
     canvas.heightProperty().bind(root.heightProperty());
+    applyConfiguredCursor(scene);
+    logProjectHealth("startup");
 
     // Input handling
     scene.setOnKeyPressed(e -> {
@@ -387,6 +404,7 @@ public class FxLauncher extends Application {
           currentScene = engine.scenes().peek();
         }
         syncPhoneOverlay(currentScene);
+        pollProjectHotReload();
 
         // Render
         if (gc != null && canvas != null) {
@@ -636,25 +654,19 @@ public class FxLauncher extends Application {
   private double toSceneX(double canvasX, com.jvn.core.scene.Scene scene) {
     if (canvas == null || !shouldUseAspectFitViewport(scene)) return canvasX;
     ViewportScaler2D.Transform vp = viewportTransform(canvas.getWidth(), canvas.getHeight());
-    double scale = Math.max(0.000001, vp.scale());
-    return (canvasX - vp.offsetX()) / scale;
+    return vp.screenToLogicalX(canvasX);
   }
 
   private double toSceneY(double canvasY, com.jvn.core.scene.Scene scene) {
     if (canvas == null || !shouldUseAspectFitViewport(scene)) return canvasY;
     ViewportScaler2D.Transform vp = viewportTransform(canvas.getWidth(), canvas.getHeight());
-    double scale = Math.max(0.000001, vp.scale());
-    return (canvasY - vp.offsetY()) / scale;
+    return vp.screenToLogicalY(canvasY);
   }
 
   private boolean isPointInSceneViewport(double canvasX, double canvasY, com.jvn.core.scene.Scene scene) {
     if (canvas == null || !shouldUseAspectFitViewport(scene)) return true;
     ViewportScaler2D.Transform vp = viewportTransform(canvas.getWidth(), canvas.getHeight());
-    double minX = vp.offsetX();
-    double minY = vp.offsetY();
-    double maxX = minX + vp.targetWidth() * vp.scale();
-    double maxY = minY + vp.targetHeight() * vp.scale();
-    return canvasX >= minX && canvasX <= maxX && canvasY >= minY && canvasY <= maxY;
+    return vp.containsScreen(canvasX, canvasY);
   }
 
   private static int firstPositiveSystemProperty(String... keys) {
@@ -1102,8 +1114,7 @@ public class FxLauncher extends Application {
   }
 
   private static String normalizeButtonAction(String raw) {
-    if (raw == null || raw.isBlank()) return "noop";
-    return raw.trim().toLowerCase(java.util.Locale.ROOT).replace('-', '_').replace(' ', '_');
+    return VnUiActionButtonActions.normalize(raw);
   }
 
   private void handleMouseDrag(double x, double y) {
@@ -1322,6 +1333,258 @@ public class FxLauncher extends Application {
         }
       }
     }
+  }
+
+  private void pollProjectHotReload() {
+    if (hotReloadTracker == null || engine == null) return;
+    ProjectHotReloadTracker.ChangeSet changes = hotReloadTracker.poll(System.nanoTime());
+    if (changes == null || !changes.hasChanges()) return;
+    handleProjectHotReload(changes);
+  }
+
+  private void handleProjectHotReload(ProjectHotReloadTracker.ChangeSet changes) {
+    if (changes.localizationChanged()) {
+      reloadLocalizationFromProject();
+    }
+    if (changes.assetsChanged()) {
+      menuRenderer.clearImageCache();
+      phoneRenderer.clearAssetCache();
+    }
+    if (changes.uiChanged() || changes.assetsChanged()) {
+      vnRenderer.clearCache();
+      vnRenderer.reloadUiLayout();
+      if (fxScene != null) {
+        applyConfiguredCursor(fxScene);
+      }
+    }
+    if (changes.menuChanged() || changes.localizationChanged()) {
+      menuRenderer.setTheme(MenuTheme.fromAssets());
+      menuRenderer.clearImageCache();
+      reloadTopMenuScene();
+    }
+    if (changes.phoneChanged() || (changes.assetsChanged() && engine.scenes().peek() instanceof PhoneScene)) {
+      reloadTopPhoneScene();
+    }
+    if (changes.scriptsChanged() || changes.localizationChanged()) {
+      reloadTopVnScene();
+    }
+    logProjectHealth("hot-reload");
+  }
+
+  private void reloadLocalizationFromProject() {
+    String locale = resolveRuntimeLocale();
+    Localization.init(locale, Thread.currentThread().getContextClassLoader());
+  }
+
+  private String resolveRuntimeLocale() {
+    if (runtimeProjectRoot != null) {
+      File manifest = new File(runtimeProjectRoot, "jvn.project");
+      if (manifest.isFile()) {
+        try (var in = Files.newInputStream(manifest.toPath())) {
+          var props = new java.util.Properties();
+          props.load(in);
+          String configured = props.getProperty("runtime.locale");
+          if (configured != null && !configured.isBlank()) {
+            return configured.trim();
+          }
+        } catch (Exception ignored) {
+        }
+      }
+    }
+    String active = Localization.locale();
+    return (active == null || active.isBlank()) ? "en" : active;
+  }
+
+  private void logProjectHealth(String reason) {
+    if (runtimeProjectRoot == null) return;
+    ProjectHealthChecker.Report report = ProjectHealthChecker.inspect(runtimeProjectRoot);
+    if (!report.hasIssues()) return;
+    log.warn("Project health ({}) -> errors={}, warnings={}", reason, report.errorCount(), report.warningCount());
+    for (ProjectHealthChecker.Diagnostic diagnostic : report.diagnostics()) {
+      if (diagnostic.location() == null || diagnostic.location().isBlank()) {
+        log.warn("Project health [{}]: {}", diagnostic.category(), diagnostic.message());
+      } else {
+        log.warn("Project health [{}] {}: {}", diagnostic.category(), diagnostic.location(), diagnostic.message());
+      }
+    }
+  }
+
+  private void reloadTopMenuScene() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof MainMenuScene main) {
+      MainMenuScene replacement = new MainMenuScene(
+          engine,
+          main.getSettingsModel(),
+          main.getSaveManager(),
+          main.getDefaultScriptName(),
+          main.getAudioFacade(),
+          main.getMenuId()
+      );
+      replacement.setSelected(main.getSelected());
+      if (main.getTitleBgmPath() != null) {
+        replacement.setTitleBgm(main.getTitleBgmPath(), main.getTitleBgmVolume());
+      }
+      engine.scenes().replace(replacement);
+    } else if (currentScene instanceof PauseMenuScene pause) {
+      PauseMenuScene replacement = new PauseMenuScene(
+          engine,
+          pause.getVnScene(),
+          pause.getSaveManager(),
+          pause.getDefaultScriptName(),
+          pause.getAudioFacade()
+      );
+      replacement.setSelected(pause.getSelected());
+      engine.scenes().replace(replacement);
+    } else if (currentScene instanceof HistoryMenuScene history) {
+      engine.scenes().replace(new HistoryMenuScene(engine, history.getVnScene()));
+    } else if (currentScene instanceof SaveMenuScene save) {
+      String selectedName = save.getSelectedName();
+      SaveMenuScene replacement = new SaveMenuScene(
+          engine,
+          save.getSaveManager(),
+          save.getCurrentVnScene(),
+          save.getDefaultScriptName()
+      );
+      restoreSaveSelection(replacement, selectedName);
+      engine.scenes().replace(replacement);
+    } else if (currentScene instanceof LoadMenuScene load) {
+      String selectedName = load.getSelectedName();
+      LoadMenuScene replacement = new LoadMenuScene(
+          engine,
+          load.getSaveManager(),
+          load.getDefaultScriptName(),
+          load.getSettingsModel(),
+          load.getAudioFacade()
+      );
+      if (load.isFavoritesOnly()) {
+        replacement.toggleFavoritesOnly();
+      }
+      restoreLoadSelection(replacement, selectedName);
+      engine.scenes().replace(replacement);
+    } else if (currentScene instanceof SettingsScene settings) {
+      SettingsScene replacement = new SettingsScene(
+          engine,
+          settings.getSaveManager(),
+          settings.getDefaultScriptName(),
+          settings.model(),
+          settings.getAudioFacade(),
+          settings.getBindings(),
+          settings.getMenuId()
+      );
+      replacement.preferSelectionKey(settings.getSelectedKey());
+      engine.scenes().replace(replacement);
+    }
+  }
+
+  private void reloadTopPhoneScene() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (!(currentScene instanceof PhoneScene phone)) return;
+
+    VnScene vnScene = phone.getVnScene();
+    if (vnScene != null && vnScene.getState() != null
+        && vnScene.getState().getVariable(VnPhoneStateStore.VAR_PHONE_PROPERTIES) != null) {
+      return;
+    }
+
+    VnPhoneData data = runtimeProjectRoot != null
+        ? VnPhonePropertiesCodec.loadFromProjectRootWithDiagnostics(runtimeProjectRoot).data()
+        : VnPhonePropertiesCodec.loadSeedFromAssets();
+    PhoneScene replacement = new PhoneScene(
+        vnScene,
+        data,
+        updated -> {
+          if (vnScene != null && vnScene.getState() != null) {
+            VnPhoneStateStore.save(vnScene.getState(), updated);
+          }
+        }
+    );
+    replacement.setSelectedHomeIndex(phone.getSelectedHomeIndex());
+    if (phone.isShowingCall() && phone.getCurrentCallId() != null) {
+      replacement.openCall(phone.getCurrentCallId());
+    } else if (phone.isShowingChat() && phone.getCurrentChatId() != null) {
+      replacement.openChat(phone.getCurrentChatId());
+    } else {
+      replacement.showHome();
+    }
+    engine.scenes().replace(replacement);
+  }
+
+  private void reloadTopVnScene() {
+    if (engine == null) return;
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (!(currentScene instanceof VnScene vnScene)) return;
+
+    String sourceScript = VnEntryScriptResolver.normalizeScriptKey(vnScene.getState().getSourceScriptName());
+    if (sourceScript == null) {
+      sourceScript = VnEntryScriptResolver.resolveEntryScript(null, runtimeProjectRoot);
+    }
+    if (sourceScript == null) return;
+
+    try {
+      VnScenario reloadedScenario = new VnScenarioLoader().load(sourceScript);
+      VnScene replacement = new VnScene(reloadedScenario);
+      replacement.getState().setSourceScriptName(sourceScript);
+      replacement.setAudioFacade(vnScene.getAudioFacade());
+      replacement.setQuickSaveManager(vnScene.getQuickSaveManager());
+      if (engine.getVnInteropFactory() != null) {
+        replacement.setInterop(engine.getVnInteropFactory().create(engine));
+      }
+      copySettings(vnScene.getState().getSettings(), replacement.getState().getSettings());
+      replacement.getState().getVariables().putAll(vnScene.getState().getVariables());
+      replacement.getState().setUiHidden(vnScene.getState().isUiHidden());
+      replacement.getState().setSkipMode(vnScene.getState().isSkipMode());
+      replacement.getState().setAutoPlayMode(vnScene.getState().isAutoPlayMode());
+
+      String anchorLabel = vnScene.getScenario() != null
+          ? vnScene.getScenario().findLabelAtOrBefore(vnScene.getState().getCurrentNodeIndex())
+          : null;
+      if (anchorLabel != null && reloadedScenario.getLabelIndex(anchorLabel) != null) {
+        replacement.getState().jumpToLabel(anchorLabel);
+        replacement.preflightState(replacement.getState().getCurrentNodeIndex());
+        replacement.getState().showHudMessage("Script reloaded at @" + anchorLabel, 1400);
+      } else {
+        replacement.getState().showHudMessage("Script reloaded", 1200);
+      }
+      engine.scenes().replace(replacement);
+    } catch (Exception ex) {
+      vnScene.getState().showHudMessage("Script reload failed", 1400);
+      log.warn("Hot reload failed for script '{}': {}", sourceScript, ex.toString());
+    }
+  }
+
+  private void restoreSaveSelection(SaveMenuScene scene, String selectedName) {
+    if (scene == null || selectedName == null || scene.getSaves() == null) return;
+    int index = scene.getSaves().indexOf(selectedName);
+    if (index >= 0) {
+      scene.setSelected(index);
+    }
+  }
+
+  private void restoreLoadSelection(LoadMenuScene scene, String selectedName) {
+    if (scene == null || selectedName == null || scene.getSaves() == null) return;
+    int index = scene.getSaves().indexOf(selectedName);
+    if (index >= 0) {
+      scene.setSelected(index);
+    }
+  }
+
+  private void copySettings(com.jvn.core.vn.VnSettings src, com.jvn.core.vn.VnSettings dst) {
+    if (src == null || dst == null) return;
+    dst.setTextSpeed(src.getTextSpeed());
+    dst.setBgmVolume(src.getBgmVolume());
+    dst.setSfxVolume(src.getSfxVolume());
+    dst.setVoiceVolume(src.getVoiceVolume());
+    dst.setAutoPlayDelay(src.getAutoPlayDelay());
+    dst.setSkipUnreadText(src.isSkipUnreadText());
+    dst.setSkipAfterChoices(src.isSkipAfterChoices());
+    dst.setClickRevealBeforeAdvance(src.isClickRevealBeforeAdvance());
+    dst.setPhysicsFixedStepMs(src.getPhysicsFixedStepMs());
+    dst.setPhysicsMaxSubSteps(src.getPhysicsMaxSubSteps());
+    dst.setPhysicsDefaultFriction(src.getPhysicsDefaultFriction());
+    dst.setInputProfilePath(src.getInputProfilePath());
+    dst.setInputProfileSerialized(src.getInputProfileSerialized());
   }
 
   @Override

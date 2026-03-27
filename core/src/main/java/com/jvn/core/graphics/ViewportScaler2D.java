@@ -1,5 +1,7 @@
 package com.jvn.core.graphics;
 
+import com.jvn.core.math.Rect;
+
 /**
  * Utility for fitting a logical 2D resolution into an arbitrary physical viewport
  * with uniform scaling and centred letterboxing.
@@ -46,7 +48,73 @@ public final class ViewportScaler2D {
    * @param targetWidth  effective logical width used (may differ from input if ≤ 0)
    * @param targetHeight effective logical height used
    */
-  public record Transform(double scale, double offsetX, double offsetY, double targetWidth, double targetHeight) {}
+  public record Transform(double scale, double offsetX, double offsetY, double targetWidth, double targetHeight) {
+    public double contentWidth() {
+      return targetWidth * scale;
+    }
+
+    public double contentHeight() {
+      return targetHeight * scale;
+    }
+
+    public double minX() {
+      return offsetX;
+    }
+
+    public double minY() {
+      return offsetY;
+    }
+
+    public double maxX() {
+      return offsetX + contentWidth();
+    }
+
+    public double maxY() {
+      return offsetY + contentHeight();
+    }
+
+    public boolean containsScreen(double x, double y) {
+      return x >= minX() && x <= maxX() && y >= minY() && y <= maxY();
+    }
+
+    public boolean containsLogical(double x, double y) {
+      return x >= 0.0 && x <= targetWidth && y >= 0.0 && y <= targetHeight;
+    }
+
+    public double logicalToScreenX(double logicalX) {
+      return offsetX + logicalX * scale;
+    }
+
+    public double logicalToScreenY(double logicalY) {
+      return offsetY + logicalY * scale;
+    }
+
+    public double screenToLogicalX(double screenX) {
+      return (screenX - offsetX) / Math.max(1e-9, scale);
+    }
+
+    public double screenToLogicalY(double screenY) {
+      return (screenY - offsetY) / Math.max(1e-9, scale);
+    }
+
+    public Rect logicalBounds(Rect out) {
+      Rect result = out == null ? new Rect() : out;
+      result.x = 0.0;
+      result.y = 0.0;
+      result.w = targetWidth;
+      result.h = targetHeight;
+      return result;
+    }
+
+    public Rect screenBounds(Rect out) {
+      Rect result = out == null ? new Rect() : out;
+      result.x = offsetX;
+      result.y = offsetY;
+      result.w = contentWidth();
+      result.h = contentHeight();
+      return result;
+    }
+  }
 
   /**
    * Compute the uniform scale and centred offset to fit a logical resolution
@@ -64,8 +132,8 @@ public final class ViewportScaler2D {
    * @return a {@link Transform} with scale, offsets, and effective target dimensions
    */
   public static Transform fit(double targetWidth, double targetHeight, double viewportWidth, double viewportHeight) {
-    double tw = targetWidth <= 0 ? viewportWidth : targetWidth;
-    double th = targetHeight <= 0 ? viewportHeight : targetHeight;
+    double tw = targetWidth > 0 ? targetWidth : (viewportWidth > 0 ? viewportWidth : 1.0);
+    double th = targetHeight > 0 ? targetHeight : (viewportHeight > 0 ? viewportHeight : 1.0);
     double vw = viewportWidth <= 0 ? 1 : viewportWidth;
     double vh = viewportHeight <= 0 ? 1 : viewportHeight;
     double scale = Math.min(vw / tw, vh / th);

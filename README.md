@@ -154,7 +154,6 @@ Supported runtime CLI flags:
 - `--height <px>`
 - `--script <name>` optional override for startup VNS script
 - `--locale <code>` default: `en`
-- `--billiards` (currently logs warning if module entry flow is unavailable)
 - `--ui <fx|swing>` default: `fx`
 - `--jes <path[,path2...]>`
 - `--audio <fx|simp3|auto>` default: `auto`

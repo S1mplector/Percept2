@@ -58,6 +58,9 @@ public class PauseMenuScene implements Scene {
   }
 
   public VnScene getVnScene() { return vnScene; }
+  public VnSaveManager getSaveManager() { return saveManager; }
+  public String getDefaultScriptName() { return defaultScriptName; }
+  public AudioFacade getAudioFacade() { return audio; }
   public MenuProfile getMenuProfile() { return menuProfile; }
   public MenuScreenSpec getMenuScreen() { return menuScreen; }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }

@@ -21,7 +21,6 @@ include(
   ":audio",
   ":editor",
   ":demo-game",
-  ":billiards-game",
   ":swing",
   ":testkit",
   ":scala-utils",

@@ -287,7 +287,7 @@ public class EditorApp extends Application {
     if (mf == null) { status.setText("jvn.project not found"); return; }
     String type = mf.getProperty("type", "gradle").trim();
     if ("gradle".equalsIgnoreCase(type)) {
-      String path = mf.getProperty("path", ":billiards-game").trim();
+      String path = mf.getProperty("path", ":runtime").trim();
       String task = mf.getProperty("task", "run").trim();
       String args = mf.getProperty("args", "-x test");
       runGradle(root, composeGradleTask(path, task), args == null ? new String[]{} : args.split("\\s+"), "Run Project");

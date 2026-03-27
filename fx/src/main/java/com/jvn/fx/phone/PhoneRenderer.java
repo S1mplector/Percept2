@@ -272,6 +272,12 @@ public final class PhoneRenderer extends StackPane {
     refresh();
   }
 
+  public void clearAssetCache() {
+    imageCache.clear();
+    alphaBoundsCache.clear();
+    refresh();
+  }
+
   public PhoneScene getSceneModel() {
     return sceneModel;
   }

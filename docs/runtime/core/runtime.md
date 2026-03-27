@@ -57,7 +57,6 @@ Run exactly like editor project-run (typical VN project):
 - `--height <px>`: initial height
 - `--script <name>`: optional startup VNS script override
 - `--locale <code>`: localization key set, default `en`
-- `--billiards`: attempts billiards entry flow (currently may log fallback warning)
 - `--ui <fx|swing>`: rendering backend, default `fx`
 - `--jes <path[,path2...]>`: load JES scene(s) directly instead of menu/VNS entry
 - `--audio <fx|simp3|auto>`: audio backend preference

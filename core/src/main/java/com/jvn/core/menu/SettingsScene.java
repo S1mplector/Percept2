@@ -181,8 +181,15 @@ public class SettingsScene implements Scene {
 
   public VnSettings model() { return settings; }
   public String getMenuId() { return menuId; }
+  public VnSaveManager getSaveManager() { return saveManager; }
+  public String getDefaultScriptName() { return defaultScriptName; }
+  public AudioFacade getAudioFacade() { return audio; }
   public int itemCount() { return rows.size(); }
   public int getSelected() { return selected; }
+  public String getSelectedKey() {
+    Row row = rowAt(selected);
+    return row == null ? null : row.key();
+  }
   public MenuLayoutSpec getMenuLayout() { return menuLayout; }
   public MenuScreenSpec getMenuScreen() { return menuScreen; }
   public MenuStyleSpec getDefaultMenuStyle() { return menuProfile.style(menuScreen.defaultStyleId()); }

@@ -1,5 +1,7 @@
 package com.jvn.core.phone;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
@@ -15,6 +17,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.ClasspathAssetManager;
+import com.jvn.core.assets.FilesystemAssetManager;
+import com.jvn.core.assets.OverlayAssetManager;
 import com.jvn.core.assets.AssetType;
 
 /**
@@ -23,51 +28,155 @@ import com.jvn.core.assets.AssetType;
 public final class VnPhonePropertiesCodec {
   public static final String DEFAULT_CONFIG_PATH = "phone/phone.properties";
   public static final String DIRECT_CONFIG_PATH = "config/phone/phone.properties";
+  private static final String PROJECT_GAME_CONFIG_PATH = "game/config/phone/phone.properties";
 
   private static final Pattern CONTACT_KEY_PATTERN = Pattern.compile("^contact\\.([^.]+)\\..+$");
   private static final Pattern CHAT_KEY_PATTERN = Pattern.compile("^chat\\.([^.]+)\\..+$");
   private static final Pattern MESSAGE_KEY_PATTERN = Pattern.compile("^chat\\.([^.]+)\\.message\\.([^.]+)\\..+$");
   private static final Pattern PHONE_APP_KEY_PATTERN = Pattern.compile("^phoneapp\\.([^.]+)\\..+$");
   private static final Pattern CALL_KEY_PATTERN = Pattern.compile("^call\\.([^.]+)\\..+$");
+  private static final Set<String> ROOT_KEYS = Set.of(
+      "app.title",
+      "app.subtitle",
+      "app.wallpaper",
+      "app.accent",
+      "app.surface",
+      "app.bubbleIncoming",
+      "app.bubbleOutgoing",
+      "app.skin",
+      "app.style",
+      "app.theme",
+      "app.skin.background",
+      "app.skin.topBar",
+      "app.skin.bottomBar",
+      "app.skin.messageField",
+      "app.skin.nav.leading",
+      "app.skin.nav.trailingPrimary",
+      "app.skin.nav.trailingSecondary",
+      "app.skin.composer.leading",
+      "app.skin.composer.trailingPrimary",
+      "app.skin.composer.trailingSecondary",
+      "app.skin.statusBackdrop",
+      "app.skin.statusIcon",
+      "app.skin.floatingAction",
+      "app.skin.bubbleIncoming",
+      "app.skin.bubbleOutgoing",
+      "app.bubbleIncomingImage",
+      "app.bubbleOutgoingImage",
+      "home.mode",
+      "home.apps",
+      "status.time",
+      "status.mode",
+      "status.signal",
+      "status.battery",
+      "contacts",
+      "chats",
+      "calls"
+  );
+  private static final Set<String> CONTACT_FIELDS = Set.of("name", "displayName", "avatar", "color", "self");
+  private static final Set<String> CHAT_FIELDS = Set.of("title", "icon", "participants", "unread", "composerText", "composerHint", "messages");
+  private static final Set<String> MESSAGE_FIELDS = Set.of("sender", "text", "time", "type", "asset", "caption", "duration", "options");
+  private static final Set<String> APP_FIELDS = Set.of("title", "icon", "badge", "accent", "page", "target", "targetValue");
+  private static final Set<String> CALL_FIELDS = Set.of("title", "subtitle", "avatar", "status", "participant", "video");
+
+  public record LoadResult(VnPhoneData data, List<String> diagnostics) {
+    public LoadResult {
+      data = data == null ? new VnPhoneData() : data;
+      diagnostics = diagnostics == null ? List.of() : List.copyOf(diagnostics);
+    }
+  }
 
   private VnPhonePropertiesCodec() {
   }
 
   public static VnPhoneData load(InputStream in) throws IOException {
+    return loadWithDiagnostics(in).data();
+  }
+
+  public static LoadResult loadWithDiagnostics(InputStream in) throws IOException {
     Properties props = new Properties();
     if (in != null) props.load(in);
-    return fromProperties(props);
+    return fromPropertiesWithDiagnostics(props, null);
   }
 
   public static VnPhoneData loadFromString(String text) throws IOException {
+    return loadFromStringWithDiagnostics(text).data();
+  }
+
+  public static LoadResult loadFromStringWithDiagnostics(String text) throws IOException {
     Properties props = new Properties();
     if (text != null && !text.isBlank()) {
       props.load(new StringReader(text));
     }
-    return fromProperties(props);
+    return fromPropertiesWithDiagnostics(props, null);
   }
 
   public static VnPhoneData loadSeedFromAssets() {
+    return loadSeedFromAssetsWithDiagnostics().data();
+  }
+
+  public static LoadResult loadSeedFromAssetsWithDiagnostics() {
     AssetCatalog assets = new AssetCatalog();
+    List<String> diagnostics = new ArrayList<>();
     try {
       if (assets.url(AssetType.CONFIG, DEFAULT_CONFIG_PATH) != null) {
         try (InputStream in = assets.open(AssetType.CONFIG, DEFAULT_CONFIG_PATH)) {
-          return load(in);
+          LoadResult result = loadWithDiagnostics(in, assets);
+          diagnostics.addAll(result.diagnostics());
+          return new LoadResult(result.data(), diagnostics);
         }
       }
       if (assets.url(AssetType.OTHER, DIRECT_CONFIG_PATH) != null) {
         try (InputStream in = assets.open(AssetType.OTHER, DIRECT_CONFIG_PATH)) {
-          return load(in);
+          LoadResult result = loadWithDiagnostics(in, assets);
+          diagnostics.addAll(result.diagnostics());
+          return new LoadResult(result.data(), diagnostics);
         }
       }
-    } catch (Exception ignored) {
+    } catch (Exception ex) {
+      diagnostics.add("Failed to load phone seed from assets: " + simplify(ex));
     }
-    return new VnPhoneData();
+    return new LoadResult(new VnPhoneData(), diagnostics);
+  }
+
+  public static LoadResult loadFromProjectRootWithDiagnostics(File projectRoot) {
+    List<String> diagnostics = new ArrayList<>();
+    if (projectRoot == null) {
+      diagnostics.add("Project root was null; using empty phone data");
+      return new LoadResult(new VnPhoneData(), diagnostics);
+    }
+    AssetCatalog assets = new AssetCatalog(new OverlayAssetManager(
+        new FilesystemAssetManager(projectRoot.toPath()),
+        new ClasspathAssetManager()));
+    for (String relative : List.of(DIRECT_CONFIG_PATH, PROJECT_GAME_CONFIG_PATH)) {
+      File file = new File(projectRoot, relative);
+      if (!file.isFile()) continue;
+      try (InputStream in = new FileInputStream(file)) {
+        LoadResult result = loadWithDiagnostics(in, assets);
+        diagnostics.addAll(result.diagnostics());
+        return new LoadResult(result.data(), diagnostics);
+      } catch (Exception ex) {
+        diagnostics.add("Failed to parse phone config '" + relative + "': " + simplify(ex));
+      }
+    }
+    return new LoadResult(new VnPhoneData(), diagnostics);
+  }
+
+  public static LoadResult loadWithDiagnostics(InputStream in, AssetCatalog assets) throws IOException {
+    Properties props = new Properties();
+    if (in != null) props.load(in);
+    return fromPropertiesWithDiagnostics(props, assets);
   }
 
   public static VnPhoneData fromProperties(Properties props) {
+    return fromPropertiesWithDiagnostics(props, null).data();
+  }
+
+  public static LoadResult fromPropertiesWithDiagnostics(Properties props, AssetCatalog assets) {
     VnPhoneData data = new VnPhoneData();
-    if (props == null || props.isEmpty()) return data;
+    List<String> diagnostics = new ArrayList<>();
+    if (props == null || props.isEmpty()) return new LoadResult(data, diagnostics);
+    warnUnknownKeys(props, diagnostics);
 
     data.setTitle(props.getProperty("app.title"));
     data.setSubtitle(props.getProperty("app.subtitle"));
@@ -99,6 +208,13 @@ public final class VnPhonePropertiesCodec {
     data.setOutgoingBubbleImagePath(firstNonBlank(
         props.getProperty("app.skin.bubbleOutgoing"),
         props.getProperty("app.bubbleOutgoingImage")));
+    String rawHomeMode = props.getProperty("home.mode");
+    if (rawHomeMode != null && !rawHomeMode.isBlank()) {
+      String normalized = rawHomeMode.trim().toLowerCase(Locale.ROOT);
+      if (!Set.of("threads", "apps").contains(normalized)) {
+        diagnostics.add("Unknown home.mode '" + rawHomeMode + "'; using threads");
+      }
+    }
     data.setHomeMode(props.getProperty("home.mode"));
     data.setStatusTimeText(props.getProperty("status.time"));
     data.setStatusModeText(props.getProperty("status.mode"));
@@ -109,6 +225,7 @@ public final class VnPhonePropertiesCodec {
     if (contactIds.isEmpty()) {
       contactIds = scanIds(props, CONTACT_KEY_PATTERN, 1);
     }
+    Set<String> declaredContactIds = new LinkedHashSet<>(contactIds);
     for (String contactId : contactIds) {
       if (contactId == null) continue;
       String prefix = "contact." + contactId + ".";
@@ -148,7 +265,11 @@ public final class VnPhonePropertiesCodec {
         String senderId = props.getProperty(messagePrefix + "sender");
         String text = props.getProperty(messagePrefix + "text");
         String time = props.getProperty(messagePrefix + "time");
-        VnPhoneData.MessageType type = VnPhoneData.MessageType.fromToken(props.getProperty(messagePrefix + "type"));
+        String rawType = props.getProperty(messagePrefix + "type");
+        VnPhoneData.MessageType type = VnPhoneData.MessageType.fromToken(rawType);
+        if (rawType != null && !rawType.isBlank() && !matchesMessageType(rawType)) {
+          diagnostics.add("Chat '" + chatId + "' message '" + messageId + "' uses unknown type '" + rawType + "'; using text");
+        }
         String asset = props.getProperty(messagePrefix + "asset");
         String caption = props.getProperty(messagePrefix + "caption");
         String duration = props.getProperty(messagePrefix + "duration");
@@ -185,8 +306,16 @@ public final class VnPhonePropertiesCodec {
       app.setIconPath(props.getProperty(prefix + "icon"));
       app.setBadgeText(props.getProperty(prefix + "badge"));
       app.setAccentColor(props.getProperty(prefix + "accent"));
-      app.setPage(parseInt(props.getProperty(prefix + "page"), 0));
-      app.setTargetType(props.getProperty(prefix + "target"));
+      String rawPage = props.getProperty(prefix + "page");
+      if (rawPage != null && !rawPage.isBlank() && !isInteger(rawPage)) {
+        diagnostics.add("Phone app '" + appId + "' has invalid page '" + rawPage + "'; using 0");
+      }
+      app.setPage(parseInt(rawPage, 0));
+      String rawTargetType = props.getProperty(prefix + "target");
+      if (rawTargetType != null && !rawTargetType.isBlank() && !matchesAppTargetType(rawTargetType)) {
+        diagnostics.add("Phone app '" + appId + "' uses unknown target '" + rawTargetType + "'; using none");
+      }
+      app.setTargetType(rawTargetType);
       app.setTargetValue(props.getProperty(prefix + "targetValue"));
     }
 
@@ -226,7 +355,8 @@ public final class VnPhonePropertiesCodec {
       }
     }
 
-    return data;
+    validateData(data, assets, declaredContactIds, diagnostics);
+    return new LoadResult(data, diagnostics);
   }
 
   public static Properties toProperties(VnPhoneData data) {
@@ -468,5 +598,181 @@ public final class VnPhonePropertiesCodec {
       if (value != null && !value.isBlank()) return value;
     }
     return null;
+  }
+
+  private static void warnUnknownKeys(Properties props, List<String> diagnostics) {
+    if (props == null || diagnostics == null) return;
+    for (String key : props.stringPropertyNames()) {
+      if (ROOT_KEYS.contains(key)) continue;
+      if (matchesStructuredKey(key, CONTACT_KEY_PATTERN, CONTACT_FIELDS)) continue;
+      if (matchesStructuredKey(key, CHAT_KEY_PATTERN, CHAT_FIELDS)) continue;
+      if (matchesStructuredKey(key, MESSAGE_KEY_PATTERN, MESSAGE_FIELDS)) continue;
+      if (matchesStructuredKey(key, PHONE_APP_KEY_PATTERN, APP_FIELDS)) continue;
+      if (matchesStructuredKey(key, CALL_KEY_PATTERN, CALL_FIELDS)) continue;
+      diagnostics.add("Unknown phone config key '" + key + "'");
+    }
+  }
+
+  private static boolean matchesStructuredKey(String key, Pattern pattern, Set<String> allowedFields) {
+    if (key == null || pattern == null || allowedFields == null) return false;
+    Matcher matcher = pattern.matcher(key);
+    if (!matcher.matches()) return false;
+    int lastDot = key.lastIndexOf('.');
+    if (lastDot < 0 || lastDot >= key.length() - 1) return false;
+    String field = key.substring(lastDot + 1);
+    return allowedFields.contains(field);
+  }
+
+  private static void validateData(
+      VnPhoneData data,
+      AssetCatalog assets,
+      Set<String> declaredContactIds,
+      List<String> diagnostics
+  ) {
+    if (data == null || diagnostics == null) return;
+
+    warnMissingAsset(assets, diagnostics, "Phone wallpaper", data.getWallpaperPath());
+    warnMissingAsset(assets, diagnostics, "Phone skin background", data.getSkinBackgroundPath());
+    warnMissingAsset(assets, diagnostics, "Phone skin top bar", data.getSkinTopBarPath());
+    warnMissingAsset(assets, diagnostics, "Phone skin bottom bar", data.getSkinBottomBarPath());
+    warnMissingAsset(assets, diagnostics, "Phone skin message field", data.getSkinMessageFieldPath());
+    warnMissingAsset(assets, diagnostics, "Phone nav leading asset", data.getSkinNavLeadingPath());
+    warnMissingAsset(assets, diagnostics, "Phone nav trailing primary asset", data.getSkinNavTrailingPrimaryPath());
+    warnMissingAsset(assets, diagnostics, "Phone nav trailing secondary asset", data.getSkinNavTrailingSecondaryPath());
+    warnMissingAsset(assets, diagnostics, "Phone composer leading asset", data.getSkinComposerLeadingPath());
+    warnMissingAsset(assets, diagnostics, "Phone composer trailing primary asset", data.getSkinComposerTrailingPrimaryPath());
+    warnMissingAsset(assets, diagnostics, "Phone composer trailing secondary asset", data.getSkinComposerTrailingSecondaryPath());
+    warnMissingAsset(assets, diagnostics, "Phone status backdrop asset", data.getSkinStatusBackdropPath());
+    warnMissingAsset(assets, diagnostics, "Phone status icon asset", data.getSkinStatusIconPath());
+    warnMissingAsset(assets, diagnostics, "Phone floating action asset", data.getSkinFloatingActionPath());
+    warnMissingAsset(assets, diagnostics, "Incoming bubble image", data.getIncomingBubbleImagePath());
+    warnMissingAsset(assets, diagnostics, "Outgoing bubble image", data.getOutgoingBubbleImagePath());
+
+    Set<String> declared = declaredContactIds == null ? Set.of() : declaredContactIds;
+    for (VnPhoneData.Contact contact : data.getContacts().values()) {
+      if (contact == null) continue;
+      warnMissingAsset(assets, diagnostics, "Contact '" + contact.getId() + "' avatar", contact.getAvatarPath());
+    }
+
+    for (VnPhoneData.Chat chat : data.getChats().values()) {
+      if (chat == null) continue;
+      warnMissingAsset(assets, diagnostics, "Chat '" + chat.getId() + "' icon", chat.getIconPath());
+      for (String participant : chat.getParticipants()) {
+        if (!declared.contains(participant)) {
+          diagnostics.add("Chat '" + chat.getId() + "' references undefined contact '" + participant + "'");
+        }
+      }
+      for (VnPhoneData.Message message : chat.getMessages()) {
+        if (message == null) continue;
+        String senderId = message.getSenderId();
+        if (senderId != null && !declared.contains(VnPhoneData.normalizeId(senderId))) {
+          diagnostics.add("Chat '" + chat.getId() + "' message '" + message.getId()
+              + "' references undefined sender '" + senderId + "'");
+        }
+        switch (message.getType()) {
+          case IMAGE -> {
+            if (isBlank(message.getAssetPath())) {
+              diagnostics.add("Chat '" + chat.getId() + "' message '" + message.getId() + "' is image type without asset");
+            }
+            warnMissingAsset(assets, diagnostics, "Chat '" + chat.getId() + "' image message asset", message.getAssetPath());
+          }
+          case AUDIO -> {
+            if (isBlank(message.getAssetPath())) {
+              diagnostics.add("Chat '" + chat.getId() + "' message '" + message.getId() + "' is audio type without asset");
+            }
+            warnMissingAsset(assets, diagnostics, "Chat '" + chat.getId() + "' audio message asset", message.getAssetPath());
+          }
+          case MENU -> {
+            if (message.getOptions() == null || message.getOptions().isEmpty()) {
+              diagnostics.add("Chat '" + chat.getId() + "' message '" + message.getId() + "' is menu type without options");
+            }
+          }
+          default -> {
+          }
+        }
+      }
+    }
+
+    for (VnPhoneData.PhoneApp app : data.getApps().values()) {
+      if (app == null) continue;
+      warnMissingAsset(assets, diagnostics, "Phone app '" + app.getId() + "' icon", app.getIconPath());
+      switch (app.getTargetType()) {
+        case CHAT -> {
+          if (isBlank(app.getTargetValue())) {
+            diagnostics.add("Phone app '" + app.getId() + "' targets chat without targetValue");
+          } else if (data.getChat(app.getTargetValue()) == null) {
+            diagnostics.add("Phone app '" + app.getId() + "' targets unknown chat '" + app.getTargetValue() + "'");
+          }
+        }
+        case CALL -> {
+          if (isBlank(app.getTargetValue())) {
+            diagnostics.add("Phone app '" + app.getId() + "' targets call without targetValue");
+          } else if (data.getCall(app.getTargetValue()) == null) {
+            diagnostics.add("Phone app '" + app.getId() + "' targets unknown call '" + app.getTargetValue() + "'");
+          }
+        }
+        default -> {
+        }
+      }
+    }
+
+    for (VnPhoneData.Call call : data.getCalls().values()) {
+      if (call == null) continue;
+      warnMissingAsset(assets, diagnostics, "Call '" + call.getId() + "' avatar", call.getAvatarPath());
+      if (!isBlank(call.getParticipantId()) && !declared.contains(VnPhoneData.normalizeId(call.getParticipantId()))) {
+        diagnostics.add("Call '" + call.getId() + "' references undefined participant '" + call.getParticipantId() + "'");
+      }
+    }
+  }
+
+  private static void warnMissingAsset(AssetCatalog assets, List<String> diagnostics, String label, String path) {
+    if (diagnostics == null || isBlank(path) || assets == null) return;
+    if (assetExists(assets, path)) return;
+    diagnostics.add(label + " is missing: " + path);
+  }
+
+  private static boolean assetExists(AssetCatalog assets, String path) {
+    if (assets == null || isBlank(path)) return false;
+    for (AssetType type : AssetType.values()) {
+      try {
+        if (assets.exists(type, path)) return true;
+      } catch (Exception ignored) {
+      }
+    }
+    return false;
+  }
+
+  private static boolean matchesMessageType(String raw) {
+    if (raw == null || raw.isBlank()) return true;
+    return Set.of("text", "image", "photo", "audio", "voice", "menu", "choices", "choice", "date", "label", "marker")
+        .contains(raw.trim().toLowerCase(Locale.ROOT));
+  }
+
+  private static boolean matchesAppTargetType(String raw) {
+    if (raw == null || raw.isBlank()) return true;
+    return Set.of("none", "home", "chat", "thread", "call", "video", "voice", "label")
+        .contains(raw.trim().toLowerCase(Locale.ROOT));
+  }
+
+  private static boolean isInteger(String raw) {
+    if (raw == null || raw.isBlank()) return false;
+    try {
+      Integer.parseInt(raw.trim());
+      return true;
+    } catch (NumberFormatException ex) {
+      return false;
+    }
+  }
+
+  private static boolean isBlank(String value) {
+    return value == null || value.isBlank();
+  }
+
+  private static String simplify(Exception ex) {
+    String message = ex == null ? null : ex.getMessage();
+    if (message == null || message.isBlank()) {
+      return ex == null ? "unknown error" : ex.getClass().getSimpleName();
+    }
+    return message.trim();
   }
 }

@@ -1,5 +1,5 @@
-name=Billiards
+name=JVN Runtime
 type=gradle
-path=:billiards-game
+path=:runtime
 task=run
 args=-x test

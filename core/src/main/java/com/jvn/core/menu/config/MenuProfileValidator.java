@@ -102,6 +102,12 @@ public final class MenuProfileValidator {
             warnings.add("Menu '" + screenId + "' item '" + item.id() + "' has RUN_SCRIPT without script target");
           }
         }
+        if (action.type() == MenuActionType.SETTINGS_MENU) {
+          String target = action.target();
+          if (target != null && !target.isBlank() && !profile.hasScreen(target)) {
+            warnings.add("Menu '" + screenId + "' item '" + item.id() + "' targets unknown settings menu '" + target + "'");
+          }
+        }
         if (action.type() == MenuActionType.QUIT) {
           String target = action.target();
           if (target != null && !target.isBlank() && !profile.hasScreen(target)) {

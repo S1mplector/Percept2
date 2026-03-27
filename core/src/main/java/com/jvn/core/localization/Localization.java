@@ -1,5 +1,8 @@
 package com.jvn.core.localization;
 
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -49,12 +52,13 @@ public final class Localization {
     if (locale == null || locale.isBlank()) locale = "en";
     currentLocale = locale;
     props = new Properties();
+    AssetCatalog assets = new AssetCatalog();
     String[] candidates = new String[] {
       BASE + locale + ".properties",
       BASE + "en.properties"
     };
     for (String path : candidates) {
-      try (InputStream in = loader.getResourceAsStream(path)) {
+      try (InputStream in = open(loader, assets, path)) {
         if (in != null) {
           props.load(in);
           return;
@@ -76,5 +80,20 @@ public final class Localization {
   public static String t(String key) {
     if (key == null) return "";
     return props.getProperty(key, key);
+  }
+
+  private static InputStream open(ClassLoader loader, AssetCatalog assets, String path) throws IOException {
+    if (path == null || path.isBlank()) return null;
+    if (assets != null) {
+      for (AssetType type : new AssetType[] {AssetType.SCRIPT, AssetType.CONFIG, AssetType.OTHER}) {
+        try {
+          if (assets.exists(type, path)) {
+            return assets.open(type, path);
+          }
+        } catch (Exception ignored) {
+        }
+      }
+    }
+    return loader == null ? null : loader.getResourceAsStream(path);
   }
 }
