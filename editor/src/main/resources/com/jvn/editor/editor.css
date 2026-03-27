@@ -2470,7 +2470,7 @@
   -fx-border-width: 1;
   -fx-border-radius: 14;
   -fx-background-radius: 14;
-  -fx-padding: 12;
+  -fx-padding: 10;
 }
 
 .phone-tool-root .phone-tool-title {
@@ -2480,7 +2480,7 @@
 }
 
 .phone-tool-root .phone-tool-summary {
-  -fx-font-size: 11px;
+  -fx-font-size: 10.5px;
   -fx-text-fill: #bababa;
 }
 
@@ -2522,6 +2522,14 @@
   -fx-padding: 2 0 0 0;
 }
 
+.phone-tool-root .phone-tool-header-row,
+.phone-tool-root .phone-tool-header-meta,
+.phone-tool-root .phone-tool-inline-meta,
+.phone-tool-root .phone-tool-preview-toolbar,
+.phone-tool-root .phone-tool-preview-target-row {
+  -fx-alignment: center-left;
+}
+
 .phone-tool-root .phone-tool-metric-row {
   -fx-padding: 1 0 0 0;
 }
@@ -2545,9 +2553,9 @@
   -fx-border-radius: 10;
   -fx-background-radius: 10;
   -fx-text-fill: #ededed;
-  -fx-font-size: 11px;
+  -fx-font-size: 10.5px;
   -fx-font-weight: 600;
-  -fx-padding: 8 12 8 12;
+  -fx-padding: 7 10 7 10;
 }
 
 .phone-tool-root .phone-tool-button:hover {
@@ -2564,7 +2572,7 @@
 }
 
 .phone-tool-root .phone-tool-small-button {
-  -fx-padding: 6 10 6 10;
+  -fx-padding: 5 9 5 9;
 }
 
 .phone-tool-root .phone-tool-primary-button {
@@ -2601,12 +2609,16 @@
   -fx-border-width: 1;
   -fx-border-radius: 18;
   -fx-background-radius: 18;
-  -fx-padding: 12;
+  -fx-padding: 10;
 }
 
 .phone-tool-root .phone-tool-preview-note {
   -fx-font-size: 11px;
   -fx-text-fill: #d3d3d3;
+}
+
+.phone-tool-root .phone-tool-preview-target-box {
+  -fx-pref-height: 34;
 }
 
 .phone-tool-root .phone-tool-workspace {
@@ -2635,6 +2647,7 @@
 
 .phone-tool-root .text-field,
 .phone-tool-root .text-area,
+.phone-tool-root .combo-box,
 .phone-tool-root .list-view,
 .phone-tool-root .scroll-pane,
 .phone-tool-root .tab-pane,
@@ -2643,7 +2656,8 @@
 }
 
 .phone-tool-root .text-field,
-.phone-tool-root .text-area {
+.phone-tool-root .text-area,
+.phone-tool-root .combo-box {
   -fx-background-color: #1a1a1a;
   -fx-border-color: #363636;
   -fx-border-width: 1;
@@ -2656,6 +2670,19 @@
 .phone-tool-root .text-area .content {
   -fx-background-color: #1a1a1a;
   -fx-background-radius: 10;
+}
+
+.phone-tool-root .combo-box > .list-cell {
+  -fx-text-fill: #eeeeee;
+}
+
+.phone-tool-root .combo-box-popup .list-view {
+  -fx-background-color: #181818;
+  -fx-control-inner-background: #181818;
+}
+
+.phone-tool-root .combo-box-popup .list-cell {
+  -fx-text-fill: #ececec;
 }
 
 .phone-tool-root .phone-tool-readonly {
