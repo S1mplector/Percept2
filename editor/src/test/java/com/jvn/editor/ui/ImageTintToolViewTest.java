@@ -13,6 +13,20 @@ import org.junit.jupiter.api.Test;
 class ImageTintToolViewTest {
 
   @Test
+  void buildDefaultTintExportStemHandlesPresetAndAssetTags() {
+    assertEquals("lavender_neutral_tint", ImageTintToolView.buildDefaultTintExportStem("preset:lavender/neutral"));
+    assertEquals("lavender_base_tint", ImageTintToolView.buildDefaultTintExportStem("assets/demo/characters/lavender/base.png"));
+    assertEquals("lavender_base_tint", ImageTintToolView.buildDefaultTintExportStem(
+        "assets/demo/characters/lavender/base/lavender_base.png"));
+  }
+
+  @Test
+  void buildExportFileNameAvoidsDuplicateExtensions() {
+    assertEquals("john_tint.png", ImageTintToolView.buildExportFileName("john_tint", "png"));
+    assertEquals("john_tint.png", ImageTintToolView.buildExportFileName("john_tint.png", "png"));
+  }
+
+  @Test
   void pickDefaultCharacterTagPrefersNonBackground() {
     List<String> tags = List.of(
         "assets/demo/backgrounds/field_day.png",

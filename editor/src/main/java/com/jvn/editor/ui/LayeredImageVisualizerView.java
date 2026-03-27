@@ -47,6 +47,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -74,6 +75,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Popup;
 import javafx.util.Duration;
@@ -162,6 +164,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private final ComboBox<String> presetBox = new ComboBox<>();
   private final TextField presetNameField = new TextField();
+  private final CheckBox customExportNameCheck = new CheckBox("Custom name");
+  private final TextField exportNameField = new TextField();
+  private final TextField exportDirectoryField = new TextField();
+  private final Label exportInfoLabel = new Label("");
 
   private final ComboBox<String> snippetFormatBox = new ComboBox<>();
   private final CheckBox randomizeActiveOnly = new CheckBox("Randomize active groups only");
@@ -365,10 +371,25 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       redrawPreview();
       if (!applyingState) persistCurrentSetState();
     });
+    customExportNameCheck.selectedProperty().addListener((o, ov, nv) -> {
+      updateExportControls();
+      if (!applyingState) persistCurrentSetState();
+    });
+    exportNameField.setPromptText("Auto from tag / expression");
+    exportNameField.textProperty().addListener((o, ov, nv) -> {
+      updateExportControls();
+      if (!applyingState) persistCurrentSetState();
+    });
+    exportDirectoryField.setEditable(false);
+    exportDirectoryField.setFocusTraversable(false);
+    exportDirectoryField.setPromptText("Project root");
+    exportInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
+    exportInfoLabel.setWrapText(true);
 
     characterIdField.setPromptText("Image tag");
     expressionField.setPromptText("Expression id");
     characterIdField.textProperty().addListener((o, ov, nv) -> {
+      updateExportControls();
       if (!applyingState) persistCurrentSetState();
     });
     characterIdField.setOnAction(e -> syncSetFromImageTag());
@@ -376,6 +397,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       if (!focused && !applyingState) syncSetFromImageTag();
     });
     expressionField.textProperty().addListener((o, ov, nv) -> {
+      updateExportControls();
       if (!applyingState) persistCurrentSetState();
     });
 
@@ -403,8 +425,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     Button copySnippetButton = iconButton(CssIcon.copy("#9ad19c"), "Copy selected snippet format", this::copySnippet);
     Button copyRecipeButton = iconButton(CssIcon.copy("#d6b4ff"), "Copy detailed layer recipe comments", this::copyLayerRecipe);
+    Button exportCharpresetBtn = iconButton(CssIcon.copy("#c6a0f6"), "Copy @charpreset snippet to clipboard", this::copyCharpresetSnippet);
 
-    HBox snippetRow = new HBox(4, new Label("Export"), snippetFormatBox, copySnippetButton, copyRecipeButton);
+    HBox snippetRow = new HBox(4, new Label("Snippet"), snippetFormatBox, copySnippetButton, copyRecipeButton, exportCharpresetBtn);
     snippetRow.setAlignment(Pos.CENTER_LEFT);
 
     // Action row
@@ -431,12 +454,34 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         randomizeActiveOnly);
     toolRow.setAlignment(Pos.CENTER_LEFT);
 
-    Button exportPngButton = iconButton(CssIcon.download("#8ab4f8"), "Export composited image as PNG file", this::exportCompositePng);
-    Button exportSetupBtn = iconButton(CssIcon.save("#9ed67a"), "Export setup to .layersetup file", this::exportSetupToFile);
-    Button importSetupBtn = iconButton(CssIcon.folder("#f5c46b"), "Import setup from .layersetup file", this::importSetupFromFile);
-    Button exportCharpresetBtn = iconButton(CssIcon.copy("#c6a0f6"), "Copy @charpreset snippet to clipboard", this::copyCharpresetSnippet);
-    HBox fileRow = new HBox(4, exportPngButton, exportSetupBtn, importSetupBtn, exportCharpresetBtn);
-    fileRow.setAlignment(Pos.CENTER_LEFT);
+    Button chooseExportFolderButton = iconButton(CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
+    Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
+    Button exportPngButton = actionButton("PNG", CssIcon.download("#8ab4f8"), "Quick export composited PNG to the configured folder", this::quickExportCompositePng);
+    Button exportPngAsButton = actionButton("PNG As", CssIcon.save("#8ab4f8"), "Choose a PNG destination", this::exportCompositePngAs);
+    Button exportSetupBtn = actionButton("Setup", CssIcon.save("#9ed67a"), "Quick export .layersetup to the configured folder", this::quickExportSetupToFile);
+    Button exportSetupAsButton = actionButton("Setup As", CssIcon.download("#9ed67a"), "Choose a .layersetup destination", this::exportSetupToFileAs);
+    Button importSetupBtn = actionButton("Import", CssIcon.folder("#f5c46b"), "Import setup from .layersetup file", this::importSetupFromFile);
+    HBox exportDirRow = new HBox(4, new Label("Folder"), exportDirectoryField, chooseExportFolderButton, revealExportFolderButton);
+    exportDirRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportDirectoryField, Priority.ALWAYS);
+    HBox exportNameRow = new HBox(4, customExportNameCheck, exportNameField);
+    exportNameRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportNameField, Priority.ALWAYS);
+    HBox filePngRow = new HBox(4, exportPngButton, exportPngAsButton);
+    filePngRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportPngButton, Priority.ALWAYS);
+    HBox.setHgrow(exportPngAsButton, Priority.ALWAYS);
+    HBox fileSetupRow = new HBox(4, exportSetupBtn, exportSetupAsButton, importSetupBtn);
+    fileSetupRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportSetupBtn, Priority.ALWAYS);
+    HBox.setHgrow(exportSetupAsButton, Priority.ALWAYS);
+    HBox.setHgrow(importSetupBtn, Priority.ALWAYS);
+    TitledPane filePane = new TitledPane(
+        "Files & Export",
+        new VBox(4, exportDirRow, exportNameRow, exportInfoLabel, filePngRow, fileSetupRow));
+    filePane.setExpanded(true);
+    filePane.setAnimated(false);
+    filePane.setCollapsible(true);
 
     HBox framingRow = new HBox(4, matchGameFraming, showOverlayGuides);
     framingRow.setAlignment(Pos.CENTER_LEFT);
@@ -458,7 +503,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     scriptPane.setAnimated(false);
     scriptPane.setCollapsible(true);
 
-    VBox actionsRoot = new VBox(4, toolRow, fileRow, framingRow);
+    VBox actionsRoot = new VBox(4, toolRow, filePane, framingRow);
     TitledPane actionsPane = new TitledPane("Actions", actionsRoot);
     actionsPane.setExpanded(true);
     actionsPane.setAnimated(false);
@@ -578,6 +623,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     setRight(sidebarScroll);
     updateViewportControlState();
     refreshShortforms();
+    updateExportControls();
     redrawPreview();
   }
 
@@ -1277,6 +1323,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     persistGlobalState();
     persistCurrentSetState();
+    updateExportControls();
     redrawPreview();
   }
 
@@ -2101,6 +2148,22 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     return button;
   }
 
+  private Button actionButton(String text, Region icon, String tooltip, Runnable action) {
+    Button button = new Button(text, icon);
+    button.setContentDisplay(ContentDisplay.LEFT);
+    button.setGraphicTextGap(6);
+    button.setMinHeight(28);
+    button.setMaxWidth(Double.MAX_VALUE);
+    button.setFocusTraversable(false);
+    if (tooltip != null && !tooltip.isBlank()) {
+      button.setTooltip(new Tooltip(tooltip));
+    }
+    button.setOnAction(e -> {
+      if (action != null) action.run();
+    });
+    return button;
+  }
+
   private void requestFullscreenToggle() {
     if (fullscreenToggleHandler != null) {
       fullscreenToggleHandler.run();
@@ -2398,6 +2461,145 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     return sets.get(currentSetId);
   }
 
+  private void updateExportControls() {
+    exportNameField.setDisable(!customExportNameCheck.isSelected());
+    File directory = resolveExportDirectory();
+    exportDirectoryField.setText(directory == null ? "(choose folder)" : describePathRelativeToProject(directory));
+    exportInfoLabel.setText("PNG: " + buildCompositePngFileName() + "\nSetup: " + buildLayerSetupFileName());
+  }
+
+  private File configuredExportDirectory() {
+    String raw = persisted.getProperty("global.exportDir", "").trim();
+    return raw.isBlank() ? null : new File(raw);
+  }
+
+  private File resolveExportDirectory() {
+    File configured = configuredExportDirectory();
+    if (configured != null) return configured;
+    return projectRoot != null && projectRoot.isDirectory() ? projectRoot : null;
+  }
+
+  private File resolveExistingExportDirectory() {
+    File directory = resolveExportDirectory();
+    while (directory != null && (!directory.exists() || !directory.isDirectory())) {
+      directory = directory.getParentFile();
+    }
+    if (directory != null) return directory;
+    return projectRoot != null && projectRoot.isDirectory() ? projectRoot : null;
+  }
+
+  private void chooseExportDirectory() {
+    DirectoryChooser chooser = new DirectoryChooser();
+    chooser.setTitle("Choose Layered Export Folder");
+    File initial = resolveExistingExportDirectory();
+    if (initial != null && initial.isDirectory()) chooser.setInitialDirectory(initial);
+    File selected = chooser.showDialog(getScene() == null ? null : getScene().getWindow());
+    if (selected == null) return;
+    setConfiguredExportDirectory(selected);
+    status("Export folder: " + describePathRelativeToProject(selected));
+  }
+
+  private void revealExportDirectory() {
+    File directory = resolveExportDirectory();
+    if (directory == null) {
+      status("Choose an export folder first.");
+      return;
+    }
+    try {
+      Files.createDirectories(directory.toPath());
+    } catch (Exception ex) {
+      status("Failed to prepare export folder: " + ex.getMessage());
+      return;
+    }
+    if (AssetPickerSupport.revealFile(directory)) {
+      status("Opened export folder: " + describePathRelativeToProject(directory));
+    } else {
+      status("Could not reveal export folder.");
+    }
+  }
+
+  private void setConfiguredExportDirectory(File directory) {
+    if (directory == null) {
+      persisted.remove("global.exportDir");
+    } else {
+      persisted.setProperty("global.exportDir", directory.getAbsolutePath());
+    }
+    updateExportControls();
+    savePersistentState();
+  }
+
+  private File resolveQuickExportFile(String fileName) {
+    File directory = resolveExportDirectory();
+    if (directory == null || fileName == null || fileName.isBlank()) return null;
+    return new File(directory, fileName);
+  }
+
+  private String currentExportBaseName() {
+    String defaultName = buildDefaultExportStem(currentSetId, characterIdField.getText(), expressionField.getText());
+    if (customExportNameCheck.isSelected()) {
+      String custom = sanitizeExportStem(exportNameField.getText(), "");
+      if (!custom.isBlank()) return custom;
+    }
+    return defaultName;
+  }
+
+  private String buildCompositePngFileName() {
+    return buildExportFileName(currentExportBaseName(), "png");
+  }
+
+  private String buildLayerSetupFileName() {
+    return buildExportFileName(currentExportBaseName(), "layersetup");
+  }
+
+  static String buildDefaultExportStem(String setId, String characterId, String expressionId) {
+    String base = sanitizeExportStem(characterId, "");
+    if (base.isBlank()) {
+      base = sanitizeExportStem(takeLastPathToken(setId), "layered_image");
+    }
+    String expr = sanitizeExportStem(expressionId, "");
+    if (!expr.isBlank() && !base.equals(expr) && !base.endsWith("_" + expr)) {
+      base = base + "_" + expr;
+    }
+    return base.isBlank() ? "layered_image" : base;
+  }
+
+  static String buildExportFileName(String baseName, String extension) {
+    String ext = sanitizeExportStem(extension, "dat");
+    String stem = sanitizeExportStem(baseName, "export");
+    return stem + "." + ext;
+  }
+
+  private static String sanitizeExportStem(String raw, String fallback) {
+    String value = raw == null ? "" : raw.trim().replace('\\', '/');
+    if (value.isBlank()) return fallback == null ? "" : fallback;
+    String sanitized = value
+        .replaceAll("\\.[A-Za-z0-9]+$", "")
+        .replaceAll("[^A-Za-z0-9]+", "_")
+        .replaceAll("_+", "_")
+        .replaceAll("^_+", "")
+        .replaceAll("_+$", "")
+        .toLowerCase(Locale.ROOT);
+    if (sanitized.isBlank()) return fallback == null ? "" : fallback;
+    return sanitized;
+  }
+
+  private String describePathRelativeToProject(File file) {
+    if (file == null) return "Project root";
+    try {
+      if (projectRoot != null && projectRoot.isDirectory()) {
+        Path root = projectRoot.toPath().toAbsolutePath().normalize();
+        Path target = file.toPath().toAbsolutePath().normalize();
+        if (target.equals(root)) return "Project root";
+        if (target.startsWith(root)) {
+          String relative = root.relativize(target).toString().replace('\\', '/');
+          return relative.isBlank() ? "Project root" : relative;
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return file.getAbsolutePath();
+  }
+
   private void selectPreferredLayerOption(String groupName, ComboBox<LayerOption> combo) {
     if (combo == null || combo.getItems().isEmpty()) return;
     if (combo.getItems().size() == 1) {
@@ -2654,6 +2856,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     if (selectedSet != null && !selectedSet.isBlank()) {
       persisted.setProperty("global.selectedSet", selectedSet);
     }
+    File configuredExportDirectory = configuredExportDirectory();
+    if (configuredExportDirectory == null) {
+      persisted.remove("global.exportDir");
+    } else {
+      persisted.setProperty("global.exportDir", configuredExportDirectory.getAbsolutePath());
+    }
     savePersistentState();
   }
 
@@ -2694,6 +2902,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     persisted.setProperty(prefix + "groupOrder", encodeCsv(groupOrder));
     persisted.setProperty(prefix + "snippetFormat", snippetFormatBox.getValue() == null ? "" : snippetFormatBox.getValue());
     persisted.setProperty(prefix + "showOverlayGuides", Boolean.toString(showOverlayGuides.isSelected()));
+    persisted.setProperty(prefix + "exportCustomName", Boolean.toString(customExportNameCheck.isSelected()));
+    persisted.setProperty(prefix + "exportName", exportNameField.getText() == null ? "" : exportNameField.getText().trim());
 
     for (Map.Entry<String, ComboBox<LayerOption>> entry : selectors.entrySet()) {
       String group = entry.getKey();
@@ -2735,6 +2945,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         snippetFormatBox.getSelectionModel().select(snippetFormat);
       }
       showOverlayGuides.setSelected(parseBoolean(persisted.getProperty(prefix + "showOverlayGuides"), true));
+      customExportNameCheck.setSelected(parseBoolean(persisted.getProperty(prefix + "exportCustomName"), false));
+      exportNameField.setText(persisted.getProperty(prefix + "exportName", ""));
 
       focusXSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusX"), focusXSlider.getValue()));
       focusYSlider.setValue(parseDouble(persisted.getProperty(prefix + "focusY"), focusYSlider.getValue()));
@@ -3514,11 +3726,11 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   // ── File export / import ──
 
-  private void exportCompositePng() {
+  private WritableImage buildCompositeExportImage() {
     List<LayerOption> selected = selectedLayers();
     if (selected.isEmpty()) {
       status("No layers selected — nothing to export.");
-      return;
+      return null;
     }
     List<Image> layers = new ArrayList<>();
     double maxW = 0, maxH = 0;
@@ -3531,54 +3743,93 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     }
     if (layers.isEmpty()) {
       status("Selected layer images could not be loaded.");
-      return;
+      return null;
     }
     Canvas offscreen = new Canvas(maxW, maxH);
     GraphicsContext g = offscreen.getGraphicsContext2D();
     for (Image img : layers) {
       g.drawImage(img, 0, 0, img.getWidth(), img.getHeight());
     }
-    WritableImage snapshot = offscreen.snapshot(new SnapshotParameters() {{
+    return offscreen.snapshot(new SnapshotParameters() {{
       setFill(Color.TRANSPARENT);
     }}, null);
+  }
 
-    FileChooser fc = new FileChooser();
-    fc.setTitle("Export Composited PNG");
-    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Image", "*.png"));
-    String suggestedName = sanitizeFilename(currentSetId) + "_" + sanitizeFilename(expressionField.getText()) + ".png";
-    fc.setInitialFileName(suggestedName);
-    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+  private void quickExportCompositePng() {
+    WritableImage snapshot = buildCompositeExportImage();
+    if (snapshot == null) return;
+    File file = resolveQuickExportFile(buildCompositePngFileName());
+    if (file == null) {
+      status("Choose an export folder first.");
+      return;
+    }
+    writeCompositePng(snapshot, file);
+  }
+
+  private void exportCompositePngAs() {
+    WritableImage snapshot = buildCompositeExportImage();
+    if (snapshot == null) return;
+    File file = chooseSaveFile("Export Composited PNG", "PNG Image", "*.png", buildCompositePngFileName());
     if (file == null) return;
+    writeCompositePng(snapshot, file);
+  }
+
+  private void writeCompositePng(WritableImage snapshot, File file) {
     try {
-      BufferedImage bImg = SwingFXUtils.fromFXImage(snapshot, null);
-      ImageIO.write(bImg, "png", file);
-      status("Exported PNG: " + file.getName());
+      Path parent = file.toPath().getParent();
+      if (parent != null) Files.createDirectories(parent);
+      BufferedImage bufferedImage = SwingFXUtils.fromFXImage(snapshot, null);
+      ImageIO.write(bufferedImage, "png", file);
+      setConfiguredExportDirectory(file.getParentFile());
+      status("Exported PNG: " + describePathRelativeToProject(file));
     } catch (Exception ex) {
       status("PNG export failed: " + ex.getMessage());
     }
   }
 
-  private void exportSetupToFile() {
-    String text = buildFullSetupText();
-    FileChooser fc = new FileChooser();
-    fc.setTitle("Export Layer Setup");
-    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Layer Setup", "*.layersetup"));
-    String suggestedName = sanitizeFilename(currentSetId) + ".layersetup";
-    fc.setInitialFileName(suggestedName);
-    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+  private void quickExportSetupToFile() {
+    File file = resolveQuickExportFile(buildLayerSetupFileName());
+    if (file == null) {
+      status("Choose an export folder first.");
+      return;
+    }
+    writeLayerSetupFile(file, buildFullSetupText());
+  }
+
+  private void exportSetupToFileAs() {
+    File file = chooseSaveFile("Export Layer Setup", "Layer Setup", "*.layersetup", buildLayerSetupFileName());
     if (file == null) return;
+    writeLayerSetupFile(file, buildFullSetupText());
+  }
+
+  private void writeLayerSetupFile(File file, String text) {
     try {
+      Path parent = file.toPath().getParent();
+      if (parent != null) Files.createDirectories(parent);
       Files.writeString(file.toPath(), text, StandardCharsets.UTF_8);
-      status("Exported setup: " + file.getName());
+      setConfiguredExportDirectory(file.getParentFile());
+      status("Exported setup: " + describePathRelativeToProject(file));
     } catch (Exception ex) {
       status("Setup export failed: " + ex.getMessage());
     }
+  }
+
+  private File chooseSaveFile(String title, String description, String pattern, String suggestedName) {
+    FileChooser chooser = new FileChooser();
+    chooser.setTitle(title);
+    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(description, pattern));
+    File initial = resolveExistingExportDirectory();
+    if (initial != null && initial.isDirectory()) chooser.setInitialDirectory(initial);
+    chooser.setInitialFileName(suggestedName);
+    return chooser.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
   }
 
   private void importSetupFromFile() {
     FileChooser fc = new FileChooser();
     fc.setTitle("Import Layer Setup");
     fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Layer Setup", "*.layersetup"));
+    File initial = resolveExistingExportDirectory();
+    if (initial != null && initial.isDirectory()) fc.setInitialDirectory(initial);
     File file = fc.showOpenDialog(getScene() != null ? getScene().getWindow() : null);
     if (file == null) return;
     try {
@@ -3637,6 +3888,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       updateExpressionFromSelection();
       redrawPreview();
       persistCurrentSetState();
+      setConfiguredExportDirectory(file.getParentFile());
       status("Imported " + applied + " layer(s) from " + file.getName());
     } catch (Exception ex) {
       status("Setup import failed: " + ex.getMessage());
@@ -3671,10 +3923,4 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     return out.toString();
   }
 
-  private static String sanitizeFilename(String raw) {
-    if (raw == null || raw.isBlank()) return "export";
-    String s = raw.replaceAll("[^a-zA-Z0-9._-]", "_");
-    s = s.replaceAll("_+", "_").replaceAll("^_+", "").replaceAll("_+$", "");
-    return s.isBlank() ? "export" : s;
-  }
 }

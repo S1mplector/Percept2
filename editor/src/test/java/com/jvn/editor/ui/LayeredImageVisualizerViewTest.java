@@ -11,6 +11,25 @@ import org.junit.jupiter.api.Test;
 class LayeredImageVisualizerViewTest {
 
   @Test
+  void buildDefaultExportStemUsesCharacterIdAndExpression() {
+    assertEquals(
+        "john_doe_happy",
+        LayeredImageVisualizerView.buildDefaultExportStem("assets/characters/john_doe", "john_doe", "happy"));
+    assertEquals(
+        "lavender",
+        LayeredImageVisualizerView.buildDefaultExportStem("assets/demo/characters/lavender", "lavender", ""));
+    assertEquals(
+        "ryan_pack_smile",
+        LayeredImageVisualizerView.buildDefaultExportStem("assets/characters/ryan_pack", "", "smile"));
+  }
+
+  @Test
+  void buildExportFileNameKeepsSingleExtension() {
+    assertEquals("john_doe_happy.png", LayeredImageVisualizerView.buildExportFileName("john_doe_happy", "png"));
+    assertEquals("john_doe_happy.png", LayeredImageVisualizerView.buildExportFileName("john_doe_happy.png", "png"));
+  }
+
+  @Test
   void sanitizeIdNormalizesToSnakeCaseLower() {
     assertEquals("body_face_happy", LayeredImageVisualizerView.sanitizeId("Body Face-Happy"));
     assertEquals("eyes_2", LayeredImageVisualizerView.sanitizeId(" Eyes 2 "));

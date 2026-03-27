@@ -36,8 +36,10 @@ import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -63,6 +65,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Popup;
 import javafx.util.Duration;
@@ -104,6 +107,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final ComboBox<String> setupBox = new ComboBox<>();
   private final TextField setupNameField = new TextField();
   private final ComboBox<String> exportFormatBox = new ComboBox<>();
+  private final CheckBox customExportNameCheck = new CheckBox("Custom name");
+  private final TextField exportNameField = new TextField();
+  private final TextField exportDirectoryField = new TextField();
+  private final Label exportInfoLabel = new Label("");
   private final ColorPicker tintColorPicker = new ColorPicker(Color.web("#ffffff"));
   private final Slider tintStrengthSlider = slider(0, 100, 30);
   private final Slider saturationSlider = slider(-100, 100, 0);
@@ -295,6 +302,20 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     exportFormatBox.valueProperty().addListener((o, ov, nv) -> {
       if (!applyingState) persistGlobalState();
     });
+    customExportNameCheck.selectedProperty().addListener((o, ov, nv) -> {
+      updateExportControls();
+      if (!applyingState) persistGlobalState();
+    });
+    exportNameField.setPromptText("Auto from current image");
+    exportNameField.textProperty().addListener((o, ov, nv) -> {
+      updateExportControls();
+      if (!applyingState) persistGlobalState();
+    });
+    exportDirectoryField.setEditable(false);
+    exportDirectoryField.setFocusTraversable(false);
+    exportDirectoryField.setPromptText("Project root");
+    exportInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
+    exportInfoLabel.setWrapText(true);
 
     refreshCatalogButton = iconButton(CssIcon.redo("#7ec8e3"), "Rescan project images", this::onCatalogRefreshRequested);
     updateRefreshButtonUi(false);
@@ -356,16 +377,39 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen", this::requestFullscreenToggle);
     updateFullscreenButtonUi();
     Button copyExportButton = iconButton(CssIcon.copy("#9ad19c"), "Copy selected export format", this::copySelectedExport);
-    Button exportPngButton = iconButton(CssIcon.download("#8ab4f8"), "Export tinted image as PNG file", this::exportTintedPng);
-    Button exportSetupBtn = iconButton(CssIcon.save("#9ed67a"), "Export setup to .tintsetup file", this::exportSetupToFile);
-    Button importSetupBtn = iconButton(CssIcon.folder("#f5c46b"), "Import setup from .tintsetup file", this::importSetupFromFile);
+    Button chooseExportFolderButton = iconButton(CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
+    Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
+    Button exportPngButton = actionButton("PNG", CssIcon.download("#8ab4f8"), "Quick export tinted PNG to the configured folder", this::quickExportTintedPng);
+    Button exportPngAsButton = actionButton("PNG As", CssIcon.save("#8ab4f8"), "Choose a PNG destination", this::exportTintedPngAs);
+    Button exportSetupBtn = actionButton("Setup", CssIcon.save("#9ed67a"), "Quick export .tintsetup to the configured folder", this::quickExportSetupToFile);
+    Button exportSetupAsButton = actionButton("Setup As", CssIcon.download("#9ed67a"), "Choose a .tintsetup destination", this::exportSetupToFileAs);
+    Button importSetupBtn = actionButton("Import", CssIcon.folder("#f5c46b"), "Import setup from .tintsetup file", this::importSetupFromFile);
     HBox actionRow = new HBox(4, resetViewButton, resetTintButton, fullscreenButton, copyExportButton);
     actionRow.setAlignment(Pos.CENTER_LEFT);
-    HBox exportRow = new HBox(4, new Label("Export"), exportFormatBox);
+    HBox exportRow = new HBox(4, new Label("Copy"), exportFormatBox);
     exportRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportFormatBox, Priority.ALWAYS);
-    HBox fileRow = new HBox(4, exportPngButton, exportSetupBtn, importSetupBtn);
-    fileRow.setAlignment(Pos.CENTER_LEFT);
+    HBox exportDirRow = new HBox(4, new Label("Folder"), exportDirectoryField, chooseExportFolderButton, revealExportFolderButton);
+    exportDirRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportDirectoryField, Priority.ALWAYS);
+    HBox exportNameRow = new HBox(4, customExportNameCheck, exportNameField);
+    exportNameRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportNameField, Priority.ALWAYS);
+    HBox filePngRow = new HBox(4, exportPngButton, exportPngAsButton);
+    filePngRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportPngButton, Priority.ALWAYS);
+    HBox.setHgrow(exportPngAsButton, Priority.ALWAYS);
+    HBox fileSetupRow = new HBox(4, exportSetupBtn, exportSetupAsButton, importSetupBtn);
+    fileSetupRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportSetupBtn, Priority.ALWAYS);
+    HBox.setHgrow(exportSetupAsButton, Priority.ALWAYS);
+    HBox.setHgrow(importSetupBtn, Priority.ALWAYS);
+    TitledPane filePane = new TitledPane(
+        "Files & Export",
+        new VBox(4, exportDirRow, exportNameRow, exportInfoLabel, filePngRow, fileSetupRow));
+    filePane.setExpanded(true);
+    filePane.setAnimated(false);
+    filePane.setCollapsible(true);
 
     // ── Tint controls ──
     tintColorPicker.valueProperty().addListener((o, ov, nv) -> onTintChanged(true));
@@ -396,7 +440,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     VBox sidebar = new VBox(6,
         title, summaryLabel,
         tagsPane,
-        actionRow, exportRow, fileRow,
+        actionRow, exportRow, filePane,
         controlsPane,
         backgroundPane,
         zonesPane,
@@ -417,6 +461,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     setRight(sidebarScroll);
 
     bindTagSelectionHandlers();
+    updateExportControls();
   }
 
   private void buildBackgroundSection() {
@@ -479,6 +524,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (!fromEditorTyping || isKnownCharacterTag(selectedCharacterTag())) {
       switchZoneProfileForCharacter(selectedCharacterTag(), true);
     }
+    updateExportControls();
     redrawPreview();
     persistGlobalState();
   }
@@ -783,6 +829,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       String exportFormat = persisted.getProperty("global.exportFormat", DEFAULT_EXPORT_PROFILE);
       if (!exportFormatBox.getItems().contains(exportFormat)) exportFormat = DEFAULT_EXPORT_PROFILE;
       exportFormatBox.getSelectionModel().select(exportFormat);
+      customExportNameCheck.setSelected(parseBoolean(persisted.getProperty("global.exportCustomName"), false));
+      exportNameField.setText(persisted.getProperty("global.exportName", ""));
 
       tintColorPicker.setValue(parseColor(persisted.getProperty("global.tintColor"), Color.WHITE));
       tintStrengthSlider.setValue(parseDouble(persisted.getProperty("global.tintStrength"), 30.0));
@@ -808,6 +856,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     } finally {
       applyingState = false;
     }
+    updateExportControls();
     activeZoneProfileTag = normalize(selectedCharacterTag());
     loadPersistedZones();
     applyBackgroundTintIfPresent(selectedBackgroundTag());
@@ -2025,6 +2074,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persisted.setProperty("global.characterTag", selectedCharacterTag());
     persisted.setProperty("global.backgroundTag", selectedBackgroundTag());
     persisted.setProperty("global.exportFormat", normalize(exportFormatBox.getValue()));
+    persisted.setProperty("global.exportCustomName", Boolean.toString(customExportNameCheck.isSelected()));
+    persisted.setProperty("global.exportName", normalize(exportNameField.getText()));
+    File configuredExportDirectory = configuredExportDirectory();
+    if (configuredExportDirectory == null) {
+      persisted.remove("global.exportDir");
+    } else {
+      persisted.setProperty("global.exportDir", configuredExportDirectory.getAbsolutePath());
+    }
     persisted.setProperty("global.tintColor", colorToHex(tintColorPicker.getValue()));
     persisted.setProperty("global.tintStrength", formatDouble(tintStrengthSlider.getValue()));
     persisted.setProperty("global.saturation", formatDouble(saturationSlider.getValue()));
@@ -2202,6 +2259,167 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private String selectedBackgroundTag() {
     return selectedTag(backgroundTagBox);
+  }
+
+  private void updateExportControls() {
+    exportNameField.setDisable(!customExportNameCheck.isSelected());
+    File directory = resolveExportDirectory();
+    exportDirectoryField.setText(directory == null ? "(choose folder)" : describePathRelativeToProject(directory));
+    exportInfoLabel.setText("PNG: " + buildTintPngFileName() + "\nSetup: " + buildTintSetupFileName());
+  }
+
+  private File configuredExportDirectory() {
+    String raw = normalize(persisted.getProperty("global.exportDir", ""));
+    return raw.isBlank() ? null : new File(raw);
+  }
+
+  private File resolveExportDirectory() {
+    File configured = configuredExportDirectory();
+    if (configured != null) return configured;
+    return projectRoot != null && projectRoot.isDirectory() ? projectRoot : null;
+  }
+
+  private File resolveExistingExportDirectory() {
+    File directory = resolveExportDirectory();
+    while (directory != null && (!directory.exists() || !directory.isDirectory())) {
+      directory = directory.getParentFile();
+    }
+    if (directory != null) return directory;
+    return projectRoot != null && projectRoot.isDirectory() ? projectRoot : null;
+  }
+
+  private void chooseExportDirectory() {
+    DirectoryChooser chooser = new DirectoryChooser();
+    chooser.setTitle("Choose Image Tint Export Folder");
+    File initial = resolveExistingExportDirectory();
+    if (initial != null && initial.isDirectory()) chooser.setInitialDirectory(initial);
+    File selected = chooser.showDialog(getScene() == null ? null : getScene().getWindow());
+    if (selected == null) return;
+    setConfiguredExportDirectory(selected);
+    status("Export folder: " + describePathRelativeToProject(selected));
+  }
+
+  private void revealExportDirectory() {
+    File directory = resolveExportDirectory();
+    if (directory == null) {
+      status("Choose an export folder first.");
+      return;
+    }
+    try {
+      Files.createDirectories(directory.toPath());
+    } catch (Exception ex) {
+      status("Failed to prepare export folder: " + ex.getMessage());
+      return;
+    }
+    if (AssetPickerSupport.revealFile(directory)) {
+      status("Opened export folder: " + describePathRelativeToProject(directory));
+    } else {
+      status("Could not reveal export folder.");
+    }
+  }
+
+  private void setConfiguredExportDirectory(File directory) {
+    if (directory == null) {
+      persisted.remove("global.exportDir");
+    } else {
+      persisted.setProperty("global.exportDir", directory.getAbsolutePath());
+    }
+    updateExportControls();
+    savePersistentState();
+  }
+
+  private File resolveQuickExportFile(String fileName) {
+    File directory = resolveExportDirectory();
+    if (directory == null || fileName == null || fileName.isBlank()) return null;
+    return new File(directory, fileName);
+  }
+
+  private String currentExportBaseName() {
+    String defaultName = buildDefaultTintExportStem(selectedCharacterTag());
+    if (customExportNameCheck.isSelected()) {
+      String custom = sanitizeExportStem(exportNameField.getText(), "");
+      if (!custom.isBlank()) return custom;
+    }
+    return defaultName;
+  }
+
+  private String buildTintPngFileName() {
+    return buildExportFileName(currentExportBaseName(), "png");
+  }
+
+  private String buildTintSetupFileName() {
+    return buildExportFileName(currentExportBaseName(), "tintsetup");
+  }
+
+  static String buildDefaultTintExportStem(String tag) {
+    String normalized = tag == null ? "" : tag.trim().replace('\\', '/');
+    if (normalized.isBlank()) return "image_tint";
+    if (normalized.startsWith(PRESET_TAG_PREFIX)) {
+      String presetName = normalized.substring(PRESET_TAG_PREFIX.length());
+      String stem = sanitizeExportStem(presetName, "preset_tint");
+      return stem.endsWith("_tint") ? stem : stem + "_tint";
+    }
+    String[] segments = normalized.split("/");
+    String fileStem = sanitizeExportStem(stripExtension(segments.length == 0 ? normalized : segments[segments.length - 1]), "image");
+    String parentStem = segments.length >= 2 ? sanitizeExportStem(segments[segments.length - 2], "") : "";
+    String stem;
+    if (parentStem.isBlank() || fileStem.contains(parentStem)) {
+      stem = fileStem;
+    } else {
+      stem = parentStem + "_" + fileStem;
+    }
+    return stem.endsWith("_tint") ? stem : stem + "_tint";
+  }
+
+  static String buildExportFileName(String baseName, String extension) {
+    String ext = sanitizeExportStem(extension, "dat");
+    String stem = sanitizeExportStem(stripExtension(baseName), "export");
+    return stem + "." + ext;
+  }
+
+  private static String sanitizeExportStem(String raw, String fallback) {
+    String value = raw == null ? "" : raw.trim().replace('\\', '/');
+    if (value.isBlank()) return fallback == null ? "" : fallback;
+    String sanitized = value
+        .replaceAll("\\.[A-Za-z0-9]+$", "")
+        .replaceAll("[^A-Za-z0-9]+", "_")
+        .replaceAll("_+", "_")
+        .replaceAll("^_+", "")
+        .replaceAll("_+$", "")
+        .toLowerCase(Locale.ROOT);
+    if (sanitized.isBlank()) return fallback == null ? "" : fallback;
+    return sanitized;
+  }
+
+  private static String stripExtension(String raw) {
+    if (raw == null) return "";
+    String value = raw.trim();
+    int slash = Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\'));
+    if (slash >= 0 && slash < value.length() - 1) {
+      value = value.substring(slash + 1);
+    }
+    int dot = value.lastIndexOf('.');
+    if (dot > 0) {
+      value = value.substring(0, dot);
+    }
+    return value;
+  }
+
+  private String describePathRelativeToProject(File file) {
+    if (file == null) return "Project root";
+    try {
+      if (projectRoot != null && projectRoot.isDirectory()) {
+        Path root = projectRoot.toPath().toAbsolutePath().normalize();
+        Path target = file.toPath().toAbsolutePath().normalize();
+        if (target.equals(root)) return "Project root";
+        if (target.startsWith(root)) {
+          String relative = root.relativize(target).toString().replace('\\', '/');
+          return relative.isBlank() ? "Project root" : relative;
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return file.getAbsolutePath();
   }
 
   private static String selectedTag(ComboBox<String> box) {
@@ -4030,45 +4248,89 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   // ── B: Export tinted PNG ──
 
-  private void exportTintedPng() {
+  private Image buildTintedExportImage() {
     Image source = loadImage(selectedCharacterTag());
-    if (source == null) { status("No character image loaded."); return; }
+    if (source == null) {
+      status("No character image loaded.");
+      return null;
+    }
     Image tinted = buildTintedImage(selectedCharacterTag(), source);
-    if (tinted == null) { status("No tinted image available."); return; }
-    FileChooser fc = new FileChooser();
-    fc.setTitle("Export Tinted PNG");
-    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Image", "*.png"));
-    fc.setInitialFileName("tinted_" + sanitizeFilename(selectedCharacterTag()) + ".png");
-    if (projectRoot != null && projectRoot.isDirectory()) fc.setInitialDirectory(projectRoot);
-    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+    if (tinted == null) {
+      status("No tinted image available.");
+      return null;
+    }
+    return tinted;
+  }
+
+  private void quickExportTintedPng() {
+    Image tinted = buildTintedExportImage();
+    if (tinted == null) return;
+    File file = resolveQuickExportFile(buildTintPngFileName());
+    if (file == null) {
+      status("Choose an export folder first.");
+      return;
+    }
+    writeTintedPng(tinted, file);
+  }
+
+  private void exportTintedPngAs() {
+    Image tinted = buildTintedExportImage();
+    if (tinted == null) return;
+    File file = chooseSaveFile("Export Tinted PNG", "PNG Image", "*.png", buildTintPngFileName());
     if (file == null) return;
+    writeTintedPng(tinted, file);
+  }
+
+  private void writeTintedPng(Image tinted, File file) {
     try {
-      BufferedImage bImg = SwingFXUtils.fromFXImage(tinted, null);
-      ImageIO.write(bImg, "png", file);
-      status("Exported PNG: " + file.getName());
-    } catch (Exception e) {
-      status("PNG export failed: " + e.getMessage());
+      Path parent = file.toPath().getParent();
+      if (parent != null) Files.createDirectories(parent);
+      BufferedImage bufferedImage = SwingFXUtils.fromFXImage(tinted, null);
+      ImageIO.write(bufferedImage, "png", file);
+      setConfiguredExportDirectory(file.getParentFile());
+      status("Exported PNG: " + describePathRelativeToProject(file));
+    } catch (Exception ex) {
+      status("PNG export failed: " + ex.getMessage());
     }
   }
 
   // ── C: File-based setup export/import (.tintsetup) ──
 
-  private void exportSetupToFile() {
-    String content = buildFullSetupText();
-    FileChooser fc = new FileChooser();
-    fc.setTitle("Export Tint Setup");
-    fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tint Setup", "*.tintsetup"));
-    String tag = selectedCharacterTag();
-    fc.setInitialFileName(sanitizeFilename(tag.isBlank() ? "setup" : tag) + ".tintsetup");
-    if (projectRoot != null && projectRoot.isDirectory()) fc.setInitialDirectory(projectRoot);
-    File file = fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
-    if (file == null) return;
-    try {
-      Files.writeString(file.toPath(), content, StandardCharsets.UTF_8);
-      status("Exported setup: " + file.getName());
-    } catch (Exception e) {
-      status("Setup export failed: " + e.getMessage());
+  private void quickExportSetupToFile() {
+    File file = resolveQuickExportFile(buildTintSetupFileName());
+    if (file == null) {
+      status("Choose an export folder first.");
+      return;
     }
+    writeSetupFile(file, buildFullSetupText());
+  }
+
+  private void exportSetupToFileAs() {
+    File file = chooseSaveFile("Export Tint Setup", "Tint Setup", "*.tintsetup", buildTintSetupFileName());
+    if (file == null) return;
+    writeSetupFile(file, buildFullSetupText());
+  }
+
+  private void writeSetupFile(File file, String content) {
+    try {
+      Path parent = file.toPath().getParent();
+      if (parent != null) Files.createDirectories(parent);
+      Files.writeString(file.toPath(), content, StandardCharsets.UTF_8);
+      setConfiguredExportDirectory(file.getParentFile());
+      status("Exported setup: " + describePathRelativeToProject(file));
+    } catch (Exception ex) {
+      status("Setup export failed: " + ex.getMessage());
+    }
+  }
+
+  private File chooseSaveFile(String title, String description, String pattern, String suggestedName) {
+    FileChooser chooser = new FileChooser();
+    chooser.setTitle(title);
+    chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(description, pattern));
+    File initial = resolveExistingExportDirectory();
+    if (initial != null && initial.isDirectory()) chooser.setInitialDirectory(initial);
+    chooser.setInitialFileName(suggestedName);
+    return chooser.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
   }
 
   private void importSetupFromFile() {
@@ -4077,7 +4339,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     fc.getExtensionFilters().addAll(
         new FileChooser.ExtensionFilter("Tint Setup", "*.tintsetup"),
         new FileChooser.ExtensionFilter("All Files", "*.*"));
-    if (projectRoot != null && projectRoot.isDirectory()) fc.setInitialDirectory(projectRoot);
+    File initial = resolveExistingExportDirectory();
+    if (initial != null && initial.isDirectory()) fc.setInitialDirectory(initial);
     File file = fc.showOpenDialog(getScene() != null ? getScene().getWindow() : null);
     if (file == null) return;
     try {
@@ -4173,6 +4436,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       invalidateTintCache();
       invalidateBackgroundTintCache();
       redrawPreview();
+      setConfiguredExportDirectory(file.getParentFile());
       status("Imported setup from " + file.getName() + " (" + tintZones.size() + " zones)");
     } catch (Exception e) {
       status("Import failed: " + e.getMessage());
@@ -4276,14 +4540,17 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     return out.toString();
   }
 
-  private static String sanitizeFilename(String input) {
-    if (input == null || input.isBlank()) return "untitled";
-    String s = input.replace('/', '_').replace('\\', '_').replace(':', '_')
-        .replace('*', '_').replace('?', '_').replace('"', '_')
-        .replace('<', '_').replace('>', '_').replace('|', '_');
-    // Use only the last segment if it looks like a path.
-    int lastSlash = s.lastIndexOf('_');
-    if (lastSlash >= 0 && lastSlash < s.length() - 1) s = s.substring(lastSlash + 1);
-    return s.isBlank() ? "untitled" : s;
+  private Button actionButton(String text, javafx.scene.layout.Region icon, String tooltip, Runnable action) {
+    Button button = new Button(text, icon);
+    button.setContentDisplay(ContentDisplay.LEFT);
+    button.setGraphicTextGap(6);
+    button.setMinHeight(28);
+    button.setMaxWidth(Double.MAX_VALUE);
+    button.setFocusTraversable(false);
+    if (tooltip != null && !tooltip.isBlank()) button.setTooltip(new Tooltip(tooltip));
+    button.setOnAction(e -> {
+      if (action != null) action.run();
+    });
+    return button;
   }
 }

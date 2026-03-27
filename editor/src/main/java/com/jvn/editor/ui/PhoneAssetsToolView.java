@@ -56,6 +56,25 @@ import javafx.stage.Window;
 /**
  * Sidebar utility for editing phone configuration, importing phone assets,
  * and previewing the shared runtime phone renderer.
+ * 
+ * The phone configuration is persisted to a properties file in the project and
+ * assets are copied into the project when imported through the UI. Changes are
+ * reflected in the live preview and can be saved to disk or discarded by refreshing
+ * from disk. The phone renderer uses the same code and assets as the runtime and
+ * is intended to help iterate on phone configuration and assets without needing to
+ * constantly redeploy the game or use external image editing tools.
+ * 
+ * Designed to be resilient to manual edits to the configuration file and missing assets on disk,
+ * with the goal of never losing data or getting into an unrecoverable state. If the configuration file
+ * is missing or contains errors, the tool will fall back to reasonable defaults and allow the user to
+ * edit and save a new configuration. If assets are missing, the tool will show blank or default placeholders
+ * but allow the user to fix the paths and save the configuration with valid assets. The live preview will
+ * always attempt to show the current state of the configuration and assets, even if they are incomplete or contain errors, to provide immediate feedback as the user iterates.
+ * 
+ * It is recommended to keep a backup of the project or use version control
+ * when using this tool, as it will overwrite the phone configuration file and 
+ * copy assets into the project when saving changes. However, the tool itself is designed to avoid data loss and make it easy to recover from mistakes by refreshing from disk or fixing asset paths.
+ *  
  */
 public class PhoneAssetsToolView extends BorderPane {
   static final String STATE_FILE = ".jvn/phone-assets-tool.properties";
@@ -63,10 +82,8 @@ public class PhoneAssetsToolView extends BorderPane {
   static final String GAME_CONFIG_PATH = "game/config/phone/phone.properties";
   static final String WALLPAPER_IMPORT_DIR = "assets/ui/phone";
   static final String SKIN_IMPORT_DIR = "assets/ui/phone/skins";
-  static final String APP_IMPORT_DIR = "assets/ui/phone/apps";
   static final String CONTACT_IMPORT_DIR = "assets/phone/contacts";
   static final String CHAT_IMPORT_DIR = "assets/phone/chats";
-  static final String MESSAGE_IMPORT_DIR = "assets/phone/messages";
 
   private final Label summaryLabel = new Label("Open a project to edit phone assets and configuration.");
   private final Label statusLabel = new Label("");
@@ -84,10 +101,9 @@ public class PhoneAssetsToolView extends BorderPane {
 
   private final PhoneRenderer phoneRenderer = new PhoneRenderer();
   private final StackPane previewFrame = new StackPane();
-  private final Button previewHomeButton = smallButton("Home", CssIcon.home("#9cc7ff"));
-  private final Button previewChatButton = smallButton("Chat", CssIcon.speech("#f5c46b"));
-  private final Button previewCallButton = smallButton("Call", CssIcon.play("#f38ba8"));
-  private final ComboBox<PreviewTarget> previewTargetBox = new ComboBox<>();
+  private final Button previewHomeButton = headerButton("Preview Home", CssIcon.home("#9cc7ff"));
+  private final Button previewChatButton = headerButton("Preview Chat", CssIcon.speech("#f5c46b"));
+  private final Button previewCallButton = headerButton("Preview Call", CssIcon.play("#f38ba8"));
   private final Label previewSelectionLabel = new Label("Previewing home list");
 
   private final TabPane sections = new TabPane();
@@ -202,8 +218,6 @@ public class PhoneAssetsToolView extends BorderPane {
     CHAT,
     CALL
   }
-
-  private record PreviewTarget(String id, String label) {}
 
   public PhoneAssetsToolView() {
     getStyleClass().add("phone-tool-root");
@@ -339,10 +353,7 @@ public class PhoneAssetsToolView extends BorderPane {
     messageMetricLabel.getStyleClass().add("phone-tool-metric-chip");
     previewMetricLabel.getStyleClass().add("phone-tool-metric-chip");
 
-    saveButton.getStyleClass().addAll("phone-tool-primary-button", "phone-tool-small-button");
-    refreshButton.getStyleClass().add("phone-tool-small-button");
-    importConfigButton.getStyleClass().add("phone-tool-small-button");
-    openConfigButton.getStyleClass().add("phone-tool-small-button");
+    saveButton.getStyleClass().add("phone-tool-primary-button");
     saveButton.setOnAction(e -> saveConfig());
     refreshButton.setOnAction(e -> refreshFromDisk());
     importConfigButton.setOnAction(e -> importConfig());
@@ -352,19 +363,19 @@ public class PhoneAssetsToolView extends BorderPane {
     configLabel.getStyleClass().add("phone-tool-section-title");
     HBox pathRow = new HBox(8, configLabel, configPathLabel);
     pathRow.setAlignment(Pos.CENTER_LEFT);
-    pathRow.getStyleClass().add("phone-tool-inline-meta");
+    HBox.setHgrow(configPathLabel, Priority.ALWAYS);
 
-    HBox titleRow = new HBox(10, title, dirtyLabel, createSpacer(), refreshButton, importConfigButton, openConfigButton, saveButton);
+    HBox titleRow = new HBox(10, title, dirtyLabel);
     titleRow.setAlignment(Pos.CENTER_LEFT);
-    titleRow.getStyleClass().add("phone-tool-header-row");
 
     FlowPane metrics = new FlowPane(8, 8, contactMetricLabel, threadMetricLabel, messageMetricLabel, previewMetricLabel);
     metrics.getStyleClass().add("phone-tool-metric-row");
-    HBox metaRow = new HBox(12, pathRow, createSpacer(), metrics);
-    metaRow.setAlignment(Pos.CENTER_LEFT);
-    metaRow.getStyleClass().add("phone-tool-header-meta");
 
-    VBox header = new VBox(8, titleRow, metaRow, summaryLabel);
+    FlowPane actions = new FlowPane(8, 8, refreshButton, importConfigButton, openConfigButton, saveButton);
+    actions.setAlignment(Pos.CENTER_LEFT);
+    actions.getStyleClass().add("phone-tool-actions");
+
+    VBox header = new VBox(10, titleRow, summaryLabel, metrics, pathRow, actions);
     header.getStyleClass().add("phone-tool-card");
     setTop(header);
     BorderPane.setMargin(header, new Insets(0, 0, 8, 0));
@@ -372,8 +383,8 @@ public class PhoneAssetsToolView extends BorderPane {
 
   private void buildCenter() {
     previewFrame.getStyleClass().add("phone-tool-preview-frame");
-    previewFrame.setPrefHeight(520);
-    previewFrame.setMinHeight(400);
+    previewFrame.setPrefHeight(390);
+    previewFrame.setMinHeight(320);
     previewFrame.setAlignment(Pos.CENTER);
     phoneRenderer.setEmbeddedPreview(true);
     phoneRenderer.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
@@ -381,12 +392,11 @@ public class PhoneAssetsToolView extends BorderPane {
 
     Label previewTitle = new Label("Live Preview");
     previewTitle.getStyleClass().add("phone-tool-section-title");
-    Label previewCopy = new Label("Runtime renderer. Switch mode and target here while editing the shared phone config.");
+    Label previewCopy = new Label("Uses the same JavaFX phone renderer as runtime and preview.");
     previewCopy.getStyleClass().add("phone-tool-help");
     previewCopy.setWrapText(true);
     previewSelectionLabel.getStyleClass().add("phone-tool-preview-note");
     previewSelectionLabel.setWrapText(true);
-    configurePreviewTargetBox();
 
     previewHomeButton.setOnAction(e -> {
       previewMode = PreviewMode.HOME;
@@ -406,28 +416,17 @@ public class PhoneAssetsToolView extends BorderPane {
 
     HBox previewToolbar = new HBox(8, previewHomeButton, previewChatButton, previewCallButton);
     previewToolbar.setAlignment(Pos.CENTER_LEFT);
-    previewToolbar.getStyleClass().add("phone-tool-preview-toolbar");
 
-    Label previewTargetLabel = new Label("Target");
-    previewTargetLabel.getStyleClass().add("phone-tool-field-label");
-    HBox previewTargetRow = new HBox(8, previewTargetLabel, previewTargetBox);
-    previewTargetRow.setAlignment(Pos.CENTER_LEFT);
-    previewTargetRow.getStyleClass().add("phone-tool-preview-target-row");
-    HBox.setHgrow(previewTargetBox, Priority.ALWAYS);
-
-    VBox previewCard = new VBox(8, previewTitle, previewCopy, previewToolbar, previewTargetRow, previewSelectionLabel, previewFrame);
+    VBox previewCard = new VBox(10, previewTitle, previewCopy, previewSelectionLabel, previewToolbar, previewFrame);
     previewCard.getStyleClass().add("phone-tool-card");
     previewCard.getStyleClass().add("phone-tool-preview-card");
-    previewCard.setPrefWidth(430);
-    previewCard.setMinWidth(360);
-    previewCard.setMaxWidth(430);
+    previewCard.setMaxWidth(560);
     previewCard.setFillWidth(true);
     VBox.setVgrow(previewFrame, Priority.ALWAYS);
 
     StackPane previewHost = new StackPane(previewCard);
     previewHost.getStyleClass().add("phone-tool-preview-host");
     previewHost.setAlignment(Pos.TOP_CENTER);
-    previewHost.setMinWidth(380);
 
     sections.getTabs().addAll(
         buildAppTab(),
@@ -441,7 +440,7 @@ public class PhoneAssetsToolView extends BorderPane {
 
     workspaceSplit.getItems().setAll(sections, previewHost);
     workspaceSplit.getStyleClass().add("phone-tool-workspace");
-    workspaceSplit.setDividerPositions(0.64);
+    workspaceSplit.setDividerPositions(0.58);
     SplitPane.setResizableWithParent(previewHost, true);
     SplitPane.setResizableWithParent(sections, true);
     widthProperty().addListener((obs, oldWidth, newWidth) -> updateWorkspaceLayout());
@@ -456,53 +455,8 @@ public class PhoneAssetsToolView extends BorderPane {
     Orientation targetOrientation = wide ? Orientation.HORIZONTAL : Orientation.VERTICAL;
     if (workspaceSplit.getOrientation() != targetOrientation) {
       workspaceSplit.setOrientation(targetOrientation);
-      workspaceSplit.setDividerPositions(wide ? 0.64 : 0.54);
+      workspaceSplit.setDividerPositions(wide ? 0.56 : 0.60);
     }
-  }
-
-  private void configurePreviewTargetBox() {
-    previewTargetBox.getStyleClass().add("phone-tool-preview-target-box");
-    previewTargetBox.setPromptText("No target");
-    previewTargetBox.setVisibleRowCount(12);
-    previewTargetBox.setButtonCell(new ListCell<>() {
-      @Override
-      protected void updateItem(PreviewTarget item, boolean empty) {
-        super.updateItem(item, empty);
-        setText(empty || item == null ? null : item.label());
-      }
-    });
-    previewTargetBox.setCellFactory(list -> new ListCell<>() {
-      @Override
-      protected void updateItem(PreviewTarget item, boolean empty) {
-        super.updateItem(item, empty);
-        setText(empty || item == null ? null : item.label());
-      }
-    });
-    previewTargetBox.valueProperty().addListener((obs, oldValue, newValue) -> {
-      if (applyingUi) return;
-      if (newValue == null) return;
-      switch (previewMode) {
-        case CHAT -> {
-          if (Objects.equals(selectedChatId, newValue.id())) return;
-          selectedChatId = newValue.id();
-          refreshChatList();
-          fillChatForm();
-          refreshMessageList();
-          fillMessageForm();
-        }
-        case CALL -> {
-          if (Objects.equals(selectedCallId, newValue.id())) return;
-          selectedCallId = newValue.id();
-          refreshCallList();
-          fillCallForm();
-        }
-        case HOME -> {
-          return;
-        }
-      }
-      refreshPreview();
-      persistUiState();
-    });
   }
 
   private Tab buildAppTab() {
@@ -685,8 +639,14 @@ public class PhoneAssetsToolView extends BorderPane {
     addButton.setOnAction(e -> addChat());
     Button removeButton = smallButton("Remove", CssIcon.minus("#f38ba8"));
     removeButton.setOnAction(e -> removeSelectedChat());
+    Button previewThreadButton = smallButton("Preview Selected Thread", CssIcon.speech("#f5c46b"));
+    previewThreadButton.setOnAction(e -> {
+      previewMode = PreviewMode.CHAT;
+      refreshPreview();
+      persistUiState();
+    });
 
-    HBox actions = new HBox(8, addButton, removeButton);
+    HBox actions = new HBox(8, addButton, removeButton, previewThreadButton);
     actions.setAlignment(Pos.CENTER_LEFT);
 
     HBox listHeader = new HBox(8, sectionLabel("Threads"), createSpacer(), chatCountLabel);
@@ -727,7 +687,7 @@ public class PhoneAssetsToolView extends BorderPane {
     int row = 0;
     addLabeledRow(grid, row++, "ID", appIdField);
     addLabeledRow(grid, row++, "Title", appNameField);
-    addLabeledRow(grid, row++, "Icon", assetFieldRow(appIconField, APP_IMPORT_DIR, "App Icon"));
+    addLabeledRow(grid, row++, "Icon", assetFieldRow(appIconField, SKIN_IMPORT_DIR, "App Icon"));
     addLabeledRow(grid, row++, "Badge", appBadgeField);
     addLabeledRow(grid, row++, "Accent", appAccentColorField);
     addLabeledRow(grid, row++, "Page", appPageField);
@@ -742,8 +702,15 @@ public class PhoneAssetsToolView extends BorderPane {
     addButton.setOnAction(e -> addApp());
     Button removeButton = smallButton("Remove", CssIcon.minus("#f38ba8"));
     removeButton.setOnAction(e -> removeSelectedApp());
+    Button previewHomeGridButton = smallButton("Preview Home Grid", CssIcon.grid("#9cc7ff"));
+    previewHomeGridButton.setOnAction(e -> {
+      previewMode = PreviewMode.HOME;
+      workingData.setHomeMode(VnPhoneData.HomeMode.APPS);
+      refreshPreview();
+      persistUiState();
+    });
 
-    HBox actions = new HBox(8, addButton, removeButton);
+    HBox actions = new HBox(8, addButton, removeButton, previewHomeGridButton);
     actions.setAlignment(Pos.CENTER_LEFT);
 
     HBox listHeader = new HBox(8, sectionLabel("Apps"), createSpacer(), appCountLabel);
@@ -790,7 +757,7 @@ public class PhoneAssetsToolView extends BorderPane {
     addLabeledRow(grid, row++, "Type", messageTypeCombo);
     addLabeledRow(grid, row++, "Sender", messageSenderField);
     addLabeledRow(grid, row++, "Time", messageTimeField);
-    addLabeledRow(grid, row++, "Asset", assetFieldRow(messageAssetField, MESSAGE_IMPORT_DIR, "Message Asset"));
+    addLabeledRow(grid, row++, "Asset", assetFieldRow(messageAssetField, CHAT_IMPORT_DIR, "Message Asset"));
     addLabeledRow(grid, row++, "Caption", messageCaptionField);
     addLabeledRow(grid, row++, "Duration", messageDurationField);
     addLabeledRow(grid, row++, "Options", messageOptionsField);
@@ -804,8 +771,14 @@ public class PhoneAssetsToolView extends BorderPane {
     addButton.setOnAction(e -> addMessage());
     Button removeButton = smallButton("Remove", CssIcon.minus("#f38ba8"));
     removeButton.setOnAction(e -> removeSelectedMessage());
+    Button previewThreadButton = smallButton("Preview Thread", CssIcon.speech("#f5c46b"));
+    previewThreadButton.setOnAction(e -> {
+      previewMode = PreviewMode.CHAT;
+      refreshPreview();
+      persistUiState();
+    });
 
-    HBox actions = new HBox(8, addButton, removeButton);
+    HBox actions = new HBox(8, addButton, removeButton, previewThreadButton);
     actions.setAlignment(Pos.CENTER_LEFT);
 
     HBox listHeader = new HBox(8, sectionLabel("Messages"), createSpacer(), messageCountLabel);
@@ -858,8 +831,14 @@ public class PhoneAssetsToolView extends BorderPane {
     addButton.setOnAction(e -> addCall());
     Button removeButton = smallButton("Remove", CssIcon.minus("#f38ba8"));
     removeButton.setOnAction(e -> removeSelectedCall());
+    Button previewButton = smallButton("Preview Call", CssIcon.play("#f38ba8"));
+    previewButton.setOnAction(e -> {
+      previewMode = PreviewMode.CALL;
+      refreshPreview();
+      persistUiState();
+    });
 
-    HBox actions = new HBox(8, addButton, removeButton);
+    HBox actions = new HBox(8, addButton, removeButton, previewButton);
     actions.setAlignment(Pos.CENTER_LEFT);
 
     HBox listHeader = new HBox(8, sectionLabel("Calls"), createSpacer(), callCountLabel);
@@ -1598,7 +1577,7 @@ public class PhoneAssetsToolView extends BorderPane {
     VnPhoneData.Contact contact = selectedContact();
     if (contact == null) return;
     if (isContactReferenced(contact.getId())) {
-      showInfo("Contact In Use", "Remove the contact from thread participants, messages, and calls before deleting it.");
+      showInfo("Contact In Use", "Remove the contact from thread participants and messages before deleting it.");
       return;
     }
     workingData.getContacts().remove(contact.getId());
@@ -1616,9 +1595,6 @@ public class PhoneAssetsToolView extends BorderPane {
       for (VnPhoneData.Message message : chat.getMessages()) {
         if (Objects.equals(contactId, message.getSenderId())) return true;
       }
-    }
-    for (VnPhoneData.Call call : workingData.getCalls().values()) {
-      if (Objects.equals(contactId, call.getParticipantId())) return true;
     }
     return false;
   }
@@ -1843,7 +1819,6 @@ public class PhoneAssetsToolView extends BorderPane {
         previewMode == PreviewMode.CALL ? "is-active" : "is-idle");
     previewChatButton.setDisable(selectedChatId == null);
     previewCallButton.setDisable(selectedCallId == null);
-    refreshPreviewTargetOptions();
 
     String selectedChatTitle = selectedChatId == null
         ? "No thread selected"
@@ -1855,20 +1830,20 @@ public class PhoneAssetsToolView extends BorderPane {
     switch (previewMode) {
       case CHAT -> {
         previewSelectionLabel.setText(selectedChatId != null
-            ? "Thread surface for " + selectedChatTitle + "."
-            : "Select a thread to inspect its conversation surface.");
+            ? "Previewing thread: " + selectedChatTitle
+            : "Previewing thread view. Select a thread to inspect its conversation surface.");
         previewMetricLabel.setText("Preview Thread");
       }
       case CALL -> {
         previewSelectionLabel.setText(selectedCallId != null
-            ? "Call surface for " + selectedCallTitle + "."
-            : "Select a call surface to inspect it.");
+            ? "Previewing call: " + selectedCallTitle
+            : "Previewing call view. Select a call surface to inspect it.");
         previewMetricLabel.setText("Preview Call");
       }
       case HOME -> {
         String homeCopy = workingData.getHomeMode() == VnPhoneData.HomeMode.APPS
-            ? "Home surface in apps mode."
-            : "Home surface in threads mode.";
+            ? "Previewing home grid. Select or author apps to inspect the launcher surface."
+            : "Previewing home list. Select a thread to inspect its conversation view.";
         previewSelectionLabel.setText(homeCopy);
         previewMetricLabel.setText("Preview Home");
       }
@@ -1890,54 +1865,6 @@ public class PhoneAssetsToolView extends BorderPane {
     phoneRenderer.refresh();
   }
 
-  private void refreshPreviewTargetOptions() {
-    List<PreviewTarget> targets = switch (previewMode) {
-      case CHAT -> buildPreviewChatTargets();
-      case CALL -> buildPreviewCallTargets();
-      case HOME -> List.of();
-    };
-
-    applyingUi = true;
-    try {
-      previewTargetBox.setItems(FXCollections.observableArrayList(targets));
-      previewTargetBox.setDisable(previewMode == PreviewMode.HOME || targets.isEmpty());
-      PreviewTarget selected = switch (previewMode) {
-        case CHAT -> findPreviewTarget(targets, selectedChatId);
-        case CALL -> findPreviewTarget(targets, selectedCallId);
-        case HOME -> null;
-      };
-      previewTargetBox.setValue(selected);
-    } finally {
-      applyingUi = false;
-    }
-  }
-
-  private List<PreviewTarget> buildPreviewChatTargets() {
-    List<PreviewTarget> targets = new ArrayList<>();
-    for (String id : chatIds()) {
-      targets.add(new PreviewTarget(id, firstNonBlank(displayTitleForChat(id), id)));
-    }
-    return targets;
-  }
-
-  private List<PreviewTarget> buildPreviewCallTargets() {
-    List<PreviewTarget> targets = new ArrayList<>();
-    for (String id : callIds()) {
-      targets.add(new PreviewTarget(id, firstNonBlank(displayTitleForCall(id), id)));
-    }
-    return targets;
-  }
-
-  private static PreviewTarget findPreviewTarget(List<PreviewTarget> targets, String id) {
-    if (targets == null || id == null || id.isBlank()) return null;
-    for (PreviewTarget target : targets) {
-      if (target != null && Objects.equals(id, target.id())) {
-        return target;
-      }
-    }
-    return null;
-  }
-
   private void updateSummary() {
     if (projectRoot == null || !projectRoot.isDirectory()) {
       summaryLabel.setText("Open a project to edit phone assets and configuration.");
@@ -1953,7 +1880,7 @@ public class PhoneAssetsToolView extends BorderPane {
       messageCount += chat.getMessages().size();
     }
     String fileLabel = activeConfigFile == null ? CONFIG_PATH : toProjectRelativePath(activeConfigFile);
-    summaryLabel.setText("Editing " + fileLabel + ". Drag assets into fields, inspect runtime surfaces on the right, then save back to the shared phone config.");
+    summaryLabel.setText("Editing " + fileLabel + ". Drag assets into fields, preview the home surface, chats, or calls, then save back to the shared runtime config.");
     contactMetricLabel.setText("Contacts " + workingData.getContacts().size());
     threadMetricLabel.setText("Threads " + workingData.getChats().size());
     messageMetricLabel.setText("Messages " + messageCount);
@@ -2191,10 +2118,7 @@ public class PhoneAssetsToolView extends BorderPane {
           : (id + " "
               + firstNonBlank(message.getSenderId(), "") + " "
               + firstNonBlank(message.getTimeText(), "") + " "
-              + firstNonBlank(message.getText(), "") + " "
-              + firstNonBlank(message.getCaption(), "") + " "
-              + firstNonBlank(message.getAssetPath(), "") + " "
-              + String.join(" ", message.getOptions()))
+              + firstNonBlank(message.getText(), ""))
               .toLowerCase(Locale.ROOT);
       if (haystack.contains(query)) filtered.add(id);
     }
