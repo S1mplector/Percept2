@@ -840,12 +840,30 @@ public final class DocsScreenshotTool extends Application {
         Path fixtureRoot = ensureDocsFixtureProject(repoRoot);
         String source = docsSidebarVnsSource();
         Path script = fixtureRoot.resolve("scripts/docs_puppeteer_launcher.vns");
+        Path timelinesDir = fixtureRoot.resolve("scripts/timelines");
         writeTextFile(script, source);
+        writeTextFile(timelinesDir.resolve("hero_intro.jes"), """
+            timeline {
+              move "lavender" {
+                x: 180
+                dur: 320
+              }
+            }
+            """);
+        writeTextFile(timelinesDir.resolve("camera_pan.jes"), """
+            timeline {
+              cameraMove {
+                x: 96
+                dur: 420
+              }
+            }
+            """);
 
         PuppeteerLauncherPanel panel = new PuppeteerLauncherPanel();
+        panel.setProjectRoot(fixtureRoot.toFile());
         panel.setSource(source);
         panel.setCaretLine(12);
-        panel.setOnLaunch(snapshot -> {});
+        panel.setOnLaunch(request -> {});
         return openToolStage("Docs Screenshot Session - Puppeteer Launcher", panel, 620, 940);
     }
 

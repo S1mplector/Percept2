@@ -8,7 +8,7 @@ Source: `editor/src/main/java/com/jvn/editor/ui/PuppeteerLauncherPanel.java`
 
 ## Overview
 
-The Puppeteer Launcher is the bridge between VNS script authoring and Puppeteer animation editing. As you move the cursor in a `.vns` file, the panel continuously parses the script from line 1 through the cursor position, building a cumulative **scene snapshot** — the exact visual state the player would see at that point. One click launches Puppeteer with all entities pre-positioned.
+The Puppeteer Launcher is the bridge between VNS script authoring and Puppeteer animation editing. As you move the cursor in a `.vns` file, the panel continuously parses the script from line 1 through the cursor position, building a cumulative **scene snapshot** — the exact visual state the player would see at that point. The upper half launches new work from that snapshot, and the lower half lists already registered timelines from `scripts/timelines/` as reopenable cards.
 
 - **Default side:** Right
 - **Tab name:** Puppeteer Launcher
@@ -53,6 +53,8 @@ Full Puppeteer Launcher sidebar utility view.
 | **Launch @ Cursor** | Launches Puppeteer with the exact scene snapshot at the current line |
 | **Launch @ Label Start** | Launches Puppeteer from the active label start line |
 | **Launch @ Scene Start** | Launches Puppeteer from the latest background change inside the active label |
+| **Registered Animations** | Scrollable card list of timelines discovered in `scripts/timelines/*.jes` |
+| **Timeline Card** | Shows timeline name, quick stats, DSL preview lines, and opens that registered animation directly when clicked |
 
 ### Character Entry Format
 
@@ -166,7 +168,7 @@ When you click one of the launch actions, the snapshot is used to construct a `J
 3. **Expression images** — Resolved from `charImgPaths["charId/expression"]` or composited from `charLayerPaths`
 4. **Layer paths** — If a character uses layered sprites (`@charlayer`), all layer paths are available for Puppeteer's entity setup
 
-If the cursor is inside an inline `timeline { ... }` block, Puppeteer imports that block directly. If the snapshot sees `@external jes_timeline <name>`, Puppeteer prefers `scripts/timelines/<name>.jes` automatically instead of making you pick from the whole timeline directory first.
+If the cursor is inside an inline `timeline { ... }` block, Puppeteer imports that block directly. If the snapshot sees `@external jes_timeline <name>`, the matching registered timeline card is highlighted. The snapshot launch buttons no longer open a generic chooser; they open a fresh editor unless the cursor already points at an inline or explicitly referenced timeline, while the lower card list handles reopening saved timelines.
 
 This means the Puppeteer viewport shows exactly what the player would see at that script position, while the launch flow is now aware of the most relevant timeline source.
 
@@ -198,6 +200,7 @@ When no `.vns` file is active:
 - Background shows "Background: —"
 - Characters shows "—"
 - Launch button is **disabled**
+- Registered timeline cards still appear when a project root is available
 
 ---
 

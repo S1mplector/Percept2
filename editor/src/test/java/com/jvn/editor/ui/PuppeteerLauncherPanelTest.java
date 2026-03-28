@@ -1,8 +1,14 @@
 package com.jvn.editor.ui;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PuppeteerLauncherPanelTest {
@@ -136,5 +142,73 @@ class PuppeteerLauncherPanelTest {
         """;
 
     assertEquals(2, PuppeteerLauncherPanel.resolveSceneStartLine(source, 3));
+  }
+
+  @Test
+  void discoverRegisteredAnimationsBuildsSortedCards(@TempDir Path tempDir) throws Exception {
+    Path timelinesDir = Files.createDirectories(tempDir.resolve("scripts/timelines"));
+    Files.writeString(timelinesDir.resolve("zeta_idle.jes"), """
+        timeline {
+          move "hero" {
+            x: 100
+            dur: 200
+          }
+        }
+        """);
+    Files.writeString(timelinesDir.resolve("alpha_zoom.jes"), """
+        timeline {
+          cameraZoom {
+            zoom: 1.2
+            dur: 250
+          }
+        }
+        """);
+
+    List<PuppeteerLauncherPanel.RegisteredAnimation> animations =
+        PuppeteerLauncherPanel.discoverRegisteredAnimations(tempDir.toFile());
+
+    assertEquals(2, animations.size());
+    assertEquals("alpha_zoom", animations.get(0).name());
+    assertEquals("zeta_idle", animations.get(1).name());
+    assertTrue(animations.get(0).importable());
+    assertTrue(animations.get(0).statsText().contains("track(s)"));
+    assertTrue(animations.get(0).previewText().contains("cameraZoom"));
+  }
+
+  @Test
+  void discoverRegisteredAnimationsRetainsBrokenTimelinesAsWarningCards(@TempDir Path tempDir) throws Exception {
+    Path timelinesDir = Files.createDirectories(tempDir.resolve("scripts/timelines"));
+    Files.createDirectories(timelinesDir.resolve("broken_pose.jes"));
+
+    List<PuppeteerLauncherPanel.RegisteredAnimation> animations =
+        PuppeteerLauncherPanel.discoverRegisteredAnimations(tempDir.toFile());
+
+    assertEquals(1, animations.size());
+    assertEquals("broken_pose", animations.get(0).name());
+    assertFalse(animations.get(0).importable());
+    assertTrue(animations.get(0).statsText() != null && !animations.get(0).statsText().isBlank());
+    assertTrue(animations.get(0).warningMessage() != null && !animations.get(0).warningMessage().isBlank());
+  }
+
+  @Test
+  void extractTimelinePreviewSkipsCommentsAndWrapperLines() {
+    String code = """
+        // Usage in VNS: @external jes_timeline demo
+
+        timeline {
+          move "hero" {
+            x: 100
+            dur: 200
+          }
+        }
+        """;
+
+    assertEquals(
+        """
+        move "hero" {
+        x: 100
+        dur: 200\
+        """,
+        PuppeteerLauncherPanel.extractTimelinePreview(code));
   }
 }

@@ -18,11 +18,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.jvn.core.vn.LayeredCharacterResolver;
+import com.jvn.editor.ui.actioneditor.AnimationProject;
+import com.jvn.editor.ui.actioneditor.CodeImporter;
+import com.jvn.editor.ui.actioneditor.EntityTrack;
+import com.jvn.editor.ui.actioneditor.PropertyType;
 
 import javafx.geometry.Insets;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
@@ -58,6 +63,10 @@ public class PuppeteerLauncherPanel extends VBox {
   private final Label lblSummary;
   private final VBox characterList;
   private final VBox diagnosticsList;
+  private final Label lblRegisteredHeader;
+  private final Label lblRegisteredSummary;
+  private final VBox registeredTimelineCards;
+  private final ScrollPane registeredTimelineScroll;
   private final Button btnLaunch;
   private final Button btnLaunchLabelStart;
   private final Button btnLaunchSceneStart;
@@ -68,8 +77,11 @@ public class PuppeteerLauncherPanel extends VBox {
   private int currentLine = 0;
   private File projectRoot;
   private File activeScriptFile;
-  private Consumer<SceneSnapshot> onLaunch;
+  private Consumer<LaunchRequest> onLaunch;
   private Consumer<OpenTarget> onOpenTarget;
+  private List<RegisteredAnimation> cachedRegisteredAnimations = List.of();
+  private String cachedRegisteredAnimationsRoot = "";
+  private long cachedRegisteredAnimationsStamp = Long.MIN_VALUE;
 
   public PuppeteerLauncherPanel() {
     setSpacing(8);
@@ -114,13 +126,34 @@ public class PuppeteerLauncherPanel extends VBox {
     diagnosticsList = new VBox(2);
     diagnosticsList.setPadding(new Insets(0, 0, 0, 8));
 
+    lblRegisteredHeader = new Label("Registered Animations");
+    lblRegisteredHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
+
+    lblRegisteredSummary = new Label("No registered timelines found yet.");
+    lblRegisteredSummary.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+
+    registeredTimelineCards = new VBox(8);
+    registeredTimelineCards.setFillWidth(true);
+    registeredTimelineCards.setPadding(new Insets(2, 2, 2, 2));
+
+    registeredTimelineScroll = new ScrollPane(registeredTimelineCards);
+    registeredTimelineScroll.setFitToWidth(true);
+    registeredTimelineScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    registeredTimelineScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    registeredTimelineScroll.setPannable(true);
+    registeredTimelineScroll.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+    registeredTimelineScroll.setPrefViewportHeight(260);
+    VBox.setVgrow(registeredTimelineScroll, Priority.ALWAYS);
+
     btnLaunch = createActionButton(
         "Launch @ Cursor",
         "icon-puppeteer-launch-cursor",
         "-fx-background-color: #4da3ff; -fx-text-fill: #121212; -fx-font-weight: bold;",
         "Launch Puppeteer with scene snapshot from the current cursor line");
     btnLaunch.setOnAction(e -> {
-      if (onLaunch != null) onLaunch.accept(buildSnapshot(currentLine));
+      if (onLaunch != null) {
+        onLaunch.accept(new LaunchRequest(buildSnapshot(currentLine), null));
+      }
     });
 
     btnLaunchLabelStart = createActionButton(
@@ -131,7 +164,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunchLabelStart.setOnAction(e -> {
       if (onLaunch == null) return;
       int labelStartLine = resolveActiveLabelStartLine(currentSource, currentLine);
-      onLaunch.accept(buildSnapshot(labelStartLine));
+      onLaunch.accept(new LaunchRequest(buildSnapshot(labelStartLine), null));
     });
 
     btnLaunchSceneStart = createActionButton(
@@ -142,7 +175,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunchSceneStart.setOnAction(e -> {
       if (onLaunch == null) return;
       int sceneStartLine = resolveSceneStartLine(currentSource, currentLine);
-      onLaunch.accept(buildSnapshot(sceneStartLine));
+      onLaunch.accept(new LaunchRequest(buildSnapshot(sceneStartLine), null));
     });
 
     btnOpenTimeline = createActionButton(
@@ -194,13 +227,17 @@ public class PuppeteerLauncherPanel extends VBox {
         diagnosticsList,
         new Separator(),
         openRow,
-        actionRow
+        actionRow,
+        new Separator(),
+        lblRegisteredHeader,
+        lblRegisteredSummary,
+        registeredTimelineScroll
     );
 
     updateEmpty();
   }
 
-  public void setOnLaunch(Consumer<SceneSnapshot> handler) {
+  public void setOnLaunch(Consumer<LaunchRequest> handler) {
     this.onLaunch = handler;
   }
 
@@ -210,6 +247,8 @@ public class PuppeteerLauncherPanel extends VBox {
 
   public void setProjectRoot(File projectRoot) {
     this.projectRoot = projectRoot;
+    invalidateRegisteredAnimationsCache();
+    refresh();
   }
 
   public void setActiveScriptFile(File activeScriptFile) {
@@ -252,6 +291,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunchSceneStart.setDisable(true);
     btnOpenTimeline.setDisable(true);
     btnOpenIssue.setDisable(true);
+    refreshRegisteredAnimations(null);
   }
 
   private void refresh() {
@@ -315,6 +355,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunchSceneStart.setDisable(false);
     btnOpenTimeline.setDisable(resolveTimelineOpenTarget(snap) == null);
     btnOpenIssue.setDisable(resolvePrimaryIssueOpenTarget(snap) == null);
+    refreshRegisteredAnimations(snap);
   }
 
   private static Button createActionButton(String text, String iconClass, String style, String tooltip) {
@@ -333,6 +374,270 @@ public class PuppeteerLauncherPanel extends VBox {
     icon.getStyleClass().addAll("icon", iconClass);
     icon.setMouseTransparent(true);
     return icon;
+  }
+
+  private void refreshRegisteredAnimations(SceneSnapshot snapshot) {
+    registeredTimelineCards.getChildren().clear();
+
+    if (projectRoot == null) {
+      lblRegisteredSummary.setText("Open a project to browse scripts/timelines.");
+      registeredTimelineCards.getChildren().add(createPlaceholderCard(
+          "No project root is active.",
+          "Open a project or VNS file to browse registered Puppeteer timelines."));
+      return;
+    }
+
+    List<RegisteredAnimation> animations = getRegisteredAnimations();
+    String preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
+    int count = animations.size();
+    String summary = count == 1
+        ? "1 timeline found in scripts/timelines."
+        : count + " timelines found in scripts/timelines.";
+    if (preferredTimelineName != null && !preferredTimelineName.isBlank()) {
+      boolean matched = animations.stream().anyMatch(animation -> preferredTimelineName.equals(animation.name()));
+      summary += matched
+          ? " Current cursor references one of them."
+          : " Current cursor timeline is not registered on disk.";
+    }
+    lblRegisteredSummary.setText(summary);
+
+    if (animations.isEmpty()) {
+      registeredTimelineCards.getChildren().add(createPlaceholderCard(
+          "No timelines registered yet.",
+          "Save a Puppeteer timeline to scripts/timelines to reopen it directly from this launcher."));
+      return;
+    }
+
+    for (RegisteredAnimation animation : animations) {
+      registeredTimelineCards.getChildren().add(createRegisteredAnimationCard(animation, snapshot));
+    }
+  }
+
+  private Button createRegisteredAnimationCard(RegisteredAnimation animation, SceneSnapshot snapshot) {
+    String preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
+    boolean suggested = preferredTimelineName != null && preferredTimelineName.equals(animation.name());
+    boolean importable = animation.importable();
+
+    Label title = new Label(animation.name());
+    title.setStyle("-fx-text-fill: #f2f4f8; -fx-font-size: 12px; -fx-font-weight: bold;");
+
+    HBox titleRow = new HBox(6);
+    titleRow.getChildren().add(title);
+
+    if (suggested) {
+      Label badge = new Label("Cursor Match");
+      badge.setStyle("-fx-background-color: #20416a; -fx-background-radius: 999; -fx-padding: 2 8 2 8; -fx-text-fill: #cfe6ff; -fx-font-size: 10px; -fx-font-weight: bold;");
+      titleRow.getChildren().add(badge);
+    }
+
+    if (!importable) {
+      Label badge = new Label("Import Issue");
+      badge.setStyle("-fx-background-color: #5a2a2a; -fx-background-radius: 999; -fx-padding: 2 8 2 8; -fx-text-fill: #ffd6d6; -fx-font-size: 10px; -fx-font-weight: bold;");
+      titleRow.getChildren().add(badge);
+    }
+
+    Label meta = new Label(animation.statsText());
+    meta.setStyle("-fx-text-fill: #9cadc7; -fx-font-size: 10px;");
+    meta.setWrapText(true);
+
+    Label preview = new Label(animation.previewText());
+    preview.setStyle("-fx-text-fill: #d5d9e0; -fx-font-size: 10px; -fx-font-family: monospace;");
+    preview.setWrapText(true);
+
+    VBox body = new VBox(5, titleRow, meta, preview);
+    if (!importable && animation.warningMessage() != null && !animation.warningMessage().isBlank()) {
+      Label warning = new Label(animation.warningMessage());
+      warning.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 10px;");
+      warning.setWrapText(true);
+      body.getChildren().add(warning);
+    }
+
+    Button card = new Button();
+    card.setMaxWidth(Double.MAX_VALUE);
+    card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    card.setGraphic(body);
+    card.setTooltip(new Tooltip(animation.file().getName()));
+    String style = suggested
+        ? "-fx-background-color: #1f2b38; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #4da3ff; -fx-padding: 12; -fx-alignment: CENTER_LEFT;"
+        : "-fx-background-color: #24262c; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #3a3d46; -fx-padding: 12; -fx-alignment: CENTER_LEFT;";
+    if (!importable) {
+      style = "-fx-background-color: #2a2323; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #694242; -fx-padding: 12; -fx-alignment: CENTER_LEFT;";
+      card.setDisable(true);
+    } else {
+      SceneSnapshot launchSnapshot = snapshot;
+      card.setOnAction(e -> {
+        if (onLaunch != null) {
+          onLaunch.accept(new LaunchRequest(launchSnapshot, animation.name()));
+        }
+      });
+    }
+    card.setStyle(style);
+    return card;
+  }
+
+  private VBox createPlaceholderCard(String title, String detail) {
+    Label titleLabel = new Label(title);
+    titleLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
+
+    Label detailLabel = new Label(detail);
+    detailLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    detailLabel.setWrapText(true);
+
+    VBox box = new VBox(4, titleLabel, detailLabel);
+    box.setPadding(new Insets(12));
+    box.setStyle("-fx-background-color: #202226; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #333740;");
+    return box;
+  }
+
+  private void invalidateRegisteredAnimationsCache() {
+    cachedRegisteredAnimations = List.of();
+    cachedRegisteredAnimationsRoot = "";
+    cachedRegisteredAnimationsStamp = Long.MIN_VALUE;
+  }
+
+  private List<RegisteredAnimation> getRegisteredAnimations() {
+    if (projectRoot == null) return List.of();
+    String rootKey = projectRoot.getAbsoluteFile().toPath().normalize().toString();
+    long stamp = computeRegisteredAnimationsStamp(projectRoot);
+    if (!rootKey.equals(cachedRegisteredAnimationsRoot) || stamp != cachedRegisteredAnimationsStamp) {
+      cachedRegisteredAnimations = discoverRegisteredAnimations(projectRoot);
+      cachedRegisteredAnimationsRoot = rootKey;
+      cachedRegisteredAnimationsStamp = stamp;
+    }
+    return cachedRegisteredAnimations;
+  }
+
+  static List<RegisteredAnimation> discoverRegisteredAnimations(File projectRoot) {
+    File timelinesDir = resolveTimelinesDir(projectRoot);
+    if (!timelinesDir.isDirectory()) return List.of();
+    File[] jesFiles = timelinesDir.listFiles((dir, name) -> name.endsWith(".jes") && !name.startsWith("."));
+    if (jesFiles == null || jesFiles.length == 0) return List.of();
+    Arrays.sort(jesFiles, (left, right) -> left.getName().compareToIgnoreCase(right.getName()));
+
+    List<RegisteredAnimation> animations = new ArrayList<>();
+    for (File jesFile : jesFiles) {
+      animations.add(summarizeRegisteredAnimation(jesFile));
+    }
+    return List.copyOf(animations);
+  }
+
+  private static RegisteredAnimation summarizeRegisteredAnimation(File jesFile) {
+    String filename = jesFile.getName();
+    String timelineName = filename.endsWith(".jes") ? filename.substring(0, filename.length() - 4) : filename;
+    String code;
+    try {
+      code = Files.readString(jesFile.toPath(), StandardCharsets.UTF_8);
+    } catch (IOException ex) {
+      return new RegisteredAnimation(
+          timelineName,
+          jesFile,
+          "Could not read timeline file.",
+          "Read failed",
+          0,
+          0,
+          0,
+          0,
+          false,
+          ex.getMessage());
+    }
+
+    String previewText = extractTimelinePreview(code);
+    try {
+      AnimationProject project = CodeImporter.importCode(timelineName, code);
+      int trackCount = project.getTrackCount();
+      int keyframeCount = countKeyframes(project);
+      int audioCueCount = project.getAudioCues().size();
+      int eventCueCount = project.getEditorEventCues().size();
+      String stats = trackCount + " track(s) • "
+          + keyframeCount + " keyframe(s) • "
+          + formatDuration(project.getTotalDurationMs());
+      if (audioCueCount > 0 || eventCueCount > 0) {
+        stats += " • " + audioCueCount + " audio • " + eventCueCount + " cue(s)";
+      }
+      return new RegisteredAnimation(
+          timelineName,
+          jesFile,
+          previewText,
+          stats,
+          trackCount,
+          keyframeCount,
+          audioCueCount,
+          eventCueCount,
+          true,
+          "");
+    } catch (Exception ex) {
+      return new RegisteredAnimation(
+          timelineName,
+          jesFile,
+          previewText,
+          "Import warning • raw preview only",
+          0,
+          0,
+          0,
+          0,
+          false,
+          ex.getMessage());
+    }
+  }
+
+  static String extractTimelinePreview(String code) {
+    if (code == null || code.isBlank()) return "No timeline content yet.";
+    List<String> previewLines = new ArrayList<>();
+    for (String rawLine : code.split("\n")) {
+      String trimmed = rawLine == null ? "" : rawLine.trim();
+      if (trimmed.isEmpty()) continue;
+      if (trimmed.startsWith("//")) continue;
+      if ("{".equals(trimmed) || "}".equals(trimmed)) continue;
+      if (trimmed.startsWith("timeline")) continue;
+      previewLines.add(trimmed);
+      if (previewLines.size() >= 3) break;
+    }
+    if (previewLines.isEmpty()) {
+      return "Timeline block is empty.";
+    }
+    return String.join("\n", previewLines);
+  }
+
+  private static int countKeyframes(AnimationProject project) {
+    if (project == null) return 0;
+    int total = 0;
+    for (EntityTrack track : project.getTracks()) {
+      if (track == null) continue;
+      for (PropertyType property : track.getAnimatedProperties()) {
+        total += track.getKeyframes(property).size();
+      }
+    }
+    return total;
+  }
+
+  private static String formatDuration(double totalDurationMs) {
+    if (!Double.isFinite(totalDurationMs) || totalDurationMs <= 0.0) {
+      return "0.0s";
+    }
+    double seconds = totalDurationMs / 1000.0;
+    if (seconds >= 10.0) {
+      return String.format(Locale.ROOT, "%.0fs", seconds);
+    }
+    return String.format(Locale.ROOT, "%.1fs", seconds);
+  }
+
+  private static File resolveTimelinesDir(File projectRoot) {
+    return projectRoot == null ? new File("scripts/timelines") : new File(projectRoot, "scripts/timelines");
+  }
+
+  private static long computeRegisteredAnimationsStamp(File projectRoot) {
+    File timelinesDir = resolveTimelinesDir(projectRoot);
+    if (!timelinesDir.isDirectory()) return Long.MIN_VALUE;
+    File[] jesFiles = timelinesDir.listFiles((dir, name) -> name.endsWith(".jes") && !name.startsWith("."));
+    if (jesFiles == null || jesFiles.length == 0) return 0L;
+    Arrays.sort(jesFiles, (left, right) -> left.getName().compareToIgnoreCase(right.getName()));
+    long stamp = 17L;
+    for (File jesFile : jesFiles) {
+      stamp = stamp * 31L + jesFile.getName().toLowerCase(Locale.ROOT).hashCode();
+      stamp = stamp * 31L + jesFile.length();
+      stamp = stamp * 31L + jesFile.lastModified();
+    }
+    return stamp;
   }
 
   // --- VNS Scene State Resolver ---
@@ -1071,6 +1376,20 @@ public class PuppeteerLauncherPanel extends VBox {
       return file.isFile() ? file : null;
     }
   }
+
+  public record LaunchRequest(SceneSnapshot snapshot, String timelineName) {}
+
+  public record RegisteredAnimation(
+      String name,
+      File file,
+      String previewText,
+      String statsText,
+      int trackCount,
+      int keyframeCount,
+      int audioCueCount,
+      int eventCueCount,
+      boolean importable,
+      String warningMessage) {}
 
   public record OpenTarget(File file, int oneBasedLine) {}
 

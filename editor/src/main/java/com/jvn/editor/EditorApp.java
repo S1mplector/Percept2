@@ -2937,7 +2937,7 @@ public class EditorApp extends Application {
     if (puppeteerLauncherPanel != null) return puppeteerLauncherPanel;
     puppeteerLauncherPanel = new PuppeteerLauncherPanel();
     puppeteerLauncherPanel.setProjectRoot(projectRoot);
-    puppeteerLauncherPanel.setOnLaunch(snapshot -> launchPuppeteerFromSnapshot(snapshot));
+    puppeteerLauncherPanel.setOnLaunch(this::launchPuppeteerFromLauncher);
     puppeteerLauncherPanel.setOnOpenTarget(this::openPuppeteerLauncherTarget);
     FileEditorTab ft = getActiveFileTab();
     if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
@@ -5056,11 +5056,16 @@ public class EditorApp extends Application {
     return tabEditorSettings;
   }
 
-  private void launchPuppeteerFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
-    String preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
-    AnimationProject imported = importTimelineFromSnapshot(snapshot);
-    if (imported == null && (preferredTimelineName == null || preferredTimelineName.isBlank())) {
-      imported = discoverAndImportTimeline();
+  private void launchPuppeteerFromLauncher(PuppeteerLauncherPanel.LaunchRequest request) {
+    PuppeteerLauncherPanel.SceneSnapshot snapshot = request != null ? request.snapshot() : null;
+    String selectedTimelineName = request != null ? request.timelineName() : null;
+    String preferredTimelineName = selectedTimelineName;
+    AnimationProject imported;
+    if (selectedTimelineName != null && !selectedTimelineName.isBlank()) {
+      imported = importNamedTimeline(selectedTimelineName, true);
+    } else {
+      preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
+      imported = importTimelineFromSnapshot(snapshot);
     }
     PuppeteerWindow puppeteer = imported != null
         ? new PuppeteerWindow(imported)
