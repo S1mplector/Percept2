@@ -150,7 +150,7 @@ Complete documentation for the Java Vector Nexus engine.
   - [Help Center](editor/sidebars/right/sidebar-help-center.md) — in-app Markdown documentation browser, quick access, F1 shortcut
   - [Audio Synth Controls](editor/sidebars/right/sidebar-audio-synth-controls.md) — synthesizer authoring, live waveform preview, VNS command generation
   - [Storyboard Overlay](editor/sidebars/right/sidebar-storyboard-overlay.md) — ghost board-frame overlays for staging reference
-  - [Script Editor](editor/sidebars/right/sidebar-script-editor.md) — VNS script explorer, label outline, include graph, pop-out IDE
+  - [Text Editor](editor/sidebars/right/sidebar-script-editor.md) — JVN text file explorer, VNS label outline, include graph, pop-out editor window
 - [Welcome Center](editor/core/welcome-center.md) — startup dashboard, recent projects, environment health checks
 - [Run Console](editor/core/run-console.md) — filtered build output, engine state tracking, error/warning counters
 - [Scene Graph View](editor/core/scene-graph.md) — entity list, type badges, rename/delete, filter, fit-to-selection

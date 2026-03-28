@@ -220,6 +220,8 @@ public class JavaCodeEditor extends BorderPane {
       suppressEvent = false;
     }
   }
+  public void undo() { codeArea.undo(); }
+  public void redo() { codeArea.redo(); }
 
   public void setFontSizePx(double fontSizePx) {
     this.fontSizePx = Math.max(8.0, Math.min(30.0, fontSizePx));

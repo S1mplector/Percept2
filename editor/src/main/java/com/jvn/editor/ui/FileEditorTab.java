@@ -59,6 +59,11 @@ public class FileEditorTab extends BorderPane {
   public enum Kind { JES, VNS, JAVA, TIMELINE, THEME, MENU_SCREEN, MENU_LAYOUT, MENU_STYLE, DIALOGUE_LAYOUT, OTHER }
   private enum PreviewDockPosition { TOP, BOTTOM, LEFT, RIGHT, WINDOW }
   private enum PreviewLayoutMode { PREVIEW, CODE, SPLIT }
+  private static final String[] TEXT_EDITABLE_EXTENSIONS = new String[] {
+      ".jes", ".txt", ".vns", ".java", ".timeline", ".theme", ".menu", ".layout", ".style", ".registry",
+      ".settings", ".project", ".properties", ".md", ".json",
+      ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml", ".csv", ".tsv"
+  };
 
   private final File file;
   private final Kind kind;
@@ -115,18 +120,8 @@ public class FileEditorTab extends BorderPane {
 
   public FileEditorTab(File file) {
     this.file = file;
-    String name = file != null ? file.getName().toLowerCase(Locale.ROOT) : "";
-    String path = file != null ? file.getPath().replace('\\', '/').toLowerCase(Locale.ROOT) : "";
-    if (name.endsWith(".jes") || name.endsWith(".txt")) this.kind = Kind.JES;
-    else if (name.endsWith(".vns")) this.kind = Kind.VNS;
-    else if (name.endsWith(".java")) this.kind = Kind.JAVA;
-    else if (name.endsWith(".timeline")) this.kind = Kind.TIMELINE;
-    else if (name.endsWith(".theme") || "menu.theme".equals(name)) this.kind = Kind.THEME;
-    else if (name.endsWith(".menu")) this.kind = Kind.MENU_SCREEN;
-    else if (name.endsWith(".layout") && (path.contains("/config/menu/layouts/") || path.contains("/menu/layouts/") || path.contains("/config/menu/"))) this.kind = Kind.MENU_LAYOUT;
-    else if (name.endsWith(".style") || path.contains("/config/menu/styles/")) this.kind = Kind.MENU_STYLE;
-    else if ("dialogue.layout".equals(name) || (name.endsWith(".layout") && (path.contains("/config/ui/") || path.contains("/config/vn/")))) this.kind = Kind.DIALOGUE_LAYOUT;
-    else this.kind = Kind.OTHER;
+    Kind detected = detectKind(file);
+    this.kind = detected != null ? detected : Kind.OTHER;
 
     this.jesEditor = (kind == Kind.JES) ? new JesCodeEditor() : null;
     this.vnsEditor = (kind == Kind.VNS) ? new VnsCodeEditor() : null;
@@ -188,6 +183,36 @@ public class FileEditorTab extends BorderPane {
     } else if (kind == Kind.DIALOGUE_LAYOUT) {
       bindDialogueLayoutVisualSync();
     }
+  }
+
+  public static boolean supportsTextEditing(File file) {
+    if (file == null) return false;
+    String name = file.getName().toLowerCase(Locale.ROOT);
+    if ("dialogue.layout".equals(name) || "menu.theme".equals(name)) return true;
+    for (String extension : TEXT_EDITABLE_EXTENSIONS) {
+      if (name.endsWith(extension)) return true;
+    }
+    return false;
+  }
+
+  public static Kind detectKind(File file) {
+    if (file == null || !supportsTextEditing(file)) return null;
+    String name = file.getName().toLowerCase(Locale.ROOT);
+    String path = file.getPath().replace('\\', '/').toLowerCase(Locale.ROOT);
+    if (name.endsWith(".jes") || name.endsWith(".txt")) return Kind.JES;
+    if (name.endsWith(".vns")) return Kind.VNS;
+    if (name.endsWith(".java")) return Kind.JAVA;
+    if (name.endsWith(".timeline")) return Kind.TIMELINE;
+    if (name.endsWith(".theme") || "menu.theme".equals(name)) return Kind.THEME;
+    if (name.endsWith(".menu")) return Kind.MENU_SCREEN;
+    if (name.endsWith(".layout") && (path.contains("/config/menu/layouts/") || path.contains("/menu/layouts/") || path.contains("/config/menu/"))) {
+      return Kind.MENU_LAYOUT;
+    }
+    if (name.endsWith(".style") || path.contains("/config/menu/styles/")) return Kind.MENU_STYLE;
+    if ("dialogue.layout".equals(name) || (name.endsWith(".layout") && (path.contains("/config/ui/") || path.contains("/config/vn/")))) {
+      return Kind.DIALOGUE_LAYOUT;
+    }
+    return Kind.OTHER;
   }
 
   public void showSearchBar() {
@@ -556,9 +581,16 @@ public class FileEditorTab extends BorderPane {
   }
 
   public void navigateToLine(int oneBasedLine) {
-    if (kind == Kind.VNS && vnsEditor != null) {
-      vnsEditor.goToLine(oneBasedLine);
-    }
+    if (kind == Kind.VNS && vnsEditor != null) vnsEditor.goToLine(oneBasedLine);
+    else if (kind == Kind.JES && jesEditor != null) jesEditor.goToLine(oneBasedLine);
+    else if (kind == Kind.JAVA && javaEditor != null) javaEditor.goToLine(oneBasedLine);
+    else if (kind == Kind.TIMELINE && timelineEditor != null) timelineEditor.goToLine(oneBasedLine);
+    else if (kind == Kind.THEME && themeEditor != null) themeEditor.goToLine(oneBasedLine);
+    else if (kind == Kind.MENU_SCREEN && menuScreenEditor != null) menuScreenEditor.goToLine(oneBasedLine);
+    else if (kind == Kind.MENU_LAYOUT && menuLayoutEditor != null) menuLayoutEditor.goToLine(oneBasedLine);
+    else if (kind == Kind.MENU_STYLE && menuStyleEditor != null) menuStyleEditor.goToLine(oneBasedLine);
+    else if (kind == Kind.DIALOGUE_LAYOUT && dialogueLayoutEditor != null) dialogueLayoutEditor.goToLine(oneBasedLine);
+    else if (kind == Kind.OTHER && textEditor != null) textEditor.goToLine(oneBasedLine);
   }
 
   public void navigateToOffset(int offset) {

@@ -1,6 +1,6 @@
-# Sidebar — Script Editor
+# Sidebar — Text Editor
 
-A focused VNS script explorer and launcher panel. Browse project scripts in a tree view, inspect label outlines and include dependencies, search across all scripts, and pop out a dedicated tabbed code editor window.
+A focused JVN text explorer and launcher panel. Browse project text files in a tree view, inspect VNS label outlines and include dependencies where relevant, search across indexed files, and pop out a dedicated tabbed text editor window.
 
 Source: `editor/src/main/java/com/jvn/editor/ui/ScriptEditorLauncherView.java`
 
@@ -8,11 +8,11 @@ Source: `editor/src/main/java/com/jvn/editor/ui/ScriptEditorLauncherView.java`
 
 ## Overview
 
-The Script Editor sidebar is designed to behave like a small IDE explorer for VNS scripts. It scans the project's scripts directory, builds a workspace model with label and include analysis, and provides quick access to open, create, rename, delete, and search scripts.
+The Text Editor sidebar is designed to behave like a small IDE explorer for JVN text files. It scans the project workspace for editable text assets, builds a workspace model with VNS label/include analysis where available, and provides quick access to open, create, rename, delete, and search files.
 
 - **Default side:** Right (hidden by default)
-- **Tab name:** Script Editor
-- **Panel chooser entry:** Script Editor
+- **Tab name:** Text Editor
+- **Panel chooser entry:** Text Editor
 
 ---
 
@@ -20,17 +20,17 @@ The Script Editor sidebar is designed to behave like a small IDE explorer for VN
 
 | Feature | Description |
 |---------|-------------|
-| **Project tree** | Hierarchical tree of all `.vns` scripts under the project's scripts directory |
+| **Project tree** | Hierarchical tree of indexed JVN text files across the project workspace |
 | **Filter** | Live case-insensitive filter across filenames, paths, and labels |
-| **Search in scripts** | Debounced full-text search across all script file contents (300ms debounce) |
-| **Label outline** | Shows all labels defined in the selected script |
-| **Include graph** | "Includes" and "Included By" lists for the selected script |
+| **Search in text files** | Debounced full-text search across all indexed text file contents (300ms debounce) |
+| **Label outline** | Shows all labels defined in the selected VNS file |
+| **Include graph** | "Includes" and "Included By" lists for the selected VNS file |
 | **Open in editor** | Double-click or Enter to open in the main editor tab |
-| **Pop Out IDE** | Launches a dedicated tabbed VNS code editor window |
-| **New Script** | Create a new `.vns` file with a starter template |
+| **Pop Out Window** | Launches a dedicated tabbed text editor window |
+| **New File** | Create a new text file with an extension-aware starter template |
 | **Rename / Delete** | Right-click context menu or keyboard shortcuts (F2, Delete) |
 | **Reveal** | Open the selected file's containing folder in the system file manager |
-| **Workspace stats** | Script count, folder count, and total label count |
+| **Workspace stats** | File count, folder count, and total VNS label count |
 
 ---
 
@@ -38,49 +38,49 @@ The Script Editor sidebar is designed to behave like a small IDE explorer for VN
 
 ### 1. Header Card
 
-- **Project path** and **scripts root** path
-- **Stats row** — three mini cards showing script count, folder count, and label count
+- **Project path** and **workspace root** path
+- **Stats row** — three mini cards showing file count, folder count, and VNS label count
 - **Action buttons:**
-  - **Open in Editor** — opens the selected script in the main editor
-  - **Pop Out IDE** — launches the dedicated editor window
-  - **New Script** — creates a new `.vns` file
+  - **Open in Editor** — opens the selected text file in the main editor
+  - **Pop Out Window** — launches the dedicated editor window
+  - **New File** — creates a new text file
   - **Refresh** — rescans the workspace
   - **Reveal** — opens the file in the system file manager
 
 ### 2. Explorer Filter & Search
 
 - **Explorer Filter** — filters the tree view by filename, path, or label name
-- **Search in Scripts** — full-text content search across all `.vns` files; results appear as clickable entries with line numbers
+- **Search in Text Files** — full-text content search across indexed text files; results appear as clickable entries with line numbers
 
 ### 3. Project Explorer Tree
 
-A tree view showing the scripts directory hierarchy:
+A tree view showing the indexed text workspace hierarchy:
 
-- **Folder nodes** — with script count badges
-- **Script nodes** — individual `.vns` files
+- **Folder nodes** — with file count badges
+- **File nodes** — indexed JVN text files
 - **Color-coded icons** — folders in gold, files in gray
 - **Double-click** or **Enter** to open in the main editor
-- **Context menu** — Open, Open in Pop-Out, New Script Here, Rename, Delete, Copy Path, Reveal
+- **Context menu** — Open, Open in Pop-Out, New File Here, Rename, Delete, Copy Path, Reveal
 
 ### 4. Selection Inspector
 
-When a script is selected, the bottom panel shows:
+When a file is selected, the bottom panel shows:
 
 - **Selection title** — filename
 - **Path** — relative path from project root
 - **Metadata** — file size, last modified date, line count, label count
-- **Label Outline** — clickable list of all labels (jumps to line on click)
-- **Includes** — scripts that this file includes
-- **Included By** — scripts that include this file
+- **Label Outline** — clickable list of all labels for VNS files
+- **Includes** — VNS files that this file includes
+- **Included By** — VNS files that include this file
 
 ---
 
 ## Pop-Out IDE Window
 
-The **Pop Out IDE** button opens a standalone code editor window with:
+The **Pop Out Window** button opens a standalone text editor window with:
 
-- **Tabbed editing** — multiple scripts open as tabs
-- **VNS syntax highlighting** — full syntax-aware editor via `VnsCodeEditor`
+- **Tabbed editing** — multiple text files open as tabs
+- **Per-file editor routing** — VNS, JES, timeline, DSL, and generic text editors
 - **Configurable font size** — inherits editor preferences
 - **Status bar** — current file path and diagnostics
 
@@ -90,21 +90,21 @@ The **Pop Out IDE** button opens a standalone code editor window with:
 
 | Shortcut | Action |
 |----------|--------|
-| **Enter** | Open selected script in main editor |
-| **F2** | Rename selected script |
-| **Delete / Backspace** | Delete selected script (with confirmation) |
+| **Enter** | Open selected file in main editor |
+| **F2** | Rename selected file |
+| **Delete / Backspace** | Delete selected file (with confirmation) |
 | **F5** | Refresh workspace |
 
 ---
 
 ## Workspace Model
 
-The sidebar builds a `WorkspaceSnapshot` by scanning the scripts directory:
+The sidebar builds a `WorkspaceSnapshot` by scanning the project text workspace:
 
-- Discovers all `.vns` files recursively
-- Parses each file to extract labels and include directives
+- Discovers supported text files recursively
+- Parses VNS files to extract labels and include directives
 - Builds an include dependency graph (includes / included-by)
-- Computes per-folder script counts
+- Computes per-folder file counts
 - All analysis runs on the JavaFX application thread (files are typically small)
 
 ---

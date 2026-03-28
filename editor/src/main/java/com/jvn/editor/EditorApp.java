@@ -1241,7 +1241,7 @@ public class EditorApp extends Application {
     miShowVersionControlPanel.setOnAction(e -> selectVersionControlTab());
     MenuItem miShowAssets = new MenuItem("Asset Browser");
     miShowAssets.setOnAction(e -> selectAssetBrowserTab());
-    MenuItem miShowScriptEditorWorkspace = new MenuItem("Script Editor Workspace");
+    MenuItem miShowScriptEditorWorkspace = new MenuItem("Text Editor Workspace");
     miShowScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
     MenuItem miShowAudioSynthControls = new MenuItem("Audio Synth Controls");
     miShowAudioSynthControls.setOnAction(e -> selectAudioSynthControlsTab());
@@ -1302,7 +1302,7 @@ public class EditorApp extends Application {
     Menu menuNavigateEditors = new Menu("Editors & Tools");
     MenuItem miNavigateAssetBrowser = new MenuItem("Asset Browser");
     miNavigateAssetBrowser.setOnAction(e -> selectAssetBrowserTab());
-    MenuItem miNavigateScriptWorkspace = new MenuItem("Script Editor Workspace");
+    MenuItem miNavigateScriptWorkspace = new MenuItem("Text Editor Workspace");
     miNavigateScriptWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
     MenuItem miNavigateAudioSynth = new MenuItem("Audio Synth Controls");
     miNavigateAudioSynth.setOnAction(e -> selectAudioSynthControlsTab());
@@ -1377,7 +1377,7 @@ public class EditorApp extends Application {
     miActionEditor.setAccelerator(new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     MenuItem miPuppeteerPanel = new MenuItem("Puppeteer Launcher");
     miPuppeteerPanel.setOnAction(e -> selectPuppeteerLauncherTab());
-    MenuItem miScriptEditorWorkspace = new MenuItem("Script Editor Workspace");
+    MenuItem miScriptEditorWorkspace = new MenuItem("Text Editor Workspace");
     miScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
     MenuItem miAudioSynthControls = new MenuItem("Audio Synth Controls");
     miAudioSynthControls.setOnAction(e -> selectAudioSynthControlsTab());
@@ -3887,7 +3887,7 @@ public class EditorApp extends Application {
     ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
     if (targetPane == null || launcher == null) return null;
     if (tabScriptEditorLauncher == null) {
-      tabScriptEditorLauncher = new Tab("Script Editor", launcher);
+      tabScriptEditorLauncher = new Tab("Text Editor", launcher);
       tabScriptEditorLauncher.setClosable(true);
       tabScriptEditorLauncher.setOnClosed(e -> {
         tabScriptEditorLauncher = null;
@@ -4719,7 +4719,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Script Editor", "icon-panel-flow", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Text Editor", "icon-panel-flow", () -> {
       rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement);
       ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
       launcher.setProjectRoot(projectRoot);

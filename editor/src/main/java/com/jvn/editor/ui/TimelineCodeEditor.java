@@ -88,6 +88,16 @@ public class TimelineCodeEditor extends BorderPane {
   public void setText(String s) { code.replaceText(s == null ? "" : s); }
   public void setTextNoEvent(String s) { try { suppressEvent = true; setText(s); } finally { suppressEvent = false; } }
   public void setProjectRoot(File root) { this.projectRoot = root; }
+  public void goToLine(int oneBasedLine) {
+    int paragraphs = code.getParagraphs().size();
+    if (paragraphs <= 0) return;
+    int target = Math.max(0, Math.min(paragraphs - 1, oneBasedLine - 1));
+    code.moveTo(target, 0);
+    code.requestFollowCaret();
+    code.requestFocus();
+  }
+  public void undo() { code.undo(); }
+  public void redo() { code.redo(); }
   public void setFontSizePx(double fontSizePx) {
     this.fontSizePx = Math.max(8.0, Math.min(30.0, fontSizePx));
     applyFontSize();

@@ -138,6 +138,16 @@ public class JesCodeEditor extends BorderPane {
     }
   }
   public void setOnTextChanged(Consumer<String> listener) { this.onTextChanged = listener; }
+  public void goToLine(int oneBasedLine) {
+    int paragraphs = codeArea.getParagraphs().size();
+    if (paragraphs <= 0) return;
+    int target = Math.max(0, Math.min(paragraphs - 1, oneBasedLine - 1));
+    codeArea.moveTo(target, 0);
+    codeArea.requestFollowCaret();
+    codeArea.requestFocus();
+  }
+  public void undo() { codeArea.undo(); }
+  public void redo() { codeArea.redo(); }
   public void setFontSizePx(double fontSizePx) {
     this.fontSizePx = Math.max(8.0, Math.min(30.0, fontSizePx));
     applyFontSize();
