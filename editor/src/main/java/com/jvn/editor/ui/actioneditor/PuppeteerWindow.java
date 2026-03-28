@@ -237,7 +237,10 @@ public class PuppeteerWindow extends Stage {
         keyframeEditor.setCameraState(animationPreview.getCamera().getX(), animationPreview.getCamera().getY(), animationPreview.getCamera().getZoom());
 
         timelinePanel.setOnTargetSelectionChanged((name, isGroup) -> {
-            keyframeEditor.setEntityName(selectionLabel(name, isGroup));
+            keyframeEditor.setSelectionContext(
+                selectionLabel(name, isGroup),
+                isGroup,
+                timelinePanel.isRuntimeCameraSelected());
             if (timelinePanel.isRuntimeCameraSelected()) {
                 entitySelector.selectEntity(null);
                 animationPreview.clearSelection();
@@ -1410,7 +1413,7 @@ public class PuppeteerWindow extends Stage {
             entitySelector.selectEntity(null);
             animationPreview.clearSelection();
             timelinePanel.setSelectedTarget(null, false);
-            keyframeEditor.setEntityName("-");
+            keyframeEditor.setSelectionContext(null, false, false);
             keyframeEditor.setKeyframe(null, null);
             refreshSidebarTabs();
         });

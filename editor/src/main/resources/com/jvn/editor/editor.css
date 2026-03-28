@@ -988,6 +988,211 @@
   -fx-opacity: 0.45;
 }
 
+.script-editor-launcher-root,
+.script-editor-window-root,
+.script-editor-workspace-root {
+  -fx-background-color: linear-gradient(to bottom, #16181d 0%, #111318 100%);
+}
+
+.script-editor-launcher-pane,
+.script-editor-workspace-content {
+  -fx-background-color: #14171c;
+}
+
+.script-editor-card {
+  -fx-background-color: linear-gradient(to bottom, #1c2027 0%, #171a21 100%);
+  -fx-background-radius: 10;
+  -fx-border-color: #313744;
+  -fx-border-radius: 10;
+}
+
+.script-editor-launcher-title {
+  -fx-font-size: 15px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #e7edf8;
+}
+
+.script-editor-launcher-description,
+.script-editor-selection-path,
+.script-editor-selection-meta,
+.script-editor-meta-value,
+.script-editor-tree-file-label {
+  -fx-text-fill: #b9c2d0;
+  -fx-font-size: 11px;
+}
+
+.script-editor-section-label,
+.script-editor-meta-label,
+.script-editor-stat-label {
+  -fx-text-fill: #8f9aab;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.script-editor-stat-value {
+  -fx-text-fill: #eef2f8;
+  -fx-font-size: 15px;
+  -fx-font-weight: 800;
+}
+
+.script-editor-selection-title,
+.script-editor-toolbar-title,
+.script-editor-workspace-title {
+  -fx-text-fill: #e7edf8;
+  -fx-font-weight: 800;
+}
+
+.script-editor-selection-title,
+.script-editor-toolbar-title {
+  -fx-font-size: 13px;
+}
+
+.script-editor-workspace-title {
+  -fx-font-size: 12px;
+}
+
+.script-editor-workspace-meta,
+.script-editor-hint,
+.script-editor-window-status {
+  -fx-text-fill: #8791a1;
+  -fx-font-size: 10px;
+}
+
+.script-editor-field {
+  -fx-background-color: #181c23;
+  -fx-text-fill: #e0e6f0;
+  -fx-prompt-text-fill: #778091;
+  -fx-border-color: #333949;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+  -fx-font-size: 11px;
+}
+
+.script-editor-field:focused {
+  -fx-border-color: #55719b;
+  -fx-background-color: #1b2028;
+}
+
+.script-editor-action-button,
+.script-editor-toolbar-button {
+  -fx-background-color: #1a1f28;
+  -fx-text-fill: #d7dde7;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-background-radius: 8;
+  -fx-border-color: #313949;
+  -fx-border-radius: 8;
+  -fx-cursor: hand;
+}
+
+.script-editor-action-button {
+  -fx-padding: 6 12 6 12;
+}
+
+.script-editor-toolbar-button {
+  -fx-padding: 4 10 4 10;
+}
+
+.script-editor-action-button:hover,
+.script-editor-toolbar-button:hover {
+  -fx-background-color: #232a35;
+  -fx-border-color: #465165;
+  -fx-text-fill: #f0f5ff;
+}
+
+.script-editor-action-button:pressed,
+.script-editor-toolbar-button:pressed {
+  -fx-background-color: #2a3441;
+}
+
+.script-editor-action-button-accent,
+.script-editor-toolbar-button-primary {
+  -fx-background-color: #1e2b3c;
+  -fx-border-color: #536985;
+  -fx-text-fill: #f2f6ff;
+}
+
+.script-editor-action-button-accent:hover,
+.script-editor-toolbar-button-primary:hover {
+  -fx-background-color: #26364b;
+  -fx-border-color: #6b87ab;
+}
+
+.script-editor-action-button:disabled,
+.script-editor-toolbar-button:disabled,
+.script-editor-workspace-icon-button:disabled {
+  -fx-opacity: 0.42;
+}
+
+.script-editor-tree {
+  -fx-background-color: transparent;
+  -fx-control-inner-background: transparent;
+}
+
+.script-editor-tree .tree-cell {
+  -fx-background-color: transparent;
+  -fx-padding: 4 8 4 8;
+}
+
+.script-editor-tree .tree-cell:selected {
+  -fx-background-color: #243249;
+  -fx-background-radius: 8;
+}
+
+.script-editor-tree .tree-cell:hover {
+  -fx-background-color: rgba(55, 67, 88, 0.28);
+  -fx-background-radius: 8;
+}
+
+.script-editor-tree-dir-label {
+  -fx-text-fill: #dbe3ef;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.script-editor-tree-badge {
+  -fx-text-fill: #9ea7b6;
+  -fx-font-size: 10px;
+  -fx-background-color: #232834;
+  -fx-padding: 1 6 1 6;
+  -fx-background-radius: 999;
+}
+
+.script-editor-toolbar,
+.script-editor-workspace-toolbar {
+  -fx-background-color: #10141a;
+  -fx-border-color: #252c37;
+  -fx-border-width: 0 0 1 0;
+  -fx-alignment: center-left;
+}
+
+.script-editor-workspace-toolbar {
+  -fx-padding: 8 10 8 10;
+  -fx-spacing: 8;
+}
+
+.script-editor-window-status {
+  -fx-padding: 4 10 4 10;
+}
+
+.script-editor-workspace-icon-button {
+  -fx-background-color: #171c23;
+  -fx-border-color: #313a48;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+}
+
+.script-editor-workspace-icon-button:hover {
+  -fx-background-color: #212835;
+  -fx-border-color: #4a586d;
+}
+
+.script-editor-workspace-toggle:selected,
+.script-editor-workspace-menu-button:showing {
+  -fx-background-color: #24364e;
+  -fx-border-color: #5b769b;
+}
+
 .puppeteer-toolbar-shell {
   -fx-background-color: #0a0a0a;
   -fx-border-color: #2a2a2a;

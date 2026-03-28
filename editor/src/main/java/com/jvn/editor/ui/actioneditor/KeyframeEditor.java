@@ -7,6 +7,7 @@ import java.util.Objects;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
+import com.jvn.editor.ui.ProjectViewportSpec;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -27,8 +28,17 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 public class KeyframeEditor extends VBox {
+    enum SelectionTargetKind {
+        NONE,
+        ENTITY,
+        GROUP,
+        RUNTIME_CAMERA
+    }
+
+    private final Label lblTargetCaption;
     private final Label lblEntity;
     private final Label lblProperty;
+    private final Label lblTargetContextHint;
     private final Label lblSelectionMode;
     private final TextField tfTime;
     private final Slider sliderTime;
@@ -45,7 +55,9 @@ public class KeyframeEditor extends VBox {
     private final Button btnClampCurve;
     private final Button btnDelete;
     private final Button btnResetValue;
+    private final Label lblCameraBoxTitle;
     private final Label lblCameraState;
+    private final Label lblCameraViewportState;
     private final Label lblCurvePresetHint;
     private final Label lblCurveInteractionHint;
     private final Label lblTimeStepHint;
@@ -122,12 +134,14 @@ public class KeyframeEditor extends VBox {
 
     private final Label lblEmptyHint;
     private final VBox contentBox;
+    private File projectRoot;
     private double timelineDurationMs = 3000.0;
     private Keyframe currentKeyframe;
     private PropertyType currentProperty;
     private final List<Keyframe> currentSelection = new ArrayList<>();
     private boolean updatingUi = false;
     private boolean curveEditorExpanded = false;
+    private SelectionTargetKind selectionTargetKind = SelectionTargetKind.NONE;
     private String activePresetEditId;
     private String activePresetEditName;
     private EasingSpec curveEditBaselineSpec = EasingSpec.cubicBezier(0.25, 0.10, 0.25, 1.00);
@@ -160,6 +174,8 @@ public class KeyframeEditor extends VBox {
         contentBox.setFillWidth(true);
         contentBox.setMaxWidth(Double.MAX_VALUE);
 
+        lblTargetCaption = new Label("Target");
+        lblTargetCaption.setStyle(META_CAPTION_STYLE);
         lblEntity = new Label("-");
         lblEntity.setStyle(META_VALUE_STYLE);
         lblEntity.setWrapText(true);
@@ -168,6 +184,11 @@ public class KeyframeEditor extends VBox {
         lblProperty.setStyle(META_VALUE_STYLE);
         lblProperty.setWrapText(true);
         lblProperty.setMaxWidth(Double.MAX_VALUE);
+        lblTargetContextHint = new Label();
+        lblTargetContextHint.setStyle(SUBTLE_HINT_STYLE);
+        lblTargetContextHint.setWrapText(true);
+        lblTargetContextHint.setVisible(false);
+        lblTargetContextHint.setManaged(false);
 
         tfTime = new TextField();
         tfTime.setPromptText("ms");
@@ -333,12 +354,14 @@ public class KeyframeEditor extends VBox {
             if (onKeyframeChanged != null) onKeyframeChanged.run();
         });
 
-        VBox entityTile = buildMetaTile("Entity", lblEntity);
+        VBox entityTile = buildMetaTile(lblTargetCaption, lblEntity);
         VBox propertyTile = buildMetaTile("Property", lblProperty);
         HBox infoRow = new HBox(10, entityTile, propertyTile);
         infoRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(entityTile, Priority.ALWAYS);
         HBox.setHgrow(propertyTile, Priority.ALWAYS);
+        VBox targetMetaBox = new VBox(6, infoRow, lblTargetContextHint);
+        targetMetaBox.setMaxWidth(Double.MAX_VALUE);
 
         VBox timeEditor = buildEditorRow("Time", "Timeline position", timeRow, lblTimeStepHint);
         VBox valueEditor = buildEditorRow("Value", "Current property value", valueRow, lblValueStepHint);
@@ -408,11 +431,13 @@ public class KeyframeEditor extends VBox {
         curveSection.setStyle(SECTION_STYLE);
         curveSection.setMaxWidth(Double.MAX_VALUE);
 
+        lblCameraBoxTitle = new Label("Runtime Camera");
+        lblCameraBoxTitle.setStyle(META_CAPTION_STYLE);
         lblCameraState = new Label("X 0.0  Y 0.0  Z 1.00");
         lblCameraState.setStyle("-fx-text-fill: #d5b27f; -fx-font-size: 11px; -fx-font-family: monospace;");
-        Label cameraLabel = new Label("Camera");
-        cameraLabel.setStyle(META_CAPTION_STYLE);
-        VBox cameraBox = new VBox(2, cameraLabel, lblCameraState);
+        lblCameraViewportState = new Label("Frame 1920 x 1080");
+        lblCameraViewportState.setStyle(SUBTLE_HINT_STYLE);
+        VBox cameraBox = new VBox(2, lblCameraBoxTitle, lblCameraState, lblCameraViewportState);
         cameraBox.setStyle(TILE_STYLE);
         cameraBox.setMinWidth(180);
 
@@ -420,7 +445,7 @@ public class KeyframeEditor extends VBox {
         footerRow.setAlignment(Pos.CENTER_LEFT);
 
         contentBox.getChildren().addAll(
-            infoRow,
+            targetMetaBox,
             valueSection,
             easingSection,
             curveSection,
@@ -560,12 +585,17 @@ public class KeyframeEditor extends VBox {
 
         setFieldsDisabled(true);
         setCurveEditorExpanded(false, false);
+        refreshSelectionContextUi();
         refreshPresetUiState();
     }
 
     private VBox buildMetaTile(String title, Label valueLabel) {
         Label titleLabel = new Label(title);
         titleLabel.setStyle(META_CAPTION_STYLE);
+        return buildMetaTile(titleLabel, valueLabel);
+    }
+
+    private VBox buildMetaTile(Label titleLabel, Label valueLabel) {
         VBox box = new VBox(4, titleLabel, valueLabel);
         box.setStyle(TILE_STYLE);
         box.setMaxWidth(Double.MAX_VALUE);
@@ -651,23 +681,53 @@ public class KeyframeEditor extends VBox {
 
     private void updateSelectionModeBadge() {
         if (currentSelection.size() > 1) {
-            lblSelectionMode.setText("Multi-Select");
+            lblSelectionMode.setText(resolveSelectionModeLabel(true, false, selectionTargetKind));
             lblSelectionMode.setStyle(BADGE_MULTI_STYLE);
             return;
         }
         if (currentKeyframe != null) {
-            lblSelectionMode.setText("Single Keyframe");
+            lblSelectionMode.setText(resolveSelectionModeLabel(false, true, selectionTargetKind));
             lblSelectionMode.setStyle(BADGE_ACTIVE_STYLE);
             return;
         }
-        lblSelectionMode.setText("No Selection");
-        lblSelectionMode.setStyle(BADGE_IDLE_STYLE);
+        if (selectionTargetKind == SelectionTargetKind.RUNTIME_CAMERA || selectionTargetKind == SelectionTargetKind.GROUP) {
+            lblSelectionMode.setText(resolveSelectionModeLabel(false, false, selectionTargetKind));
+            lblSelectionMode.setStyle(BADGE_ACTIVE_STYLE);
+        } else {
+            lblSelectionMode.setText("No Selection");
+            lblSelectionMode.setStyle(BADGE_IDLE_STYLE);
+        }
+    }
+
+    static String resolveSelectionModeLabel(boolean multiSelection,
+                                            boolean singleKeyframe,
+                                            SelectionTargetKind targetKind) {
+        if (multiSelection) {
+            return targetKind == SelectionTargetKind.RUNTIME_CAMERA ? "Camera Multi-Select" : "Multi-Select";
+        }
+        if (singleKeyframe) {
+            return switch (targetKind != null ? targetKind : SelectionTargetKind.NONE) {
+                case RUNTIME_CAMERA -> "Camera Keyframe";
+                case GROUP -> "Group Keyframe";
+                default -> "Single Keyframe";
+            };
+        }
+        return switch (targetKind != null ? targetKind : SelectionTargetKind.NONE) {
+            case RUNTIME_CAMERA -> "Runtime Camera";
+            case GROUP -> "Group Target";
+            default -> "No Selection";
+        };
     }
 
     private void updateStepHints() {
         lblTimeStepHint.setText("Nudge: " + formatStep(resolveTimeNudgeStep(false)) + " ms  |  Shift " + formatStep(resolveTimeNudgeStep(true)) + " ms");
-        double fine = resolveValueNudgeStep(currentProperty != null ? currentProperty : PropertyType.X, false);
-        double large = resolveValueNudgeStep(currentProperty != null ? currentProperty : PropertyType.X, true);
+        PropertyType hintProperty = currentProperty != null
+            ? currentProperty
+            : selectionTargetKind == SelectionTargetKind.RUNTIME_CAMERA
+                ? PropertyType.CAMERA_X
+                : PropertyType.X;
+        double fine = resolveValueNudgeStep(hintProperty, false);
+        double large = resolveValueNudgeStep(hintProperty, true);
         lblValueStepHint.setText("Nudge: " + formatStep(fine) + "  |  Shift " + formatStep(large));
     }
 
@@ -687,8 +747,10 @@ public class KeyframeEditor extends VBox {
     }
 
     public void setProjectRoot(File root) {
+        this.projectRoot = root;
         cbEasing.setProjectRoot(root);
         presetLibraryPanel.setProjectRoot(root);
+        updateCameraViewportSummary();
         refreshPresetUiState();
     }
 
@@ -744,6 +806,7 @@ public class KeyframeEditor extends VBox {
             showBatchEditor(false);
         }
         updatingUi = false;
+        refreshSelectionContextUi();
         updateStepHints();
         updateSelectionModeBadge();
         refreshPresetUiState();
@@ -788,13 +851,26 @@ public class KeyframeEditor extends VBox {
         showBatchEditor(true);
         updateCurveEditorState();
         updatingUi = false;
+        refreshSelectionContextUi();
         updateStepHints();
         updateSelectionModeBadge();
         refreshPresetUiState();
     }
 
     public void setEntityName(String name) {
-        lblEntity.setText(name != null ? name : "-");
+        setSelectionContext(name, false, false);
+    }
+
+    public void setSelectionContext(String name, boolean group, boolean runtimeCamera) {
+        selectionTargetKind = runtimeCamera
+            ? SelectionTargetKind.RUNTIME_CAMERA
+            : group
+                ? SelectionTargetKind.GROUP
+                : name != null && !name.isBlank()
+                    ? SelectionTargetKind.ENTITY
+                    : SelectionTargetKind.NONE;
+        lblEntity.setText(name != null && !name.isBlank() ? name : "-");
+        refreshSelectionContextUi();
     }
 
     public void setOnKeyframeChanged(Runnable callback) {
@@ -818,6 +894,61 @@ public class KeyframeEditor extends VBox {
 
     public void setCameraState(double cameraX, double cameraY, double cameraZoom) {
         lblCameraState.setText(String.format("X %.1f  Y %.1f  Z %.2f", cameraX, cameraY, cameraZoom));
+        updateCameraViewportSummary();
+    }
+
+    private void refreshSelectionContextUi() {
+        lblTargetCaption.setText(selectionTargetKind == SelectionTargetKind.GROUP ? "Group" : "Target");
+        lblCameraBoxTitle.setText(selectionTargetKind == SelectionTargetKind.RUNTIME_CAMERA
+            ? "Runtime Camera / Frame"
+            : "Runtime Camera");
+
+        String hint = resolveTargetContextHint(selectionTargetKind, currentProperty);
+        boolean showHint = hint != null && !hint.isBlank();
+        lblTargetContextHint.setText(showHint ? hint : "");
+        lblTargetContextHint.setVisible(showHint);
+        lblTargetContextHint.setManaged(showHint);
+
+        btnResetValue.setText(resolveResetValueLabel(selectionTargetKind, currentProperty));
+        btnResetValue.setTooltip(new Tooltip(resolveResetValueTooltip(selectionTargetKind, currentProperty)));
+        updateCameraViewportSummary();
+        updateSelectionModeBadge();
+    }
+
+    private void updateCameraViewportSummary() {
+        ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
+        String suffix = selectionTargetKind == SelectionTargetKind.RUNTIME_CAMERA ? "  •  active target" : "";
+        lblCameraViewportState.setText("Frame " + viewport.width() + " x " + viewport.height() + suffix);
+    }
+
+    static String resolveTargetContextHint(SelectionTargetKind targetKind, PropertyType property) {
+        if (targetKind == SelectionTargetKind.RUNTIME_CAMERA) {
+            return switch (property != null ? property : PropertyType.CAMERA_X) {
+                case CAMERA_ZOOM -> "Editing the runtime frame zoom. Higher zoom shows a tighter visible area inside the runtime viewport.";
+                case CAMERA_X, CAMERA_Y -> "Editing the runtime frame position. Camera X/Y pans the visible runtime area across the scene.";
+                default -> "Editing the runtime camera. Camera channels control the red runtime frame shown in preview.";
+            };
+        }
+        if (targetKind == SelectionTargetKind.GROUP) {
+            return "Editing a group container track. These keyframes affect the grouped stack instead of a single entity.";
+        }
+        return "";
+    }
+
+    static String resolveResetValueLabel(SelectionTargetKind targetKind, PropertyType property) {
+        if (targetKind == SelectionTargetKind.RUNTIME_CAMERA) {
+            return property == PropertyType.CAMERA_ZOOM ? "Reset Zoom" : "Reset Camera";
+        }
+        return "Reset Value";
+    }
+
+    static String resolveResetValueTooltip(SelectionTargetKind targetKind, PropertyType property) {
+        if (targetKind == SelectionTargetKind.RUNTIME_CAMERA) {
+            return property == PropertyType.CAMERA_ZOOM
+                ? "Reset runtime camera zoom to its default value"
+                : "Reset runtime camera position to the property default";
+        }
+        return "Reset to property default";
     }
 
     // --- A) Ghost curve overlay: accept adjacent keyframes from the track ---

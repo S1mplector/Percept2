@@ -75,4 +75,16 @@ class KeyframeEditorNudgeTest {
 
         assertEquals(EasingSpec.cubicBezier(0.34, 1.0, 0.64, 0.0), clamped);
     }
+
+    @Test
+    void runtimeCameraSelectionUsesDedicatedEditorLabels() {
+        assertEquals("Camera Keyframe", KeyframeEditor.resolveSelectionModeLabel(
+            false, true, KeyframeEditor.SelectionTargetKind.RUNTIME_CAMERA));
+        assertEquals("Runtime Camera", KeyframeEditor.resolveSelectionModeLabel(
+            false, false, KeyframeEditor.SelectionTargetKind.RUNTIME_CAMERA));
+        assertEquals("Reset Zoom", KeyframeEditor.resolveResetValueLabel(
+            KeyframeEditor.SelectionTargetKind.RUNTIME_CAMERA, PropertyType.CAMERA_ZOOM));
+        assertTrue(KeyframeEditor.resolveTargetContextHint(
+            KeyframeEditor.SelectionTargetKind.RUNTIME_CAMERA, PropertyType.CAMERA_X).contains("runtime frame"));
+    }
 }

@@ -30,7 +30,9 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -47,7 +49,10 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 public class FileEditorTab extends BorderPane {
@@ -777,7 +782,9 @@ public class FileEditorTab extends BorderPane {
 
   private Node createPreviewWorkspace(String title, Node previewNode, Node editorNode, double divider) {
     BorderPane root = new BorderPane();
+    root.getStyleClass().add("script-editor-workspace-root");
     previewWorkspaceContent = new BorderPane();
+    previewWorkspaceContent.getStyleClass().add("script-editor-workspace-content");
     dockPreviewNode = previewNode;
     dockEditorNode = editorNode;
     previewDockPosition = PreviewDockPosition.TOP;
@@ -834,24 +841,25 @@ public class FileEditorTab extends BorderPane {
     previewModeCodeButton.getStyleClass().add("layout-studio-toolbar-toggle");
     previewModeSplitButton.getStyleClass().add("layout-studio-toolbar-toggle");
     previewDockMenu.getStyleClass().add("layout-studio-toolbar-button");
+    previewModePreviewButton.getStyleClass().add("script-editor-workspace-toggle");
+    previewModeCodeButton.getStyleClass().add("script-editor-workspace-toggle");
+    previewModeSplitButton.getStyleClass().add("script-editor-workspace-toggle");
+    previewDockMenu.getStyleClass().addAll("script-editor-workspace-menu-button", "preview-toolbar-icon-menu");
 
-    Label titleLabel = new Label(title == null ? "Preview" : title);
-    titleLabel.getStyleClass().add("muted");
+    configureIconToggle(previewModePreviewButton, CssIcon.visibility("#b8c5d8"), "Show preview only");
+    configureIconToggle(previewModeCodeButton, CssIcon.list("#b8c5d8"), "Show code only");
+    configureIconToggle(previewModeSplitButton, CssIcon.grid("#b8c5d8"), "Show preview and code");
+    configureIconMenuButton(previewDockMenu,
+        isVnsPreviewWorkspace() ? CssIcon.popOut("#b8c5d8") : CssIcon.dock("#b8c5d8"),
+        isVnsPreviewWorkspace() ? "Open preview in a separate window" : "Preview dock options");
 
-    if (isVnsPreviewWorkspace()) {
-      configureIconToggle(previewModePreviewButton, CssIcon.speech("#b0b8c8"), "Preview mode");
-      configureIconToggle(previewModeCodeButton, CssIcon.list("#b0b8c8"), "Code mode");
-      configureIconToggle(previewModeSplitButton, CssIcon.grid("#b0b8c8"), "Split mode");
-      configureIconMenuButton(previewDockMenu, CssIcon.popOut("#b0b8c8"), "Open preview in separate window");
-      previewDockMenu.getStyleClass().add("preview-toolbar-icon-menu");
-      titleLabel.setText("VNS");
-    }
-
-    HBox toolbar = vnsDetachedOnly
-        ? new HBox(8, titleLabel, previewDockMenu)
-        : new HBox(8, titleLabel, previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu);
-    toolbar.setPadding(new javafx.geometry.Insets(6, 6, 6, 6));
-    toolbar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+    HBox toolbar = buildWorkspaceToolbar(
+        title == null ? "Preview" : title,
+        previewWorkspaceSubtitle(vnsDetachedOnly),
+        previewWorkspaceTitleIcon(),
+        vnsDetachedOnly
+            ? new Node[] {previewDockMenu}
+            : new Node[] {previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu});
 
     root.setTop(toolbar);
     root.setCenter(previewWorkspaceContent);
@@ -1067,27 +1075,27 @@ public class FileEditorTab extends BorderPane {
 
   private void updatePreviewDockMenuText() {
     if (previewDockMenu == null) return;
-    if (isVnsPreviewWorkspace()) {
-      previewDockMenu.setText("");
-      previewDockMenu.setTooltip(new Tooltip(
-          isDetachedPreviewVisible() ? "Preview window is open" : "Open preview in separate window"));
-      previewDockMenu.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-      return;
-    }
-    String label;
+    String tooltipText;
     if (isDetachedPreviewVisible()) {
-      label = "Window";
+      tooltipText = isVnsPreviewWorkspace()
+          ? "Runtime preview window is open"
+          : "Preview is detached in a separate window";
     } else {
       PreviewDockPosition dock = previewDockPosition == PreviewDockPosition.WINDOW ? lastEmbeddedPreviewDock : previewDockPosition;
-      label = switch (dock) {
-        case LEFT -> "Left";
-        case RIGHT -> "Right";
-        case BOTTOM -> "Bottom";
-        case WINDOW -> "Window";
-        case TOP -> "Top";
+      String label = switch (dock) {
+        case LEFT -> "left";
+        case RIGHT -> "right";
+        case BOTTOM -> "bottom";
+        case WINDOW -> "window";
+        case TOP -> "top";
       };
+      tooltipText = isVnsPreviewWorkspace()
+          ? "Open runtime preview in a separate window"
+          : "Preview dock: " + label;
     }
-    previewDockMenu.setText("Snap: " + label);
+    previewDockMenu.setText("");
+    previewDockMenu.setTooltip(new Tooltip(tooltipText));
+    previewDockMenu.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
   }
 
   private void refreshPreviewSizeFromLast() {
@@ -1125,7 +1133,9 @@ public class FileEditorTab extends BorderPane {
 
   private Node createStudioWorkspace(String title, Node designNode, Node codeNode, double divider, boolean designEnabled) {
     BorderPane root = new BorderPane();
+    root.getStyleClass().add("script-editor-workspace-root");
     BorderPane content = new BorderPane();
+    content.getStyleClass().add("script-editor-workspace-content");
     boolean allowDesign = designEnabled && designNode != null;
 
     ToggleButton bDesign = new ToggleButton("Design");
@@ -1145,12 +1155,19 @@ public class FileEditorTab extends BorderPane {
       bSplit.setVisible(false);
     }
 
-    Label titleLabel = new Label(title == null ? "Studio" : title);
-    titleLabel.getStyleClass().add("muted");
+    bDesign.getStyleClass().addAll("layout-studio-toolbar-toggle", "script-editor-workspace-toggle");
+    bCode.getStyleClass().addAll("layout-studio-toolbar-toggle", "script-editor-workspace-toggle");
+    bSplit.getStyleClass().addAll("layout-studio-toolbar-toggle", "script-editor-workspace-toggle");
 
-    HBox toolbar = new HBox(8, titleLabel, bDesign, bCode, bSplit);
-    toolbar.setPadding(new javafx.geometry.Insets(6, 6, 6, 6));
-    toolbar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+    configureIconToggle(bDesign, CssIcon.palette("#b8c5d8"), "Show design canvas");
+    configureIconToggle(bCode, CssIcon.list("#b8c5d8"), "Show code only");
+    configureIconToggle(bSplit, CssIcon.grid("#b8c5d8"), "Show design and code");
+
+    HBox toolbar = buildWorkspaceToolbar(
+        title == null ? "Studio" : title,
+        allowDesign ? "Design canvas and source stay in sync" : "Source-only workspace",
+        CssIcon.palette("#d7e1f0"),
+        allowDesign ? new Node[] {bDesign, bCode, bSplit} : new Node[] {bCode});
     root.setTop(toolbar);
     root.setCenter(content);
 
@@ -1369,17 +1386,71 @@ public class FileEditorTab extends BorderPane {
     return kind == Kind.VNS;
   }
 
+  private String previewWorkspaceSubtitle(boolean vnsDetachedOnly) {
+    if (vnsDetachedOnly) return "Runtime preview opens in its own window";
+    return switch (kind) {
+      case JES -> "Scene preview and source editor";
+      case TIMELINE -> "Timeline preview and source editor";
+      case THEME -> "Theme preview and source editor";
+      default -> "Preview, source, and split modes";
+    };
+  }
+
+  private Region previewWorkspaceTitleIcon() {
+    return switch (kind) {
+      case VNS -> CssIcon.speech("#d7e1f0");
+      case THEME -> CssIcon.palette("#d7e1f0");
+      case TIMELINE -> CssIcon.play("#d7e1f0");
+      default -> CssIcon.visibility("#d7e1f0");
+    };
+  }
+
+  private static HBox buildWorkspaceToolbar(String title, String meta, Region icon, Node... actions) {
+    HBox titleRow = new HBox(8);
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+    if (icon != null) titleRow.getChildren().add(icon);
+
+    Label titleLabel = new Label(title);
+    titleLabel.getStyleClass().add("script-editor-workspace-title");
+    titleRow.getChildren().add(titleLabel);
+
+    Label metaLabel = new Label(meta == null ? "" : meta);
+    metaLabel.getStyleClass().add("script-editor-workspace-meta");
+
+    VBox titleBox = new VBox(1, titleRow, metaLabel);
+    titleBox.getStyleClass().add("script-editor-workspace-title-box");
+
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+
+    HBox toolbar = new HBox(8);
+    toolbar.getStyleClass().add("script-editor-workspace-toolbar");
+    toolbar.setPadding(new Insets(8, 10, 8, 10));
+    toolbar.setAlignment(Pos.CENTER_LEFT);
+    toolbar.getChildren().addAll(titleBox, spacer);
+    if (actions != null) {
+      for (Node action : actions) {
+        if (action != null) toolbar.getChildren().add(action);
+      }
+    }
+    return toolbar;
+  }
+
   private static void configureIconToggle(ToggleButton button, Node icon, String tooltipText) {
     if (button == null) return;
     button.setText("");
     button.setGraphic(icon);
     button.setTooltip(new Tooltip(tooltipText));
-    button.setMinWidth(30);
-    button.setPrefWidth(30);
-    button.setMaxWidth(30);
+    button.setMinWidth(32);
+    button.setPrefWidth(32);
+    button.setMaxWidth(32);
+    button.setMinHeight(30);
     button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
     if (!button.getStyleClass().contains("layout-studio-icon-button")) {
       button.getStyleClass().add("layout-studio-icon-button");
+    }
+    if (!button.getStyleClass().contains("script-editor-workspace-icon-button")) {
+      button.getStyleClass().add("script-editor-workspace-icon-button");
     }
   }
 
@@ -1391,9 +1462,13 @@ public class FileEditorTab extends BorderPane {
     button.setMinWidth(34);
     button.setPrefWidth(34);
     button.setMaxWidth(34);
+    button.setMinHeight(30);
     button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
     if (!button.getStyleClass().contains("layout-studio-icon-button")) {
       button.getStyleClass().add("layout-studio-icon-button");
+    }
+    if (!button.getStyleClass().contains("script-editor-workspace-icon-button")) {
+      button.getStyleClass().add("script-editor-workspace-icon-button");
     }
   }
 
