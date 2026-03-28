@@ -490,7 +490,10 @@ public class PuppeteerLauncherPanel extends VBox {
     HBox.setHgrow(spacer, Priority.ALWAYS);
     titleRow.getChildren().add(spacer);
 
-    Button openButton = createCardActionButton("Open");
+    Button openButton = createCardActionButton(
+        "icon-timeline-open",
+        "Open timeline",
+        "-fx-background-color: #323643; -fx-background-radius: 8;");
     openButton.setDisable(!importable);
     openButton.setOnAction(e -> {
       if (onLaunch != null && importable) {
@@ -498,11 +501,16 @@ public class PuppeteerLauncherPanel extends VBox {
       }
     });
 
-    Button renameButton = createCardActionButton("Rename");
+    Button renameButton = createCardActionButton(
+        "icon-timeline-edit",
+        "Rename timeline",
+        "-fx-background-color: #323643; -fx-background-radius: 8;");
     renameButton.setOnAction(e -> renameRegisteredAnimation(animation));
 
-    Button deleteButton = createCardActionButton("Delete");
-    deleteButton.setStyle("-fx-background-color: #402727; -fx-text-fill: #ffd6d6; -fx-font-size: 9px; -fx-padding: 3 8 3 8; -fx-background-radius: 8;");
+    Button deleteButton = createCardActionButton(
+        "icon-timeline-delete",
+        "Delete timeline",
+        "-fx-background-color: #402727; -fx-background-radius: 8;");
     deleteButton.setOnAction(e -> deleteRegisteredAnimation(animation));
 
     titleRow.getChildren().addAll(openButton, renameButton, deleteButton);
@@ -565,9 +573,14 @@ public class PuppeteerLauncherPanel extends VBox {
     return clusters.isEmpty() ? 0 : clusters.size();
   }
 
-  private Button createCardActionButton(String text) {
-    Button button = new Button(text);
-    button.setStyle("-fx-background-color: #323643; -fx-text-fill: #dce1ea; -fx-font-size: 9px; -fx-padding: 3 8 3 8; -fx-background-radius: 8;");
+  private Button createCardActionButton(String iconClass, String tooltip, String style) {
+    Button button = new Button();
+    button.setGraphic(makeIcon(iconClass));
+    button.setTooltip(new Tooltip(tooltip));
+    button.setAccessibleText(tooltip);
+    button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    button.getStyleClass().add("layout-studio-icon-button");
+    button.setStyle(style);
     button.setFocusTraversable(false);
     return button;
   }
