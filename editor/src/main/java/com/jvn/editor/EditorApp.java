@@ -74,7 +74,9 @@ import com.jvn.editor.ui.VnsScriptAnalyzer;
 import com.jvn.editor.ui.WelcomeCenterView;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.CodeImporter;
+import com.jvn.editor.ui.actioneditor.EntityTrack;
 import com.jvn.editor.ui.actioneditor.PuppeteerWindow;
+import com.jvn.editor.ui.actioneditor.PropertyType;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
 
@@ -5080,11 +5082,9 @@ public class EditorApp extends Application {
       puppeteer.setSourceScriptFile(ft.getFile());
     }
 
-    if (ft != null && ft.getJesScene() != null) {
-      puppeteer.setScene(ft.getJesScene());
-    } else if (snapshot != null && (snapshot.backgroundId != null || !snapshot.characters.isEmpty())) {
-      JesScene2D scene = buildSceneFromSnapshot(snapshot);
-      puppeteer.setScene(scene);
+    JesScene2D launchScene = resolvePuppeteerLaunchScene(ft, imported, snapshot);
+    if (launchScene != null) {
+      puppeteer.setScene(launchScene);
     }
 
     if (snapshot != null) {
@@ -5097,6 +5097,121 @@ public class EditorApp extends Application {
       puppeteer.setTitle(title);
     }
     puppeteer.show();
+  }
+
+  private JesScene2D resolvePuppeteerLaunchScene(
+      FileEditorTab fileTab,
+      AnimationProject imported,
+      PuppeteerLauncherPanel.SceneSnapshot snapshot
+  ) {
+    JesScene2D scene = null;
+    if (fileTab != null && fileTab.getJesScene() != null) {
+      scene = fileTab.getJesScene();
+    } else if (snapshot != null && (snapshot.backgroundId != null || !snapshot.characters.isEmpty())) {
+      scene = buildSceneFromSnapshot(snapshot);
+    } else if (imported != null) {
+      scene = new JesScene2D();
+    }
+
+    if (scene != null && imported != null) {
+      ensureSceneEntitiesForProject(scene, imported, snapshot);
+    }
+    return scene;
+  }
+
+  private void ensureSceneEntitiesForProject(
+      JesScene2D scene,
+      AnimationProject imported,
+      PuppeteerLauncherPanel.SceneSnapshot snapshot
+  ) {
+    if (scene == null || imported == null) return;
+    List<EntityTrack> missingTracks = new ArrayList<>();
+    for (EntityTrack track : imported.getTracks()) {
+      if (track == null) continue;
+      String entityName = track.getEntityName();
+      if (entityName == null || entityName.isBlank()) continue;
+      if (scene.find(entityName) != null) continue;
+      if (isCameraTrack(track)) continue;
+      missingTracks.add(track);
+    }
+
+    for (int i = 0; i < missingTracks.size(); i++) {
+      addMissingSceneEntity(scene, missingTracks.get(i), snapshot, i, missingTracks.size());
+    }
+  }
+
+  private void addMissingSceneEntity(
+      JesScene2D scene,
+      EntityTrack track,
+      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+      int missingIndex,
+      int missingCount
+  ) {
+    if (scene == null || track == null) return;
+    String entityName = track.getEntityName();
+    if (entityName == null || entityName.isBlank()) return;
+
+    ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
+    double sceneW = Math.max(1.0, viewport.width());
+    double sceneH = Math.max(1.0, viewport.height());
+    double characterHeight = sceneH * 0.85;
+    double fallbackWidth = sceneW * 0.16;
+    double fallbackHeight = sceneH * 0.62;
+
+    PuppeteerLauncherPanel.CharacterEntry snapshotEntry = null;
+    if (snapshot != null) {
+      for (PuppeteerLauncherPanel.CharacterEntry entry : snapshot.characters) {
+        if (entry != null && entityName.equals(entry.characterId)) {
+          snapshotEntry = entry;
+          break;
+        }
+      }
+    }
+
+    String expression = snapshotEntry != null ? snapshotEntry.expression : "neutral";
+    String position = snapshotEntry != null ? snapshotEntry.position : fallbackTrackPosition(missingIndex, missingCount);
+    String spritePathSpec = "";
+    if (snapshot != null && snapshot.hasCharacterPathMapping(entityName, expression)) {
+      spritePathSpec = resolveProjectPathSpec(snapshot.resolveCharacterPath(entityName, expression));
+    } else if (snapshot != null && snapshot.hasCharacterPathMapping(entityName, "neutral")) {
+      spritePathSpec = resolveProjectPathSpec(snapshot.resolveCharacterPath(entityName, "neutral"));
+    }
+
+    boolean hasTrackX = track.hasKeyframes(PropertyType.X);
+    boolean hasTrackY = track.hasKeyframes(PropertyType.Y);
+    double fallbackLeftX = positionToLeftX(position, sceneW, fallbackWidth);
+    double fallbackCenterX = fallbackLeftX + (fallbackWidth * 0.5);
+    double fallbackBottomY = sceneH;
+    double x = hasTrackX ? track.getValueAt(PropertyType.X, 0.0) : fallbackCenterX;
+    double y = hasTrackY ? track.getValueAt(PropertyType.Y, 0.0) : fallbackBottomY;
+
+    if (!spritePathSpec.isBlank()) {
+      double[] spriteSize = estimateSpriteSize(firstLayerPath(spritePathSpec), characterHeight);
+      double charW = spriteSize[0];
+      double charH = spriteSize[1];
+      if (!hasTrackX) {
+        x = positionToLeftX(position, sceneW, charW) + (charW * 0.5);
+      }
+      if (!hasTrackY) {
+        y = sceneH;
+      }
+      com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePathSpec, charW, charH);
+      sprite.setOrigin(0.5, 1.0);
+      sprite.setPosition(x, y);
+      sprite.setZ(track.getLayerOrder());
+      scene.add(sprite);
+      scene.registerEntity(entityName, sprite);
+      return;
+    }
+
+    com.jvn.core.scene2d.Panel2D placeholder = new com.jvn.core.scene2d.Panel2D(fallbackWidth, fallbackHeight);
+    placeholder.setOrigin(0.5, 1.0);
+    placeholder.setFill(0.23, 0.30, 0.40, 0.22);
+    placeholder.setStroke(0.56, 0.76, 1.0, 0.88, 3.0);
+    placeholder.setPosition(x, y);
+    placeholder.setZ(track.getLayerOrder());
+    scene.add(placeholder);
+    scene.registerEntity(entityName, placeholder);
   }
 
   private JesScene2D buildSceneFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
@@ -5132,6 +5247,33 @@ public class EditorApp extends Application {
     }
 
     return scene;
+  }
+
+  private boolean isCameraTrack(EntityTrack track) {
+    if (track == null) return true;
+    String entityName = track.getEntityName();
+    if ("__camera__".equals(entityName)) return true;
+    boolean hasAnimatedProperties = false;
+    for (PropertyType property : track.getAnimatedProperties()) {
+      hasAnimatedProperties = true;
+      if (property != PropertyType.CAMERA_X
+          && property != PropertyType.CAMERA_Y
+          && property != PropertyType.CAMERA_ZOOM) {
+        return false;
+      }
+    }
+    return hasAnimatedProperties;
+  }
+
+  private String fallbackTrackPosition(int index, int total) {
+    if (total <= 1) return "center";
+    return switch (Math.max(0, index) % 5) {
+      case 0 -> "left";
+      case 1 -> "center";
+      case 2 -> "right";
+      case 3 -> "far_left";
+      default -> "far_right";
+    };
   }
 
   private double positionToLeftX(String position, double sceneW, double spriteW) {

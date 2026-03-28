@@ -23,15 +23,19 @@ import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
 import com.jvn.editor.ui.actioneditor.PropertyType;
 
+import javafx.scene.control.Alert;
 import javafx.geometry.Insets;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 /**
@@ -135,14 +139,16 @@ public class PuppeteerLauncherPanel extends VBox {
     registeredTimelineCards = new VBox(8);
     registeredTimelineCards.setFillWidth(true);
     registeredTimelineCards.setPadding(new Insets(2, 2, 2, 2));
+    registeredTimelineCards.setStyle("-fx-background-color: transparent;");
 
     registeredTimelineScroll = new ScrollPane(registeredTimelineCards);
     registeredTimelineScroll.setFitToWidth(true);
     registeredTimelineScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
     registeredTimelineScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
     registeredTimelineScroll.setPannable(true);
-    registeredTimelineScroll.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+    registeredTimelineScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-background-insets: 0;");
     registeredTimelineScroll.setPrefViewportHeight(260);
+    configureTransparentScrollPaneViewport(registeredTimelineScroll);
     VBox.setVgrow(registeredTimelineScroll, Priority.ALWAYS);
 
     btnLaunch = createActionButton(
@@ -376,6 +382,17 @@ public class PuppeteerLauncherPanel extends VBox {
     return icon;
   }
 
+  private static void configureTransparentScrollPaneViewport(ScrollPane scrollPane) {
+    if (scrollPane == null) return;
+    Runnable applyViewportStyle = () -> {
+      if (scrollPane.lookup(".viewport") instanceof Region viewport) {
+        viewport.setStyle("-fx-background-color: transparent;");
+      }
+    };
+    scrollPane.skinProperty().addListener((obs, oldSkin, newSkin) -> applyViewportStyle.run());
+    applyViewportStyle.run();
+  }
+
   private void refreshRegisteredAnimations(SceneSnapshot snapshot) {
     registeredTimelineCards.getChildren().clear();
 
@@ -390,11 +407,17 @@ public class PuppeteerLauncherPanel extends VBox {
     List<RegisteredAnimation> animations = getRegisteredAnimations();
     String preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
     int count = animations.size();
+    int clusterCount = countClusters(animations);
     String summary = count == 1
-        ? "1 timeline found in scripts/timelines."
-        : count + " timelines found in scripts/timelines.";
+        ? "1 timeline found"
+        : count + " timelines found";
+    if (clusterCount > 1) {
+      summary += " across " + clusterCount + " clusters";
+    }
+    summary += " in scripts/timelines.";
     if (preferredTimelineName != null && !preferredTimelineName.isBlank()) {
-      boolean matched = animations.stream().anyMatch(animation -> preferredTimelineName.equals(animation.name()));
+      boolean matched = animations.stream()
+          .anyMatch(animation -> preferredTimelineName.equals(resolveRelativeTimelineStem(animation)));
       summary += matched
           ? " Current cursor references one of them."
           : " Current cursor timeline is not registered on disk.";
@@ -408,80 +431,115 @@ public class PuppeteerLauncherPanel extends VBox {
       return;
     }
 
+    Map<String, List<RegisteredAnimation>> byCluster = new LinkedHashMap<>();
     for (RegisteredAnimation animation : animations) {
-      registeredTimelineCards.getChildren().add(createRegisteredAnimationCard(animation, snapshot));
+      byCluster.computeIfAbsent(animation.clusterName(), ignored -> new ArrayList<>()).add(animation);
+    }
+
+    boolean showClusterHeaders = byCluster.size() > 1
+        || !byCluster.keySet().stream().allMatch(cluster -> "Root".equals(cluster));
+    for (Map.Entry<String, List<RegisteredAnimation>> entry : byCluster.entrySet()) {
+      if (showClusterHeaders) {
+        Label clusterHeader = new Label(entry.getKey());
+        clusterHeader.setStyle("-fx-text-fill: #8fc0ff; -fx-font-size: 10px; -fx-font-weight: bold;");
+        registeredTimelineCards.getChildren().add(clusterHeader);
+      }
+      for (RegisteredAnimation animation : entry.getValue()) {
+        registeredTimelineCards.getChildren().add(createRegisteredAnimationCard(animation, snapshot));
+      }
     }
   }
 
-  private Button createRegisteredAnimationCard(RegisteredAnimation animation, SceneSnapshot snapshot) {
+  private VBox createRegisteredAnimationCard(RegisteredAnimation animation, SceneSnapshot snapshot) {
     String preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
-    boolean suggested = preferredTimelineName != null && preferredTimelineName.equals(animation.name());
+    String timelineId = resolveRelativeTimelineStem(animation);
+    boolean suggested = preferredTimelineName != null && preferredTimelineName.equals(timelineId);
     boolean importable = animation.importable();
-    String scenePreviewText = describeScenePreview(snapshot);
+    String scenePreviewText = shouldShowScenePreview(animation, suggested)
+        ? describeScenePreview(snapshot)
+        : "";
     String resolvedPreviewText = resolveRegisteredAnimationPreviewText(animation, snapshot);
 
     Label title = new Label(animation.name());
-    title.setStyle("-fx-text-fill: #f2f4f8; -fx-font-size: 12px; -fx-font-weight: bold;");
+    title.setStyle("-fx-text-fill: #f2f4f8; -fx-font-size: 11px; -fx-font-weight: bold;");
 
     HBox titleRow = new HBox(6);
     titleRow.getChildren().add(title);
 
     if (suggested) {
       Label badge = new Label("Cursor Match");
-      badge.setStyle("-fx-background-color: #20416a; -fx-background-radius: 999; -fx-padding: 2 8 2 8; -fx-text-fill: #cfe6ff; -fx-font-size: 10px; -fx-font-weight: bold;");
+      badge.setStyle("-fx-background-color: #20416a; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #cfe6ff; -fx-font-size: 9px; -fx-font-weight: bold;");
       titleRow.getChildren().add(badge);
     }
 
     if (!importable) {
       Label badge = new Label("Import Issue");
-      badge.setStyle("-fx-background-color: #5a2a2a; -fx-background-radius: 999; -fx-padding: 2 8 2 8; -fx-text-fill: #ffd6d6; -fx-font-size: 10px; -fx-font-weight: bold;");
+      badge.setStyle("-fx-background-color: #5a2a2a; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #ffd6d6; -fx-font-size: 9px; -fx-font-weight: bold;");
       titleRow.getChildren().add(badge);
     }
 
+    if (animation.relativePath() != null
+        && !animation.relativePath().isBlank()
+        && !animation.relativePath().equals(animation.name() + ".jes")) {
+      Label badge = new Label(animation.relativePath());
+      badge.setStyle("-fx-background-color: #323643; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #c6cad2; -fx-font-size: 9px;");
+      titleRow.getChildren().add(badge);
+    }
+
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    titleRow.getChildren().add(spacer);
+
+    Button openButton = createCardActionButton("Open");
+    openButton.setDisable(!importable);
+    openButton.setOnAction(e -> {
+      if (onLaunch != null && importable) {
+        onLaunch.accept(new LaunchRequest(snapshot, timelineId));
+      }
+    });
+
+    Button renameButton = createCardActionButton("Rename");
+    renameButton.setOnAction(e -> renameRegisteredAnimation(animation));
+
+    Button deleteButton = createCardActionButton("Delete");
+    deleteButton.setStyle("-fx-background-color: #402727; -fx-text-fill: #ffd6d6; -fx-font-size: 9px; -fx-padding: 3 8 3 8; -fx-background-radius: 8;");
+    deleteButton.setOnAction(e -> deleteRegisteredAnimation(animation));
+
+    titleRow.getChildren().addAll(openButton, renameButton, deleteButton);
+
     Label meta = new Label(animation.statsText());
-    meta.setStyle("-fx-text-fill: #9cadc7; -fx-font-size: 10px;");
+    meta.setStyle("-fx-text-fill: #9cadc7; -fx-font-size: 9px;");
     meta.setWrapText(true);
 
     Label preview = new Label(resolvedPreviewText);
-    preview.setStyle("-fx-text-fill: #d5d9e0; -fx-font-size: 10px; -fx-font-family: monospace;");
+    preview.setStyle("-fx-text-fill: #d5d9e0; -fx-font-size: 9px; -fx-font-family: monospace;");
     preview.setWrapText(true);
 
-    VBox body = new VBox(5, titleRow, meta);
+    VBox body = new VBox(3, titleRow, meta);
     if (!scenePreviewText.isBlank()) {
       Label scenePreview = new Label(scenePreviewText);
-      scenePreview.setStyle("-fx-text-fill: #8fc0ff; -fx-font-size: 10px;");
+      scenePreview.setStyle("-fx-text-fill: #8fc0ff; -fx-font-size: 9px;");
       scenePreview.setWrapText(true);
       body.getChildren().add(scenePreview);
     }
     body.getChildren().add(preview);
     if (!importable && animation.warningMessage() != null && !animation.warningMessage().isBlank()) {
       Label warning = new Label(animation.warningMessage());
-      warning.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 10px;");
+      warning.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 9px;");
       warning.setWrapText(true);
       body.getChildren().add(warning);
     }
-
-    Button card = new Button();
-    card.setMaxWidth(Double.MAX_VALUE);
-    card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-    card.setGraphic(body);
-    card.setTooltip(new Tooltip(animation.file().getName()));
+    body.setMaxWidth(Double.MAX_VALUE);
+    body.setPadding(new Insets(8, 10, 8, 10));
+    Tooltip.install(body, new Tooltip(animation.file().getName()));
     String style = suggested
-        ? "-fx-background-color: #1f2b38; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #4da3ff; -fx-padding: 12; -fx-alignment: CENTER_LEFT;"
-        : "-fx-background-color: #24262c; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #3a3d46; -fx-padding: 12; -fx-alignment: CENTER_LEFT;";
+        ? "-fx-background-color: #1f2b38; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #4da3ff;"
+        : "-fx-background-color: #24262c; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #3a3d46;";
     if (!importable) {
-      style = "-fx-background-color: #2a2323; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #694242; -fx-padding: 12; -fx-alignment: CENTER_LEFT;";
-      card.setDisable(true);
-    } else {
-      SceneSnapshot launchSnapshot = snapshot;
-      card.setOnAction(e -> {
-        if (onLaunch != null) {
-          onLaunch.accept(new LaunchRequest(launchSnapshot, animation.name()));
-        }
-      });
+      style = "-fx-background-color: #2a2323; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #694242;";
     }
-    card.setStyle(style);
-    return card;
+    body.setStyle(style);
+    return body;
   }
 
   private VBox createPlaceholderCard(String title, String detail) {
@@ -496,6 +554,163 @@ public class PuppeteerLauncherPanel extends VBox {
     box.setPadding(new Insets(12));
     box.setStyle("-fx-background-color: #202226; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #333740;");
     return box;
+  }
+
+  private static int countClusters(List<RegisteredAnimation> animations) {
+    Set<String> clusters = new HashSet<>();
+    for (RegisteredAnimation animation : animations) {
+      if (animation == null) continue;
+      clusters.add(animation.clusterName());
+    }
+    return clusters.isEmpty() ? 0 : clusters.size();
+  }
+
+  private Button createCardActionButton(String text) {
+    Button button = new Button(text);
+    button.setStyle("-fx-background-color: #323643; -fx-text-fill: #dce1ea; -fx-font-size: 9px; -fx-padding: 3 8 3 8; -fx-background-radius: 8;");
+    button.setFocusTraversable(false);
+    return button;
+  }
+
+  private void renameRegisteredAnimation(RegisteredAnimation animation) {
+    if (animation == null || projectRoot == null) return;
+    TextInputDialog dialog = new TextInputDialog(resolveRelativeTimelineStem(animation));
+    EditorTheme.apply(dialog);
+    dialog.setTitle("Rename Timeline");
+    dialog.setHeaderText("Rename or move '" + animation.name() + "'");
+    dialog.setContentText("Timeline path:");
+    dialog.showAndWait().ifPresent(rawName -> {
+      try {
+        String normalized = normalizeTimelineRelativeStem(rawName);
+        Path timelinesRoot = resolveTimelinesDir(projectRoot).toPath().toAbsolutePath().normalize();
+        Path source = animation.file().toPath().toAbsolutePath().normalize();
+        Path target = timelinesRoot.resolve(normalized + ".jes").normalize();
+        if (!target.startsWith(timelinesRoot)) {
+          throw new IOException("Timeline path must stay inside scripts/timelines.");
+        }
+        if (source.equals(target)) return;
+        if (Files.exists(target)) {
+          throw new IOException("A timeline with that name already exists.");
+        }
+        Files.createDirectories(target.getParent());
+        Files.move(source, target);
+        pruneEmptyTimelineDirectories(source.getParent(), timelinesRoot);
+        invalidateRegisteredAnimationsCache();
+        refresh();
+      } catch (IOException ex) {
+        showTimelineFileError("Rename Failed", "Could not rename timeline.", ex.getMessage());
+      }
+    });
+  }
+
+  private void deleteRegisteredAnimation(RegisteredAnimation animation) {
+    if (animation == null || projectRoot == null) return;
+    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+    EditorTheme.apply(confirm);
+    confirm.setTitle("Delete Timeline");
+    confirm.setHeaderText("Delete '" + animation.name() + "'?");
+    confirm.setContentText("This removes " + animation.relativePath() + " from scripts/timelines.");
+    confirm.showAndWait().ifPresent(result -> {
+      if (result != ButtonType.OK) return;
+      try {
+        Path timelinesRoot = resolveTimelinesDir(projectRoot).toPath().toAbsolutePath().normalize();
+        Path source = animation.file().toPath().toAbsolutePath().normalize();
+        Files.deleteIfExists(source);
+        pruneEmptyTimelineDirectories(source.getParent(), timelinesRoot);
+        invalidateRegisteredAnimationsCache();
+        refresh();
+      } catch (IOException ex) {
+        showTimelineFileError("Delete Failed", "Could not delete timeline.", ex.getMessage());
+      }
+    });
+  }
+
+  private void showTimelineFileError(String title, String header, String detail) {
+    Alert alert = new Alert(Alert.AlertType.ERROR);
+    EditorTheme.apply(alert);
+    alert.setTitle(title);
+    alert.setHeaderText(header);
+    alert.setContentText(detail != null ? detail : "Unknown error");
+    alert.showAndWait();
+  }
+
+  private static String resolveRelativeTimelineStem(RegisteredAnimation animation) {
+    if (animation == null || animation.relativePath() == null || animation.relativePath().isBlank()) {
+      return "";
+    }
+    String relativePath = animation.relativePath().replace('\\', '/');
+    return relativePath.endsWith(".jes")
+        ? relativePath.substring(0, relativePath.length() - 4)
+        : relativePath;
+  }
+
+  private static boolean shouldShowScenePreview(RegisteredAnimation animation, boolean suggested) {
+    if (animation == null) return false;
+    return suggested || isEmptyTimelinePreview(animation.previewText());
+  }
+
+  private static String normalizeTimelineRelativeStem(String rawName) throws IOException {
+    String normalized = rawName == null ? "" : rawName.trim().replace('\\', '/');
+    while (normalized.startsWith("/")) {
+      normalized = normalized.substring(1);
+    }
+    if (normalized.endsWith(".jes")) {
+      normalized = normalized.substring(0, normalized.length() - 4);
+    }
+    normalized = normalized.replaceAll("/+", "/");
+    normalized = normalized.replaceAll("^/+|/+$", "");
+    if (normalized.isBlank()) {
+      throw new IOException("Timeline path is empty.");
+    }
+    if (normalized.contains("..")) {
+      throw new IOException("Parent path segments are not allowed.");
+    }
+    return normalized;
+  }
+
+  private static void pruneEmptyTimelineDirectories(Path start, Path timelinesRoot) throws IOException {
+    if (start == null || timelinesRoot == null) return;
+    Path current = start;
+    while (current != null && !current.equals(timelinesRoot)) {
+      try (var stream = Files.list(current)) {
+        if (stream.findAny().isPresent()) {
+          return;
+        }
+      }
+      Files.deleteIfExists(current);
+      current = current.getParent();
+    }
+  }
+
+  private static List<File> collectTimelineFiles(File timelinesDir) {
+    if (timelinesDir == null || !timelinesDir.isDirectory()) return List.of();
+    List<File> files = new ArrayList<>();
+    try (var stream = Files.walk(timelinesDir.toPath())) {
+      stream.filter(Files::isRegularFile)
+          .filter(path -> {
+            String name = path.getFileName().toString();
+            return name.endsWith(".jes") && !name.startsWith(".");
+          })
+          .sorted((left, right) -> left.toString().compareToIgnoreCase(right.toString()))
+          .forEach(path -> files.add(path.toFile()));
+    } catch (IOException ignored) {
+    }
+    return files;
+  }
+
+  private static String relativizeTimelinePath(File timelinesDir, File jesFile) {
+    if (timelinesDir == null || jesFile == null) return jesFile == null ? "" : jesFile.getName();
+    Path root = timelinesDir.toPath().toAbsolutePath().normalize();
+    Path file = jesFile.toPath().toAbsolutePath().normalize();
+    if (!file.startsWith(root)) return jesFile.getName();
+    return root.relativize(file).toString().replace('\\', '/');
+  }
+
+  private static String resolveClusterName(String relativePath) {
+    if (relativePath == null || relativePath.isBlank()) return "Root";
+    int slash = relativePath.lastIndexOf('/');
+    if (slash <= 0) return "Root";
+    return relativePath.substring(0, slash);
   }
 
   private void invalidateRegisteredAnimationsCache() {
@@ -519,26 +734,29 @@ public class PuppeteerLauncherPanel extends VBox {
   static List<RegisteredAnimation> discoverRegisteredAnimations(File projectRoot) {
     File timelinesDir = resolveTimelinesDir(projectRoot);
     if (!timelinesDir.isDirectory()) return List.of();
-    File[] jesFiles = timelinesDir.listFiles((dir, name) -> name.endsWith(".jes") && !name.startsWith("."));
-    if (jesFiles == null || jesFiles.length == 0) return List.of();
-    Arrays.sort(jesFiles, (left, right) -> left.getName().compareToIgnoreCase(right.getName()));
+    List<File> jesFiles = collectTimelineFiles(timelinesDir);
+    if (jesFiles.isEmpty()) return List.of();
 
     List<RegisteredAnimation> animations = new ArrayList<>();
     for (File jesFile : jesFiles) {
-      animations.add(summarizeRegisteredAnimation(jesFile));
+      animations.add(summarizeRegisteredAnimation(timelinesDir, jesFile));
     }
     return List.copyOf(animations);
   }
 
-  private static RegisteredAnimation summarizeRegisteredAnimation(File jesFile) {
+  private static RegisteredAnimation summarizeRegisteredAnimation(File timelinesDir, File jesFile) {
     String filename = jesFile.getName();
     String timelineName = filename.endsWith(".jes") ? filename.substring(0, filename.length() - 4) : filename;
+    String relativePath = relativizeTimelinePath(timelinesDir, jesFile);
+    String clusterName = resolveClusterName(relativePath);
     String code;
     try {
       code = Files.readString(jesFile.toPath(), StandardCharsets.UTF_8);
     } catch (IOException ex) {
       return new RegisteredAnimation(
           timelineName,
+          relativePath,
+          clusterName,
           jesFile,
           "Could not read timeline file.",
           "Read failed",
@@ -565,6 +783,8 @@ public class PuppeteerLauncherPanel extends VBox {
       }
       return new RegisteredAnimation(
           timelineName,
+          relativePath,
+          clusterName,
           jesFile,
           previewText,
           stats,
@@ -577,6 +797,8 @@ public class PuppeteerLauncherPanel extends VBox {
     } catch (Exception ex) {
       return new RegisteredAnimation(
           timelineName,
+          relativePath,
+          clusterName,
           jesFile,
           previewText,
           "Import warning • raw preview only",
@@ -592,6 +814,7 @@ public class PuppeteerLauncherPanel extends VBox {
   static String extractTimelinePreview(String code) {
     if (code == null || code.isBlank()) return "No timeline content yet.";
     List<String> previewLines = new ArrayList<>();
+    boolean truncated = false;
     for (String rawLine : code.split("\n")) {
       String trimmed = rawLine == null ? "" : rawLine.trim();
       if (trimmed.isEmpty()) continue;
@@ -599,10 +822,17 @@ public class PuppeteerLauncherPanel extends VBox {
       if ("{".equals(trimmed) || "}".equals(trimmed)) continue;
       if (trimmed.startsWith("timeline")) continue;
       previewLines.add(trimmed);
-      if (previewLines.size() >= 3) break;
+      if (previewLines.size() >= 2) {
+        truncated = true;
+        break;
+      }
     }
     if (previewLines.isEmpty()) {
       return "Timeline block is empty.";
+    }
+    if (truncated) {
+      int lastIndex = previewLines.size() - 1;
+      previewLines.set(lastIndex, previewLines.get(lastIndex) + " …");
     }
     return String.join("\n", previewLines);
   }
@@ -610,11 +840,15 @@ public class PuppeteerLauncherPanel extends VBox {
   static String describeScenePreview(SceneSnapshot snapshot) {
     if (snapshot == null) return "";
     List<String> lines = new ArrayList<>();
+    List<String> sceneBits = new ArrayList<>();
     if (snapshot.currentLabel != null && !snapshot.currentLabel.isBlank()) {
-      lines.add("Label • " + snapshot.currentLabel);
+      sceneBits.add("label " + snapshot.currentLabel);
     }
     if (snapshot.backgroundId != null && !snapshot.backgroundId.isBlank()) {
-      lines.add("Background • " + snapshot.backgroundId);
+      sceneBits.add("bg " + snapshot.backgroundId);
+    }
+    if (!sceneBits.isEmpty()) {
+      lines.add("Scene • " + String.join(" • ", sceneBits));
     }
     if (!snapshot.characters.isEmpty()) {
       List<String> entities = new ArrayList<>();
@@ -689,12 +923,11 @@ public class PuppeteerLauncherPanel extends VBox {
   private static long computeRegisteredAnimationsStamp(File projectRoot) {
     File timelinesDir = resolveTimelinesDir(projectRoot);
     if (!timelinesDir.isDirectory()) return Long.MIN_VALUE;
-    File[] jesFiles = timelinesDir.listFiles((dir, name) -> name.endsWith(".jes") && !name.startsWith("."));
-    if (jesFiles == null || jesFiles.length == 0) return 0L;
-    Arrays.sort(jesFiles, (left, right) -> left.getName().compareToIgnoreCase(right.getName()));
+    List<File> jesFiles = collectTimelineFiles(timelinesDir);
+    if (jesFiles.isEmpty()) return 0L;
     long stamp = 17L;
     for (File jesFile : jesFiles) {
-      stamp = stamp * 31L + jesFile.getName().toLowerCase(Locale.ROOT).hashCode();
+      stamp = stamp * 31L + jesFile.getAbsolutePath().toLowerCase(Locale.ROOT).hashCode();
       stamp = stamp * 31L + jesFile.length();
       stamp = stamp * 31L + jesFile.lastModified();
     }
@@ -1442,6 +1675,8 @@ public class PuppeteerLauncherPanel extends VBox {
 
   public record RegisteredAnimation(
       String name,
+      String relativePath,
+      String clusterName,
       File file,
       String previewText,
       String statsText,

@@ -2,8 +2,12 @@ package com.jvn.editor.ui;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.List;
+import java.util.Set;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -155,7 +159,8 @@ class PuppeteerLauncherPanelTest {
           }
         }
         """);
-    Files.writeString(timelinesDir.resolve("alpha_zoom.jes"), """
+    Path clusterDir = Files.createDirectories(timelinesDir.resolve("chapter_one"));
+    Files.writeString(clusterDir.resolve("alpha_zoom.jes"), """
         timeline {
           cameraZoom {
             zoom: 1.2
@@ -170,6 +175,8 @@ class PuppeteerLauncherPanelTest {
     assertEquals(2, animations.size());
     assertEquals("alpha_zoom", animations.get(0).name());
     assertEquals("zeta_idle", animations.get(1).name());
+    assertEquals("chapter_one/alpha_zoom.jes", animations.get(0).relativePath());
+    assertEquals("chapter_one", animations.get(0).clusterName());
     assertTrue(animations.get(0).importable());
     assertTrue(animations.get(0).statsText().contains("track(s)"));
     assertTrue(animations.get(0).previewText().contains("cameraZoom"));
@@ -178,7 +185,12 @@ class PuppeteerLauncherPanelTest {
   @Test
   void discoverRegisteredAnimationsRetainsBrokenTimelinesAsWarningCards(@TempDir Path tempDir) throws Exception {
     Path timelinesDir = Files.createDirectories(tempDir.resolve("scripts/timelines"));
-    Files.createDirectories(timelinesDir.resolve("broken_pose.jes"));
+    Path brokenFile = timelinesDir.resolve("broken_pose.jes");
+    Files.writeString(brokenFile, "timeline {\n}\n");
+    Assumptions.assumeTrue(
+        Files.getFileAttributeView(brokenFile, PosixFileAttributeView.class) != null,
+        "Posix permissions are required for this test");
+    Files.setPosixFilePermissions(brokenFile, Set.of());
 
     List<PuppeteerLauncherPanel.RegisteredAnimation> animations =
         PuppeteerLauncherPanel.discoverRegisteredAnimations(tempDir.toFile());
@@ -188,6 +200,7 @@ class PuppeteerLauncherPanelTest {
     assertFalse(animations.get(0).importable());
     assertTrue(animations.get(0).statsText() != null && !animations.get(0).statsText().isBlank());
     assertTrue(animations.get(0).warningMessage() != null && !animations.get(0).warningMessage().isBlank());
+    Files.setPosixFilePermissions(brokenFile, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
   }
 
   @Test
@@ -206,8 +219,7 @@ class PuppeteerLauncherPanelTest {
     assertEquals(
         """
         move "hero" {
-        x: 100
-        dur: 200\
+        x: 100 …\
         """,
         PuppeteerLauncherPanel.extractTimelinePreview(code));
   }
@@ -230,8 +242,7 @@ class PuppeteerLauncherPanelTest {
 
     assertEquals(
         """
-        Label • intro
-        Background • field_day
+        Scene • label intro • bg field_day
         Entities • lavender @ center [talking]\
         """,
         PuppeteerLauncherPanel.describeScenePreview(snapshot));
@@ -254,6 +265,8 @@ class PuppeteerLauncherPanelTest {
         null);
     PuppeteerLauncherPanel.RegisteredAnimation animation = new PuppeteerLauncherPanel.RegisteredAnimation(
         "idle_pose",
+        "idle_pose.jes",
+        "Root",
         Path.of("idle_pose.jes").toFile(),
         "Timeline block is empty.",
         "0 track(s) • 0 keyframe(s) • 0.1s",
