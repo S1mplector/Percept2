@@ -1196,7 +1196,7 @@ public class TimelinePanel extends VBox {
     }
 
     private boolean shouldShowRuntimeCameraBlock() {
-        return isRuntimeCameraSelected() || resolveRuntimeCameraTrack(false) != null;
+        return true;
     }
 
     private EntityTrack resolveRuntimeCameraTrack(boolean createIfMissing) {
