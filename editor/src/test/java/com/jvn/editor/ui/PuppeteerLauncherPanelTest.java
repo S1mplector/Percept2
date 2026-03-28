@@ -211,4 +211,64 @@ class PuppeteerLauncherPanelTest {
         """,
         PuppeteerLauncherPanel.extractTimelinePreview(code));
   }
+
+  @Test
+  void describeScenePreviewIncludesVisibleEntities() {
+    PuppeteerLauncherPanel.SceneSnapshot snapshot = new PuppeteerLauncherPanel.SceneSnapshot(
+        "intro",
+        "field_day",
+        3,
+        List.of(new PuppeteerLauncherPanel.CharacterEntry("lavender", "center", "talking", 4)),
+        4,
+        java.util.Map.of(),
+        java.util.Map.of(),
+        null,
+        -1,
+        null,
+        -1,
+        null);
+
+    assertEquals(
+        """
+        Label • intro
+        Background • field_day
+        Entities • lavender @ center [talking]\
+        """,
+        PuppeteerLauncherPanel.describeScenePreview(snapshot));
+  }
+
+  @Test
+  void resolveRegisteredAnimationPreviewFallsBackToSceneContextWhenTimelineIsEmpty() {
+    PuppeteerLauncherPanel.SceneSnapshot snapshot = new PuppeteerLauncherPanel.SceneSnapshot(
+        "intro",
+        "field_day",
+        3,
+        List.of(new PuppeteerLauncherPanel.CharacterEntry("lavender", "center", "neutral", 4)),
+        4,
+        java.util.Map.of(),
+        java.util.Map.of(),
+        null,
+        -1,
+        null,
+        -1,
+        null);
+    PuppeteerLauncherPanel.RegisteredAnimation animation = new PuppeteerLauncherPanel.RegisteredAnimation(
+        "idle_pose",
+        Path.of("idle_pose.jes").toFile(),
+        "Timeline block is empty.",
+        "0 track(s) • 0 keyframe(s) • 0.1s",
+        0,
+        0,
+        0,
+        0,
+        true,
+        "");
+
+    assertEquals(
+        """
+        No authored timeline actions yet.
+        Launch uses the scene preview above.\
+        """,
+        PuppeteerLauncherPanel.resolveRegisteredAnimationPreviewText(animation, snapshot));
+  }
 }

@@ -417,6 +417,8 @@ public class PuppeteerLauncherPanel extends VBox {
     String preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
     boolean suggested = preferredTimelineName != null && preferredTimelineName.equals(animation.name());
     boolean importable = animation.importable();
+    String scenePreviewText = describeScenePreview(snapshot);
+    String resolvedPreviewText = resolveRegisteredAnimationPreviewText(animation, snapshot);
 
     Label title = new Label(animation.name());
     title.setStyle("-fx-text-fill: #f2f4f8; -fx-font-size: 12px; -fx-font-weight: bold;");
@@ -440,11 +442,18 @@ public class PuppeteerLauncherPanel extends VBox {
     meta.setStyle("-fx-text-fill: #9cadc7; -fx-font-size: 10px;");
     meta.setWrapText(true);
 
-    Label preview = new Label(animation.previewText());
+    Label preview = new Label(resolvedPreviewText);
     preview.setStyle("-fx-text-fill: #d5d9e0; -fx-font-size: 10px; -fx-font-family: monospace;");
     preview.setWrapText(true);
 
-    VBox body = new VBox(5, titleRow, meta, preview);
+    VBox body = new VBox(5, titleRow, meta);
+    if (!scenePreviewText.isBlank()) {
+      Label scenePreview = new Label(scenePreviewText);
+      scenePreview.setStyle("-fx-text-fill: #8fc0ff; -fx-font-size: 10px;");
+      scenePreview.setWrapText(true);
+      body.getChildren().add(scenePreview);
+    }
+    body.getChildren().add(preview);
     if (!importable && animation.warningMessage() != null && !animation.warningMessage().isBlank()) {
       Label warning = new Label(animation.warningMessage());
       warning.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 10px;");
@@ -596,6 +605,58 @@ public class PuppeteerLauncherPanel extends VBox {
       return "Timeline block is empty.";
     }
     return String.join("\n", previewLines);
+  }
+
+  static String describeScenePreview(SceneSnapshot snapshot) {
+    if (snapshot == null) return "";
+    List<String> lines = new ArrayList<>();
+    if (snapshot.currentLabel != null && !snapshot.currentLabel.isBlank()) {
+      lines.add("Label • " + snapshot.currentLabel);
+    }
+    if (snapshot.backgroundId != null && !snapshot.backgroundId.isBlank()) {
+      lines.add("Background • " + snapshot.backgroundId);
+    }
+    if (!snapshot.characters.isEmpty()) {
+      List<String> entities = new ArrayList<>();
+      int shown = Math.min(snapshot.characters.size(), 3);
+      for (int i = 0; i < shown; i++) {
+        CharacterEntry ch = snapshot.characters.get(i);
+        entities.add(formatCharacterPreview(ch));
+      }
+      if (snapshot.characters.size() > shown) {
+        entities.add("+" + (snapshot.characters.size() - shown) + " more");
+      }
+      lines.add("Entities • " + String.join(", ", entities));
+    } else if (!lines.isEmpty()) {
+      lines.add("Entities • none visible");
+    }
+    return String.join("\n", lines);
+  }
+
+  static String resolveRegisteredAnimationPreviewText(RegisteredAnimation animation, SceneSnapshot snapshot) {
+    String previewText = animation != null ? animation.previewText() : "";
+    if (isEmptyTimelinePreview(previewText)) {
+      String scenePreview = describeScenePreview(snapshot);
+      if (!scenePreview.isBlank()) {
+        return "No authored timeline actions yet.\nLaunch uses the scene preview above.";
+      }
+    }
+    return previewText == null || previewText.isBlank() ? "No timeline content yet." : previewText;
+  }
+
+  private static boolean isEmptyTimelinePreview(String previewText) {
+    if (previewText == null || previewText.isBlank()) return true;
+    return "Timeline block is empty.".equals(previewText)
+        || "No timeline content yet.".equals(previewText);
+  }
+
+  private static String formatCharacterPreview(CharacterEntry character) {
+    if (character == null) return "unknown";
+    String text = character.characterId + " @ " + character.position;
+    if (character.expression != null && !character.expression.isBlank() && !"neutral".equals(character.expression)) {
+      text += " [" + character.expression + "]";
+    }
+    return text;
   }
 
   private static int countKeyframes(AnimationProject project) {
