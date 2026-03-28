@@ -29,6 +29,8 @@ public class TimelinePanel extends VBox {
     private static final double TRACK_HEIGHT = 24;
     private static final double HEADER_HEIGHT = 30;
     private static final double LABEL_WIDTH = 140;
+    static final String RUNTIME_CAMERA_TARGET = "__camera__";
+    private static final String RUNTIME_CAMERA_LABEL = "Runtime Camera / Frame";
     private static final PropertyType[] GROUP_PROPERTIES = {
         PropertyType.X,
         PropertyType.Y,
@@ -36,6 +38,11 @@ public class TimelinePanel extends VBox {
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
         PropertyType.ALPHA
+    };
+    private static final PropertyType[] CAMERA_PROPERTIES = {
+        PropertyType.CAMERA_X,
+        PropertyType.CAMERA_Y,
+        PropertyType.CAMERA_ZOOM
     };
     private static final Color BG_COLOR = Color.web("#121212");
     private static final Color GRID_COLOR = Color.web("#2a2a2a");
@@ -91,7 +98,14 @@ public class TimelinePanel extends VBox {
     private List<ClipboardEntry> copiedKeyframes = List.of();
 
     private record ClipboardEntry(PropertyType property, Keyframe keyframe, double offsetMs) {}
-    private record TrackRow(EntityTrack track, String entityName, boolean group, PropertyType property, double y, double height) {}
+    private record TrackRow(EntityTrack track,
+                            String selectionName,
+                            String displayLabel,
+                            boolean group,
+                            boolean runtimeCamera,
+                            PropertyType property,
+                            double y,
+                            double height) {}
     private record KeyframeHit(TrackRow row, Keyframe keyframe) {}
 
     public TimelinePanel(AnimationProject project) {
@@ -162,6 +176,7 @@ public class TimelinePanel extends VBox {
 
     public String getSelectedEntity() { return selectedEntity; }
     public boolean isSelectedGroup() { return selectedGroup; }
+    public boolean isRuntimeCameraSelected() { return !selectedGroup && isRuntimeCameraTarget(selectedEntity); }
     public PropertyType getSelectedProperty() { return selectedProperty; }
     public void setSelectedProperty(PropertyType property) {
         if (property != null && !isPropertySupportedForSelection(property)) {
@@ -425,20 +440,29 @@ public class TimelinePanel extends VBox {
 
     private double computeRequiredHeight() {
         int trackCount = 0;
+        if (shouldShowRuntimeCameraBlock()) {
+            trackCount++; // runtime camera header
+            for (PropertyType p : CAMERA_PROPERTIES) {
+                if (shouldShowPropertyTrack(resolveRuntimeCameraTrack(false), isRuntimeCameraSelected(), false, true, p)) {
+                    trackCount++;
+                }
+            }
+        }
         EntityTrack groupTrack = selectedGroupTrack();
         if (selectedGroup && groupTrack != null) {
             trackCount++; // selected group header
             for (PropertyType p : GROUP_PROPERTIES) {
-                if (shouldShowPropertyTrack(groupTrack, true, true, p)) {
+                if (shouldShowPropertyTrack(groupTrack, true, true, false, p)) {
                     trackCount++;
                 }
             }
         }
         for (EntityTrack track : project.getTracks()) {
+            if (track != null && isRuntimeCameraCarrier(track)) continue;
             trackCount++; // entity header
             boolean isSelected = !selectedGroup && track.getEntityName().equals(selectedEntity);
             for (PropertyType p : PropertyType.values()) {
-                if (shouldShowPropertyTrack(track, isSelected, false, p)) trackCount++;
+                if (shouldShowPropertyTrack(track, isSelected, false, false, p)) trackCount++;
             }
         }
         return HEADER_HEIGHT + trackCount * TRACK_HEIGHT + 50;
@@ -490,14 +514,26 @@ public class TimelinePanel extends VBox {
         double y = HEADER_HEIGHT - scrollY;
         EntityTrack groupTrack = selectedGroupTrack();
 
+        if (shouldShowRuntimeCameraBlock()) {
+            y = drawTrackBlock(gc, width, y,
+                resolveRuntimeCameraTrack(false),
+                RUNTIME_CAMERA_TARGET,
+                RUNTIME_CAMERA_LABEL,
+                isRuntimeCameraSelected(),
+                false,
+                true,
+                CAMERA_PROPERTIES);
+        }
+
         if (selectedGroup && groupTrack != null && selectedEntity != null) {
-            y = drawTrackBlock(gc, width, y, groupTrack, "[Group] " + selectedEntity, true, true, GROUP_PROPERTIES);
+            y = drawTrackBlock(gc, width, y, groupTrack, selectedEntity, "[Group] " + selectedEntity, true, true, false, GROUP_PROPERTIES);
         }
 
         for (EntityTrack track : project.getTracks()) {
+            if (track == null || isRuntimeCameraCarrier(track)) continue;
             String entityName = track.getEntityName();
             boolean isSelected = !selectedGroup && entityName.equals(selectedEntity);
-            y = drawTrackBlock(gc, width, y, track, entityName, isSelected, false, PropertyType.values());
+            y = drawTrackBlock(gc, width, y, track, entityName, entityName, isSelected, false, false, PropertyType.values());
         }
     }
 
@@ -505,11 +541,12 @@ public class TimelinePanel extends VBox {
                                   double width,
                                   double y,
                                   EntityTrack track,
+                                  String selectionName,
                                   String label,
                                   boolean isSelected,
                                   boolean groupTrack,
+                                  boolean runtimeCameraTrack,
                                   PropertyType[] properties) {
-        if (track == null) return y;
         gc.setFill(isSelected ? Color.web("#2a2a2a") : Color.web("#1a1a1a"));
         gc.fillRect(0, y, width, TRACK_HEIGHT);
         gc.setFill(TEXT_COLOR);
@@ -519,7 +556,7 @@ public class TimelinePanel extends VBox {
         y += TRACK_HEIGHT;
 
         for (PropertyType prop : properties) {
-            boolean showTrack = shouldShowPropertyTrack(track, isSelected, groupTrack, prop);
+            boolean showTrack = shouldShowPropertyTrack(track, isSelected, groupTrack, runtimeCameraTrack, prop);
             if (!showTrack) continue;
 
             boolean propSelected = isSelected && prop == selectedProperty;
@@ -536,7 +573,7 @@ public class TimelinePanel extends VBox {
             gc.fillText("  └ " + prop.getDisplayName(), 12, y + 15);
 
             drawTrackGridLines(gc, y, width);
-            drawKeyframes(gc, track, prop, y, width);
+            drawKeyframes(gc, selectionName, track, prop, y, width);
             y += TRACK_HEIGHT;
         }
         return y;
@@ -557,7 +594,8 @@ public class TimelinePanel extends VBox {
         }
     }
 
-    private void drawKeyframes(GraphicsContext gc, EntityTrack track, PropertyType prop, double y, double width) {
+    private void drawKeyframes(GraphicsContext gc, String selectionName, EntityTrack track, PropertyType prop, double y, double width) {
+        if (track == null || prop == null) return;
         List<Keyframe> keyframes = track.getKeyframes(prop);
         double cy = y + TRACK_HEIGHT / 2;
 
@@ -565,7 +603,13 @@ public class TimelinePanel extends VBox {
             double x = LABEL_WIDTH + kf.getTimeMs() * pixelsPerMs - scrollX;
             if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
 
-            boolean isSelected = kf == selectedKeyframe || isSelected(track.getEntityName(), prop, kf);
+            String effectiveSelectionName = selectionName != null ? selectionName : track.getEntityName();
+            String storageName = track.getEntityName();
+            boolean isSelected = kf == selectedKeyframe
+                || isSelected(storageName, prop, kf)
+                || (effectiveSelectionName != null
+                    && !effectiveSelectionName.equals(storageName)
+                    && isSelected(effectiveSelectionName, prop, kf));
             gc.setFill(isSelected ? KEYFRAME_SELECTED_COLOR : trackColorFor(prop));
 
             // Diamond shape
@@ -704,12 +748,12 @@ public class TimelinePanel extends VBox {
 
         KeyframeHit hit = findKeyframeAt(x, y);
         if (hit != null) {
-            selectedEntity = hit.row().entityName();
+            selectedEntity = hit.row().selectionName();
             selectedGroup = hit.row().group();
             selectedProperty = hit.row().property();
 
             KeyframeSelectionModel.KeyframeRef ref =
-                KeyframeSelectionModel.ref(hit.row().entityName(), hit.row().property(), hit.keyframe());
+                KeyframeSelectionModel.ref(storageNameForRow(hit.row()), hit.row().property(), hit.keyframe());
             if (e.isShiftDown()) {
                 selectionModel.toggleSelect(ref);
                 selectedKeyframe = selectionModel.getSelectedOrdered().stream()
@@ -870,6 +914,7 @@ public class TimelinePanel extends VBox {
     private KeyframeHit findKeyframeAt(double mx, double my) {
         for (TrackRow row : buildVisibleRows()) {
             if (row.property() == null) continue;
+            if (row.track() == null) continue;
             if (my < row.y() || my > row.y() + row.height()) continue;
             double cy = row.y() + row.height() / 2;
             for (Keyframe keyframe : row.track().getKeyframes(row.property())) {
@@ -886,7 +931,7 @@ public class TimelinePanel extends VBox {
     private void selectTrackAt(double my) {
         for (TrackRow row : buildVisibleRows()) {
             if (my < row.y() || my >= row.y() + row.height()) continue;
-            selectedEntity = row.entityName();
+            selectedEntity = row.selectionName();
             selectedGroup = row.group();
             selectedProperty = resolveSelectionProperty(row);
             notifyTargetSelectionChanged();
@@ -902,7 +947,7 @@ public class TimelinePanel extends VBox {
                 dragStartTimes.put(ref, ref.keyframe().getTimeMs());
             }
         } else if (selectedKeyframe != null) {
-            dragStartTimes.put(KeyframeSelectionModel.ref(selectedEntity, selectedProperty, selectedKeyframe),
+            dragStartTimes.put(KeyframeSelectionModel.ref(currentStorageSelectionName(), selectedProperty, selectedKeyframe),
                 selectedKeyframe.getTimeMs());
         }
     }
@@ -960,25 +1005,38 @@ public class TimelinePanel extends VBox {
         double y = HEADER_HEIGHT - scrollY;
         EntityTrack groupTrack = selectedGroupTrack();
 
+        if (shouldShowRuntimeCameraBlock()) {
+            EntityTrack runtimeCameraTrack = resolveRuntimeCameraTrack(false);
+            rows.add(new TrackRow(runtimeCameraTrack, RUNTIME_CAMERA_TARGET, RUNTIME_CAMERA_LABEL, false, true, null, y, TRACK_HEIGHT));
+            y += TRACK_HEIGHT;
+            for (PropertyType prop : CAMERA_PROPERTIES) {
+                boolean showTrack = shouldShowPropertyTrack(runtimeCameraTrack, isRuntimeCameraSelected(), false, true, prop);
+                if (!showTrack) continue;
+                rows.add(new TrackRow(runtimeCameraTrack, RUNTIME_CAMERA_TARGET, prop.getDisplayName(), false, true, prop, y, TRACK_HEIGHT));
+                y += TRACK_HEIGHT;
+            }
+        }
+
         if (selectedGroup && groupTrack != null && selectedEntity != null) {
-            rows.add(new TrackRow(groupTrack, selectedEntity, true, null, y, TRACK_HEIGHT));
+            rows.add(new TrackRow(groupTrack, selectedEntity, "[Group] " + selectedEntity, true, false, null, y, TRACK_HEIGHT));
             y += TRACK_HEIGHT;
             for (PropertyType prop : GROUP_PROPERTIES) {
-                boolean showTrack = shouldShowPropertyTrack(groupTrack, true, true, prop);
+                boolean showTrack = shouldShowPropertyTrack(groupTrack, true, true, false, prop);
                 if (!showTrack) continue;
-                rows.add(new TrackRow(groupTrack, selectedEntity, true, prop, y, TRACK_HEIGHT));
+                rows.add(new TrackRow(groupTrack, selectedEntity, prop.getDisplayName(), true, false, prop, y, TRACK_HEIGHT));
                 y += TRACK_HEIGHT;
             }
         }
 
         for (EntityTrack track : project.getTracks()) {
-            rows.add(new TrackRow(track, track.getEntityName(), false, null, y, TRACK_HEIGHT));
+            if (track == null || isRuntimeCameraCarrier(track)) continue;
+            rows.add(new TrackRow(track, track.getEntityName(), track.getEntityName(), false, false, null, y, TRACK_HEIGHT));
             y += TRACK_HEIGHT;
             boolean isSelected = !selectedGroup && track.getEntityName().equals(selectedEntity);
             for (PropertyType prop : PropertyType.values()) {
-                boolean showTrack = shouldShowPropertyTrack(track, isSelected, false, prop);
+                boolean showTrack = shouldShowPropertyTrack(track, isSelected, false, false, prop);
                 if (!showTrack) continue;
-                rows.add(new TrackRow(track, track.getEntityName(), false, prop, y, TRACK_HEIGHT));
+                rows.add(new TrackRow(track, track.getEntityName(), prop.getDisplayName(), false, false, prop, y, TRACK_HEIGHT));
                 y += TRACK_HEIGHT;
             }
         }
@@ -988,13 +1046,13 @@ public class TimelinePanel extends VBox {
     private void selectPrimaryKeyframe(TrackRow row, Keyframe keyframe) {
         selectionModel.clearSelection();
         KeyframeSelectionModel.KeyframeRef primary =
-            KeyframeSelectionModel.ref(row.entityName(), row.property(), keyframe);
+            KeyframeSelectionModel.ref(storageNameForRow(row), row.property(), keyframe);
         selectionModel.select(primary);
         PropertyType paired = pairedProperty(row.property());
         if (paired != null) {
-            Keyframe linked = row.track().findKeyframeAt(paired, keyframe.getTimeMs());
+            Keyframe linked = row.track() != null ? row.track().findKeyframeAt(paired, keyframe.getTimeMs()) : null;
             if (linked != null) {
-                selectionModel.select(KeyframeSelectionModel.ref(row.entityName(), paired, linked));
+                selectionModel.select(KeyframeSelectionModel.ref(storageNameForRow(row), paired, linked));
             }
         }
         selectedKeyframe = keyframe;
@@ -1010,13 +1068,14 @@ public class TimelinePanel extends VBox {
         List<KeyframeSelectionModel.KeyframeRef> hits = new ArrayList<>();
         for (TrackRow row : buildVisibleRows()) {
             if (row.property() == null) continue;
+            if (row.track() == null) continue;
             if (row.y() + row.height() < y1 || row.y() > y2) continue;
             double cy = row.y() + row.height() / 2;
             if (cy < y1 || cy > y2) continue;
             for (Keyframe keyframe : row.track().getKeyframes(row.property())) {
                 double kx = LABEL_WIDTH + keyframe.getTimeMs() * pixelsPerMs - scrollX;
                 if (kx >= x1 && kx <= x2) {
-                    hits.add(KeyframeSelectionModel.ref(row.entityName(), row.property(), keyframe));
+                    hits.add(KeyframeSelectionModel.ref(storageNameForRow(row), row.property(), keyframe));
                 }
             }
         }
@@ -1040,6 +1099,9 @@ public class TimelinePanel extends VBox {
 
     private EntityTrack selectedTrack(boolean createForEntity) {
         if (selectedEntity == null || selectedEntity.isBlank()) return null;
+        if (isRuntimeCameraTarget(selectedEntity)) {
+            return resolveRuntimeCameraTrack(createForEntity);
+        }
         if (selectedGroup) {
             EntityGroup group = project.getGroup(selectedEntity);
             return group != null ? group.getGroupTrack() : null;
@@ -1060,6 +1122,8 @@ public class TimelinePanel extends VBox {
     private static PropertyType pairedProperty(PropertyType property) {
         if (property == PropertyType.X) return PropertyType.Y;
         if (property == PropertyType.Y) return PropertyType.X;
+        if (property == PropertyType.CAMERA_X) return PropertyType.CAMERA_Y;
+        if (property == PropertyType.CAMERA_Y) return PropertyType.CAMERA_X;
         if (property == PropertyType.SCALE_X) return PropertyType.SCALE_Y;
         if (property == PropertyType.SCALE_Y) return PropertyType.SCALE_X;
         return null;
@@ -1068,6 +1132,11 @@ public class TimelinePanel extends VBox {
     private PropertyType resolveSelectionProperty(TrackRow row) {
         if (row == null) return defaultPropertyForSelection();
         if (row.property() != null) return row.property();
+        if (row.runtimeCamera()) {
+            return selectedProperty != null && selectedProperty.isCameraProperty()
+                ? selectedProperty
+                : PropertyType.CAMERA_X;
+        }
         if (row.group()) {
             return selectedProperty != null && isGroupProperty(selectedProperty)
                 ? selectedProperty
@@ -1085,10 +1154,17 @@ public class TimelinePanel extends VBox {
         return PropertyType.X;
     }
 
-    private boolean shouldShowPropertyTrack(EntityTrack track, boolean isSelected, boolean groupTrack, PropertyType property) {
-        if (track == null || property == null) return false;
+    private boolean shouldShowPropertyTrack(EntityTrack track, boolean isSelected, boolean groupTrack, boolean runtimeCameraTrack, PropertyType property) {
+        if (property == null) return false;
+        if (runtimeCameraTrack) {
+            return property.isCameraProperty() && ((track != null && track.hasKeyframes(property)) || isSelected);
+        }
+        if (track == null) return false;
         if (groupTrack) {
             return isGroupProperty(property) && (track.hasKeyframes(property) || isSelected);
+        }
+        if (property.isCameraProperty()) {
+            return false;
         }
         if (track.hasKeyframes(property)) {
             return true;
@@ -1103,17 +1179,64 @@ public class TimelinePanel extends VBox {
     }
 
     private PropertyType defaultPropertyForSelection() {
+        if (isRuntimeCameraSelected()) return PropertyType.CAMERA_X;
         return PropertyType.X;
     }
 
     private boolean isPropertySupportedForSelection(PropertyType property) {
         if (property == null) return true;
+        if (isRuntimeCameraSelected()) return property.isCameraProperty();
         return !selectedGroup || isGroupProperty(property);
     }
 
     private PropertyType[] editablePropertiesForSelection() {
+        if (isRuntimeCameraSelected()) return CAMERA_PROPERTIES.clone();
         if (!selectedGroup) return PropertyType.values();
         return GROUP_PROPERTIES.clone();
+    }
+
+    private boolean shouldShowRuntimeCameraBlock() {
+        return isRuntimeCameraSelected() || resolveRuntimeCameraTrack(false) != null;
+    }
+
+    private EntityTrack resolveRuntimeCameraTrack(boolean createIfMissing) {
+        EntityTrack dedicated = project.getTrack(RUNTIME_CAMERA_TARGET);
+        if (dedicated != null) return dedicated;
+        for (EntityTrack track : project.getTracks()) {
+            if (track == null) continue;
+            if (track.hasKeyframes(PropertyType.CAMERA_X)
+                || track.hasKeyframes(PropertyType.CAMERA_Y)
+                || track.hasKeyframes(PropertyType.CAMERA_ZOOM)) {
+                return track;
+            }
+        }
+        return createIfMissing ? project.getOrCreateTrack(RUNTIME_CAMERA_TARGET) : null;
+    }
+
+    private boolean isRuntimeCameraCarrier(EntityTrack track) {
+        if (track == null) return false;
+        EntityTrack runtimeTrack = resolveRuntimeCameraTrack(false);
+        return runtimeTrack != null && runtimeTrack == track;
+    }
+
+    private String currentStorageSelectionName() {
+        EntityTrack track = selectedTrack(false);
+        if (track != null && track.getEntityName() != null && !track.getEntityName().isBlank()) {
+            return track.getEntityName();
+        }
+        return selectedEntity;
+    }
+
+    private static String storageNameForRow(TrackRow row) {
+        if (row == null) return null;
+        if (row.track() != null && row.track().getEntityName() != null && !row.track().getEntityName().isBlank()) {
+            return row.track().getEntityName();
+        }
+        return row.selectionName();
+    }
+
+    static boolean isRuntimeCameraTarget(String name) {
+        return RUNTIME_CAMERA_TARGET.equals(name);
     }
 
     private double snapTime(double timeMs) {

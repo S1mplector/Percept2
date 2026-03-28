@@ -238,7 +238,10 @@ public class PuppeteerWindow extends Stage {
 
         timelinePanel.setOnTargetSelectionChanged((name, isGroup) -> {
             keyframeEditor.setEntityName(selectionLabel(name, isGroup));
-            if (isGroup) {
+            if (timelinePanel.isRuntimeCameraSelected()) {
+                entitySelector.selectEntity(null);
+                animationPreview.clearSelection();
+            } else if (isGroup) {
                 entitySelector.selectGroup(name);
                 animationPreview.clearSelection();
             } else {
@@ -1570,6 +1573,8 @@ public class PuppeteerWindow extends Stage {
             lblSidebarSelectionScope.setText(
                 selectionCount > 1
                     ? "Multi-keyframe selection"
+                    : timelinePanel != null && timelinePanel.isRuntimeCameraSelected()
+                        ? "Runtime camera track"
                     : selectedGroup
                         ? "Group track"
                         : hasTarget
@@ -2026,9 +2031,14 @@ public class PuppeteerWindow extends Stage {
 
     private void refreshPropertyPickerChoices() {
         if (cbProperty == null || timelinePanel == null) return;
-        List<PropertyType> allowed = timelinePanel.isSelectedGroup()
-            ? GROUP_PROPERTY_CHOICES
-            : List.of(PropertyType.values());
+        List<PropertyType> allowed;
+        if (timelinePanel.isRuntimeCameraSelected()) {
+            allowed = List.of(PropertyType.CAMERA_X, PropertyType.CAMERA_Y, PropertyType.CAMERA_ZOOM);
+        } else if (timelinePanel.isSelectedGroup()) {
+            allowed = GROUP_PROPERTY_CHOICES;
+        } else {
+            allowed = List.of(PropertyType.values());
+        }
         if (!cbProperty.getItems().equals(allowed)) {
             cbProperty.getItems().setAll(allowed);
         }
@@ -3467,6 +3477,7 @@ public class PuppeteerWindow extends Stage {
 
     private String selectionLabel(String name, boolean group) {
         if (name == null || name.isBlank()) return "-";
+        if (TimelinePanel.isRuntimeCameraTarget(name)) return "Runtime Camera / Frame";
         return group ? name + " [Group]" : name;
     }
 
@@ -3487,11 +3498,28 @@ public class PuppeteerWindow extends Stage {
     private EntityTrack selectedTrackForEditing(boolean createEntityTrack) {
         String name = timelinePanel.getSelectedEntity();
         if (name == null || name.isBlank()) return null;
+        if (TimelinePanel.isRuntimeCameraTarget(name)) {
+            return resolveRuntimeCameraTrack(createEntityTrack);
+        }
         if (timelinePanel.isSelectedGroup()) {
             EntityGroup group = project.getGroup(name);
             return group != null ? group.getGroupTrack() : null;
         }
         return createEntityTrack ? project.getOrCreateTrack(name) : project.getTrack(name);
+    }
+
+    private EntityTrack resolveRuntimeCameraTrack(boolean createIfMissing) {
+        EntityTrack dedicated = project.getTrack(TimelinePanel.RUNTIME_CAMERA_TARGET);
+        if (dedicated != null) return dedicated;
+        for (EntityTrack track : project.getTracks()) {
+            if (track == null) continue;
+            if (track.hasKeyframes(PropertyType.CAMERA_X)
+                || track.hasKeyframes(PropertyType.CAMERA_Y)
+                || track.hasKeyframes(PropertyType.CAMERA_ZOOM)) {
+                return track;
+            }
+        }
+        return createIfMissing ? project.getOrCreateTrack(TimelinePanel.RUNTIME_CAMERA_TARGET) : null;
     }
 
     @Override
