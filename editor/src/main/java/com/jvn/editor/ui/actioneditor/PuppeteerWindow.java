@@ -917,7 +917,7 @@ public class PuppeteerWindow extends Stage {
         leftTabsScrollPane.setMaxWidth(Double.MAX_VALUE);
         leftTabsScrollPane.setFitToWidth(true);
         leftTabsScrollPane.setFitToHeight(true);
-        leftTabsScrollPane.setPannable(true);
+        leftTabsScrollPane.setPannable(false);
         leftTabsScrollPane.setMinHeight(0);
         leftTabsScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         leftTabsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
@@ -1492,7 +1492,7 @@ public class PuppeteerWindow extends Stage {
         ScrollPane scrollPane = new ScrollPane(body);
         scrollPane.setFitToWidth(true);
         scrollPane.setFitToHeight(false);
-        scrollPane.setPannable(true);
+        scrollPane.setPannable(false);
         scrollPane.setMinWidth(0);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         return scrollPane;

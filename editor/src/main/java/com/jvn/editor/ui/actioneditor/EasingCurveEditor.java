@@ -122,10 +122,14 @@ public class EasingCurveEditor extends Pane {
         canvas.setOnMouseDragged(this::handleMouseDragged);
         canvas.setOnKeyPressed(this::handleKeyPressed);
         canvas.setOnMouseReleased(e -> {
+            boolean wasDraggingHandle = draggingHandle != 0;
             draggingHandle = 0;
             hoveredHandle = resolveHandleAt(e.getX(), e.getY());
             updateCursor(isInsidePlot(e.getX(), e.getY()));
             draw();
+            if (wasDraggingHandle) {
+                e.consume();
+            }
         });
         canvas.setOnMouseMoved(e -> {
             hoveredHandle = resolveHandleAt(e.getX(), e.getY());
@@ -328,25 +332,27 @@ public class EasingCurveEditor extends Pane {
 
     private void handleMousePressed(MouseEvent event) {
         canvas.requestFocus();
-        hoverProgress = isInsidePlot(event.getX(), event.getY())
+        boolean insidePlot = isInsidePlot(event.getX(), event.getY());
+        hoverProgress = insidePlot
             ? clamp01((event.getX() - getPlotBounds()[0]) / getPlotBounds()[2])
             : Double.NaN;
         if (!isInteractiveCustomCurve()) {
-            updateCursor(isInsidePlot(event.getX(), event.getY()));
+            updateCursor(insidePlot);
             draw();
             return;
         }
 
         draggingHandle = resolveHandleAt(event.getX(), event.getY());
-        if (draggingHandle == 0 && isInsidePlot(event.getX(), event.getY())) {
+        if (draggingHandle == 0 && insidePlot) {
             draggingHandle = resolvePreferredHandle(event.getX(), event.getY());
             updateHandleFromMouse(event.getX(), event.getY(), event.isShiftDown());
         }
         if (draggingHandle != 0) {
             selectedHandle = draggingHandle;
+            event.consume();
         }
         hoveredHandle = draggingHandle;
-        updateCursor(isInsidePlot(event.getX(), event.getY()));
+        updateCursor(insidePlot);
         draw();
     }
 
@@ -355,6 +361,7 @@ public class EasingCurveEditor extends Pane {
         hoverProgress = clamp01((event.getX() - getPlotBounds()[0]) / getPlotBounds()[2]);
         updateHandleFromMouse(event.getX(), event.getY(), event.isShiftDown());
         updateCursor(true);
+        event.consume();
     }
 
     private void handleKeyPressed(KeyEvent event) {

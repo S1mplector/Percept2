@@ -448,7 +448,8 @@ public class KeyframeEditor extends VBox {
         editorScrollPane.setMaxWidth(Double.MAX_VALUE);
         editorScrollPane.setFitToWidth(true);
         editorScrollPane.setFitToHeight(false);
-        editorScrollPane.setPannable(true);
+        // This pane hosts sliders and curve-handle drags, so mouse-drag panning fights the controls.
+        editorScrollPane.setPannable(false);
         editorScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         editorScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         editorScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
