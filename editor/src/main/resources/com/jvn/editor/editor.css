@@ -1193,6 +1193,51 @@
   -fx-border-color: #5b769b;
 }
 
+.image-tool-workspace {
+  -fx-background-color: transparent;
+}
+
+.image-tool-workspace > .split-pane-divider {
+  -fx-background-color: #262a31;
+  -fx-padding: 0 2 0 2;
+}
+
+.image-tool-sidebar-scroll {
+  -fx-background: #1a1a1a;
+  -fx-background-color: #1a1a1a;
+  -fx-border-color: #333333;
+  -fx-border-width: 0 0 0 1;
+}
+
+.image-tool-sidebar-scroll > .viewport {
+  -fx-background-color: #1a1a1a;
+}
+
+.image-tool-preview-host {
+  -fx-background-color: transparent;
+}
+
+.image-tool-sidebar-toggle {
+  -fx-background-color: rgba(18, 21, 27, 0.92);
+  -fx-border-color: #4a5262;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+  -fx-padding: 4;
+}
+
+.image-tool-sidebar-toggle:hover {
+  -fx-background-color: rgba(33, 39, 49, 0.96);
+  -fx-border-color: #6a7791;
+}
+
+.image-tool-sidebar-toggle:pressed {
+  -fx-background-color: rgba(44, 53, 66, 0.98);
+}
+
+.image-tool-sidebar-overlay-toggle {
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 10, 0.25, 0, 2);
+}
+
 .puppeteer-toolbar-shell {
   -fx-background-color: #0a0a0a;
   -fx-border-color: #2a2a2a;

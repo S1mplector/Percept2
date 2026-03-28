@@ -22,6 +22,10 @@ public final class CssIcon {
       "M4 15l8-8 8 8z";
   private static final String PATH_ARROW_DOWN =
       "M4 9l8 8 8-8z";
+  private static final String PATH_ARROW_LEFT =
+      "M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z";
+  private static final String PATH_ARROW_RIGHT =
+      "M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z";
   private static final String PATH_SORT =
       "M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z";
   private static final String PATH_FOLDER =
@@ -81,6 +85,8 @@ public final class CssIcon {
   public static Region minus(String color)    { return icon(PATH_MINUS, color, 14); }
   public static Region arrowUp(String color)  { return icon(PATH_ARROW_UP, color, 12); }
   public static Region arrowDown(String color){ return icon(PATH_ARROW_DOWN, color, 12); }
+  public static Region arrowLeft(String color){ return icon(PATH_ARROW_LEFT, color, 12); }
+  public static Region arrowRight(String color){ return icon(PATH_ARROW_RIGHT, color, 12); }
   public static Region sort(String color)     { return icon(PATH_SORT, color, 14); }
   public static Region folder(String color)   { return icon(PATH_FOLDER, color, 14); }
   public static Region clearX(String color)   { return icon(PATH_CLEAR_X, color, 13); }
@@ -113,6 +119,8 @@ public final class CssIcon {
   public static Region minus()    { return minus("#b0b8c8"); }
   public static Region arrowUp()  { return arrowUp("#b0b8c8"); }
   public static Region arrowDown(){ return arrowDown("#b0b8c8"); }
+  public static Region arrowLeft(){ return arrowLeft("#b0b8c8"); }
+  public static Region arrowRight(){ return arrowRight("#b0b8c8"); }
   public static Region sort()     { return sort("#b0b8c8"); }
   public static Region folder()   { return folder("#b0b8c8"); }
   public static Region clearX()   { return clearX("#b0b8c8"); }

@@ -45,6 +45,7 @@ import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
@@ -94,6 +95,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private static final String LEGACY_ZONE_PREFIX = "zone.";
   private static final String ZONE_PROFILE_PREFIX = "zone.profile.";
   private static final String GLOBAL_ZONE_PROFILE_KEY = "_global_";
+  private static final double DEFAULT_SIDEBAR_DIVIDER = 0.66;
 
   private final Label summaryLabel = new Label("Open a project to scan image tags.");
   private final Label statusLabel = new Label("");
@@ -132,6 +134,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Canvas previewCanvas = new Canvas(320, 240);
   private final LoadingProgressOverlay previewLoadingOverlay = new LoadingProgressOverlay();
   private final VBox controlsSection = new VBox(8);
+  private final SplitPane workspaceSplit = new SplitPane();
   private TitledPane controlsPane;
 
   private final Map<String, File> imageByTag = new LinkedHashMap<>();
@@ -146,6 +149,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private Runnable fullscreenToggleHandler;
   private boolean fullscreenActive;
   private Button fullscreenButton;
+  private Button sidebarHideButton;
+  private Button sidebarShowButton;
   private Button refreshCatalogButton;
   private boolean applyingState;
   private boolean stateSavePending;
@@ -165,6 +170,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private double zoom = 1.0;
   private double offsetX;
   private double offsetY;
+  private double sidebarDividerPosition = DEFAULT_SIDEBAR_DIVIDER;
+  private boolean sidebarCollapsed;
+  private StackPane previewHost;
+  private ScrollPane sidebarScroll;
 
   private String tintedImageTag;
   private String tintedImageKey;
@@ -436,9 +445,16 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     // ── Zone area selector section ──
     buildZoneSection();
 
+    sidebarHideButton = iconButton(CssIcon.arrowRight("#d0d0d0"), "Hide controls sidebar", () -> setSidebarCollapsed(true, true));
+    sidebarHideButton.getStyleClass().add("image-tool-sidebar-toggle");
+    Region sidebarHeaderSpacer = new Region();
+    HBox.setHgrow(sidebarHeaderSpacer, Priority.ALWAYS);
+    HBox sidebarHeader = new HBox(8, title, sidebarHeaderSpacer, sidebarHideButton);
+    sidebarHeader.setAlignment(Pos.CENTER_LEFT);
+
     // ── Right sidebar ──
     VBox sidebar = new VBox(6,
-        title, summaryLabel,
+        sidebarHeader, summaryLabel,
         tagsPane,
         actionRow, exportRow, filePane,
         controlsPane,
@@ -449,16 +465,33 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     sidebar.setPadding(new Insets(6));
     sidebar.setStyle("-fx-font-size: 11px;");
 
-    ScrollPane sidebarScroll = new ScrollPane(sidebar);
+    sidebarScroll = new ScrollPane(sidebar);
     sidebarScroll.setFitToWidth(true);
     sidebarScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
     sidebarScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-    sidebarScroll.setStyle("-fx-background: #1a1a1a; -fx-background-color: #1a1a1a; -fx-border-color: #333333; -fx-border-width: 0 0 0 1;");
+    sidebarScroll.getStyleClass().add("image-tool-sidebar-scroll");
     sidebarScroll.setPrefWidth(280);
-    sidebarScroll.setMinWidth(230);
+    sidebarScroll.setMinWidth(0);
 
-    setCenter(previewPane);
-    setRight(sidebarScroll);
+    sidebarShowButton = iconButton(CssIcon.arrowLeft("#d0d0d0"), "Show controls sidebar", () -> setSidebarCollapsed(false, true));
+    sidebarShowButton.getStyleClass().addAll("image-tool-sidebar-toggle", "image-tool-sidebar-overlay-toggle");
+    sidebarShowButton.setManaged(false);
+    sidebarShowButton.setVisible(false);
+
+    previewHost = new StackPane(previewPane, sidebarShowButton);
+    previewHost.getStyleClass().add("image-tool-preview-host");
+    previewHost.setAlignment(Pos.TOP_RIGHT);
+    previewHost.setMinWidth(0);
+    StackPane.setAlignment(sidebarShowButton, Pos.TOP_RIGHT);
+    StackPane.setMargin(sidebarShowButton, new Insets(10));
+
+    workspaceSplit.getItems().setAll(previewHost, sidebarScroll);
+    workspaceSplit.getStyleClass().add("image-tool-workspace");
+    workspaceSplit.setDividerPositions(DEFAULT_SIDEBAR_DIVIDER);
+    SplitPane.setResizableWithParent(previewHost, true);
+    SplitPane.setResizableWithParent(sidebarScroll, true);
+
+    setCenter(workspaceSplit);
 
     bindTagSelectionHandlers();
     updateExportControls();
@@ -848,6 +881,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       zoom = clamp(parseDouble(persisted.getProperty("global.zoom"), 1.0), 0.1, 8.0);
       offsetX = parseDouble(persisted.getProperty("global.offsetX"), 0.0);
       offsetY = parseDouble(persisted.getProperty("global.offsetY"), 0.0);
+      sidebarDividerPosition = clampSidebarDivider(
+          parseDouble(persisted.getProperty("global.sidebarDivider"), DEFAULT_SIDEBAR_DIVIDER),
+          DEFAULT_SIDEBAR_DIVIDER);
+      sidebarCollapsed = parseBoolean(persisted.getProperty("global.sidebarCollapsed"), false);
 
       if (zonesPane != null) {
         boolean hideZones = parseBoolean(persisted.getProperty("global.hideZones"), true);
@@ -856,10 +893,55 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     } finally {
       applyingState = false;
     }
+    setSidebarCollapsed(sidebarCollapsed, false);
     updateExportControls();
     activeZoneProfileTag = normalize(selectedCharacterTag());
     loadPersistedZones();
     applyBackgroundTintIfPresent(selectedBackgroundTag());
+  }
+
+  private void setSidebarCollapsed(boolean collapsed, boolean persist) {
+    if (workspaceSplit == null || previewHost == null || sidebarScroll == null) return;
+    if (collapsed) {
+      captureSidebarDividerPosition();
+      if (workspaceSplit.getItems().size() != 1 || workspaceSplit.getItems().get(0) != previewHost) {
+        workspaceSplit.getItems().setAll(previewHost);
+      }
+      sidebarCollapsed = true;
+    } else {
+      if (workspaceSplit.getItems().size() != 2 || workspaceSplit.getItems().get(1) != sidebarScroll) {
+        workspaceSplit.getItems().setAll(previewHost, sidebarScroll);
+      }
+      sidebarCollapsed = false;
+      double divider = clampSidebarDivider(sidebarDividerPosition, DEFAULT_SIDEBAR_DIVIDER);
+      Platform.runLater(() -> workspaceSplit.setDividerPositions(divider));
+    }
+    updateSidebarToggleButtons();
+    if (persist && !applyingState) {
+      persistGlobalState();
+    }
+  }
+
+  private void updateSidebarToggleButtons() {
+    boolean collapsed = sidebarCollapsed;
+    if (sidebarHideButton != null) {
+      sidebarHideButton.setManaged(!collapsed);
+      sidebarHideButton.setVisible(!collapsed);
+    }
+    if (sidebarShowButton != null) {
+      sidebarShowButton.setManaged(collapsed);
+      sidebarShowButton.setVisible(collapsed);
+    }
+  }
+
+  private void captureSidebarDividerPosition() {
+    if (workspaceSplit == null || workspaceSplit.getItems().size() < 2 || workspaceSplit.getDividers().isEmpty()) return;
+    sidebarDividerPosition = clampSidebarDivider(workspaceSplit.getDividerPositions()[0], DEFAULT_SIDEBAR_DIVIDER);
+  }
+
+  private static double clampSidebarDivider(double value, double fallback) {
+    if (!Double.isFinite(value)) return fallback;
+    return Math.max(0.35, Math.min(0.90, value));
   }
 
   private void ensureDefaultSelections() {
@@ -2069,6 +2151,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void persistGlobalState() {
+    captureSidebarDividerPosition();
     persisted.setProperty("global.filter", normalize(filterField.getText()));
     persisted.setProperty("global.assetScope", normalize(assetScopeBox.getValue()));
     persisted.setProperty("global.characterTag", selectedCharacterTag());
@@ -2097,6 +2180,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persisted.setProperty("global.zoom", formatDouble(zoom));
     persisted.setProperty("global.offsetX", formatDouble(offsetX));
     persisted.setProperty("global.offsetY", formatDouble(offsetY));
+    persisted.setProperty("global.sidebarCollapsed", Boolean.toString(sidebarCollapsed));
+    persisted.setProperty("global.sidebarDivider", formatDouble(sidebarDividerPosition));
     boolean hideControls = controlsPane != null && !controlsPane.isExpanded();
     persisted.setProperty("global.hideControls", Boolean.toString(hideControls));
     boolean hideBackgroundFx = backgroundPane != null && !backgroundPane.isExpanded();

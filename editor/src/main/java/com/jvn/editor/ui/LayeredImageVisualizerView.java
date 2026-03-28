@@ -53,6 +53,7 @@ import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
@@ -110,6 +111,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private static final String DEFAULT_TOOL_TITLE = "Layered Image Visualizer";
   private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
+  private static final double DEFAULT_SIDEBAR_DIVIDER = 0.67;
   private static final Map<String, String> GROUP_TOKEN_ALIASES = Map.ofEntries(
       Map.entry("eye", "eyes"),
       Map.entry("eyes", "eyes"),
@@ -182,6 +184,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private final Label galleryStatusLabel = new Label("");
 
   private final Canvas previewCanvas = new Canvas(320, 250);
+  private final SplitPane workspaceSplit = new SplitPane();
   private final Slider focusXSlider = slider(0, 100, 50);
   private final Slider focusYSlider = slider(0, 100, 50);
   private final Slider cropSlider = slider(20, 100, 100);
@@ -224,12 +227,18 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private boolean stateSavePending;
   private Task<LayeredCatalogScanResult> scanTask;
   private Button refreshCatalogButton;
+  private Button sidebarHideButton;
+  private Button sidebarShowButton;
   private double gameCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
   private double gameCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
   private boolean disposed;
   private SearchableComboPopup<String> setBoxSearchPopup;
   private SearchableComboPopup<String> presetBoxSearchPopup;
   private SearchableComboPopup<String> shortformBoxSearchPopup;
+  private double sidebarDividerPosition = DEFAULT_SIDEBAR_DIVIDER;
+  private boolean sidebarCollapsed;
+  private StackPane previewHost;
+  private ScrollPane sidebarScroll;
 
   public LayeredImageVisualizerView() {
     this(DEFAULT_TOOL_TITLE, DEFAULT_STATE_FILE, false);
@@ -597,9 +606,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     galleryTitledPane.setAnimated(false);
     galleryTitledPane.setCollapsible(true);
 
+    sidebarHideButton = iconButton(CssIcon.arrowRight("#d0d0d0"), "Hide controls sidebar", () -> setSidebarCollapsed(true, true));
+    sidebarHideButton.getStyleClass().add("image-tool-sidebar-toggle");
+    Region sidebarHeaderSpacer = new Region();
+    HBox.setHgrow(sidebarHeaderSpacer, Priority.ALWAYS);
+    HBox sidebarHeader = new HBox(8, title, sidebarHeaderSpacer, sidebarHideButton);
+    sidebarHeader.setAlignment(Pos.CENTER_LEFT);
+
     // ── Right sidebar ──
     VBox sidebar = new VBox(6,
-        title, summaryLabel,
+        sidebarHeader, summaryLabel,
         setPane,
         actionsPane,
         viewControlsPane,
@@ -611,16 +627,33 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     sidebar.setPadding(new Insets(6));
     sidebar.setStyle("-fx-font-size: 11px;");
 
-    ScrollPane sidebarScroll = new ScrollPane(sidebar);
+    sidebarScroll = new ScrollPane(sidebar);
     sidebarScroll.setFitToWidth(true);
     sidebarScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
     sidebarScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-    sidebarScroll.setStyle("-fx-background: #1a1a1a; -fx-background-color: #1a1a1a; -fx-border-color: #333333; -fx-border-width: 0 0 0 1;");
+    sidebarScroll.getStyleClass().add("image-tool-sidebar-scroll");
     sidebarScroll.setPrefWidth(320);
-    sidebarScroll.setMinWidth(260);
+    sidebarScroll.setMinWidth(0);
 
-    setCenter(previewPane);
-    setRight(sidebarScroll);
+    sidebarShowButton = iconButton(CssIcon.arrowLeft("#d0d0d0"), "Show controls sidebar", () -> setSidebarCollapsed(false, true));
+    sidebarShowButton.getStyleClass().addAll("image-tool-sidebar-toggle", "image-tool-sidebar-overlay-toggle");
+    sidebarShowButton.setManaged(false);
+    sidebarShowButton.setVisible(false);
+
+    previewHost = new StackPane(previewPane, sidebarShowButton);
+    previewHost.getStyleClass().add("image-tool-preview-host");
+    previewHost.setAlignment(Pos.TOP_RIGHT);
+    previewHost.setMinWidth(0);
+    StackPane.setAlignment(sidebarShowButton, Pos.TOP_RIGHT);
+    StackPane.setMargin(sidebarShowButton, new Insets(10));
+
+    workspaceSplit.getItems().setAll(previewHost, sidebarScroll);
+    workspaceSplit.getStyleClass().add("image-tool-workspace");
+    workspaceSplit.setDividerPositions(DEFAULT_SIDEBAR_DIVIDER);
+    SplitPane.setResizableWithParent(previewHost, true);
+    SplitPane.setResizableWithParent(sidebarScroll, true);
+
+    setCenter(workspaceSplit);
     updateViewportControlState();
     refreshShortforms();
     updateExportControls();
@@ -715,7 +748,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     applyingState = true;
     filterField.setText(persisted.getProperty("global.filter", ""));
     characterAssetsOnlyScan.setSelected(parseBoolean(persisted.getProperty("global.charactersOnly"), true));
+    sidebarDividerPosition = clampSidebarDivider(
+        parseDouble(persisted.getProperty("global.sidebarDivider"), DEFAULT_SIDEBAR_DIVIDER),
+        DEFAULT_SIDEBAR_DIVIDER);
+    sidebarCollapsed = parseBoolean(persisted.getProperty("global.sidebarCollapsed"), false);
     applyingState = false;
+    setSidebarCollapsed(sidebarCollapsed, false);
     final boolean charactersOnlyMode = characterAssetsOnlyScan.isSelected();
 
     if (scanTask != null && scanTask.isRunning()) {
@@ -868,6 +906,50 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       presetBox.getItems().clear();
       redrawPreview();
     }
+  }
+
+  private void setSidebarCollapsed(boolean collapsed, boolean persist) {
+    if (workspaceSplit == null || previewHost == null || sidebarScroll == null) return;
+    if (collapsed) {
+      captureSidebarDividerPosition();
+      if (workspaceSplit.getItems().size() != 1 || workspaceSplit.getItems().get(0) != previewHost) {
+        workspaceSplit.getItems().setAll(previewHost);
+      }
+      sidebarCollapsed = true;
+    } else {
+      if (workspaceSplit.getItems().size() != 2 || workspaceSplit.getItems().get(1) != sidebarScroll) {
+        workspaceSplit.getItems().setAll(previewHost, sidebarScroll);
+      }
+      sidebarCollapsed = false;
+      double divider = clampSidebarDivider(sidebarDividerPosition, DEFAULT_SIDEBAR_DIVIDER);
+      Platform.runLater(() -> workspaceSplit.setDividerPositions(divider));
+    }
+    updateSidebarToggleButtons();
+    if (persist && !applyingState) {
+      persistGlobalState();
+    }
+  }
+
+  private void updateSidebarToggleButtons() {
+    boolean collapsed = sidebarCollapsed;
+    if (sidebarHideButton != null) {
+      sidebarHideButton.setManaged(!collapsed);
+      sidebarHideButton.setVisible(!collapsed);
+    }
+    if (sidebarShowButton != null) {
+      sidebarShowButton.setManaged(collapsed);
+      sidebarShowButton.setVisible(collapsed);
+    }
+  }
+
+  private void captureSidebarDividerPosition() {
+    if (workspaceSplit == null || workspaceSplit.getItems().size() < 2 || workspaceSplit.getDividers().isEmpty()) return;
+    sidebarDividerPosition = clampSidebarDivider(workspaceSplit.getDividerPositions()[0], DEFAULT_SIDEBAR_DIVIDER);
+  }
+
+  private static double clampSidebarDivider(double value, double fallback) {
+    if (!Double.isFinite(value)) return fallback;
+    return Math.max(0.35, Math.min(0.90, value));
   }
 
   private void hideAllSearchablePopups() {
@@ -2850,12 +2932,15 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private void persistGlobalState() {
     if (projectRoot == null) return;
+    captureSidebarDividerPosition();
     persisted.setProperty("global.filter", filterField.getText() == null ? "" : filterField.getText().trim());
     persisted.setProperty("global.charactersOnly", Boolean.toString(characterAssetsOnlyScan.isSelected()));
     String selectedSet = setBox.getValue();
     if (selectedSet != null && !selectedSet.isBlank()) {
       persisted.setProperty("global.selectedSet", selectedSet);
     }
+    persisted.setProperty("global.sidebarCollapsed", Boolean.toString(sidebarCollapsed));
+    persisted.setProperty("global.sidebarDivider", formatDouble(sidebarDividerPosition));
     File configuredExportDirectory = configuredExportDirectory();
     if (configuredExportDirectory == null) {
       persisted.remove("global.exportDir");
