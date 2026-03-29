@@ -241,15 +241,15 @@ public class KeyframeEditor extends VBox {
         btnEditCurve = new Button("Make Editable");
         btnEditCurve.setTooltip(new Tooltip("Convert the current easing into an editable cubic bezier"));
         btnEditCurve.setStyle(SECONDARY_BUTTON_STYLE);
-        decorateCurveWorkspaceButton(btnEditCurve, CssIcon.freehand("#f5c46b"));
+        decorateCurveToolbarIconButton(btnEditCurve, CssIcon.freehand("#f5c46b"), "Make Editable");
         btnUpdateCurvePreset = new Button("Update Preset");
         btnUpdateCurvePreset.setTooltip(new Tooltip("Write the edited curve back into the selected preset"));
         btnUpdateCurvePreset.setStyle(SUCCESS_BUTTON_STYLE);
-        decorateCurveWorkspaceButton(btnUpdateCurvePreset, CssIcon.save("#9ed67a"));
+        decorateCurveToolbarIconButton(btnUpdateCurvePreset, CssIcon.save("#9ed67a"), "Update Preset");
         btnExpandCurveEditor = new Button("Expand");
         btnExpandCurveEditor.setTooltip(new Tooltip("Grow the curve editor inside the left panel"));
         btnExpandCurveEditor.setStyle(SECONDARY_BUTTON_STYLE);
-        decorateCurveWorkspaceButton(btnExpandCurveEditor, CssIcon.expand("#d8c48a"));
+        decorateCurveToolbarIconButton(btnExpandCurveEditor, CssIcon.expand("#d8c48a"), "Expand Curve Editor");
         btnResetCurve = new Button("Reset Curve");
         btnResetCurve.setTooltip(new Tooltip("Reset the editable curve back to the easing you started from"));
         btnResetCurve.setStyle(SECONDARY_BUTTON_STYLE);
@@ -652,19 +652,30 @@ public class KeyframeEditor extends VBox {
         button.setGraphicTextGap(6);
     }
 
+    private void decorateCurveToolbarIconButton(Button button, Node icon, String accessibleText) {
+        if (button == null) return;
+        button.setText(null);
+        button.setGraphic(icon);
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        button.setGraphicTextGap(0);
+        button.setMinSize(34, 32);
+        button.setPrefSize(34, 32);
+        button.setAccessibleText(accessibleText);
+    }
+
     private void updateCurvePreviewButtonState(boolean playing) {
-        btnPlayStopAnim.setText(playing ? "Stop" : "Preview");
-        btnPlayStopAnim.setGraphic(playing ? CssIcon.stop("#f1f1f1") : CssIcon.play("#f1f1f1"));
-        btnPlayStopAnim.setContentDisplay(ContentDisplay.LEFT);
-        btnPlayStopAnim.setGraphicTextGap(6);
+        decorateCurveToolbarIconButton(
+            btnPlayStopAnim,
+            playing ? CssIcon.stop("#f1f1f1") : CssIcon.play("#f1f1f1"),
+            playing ? "Stop Curve Preview" : "Preview Curve");
         btnPlayStopAnim.setStyle(playing ? TOGGLE_BUTTON_STYLE : SECONDARY_BUTTON_STYLE);
     }
 
     private void updateCurveExpandButtonState(boolean expanded) {
-        btnExpandCurveEditor.setText(expanded ? "Compact" : "Expand");
-        btnExpandCurveEditor.setGraphic(expanded ? CssIcon.dock("#ececec") : CssIcon.expand("#d8c48a"));
-        btnExpandCurveEditor.setContentDisplay(ContentDisplay.LEFT);
-        btnExpandCurveEditor.setGraphicTextGap(6);
+        decorateCurveToolbarIconButton(
+            btnExpandCurveEditor,
+            expanded ? CssIcon.dock("#ececec") : CssIcon.expand("#d8c48a"),
+            expanded ? "Compact Curve Editor" : "Expand Curve Editor");
         btnExpandCurveEditor.setStyle(expanded ? TOGGLE_BUTTON_STYLE : SECONDARY_BUTTON_STYLE);
         btnExpandCurveEditor.setTooltip(new Tooltip(expanded
             ? "Return the curve editor to its compact height"
