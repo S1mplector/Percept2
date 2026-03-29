@@ -8,12 +8,14 @@ import java.util.Objects;
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
 import com.jvn.editor.ui.ProjectViewportSpec;
+import com.jvn.editor.ui.CssIcon;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
@@ -23,9 +25,15 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.CubicCurve;
+import javafx.scene.shape.Line;
+import javafx.scene.shape.Shape;
+import javafx.scene.shape.StrokeLineCap;
 
 public class KeyframeEditor extends VBox {
     enum SelectionTargetKind {
@@ -33,6 +41,15 @@ public class KeyframeEditor extends VBox {
         ENTITY,
         GROUP,
         RUNTIME_CAMERA
+    }
+
+    private enum CurveQuickPresetIcon {
+        LINEAR,
+        EASE,
+        EASE_IN,
+        EASE_OUT,
+        EASE_IN_OUT,
+        OVERSHOOT
     }
 
     private final Label lblTargetCaption;
@@ -224,21 +241,27 @@ public class KeyframeEditor extends VBox {
         btnEditCurve = new Button("Make Editable");
         btnEditCurve.setTooltip(new Tooltip("Convert the current easing into an editable cubic bezier"));
         btnEditCurve.setStyle(SECONDARY_BUTTON_STYLE);
+        decorateCurveWorkspaceButton(btnEditCurve, CssIcon.freehand("#f5c46b"));
         btnUpdateCurvePreset = new Button("Update Preset");
         btnUpdateCurvePreset.setTooltip(new Tooltip("Write the edited curve back into the selected preset"));
         btnUpdateCurvePreset.setStyle(SUCCESS_BUTTON_STYLE);
+        decorateCurveWorkspaceButton(btnUpdateCurvePreset, CssIcon.save("#9ed67a"));
         btnExpandCurveEditor = new Button("Expand");
         btnExpandCurveEditor.setTooltip(new Tooltip("Grow the curve editor inside the left panel"));
         btnExpandCurveEditor.setStyle(SECONDARY_BUTTON_STYLE);
+        decorateCurveWorkspaceButton(btnExpandCurveEditor, CssIcon.expand("#d8c48a"));
         btnResetCurve = new Button("Reset Curve");
         btnResetCurve.setTooltip(new Tooltip("Reset the editable curve back to the easing you started from"));
         btnResetCurve.setStyle(SECONDARY_BUTTON_STYLE);
+        decorateCurveWorkspaceButton(btnResetCurve, CssIcon.undo("#d0d0d0"));
         btnReverseCurve = new Button("Reverse");
         btnReverseCurve.setTooltip(new Tooltip("Reverse the current curve in time to swap ease-in and ease-out feel"));
         btnReverseCurve.setStyle(SECONDARY_BUTTON_STYLE);
+        decorateCurveWorkspaceButton(btnReverseCurve, CssIcon.redo("#d0d0d0"));
         btnClampCurve = new Button("Clamp Y");
         btnClampCurve.setTooltip(new Tooltip("Clamp both curve Y handles into 0..1 to remove overshoot and undershoot"));
         btnClampCurve.setStyle(SECONDARY_BUTTON_STYLE);
+        decorateCurveWorkspaceButton(btnClampCurve, CssIcon.check("#d8c48a"));
         lblCurvePresetHint = new Label();
         lblCurvePresetHint.setStyle(SUBTLE_HINT_STYLE);
         lblCurvePresetHint.setWrapText(true);
@@ -262,6 +285,7 @@ public class KeyframeEditor extends VBox {
         btnApplyCurveSpec = new Button("Apply Spec");
         btnApplyCurveSpec.setTooltip(new Tooltip("Apply the curve spec above as an editable bezier for the selected keyframe"));
         btnApplyCurveSpec.setStyle(SECONDARY_BUTTON_STYLE);
+        decorateCurveWorkspaceButton(btnApplyCurveSpec, CssIcon.check("#9ed67a"));
 
         presetLibraryPanel = new PuppeteerEasingPresetLibraryPanel();
         presetLibraryPanel.setCurrentSpecSupplier(this::resolveEditorEasingSpec);
@@ -332,15 +356,13 @@ public class KeyframeEditor extends VBox {
         });
 
         // --- B) Play/Stop animation preview button ---
-        btnPlayStopAnim = new Button("▶ Preview");
-        btnPlayStopAnim.setStyle(SECONDARY_BUTTON_STYLE);
+        btnPlayStopAnim = new Button("Preview");
         btnPlayStopAnim.setTooltip(new Tooltip("Animate a dot along the curve to preview the motion feel"));
         btnPlayStopAnim.setOnAction(e -> {
             curveEditor.toggleAnimation();
-            boolean playing = curveEditor.isAnimating();
-            btnPlayStopAnim.setText(playing ? "■ Stop" : "▶ Preview");
-            btnPlayStopAnim.setStyle(playing ? TOGGLE_BUTTON_STYLE : SECONDARY_BUTTON_STYLE);
+            updateCurvePreviewButtonState(curveEditor.isAnimating());
         });
+        updateCurvePreviewButtonState(false);
 
         // --- C) Spring parameter editor ---
         springParamEditor = new SpringParameterEditor();
@@ -388,12 +410,12 @@ public class KeyframeEditor extends VBox {
         ((Label) curveToolbar.getChildren().get(0)).setStyle(SECTION_TITLE_STYLE);
         FlowPane curveQuickPresetBar = new FlowPane(8, 8);
         curveQuickPresetBar.getChildren().addAll(
-            createCurveQuickPresetButton("Linear", "0,0 → 1,1 straight timing", EasingSpec.cubicBezier(0.0, 0.0, 1.0, 1.0)),
-            createCurveQuickPresetButton("Ease", "Standard balanced ease curve", EasingSpec.cubicBezier(0.25, 0.10, 0.25, 1.00)),
-            createCurveQuickPresetButton("Ease In", "Fast finish with slower start", EasingSpec.cubicBezier(0.42, 0.0, 1.0, 1.0)),
-            createCurveQuickPresetButton("Ease Out", "Fast start with softer finish", EasingSpec.cubicBezier(0.0, 0.0, 0.58, 1.0)),
-            createCurveQuickPresetButton("Ease In-Out", "Symmetric ease in and out", EasingSpec.cubicBezier(0.42, 0.0, 0.58, 1.0)),
-            createCurveQuickPresetButton("Overshoot", "A punchy back-style overshoot curve", EasingSpec.cubicBezier(0.34, 1.56, 0.64, 1.0))
+            createCurveQuickPresetButton("Linear", "0,0 → 1,1 straight timing", EasingSpec.cubicBezier(0.0, 0.0, 1.0, 1.0), CurveQuickPresetIcon.LINEAR, "#d4d8df"),
+            createCurveQuickPresetButton("Ease", "Standard balanced ease curve", EasingSpec.cubicBezier(0.25, 0.10, 0.25, 1.00), CurveQuickPresetIcon.EASE, "#f5c46b"),
+            createCurveQuickPresetButton("Ease In", "Fast finish with slower start", EasingSpec.cubicBezier(0.42, 0.0, 1.0, 1.0), CurveQuickPresetIcon.EASE_IN, "#8ab4f8"),
+            createCurveQuickPresetButton("Ease Out", "Fast start with softer finish", EasingSpec.cubicBezier(0.0, 0.0, 0.58, 1.0), CurveQuickPresetIcon.EASE_OUT, "#8fd19e"),
+            createCurveQuickPresetButton("Ease In-Out", "Symmetric ease in and out", EasingSpec.cubicBezier(0.42, 0.0, 0.58, 1.0), CurveQuickPresetIcon.EASE_IN_OUT, "#c49cf8"),
+            createCurveQuickPresetButton("Overshoot", "A punchy back-style overshoot curve", EasingSpec.cubicBezier(0.34, 1.56, 0.64, 1.0), CurveQuickPresetIcon.OVERSHOOT, "#ff9d78")
         );
         curveQuickPresetBar.setMaxWidth(Double.MAX_VALUE);
         FlowPane curveTransformBar = new FlowPane(8, 8);
@@ -623,13 +645,74 @@ public class KeyframeEditor extends VBox {
         return field;
     }
 
-    private Button createCurveQuickPresetButton(String label, String tooltipText, EasingSpec spec) {
+    private void decorateCurveWorkspaceButton(Button button, Node icon) {
+        if (button == null) return;
+        button.setGraphic(icon);
+        button.setContentDisplay(ContentDisplay.LEFT);
+        button.setGraphicTextGap(6);
+    }
+
+    private void updateCurvePreviewButtonState(boolean playing) {
+        btnPlayStopAnim.setText(playing ? "Stop" : "Preview");
+        btnPlayStopAnim.setGraphic(playing ? CssIcon.stop("#f1f1f1") : CssIcon.play("#f1f1f1"));
+        btnPlayStopAnim.setContentDisplay(ContentDisplay.LEFT);
+        btnPlayStopAnim.setGraphicTextGap(6);
+        btnPlayStopAnim.setStyle(playing ? TOGGLE_BUTTON_STYLE : SECONDARY_BUTTON_STYLE);
+    }
+
+    private void updateCurveExpandButtonState(boolean expanded) {
+        btnExpandCurveEditor.setText(expanded ? "Compact" : "Expand");
+        btnExpandCurveEditor.setGraphic(expanded ? CssIcon.dock("#ececec") : CssIcon.expand("#d8c48a"));
+        btnExpandCurveEditor.setContentDisplay(ContentDisplay.LEFT);
+        btnExpandCurveEditor.setGraphicTextGap(6);
+        btnExpandCurveEditor.setStyle(expanded ? TOGGLE_BUTTON_STYLE : SECONDARY_BUTTON_STYLE);
+        btnExpandCurveEditor.setTooltip(new Tooltip(expanded
+            ? "Return the curve editor to its compact height"
+            : "Grow the curve editor inside the left panel"));
+    }
+
+    private Button createCurveQuickPresetButton(String label, String tooltipText, EasingSpec spec, CurveQuickPresetIcon iconType, String iconColor) {
         Button button = new Button(label);
         button.setStyle(SECONDARY_BUTTON_STYLE);
         button.setTooltip(new Tooltip(tooltipText));
+        button.setGraphic(createCurvePresetGraphic(iconType, iconColor));
+        button.setContentDisplay(ContentDisplay.LEFT);
+        button.setGraphicTextGap(6);
         button.setOnAction(e -> applyQuickCurveSpec(spec));
         curveQuickPresetButtons.add(button);
         return button;
+    }
+
+    private Node createCurvePresetGraphic(CurveQuickPresetIcon iconType, String colorHex) {
+        Pane pane = new Pane();
+        pane.setMinSize(16, 16);
+        pane.setPrefSize(16, 16);
+        pane.setMaxSize(16, 16);
+        pane.setMouseTransparent(true);
+
+        Shape curveShape;
+        switch (iconType) {
+            case LINEAR -> curveShape = new Line(2, 13.5, 13.5, 2);
+            case EASE -> curveShape = new CubicCurve(2, 13.5, 4.5, 12.5, 10.5, 3.0, 13.5, 2);
+            case EASE_IN -> curveShape = new CubicCurve(2, 13.5, 8.5, 13.5, 12.0, 8.0, 13.5, 2);
+            case EASE_OUT -> curveShape = new CubicCurve(2, 13.5, 3.5, 8.0, 7.0, 2.5, 13.5, 2);
+            case EASE_IN_OUT -> curveShape = new CubicCurve(2, 13.5, 4.5, 13.5, 11.0, 2.0, 13.5, 2);
+            case OVERSHOOT -> curveShape = new CubicCurve(2, 13.5, 5.5, 17.0, 10.5, -1.0, 13.5, 2);
+            default -> curveShape = new Line(2, 13.5, 13.5, 2);
+        }
+
+        styleCurvePresetShape(curveShape, colorHex);
+        pane.getChildren().add(curveShape);
+        return pane;
+    }
+
+    private void styleCurvePresetShape(Shape shape, String colorHex) {
+        if (shape == null) return;
+        Color strokeColor = Color.web(colorHex == null || colorHex.isBlank() ? "#d0d0d0" : colorHex);
+        shape.setFill(Color.TRANSPARENT);
+        shape.setStroke(strokeColor);
+        shape.setStrokeWidth(1.9);
+        shape.setStrokeLineCap(StrokeLineCap.ROUND);
     }
 
     private VBox buildEditorRow(String title, String subtitle, Node editorNode, Label stepHint) {
@@ -758,8 +841,7 @@ public class KeyframeEditor extends VBox {
         // Stop any running animation and spring preview on selection change
         if (curveEditor.isAnimating()) {
             curveEditor.stopAnimation();
-            btnPlayStopAnim.setText("▶ Preview");
-            btnPlayStopAnim.setStyle(SECONDARY_BUTTON_STYLE);
+            updateCurvePreviewButtonState(false);
         }
         springParamEditor.stopAnimation();
 
@@ -1494,11 +1576,7 @@ public class KeyframeEditor extends VBox {
     private void setCurveEditorExpanded(boolean expanded, boolean notifyParent) {
         curveEditorExpanded = expanded;
         curveEditor.setExpanded(expanded);
-        btnExpandCurveEditor.setText(expanded ? "Compact" : "Expand");
-        btnExpandCurveEditor.setStyle(expanded ? TOGGLE_BUTTON_STYLE : SECONDARY_BUTTON_STYLE);
-        btnExpandCurveEditor.setTooltip(new Tooltip(expanded
-            ? "Return the curve editor to its compact height"
-            : "Grow the curve editor inside the left panel"));
+        updateCurveExpandButtonState(expanded);
         if (notifyParent && onCurveEditorExpandedChanged != null) {
             onCurveEditorExpandedChanged.accept(expanded);
         }

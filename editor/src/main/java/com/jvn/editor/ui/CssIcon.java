@@ -62,6 +62,8 @@ public final class CssIcon {
       "M16 1H4c-1.1 0-2 .9-2 2v12h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z";
   private static final String PATH_PLAY =
       "M8 5v14l11-7z";
+  private static final String PATH_STOP =
+      "M6 6h12v12H6z";
   private static final String PATH_POP_OUT =
       "M19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z";
   private static final String PATH_DOCK =
@@ -78,6 +80,10 @@ public final class CssIcon {
       "M2.28 2.28 1 3.56l3.05 3.05C2.16 8.17 1.11 10.14.5 12c1.73 4.39 5.99 7.5 11 7.5 1.88 0 3.67-.44 5.26-1.22l3.18 3.18 1.28-1.28L2.28 2.28zm8.79 8.79 3.17 3.17a2.98 2.98 0 0 1-3.17-3.17zM11.5 17c-2.76 0-5-2.24-5-5 0-.78.18-1.51.5-2.17l1.53 1.53a2.98 2.98 0 0 0 3.95 3.95l1.53 1.53c-.66.32-1.39.5-2.17.5zm9.94-3.17A12.59 12.59 0 0 0 22.5 12c-1.73-4.39-5.99-7.5-11-7.5-1.64 0-3.2.36-4.59 1.01l1.55 1.55c.96-.36 1.99-.56 3.04-.56 4.24 0 7.16 2.66 8.5 4.5-.51.69-1.27 1.62-2.28 2.45l1.72 1.72z";
   private static final String PATH_MEMORY =
       "M3 7h18v10H3z M6 3h2v4H6z M10 3h2v4h-2z M14 3h2v4h-2z M18 3h2v4h-2z M6 17h2v4H6z M10 17h2v4h-2z M14 17h2v4h-2z M18 17h2v4h-2z M7 9h10v6H7z";
+  private static final String PATH_PERSON =
+      "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z";
+  private static final String PATH_LANDSCAPE =
+      "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zm-2 0H5V5h14v14zm-1-4-3.5-4.5-2.5 3.01L10.5 12 7 16h11z";
 
   // ── Factory methods ──
 
@@ -105,6 +111,7 @@ public final class CssIcon {
   public static Region home(String color)      { return icon(PATH_HOME, color, 14); }
   public static Region copy(String color)      { return icon(PATH_COPY, color, 14); }
   public static Region play(String color)      { return icon(PATH_PLAY, color, 14); }
+  public static Region stop(String color)      { return icon(PATH_STOP, color, 12); }
   public static Region popOut(String color)    { return icon(PATH_POP_OUT, color, 14); }
   public static Region dock(String color)      { return icon(PATH_DOCK, color, 14); }
   public static Region rectSelect(String color) { return icon(PATH_RECT_SELECT, color, 14); }
@@ -113,6 +120,8 @@ public final class CssIcon {
   public static Region visibility(String color) { return icon(PATH_VISIBILITY, color, 14); }
   public static Region visibilityOff(String color) { return icon(PATH_VISIBILITY_OFF, color, 14); }
   public static Region memory(String color) { return icon(PATH_MEMORY, color, 14); }
+  public static Region person(String color) { return icon(PATH_PERSON, color, 14); }
+  public static Region landscape(String color) { return icon(PATH_LANDSCAPE, color, 14); }
 
   /** Convenience: icon at default muted color. */
   public static Region plus()     { return plus("#b0b8c8"); }
@@ -139,6 +148,7 @@ public final class CssIcon {
   public static Region home()     { return home("#b0b8c8"); }
   public static Region copy()     { return copy("#b0b8c8"); }
   public static Region play()     { return play("#b0b8c8"); }
+  public static Region stop()     { return stop("#b0b8c8"); }
   public static Region popOut()   { return popOut("#b0b8c8"); }
   public static Region dock()     { return dock("#b0b8c8"); }
   public static Region rectSelect(){ return rectSelect("#b0b8c8"); }
@@ -147,6 +157,8 @@ public final class CssIcon {
   public static Region visibility() { return visibility("#b0b8c8"); }
   public static Region visibilityOff() { return visibilityOff("#b0b8c8"); }
   public static Region memory() { return memory("#b0b8c8"); }
+  public static Region person() { return person("#b0b8c8"); }
+  public static Region landscape() { return landscape("#b0b8c8"); }
 
   /**
    * Creates a section header label with a leading CSS icon.

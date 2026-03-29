@@ -130,6 +130,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Region bgOverlayColorSwatch = new Region();
   private final VBox backgroundControlsSection = new VBox(8);
   private TitledPane backgroundPane;
+  private TitledPane exportPane;
 
   private final Canvas previewCanvas = new Canvas(320, 240);
   private final LoadingProgressOverlay previewLoadingOverlay = new LoadingProgressOverlay();
@@ -338,11 +339,19 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     scopeRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(assetScopeBox, Priority.ALWAYS);
 
-    HBox charRow = new HBox(4, new Label("Char"), characterTagBox);
+    Button characterPickerButton = assetTagPickerButton(
+        CssIcon.person("#d8c48a"),
+        "Choose character asset or charpreset",
+        characterTagBox);
+    HBox charRow = new HBox(4, characterPickerButton, characterTagBox);
     charRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(characterTagBox, Priority.ALWAYS);
 
-    HBox bgRow = new HBox(4, new Label("Bg"), backgroundTagBox);
+    Button backgroundPickerButton = assetTagPickerButton(
+        CssIcon.landscape("#f5c46b"),
+        "Choose background image",
+        backgroundTagBox);
+    HBox bgRow = new HBox(4, backgroundPickerButton, backgroundTagBox);
     bgRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(backgroundTagBox, Priority.ALWAYS);
 
@@ -385,7 +394,6 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     Button resetTintButton = iconButton(CssIcon.palette("#f5b971"), "Reset tint controls", this::resetTintControls);
     fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen", this::requestFullscreenToggle);
     updateFullscreenButtonUi();
-    Button copyExportButton = iconButton(CssIcon.copy("#9ad19c"), "Copy selected export format", this::copySelectedExport);
     Button chooseExportFolderButton = iconButton(CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
     Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
     Button exportPngButton = actionButton("PNG", CssIcon.download("#8ab4f8"), "Quick export tinted PNG to the configured folder", this::quickExportTintedPng);
@@ -393,17 +401,27 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     Button exportSetupBtn = actionButton("Setup", CssIcon.save("#9ed67a"), "Quick export .tintsetup to the configured folder", this::quickExportSetupToFile);
     Button exportSetupAsButton = actionButton("Setup As", CssIcon.download("#9ed67a"), "Choose a .tintsetup destination", this::exportSetupToFileAs);
     Button importSetupBtn = actionButton("Import", CssIcon.folder("#f5c46b"), "Import setup from .tintsetup file", this::importSetupFromFile);
-    HBox actionRow = new HBox(4, resetViewButton, resetTintButton, fullscreenButton, copyExportButton);
+    Button exportBundleButton = actionButton("PNG + Setup", CssIcon.download("#d8c48a"), "Quick export both PNG and setup to the configured folder", this::quickExportBundle);
+    Button copyExportButton = actionButton("Copy", CssIcon.copy("#9ad19c"), "Copy selected export format", this::copySelectedExport);
+    Button chooseExportFolderActionButton = actionButton("Choose Folder", CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
+    Button revealExportFolderActionButton = actionButton("Reveal", CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
+    HBox actionRow = new HBox(4, resetViewButton, resetTintButton, fullscreenButton);
     actionRow.setAlignment(Pos.CENTER_LEFT);
-    HBox exportRow = new HBox(4, new Label("Copy"), exportFormatBox);
-    exportRow.setAlignment(Pos.CENTER_LEFT);
+    HBox exportCopyRow = new HBox(4, new Label("Copy"), exportFormatBox, copyExportButton);
+    exportCopyRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportFormatBox, Priority.ALWAYS);
+    HBox.setHgrow(copyExportButton, Priority.SOMETIMES);
     HBox exportDirRow = new HBox(4, new Label("Folder"), exportDirectoryField, chooseExportFolderButton, revealExportFolderButton);
     exportDirRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportDirectoryField, Priority.ALWAYS);
     HBox exportNameRow = new HBox(4, customExportNameCheck, exportNameField);
     exportNameRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportNameField, Priority.ALWAYS);
+    HBox exportUtilityRow = new HBox(4, chooseExportFolderActionButton, revealExportFolderActionButton, exportBundleButton);
+    exportUtilityRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(chooseExportFolderActionButton, Priority.ALWAYS);
+    HBox.setHgrow(revealExportFolderActionButton, Priority.ALWAYS);
+    HBox.setHgrow(exportBundleButton, Priority.ALWAYS);
     HBox filePngRow = new HBox(4, exportPngButton, exportPngAsButton);
     filePngRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportPngButton, Priority.ALWAYS);
@@ -413,12 +431,15 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     HBox.setHgrow(exportSetupBtn, Priority.ALWAYS);
     HBox.setHgrow(exportSetupAsButton, Priority.ALWAYS);
     HBox.setHgrow(importSetupBtn, Priority.ALWAYS);
-    TitledPane filePane = new TitledPane(
-        "Files & Export",
-        new VBox(4, exportDirRow, exportNameRow, exportInfoLabel, filePngRow, fileSetupRow));
-    filePane.setExpanded(true);
-    filePane.setAnimated(false);
-    filePane.setCollapsible(true);
+    exportPane = new TitledPane(
+        "Export",
+        new VBox(4, exportCopyRow, exportDirRow, exportNameRow, exportInfoLabel, exportUtilityRow, filePngRow, fileSetupRow));
+    exportPane.setExpanded(true);
+    exportPane.setAnimated(false);
+    exportPane.setCollapsible(true);
+    exportPane.expandedProperty().addListener((o, ov, expanded) -> {
+      if (!applyingState) persistGlobalState();
+    });
 
     // ── Tint controls ──
     tintColorPicker.valueProperty().addListener((o, ov, nv) -> onTintChanged(true));
@@ -455,8 +476,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     // ── Right sidebar ──
     VBox sidebar = new VBox(6,
         sidebarHeader, summaryLabel,
+        actionRow,
         tagsPane,
-        actionRow, exportRow, filePane,
+        exportPane,
         controlsPane,
         backgroundPane,
         zonesPane,
@@ -853,6 +875,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       if (backgroundPane != null) {
         boolean hideBackground = parseBoolean(persisted.getProperty("global.hideBackgroundFx"), true);
         backgroundPane.setExpanded(!hideBackground);
+      }
+      if (exportPane != null) {
+        boolean hideExport = parseBoolean(persisted.getProperty("global.hideExport"), false);
+        exportPane.setExpanded(!hideExport);
       }
 
       String savedChar = persisted.getProperty("global.characterTag", "");
@@ -2184,6 +2210,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persisted.setProperty("global.sidebarDivider", formatDouble(sidebarDividerPosition));
     boolean hideControls = controlsPane != null && !controlsPane.isExpanded();
     persisted.setProperty("global.hideControls", Boolean.toString(hideControls));
+    boolean hideExport = exportPane != null && !exportPane.isExpanded();
+    persisted.setProperty("global.hideExport", Boolean.toString(hideExport));
     boolean hideBackgroundFx = backgroundPane != null && !backgroundPane.isExpanded();
     persisted.setProperty("global.hideBackgroundFx", Boolean.toString(hideBackgroundFx));
     boolean hideZones = zonesPane != null && !zonesPane.isExpanded();
@@ -3086,6 +3114,12 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     button.setOnAction(e -> {
       if (action != null) action.run();
     });
+    return button;
+  }
+
+  private Button assetTagPickerButton(javafx.scene.layout.Region icon, String tooltip, ComboBox<String> box) {
+    Button button = iconButton(icon, tooltip, () -> openAssetTagPopup(box));
+    button.setAccessibleText(tooltip);
     return button;
   }
 
@@ -4367,15 +4401,23 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void writeTintedPng(Image tinted, File file) {
+    writeTintedPng(tinted, file, true);
+  }
+
+  private boolean writeTintedPng(Image tinted, File file, boolean reportSuccess) {
     try {
       Path parent = file.toPath().getParent();
       if (parent != null) Files.createDirectories(parent);
       BufferedImage bufferedImage = SwingFXUtils.fromFXImage(tinted, null);
       ImageIO.write(bufferedImage, "png", file);
       setConfiguredExportDirectory(file.getParentFile());
-      status("Exported PNG: " + describePathRelativeToProject(file));
+      if (reportSuccess) {
+        status("Exported PNG: " + describePathRelativeToProject(file));
+      }
+      return true;
     } catch (Exception ex) {
       status("PNG export failed: " + ex.getMessage());
+      return false;
     }
   }
 
@@ -4397,14 +4439,40 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void writeSetupFile(File file, String content) {
+    writeSetupFile(file, content, true);
+  }
+
+  private boolean writeSetupFile(File file, String content, boolean reportSuccess) {
     try {
       Path parent = file.toPath().getParent();
       if (parent != null) Files.createDirectories(parent);
       Files.writeString(file.toPath(), content, StandardCharsets.UTF_8);
       setConfiguredExportDirectory(file.getParentFile());
-      status("Exported setup: " + describePathRelativeToProject(file));
+      if (reportSuccess) {
+        status("Exported setup: " + describePathRelativeToProject(file));
+      }
+      return true;
     } catch (Exception ex) {
       status("Setup export failed: " + ex.getMessage());
+      return false;
+    }
+  }
+
+  private void quickExportBundle() {
+    Image tinted = buildTintedExportImage();
+    if (tinted == null) return;
+    File pngFile = resolveQuickExportFile(buildTintPngFileName());
+    File setupFile = resolveQuickExportFile(buildTintSetupFileName());
+    if (pngFile == null || setupFile == null) {
+      status("Choose an export folder first.");
+      return;
+    }
+    boolean pngOk = writeTintedPng(tinted, pngFile, false);
+    boolean setupOk = writeSetupFile(setupFile, buildFullSetupText(), false);
+    if (pngOk && setupOk) {
+      status("Exported PNG + setup to " + describePathRelativeToProject(pngFile.getParentFile()));
+    } else if (pngOk || setupOk) {
+      status("Partially exported bundle. Check the target folder and previous export messages.");
     }
   }
 
