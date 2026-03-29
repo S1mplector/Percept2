@@ -53,14 +53,17 @@ public class ProjectExplorerView extends VBox {
     tree.setCellFactory(tv -> new TreeCell<>() {
       private final Label nameLabel = new Label();
       private final Region spacer = new Region();
-      private final Button runButton = new Button("Run");
+      private final Button runButton = new Button("Run", CssIcon.play("#ecfff2"));
       private final HBox rootRow = new HBox(6, nameLabel, spacer, runButton);
       {
         rootRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(spacer, Priority.ALWAYS);
         rootRow.prefWidthProperty().bind(widthProperty().subtract(24));
         runButton.getStyleClass().add("project-run-button");
+        runButton.setContentDisplay(ContentDisplay.LEFT);
+        runButton.setGraphicTextGap(6);
         runButton.setFocusTraversable(false);
+        runButton.setAccessibleText("Run Project");
         runButton.setTooltip(new Tooltip("Run this project in JVN Runtime"));
         runButton.setOnAction(e -> {
           File current = getItem();

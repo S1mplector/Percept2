@@ -155,6 +155,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private final Label summaryLabel = new Label("Open a project to inspect layered image sets.");
   private final Label statusLabel = new Label("");
   private final Label previewInfoLabel = new Label("No layers selected.");
+  private final Label groupStatsLabel = new Label("No groups loaded.");
   private final Label interactionHintLabel = new Label("Drag preview to pan, scroll to zoom, double-click to reset view.");
 
   private final TextField filterField = new TextField();
@@ -263,6 +264,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     interactionHintLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 10px;");
     interactionHintLabel.setWrapText(true);
     previewInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #a0a0a0;");
+    groupStatsLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
+    groupStatsLabel.setWrapText(true);
     statusLabel.setStyle("-fx-font-size: 10px;");
     statusLabel.setWrapText(true);
 
@@ -470,12 +473,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Button exportSetupBtn = actionButton("Setup", CssIcon.save("#9ed67a"), "Quick export .layersetup to the configured folder", this::quickExportSetupToFile);
     Button exportSetupAsButton = actionButton("Setup As", CssIcon.download("#9ed67a"), "Choose a .layersetup destination", this::exportSetupToFileAs);
     Button importSetupBtn = actionButton("Import", CssIcon.folder("#f5c46b"), "Import setup from .layersetup file", this::importSetupFromFile);
+    Button exportBundleButton = actionButton("PNG + Setup", CssIcon.download("#d8c48a"), "Quick export both PNG and .layersetup to the configured folder", this::quickExportBundle);
     HBox exportDirRow = new HBox(4, new Label("Folder"), exportDirectoryField, chooseExportFolderButton, revealExportFolderButton);
     exportDirRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportDirectoryField, Priority.ALWAYS);
     HBox exportNameRow = new HBox(4, customExportNameCheck, exportNameField);
     exportNameRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportNameField, Priority.ALWAYS);
+    HBox exportBundleRow = new HBox(4, exportBundleButton);
+    exportBundleRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportBundleButton, Priority.ALWAYS);
     HBox filePngRow = new HBox(4, exportPngButton, exportPngAsButton);
     filePngRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportPngButton, Priority.ALWAYS);
@@ -485,12 +492,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     HBox.setHgrow(exportSetupBtn, Priority.ALWAYS);
     HBox.setHgrow(exportSetupAsButton, Priority.ALWAYS);
     HBox.setHgrow(importSetupBtn, Priority.ALWAYS);
-    TitledPane filePane = new TitledPane(
-        "Files & Export",
-        new VBox(4, exportDirRow, exportNameRow, exportInfoLabel, filePngRow, fileSetupRow));
-    filePane.setExpanded(true);
-    filePane.setAnimated(false);
-    filePane.setCollapsible(true);
+    TitledPane exportPane = new TitledPane(
+        "Export",
+        new VBox(4, exportDirRow, exportNameRow, exportInfoLabel, exportBundleRow, filePngRow, fileSetupRow));
+    exportPane.setExpanded(true);
+    exportPane.setAnimated(false);
+    exportPane.setCollapsible(true);
 
     HBox framingRow = new HBox(4, matchGameFraming, showOverlayGuides);
     framingRow.setAlignment(Pos.CENTER_LEFT);
@@ -512,14 +519,14 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     scriptPane.setAnimated(false);
     scriptPane.setCollapsible(true);
 
-    VBox actionsRoot = new VBox(4, toolRow, filePane, framingRow);
+    VBox actionsRoot = new VBox(4, toolRow, framingRow);
     TitledPane actionsPane = new TitledPane("Actions", actionsRoot);
     actionsPane.setExpanded(true);
     actionsPane.setAnimated(false);
     actionsPane.setCollapsible(true);
 
     // ── Layer groups section ──
-    Label groupsLabel = new Label("Layer Groups (up/down changes render order)");
+    Label groupsLabel = new Label("Layer Groups");
     groupsLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: 700;");
 
     Button activeAllButton = iconButton(CssIcon.check("#9ed67a"), "Mark all groups active for randomization", () -> setAllGroupsActive(true));
@@ -540,7 +547,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     filterRowAttrs.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(attributeFilterField, Priority.ALWAYS);
 
-    VBox groupsRoot = new VBox(4, filterRowAttrs, groupsLabel, groupTools, groupBox);
+    VBox groupsRoot = new VBox(4, filterRowAttrs, groupsLabel, groupStatsLabel, groupTools, groupBox);
     groupsRoot.setPadding(new Insets(2));
     ScrollPane groupsScroll = new ScrollPane(groupsRoot);
     groupsScroll.setFitToWidth(true);
@@ -617,6 +624,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     VBox sidebar = new VBox(6,
         sidebarHeader, summaryLabel,
         setPane,
+        exportPane,
         actionsPane,
         viewControlsPane,
         scriptPane,
@@ -734,6 +742,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     presetBox.getItems().clear();
     setBox.getItems().clear();
     summaryLabel.setText(message);
+    updateGroupStats();
     redrawPreview();
   }
 
@@ -904,6 +913,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       groupBox.getChildren().clear();
       presetNameToKey.clear();
       presetBox.getItems().clear();
+      updateGroupStats();
       redrawPreview();
     }
   }
@@ -1351,13 +1361,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         persistCurrentSetState();
       });
 
-      Button nextButton = iconButton(CssIcon.redo("#8ab4f8"), "Cycle this group", () -> {
-        int idx = combo.getSelectionModel().getSelectedIndex();
-        if (idx < 1) idx = 0;
-        int next = idx + 1;
-        if (next >= combo.getItems().size()) next = 1;
-        combo.getSelectionModel().select(next);
-      });
+      Button prevButton = iconButton(CssIcon.arrowLeft("#8ab4f8"), "Cycle this group backward", () -> cycleGroupSelection(combo, -1));
+
+      Button nextButton = iconButton(CssIcon.arrowRight("#8ab4f8"), "Cycle this group forward", () -> cycleGroupSelection(combo, 1));
 
       Button openButton = iconButton(CssIcon.folder("#7ec8e3"), "Open selected image in OS viewer", () -> openSelectedImage(combo.getValue()));
 
@@ -1384,7 +1390,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         groupLabel.setTooltip(new Tooltip("Background group — suppressed from snippet export when foreground layers are active"));
       }
 
-      HBox row = new HBox(6, activeCheck, swapCheck, groupLabel, combo, nextButton, openButton, upButton, downButton);
+      HBox row = new HBox(6, activeCheck, swapCheck, groupLabel, combo, prevButton, nextButton, openButton, upButton, downButton);
       row.setAlignment(Pos.CENTER_LEFT);
       HBox.setHgrow(combo, Priority.ALWAYS);
 
@@ -1422,6 +1428,53 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       empty.setStyle("-fx-text-fill: rgba(255,255,255,0.7);");
       groupBox.getChildren().add(empty);
     }
+    updateGroupStats();
+  }
+
+  private void updateGroupStats() {
+    if (groupOrder.isEmpty()) {
+      groupStatsLabel.setText("No groups loaded.");
+      return;
+    }
+    String filter = sanitizeId(attributeFilterField.getText());
+    int visible = 0;
+    int selected = 0;
+    int active = 0;
+    int swap = 0;
+    for (String groupName : groupOrder) {
+      if (matchesAttributeFilter(groupName, filter)) {
+        visible++;
+      }
+      ComboBox<LayerOption> combo = selectors.get(groupName);
+      LayerOption option = combo == null ? null : combo.getValue();
+      if (option != null && !option.isNone()) {
+        selected++;
+      }
+      CheckBox activeCheck = activeGroupChecks.get(groupName);
+      if (activeCheck != null && activeCheck.isSelected()) {
+        active++;
+      }
+      CheckBox swapCheck = swapGroupChecks.get(groupName);
+      if (swapCheck != null && swapCheck.isSelected()) {
+        swap++;
+      }
+    }
+    groupStatsLabel.setText(
+        "Total " + groupOrder.size()
+            + "  |  Visible " + visible
+            + "  |  Selected " + selected
+            + "  |  Active " + active
+            + "  |  Swap " + swap);
+  }
+
+  private void cycleGroupSelection(ComboBox<LayerOption> combo, int direction) {
+    if (combo == null || combo.getItems().size() <= 1) return;
+    int idx = combo.getSelectionModel().getSelectedIndex();
+    if (idx < 1) idx = 0;
+    int next = idx + (direction < 0 ? -1 : 1);
+    if (next < 1) next = combo.getItems().size() - 1;
+    if (next >= combo.getItems().size()) next = 1;
+    combo.getSelectionModel().select(next);
   }
 
   private void moveGroup(String groupName, int delta) {
@@ -1912,6 +1965,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   }
 
   private void redrawPreview() {
+    updateGroupStats();
     renderPreviewToCanvas(previewCanvas, true);
   }
 
@@ -3860,15 +3914,23 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   }
 
   private void writeCompositePng(WritableImage snapshot, File file) {
+    writeCompositePng(snapshot, file, true);
+  }
+
+  private boolean writeCompositePng(WritableImage snapshot, File file, boolean reportSuccess) {
     try {
       Path parent = file.toPath().getParent();
       if (parent != null) Files.createDirectories(parent);
       BufferedImage bufferedImage = SwingFXUtils.fromFXImage(snapshot, null);
       ImageIO.write(bufferedImage, "png", file);
       setConfiguredExportDirectory(file.getParentFile());
-      status("Exported PNG: " + describePathRelativeToProject(file));
+      if (reportSuccess) {
+        status("Exported PNG: " + describePathRelativeToProject(file));
+      }
+      return true;
     } catch (Exception ex) {
       status("PNG export failed: " + ex.getMessage());
+      return false;
     }
   }
 
@@ -3888,14 +3950,40 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   }
 
   private void writeLayerSetupFile(File file, String text) {
+    writeLayerSetupFile(file, text, true);
+  }
+
+  private boolean writeLayerSetupFile(File file, String text, boolean reportSuccess) {
     try {
       Path parent = file.toPath().getParent();
       if (parent != null) Files.createDirectories(parent);
       Files.writeString(file.toPath(), text, StandardCharsets.UTF_8);
       setConfiguredExportDirectory(file.getParentFile());
-      status("Exported setup: " + describePathRelativeToProject(file));
+      if (reportSuccess) {
+        status("Exported setup: " + describePathRelativeToProject(file));
+      }
+      return true;
     } catch (Exception ex) {
       status("Setup export failed: " + ex.getMessage());
+      return false;
+    }
+  }
+
+  private void quickExportBundle() {
+    WritableImage snapshot = buildCompositeExportImage();
+    if (snapshot == null) return;
+    File pngFile = resolveQuickExportFile(buildCompositePngFileName());
+    File setupFile = resolveQuickExportFile(buildLayerSetupFileName());
+    if (pngFile == null || setupFile == null) {
+      status("Choose an export folder first.");
+      return;
+    }
+    boolean pngOk = writeCompositePng(snapshot, pngFile, false);
+    boolean setupOk = writeLayerSetupFile(setupFile, buildFullSetupText(), false);
+    if (pngOk && setupOk) {
+      status("Exported PNG + setup to " + describePathRelativeToProject(pngFile.getParentFile()));
+    } else if (pngOk || setupOk) {
+      status("Partially exported bundle. Check the target folder and previous export messages.");
     }
   }
 

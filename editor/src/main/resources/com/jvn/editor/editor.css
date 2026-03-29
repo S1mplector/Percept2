@@ -591,19 +591,34 @@
 .tree-cell:filled:selected, .tree-cell:filled:selected:hover { -fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; }
 
 .project-run-button {
-  -fx-background-color: #1f9d45;
-  -fx-text-fill: #ffffff;
+  -fx-background-color: linear-gradient(to bottom, #1fb65a, #169646);
+  -fx-border-color: #32d774;
+  -fx-border-width: 1;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-text-fill: #f5fff8;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
-  -fx-padding: 2 10 2 10;
+  -fx-padding: 4 11 4 9;
+  -fx-graphic-text-gap: 6;
+  -fx-alignment: center;
+  -fx-cursor: hand;
+  -fx-effect: dropshadow(gaussian, rgba(8, 18, 10, 0.28), 6, 0.20, 0, 1);
 }
 
 .project-run-button:hover {
-  -fx-background-color: #27b24f;
+  -fx-background-color: linear-gradient(to bottom, #26ca65, #1da953);
+  -fx-border-color: #52e18c;
 }
 
 .project-run-button:armed {
-  -fx-background-color: #17863a;
+  -fx-background-color: linear-gradient(to bottom, #159142, #117638);
+  -fx-border-color: #2bbb68;
+}
+
+.project-run-button:disabled {
+  -fx-opacity: 0.5;
+  -fx-effect: none;
 }
 
 /* TitledPane/Accordion */
@@ -2439,11 +2454,11 @@
 }
 
 .sidebar-tab-pane .tab .tab-close-button {
-  -fx-opacity: 0.75;
-}
-
-.sidebar-tab-pane .tab .tab-close-button:hover {
-  -fx-opacity: 1.0;
+  -fx-opacity: 0;
+  -fx-padding: 0;
+  -fx-max-width: 0;
+  -fx-pref-width: 0;
+  -fx-min-width: 0;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab {
