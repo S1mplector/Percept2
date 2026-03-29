@@ -45,6 +45,7 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -150,54 +151,64 @@ public class ScriptEditorLauncherView extends BorderPane {
   private void buildUi() {
     getStyleClass().add("script-editor-launcher-root");
 
-    VBox header = new VBox(10);
+    VBox header = new VBox(8);
     header.getStyleClass().add("script-editor-launcher-header");
-    header.setPadding(new Insets(12, 12, 10, 12));
+    header.setPadding(new Insets(10, 12, 8, 12));
 
     Label titleLabel = new Label("Text Editor");
     titleLabel.getStyleClass().add("script-editor-launcher-title");
-    HBox titleRow = new HBox(8, CssIcon.list("#cfd6e6"), titleLabel);
+    Region titleSpacer = new Region();
+    HBox.setHgrow(titleSpacer, Priority.ALWAYS);
+    HBox titleRow = new HBox(
+        8,
+        CssIcon.list("#d6c39a"),
+        titleLabel,
+        titleSpacer,
+        compactStatChip("Files", scriptsStat),
+        compactStatChip("Folders", foldersStat),
+        compactStatChip("VNS Labels", labelsStat));
     titleRow.setAlignment(Pos.CENTER_LEFT);
 
-    Label desc = new Label(
-        "A focused project text workspace. Browse JVN text files, inspect VNS labels and includes, open files in the main editor, or pop out the dedicated tabbed text window.");
-    desc.setWrapText(true);
-    desc.getStyleClass().add("script-editor-launcher-description");
+    HBox metaRow = new HBox(
+        8,
+        compactMetaChip("Project", projectLabel),
+        compactMetaChip("Workspace", scriptsRootLabel));
+    metaRow.getStyleClass().add("script-editor-launcher-meta-row");
+    HBox.setHgrow(metaRow.getChildren().get(0), Priority.NEVER);
+    HBox.setHgrow(metaRow.getChildren().get(1), Priority.ALWAYS);
 
-    VBox projectCard = new VBox(4,
-        labelledMeta("Project", projectLabel),
-        labelledMeta("Workspace Root", scriptsRootLabel));
-    projectCard.setPadding(new Insets(10));
-    projectCard.getStyleClass().add("script-editor-card");
+    styleActionButton(openInEditorButton, CssIcon.list("#efe5d3"), "Open the selected text file in the main editor", true)
+        .getStyleClass().add("script-editor-action-button-compact");
+    styleActionButton(openWindowButton, CssIcon.popOut("#d8a450"), "Open the standalone tabbed text window", false)
+        .getStyleClass().add("script-editor-action-button-compact");
+    styleActionButton(newScriptButton, CssIcon.plus("#96bf7c"), "Create a new project text file", false)
+        .getStyleClass().add("script-editor-action-button-compact");
+    styleActionButton(refreshButton, CssIcon.redo("#c9b99c"), "Refresh the text workspace", false)
+        .getStyleClass().add("script-editor-action-button-compact");
+    styleActionButton(revealButton, CssIcon.folder("#d8b267"), "Reveal the current workspace folder in Finder", false)
+        .getStyleClass().add("script-editor-action-button-compact");
 
-    HBox statsRow = new HBox(8,
-        statCard("Files", scriptsStat),
-        statCard("Folders", foldersStat),
-        statCard("VNS Labels", labelsStat));
-
-    HBox primaryActions = new HBox(8,
-        styleActionButton(openInEditorButton, CssIcon.list("#dbe6f4"), "Open the selected text file in the main editor", true),
-        styleActionButton(openWindowButton, CssIcon.popOut("#f5c46b"), "Open the standalone tabbed text window", false));
-    HBox secondaryActions = new HBox(8,
-        styleActionButton(newScriptButton, CssIcon.plus("#8bcf98"), "Create a new project text file", false),
-        styleActionButton(refreshButton, CssIcon.redo("#c7d0df"), "Refresh the text workspace", false),
-        styleActionButton(revealButton, CssIcon.folder("#d5b36a"), "Reveal the current workspace folder in Finder", false));
-    HBox.setHgrow(openInEditorButton, Priority.ALWAYS);
-    HBox.setHgrow(openWindowButton, Priority.ALWAYS);
-    HBox.setHgrow(newScriptButton, Priority.ALWAYS);
-    HBox.setHgrow(refreshButton, Priority.ALWAYS);
-    HBox.setHgrow(revealButton, Priority.ALWAYS);
+    FlowPane actionsBar = new FlowPane();
+    actionsBar.setHgap(6);
+    actionsBar.setVgap(6);
+    actionsBar.setAlignment(Pos.CENTER_LEFT);
+    actionsBar.getStyleClass().add("script-editor-launcher-action-bar");
+    actionsBar.getChildren().addAll(openInEditorButton, openWindowButton, newScriptButton, refreshButton, revealButton);
 
     filterField.setPromptText("Filter files, paths, or labels...");
     filterField.getStyleClass().add("script-editor-field");
+    HBox.setHgrow(filterField, Priority.ALWAYS);
 
     searchField.setPromptText("Search in text files…");
     searchField.getStyleClass().add("script-editor-field");
+    HBox.setHgrow(searchField, Priority.ALWAYS);
     searchResults.setPadding(new Insets(4, 0, 0, 0));
 
-    header.getChildren().addAll(titleRow, desc, projectCard, statsRow, primaryActions, secondaryActions,
-        sectionLabel("Explorer Filter"), filterField,
-        sectionLabel("Search in Text Files"), searchField);
+    HBox fieldsRow = new HBox(8, filterField, searchField);
+    fieldsRow.getStyleClass().add("script-editor-launcher-fields-row");
+    fieldsRow.setAlignment(Pos.CENTER_LEFT);
+
+    header.getChildren().addAll(titleRow, metaRow, actionsBar, fieldsRow);
 
     explorerTree.setShowRoot(true);
     explorerTree.getStyleClass().add("script-editor-tree");
@@ -239,7 +250,7 @@ public class ScriptEditorLauncherView extends BorderPane {
     searchResultsCard.setManaged(false);
 
     VBox explorerBox = new VBox(8, sectionLabel("Project Files"), explorerTree, explorerHint, searchResultsCard);
-    explorerBox.setPadding(new Insets(10));
+    explorerBox.setPadding(new Insets(8));
     explorerBox.getStyleClass().add("script-editor-launcher-pane");
     VBox.setVgrow(explorerTree, Priority.ALWAYS);
 
@@ -250,17 +261,17 @@ public class ScriptEditorLauncherView extends BorderPane {
     selectionMeta.getStyleClass().add("script-editor-selection-meta");
 
     VBox outlineCard = new VBox(6, sectionLabel("Label Outline"), outlineList);
-    outlineCard.setPadding(new Insets(10));
+    outlineCard.setPadding(new Insets(8));
     outlineCard.getStyleClass().add("script-editor-card");
     VBox includesCard = new VBox(6, sectionLabel("Includes"), includesList);
-    includesCard.setPadding(new Insets(10));
+    includesCard.setPadding(new Insets(8));
     includesCard.getStyleClass().add("script-editor-card");
     VBox includedByCard = new VBox(6, sectionLabel("Included By"), includedByList);
-    includedByCard.setPadding(new Insets(10));
+    includedByCard.setPadding(new Insets(8));
     includedByCard.getStyleClass().add("script-editor-card");
     VBox inspectorBox = new VBox(10, sectionLabel("Selection"), selectionTitle, selectionPath, selectionMeta,
         outlineCard, includesCard, includedByCard);
-    inspectorBox.setPadding(new Insets(10));
+    inspectorBox.setPadding(new Insets(8));
     inspectorBox.getStyleClass().add("script-editor-launcher-pane");
 
     SplitPane centerSplit = new SplitPane(explorerBox, inspectorBox);
@@ -331,18 +342,18 @@ public class ScriptEditorLauncherView extends BorderPane {
       ContextMenu ctx = new ContextMenu();
 
       if (node.file() != null) {
-        MenuItem open = menuItem("Open in Editor", CssIcon.list("#b8d4f0"), this::openSelectedInEditor);
+        MenuItem open = menuItem("Open in Editor", CssIcon.list("#ddd0bb"), this::openSelectedInEditor);
         MenuItem openWindow = menuItem("Open in Text Window", CssIcon.popOut("#f5c46b"), () -> launchEditorWindow(node.file()));
         ctx.getItems().addAll(open, openWindow, new SeparatorMenuItem());
 
         MenuItem rename = menuItem("Rename…", CssIcon.freehand("#d9b36a"), this::renameSelectedScript);
-        MenuItem duplicate = menuItem("Duplicate", CssIcon.copy("#c7d0df"), this::duplicateSelectedScript);
+        MenuItem duplicate = menuItem("Duplicate", CssIcon.copy("#cbbda6"), this::duplicateSelectedScript);
         MenuItem delete = menuItem("Delete…", CssIcon.clearX("#f06a6a"), this::deleteSelectedScript);
         ctx.getItems().addAll(rename, duplicate, delete, new SeparatorMenuItem());
 
-        MenuItem copyPath = menuItem("Copy Absolute Path", CssIcon.copy("#c7d0df"),
+        MenuItem copyPath = menuItem("Copy Absolute Path", CssIcon.copy("#cbbda6"),
             () -> copyToClipboard(node.file().getAbsolutePath()));
-        MenuItem copyRelPath = menuItem("Copy Relative Path", CssIcon.link("#c7d0df"), () -> {
+        MenuItem copyRelPath = menuItem("Copy Relative Path", CssIcon.link("#cbbda6"), () -> {
           if (node.entry != null) copyToClipboard(node.entry.projectRelativePath());
         });
         MenuItem reveal = menuItem("Reveal in File Manager", CssIcon.folder("#d5b36a"), () -> revealFile(node.file()));
@@ -767,10 +778,10 @@ public class ScriptEditorLauncherView extends BorderPane {
 
   private static String depLinkStyle(boolean hover) {
     return hover
-        ? "-fx-text-fill: #b8d4f0; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
-            + "-fx-background-color: #243048; -fx-background-radius: 5; -fx-cursor: hand;"
-        : "-fx-text-fill: #9ab0cc; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
-            + "-fx-background-color: #1b2230; -fx-background-radius: 5; -fx-cursor: hand;";
+        ? "-fx-text-fill: #e2d0a9; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #2b2218; -fx-background-radius: 5; -fx-cursor: hand;"
+        : "-fx-text-fill: #c4b28f; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #211912; -fx-background-radius: 5; -fx-cursor: hand;";
   }
 
   private void updateActionState() {
@@ -933,7 +944,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       toolbar.getStyleClass().add("script-editor-toolbar");
       toolbar.setPadding(new Insets(5, 10, 5, 10));
       toolbar.setAlignment(Pos.CENTER_LEFT);
-      HBox titleRow = new HBox(8, CssIcon.list("#cfd6e6"), toolbarTitle("JVN Text Editor"));
+      HBox titleRow = new HBox(8, CssIcon.list("#d6c39a"), toolbarTitle("JVN Text Editor"));
       titleRow.setAlignment(Pos.CENTER_LEFT);
 
       Separator toolSep1 = new Separator(Orientation.VERTICAL);
@@ -949,7 +960,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button saveAllBtn = toolbarButton(
           "Save All",
           "Save all open files (Ctrl+Shift+S)",
-          CssIcon.save("#6fb7ff"),
+          CssIcon.save("#d4b267"),
           false);
       saveAllBtn.setOnAction(e -> saveAllTabs(editorTabs, windowStatus));
 
@@ -982,7 +993,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button findBtn = toolbarButton(
           "Find",
           "Find & Replace (Ctrl+F)",
-          CssIcon.search("#8ab4f8"),
+          CssIcon.search("#d4b267"),
           false);
       findBtn.setOnAction(e -> {
         TextEditorSession ed = activeEditor(editorTabs);
@@ -1259,6 +1270,26 @@ public class ScriptEditorLauncherView extends BorderPane {
     return button;
   }
 
+  private static VBox compactStatChip(String labelText, Label valueLabel) {
+    Label label = new Label(labelText);
+    label.getStyleClass().add("script-editor-stat-label");
+    VBox box = new VBox(1, label, valueLabel);
+    box.getStyleClass().add("script-editor-stat-chip");
+    box.setAlignment(Pos.CENTER_LEFT);
+    return box;
+  }
+
+  private static VBox compactMetaChip(String labelText, Label valueLabel) {
+    Label label = new Label(labelText);
+    label.getStyleClass().add("script-editor-meta-label");
+    valueLabel.setWrapText(true);
+    valueLabel.getStyleClass().addAll("script-editor-meta-value", "script-editor-launcher-inline-value");
+    VBox box = new VBox(1, label, valueLabel);
+    box.getStyleClass().add("script-editor-launcher-meta-chip");
+    box.setMaxWidth(Double.MAX_VALUE);
+    return box;
+  }
+
   private static VBox statCard(String labelText, Label valueLabel) {
     Label label = new Label(labelText);
     label.getStyleClass().add("script-editor-stat-label");
@@ -1325,7 +1356,7 @@ public class ScriptEditorLauncherView extends BorderPane {
         boolean directory = treeItem != null && !treeItem.isLeaf();
         Region icon = directory
             ? CssIcon.folder(treeItem != null && treeItem.getParent() == null ? "#f0c66c" : "#d4b169")
-            : CssIcon.list("#bfc8d6");
+            : CssIcon.list("#c9bea9");
         Label label = new Label(item);
         label.getStyleClass().add(directory ? "script-editor-tree-dir-label" : "script-editor-tree-file-label");
         HBox row = new HBox(6, icon, label);

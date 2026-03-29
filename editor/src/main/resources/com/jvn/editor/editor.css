@@ -991,25 +991,51 @@
 .script-editor-launcher-root,
 .script-editor-window-root,
 .script-editor-workspace-root {
-  -fx-background-color: linear-gradient(to bottom, #16181d 0%, #111318 100%);
+  -fx-background-color: linear-gradient(to bottom, #171411 0%, #100e0c 100%);
 }
 
 .script-editor-launcher-pane,
 .script-editor-workspace-content {
-  -fx-background-color: #14171c;
+  -fx-background-color: #14110f;
 }
 
 .script-editor-card {
-  -fx-background-color: linear-gradient(to bottom, #1c2027 0%, #171a21 100%);
-  -fx-background-radius: 10;
-  -fx-border-color: #313744;
-  -fx-border-radius: 10;
+  -fx-background-color: linear-gradient(to bottom, #1a1713 0%, #15120f 100%);
+  -fx-background-radius: 9;
+  -fx-border-color: #3a3127;
+  -fx-border-radius: 9;
+}
+
+.script-editor-launcher-header {
+  -fx-spacing: 8;
+}
+
+.script-editor-launcher-meta-row,
+.script-editor-launcher-action-bar,
+.script-editor-launcher-fields-row {
+  -fx-alignment: center-left;
+}
+
+.script-editor-launcher-meta-chip {
+  -fx-background-color: rgba(27, 22, 18, 0.92);
+  -fx-border-color: #3a3127;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-padding: 6 10 6 10;
+}
+
+.script-editor-stat-chip {
+  -fx-background-color: rgba(32, 26, 20, 0.95);
+  -fx-border-color: #433628;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-padding: 4 10 4 10;
 }
 
 .script-editor-launcher-title {
   -fx-font-size: 15px;
   -fx-font-weight: 800;
-  -fx-text-fill: #e7edf8;
+  -fx-text-fill: #efe6d4;
 }
 
 .script-editor-launcher-description,
@@ -1017,28 +1043,32 @@
 .script-editor-selection-meta,
 .script-editor-meta-value,
 .script-editor-tree-file-label {
-  -fx-text-fill: #b9c2d0;
+  -fx-text-fill: #c6bba8;
   -fx-font-size: 11px;
+}
+
+.script-editor-launcher-inline-value {
+  -fx-text-fill: #d8cdbb;
 }
 
 .script-editor-section-label,
 .script-editor-meta-label,
 .script-editor-stat-label {
-  -fx-text-fill: #8f9aab;
+  -fx-text-fill: #a49172;
   -fx-font-size: 10px;
   -fx-font-weight: 800;
 }
 
 .script-editor-stat-value {
-  -fx-text-fill: #eef2f8;
-  -fx-font-size: 15px;
+  -fx-text-fill: #f2e7d2;
+  -fx-font-size: 13px;
   -fx-font-weight: 800;
 }
 
 .script-editor-selection-title,
 .script-editor-toolbar-title,
 .script-editor-workspace-title {
-  -fx-text-fill: #e7edf8;
+  -fx-text-fill: #efe6d4;
   -fx-font-weight: 800;
 }
 
@@ -1054,33 +1084,34 @@
 .script-editor-workspace-meta,
 .script-editor-hint,
 .script-editor-window-status {
-  -fx-text-fill: #8791a1;
+  -fx-text-fill: #8f8371;
   -fx-font-size: 10px;
 }
 
 .script-editor-field {
-  -fx-background-color: #181c23;
-  -fx-text-fill: #e0e6f0;
-  -fx-prompt-text-fill: #778091;
-  -fx-border-color: #333949;
+  -fx-background-color: #181511;
+  -fx-text-fill: #e9ddc8;
+  -fx-prompt-text-fill: #7f7363;
+  -fx-border-color: #3b3127;
   -fx-border-radius: 8;
   -fx-background-radius: 8;
   -fx-font-size: 11px;
+  -fx-padding: 6 10 6 10;
 }
 
 .script-editor-field:focused {
-  -fx-border-color: #55719b;
-  -fx-background-color: #1b2028;
+  -fx-border-color: #8f6a34;
+  -fx-background-color: #1d1813;
 }
 
 .script-editor-action-button,
 .script-editor-toolbar-button {
-  -fx-background-color: #1a1f28;
-  -fx-text-fill: #d7dde7;
+  -fx-background-color: #1b1713;
+  -fx-text-fill: #e7dcc8;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
   -fx-background-radius: 8;
-  -fx-border-color: #313949;
+  -fx-border-color: #40342a;
   -fx-border-radius: 8;
   -fx-cursor: hand;
 }
@@ -1089,33 +1120,40 @@
   -fx-padding: 6 12 6 12;
 }
 
+.script-editor-action-button-compact {
+  -fx-padding: 5 10 5 10;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-min-height: 29;
+}
+
 .script-editor-toolbar-button {
   -fx-padding: 4 10 4 10;
 }
 
 .script-editor-action-button:hover,
 .script-editor-toolbar-button:hover {
-  -fx-background-color: #232a35;
-  -fx-border-color: #465165;
-  -fx-text-fill: #f0f5ff;
+  -fx-background-color: #272019;
+  -fx-border-color: #5c4b38;
+  -fx-text-fill: #f3e8d5;
 }
 
 .script-editor-action-button:pressed,
 .script-editor-toolbar-button:pressed {
-  -fx-background-color: #2a3441;
+  -fx-background-color: #302720;
 }
 
 .script-editor-action-button-accent,
 .script-editor-toolbar-button-primary {
-  -fx-background-color: #1e2b3c;
-  -fx-border-color: #536985;
-  -fx-text-fill: #f2f6ff;
+  -fx-background-color: #2b2115;
+  -fx-border-color: #946a34;
+  -fx-text-fill: #f3e8d6;
 }
 
 .script-editor-action-button-accent:hover,
 .script-editor-toolbar-button-primary:hover {
-  -fx-background-color: #26364b;
-  -fx-border-color: #6b87ab;
+  -fx-background-color: #332719;
+  -fx-border-color: #b18342;
 }
 
 .script-editor-action-button:disabled,
@@ -1135,33 +1173,33 @@
 }
 
 .script-editor-tree .tree-cell:selected {
-  -fx-background-color: #243249;
+  -fx-background-color: #352818;
   -fx-background-radius: 8;
 }
 
 .script-editor-tree .tree-cell:hover {
-  -fx-background-color: rgba(55, 67, 88, 0.28);
+  -fx-background-color: rgba(83, 64, 41, 0.24);
   -fx-background-radius: 8;
 }
 
 .script-editor-tree-dir-label {
-  -fx-text-fill: #dbe3ef;
+  -fx-text-fill: #e0d6c5;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
 }
 
 .script-editor-tree-badge {
-  -fx-text-fill: #9ea7b6;
+  -fx-text-fill: #b6a58b;
   -fx-font-size: 10px;
-  -fx-background-color: #232834;
+  -fx-background-color: #241d16;
   -fx-padding: 1 6 1 6;
   -fx-background-radius: 999;
 }
 
 .script-editor-toolbar,
 .script-editor-workspace-toolbar {
-  -fx-background-color: #10141a;
-  -fx-border-color: #252c37;
+  -fx-background-color: #110e0b;
+  -fx-border-color: #2c241c;
   -fx-border-width: 0 0 1 0;
   -fx-alignment: center-left;
 }
@@ -1176,21 +1214,21 @@
 }
 
 .script-editor-workspace-icon-button {
-  -fx-background-color: #171c23;
-  -fx-border-color: #313a48;
+  -fx-background-color: #18130f;
+  -fx-border-color: #3a3026;
   -fx-background-radius: 8;
   -fx-border-radius: 8;
 }
 
 .script-editor-workspace-icon-button:hover {
-  -fx-background-color: #212835;
-  -fx-border-color: #4a586d;
+  -fx-background-color: #241c15;
+  -fx-border-color: #61503c;
 }
 
 .script-editor-workspace-toggle:selected,
 .script-editor-workspace-menu-button:showing {
-  -fx-background-color: #24364e;
-  -fx-border-color: #5b769b;
+  -fx-background-color: #332518;
+  -fx-border-color: #946a34;
 }
 
 .image-tool-workspace {
