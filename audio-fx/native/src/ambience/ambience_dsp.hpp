@@ -5,3 +5,4 @@
 #include "ambience/ambience_mastering.hpp"
 #include "ambience/ambience_modulation.hpp"
 #include "ambience/ambience_noise.hpp"
+#include "ambience/ambience_spatial.hpp"

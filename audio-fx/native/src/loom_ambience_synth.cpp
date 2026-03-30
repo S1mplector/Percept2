@@ -41,8 +41,8 @@ float smoothstep01(float value) {
 
 LoomAmbienceSynthCore::LoomAmbienceSynthCore(int sampleRate) : sampleRate_(sampleRate > 1 ? sampleRate : 44100) {
   const float sampleRateF = static_cast<float>(sampleRate_);
-  panLfo_.setSampleRate(sampleRateF);
   master_.setSampleRate(sampleRateF);
+  stereoField_.setSampleRate(sampleRateF);
   selectMode(preset_);
 }
 
@@ -81,9 +81,10 @@ void LoomAmbienceSynthCore::configure(
     crossfadeSamplesRemaining_ = 0;
     crossfadeSamplesTotal_ = 0;
     previousMode_.reset();
-    panLfo_.reset();
     master_.reset();
+    stereoField_.reset();
     mode_->configure(controls_);
+    stereoField_.retune(controls_);
     return;
   }
 
@@ -99,12 +100,14 @@ void LoomAmbienceSynthCore::configure(
     crossfadeSamplesTotal_ = std::max(1, static_cast<int>(std::lround(sampleRate_ * kModeCrossfadeSeconds)));
     crossfadeSamplesRemaining_ = crossfadeSamplesTotal_;
     mode_->configure(controls_);
+    stereoField_.retune(controls_);
     return;
   }
 
   controls_ = nextControls;
   finished_ = false;
   mode_->retune(controls_);
+  stereoField_.retune(controls_);
 }
 
 int LoomAmbienceSynthCore::render(uint8_t* pcm, int frames) {
@@ -115,10 +118,9 @@ int LoomAmbienceSynthCore::render(uint8_t* pcm, int frames) {
 
   for (int i = 0; i < frames; ++i) {
     const float mono = nextMonoSample();
-    const float pan = (0.06f + controls_.spread * 0.24f) * panLfo_.sine();
-    panLfo_.advance();
-    const short left = clampPcm16(mono * (1.0f - pan));
-    const short right = clampPcm16(mono * (1.0f + pan));
+    const StereoFrame stereo = stereoField_.process(mono);
+    const short left = clampPcm16(stereo.left);
+    const short right = clampPcm16(stereo.right);
     const int offset = i * kFrameBytes;
     pcm[offset] = static_cast<uint8_t>(left & 0xFF);
     pcm[offset + 1] = static_cast<uint8_t>((left >> 8) & 0xFF);

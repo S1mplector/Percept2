@@ -70,6 +70,44 @@ class NativeAmbienceMathTest {
   }
 
   @Test
+  void rainSpreadWidensDenseTransientTexture() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    double narrow = stereoSeparation(renderAmbience(
+        "rain",
+        0.84f,
+        0.56f,
+        new AmbienceProfile(0.72f, 0.58f, 0.06f, 0.70f, true),
+        176_400));
+    double wide = stereoSeparation(renderAmbience(
+        "rain",
+        0.84f,
+        0.56f,
+        new AmbienceProfile(0.72f, 0.58f, 0.95f, 0.70f, true),
+        176_400));
+    assertTrue(wide > narrow * 2.0,
+        "higher rain spread should widen dense droplet texture instead of leaving the bed nearly mono");
+  }
+
+  @Test
+  void fireplaceSpreadWidensCrackleBed() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    double narrow = stereoSeparation(renderAmbience(
+        "fireplace",
+        0.80f,
+        0.55f,
+        new AmbienceProfile(0.88f, 0.48f, 0.06f, 0.62f, true),
+        176_400));
+    double wide = stereoSeparation(renderAmbience(
+        "fireplace",
+        0.80f,
+        0.55f,
+        new AmbienceProfile(0.88f, 0.48f, 0.95f, 0.62f, true),
+        176_400));
+    assertTrue(wide > narrow * 1.9,
+        "higher fireplace spread should widen crackle events into a stereo field instead of a centered hiss");
+  }
+
+  @Test
   void windMotionRaisesMacrodynamicVariation() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
     double lowMotion = highBandProxy(monoSamples(renderAmbience(
@@ -331,6 +369,19 @@ class NativeAmbienceMathTest {
       previous = current;
     }
     return acc / Math.max(1, samples.length - 1);
+  }
+
+  private static double stereoSeparation(byte[] pcm) {
+    double sumSquares = 0.0;
+    int frames = pcm.length / 4;
+    for (int frame = 0; frame < frames; frame++) {
+      int offset = frame * 4;
+      short left = (short) (((pcm[offset + 1] & 0xFF) << 8) | (pcm[offset] & 0xFF));
+      short right = (short) (((pcm[offset + 3] & 0xFF) << 8) | (pcm[offset + 2] & 0xFF));
+      double delta = (left - right) / 32767.0;
+      sumSquares += delta * delta;
+    }
+    return Math.sqrt(sumSquares / Math.max(1, frames));
   }
 
   private static double lowBandShare(double[] samples, double cutoffHz) {

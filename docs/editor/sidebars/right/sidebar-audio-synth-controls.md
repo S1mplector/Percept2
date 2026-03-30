@@ -1,6 +1,6 @@
 # Sidebar — Audio Synth Controls
 
-Synthesizer authoring and preview panel. Configure ambience or chiptune parameters visually, preview audio live, inspect waveform output, and generate VNS commands.
+Ambience authoring and preview panel. Configure ambience presets visually, preview them live, inspect spectrum and waveform output, and generate VNS commands.
 
 Source: `editor/src/main/java/com/jvn/editor/ui/AudioSynthControlsView.java`
 
@@ -8,7 +8,7 @@ Source: `editor/src/main/java/com/jvn/editor/ui/AudioSynthControlsView.java`
 
 ## Overview
 
-The Audio Synth Controls panel is a dedicated sidebar tool for authoring and previewing synthesized audio within the editor. It supports both **ambience** (via the Loom native renderer or Java fallback) and **chiptune** (via the Beez engine) synth types.
+The Audio Synth Controls panel is a dedicated sidebar tool for authoring and previewing synthesized ambience within the editor. It is now ambience-focused: fast preset auditioning, live retuning, spectrum/waveform feedback, and one-click command export all route through the same Loom ambience path runtime uses.
 
 - **Default side:** Right
 - **Tab name:** Audio Synth
@@ -21,32 +21,33 @@ The Audio Synth Controls panel is a dedicated sidebar tool for authoring and pre
 
 | Feature | Description |
 |---------|-------------|
-| **Type toggle** | Switch between Ambience and Chiptune synth modes |
-| **Preset / Cue selector** | Choose ambience preset (`wind`, `rain`, `ocean`, `thunder`, `fireplace`, `night_insects`) or chiptune cue (`blip`, `confirm`, `error`, `pickup`) |
-| **Parameter sliders** | Intensity, Volume, Detail, Motion, Spread, Accent (ambience-only params shown conditionally) |
+| **Preset selector** | Choose ambience preset (`wind`, `rain`, `ocean`, `thunder`, `fireplace`, `night_insects`) |
+| **Quick preset chips** | One-click audition buttons for the six ambience presets |
+| **Parameter sliders** | Intensity, Volume, Detail, Motion, Spread, Accent |
 | **Loop toggle** | Enable/disable looping playback |
-| **Live preview** | Play/Stop buttons route through the real `AudioFxController` runtime path |
-| **Waveform visualization** | Canvas showing amplitude envelope with mirrored bars, RMS/peak dashed lines |
-| **RMS/Peak meters** | Numeric readout below the waveform |
+| **Live preview** | Preview/Stop buttons route through the real `AudioFxController` runtime path |
+| **Live retune** | While playing, slider and preset changes retune the running ambience bed instead of hard-restarting it |
+| **Spectrum + waveform** | Separate spectrum and waveform canvases with RMS/peak readouts |
 | **VNS command preview** | Live-updating `[synthesizer on ...]` command string |
 | **Copy to clipboard** | One-click copy of the generated VNS command |
 | **Insert into script** | Inserts the command at the caret position in the active `.vns` file |
-| **Diagnostics** | JNI bridge status, ambience/chiptune provider IDs, diagnostic summary |
+| **Diagnostics** | JNI bridge status, ambience renderer ID, diagnostic summary |
 
 ---
 
 ## UI Sections
 
-### 1. Synth Type
+### 1. Header
 
-Two toggle buttons: **Ambience** and **Chiptune**. Switching types shows/hides the relevant parameter controls.
+- Title + short ambience summary
+- State chips for preview status, current preset, and active renderer
 
-### 2. Preset / Cue
+### 2. Preset
 
-- **Ambience mode:** ComboBox with presets: `wind`, `rain`, `ocean`, `thunder`, `fireplace`, `night_insects`
-- **Chiptune mode:** ComboBox with cues: `blip`, `confirm`, `error`, `pickup`
+- ComboBox with presets: `wind`, `rain`, `ocean`, `thunder`, `fireplace`, `night_insects`
+- Quick preset chips for rapid auditioning
 
-### 3. Ambience Shaping (ambience only)
+### 3. Ambience Shaping
 
 | Parameter | Description | VNS key |
 |-----------|-------------|---------|
@@ -55,7 +56,7 @@ Two toggle buttons: **Ambience** and **Chiptune**. Switching types shows/hides t
 | Spread | Stereo width | `spread:` |
 | Accent | Preset-specific character emphasis | `accent:` |
 
-### 4. Common Controls
+### 4. Mix
 
 | Parameter | Description | VNS key |
 |-----------|-------------|---------|
@@ -65,19 +66,19 @@ Two toggle buttons: **Ambience** and **Chiptune**. Switching types shows/hides t
 
 ### 5. Preview
 
-- **Play** — starts live audio through `AudioFxController`
+- **Preview** — starts live audio through `AudioFxController`
 - **Stop** — stops playback
+- Slider or preset changes while playing retune the ambience bed in place
 - Does not require saving a script first
 
-### 6. Waveform
+### 6. Spectrum + Waveform
 
-A responsive canvas showing the amplitude envelope:
+A responsive pair of canvases showing live output:
 - **Real-time streaming** while playing — updates at ~60fps via `AnimationTimer` + `StreamingAnalyzer`
 - **Static snapshot** while stopped — debounced, renders first ~93ms of configured preset
-- Blue vertical bars (mirrored around center line)
-- Filled envelope area
-- Dashed blue RMS lines
-- Dashed orange peak lines
+- Warm spectrum bars with peak hold
+- Mirrored waveform area
+- RMS and peak overlays
 - "Java fallback" indicator when native bridge is unavailable
 - Parameter changes while playing update both the waveform and the live audio output immediately
 
@@ -98,8 +99,7 @@ Only non-default parameters are included in the concise form. Buttons:
 | Field | Description |
 |-------|-------------|
 | JNI Bridge | `Loaded` (green) or `Unavailable` (red) |
-| Ambience | Provider ID (e.g., `native-loom`) |
-| Chiptune | Provider ID (e.g., `native-beez`) |
+| Renderer | Provider ID (e.g., `native-loom`) |
 | Info | Full diagnostic summary string |
 
 ---
@@ -121,6 +121,7 @@ Only non-default parameters are included in the concise form. Buttons:
 - Insert-into-script callback delegates to `FileEditorTab.insertVnsSnippet()` → `VnsCodeEditor.insertSnippet()`
 - **While playing:** `StreamingAnalyzer` renders PCM on a dedicated daemon thread into a rolling 4096-sample buffer; a JavaFX `AnimationTimer` polls `latest()` at ~60fps and redraws the canvas
 - **While stopped:** A debounced `ScheduledExecutorService` renders a single static snapshot 50ms after the last parameter change, avoiding unbounded thread spawning
+- **While playing:** parameter changes retune the active ambience renderer in place
 - `dispose()` shuts down both the streaming analyzer and the snapshot executor
 
 ### Persistence
@@ -140,11 +141,9 @@ Settings are stored via `java.util.prefs.Preferences` under the `AudioSynthContr
 
 ## Limitations
 
-- **Waveform visualization** mirrors the configured preset's output, not a tap of the actual SourceDataLine audio bus. Both are configured identically so they match.
-- **Chiptune has fewer parameters** than ambience. Detail/Motion/Spread/Accent are ambience-only; this is a real limitation of the Beez engine, not a missing feature.
+- **Visualization** mirrors the configured preset's output, not a tap of the actual SourceDataLine audio bus. Both are configured identically so they match.
 - **Insert into Script** only works when a `.vns` file tab is active.
 - **No undo** for inserted snippets (uses standard editor undo if available).
-- **Chiptune streaming fallback** idles (no Java fallback for Beez) — waveform stays empty if native bridge is unavailable.
 
 ---
 

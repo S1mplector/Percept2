@@ -42,8 +42,8 @@ private:
   bool configured_ = false;
   float elapsedSeconds_ = 0.0f;
   float previousElapsedSeconds_ = 0.0f;
-  Lfo panLfo_{0.11f, 0.1f, 0x76543210u};
   MasterState master_{};
+  StereoFieldState stereoField_{};
   std::unique_ptr<AmbienceMode> mode_;
   std::unique_ptr<AmbienceMode> previousMode_;
   int crossfadeSamplesRemaining_ = 0;

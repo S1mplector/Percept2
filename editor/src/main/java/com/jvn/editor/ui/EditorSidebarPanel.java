@@ -55,6 +55,10 @@ public enum EditorSidebarPanel {
     return defaultVisibleInChooser;
   }
 
+  public boolean editableInSettings() {
+    return this != AUDIO_SYNTH;
+  }
+
   public static Map<EditorSidebarPanel, EditorPanelPlacement> defaultPlacements() {
     Map<EditorSidebarPanel, EditorPanelPlacement> placements =
         new EnumMap<>(EditorSidebarPanel.class);

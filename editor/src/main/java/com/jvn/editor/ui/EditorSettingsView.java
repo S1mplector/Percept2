@@ -120,6 +120,7 @@ public class EditorSettingsView extends BorderPane {
     sidebarGrid.add(fieldLabel("Show In Chooser"), 2, row);
     row++;
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
+      if (!panel.editableInSettings()) continue;
       Label label = fieldLabel(panel.displayName());
       ComboBox<EditorPanelPlacement> combo = new ComboBox<>();
       combo.getItems().addAll(EditorPanelPlacement.values());
@@ -175,6 +176,7 @@ public class EditorSettingsView extends BorderPane {
     showWelcomeOnStartupCheck.setSelected(model.isShowWelcomeOnStartup());
     loadSidebarExtensionsOnDemandCheck.setSelected(model.isLoadSidebarExtensionsOnDemand());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
+      if (!panel.editableInSettings()) continue;
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
       if (combo != null) combo.setValue(model.getPlacement(panel));
       CheckBox chooserVisible = chooserVisibilityChecks.get(panel);
@@ -194,7 +196,9 @@ public class EditorSettingsView extends BorderPane {
   }
 
   private EditorPreferences buildPreferencesFromForm() {
-    EditorPreferences preferences = EditorPreferences.defaults();
+    EditorPreferences preferences = store.load();
+    if (preferences == null) preferences = EditorPreferences.defaults();
+    else preferences = preferences.copy();
     Integer fontSize = codeEditorFontSizeSpinner.getValue();
     preferences.setCodeEditorFontSize(
         fontSize == null
@@ -203,6 +207,7 @@ public class EditorSettingsView extends BorderPane {
     preferences.setShowWelcomeOnStartup(showWelcomeOnStartupCheck.isSelected());
     preferences.setLoadSidebarExtensionsOnDemand(loadSidebarExtensionsOnDemandCheck.isSelected());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
+      if (!panel.editableInSettings()) continue;
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
       preferences.setPlacement(
           panel,

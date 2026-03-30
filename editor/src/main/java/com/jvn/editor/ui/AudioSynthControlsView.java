@@ -1,5 +1,9 @@
 package com.jvn.editor.ui;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -17,11 +21,13 @@ import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
@@ -30,9 +36,11 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
@@ -50,23 +58,12 @@ import javafx.scene.paint.Color;
 public class AudioSynthControlsView extends BorderPane {
 
   // --- Style constants ---
-  private static final String S_SECTION =
-      "-fx-font-weight: 700; -fx-font-size: 12px; -fx-text-fill: #c8d0e0;";
-  private static final String S_PARAM =
-      "-fx-font-size: 11px; -fx-text-fill: #a0a8b8;";
-  private static final String S_VAL =
-      "-fx-font-size: 11px; -fx-text-fill: #78b0ff; -fx-min-width: 32;";
-  private static final String S_DIAG_K =
-      "-fx-font-size: 11px; -fx-text-fill: #8090a8;";
-  private static final String S_DIAG_V =
-      "-fx-font-size: 11px; -fx-text-fill: #c0c8d4;";
   private static final String S_OK =
       "-fx-font-size: 11px; -fx-text-fill: #5ee072; -fx-font-weight: 700;";
   private static final String S_FAIL =
       "-fx-font-size: 11px; -fx-text-fill: #f06060; -fx-font-weight: 700;";
-  private static final String S_SNIPPET =
-      "-fx-font-family: 'Monospace'; -fx-font-size: 10px; -fx-text-fill: #9cc7ff; "
-          + "-fx-background-color: #181c28; -fx-padding: 6; -fx-background-radius: 3;";
+  private static final List<String> AMBIENCE_PRESETS =
+      List.of("wind", "rain", "ocean", "thunder", "fireplace", "night_insects");
 
   private static final int WAVEFORM_BINS = 128;
   private static final Preferences PREFS =
@@ -110,10 +107,14 @@ public class AudioSynthControlsView extends BorderPane {
   private final Label intensityValue = new Label("0.65");
   private final Label volumeValue = new Label("0.45");
   private final CheckBox loopCheck = new CheckBox("Loop");
+  private final Label statusChip = new Label("Ready");
+  private final Label presetChip = new Label("Wind");
+  private final Label rendererChip = new Label("No controller");
+  private final Map<String, Button> quickPresetButtons = new LinkedHashMap<>();
 
   // --- Preview / visualizers ---
-  private final Button btnPlay = new Button("\u25B6 Play");
-  private final Button btnStop = new Button("\u25A0 Stop");
+  private final Button btnPlay = new Button("Preview");
+  private final Button btnStop = new Button("Stop");
   private final Canvas spectrumCanvas = new Canvas(300, 80);
   private final Canvas waveformCanvas = new Canvas(300, 48);
   private final Label lblRms = new Label("RMS: —");
@@ -141,7 +142,6 @@ public class AudioSynthControlsView extends BorderPane {
   // --- Diagnostics ---
   private final Label diagBridgeStatus = new Label("—");
   private final Label diagAmbienceProvider = new Label("—");
-  private final Label diagChiptuneProvider = new Label("—");
   private final Label diagBridgeInfo = new Label("—");
 
   public AudioSynthControlsView() {
@@ -166,11 +166,13 @@ public class AudioSynthControlsView extends BorderPane {
   public void setController(AudioFxController controller) {
     this.controller = controller;
     refreshDiagnosticsFromController();
+    updateTransportAndHeaderState();
   }
 
   /** Set a callback invoked when the user clicks "Insert into Script". */
   public void setOnInsertSnippet(Consumer<String> callback) {
     this.onInsertSnippet = callback;
+    btnInsert.setDisable(callback == null);
   }
 
   /** Refresh diagnostics display from the controller. */
@@ -179,16 +181,16 @@ public class AudioSynthControlsView extends BorderPane {
       diagBridgeStatus.setText("No controller");
       diagBridgeStatus.setStyle(S_FAIL);
       diagAmbienceProvider.setText("—");
-      diagChiptuneProvider.setText("—");
       diagBridgeInfo.setText("—");
+      updateTransportAndHeaderState();
       return;
     }
     boolean bridgeOk = controller.nativeBridgeAvailable();
     diagBridgeStatus.setText(bridgeOk ? "Loaded" : "Unavailable");
     diagBridgeStatus.setStyle(bridgeOk ? S_OK : S_FAIL);
     diagAmbienceProvider.setText(controller.ambienceProviderId());
-    diagChiptuneProvider.setText(controller.beezProviderId());
     diagBridgeInfo.setText(controller.diagnosticsSummary());
+    updateTransportAndHeaderState();
   }
 
   /** Refresh diagnostics from explicit values (legacy API). */
@@ -197,8 +199,8 @@ public class AudioSynthControlsView extends BorderPane {
     diagBridgeStatus.setText(bridgeAvailable ? "Loaded" : "Unavailable");
     diagBridgeStatus.setStyle(bridgeAvailable ? S_OK : S_FAIL);
     diagAmbienceProvider.setText(ambienceId != null ? ambienceId : "—");
-    diagChiptuneProvider.setText(chiptuneId != null ? chiptuneId : "—");
     diagBridgeInfo.setText(bridgeDiagnostic != null ? bridgeDiagnostic : "—");
+    updateTransportAndHeaderState();
   }
 
   // --- UI construction ---
@@ -206,15 +208,43 @@ public class AudioSynthControlsView extends BorderPane {
   private void buildUi() {
     VBox root = new VBox(8);
     root.setPadding(new Insets(10));
+    root.getStyleClass().add("audio-synth-root");
 
-    Label title = new Label("Ambience Authoring");
-    title.setStyle("-fx-font-weight: 700; -fx-font-size: 14px; -fx-text-fill: #d0d8e8;");
+    Region headerIcon = CssIcon.sort("#e6c98b");
+    Label title = new Label("Ambience Synth");
+    title.getStyleClass().add("audio-synth-title");
+    Label subtitle = new Label("Shape ambience beds, audition them live, and export the matching VNS command.");
+    subtitle.setWrapText(true);
+    subtitle.getStyleClass().add("audio-synth-subtitle");
+    VBox headerText = new VBox(2, title, subtitle);
+    HBox headerTitleRow = new HBox(10, headerIcon, headerText);
+    headerTitleRow.setAlignment(Pos.CENTER_LEFT);
+
+    statusChip.getStyleClass().addAll("audio-synth-chip", "audio-synth-chip-idle");
+    presetChip.getStyleClass().addAll("audio-synth-chip", "audio-synth-chip-preset");
+    rendererChip.getStyleClass().addAll("audio-synth-chip", "audio-synth-chip-renderer");
+    HBox chipRow = new HBox(8, statusChip, presetChip, rendererChip);
+    chipRow.setAlignment(Pos.CENTER_LEFT);
+    chipRow.getStyleClass().add("audio-synth-chip-row");
+    VBox headerCard = buildCard(headerTitleRow, chipRow);
+    headerCard.getStyleClass().add("audio-synth-hero");
 
     // Ambience params
-    presetCombo.getItems().addAll("wind", "rain", "ocean", "thunder", "fireplace", "night_insects");
+    presetCombo.getItems().addAll(AMBIENCE_PRESETS);
     presetCombo.setValue(settings.preset());
     presetCombo.setMaxWidth(Double.MAX_VALUE);
     presetCombo.setTooltip(new Tooltip("Ambience preset (mode:\"...\")"));
+    presetCombo.getStyleClass().add("audio-synth-combo");
+
+    FlowPane presetChips = new FlowPane();
+    presetChips.setHgap(6);
+    presetChips.setVgap(6);
+    presetChips.getStyleClass().add("audio-synth-preset-flow");
+    for (String preset : AMBIENCE_PRESETS) {
+      Button chip = createPresetChipButton(preset);
+      quickPresetButtons.put(preset, chip);
+      presetChips.getChildren().add(chip);
+    }
 
     GridPane ambienceGrid = new GridPane();
     ambienceGrid.setHgap(6);
@@ -225,6 +255,7 @@ public class AudioSynthControlsView extends BorderPane {
     addParam(ambienceGrid, 3, "Accent", accentSlider, accentValue, "Preset-specific character emphasis");
     ambienceParamsBox.getChildren().addAll(
         sectionLabel("Preset"), presetCombo,
+        presetChips,
         sectionLabel("Ambience Shaping"), ambienceGrid);
 
     // Shared controls
@@ -235,86 +266,99 @@ public class AudioSynthControlsView extends BorderPane {
     addParam(sharedGrid, 1, "Volume", volumeSlider, volumeValue, "Output volume");
     loopCheck.setSelected(settings.loop());
     loopCheck.setTooltip(new Tooltip("Enable looping playback"));
+    loopCheck.getStyleClass().add("audio-synth-loop-check");
+    Label loopHint = new Label("Keep the bed looping while you tune or preview scene ambience.");
+    loopHint.getStyleClass().add("audio-synth-caption");
 
     // Preview controls
     btnPlay.setMaxWidth(Double.MAX_VALUE);
     btnStop.setMaxWidth(Double.MAX_VALUE);
     btnStop.setDisable(true);
+    btnPlay.setDisable(true);
+    styleActionButton(btnPlay, CssIcon.play("#e6efe4"), "Start live ambience preview", true);
+    styleActionButton(btnStop, CssIcon.stop("#f2d7d7"), "Stop live ambience preview", false);
     HBox.setHgrow(btnPlay, Priority.ALWAYS);
     HBox.setHgrow(btnStop, Priority.ALWAYS);
     HBox previewRow = new HBox(4, btnPlay, btnStop);
     previewRow.setAlignment(Pos.CENTER);
 
     // Spectrum + Waveform visualizers
-    spectrumCanvas.setStyle("-fx-background-color: #0a0e14;");
-    waveformCanvas.setStyle("-fx-background-color: #0a0e14;");
+    spectrumCanvas.getStyleClass().add("audio-synth-canvas");
+    waveformCanvas.getStyleClass().add("audio-synth-canvas");
     Label spectrumLabel = new Label("Spectrum");
-    spectrumLabel.setStyle("-fx-font-size: 9px; -fx-text-fill: #4a5568;");
+    spectrumLabel.getStyleClass().add("audio-synth-mini-label");
     Label waveformLabel = new Label("Waveform");
-    waveformLabel.setStyle("-fx-font-size: 9px; -fx-text-fill: #4a5568;");
-    lblRms.setStyle("-fx-font-size: 10px; -fx-text-fill: #68a0d0;");
-    lblPeak.setStyle("-fx-font-size: 10px; -fx-text-fill: #d08868;");
+    waveformLabel.getStyleClass().add("audio-synth-mini-label");
+    lblRms.getStyleClass().addAll("audio-synth-metric", "audio-synth-metric-rms");
+    lblPeak.getStyleClass().addAll("audio-synth-metric", "audio-synth-metric-peak");
     HBox metersRow = new HBox(12, lblRms, lblPeak);
     metersRow.setAlignment(Pos.CENTER_LEFT);
+    Label previewCaption = new Label("Live preview uses the runtime ambience renderer path and keeps updating while you drag.");
+    previewCaption.setWrapText(true);
+    previewCaption.getStyleClass().add("audio-synth-caption");
+    VBox spectrumBox = new VBox(4, spectrumLabel, spectrumCanvas);
+    spectrumBox.getStyleClass().add("audio-synth-canvas-frame");
+    VBox waveformBox = new VBox(4, waveformLabel, waveformCanvas);
+    waveformBox.getStyleClass().add("audio-synth-canvas-frame");
 
     // Snippet
     snippetPreview.setWrapText(true);
-    snippetPreview.setStyle(S_SNIPPET);
+    snippetPreview.getStyleClass().add("audio-synth-snippet");
     snippetPreview.setMaxWidth(Double.MAX_VALUE);
+    btnCopy.setDisable(false);
+    btnInsert.setDisable(true);
     btnCopy.setMaxWidth(Double.MAX_VALUE);
     btnInsert.setMaxWidth(Double.MAX_VALUE);
-    btnCopy.setTooltip(new Tooltip("Copy VNS command to clipboard"));
-    btnInsert.setTooltip(new Tooltip("Insert VNS command at caret in active VNS script"));
+    styleActionButton(btnCopy, CssIcon.copy("#d7c3a3"), "Copy VNS command to clipboard", false);
+    styleActionButton(btnInsert, CssIcon.plus("#a8d68d"), "Insert VNS command at caret in active VNS script", false);
     HBox snippetBtns = new HBox(4, btnCopy, btnInsert);
     HBox.setHgrow(btnCopy, Priority.ALWAYS);
     HBox.setHgrow(btnInsert, Priority.ALWAYS);
+    Label commandCaption = new Label("Export the current ambience setup as a concise `[synthesizer on ...]` line.");
+    commandCaption.setWrapText(true);
+    commandCaption.getStyleClass().add("audio-synth-caption");
 
     // Diagnostics
     GridPane diagGrid = new GridPane();
     diagGrid.setHgap(8);
     diagGrid.setVgap(3);
     addDiagRow(diagGrid, 0, "JNI Bridge", diagBridgeStatus);
-    addDiagRow(diagGrid, 1, "Ambience", diagAmbienceProvider);
-    addDiagRow(diagGrid, 2, "Chiptune", diagChiptuneProvider);
-    addDiagRow(diagGrid, 3, "Info", diagBridgeInfo);
+    addDiagRow(diagGrid, 1, "Renderer", diagAmbienceProvider);
+    addDiagRow(diagGrid, 2, "Info", diagBridgeInfo);
 
     root.getChildren().addAll(
-        title,
-        new Separator(),
-        ambienceParamsBox,
-        new Separator(),
-        sectionLabel("Common"), sharedGrid, loopCheck,
-        new Separator(),
-        sectionLabel("Preview"), previewRow,
-        spectrumLabel, spectrumCanvas,
-        waveformLabel, waveformCanvas, metersRow,
-        new Separator(),
-        sectionLabel("VNS Command"), snippetPreview, snippetBtns,
-        new Separator(),
-        sectionLabel("Audio Backend"), diagGrid
+        headerCard,
+        buildCard(ambienceParamsBox),
+        buildCard(sectionLabel("Mix"), sharedGrid, loopCheck, loopHint),
+        buildCard(sectionLabel("Preview"), previewRow, previewCaption, spectrumBox, waveformBox, metersRow),
+        buildCard(sectionLabel("VNS Command"), commandCaption, snippetPreview, snippetBtns),
+        buildCard(sectionLabel("Renderer"), diagGrid)
     );
 
     ScrollPane scroll = new ScrollPane(root);
     scroll.setFitToWidth(true);
     scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-    scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+    scroll.getStyleClass().add("audio-synth-scroll");
     setCenter(scroll);
 
     // Responsive canvas width
     root.widthProperty().addListener((obs, o, n) -> {
-      double w = n.doubleValue() - 20;
+      double w = n.doubleValue() - 38;
       if (w > 40) {
         spectrumCanvas.setWidth(w);
         waveformCanvas.setWidth(w);
         if (!playing) requestSnapshot();
       }
     });
+    updateTransportAndHeaderState();
   }
 
   private void wireListeners() {
     presetCombo.valueProperty().addListener((obs, o, n) -> {
+      if (n == null || n.isBlank()) return;
       settings.setPreset(n);
       updateSnippetPreview();
+      updateTransportAndHeaderState();
       onSettingsChanged();
       persistSettings();
     });
@@ -329,6 +373,7 @@ public class AudioSynthControlsView extends BorderPane {
     loopCheck.selectedProperty().addListener((obs, o, n) -> {
       settings.setLoop(n);
       updateSnippetPreview();
+      updateTransportAndHeaderState();
       onSettingsChanged();
       persistSettings();
     });
@@ -355,6 +400,7 @@ public class AudioSynthControlsView extends BorderPane {
       valueLabel.setText(String.format("%.2f", v));
       setter.accept(v);
       updateSnippetPreview();
+      updateTransportAndHeaderState();
       onSettingsChanged();
       persistSettings();
     });
@@ -371,6 +417,7 @@ public class AudioSynthControlsView extends BorderPane {
     accentSlider.setValue(settings.accent());
     loopCheck.setSelected(settings.loop());
     updateSnippetPreview();
+    updateTransportAndHeaderState();
   }
 
   private void updateSnippetPreview() {
@@ -395,14 +442,12 @@ public class AudioSynthControlsView extends BorderPane {
     if (controller == null) return;
     try {
       playing = true;
-      btnPlay.setDisable(true);
-      btnStop.setDisable(false);
+      updateTransportAndHeaderState();
       startControllerPlayback();
       startStreaming();
     } catch (RuntimeException ex) {
       playing = false;
-      btnPlay.setDisable(false);
-      btnStop.setDisable(true);
+      updateTransportAndHeaderState();
       stopStreaming();
       drawVisualizerError(errorSummary(ex));
       refreshDiagnosticsFromController();
@@ -411,8 +456,7 @@ public class AudioSynthControlsView extends BorderPane {
 
   private void doStop() {
     playing = false;
-    btnPlay.setDisable(false);
-    btnStop.setDisable(true);
+    updateTransportAndHeaderState();
     stopStreaming();
     stopControllerPlayback();
     // Show final static snapshot
@@ -762,7 +806,7 @@ public class AudioSynthControlsView extends BorderPane {
 
   private static Label sectionLabel(String text) {
     Label l = new Label(text);
-    l.setStyle(S_SECTION);
+    l.getStyleClass().add("audio-synth-section-title");
     return l;
   }
 
@@ -777,9 +821,9 @@ public class AudioSynthControlsView extends BorderPane {
   private static void addParam(GridPane grid, int row, String name,
       Slider slider, Label valueLabel, String tooltip) {
     Label label = new Label(name);
-    label.setStyle(S_PARAM);
+    label.getStyleClass().add("audio-synth-param-label");
     label.setTooltip(new Tooltip(tooltip));
-    valueLabel.setStyle(S_VAL);
+    valueLabel.getStyleClass().add("audio-synth-param-value");
     valueLabel.setAlignment(Pos.CENTER_RIGHT);
     valueLabel.setMinWidth(32);
     grid.add(label, 0, row);
@@ -790,10 +834,90 @@ public class AudioSynthControlsView extends BorderPane {
 
   private static void addDiagRow(GridPane grid, int row, String key, Label valueLabel) {
     Label k = new Label(key);
-    k.setStyle(S_DIAG_K);
-    valueLabel.setStyle(S_DIAG_V);
+    k.getStyleClass().add("audio-synth-diag-key");
+    valueLabel.getStyleClass().add("audio-synth-diag-value");
     valueLabel.setWrapText(true);
     grid.add(k, 0, row);
     grid.add(valueLabel, 1, row);
+  }
+
+  private VBox buildCard(Node... content) {
+    VBox card = new VBox(8);
+    card.getStyleClass().add("audio-synth-card");
+    for (Node node : content) {
+      if (node != null) {
+        card.getChildren().add(node);
+      }
+    }
+    return card;
+  }
+
+  private Button createPresetChipButton(String preset) {
+    Button button = new Button(friendlyPresetName(preset));
+    button.getStyleClass().add("audio-synth-preset-chip");
+    button.setFocusTraversable(false);
+    button.setOnAction(e -> presetCombo.setValue(preset));
+    button.setTooltip(new Tooltip("Switch to " + friendlyPresetName(preset).toLowerCase(Locale.ROOT)));
+    return button;
+  }
+
+  private void styleActionButton(Button button, Region icon, String tooltip, boolean primary) {
+    button.getStyleClass().add("audio-synth-action-button");
+    if (primary) {
+      button.getStyleClass().add("audio-synth-action-button-primary");
+    }
+    button.setGraphic(icon);
+    button.setContentDisplay(ContentDisplay.LEFT);
+    button.setGraphicTextGap(7);
+    button.setAlignment(Pos.CENTER_LEFT);
+    button.setTooltip(new Tooltip(tooltip));
+  }
+
+  private void updateTransportAndHeaderState() {
+    btnPlay.setDisable(controller == null || playing);
+    btnStop.setDisable(!playing);
+
+    statusChip.setText(playing ? "Live Preview" : "Ready");
+    statusChip.getStyleClass().removeAll("audio-synth-chip-idle", "audio-synth-chip-live");
+    statusChip.getStyleClass().add(playing ? "audio-synth-chip-live" : "audio-synth-chip-idle");
+
+    String preset = settings.preset();
+    presetChip.setText(friendlyPresetName(preset));
+    for (Map.Entry<String, Button> entry : quickPresetButtons.entrySet()) {
+      Button button = entry.getValue();
+      button.getStyleClass().remove("audio-synth-preset-chip-active");
+      if (entry.getKey().equalsIgnoreCase(preset)) {
+        button.getStyleClass().add("audio-synth-preset-chip-active");
+      }
+    }
+
+    if (controller == null) {
+      rendererChip.setText("No Controller");
+      rendererChip.getStyleClass().removeAll("audio-synth-chip-live", "audio-synth-chip-idle");
+      rendererChip.getStyleClass().add("audio-synth-chip-idle");
+      return;
+    }
+
+    String rendererId = diagAmbienceProvider.getText();
+    if (rendererId == null || rendererId.isBlank() || "—".equals(rendererId)) {
+      rendererId = controller.nativeBridgeAvailable() ? "Native" : "Fallback";
+    }
+    rendererChip.setText(rendererId);
+    rendererChip.getStyleClass().removeAll("audio-synth-chip-live", "audio-synth-chip-idle");
+    rendererChip.getStyleClass().add(controller.nativeBridgeAvailable()
+        ? "audio-synth-chip-live"
+        : "audio-synth-chip-idle");
+  }
+
+  private static String friendlyPresetName(String preset) {
+    if (preset == null || preset.isBlank()) return "Preset";
+    return switch (preset) {
+      case "night_insects" -> "Night Insects";
+      default -> {
+        String normalized = preset.replace('_', ' ').trim();
+        if (normalized.isEmpty()) yield "Preset";
+        yield Character.toUpperCase(normalized.charAt(0)) + normalized.substring(1);
+      }
+    };
   }
 }
