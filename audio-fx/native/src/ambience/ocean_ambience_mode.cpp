@@ -11,6 +11,7 @@ OceanAmbienceMode::OceanAmbienceMode(int sampleRate) : BaseAmbienceMode(sampleRa
 
 void OceanAmbienceMode::configure(const RenderControls& controls) {
   setControls(controls);
+  resetRandomState();
   crashEnvelope_ = 0.0f;
   backwashEnvelope_ = 0.0f;
   crashTimer_ = randomRange(0.6f, 1.5f);
@@ -30,6 +31,11 @@ void OceanAmbienceMode::configure(const RenderControls& controls) {
   crashBandPass_.reset();
   sprayHighPass_.reset();
   backwashBandPass_.reset();
+  updateFilters();
+}
+
+void OceanAmbienceMode::retune(const RenderControls& controls) {
+  setControls(controls);
   updateFilters();
 }
 

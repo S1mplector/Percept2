@@ -381,8 +381,8 @@ public class AudioSynthControlsView extends BorderPane {
 
   private void onSettingsChanged() {
     if (playing) {
-      // Update the live audio output and streaming waveform
-      restartControllerPlayback();
+      // Retune the live ambience bed in place instead of hard-restarting it.
+      startControllerPlayback();
       streamingAnalyzer.reconfigure(settings);
     } else {
       requestSnapshot();
@@ -428,11 +428,6 @@ public class AudioSynthControlsView extends BorderPane {
   private void stopControllerPlayback() {
     if (controller == null) return;
     controller.stopAmbience();
-  }
-
-  private void restartControllerPlayback() {
-    stopControllerPlayback();
-    startControllerPlayback();
   }
 
   // --- Streaming waveform ---

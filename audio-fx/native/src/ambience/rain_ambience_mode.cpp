@@ -17,6 +17,7 @@ RainAmbienceMode::RainAmbienceMode(int sampleRate) : BaseAmbienceMode(sampleRate
 
 void RainAmbienceMode::configure(const RenderControls& controls) {
   setControls(controls);
+  resetRandomState();
   roofTimer_ = randomRange(0.003f, 0.015f);
   leafTimer_ = randomRange(0.010f, 0.050f);
   puddleTimer_ = randomRange(0.020f, 0.090f);
@@ -48,6 +49,11 @@ void RainAmbienceMode::configure(const RenderControls& controls) {
     voice.reset();
   }
 
+  updateFilters();
+}
+
+void RainAmbienceMode::retune(const RenderControls& controls) {
+  setControls(controls);
   updateFilters();
 }
 

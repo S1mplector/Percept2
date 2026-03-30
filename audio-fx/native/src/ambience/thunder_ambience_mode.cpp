@@ -11,6 +11,7 @@ ThunderAmbienceMode::ThunderAmbienceMode(int sampleRate) : BaseAmbienceMode(samp
 
 void ThunderAmbienceMode::configure(const RenderControls& controls) {
   setControls(controls);
+  resetRandomState();
   rumblePhase_ = 0.0f;
   crackEnvelope_ = 0.0f;
   boltEnvelope_ = 0.0f;
@@ -31,6 +32,11 @@ void ThunderAmbienceMode::configure(const RenderControls& controls) {
   rainHighPass_.reset();
   subBassLowPass_.reset();
   dropBandPass_.reset();
+  updateFilters();
+}
+
+void ThunderAmbienceMode::retune(const RenderControls& controls) {
+  setControls(controls);
   updateFilters();
 }
 

@@ -16,6 +16,9 @@ void BaseAmbienceMode::setControls(const RenderControls& controls) {
   controls_.spread = clamp01(controls.spread);
   controls_.accent = clamp01(controls.accent);
   controls_.loop = controls.loop;
+}
+
+void BaseAmbienceMode::resetRandomState() {
   eventRng_.seed(seed_);
 }
 

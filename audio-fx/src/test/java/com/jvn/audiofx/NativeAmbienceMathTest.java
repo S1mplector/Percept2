@@ -1,9 +1,11 @@
 package com.jvn.audiofx;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jvn.core.audio.AmbienceProfile;
+import java.util.Arrays;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
 
@@ -19,18 +21,18 @@ class NativeAmbienceMathTest {
   }
 
   @Test
-  void reconfiguringSameRendererResetsDeterministicState() {
+  void reconfiguringSameRendererKeepsContinuityForSamePreset() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
     AmbienceProfile profile = new AmbienceProfile(0.70f, 0.66f, 0.52f, 0.61f, true);
     try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
       renderer.configure("ocean", 0.84f, 0.58f, profile);
-      byte[] first = renderChunk(renderer, 88_200);
+      renderChunk(renderer, 88_200);
       renderer.configure("ocean", 0.84f, 0.58f, profile);
-      byte[] second = renderChunk(renderer, 88_200);
-      assertArrayEquals(
-          first,
-          second,
-          "reconfiguring the same native renderer should reset RNG/LFO state");
+      byte[] continued = renderChunk(renderer, 88_200);
+      byte[] fresh = renderAmbience("ocean", 0.84f, 0.58f, profile, 88_200);
+      assertFalse(
+          Arrays.equals(continued, fresh),
+          "reconfiguring the same native renderer should retune in place instead of hard-resetting ambience state");
     }
   }
 
@@ -38,12 +40,32 @@ class NativeAmbienceMathTest {
   void chunkSizeDoesNotChangeRenderedAmbience() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
     AmbienceProfile profile = new AmbienceProfile(0.76f, 0.81f, 0.57f, 0.73f, true);
+    byte[] fixed;
     try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
       renderer.configure("rain", 0.86f, 0.58f, profile);
-      byte[] fixed = renderChunkPattern(renderer, 132_300, new int[] {4096});
+      fixed = renderChunkPattern(renderer, 132_300, new int[] {4096});
+    }
+    byte[] varied;
+    try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
       renderer.configure("rain", 0.86f, 0.58f, profile);
-      byte[] varied = renderChunkPattern(renderer, 132_300, new int[] {257, 997, 61, 2048, 509});
-      assertArrayEquals(fixed, varied, "render chunking should not alter ambience PCM");
+      varied = renderChunkPattern(renderer, 132_300, new int[] {257, 997, 61, 2048, 509});
+    }
+    assertArrayEquals(fixed, varied, "render chunking should not alter ambience PCM");
+  }
+
+  @Test
+  void switchingPresetsCrossfadesInsteadOfJumpingToFreshStart() {
+    assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+    AmbienceProfile profile = new AmbienceProfile(0.72f, 0.64f, 0.58f, 0.69f, true);
+    try (AudioFxNativeBridge.AmbienceRenderer renderer = AudioFxNativeBridge.createAmbienceRenderer(44_100)) {
+      renderer.configure("wind", 0.82f, 0.56f, profile);
+      renderChunk(renderer, 66_150);
+      renderer.configure("rain", 0.82f, 0.56f, profile);
+      byte[] transitioned = renderChunk(renderer, 22_050);
+      byte[] freshRain = renderAmbience("rain", 0.82f, 0.56f, profile, 22_050);
+      assertFalse(
+          Arrays.equals(transitioned, freshRain),
+          "switching ambience presets should crossfade from the previous bed instead of hard-cutting to a fresh start");
     }
   }
 

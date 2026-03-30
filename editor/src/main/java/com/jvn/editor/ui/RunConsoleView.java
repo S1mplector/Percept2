@@ -19,6 +19,8 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -43,7 +45,9 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.stage.FileChooser;
@@ -80,9 +84,8 @@ public class RunConsoleView extends BorderPane {
     private final Label lineCountLabel = new Label("0 lines");
     private final Label errorCountLabel = new Label("0 errors");
     private final Label warnCountLabel = new Label("0 warnings");
-    private final Label cpuPerfLabel = new Label("CPU --");
-    private final Label jvmPerfLabel = new Label("JVN -- MB");
-    private final Label fpsPerfLabel = new Label("FPS --");
+    private final PerfGraph perfGraph = new PerfGraph();
+    private final Tooltip perfGraphTooltip = new Tooltip("CPU -- | JVN -- MB | FPS --");
 
     // Raw line buffer for search/filter replay
     private final List<String> rawLineBuffer = new ArrayList<>();
@@ -142,6 +145,11 @@ public class RunConsoleView extends BorderPane {
     private static final String LOG_COLOR_NOISE = "#6b7381";
     private static final String LOG_COLOR_NORMAL = "#b5bfd0";
     private static final String LOG_COLOR_INFO = "#8ab4f8";
+    private static final Color PERF_GRID_BG = Color.web("#111111");
+    private static final Color PERF_GRID_LINE = Color.web("#2a2a2a");
+    private static final Color PERF_CPU_COLOR = Color.web("#f27333");
+    private static final Color PERF_JVM_COLOR = Color.web("#49a5ff");
+    private static final Color PERF_FPS_COLOR = Color.web("#f4f4f4");
     private static final long PERF_HUD_UPDATE_INTERVAL_NS = 300_000_000L;
     private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
     private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
@@ -172,9 +180,8 @@ public class RunConsoleView extends BorderPane {
         HBox statusBar = createStatusBar();
         setBottom(statusBar);
 
-        cpuPerfLabel.getStyleClass().addAll("run-console-perf-chip", "run-console-perf-cpu");
-        jvmPerfLabel.getStyleClass().addAll("run-console-perf-chip", "run-console-perf-jvm");
-        fpsPerfLabel.getStyleClass().addAll("run-console-perf-chip", "run-console-perf-fps");
+        perfGraphTooltip.setShowDelay(javafx.util.Duration.millis(120));
+        Tooltip.install(perfGraph.getCanvas(), perfGraphTooltip);
 
         perfHudTimer = new AnimationTimer() {
             @Override
@@ -641,11 +648,12 @@ public class RunConsoleView extends BorderPane {
         Label searchLabel = new Label("Filter:");
         searchLabel.getStyleClass().add("run-console-search-label");
 
-        HBox perfStrip = new HBox(6, cpuPerfLabel, jvmPerfLabel, fpsPerfLabel);
-        perfStrip.setAlignment(Pos.CENTER_LEFT);
-        perfStrip.getStyleClass().add("run-console-perf-strip");
-        perfStrip.setMinWidth(Region.USE_PREF_SIZE);
-        perfStrip.setMaxWidth(Region.USE_PREF_SIZE);
+        StackPane perfGraphShell = new StackPane(perfGraph.getCanvas());
+        perfGraphShell.setAlignment(Pos.CENTER_LEFT);
+        perfGraphShell.getStyleClass().add("run-console-perf-graph-shell");
+        perfGraphShell.setMinWidth(Region.USE_PREF_SIZE);
+        perfGraphShell.setPrefWidth(170);
+        perfGraphShell.setMaxWidth(Region.USE_PREF_SIZE);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -653,7 +661,7 @@ public class RunConsoleView extends BorderPane {
         bar.getItems().addAll(
             runBtn, stopBtn, new Separator(),
             clearBtn, copyBtn, new Separator(),
-            perfStrip, new Separator(),
+            perfGraphShell, new Separator(),
             showAllToggle, autoScrollBtn, wordWrapBtn, new Separator(),
             searchLabel, searchField, logLevelFilter,
             spacer, stateLabel, elapsedLabel
@@ -760,14 +768,136 @@ public class RunConsoleView extends BorderPane {
         MemoryUsage heap = memoryBean.getHeapMemoryUsage();
         MemoryUsage nonHeap = memoryBean.getNonHeapMemoryUsage();
         double heapUsedMb = Math.max(0.0, bytesToMb(heap == null ? -1L : heap.getUsed()));
+        long heapMaxBytes = heap == null ? -1L : heap.getMax();
+        if (heapMaxBytes <= 0L && heap != null) {
+            heapMaxBytes = heap.getCommitted();
+        }
+        if (heapMaxBytes <= 0L) {
+            heapMaxBytes = Runtime.getRuntime().maxMemory();
+        }
+        double heapMaxMb = Math.max(1.0, bytesToMb(heapMaxBytes));
         double nonHeapMb = Math.max(0.0, bytesToMb(nonHeap == null ? -1L : nonHeap.getUsed()));
+        long nonHeapCeilingBytes = nonHeap == null ? -1L : nonHeap.getCommitted();
+        if (nonHeapCeilingBytes <= 0L && nonHeap != null) {
+            nonHeapCeilingBytes = nonHeap.getUsed();
+        }
+        double nonHeapCeilingMb = Math.max(nonHeapMb, bytesToMb(nonHeapCeilingBytes));
         double jvnUsedMb = Math.max(0.0, heapUsedMb + nonHeapMb);
+        double jvnCeilingMb = Math.max(1.0, heapMaxMb + nonHeapCeilingMb);
+        double cpuRatio = isRatioValid(smoothedProcessCpu) ? clamp01(smoothedProcessCpu) : 0.0;
+        double jvnRatio = clamp01(jvnUsedMb / jvnCeilingMb);
+        double fpsRatio = clamp01(smoothedFps);
 
-        cpuPerfLabel.setText(isRatioValid(smoothedProcessCpu)
-            ? String.format(Locale.ROOT, "CPU %.0f%%", smoothedProcessCpu * 100.0)
-            : "CPU --");
-        jvmPerfLabel.setText(String.format(Locale.ROOT, "JVN %.0f MB", jvnUsedMb));
-        fpsPerfLabel.setText(String.format(Locale.ROOT, "FPS %.0f", Math.max(0.0, smoothedFps)));
+        perfGraphTooltip.setText(String.format(
+            Locale.ROOT,
+            "CPU %.0f%% | JVN %.0f MB | FPS %.0f",
+            cpuRatio * 100.0,
+            jvnUsedMb,
+            Math.max(0.0, smoothedFps)));
+        perfGraph.pushSample(cpuRatio, jvnRatio, fpsRatio);
+    }
+
+    private static final class PerfGraph {
+        private final Canvas canvas = new Canvas(154, 34);
+        private final double[] cpu = new double[120];
+        private final double[] jvm = new double[120];
+        private final double[] fps = new double[120];
+        private int index = 0;
+        private boolean filled = false;
+
+        private PerfGraph() {
+            canvas.setWidth(154);
+            canvas.setHeight(34);
+            redraw();
+        }
+
+        private Canvas getCanvas() {
+            return canvas;
+        }
+
+        private void pushSample(double cpuRatio, double jvmRatio, double fpsRatio) {
+            int slot = index % cpu.length;
+            cpu[slot] = clamp01(cpuRatio);
+            jvm[slot] = clamp01(jvmRatio);
+            fps[slot] = clamp01(fpsRatio);
+            index++;
+            if (index >= cpu.length) filled = true;
+            redraw();
+        }
+
+        private void redraw() {
+            GraphicsContext g = canvas.getGraphicsContext2D();
+            double w = canvas.getWidth();
+            double h = canvas.getHeight();
+            if (!Double.isFinite(w) || !Double.isFinite(h) || w <= 0 || h <= 0) return;
+
+            g.setFill(PERF_GRID_BG);
+            g.fillRect(0, 0, w, h);
+
+            g.setStroke(PERF_GRID_LINE);
+            g.setLineWidth(1.0);
+            for (int row = 1; row < 4; row++) {
+                double y = h * row / 4.0;
+                g.strokeLine(0, y, w, y);
+            }
+            double stepX = w / 4.0;
+            for (double x = stepX; x < w; x += stepX) {
+                g.strokeLine(x, 0, x, h);
+            }
+
+            int samples = filled ? cpu.length : Math.min(index, cpu.length);
+            if (samples <= 1) return;
+            double scaleX = w / (cpu.length - 1.0);
+
+            g.setFill(PERF_JVM_COLOR.deriveColor(0, 1, 1, 0.22));
+            g.beginPath();
+            for (int i = 0; i < samples; i++) {
+                int si = (index - samples + i + cpu.length) % cpu.length;
+                double x = i * scaleX;
+                double y = h * (1.0 - jvm[si]);
+                if (i == 0) g.moveTo(x, h);
+                g.lineTo(x, y);
+            }
+            g.lineTo((samples - 1) * scaleX, h);
+            g.closePath();
+            g.fill();
+
+            g.setStroke(PERF_JVM_COLOR.deriveColor(0, 1, 1, 0.92));
+            g.setLineWidth(1.25);
+            g.beginPath();
+            for (int i = 0; i < samples; i++) {
+                int si = (index - samples + i + cpu.length) % cpu.length;
+                double x = i * scaleX;
+                double y = h * (1.0 - jvm[si]);
+                if (i == 0) g.moveTo(x, y);
+                else g.lineTo(x, y);
+            }
+            g.stroke();
+
+            g.setStroke(PERF_CPU_COLOR.deriveColor(0, 1, 1, 0.92));
+            g.setLineWidth(1.5);
+            g.beginPath();
+            for (int i = 0; i < samples; i++) {
+                int si = (index - samples + i + cpu.length) % cpu.length;
+                double x = i * scaleX;
+                double y = h * (1.0 - cpu[si]);
+                if (i == 0) g.moveTo(x, y);
+                else g.lineTo(x, y);
+            }
+            g.stroke();
+
+            g.setStroke(PERF_FPS_COLOR.deriveColor(0, 1, 1, 0.9));
+            g.setLineWidth(1.5);
+            g.beginPath();
+            for (int i = 0; i < samples; i++) {
+                int si = (index - samples + i + cpu.length) % cpu.length;
+                double x = i * scaleX;
+                double y = h * (1.0 - fps[si]);
+                if (i == 0) g.moveTo(x, y);
+                else g.lineTo(x, y);
+            }
+            g.stroke();
+        }
     }
 
     private static double bytesToMb(long bytes) {
@@ -782,6 +912,13 @@ public class RunConsoleView extends BorderPane {
         if (!isRatioValid(target)) return current;
         if (!isRatioValid(current)) return target;
         return current + ((target - current) * alpha);
+    }
+
+    private static double clamp01(double value) {
+        if (!Double.isFinite(value)) return 0.0;
+        if (value < 0.0) return 0.0;
+        if (value > 1.0) return 1.0;
+        return value;
     }
 
     private static boolean isMac() {

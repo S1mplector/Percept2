@@ -141,31 +141,14 @@
   -fx-padding: 6 10 6 10;
 }
 
-.run-console-perf-strip {
-  -fx-alignment: center-left;
-}
-
-.run-console-perf-chip {
-  -fx-font-size: 10px;
-  -fx-font-weight: 700;
-  -fx-padding: 4 8 4 8;
-  -fx-background-color: rgba(19, 19, 19, 0.92);
-  -fx-background-radius: 999;
+.run-console-perf-graph-shell {
+  -fx-padding: 4 6 4 6;
+  -fx-background-color: #131313;
+  -fx-background-radius: 10;
   -fx-border-color: #343434;
-  -fx-border-radius: 999;
+  -fx-border-radius: 10;
   -fx-border-width: 1;
-}
-
-.run-console-perf-cpu {
-  -fx-text-fill: #f27333;
-}
-
-.run-console-perf-jvm {
-  -fx-text-fill: #49a5ff;
-}
-
-.run-console-perf-fps {
-  -fx-text-fill: #ececec;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.24), 6, 0.18, 0, 1);
 }
 
 .run-console-toolbar .separator:vertical .line {

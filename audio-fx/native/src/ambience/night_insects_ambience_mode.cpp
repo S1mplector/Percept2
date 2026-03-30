@@ -12,6 +12,7 @@ NightInsectsAmbienceMode::NightInsectsAmbienceMode(int sampleRate)
 
 void NightInsectsAmbienceMode::configure(const RenderControls& controls) {
   setControls(controls);
+  resetRandomState();
   chirpPhase_ = 0.0f;
   chirpEnvelope_ = 0.0f;
   cricket2Phase_ = 0.0f;
@@ -31,6 +32,11 @@ void NightInsectsAmbienceMode::configure(const RenderControls& controls) {
   detailHighPass_.reset();
   cricket2BandPass_.reset();
   frogBandPass_.reset();
+  updateFilters();
+}
+
+void NightInsectsAmbienceMode::retune(const RenderControls& controls) {
+  setControls(controls);
   updateFilters();
 }
 

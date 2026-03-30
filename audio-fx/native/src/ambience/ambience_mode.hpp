@@ -11,6 +11,9 @@ public:
   virtual ~AmbienceMode() = default;
 
   virtual void configure(const RenderControls& controls) = 0;
+  virtual void retune(const RenderControls& controls) {
+    configure(controls);
+  }
   virtual float sample(float elapsedSeconds) = 0;
 };
 
@@ -21,6 +24,7 @@ public:
 
 protected:
   void setControls(const RenderControls& controls);
+  void resetRandomState();
   const RenderControls& controls() const noexcept;
   int sampleRate() const noexcept;
   float nextRandom01();

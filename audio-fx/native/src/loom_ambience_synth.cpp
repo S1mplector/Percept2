@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <utility>
 
 #include "ambience/ambience_mode.hpp"
 #include "ambience/fireplace_ambience_mode.hpp"
@@ -20,10 +21,20 @@ constexpr int kChannels = 2;
 constexpr int kBytesPerSample = 2;
 constexpr int kFrameBytes = kChannels * kBytesPerSample;
 constexpr float kAutoStopSeconds = 15.0f;
+constexpr float kModeCrossfadeSeconds = 0.65f;
 
 short clampPcm16(float value) {
   const float clamped = std::max(-1.0f, std::min(1.0f, value));
   return static_cast<short>(std::lrintf(clamped * 32767.0f));
+}
+
+float renderGain(const RenderControls& controls) {
+  return controls.volume * (0.18f + 0.82f * controls.intensity);
+}
+
+float smoothstep01(float value) {
+  const float t = std::clamp(value, 0.0f, 1.0f);
+  return t * t * (3.0f - 2.0f * t);
 }
 
 }  // namespace
@@ -45,23 +56,55 @@ void LoomAmbienceSynthCore::configure(
     float accent,
     bool loop) {
   const AmbiencePreset nextPreset = presetFromToken(preset);
-  controls_.intensity = clamp01(intensity);
-  controls_.volume = clamp01(volume);
-  controls_.detail = clamp01(detail);
-  controls_.motion = clamp01(motion);
-  controls_.spread = clamp01(spread);
-  controls_.accent = clamp01(accent);
-  controls_.loop = loop;
+  RenderControls nextControls{};
+  nextControls.intensity = clamp01(intensity);
+  nextControls.volume = clamp01(volume);
+  nextControls.detail = clamp01(detail);
+  nextControls.motion = clamp01(motion);
+  nextControls.spread = clamp01(spread);
+  nextControls.accent = clamp01(accent);
+  nextControls.loop = loop;
 
-  if (!mode_ || nextPreset != preset_) {
-    selectMode(nextPreset);
+  const bool needsFullConfigure = !mode_ || !configured_;
+  const bool presetChanged = !needsFullConfigure && nextPreset != preset_;
+
+  if (needsFullConfigure) {
+    if (!mode_ || nextPreset != preset_) {
+      selectMode(nextPreset);
+    }
+    controls_ = nextControls;
+    preset_ = nextPreset;
+    finished_ = false;
+    configured_ = true;
+    elapsedSeconds_ = 0.0f;
+    previousElapsedSeconds_ = 0.0f;
+    crossfadeSamplesRemaining_ = 0;
+    crossfadeSamplesTotal_ = 0;
+    previousMode_.reset();
+    panLfo_.reset();
+    master_.reset();
+    mode_->configure(controls_);
+    return;
   }
-  preset_ = nextPreset;
+
+  if (presetChanged) {
+    previousMode_ = std::move(mode_);
+    previousControls_ = controls_;
+    previousElapsedSeconds_ = elapsedSeconds_;
+    selectMode(nextPreset);
+    controls_ = nextControls;
+    preset_ = nextPreset;
+    finished_ = false;
+    elapsedSeconds_ = 0.0f;
+    crossfadeSamplesTotal_ = std::max(1, static_cast<int>(std::lround(sampleRate_ * kModeCrossfadeSeconds)));
+    crossfadeSamplesRemaining_ = crossfadeSamplesTotal_;
+    mode_->configure(controls_);
+    return;
+  }
+
+  controls_ = nextControls;
   finished_ = false;
-  elapsedSeconds_ = 0.0f;
-  panLfo_.reset();
-  master_.reset();
-  mode_->configure(controls_);
+  mode_->retune(controls_);
 }
 
 int LoomAmbienceSynthCore::render(uint8_t* pcm, int frames) {
@@ -151,12 +194,29 @@ void LoomAmbienceSynthCore::selectMode(AmbiencePreset preset) {
 
 float LoomAmbienceSynthCore::nextMonoSample() {
   if (finished_ || !mode_) return 0.0f;
-  const float sample = mode_->sample(elapsedSeconds_);
+  float sample = mode_->sample(elapsedSeconds_) * renderGain(controls_);
   elapsedSeconds_ += 1.0f / sampleRate_;
+  if (previousMode_) {
+    float previousSample = previousMode_->sample(previousElapsedSeconds_) * renderGain(previousControls_);
+    previousElapsedSeconds_ += 1.0f / sampleRate_;
+    float fadeIn = 1.0f;
+    if (crossfadeSamplesTotal_ > 0 && crossfadeSamplesRemaining_ > 0) {
+      const float progress =
+          1.0f - (static_cast<float>(crossfadeSamplesRemaining_) / static_cast<float>(crossfadeSamplesTotal_));
+      fadeIn = smoothstep01(progress);
+      crossfadeSamplesRemaining_--;
+    }
+    sample = previousSample * (1.0f - fadeIn) + sample * fadeIn;
+    if (crossfadeSamplesRemaining_ <= 0) {
+      previousMode_.reset();
+      crossfadeSamplesTotal_ = 0;
+      crossfadeSamplesRemaining_ = 0;
+    }
+  }
   if (!controls_.loop && elapsedSeconds_ >= kAutoStopSeconds) {
     finished_ = true;
   }
-  return master_.process(sample * controls_.volume * (0.18f + 0.82f * controls_.intensity));
+  return master_.process(sample);
 }
 
 }  // namespace jvn::audiofx::detail

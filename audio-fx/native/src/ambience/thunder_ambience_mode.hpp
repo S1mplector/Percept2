@@ -9,6 +9,7 @@ public:
   explicit ThunderAmbienceMode(int sampleRate);
 
   void configure(const RenderControls& controls) override;
+  void retune(const RenderControls& controls) override;
   float sample(float elapsedSeconds) override;
 
 private:

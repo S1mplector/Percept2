@@ -20,6 +20,7 @@ WindAmbienceMode::WindAmbienceMode(int sampleRate) : BaseAmbienceMode(sampleRate
 
 void WindAmbienceMode::configure(const RenderControls& controls) {
   setControls(controls);
+  resetRandomState();
 
   // Stochastic controls — timescales adapt to motion parameter
   const float motionScale = 0.6f + controls.motion * 0.8f;
@@ -67,6 +68,21 @@ void WindAmbienceMode::configure(const RenderControls& controls) {
   gustFilter_.reset();
   gustFilter2_.reset();
 
+  updateFilters();
+}
+
+void WindAmbienceMode::retune(const RenderControls& controls) {
+  setControls(controls);
+
+  const float motionScale = 0.6f + controls.motion * 0.8f;
+  macroEnergy_.setTimescale(30.0f / motionScale);
+  mesoLow_.setTimescale(5.0f / motionScale);
+  mesoMid_.setTimescale(3.5f / motionScale);
+  mesoHigh_.setTimescale(2.0f / motionScale);
+  microTurb_.setTimescale(0.18f / motionScale);
+  gustTriggerDrift_.setTimescale(8.0f / motionScale);
+  whistleFreqDrift_.setTimescale(1.5f);
+  whistleVelocity_.setTimescale(0.6f);
   updateFilters();
 }
 

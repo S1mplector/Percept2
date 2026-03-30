@@ -11,6 +11,7 @@ FireplaceAmbienceMode::FireplaceAmbienceMode(int sampleRate) : BaseAmbienceMode(
 
 void FireplaceAmbienceMode::configure(const RenderControls& controls) {
   setControls(controls);
+  resetRandomState();
   crackleEnvelope_ = 0.0f;
   popEnvelope_ = 0.0f;
   snapEnvelope_ = 0.0f;
@@ -29,6 +30,11 @@ void FireplaceAmbienceMode::configure(const RenderControls& controls) {
   hissHighPass_.reset();
   snapBandPass_.reset();
   emberLowPass_.reset();
+  updateFilters();
+}
+
+void FireplaceAmbienceMode::retune(const RenderControls& controls) {
+  setControls(controls);
   updateFilters();
 }
 

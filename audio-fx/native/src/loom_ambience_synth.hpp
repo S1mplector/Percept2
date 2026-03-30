@@ -37,11 +37,17 @@ private:
   int sampleRate_;
   AmbiencePreset preset_ = AmbiencePreset::Wind;
   RenderControls controls_{};
+  RenderControls previousControls_{};
   bool finished_ = false;
+  bool configured_ = false;
   float elapsedSeconds_ = 0.0f;
+  float previousElapsedSeconds_ = 0.0f;
   Lfo panLfo_{0.11f, 0.1f, 0x76543210u};
   MasterState master_{};
   std::unique_ptr<AmbienceMode> mode_;
+  std::unique_ptr<AmbienceMode> previousMode_;
+  int crossfadeSamplesRemaining_ = 0;
+  int crossfadeSamplesTotal_ = 0;
 };
 
 }  // namespace jvn::audiofx::detail
