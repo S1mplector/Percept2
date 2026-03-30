@@ -1,6 +1,9 @@
 package com.jvn.fx;
 
 import java.io.File;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -11,6 +14,7 @@ import javax.imageio.ImageIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.sun.management.OperatingSystemMXBean;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.demo.Example2DScene;
@@ -51,16 +55,21 @@ import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.ImageCursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.image.Image;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
@@ -69,7 +78,11 @@ public class FxLauncher extends Application {
   private static final Logger log = LoggerFactory.getLogger(FxLauncher.class);
   private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
   private static final String ASSETS_ROOT_PROPERTY = "jvn.assets.root";
+  private static final long PERF_HUD_UPDATE_INTERVAL_NS = 300_000_000L;
+  private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
+  private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
   private static Engine engine;
+  private static boolean showPerfHud;
   private AnimationTimer timer;
   private Canvas canvas;
   private GraphicsContext gc;
@@ -85,9 +98,22 @@ public class FxLauncher extends Application {
   private ProjectHotReloadTracker hotReloadTracker;
   private double mouseX = 0;
   private double mouseY = 0;
+  private OperatingSystemMXBean osBean;
+  private HBox perfHud;
+  private Label perfCpuLabel;
+  private Label perfJvmLabel;
+  private Label perfFpsLabel;
+  private long lastPerfHudUpdateNs = -1L;
+  private double smoothedProcessCpu = Double.NaN;
+  private double smoothedFps = Double.NaN;
 
   public static void launch(Engine eng) {
+    launch(eng, false);
+  }
+
+  public static void launch(Engine eng, boolean perfHudEnabled) {
     engine = eng;
+    showPerfHud = perfHudEnabled;
     Application.launch();
   }
 
@@ -115,6 +141,11 @@ public class FxLauncher extends Application {
     this.canvas = new Canvas(width, height);
     this.phoneRenderer = new PhoneRenderer();
     root.getChildren().addAll(this.canvas, this.phoneRenderer);
+    this.osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
+    if (showPerfHud) {
+      this.perfHud = createPerfHud();
+      root.getChildren().add(this.perfHud);
+    }
     javafx.scene.Scene scene = new javafx.scene.Scene(root, width, height);
     this.fxScene = scene;
     primaryStage.setScene(scene);
@@ -405,6 +436,7 @@ public class FxLauncher extends Application {
         }
         syncPhoneOverlay(currentScene);
         pollProjectHotReload();
+        updatePerfHud(now);
 
         // Render
         if (gc != null && canvas != null) {
@@ -437,6 +469,69 @@ public class FxLauncher extends Application {
       }
     };
     timer.start();
+  }
+
+  private HBox createPerfHud() {
+    perfCpuLabel = createPerfHudLabel("CPU --", "#f27333");
+    perfJvmLabel = createPerfHudLabel("JVN -- MB", "#49a5ff");
+    perfFpsLabel = createPerfHudLabel("FPS --", "#f4f4f4");
+
+    HBox box = new HBox(6, perfCpuLabel, perfJvmLabel, perfFpsLabel);
+    box.setAlignment(Pos.CENTER_LEFT);
+    box.setMouseTransparent(true);
+    box.setPickOnBounds(false);
+    box.setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+    box.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
+    box.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+    StackPane.setAlignment(box, Pos.TOP_LEFT);
+    StackPane.setMargin(box, new Insets(10, 0, 0, 12));
+    return box;
+  }
+
+  private Label createPerfHudLabel(String text, String color) {
+    Label label = new Label(text);
+    label.setMouseTransparent(true);
+    label.setStyle(
+        "-fx-text-fill: " + color + ";"
+            + "-fx-font-size: 11px;"
+            + "-fx-font-weight: 700;"
+            + "-fx-padding: 4 8 4 8;"
+            + "-fx-background-color: rgba(0, 0, 0, 0.72);"
+            + "-fx-background-radius: 999;"
+            + "-fx-border-color: rgba(255, 255, 255, 0.12);"
+            + "-fx-border-width: 1;"
+            + "-fx-border-radius: 999;");
+    return label;
+  }
+
+  private void updatePerfHud(long nowNs) {
+    if (!showPerfHud || perfHud == null || engine == null) return;
+    if (lastPerfHudUpdateNs > 0L && (nowNs - lastPerfHudUpdateNs) < PERF_HUD_UPDATE_INTERVAL_NS) return;
+    lastPerfHudUpdateNs = nowNs;
+
+    double processCpu = Double.NaN;
+    if (osBean != null) {
+      processCpu = osBean.getProcessCpuLoad();
+    }
+    smoothedProcessCpu = smoothRatio(smoothedProcessCpu, processCpu, PERF_CPU_SMOOTH_ALPHA);
+    smoothedFps = smoothRatio(smoothedFps, engine.frameStats().getFps(), PERF_FPS_SMOOTH_ALPHA);
+
+    MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
+    MemoryUsage heap = memoryBean.getHeapMemoryUsage();
+    MemoryUsage nonHeap = memoryBean.getNonHeapMemoryUsage();
+    double heapUsedMb = Math.max(0.0, bytesToMb(heap == null ? -1L : heap.getUsed()));
+    double nonHeapMb = Math.max(0.0, bytesToMb(nonHeap == null ? -1L : nonHeap.getUsed()));
+    double jvnUsedMb = Math.max(0.0, heapUsedMb + nonHeapMb);
+
+    String cpuText = isRatioValid(smoothedProcessCpu)
+        ? String.format(Locale.ROOT, "CPU %.0f%%", smoothedProcessCpu * 100.0)
+        : "CPU --";
+    String jvmText = String.format(Locale.ROOT, "JVN %.0f MB", jvnUsedMb);
+    String fpsText = String.format(Locale.ROOT, "FPS %.0f", Math.max(0.0, smoothedFps));
+
+    perfCpuLabel.setText(cpuText);
+    perfJvmLabel.setText(jvmText);
+    perfFpsLabel.setText(fpsText);
   }
 
   private FxSceneRendererRegistry createRendererRegistry() {
@@ -1607,5 +1702,21 @@ public class FxLauncher extends Application {
 
   private static boolean isLinux() {
     return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
+  }
+
+  private static double bytesToMb(long bytes) {
+    if (bytes <= 0L) return 0.0;
+    return bytes / (1024.0 * 1024.0);
+  }
+
+  private static boolean isRatioValid(double value) {
+    return !Double.isNaN(value) && !Double.isInfinite(value) && value >= 0.0;
+  }
+
+  private static double smoothRatio(double current, double target, double alpha) {
+    if (!isRatioValid(target)) return current;
+    if (!isRatioValid(current)) return target;
+    double clampedAlpha = Math.max(0.0, Math.min(1.0, alpha));
+    return current + (target - current) * clampedAlpha;
   }
 }

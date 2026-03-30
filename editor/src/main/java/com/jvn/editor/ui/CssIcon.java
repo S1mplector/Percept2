@@ -173,8 +173,21 @@ public final class CssIcon {
 
   // ── Core builder ──
 
+  public static <T extends Region> T prepare(T region) {
+    if (!region.getStyleClass().contains("jvn-fx-icon")) {
+      region.getStyleClass().add("jvn-fx-icon");
+    }
+    region.setScaleShape(true);
+    region.setCenterShape(true);
+    region.setCacheShape(true);
+    region.setSnapToPixel(true);
+    region.setPickOnBounds(false);
+    region.setMouseTransparent(true);
+    return region;
+  }
+
   public static Region icon(String svgPath, String color, double size) {
-    Region r = new Region();
+    Region r = prepare(new Region());
     r.setMinSize(size, size);
     r.setMaxSize(size, size);
     r.setPrefSize(size, size);

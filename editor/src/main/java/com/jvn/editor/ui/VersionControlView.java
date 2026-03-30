@@ -77,7 +77,7 @@ public class VersionControlView extends BorderPane {
   private static Button iconButton(String iconClass, String tooltip) {
     Button btn = new Button();
     btn.getStyleClass().add("vcs-icon-btn");
-    javafx.scene.layout.Region icon = new javafx.scene.layout.Region();
+    javafx.scene.layout.Region icon = CssIcon.prepare(new javafx.scene.layout.Region());
     icon.getStyleClass().addAll("vcs-icon", iconClass);
     btn.setGraphic(icon);
     btn.setTooltip(new Tooltip(tooltip));
@@ -138,7 +138,7 @@ public class VersionControlView extends BorderPane {
     btnRefresh.setOnAction(e -> refreshStatus());
     btnInitialize.setOnAction(e -> initializeRepository());
     btnInitialize.getStyleClass().add("vcs-icon-btn");
-    javafx.scene.layout.Region initIcon = new javafx.scene.layout.Region();
+    javafx.scene.layout.Region initIcon = CssIcon.prepare(new javafx.scene.layout.Region());
     initIcon.getStyleClass().addAll("vcs-icon", "vcs-icon-init");
     btnInitialize.setGraphic(initIcon);
     btnFetch.setOnAction(e -> runFetch());

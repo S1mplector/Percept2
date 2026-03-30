@@ -474,6 +474,7 @@ public class EditorApp extends Application {
     if (!runtimeAudio.isBlank()) runtimeArgs.append(" --audio ").append(quoteCliArg(runtimeAudio));
     String runtimeLocale = mf.getProperty("runtime.locale", "").trim();
     if (!runtimeLocale.isBlank()) runtimeArgs.append(" --locale ").append(quoteCliArg(runtimeLocale));
+    runtimeArgs.append(" --perf-hud");
 
     runGradle(workspaceRoot, ":runtime:run", new String[] { "--args=" + runtimeArgs }, "JVN Runtime");
     status.setText("Launching runtime: " + root.getName());
@@ -2400,7 +2401,7 @@ public class EditorApp extends Application {
   }
 
   private Region icon(String... styleClasses) {
-    Region r = new Region();
+    Region r = CssIcon.prepare(new Region());
     if (styleClasses != null) r.getStyleClass().addAll(styleClasses);
     return r;
   }

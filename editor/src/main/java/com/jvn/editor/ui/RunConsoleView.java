@@ -4,10 +4,17 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
+import com.sun.management.OperatingSystemMXBean;
+
+import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -73,6 +80,9 @@ public class RunConsoleView extends BorderPane {
     private final Label lineCountLabel = new Label("0 lines");
     private final Label errorCountLabel = new Label("0 errors");
     private final Label warnCountLabel = new Label("0 warnings");
+    private final Label cpuPerfLabel = new Label("CPU --");
+    private final Label jvmPerfLabel = new Label("JVN -- MB");
+    private final Label fpsPerfLabel = new Label("FPS --");
 
     // Raw line buffer for search/filter replay
     private final List<String> rawLineBuffer = new ArrayList<>();
@@ -85,6 +95,13 @@ public class RunConsoleView extends BorderPane {
     private int errorCount = 0;
     private int warnCount = 0;
     private String currentSearchTerm = "";
+    private final OperatingSystemMXBean osBean =
+        ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
+    private final AnimationTimer perfHudTimer;
+    private long lastPerfHudUpdateNs = -1L;
+    private long lastFrameNs = -1L;
+    private double smoothedProcessCpu = Double.NaN;
+    private double smoothedFps = Double.NaN;
 
     // Patterns for Gradle noise lines we suppress by default
     private static final Pattern GRADLE_NOISE = Pattern.compile(
@@ -125,6 +142,9 @@ public class RunConsoleView extends BorderPane {
     private static final String LOG_COLOR_NOISE = "#6b7381";
     private static final String LOG_COLOR_NORMAL = "#b5bfd0";
     private static final String LOG_COLOR_INFO = "#8ab4f8";
+    private static final long PERF_HUD_UPDATE_INTERVAL_NS = 300_000_000L;
+    private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
+    private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
 
     public RunConsoleView(String title) {
         getStyleClass().add("run-console-root");
@@ -152,13 +172,25 @@ public class RunConsoleView extends BorderPane {
         HBox statusBar = createStatusBar();
         setBottom(statusBar);
 
+        cpuPerfLabel.getStyleClass().addAll("run-console-perf-chip", "run-console-perf-cpu");
+        jvmPerfLabel.getStyleClass().addAll("run-console-perf-chip", "run-console-perf-jvm");
+        fpsPerfLabel.getStyleClass().addAll("run-console-perf-chip", "run-console-perf-fps");
+
+        perfHudTimer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                updatePerfHud(now);
+            }
+        };
+        perfHudTimer.start();
+
         setState(EngineState.BUILDING);
     }
 
     private static Button iconButton(String iconClass, String tooltipText) {
         Button btn = new Button();
         btn.getStyleClass().add("run-console-icon-btn");
-        Region icon = new Region();
+        Region icon = CssIcon.prepare(new Region());
         icon.getStyleClass().addAll("icon", iconClass);
         btn.setGraphic(icon);
         btn.setTooltip(new Tooltip(tooltipText));
@@ -609,12 +641,19 @@ public class RunConsoleView extends BorderPane {
         Label searchLabel = new Label("Filter:");
         searchLabel.getStyleClass().add("run-console-search-label");
 
+        HBox perfStrip = new HBox(6, cpuPerfLabel, jvmPerfLabel, fpsPerfLabel);
+        perfStrip.setAlignment(Pos.CENTER_LEFT);
+        perfStrip.getStyleClass().add("run-console-perf-strip");
+        perfStrip.setMinWidth(Region.USE_PREF_SIZE);
+        perfStrip.setMaxWidth(Region.USE_PREF_SIZE);
+
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         bar.getItems().addAll(
             runBtn, stopBtn, new Separator(),
             clearBtn, copyBtn, new Separator(),
+            perfStrip, new Separator(),
             showAllToggle, autoScrollBtn, wordWrapBtn, new Separator(),
             searchLabel, searchField, logLevelFilter,
             spacer, stateLabel, elapsedLabel
@@ -697,6 +736,52 @@ public class RunConsoleView extends BorderPane {
     private static String formatElapsed(long seconds) {
         if (seconds < 60) return seconds + "s";
         return (seconds / 60) + "m " + (seconds % 60) + "s";
+    }
+
+    private void updatePerfHud(long nowNs) {
+        if (lastFrameNs > 0L) {
+            double instantFps = 1_000_000_000.0 / Math.max(1L, nowNs - lastFrameNs);
+            smoothedFps = smoothRatio(smoothedFps, instantFps, PERF_FPS_SMOOTH_ALPHA);
+        }
+        lastFrameNs = nowNs;
+
+        if (lastPerfHudUpdateNs > 0L && (nowNs - lastPerfHudUpdateNs) < PERF_HUD_UPDATE_INTERVAL_NS) {
+            return;
+        }
+        lastPerfHudUpdateNs = nowNs;
+
+        double processCpu = Double.NaN;
+        if (osBean != null) {
+            processCpu = osBean.getProcessCpuLoad();
+        }
+        smoothedProcessCpu = smoothRatio(smoothedProcessCpu, processCpu, PERF_CPU_SMOOTH_ALPHA);
+
+        MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
+        MemoryUsage heap = memoryBean.getHeapMemoryUsage();
+        MemoryUsage nonHeap = memoryBean.getNonHeapMemoryUsage();
+        double heapUsedMb = Math.max(0.0, bytesToMb(heap == null ? -1L : heap.getUsed()));
+        double nonHeapMb = Math.max(0.0, bytesToMb(nonHeap == null ? -1L : nonHeap.getUsed()));
+        double jvnUsedMb = Math.max(0.0, heapUsedMb + nonHeapMb);
+
+        cpuPerfLabel.setText(isRatioValid(smoothedProcessCpu)
+            ? String.format(Locale.ROOT, "CPU %.0f%%", smoothedProcessCpu * 100.0)
+            : "CPU --");
+        jvmPerfLabel.setText(String.format(Locale.ROOT, "JVN %.0f MB", jvnUsedMb));
+        fpsPerfLabel.setText(String.format(Locale.ROOT, "FPS %.0f", Math.max(0.0, smoothedFps)));
+    }
+
+    private static double bytesToMb(long bytes) {
+        return bytes < 0L ? -1.0 : bytes / (1024.0 * 1024.0);
+    }
+
+    private static boolean isRatioValid(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value) && value >= 0.0;
+    }
+
+    private static double smoothRatio(double current, double target, double alpha) {
+        if (!isRatioValid(target)) return current;
+        if (!isRatioValid(current)) return target;
+        return current + ((target - current) * alpha);
     }
 
     private static boolean isMac() {

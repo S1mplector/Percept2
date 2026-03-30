@@ -27,6 +27,7 @@ import java.io.FileInputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Paths;
+import java.util.Locale;
 import java.util.Properties;
 
 public class JvnApp {
@@ -41,6 +42,7 @@ public class JvnApp {
     String audioBackend = "auto"; // fx | simp3 | auto
     String jesScript = null;
     String assetRoot = null;
+    boolean showPerfHud = false;
     boolean widthSpecified = false;
     boolean heightSpecified = false;
     boolean titleSpecified = false;
@@ -102,6 +104,11 @@ public class JvnApp {
         assetRoot = cleanCliValue(inlineAssets);
         continue;
       }
+      String inlinePerfHud = inlineOptionValue(a, "--perf-hud");
+      if (inlinePerfHud != null) {
+        showPerfHud = parseBooleanFlag(cleanCliValue(inlinePerfHud));
+        continue;
+      }
 
       switch (a) {
         case "--title":
@@ -148,6 +155,13 @@ public class JvnApp {
           break;
         case "--assets":
           if (i + 1 < args.length) assetRoot = cleanCliValue(args[++i]);
+          break;
+        case "--perf-hud":
+          if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
+            showPerfHud = parseBooleanFlag(cleanCliValue(args[++i]));
+          } else {
+            showPerfHud = true;
+          }
           break;
         default:
           log.warn("Unknown argument: {}", a);
@@ -294,7 +308,7 @@ public class JvnApp {
     if ("swing".equalsIgnoreCase(ui)) {
       com.jvn.swing.SwingLauncher.launch(engine);
     } else {
-      FxLauncher.launch(engine);
+      FxLauncher.launch(engine, showPerfHud);
     }
   }
 
@@ -327,6 +341,15 @@ public class JvnApp {
       value = value.substring(1, value.length() - 1).trim();
     }
     return value;
+  }
+
+  private static boolean parseBooleanFlag(String raw) {
+    if (raw == null || raw.isBlank()) return true;
+    String normalized = raw.trim().toLowerCase(Locale.ROOT);
+    return !("0".equals(normalized)
+        || "false".equals(normalized)
+        || "no".equals(normalized)
+        || "off".equals(normalized));
   }
 
   private static Properties loadProjectManifest(String assetRoot) {
