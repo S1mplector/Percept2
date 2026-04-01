@@ -86,6 +86,9 @@ public class RunConsoleView extends BorderPane {
     private final Label warnCountLabel = new Label("0 warnings");
     private final PerfGraph perfGraph = new PerfGraph();
     private final Tooltip perfGraphTooltip = new Tooltip("CPU -- | JVN -- MB | FPS --");
+    private final Label perfCpuValue = new Label("CPU --");
+    private final Label perfJvmValue = new Label("JVN -- MB");
+    private final Label perfFpsValue = new Label("FPS --");
 
     // Raw line buffer for search/filter replay
     private final List<String> rawLineBuffer = new ArrayList<>();
@@ -182,6 +185,10 @@ public class RunConsoleView extends BorderPane {
 
         perfGraphTooltip.setShowDelay(javafx.util.Duration.millis(120));
         Tooltip.install(perfGraph.getCanvas(), perfGraphTooltip);
+
+        perfCpuValue.getStyleClass().addAll("run-console-perf-value", "run-console-perf-value-cpu");
+        perfJvmValue.getStyleClass().addAll("run-console-perf-value", "run-console-perf-value-jvm");
+        perfFpsValue.getStyleClass().addAll("run-console-perf-value", "run-console-perf-value-fps");
 
         perfHudTimer = new AnimationTimer() {
             @Override
@@ -648,11 +655,18 @@ public class RunConsoleView extends BorderPane {
         Label searchLabel = new Label("Filter:");
         searchLabel.getStyleClass().add("run-console-search-label");
 
-        StackPane perfGraphShell = new StackPane(perfGraph.getCanvas());
+        VBox perfValues = new VBox(2, perfCpuValue, perfJvmValue, perfFpsValue);
+        perfValues.setAlignment(Pos.CENTER_LEFT);
+        perfValues.getStyleClass().add("run-console-perf-values");
+
+        HBox perfHudBox = new HBox(8, perfGraph.getCanvas(), perfValues);
+        perfHudBox.setAlignment(Pos.CENTER_LEFT);
+
+        StackPane perfGraphShell = new StackPane(perfHudBox);
         perfGraphShell.setAlignment(Pos.CENTER_LEFT);
         perfGraphShell.getStyleClass().add("run-console-perf-graph-shell");
         perfGraphShell.setMinWidth(Region.USE_PREF_SIZE);
-        perfGraphShell.setPrefWidth(170);
+        perfGraphShell.setPrefWidth(260);
         perfGraphShell.setMaxWidth(Region.USE_PREF_SIZE);
 
         Region spacer = new Region();
@@ -785,16 +799,19 @@ public class RunConsoleView extends BorderPane {
         double jvnUsedMb = Math.max(0.0, heapUsedMb + nonHeapMb);
         double jvnCeilingMb = Math.max(1.0, heapMaxMb + nonHeapCeilingMb);
         double cpuRatio = isRatioValid(smoothedProcessCpu) ? clamp01(smoothedProcessCpu) : 0.0;
-        double jvnRatio = clamp01(jvnUsedMb / jvnCeilingMb);
-        double fpsRatio = clamp01(smoothedFps);
+        double cpuPercent = cpuRatio * 100.0;
+        double fpsValue = Math.max(0.0, smoothedFps);
 
         perfGraphTooltip.setText(String.format(
             Locale.ROOT,
             "CPU %.0f%% | JVN %.0f MB | FPS %.0f",
-            cpuRatio * 100.0,
+            cpuPercent,
             jvnUsedMb,
-            Math.max(0.0, smoothedFps)));
-        perfGraph.pushSample(cpuRatio, jvnRatio, fpsRatio);
+            fpsValue));
+        perfCpuValue.setText(String.format(Locale.ROOT, "CPU %.0f%%", cpuPercent));
+        perfJvmValue.setText(String.format(Locale.ROOT, "JVN %.0f MB", jvnUsedMb));
+        perfFpsValue.setText(String.format(Locale.ROOT, "FPS %.0f", fpsValue));
+        perfGraph.pushSample(cpuPercent, jvnUsedMb, fpsValue, jvnCeilingMb);
     }
 
     private static final class PerfGraph {
@@ -802,6 +819,7 @@ public class RunConsoleView extends BorderPane {
         private final double[] cpu = new double[120];
         private final double[] jvm = new double[120];
         private final double[] fps = new double[120];
+        private final double[] jvmCeiling = new double[120];
         private int index = 0;
         private boolean filled = false;
 
@@ -815,11 +833,12 @@ public class RunConsoleView extends BorderPane {
             return canvas;
         }
 
-        private void pushSample(double cpuRatio, double jvmRatio, double fpsRatio) {
+        private void pushSample(double cpuPercent, double jvmMb, double fpsValue, double jvmCeilingMb) {
             int slot = index % cpu.length;
-            cpu[slot] = clamp01(cpuRatio);
-            jvm[slot] = clamp01(jvmRatio);
-            fps[slot] = clamp01(fpsRatio);
+            cpu[slot] = sanitizeMetric(cpuPercent);
+            jvm[slot] = sanitizeMetric(jvmMb);
+            fps[slot] = sanitizeMetric(fpsValue);
+            jvmCeiling[slot] = sanitizeMetric(jvmCeilingMb);
             index++;
             if (index >= cpu.length) filled = true;
             redraw();
@@ -848,13 +867,18 @@ public class RunConsoleView extends BorderPane {
             int samples = filled ? cpu.length : Math.min(index, cpu.length);
             if (samples <= 1) return;
             double scaleX = w / (cpu.length - 1.0);
+            double cpuCeiling = Math.max(6.0, maxRecent(cpu, samples) * 1.35);
+            double jvmMax = Math.max(96.0, maxRecent(jvm, samples) * 1.14);
+            double jvmCeilingMax = Math.max(jvmMax, maxRecent(jvmCeiling, samples));
+            double graphJvmCeiling = Math.min(jvmCeilingMax, Math.max(jvmMax, jvmMax * 1.45));
+            double fpsCeiling = Math.max(60.0, maxRecent(fps, samples) * 1.08);
 
             g.setFill(PERF_JVM_COLOR.deriveColor(0, 1, 1, 0.22));
             g.beginPath();
             for (int i = 0; i < samples; i++) {
                 int si = (index - samples + i + cpu.length) % cpu.length;
                 double x = i * scaleX;
-                double y = h * (1.0 - jvm[si]);
+                double y = graphY(jvm[si], graphJvmCeiling, h);
                 if (i == 0) g.moveTo(x, h);
                 g.lineTo(x, y);
             }
@@ -868,7 +892,7 @@ public class RunConsoleView extends BorderPane {
             for (int i = 0; i < samples; i++) {
                 int si = (index - samples + i + cpu.length) % cpu.length;
                 double x = i * scaleX;
-                double y = h * (1.0 - jvm[si]);
+                double y = graphY(jvm[si], graphJvmCeiling, h);
                 if (i == 0) g.moveTo(x, y);
                 else g.lineTo(x, y);
             }
@@ -880,7 +904,7 @@ public class RunConsoleView extends BorderPane {
             for (int i = 0; i < samples; i++) {
                 int si = (index - samples + i + cpu.length) % cpu.length;
                 double x = i * scaleX;
-                double y = h * (1.0 - cpu[si]);
+                double y = graphY(cpu[si], cpuCeiling, h);
                 if (i == 0) g.moveTo(x, y);
                 else g.lineTo(x, y);
             }
@@ -892,11 +916,30 @@ public class RunConsoleView extends BorderPane {
             for (int i = 0; i < samples; i++) {
                 int si = (index - samples + i + cpu.length) % cpu.length;
                 double x = i * scaleX;
-                double y = h * (1.0 - fps[si]);
+                double y = graphY(fps[si], fpsCeiling, h);
                 if (i == 0) g.moveTo(x, y);
                 else g.lineTo(x, y);
             }
             g.stroke();
+        }
+
+        private static double sanitizeMetric(double value) {
+            return Double.isFinite(value) && value > 0.0 ? value : 0.0;
+        }
+
+        private double maxRecent(double[] values, int samples) {
+            double max = 0.0;
+            for (int i = 0; i < samples; i++) {
+                int si = (index - samples + i + values.length) % values.length;
+                max = Math.max(max, sanitizeMetric(values[si]));
+            }
+            return max;
+        }
+
+        private double graphY(double value, double ceiling, double height) {
+            double normalized = ceiling <= 0.0 ? 0.0 : Math.min(1.0, sanitizeMetric(value) / ceiling);
+            double inset = 2.0;
+            return inset + ((height - inset * 2.0) * (1.0 - normalized));
         }
     }
 

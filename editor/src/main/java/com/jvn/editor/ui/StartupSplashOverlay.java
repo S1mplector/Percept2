@@ -39,10 +39,8 @@ public final class StartupSplashOverlay {
   private final ProgressBar progressBar = new ProgressBar(0);
   private final Button retryButton = createActionButton("Retry");
   private final Button quitButton = createActionButton("Quit");
-  private final Button continueWithoutTestsButton =
-      createActionButton("Continue without tests", CssIcon.play("#8bcf98"), true);
-  private final Button runTestsAndContinueButton =
-      createActionButton("Run tests and continue", CssIcon.check("#8ab4f8"), false);
+  private final Button launchEditorButton =
+      createActionButton("Launch JVN Editor", CssIcon.play("#8bcf98"), true);
   private final HBox actionBar = new HBox(8);
   private String progressAccent = "#6ea8ff";
 
@@ -153,8 +151,7 @@ public final class StartupSplashOverlay {
       progressAccent = "#6ea8ff";
       retryButton.setDisable(true);
       quitButton.setDisable(true);
-      continueWithoutTestsButton.setDisable(true);
-      runTestsAndContinueButton.setDisable(true);
+      launchEditorButton.setDisable(true);
       hideActions();
       styleProgressBarForBlackChrome();
     });
@@ -188,8 +185,7 @@ public final class StartupSplashOverlay {
       showActions(retryButton, quitButton);
       retryButton.setDisable(false);
       quitButton.setDisable(false);
-      continueWithoutTestsButton.setDisable(true);
-      runTestsAndContinueButton.setDisable(true);
+      launchEditorButton.setDisable(true);
       retryButton.setOnAction(evt -> {
         retryButton.setDisable(true);
         quitButton.setDisable(true);
@@ -201,31 +197,24 @@ public final class StartupSplashOverlay {
     });
   }
 
-  public void showTestChoice(Runnable onContinueWithoutTests, Runnable onRunTestsAndContinue) {
+  public void showLaunchChoice(Runnable onLaunchEditor) {
     runOnFx(() -> {
       subtitleLabel.setText("Startup preflight complete");
-      statusLabel.setText("Choose how to continue");
+      statusLabel.setText("Ready to launch");
       statusLabel.setTextFill(Color.web("#b7c3d9"));
-      detailLabel.setText("Native libraries and runtime checks passed. You can continue immediately or run the full repository test suite before opening the editor.");
+      detailLabel.setText("Native libraries and runtime checks passed. Launch the editor when you're ready.");
       detailLabel.setTextFill(Color.web("#9caac0"));
       detailLabel.setVisible(true);
       detailLabel.setManaged(true);
       progressAccent = "#d9b36a";
       styleProgressBarForBlackChrome();
-      showActions(continueWithoutTestsButton, runTestsAndContinueButton);
+      showActions(launchEditorButton);
       retryButton.setDisable(true);
       quitButton.setDisable(true);
-      continueWithoutTestsButton.setDisable(false);
-      runTestsAndContinueButton.setDisable(false);
-      continueWithoutTestsButton.setOnAction(evt -> {
-        continueWithoutTestsButton.setDisable(true);
-        runTestsAndContinueButton.setDisable(true);
-        if (onContinueWithoutTests != null) onContinueWithoutTests.run();
-      });
-      runTestsAndContinueButton.setOnAction(evt -> {
-        continueWithoutTestsButton.setDisable(true);
-        runTestsAndContinueButton.setDisable(true);
-        if (onRunTestsAndContinue != null) onRunTestsAndContinue.run();
+      launchEditorButton.setDisable(false);
+      launchEditorButton.setOnAction(evt -> {
+        launchEditorButton.setDisable(true);
+        if (onLaunchEditor != null) onLaunchEditor.run();
       });
     });
   }

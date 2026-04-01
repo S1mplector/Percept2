@@ -151,6 +151,28 @@
   -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.24), 6, 0.18, 0, 1);
 }
 
+.run-console-perf-values {
+  -fx-padding: 0 2 0 0;
+}
+
+.run-console-perf-value {
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-font-family: "SF Mono", "Menlo", "Consolas", monospace;
+}
+
+.run-console-perf-value-cpu {
+  -fx-text-fill: #f27333;
+}
+
+.run-console-perf-value-jvm {
+  -fx-text-fill: #49a5ff;
+}
+
+.run-console-perf-value-fps {
+  -fx-text-fill: #f4f4f4;
+}
+
 .run-console-toolbar .separator:vertical .line {
   -fx-border-color: #313131;
   -fx-border-width: 0 1 0 0;
@@ -1706,68 +1728,6 @@
   -fx-text-fill: #8f949c;
   -fx-font-size: 10px;
   -fx-font-weight: 700;
-}
-
-.main-editor-action-row {
-  -fx-alignment: center-left;
-  -fx-spacing: 8;
-}
-
-.main-editor-toolbar-divider {
-  -fx-background-color: #252525;
-  -fx-min-width: 1;
-  -fx-pref-width: 1;
-  -fx-max-width: 1;
-  -fx-min-height: 24;
-  -fx-pref-height: 24;
-  -fx-max-height: 24;
-  -fx-opacity: 0.95;
-}
-
-.main-editor-toolbar-button {
-  -fx-background-color: #171717;
-  -fx-text-fill: #e2e2e2;
-  -fx-background-radius: 7;
-  -fx-border-color: #353535;
-  -fx-border-width: 1;
-  -fx-border-radius: 7;
-  -fx-padding: 5 10 5 10;
-  -fx-font-size: 10px;
-  -fx-font-weight: 700;
-}
-
-.main-editor-toolbar-button:hover {
-  -fx-background-color: #1e1e1e;
-  -fx-border-color: #4b4b4b;
-}
-
-.main-editor-toolbar-button:pressed {
-  -fx-background-color: #111111;
-  -fx-border-color: #6a6a6a;
-}
-
-.main-editor-toolbar-button:disabled {
-  -fx-opacity: 0.48;
-}
-
-.main-editor-toolbar-primary-button {
-  -fx-background-color: #11241b;
-  -fx-border-color: #1b9d63;
-}
-
-.main-editor-toolbar-primary-button:hover {
-  -fx-background-color: #173225;
-  -fx-border-color: #24bf78;
-}
-
-.main-editor-toolbar-preview-button {
-  -fx-background-color: #141c22;
-  -fx-border-color: #3d5160;
-}
-
-.main-editor-toolbar-preview-button:hover {
-  -fx-background-color: #1a242c;
-  -fx-border-color: #5b7588;
 }
 
 .toolbar-status-panel {
