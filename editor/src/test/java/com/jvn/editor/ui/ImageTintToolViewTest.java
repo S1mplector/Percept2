@@ -221,6 +221,25 @@ class ImageTintToolViewTest {
     assertTrue(smoothed.size() >= 16, "Expected enough retained structure, got " + smoothed.size());
   }
 
+  @Test
+  void sceneLightWeightFallsOffFromCenterToEdge() {
+    double center = ImageTintToolView.sceneLightWeightPx(100.0, 100.0, 100.0, 100.0, 80.0, 0.55);
+    double mid = ImageTintToolView.sceneLightWeightPx(140.0, 100.0, 100.0, 100.0, 80.0, 0.55);
+    double edge = ImageTintToolView.sceneLightWeightPx(180.0, 100.0, 100.0, 100.0, 80.0, 0.55);
+
+    assertTrue(center > mid, "Expected center intensity to exceed mid falloff");
+    assertTrue(mid > 0.0, "Expected mid point to keep some influence");
+    assertEquals(0.0, edge);
+  }
+
+  @Test
+  void sceneLightWeightSoftnessChangesFalloffProfile() {
+    double hard = ImageTintToolView.sceneLightWeightPx(145.0, 100.0, 100.0, 100.0, 80.0, 0.1);
+    double soft = ImageTintToolView.sceneLightWeightPx(145.0, 100.0, 100.0, 100.0, 80.0, 0.9);
+
+    assertTrue(soft > hard, "Softer lights should retain more energy toward the edge");
+  }
+
   private static double polygonAreaAbs(List<double[]> polygon) {
     if (polygon == null || polygon.size() < 3) return 0.0;
     double area = 0.0;
