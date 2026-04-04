@@ -66,7 +66,7 @@ final class EasingPickerModel {
   }
 
   private static String categorize(Easing.Type type) {
-    if (type == Easing.Type.CUSTOM) return "Custom";
+    if (type == Easing.Type.CUSTOM || type == Easing.Type.CURVE) return "Custom";
     if (Easing.isNamedCurve(type)) return "Named";
     if (type == Easing.Type.SPRING || type == Easing.Type.DAMPED_SPRING) return "Spring";
     return "Standard";

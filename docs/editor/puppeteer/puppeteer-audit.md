@@ -227,14 +227,17 @@ All P0/P1 fixes applied:
 ### Future Work (not yet implemented)
 - **Asset Picker Panel** — Browse project images/sprites, drag onto preview to add entity + track.
 - **Custom Properties** — Let users register arbitrary numeric properties that map to JES props.
-- **Curve Editor** — Visual Bezier handle editor for easing curves (like After Effects graph editor).
 - **Property Groups** — e.g. "crop" = cropX + cropY + cropW + cropH as one adjustable unit.
+
+### Completed Since This Audit
+- **Curve Editor** — Visual Bezier handle editor for easing curves with drag handles, animation preview, ghost overlays, quick presets, and spring parameter support. Fully integrated into KeyframeEditor.
 
 ---
 
 ## New Files Created
 | File | Purpose |
 |------|---------|
+| `EasingCurveEditor.java` | Visual Bezier curve editor with draggable handles, animation preview, and ghost curve overlays |
 | `SplinePath.java` | Catmull-Rom spline interpolation + control point extraction from EntityTrack |
 | `AnimationPreset.java` | 12 built-in animation presets with factory keyframe arrays |
 | `AudioCue.java` | Audio cue model (time, file, channel, volume, fade) |

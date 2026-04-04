@@ -70,6 +70,7 @@ public class EasingCurveEditor extends Pane {
     // Custom Bezier control points (CSS cubic-bezier format: x in [0,1], y can overshoot)
     private double cx1 = 0.25, cy1 = 0.1;
     private double cx2 = 0.25, cy2 = 1.0;
+    private double[] curvePoints = Easing.coerceParameters(Easing.Type.CURVE, null);
 
     // Drag state
     private int draggingHandle = 0; // 0=none, 1=P1, 2=P2
@@ -80,6 +81,7 @@ public class EasingCurveEditor extends Pane {
 
     // Callback when user drags control points
     private Consumer<double[]> onBezierChanged;
+    private Consumer<EasingSpec> onCurveSpecChanged;
     private boolean expanded;
 
     // --- A) Ghost curve overlays for adjacent keyframes ---
@@ -190,6 +192,11 @@ public class EasingCurveEditor extends Pane {
             this.cx2 = easingParams[2];
             this.cy2 = easingParams[3];
             if (selectedHandle == 0) selectedHandle = 1;
+        } else if (this.easingType == Easing.Type.CURVE) {
+            this.curvePoints = Easing.coerceParameters(Easing.Type.CURVE, easingParams);
+            if (selectedHandle <= 0 || selectedHandle > editableHandleCount()) {
+                selectedHandle = 1;
+            }
         } else {
             selectedHandle = 0;
         }
@@ -228,6 +235,75 @@ public class EasingCurveEditor extends Pane {
 
     public void setOnBezierChanged(Consumer<double[]> callback) {
         this.onBezierChanged = callback;
+    }
+
+    public void setOnCurveSpecChanged(Consumer<EasingSpec> callback) {
+        this.onCurveSpecChanged = callback;
+    }
+
+    public EasingSpec getEditedSpec() {
+        if (easingType == Easing.Type.CUSTOM) {
+            return EasingSpec.cubicBezier(cx1, cy1, cx2, cy2);
+        }
+        if (easingType == Easing.Type.CURVE) {
+            return EasingSpec.curve(curvePoints);
+        }
+        return EasingSpec.of(easingType, easingParams);
+    }
+
+    public boolean isMultiPointCurve() {
+        return easingType == Easing.Type.CURVE;
+    }
+
+    public int getCurvePointCount() {
+        return editableHandleCount();
+    }
+
+    public boolean addCurvePointAtCurrentFocus() {
+        double progress = Double.isFinite(hoverProgress)
+            ? hoverProgress
+            : selectedHandle > 0
+                ? handleX(selectedHandle)
+                : 0.5;
+        return addCurvePointAt(progress);
+    }
+
+    public boolean addCurvePointAt(double progress) {
+        if (isDisabled() || interpolation != Easing.Interpolation.TWEEN) return false;
+        double target = clamp01(progress);
+        if (target <= 0.0 || target >= 1.0) return false;
+
+        EasingSpec before = getEditedSpec();
+        if (easingType != Easing.Type.CURVE) {
+            easingType = Easing.Type.CURVE;
+            curvePoints = Easing.sampledCurveParameters(before, 3);
+        }
+        double value = Easing.apply(before, target);
+        curvePoints = insertCurvePoint(curvePoints, target, value);
+        easingParams = curvePoints.clone();
+        selectedHandle = findClosestCurvePoint(target, value);
+        hoveredHandle = selectedHandle;
+        commitCurveChange();
+        return true;
+    }
+
+    public boolean removeSelectedCurvePoint() {
+        if (easingType != Easing.Type.CURVE) return false;
+        int count = curvePoints.length / 2;
+        if (selectedHandle <= 0 || selectedHandle > count || count <= 1) return false;
+        double[] next = new double[(count - 1) * 2];
+        int write = 0;
+        for (int i = 0; i < count; i++) {
+            if (i == selectedHandle - 1) continue;
+            next[write++] = curvePoints[i * 2];
+            next[write++] = curvePoints[i * 2 + 1];
+        }
+        curvePoints = Easing.coerceParameters(Easing.Type.CURVE, next);
+        easingParams = curvePoints.clone();
+        selectedHandle = Math.max(1, Math.min(selectedHandle, curvePoints.length / 2));
+        hoveredHandle = selectedHandle;
+        commitCurveChange();
+        return true;
     }
 
     public void setHelperText(String helperText) {
@@ -318,10 +394,10 @@ public class EasingCurveEditor extends Pane {
         };
     }
 
-    private boolean isInteractiveCustomCurve() {
+    private boolean isInteractiveEditableCurve() {
         return !isDisabled()
             && interpolation == Easing.Interpolation.TWEEN
-            && easingType == Easing.Type.CUSTOM;
+            && Easing.isEditableCurve(easingType);
     }
 
     private boolean isInsidePlot(double x, double y) {
@@ -336,8 +412,17 @@ public class EasingCurveEditor extends Pane {
         hoverProgress = insidePlot
             ? clamp01((event.getX() - getPlotBounds()[0]) / getPlotBounds()[2])
             : Double.NaN;
-        if (!isInteractiveCustomCurve()) {
+        if (!isInteractiveEditableCurve()) {
             updateCursor(insidePlot);
+            draw();
+            return;
+        }
+
+        if (insidePlot && event.getClickCount() >= 2) {
+            if (addCurvePointAt(clamp01((event.getX() - getPlotBounds()[0]) / getPlotBounds()[2]))) {
+                event.consume();
+            }
+            updateCursor(true);
             draw();
             return;
         }
@@ -365,29 +450,40 @@ public class EasingCurveEditor extends Pane {
     }
 
     private void handleKeyPressed(KeyEvent event) {
-        if (!isInteractiveCustomCurve()) return;
+        if (!isInteractiveEditableCurve()) return;
 
         if (event.getCode() == KeyCode.TAB) {
-            selectedHandle = event.isShiftDown()
-                ? (selectedHandle == 2 ? 1 : 2)
-                : (selectedHandle == 1 ? 2 : 1);
+            int count = Math.max(1, editableHandleCount());
+            if (selectedHandle <= 0) {
+                selectedHandle = 1;
+            } else if (event.isShiftDown()) {
+                selectedHandle = selectedHandle == 1 ? count : selectedHandle - 1;
+            } else {
+                selectedHandle = selectedHandle == count ? 1 : selectedHandle + 1;
+            }
             hoveredHandle = selectedHandle;
             draw();
             event.consume();
             return;
         }
-        if (event.getCode() == KeyCode.DIGIT1 || event.getCode() == KeyCode.NUMPAD1) {
-            selectedHandle = 1;
-            hoveredHandle = 1;
+        int digit = digitSelection(event.getCode());
+        if (digit > 0 && digit <= editableHandleCount()) {
+            selectedHandle = digit;
+            hoveredHandle = digit;
             draw();
             event.consume();
             return;
         }
-        if (event.getCode() == KeyCode.DIGIT2 || event.getCode() == KeyCode.NUMPAD2) {
-            selectedHandle = 2;
-            hoveredHandle = 2;
-            draw();
-            event.consume();
+        if (event.getCode() == KeyCode.BACK_SPACE || event.getCode() == KeyCode.DELETE) {
+            if (removeSelectedCurvePoint()) {
+                event.consume();
+            }
+            return;
+        }
+        if (event.getCode() == KeyCode.PLUS || event.getCode() == KeyCode.EQUALS) {
+            if (addCurvePointAtCurrentFocus()) {
+                event.consume();
+            }
             return;
         }
         if (event.getCode() == KeyCode.LEFT
@@ -416,75 +512,80 @@ public class EasingCurveEditor extends Pane {
             nx = snap(nx, SNAP_INCREMENT);
             ny = snap(ny, SNAP_INCREMENT);
         }
-        ny = clampBezierY(ny);
-
-        if (draggingHandle == 1) {
-            cx1 = nx;
-            cy1 = ny;
-        } else if (draggingHandle == 2) {
-            cx2 = nx;
-            cy2 = ny;
-        }
+        ny = clampEditableY(ny);
+        setHandle(draggingHandle, nx, ny);
         selectedHandle = draggingHandle;
         commitCurveChange();
     }
 
     private void nudgeSelectedHandle(double deltaX, double deltaY, boolean snap) {
-        if (selectedHandle == 1) {
-            cx1 = clamp01(cx1 + deltaX);
-            cy1 = clampBezierY(cy1 + deltaY);
-            if (snap) {
-                cx1 = snap(cx1, SNAP_INCREMENT);
-                cy1 = snap(cy1, SNAP_INCREMENT);
-            }
-        } else if (selectedHandle == 2) {
-            cx2 = clamp01(cx2 + deltaX);
-            cy2 = clampBezierY(cy2 + deltaY);
-            if (snap) {
-                cx2 = snap(cx2, SNAP_INCREMENT);
-                cy2 = snap(cy2, SNAP_INCREMENT);
-            }
-        } else {
+        if (selectedHandle <= 0 || selectedHandle > editableHandleCount()) {
             return;
         }
+        double nx = clamp01(handleX(selectedHandle) + deltaX);
+        double ny = clampEditableY(handleY(selectedHandle) + deltaY);
+        if (snap) {
+            nx = snap(nx, SNAP_INCREMENT);
+            ny = snap(ny, SNAP_INCREMENT);
+        }
+        setHandle(selectedHandle, nx, ny);
         commitCurveChange();
     }
 
     private void commitCurveChange() {
-        easingParams = new double[]{ cx1, cy1, cx2, cy2 };
+        if (easingType == Easing.Type.CURVE) {
+            curvePoints = Easing.coerceParameters(Easing.Type.CURVE, curvePoints);
+            easingParams = curvePoints.clone();
+        } else {
+            easingParams = new double[]{ cx1, cy1, cx2, cy2 };
+        }
         draw();
+        if (onCurveSpecChanged != null) {
+            onCurveSpecChanged.accept(getEditedSpec());
+        }
         if (onBezierChanged != null) {
-            onBezierChanged.accept(new double[]{ cx1, cy1, cx2, cy2 });
+            if (easingType == Easing.Type.CUSTOM) {
+                onBezierChanged.accept(new double[]{ cx1, cy1, cx2, cy2 });
+            } else {
+                onBezierChanged.accept(Easing.coerceParameters(Easing.Type.CUSTOM, null));
+            }
         }
     }
 
     private int resolveHandleAt(double mouseX, double mouseY) {
-        if (!isInteractiveCustomCurve()) return 0;
+        if (!isInteractiveEditableCurve()) return 0;
         double[] plot = getPlotBounds();
         double[] yRange = resolveVisibleYRange();
-        double p1x = plot[0] + cx1 * plot[2];
-        double p1y = screenYForValue(cy1, plot[1], plot[3], yRange[0], yRange[1]);
-        double p2x = plot[0] + cx2 * plot[2];
-        double p2y = screenYForValue(cy2, plot[1], plot[3], yRange[0], yRange[1]);
-
-        double d1 = Math.hypot(mouseX - p1x, mouseY - p1y);
-        double d2 = Math.hypot(mouseX - p2x, mouseY - p2y);
-
-        if (d1 <= HANDLE_HIT_RADIUS && d1 <= d2) return 1;
-        if (d2 <= HANDLE_HIT_RADIUS) return 2;
+        int best = 0;
+        double bestDistance = Double.MAX_VALUE;
+        for (int i = 1; i <= editableHandleCount(); i++) {
+            double px = plot[0] + handleX(i) * plot[2];
+            double py = screenYForValue(handleY(i), plot[1], plot[3], yRange[0], yRange[1]);
+            double distance = Math.hypot(mouseX - px, mouseY - py);
+            if (distance <= HANDLE_HIT_RADIUS && distance < bestDistance) {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+        if (best != 0) return best;
         return 0;
     }
 
     private int resolvePreferredHandle(double mouseX, double mouseY) {
         double[] plot = getPlotBounds();
         double[] yRange = resolveVisibleYRange();
-        double p1x = plot[0] + cx1 * plot[2];
-        double p1y = screenYForValue(cy1, plot[1], plot[3], yRange[0], yRange[1]);
-        double p2x = plot[0] + cx2 * plot[2];
-        double p2y = screenYForValue(cy2, plot[1], plot[3], yRange[0], yRange[1]);
-        double d1 = Math.hypot(mouseX - p1x, mouseY - p1y);
-        double d2 = Math.hypot(mouseX - p2x, mouseY - p2y);
-        return d1 <= d2 ? 1 : 2;
+        int best = 1;
+        double bestDistance = Double.MAX_VALUE;
+        for (int i = 1; i <= editableHandleCount(); i++) {
+            double px = plot[0] + handleX(i) * plot[2];
+            double py = screenYForValue(handleY(i), plot[1], plot[3], yRange[0], yRange[1]);
+            double distance = Math.hypot(mouseX - px, mouseY - py);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+        return best;
     }
 
     private void updateCursor(boolean insidePlot) {
@@ -493,7 +594,7 @@ public class EasingCurveEditor extends Pane {
             return;
         }
         if (insidePlot) {
-            canvas.setCursor(isInteractiveCustomCurve() ? Cursor.CROSSHAIR : Cursor.CROSSHAIR);
+            canvas.setCursor(Cursor.CROSSHAIR);
             return;
         }
         canvas.setCursor(Cursor.DEFAULT);
@@ -502,6 +603,7 @@ public class EasingCurveEditor extends Pane {
     private double[] resolveVisibleYRange() {
         boolean tween = interpolation == Easing.Interpolation.TWEEN;
         boolean isCustom = tween && easingType == Easing.Type.CUSTOM;
+        boolean isCurve = tween && easingType == Easing.Type.CURVE;
 
         double min = 0.0;
         double max = 1.0;
@@ -519,9 +621,16 @@ public class EasingCurveEditor extends Pane {
             max = Math.max(max, Math.max(cy1, cy2));
             min = Math.min(min, -0.12);
             max = Math.max(max, 1.12);
+        } else if (isCurve) {
+            for (int i = 0; i < curvePoints.length / 2; i++) {
+                min = Math.min(min, curvePoints[i * 2 + 1]);
+                max = Math.max(max, curvePoints[i * 2 + 1]);
+            }
+            min = Math.min(min, -0.12);
+            max = Math.max(max, 1.12);
         }
 
-        boolean needsOvershootRoom = isCustom || min < -0.03 || max > 1.03;
+        boolean needsOvershootRoom = isCustom || isCurve || min < -0.03 || max > 1.03;
         if (!needsOvershootRoom) {
             return new double[]{ 0.0, 1.0 };
         }
@@ -544,6 +653,9 @@ public class EasingCurveEditor extends Pane {
         }
         if (isCustom) {
             return Easing.cubicBezier(cx1, cy1, cx2, cy2, t);
+        }
+        if (easingType == Easing.Type.CURVE) {
+            return Easing.curve(curvePoints, t);
         }
         return Easing.apply(easingType, easingParams, t);
     }
@@ -568,11 +680,75 @@ public class EasingCurveEditor extends Pane {
         return maxValue - normalized * span;
     }
 
+    private int editableHandleCount() {
+        if (easingType == Easing.Type.CURVE) {
+            return curvePoints.length / 2;
+        }
+        if (easingType == Easing.Type.CUSTOM) {
+            return 2;
+        }
+        return 0;
+    }
+
+    private double handleX(int handle) {
+        if (easingType == Easing.Type.CURVE) {
+            int index = Math.max(0, Math.min(curvePoints.length / 2 - 1, handle - 1));
+            return curvePoints[index * 2];
+        }
+        return handle == 1 ? cx1 : cx2;
+    }
+
+    private double handleY(int handle) {
+        if (easingType == Easing.Type.CURVE) {
+            int index = Math.max(0, Math.min(curvePoints.length / 2 - 1, handle - 1));
+            return curvePoints[index * 2 + 1];
+        }
+        return handle == 1 ? cy1 : cy2;
+    }
+
+    private void setHandle(int handle, double x, double y) {
+        if (easingType == Easing.Type.CURVE) {
+            int count = curvePoints.length / 2;
+            if (handle <= 0 || handle > count) return;
+            double[] next = curvePoints.clone();
+            int index = handle - 1;
+            double minGap = 0.001;
+            double lower = index == 0 ? minGap : next[(index - 1) * 2] + minGap;
+            double upper = index == count - 1 ? 1.0 - minGap : next[(index + 1) * 2] - minGap;
+            next[index * 2] = clamp(x, lower, upper);
+            next[index * 2 + 1] = clampEditableY(y);
+            curvePoints = Easing.coerceParameters(Easing.Type.CURVE, next);
+            return;
+        }
+        if (handle == 1) {
+            cx1 = x;
+            cy1 = y;
+        } else if (handle == 2) {
+            cx2 = x;
+            cy2 = y;
+        }
+    }
+
+    private int digitSelection(KeyCode code) {
+        return switch (code) {
+            case DIGIT1, NUMPAD1 -> 1;
+            case DIGIT2, NUMPAD2 -> 2;
+            case DIGIT3, NUMPAD3 -> 3;
+            case DIGIT4, NUMPAD4 -> 4;
+            case DIGIT5, NUMPAD5 -> 5;
+            case DIGIT6, NUMPAD6 -> 6;
+            case DIGIT7, NUMPAD7 -> 7;
+            case DIGIT8, NUMPAD8 -> 8;
+            case DIGIT9, NUMPAD9 -> 9;
+            default -> 0;
+        };
+    }
+
     private double clamp01(double value) {
         return clamp(value, 0.0, 1.0);
     }
 
-    private double clampBezierY(double value) {
+    private double clampEditableY(double value) {
         return clamp(value, -0.5, 1.5);
     }
 
@@ -589,13 +765,53 @@ public class EasingCurveEditor extends Pane {
     }
 
     private String formatHandleReadout(int handle) {
-        if (handle == 1) {
-            return String.format("P1  x %.3f  y %.3f", cx1, cy1);
+        if (handle > 0 && handle <= editableHandleCount()) {
+            return String.format("P%d  x %.3f  y %.3f", handle, handleX(handle), handleY(handle));
         }
-        if (handle == 2) {
-            return String.format("P2  x %.3f  y %.3f", cx2, cy2);
+        if (easingType == Easing.Type.CURVE) {
+            return "Double-click to add a point";
         }
         return "Click or press 1/2 to select a handle";
+    }
+
+    private double[] insertCurvePoint(double[] params, double x, double y) {
+        int count = params.length / 2;
+        double[] next = new double[(count + 1) * 2];
+        int insertIndex = count;
+        for (int i = 0; i < count; i++) {
+            if (x < params[i * 2]) {
+                insertIndex = i;
+                break;
+            }
+        }
+        int read = 0;
+        for (int i = 0; i < count + 1; i++) {
+            if (i == insertIndex) {
+                next[i * 2] = x;
+                next[i * 2 + 1] = clampEditableY(y);
+            } else {
+                next[i * 2] = params[read * 2];
+                next[i * 2 + 1] = params[read * 2 + 1];
+                read++;
+            }
+        }
+        return Easing.coerceParameters(Easing.Type.CURVE, next);
+    }
+
+    private int findClosestCurvePoint(double x, double y) {
+        int count = curvePoints.length / 2;
+        int best = 1;
+        double bestDistance = Double.MAX_VALUE;
+        for (int i = 0; i < count; i++) {
+            double dx = curvePoints[i * 2] - x;
+            double dy = curvePoints[i * 2 + 1] - y;
+            double distance = dx * dx + dy * dy;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = i + 1;
+            }
+        }
+        return best;
     }
 
     private void draw() {
@@ -618,6 +834,7 @@ public class EasingCurveEditor extends Pane {
 
         boolean tween = interpolation == Easing.Interpolation.TWEEN;
         boolean isCustom = tween && easingType == Easing.Type.CUSTOM;
+        boolean isCurve = tween && easingType == Easing.Type.CURVE;
         double[] yRange = resolveVisibleYRange();
         double rangeMin = yRange[0];
         double rangeMax = yRange[1];
@@ -753,6 +970,32 @@ public class EasingCurveEditor extends Pane {
                 plotX + 2,
                 plotY + plotH + 15,
                 Color.web("#a5adb7"));
+        } else if (isCurve) {
+            gc.setStroke(TANGENT_COLOR);
+            gc.setLineWidth(1);
+            gc.setLineDashes(3, 2);
+            double prevX = startSx;
+            double prevY = startSy;
+            for (int i = 1; i <= editableHandleCount(); i++) {
+                double px = plotX + handleX(i) * plotW;
+                double py = screenYForValue(handleY(i), plotY, plotH, rangeMin, rangeMax);
+                gc.strokeLine(prevX, prevY, px, py);
+                prevX = px;
+                prevY = py;
+            }
+            gc.strokeLine(prevX, prevY, endSx, endSy);
+            gc.setLineDashes((double[]) null);
+            for (int i = 1; i <= editableHandleCount(); i++) {
+                double px = plotX + handleX(i) * plotW;
+                double py = screenYForValue(handleY(i), plotY, plotH, rangeMin, rangeMax);
+                drawHandle(gc, px, py, i == selectedHandle ? HANDLE2_COLOR : HANDLE_COLOR,
+                    "P" + i, hoveredHandle == i || draggingHandle == i || selectedHandle == i);
+            }
+            drawFooterLabel(gc,
+                Easing.formatSpec(EasingSpec.curve(curvePoints)),
+                plotX + 2,
+                plotY + plotH + 15,
+                Color.web("#a5adb7"));
         } else {
             String label = tween
                 ? describeEasingLabel()
@@ -819,16 +1062,21 @@ public class EasingCurveEditor extends Pane {
             ? helperText
             : isCustom
                 ? "Drag handles. Shift snaps to 0.05."
+                : isCurve
+                    ? "Drag points. Double-click or + adds. Delete removes."
                 : "Hover to inspect the curve.";
         drawBadge(gc, plotX + 6, plotY + 6, resolvedHelper, false);
         if (Double.isFinite(hoverProgress)) {
             double value = evaluateCurveValue(hoverProgress, tween, isCustom);
             drawBadge(gc, plotX + plotW - 118, plotY + 6, formatReadout(hoverProgress, value), true);
         }
-        if (isCustom) {
+        if (isCustom || isCurve) {
             drawBadge(gc, plotX + 6, plotY + plotH - 22, formatHandleReadout(selectedHandle), false);
             if (canvas.isFocused()) {
-                drawBadge(gc, plotX + plotW - 210, plotY + plotH - 22, "1/2 select  •  Arrows nudge  •  Shift snap", true);
+                String shortcutHint = isCurve
+                    ? "Tab cycle  •  Arrows nudge  •  +/- add  •  Del remove"
+                    : "1/2 select  •  Arrows nudge  •  Shift snap";
+                drawBadge(gc, plotX + plotW - 250, plotY + plotH - 22, shortcutHint, true);
             }
         }
         if (isDisabled()) {

@@ -612,6 +612,26 @@ public class TimelineDiagnostic {
             ));
             return;
         }
+        if (normalized.startsWith("curve(")) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "curve requires an even number of numeric x/y values",
+                "Use: curve(0.25, 0.1, 0.5, 0.8, 0.75, 1.0)",
+                lineNo
+            ));
+            return;
+        }
+        if ("curve".equals(normalized)) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "curve requires x/y point pairs",
+                "Use: curve(0.25, 0.1, 0.5, 0.8, 0.75, 1.0)",
+                lineNo
+            ));
+            return;
+        }
         if (normalized.startsWith("spring(")) {
             out.add(new Message(
                 Severity.ERROR,

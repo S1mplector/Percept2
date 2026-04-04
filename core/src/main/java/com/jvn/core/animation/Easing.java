@@ -1,6 +1,9 @@
 package com.jvn.core.animation;
 
+import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Library of easing functions for smooth animation interpolation.
@@ -21,7 +24,7 @@ public class Easing {
     EASE_IN_BOUNCE, EASE_OUT_BOUNCE, EASE_IN_OUT_BOUNCE,
     SPRING, DAMPED_SPRING,
     HERO_POP, UI_SOFT_IN, CAMERA_GLIDE,
-    CUSTOM
+    CUSTOM, CURVE
   }
 
   public enum Interpolation {
@@ -142,6 +145,7 @@ public class Easing {
         double[] bezier = coerceParameters(Type.CUSTOM, params);
         yield cubicBezier(bezier[0], bezier[1], bezier[2], bezier[3], t);
       }
+      case CURVE -> curve(coerceParameters(Type.CURVE, params), t);
     };
   }
 
@@ -189,6 +193,44 @@ public class Easing {
     return bezierComponent(t, cy1, cy2);
   }
 
+  public static double curve(double[] params, double x) {
+    double[] anchors = curveAnchors(params);
+    int count = anchors.length / 2;
+    x = Math.max(0, Math.min(1, x));
+    if (x == 0.0) return 0.0;
+    if (x == 1.0) return 1.0;
+    if (count < 2) return x;
+
+    double[] xs = new double[count];
+    double[] ys = new double[count];
+    for (int i = 0; i < count; i++) {
+      xs[i] = anchors[i * 2];
+      ys[i] = anchors[i * 2 + 1];
+    }
+    double[] tangents = computeCurveTangents(xs, ys);
+
+    int segment = 0;
+    while (segment < count - 2 && x > xs[segment + 1]) {
+      segment++;
+    }
+    double x0 = xs[segment];
+    double x1 = xs[segment + 1];
+    double y0 = ys[segment];
+    double y1 = ys[segment + 1];
+    double h = Math.max(1e-6, x1 - x0);
+    double t = Math.max(0.0, Math.min(1.0, (x - x0) / h));
+    double t2 = t * t;
+    double t3 = t2 * t;
+    double h00 = 2 * t3 - 3 * t2 + 1;
+    double h10 = t3 - 2 * t2 + t;
+    double h01 = -2 * t3 + 3 * t2;
+    double h11 = t3 - t2;
+    return h00 * y0
+        + h10 * h * tangents[segment]
+        + h01 * y1
+        + h11 * h * tangents[segment + 1];
+  }
+
   private static double bezierComponent(double t, double c1, double c2) {
     double u = 1 - t;
     return 3 * u * u * t * c1 + 3 * u * t * t * c2 + t * t * t;
@@ -205,7 +247,14 @@ public class Easing {
   }
 
   public static boolean usesParameters(Type type) {
-    return type == Type.CUSTOM || type == Type.SPRING || type == Type.DAMPED_SPRING;
+    return type == Type.CUSTOM
+        || type == Type.CURVE
+        || type == Type.SPRING
+        || type == Type.DAMPED_SPRING;
+  }
+
+  public static boolean isEditableCurve(Type type) {
+    return type == Type.CUSTOM || type == Type.CURVE;
   }
 
   public static boolean isNamedCurve(Type type) {
@@ -224,6 +273,7 @@ public class Easing {
       case CAMERA_GLIDE -> "Camera Glide";
       case DAMPED_SPRING -> "Damped Spring";
       case CUSTOM -> "Custom Cubic Bezier";
+      case CURVE -> "Multi-Point Curve";
       case LINEAR -> "Linear";
       default -> titleCase(resolved.name());
     };
@@ -233,6 +283,7 @@ public class Easing {
     if (type == null) return null;
     return switch (type) {
       case CUSTOM -> new double[]{0.25, 0.10, 0.25, 1.00};
+      case CURVE -> new double[]{0.25, 0.25, 0.50, 0.50, 0.75, 0.75};
       case SPRING -> new double[]{180.0, 20.0, 1.0, 0.0};
       case DAMPED_SPRING -> new double[]{2.2, 0.38, 1.0, 0.0};
       default -> null;
@@ -260,6 +311,7 @@ public class Easing {
     return switch (type) {
       case CUSTOM -> "cubic_bezier(" + formatNumber(params[0]) + ", " + formatNumber(params[1])
           + ", " + formatNumber(params[2]) + ", " + formatNumber(params[3]) + ")";
+      case CURVE -> "curve(" + formatCurveParameters(params) + ")";
       case SPRING -> "spring(" + formatNumber(params[0]) + ", " + formatNumber(params[1])
           + ", " + formatNumber(params[2]) + ", " + formatNumber(params[3]) + ")";
       case DAMPED_SPRING -> "damped_spring(" + formatNumber(params[0]) + ", "
@@ -283,6 +335,7 @@ public class Easing {
     if (params == null) return null;
     return switch (type) {
       case CUSTOM -> new double[]{params[0], params[1], params[2], params[3]};
+      case CURVE -> sanitizeCurveParameters(params);
       case SPRING -> new double[]{
           Math.max(0.01, params[0]),
           Math.max(0.0, params[1]),
@@ -297,6 +350,117 @@ public class Easing {
       };
       default -> params;
     };
+  }
+
+  public static double[] sampledCurveParameters(EasingSpec spec, int interiorPointCount) {
+    EasingSpec resolved = spec != null ? spec : EasingSpec.of(Type.LINEAR);
+    int count = Math.max(1, interiorPointCount);
+    double[] params = new double[count * 2];
+    for (int i = 0; i < count; i++) {
+      double x = (i + 1.0) / (count + 1.0);
+      params[i * 2] = x;
+      params[i * 2 + 1] = apply(resolved, x);
+    }
+    return coerceParameters(Type.CURVE, params);
+  }
+
+  public static int curvePointCount(double[] params) {
+    return coerceParameters(Type.CURVE, params).length / 2;
+  }
+
+  private static String formatCurveParameters(double[] params) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < params.length; i++) {
+      if (i > 0) sb.append(", ");
+      sb.append(formatNumber(params[i]));
+    }
+    return sb.toString();
+  }
+
+  private static double[] sanitizeCurveParameters(double[] params) {
+    double[] defaults = defaultParameters(Type.CURVE);
+    if (params == null || params.length < 2) {
+      return defaults.clone();
+    }
+    int usableLength = params.length - (params.length % 2);
+    if (usableLength < 2) {
+      return defaults.clone();
+    }
+
+    List<double[]> points = new ArrayList<>();
+    for (int i = 0; i < usableLength; i += 2) {
+      double x = Double.isFinite(params[i]) ? params[i] : defaults[Math.min(i, defaults.length - 2)];
+      double y = Double.isFinite(params[i + 1]) ? params[i + 1] : x;
+      points.add(new double[]{x, Math.max(-0.5, Math.min(1.5, y))});
+    }
+    points.sort(Comparator.comparingDouble(p -> p[0]));
+
+    double minGap = 0.001;
+    double[] out = new double[points.size() * 2];
+    for (int i = 0; i < points.size(); i++) {
+      int remaining = points.size() - i - 1;
+      double lower = i == 0 ? minGap : out[(i - 1) * 2] + minGap;
+      double upper = 1.0 - minGap - remaining * minGap;
+      double x = Math.max(lower, Math.min(upper, points.get(i)[0]));
+      out[i * 2] = x;
+      out[i * 2 + 1] = points.get(i)[1];
+    }
+    return out;
+  }
+
+  private static double[] curveAnchors(double[] params) {
+    double[] interior = coerceParameters(Type.CURVE, params);
+    int count = interior.length / 2;
+    double[] anchors = new double[(count + 2) * 2];
+    anchors[0] = 0.0;
+    anchors[1] = 0.0;
+    for (int i = 0; i < count; i++) {
+      anchors[(i + 1) * 2] = interior[i * 2];
+      anchors[(i + 1) * 2 + 1] = interior[i * 2 + 1];
+    }
+    anchors[(count + 1) * 2] = 1.0;
+    anchors[(count + 1) * 2 + 1] = 1.0;
+    return anchors;
+  }
+
+  private static double[] computeCurveTangents(double[] xs, double[] ys) {
+    int n = xs.length;
+    if (n <= 1) return new double[]{0.0};
+    double[] h = new double[n - 1];
+    double[] delta = new double[n - 1];
+    for (int i = 0; i < n - 1; i++) {
+      h[i] = Math.max(1e-6, xs[i + 1] - xs[i]);
+      delta[i] = (ys[i + 1] - ys[i]) / h[i];
+    }
+    double[] m = new double[n];
+    if (n == 2) {
+      m[0] = delta[0];
+      m[1] = delta[0];
+      return m;
+    }
+    m[0] = endpointSlope(h[0], h[1], delta[0], delta[1]);
+    for (int i = 1; i < n - 1; i++) {
+      if (delta[i - 1] == 0.0 || delta[i] == 0.0 || Math.signum(delta[i - 1]) != Math.signum(delta[i])) {
+        m[i] = 0.0;
+      } else {
+        double w1 = 2.0 * h[i] + h[i - 1];
+        double w2 = h[i] + 2.0 * h[i - 1];
+        m[i] = (w1 + w2) / ((w1 / delta[i - 1]) + (w2 / delta[i]));
+      }
+    }
+    m[n - 1] = endpointSlope(h[n - 2], h[n - 3], delta[n - 2], delta[n - 3]);
+    return m;
+  }
+
+  private static double endpointSlope(double h0, double h1, double delta0, double delta1) {
+    double slope = ((2.0 * h0 + h1) * delta0 - h0 * delta1) / (h0 + h1);
+    if (Math.signum(slope) != Math.signum(delta0)) {
+      return 0.0;
+    }
+    if (Math.signum(delta0) != Math.signum(delta1) && Math.abs(slope) > Math.abs(3.0 * delta0)) {
+      return 3.0 * delta0;
+    }
+    return slope;
   }
 
   private static double spring(double[] params, double t) {

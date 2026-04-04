@@ -189,4 +189,26 @@ class TimelineDataParserTest {
         assertTrue(xKeyframes.get(1).hasEasingParams());
         assertEquals(220.0, xKeyframes.get(1).getEasingParams()[0], 0.001);
     }
+
+    @Test
+    void parsesMultiPointCurveEasing() {
+        String inline = """
+            timeline {
+              move "hero" {
+                x: 220
+                dur: 180
+                easing: curve(0.20, 0.05, 0.45, 0.92, 0.72, 1.08)
+              }
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("inline_curve", inline);
+        TimelineData.Track hero = data.getTrack("hero");
+        assertNotNull(hero);
+
+        var xKeyframes = hero.getKeyframes(TimelineData.Property.X);
+        assertEquals(Easing.Type.CURVE, xKeyframes.get(1).getEasing());
+        assertTrue(xKeyframes.get(1).hasEasingParams());
+        assertEquals(6, xKeyframes.get(1).getEasingParams().length);
+    }
 }

@@ -34,6 +34,10 @@ public final class EasingSpec {
     return of(Easing.Type.CUSTOM, new double[]{cx1, cy1, cx2, cy2});
   }
 
+  public static EasingSpec curve(double... points) {
+    return of(Easing.Type.CURVE, points);
+  }
+
   public static EasingSpec spring(double stiffness, double damping, double mass, double velocity) {
     return of(Easing.Type.SPRING, new double[]{stiffness, damping, mass, velocity});
   }
@@ -60,6 +64,9 @@ public final class EasingSpec {
       return switch (function) {
         case "cubic_bezier" -> args.length == 4
             ? cubicBezier(args[0], args[1], args[2], args[3])
+            : null;
+        case "curve" -> args.length >= 2 && args.length % 2 == 0
+            ? curve(args)
             : null;
         case "spring" -> of(Easing.Type.SPRING, args);
         case "damped_spring" -> of(Easing.Type.DAMPED_SPRING, args);

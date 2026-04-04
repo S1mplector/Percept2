@@ -56,6 +56,21 @@ class KeyframeEditorNudgeTest {
     }
 
     @Test
+    void multiPointCurveSpecSamplesBuiltInEasingForRicherEditing() {
+        EasingSpec source = EasingSpec.of(Easing.Type.EASE_OUT_QUINT);
+        EasingSpec editable = KeyframeEditor.toMultiPointCurveSpec(source);
+
+        assertEquals(Easing.Type.CURVE, editable.getType());
+        assertTrue(editable.getParameters().length >= 6);
+        for (double t : new double[]{0.15, 0.33, 0.5, 0.72, 0.9}) {
+            double expected = Easing.apply(source, t);
+            double actual = Easing.apply(editable, t);
+            assertTrue(Math.abs(expected - actual) < 0.05,
+                "multi-point approximation drifted too far at t=" + t + ": expected=" + expected + ", actual=" + actual);
+        }
+    }
+
+    @Test
     void reverseEditableCurveSpecSwapsEaseDirection() {
         EasingSpec reversed = KeyframeEditor.reverseEditableCurveSpec(
             EasingSpec.cubicBezier(0.42, 0.0, 1.0, 1.0));
@@ -74,6 +89,21 @@ class KeyframeEditorNudgeTest {
             EasingSpec.cubicBezier(0.34, 1.56, 0.64, -0.20));
 
         assertEquals(EasingSpec.cubicBezier(0.34, 1.0, 0.64, 0.0), clamped);
+    }
+
+    @Test
+    void reverseAndClampEditableCurveSupportMultiPointCurves() {
+        EasingSpec curve = EasingSpec.curve(0.20, 0.15, 0.45, 1.20, 0.70, 1.10);
+
+        EasingSpec reversed = KeyframeEditor.reverseEditableCurveSpec(curve);
+        EasingSpec clamped = KeyframeEditor.clampEditableCurveSpec(curve);
+
+        assertEquals(Easing.Type.CURVE, reversed.getType());
+        assertEquals(0.30, reversed.getParameters()[0], 0.000001);
+        assertEquals(-0.10, reversed.getParameters()[1], 0.000001);
+        assertEquals(Easing.Type.CURVE, clamped.getType());
+        assertEquals(1.0, clamped.getParameters()[3], 0.000001);
+        assertEquals(1.0, clamped.getParameters()[5], 0.000001);
     }
 
     @Test

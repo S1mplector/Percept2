@@ -103,6 +103,24 @@ class TimelineDiagnosticDslTest {
     }
 
     @Test
+    void acceptsMultiPointCurveEasing() {
+        String code = """
+            timeline {
+              move "hero" {
+                x: 320
+                dur: 500
+                easing: curve(0.20, 0.10, 0.48, 0.84, 0.76, 1.06)
+              }
+            }
+            """;
+
+        List<TimelineDiagnostic.Message> messages = TimelineDiagnostic.diagnoseDsl(code);
+
+        assertFalse(messages.stream().anyMatch(m ->
+            m.description().contains("Unknown easing") || m.description().contains("curve requires")));
+    }
+
+    @Test
     void flagsUnknownInterpolation() {
         String code = """
             timeline {
