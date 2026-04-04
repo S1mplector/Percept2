@@ -172,7 +172,6 @@ Native tests run via CTest:
 
 ## Related Docs
 
-- [Audio Synth Controls Sidebar](../../editor/sidebars/right/sidebar-audio-synth-controls.md) — editor UI panel
 - [Audio System](../../runtime/systems/audio-system.md) — runtime audio architecture
 - [VNS Audio Commands](../../scripting/vns/presentation/vns-audio.md) — `[synthesizer]` command reference
 - [Native Library Audit](native-library-audit.md) — native integration status

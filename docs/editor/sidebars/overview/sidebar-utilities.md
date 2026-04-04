@@ -28,8 +28,7 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 | 14 | Image Tint Tool | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Color tinting and grading for character/background images |
 | 15 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
 | 16 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser |
-| 17 | Audio Synth Controls | **[sidebar-audio-synth-controls.md](../right/sidebar-audio-synth-controls.md)** | Right | Synthesizer authoring, waveform preview, VNS command generation |
-| 18 | Text Editor | **[sidebar-script-editor.md](../right/sidebar-script-editor.md)** | Right | JVN text file explorer, VNS label outline, include graph, pop-out editor window |
+| 17 | Text Editor | **[sidebar-script-editor.md](../right/sidebar-script-editor.md)** | Right | JVN text file explorer, VNS label outline, include graph, pop-out editor window |
 
 ### Adding Panels
 

@@ -148,7 +148,6 @@ Complete documentation for the Java Vector Nexus engine.
   - [Image Tint Tool](editor/sidebars/right/sidebar-image-tint-tool.md) — color tinting/grading with tint, saturation, contrast
   - [Version Control](editor/sidebars/right/sidebar-version-control.md) — Git panel: init, commit, push, pull, branch, stash, remote setup
   - [Help Center](editor/sidebars/right/sidebar-help-center.md) — in-app Markdown documentation browser, quick access, F1 shortcut
-  - [Audio Synth Controls](editor/sidebars/right/sidebar-audio-synth-controls.md) — synthesizer authoring, live waveform preview, VNS command generation
   - [Storyboard Overlay](editor/sidebars/right/sidebar-storyboard-overlay.md) — ghost board-frame overlays for staging reference
   - [Text Editor](editor/sidebars/right/sidebar-script-editor.md) — JVN text file explorer, VNS label outline, include graph, pop-out editor window
 - [Welcome Center](editor/core/welcome-center.md) — startup dashboard, recent projects, environment health checks

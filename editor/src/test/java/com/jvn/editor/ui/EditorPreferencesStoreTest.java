@@ -34,7 +34,6 @@ class EditorPreferencesStoreTest {
     assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.LABEL_FLOW));
     assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.ASSETS));
     assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.IMAGE_ATTRIBUTES));
-    assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.AUDIO_SYNTH));
   }
 
   @Test

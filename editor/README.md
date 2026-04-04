@@ -6,7 +6,7 @@ JavaFX-based visual editor for authoring JVN visual novel and game projects. Ent
 
 - **Puppeteer** — animation timeline editor with keyframe interpolation, easing picker, audio cues, camera control, onion skinning, and JES/VNS code export
 - **Code Editor** — syntax-highlighted JES/VNS script editing with live preview
-- **Sidebar Panels** — Project Explorer, Story Timeline, Inspector, Asset Browser, Label Flow Map, VNS Diagnostics, Layered Image Visualizer, Image Attributes/Tint Tools, Audio Synth Controls, Layout Launcher, Menu Flow Editor, Puppeteer Launcher, Version Control (Git), Help Center
+- **Sidebar Panels** — Project Explorer, Story Timeline, Inspector, Asset Browser, Label Flow Map, VNS Diagnostics, Layered Image Visualizer, Image Attributes/Tint Tools, Layout Launcher, Menu Flow Editor, Puppeteer Launcher, Version Control (Git), Help Center
 - **Layout Studio** — visual editors for dialogue layouts, menu styles, menu screens, and button bounds (Bounds Studio)
 - **New Project Wizard** — scaffolding with inline validation, resolution-aware templates, locale stubs
 

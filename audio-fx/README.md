@@ -35,5 +35,3 @@ Requires CMake and a C/C++ toolchain. The native library is platform-specific (`
 - `:core` — engine abstractions
 
 ## Documentation
-
-- [Audio Synth Controls Sidebar](../docs/editor/sidebars/right/sidebar-audio-synth-controls.md)

@@ -29,14 +29,12 @@ import java.util.concurrent.CountDownLatch;
 
 import javax.tools.ToolProvider;
 
-import com.jvn.audiofx.AudioFxController;
 import com.jvn.audiofx.AudioFxNativeBridge;
 import com.jvn.core.nativebridge.NativeLibraryLoader;
 import com.jvn.core.nativebridge.NativeMathBridge;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
-import com.jvn.editor.ui.AudioSynthControlsView;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorPanelPlacement;
 import com.jvn.editor.ui.EditorPreferences;
@@ -171,9 +169,6 @@ public class EditorApp extends Application {
   private TilemapEditorView mapEditorView;
   private PuppeteerLauncherPanel puppeteerLauncherPanel;
   private ScriptEditorLauncherView scriptEditorLauncherView;
-  private AudioSynthControlsView audioSynthControlsView;
-  private AudioFxController audioFxController;
-  private Tab tabAudioSynthControls;
   private Tab tabEditorSettings;
   private Tab tabPuppeteerLauncher;
   private Tab tabScriptEditorLauncher;
@@ -1302,8 +1297,6 @@ public class EditorApp extends Application {
     miShowAssets.setOnAction(e -> selectAssetBrowserTab());
     MenuItem miShowScriptEditorWorkspace = new MenuItem("Text Editor Workspace");
     miShowScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
-    MenuItem miShowAudioSynthControls = new MenuItem("Audio Synth Controls");
-    miShowAudioSynthControls.setOnAction(e -> selectAudioSynthControlsTab());
     MenuItem miShowDiagnostics = new MenuItem("VNS Diagnostics");
     miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
@@ -1335,7 +1328,7 @@ public class EditorApp extends Application {
         miShowWelcomePanel, miShowProject, miShowTimeline, miShowInspector, miShowVersionControlPanel, miShowHelpPanel);
     Menu menuPanelsAuthoring = new Menu("Authoring");
     menuPanelsAuthoring.getItems().addAll(
-        miShowAssets, miShowScriptEditorWorkspace, miShowAudioSynthControls, miShowPuppeteerLauncher);
+        miShowAssets, miShowScriptEditorWorkspace, miShowPuppeteerLauncher);
     Menu menuPanelsAnalysis = new Menu("Analysis & Flow");
     menuPanelsAnalysis.getItems().addAll(miShowDiagnostics, miShowFlowMap, miShowMenuFlow, miShowLayoutLauncher);
     Menu menuPanelsVisual = new Menu("Visual Tools");
@@ -1380,8 +1373,6 @@ public class EditorApp extends Application {
     miNavigateAssetBrowser.setOnAction(e -> selectAssetBrowserTab());
     MenuItem miNavigateScriptWorkspace = new MenuItem("Text Editor Workspace");
     miNavigateScriptWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
-    MenuItem miNavigateAudioSynth = new MenuItem("Audio Synth Controls");
-    miNavigateAudioSynth.setOnAction(e -> selectAudioSynthControlsTab());
     MenuItem miNavigatePuppeteer = new MenuItem("Puppeteer Launcher");
     miNavigatePuppeteer.setOnAction(e -> selectPuppeteerLauncherTab());
     MenuItem miNavigateMenuFlow = new MenuItem("Menu Flow Editor");
@@ -1389,7 +1380,7 @@ public class EditorApp extends Application {
     MenuItem miNavigateLayoutLauncher = new MenuItem("Layout Launcher");
     miNavigateLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
     menuNavigateEditors.getItems().addAll(
-        miNavigateAssetBrowser, miNavigateScriptWorkspace, miNavigateAudioSynth, miNavigatePuppeteer, miNavigateMenuFlow, miNavigateLayoutLauncher);
+        miNavigateAssetBrowser, miNavigateScriptWorkspace, miNavigatePuppeteer, miNavigateMenuFlow, miNavigateLayoutLauncher);
 
     Menu menuNavigateVisual = new Menu("Visual Tools");
     MenuItem miNavigatePhoneAssets = new MenuItem("Phone Assets");
@@ -1482,8 +1473,6 @@ public class EditorApp extends Application {
     miPuppeteerPanel.setOnAction(e -> selectPuppeteerLauncherTab());
     MenuItem miScriptEditorWorkspace = new MenuItem("Text Editor Workspace");
     miScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
-    MenuItem miAudioSynthControls = new MenuItem("Audio Synth Controls");
-    miAudioSynthControls.setOnAction(e -> selectAudioSynthControlsTab());
 
     MenuItem miMenuFlow = new MenuItem("Menu Flow Editor");
     miMenuFlow.setOnAction(e -> selectMenuFlowTab());
@@ -1517,7 +1506,7 @@ public class EditorApp extends Application {
     miToolVersionControl.setOnAction(e -> selectVersionControlTab());
 
     Menu menuAnimationTools = new Menu("Animation");
-    menuAnimationTools.getItems().addAll(miActionEditor, miPuppeteerPanel, miAudioSynthControls);
+    menuAnimationTools.getItems().addAll(miActionEditor, miPuppeteerPanel);
     Menu menuScriptTools = new Menu("Scripts & Analysis");
     menuScriptTools.getItems().addAll(miScriptEditorWorkspace, menuVnsTools, miMenuFlow);
     Menu menuLayoutTools = new Menu("Layout & UI");
@@ -1636,9 +1625,6 @@ public class EditorApp extends Application {
     MenuItem miWindowPuppeteer = new MenuItem("Puppeteer Launcher");
     miWindowPuppeteer.setOnAction(e ->
         launchPanelAsWindow("Puppeteer Launcher", ensurePuppeteerLauncherPanel(), 600, 500, EditorSidebarPanel.PUPPETEER_LAUNCHER));
-    MenuItem miWindowAudioSynth = new MenuItem("Audio Synth Controls");
-    miWindowAudioSynth.setOnAction(e ->
-        launchPanelAsWindow("Audio Synth Controls", ensureAudioSynthControlsView(), 380, 650, EditorSidebarPanel.AUDIO_SYNTH));
     MenuItem miWindowTextEditor = new MenuItem("Text Editor");
     miWindowTextEditor.setOnAction(e -> {
       ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
@@ -1664,7 +1650,6 @@ public class EditorApp extends Application {
         miWindowImageTint,
         miWindowMenuFlow,
         miWindowPuppeteer,
-        miWindowAudioSynth,
         miWindowTextEditor,
         miWindowEditorSettings);
     menuWindow.getItems().addAll(
@@ -1857,7 +1842,6 @@ public class EditorApp extends Application {
     inspectorView.setPrefWidth(320);
     inspectorScroll = new ScrollPane(inspectorView);
     inspectorScroll.setFitToWidth(true);
-    audioFxController = new AudioFxController();
     rightTabs = new TabPane();
     rightTabs.getStyleClass().add("sidebar-tab-pane");
     rightTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
@@ -3045,7 +3029,6 @@ public class EditorApp extends Application {
       case VERSION_CONTROL -> tabVersionControl;
       case HELP -> tabHelp;
       case PUPPETEER_LAUNCHER -> tabPuppeteerLauncher;
-      case AUDIO_SYNTH -> tabAudioSynthControls;
       case SCRIPT_EDITOR -> tabScriptEditorLauncher;
     };
   }
@@ -3069,7 +3052,6 @@ public class EditorApp extends Application {
       case VERSION_CONTROL -> ensureVersionControlTab(targetPane);
       case HELP -> ensureHelpTab(targetPane);
       case PUPPETEER_LAUNCHER -> ensurePuppeteerLauncherTab(targetPane);
-      case AUDIO_SYNTH -> ensureAudioSynthControlsTab(targetPane);
       case SCRIPT_EDITOR -> ensureScriptEditorLauncherTab(targetPane);
     };
   }
@@ -3231,22 +3213,6 @@ public class EditorApp extends Application {
       });
     });
     return scriptEditorLauncherView;
-  }
-
-  private AudioSynthControlsView ensureAudioSynthControlsView() {
-    if (audioSynthControlsView != null) return audioSynthControlsView;
-    if (audioFxController == null) {
-      audioFxController = new AudioFxController();
-    }
-    audioSynthControlsView = new AudioSynthControlsView();
-    audioSynthControlsView.setController(audioFxController);
-    audioSynthControlsView.setOnInsertSnippet(snippet -> {
-      FileEditorTab ft = getActiveFileTab();
-      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
-        ft.insertVnsSnippet(snippet);
-      }
-    });
-    return audioSynthControlsView;
   }
 
   private HelpCenterView ensureHelpCenterView() {
@@ -4443,7 +4409,7 @@ public class EditorApp extends Application {
         tabProject, tabTimeline, tabHelp, tabInspector, tabVnsDiagnostics,
         tabVnsFlowMap, tabAssetBrowser, tabVersionControl, tabLayoutLauncher, tabPhoneAssetsTool,
         tabLayeredImageVisualizer, tabImageAttributesTool, tabImageTintTool,
-        tabMenuFlow, tabPuppeteerLauncher, tabAudioSynthControls, tabScriptEditorLauncher,
+        tabMenuFlow, tabPuppeteerLauncher, tabScriptEditorLauncher,
         tabEditorSettings
     };
     for (Tab t : allTabs) {
@@ -4485,7 +4451,6 @@ public class EditorApp extends Application {
     else if (tab == tabMenuFlow) tabMenuFlow = null;
     else if (tab == tabPuppeteerLauncher) tabPuppeteerLauncher = null;
     else if (tab == tabScriptEditorLauncher) tabScriptEditorLauncher = null;
-    else if (tab == tabAudioSynthControls) tabAudioSynthControls = null;
     else if (tab == tabEditorSettings) tabEditorSettings = null;
   }
 
@@ -4563,7 +4528,6 @@ public class EditorApp extends Application {
       case VERSION_CONTROL -> versionControlView != null;
       case HELP -> helpCenterView != null;
       case PUPPETEER_LAUNCHER -> puppeteerLauncherPanel != null;
-      case AUDIO_SYNTH -> audioSynthControlsView != null;
       case SCRIPT_EDITOR -> scriptEditorLauncherView != null;
     };
   }
@@ -4667,12 +4631,6 @@ public class EditorApp extends Application {
           puppeteerLauncherPanel.setProjectRoot(null);
         }
         puppeteerLauncherPanel = null;
-      }
-      case AUDIO_SYNTH -> {
-        if (audioSynthControlsView != null) {
-          audioSynthControlsView.dispose();
-        }
-        audioSynthControlsView = null;
       }
       case SCRIPT_EDITOR -> {
         if (scriptEditorLauncherView != null) {
@@ -4894,15 +4852,6 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, EditorSidebarPanel.AUDIO_SYNTH, targetPlacement, "Audio Synth Controls", "icon-panel-diagnostics", () -> {
-      rememberPanelPlacement(EditorSidebarPanel.AUDIO_SYNTH, targetPlacement);
-      Tab t = ensureAudioSynthControlsTab(pane);
-      if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Audio Synth Controls", ensureAudioSynthControlsView(), 380, 650, EditorSidebarPanel.AUDIO_SYNTH), () -> {
-      rememberPanelPlacement(EditorSidebarPanel.AUDIO_SYNTH, EditorPanelPlacement.HIDDEN);
-      applyDefaultSidebarPreferences();
-    });
-
     addChooserActionRow(actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Text Editor", "icon-panel-flow", () -> {
       rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement);
       ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
@@ -5013,15 +4962,6 @@ public class EditorApp extends Application {
     if (scriptEditorLauncherView != null) {
       scriptEditorLauncherView.setProjectRoot(projectRoot);
       scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
-    }
-  }
-
-  private void selectAudioSynthControlsTab() {
-    Tab t = (tabAudioSynthControls != null && tabAudioSynthControls.getTabPane() != null)
-        ? tabAudioSynthControls
-        : ensureAudioSynthControlsTab(rightTabs);
-    if (t != null && t.getTabPane() != null) {
-      t.getTabPane().getSelectionModel().select(t);
     }
   }
 
@@ -5204,24 +5144,6 @@ public class EditorApp extends Application {
     }
     attachPanelTabToPane(tabPuppeteerLauncher, targetPane);
     return tabPuppeteerLauncher;
-  }
-
-  private Tab ensureAudioSynthControlsTab(TabPane targetPane) {
-    closePanelWindow(EditorSidebarPanel.AUDIO_SYNTH, true);
-    AudioSynthControlsView audioSynth = ensureAudioSynthControlsView();
-    if (targetPane == null || audioSynth == null) return null;
-    if (tabAudioSynthControls == null) {
-      tabAudioSynthControls = new Tab("Audio Synth", audioSynth);
-      tabAudioSynthControls.setClosable(true);
-      tabAudioSynthControls.setOnClosed(e -> {
-        tabAudioSynthControls = null;
-        releaseSidebarPanelIfUnused(EditorSidebarPanel.AUDIO_SYNTH);
-      });
-    } else if (tabAudioSynthControls.getContent() != audioSynth) {
-      tabAudioSynthControls.setContent(audioSynth);
-    }
-    attachPanelTabToPane(tabAudioSynthControls, targetPane);
-    return tabAudioSynthControls;
   }
 
   private Tab ensureEditorSettingsTab(TabPane targetPane) {

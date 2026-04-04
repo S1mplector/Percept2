@@ -20,7 +20,6 @@ public enum EditorSidebarPanel {
   VERSION_CONTROL("version_control", "Version Control", EditorPanelPlacement.HIDDEN, true),
   HELP("help", "Help", EditorPanelPlacement.HIDDEN, true),
   PUPPETEER_LAUNCHER("puppeteer_launcher", "Puppeteer Launcher", EditorPanelPlacement.HIDDEN, true),
-  AUDIO_SYNTH("audio_synth", "Audio Synth Controls", EditorPanelPlacement.HIDDEN, false),
   SCRIPT_EDITOR("script_editor", "Script Editor", EditorPanelPlacement.HIDDEN, true);
 
   private final String key;
@@ -56,7 +55,7 @@ public enum EditorSidebarPanel {
   }
 
   public boolean editableInSettings() {
-    return this != AUDIO_SYNTH;
+    return true;
   }
 
   public static Map<EditorSidebarPanel, EditorPanelPlacement> defaultPlacements() {
