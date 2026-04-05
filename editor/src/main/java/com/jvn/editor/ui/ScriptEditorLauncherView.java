@@ -161,7 +161,7 @@ public class ScriptEditorLauncherView extends BorderPane {
     HBox.setHgrow(titleSpacer, Priority.ALWAYS);
     HBox titleRow = new HBox(
         8,
-        CssIcon.list("#d6c39a"),
+        CssIcon.list("#d7dde6"),
         titleLabel,
         titleSpacer,
         compactStatChip("Files", scriptsStat),
@@ -177,15 +177,15 @@ public class ScriptEditorLauncherView extends BorderPane {
     HBox.setHgrow(metaRow.getChildren().get(0), Priority.NEVER);
     HBox.setHgrow(metaRow.getChildren().get(1), Priority.ALWAYS);
 
-    styleActionButton(openInEditorButton, CssIcon.list("#efe5d3"), "Open the selected text file in the main editor", true)
+    styleActionButton(openInEditorButton, CssIcon.list("#e8edf4"), "Open the selected text file in the main editor", true)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(openWindowButton, CssIcon.popOut("#d8a450"), "Open the standalone tabbed text window", false)
+    styleActionButton(openWindowButton, CssIcon.popOut("#d2d9e3"), "Open the standalone tabbed text window", false)
         .getStyleClass().add("script-editor-action-button-compact");
     styleActionButton(newScriptButton, CssIcon.plus("#96bf7c"), "Create a new project text file", false)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(refreshButton, CssIcon.redo("#c9b99c"), "Refresh the text workspace", false)
+    styleActionButton(refreshButton, CssIcon.redo("#c6ced8"), "Refresh the text workspace", false)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(revealButton, CssIcon.folder("#d8b267"), "Reveal the current workspace folder in Finder", false)
+    styleActionButton(revealButton, CssIcon.folder("#cfd6df"), "Reveal the current workspace folder in Finder", false)
         .getStyleClass().add("script-editor-action-button-compact");
 
     FlowPane actionsBar = new FlowPane();
@@ -222,7 +222,7 @@ public class ScriptEditorLauncherView extends BorderPane {
           return;
         }
         Region icon = item.directory
-            ? CssIcon.folder(item.relativePath == null ? "#f0c66c" : "#d4b169")
+            ? CssIcon.folder(item.relativePath == null ? "#d7dde6" : "#c6ced8")
             : CssIcon.list("#bcbcbc");
         Label name = new Label(item.displayName);
         name.getStyleClass().add(item.directory ? "script-editor-tree-dir-label" : "script-editor-tree-file-label");
@@ -342,18 +342,18 @@ public class ScriptEditorLauncherView extends BorderPane {
       ContextMenu ctx = new ContextMenu();
 
       if (node.file() != null) {
-        MenuItem open = menuItem("Open in Editor", CssIcon.list("#ddd0bb"), this::openSelectedInEditor);
-        MenuItem openWindow = menuItem("Open in Text Window", CssIcon.popOut("#f5c46b"), () -> launchEditorWindow(node.file()));
+        MenuItem open = menuItem("Open in Editor", CssIcon.list("#d8dee7"), this::openSelectedInEditor);
+        MenuItem openWindow = menuItem("Open in Text Window", CssIcon.popOut("#d6dde7"), () -> launchEditorWindow(node.file()));
         ctx.getItems().addAll(open, openWindow, new SeparatorMenuItem());
 
-        MenuItem rename = menuItem("Rename…", CssIcon.freehand("#d9b36a"), this::renameSelectedScript);
-        MenuItem duplicate = menuItem("Duplicate", CssIcon.copy("#cbbda6"), this::duplicateSelectedScript);
+        MenuItem rename = menuItem("Rename…", CssIcon.freehand("#c8d0d9"), this::renameSelectedScript);
+        MenuItem duplicate = menuItem("Duplicate", CssIcon.copy("#c8d0d9"), this::duplicateSelectedScript);
         MenuItem delete = menuItem("Delete…", CssIcon.clearX("#f06a6a"), this::deleteSelectedScript);
         ctx.getItems().addAll(rename, duplicate, delete, new SeparatorMenuItem());
 
-        MenuItem copyPath = menuItem("Copy Absolute Path", CssIcon.copy("#cbbda6"),
+        MenuItem copyPath = menuItem("Copy Absolute Path", CssIcon.copy("#c8d0d9"),
             () -> copyToClipboard(node.file().getAbsolutePath()));
-        MenuItem copyRelPath = menuItem("Copy Relative Path", CssIcon.link("#cbbda6"), () -> {
+        MenuItem copyRelPath = menuItem("Copy Relative Path", CssIcon.link("#c8d0d9"), () -> {
           if (node.entry != null) copyToClipboard(node.entry.projectRelativePath());
         });
         MenuItem reveal = menuItem("Reveal in File Manager", CssIcon.folder("#d5b36a"), () -> revealFile(node.file()));
@@ -944,7 +944,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       toolbar.getStyleClass().add("script-editor-toolbar");
       toolbar.setPadding(new Insets(5, 10, 5, 10));
       toolbar.setAlignment(Pos.CENTER_LEFT);
-      HBox titleRow = new HBox(8, CssIcon.list("#d6c39a"), toolbarTitle("JVN Text Editor"));
+      HBox titleRow = new HBox(8, CssIcon.list("#d7dde6"), toolbarTitle("JVN Text Editor"));
       titleRow.setAlignment(Pos.CENTER_LEFT);
 
       Separator toolSep1 = new Separator(Orientation.VERTICAL);
@@ -960,7 +960,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button saveAllBtn = toolbarButton(
           "Save All",
           "Save all open files (Ctrl+Shift+S)",
-          CssIcon.save("#d4b267"),
+          CssIcon.save("#d7dde6"),
           false);
       saveAllBtn.setOnAction(e -> saveAllTabs(editorTabs, windowStatus));
 
@@ -970,7 +970,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button undoBtn = toolbarButton(
           "Undo",
           "Undo (Ctrl+Z)",
-          CssIcon.undo("#d9b36a"),
+          CssIcon.undo("#d2d9e3"),
           false);
       undoBtn.setOnAction(e -> {
         TextEditorSession ed = activeEditor(editorTabs);
@@ -980,7 +980,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button redoBtn = toolbarButton(
           "Redo",
           "Redo (Ctrl+Shift+Z)",
-          CssIcon.redo("#d9b36a"),
+          CssIcon.redo("#d2d9e3"),
           false);
       redoBtn.setOnAction(e -> {
         TextEditorSession ed = activeEditor(editorTabs);
@@ -993,7 +993,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button findBtn = toolbarButton(
           "Find",
           "Find & Replace (Ctrl+F)",
-          CssIcon.search("#d4b267"),
+          CssIcon.search("#d7dde6"),
           false);
       findBtn.setOnAction(e -> {
         TextEditorSession ed = activeEditor(editorTabs);
@@ -1355,8 +1355,8 @@ public class ScriptEditorLauncherView extends BorderPane {
         TreeItem<String> treeItem = getTreeItem();
         boolean directory = treeItem != null && !treeItem.isLeaf();
         Region icon = directory
-            ? CssIcon.folder(treeItem != null && treeItem.getParent() == null ? "#f0c66c" : "#d4b169")
-            : CssIcon.list("#c9bea9");
+            ? CssIcon.folder(treeItem != null && treeItem.getParent() == null ? "#d7dde6" : "#c6ced8")
+            : CssIcon.list("#c5cdd7");
         Label label = new Label(item);
         label.getStyleClass().add(directory ? "script-editor-tree-dir-label" : "script-editor-tree-file-label");
         HBox row = new HBox(6, icon, label);

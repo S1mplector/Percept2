@@ -113,4 +113,4 @@ This is equivalent to selecting **"@charpreset only"** in the snippet format Com
 
 - [Layered Image Visualizer](../sidebars/right/sidebar-layered-image-visualizer.md) — full sidebar documentation
 - [Image Attributes Tool](../sidebars/right/sidebar-image-attributes-tool.md) — attribute-based image assembly
-- [Scene Lighting Lab](../sidebars/right/sidebar-image-tint-tool.md) — scene lighting, tinting, and grading
+- [Scene Lighting Studio](../sidebars/right/sidebar-image-tint-tool.md) — scene lighting, tinting, and grading

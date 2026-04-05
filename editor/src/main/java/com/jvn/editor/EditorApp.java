@@ -1313,7 +1313,7 @@ public class EditorApp extends Application {
     miShowLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miShowImageAttributes = new MenuItem("Image Attributes Tool");
     miShowImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
-    MenuItem miShowImageTint = new MenuItem("Scene Lighting Lab");
+    MenuItem miShowImageTint = new MenuItem("Scene Lighting Studio");
     miShowImageTint.setOnAction(e -> selectImageTintToolTab());
     MenuItem miShowPuppeteerLauncher = new MenuItem("Puppeteer Launcher");
     miShowPuppeteerLauncher.setOnAction(e -> selectPuppeteerLauncherTab());
@@ -1391,7 +1391,7 @@ public class EditorApp extends Application {
     miNavigateLayered.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miNavigateImageAttributes = new MenuItem("Image Attributes Tool");
     miNavigateImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
-    MenuItem miNavigateImageTint = new MenuItem("Scene Lighting Lab");
+    MenuItem miNavigateImageTint = new MenuItem("Scene Lighting Studio");
     miNavigateImageTint.setOnAction(e -> selectImageTintToolTab());
     menuNavigateVisual.getItems().addAll(
         miNavigatePhoneAssets, miNavigateStoryboard, miNavigateLayered, miNavigateImageAttributes, miNavigateImageTint);
@@ -1486,7 +1486,7 @@ public class EditorApp extends Application {
     miLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miImageAttributes = new MenuItem("Image Attributes Tool");
     miImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
-    MenuItem miImageTint = new MenuItem("Scene Lighting Lab");
+    MenuItem miImageTint = new MenuItem("Scene Lighting Studio");
     miImageTint.setOnAction(e -> selectImageTintToolTab());
 
     Menu menuVnsTools = new Menu("VNS Analysis");
@@ -1610,11 +1610,11 @@ public class EditorApp extends Application {
       if (view != null) view.refreshCatalog();
       launchPanelAsWindow("Image Attributes Tool", view, 800, 650, EditorSidebarPanel.IMAGE_ATTRIBUTES);
     });
-    MenuItem miWindowImageTint = new MenuItem("Scene Lighting Lab");
+    MenuItem miWindowImageTint = new MenuItem("Scene Lighting Studio");
     miWindowImageTint.setOnAction(e -> {
       ImageTintToolView view = ensureImageTintToolView();
       if (view != null) view.refreshCatalog();
-      launchPanelAsWindow("Scene Lighting Lab", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
+      launchPanelAsWindow("Scene Lighting Studio", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
     });
     MenuItem miWindowMenuFlow = new MenuItem("Menu Flow Editor");
     miWindowMenuFlow.setOnAction(e -> {
@@ -4096,7 +4096,7 @@ public class EditorApp extends Application {
     memoryGroup.setAlignment(Pos.CENTER_LEFT);
 
     Button dockBtn = new Button();
-    dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
+    dockBtn.setGraphic(CssIcon.plus("#d6dbe5"));
     dockBtn.setTooltip(new Tooltip("Add to sidebar"));
     dockBtn.setMinSize(26, 26); dockBtn.setPrefSize(26, 26); dockBtn.setMaxSize(26, 26);
     dockBtn.setFocusTraversable(false);
@@ -4108,7 +4108,7 @@ public class EditorApp extends Application {
     }
 
     Button popOutBtn = new Button();
-    popOutBtn.setGraphic(CssIcon.popOut("#f5c46b"));
+    popOutBtn.setGraphic(CssIcon.popOut("#d6dbe5"));
     popOutBtn.setTooltip(new Tooltip("Open in separate window"));
     popOutBtn.setMinSize(26, 26); popOutBtn.setPrefSize(26, 26); popOutBtn.setMaxSize(26, 26);
     popOutBtn.setFocusTraversable(false);
@@ -4136,7 +4136,7 @@ public class EditorApp extends Application {
       if (panel == null) {
         removeBtn.setManaged(false);
         removeBtn.setVisible(false);
-        dockBtn.setGraphic(CssIcon.plus("#9cc7ff"));
+        dockBtn.setGraphic(CssIcon.plus("#d6dbe5"));
         dockBtn.setTooltip(new Tooltip("Open in this panel"));
         placementBadge.setManaged(false);
         placementBadge.setVisible(false);
@@ -4151,15 +4151,15 @@ public class EditorApp extends Application {
       placementBadge.setVisible(true);
       updateChooserPlacementBadge(placementBadge, placement, attached, placementTooltip);
       if (placement == EditorPanelPlacement.HIDDEN || !attached) {
-        dockBtn.setGraphic(CssIcon.plus(targetPlacement == EditorPanelPlacement.RIGHT ? "#f5c46b" : "#9cc7ff"));
+        dockBtn.setGraphic(CssIcon.plus("#d6dbe5"));
         dockBtn.setTooltip(new Tooltip(
             "Add to " + (targetPlacement == EditorPanelPlacement.RIGHT ? "right" : "left") + " sidebar"));
       } else if (placement != targetPlacement) {
-        dockBtn.setGraphic(CssIcon.dock(targetPlacement == EditorPanelPlacement.RIGHT ? "#f5c46b" : "#9cc7ff"));
+        dockBtn.setGraphic(CssIcon.dock("#d6dbe5"));
         dockBtn.setTooltip(new Tooltip(
             "Move to " + (targetPlacement == EditorPanelPlacement.RIGHT ? "right" : "left") + " sidebar"));
       } else {
-        dockBtn.setGraphic(CssIcon.dock(targetPlacement == EditorPanelPlacement.RIGHT ? "#f5c46b" : "#9cc7ff"));
+        dockBtn.setGraphic(CssIcon.dock("#d6dbe5"));
         dockBtn.setTooltip(new Tooltip("Select panel"));
       }
       removeBtn.setManaged(true);
@@ -4792,7 +4792,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, EditorSidebarPanel.IMAGE_TINT, targetPlacement, "Scene Lighting Lab", "icon-panel-image-tint", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.IMAGE_TINT, targetPlacement, "Scene Lighting Studio", "icon-panel-image-tint", () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, targetPlacement);
       Tab t = ensureImageTintToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -4800,7 +4800,7 @@ public class EditorApp extends Application {
     }, () -> {
       ImageTintToolView view = ensureImageTintToolView();
       if (view != null) view.refreshCatalog();
-      launchPanelAsWindow("Scene Lighting Lab", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
+      launchPanelAsWindow("Scene Lighting Studio", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();

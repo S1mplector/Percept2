@@ -353,7 +353,7 @@ public final class DocsScreenshotTool extends Application {
 
     private static final ProfileSpec IMAGE_TINT_PROFILE = new ProfileSpec(
         "image-tint",
-        "Scene Lighting Lab",
+        "Scene Lighting Studio",
         "docs/editor/sidebars/right/sidebar-image-tint-tool.md",
         "docs/editor/sidebars/right/generated-image-tint-screenshots.md",
         "docs/assets/images/image-tint",
@@ -366,7 +366,7 @@ public final class DocsScreenshotTool extends Application {
                 "full",
                 "full",
                 "image_tint_ui_full.png",
-                "Scene Lighting Lab Overview",
+                "Scene Lighting Studio Overview",
                 "Full tint tool workspace with preview canvas and controls sidebar.",
                 0,
                 0,
@@ -380,7 +380,7 @@ public final class DocsScreenshotTool extends Application {
                 "preview",
                 "preview",
                 "image_tint_ui_preview.png",
-                "Tint Preview Canvas",
+                "Lighting Preview Canvas",
                 "Live composite preview with pan/zoom and zone drawing overlays.",
                 8,
                 900,
@@ -393,8 +393,8 @@ public final class DocsScreenshotTool extends Application {
                 "sidebar",
                 "sidebar",
                 "image_tint_ui_sidebar.png",
-                "Tint Controls Sidebar",
-                "Tag/setup controls, global tint sliders, background FX, and zone settings.",
+                "Lighting Controls Sidebar",
+                "Tag/setup controls, global grade sliders, background grade, light rig, and local grade settings.",
                 8,
                 460,
                 0,
@@ -767,7 +767,7 @@ public final class DocsScreenshotTool extends Application {
         }
         Scene scene = new Scene(view, 1680, 980);
         Stage stage = new Stage();
-        stage.setTitle("Docs Screenshot Session - Scene Lighting Lab");
+        stage.setTitle("Docs Screenshot Session - Scene Lighting Studio");
         stage.setScene(scene);
         stage.show();
         return stage;

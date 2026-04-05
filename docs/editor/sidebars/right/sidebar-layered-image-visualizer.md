@@ -213,6 +213,6 @@ See [.layersetup Files](../../tools/layersetup-files.md) for the file format ref
 - [.layersetup Files](../../tools/layersetup-files.md) — file format and import/export workflow
 - [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-based image assembly
-- [Scene Lighting Lab](sidebar-image-tint-tool.md) — grading and scene-light workflows
+- [Scene Lighting Studio](sidebar-image-tint-tool.md) — grading and scene-light workflows
 - [Asset Browser](sidebar-asset-browser.md) — general asset discovery
 - [Puppeteer Launcher](sidebar-puppeteer-launcher.md) — scene snapshot launch flow that understands layered character presets

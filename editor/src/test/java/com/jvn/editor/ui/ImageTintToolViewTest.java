@@ -243,6 +243,42 @@ class ImageTintToolViewTest {
   }
 
   @Test
+  void previewRasterDimensionKeepsIdlePreviewSharpAndInteractionPreviewCheap() {
+    assertEquals(2400, ImageTintToolView.computePreviewRasterDimension(2400, 420.0, false));
+    assertEquals(260, ImageTintToolView.computePreviewRasterDimension(2400, 420.0, true));
+    assertEquals(900, ImageTintToolView.computePreviewRasterDimension(900, 1400.0, false));
+  }
+
+  @Test
+  void defaultLightSourceOffsetsTowardUpperLeftAndClamps() {
+    assertEquals(0.38, ImageTintToolView.defaultLightSourceX(0.50), 1e-9);
+    assertEquals(0.17, ImageTintToolView.defaultLightSourceY(0.35), 1e-9);
+    assertEquals(0.0, ImageTintToolView.defaultLightSourceX(0.04), 1e-9);
+    assertEquals(0.0, ImageTintToolView.defaultLightSourceY(0.10), 1e-9);
+  }
+
+  @Test
+  void sceneLightChannelToneMappingLiftsColorWithoutHardClipping() {
+    double litDark = ImageTintToolView.applySceneLightChannel(0.22, 0.94, 0.72, 0.22, false);
+    double litBright = ImageTintToolView.applySceneLightChannel(0.78, 0.94, 0.72, 0.78, false);
+    double rim = ImageTintToolView.applySceneLightChannel(0.36, 0.94, 0.86, 0.36, true);
+
+    assertTrue(litDark > 0.22, "Direct light should raise dark subject values");
+    assertTrue(litBright > 0.78, "Direct light should still lift already bright values");
+    assertTrue(litBright < 1.0, "Tone mapping should avoid hard clipping");
+    assertTrue(rim > litDark, "Rim mode should produce a stronger lift than ordinary direct light");
+  }
+
+  @Test
+  void sceneLightDirectionalBiasFavorsPixelsFacingTheSource() {
+    double towardSource = ImageTintToolView.sceneLightDirectionalBias(0.25, 0.25, 0.50, 0.50, 0.10, 0.10);
+    double awayFromSource = ImageTintToolView.sceneLightDirectionalBias(0.78, 0.78, 0.50, 0.50, 0.10, 0.10);
+
+    assertTrue(towardSource > awayFromSource, "Source-facing pixels should receive more direct-light bias");
+    assertTrue(towardSource <= 1.0 && awayFromSource >= 0.78, "Bias should stay within the designed range");
+  }
+
+  @Test
   void scenePolygonLightWeightKeepsInteriorAndSoftOuterFeather() {
     List<double[]> poly = List.of(
         new double[]{40.0, 40.0},
