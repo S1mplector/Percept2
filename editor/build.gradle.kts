@@ -65,7 +65,7 @@ tasks.register<JavaExec>("generatePuppeteerDocsScreenshots") {
 
 tasks.register<JavaExec>("generateImageTintDocsScreenshots") {
   group = "documentation"
-  description = "Captures and annotates Image Tint Tool screenshots, then updates its docs."
+  description = "Captures and annotates Scene Lighting Lab screenshots, then updates its docs."
   classpath = sourceSets["main"].runtimeClasspath
   mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
   workingDir = rootProject.projectDir

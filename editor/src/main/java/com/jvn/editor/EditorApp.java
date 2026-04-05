@@ -1313,7 +1313,7 @@ public class EditorApp extends Application {
     miShowLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miShowImageAttributes = new MenuItem("Image Attributes Tool");
     miShowImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
-    MenuItem miShowImageTint = new MenuItem("Image Tint Tool");
+    MenuItem miShowImageTint = new MenuItem("Scene Lighting Lab");
     miShowImageTint.setOnAction(e -> selectImageTintToolTab());
     MenuItem miShowPuppeteerLauncher = new MenuItem("Puppeteer Launcher");
     miShowPuppeteerLauncher.setOnAction(e -> selectPuppeteerLauncherTab());
@@ -1391,7 +1391,7 @@ public class EditorApp extends Application {
     miNavigateLayered.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miNavigateImageAttributes = new MenuItem("Image Attributes Tool");
     miNavigateImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
-    MenuItem miNavigateImageTint = new MenuItem("Image Tint Tool");
+    MenuItem miNavigateImageTint = new MenuItem("Scene Lighting Lab");
     miNavigateImageTint.setOnAction(e -> selectImageTintToolTab());
     menuNavigateVisual.getItems().addAll(
         miNavigatePhoneAssets, miNavigateStoryboard, miNavigateLayered, miNavigateImageAttributes, miNavigateImageTint);
@@ -1486,7 +1486,7 @@ public class EditorApp extends Application {
     miLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miImageAttributes = new MenuItem("Image Attributes Tool");
     miImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
-    MenuItem miImageTint = new MenuItem("Image Tint Tool");
+    MenuItem miImageTint = new MenuItem("Scene Lighting Lab");
     miImageTint.setOnAction(e -> selectImageTintToolTab());
 
     Menu menuVnsTools = new Menu("VNS Analysis");
@@ -1610,11 +1610,11 @@ public class EditorApp extends Application {
       if (view != null) view.refreshCatalog();
       launchPanelAsWindow("Image Attributes Tool", view, 800, 650, EditorSidebarPanel.IMAGE_ATTRIBUTES);
     });
-    MenuItem miWindowImageTint = new MenuItem("Image Tint Tool");
+    MenuItem miWindowImageTint = new MenuItem("Scene Lighting Lab");
     miWindowImageTint.setOnAction(e -> {
       ImageTintToolView view = ensureImageTintToolView();
       if (view != null) view.refreshCatalog();
-      launchPanelAsWindow("Image Tint Tool", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
+      launchPanelAsWindow("Scene Lighting Lab", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
     });
     MenuItem miWindowMenuFlow = new MenuItem("Menu Flow Editor");
     miWindowMenuFlow.setOnAction(e -> {
@@ -4792,7 +4792,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(actions, EditorSidebarPanel.IMAGE_TINT, targetPlacement, "Image Tint Tool", "icon-panel-image-tint", () -> {
+    addChooserActionRow(actions, EditorSidebarPanel.IMAGE_TINT, targetPlacement, "Scene Lighting Lab", "icon-panel-image-tint", () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, targetPlacement);
       Tab t = ensureImageTintToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -4800,7 +4800,7 @@ public class EditorApp extends Application {
     }, () -> {
       ImageTintToolView view = ensureImageTintToolView();
       if (view != null) view.refreshCatalog();
-      launchPanelAsWindow("Image Tint Tool", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
+      launchPanelAsWindow("Scene Lighting Lab", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();

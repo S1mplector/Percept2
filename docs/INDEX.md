@@ -145,7 +145,7 @@ Complete documentation for the Java Vector Nexus engine.
   - [Menu Flow Editor](editor/sidebars/right/sidebar-menu-flow-editor.md) — visual menu-to-menu navigation wiring, wire mode
   - [Layered Image Visualizer](editor/sidebars/right/sidebar-layered-image-visualizer.md) — layered sprite exploration, 6 export formats, presets
   - [Image Attributes Tool](editor/sidebars/right/sidebar-image-attributes-tool.md) — attribute-based character image assembly, profiles
-  - [Image Tint Tool](editor/sidebars/right/sidebar-image-tint-tool.md) — color tinting/grading with tint, saturation, contrast
+  - [Scene Lighting Lab](editor/sidebars/right/sidebar-image-tint-tool.md) — scene lighting, grading, tint, and reactive character lights
   - [Version Control](editor/sidebars/right/sidebar-version-control.md) — Git panel: init, commit, push, pull, branch, stash, remote setup
   - [Help Center](editor/sidebars/right/sidebar-help-center.md) — in-app Markdown documentation browser, quick access, F1 shortcut
   - [Storyboard Overlay](editor/sidebars/right/sidebar-storyboard-overlay.md) — ghost board-frame overlays for staging reference

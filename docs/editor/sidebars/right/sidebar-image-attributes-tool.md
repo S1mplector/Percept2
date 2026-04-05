@@ -192,7 +192,7 @@ Both tools work with the same underlying image assets but approach them from dif
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [Layered Image Visualizer](sidebar-layered-image-visualizer.md) — layer-based composition
-- [Image Tint Tool](sidebar-image-tint-tool.md) — color tinting and grading
+- [Scene Lighting Lab](sidebar-image-tint-tool.md) — scene lighting, tinting, and grading
 - [Asset Browser](sidebar-asset-browser.md) — general asset discovery

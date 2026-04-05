@@ -161,7 +161,7 @@ When `refreshStatus()` is called:
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [Menu Flow Editor](sidebar-menu-flow-editor.md) — visual menu navigation wiring
 - [Menu Screens](../../../scripting/ui/menus/menu-screens.md) — `.menu` file format
 - [Menu Layouts](../../../scripting/ui/layout/structure/menu-layouts.md) — `.layout` file format

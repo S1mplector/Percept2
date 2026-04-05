@@ -366,7 +366,7 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/editor/puppeteer/puppeteer.md` — Puppeteer overview, architecture, data pipeline, JES/VNS relationship
 - `docs/editor/puppeteer/puppeteer-editor-guide.md` — complete usage guide: UI panels, keyframes, 12 presets, 26 easing types, audio cues, camera, groups, layers
 - `docs/editor/puppeteer/puppeteer-jes-dsl.md` — exported timeline DSL: move, rotate, scale, fade, pivot, camera, audio, wait, parallel, easing values
-- `docs/editor/sidebars/overview/sidebar-utilities.md` — landing page for all 14 sidebar panels
+- `docs/editor/sidebars/overview/sidebar-utilities.md` — landing page for the editor sidebar panels
 - `docs/editor/sidebars/left/sidebar-project-explorer.md` — file tree, create/rename/delete, run project
 - `docs/editor/sidebars/left/sidebar-story-timeline.md` — multi-arc story graph, arcs, links, clusters, validation
 - `docs/editor/sidebars/right/sidebar-inspector.md` — entity property editing for Sprite2D, Label2D, Panel2D, physics, particles
@@ -378,7 +378,7 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/editor/sidebars/right/sidebar-menu-flow-editor.md` — visual menu-to-menu navigation wiring, wire mode
 - `docs/editor/sidebars/right/sidebar-layered-image-visualizer.md` — layered sprite exploration, 6 export formats, presets
 - `docs/editor/sidebars/right/sidebar-image-attributes-tool.md` — attribute-based character image assembly, profiles
-- `docs/editor/sidebars/right/sidebar-image-tint-tool.md` — color tinting/grading with tint, saturation, contrast
+- `docs/editor/sidebars/right/sidebar-image-tint-tool.md` — scene lighting, grading, tint, and reactive character lights
 - `docs/editor/sidebars/right/sidebar-version-control.md` — Git panel: init, commit, push, pull, branch, stash, remote setup
 - `docs/editor/sidebars/right/sidebar-help-center.md` — in-app Markdown documentation browser, quick access, F1 shortcut
 - `docs/editor/core/action-editor-design.md` — architecture and component breakdown

@@ -145,6 +145,6 @@ When a non-VNS file is active, the panel clears and shows no diagnostics.
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [Label Flow Map](sidebar-label-flow-map.md) — visual companion showing the same analysis as a graph
 - [VNS Scripting](../../../scripting/vns/overview/vns-scripting.md) — VNS script format and commands

@@ -353,7 +353,7 @@ public final class DocsScreenshotTool extends Application {
 
     private static final ProfileSpec IMAGE_TINT_PROFILE = new ProfileSpec(
         "image-tint",
-        "Image Tint Tool",
+        "Scene Lighting Lab",
         "docs/editor/sidebars/right/sidebar-image-tint-tool.md",
         "docs/editor/sidebars/right/generated-image-tint-screenshots.md",
         "docs/assets/images/image-tint",
@@ -366,7 +366,7 @@ public final class DocsScreenshotTool extends Application {
                 "full",
                 "full",
                 "image_tint_ui_full.png",
-                "Image Tint Tool Overview",
+                "Scene Lighting Lab Overview",
                 "Full tint tool workspace with preview canvas and controls sidebar.",
                 0,
                 0,
@@ -767,7 +767,7 @@ public final class DocsScreenshotTool extends Application {
         }
         Scene scene = new Scene(view, 1680, 980);
         Stage stage = new Stage();
-        stage.setTitle("Docs Screenshot Session - Image Tint Tool");
+        stage.setTitle("Docs Screenshot Session - Scene Lighting Lab");
         stage.setScene(scene);
         stage.show();
         return stage;

@@ -2,7 +2,7 @@
 
 Concrete patch plan for making JVN comfortable for teams migrating from heavily customized Ren'Py projects.
 
-This document is based on a direct audit of the local `Was I Write` teaser project. The goal is not generic feature parity. The goal is seamless migration for teams already shipping Ren'Py-style customized dialogue, choice, menu, history, save/load, and alternate presentation screens.
+This document is based on a direct audit of a customized local Ren'Py teaser project. The goal is not generic feature parity. The goal is seamless migration for teams already shipping Ren'Py-style customized dialogue, choice, menu, history, save/load, and alternate presentation screens.
 
 ## Problem Statement
 

@@ -161,7 +161,7 @@ This means the flow map and diagnostics panel always show consistent data from t
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [VNS Diagnostics](sidebar-vns-diagnostics.md) — text-based diagnostic companion
 - [VNS Scripting](../../../scripting/vns/overview/vns-scripting.md) — VNS script format and commands
 - [Story Timeline](../left/sidebar-story-timeline.md) — cross-script arc-level flow

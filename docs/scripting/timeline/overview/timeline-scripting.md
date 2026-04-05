@@ -124,7 +124,7 @@ The fastest way to create complex animations — point-and-click keyframe editin
 1. Open a `.vns` or `.jes` file in the editor
 2. Open the **Puppeteer Launcher** sidebar panel
 3. Place cursor where characters are visible (for VNS files)
-4. Click **Launch Puppeteer Here**
+4. Click **Launch @ Cursor**
 5. Select an entity → drag to reposition → keyframes auto-create at playhead
 6. Apply presets (Fade In, Slide, Bounce, Shake) for common patterns
 7. Click **Register** to save to `TimelineRegistry`, or **Copy Code** for the raw JES block

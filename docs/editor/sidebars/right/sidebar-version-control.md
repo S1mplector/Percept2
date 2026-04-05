@@ -213,6 +213,6 @@ All toolbar buttons use a consistent icon-button pattern:
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [Version Control Guide](../../../project-setup/collaboration/version-control.md) — Git workflow documentation
 - [Project Explorer](../left/sidebar-project-explorer.md) — file tree navigation

@@ -10,6 +10,8 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import javafx.scene.image.WritableImage;
+
 class ImageTintToolViewTest {
 
   @Test
@@ -238,6 +240,43 @@ class ImageTintToolViewTest {
     double soft = ImageTintToolView.sceneLightWeightPx(145.0, 100.0, 100.0, 100.0, 80.0, 0.9);
 
     assertTrue(soft > hard, "Softer lights should retain more energy toward the edge");
+  }
+
+  @Test
+  void scenePolygonLightWeightKeepsInteriorAndSoftOuterFeather() {
+    List<double[]> poly = List.of(
+        new double[]{40.0, 40.0},
+        new double[]{140.0, 40.0},
+        new double[]{140.0, 140.0},
+        new double[]{40.0, 140.0}
+    );
+
+    double center = ImageTintToolView.scenePolygonLightWeightPx(90.0, 90.0, poly, 24.0, 0.55);
+    double innerEdge = ImageTintToolView.scenePolygonLightWeightPx(44.0, 90.0, poly, 24.0, 0.55);
+    double outerEdge = ImageTintToolView.scenePolygonLightWeightPx(152.0, 90.0, poly, 24.0, 0.55);
+    double farOutside = ImageTintToolView.scenePolygonLightWeightPx(180.0, 90.0, poly, 24.0, 0.55);
+
+    assertTrue(center > innerEdge, "Deep interior should remain brighter than the softened inner edge");
+    assertTrue(innerEdge > 0.0, "Soft edge should keep some energy inside the polygon");
+    assertTrue(outerEdge > 0.0, "Feather should extend influence slightly outside the polygon");
+    assertEquals(0.0, farOutside, "Influence should end outside the feather distance");
+  }
+
+  @Test
+  void alphaEdgeWeightDetectsCharacterSilhouetteEdges() {
+    WritableImage image = new WritableImage(7, 7);
+    for (int y = 1; y <= 5; y++) {
+      for (int x = 1; x <= 5; x++) {
+        image.getPixelWriter().setArgb(x, y, 0xFFFFFFFF);
+      }
+    }
+    image.getPixelWriter().setArgb(1, 3, 0x00FFFFFF);
+
+    double edge = ImageTintToolView.alphaEdgeWeight(image.getPixelReader(), 2, 3, 7, 7);
+    double interior = ImageTintToolView.alphaEdgeWeight(image.getPixelReader(), 4, 4, 7, 7);
+
+    assertTrue(edge > interior, "Pixel adjacent to transparency should register as a stronger silhouette edge");
+    assertTrue(edge > 0.0, "Silhouette edge should produce a positive weight");
   }
 
   private static double polygonAreaAbs(List<double[]> polygon) {

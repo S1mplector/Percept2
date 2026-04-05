@@ -15,7 +15,7 @@ public enum EditorSidebarPanel {
   STORYBOARD_OVERLAY("storyboard_overlay", "Storyboard Overlay", EditorPanelPlacement.HIDDEN, true),
   LAYERED_IMAGES("layered_images", "Layered Image Visualizer", EditorPanelPlacement.HIDDEN, true),
   IMAGE_ATTRIBUTES("image_attributes", "Image Attributes Tool", EditorPanelPlacement.HIDDEN, false),
-  IMAGE_TINT("image_tint", "Image Tint Tool", EditorPanelPlacement.HIDDEN, true),
+  IMAGE_TINT("image_tint", "Scene Lighting Lab", EditorPanelPlacement.HIDDEN, true),
   MENU_FLOW("menu_flow", "Menu Flow", EditorPanelPlacement.HIDDEN, true),
   VERSION_CONTROL("version_control", "Version Control", EditorPanelPlacement.HIDDEN, true),
   HELP("help", "Help", EditorPanelPlacement.HIDDEN, true),

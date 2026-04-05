@@ -10,7 +10,7 @@ This document covers the system architecture, the JES/VNS relationship, the data
 
 - **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, entity management, keyframe editing, all 12 presets, 37 easing options, searchable easing picker, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
 - **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, `playAudio`, `wait`, `parallel`, easing values, spring functions, named curves, custom cubic Bézier, export modes, VNS/JES integration examples
-- **[Sidebar Utilities](../sidebars/overview/sidebar-utilities.md)** — all 14 editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
+- **[Sidebar Utilities](../sidebars/overview/sidebar-utilities.md)** — current editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
 - **[Puppeteer Audit & Roadmap](puppeteer-audit.md)** — hardening audit and expansion roadmap
 
 ---
@@ -190,7 +190,7 @@ EditorApp.buildSceneFromSnapshot()
 
 | Class | Module | Role |
 |-------|--------|------|
-| `PuppeteerLauncherPanel` | editor | Right-panel widget; parses VNS source to build scene snapshots; provides "Launch Puppeteer Here" button |
+| `PuppeteerLauncherPanel` | editor | Right-panel widget; parses VNS source to build scene snapshots; provides direct launch and registered-animation reopen flows |
 | `PuppeteerWindow` | editor | `Stage` subclass; main Puppeteer UI; assembles all sub-panels |
 | `AnimationProject` | editor | Data model: entity tracks, groups, keyframes, audio cues, loop region, playback state |
 | `AnimationPreview` | editor | Canvas-based scene renderer with entity selection, drag-to-move, onion skinning |
@@ -231,16 +231,21 @@ Sprite2D.render(blitter)
 | `@label <name>` | Current label context |
 | `@background <id> <path>` | Background ID → file path mapping |
 | `@charimg <charId> <expr> <path>` | Character expression → file path mapping |
+| `@charlayer <charId> <layerId> <path>` | Layered character asset mapping |
+| `@charpreset <charId> <expr> <spec>` | Composite preset resolution against declared layers |
 | `[bg <id>]` / `[background <id>]` | Active background ID |
 | `[show <charId> <position> <expr?>]` | Visible character with slot + expression |
 | `[hide <charId>]` | Character removal |
 | `[char <id> show/hide/move/expr ...]` | External character commands |
+| `timeline { ... }` / `@external jes_timeline <name>` | Inline or registered timeline context near the caret |
 
 The result is a `SceneSnapshot` containing:
 - `backgroundId` — which background is currently active
 - `characters` — list of `{characterId, position, expression}` tuples
 - `backgroundPaths` — map of background IDs to their declared file paths
 - `characterImagePaths` — map of `"charId/expression"` keys to file paths
+- `characterLayerPaths` — layered rig mappings used to resolve preset-backed expressions
+- `referencedTimelineName` / inline timeline data — launch context for reopening vs creating new work
 - `resolveBackgroundPath()` — looks up the active background's file path
 - `resolveCharacterPath(id, expr)` — resolves the best matching sprite path with fallback chain: exact expression → neutral → any expression for that character
 
@@ -304,7 +309,7 @@ The typical visual novel workflow — animate characters at a specific story mom
 3. Open Puppeteer Launcher (right sidebar)
    │  → Shows: hero @ center [happy], villain @ right [angry]
    │
-4. Click "Launch Puppeteer Here"
+4. Click `Launch @ Cursor`
    │  → Puppeteer opens with both characters at their VNS positions
    │
 5. Author keyframes (drag entities, press K, apply presets)

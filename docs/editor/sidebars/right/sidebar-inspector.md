@@ -154,6 +154,6 @@ When nothing is selected, the Inspector shows a single label: **"No selection"**
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [Editor Guide](../../core/editor.md) — main editor layout and modes
 - [Puppeteer Editor Guide](../../puppeteer/puppeteer-editor-guide.md) — Puppeteer animation editing (uses its own KeyframeEditor for animation properties)

@@ -28,7 +28,7 @@ Puppeteer is JVN's visual keyframe animation editor. It lets you:
 2. Place the cursor on a line where characters are visible (after `[show]` commands)
 3. Open the **Puppeteer Launcher** panel in the right sidebar (click the **+** tab → "Puppeteer Launcher")
 4. Review the snapshot preview — it shows the background and visible characters at the cursor position
-5. Click **Launch Puppeteer Here**
+5. Click **Launch @ Cursor**
 
 ### Puppeteer Launcher Panel — In Detail
 
@@ -45,7 +45,9 @@ The Puppeteer Launcher is a sidebar panel that provides live VNS scene state tra
 | **Label** | The most recent `@label` / `label` before the cursor |
 | **Background** | The active background from the most recent `[bg]` / `[background]` command |
 | **Visible Characters** | List of character entries: `charId @ position [expression]` |
-| **Launch Puppeteer Here** | Blue button — disabled until a VNS file is active |
+| **Launch @ Cursor** | Creates a new animation from the exact current scene snapshot |
+| **Launch @ Label Start** | Starts from the active label start snapshot |
+| **Launch @ Scene Start** | Starts from the latest scene/background start within the label |
 
 #### Scene Snapshot Resolution
 
@@ -137,7 +139,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Left (top tab pane) | `Assets` tab | Image browser + add-to-scene pipeline |
 | Left (bottom) | Keyframe Editor | Fine-grained keyframe editing, easing controls, pivot presets, camera readout |
 | Center (top) | Preview canvas | World-overview rendering plus runtime frame, camera HUD, selection handles |
-| Center (bottom) | Timeline canvas | Time ruler, tracks, keyframes, playhead, loop region, audio cues |
+| Center (bottom) | Timeline canvas | Time ruler, tracks, keyframes, playhead, loop region, audio cues, and a dedicated `Runtime Camera / Frame` lane above entity rows |
 | Right | Timeline Code panel | Live JES source, diagnostics, preview-stage controls |
 | Bottom | Status bar | Undo/redo state, auto-key status, playback speed |
 
@@ -301,12 +303,12 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | `Interp` | combo box | `TWEEN`, `HOLD`, `STEP` |
 | `Easing` | searchable preset-aware combo box | custom popup search over built-ins and project presets; also supports save, update, and delete for presets stored in `config/puppeteer/easing-presets.properties` |
 | `Expand Curve` | button | enlarges the curve editor within the left panel and gives the lower inspector more height |
-| Easing curve editor | custom canvas widget | Curve preview; drag bezier handles when easing=`CUSTOM`; supports expanded mode for more detailed tuning |
+| Easing curve editor | custom canvas widget | Supports cubic-bezier editing plus richer `curve(...)` multi-point editing; drag points directly, double-click or `+` to add anchors, `Delete` to remove, expanded mode for detailed tuning |
 | `Pivot Presets` label | label | Visible only for `PIVOT_X`/`PIVOT_Y` |
 | Pivot preset grid | 3x3 buttons | `TL`, `TC`, `TR`, `ML`, `C`, `MR`, `BL`, `BC`, `BR` |
 | `Delete` | button | Deletes current keyframe |
 | `Reset` | button | Resets value to property default |
-| `Camera` readout | label | Shows preview camera `X`, `Y`, `Z` state |
+| `Camera` readout | label | Shows preview camera `X`, `Y`, `Z` state; camera selection is treated as the special `Runtime Camera / Frame` target |
 
 ### Center Top: Preview Pane
 

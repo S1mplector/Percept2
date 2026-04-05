@@ -1,6 +1,6 @@
 # Sidebar — Layered Image Visualizer
 
-Explores layered sprite sets (characters with separate body, eyes, mouth, hair layers), composites them in real-time, and exports VNS script snippets.
+Explores layered character rigs, composites them live, and exports reusable setup or VNS-ready script output.
 
 Source: `editor/src/main/java/com/jvn/editor/ui/LayeredImageVisualizerView.java`
 
@@ -8,25 +8,19 @@ Source: `editor/src/main/java/com/jvn/editor/ui/LayeredImageVisualizerView.java`
 
 ## Overview
 
-The Layered Image Visualizer scans the project for multi-layer character sprite directories, lets you pick options per layer group (eyes, mouth, brow, hair, etc.), previews the composited result live, and exports ready-to-paste VNS script code. It supports presets, shortforms, randomization, and game-framing preview.
+The Layered Image Visualizer is the editor tool for projects that assemble character visuals from multiple layers such as body, face, eyes, mouth, accessories, and overlay parts.
+
+It now supports two discovery paths:
+
+- **project-declared rigs** from `@charlayer` and `@charpreset`
+- **directory/file-name discovery** for more generic layered sets
+
+That means projects with declared layered rigs can load the actual layer order and default preset behavior instead of relying on loose filename guesses.
 
 - **Default side:** Right
 - **Tab name:** Layered Image Visualizer
-- **Implements:** `ImageToolPanel` (shared interface for all three image tools)
+- **Implements:** `ImageToolPanel`
 - **State file:** `.jvn/layered-image-visualizer.properties`
-
----
-
-## Concepts
-
-| Concept | Description |
-|---------|-------------|
-| **Set** | A directory of layered images grouped by naming convention (typically one per character) |
-| **Layer group** | A category of interchangeable layers (e.g., eyes, mouth, brow, hair, body, outfit, accessory) |
-| **Layer option** | A specific image file within a group (e.g., `eyes_happy.png`, `eyes_angry.png`) |
-| **Expression** | The combination of selected layer options forms a composite expression ID |
-| **Shortform** | A named alias for a layer combination (e.g., `happy = eyes=neutral mouth=happy`) |
-| **Preset** | A saved snapshot of all layer selections for a specific set |
 
 ---
 
@@ -50,189 +44,175 @@ Full Layered Image Visualizer sidebar utility view.
 
 ---
 
-## Preview Canvas
+## Workspace Structure
 
-The main preview area composites all selected layers into a single image:
+Like the tint tool, the visualizer uses a split workspace:
 
-| Interaction | Result |
-|-------------|--------|
-| **Drag** | Pan the composited image |
-| **Scroll** | Zoom in/out |
-| **Double-click** | Reset view (center and zoom to fit) |
+- **Preview side** — interactive layered composite preview
+- **Controls side** — resizable, hideable sidebar
 
-### View Controls
-
-| Slider | Description |
-|--------|-------------|
-| **Focus X** | Horizontal focus point offset |
-| **Focus Y** | Vertical focus point offset |
-| **Crop** | Crop factor (how much of the image to show) |
-| **Zoom** | Additional zoom multiplier |
-
-### Match Game Framing
-
-The "Match Game Framing" button switches the preview to simulate how the character would appear in the actual VN runtime, applying `heightFactor` and `baselineY` values from the project's character configuration.
+The sidebar size and collapsed state are persisted.
 
 ---
 
-## Script Controls
+## Core Concepts
 
-| Element | Description |
+| Concept | Description |
 |---------|-------------|
-| **Tag** | The character tag used in export (derived from directory name, editable) |
-| **Expression** | The computed expression string from current layer selections |
-| **Format** | ComboBox selecting the export snippet format |
-| **Copy Snippet** | Copies the formatted script snippet to clipboard |
-| **Copy Expression** | Copies just the expression string to clipboard |
+| **Set** | A layered character rig or discovered layered asset set |
+| **Group** | A layer category such as `body`, `eyes`, `mouth`, `face`, `add`, `arm_front` |
+| **Option** | One selectable entry inside a group |
+| **Preset** | A named full-set selection snapshot |
+| **Shortform** | A reusable alias for a partial expression spec |
+| **Setup file** | A `.layersetup` export containing editor-only selection state |
+
+---
+
+## Current Discovery Behavior
+
+The visualizer no longer depends only on directory heuristics.
+
+When project declarations are available, it prefers:
+
+- declared `@charlayer` ids
+- declared `@charpreset` defaults
+- declaration/render order
+- multi-layer expressions where several layers must be active together
+
+This fixes cases where a rig needs both a base layer and a variant layer at the same time, such as `eyes_base` plus `eyes_06`, and avoids incorrect alphabetical stacking.
+
+If no declared rig exists, the tool still falls back to filename- and directory-based grouping.
+
+---
+
+## Main Sections
+
+### Set / Preset Controls
+
+Top-level controls let you:
+
+- choose the active layered set
+- load/save/delete presets
+- manage shortforms
+- switch export format
+
+The active set remembers its own selections and export name state.
+
+### Group Browser
+
+Each layer group shows:
+
+- active/visible status
+- current option selector
+- swap mark checkbox
+- forward/backward cycling controls
+
+The sidebar also includes a live summary of:
+
+- total groups
+- visible groups
+- selected groups
+- active groups
+- swap-marked groups
+
+### Export
+
+Export is a dedicated section with persistent working-folder support.
+
+Available flows:
+
+- **PNG** — quick-export current flattened composite
+- **PNG As** — choose the output file manually
+- **Setup** — quick-export `.layersetup`
+- **Setup As** — choose `.layersetup` destination manually
+- **PNG + Setup** — export both in one step
+- **Import** — restore from `.layersetup`
+- **Choose Folder / Reveal** — manage the working export folder
+
+Custom export naming and auto naming are both supported.
+
+### Preview and Framing
+
+The preview canvas supports:
+
+| Interaction | Result |
+|-------------|--------|
+| **Drag** | Pan |
+| **Scroll** | Zoom |
+| **Double-click** | Reset view |
+| **Match Game Framing** | Simulate in-game framing using project/runtime placement values |
+
+This makes the tool useful both for expression design and for validating how the composite will read in actual VN framing.
 
 ---
 
 ## Snippet Export Formats
 
-| Format | Example Output |
-|--------|---------------|
-| **`@charimg + [show]`** | `@charimg hero happy assets/char/hero/base.png\|eyes_happy.png\|mouth_smile.png`<br>`[show hero center @happy]` |
-| **`@charimg only`** | `@charimg hero happy assets/char/hero/base.png\|eyes_happy.png\|mouth_smile.png` |
-| **`@charpreset + [show]`** | `@charpreset hero happy $layer1 \| $layer2 \| $layer3`<br>`[show hero center @happy]` |
-| **`@charpreset only`** | `@charpreset hero happy $eyes=happy $mouth=smile` |
-| **`Inline composite [show]`** | `[show hero center $base+$eyes_happy+$mouth_smile]` |
-| **`[show] only`** | `[show hero center @happy]` |
-| **Recipe comments** | `# hero happy: eyes=happy mouth=smile brow=neutral` |
+The tool can still generate multiple VNS-oriented outputs, including:
+
+- `@charimg + [show]`
+- `@charimg only`
+- `@charpreset + [show]`
+- `@charpreset only`
+- inline composite `[show]`
+- `[show] only`
+- recipe comments
+
+Use the copy/export controls depending on whether you want:
+
+- a script snippet
+- a flattened PNG
+- an editor-only `.layersetup`
 
 ---
 
-## Tool Row Actions
+## Presets and Shortforms
 
-| Button | Description |
-|--------|-------------|
-| **Randomize** | Picks a random option per group. If "active groups only" checkbox is set, only randomizes checked groups. |
-| **Defaults** | Resets all groups to their first option |
-| **Clear** | Deselects all layer options (shows nothing) |
-| **◀ Swap** | Cycles all marked (checked) groups one option backward |
-| **Swap ▶** | Cycles all marked (checked) groups one option forward |
-| **Reset View** | Resets pan/zoom/focus/crop to defaults |
-| **Match Game Framing** | Toggles runtime character framing preview |
-| **Fullscreen** | Expands the panel to fill the entire editor window |
+Two reuse layers are supported:
 
----
+- **Presets** — full-rig saved states
+- **Shortforms** — expression aliases and shorthand combinations
 
-## Tabs
-
-### Attributes Tab
-
-Per-group layer selectors:
-- Each group shows a **checkbox** (marks the group for swap/randomize operations) and a **ComboBox** of available options
-- Groups are sorted by their natural order (body, face, eyes, brow, mouth, hair, outfit, accessory, etc.)
-- A filter text field narrows the group list
-
-### Typed Tab
-
-Free-text attribute input field:
-- Syntax: `eyes=happy mouth=smile` or `eyes_happy mouth_smile`
-- Optional **real-time preview** toggle — updates the composited image as you type
-- Pressing Enter applies the typed expression
-
-### Shortforms Tab
-
-Named aliases for layer combinations:
-- Define: `happy = eyes=neutral mouth=happy brow=neutral`
-- **Save** shortform button
-- **Delete** shortform button
-- **Apply** — clicking a shortform name applies it to the current selections
-- Shortforms are persisted in the state file per set
-
----
-
-## Group Token Aliases
-
-The visualizer normalizes layer group names from directory/file naming conventions:
-
-| Input Tokens | Normalized Group |
-|-------------|-----------------|
-| `eye`, `eyes` | `eyes` |
-| `mouth`, `lip`, `lips` | `mouth` |
-| `brow`, `eyebrow`, `eyebrows` | `brow` |
-| `outfit`, `clothes` | `outfit` |
-| `accessory`, `accessories`, `acc` | `accessory` |
-| `base`, `body`, `hair`, `face` | (kept as-is) |
-
-This means a directory named `hero_eyebrows_angry.png` will be categorized under the `brow` group.
-
----
-
-## Presets
-
-Save and load named presets that remember all layer selections for a specific set:
-
-- **Save Preset** — prompts for a name, stores current selections
-- **Load Preset** — applies saved selections
-- **Delete Preset** — removes a saved preset
-- Presets are stored per-set in `.jvn/layered-image-visualizer.properties`
+Presets are persisted per set, and the visualizer can also start from a declared default preset when a set has no saved editor state yet.
 
 ---
 
 ## State Persistence
 
-All state is persisted per-set in `.jvn/layered-image-visualizer.properties`:
+Persisted state includes:
 
 | State | Persisted |
 |-------|-----------|
 | Selected set | ✓ |
 | Per-group selections | ✓ |
-| Active group checkboxes | ✓ |
-| View controls (focus, crop, zoom) | ✓ |
+| Swap marks / active groups | ✓ |
 | Filter text | ✓ |
-| Shortforms | ✓ |
 | Presets | ✓ |
-| Export format selection | ✓ |
-
-State is restored when the panel is reopened or the project is reloaded.
-
----
-
-## File Operations Toolbar
-
-Below the tool row, a second row provides file-level export and import actions:
-
-| Button | Icon Color | Description |
-|--------|------------|-------------|
-| **Export PNG** | Blue | Composites all visible layers and saves a flattened PNG file |
-| **Export Setup** | Green | Saves the current layer selection as a `.layersetup` file |
-| **Import Setup** | Yellow | Loads a `.layersetup` file and restores its layer selections |
-| **Copy Charpreset** | Purple | Copies a `@charpreset` snippet to the clipboard, ready to paste into a `.vns` script |
-
-See [.layersetup Files](../../tools/layersetup-files.md) for the full file format reference and workflow documentation.
+| Shortforms | ✓ |
+| Export format | ✓ |
+| Export folder + naming mode | ✓ |
+| Preview framing/zoom | ✓ |
+| Sidebar width/collapsed state | ✓ |
 
 ---
 
-## Fullscreen Mode
+## File Operations
 
-Click the fullscreen button to expand the visualizer to fill the entire editor window. This is shared across all three image tools (`ImageToolPanel` interface):
+`.layersetup` files are editor-only artifacts. They are useful for:
 
-- Click fullscreen → panel fills the editor
-- Click again → returns to sidebar
-- Only one image tool can be fullscreen at a time
+- sharing a layered expression with teammates
+- exporting/importing visualizer state
+- preserving an exact layer combination outside the main prefs file
 
----
-
-## Catalog Scanning
-
-When `refreshCatalog()` is called:
-
-1. Scans the project's image asset directories
-2. Discovers layered sprite sets by directory structure
-3. Parses file names to extract group names and option names
-4. Groups files by set → group → option
-5. Populates the set ComboBox and group selectors
-6. Restores persisted selections if available
+See [.layersetup Files](../../tools/layersetup-files.md) for the file format reference.
 
 ---
 
 ## Related Docs
 
-- [.layersetup Files](../../tools/layersetup-files.md) — file format, export/import workflow, charpreset quick-export
-- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [.layersetup Files](../../tools/layersetup-files.md) — file format and import/export workflow
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-based image assembly
-- [Image Tint Tool](sidebar-image-tint-tool.md) — color tinting and grading
+- [Scene Lighting Lab](sidebar-image-tint-tool.md) — grading and scene-light workflows
 - [Asset Browser](sidebar-asset-browser.md) — general asset discovery
-- [Puppeteer Launcher](sidebar-puppeteer-launcher.md) — uses character image data for scene snapshots
+- [Puppeteer Launcher](sidebar-puppeteer-launcher.md) — scene snapshot launch flow that understands layered character presets

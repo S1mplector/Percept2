@@ -25,7 +25,7 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 | 11 | Menu Flow Editor | **[sidebar-menu-flow-editor.md](../right/sidebar-menu-flow-editor.md)** | Right | Visual menu-to-menu navigation wiring |
 | 12 | Layered Image Visualizer | **[sidebar-layered-image-visualizer.md](../right/sidebar-layered-image-visualizer.md)** | Right | Layered sprite exploration and snippet export |
 | 13 | Image Attributes Tool | **[sidebar-image-attributes-tool.md](../right/sidebar-image-attributes-tool.md)** | Right | Attribute-based character image assembly |
-| 14 | Image Tint Tool | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Color tinting and grading for character/background images |
+| 14 | Scene Lighting Lab | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Scene lighting, grading, and reactive character lighting |
 | 15 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
 | 16 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser |
 | 17 | Text Editor | **[sidebar-script-editor.md](../right/sidebar-script-editor.md)** | Right | JVN text file explorer, VNS label outline, include graph, pop-out editor window |
@@ -41,7 +41,7 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 
 ## Fullscreen Mode (Image Tools)
 
-The three image tools (Layered Image Visualizer, Image Attributes Tool, Image Tint Tool) share a **fullscreen toggle** that expands the panel to fill the entire editor window. Only one image tool can be fullscreen at a time. All three implement the `ImageToolPanel` interface:
+The three image tools (Layered Image Visualizer, Image Attributes Tool, Scene Lighting Lab) share a **fullscreen toggle** that expands the panel to fill the entire editor window. Only one image tool can be fullscreen at a time. All three implement the `ImageToolPanel` interface:
 
 ```java
 public interface ImageToolPanel {
@@ -63,7 +63,7 @@ Several sidebar utilities persist their state in the project's `.jvn/` directory
 | Layered Image Visualizer | `.jvn/layered-image-visualizer.properties` |
 | Phone Assets | `.jvn/phone-assets-tool.properties` |
 | Image Attributes Tool | `.jvn/image-attributes-tool.properties` |
-| Image Tint Tool | `.jvn/image-tint-tool.properties` |
+| Scene Lighting Lab | `.jvn/image-tint-tool.properties` |
 | Story Timeline | `.jvn/story-timeline.txt` |
 | Version Control | Git state (`.git/`) |
 

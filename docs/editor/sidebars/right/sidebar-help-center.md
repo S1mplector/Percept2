@@ -180,5 +180,5 @@ This provides instant access to documentation from anywhere in the editor.
 
 ## Related Docs
 
-- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all 14 sidebar panels
+- [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [Editor Guide](../../core/editor.md) — main editor layout and modes
