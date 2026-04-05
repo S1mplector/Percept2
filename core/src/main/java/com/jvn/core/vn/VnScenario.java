@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.jvn.core.vn.stage.VnStagePreset;
+
 /**
  * Represents a complete visual novel scenario with script nodes and branches
  */
@@ -14,6 +16,7 @@ public class VnScenario {
   private final Map<String, Integer> labels; // label -> node index
   private final Map<String, VnCharacter> characters;
   private final Map<String, VnBackground> backgrounds;
+  private final Map<String, VnStagePreset> stagePresets;
 
   private VnScenario(Builder builder) {
     this.id = builder.id;
@@ -21,6 +24,7 @@ public class VnScenario {
     this.labels = new HashMap<>(builder.labels);
     this.characters = new HashMap<>(builder.characters);
     this.backgrounds = new HashMap<>(builder.backgrounds);
+    this.stagePresets = new HashMap<>(builder.stagePresets);
   }
 
   public String getId() { return id; }
@@ -42,6 +46,8 @@ public class VnScenario {
   }
   public VnCharacter getCharacter(String id) { return characters.get(id); }
   public VnBackground getBackground(String id) { return backgrounds.get(id); }
+  public VnStagePreset getStagePreset(String id) { return stagePresets.get(id); }
+  public Map<String, VnStagePreset> getStagePresets() { return stagePresets; }
 
   public static Builder builder(String id) { return new Builder(id); }
 
@@ -51,6 +57,7 @@ public class VnScenario {
     private final Map<String, Integer> labels = new HashMap<>();
     private final Map<String, VnCharacter> characters = new HashMap<>();
     private final Map<String, VnBackground> backgrounds = new HashMap<>();
+    private final Map<String, VnStagePreset> stagePresets = new HashMap<>();
 
     private Builder(String id) { this.id = id; }
 
@@ -71,6 +78,13 @@ public class VnScenario {
 
     public Builder addBackground(VnBackground background) {
       backgrounds.put(background.getId(), background);
+      return this;
+    }
+
+    public Builder addStagePreset(VnStagePreset stagePreset) {
+      if (stagePreset != null && !stagePreset.getId().isBlank()) {
+        stagePresets.put(stagePreset.getId(), stagePreset);
+      }
       return this;
     }
 

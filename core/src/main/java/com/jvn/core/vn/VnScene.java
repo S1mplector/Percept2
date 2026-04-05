@@ -148,7 +148,7 @@ public class VnScene implements Scene {
   private boolean isPreflightInteropProvider(String provider) {
     if (provider == null || provider.isBlank()) return false;
     return switch (provider.trim().toLowerCase(Locale.ROOT)) {
-      case "var", "ui", "audio", "char", "settings", "mode", "screen", "history" -> true;
+      case "var", "ui", "audio", "char", "settings", "mode", "screen", "history", "stage" -> true;
       default -> false;
     };
   }

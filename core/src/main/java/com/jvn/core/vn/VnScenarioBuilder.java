@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.jvn.core.animation.Easing;
+import com.jvn.core.vn.stage.VnStagePreset;
 
 /**
  * Fluent builder for creating VN scenarios programmatically
@@ -50,6 +51,11 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder addBackground(String id, String imagePath) {
     scenarioBuilder.addBackground(new VnBackground(id, imagePath));
+    return this;
+  }
+
+  public VnScenarioBuilder addStagePreset(VnStagePreset stagePreset) {
+    scenarioBuilder.addStagePreset(stagePreset);
     return this;
   }
 

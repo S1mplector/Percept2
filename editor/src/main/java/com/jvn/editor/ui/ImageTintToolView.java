@@ -95,6 +95,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private static final String DEFAULT_EXPORT_PROFILE = "Lighting Profile";
   private static final String DEFAULT_EXPORT_SETUP = "Scene Setup";
+  private static final String DEFAULT_EXPORT_STAGE_PRESET = "Stage Preset";
   private static final String LEGACY_ZONE_PREFIX = "zone.";
   private static final String ZONE_PROFILE_PREFIX = "zone.profile.";
   private static final String GLOBAL_ZONE_PROFILE_KEY = "_global_";
@@ -142,6 +143,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private TitledPane backgroundPane;
   private TitledPane exportPane;
   private TitledPane lightsPane;
+  private TitledPane occlusionPane;
 
   private final Canvas previewCanvas = new Canvas(320, 240);
   private final LoadingProgressOverlay previewLoadingOverlay = new LoadingProgressOverlay();
@@ -248,6 +250,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private boolean freehandDrawMode;   // hold-drag freehand/lasso draw mode
   private boolean lightPolyDrawMode;  // point-nail polygon light mode
   private boolean lightFreehandDrawMode; // freehand polygon light mode
+  private boolean occluderPolyDrawMode; // point-nail polygon occluder mode
+  private boolean occluderFreehandDrawMode; // freehand polygon occluder mode
   private boolean drawingZone;
   private boolean drawingFreehand;
   private double zoneDrawStartX;
@@ -265,8 +269,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final Slider zoneFeatherSlider = slider(0, 100, 15);
   private final Slider zoneRotationSlider = slider(-180, 180, 0);
   private final ComboBox<String> zoneBlendModeBox = new ComboBox<>();
+  private final ComboBox<String> zoneSurfaceClassBox = new ComboBox<>();
   private final TextField zoneNameField = new TextField();
   private final Region zoneColorSwatch = new Region();
+  private final Slider zoneDepthBiasSlider = slider(-100, 100, 0);
+  private final Slider zoneResponseScaleSlider = slider(10, 250, 100);
   private final VBox zoneControlsSection = new VBox(6);
   private TitledPane zonesPane;
   private Button zoneDrawToggleButton;
@@ -287,11 +294,27 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final ComboBox<String> lightShapeBox = new ComboBox<>();
   private final ComboBox<String> lightLayerBox = new ComboBox<>();
   private final TextField lightNameField = new TextField();
+  private final TextField lightGroupField = new TextField();
+  private final CheckBox lightMutedCheck = new CheckBox("Mute");
+  private final CheckBox lightLockedCheck = new CheckBox("Lock");
+  private final CheckBox lightSoloCheck = new CheckBox("Solo");
   private final CheckBox showLightVectorsCheck = new CheckBox("Show light vectors");
   private final Region lightColorSwatch = new Region();
   private final VBox lightControlsSection = new VBox(6);
   private Button lightPolyDrawToggleButton;
   private Button lightFreehandDrawToggleButton;
+
+  // ── Occlusion / blockers ──
+  private final List<SceneOccluder> sceneOccluders = new ArrayList<>();
+  private int selectedOccluderIndex = -1;
+  private final ListView<SceneOccluder> occluderListView = new ListView<>();
+  private final TextField occluderNameField = new TextField();
+  private final Slider occluderOpacitySlider = slider(0, 100, 85);
+  private final Slider occluderSoftnessSlider = slider(0, 100, 12);
+  private final CheckBox occluderEnabledCheck = new CheckBox("Enabled");
+  private final VBox occluderControlsSection = new VBox(6);
+  private Button occluderPolyDrawToggleButton;
+  private Button occluderFreehandDrawToggleButton;
 
   public ImageTintToolView() {
 
@@ -342,7 +365,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     setupBox.setPromptText("Saved setup");
     setupNameField.setPromptText("Setup name");
-    exportFormatBox.getItems().setAll(DEFAULT_EXPORT_PROFILE, DEFAULT_EXPORT_SETUP);
+    exportFormatBox.getItems().setAll(DEFAULT_EXPORT_PROFILE, DEFAULT_EXPORT_SETUP, DEFAULT_EXPORT_STAGE_PRESET);
     exportFormatBox.getSelectionModel().select(DEFAULT_EXPORT_PROFILE);
     exportFormatBox.valueProperty().addListener((o, ov, nv) -> {
       if (!applyingState) persistGlobalState();
@@ -435,8 +458,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     Button exportPngAsButton = actionButton("PNG As", CssIcon.save("#8ab4f8"), "Choose a PNG destination", this::exportTintedPngAs);
     Button exportSetupBtn = actionButton("Setup", CssIcon.save("#9ed67a"), "Quick export .tintsetup to the configured folder", this::quickExportSetupToFile);
     Button exportSetupAsButton = actionButton("Setup As", CssIcon.download("#9ed67a"), "Choose a .tintsetup destination", this::exportSetupToFileAs);
+    Button exportStageBtn = actionButton("Stage", CssIcon.save("#d2c6ff"), "Quick export runtime-ready .stagepreset to the configured folder", this::quickExportStagePresetToFile);
+    Button exportStageAsButton = actionButton("Stage As", CssIcon.download("#d2c6ff"), "Choose a .stagepreset destination", this::exportStagePresetToFileAs);
     Button importSetupBtn = actionButton("Import", CssIcon.folder("#f5c46b"), "Import setup from .tintsetup file", this::importSetupFromFile);
-    Button exportBundleButton = actionButton("PNG + Setup", CssIcon.download("#d8c48a"), "Quick export both PNG and setup to the configured folder", this::quickExportBundle);
+    Button exportBundleButton = actionButton("PNG + Setup + Stage", CssIcon.download("#d8c48a"), "Quick export PNG, editor setup, and runtime stage preset to the configured folder", this::quickExportBundle);
     Button copyExportButton = actionButton("Copy", CssIcon.copy("#9ad19c"), "Copy selected export format", this::copySelectedExport);
     Button chooseExportFolderActionButton = actionButton("Choose Folder", CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
     Button revealExportFolderActionButton = actionButton("Reveal", CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
@@ -466,9 +491,13 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     HBox.setHgrow(exportSetupBtn, Priority.ALWAYS);
     HBox.setHgrow(exportSetupAsButton, Priority.ALWAYS);
     HBox.setHgrow(importSetupBtn, Priority.ALWAYS);
+    HBox fileStageRow = new HBox(4, exportStageBtn, exportStageAsButton);
+    fileStageRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportStageBtn, Priority.ALWAYS);
+    HBox.setHgrow(exportStageAsButton, Priority.ALWAYS);
     exportPane = new TitledPane(
         "Export & Share",
-        new VBox(4, exportCopyRow, exportDirRow, exportNameRow, exportInfoLabel, exportUtilityRow, filePngRow, fileSetupRow));
+        new VBox(4, exportCopyRow, exportDirRow, exportNameRow, exportInfoLabel, exportUtilityRow, filePngRow, fileSetupRow, fileStageRow));
     exportPane.setExpanded(true);
     exportPane.setAnimated(false);
     exportPane.setCollapsible(true);
@@ -498,6 +527,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     buildBackgroundSection();
     buildSceneLightsSection();
+    buildOcclusionSection();
 
     // ── Zone area selector section ──
     buildZoneSection();
@@ -518,6 +548,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         controlsPane,
         backgroundPane,
         lightsPane,
+        occlusionPane,
         zonesPane,
         previewInfoLabel, interactionHintLabel,
         statusLabel);
@@ -601,6 +632,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private void buildSceneLightsSection() {
     lightNameField.setPromptText("Light name");
+    lightGroupField.setPromptText("Group / cluster");
     lightColorSwatch.setMinSize(18, 18);
     lightColorSwatch.setMaxSize(18, 18);
     lightColorSwatch.setPrefSize(18, 18);
@@ -684,26 +716,57 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     lightNameField.textProperty().addListener((o, ov, nv) -> {
       if (!applyingState) applyLightNameToSelected();
     });
+    lightGroupField.textProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) applyLightGroupToSelected();
+    });
+    lightMutedCheck.selectedProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) applyLightFlagsToSelected();
+    });
+    lightLockedCheck.selectedProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) applyLightFlagsToSelected();
+    });
+    lightSoloCheck.selectedProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) applyLightFlagsToSelected();
+    });
+    lightMutedCheck.setFocusTraversable(false);
+    lightLockedCheck.setFocusTraversable(false);
+    lightSoloCheck.setFocusTraversable(false);
 
     lightPolyDrawToggleButton = iconButton(CssIcon.polygon("#f5c46b"), "Draw a polygonal scene light on the preview", this::toggleLightPolyDrawMode);
     lightFreehandDrawToggleButton = iconButton(CssIcon.freehand("#9ad4ff"), "Sketch a freehand polygonal scene light on the preview", this::toggleLightFreehandDrawMode);
     Button addLightButton = iconButton(CssIcon.plus("#f6cc7a"), "Add a scene light at center", this::addDefaultLight);
+    Button duplicateLightButton = iconButton(CssIcon.copy("#d0d0d0"), "Duplicate selected light", this::duplicateSelectedLight);
     Button removeLightButton = iconButton(CssIcon.minus("#f38ba8"), "Remove selected light", this::removeSelectedLight);
     Button clearLightsButton = iconButton(CssIcon.clearX("#f5b971"), "Remove all scene lights", this::clearAllLights);
     Button moveLightUpButton = iconButton(CssIcon.arrowUp("#d0d0d0"), "Move light up in stack", this::moveLightUp);
     Button moveLightDownButton = iconButton(CssIcon.arrowDown("#d0d0d0"), "Move light down in stack", this::moveLightDown);
     Button resetLightVectorButton = iconButton(CssIcon.undo("#cfd8e6"), "Reset selected light source vector", this::resetSelectedLightSource);
+    Button mirrorLightButton = iconButton(CssIcon.arrowLeft("#d7c3ff"), "Mirror selected light across the scene", this::mirrorSelectedLight);
+    Button normalizeRigButton = iconButton(CssIcon.check("#9ed67a"), "Normalize light intensities in the rig", this::normalizeRigIntensity);
     HBox lightActions = new HBox(
         6,
         lightPolyDrawToggleButton,
         lightFreehandDrawToggleButton,
         addLightButton,
+        duplicateLightButton,
         removeLightButton,
         clearLightsButton,
         moveLightUpButton,
         moveLightDownButton,
-        resetLightVectorButton);
+        resetLightVectorButton,
+        mirrorLightButton,
+        normalizeRigButton);
     lightActions.setAlignment(Pos.CENTER_LEFT);
+
+    HBox presetRow = new HBox(
+        6,
+        presetChip("Key", this::addKeyLightPreset),
+        presetChip("Fill", this::addFillLightPreset),
+        presetChip("Rim", this::addRimLightPreset),
+        presetChip("Sun", this::addSunPatchPreset),
+        presetChip("Screen", this::addScreenGlowPreset),
+        presetChip("Bounce", this::addBounceLightPreset));
+    presetRow.setAlignment(Pos.CENTER_LEFT);
 
     HBox lightOptionsRow = new HBox(10, showLightVectorsCheck);
     lightOptionsRow.setAlignment(Pos.CENTER_LEFT);
@@ -711,6 +774,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     HBox lightNameRow = new HBox(8, new Label("Name"), lightNameField);
     lightNameRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(lightNameField, Priority.ALWAYS);
+
+    HBox lightGroupRow = new HBox(8, new Label("Group"), lightGroupField);
+    lightGroupRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(lightGroupField, Priority.ALWAYS);
 
     HBox lightColorRow = new HBox(8, new Label("Color"), lightColorSwatch, lightColorPicker);
     lightColorRow.setAlignment(Pos.CENTER_LEFT);
@@ -723,18 +790,23 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     lightLayerRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(lightLayerBox, Priority.ALWAYS);
 
+    HBox lightFlagsRow = new HBox(10, lightMutedCheck, lightLockedCheck, lightSoloCheck);
+    lightFlagsRow.setAlignment(Pos.CENTER_LEFT);
+
     lightControlsSection.getChildren().setAll(
         lightNameRow,
+        lightGroupRow,
         lightShapeRow,
         lightLayerRow,
         lightColorRow,
         sliderRow("Intensity", lightIntensitySlider),
         sliderRow("Radius / Feather", lightRadiusSlider),
         sliderRow("Softness", lightSoftnessSlider),
-        sliderRow("Silhouette", lightSilhouetteSlider));
+        sliderRow("Silhouette", lightSilhouetteSlider),
+        lightFlagsRow);
     lightControlsSection.setDisable(true);
 
-    VBox lightsContent = new VBox(6, lightActions, lightOptionsRow, lightRigSummaryLabel, lightListView, lightControlsSection);
+    VBox lightsContent = new VBox(6, presetRow, lightActions, lightOptionsRow, lightRigSummaryLabel, lightListView, lightControlsSection);
     lightsPane = new TitledPane("Light Rig", lightsContent);
     lightsPane.setExpanded(false);
     lightsPane.setAnimated(false);
@@ -1824,6 +1896,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void moveSelectedLightToCanvas(double canvasX, double canvasY) {
     if (selectedLightIndex < 0 || selectedLightIndex >= sceneLights.size()) return;
     SceneLight light = sceneLights.get(selectedLightIndex);
+    if (light.locked) return;
     double canvasWidth = Math.max(1.0, previewCanvas.getWidth());
     double canvasHeight = Math.max(1.0, previewCanvas.getHeight());
     double nextX = clamp(canvasX / canvasWidth, 0.0, 1.0);
@@ -1847,6 +1920,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void moveSelectedLightSourceToCanvas(double canvasX, double canvasY) {
     if (selectedLightIndex < 0 || selectedLightIndex >= sceneLights.size()) return;
     SceneLight light = sceneLights.get(selectedLightIndex);
+    if (light.locked) return;
     double canvasWidth = Math.max(1.0, previewCanvas.getWidth());
     double canvasHeight = Math.max(1.0, previewCanvas.getHeight());
     light.sourceX = clamp(canvasX / canvasWidth, 0.0, 1.0);
@@ -3964,7 +4038,11 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private enum SceneLightShape {
     RADIAL("Radial", "radial"),
-    POLYGON("Polygon", "polygon");
+    POLYGON("Polygon", "polygon"),
+    CONE("Cone", "cone"),
+    STRIP("Strip", "strip"),
+    WINDOW("Window", "window"),
+    BOUNCE("Bounce", "bounce");
 
     private final String label;
     private final String persisted;
@@ -3991,6 +4069,46 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     static List<String> labels() {
       return Stream.of(values()).map(SceneLightShape::toString).toList();
+    }
+
+    @Override public String toString() {
+      return label;
+    }
+  }
+
+  private enum SubjectSurfaceClass {
+    DEFAULT("Default", "default"),
+    SKIN("Skin", "skin"),
+    HAIR("Hair", "hair"),
+    FABRIC("Fabric", "fabric"),
+    METAL("Metal", "metal"),
+    GLASS("Glass", "glass");
+
+    private final String label;
+    private final String persisted;
+
+    SubjectSurfaceClass(String label, String persisted) {
+      this.label = label;
+      this.persisted = persisted;
+    }
+
+    String persistedValue() {
+      return persisted;
+    }
+
+    static SubjectSurfaceClass fromPersisted(String raw) {
+      if (raw == null || raw.isBlank()) return DEFAULT;
+      for (SubjectSurfaceClass value : values()) {
+        if (value.persisted.equalsIgnoreCase(raw.trim())
+            || value.label.equalsIgnoreCase(raw.trim())) {
+          return value;
+        }
+      }
+      return DEFAULT;
+    }
+
+    static List<String> labels() {
+      return Stream.of(values()).map(SubjectSurfaceClass::toString).toList();
     }
 
     @Override public String toString() {
@@ -4058,6 +4176,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     double rotation;   // degrees, -180..180 (only for rectangles)
     String blendMode;  // one of BLEND_MODES
     boolean overlayVisible; // preview overlay visibility only; tint effect remains active
+    SubjectSurfaceClass surfaceClass;
+    double depthBias; // -100..100 authoring guide
+    double responseScale; // 10..250%
     List<double[]> polygon; // fractional image coords (x,y pairs); null or <3 = rectangle
 
     TintZone(String name, double bx, double by, double bw, double bh) {
@@ -4074,6 +4195,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       this.rotation = 0;
       this.blendMode = "Normal";
       this.overlayVisible = true;
+      this.surfaceClass = SubjectSurfaceClass.DEFAULT;
+      this.depthBias = 0.0;
+      this.responseScale = 100.0;
       this.polygon = null;
     }
 
@@ -4086,7 +4210,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
           ? " poly(" + polygon.size() + ")"
           : String.format(Locale.ROOT, " [%.0f%%,%.0f%% %.0f%%x%.0f%%]",
               boundsX * 100, boundsY * 100, boundsW * 100, boundsH * 100);
-      return (name == null || name.isBlank() ? "Zone" : name) + shape;
+      String surface = surfaceClass == null ? SubjectSurfaceClass.DEFAULT.persistedValue() : surfaceClass.persistedValue();
+      return (name == null || name.isBlank() ? "Zone" : name) + shape + " · " + surface;
     }
   }
 
@@ -4103,6 +4228,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     double silhouette;
     SceneLightShape shape;
     SceneLightLayer layer;
+    boolean muted;
+    boolean locked;
+    boolean solo;
+    String group;
     List<double[]> polygon;
 
     SceneLight(String name, double sceneX, double sceneY) {
@@ -4118,6 +4247,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       this.silhouette = DEFAULT_LIGHT_SILHOUETTE;
       this.shape = SceneLightShape.RADIAL;
       this.layer = SceneLightLayer.CHARACTER;
+      this.muted = false;
+      this.locked = false;
+      this.solo = false;
+      this.group = "";
       this.polygon = null;
     }
 
@@ -4131,10 +4264,38 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
           "%s · %s · %s [%.0f%%, %.0f%%]",
           (name == null || name.isBlank()) ? "Light" : name,
           layer,
-          isPolygon() ? "poly" : "radial",
+          isPolygon() ? "poly" : (shape == null ? SceneLightShape.RADIAL : shape).persistedValue(),
           sceneX * 100.0,
           sceneY * 100.0
       );
+    }
+  }
+
+  private static final class SceneOccluder {
+    String name;
+    double opacity;
+    double softness;
+    boolean enabled;
+    List<double[]> polygon;
+
+    SceneOccluder(String name) {
+      this.name = name;
+      this.opacity = 85.0;
+      this.softness = 12.0;
+      this.enabled = true;
+      this.polygon = new ArrayList<>();
+    }
+
+    boolean isPolygon() {
+      return polygon != null && polygon.size() >= 3;
+    }
+
+    @Override public String toString() {
+      return (name == null || name.isBlank() ? "Occluder" : name)
+          + " · "
+          + Math.round(opacity)
+          + "% block"
+          + (enabled ? "" : " · off");
     }
   }
 
@@ -4143,6 +4304,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void buildZoneSection() {
     zoneBlendModeBox.getItems().setAll(BLEND_MODES);
     zoneBlendModeBox.getSelectionModel().select("Normal");
+    zoneSurfaceClassBox.getItems().setAll(SubjectSurfaceClass.labels());
+    zoneSurfaceClassBox.getSelectionModel().select(SubjectSurfaceClass.DEFAULT.toString());
     zoneNameField.setPromptText("Zone name");
 
     zoneColorSwatch.setMinSize(18, 18);
@@ -4235,6 +4398,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     zoneFeatherSlider.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
     zoneRotationSlider.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
     zoneBlendModeBox.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
+    zoneSurfaceClassBox.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
+    zoneDepthBiasSlider.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
+    zoneResponseScaleSlider.valueProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneControlsToSelected(); });
     zoneNameField.textProperty().addListener((o, ov, nv) -> { if (!applyingState) applyZoneNameToSelected(); });
 
     HBox zoneNameRow = new HBox(8, new Label("Name"), zoneNameField);
@@ -4248,6 +4414,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     zoneBlendRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(zoneBlendModeBox, Priority.ALWAYS);
 
+    HBox zoneSurfaceRow = new HBox(8, new Label("Surface"), zoneSurfaceClassBox);
+    zoneSurfaceRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(zoneSurfaceClassBox, Priority.ALWAYS);
+
     zoneControlsSection.getChildren().setAll(
         zoneNameRow,
         zoneColorRow,
@@ -4256,7 +4426,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         sliderRow("Contrast", zoneContrastSlider),
         sliderRow("Feather", zoneFeatherSlider),
         sliderRow("Rotation", zoneRotationSlider),
-        zoneBlendRow);
+        zoneBlendRow,
+        zoneSurfaceRow,
+        sliderRow("Depth", zoneDepthBiasSlider),
+        sliderRow("Response %", zoneResponseScaleSlider));
     zoneControlsSection.setDisable(true);
 
     VBox zonesContent = new VBox(6, zoneActions, zoneListView, zoneControlsSection);
@@ -4265,6 +4438,82 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     zonesPane.setAnimated(false);
     zonesPane.setCollapsible(true);
     zonesPane.expandedProperty().addListener((o, ov, expanded) -> {
+      if (!applyingState) persistGlobalState();
+    });
+  }
+
+  private void buildOcclusionSection() {
+    occluderNameField.setPromptText("Occluder name");
+    occluderEnabledCheck.setFocusTraversable(false);
+    occluderEnabledCheck.setSelected(true);
+
+    occluderListView.setPrefHeight(84);
+    occluderListView.setMaxHeight(124);
+    occluderListView.setStyle("-fx-background-color: #1f1f1f; -fx-border-color: #333333;");
+    occluderListView.setCellFactory(lv -> new ListCell<SceneOccluder>() {
+      @Override protected void updateItem(SceneOccluder item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+          setGraphic(null);
+          setStyle("");
+          return;
+        }
+        Label label = new Label(item.toString());
+        label.setStyle(getIndex() == selectedOccluderIndex
+            ? "-fx-text-fill: #e2e8f0;"
+            : "-fx-text-fill: #c8d0dc;");
+        setText(null);
+        setGraphic(label);
+        setStyle(getIndex() == selectedOccluderIndex
+            ? "-fx-background-color: #2b2b2b;"
+            : "");
+      }
+    });
+    occluderListView.getSelectionModel().selectedIndexProperty().addListener((o, ov, nv) -> {
+      if (applyingState) return;
+      selectOccluder(nv == null ? -1 : nv.intValue());
+    });
+
+    occluderPolyDrawToggleButton = iconButton(CssIcon.polygon("#a6b7ff"), "Draw a polygonal shadow blocker on the preview", this::toggleOccluderPolyDrawMode);
+    occluderFreehandDrawToggleButton = iconButton(CssIcon.freehand("#b6d8ff"), "Sketch a freehand shadow blocker on the preview", this::toggleOccluderFreehandDrawMode);
+    Button addOccluderButton = iconButton(CssIcon.plus("#9ed67a"), "Add a default occluder", this::addDefaultOccluder);
+    Button removeOccluderButton = iconButton(CssIcon.minus("#f38ba8"), "Remove selected occluder", this::removeSelectedOccluder);
+    Button clearOccludersButton = iconButton(CssIcon.clearX("#f5b971"), "Remove all occluders", this::clearAllOccluders);
+    HBox actions = new HBox(6, occluderPolyDrawToggleButton, occluderFreehandDrawToggleButton, addOccluderButton, removeOccluderButton, clearOccludersButton);
+    actions.setAlignment(Pos.CENTER_LEFT);
+
+    occluderNameField.textProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) applyOccluderControlsToSelected();
+    });
+    occluderOpacitySlider.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) applyOccluderControlsToSelected();
+    });
+    occluderSoftnessSlider.valueProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) applyOccluderControlsToSelected();
+    });
+    occluderEnabledCheck.selectedProperty().addListener((o, ov, nv) -> {
+      if (!applyingState) applyOccluderControlsToSelected();
+    });
+
+    HBox nameRow = new HBox(8, new Label("Name"), occluderNameField);
+    nameRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(occluderNameField, Priority.ALWAYS);
+
+    occluderControlsSection.getChildren().setAll(
+        nameRow,
+        sliderRow("Block %", occluderOpacitySlider),
+        sliderRow("Softness", occluderSoftnessSlider),
+        occluderEnabledCheck
+    );
+    occluderControlsSection.setDisable(true);
+
+    VBox content = new VBox(6, actions, occluderListView, occluderControlsSection);
+    occlusionPane = new TitledPane("Occlusion & Shadows", content);
+    occlusionPane.setExpanded(false);
+    occlusionPane.setAnimated(false);
+    occlusionPane.setCollapsible(true);
+    occlusionPane.expandedProperty().addListener((o, ov, expanded) -> {
       if (!applyingState) persistGlobalState();
     });
   }
@@ -5166,6 +5415,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     selectedZoneIndex = (index >= 0 && index < tintZones.size()) ? index : -1;
     if (selectedZoneIndex < 0) {
       zoneControlsSection.setDisable(true);
+      refreshZoneList();
       return;
     }
     zoneControlsSection.setDisable(false);
@@ -5181,6 +5431,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       zoneFeatherSlider.setValue(zone.feather);
       zoneRotationSlider.setValue(zone.rotation);
       zoneBlendModeBox.getSelectionModel().select(canonicalBlendMode(zone.blendMode, "Normal"));
+      zoneSurfaceClassBox.getSelectionModel().select((zone.surfaceClass == null ? SubjectSurfaceClass.DEFAULT : zone.surfaceClass).toString());
+      zoneDepthBiasSlider.setValue(zone.depthBias);
+      zoneResponseScaleSlider.setValue(zone.responseScale);
     } finally {
       applyingState = false;
     }
@@ -5198,6 +5451,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     zone.feather = zoneFeatherSlider.getValue();
     zone.rotation = zoneRotationSlider.getValue();
     zone.blendMode = canonicalBlendMode(zoneBlendModeBox.getValue(), "Normal");
+    zone.surfaceClass = SubjectSurfaceClass.fromPersisted(zoneSurfaceClassBox.getValue());
+    zone.depthBias = zoneDepthBiasSlider.getValue();
+    zone.responseScale = zoneResponseScaleSlider.getValue();
     invalidateTintCache();
     persistZones();
     redrawPreview();
@@ -5231,6 +5487,141 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persistGlobalState();
     redrawPreview();
     status("Added " + light.name + ".");
+  }
+
+  private void addLightPreset(String name,
+                              SceneLightShape shape,
+                              SceneLightLayer layer,
+                              double targetX,
+                              double targetY,
+                              double sourceX,
+                              double sourceY,
+                              String colorHex,
+                              double intensity,
+                              double radius,
+                              double softness,
+                              double silhouette) {
+    SceneLight light = new SceneLight(name, clamp(targetX, 0.0, 1.0), clamp(targetY, 0.0, 1.0));
+    light.shape = shape == null ? SceneLightShape.RADIAL : shape;
+    light.layer = layer == null ? SceneLightLayer.CHARACTER : layer;
+    light.sourceX = clamp(sourceX, 0.0, 1.0);
+    light.sourceY = clamp(sourceY, 0.0, 1.0);
+    light.color = parseColor(colorHex, Color.web("#ffd7a8"));
+    light.intensity = clamp(intensity, 0.0, 100.0);
+    light.radius = clamp(radius, 0.05, 0.80);
+    light.softness = clamp(softness, 0.0, 100.0);
+    light.silhouette = clamp(silhouette, 0.0, 100.0);
+    sceneLights.add(light);
+    invalidateTintCache();
+    refreshLightList();
+    selectLight(sceneLights.size() - 1);
+    persistGlobalState();
+    redrawPreview();
+    status("Added preset: " + fallbackLightName(light) + ".");
+  }
+
+  private void addKeyLightPreset() {
+    addLightPreset("Key", SceneLightShape.CONE, SceneLightLayer.CHARACTER, 0.58, 0.34, 0.28, 0.11, "#FFD4A3", 64.0, 0.24, 42.0, 18.0);
+  }
+
+  private void addFillLightPreset() {
+    addLightPreset("Fill", SceneLightShape.RADIAL, SceneLightLayer.CHARACTER, 0.44, 0.42, 0.25, 0.32, "#CFE2FF", 30.0, 0.26, 72.0, 10.0);
+  }
+
+  private void addRimLightPreset() {
+    addLightPreset("Rim", SceneLightShape.STRIP, SceneLightLayer.FOREGROUND, 0.72, 0.39, 0.88, 0.18, "#FFD9B4", 48.0, 0.20, 36.0, 54.0);
+  }
+
+  private void addSunPatchPreset() {
+    addLightPreset("Sun Patch", SceneLightShape.WINDOW, SceneLightLayer.BACKGROUND, 0.62, 0.28, 0.46, 0.02, "#FFE2A6", 52.0, 0.26, 24.0, 20.0);
+  }
+
+  private void addScreenGlowPreset() {
+    addLightPreset("Screen Glow", SceneLightShape.STRIP, SceneLightLayer.FOREGROUND, 0.48, 0.56, 0.36, 0.56, "#8EC5FF", 34.0, 0.16, 78.0, 12.0);
+  }
+
+  private void addBounceLightPreset() {
+    addLightPreset("Bounce", SceneLightShape.BOUNCE, SceneLightLayer.CHARACTER, 0.51, 0.73, 0.51, 0.92, "#FFD7BB", 26.0, 0.22, 84.0, 8.0);
+  }
+
+  private void duplicateSelectedLight() {
+    if (selectedLightIndex < 0 || selectedLightIndex >= sceneLights.size()) {
+      status("Select a scene light first.");
+      return;
+    }
+    SceneLight source = sceneLights.get(selectedLightIndex);
+    SceneLight copy = new SceneLight(fallbackLightName(source) + " Copy", source.sceneX, source.sceneY);
+    copy.sourceX = clamp(source.sourceX + 0.03, 0.0, 1.0);
+    copy.sourceY = clamp(source.sourceY + 0.03, 0.0, 1.0);
+    copy.color = source.color;
+    copy.intensity = source.intensity;
+    copy.radius = source.radius;
+    copy.softness = source.softness;
+    copy.silhouette = source.silhouette;
+    copy.shape = source.shape;
+    copy.layer = source.layer;
+    copy.muted = source.muted;
+    copy.locked = false;
+    copy.solo = source.solo;
+    copy.group = source.group;
+    if (source.polygon != null && !source.polygon.isEmpty()) {
+      copy.polygon = new ArrayList<>();
+      for (double[] pt : source.polygon) {
+        copy.polygon.add(new double[]{clamp(pt[0] + 0.03, 0.0, 1.0), clamp(pt[1] + 0.03, 0.0, 1.0)});
+      }
+    }
+    sceneLights.add(selectedLightIndex + 1, copy);
+    invalidateTintCache();
+    refreshLightList();
+    selectLight(selectedLightIndex + 1);
+    persistGlobalState();
+    redrawPreview();
+    status("Duplicated " + fallbackLightName(source) + ".");
+  }
+
+  private void mirrorSelectedLight() {
+    if (selectedLightIndex < 0 || selectedLightIndex >= sceneLights.size()) {
+      status("Select a scene light first.");
+      return;
+    }
+    SceneLight light = sceneLights.get(selectedLightIndex);
+    light.sceneX = 1.0 - light.sceneX;
+    light.sourceX = 1.0 - light.sourceX;
+    if (light.polygon != null) {
+      for (double[] pt : light.polygon) {
+        pt[0] = 1.0 - pt[0];
+      }
+    }
+    invalidateTintCache();
+    refreshLightList();
+    selectLight(selectedLightIndex);
+    persistGlobalState();
+    redrawPreview();
+    status("Mirrored " + fallbackLightName(light) + ".");
+  }
+
+  private void normalizeRigIntensity() {
+    if (sceneLights.isEmpty()) return;
+    double peak = 0.0;
+    for (SceneLight light : sceneLights) {
+      if (light == null || light.muted) continue;
+      peak = Math.max(peak, light.intensity);
+    }
+    if (peak <= 1e-6) {
+      status("No active rig intensity to normalize.");
+      return;
+    }
+    double scale = 100.0 / peak;
+    for (SceneLight light : sceneLights) {
+      if (light == null || light.muted) continue;
+      light.intensity = clamp(light.intensity * scale, 0.0, 100.0);
+    }
+    invalidateTintCache();
+    refreshLightList();
+    selectLight(selectedLightIndex);
+    persistGlobalState();
+    redrawPreview();
+    status("Normalized rig intensity to a 100% peak.");
   }
 
   private void removeSelectedLight() {
@@ -5291,6 +5682,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (selectedLightIndex < 0) {
       lightControlsSection.setDisable(true);
       updateLightRigSummary();
+      refreshLightList();
       return;
     }
     lightControlsSection.setDisable(false);
@@ -5306,6 +5698,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       lightSilhouetteSlider.setValue(light.silhouette);
       lightShapeBox.getSelectionModel().select((light.shape == null ? SceneLightShape.RADIAL : light.shape).toString());
       lightLayerBox.getSelectionModel().select((light.layer == null ? SceneLightLayer.CHARACTER : light.layer).toString());
+      lightGroupField.setText(light.group == null ? "" : light.group);
+      lightMutedCheck.setSelected(light.muted);
+      lightLockedCheck.setSelected(light.locked);
+      lightSoloCheck.setSelected(light.solo);
     } finally {
       applyingState = false;
     }
@@ -5337,9 +5733,15 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     light.silhouette = lightSilhouetteSlider.getValue();
     SceneLightShape nextShape = SceneLightShape.fromPersisted(lightShapeBox.getValue());
     light.layer = SceneLightLayer.fromPersisted(lightLayerBox.getValue());
-    if (nextShape == SceneLightShape.RADIAL) {
-      light.shape = SceneLightShape.RADIAL;
-      light.polygon = null;
+    if (nextShape == SceneLightShape.RADIAL
+        || nextShape == SceneLightShape.CONE
+        || nextShape == SceneLightShape.STRIP
+        || nextShape == SceneLightShape.WINDOW
+        || nextShape == SceneLightShape.BOUNCE) {
+      light.shape = nextShape;
+      if (nextShape != SceneLightShape.POLYGON) {
+        light.polygon = null;
+      }
     } else {
       light.shape = SceneLightShape.POLYGON;
       if (light.polygon == null || light.polygon.size() < 3) {
@@ -5351,6 +5753,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         light.polygon.add(new double[]{clamp(light.sceneX - halfSize, 0.0, 1.0), clamp(light.sceneY + halfSize, 0.0, 1.0)});
       }
     }
+    light.group = normalize(lightGroupField.getText());
+    light.muted = lightMutedCheck.isSelected();
+    light.locked = lightLockedCheck.isSelected();
+    light.solo = lightSoloCheck.isSelected();
     invalidateTintCache();
     refreshLightList();
     persistGlobalState();
@@ -5364,6 +5770,25 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     persistGlobalState();
   }
 
+  private void applyLightGroupToSelected() {
+    if (selectedLightIndex < 0 || selectedLightIndex >= sceneLights.size()) return;
+    sceneLights.get(selectedLightIndex).group = normalize(lightGroupField.getText());
+    refreshLightList();
+    persistGlobalState();
+  }
+
+  private void applyLightFlagsToSelected() {
+    if (selectedLightIndex < 0 || selectedLightIndex >= sceneLights.size()) return;
+    SceneLight light = sceneLights.get(selectedLightIndex);
+    light.muted = lightMutedCheck.isSelected();
+    light.locked = lightLockedCheck.isSelected();
+    light.solo = lightSoloCheck.isSelected();
+    invalidateTintCache();
+    refreshLightList();
+    persistGlobalState();
+    redrawPreview();
+  }
+
   private void updateLightRigSummary() {
     if (lightRigSummaryLabel == null) return;
     if (sceneLights.isEmpty()) {
@@ -5373,6 +5798,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     int background = 0;
     int character = 0;
     int foreground = 0;
+    int muted = 0;
+    int locked = 0;
+    int solo = 0;
     for (SceneLight light : sceneLights) {
       SceneLightLayer layer = light.layer == null ? SceneLightLayer.CHARACTER : light.layer;
       switch (layer) {
@@ -5380,11 +5808,17 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         case FOREGROUND -> foreground++;
         case CHARACTER -> character++;
       }
+      if (light.muted) muted++;
+      if (light.locked) locked++;
+      if (light.solo) solo++;
     }
     String base = "Rig: " + sceneLights.size() + " lights · "
         + character + " subject · "
         + background + " back · "
-        + foreground + " front";
+        + foreground + " front"
+        + " · " + muted + " muted"
+        + " · " + locked + " locked"
+        + (solo > 0 ? " · soloed" : "");
     if (selectedLightIndex < 0 || selectedLightIndex >= sceneLights.size()) {
       lightRigSummaryLabel.setText(base);
       return;
@@ -5399,7 +5833,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private static String describeLightMeta(SceneLight light) {
     if (light == null) return "";
-    String shape = light.isPolygon() ? "polygon" : "radial";
+    String shape = light.isPolygon() ? "polygon" : (light.shape == null ? SceneLightShape.RADIAL : light.shape).persistedValue();
     String layer = (light.layer == null ? SceneLightLayer.CHARACTER : light.layer).persistedValue();
     return layer
         + " · "
@@ -5413,6 +5847,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         + " · "
         + Math.round(light.silhouette)
         + "% rim"
+        + (light.muted ? " · muted" : "")
+        + (light.locked ? " · locked" : "")
+        + (light.solo ? " · solo" : "")
+        + ((light.group == null || light.group.isBlank()) ? "" : " · " + light.group)
         + " · vector";
   }
 

@@ -14,6 +14,7 @@ import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.core.animation.TimelineRunner;
 import com.jvn.core.audio.AmbienceProfile;
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.vn.stage.VnStagePreset;
 
 /**
  * Basic interop implementation.
@@ -81,6 +82,9 @@ public class DefaultVnInterop implements VnInterop {
         return VnInteropResult.advance();
       case "char":
         handleCharacter(payload, scene);
+        return VnInteropResult.advance();
+      case "stage":
+        handleStage(payload, scene);
         return VnInteropResult.advance();
       default:
         scene.getState().showHudMessage("[call " + provider + "] " + payload, 1200);
@@ -188,6 +192,21 @@ public class DefaultVnInterop implements VnInterop {
         vars.remove(key);
         break;
     }
+  }
+
+  private void handleStage(String payload, VnScene scene) {
+    String requested = safe(payload).trim();
+    if (requested.isEmpty() || "clear".equalsIgnoreCase(requested) || "off".equalsIgnoreCase(requested) || "none".equalsIgnoreCase(requested)) {
+      scene.getState().setActiveStagePresetId(null);
+      return;
+    }
+    VnScenario scenario = scene.getState().getScenario();
+    VnStagePreset preset = scenario == null ? null : scenario.getStagePreset(requested);
+    if (preset == null) {
+      scene.getState().showHudMessage("stage: not found: " + requested, 1600);
+      return;
+    }
+    scene.getState().setActiveStagePresetId(requested);
   }
 
   private void numberOp(java.util.Map<String,Object> vars, String key, String deltaStr, boolean inc) {

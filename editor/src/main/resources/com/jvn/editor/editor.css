@@ -2524,23 +2524,21 @@
   -fx-max-height: 28px;
   -fx-alignment: center;
   -fx-content-display: graphic-only;
-  -fx-background-color: linear-gradient(to bottom, #252931, #1a1d24);
-  -fx-background-radius: 8;
-  -fx-border-color: #3d434d;
-  -fx-border-radius: 8;
-  -fx-border-width: 1;
+  -fx-background-color: #232831;
+  -fx-background-radius: 6;
+  -fx-border-color: transparent;
+  -fx-border-radius: 6;
+  -fx-border-width: 0;
   -fx-cursor: hand;
-  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.20), 5, 0.16, 0, 1);
+  -fx-effect: none;
 }
 
 .panel-chooser-icon-btn:hover {
-  -fx-background-color: linear-gradient(to bottom, #2d323b, #1f242b);
-  -fx-border-color: #515967;
+  -fx-background-color: #2a303a;
 }
 
 .panel-chooser-icon-btn:pressed {
-  -fx-background-color: linear-gradient(to bottom, #1d2127, #14171c);
-  -fx-border-color: #667085;
+  -fx-background-color: #1c2027;
 }
 
 .panel-chooser-icon-btn:disabled {
@@ -2549,7 +2547,7 @@
 }
 
 .panel-chooser-icon-btn:focused {
-  -fx-effect: dropshadow(gaussian, rgba(175, 192, 216, 0.18), 8, 0.2, 0, 0);
+  -fx-background-color: #2a303a;
 }
 
 .panel-chooser-row {

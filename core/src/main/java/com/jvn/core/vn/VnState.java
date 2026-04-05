@@ -20,6 +20,7 @@ public class VnState {
   private static final String VAR_BUBBLE_ANCHOR_PREFIX = "ui.bubble.anchor.";
   private static final String VAR_BUBBLE_OFFSET_X_PREFIX = "ui.bubble.offsetX.";
   private static final String VAR_BUBBLE_OFFSET_Y_PREFIX = "ui.bubble.offsetY.";
+  private static final String VAR_ACTIVE_STAGE_PRESET_ID = "stage.activePreset";
 
   private VnScenario scenario;
   private String sourceScriptName;
@@ -569,6 +570,17 @@ public class VnState {
   }
 
   public Map<String, Object> getVariables() { return variables; }
+  public String getActiveStagePresetId() {
+    Object value = variables.get(VAR_ACTIVE_STAGE_PRESET_ID);
+    return value == null ? null : String.valueOf(value);
+  }
+  public void setActiveStagePresetId(String stagePresetId) {
+    if (stagePresetId == null || stagePresetId.isBlank()) {
+      variables.remove(VAR_ACTIVE_STAGE_PRESET_ID);
+    } else {
+      variables.put(VAR_ACTIVE_STAGE_PRESET_ID, stagePresetId.trim());
+    }
+  }
   public void setVariables(Map<String, Object> vars) {
     this.variables.clear();
     if (vars != null) this.variables.putAll(vars);

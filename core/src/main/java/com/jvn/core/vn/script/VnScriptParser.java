@@ -25,6 +25,8 @@ import com.jvn.core.vn.VnConditionEvaluator;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioBuilder;
 import com.jvn.core.vn.VnTransition;
+import com.jvn.core.vn.stage.VnStagePreset;
+import com.jvn.core.vn.stage.VnStagePresetLoader;
 
 /**
  * Parses text-based VN scripts into {@link VnScenario} objects.
@@ -36,6 +38,7 @@ public class VnScriptParser {
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern STAGE_PRESET_PATTERN = Pattern.compile("^@stagepreset\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern VAR_PATTERN = Pattern.compile("^@var\\s+(\\S+)(?:\\s*=\\s*(.+)|\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
   private static final Pattern LABEL_PATTERN = Pattern.compile("^@label\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern LABEL_LEGACY_PATTERN = Pattern.compile("^label\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
@@ -465,6 +468,25 @@ public class VnScriptParser {
           state.charBuilders.put(id, cb);
         }
         cb.addExpression(expr, resolvedSpec);
+        continue;
+      }
+
+      Matcher stagePresetMatcher = STAGE_PRESET_PATTERN.matcher(trimmed);
+      if (stagePresetMatcher.matches()) {
+        state.contentEmitted = true;
+        String id = stagePresetMatcher.group(1).trim();
+        String presetPath = stripQuotes(stagePresetMatcher.group(2).trim());
+        if (presetPath.isEmpty()) {
+          throw parseError(sourceName, lineNumber, "@stagepreset path cannot be empty", rawLine);
+        }
+        if (resolver == null) {
+          throw parseError(sourceName, lineNumber, "@stagepreset requires a resolver", rawLine);
+        }
+        String resolved = normalizeSourceName(resolveIncludePath(sourceName, presetPath));
+        try (InputStream presetStream = resolver.open(resolved)) {
+          VnStagePreset stagePreset = VnStagePresetLoader.load(id, resolved, presetStream);
+          state.builder.addStagePreset(stagePreset);
+        }
         continue;
       }
 
@@ -1060,6 +1082,11 @@ public class VnScriptParser {
           }
         }
         state.builder.move(moveCharId, movePos, moveExpr, moveEasing, moveDur);
+        return;
+      }
+      case "stage": {
+        String presetId = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("stage", presetId);
         return;
       }
       case "transition": {
