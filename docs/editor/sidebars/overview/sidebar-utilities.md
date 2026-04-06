@@ -1,6 +1,6 @@
 # Editor — Sidebar Utilities
 
-Complete reference for all 18 documented sidebar panels available in the JVN editor. Each panel has its own dedicated sub-document with full details, examples, and usage guides.
+Complete reference for all 17 documented sidebar panels available in the JVN editor. Each panel has its own dedicated sub-document with full details, examples, and usage guides.
 
 Panels can be added to either the left or right sidebar via the **+** tab. Each panel is independently closable and repositionable.
 
@@ -25,7 +25,7 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 | 11 | Menu Flow Editor | **[sidebar-menu-flow-editor.md](../right/sidebar-menu-flow-editor.md)** | Right | Visual menu-to-menu navigation wiring |
 | 12 | Layered Image Visualizer | **[sidebar-layered-image-visualizer.md](../right/sidebar-layered-image-visualizer.md)** | Right | Layered sprite exploration and snippet export |
 | 13 | Image Attributes Tool | **[sidebar-image-attributes-tool.md](../right/sidebar-image-attributes-tool.md)** | Right | Attribute-based character image assembly |
-| 14 | Scene Lighting Studio | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Scene lighting, grading, and reactive character lighting |
+| 14 | Scene Lighting Studio | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Scene lighting, grading, occlusion, and stage-preset export |
 | 15 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
 | 16 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser |
 | 17 | Text Editor | **[sidebar-script-editor.md](../right/sidebar-script-editor.md)** | Right | JVN text file explorer, VNS label outline, include graph, pop-out editor window |
@@ -33,9 +33,12 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 ### Adding Panels
 
 1. Click the **+** tab on the left or right sidebar
-2. A "New Panel" chooser tab opens listing all available panels, including the phone editor utility
-3. Click any panel name to add it as a new tab
-4. Close panels by clicking the tab's **×** button (Project tab is always open)
+2. A **New Panel** chooser tab opens listing all available panels
+3. Use the row actions:
+   `+` to add or move the panel into that sidebar
+   pop-out to open it in a separate window
+   minus to remove it from the sidebars
+4. Close regular sidebar tabs with the tab **×** button (`Project` stays pinned)
 
 ---
 
