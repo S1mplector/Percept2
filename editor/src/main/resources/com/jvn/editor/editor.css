@@ -2529,14 +2529,19 @@
 
 .sidebar-tab-pane .tab.sidebar-add-tab {
   -fx-background-color: #1f1f1f;
+  -fx-background-insets: 0;
+  -fx-background-radius: 6 6 0 0;
+  -fx-padding: 0 10 0 10;
+  -fx-translate-x: 8px;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab:hover {
-  -fx-background-color: #2a2723;
+  -fx-background-color: #252925;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab .tab-label {
   -fx-font-weight: 700;
+  -fx-padding: 0;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab .tab-close-button {
@@ -2547,6 +2552,20 @@
   -fx-min-height: 0;
   -fx-pref-height: 0;
   -fx-max-height: 0;
+}
+
+.sidebar-tab-pane .tab.sidebar-add-tab .tab-container {
+  -fx-padding: 0;
+}
+
+.sidebar-tab-pane .tab.sidebar-add-tab .tab-label,
+.sidebar-tab-pane .tab.sidebar-add-tab .tab-label .text {
+  -fx-text-fill: transparent;
+}
+
+.sidebar-tab-pane .tab.sidebar-add-tab .ikonli-font-icon,
+.sidebar-tab-pane .tab.sidebar-add-tab .icon {
+  -fx-background-color: #8cd48c;
 }
 
 /* Panel chooser icon buttons (dock / pop-out) */

@@ -124,6 +124,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private final CheckBox customExportNameCheck = new CheckBox("Custom name");
   private final TextField exportNameField = new TextField();
   private final TextField exportDirectoryField = new TextField();
+  private final Label exportSelectionLabel = new Label("");
   private final Label exportInfoLabel = new Label("");
   private final ColorPicker tintColorPicker = new ColorPicker(Color.web("#ffffff"));
   private final Slider tintStrengthSlider = slider(0, 100, 30);
@@ -167,6 +168,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private Button sidebarHideButton;
   private Button sidebarShowButton;
   private Button refreshCatalogButton;
+  private Button exportPrimaryButton;
+  private Button exportPrimaryAsButton;
   private boolean applyingState;
   private boolean stateSavePending;
   private Task<TintCatalogScanResult> scanTask;
@@ -369,6 +372,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     exportFormatBox.getItems().setAll(DEFAULT_EXPORT_PROFILE, DEFAULT_EXPORT_SETUP, DEFAULT_EXPORT_STAGE_PRESET);
     exportFormatBox.getSelectionModel().select(DEFAULT_EXPORT_PROFILE);
     exportFormatBox.valueProperty().addListener((o, ov, nv) -> {
+      updateExportControls();
       if (!applyingState) persistGlobalState();
     });
     customExportNameCheck.selectedProperty().addListener((o, ov, nv) -> {
@@ -383,6 +387,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     exportDirectoryField.setEditable(false);
     exportDirectoryField.setFocusTraversable(false);
     exportDirectoryField.setPromptText("Project root");
+    exportSelectionLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: 700; -fx-text-fill: #d9dde4;");
+    exportSelectionLabel.setWrapText(true);
     exportInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
     exportInfoLabel.setWrapText(true);
 
@@ -455,6 +461,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     updateFullscreenButtonUi();
     Button chooseExportFolderButton = iconButton(CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
     Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
+    exportPrimaryButton = actionButton("Export Profile", CssIcon.download("#8ab4f8"), "Quick export the selected format to the configured folder", this::quickExportSelectedFormat);
+    exportPrimaryAsButton = actionButton("Export Profile As", CssIcon.save("#8ab4f8"), "Choose a destination for the selected format", this::exportSelectedFormatAs);
     Button exportPngButton = actionButton("PNG", CssIcon.download("#8ab4f8"), "Quick export the graded PNG to the configured folder", this::quickExportTintedPng);
     Button exportPngAsButton = actionButton("PNG As", CssIcon.save("#8ab4f8"), "Choose a PNG destination", this::exportTintedPngAs);
     Button exportSetupBtn = actionButton("Setup", CssIcon.save("#9ed67a"), "Quick export .tintsetup to the configured folder", this::quickExportSetupToFile);
@@ -464,24 +472,25 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     Button importSetupBtn = actionButton("Import", CssIcon.folder("#f5c46b"), "Import setup from .tintsetup file", this::importSetupFromFile);
     Button exportBundleButton = actionButton("PNG + Setup + Stage", CssIcon.download("#d8c48a"), "Quick export PNG, editor setup, and runtime stage preset to the configured folder", this::quickExportBundle);
     Button copyExportButton = actionButton("Copy", CssIcon.copy("#9ad19c"), "Copy selected export format", this::copySelectedExport);
-    Button chooseExportFolderActionButton = actionButton("Choose Folder", CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
-    Button revealExportFolderActionButton = actionButton("Reveal", CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
     HBox actionRow = new HBox(4, resetViewButton, resetTintButton, fullscreenButton);
     actionRow.setAlignment(Pos.CENTER_LEFT);
-    HBox exportCopyRow = new HBox(4, new Label("Copy"), exportFormatBox, copyExportButton);
-    exportCopyRow.setAlignment(Pos.CENTER_LEFT);
+    HBox exportModeRow = new HBox(4, new Label("Mode"), exportFormatBox);
+    exportModeRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportFormatBox, Priority.ALWAYS);
-    HBox.setHgrow(copyExportButton, Priority.SOMETIMES);
     HBox exportDirRow = new HBox(4, new Label("Folder"), exportDirectoryField, chooseExportFolderButton, revealExportFolderButton);
     exportDirRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportDirectoryField, Priority.ALWAYS);
     HBox exportNameRow = new HBox(4, customExportNameCheck, exportNameField);
     exportNameRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportNameField, Priority.ALWAYS);
-    HBox exportUtilityRow = new HBox(4, chooseExportFolderActionButton, revealExportFolderActionButton, exportBundleButton);
+    HBox exportPrimaryRow = new HBox(4, exportPrimaryButton, exportPrimaryAsButton, copyExportButton);
+    exportPrimaryRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(exportPrimaryButton, Priority.ALWAYS);
+    HBox.setHgrow(exportPrimaryAsButton, Priority.ALWAYS);
+    HBox.setHgrow(copyExportButton, Priority.ALWAYS);
+    HBox exportUtilityRow = new HBox(4, importSetupBtn, exportBundleButton);
     exportUtilityRow.setAlignment(Pos.CENTER_LEFT);
-    HBox.setHgrow(chooseExportFolderActionButton, Priority.ALWAYS);
-    HBox.setHgrow(revealExportFolderActionButton, Priority.ALWAYS);
+    HBox.setHgrow(importSetupBtn, Priority.ALWAYS);
     HBox.setHgrow(exportBundleButton, Priority.ALWAYS);
     HBox filePngRow = new HBox(4, exportPngButton, exportPngAsButton);
     filePngRow.setAlignment(Pos.CENTER_LEFT);
@@ -498,7 +507,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     HBox.setHgrow(exportStageAsButton, Priority.ALWAYS);
     exportPane = new TitledPane(
         "Export & Share",
-        new VBox(4, exportCopyRow, exportDirRow, exportNameRow, exportInfoLabel, exportUtilityRow, filePngRow, fileSetupRow, fileStageRow));
+        new VBox(4, exportModeRow, exportDirRow, exportNameRow, exportSelectionLabel, exportInfoLabel, exportPrimaryRow, exportUtilityRow, filePngRow, fileSetupRow, fileStageRow));
     exportPane.setExpanded(true);
     exportPane.setAnimated(false);
     exportPane.setCollapsible(true);
@@ -1532,12 +1541,47 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   }
 
   private void copySelectedExport() {
-    String format = exportFormatBox.getValue();
-    if (DEFAULT_EXPORT_SETUP.equals(format) || DEFAULT_EXPORT_STAGE_PRESET.equals(format)) {
+    String format = currentExportFormat();
+    if (DEFAULT_EXPORT_SETUP.equals(format)) {
       copyFullSetup();
       return;
     }
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) {
+      copy(buildFullSetupText());
+      status("Copied stage preset.");
+      return;
+    }
     copyTintProfile();
+  }
+
+  private void quickExportSelectedFormat() {
+    String format = currentExportFormat();
+    if (DEFAULT_EXPORT_PROFILE.equals(format)) {
+      copyTintProfile();
+      return;
+    }
+    if (DEFAULT_EXPORT_SETUP.equals(format)) {
+      quickExportSetupToFile();
+      return;
+    }
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) {
+      quickExportStagePresetToFile();
+      return;
+    }
+    quickExportTintedPng();
+  }
+
+  private void exportSelectedFormatAs() {
+    String format = currentExportFormat();
+    if (DEFAULT_EXPORT_SETUP.equals(format)) {
+      exportSetupToFileAs();
+      return;
+    }
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) {
+      exportStagePresetToFileAs();
+      return;
+    }
+    exportTintedPngAs();
   }
 
   private void installPreviewInteractions() {
@@ -3192,9 +3236,96 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     exportNameField.setDisable(!customExportNameCheck.isSelected());
     File directory = resolveExportDirectory();
     exportDirectoryField.setText(directory == null ? "(choose folder)" : describePathRelativeToProject(directory));
-    exportInfoLabel.setText("PNG: " + buildTintPngFileName()
-        + "\nSetup: " + buildTintSetupFileName()
-        + "\nStage: " + buildStagePresetFileName());
+    String format = currentExportFormat();
+    String selectedKind = exportKindLabel(format);
+    if (DEFAULT_EXPORT_PROFILE.equals(format)) {
+      exportSelectionLabel.setText(selectedKind + " · " + exportKindDescription(format) + "\nPrimary action: copy profile snippet to the clipboard.");
+    } else {
+      String quickTarget = describeQuickExportPath(fileNameForExportFormat(format));
+      exportSelectionLabel.setText(selectedKind + " · " + exportKindDescription(format) + "\nQuick target: " + quickTarget);
+    }
+    exportInfoLabel.setText("PNG  " + describeQuickExportPath(buildTintPngFileName())
+        + "\nSetup  " + describeQuickExportPath(buildTintSetupFileName())
+        + "\nStage  " + describeQuickExportPath(buildStagePresetFileName()));
+    if (exportPrimaryButton != null) {
+      exportPrimaryButton.setText(primaryActionLabel(format));
+      exportPrimaryButton.setGraphic(exportQuickGraphic(format));
+      exportPrimaryButton.setTooltip(new Tooltip(primaryActionTooltip(format, selectedKind)));
+    }
+    if (exportPrimaryAsButton != null) {
+      exportPrimaryAsButton.setText(secondaryActionLabel(format, selectedKind));
+      exportPrimaryAsButton.setGraphic(exportAsGraphic(format));
+      exportPrimaryAsButton.setTooltip(new Tooltip(secondaryActionTooltip(format, selectedKind)));
+    }
+  }
+
+  private String currentExportFormat() {
+    String format = normalize(exportFormatBox.getValue());
+    if (DEFAULT_EXPORT_SETUP.equalsIgnoreCase(format)) return DEFAULT_EXPORT_SETUP;
+    if (DEFAULT_EXPORT_STAGE_PRESET.equalsIgnoreCase(format)) return DEFAULT_EXPORT_STAGE_PRESET;
+    return DEFAULT_EXPORT_PROFILE;
+  }
+
+  private static String exportKindLabel(String format) {
+    if (DEFAULT_EXPORT_SETUP.equals(format)) return "Setup";
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return "Stage Preset";
+    return "Lighting Profile";
+  }
+
+  private static String exportKindDescription(String format) {
+    if (DEFAULT_EXPORT_SETUP.equals(format)) return "editor .tintsetup";
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return "runtime-ready .stagepreset";
+    return "clipboard-ready profile snippet";
+  }
+
+  private static String primaryActionLabel(String format) {
+    if (DEFAULT_EXPORT_SETUP.equals(format)) return "Export Setup";
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return "Export Stage";
+    return "Copy Profile";
+  }
+
+  private static String secondaryActionLabel(String format, String selectedKind) {
+    if (DEFAULT_EXPORT_PROFILE.equals(format)) return "Export PNG As";
+    return "Export " + selectedKind + " As";
+  }
+
+  private static String primaryActionTooltip(String format, String selectedKind) {
+    if (DEFAULT_EXPORT_PROFILE.equals(format)) return "Copy the lighting profile snippet to the clipboard";
+    return "Quick export " + selectedKind + " to the configured folder";
+  }
+
+  private static String secondaryActionTooltip(String format, String selectedKind) {
+    if (DEFAULT_EXPORT_PROFILE.equals(format)) return "Choose a destination for the graded PNG";
+    return "Choose a destination for " + selectedKind;
+  }
+
+  private String fileNameForExportFormat(String format) {
+    if (DEFAULT_EXPORT_SETUP.equals(format)) return buildTintSetupFileName();
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return buildStagePresetFileName();
+    return buildTintPngFileName();
+  }
+
+  private String describeQuickExportPath(String fileName) {
+    File directory = resolveExportDirectory();
+    String relative = fileName == null ? "" : fileName;
+    if (directory == null) {
+      return "(choose folder)/" + relative;
+    }
+    String base = describePathRelativeToProject(directory);
+    if ("Project root".equals(base)) return relative;
+    return base + "/" + relative;
+  }
+
+  private javafx.scene.layout.Region exportQuickGraphic(String format) {
+    if (DEFAULT_EXPORT_SETUP.equals(format)) return CssIcon.save("#9ed67a");
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return CssIcon.save("#d2c6ff");
+    return CssIcon.copy("#9ad19c");
+  }
+
+  private javafx.scene.layout.Region exportAsGraphic(String format) {
+    if (DEFAULT_EXPORT_SETUP.equals(format)) return CssIcon.download("#9ed67a");
+    if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) return CssIcon.download("#d2c6ff");
+    return CssIcon.save("#8ab4f8");
   }
 
   private File configuredExportDirectory() {
@@ -3219,7 +3350,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private void chooseExportDirectory() {
     DirectoryChooser chooser = new DirectoryChooser();
-    chooser.setTitle("Choose Image Tint Export Folder");
+    chooser.setTitle("Choose Scene Lighting Studio Export Folder");
     File initial = resolveExistingExportDirectory();
     if (initial != null && initial.isDirectory()) chooser.setInitialDirectory(initial);
     File selected = chooser.showDialog(getScene() == null ? null : getScene().getWindow());
@@ -6753,13 +6884,13 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       status("Choose an export folder first.");
       return;
     }
-    writeSetupFile(file, buildFullSetupText());
+    writeSetupFile(file, buildFullSetupText(), "setup");
   }
 
   private void exportSetupToFileAs() {
     File file = chooseSaveFile("Export Tint Setup", "Tint Setup", "*.tintsetup", buildTintSetupFileName());
     if (file == null) return;
-    writeSetupFile(file, buildFullSetupText());
+    writeSetupFile(file, buildFullSetupText(), "setup");
   }
 
   private void quickExportStagePresetToFile() {
@@ -6768,31 +6899,35 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       status("Choose an export folder first.");
       return;
     }
-    writeSetupFile(file, buildFullSetupText());
+    writeSetupFile(file, buildFullSetupText(), "stage preset");
   }
 
   private void exportStagePresetToFileAs() {
     File file = chooseSaveFile("Export Stage Preset", "Stage Preset", "*.stagepreset", buildStagePresetFileName());
     if (file == null) return;
-    writeSetupFile(file, buildFullSetupText());
+    writeSetupFile(file, buildFullSetupText(), "stage preset");
   }
 
   private void writeSetupFile(File file, String content) {
-    writeSetupFile(file, content, true);
+    writeSetupFile(file, content, "setup", true);
   }
 
-  private boolean writeSetupFile(File file, String content, boolean reportSuccess) {
+  private void writeSetupFile(File file, String content, String kind) {
+    writeSetupFile(file, content, kind, true);
+  }
+
+  private boolean writeSetupFile(File file, String content, String kind, boolean reportSuccess) {
     try {
       Path parent = file.toPath().getParent();
       if (parent != null) Files.createDirectories(parent);
       Files.writeString(file.toPath(), content, StandardCharsets.UTF_8);
       setConfiguredExportDirectory(file.getParentFile());
       if (reportSuccess) {
-        status("Exported setup: " + describePathRelativeToProject(file));
+        status("Exported " + (kind == null || kind.isBlank() ? "file" : kind) + ": " + describePathRelativeToProject(file));
       }
       return true;
     } catch (Exception ex) {
-      status("Setup export failed: " + ex.getMessage());
+      status((kind == null || kind.isBlank() ? "File" : kind.substring(0, 1).toUpperCase(Locale.ROOT) + kind.substring(1)) + " export failed: " + ex.getMessage());
       return false;
     }
   }
@@ -6808,8 +6943,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       return;
     }
     boolean pngOk = writeTintedPng(tinted, pngFile, false);
-    boolean setupOk = writeSetupFile(setupFile, buildFullSetupText(), false);
-    boolean stageOk = writeSetupFile(stageFile, buildFullSetupText(), false);
+    boolean setupOk = writeSetupFile(setupFile, buildFullSetupText(), "setup", false);
+    boolean stageOk = writeSetupFile(stageFile, buildFullSetupText(), "stage preset", false);
     if (pngOk && setupOk && stageOk) {
       status("Exported PNG + setup + stage preset to " + describePathRelativeToProject(pngFile.getParentFile()));
     } else if (pngOk || setupOk || stageOk) {
