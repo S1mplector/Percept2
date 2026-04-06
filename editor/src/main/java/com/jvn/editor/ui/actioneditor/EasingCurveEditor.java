@@ -41,6 +41,7 @@ public class EasingCurveEditor extends Pane {
     private static final double HANDLE_HIT_RADIUS = 16;
     private static final double SNAP_INCREMENT = 0.05;
     private static final double KEYBOARD_NUDGE_INCREMENT = 0.01;
+    private static final double CURVE_POINT_MIN_GAP = 0.001;
 
     private static final Color BG_COLOR = Color.web("#0e0e0e");
     private static final Color GRID_COLOR = Color.web("#2a2a2a");
@@ -278,6 +279,8 @@ public class EasingCurveEditor extends Pane {
             easingType = Easing.Type.CURVE;
             curvePoints = Easing.sampledCurveParameters(before, 3);
         }
+        target = resolveCurveInsertX(curvePoints, target);
+        if (target <= 0.0 || target >= 1.0) return false;
         double value = Easing.apply(before, target);
         curvePoints = insertCurvePoint(curvePoints, target, value);
         easingParams = curvePoints.clone();
@@ -712,7 +715,7 @@ public class EasingCurveEditor extends Pane {
             if (handle <= 0 || handle > count) return;
             double[] next = curvePoints.clone();
             int index = handle - 1;
-            double minGap = 0.001;
+            double minGap = CURVE_POINT_MIN_GAP;
             double lower = index == 0 ? minGap : next[(index - 1) * 2] + minGap;
             double upper = index == count - 1 ? 1.0 - minGap : next[(index + 1) * 2] - minGap;
             next[index * 2] = clamp(x, lower, upper);
@@ -768,10 +771,7 @@ public class EasingCurveEditor extends Pane {
         if (handle > 0 && handle <= editableHandleCount()) {
             return String.format("P%d  x %.3f  y %.3f", handle, handleX(handle), handleY(handle));
         }
-        if (easingType == Easing.Type.CURVE) {
-            return "Double-click to add a point";
-        }
-        return "Click or press 1/2 to select a handle";
+        return "";
     }
 
     private double[] insertCurvePoint(double[] params, double x, double y) {
@@ -796,6 +796,44 @@ public class EasingCurveEditor extends Pane {
             }
         }
         return Easing.coerceParameters(Easing.Type.CURVE, next);
+    }
+
+    static double resolveCurveInsertX(double[] params, double requestedX) {
+        double target = Math.max(0.0, Math.min(1.0, requestedX));
+        double[] points = Easing.coerceParameters(Easing.Type.CURVE, params);
+        int count = points.length / 2;
+        if (count <= 0) {
+            return clampStatic(target, CURVE_POINT_MIN_GAP, 1.0 - CURVE_POINT_MIN_GAP);
+        }
+
+        boolean tooClose = false;
+        for (int i = 0; i < count; i++) {
+            if (Math.abs(points[i * 2] - target) < CURVE_POINT_MIN_GAP * 2.0) {
+                tooClose = true;
+                break;
+            }
+        }
+        if (!tooClose) {
+            return clampStatic(target, CURVE_POINT_MIN_GAP, 1.0 - CURVE_POINT_MIN_GAP);
+        }
+
+        double prev = 0.0;
+        double bestX = target;
+        double bestScore = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i <= count; i++) {
+            double next = i == count ? 1.0 : points[i * 2];
+            double usableGap = next - prev - (CURVE_POINT_MIN_GAP * 2.0);
+            if (usableGap > 0.0) {
+                double midpoint = (prev + next) * 0.5;
+                double score = usableGap - Math.abs(midpoint - target);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestX = midpoint;
+                }
+            }
+            prev = next;
+        }
+        return clampStatic(bestX, CURVE_POINT_MIN_GAP, 1.0 - CURVE_POINT_MIN_GAP);
     }
 
     private int findClosestCurvePoint(double x, double y) {
@@ -1058,25 +1096,14 @@ public class EasingCurveEditor extends Pane {
         gc.fillText("1", plotX - 16, oneY + 4);
         gc.fillText("0", plotX - 16, zeroY + 4);
 
-        String resolvedHelper = !helperText.isBlank()
-            ? helperText
-            : isCustom
-                ? "Drag handles. Shift snaps to 0.05."
-                : isCurve
-                    ? "Drag points. Double-click or + adds. Delete removes."
-                : "Hover to inspect the curve.";
-        drawBadge(gc, plotX + 6, plotY + 6, resolvedHelper, false);
         if (Double.isFinite(hoverProgress)) {
             double value = evaluateCurveValue(hoverProgress, tween, isCustom);
             drawBadge(gc, plotX + plotW - 118, plotY + 6, formatReadout(hoverProgress, value), true);
         }
         if (isCustom || isCurve) {
-            drawBadge(gc, plotX + 6, plotY + plotH - 22, formatHandleReadout(selectedHandle), false);
-            if (canvas.isFocused()) {
-                String shortcutHint = isCurve
-                    ? "Tab cycle  •  Arrows nudge  •  +/- add  •  Del remove"
-                    : "1/2 select  •  Arrows nudge  •  Shift snap";
-                drawBadge(gc, plotX + plotW - 250, plotY + plotH - 22, shortcutHint, true);
+            String handleReadout = formatHandleReadout(selectedHandle);
+            if (!handleReadout.isBlank()) {
+                drawBadge(gc, plotX + 6, plotY + plotH - 22, handleReadout, false);
             }
         }
         if (isDisabled()) {
@@ -1134,5 +1161,9 @@ public class EasingCurveEditor extends Pane {
         gc.setTextBaseline(VPos.CENTER);
         gc.fillText(text, drawX + 6, y + badgeHeight * 0.5);
         gc.setTextBaseline(VPos.BASELINE);
+    }
+
+    private static double clampStatic(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 }

@@ -84,6 +84,8 @@ public final class CssIcon {
       "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z";
   private static final String PATH_LANDSCAPE =
       "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zm-2 0H5V5h14v14zm-1-4-3.5-4.5-2.5 3.01L10.5 12 7 16h11z";
+  private static final String PATH_DOCUMENT =
+      "M6 2h8l5 5v15H6c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm7 1.5V8h4.5L13 3.5zm-5 8h8v1.5H8zm0 3.5h8v1.5H8zm0-7h3.5v1.5H8z";
 
   // ── Factory methods ──
 
@@ -122,6 +124,7 @@ public final class CssIcon {
   public static Region memory(String color) { return icon(PATH_MEMORY, color, 14); }
   public static Region person(String color) { return icon(PATH_PERSON, color, 14); }
   public static Region landscape(String color) { return icon(PATH_LANDSCAPE, color, 14); }
+  public static Region document(String color) { return icon(PATH_DOCUMENT, color, 14); }
 
   /** Convenience: icon at default muted color. */
   public static Region plus()     { return plus("#b0b8c8"); }
@@ -159,6 +162,7 @@ public final class CssIcon {
   public static Region memory() { return memory("#b0b8c8"); }
   public static Region person() { return person("#b0b8c8"); }
   public static Region landscape() { return landscape("#b0b8c8"); }
+  public static Region document() { return document("#b0b8c8"); }
 
   /**
    * Creates a section header label with a leading CSS icon.

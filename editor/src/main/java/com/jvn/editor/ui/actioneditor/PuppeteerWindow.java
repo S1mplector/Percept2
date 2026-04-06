@@ -1416,15 +1416,12 @@ public class PuppeteerWindow extends Stage {
         menuBar.setMinHeight(Region.USE_PREF_SIZE);
         menuBar.setMaxWidth(Region.USE_PREF_SIZE);
 
-        lblToolbarCommandSummary = new Label();
-        lblToolbarCommandSummary.getStyleClass().add("puppeteer-toolbar-command-summary");
-        lblToolbarCommandSummary.setWrapText(false);
-        refreshToolbarCommandSummary();
+        lblToolbarCommandSummary = null;
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox bar = new HBox(10, menuBar, spacer, lblToolbarCommandSummary);
+        HBox bar = new HBox(10, menuBar, spacer);
         bar.getStyleClass().add("puppeteer-toolbar-command-bar");
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setMaxWidth(Double.MAX_VALUE);

@@ -21,12 +21,11 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
 
 import java.awt.Desktop;
 import java.io.File;
@@ -49,12 +48,6 @@ import java.util.stream.Stream;
 public class HelpCenterView extends BorderPane {
   private static final int TITLE_SCAN_LINE_LIMIT = 100;
   private static final int SUMMARY_SCAN_LINE_LIMIT = 140;
-  private static final String DOC_OVERVIEW = "docs/INDEX.md";
-  private static final String DOC_EDITOR = "docs/editor/core/editor.md";
-  private static final String DOC_VNS = "docs/scripting/vns/overview/vns-scripting.md";
-  private static final String DOC_JES = "docs/scripting/jes/overview/jes-scripting.md";
-  private static final String DOC_RUNTIME = "docs/runtime/core/runtime.md";
-  private static final String DOC_MENUS = "docs/scripting/ui/menus/menu-profiles.md";
   private static final Pattern HEADING_LINE = Pattern.compile("^(#{1,6})\\s+(.*)$");
   private static final Pattern UNORDERED_LIST_LINE = Pattern.compile("^\\s*[-*+]\\s+(.*)$");
   private static final Pattern ORDERED_LIST_LINE = Pattern.compile("^\\s*(\\d+)\\.\\s+(.*)$");
@@ -98,7 +91,6 @@ public class HelpCenterView extends BorderPane {
 
   private final ObservableList<DocEntry> allDocs = FXCollections.observableArrayList();
   private final Map<String, DocEntry> workspaceDocIndex = new HashMap<>();
-  private final Map<String, Button> quickDocButtons = new HashMap<>();
   private final Map<String, TreeItem<HelpNode>> visibleDocNodes = new HashMap<>();
 
   private File workspaceRoot;
@@ -129,7 +121,6 @@ public class HelpCenterView extends BorderPane {
   public void refresh() {
     rebuildIndex();
     rebuildGuideTree(filterField.getText());
-    updateQuickDocButtonState();
   }
 
   private void buildUi() {
@@ -149,7 +140,6 @@ public class HelpCenterView extends BorderPane {
     browserSubtitle.getStyleClass().add("help-pane-subtitle");
     browserSubtitle.setWrapText(true);
 
-    VBox quickAccessBox = buildQuickAccessBox();
     docsTree.setShowRoot(false);
     docsTree.getStyleClass().add("help-doc-tree");
     docsTree.setCellFactory(tree -> new TreeCell<>() {
@@ -170,11 +160,18 @@ public class HelpCenterView extends BorderPane {
           info.setWrapText(true);
           VBox box = new VBox(2, name, info);
           box.getStyleClass().add("help-guide-section-box");
-          setGraphic(box);
+          Label count = new Label(item.documentCount() + " docs");
+          count.getStyleClass().add("help-guide-section-count");
+          HBox row = new HBox(10, box, count);
+          row.setAlignment(Pos.CENTER_LEFT);
+          HBox.setHgrow(box, Priority.ALWAYS);
+          setGraphic(row);
           return;
         }
 
         DocEntry entry = item.doc();
+        Region docIcon = CssIcon.document("#c6d1dc");
+        docIcon.getStyleClass().add("help-doc-icon");
         Label name = new Label(entry.title());
         name.getStyleClass().add("help-doc-title");
 
@@ -192,7 +189,7 @@ public class HelpCenterView extends BorderPane {
         Label sourceChip = new Label(entry.sourceLabel());
         sourceChip.getStyleClass().add("help-doc-source-badge");
 
-        HBox row = new HBox(10, textBox, sourceChip);
+        HBox row = new HBox(10, docIcon, textBox, sourceChip);
         row.setAlignment(Pos.CENTER_LEFT);
         setGraphic(row);
       }
@@ -212,7 +209,7 @@ public class HelpCenterView extends BorderPane {
 
     statsLabel.getStyleClass().add("help-stats-label");
 
-    VBox left = new VBox(10, browserTitle, browserSubtitle, filterRow, quickAccessBox, new Separator(), docsTree, statsLabel);
+    VBox left = new VBox(10, browserTitle, browserSubtitle, filterRow, new Separator(), docsTree, statsLabel);
     left.getStyleClass().add("help-browser-pane");
     left.setPadding(new Insets(10));
     left.setPrefWidth(340);
@@ -239,10 +236,7 @@ public class HelpCenterView extends BorderPane {
     Button revealButton = new Button("Reveal File");
     revealButton.getStyleClass().add("help-toolbar-button");
     revealButton.setOnAction(e -> revealSelectedDoc());
-    Button copyPathButton = new Button("Copy Path");
-    copyPathButton.getStyleClass().add("help-toolbar-button");
-    copyPathButton.setOnAction(e -> copySelectedPath());
-    HBox contentActions = new HBox(8, openButton, revealButton, copyPathButton);
+    HBox contentActions = new HBox(8, openButton, revealButton);
     contentActions.setAlignment(Pos.CENTER_LEFT);
 
     Text quickHint = new Text("Tip: press F1 from anywhere in the editor to jump back here.");
@@ -266,54 +260,6 @@ public class HelpCenterView extends BorderPane {
         "Select a document to preview.",
         "Follow the guide tree on the left to move from onboarding into deeper authoring and engine reference.",
         "Pick a document from the guide tree to preview it here.");
-  }
-
-  private VBox buildQuickAccessBox() {
-    Label quickHeader = new Label("Quick Access");
-    quickHeader.getStyleClass().add("help-section-title");
-
-    HBox docsButtonsRow1 = new HBox(6,
-        quickDocButton("README", "README.md"),
-        quickDocButton("Overview", DOC_OVERVIEW),
-        quickDocButton("Editor", DOC_EDITOR)
-    );
-    HBox docsButtonsRow2 = new HBox(6,
-        quickDocButton("VNS", DOC_VNS),
-        quickDocButton("JES", DOC_JES),
-        quickDocButton("Runtime", DOC_RUNTIME),
-        quickDocButton("Menus", DOC_MENUS)
-    );
-
-    Label commandsHeader = new Label("Quick Commands");
-    commandsHeader.getStyleClass().add("help-section-title");
-    HBox commandButtons = new HBox(6,
-        copyCommandButton("Build", "./gradlew build"),
-        copyCommandButton("Run Editor", "./gradlew :editor:run"),
-        copyCommandButton("Run Runtime", "./gradlew :runtime:run")
-    );
-
-    VBox box = new VBox(8, quickHeader, docsButtonsRow1, docsButtonsRow2, commandsHeader, commandButtons);
-    box.getStyleClass().add("help-quick-box");
-    box.setPadding(new Insets(8));
-    return box;
-  }
-
-  private Button quickDocButton(String label, String relativePath) {
-    Button button = new Button(label);
-    button.setOnAction(e -> selectWorkspaceDoc(relativePath));
-    quickDocButtons.put(normalizePath(relativePath), button);
-    return button;
-  }
-
-  private Button copyCommandButton(String label, String command) {
-    Button b = new Button(label);
-    b.setOnAction(e -> {
-      ClipboardContent cc = new ClipboardContent();
-      cc.putString(command);
-      Clipboard.getSystemClipboard().setContent(cc);
-      statsLabel.setText("Copied command: " + command);
-    });
-    return b;
   }
 
   private void rebuildIndex() {
@@ -390,7 +336,7 @@ public class HelpCenterView extends BorderPane {
     String filter = rawFilter == null ? "" : rawFilter.trim().toLowerCase(Locale.ROOT);
     String selectedPath = activeDocEntry == null ? "" : canonicalPath(activeDocEntry.file());
 
-    TreeItem<HelpNode> root = new TreeItem<>(HelpNode.section(new GuideSection("root", "Docs", "")));
+    TreeItem<HelpNode> root = new TreeItem<>(HelpNode.section(new GuideSection("root", "Docs", ""), 0));
     root.setExpanded(true);
     visibleDocNodes.clear();
 
@@ -406,7 +352,7 @@ public class HelpCenterView extends BorderPane {
       docsForSection.sort(this::compareDocs);
       if (docsForSection.isEmpty()) continue;
 
-      TreeItem<HelpNode> sectionItem = new TreeItem<>(HelpNode.section(section));
+      TreeItem<HelpNode> sectionItem = new TreeItem<>(HelpNode.section(section, docsForSection.size()));
       sectionItem.setExpanded(true);
       for (DocEntry entry : docsForSection) {
         TreeItem<HelpNode> docItem = new TreeItem<>(HelpNode.doc(entry));
@@ -450,36 +396,6 @@ public class HelpCenterView extends BorderPane {
     }
   }
 
-  private void updateQuickDocButtonState() {
-    for (Map.Entry<String, Button> e : quickDocButtons.entrySet()) {
-      e.getValue().setDisable(!workspaceDocIndex.containsKey(e.getKey()));
-    }
-  }
-
-  private void selectWorkspaceDoc(String relativePath) {
-    DocEntry entry = workspaceDocIndex.get(normalizePath(relativePath));
-    if (entry == null) {
-      statsLabel.setText("Missing document: " + relativePath);
-      return;
-    }
-    if (!filterField.getText().isBlank()) {
-      filterField.clear();
-    }
-    TreeItem<HelpNode> node = visibleDocNodes.get(canonicalPath(entry.file()));
-    if (node == null) {
-      rebuildGuideTree("");
-      node = visibleDocNodes.get(canonicalPath(entry.file()));
-    }
-    if (node == null) {
-      statsLabel.setText("Cannot locate document: " + relativePath);
-      return;
-    }
-    expandAncestors(node);
-    docsTree.getSelectionModel().select(node);
-    docsTree.scrollTo(Math.max(0, docsTree.getRow(node) - 2));
-    showDoc(entry);
-  }
-
   private void showDoc(DocEntry entry) {
     if (entry == null) {
       showGuidePlaceholder(
@@ -517,15 +433,6 @@ public class HelpCenterView extends BorderPane {
     } catch (Exception ex) {
       statsLabel.setText("Cannot reveal file: " + ex.getMessage());
     }
-  }
-
-  private void copySelectedPath() {
-    DocEntry entry = selectedDocEntry();
-    if (entry == null) return;
-    ClipboardContent cc = new ClipboardContent();
-    cc.putString(entry.file().getAbsolutePath());
-    Clipboard.getSystemClipboard().setContent(cc);
-    statsLabel.setText("Copied path: " + entry.relativePath());
   }
 
   private DocEntry selectedDocEntry() {
@@ -1108,16 +1015,8 @@ public class HelpCenterView extends BorderPane {
         }
       } catch (Exception ignored) {
       }
-      ClipboardContent filePath = new ClipboardContent();
-      filePath.putString(localPath.toString());
-      Clipboard.getSystemClipboard().setContent(filePath);
-      statsLabel.setText("Copied file path: " + localPath);
       return;
     }
-    ClipboardContent cc = new ClipboardContent();
-    cc.putString(resolvedTarget);
-    Clipboard.getSystemClipboard().setContent(cc);
-    statsLabel.setText("Copied link: " + resolvedTarget);
   }
 
   private MarkdownImage parseStandaloneImage(String line) {
@@ -1392,13 +1291,13 @@ public class HelpCenterView extends BorderPane {
 
   private record GuideSection(String key, String title, String subtitle) {}
 
-  private record HelpNode(String title, String subtitle, DocEntry doc, boolean section) {
-    private static HelpNode section(GuideSection section) {
-      return new HelpNode(section.title(), section.subtitle(), null, true);
+  private record HelpNode(String title, String subtitle, DocEntry doc, boolean section, int documentCount) {
+    private static HelpNode section(GuideSection section, int documentCount) {
+      return new HelpNode(section.title(), section.subtitle(), null, true, documentCount);
     }
 
     private static HelpNode doc(DocEntry entry) {
-      return new HelpNode(entry.title(), entry.summary(), entry, false);
+      return new HelpNode(entry.title(), entry.summary(), entry, false, 0);
     }
   }
 

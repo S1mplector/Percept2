@@ -84,6 +84,7 @@ import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -1846,7 +1847,7 @@ public class EditorApp extends Application {
     rightTabs.getStyleClass().add("sidebar-tab-pane");
     rightTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
     rightTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
-    tabRightAdd = new Tab("", new Region()); tabRightAdd.setClosable(false);
+    tabRightAdd = new Tab("", createSidebarEmptyState("right")); tabRightAdd.setClosable(false);
     tabRightAdd.setGraphic(CssIcon.plus("#8cd48c"));
     tabRightAdd.getStyleClass().add("sidebar-add-tab");
     rightTabs.getTabs().addAll(tabRightAdd);
@@ -1875,7 +1876,7 @@ public class EditorApp extends Application {
     leftTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
     leftTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
     tabProject = new Tab("Project", projView); tabProject.setClosable(false);
-    tabLeftAdd = new Tab("", new Region()); tabLeftAdd.setClosable(false);
+    tabLeftAdd = new Tab("", createSidebarEmptyState("left")); tabLeftAdd.setClosable(false);
     tabLeftAdd.setGraphic(CssIcon.plus("#8cd48c"));
     tabLeftAdd.getStyleClass().add("sidebar-add-tab");
     leftTabs.getTabs().addAll(tabProject, tabLeftAdd);
@@ -4228,10 +4229,40 @@ public class EditorApp extends Application {
     }
     if (chooser == null) return;
     Tab fallback = firstRegularTab(pane, getAddTabForPane(pane));
+    Tab addTab = getAddTabForPane(pane);
     pane.getTabs().remove(chooser);
     if (fallback != null && pane.getTabs().contains(fallback)) {
       pane.getSelectionModel().select(fallback);
+    } else if (addTab != null && pane.getTabs().contains(addTab)) {
+      pane.getSelectionModel().select(addTab);
     }
+  }
+
+  private StackPane createSidebarEmptyState(String side) {
+    Region plusIcon = CssIcon.plus("#8cd48c");
+    plusIcon.setScaleX(1.6);
+    plusIcon.setScaleY(1.6);
+
+    Label title = new Label("No sidebar tools added");
+    title.getStyleClass().add("sidebar-empty-title");
+
+    String placement = "right".equalsIgnoreCase(side) ? "right" : "left";
+    Label message = new Label(
+        "Click the green + tab above to add a " + placement + " sidebar tool like Help, Text Editor, Puppeteer Launcher, or Scene Lighting Studio.");
+    message.getStyleClass().add("sidebar-empty-copy");
+    message.setWrapText(true);
+
+    VBox content = new VBox(12, plusIcon, title, message);
+    content.getStyleClass().add("sidebar-empty-state");
+    content.setAlignment(Pos.CENTER);
+    content.setFillWidth(true);
+    content.setMaxWidth(260);
+    content.setPadding(new Insets(24));
+
+    StackPane shell = new StackPane(content);
+    shell.getStyleClass().add("sidebar-empty-shell");
+    shell.setPadding(new Insets(18));
+    return shell;
   }
 
   private boolean isInsideChooserIconButton(Object target) {

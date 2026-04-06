@@ -1923,9 +1923,25 @@
   -fx-text-fill: #8f8f8f;
 }
 
+.help-guide-section-count {
+  -fx-background-color: #1f2328;
+  -fx-border-color: #343a43;
+  -fx-border-width: 1;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-padding: 3 8 3 8;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #c6ced9;
+}
+
 .help-doc-card {
   -fx-spacing: 1;
   -fx-padding: 1 0 1 0;
+}
+
+.help-doc-icon {
+  -fx-opacity: 0.96;
 }
 
 .help-doc-title {
@@ -2692,6 +2708,32 @@
 .sidebar-tab-pane .tab.sidebar-add-tab .ikonli-font-icon,
 .sidebar-tab-pane .tab.sidebar-add-tab .icon {
   -fx-background-color: #8cd48c;
+}
+
+.sidebar-empty-shell {
+  -fx-background-color: #141414;
+}
+
+.sidebar-empty-state {
+  -fx-background-color: rgba(26, 26, 26, 0.94);
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 1;
+  -fx-background-radius: 12;
+  -fx-border-radius: 12;
+}
+
+.sidebar-empty-title {
+  -fx-font-size: 15px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #ececec;
+}
+
+.sidebar-empty-copy {
+  -fx-font-size: 11px;
+  -fx-text-fill: #9fa4ab;
+  -fx-line-spacing: 2px;
+  -fx-text-alignment: center;
+  -fx-alignment: center;
 }
 
 /* Panel chooser icon buttons (dock / pop-out) */
