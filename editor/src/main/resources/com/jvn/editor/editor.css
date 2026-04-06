@@ -2620,11 +2620,21 @@
   -fx-background-color: #171717;
 }
 
+.sidebar-tab-pane > .tab-header-area {
+  -fx-padding: 0 8 0 8;
+}
+
+.sidebar-tab-pane > .tab-header-area > .headers-region {
+  -fx-padding: 0 4 0 0;
+}
+
 .sidebar-tab-pane .tab {
   -fx-background-color: #202020;
   -fx-background-insets: 0;
   -fx-background-radius: 6 6 0 0;
-  -fx-padding: 0 8 0 0;
+  -fx-padding: 0 14 0 10;
+  -fx-border-color: transparent;
+  -fx-border-width: 0;
 }
 
 .sidebar-tab-pane .tab:hover {
@@ -2636,16 +2646,20 @@
   -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.22), 8, 0.22, 0, 0);
 }
 
+.sidebar-tab-pane .tab .tab-container {
+  -fx-padding: 0 3 0 3;
+}
+
 .sidebar-tab-pane .tab .tab-close-button {
   -fx-opacity: 0.62;
   -fx-padding: 0;
-  -fx-translate-x: 4px;
-  -fx-min-width: 10px;
-  -fx-pref-width: 10px;
-  -fx-max-width: 10px;
-  -fx-min-height: 10px;
-  -fx-pref-height: 10px;
-  -fx-max-height: 10px;
+  -fx-translate-x: 1px;
+  -fx-min-width: 9px;
+  -fx-pref-width: 9px;
+  -fx-max-width: 9px;
+  -fx-min-height: 9px;
+  -fx-pref-height: 9px;
+  -fx-max-height: 9px;
   -fx-background-color: #8f949c;
   -fx-background-insets: 0;
   -fx-background-radius: 999;
@@ -2653,7 +2667,7 @@
 }
 
 .sidebar-tab-pane .tab .tab-label {
-  -fx-padding: 0 6 0 0;
+  -fx-padding: 0 16 0 0;
 }
 
 .sidebar-tab-pane .tab:hover .tab-close-button,
@@ -2670,15 +2684,19 @@
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab {
-  -fx-background-color: #1f1f1f;
+  -fx-background-color: #1b1d1b;
   -fx-background-insets: 0;
-  -fx-background-radius: 6 6 0 0;
-  -fx-padding: 0 10 0 10;
-  -fx-translate-x: 8px;
+  -fx-background-radius: 5 5 0 0;
+  -fx-padding: 0 9 0 9;
+  -fx-translate-x: 18px;
+  -fx-border-color: #2a332d;
+  -fx-border-width: 1 1 0 1;
+  -fx-border-radius: 5 5 0 0;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab:hover {
-  -fx-background-color: #252925;
+  -fx-background-color: #202420;
+  -fx-border-color: #35553d;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab .tab-label {
@@ -2697,7 +2715,7 @@
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab .tab-container {
-  -fx-padding: 0;
+  -fx-padding: 0 4 0 4;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab .tab-label,
@@ -2707,7 +2725,13 @@
 
 .sidebar-tab-pane .tab.sidebar-add-tab .ikonli-font-icon,
 .sidebar-tab-pane .tab.sidebar-add-tab .icon {
-  -fx-background-color: #8cd48c;
+  -fx-background-color: #7fd784;
+  -fx-effect: none;
+}
+
+.sidebar-tab-pane .tab.sidebar-add-tab:selected {
+  -fx-background-color: #1b1d1b;
+  -fx-effect: none;
 }
 
 .sidebar-empty-shell {

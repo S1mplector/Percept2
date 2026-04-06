@@ -9,15 +9,33 @@ import java.util.function.Supplier;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
+import com.jvn.editor.ui.CssIcon;
 
+import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.paint.Color;
 
 final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entry> {
     private static final String OWNER_STYLE =
         "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
         "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 2 4; -fx-font-size: 11px;";
+    private static final String CELL_ACTION_STYLE =
+        "-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 2 4; " +
+        "-fx-background-radius: 4; -fx-border-radius: 4;";
+    private static final String CELL_ACTION_HOVER_STYLE =
+        "-fx-background-color: rgba(255,255,255,0.08); -fx-border-color: transparent; -fx-padding: 2 4; " +
+        "-fx-background-radius: 4; -fx-border-radius: 4;";
 
     private final List<PuppeteerEasingPresetStore.Preset> presets = new ArrayList<>();
     private List<PuppeteerEasingCatalog.Entry> entries = List.of();
@@ -104,7 +122,57 @@ final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entr
         try {
             PuppeteerEasingPresetStore.save(projectRoot, updated);
             reloadProjectPresets();
-            setCurrentSpec(resolved);
+            selectEntryById("preset:" + presetId, resolved);
+            return true;
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
+    boolean renamePreset(String presetEntryId, String preferredName) {
+        if (projectRoot == null) return false;
+        String presetId = stripPresetPrefix(presetEntryId);
+        if (presetId == null || presetId.isBlank()) return false;
+        int index = indexOfPreset(presetId);
+        if (index < 0) return false;
+
+        PuppeteerEasingPresetStore.Preset existing = presets.get(index);
+        String name = PuppeteerEasingPresetStore.normalizeName(
+            preferredName != null ? preferredName : existing.name());
+        if (name.isBlank()) return false;
+        if (existing.name().equals(name)) return true;
+
+        List<PuppeteerEasingPresetStore.Preset> updated = new ArrayList<>(presets);
+        for (PuppeteerEasingPresetStore.Preset preset : updated) {
+            if (!preset.id().equals(presetId) && preset.name().equalsIgnoreCase(name)) {
+                return false;
+            }
+        }
+        updated.set(index, new PuppeteerEasingPresetStore.Preset(existing.id(), name, existing.spec()));
+        try {
+            PuppeteerEasingPresetStore.save(projectRoot, updated);
+            reloadProjectPresets();
+            selectEntryById("preset:" + presetId, existing.spec());
+            return true;
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
+    boolean deletePreset(String presetEntryId) {
+        if (projectRoot == null) return false;
+        String presetId = stripPresetPrefix(presetEntryId);
+        if (presetId == null || presetId.isBlank()) return false;
+        int index = indexOfPreset(presetId);
+        if (index < 0) return false;
+
+        EasingSpec currentSpec = getSelectedSpec();
+        List<PuppeteerEasingPresetStore.Preset> updated = new ArrayList<>(presets);
+        updated.removeIf(preset -> preset.id().equals(presetId));
+        try {
+            PuppeteerEasingPresetStore.save(projectRoot, updated);
+            reloadProjectPresets();
+            setCurrentSpec(currentSpec);
             return true;
         } catch (IOException ex) {
             return false;
@@ -149,13 +217,67 @@ final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entr
         }
     }
 
+    private void selectEntryById(String entryId, EasingSpec fallbackSpec) {
+        if (entryId != null) {
+            for (PuppeteerEasingCatalog.Entry entry : entries) {
+                if (entryId.equals(entry.id())) {
+                    applySelection(entry, false);
+                    return;
+                }
+            }
+        }
+        setCurrentSpec(fallbackSpec);
+    }
+
     private ListCell<PuppeteerEasingCatalog.Entry> createCell(boolean buttonCell) {
         return new ListCell<>() {
+            private final Label textLabel = new Label();
+            private final Region spacer = new Region();
+            private final Button renameButton = createCellActionButton(
+                CssIcon.edit(Color.web("#8cc5ff").toString()),
+                "Rename custom curve");
+            private final Button deleteButton = createCellActionButton(
+                CssIcon.delete(Color.web("#f38ba8").toString()),
+                "Delete custom curve");
+            private final HBox graphicRow = new HBox(8, textLabel, spacer, renameButton, deleteButton);
+
+            {
+                graphicRow.setAlignment(Pos.CENTER_LEFT);
+                HBox.setHgrow(spacer, Priority.ALWAYS);
+                setContentDisplay(ContentDisplay.TEXT_ONLY);
+
+                renameButton.setOnAction(event -> {
+                    event.consume();
+                    PuppeteerEasingCatalog.Entry entry = getItem();
+                    if (entry == null || !entry.isPreset()) return;
+                    TextInputDialog dialog = new TextInputDialog(entry.label());
+                    dialog.setTitle("Rename Custom Curve");
+                    dialog.setHeaderText("Rename custom curve");
+                    dialog.setContentText("Name:");
+                    dialog.initOwner(getScene() == null ? null : getScene().getWindow());
+                    dialog.showAndWait().ifPresent(value -> renamePreset(entry.id(), value));
+                });
+                deleteButton.setOnAction(event -> {
+                    event.consume();
+                    PuppeteerEasingCatalog.Entry entry = getItem();
+                    if (entry == null || !entry.isPreset()) return;
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+                    confirm.setTitle("Delete Custom Curve");
+                    confirm.setHeaderText("Delete custom curve?");
+                    confirm.setContentText("Remove '" + entry.label() + "' from this project?");
+                    confirm.initOwner(getScene() == null ? null : getScene().getWindow());
+                    confirm.showAndWait()
+                        .filter(ButtonType.OK::equals)
+                        .ifPresent(ignored -> deletePreset(entry.id()));
+                });
+            }
+
             @Override
             protected void updateItem(PuppeteerEasingCatalog.Entry item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
                     setText(null);
+                    setGraphic(null);
                     setTooltip(null);
                     setStyle("");
                     return;
@@ -163,10 +285,34 @@ final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entr
                 String text = buttonCell && !item.isPreset()
                     ? item.label()
                     : item.label() + "  [" + item.badge() + "]";
-                setText(text);
                 setTooltip(new Tooltip(item.spec().toDslString()));
+                if (buttonCell || !item.isPreset()) {
+                    setText(text);
+                    setGraphic(null);
+                    setContentDisplay(ContentDisplay.TEXT_ONLY);
+                } else {
+                    textLabel.setText(text);
+                    textLabel.setStyle("-fx-text-fill: #f0d98a;");
+                    setText(null);
+                    setGraphic(graphicRow);
+                    setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+                }
                 setStyle(item.isPreset() ? "-fx-text-fill: #f0d98a;" : "");
             }
         };
+    }
+
+    private static Button createCellActionButton(Region icon, String tooltipText) {
+        Button button = new Button();
+        button.setGraphic(icon);
+        button.setTooltip(new Tooltip(tooltipText));
+        button.setFocusTraversable(false);
+        button.setMnemonicParsing(false);
+        button.setStyle(CELL_ACTION_STYLE);
+        button.setOnMouseEntered(event -> button.setStyle(CELL_ACTION_HOVER_STYLE));
+        button.setOnMouseExited(event -> button.setStyle(CELL_ACTION_STYLE));
+        button.setOnMousePressed(event -> event.consume());
+        button.setOnMouseReleased(event -> event.consume());
+        return button;
     }
 }

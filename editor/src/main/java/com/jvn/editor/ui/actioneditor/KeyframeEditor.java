@@ -29,11 +29,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.CubicCurve;
 import javafx.scene.shape.Line;
-import javafx.scene.shape.Shape;
-import javafx.scene.shape.StrokeLineCap;
 
 public class KeyframeEditor extends VBox {
     enum SelectionTargetKind {
@@ -41,15 +37,6 @@ public class KeyframeEditor extends VBox {
         ENTITY,
         GROUP,
         RUNTIME_CAMERA
-    }
-
-    private enum CurveQuickPresetIcon {
-        LINEAR,
-        EASE,
-        EASE_IN,
-        EASE_OUT,
-        EASE_IN_OUT,
-        OVERSHOOT
     }
 
     private final Label lblTargetCaption;
@@ -97,7 +84,6 @@ public class KeyframeEditor extends VBox {
     private final TextField tfTimeOffset;
     private final TextField tfValueOffset;
     private final Button btnApplyBatch;
-    private final List<Button> curveQuickPresetButtons = new ArrayList<>();
     private final Button btnPlayStopAnim;
     private final SpringParameterEditor springParamEditor;
     private final List<Keyframe> adjacentKeyframes = new ArrayList<>();
@@ -418,16 +404,6 @@ public class KeyframeEditor extends VBox {
         HBox curveToolbar = new HBox(8, new Label("Curve Workspace"), createSpacer(), btnPlayStopAnim, btnEditCurve, btnUpdateCurvePreset, btnExpandCurveEditor);
         curveToolbar.setAlignment(Pos.CENTER_LEFT);
         ((Label) curveToolbar.getChildren().get(0)).setStyle(SECTION_TITLE_STYLE);
-        FlowPane curveQuickPresetBar = new FlowPane(8, 8);
-        curveQuickPresetBar.getChildren().addAll(
-            createCurveQuickPresetButton("Linear", "0,0 → 1,1 straight timing", EasingSpec.cubicBezier(0.0, 0.0, 1.0, 1.0), CurveQuickPresetIcon.LINEAR, "#d4d8df"),
-            createCurveQuickPresetButton("Ease", "Standard balanced ease curve", EasingSpec.cubicBezier(0.25, 0.10, 0.25, 1.00), CurveQuickPresetIcon.EASE, "#f5c46b"),
-            createCurveQuickPresetButton("Ease In", "Fast finish with slower start", EasingSpec.cubicBezier(0.42, 0.0, 1.0, 1.0), CurveQuickPresetIcon.EASE_IN, "#8ab4f8"),
-            createCurveQuickPresetButton("Ease Out", "Fast start with softer finish", EasingSpec.cubicBezier(0.0, 0.0, 0.58, 1.0), CurveQuickPresetIcon.EASE_OUT, "#8fd19e"),
-            createCurveQuickPresetButton("Ease In-Out", "Symmetric ease in and out", EasingSpec.cubicBezier(0.42, 0.0, 0.58, 1.0), CurveQuickPresetIcon.EASE_IN_OUT, "#c49cf8"),
-            createCurveQuickPresetButton("Overshoot", "A punchy back-style overshoot curve", EasingSpec.cubicBezier(0.34, 1.56, 0.64, 1.0), CurveQuickPresetIcon.OVERSHOOT, "#ff9d78")
-        );
-        curveQuickPresetBar.setMaxWidth(Double.MAX_VALUE);
         FlowPane curveTransformBar = new FlowPane(8, 8);
         curveTransformBar.getChildren().addAll(btnReverseCurve, btnClampCurve, btnAddCurvePoint, btnRemoveCurvePoint);
         curveTransformBar.setMaxWidth(Double.MAX_VALUE);
@@ -453,7 +429,6 @@ public class KeyframeEditor extends VBox {
             8,
             curveToolbar,
             lblCurvePresetHint,
-            curveQuickPresetBar,
             curveTransformBar,
             curveSpecRow,
             curveParamsRow,
@@ -692,50 +667,6 @@ public class KeyframeEditor extends VBox {
         btnExpandCurveEditor.setTooltip(new Tooltip(expanded
             ? "Return the curve editor to its compact height"
             : "Grow the curve editor inside the left panel"));
-    }
-
-    private Button createCurveQuickPresetButton(String label, String tooltipText, EasingSpec spec, CurveQuickPresetIcon iconType, String iconColor) {
-        Button button = new Button(label);
-        button.setStyle(SECONDARY_BUTTON_STYLE);
-        button.setTooltip(new Tooltip(tooltipText));
-        button.setGraphic(createCurvePresetGraphic(iconType, iconColor));
-        button.setContentDisplay(ContentDisplay.LEFT);
-        button.setGraphicTextGap(6);
-        button.setOnAction(e -> applyQuickCurveSpec(spec));
-        curveQuickPresetButtons.add(button);
-        return button;
-    }
-
-    private Node createCurvePresetGraphic(CurveQuickPresetIcon iconType, String colorHex) {
-        Pane pane = new Pane();
-        pane.setMinSize(16, 16);
-        pane.setPrefSize(16, 16);
-        pane.setMaxSize(16, 16);
-        pane.setMouseTransparent(true);
-
-        Shape curveShape;
-        switch (iconType) {
-            case LINEAR -> curveShape = new Line(2, 13.5, 13.5, 2);
-            case EASE -> curveShape = new CubicCurve(2, 13.5, 4.5, 12.5, 10.5, 3.0, 13.5, 2);
-            case EASE_IN -> curveShape = new CubicCurve(2, 13.5, 8.5, 13.5, 12.0, 8.0, 13.5, 2);
-            case EASE_OUT -> curveShape = new CubicCurve(2, 13.5, 3.5, 8.0, 7.0, 2.5, 13.5, 2);
-            case EASE_IN_OUT -> curveShape = new CubicCurve(2, 13.5, 4.5, 13.5, 11.0, 2.0, 13.5, 2);
-            case OVERSHOOT -> curveShape = new CubicCurve(2, 13.5, 5.5, 17.0, 10.5, -1.0, 13.5, 2);
-            default -> curveShape = new Line(2, 13.5, 13.5, 2);
-        }
-
-        styleCurvePresetShape(curveShape, colorHex);
-        pane.getChildren().add(curveShape);
-        return pane;
-    }
-
-    private void styleCurvePresetShape(Shape shape, String colorHex) {
-        if (shape == null) return;
-        Color strokeColor = Color.web(colorHex == null || colorHex.isBlank() ? "#d0d0d0" : colorHex);
-        shape.setFill(Color.TRANSPARENT);
-        shape.setStroke(strokeColor);
-        shape.setStrokeWidth(1.9);
-        shape.setStrokeLineCap(StrokeLineCap.ROUND);
     }
 
     private VBox buildEditorRow(String title, String subtitle, Node editorNode, Label stepHint) {
@@ -1111,15 +1042,6 @@ public class KeyframeEditor extends VBox {
         if (spec == null || currentKeyframe == null || currentSelection.size() > 1) return;
         applyExplicitEasingSpec(spec);
         if (notifyChange && onKeyframeChanged != null) onKeyframeChanged.run();
-    }
-
-    private void applyQuickCurveSpec(EasingSpec spec) {
-        if (!isDirectCurveEditAvailable() || spec == null) return;
-        EasingSpec editable = toEditableCurveSpec(spec);
-        syncCurveEditBaseline(editable);
-        applyExplicitEasingSpec(editable);
-        curveEditor.requestFocus();
-        if (onKeyframeChanged != null) onKeyframeChanged.run();
     }
 
     private void addCurrentCurvePoint() {
@@ -1597,9 +1519,6 @@ public class KeyframeEditor extends VBox {
         for (TextField field : curveParamFields()) {
             field.setDisable(disabled);
         }
-        for (Button button : curveQuickPresetButtons) {
-            button.setDisable(disabled);
-        }
         if (!disabled) {
             updateCurveEditorState();
         }
@@ -1706,9 +1625,6 @@ public class KeyframeEditor extends VBox {
         boolean directCurveEdit = singleKeyframe && tween;
         tfCurveSpec.setDisable(!directCurveEdit);
         btnApplyCurveSpec.setDisable(!directCurveEdit);
-        for (Button button : curveQuickPresetButtons) {
-            button.setDisable(!directCurveEdit);
-        }
         btnReverseCurve.setDisable(!directCurveEdit);
         btnClampCurve.setDisable(!directCurveEdit);
         btnAddCurvePoint.setDisable(!directCurveEdit);

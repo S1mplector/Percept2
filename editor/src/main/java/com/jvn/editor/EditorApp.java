@@ -1848,7 +1848,7 @@ public class EditorApp extends Application {
     rightTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
     rightTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
     tabRightAdd = new Tab("", createSidebarEmptyState("right")); tabRightAdd.setClosable(false);
-    tabRightAdd.setGraphic(CssIcon.plus("#8cd48c"));
+    tabRightAdd.setGraphic(CssIcon.plusBold("#8cd48c"));
     tabRightAdd.getStyleClass().add("sidebar-add-tab");
     rightTabs.getTabs().addAll(tabRightAdd);
     installAddTabBehavior(rightTabs, tabRightAdd, this::showRightAddMenu);
@@ -1877,7 +1877,7 @@ public class EditorApp extends Application {
     leftTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
     tabProject = new Tab("Project", projView); tabProject.setClosable(false);
     tabLeftAdd = new Tab("", createSidebarEmptyState("left")); tabLeftAdd.setClosable(false);
-    tabLeftAdd.setGraphic(CssIcon.plus("#8cd48c"));
+    tabLeftAdd.setGraphic(CssIcon.plusBold("#8cd48c"));
     tabLeftAdd.getStyleClass().add("sidebar-add-tab");
     leftTabs.getTabs().addAll(tabProject, tabLeftAdd);
     installAddTabBehavior(leftTabs, tabLeftAdd, this::showLeftAddMenu);
@@ -4239,7 +4239,7 @@ public class EditorApp extends Application {
   }
 
   private StackPane createSidebarEmptyState(String side) {
-    Region plusIcon = CssIcon.plus("#8cd48c");
+    Region plusIcon = CssIcon.plusBold("#8cd48c");
     plusIcon.setScaleX(1.6);
     plusIcon.setScaleY(1.6);
 

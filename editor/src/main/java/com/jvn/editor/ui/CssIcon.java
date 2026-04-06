@@ -16,6 +16,8 @@ public final class CssIcon {
 
   private static final String PATH_PLUS =
       "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
+  private static final String PATH_PLUS_BOLD =
+      "M17 10h-5V5H9v5H4v3h5v5h3v-5h5z";
   private static final String PATH_MINUS =
       "M19 13H5v-2h14v2z";
   private static final String PATH_ARROW_UP =
@@ -86,10 +88,15 @@ public final class CssIcon {
       "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zm-2 0H5V5h14v14zm-1-4-3.5-4.5-2.5 3.01L10.5 12 7 16h11z";
   private static final String PATH_DOCUMENT =
       "M6 2h8l5 5v15H6c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm7 1.5V8h4.5L13 3.5zm-5 8h8v1.5H8zm0 3.5h8v1.5H8zm0-7h3.5v1.5H8z";
+  private static final String PATH_EDIT =
+      "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92L5.92 19.58zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z";
+  private static final String PATH_DELETE =
+      "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm3.46-9h1.5v8h-1.5v-8zm3.58 0h1.5v8h-1.5v-8zM15.5 4l-1-1h-5l-1 1H5v2h14V4z";
 
   // ── Factory methods ──
 
   public static Region plus(String color)     { return icon(PATH_PLUS, color, 14); }
+  public static Region plusBold(String color) { return icon(PATH_PLUS_BOLD, color, 14); }
   public static Region minus(String color)    { return icon(PATH_MINUS, color, 14); }
   public static Region arrowUp(String color)  { return icon(PATH_ARROW_UP, color, 12); }
   public static Region arrowDown(String color){ return icon(PATH_ARROW_DOWN, color, 12); }
@@ -125,9 +132,12 @@ public final class CssIcon {
   public static Region person(String color) { return icon(PATH_PERSON, color, 14); }
   public static Region landscape(String color) { return icon(PATH_LANDSCAPE, color, 14); }
   public static Region document(String color) { return icon(PATH_DOCUMENT, color, 14); }
+  public static Region edit(String color) { return icon(PATH_EDIT, color, 14); }
+  public static Region delete(String color) { return icon(PATH_DELETE, color, 14); }
 
   /** Convenience: icon at default muted color. */
   public static Region plus()     { return plus("#b0b8c8"); }
+  public static Region plusBold() { return plusBold("#b0b8c8"); }
   public static Region minus()    { return minus("#b0b8c8"); }
   public static Region arrowUp()  { return arrowUp("#b0b8c8"); }
   public static Region arrowDown(){ return arrowDown("#b0b8c8"); }
@@ -163,6 +173,8 @@ public final class CssIcon {
   public static Region person() { return person("#b0b8c8"); }
   public static Region landscape() { return landscape("#b0b8c8"); }
   public static Region document() { return document("#b0b8c8"); }
+  public static Region edit() { return edit("#b0b8c8"); }
+  public static Region delete() { return delete("#b0b8c8"); }
 
   /**
    * Creates a section header label with a leading CSS icon.
