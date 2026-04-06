@@ -2482,6 +2482,7 @@
   -fx-background-color: #202020;
   -fx-background-insets: 0;
   -fx-background-radius: 6 6 0 0;
+  -fx-padding: 0 8 0 0;
 }
 
 .sidebar-tab-pane .tab:hover {
@@ -2494,11 +2495,36 @@
 }
 
 .sidebar-tab-pane .tab .tab-close-button {
-  -fx-opacity: 0;
+  -fx-opacity: 0.62;
   -fx-padding: 0;
-  -fx-max-width: 0;
-  -fx-pref-width: 0;
-  -fx-min-width: 0;
+  -fx-translate-x: 4px;
+  -fx-min-width: 10px;
+  -fx-pref-width: 10px;
+  -fx-max-width: 10px;
+  -fx-min-height: 10px;
+  -fx-pref-height: 10px;
+  -fx-max-height: 10px;
+  -fx-background-color: #8f949c;
+  -fx-background-insets: 0;
+  -fx-background-radius: 999;
+  -fx-shape: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z";
+}
+
+.sidebar-tab-pane .tab .tab-label {
+  -fx-padding: 0 6 0 0;
+}
+
+.sidebar-tab-pane .tab:hover .tab-close-button,
+.sidebar-tab-pane .tab:selected .tab-close-button {
+  -fx-opacity: 0.88;
+}
+
+.sidebar-tab-pane .tab .tab-close-button:hover {
+  -fx-background-color: #cfd5df;
+}
+
+.sidebar-tab-pane .tab .tab-close-button:pressed {
+  -fx-background-color: #717783;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab {
@@ -2511,6 +2537,16 @@
 
 .sidebar-tab-pane .tab.sidebar-add-tab .tab-label {
   -fx-font-weight: 700;
+}
+
+.sidebar-tab-pane .tab.sidebar-add-tab .tab-close-button {
+  -fx-opacity: 0;
+  -fx-min-width: 0;
+  -fx-pref-width: 0;
+  -fx-max-width: 0;
+  -fx-min-height: 0;
+  -fx-pref-height: 0;
+  -fx-max-height: 0;
 }
 
 /* Panel chooser icon buttons (dock / pop-out) */

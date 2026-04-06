@@ -66,6 +66,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.text.TextAlignment;
@@ -1532,7 +1533,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private void copySelectedExport() {
     String format = exportFormatBox.getValue();
-    if (DEFAULT_EXPORT_SETUP.equals(format)) {
+    if (DEFAULT_EXPORT_SETUP.equals(format) || DEFAULT_EXPORT_STAGE_PRESET.equals(format)) {
       copyFullSetup();
       return;
     }
@@ -3191,7 +3192,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     exportNameField.setDisable(!customExportNameCheck.isSelected());
     File directory = resolveExportDirectory();
     exportDirectoryField.setText(directory == null ? "(choose folder)" : describePathRelativeToProject(directory));
-    exportInfoLabel.setText("PNG: " + buildTintPngFileName() + "\nSetup: " + buildTintSetupFileName());
+    exportInfoLabel.setText("PNG: " + buildTintPngFileName()
+        + "\nSetup: " + buildTintSetupFileName()
+        + "\nStage: " + buildStagePresetFileName());
   }
 
   private File configuredExportDirectory() {
@@ -3275,6 +3278,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private String buildTintSetupFileName() {
     return buildExportFileName(currentExportBaseName(), "tintsetup");
+  }
+
+  private String buildStagePresetFileName() {
+    return buildExportFileName(currentExportBaseName(), "stagepreset");
   }
 
   static String buildDefaultTintExportStem(String tag) {
@@ -3924,6 +3931,17 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     button.setMaxSize(28, 28);
     button.setFocusTraversable(false);
     if (tooltip != null && !tooltip.isBlank()) button.setTooltip(new Tooltip(tooltip));
+    button.setOnAction(e -> {
+      if (action != null) action.run();
+    });
+    return button;
+  }
+
+  private Button presetChip(String text, Runnable action) {
+    Button button = new Button(text);
+    button.setFocusTraversable(false);
+    button.setMinHeight(24);
+    button.setStyle("-fx-background-color: #262626; -fx-background-radius: 999; -fx-padding: 3 10 3 10;");
     button.setOnAction(e -> {
       if (action != null) action.run();
     });
@@ -4606,6 +4624,41 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     redrawPreview();
   }
 
+  private void toggleOccluderPolyDrawMode() {
+    disableZoneAllDrawModes();
+    disableLightShapeDrawModes();
+    disableOccluderFreehandDrawMode();
+    occluderPolyDrawMode = !occluderPolyDrawMode;
+    nailPoints.clear();
+    resetDrawButtons();
+    if (occluderPolyDrawMode) {
+      occluderPolyDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
+      occluderPolyDrawToggleButton.setGraphic(CssIcon.polygon("#1a1a2e"));
+      status("Occluder polygon mode ON — click to place blocker vertices.");
+    } else {
+      status("Draw mode OFF.");
+    }
+    redrawPreview();
+  }
+
+  private void toggleOccluderFreehandDrawMode() {
+    disableZoneAllDrawModes();
+    disableLightShapeDrawModes();
+    disableOccluderPolyDrawMode();
+    occluderFreehandDrawMode = !occluderFreehandDrawMode;
+    drawingFreehand = false;
+    freehandPoints.clear();
+    resetDrawButtons();
+    if (occluderFreehandDrawMode) {
+      occluderFreehandDrawToggleButton.setStyle("-fx-background-color: #d4a017; -fx-padding: 4;");
+      occluderFreehandDrawToggleButton.setGraphic(CssIcon.freehand("#1a1a2e"));
+      status("Occluder freehand mode ON — draw a blocker and release to smooth it.");
+    } else {
+      status("Draw mode OFF.");
+    }
+    redrawPreview();
+  }
+
   private void resetDrawButtons() {
     zoneDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
     zoneDrawToggleButton.setGraphic(CssIcon.rectSelect("#d0d0d0"));
@@ -4620,6 +4673,14 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (lightFreehandDrawToggleButton != null) {
       lightFreehandDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
       lightFreehandDrawToggleButton.setGraphic(CssIcon.freehand("#9ad4ff"));
+    }
+    if (occluderPolyDrawToggleButton != null) {
+      occluderPolyDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
+      occluderPolyDrawToggleButton.setGraphic(CssIcon.polygon("#a6b7ff"));
+    }
+    if (occluderFreehandDrawToggleButton != null) {
+      occluderFreehandDrawToggleButton.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 4;");
+      occluderFreehandDrawToggleButton.setGraphic(CssIcon.freehand("#b6d8ff"));
     }
   }
 
@@ -4663,6 +4724,22 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private void disableLightShapeDrawModes() {
     disableLightPolyDrawMode();
     disableLightFreehandDrawMode();
+  }
+
+  private void disableOccluderPolyDrawMode() {
+    occluderPolyDrawMode = false;
+    nailPoints.clear();
+  }
+
+  private void disableOccluderFreehandDrawMode() {
+    occluderFreehandDrawMode = false;
+    drawingFreehand = false;
+    freehandPoints.clear();
+  }
+
+  private void disableOccluderShapeDrawModes() {
+    disableOccluderPolyDrawMode();
+    disableOccluderFreehandDrawMode();
   }
 
   private void appendFreehandPoint(double x, double y) {
@@ -5653,6 +5730,98 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     status("All scene lights cleared.");
   }
 
+  private void addDefaultOccluder() {
+    SceneOccluder occluder = new SceneOccluder("Occluder " + (sceneOccluders.size() + 1));
+    occluder.polygon.add(new double[]{0.35, 0.18});
+    occluder.polygon.add(new double[]{0.62, 0.18});
+    occluder.polygon.add(new double[]{0.62, 0.42});
+    occluder.polygon.add(new double[]{0.35, 0.42});
+    sceneOccluders.add(occluder);
+    refreshOccluderList();
+    selectOccluder(sceneOccluders.size() - 1);
+    invalidateTintCache();
+    persistGlobalState();
+    redrawPreview();
+    status("Added " + occluder.name + ".");
+  }
+
+  private void removeSelectedOccluder() {
+    if (selectedOccluderIndex < 0 || selectedOccluderIndex >= sceneOccluders.size()) {
+      status("Select an occluder first.");
+      return;
+    }
+    String name = sceneOccluders.get(selectedOccluderIndex).name;
+    sceneOccluders.remove(selectedOccluderIndex);
+    selectedOccluderIndex = Math.min(selectedOccluderIndex, sceneOccluders.size() - 1);
+    refreshOccluderList();
+    if (selectedOccluderIndex >= 0) selectOccluder(selectedOccluderIndex);
+    else occluderControlsSection.setDisable(true);
+    invalidateTintCache();
+    persistGlobalState();
+    redrawPreview();
+    status("Removed " + name + ".");
+  }
+
+  private void clearAllOccluders() {
+    if (sceneOccluders.isEmpty()) return;
+    sceneOccluders.clear();
+    selectedOccluderIndex = -1;
+    occluderControlsSection.setDisable(true);
+    refreshOccluderList();
+    invalidateTintCache();
+    persistGlobalState();
+    redrawPreview();
+    status("All occluders cleared.");
+  }
+
+  private void selectOccluder(int index) {
+    selectedOccluderIndex = (index >= 0 && index < sceneOccluders.size()) ? index : -1;
+    if (selectedOccluderIndex < 0) {
+      occluderControlsSection.setDisable(true);
+      refreshOccluderList();
+      return;
+    }
+    SceneOccluder occluder = sceneOccluders.get(selectedOccluderIndex);
+    occluderControlsSection.setDisable(false);
+    applyingState = true;
+    try {
+      occluderNameField.setText(occluder.name == null ? "" : occluder.name);
+      occluderOpacitySlider.setValue(occluder.opacity);
+      occluderSoftnessSlider.setValue(occluder.softness);
+      occluderEnabledCheck.setSelected(occluder.enabled);
+    } finally {
+      applyingState = false;
+    }
+    occluderListView.getSelectionModel().select(selectedOccluderIndex);
+    refreshOccluderList();
+    redrawPreview();
+  }
+
+  private void refreshOccluderList() {
+    applyingState = true;
+    try {
+      occluderListView.getItems().setAll(sceneOccluders);
+      if (selectedOccluderIndex >= 0 && selectedOccluderIndex < sceneOccluders.size()) {
+        occluderListView.getSelectionModel().select(selectedOccluderIndex);
+      }
+    } finally {
+      applyingState = false;
+    }
+  }
+
+  private void applyOccluderControlsToSelected() {
+    if (selectedOccluderIndex < 0 || selectedOccluderIndex >= sceneOccluders.size()) return;
+    SceneOccluder occluder = sceneOccluders.get(selectedOccluderIndex);
+    occluder.name = normalize(occluderNameField.getText());
+    occluder.opacity = occluderOpacitySlider.getValue();
+    occluder.softness = occluderSoftnessSlider.getValue();
+    occluder.enabled = occluderEnabledCheck.isSelected();
+    refreshOccluderList();
+    invalidateTintCache();
+    persistGlobalState();
+    redrawPreview();
+  }
+
   private void moveLightUp() {
     if (selectedLightIndex <= 0 || selectedLightIndex >= sceneLights.size()) return;
     SceneLight light = sceneLights.remove(selectedLightIndex);
@@ -5876,11 +6045,154 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     g.strokePolygon(xs, ys, 4);
   }
 
+  private static void drawEmitterHandle(GraphicsContext g,
+                                        double centerX,
+                                        double centerY,
+                                        double radius,
+                                        Color color,
+                                        boolean selected) {
+    double haloRadius = radius * (selected ? 3.8 : 3.0);
+    g.setFill(new RadialGradient(
+        0,
+        0,
+        centerX,
+        centerY,
+        haloRadius,
+        false,
+        CycleMethod.NO_CYCLE,
+        new Stop(0.0, Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.42 : 0.28)),
+        new Stop(0.48, Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.18 : 0.10)),
+        new Stop(1.0, Color.color(color.getRed(), color.getGreen(), color.getBlue(), 0.0))
+    ));
+    g.fillOval(centerX - haloRadius, centerY - haloRadius, haloRadius * 2.0, haloRadius * 2.0);
+    drawDiamondHandle(
+        g,
+        centerX,
+        centerY,
+        radius,
+        Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.97 : 0.84),
+        selected ? Color.WHITE : Color.color(1, 1, 1, 0.62));
+    g.setStroke(Color.color(1, 1, 1, selected ? 0.34 : 0.18));
+    g.setLineWidth(selected ? 1.5 : 1.0);
+    g.strokeOval(centerX - radius * 1.15, centerY - radius * 1.15, radius * 2.3, radius * 2.3);
+  }
+
+  private static void fillBeamPolygon(GraphicsContext g,
+                                      double sourceX,
+                                      double sourceY,
+                                      double targetX,
+                                      double targetY,
+                                      double[] xs,
+                                      double[] ys,
+                                      Color color,
+                                      boolean selected) {
+    g.setFill(new LinearGradient(
+        sourceX,
+        sourceY,
+        targetX,
+        targetY,
+        false,
+        CycleMethod.NO_CYCLE,
+        new Stop(0.0, Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.24 : 0.14)),
+        new Stop(0.58, Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.12 : 0.07)),
+        new Stop(1.0, Color.color(color.getRed(), color.getGreen(), color.getBlue(), 0.0))
+    ));
+    g.fillPolygon(xs, ys, xs.length);
+    g.setStroke(Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.38 : 0.20));
+    g.setLineWidth(selected ? 1.2 : 0.9);
+    g.strokePolygon(xs, ys, xs.length);
+  }
+
+  private static void drawBeam(GraphicsContext g,
+                               double sourceX,
+                               double sourceY,
+                               double targetX,
+                               double targetY,
+                               double startHalfWidth,
+                               double endHalfWidth,
+                               Color color,
+                               boolean selected) {
+    double dx = targetX - sourceX;
+    double dy = targetY - sourceY;
+    double length = Math.hypot(dx, dy);
+    if (length < 1e-6) return;
+    double nx = dx / length;
+    double ny = dy / length;
+    double perpX = -ny;
+    double perpY = nx;
+    double[] xs = {
+        sourceX + perpX * startHalfWidth,
+        targetX + perpX * endHalfWidth,
+        targetX - perpX * endHalfWidth,
+        sourceX - perpX * startHalfWidth
+    };
+    double[] ys = {
+        sourceY + perpY * startHalfWidth,
+        targetY + perpY * endHalfWidth,
+        targetY - perpY * endHalfWidth,
+        sourceY - perpY * startHalfWidth
+    };
+    fillBeamPolygon(g, sourceX, sourceY, targetX, targetY, xs, ys, color, selected);
+  }
+
+  private static void drawFootprintEllipse(GraphicsContext g,
+                                           double centerX,
+                                           double centerY,
+                                           double angleDeg,
+                                           double width,
+                                           double height,
+                                           Color color,
+                                           boolean selected) {
+    g.save();
+    g.translate(centerX, centerY);
+    g.rotate(angleDeg);
+    g.setFill(Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.17 : 0.11));
+    g.fillOval(-width * 0.5, -height * 0.5, width, height);
+    g.setStroke(Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.92 : 0.58));
+    g.setLineWidth(selected ? 1.9 : 1.1);
+    g.strokeOval(-width * 0.5, -height * 0.5, width, height);
+    g.restore();
+  }
+
+  private static void drawFootprintRect(GraphicsContext g,
+                                        double centerX,
+                                        double centerY,
+                                        double angleDeg,
+                                        double width,
+                                        double height,
+                                        Color color,
+                                        boolean selected) {
+    g.save();
+    g.translate(centerX, centerY);
+    g.rotate(angleDeg);
+    g.setFill(Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.15 : 0.10));
+    g.fillRoundRect(-width * 0.5, -height * 0.5, width, height, 8.0, 8.0);
+    g.setStroke(Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.92 : 0.58));
+    g.setLineWidth(selected ? 1.8 : 1.1);
+    g.strokeRoundRect(-width * 0.5, -height * 0.5, width, height, 8.0, 8.0);
+    g.restore();
+  }
+
+  private static double[] polygonCentroid(List<double[]> polygon, double canvasWidth, double canvasHeight) {
+    if (polygon == null || polygon.isEmpty()) return new double[]{0.0, 0.0};
+    double cx = 0.0;
+    double cy = 0.0;
+    for (double[] point : polygon) {
+      cx += point[0] * canvasWidth;
+      cy += point[1] * canvasHeight;
+    }
+    return new double[]{cx / polygon.size(), cy / polygon.size()};
+  }
+
   private static void drawLightVectorGuide(GraphicsContext g,
+                                           SceneLight light,
+                                           double canvasWidth,
+                                           double canvasHeight,
                                            double sourceX,
                                            double sourceY,
                                            double targetX,
                                            double targetY,
+                                           double radius,
                                            Color color,
                                            boolean selected) {
     double dx = targetX - sourceX;
@@ -5889,20 +6201,55 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (length < 1e-6) return;
     double nx = dx / length;
     double ny = dy / length;
-    double arrow = Math.min(14.0, Math.max(8.0, length * 0.12));
-    double wing = arrow * 0.52;
+    double angleDeg = Math.toDegrees(Math.atan2(dy, dx));
+    SceneLightShape shape = light == null || light.shape == null ? SceneLightShape.RADIAL : light.shape;
     Color guide = Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.92 : 0.58);
+    double beamStart = Math.max(4.0, radius * 0.08);
+    switch (shape) {
+      case CONE -> {
+        drawBeam(g, sourceX, sourceY, targetX, targetY, beamStart, radius * 0.76, color, selected);
+        drawFootprintEllipse(g, targetX, targetY, angleDeg, radius * 1.55, radius * 0.82, color, selected);
+      }
+      case STRIP -> {
+        drawBeam(g, sourceX, sourceY, targetX, targetY, beamStart, radius * 0.46, color, selected);
+        drawFootprintRect(g, targetX, targetY, angleDeg, radius * 1.35, radius * 0.34, color, selected);
+      }
+      case WINDOW -> {
+        drawBeam(g, sourceX, sourceY, targetX, targetY, beamStart * 1.2, radius * 0.62, color, selected);
+        drawFootprintRect(g, targetX, targetY, angleDeg, radius * 1.12, radius * 1.48, color, selected);
+      }
+      case BOUNCE -> {
+        double bounceTargetX = targetX - nx * Math.max(6.0, radius * 0.16);
+        double bounceTargetY = targetY - ny * Math.max(6.0, radius * 0.16);
+        drawBeam(g, sourceX, sourceY, bounceTargetX, bounceTargetY, beamStart * 1.5, radius * 0.52, color, selected);
+        drawFootprintEllipse(g, targetX, targetY, angleDeg, radius * 1.62, radius * 0.62, color, selected);
+      }
+      case POLYGON -> {
+        double[] centroid = polygonCentroid(light == null ? null : light.polygon, canvasWidth, canvasHeight);
+        double centroidX = centroid[0];
+        double centroidY = centroid[1];
+        if (light != null && light.polygon != null && light.polygon.size() >= 3) {
+          drawBeam(g, sourceX, sourceY, centroidX, centroidY, beamStart, Math.max(6.0, radius * 0.28), color, selected);
+          int step = Math.max(1, light.polygon.size() / 3);
+          g.setStroke(Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.46 : 0.24));
+          g.setLineWidth(selected ? 1.1 : 0.8);
+          for (int i = 0; i < light.polygon.size(); i += step) {
+            double[] point = light.polygon.get(i);
+            g.strokeLine(sourceX, sourceY, point[0] * canvasWidth, point[1] * canvasHeight);
+          }
+        }
+      }
+      case RADIAL -> {
+        drawBeam(g, sourceX, sourceY, targetX, targetY, beamStart, radius * 0.54, color, selected);
+        drawFootprintEllipse(g, targetX, targetY, angleDeg, radius * 1.22, radius * 1.00, color, selected);
+      }
+    }
+
     g.setStroke(guide);
-    g.setLineWidth(selected ? 1.9 : 1.2);
+    g.setLineWidth(selected ? 1.6 : 1.0);
     g.setLineDashes(selected ? null : new double[]{6, 4});
     g.strokeLine(sourceX, sourceY, targetX, targetY);
     g.setLineDashes((double[]) null);
-    double backX = targetX - nx * arrow;
-    double backY = targetY - ny * arrow;
-    double perpX = -ny;
-    double perpY = nx;
-    g.strokeLine(targetX, targetY, backX + perpX * wing, backY + perpY * wing);
-    g.strokeLine(targetX, targetY, backX - perpX * wing, backY - perpY * wing);
   }
 
   private void drawSceneLightEffects(GraphicsContext g, double canvasWidth, double canvasHeight, SceneLightLayer layer) {
@@ -5963,7 +6310,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       Color color = light.color == null ? Color.web("#ffd7a8") : light.color;
       SceneLightLayer lightLayer = light.layer == null ? SceneLightLayer.CHARACTER : light.layer;
       if (showVector) {
-        drawLightVectorGuide(g, sourceX, sourceY, cx, cy, color, selected);
+        drawLightVectorGuide(g, light, canvasWidth, canvasHeight, sourceX, sourceY, cx, cy, radius, color, selected);
       }
       if (light.isPolygon()) {
         double[] xs = new double[light.polygon.size()];
@@ -5979,25 +6326,29 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         g.setLineDashes(lightLayer == SceneLightLayer.CHARACTER ? null : new double[]{6, 4});
         g.strokePolygon(xs, ys, xs.length);
         g.setLineDashes((double[]) null);
-      } else {
-        g.setFill(Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.12 : 0.08));
-        g.fillOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
-        g.setStroke(Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.95 : 0.60));
-        g.setLineWidth(selected ? 2.0 : 1.2);
-        g.setLineDashes(lightLayer == SceneLightLayer.CHARACTER ? null : new double[]{6, 4});
-        g.strokeOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
-        g.setLineDashes((double[]) null);
+      } else if (!showVector) {
+        double dx = cx - sourceX;
+        double dy = cy - sourceY;
+        double angleDeg = Math.toDegrees(Math.atan2(dy, dx));
+        SceneLightShape shape = light.shape == null ? SceneLightShape.RADIAL : light.shape;
+        switch (shape) {
+          case CONE -> drawFootprintEllipse(g, cx, cy, angleDeg, radius * 1.55, radius * 0.82, color, selected);
+          case STRIP -> drawFootprintRect(g, cx, cy, angleDeg, radius * 1.35, radius * 0.34, color, selected);
+          case WINDOW -> drawFootprintRect(g, cx, cy, angleDeg, radius * 1.12, radius * 1.48, color, selected);
+          case BOUNCE -> drawFootprintEllipse(g, cx, cy, angleDeg, radius * 1.62, radius * 0.62, color, selected);
+          default -> drawFootprintEllipse(g, cx, cy, angleDeg, radius * 1.22, radius * 1.00, color, selected);
+        }
       }
 
       if (showVector) {
         double sourceHandleRadius = selected ? (LIGHT_HANDLE_RADIUS_PX - 2.0) : (LIGHT_HANDLE_RADIUS_PX - 4.0);
-        drawDiamondHandle(
+        drawEmitterHandle(
             g,
             sourceX,
             sourceY,
             sourceHandleRadius,
-            Color.color(color.getRed(), color.getGreen(), color.getBlue(), selected ? 0.94 : 0.78),
-            selected ? Color.WHITE : Color.color(1, 1, 1, 0.55));
+            color,
+            selected);
       }
 
       double handleRadius = selected ? LIGHT_HANDLE_RADIUS_PX : (LIGHT_HANDLE_RADIUS_PX - 2.0);
@@ -6411,6 +6762,21 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     writeSetupFile(file, buildFullSetupText());
   }
 
+  private void quickExportStagePresetToFile() {
+    File file = resolveQuickExportFile(buildStagePresetFileName());
+    if (file == null) {
+      status("Choose an export folder first.");
+      return;
+    }
+    writeSetupFile(file, buildFullSetupText());
+  }
+
+  private void exportStagePresetToFileAs() {
+    File file = chooseSaveFile("Export Stage Preset", "Stage Preset", "*.stagepreset", buildStagePresetFileName());
+    if (file == null) return;
+    writeSetupFile(file, buildFullSetupText());
+  }
+
   private void writeSetupFile(File file, String content) {
     writeSetupFile(file, content, true);
   }
@@ -6436,15 +6802,17 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (tinted == null) return;
     File pngFile = resolveQuickExportFile(buildTintPngFileName());
     File setupFile = resolveQuickExportFile(buildTintSetupFileName());
-    if (pngFile == null || setupFile == null) {
+    File stageFile = resolveQuickExportFile(buildStagePresetFileName());
+    if (pngFile == null || setupFile == null || stageFile == null) {
       status("Choose an export folder first.");
       return;
     }
     boolean pngOk = writeTintedPng(tinted, pngFile, false);
     boolean setupOk = writeSetupFile(setupFile, buildFullSetupText(), false);
-    if (pngOk && setupOk) {
-      status("Exported PNG + setup to " + describePathRelativeToProject(pngFile.getParentFile()));
-    } else if (pngOk || setupOk) {
+    boolean stageOk = writeSetupFile(stageFile, buildFullSetupText(), false);
+    if (pngOk && setupOk && stageOk) {
+      status("Exported PNG + setup + stage preset to " + describePathRelativeToProject(pngFile.getParentFile()));
+    } else if (pngOk || setupOk || stageOk) {
       status("Partially exported bundle. Check the target folder and previous export messages.");
     }
   }
