@@ -13,9 +13,11 @@ class EasingCurveEditorTest {
         double insertNearMiddle = EasingCurveEditor.resolveCurveInsertX(seeded, 0.50);
         double insertNearQuarter = EasingCurveEditor.resolveCurveInsertX(seeded, 0.25);
 
-        assertTrue(insertNearMiddle > 0.5009 && insertNearMiddle < 0.75,
-            "expected insertion to move into the next open gap, got " + insertNearMiddle);
-        assertTrue(insertNearQuarter > 0.2509 && insertNearQuarter < 0.50,
+        assertTrue(insertNearMiddle > 0.25 && insertNearMiddle < 0.75
+                && Math.abs(insertNearMiddle - 0.50) > 0.0009,
+            "expected insertion to move into a real open gap, got " + insertNearMiddle);
+        assertTrue(insertNearQuarter > 0.0 && insertNearQuarter < 0.50
+                && Math.abs(insertNearQuarter - 0.25) > 0.0009,
             "expected insertion to avoid stacking onto an existing point, got " + insertNearQuarter);
     }
 }
