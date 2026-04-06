@@ -6,6 +6,35 @@ Source: `editor/src/main/java/com/jvn/editor/ui/actioneditor/PuppeteerWindow.jav
 
 ---
 
+## Who This Is For
+
+This page is the day-to-day usage guide for authors working inside Puppeteer itself.
+
+Use it when you want to:
+
+- animate characters or props visually
+- time camera movement and framing
+- save and reuse clips
+- register a timeline for VNS runtime playback
+- understand what each panel, button, and lane does
+
+## What You Will Learn
+
+This guide focuses on practical editor use:
+
+- how to launch Puppeteer from VNS or JES context
+- what each major UI region does
+- how camera, clips, audio cues, and export work
+- how runtime registration differs from simple code copy/export
+
+## Read This Next
+
+- Need the architecture view: [Puppeteer Overview & Architecture](puppeteer.md)
+- Need the export syntax only: [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)
+- Need the timeline runtime model: [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md)
+
+---
+
 ## Overview
 
 Puppeteer is JVN's visual keyframe animation editor. It lets you:
@@ -190,8 +219,8 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Paste keyframes | icon button | enabled | Paste at playhead (`Ctrl/Cmd+Alt+V`) |
 | Duplicate keyframes | icon button | enabled | Duplicate by snap step (`Ctrl/Cmd+Alt+D`) |
 | Batch keyframe | icon button | enabled | Add current property keyframe for all entities |
-| Save clip | icon button | enabled | Save selected track segment to `config/puppeteer/clips/*.clip` |
-| Load clip | icon button | enabled | Load clip file and apply at playhead |
+| Save clip | icon button | enabled | Save selected track segment into the recursive clip library under `config/puppeteer/clips/`; nested paths create folders |
+| Load clip | icon button | enabled | Open the clip browser with filter, metadata preview, duration scaling, and `Layer On Top` / `Replace Range` apply modes |
 | Slot menu | text menu button | `Slot` | Place selected entity at VN slot positions |
 | Slot menu entries | menu items | fixed | `FAR_LEFT`, `LEFT`, `CENTER`, `RIGHT`, `FAR_RIGHT` |
 | Previous keyframe | icon button | enabled | Jump playhead to previous keyframe in the active context (`Page Up`) |
@@ -243,7 +272,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Control | Type | Default | Action |
 |--------|------|---------|--------|
 | Timeline name field | text field | `my_animation` | Name for exported/registered timeline |
-| Register | success icon button | enabled | Registers timeline + writes `scripts/timelines/<name>.jes` |
+| Register | success icon button | enabled | Runs runtime verification, then registers and writes `scripts/timelines/<name>.jes` when clean or confirmed |
 
 #### Help Group
 
@@ -318,7 +347,8 @@ This section is intentionally exhaustive and mirrors the current implementation 
 |--------|------|----------|
 | Viewport info label | label above canvas | Shows project runtime resolution and red-frame explanation |
 | Preview canvas | interactive canvas | Scene authoring surface |
-| Runtime frame | red rectangle overlay | Runtime-visible camera viewport |
+| Runtime frame | red rectangle overlay | Runtime-visible camera viewport; draggable through the frame handle when the `Runtime Camera / Frame` target is selected |
+| Safe/title guides | overlay inside runtime frame | Optional composition guides for shot framing |
 | Camera HUD | top-left overlay | Wheel mode, camera position/zoom, view zoom |
 | Grid | canvas overlay | World grid in overview space |
 | Selection highlight | canvas overlay | Outline, pivot handle, orbit anchor visuals |
@@ -334,6 +364,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Middle-drag / Right-drag | anywhere in preview | Pans view or camera (mode-dependent) |
 | Left click on entity | normal mode | Select entity |
 | Left drag selected entity | normal mode | Move entity (X/Y updates) |
+| Left drag runtime-frame handle | runtime camera selected | Move the runtime camera visually and key camera X/Y at the playhead |
 | Left click + drag pivot handle | pivot-capable entity | Move pivot and entity anchor together |
 | Shift while dragging pivot | pivot drag active | Axis-lock pivot drag to horizontal or vertical |
 | Shift+Left click | orbit tool ON | Set orbit anchor at cursor |
@@ -680,7 +711,9 @@ Puppeteer supports animating the scene camera alongside entities.
 | Camera Y | `cameraMove` | Vertical camera pan |
 | Camera Zoom | `cameraZoom` | Camera zoom level |
 
-Camera keyframes are placed on entity tracks that have camera properties. The exporter collects camera keyframes from the first track that has them and emits `cameraMove` and `cameraZoom` actions.
+Camera animation is authored on the dedicated `Runtime Camera / Frame` lane. That lane maps to the internal `__camera__` track and is the recommended place for all camera keyframes.
+
+Puppeteer now warns during runtime registration if camera keys are mixed into normal entity tracks or spread across multiple tracks, because that can produce ambiguous runtime results.
 
 ### Camera in VNS
 
@@ -778,10 +811,20 @@ Undoable operations include:
 
 1. Enter a name in the **Name** field (e.g., `hero_entrance`)
 2. Click **Register**
-3. The animation is:
-   - Converted to `TimelineData` and stored in `TimelineRegistry`
-   - Exported as JES code to `scripts/timelines/<name>.jes`
-   - Marked as saved (title shows "saved & registered")
+3. Puppeteer runs runtime verification first
+4. If blocking errors exist, registration is stopped and a report is shown
+5. If warnings exist, you can review them and continue intentionally
+6. When registration succeeds, the animation is:
+   - converted to `TimelineData` and stored in `TimelineRegistry`
+   - exported as JES code to `scripts/timelines/<name>.jes`
+   - marked as saved (title shows "saved & registered")
+
+Typical verification catches include:
+
+- missing audio cue files
+- camera keys mixed into entity tracks
+- camera keys spread across multiple tracks
+- animated groups that preview correctly but are not runtime-safe to register as-is
 
 ### Copy to Clipboard
 

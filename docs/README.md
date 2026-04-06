@@ -7,6 +7,8 @@ Start with **[INDEX.md](INDEX.md)**.
 ## Recommended Starting Points
 
 - New to JVN: [Getting Started Guide](guides/getting-started.md)
+- Not sure which layer to use: [Choose Your Path in JVN](guides/choose-your-path.md)
+- Need to understand the file types first: [Common JVN File Types](guides/common-file-types.md)
 - Need the full map: [Documentation Index](INDEX.md)
 - Learning the editor: [Editor Guide](editor/core/editor.md)
 - Writing VN scripts: [VNS Overview](scripting/vns/overview/vns-scripting.md)

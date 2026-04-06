@@ -277,6 +277,8 @@ scene.setCameraY(track.getValueAt(CAMERA_Y, timeMs));
 scene.setCameraZoom(track.getValueAt(CAMERA_ZOOM, timeMs));
 ```
 
+In editor-authored timelines, you should treat the dedicated **Runtime Camera / Frame** lane as the canonical source for these keys. Puppeteer now warns during runtime registration if camera keys are spread across multiple tracks or mixed into normal entity tracks, because runtime playback then depends on track write order instead of one clean camera source.
+
 ### Looping Behavior
 
 When `TimelineData.isLooping()` is true:

@@ -1,0 +1,106 @@
+# Choose Your Path in JVN
+
+If you are new to JVN, the biggest early mistake is starting in the wrong layer. This page tells you which part of the engine to use first.
+
+## The Short Version
+
+- Use **VNS** for story flow, dialogue, choices, character staging, and most visual novel logic.
+- Use **JES** for gameplay scenes, entities, components, physics, camera systems, and lower-level scene control.
+- Use **Puppeteer** for authored timeline animation that should be previewed visually and then reused from VNS or JES.
+- Use **Menu Profiles + Layouts** for title screens, settings, save/load, and textbox/menu presentation.
+- Use the **Editor sidebar tools** for supporting workflows such as diagnostics, layered character inspection, scene lighting, or menu flow.
+
+## When To Start With VNS
+
+Start with VNS if your first goal is:
+
+- show a background
+- show a character
+- play dialogue
+- branch with choices
+- set variables and flags
+- call a minigame, timeline, or Java hook only when needed
+
+Read next:
+
+- [VNS Overview](../scripting/vns/overview/vns-scripting.md)
+- [Tutorial: Building a Complete VN](../scripting/vns/guides/vns-tutorial.md)
+
+## When To Start With JES
+
+Start with JES if your first goal is:
+
+- build a gameplay scene
+- manage entities and components directly
+- use tilemaps, physics, AI, or input bindings
+- run a 2D scene without the VN layer driving it
+
+Read next:
+
+- [JES Overview](../scripting/jes/overview/jes-scripting.md)
+- [Scenes & Entities](../scripting/jes/scene/jes-scenes-entities.md)
+
+## When To Start With Puppeteer
+
+Start with Puppeteer if your first goal is:
+
+- animate a character entrance or exit
+- time a camera move or cut
+- coordinate multiple properties on a timeline
+- preview motion before exporting it
+- build reusable timeline clips
+
+Read next:
+
+- [Puppeteer Overview & Architecture](../editor/puppeteer/puppeteer.md)
+- [Puppeteer Editor Guide](../editor/puppeteer/puppeteer-editor-guide.md)
+
+## When To Start With Menu Profiles And Layouts
+
+Start here if your first goal is:
+
+- build the main menu
+- customize save/load/settings screens
+- restyle the dialogue textbox
+- define project UI in plain config files
+
+Read next:
+
+- [Menu Profiles Overview](../scripting/ui/menus/menu-profiles.md)
+- [Text-First Layout Workflow](../scripting/ui/layout/workflow/text-first-layout-workflow.md)
+
+## Common Beginner Combinations
+
+### Standard visual novel
+
+Use:
+
+- VNS for story
+- menu/layout docs for UI
+- Puppeteer only for special staged animation
+
+### VN with minigames or playable scenes
+
+Use:
+
+- VNS for story flow
+- JES for gameplay scenes
+- Puppeteer for cinematic animation inside either layer
+
+### UI-heavy title screen or custom shell
+
+Use:
+
+- menu profiles
+- layouts and styles
+- VNS only once the player enters story content
+
+## If You Are Unsure
+
+Start with this order:
+
+1. [Getting Started Guide](getting-started.md)
+2. [Common JVN File Types](common-file-types.md)
+3. [VNS Overview](../scripting/vns/overview/vns-scripting.md)
+
+That path is the safest default for most teams building a VN in JVN.

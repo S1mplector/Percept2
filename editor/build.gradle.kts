@@ -53,6 +53,23 @@ tasks.named<JavaExec>("run") {
   configureJavaFxRuntime()
 }
 
+fun JavaExec.forwardDocsScreenshotSystemProps() {
+  listOf(
+    "jvn.docs.profile",
+    "jvn.docs.screenshots.shots",
+    "jvn.docs.screenshots.annotate",
+    "jvn.docs.screenshots.includeRaw",
+    "jvn.docs.screenshots.updateDocs",
+    "jvn.docs.screenshots.contactSheet",
+    "jvn.repoRoot"
+  ).forEach { key ->
+    val value = System.getProperty(key)
+    if (!value.isNullOrBlank()) {
+      systemProperty(key, value)
+    }
+  }
+}
+
 tasks.register<JavaExec>("generatePuppeteerDocsScreenshots") {
   group = "documentation"
   description = "Captures and annotates Puppeteer UI screenshots, then updates Puppeteer docs."
@@ -60,6 +77,7 @@ tasks.register<JavaExec>("generatePuppeteerDocsScreenshots") {
   mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
   workingDir = rootProject.projectDir
   jvmArgs("-Djvn.docs.profile=puppeteer")
+  forwardDocsScreenshotSystemProps()
   configureJavaFxRuntime()
 }
 
@@ -70,6 +88,7 @@ tasks.register<JavaExec>("generateImageTintDocsScreenshots") {
   mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
   workingDir = rootProject.projectDir
   jvmArgs("-Djvn.docs.profile=image-tint")
+  forwardDocsScreenshotSystemProps()
   configureJavaFxRuntime()
 }
 
@@ -79,7 +98,19 @@ tasks.register<JavaExec>("generateSidebarDocsScreenshots") {
   classpath = sourceSets["main"].runtimeClasspath
   mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
   workingDir = rootProject.projectDir
-  jvmArgs("-Djvn.docs.profile=asset-browser,help-center,image-attributes,image-tint,inspector,label-flow-map,layered-image-visualizer,layout-launcher,menu-flow-editor,puppeteer-launcher,version-control,vns-diagnostics,story-timeline")
+  jvmArgs("-Djvn.docs.profile=asset-browser,help-center,project-explorer,image-attributes,image-tint,inspector,label-flow-map,layered-image-visualizer,layout-launcher,menu-flow-editor,puppeteer-launcher,text-editor,version-control,vns-diagnostics,story-timeline")
+  forwardDocsScreenshotSystemProps()
+  configureJavaFxRuntime()
+}
+
+tasks.register<JavaExec>("generateCoreDocsScreenshots") {
+  group = "documentation"
+  description = "Captures and annotates screenshots for core editor docs."
+  classpath = sourceSets["main"].runtimeClasspath
+  mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
+  workingDir = rootProject.projectDir
+  jvmArgs("-Djvn.docs.profile=welcome-center,run-console")
+  forwardDocsScreenshotSystemProps()
   configureJavaFxRuntime()
 }
 
@@ -89,5 +120,6 @@ tasks.register<JavaExec>("generateDocsScreenshots") {
   classpath = sourceSets["main"].runtimeClasspath
   mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
   workingDir = rootProject.projectDir
+  forwardDocsScreenshotSystemProps()
   configureJavaFxRuntime()
 }

@@ -10,6 +10,35 @@ Core files:
 
 ---
 
+## Who This Is For
+
+Use JES when you need direct scene authoring instead of high-level VN flow. It is the right layer for:
+
+- entities and components
+- camera, input, and physics
+- tilemaps and AI
+- gameplay or toy scenes
+- hybrid VN + gameplay projects
+
+If you mainly want dialogue, choices, backgrounds, and character staging, start with [VNS Overview](../../vns/overview/vns-scripting.md) instead.
+
+## What You Will Learn
+
+This page gives you the beginner mental model for:
+
+- what a JES scene contains
+- how entities and components are declared
+- where timelines fit into JES
+- which system docs to read next for gameplay, UI, and integration work
+
+## Read This Next
+
+- New to JVN overall: [Choose Your Path in JVN](../../../guides/choose-your-path.md)
+- Need file-level orientation: [Common JVN File Types](../../../guides/common-file-types.md)
+- Building hybrid flows: [VN Bridge & Java Hooks](../integration/jes-bridge.md)
+
+---
+
 ## Quick Start
 
 ```jes
@@ -60,6 +89,14 @@ Run directly:
 ```bash
 ./gradlew :runtime:run --args='--jes game/scenes/demo.jes'
 ```
+
+What happened in that example:
+
+1. `scene "Demo"` declared a runtime scene.
+2. Each `entity` added a named object to the scene graph.
+3. `component` blocks defined rendering or behavior data.
+4. `on key "D"` added an input binding.
+5. `timeline` authored scene-local animation and sequencing.
 
 ---
 

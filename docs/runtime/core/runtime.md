@@ -5,6 +5,36 @@ The runtime app boots the engine, loads your script content, and launches the se
 Entrypoint:
 - `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
 
+---
+
+## Who This Is For
+
+Use this page if you need to run a JVN project outside the editor, test launch arguments, or understand how runtime entry resolution works.
+
+Typical cases:
+
+- launching a `.vns` project from terminal
+- running a `.jes` scene directly
+- testing assets from a project root
+- debugging launch arguments or backend selection
+- matching what the editor does when you click Run
+
+## What You Will Learn
+
+This page tells you:
+
+- which runtime commands to use
+- which CLI arguments matter most
+- how project entry scripts are resolved
+- how filesystem assets and backends are selected
+
+## Read This Next
+
+- New to JVN overall: [Choose Your Path in JVN](../../guides/choose-your-path.md)
+- Need file-level orientation: [Common JVN File Types](../../guides/common-file-types.md)
+- Shipping a project: [Deployment & Packaging](../../project-setup/release/deployment.md)
+- Running from inside the editor: [Run Console](../../editor/core/run-console.md)
+
 ## Basic Launch
 
 ```bash

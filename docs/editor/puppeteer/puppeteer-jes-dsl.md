@@ -429,6 +429,11 @@ The exporter maps Puppeteer's `PropertyType` enum to JES action types and proper
 
 After registering a timeline in Puppeteer:
 
+- Puppeteer verifies the timeline against runtime registration rules first
+- blocking issues stop registration
+- warnings can be reviewed and continued intentionally
+- successful registration writes `scripts/timelines/<name>.jes` and registers the timeline in-editor
+
 ```vns
 # Call a registered timeline by name
 [call jes_timeline hero_entrance]

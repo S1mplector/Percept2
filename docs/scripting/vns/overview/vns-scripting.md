@@ -6,6 +6,35 @@ Parser source: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
 
 ---
 
+## Who This Is For
+
+Use this page if you want to build a visual novel scene in plain text and you mostly care about:
+
+- dialogue
+- backgrounds and character staging
+- choices and branching
+- variables and story state
+- calling Puppeteer timelines, JES scenes, or Java hooks when needed
+
+If you want frame-by-frame gameplay scenes, physics, or direct entity/component control, start with [JES Overview](../../jes/overview/jes-scripting.md) instead.
+
+## What You Will Learn
+
+By the end of this page, you should understand:
+
+- what VNS is responsible for in JVN
+- what a minimal `.vns` file looks like
+- how declarations, labels, dialogue, choices, and commands fit together
+- which reference docs to open next depending on your task
+
+## Read This Next
+
+- New to JVN overall: [Choose Your Path in JVN](../../../guides/choose-your-path.md)
+- Need file-level orientation: [Common JVN File Types](../../../guides/common-file-types.md)
+- Want a full guided build: [Tutorial: Building a Complete VN](../guides/vns-tutorial.md)
+
+---
+
 ## Quick Start
 
 ```vns
@@ -44,6 +73,14 @@ Run with runtime:
 ```bash
 ./gradlew :runtime:run --args='--script demo.vns'
 ```
+
+What happened in that example:
+
+1. The header declared a scenario, characters, backgrounds, and sprite assets.
+2. `@label start` marked the first story entry point.
+3. Commands such as `[bg]`, `[bgm]`, and `[show]` staged the scene.
+4. Dialogue advanced the story.
+5. Choice lines (`>`) branched to different labels.
 
 ---
 

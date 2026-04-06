@@ -35,6 +35,7 @@ JavaFX-based visual editor for authoring JVN visual novel and game projects. Ent
 | Task | Purpose |
 |------|---------|
 | `generateDocsScreenshots` | Capture annotated screenshots for all editor profiles |
+| `generateCoreDocsScreenshots` | Capture screenshots for Welcome Center and Run Console docs |
 | `generatePuppeteerDocsScreenshots` | Puppeteer-specific screenshots |
 | `generateSidebarDocsScreenshots` | All sidebar panel screenshots |
 

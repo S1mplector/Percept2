@@ -2,17 +2,17 @@ package com.jvn.editor.ui;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TreeCell;
+import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeView;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
@@ -48,31 +48,58 @@ import java.util.stream.Stream;
 
 public class HelpCenterView extends BorderPane {
   private static final int TITLE_SCAN_LINE_LIMIT = 100;
-  private static final String DOC_OVERVIEW = "docs/Overview.md";
-  private static final String DOC_EDITOR = "docs/Editor/Editor.md";
-  private static final String DOC_VNS = "docs/VNS Scripting/VNS Scripting.md";
-  private static final String DOC_JES = "docs/JES Scripting/JES Scripting.md";
-  private static final String DOC_RUNTIME = "docs/Runtime/Runtime.md";
-  private static final String DOC_TITLE = "docs/TitleScreen.md";
+  private static final int SUMMARY_SCAN_LINE_LIMIT = 140;
+  private static final String DOC_OVERVIEW = "docs/INDEX.md";
+  private static final String DOC_EDITOR = "docs/editor/core/editor.md";
+  private static final String DOC_VNS = "docs/scripting/vns/overview/vns-scripting.md";
+  private static final String DOC_JES = "docs/scripting/jes/overview/jes-scripting.md";
+  private static final String DOC_RUNTIME = "docs/runtime/core/runtime.md";
+  private static final String DOC_MENUS = "docs/scripting/ui/menus/menu-profiles.md";
   private static final Pattern HEADING_LINE = Pattern.compile("^(#{1,6})\\s+(.*)$");
   private static final Pattern UNORDERED_LIST_LINE = Pattern.compile("^\\s*[-*+]\\s+(.*)$");
   private static final Pattern ORDERED_LIST_LINE = Pattern.compile("^\\s*(\\d+)\\.\\s+(.*)$");
   private static final Pattern HORIZONTAL_RULE_LINE = Pattern.compile("^\\s*([-*_])(?:\\s*\\1){2,}\\s*$");
   private static final Pattern TABLE_SEPARATOR_LINE = Pattern.compile("^\\|?\\s*[-:]+(?:\\s*\\|\\s*[-:]+)+\\s*\\|?\\s*$");
   private static final Pattern IMAGE_LINE = Pattern.compile("^\\s*!\\[([^\\]]*)\\]\\((.+)\\)\\s*$");
+  private static final GuideSection SECTION_START = new GuideSection("start", "Start Here", "Onboarding and orientation");
+  private static final GuideSection SECTION_VNS = new GuideSection("vns", "Visual Novel Authoring", "Story-first docs for VNS projects");
+  private static final GuideSection SECTION_JES = new GuideSection("jes", "Gameplay And JES", "Scene scripting, systems, and runtime entities");
+  private static final GuideSection SECTION_PUPPETEER = new GuideSection("puppeteer", "Animation And Timelines", "Puppeteer, timeline runtime, and reuse");
+  private static final GuideSection SECTION_UI = new GuideSection("ui", "Menus And UI Layout", "Menus, dialogue UI, layouts, and styling");
+  private static final GuideSection SECTION_EDITOR = new GuideSection("editor", "Editor And Tools", "Core editor docs and sidebar workflows");
+  private static final GuideSection SECTION_RUNTIME = new GuideSection("runtime", "Runtime And Project Setup", "Launch, packaging, assets, and project structure");
+  private static final GuideSection SECTION_ARCHITECTURE = new GuideSection("architecture", "Architecture And Internals", "Engine structure, quality, and native systems");
+  private static final GuideSection SECTION_GUIDES = new GuideSection("guides", "Guides And Recipes", "Practical walkthroughs and cookbook docs");
+  private static final GuideSection SECTION_PROJECT = new GuideSection("project", "Current Project Docs", "Project-local guides and notes");
+  private static final GuideSection SECTION_REFERENCE = new GuideSection("reference", "Reference And Generated Docs", "Low-priority or generated reference pages");
+  private static final List<GuideSection> GUIDE_SECTIONS = List.of(
+      SECTION_START,
+      SECTION_VNS,
+      SECTION_JES,
+      SECTION_PUPPETEER,
+      SECTION_UI,
+      SECTION_EDITOR,
+      SECTION_RUNTIME,
+      SECTION_ARCHITECTURE,
+      SECTION_GUIDES,
+      SECTION_PROJECT,
+      SECTION_REFERENCE
+  );
 
   private final TextField filterField = new TextField();
-  private final ListView<DocEntry> docsList = new ListView<>();
+  private final TreeView<HelpNode> docsTree = new TreeView<>();
   private final ScrollPane contentScroll = new ScrollPane();
   private final VBox markdownContent = new VBox(8);
   private final Label titleLabel = new Label("Help Center");
+  private final Label sourceBadgeLabel = new Label("Guide");
   private final Label pathLabel = new Label("Select a document to preview.");
+  private final Label summaryLabel = new Label("Follow the guided tree on the left to move from onboarding into deeper reference material.");
   private final Label statsLabel = new Label("No docs indexed");
 
   private final ObservableList<DocEntry> allDocs = FXCollections.observableArrayList();
-  private final FilteredList<DocEntry> filteredDocs = new FilteredList<>(allDocs, e -> true);
   private final Map<String, DocEntry> workspaceDocIndex = new HashMap<>();
   private final Map<String, Button> quickDocButtons = new HashMap<>();
+  private final Map<String, TreeItem<HelpNode>> visibleDocNodes = new HashMap<>();
 
   private File workspaceRoot;
   private File projectRoot;
@@ -101,16 +128,13 @@ public class HelpCenterView extends BorderPane {
 
   public void refresh() {
     rebuildIndex();
-    applyFilter(filterField.getText());
-    if (docsList.getSelectionModel().getSelectedItem() == null && !filteredDocs.isEmpty()) {
-      docsList.getSelectionModel().select(0);
-    }
+    rebuildGuideTree(filterField.getText());
     updateQuickDocButtonState();
   }
 
   private void buildUi() {
     filterField.setPromptText("Filter docs...");
-    filterField.textProperty().addListener((obs, oldVal, newVal) -> applyFilter(newVal));
+    filterField.textProperty().addListener((obs, oldVal, newVal) -> rebuildGuideTree(newVal));
 
     Button refreshButton = new Button("Refresh");
     refreshButton.setOnAction(e -> refresh());
@@ -118,42 +142,81 @@ public class HelpCenterView extends BorderPane {
     HBox.setHgrow(filterField, Priority.ALWAYS);
     filterRow.setAlignment(Pos.CENTER_LEFT);
 
-    VBox quickAccessBox = buildQuickAccessBox();
-    Label listHeader = new Label("Documents");
-    listHeader.getStyleClass().add("help-section-title");
+    Label browserTitle = new Label("Guide Tree");
+    browserTitle.getStyleClass().add("help-pane-title");
+    Label browserSubtitle = new Label(
+        "Every Markdown doc is indexed here, but the tree starts with onboarding and then moves into scripting, animation, UI, runtime, and internals.");
+    browserSubtitle.getStyleClass().add("help-pane-subtitle");
+    browserSubtitle.setWrapText(true);
 
-    docsList.setItems(filteredDocs);
-    docsList.setCellFactory(list -> new ListCell<>() {
+    VBox quickAccessBox = buildQuickAccessBox();
+    docsTree.setShowRoot(false);
+    docsTree.getStyleClass().add("help-doc-tree");
+    docsTree.setCellFactory(tree -> new TreeCell<>() {
       @Override
-      protected void updateItem(DocEntry item, boolean empty) {
+      protected void updateItem(HelpNode item, boolean empty) {
         super.updateItem(item, empty);
         if (empty || item == null) {
           setGraphic(null);
           setText(null);
           return;
         }
-        Label name = new Label(item.title());
+        setText(null);
+        if (item.section()) {
+          Label name = new Label(item.title());
+          name.getStyleClass().add("help-guide-section-title");
+          Label info = new Label(item.subtitle());
+          info.getStyleClass().add("help-guide-section-subtitle");
+          info.setWrapText(true);
+          VBox box = new VBox(2, name, info);
+          box.getStyleClass().add("help-guide-section-box");
+          setGraphic(box);
+          return;
+        }
+
+        DocEntry entry = item.doc();
+        Label name = new Label(entry.title());
         name.getStyleClass().add("help-doc-title");
-        Label info = new Label(item.sourceLabel() + " - " + item.relativePath());
-        info.getStyleClass().add("help-doc-subtitle");
-        VBox box = new VBox(2, name, info);
-        setGraphic(box);
+
+        Label path = new Label(entry.relativePath());
+        path.getStyleClass().add("help-doc-path");
+
+        Label summary = new Label(entry.summary());
+        summary.getStyleClass().add("help-doc-summary");
+        summary.setWrapText(true);
+
+        VBox textBox = new VBox(2, name, path, summary);
+        textBox.getStyleClass().add("help-doc-card");
+        HBox.setHgrow(textBox, Priority.ALWAYS);
+
+        Label sourceChip = new Label(entry.sourceLabel());
+        sourceChip.getStyleClass().add("help-doc-source-badge");
+
+        HBox row = new HBox(10, textBox, sourceChip);
+        row.setAlignment(Pos.CENTER_LEFT);
+        setGraphic(row);
       }
     });
-    docsList.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> showDoc(newVal));
-    docsList.setOnMouseClicked(e -> {
+    docsTree.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+      DocEntry entry = extractDocEntry(newVal);
+      if (entry != null) showDoc(entry);
+    });
+    docsTree.setOnMouseClicked(e -> {
       if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2) {
         openSelectedDocInEditor();
       }
     });
-    docsList.setOnKeyPressed(e -> {
+    docsTree.setOnKeyPressed(e -> {
       if (e.getCode() == KeyCode.ENTER) openSelectedDocInEditor();
     });
 
-    VBox left = new VBox(10, filterRow, quickAccessBox, new Separator(), listHeader, docsList, statsLabel);
+    statsLabel.getStyleClass().add("help-stats-label");
+
+    VBox left = new VBox(10, browserTitle, browserSubtitle, filterRow, quickAccessBox, new Separator(), docsTree, statsLabel);
+    left.getStyleClass().add("help-browser-pane");
     left.setPadding(new Insets(10));
     left.setPrefWidth(340);
-    VBox.setVgrow(docsList, Priority.ALWAYS);
+    VBox.setVgrow(docsTree, Priority.ALWAYS);
 
     markdownContent.getStyleClass().add("help-doc-content");
     markdownContent.setFillWidth(true);
@@ -161,26 +224,48 @@ public class HelpCenterView extends BorderPane {
     contentScroll.setContent(markdownContent);
     contentScroll.getStyleClass().add("help-doc-content-scroll");
 
+    titleLabel.getStyleClass().add("help-preview-title");
+    sourceBadgeLabel.getStyleClass().add("help-doc-source-chip");
+    pathLabel.getStyleClass().add("help-preview-path");
+    summaryLabel.getStyleClass().add("help-preview-summary");
+    summaryLabel.setWrapText(true);
+    HBox sourceRow = new HBox(8, sourceBadgeLabel, pathLabel);
+    sourceRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(pathLabel, Priority.ALWAYS);
+
     Button openButton = new Button("Open in Editor");
+    openButton.getStyleClass().add("help-toolbar-button");
     openButton.setOnAction(e -> openSelectedDocInEditor());
     Button revealButton = new Button("Reveal File");
+    revealButton.getStyleClass().add("help-toolbar-button");
     revealButton.setOnAction(e -> revealSelectedDoc());
     Button copyPathButton = new Button("Copy Path");
+    copyPathButton.getStyleClass().add("help-toolbar-button");
     copyPathButton.setOnAction(e -> copySelectedPath());
     HBox contentActions = new HBox(8, openButton, revealButton, copyPathButton);
+    contentActions.setAlignment(Pos.CENTER_LEFT);
 
     Text quickHint = new Text("Tip: press F1 from anywhere in the editor to jump back here.");
     quickHint.getStyleClass().add("help-tip-text");
     TextFlow hintFlow = new TextFlow(quickHint);
+    hintFlow.getStyleClass().add("help-tip-flow");
 
-    VBox right = new VBox(8, titleLabel, pathLabel, contentActions, hintFlow, contentScroll);
+    VBox previewHeader = new VBox(6, titleLabel, sourceRow, summaryLabel);
+    previewHeader.getStyleClass().add("help-preview-header");
+
+    VBox right = new VBox(10, previewHeader, contentActions, hintFlow, contentScroll);
+    right.getStyleClass().add("help-preview-pane");
     right.setPadding(new Insets(12));
     VBox.setVgrow(contentScroll, Priority.ALWAYS);
 
     SplitPane split = new SplitPane(left, right);
     split.setDividerPositions(0.34);
     setCenter(split);
-    renderMarkdown("");
+    showGuidePlaceholder(
+        "Help Center",
+        "Select a document to preview.",
+        "Follow the guide tree on the left to move from onboarding into deeper authoring and engine reference.",
+        "Pick a document from the guide tree to preview it here.");
   }
 
   private VBox buildQuickAccessBox() {
@@ -196,7 +281,7 @@ public class HelpCenterView extends BorderPane {
         quickDocButton("VNS", DOC_VNS),
         quickDocButton("JES", DOC_JES),
         quickDocButton("Runtime", DOC_RUNTIME),
-        quickDocButton("Menus", DOC_TITLE)
+        quickDocButton("Menus", DOC_MENUS)
     );
 
     Label commandsHeader = new Label("Quick Commands");
@@ -255,28 +340,11 @@ public class HelpCenterView extends BorderPane {
   }
 
   private void indexWorkspaceDocs(File ws, List<DocEntry> docs, Set<String> seen) {
-    addDocIfExists(ws, ws, "Workspace", "README.md", docs, seen, true);
-    addDocIfExists(ws, ws, "Workspace", "CHANGELOG.md", docs, seen, true);
-    collectMarkdownUnder(new File(ws, "docs"), ws, "Workspace", docs, seen, true);
+    collectMarkdownUnder(ws, ws, "Workspace", docs, seen, true);
   }
 
   private void indexProjectDocs(File project, List<DocEntry> docs, Set<String> seen) {
-    addDocIfExists(project, project, "Project", "README.md", docs, seen, false);
-    collectMarkdownUnder(new File(project, "docs"), project, "Project", docs, seen, false);
-  }
-
-  private void addDocIfExists(
-      File root,
-      File base,
-      String source,
-      String relativePath,
-      List<DocEntry> docs,
-      Set<String> seen,
-      boolean workspaceDoc
-  ) {
-    File file = new File(root, relativePath);
-    if (!file.exists() || !file.isFile()) return;
-    addDoc(base, file, source, docs, seen, workspaceDoc);
+    collectMarkdownUnder(project, project, "Project", docs, seen, false);
   }
 
   private void collectMarkdownUnder(
@@ -292,6 +360,7 @@ public class HelpCenterView extends BorderPane {
       stream
           .filter(Files::isRegularFile)
           .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".md"))
+          .filter(path -> !shouldSkipMarkdownPath(base.toPath(), path))
           .forEach(path -> addDoc(base, path.toFile(), source, docs, seen, workspaceDoc));
     } catch (IOException ignored) {
     }
@@ -309,23 +378,75 @@ public class HelpCenterView extends BorderPane {
     if (!seen.add(key)) return;
     String relative = relativize(base, file);
     String title = readTitle(file, fallbackTitle(file));
-    DocEntry entry = new DocEntry(file, source, relative, title, workspaceDoc);
+    String summary = readSummary(file);
+    DocEntry entry = new DocEntry(file, source, relative, title, summary, workspaceDoc);
     docs.add(entry);
     if (workspaceDoc) {
       workspaceDocIndex.put(normalizePath(relative), entry);
     }
   }
 
-  private void applyFilter(String rawFilter) {
+  private void rebuildGuideTree(String rawFilter) {
     String filter = rawFilter == null ? "" : rawFilter.trim().toLowerCase(Locale.ROOT);
-    filteredDocs.setPredicate(entry -> {
-      if (filter.isBlank()) return true;
-      return entry.title().toLowerCase(Locale.ROOT).contains(filter)
-          || entry.relativePath().toLowerCase(Locale.ROOT).contains(filter)
-          || entry.sourceLabel().toLowerCase(Locale.ROOT).contains(filter);
-    });
-    if (!filteredDocs.isEmpty() && docsList.getSelectionModel().getSelectedItem() == null) {
-      docsList.getSelectionModel().select(0);
+    String selectedPath = activeDocEntry == null ? "" : canonicalPath(activeDocEntry.file());
+
+    TreeItem<HelpNode> root = new TreeItem<>(HelpNode.section(new GuideSection("root", "Docs", "")));
+    root.setExpanded(true);
+    visibleDocNodes.clear();
+
+    int visibleDocCount = 0;
+    int visibleSectionCount = 0;
+    for (GuideSection section : GUIDE_SECTIONS) {
+      List<DocEntry> docsForSection = new ArrayList<>();
+      for (DocEntry entry : allDocs) {
+        if (classifySection(entry) != section) continue;
+        if (!matchesFilter(entry, filter)) continue;
+        docsForSection.add(entry);
+      }
+      docsForSection.sort(this::compareDocs);
+      if (docsForSection.isEmpty()) continue;
+
+      TreeItem<HelpNode> sectionItem = new TreeItem<>(HelpNode.section(section));
+      sectionItem.setExpanded(true);
+      for (DocEntry entry : docsForSection) {
+        TreeItem<HelpNode> docItem = new TreeItem<>(HelpNode.doc(entry));
+        sectionItem.getChildren().add(docItem);
+        visibleDocNodes.put(canonicalPath(entry.file()), docItem);
+        visibleDocCount++;
+      }
+      root.getChildren().add(sectionItem);
+      visibleSectionCount++;
+    }
+
+    docsTree.setRoot(root);
+
+    TreeItem<HelpNode> selectedNode = selectedPath.isBlank() ? null : visibleDocNodes.get(selectedPath);
+    if (selectedNode == null) selectedNode = firstDocNode(root);
+    if (selectedNode != null) {
+      expandAncestors(selectedNode);
+      docsTree.getSelectionModel().select(selectedNode);
+      docsTree.scrollTo(Math.max(0, docsTree.getRow(selectedNode) - 2));
+      DocEntry entry = extractDocEntry(selectedNode);
+      if (entry != null) showDoc(entry);
+    } else if (allDocs.isEmpty()) {
+      showGuidePlaceholder(
+          "No docs indexed",
+          "No Markdown files were found in the current workspace.",
+          "The Help Center scans workspace docs, module READMEs, and current project docs.",
+          "No documentation files are available to preview yet.");
+    } else {
+      showGuidePlaceholder(
+          "No matching docs",
+          "Adjust the filter or clear it to see the full guide tree.",
+          "Every Markdown file is still indexed, but none match the current filter.",
+          "No documentation files matched the current filter.");
+    }
+
+    if (filter.isBlank()) {
+      statsLabel.setText("Showing " + visibleDocCount + " docs across " + visibleSectionCount + " guide sections");
+    } else {
+      statsLabel.setText("Showing " + visibleDocCount + " matching docs across " + visibleSectionCount
+          + " sections • Indexed " + allDocs.size() + " total");
     }
   }
 
@@ -341,22 +462,38 @@ public class HelpCenterView extends BorderPane {
       statsLabel.setText("Missing document: " + relativePath);
       return;
     }
-    docsList.getSelectionModel().select(entry);
-    docsList.scrollTo(entry);
+    if (!filterField.getText().isBlank()) {
+      filterField.clear();
+    }
+    TreeItem<HelpNode> node = visibleDocNodes.get(canonicalPath(entry.file()));
+    if (node == null) {
+      rebuildGuideTree("");
+      node = visibleDocNodes.get(canonicalPath(entry.file()));
+    }
+    if (node == null) {
+      statsLabel.setText("Cannot locate document: " + relativePath);
+      return;
+    }
+    expandAncestors(node);
+    docsTree.getSelectionModel().select(node);
+    docsTree.scrollTo(Math.max(0, docsTree.getRow(node) - 2));
     showDoc(entry);
   }
 
   private void showDoc(DocEntry entry) {
     if (entry == null) {
-      activeDocEntry = null;
-      titleLabel.setText("Help Center");
-      pathLabel.setText("Select a document to preview.");
-      renderMarkdown("");
+      showGuidePlaceholder(
+          "Help Center",
+          "Select a document to preview.",
+          "Follow the guide tree on the left to move from onboarding into deeper authoring and engine reference.",
+          "Pick a document from the guide tree to preview it here.");
       return;
     }
     activeDocEntry = entry;
+    sourceBadgeLabel.setText(entry.sourceLabel());
     titleLabel.setText(entry.title());
-    pathLabel.setText(entry.sourceLabel() + " - " + entry.relativePath());
+    pathLabel.setText(entry.relativePath());
+    summaryLabel.setText(entry.summary());
     try {
       renderMarkdown(Files.readString(entry.file().toPath()));
     } catch (Exception ex) {
@@ -365,13 +502,13 @@ public class HelpCenterView extends BorderPane {
   }
 
   private void openSelectedDocInEditor() {
-    DocEntry entry = docsList.getSelectionModel().getSelectedItem();
+    DocEntry entry = selectedDocEntry();
     if (entry == null || onOpenDoc == null) return;
     onOpenDoc.accept(entry.file());
   }
 
   private void revealSelectedDoc() {
-    DocEntry entry = docsList.getSelectionModel().getSelectedItem();
+    DocEntry entry = selectedDocEntry();
     if (entry == null) return;
     try {
       if (Desktop.isDesktopSupported()) {
@@ -383,12 +520,158 @@ public class HelpCenterView extends BorderPane {
   }
 
   private void copySelectedPath() {
-    DocEntry entry = docsList.getSelectionModel().getSelectedItem();
+    DocEntry entry = selectedDocEntry();
     if (entry == null) return;
     ClipboardContent cc = new ClipboardContent();
     cc.putString(entry.file().getAbsolutePath());
     Clipboard.getSystemClipboard().setContent(cc);
     statsLabel.setText("Copied path: " + entry.relativePath());
+  }
+
+  private DocEntry selectedDocEntry() {
+    return extractDocEntry(docsTree.getSelectionModel().getSelectedItem());
+  }
+
+  private DocEntry extractDocEntry(TreeItem<HelpNode> item) {
+    if (item == null || item.getValue() == null || item.getValue().section()) return null;
+    return item.getValue().doc();
+  }
+
+  private void showGuidePlaceholder(String title, String path, String summary, String bodyMessage) {
+    activeDocEntry = null;
+    sourceBadgeLabel.setText("Guide");
+    titleLabel.setText(title);
+    pathLabel.setText(path);
+    summaryLabel.setText(summary);
+    markdownContent.getChildren().clear();
+    addEmptyState(bodyMessage);
+  }
+
+  private boolean shouldSkipMarkdownPath(Path base, Path path) {
+    Path normalizedBase = base.toAbsolutePath().normalize();
+    Path normalizedPath = path.toAbsolutePath().normalize();
+    if (!normalizedPath.startsWith(normalizedBase)) return false;
+    Path relative = normalizedBase.relativize(normalizedPath);
+    for (Path part : relative) {
+      String name = part.toString();
+      if (name.equals(".git")
+          || name.equals(".gradle")
+          || name.equals(".idea")
+          || name.equals(".jvn-gradle-user-home")
+          || name.equals("build")
+          || name.equals("out")
+          || name.equals("target")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean matchesFilter(DocEntry entry, String filter) {
+    if (filter == null || filter.isBlank()) return true;
+    return entry.title().toLowerCase(Locale.ROOT).contains(filter)
+        || entry.relativePath().toLowerCase(Locale.ROOT).contains(filter)
+        || entry.sourceLabel().toLowerCase(Locale.ROOT).contains(filter)
+        || entry.summary().toLowerCase(Locale.ROOT).contains(filter);
+  }
+
+  private GuideSection classifySection(DocEntry entry) {
+    String path = normalizePath(entry.relativePath()).toLowerCase(Locale.ROOT);
+    File ws = workspaceRoot != null ? workspaceRoot : detectWorkspaceRoot();
+    File pr = normalizeDir(projectRoot);
+    if (!entry.isWorkspaceDoc()) return SECTION_PROJECT;
+    if (pr != null && !isSameDirectory(pr, ws) && isUnderDirectory(entry.file(), pr)) return SECTION_PROJECT;
+    if (path.equals("readme.md")
+        || path.equals("docs/index.md")
+        || path.equals("docs/readme.md")
+        || path.equals("docs/guides/choose-your-path.md")
+        || path.equals("docs/guides/getting-started.md")
+        || path.equals("docs/guides/common-file-types.md")
+        || path.equals("scripting/readme.md")) {
+      return SECTION_START;
+    }
+    if (path.contains("generated-")
+        || path.endsWith("changelog.md")
+        || path.endsWith("contributing.md")
+        || path.endsWith("puppeteer-audit.md")
+        || path.endsWith("native-library-audit.md")
+        || path.equals("license.md")) {
+      return SECTION_REFERENCE;
+    }
+    if (path.startsWith("docs/scripting/vns/")) return SECTION_VNS;
+    if (path.startsWith("docs/scripting/jes/")) return SECTION_JES;
+    if (path.startsWith("docs/editor/puppeteer/") || path.startsWith("docs/scripting/timeline/")) return SECTION_PUPPETEER;
+    if (path.startsWith("docs/scripting/ui/")) return SECTION_UI;
+    if (path.startsWith("docs/editor/") || path.startsWith("editor/")) return SECTION_EDITOR;
+    if (path.startsWith("docs/runtime/") || path.startsWith("docs/project-setup/") || path.startsWith("runtime/")) {
+      return SECTION_RUNTIME;
+    }
+    if (path.startsWith("docs/architecture/")
+        || path.startsWith("core/")
+        || path.startsWith("fx/")
+        || path.startsWith("audio/")
+        || path.startsWith("audio-fx/")
+        || path.startsWith("native-math/")) {
+      return SECTION_ARCHITECTURE;
+    }
+    if (path.startsWith("docs/guides/")) return SECTION_GUIDES;
+    return SECTION_REFERENCE;
+  }
+
+  private int compareDocs(DocEntry left, DocEntry right) {
+    int rankCompare = Integer.compare(docRank(left), docRank(right));
+    if (rankCompare != 0) return rankCompare;
+    int pathCompare = left.relativePath().compareToIgnoreCase(right.relativePath());
+    if (pathCompare != 0) return pathCompare;
+    return left.title().compareToIgnoreCase(right.title());
+  }
+
+  private int docRank(DocEntry entry) {
+    String path = normalizePath(entry.relativePath()).toLowerCase(Locale.ROOT);
+    if (path.equals("docs/index.md")) return 0;
+    if (path.equals("docs/readme.md")) return 1;
+    if (path.equals("docs/guides/choose-your-path.md")) return 2;
+    if (path.equals("docs/guides/getting-started.md")) return 3;
+    if (path.equals("docs/guides/common-file-types.md")) return 4;
+    if (path.equals("readme.md")) return 5;
+    if (path.contains("/overview/")) return 10;
+    if (path.contains("/onboarding/")) return 15;
+    if (path.contains("/workflow/")) return 20;
+    if (path.contains("/guides/")) return 25;
+    if (path.contains("/language/")) return 30;
+    if (path.contains("/flow/")) return 35;
+    if (path.contains("/presentation/")) return 40;
+    if (path.contains("/runtime/")) return 45;
+    if (path.contains("/integration/")) return 50;
+    if (path.contains("/systems/")) return 55;
+    if (path.contains("/scene/")) return 60;
+    if (path.contains("/components/")) return 65;
+    if (path.contains("/tooling/")) return 70;
+    if (path.contains("/structure/")) return 75;
+    if (path.contains("/styling/")) return 80;
+    if (path.contains("/screens/")) return 82;
+    if (path.contains("/reference/")) return 85;
+    if (path.contains("/internals/")) return 90;
+    if (path.contains("generated-") || path.endsWith("-audit.md")) return 95;
+    return 88;
+  }
+
+  private TreeItem<HelpNode> firstDocNode(TreeItem<HelpNode> root) {
+    if (root == null) return null;
+    for (TreeItem<HelpNode> section : root.getChildren()) {
+      for (TreeItem<HelpNode> child : section.getChildren()) {
+        if (extractDocEntry(child) != null) return child;
+      }
+    }
+    return null;
+  }
+
+  private void expandAncestors(TreeItem<HelpNode> node) {
+    TreeItem<HelpNode> current = node;
+    while (current != null) {
+      current.setExpanded(true);
+      current = current.getParent();
+    }
   }
 
   private void renderMarkdown(String markdown) {
@@ -885,8 +1168,19 @@ public class HelpCenterView extends BorderPane {
     String wanted = canonicalPath(path.toFile());
     for (DocEntry entry : allDocs) {
       if (canonicalPath(entry.file()).equals(wanted)) {
-        docsList.getSelectionModel().select(entry);
-        docsList.scrollTo(entry);
+        TreeItem<HelpNode> node = visibleDocNodes.get(wanted);
+        if (node == null) {
+          if (!filterField.getText().isBlank()) {
+            filterField.clear();
+          }
+          rebuildGuideTree(filterField.getText());
+          node = visibleDocNodes.get(wanted);
+        }
+        if (node != null) {
+          expandAncestors(node);
+          docsTree.getSelectionModel().select(node);
+          docsTree.scrollTo(Math.max(0, docsTree.getRow(node) - 2));
+        }
         showDoc(entry);
         return true;
       }
@@ -989,6 +1283,52 @@ public class HelpCenterView extends BorderPane {
     return fallback;
   }
 
+  private String readSummary(File file) {
+    try {
+      List<String> lines = Files.readAllLines(file.toPath());
+      StringBuilder paragraph = new StringBuilder();
+      boolean inFence = false;
+      int limit = Math.min(lines.size(), SUMMARY_SCAN_LINE_LIMIT);
+      for (int i = 0; i < limit; i++) {
+        String raw = lines.get(i);
+        String line = raw == null ? "" : raw.trim();
+        if (line.startsWith("```")) {
+          inFence = !inFence;
+          continue;
+        }
+        if (inFence) continue;
+        if (line.isBlank()) {
+          if (paragraph.length() > 0) break;
+          continue;
+        }
+        if (line.startsWith("#")
+            || line.startsWith(">")
+            || HORIZONTAL_RULE_LINE.matcher(line).matches()
+            || isListLine(line)
+            || TABLE_SEPARATOR_LINE.matcher(line).matches()
+            || line.startsWith("|")
+            || parseStandaloneImage(line) != null) {
+          if (paragraph.length() > 0) break;
+          continue;
+        }
+        if (paragraph.length() > 0) paragraph.append(' ');
+        paragraph.append(line);
+        if (paragraph.length() >= 220) break;
+      }
+      String summary = paragraph.toString().trim();
+      if (!summary.isBlank()) return compactSummary(summary, 190);
+    } catch (Exception ignored) {
+    }
+    return "No summary available yet.";
+  }
+
+  private String compactSummary(String text, int maxLength) {
+    if (text == null) return "";
+    String normalized = text.replaceAll("\\s+", " ").trim();
+    if (normalized.length() <= maxLength) return normalized;
+    return normalized.substring(0, Math.max(0, maxLength - 1)).trim() + "…";
+  }
+
   private String fallbackTitle(File file) {
     String name = file.getName();
     int dot = name.lastIndexOf('.');
@@ -1029,11 +1369,38 @@ public class HelpCenterView extends BorderPane {
     return canonicalPath(a).equals(canonicalPath(b));
   }
 
+  private boolean isUnderDirectory(File file, File directory) {
+    if (file == null || directory == null) return false;
+    String filePath = canonicalPath(file);
+    String dirPath = canonicalPath(directory);
+    return filePath.equals(dirPath) || filePath.startsWith(dirPath + File.separator);
+  }
+
   private String normalizePath(String path) {
     if (path == null) return "";
     return path.replace('\\', '/');
   }
 
-  private record DocEntry(File file, String sourceLabel, String relativePath, String title, boolean isWorkspaceDoc) {}
+  private record DocEntry(
+      File file,
+      String sourceLabel,
+      String relativePath,
+      String title,
+      String summary,
+      boolean isWorkspaceDoc
+  ) {}
+
+  private record GuideSection(String key, String title, String subtitle) {}
+
+  private record HelpNode(String title, String subtitle, DocEntry doc, boolean section) {
+    private static HelpNode section(GuideSection section) {
+      return new HelpNode(section.title(), section.subtitle(), null, true);
+    }
+
+    private static HelpNode doc(DocEntry entry) {
+      return new HelpNode(entry.title(), entry.summary(), entry, false);
+    }
+  }
+
   private record MarkdownImage(String altText, String target) {}
 }

@@ -10,6 +10,34 @@ Core classes:
 
 ---
 
+## Who This Is For
+
+Use menu profiles if you want to build or restyle:
+
+- main menus
+- load/save/settings screens
+- custom menu flows
+- dialogue UI layout and textbox presentation
+
+This is the right system when you want project-specific UI without writing Java code.
+
+## What You Will Learn
+
+This page gives you the beginner map for:
+
+- which files make up a menu profile
+- how screens, layouts, styles, and dialogue UI fit together
+- what a minimal working config looks like
+- which deeper docs to read for structure vs appearance vs tooling
+
+## Read This Next
+
+- New to JVN overall: [Choose Your Path in JVN](../../../guides/choose-your-path.md)
+- Need file-level orientation: [Common JVN File Types](../../../guides/common-file-types.md)
+- Want the practical workflow first: [Text-First Layout Workflow](../layout/workflow/text-first-layout-workflow.md)
+
+---
+
 ## Sub-Document Reference
 
 ### Menu System

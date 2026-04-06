@@ -2,6 +2,11 @@
 
 This guide walks you through building JVN, creating your first project, and running it.
 
+Before you go deep:
+
+- not sure whether you should start in VNS, JES, Puppeteer, or menus: [Choose Your Path in JVN](choose-your-path.md)
+- not sure what the main files are yet: [Common JVN File Types](common-file-types.md)
+
 ---
 
 ## Prerequisites
@@ -247,6 +252,8 @@ Open `config/timeline/story.timeline` to see the narrative structure graph.
 
 ## Next Steps
 
+- **[Choose Your Path in JVN](choose-your-path.md)** — decide which JVN layer to learn next
+- **[Common JVN File Types](common-file-types.md)** — understand what each file controls
 - **[VNS Scripting Guide](../scripting/vns/overview/vns-scripting.md)** — complete language reference
 - **[Cookbook & Recipes](cookbook.md)** — common patterns and examples
 - **[Editor Guide](../editor/core/editor.md)** — full editor features

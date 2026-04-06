@@ -2,6 +2,25 @@
 
 The JVN Editor is the main authoring environment for VN scripts, menu/config assets, timeline flow, and runtime launch.
 
+## Who This Is For
+
+Use this page if you are getting comfortable with the editor itself: panels, tabs, project run behavior, and where different tools live.
+
+## What You Will Learn
+
+This page explains:
+
+- the main editor layout
+- what each major area is responsible for
+- how files open into different tool tabs
+- how project run from the editor works
+
+## Read This Next
+
+- Need the full docs map: [Documentation Index](../../INDEX.md)
+- Need a beginner route through JVN: [Choose Your Path in JVN](../../guides/choose-your-path.md)
+- Need sidebar tool coverage: [Sidebar Utilities Overview](../sidebars/overview/sidebar-utilities.md)
+
 Launch command:
 
 ```bash

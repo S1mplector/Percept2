@@ -5,6 +5,8 @@ This index is meant to guide you, the reader. Start with the path that matches w
 ## Start Here
 
 - [Getting Started Guide](guides/getting-started.md) — build the engine, run the editor, and get your environment working
+- [Choose Your Path in JVN](guides/choose-your-path.md) — decide whether you should start in VNS, JES, Puppeteer, menus, or editor tooling
+- [Common JVN File Types](guides/common-file-types.md) — quick orientation for `.vns`, `.jes`, `.menu`, `.layout`, `.style`, timelines, and staging files
 - [Architecture Overview](architecture/core/overview.md) — understand how JVN is split across editor, runtime, VNS, JES, menus, and native systems
 - [Editor Guide](editor/core/editor.md) — learn the main editor layout, modes, and shortcuts
 
@@ -226,4 +228,6 @@ This index is meant to guide you, the reader. Start with the path that matches w
 
 ## Supplementary
 
+- [Choose Your Path in JVN](guides/choose-your-path.md) — onboarding route selection
+- [Common JVN File Types](guides/common-file-types.md) — file-role quick reference
 - [Cookbook & Recipes](guides/cookbook.md) — practical patterns and end-to-end examples

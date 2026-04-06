@@ -9,12 +9,16 @@ import com.jvn.editor.ui.InspectorView;
 import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.MenuFlowEditorView;
+import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
+import com.jvn.editor.ui.RunConsoleView;
+import com.jvn.editor.ui.ScriptEditorLauncherView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
+import com.jvn.editor.ui.WelcomeCenterView;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
 import com.jvn.editor.ui.actioneditor.Keyframe;
@@ -32,6 +36,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.SplitPane;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -418,14 +423,106 @@ public final class DocsScreenshotTool extends Application {
         DocsScreenshotTool::openAssetBrowserWindow
     );
 
-    private static final ProfileSpec HELP_CENTER_PROFILE = basicSidebarProfile(
+    private static final ProfileSpec HELP_CENTER_PROFILE = new ProfileSpec(
         "help-center",
         "Help Center",
         "docs/editor/sidebars/right/sidebar-help-center.md",
         "docs/editor/sidebars/right/generated-help-center-screenshots.md",
         "docs/assets/images/sidebars/help-center",
+        "docs/assets/images/sidebars/help-center/raw",
+        "<!-- AUTO-HELP_CENTER-SCREENSHOTS:START -->",
+        "<!-- AUTO-HELP_CENTER-SCREENSHOTS:END -->",
         1200,
-        DocsScreenshotTool::openHelpCenterWindow
+        List.of(
+            new ShotSpec(
+                "full",
+                "full",
+                "help_center_ui_full.png",
+                "Help Center Overview",
+                "Guide tree, quick access, and markdown preview in one workspace.",
+                0,
+                1200,
+                0,
+                List.of(
+                    new Callout("Guide Tree", 0.01, 0.02, 0.31, 0.96),
+                    new Callout("Preview Pane", 0.35, 0.02, 0.64, 0.96)
+                )
+            ),
+            new ShotSpec(
+                "guide-tree",
+                "guide_tree",
+                "help_center_guide_tree.png",
+                "Guide Tree",
+                "Progressive documentation tree with onboarding-first sections and full Markdown coverage.",
+                8,
+                560,
+                0,
+                List.of(
+                    new Callout("Quick Access + Filter", 0.03, 0.02, 0.94, 0.22),
+                    new Callout("Sectioned Doc Tree", 0.03, 0.27, 0.94, 0.68)
+                )
+            ),
+            new ShotSpec(
+                "preview",
+                "preview",
+                "help_center_preview.png",
+                "Preview Pane",
+                "Document metadata header and rendered Markdown preview for the selected page.",
+                8,
+                760,
+                0,
+                List.of(
+                    new Callout("Preview Header", 0.02, 0.02, 0.96, 0.12),
+                    new Callout("Rendered Markdown", 0.02, 0.18, 0.96, 0.78)
+                )
+            )
+        ),
+        DocsScreenshotTool::openHelpCenterWindow,
+        DocsScreenshotTool::resolveHelpCenterRegions
+    );
+
+    private static final ProfileSpec PROJECT_EXPLORER_PROFILE = new ProfileSpec(
+        "project-explorer",
+        "Project Explorer",
+        "docs/editor/sidebars/left/sidebar-project-explorer.md",
+        "docs/editor/sidebars/left/generated-project-explorer-screenshots.md",
+        "docs/assets/images/sidebars/project-explorer",
+        "docs/assets/images/sidebars/project-explorer/raw",
+        "<!-- AUTO-PROJECT_EXPLORER-SCREENSHOTS:START -->",
+        "<!-- AUTO-PROJECT_EXPLORER-SCREENSHOTS:END -->",
+        700,
+        List.of(
+            new ShotSpec(
+                "full",
+                "full",
+                "project_explorer_ui_full.png",
+                "Project Explorer Overview",
+                "Project tree with inline run action, filter field, and nested file hierarchy.",
+                0,
+                700,
+                0,
+                List.of(
+                    new Callout("Filter", 0.05, 0.05, 0.90, 0.10),
+                    new Callout("Project Tree", 0.03, 0.18, 0.94, 0.79)
+                )
+            ),
+            new ShotSpec(
+                "tree",
+                "tree",
+                "project_explorer_tree.png",
+                "Project Tree Detail",
+                "Expanded project hierarchy with the root run action and nested authoring files.",
+                8,
+                520,
+                0,
+                List.of(
+                    new Callout("Root Run Action", 0.02, 0.01, 0.96, 0.13),
+                    new Callout("Nested Files", 0.02, 0.16, 0.96, 0.82)
+                )
+            )
+        ),
+        DocsScreenshotTool::openProjectExplorerWindow,
+        DocsScreenshotTool::resolveProjectExplorerRegions
     );
 
     private static final ProfileSpec IMAGE_ATTRIBUTES_PROFILE = basicSidebarProfile(
@@ -496,6 +593,65 @@ public final class DocsScreenshotTool extends Application {
         "docs/assets/images/sidebars/puppeteer-launcher",
         350,
         DocsScreenshotTool::openPuppeteerLauncherWindow
+    );
+
+    private static final ProfileSpec TEXT_EDITOR_PROFILE = new ProfileSpec(
+        "text-editor",
+        "Text Editor",
+        "docs/editor/sidebars/right/sidebar-script-editor.md",
+        "docs/editor/sidebars/right/generated-script-editor-screenshots.md",
+        "docs/assets/images/sidebars/text-editor",
+        "docs/assets/images/sidebars/text-editor/raw",
+        "<!-- AUTO-TEXT_EDITOR-SCREENSHOTS:START -->",
+        "<!-- AUTO-TEXT_EDITOR-SCREENSHOTS:END -->",
+        1200,
+        List.of(
+            new ShotSpec(
+                "full",
+                "full",
+                "text_editor_ui_full.png",
+                "Text Editor Overview",
+                "Header, search/filter controls, project tree, and selection inspector in the text workspace.",
+                0,
+                1200,
+                0,
+                List.of(
+                    new Callout("Header + Search", 0.02, 0.02, 0.96, 0.22),
+                    new Callout("Project Files", 0.02, 0.28, 0.48, 0.69),
+                    new Callout("Selection Inspector", 0.53, 0.28, 0.45, 0.69)
+                )
+            ),
+            new ShotSpec(
+                "explorer",
+                "explorer",
+                "text_editor_explorer.png",
+                "Text Workspace Explorer",
+                "Indexed project text files with hierarchy browsing and file-search context.",
+                8,
+                620,
+                0,
+                List.of(
+                    new Callout("Explorer Tree", 0.03, 0.08, 0.94, 0.70),
+                    new Callout("Search Results", 0.03, 0.81, 0.94, 0.16)
+                )
+            ),
+            new ShotSpec(
+                "inspector",
+                "inspector",
+                "text_editor_inspector.png",
+                "Selection Inspector",
+                "Path, metadata, label outline, and include relationships for the selected text file.",
+                8,
+                620,
+                0,
+                List.of(
+                    new Callout("Selected File", 0.03, 0.05, 0.94, 0.15),
+                    new Callout("Outline + Includes", 0.03, 0.24, 0.94, 0.72)
+                )
+            )
+        ),
+        DocsScreenshotTool::openTextEditorWindow,
+        DocsScreenshotTool::resolveTextEditorRegions
     );
 
     private static final ProfileSpec VERSION_CONTROL_PROFILE = basicSidebarProfile(
@@ -591,11 +747,141 @@ public final class DocsScreenshotTool extends Application {
         DocsScreenshotTool::resolveStoryTimelineRegions
     );
 
+    private static final ProfileSpec WELCOME_CENTER_PROFILE = new ProfileSpec(
+        "welcome-center",
+        "Welcome Center",
+        "docs/editor/core/welcome-center.md",
+        "docs/editor/core/generated-welcome-center-screenshots.md",
+        "docs/assets/images/core/welcome-center",
+        "docs/assets/images/core/welcome-center/raw",
+        "<!-- AUTO-WELCOME_CENTER-SCREENSHOTS:START -->",
+        "<!-- AUTO-WELCOME_CENTER-SCREENSHOTS:END -->",
+        900,
+        List.of(
+            new ShotSpec(
+                "full",
+                "full",
+                "welcome_center_ui_full.png",
+                "Welcome Center Overview",
+                "Startup dashboard with the hero card, recent projects, and environment health.",
+                0,
+                1200,
+                0,
+                List.of(
+                    new Callout("Hero Card", 0.03, 0.03, 0.94, 0.22),
+                    new Callout("Recent Projects", 0.03, 0.28, 0.54, 0.68),
+                    new Callout("Environment Health", 0.60, 0.28, 0.37, 0.68)
+                )
+            ),
+            new ShotSpec(
+                "hero",
+                "hero",
+                "welcome_center_hero.png",
+                "Hero Card",
+                "Workspace/project metadata and quick launch actions at editor startup.",
+                8,
+                860,
+                0,
+                List.of(
+                    new Callout("Workspace + Project", 0.03, 0.10, 0.94, 0.38),
+                    new Callout("Quick Actions", 0.03, 0.52, 0.52, 0.32)
+                )
+            ),
+            new ShotSpec(
+                "recent-projects",
+                "recent_projects",
+                "welcome_center_recent_projects.png",
+                "Recent Projects",
+                "Project history list with filtering and quick-open actions.",
+                8,
+                760,
+                0,
+                List.of(
+                    new Callout("Recent List", 0.03, 0.12, 0.94, 0.80)
+                )
+            ),
+            new ShotSpec(
+                "environment-health",
+                "environment_health",
+                "welcome_center_environment_health.png",
+                "Environment Health",
+                "Runtime, Gradle, Git, and project artifact diagnostics shown at startup.",
+                8,
+                760,
+                0,
+                List.of(
+                    new Callout("Health Checks", 0.03, 0.12, 0.94, 0.80)
+                )
+            )
+        ),
+        DocsScreenshotTool::openWelcomeCenterWindow,
+        DocsScreenshotTool::resolveWelcomeCenterRegions
+    );
+
+    private static final ProfileSpec RUN_CONSOLE_PROFILE = new ProfileSpec(
+        "run-console",
+        "Run Console",
+        "docs/editor/core/run-console.md",
+        "docs/editor/core/generated-run-console-screenshots.md",
+        "docs/assets/images/core/run-console",
+        "docs/assets/images/core/run-console/raw",
+        "<!-- AUTO-RUN_CONSOLE-SCREENSHOTS:START -->",
+        "<!-- AUTO-RUN_CONSOLE-SCREENSHOTS:END -->",
+        700,
+        List.of(
+            new ShotSpec(
+                "full",
+                "full",
+                "run_console_ui_full.png",
+                "Run Console Overview",
+                "Toolbar, live output, performance graph, and status bar during a runtime launch.",
+                0,
+                1200,
+                0,
+                List.of(
+                    new Callout("Toolbar + Perf Graph", 0.02, 0.02, 0.96, 0.12),
+                    new Callout("Output Log", 0.02, 0.16, 0.96, 0.72),
+                    new Callout("Status Bar", 0.02, 0.91, 0.96, 0.07)
+                )
+            ),
+            new ShotSpec(
+                "toolbar",
+                "toolbar",
+                "run_console_toolbar.png",
+                "Toolbar",
+                "Run controls, filters, search, and the compact runtime performance graph.",
+                8,
+                980,
+                0,
+                List.of(
+                    new Callout("Controls", 0.02, 0.08, 0.38, 0.80),
+                    new Callout("Perf Graph + Filters", 0.42, 0.08, 0.56, 0.80)
+                )
+            ),
+            new ShotSpec(
+                "output",
+                "output",
+                "run_console_output.png",
+                "Output Log",
+                "Color-coded runtime output with warnings, info lines, and filtered Gradle noise.",
+                8,
+                980,
+                0,
+                List.of(
+                    new Callout("Live Output", 0.02, 0.04, 0.96, 0.92)
+                )
+            )
+        ),
+        DocsScreenshotTool::openRunConsoleWindow,
+        DocsScreenshotTool::resolveRunConsoleRegions
+    );
+
     private static final List<String> DEFAULT_PROFILE_KEYS = List.of(
         PUPPETEER_PROFILE.key(),
         IMAGE_TINT_PROFILE.key(),
         ASSET_BROWSER_PROFILE.key(),
         HELP_CENTER_PROFILE.key(),
+        PROJECT_EXPLORER_PROFILE.key(),
         IMAGE_ATTRIBUTES_PROFILE.key(),
         INSPECTOR_PROFILE.key(),
         LABEL_FLOW_MAP_PROFILE.key(),
@@ -603,9 +889,12 @@ public final class DocsScreenshotTool extends Application {
         LAYOUT_LAUNCHER_PROFILE.key(),
         MENU_FLOW_EDITOR_PROFILE.key(),
         PUPPETEER_LAUNCHER_PROFILE.key(),
+        TEXT_EDITOR_PROFILE.key(),
         VERSION_CONTROL_PROFILE.key(),
         VNS_DIAGNOSTICS_PROFILE.key(),
-        STORY_TIMELINE_PROFILE.key()
+        STORY_TIMELINE_PROFILE.key(),
+        WELCOME_CENTER_PROFILE.key(),
+        RUN_CONSOLE_PROFILE.key()
     );
 
     private static final Map<String, ProfileSpec> PROFILES = Map.ofEntries(
@@ -613,6 +902,7 @@ public final class DocsScreenshotTool extends Application {
         Map.entry(IMAGE_TINT_PROFILE.key(), IMAGE_TINT_PROFILE),
         Map.entry(ASSET_BROWSER_PROFILE.key(), ASSET_BROWSER_PROFILE),
         Map.entry(HELP_CENTER_PROFILE.key(), HELP_CENTER_PROFILE),
+        Map.entry(PROJECT_EXPLORER_PROFILE.key(), PROJECT_EXPLORER_PROFILE),
         Map.entry(IMAGE_ATTRIBUTES_PROFILE.key(), IMAGE_ATTRIBUTES_PROFILE),
         Map.entry(INSPECTOR_PROFILE.key(), INSPECTOR_PROFILE),
         Map.entry(LABEL_FLOW_MAP_PROFILE.key(), LABEL_FLOW_MAP_PROFILE),
@@ -620,9 +910,12 @@ public final class DocsScreenshotTool extends Application {
         Map.entry(LAYOUT_LAUNCHER_PROFILE.key(), LAYOUT_LAUNCHER_PROFILE),
         Map.entry(MENU_FLOW_EDITOR_PROFILE.key(), MENU_FLOW_EDITOR_PROFILE),
         Map.entry(PUPPETEER_LAUNCHER_PROFILE.key(), PUPPETEER_LAUNCHER_PROFILE),
+        Map.entry(TEXT_EDITOR_PROFILE.key(), TEXT_EDITOR_PROFILE),
         Map.entry(VERSION_CONTROL_PROFILE.key(), VERSION_CONTROL_PROFILE),
         Map.entry(VNS_DIAGNOSTICS_PROFILE.key(), VNS_DIAGNOSTICS_PROFILE),
-        Map.entry(STORY_TIMELINE_PROFILE.key(), STORY_TIMELINE_PROFILE)
+        Map.entry(STORY_TIMELINE_PROFILE.key(), STORY_TIMELINE_PROFILE),
+        Map.entry(WELCOME_CENTER_PROFILE.key(), WELCOME_CENTER_PROFILE),
+        Map.entry(RUN_CONSOLE_PROFILE.key(), RUN_CONSOLE_PROFILE)
     );
 
     private Path repoRoot;
@@ -786,6 +1079,12 @@ public final class DocsScreenshotTool extends Application {
         return openToolStage("Docs Screenshot Session - Help Center", view, 1400, 900);
     }
 
+    private static Stage openProjectExplorerWindow(Path repoRoot) throws Exception {
+        ProjectExplorerView view = new ProjectExplorerView();
+        view.setRootDirectory(ensureDocsFixtureProject(repoRoot).toFile());
+        return openToolStage("Docs Screenshot Session - Project Explorer", view, 520, 980);
+    }
+
     private static Stage openImageAttributesWindow(Path repoRoot) throws Exception {
         ImageAttributesToolView view = new ImageAttributesToolView();
         view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
@@ -867,6 +1166,14 @@ public final class DocsScreenshotTool extends Application {
         return openToolStage("Docs Screenshot Session - Puppeteer Launcher", panel, 620, 940);
     }
 
+    private static Stage openTextEditorWindow(Path repoRoot) throws Exception {
+        ScriptEditorLauncherView view = new ScriptEditorLauncherView();
+        Path fixtureRoot = ensureDocsFixtureProject(repoRoot);
+        view.setWorkspaceRoot(repoRoot.toFile());
+        view.setProjectRoot(fixtureRoot.toFile());
+        return openToolStage("Docs Screenshot Session - Text Editor", view, 1460, 980);
+    }
+
     private static Stage openVersionControlWindow(Path repoRoot) {
         VersionControlView view = new VersionControlView();
         view.setProjectRoot(repoRoot.toFile());
@@ -888,6 +1195,22 @@ public final class DocsScreenshotTool extends Application {
         StoryTimelineView view = new StoryTimelineView();
         view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
         return openToolStage("Docs Screenshot Session - Story Timeline", view, 1600, 980);
+    }
+
+    private static Stage openWelcomeCenterWindow(Path repoRoot) throws Exception {
+        WelcomeCenterView view = new WelcomeCenterView();
+        Path fixtureRoot = ensureDocsFixtureProject(repoRoot);
+        view.setEditorVersion("dev");
+        view.setWorkspaceRoot(repoRoot.toFile());
+        view.setCurrentProject(fixtureRoot.toFile());
+        return openToolStage("Docs Screenshot Session - Welcome Center", view, 1600, 980);
+    }
+
+    private static Stage openRunConsoleWindow(Path repoRoot) {
+        RunConsoleView view = new RunConsoleView("JVN Runtime");
+        Stage stage = openToolStage("Docs Screenshot Session - Run Console", view, 1540, 960);
+        populateRunConsole(view, ensureDocsFixtureProjectQuiet(repoRoot));
+        return stage;
     }
 
     private static Stage openToolStage(String title, Parent root, double width, double height) {
@@ -1134,6 +1457,14 @@ public final class DocsScreenshotTool extends Application {
         return fixtureRoot;
     }
 
+    private static Path ensureDocsFixtureProjectQuiet(Path repoRoot) {
+        try {
+            return ensureDocsFixtureProject(repoRoot);
+        } catch (IOException ex) {
+            throw new RuntimeException("Failed to prepare docs fixture project.", ex);
+        }
+    }
+
     private static String docsSidebarVnsSource() {
         return String.join("\n",
             "@background school assets/bg/school_day.png",
@@ -1272,6 +1603,102 @@ public final class DocsScreenshotTool extends Application {
         regions.put("preview", root.getCenter());
         regions.put("sidebar", root.getRight());
         return regions;
+    }
+
+    private static Map<String, Node> resolveHelpCenterRegions(Stage stage) {
+        Map<String, Node> regions = resolveFullRegions(stage);
+        if (stage == null || stage.getScene() == null || !(stage.getScene().getRoot() instanceof BorderPane root)) {
+            return regions;
+        }
+        Node center = root.getCenter();
+        if (center instanceof SplitPane split && split.getItems().size() >= 2) {
+            regions.put("guide_tree", split.getItems().get(0));
+            regions.put("preview", split.getItems().get(1));
+        }
+        return regions;
+    }
+
+    private static Map<String, Node> resolveProjectExplorerRegions(Stage stage) {
+        Map<String, Node> regions = resolveFullRegions(stage);
+        if (stage == null || stage.getScene() == null || !(stage.getScene().getRoot() instanceof VBox root)) {
+            return regions;
+        }
+        List<Node> children = root.getChildren();
+        if (!children.isEmpty()) {
+            regions.put("header", children.get(0));
+        }
+        if (children.size() >= 2) {
+            regions.put("filter", children.get(1));
+        }
+        if (children.size() >= 3) {
+            regions.put("tree", children.get(2));
+        }
+        return regions;
+    }
+
+    private static Map<String, Node> resolveTextEditorRegions(Stage stage) {
+        Map<String, Node> regions = resolveFullRegions(stage);
+        if (stage == null || stage.getScene() == null || !(stage.getScene().getRoot() instanceof BorderPane root)) {
+            return regions;
+        }
+        regions.put("header", root.getTop());
+        Node center = root.getCenter();
+        if (center instanceof SplitPane split && split.getItems().size() >= 2) {
+            regions.put("explorer", split.getItems().get(0));
+            regions.put("inspector", split.getItems().get(1));
+        }
+        return regions;
+    }
+
+    private static Map<String, Node> resolveWelcomeCenterRegions(Stage stage) {
+        Map<String, Node> regions = resolveFullRegions(stage);
+        if (stage == null || stage.getScene() == null || !(stage.getScene().getRoot() instanceof BorderPane root)) {
+            return regions;
+        }
+        Node center = root.getCenter();
+        if (center instanceof VBox box && box.getChildren().size() >= 2) {
+            regions.put("hero", box.getChildren().get(0));
+            Node splitNode = box.getChildren().get(1);
+            if (splitNode instanceof SplitPane split && split.getItems().size() >= 2) {
+                regions.put("recent_projects", split.getItems().get(0));
+                regions.put("environment_health", split.getItems().get(1));
+            }
+        }
+        return regions;
+    }
+
+    private static Map<String, Node> resolveRunConsoleRegions(Stage stage) {
+        Map<String, Node> regions = resolveFullRegions(stage);
+        if (stage == null || stage.getScene() == null || !(stage.getScene().getRoot() instanceof BorderPane root)) {
+            return regions;
+        }
+        Node top = root.getTop();
+        if (top instanceof VBox topBox && topBox.getChildren().size() >= 2) {
+            regions.put("menu", topBox.getChildren().get(0));
+            regions.put("toolbar", topBox.getChildren().get(1));
+        } else if (top != null) {
+            regions.put("toolbar", top);
+        }
+        regions.put("output", root.getCenter());
+        regions.put("status", root.getBottom());
+        return regions;
+    }
+
+    private static void populateRunConsole(RunConsoleView view, Path fixtureRoot) {
+        if (view == null) return;
+        String projectPath = fixtureRoot == null ? "<project>" : fixtureRoot.toAbsolutePath().normalize().toString();
+        view.appendLine("> Task :runtime:run");
+        view.appendLine("INFO  [main] com.jvn.runtime.JvnApp - Project root -> " + projectPath);
+        view.appendLine("INFO  [main] com.jvn.runtime.JvnApp - Loading jvn.project");
+        view.appendLine("INFO  [main] com.jvn.runtime.JvnApp - Assets -> images=12, audio=4, scripts=6");
+        view.appendLine("WARN  [main] com.jvn.runtime.JvnApp - Missing optional locale 'fr-FR'; falling back to en-US");
+        view.appendLine("INFO  [JavaFX App Thread] com.jvn.fx.FxLauncher - Runtime viewport -> window=1280x720, logical=1920x1080");
+        view.appendLine("INFO  [JavaFX App Thread] com.jvn.fx.FxLauncher - Applied custom cursor 'assets/ui/cursor/cursor.png'");
+        view.appendLine("INFO  [JavaFX App Thread] com.jvn.fx.FxLauncher - Scene ready: start");
+        view.appendLine("WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @7abc1234'");
+        view.appendLine("INFO  [JavaFX App Thread] com.jvn.fx.FxLauncher - Perf HUD active");
+        view.appendLine("at scripts/story/prologue.vns:18 unresolved optional branch marker");
+        view.setState(RunConsoleView.EngineState.RUNNING);
     }
 
     private static Map<String, Node> resolveStoryTimelineRegions(Stage stage) {

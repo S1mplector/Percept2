@@ -6,6 +6,36 @@ This document covers the system architecture, the JES/VNS relationship, the data
 
 ---
 
+## Who This Is For
+
+Use Puppeteer when you need animation that is more deliberate than a simple VNS `[show]` or `[move]` command, but you do not want to hand-author JES timeline code.
+
+Typical uses:
+
+- character entrances and exits
+- camera moves and shot timing
+- layered multi-property animation
+- reusable timeline clips
+- staging and timing that needs preview before export
+
+## What You Will Learn
+
+This page is the orientation layer for Puppeteer. It explains:
+
+- how Puppeteer fits between VNS and JES
+- what data Puppeteer exports
+- how preview, registration, and runtime playback relate
+- which docs to open next for actual day-to-day authoring
+
+## Read This Next
+
+- Need hands-on usage: [Puppeteer Editor Guide](puppeteer-editor-guide.md)
+- Need the export syntax: [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)
+- New to JVN overall: [Choose Your Path in JVN](../../guides/choose-your-path.md)
+- Need file-level orientation: [Common JVN File Types](../../guides/common-file-types.md)
+
+---
+
 ## Sub-Document Reference
 
 - **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, entity management, keyframe editing, all 12 presets, 37 easing options, searchable easing picker, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
@@ -274,8 +304,17 @@ The `TimelineRegistry` is the bridge between the editor (Puppeteer) and the runt
 1. Author creates animation in Puppeteer
 2. Types a name in the "Name" field (e.g. `hero_entrance`)
 3. Clicks **Register** button
-4. `AnimationProject.toTimelineData(name)` serializes keyframes into `TimelineData`
-5. `TimelineRegistry.register(name, data)` stores it globally
+4. Puppeteer runs a runtime verification pass first
+5. `AnimationProject.toTimelineData(name)` serializes keyframes into `TimelineData`
+6. `TimelineRegistry.register(name, data)` stores it globally
+7. The editor writes `scripts/timelines/<name>.jes` for project-side reuse
+
+The verification step is important because preview-safe authoring is not always runtime-safe authoring. For example, Puppeteer now explicitly warns or blocks registration when:
+
+- camera keyframes are spread across multiple tracks
+- camera keyframes are mixed into a normal entity track instead of the dedicated runtime camera lane
+- an animated group depends on preview-only group motion that is not serialized into runtime `TimelineData`
+- an audio cue references a file that is missing on disk
 
 ### Consumption Flow
 
@@ -316,7 +355,7 @@ The typical visual novel workflow — animate characters at a specific story mom
    │
 6. Name the timeline: "hero_challenge_entrance"
    │
-7. Click "Register" → timeline saved to TimelineRegistry
+7. Click "Register" → Puppeteer verifies, then registers and writes `scripts/timelines/<name>.jes`
    │
 8. In VNS script, add:
    │  [call jes_timeline hero_challenge_entrance]
@@ -575,6 +614,8 @@ Pivot changes only affect `Sprite2D` and `CharacterEntity2D`. Pivot values are c
 
 Camera properties are stored on a special track named `"__camera__"` internally. The runner detects `CAMERA_X`, `CAMERA_Y`, `CAMERA_ZOOM` keyframes and routes them to `SceneAccessor.setCameraX/Y/Zoom()` instead of looking for an entity.
 
+In the editor, this is exposed as the dedicated **Runtime Camera / Frame** lane. That lane is also the recommended single source of truth for camera keyframes.
+
 #### Audio Cue Timing
 
 Audio cues fire when the playhead crosses their timestamp during an update interval. Edge cases:
@@ -783,6 +824,7 @@ Apply a preset, then refine: change easing curves, adjust timing, modify target 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `[call jes_timeline X]` does nothing | Timeline not registered | Ensure you clicked "Register" in Puppeteer, or register from Java code |
+| Registration is blocked | Runtime verification found an issue | Read the verification report and fix the blocking error before registering |
 | Timeline plays but nothing moves | Entity name mismatch | Check that entity names in the timeline match character IDs in VNS `[show]` commands |
 | Inline `timeline { }` does nothing | Empty block or syntax error | Check for `"inline timeline: empty block"` HUD message; verify syntax |
 | Camera doesn't move | SceneAccessor doesn't implement camera | Ensure `RuntimeVnInterop` has a valid `SceneAccessor` with camera hooks |
@@ -805,6 +847,7 @@ Apply a preset, then refine: change easing curves, adjust timing, modify target 
 | Characters at wrong positions | VNS snapshot stale | Move cursor to a line after all relevant `[show]` commands |
 | Keyframe not created | No entity selected | Click an entity in the preview or entity selector before pressing `K` |
 | Code preview shows old code | Auto-refresh delay | Click in the timeline or press any key to trigger a refresh |
+| Reopened registered timeline is missing targets | Snapshot context was unavailable | Reopen from a useful VNS cursor context so Puppeteer can backfill scene entities |
 
 ### Common VNS + Timeline pitfalls
 

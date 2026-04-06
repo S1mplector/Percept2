@@ -8,6 +8,31 @@ Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at l
 
 ---
 
+## Who This Is For
+
+Use this page when you know the editor has a sidebar tool for something, but you are not sure which one to open first.
+
+## Fast Picks
+
+If you only need a quick answer:
+
+- Need to browse files or run the project: **Project Explorer**
+- Need live VNS problems: **VNS Diagnostics**
+- Need to launch or reopen animation work: **Puppeteer Launcher**
+- Need layered character inspection: **Layered Image Visualizer**
+- Need attribute-based character assembly: **Image Attributes Tool**
+- Need lighting, grading, and stage presets: **Scene Lighting Studio**
+- Need menu navigation wiring: **Menu Flow Editor**
+- Need menu/layout editing entrypoints: **Layout Launcher**
+
+## Read This Next
+
+- New to the editor overall: [Editor Guide](../../core/editor.md)
+- New to JVN overall: [Choose Your Path in JVN](../../../guides/choose-your-path.md)
+- Need file-level orientation first: [Common JVN File Types](../../../guides/common-file-types.md)
+
+---
+
 ## Sub-Document Reference
 
 | # | Panel | Sub-Document | Default Side | Purpose |

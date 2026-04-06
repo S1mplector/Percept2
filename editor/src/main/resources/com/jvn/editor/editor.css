@@ -1854,6 +1854,21 @@
   -fx-background-color: #121212;
 }
 
+.help-browser-pane {
+  -fx-background-color: #141414;
+}
+
+.help-pane-title {
+  -fx-font-size: 18px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #efefef;
+}
+
+.help-pane-subtitle {
+  -fx-font-size: 12px;
+  -fx-text-fill: #a5a5a5;
+}
+
 .help-section-title {
   -fx-font-size: 12px;
   -fx-font-weight: 700;
@@ -1868,6 +1883,51 @@
   -fx-border-radius: 8;
 }
 
+.help-doc-tree {
+  -fx-background-color: #171717;
+  -fx-border-color: #2b2b2b;
+  -fx-border-width: 1;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-padding: 6;
+}
+
+.help-doc-tree .tree-cell {
+  -fx-background-color: transparent;
+  -fx-padding: 6 8 6 8;
+}
+
+.help-doc-tree .tree-cell:selected {
+  -fx-background-color: #23272c;
+  -fx-background-radius: 8;
+}
+
+.help-doc-tree .tree-cell:hover:filled {
+  -fx-background-color: #1b1f24;
+  -fx-background-radius: 8;
+}
+
+.help-guide-section-box {
+  -fx-spacing: 1;
+  -fx-padding: 2 0 3 0;
+}
+
+.help-guide-section-title {
+  -fx-font-size: 13px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #e7e7e7;
+}
+
+.help-guide-section-subtitle {
+  -fx-font-size: 11px;
+  -fx-text-fill: #8f8f8f;
+}
+
+.help-doc-card {
+  -fx-spacing: 1;
+  -fx-padding: 1 0 1 0;
+}
+
 .help-doc-title {
   -fx-font-size: 12px;
   -fx-font-weight: 700;
@@ -1879,8 +1939,74 @@
   -fx-text-fill: #8f8f8f;
 }
 
+.help-doc-path {
+  -fx-font-size: 11px;
+  -fx-text-fill: #929292;
+}
+
+.help-doc-summary {
+  -fx-font-size: 11px;
+  -fx-text-fill: #a9a9a9;
+}
+
+.help-doc-source-badge,
+.help-doc-source-chip {
+  -fx-background-color: #20242a;
+  -fx-border-color: #3a4048;
+  -fx-border-width: 1;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-padding: 3 8 3 8;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #cfd7e1;
+}
+
+.help-preview-pane {
+  -fx-background-color: #121212;
+}
+
+.help-preview-header {
+  -fx-background-color: #171717;
+  -fx-border-color: #2c2c2c;
+  -fx-border-width: 1;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-padding: 12;
+  -fx-spacing: 6;
+}
+
+.help-preview-title {
+  -fx-font-size: 20px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #f0f0f0;
+}
+
+.help-preview-path {
+  -fx-font-size: 12px;
+  -fx-text-fill: #a0a0a0;
+}
+
+.help-preview-summary {
+  -fx-font-size: 12px;
+  -fx-text-fill: #b5b5b5;
+}
+
+.help-toolbar-button {
+  -fx-padding: 6 12 6 12;
+}
+
+.help-stats-label {
+  -fx-font-size: 11px;
+  -fx-text-fill: #8f8f8f;
+}
+
 .help-tip-text {
   -fx-fill: #8f8f8f;
+}
+
+.help-tip-flow {
+  -fx-padding: 0 2 0 2;
 }
 
 .help-doc-content {

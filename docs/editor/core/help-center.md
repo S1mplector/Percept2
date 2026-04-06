@@ -15,22 +15,23 @@ Component:
 
 ### Workspace docs
 
-- `README.md`
-- `CHANGELOG.md` (when present)
+- top-level Markdown such as `README.md`
+- module `README.md` files like `core/README.md`, `editor/README.md`, and similar
 - all markdown under `docs/**/*.md`
 
 ### Project-local docs (when a project is open)
 
 - project `README.md`
 - project `docs/**/*.md`
+- other project-local Markdown outside generated/build folders
 
-Docs are tagged by source (`Workspace` vs `Project`) in the list.
+Docs are tagged by source (`Workspace` vs `Project`) in the guide tree.
 
 ## Core Features
 
 - live filter box (`Filter docs...`)
-- document list with title + relative path
-- inline markdown text preview pane
+- progressive guide tree with summaries, source chips, and full Markdown coverage
+- inline rendered Markdown preview pane
 - `Open in Editor` action for direct tab editing
 - `Reveal File` action in OS file manager
 - `Copy Path` action

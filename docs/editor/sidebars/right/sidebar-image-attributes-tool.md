@@ -6,6 +6,29 @@ Source: `editor/src/main/java/com/jvn/editor/ui/ImageAttributesToolView.java`
 
 ---
 
+## Who This Is For
+
+Use this tool when your project assembles character looks from attribute groups such as:
+
+- eyes
+- mouth
+- brows
+- outfit
+- hair
+
+This tool is best when you want to build a valid expression or state combination quickly and export it back into script form.
+
+## When To Use This Instead Of The Other Image Tools
+
+- Use **Image Attributes Tool** when you want to pick semantic attributes like `eyes_happy mouth_smile`.
+- Use **Layered Image Visualizer** when you want to inspect or export actual declared layered rigs and presets visually.
+- Use **Scene Lighting Studio** when you want lighting, grading, occlusion, or stage-preset authoring.
+
+## Read This Next
+
+- Need the full sidebar map: [Sidebar Utilities Overview](../overview/sidebar-utilities.md)
+- Need file-level orientation: [Common JVN File Types](../../../guides/common-file-types.md)
+
 ## Overview
 
 The Image Attributes Tool provides a structured approach to character image assembly. Rather than browsing individual files, you select a character tag and then pick attributes per group (eyes, mouth, outfit, etc.). The tool resolves file paths automatically, previews the result, and exports ready-to-use VNS script strings.
