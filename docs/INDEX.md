@@ -1,190 +1,229 @@
-# JVN Documentation Index
+# JVN Documentation
 
-Complete documentation for the Java Vector Nexus engine.
+This index is meant to guide you, the reader. Start with the path that matches what you are trying to do, then drop into the deeper reference sections as needed.
 
----
+## Start Here
 
-## Getting Started
+- [Getting Started Guide](guides/getting-started.md) — build the engine, run the editor, and get your environment working
+- [Architecture Overview](architecture/core/overview.md) — understand how JVN is split across editor, runtime, VNS, JES, menus, and native systems
+- [Editor Guide](editor/core/editor.md) — learn the main editor layout, modes, and shortcuts
 
-- [Getting Started Guide](guides/getting-started.md) — first-time setup, build, and run
-- [Project Setup: New Project Wizard](project-setup/onboarding/new-project-wizard.md) — scaffolding a new VN project
-- [Project Setup: Version Control](project-setup/collaboration/version-control.md) — Git integration
+## Pick A Path
 
----
+### I want to make a visual novel in VNS
 
-## Architecture
+1. [VNS Overview](scripting/vns/overview/vns-scripting.md)
+2. [Directives & Declarations](scripting/vns/language/vns-directives.md)
+3. [Dialogue & Text](scripting/vns/language/vns-dialogue.md)
+4. [Choices & Branching](scripting/vns/language/vns-choices.md)
+5. [Commands Reference](scripting/vns/language/vns-commands.md)
+6. [Tutorial: Building a Complete VN](scripting/vns/guides/vns-tutorial.md)
 
-- [Overview](architecture/core/overview.md) — high-level engine map, core capabilities, recommended reading paths
-- [System Architecture](architecture/core/system-architecture.md) — modules, Engine update loop, delta smoothing, fixed timestep, SceneManager stack, Input system, boot sequence, data flows
-- [2D Engine](architecture/core/2d-engine.md) — Entity2D properties, Camera2D smoothing/bounds/transforms, PhysicsWorld2D broadphase/raycasts/callbacks, Scene2DBase render pipeline, parallax scrolling
-- [Performance](architecture/quality/performance.md) — build and runtime optimization
-- [Native Library Audit](architecture/native/native-library-audit.md) — native-math integration status
-- [Ren'Py UI Parity Roadmap](architecture/core/ui-parity-roadmap.md) — concrete patch plan for `screens.rpy` / `gui.rpy` migration comfort
+### I want gameplay scenes or systems in JES
 
----
+1. [JES Overview](scripting/jes/overview/jes-scripting.md)
+2. [Scenes & Entities](scripting/jes/scene/jes-scenes-entities.md)
+3. [Component Reference](scripting/jes/scene/components.md)
+4. [Timeline & Actions](scripting/jes/timeline/jes-timeline.md)
+5. [VN Bridge & Java Hooks](scripting/jes/integration/jes-bridge.md)
 
-## VNS Scripting (Visual Novel Script)
+### I want to animate scenes with Puppeteer
 
-- [VNS Overview](scripting/vns/overview/vns-scripting.md) — landing page and quick start
-- [Directives & Declarations](scripting/vns/language/vns-directives.md) — `@scenario`, `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@position`, `@label`, `@var`, `@define`, `@include`
-- [Dialogue & Text](scripting/vns/language/vns-dialogue.md) — dialogue forms, text effects, inline markup
-- [Choices & Branching](scripting/vns/language/vns-choices.md) — multi-line choices, inline choices, conditional choices, branching patterns
-- [Commands Reference](scripting/vns/language/vns-commands.md) — complete command catalog with examples
-- [Audio Commands](scripting/vns/presentation/vns-audio.md) — BGM, SFX, voice, crossfade, advanced audio control
-- [Characters & Sprites](scripting/vns/presentation/vns-characters.md) — character system, layered sprites, presets, motion, global positioning
-- [Layered Character Presets](scripting/vns/presentation/vns-layered-charpresets.md) — practical guide: `@charlayer` + `@charpreset` pipeline, asset organization, cross-character refs, editor tooling
-- [Variables & Conditions](scripting/vns/language/vns-variables.md) — set/inc/dec/flag, conditions, if/elif/else/endif, interpolation, ICU formatting
-- [Transitions & Screen Effects](scripting/vns/presentation/vns-transitions.md) — transitions, screen shake, flash, UI control
-- [Subroutines & Flow Control](scripting/vns/flow/vns-flow-control.md) — labels, jumps, gosub/return, script switching
-- [Interop & Integration](scripting/vns/integration/vns-interop.md) — JES interop, Java calls, inline timelines, menu commands
-- [Text Formatting & ICU](scripting/vns/language/vns-text-formatting.md) — variable interpolation, plurals, select, number formatting
-- [Scene Lifecycle & State](scripting/vns/runtime/vns-scene-lifecycle.md) — VnScene node loop, VnState, node types, preflight, character visuals, screen effects, HUD
-- [Save System](scripting/vns/runtime/vns-save-system.md) — named slots, autosave, quick save/load, schema migration, JSON format, atomic writes, thumbnails
-- [Rollback & History](scripting/vns/runtime/vns-rollback-history.md) — rollback stack, forward/backward, dialogue backlog, capture/restore
-- [Settings & Playback Modes](scripting/vns/runtime/vns-settings-modes.md) — text speed, volumes, skip mode, auto-play, UI hidden, click-reveal, key bindings
-- [Localization](scripting/vns/runtime/vns-localization.md) — locale-aware script loading, UI string localization, multi-language structure
-- [Parsing Internals](scripting/vns/internals/vns-parsing.md) — parser pipeline, regex, error model
-- [Java + JES Cross Development](scripting/vns/integration/java-jes-cross-development.md) — hybrid architecture patterns
-- [VNS ↔ JES Architecture](scripting/vns/integration/vns-jes-architecture.md) — scene stack coordination, interop routing, timeline runners, proxy entities, bridge lifecycle
-- [Tutorial: Building a Complete VN](scripting/vns/guides/vns-tutorial.md) — step-by-step walkthrough building a multi-scene story with choices, variables, audio, and JES integration
-- [Best Practices & Common Pitfalls](scripting/vns/guides/vns-best-practices.md) — naming conventions, structural patterns, common mistakes, performance tips
-- [Debugging & Troubleshooting](scripting/vns/guides/vns-debugging.md) — parse errors, runtime issues, visual/audio glitches, interop failures, diagnostic tools
-- [Project Organization & Scaling](scripting/vns/guides/vns-project-organization.md) — directory conventions, include strategies, multi-route management, team workflows
+1. [Puppeteer Overview & Architecture](editor/puppeteer/puppeteer.md)
+2. [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md)
+3. [Puppeteer JES DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md)
+4. [Puppeteer Launcher](editor/sidebars/right/sidebar-puppeteer-launcher.md)
+5. [Puppeteer Animation Timelines](scripting/timeline/animation/timeline-animation.md)
 
----
+### I want to build menus and UI layouts
 
-## JES Scripting (Engine Script)
+1. [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md)
+2. [Menu Screens](scripting/ui/menus/menu-screens.md)
+3. [Menu Styles](scripting/ui/menus/menu-styles.md)
+4. [Dialogue Layout & Style](scripting/ui/layout/components/dialogue-layout.md)
+5. [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
 
-- [JES Overview](scripting/jes/overview/jes-scripting.md) — landing page, quick start, quick reference tables
-- [Scenes & Entities](scripting/jes/scene/jes-scenes-entities.md) — scene structure, entity declarations, lifecycle, merging, save/load
-- [Component Reference](scripting/jes/scene/components.md) — all 12 component types with full property tables
-- [Timeline & Actions](scripting/jes/timeline/jes-timeline.md) — 22 timeline actions: move, rotate, scale, fade, camera, audio, combat, parallel, loop, labels
-- [Input Bindings](scripting/jes/systems/jes-input.md) — keyboard mappings, built-in actions, continuous movement, custom handlers
-- [Camera System](scripting/jes/systems/jes-camera.md) — position, zoom, shake, follow with dead zones, parallax scrolling
-- [Physics & Collision](scripting/jes/systems/jes-physics.md) — rigid bodies, circles, boxes, sensors, triggers, restitution
-- [Tilemaps & Maps](scripting/jes/systems/jes-tilemaps.md) — tilesets, tile layers, collision layers, trigger layers, pathfinding
-- [AI System](scripting/jes/gameplay/jes-ai.md) — chase, patrol, guard, flee, line-of-sight, A* pathfinding
-- [RPG Stats & Combat](scripting/jes/gameplay/jes-rpg.md) — Stats, Inventory, Equipment, Items, damage/heal, death callbacks
-- [UI Widgets](scripting/jes/gameplay/jes-ui-widgets.md) — Button2D, Slider2D, HUD patterns
-- [VN Bridge & Java Hooks](scripting/jes/integration/jes-bridge.md) — call handlers, VNS↔JES scene stack, return data, launch properties
-- [Parsing Internals](scripting/jes/internals/jes-parsing.md) — tokenizer, parser, AST, strict validation
+### I want to understand the editor and its tools
 
----
+1. [Editor Guide](editor/core/editor.md)
+2. [Welcome Center](editor/core/welcome-center.md)
+3. [Run Console](editor/core/run-console.md)
+4. [Sidebar Utilities Overview](editor/sidebars/overview/sidebar-utilities.md)
+5. [Help Center](editor/core/help-center.md)
 
-## Timeline
+### I want runtime, packaging, and deployment details
 
-- [Timeline Overview](scripting/timeline/overview/timeline-scripting.md) — landing page, quick start, key concepts
-- [Story Arcs & Links DSL](scripting/timeline/story/timeline-story-arcs.md) — arc declarations, link syntax, clusters, validation, story patterns, editor features
-- [Puppeteer Animation Timelines](scripting/timeline/animation/timeline-animation.md) — TimelineData model, keyframe interpolation, audio cues, TimelineRunner, TimelineRegistry, VNS integration
-- [Hand-Coding Timelines](scripting/timeline/animation/timeline-hand-coding.md) — writing timeline animations by hand, time cursor model, easing guide, 18 annotated examples, reusable templates
+1. [Runtime Guide](runtime/core/runtime.md)
+2. [Asset Management](runtime/systems/asset-management.md)
+3. [Save System](runtime/systems/save-system.md)
+4. [Audio System](runtime/systems/audio-system.md)
+5. [Deployment & Packaging](project-setup/release/deployment.md)
 
----
+### I want architecture, internals, and debugging
 
-## Runtime
+1. [Architecture Overview](architecture/core/overview.md)
+2. [System Architecture](architecture/core/system-architecture.md)
+3. [2D Engine](architecture/core/2d-engine.md)
+4. [Debugging & Profiling](architecture/quality/debugging.md)
+5. [Performance](architecture/quality/performance.md)
 
-- [Runtime Guide](runtime/core/runtime.md) — CLI options, launch patterns, asset lookup
-- [Interop Guide](runtime/core/interop.md) — provider routing, default + runtime providers
-- [Save System](runtime/systems/save-system.md) — schema, migration, atomic writes, autosave
-- [Audio System](runtime/systems/audio-system.md) — BGM/SFX/Voice channels, backends, crossfade, spectrum, format support
-- [Asset Management](runtime/systems/asset-management.md) — AssetCatalog, filesystem vs classpath, path resolution, conventions
-- [VN Settings Reference](runtime/systems/vn-settings.md) — all settings fields, defaults, ranges, persistence, settings store
+## Editor And Tooling
 
----
-
-## Menu & Layout System
-
-### Menu Reference
-
-- [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md) — landing page, quick start, directory structure, loader discovery, action types
-- [Menu Screens](scripting/ui/menus/menu-screens.md) — `.menu` files, item declarations, actions, bounds, slot previews, inheritance
-- [Menu Styles](scripting/ui/menus/menu-styles.md) — `.style` files, colors, fonts, shadows, button skins, title/hints, backgrounds
-- [Title Screen & Menu Presentation](project-setup/content/title-screen.md) — theme + profile layers
-
-### Layout Guides
-
-- [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md) — beginner guide, golden iteration loop, migration from visual-first
-- [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md) — 10 full recipes, complete key reference, runtime checklists
-- [Dialogue Layout & Style](scripting/ui/layout/components/dialogue-layout.md) — textbox geometry, name box, choice buttons, textbox action buttons, character framing
-- [Menu Layouts](scripting/ui/layout/structure/menu-layouts.md) — `.layout` files, list positioning, line height, text alignment, built-in layouts
-- [Menu Button Layouts](scripting/ui/layout/structure/menu-button-layouts.md) — per-button positional layouts, explicit bounds, resolution hints, Bounds Studio
-- [Menu Registry & File Discovery](scripting/ui/layout/structure/menu-registry.md) — `menu.registry`, file search paths, fallback, auto-discovery
-- [Menu Actions & Navigation](scripting/ui/layout/structure/menu-actions.md) — all 10 action types, aliases, custom actions, navigation flow
-- [Menu Inheritance & Composition](scripting/ui/layout/structure/menu-inheritance.md) — `extends` for screens/layouts/styles, chains, circular detection
-- [Custom Layout Scenarios](scripting/ui/layout/tooling/custom-scenarios.md) — multi-button textbox, per-screen backgrounds, per-item fonts, auto-width name box, sidebar menus, chapter select, confirmation dialogs
-- [Choice Buttons](scripting/ui/layout/components/choice-buttons.md) — positioning, 4-state colors, borders, fonts, image assets
-- [Textbox Action Buttons](scripting/ui/layout/components/textbox-action-buttons.md) — Auto/Skip/Log/Save buttons, positioning, image skins
-- [Character Framing & Sprites](scripting/ui/layout/components/character-framing.md) — height factor, baseline, textbox interaction
-- [Colors & Theming](scripting/ui/layout/styling/colors-theming.md) — hex format, alpha, all color keys, 4 palette recipes
-- [Fonts & Typography](scripting/ui/layout/styling/fonts-typography.md) — all font keys, cross-platform availability, examples
-- [Save & Load Screens](scripting/ui/layout/screens/save-load-screens.md) — slot templates, thumbnails, placeholder/frame assets
-- [Settings Screen](scripting/ui/layout/screens/settings-screen.md) — `{value}` placeholders, built-in settings, section headers
-- [Help Screen](scripting/ui/layout/screens/help-screen.md) — static text blocks, wrapped paragraphs, section headers, note cards
-- [Assets & Backgrounds](scripting/ui/layout/styling/assets-backgrounds.md) — all asset keys, path conventions, fallback behavior
-- [Validation & Diagnostics](scripting/ui/layout/tooling/validation-diagnostics.md) — every diagnostic message, causes, fixes
-- [Layout Editor Tools](scripting/ui/layout/tooling/layout-editor-tools.md) — Layout Studio, Bounds Studio, registry editor, screen cards
-- [Scala DSL Reference](scripting/ui/layout/reference/scala-dsl.md) — type-safe Scala builders for styles, layouts, and button layouts
-
----
-
-## Editor
+### Core Editor
 
 - [Editor Guide](editor/core/editor.md) — layout, editing modes, keyboard shortcuts
-- [Puppeteer Overview & Architecture](editor/puppeteer/puppeteer.md) — data pipeline, JES/VNS relationship, snapshot resolution, registry bridge
-- [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) — complete usage: launching, UI panels, keyframes, 12 presets, 37 easing options, searchable easing picker, audio cues, camera, groups, layer ordering, orbit tool, onion skinning, shortcuts
-- [Puppeteer JES DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md) — exported timeline syntax: move, rotate, scale, fade, pivot, cameraMove, cameraZoom, playAudio, wait, parallel, easing values, spring functions, named curves, export modes, VNS/JES integration
-- [Sidebar Utilities Overview](editor/sidebars/overview/sidebar-utilities.md) — landing page for documented editor sidebar panels
-  - [Project Explorer](editor/sidebars/left/sidebar-project-explorer.md) — file tree, create/rename/delete, run project
-  - [Story Timeline](editor/sidebars/left/sidebar-story-timeline.md) — multi-arc story graph, arcs, links, clusters, validation
-  - [Inspector](editor/sidebars/right/sidebar-inspector.md) — entity property editing for Sprite2D, Label2D, Panel2D, physics, particles
-  - [Puppeteer Launcher](editor/sidebars/right/sidebar-puppeteer-launcher.md) — live VNS scene snapshot, 12 command patterns, one-click launch
-  - [VNS Diagnostics](editor/sidebars/right/sidebar-vns-diagnostics.md) — live error/warning list, click-to-jump
-  - [Label Flow Map](editor/sidebars/right/sidebar-label-flow-map.md) — visual label-to-label directed graph
-  - [Asset Browser](editor/sidebars/right/sidebar-asset-browser.md) — asset discovery, preview, drag-and-drop, type filter
-  - [Layout Launcher](editor/sidebars/right/sidebar-layout-launcher.md) — status dashboard and launch for layout/style/screen editors
-  - [Phone Assets](editor/sidebars/right/sidebar-phone-assets-tool.md) — phone config editor with live preview and asset import
-  - [Menu Flow Editor](editor/sidebars/right/sidebar-menu-flow-editor.md) — visual menu-to-menu navigation wiring, wire mode
-  - [Layered Image Visualizer](editor/sidebars/right/sidebar-layered-image-visualizer.md) — layered sprite exploration, 6 export formats, presets
-  - [Image Attributes Tool](editor/sidebars/right/sidebar-image-attributes-tool.md) — attribute-based character image assembly, profiles
-  - [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md) — scene lighting, grading, occlusion, and stage-preset workflows
-  - [Version Control](editor/sidebars/right/sidebar-version-control.md) — Git panel: init, commit, push, pull, branch, stash, remote setup
-  - [Help Center](editor/sidebars/right/sidebar-help-center.md) — in-app Markdown documentation browser, quick access, F1 shortcut
-  - [Storyboard Overlay](editor/sidebars/right/sidebar-storyboard-overlay.md) — ghost board-frame overlays for staging reference
-  - [Text Editor](editor/sidebars/right/sidebar-script-editor.md) — JVN text file explorer, VNS label outline, include graph, pop-out editor window
-- [Welcome Center](editor/core/welcome-center.md) — startup dashboard, recent projects, environment health checks
-- [Run Console](editor/core/run-console.md) — filtered build output, engine state tracking, error/warning counters
-- [Scene Graph View](editor/core/scene-graph.md) — entity list, type badges, rename/delete, filter, fit-to-selection
-- [Tilemap Editor](editor/core/tilemap-editor.md) — visual tile painting, layer/map selection, tileset preview
-- [Action Editor Design](editor/core/action-editor-design.md) — architecture and component breakdown
-- [Puppeteer Audit](editor/puppeteer/puppeteer-audit.md) — hardening audit and expansion roadmap
-- [Help Center](editor/core/help-center.md) — in-app documentation browser
+- [Welcome Center](editor/core/welcome-center.md) — startup dashboard and environment health
+- [Run Console](editor/core/run-console.md) — build output, filters, counters, runtime monitoring
+- [Scene Graph View](editor/core/scene-graph.md) — entity list, filtering, rename/delete, fit-to-selection
+- [Tilemap Editor](editor/core/tilemap-editor.md) — tile painting, layers, tileset preview
+- [Action Editor Design](editor/core/action-editor-design.md) — action editor architecture and component breakdown
+- [Help Center](editor/core/help-center.md) — in-app docs browser and quick-access routes
 
----
+### Puppeteer
 
-## Project Setup
+- [Puppeteer Overview & Architecture](editor/puppeteer/puppeteer.md)
+- [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md)
+- [Puppeteer JES DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md)
+- [Puppeteer Audit](editor/puppeteer/puppeteer-audit.md)
 
-- [New Project Wizard](project-setup/onboarding/new-project-wizard.md) — wizard sections, generated layout
-- [Project Structure Conventions](project-setup/onboarding/project-structure.md) — directory layout, naming, asset organization, team patterns
-- [Title Screen](project-setup/content/title-screen.md) — theme and menu config
-- [Text Effects](project-setup/content/text-effects.md) — inline dialogue markup tags
-- [Version Control](project-setup/collaboration/version-control.md) — Git + Git LFS workflows
-- [Localization Workflow](project-setup/content/localization.md) — locale-aware scripts, UI strings, multi-language setup
-- [Deployment & Packaging](project-setup/release/deployment.md) — building for distribution, asset bundling, platform targets
+### Sidebar Utilities
 
----
+- [Sidebar Utilities Overview](editor/sidebars/overview/sidebar-utilities.md)
+- [Project Explorer](editor/sidebars/left/sidebar-project-explorer.md)
+- [Story Timeline](editor/sidebars/left/sidebar-story-timeline.md)
+- [Inspector](editor/sidebars/right/sidebar-inspector.md)
+- [Puppeteer Launcher](editor/sidebars/right/sidebar-puppeteer-launcher.md)
+- [VNS Diagnostics](editor/sidebars/right/sidebar-vns-diagnostics.md)
+- [Label Flow Map](editor/sidebars/right/sidebar-label-flow-map.md)
+- [Asset Browser](editor/sidebars/right/sidebar-asset-browser.md)
+- [Layout Launcher](editor/sidebars/right/sidebar-layout-launcher.md)
+- [Phone Assets](editor/sidebars/right/sidebar-phone-assets-tool.md)
+- [Menu Flow Editor](editor/sidebars/right/sidebar-menu-flow-editor.md)
+- [Layered Image Visualizer](editor/sidebars/right/sidebar-layered-image-visualizer.md)
+- [Image Attributes Tool](editor/sidebars/right/sidebar-image-attributes-tool.md)
+- [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md)
+- [Version Control](editor/sidebars/right/sidebar-version-control.md)
+- [Help Center](editor/sidebars/right/sidebar-help-center.md)
+- [Storyboard Overlay](editor/sidebars/right/sidebar-storyboard-overlay.md)
+- [Text Editor](editor/sidebars/right/sidebar-script-editor.md)
 
-## Architecture
+## Scripting
 
-- [Overview](architecture/core/overview.md) — high-level engine map, core capabilities, recommended reading paths
-- [System Architecture](architecture/core/system-architecture.md) — modules, Engine update loop, delta smoothing, fixed timestep, SceneManager stack, Input system, boot sequence, data flows
-- [2D Engine](architecture/core/2d-engine.md) — Entity2D properties, Camera2D smoothing/bounds/transforms, PhysicsWorld2D broadphase/raycasts/callbacks, Scene2DBase render pipeline, parallax scrolling
-- [Performance](architecture/quality/performance.md) — build and runtime optimization
-- [Native Library Audit](architecture/native/native-library-audit.md) — native-math integration status
-- [Audio Synthesis Architecture](architecture/native/audio-synthesis.md) — JNI synth backends, waveform analysis, streaming architecture, VNS integration
-- [Debugging & Profiling](architecture/quality/debugging.md) — diagnostics, logging, performance investigation
-- [Ren'Py UI Parity Roadmap](architecture/core/ui-parity-roadmap.md) — concrete patch plan for `screens.rpy` / `gui.rpy` migration comfort
+### VNS
 
----
+- [VNS Overview](scripting/vns/overview/vns-scripting.md)
+- [Directives & Declarations](scripting/vns/language/vns-directives.md)
+- [Dialogue & Text](scripting/vns/language/vns-dialogue.md)
+- [Choices & Branching](scripting/vns/language/vns-choices.md)
+- [Commands Reference](scripting/vns/language/vns-commands.md)
+- [Variables & Conditions](scripting/vns/language/vns-variables.md)
+- [Text Formatting & ICU](scripting/vns/language/vns-text-formatting.md)
+- [Audio Commands](scripting/vns/presentation/vns-audio.md)
+- [Characters & Sprites](scripting/vns/presentation/vns-characters.md)
+- [Layered Character Presets](scripting/vns/presentation/vns-layered-charpresets.md)
+- [Transitions & Screen Effects](scripting/vns/presentation/vns-transitions.md)
+- [Subroutines & Flow Control](scripting/vns/flow/vns-flow-control.md)
+- [Interop & Integration](scripting/vns/integration/vns-interop.md)
+- [Java + JES Cross Development](scripting/vns/integration/java-jes-cross-development.md)
+- [VNS ↔ JES Architecture](scripting/vns/integration/vns-jes-architecture.md)
+- [Scene Lifecycle & State](scripting/vns/runtime/vns-scene-lifecycle.md)
+- [Save System](scripting/vns/runtime/vns-save-system.md)
+- [Rollback & History](scripting/vns/runtime/vns-rollback-history.md)
+- [Settings & Playback Modes](scripting/vns/runtime/vns-settings-modes.md)
+- [Localization](scripting/vns/runtime/vns-localization.md)
+- [Parsing Internals](scripting/vns/internals/vns-parsing.md)
+- [Tutorial: Building a Complete VN](scripting/vns/guides/vns-tutorial.md)
+- [Best Practices & Common Pitfalls](scripting/vns/guides/vns-best-practices.md)
+- [Debugging & Troubleshooting](scripting/vns/guides/vns-debugging.md)
+- [Project Organization & Scaling](scripting/vns/guides/vns-project-organization.md)
+
+### JES
+
+- [JES Overview](scripting/jes/overview/jes-scripting.md)
+- [Scenes & Entities](scripting/jes/scene/jes-scenes-entities.md)
+- [Component Reference](scripting/jes/scene/components.md)
+- [Timeline & Actions](scripting/jes/timeline/jes-timeline.md)
+- [Input Bindings](scripting/jes/systems/jes-input.md)
+- [Camera System](scripting/jes/systems/jes-camera.md)
+- [Physics & Collision](scripting/jes/systems/jes-physics.md)
+- [Tilemaps & Maps](scripting/jes/systems/jes-tilemaps.md)
+- [AI System](scripting/jes/gameplay/jes-ai.md)
+- [RPG Stats & Combat](scripting/jes/gameplay/jes-rpg.md)
+- [UI Widgets](scripting/jes/gameplay/jes-ui-widgets.md)
+- [VN Bridge & Java Hooks](scripting/jes/integration/jes-bridge.md)
+- [Parsing Internals](scripting/jes/internals/jes-parsing.md)
+
+### Timeline
+
+- [Timeline Overview](scripting/timeline/overview/timeline-scripting.md)
+- [Story Arcs & Links DSL](scripting/timeline/story/timeline-story-arcs.md)
+- [Puppeteer Animation Timelines](scripting/timeline/animation/timeline-animation.md)
+- [Hand-Coding Timelines](scripting/timeline/animation/timeline-hand-coding.md)
+
+### Menus And Layout
+
+#### Menus
+
+- [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md)
+- [Menu Screens](scripting/ui/menus/menu-screens.md)
+- [Menu Styles](scripting/ui/menus/menu-styles.md)
+
+#### Layout
+
+- [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
+- [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md)
+- [Dialogue Layout & Style](scripting/ui/layout/components/dialogue-layout.md)
+- [Menu Layouts](scripting/ui/layout/structure/menu-layouts.md)
+- [Menu Button Layouts](scripting/ui/layout/structure/menu-button-layouts.md)
+- [Menu Registry & File Discovery](scripting/ui/layout/structure/menu-registry.md)
+- [Menu Actions & Navigation](scripting/ui/layout/structure/menu-actions.md)
+- [Menu Inheritance & Composition](scripting/ui/layout/structure/menu-inheritance.md)
+- [Custom Layout Scenarios](scripting/ui/layout/tooling/custom-scenarios.md)
+- [Choice Buttons](scripting/ui/layout/components/choice-buttons.md)
+- [Textbox Action Buttons](scripting/ui/layout/components/textbox-action-buttons.md)
+- [Character Framing & Sprites](scripting/ui/layout/components/character-framing.md)
+- [Colors & Theming](scripting/ui/layout/styling/colors-theming.md)
+- [Fonts & Typography](scripting/ui/layout/styling/fonts-typography.md)
+- [Save & Load Screens](scripting/ui/layout/screens/save-load-screens.md)
+- [Settings Screen](scripting/ui/layout/screens/settings-screen.md)
+- [Help Screen](scripting/ui/layout/screens/help-screen.md)
+- [Assets & Backgrounds](scripting/ui/layout/styling/assets-backgrounds.md)
+- [Validation & Diagnostics](scripting/ui/layout/tooling/validation-diagnostics.md)
+- [Layout Editor Tools](scripting/ui/layout/tooling/layout-editor-tools.md)
+- [Scala DSL Reference](scripting/ui/layout/reference/scala-dsl.md)
+
+## Runtime, Project Setup, And Release
+
+### Runtime
+
+- [Runtime Guide](runtime/core/runtime.md)
+- [Interop Guide](runtime/core/interop.md)
+- [Save System](runtime/systems/save-system.md)
+- [Audio System](runtime/systems/audio-system.md)
+- [Asset Management](runtime/systems/asset-management.md)
+- [VN Settings Reference](runtime/systems/vn-settings.md)
+
+### Project Setup
+
+- [New Project Wizard](project-setup/onboarding/new-project-wizard.md)
+- [Project Structure Conventions](project-setup/onboarding/project-structure.md)
+- [Title Screen](project-setup/content/title-screen.md)
+- [Text Effects](project-setup/content/text-effects.md)
+- [Localization Workflow](project-setup/content/localization.md)
+- [Version Control](project-setup/collaboration/version-control.md)
+- [Deployment & Packaging](project-setup/release/deployment.md)
+
+## Architecture And Internals
+
+- [Architecture Overview](architecture/core/overview.md)
+- [System Architecture](architecture/core/system-architecture.md)
+- [2D Engine](architecture/core/2d-engine.md)
+- [Performance](architecture/quality/performance.md)
+- [Debugging & Profiling](architecture/quality/debugging.md)
+- [Native Library Audit](architecture/native/native-library-audit.md)
+- [Audio Synthesis Architecture](architecture/native/audio-synthesis.md)
+- [Ren'Py UI Parity Roadmap](architecture/core/ui-parity-roadmap.md)
 
 ## Supplementary
 
-- [Cookbook & Recipes](guides/cookbook.md) — common patterns and end-to-end examples
+- [Cookbook & Recipes](guides/cookbook.md) — practical patterns and end-to-end examples

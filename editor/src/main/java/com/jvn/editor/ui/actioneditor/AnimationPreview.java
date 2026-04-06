@@ -118,8 +118,10 @@ public class AnimationPreview extends VBox {
     private boolean draggingPivot = false;
     private boolean draggingOrbit = false;
     private boolean draggingOrbitAnchor = false;
+    private boolean draggingCameraFrame = false;
     private PivotDragState pivotDragState;
     private double dragEntityStartX, dragEntityStartY;
+    private double dragCameraStartX, dragCameraStartY;
     private boolean pivotAxisLocked = false;
     private boolean pivotAxisIsHorizontal = false;
     private double pivotDragStartWorldX, pivotDragStartWorldY;
@@ -149,6 +151,9 @@ public class AnimationPreview extends VBox {
     private BiConsumer<String, double[]> onOrbitAnchorSourceOffsetChanged;
     private Consumer<String> onOrbitAnchorRemoved;
     private Consumer<double[]> onCameraStateChanged;
+    private Runnable onCameraInteractionStarted;
+    private Consumer<double[]> onCameraMoved;
+    private Consumer<double[]> onCameraInteractionFinished;
     private ProjectViewportSpec.Dimensions viewportSpec =
         new ProjectViewportSpec.Dimensions(ProjectViewportSpec.DEFAULT_WIDTH, ProjectViewportSpec.DEFAULT_HEIGHT);
     private double viewportScale = 1.0;
@@ -177,6 +182,9 @@ public class AnimationPreview extends VBox {
     private double moveInteractionStartY = 0.0;
     private boolean assetDropHighlightActive = false;
     private String assetDropLabel = null;
+    private boolean runtimeCameraSelected = false;
+    private boolean showSafeGuides = true;
+    private boolean showTitleGuides = true;
 
     public void setProjectRoot(java.io.File root) {
         projectRoot = root;
@@ -346,15 +354,53 @@ public class AnimationPreview extends VBox {
         double y = Math.min(y0, y1);
         double frameW = Math.abs(x1 - x0);
         double frameH = Math.abs(y1 - y0);
+        Color frameColor = runtimeCameraSelected
+            ? Color.web("#ffb067", 0.98)
+            : Color.web("#ff4d4d", 0.95);
 
         gc.save();
-        gc.setStroke(Color.web("#ff4d4d", 0.95));
+        if (showSafeGuides) {
+            drawGuideRect(x, y, frameW, frameH, 0.10, Color.web("#ffd27a", runtimeCameraSelected ? 0.42 : 0.28));
+        }
+        if (showTitleGuides) {
+            drawGuideRect(x, y, frameW, frameH, 0.18, Color.web("#9bd6ff", runtimeCameraSelected ? 0.34 : 0.22));
+        }
+
+        gc.setStroke(frameColor);
         gc.setLineWidth(2.0);
         gc.strokeRect(x + 0.5, y + 0.5, Math.max(0, frameW - 1.0), Math.max(0, frameH - 1.0));
-        gc.setFill(Color.web("#ff7a7a", 0.9));
+        drawRuntimeFrameHandle(x, y, frameColor);
+        gc.setFill(runtimeCameraSelected ? Color.web("#ffd2a8", 0.95) : Color.web("#ff7a7a", 0.9));
         gc.setFont(javafx.scene.text.Font.font("Monospaced", 10));
-        gc.fillText("Runtime Frame", x + 6, Math.max(12, y - 6));
+        gc.fillText("Runtime Frame", x + 20, Math.max(12, y - 6));
         gc.restore();
+    }
+
+    private void drawGuideRect(double x, double y, double frameW, double frameH, double insetRatio, Color color) {
+        double insetX = frameW * insetRatio;
+        double insetY = frameH * insetRatio;
+        double guideX = x + insetX;
+        double guideY = y + insetY;
+        double guideW = Math.max(0.0, frameW - insetX * 2.0);
+        double guideH = Math.max(0.0, frameH - insetY * 2.0);
+        gc.setStroke(color);
+        gc.setLineWidth(1.0);
+        gc.setLineDashes(6.0, 4.0);
+        gc.strokeRect(guideX + 0.5, guideY + 0.5, Math.max(0.0, guideW - 1.0), Math.max(0.0, guideH - 1.0));
+        gc.setLineDashes((double[]) null);
+    }
+
+    private void drawRuntimeFrameHandle(double x, double y, Color frameColor) {
+        double handleSize = 12.0;
+        double handleX = x + 5.0;
+        double handleY = y + 5.0;
+        gc.setFill(Color.web("#050505", 0.82));
+        gc.fillRoundRect(handleX, handleY, handleSize, handleSize, 3, 3);
+        gc.setStroke(frameColor);
+        gc.setLineWidth(1.5);
+        gc.strokeRoundRect(handleX + 0.5, handleY + 0.5, handleSize - 1.0, handleSize - 1.0, 3, 3);
+        gc.strokeLine(handleX + 4.0, handleY + 6.0, handleX + 8.0, handleY + 6.0);
+        gc.strokeLine(handleX + 6.0, handleY + 4.0, handleX + 6.0, handleY + 8.0);
     }
 
     private void drawCameraHud() {
@@ -765,6 +811,9 @@ public class AnimationPreview extends VBox {
     public void setOnOrbitAnchorSourceOffsetChanged(BiConsumer<String, double[]> callback) { this.onOrbitAnchorSourceOffsetChanged = callback; }
     public void setOnOrbitAnchorRemoved(Consumer<String> callback) { this.onOrbitAnchorRemoved = callback; }
     public void setOnCameraStateChanged(Consumer<double[]> callback) { this.onCameraStateChanged = callback; }
+    public void setOnCameraInteractionStarted(Runnable callback) { this.onCameraInteractionStarted = callback; }
+    public void setOnCameraMoved(Consumer<double[]> callback) { this.onCameraMoved = callback; }
+    public void setOnCameraInteractionFinished(Consumer<double[]> callback) { this.onCameraInteractionFinished = callback; }
 
     public Entity2D getSelectedEntity() { return selectedEntity; }
     public String getSelectedEntityName() { return selectedEntityName; }
@@ -812,6 +861,32 @@ public class AnimationPreview extends VBox {
     public void setScrollZoomMode(ScrollZoomMode mode) {
         this.scrollZoomMode = mode == null ? ScrollZoomMode.VIEW : mode;
         render();
+    }
+
+    public void setRuntimeCameraSelected(boolean selected) {
+        if (runtimeCameraSelected == selected) return;
+        runtimeCameraSelected = selected;
+        render();
+    }
+
+    public void setShowSafeGuides(boolean enabled) {
+        if (showSafeGuides == enabled) return;
+        showSafeGuides = enabled;
+        render();
+    }
+
+    public boolean isShowSafeGuides() {
+        return showSafeGuides;
+    }
+
+    public void setShowTitleGuides(boolean enabled) {
+        if (showTitleGuides == enabled) return;
+        showTitleGuides = enabled;
+        render();
+    }
+
+    public boolean isShowTitleGuides() {
+        return showTitleGuides;
     }
 
     private double[] applySnap(double x, double y) {
@@ -1056,6 +1131,29 @@ public class AnimationPreview extends VBox {
         return screenX >= displayOffsetX && screenX <= right && screenY >= displayOffsetY && screenY <= bottom;
     }
 
+    private boolean isInsideRuntimeFrame(double screenX, double screenY) {
+        double z = Math.max(0.0001, camera.getZoom());
+        double left = worldToScreenX(camera.getX());
+        double top = worldToScreenY(camera.getY());
+        double right = worldToScreenX(camera.getX() + viewportLogicalWidth / z);
+        double bottom = worldToScreenY(camera.getY() + viewportLogicalHeight / z);
+        double minX = Math.min(left, right);
+        double minY = Math.min(top, bottom);
+        double maxX = Math.max(left, right);
+        double maxY = Math.max(top, bottom);
+        return screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY;
+    }
+
+    private boolean isNearRuntimeFrameHandle(double screenX, double screenY) {
+        double handleX = Math.min(worldToScreenX(camera.getX()),
+            worldToScreenX(camera.getX() + viewportLogicalWidth / Math.max(0.0001, camera.getZoom()))) + 5.0;
+        double handleY = Math.min(worldToScreenY(camera.getY()),
+            worldToScreenY(camera.getY() + viewportLogicalHeight / Math.max(0.0001, camera.getZoom()))) + 5.0;
+        double size = 12.0;
+        return screenX >= handleX && screenX <= handleX + size
+            && screenY >= handleY && screenY <= handleY + size;
+    }
+
     private double screenToViewportX(double screenX) {
         return displayMinX + (screenX - displayOffsetX) / Math.max(1e-6, displayScale);
     }
@@ -1232,6 +1330,15 @@ public class AnimationPreview extends VBox {
                     render();
                     return;
                 }
+                if (runtimeCameraSelected && isNearRuntimeFrameHandle(e.getX(), e.getY())) {
+                    draggingCameraFrame = true;
+                    dragCameraStartX = e.getX();
+                    dragCameraStartY = e.getY();
+                    if (onCameraInteractionStarted != null) {
+                        onCameraInteractionStarted.run();
+                    }
+                    return;
+                }
                 if (orbitToolEnabled && e.isShiftDown() && e.isAltDown()) {
                     if (selectedEntityName != null && !selectedEntityName.isBlank()) {
                         String anchorSource = findEntityNameAt(e.getX(), e.getY(), false);
@@ -1325,6 +1432,19 @@ public class AnimationPreview extends VBox {
                 } else {
                     viewPanX -= dx;
                     viewPanY -= dy;
+                }
+                notifyCameraStateChanged();
+                render();
+            } else if (draggingCameraFrame) {
+                double[] prevWorld = screenToWorld(dragCameraStartX, dragCameraStartY);
+                double[] world = screenToWorld(e.getX(), e.getY());
+                double dx = world[0] - prevWorld[0];
+                double dy = world[1] - prevWorld[1];
+                dragCameraStartX = e.getX();
+                dragCameraStartY = e.getY();
+                camera.setPosition(camera.getX() + dx, camera.getY() + dy);
+                if (onCameraMoved != null) {
+                    onCameraMoved.accept(new double[]{camera.getX(), camera.getY(), camera.getZoom()});
                 }
                 notifyCameraStateChanged();
                 render();
@@ -1429,6 +1549,10 @@ public class AnimationPreview extends VBox {
         canvas.setOnMouseReleased(e -> {
             endMoveInteraction();
             panning[0] = false;
+            if (draggingCameraFrame && onCameraInteractionFinished != null) {
+                onCameraInteractionFinished.accept(new double[]{camera.getX(), camera.getY(), camera.getZoom()});
+            }
+            draggingCameraFrame = false;
             draggingEntity = false;
             draggingPivot = false;
             draggingOrbit = false;

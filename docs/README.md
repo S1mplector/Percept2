@@ -2,7 +2,17 @@
 
 This directory contains the complete documentation for the Java Vector Nexus engine.
 
-Start with **[INDEX.md](INDEX.md)** for a navigable table of contents covering all topics.
+Start with **[INDEX.md](INDEX.md)**.
+
+## Recommended Starting Points
+
+- New to JVN: [Getting Started Guide](guides/getting-started.md)
+- Need the full map: [Documentation Index](INDEX.md)
+- Learning the editor: [Editor Guide](editor/core/editor.md)
+- Writing VN scripts: [VNS Overview](scripting/vns/overview/vns-scripting.md)
+- Writing gameplay scenes: [JES Overview](scripting/jes/overview/jes-scripting.md)
+- Building menus and layouts: [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md)
+- Working with Puppeteer: [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md)
 
 ## Directory Structure
 

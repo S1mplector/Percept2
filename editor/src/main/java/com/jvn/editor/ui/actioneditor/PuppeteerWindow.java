@@ -152,6 +152,7 @@ public class PuppeteerWindow extends Stage {
     private boolean dirtyBeforePreviewStage = false;
     private AnimationProject previewBaselineProject;
     private TransformInteractionState activeTransformInteraction;
+    private CameraInteractionState activeCameraInteraction;
     private final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
     private boolean bypassCloseConfirmation = false;
     private boolean codePaneVisible = true;
@@ -180,11 +181,21 @@ public class PuppeteerWindow extends Stage {
         PropertyType.PIVOT_Y,
         PropertyType.ROTATION
     };
+    private static final PropertyType[] CAMERA_INTERACTION_PROPERTIES = {
+        PropertyType.CAMERA_X,
+        PropertyType.CAMERA_Y,
+        PropertyType.CAMERA_ZOOM
+    };
 
     private record TransformInteractionState(
         String entityName,
         double timeMs,
         Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> beforeStates
+    ) {}
+
+    private record CameraInteractionState(
+        double timeMs,
+        Map<PropertyType, PuppeteerCommand.PropertySnapshot> beforeStates
     ) {}
 
     public PuppeteerWindow() {
@@ -229,6 +240,60 @@ public class PuppeteerWindow extends Stage {
                 refreshSidebarTabs();
             }
         });
+        animationPreview.setOnCameraInteractionStarted(() -> {
+            double time = this.project.getPlayheadMs();
+            EntityTrack track = resolveRuntimeCameraTrack(true);
+            activeCameraInteraction = new CameraInteractionState(
+                time,
+                captureTrackSnapshots(track, time, CAMERA_INTERACTION_PROPERTIES, null)
+            );
+        });
+        animationPreview.setOnCameraMoved(state -> {
+            if (state == null || state.length < 3) return;
+            EntityTrack track = resolveRuntimeCameraTrack(true);
+            if (track == null) return;
+            double time = activeCameraInteraction != null ? activeCameraInteraction.timeMs() : this.project.getPlayheadMs();
+            track.upsertKeyframe(PropertyType.CAMERA_X, new Keyframe(time, state[0]));
+            track.upsertKeyframe(PropertyType.CAMERA_Y, new Keyframe(time, state[1]));
+            track.sortKeyframes(PropertyType.CAMERA_X);
+            track.sortKeyframes(PropertyType.CAMERA_Y);
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
+        });
+        animationPreview.setOnCameraInteractionFinished(state -> {
+            CameraInteractionState interaction = activeCameraInteraction;
+            activeCameraInteraction = null;
+            if (interaction == null || state == null || state.length < 3) return;
+            EntityTrack track = resolveRuntimeCameraTrack(true);
+            if (track == null) return;
+            Map<PropertyType, PuppeteerCommand.PropertySnapshot> afterStates =
+                captureTrackSnapshots(track, interaction.timeMs(), CAMERA_INTERACTION_PROPERTIES, null);
+            Map<PropertyType, PuppeteerCommand.PropertySnapshot> beforeStates = interaction.beforeStates();
+            Map<PropertyType, PuppeteerCommand.PropertySnapshot> changedBefore = new EnumMap<>(PropertyType.class);
+            Map<PropertyType, PuppeteerCommand.PropertySnapshot> changedAfter = new EnumMap<>(PropertyType.class);
+            for (PropertyType property : CAMERA_INTERACTION_PROPERTIES) {
+                PuppeteerCommand.PropertySnapshot before = beforeStates.get(property);
+                PuppeteerCommand.PropertySnapshot after = afterStates.get(property);
+                if (!transformChanged(property, before, after)) continue;
+                changedBefore.put(property, before != null ? before : new PuppeteerCommand.PropertySnapshot(false, 0.0));
+                changedAfter.put(property, after != null ? after : new PuppeteerCommand.PropertySnapshot(false, 0.0));
+            }
+            if (changedBefore.isEmpty()) {
+                restoreTrackSnapshots(track, interaction.timeMs(), beforeStates);
+                timelinePanel.refresh();
+                refreshExportPreviewAndMarkDirty();
+                return;
+            }
+            commandStack.execute(PuppeteerCommand.applyPropertiesAtTime(
+                track,
+                interaction.timeMs(),
+                changedBefore,
+                changedAfter,
+                "Edit runtime camera"
+            ));
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
+        });
         animationPreview.setOnAssetDropped(payload -> {
             if (payload == null || !payload.isValid()) return;
             addAssetToScene(payload.relativePath(), payload.suggestedName(), PuppeteerAssetPlacementRole.PROP);
@@ -241,6 +306,7 @@ public class PuppeteerWindow extends Stage {
                 selectionLabel(name, isGroup),
                 isGroup,
                 timelinePanel.isRuntimeCameraSelected());
+            animationPreview.setRuntimeCameraSelected(timelinePanel.isRuntimeCameraSelected());
             if (timelinePanel.isRuntimeCameraSelected()) {
                 entitySelector.selectEntity(null);
                 animationPreview.clearSelection();
@@ -816,7 +882,7 @@ public class PuppeteerWindow extends Stage {
         tfTimelineName.setTooltip(new Tooltip("Name for @external jes_timeline"));
 
         Button btnRegister = makeToolbarSuccessIconButton("icon-puppeteer-register", "Register timeline for VNS interop");
-        btnRegister.setOnAction(e -> registerTimeline());
+        btnRegister.setOnAction(e -> requestRegisterTimeline());
 
         HBox nameBox = new HBox(4, tfTimelineName, btnRegister);
         nameBox.setAlignment(Pos.CENTER_LEFT);
@@ -1092,7 +1158,9 @@ public class PuppeteerWindow extends Stage {
 
     private HBox buildToolbarCommandBar() {
         MenuItem miSaveRegister = new MenuItem("Save & Register");
-        miSaveRegister.setOnAction(e -> registerTimeline());
+        miSaveRegister.setOnAction(e -> requestRegisterTimeline());
+        MenuItem miVerifyRuntime = new MenuItem("Verify Runtime Registration...");
+        miVerifyRuntime.setOnAction(e -> showRuntimeVerificationReport());
         MenuItem miRefreshCode = new MenuItem("Refresh Generated Code");
         miRefreshCode.setOnAction(e -> refreshExportPreview());
         MenuItem miStagePreview = new MenuItem("Stage Code Preview");
@@ -1113,8 +1181,9 @@ public class PuppeteerWindow extends Stage {
         Menu fileMenu = new Menu("File");
         fileMenu.getItems().addAll(
             miSaveRegister,
-            miRefreshCode,
+            miVerifyRuntime,
             new SeparatorMenuItem(),
+            miRefreshCode,
             miStagePreview,
             miCommitPreview,
             miDiscardPreview,
@@ -1131,6 +1200,7 @@ public class PuppeteerWindow extends Stage {
             boolean hasTrack = selectedTrackForEditing(false) != null;
             miSaveRegister.setText(dirty || previewStaged ? "Save & Register" : "Save & Register Again");
             miSaveRegister.setDisable(!hasTimelineName);
+            miVerifyRuntime.setDisable(project == null);
             miStagePreview.setText(previewStaged ? "Restage Code Preview" : "Stage Code Preview");
             miStagePreview.setDisable(codePreview == null || codePreview.getCode() == null || codePreview.getCode().isBlank());
             miCommitPreview.setDisable(!previewStaged);
@@ -1214,6 +1284,10 @@ public class PuppeteerWindow extends Stage {
         miShowCodePane.setOnAction(e -> setCodePaneVisible(miShowCodePane.isSelected()));
         CheckMenuItem miOnionSkin = new CheckMenuItem("Onion Skin Preview");
         miOnionSkin.setOnAction(e -> animationPreview.setOnionSkinning(miOnionSkin.isSelected()));
+        CheckMenuItem miShowSafeGuides = new CheckMenuItem("Show Safe Guides");
+        miShowSafeGuides.setOnAction(e -> animationPreview.setShowSafeGuides(miShowSafeGuides.isSelected()));
+        CheckMenuItem miShowTitleGuides = new CheckMenuItem("Show Title Guides");
+        miShowTitleGuides.setOnAction(e -> animationPreview.setShowTitleGuides(miShowTitleGuides.isSelected()));
         RadioMenuItem miLayoutDynamic = new RadioMenuItem("Toolbar Layout: Dynamic");
         RadioMenuItem miLayoutCompact = new RadioMenuItem("Toolbar Layout: Compact");
         ToggleGroup layoutMenuGroup = new ToggleGroup();
@@ -1248,6 +1322,8 @@ public class PuppeteerWindow extends Stage {
         viewMenu.getItems().addAll(
             miShowCodePane,
             miOnionSkin,
+            miShowSafeGuides,
+            miShowTitleGuides,
             new SeparatorMenuItem(),
             miLayoutDynamic,
             miLayoutCompact,
@@ -1263,6 +1339,8 @@ public class PuppeteerWindow extends Stage {
         viewMenu.setOnShowing(e -> {
             miShowCodePane.setSelected(codePaneVisible);
             miOnionSkin.setSelected(animationPreview.isOnionSkinning());
+            miShowSafeGuides.setSelected(animationPreview.isShowSafeGuides());
+            miShowTitleGuides.setSelected(animationPreview.isShowTitleGuides());
             miLayoutDynamic.setSelected(getToolbarLayoutMode() == AnimatedToolbarPane.LayoutMode.DYNAMIC);
             miLayoutCompact.setSelected(getToolbarLayoutMode() == AnimatedToolbarPane.LayoutMode.COMPACT);
             miFullscreenPreview.setDisable(scene == null && !isPreviewFullscreenActive());
@@ -2544,8 +2622,14 @@ public class PuppeteerWindow extends Stage {
 
     private void refreshExportPreview() {
         codePreview.setCode(compactExport ? CodeExporter.exportCompact(project) : CodeExporter.export(project));
-        List<TimelineDiagnostic.Message> diags = new ArrayList<>();
-        diags.addAll(TimelineDiagnostic.diagnose(project, knownSceneEntities()));
+        List<TimelineDiagnostic.Message> diags = new ArrayList<>(
+            PuppeteerVerification.diagnose(
+                project,
+                knownSceneEntities(),
+                projectRoot,
+                PuppeteerVerification.Mode.EXPORT_CODE
+            )
+        );
         diags.addAll(TimelineDiagnostic.diagnoseDsl(codePreview.getCode()));
         codePreview.setDiagnostics(diags);
         refreshSidebarTabs();
@@ -2894,9 +2978,7 @@ public class PuppeteerWindow extends Stage {
             ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
             ActionEditorDialogOverlay.ActionSpec.danger("Discard", this::closeNow),
             ActionEditorDialogOverlay.ActionSpec.accent("Save & Register", () -> {
-                if (registerTimeline()) {
-                    closeNow();
-                }
+                requestRegisterTimeline(this::closeNow);
             })
         );
     }
@@ -3027,12 +3109,19 @@ public class PuppeteerWindow extends Stage {
         return r;
     }
 
+    private record ClipLibraryEntry(
+        Path file,
+        String relativePath,
+        String folderLabel,
+        AnimationClip clip
+    ) {
+        String displayName() {
+            return clip != null ? clip.getName() : file.getFileName().toString();
+        }
+    }
+
     private boolean hasSavedClips() {
-        if (projectRoot == null) return false;
-        java.io.File clipsDir = new java.io.File(projectRoot, "config/puppeteer/clips");
-        if (!clipsDir.isDirectory()) return false;
-        java.io.File[] clipFiles = clipsDir.listFiles((dir, name) -> name != null && name.endsWith(".clip"));
-        return clipFiles != null && clipFiles.length > 0;
+        return !scanClipLibrary().isEmpty();
     }
 
     private void saveSelectionAsClip() {
@@ -3045,61 +3134,287 @@ public class PuppeteerWindow extends Stage {
         clip.captureFromTrack(track, start, end);
         if (clip.getChannels().isEmpty()) return;
 
-        if (projectRoot != null) {
-            try {
-                java.nio.file.Path clipsDir = projectRoot.toPath().resolve("config").resolve("puppeteer").resolve("clips");
-                java.nio.file.Path clipFile = clipsDir.resolve(clip.getName() + ".clip");
-                clip.saveTo(clipFile);
-                setTitle("Puppeteer - saved clip '" + clip.getName() + "'");
-            } catch (java.io.IOException ex) {
-                showSaveError(clip.getName(), ex.getMessage());
-            }
+        if (projectRoot == null) {
+            showSaveError(clip.getName(), "No project root set.");
+            return;
         }
+
+        TextField clipPathField = new TextField(clip.getName());
+        clipPathField.setPromptText("motion/hero_enter");
+        clipPathField.setStyle(STYLE_TEXT_FIELD);
+
+        Label summary = makeToolbarLabel(
+            String.format(
+                "Range %.0fms → %.0fms  •  %.0fms  •  %d animated channel(s)",
+                start,
+                end,
+                clip.getDurationMs(),
+                clip.getChannels().size()
+            )
+        );
+        summary.setWrapText(true);
+
+        Label hint = makeToolbarLabel("Use nested paths to organize clips into folders under config/puppeteer/clips.");
+        hint.setWrapText(true);
+
+        VBox content = new VBox(8,
+            makeToolbarLabel("Clip Path"),
+            clipPathField,
+            summary,
+            hint
+        );
+        content.setPadding(new Insets(4, 4, 0, 4));
+
+        overlayDialog.showDialog(
+            "Save Clip",
+            "Save the selected track range as a reusable clip.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("Save", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
+                Path clipsRoot = projectRoot.toPath().resolve("config").resolve("puppeteer").resolve("clips").normalize();
+                Path clipFile = resolveClipFile(clipsRoot, clipPathField.getText());
+                if (clipFile == null) {
+                    clipPathField.requestFocus();
+                    return;
+                }
+                try {
+                    clip.setName(stripClipExtension(clipFile.getFileName().toString()));
+                    clip.saveTo(clipFile);
+                    setTitle("Puppeteer - saved clip '" + clipFile.getFileName() + "'");
+                    overlayDialog.hideOverlay();
+                } catch (IOException ex) {
+                    showSaveError(clip.getName(), ex.getMessage());
+                }
+            })
+        );
     }
 
     private void loadAndApplyClip() {
         EntityTrack track = selectedTrackForEditing(true);
         if (track == null || projectRoot == null) return;
-        java.io.File clipsDir = new java.io.File(projectRoot, "config/puppeteer/clips");
-        if (!clipsDir.isDirectory()) return;
-        java.io.File[] clipFiles = clipsDir.listFiles((d, n) -> n.endsWith(".clip"));
-        if (clipFiles == null || clipFiles.length == 0) return;
+        List<ClipLibraryEntry> entries = scanClipLibrary();
+        if (entries.isEmpty()) return;
 
-        java.util.List<String> names = new java.util.ArrayList<>();
-        for (java.io.File f : clipFiles) {
-            String n = f.getName();
-            names.add(n.substring(0, n.length() - 5));
-        }
-        java.util.Collections.sort(names);
+        TextField filterField = new TextField();
+        filterField.setPromptText("Filter clips...");
+        filterField.setStyle(STYLE_TEXT_FIELD);
 
-        ListView<String> clipList = new ListView<>();
-        clipList.getItems().setAll(names);
-        clipList.getSelectionModel().select(0);
-        clipList.setPrefHeight(Math.min(320.0, Math.max(140.0, names.size() * 28.0 + 12.0)));
+        ListView<ClipLibraryEntry> clipList = new ListView<>();
+        clipList.setCellFactory(list -> new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(ClipLibraryEntry item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                    return;
+                }
+                Label name = new Label(item.displayName());
+                name.setStyle("-fx-text-fill: #f0f0f0; -fx-font-size: 12px; -fx-font-weight: bold;");
+                Label meta = new Label(item.folderLabel().isBlank()
+                    ? clipMetaLine(item.clip())
+                    : item.folderLabel() + "  •  " + clipMetaLine(item.clip()));
+                meta.setStyle("-fx-text-fill: #8c8c8c; -fx-font-size: 10px;");
+                VBox box = new VBox(2, name, meta);
+                box.setMinWidth(0);
+                setGraphic(box);
+                setText(null);
+            }
+        });
+        clipList.setPrefHeight(280);
+        clipList.setMinHeight(180);
+        clipList.setStyle("-fx-background-color: #14171d; -fx-control-inner-background: #14171d;");
+
+        Label selectionMeta = makeToolbarLabel("");
+        selectionMeta.setWrapText(true);
+        Label selectionProps = makeToolbarLabel("");
+        selectionProps.setWrapText(true);
+
+        TextField durationScaleField = new TextField("1.00");
+        durationScaleField.setStyle(STYLE_TEXT_FIELD);
+        durationScaleField.setPrefColumnCount(5);
+
+        ComboBox<String> applyModeBox = new ComboBox<>();
+        applyModeBox.getItems().setAll("Layer On Top", "Replace Range");
+        applyModeBox.setValue("Layer On Top");
+        applyModeBox.setStyle(STYLE_TEXT_FIELD);
+
+        Runnable refreshClipFilter = () -> {
+            String query = filterField.getText() == null ? "" : filterField.getText().trim().toLowerCase(Locale.ROOT);
+            clipList.getItems().clear();
+            for (ClipLibraryEntry entry : entries) {
+                if (query.isBlank()
+                    || entry.displayName().toLowerCase(Locale.ROOT).contains(query)
+                    || entry.relativePath().toLowerCase(Locale.ROOT).contains(query)) {
+                    clipList.getItems().add(entry);
+                }
+            }
+            if (!clipList.getItems().isEmpty() && clipList.getSelectionModel().getSelectedItem() == null) {
+                clipList.getSelectionModel().select(0);
+            }
+        };
+        filterField.textProperty().addListener((obs, oldValue, newValue) -> refreshClipFilter.run());
+        refreshClipFilter.run();
+
+        clipList.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue == null || newValue.clip() == null) {
+                selectionMeta.setText("");
+                selectionProps.setText("");
+                return;
+            }
+            selectionMeta.setText("Target: " + track.getEntityName() + "  •  " + clipMetaLine(newValue.clip()));
+            selectionProps.setText("Channels: " + clipPropertySummary(newValue.clip()));
+        });
+
+        HBox options = new HBox(10,
+            new VBox(4, makeToolbarLabel("Scale"), durationScaleField),
+            new VBox(4, makeToolbarLabel("Apply Mode"), applyModeBox)
+        );
+        VBox preview = new VBox(6,
+            makeToolbarLabel("Clip Preview"),
+            selectionMeta,
+            selectionProps
+        );
+        preview.setStyle(STYLE_SIDEBAR_CARD);
+
+        VBox content = new VBox(10,
+            filterField,
+            clipList,
+            preview,
+            options
+        );
+        content.setPadding(new Insets(4, 4, 0, 4));
 
         overlayDialog.showDialog(
             "Load Clip",
             "Apply a saved clip to '" + track.getEntityName() + "' at playhead.",
-            clipList,
+            content,
             ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
             ActionEditorDialogOverlay.ActionSpec.stayOpen("Apply", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
-                String selectedClip = clipList.getSelectionModel().getSelectedItem();
-                if (selectedClip == null || selectedClip.isBlank()) {
+                ClipLibraryEntry selectedClip = clipList.getSelectionModel().getSelectedItem();
+                if (selectedClip == null || selectedClip.clip() == null) {
                     clipList.requestFocus();
                     return;
                 }
+                double scale;
                 try {
-                    java.nio.file.Path clipPath = clipsDir.toPath().resolve(selectedClip + ".clip");
-                    AnimationClip clip = AnimationClip.loadFrom(clipPath);
-                    clip.applyToTrack(track, project.getPlayheadMs(), 1.0);
+                    scale = Math.max(0.05, Double.parseDouble(durationScaleField.getText().trim()));
+                } catch (Exception ex) {
+                    durationScaleField.requestFocus();
+                    return;
+                }
+                boolean replaceRange = "Replace Range".equals(applyModeBox.getValue());
+                try {
+                    applyClipToTrack(selectedClip.clip(), track, project.getPlayheadMs(), scale, replaceRange);
                     timelinePanel.refresh();
                     refreshExportPreviewAndMarkDirty();
                     overlayDialog.hideOverlay();
                 } catch (Exception ex) {
-                    showOverlayError("Clip Load Failed", "Could not load clip '" + selectedClip + "'", ex.getMessage());
+                    showOverlayError("Clip Load Failed", "Could not apply clip '" + selectedClip.displayName() + "'", ex.getMessage());
                 }
             })
         );
+    }
+
+    private List<ClipLibraryEntry> scanClipLibrary() {
+        if (projectRoot == null || !projectRoot.isDirectory()) return List.of();
+        Path clipsRoot = projectRoot.toPath().resolve("config").resolve("puppeteer").resolve("clips").normalize();
+        if (!Files.isDirectory(clipsRoot)) return List.of();
+
+        List<ClipLibraryEntry> entries = new ArrayList<>();
+        try (var paths = Files.walk(clipsRoot)) {
+            paths.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().endsWith(".clip"))
+                .forEach(path -> {
+                    try {
+                        AnimationClip clip = AnimationClip.loadFrom(path);
+                        String relative = clipsRoot.relativize(path).toString().replace('\\', '/');
+                        String folderLabel = "";
+                        int slash = relative.lastIndexOf('/');
+                        if (slash >= 0) {
+                            folderLabel = relative.substring(0, slash);
+                        }
+                        entries.add(new ClipLibraryEntry(path, relative, folderLabel, clip));
+                    } catch (Exception ignored) {
+                    }
+                });
+        } catch (IOException ignored) {
+            return List.of();
+        }
+        entries.sort((left, right) -> left.relativePath().compareToIgnoreCase(right.relativePath()));
+        return entries;
+    }
+
+    private static String clipMetaLine(AnimationClip clip) {
+        if (clip == null) return "Invalid clip";
+        return String.format(
+            "%.0fms  •  %d channel(s)",
+            clip.getDurationMs(),
+            clip.getChannels().size()
+        );
+    }
+
+    private static String clipPropertySummary(AnimationClip clip) {
+        if (clip == null || clip.getChannels().isEmpty()) return "No animated channels";
+        List<String> labels = new ArrayList<>();
+        for (PropertyType property : clip.getChannels().keySet()) {
+            if (property != null) {
+                labels.add(property.getDisplayName());
+            }
+        }
+        return String.join(", ", labels);
+    }
+
+    private void applyClipToTrack(
+        AnimationClip clip,
+        EntityTrack track,
+        double insertTimeMs,
+        double durationScale,
+        boolean replaceRange
+    ) {
+        if (clip == null || track == null) return;
+        double scale = Math.max(0.05, durationScale);
+        if (replaceRange) {
+            double endTimeMs = insertTimeMs + clip.getDurationMs() * scale;
+            for (PropertyType property : clip.getChannels().keySet()) {
+                List<Keyframe> existing = new ArrayList<>(track.getKeyframes(property));
+                for (Keyframe keyframe : existing) {
+                    double time = keyframe.getTimeMs();
+                    if (time >= insertTimeMs - 0.001 && time <= endTimeMs + 0.001) {
+                        track.removeKeyframe(property, keyframe);
+                    }
+                }
+            }
+        }
+        clip.applyToTrack(track, insertTimeMs, scale);
+    }
+
+    private static Path resolveClipFile(Path clipsRoot, String rawPath) {
+        if (clipsRoot == null || rawPath == null) return null;
+        String normalized = sanitizeClipRelativePath(rawPath);
+        if (normalized.isBlank()) return null;
+        Path relative = Path.of(normalized).normalize();
+        if (relative.isAbsolute()) return null;
+        if (relative.startsWith("..")) return null;
+        Path file = clipsRoot.resolve(relative + ".clip").normalize();
+        return file.startsWith(clipsRoot) ? file : null;
+    }
+
+    private static String sanitizeClipRelativePath(String rawPath) {
+        String normalized = rawPath == null ? "" : rawPath.trim().replace('\\', '/');
+        while (normalized.startsWith("/")) normalized = normalized.substring(1);
+        while (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
+        if (normalized.endsWith(".clip")) {
+            normalized = normalized.substring(0, normalized.length() - 5);
+        }
+        return normalized.trim();
+    }
+
+    private static String stripClipExtension(String fileName) {
+        if (fileName == null) return "";
+        return fileName.endsWith(".clip")
+            ? fileName.substring(0, fileName.length() - 5)
+            : fileName;
     }
 
     private void placeEntityAtSlot(VnSlotHelper.Slot slot) {
@@ -3118,9 +3433,77 @@ public class PuppeteerWindow extends Stage {
 
     public KeyframeSelectionModel getSelectionModel() { return selectionModel; }
 
-    private boolean registerTimeline() {
+    private void showRuntimeVerificationReport() {
+        List<TimelineDiagnostic.Message> findings = PuppeteerVerification.diagnose(
+            project,
+            knownSceneEntities(),
+            projectRoot,
+            PuppeteerVerification.Mode.REGISTER_RUNTIME
+        );
+        if (findings.isEmpty()) {
+            findings = List.of(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.INFO,
+                "(timeline)",
+                "No runtime registration issues found",
+                "This timeline is ready to register with the current project state"
+            ));
+        }
+        showVerificationOverlay(
+            "Runtime Verification",
+            "Puppeteer checked this timeline against runtime registration rules.",
+            findings,
+            false,
+            null
+        );
+    }
+
+    private void requestRegisterTimeline() {
+        requestRegisterTimeline(null);
+    }
+
+    private void requestRegisterTimeline(Runnable onSuccess) {
         String name = tfTimelineName.getText().trim();
-        if (name.isEmpty()) return false;
+        if (name.isEmpty()) {
+            showOverlayError(
+                "Missing Timeline Name",
+                "Set a timeline name before registering.",
+                "Use the timeline name field in the top toolbar."
+            );
+            return;
+        }
+        List<TimelineDiagnostic.Message> findings = PuppeteerVerification.diagnose(
+            project,
+            knownSceneEntities(),
+            projectRoot,
+            PuppeteerVerification.Mode.REGISTER_RUNTIME
+        );
+        boolean hasErrors = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
+        boolean hasWarnings = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.WARNING);
+
+        if (hasErrors) {
+            showVerificationOverlay(
+                "Registration Blocked",
+                "Puppeteer found runtime registration errors. Fix them before registering this timeline.",
+                findings,
+                false,
+                null
+            );
+            return;
+        }
+        if (hasWarnings) {
+            showVerificationOverlay(
+                "Register Timeline?",
+                "Puppeteer found warnings that may affect runtime playback. Continue registering anyway?",
+                findings,
+                true,
+                () -> performRegisterTimeline(name, onSuccess)
+            );
+            return;
+        }
+        performRegisterTimeline(name, onSuccess);
+    }
+
+    private boolean performRegisterTimeline(String name, Runnable onSuccess) {
         TimelineData data = project.toTimelineData(name);
         TimelineRegistry.register(data);
         String code = CodeExporter.exportNamed(project, name);
@@ -3138,7 +3521,72 @@ public class PuppeteerWindow extends Stage {
             // Registry succeeded but disk write failed — keep dirty
             setTitle("Puppeteer - " + name + " (registered, save FAILED)");
         }
+        if (saved && onSuccess != null) {
+            onSuccess.run();
+        }
         return saved;
+    }
+
+    private void showVerificationOverlay(
+        String title,
+        String header,
+        List<TimelineDiagnostic.Message> findings,
+        boolean allowContinue,
+        Runnable onContinue
+    ) {
+        TextArea body = new TextArea(formatVerificationMessages(findings));
+        body.setEditable(false);
+        body.setWrapText(true);
+        body.setFocusTraversable(false);
+        body.setPrefRowCount(Math.min(18, Math.max(8, findings == null ? 8 : findings.size() + 2)));
+        body.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #d7dde6; -fx-font-family: Monospaced;");
+        if (allowContinue) {
+            overlayDialog.showDialog(
+                title,
+                header,
+                body,
+                ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+                ActionEditorDialogOverlay.ActionSpec.accent("Continue", () -> {
+                    if (onContinue != null) {
+                        onContinue.run();
+                    }
+                })
+            );
+            return;
+        }
+        overlayDialog.showDialog(
+            title,
+            header,
+            body,
+            ActionEditorDialogOverlay.ActionSpec.accent("Close", overlayDialog::hideOverlay)
+        );
+    }
+
+    private static String formatVerificationMessages(List<TimelineDiagnostic.Message> findings) {
+        if (findings == null || findings.isEmpty()) {
+            return "No issues found.";
+        }
+        StringBuilder out = new StringBuilder();
+        for (TimelineDiagnostic.Message finding : findings) {
+            if (finding == null) continue;
+            String prefix = switch (finding.severity()) {
+                case ERROR -> "[ERROR]";
+                case WARNING -> "[WARN]";
+                case INFO -> "[INFO]";
+            };
+            out.append(prefix)
+                .append(' ')
+                .append(finding.entityOrTrack() == null || finding.entityOrTrack().isBlank()
+                    ? "(timeline)"
+                    : finding.entityOrTrack())
+                .append(" — ")
+                .append(finding.description());
+            if (finding.quickFix() != null && !finding.quickFix().isBlank()) {
+                out.append("\n  fix: ").append(finding.quickFix());
+            }
+            out.append("\n\n");
+        }
+        return out.toString().trim();
     }
 
     private boolean saveTimelineFile(String name, String jesCode) {
@@ -3308,15 +3756,23 @@ public class PuppeteerWindow extends Stage {
         for (String entityName : names) {
             EntityTrack track = project.getTrack(entityName);
             if (track == null) continue;
-            snapshots.put(entityName, captureTransformTrackSnapshots(track, timeMs));
+            var entity = scene != null ? scene.find(track.getEntityName()) : null;
+            snapshots.put(entityName, captureTrackSnapshots(track, timeMs, TRANSFORM_INTERACTION_PROPERTIES, entity));
         }
         return snapshots;
     }
 
-    private Map<PropertyType, PuppeteerCommand.PropertySnapshot> captureTransformTrackSnapshots(EntityTrack track, double timeMs) {
+    private Map<PropertyType, PuppeteerCommand.PropertySnapshot> captureTrackSnapshots(
+        EntityTrack track,
+        double timeMs,
+        PropertyType[] properties,
+        com.jvn.core.scene2d.Entity2D entity
+    ) {
         Map<PropertyType, PuppeteerCommand.PropertySnapshot> snapshots = new java.util.EnumMap<>(PropertyType.class);
-        var entity = scene != null ? scene.find(track.getEntityName()) : null;
-        for (PropertyType property : TRANSFORM_INTERACTION_PROPERTIES) {
+        if (track == null || properties == null) {
+            return snapshots;
+        }
+        for (PropertyType property : properties) {
             Keyframe keyframe = track.findKeyframeAt(property, timeMs);
             boolean present = keyframe != null;
             double value = present
@@ -3370,11 +3826,20 @@ public class PuppeteerWindow extends Stage {
     ) {
         for (Map.Entry<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> entry : snapshots.entrySet()) {
             EntityTrack track = project.getOrCreateTrack(entry.getKey());
-            for (Map.Entry<PropertyType, PuppeteerCommand.PropertySnapshot> propertyEntry : entry.getValue().entrySet()) {
-                restorePropertySnapshot(track, propertyEntry.getKey(), timeMs, propertyEntry.getValue());
-            }
+            restoreTrackSnapshots(track, timeMs, entry.getValue());
         }
         updatePreview();
+    }
+
+    private void restoreTrackSnapshots(
+        EntityTrack track,
+        double timeMs,
+        Map<PropertyType, PuppeteerCommand.PropertySnapshot> snapshots
+    ) {
+        if (track == null || snapshots == null) return;
+        for (Map.Entry<PropertyType, PuppeteerCommand.PropertySnapshot> propertyEntry : snapshots.entrySet()) {
+            restorePropertySnapshot(track, propertyEntry.getKey(), timeMs, propertyEntry.getValue());
+        }
     }
 
     private void restorePropertySnapshot(
