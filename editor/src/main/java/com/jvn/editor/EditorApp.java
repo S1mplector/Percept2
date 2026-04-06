@@ -3720,6 +3720,7 @@ public class EditorApp extends Application {
       }
       if (current instanceof Labeled labeled
           && addLabel != null
+          && !addLabel.isBlank()
           && addLabel.equals(labeled.getText())) {
         return true;
       }
