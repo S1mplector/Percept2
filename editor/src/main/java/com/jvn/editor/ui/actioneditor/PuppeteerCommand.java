@@ -129,6 +129,56 @@ public class PuppeteerCommand {
         }
     }
 
+    public static PuppeteerCommand upsertCustomKeyframe(
+        EntityTrack track,
+        String propertyKey,
+        double timeMs,
+        double newValue
+    ) {
+        if (track == null || propertyKey == null || propertyKey.isBlank()) {
+            return new PuppeteerCommand("Upsert custom keyframe", () -> {}, () -> {});
+        }
+        String normalizedKey = propertyKey.trim();
+        Keyframe existing = findCustomKeyframeAt(track, normalizedKey, timeMs);
+        if (existing != null) {
+            double oldValue = existing.getValue();
+            return new PuppeteerCommand("Upsert custom keyframe",
+                () -> track.upsertCustomKeyframe(normalizedKey, new Keyframe(timeMs, newValue)),
+                () -> existing.setValue(oldValue)
+            );
+        }
+        return new PuppeteerCommand("Add custom keyframe",
+            () -> track.upsertCustomKeyframe(normalizedKey, new Keyframe(timeMs, newValue)),
+            () -> {
+                Keyframe added = findCustomKeyframeAt(track, normalizedKey, timeMs);
+                if (added != null) track.removeCustomKeyframe(normalizedKey, added);
+            }
+        );
+    }
+
+    public static PuppeteerCommand removeCustomKeyframeAt(
+        EntityTrack track,
+        String propertyKey,
+        double timeMs
+    ) {
+        if (track == null || propertyKey == null || propertyKey.isBlank()) {
+            return new PuppeteerCommand("Remove custom keyframe", () -> {}, () -> {});
+        }
+        String normalizedKey = propertyKey.trim();
+        Keyframe existing = findCustomKeyframeAt(track, normalizedKey, timeMs);
+        if (existing == null) {
+            return new PuppeteerCommand("Remove custom keyframe", () -> {}, () -> {});
+        }
+        Keyframe snapshot = existing.copy();
+        return new PuppeteerCommand("Remove custom keyframe",
+            () -> {
+                Keyframe current = findCustomKeyframeAt(track, normalizedKey, timeMs);
+                if (current != null) track.removeCustomKeyframe(normalizedKey, current);
+            },
+            () -> track.upsertCustomKeyframe(normalizedKey, snapshot.copy())
+        );
+    }
+
     /**
      * Undoable coalesced position update for a drag interaction.
      * Captures whether X/Y keyframes originally existed at {@code timeMs} and restores
@@ -204,6 +254,16 @@ public class PuppeteerCommand {
         if (kf != null) {
             track.removeKeyframe(property, kf);
         }
+    }
+
+    private static Keyframe findCustomKeyframeAt(EntityTrack track, String propertyKey, double timeMs) {
+        if (track == null || propertyKey == null || propertyKey.isBlank()) return null;
+        for (Keyframe keyframe : track.getCustomKeyframes(propertyKey)) {
+            if (Math.abs(keyframe.getTimeMs() - timeMs) <= 0.001) {
+                return keyframe;
+            }
+        }
+        return null;
     }
 
     private static void applyPropertySnapshots(
