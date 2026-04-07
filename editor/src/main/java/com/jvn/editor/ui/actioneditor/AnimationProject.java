@@ -407,6 +407,7 @@ public class AnimationProject {
     public static boolean isGroupProperty(PropertyType property) {
         return property == PropertyType.X
             || property == PropertyType.Y
+            || property == PropertyType.Z
             || property == PropertyType.ROTATION
             || property == PropertyType.SCALE_X
             || property == PropertyType.SCALE_Y
@@ -713,7 +714,7 @@ public class AnimationProject {
             }
 
             int layerOrder = computeEffectiveLayerOrder(et.getEntityName());
-            if (layerOrder != 0) {
+            if (layerOrder != 0 && !track.hasKeyframes(TimelineData.Property.Z)) {
                 hasData = true;
                 track.addKeyframe(TimelineData.Property.Z,
                     new TimelineData.Keyframe(0, layerOrder, com.jvn.core.animation.Easing.Type.LINEAR));
@@ -803,6 +804,7 @@ public class AnimationProject {
     private static boolean isAdditiveGroupProperty(PropertyType property) {
         return property == PropertyType.X
             || property == PropertyType.Y
+            || property == PropertyType.Z
             || property == PropertyType.ROTATION;
     }
 
@@ -827,12 +829,14 @@ public class AnimationProject {
         return switch (p) {
             case X -> TimelineData.Property.X;
             case Y -> TimelineData.Property.Y;
+            case Z -> TimelineData.Property.Z;
             case PIVOT_X -> TimelineData.Property.PIVOT_X;
             case PIVOT_Y -> TimelineData.Property.PIVOT_Y;
             case ROTATION -> TimelineData.Property.ROTATION;
             case SCALE_X -> TimelineData.Property.SCALE_X;
             case SCALE_Y -> TimelineData.Property.SCALE_Y;
             case ALPHA -> TimelineData.Property.ALPHA;
+            case VISIBILITY -> TimelineData.Property.VISIBILITY;
             case CAMERA_X -> TimelineData.Property.CAMERA_X;
             case CAMERA_Y -> TimelineData.Property.CAMERA_Y;
             case CAMERA_ZOOM -> TimelineData.Property.CAMERA_ZOOM;

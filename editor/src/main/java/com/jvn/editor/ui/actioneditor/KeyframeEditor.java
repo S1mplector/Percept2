@@ -1302,9 +1302,10 @@ public class KeyframeEditor extends VBox {
     static double resolveValueNudgeStep(PropertyType property, boolean large) {
         return switch (property != null ? property : PropertyType.X) {
             case X, Y, CAMERA_X, CAMERA_Y -> large ? 10.0 : 1.0;
+            case Z -> large ? 5.0 : 1.0;
             case ROTATION -> large ? 15.0 : 1.0;
             case SCALE_X, SCALE_Y, CAMERA_ZOOM -> large ? 0.10 : 0.01;
-            case ALPHA, PIVOT_X, PIVOT_Y -> large ? 0.05 : 0.01;
+            case ALPHA, PIVOT_X, PIVOT_Y, VISIBILITY -> large ? 0.05 : 0.01;
         };
     }
 
@@ -1482,6 +1483,12 @@ public class KeyframeEditor extends VBox {
                 sliderValue.setMin(0.01); sliderValue.setMax(5.0);
             }
             case ALPHA -> {
+                sliderValue.setMin(0.0); sliderValue.setMax(1.0);
+            }
+            case Z -> {
+                sliderValue.setMin(-200.0); sliderValue.setMax(200.0);
+            }
+            case VISIBILITY -> {
                 sliderValue.setMin(0.0); sliderValue.setMax(1.0);
             }
         }

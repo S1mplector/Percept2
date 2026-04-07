@@ -5236,6 +5236,7 @@ public class EditorApp extends Application {
         : new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
     if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
+    puppeteer.setLaunchSceneSnapshot(snapshot);
     if (preferredTimelineName != null && !preferredTimelineName.isBlank()) {
       puppeteer.setTimelineName(preferredTimelineName);
     }

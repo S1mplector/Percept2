@@ -139,10 +139,12 @@ public class CodeExporter {
             String entity = track.getEntityName();
 
             collectPropertyEvents(events, entity, track, PropertyType.X, PropertyType.Y, "move");
+            collectPropertyEvents(events, entity, track, PropertyType.Z, null, "depth");
             collectPropertyEvents(events, entity, track, PropertyType.PIVOT_X, PropertyType.PIVOT_Y, "pivot");
             collectPropertyEvents(events, entity, track, PropertyType.ROTATION, null, "rotate");
             collectPropertyEvents(events, entity, track, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale");
             collectPropertyEvents(events, entity, track, PropertyType.ALPHA, null, "fade");
+            collectVisibilityEvents(events, entity, track);
 
             if (cameraTrack == null &&
                 (track.hasKeyframes(PropertyType.CAMERA_X)
@@ -157,9 +159,11 @@ public class CodeExporter {
             String groupName = group.getName();
 
             collectPropertyEvents(events, groupName, gt, PropertyType.X, PropertyType.Y, "move");
+            collectPropertyEvents(events, groupName, gt, PropertyType.Z, null, "depth");
             collectPropertyEvents(events, groupName, gt, PropertyType.ROTATION, null, "rotate");
             collectPropertyEvents(events, groupName, gt, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale");
             collectPropertyEvents(events, groupName, gt, PropertyType.ALPHA, null, "fade");
+            collectVisibilityEvents(events, groupName, gt);
         }
 
         if (cameraTrack != null) {
@@ -184,12 +188,17 @@ public class CodeExporter {
         for (EditorEventCue evt : project.getEditorEventCues()) {
             if (evt == null || evt.getType().isBlank()) continue;
             TimelineEvent ev = new TimelineEvent();
-            ev.actionType = "event";
-            ev.target = evt.getType();
+            ev.actionType = mapActionTypeForEventCue(evt);
+            ev.target = resolveActionTarget(evt, ev.actionType);
             ev.startTime = Math.max(0, evt.getTimeMs());
             ev.duration = 0;
             for (Map.Entry<String, String> entry : evt.getPayloadView().entrySet()) {
-                ev.props.put(entry.getKey(), entry.getValue());
+                if (!"target".equals(entry.getKey()) || "event".equals(ev.actionType)) {
+                    ev.props.put(entry.getKey(), entry.getValue());
+                }
+            }
+            if ("event".equals(ev.actionType)) {
+                ev.target = evt.getType();
             }
             events.add(ev);
         }
@@ -197,9 +206,35 @@ public class CodeExporter {
         return events;
     }
 
+    private static String mapActionTypeForEventCue(EditorEventCue cue) {
+        if (cue == null || cue.getType() == null) return "event";
+        String normalized = cue.getType().trim().toLowerCase();
+        if ("scene".equals(normalized)) return cue.getType().trim();
+        if (("expression".equals(normalized)
+            || "show".equals(normalized)
+            || "hide".equals(normalized)
+            || "replace".equals(normalized))
+            && !cue.getPayloadValue("target").isBlank()) {
+            return cue.getType().trim();
+        }
+        return "event";
+    }
+
+    private static String resolveActionTarget(EditorEventCue cue, String actionType) {
+        if (cue == null || actionType == null) return "";
+        if ("scene".equalsIgnoreCase(actionType)) {
+            return cue.getPayloadValue("target");
+        }
+        if ("event".equalsIgnoreCase(actionType)) {
+            return cue.getType();
+        }
+        return cue.getPayloadValue("target");
+    }
+
     private static void collectPropertyEvents(List<TimelineEvent> events, String target,
                                                EntityTrack track, PropertyType p1, PropertyType p2,
                                                String actionType) {
+        if (track == null) return;
         List<Keyframe> list1 = track.getKeyframes(p1);
         List<Keyframe> list2 = p2 != null ? track.getKeyframes(p2) : null;
         boolean hasP1 = !list1.isEmpty();
@@ -208,6 +243,17 @@ public class CodeExporter {
         if (!hasP1 && !hasP2) return;
 
         List<Double> times = collectUniqueTimes(list1, list2);
+        if (times.size() == 1 && "depth".equals(actionType) && hasP1) {
+            double time = times.get(0);
+            TimelineEvent ev = new TimelineEvent();
+            ev.actionType = actionType;
+            ev.target = target;
+            ev.startTime = time;
+            ev.duration = 0.0;
+            ev.props.put("z", track.getValueAt(p1, time));
+            events.add(ev);
+            return;
+        }
 
         for (int i = 0; i < times.size() - 1; i++) {
             double startTime = times.get(i);
@@ -245,6 +291,9 @@ public class CodeExporter {
                     if (hasP1) ev.props.put("x", endVal1);
                     if (hasP2) ev.props.put("y", endVal2);
                 }
+                case "depth" -> {
+                    if (hasP1) ev.props.put("z", endVal1);
+                }
                 case "pivot" -> {
                     if (hasP1) ev.props.put("ox", endVal1);
                     if (hasP2) ev.props.put("oy", endVal2);
@@ -272,6 +321,26 @@ public class CodeExporter {
         }
     }
 
+    private static void collectVisibilityEvents(List<TimelineEvent> events, String target, EntityTrack track) {
+        if (track == null) return;
+        List<Keyframe> keyframes = track.getKeyframes(PropertyType.VISIBILITY);
+        if (keyframes.isEmpty()) return;
+
+        double previous = PropertyType.VISIBILITY.getDefaultValue();
+        for (Keyframe keyframe : keyframes) {
+            if (keyframe == null) continue;
+            double current = keyframe.getValue();
+            if (Math.abs(current - previous) <= 0.001) continue;
+            TimelineEvent ev = new TimelineEvent();
+            ev.actionType = "visible";
+            ev.target = target;
+            ev.startTime = Math.max(0.0, keyframe.getTimeMs());
+            ev.props.put("value", current >= 0.5);
+            events.add(ev);
+            previous = current;
+        }
+    }
+
     private static EasingSpec findEasingSpecAt(List<Keyframe> list, double time) {
         for (Keyframe kf : list) {
             if (Math.abs(kf.getTimeMs() - time) < 0.5) return kf.getEasingSpec();
@@ -290,6 +359,8 @@ public class CodeExporter {
         StringBuilder sb = new StringBuilder();
         if ("cameraMove".equals(ev.actionType) || "cameraZoom".equals(ev.actionType)) {
             sb.append("  ").append(ev.actionType).append(" {\n");
+        } else if ("scene".equals(ev.actionType) && (ev.target == null || ev.target.isBlank())) {
+            sb.append("  scene {\n");
         } else if ("event".equals(ev.actionType)) {
             sb.append("  event \"").append(ev.target).append("\" {\n");
         } else {
@@ -427,12 +498,15 @@ public class CodeExporter {
         switch (code) {
             case "x": return PropertyType.X;
             case "y": return PropertyType.Y;
+            case "z": return PropertyType.Z;
             case "ox": return PropertyType.PIVOT_X;
             case "oy": return PropertyType.PIVOT_Y;
             case "deg": return PropertyType.ROTATION;
             case "sx": return PropertyType.SCALE_X;
             case "sy": return PropertyType.SCALE_Y;
             case "alpha": return PropertyType.ALPHA;
+            case "visible":
+            case "value": return PropertyType.VISIBILITY;
             default: return null;
         }
     }

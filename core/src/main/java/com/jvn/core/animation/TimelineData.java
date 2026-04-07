@@ -40,7 +40,7 @@ public class TimelineData {
      * camera properties map to {@link SceneAccessor} hooks.
      */
     public enum Property {
-        X, Y, Z, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, ALPHA,
+        X, Y, Z, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, ALPHA, VISIBILITY,
         CAMERA_X, CAMERA_Y, CAMERA_ZOOM
     }
 
@@ -258,8 +258,7 @@ public class TimelineData {
 
         private static double getDefaultValue(Property prop) {
             return switch (prop) {
-                case SCALE_X, SCALE_Y, CAMERA_ZOOM -> 1.0;
-                case ALPHA -> 1.0;
+                case SCALE_X, SCALE_Y, ALPHA, VISIBILITY, CAMERA_ZOOM -> 1.0;
                 default -> 0.0;
             };
         }

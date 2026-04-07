@@ -34,6 +34,7 @@ public class TimelinePanel extends VBox {
     private static final PropertyType[] GROUP_PROPERTIES = {
         PropertyType.X,
         PropertyType.Y,
+        PropertyType.Z,
         PropertyType.ROTATION,
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
@@ -54,10 +55,12 @@ public class TimelinePanel extends VBox {
     private static Color trackColorFor(PropertyType prop) {
         return switch (prop) {
             case X, Y -> Color.web("#4da3ff");
+            case Z -> Color.web("#8bc4ff");
             case PIVOT_X, PIVOT_Y -> Color.web("#f7d07a");
             case ROTATION -> Color.web("#c77dff");
             case SCALE_X, SCALE_Y -> Color.web("#58d68d");
             case ALPHA -> Color.web("#f38ba8");
+            case VISIBILITY -> Color.web("#f5e663");
             case CAMERA_X, CAMERA_Y, CAMERA_ZOOM -> Color.web("#ff8c42");
         };
     }
@@ -479,6 +482,7 @@ public class TimelinePanel extends VBox {
         drawTimeRuler(gc, w);
         drawLoopRegion(gc, w, h);
         drawTracks(gc, w);
+        drawEventCues(gc, w, h);
         drawAudioCues(gc, w, h);
         drawPlayhead(gc, h);
         drawSelectionMarquee(gc);
@@ -672,6 +676,55 @@ public class TimelinePanel extends VBox {
             // Pseudo-waveform visualization: draw a small decorative waveform block after each cue
             drawAudioWaveform(gc, x, cueY, cue);
         }
+    }
+
+    private void drawEventCues(GraphicsContext gc, double width, double height) {
+        List<EditorEventCue> cues = project.getEditorEventCues();
+        if (cues.isEmpty()) return;
+
+        double cueY = height - 42;
+        gc.setFont(javafx.scene.text.Font.font(9));
+
+        for (EditorEventCue cue : cues) {
+            if (cue == null || cue.getType() == null || cue.getType().isBlank()) continue;
+            double x = LABEL_WIDTH + cue.getTimeMs() * pixelsPerMs - scrollX;
+            if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
+
+            Color markerColor = eventCueColor(cue.getType());
+            gc.setFill(markerColor);
+            gc.fillRect(x - 5, cueY - 5, 10, 10);
+
+            gc.setStroke(markerColor.deriveColor(0, 1.0, 0.9, 0.35));
+            gc.setLineWidth(1);
+            gc.strokeLine(x, HEADER_HEIGHT, x, cueY - 6);
+
+            gc.setFill(markerColor.deriveColor(0, 1.0, 1.15, 0.95));
+            gc.fillText(eventCueLabel(cue.getType()), x - 4, cueY + 13);
+        }
+    }
+
+    private static Color eventCueColor(String type) {
+        if (type == null) return Color.web("#76d7ea", 0.9);
+        return switch (type.trim().toLowerCase()) {
+            case "expression" -> Color.web("#7bd88f", 0.92);
+            case "show" -> Color.web("#76d7ea", 0.92);
+            case "hide" -> Color.web("#ff7b8a", 0.92);
+            case "replace" -> Color.web("#f0b673", 0.92);
+            case "scene" -> Color.web("#b892ff", 0.92);
+            default -> Color.web("#8fa3b8", 0.88);
+        };
+    }
+
+    private static String eventCueLabel(String type) {
+        if (type == null || type.isBlank()) return "?";
+        return switch (type.trim().toLowerCase()) {
+            case "expression" -> "E";
+            case "show" -> "S";
+            case "hide" -> "H";
+            case "replace" -> "R";
+            case "scene" -> "B";
+            default -> type.substring(0, 1).toUpperCase();
+        };
     }
 
     private void drawAudioWaveform(GraphicsContext gc, double startX, double baseY, AudioCue cue) {

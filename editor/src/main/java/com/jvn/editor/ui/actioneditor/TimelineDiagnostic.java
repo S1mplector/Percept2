@@ -64,10 +64,17 @@ public class TimelineDiagnostic {
 
         Set<String> actions = new LinkedHashSet<>();
         actions.add("move");
+        actions.add("depth");
         actions.add("pivot");
         actions.add("rotate");
         actions.add("scale");
         actions.add("fade");
+        actions.add("visible");
+        actions.add("expression");
+        actions.add("show");
+        actions.add("hide");
+        actions.add("replace");
+        actions.add("scene");
         actions.add("cameraMove");
         actions.add("cameraZoom");
         actions.add("event");
@@ -80,13 +87,20 @@ public class TimelineDiagnostic {
 
         Map<String, Set<String>> keys = new LinkedHashMap<>();
         keys.put("move", lowerSet(Set.of("x", "y", "dur", "duration", "easing", "interp")));
+        keys.put("depth", lowerSet(Set.of("z", "dur", "duration", "easing", "interp")));
         keys.put("pivot", lowerSet(Set.of("ox", "oy", "dur", "duration", "easing", "interp")));
         keys.put("rotate", lowerSet(Set.of("angle", "rotation", "deg", "dur", "duration", "easing", "interp")));
         keys.put("scale", lowerSet(Set.of("x", "y", "sx", "sy", "scale_x", "scale_y", "dur", "duration", "easing", "interp")));
         keys.put("fade", lowerSet(Set.of("alpha", "dur", "duration", "easing", "interp")));
-        keys.put("cameraMove", lowerSet(Set.of("x", "y", "dur", "duration", "easing", "interp")));
-        keys.put("cameraZoom", lowerSet(Set.of("zoom", "dur", "duration", "easing", "interp")));
-        keys.put("playAudio", lowerSet(Set.of("channel", "volume", "loop", "bgm", "fadeinms", "fadein_ms", "fadein", "fade_in")));
+        keys.put("visible", lowerSet(Set.of("value", "visible")));
+        keys.put("expression", lowerSet(Set.of("value", "path", "position")));
+        keys.put("show", lowerSet(Set.of("target", "expression", "value", "path", "position", "layer")));
+        keys.put("hide", lowerSet(Set.of("target")));
+        keys.put("replace", lowerSet(Set.of("target", "expression", "value", "path")));
+        keys.put("scene", lowerSet(Set.of("target", "id", "path", "value")));
+        keys.put("cameramove", lowerSet(Set.of("x", "y", "dur", "duration", "easing", "interp")));
+        keys.put("camerazoom", lowerSet(Set.of("zoom", "dur", "duration", "easing", "interp")));
+        keys.put("playaudio", lowerSet(Set.of("channel", "volume", "loop", "bgm", "fadeinms", "fadein_ms", "fadein", "fade_in")));
         ACTION_KEYS = Collections.unmodifiableMap(keys);
     }
 

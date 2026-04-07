@@ -30,6 +30,8 @@ public class TimelineDataParser {
 
     private static final Pattern MOVE_PATTERN = Pattern.compile(
         "move\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DEPTH_PATTERN = Pattern.compile(
+        "depth\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern PIVOT_PATTERN = Pattern.compile(
         "pivot\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern ROTATE_PATTERN = Pattern.compile(
@@ -38,6 +40,18 @@ public class TimelineDataParser {
         "scale\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern FADE_PATTERN = Pattern.compile(
         "fade\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VISIBLE_PATTERN = Pattern.compile(
+        "visible\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern EXPRESSION_PATTERN = Pattern.compile(
+        "expression\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SHOW_PATTERN = Pattern.compile(
+        "show\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern HIDE_PATTERN = Pattern.compile(
+        "hide\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern REPLACE_PATTERN = Pattern.compile(
+        "replace\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SCENE_PATTERN = Pattern.compile(
+        "scene(?:\\s+\"([^\"]+)\")?\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern CAMERA_MOVE_PATTERN = Pattern.compile(
         "cameraMove\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern CAMERA_ZOOM_PATTERN = Pattern.compile(
@@ -129,6 +143,36 @@ public class TimelineDataParser {
                         cursor,
                         endTime,
                         ab.getDouble("y", 0),
+                        easingSpec,
+                        interpolation,
+                        easingSpec.getParameters()
+                    );
+                }
+                if (endTime > maxTime) maxTime = endTime;
+                continue;
+            }
+
+            Matcher depthM = DEPTH_PATTERN.matcher(trimmed);
+            if (depthM.find()) {
+                String entity = depthM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
+                Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
+
+                double endTime = cursor + dur;
+                TimelineData.Track track = getOrCreateTrack(data, entity);
+
+                if (ab.has("z")) {
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.Z,
+                        cursor,
+                        endTime,
+                        ab.getDouble("z", 0),
                         easingSpec,
                         interpolation,
                         easingSpec.getParameters()
@@ -285,6 +329,25 @@ public class TimelineDataParser {
                 continue;
             }
 
+            Matcher visibleM = VISIBLE_PATTERN.matcher(trimmed);
+            if (visibleM.find()) {
+                String entity = visibleM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                TimelineData.Track track = getOrCreateTrack(data, entity);
+                boolean visible = ab.has("value")
+                    ? ab.getBoolean("value", true)
+                    : ab.has("visible")
+                        ? ab.getBoolean("visible", true)
+                        : true;
+                track.addKeyframe(TimelineData.Property.VISIBILITY,
+                    new TimelineData.Keyframe(cursor, visible ? 1.0 : 0.0, Easing.Type.LINEAR));
+                if (cursor > maxTime) maxTime = cursor;
+                continue;
+            }
+
             // cameraMove { ... }
             Matcher cameraMoveM = CAMERA_MOVE_PATTERN.matcher(trimmed);
             if (cameraMoveM.find()) {
@@ -356,6 +419,73 @@ public class TimelineDataParser {
             }
 
             // event "type" { ... }
+            Matcher expressionM = EXPRESSION_PATTERN.matcher(trimmed);
+            if (expressionM.find()) {
+                String target = expressionM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+                java.util.Map<String, String> payload = buildEventPayload(ab);
+                payload.put("target", target);
+                data.addEventCue(new TimelineData.EventCue(cursor, "expression", payload));
+                if (cursor > maxTime) maxTime = cursor;
+                continue;
+            }
+
+            Matcher showM = SHOW_PATTERN.matcher(trimmed);
+            if (showM.find()) {
+                String target = showM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+                java.util.Map<String, String> payload = buildEventPayload(ab);
+                payload.put("target", target);
+                data.addEventCue(new TimelineData.EventCue(cursor, "show", payload));
+                if (cursor > maxTime) maxTime = cursor;
+                continue;
+            }
+
+            Matcher hideM = HIDE_PATTERN.matcher(trimmed);
+            if (hideM.find()) {
+                String target = hideM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+                java.util.Map<String, String> payload = buildEventPayload(ab);
+                payload.put("target", target);
+                data.addEventCue(new TimelineData.EventCue(cursor, "hide", payload));
+                if (cursor > maxTime) maxTime = cursor;
+                continue;
+            }
+
+            Matcher replaceM = REPLACE_PATTERN.matcher(trimmed);
+            if (replaceM.find()) {
+                String target = replaceM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+                java.util.Map<String, String> payload = buildEventPayload(ab);
+                payload.put("target", target);
+                data.addEventCue(new TimelineData.EventCue(cursor, "replace", payload));
+                if (cursor > maxTime) maxTime = cursor;
+                continue;
+            }
+
+            Matcher sceneM = SCENE_PATTERN.matcher(trimmed);
+            if (sceneM.find()) {
+                String target = sceneM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+                java.util.Map<String, String> payload = buildEventPayload(ab);
+                if (target != null && !target.isBlank()) {
+                    payload.put("target", target);
+                }
+                data.addEventCue(new TimelineData.EventCue(cursor, "scene", payload));
+                if (cursor > maxTime) maxTime = cursor;
+                continue;
+            }
+
             Matcher eventM = EVENT_PATTERN.matcher(trimmed);
             if (eventM.find()) {
                 String eventType = eventM.group(1);
@@ -363,10 +493,7 @@ public class TimelineDataParser {
                 ActionBlock ab = readBlock(lines, i);
                 i = ab.endIndex;
 
-                java.util.Map<String, String> payload = new java.util.LinkedHashMap<>();
-                for (java.util.Map.Entry<String, String> entry : ab.props.entrySet()) {
-                    payload.put(entry.getKey(), entry.getValue());
-                }
+                java.util.Map<String, String> payload = buildEventPayload(ab);
                 data.addEventCue(new TimelineData.EventCue(cursor, eventType, payload));
                 if (cursor > maxTime) maxTime = cursor;
                 continue;
@@ -478,6 +605,25 @@ public class TimelineDataParser {
             case "step", "step_start", "instant", "jump" -> Easing.Interpolation.STEP;
             default -> Easing.Interpolation.TWEEN;
         };
+    }
+
+    private static java.util.Map<String, String> buildEventPayload(ActionBlock ab) {
+        java.util.Map<String, String> payload = new java.util.LinkedHashMap<>();
+        if (ab == null) return payload;
+        for (java.util.Map.Entry<String, String> entry : ab.props.entrySet()) {
+            payload.put(entry.getKey(), decodeStringLiteral(entry.getValue()));
+        }
+        return payload;
+    }
+
+    private static String decodeStringLiteral(String raw) {
+        if (raw == null) return "";
+        String text = raw.trim();
+        if (text.length() >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
+            text = text.substring(1, text.length() - 1);
+            text = text.replace("\\\"", "\"").replace("\\\\", "\\");
+        }
+        return text;
     }
 
     private static ActionBlock readBlock(String[] lines, int start) {

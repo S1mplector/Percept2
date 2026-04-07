@@ -1,7 +1,13 @@
 package com.jvn.core.graphics;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import com.jvn.core.math.Rect;
 import com.jvn.core.math.Scalars;
+import com.jvn.core.scene2d.AnimatablePropertyRegistry;
 
 /**
  * 2D camera with smooth follow, zoom, and optional world-space bounds clamping.
@@ -38,6 +44,14 @@ import com.jvn.core.math.Scalars;
  * @see ViewportScaler2D
  */
 public class Camera2D {
+  private static final AnimatablePropertyRegistry<Camera2D> PROPERTY_REGISTRY =
+      new AnimatablePropertyRegistry<>();
+
+  static {
+    registerAnimatableProperty("dof.focus", 0.0, Camera2D::getFocusDepth, Camera2D::setFocusDepth);
+    registerAnimatableProperty("dof.strength", 0.0, Camera2D::getDepthOfFieldStrength, Camera2D::setDepthOfFieldStrength);
+    registerAnimatableProperty("dof.maxBlur", 0.0, Camera2D::getDepthOfFieldMaxBlur, Camera2D::setDepthOfFieldMaxBlur);
+  }
 
   /** Current camera X position in world space. */
   private double x;
@@ -81,6 +95,18 @@ public class Camera2D {
   /** Logical viewport height used for view-size-aware clamping and centre helpers. */
   private double viewportHeight;
 
+  /** Shared depth-of-field focus plane used by scene renderers. */
+  private double focusDepth = 0.0;
+
+  /** Blur multiplier applied from depth distance to blur radius. */
+  private double depthOfFieldStrength = 0.0;
+
+  /** Maximum blur radius contributed by the DOF system. */
+  private double depthOfFieldMaxBlur = 0.0;
+
+  /** Arbitrary numeric camera properties without registered handlers. */
+  private final Map<String, Double> customProperties = new LinkedHashMap<>();
+
   // ──────────────────────────────────────────────────────────────────────────
   //  Position & zoom accessors
   // ──────────────────────────────────────────────────────────────────────────
@@ -93,6 +119,18 @@ public class Camera2D {
 
   /** @return current zoom factor (always > 0) */
   public double getZoom() { return zoom; }
+
+  public double getFocusDepth() { return focusDepth; }
+  public double getDepthOfFieldStrength() { return depthOfFieldStrength; }
+  public double getDepthOfFieldMaxBlur() { return depthOfFieldMaxBlur; }
+
+  public boolean hasDepthOfField() {
+    return depthOfFieldStrength > 1e-9 && depthOfFieldMaxBlur > 1e-9;
+  }
+
+  public Map<String, Double> getCustomPropertiesView() {
+    return Collections.unmodifiableMap(new LinkedHashMap<>(customProperties));
+  }
 
   /**
    * Teleport the camera (and target) to an exact position immediately.
@@ -118,6 +156,66 @@ public class Camera2D {
   public void setZoom(double z) {
     this.zoom = z <= 0 ? 0.0001 : z;
     clampToBounds();
+  }
+
+  public void setFocusDepth(double focusDepth) {
+    this.focusDepth = sanitizeFinite(focusDepth, 0.0);
+  }
+
+  public void setDepthOfFieldStrength(double depthOfFieldStrength) {
+    this.depthOfFieldStrength = Math.max(0.0, sanitizeFinite(depthOfFieldStrength, 0.0));
+  }
+
+  public void setDepthOfFieldMaxBlur(double depthOfFieldMaxBlur) {
+    this.depthOfFieldMaxBlur = Math.max(0.0, sanitizeFinite(depthOfFieldMaxBlur, 0.0));
+  }
+
+  public void setCustomProperty(String key, double value) {
+    if (key == null || key.isBlank()) return;
+    customProperties.put(key.trim(), sanitizeFinite(value, 0.0));
+  }
+
+  public double getCustomProperty(String key) {
+    if (key == null || key.isBlank()) return 0.0;
+    return customProperties.getOrDefault(key.trim(), 0.0);
+  }
+
+  public void clearCustomProperties() {
+    customProperties.clear();
+  }
+
+  public void applyCustomProperty(String key, double value) {
+    if (key == null || key.isBlank()) return;
+    AnimatablePropertyRegistry.Definition<Camera2D> definition = PROPERTY_REGISTRY.get(key);
+    if (definition != null) {
+      definition.setValue(this, value);
+    } else {
+      setCustomProperty(key, value);
+    }
+  }
+
+  public double readCustomProperty(String key) {
+    if (key == null || key.isBlank()) return 0.0;
+    AnimatablePropertyRegistry.Definition<Camera2D> definition = PROPERTY_REGISTRY.get(key);
+    if (definition != null) return definition.getValue(this);
+    return getCustomProperty(key);
+  }
+
+  public static AnimatablePropertyRegistry.Definition<Camera2D> registerAnimatableProperty(
+      String key,
+      double defaultValue,
+      java.util.function.ToDoubleFunction<Camera2D> getter,
+      java.util.function.ObjDoubleConsumer<Camera2D> setter
+  ) {
+    return PROPERTY_REGISTRY.register(key, defaultValue, getter, setter);
+  }
+
+  public static AnimatablePropertyRegistry.Definition<Camera2D> getAnimatableProperty(String key) {
+    return PROPERTY_REGISTRY.get(key);
+  }
+
+  public static Collection<AnimatablePropertyRegistry.Definition<Camera2D>> animatableProperties() {
+    return PROPERTY_REGISTRY.definitions();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -480,5 +578,9 @@ public class Camera2D {
     result.w = viewWidth(viewportWidth);
     result.h = viewHeight(viewportHeight);
     return result;
+  }
+
+  private static double sanitizeFinite(double value, double fallback) {
+    return Double.isFinite(value) ? value : fallback;
   }
 }

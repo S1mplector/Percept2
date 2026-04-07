@@ -776,7 +776,57 @@ public class FileEditorTab extends BorderPane {
         if (viewport == null) return;
         viewport.getCamera().setZoom(zoom);
       }
+
+      @Override
+      public void onEventCue(String type, java.util.Map<String, String> payload) {
+        if (previewScene == null || type == null || type.isBlank()) return;
+        java.util.Map<String, String> safePayload = payload == null ? java.util.Map.of() : payload;
+        String normalized = type.trim().toLowerCase(java.util.Locale.ROOT);
+        String target = safePayload.getOrDefault("target", "");
+        Entity2D entity = target.isBlank() ? null : previewScene.find(target);
+
+        switch (normalized) {
+          case "show":
+            if (entity != null) entity.setVisible(true);
+            applyPreviewSpritePath(entity, safePayload.get("path"));
+            break;
+          case "hide":
+            if (entity != null) entity.setVisible(false);
+            break;
+          case "replace":
+          case "expression":
+            applyPreviewSpritePath(entity, safePayload.get("path"));
+            if (entity != null && safePayload.get("path") != null && !safePayload.get("path").isBlank()) {
+              entity.setVisible(true);
+            }
+            break;
+          case "scene":
+            Entity2D background = entity != null ? entity : findPreviewBackground(previewScene);
+            applyPreviewSpritePath(background, safePayload.get("path"));
+            if (background != null && safePayload.get("path") != null && !safePayload.get("path").isBlank()) {
+              background.setVisible(true);
+            }
+            break;
+          default:
+            break;
+        }
+      }
     };
+  }
+
+  private static void applyPreviewSpritePath(Entity2D entity, String rawPath) {
+    if (!(entity instanceof com.jvn.core.scene2d.Sprite2D sprite)) return;
+    if (rawPath == null || rawPath.isBlank()) return;
+    sprite.setImagePath(rawPath);
+  }
+
+  private static Entity2D findPreviewBackground(JesScene2D scene) {
+    if (scene == null) return null;
+    for (String name : scene.names()) {
+      if (name == null || name.isBlank() || !name.startsWith("bg_")) continue;
+      return scene.find(name);
+    }
+    return null;
   }
 
   public void toggleEditorFullscreen() {

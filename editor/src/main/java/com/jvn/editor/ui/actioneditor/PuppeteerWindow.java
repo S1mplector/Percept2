@@ -19,6 +19,7 @@ import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.ProjectViewportSpec;
+import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
@@ -73,6 +74,7 @@ public class PuppeteerWindow extends Stage {
     private static final List<PropertyType> GROUP_PROPERTY_CHOICES = List.of(
         PropertyType.X,
         PropertyType.Y,
+        PropertyType.Z,
         PropertyType.ROTATION,
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
@@ -154,6 +156,10 @@ public class PuppeteerWindow extends Stage {
     private TransformInteractionState activeTransformInteraction;
     private CameraInteractionState activeCameraInteraction;
     private final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
+    private final Map<String, String> launchCharacterImagePaths = new LinkedHashMap<>();
+    private final Map<String, String> launchBackgroundPaths = new LinkedHashMap<>();
+    private final Map<String, String> sceneBaselineImagePaths = new LinkedHashMap<>();
+    private final Map<String, Boolean> sceneBaselineVisibility = new LinkedHashMap<>();
     private boolean bypassCloseConfirmation = false;
     private boolean codePaneVisible = true;
     private double codePaneDividerPosition = 0.78;
@@ -848,7 +854,7 @@ public class PuppeteerWindow extends Stage {
         Button btnHelp = makeToolbarIconButton("icon-puppeteer-presets", "Show keyboard shortcuts");
         btnHelp.setOnAction(e -> showShortcutsOverlay());
 
-        // --- Audio cues ---
+        // --- Audio + event cues ---
         Button btnAddCue = makeToolbarIconButton("icon-puppeteer-audio-add", "Add audio cue at playhead");
         btnAddCue.setOnAction(e -> showAddAudioCueDialog());
         Button btnClearCues = makeToolbarIconButton("icon-puppeteer-audio-clear", "Remove all timeline audio cues");
@@ -866,7 +872,25 @@ public class PuppeteerWindow extends Stage {
                 })
             );
         });
-        HBox cueBox = new HBox(4, btnAddCue, btnClearCues);
+        Button btnManageEvents = makeToolbarIconButton("icon-puppeteer-presets", "Manage timeline event cues");
+        btnManageEvents.setOnAction(e -> showEventCueManagerDialog(null));
+        Button btnClearEvents = makeToolbarIconButton("icon-puppeteer-audio-clear", "Remove all timeline event cues");
+        btnClearEvents.setOnAction(e -> {
+            if (project.getEditorEventCues().isEmpty()) return;
+            overlayDialog.showDialog(
+                "Clear Event Cues",
+                "Remove all timeline event cues from this animation?",
+                null,
+                ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+                ActionEditorDialogOverlay.ActionSpec.danger("Clear", () -> {
+                    project.clearEditorEventCues();
+                    timelinePanel.refresh();
+                    updatePreview();
+                    refreshExportPreviewAndMarkDirty();
+                })
+            );
+        });
+        HBox cueBox = new HBox(4, btnAddCue, btnClearCues, btnManageEvents, btnClearEvents);
         cueBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Timeline name + Register ---
@@ -904,7 +928,7 @@ public class PuppeteerWindow extends Stage {
         CollapsibleToolbarCluster snapCluster = registerToolbarCluster("snap", "Snap", snapBox);
         CollapsibleToolbarCluster previewCluster = registerToolbarCluster("preview", "Preview", autoKeyBox, previewSnapBox);
         CollapsibleToolbarCluster orbitCluster = registerToolbarCluster("orbit", "Orbit", orbitBox);
-        CollapsibleToolbarCluster audioCluster = registerToolbarCluster("audio", "Audio", cueBox);
+        CollapsibleToolbarCluster audioCluster = registerToolbarCluster("audio", "Cues", cueBox);
         CollapsibleToolbarCluster registerCluster = registerToolbarCluster("register", "Register", nameBox);
         CollapsibleToolbarCluster helpCluster = registerToolbarCluster("help", "Help", btnHelp);
 
@@ -1047,8 +1071,12 @@ public class PuppeteerWindow extends Stage {
         previewViewportHost.getStyleClass().add("puppeteer-preview-viewport-host");
         previewViewportHost.setMinHeight(0);
         previewViewportHost.hoverProperty().addListener((obs, wasHover, isHover) -> updatePreviewOverlayVisibility());
-        // Unmanaged nodes ignore StackPane alignment, so position manually
-        btnPreviewBack.setLayoutX(10);
+        // Unmanaged nodes ignore StackPane alignment, so position manually.
+        // Keep fullscreen/back controls pinned to the same top-right anchor.
+        btnPreviewBack.layoutXProperty().bind(
+            previewViewportHost.widthProperty()
+                .subtract(btnPreviewBack.widthProperty())
+                .subtract(14));
         btnPreviewBack.setLayoutY(8);
         btnPreviewFullscreen.layoutXProperty().bind(
             previewViewportHost.widthProperty()
@@ -1910,6 +1938,7 @@ public class PuppeteerWindow extends Stage {
                     track.setLayerOrder((int) Math.round(entity.getZ()));
                 }
             }
+            captureSceneStateBaseline();
             captureProjectSnapshotBaseline();
             entitySelector.refresh(project);
             timelinePanel.refresh();
@@ -1921,6 +1950,19 @@ public class PuppeteerWindow extends Stage {
         }
         updatePreviewOverlayVisibility();
         refreshSidebarTabs();
+    }
+
+    public void setLaunchSceneSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
+        launchCharacterImagePaths.clear();
+        launchBackgroundPaths.clear();
+        if (snapshot != null) {
+            if (snapshot.characterImagePaths != null) {
+                launchCharacterImagePaths.putAll(snapshot.characterImagePaths);
+            }
+            if (snapshot.backgroundPaths != null) {
+                launchBackgroundPaths.putAll(snapshot.backgroundPaths);
+            }
+        }
     }
 
     private java.io.File projectRoot;
@@ -2133,6 +2175,7 @@ public class PuppeteerWindow extends Stage {
         if (scene == null) return;
 
         double time = project.getPlayheadMs();
+        restorePreviewBaselineState();
         var previewCamera = animationPreview.getCamera();
         double cameraX = previewCamera.getX();
         double cameraY = previewCamera.getY();
@@ -2165,7 +2208,11 @@ public class PuppeteerWindow extends Stage {
             var entity = scene.find(track.getEntityName());
             if (entity == null) continue;
             String entityName = track.getEntityName();
-            entity.setZ(project.computeEffectiveLayerOrder(entityName));
+            double baseZ = baselinePropertyValue(entityName, entity, PropertyType.Z);
+            double z = project.hasEffectiveAnimation(entityName, PropertyType.Z)
+                ? project.computeValueAt(entityName, PropertyType.Z, time, baseZ)
+                : project.computeEffectiveLayerOrder(entityName);
+            entity.setZ(z);
 
             double baseX = baselinePropertyValue(entityName, entity, PropertyType.X);
             double baseY = baselinePropertyValue(entityName, entity, PropertyType.Y);
@@ -2208,10 +2255,164 @@ public class PuppeteerWindow extends Stage {
                 ? project.computeValueAt(entityName, PropertyType.ALPHA, time, baseAlpha)
                 : baseAlpha;
             setEntityAlpha(entity, alpha);
+
+            double baseVisibility = baselinePropertyValue(entityName, entity, PropertyType.VISIBILITY);
+            double visibility = project.hasEffectiveAnimation(entityName, PropertyType.VISIBILITY)
+                ? project.computeValueAt(entityName, PropertyType.VISIBILITY, time, baseVisibility)
+                : baseVisibility;
+            entity.setVisible(visibility >= 0.5);
         }
+
+        applyPreviewEventCuesUpTo(time);
 
         animationPreview.render();
         refreshSidebarTabs();
+    }
+
+    private void captureSceneStateBaseline() {
+        sceneBaselineImagePaths.clear();
+        sceneBaselineVisibility.clear();
+        if (scene == null) return;
+        for (String entityName : scene.names()) {
+            if (entityName == null || entityName.isBlank()) continue;
+            var entity = scene.find(entityName);
+            if (entity == null) continue;
+            sceneBaselineVisibility.put(entityName, entity.isVisible());
+            if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+                sceneBaselineImagePaths.put(entityName, sprite.getImagePath());
+            }
+        }
+    }
+
+    private void restorePreviewBaselineState() {
+        if (scene == null) return;
+        for (String entityName : scene.names()) {
+            if (entityName == null || entityName.isBlank()) continue;
+            var entity = scene.find(entityName);
+            if (entity == null) continue;
+            Boolean visible = sceneBaselineVisibility.get(entityName);
+            if (visible != null) {
+                entity.setVisible(visible);
+            }
+            if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+                String baselinePath = sceneBaselineImagePaths.get(entityName);
+                if (baselinePath != null) {
+                    sprite.setImagePath(baselinePath);
+                }
+            }
+        }
+    }
+
+    private void applyPreviewEventCuesUpTo(double timeMs) {
+        for (EditorEventCue cue : project.getEditorEventCues()) {
+            if (cue == null || cue.getType() == null || cue.getType().isBlank()) continue;
+            if (cue.getTimeMs() > timeMs + 0.001) break;
+            applyPreviewEventCue(cue);
+        }
+    }
+
+    private void applyPreviewEventCue(EditorEventCue cue) {
+        if (scene == null || cue == null || cue.getType() == null) return;
+        String type = cue.getType().trim().toLowerCase(Locale.ROOT);
+        String target = cue.getPayloadValue("target");
+        com.jvn.core.scene2d.Entity2D entity = target == null || target.isBlank() ? null : scene.find(target);
+
+        switch (type) {
+            case "expression" -> {
+                String expression = cue.getPayloadValue("value");
+                String path = resolveCueAssetPath(target, expression, cue.getPayloadValue("path"), false);
+                if (path != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+                    sprite.setImagePath(path);
+                    entity.setVisible(true);
+                }
+            }
+            case "show" -> {
+                if (entity != null) entity.setVisible(true);
+                String expression = cue.getPayloadValue("expression");
+                if (expression.isBlank()) expression = cue.getPayloadValue("value");
+                String path = resolveCueAssetPath(target, expression, cue.getPayloadValue("path"), false);
+                if (path != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+                    sprite.setImagePath(path);
+                }
+            }
+            case "hide" -> {
+                if (entity != null) entity.setVisible(false);
+            }
+            case "replace" -> {
+                String expression = cue.getPayloadValue("expression");
+                if (expression.isBlank()) expression = cue.getPayloadValue("value");
+                String path = resolveCueAssetPath(target, expression, cue.getPayloadValue("path"), false);
+                if (path != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+                    sprite.setImagePath(path);
+                    entity.setVisible(true);
+                }
+            }
+            case "scene" -> {
+                String resolvedPath = resolveCueAssetPath(target, cue.getPayloadValue("id"), cue.getPayloadValue("path"), true);
+                com.jvn.core.scene2d.Entity2D background = entity;
+                if (background == null) {
+                    background = findBackgroundEntity();
+                }
+                if (resolvedPath != null && background instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+                    sprite.setImagePath(resolvedPath);
+                    background.setVisible(true);
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
+    private com.jvn.core.scene2d.Entity2D findBackgroundEntity() {
+        if (scene == null) return null;
+        for (String entityName : scene.names()) {
+            if (entityName == null || entityName.isBlank()) continue;
+            if (!entityName.startsWith("bg_")) continue;
+            return scene.find(entityName);
+        }
+        return null;
+    }
+
+    private String resolveCueAssetPath(String target, String expressionOrId, String directPath, boolean backgroundCue) {
+        if (directPath != null && !directPath.isBlank()) {
+            return resolvePreviewAssetPathSpec(directPath.trim());
+        }
+        String token = expressionOrId == null ? "" : expressionOrId.trim();
+        if (token.isBlank()) return null;
+        if (backgroundCue) {
+            String mapped = launchBackgroundPaths.get(token);
+            return mapped == null || mapped.isBlank() ? null : resolvePreviewAssetPathSpec(mapped);
+        }
+        if (target == null || target.isBlank()) return null;
+        String mapped = launchCharacterImagePaths.get(target + "/" + token);
+        if ((mapped == null || mapped.isBlank()) && !"neutral".equals(token)) {
+            mapped = launchCharacterImagePaths.get(target + "/neutral");
+        }
+        return mapped == null || mapped.isBlank() ? null : resolvePreviewAssetPathSpec(mapped);
+    }
+
+    private String resolvePreviewAssetPathSpec(String pathSpec) {
+        if (pathSpec == null || pathSpec.isBlank()) return null;
+        if (pathSpec.indexOf('|') < 0) {
+            return resolvePreviewAssetPath(pathSpec.trim());
+        }
+        StringBuilder out = new StringBuilder();
+        for (String token : pathSpec.split("\\|")) {
+            String part = token == null ? "" : token.trim();
+            if (part.isEmpty()) continue;
+            if (!out.isEmpty()) out.append(" | ");
+            out.append(resolvePreviewAssetPath(part));
+        }
+        return out.isEmpty() ? null : out.toString();
+    }
+
+    private String resolvePreviewAssetPath(String rawPath) {
+        if (rawPath == null || rawPath.isBlank()) return rawPath;
+        File file = new File(rawPath);
+        if (!file.isAbsolute() && projectRoot != null) {
+            file = new File(projectRoot, rawPath);
+        }
+        return file.exists() ? file.getAbsolutePath() : rawPath;
     }
 
     private void setEntityAlpha(com.jvn.core.scene2d.Entity2D entity, double alpha) {
@@ -2660,7 +2861,7 @@ public class PuppeteerWindow extends Stage {
         ProjectViewportSpec.Dimensions vp = ProjectViewportSpec.resolve(projectRoot);
         viewportInfoLabel.setText(
             "Viewport: " + vp.width() + "x" + vp.height()
-                + "  •  Red frame = runtime-visible area; outside frame is extra scene coverage"
+                + ""
         );
     }
 
@@ -2901,6 +3102,377 @@ public class PuppeteerWindow extends Stage {
                 overlayDialog.hideOverlay();
             })
         );
+    }
+
+    private void showEventCueManagerDialog(EditorEventCue initialSelection) {
+        List<String> presets = List.of(
+            "expression",
+            "show",
+            "hide",
+            "replace",
+            "scene",
+            "dialogue_marker",
+            "script_call",
+            "custom"
+        );
+
+        ListView<EditorEventCue> cueList = new ListView<>();
+        cueList.setPrefHeight(180);
+        cueList.setMinHeight(120);
+        cueList.setStyle("-fx-background-color: #14171d; -fx-control-inner-background: #14171d;");
+        cueList.setCellFactory(list -> new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(EditorEventCue item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    return;
+                }
+                String target = item.getPayloadValue("target");
+                String suffix = target == null || target.isBlank() ? "" : " -> " + target;
+                setText(String.format("%.0fms  %s%s", item.getTimeMs(), item.getType(), suffix));
+            }
+        });
+
+        ComboBox<String> cbTypePreset = new ComboBox<>();
+        cbTypePreset.getItems().setAll(presets);
+        cbTypePreset.setValue("expression");
+        cbTypePreset.setStyle(STYLE_TEXT_FIELD);
+        cbTypePreset.setPrefWidth(160);
+
+        TextField tfType = new TextField("expression");
+        tfType.setPromptText("event type");
+        tfType.setStyle(STYLE_TEXT_FIELD);
+
+        TextField tfTime = new TextField(String.format("%.0f", project.getPlayheadMs()));
+        tfTime.setPromptText("playhead ms");
+        tfTime.setStyle(STYLE_TEXT_FIELD);
+
+        TextField tfTarget = new TextField();
+        tfTarget.setPromptText("entity / character id");
+        tfTarget.setStyle(STYLE_TEXT_FIELD);
+
+        TextField tfValue = new TextField();
+        tfValue.setPromptText("expression / id / name");
+        tfValue.setStyle(STYLE_TEXT_FIELD);
+
+        TextField tfPath = new TextField();
+        tfPath.setPromptText("optional image path");
+        tfPath.setStyle(STYLE_TEXT_FIELD);
+
+        TextField tfPosition = new TextField();
+        tfPosition.setPromptText("optional slot like left / center / right");
+        tfPosition.setStyle(STYLE_TEXT_FIELD);
+
+        TextArea taExtra = new TextArea();
+        taExtra.setPromptText("extra payload\nkey=value");
+        taExtra.setPrefRowCount(5);
+        taExtra.setWrapText(false);
+        taExtra.setStyle("-fx-control-inner-background: #111111; -fx-text-fill: #ececec;");
+
+        Label lblTypeHint = makeToolbarLabel("");
+        Label lblValue = makeToolbarLabel("Value");
+        Label lblPath = makeToolbarLabel("Path");
+        Label lblPosition = makeToolbarLabel("Position");
+
+        Runnable refreshList = () -> cueList.getItems().setAll(project.getEditorEventCues());
+        Runnable clearForm = () -> {
+            cueList.getSelectionModel().clearSelection();
+            cbTypePreset.setValue("expression");
+            tfType.setText("expression");
+            tfTime.setText(String.format("%.0f", project.getPlayheadMs()));
+            tfTarget.clear();
+            tfValue.clear();
+            tfPath.clear();
+            tfPosition.clear();
+            taExtra.clear();
+        };
+        Runnable refreshTypeUi = () -> {
+            String preset = cbTypePreset.getValue() == null ? "expression" : cbTypePreset.getValue();
+            boolean custom = "custom".equals(preset);
+            tfType.setDisable(!custom);
+            if (!custom) {
+                tfType.setText(preset);
+            }
+            switch (preset) {
+                case "expression" -> {
+                    lblValue.setText("Expression");
+                    lblPath.setText("Path Override");
+                    lblPosition.setText("Position");
+                    lblTypeHint.setText("Swap a character or sprite to another expression at an exact frame.");
+                }
+                case "show" -> {
+                    lblValue.setText("Expression");
+                    lblPath.setText("Path Override");
+                    lblPosition.setText("Position");
+                    lblTypeHint.setText("Reveal an existing entity or character, optionally swapping its image or slot.");
+                }
+                case "hide" -> {
+                    lblValue.setText("Value");
+                    lblPath.setText("Path");
+                    lblPosition.setText("Position");
+                    lblTypeHint.setText("Hide an entity or character instantly.");
+                }
+                case "replace" -> {
+                    lblValue.setText("Expression");
+                    lblPath.setText("Replacement Path");
+                    lblPosition.setText("Position");
+                    lblTypeHint.setText("Replace the current sprite path or expression mid-sequence.");
+                }
+                case "scene" -> {
+                    lblValue.setText("Scene / BG Id");
+                    lblPath.setText("Background Path");
+                    lblPosition.setText("Position");
+                    lblTypeHint.setText("Trigger a background or cutaway change without leaving the timeline.");
+                }
+                case "dialogue_marker" -> {
+                    lblValue.setText("Marker Id");
+                    lblPath.setText("Path");
+                    lblPosition.setText("Position");
+                    lblTypeHint.setText("Drop a script-facing dialogue marker at the playhead.");
+                }
+                case "script_call" -> {
+                    lblValue.setText("Call Name");
+                    lblPath.setText("Arg");
+                    lblPosition.setText("Position");
+                    lblTypeHint.setText("Trigger a named script call cue with optional payload lines.");
+                }
+                default -> {
+                    lblValue.setText("Value");
+                    lblPath.setText("Path");
+                    lblPosition.setText("Position");
+                    lblTypeHint.setText("Author a custom event type with any payload keys you need.");
+                }
+            }
+        };
+
+        java.util.function.Consumer<EditorEventCue> loadCue = cue -> {
+            if (cue == null) {
+                clearForm.run();
+                refreshTypeUi.run();
+                return;
+            }
+            String type = cue.getType() == null ? "" : cue.getType().trim();
+            cbTypePreset.setValue(presets.contains(type) ? type : "custom");
+            tfType.setText(type);
+            tfTime.setText(String.format("%.0f", cue.getTimeMs()));
+            tfTarget.setText(cue.getPayloadValue("target"));
+
+            Map<String, String> remaining = new LinkedHashMap<>(cue.getPayloadView());
+            remaining.remove("target");
+            switch (type) {
+                case "expression" -> {
+                    tfValue.setText(firstNonBlank(remaining.remove("value"), remaining.remove("expression")));
+                    tfPath.setText(remaining.remove("path"));
+                    tfPosition.setText(remaining.remove("position"));
+                }
+                case "show" -> {
+                    tfValue.setText(firstNonBlank(remaining.remove("expression"), remaining.remove("value")));
+                    tfPath.setText(remaining.remove("path"));
+                    tfPosition.setText(remaining.remove("position"));
+                }
+                case "hide" -> {
+                    tfValue.clear();
+                    tfPath.clear();
+                    tfPosition.clear();
+                }
+                case "replace" -> {
+                    tfValue.setText(firstNonBlank(remaining.remove("expression"), remaining.remove("value")));
+                    tfPath.setText(remaining.remove("path"));
+                    tfPosition.clear();
+                }
+                case "scene" -> {
+                    tfValue.setText(firstNonBlank(remaining.remove("id"), remaining.remove("value")));
+                    tfPath.setText(remaining.remove("path"));
+                    tfPosition.clear();
+                }
+                case "dialogue_marker" -> {
+                    tfValue.setText(firstNonBlank(remaining.remove("id"), remaining.remove("value")));
+                    tfPath.clear();
+                    tfPosition.clear();
+                }
+                case "script_call" -> {
+                    tfValue.setText(firstNonBlank(remaining.remove("name"), remaining.remove("value")));
+                    tfPath.setText(firstNonBlank(remaining.remove("arg"), remaining.remove("path")));
+                    tfPosition.clear();
+                }
+                default -> {
+                    tfValue.setText(remaining.remove("value"));
+                    tfPath.setText(remaining.remove("path"));
+                    tfPosition.setText(remaining.remove("position"));
+                }
+            }
+            taExtra.setText(formatPayloadLines(remaining));
+            refreshTypeUi.run();
+        };
+
+        cueList.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> loadCue.accept(newValue));
+        cbTypePreset.setOnAction(e -> refreshTypeUi.run());
+
+        refreshList.run();
+        if (initialSelection != null) {
+            cueList.getSelectionModel().select(initialSelection);
+            loadCue.accept(initialSelection);
+        } else {
+            clearForm.run();
+            refreshTypeUi.run();
+        }
+
+        javafx.scene.layout.GridPane form = new javafx.scene.layout.GridPane();
+        form.setHgap(8);
+        form.setVgap(8);
+        form.setPadding(new Insets(8, 8, 4, 8));
+        form.add(makeToolbarLabel("Cue Type"), 0, 0);
+        form.add(new HBox(8, cbTypePreset, tfType), 1, 0);
+        form.add(makeToolbarLabel("Time"), 0, 1);
+        form.add(tfTime, 1, 1);
+        form.add(makeToolbarLabel("Target"), 0, 2);
+        form.add(tfTarget, 1, 2);
+        form.add(lblValue, 0, 3);
+        form.add(tfValue, 1, 3);
+        form.add(lblPath, 0, 4);
+        form.add(tfPath, 1, 4);
+        form.add(lblPosition, 0, 5);
+        form.add(tfPosition, 1, 5);
+
+        VBox body = new VBox(
+            8,
+            form,
+            lblTypeHint,
+            makeToolbarLabel("Timeline Event Cues"),
+            cueList,
+            makeToolbarLabel("Extra Payload"),
+            taExtra
+        );
+        body.setPadding(new Insets(0, 8, 8, 8));
+
+        overlayDialog.showDialog(
+            "Timeline Event Cues",
+            "Author discrete sprite swaps, show/hide beats, and scene changes.",
+            body,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Close", overlayDialog::hideOverlay).defaultFocus(true),
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("New Cue", ActionEditorDialogOverlay.ButtonStyle.NEUTRAL, clearForm),
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("Save Cue", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
+                double timeMs;
+                try {
+                    timeMs = Math.max(0.0, Double.parseDouble(tfTime.getText().trim()));
+                } catch (NumberFormatException ex) {
+                    tfTime.requestFocus();
+                    return;
+                }
+
+                String preset = cbTypePreset.getValue() == null ? "expression" : cbTypePreset.getValue();
+                String type = "custom".equals(preset) ? tfType.getText().trim() : preset;
+                if (type.isBlank()) {
+                    tfType.requestFocus();
+                    return;
+                }
+
+                Map<String, String> payload = parsePayloadLines(taExtra.getText());
+                String target = tfTarget.getText() == null ? "" : tfTarget.getText().trim();
+                String value = tfValue.getText() == null ? "" : tfValue.getText().trim();
+                String path = tfPath.getText() == null ? "" : tfPath.getText().trim();
+                String position = tfPosition.getText() == null ? "" : tfPosition.getText().trim();
+
+                if (!target.isBlank()) payload.put("target", target);
+
+                switch (type) {
+                    case "expression" -> {
+                        if (!value.isBlank()) payload.put("value", value);
+                        if (!path.isBlank()) payload.put("path", path);
+                        if (!position.isBlank()) payload.put("position", position);
+                    }
+                    case "show" -> {
+                        if (!value.isBlank()) payload.put("expression", value);
+                        if (!path.isBlank()) payload.put("path", path);
+                        if (!position.isBlank()) payload.put("position", position);
+                    }
+                    case "replace" -> {
+                        if (!value.isBlank()) payload.put("expression", value);
+                        if (!path.isBlank()) payload.put("path", path);
+                    }
+                    case "scene" -> {
+                        if (!value.isBlank()) payload.put("id", value);
+                        if (!path.isBlank()) payload.put("path", path);
+                    }
+                    case "dialogue_marker" -> {
+                        if (!value.isBlank()) payload.put("id", value);
+                    }
+                    case "script_call" -> {
+                        if (!value.isBlank()) payload.put("name", value);
+                        if (!path.isBlank()) payload.put("arg", path);
+                    }
+                    default -> {
+                        if (!value.isBlank()) payload.putIfAbsent("value", value);
+                        if (!path.isBlank()) payload.putIfAbsent("path", path);
+                        if (!position.isBlank()) payload.putIfAbsent("position", position);
+                    }
+                }
+
+                EditorEventCue selected = cueList.getSelectionModel().getSelectedItem();
+                if (selected != null) {
+                    project.removeEditorEventCue(selected);
+                    selected.setTimeMs(timeMs);
+                    selected.setType(type);
+                    selected.getPayload().clear();
+                    selected.getPayload().putAll(payload);
+                    project.addEditorEventCue(selected);
+                } else {
+                    selected = new EditorEventCue(timeMs, type, payload);
+                    project.addEditorEventCue(selected);
+                }
+
+                refreshList.run();
+                cueList.getSelectionModel().select(selected);
+                timelinePanel.refresh();
+                updatePreview();
+                refreshExportPreviewAndMarkDirty();
+            }),
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("Delete Cue", ActionEditorDialogOverlay.ButtonStyle.DANGER, () -> {
+                EditorEventCue selected = cueList.getSelectionModel().getSelectedItem();
+                if (selected == null) return;
+                project.removeEditorEventCue(selected);
+                refreshList.run();
+                clearForm.run();
+                refreshTypeUi.run();
+                timelinePanel.refresh();
+                updatePreview();
+                refreshExportPreviewAndMarkDirty();
+            })
+        );
+    }
+
+    private static Map<String, String> parsePayloadLines(String raw) {
+        Map<String, String> payload = new LinkedHashMap<>();
+        if (raw == null || raw.isBlank()) return payload;
+        for (String line : raw.split("\\r?\\n")) {
+            if (line == null) continue;
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) continue;
+            int eq = trimmed.indexOf('=');
+            if (eq <= 0) continue;
+            String key = trimmed.substring(0, eq).trim();
+            String value = trimmed.substring(eq + 1).trim();
+            if (key.isEmpty()) continue;
+            payload.put(key, value);
+        }
+        return payload;
+    }
+
+    private static String formatPayloadLines(Map<String, String> payload) {
+        if (payload == null || payload.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, String> entry : payload.entrySet()) {
+            if (entry.getKey() == null || entry.getKey().isBlank()) continue;
+            if (!sb.isEmpty()) sb.append('\n');
+            sb.append(entry.getKey()).append('=').append(entry.getValue() == null ? "" : entry.getValue());
+        }
+        return sb.toString();
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) return first;
+        return second == null ? "" : second;
     }
 
     private void refreshAudioLibraryList(ListView<PuppeteerAudioLibrary.AudioEntry> listView,
@@ -3924,12 +4496,14 @@ public class PuppeteerWindow extends Stage {
         return switch (property) {
             case X -> entity.getX();
             case Y -> entity.getY();
+            case Z -> entity.getZ();
             case PIVOT_X -> getEntityPivotX(entity);
             case PIVOT_Y -> getEntityPivotY(entity);
             case ROTATION -> entity.getRotationDeg();
             case SCALE_X -> entity.getScaleX();
             case SCALE_Y -> entity.getScaleY();
             case ALPHA -> getEntityAlpha(entity);
+            case VISIBILITY -> entity.isVisible() ? 1.0 : 0.0;
             default -> property.getDefaultValue();
         };
     }

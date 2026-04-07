@@ -91,6 +91,17 @@ public interface Blitter2D {
   /** Apply a non-uniform scale to the current transform. */
   void scale(double sx, double sy);
 
+  /**
+   * Multiply the current transform by an arbitrary affine matrix.
+   *
+   * <p>The parameters follow the conventional 2x3 layout:
+   * <pre>
+   * [ mxx mxy tx ]
+   * [ myx myy ty ]
+   * </pre>
+   */
+  default void transform(double mxx, double myx, double mxy, double myy, double tx, double ty) {}
+
   // ──────────────────────────────────────────────────────────────────────────
   //  Shape primitives
   // ──────────────────────────────────────────────────────────────────────────
@@ -289,4 +300,22 @@ public interface Blitter2D {
    * @param mode blend mode name, e.g. "normal", "additive", "multiply"
    */
   default void setBlendMode(String mode) {}
+
+  /**
+   * Set a full 4x5 colour matrix for subsequent image draws.
+   *
+   * <p>The matrix is laid out row-major as 20 doubles. Backends that do not
+   * support image colour transforms may ignore this request.</p>
+   */
+  default void setColorMatrix(double[] matrix) {}
+
+  /** Clear any previously configured colour matrix. */
+  default void clearColorMatrix() {}
+
+  /**
+   * Set a blur radius for subsequent draw calls.
+   *
+   * <p>Backends may apply this as a post-effect during image and text draws.</p>
+   */
+  default void setBlurRadius(double radius) {}
 }

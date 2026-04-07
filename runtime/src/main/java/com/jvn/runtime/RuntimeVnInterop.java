@@ -1,8 +1,11 @@
 package com.jvn.runtime;
 
+import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.assets.AssetCatalog;
@@ -20,6 +23,8 @@ import com.jvn.core.phone.VnPhoneData;
 import com.jvn.core.phone.VnPhonePropertiesCodec;
 import com.jvn.core.phone.VnPhoneStateStore;
 import com.jvn.core.scene.Scene;
+import com.jvn.core.scene2d.Entity2D;
+import com.jvn.core.scene2d.Sprite2D;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.DefaultVnInterop;
 import com.jvn.core.vn.VnArgTokenizer;
@@ -137,6 +142,19 @@ public class RuntimeVnInterop implements VnInterop {
             break;
         }
       }
+
+      @Override
+      public void onEventCue(String type, Map<String, String> payload) {
+        JesScene2D jes = topJesScene();
+        if (jes != null) {
+          applyJesSceneEventCue(jes, type, payload);
+          return;
+        }
+        VnScene vn = topVnScene();
+        if (vn != null) {
+          applyVnSceneEventCue(vn, type, payload);
+        }
+      }
     });
   }
 
@@ -176,6 +194,139 @@ public class RuntimeVnInterop implements VnInterop {
     if (value < 0.0) return 0.0;
     if (value > 1.0) return 1.0;
     return value;
+  }
+
+  private void applyJesSceneEventCue(JesScene2D scene, String type, Map<String, String> payload) {
+    if (scene == null || type == null || type.isBlank()) return;
+    Map<String, String> safePayload = payload == null ? Map.of() : payload;
+    String normalized = type.trim().toLowerCase(Locale.ROOT);
+    String target = safePayload.getOrDefault("target", "");
+    Entity2D entity = target.isBlank() ? null : scene.find(target);
+
+    switch (normalized) {
+      case "show":
+        if (entity != null) entity.setVisible(true);
+        applySceneSpritePath(entity, safePayload.get("path"));
+        break;
+      case "hide":
+        if (entity != null) entity.setVisible(false);
+        break;
+      case "replace":
+      case "expression":
+        applySceneSpritePath(entity, safePayload.get("path"));
+        if (entity != null && safePayload.get("path") != null && !safePayload.get("path").isBlank()) {
+          entity.setVisible(true);
+        }
+        break;
+      case "scene":
+        Entity2D background = entity != null ? entity : findBackgroundEntity(scene);
+        applySceneSpritePath(background, safePayload.get("path"));
+        if (background != null && safePayload.get("path") != null && !safePayload.get("path").isBlank()) {
+          background.setVisible(true);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  private void applyVnSceneEventCue(VnScene scene, String type, Map<String, String> payload) {
+    if (scene == null || type == null || type.isBlank()) return;
+    Map<String, String> safePayload = payload == null ? Map.of() : payload;
+    String normalized = type.trim().toLowerCase(Locale.ROOT);
+    String target = safePayload.getOrDefault("target", "").trim();
+    var state = scene.getState();
+
+    switch (normalized) {
+      case "expression":
+      case "replace": {
+        if (target.isBlank()) return;
+        CharacterPosition position = state.getCharacterPosition(target);
+        String expression = firstNonBlank(safePayload.get("expression"), safePayload.get("value"));
+        if (expression == null || expression.isBlank()) return;
+        state.showCharacterAnimated(position == null ? CharacterPosition.CENTER : position, target, expression);
+        break;
+      }
+      case "show": {
+        if (target.isBlank()) return;
+        CharacterPosition position = parseCharacterPosition(safePayload.get("position"));
+        if (position == null) {
+          position = state.getCharacterPosition(target);
+        }
+        if (position == null) {
+          position = CharacterPosition.CENTER;
+        }
+        String expression = firstNonBlank(safePayload.get("expression"), safePayload.get("value"));
+        if (expression == null || expression.isBlank()) {
+          expression = state.getCharacterExpression(target);
+        }
+        state.showCharacterAnimated(position, target, expression == null || expression.isBlank() ? "neutral" : expression);
+        break;
+      }
+      case "hide": {
+        if (target.isBlank()) return;
+        CharacterPosition position = state.getCharacterPosition(target);
+        if (position != null) {
+          state.hideCharacterAnimated(position);
+        }
+        break;
+      }
+      case "scene": {
+        String backgroundId = firstNonBlank(safePayload.get("id"), safePayload.get("value"));
+        if (backgroundId != null && !backgroundId.isBlank()) {
+          state.setCurrentBackgroundId(backgroundId);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  private static void applySceneSpritePath(Entity2D entity, String rawPath) {
+    if (!(entity instanceof Sprite2D sprite)) return;
+    if (rawPath == null || rawPath.isBlank()) return;
+    sprite.setImagePath(resolveScenePathSpec(rawPath));
+  }
+
+  private static Entity2D findBackgroundEntity(JesScene2D scene) {
+    if (scene == null) return null;
+    for (String name : scene.names()) {
+      if (name == null || name.isBlank() || !name.startsWith("bg_")) continue;
+      return scene.find(name);
+    }
+    return null;
+  }
+
+  private static CharacterPosition parseCharacterPosition(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    return CharacterPosition.predefined(raw.trim());
+  }
+
+  private static String firstNonBlank(String first, String second) {
+    if (first != null && !first.isBlank()) return first;
+    return second;
+  }
+
+  private static String resolveScenePathSpec(String rawPath) {
+    if (rawPath == null || rawPath.isBlank()) return rawPath;
+    if (rawPath.indexOf('|') < 0) {
+      return resolveScenePath(rawPath.trim());
+    }
+    StringBuilder out = new StringBuilder();
+    for (String token : rawPath.split("\\|")) {
+      String part = token == null ? "" : token.trim();
+      if (part.isEmpty()) continue;
+      if (!out.isEmpty()) out.append(" | ");
+      out.append(resolveScenePath(part));
+    }
+    return out.toString();
+  }
+
+  private static String resolveScenePath(String rawPath) {
+    if (rawPath == null || rawPath.isBlank()) return rawPath;
+    File file = new File(rawPath);
+    return file.exists() ? file.getAbsolutePath() : rawPath;
   }
 
   /**

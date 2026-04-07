@@ -100,16 +100,17 @@ public class CodeImporter {
         return switch (p) {
             case X -> PropertyType.X;
             case Y -> PropertyType.Y;
+            case Z -> PropertyType.Z;
             case PIVOT_X -> PropertyType.PIVOT_X;
             case PIVOT_Y -> PropertyType.PIVOT_Y;
             case ROTATION -> PropertyType.ROTATION;
             case SCALE_X -> PropertyType.SCALE_X;
             case SCALE_Y -> PropertyType.SCALE_Y;
             case ALPHA -> PropertyType.ALPHA;
+            case VISIBILITY -> PropertyType.VISIBILITY;
             case CAMERA_X -> PropertyType.CAMERA_X;
             case CAMERA_Y -> PropertyType.CAMERA_Y;
             case CAMERA_ZOOM -> PropertyType.CAMERA_ZOOM;
-            case Z -> null; // handled separately as layerOrder
         };
     }
 }

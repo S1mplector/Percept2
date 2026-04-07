@@ -177,6 +177,10 @@ public class TimelineRunner {
                 double alpha = track.getValueAt(TimelineData.Property.ALPHA, timeMs);
                 applyAlpha(entity, alpha);
             }
+            if (track.hasKeyframes(TimelineData.Property.VISIBILITY)) {
+                double visible = track.getValueAt(TimelineData.Property.VISIBILITY, timeMs);
+                entity.setVisible(visible >= 0.5);
+            }
         }
     }
 

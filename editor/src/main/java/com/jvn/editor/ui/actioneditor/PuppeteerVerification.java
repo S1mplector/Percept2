@@ -96,12 +96,14 @@ final class PuppeteerVerification {
 
             boolean hasEntityKeys = track.hasKeyframes(PropertyType.X)
                 || track.hasKeyframes(PropertyType.Y)
+                || track.hasKeyframes(PropertyType.Z)
                 || track.hasKeyframes(PropertyType.PIVOT_X)
                 || track.hasKeyframes(PropertyType.PIVOT_Y)
                 || track.hasKeyframes(PropertyType.ROTATION)
                 || track.hasKeyframes(PropertyType.SCALE_X)
                 || track.hasKeyframes(PropertyType.SCALE_Y)
-                || track.hasKeyframes(PropertyType.ALPHA);
+                || track.hasKeyframes(PropertyType.ALPHA)
+                || track.hasKeyframes(PropertyType.VISIBILITY);
             if (hasEntityKeys && mixedCameraTrack == null) {
                 mixedCameraTrack = track.getEntityName();
             }
@@ -143,6 +145,7 @@ final class PuppeteerVerification {
     private static boolean hasAnimatedGroupTrack(EntityTrack track) {
         return track.hasKeyframes(PropertyType.X)
             || track.hasKeyframes(PropertyType.Y)
+            || track.hasKeyframes(PropertyType.Z)
             || track.hasKeyframes(PropertyType.ROTATION)
             || track.hasKeyframes(PropertyType.SCALE_X)
             || track.hasKeyframes(PropertyType.SCALE_Y)
