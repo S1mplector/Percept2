@@ -20,6 +20,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.FlowPane;
@@ -230,10 +231,10 @@ public class KeyframeEditor extends VBox {
         btnEditCurve.setTooltip(new Tooltip("Convert the current easing into an editable cubic bezier"));
         btnEditCurve.setStyle(SECONDARY_BUTTON_STYLE);
         decorateCurveToolbarIconButton(btnEditCurve, CssIcon.freehand("#f5c46b"), "Make Editable");
-        btnUpdateCurvePreset = new Button("Update Preset");
-        btnUpdateCurvePreset.setTooltip(new Tooltip("Write the edited curve back into the selected preset"));
+        btnUpdateCurvePreset = new Button("Save Preset");
+        btnUpdateCurvePreset.setTooltip(new Tooltip("Save the current editable curve as a new preset, or update the selected preset"));
         btnUpdateCurvePreset.setStyle(SUCCESS_BUTTON_STYLE);
-        decorateCurveToolbarIconButton(btnUpdateCurvePreset, CssIcon.save("#9ed67a"), "Update Preset");
+        decorateCurveToolbarIconButton(btnUpdateCurvePreset, CssIcon.save("#9ed67a"), "Save Preset");
         btnExpandCurveEditor = new Button("Expand");
         btnExpandCurveEditor.setTooltip(new Tooltip("Grow the curve editor inside the left panel"));
         btnExpandCurveEditor.setStyle(SECONDARY_BUTTON_STYLE);
@@ -532,7 +533,7 @@ public class KeyframeEditor extends VBox {
         });
         btnEditCurve.setOnAction(e -> beginCurveEdit());
         btnApplyCurveSpec.setOnAction(e -> applyCurveSpecText());
-        btnUpdateCurvePreset.setOnAction(e -> updateActivePresetFromCurve());
+        btnUpdateCurvePreset.setOnAction(e -> saveOrUpdateCurvePreset());
         btnResetCurve.setOnAction(e -> resetCurveToBaseline());
         btnReverseCurve.setOnAction(e -> reverseCurrentCurve());
         btnClampCurve.setOnAction(e -> clampCurrentCurve());
@@ -1169,6 +1170,56 @@ public class KeyframeEditor extends VBox {
         }
     }
 
+    private void saveOrUpdateCurvePreset() {
+        if (currentSelection.size() > 1 || currentKeyframe == null) return;
+        if (cbInterpolation.getValue() != Easing.Interpolation.TWEEN) return;
+        EasingSpec current = resolveEditorEasingSpec();
+        if (!Easing.isEditableCurve(current.getType())) return;
+        if (activePresetEditId != null && activePresetEditName != null) {
+            updateActivePresetFromCurve();
+            return;
+        }
+        saveCurveAsNewPreset(current);
+    }
+
+    private void saveCurveAsNewPreset(EasingSpec current) {
+        if (!presetLibraryPanel.hasProjectAccess()) {
+            refreshPresetUiState();
+            return;
+        }
+        EasingSpec editable = Easing.isEditableCurve(current.getType()) ? current : toEditableCurveSpec(current);
+        TextInputDialog dialog = new TextInputDialog(suggestCurvePresetName(editable));
+        dialog.setTitle("Save Curve Preset");
+        dialog.setHeaderText("Save editable curve as a project preset");
+        dialog.setContentText("Name:");
+        dialog.initOwner(getScene() == null ? null : getScene().getWindow());
+        dialog.showAndWait()
+            .map(String::trim)
+            .filter(name -> !name.isBlank())
+            .ifPresent(name -> {
+                if (!presetLibraryPanel.saveCurrentSpecAsPreset(name)) return;
+                syncCurveEditBaseline(editable);
+                syncPresetEditSessionFromSelection(true);
+                refreshCurveEditorPreview();
+                updateCurveEditorState();
+                if (onKeyframeChanged != null) onKeyframeChanged.run();
+            });
+    }
+
+    private String suggestCurvePresetName(EasingSpec spec) {
+        if (spec != null && spec.getType() == Easing.Type.CURVE) {
+            return "Multi-Point Curve";
+        }
+        PuppeteerEasingCatalog.Entry selected = cbEasing.getSelectedEntry();
+        if (selected != null && selected.label() != null && !selected.label().isBlank() && !selected.isPreset()) {
+            String label = selected.label().replace("[Custom]", "").trim();
+            if (!label.isBlank()) {
+                return label;
+            }
+        }
+        return "Custom Curve";
+    }
+
     private void applyChanges() {
         if (updatingUi) return;
         if (currentSelection.size() > 1) {
@@ -1741,9 +1792,19 @@ public class KeyframeEditor extends VBox {
         boolean editableCurve = singleKeyframe && tween && Easing.isEditableCurve(current.getType());
         boolean customCurve = editableCurve && current.getType() == Easing.Type.CUSTOM;
         boolean multiPointCurve = editableCurve && current.getType() == Easing.Type.CURVE;
+        boolean hasProject = presetLibraryPanel.hasProjectAccess();
 
         btnEditCurve.setDisable(!singleKeyframe || !tween || editableCurve);
-        btnUpdateCurvePreset.setDisable(!editableCurve || activePresetEditId == null || activePresetEditName == null);
+        btnUpdateCurvePreset.setDisable(!editableCurve || !hasProject);
+        if (activePresetEditId != null && activePresetEditName != null) {
+            btnUpdateCurvePreset.setTooltip(new Tooltip("Write the edited curve back into preset '" + activePresetEditName + "'"));
+            decorateCurveToolbarIconButton(btnUpdateCurvePreset, CssIcon.save("#9ed67a"), "Update Preset");
+        } else {
+            btnUpdateCurvePreset.setTooltip(new Tooltip(hasProject
+                ? "Save the current editable curve as a new project preset"
+                : "Open a project to save editable curves as presets"));
+            decorateCurveToolbarIconButton(btnUpdateCurvePreset, CssIcon.save("#9ed67a"), "Save Preset");
+        }
 
         if (!singleKeyframe) {
             lblCurvePresetHint.setText("Curve editing only activates for a single keyframe selection.");
@@ -1751,6 +1812,10 @@ public class KeyframeEditor extends VBox {
         }
         if (!tween) {
             lblCurvePresetHint.setText("Switch interpolation to TWEEN to unlock editable easing curves.");
+            return;
+        }
+        if (!hasProject) {
+            lblCurvePresetHint.setText("Open a project to save editable curves as reusable presets.");
             return;
         }
         if (activePresetEditId != null && activePresetEditName != null) {
@@ -1764,14 +1829,14 @@ public class KeyframeEditor extends VBox {
             return;
         }
         if (customCurve) {
-            lblCurvePresetHint.setText("Drag the red and green handles, press 1/2 to select a handle, use arrow keys to nudge, or use Reverse and Clamp Y for faster reshaping.");
+            lblCurvePresetHint.setText("Drag the red and green handles, press 1/2 to select a handle, use arrow keys to nudge, or use Reverse and Clamp Y for faster reshaping, then click Save Preset.");
             return;
         }
         if (multiPointCurve) {
-            lblCurvePresetHint.setText("Drag curve points directly. Double-click or press + to add points, Delete to remove the selected point, and use Reverse or Clamp Y to reshape the whole curve.");
+            lblCurvePresetHint.setText("Drag curve points directly. Double-click or press + to add points, Delete to remove the selected point, use Reverse or Clamp Y to reshape the whole curve, then click Save Preset.");
             return;
         }
-        lblCurvePresetHint.setText("Click Make Editable for cubic editing, or Add Point to promote the current easing into a multi-point curve with extra draggable anchors.");
+        lblCurvePresetHint.setText("Click Make Editable for cubic editing, or Add Point to promote the current easing into a multi-point curve. Once it feels right, click Save Preset.");
     }
 
     private String resolveCurveInteractionHint(boolean hasPreview,

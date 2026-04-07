@@ -363,8 +363,27 @@ public class CodeExporter {
         EntityTrack track,
         PropertyType property
     ) {
-        if (property == null || !property.isTimelineCustomProperty()) return;
-        collectCustomPropertyEvents(events, target, track, property.getTimelineCustomKey(), property.getDefaultValue());
+        if (track == null || property == null || !property.isTimelineCustomProperty()) return;
+        List<Keyframe> keyframes = track.getKeyframes(property);
+        if (keyframes.isEmpty()) {
+            collectCustomPropertyEvents(events, target, track, property.getTimelineCustomKey(), property.getDefaultValue());
+            return;
+        }
+
+        double previous = property.getDefaultValue();
+        for (Keyframe keyframe : keyframes) {
+            if (keyframe == null) continue;
+            double current = keyframe.getValue();
+            if (Math.abs(current - previous) <= 0.001 && keyframe.getTimeMs() > 0.001) continue;
+            TimelineEvent ev = new TimelineEvent();
+            ev.actionType = "property";
+            ev.target = target;
+            ev.startTime = Math.max(0.0, keyframe.getTimeMs());
+            ev.props.put("key", property.getTimelineCustomKey());
+            ev.props.put("value", current);
+            events.add(ev);
+            previous = current;
+        }
     }
 
     private static void collectCustomPropertyEvents(List<TimelineEvent> events, String target, EntityTrack track) {

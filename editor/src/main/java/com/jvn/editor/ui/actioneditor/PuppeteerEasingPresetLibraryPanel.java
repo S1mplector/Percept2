@@ -206,6 +206,17 @@ final class PuppeteerEasingPresetLibraryPanel extends VBox {
         return isVisible();
     }
 
+    boolean hasProjectAccess() {
+        return hasProject();
+    }
+
+    boolean saveCurrentSpecAsPreset(String preferredName) {
+        if (preferredName != null) {
+            presetNameField.setText(preferredName);
+        }
+        return saveCurrentAsPreset();
+    }
+
     void reloadLibrary() {
         presets.clear();
         if (projectRoot != null) {
@@ -241,21 +252,21 @@ final class PuppeteerEasingPresetLibraryPanel extends VBox {
         setStatus("Applied preset '" + selected.name() + "'.", false);
     }
 
-    private void saveCurrentAsPreset() {
+    private boolean saveCurrentAsPreset() {
         if (!hasProject()) {
             setStatus("Open a project before saving presets.", true);
-            return;
+            return false;
         }
         String name = normalizedFieldName();
         if (name.isBlank()) {
             setStatus("Preset name cannot be blank.", true);
             presetNameField.requestFocus();
-            return;
+            return false;
         }
         for (PuppeteerEasingPresetStore.Preset preset : presets) {
             if (preset.name().equalsIgnoreCase(name)) {
                 setStatus("Preset '" + name + "' already exists.", true);
-                return;
+                return false;
             }
         }
         List<PuppeteerEasingPresetStore.Preset> updated = new ArrayList<>(presets);
@@ -265,6 +276,7 @@ final class PuppeteerEasingPresetLibraryPanel extends VBox {
             resolveCurrentSpec()
         ));
         persistPresets(updated, "Saved preset '" + name + "'.");
+        return true;
     }
 
     private void duplicateSelectedPreset() {
