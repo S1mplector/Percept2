@@ -35,6 +35,8 @@ public class AnimationPreview extends VBox {
     private static final double MATRIX_GIZMO_HANDLE_RADIUS_SQ = 100.0;
     private static final double MATRIX_GIZMO_AXIS_MIN = 18.0;
     private static final double MATRIX_GIZMO_AXIS_MAX = 72.0;
+    private static final double WORLD_POSITION_LIMIT = 100_000.0;
+    private static final double MATRIX_COMPONENT_LIMIT = 50.0;
 
     public enum ScrollZoomMode {
         VIEW,
@@ -1427,7 +1429,9 @@ public class AnimationPreview extends VBox {
         if (matrixDragState == null || selectedEntity == null || selectedEntityName == null) return;
         EntityFrame frame = matrixDragState.frame;
         double[] world = screenToWorld(screenX, screenY);
+        if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])) return;
         double[] local = inverseStandardTransform(frame, world[0], world[1]);
+        if (!Double.isFinite(local[0]) || !Double.isFinite(local[1])) return;
 
         double mxx = frame.matrixMxx;
         double mxy = frame.matrixMxy;
@@ -1438,18 +1442,18 @@ public class AnimationPreview extends VBox {
 
         switch (matrixDragState.handleKind) {
             case TRANSLATE -> {
-                tx = local[0];
-                ty = local[1];
+                tx = clamp(local[0], -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT);
+                ty = clamp(local[1], -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT);
                 matrixOverlayText = String.format("Matrix T: (%.2f, %.2f)", tx, ty);
             }
             case X_AXIS -> {
-                mxx = (local[0] - tx) / matrixDragState.axisLength;
-                myx = (local[1] - ty) / matrixDragState.axisLength;
+                mxx = clamp((local[0] - tx) / matrixDragState.axisLength, -MATRIX_COMPONENT_LIMIT, MATRIX_COMPONENT_LIMIT);
+                myx = clamp((local[1] - ty) / matrixDragState.axisLength, -MATRIX_COMPONENT_LIMIT, MATRIX_COMPONENT_LIMIT);
                 matrixOverlayText = String.format("Matrix X: (%.2f, %.2f)", mxx, myx);
             }
             case Y_AXIS -> {
-                mxy = (local[0] - tx) / matrixDragState.axisLength;
-                myy = (local[1] - ty) / matrixDragState.axisLength;
+                mxy = clamp((local[0] - tx) / matrixDragState.axisLength, -MATRIX_COMPONENT_LIMIT, MATRIX_COMPONENT_LIMIT);
+                myy = clamp((local[1] - ty) / matrixDragState.axisLength, -MATRIX_COMPONENT_LIMIT, MATRIX_COMPONENT_LIMIT);
                 matrixOverlayText = String.format("Matrix Y: (%.2f, %.2f)", mxy, myy);
             }
         }
@@ -1689,10 +1693,11 @@ public class AnimationPreview extends VBox {
                 double[] anchor = getOrbitAnchor(selectedEntityName);
                 if (anchor == null) return;
                 double[] world = screenToWorld(e.getX(), e.getY());
+                if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])) return;
                 double angle = Math.atan2(world[1] - anchor[1], world[0] - anchor[0]);
                 double radius = Math.max(0.0001, orbitRadius);
-                double nextX = anchor[0] + radius * Math.cos(angle);
-                double nextY = anchor[1] + radius * Math.sin(angle);
+                double nextX = clamp(anchor[0] + radius * Math.cos(angle), -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT);
+                double nextY = clamp(anchor[1] + radius * Math.sin(angle), -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT);
                 selectedEntity.setPosition(nextX, nextY);
 
                 if (orbitAlignRotation) {
@@ -1765,6 +1770,8 @@ public class AnimationPreview extends VBox {
             } else if (draggingGroup && selectedGroupName != null && !selectedGroupMemberNames.isEmpty()) {
                 double[] prevWorld = screenToWorld(dragEntityStartX, dragEntityStartY);
                 double[] world = screenToWorld(e.getX(), e.getY());
+                if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])
+                    || !Double.isFinite(prevWorld[0]) || !Double.isFinite(prevWorld[1])) return;
                 double dx = world[0] - prevWorld[0];
                 double dy = world[1] - prevWorld[1];
                 dragEntityStartX = e.getX();
@@ -1775,7 +1782,9 @@ public class AnimationPreview extends VBox {
                     for (String memberName : selectedGroupMemberNames) {
                         Entity2D member = scene.find(memberName);
                         if (member != null) {
-                            member.setPosition(member.getX() + dx, member.getY() + dy);
+                            double mx = clamp(member.getX() + dx, -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT);
+                            double my = clamp(member.getY() + dy, -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT);
+                            member.setPosition(mx, my);
                         }
                     }
                 }
@@ -1789,12 +1798,14 @@ public class AnimationPreview extends VBox {
             } else if (draggingEntity && selectedEntity != null) {
                 double[] prevWorld = screenToWorld(dragEntityStartX, dragEntityStartY);
                 double[] world = screenToWorld(e.getX(), e.getY());
+                if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])
+                    || !Double.isFinite(prevWorld[0]) || !Double.isFinite(prevWorld[1])) return;
                 double dx = world[0] - prevWorld[0];
                 double dy = world[1] - prevWorld[1];
                 dragEntityStartX = e.getX();
                 dragEntityStartY = e.getY();
-                double newX = selectedEntity.getX() + dx;
-                double newY = selectedEntity.getY() + dy;
+                double newX = clamp(selectedEntity.getX() + dx, -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT);
+                double newY = clamp(selectedEntity.getY() + dy, -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT);
                 double[] snapped = applySnap(newX, newY);
                 selectedEntity.setPosition(snapped[0], snapped[1]);
                 if (onEntityMoved != null && selectedEntityName != null) {
