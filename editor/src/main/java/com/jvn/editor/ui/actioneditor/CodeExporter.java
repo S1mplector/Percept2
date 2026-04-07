@@ -371,7 +371,7 @@ public class CodeExporter {
         if (track == null) return;
         for (String propertyKey : track.getAnimatedCustomProperties()) {
             if (propertyKey == null || propertyKey.isBlank()) continue;
-            collectCustomPropertyEvents(events, target, track, propertyKey, 0.0);
+            collectCustomPropertyEvents(events, target, track, propertyKey, defaultCustomPropertyValue(target, propertyKey));
         }
     }
 
@@ -643,5 +643,15 @@ public class CodeExporter {
     private static boolean hasAnyCustomKeys(EntityTrack track) {
         if (track == null) return false;
         return track.getAnimatedCustomProperties().iterator().hasNext();
+    }
+
+    private static double defaultCustomPropertyValue(String target, String propertyKey) {
+        if (propertyKey == null || propertyKey.isBlank()) return 0.0;
+        if ("__camera__".equals(target)) {
+            var definition = com.jvn.core.graphics.Camera2D.getAnimatableProperty(propertyKey);
+            return definition != null ? definition.getDefaultValue() : 0.0;
+        }
+        var definition = com.jvn.core.scene2d.Entity2D.getAnimatableProperty(propertyKey);
+        return definition != null ? definition.getDefaultValue() : 0.0;
     }
 }
