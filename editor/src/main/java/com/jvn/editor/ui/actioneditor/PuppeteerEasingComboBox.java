@@ -24,7 +24,6 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
-import javafx.scene.paint.Color;
 
 final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entry> {
     private static final String OWNER_STYLE =
@@ -234,10 +233,10 @@ final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entr
             private final Label textLabel = new Label();
             private final Region spacer = new Region();
             private final Button renameButton = createCellActionButton(
-                CssIcon.edit(Color.web("#8cc5ff").toString()),
+                CssIcon.edit("#8cc5ff"),
                 "Rename custom curve");
             private final Button deleteButton = createCellActionButton(
-                CssIcon.delete(Color.web("#f38ba8").toString()),
+                CssIcon.delete("#f38ba8"),
                 "Delete custom curve");
             private final HBox graphicRow = new HBox(8, textLabel, spacer, renameButton, deleteButton);
 
