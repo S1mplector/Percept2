@@ -104,7 +104,7 @@ public class PuppeteerLauncherPanel extends VBox {
     lblLineText.setMaxWidth(260);
 
     Label snapshotHeader = new Label("Scene Snapshot at Cursor");
-    snapshotHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #4da3ff; -fx-font-size: 12px;");
+    snapshotHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #d0d0d0; -fx-font-size: 12px;");
 
     lblLabel = new Label("Label: —");
     lblLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
@@ -116,7 +116,7 @@ public class PuppeteerLauncherPanel extends VBox {
     lblTimeline.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
 
     lblSummary = new Label("Snapshot: —");
-    lblSummary.setStyle("-fx-text-fill: #8fc0ff; -fx-font-size: 11px;");
+    lblSummary.setStyle("-fx-text-fill: #bcbcbc; -fx-font-size: 11px;");
 
     Label charsHeader = new Label("Visible Characters:");
     charsHeader.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
@@ -154,7 +154,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunch = createActionButton(
         "Launch @ Cursor",
         "icon-puppeteer-launch-cursor",
-        "-fx-background-color: #4da3ff; -fx-text-fill: #121212; -fx-font-weight: bold;",
+        "-fx-background-color: #3a3a3a; -fx-text-fill: #f0f0f0; -fx-font-weight: bold;",
         "Launch Puppeteer with scene snapshot from the current cursor line");
     btnLaunch.setOnAction(e -> {
       if (onLaunch != null) {
@@ -165,7 +165,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunchLabelStart = createActionButton(
         "Launch @ Label Start",
         "icon-puppeteer-launch-label",
-        "-fx-background-color: #2d3240; -fx-text-fill: #d2e6ff; -fx-font-weight: bold;",
+        "-fx-background-color: #2e2e2e; -fx-text-fill: #e4e4e4; -fx-font-weight: bold;",
         "Launch Puppeteer from the active label start line");
     btnLaunchLabelStart.setOnAction(e -> {
       if (onLaunch == null) return;
@@ -176,7 +176,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunchSceneStart = createActionButton(
         "Launch @ Scene Start",
         "icon-puppeteer-launch-scene",
-        "-fx-background-color: #1f2d25; -fx-text-fill: #c8f0d0; -fx-font-weight: bold;",
+        "-fx-background-color: #2f2f2f; -fx-text-fill: #e4e4e4; -fx-font-weight: bold;",
         "Launch Puppeteer from the most recent background change in the active label");
     btnLaunchSceneStart.setOnAction(e -> {
       if (onLaunch == null) return;
@@ -187,7 +187,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnOpenTimeline = createActionButton(
         "Open Timeline",
         "icon-puppeteer-open-timeline",
-        "-fx-background-color: #2d3240; -fx-text-fill: #d2e6ff;",
+        "-fx-background-color: #2d2d2d; -fx-text-fill: #e0e0e0;",
         "Open the related timeline file or inline block");
     btnOpenTimeline.setOnAction(e -> {
       if (onOpenTarget == null) return;
@@ -198,7 +198,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnOpenIssue = createActionButton(
         "Jump To Issue",
         "icon-puppeteer-jump-issue",
-        "-fx-background-color: #403225; -fx-text-fill: #f0d2b8;",
+        "-fx-background-color: #303030; -fx-text-fill: #dfdfdf;",
         "Jump to the first launcher issue in the active VNS source");
     btnOpenIssue.setOnAction(e -> {
       if (onOpenTarget == null) return;
@@ -441,7 +441,7 @@ public class PuppeteerLauncherPanel extends VBox {
     for (Map.Entry<String, List<RegisteredAnimation>> entry : byCluster.entrySet()) {
       if (showClusterHeaders) {
         Label clusterHeader = new Label(entry.getKey());
-        clusterHeader.setStyle("-fx-text-fill: #8fc0ff; -fx-font-size: 10px; -fx-font-weight: bold;");
+        clusterHeader.setStyle("-fx-text-fill: #c9c9c9; -fx-font-size: 10px; -fx-font-weight: bold;");
         registeredTimelineCards.getChildren().add(clusterHeader);
       }
       for (RegisteredAnimation animation : entry.getValue()) {
@@ -468,13 +468,13 @@ public class PuppeteerLauncherPanel extends VBox {
 
     if (suggested) {
       Label badge = new Label("Cursor Match");
-      badge.setStyle("-fx-background-color: #20416a; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #cfe6ff; -fx-font-size: 9px; -fx-font-weight: bold;");
+      badge.setStyle("-fx-background-color: #3a3a3a; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #e4e4e4; -fx-font-size: 9px; -fx-font-weight: bold;");
       titleRow.getChildren().add(badge);
     }
 
     if (!importable) {
       Label badge = new Label("Import Issue");
-      badge.setStyle("-fx-background-color: #5a2a2a; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #ffd6d6; -fx-font-size: 9px; -fx-font-weight: bold;");
+      badge.setStyle("-fx-background-color: #3a3a3a; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #e0e0e0; -fx-font-size: 9px; -fx-font-weight: bold;");
       titleRow.getChildren().add(badge);
     }
 
@@ -482,7 +482,7 @@ public class PuppeteerLauncherPanel extends VBox {
         && !animation.relativePath().isBlank()
         && !animation.relativePath().equals(animation.name() + ".jes")) {
       Label badge = new Label(animation.relativePath());
-      badge.setStyle("-fx-background-color: #323643; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #c6cad2; -fx-font-size: 9px;");
+      badge.setStyle("-fx-background-color: #353535; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #cdcdcd; -fx-font-size: 9px;");
       titleRow.getChildren().add(badge);
     }
 
@@ -493,7 +493,7 @@ public class PuppeteerLauncherPanel extends VBox {
     Button openButton = createCardActionButton(
         "icon-timeline-open",
         "Open timeline",
-        "-fx-background-color: #323643; -fx-background-radius: 8;");
+        "-fx-background-color: #343434; -fx-background-radius: 8;");
     openButton.setDisable(!importable);
     openButton.setOnAction(e -> {
       if (onLaunch != null && importable) {
@@ -504,36 +504,36 @@ public class PuppeteerLauncherPanel extends VBox {
     Button renameButton = createCardActionButton(
         "icon-timeline-edit",
         "Rename timeline",
-        "-fx-background-color: #323643; -fx-background-radius: 8;");
+        "-fx-background-color: #343434; -fx-background-radius: 8;");
     renameButton.setOnAction(e -> renameRegisteredAnimation(animation));
 
     Button deleteButton = createCardActionButton(
         "icon-timeline-delete",
         "Delete timeline",
-        "-fx-background-color: #402727; -fx-background-radius: 8;");
+        "-fx-background-color: #343434; -fx-background-radius: 8;");
     deleteButton.setOnAction(e -> deleteRegisteredAnimation(animation));
 
     titleRow.getChildren().addAll(openButton, renameButton, deleteButton);
 
     Label meta = new Label(animation.statsText());
-    meta.setStyle("-fx-text-fill: #9cadc7; -fx-font-size: 9px;");
+    meta.setStyle("-fx-text-fill: #a3a3a3; -fx-font-size: 9px;");
     meta.setWrapText(true);
 
     Label preview = new Label(resolvedPreviewText);
-    preview.setStyle("-fx-text-fill: #d5d9e0; -fx-font-size: 9px; -fx-font-family: monospace;");
+    preview.setStyle("-fx-text-fill: #d5d5d5; -fx-font-size: 9px; -fx-font-family: monospace;");
     preview.setWrapText(true);
 
     VBox body = new VBox(3, titleRow, meta);
     if (!scenePreviewText.isBlank()) {
       Label scenePreview = new Label(scenePreviewText);
-      scenePreview.setStyle("-fx-text-fill: #8fc0ff; -fx-font-size: 9px;");
+      scenePreview.setStyle("-fx-text-fill: #bdbdbd; -fx-font-size: 9px;");
       scenePreview.setWrapText(true);
       body.getChildren().add(scenePreview);
     }
     body.getChildren().add(preview);
     if (!importable && animation.warningMessage() != null && !animation.warningMessage().isBlank()) {
       Label warning = new Label(animation.warningMessage());
-      warning.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 9px;");
+      warning.setStyle("-fx-text-fill: #b0b0b0; -fx-font-size: 9px;");
       warning.setWrapText(true);
       body.getChildren().add(warning);
     }
@@ -541,10 +541,10 @@ public class PuppeteerLauncherPanel extends VBox {
     body.setPadding(new Insets(8, 10, 8, 10));
     Tooltip.install(body, new Tooltip(animation.file().getName()));
     String style = suggested
-        ? "-fx-background-color: #1f2b38; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #4da3ff;"
-        : "-fx-background-color: #24262c; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #3a3d46;";
+        ? "-fx-background-color: #2c2c2c; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #646464;"
+        : "-fx-background-color: #242424; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #3d3d3d;";
     if (!importable) {
-      style = "-fx-background-color: #2a2323; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #694242;";
+      style = "-fx-background-color: #252525; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #4a4a4a;";
     }
     body.setStyle(style);
     return body;
@@ -560,7 +560,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     VBox box = new VBox(4, titleLabel, detailLabel);
     box.setPadding(new Insets(12));
-    box.setStyle("-fx-background-color: #202226; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #333740;");
+    box.setStyle("-fx-background-color: #202020; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #373737;");
     return box;
   }
 

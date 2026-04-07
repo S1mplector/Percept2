@@ -3551,7 +3551,7 @@ public class PuppeteerWindow extends Stage {
         content.setEditable(false);
         content.setWrapText(false);
         content.setFocusTraversable(false);
-        content.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #d7dde6; -fx-font-family: Monospaced;");
+        content.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #d7d7d7; -fx-font-family: Monospaced;");
         content.setPrefColumnCount(36);
         content.setPrefRowCount(14);
         overlayDialog.showDialog(
@@ -4298,7 +4298,7 @@ public class PuppeteerWindow extends Stage {
         RadioButton button = new RadioButton(channel);
         button.setToggleGroup(group);
         button.setSelected(selected);
-        button.setStyle("-fx-text-fill: #d7dde6; -fx-font-size: 11px;");
+        button.setStyle("-fx-text-fill: #d7d7d7; -fx-font-size: 11px;");
         return button;
     }
 
@@ -4307,8 +4307,8 @@ public class PuppeteerWindow extends Stage {
         button.setMaxWidth(Double.MAX_VALUE);
         button.setAlignment(Pos.CENTER_LEFT);
         button.setStyle(
-            "-fx-background-color: #23262c; -fx-text-fill: #d7dde6; -fx-background-radius: 4; "
-                + "-fx-border-color: #3a3f48; -fx-border-radius: 4; -fx-padding: 7 10; -fx-font-size: 11px; -fx-cursor: hand;");
+            "-fx-background-color: #232323; -fx-text-fill: #d7d7d7; -fx-background-radius: 4; "
+                + "-fx-border-color: #444444; -fx-border-radius: 4; -fx-padding: 7 10; -fx-font-size: 11px; -fx-cursor: hand;");
         button.setOnAction(event -> {
             overlayDialog.hideOverlay();
             if (action != null) {
@@ -4769,7 +4769,7 @@ public class PuppeteerWindow extends Stage {
         body.setWrapText(true);
         body.setFocusTraversable(false);
         body.setPrefRowCount(Math.min(18, Math.max(8, findings == null ? 8 : findings.size() + 2)));
-        body.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #d7dde6; -fx-font-family: Monospaced;");
+        body.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #d7d7d7; -fx-font-family: Monospaced;");
         if (allowContinue) {
             overlayDialog.showDialog(
                 title,

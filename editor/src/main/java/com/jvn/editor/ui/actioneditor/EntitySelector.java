@@ -327,7 +327,7 @@ public class EntitySelector extends VBox {
                 ? "No valid parent groups are available for this group."
                 : "Create another group first to organize this entity.");
             empty.setWrapText(true);
-            empty.setStyle("-fx-text-fill: #7f8796; -fx-font-size: 11px;");
+            empty.setStyle("-fx-text-fill: #808080; -fx-font-size: 11px;");
             menu.getChildren().add(empty);
         }
         actionOverlay.showDialog(
@@ -411,8 +411,8 @@ public class EntitySelector extends VBox {
         button.setMaxWidth(Double.MAX_VALUE);
         button.setAlignment(Pos.CENTER_LEFT);
         button.setStyle(
-            "-fx-background-color: #23262c; -fx-text-fill: #d7dde6; -fx-background-radius: 4; "
-                + "-fx-border-color: #3a3f48; -fx-border-radius: 4; -fx-padding: 7 10; -fx-font-size: 11px; -fx-cursor: hand;");
+            "-fx-background-color: #232323; -fx-text-fill: #d7d7d7; -fx-background-radius: 4; "
+                + "-fx-border-color: #444444; -fx-border-radius: 4; -fx-padding: 7 10; -fx-font-size: 11px; -fx-cursor: hand;");
         button.setOnAction(event -> {
             if (action != null) {
                 action.run();

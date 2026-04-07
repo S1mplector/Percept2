@@ -70,17 +70,17 @@ public class AssetPickerPanel extends VBox {
             + "-fx-background-radius: 6; -fx-border-radius: 6; "
             + "-fx-border-color: #4da3ff; -fx-padding: 2 4;";
     private static final String STYLE_IMPORT_PREVIEW_FRAME =
-        "-fx-background-color: #0f1116; -fx-background-radius: 8; -fx-border-radius: 8; "
-            + "-fx-border-color: #2f3540; -fx-padding: 10;";
+        "-fx-background-color: #0f0f0f; -fx-background-radius: 8; -fx-border-radius: 8; "
+            + "-fx-border-color: #383838; -fx-padding: 10;";
     private static final String STYLE_DIALOG_HELP =
-        "-fx-text-fill: #a9b3c1; -fx-font-size: 11px;";
+        "-fx-text-fill: #b0b0b0; -fx-font-size: 11px;";
     private static final String STYLE_DIALOG_META =
-        "-fx-text-fill: #7f8796; -fx-font-size: 10px;";
+        "-fx-text-fill: #808080; -fx-font-size: 10px;";
     private static final String STYLE_DIALOG_STATUS =
         "-fx-text-fill: #f0b673; -fx-font-size: 10px;";
     private static final String STYLE_SNIPPET_AREA =
-        "-fx-control-inner-background: #12151b; -fx-font-family: 'Menlo'; -fx-highlight-fill: #315d98; "
-            + "-fx-highlight-text-fill: white; -fx-text-fill: #d7dde6; -fx-border-color: #2f3540; "
+        "-fx-control-inner-background: #121212; -fx-font-family: 'Menlo'; -fx-highlight-fill: #3d3d3d; "
+            + "-fx-highlight-text-fill: white; -fx-text-fill: #d7d7d7; -fx-border-color: #383838; "
             + "-fx-border-radius: 6; -fx-background-radius: 6;";
 
     private final ListView<AssetEntry> listView;
@@ -877,7 +877,7 @@ public class AssetPickerPanel extends VBox {
         ListView<ImportPreviewItem> previewList = new ListView<>();
         previewList.getItems().setAll(items);
         previewList.setCellFactory(lv -> new ImportPreviewCell());
-        previewList.setStyle("-fx-background-color: #12151b; -fx-control-inner-background: #12151b;");
+        previewList.setStyle("-fx-background-color: #121212; -fx-control-inner-background: #121212;");
         return previewList;
     }
 

@@ -672,12 +672,12 @@ public class ScriptEditorLauncherView extends BorderPane {
         Integer lineNo = entry.labelLineNumbers().get(labelName);
         String lineHint = lineNo != null ? " (L" + lineNo + ")" : "";
         Label label = new Label("@label " + labelName + lineHint);
-        label.setStyle("-fx-text-fill: #c9d6e8; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
-            + "-fx-background-color: #1b2230; -fx-background-radius: 5; -fx-cursor: hand;");
-        label.setOnMouseEntered(ev -> label.setStyle("-fx-text-fill: #e8f0ff; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
-            + "-fx-background-color: #263048; -fx-background-radius: 5; -fx-cursor: hand;"));
-        label.setOnMouseExited(ev -> label.setStyle("-fx-text-fill: #c9d6e8; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
-            + "-fx-background-color: #1b2230; -fx-background-radius: 5; -fx-cursor: hand;"));
+        label.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #222222; -fx-background-radius: 5; -fx-cursor: hand;");
+        label.setOnMouseEntered(ev -> label.setStyle("-fx-text-fill: #efefef; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #303030; -fx-background-radius: 5; -fx-cursor: hand;"));
+        label.setOnMouseExited(ev -> label.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
+            + "-fx-background-color: #222222; -fx-background-radius: 5; -fx-cursor: hand;"));
         label.setOnMouseClicked(ev -> {
           if (onOpenFileAtLine != null && lineNo != null) {
             onOpenFileAtLine.accept(entry.file(), lineNo);
@@ -715,7 +715,7 @@ public class ScriptEditorLauncherView extends BorderPane {
           });
         } else {
           link.setStyle("-fx-text-fill: #a07050; -fx-font-size: 11px; -fx-padding: 2 6 2 6; "
-              + "-fx-background-color: #1b2230; -fx-background-radius: 5;");
+              + "-fx-background-color: #202020; -fx-background-radius: 5;");
           link.setTooltip(new Tooltip("Could not resolve: " + target));
         }
         includesList.getChildren().add(link);

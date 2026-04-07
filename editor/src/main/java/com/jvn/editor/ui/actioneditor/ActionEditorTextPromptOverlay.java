@@ -33,9 +33,9 @@ final class ActionEditorTextPromptOverlay extends StackPane {
         setAlignment(Pos.CENTER);
         setStyle("-fx-background-color: rgba(6, 8, 12, 0.64);");
 
-        titleLabel.setStyle("-fx-text-fill: #f2f4f7; -fx-font-size: 14px; -fx-font-weight: bold;");
+        titleLabel.setStyle("-fx-text-fill: #f0f0f0; -fx-font-size: 14px; -fx-font-weight: bold;");
         messageLabel.setWrapText(true);
-        messageLabel.setStyle("-fx-text-fill: #a9b3c1; -fx-font-size: 11px;");
+        messageLabel.setStyle("-fx-text-fill: #b0b0b0; -fx-font-size: 11px;");
 
         inputField.setStyle(
             "-fx-background-color: #121212; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; "
@@ -47,19 +47,19 @@ final class ActionEditorTextPromptOverlay extends StackPane {
         });
 
         hintLabel.setWrapText(true);
-        hintLabel.setStyle("-fx-text-fill: #707988; -fx-font-size: 10px;");
+        hintLabel.setStyle("-fx-text-fill: #7b7b7b; -fx-font-size: 10px;");
 
         cancelButton.setStyle(
-            "-fx-background-color: #23262c; -fx-text-fill: #d7dde6; -fx-background-radius: 4; "
-                + "-fx-border-color: #3a3f48; -fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-cursor: hand;");
+            "-fx-background-color: #232323; -fx-text-fill: #d7d7d7; -fx-background-radius: 4; "
+                + "-fx-border-color: #444444; -fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-cursor: hand;");
         cancelButton.setOnAction(event -> {
             hideOverlay();
             event.consume();
         });
 
         confirmButton.setStyle(
-            "-fx-background-color: #315d98; -fx-text-fill: white; -fx-background-radius: 4; "
-                + "-fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
+            "-fx-background-color: #3a3a3a; -fx-text-fill: #f2f2f2; -fx-background-radius: 4; "
+                + "-fx-border-color: #575757; -fx-border-radius: 4; -fx-padding: 5 12; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;");
         confirmButton.setOnAction(event -> {
             confirm();
             event.consume();
@@ -72,9 +72,9 @@ final class ActionEditorTextPromptOverlay extends StackPane {
         card.setFillWidth(true);
         card.setPadding(new Insets(12));
         card.setStyle(
-            "-fx-background-color: #171a20;"
+            "-fx-background-color: #171717;"
                 + "-fx-background-radius: 8;"
-                + "-fx-border-color: #2f3540;"
+                + "-fx-border-color: #383838;"
                 + "-fx-border-radius: 8;");
         VBox.setVgrow(inputField, Priority.NEVER);
         card.getChildren().setAll(titleLabel, messageLabel, inputField, hintLabel, actions);
