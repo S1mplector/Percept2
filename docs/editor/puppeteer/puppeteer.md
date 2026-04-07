@@ -15,6 +15,8 @@ Typical uses:
 - character entrances and exits
 - camera moves and shot timing
 - layered multi-property animation
+- mid-sequence expression swaps and sprite replacement beats
+- cutaway/background swaps inside a timeline
 - reusable timeline clips
 - staging and timing that needs preview before export
 
@@ -38,8 +40,8 @@ This page is the orientation layer for Puppeteer. It explains:
 
 ## Sub-Document Reference
 
-- **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, entity management, keyframe editing, all 12 presets, 37 easing options, searchable easing picker, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
-- **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, `playAudio`, `wait`, `parallel`, easing values, spring functions, named curves, custom cubic Bézier, export modes, VNS/JES integration examples
+- **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, selection-sidebar inspectors, keyframe editing, all 12 presets, 37 easing options, event cues, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
+- **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, generic `property` actions, `event` cues, `playAudio`, `wait`, `parallel`, easing values, spring functions, named curves, custom cubic Bézier, export modes, VNS/JES integration examples
 - **[Sidebar Utilities](../sidebars/overview/sidebar-utilities.md)** — current editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
 - **[Puppeteer Audit & Roadmap](puppeteer-audit.md)** — hardening audit and expansion roadmap
 
@@ -153,7 +155,7 @@ This loads a named JES timeline from the `TimelineRegistry` and runs it against 
 
 In practice:
 - **VNS** handles the 95% case: dialogue, character placement, transitions
-- **JES** handles the 5%: custom animations, particle effects, minigames, complex camera work
+- **JES** handles the 5%: custom animations, particle effects, minigames, complex camera work, and low-level property/event playback
 - **Puppeteer** is the visual tool that generates the JES timeline code, making it accessible to authors who don't want to hand-write keyframe data
 
 ---
@@ -213,7 +215,7 @@ EditorApp.buildSceneFromSnapshot()
                 ▼
         VNS: [call jes_timeline <name>]
         (TimelineRunner applies entity/camera
-         keyframes + audio cues via SceneAccessor)
+         keyframes + custom channels + event/audio cues via SceneAccessor)
 ```
 
 ### Key Classes
@@ -222,7 +224,7 @@ EditorApp.buildSceneFromSnapshot()
 |-------|--------|------|
 | `PuppeteerLauncherPanel` | editor | Right-panel widget; parses VNS source to build scene snapshots; provides direct launch and registered-animation reopen flows |
 | `PuppeteerWindow` | editor | `Stage` subclass; main Puppeteer UI; assembles all sub-panels |
-| `AnimationProject` | editor | Data model: entity tracks, groups, keyframes, audio cues, loop region, playback state |
+| `AnimationProject` | editor | Data model: entity tracks, groups, keyframes, custom channels, event/audio cues, loop region, playback state |
 | `AnimationPreview` | editor | Canvas-based scene renderer with entity selection, drag-to-move, onion skinning |
 | `EntitySelector` | editor | TreeView of named entities and groups |
 | `TimelinePanel` | editor | Horizontal timeline with keyframe diamonds, playhead, entity rows |
@@ -234,8 +236,8 @@ EditorApp.buildSceneFromSnapshot()
 | `FxBlitter2D` | fx | Canvas renderer for `Entity2D` — handles image loading from classpath and filesystem |
 | `TimelineData` | core | Serializable timeline representation for registry transport |
 | `TimelineRegistry` | core | Static registry mapping names to `TimelineData` for VNS interop |
-| `TimelineRunner` | core | Applies `TimelineData` keyframes to entities via `SceneAccessor` |
-| `SceneAccessor` | core | Interface decoupling `TimelineRunner` from `JesScene2D` — allows VN scenes to be animated too |
+| `TimelineRunner` | core | Applies `TimelineData` keyframes, custom numeric channels, and event/audio cues via `SceneAccessor` |
+| `SceneAccessor` | core | Interface decoupling `TimelineRunner` from `JesScene2D` — allows JES scenes and VN scenes to share the same timeline runtime |
 
 ### Image Loading Pipeline
 
@@ -316,13 +318,19 @@ The verification step is important because preview-safe authoring is not always 
 - an animated group depends on preview-only group motion that is not serialized into runtime `TimelineData`
 - an audio cue references a file that is missing on disk
 
+What is runtime-safe now is broader than before:
+
+- event cues for `expression`, `show`, `hide`, `replace`, and `scene`
+- dedicated matrix, blur, color-matrix, and DOF channels
+- registry-backed or freeform custom numeric channels routed through `applyCustomProperty`
+
 ### Consumption Flow
 
 1. VNS script contains: `[call jes_timeline hero_entrance]`
 2. `DefaultVnInterop` handles this command
 3. Looks up `TimelineRegistry.get("hero_entrance")`
 4. Creates a `TimelineRunner` with the `TimelineData`
-5. `TimelineRunner` uses `SceneAccessor` to read/write entity properties
+5. `TimelineRunner` uses `SceneAccessor` to read/write entity properties, apply custom numeric channels, and fire event/audio cues
 6. `VnState.updateTimelineRunners(deltaMs)` ticks all active runners each frame
 
 The `SceneAccessor` interface decouples the runner from `JesScene2D`, allowing it to work with VN scene entities that aren't managed by JES.
@@ -352,6 +360,8 @@ The typical visual novel workflow — animate characters at a specific story mom
    │  → Puppeteer opens with both characters at their VNS positions
    │
 5. Author keyframes (drag entities, press K, apply presets)
+   │  → optionally add event cues for expression swaps / scene beats
+   │  → optionally use the Selection sidebar for matrix, color, DOF, and custom channels
    │
 6. Name the timeline: "hero_challenge_entrance"
    │
@@ -616,6 +626,8 @@ Camera properties are stored on a special track named `"__camera__"` internally.
 
 In the editor, this is exposed as the dedicated **Runtime Camera / Frame** lane. That lane is also the recommended single source of truth for camera keyframes.
 
+Camera-adjacent advanced channels such as `dof.focus`, `dof.strength`, and `dof.maxBlur` ride on the same runtime camera track, but they are exported through the generic `property` channel path rather than through `cameraMove` / `cameraZoom`.
+
 #### Audio Cue Timing
 
 Audio cues fire when the playhead crosses their timestamp during an update interval. Edge cases:
@@ -624,6 +636,8 @@ Audio cues fire when the playhead crosses their timestamp during an update inter
 - **Looping:** Cues re-trigger at the start of each loop cycle
 - **Loop boundary:** If the playhead wraps from 980ms→20ms (in a 1000ms loop), cues between 980-1000 AND 0-20 are triggered
 - **Zero-duration timeline:** All cues fire once, then the runner finishes (or loops)
+
+Event cues follow the same crossing rule. They trigger once when the playhead passes their timestamp and can mutate sprite/background/VN state instantly without an interpolation phase.
 
 ### VnState Timeline Management
 
@@ -641,7 +655,7 @@ vnState.updateTimelineRunners(deltaMs);
 if (vnState.hasActiveTimelines()) { ... }
 ```
 
-Multiple timelines can run simultaneously. They are independent — each has its own elapsed time and applies its own keyframes. If two timelines animate the same property on the same entity, the **last one to write wins** (frame-order dependent).
+Multiple timelines can run simultaneously. They are independent — each has its own elapsed time and applies its own keyframes. If two timelines animate the same property on the same entity, the **last one to write wins** (frame-order dependent). The same practical rule applies to custom numeric channels and event cues that target the same underlying sprite/background state.
 
 ---
 
@@ -698,8 +712,11 @@ AnimationProject
     ▼
 CodeExporter.export(project)
     │
-    ├─ 1. Collect all events (time, entity, property, value, easing)
-    │     from every EntityTrack and every keyframe
+    ├─ 1. Collect all timeline actions
+    │     - property keyframes from every EntityTrack
+    │     - custom numeric channels
+    │     - event cues
+    │     - audio cues
     │
     ├─ 2. Sort events by start time
     │
@@ -711,6 +728,8 @@ CodeExporter.export(project)
     │     X + Y at same time → single move "entity" { x: ... y: ... }
     │     SCALE_X + SCALE_Y → single scale "entity" { sx: ... sy: ... }
     │     PIVOT_X + PIVOT_Y → single pivot "entity" { ox: ... oy: ... }
+    │     advanced/custom channels → property "entity" { key: "...", value: ... }
+    │     cue payloads → event/show/hide/replace/scene blocks
     │
     └─ 6. Format as JES timeline code
 ```

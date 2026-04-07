@@ -57,7 +57,7 @@ public class CollapsibleToolbarCluster extends VBox {
     private static final String STYLE_CLUSTER_COMPACT =
         "-fx-background-color: linear-gradient(to bottom, #181818, #141414); " +
         "-fx-border-color: #2f2f2f; -fx-border-radius: 8; -fx-background-radius: 8; " +
-        "-fx-padding: 4 6 5 6;";
+        "-fx-padding: 2 6 2 6;";
 
     private final String clusterKey;
     private final Button headerButton;
@@ -260,7 +260,7 @@ public class CollapsibleToolbarCluster extends VBox {
         pinButton.setVisible(!compact);
         headerButton.setMouseTransparent(compact);
         headerButton.setDisable(false);
-        setSpacing(compact ? 1.0 : 4.0);
+        setSpacing(compact ? 0.0 : 4.0);
         headerGraphic.setSpacing(compact ? 0.0 : 6.0);
         headerRow.setSpacing(compact ? 0.0 : 6.0);
         titleLabel.setStyle(compact
@@ -268,7 +268,7 @@ public class CollapsibleToolbarCluster extends VBox {
             : "-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
         headerButton.setMinHeight(compact ? 12.0 : 28.0);
         headerButton.setPrefHeight(compact ? 12.0 : 28.0);
-        contentWrapper.setPadding(compact ? new Insets(1, 0, 0, 0) : new Insets(8, 10, 8, 10));
+        contentWrapper.setPadding(compact ? Insets.EMPTY : new Insets(8, 10, 8, 10));
         contentWrapper.setStyle(compact ? STYLE_CONTENT_COMPACT : STYLE_CONTENT);
         if (pinButton.isSelected() != isPinned()) {
             pinButton.setSelected(isPinned());

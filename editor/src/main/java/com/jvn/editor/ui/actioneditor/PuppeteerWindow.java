@@ -1711,7 +1711,9 @@ public class PuppeteerWindow extends Stage {
         cbSidebarCustomPropertyKey.setStyle(STYLE_TEXT_FIELD);
         cbSidebarCustomPropertyKey.setPromptText("property.key");
         cbSidebarCustomPropertyKey.setTooltip(new Tooltip("Registered or freeform numeric channel key"));
+        cbSidebarCustomPropertyKey.getEditor().setStyle(STYLE_TEXT_FIELD);
         cbSidebarCustomPropertyKey.setOnAction(event -> refreshSidebarCustomPropertyValue());
+        cbSidebarCustomPropertyKey.getEditor().textProperty().addListener((obs, oldValue, newValue) -> refreshSidebarCustomPropertyValue());
 
         tfSidebarCustomPropertyValue = buildSidebarNumberField("value");
 
@@ -1833,6 +1835,7 @@ public class PuppeteerWindow extends Stage {
     private void refreshSidebarTabs() {
         String selectedName = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
         boolean selectedGroup = timelinePanel != null && timelinePanel.isSelectedGroup();
+        boolean runtimeCamera = timelinePanel != null && timelinePanel.isRuntimeCameraSelected();
         PropertyType selectedProperty = timelinePanel != null ? timelinePanel.getSelectedProperty() : null;
         int selectionCount = timelinePanel != null ? timelinePanel.getSelectionCount() : 0;
         boolean hasTarget = selectedName != null && !selectedName.isBlank();
@@ -1901,7 +1904,397 @@ public class PuppeteerWindow extends Stage {
         if (btnSidebarCodePane != null) {
             btnSidebarCodePane.setText(codePaneVisible ? "Hide Code Pane" : "Show Code Pane");
         }
+        refreshSidebarAdvancedPanels(selectedName, selectedGroup, runtimeCamera, hasTarget);
         refreshToolbarCommandSummary();
+    }
+
+    private void refreshSidebarAdvancedPanels(
+        String selectedName,
+        boolean selectedGroup,
+        boolean runtimeCamera,
+        boolean hasTarget
+    ) {
+        boolean entityTrack = hasTarget && !selectedGroup && !runtimeCamera;
+        boolean cameraTrack = hasTarget && runtimeCamera;
+
+        setSidebarCardVisible(sidebarAdvancedUnavailableCard, !entityTrack && !cameraTrack);
+        setSidebarCardVisible(sidebarMatrixCard, entityTrack);
+        setSidebarCardVisible(sidebarColorMatrixCard, entityTrack);
+        setSidebarCardVisible(sidebarCameraDofCard, cameraTrack);
+        setSidebarCardVisible(sidebarCustomChannelsCard, entityTrack || cameraTrack);
+
+        if (sidebarAdvancedUnavailableCard != null && !entityTrack && !cameraTrack && sidebarAdvancedUnavailableCard.getChildren().size() > 1) {
+            Node messageNode = sidebarAdvancedUnavailableCard.getChildren().get(1);
+            if (messageNode instanceof Label label) {
+                label.setText(
+                    selectedGroup
+                        ? "Advanced authoring is available on entity tracks and the runtime camera track, not on group selections."
+                        : "Select an entity or the runtime camera to author matrix, color, DOF, and custom numeric channels."
+                );
+            }
+        }
+
+        if (entityTrack) {
+            refreshSidebarEntityAdvancedFields(selectedName);
+        } else if (cameraTrack) {
+            refreshSidebarCameraAdvancedFields(selectedName);
+        } else {
+            refreshSidebarCustomPropertyOptions(false, false, null);
+        }
+    }
+
+    private void refreshSidebarEntityAdvancedFields(String entityName) {
+        EntityTrack track = entityName != null ? project.getTrack(entityName) : null;
+        com.jvn.core.scene2d.Entity2D entity = scene != null && entityName != null ? scene.find(entityName) : null;
+        double timeMs = project.getPlayheadMs();
+
+        for (int i = 0; i < ENTITY_MATRIX_PROPERTY_CHOICES.size() && i < sidebarMatrixFields.length; i++) {
+            PropertyType property = ENTITY_MATRIX_PROPERTY_CHOICES.get(i);
+            double fallback = fallbackPropertyValue(entity, property);
+            double value = track != null && track.hasKeyframes(property)
+                ? track.getValueAt(property, timeMs)
+                : fallback;
+            setSidebarFieldValue(sidebarMatrixFields[i], value);
+        }
+
+        for (int row = 0; row < 4; row++) {
+            for (int col = 0; col < 5; col++) {
+                int index = row * 5 + col;
+                String propertyKey = "color.m" + row + col;
+                double fallback = entity != null
+                    ? entity.readCustomProperty(propertyKey)
+                    : defaultCustomPropertyValue(false, propertyKey);
+                double value = track != null && track.hasCustomKeyframes(propertyKey)
+                    ? track.getCustomValueAt(propertyKey, timeMs, fallback)
+                    : fallback;
+                setSidebarFieldValue(sidebarColorMatrixFields[index], value);
+            }
+        }
+
+        refreshSidebarCustomPropertyOptions(true, false, track);
+    }
+
+    private void refreshSidebarCameraAdvancedFields(String targetName) {
+        EntityTrack track = resolveRuntimeCameraTrack(false);
+        var camera = animationPreview.getCamera();
+        double timeMs = project.getPlayheadMs();
+        PropertyType[] properties = {
+            PropertyType.CAMERA_DOF_FOCUS,
+            PropertyType.CAMERA_DOF_STRENGTH,
+            PropertyType.CAMERA_DOF_MAX_BLUR
+        };
+        double[] fallbackValues = {
+            camera != null ? camera.getFocusDepth() : PropertyType.CAMERA_DOF_FOCUS.getDefaultValue(),
+            camera != null ? camera.getDepthOfFieldStrength() : PropertyType.CAMERA_DOF_STRENGTH.getDefaultValue(),
+            camera != null ? camera.getDepthOfFieldMaxBlur() : PropertyType.CAMERA_DOF_MAX_BLUR.getDefaultValue()
+        };
+        for (int i = 0; i < properties.length && i < sidebarCameraDofFields.length; i++) {
+            double value = track != null && track.hasKeyframes(properties[i])
+                ? track.getValueAt(properties[i], timeMs)
+                : fallbackValues[i];
+            setSidebarFieldValue(sidebarCameraDofFields[i], value);
+        }
+
+        refreshSidebarCustomPropertyOptions(false, TimelinePanel.isRuntimeCameraTarget(targetName), track);
+    }
+
+    private void refreshSidebarCustomPropertyOptions(boolean entityTrack, boolean cameraTrack, EntityTrack track) {
+        if (cbSidebarCustomPropertyKey == null) return;
+        Set<String> options = new LinkedHashSet<>();
+        if (entityTrack) {
+            for (var definition : com.jvn.core.scene2d.Entity2D.animatableProperties()) {
+                if (definition == null) continue;
+                String key = definition.getKey();
+                if (key != null && !ENTITY_DEDICATED_CUSTOM_KEYS.contains(key)) {
+                    options.add(key);
+                }
+            }
+        } else if (cameraTrack) {
+            for (var definition : com.jvn.core.graphics.Camera2D.animatableProperties()) {
+                if (definition == null) continue;
+                String key = definition.getKey();
+                if (key != null && !CAMERA_DEDICATED_CUSTOM_KEYS.contains(key)) {
+                    options.add(key);
+                }
+            }
+        }
+        if (track != null) {
+            for (String key : track.getAnimatedCustomProperties()) {
+                if (key == null || key.isBlank()) continue;
+                if (entityTrack && ENTITY_DEDICATED_CUSTOM_KEYS.contains(key)) continue;
+                if (cameraTrack && CAMERA_DEDICATED_CUSTOM_KEYS.contains(key)) continue;
+                options.add(key);
+            }
+        }
+
+        String currentKey = readSidebarCustomPropertyKey();
+        cbSidebarCustomPropertyKey.getItems().setAll(options);
+        if (!cameraTrack && !entityTrack) {
+            if (!cbSidebarCustomPropertyKey.isFocused() && !cbSidebarCustomPropertyKey.getEditor().isFocused()) {
+                cbSidebarCustomPropertyKey.setValue(null);
+                cbSidebarCustomPropertyKey.getEditor().clear();
+            }
+            clearSidebarFieldValue(tfSidebarCustomPropertyValue);
+            return;
+        }
+
+        if ((currentKey == null || currentKey.isBlank()) && !options.isEmpty()) {
+            currentKey = cbSidebarCustomPropertyKey.getItems().get(0);
+        }
+        if (currentKey != null && !currentKey.isBlank()
+            && !cbSidebarCustomPropertyKey.isFocused()
+            && !cbSidebarCustomPropertyKey.getEditor().isFocused()) {
+            cbSidebarCustomPropertyKey.setValue(currentKey);
+            cbSidebarCustomPropertyKey.getEditor().setText(currentKey);
+        }
+        refreshSidebarCustomPropertyValue();
+    }
+
+    private void refreshSidebarCustomPropertyValue() {
+        if (tfSidebarCustomPropertyValue == null) return;
+        String propertyKey = readSidebarCustomPropertyKey();
+        if (propertyKey == null || propertyKey.isBlank()) {
+            clearSidebarFieldValue(tfSidebarCustomPropertyValue);
+            return;
+        }
+
+        EntityTrack track = selectedTrackForEditing(false);
+        double timeMs = project.getPlayheadMs();
+        String targetName = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
+        boolean runtimeCamera = timelinePanel != null && timelinePanel.isRuntimeCameraSelected();
+        double value;
+
+        PropertyType mapped = PropertyType.fromTimelineCustomKey(propertyKey);
+        if (mapped != null && track != null) {
+            double fallback = runtimeCamera
+                ? defaultCustomPropertyValue(true, propertyKey)
+                : defaultCustomPropertyValue(false, propertyKey);
+            value = track.hasKeyframes(mapped) ? track.getValueAt(mapped, timeMs) : fallback;
+        } else if (runtimeCamera) {
+            var camera = animationPreview.getCamera();
+            double fallback = baselineCustomPropertyValue(targetName, propertyKey, camera);
+            value = track != null && track.hasCustomKeyframes(propertyKey)
+                ? track.getCustomValueAt(propertyKey, timeMs, fallback)
+                : fallback;
+        } else {
+            com.jvn.core.scene2d.Entity2D entity = scene != null && targetName != null ? scene.find(targetName) : null;
+            double fallback = baselineCustomPropertyValue(targetName, propertyKey, entity);
+            value = track != null && track.hasCustomKeyframes(propertyKey)
+                ? track.getCustomValueAt(propertyKey, timeMs, fallback)
+                : fallback;
+        }
+        setSidebarFieldValue(tfSidebarCustomPropertyValue, value);
+    }
+
+    private void fillSidebarMatrixIdentity() {
+        double[] values = {1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0};
+        for (int i = 0; i < values.length && i < sidebarMatrixFields.length; i++) {
+            forceSidebarFieldValue(sidebarMatrixFields[i], values[i]);
+        }
+    }
+
+    private void applySidebarMatrixKeyframes() {
+        String entityName = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
+        if (entityName == null || entityName.isBlank() || timelinePanel == null || timelinePanel.isSelectedGroup()
+            || timelinePanel.isRuntimeCameraSelected()) {
+            return;
+        }
+        EntityTrack track = project.getOrCreateTrack(entityName);
+        com.jvn.core.scene2d.Entity2D entity = scene != null ? scene.find(entityName) : null;
+        double timeMs = project.getPlayheadMs();
+        List<PuppeteerCommand> commands = new ArrayList<>();
+        for (int i = 0; i < ENTITY_MATRIX_PROPERTY_CHOICES.size() && i < sidebarMatrixFields.length; i++) {
+            PropertyType property = ENTITY_MATRIX_PROPERTY_CHOICES.get(i);
+            double fallback = fallbackPropertyValue(entity, property);
+            double value = parseSidebarFieldValue(sidebarMatrixFields[i], fallback);
+            commands.add(PuppeteerCommand.upsertKeyframe(track, property, timeMs, value));
+        }
+        executeSidebarCommand("Key matrix properties", commands);
+    }
+
+    private void fillSidebarColorMatrixIdentity() {
+        for (int row = 0; row < 4; row++) {
+            for (int col = 0; col < 5; col++) {
+                int index = row * 5 + col;
+                double value = col == row ? 1.0 : 0.0;
+                if (col == 4) value = 0.0;
+                forceSidebarFieldValue(sidebarColorMatrixFields[index], value);
+            }
+        }
+    }
+
+    private void applySidebarColorMatrixKeyframes() {
+        String entityName = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
+        if (entityName == null || entityName.isBlank() || timelinePanel == null || timelinePanel.isSelectedGroup()
+            || timelinePanel.isRuntimeCameraSelected()) {
+            return;
+        }
+        EntityTrack track = project.getOrCreateTrack(entityName);
+        com.jvn.core.scene2d.Entity2D entity = scene != null ? scene.find(entityName) : null;
+        double timeMs = project.getPlayheadMs();
+        List<PuppeteerCommand> commands = new ArrayList<>();
+        for (int row = 0; row < 4; row++) {
+            for (int col = 0; col < 5; col++) {
+                int index = row * 5 + col;
+                String propertyKey = "color.m" + row + col;
+                double fallback = entity != null
+                    ? entity.readCustomProperty(propertyKey)
+                    : defaultCustomPropertyValue(false, propertyKey);
+                double value = parseSidebarFieldValue(sidebarColorMatrixFields[index], fallback);
+                commands.add(PuppeteerCommand.upsertCustomKeyframe(track, propertyKey, timeMs, value));
+            }
+        }
+        executeSidebarCommand("Key color matrix", commands);
+    }
+
+    private void fillSidebarDofNeutral() {
+        for (TextField field : sidebarCameraDofFields) {
+            forceSidebarFieldValue(field, 0.0);
+        }
+    }
+
+    private void applySidebarDofKeyframes() {
+        if (timelinePanel == null || !timelinePanel.isRuntimeCameraSelected()) return;
+        EntityTrack track = resolveRuntimeCameraTrack(true);
+        double timeMs = project.getPlayheadMs();
+        PropertyType[] properties = {
+            PropertyType.CAMERA_DOF_FOCUS,
+            PropertyType.CAMERA_DOF_STRENGTH,
+            PropertyType.CAMERA_DOF_MAX_BLUR
+        };
+        double[] fallbackValues = {
+            animationPreview.getCamera().getFocusDepth(),
+            animationPreview.getCamera().getDepthOfFieldStrength(),
+            animationPreview.getCamera().getDepthOfFieldMaxBlur()
+        };
+        List<PuppeteerCommand> commands = new ArrayList<>();
+        for (int i = 0; i < properties.length && i < sidebarCameraDofFields.length; i++) {
+            double value = parseSidebarFieldValue(sidebarCameraDofFields[i], fallbackValues[i]);
+            commands.add(PuppeteerCommand.upsertKeyframe(track, properties[i], timeMs, value));
+        }
+        executeSidebarCommand("Key DOF properties", commands);
+    }
+
+    private void applySidebarCustomPropertyKeyframe() {
+        EntityTrack track = selectedTrackForEditing(true);
+        if (track == null) return;
+        String propertyKey = readSidebarCustomPropertyKey();
+        if (propertyKey == null || propertyKey.isBlank()) return;
+
+        double timeMs = project.getPlayheadMs();
+        boolean runtimeCamera = timelinePanel != null && timelinePanel.isRuntimeCameraSelected();
+        double fallback = resolveSidebarCustomFallback(propertyKey, runtimeCamera);
+        double value = parseSidebarFieldValue(tfSidebarCustomPropertyValue, fallback);
+        PropertyType mapped = PropertyType.fromTimelineCustomKey(propertyKey);
+        PuppeteerCommand command = mapped != null
+            ? PuppeteerCommand.upsertKeyframe(track, mapped, timeMs, value)
+            : PuppeteerCommand.upsertCustomKeyframe(track, propertyKey, timeMs, value);
+        executeSidebarCommand(command);
+    }
+
+    private void removeSidebarCustomPropertyKeyframe() {
+        EntityTrack track = selectedTrackForEditing(false);
+        if (track == null) return;
+        String propertyKey = readSidebarCustomPropertyKey();
+        if (propertyKey == null || propertyKey.isBlank()) return;
+
+        double timeMs = project.getPlayheadMs();
+        PropertyType mapped = PropertyType.fromTimelineCustomKey(propertyKey);
+        if (mapped != null) {
+            Keyframe existing = track.findKeyframeAt(mapped, timeMs);
+            if (existing == null) return;
+            executeSidebarCommand(PuppeteerCommand.removeKeyframe(track, mapped, existing));
+            return;
+        }
+        executeSidebarCommand(PuppeteerCommand.removeCustomKeyframeAt(track, propertyKey, timeMs));
+    }
+
+    private void executeSidebarCommand(String description, List<PuppeteerCommand> commands) {
+        if (commands == null || commands.isEmpty()) return;
+        executeSidebarCommand(PuppeteerCommand.composite(description, commands));
+    }
+
+    private void executeSidebarCommand(PuppeteerCommand command) {
+        if (command == null) return;
+        commandStack.execute(command);
+        timelinePanel.refresh();
+        updatePreview();
+        refreshExportPreviewAndMarkDirty();
+    }
+
+    private String readSidebarCustomPropertyKey() {
+        if (cbSidebarCustomPropertyKey == null) return null;
+        String key = cbSidebarCustomPropertyKey.getEditor() != null
+            ? cbSidebarCustomPropertyKey.getEditor().getText()
+            : null;
+        if ((key == null || key.isBlank()) && cbSidebarCustomPropertyKey.getValue() != null) {
+            key = cbSidebarCustomPropertyKey.getValue();
+        }
+        return key != null ? key.trim() : null;
+    }
+
+    private double resolveSidebarCustomFallback(String propertyKey, boolean runtimeCamera) {
+        String targetName = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
+        if (runtimeCamera) {
+            return baselineCustomPropertyValue(targetName, propertyKey, animationPreview.getCamera());
+        }
+        com.jvn.core.scene2d.Entity2D entity = scene != null && targetName != null ? scene.find(targetName) : null;
+        return baselineCustomPropertyValue(targetName, propertyKey, entity);
+    }
+
+    private double defaultCustomPropertyValue(boolean camera, String propertyKey) {
+        if (propertyKey == null || propertyKey.isBlank()) return 0.0;
+        if (camera) {
+            var definition = com.jvn.core.graphics.Camera2D.getAnimatableProperty(propertyKey);
+            return definition != null ? definition.getDefaultValue() : 0.0;
+        }
+        var definition = com.jvn.core.scene2d.Entity2D.getAnimatableProperty(propertyKey);
+        return definition != null ? definition.getDefaultValue() : 0.0;
+    }
+
+    private double parseSidebarFieldValue(TextField field, double fallback) {
+        if (field == null) return fallback;
+        String text = field.getText();
+        if (text == null || text.isBlank()) return fallback;
+        try {
+            double value = Double.parseDouble(text.trim());
+            return Double.isFinite(value) ? value : fallback;
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
+    private void setSidebarFieldValue(TextField field, double value) {
+        if (field == null || field.isFocused()) return;
+        field.setText(formatSidebarNumber(value));
+    }
+
+    private void forceSidebarFieldValue(TextField field, double value) {
+        if (field == null) return;
+        field.setText(formatSidebarNumber(value));
+    }
+
+    private void clearSidebarFieldValue(TextField field) {
+        if (field == null || field.isFocused()) return;
+        field.clear();
+    }
+
+    private String formatSidebarNumber(double value) {
+        if (!Double.isFinite(value)) return "0";
+        String text = String.format(Locale.ROOT, "%.3f", value);
+        while (text.contains(".") && text.endsWith("0")) {
+            text = text.substring(0, text.length() - 1);
+        }
+        if (text.endsWith(".")) {
+            text = text.substring(0, text.length() - 1);
+        }
+        return "-0".equals(text) ? "0" : text;
+    }
+
+    private void setSidebarCardVisible(VBox card, boolean visible) {
+        if (card == null) return;
+        card.setVisible(visible);
+        card.setManaged(visible);
     }
 
     private int countItems(Iterable<?> items) {
@@ -4880,8 +5273,16 @@ public class PuppeteerWindow extends Stage {
             if (track == null) continue;
             if (track.hasKeyframes(PropertyType.CAMERA_X)
                 || track.hasKeyframes(PropertyType.CAMERA_Y)
-                || track.hasKeyframes(PropertyType.CAMERA_ZOOM)) {
+                || track.hasKeyframes(PropertyType.CAMERA_ZOOM)
+                || track.hasKeyframes(PropertyType.CAMERA_DOF_FOCUS)
+                || track.hasKeyframes(PropertyType.CAMERA_DOF_STRENGTH)
+                || track.hasKeyframes(PropertyType.CAMERA_DOF_MAX_BLUR)) {
                 return track;
+            }
+            for (String propertyKey : track.getAnimatedCustomProperties()) {
+                if (com.jvn.core.graphics.Camera2D.getAnimatableProperty(propertyKey) != null) {
+                    return track;
+                }
             }
         }
         return createIfMissing ? project.getOrCreateTrack(TimelinePanel.RUNTIME_CAMERA_TARGET) : null;

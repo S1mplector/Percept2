@@ -1,6 +1,6 @@
 # Puppeteer — Editor Guide
 
-Comprehensive guide to using the Puppeteer animation editor — launching, UI panels, entity management, keyframe editing, animation presets, audio cues, camera animation, groups, layer ordering, preview controls, and export workflows.
+Comprehensive guide to using the Puppeteer animation editor — launching, UI panels, entity management, keyframe editing, animation presets, event cues, advanced property inspectors, audio cues, camera animation, groups, layer ordering, preview controls, and export workflows.
 
 Source: `editor/src/main/java/com/jvn/editor/ui/actioneditor/PuppeteerWindow.java`
 
@@ -41,6 +41,8 @@ Puppeteer is JVN's visual keyframe animation editor. It lets you:
 
 - Animate entity properties (position, rotation, scale, opacity) on a timeline
 - Animate the scene camera (pan, zoom)
+- Author instant event cues for expression swaps, show/hide/replace beats, and scene cutaways
+- Author advanced channels such as matrix transforms, color matrix values, blur, depth-of-field, and registry-backed custom numeric properties
 - Place audio cues at precise timestamps
 - Group entities and animate them together
 - Preview animations in real-time with onion skinning
@@ -163,12 +165,13 @@ This section is intentionally exhaustive and mirrors the current implementation 
 
 | Region | UI Element | Notes |
 |-------|------------|-------|
-| Top | Toolbar | Transport, duration, presets, property track target, keyframe ops, snapping, preview modes, orbit tools, audio cues, registration, help |
+| Top | Toolbar | Transport, duration, presets, property track target, keyframe ops, snapping, preview modes, orbit tools, cues, registration, help |
 | Left (top tab pane) | `Entities` tab | Entity/group tree with Z badges and context menu actions |
 | Left (top tab pane) | `Assets` tab | Image browser + add-to-scene pipeline |
 | Left (bottom) | Keyframe Editor | Fine-grained keyframe editing, easing controls, pivot presets, camera readout |
 | Center (top) | Preview canvas | World-overview rendering plus runtime frame, camera HUD, selection handles |
 | Center (bottom) | Timeline canvas | Time ruler, tracks, keyframes, playhead, loop region, audio cues, and a dedicated `Runtime Camera / Frame` lane above entity rows |
+| Right sidebar | `Selection` tab | Selection summary plus advanced inspectors for matrix/blur, color matrix, runtime camera DOF, and custom channels |
 | Right | Timeline Code panel | Live JES source, diagnostics, preview-stage controls |
 | Bottom | Status bar | Undo/redo state, auto-key status, playback speed |
 
@@ -209,7 +212,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Control | Type | Default | Action |
 |--------|------|---------|--------|
 | Property dropdown | combo box | `X` | Sets active property track for add-keyframe + nudging |
-| Values | enum list | all `PropertyType` | `X`, `Y`, `PIVOT_X`, `PIVOT_Y`, `ROTATION`, `SCALE_X`, `SCALE_Y`, `ALPHA`, `CAMERA_X`, `CAMERA_Y`, `CAMERA_ZOOM` |
+| Values | selection-aware enum list | common `PropertyType` lanes | Entity lanes include `X`, `Y`, `Z`, `PIVOT_X`, `PIVOT_Y`, `ROTATION`, `SCALE_X`, `SCALE_Y`, `ALPHA`, `VISIBILITY`; runtime camera lanes include `CAMERA_X`, `CAMERA_Y`, `CAMERA_ZOOM`, and DOF properties |
 
 #### Keyframe Ops Group
 
@@ -260,12 +263,14 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Align rotation | icon toggle | on | Rotate entity to outward angle while orbiting |
 | Clear orbit anchor | icon button | enabled | Remove selected entity orbit anchor |
 
-#### Audio Cue Group
+#### Cues Group
 
 | Control | Type | Default | Action |
 |--------|------|---------|--------|
 | Add cue | icon button | enabled | Open Add Audio Cue dialog at current playhead |
 | Clear cues | icon button | enabled | Confirmation dialog, then remove all cues |
+| Manage events | icon button | enabled | Open the event cue manager for expression/show/hide/replace/scene and custom cues |
+| Clear events | icon button | enabled | Confirmation dialog, then remove all authored event cues |
 
 #### Timeline Naming + Registration Group
 
@@ -339,6 +344,52 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | `Reset` | button | Resets value to property default |
 | `Camera` readout | label | Shows preview camera `X`, `Y`, `Z` state; camera selection is treated as the special `Runtime Camera / Frame` target |
 
+### Right Sidebar: Selection Tab
+
+The `Selection` tab is the compact inspector for the current target, playhead, and advanced authored channels.
+
+#### Selection Summary Card
+
+| Element | Type | Behavior |
+|--------|------|----------|
+| `Target` | label | Selected entity, group, or `Runtime Camera / Frame` |
+| `Scope` | label | Whether you are on an entity track, group track, runtime camera track, or a multi-key selection |
+| `Property` | label | Currently selected property lane |
+| `Playhead` | label | Current time in milliseconds |
+| `Selected Keyframes` | label | Count of selected timeline keys |
+
+#### Selection Actions Card
+
+| Control | Type | Behavior |
+|--------|------|----------|
+| `Add Keyframe` | button | Adds a keyframe at the playhead for the active property |
+| `Focus Timeline` | button | Zooms the timeline to the active track or selection |
+| `Prev Key` | button | Jumps the playhead to the previous keyframe |
+| `Next Key` | button | Jumps the playhead to the next keyframe |
+| `Clear` | button | Clears target/keyframe selection |
+
+#### Advanced Inspector Cards
+
+These cards appear only when they are relevant to the current selection.
+
+| Card | Visible For | Purpose |
+|------|-------------|---------|
+| `Matrix / Blur` | entity track | Author `matrix.mxx`, `matrix.mxy`, `matrix.myx`, `matrix.myy`, `matrix.tx`, `matrix.ty`, and `effect.blur` at the current playhead |
+| `Color Matrix` | entity track | Author the full RGBA 4x5 color matrix (`color.m00` through `color.m34`) |
+| `Camera DOF` | runtime camera track | Author `dof.focus`, `dof.strength`, and `dof.maxBlur` |
+| `Custom Channels` | entity track or runtime camera track | Author any registry-backed numeric property key or a freeform custom numeric key |
+
+#### Advanced Inspector Workflow
+
+- Select an entity or `Runtime Camera / Frame`
+- Move the playhead to the exact frame you want
+- Enter values in the relevant card
+- Click `Key At Playhead` to write keyframes
+- Use `Fill Identity` or `Fill Neutral` to quickly reset matrix/color/DOF fields before keying
+- Use `Remove Key` in `Custom Channels` to delete the custom-channel key at the current playhead
+
+Built-in timeline-backed properties such as matrix channels and DOF channels round-trip through their dedicated runtime keys, while freeform values go through the generic custom-property path.
+
 ### Center Top: Preview Pane
 
 ![Preview Canvas](../../assets/images/puppeteer/puppeteer_ui_preview.png)
@@ -386,6 +437,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Playhead | red line + triangle | Current time |
 | Loop region | green overlay | Active loop segment |
 | Audio cue markers | orange dots + waveform | Cue timing and channel indicator |
+| Event cue markers | accent markers | Instant cue timing for expression/show/hide/replace/scene/custom events |
 
 #### Timeline Interactions (Exact)
 
@@ -427,7 +479,9 @@ This section is intentionally exhaustive and mirrors the current implementation 
 |-------|---------|------------------|
 | Keyboard Shortcuts | Help button | Informational shortcut list |
 | Add Audio Cue | Add cue button | Path field, searchable project audio library, `Browse...`, `Import...`, `Preview`, `Stop`, channel dropdown (`music/sound/voice`), volume slider, `Add Cue` |
+| Timeline Event Cues | Manage events button | Cue type preset, optional custom type field, time, target, value, path, position, extra payload, cue list, `New Cue`, `Save Cue`, `Delete Cue` |
 | Clear Audio Cues confirmation | Clear cues button | Confirm / cancel |
+| Clear Event Cues confirmation | Clear events button | Confirm / cancel |
 | Create Group | `+ Group` button | Group name input |
 | Load Clip | Load clip button | Clip selector list |
 | Unsaved close confirmation | close window with dirty or preview state | `Save & Register`, `Discard`, `Cancel` |
@@ -437,7 +491,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 
 ## Animatable Properties
 
-Each entity track supports 11 animatable properties:
+Puppeteer now supports standard property lanes, dedicated advanced inspectors, and arbitrary custom numeric channels.
 
 ### Entity Properties
 
@@ -445,12 +499,25 @@ Each entity track supports 11 animatable properties:
 |----------|------|-------------|---------|-------------|-------------|
 | `X` | `x` | Position X | 0 | -2000 – 2000 | Horizontal position (pixels) |
 | `Y` | `y` | Position Y | 0 | -2000 – 2000 | Vertical position (pixels) |
+| `Z` | `z` | Depth | 0 | -1000 – 1000 | Draw order / depth plane |
 | `PIVOT_X` | `pivotX` | Pivot X | 0.5 | 0 – 1 | Horizontal origin (0 = left, 1 = right) |
 | `PIVOT_Y` | `pivotY` | Pivot Y | 0.5 | 0 – 1 | Vertical origin (0 = top, 1 = bottom) |
 | `ROTATION` | `rotation` | Rotation | 0 | -360 – 360 | Rotation in degrees |
 | `SCALE_X` | `scaleX` | Scale X | 1.0 | 0.01 – 5.0 | Horizontal scale factor |
 | `SCALE_Y` | `scaleY` | Scale Y | 1.0 | 0.01 – 5.0 | Vertical scale factor |
 | `ALPHA` | `alpha` | Opacity | 1.0 | 0 – 1 | Transparency (0 = invisible, 1 = opaque) |
+| `VISIBILITY` | `visible` | Visible | 1.0 | 0 – 1 | Instant show/hide thresholded at runtime |
+
+### Advanced Entity Channels
+
+These are authored from the `Selection` sidebar rather than the regular keyframe editor sliders:
+
+| Channel Set | Runtime Keys | Description |
+|-------------|--------------|-------------|
+| Supplemental affine matrix | `matrix.mxx`, `matrix.mxy`, `matrix.myx`, `matrix.myy`, `matrix.tx`, `matrix.ty` | Apply a post-TRS affine transform for shears, flips, offsets, and matrix-authored staging |
+| Blur | `effect.blur` | Per-entity Gaussian blur radius |
+| Color matrix | `color.m00` ... `color.m34` | Full RGBA 4x5 color transform for tinting, channel mixing, and offset-based grading |
+| Custom numeric channels | any key | Registry-backed or freeform numeric property values consumed through the runtime custom-property path |
 
 ### Camera Properties
 
@@ -459,8 +526,13 @@ Each entity track supports 11 animatable properties:
 | `CAMERA_X` | `cameraX` | Camera X | 0 | Camera horizontal position |
 | `CAMERA_Y` | `cameraY` | Camera Y | 0 | Camera vertical position |
 | `CAMERA_ZOOM` | `cameraZoom` | Camera Zoom | 1.0 | Camera zoom level (>1 = closer) |
+| `CAMERA_DOF_FOCUS` | `dof.focus` | DOF Focus | 0 | Shared focus plane for depth-of-field |
+| `CAMERA_DOF_STRENGTH` | `dof.strength` | DOF Strength | 0 | Blur contribution from distance to the focus plane |
+| `CAMERA_DOF_MAX_BLUR` | `dof.maxBlur` | DOF Max Blur | 0 | Maximum DOF blur radius |
 
 Select the active property from the toolbar dropdown or click a property sub-track in the timeline.
+
+The toolbar property dropdown still covers the common track lanes. Matrix, color, DOF, and arbitrary custom channels are authored from the `Selection` sidebar so they can be edited as grouped sets instead of one scalar lane at a time.
 
 ---
 
@@ -699,6 +771,50 @@ Audio cues appear as orange dots at the bottom of the timeline.
 
 ---
 
+## Event Cues
+
+Event cues are instant timeline actions for non-interpolated state changes: sprite swaps, show/hide beats, cutaway backgrounds, and custom script-facing markers.
+
+### Opening the Event Cue Manager
+
+1. Move the playhead to the target time
+2. Click **Manage events** in the toolbar `Cues` cluster
+3. Create a new cue or select an existing cue from the list
+4. Fill the cue fields and click **Save Cue**
+
+The cue list is sorted on the project model and each saved cue immediately updates:
+
+- timeline marker rendering
+- preview scrubbing and playback
+- generated JES export
+
+### Built-In Cue Presets
+
+| Cue Type | Primary Fields | Runtime Intent |
+|----------|----------------|----------------|
+| `expression` | `target`, `Expression`, optional `Path Override`, optional `Position` | Swap a character or sprite expression at an exact frame |
+| `show` | `target`, optional `Expression`, optional `Path Override`, optional `Position` | Show an entity or VN character instantly |
+| `hide` | `target` | Hide an entity or VN character instantly |
+| `replace` | `target`, `Expression`, optional `Replacement Path` | Replace the current sprite mid-sequence |
+| `scene` | optional `target`, `Scene / BG Id`, optional `Background Path` | Change the current background or cutaway frame without leaving the timeline |
+| `dialogue_marker` | `Marker Id` | Emit a marker cue for surrounding script logic |
+| `script_call` | `Call Name`, optional `Arg` | Emit a named cue for external script handling |
+| `custom` | freeform `type` plus payload | Emit any other event payload you need |
+
+### Extra Payload
+
+The `Extra Payload` field accepts one `key=value` pair per line. Those payload entries are merged into the event cue and exported into the final JES timeline event block.
+
+### Preview Behavior
+
+Preview scrubbing restores the baseline scene state, reapplies interpolated transforms, then replays all event cues up to the current playhead. That means:
+
+- expression and replace cues visibly swap sprites while scrubbing
+- show/hide cues affect visibility in preview
+- scene cues update the active background or cutaway image in preview
+
+---
+
 ## Camera Animation
 
 Puppeteer supports animating the scene camera alongside entities.
@@ -710,6 +826,9 @@ Puppeteer supports animating the scene camera alongside entities.
 | Camera X | `cameraMove` | Horizontal camera pan |
 | Camera Y | `cameraMove` | Vertical camera pan |
 | Camera Zoom | `cameraZoom` | Camera zoom level |
+| DOF Focus | `property { key: "dof.focus" ... }` | Shared focus depth plane |
+| DOF Strength | `property { key: "dof.strength" ... }` | Depth-of-field blur strength |
+| DOF Max Blur | `property { key: "dof.maxBlur" ... }` | Maximum depth-of-field blur radius |
 
 Camera animation is authored on the dedicated `Runtime Camera / Frame` lane. That lane maps to the internal `__camera__` track and is the recommended place for all camera keyframes.
 
@@ -891,6 +1010,7 @@ Closing Puppeteer with unsaved changes prompts: **Save & Register**, **Discard**
 ## Known Limitations
 
 - **Single-scene scope** — Puppeteer operates on one scene at a time; cross-scene transitions must be authored separately
+- **Scene cues are in-scene swaps** — `scene` event cues can change the current background/cutaway state, but pushing/replacing whole engine scenes still belongs to surrounding VNS/JES logic
 - **Snapshot is static** — the VNS snapshot captures state at launch time and does not update if the script changes while Puppeteer is open
 - **Group properties** — groups only support X and Y animation (not rotation, scale, or alpha)
 - **No drag-from-asset-picker** — assets are added via button click; drag-and-drop is not yet implemented

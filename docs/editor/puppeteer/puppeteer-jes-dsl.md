@@ -1,6 +1,6 @@
 # Puppeteer — JES Timeline DSL Reference
 
-Complete reference for the JES timeline code that Puppeteer generates and exports. Covers the `timeline { }` block syntax, all action types, property keys, easing values, parallel blocks, wait commands, audio cues, camera actions, and how to use exported code in VNS scripts and JES scenes.
+Complete reference for the JES timeline code that Puppeteer generates and exports. Covers the `timeline { }` block syntax, all action types, generic property channels, event cues, easing values, parallel blocks, wait commands, audio cues, camera actions, and how to use exported code in VNS scripts and JES scenes.
 
 Exporter: `editor/src/main/java/com/jvn/editor/ui/actioneditor/CodeExporter.java`
 Runtime: `core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
@@ -218,7 +218,26 @@ event "expression" {
 |----------|------|-------------|
 | (any key) | string | Arbitrary payload entries — all values are strings |
 
-Event actions have no `dur` or `easing` — they fire instantly at their timestamp, like `playAudio`. The Puppeteer editor emits these from `EditorEventCue` entries. In VNS scenes, the `"expression"` event type is handled by `VnCharacterSceneAccessor` to change character sprites mid-animation.
+Event actions have no `dur` or `easing` — they fire instantly at their timestamp, like `playAudio`. The Puppeteer editor emits these from `EditorEventCue` entries. At runtime they are delivered through `SceneAccessor.onEventCue(...)`, and the default runtime interop maps built-in cue types onto JES scene sprites or VN scene character/background state.
+
+### Supported Built-In Event Cue Payloads
+
+Puppeteer recognizes several event types specially when exporting and previewing:
+
+| Event Type | Typical Payload Keys | Meaning |
+|------------|----------------------|---------|
+| `expression` | `target`, `value` or `expression`, optional `path`, optional `position` | Swap a sprite/character expression immediately |
+| `show` | `target`, optional `expression`, optional `path`, optional `position` | Show an entity or VN character instantly |
+| `hide` | `target` | Hide an entity or VN character instantly |
+| `replace` | `target`, `expression` or `value`, optional `path` | Replace the current sprite/image mid-sequence |
+| `scene` | optional `target`, `id` or `value`, optional `path` | Change the current background/cutaway state |
+| any other type | arbitrary keys | Delivered through `SceneAccessor.onEventCue(type, payload)` unchanged |
+
+On the runtime side:
+
+- JES scene playback uses `path` to swap `Sprite2D` images directly for `expression`, `replace`, and `scene`
+- VN playback uses `target`, `expression`/`value`, `position`, and `id` to call the VN character/background state APIs
+- unknown event types are still emitted and delivered, but only do something if the active `SceneAccessor` interprets them
 
 ---
 
@@ -403,6 +422,47 @@ The parser handles compact format identically to multi-line format.
 
 ---
 
+## Generic `property` Actions
+
+Puppeteer now exports advanced channels that do not fit the legacy `move` / `rotate` / `scale` / `fade` buckets through a generic `property` action:
+
+```jes
+property "hero" {
+  key: "matrix.mxy"
+  value: 0.25
+  dur: 300
+  easing: ease_in_out_quad
+}
+```
+
+```jes
+property "__camera__" {
+  key: "dof.strength"
+  value: 6
+  dur: 400
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `key` | string | Registry key or freeform custom numeric channel name |
+| `value` | number | Target numeric value |
+| `dur` | number | Duration in milliseconds |
+| `easing` | string | Easing curve name |
+
+`property` actions are how Puppeteer exports:
+
+- entity depth and visibility (`z`, `visible`)
+- matrix channels such as `matrix.mxx` / `matrix.tx`
+- entity blur via `effect.blur`
+- color matrix channels `color.m00` through `color.m34`
+- camera DOF channels `dof.focus`, `dof.strength`, `dof.maxBlur`
+- arbitrary registered or freeform numeric channels
+
+The parser and runtime treat these keys uniformly through the custom-property path, with built-in engine registries intercepting known keys.
+
+---
+
 ## Property Code Mapping
 
 The exporter maps Puppeteer's `PropertyType` enum to JES action types and property keys:
@@ -417,9 +477,23 @@ The exporter maps Puppeteer's `PropertyType` enum to JES action types and proper
 | `SCALE_X` | `scale` | `sx` | 1.0 |
 | `SCALE_Y` | `scale` | `sy` | 1.0 |
 | `ALPHA` | `fade` | `alpha` | 1.0 |
+| `Z` | `depth` | `value` | 0 |
+| `VISIBILITY` | `visible` | `value` | 1.0 |
+| `MATRIX_MXX` | `property` | `matrix.mxx` | 1.0 |
+| `MATRIX_MXY` | `property` | `matrix.mxy` | 0 |
+| `MATRIX_MYX` | `property` | `matrix.myx` | 0 |
+| `MATRIX_MYY` | `property` | `matrix.myy` | 1.0 |
+| `MATRIX_TX` | `property` | `matrix.tx` | 0 |
+| `MATRIX_TY` | `property` | `matrix.ty` | 0 |
+| `BLUR` | `property` | `effect.blur` | 0 |
 | `CAMERA_X` | `cameraMove` | `x` | 0 |
 | `CAMERA_Y` | `cameraMove` | `y` | 0 |
 | `CAMERA_ZOOM` | `cameraZoom` | `zoom` | 1.0 |
+| `CAMERA_DOF_FOCUS` | `property` | `dof.focus` | 0 |
+| `CAMERA_DOF_STRENGTH` | `property` | `dof.strength` | 0 |
+| `CAMERA_DOF_MAX_BLUR` | `property` | `dof.maxBlur` | 0 |
+
+The full color matrix and any custom numeric channels are exported as `property` actions keyed by their string property names rather than by `PropertyType` enum constants.
 
 ---
 
@@ -520,8 +594,9 @@ Puppeteer converts its `AnimationProject` to a `TimelineData` object via `toTime
 | Component | Description |
 |-----------|-------------|
 | `Track` | Per-entity keyframe data |
-| `Property` | X, Y, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, ALPHA, CAMERA_X, CAMERA_Y, CAMERA_ZOOM, Z |
+| `Property` | X, Y, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, ALPHA, CAMERA_X, CAMERA_Y, CAMERA_ZOOM, Z, VISIBILITY |
 | `Keyframe` | (timeMs, value, easing) tuples |
+| `customKeyframes` | Named numeric channels such as matrix, blur, color matrix, DOF, or freeform keys |
 | `AudioCue` | (timeMs, file, channel, volume, loop, fadeDuration) |
 
 ### TimelineRunner
@@ -530,9 +605,10 @@ The `TimelineRunner` applies `TimelineData` keyframes to entities via a `SceneAc
 
 1. Each frame, `update(deltaMs)` advances the internal clock
 2. For each track and property, the runner interpolates between the surrounding keyframes
-3. The interpolated value is written to the entity via `SceneAccessor.setProperty(entityName, property, value)`
+3. The interpolated value is written to the entity via `SceneAccessor.setProperty(entityName, property, value)` or `SceneAccessor.applyCustomProperty(target, key, value)`
 4. Audio cues are triggered when the playhead passes their timestamp
-5. When the timeline ends, the runner marks itself as finished and is removed from `VnState.activeTimelines`
+5. Event cues are delivered via `SceneAccessor.onEventCue(type, payload)`
+6. When the timeline ends, the runner marks itself as finished and is removed from `VnState.activeTimelines`
 
 ### SceneAccessor
 
@@ -542,6 +618,8 @@ The `SceneAccessor` interface decouples the runner from the scene implementation
 public interface SceneAccessor {
     double getProperty(String entityName, TimelineData.Property property);
     void setProperty(String entityName, TimelineData.Property property, double value);
+    void applyCustomProperty(String target, String propertyKey, double value);
+    void onEventCue(String type, Map<String, String> payload);
 }
 ```
 
