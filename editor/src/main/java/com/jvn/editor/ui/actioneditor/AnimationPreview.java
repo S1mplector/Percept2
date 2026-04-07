@@ -32,6 +32,9 @@ public class AnimationPreview extends VBox {
     private static final double TRANSFORM_EPSILON = 1e-6;
     private static final double VIEW_ZOOM_MIN = 0.35;
     private static final double VIEW_ZOOM_MAX = 6.0;
+    private static final double MATRIX_GIZMO_HANDLE_RADIUS_SQ = 100.0;
+    private static final double MATRIX_GIZMO_AXIS_MIN = 18.0;
+    private static final double MATRIX_GIZMO_AXIS_MAX = 72.0;
 
     public enum ScrollZoomMode {
         VIEW,
@@ -48,9 +51,17 @@ public class AnimationPreview extends VBox {
         final double scaleX;
         final double scaleY;
         final double rotationRad;
+        final double matrixMxx;
+        final double matrixMxy;
+        final double matrixMyx;
+        final double matrixMyy;
+        final double matrixTx;
+        final double matrixTy;
 
         EntityFrame(double x, double y, double w, double h, double originX, double originY,
-                    double scaleX, double scaleY, double rotationRad) {
+                    double scaleX, double scaleY, double rotationRad,
+                    double matrixMxx, double matrixMxy, double matrixMyx, double matrixMyy,
+                    double matrixTx, double matrixTy) {
             this.x = x;
             this.y = y;
             this.w = Math.max(TRANSFORM_EPSILON, w);
@@ -60,6 +71,30 @@ public class AnimationPreview extends VBox {
             this.scaleX = normalizeScale(scaleX);
             this.scaleY = normalizeScale(scaleY);
             this.rotationRad = rotationRad;
+            this.matrixMxx = matrixMxx;
+            this.matrixMxy = matrixMxy;
+            this.matrixMyx = matrixMyx;
+            this.matrixMyy = matrixMyy;
+            this.matrixTx = matrixTx;
+            this.matrixTy = matrixTy;
+        }
+    }
+
+    private enum MatrixHandleKind {
+        TRANSLATE,
+        X_AXIS,
+        Y_AXIS
+    }
+
+    private static final class MatrixDragState {
+        final EntityFrame frame;
+        final MatrixHandleKind handleKind;
+        final double axisLength;
+
+        MatrixDragState(EntityFrame frame, MatrixHandleKind handleKind, double axisLength) {
+            this.frame = frame;
+            this.handleKind = handleKind;
+            this.axisLength = Math.max(TRANSFORM_EPSILON, axisLength);
         }
     }
 
@@ -120,6 +155,7 @@ public class AnimationPreview extends VBox {
     private boolean draggingOrbitAnchor = false;
     private boolean draggingCameraFrame = false;
     private PivotDragState pivotDragState;
+    private MatrixDragState matrixDragState;
     private double dragEntityStartX, dragEntityStartY;
     private double dragCameraStartX, dragCameraStartY;
     private boolean pivotAxisLocked = false;
@@ -146,6 +182,7 @@ public class AnimationPreview extends VBox {
     private BiConsumer<String, double[]> onEntityMoveInteractionFinished;
     private BiConsumer<String, double[]> onEntityPivotChanged;
     private BiConsumer<String, Double> onEntityRotationChanged;
+    private BiConsumer<String, double[]> onEntityMatrixChanged;
     private BiConsumer<String, double[]> onOrbitAnchorChanged;
     private BiConsumer<String, String> onOrbitAnchorSourceChanged;
     private BiConsumer<String, double[]> onOrbitAnchorSourceOffsetChanged;
@@ -185,6 +222,9 @@ public class AnimationPreview extends VBox {
     private boolean runtimeCameraSelected = false;
     private boolean showSafeGuides = true;
     private boolean showTitleGuides = true;
+    private String matrixOverlayText = null;
+    private double matrixOverlayScreenX = 0.0;
+    private double matrixOverlayScreenY = 0.0;
 
     public void setProjectRoot(java.io.File root) {
         projectRoot = root;
@@ -263,6 +303,8 @@ public class AnimationPreview extends VBox {
             orbitAnchorSourceOffsets.clear();
         }
         pivotDragState = null;
+        matrixDragState = null;
+        matrixOverlayText = null;
         cancelMoveInteraction();
         render();
     }
@@ -337,6 +379,17 @@ public class AnimationPreview extends VBox {
             gc.fillRoundRect(ox - 4, oy - textH + 2, textW + 8, textH + 4, 4, 4);
             gc.setFill(Color.web("#f7d07a"));
             gc.fillText(pivotOverlayText, ox, oy);
+        }
+        if (matrixOverlayText != null) {
+            gc.setFont(javafx.scene.text.Font.font("Monospaced", 11));
+            double textW = matrixOverlayText.length() * 7.0;
+            double textH = 16.0;
+            double ox = Math.min(matrixOverlayScreenX, w - textW - 6);
+            double oy = Math.max(matrixOverlayScreenY, textH + 4);
+            gc.setFill(Color.web("#121820", 0.88));
+            gc.fillRoundRect(ox - 4, oy - textH + 2, textW + 8, textH + 4, 4, 4);
+            gc.setFill(Color.web("#8bd2ff"));
+            gc.fillText(matrixOverlayText, ox, oy);
         }
     }
 
@@ -540,7 +593,13 @@ public class AnimationPreview extends VBox {
             frame.originY,
             frame.scaleX,
             frame.scaleY,
-            frame.rotationRad
+            frame.rotationRad,
+            frame.matrixMxx,
+            frame.matrixMxy,
+            frame.matrixMyx,
+            frame.matrixMyy,
+            frame.matrixTx,
+            frame.matrixTy
         );
         double[] corners = computeWorldCorners(fullSourceFrame);
         for (int i = 0; i < 4; i++) {
@@ -806,6 +865,7 @@ public class AnimationPreview extends VBox {
     public void setOnEntityMoveInteractionFinished(BiConsumer<String, double[]> callback) { this.onEntityMoveInteractionFinished = callback; }
     public void setOnEntityPivotChanged(BiConsumer<String, double[]> callback) { this.onEntityPivotChanged = callback; }
     public void setOnEntityRotationChanged(BiConsumer<String, Double> callback) { this.onEntityRotationChanged = callback; }
+    public void setOnEntityMatrixChanged(BiConsumer<String, double[]> callback) { this.onEntityMatrixChanged = callback; }
     public void setOnOrbitAnchorChanged(BiConsumer<String, double[]> callback) { this.onOrbitAnchorChanged = callback; }
     public void setOnOrbitAnchorSourceChanged(BiConsumer<String, String> callback) { this.onOrbitAnchorSourceChanged = callback; }
     public void setOnOrbitAnchorSourceOffsetChanged(BiConsumer<String, double[]> callback) { this.onOrbitAnchorSourceOffsetChanged = callback; }
@@ -832,6 +892,8 @@ public class AnimationPreview extends VBox {
         selectedEntity = entity;
         selectedEntityName = entityName;
         pivotDragState = null;
+        matrixDragState = null;
+        matrixOverlayText = null;
         if (changed) render();
     }
 
@@ -840,6 +902,8 @@ public class AnimationPreview extends VBox {
         selectedEntity = null;
         selectedEntityName = null;
         pivotDragState = null;
+        matrixDragState = null;
+        matrixOverlayText = null;
         if (changed) render();
     }
 
@@ -1070,7 +1134,13 @@ public class AnimationPreview extends VBox {
             entity.getOriginY(),
             entity.getScaleX(),
             entity.getScaleY(),
-            Math.toRadians(entity.getRotationDeg())
+            Math.toRadians(entity.getRotationDeg()),
+            entity.getMatrixMxx(),
+            entity.getMatrixMxy(),
+            entity.getMatrixMyx(),
+            entity.getMatrixMyy(),
+            entity.getMatrixTx(),
+            entity.getMatrixTy()
         );
     }
 
@@ -1095,12 +1165,39 @@ public class AnimationPreview extends VBox {
     }
 
     private static void fillCorner(double[] out, int offset, EntityFrame frame, double localX, double localY) {
-        double sx = localX * frame.scaleX;
-        double sy = localY * frame.scaleY;
+        double mx = frame.matrixMxx * localX + frame.matrixMxy * localY + frame.matrixTx;
+        double my = frame.matrixMyx * localX + frame.matrixMyy * localY + frame.matrixTy;
+        double sx = mx * frame.scaleX;
+        double sy = my * frame.scaleY;
         double cos = Math.cos(frame.rotationRad);
         double sin = Math.sin(frame.rotationRad);
         out[offset] = frame.x + sx * cos - sy * sin;
         out[offset + 1] = frame.y + sx * sin + sy * cos;
+    }
+
+    private static double[] transformMatrixPointToWorld(EntityFrame frame, double localX, double localY) {
+        double[] out = new double[2];
+        fillCorner(out, 0, frame, localX, localY);
+        return out;
+    }
+
+    private static double[] inverseStandardTransform(EntityFrame frame, double worldX, double worldY) {
+        double dx = worldX - frame.x;
+        double dy = worldY - frame.y;
+        double cos = Math.cos(frame.rotationRad);
+        double sin = Math.sin(frame.rotationRad);
+        double unrotX = cos * dx + sin * dy;
+        double unrotY = -sin * dx + cos * dy;
+        return new double[] {
+            unrotX / frame.scaleX,
+            unrotY / frame.scaleY
+        };
+    }
+
+    private static double resolveMatrixAxisLength(EntityFrame frame) {
+        if (frame == null) return MATRIX_GIZMO_AXIS_MIN;
+        double basis = Math.min(Math.max(frame.w, TRANSFORM_EPSILON), Math.max(frame.h, TRANSFORM_EPSILON));
+        return clamp(basis * 0.32, MATRIX_GIZMO_AXIS_MIN, MATRIX_GIZMO_AXIS_MAX);
     }
 
     private static boolean containsPointInQuad(double[] corners, double x, double y) {
@@ -1257,6 +1354,73 @@ public class AnimationPreview extends VBox {
         return dx * dx + dy * dy <= 100;
     }
 
+    private boolean shouldAllowMatrixTranslateHandle(boolean altDown) {
+        return altDown || (selectedEntity != null && selectedEntity.hasSupplementalTransform());
+    }
+
+    private boolean isNearMatrixHandle(double screenX, double screenY, MatrixHandleKind handleKind) {
+        if (selectedEntity == null || handleKind == null) return false;
+        EntityFrame frame = describeEntity(selectedEntity);
+        if (frame == null) return false;
+        double axisLength = resolveMatrixAxisLength(frame);
+        double[] point = switch (handleKind) {
+            case TRANSLATE -> transformMatrixPointToWorld(frame, 0.0, 0.0);
+            case X_AXIS -> transformMatrixPointToWorld(frame, axisLength, 0.0);
+            case Y_AXIS -> transformMatrixPointToWorld(frame, 0.0, axisLength);
+        };
+        double dx = screenX - worldToScreenX(point[0]);
+        double dy = screenY - worldToScreenY(point[1]);
+        return dx * dx + dy * dy <= MATRIX_GIZMO_HANDLE_RADIUS_SQ;
+    }
+
+    private void beginMatrixInteraction(MatrixHandleKind handleKind) {
+        if (selectedEntity == null || selectedEntityName == null || handleKind == null) return;
+        EntityFrame frame = describeEntity(selectedEntity);
+        if (frame == null) return;
+        matrixDragState = new MatrixDragState(frame, handleKind, resolveMatrixAxisLength(frame));
+        beginMoveInteraction(selectedEntityName, selectedEntity);
+    }
+
+    private void applyMatrixDrag(double screenX, double screenY) {
+        if (matrixDragState == null || selectedEntity == null || selectedEntityName == null) return;
+        EntityFrame frame = matrixDragState.frame;
+        double[] world = screenToWorld(screenX, screenY);
+        double[] local = inverseStandardTransform(frame, world[0], world[1]);
+
+        double mxx = frame.matrixMxx;
+        double mxy = frame.matrixMxy;
+        double myx = frame.matrixMyx;
+        double myy = frame.matrixMyy;
+        double tx = frame.matrixTx;
+        double ty = frame.matrixTy;
+
+        switch (matrixDragState.handleKind) {
+            case TRANSLATE -> {
+                tx = local[0];
+                ty = local[1];
+                matrixOverlayText = String.format("Matrix T: (%.2f, %.2f)", tx, ty);
+            }
+            case X_AXIS -> {
+                mxx = (local[0] - tx) / matrixDragState.axisLength;
+                myx = (local[1] - ty) / matrixDragState.axisLength;
+                matrixOverlayText = String.format("Matrix X: (%.2f, %.2f)", mxx, myx);
+            }
+            case Y_AXIS -> {
+                mxy = (local[0] - tx) / matrixDragState.axisLength;
+                myy = (local[1] - ty) / matrixDragState.axisLength;
+                matrixOverlayText = String.format("Matrix Y: (%.2f, %.2f)", mxy, myy);
+            }
+        }
+
+        matrixOverlayScreenX = screenX + 14.0;
+        matrixOverlayScreenY = screenY - 6.0;
+        selectedEntity.setSupplementalTransform(mxx, mxy, myx, myy, tx, ty);
+        if (onEntityMatrixChanged != null) {
+            onEntityMatrixChanged.accept(selectedEntityName, new double[]{mxx, mxy, myx, myy, tx, ty});
+        }
+        render();
+    }
+
     private void setupMouseControls() {
         canvas.setOnDragOver(e -> {
             PuppeteerAssetTransfer.Payload payload = PuppeteerAssetTransfer.fromDragboard(e.getDragboard());
@@ -1326,6 +1490,8 @@ public class AnimationPreview extends VBox {
                     draggingPivot = false;
                     draggingOrbitAnchor = false;
                     pivotDragState = null;
+                    matrixDragState = null;
+                    matrixOverlayText = null;
                     cancelMoveInteraction();
                     render();
                     return;
@@ -1375,6 +1541,21 @@ public class AnimationPreview extends VBox {
                     return;
                 }
 
+                if (selectedEntity != null && isNearMatrixHandle(e.getX(), e.getY(), MatrixHandleKind.X_AXIS)) {
+                    beginMatrixInteraction(MatrixHandleKind.X_AXIS);
+                    return;
+                }
+                if (selectedEntity != null && isNearMatrixHandle(e.getX(), e.getY(), MatrixHandleKind.Y_AXIS)) {
+                    beginMatrixInteraction(MatrixHandleKind.Y_AXIS);
+                    return;
+                }
+                if (selectedEntity != null
+                    && shouldAllowMatrixTranslateHandle(e.isAltDown())
+                    && isNearMatrixHandle(e.getX(), e.getY(), MatrixHandleKind.TRANSLATE)) {
+                    beginMatrixInteraction(MatrixHandleKind.TRANSLATE);
+                    return;
+                }
+
                 if (selectedEntity != null && supportsPivotEntity(selectedEntity) && isNearPivotHandle(e.getX(), e.getY())) {
                     pivotDragState = buildPivotDragState(selectedEntity);
                     draggingPivot = true;
@@ -1412,6 +1593,8 @@ public class AnimationPreview extends VBox {
                     draggingEntity = false;
                     draggingOrbit = false;
                     pivotDragState = null;
+                    matrixDragState = null;
+                    matrixOverlayText = null;
                     cancelMoveInteraction();
                 }
                 render();
@@ -1473,6 +1656,8 @@ public class AnimationPreview extends VBox {
                     onEntityMoved.accept(selectedEntityName, new double[]{nextX, nextY});
                 }
                 render();
+            } else if (matrixDragState != null && selectedEntity != null && selectedEntityName != null) {
+                applyMatrixDrag(e.getX(), e.getY());
             } else if (draggingPivot && selectedEntity != null) {
                 if (pivotDragState == null) {
                     pivotDragState = buildPivotDragState(selectedEntity);
@@ -1558,9 +1743,14 @@ public class AnimationPreview extends VBox {
             draggingOrbit = false;
             draggingOrbitAnchor = false;
             pivotDragState = null;
+            matrixDragState = null;
             pivotAxisLocked = false;
             if (pivotOverlayText != null) {
                 pivotOverlayText = null;
+                render();
+            }
+            if (matrixOverlayText != null) {
+                matrixOverlayText = null;
                 render();
             }
         });
@@ -1629,6 +1819,7 @@ public class AnimationPreview extends VBox {
         if (supportsPivotEntity(entity)) {
             drawPivotHandleWorld(entity, z);
         }
+        drawMatrixGizmoWorld(entity, z);
         if (selectedEntityName != null && hasOrbitAnchor(selectedEntityName)) {
             drawOrbitAnchorWorld(selectedEntityName, entity, z);
         }
@@ -1639,6 +1830,40 @@ public class AnimationPreview extends VBox {
             gc.fillText(selectedEntityName, minWx, minWy - (6.0 / z));
         }
         gc.restore();
+    }
+
+    private void drawMatrixGizmoWorld(Entity2D entity, double zoom) {
+        EntityFrame frame = describeEntity(entity);
+        if (frame == null) return;
+        double z = Math.max(0.0001, zoom);
+        double axisLength = resolveMatrixAxisLength(frame);
+        double[] origin = transformMatrixPointToWorld(frame, 0.0, 0.0);
+        double[] xHandle = transformMatrixPointToWorld(frame, axisLength, 0.0);
+        double[] yHandle = transformMatrixPointToWorld(frame, 0.0, axisLength);
+
+        gc.setLineWidth(1.35 / z);
+        gc.setStroke(Color.web("#6ed0ff", 0.85));
+        gc.strokeLine(origin[0], origin[1], xHandle[0], xHandle[1]);
+        gc.setStroke(Color.web("#8fe388", 0.85));
+        gc.strokeLine(origin[0], origin[1], yHandle[0], yHandle[1]);
+
+        double originRadius = 3.5 / z;
+        gc.setFill(Color.web("#6ed0ff", 0.95));
+        gc.fillOval(origin[0] - originRadius, origin[1] - originRadius, originRadius * 2.0, originRadius * 2.0);
+
+        double handleRadius = 3.0 / z;
+        gc.setFill(Color.web("#ff9f7a", 0.95));
+        gc.fillOval(xHandle[0] - handleRadius, xHandle[1] - handleRadius, handleRadius * 2.0, handleRadius * 2.0);
+        gc.setFill(Color.web("#9ef0a5", 0.95));
+        gc.fillOval(yHandle[0] - handleRadius, yHandle[1] - handleRadius, handleRadius * 2.0, handleRadius * 2.0);
+
+        gc.setFill(Color.web("#6ed0ff", 0.75));
+        gc.setFont(javafx.scene.text.Font.font(8.0 / z));
+        gc.fillText("M", origin[0] + (5.0 / z), origin[1] - (5.0 / z));
+        gc.setFill(Color.web("#ff9f7a", 0.75));
+        gc.fillText("X", xHandle[0] + (4.0 / z), xHandle[1] - (4.0 / z));
+        gc.setFill(Color.web("#9ef0a5", 0.75));
+        gc.fillText("Y", yHandle[0] + (4.0 / z), yHandle[1] - (4.0 / z));
     }
 
     private boolean supportsPivotEntity(Entity2D entity) {

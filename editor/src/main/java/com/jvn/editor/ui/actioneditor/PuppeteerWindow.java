@@ -219,7 +219,13 @@ public class PuppeteerWindow extends Stage {
         PropertyType.Y,
         PropertyType.PIVOT_X,
         PropertyType.PIVOT_Y,
-        PropertyType.ROTATION
+        PropertyType.ROTATION,
+        PropertyType.MATRIX_MXX,
+        PropertyType.MATRIX_MXY,
+        PropertyType.MATRIX_MYX,
+        PropertyType.MATRIX_MYY,
+        PropertyType.MATRIX_TX,
+        PropertyType.MATRIX_TY
     };
     private static final PropertyType[] CAMERA_INTERACTION_PROPERTIES = {
         PropertyType.CAMERA_X,
@@ -568,6 +574,31 @@ public class PuppeteerWindow extends Stage {
                 time = activeTransformInteraction.timeMs();
             }
             track.upsertKeyframe(PropertyType.ROTATION, new Keyframe(time, rotationDeg));
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
+        });
+
+        animationPreview.setOnEntityMatrixChanged((name, matrixValues) -> {
+            if (name == null || name.isBlank() || matrixValues == null || matrixValues.length < 6) return;
+            EntityTrack track = this.project.getOrCreateTrack(name);
+            double time = this.project.getPlayheadMs();
+            if (activeTransformInteraction != null && name.equals(activeTransformInteraction.entityName())) {
+                time = activeTransformInteraction.timeMs();
+            }
+            PropertyType[] properties = {
+                PropertyType.MATRIX_MXX,
+                PropertyType.MATRIX_MXY,
+                PropertyType.MATRIX_MYX,
+                PropertyType.MATRIX_MYY,
+                PropertyType.MATRIX_TX,
+                PropertyType.MATRIX_TY
+            };
+            for (int i = 0; i < properties.length; i++) {
+                double value = matrixValues[i];
+                if (!Double.isFinite(value)) continue;
+                track.upsertKeyframe(properties[i], new Keyframe(time, value));
+                track.sortKeyframes(properties[i]);
+            }
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
