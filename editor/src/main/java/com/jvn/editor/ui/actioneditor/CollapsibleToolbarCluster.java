@@ -52,8 +52,12 @@ public class CollapsibleToolbarCluster extends VBox {
         "-fx-background-color: #121212; -fx-border-color: #2f2f2f; -fx-border-radius: 8; " +
         "-fx-background-radius: 8;";
     private static final String STYLE_CONTENT_COMPACT =
-        "-fx-background-color: #111111; -fx-border-color: #2a2a2a; -fx-border-radius: 7; " +
-        "-fx-background-radius: 7;";
+        "-fx-background-color: transparent; -fx-border-color: transparent; -fx-border-radius: 0; " +
+        "-fx-background-radius: 0;";
+    private static final String STYLE_CLUSTER_COMPACT =
+        "-fx-background-color: linear-gradient(to bottom, #181818, #141414); " +
+        "-fx-border-color: #2f2f2f; -fx-border-radius: 8; -fx-background-radius: 8; " +
+        "-fx-padding: 4 6 5 6;";
 
     private final String clusterKey;
     private final Button headerButton;
@@ -235,10 +239,13 @@ public class CollapsibleToolbarCluster extends VBox {
         boolean compact = layoutMode == AnimatedToolbarPane.LayoutMode.COMPACT;
         stateLabel.setText(isPinned() ? "pinned" : (isExpanded() ? "hide" : "show"));
         if (compact) {
-            headerButton.setStyle(STYLE_HEADER_COMPACT);
+            setStyle(STYLE_CLUSTER_COMPACT);
+            headerButton.setStyle(STYLE_HEADER_COMPACT + "-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0;");
         } else if (isPinned()) {
+            setStyle("");
             headerButton.setStyle(STYLE_HEADER_PINNED);
         } else {
+            setStyle("");
             headerButton.setStyle(isExpanded() ? STYLE_HEADER_EXPANDED : STYLE_HEADER_COLLAPSED);
         }
         pinButton.setStyle(isPinned() ? STYLE_PIN_ON : STYLE_PIN_OFF);
@@ -251,15 +258,17 @@ public class CollapsibleToolbarCluster extends VBox {
         stateLabel.setVisible(!compact);
         pinButton.setManaged(!compact);
         pinButton.setVisible(!compact);
-        setSpacing(compact ? 0.0 : 4.0);
-        headerGraphic.setSpacing(compact ? 2.0 : 6.0);
-        headerRow.setSpacing(compact ? 2.0 : 6.0);
+        headerButton.setMouseTransparent(compact);
+        headerButton.setDisable(false);
+        setSpacing(compact ? 1.0 : 4.0);
+        headerGraphic.setSpacing(compact ? 0.0 : 6.0);
+        headerRow.setSpacing(compact ? 0.0 : 6.0);
         titleLabel.setStyle(compact
-            ? "-fx-text-fill: #dddddd; -fx-font-size: 8px; -fx-font-weight: bold;"
+            ? "-fx-text-fill: #9f9f9f; -fx-font-size: 9px; -fx-font-weight: bold; -fx-letter-spacing: 0.4px;"
             : "-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
-        headerButton.setMinHeight(compact ? 16.0 : 28.0);
-        headerButton.setPrefHeight(compact ? 16.0 : 28.0);
-        contentWrapper.setPadding(compact ? new Insets(2, 4, 2, 4) : new Insets(8, 10, 8, 10));
+        headerButton.setMinHeight(compact ? 12.0 : 28.0);
+        headerButton.setPrefHeight(compact ? 12.0 : 28.0);
+        contentWrapper.setPadding(compact ? new Insets(1, 0, 0, 0) : new Insets(8, 10, 8, 10));
         contentWrapper.setStyle(compact ? STYLE_CONTENT_COMPACT : STYLE_CONTENT);
         if (pinButton.isSelected() != isPinned()) {
             pinButton.setSelected(isPinned());

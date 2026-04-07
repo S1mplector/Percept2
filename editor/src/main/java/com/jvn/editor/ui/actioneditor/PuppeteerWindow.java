@@ -934,7 +934,7 @@ public class PuppeteerWindow extends Stage {
         CollapsibleToolbarCluster registerCluster = registerToolbarCluster("register", "Register", nameBox);
         CollapsibleToolbarCluster helpCluster = registerToolbarCluster("help", "Help", btnHelp);
 
-        toolbarPane = new AnimatedToolbarPane(10, 8);
+        toolbarPane = new AnimatedToolbarPane(8, 5);
         toolbarPane.addCluster(transportCluster);
         toolbarPane.addCluster(durationCluster);
         toolbarPane.addCluster(presetsCluster);
@@ -982,6 +982,8 @@ public class PuppeteerWindow extends Stage {
         toolbarShell.setFillWidth(true);
         toolbarShell.setMinHeight(Region.USE_PREF_SIZE);
         toolbarShell.setMaxWidth(Double.MAX_VALUE);
+        setToolbarClustersExpanded(true);
+        setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.COMPACT);
 
         assetPicker = new AssetPickerPanel();
         assetPicker.setOnAddToScene(this::addAssetToScene);
