@@ -565,8 +565,8 @@ public class EntitySelector extends VBox {
             StackPane.setAlignment(row, Pos.CENTER_LEFT);
             StackPane.setAlignment(lassoCanvas, Pos.CENTER_LEFT);
 
-            lassoTimeline = new Timeline(new KeyFrame(javafx.util.Duration.millis(70), e -> {
-                lassoDashOffset -= 1.6;
+            lassoTimeline = new Timeline(new KeyFrame(javafx.util.Duration.millis(40), e -> {
+                lassoDashOffset -= 2.2;
                 drawSelectionLasso();
             }));
             lassoTimeline.setCycleCount(Animation.INDEFINITE);
