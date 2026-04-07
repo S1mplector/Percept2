@@ -360,7 +360,7 @@ public class PuppeteerWindow extends Stage {
                 animationPreview.clearSelection();
             } else if (isGroup) {
                 entitySelector.selectGroup(name);
-                animationPreview.clearSelection();
+                animationPreview.selectGroup(name);
             } else {
                 entitySelector.selectEntity(name);
                 animationPreview.selectEntity(name);
@@ -482,7 +482,8 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setOnEntityMoved((name, pos) -> {
             if (name == null || pos == null || pos.length < 2) return;
             if (!Double.isFinite(pos[0]) || !Double.isFinite(pos[1])) return;
-            EntityTrack track = this.project.getOrCreateTrack(name);
+            EntityTrack track = resolveAnimatedTrack(name, true);
+            if (track == null) return;
             double time = this.project.getPlayheadMs();
             boolean liveDragSource = false;
             if (activeTransformInteraction != null && name.equals(activeTransformInteraction.entityName())) {
@@ -2589,7 +2590,8 @@ public class PuppeteerWindow extends Stage {
 
         assetImporterPanel = new AssetPickerPanel();
         assetImporterPanel.setImportEnabled(true);
-        assetImporterPanel.setPlacementActionsVisible(false);
+        assetImporterPanel.setPlacementActionsVisible(true);
+        assetImporterPanel.setOnAddToScene(this::addImporterEntryToScene);
         assetImporterPanel.setProjectRoot(projectRoot);
         assetImporterPanel.setScriptTargetFile(scriptTargetFile);
         assetImporterPanel.setMinWidth(0);
@@ -2611,6 +2613,15 @@ public class PuppeteerWindow extends Stage {
 
         assetImporterWindow = window;
         window.show();
+    }
+
+    private void addImporterEntryToScene(AssetPickerPanel.AssetEntry entry, PuppeteerAssetPlacementRole role) {
+        if (entry == null) return;
+        if (entry.isPresetEntry()) {
+            addPresetToScene(entry, role);
+        } else {
+            addAssetToScene(entry.relativePath, entry.baseName, role);
+        }
     }
 
     private void addAssetToScene(String relativePath, String suggestedName, PuppeteerAssetPlacementRole role) {
@@ -2647,6 +2658,80 @@ public class PuppeteerWindow extends Stage {
         animationPreview.selectEntity(entityName);
         updatePreview();
         refreshExportPreviewAndMarkDirty();
+    }
+
+    private void addPresetToScene(AssetPickerPanel.AssetEntry presetEntry, PuppeteerAssetPlacementRole role) {
+        if (presetEntry == null || !presetEntry.isPresetEntry() || presetEntry.presetLayers.isEmpty()) {
+            return;
+        }
+        if (scene == null) {
+            setScene(new JesScene2D());
+        }
+        if (scene == null) return;
+
+        PuppeteerAssetPlacementRole resolvedRole = role != null ? role : PuppeteerAssetPlacementRole.CHARACTER;
+        String groupBase = buildPresetGroupBaseName(presetEntry);
+        String groupName = resolveUniqueGroupName(groupBase);
+
+        double[] compositeSize = resolvePresetNaturalSize(presetEntry);
+        PuppeteerAssetPlacement.Placement placement = PuppeteerAssetPlacement.plan(
+            resolvedRole,
+            animationPreview.getViewportDimensions(),
+            compositeSize[0],
+            compositeSize[1]
+        );
+
+        double naturalWidth = compositeSize[0] > 1.0 ? compositeSize[0] : placement.width();
+        double naturalHeight = compositeSize[1] > 1.0 ? compositeSize[1] : placement.height();
+        double scaleX = naturalWidth > 0.0 ? placement.width() / naturalWidth : 1.0;
+        double scaleY = naturalHeight > 0.0 ? placement.height() / naturalHeight : 1.0;
+        double scale = Double.isFinite(scaleX) && Double.isFinite(scaleY) ? Math.min(scaleX, scaleY) : 1.0;
+        if (!Double.isFinite(scale) || scale <= 0.0) {
+            scale = 1.0;
+        }
+
+        EntityGroup group = project.getOrCreateGroup(groupName);
+        group.setLayerOrder((int) Math.round(placement.z()));
+
+        int layerIndex = 0;
+        for (AssetPickerPanel.AssetEntry.PresetLayer layer : presetEntry.presetLayers) {
+            if (layer == null || layer.relativePath() == null || layer.relativePath().isBlank()) {
+                continue;
+            }
+            String layerBase = buildPresetLayerEntityBaseName(groupBase, layer);
+            String entityName = resolveUniqueEntityName(layerBase, resolvedRole);
+            double[] layerSize = resolveAssetNaturalSize(layer.relativePath());
+            double layerWidth = layerSize[0] > 1.0 ? layerSize[0] * scale : placement.width();
+            double layerHeight = layerSize[1] > 1.0 ? layerSize[1] * scale : placement.height();
+
+            com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(layer.relativePath(), layerWidth, layerHeight);
+            sprite.setOrigin(placement.originX(), placement.originY());
+            sprite.setPosition(placement.x(), placement.y());
+            sprite.setZ(placement.z() + layerIndex);
+
+            scene.add(sprite);
+            scene.registerEntity(entityName, sprite);
+
+            EntityTrack track = project.getOrCreateTrack(entityName);
+            track.setLayerOrder(layerIndex);
+            project.addEntityToGroup(entityName, groupName);
+            layerIndex++;
+        }
+
+        if (layerIndex == 0) {
+            project.removeGroup(groupName);
+            return;
+        }
+
+        captureProjectSnapshotBaseline();
+        entitySelector.refresh(project);
+        entitySelector.selectGroup(groupName);
+        timelinePanel.refresh();
+        timelinePanel.setSelectedTarget(groupName, true);
+        animationPreview.clearSelection();
+        updatePreview();
+        refreshExportPreviewAndMarkDirty();
+
     }
 
     private void deleteSceneSelection(String name, boolean group) {
@@ -2710,6 +2795,71 @@ public class PuppeteerWindow extends Stage {
             entityName = base + "_" + suffix++;
         }
         return entityName;
+    }
+
+    private EntityTrack resolveAnimatedTrack(String name, boolean createIfMissing) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        EntityGroup group = project.getGroup(name);
+        if (group != null) {
+            return group.getGroupTrack();
+        }
+        return createIfMissing ? project.getOrCreateTrack(name) : project.getTrack(name);
+    }
+
+    private String resolveUniqueGroupName(String suggestedName) {
+        String base = suggestedName == null ? "" : suggestedName.trim();
+        if (base.isBlank()) {
+            base = "CharacterGroup";
+        }
+        String groupName = base;
+        int suffix = 2;
+        while (project.getGroup(groupName) != null) {
+            groupName = base + "_" + suffix++;
+        }
+        return groupName;
+    }
+
+    private String buildPresetGroupBaseName(AssetPickerPanel.AssetEntry presetEntry) {
+        if (presetEntry == null) {
+            return "CharacterPreset";
+        }
+        String character = presetEntry.presetCharacterId != null && !presetEntry.presetCharacterId.isBlank()
+            ? presetEntry.presetCharacterId
+            : "character";
+        String preset = presetEntry.presetId != null && !presetEntry.presetId.isBlank()
+            ? presetEntry.presetId
+            : "preset";
+        return character + "_" + preset;
+    }
+
+    private String buildPresetLayerEntityBaseName(String groupBase, AssetPickerPanel.AssetEntry.PresetLayer layer) {
+        String suffix = layer != null && layer.layerId() != null && !layer.layerId().isBlank()
+            ? layer.layerId()
+            : (layer != null && layer.displayName() != null && !layer.displayName().isBlank() ? layer.displayName() : "layer");
+        return (groupBase == null || groupBase.isBlank() ? "character" : groupBase) + "_" + suffix;
+    }
+
+    private double[] resolvePresetNaturalSize(AssetPickerPanel.AssetEntry presetEntry) {
+        double width = -1.0;
+        double height = -1.0;
+        if (presetEntry == null || presetEntry.presetLayers.isEmpty()) {
+            return new double[]{width, height};
+        }
+        for (AssetPickerPanel.AssetEntry.PresetLayer layer : presetEntry.presetLayers) {
+            if (layer == null || layer.relativePath() == null || layer.relativePath().isBlank()) {
+                continue;
+            }
+            double[] size = resolveAssetNaturalSize(layer.relativePath());
+            if (size[0] > width) {
+                width = size[0];
+            }
+            if (size[1] > height) {
+                height = size[1];
+            }
+        }
+        return new double[]{width, height};
     }
 
     private double[] resolveAssetNaturalSize(String relativePath) {
@@ -5075,10 +5225,10 @@ public class PuppeteerWindow extends Stage {
         Set<String> names = collectProjectEntityNames();
         if (primaryEntityName != null && !primaryEntityName.isBlank()) {
             names.add(primaryEntityName);
-            project.getOrCreateTrack(primaryEntityName);
+            resolveAnimatedTrack(primaryEntityName, true);
         }
         for (String entityName : names) {
-            EntityTrack track = project.getTrack(entityName);
+            EntityTrack track = resolveAnimatedTrack(entityName, false);
             if (track == null) continue;
             var entity = scene != null ? scene.find(track.getEntityName()) : null;
             snapshots.put(entityName, captureTrackSnapshots(track, timeMs, TRANSFORM_INTERACTION_PROPERTIES, entity));
@@ -5117,7 +5267,8 @@ public class PuppeteerWindow extends Stage {
         names.addAll(beforeStates.keySet());
         names.addAll(afterStates.keySet());
         for (String entityName : names) {
-            EntityTrack track = project.getOrCreateTrack(entityName);
+            EntityTrack track = resolveAnimatedTrack(entityName, true);
+            if (track == null) continue;
             Map<PropertyType, PuppeteerCommand.PropertySnapshot> before = beforeStates.getOrDefault(entityName, Map.of());
             Map<PropertyType, PuppeteerCommand.PropertySnapshot> after = afterStates.getOrDefault(entityName, Map.of());
             Map<PropertyType, PuppeteerCommand.PropertySnapshot> changedBefore = new java.util.EnumMap<>(PropertyType.class);
@@ -5149,7 +5300,8 @@ public class PuppeteerWindow extends Stage {
         Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> snapshots
     ) {
         for (Map.Entry<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> entry : snapshots.entrySet()) {
-            EntityTrack track = project.getOrCreateTrack(entry.getKey());
+            EntityTrack track = resolveAnimatedTrack(entry.getKey(), true);
+            if (track == null) continue;
             restoreTrackSnapshots(track, timeMs, entry.getValue());
         }
         updatePreview();

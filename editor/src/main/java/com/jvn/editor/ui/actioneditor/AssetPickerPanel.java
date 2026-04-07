@@ -30,8 +30,11 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.WritableImage;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -42,6 +45,8 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.SnapshotParameters;
 import javafx.stage.FileChooser;
 
 /**
@@ -160,7 +165,7 @@ public class AssetPickerPanel extends VBox {
 
     @FunctionalInterface
     interface AssetPlacementHandler {
-        void accept(String relativePath, String suggestedName, PuppeteerAssetPlacementRole role);
+        void accept(AssetEntry entry, PuppeteerAssetPlacementRole role);
     }
 
     private AssetPlacementHandler onAddToScene;
@@ -234,13 +239,19 @@ public class AssetPickerPanel extends VBox {
         });
         listView.setOnMouseClicked(event -> {
             if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
-                addSelectedToScene(PuppeteerAssetPlacementRole.PROP);
+                AssetEntry selected = listView.getSelectionModel().getSelectedItem();
+                addSelectedToScene(selected != null && selected.isPresetEntry()
+                    ? PuppeteerAssetPlacementRole.CHARACTER
+                    : PuppeteerAssetPlacementRole.PROP);
                 event.consume();
             }
         });
         listView.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ENTER) {
-                addSelectedToScene(PuppeteerAssetPlacementRole.PROP);
+                AssetEntry selected = listView.getSelectionModel().getSelectedItem();
+                addSelectedToScene(selected != null && selected.isPresetEntry()
+                    ? PuppeteerAssetPlacementRole.CHARACTER
+                    : PuppeteerAssetPlacementRole.PROP);
                 event.consume();
             }
         });
@@ -389,7 +400,7 @@ public class AssetPickerPanel extends VBox {
             byRelativePath.put(relativePath, entry);
         }
 
-        enrichAssetMetadata(byRelativePath);
+        allAssets.addAll(enrichAssetMetadata(byRelativePath));
         for (AssetEntry entry : allAssets) {
             entry.rebuildSearchIndex();
         }
@@ -487,12 +498,11 @@ public class AssetPickerPanel extends VBox {
         boolean hasProject = projectRoot != null && projectRoot.isDirectory();
         btnImport.setDisable(!importEnabled || !hasProject);
         btnImportPreset.setDisable(!importEnabled || !hasProject);
-        boolean disablePlacement = !placementActionsVisible
-            || onAddToScene == null
-            || listView.getSelectionModel().getSelectedItem() == null;
-        btnMakeBackground.setDisable(disablePlacement);
-        btnMakeCharacter.setDisable(disablePlacement);
-        btnMakeProp.setDisable(disablePlacement);
+        AssetEntry selected = listView.getSelectionModel().getSelectedItem();
+        boolean allowPlacement = placementActionsVisible && onAddToScene != null && selected != null && selected.isSceneInstantiable();
+        btnMakeBackground.setDisable(!allowPlacement || !selected.supportsPlacementRole(PuppeteerAssetPlacementRole.BACKGROUND));
+        btnMakeCharacter.setDisable(!allowPlacement || !selected.supportsPlacementRole(PuppeteerAssetPlacementRole.CHARACTER));
+        btnMakeProp.setDisable(!allowPlacement || !selected.supportsPlacementRole(PuppeteerAssetPlacementRole.PROP));
     }
 
     private void addSelectedToScene(PuppeteerAssetPlacementRole role) {
@@ -501,16 +511,22 @@ public class AssetPickerPanel extends VBox {
             lblStatus.setText("Select an image first");
             return;
         }
+        PuppeteerAssetPlacementRole resolvedRole = role != null ? role : PuppeteerAssetPlacementRole.PROP;
+        if (!selected.isSceneInstantiable() || !selected.supportsPlacementRole(resolvedRole)) {
+            lblStatus.setText(selected.isPresetEntry()
+                ? "This preset can be placed as a layered character or prop, not as a background."
+                : "This selection cannot be added to the scene with that role.");
+            return;
+        }
         if (onAddToScene != null) {
-            onAddToScene.accept(selected.relativePath, selected.baseName, role != null ? role : PuppeteerAssetPlacementRole.PROP);
-            PuppeteerAssetPlacementRole resolvedRole = role != null ? role : PuppeteerAssetPlacementRole.PROP;
+            onAddToScene.accept(selected, resolvedRole);
             lblStatus.setText("Added " + resolvedRole.displayName().toLowerCase(Locale.ROOT) + ": " + selected.baseName);
         }
     }
 
     private void startSelectedAssetDrag() {
         AssetEntry selected = listView.getSelectionModel().getSelectedItem();
-        if (selected == null) return;
+        if (selected == null || !selected.isPlaceable()) return;
         String encoded = PuppeteerAssetTransfer.encode(selected.relativePath, selected.baseName);
         if (encoded.isBlank()) return;
         var dragboard = listView.startDragAndDrop(TransferMode.COPY);
@@ -1084,7 +1100,7 @@ public class AssetPickerPanel extends VBox {
             previewUsageLabel.setText("Search by character, expression, layer, preset, or path.");
             return;
         }
-        previewImageView.setImage(loadPreviewImage(entry.file));
+        previewImageView.setImage(entry.previewImage());
         previewTitleLabel.setText(entry.baseName);
         previewPathLabel.setText(entry.relativePath);
         previewMetaLabel.setText(entry.describeMeta());
@@ -1092,13 +1108,15 @@ public class AssetPickerPanel extends VBox {
         previewUsageLabel.setText(entry.describeUsage());
     }
 
-    private void enrichAssetMetadata(Map<String, AssetEntry> entriesByRelativePath) {
+    private List<AssetEntry> enrichAssetMetadata(Map<String, AssetEntry> entriesByRelativePath) {
+        List<AssetEntry> presetEntries = new ArrayList<>();
         if (projectRoot == null || !projectRoot.isDirectory() || entriesByRelativePath == null || entriesByRelativePath.isEmpty()) {
-            return;
+            return presetEntries;
         }
         List<File> scripts = new ArrayList<>();
         collectScripts(projectRoot, scripts, 0);
         Path projectRootPath = projectRoot.toPath().toAbsolutePath().normalize();
+        Map<String, AssetEntry> presetEntriesByRef = new LinkedHashMap<>();
 
         for (File script : scripts) {
             Path scriptPath = script.toPath().toAbsolutePath().normalize();
@@ -1152,10 +1170,13 @@ public class AssetPickerPanel extends VBox {
                     if (!resolvedPaths.isEmpty()) {
                         presetPaths.computeIfAbsent(characterId, ignored -> new LinkedHashMap<>()).put(presetId, resolvedPaths);
                         annotateCharPreset(entriesByRelativePath, resolvedPaths, characterId, presetId, scriptRelativePath);
+                        registerPresetEntry(presetEntriesByRef, entriesByRelativePath, resolvedPaths, characterId, presetId, scriptRelativePath);
                     }
                 }
             }
         }
+        presetEntries.addAll(presetEntriesByRef.values());
+        return presetEntries;
     }
 
     private void annotateBackground(
@@ -1209,6 +1230,53 @@ public class AssetPickerPanel extends VBox {
             if (entry == null) continue;
             entry.presetRefs.add(ref);
             entry.sourceScripts.add(scriptRelativePath);
+        }
+    }
+
+    private void registerPresetEntry(
+        Map<String, AssetEntry> presetEntriesByRef,
+        Map<String, AssetEntry> entriesByRelativePath,
+        List<String> resolvedPaths,
+        String characterId,
+        String presetId,
+        String scriptRelativePath
+    ) {
+        if (resolvedPaths == null || resolvedPaths.isEmpty()) {
+            return;
+        }
+        String ref = characterId + "/" + presetId;
+        AssetEntry presetEntry = presetEntriesByRef.computeIfAbsent(ref, ignored ->
+            AssetEntry.presetEntry(characterId, presetId)
+        );
+        presetEntry.presetRefs.add(ref);
+        presetEntry.sourceScripts.add(scriptRelativePath);
+        for (String relativePath : resolvedPaths) {
+            if (relativePath == null || relativePath.isBlank()) {
+                continue;
+            }
+            boolean newLayer = presetEntry.presetLayerPaths.add(relativePath);
+            AssetEntry layerEntry = entriesByRelativePath.get(relativePath);
+            if (layerEntry != null) {
+                String layerId = layerEntry.charLayerRefs.stream()
+                    .filter(value -> value != null && value.startsWith(characterId + "/"))
+                    .map(value -> value.substring((characterId + "/").length()))
+                    .filter(value -> value != null && !value.isBlank())
+                    .findFirst()
+                    .orElse(layerEntry.baseName);
+                presetEntry.presetLayerNames.add(layerEntry.baseName);
+                presetEntry.charLayerRefs.addAll(layerEntry.charLayerRefs);
+                presetEntry.charImgRefs.addAll(layerEntry.charImgRefs);
+                presetEntry.sourceScripts.addAll(layerEntry.sourceScripts);
+                if (newLayer && layerEntry.file != null && layerEntry.file.isFile()) {
+                    presetEntry.presetLayerFiles.add(layerEntry.file);
+                    presetEntry.presetLayers.add(new AssetEntry.PresetLayer(
+                        relativePath,
+                        layerId,
+                        layerEntry.baseName,
+                        layerEntry.file
+                    ));
+                }
+            }
         }
     }
 
@@ -1460,6 +1528,46 @@ public class AssetPickerPanel extends VBox {
         }
     }
 
+    private static Image buildCompositePreview(List<File> files, double maxSize) {
+        if (files == null || files.isEmpty()) {
+            return null;
+        }
+        List<Image> images = new ArrayList<>();
+        double maxWidth = 0.0;
+        double maxHeight = 0.0;
+        for (File file : files) {
+            if (file == null || !file.isFile()) {
+                continue;
+            }
+            try {
+                Image image = new Image(file.toURI().toString(), 0, 0, true, true, false);
+                if (image.isError() || image.getWidth() <= 0.0 || image.getHeight() <= 0.0) {
+                    continue;
+                }
+                images.add(image);
+                maxWidth = Math.max(maxWidth, image.getWidth());
+                maxHeight = Math.max(maxHeight, image.getHeight());
+            } catch (Exception ignored) {
+            }
+        }
+        if (images.isEmpty() || maxWidth <= 0.0 || maxHeight <= 0.0) {
+            return null;
+        }
+        double scale = Math.min(1.0, Math.min(maxSize / maxWidth, maxSize / maxHeight));
+        double width = Math.max(1.0, Math.round(maxWidth * scale));
+        double height = Math.max(1.0, Math.round(maxHeight * scale));
+        Canvas canvas = new Canvas(width, height);
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.clearRect(0, 0, width, height);
+        for (Image image : images) {
+            gc.drawImage(image, 0, 0, image.getWidth() * scale, image.getHeight() * scale);
+        }
+        SnapshotParameters params = new SnapshotParameters();
+        params.setFill(Color.TRANSPARENT);
+        WritableImage snapshot = new WritableImage((int) Math.ceil(width), (int) Math.ceil(height));
+        return canvas.snapshot(params, snapshot);
+    }
+
     private static ImageView createDialogPreviewImageView(double fitWidth, double fitHeight) {
         ImageView view = new ImageView();
         view.setFitWidth(fitWidth);
@@ -1518,6 +1626,20 @@ public class AssetPickerPanel extends VBox {
     }
 
     static class AssetEntry {
+        record PresetLayer(
+            String relativePath,
+            String layerId,
+            String displayName,
+            File file
+        ) {
+        }
+
+        enum Kind {
+            FILE,
+            PRESET
+        }
+
+        final Kind kind;
         final String relativePath;
         final String baseName;
         final File file;
@@ -1526,12 +1648,53 @@ public class AssetPickerPanel extends VBox {
         final Set<String> presetRefs = new LinkedHashSet<>();
         final Set<String> backgroundIds = new LinkedHashSet<>();
         final Set<String> sourceScripts = new LinkedHashSet<>();
+        final Set<String> presetLayerPaths = new LinkedHashSet<>();
+        final Set<String> presetLayerNames = new LinkedHashSet<>();
+        final List<File> presetLayerFiles = new ArrayList<>();
+        final List<PresetLayer> presetLayers = new ArrayList<>();
         String searchIndex = "";
+        Image previewCache;
+        String presetCharacterId;
+        String presetId;
 
         AssetEntry(String relativePath, String baseName, File file) {
+            this(Kind.FILE, relativePath, baseName, file);
+        }
+
+        AssetEntry(Kind kind, String relativePath, String baseName, File file) {
+            this.kind = kind != null ? kind : Kind.FILE;
             this.relativePath = relativePath;
             this.baseName = baseName;
             this.file = file;
+        }
+
+        static AssetEntry presetEntry(String characterId, String presetId) {
+            String ref = normalizedIdentifierOrDefault(characterId, "character")
+                + "/" + normalizedIdentifierOrDefault(presetId, "preset");
+            AssetEntry entry = new AssetEntry(Kind.PRESET, "@charpreset " + ref, ref + " [Preset]", null);
+            entry.presetCharacterId = normalizedIdentifierOrDefault(characterId, "character");
+            entry.presetId = normalizedIdentifierOrDefault(presetId, "preset");
+            return entry;
+        }
+
+        boolean isPresetEntry() {
+            return kind == Kind.PRESET;
+        }
+
+        boolean isPlaceable() {
+            return kind == Kind.FILE && file != null && file.isFile();
+        }
+
+        boolean isSceneInstantiable() {
+            return isPlaceable() || isPresetEntry();
+        }
+
+        boolean supportsPlacementRole(PuppeteerAssetPlacementRole role) {
+            PuppeteerAssetPlacementRole resolvedRole = role != null ? role : PuppeteerAssetPlacementRole.PROP;
+            if (isPresetEntry()) {
+                return resolvedRole != PuppeteerAssetPlacementRole.BACKGROUND;
+            }
+            return isPlaceable();
         }
 
         boolean isImported() {
@@ -1539,6 +1702,9 @@ public class AssetPickerPanel extends VBox {
         }
 
         boolean isCharacterAsset() {
+            if (isPresetEntry()) {
+                return true;
+            }
             return relativePath.startsWith(CHARPRESET_IMPORT_RELATIVE_DIR + "/")
                 || relativePath.startsWith("assets/characters/")
                 || !charImgRefs.isEmpty()
@@ -1547,6 +1713,9 @@ public class AssetPickerPanel extends VBox {
         }
 
         boolean isBackgroundAsset() {
+            if (isPresetEntry()) {
+                return false;
+            }
             return relativePath.startsWith("assets/backgrounds/") || !backgroundIds.isEmpty();
         }
 
@@ -1595,15 +1764,21 @@ public class AssetPickerPanel extends VBox {
             for (String value : charImgRefs) appendSearch(search, value);
             for (String value : charLayerRefs) appendSearch(search, value);
             for (String value : presetRefs) appendSearch(search, value);
+            for (String value : presetLayerPaths) appendSearch(search, value);
+            for (String value : presetLayerNames) appendSearch(search, value);
             for (String value : backgroundIds) appendSearch(search, value);
             for (String value : sourceScripts) appendSearch(search, value);
             if (isImported()) appendSearch(search, "imported");
             if (isCharacterAsset()) appendSearch(search, "character");
             if (isBackgroundAsset()) appendSearch(search, "background");
+            if (isPresetEntry()) appendSearch(search, "preset composite charpreset");
             searchIndex = search.toString();
         }
 
         String usageBadge() {
+            if (isPresetEntry()) {
+                return "Preset • @charpreset";
+            }
             List<String> tags = new ArrayList<>();
             if (!charImgRefs.isEmpty()) tags.add("@charimg");
             if (!charLayerRefs.isEmpty()) tags.add("@charlayer");
@@ -1617,10 +1792,19 @@ public class AssetPickerPanel extends VBox {
 
         String describeMeta() {
             List<String> parts = new ArrayList<>();
-            parts.add(humanFileSize(file.length()));
-            Image preview = loadPreviewImage(file);
-            if (preview != null && !preview.isError()) {
-                parts.add(String.format(Locale.ROOT, "%.0f x %.0f px", preview.getWidth(), preview.getHeight()));
+            if (isPresetEntry()) {
+                parts.add("Preset composite");
+                parts.add(presetLayerPaths.size() + " layer" + (presetLayerPaths.size() == 1 ? "" : "s"));
+                Image preview = previewImage();
+                if (preview != null && !preview.isError()) {
+                    parts.add(String.format(Locale.ROOT, "%.0f x %.0f px", preview.getWidth(), preview.getHeight()));
+                }
+            } else {
+                parts.add(humanFileSize(file.length()));
+                Image preview = previewImage();
+                if (preview != null && !preview.isError()) {
+                    parts.add(String.format(Locale.ROOT, "%.0f x %.0f px", preview.getWidth(), preview.getHeight()));
+                }
             }
             if (isImported()) parts.add("Imported");
             if (!sourceScripts.isEmpty()) parts.add(sourceScripts.size() + " script" + (sourceScripts.size() == 1 ? "" : "s"));
@@ -1633,6 +1817,9 @@ public class AssetPickerPanel extends VBox {
             if (!charLayerRefs.isEmpty()) tags.add("charlayer: " + String.join(", ", charLayerRefs));
             if (!presetRefs.isEmpty()) tags.add("charpreset: " + String.join(", ", presetRefs));
             if (!backgroundIds.isEmpty()) tags.add("background: " + String.join(", ", backgroundIds));
+            if (isPresetEntry() && !presetLayerNames.isEmpty()) {
+                tags.add("layers: " + String.join(", ", presetLayerNames));
+            }
             if (tags.isEmpty()) return "No VNS declaration references found for this asset yet.";
             return String.join("\n", tags);
         }
@@ -1642,6 +1829,9 @@ public class AssetPickerPanel extends VBox {
             if (!sourceScripts.isEmpty()) {
                 lines.add("Referenced in: " + String.join(", ", sourceScripts));
             }
+            if (isPresetEntry() && !presetLayerPaths.isEmpty()) {
+                lines.add("Resolves to: " + String.join(", ", presetLayerPaths));
+            }
             if (isImported() && !isReferenced()) {
                 lines.add("Imported asset with no current VNS declarations.");
             }
@@ -1649,6 +1839,16 @@ public class AssetPickerPanel extends VBox {
                 lines.add("No matching @charimg, @charlayer, @charpreset, or @background declarations were found.");
             }
             return String.join("\n", lines);
+        }
+
+        Image previewImage() {
+            if (previewCache != null) {
+                return previewCache;
+            }
+            previewCache = isPresetEntry()
+                ? buildCompositePreview(presetLayerFiles, 640)
+                : loadPreviewImage(file);
+            return previewCache;
         }
 
         private static void appendSearch(StringBuilder search, String value) {
@@ -1721,7 +1921,7 @@ public class AssetPickerPanel extends VBox {
             }
 
             try {
-                thumb.setImage(loadPreviewImage(item.file));
+                thumb.setImage(item.previewImage());
             } catch (Exception ignored) {
                 thumb.setImage(null);
             }

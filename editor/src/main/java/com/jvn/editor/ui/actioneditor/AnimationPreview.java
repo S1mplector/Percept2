@@ -149,7 +149,10 @@ public class AnimationPreview extends VBox {
 
     private Entity2D selectedEntity;
     private String selectedEntityName;
+    private String selectedGroupName;
+    private final Set<String> selectedGroupMemberNames = new HashSet<>();
     private boolean draggingEntity = false;
+    private boolean draggingGroup = false;
     private boolean draggingPivot = false;
     private boolean draggingOrbit = false;
     private boolean draggingOrbitAnchor = false;
@@ -157,6 +160,8 @@ public class AnimationPreview extends VBox {
     private PivotDragState pivotDragState;
     private MatrixDragState matrixDragState;
     private double dragEntityStartX, dragEntityStartY;
+    private double groupDragStartTrackX, groupDragStartTrackY;
+    private double groupDragAccumX, groupDragAccumY;
     private double dragCameraStartX, dragCameraStartY;
     private boolean pivotAxisLocked = false;
     private boolean pivotAxisIsHorizontal = false;
@@ -292,9 +297,17 @@ public class AnimationPreview extends VBox {
                     selectedEntity = scene.find(selectedEntityName);
                 }
             }
+            if (selectedGroupName != null) {
+                refreshSelectedGroupMembers();
+                if (selectedGroupMemberNames.isEmpty()) {
+                    selectedGroupName = null;
+                }
+            }
         } else {
             selectedEntity = null;
             selectedEntityName = null;
+            selectedGroupName = null;
+            selectedGroupMemberNames.clear();
             if (onOrbitAnchorRemoved != null) {
                 for (String name : orbitAnchors.keySet()) onOrbitAnchorRemoved.accept(name);
             }
@@ -357,6 +370,12 @@ public class AnimationPreview extends VBox {
                 scene.render(blitter, viewportLogicalWidth, viewportLogicalHeight);
                 drawMotionPaths();
                 if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
+                if (selectedGroupName != null && !selectedGroupMemberNames.isEmpty()) {
+                    for (String memberName : selectedGroupMemberNames) {
+                        Entity2D member = scene.find(memberName);
+                        if (member != null) drawSelectionHighlight(member);
+                    }
+                }
             } finally {
                 scene.setCamera(activeCamera);
             }
@@ -877,6 +896,7 @@ public class AnimationPreview extends VBox {
 
     public Entity2D getSelectedEntity() { return selectedEntity; }
     public String getSelectedEntityName() { return selectedEntityName; }
+    public String getSelectedGroupName() { return selectedGroupName; }
 
     public void selectEntity(String entityName) {
         if (entityName == null || entityName.isBlank() || scene == null) {
@@ -891,6 +911,26 @@ public class AnimationPreview extends VBox {
         boolean changed = entity != selectedEntity || !entityName.equals(selectedEntityName);
         selectedEntity = entity;
         selectedEntityName = entityName;
+        selectedGroupName = null;
+        selectedGroupMemberNames.clear();
+        pivotDragState = null;
+        matrixDragState = null;
+        matrixOverlayText = null;
+        if (changed) render();
+    }
+
+    public void selectGroup(String groupName) {
+        if (groupName == null || groupName.isBlank() || project == null || project.getGroup(groupName) == null) {
+            clearSelection();
+            return;
+        }
+        Set<String> nextMembers = new HashSet<>(project.collectGroupEntityNames(groupName));
+        boolean changed = !groupName.equals(selectedGroupName) || !nextMembers.equals(selectedGroupMemberNames);
+        selectedEntity = null;
+        selectedEntityName = null;
+        selectedGroupName = groupName;
+        selectedGroupMemberNames.clear();
+        selectedGroupMemberNames.addAll(nextMembers);
         pivotDragState = null;
         matrixDragState = null;
         matrixOverlayText = null;
@@ -898,9 +938,11 @@ public class AnimationPreview extends VBox {
     }
 
     public void clearSelection() {
-        boolean changed = selectedEntity != null || selectedEntityName != null;
+        boolean changed = selectedEntity != null || selectedEntityName != null || selectedGroupName != null || !selectedGroupMemberNames.isEmpty();
         selectedEntity = null;
         selectedEntityName = null;
+        selectedGroupName = null;
+        selectedGroupMemberNames.clear();
         pivotDragState = null;
         matrixDragState = null;
         matrixOverlayText = null;
@@ -1483,9 +1525,9 @@ public class AnimationPreview extends VBox {
 
             if (e.isPrimaryButtonDown()) {
                 if (!isInsideViewport(e.getX(), e.getY())) {
-                    selectedEntity = null;
-                    selectedEntityName = null;
+                    clearSelection();
                     draggingEntity = false;
+                    draggingGroup = false;
                     draggingOrbit = false;
                     draggingPivot = false;
                     draggingOrbitAnchor = false;
@@ -1568,8 +1610,16 @@ public class AnimationPreview extends VBox {
                     return;
                 }
 
-                String hitName = findEntityNameAt(e.getX(), e.getY(), true);
+                String hitName = findEntityNameAt(e.getX(), e.getY(), selectedGroupName == null);
                 if (hitName != null) {
+                    if (selectedGroupName != null && selectedGroupMemberNames.contains(hitName)) {
+                        beginGroupMoveInteraction(selectedGroupName);
+                        draggingGroup = true;
+                        dragEntityStartX = e.getX();
+                        dragEntityStartY = e.getY();
+                        render();
+                        return;
+                    }
                     if (orbitToolEnabled && hasOrbitAnchor(hitName)) {
                         double[] anchor = getOrbitAnchor(hitName);
                         beginMoveInteraction(selectedEntityName, selectedEntity);
@@ -1588,9 +1638,9 @@ public class AnimationPreview extends VBox {
                     if (onEntitySelected != null) onEntitySelected.accept(hitName);
                     drawSelectionHighlight(selectedEntity);
                 } else {
-                    selectedEntity = null;
-                    selectedEntityName = null;
+                    clearSelection();
                     draggingEntity = false;
+                    draggingGroup = false;
                     draggingOrbit = false;
                     pivotDragState = null;
                     matrixDragState = null;
@@ -1712,6 +1762,30 @@ public class AnimationPreview extends VBox {
                     onEntityMoved.accept(selectedEntityName, new double[]{worldX, worldY});
                 }
                 render();
+            } else if (draggingGroup && selectedGroupName != null && !selectedGroupMemberNames.isEmpty()) {
+                double[] prevWorld = screenToWorld(dragEntityStartX, dragEntityStartY);
+                double[] world = screenToWorld(e.getX(), e.getY());
+                double dx = world[0] - prevWorld[0];
+                double dy = world[1] - prevWorld[1];
+                dragEntityStartX = e.getX();
+                dragEntityStartY = e.getY();
+                groupDragAccumX += dx;
+                groupDragAccumY += dy;
+                if (scene != null) {
+                    for (String memberName : selectedGroupMemberNames) {
+                        Entity2D member = scene.find(memberName);
+                        if (member != null) {
+                            member.setPosition(member.getX() + dx, member.getY() + dy);
+                        }
+                    }
+                }
+                if (onEntityMoved != null) {
+                    onEntityMoved.accept(selectedGroupName, new double[]{
+                        groupDragStartTrackX + groupDragAccumX,
+                        groupDragStartTrackY + groupDragAccumY
+                    });
+                }
+                render();
             } else if (draggingEntity && selectedEntity != null) {
                 double[] prevWorld = screenToWorld(dragEntityStartX, dragEntityStartY);
                 double[] world = screenToWorld(e.getX(), e.getY());
@@ -1739,6 +1813,7 @@ public class AnimationPreview extends VBox {
             }
             draggingCameraFrame = false;
             draggingEntity = false;
+            draggingGroup = false;
             draggingPivot = false;
             draggingOrbit = false;
             draggingOrbitAnchor = false;
@@ -1768,16 +1843,43 @@ public class AnimationPreview extends VBox {
         }
     }
 
+    private void beginGroupMoveInteraction(String groupName) {
+        if (groupName == null || groupName.isBlank() || project == null) return;
+        EntityGroup group = project.getGroup(groupName);
+        if (group == null) return;
+        if (moveInteractionActive && groupName.equals(moveInteractionEntityName)) return;
+        moveInteractionActive = true;
+        moveInteractionEntityName = groupName;
+        groupDragStartTrackX = group.getGroupTrack().getValueAt(PropertyType.X, project.getPlayheadMs());
+        groupDragStartTrackY = group.getGroupTrack().getValueAt(PropertyType.Y, project.getPlayheadMs());
+        groupDragAccumX = 0.0;
+        groupDragAccumY = 0.0;
+        moveInteractionStartX = groupDragStartTrackX;
+        moveInteractionStartY = groupDragStartTrackY;
+        if (onEntityMoveInteractionStarted != null) {
+            onEntityMoveInteractionStarted.accept(groupName, new double[]{moveInteractionStartX, moveInteractionStartY});
+        }
+    }
+
     private void endMoveInteraction() {
         if (!moveInteractionActive) return;
         String entityName = moveInteractionEntityName;
         double endX = moveInteractionStartX;
         double endY = moveInteractionStartY;
-        if (entityName != null && scene != null) {
-            Entity2D entity = scene.find(entityName);
-            if (entity != null) {
-                endX = entity.getX();
-                endY = entity.getY();
+        if (entityName != null) {
+            if (scene != null) {
+                Entity2D entity = scene.find(entityName);
+                if (entity != null) {
+                    endX = entity.getX();
+                    endY = entity.getY();
+                }
+            }
+            if ((endX == moveInteractionStartX && endY == moveInteractionStartY) && project != null) {
+                EntityGroup group = project.getGroup(entityName);
+                if (group != null) {
+                    endX = group.getGroupTrack().getValueAt(PropertyType.X, project.getPlayheadMs());
+                    endY = group.getGroupTrack().getValueAt(PropertyType.Y, project.getPlayheadMs());
+                }
             }
         }
         moveInteractionActive = false;
@@ -1790,6 +1892,16 @@ public class AnimationPreview extends VBox {
     private void cancelMoveInteraction() {
         moveInteractionActive = false;
         moveInteractionEntityName = null;
+        groupDragAccumX = 0.0;
+        groupDragAccumY = 0.0;
+    }
+
+    private void refreshSelectedGroupMembers() {
+        selectedGroupMemberNames.clear();
+        if (project == null || selectedGroupName == null || selectedGroupName.isBlank()) {
+            return;
+        }
+        selectedGroupMemberNames.addAll(project.collectGroupEntityNames(selectedGroupName));
     }
 
     private void drawSelectionHighlight(Entity2D entity) {

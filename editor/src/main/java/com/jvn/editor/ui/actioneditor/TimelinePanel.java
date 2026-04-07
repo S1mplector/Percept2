@@ -125,6 +125,9 @@ public class TimelinePanel extends VBox {
         scrollPane = new ScrollPane(canvasContainer);
         scrollPane.setFitToWidth(true);
         scrollPane.setFitToHeight(true);
+        scrollPane.setPannable(false);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setStyle("-fx-background: #121212; -fx-background-color: #121212;");
 
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
@@ -135,19 +138,19 @@ public class TimelinePanel extends VBox {
         canvas.setOnMouseDragged(this::handleMouseDragged);
         canvas.setOnMouseReleased(this::handleMouseReleased);
         canvas.setOnMouseClicked(this::handleMouseClicked);
-        canvas.setOnScroll(this::handleScroll);
+        scrollPane.addEventFilter(ScrollEvent.SCROLL, this::handleScroll);
 
         widthProperty().addListener((obs, oldVal, newVal) -> {
-            canvas.setWidth(Math.max(800, newVal.doubleValue()));
+            updateCanvasViewportSize();
             render();
         });
 
         heightProperty().addListener((obs, oldVal, newVal) -> {
-            double h = computeRequiredHeight();
-            canvas.setHeight(Math.max(h, newVal.doubleValue()));
+            updateCanvasViewportSize();
             render();
         });
 
+        updateCanvasViewportSize();
         render();
     }
 
@@ -213,8 +216,8 @@ public class TimelinePanel extends VBox {
     }
 
     public void refresh() {
-        double h = computeRequiredHeight();
-        canvas.setHeight(Math.max(h, getHeight()));
+        updateCanvasViewportSize();
+        clampScrollOffsets();
         render();
     }
 
@@ -914,6 +917,7 @@ public class TimelinePanel extends VBox {
             pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, pixelsPerMs * factor));
             // Adjust scroll to keep the time under the mouse stable
             scrollX = Math.max(0, timeBefore * pixelsPerMs - (mouseX - LABEL_WIDTH));
+            clampScrollOffsets();
             render();
         } else {
             scrollX = Math.max(0, scrollX - e.getDeltaX());
@@ -921,12 +925,33 @@ public class TimelinePanel extends VBox {
             scrollY = Math.max(0, Math.min(maxScrollY, scrollY - e.getDeltaY()));
             render();
         }
+        e.consume();
     }
 
     public double getPixelsPerMs() { return pixelsPerMs; }
     public void setPixelsPerMs(double ppm) {
         pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, ppm));
+        clampScrollOffsets();
         render();
+    }
+
+    private void updateCanvasViewportSize() {
+        double viewportWidth = Math.max(1.0, getWidth());
+        double viewportHeight = Math.max(1.0, getHeight());
+        canvas.setWidth(viewportWidth);
+        canvas.setHeight(viewportHeight);
+        canvasContainer.setPrefSize(viewportWidth, viewportHeight);
+        canvasContainer.setMinSize(viewportWidth, viewportHeight);
+        canvasContainer.setMaxSize(viewportWidth, viewportHeight);
+        clampScrollOffsets();
+    }
+
+    private void clampScrollOffsets() {
+        double contentWidth = LABEL_WIDTH + project.getTotalDurationMs() * pixelsPerMs + 120.0;
+        double maxScrollX = Math.max(0.0, contentWidth - Math.max(1.0, canvas.getWidth()));
+        double maxScrollY = Math.max(0.0, computeRequiredHeight() - Math.max(1.0, canvas.getHeight()));
+        scrollX = Math.max(0.0, Math.min(maxScrollX, scrollX));
+        scrollY = Math.max(0.0, Math.min(maxScrollY, scrollY));
     }
 
     /** Zoom to fit the entire timeline duration in the visible area. */

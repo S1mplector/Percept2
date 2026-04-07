@@ -405,6 +405,39 @@ public class AnimationProject {
     public List<String> getRootEntityNames() { return Collections.unmodifiableList(rootEntityNames); }
     public List<String> getRootGroupNames() { return Collections.unmodifiableList(rootGroupNames); }
 
+    public List<String> collectGroupEntityNames(String groupName) {
+        if (groupName == null || groupName.isBlank()) {
+            return Collections.emptyList();
+        }
+        EntityGroup group = groups.get(groupName);
+        if (group == null) {
+            return Collections.emptyList();
+        }
+        List<String> names = new ArrayList<>();
+        collectGroupEntityNamesRecursive(group, names, new HashSet<>());
+        return Collections.unmodifiableList(names);
+    }
+
+    private void collectGroupEntityNamesRecursive(EntityGroup group, List<String> out, Set<String> visitedGroups) {
+        if (group == null || out == null || visitedGroups == null) {
+            return;
+        }
+        if (!visitedGroups.add(group.getName())) {
+            return;
+        }
+        for (String childEntity : group.getChildEntityNames()) {
+            if (childEntity != null && !childEntity.isBlank() && !out.contains(childEntity)) {
+                out.add(childEntity);
+            }
+        }
+        for (String childGroupName : group.getChildGroupNames()) {
+            EntityGroup childGroup = groups.get(childGroupName);
+            if (childGroup != null) {
+                collectGroupEntityNamesRecursive(childGroup, out, visitedGroups);
+            }
+        }
+    }
+
     public static boolean isGroupProperty(PropertyType property) {
         return property == PropertyType.X
             || property == PropertyType.Y

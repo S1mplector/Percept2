@@ -7,6 +7,12 @@ import java.util.function.Consumer;
 
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
@@ -529,14 +535,21 @@ public class EntitySelector extends VBox {
     }
 
     private class EntityTreeCell extends TreeCell<String> {
+        private static final double LASSO_ARC = 10.0;
         private final Canvas icon = new Canvas(16, 16);
         private final Label label = new Label();
         private final Region spacer = new Region();
         private final Label layerBadge = new Label();
         private final HBox row = new HBox(6, icon, label, spacer, layerBadge);
+        private final Canvas lassoCanvas = new Canvas();
+        private final StackPane cellRoot = new StackPane(row, lassoCanvas);
+        private final Timeline lassoTimeline;
+        private final ChangeListener<Bounds> boundsListener;
+        private double lassoDashOffset = 0.0;
 
         EntityTreeCell() {
             row.setAlignment(Pos.CENTER_LEFT);
+            row.setPadding(new Insets(3, 6, 3, 6));
             label.setStyle("-fx-font-size: 11px;");
             label.setMaxWidth(Double.MAX_VALUE);
             HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -547,6 +560,21 @@ public class EntitySelector extends VBox {
             );
             layerBadge.setMinWidth(52);
             layerBadge.setAlignment(Pos.CENTER_RIGHT);
+
+            lassoCanvas.setMouseTransparent(true);
+            StackPane.setAlignment(row, Pos.CENTER_LEFT);
+            StackPane.setAlignment(lassoCanvas, Pos.CENTER_LEFT);
+
+            lassoTimeline = new Timeline(new KeyFrame(javafx.util.Duration.millis(70), e -> {
+                lassoDashOffset -= 1.6;
+                drawSelectionLasso();
+            }));
+            lassoTimeline.setCycleCount(Animation.INDEFINITE);
+
+            boundsListener = (obs, oldValue, newValue) -> Platform.runLater(this::syncLassoCanvas);
+            row.layoutBoundsProperty().addListener(boundsListener);
+            widthProperty().addListener((obs, oldValue, newValue) -> Platform.runLater(this::syncLassoCanvas));
+            heightProperty().addListener((obs, oldValue, newValue) -> Platform.runLater(this::syncLassoCanvas));
         }
 
         @Override
@@ -555,21 +583,88 @@ public class EntitySelector extends VBox {
             if (empty || item == null) {
                 setText(null);
                 setGraphic(null);
+                stopLasso();
             } else {
                 String name = decodeTreeValue(item);
                 boolean isGroup = isEncodedGroupValue(item);
-                label.setText(isGroup ? "📁 " + name : name);
+                label.setText(name);
                 label.setTextFill(isGroup ? Color.web("#f0b673") : Color.web("#e6e6e6"));
                 layerBadge.setText(formatLayerBadge(name, isGroup));
                 drawEntityIcon(icon.getGraphicsContext2D(), name, isGroup);
                 setText(null);
-                setGraphic(row);
+                setGraphic(cellRoot);
+                syncLassoCanvas();
+                refreshLassoState();
             }
+        }
+
+        @Override
+        public void updateSelected(boolean selected) {
+            super.updateSelected(selected);
+            refreshLassoState();
+        }
+
+        @Override
+        protected void layoutChildren() {
+            super.layoutChildren();
+            syncLassoCanvas();
         }
 
         private String formatLayerBadge(String name, boolean isGroup) {
             int value = computeLayerValue(name, isGroup);
             return value >= 0 ? "Z +" + value : "Z " + value;
+        }
+
+        private void refreshLassoState() {
+            if (isEmpty() || getItem() == null || !isSelected()) {
+                stopLasso();
+                return;
+            }
+            syncLassoCanvas();
+            drawSelectionLasso();
+            if (lassoTimeline.getStatus() != Animation.Status.RUNNING) {
+                lassoTimeline.play();
+            }
+        }
+
+        private void stopLasso() {
+            lassoTimeline.stop();
+            GraphicsContext gc = lassoCanvas.getGraphicsContext2D();
+            gc.clearRect(0, 0, lassoCanvas.getWidth(), lassoCanvas.getHeight());
+        }
+
+        private void syncLassoCanvas() {
+            double width = Math.max(1.0, row.getWidth());
+            double height = Math.max(1.0, row.getHeight());
+            lassoCanvas.setWidth(width);
+            lassoCanvas.setHeight(height);
+            drawSelectionLasso();
+        }
+
+        private void drawSelectionLasso() {
+            GraphicsContext gc = lassoCanvas.getGraphicsContext2D();
+            double width = lassoCanvas.getWidth();
+            double height = lassoCanvas.getHeight();
+            gc.clearRect(0, 0, width, height);
+            if (!isSelected() || width <= 2.0 || height <= 2.0) {
+                return;
+            }
+
+            double inset = 0.75;
+            double drawWidth = Math.max(1.0, width - inset * 2.0);
+            double drawHeight = Math.max(1.0, height - inset * 2.0);
+
+            gc.setLineWidth(1.2);
+            gc.setLineDashes(8.0, 5.0);
+            gc.setLineDashOffset(lassoDashOffset);
+            gc.setStroke(Color.web("#f0b673", 0.95));
+            gc.strokeRoundRect(inset, inset, drawWidth, drawHeight, LASSO_ARC, LASSO_ARC);
+
+            gc.setLineWidth(0.8);
+            gc.setLineDashes(8.0, 5.0);
+            gc.setLineDashOffset(lassoDashOffset - 6.5);
+            gc.setStroke(Color.web("#fff4d6", 0.55));
+            gc.strokeRoundRect(inset + 0.6, inset + 0.6, drawWidth - 1.2, drawHeight - 1.2, LASSO_ARC - 2.0, LASSO_ARC - 2.0);
         }
 
         private int computeLayerValue(String name, boolean isGroup) {
