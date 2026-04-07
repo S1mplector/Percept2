@@ -2670,16 +2670,16 @@
 }
 
 .sidebar-tab-pane .tab .tab-close-button {
-  -fx-opacity: 0.72;
+  -fx-opacity: 0.95;
   -fx-padding: 0;
-  -fx-translate-x: 6px;
-  -fx-min-width: 7px;
-  -fx-pref-width: 7px;
-  -fx-max-width: 7px;
-  -fx-min-height: 7px;
-  -fx-pref-height: 7px;
-  -fx-max-height: 7px;
-  -fx-background-color: #d96572;
+  -fx-translate-x: 7px;
+  -fx-min-width: 10px;
+  -fx-pref-width: 10px;
+  -fx-max-width: 10px;
+  -fx-min-height: 10px;
+  -fx-pref-height: 10px;
+  -fx-max-height: 10px;
+  -fx-background-color: #e14f63;
   -fx-background-insets: 0;
   -fx-background-radius: 999;
   -fx-shape: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z";
@@ -2706,11 +2706,11 @@
 }
 
 .sidebar-tab-pane .tab .tab-close-button:hover {
-  -fx-background-color: #ff8b98;
+  -fx-background-color: #f56a7c;
 }
 
 .sidebar-tab-pane .tab .tab-close-button:pressed {
-  -fx-background-color: #b84e5c;
+  -fx-background-color: #bf3950;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab {
@@ -2747,7 +2747,7 @@
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab .tab-container {
-  -fx-padding: 0 2 1 2;
+  -fx-padding: 0;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab .tab-label,
@@ -2759,6 +2759,10 @@
 .sidebar-tab-pane .tab.sidebar-add-tab .icon {
   -fx-background-color: #93e1a9;
   -fx-effect: none;
+}
+
+.sidebar-tab-pane .tab.sidebar-add-tab .tab-label {
+  -fx-alignment: center;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab:selected {
