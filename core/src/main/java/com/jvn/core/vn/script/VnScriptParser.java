@@ -969,6 +969,11 @@ public class VnScriptParser {
       case "screen":
         state.builder.external("screen", arg == null ? "" : arg);
         return;
+      case "persistent": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("persistent", payload);
+        return;
+      }
       case "jes_push": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         state.builder.external("jes", "push " + payload);

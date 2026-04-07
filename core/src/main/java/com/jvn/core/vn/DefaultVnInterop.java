@@ -2,7 +2,10 @@ package com.jvn.core.vn;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,6 +18,8 @@ import com.jvn.core.animation.TimelineRunner;
 import com.jvn.core.audio.AmbienceProfile;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.vn.stage.VnStagePreset;
+import com.jvn.core.vn.ui.VnOverlayButtonSpec;
+import com.jvn.core.vn.ui.VnOverlayScreenSpec;
 
 /**
  * Basic interop implementation.
@@ -56,6 +61,9 @@ public class DefaultVnInterop implements VnInterop {
       case "var":
         handleVar(payload, scene);
         return VnInteropResult.advance();
+      case "persistent":
+        handlePersistent(payload, scene);
+        return VnInteropResult.advance();
       case "cond":
         boolean jumped = handleCond(payload, scene);
         return jumped ? VnInteropResult.stay() : VnInteropResult.advance();
@@ -78,8 +86,7 @@ public class DefaultVnInterop implements VnInterop {
         handleAudio(payload, scene);
         return VnInteropResult.advance();
       case "screen":
-        handleScreen(payload, scene);
-        return VnInteropResult.advance();
+        return handleScreen(payload, scene);
       case "char":
         handleCharacter(payload, scene);
         return VnInteropResult.advance();
@@ -134,19 +141,22 @@ public class DefaultVnInterop implements VnInterop {
       scene.getState().showHudMessage("inline timeline: no scene accessor", 1500);
       return VnInteropResult.advance();
     }
+    InlineTimelineInvocation invocation = parseInlineTimelineInvocation(payload);
+    boolean started = false;
     try {
       String name = "_inline_timeline_" + (++inlineTimelineCounter);
-      TimelineData data = TimelineDataParser.parse(name, payload);
-      TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
-      scene.getState().addTimelineRunner(runner);
+      TimelineData data = TimelineDataParser.parse(name, invocation.block());
+      startTimelinePlayback(data, scene, invocation.waitForCompletion(), invocation.chain());
+      started = true;
     } catch (Exception ex) {
       scene.getState().showHudMessage("inline timeline error: " + ex.getMessage(), 2000);
     }
-    return VnInteropResult.advance();
+    return started && invocation.waitForCompletion() ? VnInteropResult.block() : VnInteropResult.advance();
   }
 
   private VnInteropResult handleJesTimeline(String payload, VnScene scene) {
-    String name = payload.trim();
+    TimelineInvocation invocation = parseTimelineInvocation(payload);
+    String name = invocation.name();
     if (name.isEmpty()) {
       scene.getState().showHudMessage("jes_timeline: no name specified", 1500);
       return VnInteropResult.advance();
@@ -160,9 +170,8 @@ public class DefaultVnInterop implements VnInterop {
       scene.getState().showHudMessage("jes_timeline: no scene accessor", 1500);
       return VnInteropResult.advance();
     }
-    TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
-    scene.getState().addTimelineRunner(runner);
-    return VnInteropResult.advance();
+    startTimelinePlayback(data, scene, invocation.waitForCompletion(), invocation.chain());
+    return invocation.waitForCompletion() ? VnInteropResult.block() : VnInteropResult.advance();
   }
 
   private void handleVar(String payload, VnScene scene) {
@@ -191,6 +200,46 @@ public class DefaultVnInterop implements VnInterop {
       case "clear":
         vars.remove(key);
         break;
+    }
+  }
+
+  private void handlePersistent(String payload, VnScene scene) {
+    String[] parts = split(payload);
+    if (parts.length == 0) return;
+    String op = parts[0].toLowerCase(Locale.ROOT);
+    String key = parts.length >= 2 ? parts[1] : "";
+    String tail = joinTail(parts, 2);
+    VnState state = scene.getState();
+    var vars = state.getVariables();
+    switch (op) {
+      case "set" -> state.setPersistentValue(key, parseScalar(tail));
+      case "inc" -> state.addPersistentValue(key, parseDoubleSafe(tail, 1.0));
+      case "dec" -> state.addPersistentValue(key, -parseDoubleSafe(tail, 1.0));
+      case "flag" -> state.setPersistentValue(key, Boolean.TRUE);
+      case "unflag" -> state.setPersistentValue(key, Boolean.FALSE);
+      case "toggle" -> {
+        Object current = state.getPersistentValue(key);
+        boolean next = !(current instanceof Boolean b ? b : Boolean.parseBoolean(String.valueOf(current)));
+        state.setPersistentValue(key, next);
+      }
+      case "clear" -> state.removePersistentValue(key);
+      case "load" -> {
+        String targetVar = parts.length >= 3 ? parts[2] : key;
+        if (!targetVar.isBlank()) vars.put(targetVar, state.getPersistentValue(key));
+      }
+      case "store" -> {
+        String sourceVar = parts.length >= 3 ? parts[2] : key;
+        if (!key.isBlank()) state.setPersistentValue(key, vars.get(sourceVar));
+      }
+      case "reload" -> {
+        state.getPersistentStore().load();
+        state.setVariables(new LinkedHashMap<>(vars));
+      }
+      case "reset" -> {
+        state.getPersistentStore().clear();
+        state.setVariables(new LinkedHashMap<>(vars));
+      }
+      default -> scene.getState().showHudMessage("persistent: unknown op " + op, 1400);
     }
   }
 
@@ -821,16 +870,16 @@ public class DefaultVnInterop implements VnInterop {
             playLoop));
   }
 
-  private void handleScreen(String payload, VnScene scene) {
+  private VnInteropResult handleScreen(String payload, VnScene scene) {
     String[] toks = split(payload);
-    if (toks.length == 0) return;
+    if (toks.length == 0) return VnInteropResult.advance();
     String cmd = toks[0].toLowerCase();
     switch (cmd) {
       case "shake": {
         float intensity = toks.length >= 2 ? parseFloatSafe(toks[1], 8f) : 8f;
         long ms = toks.length >= 3 ? parseLongSafe(toks[2], 300L) : 300L;
         scene.getState().triggerScreenShake(intensity, ms);
-        break;
+        return VnInteropResult.advance();
       }
       case "flash": {
         float strength = toks.length >= 2 ? parseFloatSafe(toks[1], 0.7f) : 0.7f;
@@ -844,14 +893,276 @@ public class DefaultVnInterop implements VnInterop {
           b = parseFloatSafe(toks[5], 1f);
         }
         scene.getState().triggerFlash(r, g, b, strength, ms);
-        break;
+        return VnInteropResult.advance();
       }
       case "clear":
         scene.getState().triggerScreenShake(0f, 0);
         scene.getState().triggerFlash(1f, 1f, 1f, 0f, 0);
-        break;
+        scene.getState().clearOverlayScreens();
+        return VnInteropResult.advance();
+      case "show", "call": {
+        if (toks.length < 2) {
+          scene.getState().showHudMessage("screen: missing id", 1200);
+          return VnInteropResult.advance();
+        }
+        String id = toks[1];
+        Map<String, String> options = parseKeyValueTokens(toks, 2);
+        boolean callScreen = "call".equals(cmd) || parseBooleanOption(options, "call", false);
+        VnOverlayScreenSpec spec = buildOverlayScreen(id, options, callScreen);
+        scene.getState().showOverlayScreen(spec);
+        if (callScreen) {
+          scene.beginInteropBlock(() -> !scene.getState().hasOverlayScreen(spec.getId()));
+          return VnInteropResult.block();
+        }
+        return VnInteropResult.advance();
+      }
+      case "hide", "close":
+        if (toks.length >= 2) scene.getState().hideOverlayScreen(toks[1]);
+        else scene.getState().dismissTopOverlayScreen();
+        return VnInteropResult.advance();
+      case "return": {
+        String id = toks.length >= 2 ? toks[1] : null;
+        String value = toks.length >= 3 ? joinTail(toks, 2) : "";
+        scene.getState().returnOverlayScreen(id, value);
+        return VnInteropResult.advance();
+      }
+    }
+    return VnInteropResult.advance();
+  }
+
+  private void startTimelinePlayback(
+      TimelineData data,
+      VnScene scene,
+      boolean waitForCompletion,
+      List<String> chain
+  ) {
+    if (data == null || scene == null) return;
+    final boolean[] completed = {false};
+    TimelineRunner runner = createTimelineRunnerChain(data, scene, chain, 0, completed);
+    scene.getState().addTimelineRunner(runner);
+    if (waitForCompletion) {
+      scene.beginInteropBlock(() -> completed[0]);
     }
   }
+
+  private TimelineRunner createTimelineRunnerChain(
+      TimelineData data,
+      VnScene scene,
+      List<String> chain,
+      int index,
+      boolean[] completed
+  ) {
+    TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
+    runner.setOnFinished(() -> {
+      TimelineData next = resolveChainedTimeline(chain, index);
+      if (next == null) {
+        completed[0] = true;
+        return;
+      }
+      TimelineRunner nextRunner = createTimelineRunnerChain(next, scene, chain, index + 1, completed);
+      scene.getState().addTimelineRunner(nextRunner);
+    });
+    return runner;
+  }
+
+  private TimelineData resolveChainedTimeline(List<String> chain, int index) {
+    if (chain == null || index >= chain.size()) return null;
+    String name = chain.get(index);
+    if (name == null || name.isBlank()) return null;
+    return TimelineRegistry.get(name.trim());
+  }
+
+  private TimelineInvocation parseTimelineInvocation(String payload) {
+    String[] toks = split(payload);
+    if (toks.length == 0) return new TimelineInvocation("", false, List.of());
+    String name = toks[0].trim();
+    boolean wait = false;
+    List<String> chain = new ArrayList<>();
+    boolean collectChainNames = false;
+    for (int i = 1; i < toks.length; i++) {
+      String token = toks[i] == null ? "" : toks[i].trim();
+      if (token.isEmpty()) continue;
+      String lower = token.toLowerCase(Locale.ROOT);
+      if ("wait".equals(lower) || "sync".equals(lower) || "block".equals(lower) || "await".equals(lower)) {
+        wait = true;
+        collectChainNames = false;
+        continue;
+      }
+      if ("then".equals(lower) || "chain".equals(lower)) {
+        collectChainNames = true;
+        continue;
+      }
+      if (lower.startsWith("chain=") || lower.startsWith("then=")) {
+        collectChainTargets(token.substring(token.indexOf('=') + 1), chain);
+        collectChainNames = false;
+        continue;
+      }
+      if (collectChainNames) {
+        collectChainTargets(token, chain);
+      }
+    }
+    return new TimelineInvocation(name, wait, chain);
+  }
+
+  private InlineTimelineInvocation parseInlineTimelineInvocation(String payload) {
+    String normalized = payload == null ? "" : payload.trim();
+    boolean wait = false;
+    List<String> chain = new ArrayList<>();
+    String block = normalized;
+    String tail = "";
+    int lastBrace = normalized.lastIndexOf('}');
+    if (lastBrace >= 0 && lastBrace < normalized.length() - 1) {
+      block = normalized.substring(0, lastBrace + 1).trim();
+      tail = normalized.substring(lastBrace + 1).trim();
+    }
+    if (!tail.isBlank()) {
+      TimelineInvocation tailInvocation = parseTimelineInvocation("_inline_ " + tail);
+      wait = tailInvocation.waitForCompletion();
+      chain.addAll(tailInvocation.chain());
+    }
+    return new InlineTimelineInvocation(block, wait, chain);
+  }
+
+  private void collectChainTargets(String raw, List<String> out) {
+    if (raw == null || raw.isBlank() || out == null) return;
+    for (String part : raw.split(",")) {
+      String trimmed = part == null ? "" : part.trim();
+      if (!trimmed.isEmpty()) out.add(trimmed);
+    }
+  }
+
+  private Map<String, String> parseKeyValueTokens(String[] toks, int start) {
+    Map<String, String> options = new LinkedHashMap<>();
+    if (toks == null || start >= toks.length) return options;
+    for (int i = start; i < toks.length; i++) {
+      String token = toks[i] == null ? "" : toks[i].trim();
+      if (token.isEmpty()) continue;
+      int eq = token.indexOf('=');
+      if (eq > 0 && eq < token.length() - 1) {
+        options.put(token.substring(0, eq).trim().toLowerCase(Locale.ROOT), token.substring(eq + 1).trim());
+      } else {
+        options.put(token.toLowerCase(Locale.ROOT), "true");
+      }
+    }
+    return options;
+  }
+
+  private VnOverlayScreenSpec buildOverlayScreen(String id, Map<String, String> options, boolean callScreen) {
+    double x = parseDoubleSafe(option(options, "x", "0.18"), 0.18);
+    double y = parseDoubleSafe(option(options, "y", "0.18"), 0.18);
+    double width = parseDoubleSafe(option(options, "w", option(options, "width", "0.64")), 0.64);
+    double height = parseDoubleSafe(option(options, "h", option(options, "height", "0.42")), 0.42);
+    boolean modal = parseBooleanOption(options, "modal", callScreen);
+    boolean dim = parseBooleanOption(options, "dim", true);
+    boolean dismiss = parseBooleanOption(options, "dismiss", !callScreen);
+    long timer = parseLongSafe(option(options, "timer", "0"), 0L);
+    String timerAction = option(options, "timeraction", option(options, "timer_action", callScreen ? "return" : "hide"));
+    String timerTarget = option(options, "timertarget", option(options, "timer_target", ""));
+    String returnKey = option(options, "returnkey", option(options, "return_key", "screen.return." + id));
+    String title = option(options, "title", id);
+    String text = option(options, "text", option(options, "body", ""));
+    List<VnOverlayButtonSpec> buttons = new ArrayList<>();
+    buttons.addAll(parseAutoButtons(id, option(options, "buttons", ""), width, height));
+    buttons.addAll(parseHotspots(id, option(options, "hotspots", "")));
+    return new VnOverlayScreenSpec(
+        id,
+        title,
+        text,
+        x,
+        y,
+        width,
+        height,
+        modal,
+        dim,
+        dismiss,
+        callScreen,
+        timer,
+        timerAction,
+        timerTarget,
+        returnKey,
+        buttons
+    );
+  }
+
+  private List<VnOverlayButtonSpec> parseAutoButtons(String screenId, String spec, double screenWidth, double screenHeight) {
+    if (spec == null || spec.isBlank()) return List.of();
+    List<VnOverlayButtonSpec> buttons = new ArrayList<>();
+    String[] rows = spec.split(";");
+    int count = 0;
+    for (String row : rows) {
+      if (row != null && !row.trim().isEmpty()) count++;
+    }
+    if (count == 0) return List.of();
+    int visibleIndex = 0;
+    double buttonWidth = Math.min(0.28, Math.max(0.18, (0.82 / count)));
+    double gap = 0.03;
+    double totalWidth = count * buttonWidth + Math.max(0, count - 1) * gap;
+    double startX = Math.max(0.06, (1.0 - totalWidth) * 0.5);
+    for (String row : rows) {
+      if (row == null || row.trim().isEmpty()) continue;
+      String[] parts = row.split("\\|", -1);
+      String label = parts.length > 0 ? parts[0].trim() : "Button";
+      String action = parts.length > 1 ? parts[1].trim() : "noop";
+      String target = parts.length > 2 ? parts[2].trim() : "";
+      buttons.add(new VnOverlayButtonSpec(
+          "btn_" + screenId + "_" + visibleIndex,
+          screenId,
+          label,
+          action,
+          target,
+          true,
+          startX + visibleIndex * (buttonWidth + gap),
+          0.74,
+          buttonWidth,
+          0.16,
+          "screen"
+      ));
+      visibleIndex++;
+    }
+    return buttons;
+  }
+
+  private List<VnOverlayButtonSpec> parseHotspots(String screenId, String spec) {
+    if (spec == null || spec.isBlank()) return List.of();
+    List<VnOverlayButtonSpec> buttons = new ArrayList<>();
+    String[] rows = spec.split(";");
+    for (int i = 0; i < rows.length; i++) {
+      String row = rows[i];
+      if (row == null || row.trim().isEmpty()) continue;
+      String[] parts = row.split("\\|", -1);
+      if (parts.length < 7) continue;
+      buttons.add(new VnOverlayButtonSpec(
+          parts[0].trim().isEmpty() ? ("hotspot_" + i) : parts[0].trim(),
+          screenId,
+          parts[0].trim(),
+          parts[1].trim(),
+          parts[2].trim(),
+          true,
+          parseDoubleSafe(parts[3].trim(), 0.0),
+          parseDoubleSafe(parts[4].trim(), 0.0),
+          parseDoubleSafe(parts[5].trim(), 0.12),
+          parseDoubleSafe(parts[6].trim(), 0.08),
+          parts.length >= 8 ? parts[7].trim() : "viewport"
+      ));
+    }
+    return buttons;
+  }
+
+  private boolean parseBooleanOption(Map<String, String> options, String key, boolean fallback) {
+    String value = option(options, key, null);
+    if (value == null) return fallback;
+    Boolean parsed = parseBooleanMaybe(value);
+    return parsed != null ? parsed : fallback;
+  }
+
+  private String option(Map<String, String> options, String key, String fallback) {
+    if (options == null || key == null) return fallback;
+    String value = options.get(key.toLowerCase(Locale.ROOT));
+    return value == null ? fallback : value;
+  }
+
+  private record TimelineInvocation(String name, boolean waitForCompletion, List<String> chain) {}
+  private record InlineTimelineInvocation(String block, boolean waitForCompletion, List<String> chain) {}
 
   private void handleCharacter(String payload, VnScene scene) {
     String[] toks = split(payload);

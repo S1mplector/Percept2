@@ -126,30 +126,6 @@ final class PuppeteerVerification {
                 "Move camera animation to the dedicated runtime camera lane"
             ));
         }
-
-        for (EntityGroup group : project.getGroups()) {
-            if (group == null) continue;
-            EntityTrack groupTrack = group.getGroupTrack();
-            if (groupTrack == null) continue;
-            if (!hasAnimatedGroupTrack(groupTrack)) continue;
-
-            messages.add(new TimelineDiagnostic.Message(
-                TimelineDiagnostic.Severity.ERROR,
-                group.getName(),
-                "Animated group '" + group.getName() + "' is preview-only for runtime registration",
-                "Bake group motion into child entity tracks before registering"
-            ));
-        }
-    }
-
-    private static boolean hasAnimatedGroupTrack(EntityTrack track) {
-        return track.hasKeyframes(PropertyType.X)
-            || track.hasKeyframes(PropertyType.Y)
-            || track.hasKeyframes(PropertyType.Z)
-            || track.hasKeyframes(PropertyType.ROTATION)
-            || track.hasKeyframes(PropertyType.SCALE_X)
-            || track.hasKeyframes(PropertyType.SCALE_Y)
-            || track.hasKeyframes(PropertyType.ALPHA);
     }
 
     private static Path resolveProjectPath(File projectRoot, String rawPath) {

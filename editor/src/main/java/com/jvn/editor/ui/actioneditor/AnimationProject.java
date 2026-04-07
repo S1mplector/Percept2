@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import com.jvn.core.animation.TimelineData;
 
@@ -587,6 +588,32 @@ public class AnimationProject {
             && hasGroupAnimation(track.getParentGroupName(), property);
     }
 
+    public List<Keyframe> getEffectiveKeyframes(String entityName, PropertyType property) {
+        if (entityName == null || entityName.isBlank() || property == null) return Collections.emptyList();
+        EntityTrack track = entityTracks.get(entityName);
+        if (track == null) return Collections.emptyList();
+        if (!property.isEntityProperty()) return track.getKeyframes(property);
+        if (!track.hasParent() || (!track.hasKeyframes(property) && !hasGroupAnimation(track.getParentGroupName(), property))) {
+            return track.getKeyframes(property);
+        }
+
+        Map<Long, Double> times = new TreeMap<>();
+        collectEffectiveTimes(entityName, property, times);
+        if (times.isEmpty()) return Collections.emptyList();
+
+        List<Keyframe> out = new ArrayList<>();
+        for (double time : times.values()) {
+            Keyframe source = resolveEffectiveStyleSource(entityName, property, time);
+            out.add(new Keyframe(
+                time,
+                computeValueAt(entityName, property, time, property.getDefaultValue()),
+                source != null ? source.getEasingSpec() : com.jvn.core.animation.EasingSpec.of(com.jvn.core.animation.Easing.Type.LINEAR),
+                source != null ? source.getInterpolation() : com.jvn.core.animation.Easing.Interpolation.TWEEN
+            ));
+        }
+        return out;
+    }
+
     public int computeEffectiveLayerOrder(String entityName) {
         EntityTrack track = entityTracks.get(entityName);
         if (track == null) return 0;
@@ -695,7 +722,9 @@ public class AnimationProject {
             boolean hasData = false;
 
             for (PropertyType prop : PropertyType.values()) {
-                List<Keyframe> keyframes = et.getKeyframes(prop);
+                List<Keyframe> keyframes = prop.isEntityProperty()
+                    ? getEffectiveKeyframes(et.getEntityName(), prop)
+                    : et.getKeyframes(prop);
                 if (keyframes.isEmpty()) continue;
                 hasData = true;
 
@@ -817,6 +846,46 @@ public class AnimationProject {
             cursor = group.getParentGroupName();
         }
         return false;
+    }
+
+    private void collectEffectiveTimes(String entityName, PropertyType property, Map<Long, Double> out) {
+        EntityTrack track = entityTracks.get(entityName);
+        if (track == null || property == null || out == null) return;
+        collectTimes(track.getKeyframes(property), out);
+        String cursor = track.getParentGroupName();
+        Set<String> visited = new HashSet<>();
+        while (cursor != null && visited.add(cursor)) {
+            EntityGroup group = groups.get(cursor);
+            if (group == null) break;
+            collectTimes(group.getGroupTrack().getKeyframes(property), out);
+            cursor = group.getParentGroupName();
+        }
+    }
+
+    private Keyframe resolveEffectiveStyleSource(String entityName, PropertyType property, double timeMs) {
+        EntityTrack track = entityTracks.get(entityName);
+        if (track == null) return null;
+        Keyframe local = track.findKeyframeAt(property, timeMs);
+        if (local != null) return local;
+        String cursor = track.getParentGroupName();
+        Set<String> visited = new HashSet<>();
+        while (cursor != null && visited.add(cursor)) {
+            EntityGroup group = groups.get(cursor);
+            if (group == null) break;
+            Keyframe source = group.getGroupTrack().findKeyframeAt(property, timeMs);
+            if (source != null) return source;
+            cursor = group.getParentGroupName();
+        }
+        return null;
+    }
+
+    private void collectTimes(List<Keyframe> keyframes, Map<Long, Double> out) {
+        if (keyframes == null || out == null) return;
+        for (Keyframe keyframe : keyframes) {
+            if (keyframe == null) continue;
+            long quantized = Math.round(keyframe.getTimeMs() * 1000.0);
+            out.putIfAbsent(quantized, keyframe.getTimeMs());
+        }
     }
 
     private static boolean isAdditiveGroupProperty(PropertyType property) {

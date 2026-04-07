@@ -989,6 +989,18 @@ public class FxLauncher extends Application {
     double rh = renderHeightForScene(currentScene);
     if (currentScene instanceof VnScene) {
       VnScene vnScene = (VnScene) currentScene;
+      com.jvn.core.vn.ui.VnOverlayButtonSpec overlayButton =
+          vnRenderer.getHoveredOverlayButton(vnScene.getState(), rw, rh, x, y);
+      if (overlayButton != null && executeOverlayButtonAction(vnScene, overlayButton)) {
+        return;
+      }
+      if (vnScene.getState().hasModalOverlayScreen()) {
+        if (vnScene.getState().getTopOverlayScreen() != null
+            && vnScene.getState().getTopOverlayScreen().isDismissOnAdvance()) {
+          vnScene.getState().dismissTopOverlayScreen();
+        }
+        return;
+      }
 
       com.jvn.core.vn.ui.VnUiActionButtonSpec textBoxButton =
           vnRenderer.getHoveredTextBoxButton(vnScene.getState(), rw, rh, x, y);
@@ -1088,11 +1100,30 @@ public class FxLauncher extends Application {
         }
       }
     }
+    return executeUiAction(vnScene, action, target, null, true);
+  }
+
+  private boolean executeOverlayButtonAction(VnScene vnScene, com.jvn.core.vn.ui.VnOverlayButtonSpec button) {
+    if (vnScene == null || button == null || !button.enabled()) return false;
+    String target = button.target() == null ? "" : button.target().trim();
+    String action = normalizeButtonAction(button.action());
+    return executeUiAction(vnScene, action, target, button.screenId(), false);
+  }
+
+  private boolean executeUiAction(
+      VnScene vnScene,
+      String action,
+      String target,
+      String overlayScreenId,
+      boolean clickAdvanceUsesReveal
+  ) {
+    if (vnScene == null) return false;
     var state = vnScene.getState();
 
     switch (action) {
       case "advance" -> {
-        vnScene.advanceFromClick();
+        if (clickAdvanceUsesReveal) vnScene.advanceFromClick();
+        else vnScene.advance();
         return true;
       }
       case "rollback", "back" -> {
@@ -1131,13 +1162,46 @@ public class FxLauncher extends Application {
         state.toggleUiHidden();
         return true;
       }
+      case "hide", "close", "dismiss" -> {
+        if (target == null || target.isBlank()) state.hideOverlayScreen(overlayScreenId);
+        else state.hideOverlayScreen(target);
+        return true;
+      }
+      case "return" -> {
+        state.returnOverlayScreen(overlayScreenId, target);
+        return true;
+      }
+      case "goto" -> {
+        if (target == null || target.isBlank()) return true;
+        state.hideOverlayScreen(overlayScreenId);
+        vnScene.jumpToLabel(target);
+        return true;
+      }
+      case "set", "flag", "unflag", "clear", "inc", "dec" -> {
+        if (vnScene.getInterop() != null) {
+          vnScene.getInterop().handle(new com.jvn.core.vn.VnExternalCommand("var", action + " " + target), vnScene);
+        }
+        return true;
+      }
+      case "persistent" -> {
+        if (vnScene.getInterop() != null) {
+          vnScene.getInterop().handle(new com.jvn.core.vn.VnExternalCommand("persistent", target), vnScene);
+        }
+        return true;
+      }
+      case "screen" -> {
+        if (vnScene.getInterop() != null) {
+          vnScene.getInterop().handle(new com.jvn.core.vn.VnExternalCommand("screen", target), vnScene);
+        }
+        return true;
+      }
       case "save_menu", "open_save_menu", "menu_save" -> {
         engine.scenes().push(new SaveMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), vnScene));
         return true;
       }
       case "load_menu", "open_load_menu", "menu_load" -> {
         String fallbackScript = resolveDefaultScriptForMenus(vnScene);
-        String script = target.isBlank() ? fallbackScript : target;
+        String script = target == null || target.isBlank() ? fallbackScript : target;
         engine.scenes().push(new LoadMenuScene(
             engine,
             new com.jvn.core.vn.save.VnSaveManager(),
@@ -1170,7 +1234,7 @@ public class FxLauncher extends Application {
         return true;
       }
       case "open_menu", "menu_open" -> {
-        if (target.isBlank()) {
+        if (target == null || target.isBlank()) {
           vnScene.getState().showHudMessage("Button target missing", 1200);
           return true;
         }
@@ -1187,7 +1251,7 @@ public class FxLauncher extends Application {
       }
       case "quit", "quit_game", "close_game", "exit" -> {
         String fallbackScript = resolveDefaultScriptForMenus(vnScene);
-        String menuTarget = target.isBlank() ? "confirm_exit" : target;
+        String menuTarget = target == null || target.isBlank() ? "confirm_exit" : target;
         engine.scenes().push(new MainMenuScene(
             engine,
             vnScene.getState().getSettings(),

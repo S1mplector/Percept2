@@ -1,6 +1,7 @@
 package com.jvn.core.vn;
 
 import java.util.Locale;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,6 +36,7 @@ public class VnScene implements Scene {
   // Transition blocking state
   private boolean transitionBlocking = false;
   private long transitionRemainingMs = 0;
+  private BooleanSupplier interopBlockCondition;
 
   public VnScene(VnScenario scenario) {
     this.scenario = scenario;
@@ -172,6 +174,7 @@ public class VnScene implements Scene {
 
     state.updateScreenEffects(deltaMs);
     state.updateCharacterAnimations(deltaMs);
+    state.updateOverlayScreens(deltaMs);
     state.updateTimelineRunners(deltaMs);
 
     VnNode currentNode = state.getCurrentNode();
@@ -182,6 +185,15 @@ public class VnScene implements Scene {
       waitRemainingMs -= deltaMs;
       if (waitRemainingMs <= 0) {
         waitingNode = false;
+        state.advance();
+        processCurrentNode();
+      }
+      return;
+    }
+
+    if (interopBlockCondition != null) {
+      if (interopBlockCondition.getAsBoolean()) {
+        interopBlockCondition = null;
         state.advance();
         processCurrentNode();
       }
@@ -493,9 +505,7 @@ public class VnScene implements Scene {
     if (res == null || res.shouldAdvance()) {
       state.advance();
     }
-    // Non-advancing external commands (for example cond jumps) still keep
-    // the command loop running from the current node index.
-    return true;
+    return res == null || res.shouldContinueProcessing();
   }
 
   private void reportInteropException(String context, VnExternalCommand cmd, Exception ex) {
@@ -791,5 +801,15 @@ public class VnScene implements Scene {
    */
   public boolean canRollforward() {
     return state.canRollforward();
+  }
+
+  public void beginInteropBlock(BooleanSupplier condition) {
+    this.interopBlockCondition = condition;
+  }
+
+  public void jumpToLabel(String label) {
+    if (label == null || label.isBlank()) return;
+    state.jumpToLabel(label);
+    processCurrentNode();
   }
 }

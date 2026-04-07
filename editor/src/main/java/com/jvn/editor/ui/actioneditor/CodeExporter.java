@@ -138,12 +138,12 @@ public class CodeExporter {
         for (EntityTrack track : project.getTracks()) {
             String entity = track.getEntityName();
 
-            collectPropertyEvents(events, entity, track, PropertyType.X, PropertyType.Y, "move");
-            collectPropertyEvents(events, entity, track, PropertyType.Z, null, "depth");
-            collectPropertyEvents(events, entity, track, PropertyType.PIVOT_X, PropertyType.PIVOT_Y, "pivot");
-            collectPropertyEvents(events, entity, track, PropertyType.ROTATION, null, "rotate");
-            collectPropertyEvents(events, entity, track, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale");
-            collectPropertyEvents(events, entity, track, PropertyType.ALPHA, null, "fade");
+            collectPropertyEvents(events, project, entity, track, PropertyType.X, PropertyType.Y, "move", true);
+            collectPropertyEvents(events, project, entity, track, PropertyType.Z, null, "depth", true);
+            collectPropertyEvents(events, project, entity, track, PropertyType.PIVOT_X, PropertyType.PIVOT_Y, "pivot", true);
+            collectPropertyEvents(events, project, entity, track, PropertyType.ROTATION, null, "rotate", true);
+            collectPropertyEvents(events, project, entity, track, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale", true);
+            collectPropertyEvents(events, project, entity, track, PropertyType.ALPHA, null, "fade", true);
             collectVisibilityEvents(events, entity, track);
             collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MXX);
             collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MXY);
@@ -166,21 +166,9 @@ public class CodeExporter {
             }
         }
 
-        for (EntityGroup group : project.getGroups()) {
-            EntityTrack gt = group.getGroupTrack();
-            String groupName = group.getName();
-
-            collectPropertyEvents(events, groupName, gt, PropertyType.X, PropertyType.Y, "move");
-            collectPropertyEvents(events, groupName, gt, PropertyType.Z, null, "depth");
-            collectPropertyEvents(events, groupName, gt, PropertyType.ROTATION, null, "rotate");
-            collectPropertyEvents(events, groupName, gt, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale");
-            collectPropertyEvents(events, groupName, gt, PropertyType.ALPHA, null, "fade");
-            collectVisibilityEvents(events, groupName, gt);
-        }
-
         if (cameraTrack != null) {
-            collectPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_X, PropertyType.CAMERA_Y, "cameraMove");
-            collectPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_ZOOM, null, "cameraZoom");
+            collectPropertyEvents(events, null, "__camera__", cameraTrack, PropertyType.CAMERA_X, PropertyType.CAMERA_Y, "cameraMove", false);
+            collectPropertyEvents(events, null, "__camera__", cameraTrack, PropertyType.CAMERA_ZOOM, null, "cameraZoom", false);
             collectTimelineCustomPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_DOF_FOCUS);
             collectTimelineCustomPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_DOF_STRENGTH);
             collectTimelineCustomPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_DOF_MAX_BLUR);
@@ -247,12 +235,21 @@ public class CodeExporter {
         return cue.getPayloadValue("target");
     }
 
-    private static void collectPropertyEvents(List<TimelineEvent> events, String target,
-                                               EntityTrack track, PropertyType p1, PropertyType p2,
-                                               String actionType) {
+    private static void collectPropertyEvents(
+        List<TimelineEvent> events,
+        AnimationProject project,
+        String target,
+        EntityTrack track,
+        PropertyType p1,
+        PropertyType p2,
+        String actionType,
+        boolean effective
+    ) {
         if (track == null) return;
-        List<Keyframe> list1 = track.getKeyframes(p1);
-        List<Keyframe> list2 = p2 != null ? track.getKeyframes(p2) : null;
+        List<Keyframe> list1 = effective && project != null ? project.getEffectiveKeyframes(target, p1) : track.getKeyframes(p1);
+        List<Keyframe> list2 = p2 != null
+            ? (effective && project != null ? project.getEffectiveKeyframes(target, p2) : track.getKeyframes(p2))
+            : null;
         boolean hasP1 = !list1.isEmpty();
         boolean hasP2 = p2 != null && list2 != null && !list2.isEmpty();
 
@@ -276,10 +273,22 @@ public class CodeExporter {
             double endTime = times.get(i + 1);
             double duration = endTime - startTime;
 
-            double startVal1 = track.getValueAt(p1, startTime);
-            double endVal1 = track.getValueAt(p1, endTime);
-            double startVal2 = p2 != null ? track.getValueAt(p2, startTime) : 0;
-            double endVal2 = p2 != null ? track.getValueAt(p2, endTime) : 0;
+            double startVal1 = effective && project != null
+                ? project.computeValueAt(target, p1, startTime, p1.getDefaultValue())
+                : track.getValueAt(p1, startTime);
+            double endVal1 = effective && project != null
+                ? project.computeValueAt(target, p1, endTime, p1.getDefaultValue())
+                : track.getValueAt(p1, endTime);
+            double startVal2 = p2 != null
+                ? (effective && project != null
+                    ? project.computeValueAt(target, p2, startTime, p2.getDefaultValue())
+                    : track.getValueAt(p2, startTime))
+                : 0;
+            double endVal2 = p2 != null
+                ? (effective && project != null
+                    ? project.computeValueAt(target, p2, endTime, p2.getDefaultValue())
+                    : track.getValueAt(p2, endTime))
+                : 0;
 
             EasingSpec easingSpec = findEasingSpecAt(list1, endTime);
             if (easingSpec == null && list2 != null) easingSpec = findEasingSpecAt(list2, endTime);

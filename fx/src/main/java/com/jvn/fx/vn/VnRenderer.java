@@ -34,6 +34,8 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
+import com.jvn.core.vn.ui.VnOverlayButtonSpec;
+import com.jvn.core.vn.ui.VnOverlayScreenSpec;
 import com.jvn.fx.ui.ProjectFontResolver;
 
 import javafx.scene.canvas.GraphicsContext;
@@ -47,6 +49,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 
 /**
  * Renders visual novel elements using JavaFX Canvas
@@ -328,6 +331,8 @@ public class VnRenderer {
       }
     }
 
+    renderOverlayScreens(state, width, height, null);
+
     // Render mode indicators (always visible)
     renderModeIndicators(state, width, height);
 
@@ -374,6 +379,7 @@ public class VnRenderer {
         renderDialogue(currentNode.getDialogue(), state, width, height, hoverButton);
       }
     }
+    renderOverlayScreens(state, width, height, getHoveredOverlayButton(state, width, height, mouseX, mouseY));
   }
 
   private int positionOrdinal(CharacterPosition position) {
@@ -2308,6 +2314,25 @@ public class VnRenderer {
     return textBoxButtons.get(idx);
   }
 
+  public VnOverlayButtonSpec getHoveredOverlayButton(VnState state, double width, double height, double mouseX, double mouseY) {
+    if (state == null || !state.hasOverlayScreens()) return null;
+    List<VnOverlayScreenSpec> screens = state.getOverlayScreens();
+    for (int screenIndex = screens.size() - 1; screenIndex >= 0; screenIndex--) {
+      VnOverlayScreenSpec screen = screens.get(screenIndex);
+      if (screen == null) continue;
+      ScreenGeometry screenGeometry = computeOverlayScreenGeometry(screen, width, height);
+      List<VnOverlayButtonSpec> buttons = screen.getButtons();
+      for (int i = buttons.size() - 1; i >= 0; i--) {
+        VnOverlayButtonSpec button = buttons.get(i);
+        if (button == null || !button.enabled()) continue;
+        ButtonGeometry geometry = computeOverlayButtonGeometry(button, screenGeometry, width, height);
+        if (geometry.contains(mouseX, mouseY)) return button;
+      }
+      if (screen.isModal()) break;
+    }
+    return null;
+  }
+
   private int getHoveredTextBoxButtonIndex(VnState state, double width, double height, double mouseX, double mouseY) {
     if (state == null || state.isUiHidden()) return -1;
     if (state.getDialoguePresentationMode() != DialoguePresentationMode.STANDARD) return -1;
@@ -2386,8 +2411,138 @@ public class VnRenderer {
     return new ButtonGeometry(x, y, width, height);
   }
 
+  private void renderOverlayScreens(VnState state, double width, double height, VnOverlayButtonSpec hoveredButton) {
+    if (state == null || !state.hasOverlayScreens()) return;
+    boolean dimDrawn = false;
+    for (VnOverlayScreenSpec screen : state.getOverlayScreens()) {
+      if (screen == null) continue;
+      if (screen.isDimBackground() && !dimDrawn) {
+        gc.setFill(Color.rgb(0, 0, 0, 0.42));
+        gc.fillRect(0, 0, width, height);
+        dimDrawn = true;
+      }
+      ScreenGeometry screenGeometry = computeOverlayScreenGeometry(screen, width, height);
+      renderOverlayPanel(screen, screenGeometry, width, height);
+      for (VnOverlayButtonSpec button : screen.getButtons()) {
+        if (button == null || !button.enabled()) continue;
+        ButtonGeometry geometry = computeOverlayButtonGeometry(button, screenGeometry, width, height);
+        renderOverlayButton(button, geometry, hoveredButton == button);
+      }
+    }
+  }
+
+  private void renderOverlayPanel(VnOverlayScreenSpec screen, ScreenGeometry geometry, double viewportWidth, double viewportHeight) {
+    if (screen == null || geometry == null) return;
+    gc.setFill(Color.rgb(18, 21, 28, 0.95));
+    gc.fillRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 22, 22);
+    gc.setStroke(Color.rgb(210, 220, 240, 0.22));
+    gc.setLineWidth(1.5);
+    gc.strokeRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 22, 22);
+
+    double innerX = geometry.x() + 22;
+    double innerY = geometry.y() + 20;
+    double innerWidth = Math.max(40, geometry.width() - 44);
+    gc.setFill(Color.WHITE);
+    gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 22));
+    gc.fillText(screen.getTitle(), innerX, innerY + 4);
+
+    if (screen.getText() != null && !screen.getText().isBlank()) {
+      gc.setFill(Color.rgb(228, 232, 240, 0.95));
+      gc.setFont(Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, 17));
+      double textY = innerY + 34;
+      for (String line : wrapText(screen.getText(), innerWidth, gc.getFont())) {
+        gc.fillText(line, innerX, textY);
+        textY += 22;
+        if (textY > geometry.y() + geometry.height() - 44) break;
+      }
+    }
+
+    if (screen.getTimerRemainingMs() > 0) {
+      double ratio = Math.max(0.0, Math.min(1.0, screen.getTimerRemainingMs() / 5000.0));
+      gc.setFill(Color.rgb(82, 210, 255, 0.65));
+      gc.fillRoundRect(
+          geometry.x() + 18,
+          geometry.y() + geometry.height() - 12,
+          Math.max(18, (geometry.width() - 36) * ratio),
+          4,
+          4,
+          4
+      );
+    }
+  }
+
+  private void renderOverlayButton(VnOverlayButtonSpec button, ButtonGeometry geometry, boolean hovered) {
+    if (button == null || geometry == null) return;
+    Color fill = hovered ? Color.rgb(74, 122, 214, 0.92) : Color.rgb(43, 49, 60, 0.92);
+    Color stroke = hovered ? Color.rgb(144, 192, 255, 0.95) : Color.rgb(255, 255, 255, 0.18);
+    gc.setFill(fill);
+    gc.fillRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 16, 16);
+    gc.setStroke(stroke);
+    gc.setLineWidth(1.2);
+    gc.strokeRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 16, 16);
+    if (button.label() != null && !button.label().isBlank()) {
+      gc.setFill(Color.WHITE);
+      gc.setFont(Font.font(choiceFont.getFamily(), FontWeight.NORMAL, 16));
+      gc.fillText(button.label(), geometry.x() + 12, geometry.y() + geometry.height() * 0.62);
+    }
+  }
+
+  private List<String> wrapText(String text, double maxWidth, Font font) {
+    List<String> lines = new ArrayList<>();
+    if (text == null || text.isBlank()) return lines;
+    String[] words = text.split("\\s+");
+    StringBuilder current = new StringBuilder();
+    gc.setFont(font);
+    for (String word : words) {
+      String candidate = current.length() == 0 ? word : (current + " " + word);
+      if (measureText(candidate) <= maxWidth || current.length() == 0) {
+        current.setLength(0);
+        current.append(candidate);
+      } else {
+        lines.add(current.toString());
+        current.setLength(0);
+        current.append(word);
+      }
+    }
+    if (current.length() > 0) lines.add(current.toString());
+    return lines;
+  }
+
+  private double measureText(String text) {
+    if (text == null || text.isEmpty()) return 0.0;
+    Text probe = new Text(text);
+    probe.setFont(gc.getFont());
+    return probe.getLayoutBounds().getWidth();
+  }
+
+  private ScreenGeometry computeOverlayScreenGeometry(VnOverlayScreenSpec screen, double viewportWidth, double viewportHeight) {
+    double x = clamp(viewportWidth * screen.getX(), 0, viewportWidth);
+    double y = clamp(viewportHeight * screen.getY(), 0, viewportHeight);
+    double width = clamp(viewportWidth * screen.getWidth(), 40, viewportWidth - x);
+    double height = clamp(viewportHeight * screen.getHeight(), 40, viewportHeight - y);
+    return new ScreenGeometry(x, y, width, height);
+  }
+
+  private ButtonGeometry computeOverlayButtonGeometry(
+      VnOverlayButtonSpec button,
+      ScreenGeometry screen,
+      double viewportWidth,
+      double viewportHeight
+  ) {
+    double baseX = button.viewportSpace() ? 0.0 : screen.x();
+    double baseY = button.viewportSpace() ? 0.0 : screen.y();
+    double baseW = button.viewportSpace() ? viewportWidth : screen.width();
+    double baseH = button.viewportSpace() ? viewportHeight : screen.height();
+    double x = baseX + baseW * button.x();
+    double y = baseY + baseH * button.y();
+    double width = Math.max(8, baseW * button.width());
+    double height = Math.max(8, baseH * button.height());
+    return new ButtonGeometry(x, y, width, height);
+  }
+
   private record ChoiceGeometry(double choiceX, double startY, double choiceWidth, double choiceHeight, double choiceGap) {}
   private record TextBoxGeometry(double x, double y, double width, double height) {}
+  private record ScreenGeometry(double x, double y, double width, double height) {}
   private record ButtonGeometry(double x, double y, double width, double height) {
     boolean contains(double px, double py) {
       return px >= x && px <= x + width && py >= y && py <= y + height;

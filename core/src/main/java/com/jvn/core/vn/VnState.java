@@ -11,6 +11,7 @@ import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.TimelineRunner;
 import com.jvn.core.tween.Easings;
 import com.jvn.core.vn.rollback.VnRollbackStack;
+import com.jvn.core.vn.ui.VnOverlayScreenSpec;
 
 /**
  * Manages the current state of a visual novel playthrough
@@ -34,6 +35,9 @@ public class VnState {
   private final Set<String> globalPositionCharacters;
   private final Map<String, CharacterPosition> characterDefinedPositions;
   private final Map<String, Object> variables; // For future flag/variable system
+  private final VnPersistentStore persistentStore;
+  private final Set<String> mirroredPersistentVariables;
+  private final List<VnOverlayScreenSpec> overlayScreens = new ArrayList<>();
   private boolean waitingForInput;
   private int textRevealProgress; // For text animation
   private final VnHistory history;
@@ -81,6 +85,8 @@ public class VnState {
     this.globalPositionCharacters = new HashSet<>();
     this.characterDefinedPositions = new HashMap<>();
     this.variables = new HashMap<>();
+    this.persistentStore = new VnPersistentStore();
+    this.mirroredPersistentVariables = new HashSet<>();
     this.waitingForInput = false;
     this.textRevealProgress = 0;
     this.history = new VnHistory();
@@ -88,6 +94,7 @@ public class VnState {
     this.readNodes = new HashSet<>();
     this.callStack = new ArrayList<>();
     this.rollbackStack = new VnRollbackStack();
+    syncPersistentVariableMirror();
   }
 
   public VnScenario getScenario() { return scenario; }
@@ -386,6 +393,27 @@ public class VnState {
 
   public void setVariable(String key, Object value) { variables.put(key, value); }
   public Object getVariable(String key) { return variables.get(key); }
+  public VnPersistentStore getPersistentStore() { return persistentStore; }
+
+  public Object getPersistentValue(String key) {
+    return persistentStore.get(key);
+  }
+
+  public void setPersistentValue(String key, Object value) {
+    persistentStore.put(key, value);
+    syncPersistentVariableMirror();
+  }
+
+  public void removePersistentValue(String key) {
+    persistentStore.remove(key);
+    syncPersistentVariableMirror();
+  }
+
+  public double addPersistentValue(String key, double delta) {
+    double result = persistentStore.add(key, delta);
+    syncPersistentVariableMirror();
+    return result;
+  }
 
   public DialoguePresentationMode getDialoguePresentationMode() {
     return DialoguePresentationMode.fromVariable(variables.get(VAR_DIALOGUE_PRESENTATION_MODE));
@@ -584,6 +612,7 @@ public class VnState {
   public void setVariables(Map<String, Object> vars) {
     this.variables.clear();
     if (vars != null) this.variables.putAll(vars);
+    syncPersistentVariableMirror();
   }
 
   public Object getRpgState() { return rpgState; }
@@ -775,7 +804,15 @@ public class VnState {
   }
 
   public void updateTimelineRunners(long deltaMs) {
-    activeTimelines.removeIf(r -> { r.update(deltaMs); return r.isFinished(); });
+    if (activeTimelines.isEmpty()) return;
+    List<TimelineRunner> snapshot = new ArrayList<>(activeTimelines);
+    List<TimelineRunner> finished = new ArrayList<>();
+    for (TimelineRunner runner : snapshot) {
+      if (runner == null) continue;
+      runner.update(deltaMs);
+      if (runner.isFinished()) finished.add(runner);
+    }
+    activeTimelines.removeAll(finished);
   }
 
   public boolean hasActiveTimelines() {
@@ -784,6 +821,97 @@ public class VnState {
 
   public List<TimelineRunner> getActiveTimelines() {
     return activeTimelines;
+  }
+
+  public List<VnOverlayScreenSpec> getOverlayScreens() {
+    return java.util.Collections.unmodifiableList(overlayScreens);
+  }
+
+  public boolean hasOverlayScreen(String id) {
+    if (id == null || id.isBlank()) return false;
+    for (VnOverlayScreenSpec screen : overlayScreens) {
+      if (screen != null && id.trim().equals(screen.getId())) return true;
+    }
+    return false;
+  }
+
+  public boolean hasOverlayScreens() {
+    return !overlayScreens.isEmpty();
+  }
+
+  public boolean hasModalOverlayScreen() {
+    for (int i = overlayScreens.size() - 1; i >= 0; i--) {
+      VnOverlayScreenSpec screen = overlayScreens.get(i);
+      if (screen != null && screen.isModal()) return true;
+    }
+    return false;
+  }
+
+  public VnOverlayScreenSpec getTopOverlayScreen() {
+    return overlayScreens.isEmpty() ? null : overlayScreens.get(overlayScreens.size() - 1);
+  }
+
+  public void showOverlayScreen(VnOverlayScreenSpec screen) {
+    if (screen == null) return;
+    hideOverlayScreen(screen.getId());
+    overlayScreens.add(screen);
+  }
+
+  public void hideOverlayScreen(String id) {
+    if (id == null || id.isBlank()) return;
+    overlayScreens.removeIf(screen -> screen != null && id.trim().equals(screen.getId()));
+  }
+
+  public void clearOverlayScreens() {
+    overlayScreens.clear();
+  }
+
+  public void returnOverlayScreen(String id, String returnValue) {
+    VnOverlayScreenSpec target = null;
+    if (id != null && !id.isBlank()) {
+      for (int i = overlayScreens.size() - 1; i >= 0; i--) {
+        VnOverlayScreenSpec screen = overlayScreens.get(i);
+        if (screen != null && id.trim().equals(screen.getId())) {
+          target = screen;
+          break;
+        }
+      }
+    } else {
+      target = getTopOverlayScreen();
+    }
+    if (target == null) return;
+    String returnKey = target.getReturnKey();
+    if (returnKey != null && !returnKey.isBlank()) {
+      variables.put(returnKey, returnValue == null ? "" : returnValue);
+      variables.put("screen.return", returnValue == null ? "" : returnValue);
+    }
+    hideOverlayScreen(target.getId());
+  }
+
+  public void dismissTopOverlayScreen() {
+    VnOverlayScreenSpec top = getTopOverlayScreen();
+    if (top == null) return;
+    if (top.isCallScreen()) {
+      returnOverlayScreen(top.getId(), "");
+    } else {
+      hideOverlayScreen(top.getId());
+    }
+  }
+
+  public void updateOverlayScreens(long deltaMs) {
+    if (overlayScreens.isEmpty()) return;
+    List<VnOverlayScreenSpec> expired = new ArrayList<>();
+    for (VnOverlayScreenSpec screen : overlayScreens) {
+      if (screen != null && screen.tick(deltaMs)) expired.add(screen);
+    }
+    for (VnOverlayScreenSpec screen : expired) {
+      String action = screen.getTimerAction() == null ? "hide" : screen.getTimerAction().trim().toLowerCase();
+      if ("return".equals(action)) {
+        returnOverlayScreen(screen.getId(), screen.getTimerTarget());
+      } else {
+        hideOverlayScreen(screen.getId());
+      }
+    }
   }
 
   private float clamp01(float v) {
@@ -804,5 +932,19 @@ public class VnState {
       }
     }
     return 0.0;
+  }
+
+  private void syncPersistentVariableMirror() {
+    for (String key : mirroredPersistentVariables) {
+      variables.remove(key);
+    }
+    mirroredPersistentVariables.clear();
+    for (Map.Entry<String, Object> entry : persistentStore.snapshot().entrySet()) {
+      String key = entry.getKey();
+      if (key == null || key.isBlank()) continue;
+      String mirrorKey = "persistent." + key.trim();
+      mirroredPersistentVariables.add(mirrorKey);
+      variables.put(mirrorKey, entry.getValue());
+    }
   }
 }

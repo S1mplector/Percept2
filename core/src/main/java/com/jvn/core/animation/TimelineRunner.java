@@ -52,6 +52,7 @@ public class TimelineRunner {
 
     /** {@code true} once the playhead reaches the end (non-looping only). */
     private boolean finished = false;
+    private Runnable onFinished;
 
     /**
      * Construct a runner for the given timeline.
@@ -77,6 +78,10 @@ public class TimelineRunner {
     /** @return the current playhead position in milliseconds */
     public double getElapsedMs() { return elapsedMs; }
 
+    public void setOnFinished(Runnable onFinished) {
+        this.onFinished = onFinished;
+    }
+
     /**
      * Advance the animation by {@code deltaMs} milliseconds, trigger any
      * audio/event cues in the elapsed interval, and apply interpolated
@@ -99,7 +104,7 @@ public class TimelineRunner {
         if (duration <= EPS) {
             triggerAudioInterval(prevElapsed, nextElapsed, 1.0, timeline.isLooping());
             elapsedMs = 0.0;
-            if (!timeline.isLooping()) finished = true;
+            if (!timeline.isLooping()) markFinished();
             applyFrame(elapsedMs);
             return;
         }
@@ -113,7 +118,7 @@ public class TimelineRunner {
             triggerAudioInterval(prevElapsed, clampedNext, duration, false);
             triggerEventInterval(prevElapsed, clampedNext, duration, false);
             elapsedMs = clampedNext;
-            if (nextElapsed >= duration - EPS) finished = true;
+            if (nextElapsed >= duration - EPS) markFinished();
         }
         applyFrame(elapsedMs);
     }
@@ -305,5 +310,15 @@ public class TimelineRunner {
             return definition != null ? definition.getDefaultValue() : 0.0;
         }
         return entity.readCustomProperty(propertyKey);
+    }
+
+    private void markFinished() {
+        if (finished) return;
+        finished = true;
+        Runnable callback = onFinished;
+        onFinished = null;
+        if (callback != null) {
+            callback.run();
+        }
     }
 }
