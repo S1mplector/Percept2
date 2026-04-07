@@ -58,6 +58,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
@@ -79,6 +80,26 @@ public class PuppeteerWindow extends Stage {
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
         PropertyType.ALPHA
+    );
+    private static final List<PropertyType> ENTITY_MATRIX_PROPERTY_CHOICES = List.of(
+        PropertyType.MATRIX_MXX,
+        PropertyType.MATRIX_MXY,
+        PropertyType.MATRIX_MYX,
+        PropertyType.MATRIX_MYY,
+        PropertyType.MATRIX_TX,
+        PropertyType.MATRIX_TY,
+        PropertyType.BLUR
+    );
+    private static final List<String> ENTITY_DEDICATED_CUSTOM_KEYS = List.of(
+        "matrix.mxx", "matrix.mxy", "matrix.myx", "matrix.myy", "matrix.tx", "matrix.ty",
+        "effect.blur",
+        "color.m00", "color.m01", "color.m02", "color.m03", "color.m04",
+        "color.m10", "color.m11", "color.m12", "color.m13", "color.m14",
+        "color.m20", "color.m21", "color.m22", "color.m23", "color.m24",
+        "color.m30", "color.m31", "color.m32", "color.m33", "color.m34"
+    );
+    private static final List<String> CAMERA_DEDICATED_CUSTOM_KEYS = List.of(
+        "dof.focus", "dof.strength", "dof.maxBlur"
     );
 
     private final AnimationProject project;
@@ -131,6 +152,17 @@ public class PuppeteerWindow extends Stage {
     private Label lblSidebarSelectionProperty;
     private Label lblSidebarSelectionPlayhead;
     private Label lblSidebarSelectionCount;
+    private VBox sidebarAdvancedUnavailableCard;
+    private VBox sidebarMatrixCard;
+    private VBox sidebarColorMatrixCard;
+    private VBox sidebarCameraDofCard;
+    private VBox sidebarCustomChannelsCard;
+    private Label lblSidebarAdvancedHint;
+    private ComboBox<String> cbSidebarCustomPropertyKey;
+    private TextField tfSidebarCustomPropertyValue;
+    private final TextField[] sidebarMatrixFields = new TextField[7];
+    private final TextField[] sidebarColorMatrixFields = new TextField[20];
+    private final TextField[] sidebarCameraDofFields = new TextField[3];
     private Label lblSidebarSceneTracks;
     private Label lblSidebarSceneGroups;
     private Label lblSidebarSceneDuration;
@@ -1528,6 +1560,14 @@ public class PuppeteerWindow extends Stage {
         HBox selectionActionsPrimary = buildSidebarButtonRow(btnSidebarAddKeyframe, btnSidebarFocusSelection);
         HBox selectionActionsSecondary = buildSidebarButtonRow(btnPrevKey, btnNextKey, btnSidebarClearSelection);
 
+        sidebarAdvancedUnavailableCard = buildSidebarCard(
+            "Advanced",
+            createSidebarHintLabel("Advanced transform and custom-channel authoring is available for entity and runtime camera tracks."));
+        sidebarMatrixCard = buildSidebarCard("Matrix / Blur", buildSidebarMatrixInspector());
+        sidebarColorMatrixCard = buildSidebarCard("Color Matrix", buildSidebarColorMatrixInspector());
+        sidebarCameraDofCard = buildSidebarCard("Camera DOF", buildSidebarCameraDofInspector());
+        sidebarCustomChannelsCard = buildSidebarCard("Custom Channels", buildSidebarCustomChannelInspector());
+
         ScrollPane content = buildSidebarTabContent(
             buildSidebarCard(
                 "Selection",
@@ -1541,7 +1581,12 @@ public class PuppeteerWindow extends Stage {
                 "Actions",
                 selectionActionsPrimary,
                 selectionActionsSecondary
-            )
+            ),
+            sidebarAdvancedUnavailableCard,
+            sidebarMatrixCard,
+            sidebarColorMatrixCard,
+            sidebarCameraDofCard,
+            sidebarCustomChannelsCard
         );
         Tab tab = new Tab("Selection", content);
         refreshSidebarTabs();
@@ -1593,6 +1638,100 @@ public class PuppeteerWindow extends Stage {
         return tab;
     }
 
+    private Node buildSidebarMatrixInspector() {
+        String[] captions = {"MXX", "MXY", "MYX", "MYY", "TX", "TY", "Blur"};
+        GridPane grid = new GridPane();
+        grid.setHgap(6);
+        grid.setVgap(6);
+        for (int i = 0; i < captions.length; i++) {
+            Label label = new Label(captions[i]);
+            label.setStyle(STYLE_SIDEBAR_META_LABEL);
+            TextField field = buildSidebarNumberField(captions[i].toLowerCase(Locale.ROOT));
+            sidebarMatrixFields[i] = field;
+            int row = i / 2;
+            int col = (i % 2) * 2;
+            if (i == captions.length - 1) {
+                row = 3;
+                col = 0;
+            }
+            grid.add(label, col, row);
+            grid.add(field, col + 1, row);
+        }
+
+        Button btnFillIdentity = buildSidebarActionButton("Fill Identity", this::fillSidebarMatrixIdentity);
+        Button btnKeyMatrix = buildSidebarActionButton("Key At Playhead", this::applySidebarMatrixKeyframes);
+        return new VBox(8, grid, buildSidebarButtonRow(btnFillIdentity, btnKeyMatrix));
+    }
+
+    private Node buildSidebarColorMatrixInspector() {
+        VBox body = new VBox(8);
+        lblSidebarAdvancedHint = createSidebarHintLabel("RGBA 4x5 matrix. Values are keyed as dedicated color channels at the current playhead.");
+        GridPane grid = new GridPane();
+        grid.setHgap(4);
+        grid.setVgap(4);
+        String[] rowLabels = {"R", "G", "B", "A"};
+        for (int row = 0; row < 4; row++) {
+            Label rowLabel = new Label(rowLabels[row]);
+            rowLabel.setStyle(STYLE_SIDEBAR_META_LABEL);
+            grid.add(rowLabel, 0, row);
+            for (int col = 0; col < 5; col++) {
+                TextField field = buildSidebarCompactNumberField("m" + row + col);
+                sidebarColorMatrixFields[row * 5 + col] = field;
+                grid.add(field, col + 1, row);
+            }
+        }
+        Button btnFillIdentity = buildSidebarActionButton("Fill Identity", this::fillSidebarColorMatrixIdentity);
+        Button btnKeyColors = buildSidebarActionButton("Key At Playhead", this::applySidebarColorMatrixKeyframes);
+        body.getChildren().addAll(lblSidebarAdvancedHint, grid, buildSidebarButtonRow(btnFillIdentity, btnKeyColors));
+        return body;
+    }
+
+    private Node buildSidebarCameraDofInspector() {
+        String[] captions = {"Focus", "Strength", "Max Blur"};
+        GridPane grid = new GridPane();
+        grid.setHgap(6);
+        grid.setVgap(6);
+        for (int i = 0; i < captions.length; i++) {
+            Label label = new Label(captions[i]);
+            label.setStyle(STYLE_SIDEBAR_META_LABEL);
+            TextField field = buildSidebarNumberField(captions[i].toLowerCase(Locale.ROOT));
+            sidebarCameraDofFields[i] = field;
+            grid.add(label, 0, i);
+            grid.add(field, 1, i);
+        }
+        Button btnReset = buildSidebarActionButton("Fill Neutral", this::fillSidebarDofNeutral);
+        Button btnKey = buildSidebarActionButton("Key At Playhead", this::applySidebarDofKeyframes);
+        return new VBox(8, grid, buildSidebarButtonRow(btnReset, btnKey));
+    }
+
+    private Node buildSidebarCustomChannelInspector() {
+        cbSidebarCustomPropertyKey = new ComboBox<>();
+        cbSidebarCustomPropertyKey.setEditable(true);
+        cbSidebarCustomPropertyKey.setMaxWidth(Double.MAX_VALUE);
+        cbSidebarCustomPropertyKey.setStyle(STYLE_TEXT_FIELD);
+        cbSidebarCustomPropertyKey.setPromptText("property.key");
+        cbSidebarCustomPropertyKey.setTooltip(new Tooltip("Registered or freeform numeric channel key"));
+        cbSidebarCustomPropertyKey.setOnAction(event -> refreshSidebarCustomPropertyValue());
+
+        tfSidebarCustomPropertyValue = buildSidebarNumberField("value");
+
+        Label lblKey = new Label("Key");
+        lblKey.setStyle(STYLE_SIDEBAR_META_LABEL);
+        Label lblValue = new Label("Value");
+        lblValue.setStyle(STYLE_SIDEBAR_META_LABEL);
+        Button btnKey = buildSidebarActionButton("Key At Playhead", this::applySidebarCustomPropertyKeyframe);
+        Button btnRemove = buildSidebarActionButton("Remove Key", this::removeSidebarCustomPropertyKeyframe);
+        VBox body = new VBox(6,
+            lblKey,
+            cbSidebarCustomPropertyKey,
+            lblValue,
+            tfSidebarCustomPropertyValue,
+            createSidebarHintLabel("Uses the engine registry for known numeric channels, but also accepts freeform keys."),
+            buildSidebarButtonRow(btnKey, btnRemove));
+        body.setFillWidth(true);
+        return body;
+    }
+
     private ScrollPane buildSidebarTabContent(Node... content) {
         VBox body = new VBox(10);
         body.setPadding(new Insets(8));
@@ -1609,6 +1748,28 @@ public class PuppeteerWindow extends Stage {
         scrollPane.setMinWidth(0);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         return scrollPane;
+    }
+
+    private TextField buildSidebarNumberField(String prompt) {
+        TextField field = new TextField();
+        field.setPromptText(prompt);
+        field.setStyle(STYLE_TEXT_FIELD);
+        field.setPrefWidth(90);
+        return field;
+    }
+
+    private TextField buildSidebarCompactNumberField(String prompt) {
+        TextField field = buildSidebarNumberField(prompt);
+        field.setPrefWidth(48);
+        field.setMaxWidth(54);
+        return field;
+    }
+
+    private Label createSidebarHintLabel(String text) {
+        Label label = new Label(text);
+        label.setStyle(STYLE_SIDEBAR_META_LABEL + " -fx-font-weight: normal;");
+        label.setWrapText(true);
+        return label;
     }
 
     private VBox buildSidebarCard(String title, Node... content) {
