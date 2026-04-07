@@ -12,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -174,6 +175,8 @@ public class PuppeteerWindow extends Stage {
     private Button btnSidebarFocusSelection;
     private Button btnSidebarClearSelection;
     private Button btnSidebarCodePane;
+    private Stage assetImporterWindow;
+    private AssetPickerPanel assetImporterPanel;
     private SplitPane topWorkspaceSplit;
     private SplitPane bottomWorkspaceSplit;
     private SplitPane workspaceContentSplit;
@@ -397,6 +400,8 @@ public class PuppeteerWindow extends Stage {
             updatePreview();
             refreshExportPreviewAndMarkDirty();
         });
+
+        entitySelector.setOnDeleteSelection(this::deleteSceneSelection);
 
         entitySelector.setOnRenameGroup((currentName, nextName) -> {
             if (!this.project.renameGroup(currentName, nextName)) return;
@@ -1050,6 +1055,7 @@ public class PuppeteerWindow extends Stage {
 
         assetPicker = new AssetPickerPanel();
         assetPicker.setOnAddToScene(this::addAssetToScene);
+        assetPicker.setImportEnabled(false);
         entitySelector.setMinWidth(0);
         assetPicker.setMinWidth(0);
 
@@ -1270,6 +1276,8 @@ public class PuppeteerWindow extends Stage {
         miSaveClip.setOnAction(e -> saveSelectionAsClip());
         MenuItem miLoadClip = new MenuItem("Load Clip at Playhead");
         miLoadClip.setOnAction(e -> loadAndApplyClip());
+        MenuItem miImportAssets = new MenuItem("Import Assets...");
+        miImportAssets.setOnAction(e -> showAssetImporterWindow());
         MenuItem miClose = new MenuItem("Close Puppeteer");
         miClose.setOnAction(e -> requestWindowClose());
 
@@ -1286,6 +1294,7 @@ public class PuppeteerWindow extends Stage {
             miCopyExportCode,
             miSaveClip,
             miLoadClip,
+            miImportAssets,
             new SeparatorMenuItem(),
             miClose
         );
@@ -1303,6 +1312,7 @@ public class PuppeteerWindow extends Stage {
             miCopyExportCode.setDisable(codePreview == null || codePreview.getCode() == null || codePreview.getCode().isBlank());
             miSaveClip.setDisable(!hasTrack || projectRoot == null);
             miLoadClip.setDisable(!hasTrack || !hasSavedClips());
+            miImportAssets.setDisable(projectRoot == null || !projectRoot.isDirectory());
             miClose.setText(dirty || previewStaged ? "Close..." : "Close");
         });
 
@@ -2555,11 +2565,15 @@ public class PuppeteerWindow extends Stage {
     }
 
     private java.io.File projectRoot;
+    private java.io.File scriptTargetFile;
 
     public void setProjectRoot(java.io.File root) {
         this.projectRoot = root;
         animationPreview.setProjectRoot(root);
         assetPicker.setProjectRoot(root);
+        if (assetImporterPanel != null) {
+            assetImporterPanel.setProjectRoot(root);
+        }
         keyframeEditor.setProjectRoot(root);
         codePreview.setProjectRoot(root);
         updateViewportInfoLabel();
@@ -2567,7 +2581,45 @@ public class PuppeteerWindow extends Stage {
     }
 
     public void setSourceScriptFile(java.io.File file) {
+        this.scriptTargetFile = file;
         assetPicker.setScriptTargetFile(file);
+        if (assetImporterPanel != null) {
+            assetImporterPanel.setScriptTargetFile(file);
+        }
+    }
+
+    private void showAssetImporterWindow() {
+        if (assetImporterWindow != null) {
+            assetImporterWindow.show();
+            assetImporterWindow.toFront();
+            assetImporterWindow.requestFocus();
+            return;
+        }
+
+        assetImporterPanel = new AssetPickerPanel();
+        assetImporterPanel.setImportEnabled(true);
+        assetImporterPanel.setPlacementActionsVisible(false);
+        assetImporterPanel.setProjectRoot(projectRoot);
+        assetImporterPanel.setScriptTargetFile(scriptTargetFile);
+        assetImporterPanel.setMinWidth(0);
+
+        BorderPane root = new BorderPane(assetImporterPanel);
+        root.setStyle("-fx-background-color: #121212;");
+
+        Scene importerScene = new Scene(root, 920, 720);
+        EditorTheme.apply(importerScene);
+
+        Stage window = new Stage();
+        window.initOwner(this);
+        window.setTitle("Puppeteer Asset Importer");
+        window.setScene(importerScene);
+        window.setOnHidden(event -> {
+            assetImporterWindow = null;
+            assetImporterPanel = null;
+        });
+
+        assetImporterWindow = window;
+        window.show();
     }
 
     private void addAssetToScene(String relativePath, String suggestedName, PuppeteerAssetPlacementRole role) {
@@ -2604,6 +2656,52 @@ public class PuppeteerWindow extends Stage {
         animationPreview.selectEntity(entityName);
         updatePreview();
         refreshExportPreviewAndMarkDirty();
+    }
+
+    private void deleteSceneSelection(String name, boolean group) {
+        if (name == null || name.isBlank()) return;
+
+        String selectedTarget = timelinePanel.getSelectedEntity();
+        boolean clearSelection = Objects.equals(selectedTarget, name) && timelinePanel.isSelectedGroup() == group;
+        if (!group && Objects.equals(animationPreview.getSelectedEntityName(), name)) {
+            clearSelection = true;
+        }
+
+        if (group) {
+            project.removeGroup(name);
+        } else {
+            project.removeTrack(name);
+            if (scene != null) {
+                scene.removeEntity(name);
+                animationPreview.setScene(scene);
+                entitySelector.setScene(scene);
+            }
+        }
+
+        project.pruneOrbitAnchors(collectProjectEntityNames());
+        animationPreview.setOrbitAnchors(project.getOrbitAnchorsView());
+        animationPreview.setOrbitAnchorSources(project.getOrbitAnchorSourcesView());
+        animationPreview.setOrbitAnchorSourceOffsets(project.getOrbitAnchorSourceOffsetsView());
+
+        if (clearSelection) {
+            clearInspectorSelection();
+        }
+
+        captureSceneStateBaseline();
+        captureProjectSnapshotBaseline();
+        entitySelector.refresh(project);
+        timelinePanel.refresh();
+        refreshPropertyPickerChoices();
+        updatePreview();
+        refreshExportPreviewAndMarkDirty();
+    }
+
+    private void clearInspectorSelection() {
+        entitySelector.selectEntity(null);
+        animationPreview.clearSelection();
+        timelinePanel.setSelectedTarget(null, false);
+        keyframeEditor.setSelectionContext(null, false, false);
+        keyframeEditor.setKeyframe(null, null);
     }
 
     private String resolveUniqueEntityName(String suggestedName, PuppeteerAssetPlacementRole role) {
@@ -4215,6 +4313,11 @@ public class PuppeteerWindow extends Stage {
 
     private void closeNow() {
         stopAudioPreview();
+        if (assetImporterWindow != null) {
+            assetImporterWindow.close();
+            assetImporterWindow = null;
+            assetImporterPanel = null;
+        }
         bypassCloseConfirmation = true;
         close();
     }

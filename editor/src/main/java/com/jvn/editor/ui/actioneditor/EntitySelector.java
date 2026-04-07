@@ -43,6 +43,7 @@ public class EntitySelector extends VBox {
     private Consumer<String> onCreateGroup;
     private BiConsumer<String, String> onAddToGroup;
     private AddToGroupRequest onAddSelectionToGroup;
+    private BiConsumer<String, Boolean> onDeleteSelection;
     private BiConsumer<String, String> onRenameGroup;
     private BiConsumer<String, Integer> onEntityLayerDelta;
     private BiConsumer<String, Integer> onGroupLayerDelta;
@@ -127,6 +128,7 @@ public class EntitySelector extends VBox {
     public void setOnCreateGroup(Consumer<String> callback) { this.onCreateGroup = callback; }
     public void setOnAddToGroup(BiConsumer<String, String> callback) { this.onAddToGroup = callback; }
     public void setOnAddSelectionToGroup(AddToGroupRequest callback) { this.onAddSelectionToGroup = callback; }
+    public void setOnDeleteSelection(BiConsumer<String, Boolean> callback) { this.onDeleteSelection = callback; }
     public void setOnRenameGroup(BiConsumer<String, String> callback) { this.onRenameGroup = callback; }
     public void setOnEntityLayerDelta(BiConsumer<String, Integer> callback) { this.onEntityLayerDelta = callback; }
     public void setOnGroupLayerDelta(BiConsumer<String, Integer> callback) { this.onGroupLayerDelta = callback; }
@@ -397,12 +399,17 @@ public class EntitySelector extends VBox {
     private void deleteSelection(String encoded) {
         if (encoded == null || project == null) return;
         String name = decodeTreeValue(encoded);
-        if (isEncodedGroupValue(encoded)) {
-            project.removeGroup(name);
+        boolean isGroup = isEncodedGroupValue(encoded);
+        if (onDeleteSelection != null) {
+            onDeleteSelection.accept(name, isGroup);
         } else {
-            project.removeTrack(name);
+            if (isGroup) {
+                project.removeGroup(name);
+            } else {
+                project.removeTrack(name);
+            }
+            refresh(project);
         }
-        refresh(project);
         actionOverlay.hideOverlay();
     }
 

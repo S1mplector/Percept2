@@ -93,10 +93,13 @@ public class AssetPickerPanel extends VBox {
     private final Button btnMakeCharacter;
     private final Button btnMakeProp;
     private final ActionEditorDialogOverlay importOverlay;
+    private final HBox placementActionRow;
 
     private File projectRoot;
     private File scriptTargetFile;
     private final List<AssetEntry> allAssets = new ArrayList<>();
+    private boolean importEnabled = true;
+    private boolean placementActionsVisible = true;
 
     @FunctionalInterface
     interface AssetPlacementHandler {
@@ -184,8 +187,8 @@ public class AssetPickerPanel extends VBox {
         btnMakeProp.setTooltip(new Tooltip("Add the selected image as a centered prop. Double-click, Enter, or drag to the preview also uses this."));
         btnMakeProp.setOnAction(e -> addSelectedToScene(PuppeteerAssetPlacementRole.PROP));
 
-        HBox actionRow = new HBox(6, btnMakeBackground, btnMakeCharacter, btnMakeProp);
-        actionRow.setAlignment(Pos.CENTER_LEFT);
+        placementActionRow = new HBox(6, btnMakeBackground, btnMakeCharacter, btnMakeProp);
+        placementActionRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(btnMakeBackground, Priority.ALWAYS);
         HBox.setHgrow(btnMakeCharacter, Priority.ALWAYS);
         HBox.setHgrow(btnMakeProp, Priority.ALWAYS);
@@ -196,7 +199,7 @@ public class AssetPickerPanel extends VBox {
         importOverlay = new ActionEditorDialogOverlay();
 
         installImportDropTarget();
-        content.getChildren().addAll(header, filterRow, lblEmptyHint, listView, actionRow, lblStatus);
+        content.getChildren().addAll(header, filterRow, lblEmptyHint, listView, placementActionRow, lblStatus);
 
         StackPane contentStack = new StackPane(content, importOverlay);
         contentStack.setMinWidth(0);
@@ -209,6 +212,23 @@ public class AssetPickerPanel extends VBox {
 
     public void setOnAddToScene(AssetPlacementHandler callback) {
         this.onAddToScene = callback;
+        updateActionState();
+    }
+
+    public void setImportEnabled(boolean enabled) {
+        this.importEnabled = enabled;
+        btnImport.setManaged(enabled);
+        btnImport.setVisible(enabled);
+        btnImportPreset.setManaged(enabled);
+        btnImportPreset.setVisible(enabled);
+        updateActionState();
+    }
+
+    public void setPlacementActionsVisible(boolean visible) {
+        this.placementActionsVisible = visible;
+        placementActionRow.setManaged(visible);
+        placementActionRow.setVisible(visible);
+        updateActionState();
     }
 
     public void setProjectRoot(File root) {
@@ -316,9 +336,11 @@ public class AssetPickerPanel extends VBox {
 
     private void updateActionState() {
         boolean hasProject = projectRoot != null && projectRoot.isDirectory();
-        btnImport.setDisable(!hasProject);
-        btnImportPreset.setDisable(!hasProject);
-        boolean disablePlacement = listView.getSelectionModel().getSelectedItem() == null;
+        btnImport.setDisable(!importEnabled || !hasProject);
+        btnImportPreset.setDisable(!importEnabled || !hasProject);
+        boolean disablePlacement = !placementActionsVisible
+            || onAddToScene == null
+            || listView.getSelectionModel().getSelectedItem() == null;
         btnMakeBackground.setDisable(disablePlacement);
         btnMakeCharacter.setDisable(disablePlacement);
         btnMakeProp.setDisable(disablePlacement);
@@ -411,13 +433,13 @@ public class AssetPickerPanel extends VBox {
 
     private void installImportDropTarget() {
         setOnDragOver(event -> {
-            if (projectRoot != null && projectRoot.isDirectory() && event.getDragboard().hasFiles()) {
+            if (importEnabled && projectRoot != null && projectRoot.isDirectory() && event.getDragboard().hasFiles()) {
                 event.acceptTransferModes(TransferMode.COPY);
             }
             event.consume();
         });
         setOnDragEntered(event -> {
-            if (projectRoot != null && projectRoot.isDirectory() && event.getDragboard().hasFiles()) {
+            if (importEnabled && projectRoot != null && projectRoot.isDirectory() && event.getDragboard().hasFiles()) {
                 if (!getStyle().contains("#202833")) {
                     setStyle("-fx-background-color: #202833; -fx-border-color: #4da3ff; -fx-border-width: 1;");
                 }
@@ -430,7 +452,7 @@ public class AssetPickerPanel extends VBox {
         });
         setOnDragDropped(event -> {
             boolean success = false;
-            if (projectRoot != null && projectRoot.isDirectory()) {
+            if (importEnabled && projectRoot != null && projectRoot.isDirectory()) {
                 List<File> files = event.getDragboard().getFiles();
                 showImageImportPreview(files);
                 success = hasImportableImages(files);
