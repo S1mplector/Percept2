@@ -8,6 +8,7 @@ import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.Label2D;
 import com.jvn.core.scene2d.Panel2D;
 import com.jvn.core.scene2d.Sprite2D;
+import com.jvn.core.graphics.Camera2D;
 
 /**
  * Plays back a {@link TimelineData} against a live scene via
@@ -296,9 +297,13 @@ public class TimelineRunner {
     private double resolveCustomPropertyDefault(String target, Entity2D entity, String propertyKey) {
         if (propertyKey == null || propertyKey.isBlank()) return 0.0;
         if ("__camera__".equals(target)) {
-            return 0.0;
+            var definition = Camera2D.getAnimatableProperty(propertyKey);
+            return definition != null ? definition.getDefaultValue() : 0.0;
         }
-        if (entity == null) return 0.0;
+        if (entity == null) {
+            var definition = Entity2D.getAnimatableProperty(propertyKey);
+            return definition != null ? definition.getDefaultValue() : 0.0;
+        }
         return entity.readCustomProperty(propertyKey);
     }
 }

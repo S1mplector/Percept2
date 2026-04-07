@@ -3,6 +3,9 @@ package com.jvn.core.animation;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jvn.core.graphics.Camera2D;
+import com.jvn.core.scene2d.Entity2D;
+
 /**
  * Lightweight parser that converts inline JES timeline blocks into {@link TimelineData}.
  * Supports: move, pivot, wait, rotate, scale, fade, visible, cameraMove,
@@ -132,6 +135,7 @@ public class TimelineDataParser {
                 addCustomTweenKeyframe(
                     track,
                     propertyKey,
+                    defaultCustomPropertyValue(entity, propertyKey),
                     cursor,
                     endTime,
                     value,
@@ -621,6 +625,7 @@ public class TimelineDataParser {
     private static void addCustomTweenKeyframe(
         TimelineData.Track track,
         String propertyKey,
+        double defaultValue,
         double startTime,
         double endTime,
         double targetValue,
@@ -637,7 +642,7 @@ public class TimelineDataParser {
             return;
         }
         if (!hasCustomKeyframeAt(track, normalized, start)) {
-            double startValue = track.getCustomValueAt(normalized, start, 0.0);
+            double startValue = track.getCustomValueAt(normalized, start, defaultValue);
             track.addCustomKeyframe(normalized, new TimelineData.Keyframe(
                 start,
                 startValue,
@@ -656,6 +661,16 @@ public class TimelineDataParser {
             if (Math.abs(keyframe.getTimeMs() - timeMs) <= EPS) return true;
         }
         return false;
+    }
+
+    private static double defaultCustomPropertyValue(String entityName, String propertyKey) {
+        if (propertyKey == null || propertyKey.isBlank()) return 0.0;
+        if (CAMERA_TRACK.equals(entityName)) {
+            var definition = Camera2D.getAnimatableProperty(propertyKey);
+            return definition != null ? definition.getDefaultValue() : 0.0;
+        }
+        var definition = Entity2D.getAnimatableProperty(propertyKey);
+        return definition != null ? definition.getDefaultValue() : 0.0;
     }
 
     private static boolean hasCustomKeyframeAt(TimelineData.Track track, String propertyKey, double timeMs) {

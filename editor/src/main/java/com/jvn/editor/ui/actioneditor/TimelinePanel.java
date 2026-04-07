@@ -43,7 +43,10 @@ public class TimelinePanel extends VBox {
     private static final PropertyType[] CAMERA_PROPERTIES = {
         PropertyType.CAMERA_X,
         PropertyType.CAMERA_Y,
-        PropertyType.CAMERA_ZOOM
+        PropertyType.CAMERA_ZOOM,
+        PropertyType.CAMERA_DOF_FOCUS,
+        PropertyType.CAMERA_DOF_STRENGTH,
+        PropertyType.CAMERA_DOF_MAX_BLUR
     };
     private static final Color BG_COLOR = Color.web("#121212");
     private static final Color GRID_COLOR = Color.web("#2a2a2a");
@@ -61,7 +64,10 @@ public class TimelinePanel extends VBox {
             case SCALE_X, SCALE_Y -> Color.web("#58d68d");
             case ALPHA -> Color.web("#f38ba8");
             case VISIBILITY -> Color.web("#f5e663");
-            case CAMERA_X, CAMERA_Y, CAMERA_ZOOM -> Color.web("#ff8c42");
+            case MATRIX_MXX, MATRIX_MXY, MATRIX_MYX, MATRIX_MYY, MATRIX_TX, MATRIX_TY -> Color.web("#7ec8e3");
+            case BLUR -> Color.web("#9aa7ff");
+            case CAMERA_X, CAMERA_Y, CAMERA_ZOOM,
+                CAMERA_DOF_FOCUS, CAMERA_DOF_STRENGTH, CAMERA_DOF_MAX_BLUR -> Color.web("#ff8c42");
         };
     }
 

@@ -1306,6 +1306,10 @@ public class KeyframeEditor extends VBox {
             case ROTATION -> large ? 15.0 : 1.0;
             case SCALE_X, SCALE_Y, CAMERA_ZOOM -> large ? 0.10 : 0.01;
             case ALPHA, PIVOT_X, PIVOT_Y, VISIBILITY -> large ? 0.05 : 0.01;
+            case MATRIX_MXX, MATRIX_MXY, MATRIX_MYX, MATRIX_MYY -> large ? 0.10 : 0.01;
+            case MATRIX_TX, MATRIX_TY, CAMERA_DOF_FOCUS -> large ? 10.0 : 1.0;
+            case BLUR, CAMERA_DOF_MAX_BLUR -> large ? 2.0 : 0.25;
+            case CAMERA_DOF_STRENGTH -> large ? 0.25 : 0.05;
         };
     }
 
@@ -1490,6 +1494,24 @@ public class KeyframeEditor extends VBox {
             }
             case VISIBILITY -> {
                 sliderValue.setMin(0.0); sliderValue.setMax(1.0);
+            }
+            case MATRIX_MXX, MATRIX_MYY -> {
+                sliderValue.setMin(-3.0); sliderValue.setMax(3.0);
+            }
+            case MATRIX_MXY, MATRIX_MYX -> {
+                sliderValue.setMin(-2.0); sliderValue.setMax(2.0);
+            }
+            case MATRIX_TX, MATRIX_TY -> {
+                sliderValue.setMin(-2000); sliderValue.setMax(2000);
+            }
+            case BLUR, CAMERA_DOF_MAX_BLUR -> {
+                sliderValue.setMin(0.0); sliderValue.setMax(64.0);
+            }
+            case CAMERA_DOF_FOCUS -> {
+                sliderValue.setMin(-500.0); sliderValue.setMax(500.0);
+            }
+            case CAMERA_DOF_STRENGTH -> {
+                sliderValue.setMin(0.0); sliderValue.setMax(10.0);
             }
         }
         updateStepHints();
