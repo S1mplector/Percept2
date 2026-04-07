@@ -26,6 +26,11 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 public class JesCodeEditor extends BorderPane {
+  public enum LintMode {
+    JES_DOCUMENT,
+    TIMELINE_BLOCK
+  }
+
   private final CodeArea codeArea = new CodeArea();
   private CodeAutoCompleter completer;
   private File projectRoot;
@@ -36,10 +41,12 @@ public class JesCodeEditor extends BorderPane {
   private Consumer<String> onTextChanged;
   private boolean suppressTextChanged = false;
   private double fontSizePx = 13.0;
+  private LintMode lintMode = LintMode.JES_DOCUMENT;
 
   private static final String[] KEYWORDS = new String[] {
     "scene","entity","component","on","key","do","timeline",
-    "wait","move","rotate","scale","call",
+    "wait","move","depth","pivot","rotate","scale","fade","visible","expression","show","hide",
+    "replace","event","property","cameraMove","cameraZoom","playAudio","call",
     // common props / literals
     "true","false","rgb","rgba","shape","circle","box",
     "static","sensor","text","image","align","additive"
@@ -53,7 +60,7 @@ public class JesCodeEditor extends BorderPane {
     + "|Character2D|Stats|Inventory|Equipment|Ai2D|Button2D|Slider2D)\\b";
 
   // ── Timeline actions (blue) ──
-  private static final String ACTION_PATTERN = "\\b(?:move|pivot|rotate|scale|fade|visible|walkToTile|wait|call"
+  private static final String ACTION_PATTERN = "\\b(?:move|depth|pivot|rotate|scale|fade|visible|expression|show|hide|replace|event|property|walkToTile|wait|call"
     + "|cameraMove|cameraZoom|cameraShake|cameraFollow|damage|heal|waitForCall"
     + "|playAudio|stopAudio|emitParticles|setParallax|loop|parallel|label|jump)\\b";
 
@@ -153,6 +160,16 @@ public class JesCodeEditor extends BorderPane {
     applyFontSize();
   }
 
+  public void setLintMode(LintMode mode) {
+    this.lintMode = mode == null ? LintMode.JES_DOCUMENT : mode;
+    lint(codeArea.getText());
+  }
+
+  public void setLintVisible(boolean visible) {
+    lintLabel.setVisible(visible);
+    lintLabel.setManaged(visible);
+  }
+
   private void applyFontSize() {
     codeArea.setStyle("-fx-font-size: " + (int) fontSizePx + "px;");
   }
@@ -198,7 +215,7 @@ public class JesCodeEditor extends BorderPane {
     for (String comp : List.of("Panel2D","Sprite2D","Label2D","ParticleEmitter2D","PhysicsBody2D","Character2D","Stats","Inventory","Equipment","Ai2D","Button2D","Slider2D")) {
       if (comp.toLowerCase().startsWith(pl)) out.add(new CodeAutoCompleter.Suggestion(comp));
     }
-    for (String act : List.of("move","pivot","rotate","scale","fade","visible","walkToTile","cameraMove","cameraZoom","cameraShake","damage","heal","call","loop","parallel","waitForCall","emitParticles","cameraFollow","setParallax","playAudio","stopAudio","label","jump")) {
+    for (String act : List.of("move","depth","pivot","rotate","scale","fade","visible","expression","show","hide","replace","event","property","walkToTile","cameraMove","cameraZoom","cameraShake","damage","heal","call","loop","parallel","waitForCall","emitParticles","cameraFollow","setParallax","playAudio","stopAudio","label","jump")) {
       if (act.startsWith(pl)) out.add(new CodeAutoCompleter.Suggestion(act));
     }
     for (String builtAction : List.of("toggleDebug","spawnCircle","spawnBox","moveHero","interact","attack")) {
@@ -228,6 +245,10 @@ public class JesCodeEditor extends BorderPane {
   private void lint(String text) {
     // Basic synchronous lint; fast enough for small scripts
     if (text == null) text = "";
+    if (lintMode == LintMode.TIMELINE_BLOCK) {
+      showLintMessage("Timeline block", -1);
+      return;
+    }
     try {
       List<JesToken> toks = new JesTokenizer(text).tokenize();
       new JesParser(toks).parseProgram();

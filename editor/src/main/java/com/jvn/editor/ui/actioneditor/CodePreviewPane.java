@@ -46,6 +46,8 @@ public class CodePreviewPane extends VBox {
         lblStatus.setMinWidth(0);
 
         jesEditor = new JesCodeEditor();
+        jesEditor.setLintMode(JesCodeEditor.LintMode.TIMELINE_BLOCK);
+        jesEditor.setLintVisible(false);
         jesEditor.setMinWidth(0);
         jesEditor.setOnTextChanged(text -> {
             if (!suppressManualEditTracking) {

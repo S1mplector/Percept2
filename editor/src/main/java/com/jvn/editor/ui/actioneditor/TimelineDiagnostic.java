@@ -78,6 +78,7 @@ public class TimelineDiagnostic {
         actions.add("cameraMove");
         actions.add("cameraZoom");
         actions.add("event");
+        actions.add("property");
         actions.add("playAudio");
         actions.add("parallel");
         actions.add("timeline");
@@ -100,6 +101,7 @@ public class TimelineDiagnostic {
         keys.put("scene", lowerSet(Set.of("target", "id", "path", "value")));
         keys.put("cameramove", lowerSet(Set.of("x", "y", "dur", "duration", "easing", "interp")));
         keys.put("camerazoom", lowerSet(Set.of("zoom", "dur", "duration", "easing", "interp")));
+        keys.put("property", lowerSet(Set.of("key", "value", "dur", "duration", "easing", "interp")));
         keys.put("playaudio", lowerSet(Set.of("channel", "volume", "loop", "bgm", "fadeinms", "fadein_ms", "fadein", "fade_in")));
         ACTION_KEYS = Collections.unmodifiableMap(keys);
     }
