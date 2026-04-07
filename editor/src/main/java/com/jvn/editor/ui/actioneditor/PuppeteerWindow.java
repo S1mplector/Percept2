@@ -107,7 +107,6 @@ public class PuppeteerWindow extends Stage {
     private JesScene2D scene;
 
     private final EntitySelector entitySelector;
-    private final AssetPickerPanel assetPicker;
     private final TimelinePanel timelinePanel;
     private final KeyframeEditor keyframeEditor;
     private final AnimationPreview animationPreview;
@@ -1053,21 +1052,15 @@ public class PuppeteerWindow extends Stage {
         setToolbarClustersExpanded(true);
         setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.COMPACT);
 
-        assetPicker = new AssetPickerPanel();
-        assetPicker.setOnAddToScene(this::addAssetToScene);
-        assetPicker.setImportEnabled(false);
         entitySelector.setMinWidth(0);
-        assetPicker.setMinWidth(0);
 
         Tab entitiesTab = new Tab("Entities", entitySelector);
         entitiesTab.setClosable(false);
-        Tab assetsTab = new Tab("Assets", assetPicker);
-        assetsTab.setClosable(false);
         Tab selectionTab = buildSelectionTab();
         selectionTab.setClosable(false);
         Tab sceneTab = buildSceneTab();
         sceneTab.setClosable(false);
-        TabPane leftTabs = new TabPane(entitiesTab, assetsTab, selectionTab, sceneTab);
+        TabPane leftTabs = new TabPane(entitiesTab, selectionTab, sceneTab);
         leftTabs.setMinWidth(0);
         leftTabs.setMaxWidth(Double.MAX_VALUE);
         leftTabs.setTabMinWidth(56);
@@ -2570,7 +2563,6 @@ public class PuppeteerWindow extends Stage {
     public void setProjectRoot(java.io.File root) {
         this.projectRoot = root;
         animationPreview.setProjectRoot(root);
-        assetPicker.setProjectRoot(root);
         if (assetImporterPanel != null) {
             assetImporterPanel.setProjectRoot(root);
         }
@@ -2582,7 +2574,6 @@ public class PuppeteerWindow extends Stage {
 
     public void setSourceScriptFile(java.io.File file) {
         this.scriptTargetFile = file;
-        assetPicker.setScriptTargetFile(file);
         if (assetImporterPanel != null) {
             assetImporterPanel.setScriptTargetFile(file);
         }

@@ -1,5 +1,6 @@
 package com.jvn.editor.ui.actioneditor;
 
+import com.jvn.core.vn.LayeredCharacterResolver;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -8,18 +9,24 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -32,6 +39,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -43,6 +51,10 @@ import javafx.stage.FileChooser;
 public class AssetPickerPanel extends VBox {
     static final String IMPORT_RELATIVE_DIR = "assets/puppeteer/imported";
     static final String CHARPRESET_IMPORT_RELATIVE_DIR = "assets/characters";
+    private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
 
     private static final Set<String> IMAGE_EXTENSIONS = Set.of(
         "png", "jpg", "jpeg", "gif", "bmp", "webp"
@@ -57,18 +69,18 @@ public class AssetPickerPanel extends VBox {
         "-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-background-radius: 4; "
             + "-fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-padding: 4 10; -fx-font-size: 11px; -fx-cursor: hand;";
     private static final String STYLE_BTN_ACCENT =
-        "-fx-background-color: #4da3ff; -fx-text-fill: #fff; -fx-background-radius: 4; "
-            + "-fx-padding: 4 10; -fx-font-size: 11px; -fx-cursor: hand; -fx-font-weight: bold;";
+        "-fx-background-color: #3a3a3a; -fx-text-fill: #f2f2f2; -fx-background-radius: 4; "
+            + "-fx-border-color: #5a5a5a; -fx-border-radius: 4; -fx-padding: 4 10; -fx-font-size: 11px; -fx-cursor: hand; -fx-font-weight: bold;";
     private static final String STYLE_CELL_BASE =
         "-fx-background-color: transparent; -fx-background-radius: 6; -fx-border-radius: 6; "
             + "-fx-border-color: transparent; -fx-padding: 2 4;";
     private static final String STYLE_CELL_HOVER =
-        "-fx-background-color: #262c35; -fx-background-radius: 6; -fx-border-radius: 6; "
-            + "-fx-border-color: #2f3946; -fx-padding: 2 4;";
+        "-fx-background-color: #262626; -fx-background-radius: 6; -fx-border-radius: 6; "
+            + "-fx-border-color: #3e3e3e; -fx-padding: 2 4;";
     private static final String STYLE_CELL_SELECTED =
-        "-fx-background-color: linear-gradient(to right, #24384e, #1d2d40); "
+        "-fx-background-color: linear-gradient(to right, #2d2d2d, #252525); "
             + "-fx-background-radius: 6; -fx-border-radius: 6; "
-            + "-fx-border-color: #4da3ff; -fx-padding: 2 4;";
+            + "-fx-border-color: #595959; -fx-padding: 2 4;";
     private static final String STYLE_IMPORT_PREVIEW_FRAME =
         "-fx-background-color: #0f0f0f; -fx-background-radius: 8; -fx-border-radius: 8; "
             + "-fx-border-color: #383838; -fx-padding: 10;";
@@ -82,11 +94,50 @@ public class AssetPickerPanel extends VBox {
         "-fx-control-inner-background: #121212; -fx-font-family: 'Menlo'; -fx-highlight-fill: #3d3d3d; "
             + "-fx-highlight-text-fill: white; -fx-text-fill: #d7d7d7; -fx-border-color: #383838; "
             + "-fx-border-radius: 6; -fx-background-radius: 6;";
+    private static final String STYLE_PREVIEW_CARD =
+        "-fx-background-color: #171717; -fx-background-radius: 10; -fx-border-radius: 10; "
+            + "-fx-border-color: #2f2f2f; -fx-padding: 12;";
+    private static final String STYLE_FILTER_COMBO =
+        "-fx-background-color: #1b1b1b; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; "
+            + "-fx-background-radius: 4; -fx-border-radius: 4; -fx-font-size: 11px;";
+
+    private enum AssetScopeFilter {
+        ALL("All Folders"),
+        CHARACTERS("Characters"),
+        BACKGROUNDS("Backgrounds"),
+        IMPORTED("Imported"),
+        OTHER("Other");
+
+        private final String label;
+
+        AssetScopeFilter(String label) { this.label = label; }
+
+        @Override public String toString() { return label; }
+    }
+
+    private enum AssetReferenceFilter {
+        ALL("All Usage"),
+        DECLARED("Any VNS Ref"),
+        CHARIMG("@charimg"),
+        CHARLAYER("@charlayer"),
+        CHARPRESET("@charpreset"),
+        BACKGROUND("@background"),
+        UNREFERENCED("Unreferenced");
+
+        private final String label;
+
+        AssetReferenceFilter(String label) { this.label = label; }
+
+        @Override public String toString() { return label; }
+    }
 
     private final ListView<AssetEntry> listView;
     private final TextField filterField;
+    private final ComboBox<AssetScopeFilter> scopeFilterBox;
+    private final ComboBox<AssetReferenceFilter> referenceFilterBox;
     private final Label lblStatus;
     private final Label lblEmptyHint;
+    private final Label lblCount;
     private final Button btnImport;
     private final Button btnImportPreset;
     private final Button btnMakeBackground;
@@ -94,6 +145,12 @@ public class AssetPickerPanel extends VBox {
     private final Button btnMakeProp;
     private final ActionEditorDialogOverlay importOverlay;
     private final HBox placementActionRow;
+    private final ImageView previewImageView;
+    private final Label previewTitleLabel;
+    private final Label previewPathLabel;
+    private final Label previewMetaLabel;
+    private final Label previewTagsLabel;
+    private final Label previewUsageLabel;
 
     private File projectRoot;
     private File scriptTargetFile;
@@ -120,11 +177,29 @@ public class AssetPickerPanel extends VBox {
 
         Label header = new Label("Assets");
         header.setStyle(STYLE_HEADER);
+        lblCount = new Label("0 assets");
+        lblCount.setStyle("-fx-text-fill: #7f7f7f; -fx-font-size: 10px; -fx-padding: 6 8;");
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+        HBox headerRow = new HBox(header, headerSpacer, lblCount);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
 
         filterField = new TextField();
-        filterField.setPromptText("Filter images...");
+        filterField.setPromptText("Search path, character, expression, layer, preset...");
         filterField.setStyle(STYLE_FILTER);
         filterField.textProperty().addListener((obs, old, val) -> applyFilter());
+
+        scopeFilterBox = new ComboBox<>();
+        scopeFilterBox.getItems().setAll(AssetScopeFilter.values());
+        scopeFilterBox.setValue(AssetScopeFilter.ALL);
+        scopeFilterBox.setStyle(STYLE_FILTER_COMBO);
+        scopeFilterBox.valueProperty().addListener((obs, old, val) -> applyFilter());
+
+        referenceFilterBox = new ComboBox<>();
+        referenceFilterBox.getItems().setAll(AssetReferenceFilter.values());
+        referenceFilterBox.setValue(AssetReferenceFilter.ALL);
+        referenceFilterBox.setStyle(STYLE_FILTER_COMBO);
+        referenceFilterBox.valueProperty().addListener((obs, old, val) -> applyFilter());
 
         Button btnRefresh = new Button("Refresh");
         btnRefresh.setStyle(STYLE_BTN);
@@ -141,7 +216,7 @@ public class AssetPickerPanel extends VBox {
         btnImportPreset.setTooltip(new Tooltip("Import layered character images and generate @charpreset declarations."));
         btnImportPreset.setOnAction(e -> importCharpresetFromChooser());
 
-        HBox filterRow = new HBox(4, filterField, btnRefresh, btnImport, btnImportPreset);
+        HBox filterRow = new HBox(4, filterField, scopeFilterBox, referenceFilterBox, btnRefresh, btnImport, btnImportPreset);
         filterRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(filterField, Priority.ALWAYS);
 
@@ -153,7 +228,10 @@ public class AssetPickerPanel extends VBox {
         listView.setMinWidth(0);
         listView.setStyle("-fx-background-color: #1a1a1a; -fx-control-inner-background: #1a1a1a;");
         listView.setCellFactory(lv -> new AssetCell());
-        listView.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> updateActionState());
+        listView.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
+            updateActionState();
+            updatePreviewPane(newValue);
+        });
         listView.setOnMouseClicked(event -> {
             if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
                 addSelectedToScene(PuppeteerAssetPlacementRole.PROP);
@@ -198,8 +276,45 @@ public class AssetPickerPanel extends VBox {
 
         importOverlay = new ActionEditorDialogOverlay();
 
+        previewImageView = createDialogPreviewImageView(360, 360);
+        previewTitleLabel = new Label("No asset selected");
+        previewTitleLabel.setWrapText(true);
+        previewTitleLabel.setStyle("-fx-text-fill: #f0f0f0; -fx-font-size: 14px; -fx-font-weight: bold;");
+        previewPathLabel = new Label();
+        previewPathLabel.setWrapText(true);
+        previewPathLabel.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 11px;");
+        previewMetaLabel = new Label();
+        previewMetaLabel.setWrapText(true);
+        previewMetaLabel.setStyle(STYLE_DIALOG_META);
+        previewTagsLabel = new Label();
+        previewTagsLabel.setWrapText(true);
+        previewTagsLabel.setStyle(STYLE_DIALOG_HELP);
+        previewUsageLabel = new Label("Search by character, expression, layer, preset, or path.");
+        previewUsageLabel.setWrapText(true);
+        previewUsageLabel.setStyle(STYLE_DIALOG_HELP);
+
+        Label usageHeader = new Label("Usage");
+        usageHeader.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 11px; -fx-font-weight: bold;");
+        VBox previewBox = new VBox(
+            10,
+            wrapPreviewFrame(previewImageView),
+            previewTitleLabel,
+            previewPathLabel,
+            previewMetaLabel,
+            previewTagsLabel,
+            usageHeader,
+            previewUsageLabel
+        );
+        previewBox.setStyle(STYLE_PREVIEW_CARD);
+        previewBox.setMinWidth(280);
+
+        SplitPane browserSplit = new SplitPane(listView, previewBox);
+        browserSplit.setMinWidth(0);
+        browserSplit.setDividerPositions(0.64);
+        VBox.setVgrow(browserSplit, Priority.ALWAYS);
+
         installImportDropTarget();
-        content.getChildren().addAll(header, filterRow, lblEmptyHint, listView, placementActionRow, lblStatus);
+        content.getChildren().addAll(headerRow, filterRow, lblEmptyHint, browserSplit, placementActionRow, lblStatus);
 
         StackPane contentStack = new StackPane(content, importOverlay);
         contentStack.setMinWidth(0);
@@ -253,6 +368,8 @@ public class AssetPickerPanel extends VBox {
         allAssets.clear();
         if (projectRoot == null || !projectRoot.isDirectory()) {
             lblEmptyHint.setText("No project root set.\nOpen a VNS file and launch\nPuppeteer to browse assets.");
+            lblCount.setText("0 assets");
+            updatePreviewPane(null);
             updateEmptyState();
             updateActionState();
             return;
@@ -260,17 +377,26 @@ public class AssetPickerPanel extends VBox {
 
         List<File> imageFiles = new ArrayList<>();
         collectImages(projectRoot, imageFiles, 0);
+        Map<String, AssetEntry> byRelativePath = new LinkedHashMap<>();
 
         for (File f : imageFiles) {
             String relativePath = projectRoot.toPath().relativize(f.toPath()).toString().replace('\\', '/');
             String name = f.getName();
             int dot = name.lastIndexOf('.');
             String baseName = dot > 0 ? name.substring(0, dot) : name;
-            allAssets.add(new AssetEntry(relativePath, baseName, f));
+            AssetEntry entry = new AssetEntry(relativePath, baseName, f);
+            allAssets.add(entry);
+            byRelativePath.put(relativePath, entry);
+        }
+
+        enrichAssetMetadata(byRelativePath);
+        for (AssetEntry entry : allAssets) {
+            entry.rebuildSearchIndex();
         }
 
         allAssets.sort((a, b) -> a.relativePath.compareToIgnoreCase(b.relativePath));
         lblStatus.setText(allAssets.size() + " images found");
+        lblCount.setText(allAssets.size() + " assets");
 
         if (allAssets.isEmpty()) {
             lblEmptyHint.setText("No images found in project.\nDrop image files here or click Import...");
@@ -302,6 +428,23 @@ public class AssetPickerPanel extends VBox {
         }
     }
 
+    private void collectScripts(File dir, List<File> out, int depth) {
+        if (depth > 10) return;
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isDirectory()) {
+                String name = f.getName();
+                if (name.startsWith(".") || name.equals("build") || name.equals("bin") || name.equals("node_modules")) {
+                    continue;
+                }
+                collectScripts(f, out, depth + 1);
+            } else if ("vns".equals(getExtension(f.getName()))) {
+                out.add(f);
+            }
+        }
+    }
+
     private static String getExtension(String name) {
         int dot = name.lastIndexOf('.');
         return dot >= 0 ? name.substring(dot + 1).toLowerCase(Locale.ROOT) : "";
@@ -315,13 +458,16 @@ public class AssetPickerPanel extends VBox {
     private void applyFilter() {
         String previousSelection = selectedRelativePath();
         String query = filterField.getText().trim().toLowerCase(Locale.ROOT);
+        AssetScopeFilter scope = scopeFilterBox.getValue() != null ? scopeFilterBox.getValue() : AssetScopeFilter.ALL;
+        AssetReferenceFilter reference = referenceFilterBox.getValue() != null ? referenceFilterBox.getValue() : AssetReferenceFilter.ALL;
         listView.getItems().clear();
         for (AssetEntry entry : allAssets) {
-            if (query.isEmpty() || entry.relativePath.toLowerCase(Locale.ROOT).contains(query)) {
+            if (entry.matchesScope(scope) && entry.matchesReference(reference) && entry.matchesQuery(query)) {
                 listView.getItems().add(entry);
             }
         }
         reselectByRelativePath(previousSelection);
+        lblCount.setText(listView.getItems().size() + " shown");
         updateEmptyState();
         updateActionState();
     }
@@ -332,6 +478,9 @@ public class AssetPickerPanel extends VBox {
         lblEmptyHint.setManaged(empty);
         listView.setVisible(!empty);
         listView.setManaged(!empty);
+        if (empty) {
+            updatePreviewPane(null);
+        }
     }
 
     private void updateActionState() {
@@ -440,8 +589,8 @@ public class AssetPickerPanel extends VBox {
         });
         setOnDragEntered(event -> {
             if (importEnabled && projectRoot != null && projectRoot.isDirectory() && event.getDragboard().hasFiles()) {
-                if (!getStyle().contains("#202833")) {
-                    setStyle("-fx-background-color: #202833; -fx-border-color: #4da3ff; -fx-border-width: 1;");
+                if (!getStyle().contains("#232323")) {
+                    setStyle("-fx-background-color: #232323; -fx-border-color: #5a5a5a; -fx-border-width: 1;");
                 }
             }
             event.consume();
@@ -925,6 +1074,188 @@ public class AssetPickerPanel extends VBox {
             : "Import destination: " + previewImageImportRelativePath(item.file.getName()));
     }
 
+    private void updatePreviewPane(AssetEntry entry) {
+        if (entry == null) {
+            previewImageView.setImage(null);
+            previewTitleLabel.setText("No asset selected");
+            previewPathLabel.setText("");
+            previewMetaLabel.setText("");
+            previewTagsLabel.setText("");
+            previewUsageLabel.setText("Search by character, expression, layer, preset, or path.");
+            return;
+        }
+        previewImageView.setImage(loadPreviewImage(entry.file));
+        previewTitleLabel.setText(entry.baseName);
+        previewPathLabel.setText(entry.relativePath);
+        previewMetaLabel.setText(entry.describeMeta());
+        previewTagsLabel.setText(entry.describeTags());
+        previewUsageLabel.setText(entry.describeUsage());
+    }
+
+    private void enrichAssetMetadata(Map<String, AssetEntry> entriesByRelativePath) {
+        if (projectRoot == null || !projectRoot.isDirectory() || entriesByRelativePath == null || entriesByRelativePath.isEmpty()) {
+            return;
+        }
+        List<File> scripts = new ArrayList<>();
+        collectScripts(projectRoot, scripts, 0);
+        Path projectRootPath = projectRoot.toPath().toAbsolutePath().normalize();
+
+        for (File script : scripts) {
+            Path scriptPath = script.toPath().toAbsolutePath().normalize();
+            String scriptRelativePath = projectRootPath.relativize(scriptPath).toString().replace('\\', '/');
+            Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
+            Map<String, Map<String, List<String>>> presetPaths = new LinkedHashMap<>();
+            List<String> lines;
+            try {
+                lines = Files.readAllLines(scriptPath, StandardCharsets.UTF_8);
+            } catch (IOException ignored) {
+                continue;
+            }
+            for (String rawLine : lines) {
+                if (rawLine == null) continue;
+                String line = rawLine.trim();
+                if (line.isEmpty()) continue;
+
+                Matcher bg = BG_DECL_PATTERN.matcher(line);
+                if (bg.matches()) {
+                    annotateBackground(entriesByRelativePath, normalizeDeclaredAssetPath(bg.group(2)), bg.group(1), scriptRelativePath);
+                    continue;
+                }
+
+                Matcher charImg = CHARIMG_PATTERN.matcher(line);
+                if (charImg.matches()) {
+                    annotateCharImg(
+                        entriesByRelativePath,
+                        normalizeDeclaredAssetPath(charImg.group(3)),
+                        charImg.group(1),
+                        charImg.group(2),
+                        scriptRelativePath
+                    );
+                    continue;
+                }
+
+                Matcher charLayer = CHARLAYER_PATTERN.matcher(line);
+                if (charLayer.matches()) {
+                    String characterId = charLayer.group(1);
+                    String layerId = charLayer.group(2);
+                    String relativePath = normalizeDeclaredAssetPath(charLayer.group(3));
+                    charLayerPaths.computeIfAbsent(characterId, ignored -> new LinkedHashMap<>()).put(layerId, relativePath);
+                    annotateCharLayer(entriesByRelativePath, relativePath, characterId, layerId, scriptRelativePath);
+                    continue;
+                }
+
+                Matcher charPreset = CHARPRESET_PATTERN.matcher(line);
+                if (charPreset.matches()) {
+                    String characterId = charPreset.group(1);
+                    String presetId = charPreset.group(2);
+                    List<String> resolvedPaths = resolvePresetPaths(charLayerPaths, presetPaths, characterId, charPreset.group(3));
+                    if (!resolvedPaths.isEmpty()) {
+                        presetPaths.computeIfAbsent(characterId, ignored -> new LinkedHashMap<>()).put(presetId, resolvedPaths);
+                        annotateCharPreset(entriesByRelativePath, resolvedPaths, characterId, presetId, scriptRelativePath);
+                    }
+                }
+            }
+        }
+    }
+
+    private void annotateBackground(
+        Map<String, AssetEntry> entriesByRelativePath,
+        String relativePath,
+        String backgroundId,
+        String scriptRelativePath
+    ) {
+        AssetEntry entry = entriesByRelativePath.get(relativePath);
+        if (entry == null) return;
+        entry.backgroundIds.add(backgroundId);
+        entry.sourceScripts.add(scriptRelativePath);
+    }
+
+    private void annotateCharImg(
+        Map<String, AssetEntry> entriesByRelativePath,
+        String relativePath,
+        String characterId,
+        String expressionId,
+        String scriptRelativePath
+    ) {
+        AssetEntry entry = entriesByRelativePath.get(relativePath);
+        if (entry == null) return;
+        entry.charImgRefs.add(characterId + "/" + expressionId);
+        entry.sourceScripts.add(scriptRelativePath);
+    }
+
+    private void annotateCharLayer(
+        Map<String, AssetEntry> entriesByRelativePath,
+        String relativePath,
+        String characterId,
+        String layerId,
+        String scriptRelativePath
+    ) {
+        AssetEntry entry = entriesByRelativePath.get(relativePath);
+        if (entry == null) return;
+        entry.charLayerRefs.add(characterId + "/" + layerId);
+        entry.sourceScripts.add(scriptRelativePath);
+    }
+
+    private void annotateCharPreset(
+        Map<String, AssetEntry> entriesByRelativePath,
+        List<String> resolvedPaths,
+        String characterId,
+        String presetId,
+        String scriptRelativePath
+    ) {
+        String ref = characterId + "/" + presetId;
+        for (String relativePath : resolvedPaths) {
+            AssetEntry entry = entriesByRelativePath.get(relativePath);
+            if (entry == null) continue;
+            entry.presetRefs.add(ref);
+            entry.sourceScripts.add(scriptRelativePath);
+        }
+    }
+
+    private static List<String> resolvePresetPaths(
+        Map<String, Map<String, String>> charLayerPaths,
+        Map<String, Map<String, List<String>>> presetPaths,
+        String defaultCharacterId,
+        String spec
+    ) {
+        List<String> resolved = new ArrayList<>();
+        if (spec == null || spec.isBlank()) return resolved;
+        String[] tokens = spec.split("\\|");
+        for (String token : tokens) {
+            String part = token == null ? "" : token.trim();
+            if (part.isEmpty()) continue;
+            if (part.startsWith("$")) {
+                String rawRef = part.substring(1).trim();
+                String path = LayeredCharacterResolver.resolveLayerPath(charLayerPaths, defaultCharacterId, rawRef);
+                if (path != null && !path.isBlank()) {
+                    resolved.add(normalizeDeclaredAssetPath(path));
+                }
+                continue;
+            }
+            if (part.startsWith("@")) {
+                String rawPresetRef = part.substring(1).trim();
+                LayeredCharacterResolver.CharacterRef ref = LayeredCharacterResolver.parseReference(rawPresetRef, defaultCharacterId);
+                List<String> preset = presetPaths.getOrDefault(ref.characterId(), Map.of()).get(ref.localId());
+                if (preset != null) {
+                    resolved.addAll(preset);
+                }
+                continue;
+            }
+            resolved.add(normalizeDeclaredAssetPath(part));
+        }
+        return resolved;
+    }
+
+    private static String normalizeDeclaredAssetPath(String rawPath) {
+        if (rawPath == null) return "";
+        String normalized = rawPath.trim();
+        if ((normalized.startsWith("\"") && normalized.endsWith("\""))
+            || (normalized.startsWith("'") && normalized.endsWith("'"))) {
+            normalized = normalized.substring(1, normalized.length() - 1).trim();
+        }
+        return normalized.replace('\\', '/');
+    }
+
     private String selectedRelativePath() {
         AssetEntry selected = listView.getSelectionModel().getSelectedItem();
         return selected != null ? selected.relativePath : null;
@@ -1190,11 +1521,140 @@ public class AssetPickerPanel extends VBox {
         final String relativePath;
         final String baseName;
         final File file;
+        final Set<String> charImgRefs = new LinkedHashSet<>();
+        final Set<String> charLayerRefs = new LinkedHashSet<>();
+        final Set<String> presetRefs = new LinkedHashSet<>();
+        final Set<String> backgroundIds = new LinkedHashSet<>();
+        final Set<String> sourceScripts = new LinkedHashSet<>();
+        String searchIndex = "";
 
         AssetEntry(String relativePath, String baseName, File file) {
             this.relativePath = relativePath;
             this.baseName = baseName;
             this.file = file;
+        }
+
+        boolean isImported() {
+            return relativePath.startsWith(IMPORT_RELATIVE_DIR + "/");
+        }
+
+        boolean isCharacterAsset() {
+            return relativePath.startsWith(CHARPRESET_IMPORT_RELATIVE_DIR + "/")
+                || relativePath.startsWith("assets/characters/")
+                || !charImgRefs.isEmpty()
+                || !charLayerRefs.isEmpty()
+                || !presetRefs.isEmpty();
+        }
+
+        boolean isBackgroundAsset() {
+            return relativePath.startsWith("assets/backgrounds/") || !backgroundIds.isEmpty();
+        }
+
+        boolean isReferenced() {
+            return !charImgRefs.isEmpty() || !charLayerRefs.isEmpty() || !presetRefs.isEmpty() || !backgroundIds.isEmpty();
+        }
+
+        boolean matchesScope(AssetScopeFilter filter) {
+            return switch (filter) {
+                case ALL -> true;
+                case CHARACTERS -> isCharacterAsset();
+                case BACKGROUNDS -> isBackgroundAsset();
+                case IMPORTED -> isImported();
+                case OTHER -> !isCharacterAsset() && !isBackgroundAsset() && !isImported();
+            };
+        }
+
+        boolean matchesReference(AssetReferenceFilter filter) {
+            return switch (filter) {
+                case ALL -> true;
+                case DECLARED -> isReferenced();
+                case CHARIMG -> !charImgRefs.isEmpty();
+                case CHARLAYER -> !charLayerRefs.isEmpty();
+                case CHARPRESET -> !presetRefs.isEmpty();
+                case BACKGROUND -> !backgroundIds.isEmpty();
+                case UNREFERENCED -> !isReferenced();
+            };
+        }
+
+        boolean matchesQuery(String query) {
+            if (query == null || query.isBlank()) return true;
+            String[] tokens = query.split("\\s+");
+            for (String token : tokens) {
+                if (token.isBlank()) continue;
+                if (!searchIndex.contains(token)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        void rebuildSearchIndex() {
+            StringBuilder search = new StringBuilder();
+            appendSearch(search, baseName);
+            appendSearch(search, relativePath);
+            for (String value : charImgRefs) appendSearch(search, value);
+            for (String value : charLayerRefs) appendSearch(search, value);
+            for (String value : presetRefs) appendSearch(search, value);
+            for (String value : backgroundIds) appendSearch(search, value);
+            for (String value : sourceScripts) appendSearch(search, value);
+            if (isImported()) appendSearch(search, "imported");
+            if (isCharacterAsset()) appendSearch(search, "character");
+            if (isBackgroundAsset()) appendSearch(search, "background");
+            searchIndex = search.toString();
+        }
+
+        String usageBadge() {
+            List<String> tags = new ArrayList<>();
+            if (!charImgRefs.isEmpty()) tags.add("@charimg");
+            if (!charLayerRefs.isEmpty()) tags.add("@charlayer");
+            if (!presetRefs.isEmpty()) tags.add("@charpreset");
+            if (!backgroundIds.isEmpty()) tags.add("@background");
+            if (tags.isEmpty()) {
+                return isImported() ? "Imported" : "Unreferenced";
+            }
+            return String.join(" • ", tags);
+        }
+
+        String describeMeta() {
+            List<String> parts = new ArrayList<>();
+            parts.add(humanFileSize(file.length()));
+            Image preview = loadPreviewImage(file);
+            if (preview != null && !preview.isError()) {
+                parts.add(String.format(Locale.ROOT, "%.0f x %.0f px", preview.getWidth(), preview.getHeight()));
+            }
+            if (isImported()) parts.add("Imported");
+            if (!sourceScripts.isEmpty()) parts.add(sourceScripts.size() + " script" + (sourceScripts.size() == 1 ? "" : "s"));
+            return String.join("  •  ", parts);
+        }
+
+        String describeTags() {
+            List<String> tags = new ArrayList<>();
+            if (!charImgRefs.isEmpty()) tags.add("charimg: " + String.join(", ", charImgRefs));
+            if (!charLayerRefs.isEmpty()) tags.add("charlayer: " + String.join(", ", charLayerRefs));
+            if (!presetRefs.isEmpty()) tags.add("charpreset: " + String.join(", ", presetRefs));
+            if (!backgroundIds.isEmpty()) tags.add("background: " + String.join(", ", backgroundIds));
+            if (tags.isEmpty()) return "No VNS declaration references found for this asset yet.";
+            return String.join("\n", tags);
+        }
+
+        String describeUsage() {
+            List<String> lines = new ArrayList<>();
+            if (!sourceScripts.isEmpty()) {
+                lines.add("Referenced in: " + String.join(", ", sourceScripts));
+            }
+            if (isImported() && !isReferenced()) {
+                lines.add("Imported asset with no current VNS declarations.");
+            }
+            if (lines.isEmpty()) {
+                lines.add("No matching @charimg, @charlayer, @charpreset, or @background declarations were found.");
+            }
+            return String.join("\n", lines);
+        }
+
+        private static void appendSearch(StringBuilder search, String value) {
+            if (value == null || value.isBlank()) return;
+            if (!search.isEmpty()) search.append(' ');
+            search.append(value.toLowerCase(Locale.ROOT).replace('\\', '/'));
         }
 
         @Override
@@ -1227,6 +1687,7 @@ public class AssetPickerPanel extends VBox {
         private final ImageView thumb = new ImageView();
         private final Label nameLabel = new Label();
         private final Label pathLabel = new Label();
+        private final Label usageLabel = new Label();
         private final VBox textBox = new VBox(1);
         private final HBox row = new HBox(8, thumb, textBox);
 
@@ -1238,7 +1699,8 @@ public class AssetPickerPanel extends VBox {
 
             nameLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
             pathLabel.setStyle("-fx-font-size: 9px;");
-            textBox.getChildren().addAll(nameLabel, pathLabel);
+            usageLabel.setStyle("-fx-font-size: 9px;");
+            textBox.getChildren().addAll(nameLabel, pathLabel, usageLabel);
             HBox.setHgrow(textBox, Priority.ALWAYS);
 
             row.setAlignment(Pos.CENTER_LEFT);
@@ -1259,14 +1721,14 @@ public class AssetPickerPanel extends VBox {
             }
 
             try {
-                Image img = new Image(item.file.toURI().toString(), THUMB_SIZE * 2, THUMB_SIZE * 2, true, true, true);
-                thumb.setImage(img);
+                thumb.setImage(loadPreviewImage(item.file));
             } catch (Exception ignored) {
                 thumb.setImage(null);
             }
 
             nameLabel.setText(item.baseName);
             pathLabel.setText(item.relativePath);
+            usageLabel.setText(item.usageBadge());
 
             setGraphic(row);
             setText(null);
@@ -1286,16 +1748,19 @@ public class AssetPickerPanel extends VBox {
             }
             if (isSelected()) {
                 setStyle(STYLE_CELL_SELECTED);
-                nameLabel.setStyle("-fx-text-fill: #eef6ff; -fx-font-size: 11px; -fx-font-weight: bold;");
-                pathLabel.setStyle("-fx-text-fill: #9fc6ef; -fx-font-size: 9px;");
+                nameLabel.setStyle("-fx-text-fill: #f0f0f0; -fx-font-size: 11px; -fx-font-weight: bold;");
+                pathLabel.setStyle("-fx-text-fill: #b0b0b0; -fx-font-size: 9px;");
+                usageLabel.setStyle("-fx-text-fill: #c9c9c9; -fx-font-size: 9px;");
             } else if (isHover()) {
                 setStyle(STYLE_CELL_HOVER);
                 nameLabel.setStyle("-fx-text-fill: #f2f2f2; -fx-font-size: 11px; -fx-font-weight: bold;");
-                pathLabel.setStyle("-fx-text-fill: #8b93a2; -fx-font-size: 9px;");
+                pathLabel.setStyle("-fx-text-fill: #939393; -fx-font-size: 9px;");
+                usageLabel.setStyle("-fx-text-fill: #b8b8b8; -fx-font-size: 9px;");
             } else {
                 setStyle(STYLE_CELL_BASE);
                 nameLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
                 pathLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 9px;");
+                usageLabel.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 9px;");
             }
         }
     }
