@@ -15,6 +15,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -53,6 +54,7 @@ public class EntitySelector extends VBox {
     private BiConsumer<String, String> onRenameGroup;
     private BiConsumer<String, Integer> onEntityLayerDelta;
     private BiConsumer<String, Integer> onGroupLayerDelta;
+    private BiConsumer<String, Boolean> onEntityVisibilityChanged;
 
     public EntitySelector() {
         setSpacing(0);
@@ -138,6 +140,7 @@ public class EntitySelector extends VBox {
     public void setOnRenameGroup(BiConsumer<String, String> callback) { this.onRenameGroup = callback; }
     public void setOnEntityLayerDelta(BiConsumer<String, Integer> callback) { this.onEntityLayerDelta = callback; }
     public void setOnGroupLayerDelta(BiConsumer<String, Integer> callback) { this.onGroupLayerDelta = callback; }
+    public void setOnEntityVisibilityChanged(BiConsumer<String, Boolean> callback) { this.onEntityVisibilityChanged = callback; }
 
     public void setScene(JesScene2D scene) {
         this.scene = scene;
@@ -534,13 +537,20 @@ public class EntitySelector extends VBox {
         return candidate;
     }
 
+    private boolean resolveEntityVisible(String entityName) {
+        if (project == null || entityName == null || entityName.isBlank()) return true;
+        EntityTrack track = project.getTrack(entityName);
+        return track == null || track.isVisible();
+    }
+
     private class EntityTreeCell extends TreeCell<String> {
         private static final double LASSO_ARC = 10.0;
         private final Canvas icon = new Canvas(16, 16);
+        private final Canvas visibilityIcon = new Canvas(14, 14);
         private final Label label = new Label();
         private final Region spacer = new Region();
         private final Label layerBadge = new Label();
-        private final HBox row = new HBox(6, icon, label, spacer, layerBadge);
+        private final HBox row = new HBox(6, icon, label, spacer, visibilityIcon, layerBadge);
         private final Canvas lassoCanvas = new Canvas();
         private final StackPane cellRoot = new StackPane(row, lassoCanvas);
         private final Timeline lassoTimeline;
@@ -560,6 +570,20 @@ public class EntitySelector extends VBox {
             );
             layerBadge.setMinWidth(52);
             layerBadge.setAlignment(Pos.CENTER_RIGHT);
+
+            visibilityIcon.setCursor(Cursor.HAND);
+            visibilityIcon.setOnMouseClicked(event -> {
+                if (isEmpty() || getItem() == null) return;
+                String encoded = getItem();
+                if (isEncodedGroupValue(encoded)) return;
+                String entityName = decodeTreeValue(encoded);
+                boolean nextVisible = !resolveEntityVisible(entityName);
+                if (onEntityVisibilityChanged != null) {
+                    onEntityVisibilityChanged.accept(entityName, nextVisible);
+                }
+                drawVisibilityIcon(visibilityIcon.getGraphicsContext2D(), nextVisible);
+                event.consume();
+            });
 
             lassoCanvas.setMouseTransparent(true);
             StackPane.setAlignment(row, Pos.CENTER_LEFT);
@@ -587,10 +611,22 @@ public class EntitySelector extends VBox {
             } else {
                 String name = decodeTreeValue(item);
                 boolean isGroup = isEncodedGroupValue(item);
+                boolean isVisible = !isGroup && resolveEntityVisible(name);
                 label.setText(name);
-                label.setTextFill(isGroup ? Color.web("#f0b673") : Color.web("#e6e6e6"));
+                label.setTextFill(isGroup
+                    ? Color.web("#f0b673")
+                    : (isVisible ? Color.web("#e6e6e6") : Color.web("#8a8f98")));
                 layerBadge.setText(formatLayerBadge(name, isGroup));
                 drawEntityIcon(icon.getGraphicsContext2D(), name, isGroup);
+                if (isGroup) {
+                    visibilityIcon.setVisible(false);
+                    visibilityIcon.setManaged(false);
+                    visibilityIcon.getGraphicsContext2D().clearRect(0, 0, visibilityIcon.getWidth(), visibilityIcon.getHeight());
+                } else {
+                    visibilityIcon.setVisible(true);
+                    visibilityIcon.setManaged(true);
+                    drawVisibilityIcon(visibilityIcon.getGraphicsContext2D(), isVisible);
+                }
                 setText(null);
                 setGraphic(cellRoot);
                 syncLassoCanvas();
@@ -646,13 +682,13 @@ public class EntitySelector extends VBox {
             double width = lassoCanvas.getWidth();
             double height = lassoCanvas.getHeight();
             gc.clearRect(0, 0, width, height);
-            if (!isSelected() || width <= 2.0 || height <= 2.0) {
+            if (!isSelected() || width <= 20.0 || height <= 6.0) {
                 return;
             }
 
             double inset = 0.75;
-            double drawWidth = Math.max(1.0, width - inset * 2.0);
-            double drawHeight = Math.max(1.0, height - inset * 2.0);
+            double drawWidth = Math.max(4.0, width - inset * 2.0);
+            double drawHeight = Math.max(4.0, height - inset * 2.0);
 
             gc.setLineWidth(1.2);
             gc.setLineDashes(8.0, 5.0);
@@ -665,6 +701,8 @@ public class EntitySelector extends VBox {
             gc.setLineDashOffset(lassoDashOffset - 6.5);
             gc.setStroke(Color.web("#fff4d6", 0.55));
             gc.strokeRoundRect(inset + 0.6, inset + 0.6, drawWidth - 1.2, drawHeight - 1.2, LASSO_ARC - 2.0, LASSO_ARC - 2.0);
+
+            gc.setLineDashes((double[]) null);
         }
 
         private int computeLayerValue(String name, boolean isGroup) {
@@ -728,6 +766,30 @@ public class EntitySelector extends VBox {
             } else {
                 gc.setFill(Color.web("#4da3ff", 0.7));
                 gc.fillRoundRect(2, 2, 12, 12, 2, 2);
+            }
+        }
+
+        private void drawVisibilityIcon(GraphicsContext gc, boolean visible) {
+            double w = visibilityIcon.getWidth();
+            double h = visibilityIcon.getHeight();
+            gc.clearRect(0, 0, w, h);
+
+            Color stroke = visible ? Color.web("#9fb2cc") : Color.web("#6b7687");
+            Color fill = visible ? Color.web("#d7e5ff", 0.45) : Color.web("#8a8f98", 0.22);
+            double cx = w * 0.5;
+            double cy = h * 0.5;
+
+            gc.setLineWidth(1.2);
+            gc.setStroke(stroke);
+            gc.strokeOval(1.0, 3.0, w - 2.0, h - 6.0);
+
+            gc.setFill(fill);
+            gc.fillOval(cx - 2.0, cy - 2.0, 4.0, 4.0);
+
+            if (!visible) {
+                gc.setStroke(Color.web("#f0b673", 0.90));
+                gc.setLineWidth(1.4);
+                gc.strokeLine(2.0, h - 2.0, w - 2.0, 2.0);
             }
         }
     }

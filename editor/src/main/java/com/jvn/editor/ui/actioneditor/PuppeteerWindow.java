@@ -428,6 +428,15 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
         });
 
+        entitySelector.setOnEntityVisibilityChanged((entityName, visible) -> {
+            EntityTrack track = this.project.getTrack(entityName);
+            if (track == null) return;
+            track.setVisible(visible);
+            entitySelector.refresh(this.project);
+            entitySelector.selectEntity(entityName);
+            updatePreview();
+        });
+
         timelinePanel.setOnKeyframeSelected(kf -> {
             if (timelinePanel.getSelectionCount() > 1) {
                 keyframeEditor.setSelection(new ArrayList<>(timelinePanel.getSelectedKeyframes()), timelinePanel.getSelectedProperty());
@@ -3069,6 +3078,10 @@ public class PuppeteerWindow extends Stage {
         for (EntityTrack track : project.getTracks()) {
             var entity = scene.find(track.getEntityName());
             if (entity == null) continue;
+            if (!track.isVisible()) {
+                entity.setVisible(false);
+                continue;
+            }
             String entityName = track.getEntityName();
             double baseZ = baselinePropertyValue(entityName, entity, PropertyType.Z);
             double z = project.hasEffectiveAnimation(entityName, PropertyType.Z)
