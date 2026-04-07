@@ -160,6 +160,8 @@ public class PuppeteerWindow extends Stage {
     private final Map<String, String> launchBackgroundPaths = new LinkedHashMap<>();
     private final Map<String, String> sceneBaselineImagePaths = new LinkedHashMap<>();
     private final Map<String, Boolean> sceneBaselineVisibility = new LinkedHashMap<>();
+    private final Map<String, Map<String, Double>> sceneBaselineCustomProperties = new LinkedHashMap<>();
+    private final Map<String, Double> sceneBaselineCameraCustomProperties = new LinkedHashMap<>();
     private boolean bypassCloseConfirmation = false;
     private boolean codePaneVisible = true;
     private double codePaneDividerPosition = 0.78;
@@ -2153,7 +2155,13 @@ public class PuppeteerWindow extends Stage {
         if (cbProperty == null || timelinePanel == null) return;
         List<PropertyType> allowed;
         if (timelinePanel.isRuntimeCameraSelected()) {
-            allowed = List.of(PropertyType.CAMERA_X, PropertyType.CAMERA_Y, PropertyType.CAMERA_ZOOM);
+            allowed = List.of(
+                PropertyType.CAMERA_X,
+                PropertyType.CAMERA_Y,
+                PropertyType.CAMERA_ZOOM,
+                PropertyType.CAMERA_DOF_FOCUS,
+                PropertyType.CAMERA_DOF_STRENGTH,
+                PropertyType.CAMERA_DOF_MAX_BLUR);
         } else if (timelinePanel.isSelectedGroup()) {
             allowed = GROUP_PROPERTY_CHOICES;
         } else {
@@ -2183,6 +2191,12 @@ public class PuppeteerWindow extends Stage {
         boolean hasCameraX = false;
         boolean hasCameraY = false;
         boolean hasCameraZoom = false;
+        double dofFocus = previewCamera.getFocusDepth();
+        double dofStrength = previewCamera.getDepthOfFieldStrength();
+        double dofMaxBlur = previewCamera.getDepthOfFieldMaxBlur();
+        boolean hasDofFocus = false;
+        boolean hasDofStrength = false;
+        boolean hasDofMaxBlur = false;
         for (EntityTrack track : project.getTracks()) {
             if (track.hasKeyframes(PropertyType.CAMERA_X)) {
                 cameraX = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_X, time);
@@ -2196,12 +2210,34 @@ public class PuppeteerWindow extends Stage {
                 cameraZoom = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_ZOOM, time);
                 hasCameraZoom = true;
             }
+            if (track.hasKeyframes(PropertyType.CAMERA_DOF_FOCUS)) {
+                dofFocus = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_DOF_FOCUS, time, dofFocus);
+                hasDofFocus = true;
+            }
+            if (track.hasKeyframes(PropertyType.CAMERA_DOF_STRENGTH)) {
+                dofStrength = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_DOF_STRENGTH, time, dofStrength);
+                hasDofStrength = true;
+            }
+            if (track.hasKeyframes(PropertyType.CAMERA_DOF_MAX_BLUR)) {
+                dofMaxBlur = project.computeValueAt(track.getEntityName(), PropertyType.CAMERA_DOF_MAX_BLUR, time, dofMaxBlur);
+                hasDofMaxBlur = true;
+            }
+            for (String customPropertyKey : track.getAnimatedCustomProperties()) {
+                if (TimelinePanel.isRuntimeCameraTarget(track.getEntityName())) {
+                    double baselineValue = baselineCustomPropertyValue(track.getEntityName(), customPropertyKey, previewCamera);
+                    double customValue = track.getCustomValueAt(customPropertyKey, time, baselineValue);
+                    previewCamera.applyCustomProperty(customPropertyKey, customValue);
+                }
+            }
         }
 
         if (hasCameraX || hasCameraY || hasCameraZoom) {
             previewCamera.setPosition(cameraX, cameraY);
             previewCamera.setZoom(cameraZoom);
         }
+        if (hasDofFocus) previewCamera.setFocusDepth(dofFocus);
+        if (hasDofStrength) previewCamera.setDepthOfFieldStrength(dofStrength);
+        if (hasDofMaxBlur) previewCamera.setDepthOfFieldMaxBlur(dofMaxBlur);
         keyframeEditor.setCameraState(previewCamera.getX(), previewCamera.getY(), previewCamera.getZoom());
 
         for (EntityTrack track : project.getTracks()) {
@@ -2261,6 +2297,38 @@ public class PuppeteerWindow extends Stage {
                 ? project.computeValueAt(entityName, PropertyType.VISIBILITY, time, baseVisibility)
                 : baseVisibility;
             entity.setVisible(visibility >= 0.5);
+
+            double matrixMxx = project.hasEffectiveAnimation(entityName, PropertyType.MATRIX_MXX)
+                ? project.computeValueAt(entityName, PropertyType.MATRIX_MXX, time, baselinePropertyValue(entityName, entity, PropertyType.MATRIX_MXX))
+                : baselinePropertyValue(entityName, entity, PropertyType.MATRIX_MXX);
+            double matrixMxy = project.hasEffectiveAnimation(entityName, PropertyType.MATRIX_MXY)
+                ? project.computeValueAt(entityName, PropertyType.MATRIX_MXY, time, baselinePropertyValue(entityName, entity, PropertyType.MATRIX_MXY))
+                : baselinePropertyValue(entityName, entity, PropertyType.MATRIX_MXY);
+            double matrixMyx = project.hasEffectiveAnimation(entityName, PropertyType.MATRIX_MYX)
+                ? project.computeValueAt(entityName, PropertyType.MATRIX_MYX, time, baselinePropertyValue(entityName, entity, PropertyType.MATRIX_MYX))
+                : baselinePropertyValue(entityName, entity, PropertyType.MATRIX_MYX);
+            double matrixMyy = project.hasEffectiveAnimation(entityName, PropertyType.MATRIX_MYY)
+                ? project.computeValueAt(entityName, PropertyType.MATRIX_MYY, time, baselinePropertyValue(entityName, entity, PropertyType.MATRIX_MYY))
+                : baselinePropertyValue(entityName, entity, PropertyType.MATRIX_MYY);
+            double matrixTx = project.hasEffectiveAnimation(entityName, PropertyType.MATRIX_TX)
+                ? project.computeValueAt(entityName, PropertyType.MATRIX_TX, time, baselinePropertyValue(entityName, entity, PropertyType.MATRIX_TX))
+                : baselinePropertyValue(entityName, entity, PropertyType.MATRIX_TX);
+            double matrixTy = project.hasEffectiveAnimation(entityName, PropertyType.MATRIX_TY)
+                ? project.computeValueAt(entityName, PropertyType.MATRIX_TY, time, baselinePropertyValue(entityName, entity, PropertyType.MATRIX_TY))
+                : baselinePropertyValue(entityName, entity, PropertyType.MATRIX_TY);
+            entity.setSupplementalTransform(matrixMxx, matrixMxy, matrixMyx, matrixMyy, matrixTx, matrixTy);
+
+            double baseBlur = baselinePropertyValue(entityName, entity, PropertyType.BLUR);
+            double blur = project.hasEffectiveAnimation(entityName, PropertyType.BLUR)
+                ? project.computeValueAt(entityName, PropertyType.BLUR, time, baseBlur)
+                : baseBlur;
+            entity.setBlurRadius(blur);
+
+            for (String customPropertyKey : track.getAnimatedCustomProperties()) {
+                double baselineValue = baselineCustomPropertyValue(entityName, customPropertyKey, entity);
+                double customValue = track.getCustomValueAt(customPropertyKey, time, baselineValue);
+                entity.applyCustomProperty(customPropertyKey, customValue);
+            }
         }
 
         applyPreviewEventCuesUpTo(time);
@@ -2272,16 +2340,20 @@ public class PuppeteerWindow extends Stage {
     private void captureSceneStateBaseline() {
         sceneBaselineImagePaths.clear();
         sceneBaselineVisibility.clear();
+        sceneBaselineCustomProperties.clear();
+        sceneBaselineCameraCustomProperties.clear();
         if (scene == null) return;
         for (String entityName : scene.names()) {
             if (entityName == null || entityName.isBlank()) continue;
             var entity = scene.find(entityName);
             if (entity == null) continue;
             sceneBaselineVisibility.put(entityName, entity.isVisible());
+            sceneBaselineCustomProperties.put(entityName, captureEntityCustomPropertyBaseline(entity));
             if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
                 sceneBaselineImagePaths.put(entityName, sprite.getImagePath());
             }
         }
+        sceneBaselineCameraCustomProperties.putAll(captureCameraCustomPropertyBaseline(animationPreview.getCamera()));
     }
 
     private void restorePreviewBaselineState() {
@@ -2294,6 +2366,7 @@ public class PuppeteerWindow extends Stage {
             if (visible != null) {
                 entity.setVisible(visible);
             }
+            restoreEntityCustomPropertyBaseline(entity, sceneBaselineCustomProperties.get(entityName));
             if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
                 String baselinePath = sceneBaselineImagePaths.get(entityName);
                 if (baselinePath != null) {
@@ -2301,6 +2374,7 @@ public class PuppeteerWindow extends Stage {
                 }
             }
         }
+        restoreCameraCustomPropertyBaseline(animationPreview.getCamera(), sceneBaselineCameraCustomProperties);
     }
 
     private void applyPreviewEventCuesUpTo(double timeMs) {
@@ -4504,6 +4578,14 @@ public class PuppeteerWindow extends Stage {
             case SCALE_Y -> entity.getScaleY();
             case ALPHA -> getEntityAlpha(entity);
             case VISIBILITY -> entity.isVisible() ? 1.0 : 0.0;
+            case MATRIX_MXX -> entity.getMatrixMxx();
+            case MATRIX_MXY -> entity.getMatrixMxy();
+            case MATRIX_MYX -> entity.getMatrixMyx();
+            case MATRIX_MYY -> entity.getMatrixMyy();
+            case MATRIX_TX -> entity.getMatrixTx();
+            case MATRIX_TY -> entity.getMatrixTy();
+            case BLUR -> entity.getBlurRadius();
+            case CAMERA_DOF_FOCUS, CAMERA_DOF_STRENGTH, CAMERA_DOF_MAX_BLUR -> property.getDefaultValue();
             default -> property.getDefaultValue();
         };
     }
@@ -4512,6 +4594,87 @@ public class PuppeteerWindow extends Stage {
         if (entity instanceof com.jvn.core.scene2d.Sprite2D s) return s.getAlpha();
         if (entity instanceof com.jvn.core.scene2d.Label2D l) return l.getAlpha();
         return 1.0;
+    }
+
+    private Map<String, Double> captureEntityCustomPropertyBaseline(com.jvn.core.scene2d.Entity2D entity) {
+        Map<String, Double> values = new LinkedHashMap<>();
+        if (entity == null) return values;
+        for (var definition : com.jvn.core.scene2d.Entity2D.animatableProperties()) {
+            if (definition == null) continue;
+            values.put(definition.getKey(), definition.getValue(entity));
+        }
+        values.putAll(entity.getCustomPropertiesView());
+        return values;
+    }
+
+    private Map<String, Double> captureCameraCustomPropertyBaseline(com.jvn.core.graphics.Camera2D camera) {
+        Map<String, Double> values = new LinkedHashMap<>();
+        if (camera == null) return values;
+        for (var definition : com.jvn.core.graphics.Camera2D.animatableProperties()) {
+            if (definition == null) continue;
+            values.put(definition.getKey(), definition.getValue(camera));
+        }
+        values.putAll(camera.getCustomPropertiesView());
+        return values;
+    }
+
+    private void restoreEntityCustomPropertyBaseline(
+        com.jvn.core.scene2d.Entity2D entity,
+        Map<String, Double> baseline
+    ) {
+        if (entity == null) return;
+        entity.resetSupplementalTransform();
+        entity.resetColorMatrix();
+        entity.setBlurRadius(0.0);
+        entity.clearCustomProperties();
+        if (baseline == null) return;
+        for (Map.Entry<String, Double> entry : baseline.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) continue;
+            entity.applyCustomProperty(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private void restoreCameraCustomPropertyBaseline(
+        com.jvn.core.graphics.Camera2D camera,
+        Map<String, Double> baseline
+    ) {
+        if (camera == null) return;
+        camera.setFocusDepth(0.0);
+        camera.setDepthOfFieldStrength(0.0);
+        camera.setDepthOfFieldMaxBlur(0.0);
+        camera.clearCustomProperties();
+        if (baseline == null) return;
+        for (Map.Entry<String, Double> entry : baseline.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) continue;
+            camera.applyCustomProperty(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private double baselineCustomPropertyValue(
+        String targetName,
+        String propertyKey,
+        com.jvn.core.scene2d.Entity2D entity
+    ) {
+        if (targetName != null && !targetName.isBlank()) {
+            Map<String, Double> baseline = sceneBaselineCustomProperties.get(targetName);
+            if (baseline != null && baseline.containsKey(propertyKey)) {
+                Double value = baseline.get(propertyKey);
+                if (value != null && Double.isFinite(value)) return value;
+            }
+        }
+        return entity != null ? entity.readCustomProperty(propertyKey) : 0.0;
+    }
+
+    private double baselineCustomPropertyValue(
+        String targetName,
+        String propertyKey,
+        com.jvn.core.graphics.Camera2D camera
+    ) {
+        if (targetName != null && TimelinePanel.isRuntimeCameraTarget(targetName)) {
+            Double value = sceneBaselineCameraCustomProperties.get(propertyKey);
+            if (value != null && Double.isFinite(value)) return value;
+        }
+        return camera != null ? camera.readCustomProperty(propertyKey) : 0.0;
     }
 
     private String selectionLabel(String name, boolean group) {

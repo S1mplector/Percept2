@@ -68,6 +68,25 @@ public class CodeImporter {
                     editorTrack.setLayerOrder((int) Math.round(zKfs.get(0).getValue()));
                 }
             }
+
+            for (var entry : runtimeTrack.getAllCustomKeyframes().entrySet()) {
+                String propertyKey = entry.getKey();
+                if (propertyKey == null || propertyKey.isBlank()) continue;
+                PropertyType mapped = PropertyType.fromTimelineCustomKey(propertyKey);
+                for (TimelineData.Keyframe runtimeKf : entry.getValue()) {
+                    Keyframe editorKf = new Keyframe(
+                        runtimeKf.getTimeMs(),
+                        runtimeKf.getValue(),
+                        runtimeKf.getEasingSpec(),
+                        runtimeKf.getInterpolation()
+                    );
+                    if (mapped != null) {
+                        editorTrack.addKeyframe(mapped, editorKf);
+                    } else {
+                        editorTrack.addCustomKeyframe(propertyKey, editorKf);
+                    }
+                }
+            }
         }
 
         for (TimelineData.AudioCue runtimeCue : data.getAudioCues()) {

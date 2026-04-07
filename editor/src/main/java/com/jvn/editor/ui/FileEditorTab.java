@@ -778,6 +778,17 @@ public class FileEditorTab extends BorderPane {
       }
 
       @Override
+      public void applyCustomProperty(String target, String propertyKey, double value) {
+        if (propertyKey == null || propertyKey.isBlank()) return;
+        if (viewport != null && "__camera__".equals(target)) {
+          viewport.getCamera().applyCustomProperty(propertyKey, value);
+          return;
+        }
+        Entity2D entity = findEntity(target);
+        if (entity != null) entity.applyCustomProperty(propertyKey, value);
+      }
+
+      @Override
       public void onEventCue(String type, java.util.Map<String, String> payload) {
         if (previewScene == null || type == null || type.isBlank()) return;
         java.util.Map<String, String> safePayload = payload == null ? java.util.Map.of() : payload;

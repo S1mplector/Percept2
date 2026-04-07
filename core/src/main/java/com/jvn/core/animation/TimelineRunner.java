@@ -136,6 +136,14 @@ public class TimelineRunner {
             }
 
             Entity2D entity = scene.findEntity(track.getEntityName());
+            for (var entry : track.getAllCustomKeyframes().entrySet()) {
+                String propertyKey = entry.getKey();
+                if (propertyKey == null || propertyKey.isBlank()) continue;
+                double defaultValue = resolveCustomPropertyDefault(track.getEntityName(), entity, propertyKey);
+                double value = track.getCustomValueAt(propertyKey, timeMs, defaultValue);
+                scene.applyCustomProperty(track.getEntityName(), propertyKey, value);
+            }
+
             if (entity == null) continue;
 
             if (track.hasKeyframes(TimelineData.Property.X) || track.hasKeyframes(TimelineData.Property.Y)) {
@@ -181,6 +189,7 @@ public class TimelineRunner {
                 double visible = track.getValueAt(TimelineData.Property.VISIBILITY, timeMs);
                 entity.setVisible(visible >= 0.5);
             }
+
         }
     }
 
@@ -282,5 +291,14 @@ public class TimelineRunner {
         if (value < 0.0) return 0.0;
         if (value > 1.0) return 1.0;
         return value;
+    }
+
+    private double resolveCustomPropertyDefault(String target, Entity2D entity, String propertyKey) {
+        if (propertyKey == null || propertyKey.isBlank()) return 0.0;
+        if ("__camera__".equals(target)) {
+            return 0.0;
+        }
+        if (entity == null) return 0.0;
+        return entity.readCustomProperty(propertyKey);
     }
 }

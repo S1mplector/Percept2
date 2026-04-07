@@ -60,6 +60,8 @@ public class TimelineDataParser {
         "playAudio\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern EVENT_PATTERN = Pattern.compile(
         "event\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PROPERTY_PATTERN = Pattern.compile(
+        "property(?:\\s+\"([^\"]+)\")?\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern WAIT_PATTERN = Pattern.compile(
         "wait\\s+(\\d+(?:\\.\\d+)?)", Pattern.CASE_INSENSITIVE);
     private static final Pattern PROP_PATTERN = Pattern.compile(
@@ -106,6 +108,37 @@ public class TimelineDataParser {
                 cursor += Double.parseDouble(waitM.group(1));
                 if (cursor > maxTime) maxTime = cursor;
                 i++;
+                continue;
+            }
+
+            Matcher propertyM = PROPERTY_PATTERN.matcher(trimmed);
+            if (propertyM.find()) {
+                String entity = propertyM.group(1);
+                if (entity == null || entity.isBlank()) entity = CAMERA_TRACK;
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                String propertyKey = decodeStringLiteral(ab.getString("key", ""));
+                if (propertyKey.isBlank()) continue;
+
+                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
+                Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
+                double value = ab.getDouble("value", 0.0);
+                double endTime = cursor + dur;
+                TimelineData.Track track = getOrCreateTrack(data, entity);
+
+                addCustomTweenKeyframe(
+                    track,
+                    propertyKey,
+                    cursor,
+                    endTime,
+                    value,
+                    easingSpec,
+                    interpolation
+                );
+                if (endTime > maxTime) maxTime = endTime;
                 continue;
             }
 
@@ -585,9 +618,49 @@ public class TimelineDataParser {
             end, targetValue, easingSpec, interpolation));
     }
 
+    private static void addCustomTweenKeyframe(
+        TimelineData.Track track,
+        String propertyKey,
+        double startTime,
+        double endTime,
+        double targetValue,
+        EasingSpec easingSpec,
+        Easing.Interpolation interpolation
+    ) {
+        if (track == null || propertyKey == null || propertyKey.isBlank()) return;
+        String normalized = propertyKey.trim();
+        double start = Math.max(0.0, startTime);
+        double end = Math.max(0.0, endTime);
+        if (end <= start + EPS) {
+            track.addCustomKeyframe(normalized, new TimelineData.Keyframe(
+                start, targetValue, easingSpec, interpolation));
+            return;
+        }
+        if (!hasCustomKeyframeAt(track, normalized, start)) {
+            double startValue = track.getCustomValueAt(normalized, start, 0.0);
+            track.addCustomKeyframe(normalized, new TimelineData.Keyframe(
+                start,
+                startValue,
+                Easing.Type.LINEAR,
+                Easing.Interpolation.TWEEN,
+                null
+            ));
+        }
+        track.addCustomKeyframe(normalized, new TimelineData.Keyframe(
+            end, targetValue, easingSpec, interpolation));
+    }
+
     private static boolean hasKeyframeAt(TimelineData.Track track, TimelineData.Property property, double timeMs) {
         if (track == null || property == null) return false;
         for (TimelineData.Keyframe keyframe : track.getKeyframes(property)) {
+            if (Math.abs(keyframe.getTimeMs() - timeMs) <= EPS) return true;
+        }
+        return false;
+    }
+
+    private static boolean hasCustomKeyframeAt(TimelineData.Track track, String propertyKey, double timeMs) {
+        if (track == null || propertyKey == null || propertyKey.isBlank()) return false;
+        for (TimelineData.Keyframe keyframe : track.getCustomKeyframes(propertyKey)) {
             if (Math.abs(keyframe.getTimeMs() - timeMs) <= EPS) return true;
         }
         return false;

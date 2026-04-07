@@ -699,11 +699,29 @@ public class AnimationProject {
                 if (keyframes.isEmpty()) continue;
                 hasData = true;
 
-                TimelineData.Property runtimeProp = mapProperty(prop);
-                if (runtimeProp == null) continue;
-
                 for (Keyframe kf : keyframes) {
-                    track.addKeyframe(runtimeProp,
+                    TimelineData.Keyframe runtimeKeyframe = new TimelineData.Keyframe(
+                        kf.getTimeMs(),
+                        kf.getValue(),
+                        kf.getEasingSpec(),
+                        kf.getInterpolation()
+                    );
+                    TimelineData.Property runtimeProp = mapProperty(prop);
+                    if (runtimeProp != null) {
+                        track.addKeyframe(runtimeProp, runtimeKeyframe);
+                    } else if (prop.isTimelineCustomProperty()) {
+                        track.addCustomKeyframe(prop.getTimelineCustomKey(), runtimeKeyframe);
+                    }
+                }
+            }
+
+            for (String customPropertyKey : et.getAnimatedCustomProperties()) {
+                if (customPropertyKey == null || customPropertyKey.isBlank()) continue;
+                List<Keyframe> keyframes = et.getCustomKeyframes(customPropertyKey);
+                if (keyframes.isEmpty()) continue;
+                hasData = true;
+                for (Keyframe kf : keyframes) {
+                    track.addCustomKeyframe(customPropertyKey,
                         new TimelineData.Keyframe(
                             kf.getTimeMs(),
                             kf.getValue(),
@@ -840,6 +858,8 @@ public class AnimationProject {
             case CAMERA_X -> TimelineData.Property.CAMERA_X;
             case CAMERA_Y -> TimelineData.Property.CAMERA_Y;
             case CAMERA_ZOOM -> TimelineData.Property.CAMERA_ZOOM;
+            case MATRIX_MXX, MATRIX_MXY, MATRIX_MYX, MATRIX_MYY, MATRIX_TX, MATRIX_TY,
+                BLUR, CAMERA_DOF_FOCUS, CAMERA_DOF_STRENGTH, CAMERA_DOF_MAX_BLUR -> null;
         };
     }
 

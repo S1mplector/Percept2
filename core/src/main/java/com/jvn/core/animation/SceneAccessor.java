@@ -73,6 +73,17 @@ public interface SceneAccessor {
     default void stopAudio(String channel) {}
 
     /**
+     * Apply an arbitrary numeric property to a named track target.
+     *
+     * <p>The target is usually an entity name, but special tracks such as
+     * {@code "__camera__"} may also be handled by a scene adapter.</p>
+     */
+    default void applyCustomProperty(String target, String propertyKey, double value) {
+        Entity2D entity = findEntity(target);
+        if (entity != null) entity.applyCustomProperty(propertyKey, value);
+    }
+
+    /**
      * Handle a discrete event cue fired when the playhead crosses its time.
      * Default implementation is a no-op.
      *

@@ -202,6 +202,8 @@ public class TimelineData {
         private final String entityName;
         /** Property channels mapped to their ordered keyframe lists. */
         private final Map<Property, List<Keyframe>> keyframes = new LinkedHashMap<>();
+        /** Dynamically-registered property channels keyed by string. */
+        private final Map<String, List<Keyframe>> customKeyframes = new LinkedHashMap<>();
 
         public Track(String entityName) {
             this.entityName = entityName;
@@ -218,8 +220,25 @@ public class TimelineData {
             return list != null ? Collections.unmodifiableList(list) : Collections.emptyList();
         }
 
+        public void addCustomKeyframe(String propertyKey, Keyframe kf) {
+            if (propertyKey == null || propertyKey.isBlank() || kf == null) return;
+            customKeyframes.computeIfAbsent(propertyKey.trim(), k -> new ArrayList<>()).add(kf);
+        }
+
+        public List<Keyframe> getCustomKeyframes(String propertyKey) {
+            if (propertyKey == null || propertyKey.isBlank()) return Collections.emptyList();
+            List<Keyframe> list = customKeyframes.get(propertyKey.trim());
+            return list != null ? Collections.unmodifiableList(list) : Collections.emptyList();
+        }
+
         public boolean hasKeyframes(Property prop) {
             List<Keyframe> list = keyframes.get(prop);
+            return list != null && !list.isEmpty();
+        }
+
+        public boolean hasCustomKeyframes(String propertyKey) {
+            if (propertyKey == null || propertyKey.isBlank()) return false;
+            List<Keyframe> list = customKeyframes.get(propertyKey.trim());
             return list != null && !list.isEmpty();
         }
 
@@ -227,20 +246,38 @@ public class TimelineData {
             return Collections.unmodifiableMap(keyframes);
         }
 
+        public Map<String, List<Keyframe>> getAllCustomKeyframes() {
+            return Collections.unmodifiableMap(customKeyframes);
+        }
+
         /**
          * Interpolate the value of a property at a given time using keyframes and easing.
          */
         public double getValueAt(Property prop, double timeMs) {
             List<Keyframe> list = keyframes.get(prop);
-            if (list == null || list.isEmpty()) return getDefaultValue(prop);
+            return interpolateValue(list, timeMs, getDefaultValue(prop));
+        }
+
+        public double getCustomValueAt(String propertyKey, double timeMs, double defaultValue) {
+            if (propertyKey == null || propertyKey.isBlank()) return defaultValue;
+            List<Keyframe> list = customKeyframes.get(propertyKey.trim());
+            return interpolateValue(list, timeMs, defaultValue);
+        }
+
+        private static double getDefaultValue(Property prop) {
+            return switch (prop) {
+                case SCALE_X, SCALE_Y, ALPHA, VISIBILITY, CAMERA_ZOOM -> 1.0;
+                default -> 0.0;
+            };
+        }
+
+        private static double interpolateValue(List<Keyframe> list, double timeMs, double defaultValue) {
+            if (list == null || list.isEmpty()) return defaultValue;
             if (list.size() == 1) return list.get(0).getValue();
 
-            // Before first keyframe
             if (timeMs <= list.get(0).getTimeMs()) return list.get(0).getValue();
-            // After last keyframe
             if (timeMs >= list.get(list.size() - 1).getTimeMs()) return list.get(list.size() - 1).getValue();
 
-            // Find surrounding keyframes
             for (int i = 0; i < list.size() - 1; i++) {
                 Keyframe a = list.get(i);
                 Keyframe b = list.get(i + 1);
@@ -254,13 +291,6 @@ public class TimelineData {
                 }
             }
             return list.get(list.size() - 1).getValue();
-        }
-
-        private static double getDefaultValue(Property prop) {
-            return switch (prop) {
-                case SCALE_X, SCALE_Y, ALPHA, VISIBILITY, CAMERA_ZOOM -> 1.0;
-                default -> 0.0;
-            };
         }
     }
 

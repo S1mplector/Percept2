@@ -87,6 +87,18 @@ public class RuntimeVnInterop implements VnInterop {
       }
 
       @Override
+      public void applyCustomProperty(String target, String propertyKey, double value) {
+        if (propertyKey == null || propertyKey.isBlank()) return;
+        if ("__camera__".equals(target)) {
+          Camera2D cam = activeCamera();
+          if (cam != null) cam.applyCustomProperty(propertyKey, value);
+          return;
+        }
+        Entity2D entity = findEntity(target);
+        if (entity != null) entity.applyCustomProperty(propertyKey, value);
+      }
+
+      @Override
       public void playAudioCue(String trackPath, String channel, double volume, boolean loop, double fadeInMs) {
         if (trackPath == null || trackPath.isBlank()) return;
         VnScene vn = topVnScene();

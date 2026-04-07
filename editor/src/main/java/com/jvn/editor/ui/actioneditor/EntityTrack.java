@@ -12,6 +12,7 @@ public class EntityTrack {
     private final String entityName;
     private String parentGroupName;
     private final Map<PropertyType, List<Keyframe>> keyframes;
+    private final Map<String, List<Keyframe>> customKeyframes;
     private boolean expanded = true;
     private boolean visible = true;
     private int layerOrder = 0;
@@ -19,6 +20,7 @@ public class EntityTrack {
     public EntityTrack(String entityName) {
         this.entityName = entityName;
         this.keyframes = new EnumMap<>(PropertyType.class);
+        this.customKeyframes = new java.util.LinkedHashMap<>();
     }
 
     public String getEntityName() { return entityName; }
@@ -44,6 +46,10 @@ public class EntityTrack {
         upsertKeyframe(property, kf);
     }
 
+    public void addCustomKeyframe(String propertyKey, Keyframe kf) {
+        upsertCustomKeyframe(propertyKey, kf);
+    }
+
     public Keyframe upsertKeyframe(PropertyType property, Keyframe kf) {
         if (property == null || kf == null) return null;
         List<Keyframe> list = keyframes.computeIfAbsent(property, k -> new ArrayList<>());
@@ -61,11 +67,37 @@ public class EntityTrack {
         return kf;
     }
 
+    public Keyframe upsertCustomKeyframe(String propertyKey, Keyframe kf) {
+        if (propertyKey == null || propertyKey.isBlank() || kf == null) return null;
+        String normalized = propertyKey.trim();
+        List<Keyframe> list = customKeyframes.computeIfAbsent(normalized, k -> new ArrayList<>());
+        for (Keyframe existing : list) {
+            if (Math.abs(existing.getTimeMs() - kf.getTimeMs()) <= KEYFRAME_TIME_EPSILON_MS) {
+                existing.setTimeMs(kf.getTimeMs());
+                existing.setValue(kf.getValue());
+                sortCustomKeyframes(normalized);
+                return existing;
+            }
+        }
+        list.add(kf);
+        sortCustomKeyframes(normalized);
+        return kf;
+    }
+
     public void removeKeyframe(PropertyType property, Keyframe kf) {
         List<Keyframe> list = keyframes.get(property);
         if (list != null) {
             list.remove(kf);
             if (list.isEmpty()) keyframes.remove(property);
+        }
+    }
+
+    public void removeCustomKeyframe(String propertyKey, Keyframe kf) {
+        if (propertyKey == null || propertyKey.isBlank()) return;
+        List<Keyframe> list = customKeyframes.get(propertyKey.trim());
+        if (list != null) {
+            list.remove(kf);
+            if (list.isEmpty()) customKeyframes.remove(propertyKey.trim());
         }
     }
 
@@ -78,8 +110,30 @@ public class EntityTrack {
         }
     }
 
+    public List<Keyframe> getCustomKeyframes(String propertyKey) {
+        if (propertyKey == null || propertyKey.isBlank()) return Collections.emptyList();
+        return customKeyframes.getOrDefault(propertyKey.trim(), Collections.emptyList());
+    }
+
+    public void setCustomKeyframes(String propertyKey, List<Keyframe> kfs) {
+        if (propertyKey == null || propertyKey.isBlank()) return;
+        String normalized = propertyKey.trim();
+        if (kfs == null || kfs.isEmpty()) {
+            customKeyframes.remove(normalized);
+        } else {
+            customKeyframes.put(normalized, new ArrayList<>(kfs));
+            sortCustomKeyframes(normalized);
+        }
+    }
+
     public void sortKeyframes(PropertyType property) {
         List<Keyframe> list = keyframes.get(property);
+        if (list != null) Collections.sort(list);
+    }
+
+    public void sortCustomKeyframes(String propertyKey) {
+        if (propertyKey == null || propertyKey.isBlank()) return;
+        List<Keyframe> list = customKeyframes.get(propertyKey.trim());
         if (list != null) Collections.sort(list);
     }
 
@@ -97,35 +151,38 @@ public class EntityTrack {
         return list != null && !list.isEmpty();
     }
 
+    public boolean hasCustomKeyframes(String propertyKey) {
+        if (propertyKey == null || propertyKey.isBlank()) return false;
+        List<Keyframe> list = customKeyframes.get(propertyKey.trim());
+        return list != null && !list.isEmpty();
+    }
+
     public Iterable<PropertyType> getAnimatedProperties() {
         return keyframes.keySet();
     }
 
+    public Iterable<String> getAnimatedCustomProperties() {
+        return customKeyframes.keySet();
+    }
+
     public double getValueAt(PropertyType property, double timeMs) {
         List<Keyframe> list = keyframes.get(property);
-        if (list == null || list.isEmpty()) return property.getDefaultValue();
+        return interpolate(list, timeMs, property.getDefaultValue());
+    }
 
-        if (timeMs <= list.get(0).getTimeMs()) return list.get(0).getValue();
-        if (timeMs >= list.get(list.size() - 1).getTimeMs()) return list.get(list.size() - 1).getValue();
-
-        for (int i = 0; i < list.size() - 1; i++) {
-            Keyframe k0 = list.get(i);
-            Keyframe k1 = list.get(i + 1);
-            if (timeMs >= k0.getTimeMs() && timeMs <= k1.getTimeMs()) {
-                double span = k1.getTimeMs() - k0.getTimeMs();
-                if (span < 0.001) return k1.getValue();
-                double t = (timeMs - k0.getTimeMs()) / span;
-                double easedT = com.jvn.core.animation.Easing.applyInterpolation(
-                    k1.getEasingSpec(), k1.getInterpolation(), t);
-                return k0.getValue() + (k1.getValue() - k0.getValue()) * easedT;
-            }
-        }
-        return property.getDefaultValue();
+    public double getCustomValueAt(String propertyKey, double timeMs, double defaultValue) {
+        if (propertyKey == null || propertyKey.isBlank()) return defaultValue;
+        return interpolate(customKeyframes.get(propertyKey.trim()), timeMs, defaultValue);
     }
 
     public double getMaxTimeMs() {
         double max = 0;
         for (List<Keyframe> list : keyframes.values()) {
+            for (Keyframe kf : list) {
+                if (kf.getTimeMs() > max) max = kf.getTimeMs();
+            }
+        }
+        for (List<Keyframe> list : customKeyframes.values()) {
             for (Keyframe kf : list) {
                 if (kf.getTimeMs() > max) max = kf.getTimeMs();
             }
@@ -144,6 +201,31 @@ public class EntityTrack {
             for (Keyframe kf : entry.getValue()) copyList.add(kf.copy());
             copy.keyframes.put(entry.getKey(), copyList);
         }
+        for (Map.Entry<String, List<Keyframe>> entry : customKeyframes.entrySet()) {
+            List<Keyframe> copyList = new ArrayList<>();
+            for (Keyframe kf : entry.getValue()) copyList.add(kf.copy());
+            copy.customKeyframes.put(entry.getKey(), copyList);
+        }
         return copy;
+    }
+
+    private static double interpolate(List<Keyframe> list, double timeMs, double defaultValue) {
+        if (list == null || list.isEmpty()) return defaultValue;
+        if (timeMs <= list.get(0).getTimeMs()) return list.get(0).getValue();
+        if (timeMs >= list.get(list.size() - 1).getTimeMs()) return list.get(list.size() - 1).getValue();
+
+        for (int i = 0; i < list.size() - 1; i++) {
+            Keyframe k0 = list.get(i);
+            Keyframe k1 = list.get(i + 1);
+            if (timeMs >= k0.getTimeMs() && timeMs <= k1.getTimeMs()) {
+                double span = k1.getTimeMs() - k0.getTimeMs();
+                if (span < 0.001) return k1.getValue();
+                double t = (timeMs - k0.getTimeMs()) / span;
+                double easedT = com.jvn.core.animation.Easing.applyInterpolation(
+                    k1.getEasingSpec(), k1.getInterpolation(), t);
+                return k0.getValue() + (k1.getValue() - k0.getValue()) * easedT;
+            }
+        }
+        return defaultValue;
     }
 }

@@ -145,11 +145,23 @@ public class CodeExporter {
             collectPropertyEvents(events, entity, track, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale");
             collectPropertyEvents(events, entity, track, PropertyType.ALPHA, null, "fade");
             collectVisibilityEvents(events, entity, track);
+            collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MXX);
+            collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MXY);
+            collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MYX);
+            collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MYY);
+            collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_TX);
+            collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_TY);
+            collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.BLUR);
+            collectCustomPropertyEvents(events, entity, track);
 
             if (cameraTrack == null &&
                 (track.hasKeyframes(PropertyType.CAMERA_X)
                     || track.hasKeyframes(PropertyType.CAMERA_Y)
-                    || track.hasKeyframes(PropertyType.CAMERA_ZOOM))) {
+                    || track.hasKeyframes(PropertyType.CAMERA_ZOOM)
+                    || track.hasKeyframes(PropertyType.CAMERA_DOF_FOCUS)
+                    || track.hasKeyframes(PropertyType.CAMERA_DOF_STRENGTH)
+                    || track.hasKeyframes(PropertyType.CAMERA_DOF_MAX_BLUR)
+                    || hasAnyCustomKeys(track))) {
                 cameraTrack = track;
             }
         }
@@ -169,6 +181,10 @@ public class CodeExporter {
         if (cameraTrack != null) {
             collectPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_X, PropertyType.CAMERA_Y, "cameraMove");
             collectPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_ZOOM, null, "cameraZoom");
+            collectTimelineCustomPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_DOF_FOCUS);
+            collectTimelineCustomPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_DOF_STRENGTH);
+            collectTimelineCustomPropertyEvents(events, "__camera__", cameraTrack, PropertyType.CAMERA_DOF_MAX_BLUR);
+            collectCustomPropertyEvents(events, "__camera__", cameraTrack);
         }
 
         for (AudioCue cue : project.getAudioCues()) {
@@ -341,6 +357,51 @@ public class CodeExporter {
         }
     }
 
+    private static void collectTimelineCustomPropertyEvents(
+        List<TimelineEvent> events,
+        String target,
+        EntityTrack track,
+        PropertyType property
+    ) {
+        if (property == null || !property.isTimelineCustomProperty()) return;
+        collectCustomPropertyEvents(events, target, track, property.getTimelineCustomKey(), property.getDefaultValue());
+    }
+
+    private static void collectCustomPropertyEvents(List<TimelineEvent> events, String target, EntityTrack track) {
+        if (track == null) return;
+        for (String propertyKey : track.getAnimatedCustomProperties()) {
+            if (propertyKey == null || propertyKey.isBlank()) continue;
+            collectCustomPropertyEvents(events, target, track, propertyKey, 0.0);
+        }
+    }
+
+    private static void collectCustomPropertyEvents(
+        List<TimelineEvent> events,
+        String target,
+        EntityTrack track,
+        String propertyKey,
+        double defaultValue
+    ) {
+        if (track == null || propertyKey == null || propertyKey.isBlank()) return;
+        List<Keyframe> keyframes = track.getCustomKeyframes(propertyKey);
+        if (keyframes.isEmpty()) return;
+
+        double previous = defaultValue;
+        for (Keyframe keyframe : keyframes) {
+            if (keyframe == null) continue;
+            double current = keyframe.getValue();
+            if (Math.abs(current - previous) <= 0.001 && keyframe.getTimeMs() > 0.001) continue;
+            TimelineEvent ev = new TimelineEvent();
+            ev.actionType = "property";
+            ev.target = target;
+            ev.startTime = Math.max(0.0, keyframe.getTimeMs());
+            ev.props.put("key", propertyKey);
+            ev.props.put("value", current);
+            events.add(ev);
+            previous = current;
+        }
+    }
+
     private static EasingSpec findEasingSpecAt(List<Keyframe> list, double time) {
         for (Keyframe kf : list) {
             if (Math.abs(kf.getTimeMs() - time) < 0.5) return kf.getEasingSpec();
@@ -363,6 +424,8 @@ public class CodeExporter {
             sb.append("  scene {\n");
         } else if ("event".equals(ev.actionType)) {
             sb.append("  event \"").append(ev.target).append("\" {\n");
+        } else if ("property".equals(ev.actionType) && "__camera__".equals(ev.target)) {
+            sb.append("  property {\n");
         } else {
             sb.append("  ").append(ev.actionType).append(" \"").append(ev.target).append("\" {\n");
         }
@@ -541,6 +604,8 @@ public class CodeExporter {
         StringBuilder sb = new StringBuilder();
         if ("event".equals(ev.actionType)) {
             sb.append("event \"").append(ev.target).append("\"");
+        } else if ("property".equals(ev.actionType) && "__camera__".equals(ev.target)) {
+            sb.append("property");
         } else if ("cameraMove".equals(ev.actionType) || "cameraZoom".equals(ev.actionType)) {
             sb.append(ev.actionType);
         } else {
@@ -573,5 +638,10 @@ public class CodeExporter {
         EasingSpec easingSpec = EasingSpec.of(Easing.Type.LINEAR);
         Easing.Interpolation interpolation = Easing.Interpolation.TWEEN;
         Map<String, Object> props = new java.util.LinkedHashMap<>();
+    }
+
+    private static boolean hasAnyCustomKeys(EntityTrack track) {
+        if (track == null) return false;
+        return track.getAnimatedCustomProperties().iterator().hasNext();
     }
 }

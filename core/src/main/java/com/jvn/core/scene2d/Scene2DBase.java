@@ -141,6 +141,33 @@ public class Scene2DBase implements Scene2D {
       b.translate(e.getX(), e.getY());
       if (e.getRotationDeg() != 0) b.rotateDeg(e.getRotationDeg());
       if (e.getScaleX() != 1.0 || e.getScaleY() != 1.0) b.scale(e.getScaleX(), e.getScaleY());
+      if (e.hasSupplementalTransform()) {
+        b.transform(
+            e.getMatrixMxx(),
+            e.getMatrixMyx(),
+            e.getMatrixMxy(),
+            e.getMatrixMyy(),
+            e.getMatrixTx(),
+            e.getMatrixTy());
+      }
+      if (e.hasNonIdentityColorMatrix()) {
+        b.setColorMatrix(e.getColorMatrix());
+      } else {
+        b.clearColorMatrix();
+      }
+      double blurRadius = e.getBlurRadius();
+      if (camera != null && camera.hasDepthOfField()) {
+        double depthDistance = Math.abs(e.getZ() - camera.getFocusDepth());
+        double dofBlur = Math.min(
+            camera.getDepthOfFieldMaxBlur(),
+            depthDistance * camera.getDepthOfFieldStrength());
+        blurRadius += Math.max(0.0, dofBlur);
+      }
+      if (blurRadius > 1e-9) {
+        b.setBlurRadius(blurRadius);
+      } else {
+        b.setBlurRadius(0.0);
+      }
       e.render(b);
       b.pop();
     }

@@ -1,6 +1,9 @@
 package com.jvn.fx.scene2d;
 
 import java.net.URL;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -11,13 +14,45 @@ import com.jvn.core.scene2d.Blitter2D;
 import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.BlendMode;
+import javafx.scene.effect.Effect;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.image.Image;
+import javafx.scene.image.PixelReader;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
 public class FxBlitter2D implements Blitter2D {
+  private static final double[] IDENTITY_COLOR_MATRIX = new double[] {
+      1.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 1.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 1.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 1.0, 0.0
+  };
+
+  private static final class RenderState {
+    double[] colorMatrix = null;
+    double blurRadius = 0.0;
+
+    RenderState copy() {
+      RenderState copy = new RenderState();
+      copy.colorMatrix = colorMatrix != null ? colorMatrix.clone() : null;
+      copy.blurRadius = blurRadius;
+      return copy;
+    }
+
+    boolean hasColorMatrix() {
+      if (colorMatrix == null || colorMatrix.length < IDENTITY_COLOR_MATRIX.length) return false;
+      for (int i = 0; i < IDENTITY_COLOR_MATRIX.length; i++) {
+        if (Math.abs(colorMatrix[i] - IDENTITY_COLOR_MATRIX[i]) > 1e-9) return true;
+      }
+      return false;
+    }
+  }
+
   private final GraphicsContext gc;
   private double viewportW = 0;
   private double viewportH = 0;
@@ -25,7 +60,12 @@ public class FxBlitter2D implements Blitter2D {
   private final Map<String, Image> cache = new LinkedHashMap<>(16, 0.75f, true) {
     @Override protected boolean removeEldestEntry(Map.Entry<String, Image> eldest) { return size() > cacheCapacity; }
   };
+  private final Map<String, Image> processedCache = new LinkedHashMap<>(16, 0.75f, true) {
+    @Override protected boolean removeEldestEntry(Map.Entry<String, Image> eldest) { return size() > cacheCapacity; }
+  };
   private final Set<String> missing = new HashSet<>();
+  private final Deque<RenderState> stateStack = new ArrayDeque<>();
+  private RenderState state = new RenderState();
 
   public FxBlitter2D(GraphicsContext gc) {
     this.gc = gc;
@@ -65,10 +105,17 @@ public class FxBlitter2D implements Blitter2D {
   }
 
   @Override
-  public void push() { gc.save(); }
+  public void push() {
+    gc.save();
+    stateStack.push(state.copy());
+  }
 
   @Override
-  public void pop() { gc.restore(); }
+  public void pop() {
+    gc.restore();
+    state = stateStack.isEmpty() ? new RenderState() : stateStack.pop();
+    applyEffectState();
+  }
 
   @Override
   public void translate(double x, double y) { gc.translate(x, y); }
@@ -78,6 +125,11 @@ public class FxBlitter2D implements Blitter2D {
 
   @Override
   public void scale(double sx, double sy) { gc.scale(sx, sy); }
+
+  @Override
+  public void transform(double mxx, double myx, double mxy, double myy, double tx, double ty) {
+    gc.transform(mxx, myx, mxy, myy, tx, ty);
+  }
 
   @Override
   public void fillRect(double x, double y, double w, double h) { gc.fillRect(x, y, w, h); }
@@ -105,7 +157,7 @@ public class FxBlitter2D implements Blitter2D {
     if (classpath == null || classpath.isBlank()) return;
     Image img = cache.computeIfAbsent(classpath, this::loadImage);
     if (img != null) {
-      gc.drawImage(img, x, y, w, h);
+      gc.drawImage(resolveProcessedImage(classpath, img), x, y, w, h);
     } else {
       reportMissing(classpath);
       drawMissingPlaceholder(x, y, w, h);
@@ -118,7 +170,7 @@ public class FxBlitter2D implements Blitter2D {
     if (classpath == null || classpath.isBlank()) return;
     Image img = cache.computeIfAbsent(classpath, this::loadImage);
     if (img != null) {
-      gc.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+      gc.drawImage(resolveProcessedImage(classpath, img), sx, sy, sw, sh, dx, dy, dw, dh);
     } else {
       reportMissing(classpath);
       drawMissingPlaceholder(dx, dy, dw, dh);
@@ -189,9 +241,39 @@ public class FxBlitter2D implements Blitter2D {
     }
   }
 
+  @Override
+  public void setColorMatrix(double[] matrix) {
+    if (matrix == null || matrix.length < IDENTITY_COLOR_MATRIX.length) {
+      clearColorMatrix();
+      return;
+    }
+    state.colorMatrix = Arrays.copyOf(matrix, IDENTITY_COLOR_MATRIX.length);
+  }
+
+  @Override
+  public void clearColorMatrix() {
+    state.colorMatrix = null;
+  }
+
+  @Override
+  public void setBlurRadius(double radius) {
+    state.blurRadius = Math.max(0.0, radius);
+    applyEffectState();
+  }
+
   public void setCacheCapacity(int capacity) { this.cacheCapacity = Math.max(16, capacity); }
-  public void evict(String path) { if (path != null) { cache.remove(path); missing.remove(path); } }
-  public void clearCache() { cache.clear(); missing.clear(); }
+  public void evict(String path) {
+    if (path != null) {
+      cache.remove(path);
+      processedCache.keySet().removeIf(key -> key.startsWith(path + "::"));
+      missing.remove(path);
+    }
+  }
+  public void clearCache() {
+    cache.clear();
+    processedCache.clear();
+    missing.clear();
+  }
 
   private Image loadImage(String path) {
     try {
@@ -218,6 +300,61 @@ public class FxBlitter2D implements Blitter2D {
   public void setProjectRoot(java.io.File root) { this.projectRoot = root; }
 
   private double clamp01(double v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
+
+  private void applyEffectState() {
+    Effect effect = null;
+    if (state.blurRadius > 1e-9) {
+      effect = new GaussianBlur(Math.min(63.0, state.blurRadius));
+    }
+    gc.setEffect(effect);
+  }
+
+  private Image resolveProcessedImage(String path, Image source) {
+    if (source == null || !state.hasColorMatrix()) return source;
+    String cacheKey = buildProcessedKey(path, state.colorMatrix);
+    return processedCache.computeIfAbsent(cacheKey, key -> applyColorMatrix(source, state.colorMatrix));
+  }
+
+  private String buildProcessedKey(String path, double[] matrix) {
+    StringBuilder sb = new StringBuilder(path).append("::");
+    for (int i = 0; i < IDENTITY_COLOR_MATRIX.length; i++) {
+      if (i > 0) sb.append(',');
+      sb.append(Math.round(matrix[i] * 100000.0) / 100000.0);
+    }
+    return sb.toString();
+  }
+
+  private WritableImage applyColorMatrix(Image source, double[] matrix) {
+    int width = Math.max(1, (int) Math.round(source.getWidth()));
+    int height = Math.max(1, (int) Math.round(source.getHeight()));
+    WritableImage output = new WritableImage(width, height);
+    PixelReader reader = source.getPixelReader();
+    PixelWriter writer = output.getPixelWriter();
+    if (reader == null || writer == null) return output;
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        int argb = reader.getArgb(x, y);
+        double a = ((argb >>> 24) & 0xff) / 255.0;
+        double r = ((argb >>> 16) & 0xff) / 255.0;
+        double g = ((argb >>> 8) & 0xff) / 255.0;
+        double b = (argb & 0xff) / 255.0;
+
+        double outR = clamp01(matrix[0] * r + matrix[1] * g + matrix[2] * b + matrix[3] * a + matrix[4]);
+        double outG = clamp01(matrix[5] * r + matrix[6] * g + matrix[7] * b + matrix[8] * a + matrix[9]);
+        double outB = clamp01(matrix[10] * r + matrix[11] * g + matrix[12] * b + matrix[13] * a + matrix[14]);
+        double outA = clamp01(matrix[15] * r + matrix[16] * g + matrix[17] * b + matrix[18] * a + matrix[19]);
+
+        int outArgb =
+            ((int) Math.round(outA * 255.0) << 24)
+                | ((int) Math.round(outR * 255.0) << 16)
+                | ((int) Math.round(outG * 255.0) << 8)
+                | (int) Math.round(outB * 255.0);
+        writer.setArgb(x, y, outArgb);
+      }
+    }
+    return output;
+  }
 
   private void drawMissingPlaceholder(double x, double y, double w, double h) {
     gc.setFill(Color.color(1, 0, 1, 0.8)); // magenta box
