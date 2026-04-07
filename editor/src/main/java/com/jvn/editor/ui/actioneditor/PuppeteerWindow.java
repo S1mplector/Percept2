@@ -631,7 +631,7 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
         });
 
-        Button btnLoopIn = makeToolbarIconButton("icon-puppeteer-loop", "Set loop IN at playhead");
+        Button btnLoopIn = makeToolbarIconButton("icon-puppeteer-loop-in", "Set loop IN at playhead");
         btnLoopIn.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #58d68d; -fx-background-radius: 4; " +
             "-fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-padding: 2 6; -fx-font-size: 9px; -fx-cursor: hand;");
         btnLoopIn.setText("In");
@@ -649,7 +649,7 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
-        Button btnLoopOut = makeToolbarIconButton("icon-puppeteer-loop", "Set loop OUT at playhead");
+        Button btnLoopOut = makeToolbarIconButton("icon-puppeteer-loop-out", "Set loop OUT at playhead");
         btnLoopOut.setStyle(btnLoopIn.getStyle());
         btnLoopOut.setText("Out");
         btnLoopOut.setContentDisplay(ContentDisplay.TEXT_ONLY);
@@ -715,10 +715,10 @@ public class PuppeteerWindow extends Stage {
         Button btnLoadClip = makeToolbarIconButton("icon-puppeteer-load-clip", "Load and apply a saved clip at playhead");
         btnLoadClip.setOnAction(e -> loadAndApplyClip());
 
-        Button slotButton = makeToolbarIconButton("icon-puppeteer-focus-selection", "Place selected entity at a VN character slot");
+        Button slotButton = makeToolbarIconButton("icon-puppeteer-slot", "Place selected entity at a VN character slot");
         slotButton.setOnAction(e -> showSlotMenuOverlay());
 
-        Button btnBatchKeyframe = makeToolbarIconButton("icon-puppeteer-snap", "Add keyframe for ALL entities at playhead (batch)");
+        Button btnBatchKeyframe = makeToolbarIconButton("icon-puppeteer-batch-key", "Add keyframe for ALL entities at playhead (batch)");
         btnBatchKeyframe.setOnAction(e -> {
             PropertyType prop = cbProperty.getValue();
             if (prop == null) prop = PropertyType.X;
@@ -739,7 +739,7 @@ public class PuppeteerWindow extends Stage {
         cbRipple.setSelected(timelinePanel.isRippleRetimeEnabled());
         cbRipple.setOnAction(e -> timelinePanel.setRippleRetimeEnabled(cbRipple.isSelected()));
 
-        Button btnDistributeKeys = makeToolbarIconButton("icon-puppeteer-align-rotation", "Distribute selected keyframes evenly across their current range");
+        Button btnDistributeKeys = makeToolbarIconButton("icon-puppeteer-distribute", "Distribute selected keyframes evenly across their current range");
         btnDistributeKeys.setOnAction(e -> {
             if (timelinePanel.distributeSelectedKeyframes()) {
                 refreshExportPreviewAndMarkDirty();
@@ -753,14 +753,14 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
-        Button btnStretchKeys = makeToolbarIconButton("icon-timeline-fit", "Stretch selected keyframes 25% wider");
+        Button btnStretchKeys = makeToolbarIconButton("icon-puppeteer-stretch", "Stretch selected keyframes 25% wider");
         btnStretchKeys.setOnAction(e -> {
             if (timelinePanel.stretchSelectedKeyframes(1.25)) {
                 refreshExportPreviewAndMarkDirty();
             }
         });
 
-        Button btnCompressKeys = makeToolbarIconButton("icon-puppeteer-snap", "Compress selected keyframes to 80% of their current range");
+        Button btnCompressKeys = makeToolbarIconButton("icon-puppeteer-compress", "Compress selected keyframes to 80% of their current range");
         btnCompressKeys.setOnAction(e -> {
             if (timelinePanel.stretchSelectedKeyframes(0.8)) {
                 refreshExportPreviewAndMarkDirty();
@@ -848,7 +848,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         // --- Auto-key toggle ---
-        ToggleButton cbAutoKey = makeToolbarIconToggle("icon-puppeteer-snap", "Auto-key: automatically insert keyframe on drag");
+        ToggleButton cbAutoKey = makeToolbarIconToggle("icon-puppeteer-autokey", "Auto-key: automatically insert keyframe on drag");
         cbAutoKey.setSelected(false);
         cbAutoKey.setOnAction(e -> autoKeyEnabled = cbAutoKey.isSelected());
         Label lblAutoKey = new Label("Auto");
@@ -858,7 +858,7 @@ public class PuppeteerWindow extends Stage {
         ToggleButton cbSnapGrid = makeToolbarIconToggle("icon-puppeteer-snap", "Snap entities to grid when dragging");
         cbSnapGrid.setSelected(false);
         cbSnapGrid.setOnAction(e -> animationPreview.setSnapToGridEnabled(cbSnapGrid.isSelected()));
-        ToggleButton cbSnapEntity = makeToolbarIconToggle("icon-puppeteer-align-rotation", "Snap to nearby entity positions");
+        ToggleButton cbSnapEntity = makeToolbarIconToggle("icon-puppeteer-snap-entity", "Snap to nearby entity positions");
         cbSnapEntity.setSelected(false);
         cbSnapEntity.setOnAction(e -> animationPreview.setSnapToEntityEnabled(cbSnapEntity.isSelected()));
 
@@ -871,7 +871,7 @@ public class PuppeteerWindow extends Stage {
         cbOrbitTool.setSelected(animationPreview.isOrbitToolEnabled());
         cbOrbitTool.setOnAction(e -> animationPreview.setOrbitToolEnabled(cbOrbitTool.isSelected()));
 
-        cbOrbitAlign = makeToolbarIconToggle("icon-puppeteer-align-rotation", "When orbiting, update entity rotation to face outward.");
+        cbOrbitAlign = makeToolbarIconToggle("icon-puppeteer-orbit-align", "When orbiting, update entity rotation to face outward.");
         cbOrbitAlign.setSelected(animationPreview.isOrbitAlignRotation());
         cbOrbitAlign.setOnAction(e -> animationPreview.setOrbitAlignRotation(cbOrbitAlign.isSelected()));
 
@@ -885,7 +885,7 @@ public class PuppeteerWindow extends Stage {
         orbitBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Help button ---
-        Button btnHelp = makeToolbarIconButton("icon-puppeteer-presets", "Show keyboard shortcuts");
+        Button btnHelp = makeToolbarIconButton("icon-puppeteer-help", "Show keyboard shortcuts");
         btnHelp.setOnAction(e -> showShortcutsOverlay());
 
         // --- Audio + event cues ---
@@ -906,7 +906,7 @@ public class PuppeteerWindow extends Stage {
                 })
             );
         });
-        Button btnManageEvents = makeToolbarIconButton("icon-puppeteer-presets", "Manage timeline event cues");
+        Button btnManageEvents = makeToolbarIconButton("icon-puppeteer-events", "Manage timeline event cues");
         btnManageEvents.setOnAction(e -> showEventCueManagerDialog(null));
         Button btnClearEvents = makeToolbarIconButton("icon-puppeteer-audio-clear", "Remove all timeline event cues");
         btnClearEvents.setOnAction(e -> {

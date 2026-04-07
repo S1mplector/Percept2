@@ -819,6 +819,16 @@
   -fx-background-color: #d4d4d4;
 }
 
+.icon-puppeteer-loop-in {
+  -fx-shape: "M5 4h2v14H5zM18 12l-5 5v-3H9v-4h4V7z";
+  -fx-background-color: #d8d8d8;
+}
+
+.icon-puppeteer-loop-out {
+  -fx-shape: "M17 4h2v14h-2zM6 12l5-5v3h4v4h-4v3z";
+  -fx-background-color: #d8d8d8;
+}
+
 .icon-puppeteer-presets {
   -fx-shape: "M4 18c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm14-10c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm-7-3c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm-5 13c4 0 4-12 8-12 4 0 4 6 8 6v2c-5 0-5-6-8-6-3 0-3 12-8 12v-2z";
   -fx-background-color: #ffd98f;
@@ -839,13 +849,53 @@
   -fx-background-color: #d3d3d3;
 }
 
+.icon-puppeteer-batch-key {
+  -fx-shape: "M3 5h8v8H3zm11 1h2v3h3v2h-3v3h-2v-3h-3V9h3z";
+  -fx-background-color: #d8d8d8;
+}
+
+.icon-puppeteer-autokey {
+  -fx-shape: "M4 8h7v7H4zm11-5h2v3h3v2h-3v3h-2V8h-3V6h3z";
+  -fx-background-color: #d8d8d8;
+}
+
+.icon-puppeteer-distribute {
+  -fx-shape: "M4 6h2v12H4zm7-3h2v18h-2zm7 3h2v12h-2z";
+  -fx-background-color: #d8d8d8;
+}
+
+.icon-puppeteer-stretch {
+  -fx-shape: "M10 12L5 7v3H2v4h3v3zm4 0l5-5v3h3v4h-3v3z";
+  -fx-background-color: #d8d8d8;
+}
+
+.icon-puppeteer-compress {
+  -fx-shape: "M8 12l-5-5v3H1v4h2v3zm8 0l5-5v3h2v4h-2v3zM10 8h4v8h-4z";
+  -fx-background-color: #d8d8d8;
+}
+
 .icon-puppeteer-orbit {
   -fx-shape: "M12 4c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 2a2 2 0 110 4 2 2 0 010-4zm0 8c-4.97 0-9-2.69-9-6s4.03-6 9-6 9 2.69 9 6-4.03 6-9 6zm6.5 4c1.93 0 3.5 1.12 3.5 2.5S20.43 23 18.5 23 15 21.88 15 20.5s1.57-2.5 3.5-2.5z";
   -fx-background-color: #d6d6d6;
 }
 
+.icon-puppeteer-slot {
+  -fx-shape: "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z";
+  -fx-background-color: #d6d6d6;
+}
+
+.icon-puppeteer-snap-entity {
+  -fx-shape: "M6 12a3 3 0 0 1 3-3h3v2H9a1 1 0 1 0 0 2h3v2H9a3 3 0 0 1-3-3zm5-1h2v2h-2zm3-2h3a3 3 0 1 1 0 6h-3v-2h3a1 1 0 1 0 0-2h-3z";
+  -fx-background-color: #d6d6d6;
+}
+
 .icon-puppeteer-align-rotation {
   -fx-shape: "M12 2L4 20l8-3 8 3-8-18zm0 4.84L16.93 18 12 15.94 7.07 18 12 6.84z";
+  -fx-background-color: #d5d5d5;
+}
+
+.icon-puppeteer-orbit-align {
+  -fx-shape: "M12 3l5 9-5-2-5 2zm0 10a7 7 0 0 0 6.57-4.6l1.88.68A9 9 0 1 1 12 3v2a7 7 0 1 0 0 14z";
   -fx-background-color: #d5d5d5;
 }
 
@@ -902,6 +952,16 @@
 .icon-puppeteer-jump-issue {
   -fx-shape: "M8,1 L15,14 L1,14 Z M7,5 L9,5 L9,10 L7,10 Z M7,11 L9,11 L9,13 L7,13 Z";
   -fx-background-color: #f0d2b8;
+}
+
+.icon-puppeteer-events {
+  -fx-shape: "M4 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm3 4h2v4H7zm4 0h2v4h-2zm4 0h2v4h-2z";
+  -fx-background-color: #ffd98f;
+}
+
+.icon-puppeteer-help {
+  -fx-shape: "M12 2a10 10 0 1 1 0 20a10 10 0 0 1 0-20zm0 3a3.5 3.5 0 0 0-3.5 3.5h2A1.5 1.5 0 1 1 12 10c-1.5 0-2.5 1.16-2.5 2.5V14h2v-1.25c0-.69.56-1.25 1.25-1.25A3.5 3.5 0 1 0 12 5zm-1 11h2v2h-2z";
+  -fx-background-color: #ffd98f;
 }
 
 .icon-puppeteer-focus-selection {
@@ -2672,17 +2732,18 @@
 .sidebar-tab-pane .tab .tab-close-button {
   -fx-opacity: 0.95;
   -fx-padding: 0;
-  -fx-translate-x: 7px;
-  -fx-min-width: 10px;
-  -fx-pref-width: 10px;
-  -fx-max-width: 10px;
-  -fx-min-height: 10px;
-  -fx-pref-height: 10px;
-  -fx-max-height: 10px;
+  -fx-translate-x: 4px;
+  -fx-min-width: 6px;
+  -fx-pref-width: 6px;
+  -fx-max-width: 6px;
+  -fx-min-height: 6px;
+  -fx-pref-height: 6px;
+  -fx-max-height: 6px;
   -fx-background-color: #e14f63;
   -fx-background-insets: 0;
   -fx-background-radius: 999;
-  -fx-shape: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z";
+  -fx-scale-shape: false;
+  -fx-shape: "M4 0A4 4 0 1 1 4 8A4 4 0 1 1 4 0z";
 }
 
 .sidebar-tab-pane .tab .tab-label {

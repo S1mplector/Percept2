@@ -98,6 +98,9 @@ public class JesCodeEditor extends BorderPane {
   );
 
   public JesCodeEditor() {
+    if (!codeArea.getStyleClass().contains("code-area")) {
+      codeArea.getStyleClass().add("code-area");
+    }
     codeArea.setParagraphGraphicFactory(line -> {
       Label ln = new Label(String.format("%d", line + 1));
       ln.getStyleClass().add("lineno");
@@ -134,12 +137,16 @@ public class JesCodeEditor extends BorderPane {
   }
 
   public String getText() { return codeArea.getText(); }
-  public void setText(String s) { codeArea.replaceText(s == null ? "" : s); }
+  public void setText(String s) {
+    codeArea.replaceText(s == null ? "" : s);
+    refreshSyntaxHighlighting();
+  }
   public void setProjectRoot(File root) { this.projectRoot = root; if (completer != null) completer.setProjectRoot(root); }
   public void setTextNoEvent(String s) {
     try {
       suppressTextChanged = true;
       codeArea.replaceText(s == null ? "" : s);
+      refreshSyntaxHighlighting();
     } finally {
       suppressTextChanged = false;
     }
@@ -176,6 +183,10 @@ public class JesCodeEditor extends BorderPane {
 
   private void applyHighlighting(String text) {
     codeArea.setStyleSpans(0, computeHighlighting(text == null ? "" : text));
+  }
+
+  public void refreshSyntaxHighlighting() {
+    applyHighlighting(codeArea.getText());
   }
 
   private static StyleSpans<Collection<String>> computeHighlighting(String text) {
