@@ -27,7 +27,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -905,12 +904,14 @@ public class LayoutEditorLauncherView extends BorderPane {
       case DIALOGUE_LAYOUT -> "Dialogue Layout";
     };
 
-    TextInputDialog dialog = new TextInputDialog(fileStem(item.relativePath()) + "_copy");
-    dialog.setTitle("Clone " + label);
-    dialog.setHeaderText("Enter a name for the cloned " + label.toLowerCase(Locale.ROOT) + ":");
-    dialog.setContentText("Name (no extension):");
-    EditorTheme.apply(dialog);
-    dialog.showAndWait().ifPresent(rawName -> {
+    EditorDialogs.promptText(
+        getScene() != null ? getScene().getWindow() : null,
+        "Clone " + label,
+        "Enter a name for the cloned " + label.toLowerCase(Locale.ROOT) + ":",
+        "Name (no extension)",
+        fileStem(item.relativePath()) + "_copy",
+        fileStem(item.relativePath()) + "_copy",
+        "Clone").ifPresent(rawName -> {
       String name = sanitizeFileName(rawName);
       if (name.isBlank()) return;
       File destDir = source.getParentFile();
@@ -1030,12 +1031,14 @@ public class LayoutEditorLauncherView extends BorderPane {
 
   private void promptCreateFile(String label, String relDir, String extension, ItemType type) {
     if (projectRoot == null) return;
-    TextInputDialog dialog = new TextInputDialog();
-    dialog.setTitle("New " + label);
-    dialog.setHeaderText("Enter a name for the new " + label.toLowerCase(Locale.ROOT) + ":");
-    dialog.setContentText("Name (no extension):");
-    EditorTheme.apply(dialog);
-    dialog.showAndWait().ifPresent(rawName -> {
+    EditorDialogs.promptText(
+        getScene() != null ? getScene().getWindow() : null,
+        "New " + label,
+        "Enter a name for the new " + label.toLowerCase(Locale.ROOT) + ":",
+        "Name (no extension)",
+        "",
+        "",
+        "Create").ifPresent(rawName -> {
       String name = sanitizeFileName(rawName);
       if (name.isBlank()) return;
       File dir = new File(projectRoot, relDir);

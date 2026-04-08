@@ -21,7 +21,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -569,11 +568,10 @@ public class RunConsoleView extends BorderPane {
         Menu helpMenu = new Menu("Help");
         MenuItem miShortcuts = new MenuItem("Keyboard Shortcuts");
         miShortcuts.setOnAction(e -> {
-            Alert dlg = new Alert(Alert.AlertType.INFORMATION);
-            EditorTheme.apply(dlg);
-            dlg.setTitle("Console Shortcuts");
-            dlg.setHeaderText("Run Console Keyboard Shortcuts");
-            dlg.setContentText(
+            EditorDialogs.showTextBlock(
+                getScene() != null ? getScene().getWindow() : null,
+                "Console Shortcuts",
+                "Run Console Keyboard Shortcuts",
                 "Cmd+S ........... Save log to file\n" +
                 "Cmd+Shift+C ..... Copy all output\n" +
                 "Cmd+K ........... Clear output\n" +
@@ -582,20 +580,19 @@ public class RunConsoleView extends BorderPane {
                 "Cmd+. ........... Stop process\n" +
                 "Cmd+W ........... Close window\n" +
                 "Cmd+Home ........ Scroll to top\n" +
-                "Cmd+End ......... Scroll to bottom\n");
-            dlg.getDialogPane().setPrefWidth(380);
-            dlg.showAndWait();
+                "Cmd+End ......... Scroll to bottom\n",
+                "Close");
         });
 
         MenuItem miAbout = new MenuItem("About " + title);
         miAbout.setOnAction(e -> {
-            Alert about = new Alert(Alert.AlertType.INFORMATION);
-            EditorTheme.apply(about);
-            about.setTitle("About");
-            about.setHeaderText(title);
-            about.setContentText("JVN Runtime Console\nLine buffer: " + rawLineBuffer.size()
-                + " lines\nErrors: " + errorCount + "  Warnings: " + warnCount);
-            about.showAndWait();
+            EditorDialogs.showTextBlock(
+                getScene() != null ? getScene().getWindow() : null,
+                "About",
+                title,
+                "JVN Runtime Console\nLine buffer: " + rawLineBuffer.size()
+                    + " lines\nErrors: " + errorCount + "  Warnings: " + warnCount,
+                "Close");
         });
 
         helpMenu.getItems().addAll(miShortcuts, new SeparatorMenuItem(), miAbout);

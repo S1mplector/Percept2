@@ -23,9 +23,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
@@ -35,7 +33,6 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
@@ -51,6 +48,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 
 /**
  * Sidebar text explorer + launcher for the dedicated project text editor window.
@@ -386,13 +384,13 @@ public class ScriptEditorLauncherView extends BorderPane {
     int dot = currentName.lastIndexOf('.');
     String stem = dot > 0 ? currentName.substring(0, dot) : currentName;
 
-    TextInputDialog dialog = new TextInputDialog(stem);
-    EditorTheme.apply(dialog);
-    dialog.setTitle("Rename File");
-    dialog.setHeaderText("Rename " + currentName);
-    dialog.setContentText("New name:");
-
-    dialog.showAndWait().ifPresent(newName -> {
+    EditorDialogs.promptText(dialogOwner(),
+        "Rename File",
+        "Rename " + currentName,
+        "New name",
+        stem,
+        stem,
+        "Rename").ifPresent(newName -> {
       try {
         File renamed = ScriptEditorWorkspaceModel.renameTextFile(file, newName);
         refreshWorkspace();
@@ -419,24 +417,20 @@ public class ScriptEditorLauncherView extends BorderPane {
   private void deleteSelectedScript() {
     if (selectedNode == null || selectedNode.file() == null) return;
     File file = selectedNode.file();
-
-    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-    EditorTheme.apply(confirm);
-    confirm.setTitle("Delete File");
-    confirm.setHeaderText("Delete " + file.getName() + "?");
-    confirm.setContentText("This action cannot be undone.\n" + file.getAbsolutePath());
-    confirm.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-
-    confirm.showAndWait().ifPresent(response -> {
-      if (response != ButtonType.OK) return;
-      try {
-        ScriptEditorWorkspaceModel.deleteTextFile(file);
-        refreshWorkspace();
-        setStatus("Deleted " + file.getName());
-      } catch (IOException ex) {
-        showLaunchError("Failed to delete file:\n" + ex.getMessage());
-      }
-    });
+    if (!EditorDialogs.confirm(dialogOwner(),
+        "Delete File",
+        "Delete " + file.getName() + "?\nThis action cannot be undone.\n" + file.getAbsolutePath(),
+        "Delete",
+        true)) {
+      return;
+    }
+    try {
+      ScriptEditorWorkspaceModel.deleteTextFile(file);
+      refreshWorkspace();
+      setStatus("Deleted " + file.getName());
+    } catch (IOException ex) {
+      showLaunchError("Failed to delete file:\n" + ex.getMessage());
+    }
   }
 
   private void createNewScriptInFolder(ExplorerNode folderNode) {
@@ -444,13 +438,13 @@ public class ScriptEditorLauncherView extends BorderPane {
     String defaultPath = prefix.isBlank()
         ? "scripts/story/new_scene.vns"
         : prefix + (prefix.startsWith("scripts/") ? "new_scene.vns" : "new_file.txt");
-    TextInputDialog dialog = new TextInputDialog(defaultPath);
-    EditorTheme.apply(dialog);
-    dialog.setTitle("New File");
-    dialog.setHeaderText("Create a new text file in " + folderNode.displayName);
-    dialog.setContentText("Relative path inside project");
-
-    dialog.showAndWait().ifPresent(input -> {
+    EditorDialogs.promptText(dialogOwner(),
+        "New File",
+        "Create a new text file in " + folderNode.displayName,
+        "Relative path inside project",
+        defaultPath,
+        defaultPath,
+        "Create").ifPresent(input -> {
       File launchRoot = resolveLaunchRoot();
       if (launchRoot == null) return;
       try {
@@ -866,13 +860,13 @@ public class ScriptEditorLauncherView extends BorderPane {
       return;
     }
 
-    TextInputDialog dialog = new TextInputDialog("scripts/story/new_scene.vns");
-    EditorTheme.apply(dialog);
-    dialog.setTitle("New File");
-    dialog.setHeaderText("Create a new JVN text file");
-    dialog.setContentText("Relative path inside project");
-
-    dialog.showAndWait().ifPresent(input -> {
+    EditorDialogs.promptText(dialogOwner(),
+        "New File",
+        "Create a new JVN text file",
+        "Relative path inside project",
+        "scripts/story/new_scene.vns",
+        "scripts/story/new_scene.vns",
+        "Create").ifPresent(input -> {
       try {
         File created = ScriptEditorWorkspaceModel.createTextFile(launchRoot, input);
         refreshWorkspace();
@@ -1092,12 +1086,13 @@ public class ScriptEditorLauncherView extends BorderPane {
 
   private void showLaunchError(String message) {
     setStatus(message);
-    Alert alert = new Alert(Alert.AlertType.ERROR);
-    EditorTheme.apply(alert);
-    alert.setTitle("Text Editor");
-    alert.setHeaderText("Could not complete text editor action");
-    alert.setContentText(message);
-    alert.showAndWait();
+    EditorDialogs.error(dialogOwner(), "Text Editor", "Could not complete text editor action\n" + message);
+  }
+
+  private Window dialogOwner() {
+    if (editorWindow != null) return editorWindow;
+    if (getScene() != null) return getScene().getWindow();
+    return null;
   }
 
   private void setStatus(String message) {
