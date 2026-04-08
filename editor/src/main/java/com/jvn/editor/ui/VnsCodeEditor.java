@@ -92,6 +92,7 @@ public class VnsCodeEditor extends BorderPane {
   private static final String CMD_OPEN_PATTERN =
       "\\[(?:show|hide|jump|end|wait|bg|background"
     + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
+    + "|particles|particle|weather"
     + "|audio_resume_all|audio_pause_all|audio_stop_all|audio|sfx_stop|sfx|voice_stop|voice|volume|textspeed|autodelay"
     + "|hud|save|quickload|skip|auto|ui|history|screen"
     + "|jes_push|jes_replace|jes_pop|jes_call|jes|java"
@@ -106,6 +107,7 @@ public class VnsCodeEditor extends BorderPane {
   private static final String VALUE_PATTERN =
       "\\b(?:left|right|center|far_left|far_right"
     + "|fade|dissolve|crossfade|slide_left|slide_right|wipe"
+    + "|snow|rain|sakura|fireflies|dust|leaves"
     + "|true|false|on|off|yes|no"
     + "|goto|loop|neutral)\\b";
   private static final String NUMBER_PATTERN = "-?\\b\\d+(?:\\.\\d+)?\\b";
@@ -1168,6 +1170,8 @@ public class VnsCodeEditor extends BorderPane {
       out.add(new CodeAutoCompleter.Suggestion("[move "));
       out.add(new CodeAutoCompleter.Suggestion("[hide "));
       out.add(new CodeAutoCompleter.Suggestion("[transition "));
+      out.add(new CodeAutoCompleter.Suggestion("[particles "));
+      out.add(new CodeAutoCompleter.Suggestion("[weather "));
       out.add(new CodeAutoCompleter.Suggestion("[jump "));
       out.add(new CodeAutoCompleter.Suggestion("[bgm "));
       out.add(new CodeAutoCompleter.Suggestion("[bgm_crossfade "));
@@ -1271,6 +1275,20 @@ public class VnsCodeEditor extends BorderPane {
         addMatchingSuggestion(out, normalizedPrefix, "type=wipe");
         addMatchingSuggestion(out, normalizedPrefix, "dur=500");
       }
+      case "particles", "weather" -> {
+        addMatchingSuggestion(out, normalizedPrefix, "preset=");
+        addMatchingSuggestion(out, normalizedPrefix, "intensity=");
+        addMatchingSuggestion(out, normalizedPrefix, "layer=");
+        addMatchingSuggestion(out, normalizedPrefix, "preset=rain");
+        addMatchingSuggestion(out, normalizedPrefix, "preset=snow");
+        addMatchingSuggestion(out, normalizedPrefix, "preset=sakura");
+        addMatchingSuggestion(out, normalizedPrefix, "preset=fireflies");
+        addMatchingSuggestion(out, normalizedPrefix, "preset=dust");
+        addMatchingSuggestion(out, normalizedPrefix, "preset=leaves");
+        addMatchingSuggestion(out, normalizedPrefix, "preset=stop");
+        addMatchingSuggestion(out, normalizedPrefix, "intensity=0.5");
+        addMatchingSuggestion(out, normalizedPrefix, "layer=100");
+      }
       default -> {
         return List.of();
       }
@@ -1287,6 +1305,7 @@ public class VnsCodeEditor extends BorderPane {
           addMatchingSuggestion(out, normalizedPrefix, "expr=neutral");
         }
         case "transition" -> addMatchingSuggestion(out, normalizedPrefix, "type=fade");
+        case "particles", "weather" -> addMatchingSuggestion(out, normalizedPrefix, "preset=rain");
         default -> {}
       }
     }
@@ -1318,7 +1337,8 @@ public class VnsCodeEditor extends BorderPane {
     while (split < segment.length() && !Character.isWhitespace(segment.charAt(split))) split++;
     String command = segment.substring(0, split).trim().toLowerCase(Locale.ROOT);
     return switch (command) {
-      case "show", "move", "transition" -> command;
+      case "show", "move", "transition", "particles", "weather" -> command;
+      case "particle" -> "particles";
       default -> null;
     };
   }
@@ -1764,6 +1784,8 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("bgm_fadeout", "Fade out BGM. Usage: [bgm_fadeout duration]");
     VNS_COMMAND_DOCS.put("sfx", "Play sound effect. Usage: [sfx audio_file]");
     VNS_COMMAND_DOCS.put("voice", "Play voice clip. Usage: [voice audio_file]");
+    VNS_COMMAND_DOCS.put("particles", "Start or stop particle effects. Usage: [particles preset=rain intensity=0.5 layer=100] or [particles rain 0.5 100]");
+    VNS_COMMAND_DOCS.put("weather", "Weather alias for particles. Usage: [weather preset=snow intensity=0.4 layer=120] or [weather stop]");
     VNS_COMMAND_DOCS.put("set", "Set a variable. Usage: [set var_name value]");
     VNS_COMMAND_DOCS.put("if", "Conditional branch. Usage: [if condition] ... [endif]");
     VNS_COMMAND_DOCS.put("elif", "Else-if branch. Usage: [elif condition]");
@@ -1986,6 +2008,8 @@ public class VnsCodeEditor extends BorderPane {
       {"Stop BGM", "[bgm_stop]"},
       {"Play SFX", "[sfx sound_file]"},
       {"Play Voice", "[voice voice_file]"},
+      {"Particles", "[particles preset=rain intensity=0.5 layer=100]"},
+      {"Weather", "[weather preset=snow intensity=0.4 layer=120]"},
       {"Wait", "[wait 1.0]"},
       {"Transition", "[transition type=fade dur=500 bg=background_name]"},
       {"If Block", "[if condition]\n  # true branch\n[endif]"},

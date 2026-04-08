@@ -41,4 +41,12 @@ class VnsCodeEditorAutocompleteTest {
 
     assertTrue(suggestions.isEmpty());
   }
+
+  @Test
+  void contextualSuggestionsExposeParticlePresets() {
+    List<CodeAutoCompleter.Suggestion> suggestions =
+        VnsCodeEditor.contextualCommandSuggestions("[particles preset=r", "[particles preset=r".length(), "preset=r");
+
+    assertTrue(suggestions.stream().anyMatch(s -> "preset=rain".equals(s.insert)));
+  }
 }

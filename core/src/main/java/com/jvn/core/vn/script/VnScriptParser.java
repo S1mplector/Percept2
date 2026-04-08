@@ -1204,25 +1204,56 @@ public class VnScriptParser {
       case "particle":
       case "weather": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        String[] toks = payload.split("\\s+");
-        VnParticleCommand.Preset preset = VnParticleCommand.Preset.parse(toks[0]);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        if (toks.length == 0) {
+          throw parseError(sourceName, lineNumber, "[particles] requires a preset or preset=...", rawLine);
+        }
+        VnParticleCommand.Preset preset = null;
+        float intensity = 0.5f;
+        int layer = 100;
+        boolean intensitySet = false;
+        boolean layerSet = false;
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, cmd)) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[particles]");
+            switch (option.key()) {
+              case "preset", "type", "kind", "mode", "weather" -> preset = VnParticleCommand.Preset.parse(option.value());
+              case "intensity", "amount", "strength", "level" -> {
+                intensity = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[particles]", "intensity");
+                intensitySet = true;
+              }
+              case "layer", "z", "zorder" -> {
+                layer = parseIntegerValue(option.value(), "[particles]", "layer", sourceName, lineNumber, rawLine);
+                layerSet = true;
+              }
+              default -> throw parseError(sourceName, lineNumber, "[particles] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (preset == null) {
+            preset = VnParticleCommand.Preset.parse(token);
+            continue;
+          }
+          if (!intensitySet) {
+            intensity = parseUnitRangeToken(token, sourceName, lineNumber, rawLine, "[particles]", "intensity");
+            intensitySet = true;
+            continue;
+          }
+          if (!layerSet && isIntegerToken(token)) {
+            layer = Integer.parseInt(token);
+            layerSet = true;
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[particles] unexpected token: " + token, rawLine);
+        }
+        if (preset == null) {
+          throw parseError(sourceName, lineNumber, "[particles] requires a preset via positional arg or preset=...", rawLine);
+        }
         if (preset == VnParticleCommand.Preset.NONE) {
           state.builder.particles(VnParticleCommand.stop());
         } else {
-          float intensity = 0.5f;
-          int layer = 100;
-          if (toks.length >= 2) {
-            try { intensity = Float.parseFloat(toks[1]); }
-            catch (NumberFormatException ex) {
-              throw parseError(sourceName, lineNumber, "[particles] intensity must be a number", rawLine);
-            }
-          }
-          if (toks.length >= 3) {
-            try { layer = Integer.parseInt(toks[2]); }
-            catch (NumberFormatException ex) {
-              throw parseError(sourceName, lineNumber, "[particles] layer must be an integer", rawLine);
-            }
-          }
           state.builder.particles(VnParticleCommand.start(preset, intensity, layer));
         }
         return;
@@ -1555,6 +1586,12 @@ public class VnScriptParser {
       };
       case "transition" -> switch (key) {
         case "type", "kind", "style", "dur", "duration", "ms", "bg", "background" -> true;
+        default -> false;
+      };
+      case "particles", "particle", "weather" -> switch (key) {
+        case "preset", "type", "kind", "mode", "weather",
+             "intensity", "amount", "strength", "level",
+             "layer", "z", "zorder" -> true;
         default -> false;
       };
       default -> false;

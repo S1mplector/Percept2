@@ -673,6 +673,46 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void particlesCommandSupportsNamedOptions() throws Exception {
+    String script = """
+      @label start
+      [particles preset=rain intensity=0.75 layer=120]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode particles = scenario.getNodes().stream()
+        .filter(n -> n.getParticleCommand() != null)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals(VnParticleCommand.Preset.RAIN, particles.getParticleCommand().getPreset());
+    assertEquals(0.75f, particles.getParticleCommand().getIntensity(), 0.0001f);
+    assertEquals(120, particles.getParticleCommand().getLayer());
+    assertFalse(particles.getParticleCommand().isStop());
+  }
+
+  @Test
+  public void weatherCommandSupportsNamedOptionsAndStopAlias() throws Exception {
+    String script = """
+      @label start
+      [weather type=stop]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode particles = scenario.getNodes().stream()
+        .filter(n -> n.getParticleCommand() != null)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals(VnParticleCommand.Preset.NONE, particles.getParticleCommand().getPreset());
+    assertTrue(particles.getParticleCommand().isStop());
+  }
+
+  @Test
   public void rejectsShowCommandWithUnknownPosition() {
     String script = """
       @label start
