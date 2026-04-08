@@ -643,6 +643,14 @@ public class VnScriptParser {
     String cmd = parts[0].toLowerCase();
     String arg = parts.length > 1 ? parts[1].trim() : null;
 
+    if ("voice".equals(cmd)) {
+      if (state.pendingVoiceTrackId != null && !state.pendingVoiceTrackId.isBlank()) {
+        flushPendingVoice(state);
+      }
+    } else {
+      flushPendingVoice(state);
+    }
+
     switch (cmd) {
       case "background":
       case "bg": {
