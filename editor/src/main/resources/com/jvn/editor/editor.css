@@ -1904,22 +1904,22 @@
 .editor-dialog-card {
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
-      linear-gradient(to bottom, #191d23 0%, #14181d 100%);
+      linear-gradient(to bottom, #181818 0%, #121212 100%);
   -fx-background-radius: 14;
-  -fx-border-color: #333b45;
+  -fx-border-color: #2f2f2f;
   -fx-border-radius: 14;
   -fx-border-width: 1;
   -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.34), 28, 0.28, 0, 10);
 }
 
 .editor-dialog-title {
-  -fx-text-fill: #f4f7fb;
+  -fx-text-fill: #f1f1f1;
   -fx-font-size: 15px;
   -fx-font-weight: 800;
 }
 
 .editor-dialog-message {
-  -fx-text-fill: #9eabb9;
+  -fx-text-fill: #a6a6a6;
   -fx-font-size: 11px;
   -fx-font-weight: 600;
 }
@@ -1929,7 +1929,7 @@
 }
 
 .editor-dialog-field-label {
-  -fx-text-fill: #d9e3ed;
+  -fx-text-fill: #d2d2d2;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
 }
@@ -1939,10 +1939,10 @@
 }
 
 .editor-dialog-text-field {
-  -fx-background-color: #12161b;
-  -fx-text-fill: #edf2f8;
-  -fx-prompt-text-fill: #74808f;
-  -fx-border-color: #313a45;
+  -fx-background-color: #111111;
+  -fx-text-fill: #ededed;
+  -fx-prompt-text-fill: #707070;
+  -fx-border-color: #303030;
   -fx-border-radius: 10;
   -fx-background-radius: 10;
   -fx-font-size: 11px;
@@ -1950,35 +1950,35 @@
 }
 
 .editor-dialog-text-field:focused {
-  -fx-border-color: #6f869c;
-  -fx-background-color: #171c22;
-  -fx-effect: dropshadow(gaussian, rgba(111, 134, 156, 0.18), 8, 0.2, 0, 0);
+  -fx-border-color: #7e7e7e;
+  -fx-background-color: #161616;
+  -fx-effect: dropshadow(gaussian, rgba(170, 170, 170, 0.12), 8, 0.2, 0, 0);
 }
 
 .editor-dialog-choice-list,
 .editor-dialog-text-area {
-  -fx-background-color: #12161b;
-  -fx-control-inner-background: #12161b;
-  -fx-border-color: #313a45;
+  -fx-background-color: #111111;
+  -fx-control-inner-background: #111111;
+  -fx-border-color: #303030;
   -fx-border-radius: 10;
   -fx-background-radius: 10;
-  -fx-text-fill: #edf2f8;
+  -fx-text-fill: #ededed;
 }
 
 .editor-dialog-choice-list .list-cell {
   -fx-background-color: transparent;
-  -fx-text-fill: #edf2f8;
+  -fx-text-fill: #ededed;
   -fx-font-size: 11px;
   -fx-padding: 8 10 8 10;
 }
 
 .editor-dialog-choice-list .list-cell:selected {
-  -fx-background-color: linear-gradient(to bottom, #304051, #263442);
+  -fx-background-color: linear-gradient(to bottom, #313131, #262626);
   -fx-background-radius: 8;
 }
 
 .editor-dialog-choice-list .list-cell:hover {
-  -fx-background-color: rgba(129, 153, 179, 0.12);
+  -fx-background-color: rgba(180, 180, 180, 0.08);
   -fx-background-radius: 8;
 }
 
@@ -1999,25 +1999,25 @@
 }
 
 .editor-dialog-button-neutral {
-  -fx-background-color: linear-gradient(to bottom, #232932, #1b2027);
-  -fx-text-fill: #dbe3eb;
-  -fx-border-color: #3d4753;
+  -fx-background-color: linear-gradient(to bottom, #252525, #1b1b1b);
+  -fx-text-fill: #dddddd;
+  -fx-border-color: #3b3b3b;
 }
 
 .editor-dialog-button-neutral:hover {
-  -fx-background-color: linear-gradient(to bottom, #29313b, #1f2630);
-  -fx-border-color: #556475;
+  -fx-background-color: linear-gradient(to bottom, #2e2e2e, #212121);
+  -fx-border-color: #555555;
 }
 
 .editor-dialog-button-accent {
-  -fx-background-color: linear-gradient(to bottom, #29405a, #1d2d40);
-  -fx-text-fill: #f4f8fc;
-  -fx-border-color: #6785a5;
+  -fx-background-color: linear-gradient(to bottom, #3e3e3e, #2d2d2d);
+  -fx-text-fill: #f2f2f2;
+  -fx-border-color: #7d7d7d;
 }
 
 .editor-dialog-button-accent:hover {
-  -fx-background-color: linear-gradient(to bottom, #315070, #22384d);
-  -fx-border-color: #7c9bbd;
+  -fx-background-color: linear-gradient(to bottom, #4a4a4a, #353535);
+  -fx-border-color: #979797;
 }
 
 .editor-dialog-button-danger {
