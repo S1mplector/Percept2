@@ -36,6 +36,7 @@ import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.CssIcon;
+import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.EditorPanelPlacement;
 import com.jvn.editor.ui.EditorPreferences;
 import com.jvn.editor.ui.EditorPreferencesStore;
@@ -89,13 +90,11 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
@@ -129,6 +128,7 @@ import javafx.scene.text.TextFlow;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 public class EditorApp extends Application {
@@ -256,6 +256,20 @@ public class EditorApp extends Application {
     launch(args);
   }
 
+  private Window dialogOwner() {
+    if (status != null && status.getScene() != null) return status.getScene().getWindow();
+    if (filesTabs != null && filesTabs.getScene() != null) return filesTabs.getScene().getWindow();
+    return null;
+  }
+
+  private Label createDialogDetailLabel(String text) {
+    Label label = new Label(text == null ? "" : text);
+    label.getStyleClass().add("editor-dialog-message");
+    label.setWrapText(true);
+    label.setMaxWidth(480);
+    return label;
+  }
+
   private void doOpenVns(Stage stage) {
     try {
       FileChooser fc = new FileChooser();
@@ -266,9 +280,7 @@ public class EditorApp extends Application {
       openVnsFile(f);
     } catch (Exception ex) {
       status.setText("Load failed");
-      Alert a = new Alert(Alert.AlertType.ERROR, "Failed to load: " + ex.getMessage());
-      EditorTheme.apply(a);
-      a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
+      EditorDialogs.error(stage, "Error", "Failed to load: " + ex.getMessage());
     }
   }
 
@@ -535,9 +547,7 @@ public class EditorApp extends Application {
   private void openSample(String absolutePath) {
     File f = new File(absolutePath);
     if (!f.exists()) {
-      Alert a = new Alert(Alert.AlertType.ERROR, "Sample not found: " + absolutePath);
-      EditorTheme.apply(a);
-      a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
+      EditorDialogs.error(dialogOwner(), "Error", "Sample not found: " + absolutePath);
       return;
     }
     openFile(f);
@@ -616,11 +626,7 @@ public class EditorApp extends Application {
       try {
         initializeEditorStage(primaryStage);
       } catch (Exception ex) {
-        Alert a = new Alert(Alert.AlertType.ERROR, "Startup failed: " + ex.getMessage());
-        EditorTheme.apply(a);
-        a.setHeaderText(null);
-        a.setTitle("JVN Editor");
-        a.showAndWait();
+        EditorDialogs.error(primaryStage, "JVN Editor", "Startup failed: " + ex.getMessage());
       } finally {
         splash.close();
       }
@@ -1221,11 +1227,8 @@ public class EditorApp extends Application {
     MenuItem miGoToLine = new MenuItem("Go to VNS Line...");
     miGoToLine.setAccelerator(new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN));
     miGoToLine.setOnAction(e -> {
-      javafx.scene.control.TextInputDialog dlg = new javafx.scene.control.TextInputDialog();
-      dlg.setTitle("Go to Line");
-      dlg.setHeaderText(null);
-      dlg.setContentText("Line number:");
-      dlg.showAndWait().ifPresent(text -> {
+      EditorDialogs.promptText(primaryStage, "Go to Line", "Jump to a specific line in the active VNS editor.",
+          "Line number", "", "42", "Go").ifPresent(text -> {
         try {
           int line = Integer.parseInt(text.trim());
           FileEditorTab ft = getActiveFileTab();
@@ -1679,11 +1682,11 @@ public class EditorApp extends Application {
     miOpenWorkspaceDocs.setOnAction(e -> openWorkspaceDocsFolder());
     MenuItem miAbout = new MenuItem("About JVN Editor");
     miAbout.setOnAction(e -> {
-      javafx.scene.control.Alert about = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
-      about.setTitle("About JVN Editor");
-      about.setHeaderText("JVN Editor " + editorVersion);
-      about.setContentText("Java Vector Nexus — Visual Novel & 2D Game Toolkit");
-      about.showAndWait();
+      EditorDialogs.show(primaryStage,
+          "About JVN Editor",
+          "JVN Editor " + editorVersion,
+          createDialogDetailLabel("Java Vector Nexus — Visual Novel & 2D Game Toolkit"),
+          EditorDialogs.ActionSpec.accent("close", "Close", null));
     });
     menuHelp.getItems().addAll(
         miWelcome, miHelpCenter, miRefreshHelp,
@@ -1965,9 +1968,7 @@ public class EditorApp extends Application {
       openJesFile(f);
     } catch (Exception ex) {
       status.setText("Load failed");
-      Alert a = new Alert(Alert.AlertType.ERROR, "Failed to load: " + ex.getMessage());
-      EditorTheme.apply(a);
-      a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
+      EditorDialogs.error(stage, "Error", "Failed to load: " + ex.getMessage());
     }
   }
 
@@ -1987,11 +1988,7 @@ public class EditorApp extends Application {
       openFile(f);
     } catch (Exception ex) {
       status.setText("Load failed");
-      Alert a = new Alert(Alert.AlertType.ERROR, "Failed to load: " + ex.getMessage());
-      EditorTheme.apply(a);
-      a.setHeaderText(null);
-      a.setTitle("Error");
-      a.showAndWait();
+      EditorDialogs.error(stage, "Error", "Failed to load: " + ex.getMessage());
     }
   }
 
@@ -2042,9 +2039,7 @@ public class EditorApp extends Application {
       }
     } catch (Exception ex) {
       status.setText("Apply failed");
-      Alert a = new Alert(Alert.AlertType.ERROR, "Failed to apply code: " + ex.getMessage());
-      EditorTheme.apply(a);
-      a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
+      EditorDialogs.error(dialogOwner(), "Error", "Failed to apply code: " + ex.getMessage());
     }
     refreshMainCommandUi.run();
   }
@@ -2198,9 +2193,7 @@ public class EditorApp extends Application {
       if (currentTab != null && filesTabs != null) closeAndDisposeTab(currentTab);
     } catch (Exception ex) {
       status.setText("Save As failed");
-      Alert a = new Alert(Alert.AlertType.ERROR, "Failed to save as: " + ex.getMessage());
-      EditorTheme.apply(a);
-      a.setHeaderText(null); a.setTitle("Error"); a.showAndWait();
+      EditorDialogs.error(stage, "Error", "Failed to save as: " + ex.getMessage());
     }
   }
 
@@ -2628,12 +2621,11 @@ public class EditorApp extends Application {
 
   private void showRunBlockedAlert(String header, String content) {
     if (status != null && header != null && !header.isBlank()) status.setText(header);
-    Alert alert = new Alert(Alert.AlertType.WARNING);
-    EditorTheme.apply(alert);
-    alert.setTitle("Run Blocked");
-    alert.setHeaderText(header == null || header.isBlank() ? "Run cancelled" : header);
-    alert.setContentText(content == null ? "" : content);
-    alert.showAndWait();
+    EditorDialogs.show(dialogOwner(),
+        "Run Blocked",
+        header == null || header.isBlank() ? "Run cancelled" : header,
+        createDialogDetailLabel(content),
+        EditorDialogs.ActionSpec.accent("close", "Close", null));
   }
 
   private void closeActiveTab() {
@@ -2672,17 +2664,16 @@ public class EditorApp extends Application {
 
   private boolean confirmCanCloseFileTab(FileEditorTab ft) {
     if (ft == null || !ft.isDirty()) return true;
-    ButtonType save = new ButtonType("Save", ButtonBar.ButtonData.YES);
-    ButtonType discard = new ButtonType("Discard", ButtonBar.ButtonData.NO);
-    Alert a = new Alert(Alert.AlertType.CONFIRMATION);
-    EditorTheme.apply(a);
-    a.setTitle("Unsaved Changes");
-    a.setHeaderText("Save changes to " + ft.getDisplayName() + "?");
-    a.setContentText("Your changes will be lost if you discard.");
-    a.getButtonTypes().setAll(save, discard, ButtonType.CANCEL);
-    Optional<ButtonType> r = a.showAndWait();
-    if (r.isEmpty() || r.get() == ButtonType.CANCEL) return false;
-    if (r.get() == discard) return true;
+    Optional<String> result = EditorDialogs.show(
+        dialogOwner(),
+        "Unsaved Changes",
+        "Save changes to " + ft.getDisplayName() + "?",
+        createDialogDetailLabel("Your changes will be lost if you discard."),
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.danger("discard", "Discard", null),
+        EditorDialogs.ActionSpec.accent("save", "Save", null));
+    if (result.isEmpty() || "cancel".equals(result.get())) return false;
+    if ("discard".equals(result.get())) return true;
     File f = ft.getFile();
     if (f == null) return false;
     ft.saveTo(f);
@@ -5558,23 +5549,24 @@ public class EditorApp extends Application {
     }
     java.util.Collections.sort(names);
 
-    javafx.scene.control.ChoiceDialog<String> dialog = new javafx.scene.control.ChoiceDialog<>(names.get(0), names);
-    EditorTheme.apply(dialog);
-    dialog.setTitle("Open Timeline");
-    dialog.setHeaderText("Found " + names.size() + " existing timeline(s). Open one or start fresh?");
-    dialog.setContentText("Timeline:");
+    ListView<String> listView = new ListView<>();
+    listView.getItems().setAll(names);
+    listView.getStyleClass().add("editor-dialog-choice-list");
+    listView.getSelectionModel().selectFirst();
+    listView.setPrefHeight(Math.min(320, 48 + names.size() * 30));
 
-    // Add a "New" button alongside OK/Cancel
-    dialog.getDialogPane().getButtonTypes().setAll(
-        new ButtonType("Open", ButtonBar.ButtonData.OK_DONE),
-        new ButtonType("New (empty)", ButtonBar.ButtonData.NO),
-        ButtonType.CANCEL
-    );
+    Optional<String> action = EditorDialogs.show(
+        dialogOwner(),
+        "Open Timeline",
+        "Found " + names.size() + " existing timeline(s). Open one or start fresh?",
+        listView,
+        listView,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.neutral("new", "New (empty)", null),
+        EditorDialogs.ActionSpec.accent("open", "Open", null));
+    if (action.isEmpty() || !"open".equals(action.get())) return null;
 
-    Optional<String> result = dialog.showAndWait();
-    if (result.isEmpty()) return null; // cancelled or "New (empty)"
-
-    String selectedName = result.get();
+    String selectedName = listView.getSelectionModel().getSelectedItem();
     if (selectedName == null || selectedName.isBlank()) return null;
 
     return importNamedTimeline(selectedName, true);
@@ -5597,12 +5589,11 @@ public class EditorApp extends Application {
   }
 
   private void showTimelineImportWarning(String timelineName, Exception ex) {
-    Alert alert = new Alert(Alert.AlertType.WARNING);
-    EditorTheme.apply(alert);
-    alert.setTitle("Import Failed");
-    alert.setHeaderText("Could not import timeline '" + timelineName + "'");
-    alert.setContentText(ex != null ? ex.getMessage() : "Unknown error");
-    alert.showAndWait();
+    EditorDialogs.show(dialogOwner(),
+        "Import Failed",
+        "Could not import timeline '" + timelineName + "'",
+        createDialogDetailLabel(ex != null ? ex.getMessage() : "Unknown error"),
+        EditorDialogs.ActionSpec.accent("close", "Close", null));
   }
 
   private static void applyLinuxDefaultWindowState(Stage stage) {
