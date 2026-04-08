@@ -169,7 +169,7 @@ public class VnsCodeEditor extends BorderPane {
     setCenter(codeAndMinimap);
 
     // Breadcrumb bar
-    breadcrumbLabel.setStyle("-fx-text-fill: #8ab4f8; -fx-font-size: 11px; -fx-padding: 2 10 2 10;");
+    breadcrumbLabel.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 11px; -fx-padding: 2 10 2 10;");
     breadcrumbLabel.setMaxWidth(Double.MAX_VALUE);
 
     var css = VnsCodeEditor.class.getResource("/com/jvn/editor/editor.css");
@@ -266,7 +266,7 @@ public class VnsCodeEditor extends BorderPane {
     lintLabel.getStyleClass().add("lint-label");
     HBox.setHgrow(lintLabel, Priority.ALWAYS);
     lintLabel.setMaxWidth(Double.MAX_VALUE);
-    breadcrumbLabel.setStyle("-fx-text-fill: #8ab4f8; -fx-font-size: 11px;");
+    breadcrumbLabel.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 11px;");
     statusBar.getChildren().addAll(lintLabel, breadcrumbLabel, statusBarLabel);
     setBottom(statusBar);
 
@@ -450,7 +450,7 @@ public class VnsCodeEditor extends BorderPane {
 
     javafx.scene.layout.VBox box = new javafx.scene.layout.VBox(2, filterField, listView);
     box.setPadding(new Insets(6));
-    box.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #3f3f46; -fx-border-width: 1; -fx-background-radius: 4; -fx-border-radius: 4;");
+    box.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #3a3a3a; -fx-border-width: 1; -fx-background-radius: 4; -fx-border-radius: 4;");
     popup.getContent().add(box);
 
     codeArea.getCaretBounds().ifPresent(b -> {
@@ -707,7 +707,7 @@ public class VnsCodeEditor extends BorderPane {
 
     if (isBookmarked) {
       Label dot = new Label("\u25CF");
-      dot.setStyle("-fx-text-fill: #4da3ff; -fx-font-size: 9px; -fx-padding: 0 1 0 1;");
+      dot.setStyle("-fx-text-fill: #b5b5b5; -fx-font-size: 9px; -fx-padding: 0 1 0 1;");
       gutter.getChildren().add(dot);
     }
 
@@ -1820,7 +1820,7 @@ public class VnsCodeEditor extends BorderPane {
 
   private void setupHoverTooltips() {
     hoverTooltip.setStyle("-fx-background-color: #1e1e1e; -fx-text-fill: #e6e6e6; -fx-font-size: 12px; "
-        + "-fx-border-color: #3f3f46; -fx-border-width: 1; -fx-padding: 6 10 6 10;");
+        + "-fx-border-color: #3a3a3a; -fx-border-width: 1; -fx-padding: 6 10 6 10;");
     hoverTooltip.setWrapText(true);
     hoverTooltip.setMaxWidth(400);
 
@@ -2072,7 +2072,7 @@ public class VnsCodeEditor extends BorderPane {
 
     VBox box = new VBox(2, filterField, listView);
     box.setPadding(new Insets(6));
-    box.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #3f3f46; -fx-border-width: 1; -fx-background-radius: 4; -fx-border-radius: 4;");
+    box.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #3a3a3a; -fx-border-width: 1; -fx-background-radius: 4; -fx-border-radius: 4;");
     popup.getContent().add(box);
 
     codeArea.getCaretBounds().ifPresent(b -> {
@@ -2181,7 +2181,7 @@ public class VnsCodeEditor extends BorderPane {
 
     VBox box = new VBox(2, filterField, listView);
     box.setPadding(new Insets(6));
-    box.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #3f3f46; -fx-border-width: 1; -fx-background-radius: 4; -fx-border-radius: 4;");
+    box.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #3a3a3a; -fx-border-width: 1; -fx-background-radius: 4; -fx-border-radius: 4;");
     popup.getContent().add(box);
 
     // Position at top-center of editor
@@ -2395,7 +2395,7 @@ public class VnsCodeEditor extends BorderPane {
 
       // Bookmark markers — right edge
       if (bookmarks.contains(i)) {
-        gc.setFill(Color.web("#4da3ff", 0.85));
+        gc.setFill(Color.web("#b5b5b5", 0.85));
         gc.fillRect(w - 4, y, 3, Math.max(1, lineH));
       }
     }
@@ -2417,17 +2417,17 @@ public class VnsCodeEditor extends BorderPane {
     double vpH = Math.max(6, (visibleEnd - visibleStart + 1) * lineH);
 
     // Filled viewport band
-    gc.setFill(Color.web("#4da3ff", 0.08));
+    gc.setFill(Color.web("#d0d0d0", 0.08));
     gc.fillRect(0, vpY, w, vpH);
 
     // Top and bottom accent lines
-    gc.setStroke(Color.web("#4da3ff", 0.45));
+    gc.setStroke(Color.web("#a6a6a6", 0.45));
     gc.setLineWidth(1.5);
     gc.strokeLine(0, vpY, w, vpY);
     gc.strokeLine(0, vpY + vpH, w, vpY + vpH);
 
     // Left accent bar
-    gc.setFill(Color.web("#4da3ff", 0.35));
+    gc.setFill(Color.web("#8f8f8f", 0.35));
     gc.fillRect(0, vpY, 2, vpH);
   }
 

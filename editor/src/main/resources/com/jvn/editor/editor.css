@@ -1560,6 +1560,14 @@
   -fx-background-color: linear-gradient(to bottom, #181818, #141414);
 }
 
+.script-editor-action-button:focused,
+.script-editor-toolbar-button:focused,
+.script-editor-action-button-accent:focused,
+.script-editor-toolbar-button-primary:focused {
+  -fx-effect: none;
+  -fx-border-color: #737373;
+}
+
 .script-editor-action-button-accent,
 .script-editor-toolbar-button-primary {
   -fx-background-color:
@@ -2096,7 +2104,8 @@
 }
 
 .script-editor-workspace-icon-button:focused {
-  -fx-effect: dropshadow(gaussian, rgba(210, 210, 210, 0.14), 8, 0.2, 0, 0);
+  -fx-effect: none;
+  -fx-border-color: #737373;
 }
 
 .script-editor-workspace-toggle:selected,

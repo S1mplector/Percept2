@@ -123,7 +123,7 @@ public class JavaCodeEditor extends BorderPane {
     String color = switch (diag.severity()) {
       case ERROR -> "#e74c3c";
       case WARNING -> "#f0b673";
-      case INFO -> "#4da3ff";
+      case INFO -> "#b5b5b5";
     };
     Label marker = new Label(icon);
     marker.setStyle("-fx-font-size: 10px; -fx-text-fill: " + color + "; -fx-padding: 0 2 0 0;");
@@ -156,7 +156,7 @@ public class JavaCodeEditor extends BorderPane {
     diagnosticsPanel = new ListView<>();
     diagnosticsPanel.setMaxHeight(120);
     diagnosticsPanel.setPrefHeight(100);
-    diagnosticsPanel.setStyle("-fx-background-color: #1a1a2e; -fx-text-fill: #ccc; -fx-font-size: 11px;");
+    diagnosticsPanel.setStyle("-fx-background-color: #1a1a1a; -fx-text-fill: #ccc; -fx-font-size: 11px; -fx-border-color: #343434;");
     diagnosticsPanel.setVisible(false);
     diagnosticsPanel.setManaged(false);
     diagnosticsPanel.setOnMouseClicked(e -> {

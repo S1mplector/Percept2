@@ -42,7 +42,7 @@ public class EditorSearchBar extends VBox {
   public EditorSearchBar() {
     setSpacing(2);
     setPadding(new Insets(6, 10, 6, 10));
-    setStyle("-fx-background-color: #2d2d30; -fx-border-color: #3f3f46; -fx-border-width: 0 0 1 0;");
+    setStyle("-fx-background-color: #1f1f1f; -fx-border-color: #343434; -fx-border-width: 0 0 1 0;");
 
     searchField.setPromptText("Find...");
     searchField.setPrefWidth(200);
