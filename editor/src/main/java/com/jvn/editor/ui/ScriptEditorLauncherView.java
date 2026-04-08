@@ -243,15 +243,20 @@ public class ScriptEditorLauncherView extends BorderPane {
     explorerHint.setWrapText(true);
     explorerHint.getStyleClass().add("script-editor-hint");
 
-    VBox searchResultsCard = new VBox(6, searchResults);
+    VBox searchResultsCard = new VBox(6, paneHeader("Search Results", "Matches across the workspace", CssIcon.search("#d2dae5")), searchResults);
     searchResultsCard.setPadding(new Insets(6));
     searchResultsCard.getStyleClass().add("script-editor-card");
     searchResultsCard.setVisible(false);
     searchResultsCard.setManaged(false);
 
-    VBox explorerBox = new VBox(8, sectionLabel("Project Files"), explorerTree, explorerHint, searchResultsCard);
+    VBox explorerBox = new VBox(
+        8,
+        paneHeader("Workspace Explorer", "Project scripts and folders", CssIcon.folder("#d5dce6")),
+        explorerTree,
+        explorerHint,
+        searchResultsCard);
     explorerBox.setPadding(new Insets(8));
-    explorerBox.getStyleClass().add("script-editor-launcher-pane");
+    explorerBox.getStyleClass().addAll("script-editor-launcher-pane", "script-editor-card");
     VBox.setVgrow(explorerTree, Priority.ALWAYS);
 
     selectionTitle.getStyleClass().add("script-editor-selection-title");
@@ -269,14 +274,15 @@ public class ScriptEditorLauncherView extends BorderPane {
     VBox includedByCard = new VBox(6, sectionLabel("Included By"), includedByList);
     includedByCard.setPadding(new Insets(8));
     includedByCard.getStyleClass().add("script-editor-card");
-    VBox inspectorBox = new VBox(10, sectionLabel("Selection"), selectionTitle, selectionPath, selectionMeta,
+    VBox inspectorBox = new VBox(10, paneHeader("Inspector", "Outline, includes, and references", CssIcon.list("#d5dce6")), selectionTitle, selectionPath, selectionMeta,
         outlineCard, includesCard, includedByCard);
     inspectorBox.setPadding(new Insets(8));
-    inspectorBox.getStyleClass().add("script-editor-launcher-pane");
+    inspectorBox.getStyleClass().addAll("script-editor-launcher-pane", "script-editor-card");
 
     SplitPane centerSplit = new SplitPane(explorerBox, inspectorBox);
     centerSplit.setOrientation(Orientation.VERTICAL);
     centerSplit.setDividerPositions(0.62);
+    centerSplit.getStyleClass().add("script-editor-launcher-split");
 
     setTop(header);
     setCenter(centerSplit);
@@ -921,9 +927,11 @@ public class ScriptEditorLauncherView extends BorderPane {
       fileTree.setRoot(treeRoot);
       fileTree.setShowRoot(true);
       fileTree.setPrefWidth(220);
+      fileTree.getStyleClass().add("script-editor-window-tree");
 
       TabPane editorTabs = new TabPane();
       editorTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
+      editorTabs.getStyleClass().add("script-editor-tabs");
 
       Label windowStatus = new Label("Select a text file to begin editing.");
       windowStatus.getStyleClass().add("script-editor-window-status");
@@ -946,6 +954,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       toolbar.setAlignment(Pos.CENTER_LEFT);
       HBox titleRow = new HBox(8, CssIcon.list("#d7dde6"), toolbarTitle("JVN Text Editor"));
       titleRow.setAlignment(Pos.CENTER_LEFT);
+      Label workspaceChip = toolbarChip("Workspace", launchRoot.getName());
 
       Separator toolSep1 = new Separator(Orientation.VERTICAL);
       toolSep1.setPadding(new Insets(0, 4, 0, 4));
@@ -1020,12 +1029,17 @@ public class ScriptEditorLauncherView extends BorderPane {
           saveBtn, saveAllBtn, toolSep2,
           undoBtn, redoBtn, toolSep3,
           findBtn,
-          spacer, refreshBtn
+          spacer, workspaceChip, refreshBtn
       );
 
-      SplitPane split = new SplitPane(fileTree, editorTabs);
+      BorderPane filePane = new BorderPane(fileTree);
+      filePane.setTop(paneHeader("Files", "Project text workspace", CssIcon.folder("#d5dce6")));
+      filePane.getStyleClass().addAll("script-editor-window-sidebar", "script-editor-card");
+
+      SplitPane split = new SplitPane(filePane, editorTabs);
       split.setDividerPositions(0.22);
-      SplitPane.setResizableWithParent(fileTree, false);
+      split.getStyleClass().add("script-editor-window-split");
+      SplitPane.setResizableWithParent(filePane, false);
 
       root.setTop(toolbar);
       root.setCenter(split);
@@ -1321,6 +1335,20 @@ public class ScriptEditorLauncherView extends BorderPane {
     return label;
   }
 
+  private static HBox paneHeader(String title, String subtitle, Region icon) {
+    Label titleLabel = new Label(title);
+    titleLabel.getStyleClass().add("script-editor-pane-title");
+
+    Label subtitleLabel = new Label(subtitle);
+    subtitleLabel.getStyleClass().add("script-editor-pane-subtitle");
+
+    VBox textBox = new VBox(1, titleLabel, subtitleLabel);
+    HBox row = new HBox(8, icon, textBox);
+    row.setAlignment(Pos.CENTER_LEFT);
+    row.getStyleClass().add("script-editor-pane-header");
+    return row;
+  }
+
   private static Label emptyHint(String text) {
     Label label = new Label(text);
     label.setWrapText(true);
@@ -1332,6 +1360,12 @@ public class ScriptEditorLauncherView extends BorderPane {
     Label label = new Label(text);
     label.getStyleClass().add("script-editor-toolbar-title");
     return label;
+  }
+
+  private static Label toolbarChip(String label, String value) {
+    Label chip = new Label(label + "  " + value);
+    chip.getStyleClass().add("script-editor-toolbar-chip");
+    return chip;
   }
 
   private static MenuItem menuItem(String text, Region icon, Runnable action) {

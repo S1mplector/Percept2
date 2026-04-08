@@ -1153,23 +1153,31 @@
 .script-editor-launcher-root,
 .script-editor-window-root,
 .script-editor-workspace-root {
-  -fx-background-color: linear-gradient(to bottom, #141618 0%, #0f1113 100%);
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #171b20 0%, #101318 100%);
 }
 
 .script-editor-launcher-pane,
 .script-editor-workspace-content {
-  -fx-background-color: #15181b;
+  -fx-background-color: #151a20;
 }
 
 .script-editor-card {
-  -fx-background-color: linear-gradient(to bottom, #1b1b1b 0%, #151515 100%);
-  -fx-background-radius: 9;
-  -fx-border-color: #343434;
-  -fx-border-radius: 9;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #1b2026 0%, #15191f 100%);
+  -fx-background-radius: 12;
+  -fx-border-color: #2e353d;
+  -fx-border-radius: 12;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.22), 10, 0.22, 0, 2);
 }
 
 .script-editor-launcher-header {
   -fx-spacing: 8;
+  -fx-background-color: rgba(15, 18, 22, 0.86);
+  -fx-border-color: #252c34;
+  -fx-border-width: 0 0 1 0;
 }
 
 .script-editor-launcher-meta-row,
@@ -1179,25 +1187,25 @@
 }
 
 .script-editor-launcher-meta-chip {
-  -fx-background-color: rgba(28, 28, 28, 0.94);
-  -fx-border-color: #3a3a3a;
-  -fx-background-radius: 8;
-  -fx-border-radius: 8;
+  -fx-background-color: rgba(21, 24, 29, 0.96);
+  -fx-border-color: #333b45;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
   -fx-padding: 6 10 6 10;
 }
 
 .script-editor-stat-chip {
-  -fx-background-color: rgba(31, 31, 31, 0.96);
-  -fx-border-color: #414141;
+  -fx-background-color: rgba(22, 25, 30, 0.98);
+  -fx-border-color: #39414c;
   -fx-background-radius: 999;
   -fx-border-radius: 999;
   -fx-padding: 4 10 4 10;
 }
 
 .script-editor-launcher-title {
-  -fx-font-size: 15px;
+  -fx-font-size: 16px;
   -fx-font-weight: 800;
-  -fx-text-fill: #ededed;
+  -fx-text-fill: #f2f5f8;
 }
 
 .script-editor-launcher-description,
@@ -1216,7 +1224,7 @@
 .script-editor-section-label,
 .script-editor-meta-label,
 .script-editor-stat-label {
-  -fx-text-fill: #8e8e8e;
+  -fx-text-fill: #8591a0;
   -fx-font-size: 10px;
   -fx-font-weight: 800;
 }
@@ -1251,30 +1259,33 @@
 }
 
 .script-editor-field {
-  -fx-background-color: #141414;
-  -fx-text-fill: #e9e9e9;
-  -fx-prompt-text-fill: #757575;
-  -fx-border-color: #383838;
-  -fx-border-radius: 8;
-  -fx-background-radius: 8;
+  -fx-background-color: #12161b;
+  -fx-text-fill: #edf2f8;
+  -fx-prompt-text-fill: #74808f;
+  -fx-border-color: #313a45;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
   -fx-font-size: 11px;
-  -fx-padding: 6 10 6 10;
+  -fx-padding: 7 11 7 11;
 }
 
 .script-editor-field:focused {
-  -fx-border-color: #6d6d6d;
-  -fx-background-color: #1a1a1a;
+  -fx-border-color: #6f869c;
+  -fx-background-color: #171c22;
+  -fx-effect: dropshadow(gaussian, rgba(111, 134, 156, 0.18), 8, 0.2, 0, 0);
 }
 
 .script-editor-action-button,
 .script-editor-toolbar-button {
-  -fx-background-color: #1d1d1d;
-  -fx-text-fill: #e8e8e8;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #20262d, #181d23);
+  -fx-text-fill: #edf2f7;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
-  -fx-background-radius: 8;
-  -fx-border-color: #404040;
-  -fx-border-radius: 8;
+  -fx-background-radius: 10;
+  -fx-border-color: #34404c;
+  -fx-border-radius: 10;
   -fx-cursor: hand;
 }
 
@@ -1295,27 +1306,33 @@
 
 .script-editor-action-button:hover,
 .script-editor-toolbar-button:hover {
-  -fx-background-color: #272727;
-  -fx-border-color: #5a5a5a;
-  -fx-text-fill: #f2f2f2;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.05), rgba(255,255,255,0.01)),
+      linear-gradient(to bottom, #28303a, #1d232a);
+  -fx-border-color: #4d6174;
+  -fx-text-fill: #f8fbff;
 }
 
 .script-editor-action-button:pressed,
 .script-editor-toolbar-button:pressed {
-  -fx-background-color: #313131;
+  -fx-background-color: linear-gradient(to bottom, #181d23, #14181d);
 }
 
 .script-editor-action-button-accent,
 .script-editor-toolbar-button-primary {
-  -fx-background-color: #2a2a2a;
-  -fx-border-color: #4a4a4a;
-  -fx-text-fill: #efefef;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(152, 190, 255, 0.14), rgba(152, 190, 255, 0.04)),
+      linear-gradient(to bottom, #233141, #1a2532);
+  -fx-border-color: #4d6884;
+  -fx-text-fill: #f4f8fc;
 }
 
 .script-editor-action-button-accent:hover,
 .script-editor-toolbar-button-primary:hover {
-  -fx-background-color: #333333;
-  -fx-border-color: #5a5a5a;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(152, 190, 255, 0.18), rgba(152, 190, 255, 0.06)),
+      linear-gradient(to bottom, #29405a, #1d2d40);
+  -fx-border-color: #6785a5;
 }
 
 .script-editor-action-button:disabled,
@@ -1329,19 +1346,24 @@
   -fx-control-inner-background: transparent;
 }
 
+.script-editor-window-tree,
+.script-editor-tabs {
+  -fx-background-color: transparent;
+}
+
 .script-editor-tree .tree-cell {
   -fx-background-color: transparent;
-  -fx-padding: 4 8 4 8;
+  -fx-padding: 5 8 5 8;
 }
 
 .script-editor-tree .tree-cell:selected {
-  -fx-background-color: #2c2c2c;
-  -fx-background-radius: 8;
+  -fx-background-color: linear-gradient(to bottom, #304051, #263442);
+  -fx-background-radius: 9;
 }
 
 .script-editor-tree .tree-cell:hover {
-  -fx-background-color: rgba(110, 110, 110, 0.18);
-  -fx-background-radius: 8;
+  -fx-background-color: rgba(129, 153, 179, 0.12);
+  -fx-background-radius: 9;
 }
 
 .script-editor-tree-dir-label {
@@ -1351,17 +1373,19 @@
 }
 
 .script-editor-tree-badge {
-  -fx-text-fill: #a8a8a8;
+  -fx-text-fill: #bac6d4;
   -fx-font-size: 10px;
-  -fx-background-color: #232323;
+  -fx-background-color: #232b34;
   -fx-padding: 1 6 1 6;
   -fx-background-radius: 999;
 }
 
 .script-editor-toolbar,
 .script-editor-workspace-toolbar {
-  -fx-background-color: #121212;
-  -fx-border-color: #303030;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #14191f, #101419);
+  -fx-border-color: #27313b;
   -fx-border-width: 0 0 1 0;
   -fx-alignment: center-left;
 }
@@ -1372,7 +1396,92 @@
 }
 
 .script-editor-window-status {
-  -fx-padding: 4 10 4 10;
+  -fx-padding: 7 12 7 12;
+  -fx-background-color: #0f1419;
+  -fx-border-color: #27313b;
+  -fx-border-width: 1 0 0 0;
+  -fx-text-fill: #95a2b1;
+}
+
+.script-editor-pane-header {
+  -fx-alignment: center-left;
+  -fx-padding: 2 2 6 2;
+  -fx-border-color: rgba(64, 78, 94, 0.55);
+  -fx-border-width: 0 0 1 0;
+}
+
+.script-editor-pane-title {
+  -fx-text-fill: #ecf2f8;
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+}
+
+.script-editor-pane-subtitle {
+  -fx-text-fill: #7f8b98;
+  -fx-font-size: 10px;
+  -fx-font-weight: 600;
+}
+
+.script-editor-launcher-split,
+.script-editor-window-split {
+  -fx-background-color: transparent;
+  -fx-padding: 8;
+}
+
+.script-editor-launcher-split > .split-pane-divider,
+.script-editor-window-split > .split-pane-divider {
+  -fx-background-color: transparent;
+  -fx-padding: 2;
+}
+
+.script-editor-launcher-split > .split-pane-divider > .vertical-grabber,
+.script-editor-window-split > .split-pane-divider > .horizontal-grabber {
+  -fx-background-color: #29333d;
+  -fx-background-radius: 999;
+}
+
+.script-editor-window-sidebar {
+  -fx-padding: 8;
+}
+
+.script-editor-toolbar-chip {
+  -fx-text-fill: #dbe4ee;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+  -fx-background-color: rgba(26, 33, 40, 0.96);
+  -fx-border-color: #394755;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-padding: 5 10 5 10;
+}
+
+.script-editor-tabs > .tab-header-area {
+  -fx-padding: 6 8 0 8;
+  -fx-background-color: transparent;
+}
+
+.script-editor-tabs > .tab-header-area > .headers-region > .tab {
+  -fx-background-color: linear-gradient(to bottom, #1d232a, #171c22);
+  -fx-background-radius: 10 10 0 0;
+  -fx-border-color: #303b46;
+  -fx-border-radius: 10 10 0 0;
+}
+
+.script-editor-tabs > .tab-header-area > .headers-region > .tab:selected {
+  -fx-background-color: linear-gradient(to bottom, #263240, #1d2733);
+  -fx-border-color: #46607a;
+}
+
+.script-editor-tabs > .tab-header-area > .headers-region > .tab .tab-label {
+  -fx-text-fill: #d9e2ec;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.script-editor-tabs > .tab-content-area {
+  -fx-background-color: #12171d;
+  -fx-border-color: #29333d;
+  -fx-border-width: 1 0 0 0;
 }
 
 .script-editor-workspace-icon-button {
