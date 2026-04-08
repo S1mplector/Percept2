@@ -2,6 +2,7 @@ package com.jvn.editor.ui;
 
 import java.io.File;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -573,143 +574,86 @@ public class VersionControlView extends BorderPane {
   }
 
   private void showAddRemoteDialog() {
-    javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
-    dialog.setTitle("Add Git Remote");
-
-    javafx.scene.control.ButtonType addBtn = new javafx.scene.control.ButtonType("Add Remote", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
-    dialog.getDialogPane().getButtonTypes().addAll(addBtn, javafx.scene.control.ButtonType.CANCEL);
-
-    // Dark theme styling
-    javafx.scene.control.DialogPane pane = dialog.getDialogPane();
-    pane.setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #3a3a3a;");
-
     VBox content = new VBox(12);
-    content.setPadding(new Insets(16));
-    content.setStyle("-fx-background-color: #1a1a1a;");
+    content.getStyleClass().add("editor-dialog-form");
 
-    // Instructions
-    Label titleLabel = new Label("Connect to a Remote Repository");
-    titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
-
-    Label instructionLabel = new Label(
-        "Paste the URL of your Git repository from GitHub, GitLab, Bitbucket, or any Git hosting service.\n" +
-        "You can find this URL on your repository page — look for the \"Clone\" or \"Code\" button.");
-    instructionLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
-    instructionLabel.setWrapText(true);
-    instructionLabel.setMaxWidth(380);
-
-    // Name field
     Label nameLabel = new Label("Remote Name");
-    nameLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px;");
+    nameLabel.getStyleClass().add("editor-dialog-field-label");
     TextField nameField = new TextField("origin");
-    nameField.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-background-radius: 4;");
+    nameField.getStyleClass().add("editor-dialog-text-field");
     nameField.setPromptText("origin");
     Label nameHint = new Label("Usually \"origin\" — only change if you know what you're doing");
-    nameHint.setStyle("-fx-text-fill: #666666; -fx-font-size: 10px;");
+    nameHint.getStyleClass().add("editor-dialog-message");
 
-    // URL field
     Label urlLabel = new Label("Repository URL");
-    urlLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px;");
+    urlLabel.getStyleClass().add("editor-dialog-field-label");
     TextField urlField = new TextField();
-    urlField.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-background-radius: 4;");
+    urlField.getStyleClass().add("editor-dialog-text-field");
     urlField.setPromptText("https://github.com/username/repository.git");
     urlField.setPrefWidth(380);
     Label urlHint = new Label("Example: https://github.com/YourName/YourProject.git");
-    urlHint.setStyle("-fx-text-fill: #4da3ff; -fx-font-size: 10px;");
+    urlHint.getStyleClass().add("editor-dialog-message");
 
-    // Note about public/private
     Label privacyNote = new Label(
         "\uD83D\uDD12 Public vs Private: Create your repository on GitHub/GitLab first, then paste the URL here.\n" +
         "The repository's visibility (public/private) is set on the hosting service, not in Git.");
-    privacyNote.setStyle("-fx-text-fill: #9aa0a6; -fx-font-size: 10px;");
+    privacyNote.getStyleClass().add("editor-dialog-message");
     privacyNote.setWrapText(true);
     privacyNote.setMaxWidth(380);
 
     content.getChildren().addAll(
-        titleLabel,
-        instructionLabel,
-        new javafx.scene.control.Separator(),
         nameLabel, nameField, nameHint,
         urlLabel, urlField, urlHint,
-        new javafx.scene.control.Separator(),
         privacyNote
     );
-
-    pane.setContent(content);
-    Platform.runLater(urlField::requestFocus);
-
-    dialog.setResultConverter(dialogButton -> {
-      if (dialogButton == addBtn) {
-        return nameField.getText().trim() + "|" + urlField.getText().trim();
-      }
-      return null;
-    });
-
-    dialog.showAndWait().ifPresent(result -> {
-      String[] parts = result.split("\\|", 2);
-      if (parts.length == 2 && !parts[1].isBlank()) {
-        runAddRemote(parts[0], parts[1]);
-      }
-    });
+    Optional<String> result = EditorDialogs.show(
+        getScene() == null ? null : getScene().getWindow(),
+        "Add Git Remote",
+        "Connect to a remote repository by pasting its Git URL.",
+        content,
+        urlField,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.accent("add", "Add Remote", null));
+    if (result.isPresent() && "add".equals(result.get()) && !urlField.getText().trim().isBlank()) {
+      runAddRemote(nameField.getText().trim(), urlField.getText().trim());
+    }
   }
 
   private void showCreateGitHubRepoDialog(boolean isPrivate) {
     // First check gh CLI availability
     if (!vcs.isGhCliAvailable()) {
-      javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
-      alert.setTitle("GitHub CLI Not Found");
-      alert.setHeaderText("GitHub CLI (gh) is not installed");
-      alert.setContentText(
+      EditorDialogs.showTextBlock(
+          getScene() == null ? null : getScene().getWindow(),
+          "GitHub CLI Not Found",
+          "GitHub CLI (gh) is not installed",
           "To create repositories directly, install the GitHub CLI:\n\n" +
           "  macOS:   brew install gh\n" +
           "  Windows: winget install GitHub.cli\n" +
           "  Linux:   https://github.com/cli/cli#installation\n\n" +
           "After installing, run:  gh auth login\n\n" +
-          "Alternatively, create a repository on github.com and use\n\"Connect to Remote Repository\" to paste the URL.");
-      alert.getDialogPane().setStyle("-fx-background-color: #1a1a1a;");
-      alert.showAndWait();
+          "Alternatively, create a repository on github.com and use\n\"Connect to Remote Repository\" to paste the URL.",
+          "Close");
       return;
     }
 
     if (!vcs.isGhCliAuthenticated()) {
-      javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
-      alert.setTitle("GitHub CLI Not Authenticated");
-      alert.setHeaderText("You need to log in to GitHub first");
-      alert.setContentText("Run this command in your terminal:\n\n  gh auth login\n\nThen try again.");
-      alert.getDialogPane().setStyle("-fx-background-color: #1a1a1a;");
-      alert.showAndWait();
+      EditorDialogs.showTextBlock(
+          getScene() == null ? null : getScene().getWindow(),
+          "GitHub CLI Not Authenticated",
+          "You need to log in to GitHub first",
+          "Run this command in your terminal:\n\n  gh auth login\n\nThen try again.",
+          "Close");
       return;
     }
 
-    // Show repo name dialog
-    javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
-    dialog.setTitle("Create GitHub Repository");
-
-    javafx.scene.control.ButtonType createBtn = new javafx.scene.control.ButtonType(
-        isPrivate ? "Create Private Repo" : "Create Public Repo",
-        javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
-    dialog.getDialogPane().getButtonTypes().addAll(createBtn, javafx.scene.control.ButtonType.CANCEL);
-
-    javafx.scene.control.DialogPane pane = dialog.getDialogPane();
-    pane.setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #3a3a3a;");
-
     VBox content = new VBox(10);
-    content.setPadding(new Insets(16));
-    content.setStyle("-fx-background-color: #1a1a1a;");
-
-    Label dlgTitle = new Label("Create a " + (isPrivate ? "Private" : "Public") + " GitHub Repository");
-    dlgTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e6e6e6;");
-
-    Label dlgDesc = new Label("This will create a new repository on your GitHub account, set it as the remote, and push your code.");
-    dlgDesc.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
-    dlgDesc.setWrapText(true);
-    dlgDesc.setMaxWidth(350);
+    content.getStyleClass().add("editor-dialog-form");
 
     Label nameLabel = new Label("Repository Name");
-    nameLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px;");
+    nameLabel.getStyleClass().add("editor-dialog-field-label");
     String defaultName = projectRoot != null ? projectRoot.getName() : "my-project";
     TextField repoNameField = new TextField(defaultName);
-    repoNameField.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-background-radius: 4;");
+    repoNameField.getStyleClass().add("editor-dialog-text-field");
     repoNameField.setPrefWidth(350);
 
     Label visLabel = new Label(isPrivate
@@ -719,20 +663,19 @@ public class VersionControlView extends BorderPane {
     visLabel.setWrapText(true);
     visLabel.setMaxWidth(350);
 
-    content.getChildren().addAll(dlgTitle, dlgDesc, nameLabel, repoNameField, visLabel);
-    pane.setContent(content);
-    Platform.runLater(repoNameField::requestFocus);
+    content.getChildren().addAll(nameLabel, repoNameField, visLabel);
 
-    dialog.setResultConverter(dialogButton -> {
-      if (dialogButton == createBtn) return repoNameField.getText().trim();
-      return null;
-    });
-
-    dialog.showAndWait().ifPresent(repoName -> {
-      if (!repoName.isBlank()) {
-        runCreateGitHubRepo(repoName, isPrivate);
-      }
-    });
+    Optional<String> result = EditorDialogs.show(
+        getScene() == null ? null : getScene().getWindow(),
+        "Create GitHub Repository",
+        "This will create a new repository on your GitHub account, set it as the remote, and push your code.",
+        content,
+        repoNameField,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.accent("create", isPrivate ? "Create Private Repo" : "Create Public Repo", null));
+    if (result.isPresent() && "create".equals(result.get()) && !repoNameField.getText().trim().isBlank()) {
+      runCreateGitHubRepo(repoNameField.getText().trim(), isPrivate);
+    }
   }
 
   private void runCreateGitHubRepo(String repoName, boolean isPrivate) {

@@ -26,10 +26,7 @@ import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
@@ -1063,32 +1060,30 @@ public class LayoutStudioWindowManager {
     }
 
     private boolean confirmDiscard(String operation) {
-      Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-      EditorTheme.apply(alert);
-      alert.setHeaderText(operation + "? Unsaved changes will be lost.");
-      alert.setTitle("Unsaved Changes");
-      alert.setContentText("Continue without saving?");
-      ButtonType continueBtn = new ButtonType("Continue", ButtonBar.ButtonData.OK_DONE);
-      alert.getButtonTypes().setAll(continueBtn, ButtonType.CANCEL);
-      Optional<ButtonType> result = alert.showAndWait();
-      return result.isPresent() && result.get() == continueBtn;
+      return EditorDialogs.confirm(
+          stage,
+          "Unsaved Changes",
+          operation + "? Unsaved changes will be lost.\nContinue without saving?",
+          "Continue",
+          true);
     }
 
     private boolean confirmCloseIfDirty() {
       if (!dirty) return true;
 
-      Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-      EditorTheme.apply(alert);
-      alert.setTitle("Unsaved Changes");
-      alert.setHeaderText("Save changes to " + file.getName() + " before closing?");
-      alert.setContentText("Choose Save to keep changes, Discard to close without saving.");
-
-      ButtonType save = new ButtonType("Save", ButtonBar.ButtonData.YES);
-      ButtonType discard = new ButtonType("Discard", ButtonBar.ButtonData.NO);
-      alert.getButtonTypes().setAll(save, discard, ButtonType.CANCEL);
-      Optional<ButtonType> result = alert.showAndWait();
-      if (result.isEmpty() || result.get() == ButtonType.CANCEL) return false;
-      if (result.get() == discard) return true;
+      Label detail = new Label("Choose Save to keep changes, Discard to close without saving.");
+      detail.getStyleClass().add("editor-dialog-message");
+      detail.setWrapText(true);
+      Optional<String> result = EditorDialogs.show(
+          stage,
+          "Unsaved Changes",
+          "Save changes to " + file.getName() + " before closing?",
+          detail,
+          EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+          EditorDialogs.ActionSpec.danger("discard", "Discard", null),
+          EditorDialogs.ActionSpec.accent("save", "Save", null));
+      if (result.isEmpty() || "cancel".equals(result.get())) return false;
+      if ("discard".equals(result.get())) return true;
       return save();
     }
 

@@ -532,12 +532,14 @@ public class StoryGraphPane extends Pane {
       miCopyGoto.setOnAction(e -> copyGotoSnippet(arc));
       MenuItem miCluster = new MenuItem("Set Cluster...");
       miCluster.setOnAction(e -> {
-        javafx.scene.control.TextInputDialog dlg = new javafx.scene.control.TextInputDialog(arc.cluster == null ? "" : arc.cluster);
-        EditorTheme.apply(dlg);
-        dlg.setHeaderText(null);
-        dlg.setTitle("Cluster");
-        dlg.setContentText("Cluster name:");
-        var result = dlg.showAndWait();
+        var result = EditorDialogs.promptText(
+            getScene() == null ? null : getScene().getWindow(),
+            "Cluster",
+            "Set the cluster name for this arc.",
+            "Cluster name",
+            arc.cluster == null ? "" : arc.cluster,
+            "",
+            "Save");
         if (result.isPresent()) {
           arc.cluster = result.get().trim();
           refresh();
@@ -864,13 +866,14 @@ public class StoryGraphPane extends Pane {
       cancelLinking();
       return;
     }
-    javafx.scene.control.TextInputDialog dlg = new javafx.scene.control.TextInputDialog("");
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null);
-    dlg.setTitle("Link Label (optional)");
-    dlg.setContentText("To Label:");
-    var res = dlg.showAndWait();
-    String toLabel = res.isPresent() ? res.get().trim() : "";
+    String toLabel = EditorDialogs.promptText(
+        getScene() == null ? null : getScene().getWindow(),
+        "Link Label",
+        "Optional label to jump to on the target arc.",
+        "To Label",
+        "",
+        "",
+        "Link").map(String::trim).orElse("");
     StoryTimelineView.Link link = new StoryTimelineView.Link();
     link.fromArc = linkingFrom.arc.name;
     link.fromLabel = "";
@@ -1072,12 +1075,14 @@ public class StoryGraphPane extends Pane {
 
   private void renameArc(StoryTimelineView.Arc arc) {
     String old = arc == null ? null : arc.name;
-    javafx.scene.control.TextInputDialog dlg = new javafx.scene.control.TextInputDialog(old == null ? "" : old);
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null);
-    dlg.setTitle("Rename Arc");
-    dlg.setContentText("Arc name:");
-    var res = dlg.showAndWait();
+    var res = EditorDialogs.promptText(
+        getScene() == null ? null : getScene().getWindow(),
+        "Rename Arc",
+        "Rename the selected arc.",
+        "Arc name",
+        old == null ? "" : old,
+        old == null ? "" : old,
+        "Rename");
     if (res.isEmpty()) return;
     String next = res.get().trim();
     if (next.isEmpty() || next.equals(old)) return;

@@ -14,11 +14,8 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Label;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
-import javafx.scene.control.Alert;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.VBox;
@@ -147,10 +144,14 @@ public class StoryTimelineView extends BorderPane {
       }
     }
     if (sb.length() == 0) {
-      Alert a = new Alert(Alert.AlertType.INFORMATION, "Timeline OK"); EditorTheme.apply(a); a.setHeaderText(null); a.setTitle("Validate"); a.showAndWait();
+      EditorDialogs.info(getScene() == null ? null : getScene().getWindow(), "Validate", "Timeline OK");
     } else {
-      TextArea ta = new TextArea(sb.toString()); ta.setEditable(false); ta.setWrapText(true);
-      Dialog<Void> dlg = new Dialog<>(); EditorTheme.apply(dlg); dlg.setTitle("Validation Issues"); dlg.getDialogPane().setContent(ta); dlg.getDialogPane().getButtonTypes().add(ButtonType.OK); dlg.showAndWait();
+      EditorDialogs.showTextBlock(
+          getScene() == null ? null : getScene().getWindow(),
+          "Validation Issues",
+          "Review the issues below before continuing.",
+          sb.toString(),
+          "Close");
     }
   }
 
@@ -534,13 +535,15 @@ public class StoryTimelineView extends BorderPane {
     tfTags.setPromptText("comma,separated,tags");
     tfPriority.setPromptText("0");
 
-    Dialog<ButtonType> dlg = new Dialog<>();
-    EditorTheme.apply(dlg);
-    dlg.setTitle(title);
-    dlg.getDialogPane().setContent(g);
-    dlg.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-    var res = dlg.showAndWait();
-    if (res.isEmpty() || res.get() != ButtonType.OK) return null;
+    var res = EditorDialogs.show(
+        getScene() == null ? null : getScene().getWindow(),
+        title,
+        lockScript ? "Configure the arc." : "Configure the arc and choose its script.",
+        g,
+        tfName,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.accent("save", title.startsWith("Add") ? "Add" : "Save", null));
+    if (res.isEmpty() || !"save".equals(res.get())) return null;
 
     String newName = tfName.getText() == null ? "" : tfName.getText().trim();
     if (newName.isEmpty()) return null;
@@ -574,13 +577,15 @@ public class StoryTimelineView extends BorderPane {
     g.addRow(1, new Label("From Label"), fromLabel);
     g.addRow(2, new Label("To Arc"), toArc);
     g.addRow(3, new Label("To Label"), toLabel);
-    Dialog<ButtonType> dlg = new Dialog<>();
-    EditorTheme.apply(dlg);
-    dlg.setTitle("Edit Link");
-    dlg.getDialogPane().setContent(g);
-    dlg.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-    var res = dlg.showAndWait();
-    if (res.isEmpty() || res.get() != ButtonType.OK) return;
+    var res = EditorDialogs.show(
+        getScene() == null ? null : getScene().getWindow(),
+        "Edit Link",
+        "Update the connection between arcs.",
+        g,
+        fromArc,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.accent("save", "Save", null));
+    if (res.isEmpty() || !"save".equals(res.get())) return;
     Arc fa = fromArc.getValue();
     Arc ta = toArc.getValue();
     if (fa == null || ta == null) return;
@@ -696,8 +701,15 @@ public class StoryTimelineView extends BorderPane {
     g.addRow(1, new Label("From Label"), fromLabel);
     g.addRow(2, new Label("To Arc"), toArc);
     g.addRow(3, new Label("To Label"), toLabel);
-    Dialog<ButtonType> dlg = new Dialog<>(); EditorTheme.apply(dlg); dlg.setTitle("Add Link"); dlg.getDialogPane().setContent(g); dlg.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-    var res = dlg.showAndWait(); if (res.isEmpty() || res.get() != ButtonType.OK) return;
+    var res = EditorDialogs.show(
+        getScene() == null ? null : getScene().getWindow(),
+        "Add Link",
+        "Create a connection between two arcs.",
+        g,
+        fromArc,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.accent("add", "Add", null));
+    if (res.isEmpty() || !"add".equals(res.get())) return;
     Arc fa = fromArc.getValue(); Arc ta = toArc.getValue(); if (fa == null || ta == null) return;
     Link l = new Link(); l.fromArc = fa.name; l.fromLabel = fromLabel.getText(); l.toArc = ta.name; l.toLabel = toLabel.getText();
     links.getItems().add(l);
