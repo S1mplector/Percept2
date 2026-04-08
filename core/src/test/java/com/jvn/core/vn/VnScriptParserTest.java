@@ -673,6 +673,66 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void waitCommandSupportsNamedOptions() throws Exception {
+    String script = """
+      @label start
+      [wait ms=450]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode wait = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.WAIT)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals(450, wait.getWaitMs());
+  }
+
+  @Test
+  public void stageCommandSupportsNamedOptions() throws Exception {
+    String script = """
+      @label start
+      [stage preset=dramatic_evening]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode stage = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "stage".equals(n.getExternalCommand().getProvider()))
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("dramatic_evening", stage.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void settingsCommandsSupportNamedOptions() throws Exception {
+    String script = """
+      @label start
+      [volume channel=bgm level=0.65]
+      [textspeed value=42]
+      [autodelay ms=1750]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    List<String> payloads = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "settings".equals(n.getExternalCommand().getProvider()))
+        .map(n -> n.getExternalCommand().getPayload())
+        .toList();
+
+    assertTrue(payloads.contains("volume bgm 0.65"));
+    assertTrue(payloads.contains("textspeed 42"));
+    assertTrue(payloads.contains("autodelay 1750"));
+  }
+
+  @Test
   public void particlesCommandSupportsNamedOptions() throws Exception {
     String script = """
       @label start

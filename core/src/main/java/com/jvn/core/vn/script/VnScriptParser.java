@@ -999,17 +999,90 @@ public class VnScriptParser {
       }
       case "volume": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.external("settings", "volume " + payload);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        String channel = null;
+        Float level = null;
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, "volume")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[volume]");
+            switch (option.key()) {
+              case "channel", "target", "type" -> channel = option.value();
+              case "level", "value", "vol", "volume" ->
+                  level = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[volume]", "level");
+              default -> throw parseError(sourceName, lineNumber, "[volume] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (channel == null) {
+            channel = token;
+            continue;
+          }
+          if (level == null) {
+            level = parseUnitRangeToken(token, sourceName, lineNumber, rawLine, "[volume]", "level");
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[volume] unexpected token: " + token, rawLine);
+        }
+        if (channel == null || channel.isBlank() || level == null) {
+          throw parseError(sourceName, lineNumber, "[volume] expects: [volume <channel> <level>] or named options", rawLine);
+        }
+        state.builder.external("settings", "volume " + channel + " " + formatNumber(level));
         return;
       }
       case "textspeed": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.external("settings", "textspeed " + payload);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        Integer value = null;
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, "textspeed")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[textspeed]");
+            switch (option.key()) {
+              case "value", "speed", "chars" -> value = parseIntegerValue(option.value(), "[textspeed]", "value", sourceName, lineNumber, rawLine);
+              default -> throw parseError(sourceName, lineNumber, "[textspeed] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (value == null) {
+            value = parseIntegerValue(token, "[textspeed]", "value", sourceName, lineNumber, rawLine);
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[textspeed] unexpected token: " + token, rawLine);
+        }
+        if (value == null) {
+          throw parseError(sourceName, lineNumber, "[textspeed] requires a value", rawLine);
+        }
+        state.builder.external("settings", "textspeed " + value);
         return;
       }
       case "autodelay": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.external("settings", "autodelay " + payload);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        Long value = null;
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, "autodelay")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[autodelay]");
+            switch (option.key()) {
+              case "value", "delay", "ms", "duration" -> value = parseLongValue(option.value(), "[autodelay]", "value", sourceName, lineNumber, rawLine);
+              default -> throw parseError(sourceName, lineNumber, "[autodelay] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (value == null) {
+            value = parseLongValue(token, "[autodelay]", "value", sourceName, lineNumber, rawLine);
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[autodelay] unexpected token: " + token, rawLine);
+        }
+        if (value == null) {
+          throw parseError(sourceName, lineNumber, "[autodelay] requires a value", rawLine);
+        }
+        state.builder.external("settings", "autodelay " + value);
         return;
       }
       case "hud": {
@@ -1071,12 +1144,30 @@ public class VnScriptParser {
         return;
       }
       case "wait": {
-        String msArg = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        try {
-          state.builder.waitMs(Long.parseLong(msArg));
-        } catch (NumberFormatException ex) {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        Long waitMs = null;
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, "wait")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[wait]");
+            switch (option.key()) {
+              case "ms", "dur", "duration", "time", "value" -> waitMs = parseLongValue(option.value(), "[wait]", "duration", sourceName, lineNumber, rawLine);
+              default -> throw parseError(sourceName, lineNumber, "[wait] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (waitMs == null) {
+            waitMs = parseLongValue(token, "[wait]", "duration", sourceName, lineNumber, rawLine);
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[wait] unexpected token: " + token, rawLine);
+        }
+        if (waitMs == null) {
           throw parseError(sourceName, lineNumber, "[wait] expects an integer duration in ms", rawLine);
         }
+        state.builder.waitMs(waitMs);
         return;
       }
       case "show": {
@@ -1210,7 +1301,29 @@ public class VnScriptParser {
         return;
       }
       case "stage": {
-        String presetId = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        String presetId = null;
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, "stage")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[stage]");
+            switch (option.key()) {
+              case "preset", "id", "name", "mode" -> presetId = option.value();
+              default -> throw parseError(sourceName, lineNumber, "[stage] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (presetId == null) {
+            presetId = token;
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[stage] unexpected token: " + token, rawLine);
+        }
+        if (presetId == null || presetId.isBlank()) {
+          throw parseError(sourceName, lineNumber, "[stage] requires a preset id", rawLine);
+        }
         state.builder.external("stage", presetId);
         return;
       }
@@ -1651,6 +1764,26 @@ public class VnScriptParser {
       };
       case "bgm_crossfade" -> switch (key) {
         case "track", "id", "file", "path", "dur", "duration", "ms", "loop" -> true;
+        default -> false;
+      };
+      case "volume" -> switch (key) {
+        case "channel", "target", "type", "level", "value", "vol", "volume" -> true;
+        default -> false;
+      };
+      case "textspeed" -> switch (key) {
+        case "value", "speed", "chars" -> true;
+        default -> false;
+      };
+      case "autodelay" -> switch (key) {
+        case "value", "delay", "ms", "duration" -> true;
+        default -> false;
+      };
+      case "wait" -> switch (key) {
+        case "ms", "dur", "duration", "time", "value" -> true;
+        default -> false;
+      };
+      case "stage" -> switch (key) {
+        case "preset", "id", "name", "mode" -> true;
         default -> false;
       };
       case "sfx", "voice" -> switch (key) {
