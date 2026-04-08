@@ -1654,6 +1654,141 @@
   -fx-font-weight: 600;
 }
 
+.editor-dialog-overlay {
+  -fx-background-color: rgba(6, 8, 12, 0.68);
+  -fx-padding: 36;
+}
+
+.editor-dialog-card {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #191d23 0%, #14181d 100%);
+  -fx-background-radius: 14;
+  -fx-border-color: #333b45;
+  -fx-border-radius: 14;
+  -fx-border-width: 1;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.34), 28, 0.28, 0, 10);
+}
+
+.editor-dialog-title {
+  -fx-text-fill: #f4f7fb;
+  -fx-font-size: 15px;
+  -fx-font-weight: 800;
+}
+
+.editor-dialog-message {
+  -fx-text-fill: #9eabb9;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.editor-dialog-body {
+  -fx-spacing: 8;
+}
+
+.editor-dialog-field-label {
+  -fx-text-fill: #d9e3ed;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.editor-dialog-form {
+  -fx-spacing: 8;
+}
+
+.editor-dialog-text-field {
+  -fx-background-color: #12161b;
+  -fx-text-fill: #edf2f8;
+  -fx-prompt-text-fill: #74808f;
+  -fx-border-color: #313a45;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-font-size: 11px;
+  -fx-padding: 8 11 8 11;
+}
+
+.editor-dialog-text-field:focused {
+  -fx-border-color: #6f869c;
+  -fx-background-color: #171c22;
+  -fx-effect: dropshadow(gaussian, rgba(111, 134, 156, 0.18), 8, 0.2, 0, 0);
+}
+
+.editor-dialog-choice-list,
+.editor-dialog-text-area {
+  -fx-background-color: #12161b;
+  -fx-control-inner-background: #12161b;
+  -fx-border-color: #313a45;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-text-fill: #edf2f8;
+}
+
+.editor-dialog-choice-list .list-cell {
+  -fx-background-color: transparent;
+  -fx-text-fill: #edf2f8;
+  -fx-font-size: 11px;
+  -fx-padding: 8 10 8 10;
+}
+
+.editor-dialog-choice-list .list-cell:selected {
+  -fx-background-color: linear-gradient(to bottom, #304051, #263442);
+  -fx-background-radius: 8;
+}
+
+.editor-dialog-choice-list .list-cell:hover {
+  -fx-background-color: rgba(129, 153, 179, 0.12);
+  -fx-background-radius: 8;
+}
+
+.editor-dialog-text-area {
+  -fx-font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  -fx-font-size: 11px;
+  -fx-padding: 8;
+}
+
+.editor-dialog-button {
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-padding: 6 14 6 14;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+  -fx-cursor: hand;
+}
+
+.editor-dialog-button-neutral {
+  -fx-background-color: linear-gradient(to bottom, #232932, #1b2027);
+  -fx-text-fill: #dbe3eb;
+  -fx-border-color: #3d4753;
+}
+
+.editor-dialog-button-neutral:hover {
+  -fx-background-color: linear-gradient(to bottom, #29313b, #1f2630);
+  -fx-border-color: #556475;
+}
+
+.editor-dialog-button-accent {
+  -fx-background-color: linear-gradient(to bottom, #29405a, #1d2d40);
+  -fx-text-fill: #f4f8fc;
+  -fx-border-color: #6785a5;
+}
+
+.editor-dialog-button-accent:hover {
+  -fx-background-color: linear-gradient(to bottom, #315070, #22384d);
+  -fx-border-color: #7c9bbd;
+}
+
+.editor-dialog-button-danger {
+  -fx-background-color: linear-gradient(to bottom, #6b3140, #4d222d);
+  -fx-text-fill: #ffe8ec;
+  -fx-border-color: #9c5d6d;
+}
+
+.editor-dialog-button-danger:hover {
+  -fx-background-color: linear-gradient(to bottom, #7a3849, #592633);
+  -fx-border-color: #b77284;
+}
+
 .script-editor-workspace-icon-button {
   -fx-background-color: linear-gradient(to bottom, #252525, #1a1a1a);
   -fx-border-color: #4a4a4a;
