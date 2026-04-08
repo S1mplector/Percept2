@@ -1020,39 +1020,59 @@ public class VnScriptParser {
       }
       case "show": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        String[] toks = payload.split("\\s+");
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
         if (toks.length < 2) {
           throw parseError(sourceName, lineNumber, "[show] expects: [show <charId> <pos|at x,y[,z]> [expression] [layer]]", rawLine);
         }
         String charId = toks[0];
-        CharacterPosition pos;
+        CharacterPosition pos = null;
         Integer layerOrder = null;
-        int nextIdx;
-        if ("at".equalsIgnoreCase(toks[1])) {
-          if (toks.length < 3) {
-            throw parseError(sourceName, lineNumber, "[show] 'at' requires coordinates: [show <charId> at x,y[,z] [expression] [layer]]", rawLine);
-          }
-          InlinePosition ip = parseAtPosition(toks[2], sourceName, lineNumber, rawLine);
-          pos = ip.position();
-          layerOrder = ip.layerOrder();
-          nextIdx = 3;
-        } else {
-          pos = parsePosition(toks[1], sourceName, lineNumber, rawLine, state);
-          nextIdx = 2;
-        }
         String expr = "neutral";
-        if (nextIdx < toks.length) {
-          if (nextIdx == toks.length - 1 && isIntegerToken(toks[nextIdx])) {
-            if (layerOrder == null) layerOrder = Integer.parseInt(toks[nextIdx]);
-          } else {
-            expr = resolveInlineExpressionToken(state, charId, toks[nextIdx], sourceName, lineNumber, rawLine);
-            if (nextIdx + 1 < toks.length) {
-              if (!isIntegerToken(toks[nextIdx + 1])) {
-                throw parseError(sourceName, lineNumber, "[show] layer must be an integer", rawLine);
-              }
-              if (layerOrder == null) layerOrder = Integer.parseInt(toks[nextIdx + 1]);
-            }
+        boolean exprSet = false;
+        for (int i = 1; i < toks.length; i++) {
+          String token = toks[i].trim();
+          if (token.isEmpty()) continue;
+          if ("at".equalsIgnoreCase(token) && i + 1 < toks.length && !isNamedOptionToken(toks[i + 1], "show")) {
+            InlinePosition ip = parseAtPosition(toks[++i], sourceName, lineNumber, rawLine);
+            pos = ip.position();
+            if (layerOrder == null) layerOrder = ip.layerOrder();
+            continue;
           }
+          if (isNamedOptionToken(token, "show")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[show]");
+            switch (option.key()) {
+              case "pos", "position" -> pos = parsePosition(option.value(), sourceName, lineNumber, rawLine, state);
+              case "at", "coord", "coords", "xy" -> {
+                InlinePosition ip = parseAtPosition(option.value(), sourceName, lineNumber, rawLine);
+                pos = ip.position();
+                if (layerOrder == null) layerOrder = ip.layerOrder();
+              }
+              case "expr", "expression", "preset" -> {
+                expr = resolveInlineExpressionToken(state, charId, option.value(), sourceName, lineNumber, rawLine);
+                exprSet = true;
+              }
+              case "layer", "z", "zorder" -> layerOrder = parseIntegerValue(option.value(), "[show]", "layer", sourceName, lineNumber, rawLine);
+              default -> throw parseError(sourceName, lineNumber, "[show] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (pos == null) {
+            pos = parsePosition(token, sourceName, lineNumber, rawLine, state);
+            continue;
+          }
+          if (isIntegerToken(token)) {
+            layerOrder = Integer.parseInt(token);
+            continue;
+          }
+          if (!exprSet) {
+            expr = resolveInlineExpressionToken(state, charId, token, sourceName, lineNumber, rawLine);
+            exprSet = true;
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[show] unexpected token: " + token, rawLine);
+        }
+        if (pos == null) {
+          throw parseError(sourceName, lineNumber, "[show] requires a position via positional arg, pos=..., or at=...", rawLine);
         }
         state.builder.show(charId, expr, pos, layerOrder);
         return;
@@ -1064,43 +1084,66 @@ public class VnScriptParser {
       }
       case "move": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        String[] toks = payload.split("\\s+");
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
         if (toks.length < 2) {
           throw parseError(sourceName, lineNumber, "[move] expects: [move <charId> <pos|at x,y> [expression] [easing] [durationMs]]", rawLine);
         }
         String moveCharId = toks[0];
-        CharacterPosition movePos;
-        int moveNextIdx;
-        if ("at".equalsIgnoreCase(toks[1])) {
-          if (toks.length < 3) {
-            throw parseError(sourceName, lineNumber, "[move] 'at' requires coordinates: [move <charId> at x,y [expression] [easing] [durationMs]]", rawLine);
-          }
-          InlinePosition mip = parseAtPosition(toks[2], sourceName, lineNumber, rawLine);
-          movePos = mip.position();
-          moveNextIdx = 3;
-        } else {
-          movePos = parsePosition(toks[1], sourceName, lineNumber, rawLine, state);
-          moveNextIdx = 2;
-        }
+        CharacterPosition movePos = null;
         String moveExpr = null;
         Easing.Type moveEasing = null;
         long moveDur = 0;
-        for (int ti = moveNextIdx; ti < toks.length; ti++) {
-          String tok = toks[ti];
+        for (int ti = 1; ti < toks.length; ti++) {
+          String tok = toks[ti].trim();
+          if (tok.isEmpty()) continue;
+          if ("at".equalsIgnoreCase(tok) && ti + 1 < toks.length && !isNamedOptionToken(toks[ti + 1], "move")) {
+            InlinePosition mip = parseAtPosition(toks[++ti], sourceName, lineNumber, rawLine);
+            movePos = mip.position();
+            continue;
+          }
+          if (isNamedOptionToken(tok, "move")) {
+            KeyValueOption option = parseKeyValueOption(tok, sourceName, lineNumber, rawLine, "[move]");
+            switch (option.key()) {
+              case "pos", "position" -> movePos = parsePosition(option.value(), sourceName, lineNumber, rawLine, state);
+              case "at", "coord", "coords", "xy" -> movePos = parseAtPosition(option.value(), sourceName, lineNumber, rawLine).position();
+              case "expr", "expression", "preset" ->
+                  moveExpr = resolveInlineExpressionToken(state, moveCharId, option.value(), sourceName, lineNumber, rawLine);
+              case "ease", "easing" -> {
+                moveEasing = parseEasingToken(option.value());
+                if (moveEasing == null) {
+                  throw parseError(sourceName, lineNumber, "[move] unknown easing: " + option.value(), rawLine);
+                }
+              }
+              case "dur", "duration", "ms" -> {
+                moveDur = parseLongValue(option.value(), "[move]", "duration", sourceName, lineNumber, rawLine);
+                if (moveDur < 0) throw parseError(sourceName, lineNumber, "[move] duration must be >= 0", rawLine);
+              }
+              default -> throw parseError(sourceName, lineNumber, "[move] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (movePos == null) {
+            movePos = parsePosition(tok, sourceName, lineNumber, rawLine, state);
+            continue;
+          }
           if (isIntegerToken(tok)) {
             moveDur = Long.parseLong(tok);
             if (moveDur < 0) throw parseError(sourceName, lineNumber, "[move] duration must be >= 0", rawLine);
-          } else {
-            Easing.Type parsed = parseEasingToken(tok);
-            if (parsed != null) {
-              moveEasing = parsed;
-            } else {
-              if (moveExpr != null) {
-                throw parseError(sourceName, lineNumber, "[move] unexpected token: " + tok, rawLine);
-              }
-              moveExpr = resolveInlineExpressionToken(state, moveCharId, tok, sourceName, lineNumber, rawLine);
-            }
+            continue;
           }
+          Easing.Type parsed = parseEasingToken(tok);
+          if (parsed != null) {
+            moveEasing = parsed;
+            continue;
+          }
+          if (moveExpr == null) {
+            moveExpr = resolveInlineExpressionToken(state, moveCharId, tok, sourceName, lineNumber, rawLine);
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[move] unexpected token: " + tok, rawLine);
+        }
+        if (movePos == null) {
+          throw parseError(sourceName, lineNumber, "[move] requires a destination via positional arg, pos=..., or at=...", rawLine);
         }
         state.builder.move(moveCharId, movePos, moveExpr, moveEasing, moveDur);
         return;
@@ -1112,23 +1155,48 @@ public class VnScriptParser {
       }
       case "transition": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        String[] toks = payload.split("\\s+");
-        VnTransition.TransitionType type = parseTransitionType(toks[0]);
-        if (type == null) {
-          throw parseError(sourceName, lineNumber, "Unknown transition type: " + toks[0], rawLine);
-        }
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        VnTransition.TransitionType type = null;
         long dur = 500;
-        if (toks.length >= 2) {
-          try {
-            dur = Long.parseLong(toks[1]);
-          } catch (NumberFormatException ex) {
-            throw parseError(sourceName, lineNumber, "[transition] duration must be an integer", rawLine);
+        String bg = null;
+        for (String tok : toks) {
+          String token = tok.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, "transition")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[transition]");
+            switch (option.key()) {
+              case "type", "kind", "style" -> {
+                type = parseTransitionType(option.value());
+                if (type == null) throw parseError(sourceName, lineNumber, "Unknown transition type: " + option.value(), rawLine);
+              }
+              case "dur", "duration", "ms" -> {
+                dur = parseLongValue(option.value(), "[transition]", "duration", sourceName, lineNumber, rawLine);
+                if (dur < 0) throw parseError(sourceName, lineNumber, "[transition] duration must be >= 0", rawLine);
+              }
+              case "bg", "background" -> bg = option.value();
+              default -> throw parseError(sourceName, lineNumber, "[transition] unknown option: " + option.key(), rawLine);
+            }
+            continue;
           }
-          if (dur < 0) {
-            throw parseError(sourceName, lineNumber, "[transition] duration must be >= 0", rawLine);
+          if (type == null) {
+            type = parseTransitionType(token);
+            if (type == null) throw parseError(sourceName, lineNumber, "Unknown transition type: " + token, rawLine);
+            continue;
           }
+          if (isIntegerToken(token)) {
+            dur = Long.parseLong(token);
+            if (dur < 0) throw parseError(sourceName, lineNumber, "[transition] duration must be >= 0", rawLine);
+            continue;
+          }
+          if (bg == null) {
+            bg = token;
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[transition] unexpected token: " + token, rawLine);
         }
-        String bg = toks.length >= 3 ? toks[2] : null;
+        if (type == null) {
+          throw parseError(sourceName, lineNumber, "[transition] requires a type via positional arg or type=...", rawLine);
+        }
         state.builder.transition(type, dur, bg);
         return;
       }
@@ -1463,6 +1531,60 @@ public class VnScriptParser {
     ensureBuilder(state);
     state.builder.playVoice(state.pendingVoiceTrackId);
     state.pendingVoiceTrackId = null;
+  }
+
+  private boolean isNamedOptionToken(String token, String commandName) {
+    if (token == null || token.isBlank() || commandName == null) return false;
+    int eq = token.indexOf('=');
+    int colon = token.indexOf(':');
+    int sep;
+    if (eq > 0 && colon > 0) sep = Math.min(eq, colon);
+    else sep = Math.max(eq, colon);
+    if (sep <= 0) return false;
+    String key = token.substring(0, sep).trim().toLowerCase();
+    return switch (commandName) {
+      case "show" -> switch (key) {
+        case "pos", "position", "at", "coord", "coords", "xy",
+             "expr", "expression", "preset", "layer", "z", "zorder" -> true;
+        default -> false;
+      };
+      case "move" -> switch (key) {
+        case "pos", "position", "at", "coord", "coords", "xy",
+             "expr", "expression", "preset", "ease", "easing", "dur", "duration", "ms" -> true;
+        default -> false;
+      };
+      case "transition" -> switch (key) {
+        case "type", "kind", "style", "dur", "duration", "ms", "bg", "background" -> true;
+        default -> false;
+      };
+      default -> false;
+    };
+  }
+
+  private int parseIntegerValue(String token,
+                                String commandName,
+                                String fieldName,
+                                String sourceName,
+                                int lineNumber,
+                                String rawLine) throws IOException {
+    try {
+      return Integer.parseInt(token.trim());
+    } catch (NumberFormatException ex) {
+      throw parseError(sourceName, lineNumber, commandName + " " + fieldName + " must be an integer", rawLine);
+    }
+  }
+
+  private long parseLongValue(String token,
+                              String commandName,
+                              String fieldName,
+                              String sourceName,
+                              int lineNumber,
+                              String rawLine) throws IOException {
+    try {
+      return Long.parseLong(token.trim());
+    } catch (NumberFormatException ex) {
+      throw parseError(sourceName, lineNumber, commandName + " " + fieldName + " must be an integer", rawLine);
+    }
   }
 
   private String resolveLayerPresetSpec(ParseState state,
