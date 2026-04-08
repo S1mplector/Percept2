@@ -1897,7 +1897,7 @@
 }
 
 .editor-dialog-overlay {
-  -fx-background-color: rgba(6, 8, 12, 0.68);
+  -fx-background-color: transparent;
   -fx-padding: 36;
 }
 
@@ -1909,7 +1909,7 @@
   -fx-border-color: #2f2f2f;
   -fx-border-radius: 14;
   -fx-border-width: 1;
-  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.34), 28, 0.28, 0, 10);
+  -fx-effect: none;
 }
 
 .editor-dialog-title {
