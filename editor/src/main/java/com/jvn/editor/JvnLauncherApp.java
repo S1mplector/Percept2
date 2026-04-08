@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 
-import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.NewProjectWizard;
@@ -17,19 +16,24 @@ import com.jvn.editor.ui.WelcomeCenterView;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
-import javafx.scene.control.Tooltip;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioMenuItem;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 
 /**
  * Standalone launcher app for project discovery and runtime/editor entry.
@@ -43,12 +47,9 @@ public class JvnLauncherApp extends Application {
   private File workspaceRoot;
   private File currentProject;
 
-  private final Label workspaceLabel = new Label("Workspace: --");
-  private final Label selectedProjectLabel = new Label("Project: none selected");
   private final Label statusLabel = new Label("Ready");
-  private final Button chooseProjectButton = new Button();
-  private final Button runProjectButton = new Button();
-  private final Button openEditorButton = new Button();
+  private MenuItem runProjectMenuItem;
+  private MenuItem copyProjectPathMenuItem;
 
   public static void main(String[] args) {
     launch(args);
@@ -61,48 +62,6 @@ public class JvnLauncherApp extends Application {
 
     BorderPane root = new BorderPane();
     root.getStyleClass().add("jvn-launcher-root");
-    root.setPadding(new Insets(12));
-
-    Label titleLabel = new Label("JVN Launcher");
-    titleLabel.getStyleClass().add("jvn-launcher-title");
-    Label subtitleLabel = new Label("Manage projects, run game builds, and open the editor.");
-    subtitleLabel.getStyleClass().add("jvn-launcher-subtitle");
-    workspaceLabel.getStyleClass().add("jvn-launcher-workspace");
-    selectedProjectLabel.getStyleClass().add("jvn-launcher-project");
-
-    VBox titleBox = new VBox(2, titleLabel, subtitleLabel, workspaceLabel, selectedProjectLabel);
-    titleBox.setAlignment(Pos.CENTER_LEFT);
-
-    configureActionButton(chooseProjectButton,
-        CssIcon.folder("#d5b36a"),
-        "Choose Project",
-        "jvn-launcher-action-button",
-        "Choose a JVN project directory.");
-    chooseProjectButton.setOnAction(e -> chooseProjectDirectory());
-
-    configureActionButton(runProjectButton,
-        CssIcon.play("#8bcf98"),
-        "Run Project",
-        "jvn-launcher-action-button",
-        "Run the selected project using its jvn.project type.");
-    runProjectButton.setOnAction(e -> runSelectedProject());
-
-    configureActionButton(openEditorButton,
-        CssIcon.popOut("#dcc08a"),
-        "Open Editor",
-        "jvn-launcher-action-button jvn-launcher-action-button-primary",
-        "Open the main editor in a separate process.");
-    openEditorButton.setOnAction(e -> launchEditor(currentProject));
-
-    HBox actionBar = new HBox(8, chooseProjectButton, runProjectButton, openEditorButton);
-    actionBar.getStyleClass().add("jvn-launcher-action-bar");
-    actionBar.setAlignment(Pos.CENTER_RIGHT);
-
-    Region headerSpacer = new Region();
-    HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-    HBox header = new HBox(12, titleBox, headerSpacer, actionBar);
-    header.getStyleClass().add("jvn-launcher-header");
-    header.setAlignment(Pos.CENTER_LEFT);
 
     welcomeView = new WelcomeCenterView();
     welcomeView.setWelcomeHeading("Welcome to JVN Launcher");
@@ -121,12 +80,14 @@ public class JvnLauncherApp extends Application {
     statusLabel.getStyleClass().add("jvn-launcher-status");
     HBox statusBar = new HBox(statusLabel);
     statusBar.getStyleClass().add("jvn-launcher-status-bar");
-    statusBar.setAlignment(Pos.CENTER_LEFT);
     statusBar.setPadding(new Insets(8, 4, 2, 4));
 
-    root.setTop(header);
+    MenuBar menuBar = buildMenuBar();
+    root.setTop(menuBar);
     root.setCenter(welcomeView);
     root.setBottom(statusBar);
+    BorderPane.setMargin(welcomeView, new Insets(12, 12, 0, 12));
+    BorderPane.setMargin(statusBar, new Insets(0, 12, 8, 12));
 
     Scene scene = new Scene(root, 1320, 860);
     EditorTheme.apply(scene);
@@ -137,32 +98,84 @@ public class JvnLauncherApp extends Application {
     stage.setMinHeight(760);
     stage.show();
 
-    workspaceLabel.setText("Workspace: " + displayPath(workspaceRoot));
     setCurrentProject(resolveStartupProject(), false);
     refreshButtonState();
+    statusLabel.setText("Workspace: " + displayPath(workspaceRoot));
   }
 
-  private void configureActionButton(Button button,
-                                     Region icon,
-                                     String text,
-                                     String classes,
-                                     String tooltipText) {
-    if (button == null) return;
-    button.setGraphic(icon);
-    button.setText(text == null ? "" : text);
-    button.setContentDisplay(ContentDisplay.LEFT);
-    button.setFocusTraversable(false);
-    button.setMinHeight(34);
-    button.setPrefHeight(34);
-    if (classes != null && !classes.isBlank()) {
-      for (String cls : classes.trim().split("\\s+")) {
-        if (!cls.isBlank()) button.getStyleClass().add(cls);
-      }
-    }
-    if (tooltipText != null && !tooltipText.isBlank()) {
-      button.setTooltip(new Tooltip(tooltipText));
-      button.setAccessibleText(tooltipText);
-    }
+  private MenuBar buildMenuBar() {
+    MenuBar menuBar = new MenuBar();
+    menuBar.getStyleClass().add("jvn-launcher-menubar");
+
+    Menu menuFile = new Menu("File");
+    MenuItem miNewProject = new MenuItem("New Project...");
+    miNewProject.setAccelerator(new KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN));
+    miNewProject.setOnAction(e -> createNewProject());
+    MenuItem miChooseProject = new MenuItem("Choose Project...");
+    miChooseProject.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN));
+    miChooseProject.setOnAction(e -> chooseProjectDirectory());
+    MenuItem miOpenEditor = new MenuItem("Open Editor");
+    miOpenEditor.setAccelerator(new KeyCodeCombination(KeyCode.E, KeyCombination.SHORTCUT_DOWN));
+    miOpenEditor.setOnAction(e -> launchEditor(currentProject));
+    MenuItem miExit = new MenuItem("Exit Launcher");
+    miExit.setAccelerator(new KeyCodeCombination(KeyCode.Q, KeyCombination.SHORTCUT_DOWN));
+    miExit.setOnAction(e -> primaryStage.close());
+    menuFile.getItems().addAll(miNewProject, miChooseProject, miOpenEditor, new SeparatorMenuItem(), miExit);
+
+    Menu menuEdit = new Menu("Edit");
+    MenuItem miRefresh = new MenuItem("Refresh Projects");
+    miRefresh.setAccelerator(new KeyCodeCombination(KeyCode.F5));
+    miRefresh.setOnAction(e -> refreshWelcomeProjects());
+    copyProjectPathMenuItem = new MenuItem("Copy Selected Project Path");
+    copyProjectPathMenuItem.setAccelerator(new KeyCodeCombination(
+        KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+    copyProjectPathMenuItem.setOnAction(e -> copySelectedProjectPath());
+    menuEdit.getItems().addAll(miRefresh, copyProjectPathMenuItem);
+
+    Menu menuProject = new Menu("Project");
+    runProjectMenuItem = new MenuItem("Run Selected Project");
+    runProjectMenuItem.setAccelerator(new KeyCodeCombination(
+        KeyCode.R, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+    runProjectMenuItem.setOnAction(e -> runSelectedProject());
+    MenuItem miProjectOpenInEditor = new MenuItem("Open Selected Project in Editor");
+    miProjectOpenInEditor.setOnAction(e -> launchEditor(currentProject));
+    MenuItem miProjectClearSelection = new MenuItem("Clear Selected Project");
+    miProjectClearSelection.setOnAction(e -> {
+      setCurrentProject(null, false);
+      statusLabel.setText("Selected project cleared");
+    });
+    menuProject.getItems().addAll(runProjectMenuItem, miProjectOpenInEditor, new SeparatorMenuItem(), miProjectClearSelection);
+
+    Menu menuView = new Menu("View");
+    Menu menuTheme = new Menu("Theme");
+    ToggleGroup themeGroup = new ToggleGroup();
+    RadioMenuItem miThemeDark = new RadioMenuItem("Dark");
+    miThemeDark.setToggleGroup(themeGroup);
+    RadioMenuItem miThemeLight = new RadioMenuItem("Light");
+    miThemeLight.setToggleGroup(themeGroup);
+    Runnable syncTheme = () -> {
+      boolean light = EditorTheme.theme() == EditorTheme.Theme.LIGHT;
+      miThemeDark.setSelected(!light);
+      miThemeLight.setSelected(light);
+    };
+    syncTheme.run();
+    miThemeDark.setOnAction(e -> setTheme(EditorTheme.Theme.DARK));
+    miThemeLight.setOnAction(e -> setTheme(EditorTheme.Theme.LIGHT));
+    menuTheme.getItems().addAll(miThemeDark, miThemeLight);
+    MenuItem miViewRefresh = new MenuItem("Refresh Projects");
+    miViewRefresh.setOnAction(e -> refreshWelcomeProjects());
+    menuView.getItems().addAll(menuTheme, new SeparatorMenuItem(), miViewRefresh);
+    menuView.setOnShowing(e -> syncTheme.run());
+
+    Menu menuHelp = new Menu("Help");
+    MenuItem miAbout = new MenuItem("About JVN Launcher");
+    miAbout.setOnAction(e -> EditorDialogs.info(primaryStage,
+        "About JVN Launcher",
+        "JVN Launcher " + resolveVersionLabel()));
+    menuHelp.getItems().add(miAbout);
+
+    menuBar.getMenus().addAll(menuFile, menuEdit, menuProject, menuView, menuHelp);
+    return menuBar;
   }
 
   private void chooseProjectDirectory() {
@@ -200,13 +213,42 @@ public class JvnLauncherApp extends Application {
         welcomeView.markProjectVisited(resolved);
       }
     }
-    selectedProjectLabel.setText("Project: " + displayProjectName(resolved));
     refreshButtonState();
   }
 
   private void refreshButtonState() {
     boolean hasProject = currentProject != null && currentProject.isDirectory();
-    runProjectButton.setDisable(!hasProject);
+    if (runProjectMenuItem != null) runProjectMenuItem.setDisable(!hasProject);
+    if (copyProjectPathMenuItem != null) copyProjectPathMenuItem.setDisable(!hasProject);
+  }
+
+  private void refreshWelcomeProjects() {
+    if (welcomeView != null) {
+      welcomeView.refresh();
+      statusLabel.setText("Project list refreshed");
+    }
+  }
+
+  private void copySelectedProjectPath() {
+    if (currentProject == null || !currentProject.isDirectory()) {
+      statusLabel.setText("No selected project to copy");
+      return;
+    }
+    ClipboardContent content = new ClipboardContent();
+    content.putString(currentProject.getAbsolutePath());
+    Clipboard.getSystemClipboard().setContent(content);
+    statusLabel.setText("Copied project path: " + displayProjectName(currentProject));
+  }
+
+  private void setTheme(EditorTheme.Theme theme) {
+    if (theme == null || theme == EditorTheme.theme()) return;
+    EditorTheme.setTheme(theme);
+    for (Window window : Window.getWindows()) {
+      if (window != null && window.getScene() != null) {
+        EditorTheme.apply(window.getScene());
+      }
+    }
+    statusLabel.setText("Theme: " + (theme == EditorTheme.Theme.LIGHT ? "Light" : "Dark"));
   }
 
   private void runSelectedProject() {

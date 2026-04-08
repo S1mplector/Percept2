@@ -19,7 +19,7 @@ import javafx.scene.layout.VBox;
  */
 public class EditorWorkspaceHubView extends BorderPane {
   private final Label headingLabel = new Label("Workspace Hub");
-  private final Label introLabel = new Label("Quickly jump between core editor workflows.");
+  private final Label introLabel = new Label("Create, open, and run projects without leaving the editor.");
   private final Label workspaceLabel = new Label("Workspace: --");
   private final Label projectLabel = new Label("Project: no project selected");
   private final Label statusLabel = new Label("Choose an action to continue.");

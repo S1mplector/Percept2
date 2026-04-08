@@ -4727,6 +4727,23 @@
   -fx-background-color: linear-gradient(to bottom, #151515 0%, #101010 100%);
 }
 
+.jvn-launcher-menubar {
+  -fx-padding: 2 10 2 10;
+  -fx-background-color: linear-gradient(to bottom, #131313 0%, #0f0f0f 100%);
+  -fx-border-color: transparent transparent #2f2f2f transparent;
+  -fx-border-width: 0 0 1 0;
+}
+
+.jvn-launcher-menubar .menu-button {
+  -fx-background-radius: 6;
+}
+
+.jvn-launcher-menubar .menu-button:hover,
+.jvn-launcher-menubar .menu-button:focused,
+.jvn-launcher-menubar .menu-button:showing {
+  -fx-background-color: #2a2a2a;
+}
+
 .jvn-launcher-header {
   -fx-padding: 10 12 10 12;
   -fx-background-color:
