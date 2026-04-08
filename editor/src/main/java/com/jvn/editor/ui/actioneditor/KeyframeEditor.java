@@ -8,6 +8,7 @@ import java.util.Objects;
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
 import com.jvn.editor.ui.CssIcon;
+import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.ProjectViewportSpec;
 
 import javafx.geometry.Insets;
@@ -20,7 +21,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.FlowPane;
@@ -1186,12 +1186,14 @@ public class KeyframeEditor extends VBox {
             return;
         }
         EasingSpec editable = Easing.isEditableCurve(current.getType()) ? current : toEditableCurveSpec(current);
-        TextInputDialog dialog = new TextInputDialog(suggestCurvePresetName(editable));
-        dialog.setTitle("Save Curve Preset");
-        dialog.setHeaderText("Save editable curve as a project preset");
-        dialog.setContentText("Name:");
-        dialog.initOwner(getScene() == null ? null : getScene().getWindow());
-        dialog.showAndWait()
+        EditorDialogs.promptText(
+                getScene() == null ? null : getScene().getWindow(),
+                "Save Curve Preset",
+                "Save editable curve as a project preset",
+                "Name",
+                suggestCurvePresetName(editable),
+                suggestCurvePresetName(editable),
+                "Save")
             .map(String::trim)
             .filter(name -> !name.isBlank())
             .ifPresent(name -> {

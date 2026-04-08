@@ -82,10 +82,14 @@ public class SceneGraphView extends VBox {
     miRename.setOnAction(ev -> {
       String oldName = list.getSelectionModel().getSelectedItem();
       if (oldName == null || scene == null) return;
-      TextInputDialog d = new TextInputDialog(oldName);
-      EditorTheme.apply(d);
-      d.setHeaderText(null); d.setTitle("Rename"); d.setContentText("New name:");
-      d.showAndWait().ifPresent(newName -> {
+      EditorDialogs.promptText(
+          getScene() == null ? null : getScene().getWindow(),
+          "Rename",
+          "Rename " + oldName,
+          "New name",
+          oldName,
+          oldName,
+          "Rename").ifPresent(newName -> {
         if (scene.rename(oldName, newName)) {
           if (setStatus != null) setStatus.accept("Renamed " + oldName + " → " + newName);
           refresh();

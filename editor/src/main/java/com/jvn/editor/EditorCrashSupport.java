@@ -10,10 +10,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.EditorDialogs;
 
 import javafx.application.Platform;
-import javafx.scene.control.Alert;
 
 final class EditorCrashSupport {
   private static final AtomicBoolean INSTALLED = new AtomicBoolean(false);
@@ -85,15 +84,15 @@ final class EditorCrashSupport {
       String pathLine = logFile != null
           ? "A crash log was written to:\n" + logFile.toAbsolutePath()
           : "No crash log could be written.";
-      Alert alert = new Alert(Alert.AlertType.ERROR,
+      EditorDialogs.showTextBlock(
+          null,
+          "JVN Editor",
+          "JVN Editor Error",
           "An unexpected editor error occurred.\n\n"
               + "Thread: " + (thread != null ? thread.getName() : "<unknown>") + "\n"
               + "Error: " + detail + "\n\n"
-              + pathLine);
-      EditorTheme.apply(alert);
-      alert.setHeaderText("JVN Editor Error");
-      alert.setTitle("JVN Editor");
-      alert.show();
+              + pathLine,
+          "Close");
     } catch (Exception ex) {
       ex.printStackTrace(System.err);
     } finally {

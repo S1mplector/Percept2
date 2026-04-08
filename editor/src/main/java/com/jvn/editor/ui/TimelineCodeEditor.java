@@ -18,7 +18,6 @@ import org.fxmisc.richtext.LineNumberFactory;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
-import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.layout.BorderPane;
@@ -252,11 +251,15 @@ public class TimelineCodeEditor extends BorderPane {
     List<String> names = new ArrayList<>(arcs.keySet());
     Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
     if (names.isEmpty()) return;
-    ChoiceDialog<String> dlg = new ChoiceDialog<>(names.get(0), names);
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null); dlg.setTitle("Choose Arc"); dlg.setContentText("Arc:");
-    var r = dlg.showAndWait();
-    if (r.isPresent()) code.replaceText(start, end, r.get());
+    EditorDialogs.choose(
+        getScene() == null ? null : getScene().getWindow(),
+        "Choose Arc",
+        "Select the arc to insert.",
+        names,
+        names.get(0),
+        value -> value,
+        "Choose")
+        .ifPresent(value -> code.replaceText(start, end, value));
   }
 
   private void changeLabelAt(Issue is) {
@@ -264,11 +267,15 @@ public class TimelineCodeEditor extends BorderPane {
     File f = resolveFile(is.arcScript);
     List<String> labs = listLabels(f);
     if (labs.isEmpty()) return;
-    ChoiceDialog<String> dlg = new ChoiceDialog<>(labs.get(0), labs);
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null); dlg.setTitle("Choose Label"); dlg.setContentText("Label:");
-    var r = dlg.showAndWait();
-    if (r.isPresent()) code.replaceText(is.start, is.end, r.get());
+    EditorDialogs.choose(
+        getScene() == null ? null : getScene().getWindow(),
+        "Choose Label",
+        "Select the label to insert.",
+        labs,
+        labs.get(0),
+        value -> value,
+        "Choose")
+        .ifPresent(value -> code.replaceText(is.start, is.end, value));
   }
 
   private static class ArcInfo {

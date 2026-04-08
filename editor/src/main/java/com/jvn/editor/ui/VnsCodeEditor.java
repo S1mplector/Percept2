@@ -30,7 +30,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
@@ -38,7 +37,6 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -1117,24 +1115,28 @@ public class VnsCodeEditor extends BorderPane {
 
   private void replaceUndefinedLabel(Issue issue, List<String> labels) {
     if (issue == null || labels == null || labels.isEmpty()) return;
-    ChoiceDialog<String> dialog = new ChoiceDialog<>(labels.get(0), labels);
-    EditorTheme.apply(dialog);
-    dialog.setHeaderText(null);
-    dialog.setTitle("Replace Label");
-    dialog.setContentText("Label:");
-    var choice = dialog.showAndWait();
-    choice.ifPresent(value -> replaceIssueRange(issue, value));
+    EditorDialogs.choose(
+        getScene() == null ? null : getScene().getWindow(),
+        "Replace Label",
+        "Select the label to use for this reference.",
+        labels,
+        labels.get(0),
+        value -> value,
+        "Replace")
+        .ifPresent(value -> replaceIssueRange(issue, value));
   }
 
   private void replaceAssetPath(Issue issue, List<String> assets) {
     if (issue == null || assets == null || assets.isEmpty()) return;
-    ChoiceDialog<String> dialog = new ChoiceDialog<>(assets.get(0), assets);
-    EditorTheme.apply(dialog);
-    dialog.setHeaderText(null);
-    dialog.setTitle("Replace Asset Path");
-    dialog.setContentText("Asset:");
-    var choice = dialog.showAndWait();
-    choice.ifPresent(value -> replaceIssueRange(issue, value));
+    EditorDialogs.choose(
+        getScene() == null ? null : getScene().getWindow(),
+        "Replace Asset Path",
+        "Select the asset path to use.",
+        assets,
+        assets.get(0),
+        value -> value,
+        "Replace")
+        .ifPresent(value -> replaceIssueRange(issue, value));
   }
 
   private Issue issueAt(int caret) {
@@ -1926,12 +1928,14 @@ public class VnsCodeEditor extends BorderPane {
   //  FEATURE: Go-to-Line (Ctrl+G)
   // ═══════════════════════════════════════════════════════════════════
   private void showGoToLineDialog() {
-    TextInputDialog dialog = new TextInputDialog(String.valueOf(codeArea.getCurrentParagraph() + 1));
-    EditorTheme.apply(dialog);
-    dialog.setTitle("Go to Line");
-    dialog.setHeaderText(null);
-    dialog.setContentText("Line number:");
-    dialog.showAndWait().ifPresent(val -> {
+    EditorDialogs.promptText(
+        getScene() == null ? null : getScene().getWindow(),
+        "Go to Line",
+        "Jump to a specific line in the current script.",
+        "Line number",
+        String.valueOf(codeArea.getCurrentParagraph() + 1),
+        "1",
+        "Go").ifPresent(val -> {
       try {
         int line = Integer.parseInt(val.trim());
         goToLine(line);

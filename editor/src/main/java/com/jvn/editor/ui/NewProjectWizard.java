@@ -17,7 +17,6 @@ import com.jvn.editor.vcs.GitVcsService;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -2329,12 +2328,7 @@ public class NewProjectWizard extends Stage {
   }
 
   private void showError(String message) {
-    Alert alert = new Alert(Alert.AlertType.ERROR);
-    EditorTheme.apply(alert);
-    alert.setTitle("Error");
-    alert.setHeaderText(null);
-    alert.setContentText(message);
-    alert.showAndWait();
+    EditorDialogs.error(this, "Error", message);
   }
 
   /**

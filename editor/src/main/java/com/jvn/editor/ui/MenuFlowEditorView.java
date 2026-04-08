@@ -13,7 +13,6 @@ import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Group;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
@@ -27,7 +26,6 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.control.cell.TextFieldTableCell;
@@ -1066,12 +1064,14 @@ public class MenuFlowEditorView extends BorderPane {
       return;
     }
 
-    TextInputDialog dialog = new TextInputDialog();
-    EditorTheme.apply(dialog);
-    dialog.setTitle("Add Menu Screen");
-    dialog.setHeaderText(null);
-    dialog.setContentText("Menu id:");
-    var result = dialog.showAndWait();
+    var result = EditorDialogs.promptText(
+        getScene() == null ? null : getScene().getWindow(),
+        "Add Menu Screen",
+        "Create a new menu screen.",
+        "Menu id",
+        "",
+        "main",
+        "Add");
     if (result.isEmpty()) return;
 
     String id = sanitizeId(result.get());
@@ -1125,12 +1125,14 @@ public class MenuFlowEditorView extends BorderPane {
       return;
     }
 
-    TextInputDialog dialog = new TextInputDialog();
-    EditorTheme.apply(dialog);
-    dialog.setTitle("Add Menu Item");
-    dialog.setHeaderText(null);
-    dialog.setContentText("Item id:");
-    var result = dialog.showAndWait();
+    var result = EditorDialogs.promptText(
+        getScene() == null ? null : getScene().getWindow(),
+        "Add Menu Item",
+        "Add a new item to the selected menu.",
+        "Item id",
+        "",
+        "new_item",
+        "Add");
     if (result.isEmpty()) return;
     addItemToSelectedScreen(result.get());
   }
@@ -1297,16 +1299,18 @@ public class MenuFlowEditorView extends BorderPane {
 
   private void showValidationDialog() {
     List<String> issues = collectValidationIssues();
-    Alert alert;
     if (issues.isEmpty()) {
-      alert = new Alert(Alert.AlertType.INFORMATION, "Menu flow validation passed.");
+      EditorDialogs.info(getScene() == null ? null : getScene().getWindow(),
+          "Menu Flow Validation",
+          "Menu flow validation passed.");
     } else {
-      alert = new Alert(Alert.AlertType.WARNING, String.join(System.lineSeparator(), issues));
+      EditorDialogs.showTextBlock(
+          getScene() == null ? null : getScene().getWindow(),
+          "Menu Flow Validation",
+          "Validation issues found.",
+          String.join(System.lineSeparator(), issues),
+          "Close");
     }
-    EditorTheme.apply(alert);
-    alert.setHeaderText(null);
-    alert.setTitle("Menu Flow Validation");
-    alert.showAndWait();
     refreshDiagnostics();
   }
 

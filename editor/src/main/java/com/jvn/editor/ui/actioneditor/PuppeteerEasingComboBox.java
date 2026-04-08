@@ -10,16 +10,14 @@ import java.util.function.Supplier;
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
 import com.jvn.editor.ui.CssIcon;
+import com.jvn.editor.ui.EditorDialogs;
 
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -249,25 +247,28 @@ final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entr
                     event.consume();
                     PuppeteerEasingCatalog.Entry entry = getItem();
                     if (entry == null || !entry.isPreset()) return;
-                    TextInputDialog dialog = new TextInputDialog(entry.label());
-                    dialog.setTitle("Rename Custom Curve");
-                    dialog.setHeaderText("Rename custom curve");
-                    dialog.setContentText("Name:");
-                    dialog.initOwner(getScene() == null ? null : getScene().getWindow());
-                    dialog.showAndWait().ifPresent(value -> renamePreset(entry.id(), value));
+                    EditorDialogs.promptText(
+                            getScene() == null ? null : getScene().getWindow(),
+                            "Rename Custom Curve",
+                            "Rename custom curve",
+                            "Name",
+                            entry.label(),
+                            entry.label(),
+                            "Rename")
+                        .ifPresent(value -> renamePreset(entry.id(), value));
                 });
                 deleteButton.setOnAction(event -> {
                     event.consume();
                     PuppeteerEasingCatalog.Entry entry = getItem();
                     if (entry == null || !entry.isPreset()) return;
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-                    confirm.setTitle("Delete Custom Curve");
-                    confirm.setHeaderText("Delete custom curve?");
-                    confirm.setContentText("Remove '" + entry.label() + "' from this project?");
-                    confirm.initOwner(getScene() == null ? null : getScene().getWindow());
-                    confirm.showAndWait()
-                        .filter(ButtonType.OK::equals)
-                        .ifPresent(ignored -> deletePreset(entry.id()));
+                    if (EditorDialogs.confirm(
+                            getScene() == null ? null : getScene().getWindow(),
+                            "Delete Custom Curve",
+                            "Delete custom curve?\nRemove '" + entry.label() + "' from this project?",
+                            "Delete",
+                            true)) {
+                        deletePreset(entry.id());
+                    }
                 });
             }
 

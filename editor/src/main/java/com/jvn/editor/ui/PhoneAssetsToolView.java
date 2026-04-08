@@ -26,7 +26,6 @@ import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -40,7 +39,6 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
@@ -1964,12 +1962,7 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private String promptForId(String title, String content, String suggestion) {
-    TextInputDialog dialog = new TextInputDialog(suggestion);
-    dialog.setTitle(title);
-    dialog.setHeaderText(null);
-    dialog.setContentText(content + ":");
-    EditorTheme.apply(dialog);
-    return dialog.showAndWait()
+    return EditorDialogs.promptText(ownerWindow(), title, content, content, suggestion, suggestion, "OK")
         .map(PhoneAssetsToolView::sanitizeId)
         .filter(value -> !value.isBlank())
         .orElse(null);
@@ -2538,11 +2531,6 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   private void showInfo(String title, String message) {
-    Alert alert = new Alert(Alert.AlertType.INFORMATION);
-    alert.setTitle(title);
-    alert.setHeaderText(null);
-    alert.setContentText(message);
-    EditorTheme.apply(alert);
-    alert.showAndWait();
+    EditorDialogs.info(ownerWindow(), title, message);
   }
 }
