@@ -23,15 +23,12 @@ import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
 import com.jvn.editor.ui.actioneditor.PropertyType;
 
-import javafx.scene.control.Alert;
 import javafx.geometry.Insets;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -587,12 +584,14 @@ public class PuppeteerLauncherPanel extends VBox {
 
   private void renameRegisteredAnimation(RegisteredAnimation animation) {
     if (animation == null || projectRoot == null) return;
-    TextInputDialog dialog = new TextInputDialog(resolveRelativeTimelineStem(animation));
-    EditorTheme.apply(dialog);
-    dialog.setTitle("Rename Timeline");
-    dialog.setHeaderText("Rename or move '" + animation.name() + "'");
-    dialog.setContentText("Timeline path:");
-    dialog.showAndWait().ifPresent(rawName -> {
+    EditorDialogs.promptText(
+        getScene() != null ? getScene().getWindow() : null,
+        "Rename Timeline",
+        "Rename or move '" + animation.name() + "'",
+        "Timeline path",
+        resolveRelativeTimelineStem(animation),
+        resolveRelativeTimelineStem(animation),
+        "Rename").ifPresent(rawName -> {
       try {
         String normalized = normalizeTimelineRelativeStem(rawName);
         Path timelinesRoot = resolveTimelinesDir(projectRoot).toPath().toAbsolutePath().normalize();
@@ -618,33 +617,34 @@ public class PuppeteerLauncherPanel extends VBox {
 
   private void deleteRegisteredAnimation(RegisteredAnimation animation) {
     if (animation == null || projectRoot == null) return;
-    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-    EditorTheme.apply(confirm);
-    confirm.setTitle("Delete Timeline");
-    confirm.setHeaderText("Delete '" + animation.name() + "'?");
-    confirm.setContentText("This removes " + animation.relativePath() + " from scripts/timelines.");
-    confirm.showAndWait().ifPresent(result -> {
-      if (result != ButtonType.OK) return;
-      try {
-        Path timelinesRoot = resolveTimelinesDir(projectRoot).toPath().toAbsolutePath().normalize();
-        Path source = animation.file().toPath().toAbsolutePath().normalize();
-        Files.deleteIfExists(source);
-        pruneEmptyTimelineDirectories(source.getParent(), timelinesRoot);
-        invalidateRegisteredAnimationsCache();
-        refresh();
-      } catch (IOException ex) {
-        showTimelineFileError("Delete Failed", "Could not delete timeline.", ex.getMessage());
-      }
-    });
+    if (!EditorDialogs.confirm(
+        getScene() != null ? getScene().getWindow() : null,
+        "Delete Timeline",
+        "Delete '" + animation.name() + "'?\nThis removes " + animation.relativePath() + " from scripts/timelines.",
+        "Delete",
+        true)) {
+      return;
+    }
+    try {
+      Path timelinesRoot = resolveTimelinesDir(projectRoot).toPath().toAbsolutePath().normalize();
+      Path source = animation.file().toPath().toAbsolutePath().normalize();
+      Files.deleteIfExists(source);
+      pruneEmptyTimelineDirectories(source.getParent(), timelinesRoot);
+      invalidateRegisteredAnimationsCache();
+      refresh();
+    } catch (IOException ex) {
+      showTimelineFileError("Delete Failed", "Could not delete timeline.", ex.getMessage());
+    }
   }
 
   private void showTimelineFileError(String title, String header, String detail) {
-    Alert alert = new Alert(Alert.AlertType.ERROR);
-    EditorTheme.apply(alert);
-    alert.setTitle(title);
-    alert.setHeaderText(header);
-    alert.setContentText(detail != null ? detail : "Unknown error");
-    alert.showAndWait();
+    String body = detail == null || detail.isBlank() ? "Unknown error" : detail;
+    EditorDialogs.show(
+        getScene() != null ? getScene().getWindow() : null,
+        title,
+        header,
+        new Label(body),
+        EditorDialogs.ActionSpec.accent("close", "Close", null));
   }
 
   private static String resolveRelativeTimelineStem(RegisteredAnimation animation) {

@@ -190,10 +190,14 @@ public class ProjectExplorerView extends VBox {
 
   private void createJesInSelected() {
     File dir = currentTargetDirectory(); if (dir == null) return;
-    TextInputDialog dlg = new TextInputDialog("scene");
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null); dlg.setTitle("New JES Script"); dlg.setContentText("File name (without extension):");
-    Optional<String> res = dlg.showAndWait();
+    Optional<String> res = EditorDialogs.promptText(
+        getScene() != null ? getScene().getWindow() : null,
+        "New JES Script",
+        "Create a new JES script",
+        "File name (without extension)",
+        "scene",
+        "scene",
+        "Create");
     if (res.isEmpty()) return;
     String base = res.get().trim(); if (base.isEmpty()) return;
     File f = new File(dir, base.endsWith(".jes") ? base : base + ".jes");
@@ -208,10 +212,14 @@ public class ProjectExplorerView extends VBox {
 
   private void createVnsInSelected() {
     File dir = currentTargetDirectory(); if (dir == null) return;
-    TextInputDialog dlg = new TextInputDialog("story");
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null); dlg.setTitle("New VNS Script"); dlg.setContentText("File name (without extension):");
-    Optional<String> res = dlg.showAndWait();
+    Optional<String> res = EditorDialogs.promptText(
+        getScene() != null ? getScene().getWindow() : null,
+        "New VNS Script",
+        "Create a new VNS script",
+        "File name (without extension)",
+        "story",
+        "story",
+        "Create");
     if (res.isEmpty()) return;
     String base = res.get().trim(); if (base.isEmpty()) return;
     File f = new File(dir, base.endsWith(".vns") ? base : base + ".vns");
@@ -230,10 +238,14 @@ public class ProjectExplorerView extends VBox {
 
   private void createFolderInSelected() {
     File dir = currentTargetDirectory(); if (dir == null) return;
-    TextInputDialog dlg = new TextInputDialog("new-folder");
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null); dlg.setTitle("New Folder"); dlg.setContentText("Folder name:");
-    Optional<String> res = dlg.showAndWait();
+    Optional<String> res = EditorDialogs.promptText(
+        getScene() != null ? getScene().getWindow() : null,
+        "New Folder",
+        "Create a new folder",
+        "Folder name",
+        "new-folder",
+        "new-folder",
+        "Create");
     if (res.isEmpty()) return;
     String name = res.get().trim(); if (name.isEmpty()) return;
     File f = new File(dir, name);
@@ -244,10 +256,15 @@ public class ProjectExplorerView extends VBox {
 
   private void renameSelected() {
     File f = getSelectedFile(); if (f == null || Objects.equals(f, rootDir)) return;
-    TextInputDialog dlg = new TextInputDialog(f.getName());
-    EditorTheme.apply(dlg);
-    dlg.setHeaderText(null); dlg.setTitle("Rename"); dlg.setContentText("New name:");
-    Optional<String> res = dlg.showAndWait(); if (res.isEmpty()) return;
+    Optional<String> res = EditorDialogs.promptText(
+        getScene() != null ? getScene().getWindow() : null,
+        "Rename",
+        "Rename " + f.getName(),
+        "New name",
+        f.getName(),
+        f.getName(),
+        "Rename");
+    if (res.isEmpty()) return;
     String nn = res.get().trim(); if (nn.isEmpty()) return;
     File nf = new File(f.getParentFile(), nn);
     boolean ok = f.renameTo(nf);
@@ -256,11 +273,14 @@ public class ProjectExplorerView extends VBox {
 
   private void deleteSelected() {
     File f = getSelectedFile(); if (f == null || Objects.equals(f, rootDir)) return;
-    Alert a = new Alert(Alert.AlertType.CONFIRMATION, "Delete '" + f.getName() + "'?", ButtonType.YES, ButtonType.NO);
-    EditorTheme.apply(a);
-    a.setHeaderText(null); a.setTitle("Confirm Delete");
-    Optional<ButtonType> r = a.showAndWait();
-    if (r.isEmpty() || r.get() != ButtonType.YES) return;
+    if (!EditorDialogs.confirm(
+        getScene() != null ? getScene().getWindow() : null,
+        "Confirm Delete",
+        "Delete '" + f.getName() + "'?",
+        "Delete",
+        true)) {
+      return;
+    }
     try { deleteRecursive(f.toPath()); } catch (Exception ignored) {}
     refresh();
   }
@@ -275,15 +295,25 @@ public class ProjectExplorerView extends VBox {
   private void createJavaInProject() {
     File srcRoot = detectJavaSrcRoot(rootDir);
     if (srcRoot == null) srcRoot = currentTargetDirectory();
-    TextInputDialog pkgDlg = new TextInputDialog("com.jvn.game");
-    EditorTheme.apply(pkgDlg);
-    pkgDlg.setHeaderText(null); pkgDlg.setTitle("New Java Class"); pkgDlg.setContentText("Package:");
-    Optional<String> pkgRes = pkgDlg.showAndWait(); if (pkgRes.isEmpty()) return;
+    Optional<String> pkgRes = EditorDialogs.promptText(
+        getScene() != null ? getScene().getWindow() : null,
+        "New Java Class",
+        "Create a new Java class",
+        "Package",
+        "com.jvn.game",
+        "com.jvn.game",
+        "Next");
+    if (pkgRes.isEmpty()) return;
     String pkg = pkgRes.get().trim();
-    TextInputDialog clsDlg = new TextInputDialog("MyClass");
-    EditorTheme.apply(clsDlg);
-    clsDlg.setHeaderText(null); clsDlg.setTitle("New Java Class"); clsDlg.setContentText("Class name:");
-    Optional<String> clsRes = clsDlg.showAndWait(); if (clsRes.isEmpty()) return;
+    Optional<String> clsRes = EditorDialogs.promptText(
+        getScene() != null ? getScene().getWindow() : null,
+        "New Java Class",
+        "Create a new Java class",
+        "Class name",
+        "MyClass",
+        "MyClass",
+        "Create");
+    if (clsRes.isEmpty()) return;
     String cls = clsRes.get().trim();
     File destDir = pkg.isEmpty() ? srcRoot : new File(srcRoot, pkg.replace('.', File.separatorChar));
     destDir.mkdirs();
